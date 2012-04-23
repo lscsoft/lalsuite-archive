@@ -2242,25 +2242,35 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     return rbins,myfig#,rkde
 #
 
-def formatRATicks(locs, accuracy='hour'):
+def formatRATicks(locs, accuracy='auto'):
     """
     Format locs, ticks to RA angle with given accuracy
     accuracy can be 'hour', 'min', 'sec', 'all'
     returns (locs, ticks)
     'all' does no rounding, just formats the tick strings
+    'auto' will use smallest appropriate units
     """
     newmax=max(locs)
     newmin=min(locs)
+    if(accuracy=='auto'):
+        acc='hours'
+        if abs(newmax-newmin)<pi_constant/12.:
+            acc='min'
+        if abs(newmax-newmin)<pi_constant/(12.*60.):
+            acc='sec'
+    else:
+        acc=accuracy
+    
     if max(locs)>2*pi_constant: newmax=2.0*pi_constant
     if min(locs)<0.0: newmin=0.0
     locs=linspace(newmin,newmax,len(locs))
     
-    roundlocs=map(lambda a: roundRadAngle(a, accuracy=accuracy), locs)
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
     
     newlocs=filter(lambda a:a>=0 and a<=2.0*pi_constant, roundlocs)
     return (list(newlocs), map(getRAString, list(newlocs) ) )
 
-def formatDecTicks(locs, accuracy='deg'):
+def formatDecTicks(locs, accuracy='auto'):
     """
     Format locs to Dec angle with given accuracy
     accuracy can be 'deg', 'arcmin', 'arcsec', 'all'
@@ -2268,11 +2278,19 @@ def formatDecTicks(locs, accuracy='deg'):
     """
     newmax=max(locs)
     newmin=min(locs)
+    if(accuracy=='auto'):
+        acc='deg'
+        if abs(newmax-newmin)<pi_constant/360.:
+            acc='arcmin'
+        if abs(newmax-newmin)<pi_constant/(360.*60.):
+            acc='arcsec'
+    else:
+        acc=accuracy
     if newmax>0.5*pi_constant: newmax=0.5*pi_constant
     if newmin<-0.5*pi_constant: newmin=-0.5*pi_constant
     locs=linspace(newmin,newmax,len(locs))
     
-    roundlocs=map(lambda a: roundRadAngle(a, accuracy=accuracy), locs)
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
     newlocs=filter(lambda a:a>=-pi_constant/2.0 and a<=pi_constant/2.0, roundlocs)
     return (list(newlocs), map(getDecString, list(newlocs) ) )
 

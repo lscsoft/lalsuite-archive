@@ -33,15 +33,15 @@ def CalculateFAPandEFF(total_data,classifier):
 	"""
 	Calculates fap, eff for the classifier and saves them into the corresponding columns of total_data.
 	"""	
-	if not classifier == 'cveto':
-		glitch_ranks = total_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:][classifier+'_rank']
-		clean_ranks = total_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:][classifier+'_rank']
+#	if not classifier == 'ovl':
+	glitch_ranks = total_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:][classifier+'_rank']
+	clean_ranks = total_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:][classifier+'_rank']
 		
-		glitch_ranks.sort()
-		clean_ranks.sort()
-	else:
-		print "Can not compute FAP and Efficiency for CVeto. Not an MVC classifier."
-		sys.exit(1)
+	glitch_ranks.sort()
+	clean_ranks.sort()
+#	else:
+#		print "Can not compute FAP and Efficiency for OVL. Not an MVC classifier."
+#		sys.exit(1)
 	  			  
 	for trigger in total_data:
 		trigger[classifier +'_fap'] = auxmvc_utils.compute_FAP(clean_ranks, glitch_ranks, trigger[classifier+'_rank'])
@@ -56,8 +56,8 @@ def compute_combined_rank(total_data):
 	"""
 
 	for trigger in total_data:
-		# We need to add here CVeto
-		combined_mvc_rank = max([eff_over_fap(trigger, cls[0]) for cls in classifiers if cls[0]!='cveto'])
+		# We need to add here OVL
+		combined_mvc_rank = max([eff_over_fap(trigger, cls[0]) for cls in classifiers if cls[0]!='ovl'])
 #		combined_mvc_rank = max(eff_over_fap(trigger,'mvsc'), eff_over_fap(trigger,'ann'), eff_over_fap(trigger,'svm'))
 		# set highest combined rank to 1000.0
 		if combined_mvc_rank == numpy.inf: 
@@ -141,7 +141,7 @@ def BinToDec(binary):
 
 def ReadDataFromClassifiers(classifiers):
 	"""
-	This function reads MVCs(MVSC,ANN,SVM) ranked data and CVeto data and combines them into total_data array.
+	This function reads MVCs(MVSC,ANN,SVM) ranked data and OVL data and combines them into total_data array.
 	When combining, it is assumed that input files contain same triggers. 
 	In particular that sorting triggers in time is enough for cross-identification. 
 	"""
@@ -151,9 +151,9 @@ def ReadDataFromClassifiers(classifiers):
 
 	# defining variables and formats for total_data array
 	variables = ['GPS','glitch'] + list(data.dtype.names[5:-1])
-	for var in ['mvsc','ann','svm','cveto']:
+	for var in ['mvsc','ann','svm','ovl']:
 		variables += [var+j for j in ['_rank','_fap','_eff']]
-	variables += ['cveto_chan','combined_rank', 'combined_eff', 'combined_fap']
+	variables += ['ovl_chan','ovl_fdt','combined_rank', 'combined_eff', 'combined_fap']
 	formats = ['g8','i']+['g8' for a in range(len(variables)-2)]
 
 	# creating total_data array
@@ -176,7 +176,7 @@ def ReadDataFromClassifiers(classifiers):
 	if classifiers[1:]:
 		for cls in classifiers[1:]:
 			ranks_data=[]
-			if not cls[0] == 'cveto':
+			if not cls[0] == 'ovl':
 				ranks_data=ReadMVCRanks(cls[1],cls[0])
 				#sort trigers first in glitch then in GPS time to ensure correct merging
 				ranks_data=ranks_data[numpy.lexsort((ranks_data['GPS'], ranks_data['glitch']))]
@@ -185,85 +185,91 @@ def ReadDataFromClassifiers(classifiers):
 				total_data[cls[0]+'_rank']=ranks_data[cls[0]+'_rank']
 			
 	
-	# Reading in information from CVeto and populating corresponding columns in total_data
-	if classifiers[-1][0] == 'cveto':
-		# we first need to retrieve the CVeto data
-		cveto_raw = auxmvc_utils.LoadCV(classifiers[-1][1][0]) 
-		print 'ngwtrg_vtd from cveto_raw: ' + repr(len(cveto_raw))
-		# we want to iterate through all the glitches stored in total_data that are glitches
-		for glitch_index  in numpy.nonzero(total_data['glitch'] == 1.0)[0]:
-			# we look for matching GW glitches in the CVeto data using the GPS time
-			cveto_rank = GetCVetoRank(cveto_raw, total_data[glitch_index]['GPS'], deltat = 0.0015)
-			if len(cveto_rank) > 0:
-				cveto_rank = cveto_rank[0]
-				total_data[glitch_index]['cveto_eff'] = cveto_rank[0]
-				total_data[glitch_index]['cveto_fap'] = cveto_rank[1]
-				total_data[glitch_index]['cveto_rank'] = cveto_rank[2]
-				total_data[glitch_index]['cveto_chan'] = cveto_rank[3]
-#				print '\nGPS:  ' + repr(total_data[glitch_index]['GPS'])
-#                               print 'cveto_eff: ' + repr(total_data[glitch_index]['cveto_eff'])
-#				print 'cveto_fap: ' + repr(total_data[glitch_index]['cveto_fap'])
-#				print 'cveto_rank: ' + repr(total_data[glitch_index]['cveto_rank'])
-#				print 'cveto_chan: ' + repr(total_data[glitch_index]['cveto_chan'])
-			else:
-                                total_data[glitch_index]['cveto_eff'] = 1.0
-                                total_data[glitch_index]['cveto_fap'] = 1.0
-                                total_data[glitch_index]['cveto_chan'] = -1 
+	# Reading in information from OVL and populating corresponding columns in total_data
+	if classifiers[-1][0] == 'ovl':
+		# we first need to retrieve the OVL data. Because we load both glitches and cleans into the same structure, we simply iterate over all the files listed in classifiers[-1][1]
+		for file in classifiers[-1][1]:
+			ovl_raw = auxmvc_utils.LoadOVL(file)
+                        # figure out whether this is glitch or clean data
+                        GorC = 1.0 
+			for item in file.split('.'):
+				if item == 'CLEAN':
+					GorC = 0.0
+			print 'ngwtrg_vtd from ' + file + ': ' + repr(len(ovl_raw))
+			# we want to iterate through all the glitches stored in total_data that are glitches
+			for glitch_index  in numpy.nonzero(total_data['glitch'] == GorC)[0]:
+				# we look for matching GW glitches in the OVL data using the GPS time
+				ovl_rank = GetOVLRank(ovl_raw, total_data[glitch_index]['GPS'], deltat = 0.0015)
+				if len(ovl_rank) > 0:
+					ovl_rank = ovl_rank[0]
+					total_data[glitch_index]['ovl_eff'] = ovl_rank[0]
+					total_data[glitch_index]['ovl_fdt'] = ovl_rank[1]
+					total_data[glitch_index]['ovl_rank'] = ovl_rank[2]
+					total_data[glitch_index]['ovl_chan'] = ovl_rank[3]
+#					print '\nGPS:  ' + repr(total_data[glitch_index]['GPS'])
+#	                                print 'ovl_eff: ' + repr(total_data[glitch_index]['ovl_eff'])
+#					print 'ovl_fdt: ' + repr(total_data[glitch_index]['ovl_fdt'])
+#					print 'ovl_rank: ' + repr(total_data[glitch_index]['ovl_rank'])
+#					print 'ovl_chan: ' + repr(total_data[glitch_index]['ovl_chan'])
+				else:
+        	                        total_data[glitch_index]['ovl_eff'] = 1.0
+                	                total_data[glitch_index]['ovl_fdt'] = 1.0
+                        	        total_data[glitch_index]['ovl_chan'] = -1 
 
-	print 'ngwtrg_vtd from total_data: ' + repr(len(total_data[numpy.nonzero(total_data['cveto_rank'] > 0)[0]]))
+			print 'ngwtrg_vtd from total_data: ' + repr(len(total_data[numpy.nonzero(total_data['ovl_rank'] > 0)[0]]))
 	return total_data
 
 
-def GetCVetoRank(CVetoOutput, gwtcent, deltat = 0):
+def GetOVLRank(OVLOutput, gwtcent, deltat = 0):
   '''
-  This is meant to return the CVeto rank-data corresponding to a given central time (tcent) for a GW glitch. the CVeto data returned is a list of the form:
-    [cveto_eff, cveto_fap, cveto_rank, cveto_chan]
-  the output arguments correspond to internal CVeto data as follows:
-    cveto_eff  : c_eff
-    cveto_fap  : c_fct
-    cveto_rank : 2-(rank/len(stats)) ... where rank is the row index in stats
-    cveto_chan : vchan
+  This is meant to return the OVL rank-data corresponding to a given central time (tcent) for a GW glitch. the OVL data returned is a list of the form:
+    [ovl_eff, ovl_fdt, ovl_rank, ovl_chan]
+  the output arguments correspond to internal OVL data as follows:
+    ovl_eff  : c_eff
+    ovl_fdt  : c_fdt
+    ovl_rank : 2-(rank/len(stats)) ... where rank is the row index in stats
+    ovl_chan : vchan
   '''
   ###
-  # the current incarnation will find all of the CVeto glitches that satisfy |tcent - gwtcent| < deltat, but will only return one of them. This function needs to be extended to decide between the multiple returns, perhaps using other informaion about the glitch.
+  # the current incarnation will find all of the OVL glitches that satisfy |tcent - gwtcent| < deltat, but will only return one of them. This function needs to be extended to decide between the multiple returns, perhaps using other informaion about the glitch.
   ###
-  # define references for internal structure of CVetoOuptut
+  # define references for internal structure of OVLOuptut
   Dic = {'tcent':0, 'vconfig':1, 'vstats':2}
   vconfigDic = {'vchan':0, 'vthr':1, 'vwin':2}
   vstatsDic = {'livetime':0, '#gwtrg':1, 'dsec':2, 'csec':3, 'vact':4, 'vsig':5, 'c_livetime':6, 'c_ngwtrg':7, 'c_dsec':8, 'c_csec':9, 'c_vact':10, 'rank':11}
   # define search variables
   begint = gwtcent - deltat
   endt = gwtcent + deltat
-  cveto_dat = []
+  ovl_dat = []
   max_rank = 0
-  for index in range(len(CVetoOutput)):
+  for index in range(len(OVLOutput)):
     #find maximum rank (total number of vconfigs applied - 1)
-    if max_rank < CVetoOutput[index][Dic['vstats']][vstatsDic['rank']]:
-      max_rank = CVetoOutput[index][Dic['vstats']][vstatsDic['rank']]
-    #check to see if the CVeto data matches gwtcent
-    if CVetoOutput[index][Dic['tcent']] > begint and CVetoOutput[index][Dic['tcent']] < endt:
-      # extract desired data from CVetoOutput
-      h = CVetoOutput[index]
-      cveto_eff = float(h[Dic['vstats']][vstatsDic['c_vact']]) / float(h[Dic['vstats']][vstatsDic['c_ngwtrg']])
-      cveto_fap = float(h[Dic['vstats']][vstatsDic['c_csec']]) / float(h[Dic['vstats']][vstatsDic['c_livetime']])
+    if max_rank < OVLOutput[index][Dic['vstats']][vstatsDic['rank']]:
+      max_rank = OVLOutput[index][Dic['vstats']][vstatsDic['rank']]
+    #check to see if the OVL data matches gwtcent
+    if (OVLOutput[index][Dic['tcent']] > begint) and (OVLOutput[index][Dic['tcent']] < endt):
+      # extract desired data from OVLOutput
+      h = OVLOutput[index]
+      ovl_eff = float(h[Dic['vstats']][vstatsDic['c_vact']]) / float(h[Dic['vstats']][vstatsDic['c_ngwtrg']])
+      ovl_fdt = float(h[Dic['vstats']][vstatsDic['c_dsec']]) / float(h[Dic['vstats']][vstatsDic['c_livetime']])
       not_quite_rank = float(h[Dic['vstats']][vstatsDic['rank']])
-      cveto_chan = h[Dic['vconfig']][vconfigDic['vchan']]
-      cveto_dat += [ [ cveto_eff, cveto_fap, not_quite_rank, cveto_chan ] ]
+      ovl_chan = h[Dic['vconfig']][vconfigDic['vchan']]
+      ovl_dat += [ [ ovl_eff, ovl_fdt, not_quite_rank, ovl_chan ] ]
     else:
       pass
-  for index in range(len(cveto_dat)):
-    # convert not_quite_rank to cveto_rank as defined above
-    not_quite_rank = cveto_dat[index][2]
-    cveto_dat[index][2] = 2 - float(not_quite_rank)/max_rank
+  for index in range(len(ovl_dat)):
+    # convert not_quite_rank to ovl_rank as defined above
+    not_quite_rank = ovl_dat[index][2]
+    ovl_dat[index][2] = 2 - float(not_quite_rank)/max_rank
   # we now return the first entry in the list, BUT THIS SHOULD BE EXTENDED SO THAT WE PICK THE CORRECT ENTRY BASED ON OTHER INFORMATION ABOUT THE GLITCH
-  if len(cveto_dat) > 1:
+  if len(ovl_dat) > 1:
     print('found multiple glitches at MVC GWtcent = ' + repr(gwtcent))
-    print'\tcorresponding to CVeto parameters: '
-    for cveto in cveto_dat:
-      print '\t\t' + repr(cveto) 
-    return [cveto_dat[0]]
+    print'\tcorresponding to OVL parameters: '
+    for ovl in ovl_dat:
+      print '\t\t' + repr(ovl) 
+    return [ovl_dat[0]]
   else:
-    return cveto_dat
+    return ovl_dat
 
 
 def cluster(data, rank='signif', cluster_window=1.0):
@@ -312,7 +318,7 @@ usage= """Written to load and manipulate output from different classifiers."""
 
 
 parser=OptionParser(usage=usage, version = git_version.verbose_msg)
-parser.add_option("","--cveto-ranked-files", default=False, type="string", help="Provide the path for HVeto Results files which contain all trigger data and those ranks and globbing pattern")
+parser.add_option("","--ovl-ranked-files", default=False, type="string", help="Provide the path for HVeto Results files which contain all trigger data and those ranks and globbing pattern")
 parser.add_option("","--mvsc-ranked-files", default=False, type="string", help="Provide the path for MVSC *.dat files and globbing pattern")
 parser.add_option("","--ann-ranked-files", default=False, type="string", help="Provide the path for ANN *.dat files and globbing pattern")
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
@@ -352,9 +358,9 @@ if opts.mvsc_ranked_files:
 if opts.svm_ranked_files:
 	classifiers.append(['svm',glob.glob(opts.svm_ranked_files)])
 	#classifiers.append(['svm',opts.svm_ranked_files.split(',')])
-if opts.cveto_ranked_files:
-	classifiers.append(['cveto',glob.glob(opts.cveto_ranked_files)])
-	#classifiers.append(['cveto',opts.cveto_ranked_files.split(',')])
+if opts.ovl_ranked_files:
+	classifiers.append(['ovl',glob.glob(opts.ovl_ranked_files)])
+	#classifiers.append(['ovl',opts.ovl_ranked_files.split(',')])
 
 #mvc_types=BinToDec(''.join(map(str,mvc_read)))
 
@@ -365,26 +371,26 @@ if not classifiers:
 if opts.verbose:
 	print "Reading and combining data..."
 
-# Reading and combining data from all classifers(MVSC,ANN,SVM,CVeto).
+# Reading and combining data from all classifers(MVSC,ANN,SVM,OVL).
 total_ranked_data = ReadDataFromClassifiers(classifiers)
 
-### TESTING CVETO LOADING FUNCTIONALITY
+### TESTING OVL LOADING FUNCTIONALITY
 '''
-cveto_raw = auxmvc_utils.LoadCV(classifiers[-1][1][0])
-# we pull 10 random GPS times from cveto_raw[] and the corresponding data from total_ranked_data[]
+ovl_raw = auxmvc_utils.LoadOVL(classifiers[-1][1][0])
+# we pull 10 random GPS times from ovl_raw[] and the corresponding data from total_ranked_data[]
 # this is printed so we can check by eye whether they match
 import random
 deltaT = 0.0015
 for ind in range(0,10):
-  rind = random.randint(0,len(cveto_raw)-1)
-  print '\n cveto_raw'
-  print cveto_raw[rind] 
+  rind = random.randint(0,len(ovl_raw)-1)
+  print '\n ovl_raw'
+  print ovl_raw[rind] 
   print '\n total_ranked_data'
-#  print total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]
-  print 'GPS = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['GPS'])
-  print 'cveto_eff = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_eff'])
-  print 'cveto_fap = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_fap'])
-  print 'cveto_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(cveto_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['cveto_chan'])
+#  print total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]
+  print 'GPS = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['GPS'])
+  print 'ovl_eff = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_eff'])
+  print 'ovl_fdt = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_fdt'])
+  print 'ovl_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_chan'])
 '''
 # cluster glitch samples if --cluster option is given
 if opts.cluster:
@@ -401,8 +407,8 @@ if opts.cluster:
 
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
-  if not cls[0] == 'cveto':
-    total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
+#  if not cls[0] == 'ovl':
+  total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
 	
 # Computing combined rank		
 total_ranked_data = compute_combined_rank(total_ranked_data)
@@ -459,20 +465,42 @@ comments = ""
 if opts.verbose:
   print 'Generating Plots...'
 
-colorDIC = {'ann':'b', 'mvsc':'g', 'svm':'r', 'cveto':'c', 'combined':'m'}
-labelDIC = {'ann':'ANN', 'mvsc':'MVSC', 'svm':'SVM', 'cveto':'OVL', 'combined':'MVC$_{\mathrm{max}}$'}
+colorDIC = {'ann':'b', 'mvsc':'g', 'svm':'r', 'ovl':'c', 'combined':'m'}
+labelDIC = {'ann':'ANN', 'mvsc':'MVSC', 'svm':'SVM', 'ovl':'OVL', 'combined':'MVC$_{\mathrm{max}}$'}
 
 matplotlib.rc('text', usetex=True)
 
+faircoin = numpy.linspace(10**-6,10**0.5,100)
+
+# Scatter of ovl_fdt vs ovl_fap
+# this should help quantify how well fap estimates the fractional dead time with our random sampling
+fig_num += 1
+fig = pylab.figure(fig_num)
+pylab.plot(total_ranked_data['ovl_fap'], total_ranked_data['ovl_fdt'], 'o', markerfacecolor = 'none', markeredgecolor = 'blue')
+pylab.plot(faircoin, faircoin, 'k--')
+pylab.grid(True)
+pylab.xlabel('False Alarm Probability')
+pylab.ylabel('Fractional Dead Time')
+pylab.xscale('log')
+pylab.yscale('log')
+pylab.xlim(10**-4.1, 10**0.1)
+pylab.ylim(10**-4.1, 10**0.1)
+name = '_fdt_vs_fap'
+fname = InspiralUtils.set_figure_name(opts, name)
+fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+fnameList.append(fname)
+tagList.append(name)
+pylab.close()
+
+
 # ROC curves from total_ranked_data[0]
-faircoin = numpy.linspace(10**-6,10**0,100)
 fig_num += 1
 fig = pylab.figure(fig_num)
 for cls in classifiers:
   total_data=total_ranked_data[numpy.lexsort((total_ranked_data[cls[0]+'_fap'], total_ranked_data[cls[0]+'_eff']))]
-  if cls[0] == 'cveto':
-    fap = total_data[numpy.nonzero(total_data['cveto_fap'] < 1)[0],:]
-    pylab.plot(fap['cveto_fap'], fap['cveto_eff'], label = labelDIC[cls[0]], color=colorDIC[cls[0]])#, linewidth = 2)
+  if cls[0] == 'ovl':
+    fap = total_data[numpy.nonzero(total_data['ovl_fap'] < 1)[0],:]
+    pylab.plot(fap['ovl_fap'], fap['ovl_eff'], label = labelDIC[cls[0]], color=colorDIC[cls[0]])#, linewidth = 2)
   else:
     pylab.plot(total_data[cls[0]+'_fap'],total_data[cls[0]+'_eff'],label=labelDIC[cls[0]], color=colorDIC[cls[0]])#, linewidth = 2)
 pylab.plot(faircoin, faircoin, '--k')
@@ -496,6 +524,8 @@ pylab.title('Fig. '+str(fig_num)+': ROC Curves from total\_ranked\_data[]')
 pylab.legend(loc = 'lower right')
 pylab.yscale('linear')
 pylab.xscale('linear')
+pylab.xlim(0, 1)
+pylab.ylim(0, 1)
 name = '_ROC_lin-lin'
 fname = InspiralUtils.set_figure_name(opts, name)
 fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -530,7 +560,8 @@ pylab.title(opts.user_tag + '\nROC Curves')
 pylab.legend(loc = 'upper left')
 pylab.xscale('log')
 pylab.xlim(10**-5, 10**0)
-
+pylab.ylim(0,1)
+	
 name = '_ROC_lin-log'
 fname = InspiralUtils.set_figure_name(opts, name)
 fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -543,7 +574,7 @@ pylab.close()
 ### we define a 5 bit word to be the concatenation of binary flags corresponding to whether or not a classifier removes a glitch at a set FAP
 # 0: classifier did not remove glitch
 # 1: classifier removed glitch
-# we also define the ordering of classifiers in the 5 bit word to be: cveto mvsc ann svm combined
+# we also define the ordering of classifiers in the 5 bit word to be: ovl mvsc ann svm combined
 
 FAPthr = 0.01
 sigthr = 25
@@ -551,9 +582,9 @@ sigthr = 25
 ### this next bit is fragile, and only handles the special case of svm being absent. you should extend this to a more general case
 
 if opts.svm_ranked_files:
-  classify = [[['ann'], ['mvsc'], ['svm'], ['cveto'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['cveto']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['ann'], ['mvsc'], ['svm']], [['cveto'], ['combined']]]
+  classify = [[['ann'], ['mvsc'], ['svm'], ['ovl'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['ovl']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['ann'], ['mvsc'], ['svm']], [['ovl'], ['combined']]]
 else:
-  classify = [[['ann'], ['mvsc'], ['cveto'], ['combined']], [['ann'], ['mvsc'], ['cveto']], [['ann'], ['mvsc'], ['combined']], [['ann'], ['mvsc']], [['cveto'], ['combined']]]
+  classify = [[['ann'], ['mvsc'], ['ovl'], ['combined']], [['ann'], ['mvsc'], ['ovl']], [['ann'], ['mvsc'], ['combined']], [['ann'], ['mvsc']], [['ovl'], ['combined']]]
 
 for clas in classify:
   #all glitches
@@ -722,73 +753,6 @@ for clas in classify:
   tagList.append(name)
   pylab.close()
 
-'''
-
-## Create scattered plots of Significance vs  SNR for GW Triggers
-fig_num += 1
-pylab.figure(fig_num)
-pylab.plot(glitches['signif'],glitches['SNR'],'rx',label='glitches')
-pylab.xlabel('Significance of GW Triggers')
-pylab.ylabel('SNR of GW Triggers')
-pylab.yscale('log')
-pylab.xscale('log')
-pylab.title(r"Fig. "+str(fig_num)+": significance vs SNR of GW trigger")
-pylab.legend()
-# adding to html page
-name = 'Sig_vs_SNR'
-fname = InspiralUtils.set_figure_name(opts, name)
-fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-fnameList.append(fname)
-tagList.append(name)
-pylab.close()
-
-## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Significance of GWTriggers
-for cls in classifiers:
-	## mvc ranks vs. SNR
-	#fig_num += 1
-	#pylab.figure(fig_num)
-	#pylab.plot(cleans[cls[0]+'_rank'],cleans['SNR'],'k+',label='clean samples')
-	#pylab.plot(glitches[cls[0]+'_rank'],glitches['SNR'],'rx',label='glitches')
-	#pylab.xlabel(cls[0]+' rank')
-	#pylab.ylabel('SNR of GW Triggers')
-	#pylab.yscale('log')
-	#pylab.xscale('log')
-	#pylab.title(r"Fig. "+str(fig_num)+": " + cls[0]+" rank vs SNR of GW trigger")
-	#pylab.legend()
-	# adding to html page
-	#name = '_SNR_'+cls[0]+'rank'
-	#fname = InspiralUtils.set_figure_name(opts, name)
-	#fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-	#fnameList.append(fname)
-	#tagList.append(name)
-	#pylab.close()
-
-
-	## mvc ranks vs. Significance
-	fig_num += 1
-	pylab.figure(fig_num)
-	if cls[0] == 'combined':
-		off_scale_glitches = glitches[numpy.nonzero(glitches[cls[0]+'_rank'] == 1000.0)]
-		other_glitches = glitches[numpy.nonzero(glitches[cls[0]+'_rank'] != 1000.0)]
-		pylab.plot(other_glitches[cls[0]+'_rank'],other_glitches['signif'],'rx',label='glitches')
-		pylab.plot(numpy.ones(len(off_scale_glitches)) + max(other_glitches[cls[0]+'_rank']),off_scale_glitches['signif'],'g+',label='off-scale glitches')
-	else:  
-		pylab.plot(glitches[cls[0]+'_rank'],glitches['signif'],'rx',label='glitches')
-	pylab.xlabel(cls[0]+' rank')
-	pylab.ylabel('Significance of GW Triggers')
-	pylab.yscale('log')
-	#pylab.xscale('log')
-	pylab.title(r"Fig. "+str(fig_num)+": " + cls[0]+' rank vs significance of GW trigger')
-	pylab.legend()
-	# adding to html page
-	name = '_Sig_'+cls[0]+'rank'
-	fname = InspiralUtils.set_figure_name(opts, name)
-	fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-	fnameList.append(fname)
-	tagList.append(name)
-	pylab.close()
-
-'''
 
 # statistics of glitches binned over cls_rank
 ### we bin glitches depending on cls_rank and then compute the statistics of glitches within those bins
@@ -798,7 +762,7 @@ for cls in classifiers:
 ###  the error in the estimate of the mean = (rms significance) / sqrt(num glitches in bin)
 
 numBins = 100
-maxminrank = {'mvsc':[0,1], 'ann':[0,1], 'svm':[0,1], 'cveto':[0,2],'combined':[0,1000]}
+maxminrank = {'mvsc':[0,1], 'ann':[0,1], 'svm':[0,1], 'ovl':[0,2],'combined':[0,1000]}
 
 for cls in classifiers:
   for sigthr in [0, 25, 50]:
@@ -863,7 +827,7 @@ for cls in classifiers:
   # histogram using only a subset of glitches with sufficiently large 'signif'
   for sigthr in [10, 15, 25, 50]:
     glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-    if cls[0] == 'cveto':
+    if cls[0] == 'ovl':
       pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', label = 'signif $\geq$ ' + repr(sigthr), log=True)
     else:
       pylab.hist(glitches_removed[cls[0] + '_rank'], 100, histtype = 'step', label = 'signif $\geq$ ' + repr(sigthr), log=True)
@@ -889,33 +853,30 @@ for cls in classifiers:
 
 # histograms of clean samples over Classifier's rank
 for cls in classifiers:
-  if cls[0] == 'cveto':
-    pass
-  else:
-    fig_num +=1
-    pylab.figure(fig_num)
-    pylab.hold(True)
-    #histogram using all clean samples
-    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step',label = 'all', log = True)
-    pylab.title('Fig. '+str(fig_num)+': Histogram for Clean Samples Based on '+labelDIC[cls[0]]+'\_rank')
-    pylab.xlabel(labelDIC[cls[0]]+'\_rank')
-    pylab.ylabel('Number of Samples')
+  fig_num +=1
+  pylab.figure(fig_num)
+  pylab.hold(True)
+  #histogram using all clean samples
+  pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step',label = 'all', log = True)
+  pylab.title('Fig. '+str(fig_num)+': Histogram for Clean Samples Based on '+labelDIC[cls[0]]+'\_rank')
+  pylab.xlabel(labelDIC[cls[0]]+'\_rank')
+  pylab.ylabel('Number of Samples')
 
-    #adding to html page
-    name = '_hist_cleans'+cls[0]+'_rank-LOG'
-    fname = InspiralUtils.set_figure_name(opts, name)
-    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(name)
+  #adding to html page
+  name = '_hist_cleans'+cls[0]+'_rank-LOG'
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
 
-    #adding to html page
-    pylab.yscale('linear')
-    name = '_hist_cleans'+cls[0]+'_rank-LINEAR'
-    fname = InspiralUtils.set_figure_name(opts, name)
-    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(name)
-    pylab.close()
+  #adding to html page
+  pylab.yscale('linear')
+  name = '_hist_cleans'+cls[0]+'_rank-LINEAR'
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
 
 	
 ## Create Cumulative histograms of GW Significance for glitch triggers after vetoing at RankThr and FAPThr
@@ -1093,57 +1054,115 @@ for cls in classifiers:
 start = 0
 for cls in classifiers:
   start +=1
-  if cls[0] == 'cveto':
-    pass
-  else:
-    for ind in range(start, len(classifiers)):
-      cls2 = classifiers[ind]
-      if cls2[0] == 'cveto':
-        pass
-      else:
-        c_ebfALL = [g[cls[0]+'_eff']/g[cls[0]+'_fap'] for g in cleans]
-        c_ebfALL2 = [g[cls2[0]+'_eff']/g[cls2[0]+'_fap'] for g in cleans]
+  for ind in range(start, len(classifiers)):
+    cls2 = classifiers[ind]
+    c_ebfALL = [g[cls[0]+'_eff']/g[cls[0]+'_fap'] for g in cleans]
+    c_ebfALL2 = [g[cls2[0]+'_eff']/g[cls2[0]+'_fap'] for g in cleans]
 
+    fig_num += 1
+    fig = matplotlib.pyplot.figure(fig_num)
+    fig.hold(True)
+    grid = ImageGrid(fig, 111, nrows_ncols = (2,2), axes_pad = 0.25, add_all = True)
+
+    # histogram over cls_eff/fap
+    grid[0].hist(c_ebfALL,bins=numpy.logspace(0,4,num=100,endpoint=True),weights = numpy.ones(len(c_ebfALL))/len(c_ebfALL), histtype='step', log=True)
+    grid[0].set_xscale('log')
+    grid[0].set_yscale('log')
+    grid[0].set_ylim(ymin=10**-4, ymax = 10**0.0)
+    grid[0].set_ylabel('Fraction of Glitches')
+
+    # histogram over cls2_eff/fap
+    grid[3].hist(c_ebfALL2,bins=numpy.logspace(0,4,num=100,endpoint=True), weights = numpy.ones(len(c_ebfALL2))/len(c_ebfALL2), histtype='step', orientation='horizontal', log=True)
+    grid[3].set_xscale('log')
+    grid[3].set_yscale('log')
+    grid[3].set_xlim(xmin=10**-4, xmax=10**0)
+    grid[3].set_xlabel('Fraction of Glitches')
+
+    # scatter of cls_eff/fap vs cls2_eff/fap
+    grid[2].plot(c_ebfALL, c_ebfALL2, linestyle = 'none', marker = 'o')
+    grid[2].plot([10**-5, 10**5], [10**-5, 10**5], '-k', label = '_nolegend')
+    grid[2].set_xlabel(labelDIC[cls[0]]+'\_eff/fap')
+    grid[2].set_ylabel(labelDIC[cls2[0]]+'\_eff/fap')
+    grid[2].set_xscale('log')
+    grid[2].set_yscale('log')
+    grid[2].set_xlim(10**0, 10**3)
+    grid[2].set_ylim(10**0, 10**3)
+
+    matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+labelDIC[cls[0]]+'\_eff/fap vs. '+labelDIC[cls2[0]]+'\_eff/fap for Clean Samples', ha = 'center', va = 'top')
+    matplotlib.pyplot.setp(grid[1], visible=False)
+
+    #adding to html page
+    name = '_scatter_' + cls[0] + '_effbyfap_vs_' + cls2[0] + '_effbyfap_cleans'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
+
+
+## Create scattered plots of Significance vs  SNR for GW Triggers
+fig_num += 1
+pylab.figure(fig_num)
+pylab.plot(glitches['signif'],glitches['SNR'],'rx',label='glitches')
+pylab.xlabel('Significance of GW Triggers')
+pylab.ylabel('SNR of GW Triggers')
+pylab.yscale('log')
+pylab.xscale('log')
+pylab.title(r"Fig. "+str(fig_num)+": significance vs SNR of GW trigger")
+pylab.legend()
+# adding to html page
+name = 'Sig_vs_SNR'
+fname = InspiralUtils.set_figure_name(opts, name)
+fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+fnameList.append(fname)
+tagList.append(name)
+pylab.close()
+
+## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Significance of GWTriggers
+for cls in classifiers:
+        ## mvc ranks vs. SNR
+        #fig_num += 1
+        #pylab.figure(fig_num)
+        #pylab.plot(cleans[cls[0]+'_rank'],cleans['SNR'],'k+',label='clean samples')
+        #pylab.plot(glitches[cls[0]+'_rank'],glitches['SNR'],'rx',label='glitches')
+        #pylab.xlabel(cls[0]+' rank')
+        #pylab.ylabel('SNR of GW Triggers')
+        #pylab.yscale('log')
+        #pylab.xscale('log')
+        #pylab.title(r"Fig. "+str(fig_num)+": " + cls[0]+" rank vs SNR of GW trigger")
+        #pylab.legend()
+        # adding to html page
+        #name = '_SNR_'+cls[0]+'rank'
+        #fname = InspiralUtils.set_figure_name(opts, name)
+        #fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+        #fnameList.append(fname)
+        #tagList.append(name)
+        #pylab.close()
+
+
+        ## mvc ranks vs. Significance
         fig_num += 1
-        fig = matplotlib.pyplot.figure(fig_num)
-        fig.hold(True)
-        grid = ImageGrid(fig, 111, nrows_ncols = (2,2), axes_pad = 0.25, add_all = True)
-
-        # histogram over cls_eff/fap
-        grid[0].hist(c_ebfALL,bins=numpy.logspace(0,4,num=100,endpoint=True),weights = numpy.ones(len(c_ebfALL))/len(c_ebfALL), histtype='step', log=True)
-        grid[0].set_xscale('log')
-        grid[0].set_yscale('log')
-        grid[0].set_ylim(ymin=10**-4, ymax = 10**0.0)
-        grid[0].set_ylabel('Fraction of Glitches')
-
-        # histogram over cls2_eff/fap
-        grid[3].hist(c_ebfALL2,bins=numpy.logspace(0,4,num=100,endpoint=True), weights = numpy.ones(len(c_ebfALL2))/len(c_ebfALL2), histtype='step', orientation='horizontal', log=True)
-        grid[3].set_xscale('log')
-        grid[3].set_yscale('log')
-        grid[3].set_xlim(xmin=10**-4, xmax=10**0)
-        grid[3].set_xlabel('Fraction of Glitches')
-
-        # scatter of cls_eff/fap vs cls2_eff/fap
-        grid[2].plot(c_ebfALL, c_ebfALL2, linestyle = 'none', marker = 'o')
-        grid[2].plot([10**-5, 10**5], [10**-5, 10**5], '-k', label = '_nolegend')
-        grid[2].set_xlabel(labelDIC[cls[0]]+'\_eff/fap')
-        grid[2].set_ylabel(labelDIC[cls2[0]]+'\_eff/fap')
-        grid[2].set_xscale('log')
-        grid[2].set_yscale('log')
-        grid[2].set_xlim(10**0, 10**3)
-        grid[2].set_ylim(10**0, 10**3)
-
-        matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+labelDIC[cls[0]]+'\_eff/fap vs. '+labelDIC[cls2[0]]+'\_eff/fap for Clean Samples', ha = 'center', va = 'top')
-        matplotlib.pyplot.setp(grid[1], visible=False)
-
-        #adding to html page
-        name = '_scatter_' + cls[0] + '_effbyfap_vs_' + cls2[0] + '_effbyfap_cleans'
+        pylab.figure(fig_num)
+        if cls[0] == 'combined':
+                off_scale_glitches = glitches[numpy.nonzero(glitches[cls[0]+'_rank'] == 1000.0)]
+                other_glitches = glitches[numpy.nonzero(glitches[cls[0]+'_rank'] != 1000.0)]
+                pylab.plot(other_glitches[cls[0]+'_rank'],other_glitches['signif'],'rx',label='glitches')
+                pylab.plot(numpy.ones(len(off_scale_glitches)) + max(other_glitches[cls[0]+'_rank']),off_scale_glitches['signif'],'g+',label='off-scale glitches')
+        else:
+                pylab.plot(glitches[cls[0]+'_rank'],glitches['signif'],'rx',label='glitches')
+        pylab.xlabel(cls[0]+' rank')
+        pylab.ylabel('Significance of GW Triggers')
+        pylab.yscale('log')
+        #pylab.xscale('log')
+        pylab.title(r"Fig. "+str(fig_num)+": " + cls[0]+' rank vs significance of GW trigger')
+        pylab.legend()
+        # adding to html page
+        name = '_Sig_'+cls[0]+'rank'
         fname = InspiralUtils.set_figure_name(opts, name)
-        fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
         fnameList.append(fname)
         tagList.append(name)
         pylab.close()
-
 
 
 ##############################################################################################################
