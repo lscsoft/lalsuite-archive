@@ -79,10 +79,10 @@ class CandidateEventQuery:
 			AND snglA.start_time > ?
 			AND snglA.start_time < ?"""
 	add_where_all="""
-			AND coinc_definer.description LIKE '%near%'
+			AND coinc_definer.description == ?
 		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
 	add_where_exact="""
-			AND coinc_definer.description LIKE '%exact%'
+			AND coinc_definer.description == ?
 		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
 	add_join_fulldata="""
 		, experiment_summary.datatype
