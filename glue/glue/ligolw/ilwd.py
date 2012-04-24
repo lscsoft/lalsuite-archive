@@ -301,7 +301,7 @@ def get_ilwdchar(s):
 	#
 
 	try:
-		table_name, column_name, i = s.split(":")
+		table_name, column_name, i = s.strip().split(":")
 	except ValueError, AttributeError:
 		raise ValueError, "invalid ilwd:char %s" % repr(s)
 
