@@ -187,8 +187,8 @@ def get_ilwdchar_class(tbl_name, col_name):
 
 	>>> process_id = get_ilwdchar_class("process", "process_id")
 	>>> x = process_id(10)
-	>>> x
-	<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x2b8de0a186a8>
+	>>> str(type(x))
+	"<class 'glue.ligolw.ilwd.cached_ilwdchar_class'>"
 	>>> str(x)
 	'process:process_id:10'
 

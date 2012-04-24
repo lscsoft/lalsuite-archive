@@ -386,17 +386,20 @@ PyTypeObject ligolw_ilwdchar_Type = {
 ">>> x = ID(10)\n" \
 ">>> print x\n" \
 "table_a:column_b:10\n" \
+">>> x = ID(\" 10 \")	# ignores whitespace\n" \
+">>> print x\n" \
+"table_a:column_b:10\n" \
 ">>> print x + 35\n" \
 "table_a:column_b:45\n" \
-">>> y = ID(\"table_a:column_b:10\")\n" \
+">>> y = ID(\" table_a:column_b:10 \")	# ignores whitespace\n" \
 ">>> print x - y\n" \
-"0\n" \
+"table_a:column_b:0\n" \
 ">>> x == y\n" \
 "True\n" \
 ">>> x is y\n" \
 "False\n" \
-">>> set([x, y])\n" \
-"set([<__main__.ID object at 0x2b880379e6e0>])\n" \
+">>> len(set([x, y]))\n" \
+"1\n" \
 "\n" \
 "Note that the two instances have the same hash value and compare as equal,\n" \
 "and so only one of them remains in the set although they are not the same\n" \
