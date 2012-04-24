@@ -26,6 +26,18 @@
 #
 
 
+"""
+Convert tabular data in LIGO LW XML files to and from SQL databases.
+
+This module provides a library interface to the machinery used by the
+ligolw_sqlite command-line tool, facilitating it's re-use in other
+applications.  The real XML<-->database translation machinery is
+implemented in the glue.ligolw.dbtables module.  The code here wraps the
+machinery in that mdoule in functions that are closer to the command-line
+level operations provided by the ligolw_sqlite program.
+"""
+
+
 try:
 	import sqlite3
 except ImportError:
@@ -105,7 +117,16 @@ def update_ids(connection, xmldoc, verbose = False):
 def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
-	database the at the given connection.
+	database the at the given connection.  If preserve_ids is False
+	(default), then row IDs are modified during the insert process to
+	prevent collisions with IDs already in the database.  If
+	preserve_ids is True then IDs are not modified;  this will result
+	in database consistency violations if any of the IDs of
+	newly-inserted rows collide with row IDs already in the database,
+	and is generally only sensible when inserting a document into an
+	empty database.  If verbose is True then progress reports will be
+	printed to stderr.  contenthandler allows a custom XML SAX content
+	handler to be provided.
 	"""
 	#
 	# load document.  this process inserts the document's contents into
@@ -139,7 +160,14 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose = False):
 	"""
 	Insert the tables from an in-ram XML document into the database at
-	the given connection.
+	the given connection.  If preserve_ids is False (default), then row
+	IDs are modified during the insert process to prevent collisions
+	with IDs already in the database.  If preserve_ids is True then IDs
+	are not modified;  this will result in database consistency
+	violations if any of the IDs of newly-inserted rows collide with
+	row IDs already in the database, and is generally only sensible
+	when inserting a document into an empty database.  If verbose is
+	True then progress reports will be printed to stderr.
 	"""
 	#
 	# create a place-holder XML representation of the target document
@@ -249,6 +277,14 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 
 
 def extract(connection, filename, table_names = None, verbose = False, xsl_file = None):
+	"""
+	Convert the database at the given connection to a tabular LIGO
+	Light-Weight XML document.  The XML document is written to the file
+	named filename.  If table_names is not None, it should be a
+	sequence of strings and only the tables in that sequence will be
+	converted.  If verbose is True then progress messages will be
+	printed to stderr.
+	"""
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(dbtables.get_xml(connection, table_names))
 	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose, xsl_file = xsl_file)
