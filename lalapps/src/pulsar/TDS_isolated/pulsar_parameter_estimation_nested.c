@@ -45,8 +45,7 @@ The 'Nested Sampling' algorithm (developed by [\ref Skilling2006]) used is that
 defined in LALinferenceNestedSampler (see [\ref VeitchVecchio2010]). It is
 essentially an efficient way to perform the integral
 \f[
-Z = \int^{\mathbf{\theta}} p(d|\mathbf{\theta}) p(\mathbf{\theta}) {\rm
-d}\mathbf{\theta},
+Z = \int^{\mathbf{\theta}} p(d|\mathbf{\theta}) p(\mathbf{\theta}) \mathrm{d}\mathbf{\theta},
 \f]
 where \f$ \mathbf{\theta} \f$ is a vector of parameters, \f$
 p(d|\mathbf{\theta}) \f$ is the likelihood of the data given the parameters,
@@ -54,7 +53,7 @@ and \f$ p(\mathbf{\theta}) \f$ is the prior on the parameters. It does this by
 changing the multi-dimensional integral over N parameters into a
 one-dimensional integral
 \f[
-Z = \int^X L(X) {\rm d}X \approx \sum_i L(X_i) \Delta{}X_i,
+Z = \int^X L(X) \mathrm{d}X \approx \sum_i L(X_i) \Delta{}X_i,
 \f]
 where \f$ L(X) \f$ is the likelihood, and \f$ X \f$ is the prior mass. The
 algorithm will draw a number (\f$ N \f$) of samples (live points) from the
@@ -687,8 +686,6 @@ void readPulsarData( LALInferenceRunState *runState ){
       tempdets = XLALStringDuplicate( detectors );
       
       for( i = 0; i < ml*numDets; i++ ){
-        LALStatus status;
-	
         CHAR *tmpstr = NULL;
         REAL8 psdvalf = 0.;
         
@@ -701,14 +698,13 @@ void readPulsarData( LALInferenceRunState *runState ){
           
           if( !strcmp(dets[FACTOR(i,ml)], "H1") || 
               !strcmp(dets[FACTOR(i,ml)], "L1") ||  
-              !strcmp(dets[FACTOR(i,ml)], "H2") ){ /* ALIGO */
-            LALAdvLIGOPsd( &status, &psdvalf, 
-                           pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
-            psdvalf *= 1.e-49; /* scale factor in LALAdvLIGOPsd.c */
+              !strcmp(dets[FACTOR(i,ml)], "H2") ){ /* ALIGO */            
+            psdvalf = XLALSimNoisePSDaLIGOZeroDetHighPower(
+              pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
           }
           else if( !strcmp(dets[FACTOR(i,ml)], "V1") ){ /* AVirgo */
-            LALEGOPsd( &status, &psdvalf,
-                       pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
+            psdvalf = XLALSimNoisePSDAdvVirgo(
+              pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
           }
           else{
             fprintf(stderr, "Error... trying to use Advanced detector that is\
@@ -722,27 +718,25 @@ void readPulsarData( LALInferenceRunState *runState ){
           if( !strcmp(dets[FACTOR(i,ml)], "H1") || 
               !strcmp(dets[FACTOR(i,ml)], "L1") ||  
               !strcmp(dets[FACTOR(i,ml)], "H2") ){ /* Initial LIGO */
-            psdvalf = 
-              XLALLIGOIPsd( pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
-          
+            psdvalf = XLALSimNoisePSDiLIGOSRD(
+              pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
+            
             /* divide H2 psds by 2 */
             if( !strcmp(dets[FACTOR(i,ml)], "H2") ){
               psdvalf /= 2.;
             }
           }
           else if( !strcmp(dets[FACTOR(i,ml)], "V1") ){ /* Initial Virgo */
-            LALVIRGOPsd( &status, &psdvalf,
-                         pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
+            psdvalf = XLALSimNoisePSDVirgo(
+              pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
           }
           else if( !strcmp(dets[FACTOR(i,ml)], "G1") ){ /* GEO 600 */
-            LALGEOPsd( &status, &psdvalf,
-                       pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
-            psdvalf *= 1.e-46; /* scale factor in LALGEOPsd.c */
+            psdvalf = XLALSimNoisePSDGEO(
+              pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
           }
           else if( !strcmp(dets[FACTOR(i,ml)], "T1") ){ /* TAMA300 */
-            LALTAMAPsd( &status, &psdvalf,
-                        pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
-            psdvalf *= 75. * 1.e-46; /* scale factor in LALTAMAPsd.c */
+            psdvalf = XLALSimNoisePSDTAMA(
+              pfreq*modelFreqFactors->data[(INT4)(fmod(i,ml))] );
           }
           else{
             fprintf(stderr, "Error... trying to use detector that is\
@@ -3921,7 +3915,7 @@ void phi0_psi_transform( REAL8 phi0, REAL8 psi, REAL8 *phi0prime,
  * transform:
  \f{eqnarray*}{
  \left( \begin{array}{c} {\phi}_0 \\ {\psi} \end{array} \right) & = &
- \left( \begin{array}{cc} \sin{\theta} & \cos{\theta} \\ -\sin(\theta} &
+ \left( \begin{array}{cc} \sin{\theta} & \cos{\theta} \\ -\sin(\theta) &
 \cos{\theta} \end{array} \right)^{-1}
  \left( \begin{array}{c} {\phi'}_0 \\ {\psi'} \end{array} \right), \\
  & = & \left( \begin{array}{cc} \frac{1}{2\sin{\theta}} &

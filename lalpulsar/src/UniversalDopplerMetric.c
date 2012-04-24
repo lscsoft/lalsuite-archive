@@ -103,6 +103,7 @@ typedef struct
   const LALDetector *site;		/**< detector site to compute metric for */
   const EphemerisData *edat;		/**< ephemeris data */
   vect3Dlist_t *rOrb_n;			/**< list of orbital-radius derivatives at refTime of order n = 0, 1, ... */
+  BOOLEAN approxPhase;			/**< use an approximate phase-model, neglecting Roemer delay in spindown coordinates (or orders \>= 1) */
 } intparams_t;
 
 
@@ -356,12 +357,17 @@ CWPhaseDeriv_i ( double tt, void *params )
   /* account for referenceTime != startTime */
   REAL8 tau0 = ( par->startTime - par->refTime ) / Tspan;
 
-  /* correct for time-delay from SSB to detector, neglecting relativistic effects */
-  REAL8 dTRoemerSI = SCALAR(nn_equ, posvel.pos );
-  REAL8 dTRoemer = dTRoemerSI / Tspan;		/* SSB time-delay in 'natural units' */
-
   /* barycentric time-delay since reference time, measured in units of Tspan */
-  REAL8 tau = tau0 + tt + dTRoemer;
+  REAL8 tau = tau0 + tt;
+
+  /* correct for time-delay from SSB to detector (Roemer delay), neglecting relativistic effects */
+  if ( !par->approxPhase )
+    {
+      REAL8 dTRoemerSI = SCALAR(nn_equ, posvel.pos );
+      REAL8 dTRoemer = dTRoemerSI / Tspan;		/* SSB time-delay in 'natural units' */
+
+      tau += dTRoemer;
+    }
 
   REAL8 nNat = Freq * Tspan * 1e-4;	/* 'natural sky-units': Freq * Tspan * V/c */
 
@@ -869,6 +875,7 @@ XLALDopplerPhaseMetric ( const DopplerMetricParams *metricParams,  	/**< input p
   intparams.dopplerPoint = &(metricParams->signalParams.Doppler);
   intparams.detMotionType = metricParams->detMotionType;
   intparams.site = ifo;
+  intparams.approxPhase = metricParams->approxPhase;
   /* deactivate antenna-patterns for phase-metric */
   intparams.amcomp1 = AMCOMP_NONE;
   intparams.amcomp2 = AMCOMP_NONE;
@@ -1477,7 +1484,7 @@ XLALDopplerCoordinateHelpAll ( void )
   /* get maximal field-length of coordinate names */
   for ( i = 0; i < DOPPLERCOORD_LAST; i ++ )
     {
-      if ( (name = XLALDopplerCoordinateName ( i )) == NULL ) {
+      if ( (name = XLALDopplerCoordinateName (  (DopplerCoordinateID) i )) == NULL ) {
 	XLAL_ERROR_NULL ( XLAL_EINVAL );
       }
       maxlen = MYMAX ( maxlen, strlen(name) );
@@ -1487,10 +1494,10 @@ XLALDopplerCoordinateHelpAll ( void )
   /* assemble help-lines */
   for ( i = 0; i < DOPPLERCOORD_LAST; i ++ )
     {
-      if ( (name = XLALDopplerCoordinateName ( i )) == NULL ) {
+      if ( (name = XLALDopplerCoordinateName ( (DopplerCoordinateID) i )) == NULL ) {
 	XLAL_ERROR_NULL ( XLAL_EINVAL );
       }
-      if ( (help = XLALDopplerCoordinateHelp ( i )) == NULL ) {
+      if ( (help = XLALDopplerCoordinateHelp ( (DopplerCoordinateID) i )) == NULL ) {
 	XLAL_ERROR_NULL ( XLAL_EINVAL );
       }
 
@@ -2191,3 +2198,67 @@ findHighestGCSpinOrder ( const DopplerCoordinateSystem *coordSys )
 
   return maxorder;
 } /*  findHighestSpinOrder() */
+
+
+/** "DiagNormalize" a metric matrix.
+ * DiagNormalization means normalize metric by its diagonal, namely apply the transformation
+ * G_ij = g_ij /sqrt(g_ii * g_jj), to all elements, resulting in lower
+ * condition number and unit diagonal elements.
+ *
+ * return NULL on error, otherwise new matrix is allocated here.
+ */
+gsl_matrix *
+XLALDiagNormalizeMetric ( const gsl_matrix * g_ij )
+{
+  const char *fn = __func__;
+  UINT4 i,j, dim1, dim2;
+  gsl_matrix *ret_ij;
+
+  if ( !g_ij ) {
+    XLALPrintError ("%s: invalid NULL input 'g_ij'.\n", fn );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
+  }
+
+  dim1 = g_ij->size1;
+  dim2 = g_ij->size2;
+
+  if ( dim1 != dim2 ) {
+    XLALPrintError ( "%s: input matrix g_ij must be square! (got %d x %d)\n", fn, dim1, dim2 );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
+  }
+
+  if ( (ret_ij = gsl_matrix_alloc ( dim1, dim2 )) == NULL ) {
+    XLALPrintError ("%s: failed to gsl_matrix_alloc(%d, %d)\n", fn, dim1, dim2 );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
+  }
+
+  for ( i=0; i < dim1; i++)
+    {
+    for ( j=0; j < dim2; j++ )
+      {
+        if ( i == j )
+          {
+            gsl_matrix_set ( ret_ij, i, j, 1.0 );	/* use exact result on diagonal */
+          }
+        else
+          {
+            double gtmp_ii = gsl_matrix_get(g_ij, i, i);
+            double gtmp_jj = gsl_matrix_get(g_ij, j, j);
+
+            if ( (gtmp_ii <= 0) || (gtmp_jj <= 0 ) ) {
+              XLALPrintError ("%f: DiagNormalize not defined for non-positive diagonal elements! i=%d, j=%d, g_ii=%g, g_jj=%g\n", i, j, gtmp_ii, gtmp_jj );
+              XLAL_ERROR_NULL ( XLAL_EDOM );
+            }
+
+            double gtmp_ij = gsl_matrix_get(g_ij, i, j);
+            double new_ij = gtmp_ij / sqrt ( gtmp_ii * gtmp_jj );
+
+            gsl_matrix_set ( ret_ij, i, j, new_ij );
+          }
+      } /* for j < dim2 */
+
+    } /* for i < dim1 */
+
+  return ret_ij;
+
+} /* XLALDiagNormalizeMetric() */

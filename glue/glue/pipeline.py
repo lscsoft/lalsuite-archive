@@ -195,6 +195,12 @@ class CondorJob:
     """
     self.__condor_cmds[cmd] = value
 
+  def get_condor_cmds(self):
+    """
+    Return the dictionary of condor keywords to add to the job
+    """
+    return self.__condor_cmds
+
   def add_input_file(self, filename):
     """
     Add filename as a necessary input file for this DAG node.
@@ -488,7 +494,7 @@ class CondorDAGJob(CondorJob):
     self.__have_var_args = 0
     self.__bad_macro_chars = re.compile(r'[_-]')
 
-  def add_var_opt(self, opt):
+  def add_var_opt(self, opt, short=False):
     """
     Add a variable (or macro) option to the condor job. The option is added
     to the submit file and a different argument to the option can be set for
@@ -498,7 +504,10 @@ class CondorDAGJob(CondorJob):
     if opt not in self.__var_opts:
       self.__var_opts.append(opt)
       macro = self.__bad_macro_chars.sub( r'', opt )
-      self.add_opt(opt,'$(macro' + macro + ')')
+      if short:
+        self.add_short_opt(opt,'$(macro' + macro + ')')
+      else:
+        self.add_opt(opt,'$(macro' + macro + ')')
 
   def add_var_arg(self):
     """
@@ -631,6 +640,7 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
+    self.__pegasus_profile = []
 
     # generate the md5 node name
     t = str( long( time.time() * 1000 ) )
@@ -647,6 +657,23 @@ class CondorDAGNode:
     Return the CondorJob that this node is associated with.
     """
     return self.__job
+
+  def add_pegasus_profile(self, namespace, key, value):
+    """
+    Add a Pegasus profile to this job which will be written to the dax as
+    <profile namespace="NAMESPACE" key="KEY">VALUE</profile>
+    This can be used to add classads to particular jobs in the DAX
+    @param namespace: A valid Pegasus namespace, e.g. condor.
+    @param key: The name of the attribute.
+    @param value: The value of the attribute.
+    """
+    self.__pegasus_profile.append((str(namespace),str(key),str(value)))
+
+  def get_pegasus_profile(self):
+    """
+    Return the pegasus profile dictionary for this node.
+    """
+    return self.__pegasus_profile
 
   def set_pre_script(self,script):
     """
@@ -671,12 +698,27 @@ class CondorDAGNode:
     """
     self.__post_script = script
 
+  def get_post_script(self):
+    """
+    returns the name of the post script that is executed before the DAG node is
+    run.
+    @param script: path to script
+    """
+    return self.__post_script
+
   def add_post_script_arg(self,arg):
     """
     Adds an argument to the post script that is executed before the DAG node is
     run.
     """
     self.__post_script_args.append(arg)
+
+  def get_post_script_arg(self):
+    """
+    Returns and array of arguments to the post script that is executed before
+    the DAG node is run.
+    """
+    return self.__post_script_args
 
   def set_name(self,name):
     """
@@ -832,7 +874,7 @@ class CondorDAGNode:
     """
     return self.__opts
 
-  def add_var_opt(self,opt,value):
+  def add_var_opt(self,opt,value,short=False):
     """
     Add a variable (macro) option for this node. If the option
     specified does not exist in the CondorJob, it is added so the submit
@@ -842,7 +884,7 @@ class CondorDAGNode:
     """
     macro = self.__bad_macro_chars.sub( r'', opt )
     self.__opts['macro' + macro] = value
-    self.__job.add_var_opt(opt)
+    self.__job.add_var_opt(opt,short)
 
   def add_file_opt(self,opt,filename,file_is_output_file=False):
     """
@@ -1459,6 +1501,17 @@ class CondorDAG:
         if node.get_retry():
           workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","retry",str(node.get_retry())))
 
+        # write the post script for this node
+        if node.get_post_script():
+          post_script_base = os.path.basename(node.get_post_script())
+          post_script_path = os.path.join(os.getcwd(),node.get_post_script())
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post",post_script_base))
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post.path." + post_script_base,post_script_path))
+
+        # write the post script for this node
+        if node.get_post_script_arg():
+          workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","post.arguments",' '.join(node.get_post_script_arg())))
+
         # write the dag node category if this node has one
         if node.get_category():
           workflow_job.addProfile(Pegasus.DAX3.Profile("dagman","category",str(node.get_category())))
@@ -1474,6 +1527,11 @@ class CondorDAG:
         else:
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
 
+        # add any other user specified condor commands or classads
+        for p in node.get_pegasus_profile():
+            workflow_job.addProfile(Pegasus.DAX3.Profile(p[0],p[1],p[2]))
+
+        # finally add this job to the workflow
         workflow.addJob(workflow_job)
         node_job_object_dict[node_name] = workflow_job
 
@@ -1563,11 +1621,18 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
       except:
         pass
+
       print >> sitefile, """\
     <profile namespace="pegasus" key="style">condor</profile>
-    <profile namespace="pegasus" key="gridstart">none</profile>
+    <profile namespace="condor" key="getenv">True</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
-    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile> 
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>"""
+
+      if not self.is_dax():
+        print >> sitefile, """\
+    <profile namespace="pegasus" key="gridstart">none</profile>"""
+
+      print >> sitefile, """\
   </site>
 </sitecatalog>""" 
       sitefile.close()

@@ -235,6 +235,7 @@ void initializeMCMC(LALInferenceRunState *runState)
     runState->proposal=&LALInferenceRapidSkyLocProposal;
   else
     runState->proposal=&LALInferenceDefaultProposal;
+    //runState->proposal=&LALInferencetempProposal;
 
   /* Choose the template generator for inspiral signals */
   runState->template=&LALInferenceTemplateLAL;
@@ -277,8 +278,9 @@ void initializeMCMC(LALInferenceRunState *runState)
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
     runState->prior=&LALInferenceInspiralSkyLocPrior;
   } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood") || 
-              LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
-    runState->prior=&LALInferenceNullPrior;
+             LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood") ||
+             LALInferenceGetProcParamVal(commandLine, "--nullprior")) {
+    runState->prior=&LALInferenceAnalyticNullPrior;
   } else {
     runState->prior=&LALInferenceInspiralPriorNormalised;
   }

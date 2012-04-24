@@ -56,7 +56,7 @@ typedef int Py_ssize_t;
  * form "table:column:integer", for example "process:process_id:10".  Large
  * complex documents can have many millions of these strings, and their
  * storage represents a significant RAM burden.  At the same time, however,
- * while there can be millions of ID strings in use there may be only a
+ * while there can be millions of ID strings in use there might be only a
  * small number (e.g. 10 or fewer) ID prefixes in use (the table name and
  * column name part).  This C extension module implements a class that
  * tries to reduce the storage requirements of these ID strings by storing
@@ -147,15 +147,15 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 		/* we've been passed a string, see if we can parse
 		 * it */
 		Py_ssize_t len = strlen(s);
-		Py_ssize_t converted_len = -1;
+		int converted_len = -1;
 		char *table_name = NULL, *column_name = NULL;
 
 		/* can we parse it as an ilwd:char string? */
-		sscanf(s, "%a[^:]:%a[^:]:%zu%zu", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
+		sscanf(s, " %a[^:]:%a[^:]:%zu %n", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
 		if(converted_len < len) {
 			/* nope, how 'bout just an int? */
 			converted_len = -1;
-			sscanf(s, "%zu%zu", &((ligolw_ilwdchar *) new)->i, &converted_len);
+			sscanf(s, " %zu %n", &((ligolw_ilwdchar *) new)->i, &converted_len);
 			if(converted_len < len) {
 				/* nope */
 				PyErr_Format(PyExc_ValueError, "invalid literal for ilwdchar(): '%s'", s);
@@ -255,10 +255,13 @@ static PyObject *ligolw_ilwdchar___richcompare__(PyObject *self, PyObject *other
 	else {
 		long r;
 
+		/* compare by table name */
 		r = strcmp(PyString_AsString(tbl_s), PyString_AsString(tbl_o));
 		if(!r)
+			/* break ties by comparing by column name */
 			r = strcmp(PyString_AsString(col_s), PyString_AsString(col_o));
 		if(!r)
+			/* break ties by comparing by row ID */
 			r = ((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i;
 
 		switch(op) {
@@ -335,7 +338,8 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 		/* can't be converted to int, maybe it's an ilwd:char of
 		 * the same type as us */
 		if(other->ob_type != self->ob_type)
-			/* nope --> type error */
+			/* nope --> type error (already set from the int
+			 * conversion failure) */
 			return NULL;
 
 		/* yes it is, return the ID difference as an int */
@@ -382,17 +386,20 @@ PyTypeObject ligolw_ilwdchar_Type = {
 ">>> x = ID(10)\n" \
 ">>> print x\n" \
 "table_a:column_b:10\n" \
+">>> x = ID(\" 10 \")	# ignores whitespace\n" \
+">>> print x\n" \
+"table_a:column_b:10\n" \
 ">>> print x + 35\n" \
 "table_a:column_b:45\n" \
-">>> y = ID(\"table_a:column_b:10\")\n" \
+">>> y = ID(\" table_a:column_b:10 \")	# ignores whitespace\n" \
 ">>> print x - y\n" \
-"0\n" \
+"table_a:column_b:0\n" \
 ">>> x == y\n" \
 "True\n" \
 ">>> x is y\n" \
 "False\n" \
-">>> set([x, y])\n" \
-"set([<__main__.ID object at 0x2b880379e6e0>])\n" \
+">>> len(set([x, y]))\n" \
+"1\n" \
 "\n" \
 "Note that the two instances have the same hash value and compare as equal,\n" \
 "and so only one of them remains in the set although they are not the same\n" \

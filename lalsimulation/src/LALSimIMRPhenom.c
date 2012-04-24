@@ -445,7 +445,7 @@ static BBHPhenomParams *ComputeIMRPhenomAParams(const REAL8 m1, const REAL8 m2) 
 /* Takes solar masses. Populates and returns a new BBHPhenomParams   */
 /* structure.                                                        */
 /*********************************************************************/
-static BBHPhenomParams *ComputeIMRPhenomBParams(const REAL8 m1, const REAL8 const m2, const REAL8 chi) {
+static BBHPhenomParams *ComputeIMRPhenomBParams(const REAL8 m1, const REAL8 m2, const REAL8 chi) {
   /* calculate the total mass and symmetric mass ratio */
   const REAL8 totalMass = m1 + m2;
   const REAL8 eta = m1 * m2 / (totalMass * totalMass);
@@ -903,10 +903,12 @@ static int apply_phase_shift(const REAL8TimeSeries *hp, const REAL8TimeSeries *h
     REAL8 *hpdata = hp->data->data;
     REAL8 *hcdata = hc->data->data;
     size_t k = hp->data->length;
+    const double cs = cos(shift);
+    const double ss = sin(shift);
 
     for (;k--;) {
-        const REAL8 temp_hpdata = hpdata[k] * cos(shift) - hcdata[k] * sin(shift);
-        hcdata[k] = hpdata[k] * sin(shift) + hcdata[k] * cos(shift);
+        const REAL8 temp_hpdata = hpdata[k] * cs - hcdata[k] * ss;
+        hcdata[k] = hpdata[k] * ss + hcdata[k] * cs;
         hpdata[k] = temp_hpdata;
     }
     return 0;

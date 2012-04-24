@@ -25,7 +25,6 @@
  * Function to compute the full F-statistic metric, including
  * antenna-pattern functions from multi-detector, derived in \ref Prix07.
  *
- *
  */
 
 #ifndef _UNIVERSALDOPPLERMETRIC_H  /* Double-include protection. */
@@ -316,6 +315,7 @@ typedef struct tagDopplerMetricParams
   INT4 projectCoord;				/**< project metric onto subspace orthogonal to this axis (-1 = none, 0 = 1st coordinate, etc) */
 
   MetricType_t metricType;			/**< switch controlling which types of metric to compute: 0 = PhaseMetric g_ij, 1 = Fmetrics gF.., 2=BOTH */
+  BOOLEAN approxPhase;				/**< use an approximate phase-model, neglecting Roemer delay in spindown coordinates */
 } DopplerMetricParams;
 
 
@@ -417,6 +417,8 @@ const CHAR *XLALDopplerCoordinateName ( DopplerCoordinateID coordID );
 const CHAR *XLALDopplerCoordinateHelp ( DopplerCoordinateID coordID );
 CHAR *XLALDopplerCoordinateHelpAll ( void );
 int XLALParseMultiDetectorInfo ( MultiDetectorInfo *detInfo, const LALStringVector *detNames, const LALStringVector *detWeights );
+
+gsl_matrix *XLALDiagNormalizeMetric ( const gsl_matrix * g_ij );
 
 // destructor for vect3Dlist_t type
 void XLALDestroyVect3Dlist ( vect3Dlist_t *list );

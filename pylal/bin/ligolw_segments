@@ -176,7 +176,7 @@ for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "reading \"%s\" for instrument \"%s\" (name %s) ..." % (filename, instrument, repr(options.name))
 
-		ligolw_segments.insert_from_segwizard(segments_tables, file(filename), set([instrument]), options.name, options.comment)
+		segments_tables.insert_from_segwizard(file(filename), set([instrument]), options.name, options.comment)
 
 
 	#
@@ -194,7 +194,7 @@ for url in urls:
 					seglistdicts[cacheentry.description] = segments.segmentlistdict()
 				seglistdicts[cacheentry.description] |= cacheentry.to_segmentlistdict()
 		for name, seglists in seglistdicts.items():
-			ligolw_segments.insert_from_segmentlistdict(segments_tables, seglists, name, options.comment)
+			segments_tables.insert_from_segmentlistdict(seglists, name, options.comment)
 		del seglistdicts
 
 
