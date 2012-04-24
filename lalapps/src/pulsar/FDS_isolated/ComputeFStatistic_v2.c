@@ -35,18 +35,6 @@
  *
  *
  *********************************************************************************/
-#ifdef EAH_BOINC
-#include "../GCT/hs_boinc_extras.h"
-#define COMPUTEFSTATFREQBAND_RS ComputeFStatFreqBand_RS
-#else
-#define GET_CHECKPOINT(toplist,total,countp,outputname,cptname) if(read_hfs_checkpoint("checkpoint.cpt", semiCohToplist, &count)) count=0
-#define SET_CHECKPOINT write_hfs_checkpoint("checkpoint.cpt",semiCohToplist,skyGridCounter*nf1dot+ifdot,1)
-#define SHOW_PROGRESS(rac,dec,skyGridCounter,tpl_total,freq,fband)
-#define MAIN  main
-#define FOPEN fopen
-#define COMPUTEFSTATFREQBAND ComputeFStatFreqBand
-#define COMPUTEFSTATFREQBAND_RS ComputeFStatFreqBand_RS
-#endif
 #include "config.h"
 
 /* System includes */
@@ -69,7 +57,6 @@ int finite(double);
 #include <lal/UserInput.h>
 #include <lal/SFTfileIO.h>
 #include <lal/ExtrapolatePulsarSpins.h>
-#include <lal/ProbabilityDensity.h>
 
 #include <lal/NormalizeSFTRngMed.h>
 #include <lal/ComputeFstat.h>
@@ -126,7 +113,6 @@ int finite(double);
 
 #define MYMAX(x,y) ( (x) > (y) ? (x) : (y) )
 #define MYMIN(x,y) ( (x) < (y) ? (x) : (y) )
-#define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
 
 #define LAL_INT4_MAX 2147483647
 
@@ -183,7 +169,6 @@ typedef struct {
   PulsarDopplerParams stepSizes;	    /**< user-preferences on Doppler-param step-sizes */
   EphemerisData *ephemeris;		    /**< ephemeris data (from LALInitBarycenter()) */
   MultiSFTVector *multiSFTs;		    /**< multi-IFO SFT-vectors */
-  MultiSFTVectorSequence stackMultiSFT;
   UINT4 NSFTs;				    /**< total number of all SFTs used */
   MultiDetectorStateSeries *multiDetStates; /**< pos, vel and LMSTs for detector at times t_i */
   MultiNoiseWeights *multiNoiseWeights;	    /**< normalized noise-weights of those SFTs */
@@ -196,6 +181,7 @@ typedef struct {
   REAL4 LVlogRhoTerm;                       /**< log(rho^4/70) of LV line-prior amplitude 'rho' */
   REAL4Vector *LVloglX;                     /**< vector of line-prior ratios per detector {l1, l2, ... } */
 } ConfigVariables;
+
 
 /* ----- User-variables: can be set from config-file or command-line */
 typedef struct {
@@ -246,7 +232,6 @@ typedef struct {
 
   /* --- */
   REAL8 TwoFthreshold;		/**< output threshold on 2F */
-  INT4 uvar_nStacksMax;
   CHAR *ephemDir;		/**< directory to look for ephemeris files */
   CHAR *ephemYear;		/**< date-range string on ephemeris-files to use */
 
@@ -396,10 +381,8 @@ LocalComputeFStat ( LALStatus*, Fcomponents*, const PulsarDopplerParams*,
 int main(int argc,char *argv[])
 {
   LALStatus status = blank_status;	/* initialize status */
-  UINT4 j, k, l;
   UINT4 fveclength = 1;
   UINT4 ifreq = 0;
-  REAL8 myf0, f1dot_event, deltaF;
 
   FILE *fpFstat = NULL, *fpTransientStats = NULL;
   ComputeFBuffer cfBuffer = empty_ComputeFBuffer;
@@ -408,38 +391,19 @@ int main(int argc,char *argv[])
   REAL8 tickCounter;
   time_t clock0;
   Fcomponents Fstat = empty_Fcomponents;
-  REAL4FrequencySeriesVector fstatVector; /* F-statistic vectors for each segment */
-  UINT4 binsFstat1, extraBinsFstat, binsFstatSearch;
-  REAL8 cosAlpha, sinAlpha, cosDelta, sinDelta;
-  REAL8 nvec[3]; /* unit vector pointing to sky position */
 
-  /* General GPS times */
-  LIGOTimeGPS refTimeGPS = empty_LIGOTimeGPS;
+  /* variables only needed in resampling case */
+  REAL4FrequencySeries *fstatSeries; /* F-statistic series */
+  UINT4 binsFstat1, extraBinsFstat, binsFstatSearch;
   LIGOTimeGPS tStartGPS = empty_LIGOTimeGPS;
   LIGOTimeGPS tMidGPS = empty_LIGOTimeGPS;
-  REAL8 timeDiffSeg; /* Difference to tMidGPS (midpoint) of Tobs */
-
   REAL8 dFreqStack; /* frequency resolution of Fstat calculation */
   REAL8 df1dot;  /* coarse grid resolution in spindown */
-  REAL8 gammaRefine, sigmasq;
-
-  /* number of segments */
-  UINT4 nStacks = 1;
-
-  /* duration of each segment */
-  //REAL8 tStack;
-
-  /* Total observation time */
-  REAL8 tObs;
-
-  /* Semicoherent variables */
-  static SemiCoherentParams semiCohPar;
+  REAL8 tObs; /* Total observation time */
 
   ComputeFBufferVector_RS resampbuffers;  /* used to store the buffered quantities used in repeated calls to ComputeFstatFreqBand_RS */
-
+//   ComputeFBuffer_RS **resampbuffer;  /* used to store the buffered quantities used in repeated calls to ComputeFstatFreqBand_RS */
   PulsarDopplerParams dopplerpos = empty_PulsarDopplerParams;		/* current search-parameters */
-  static ComputeFParams CFparams;
-  INT4 uvar_sftUpsampling = 1;
   FstatCandidate loudestFCand = empty_FstatCandidate, thisFCand = empty_FstatCandidate;
   BinaryOrbitParams *orbitalParams = NULL;
   FILE *fpLogPrintf = NULL;
@@ -494,15 +458,12 @@ int main(int argc,char *argv[])
 
   if ( uvar.useResamp ) {
 
-    /* some useful timestamp params
-     FIXME: Do we actually need all these? */
+    /* some useful timestamp params */
     tObs = GV.multiDetStates->Tspan;
-    nStacks = 1;
     tStartGPS = GV.multiDetStates->startTime;
     REAL8 tStart8 = XLALGPSGetREAL8( &tStartGPS );
     REAL8 tMid8 = tStart8 + 0.5 * tObs;
     XLALGPSSetREAL8( &tMidGPS, tMid8 );
-    refTimeGPS = tStartGPS;
 
     /* set Fstat calculation frequency resolution (coarse grid) */
     dFreqStack = 1.0/(2*tObs);	//To allow ComputeFstat_RS to handle freq. range
@@ -510,7 +471,7 @@ int main(int argc,char *argv[])
 				//and dFreqStack is the actual frequency resolution that will be used by ComputeFstat_RS.c
 				//This version of resampling does not currently support user-defined frequency resolution
 
-    /* set Fstat spindown resolution (coarse grid) */
+    /* set Fstat spindown resolution */
     if ( LALUserVarWasSet(&uvar.df1dot) ) {
       df1dot = uvar.df1dot;
     }
@@ -518,15 +479,6 @@ int main(int argc,char *argv[])
       df1dot = 1.0/(2*tObs*tObs);
     }
 
-    /* set number of fine-grid spindowns */
-      sigmasq = 0.0; /* second moment of segments' midpoints */
-      for (j = 0; j < nStacks; j++) {
-        timeDiffSeg = 0.0;
-        sigmasq = sigmasq + (timeDiffSeg * timeDiffSeg);
-      }
-      sigmasq = sigmasq / (nStacks * tObs * tObs);
-      /* Refinement factor (approximate) */
-      gammaRefine = sqrt(1.0 + 60 * sigmasq);   /* Eq. from PRL, page 3 */
   } /*--if uvar.useResamp initialization--*/
 
   /* ----- produce a log-string describing the specific run setup ----- */
@@ -623,47 +575,28 @@ int main(int argc,char *argv[])
       if ( uvar.useResamp ) {
         /*---------- set up F-statistic calculation stuff -- Resampling Mode---------*/
 
-        SkyPosition skypos;
-
-        /* Calculate unit vector n */
-        cosAlpha = cos(dopplerpos.Alpha);
-        sinAlpha = sin(dopplerpos.Alpha);
-        cosDelta = cos(dopplerpos.Delta);
-        sinDelta = sin(dopplerpos.Delta);
-        nvec[0] = cosAlpha * cosDelta;
-        nvec[1] = sinAlpha * cosDelta;
-        nvec[2] = sinDelta;
-
-        /* get amplitude modulation weights */
-        skypos.longitude = dopplerpos.Alpha;
-        skypos.latitude = dopplerpos.Delta;
-        skypos.system = COORDINATESYSTEM_EQUATORIAL;
-
         /* allocate buffer memory for resampling - initialise first */
-        resampbuffers.length = nStacks;
+        resampbuffers.length = 1;
         resampbuffers.data = NULL;
-        resampbuffers.data = (ComputeFBuffer_RS **)XLALCalloc(nStacks,sizeof(ComputeFBuffer_RS *));
+        resampbuffers.data = (ComputeFBuffer_RS **)XLALCalloc(1,sizeof(ComputeFBuffer_RS *));
           if ( resampbuffers.data == NULL ) {
             fprintf(stderr, "error allocating memory [ComputeFStatistic_v2.c %d]\n" , __LINE__);
             return(COMPUTEFSTATISTIC_EMEM);
           }
-
-        /* some compute F-Stat params */
-        CFparams.Dterms = uvar.Dterms;
-        CFparams.SSBprec = uvar.SSBprecision;
-        CFparams.upsampling = uvar_sftUpsampling;
-        CFparams.edat = GV.ephemeris;
+//         resampbuffer = (ComputeFBuffer_RS **)XLALCalloc(1,sizeof(ComputeFBuffer_RS *));
+//           if ( resampbuffer == NULL ) {
+//             fprintf(stderr, "error allocating memory [ComputeFStatistic_v2.c %d]\n" , __LINE__);
+//             return(COMPUTEFSTATISTIC_EMEM);
+//           }
 
         /* allocate some fstat memory */
-        fstatVector.length = nStacks; /* for EACH segment generate a fstat-vector */
-        fstatVector.data = NULL;
-        fstatVector.data = (REAL4FrequencySeries *)LALCalloc( 1, nStacks * sizeof(REAL4FrequencySeries));
-        if ( fstatVector.data == NULL) {
+        fstatSeries = (REAL4FrequencySeries *)LALCalloc( 1, sizeof(REAL4FrequencySeries));
+        if ( fstatSeries == NULL) {
           fprintf(stderr, "error allocating memory [ComputeFStatistic_v2.c %d]\n" , __LINE__);
           return(COMPUTEFSTATISTIC_EMEM);
         }
 
-        {  /********Allocate fstat vector memory *****************/
+        {  /********Allocate fstat series memory *****************/
 
           /* calculate number of bins for Fstat overhead due to residual spin-down */
           extraBinsFstat = (UINT4)( (0.25 * tObs * df1dot)/dFreqStack + 1e-6) + 1;
@@ -672,55 +605,48 @@ int main(int argc,char *argv[])
           binsFstatSearch = (UINT4)(uvar.FreqBand/dFreqStack + 1e-6) + 1;
           binsFstat1 = binsFstatSearch + 2 * extraBinsFstat;
 
-          /* loop over segments for memory allocation */
-          for (k = 0; k < nStacks; k++) {
+          /* watch out: the epoch here is not the reference time for f0! */
+          fstatSeries->epoch = tStartGPS;
+          fstatSeries->deltaF = dFreqStack;
+          fstatSeries->f0 = uvar.Freq;
 
-            /* watch out: the epoch here is not the reference time for f0! */
-            fstatVector.data[k].epoch = tStartGPS;
-            fstatVector.data[k].deltaF = dFreqStack;
-            fstatVector.data[k].f0 = uvar.Freq;
-
-            if (fstatVector.data[k].data == NULL) {
-              fstatVector.data[k].data = (REAL4Sequence *)LALCalloc( 1, sizeof(REAL4Sequence));
-              if ( fstatVector.data[k].data == NULL) {
-                fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
-                return(COMPUTEFSTATISTIC_EMEM);
-              }
-
-              fstatVector.data[k].data->length = binsFstat1;
-              fstatVector.data[k].data->data = (REAL4 *)LALCalloc( 1, binsFstat1 * sizeof(REAL4));
-              if ( fstatVector.data[k].data->data == NULL) {
-                fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
-                return(COMPUTEFSTATISTIC_EMEM);
-              }
-
-            }
-            else {
-              fstatVector.data[k].data = (REAL4Sequence *)LALRealloc( fstatVector.data[k].data, sizeof(REAL4Sequence));
-              if ( fstatVector.data[k].data == NULL) {
-                fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
-                return(COMPUTEFSTATISTIC_EMEM);
-              }
-
-              fstatVector.data[k].data->length = binsFstat1;
-              fstatVector.data[k].data->data = (REAL4 *)LALRealloc( fstatVector.data[k].data->data, binsFstat1 * sizeof(REAL4));
-              if ( fstatVector.data[k].data->data == NULL) {
-                fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
-                return(COMPUTEFSTATISTIC_EMEM);
-              }
-
+          if (fstatSeries->data == NULL) {
+            fstatSeries->data = (REAL4Sequence *)LALCalloc( 1, sizeof(REAL4Sequence));
+            if ( fstatSeries->data == NULL) {
+              fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
+              return(COMPUTEFSTATISTIC_EMEM);
             }
 
-          } /* loop over segments */
+            fstatSeries->data->length = binsFstat1;
+            fstatSeries->data->data = (REAL4 *)LALCalloc( 1, binsFstat1 * sizeof(REAL4));
+            if ( fstatSeries->data->data == NULL) {
+              fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
+              return(COMPUTEFSTATISTIC_EMEM);
+            }
+
+          }
+          else {
+            fstatSeries->data = (REAL4Sequence *)LALRealloc( fstatSeries->data, sizeof(REAL4Sequence));
+            if ( fstatSeries->data == NULL) {
+              fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
+              return(COMPUTEFSTATISTIC_EMEM);
+            }
+
+            fstatSeries->data->length = binsFstat1;
+            fstatSeries->data->data = (REAL4 *)LALRealloc( fstatSeries->data->data, binsFstat1 * sizeof(REAL4));
+            if ( fstatSeries->data->data == NULL) {
+              fprintf(stderr, "ERROR: Memory allocation  [ComputeFStatistic_v2.c %d]\n" , __LINE__);
+              return(COMPUTEFSTATISTIC_EMEM);
+            }
+
+          }
 
         } /*fstat memory allocation block*/
 
-      } /*--if useResamp memory allocation-- */
+        /* Length and spacing of the Fstat vector in frequency - needed for second resampling for loop */
+        fveclength = fstatSeries->data->length;
 
-      for (k = 0; k < nStacks; k++) {  	//For loop for the resampling case, helpful for freeing memory that was
-					//allocated in a similar loop above. Its arguments are set such that
-					//if useResamp is not selected, it will execute only once,
-					//mirroring the non-resampling case.
+      } /*--if useResamp memory allocation-- */
 
       dopplerpos.orbit = orbitalParams;		/* temporary solution until binary-gridding exists */
 
@@ -741,21 +667,15 @@ int main(int argc,char *argv[])
         {
           /************************ Compute F-Statistic--Resampling************************/
 
-          /* Length and spacing of the Fstat vector in frequency */
-          fveclength = fstatVector.data[k].data->length;
-          deltaF = fstatVector.data[k].deltaF;
-
-          /* Frequency at the segment's midpoint for later use */
-          f1dot_event = dopplerpos.fkdot[1];
-          myf0 = dopplerpos.fkdot[0] + dopplerpos.fkdot[1] * timeDiffSeg;
-
           /* point the params buffer to the current segment buffer */
-	  CFparams.buffer = resampbuffers.data[k];
+	  GV.CFparams.buffer = resampbuffers.data[0];
+//           GV.CFparams.buffer = *resampbuffer;
 
-          LAL_CALL( COMPUTEFSTATFREQBAND_RS ( &status, &fstatVector.data[k], &dopplerpos, GV.multiSFTs, GV.multiNoiseWeights, &CFparams), &status);
+          LAL_CALL( ComputeFStatFreqBand_RS ( &status, fstatSeries, &dopplerpos, GV.multiSFTs, GV.multiNoiseWeights, &GV.CFparams), &status);
 
           /* repoint the buffer vector element to the potentially modified buffer */
-	  resampbuffers.data[k] = CFparams.buffer;
+          resampbuffers.data[0] = GV.CFparams.buffer;
+//           resampbuffer = &GV.CFparams.buffer;
         } /* if useResamp==true */
       else if ( ! uvar.GPUready )
         {
@@ -779,6 +699,7 @@ int main(int argc,char *argv[])
       toc = GETTIME();
       timing.tauFstat += (toc - tic);	// pure Fstat-calculation time
 
+
       /* Progress meter */
       templateCounter += 1.0;
       if ( lalDebugLevel && ( ++tickCounter > uvar.timerCount) )
@@ -799,7 +720,7 @@ int main(int argc,char *argv[])
                                                         //mirroring the non-resampling case.
 
       if ( uvar.useResamp ) {
-        Fstat.F = (REAL8)fstatVector.data[k].data->data[ifreq];
+        Fstat.F = (REAL8)fstatSeries->data->data[ifreq];
       } /* --setting the result correctly for the output processing in the resampling case-- */
 
       /* sanity check on the result */
@@ -1102,27 +1023,22 @@ int main(int argc,char *argv[])
 
       } /* loop over ifreq--for resampling, see line 870 above */
 
+      /* free resampling memory */
       if ( uvar.useResamp ) {
-        /* free resampling memory */
-        /* free Fstat vectors  */
-        if (fstatVector.data[k].data) {
-          if (fstatVector.data[k].data->data)
-            LALFree(fstatVector.data[k].data->data);
-          LALFree(fstatVector.data[k].data);
+        /* free Fstat series  */
+        if (fstatSeries->data) {
+          if (fstatSeries->data->data)
+            LALFree(fstatSeries->data->data);
+          LALFree(fstatSeries->data);
         }
-      }
-
-      } /* loop over k--for resampling, see line 796 above */
-
-      if ( uvar.useResamp ) {
-        LALFree(fstatVector.data);
+        LALFree(fstatSeries);
 
         /* free buffer */
-        for (l=0;l<resampbuffers.length;l++) {
-          XLALEmptyComputeFBuffer_RS( resampbuffers.data[l] );
-          XLALFree(resampbuffers.data[l]);
-        }
+        XLALEmptyComputeFBuffer_RS( resampbuffers.data[0] );
+        XLALFree(resampbuffers.data[0]);
         XLALFree(resampbuffers.data);
+//         XLALEmptyComputeFBuffer_RS( *resampbuffer );
+//         XLALFree(*resampbuffer);
       }
 
       /* now measure total loop time per template */
@@ -2400,7 +2316,6 @@ checkUserInputConsistency (LALStatus *status, const UserInput_t *uvar)
 
   RETURN (status);
 } /* checkUserInputConsistency() */
-
 
 /* debug-output a(t) and b(t) into given file.
  * return 0 = OK, -1 on error
