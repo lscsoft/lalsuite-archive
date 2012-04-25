@@ -220,6 +220,9 @@ if opts.apply_weights:
 	for i,row in enumerate(exact_injections):
 		injtmp = list(row)
 		injtmp[-2]=str(injtmp[-2])
+		if injtmp[-2] == 'Ringdown':
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
+			exact_injections_log.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		if injtmp[-2] == 'uniform':
 			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
 			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
@@ -233,6 +236,8 @@ if opts.apply_weights:
 	for row in all_injections:
 		injtmp = list(row)
 		injtmp[-2]=str(injtmp[-2])
+		if injtmp[-2] == 'Ringdown':
+			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
 		if injtmp[-2] == 'uniform':
 			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
 		if injtmp[-2] == 'log10':

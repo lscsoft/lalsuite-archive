@@ -1551,7 +1551,6 @@ class CoincRingdownTable(table.Table):
 		"snr_ratio": "real_8",
 		"false_alarm_rate": "real_8",
 		"combined_far": "real_8",
-		"combined_far": "real_8"
 	}
 	# constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
