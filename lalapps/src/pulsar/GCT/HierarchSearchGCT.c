@@ -2125,8 +2125,11 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
   doppWings = freqHi * in->dopplerMax;    /* maximum Doppler wing -- probably larger than it has to be */
   extraBins = HSMAX ( in->blocksRngMed/2 + 1, in->Dterms );
 
-  freqmin = freqLo - doppWings - extraBins * deltaFsft - in->extraBinsFstat * in->dFreqStack;
-  freqmax = freqHi + doppWings + extraBins * deltaFsft + in->extraBinsFstat * in->dFreqStack;
+  freqmin = freqLo - doppWings - extraBins * deltaFsft - in->extraBinsFstat * in->dFreqStack + 0.5 * deltaFsft;
+  freqmax = freqHi + doppWings + extraBins * deltaFsft + in->extraBinsFstat * in->dFreqStack - 0.5 * deltaFsft;
+
+  LogPrintf (LOG_DEBUG, "\nLoading SFTs covering band [ freqmin = %.16g ( bin = %.0f ), freqmax = %.16g ( bin = %.0f )]\n",
+             freqmin , round(freqmin/deltaFsft), freqmax, round(freqmax/deltaFsft) );
 
   /* ----- finally memory for segments of multi sfts ----- */
   stackMultiSFT->length = in->nStacks;
