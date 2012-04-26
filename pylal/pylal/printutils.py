@@ -857,6 +857,13 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
             lsctables.Segment.set = set_segment
         
             veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+
+        # update the ring-sets with the vetoes
+        for available_instruments, rings in ring_sets.items():
+            for on_instruments in (combo for m in range(2, len(available_instruments) + 1) for combo in iterutils.choices(sorted(available_instruments), m)):
+                on_instruments = frozenset(on_instruments)
+                ring_sets.setdefault(on_instruments, segments.segmentlist())
+                ring_sets[on_instruments] += ring_sets[available_instruments] & veto_segments.intersection(available_instruments - on_instruments)
         
         #
         #   Get all the on_instrument times and cycle over them
@@ -885,8 +892,6 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
 
             # get on_time segments
             on_times = ring_sets[frozenset(on_instruments)]
-            for instrument in on_instruments:
-                on_times = on_times - veto_segments[instrument]
             
             def is_in_on_time(gps_time, gps_time_ns):
                 return LIGOTimeGPS(gps_time, gps_time_ns) in on_times
