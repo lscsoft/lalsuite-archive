@@ -91,10 +91,10 @@ coh_PTF_trig_combiner is designed to coalesce the triggers made from each elemen
 def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
           verbose=False):
 
-  # set up time counter
-  start = time.time()
-
   if verbose: sys.stdout.write("Getting segments...\n")
+
+  # get ifos
+  ifos = sorted(lsctables.instrument_set_from_ifos(ifoTag))
 
   #
   # construct segments
@@ -138,26 +138,67 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
     sys.stdout.write("%d files found at %d.\n"\
                      % (len(cache), elapsed_time()))
 
+  # set columns
+  ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }
+  # set up columns
+  validcols = lsctables.MultiInspiralTable.validcolumns.keys()
+  cols = ['end_time', 'end_time_ns', 'ifos', 'process_id', 'ra', 'dec', 'snr',\
+          'null_statistic', 'null_stat_degen', 'mass1', 'mass2', 'mchirp']
+  # add snr
+  cols.extend(['snr_%s' % ifoAtt[i] for i in ifos\
+               if 'snr_%s' % ifoAtt[i] in validcols])
+  # add chisq
+  cols.extend(['chisq', 'chisq_dof'])
+  cols.extend(['chisq_%s' % ifoAtt[i] for i in ifos\
+               if 'chisq_%s' % ifoAtt[i] in validcols])
+  # add bank chisq
+  cols.extend(['bank_chisq', 'bank_chisq_dof'])
+  #cols.extend(['bank_chisq_%s' % ifoAtt[i] for i in ifos\
+  #             if 'bank_chisq_%s' % ifoAtt[i] in validcols])
+  # add auto chisq  
+  cols.extend(['cont_chisq', 'cont_chisq_dof'])
+  #cols.extend(['cont_chisq_%s' % ifoAtt[i] for i in ifos\
+  #             if 'cont_chisq_%s' % ifoAtt[i] in validcols])
+  # add sigmasq
+  cols.extend(['sigmasq_%s' % ifoAtt[i] for i in ifos\
+               if 'sigmasq_%s' % ifoAtt[i] in validcols])
+  # add amplitude terms
+  cols.extend(['amp_term_%d' % i for i in xrange(1,11)])
+  # set columns
+  cols = [c for c in cols if c in\
+          lsctables.MultiInspiralTable.validcolumns.keys()]
+  lsctables.MultiInspiralTable.loadcolumns = cols
+  print cols
   # prepare triggers
   trigs = {}
  
   if verbose: sys.stdout.write("\nLoading all triggers...\n")
 
   # load triggers
-  trigs['ALL_TIMES'] =\
-      MultiInspiralUtils.ReadMultiInspiralFromFiles([e.path() for e in cache])
+  trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
+                               columns=lsctables.MultiInspiralTable.loadcolumns)
+  trigs['ALL_TIMES'].extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(\
+                                                       e.path() for e in cache))
+
   # Temporary hack to allow the code to work with tables that dont have
   # the new time slide ID column.
   if 'time_slide_id' not in trigs['ALL_TIMES'].columnnames:
     trigs['ALL_TIMES'].appendColumn('time_slide_id')
   for trig in trigs['ALL_TIMES']:
-    try:
-      tmp = trig.time_slide_id
-    except AttributeError:
+    if not hasattr(trig, 'time_slide_id'):
       trig.time_slide_id = ilwd.get_ilwdchar("multi_inspiral:time_slide_id:0")
 
   if verbose: sys.stdout.write("%d triggers found at %d.\n"\
                                % (len(trigs['ALL_TIMES']), elapsed_time()))
+
+  # 
+  # load search summary table
+  #
+
+  # get search summary table from old file
+  oldxml   = utils.load_filename(cache[0].path(),\
+                                  gz = cache[0].path().endswith("gz"))
+  oldSearchSummTable = table.get_table(oldxml, "search_summary")
 
   #
   # bin triggers
@@ -165,10 +206,13 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
 
   if verbose: sys.stdout.write("\nSeparating triggers by end time...\n")
 
-  trigs['ONSOURCE'] = lsctables.New(lsctables.MultiInspiralTable)
-  trigs['OFFSOURCE'] = lsctables.New(lsctables.MultiInspiralTable)
+  trigs['ONSOURCE'] = lsctables.New(lsctables.MultiInspiralTable,\
+                               columns=lsctables.MultiInspiralTable.loadcolumns)
+  trigs['OFFSOURCE'] = lsctables.New(lsctables.MultiInspiralTable,\
+                               columns=lsctables.MultiInspiralTable.loadcolumns)
   for i in range(numTrials):
-    trigs['OFFTRIAL_%d' % (i+1)] = lsctables.New(lsctables.MultiInspiralTable)
+    trigs['OFFTRIAL_%d' % (i+1)] = lsctables.New(lsctables.MultiInspiralTable,\
+                               columns=lsctables.MultiInspiralTable.loadcolumns)
 
   # separate into correct bins
   for trig in trigs['ALL_TIMES']:
@@ -198,9 +242,6 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
                                                  __date__)
  
   # get search summary table from old file
-  oldxml   = utils.load_filename(cache[0].path(),\
-                                  gz = cache[0].path().endswith("gz"))
-  oldSearchSummTable = table.get_table(oldxml, "search_summary")
   xmldoc.childNodes[-1].appendChild(oldSearchSummTable)
 
   # construct new xml file names
