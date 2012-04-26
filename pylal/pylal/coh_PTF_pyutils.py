@@ -1,4 +1,4 @@
-import os,sys,numpy,glob,math
+import os,sys,numpy,glob,math,re
 
 from pylal import grbsummary,antenna,llwapp
 from glue import segmentsUtils
@@ -10,16 +10,6 @@ from pylal import SimInspiralUtils, InspiralUtils
 from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
 import numpy as np
 
-# define new_snr
-def new_snr( snr, chisq, chisq_dof, q=4.0, n=3.0 ):
-
-  if chisq_dof==0:
-    chisq_dof = 40
-
-  if chisq <= chisq_dof:
-    return snr
-  return snr / ((1 + (chisq / chisq_dof)**(q/n)) / 2)**(1/q)
-
 # reverse engineer new_snr for contours
 def new_snr_chisq( snr, new_snr, chisq_dof, q=4.0, n=3.0 ):
 
@@ -29,7 +19,7 @@ def new_snr_chisq( snr, new_snr, chisq_dof, q=4.0, n=3.0 ):
     return 1E-20
   return chisq_dof * (2*chisqnorm - 1)**(n/q)
 
-def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), fResp = None ):
+def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6)):
 
   """
     Calculate BestNR (coh_PTF detection statistic) through signal based vetoes:
@@ -43,57 +33,49 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), fResp = None ):
     Returns BestNR as float
   """
 
+  snr = trig.snr
+
   # coherent SNR and null SNR cut
-  if (trig.snr < 6):
-    return 0
-
-  # bank veto cut
-  bank_new_snr = new_snr( trig.snr, trig.bank_chisq, trig.bank_chisq_dof, q, n )
-  if bank_new_snr < 6:
-    return 0
-
-  # auto veto cut
-  auto_new_snr = new_snr( trig.snr, trig.cont_chisq, trig.cont_chisq_dof, q, n )
-  if auto_new_snr < 6:
+  if (snr < 6.) or (trig.get_new_snr(q/n*3, 'bank_chisq') < 6.) or\
+     (trig.get_new_snr(q/n*3, 'cont_chisq') < 6.):
     return 0
 
   # define IFOs for sngl cut
-  ifos   = [ trig.ifos[i*2:(i*2)+2] for i in range(int(len(trig.ifos)/2)) ]
-  ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'T1':'t', 'V1':'v' }
+  ifos = map(str,trig.get_ifos())
 
   # single detector SNR cut
-  ifoSens = []
+  sens = {}
+  fPlus,fCross     = get_det_response(numpy.degrees(trig.ra),\
+                                      numpy.degrees(trig.dec),\
+                                      trig.get_end())
   for ifo in ifos:
-    ifoSens.append(( ifo,
-                     getattr(trig,'sigmasq_%s' %ifoAtt[ifo]) * fResp[ifo] ))
-  ifoSens.sort( key=lambda (ifo,sens): sens, reverse=True )
-  for i in [0,1]:
-    if getattr( trig, 'snr_%s' % ifoAtt[ifoSens[i][0].upper()] ) <4:
+    if ifo.lower()[0] == 'h' :
+      i = ifo.lower()
+    else:
+      i = ifo[0].lower()
+    sens[ifo] = getattr(trig, 'sigmasq_%s' % i.lower()) * \
+                    sum(numpy.array([fPlus[ifo], fCross[ifo]])**2)
+  ifos.sort(key=lambda ifo: sens[ifo], reverse=True)
+  for i in xrange(0,2):
+    if ifos[i].lower()[0] == 'h' :
+      i = ifos[i].lower()
+    else:
+      i = ifos[i][0].lower()
+    if getattr(trig, 'snr_%s' % i) <4:
       return 0 
 
   # get chisq reduced (new) SNR
-  bestNR = new_snr( trig.snr, trig.chisq, trig.chisq_dof, q, n )
-
-  # get null 
+  bestNR = trig.get_new_snr(q/n*3, 'chisq')
 
   # get null reduced SNR
   if len(ifos)<3:
     return bestNR
 
-  null_snr = sum([ getattr(trig,'snr_%s' % ifoAtt[ifo])**2\
-                     for ifo in ifos ]) - trig.snr**2
-  if null_snr < 0:
-    print "WARNING: Null SNR is less than 0!"
-    print "Sum of single detector SNRs squared", sum([ getattr(trig,'snr_%s' \
-                     % ifoAtt[ifo])**2  for ifo in ifos ])
-    print "Coherent SNR squared", trig.snr**2
-    null_snr = 0
-  else:
-    null_snr = null_snr**0.5
+  null_snr = trig.get_null_snr()
 
-  if trig.snr > 20:
+  if snr > 20:
     null_thresh = numpy.array(null_thresh)
-    null_thresh += (trig.snr - 20)*1./5.
+    null_thresh += (snr - 20)*1./5.
   if null_snr > null_thresh[-1]:
     return 0
   elif null_snr > null_thresh[0]:
@@ -233,6 +215,25 @@ def get_det_response( ra, dec, trigTime ):
                                                      inclination, polarization,\
                                                      'degree', ifo )
   return f_plus,f_cross
+
+def get_f_resp(self):
+
+  """
+    FIXME
+  """
+
+  if re.search('SimInspiral', str(self)):
+    ra  = numpy.degrees(self.longitude)
+    dec = numpy.degrees(self.latitude)
+    t   = self.get_time_geocent()
+  else:
+    ra  = numpy.degrees(self.ra)
+    dec = numpy.degrees(self.dec)
+    t   = self.get_end()
+
+  fplus, fcross = get_det_response(ra, dec, t)
+  return dict((ifo, fplus[ifo]**2 + fcross[ifo]**2) for ifo in fplus.keys())
+  
 
 def append_process_params( xmldoc, args, version, date ):
 
