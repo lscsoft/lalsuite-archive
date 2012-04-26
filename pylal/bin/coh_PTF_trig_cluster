@@ -75,8 +75,18 @@ def main(trigFile, timeWindow, outdir, verbose=False):
 
   oldxml   = utils.load_filename(trigFile,\
                                  gz = trigFile.endswith("gz"))
-  currTrigs = table.get_table(oldxml, "multi_inspiral")
-  clstTrigs = lsctables.New(lsctables.MultiInspiralTable)
+  tmp      = table.get_table(oldxml, "multi_inspiral")
+  if len(tmp)> 1:
+    lsctables.MultiInspiralTable.loadcolumns =\
+        [slot for slot in tmp[0].__slots__ if hasattr(tmp[0], slot)]
+  else:
+    lsctables.MultiInspiralTable.loadcolumns =\
+        lsctables.MultiInspiralTable.valid.keys()
+  currTrigs = lsctables.New(lsctables.MultiInspiralTable,\
+                            columns=lsctables.MultiInspiralTable.loadcolumns)
+  currTrigs.extend(tmp)
+  clstTrigs = lsctables.New(lsctables.MultiInspiralTable,\
+                            columns=lsctables.MultiInspiralTable.loadcolumns)
 
   if verbose:
     sys.stdout.write("%d triggers found at %d\n\nBinning triggers in time...\n"\
