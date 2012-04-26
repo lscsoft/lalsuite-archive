@@ -21,7 +21,7 @@ from glue import segments,git_version
 from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
-from coh_PTF_pyutils import *
+from pylal.coh_PTF_pyutils import *
 
 __author__  = "Ian Harry <ian.harry@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
