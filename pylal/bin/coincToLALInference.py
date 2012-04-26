@@ -5,6 +5,7 @@
 #       Copyright 2012
 #       Vivien Raymond <vivien.raymond@ligo.org>
 #       Chris Pankow <chris.pankow@ligo.org>
+#       John Veitch <john.veitch@ligo.org>
 #
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -27,7 +28,7 @@ Python script to create all necessary files to run lalinference_mcmc in the
 working directory. 
 
        cd <submit_directory>
-       ./coincToLALInference.py [options] coinc.xml
+       ./coincToLALInference.py [options] [--mcmc|--nest] coinc.xml
 
 It will use ligo_data_find to generate cache files, and print an error message
 if not enough contiguous data is available.
@@ -75,11 +76,37 @@ opt.add_option("-p", "--psd-segments", action="store", type=int, default=32, hel
 opt.add_option("-a", "--approximant", action="store", default="TaylorF2", help="Approximant to use. Default is TaylorF2.")
 opt.add_option("-A", "--addtl-lalinf-args", action="store", help="Additional args to be sent to the lalinference_mcmc command line.")
 opt.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
+opt.add_option("-i", "--nest-ini-file", action="store", help="Initialization file for lalapps_nest_pipe.")
+opt.add_option("-g", "--gracedb-id", action="store", help="Use information from indicated id.")
+opt.add_option("--mcmc", action="store_true", help="Use lalinference_mcmc.")
+opt.add_option("--nest", action="store_true", help="Use lalapps_nest_pipe.")
 # TODO: Integrate graceDB info
-#opt.add_option("-i", "--gracedb-id", action="store", help="Use information from indicated id.")
 
 opts, args = opt.parse_args()
 verb = opts.verbose
+
+if not (opts.mcmc or opts.nest):
+	sys.exit("Indicate one of --mcmc or --nest.")
+elif opts.mcmc and opts.nest:
+	sys.exit("Indicate one of --mcmc or --nest.")
+
+if len(args) == 0 and opts.gracedb_id is None:
+	sys.exit("No coinc tables to process and no GDB entry to examine, exiting.")
+
+gdbid = ""
+if opts.gracedb_id is not None:
+	# FIXME: Either enhance or remove this based on how GDB interaction 
+	# crystallizes
+	raise NotImplementedError
+	gdbid = opts.gracedb_id
+	if gdbid[0] != "G":
+		if verb: print "Normalizing GDB ID..."
+		gdbid = "G" + gdbid
+	print "Using graceDB ID %s, ignoring other arguments." % gdbid
+	# TODO: Retrieve coinc table and set argus to that
+
+if opts.nest and not opts.nest_ini_file:
+	sys.exit("--nest option requires an initilization file")
 
 types = opts.default_frame_set
 if not types in VALID_SETS.keys():
@@ -160,31 +187,32 @@ for arg in args:
 			if f > max([event.f_final for event in sngl_insp]):
 				freq = f
 
-		if verb: print "Constructing lalinference_mcmc command."
-		command = '--trigtime ' + str(end_time) + '.' + str(end_time_ns)
-		command += ' --trigSNR ' + str(snr)
-		command += ' --seglen ' + str(math.floor(template_duration*1.2))
-		command += ' --psdlength ' + str(math.floor(template_duration*1.2)*psdsegments)
-		command += ' --psdstart ' + str(math.floor(end_time-template_duration*1.2*(psdsegments+1)))
-		command += ' --ifo ' + "[%s]" % ",".join([e.ifo for e in sngl_insp])
-		command += ' --cache ' + "[%s]" % ",".join(cachefilenames)
-		command += ' --channel ' + "[%s]" % ",".join([e.ifo + ":" + e.channel for event in sngl_insp])
-		# FIXME: Unhardcode... make option?
-		flow = [ "10" for i in range(len(sngl_insp)) ]
-		command += ' --flow ' + "[%s]" % ",".join(flow)
-		command += ' --srate ' + str(freq)
-		command += ' --approximant ' + opts.approximant
-		command += ' --Dmax 1000 '
-		#command += ' --Niter 5000000'
-		if opts.addtl_lalinf_args is not None:
-			command += opts.addtl_lalinf_args
+		if opts.mcmc:
+			if verb: print "Constructing lalinference_mcmc command."
+			command = '--trigtime ' + str(end_time) + '.' + str(end_time_ns)
+			command += ' --trigSNR ' + str(snr)
+			command += ' --seglen ' + str(math.floor(template_duration*1.2))
+			command += ' --psdlength ' + str(math.floor(template_duration*1.2)*psdsegments)
+			command += ' --psdstart ' + str(math.floor(end_time-template_duration*1.2*(psdsegments+1)))
+			command += ' --ifo ' + "[%s]" % ",".join([e.ifo for e in sngl_insp])
+			command += ' --cache ' + "[%s]" % ",".join(cachefilenames)
+			command += ' --channel ' + "[%s]" % ",".join([e.ifo + ":" + e.channel for event in sngl_insp])
+			# FIXME: Unhardcode... make option?
+			flow = [ "10" for i in range(len(sngl_insp)) ]
+			command += ' --flow ' + "[%s]" % ",".join(flow)
+			command += ' --srate ' + str(freq)
+			command += ' --approximant ' + opts.approximant
+			command += ' --Dmax 1000 '
+			#command += ' --Niter 5000000'
+			if opts.addtl_lalinf_args is not None:
+				command += opts.addtl_lalinf_args
 
-		if verb: print command
+			if verb: print command
 
-		if verb: print "Creating submit file."
+			if verb: print "Creating submit file."
 
-		submit_file = open('%s/lalinference_mcmc_%d.sub' % (os.getcwd(), cid),'w')
-		submit_str ="""
+			submit_file = open('%s/lalinference_mcmc_%d.sub' % (os.getcwd(), cid),'w')
+			submit_str ="""
 universe = parallel
 environment=CONDOR_MPI_PATH=/usr/lib64/openmpi
 getenv = True
@@ -199,8 +227,11 @@ on_exit_remove = (ExitBySignal == True) || (ExitCode != 143)
 rank = (40 - (2.0 * TotalCondorLoadAvg))
 queue
 """ % command
-		submit_file.write(submit_str)
+			submit_file.write(submit_str)
 
-
-
+		elif opts.nest:
+			command = 'lalapps_nest_pipe --coinc-triggers %s --run-path %s --ini-file %s --condor-submit --ignore-science-mode --coherence-test' % (arg, os.getcwd(), opts.nest_ini_file)
+			retcode = os.execute(command)
+			if retcode != 0:
+				sys.exit("Failed to call lalapps_nest_pipe, check arguments.")
 
