@@ -302,7 +302,7 @@ print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " 
 print "there are ", len(exact_injections), "exactly found injection doubles in ", ''.join(ifos), " and triple coincidences"
 print "there are ", len(zerolag), " zerolag doubles in ", ''.join(ifos), " and triple coincidences"
 
-if len(exact_injections) != 0:
+if len(exact_injections) != 0 and len(timeslides) != 0:
 	Nparams = len(exact_injections[0]) - 3
 	Nrounds = opts.number
 	Ninj_exact = len(exact_injections)
@@ -367,14 +367,15 @@ if len(exact_injections) != 0:
 		del(timeslides_tmp[i*Nslide/Nrounds : (i+1)*Nslide/Nrounds])
 		for row in timeslides_tmp:
 			f_training.write("%s\n" % " ".join(map(str,row)))
-		f_zerolag=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_'+ str(zlstr) + '.pat','w')
-		f_zerolag.write(str(Nparams) + '\n')
-		f_zerolag.write(parameters + "\n")
-		for row in zerolag:
-			f_zerolag.write("%s\n" % " ".join(map(str,row)))
-		f_zerolag_info=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_' + str(zlstr) + '_info.pat', 'w')
-		for row in zerolag_info:
-			f_zerolag_info.write("%s\n" % " ".join(map(str,row)))
+		if len(zerolag) != 0:
+			f_zerolag=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_'+ str(zlstr) + '.pat','w')
+			f_zerolag.write(str(Nparams) + '\n')
+			f_zerolag.write(parameters + "\n")
+			for row in zerolag:
+				f_zerolag.write("%s\n" % " ".join(map(str,row)))
+			f_zerolag_info=open(''.join(ifos) + '_' + opts.output_tag + '_set' + str(i) + '_' + str(zlstr) + '_info.pat', 'w')
+			for row in zerolag_info:
+				f_zerolag_info.write("%s\n" % " ".join(map(str,row)))
 else: raise Exception, "There were no injections found for the specified ifo combination %s" % ifos
 
 time2=time()
