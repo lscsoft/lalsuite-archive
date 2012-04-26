@@ -6,7 +6,7 @@
 
 from __future__ import division
 
-import os,sys,glob,re,time
+import os,sys,glob,re,time,numpy
 from optparse import OptionParser
 from pylal import SimInspiralUtils,MultiInspiralUtils
 from glue.ligolw import ilwd,ligolw,table,lsctables,utils
@@ -90,13 +90,16 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   #
 
   trigcache = lal.Cache.fromfile(open(trigCacheFile, 'r'))
-  injcache  = lal.Cache.fromfile(open(injCacheFile, 'r') )
+  injcache  = lal.Cache.fromfile(open(injCacheFile, 'r'))
   injcache.sort(key=lambda e: int(e.description.split('_')[-1]))
 
   if len(trigcache)<1:
     raise Error("No trigger files found.")
   if len(injcache)<1:
     raise Error("No injection files found.")
+
+  # get ifos
+  ifos = lsctables.instrument_set_from_ifos(trigcache[0].observatory)
 
   if verbose: sys.stdout.write("Cache files loaded at %d.\n" % elapsed_time())
 
@@ -107,13 +110,53 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   excludes = segments.segmentlist([])
   for filename in exclude_segments:
     if filename.endswith('.txt'):
-      excludes.extend(segmentsUtils.fromsegwizard( open( filename, 'r') ) )
+      excludes.extend(segmentsUtils.fromsegwizard(open(filename, 'r')))
     elif filename.endswith('xml.gz') or filename.endswith('xml'):
-      excludes.extend(dqSegmentUtils.fromsegmentxml( open( filename, 'r') ) )
+      excludes.extend(dqSegmentUtils.fromsegmentxml(open(filename, 'r')))
   excludes = excludes.coalesce()
 
   if verbose: sys.stdout.write("Exclusion segments loaded at %d.\n"\
                                % elapsed_time())
+
+  #
+  # identify columns to load
+  #
+
+  # MultiInspiralTable
+
+  # set columns
+  ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }
+
+  # set up columns
+  cols = ['end_time', 'end_time_ns', 'ifos', 'process_id', 'ra', 'dec', 'snr',\
+          'null_statistic', 'null_stat_degen']
+  # add snr
+  cols.extend(['snr_%s' % ifoAtt[i] for i in ifos])\
+  # add chisq
+  cols.extend(['chisq', 'chisq_dof'])
+  cols.extend(['chisq_%s' % ifoAtt[i] for i in ifos])
+  # add bank chisq
+  cols.extend(['bank_chisq', 'bank_chisq_dof'])
+  #cols.extend(['bank_chisq_%s' % ifoAtt[i] for i in ifos])
+  # add auto chisq  
+  cols.extend(['cont_chisq', 'cont_chisq_dof'])
+  #cols.extend(['cont_chisq_%s' % ifoAtt[i] for i in ifos])
+  # add sigmasq
+  cols.extend(['sigmasq_%s' % ifoAtt[i] for i in ifos])
+  # add amplitude terms
+  cols.extend(['amp_term_%d' % i for i in xrange(1,11)])
+  # set columns
+  cols = [c for c in cols if c\
+          in lsctables.MultiInspiralTable.validcolumns.keys()]
+  lsctables.MultiInspiralTable.loadcolumns = cols
+
+  # SimInspiralTable
+  cols = ['geocent_end_time', 'geocent_end_time_ns', 'mass1', 'mass2',\
+          'mchirp', 'f_lower', 'inclination', 'spin1x', 'spin1y', 'spin1z',\
+          'spin2x', 'spin2y', 'spin2z', 'longitude', 'latitude', 'distance']
+  cols = [c for c in cols if c\
+          in lsctables.SimInspiralTable.validcolumns.keys()]
+  lsctables.SimInspiralTable.loadcolumns = cols
 
   #
   # Identify bad injections
@@ -132,7 +175,6 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   if verbose: sys.stdout.write("\nTesting missed/found...\n")
 
   objectList = []
-  numFound = 0
   exampleFile = None
 
   for e in injcache:
@@ -152,8 +194,16 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
 
       if not exampleFile:  exampleFile = numtrigcache[0]
 
-      currInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([injFile])
-      currTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+      # get trigs (only columns we need)
+      currInjs  = lsctables.New(lsctables.SimInspiralTable,\
+                                columns=lsctables.SimInspiralTable.loadcolumns)
+      currInjs.extend(i for i in\
+                      SimInspiralUtils.ReadSimInspiralFromFiles([injFile])\
+                      if i.get_time_geocent() not in excludes)
+      currTrigs  = lsctables.New(lsctables.MultiInspiralTable,\
+                               columns=lsctables.MultiInspiralTable.loadcolumns)
+      currTrigs.extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles))
+
       for trig in currTrigs:
         # Temporary hack to allow the code to work with tables that dont have
         # the new time slide ID column.
@@ -162,35 +212,38 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
         except AttributeError:
           trig.time_slide_id=ilwd.get_ilwdchar("multi_inspiral:time_slide_id:0")
 
-      currInjs = [i for i in currInjs if i.get_time_geocent() not in excludes]
       if opts.log_dir:
         currInjs = remove_bad_injections(currInjs,badInjs)
 
+      # loop over injections
       for currInj in currInjs:
+        # construct injection dict
         currObject = {}
         currObject['inj'] = currInj
         currObject['trig'] = None
         currObject['found'] = False
         injTime  = currInj.get_time_geocent()
-        injSeg   = segments.segment(injTime-timeWindow,injTime+timeWindow)
-        for currTrig in currTrigs:
-          if currTrig.get_end() not in injSeg:  continue
-          if not currObject['trig']:
-            currObject['trig'] = currTrig
-            currObject['found'] = True
-            numFound += 1
-          elif (currObject['trig'].snr < currTrig.snr):
-            currObject['trig'] = currTrig
+
+        injTrigs = [t for t in currTrigs\
+                    if numpy.abs(t.get_end()-injTime) < timeWindow]
+        if len(injTrigs) >=1:
+          injTrigs.sort(key=lambda t: t.snr, reverse=True)
+          currObject['trig'] = injTrigs[0]
         objectList.append(currObject)
 
     if verbose: sys.stdout.write("Injection %d processed at %d.\n"\
                                  % (num, elapsed_time()))
 
+  #
+  # construct new tables
+  #
   
-  foundInjs = lsctables.New(lsctables.SimInspiralTable)
-  missedInjs = lsctables.New(lsctables.SimInspiralTable)
-  foundTrigs = lsctables.New(lsctables.MultiInspiralTable)
-  
+  foundInjs  = lsctables.New(lsctables.SimInspiralTable,\
+                             columns=lsctables.SimInspiralTable.loadcolumns)
+  missedInjs = lsctables.New(lsctables.SimInspiralTable,\
+                             columns=lsctables.SimInspiralTable.loadcolumns)
+  foundTrigs = lsctables.New(lsctables.MultiInspiralTable,\
+                             columns=lsctables.MultiInspiralTable.loadcolumns)
   eventCount = 0
   
   for object in objectList:
@@ -211,7 +264,7 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
     sys.stdout.write("\nNumber of found injections: %d\n"\
                      "Number of triggers associated to found injections: %d\n"\
                      "Number of missed injections: %d\n"\
-                     % (len(foundInjs), len(missedInjs), len(foundTrigs)))
+                     % (len(foundInjs), len(foundTrigs), len(missedInjs)))
  
   #
   # write combined injections to file
