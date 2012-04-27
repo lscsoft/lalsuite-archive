@@ -27,6 +27,9 @@ class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
 	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr choppedl snr_sq snr_ratio a_eff_D b_eff_D eff_D_ratio delta_eff_D" #null_stat eff_coh_snr"
 	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
+	select_count="""
+		SELECT
+			COUNT(coinc_ringdown.coinc_event_id)"""
 	select_dimensions="""
 		SELECT
 			coinc_ringdown.coinc_event_id,
@@ -54,10 +57,11 @@ class CandidateEventQuery:
 			abs(snglA.eff_dist - snglB.eff_dist)"""
 #			coinc_ringdown.null_stat,
 #			coinc_ringdown.eff_coh_snr"""
-	add_join_injections="""
+	add_select_injections="""
 		, coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001,
 		process_params.value,
-		sim_ringdown.distance
+		sim_ringdown.distance"""
+	add_from_injections="""
 		FROM
 			coinc_ringdown
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_ringdown.coinc_event_id)
@@ -90,8 +94,9 @@ class CandidateEventQuery:
 	add_where_exact="""
 			AND coinc_definer.description == ?
 		ORDER BY coinc_ringdown.start_time+coinc_ringdown.start_time_ns*.000000001"""
-	add_join_fulldata="""
-		, experiment_summary.datatype
+	add_select_fulldata="""
+		, experiment_summary.datatype"""
+	add_from_fulldata="""
 		FROM
 			coinc_ringdown
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_ringdown.coinc_event_id)
@@ -111,3 +116,4 @@ class CandidateEventQuery:
 			AND snglB.ifo == ?
 			AND snglA.start_time > ?
 			AND snglA.start_time < ?"""
+
