@@ -188,18 +188,19 @@ for database in databases:
 		is_injections = False
 # please note that the third to last entry in exact_injections and all_injections is the gps time of the coinc_inspiral. We will only be using this for bookkeeping, it will not stay in the array
 	if is_injections:
-		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) ):
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_injections,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) ):
 			all_injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:-1] + (1,))
 			all_injections_info.append([values[0], database])
 			all_injections_distance.append([values[-1], database])
-		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.exact_tag,) ):
+		#for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.exact_tag,) ):
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_injections,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) ):
 			exact_injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:-1] + (1,))
 			exact_injections_info.append([values[0], database])
 			exact_injections_distance.append([values[-1], database])
 
 	#FIXME: look up coinc_definer_id from definition in pylal
 # get the timeslide/full_data triggers
-	for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_fulldata]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) ):
+	for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_fulldata,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) ):
 		if values[-1] == 'slide':
 			timeslides.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			timeslides_info.append([values[0], database])
@@ -302,7 +303,7 @@ print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " 
 print "there are ", len(exact_injections), "exactly found injection doubles in ", ''.join(ifos), " and triple coincidences"
 print "there are ", len(zerolag), " zerolag doubles in ", ''.join(ifos), " and triple coincidences"
 
-if len(exact_injections) != 0 and len(timeslides) != 0:
+if len(exact_injections) > Nrounds and len(timeslides) > Nrounds:
 	Nparams = len(exact_injections[0]) - 3
 	Nrounds = opts.number
 	Ninj_exact = len(exact_injections)

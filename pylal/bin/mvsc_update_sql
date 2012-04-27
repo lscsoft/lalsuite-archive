@@ -113,29 +113,30 @@ for comb in ifo_combinations:
 	tmp = None
 	zerolag_header = []
 	tmplist=zerolag_files_comb_dict[comb]
-	for zlfile in tmplist:
-		if tmp != None:
-			data = numpy.vstack((data,numpy.loadtxt(zlfile,dtype=float,skiprows=1,usecols=[-1])))
-			zerolag_header.append(str(zlfile))
-		else:
-			tmp = numpy.loadtxt(zlfile,dtype=float,skiprows=1,usecols=[-1])
-			data = tmp
-			zerolag_header.append(str(zlfile))
-	stddevs=numpy.std(data,axis=0)
-	zerolag_header.append('stddev')
-	means=numpy.mean(data,axis=0)
-	zerolag_header.append('mean_rank')
-	#make a new array where each row has the ranks given by the different forests, then the mean, then the standard deviation
-	zerolag_header=numpy.array(zerolag_header)
-	zerolag_array=numpy.vstack((data,stddevs,means)).transpose()
-	prefix_string = zlfile.split('_')[0]+'_'+zlfile.split('_')[1]+'_'
-	with open(prefix_string+'zerolag_ranks_stddev_mean.txt','w') as fzl:
-		for word in zerolag_header:
-			fzl.write(word+' ')
-		fzl.write('\n')
-		numpy.savetxt(fzl,zerolag_array)
-	# add zerolag to the file map
-	file_map.append([prefix_string+'zerolag_ranks_stddev_mean.txt',zerolag_infofiles_comb_dict[comb][0]])
+	if tmplist: 
+		for zlfile in tmplist:
+			if tmp != None:
+				data = numpy.vstack((data,numpy.loadtxt(zlfile,dtype=float,skiprows=1,usecols=[-1])))
+				zerolag_header.append(str(zlfile))
+			else:
+				tmp = numpy.loadtxt(zlfile,dtype=float,skiprows=1,usecols=[-1])
+				data = tmp
+				zerolag_header.append(str(zlfile))
+		stddevs=numpy.std(data,axis=0)
+		zerolag_header.append('stddev')
+		means=numpy.mean(data,axis=0)
+		zerolag_header.append('mean_rank')
+		#make a new array where each row has the ranks given by the different forests, then the mean, then the standard deviation
+		zerolag_header=numpy.array(zerolag_header)
+		zerolag_array=numpy.vstack((data,stddevs,means)).transpose()
+		prefix_string = zlfile.split('_')[0]+'_'+zlfile.split('_')[1]+'_'
+		with open(prefix_string+'zerolag_ranks_stddev_mean.txt','w') as fzl:
+			for word in zerolag_header:
+				fzl.write(word+' ')
+			fzl.write('\n')
+			numpy.savetxt(fzl,zerolag_array)
+		# add zerolag to the file map
+		file_map.append([prefix_string+'zerolag_ranks_stddev_mean.txt',zerolag_infofiles_comb_dict[comb][0]])
 print file_map
 
 

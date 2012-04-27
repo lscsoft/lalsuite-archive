@@ -1,5 +1,11 @@
 #!/usr/bin/python
 
+try:
+  import sqlite3
+except ImportError:
+  # pre 2.5.x
+  from pysqlite2 import dbapi2 as sqlite3
+
 import subprocess
 import sys
 import glob
@@ -8,6 +14,7 @@ from glue import lal
 
 from optparse import OptionParser
 
+from glue.ligolw import dbtables
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -16,6 +23,7 @@ from pylal import git_version
 from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import ligolw_cafe
+from pylal import mvsc_queries_ringdown
 from glue import pipeline
 import ConfigParser
 import tempfile
@@ -33,6 +41,11 @@ parser.add_option("-k", "--skip-file-generation", action = "store_true", help = 
 parser.add_option("-p","--log-path", default='logs/', help = "set dagman log path")
 parser.add_option("-a","--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
 parser.add_option("-u","--user-tag", default='CBC', help= "help you keep track of multiple runs in a single directory, i.e. CAT_3 or CAT_4")
+parser.add_option("", "--start-time", default=0, type="int", help="the gps start time for window of desired coincs")
+parser.add_option("", "--end-time", default=999999999, type="int", help="the gps end time for window of desired coincs")
+parser.add_option("", "--exact-tag", default="ring_exact", help="this is the dbinjfind tag stored in the sqlite database for the exactly found injections - the ones you want to use for training")
+parser.add_option("", "--nearby-tag", default="ring_nearby", help="this is the dbinjfind tag stored in the sqlite for the nearby injections - we will still rank all of these")
+
 (opts, databases) = parser.parse_args()
 
 run_tag = opts.user_tag+'_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)
@@ -200,6 +213,45 @@ print databases
 
 all_ifos = opts.all_instruments.strip().split(',')
 ifo_combinations = list(iterutils.choices(all_ifos,2))
+print ifo_combinations
+ifos=ifo_combinations
+
+### First, we are going to check that we have enough timeslide and injection events for training for each ifo combination, and that there are any zerolag 
+
+count_all_injections={}
+count_exact_injections={}
+count_timeslides={}
+count_zerolag={}
+for database in databases:
+  local_disk = None #"/tmp"
+  working_filename = dbtables.get_connection_filename(database, tmp_path = local_disk, verbose = True)
+  connection = sqlite3.connect(working_filename)
+  dbtables.DBTable_set_connection(connection)
+  xmldoc = dbtables.get_xml(connection)
+  cursor = connection.cursor()
+  for comb in ifo_combinations:
+    ifos = list(comb)
+    combstr = ''.join(comb)
+    comb = ','.join(comb)
+    #print ''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,])
+    count_all_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) )
+    count_exact_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) )
+    count_timeslides[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'slide'"]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) )
+    count_zerolag[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'all_data'"]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) )
+
+print count_all_injections
+for comb in ifo_combinations:
+  comb = ','.join(comb)
+  count_all_injections[comb]=count_all_injections[comb][0]
+  count_exact_injections[comb]=count_exact_injections[comb][0]
+  count_timeslides[comb]=count_timeslides[comb][0]
+  count_zerolag[comb]=count_zerolag[comb][0]
+  print "for the ifo combination "+str(comb)+" there are "+str(count_all_injections[comb])+" total found injections"
+  print "for the ifo combination "+str(comb)+" there are "+str(count_exact_injections[comb])+" exactly found injections"
+  print "for the ifo combination "+str(comb)+" there are "+str(count_timeslides[comb])+" timeslides"
+  print "for the ifo combination "+str(comb)+" there are "+str(count_zerolag[comb])+" zerolag events"
+  print "note, these counts include triples"
+  # "there must be more than 0 zerolag events and at least as many exactly found injections and timeslides as the number of round-robins"
 
 ### SET UP THE DAG
 
@@ -236,25 +288,35 @@ update_node = {}
 
 update_files=[]
 #Assemble the DAG
+number_of_round_robins=int(cp.get("mvsc_get_doubles","number"))
+comment={}
 for comb in ifo_combinations:
   combstr = ''.join(comb)
   comb = ','.join(comb)
-  print combstr
   training_files[comb] = []
   evaluation_files[comb] = []
   evaluation_info_files[comb] = []
   zerolag_files[comb] = []
   zerolag_info_files[comb] = []
-  for i in range(int(cp.get("mvsc_get_doubles","number"))):
-    training_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'training.pat')
-    evaluation_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation.pat')
-    evaluation_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation_info.pat')
-    zerolag_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag.pat')
-    zerolag_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag_info.pat')
+  for i in range(number_of_round_robins):
+    if number_of_round_robins < count_exact_injections[comb] and number_of_round_robins < count_timeslides[comb]:
+      training_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'training.pat')
+      evaluation_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation.pat')
+      evaluation_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'evaluation_info.pat')
+      comment[comb]=None
+      if count_zerolag[comb] > 0:
+        zerolag_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag.pat')
+        zerolag_info_files[comb].append(combstr+'_'+opts.user_tag+'_set'+str(i)+'_'+'zerolag_info.pat')
+      else: "there are no zerolag events for "+comb+". Note, this means there are also no triples"
+    else: comment[comb]="there are not enough training events for "+comb+". This means we cannot rank zerolag events for this combination"
   if opts.skip_file_generation:
     get_node[comb] = None
   else:
-    get_node[comb] = mvsc_get_doubles_node(get_job, dag, cp.items("mvsc_get_doubles"), comb, databases, training_files[comb]+evaluation_files[comb]+evaluation_info_files[comb]+zerolag_files[comb]+zerolag_info_files[comb])
+    if comment[comb] == None: 
+      get_node[comb] = mvsc_get_doubles_node(get_job, dag, cp.items("mvsc_get_doubles"), comb, databases, training_files[comb]+evaluation_files[comb]+evaluation_info_files[comb]+zerolag_files[comb]+zerolag_info_files[comb])
+    else: 
+      print comment[comb]
+      get_node[comb]=None
   train_node[comb] = {}
   rank_node[comb] = {}
   zl_rank_node[comb] = {}
@@ -266,9 +328,12 @@ for comb in ifo_combinations:
     except: rank_node[comb]={}
     rank_node[comb][i] = use_forest_node(rank_job, dag, train_node[comb][i].trainedforest, str(evaluation_files[comb][i]), p_node=[train_node[comb][i]])
     update_files.append(rank_node[comb][i].ranked_file)
-    update_files.append(zerolag_info_files[comb][i])
-    zl_rank_node[comb][i] = use_forest_node(zl_rank_job, dag, train_node[comb][i].trainedforest, str(zerolag_files[comb][i]), p_node=[train_node[comb][i]])
-    update_files.append(zl_rank_node[comb][i].ranked_file)
+    try:
+      update_files.append(zerolag_info_files[comb][i])
+      zl_rank_node[comb][i] = use_forest_node(zl_rank_job, dag, train_node[comb][i].trainedforest, str(zerolag_files[comb][i]), p_node=[train_node[comb][i]])
+      update_files.append(zl_rank_node[comb][i].ranked_file)
+    except:
+      print "omitting "+comb+" from zerolag update files"
 finished_rank_nodes=[]
 for key in rank_node:
   finished_rank_nodes.extend(rank_node[key].values())
