@@ -1952,6 +1952,9 @@ class AnalysisNode(CondorDAGNode):
       self.add_var_opt('glob-frame-data',' ')
       # only add the LFNs that actually overlap with this job
       # XXX FIXME this is a very slow algorithm
+      if len(filename) == 0:
+        raise CondorDAGNodeError, \
+          "LDR did not return any LFNs for query: check ifo and frame type"
       for lfn in filename:
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)
