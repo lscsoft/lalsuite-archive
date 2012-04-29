@@ -1788,9 +1788,14 @@ XLALCoincRingdownStat(
   InterferometerNumber  ifoNumber;
   SnglRingdownTable    *snglRingdown;
   REAL4                 statValues[LAL_NUM_IFO];
+  REAL4                 snrs[LAL_NUM_IFO];
   REAL4 statValue = 0;
   INT4  i;
   INT4  ifoCounter = 0;
+  INT4  ifo_H1 = 0;
+  INT4  ifo_H2 = 0;
+  REAL4 snr_H1 = 0.0;
+  REAL4 snr_H2 = 0.0;
 
   if( coincStat == no_stat )
   {
@@ -1806,20 +1811,47 @@ XLALCoincRingdownStat(
     }
   }
 
+  /* count the number of IFOs for this coincidence */
+  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+  {
+    if ( coincRingdown->snglRingdown[ifoNumber] ) 
+    {
+      ifoCounter++;
+    }
+  }
 
+  if ( coincStat == bitten_l && ifoCounter > 2)
+  {
+    for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+    { 
+      if ( (snglRingdown = coincRingdown->snglRingdown[ifoNumber]) )
+      {
+        if ( !strcmp("H1", coincRingdown->snglRingdown[ifoNumber]->ifo) )
+        {
+          ifo_H1 = 1;
+          snr_H1 = coincRingdown->snglRingdown[ifoNumber]->snr;
+        }
+        else if ( !strcmp("H2", coincRingdown->snglRingdown[ifoNumber]->ifo) )
+        {
+          ifo_H2 = 1;
+          snr_H2 = coincRingdown->snglRingdown[ifoNumber]->snr;
+        }
+      }
+    }
+  }
+
+  i=0;
   for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
   {
     if ( (snglRingdown = coincRingdown->snglRingdown[ifoNumber]) )
     {
-      /* count the number of IFOs for this coincidence */
-      ifoCounter++;
-
       if ( coincStat == snrsq )
       {
         statValue += snglRingdown->snr * snglRingdown->snr;
       }
 
-      else if ( coincStat == bitten_l )
+      /* Note: bitten_l for ifoCounter < 3 is NOT squared! */
+      else if ( coincStat == bitten_l && ifoCounter < 3)
       {
         statValues[ifoNumber] = bittenLParams->param_a[ifoNumber]
                 * snglRingdown->snr
@@ -1827,27 +1859,49 @@ XLALCoincRingdownStat(
         statValue += snglRingdown->snr ;
       }
 
+      else if ( coincStat == bitten_l && ifoCounter > 2)
+      {
+        statValue += snglRingdown->snr * snglRingdown->snr ;
+        snrs[i] = coincRingdown->snglRingdown[ifoNumber]->snr;
+        i++;
+      }
+
     }
+  }
+
+  /* FIXME: Needs to be generalized to be applicable to ifoCounter > 3 */
+  if ( coincStat == bitten_l && ifoCounter == 3 )
+  {
+    statValues[0] = pow(snrs[0] + snrs[1] 
+      + bittenLParams->eff_snr_denom_fac,2);
+
+    statValues[1] = pow(snrs[1] + snrs[2]
+      + bittenLParams->eff_snr_denom_fac,2);
+
+    statValues[2] = pow(snrs[2] + snrs[0]
+      + bittenLParams->eff_snr_denom_fac,2);
   }
 
   /*    for the bitten L case only , we need to compare different
         values and keep the minimum one */
   if ( coincStat == bitten_l )
   {
-    if (coincStat == bitten_l || ifoCounter<3) {
+    if ( ifo_H1 && ifo_H2 && snr_H2 > snr_H1 ) 
+      statValue = 0.0;
+    else
+    {
       for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
       {
         if ( (snglRingdown = coincRingdown->snglRingdown[ifoNumber]) )
         {
-          if (statValues[ifoNumber] < statValue)
-          {
-           statValue = statValues[ifoNumber];
-          }
+	  if (statValues[ifoNumber] < statValue)
+	  {
+	    statValue = statValues[ifoNumber];
+	  }
         }
       }
     }
   }
-
 
   return( statValue );
 }
