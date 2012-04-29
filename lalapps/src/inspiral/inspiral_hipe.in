@@ -1369,6 +1369,8 @@ parser.add_option("-s", "--sire-inspiral",action="store_true",default=False,\
     help="do sires to sweep up triggers")
 parser.add_option("-r", "--ringdown" ,action="store_true",default=False,\
     help="run lalapps_ring insted of lalapps_inspiral")
+parser.add_option("-K", "--ringdown-cluster" ,action="store_true",default=False,\
+    help="run ringdown clustering code")
 parser.add_option("-c", "--coincidence",action="store_true",default=False,\
     help="run lalapps_thinca to test for coincidence")
 parser.add_option("-e", "--coire-coincidence",action="store_true",
@@ -1855,7 +1857,7 @@ sire_summary_job = inspiral.SireJob(cp)
 sire_summary_job.set_sub_file( basename + '.sire_summary' + subsuffix )
 
 # coire:
-if opts.ringdown:
+if opts.ringdown and not opts.ringdown_cluster:
   coire_job = inspiral.CoireJob(cp)
   coire_job.set_exec_name('coincringread')
   coire_job.set_sub_file( basename + '.coincringread' + subsuffix )
@@ -1868,6 +1870,21 @@ if opts.ringdown:
   coire_slide_summary_job = inspiral.CoireJob(cp)
   coire_slide_summary_job.set_exec_name('coincringread')
   coire_slide_summary_job.set_sub_file( basename + '.coincringread_slide_summary' + \
+    subsuffix )
+#CHECK:
+elif opts.ringdown and opts.ringdown_cluster:
+  coire_job = inspiral.CoireJob(cp)
+  coire_job.set_exec_name('coire')
+  coire_job.set_sub_file( basename + '.coire' + subsuffix )
+  coire_slide_job = inspiral.CoireJob(cp)
+  coire_slide_job.set_exec_name('coire')
+  coire_slide_job.set_sub_file( basename + '.coire_slide' + subsuffix )
+  coire_summary_job = inspiral.CoireJob(cp)
+  coire_summary_job.set_exec_name('coire')
+  coire_summary_job.set_sub_file( basename + '.coire_summary' + subsuffix )
+  coire_slide_summary_job = inspiral.CoireJob(cp)
+  coire_slide_summary_job.set_exec_name('coire')
+  coire_slide_summary_job.set_sub_file( basename + '.coire_slide_summary' + \
     subsuffix )
 else:
   coire_job = inspiral.CoireJob(cp)
@@ -2317,6 +2334,8 @@ if not opts.ringdown:
 
 coinc_nodes = {}
 coinc_slide_nodes = {}
+coire_nodes = {}
+coire_slide_nodes = {}
 
 for ifos in ifo_coincs:
   print "setting up thinca jobs on " + ifos + " data...",
@@ -2335,16 +2354,23 @@ for ifos in ifo_coincs:
 
   # Step 6 coire: Run coire on coinc triggers
   if not doExtTrig:
-    coire_segments_individually(coinc_nodes[ifos], coire_job, dag, 
+    coire_nodes[ifos] = coire_segments_individually(coinc_nodes[ifos], coire_job, dag, 
         opts.coire_coincidence, opts.coincidence, ifos, inj_file=inj_file, 
         ifotag="FIRST", usertag=usertag, inspinjNode=inspinj)
 
-    if opts.summary_first_coinc_triggers and len(coinc_nodes[ifos]):
-      coire_segments(coinc_nodes[ifos], coire_summary_job, dag,
+    if opts.summary_first_coinc_triggers and len(coinc_nodes[ifos]) and not \
+      opts.ringdown_cluster:
+        coire_segments(coinc_nodes[ifos], coire_summary_job, dag,
           opts.summary_first_coinc_triggers,
           opts.coire_coincidence, ifos, gps_start_time, gps_end_time,
           inj_file=inj_file, ifotag="SUMMARY_FIRST_" + ifos, usertag=usertag, inspinjNode=inspinj)
 
+    if opts.summary_first_coinc_triggers and len(coire_nodes[ifos]) \
+      and opts.ringdown_cluster:
+        coire_segments(coire_nodes[ifos], coire_summary_job, dag,
+          opts.summary_first_coinc_triggers,
+          opts.coire_coincidence, ifos, gps_start_time, gps_end_time,
+          inj_file=inj_file, ifotag="SUMMARY_FIRST_" + ifos, usertag=usertag, inspinjNode=inspinj)
 
   # Step 6 slide: Time slides 
   coinc_slide_nodes[ifos] = []
@@ -2363,13 +2389,22 @@ for ifos in ifo_coincs:
         do_coire=opts.coire_coincidence, ifotag=ifotag, slides=num_slides )
 
     if not doExtTrig:
-      coire_segments_individually(coinc_slide_nodes[ifos], coire_slide_job, 
+      coire_slide_nodes[ifos] = coire_segments_individually(coinc_slide_nodes[ifos], coire_slide_job, 
           dag, opts.coire_coincidence, opts.coincidence, ifos, 
           inj_file = inj_file, num_slides = num_slides, ifotag="FIRST", 
           usertag=usertag,inspinjNode=inspinj)
 
-      if opts.summary_first_coinc_triggers and len(coinc_nodes[ifos]):
-        coire_segments(coinc_slide_nodes[ifos], coire_slide_summary_job, dag,
+      if opts.summary_first_coinc_triggers and len(coinc_nodes[ifos]) \
+        and not opts.ringdown_cluster:
+          coire_segments(coinc_slide_nodes[ifos], coire_slide_summary_job, dag,
+            opts.summary_first_coinc_triggers,
+            opts.coire_coincidence, ifos, gps_start_time, gps_end_time,
+            inj_file=inj_file, ifotag="SLIDE_SUMMARY_FIRST_" + ifos, usertag=usertag,
+            inspinjNode=inspinj)
+
+      if opts.summary_first_coinc_triggers and len(coinc_nodes[ifos]) \
+        and opts.ringdown_cluster:
+          coire_segments(coire_slide_nodes[ifos], coire_slide_summary_job, dag,
             opts.summary_first_coinc_triggers,
             opts.coire_coincidence, ifos, gps_start_time, gps_end_time,
             inj_file=inj_file, ifotag="SLIDE_SUMMARY_FIRST_" + ifos, usertag=usertag,
@@ -2659,8 +2694,8 @@ for ifos in ifo_coincs:
         if not opts.ringdown and cp.has_section('veto-inspiral'):
           insp_coh_jobs[ifo].add_opt('chisq-bins', \
                                cp.get('veto-inspiral', 'chisq-bins'))
-        if cp.has_section(ifo.lower() + '-inspiral'):
-          insp_coh_jobs[ifo].add_ini_opts(cp,ifo.lower() + '-inspiral')
+        if cp.has_section(ifo.lower() + '-inspiral-coherent'):
+          insp_coh_jobs[ifo].add_ini_opts(cp,ifo.lower() + '-inspiral-coherent')
         if cp.has_section(data_opts[ifo]):
           insp_coh_jobs[ifo].add_ini_opts(cp,data_opts[ifo])
         insp_coh_jobs[ifo].set_channel(channel)
