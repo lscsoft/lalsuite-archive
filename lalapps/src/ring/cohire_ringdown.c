@@ -61,6 +61,15 @@ snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 #define UNUSED
 #endif
 
+/* CHECK: need to update definition of clusterchoice */
+int XLALClusterMultiInspiralTableInEventID(
+    MultiInspiralTable         **inspiralList,
+    MultiInspiralClusterChoice   clusterchoice
+);
+
+/* input data parameters */
+int clusterInEventID = 0; /* default is not to cluster triggers by their event-id */
+
 /*
  *
  * USAGE
@@ -110,6 +119,7 @@ static void print_usage(char *program)
       "Sorting and Clustering:\n"\
       " [--sort-triggers]             time sort the inspiral triggers\n"\
       " [--cluster-time]   clust_time cluster triggers with clust_time ms window\n"\
+      " [--cluster-in-event-id] clusterInEventID cluster triggers in event_id\n"\
       " [--cluster-algorithm] clust   use trigger clustering algorithm clust\n"\
       "                               [ cohsnr | effCohSnr | nullstat | snrByNullstat\n"\
       "                               | autoCorrCohSqByNullstat | crossCorrCohSqByNullstat\n"\
@@ -148,7 +158,7 @@ int main( int argc, char *argv[] )
   REAL4 rsqAboveSnrCoeff = -1;
   REAL4 rsqAboveSnrPow     = -1;
   LALSegList vetoSegs;
-  SnglInspiralClusterChoice clusterchoice = none;
+  MultiInspiralClusterChoice clusterchoice = no_statistic;
   INT8 cluster_dt = -1;
   INT8 injectWindowNS = -1;
   int j;
@@ -260,6 +270,7 @@ int main( int argc, char *argv[] )
       {"injection-file",          required_argument,      0,              'I'},
       {"injection-window",        required_argument,      0,              'T'},
       {"missed-injections",       required_argument,      0,              'm'},
+      {"cluster-in-event-id",     no_argument,    &clusterInEventID,        1},
       {0, 0, 0, 0}
     };
     int c;
@@ -639,13 +650,14 @@ int main( int argc, char *argv[] )
   }
 
   /* check that if clustering is being done that we have all the options */
-  if ( clusterchoice && cluster_dt < 0 )
-  {
-    fprintf( stderr, "--cluster-time must be specified if --cluster-algorithm "
-        "is given\n" );
-    exit( 1 );
-  }
-  else if ( ! clusterchoice && cluster_dt >= 0 )
+  //CHECK: if ( clusterchoice && ( cluster_dt < 0 || !clusterInEventID ) )
+  //{
+  //  fprintf( stderr, "--cluster-time must be specified if --cluster-algorithm "
+  //      "is given\n" );
+  //  exit( 1 );
+  //}
+  //else 
+  if ( ! clusterchoice && cluster_dt >= 0 )
   {
     fprintf( stderr, "--cluster-algorithm must be specified if --cluster-time "
         "is given\n" );
@@ -985,8 +997,19 @@ int main( int argc, char *argv[] )
     if ( vrbflg ) fprintf( stdout, "clustering remaining triggers... " );
 
     if ( !numSlides ) {
-      numClusteredEvents = XLALClusterMultiInspiralTable( &inspiralEventList,
-        cluster_dt, clusterchoice );
+      /*CHECK: */
+      if ( clusterInEventID ) {
+        numClusteredEvents = XLALClusterMultiInspiralTableInEventID(
+                                         &inspiralEventList, clusterchoice );
+        if (cluster_dt > 0) {
+          numClusteredEvents = XLALClusterMultiInspiralTable( &inspiralEventList,
+                                      cluster_dt, clusterchoice );
+        }
+      }
+      else {
+        numClusteredEvents = XLALClusterMultiInspiralTable( &inspiralEventList,
+                                         cluster_dt, clusterchoice );
+      }
     }
     else
     {
@@ -1003,8 +1026,19 @@ int main( int argc, char *argv[] )
         /* extract the slide */
         tmp_slideEvent = XLALMultiInspiralSlideCut( &inspiralEventList, slide );
         /* run clustering */
-        numClusteredSlide = XLALClusterMultiInspiralTable( &slideEvent,
-          cluster_dt, clusterchoice);
+        /*CHECK: */
+        if ( clusterInEventID ) {
+          numClusteredSlide = XLALClusterMultiInspiralTableInEventID(
+                                         &tmp_slideEvent, clusterchoice );
+          if (cluster_dt > 0) {
+            numClusteredEvents = XLALClusterMultiInspiralTable( &inspiralEventList,
+                                        cluster_dt, clusterchoice );
+          }
+        }
+        else {
+          numClusteredSlide = XLALClusterMultiInspiralTable( &tmp_slideEvent,
+                                         cluster_dt, clusterchoice );
+        }
 
         if ( vrbflg ) fprintf( stdout, "%d clustered events \n",
           numClusteredSlide );
@@ -1328,4 +1362,86 @@ int main( int argc, char *argv[] )
   if ( vrbflg ) fprintf( stdout, "checking memory leaks and exiting\n" );
   LALCheckMemoryLeaks();
   exit( 0 );
+}
+
+/*CHECK: */
+int XLALClusterMultiInspiralTableInEventID(
+    MultiInspiralTable         **inspiralList,
+    MultiInspiralClusterChoice   clusterchoice
+    )
+
+{
+  MultiInspiralTable     *thisEvent=NULL;
+  MultiInspiralTable     *prevEvent=NULL;
+  MultiInspiralTable     *nextEvent=NULL;
+
+  int                    numMultiClust = 0;
+
+  if ( !inspiralList )
+  {
+    XLALPrintInfo(
+      "XLALClusterInEventID: Empty trigger list passed as input\n" );
+    return( 0 );
+  }
+
+  if ( ! *inspiralList )
+  {
+    XLALPrintInfo(
+      "XLALClusterInEventID: Empty trigger list passed as input\n" );
+    return( 0 );
+  }
+
+  thisEvent = *inspiralList;
+  nextEvent = (*inspiralList)->next;
+  *inspiralList = NULL;
+
+  while ( nextEvent ) {
+    /* find events with the same eventID in the same IFO */
+    if ( (thisEvent->event_id->id == nextEvent->event_id->id) ) {
+      REAL4 thisStat = XLALMultiInspiralStat( thisEvent, clusterchoice );
+      REAL4 nextStat = XLALMultiInspiralStat( nextEvent, clusterchoice );
+
+      fprintf(stdout, "Next event's id is %" LAL_UINT8_FORMAT "\n",nextEvent->event_id->id);
+      fprintf(stdout, "Next-statistic is %e\n",nextStat);
+
+      if ( nextStat > thisStat ) {
+        /* displace previous event in cluster */
+        if( prevEvent )
+          {
+            prevEvent->next = nextEvent;
+          }
+        XLALFreeMultiInspiral( &thisEvent );
+        thisEvent = nextEvent;
+        nextEvent = thisEvent->next;
+      }
+      else
+        {
+          /* otherwise just dump next event from cluster */
+          thisEvent->next = nextEvent->next;
+          XLALFreeMultiInspiral ( &nextEvent );
+          nextEvent = thisEvent->next;
+        }
+    }
+    else
+      {
+        /* otherwise we keep this unique event trigger */
+        if ( ! *inspiralList )
+          {
+            *inspiralList = thisEvent;
+          }
+        prevEvent = thisEvent;
+        thisEvent = thisEvent->next;
+        nextEvent = thisEvent->next;
+        ++numMultiClust;
+      }
+  }
+
+  /* store the last event */
+  if ( ! (*inspiralList) )
+    {
+      *inspiralList = thisEvent;
+  }
+  ++numMultiClust;
+
+  return(numMultiClust);
 }
