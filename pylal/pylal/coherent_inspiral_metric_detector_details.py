@@ -55,6 +55,12 @@ def f_PSD_from_file(filename, fLow, fNyq, deltaF):
 	S = pylab.interp(f, f_in, S_in)
 	# packing is of the form:
 	# [0 deltaF 2*deltaF ... fNyquist-deltaF fNyquist -fNyquist+deltaF ... -2*deltaF -deltaF]
+	PSD = scipy.zeros(2*(fNyq/deltaF), dtype='float')+scipy.inf
+	PSD[round(fLow/deltaF):fNyq/deltaF+1] = S**2
+	if -round(fLow/deltaF) == 0:
+		PSD[fNyq/deltaF+1:] = S[-2:0:-1]**2
+	else:
+		PSD[fNyq/deltaF+1:-round(fLow/deltaF)] = S[-2:0:-1]**2
 	f = f_for_fft(fLow, fNyq, deltaF)
 	nNyq = round(fNyq/deltaF)
 	nLow = round(fLow/deltaF)
