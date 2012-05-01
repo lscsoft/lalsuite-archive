@@ -41,15 +41,14 @@ parser.add_option("-k", "--skip-file-generation", action = "store_true", help = 
 parser.add_option("-p","--log-path", default='logs/', help = "set dagman log path")
 parser.add_option("-a","--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
 parser.add_option("-u","--user-tag", default='CBC', help= "help you keep track of multiple runs in a single directory, i.e. CAT_3 or CAT_4")
-parser.add_option("", "--start-time", default=0, type="int", help="the gps start time for window of desired coincs")
-parser.add_option("", "--end-time", default=999999999, type="int", help="the gps end time for window of desired coincs")
-parser.add_option("", "--exact-tag", default="ring_exact", help="this is the dbinjfind tag stored in the sqlite database for the exactly found injections - the ones you want to use for training")
-parser.add_option("", "--nearby-tag", default="ring_nearby", help="this is the dbinjfind tag stored in the sqlite for the nearby injections - we will still rank all of these")
 
 (opts, databases) = parser.parse_args()
 
 run_tag = opts.user_tag+'_n'+str(opts.number_of_trees)+'_l'+str(opts.leaf_size)+'_s'+str(opts.sampled_parameters)+'_c'+str(opts.criterion_for_optimization)
 
+cp = ConfigParser.ConfigParser()
+ininame = opts.ini_file
+cp.read(ininame)
 
 class mvsc_dag_DAG(pipeline.CondorDAG):
   def __init__(self, config_file, log_path):
@@ -222,6 +221,10 @@ count_all_injections={}
 count_exact_injections={}
 count_timeslides={}
 count_zerolag={}
+nearby_tag = cp.get("mvsc_get_doubles","nearby-tag")
+exact_tag = cp.get("mvsc_get_doubles","exact-tag")
+start_time = cp.get("mvsc_get_doubles","start-time")
+end_time = cp.get("mvsc_get_doubles","end-time")
 for database in databases:
   local_disk = None #"/tmp"
   working_filename = dbtables.get_connection_filename(database, tmp_path = local_disk, verbose = True)
@@ -234,10 +237,10 @@ for database in databases:
     combstr = ''.join(comb)
     comb = ','.join(comb)
     #print ''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,])
-    count_all_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) )
-    count_exact_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) )
-    count_timeslides[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'slide'"]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) )
-    count_zerolag[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'all_data'"]), (ifos[0],ifos[1],opts.start_time,opts.end_time,) )
+    count_all_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],start_time,end_time,nearby_tag,) )
+    count_exact_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],start_time,end_time,exact_tag,) )
+    count_timeslides[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'slide'"]), (ifos[0],ifos[1],start_time,end_time,) )
+    count_zerolag[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'all_data'"]), (ifos[0],ifos[1],start_time,end_time,) )
 
 print count_all_injections
 for comb in ifo_combinations:
@@ -257,11 +260,6 @@ for comb in ifo_combinations:
 
 try: os.mkdir("logs")
 except: pass
-
-cp = ConfigParser.ConfigParser()
-ininame = opts.ini_file
-cp.read(ininame)
-dag = mvsc_dag_DAG(ininame, opts.log_path+'/')
 
 #mvsc_get_doubles
 get_job = mvsc_get_doubles_job(cp)
@@ -287,7 +285,9 @@ update_job = mvsc_update_sql_job(cp)
 update_node = {}
 
 update_files=[]
+
 #Assemble the DAG
+dag = mvsc_dag_DAG(ininame, opts.log_path+'/')
 number_of_round_robins=int(cp.get("mvsc_get_doubles","number"))
 comment={}
 for comb in ifo_combinations:
