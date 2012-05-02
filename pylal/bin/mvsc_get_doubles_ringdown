@@ -222,27 +222,27 @@ if opts.apply_weights:
 		injtmp = list(row)
 		injtmp[-2]=str(injtmp[-2])
 		if injtmp[-2] == 'Ringdown':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
-			exact_injections_log.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
+			exact_injections_log.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-2]])
 		if injtmp[-2] == 'uniform':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
-			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**2
+			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-2]])
 		if injtmp[-2] == 'log10':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
-			exact_injections_log.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
+			exact_injections_log.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-2]])
 		if injtmp[-2] == 'volume':
 			injtmp[-2]=1.0
-			exact_injections_vol.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
+			exact_injections_vol.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-2]])
 		newexact_injections.append(tuple(injtmp))
 	for row in all_injections:
 		injtmp = list(row)
 		injtmp[-2]=str(injtmp[-2])
 		if injtmp[-2] == 'Ringdown':
-			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
+			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
 		if injtmp[-2] == 'uniform':
-			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
+			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**2
 		if injtmp[-2] == 'log10':
-			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
+			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
 		if injtmp[-2] == 'volume':
 			injtmp[-2]=1.0
 		newall_injections.append(tuple(injtmp))
