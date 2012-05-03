@@ -2494,7 +2494,7 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         name_list.append(name)
         H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels+[1])
         extent= [xedges[0], yedges[-1], xedges[-1], xedges[0]]
-        CS=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]]   )
+        CS=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]] ,hatch='/' )
         CSlst.append(CS)
     
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
