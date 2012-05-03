@@ -270,7 +270,7 @@ if opts.check_weights:
 		for j in range(len(exact_injections_distance)):
 			if exact_injections_distance[j][0] <= distance_i:
 				sum=sum+exact_injections[j][-2]
-		weight_dictionary[distance_i]=[sum,exact_injections[i][4],exact_injections[i][5]]
+		weight_dictionary[distance_i]=[sum,exact_injections[i][10],exact_injections[i][11]]
 		pylab.loglog(distance_i,sum,'b.')
 		pylab.axis('equal')
 		pylab.hold(1)
