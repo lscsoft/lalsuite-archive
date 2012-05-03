@@ -617,7 +617,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
 
-                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
+                    fig=bppu.plot_two_param_greedy_bins_contourf(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
 
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))

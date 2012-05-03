@@ -2437,6 +2437,113 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
+def histogram2D(posterior,greedy2Params,confidence_levels):
+    """
+    Returns a 2D histogram and edges for the two parameters passed in greedy2Params, plus the actual discrete confidence levels
+    imposed by the finite number of samples.
+       H,xedges,yedges,Hlasts = histogram2D(posterior,greedy2Params,confidence_levels)
+    @param posterior: Posterior instance
+    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map.
+    """
+
+    par1_name,par2_name=greedy2Params.keys()
+    par1_bin=greedy2Params[par1_name]
+    par2_bin=greedy2Params[par2_name]
+    par1_injvalue=posterior[par1_name_lower()].injval
+    par2_injvalue=posterior[par2_name_lower()].injval
+    a=np.squeeze(posterior[par1_name].samples)
+    b=np.squeeze(posterior[par2_name].samples)
+    par1pos_min=a.min()
+    par2pos_min=b.min()
+    par1pos_max=a.max()
+    par2pos_max=b.max()
+    par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
+    par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
+    H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
+    for cl in confidence_levels:
+        while float(Hsum/np.sum(H))<cl:
+            ind = np.argsort(temp)
+            max_i=ind[-1:]
+            val = temp[max_i]
+             Hlast=val[0]
+            Hsum+=val
+            temp[max_i]=0
+        Hlasts.append(Hlast)
+    return (H,xedges,yedges.Hlasts)
+
+def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name):
+    """
+    @param posteriors_by_name A dictionary of posterior objects indexed by name
+    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map. 
+    
+    """
+    fig=plt.figure(1,figsize=figsize,dpi=dpi)
+    plt.clf()
+    fig.add_axes(figposition)
+    CSlst=[]
+    name_list=[]
+    for name,posterior in posteriors_by_name.items():
+        name_list.append(name)
+        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels)
+        extent= [xedges[0], yedges[-1], xedges[-1], xedges[0]]
+        CS=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]]   )
+        CSlst.append(CS)
+    
+    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
+    if len(name_list)!=len(CSlst):
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
+    full_name_list=[]
+    dummy_lines=[]
+    for plot_name in name_list:
+        full_name_list.append(plot_name)
+        for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+            full_name_list.append('%s%%'%str(int(cl*100)))
+        fig_actor_lst = [cs.collections[0] for cs in CSlst]
+        fig_actor_lst.extend(dummy_lines)
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+        text.set_fontsize('small')
+    fix_axis_names(plt,par1_name,par2_name)
+
+def fix_axis_names(plt,par1_name,par2_name):
+    """
+    Fixes names of axes
+    """
+    # For ra and dec set custom labels and for RA reverse
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+            plt.ylim(ymax,ymin)
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            locs, ticks = plt.yticks()
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
+    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+            locs, ticks = plt.yticks()
+            newlocs,newticks=formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
+
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        locs, ticks = plt.xticks()
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
+    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+        locs, ticks = plt.xticks()
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
+    return plt
+
 def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
