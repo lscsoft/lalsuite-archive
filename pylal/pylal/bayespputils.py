@@ -2450,8 +2450,8 @@ def histogram2D(posterior,greedy2Params,confidence_levels):
     par1_name,par2_name=greedy2Params.keys()
     par1_bin=greedy2Params[par1_name]
     par2_bin=greedy2Params[par2_name]
-    par1_injvalue=posterior[par1_name_lower()].injval
-    par2_injvalue=posterior[par2_name_lower()].injval
+    par1_injvalue=posterior[par1_name.lower()].injval
+    par2_injvalue=posterior[par2_name.lower()].injval
     a=np.squeeze(posterior[par1_name].samples)
     b=np.squeeze(posterior[par2_name].samples)
     par1pos_min=a.min()
@@ -2461,18 +2461,23 @@ def histogram2D(posterior,greedy2Params,confidence_levels):
     par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
     par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
     H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
+    temp=np.copy(H)
+    temp=temp.ravel()
+    confidence_levels.sort()
+    Hsum=0
+    Hlasts=[]
     for cl in confidence_levels:
         while float(Hsum/np.sum(H))<cl:
             ind = np.argsort(temp)
             max_i=ind[-1:]
             val = temp[max_i]
-             Hlast=val[0]
+            Hlast=val[0]
             Hsum+=val
             temp[max_i]=0
         Hlasts.append(Hlast)
-    return (H,xedges,yedges.Hlasts)
+    return (H,xedges,yedges,Hlasts)
 
-def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name):
+def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
     """
     @param posteriors_by_name A dictionary of posterior objects indexed by name
     @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
@@ -2484,9 +2489,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
     fig.add_axes(figposition)
     CSlst=[]
     name_list=[]
+    par1_name,par2_name=greedy2Params.keys()
     for name,posterior in posteriors_by_name.items():
         name_list.append(name)
-        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels)
+        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels+[1])
         extent= [xedges[0], yedges[-1], xedges[-1], xedges[0]]
         CS=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]]   )
         CSlst.append(CS)
@@ -2500,15 +2506,16 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
     dummy_lines=[]
     for plot_name in name_list:
         full_name_list.append(plot_name)
-        for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
-            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+        for cl in confidence_levels:
+            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
             full_name_list.append('%s%%'%str(int(cl*100)))
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-    for text in twodcontour_legend.get_texts():
-        text.set_fontsize('small')
+    #if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    #for text in twodcontour_legend.get_texts():
+    #    text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
+    return fig
 
 def fix_axis_names(plt,par1_name,par2_name):
     """
