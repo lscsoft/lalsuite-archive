@@ -299,7 +299,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      axis_font_size = 16
      #pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
      pylab.legend(loc="lower center")
-     pylab.ylabel("Probability Density (Mpc$^{3}\,$yr)", fontsize=axis_font_size)
+     pylab.ylabel("Probability Density", fontsize=axis_font_size)
      pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
      pylab.grid()
      pylab.xlim([mu.min(), mu.max()])
