@@ -8,6 +8,18 @@ from pylal import upper_limit_utils
 
 class test_ulutils(unittest.TestCase):
 
+    def test_normalize_pdf(self):
+        '''
+        Check the normalization of pdfs
+        '''
+        mu = numpy.logspace(-10,-4,1e5)
+        likely = numpy.exp(-mu*3.14*10**6)  # just some number far from unity
+        junk, prob_norm = upper_limit_utils.normalize_pdf(mu, likely)
+        dmu = mu[1:] - mu[:-1]
+        prob_in_bin = (prob_norm[1:] + prob_norm[:-1]) /2
+        prob_integral = sum(dmu*prob_in_bin)
+        self.assertTrue( abs(prob_integral - 1.0) < 0.00001 )
+
     def test_gaussian_upper_limit(self):
         '''
         Give the upper_limit function some known distributions with known 95% upper limits.
