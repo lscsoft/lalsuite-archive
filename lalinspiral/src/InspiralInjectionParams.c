@@ -584,6 +584,122 @@ SimInspiralTable* XLALRandomInspiralSpins(
   return ( inj );
 }
 
+/////////////////
+
+SimInspiralTable* XLALRandomInspiralOneSpin(
+    SimInspiralTable *inj,   /**< injection for which spins will be set*/
+    RandomParams *randParams,/**< random parameter details*/
+    REAL4  spinMin,         /**< minimum magnitude of spin1 */
+    REAL4  spinMax,         /**< maximum magnitude of spin1 */
+    REAL4  kappaMin,            /**< minimum value of spin1 . L_N */
+    REAL4  kappaMax,            /**< maximum value of spin1 . L_N */
+    REAL4  abskappaMin, /**< minimum absolute value of spin1 . L_N */
+    REAL4  abskappaMax, /**< maximum absolute value of spin1 . L_N */
+    AlignmentType alignInj      /**< choice of convention for aligned spins */
+    )
+{
+  REAL4 spinMag;
+  REAL4 r;
+  REAL4 phi;
+  REAL4 kappa;
+  REAL4 sintheta;
+  REAL4 zmin;
+  REAL4 zmax;
+  REAL4 inc;
+  REAL4 cosinc;
+  REAL4 sininc;
+  REAL4 sgn;
+  inc      = inj->inclination;
+  cosinc   = cos( inc );
+  sininc   = sin( inc );
+  kappa    = -2.0;
+
+  /* spinMag */
+  spinMag =  spinMin + XLALUniformDeviate( randParams ) *
+    (spinMax - spinMin);
+
+  /* Check if initial spin orientation is specified by user */
+  if ( (kappaMin > -1.0) || (kappaMax < 1.0) )
+  {
+          kappa = kappaMin + XLALUniformDeviate( randParams ) *
+                  ( kappaMax - kappaMin );
+  }
+  else if ( (abskappaMin > 0.0) || (abskappaMax < 1.0) )
+  {
+          kappa = abskappaMin + XLALUniformDeviate( randParams ) *
+                  ( abskappaMax - abskappaMin );
+          sgn = XLALUniformDeviate( randParams ) - 0.5;
+          sgn = (sgn > 0.0) ? 1.0 : -1.0;
+          kappa = kappa * sgn;
+  }
+
+  /* spinz */
+  if (kappa > -2.0)
+  {
+          sintheta = sqrt( 1 - kappa * kappa );
+          zmin = spinMag * ( cosinc * kappa - sininc * sintheta );
+          zmax = spinMag * ( cosinc * kappa + sininc * sintheta );
+          inj->spin1z = zmin + XLALUniformDeviate( randParams ) * (zmax - zmin);
+  }
+  else if (alignInj==inxzPlane)
+  {
+          inj->spin1z = spinMag * cosinc;
+  }
+  else if (alignInj==alongzAxis)
+  {
+  /* z-component of aligned spin equal to the spin magnitude and
+     random in sign */
+          sgn = XLALUniformDeviate( randParams ) - 0.5;
+          sgn = (sgn > 0.0) ? 1.0 : -1.0;
+          inj->spin1z = spinMag * sgn;
+  }
+  else
+  {
+          inj->spin1z = (XLALUniformDeviate( randParams ) - 0.5) * 2 * (spinMag);
+  }
+
+  /* spinx and spiny */
+  if (kappa > -2.0 && inc!=0) {
+          inj->spin1x = (kappa * spinMag - inj->spin1z * cosinc) / sininc ;
+          inj->spin1y = pow( ((spinMag * spinMag) - (inj->spin1z * inj->spin1z) -
+                                  (inj->spin1x * inj->spin1x)) , 0.5);
+  }
+  else if (alignInj==inxzPlane)
+  {
+          inj->spin1x = spinMag * sininc;
+  /* randomize sign of S_1.L_N while keeping spin along L_N */
+          sgn = XLALUniformDeviate( randParams ) - 0.5;
+          sgn = (sgn > 0.0) ? 1.0 : -1.0;
+          inj->spin1x = inj->spin1x * sgn;
+          inj->spin1z = inj->spin1z * sgn;
+          inj->spin1y = 0.0;
+  }
+  else if (alignInj==alongzAxis)
+  {
+          inj->spin1x = 0.0;
+          inj->spin1y = 0.0;
+  }
+  else
+  {
+          /* phi */
+          r = pow( ((spinMag * spinMag) - (inj->spin1z * inj->spin1z)) , 0.5);
+          phi = XLALUniformDeviate( randParams ) * LAL_TWOPI;
+          /* spinx and spiny */
+          inj->spin1x = r * cos(phi);
+          inj->spin1y = r * sin(phi);
+  }
+
+  XLALUniformDeviate( randParams );
+  XLALUniformDeviate( randParams );
+  if ((alignInj!=inxzPlane)&&(alignInj!=alongzAxis))
+    XLALUniformDeviate( randParams );
+
+  return ( inj );
+}
+
+
+///////////////
+
 /** Generates random masses for an inspiral injection. */
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,   /**< injection for which masses will be set*/
