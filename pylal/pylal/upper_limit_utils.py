@@ -62,6 +62,26 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     return likely
 
 
+def normalize_pdf(mu, pofmu):
+    """
+    Takes a function pofmu defined at rate sample values mu and 
+    normalizes it to be a suitable pdf. Both mu and pofmu must be
+    arrays or lists of the same length. 
+    """
+    if min(pofmu) < 0:
+        raise ValueError, "Probabilities cannot be negative, please don't \
+        ask me to normalize a function with negative values!"
+    if min(mu) < 0:
+        raise ValueError, "Rates cannot be negative, please don't \
+        ask me to normalize a function over a negative domain!"
+    # simple trapezoidal integral
+    dmu = mu[1:] - mu[:-1]
+    mean_in_bin = (pofmu[1:] + pofmu[:-1]) /2
+    dp = dmu*mean_in_bin
+
+    return mu, pofmu/sum(dp)
+
+
 def compute_upper_limit(mu_in, post, alpha = 0.9):
     """
     Returns the upper limit mu_high of confidence level alpha for a
@@ -291,9 +311,9 @@ def log_volume_derivative_fit(x, vols, xhat):
         return (0,0)
 
     coeffs, resids, rank, svs, rcond = numpy.polyfit(x, numpy.log(vols), 1, full=True)
-    if coeffs[0] < 0:
-        coeffs[0] = 0  #negative derivatives may arise from rounding error
+    if coeffs[0] < 0: #negative derivatives may arise from rounding error
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda =", coeffs[0]
+        coeffs[0] = 0
         print >> sys.stderr, "The value Lambda = 0 was substituted"
 
     return coeffs
