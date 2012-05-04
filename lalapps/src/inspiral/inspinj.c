@@ -168,6 +168,7 @@ REAL4 latitude=91.0;
 REAL4 epsAngle=1e-7;
 int spinInjections=-1;
 int spinAligned=-1;
+int oneSpin=0;
 REAL4 minSpin1=-1.0;
 REAL4 maxSpin1=-1.0;
 REAL4 minSpin2=-1.0;
@@ -190,6 +191,7 @@ REAL8 redshift;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
+static RandomParams* randParamSpin=NULL;
 INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
 
@@ -1572,6 +1574,7 @@ int main( int argc, char *argv[] )
     {"enable-spin",             no_argument,       0,                'T'},
     {"disable-spin",            no_argument,       0,                'W'},
     {"aligned",                 no_argument,       0,                '@'},
+    {"onespin",                 no_argument,       0,                '+'},
     {"write-compress",          no_argument,       &outCompress,       1},
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
@@ -2404,6 +2407,14 @@ int main( int argc, char *argv[] )
         spinAligned = 1;
         break;
 
+      case '+':
+        /* flag to allow only one spin to be non-vanishing */
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "" );
+        oneSpin = 1;
+        break;
+
       case '}':
         /* enable band-passing */
         this_proc_param = this_proc_param->next =
@@ -2892,30 +2903,47 @@ int main( int argc, char *argv[] )
   }
 
   if ( spinInjections==1 && spinAligned==1 && strncmp(waveform, "IMRPhenomB", 10)
-    && strncmp(waveform, "SpinTaylor", 10) )
+    && strncmp(waveform, "SpinTaylor", 10)&& (strncmp(waveform, "PhenSpinTaylorRD", 16)) )
   {
     fprintf( stderr,
         "Sorry, I only know to make spin aligned injections for \n"
-        "IMRPhenomB, SpinTaylor and SpinTaylorFrameless waveforms.\n" );
+        "IMRPhenomB, SpinTaylor, SpinTaylorFrameless and PhenSpinTaylorRD waveforms.\n" );
     exit( 1 );
   }
 
   if ( spinInjections==1 )
   {
     /* check that spins are in range 0 - 1 */
-    if (minSpin1 < 0. || minSpin2 < 0. || maxSpin1 > 1. || maxSpin2 >1.)
+    if (minSpin1 < 0. || maxSpin1 > 1. )
     {
       fprintf( stderr,
-          "Spins can only take values between 0 and 1.\n" );
+          "Spin 1 can only take values between 0 and 1.\n" );
       exit( 1 );
     }
 
+    if (!oneSpin){
+      if (minSpin2 < 0. || maxSpin2 >1.) {
+      fprintf( stderr,
+          "Spin 2 can only take values between 0 and 1.\n" );
+      exit( 1 );
+      }
+    }
+
     /* check max and mins are the correct way around */
-    if (minSpin1 > maxSpin1 || minSpin2 > maxSpin2 )
+    if (minSpin1 > maxSpin1 )
     {
       fprintf( stderr,
           "Minimal spins must be less than maximal spins.\n" );
       exit( 1 );
+    }
+
+    if (!oneSpin){
+      if ( minSpin2 > maxSpin2 )
+	{
+	  fprintf( stderr,
+		   "Minimal spins must be less than maximal spins.\n" );
+	  exit( 1 );
+	}
     }
 
     /* check that selection criteria for kappa are unique */
@@ -3010,6 +3038,7 @@ int main( int argc, char *argv[] )
 
   /* set up the LAL random number generator */
   LALCreateRandomParams( &status, &randParams, rand_seed );
+  LALCreateRandomParams( &status, &randParamSpin, rand_seed );
 
   this_proc_param = procparams.processParamsTable;
   procparams.processParamsTable = procparams.processParamsTable->next;
@@ -3231,6 +3260,12 @@ int main( int argc, char *argv[] )
           alignInj = alongzAxis;
         else if (strncmp(waveform, "SpinTaylor", 10)==0)
           alignInj = inxzPlane;
+	else if (strncmp(waveform, "PhenSpinTaylorRD", 16)==0) {
+	  if ( (strstr(waveform,"OrbitalL")) || (strstr(waveform,"TotalJ")) )
+	      alignInj = alongzAxis;
+	  else
+	      alignInj = inxzPlane;
+	}
         else
         {
           fprintf( stderr, "Unknown waveform type for aligned spin injections.\n" );
@@ -3239,12 +3274,22 @@ int main( int argc, char *argv[] )
       }
       else
         alignInj = notAligned;
-      simTable = XLALRandomInspiralSpins( simTable, randParams,
-          minSpin1, maxSpin1,
-          minSpin2, maxSpin2,
-          minKappa1, maxKappa1,
-          minabsKappa1, maxabsKappa1,
-          alignInj );
+
+      if (oneSpin==1){
+	simTable = XLALRandomInspiralOneSpin( simTable, randParamSpin,
+					      minSpin1, maxSpin1,
+					      minKappa1, maxKappa1,
+					      minabsKappa1, maxabsKappa1,
+					      alignInj );
+      }
+      else{
+	simTable = XLALRandomInspiralSpins( simTable, randParamSpin,
+					    minSpin1, maxSpin1,
+					    minSpin2, maxSpin2,
+					    minKappa1, maxKappa1,
+					    minabsKappa1, maxabsKappa1,
+					    alignInj );
+       }
     }
 
     if ( ifos != NULL )
@@ -3402,6 +3447,7 @@ int main( int argc, char *argv[] )
 
   /* destroy the structure containing the random params */
   LAL_CALL(  LALDestroyRandomParams( &status, &randParams ), &status);
+  LAL_CALL(  LALDestroyRandomParams( &status, &randParamSpin ), &status);
 
   /* If we read from an external trigger file, free our external trigger.
      exttrigHead is guaranteed to have no children to free. */
