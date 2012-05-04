@@ -2492,9 +2492,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
     par1_name,par2_name=greedy2Params.keys()
     for name,posterior in posteriors_by_name.items():
         name_list.append(name)
-        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels+[1])
+        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels+[0.99999999999999])
         extent= [xedges[0], yedges[-1], xedges[-1], xedges[0]]
-        CS=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]] ,hatch='/' )
+        CS2=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] ,alpha=0.3 )
+        CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] )
         CSlst.append(CS)
     
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
@@ -2506,14 +2507,14 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
     dummy_lines=[]
     for plot_name in name_list:
         full_name_list.append(plot_name)
-        for cl in confidence_levels:
+        for cl in confidence_levels+[1]:
             dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
             full_name_list.append('%s%%'%str(int(cl*100)))
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
-    #if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-    #for text in twodcontour_legend.get_texts():
-    #    text.set_fontsize('small')
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+        text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
     return fig
 
