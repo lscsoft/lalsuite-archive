@@ -198,6 +198,18 @@ SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     REAL4  abskappa1Max,
     AlignmentType alignInj);
 
+SimInspiralTable* XLALRandomInspiralOneSpin( SimInspiralTable *inj,   /**< injection for which spins will be set*/
+     RandomParams *randParams,/**< random parameter details*/
+     REAL4  spinMin,         /**< minimum magnitude of spin1 */
+     REAL4  spinMax,         /**< maximum magnitude of spin1 */
+    REAL4  kappaMin,            /**< minimum value of spin1 . L_N */
+     REAL4  kappaMax,            /**< maximum value of spin1 . L_N */
+      REAL4  abskappaMin, /**< minimum absolute value of spin1 . L_N */
+     REAL4  abskappaMax, /**< maximum absolute value of spin1 . L_N */
+     AlignmentType alignInj      /**< choice of convention for aligned spins */
+					     );
+
+
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,
     RandomParams *randParams,
