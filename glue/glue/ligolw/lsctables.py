@@ -362,7 +362,8 @@ class ProcessParamsTable(table.Table):
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
-	def get_pyvalue(self):
+	@property
+	def pyvalue(self):
 		if self.value is None:
 			return None
 		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
@@ -484,29 +485,53 @@ class SearchSummary(object):
 
 	def get_in(self):
 		"""
-		Return the input segment.
+		Get the input segment.  Returns None if all four input
+		segment boundary attributes are None.
 		"""
-		return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		try:
+			return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		except:
+			if (self.in_start_time, self.in_start_time_ns, self.in_end_time, self.in_end_time_ns) == (None, None, None, None):
+				return segments.segment(None, None)
+			raise
 
 	def set_in(self, seg):
 		"""
-		Set the input segment.
+		Set the input segment.  If seg is None then all four input
+		segment boundary attributes are set to None.
 		"""
-		self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-		self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		try:
+			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
+			self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		except:
+			if seg != (None, None):
+				raise
+			self.in_start_time = self.in_start_time_ns = self.in_end_time = self.in_end_time_ns = None
 
 	def get_out(self):
 		"""
-		Get the output segment.
+		Get the output segment.  Returns None if all four output
+		segment boundary attributes are None.
 		"""
-		return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		try:
+			return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		except:
+			if (self.out_start_time, self.out_start_time_ns, self.out_end_time, self.out_end_time_ns) == (None, None, None, None):
+				return segments.segment(None, None)
+			raise
 
 	def set_out(self, seg):
 		"""
-		Set the output segment.
+		Set the output segment.  If seg is None then all four
+		output segment boundary attributes are set to None.
 		"""
-		self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-		self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		try:
+			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
+			self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		except:
+			if seg != (None, None):
+				raise
+			self.out_start_time = self.out_start_time_ns = self.out_end_time = self.out_end_time_ns = None
 
 
 SearchSummaryTable.RowType = SearchSummary

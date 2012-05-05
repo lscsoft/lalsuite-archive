@@ -186,7 +186,7 @@ def get_process_params(xmldoc, program, param):
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 	if len(process_ids) != 1:
 		raise ValueError, "process table must contain exactly one program named '%s'" % program
-	return [row.get_pyvalue() for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+	return [row.pyvalue for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def doc_includes_process(xmldoc, program):

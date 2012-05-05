@@ -27,7 +27,7 @@ from pylal import git_version
 import bisect
 import pickle
 from pylal import InspiralUtils
-
+import math
 
 def CalculateFAPandEFF(total_data,classifier):
 	"""
@@ -473,6 +473,8 @@ matplotlib.rc('text', usetex=True)
 faircoin = numpy.linspace(10**-6,10**0.5,100)
 
 # Scatter of ovl_fdt vs ovl_fap
+if opts.verbose:
+  print 'Scatter of ovl_fdt vs ovl_fap'
 # this should help quantify how well fap estimates the fractional dead time with our random sampling
 fig_num += 1
 fig = pylab.figure(fig_num)
@@ -494,6 +496,8 @@ pylab.close()
 
 
 # ROC curves from total_ranked_data[0]
+if opts.verbose:
+  print 'ROC curves from total_ranked_data[0]'
 fig_num += 1
 fig = pylab.figure(fig_num)
 for cls in classifiers:
@@ -571,12 +575,12 @@ pylab.close()
 
 
 # 5bit word plots
+if opts.verbose:
+  print '5bit word plots'
 ### we define a 5 bit word to be the concatenation of binary flags corresponding to whether or not a classifier removes a glitch at a set FAP
 # 0: classifier did not remove glitch
 # 1: classifier removed glitch
-# we also define the ordering of classifiers in the 5 bit word to be: ovl mvsc ann svm combined
 
-FAPthr = 0.01
 sigthr = 25
 
 ### this next bit is fragile, and only handles the special case of svm being absent. you should extend this to a more general case
@@ -586,175 +590,264 @@ if opts.svm_ranked_files:
 else:
   classify = [[['ann'], ['mvsc'], ['ovl'], ['combined']], [['ann'], ['mvsc'], ['ovl']], [['ann'], ['mvsc'], ['combined']], [['ann'], ['mvsc']], [['ovl'], ['combined']]]
 
-for clas in classify:
-  #all glitches
-  fbw = []
-  for g in glitches:
-    s = ""
-    for cls in clas:
-      if g[cls[0]+'_fap'] <= FAPthr:
-        s += "1"
-      else:
-        s += "0"
-    fbw += [BinToDec(s)]
+for FAPthr in [10**-3, 10**-2, 5*10**-2, 10**-1]:
+  for clas in classify:
+    #all glitches
+    fbw = []
+    for g in glitches:
+      s = ""
+      for cls in clas:
+        if g[cls[0]+'_fap'] <= FAPthr:
+          s += "1"
+        else:
+          s += "0"
+      fbw += [BinToDec(s)]
 
-  #glitches with signif <= sigthr
-  g_rem = glitches[numpy.nonzero(glitches['signif'] <= sigthr)[0],:]
-  fbwBelow = []
-  for g in g_rem:
-    s = ''
-    for cls in clas:
-      if g[cls[0]+'_fap'] <= FAPthr:
-        s += '1'
-      else:
-        s += '0'
-    fbwBelow += [BinToDec(s)]
+    #glitches with signif <= sigthr
+    g_rem = glitches[numpy.nonzero(glitches['signif'] <= sigthr)[0],:]
+    fbwBelow = []
+    for g in g_rem:
+      s = ''
+      for cls in clas:
+        if g[cls[0]+'_fap'] <= FAPthr:
+          s += '1'
+        else:
+          s += '0'
+      fbwBelow += [BinToDec(s)]
 
-  #glitches with signif >= sigthr
-  g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-  fbwAbove = []
-  for g in g_rem:
-    s = ''
-    for cls in clas:
-      if g[cls[0]+'_fap'] <= FAPthr:
-        s += '1'
-      else:
-        s += '0'
-    fbwAbove += [BinToDec(s)]
+    #glitches with signif >= sigthr
+    g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+    fbwAbove = []
+    for g in g_rem:
+      s = ''
+      for cls in clas:
+        if g[cls[0]+'_fap'] <= FAPthr:
+          s += '1'
+        else:
+          s += '0'
+      fbwAbove += [BinToDec(s)]
+    
+    ### Add regular histograms 
+    fig_num += 1
+    fig = matplotlib.pyplot.figure()
+    pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint=True), weights = numpy.ones(len(fbw))/len(fbw), histtype='step', log = True, label = 'all glitches')#, linewidth = 2)
+    pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwBelow))/len(fbwBelow), histtype = 'step', log = True, label = 'signif $\leq$ ' + str(sigthr))#,  linewidth = 2)
+    (numA, bins, pathces) = pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwAbove))/len(fbwAbove), histtype = 'step', log = True, label = 'signif $\geq$ ' + str(sigthr))#, linewidth = 2)
+    pylab.ylabel('Fraction of Glitches')
+    pylab.xlim(-0.5, 2**len(clas)-0.5)
+    pylab.ylim(ymax = 1.0)
+    pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
+    pylab.legend(loc = 'upper center')
+    pylab.grid(True, which = 'major')
+    pylab.grid(True, which = 'minor')
   
-  ### Add regular histograms 
-  fig_num += 1
-  fig = matplotlib.pyplot.figure()
-  pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint=True), weights = numpy.ones(len(fbw))/len(fbw), histtype='step', log = True, label = 'all glitches')#, linewidth = 2)
-  pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwBelow))/len(fbwBelow), histtype = 'step', log = True, label = 'signif $\leq$ ' + str(sigthr))#,  linewidth = 2)
-  (numA, bins, pathces) = pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwAbove))/len(fbwAbove), histtype = 'step', log = True, label = 'signif $\geq$ ' + str(sigthr))#, linewidth = 2)
-  pylab.ylabel('Fraction of Glitches')
-  pylab.xlim(-0.5, 2**len(clas)-0.5)
-  pylab.ylim(ymax = 1.0)
-  pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy at FAP = '+str(FAPthr))
-  pylab.legend(loc = 'upper center')
-  pylab.grid(True, which = 'major')
-  pylab.grid(True, which = 'minor')
-
-  #convert decimals back to binaries and label the ticks accordingly
-  tick_locs = numpy.linspace(0,2**len(clas)-1,num=2**len(clas))
-  tick_labels = []
-  for loc in tick_locs:
-    s = ''
-    l = range(len(clas) - 1)
-    for ind in l[::-1]:
-      if int(loc)/2**(ind+1) == 0:
+    #convert decimals back to binaries and label the ticks accordingly
+    tick_locs = numpy.linspace(0,2**len(clas)-1,num=2**len(clas))
+    tick_labels = []
+    for loc in tick_locs:
+      s = ''
+      l = range(len(clas) - 1)
+      for ind in l[::-1]:
+        if int(loc)/2**(ind+1) == 0:
+          s += '0'
+        else:
+          s += '1'
+          loc = int(loc)-2**(ind+1)
+      if int(loc) == 0:
         s += '0'
       else:
         s += '1'
-        loc = int(loc)-2**(ind+1)
-    if int(loc) == 0:
-      s += '0'
-    else:
-      s += '1'
-    tick_labels += [s]
-  pylab.xticks(tick_locs, tick_labels)
-  for label in fig.axes[0].xaxis.get_ticklabels():
-    label.set_rotation(45)
-
-  leg = "5 bit word is ordered in the following way:  "
-  for cls in clas:
-    leg += labelDIC[cls[0]]+' '
-  pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
-
-  # print the fractions on top of the steps in the histograms
-  for indn in range(len(numA)):
-    loc = tick_locs[indn]
-    if numA[indn] > 0:
-      n = int(numA[indn]*10**3)/10.0
-      pylab.text(loc,numA[indn],str(n)+'\,\%',ha='center',va='bottom')
-
-  #adding to html page
-  strclas = ''
-  for cls in clas:
-    strclas += cls[0] + '_'
-  name = '_scatter_5bit-words_'+strclas
-  fname = InspiralUtils.set_figure_name(opts, name)
-  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-  fnameList.append(fname)
-  tagList.append(name)
-  pylab.close()
-
-  ### add histograms over only those glitches that were removed
-  fig_num += 1
-  fig = matplotlib.pyplot.figure()
-  fbwFound = []
-  for fbwi in fbw:
-    if fbwi > 0:
-      fbwFound += [fbwi]
-  fbwAboveFound = []
-  for fbwA in fbwAbove:
-    if fbwA > 0:
-      fbwAboveFound += [fbwA]
-  fbwBelowFound = []
-  for fbwB in fbwBelow:
-    if fbwB > 0:
-      fbwBelowFound += [fbwB]
-  pylab.hist(fbwFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint=True), weights = numpy.ones(len(fbwFound))/len(fbwFound), histtype='step', log = True, label = 'all glitches')#, linewidth = 2)
-  pylab.hist(fbwBelowFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwBelowFound))/len(fbwBelowFound), histtype = 'step', log = True, label = 'signif $\leq$ ' + str(sigthr))#, linewidth = 2)
-  (numA, bins, patches) = pylab.hist(fbwAboveFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwAboveFound))/len(fbwAboveFound), histtype = 'step', log = True, label = 'signif $\geq$ ' + str(sigthr))#, linewidth = 2)
-  pylab.ylabel('Fraction of Glitches Found')
-  pylab.xlim(0.5, 2**len(clas)-0.5)
-  pylab.ylim(ymax = 1.0, ymin = 0.0)
-  pylab.yscale('linear')
-  pylab.title(opts.user_tag + '\nHistogram over Classifier Redundancy at FAP = '+str(FAPthr))
-  pylab.legend(loc = 'upper right')
-  pylab.grid(True, which = 'major')
-  pylab.grid(True, which = 'minor')
-
-  #convert decimals back to binaries and label the ticks accordingly
-  tick_locs = numpy.linspace(1,2**len(clas)-1,num=2**len(clas)-1)
-  tick_labels = []
-  for loc in tick_locs:
-    s = ''
-    l = range(len(clas) - 1)
-    for ind in l[::-1]:
-      if int(loc)/2**(ind+1) == 0:
-        s += '0'
-      else:
-        s += '1'
-        loc = int(loc)-2**(ind+1)
-    if int(loc) == 0:
-      s += '0'
-    else:
-      s += '1'
-    tick_labels += [s]
-  pylab.xticks(tick_locs, tick_labels)
-  for label in fig.axes[0].xaxis.get_ticklabels():
-    label.set_rotation(45)
+      tick_labels += [s]
+    pylab.xticks(tick_locs, tick_labels)
+    for label in fig.axes[0].xaxis.get_ticklabels():
+      label.set_rotation(45)
   
-  # print the fractions on top of the steps in the histograms
-  for indn in range(len(numA)):
-    loc = tick_locs[indn]
-    if numA[indn] > 0:
-      n = int(numA[indn]*10**3)/10.0
-      pylab.text(loc,numA[indn],str(n)+'\,\%',ha='center',va='bottom')
+    leg = "5 bit word is ordered in the following way:  "
+    for cls in clas:
+      leg += labelDIC[cls[0]]+' '
+    pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
+  
+    # print the fractions on top of the steps in the histograms
+    for indn in range(len(numA)):
+      loc = tick_locs[indn]
+      if numA[indn] > 0:
+        n = int(numA[indn]*10**3)/10.0
+        pylab.text(loc,numA[indn],str(n)+'\,\%',ha='center',va='bottom')
+ 
+    #adding to html page
+    strclas = ''
+    for cls in clas:
+      strclas += cls[0] + '_'
+    name = '_scatter_5bit-words_'+strclas+'_FAPthr_'+str(FAPthr)
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
 
-  leg = "Bit-word ordering:\n("
-  for tmp in range(len(clas)-1):
-    cls = clas[tmp]
-    leg += labelDIC[cls[0]]+',\ '
-  leg += labelDIC[clas[len(clas)-1][0]]+')'
-  pylab.figtext(0.3, 0.8, leg, ha = 'center', va = 'center')
+    ### add histograms over only those glitches that were removed
+    fig_num += 1
+    fig = matplotlib.pyplot.figure()
+    fbwFound = []
+    for fbwi in fbw:
+      if fbwi > 0:
+        fbwFound += [fbwi]
+    fbwAboveFound = []
+    for fbwA in fbwAbove:
+      if fbwA > 0:
+        fbwAboveFound += [fbwA]
+    fbwBelowFound = []
+    for fbwB in fbwBelow:
+      if fbwB > 0:
+        fbwBelowFound += [fbwB]
+    pylab.hist(fbwFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint=True), weights = numpy.ones(len(fbwFound))/len(fbwFound), histtype='step', log = True, label = 'all glitches')#, linewidth = 2)
+    pylab.hist(fbwBelowFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwBelowFound))/len(fbwBelowFound), histtype = 'step', log = True, label = 'signif $\leq$ ' + str(sigthr))#, linewidth = 2)
+    (numA, bins, patches) = pylab.hist(fbwAboveFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwAboveFound))/len(fbwAboveFound), histtype = 'step', log = True, label = 'signif $\geq$ ' + str(sigthr))#, linewidth = 2)
+    pylab.ylabel('Fraction of Glitches Found')
+    pylab.xlim(0.5, 2**len(clas)-0.5)
+    pylab.ylim(ymax = 1.0, ymin = 0.0)
+    pylab.yscale('linear')
+    pylab.title(opts.user_tag + '\nHistogram over Classifier Redundancy at FAP = '+str(FAPthr))
+    pylab.legend(loc = 'upper right')
+    pylab.grid(True, which = 'major')
+    pylab.grid(True, which = 'minor')
+  
+    #convert decimals back to binaries and label the ticks accordingly
+    tick_locs = numpy.linspace(1,2**len(clas)-1,num=2**len(clas)-1)
+    tick_labels = []
+    for loc in tick_locs:
+      s = ''
+      l = range(len(clas) - 1)
+      for ind in l[::-1]:
+        if int(loc)/2**(ind+1) == 0:
+          s += '0'
+        else:
+          s += '1'
+          loc = int(loc)-2**(ind+1)
+      if int(loc) == 0:
+        s += '0'
+      else:
+        s += '1'
+      tick_labels += [s]
+    pylab.xticks(tick_locs, tick_labels)
+    for label in fig.axes[0].xaxis.get_ticklabels():
+      label.set_rotation(45)
+  
+    # print the fractions on top of the steps in the histograms
+    for indn in range(len(numA)):
+      loc = tick_locs[indn]
+      if numA[indn] > 0:
+        n = int(numA[indn]*10**3)/10.0
+        pylab.text(loc,numA[indn],str(n)+'\,\%',ha='center',va='bottom')
+  
+    leg = "Bit-word ordering:\n("
+    for tmp in range(len(clas)-1):
+      cls = clas[tmp]
+      leg += labelDIC[cls[0]]+',\ '
+    leg += labelDIC[clas[len(clas)-1][0]]+')'
+    pylab.figtext(0.3, 0.8, leg, ha = 'center', va = 'center')
+  
+    #adding to html page
+    strclas = ''
+    for cls in clas:
+      strclas += cls[0] + '_'
+    name = '_scatter_5bit-words_FOUND_'+strclas+'_FAPthr_'+str(FAPthr)
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
 
-  #adding to html page
-  strclas = ''
-  for cls in clas:
-    strclas += cls[0] + '_'
-  name = '_scatter_5bit-words_FOUND_'+strclas
-  fname = InspiralUtils.set_figure_name(opts, name)
-  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
-  fnameList.append(fname)
-  tagList.append(name)
-  pylab.close()
+
+# Histogram over subsets of glitches from 5bit word plots
+if opts.verbose:
+  print 'Histogram over subsets of glitches from 5bit word plots'
+# we pull out the glitches identified by certain classifiers but not by the others and histogram over their parameters:
+#   GW signif
+#   cls_rank (label the rank that corresponds to FAPthr)
+
+sigthr = 25
+
+### this next bit is fragile, and only handles the special case of svm being absent. you should extend this to a more general case
+
+if opts.svm_ranked_files:
+  classify = [[['ann'], ['mvsc'], ['svm']], [['ovl'], ['combined']]]
+else:
+  classify = [[['ann'], ['mvsc']], [['ovl'], ['combined']]]
+
+for FAPthr in [10**-3, 10**-2, 5*10**-2, 10**-1]:
+  for clas in classify:
+    #all glitches
+    fbw = []
+    for g in glitches:
+      s = ""
+      for cls in clas:
+        if g[cls[0]+'_fap'] <= FAPthr:
+          s += "1"
+        else:
+          s += "0"
+      fbw += [[g['GPS'],BinToDec(s)]]
+
+    # separate and store GPS times for glitches that were identified by only one classifier
+    only1 = [[] for i in range(len(clas))]
+    for element in fbw:
+      if (element[1] > 0) and (math.log(element[1],2)%1 == 0.0):
+        only1[len(clas) - 1 - int(math.log(element[1],2))] += [element[0]]
+
+    # histogram over parameters associated with GPS times in each list contained in only1[]
+    for ind in range(len(only1)):
+      fig_num += 1
+      fig = matplotlib.pyplot.figure()
+      # pull out all the information from glitches in only1[ind]
+      GWsignifs = [g['signif'] for g in glitches for time in only1[ind] if g['GPS'] == time]
+      if (len(GWsignifs) > 0):
+        pylab.hist(GWsignifs, 100, histtype='step', label='all glitches')
+        pylab.legend(loc='best')
+      else:
+        pylab.figtext(0.5, 0.5, 'no glitches identified by only '+labelDIC[clas[ind][0]], ha='center', va='center')
+      pylab.ylabel('Number of Glitches')
+      pylab.xlabel('Significance')
+      pylab.title('Fig. '+str(fig_num)+': Histogram over Glitch Significance \nfor glitches found by ONLY '+labelDIC[clas[ind][0]]+' at FAP = '+str(FAPthr))
+
+      #adding to html page
+      name = '_hist_signif_glitches_removed_by_ONLY_'+clas[ind][0]+'_FAPthr_'+str(FAPthr)
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(name)
+      pylab.close()
+
+      for indd in range(len(only1)):
+        fig_num += 1
+        fig = matplotlib.pyplot.figure()
+        rank = [g[clas[indd][0]+'_rank'] for g in glitches for t in only1[ind] if g['GPS'] == t]
+        if (len(rank) > 0):
+          pylab.hist(rank, 100, histtype='step', label='all glitches')
+          hrank = [g[clas[indd][0]+'_rank'] for g in glitches for t in only1[ind] if g['GPS'] == t and g['signif'] >= sigthr]
+          lrank = [g[clas[indd][0]+'_rank'] for g in glitches for t in only1[ind] if g['GPS'] == t and g['signif'] <= sigthr]
+          if (len(lrank) > 0):
+            pylab.hist(lrank, 100, histtype='step', label='signif $\leq$ '+str(sigthr))
+          if (len(hrank) > 0):
+            pylab.hist(hrank, 100, histtype='step', label='signif $\geq$ '+str(sigthr))
+          pylab.legend(loc='best')
+        else:
+          pylab.figtext(0.5, 0.5, 'no glitces identified by only '+labelDIC[clas[ind][0]], ha='center', va='center')
+        pylab.ylabel('Number of Glitches')
+        pylab.xlabel(labelDIC[clas[indd][0]]+'\_rank')
+        pylab.title('Fig. '+str(fig_num)+': Histogram over '+labelDIC[clas[indd][0]]+'\_rank\nfor glitches found by ONLY '+labelDIC[clas[ind][0]]+' at FAP = '+str(FAPthr))
+
+        #adding to html page
+        name = '_hist_'+clas[indd][0]+'_rank_glitches_removed_by_ONLY_'+clas[ind][0]+'_FAPthr_'+str(FAPthr)
+        fname = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append(name)
+        pylab.close()
 
 
 # statistics of glitches binned over cls_rank
+if opts.verbose:
+  print 'statistics of glitches binned over cls_rank'
 ### we bin glitches depending on cls_rank and then compute the statistics of glitches within those bins
 ### specifically, we calculate:
 ###  average significance
@@ -818,6 +911,8 @@ for cls in classifiers:
     pylab.close()
 
 # histograms of glitches over Classifier's rank
+if opts.verbose:
+  print 'histograms of glitches over Classifier rank'
 for cls in classifiers:
   fig_num += 1
   pylab.figure(fig_num)
@@ -835,6 +930,7 @@ for cls in classifiers:
   pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
   pylab.ylabel('Number of Glitches')
   pylab.legend(loc = 'upper center')
+  
   #adding to the html page
   name = '_hist_glitches_' + cls[0] + '_rank_LOG'
   fname = InspiralUtils.set_figure_name(opts, name)
@@ -842,7 +938,7 @@ for cls in classifiers:
   fnameList.append(fname)
   tagList.append(name)
 
-#adding to the html page
+  #adding to the html page
   pylab.yscale('linear')
   name = '_hist_glitches_' + cls[0] + '_rank_LINEAR'
   fname = InspiralUtils.set_figure_name(opts, name)
@@ -852,6 +948,8 @@ for cls in classifiers:
   pylab.close()
 
 # histograms of clean samples over Classifier's rank
+if opts.verbose:
+  print 'histograms of clean samples over Classifier rank'
 for cls in classifiers:
   fig_num +=1
   pylab.figure(fig_num)
@@ -878,6 +976,42 @@ for cls in classifiers:
   tagList.append(name)
   pylab.close()
 
+
+# Overlay of histograms of glitches and histograms of cleans over Classifier's rank
+if opts.verbose:
+  print 'Overlay of histogras of glitches and histograms of cleans over Classifier rank'
+for cls in classifiers:
+  fig_num += 1
+  pylab.figure(fig_num)
+  pylab.hold(True)
+  # histogram using all the cleans
+  pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step', weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']), label = 'all cleans', log = True)
+  # histogram using all the glitches
+  pylab.hist(glitches[cls[0] + '_rank'], 100, histtype='step', weights = numpy.ones(len(glitches[cls[0]+'_rank']))/len(glitches[cls[0]+'_rank']), label = 'all glitches')
+  # histogram using only a subset of glitches with sufficiently large 'signif'
+  for sigthr in [10, 15, 25, 50]:
+    glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+    pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', weights = numpy.ones(len(glitches_removed[cls[0]+'_rank']))/len(glitches_removed[cls[0]+'_rank']), label = 'signif $\geq$ ' + repr(sigthr), log=True)
+  pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+  pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
+  pylab.ylabel('Fraction of Glitches')
+  pylab.legend(loc = 'upper center')
+
+  #adding to the html page
+  name = '_hist_glitches_and_cleans_' + cls[0] + '_rank_LOG'
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+
+  #adding to the html page
+  pylab.yscale('linear')
+  name = '_hist_glitches_' + cls[0] + '_rank_LINEAR'
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append(name)
+  pylab.close()
 	
 ## Create Cumulative histograms of GW Significance for glitch triggers after vetoing at RankThr and FAPThr
 FAPThr = opts.fap_threshold
@@ -885,6 +1019,8 @@ eff_file=open(opts.user_tag+'_efficiency_at_fap'+str(FAPThr)+'.txt','w')
 eff_file.write('Vetoed Results at FAP='+str(FAPThr)+'\n')
 
 # histograms for SNR
+if opts.verbose:
+  print 'histograms for SNR'
 fig_num += 1
 pylab.figure(fig_num)
 pylab.hist(glitches['signif'],400,histtype='step',cumulative=-1,label='before vetoing', color='k')#, linewidth = 2)
@@ -938,8 +1074,9 @@ for fapthr in [0.05, 0.1, 0.2, 0.4]:
   tagList.append(name)
   pylab.close()
 
-
 # scatter plots of FAR from one classifier vs. FAR from another
+if opts.verbose:
+  print 'scatter plots of FAR from one classifier vs. FAR from another'
 # we iterate through all pairs of classifiers.
 start = 0
 for cls in classifiers:
@@ -980,6 +1117,7 @@ for cls in classifiers:
       grid[2].set_yscale('log')
       
       matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+labelDIC[cls[0]]+'\_fap vs. '+labelDIC[cls2[0]]+'\_fap for Glitches with signif $\geq$ '+str(sigthr), ha = 'center', va = 'top')
+      matplotlib.pyplot.figtext(0.75, 0.75, 'blue : all glitches\nred : signif $\geq$ '+str(sigthr), ha = 'center', va = 'center')
       matplotlib.pyplot.setp(grid[1], visible=False)
 
       #adding to html page
@@ -990,8 +1128,9 @@ for cls in classifiers:
       tagList.append(name)
       pylab.close()
 
-
 # scatter plots of Eff/FAR from one classifier vs. EFF/FAR from another
+if opts.verbose:
+  print 'scatter plots of Eff/FAR from one classifier vs. EFF/FAR from another'
 # we iterate through all pairs of classifiers.
 start = 0
 for cls in classifiers:
@@ -1038,6 +1177,7 @@ for cls in classifiers:
       grid[2].set_ylim(10**0, 10**3)
 
       matplotlib.pyplot.figtext(0.5, 0.98, 'Fig. '+str(fig_num)+': Scatter of '+labelDIC[cls[0]]+'\_eff/fap vs. '+labelDIC[cls2[0]]+'\_eff/fap for Glitches with signif $\geq$ '+str(sigthr), ha = 'center', va = 'top')
+      matplotlib.pyplot.figtext(0.75, 0.75, 'blue : all glitches\nred : signif $\geq$ '+str(sigthr), ha = 'center', va = 'center')
       matplotlib.pyplot.setp(grid[1], visible=False)
 
       #adding to html page
@@ -1050,6 +1190,8 @@ for cls in classifiers:
 
 
 # Scatter of eff/fap for two classifiers using cleans
+if opts.verbose:
+  print 'Scatter of eff/fap for two classifiers using cleans'
 # we iterate over all pairs of classifiers
 start = 0
 for cls in classifiers:
@@ -1101,6 +1243,8 @@ for cls in classifiers:
 
 
 ## Create scattered plots of Significance vs  SNR for GW Triggers
+if opts.verbose:
+  print 'scatter plots of signif vs snr for GW trigs'
 fig_num += 1
 pylab.figure(fig_num)
 pylab.plot(glitches['signif'],glitches['SNR'],'rx',label='glitches')
@@ -1119,6 +1263,8 @@ tagList.append(name)
 pylab.close()
 
 ## Create scattered plots of mvc ranks vs. SNR and mvc ranks vs. Significance of GWTriggers
+if opts.verbose:
+  print 'scatter plots of rank vs. SNR and rank vs Signif'
 for cls in classifiers:
         ## mvc ranks vs. SNR
         #fig_num += 1
@@ -1164,11 +1310,11 @@ for cls in classifiers:
         tagList.append(name)
         pylab.close()
 
-
 ##############################################################################################################
+### this next big will help to print the options nicely on the html page
+opts_dict = vars(opts)
 
-
-html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
+html_filename = InspiralUtils.write_html_output(opts, [" --"+key.replace('_','-')+"="+str(opts_dict[key]) for key in opts_dict.keys()], fnameList, tagList, comment=comments)
 InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 if opts.html_for_cbcweb:

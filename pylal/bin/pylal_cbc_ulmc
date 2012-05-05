@@ -47,16 +47,22 @@ def parse_command_line():
   parser.add_option( "-r", "--print-trials", action="store_true", default=False,\
       help="Print summary UL values to screen for each trial" )
 
+  parser.add_option( "-P", "--posterior-plots", action="store_true", default=False,\
+      help="Output plots of the posterior pdfs for each MC trial. Output-path is required. Don't use this if nMC is large!" )
+
   parser.add_option( "-v", "--verbose", action="store_true", default=False,\
       help="Print FAR, Lambda, volume and effective numerator values to screen" )
 
   parser.add_option( "-p", "--make-plots", action="store_true", default=False,\
-      help="Scatter plots of something..." )
+      help="Scatter plots of UL values versus various parameters. Output-path is required." )
 
-  parser.add_option( "-o", "--output-dir", action="store", type="string", default=False,\
+  parser.add_option( "-o", "--output-path", action="store", type="string", default=False,\
       help="Where to output plots to (path ending in a backslash)" )
 
   (options,args) = parser.parse_args()
+
+  if (options.make_plots or options.posterior_plots) and not options.output_path:
+    raise ValueError, "You must specify an output-path to get plots."
 
   return options, sys.argv[1:]
 
@@ -160,25 +166,38 @@ for nmc in range(opts.n_montecarlo):
   UL90_exactLambda.append(upperLim)
   UL90_Lambdaerrs.append(estupperLim)
 
+  print " "
   print "MC trial", nmc+1
 
-  if opts.print_trials:
-    print " "
+  if opts.print_trials or opts.verbose:
     if opts.verbose: print "FARs /yr^-1:", [str(FAR)[0:5] for FAR in FARs] 
     if opts.verbose: print "Volumes /Mpc^3:", [int(Vol) for Vol in Volumes]
     if opts.verbose: print "Exact Lambda values:", [str(Lam)[0:5] for Lam in Lambdas]
-    if opts.verbose and (opts.lambda_error or opts.lambda_bias): print "Lambda values with errors:", [str(eLam)[0:5] for eLam in estLambdas]
+    if opts.verbose and (opts.lambda_error or (opts.lambda_bias-1)): print "Lambda values with errors:", [str(eLam)[0:5] for eLam in estLambdas]
     print  r"90%UL from", opts.ntimes, "separate analyses: %.2e" % upperLim
     if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim*sum(Volumes)*Ti)
-    if (opts.lambda_error or opts.lambda_bias): print r"Factor change in 90%UL due to Lambda errors:", "%.3g" % (estupperLim/upperLim)
-    if opts.verbose: print "\t Effective numerator: %.3g" % (estupperLim*sum(Volumes)*Ti)
+    if (opts.lambda_error or (opts.lambda_bias-1)): 
+      print r"Factor change in 90%UL due to Lambda errors:", "%.3g" % (estupperLim/upperLim)
+      if opts.verbose: print "\t Effective numerator with Lambda errors: %.3g" % (estupperLim*sum(Volumes)*Ti)
     if opts.verbose: print "Lambda value from one single analysis: %.3f" % exactLambda_single
     print  r"90%UL from one single analysis would be", "%.2e" % upperLim_single
     if opts.verbose: print "\t Effective numerator: %.3g" % (upperLim_single*min(Volumes)*Ttot)
 
+  if opts.posterior_plots:
+    mpl.pyplot.semilogx(mu, likely, 'r-', label=str(opts.ntimes)+" analysis times, exact Lambda")
+    if opts.lambda_error or (opts.lambda_bias-1):
+      mpl.pyplot.semilogx(mu, estLikely, 'm-', label=str(opts.ntimes)+" analysis times, Lambda errors")
+    mpl.pyplot.semilogx(mu, likely_single, 'g-', label="Single analysis, exact Lambda")
+    mpl.pyplot.xlabel("Rate (Mpc^-3 yr^-1)", size="large")
+    mpl.pyplot.ylabel(r"Posterior pdf", size="large")
+    mpl.pyplot.legend(loc="center right")
+    mpl.pyplot.title("MC trial "+str(nmc+1)+", single loudest event FAP "+str(FAP_from_FAN(min(FARs)*Ttot))[0:5])
+    mpl.pyplot.savefig(opts.output_path+"posterior_trial_"+str(nmc+1)+"_ntimes_"+str(opts.ntimes)+".png")
+    mpl.pyplot.close()
+  
 if opts.make_plots:
   
-  output_prefix = opts.output_dir+"ulmc"+"_ntimes_"+str(opts.ntimes)
+  output_prefix = opts.output_path+"ulmc"+"_ntimes_"+str(opts.ntimes)
 
   # UL values vs. FAP of loudest event in single analysis
   FAPbins = rate.LinearBins(0.0, 1.0, 25)

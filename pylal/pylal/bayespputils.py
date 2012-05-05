@@ -2253,7 +2253,7 @@ def formatRATicks(locs, accuracy='auto'):
     newmax=max(locs)
     newmin=min(locs)
     if(accuracy=='auto'):
-        acc='hours'
+        acc='hour'
         if abs(newmax-newmin)<pi_constant/12.:
             acc='min'
         if abs(newmax-newmin)<pi_constant/(12.*60.):
