@@ -258,9 +258,9 @@ else:
 exact_injections=newexact_injections
 all_injections=newall_injections
 
-pickle.dump(exact_injections_vol,open('exact_injections_vol.p','wb'))
-pickle.dump(exact_injections_lin,open('exact_injections_lin.p','wb'))
-pickle.dump(exact_injections_log,open('exact_injections_log.p','wb'))
+pickle.dump(exact_injections_vol,open(''.join(ifos) + '_' + opts.output_tag + 'exact_injections_vol.p','wb'))
+pickle.dump(exact_injections_lin,open(''.join(ifos) + '_' + opts.output_tag + 'exact_injections_lin.p','wb'))
+pickle.dump(exact_injections_log,open(''.join(ifos) + '_' + opts.output_tag + 'exact_injections_log.p','wb'))
 
 weight_dictionary={}
 if opts.check_weights:
@@ -274,8 +274,8 @@ if opts.check_weights:
 		pylab.loglog(distance_i,sum,'b.')
 		pylab.axis('equal')
 		pylab.hold(1)
-	pickle.dump(weight_dictionary,open('weight_dictionary.p','wb'))
-	pylab.savefig('weight_v_distance_cumulative')
+	pickle.dump(weight_dictionary,open(''.join(ifos) + '_' + opts.output_tag + 'weight_dictionary.p','wb'))
+	pylab.savefig(''.join(ifos) + '_' + opts.output_tag + 'weight_v_distance_cumulative')
 print "there are ", len(timeslides), " timeslide doubles in ", ''.join(ifos), " and triple coincidences"
 print "there are ", len(exact_injections), " exactly found injection doubles in ", ''.join(ifos), " and triple coincidences"
 print "there are ", len(all_injections), " total found injection doubles in ", ''.join(ifos), " and triple coincidences"
