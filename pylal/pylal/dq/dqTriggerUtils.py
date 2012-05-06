@@ -1569,15 +1569,21 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     duration = stop-start
     amplitude = snr**2/2
     omega_clusters = False
-  elif len(dat)==8:
-    peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
-    omega_clusters = True
-  elif len(dat)==5:
-    peak, freq, duration, bandwidth, amplitude = dat
-    omega_clusters = False
+  if len(dat)==11:
+    peak, freq, duration, bandwidth, amplitude, cls, cle, cln, av_freq, av_bandwidth, err_freq = dat
   else:
-    raise ValueError("Wrong number of columns in omega format file. "\
-                     "Cannot read.")
+    if len(dat)==8:
+      peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
+      omega_clusters = True
+    elif len(dat)==5:
+      peak, freq, duration, bandwidth, amplitude = dat
+      omega_clusters = False
+    else:
+      raise ValueError("Wrong number of columns in omega format file. "\
+                         "Cannot read.")
+    av_freq = freq
+    av_bandwidth = bandwidth
+    err_freq = av_bandwidth/av_freq
 
   numtrigs = len(peak)
   attr_map = dict()
@@ -1605,8 +1611,9 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
-  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
-  if 'bandwidth' in columns:      attr_map['bandwidth']      = bandwidth
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = av_freq
+  if 'peak_frequency_error' in columns: attr_map['peak_frequency_error'] = err_freq
+  if 'bandwidth' in columns:      attr_map['bandwidth']      = av_bandwidth
   if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = bandwidth
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
