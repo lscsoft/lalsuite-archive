@@ -372,6 +372,7 @@ def trigger(data, etg, ifo=None, channel=None, loadcolumns=None):
     trig.central_freq            = float(data[2])
     trig.peak_frequency          = trig.central_freq
     trig.bandwidth               = float(data[3])
+    trig.peak_frequency_error    = trig.bandwidth/trig.central_freq
     trig.flow                    = trig.central_freq - 0.5*trig.bandwidth
     trig.fhigh                   = trig.central_freq + 0.5*trig.bandwidth
     #snr
@@ -2132,6 +2133,7 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'peak_frequency_error' in columns: attr_map['peak_frequency_error'] = bandwidth/freq
 
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
