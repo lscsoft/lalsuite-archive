@@ -177,6 +177,15 @@ struct gengetopt_args_info
   double fdotdot_arg;	/**< @brief second frequency derivative (default='0.0').  */
   char * fdotdot_orig;	/**< @brief second frequency derivative original value given at command line.  */
   const char *fdotdot_help; /**< @brief second frequency derivative help description.  */
+  double freq_modulation_depth_arg;	/**< @brief depth of additional sinusoidal frequency modulation in Hz (default='0.0').  */
+  char * freq_modulation_depth_orig;	/**< @brief depth of additional sinusoidal frequency modulation in Hz original value given at command line.  */
+  const char *freq_modulation_depth_help; /**< @brief depth of additional sinusoidal frequency modulation in Hz help description.  */
+  double freq_modulation_freq_arg;	/**< @brief frequency of additional sinusoidal frequency modulation (default='1.0').  */
+  char * freq_modulation_freq_orig;	/**< @brief frequency of additional sinusoidal frequency modulation original value given at command line.  */
+  const char *freq_modulation_freq_help; /**< @brief frequency of additional sinusoidal frequency modulation help description.  */
+  double freq_modulation_phase_arg;	/**< @brief phase of additional sinusoidal frequency modulation (default='0.0').  */
+  char * freq_modulation_phase_orig;	/**< @brief phase of additional sinusoidal frequency modulation original value given at command line.  */
+  const char *freq_modulation_phase_help; /**< @brief phase of additional sinusoidal frequency modulation help description.  */
   double orientation_arg;	/**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
   char * orientation_orig;	/**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross original value given at command line.  */
   const char *orientation_help; /**< @brief additional orientation phase, specifying 0.7853 will turn plus into cross help description.  */
@@ -272,6 +281,9 @@ struct gengetopt_args_info
   double fake_spindown_arg;	/**< @brief spindown of fake signal to inject (default='0.0').  */
   char * fake_spindown_orig;	/**< @brief spindown of fake signal to inject original value given at command line.  */
   const char *fake_spindown_help; /**< @brief spindown of fake signal to inject help description.  */
+  double fake_fdotdot_arg;	/**< @brief second derivative of fake signal to inject (default='0.0').  */
+  char * fake_fdotdot_orig;	/**< @brief second derivative of fake signal to inject original value given at command line.  */
+  const char *fake_fdotdot_help; /**< @brief second derivative of fake signal to inject help description.  */
   double fake_strain_arg;	/**< @brief amplitude of fake signal to inject (default='0.0').  */
   char * fake_strain_orig;	/**< @brief amplitude of fake signal to inject original value given at command line.  */
   const char *fake_strain_help; /**< @brief amplitude of fake signal to inject help description.  */
@@ -362,9 +374,9 @@ struct gengetopt_args_info
   int max_first_shift_arg;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function (default='10').  */
   char * max_first_shift_orig;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function original value given at command line.  */
   const char *max_first_shift_help; /**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function help description.  */
-  char * statistics_function_arg;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, sorted (default='linear').  */
-  char * statistics_function_orig;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, sorted original value given at command line.  */
-  const char *statistics_function_help; /**< @brief specify statistics postprocessing to apply. Possible values: linear, sorted help description.  */
+  char * statistics_function_arg;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, robust, sorted (default='robust').  */
+  char * statistics_function_orig;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, robust, sorted original value given at command line.  */
+  const char *statistics_function_help; /**< @brief specify statistics postprocessing to apply. Possible values: linear, robust, sorted help description.  */
   int dump_power_sums_arg;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels (default='0').  */
   char * dump_power_sums_orig;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels original value given at command line.  */
   const char *dump_power_sums_help; /**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels help description.  */
@@ -374,9 +386,9 @@ struct gengetopt_args_info
   int fine_grid_skymarks_arg;	/**< @brief use sky marks from the fine grid, this uses constant spindown (default='0').  */
   char * fine_grid_skymarks_orig;	/**< @brief use sky marks from the fine grid, this uses constant spindown original value given at command line.  */
   const char *fine_grid_skymarks_help; /**< @brief use sky marks from the fine grid, this uses constant spindown help description.  */
-  int half_window_arg;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics (default='20').  */
-  char * half_window_orig;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics original value given at command line.  */
-  const char *half_window_help; /**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics help description.  */
+  int half_window_arg;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics (default='20').  */
+  char * half_window_orig;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics original value given at command line.  */
+  const char *half_window_help; /**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics help description.  */
   int tail_veto_arg;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum (default='10').  */
   char * tail_veto_orig;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum original value given at command line.  */
   const char *tail_veto_help; /**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum help description.  */
@@ -459,6 +471,9 @@ struct gengetopt_args_info
   unsigned int spindown_step_given ;	/**< @brief Whether spindown-step was given.  */
   unsigned int spindown_count_given ;	/**< @brief Whether spindown-count was given.  */
   unsigned int fdotdot_given ;	/**< @brief Whether fdotdot was given.  */
+  unsigned int freq_modulation_depth_given ;	/**< @brief Whether freq-modulation-depth was given.  */
+  unsigned int freq_modulation_freq_given ;	/**< @brief Whether freq-modulation-freq was given.  */
+  unsigned int freq_modulation_phase_given ;	/**< @brief Whether freq-modulation-phase was given.  */
   unsigned int orientation_given ;	/**< @brief Whether orientation was given.  */
   unsigned int nlinear_polarizations_given ;	/**< @brief Whether nlinear-polarizations was given.  */
   unsigned int no_demodulation_given ;	/**< @brief Whether no-demodulation was given.  */
@@ -492,6 +507,7 @@ struct gengetopt_args_info
   unsigned int fake_psi_given ;	/**< @brief Whether fake-psi was given.  */
   unsigned int fake_phi_given ;	/**< @brief Whether fake-phi was given.  */
   unsigned int fake_spindown_given ;	/**< @brief Whether fake-spindown was given.  */
+  unsigned int fake_fdotdot_given ;	/**< @brief Whether fake-fdotdot was given.  */
   unsigned int fake_strain_given ;	/**< @brief Whether fake-strain was given.  */
   unsigned int fake_freq_given ;	/**< @brief Whether fake-freq was given.  */
   unsigned int fake_dInv_given ;	/**< @brief Whether fake-dInv was given.  */

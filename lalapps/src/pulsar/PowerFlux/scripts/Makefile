@@ -5,7 +5,7 @@ UPLOAD_FILES=make_run.tcl split.tcl get_param.tcl make_1800_sfts.tcl \
 	split_sfti.tcl make_second_sft_injection_run.tcl normalize_sft_name.tcl \
 	make_native_sft_injection_run.tcl reshape_sfti.tcl archive.tcl keyed_split.tcl \
 	make_split_run.tcl find_outlier_matches.tcl make_outlier_histogram.tcl analyze_coinc.R \
-	pick_job.tcl shuffle.tcl
+	pick_job.tcl shuffle.tcl analyze_coinc.S6.R
 
 all:
 

@@ -151,6 +151,7 @@ typedef struct {
 
 	double freq;
 	double spindown;
+	double fdotdot;
 	double dInv; /* Inverse distance to source in seconds */
 
 	double ra;
@@ -191,7 +192,7 @@ float f_plus, f_cross;
 EmissionTime emission_time;
 LIGOTimeGPS tGPS;
 EarthState earth_state;
-double te, phase_spindown, phase_freq;
+double te, phase_spindown, phase_dotdot, phase_freq;
 LALStatus status={level:0, statusPtr:NULL};
 
 tGPS.gpsSeconds=floor(t);
@@ -213,10 +214,12 @@ te=(emission_time.te.gpsSeconds-p->ref_time)+((double)(1e-9))*emission_time.te.g
 
 fmodomega_t=2.0*M_PI*(te*p->freq_modulation_freq-floor(te*p->freq_modulation_freq));
 
-*f=(p->freq+p->spindown*te+p->freq_modulation_depth*cos(fmodomega_t+p->freq_modulation_phase))*(1.0+doppler);
+*f=(p->freq+p->spindown*te+0.5*te*te*p->fdotdot+p->freq_modulation_depth*cos(fmodomega_t+p->freq_modulation_phase))*(1.0+doppler);
 
 phase_spindown=0.5*te*te*p->spindown;
 
+phase_dotdot=M_1_6*te*te*te*p->fdotdot;
+//fprintf(stderr, "dotdot %.20g %.20g %.20g\n", phase_dotdot, te*te*p->fdotdot*0.5, te*p->fdotdot);
 
 phase_freq=(p->freq-(double)(p->bin)/(double)(p->coherence_time))*te
 	+(double)p->bin*(te-(t-p->segment_start))/(double)(p->coherence_time);
@@ -243,7 +246,7 @@ if(fabs(p->freq_modulation_freq)>1e-28) {
 	phase_freq+=p->freq_modulation_depth*cos(p->freq_modulation_phase)*te;
 	}
 
-omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown)))+p->phi;
+omega_t=2.0*M_PI*((phase_freq-floor(phase_freq))+(phase_spindown-floor(phase_spindown))+(phase_dotdot-floor(phase_dotdot)))+p->phi;
 
 /* add contribution from sinusoidal phase modulation */
 modomega_t=2.0*M_PI*(te*p->phase_modulation_freq-floor(te*p->phase_modulation_freq))+p->phase_modulation_phase;
@@ -337,6 +340,7 @@ p->ra=args_info.fake_ra_arg;
 p->dec=args_info.fake_dec_arg;
 p->freq=args_info.fake_freq_arg;
 p->spindown=args_info.fake_spindown_arg;
+p->fdotdot=args_info.fake_fdotdot_arg;
 p->ref_time=args_info.fake_ref_time_arg;
 p->strain=args_info.fake_strain_arg;
 p->iota=args_info.fake_iota_arg;

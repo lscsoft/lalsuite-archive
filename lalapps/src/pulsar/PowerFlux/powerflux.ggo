@@ -53,6 +53,9 @@ option "spindown-start"	- "first spindown value to process" double default="0.0"
 option "spindown-step"	- "step for processing multiple spindown values" double default="5e-10" no
 option "spindown-count" - "how many separate spindown values to process" int default="1" no
 option "fdotdot"  - "second frequency derivative" double default="0.0" no
+option "freq-modulation-depth" - "depth of additional sinusoidal frequency modulation in Hz" double default="0.0" no
+option "freq-modulation-freq" - "frequency of additional sinusoidal frequency modulation" double default="1.0" no
+option "freq-modulation-phase" - "phase of additional sinusoidal frequency modulation" double default="0.0" no
 
 option "orientation"    - "additional orientation phase, specifying 0.7853 will turn plus into cross" double default="0" no
 option "nlinear-polarizations" - "even number of linear polarizations to profile, distributed uniformly between 0 and PI/2" int default="4" no
@@ -95,6 +98,7 @@ option "fake-iota"	- "iota of fake signal to inject" double default="0.0" no
 option "fake-psi"	- "orientation of fake signal to inject" double default="0.0" no
 option "fake-phi"	- "phase of fake signal to inject" double default="0.0" no
 option "fake-spindown"	- "spindown of fake signal to inject" double default="0.0" no
+option "fake-fdotdot"	- "second derivative of fake signal to inject" double default="0.0" no
 option "fake-strain"	- "amplitude of fake signal to inject" double default="0.0" no
 option "fake-freq"	- "frequency of fake signal to inject" double no
 option "fake-dInv"	- "inverse distance to source of fake signal in seconds" double default="0.0" no
@@ -132,13 +136,13 @@ option "power-max-median-factor" - "This determines scaling factor between media
 option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed to in-place standard deviation)" int default="1" no
 option "summing-step" - "integration step size, in seconds" double no
 option "max-first-shift" - "larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function" int default="10" no
-option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, sorted" string default="linear" no
+option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, robust, sorted" string default="robust" no
 
 option "dump-power-sums" - "Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels" int default="0" no
 
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no
 option "fine-grid-skymarks" - "use sky marks from the fine grid, this uses constant spindown" int default="0" no
-option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear statistics" int default="20" no
+option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics" int default="20" no
 option "tail-veto" - "do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum" int default="10" no
 option "cache-granularity" - "granularity of power cache frequency shift resolution, in fractions of a frequency bin" int default="-1" no
 option "sidereal-group-count" - "separate SFTs in that many groups by frequency shift" int no

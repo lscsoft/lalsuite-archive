@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.49-64
+VERSION=1.4.50-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -300,7 +300,41 @@ test5c: powerflux-mt2
         	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
   		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
-		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180"
+		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180" \
+		--output test5c
+
+test6a: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--dump-candidates=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--expected-timebase 14 \
+		--output test6a
+
+test6b: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=1 --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--dump-candidates=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+		--statistics-function=robust \
+		--expected-timebase 14 \
+		--output test6b
 
 #  		--fake-ref-time=793154935 \
 #  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \

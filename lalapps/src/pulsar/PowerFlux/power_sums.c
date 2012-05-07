@@ -128,6 +128,7 @@ int i, j, k;
 float min_shift, max_shift, a;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
+float mid_t;
 int group_count=ctx->sidereal_group_count;
 SEGMENT_INFO **groups;
 int *group_segment_count;
@@ -164,7 +165,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
 		si_local++;
@@ -190,7 +191,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=(center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start));
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
 		//a*=0.25;
 		k=floorf((a-floorf(a))*group_count);
 		if(k<0)k=0;
@@ -219,7 +220,10 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			/* fill in segment info appropriate to this template */
 			si_local=groups[k];
 			for(j=0;j<group_segment_count[k];j++) {	
-				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
+				
+				mid_t=(float)(si_local->gps-spindown_start);
+
+				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*mid_t+0.5*(float)args_info.fdotdot_arg*mid_t*mid_t)+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
 						+ps_local->e[2]*si_local->detector_velocity[2]);
@@ -254,6 +258,7 @@ POLARIZATION *pl;
 int gps_step=ctx->summing_step;
 int i, j;
 float min_shift, max_shift, a;
+float mid_t;
 double gps_idx, gps_idx_next;
 float center_frequency=(first_bin+nbins*0.5);
 float avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
@@ -289,7 +294,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
 		si_local++;
@@ -306,7 +311,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 			si_local=si;
 			for(j=0;j<segment_count;j++) {
 	
-				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(float)(si_local->gps-spindown_start))+
+				mid_t=(float)(si_local->gps-spindown_start);
+				si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*mid_t+0.5*(float)args_info.fdotdot_arg*mid_t*mid_t)+
 					center_frequency*(float)args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 						+ps_local->e[1]*si_local->detector_velocity[1]
 						+ps_local->e[2]*si_local->detector_velocity[2]);

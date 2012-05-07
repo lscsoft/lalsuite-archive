@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 /* We need this define to get NAN values */
-#define __USE_ISOC99
+/* #define __USE_ISOC99 */
 #include <math.h>
 #include <gsl/gsl_cblas.h>
 

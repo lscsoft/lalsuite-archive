@@ -493,7 +493,7 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	gps_delta=(priv->emission_time[si_local->index].te.gpsSeconds-priv->emission_time[si_local2->index].te.gpsSeconds)+1e-9*(priv->emission_time[si_local->index].te.gpsNanoSeconds-priv->emission_time[si_local2->index].te.gpsNanoSeconds);
 	gps_mid=0.5*(gps1+gps2);
 
-	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid)*gps_delta;
+	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid+args_info.fdotdot_arg*(gps1*gps1+gps1*gps2+gps2*gps2)*M_1_6)*gps_delta;
 	/* we get an extra M_PI in phase from jumping one bin
 	 * This happens because SFT is computed from t=0 but our gps refers to middle of the interval
 	 * Every other bin picks one pie of phase.
@@ -654,6 +654,7 @@ int max_group_segment_count;
 int *group_segment_count;
 double avg_spindown=args_info.spindown_start_arg+0.5*args_info.spindown_step_arg*(args_info.spindown_count_arg-1);
 MATCHED_LOOSELY_COHERENT_PATCH_PRIVATE_DATA *priv;
+double mid_t;
 LALStatus status={level:0, statusPtr:NULL};
 EarthState earth_state;
 LIGOTimeGPS tGPS;
@@ -704,7 +705,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=center_frequency*args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*(float)args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
 		si_local++;
@@ -730,7 +731,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=(center_frequency*args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*avg_spindown*(float)(si_local->gps-spindown_start));
+			+si_local->coherence_time*(avg_spindown+0.5*(float)args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
 		//a*=0.25;
 		k=floorf((a-floorf(a))*ctx->sidereal_group_count)+ctx->sidereal_group_count*floorf((si_local->gps-gps_idx)*ctx->time_group_count/gps_step);
 //		k=floorf((a-floorf(a))*ctx->sidereal_group_count);
@@ -824,7 +825,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 				for(j=0;j<tmp_count;j++) {
 					si_local->index= (j<ctx->loose_first_half_count ? groups[k][j].index : groups[m][j-ctx->loose_first_half_count].index)+segment_count*i;
 		
-					si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+ps_local->spindown*(si_local->gps+si_local->coherence_time*0.5-spindown_start))+
+					mid_t=(si_local->gps+si_local->coherence_time*0.5-spindown_start);
+					si_local->bin_shift=si_local->coherence_time*(ps_local->freq_shift+(ps_local->spindown+0.5*args_info.fdotdot_arg*mid_t)*mid_t)+
 						(center_frequency+ps_local->freq_shift)*args_info.doppler_multiplier_arg*(ps_local->e[0]*si_local->detector_velocity[0]
 							+ps_local->e[1]*si_local->detector_velocity[1]
 							+ps_local->e[2]*si_local->detector_velocity[2]);
