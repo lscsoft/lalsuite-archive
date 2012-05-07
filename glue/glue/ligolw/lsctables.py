@@ -94,11 +94,11 @@ class TableRow(object):
 
 def New(Type, columns = None, **kwargs):
 	"""
-	Convenience function for constructing pre-defined LSC tables.  The
-	optional columns argument is a list of the names of the columns the
-	table should be constructed with.  If columns = None, then the
-	table is constructed with all valid columns included (pass columns
-	= [] to create a table with no columns).
+	Construct a pre-defined LSC table.  The optional columns argument
+	is a sequence of the names of the columns the table should be
+	constructed with.  If columns = None, then the table is constructed
+	with all valid columns (use columns = [] to create a table with no
+	columns).
 
 	Example:
 
@@ -160,11 +160,11 @@ def HasNonLSCTables(elem):
 
 def instrument_set_from_ifos(ifos):
 	"""
-	Convenience function for parsing the values stored in the "ifos"
-	and "instruments" columns found in many tables.  This function is
-	mostly for internal use by the .get_ifos() and .get_instruments()
-	methods of the corresponding row classes.  The mapping from input
-	to output is as follows (rules are applied in order):
+	Parse the values stored in the "ifos" and "instruments" columns
+	found in many tables.  This function is mostly for internal use by
+	the .get_ifos() and .get_instruments() methods of the corresponding
+	row classes.  The mapping from input to output is as follows (rules
+	are applied in order):
 
 	input is None --> output is None
 
@@ -212,16 +212,16 @@ def instrument_set_from_ifos(ifos):
 
 def ifos_from_instrument_set(instruments):
 	"""
-	Convenience function to convert an iterable of instrument names
-	into a value suitable for storage in the "ifos" column found in
-	many tables.  This function is mostly for internal use by the
-	.set_ifos() methods of the corresponding row classes.  The input
-	can be None or an interable of zero or more instrument names, none
-	of which may contain "," or "+" characters.  The output is a single
-	string containing the instrument names concatenated using "," as a
-	delimiter.  instruments will only be iterated over once and so can
-	be a generator expression.  Whitespace is allowed in instrument
-	names but may not be preserved.
+	Convert an iterable of instrument names into a value suitable for
+	storage in the "ifos" column found in many tables.  This function
+	is mostly for internal use by the .set_ifos() methods of the
+	corresponding row classes.  The input can be None or an interable
+	of zero or more instrument names, none of which may contain "," or
+	"+" characters.  The output is a single string containing the
+	instrument names concatenated using "," as a delimiter.
+	instruments will only be iterated over once and so can be a
+	generator expression.  Whitespace is allowed in instrument names
+	but may not be preserved.
 	"""
 	if instruments is None:
 		return None
@@ -485,8 +485,9 @@ class SearchSummary(object):
 
 	def get_in(self):
 		"""
-		Get the input segment.  Returns None if all four input
-		segment boundary attributes are None.
+		Get the input segment.  Returns a segment with both
+		boundaries set to None if all four input segment boundary
+		attributes are None.
 		"""
 		try:
 			return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
@@ -497,8 +498,9 @@ class SearchSummary(object):
 
 	def set_in(self, seg):
 		"""
-		Set the input segment.  If seg is None then all four input
-		segment boundary attributes are set to None.
+		Set the input segment.  If seg's boundaries are both None
+		then all four input segment boundary attributes are set to
+		None.
 		"""
 		try:
 			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
@@ -510,8 +512,9 @@ class SearchSummary(object):
 
 	def get_out(self):
 		"""
-		Get the output segment.  Returns None if all four output
-		segment boundary attributes are None.
+		Get the output segment.  Returns a segment with both
+		boundaries set to None if all four output segment boundary
+		attributes are None.
 		"""
 		try:
 			return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
@@ -522,8 +525,9 @@ class SearchSummary(object):
 
 	def set_out(self, seg):
 		"""
-		Set the output segment.  If seg is None then all four
-		output segment boundary attributes are set to None.
+		Set the output segment.  If seg's boundaries are both None
+		then all four output segment boundary attributes are set to
+		None.
 		"""
 		try:
 			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
