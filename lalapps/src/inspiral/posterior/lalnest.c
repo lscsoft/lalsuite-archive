@@ -33,8 +33,9 @@
 #include <LALAppsVCSInfo.h>
 #include <lalapps.h>
 #include <fftw3.h>
-
+#include <lal/TimeDelay.h>
 #include "nest_calc.h"
+#include <lal/DetResponse.h>
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
@@ -228,6 +229,7 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT);
 void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
+void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -831,7 +833,8 @@ int main( int argc, char *argv[])
 	}
 
 	if(ETgpsSeconds>datastart.gpsSeconds+duration) {fprintf(stderr,"Error, trigger lies outwith data range %i - %i\n",datastart.gpsSeconds,datastart.gpsSeconds+(INT4)duration); exit(-1);}
-
+ 	Approximant check_approx;
+ 	XLALGetApproximantFromString(injTable->waveform,&check_approx);
 
 	/* Read in the data for each IFO */
 	for(i=0,j=0;i<nIFO;i++){
@@ -843,7 +846,7 @@ int main( int argc, char *argv[])
 		datastart=realstart; /* Reset the datastart in case it has been slid previously */
 		segmentStart = datastart;
 		datarandparam=XLALCreateRandomParams(dataseed+(INT2)IFOnames[i][0]+(INT2)IFOnames[i][1]);
-
+                printf("dataseed %d %d %d\n",dataseed,(INT2)IFOnames[i][0],(INT2)IFOnames[i][1]);
 		/* Check for synthetic data */
 		if(!(strcmp(CacheFileNames[i],"LALLIGO") && strcmp(CacheFileNames[i],"LALVirgo") && strcmp(CacheFileNames[i],"LALGEO") && strcmp(CacheFileNames[i],"LALEGO") && strcmp(CacheFileNames[i],"LALAdLIGO")))
 		{
@@ -870,7 +873,8 @@ int main( int argc, char *argv[])
 			 XLALGPSAdd(&(inputMCMC.stilde[i]->epoch), (REAL8)TrigSegStart/(REAL8)SampleRate);*/
 			
 			/* Create the fake data */
-			for(j=0;j<inputMCMC.invspec[i]->data->length;j++){
+                        int j_Lo = (int) inputMCMC.fLow/inputMCMC.deltaF;
+			for(j=j_Lo;j<inputMCMC.invspec[i]->data->length;j++){
 				inputMCMC.invspec[i]->data->data[j]=1.0/(scalefactor*inputMCMC.invspec[i]->data->data[j]);
 				inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 				inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
@@ -995,7 +999,7 @@ int main( int argc, char *argv[])
 		} /* End if(!FakeFlag) */
 
 		/* Perform injection in time domain */
-		if(NULL!=injXMLFile && fakeinj==0) {
+		if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2)) {
 			DetectorResponse det;
 			REAL8 SNR=0.0;
 			LIGOTimeGPS realSegStart;
@@ -1100,6 +1104,15 @@ int main( int argc, char *argv[])
     
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
 
+    if (check_approx==TaylorF2) 
+    {
+                fprintf(stdout,"Injecting in the frequency domain\n");
+                SimInspiralTable this_injection;
+                memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
+                this_injection.next=NULL;
+                InjectFD(status, &inputMCMC, &this_injection);
+    }
+
 	if(estimatenoise && DEBUG){
 		for(j=0;j<nIFO;j++){
 			char filename[100];
@@ -1153,7 +1166,7 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
-	else if(!strcmp(approx,PSTRD)) {
+	else if(strstr(approx,PSTRD)) {
 	    inputMCMC.approximant=PhenSpinTaylorRD;
 	    if (strstr(approx,"inspiralOnly")) {
 	      inputMCMC.inspiralOnly=1;
@@ -1287,7 +1300,7 @@ doneinit:
 	inputMCMC.funcInit = NestInitManualIMRBChi;
     }
    
-    	if(!strcmp(approx,PSTRD)) {
+    	if(strstr(approx,PSTRD)) {
 	  inputMCMC.funcPrior = NestPrior;
 	  inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF_PhenSpin;
 	  inputMCMC.likelihoodPlan = NULL;
@@ -1869,6 +1882,195 @@ int checkParamInList(const char *list, const char *param)
 			return 0;
 	return 1;
 }
+
+
+///*-----------------------------------------------------------*/
+void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table)
+///*-------------- Inject in Frequency domain -----------------*/
+{
+	/* Inject a gravitational wave into the data in the frequency domain */
+	REAL4Vector *injWaveFD=NULL;
+    InspiralTemplate template;
+	UINT4 det_i,idx;
+	REAL8 end_time = 0.0;
+	REAL8 deltaF = inputMCMC->deltaF;
+	REAL8 TimeFromGC,resp_r,resp_i;
+	UINT4 Nmodel; /* Length of the model */
+	LALDetAMResponse det_resp;
+    memset(&template,0,sizeof(InspiralTemplate));
+    /* Populate the template */
+	REAL8 ChirpISCOLength;
+	expnFunc expnFunction;
+	expnCoeffs ak;
+    TofVIn TofVparams;
+    REAL8 * SNRs=NULL;
+    SNRs=calloc(nIFO+1 ,sizeof(REAL8));
+    REAL8 singleIFO_SNRcut = 0.5;
+    REAL8 network_SNRcut=0.0;
+    
+    /* read in the injection approximant and determine whether is TaylorF2 or something else*/
+    Approximant injapprox;
+    LALPNOrder phase_order;
+    XLALGetApproximantFromString(inj_table->waveform,&injapprox);
+    XLALGetOrderFromString(inj_table->waveform,&phase_order);
+	template.totalMass = inj_table->mass1+inj_table->mass2;
+	template.eta = inj_table->eta;
+	template.massChoice = totalMassAndEta;
+	template.fLower = inj_table->f_lower;
+    template.distance = inj_table->distance; /* This must be in Mpc, contrary to the docs */
+	template.order=phase_order;
+	template.approximant=injapprox;
+	template.tSampling = 1.0/inputMCMC->deltaT;
+	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;
+    //fprintf(stdout,"%f \n", template.fCutoff);
+	template.nStartPad = 0;
+	template.nEndPad =0;
+    template.startPhase = inj_table->coa_phase;
+	template.startTime = 0.0;
+	template.ieta = 1;
+	template.next = NULL;
+	template.fine = NULL;
+	Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
+
+    COMPLEX16FrequencySeries *injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjF",  &inputMCMC->epoch,0.0,deltaF,&lalDimensionlessUnit,Nmodel);
+
+	if(injWaveFD==NULL)	LALCreateVector(&status,&injWaveFD,Nmodel); /* Allocate storage for the waveform */
+        
+	/* Create the wave */
+	LALInspiralParameterCalc(&status,&template);
+	LALInspiralRestrictedAmplitude(&status,&template);
+    
+    printf("Injection Approx: %i\n",template.approximant);
+    LALInspiralWave(&status,injWaveFD,&template);
+    
+    
+    memset(&ak,0,sizeof(expnCoeffs));
+	memset(&TofVparams,0,sizeof(TofVparams));
+
+    LALInspiralSetup(&status,&ak,&template);
+	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
+	TofVparams.coeffs=&ak;
+	TofVparams.dEnergy=expnFunction.dEnergy;
+	TofVparams.flux=expnFunction.flux;
+	TofVparams.v0= ak.v0;
+	TofVparams.t0= ak.t0;
+	TofVparams.vlso= ak.vlso;
+	TofVparams.totalmass=ak.totalmass;
+/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
+	ChirpISCOLength=ak.tn;
+   
+    FILE *outInjB=fopen("injection_preInj.dat","w");
+    for (UINT4 i=0; i<injWaveFD->length; i++) {
+            fprintf(outInjB,"%lf %e %e\n",i*deltaF,injWaveFD->data[i],injWaveFD->data[injWaveFD->length-i-1]);
+    }
+    fclose(outInjB);
+    if(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB){
+		ChirpISCOLength = template.tC;
+	}
+
+    end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
+    end_time-=(REAL8) inputMCMC->epoch.gpsSeconds + 1.0e-9*inputMCMC->epoch.gpsNanoSeconds;
+    
+    if(!(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB)){
+       /* IMR FD is created with the end of the waveform at the time of epoch. So we don't need to shift by the length of the WF. */
+        end_time-=ChirpISCOLength;
+	}
+    
+	/* Calculate response of the detectors */
+	LALSource source;
+	memset(&source,0,sizeof(LALSource));
+	source.equatorialCoords.longitude = (REAL8) inj_table->longitude;
+	source.equatorialCoords.latitude = (REAL8) inj_table->latitude;
+	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
+	source.orientation = (REAL8) inj_table->polarization;
+	strncpy(source.name,"blah",sizeof(source.name));
+
+	LALDetAndSource det_source;
+	det_source.pSource = &source;
+
+	REAL8 ci = cos((REAL8) inj_table->inclination);
+	REAL8 SNRinj=0;
+
+	REAL8 time_sin,time_cos;
+    //inputMCMC->numberDataStreams=nIFO;
+   
+	for (det_i=0;det_i<nIFO;det_i++){ //nIFO
+        UINT4 lowBin = (UINT4)(inputMCMC->fLow / inputMCMC->stilde[det_i]->deltaF);
+        UINT4 highBin = (UINT4)(template.fFinal / inputMCMC->stilde[det_i]->deltaF);
+        
+        if(highBin==0 || highBin>inputMCMC->stilde[det_i]->data->length-1) highBin=inputMCMC->stilde[det_i]->data->length-1;
+		
+        if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==EOBNR) highBin=inputMCMC->stilde[det_i]->data->length-1;
+		char InjFileName[50];
+		sprintf(InjFileName,"injection_%i.dat",det_i);
+		FILE *outInj=fopen(InjFileName,"w");
+
+		/* Compute detector amplitude response */
+		det_source.pDetector = (inputMCMC->detector[det_i]); /* select detector */
+		LALComputeDetAMResponse(&status,&det_resp,&det_source,&inputMCMC->epoch); /* Compute det_resp */
+        /* Time delay from geocentre */
+        TimeFromGC = XLALTimeDelayFromEarthCenter(inputMCMC->detector[det_i]->location, source.equatorialCoords.longitude, source.equatorialCoords.latitude, &(inputMCMC->epoch));
+		det_resp.plus*=0.5*(1.0+ci*ci);
+		det_resp.cross*=-ci;
+		REAL8 chisq=0.0;
+        
+        
+        for(idx=lowBin;idx<=highBin;idx++){
+        /* Calculate the WF to be injected for each frequency bin and fill injF, injFnoError and injFwithError with it. 
+         * Nothing is yet added to the data */
+			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
+			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(inputMCMC->deltaF));
+			REAL8 hc = (REAL8)injWaveFD->data[idx]*time_cos + (REAL8)injWaveFD->data[Nmodel-idx]*time_sin;
+			REAL8 hs = (REAL8)injWaveFD->data[Nmodel-idx]*time_cos - (REAL8)injWaveFD->data[idx]*time_sin;
+			resp_r = det_resp.plus * hc - det_resp.cross * hs;
+			resp_i = det_resp.cross * hc + det_resp.plus * hs;
+			resp_r/=deltaF; resp_i/=deltaF;
+            injF->data->data[idx].re=resp_r;
+            injF->data->data[idx].im=resp_i;
+        }
+        
+                
+        for(idx=lowBin;idx<=highBin;idx++){
+		 /* The WF is actually added to the noise stream. SNR is calculated here. */  
+            inputMCMC->stilde[det_i]->data->data[idx].re+=injF->data->data[idx].re;
+            inputMCMC->stilde[det_i]->data->data[idx].im+=injF->data->data[idx].im;
+
+			//fprintf(outInj,"%lf %e\n",idx*deltaF ,atan2(injWaveFD->data[Nmodel-idx],injWaveFD->data[idx]));
+			fprintf(outInj,"%lf %e %e %e %e %e\n",idx*deltaF ,inputMCMC->stilde[det_i]->data->data[idx].re,inputMCMC->stilde[det_i]->data->data[idx].im,injF->data->data[idx].re,injF->data->data[idx].im,inputMCMC->invspec[det_i]->data->data[idx]);
+			chisq+=inputMCMC->invspec[det_i]->data->data[idx]*(injF->data->data[idx].re*injF->data->data[idx].re+injF->data->data[idx].im*injF->data->data[idx].im)*deltaF;
+
+		}
+        
+		chisq*=4.0;
+ 
+        /*if (sqrt(chisq)<SNRcut) {
+            fprintf(stderr,"Injected signal SNR in %s = %f is smaller than %f, aborting...\n",inputMCMC->ifoID[det_i],sqrt(chisq),SNRcut);
+            exit(-1);
+        }*/
+        fprintf(stdout,"Injected signal in %s, SNR = %f\n",inputMCMC->ifoID[det_i],sqrt(chisq));
+        SNRs[det_i]=sqrt(chisq);
+		SNRinj+=chisq;
+		fclose(outInj);
+        
+	}
+   	SNRinj=sqrt(SNRinj);
+    PrintSNRsToFile(SNRs,inj_table,inputMCMC);
+	fprintf(stdout,"Injected signal, network SNR = %f\n",SNRinj);
+    
+    /* Check whether at least two IFOs are above singleIFO_SNRcut, and the networks SNR is above network_SNRcut */
+    UINT4 above=0;
+    for (det_i=0;det_i<=nIFO+1;det_i++){
+        if (SNRs[det_i]>=singleIFO_SNRcut) above++;
+    }
+    if (!(above>=2 && SNRinj>=network_SNRcut)) {
+        fprintf(stderr,"The network SNR is below the threshold (%.1lf) or less than two IFOs are above the single IFO threshold (%.1lf). Exiting... \n", network_SNRcut,singleIFO_SNRcut);
+        exit(-1);
+    }
+    
+    XLALDestroyCOMPLEX16FrequencySeries(injF);
+	return;
+}
+
 
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
 /* open the SNR file */
