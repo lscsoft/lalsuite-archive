@@ -617,7 +617,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			 && strcmp(caches[i],"LALAdLIGO"))))
 		{
 			//FakeFlag=1; - set but not used
-			datarandparam=XLALCreateRandomParams(dataseed?dataseed+(int)i:dataseed);
+                        datarandparam=XLALCreateRandomParams(dataseed?dataseed+(INT2)IFOdata[i].name[0]+(INT2)IFOdata[i].name[1]:dataseed);
+                        printf("datarandompar %d %d %d \n",dataseed,(INT2)IFOdata[i].name[0],(INT2)IFOdata[i].name[1]);
 			if(!datarandparam) XLAL_ERROR_NULL(XLAL_EFUNC);
 			/* Selection of the noise curve */
 			if(!strcmp(caches[i],"LALLIGO")) {PSD = &LALLIGOIPsd; scalefactor=9E-46;}
@@ -642,13 +643,15 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			}
 			IFOdata[i].freqData = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
 			if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
-
 			/* Create the fake data */
 			int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
 			for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
 				IFOdata[i].freqData->data->data[j].re=XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF));
 				IFOdata[i].freqData->data->data[j].im=XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF));
+
 			}
+
+
 			IFOdata[i].freqData->data->data[0].re=0; 			IFOdata[i].freqData->data->data[0].im=0;
 			const char timename[]="timeData";
 			IFOdata[i].timeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries(timename,&segStart,0.0,(REAL8)1.0/SampleRate,&lalDimensionlessUnit,(size_t)seglen);
@@ -656,6 +659,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			XLALREAL8FreqTimeFFT(IFOdata[i].timeData,IFOdata[i].freqData,IFOdata[i].freqToTimeFFTPlan);
 			if(*XLALGetErrnoPtr()) printf("XLErr: %s\n",XLALErrorString(*XLALGetErrnoPtr()));
 			XLALDestroyRandomParams(datarandparam);
+
+
 		}
 		else{ /* Not using fake data, load the data from a cache file */
 			fprintf(stderr,"Estimating PSD for %s using %i segments of %i samples (%lfs)\n",IFOnames[i],nSegs,(int)seglen,SegmentLength);
