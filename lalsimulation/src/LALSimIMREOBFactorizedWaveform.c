@@ -1211,7 +1211,8 @@ UNUSED static int XLALSimIMREOBCalcSpinFacWaveformCoefficients(
     coeffs->delta21vh9 = -272./81. + (214.*LAL_PI*LAL_PI)/315.;
     coeffs->delta21v5  = - 493. * eta /42.;
 
-    coeffs->rho21v1   = (-3.*(chiS+chiA/dM))/(4.);
+    //coeffs->rho21v1   = (-3.*(chiS+chiA/dM))/(4.);
+    coeffs->rho21v1   = 0.0;
     //coeffs->rho21v2   = -59./56 - (9.*chiAPlusChiSdM*chiAPlusChiSdM)/(32.*dM2) + (23.*eta)/84.;
     coeffs->rho21v2   = -59./56 + (23.*eta)/84. - 9./32.*a2;
     /*coeffs->rho21v3   = (-567.*chiA*chiA*chiA - 1701.*chiA*chiA*chiS*dM
