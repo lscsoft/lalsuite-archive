@@ -855,8 +855,12 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
 
   # loop over time segments constructing file paths and appending to the cache
   while t<end:
-    trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
-               % (basedir, t, t+triglength, ifo, mask, t, triglength)
+    if ifo == 'G1':
+      trigfile = '%s/%.5d/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+          % (basedir, t/100000, t, t+triglength, ifo, mask, t, triglength)
+    else:
+      trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+          % (basedir, t, t+triglength, ifo, mask, t, triglength)
     if intersects(segment(t, t+triglength))\
     and (not check_files_exist or isfile(trigfile)):
       append(from_T050017(trigfile))
