@@ -1572,6 +1572,7 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     omega_clusters = False
   if len(dat)==11:
     peak, freq, duration, bandwidth, amplitude, cls, cle, cln, av_freq, av_bandwidth, err_freq = dat
+    omega_clusters = True
   else:
     if len(dat)==8:
       peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
