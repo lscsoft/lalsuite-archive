@@ -372,6 +372,7 @@ def trigger(data, etg, ifo=None, channel=None, loadcolumns=None):
     trig.central_freq            = float(data[2])
     trig.peak_frequency          = trig.central_freq
     trig.bandwidth               = float(data[3])
+    trig.peak_frequency_error    = trig.bandwidth/trig.central_freq
     trig.flow                    = trig.central_freq - 0.5*trig.bandwidth
     trig.fhigh                   = trig.central_freq + 0.5*trig.bandwidth
     #snr
@@ -854,8 +855,12 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
 
   # loop over time segments constructing file paths and appending to the cache
   while t<end:
-    trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
-               % (basedir, t, t+triglength, ifo, mask, t, triglength)
+    if ifo == 'G1':
+      trigfile = '%s/%.5d/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+          % (basedir, t/100000, t, t+triglength, ifo, mask, t, triglength)
+    else:
+      trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+          % (basedir, t, t+triglength, ifo, mask, t, triglength)
     if intersects(segment(t, t+triglength))\
     and (not check_files_exist or isfile(trigfile)):
       append(from_T050017(trigfile))
@@ -1569,15 +1574,22 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     duration = stop-start
     amplitude = snr**2/2
     omega_clusters = False
-  elif len(dat)==8:
-    peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
+  if len(dat)==11:
+    peak, freq, duration, bandwidth, amplitude, cls, cle, cln, av_freq, av_bandwidth, err_freq = dat
     omega_clusters = True
-  elif len(dat)==5:
-    peak, freq, duration, bandwidth, amplitude = dat
-    omega_clusters = False
   else:
-    raise ValueError("Wrong number of columns in omega format file. "\
-                     "Cannot read.")
+    if len(dat)==8:
+      peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
+      omega_clusters = True
+    elif len(dat)==5:
+      peak, freq, duration, bandwidth, amplitude = dat
+      omega_clusters = False
+    else:
+      raise ValueError("Wrong number of columns in omega format file. "\
+                         "Cannot read.")
+    av_freq = freq
+    av_bandwidth = bandwidth
+    err_freq = av_bandwidth/av_freq
 
   numtrigs = len(peak)
   attr_map = dict()
@@ -1605,8 +1617,9 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
-  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
-  if 'bandwidth' in columns:      attr_map['bandwidth']      = bandwidth
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = av_freq
+  if 'peak_frequency_error' in columns: attr_map['peak_frequency_error'] = err_freq
+  if 'bandwidth' in columns:      attr_map['bandwidth']      = av_bandwidth
   if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = bandwidth
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
@@ -2125,6 +2138,7 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'peak_frequency_error' in columns: attr_map['peak_frequency_error'] = bandwidth/freq
 
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
