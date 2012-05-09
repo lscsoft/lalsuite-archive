@@ -1236,7 +1236,6 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
         t.flow = min(coldata['flow'][carray])
         t.fhigh = max(coldata['fhigh'][carray])
         t.bandwidth = t.fhigh-t.flow
-        t.central_freq = t.flow + t.bandwidth/2
         t.tfvolume = t.bandwidth * t.duration
       outtrigs.append(t)
 
