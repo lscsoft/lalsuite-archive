@@ -1120,7 +1120,12 @@ if opts.coincidence:
 
     # we need different jobs for different time-slide files
     tisi_file_name = cp.get("ligolw_cafe","slides-file-%i"%tisi_file_num)
+
+    # FIXME: Hack out pattern object in lladd_job to avoid TypeError from deepcopy
+    lladd_job._CondorDAGJob__bad_macro_chars = None
     this_lladd_job = copy.deepcopy(lladd_job)
+    this_lladd_job._CondorDAGJob__bad_macro_chars = re.compile(r'[_-]')
+
     # create new sub files for different slides if we have more than one
     if tisi_file_num:
       this_lladd_job.set_sub_file( basename + '.ligolw_add_%i'%tisi_file_num \
