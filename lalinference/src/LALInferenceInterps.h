@@ -18,7 +18,7 @@ struct twod_waveform_interpolant {
 	
 struct twod_waveform_interpolant_array {
 	struct twod_waveform_interpolant *interp;
-	int size;
+	unsigned int size;
 	double param1_min;
 	double param1_max;
 	double param2_min;
@@ -31,10 +31,10 @@ struct twod_waveform_interpolant_array {
 
 struct twod_waveform_interpolant_manifold {
 	REAL8FrequencySeries *psd;
-	int patches_in_eta;
-	int patches_in_mc;
-	int number_templates_along_eta;	
-	int number_templates_along_mc;
+	unsigned int patches_in_eta;
+	unsigned int patches_in_mc;
+	unsigned int number_templates_along_eta;	
+	unsigned int number_templates_along_mc;
 	struct twod_waveform_interpolant_array *interp_arrays;
 	double eta_padding;
 	double mc_padding;
