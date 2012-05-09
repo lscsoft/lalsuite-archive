@@ -126,14 +126,24 @@ AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio lib
 # check for libmetaio headers
 AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
-# check for frame library
-PKG_CHECK_MODULES([LIBFRAME],[libframe],[true],[false])
-CPPFLAGS="$CPPFLAGS $LIBFRAME_CFLAGS"
-LIBS="$LIBS $LIBFRAME_LIBS"
-AC_CHECK_LIB([Frame],[FrLibIni],,[AC_MSG_ERROR([could not find the frame library])])
+# check for libFrame
+PKG_CHECK_MODULES([FRAME],[libframe],[true],[false])
+lal_pre_frame_LIBS="$LIBS"
+LIBS="$LIBS $FRAME_LIBS"
+AC_SEARCH_LIBS([FrLibIni],[Frame],,
+               [AC_MSG_WARN([could not find the frame library])]
+               [frame="false"]
+               [lalframe="false"]
+               [LIBS="$lal_pre_frame_LIBS"])
 
-# check for frame library headers
-AC_CHECK_HEADERS([FrameL.h],,[AC_MSG_ERROR([could not find the FrameL.h header])])
+# check for libFrame headers
+lal_pre_frame_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS $FRAME_CFLAGS"
+AC_CHECK_HEADERS([FrameL.h],,
+                 [AC_MSG_WARN([could not find the FrameL.h header])]
+                 [frame="false"]
+                 [lalframe="false"]
+                 [CPPFLAGS="$lal_pre_frame_CPPFLAGS"])
 
 # check for lal libraries and headers
 LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
