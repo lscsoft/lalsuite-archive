@@ -1285,6 +1285,10 @@ static void deleteCell(LALInferenceKDTree *cell) {
   }
 }
 
+void LALInferenceKDTreeDelete(LALInferenceKDTree *tree) {
+  deleteCell((LALInferenceKDCell *)tree);
+}
+
 typedef enum {
   LEFT,
   RIGHT,
