@@ -515,7 +515,7 @@ static int generate_template(double m1, double m2, double duration, double f_low
 	return 0;
 }
 
-static int get_psd_from_file(REAL8FrequencySeries *series,  const char *fname){
+/*static int get_psd_from_file(REAL8FrequencySeries *series,  const char *fname){
 	
 	FILE *fp = fopen(fname, "r");
 	double deltaF = series->deltaF;
@@ -543,6 +543,38 @@ static int get_psd_from_file(REAL8FrequencySeries *series,  const char *fname){
 	gsl_interp_accel_free (acc);
 	fclose(fp);
 	return 0;
+}
+*/
+static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_for_template_bank, REAL8FrequencySeries *psd_to_interpolate){
+
+	unsigned int i=0;
+	
+        double deltaF = psd_for_template_bank->deltaF;
+        double f0 = psd_for_template_bank->f0;
+        double f;
+        const gsl_interp_type *t = gsl_interp_linear;
+        gsl_interp *g_interp = gsl_interp_alloc (t, psd_to_interpolate->data->length);
+        gsl_interp_accel *acc = gsl_interp_accel_alloc();
+
+	double freq_series_for_interp[psd_to_interpolate->data->length];
+        double psd_series_for_interp[psd_to_interpolate->data->length];	
+
+	for(i = 0; i < psd_to_interpolate->data->length; i++){
+		
+		freq_series_for_interp[i] = f0 + i*psd_to_interpolate->deltaF;
+		psd_series_for_interp[i] = psd_to_interpolate->data->data[i];
+	}
+	
+	for(i = 0; i < psd_for_template_bank->data->length; i++){
+
+		f = f0 + i * deltaF;
+		psd_for_template_bank->data->data[i] = gsl_interp_eval(g_interp, freq_series_for_interp, psd_series_for_interp, f, acc);
+	}
+
+
+
+	return 0;
+
 }
 
 static int freq_to_time_fft(COMPLEX16FrequencySeries *fseries, COMPLEX16TimeSeries *tseries, COMPLEX16FFTPlan *revplan){
@@ -580,7 +612,7 @@ static int compute_working_length_and_sample_rate(double chirp_time, double f_ma
 	return 0;
 }
 
-static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPLEX16FrequencySeries **fseries_ptr, COMPLEX16FrequencySeries **fseries_for_ifft_ptr, COMPLEX16TimeSeries **tseries_ptr, COMPLEX16FFTPlan **revplan_ptr, double mc_min, double eta_min, double eta_max, double f_min, unsigned int *length_max){
+static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPLEX16FrequencySeries **fseries_ptr, COMPLEX16FrequencySeries **fseries_for_ifft_ptr, COMPLEX16TimeSeries **tseries_ptr, COMPLEX16FFTPlan **revplan_ptr, REAL8FrequencySeries *psd_to_interpolate, double mc_min, double eta_min, double eta_max, double f_min, unsigned int *length_max){
 
 	double f_max=0;
 	double t_max=0;
@@ -620,7 +652,9 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	memset (psd->data->data, 0, psd->data->length * sizeof (REAL8));
 	
 	/* FIXME: get_psd_from_file needs to change so that it takes in a real8freqseries and returns a new real8freqseries interpolated from the input */
-	get_psd_from_file(psd, "reference_psd.txt");
+	//get_psd_from_file(psd, "reference_psd.txt");
+
+	interpolate_psd_from_REAL8FrequencySeries(psd, psd_to_interpolate);
 
 	// full frequency series	
 	fseries_for_ifft = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length);
@@ -1193,17 +1227,17 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 	double outer_eta_min, outer_eta_max, outer_mc_min, outer_mc_max, mc_padding, eta_padding;
 
 	struct twod_waveform_interpolant_manifold *manifold = NULL;
-
+	
         COMPLEX16FrequencySeries *fseries = NULL;
+	REAL8FrequencySeries *psd_for_template_bank = NULL;
 	COMPLEX16FrequencySeries *fseries_for_ifft = NULL;
         COMPLEX16TimeSeries *tseries = NULL;
 	COMPLEX16FFTPlan *revplan = NULL;
-	REAL8FrequencySeries *psd_for_template_bank = NULL;
 
 	pad_parameter_bounds(mc_min, mc_max, eta_min, eta_max, &outer_eta_min, &outer_eta_max, &outer_mc_min, &outer_mc_max, number_templates_along_mc, number_templates_along_eta, number_of_templates_to_pad, &mc_padding, &eta_padding);
 
 	/* FIXME: initialize_time_and_freq_series needs to take in psd_to_interpolate and return psd for use in template bank */	
-	initialize_time_and_freq_series(&psd_to_interpolate, &fseries, &fseries_for_ifft, &tseries, &revplan, outer_mc_min, outer_eta_min, outer_eta_max, f_min, &length_max);
+	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, outer_eta_max, f_min, &length_max);
 
 	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding);
 
