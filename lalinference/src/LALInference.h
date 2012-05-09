@@ -541,7 +541,7 @@ void LALInferenceQ2Eta(double q, double *eta);
     be set to a non-zero value until the next re-computation of the
     principal axes.
  */
-typedef struct tagLALInferenceKDTree {
+typedef struct tagLALInferenceKDCell {
   size_t npts; /** Stores the number of tree points that lie in the cell. */
   size_t ptsSize; /** Size of the pts buffer. */
   size_t dim; /** Dimension of the system. */
@@ -559,14 +559,17 @@ typedef struct tagLALInferenceKDTree {
   int eigenFrameStale; /** == 1 when the mean, covariance, and
                            eigenvectors are out of date (i.e. more
                            points added). */
-  struct tagLALInferenceKDTree *left; /** Left (i.e. lower-coordinate)
+  struct tagLALInferenceKDCell *left; /** Left (i.e. lower-coordinate)
                                           sub-tree, may be NULL if
                                           empty.*/
   struct tagLALInferenceKDTree *right; /** Right
                                            (i.e. upper-coordinate)
                                            sub-tree, may be NULL if
                                            empty. */
-} LALInferenceKDTree;
+} LALInferenceKDCell;
+
+/** A kD-tree is just a single kD cell. */
+typedef LALInferenceKDCell LALInferenceKDTree;
 
 /** Delete a kD-tree.  Also deletes all contained cells, and points. */
 void LALInferenceKDTreeDelete(LALInferenceKDTree *tree);
@@ -591,12 +594,12 @@ LALInferenceKDTree *LALInferenceKDFindCell(LALInferenceKDTree *tree, REAL8 *pt, 
 
 /** Returns the log of the volume of the given cell, which is part of
     the given tree. */
-double LALInferenceKDLogCellVolume(LALInferenceKDTree *cell);
+double LALInferenceKDLogCellVolume(LALInferenceKDCell *cell);
 
 /** Returns the log of the volume of the box aligned with the
     principal axes of the points in the given cell that tightly
     encloses those points. */
-double LALInferenceKDLogCellEigenVolume(LALInferenceKDTree *cell);
+double LALInferenceKDLogCellEigenVolume(LALInferenceKDCell *cell);
 
 /** Fills in the given REAL8 array with the parameter values from
     params; the ordering of the variables is taken from the order of
