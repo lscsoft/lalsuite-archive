@@ -506,7 +506,7 @@ class SearchSummary(object):
 			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
 			self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
 		except:
-			if seg != (None, None):
+			if seg != segments.segment(None, None):
 				raise
 			self.in_start_time = self.in_start_time_ns = self.in_end_time = self.in_end_time_ns = None
 
@@ -533,7 +533,7 @@ class SearchSummary(object):
 			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
 			self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
 		except:
-			if seg != (None, None):
+			if seg != segments.segment(None, None):
 				raise
 			self.out_start_time = self.out_start_time_ns = self.out_end_time = self.out_end_time_ns = None
 
