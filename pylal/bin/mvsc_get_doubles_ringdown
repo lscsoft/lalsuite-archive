@@ -193,7 +193,7 @@ for database in databases:
 			all_injections_info.append([values[0], database])
 			all_injections_distance.append([values[-1], database])
 		#for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.exact_tag,) ):
-		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_injections,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.nearby_tag,) ):
+		for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_select_injections,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.exact_tag,) ):
 			exact_injections.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:-1] + (1,))
 			exact_injections_info.append([values[0], database])
 			exact_injections_distance.append([values[-1], database])
