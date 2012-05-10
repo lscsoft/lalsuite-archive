@@ -537,6 +537,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -590,6 +591,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -640,6 +642,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -693,6 +696,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -750,6 +754,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -807,6 +812,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -864,6 +870,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -934,6 +941,7 @@ XLALInspiralChooseModel(
          case TaylorT3:
          case TaylorF1:
          case TaylorF2:
+         case TaylorF2Test:
          case TaylorF2RedSpin:
          case SpinTaylorFrameless:
          case SpinTaylorT3:
@@ -972,6 +980,7 @@ XLALInspiralChooseModel(
       case PadeT1:
       case PadeF1:
       case TaylorF2:
+      case TaylorF2Test:
       case TaylorF2RedSpin:
       case SpinTaylorFrameless:
       case SpinTaylorT3:

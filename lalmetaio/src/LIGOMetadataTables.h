@@ -567,6 +567,33 @@ tagSimInspiralTable
   EventIDColumn  *event_id;
   INT4           numrel_mode_min;
   INT4           numrel_mode_max;
+/* Parameters for the GR test waveforms */
+
+  REAL4 dphi0;
+  REAL4 dphi1;
+  REAL4 dphi2;
+  REAL4 dphi3;
+  REAL4 dphi4;
+  REAL4 dphi5;
+  REAL4 dphi5l;
+  REAL4 dphi6;
+  REAL4 dphi6l;
+  REAL4 dphi7;
+
+/* Parameters for the massive graviton waveform */
+  REAL4 loglambdaG;
+
+/* Parameters for the Brans-Dicke waveform */
+  REAL4 ScalarCharge1;
+  REAL4 ScalarCharge2;
+  REAL4 omegaBD;
+
+/* Parameters for the PPE waveform */
+ 
+  REAL4 aPPE;
+  REAL4 alphaPPE;
+  REAL4 bPPE;
+  REAL4 betaPPE;
   CHAR           numrel_data[LIGOMETA_STRING_MAX];
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];

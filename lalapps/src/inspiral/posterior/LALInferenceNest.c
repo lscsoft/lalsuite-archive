@@ -46,7 +46,7 @@ void initializeTemplate(LALInferenceRunState *runState);
 static void mc2masses(double mc, double eta, double *m1, double *m2);
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);                             
 void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);                              
- 
+int checkParamInList(const char *list, const char *param);
 
 
 static void mc2masses(double mc, double eta, double *m1, double *m2)
@@ -474,6 +474,9 @@ void initVariables(LALInferenceRunState *state)
 	INT4 i=0;
 	INT4 enable_spin=0;
 	INT4 aligned_spin=0;
+    INT4 gr_tests =0;
+    REAL8 testParameter_max = 0.25;
+    REAL8 testParameter_min = -0.25;
 	char help[]="\
 Parameter arguments:\n\
 (--inj injections.xml)\tInjection XML file to use\n\
@@ -531,7 +534,8 @@ Parameter arguments:\n\
 	/* Over-ride approximant if user specifies */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
 	if(ppt){
-		if(strstr(ppt->value,"TaylorF2")) approx=TaylorF2;
+        if(strstr(ppt->value,"TaylorF2Test")) approx=TaylorF2Test;
+		else if(strstr(ppt->value,"TaylorF2")) approx=TaylorF2;
 		else
 		    XLALGetApproximantFromString(ppt->value,&approx);
         XLALGetOrderFromString(ppt->value,&PhaseOrder);
@@ -740,8 +744,73 @@ Parameter arguments:\n\
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin2",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t);
 		}
 	}
-	
-	return;
+	ppt=LALInferenceGetProcParamVal(commandLine,"--enable-GR-test");
+    if(ppt) 
+    {
+        gr_tests = 1;
+        printf("Initialising testing parameters\n");
+        ppt=LALInferenceGetProcParamVal(commandLine,"--testParameters");
+        if ((gr_tests)&&(ppt)) 
+        {
+            tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
+            if (checkParamInList(ppt->value,"dphi0")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi0",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi0",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi1")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi1",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi1",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi2")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi2",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi2",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi3")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi3",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi3",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi4")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi4",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi4",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi5")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi5",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi5",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi5l")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi5l",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi5l",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi6")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi6",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi6",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi6l")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi6l",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi6l",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+            if (checkParamInList(ppt->value,"dphi7")) 
+            {
+                LALInferenceAddVariable(currentParams,"dphi7",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "dphi7",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+            }
+        }
+        else {
+            printf("ERROR: No GR testing parameters specified. Aborting...\n");
+            exit(1);
+        }
+
+	}
+    return;
 }
 
 /** Initialise student-t extra variables, set likelihood */
@@ -850,4 +919,26 @@ Arguments for each section follow:\n\n";
 
 	/* end */
 	return(0);
+}
+
+int checkParamInList(const char *list, const char *param)
+{
+	/* Check for param in comma-seperated list */
+	char *post=NULL,*pos=NULL;
+	if (list==NULL) return 0;
+	if (param==NULL) return 0;
+
+	if(!(pos=strstr(list,param))) return 0;
+	
+	/* The string is a substring. Check that it is a token */
+	/* Check the character before and after */
+	if(pos!=list)
+		if(*(pos-1)!=',')
+			return 0;
+
+	post=&(pos[strlen(param)]);
+	if(*post!='\0')
+		if(*post!=',')
+			return 0;
+	return 1;
 }

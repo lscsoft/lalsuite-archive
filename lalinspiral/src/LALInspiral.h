@@ -361,6 +361,34 @@ tagInspiralTemplate
   REAL8 t7;
   REAL8 tC;
 
+/* Parameters for the GR test waveforms */
+
+  REAL8 dphi0;
+  REAL8 dphi1;
+  REAL8 dphi2;
+  REAL8 dphi3;
+  REAL8 dphi4;
+  REAL8 dphi5;
+  REAL8 dphi5l;
+  REAL8 dphi6;
+  REAL8 dphi6l;
+  REAL8 dphi7;
+
+/* Parameters for the massive graviton waveform */
+  REAL8 loglambdaG;
+
+/* Parameters for the Brans-Dicke waveform */
+  REAL8 ScalarCharge1;
+  REAL8 ScalarCharge2;
+  REAL8 omegaBD;
+
+/* Parameters for the PPE waveform */
+ 
+  REAL8 aPPE;
+  REAL8 alphaPPE;
+  REAL8 bPPE;
+  REAL8 betaPPE;
+  
 /* Note that tc and fFinal are computed during waveform generation!!! */
 
   REAL4 minMatch;
@@ -952,6 +980,11 @@ void LALInspiralStationaryPhaseApprox2 (
 
 int
 XLALInspiralStationaryPhaseApprox2 (
+   REAL4Vector      *signalvec,
+   InspiralTemplate *params);
+
+int
+XLALInspiralStationaryPhaseApprox2Test (
    REAL4Vector      *signalvec,
    InspiralTemplate *params);
 

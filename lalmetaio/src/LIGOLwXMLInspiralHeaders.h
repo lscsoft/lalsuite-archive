@@ -375,6 +375,24 @@ fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:eff_dist_t\" Type=\"
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:eff_dist_v\" Type=\"real_4\"/>\n" , fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:numrel_mode_min\" Type=\"int_4s\"/>\n" , fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:numrel_mode_max\" Type=\"int_4s\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi0\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi1\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi2\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi3\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi4\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi5\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi5l\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi6\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi6l\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi7\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:loglambdaG\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:ScalarCharge1\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:ScalarCharge2\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:omegaBD\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:aPPE\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:alphaPPE\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:bPPE\" Type=\"real_4\"/>\n" , fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:betaPPE\" Type=\"real_4\"/>\n" , fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:numrel_data\" Type=\"lstring\"/>\n" , fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:amp_order\" Type=\"int_4s\"/>\n" , fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:taper\" Type=\"lstring\"/>\n", fp ) == EOF || \
@@ -383,7 +401,7 @@ fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:simulation_id\" Type
 fputs( "      <Stream Name=\"sim_inspiralgroup:sim_inspiral:table\" Type=\"Local\" Delimiter=\",\">\n", fp ) == EOF )
 
 #define SIM_INSPIRAL_ROW \
-"         \"process:process_id:0\",\"%s\",%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%22.16e,\"%s\",%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%d,%d,\"%s\",%d,\"%s\",%d,\"sim_inspiral:simulation_id:%" LAL_INT8_FORMAT "\""
+"         \"process:process_id:0\",\"%s\",%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%22.16e,\"%s\",%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%e,%d,%d,\"%s\",%d,\"%s\",%d,\"sim_inspiral:simulation_id:%" LAL_INT8_FORMAT "\""
 
 #if 0
 { /* so that editors will match succeeding brace */

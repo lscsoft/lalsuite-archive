@@ -54,6 +54,7 @@ typedef enum {
                          * the waveform given by \c TaylorT1 approximant (see [\ref dis2000] for details);
                          * Outputs a frequency-domain wave. */
    TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave. */
+   TaylorF2Test,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave. Modified to account for GR testing parameters*/
    TaylorF2RedSpin,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec]*/
    TaylorF2RedSpinTidal,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec] plus tidal terms (http://arxiv.org/abs/1101.1673) */
    PadeT1,		/**< Time-domain P-approximant; Outputs a time-domain wave. */
