@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.39.1
+Version:	1.39
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -94,9 +94,6 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
-* Fri May 11 2012 Ryan Fisher <rpfisher@syr.edu>
-- Bugfix release of 1.39 labelled 1.39.1 
-
 * Thu May 10 2012 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue to replace Apr 12 near-release.  This includes ligolw changes and updates for job submission over remote pools.
 
