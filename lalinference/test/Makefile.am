@@ -30,12 +30,17 @@ LALInferenceInterpsTest_SOURCES = \
 	LALInferenceInterps.c \
 	LALInferenceInterps.h
 
+LALInferenceKDTest_SOURCES = \
+	LALInferenceKDTest.c \
+	LALInferenceTest.h
+
 check_PROGRAMS = \
 	LALInferenceTest \
 	LALInferencePriorTest \
 	LALInferenceLikelihoodTest \
 	LALInferenceProposalTest \
 	LALInferenceInterpsTest
+	LALInferenceKDTest \
 	$(XMLPRG)
 
 TESTS = \
@@ -43,6 +48,7 @@ TESTS = \
 	LALInferencePriorTest \
 	LALInferenceLikelihoodTest \
 	LALInferenceInterpsTest \
+	LALInferenceKDTest \
 	$(XMLPRG)
 
 endif
