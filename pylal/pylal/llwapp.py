@@ -203,6 +203,32 @@ def set_process_end_time(process):
 	return process
 
 
+def append_process_params(*args, **kwargs):
+	"""
+	Deprecated.  Use glue.ligolw.utils.process.append_process_params
+	instead.
+	"""
+	warnings.warn("function pylal.llwapp.append_process_params is deprecated, use glue.ligolw.utils.process.append_process_params instead", DeprecationWarning, stacklevel = 2)
+	return ligolw_process.append_process_params(*args, **kwargs)
+
+
+def get_process_params(*args, **kwargs):
+	"""
+	Deprecated.  Use glue.ligolw.utils.process.get_process_params()
+	instead.
+	"""
+	warnings.warn("function pylal.llwapp.get_process_params is deprecated, use glue.ligolw.utils.process.get_process_params instead", DeprecationWarning, stacklevel = 2)
+	return ligolw_process.get_process_params(*args, **kwargs)
+
+
+def doc_includes_process(*args, **kwargs):
+	"""
+	Deprecated.  Use glue.ligolw.utils.process.doc_includes_process() instead.
+	"""
+	warnings.warn("function pylal.llwapp.doc_includes_process is deprecated, use glue.ligolw.utils.process.doc_includes_process instead", DeprecationWarning, stacklevel = 2)
+	return ligolw_process.doc_includes_process(*args, **kwargs)
+
+
 #
 # =============================================================================
 #
