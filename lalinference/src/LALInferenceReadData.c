@@ -967,10 +967,11 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
-	if(strstr(injTable->waveform,"TaylorF2"))
-	{ printf("Injecting TaylorF2 in the frequency domain...\n");
-	 InjectTaylorF2(IFOdata, injTable);
-	 return;
+	if(strstr(injTable->waveform,"TaylorF2Test") || strstr(injTable->waveform,"TaylorF2"))
+	{ 
+        printf("Injecting TaylorF2 in the frequency domain...\n");
+        InjectTaylorF2(IFOdata, injTable);
+        return;
 	}
 	/* Begin loop over interferometers */
 	while(thisData){
@@ -1767,7 +1768,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
-   freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
+    freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     COMPLEX16FrequencySeries *freqModelhPlus=NULL;
     freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     tmpdata->freqModelhPlus=freqModelhPlus;
