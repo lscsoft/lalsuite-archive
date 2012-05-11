@@ -1799,16 +1799,16 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     
     if (injapprox==TaylorF2Test) 
     {
-        printf("injecting dphi0 = %lf\n",dphi0);
-        printf("injecting dphi1 = %lf\n",dphi1);
-        printf("injecting dphi2 = %lf\n",dphi2);
-        printf("injecting dphi3 = %lf\n",dphi3);
-        printf("injecting dphi4 = %lf\n",dphi4);
-        printf("injecting dphi5 = %lf\n",dphi5);
-        printf("injecting dphi5l = %lf\n",dphi5l);
-        printf("injecting dphi6 = %lf\n",dphi6);
-        printf("injecting dphi6l = %lf\n",dphi6l);
-        printf("injecting dphi7 = %lf\n",dphi7);
+        printf("injecting dphi0 = %lf\n",inj_table->dphi0);
+        printf("injecting dphi1 = %lf\n",inj_table->dphi1);
+        printf("injecting dphi2 = %lf\n",inj_table->dphi2);
+        printf("injecting dphi3 = %lf\n",inj_table->dphi3);
+        printf("injecting dphi4 = %lf\n",inj_table->dphi4);
+        printf("injecting dphi5 = %lf\n",inj_table->dphi5);
+        printf("injecting dphi5l = %lf\n",inj_table->dphi5l);
+        printf("injecting dphi6 = %lf\n",inj_table->dphi6);
+        printf("injecting dphi6l = %lf\n",inj_table->dphi6l);
+        printf("injecting dphi7 = %lf\n",inj_table->dphi7);
     }
     
     
