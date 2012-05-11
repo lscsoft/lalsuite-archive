@@ -44,6 +44,7 @@ from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import lalconstants
 from pylal import ligolw_burca
@@ -208,7 +209,7 @@ class DocContents(object):
 		# that produced burst events could have produced output
 		#
 
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, livetime_program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, livetime_program).coalesce()
 
 		#
 		# FIXME:  in the future, the sim_inspiral table should
