@@ -1,3 +1,9 @@
+glue (1.39.1) unstable; urgency=low
+
+  * Bugfix release of 1.39 labelled 1.39.1
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 11 May 2012 10:00:00 -0500
+
 glue (1.39) unstable; urgency=low
 
   * Initial release of 1.39
