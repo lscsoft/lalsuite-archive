@@ -654,7 +654,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	/* FIXME: get_psd_from_file needs to change so that it takes in a real8freqseries and returns a new real8freqseries interpolated from the input */
 	//get_psd_from_file(psd, "reference_psd.txt");
 
-	interpolate_psd_from_REAL8FrequencySeries(psd, psd_to_interpolate);
+	//interpolate_psd_from_REAL8FrequencySeries(psd, psd_to_interpolate);
 
 	// full frequency series	
 	fseries_for_ifft = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length);
@@ -832,7 +832,7 @@ static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank
 	fprintf(stderr, "SVD completed.\n");
 
 
-	tolerance = 0.999999;
+	tolerance = 0.9999999;
 	norm_s = pow(gsl_blas_dnrm2(S), 2.);
 	//norm_s = gsl_blas_dasum(S);
 	fprintf(stderr, "norm = %e\n", norm_s);
@@ -1215,8 +1215,8 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 4;
-        unsigned int patches_in_mc = 4;
+        unsigned int patches_in_eta = 1;
+        unsigned int patches_in_mc = 1;
         unsigned int number_templates_along_eta = 18;
         unsigned int number_templates_along_mc = 18;
 	unsigned int number_of_templates_to_pad = 4;
