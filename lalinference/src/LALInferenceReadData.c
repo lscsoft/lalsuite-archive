@@ -969,7 +969,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	/* Check for frequency domain injection (TF2 only at present) */
 	if(strstr(injTable->waveform,"TaylorF2Test") || strstr(injTable->waveform,"TaylorF2"))
 	{ 
-        printf("Injecting TaylorF2 in the frequency domain...\n");
+        printf("Injecting approx %s in the frequency domain...\n",injTable->waveform);
         InjectTaylorF2(IFOdata, injTable);
         return;
 	}
@@ -1739,7 +1739,16 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     REAL8 latitude=0.0;
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
-   
+    REAL8 dphi0=0.0;
+    REAL8 dphi1=0.0;
+    REAL8 dphi2=0.0;
+    REAL8 dphi3=0.0;
+    REAL8 dphi4=0.0;
+    REAL8 dphi5=0.0;
+    REAL8 dphi5l=0.0;
+    REAL8 dphi6=0.0;
+    REAL8 dphi6l=0.0;
+    REAL8 dphi7=0.0;
     
     while (tmpdata){
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
@@ -1754,6 +1763,17 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     longitude=inj_table->longitude;
     latitude=inj_table->latitude;
     polarization=inj_table->polarization;
+    dphi0=inj_table->dphi0;
+    dphi1=inj_table->dphi1;
+    dphi2=inj_table->dphi2;
+    dphi3=inj_table->dphi3;
+    dphi4=inj_table->dphi4;
+    dphi5=inj_table->dphi5;
+    dphi5l=inj_table->dphi5l;
+    dphi6=inj_table->dphi6;
+    dphi6l=inj_table->dphi6l;
+    dphi7=inj_table->dphi7;
+    
     injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
     
     LALInferenceAddVariable(tmpdata->modelParams, "chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
@@ -1765,6 +1785,33 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     LALInferenceAddVariable(tmpdata->modelParams, "inclination",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "massratio",&eta,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    /** GR test parameters */
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi0",&dphi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi1",&dphi1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi2",&dphi2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi3",&dphi3,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi4",&dphi4,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi5",&dphi5,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi5l",&dphi5l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi6",&dphi6,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi6l",&dphi6l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "dphi7",&dphi7,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    
+    if (injapprox==TaylorF2Test) 
+    {
+        printf("injecting dphi0 = %lf\n",dphi0);
+        printf("injecting dphi1 = %lf\n",dphi1);
+        printf("injecting dphi2 = %lf\n",dphi2);
+        printf("injecting dphi3 = %lf\n",dphi3);
+        printf("injecting dphi4 = %lf\n",dphi4);
+        printf("injecting dphi5 = %lf\n",dphi5);
+        printf("injecting dphi5l = %lf\n",dphi5l);
+        printf("injecting dphi6 = %lf\n",dphi6);
+        printf("injecting dphi6l = %lf\n",dphi6l);
+        printf("injecting dphi7 = %lf\n",dphi7);
+    }
+    
+    
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     COMPLEX16FrequencySeries *freqModelhCross=NULL;

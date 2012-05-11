@@ -375,7 +375,7 @@ XLALGetApproximantFromString(
   }
   else if ( strstr(thisEvent, "TaylorF2Test" ) )
   {
-    *approximant = TaylorF2;
+    *approximant = TaylorF2Test;
   }
   else if ( strstr(thisEvent, "TaylorF2" ) )
   {
