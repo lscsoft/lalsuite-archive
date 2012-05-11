@@ -1047,7 +1047,7 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
-    parser.add_option("--savepdfs",action="store_false",default=True,dest="savepdfs")
+    parser.add_option("--nopdfs",action="store_false",default=True,dest="nopdfs")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
@@ -1149,7 +1149,7 @@ if __name__=='__main__':
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
-                        savepdfs=opts.savepdfs,
+                        savepdfs=opts.nopdfs,
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=opts.covarianceMatrices,
                         #List of meanVector csv files used, one csv file for each covariance matrix

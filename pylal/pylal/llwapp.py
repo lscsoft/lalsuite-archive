@@ -42,7 +42,8 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import lsctables
-from glue.ligolw.utils import process as ligolwprocess
+from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal.date import XLALUTCToGPS
 
@@ -178,7 +179,7 @@ def append_process(*args, **kwargs):
 	glue.ligolw.utils.process except uses LAL to convert UTC to GPS
 	time to get the leap seconds correct.
 	"""
-	process = ligolwprocess.append_process(*args, **kwargs)
+	process = ligolw_process.append_process(*args, **kwargs)
 	# FIXME:  remove the "" case when the git metadata business is
 	# sorted out
 	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None and kwargs["cvs_entry_time"] != "":
@@ -202,32 +203,6 @@ def set_process_end_time(process):
 	return process
 
 
-def append_process_params(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.process.append_process_params
-	instead.
-	"""
-	warnings.warn("function pylal.llwapp.append_process_params is deprecated, use glue.ligolw.utils.process.append_process_params instead", DeprecationWarning, stacklevel = 2)
-	return ligolwprocess.append_process_params(*args, **kwargs)
-
-
-def get_process_params(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.process.get_process_params()
-	instead.
-	"""
-	warnings.warn("function pylal.llwapp.get_process_params is deprecated, use glue.ligolw.utils.process.get_process_params instead", DeprecationWarning, stacklevel = 2)
-	return ligolwprocess.get_process_params(*args, **kwargs)
-
-
-def doc_includes_process(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.doc_includes_process() instead.
-	"""
-	warnings.warn("function pylal.llwapp.doc_includes_process is deprecated, use glue.ligolw.utils.process.doc_includes_process instead", DeprecationWarning, stacklevel = 2)
-	return ligolwprocess.doc_includes_process(*args, **kwargs)
-
-
 #
 # =============================================================================
 #
@@ -237,44 +212,20 @@ def doc_includes_process(*args, **kwargs):
 #
 
 
-def append_search_summary(doc, process, shared_object = "standalone", lalwrapper_cvs_tag = "", lal_cvs_tag = "", comment = None, ifos = None, inseg = None, outseg = None, nevents = 0, nnodes = 1):
+def append_search_summary(*args, **kwargs):
 	"""
-	Append search summary information associated with the given process
-	to the search summary table in doc.
+	Deprecated.  Use glue.ligolw.utils.search_summary.append_search_summary() instead.
 	"""
-	summary = lsctables.SearchSummary()
-	summary.process_id = process.process_id
-	summary.shared_object = shared_object
-	summary.lalwrapper_cvs_tag = lalwrapper_cvs_tag
-	summary.lal_cvs_tag = lal_cvs_tag
-	summary.comment = comment or process.comment
-	if ifos is not None:
-		summary.set_ifos(ifos)
-	else:
-		summary.set_ifos(process.get_ifos())
-	summary.set_in(inseg)
-	summary.set_out(outseg)
-	summary.nevents = nevents
-	summary.nnodes = nnodes
-	table.get_table(doc, lsctables.SearchSummaryTable.tableName).append(summary)
-	return summary
+	warnings.warn("function pylal.llwapp.append_search_summary is deprecated, use glue.ligolw.utils.search_summary.append_search_summary instead", DeprecationWarning, stacklevel = 2)
+	return ligolw_search_summary.append_search_summary(*args, **kwargs)
 
 
-def segmentlistdict_fromsearchsummary(xmldoc, program = None):
+def segmentlistdict_fromsearchsummary(*args, **kwargs):
 	"""
-	Convenience wrapper for a common case usage of the segmentlistdict
-	class:  searches the process table in xmldoc for occurances of a
-	program named program, then scans the search summary table for
-	matching process IDs and constructs a segmentlistdict object from
-	the out segments in those rows.
-
-	Note:  the segmentlists in the segmentlistdict are not necessarily
-	coalesced, they contain the segments as they appear in the
-	search_summary table.
+	Deprecated.  Use glue.ligolw.utils.search_summary.segmentlistdict_fromsearchsummary() instead.
 	"""
-	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	return stbl.get_out_segmentlistdict(program and ptbl.get_ids_by_program(program))
+	warnings.warn("function pylal.llwapp.segmentlistdict_fromsearchsummary is deprecated, use glue.ligolw.utils.search_summary.segmentlistdict_fromsearchsummary instead", DeprecationWarning, stacklevel = 2)
+	return ligolw_search_summary.segmentlistdict_fromsearchsummary(*args, **kwargs)
 
 
 #

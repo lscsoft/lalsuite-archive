@@ -1736,17 +1736,14 @@ void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInfer
   
   LALInferenceKDTree *tree = *(LALInferenceKDTree **)LALInferenceGetVariable(proposalArgs, "kDTree");
   LALInferenceVariables *template = *(LALInferenceVariables **)LALInferenceGetVariable(proposalArgs, "kDTreeVariableTemplate");
-  LALInferenceKDCell *cell = (LALInferenceKDCell *)tree;
-  REAL8 *currentPt = XLALCalloc(cell->dim, sizeof(REAL8));
-  REAL8 *proposedPt = XLALCalloc(cell->dim, sizeof(REAL8));
-
   /* If tree has zero points, bail. */
-  if (cell->npts == 0) {
-    XLALFree(currentPt);
-    XLALFree(proposedPt);
+  if (tree->npts == 0) {
     LALInferenceSetLogProposalRatio(runState, 0.0);
     return;
   }
+
+  REAL8 *currentPt = XLALCalloc(tree->dim, sizeof(REAL8));
+  REAL8 *proposedPt = XLALCalloc(tree->dim, sizeof(REAL8));
 
   /* A randomly-chosen point from those in the tree. */
   LALInferenceKDDrawEigenFrame(runState->GSLrandom, tree, proposedPt, NCell);
