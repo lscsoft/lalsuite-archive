@@ -233,8 +233,8 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
        prior_new = interpolate.splrep(mu_in,prior,k=1,s=0)
        prior = interpolate.splev(mu,prior_new,der=0)
        prior[prior<0] = 0
-       mu_in = mu[:]
-       prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
+       #mu_in = mu[:]
+       prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, prior, 0.90)
      elif len(pk) > 1:
        print [p.path() for p in pk]
        print >>sys.stderr, "Too many priors given in input cache."
@@ -242,9 +242,9 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      else: # use flat prior
        if opts.verbose:
          print >>sys.stdout,"\tbin %d, %s... using uniform in rate prior"%(j+1,str(mbin))
-       mu_in = mu[:]
+       #mu_in = mu[:]
        prior = numpy.ones(mu.shape)
-       prior /= prior.sum()
+       junk, prior = upper_limit_utils.normalize_pdf(mu,prior)
        # compute the combined posterior with errors included
        prior_upper_limit[mbin] = float('inf')
        if total_vol[mbin] == 0:
@@ -289,26 +289,36 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      if combined_upper_limit[mbin] == float('inf'): continue
      if bin_type == "BNS_BBH": label = ["BNS","NSBH","BBH"][bins[mbin][0]]
      else: label = ','.join(["%d"%m for m in mbin])+"M$_\odot$"
-     pylab.semilogx(mu_in,prior/prior.sum(),label=label + " prior")
-     pylab.semilogx(mu_in,uncombined_post/uncombined_post.sum(),label=label + " uncombined")
-     pylab.semilogx(mu,combined_post/combined_post.sum(),label=label + " combined")
+
+     junk, norm_prior = upper_limit_utils.normalize_pdf(mu, prior)
+     junk, norm_uncombined_post = upper_limit_utils.normalize_pdf(mu, uncombined_post)
+     junk, norm_combined_post = upper_limit_utils.normalize_pdf(mu, combined_post)
+     pylab.semilogx(mu, norm_prior, label=label+" prior")
+     pylab.semilogx(mu, norm_uncombined_post, label=label+" uncombined")
+     pylab.semilogx(mu, norm_combined_post, label=label+" combined")
      axis_font_size = 16
      #pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
-     pylab.legend(loc='upper right')
-     pylab.ylabel("Probability Density",fontsize=axis_font_size)
-     pylab.xlabel('Merger Rate (Mpc$^{-3}$ yr$^{-1}$)',fontsize=axis_font_size)
+     pylab.legend(loc="lower center")
+     pylab.ylabel("Probability Density (Mpc$^{3}\,$yr)", fontsize=axis_font_size)
+     pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
      pylab.grid()
      pylab.xlim([mu.min(), mu.max()])
      savefig_pylal('combined_posterior_density_'+str(j), opts.open_box, InspiralUtilsOpts,postnameList,posttagList)
      pylab.clf()
 
-     pylab.loglog(mu_in,prior.cumsum()/prior.sum(),label=label + " prior")
-     pylab.semilogx(mu_in,uncombined_post.cumsum()/uncombined_post.sum(),label=label + " uncombined")
-     pylab.loglog(mu,combined_post.cumsum()/combined_post.sum(),label=label+ " combined")
+     muplot = (mu[1:] + mu[:-1]) /2
+     dmu = mu[1:] - mu[:-1]
+     normpri_bin = (norm_prior[1:] + norm_prior[:-1]) /2
+     normuncpost_bin = (norm_uncombined_post[1:] + norm_uncombined_post[:-1]) /2
+     normpost_bin = (norm_combined_post[1:] + norm_combined_post[:-1]) /2
+     pylab.semilogx(muplot, (dmu*normpri_bin).cumsum(), label=label+" prior")
+     pylab.semilogx(muplot, (dmu*normuncpost_bin).cumsum(), label=label+" uncombined")
+     pylab.semilogx(muplot, (dmu*normpost_bin).cumsum(), label=label+" combined")
+     pylab.semilogx(muplot, 0.9*numpy.ones(len(muplot)), 'k--')
      #pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=18)
-     pylab.legend(loc='lower right')
-     pylab.ylabel('Cumulative Probability',fontsize=axis_font_size)
-     pylab.xlabel('Merger Rate (Mpc$^{-3}$ yr$^{-1}$)',fontsize=axis_font_size)
+     pylab.legend(loc="upper left")
+     pylab.ylabel("Cumulative Probability", fontsize=axis_font_size)
+     pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
      pylab.ylim([1e-2, 1])
      pylab.grid()
      pylab.xlim([mu.min(), mu.max()])
