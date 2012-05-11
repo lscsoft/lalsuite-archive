@@ -91,7 +91,6 @@ def parse_command_line():
 	)
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("--lars-id", metavar = "string", type = "string", default = None, help = "Set the lars_id for this experiment in the experiment table (optional).")
-	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
 	parser.add_option("--exact-mass", action = "store_true", help = "Use the ellipsoidal coincidence algorithm and require exact mass coincidence.")
 	parser.add_option("-s", "--weighted-snr", metavar = "{rawsnr|gstlal|effsnr|newsnr}", help = "Select the desired coincident ChiSq weighted SNR (required). \"rawsnr\" is just the matched filter SNR and lacks any weighting by a ChiSq statistic. \"gstlal\" is the statistic snr-over-chi. \"effsnr\" uses the Effective SNR algorithm to calculate a ChiSq weighted detection SNR.  \"newsnr\" uses the New SNR algorithm to calculate a ChiSq weighted SNR.")
@@ -202,21 +201,7 @@ lsctables.table.InterningRowBuilder.strings.clear()
 # Add an entry to the process table.
 #
 
-process = ligolw_thinca.append_process(
-	xmldoc,
-	comment = options.comment,
-	force = options.force,
-	e_thinca_parameter = options.e_thinca_parameter,
-	exact_mass = options.exact_mass,
-	weighted_snr = options.weighted_snr,
-	weight_factor = options.weight_factor,
-	vetoes_name = options.vetoes_name,
-	search_group = options.search_group,
-	trigger_program = options.trigger_program,
-	coinc_end_time_segment = options.coinc_end_time_segment,
-	depop_sngl_inspiral = options.depop_sngl_inspiral,
-	verbose = options.verbose
-)
+process = ligolw_thinca.append_process(xmldoc, **options.__dict__) 
 
 #
 # Hack the IDs.  LAL writes all triggers with event_id = 0.  This

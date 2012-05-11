@@ -121,58 +121,38 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 
 
-process_program_name = "ligolw_thinca"
-
-
-def append_process(
-	xmldoc,
-	comment = None,
-	force = None,
-	e_thinca_parameter = None,
-	exact_mass = None,
-	weighted_snr = None,
-	weight_factor = None,
-	vetoes_name = None,
-	search_group = None,
-	trigger_program = None,
-	coinc_end_time_segment = None,
-	depop_sngl_inspiral = None,
-	verbose = None
-):
+def append_process(xmldoc, **kwargs);
 	process = llwapp.append_process(
 		xmldoc,
-		program = process_program_name,
+		program = u"ligolw_thinca",
 		version = __version__,
 		cvs_repository = u"lscsoft",
 		cvs_entry_time = __date__,
-		comment = comment
+		comment = kwargs["comment"]
 	)
 
-	params = [
-		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
-	]
-	if comment is not None:
-		params += [(u"--comment", u"lstring", comment)]
-	if force is not None:
-		params += [(u"--force", None, None)]
-	if weighted_snr is not None:
-		params += [(u"--weighted-snr", u"lstring", weighted_snr)]
-	if weight_factor is not None:
-		params += [(u"--weight-factor", u"real_8", weight_factor)]
-	if vetoes_name is not None:
-		params += [(u"--vetoes-name", u"lstring", vetoes_name)]
-	if search_group is not None:
-		params += [(u"--search-group", u"lstring", search_group)]
-	if trigger_program is not None:
-		params += [(u"--trigger-program", u"lstring", trigger_program)]
-	if coinc_end_time_segment is not None:
-		params += [(u"--coinc-end-time-segment", u"lstring", coinc_end_time_segment)]
-	if exact_mass is not None:
+	params = [(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)]
+
+	if kwargs["comment"] is not None:
+		params += [(u"--comment", u"lstring", kwargs["comment"])]
+	if kwargs["weighted_snr"] is not None:
+		params += [(u"--weighted-snr", u"lstring", kwargs["weighted_snr"])]
+	if kwargs["weight_factor"] is not None:
+		params += [(u"--weight-factor", u"real_8", kwargs["weight_factor"])]
+	if kwargs["vetoes_name"] is not None:
+		params += [(u"--vetoes-name", u"lstring", kwargs["vetoes_name"])]
+	if kwargs["search_group"] is not None:
+		params += [(u"--search-group", u"lstring", kwargs["search_group"])]
+	if kwargs["trigger_program"] is not None:
+		params += [(u"--trigger-program", u"lstring", kwargs["trigger_program"])]
+	if kwargs["exact_mass"] is not None:
 		params += [(u"--exact-mass", None, None)]
-	if depop_sngl_inspiral is not None:
+	if kwargs["depop_sngl_inspiral"] is not None:
 		params += [(u"--depop-sngl-inspiral", None, None)]
-	if verbose is not None:
+	if kwargs["verbose"] is not None:
 		params += [(u"--verbose", None, None)]
+	if kwargs["coinc_end_time_segment"] is not None:
+		params += [(u"--coinc-end-time-segment", u"lstring", kwargs["coinc_end_time_segment"])]
 
 	ligolw_process.append_process_params(xmldoc, process, params)
 
