@@ -37,6 +37,7 @@
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
+#include <lal/LALInferenceInterps_unit_test.c>
 #include <lalapps.h>
 
 #include <mpi.h>
@@ -133,6 +134,12 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
     irs = NULL;
     return(irs);
   }
+
+  fprintf(stderr, "Creating interp manifold");  
+  ifoPtr->manifold = XLALInferenceCreateInterpManifold(7.0, 7.6, 0.1, 0.25, 40);
+  fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold", iforPtr->manifold->number_templates_along_mc);
+  free_manifold(ifoPtr->manifold);
+  fprintf(stderr, "manifold free'd");
 
   return(irs);
 }
