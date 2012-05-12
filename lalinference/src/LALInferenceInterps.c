@@ -2,6 +2,7 @@
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 
 #include <LALInferenceInterps.h>
+#include <LALInference.h>
 #include <math.h>
 #include <complex.h>
 #include <gsl/gsl_math.h>
@@ -29,21 +30,10 @@
  * Function Prototypes
  */
 
-int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold*);
-
-struct twod_waveform_interpolant* new_waveform_interpolant_from_svd_bank(gsl_matrix*);
-
-struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries*, unsigned int, unsigned int , int , int , double , double , double , double , double , double , double , double , double , double );
-
-int interpolate_waveform_from_mchirp_and_eta(struct twod_waveform_interpolant_array*, gsl_vector_complex*, double, double);
-
-struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries* , double, double, double, double, double);
-
-int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double);
-
 /*
  * Data structure methods
  */
+
 
 
 int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold *manifold){
@@ -1071,9 +1061,9 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
         unsigned int patches_in_eta = 1;
         unsigned int patches_in_mc = 1;
-        unsigned int number_templates_along_eta = 18;
-        unsigned int number_templates_along_mc = 18;
-	unsigned int number_of_templates_to_pad = 4;
+        unsigned int number_templates_along_eta = 15;
+        unsigned int number_templates_along_mc = 15;
+	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
         unsigned int length_max = 0;

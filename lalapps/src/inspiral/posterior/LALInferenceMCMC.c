@@ -37,7 +37,7 @@
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
-#include <lal/LALInferenceInterps_unit_test.c>
+#include <lal/LALInferenceInterps.h>
 #include <lalapps.h>
 
 #include <mpi.h>
@@ -123,23 +123,27 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
                                                                      &lalDimensionlessUnit,
                                                                      ifoPtr->freqData->data->length);
         ifoPtr->modelParams = calloc(1, sizeof(LALInferenceVariables));
+
+	fprintf(stderr, "Creating interp manifold\n");  
+	ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum,7.0, 7.6, 0.1, 0.175, 40);
+	fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold\n", ifoPtr->manifold->number_templates_along_mc);
+	XLALInferenceDestroyInterpManifold(ifoPtr->manifold);
+	fprintf(stderr, "manifold free'd\n");
+
       }
       ifoPtr = ifoPtr->next;
+
     }
     irs->currentLikelihood=LALInferenceNullLogLikelihood(irs->data);
     printf("Injection Null Log Likelihood: %g\n", irs->currentLikelihood);
+
   }
   else{
     fprintf(stdout, " initialize(): no data read.\n");
     irs = NULL;
     return(irs);
-  }
 
-  fprintf(stderr, "Creating interp manifold");  
-  ifoPtr->manifold = XLALInferenceCreateInterpManifold(7.0, 7.6, 0.1, 0.25, 40);
-  fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold", iforPtr->manifold->number_templates_along_mc);
-  free_manifold(ifoPtr->manifold);
-  fprintf(stderr, "manifold free'd");
+  }
 
   return(irs);
 }

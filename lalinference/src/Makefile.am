@@ -29,7 +29,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
 	LALInferenceVCSInfo.c \
-	inference_interps_test/LALInferenceInterps_unit_test.c \
+	LALInferenceInterps.c \
 	$(XMLSRC)
 
 liblalinference_la_LDFLAGS = -version-info $(LIBVERSION)
