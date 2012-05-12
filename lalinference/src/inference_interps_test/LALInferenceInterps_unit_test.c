@@ -1217,8 +1217,8 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
         unsigned int patches_in_eta = 1;
         unsigned int patches_in_mc = 1;
-        unsigned int number_templates_along_eta = 15;
-        unsigned int number_templates_along_mc = 15;
+        unsigned int number_templates_along_eta = 5;
+        unsigned int number_templates_along_mc = 5;
 	unsigned int number_of_templates_to_pad = 0;
         unsigned int number_of_patches;
 
@@ -1265,11 +1265,11 @@ int main(){
 
 
 	unsigned int length_max = 0;
-	unsigned int New_N_mc = 100, New_M_eta = 100;
-	double mc_min = 7.0;
-	double eta_min = 0.1;
+	unsigned int New_N_mc = 2, New_M_eta = 2;
+	double mc_min = 7.2;
+	double eta_min = 0.11;
 	double mc_max = 7.6;
-	double eta_max = 0.175;
+	double eta_max = 0.25;
 	double f_min = 40.0;
 	double t_max = 0;
 	double f_max = 0;
@@ -1293,7 +1293,7 @@ int main(){
         XLALDestroyCOMPLEX16FFTPlan(revplan);
         XLALDestroyREAL8FrequencySeries(psd);
 	
-//	free_manifold(manifold);	
+	free_manifold(manifold);	
 
 	return 0;
 
