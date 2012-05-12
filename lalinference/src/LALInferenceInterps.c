@@ -29,7 +29,7 @@
  * Function Prototypes
  */
 
-int free_manifold(struct twod_waveform_interpolant_manifold*);
+int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold*);
 
 struct twod_waveform_interpolant* new_waveform_interpolant_from_svd_bank(gsl_matrix*);
 
@@ -46,7 +46,7 @@ int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double)
  */
 
 
-int free_manifold(struct twod_waveform_interpolant_manifold *manifold){
+int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold *manifold){
 
 	unsigned int i;
 		
@@ -515,36 +515,6 @@ static int generate_template(double m1, double m2, double duration, double f_low
 	return 0;
 }
 
-/*static int get_psd_from_file(REAL8FrequencySeries *series,  const char *fname){
-	
-	FILE *fp = fopen(fname, "r");
-	double deltaF = series->deltaF;
-	double f0 = series->f0;
-	double f;
-	const gsl_interp_type *t = gsl_interp_linear;
-	gsl_interp *g_interp = gsl_interp_alloc (t, 16384);
-	gsl_interp_accel *acc = gsl_interp_accel_alloc();
-	double freq[16384];
-	double psd[16384];
-	
-	unsigned int i = 0;
-	while (!feof(fp)) {
-		if (i >= 16384) break;
-		fscanf(fp, "%lf %le\n", &freq[i], &psd[i]);
-		i++;
-	}
-
-	gsl_interp_init(g_interp, freq, psd, 16384);
-	for (i = 0; i < series->data->length; i++) {
-		f = f0 + i * deltaF;
-		series->data->data[i] = gsl_interp_eval(g_interp, freq, psd, f, acc);
-	}
-	gsl_interp_free(g_interp);
-	gsl_interp_accel_free (acc);
-	fclose(fp);
-	return 0;
-}
-*/
 static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_for_template_bank, REAL8FrequencySeries *psd_to_interpolate){
 
 	unsigned int i=0;
@@ -650,11 +620,8 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	memset (fseries->data->data, 0, fseries->data->length * sizeof (COMPLEX16));	
 	psd = XLALCreateREAL8FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length / 2 + 1);
 	memset (psd->data->data, 0, psd->data->length * sizeof (REAL8));
-	
-	/* FIXME: get_psd_from_file needs to change so that it takes in a real8freqseries and returns a new real8freqseries interpolated from the input */
-	//get_psd_from_file(psd, "reference_psd.txt");
 
-	//interpolate_psd_from_REAL8FrequencySeries(psd, psd_to_interpolate);
+	interpolate_psd_from_REAL8FrequencySeries(psd, psd_to_interpolate);
 
 	// full frequency series	
 	fseries_for_ifft = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length);
@@ -718,21 +685,6 @@ static gsl_vector *raw_nodes(int count) {
 	}
 	return out;
 }
-
-/*static gsl_vector *linear_space_for_interpolation(double min, double max, unsigned int count){
-
-        gsl_vector *out = gsl_vector_calloc(count);
-        double x;
-        for(unsigned int i=0; i < count; i++){
-
-                x = -1 + (i/(count-1.))*( 1 - (-1) );
-                gsl_vector_set( out, i, map_node_to_coordinate( min, max, x) );
-
-        }
-
-        return out;
-}
-*/
 
 static int generate_whitened_template(	double m1, double m2, double duration, double f_min, unsigned int length_max,
 					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
@@ -1111,105 +1063,7 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
         return i;
 }
 
-/*static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries,  COMPLEX16FFTPlan *revplan, double length_max, unsigned int New_N_mc, unsigned int New_M_eta, double f_min){
 
-	FILE *list_of_overlaps;
-	double Overlap=0.;
-	double m1, m2, eta, mc, mc_min, mc_max, eta_min, eta_max;
-	int working_length, patch_index;
-	double working_duration, sample_rate;
-
-	gsl_complex dotc1, dotc2, dotc3, z_tmp_element;
-
-	gsl_vector *template_real;
-	gsl_vector *template_imag;
-	gsl_vector *mchirps_interps;
-	gsl_vector *etas_interps;
-	gsl_vector_complex *z_tmp;
-	gsl_vector_complex *h_t;
-
-	working_length = fseries_for_ifft->data->length;
-	working_duration = working_length*tseries->deltaT;
-	sample_rate = round(working_length / working_duration);
-
-
-	mc_min = manifold->inner_param1_min;
-	mc_max = manifold->inner_param1_max;
-	eta_min = manifold->inner_param2_min;
-	eta_max = manifold->inner_param2_max;
-
-	mchirps_interps = linear_space_for_interpolation(mc_min, mc_max, New_N_mc);
-        etas_interps = linear_space_for_interpolation(eta_min, eta_max, New_M_eta);
-
-	GSL_SET_COMPLEX(&dotc1, 0, 0);
-	GSL_SET_COMPLEX(&dotc2, 0 ,0);
-	GSL_SET_COMPLEX(&dotc3, 0 ,0);
-
-	template_real = gsl_vector_calloc(length_max);
-	template_imag = gsl_vector_calloc(length_max);	
-	z_tmp = gsl_vector_complex_calloc(length_max);
-	h_t = gsl_vector_complex_calloc(length_max);
-	
-	list_of_overlaps = fopen("overlaps_patch_2_eta_point175_to_point25.txt","w");		
-
-
-	for (unsigned int i =0; i <  mchirps_interps->size; i++){
-		for (unsigned int j =0; j <  etas_interps->size; j++){
-
-                        eta = gsl_vector_get(etas_interps, j);
-                        mc = gsl_vector_get(mchirps_interps, i);						
-
-			patch_index = index_into_patch(manifold, mc, eta);
-			interpolate_waveform_from_mchirp_and_eta(&manifold->interp_arrays[patch_index], h_t, mc, eta);
-                 
-		        m1 = mc2mass1(mc, eta);
-                        m2 = mc2mass2(mc, eta);
-
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.05) , 7, manifold->psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
-
-
-			for(unsigned int l = 0; l < length_max; l++){
-			
-				GSL_SET_COMPLEX(&z_tmp_element, gsl_vector_get(template_real, l), gsl_vector_get(template_imag, l) );
-				gsl_vector_complex_set(z_tmp, l, z_tmp_element);
-
-			}
-		
-			gsl_blas_zdotc(z_tmp, h_t, &dotc1);
-			gsl_blas_zdotc(h_t, h_t, &dotc2);
-			gsl_blas_zdotc(z_tmp, z_tmp, &dotc3);
-
-
-		 	Overlap = ( gsl_complex_abs( dotc1 ) / sqrt( gsl_complex_abs( dotc2 ) ) / sqrt( gsl_complex_abs( dotc3 ) ) );
-	
-			fprintf(list_of_overlaps,"%e\n",Overlap);
-	
-			GSL_SET_COMPLEX(&dotc1, 0, 0);
-		        GSL_SET_COMPLEX(&dotc2, 0 ,0);
-		        GSL_SET_COMPLEX(&dotc3, 0 ,0);
-
-			for(unsigned int m=0; m < h_t->size; m++){
-
-                                gsl_vector_complex_set(h_t, m, dotc1);
-			}
-
-			fprintf(stderr,"mc = %f, eta=%f, overlap=%e\n", mc, eta, Overlap);
-
-			}
-		}		
-
-	fclose(list_of_overlaps);
-
-	gsl_vector_complex_free(h_t);
-	gsl_vector_complex_free(z_tmp);
-	gsl_vector_free(template_imag);
-	gsl_vector_free(template_real);
-	gsl_vector_free(mchirps_interps);
-	gsl_vector_free(etas_interps);
-
-	return 0;
-}
-*/
 
 struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min){
 
@@ -1260,72 +1114,4 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 }
 
-/*
-int main(){
 
-
-	unsigned int length_max = 0;
-	unsigned int patches_in_eta = 4;
-	unsigned int patches_in_mc = 4;
-	//int templates_in_patch = 18*18;
-	int number_templates_along_eta = 18;
-	int number_templates_along_mc = 18;
-	int number_of_patches;
-	unsigned int New_N_mc = 100, New_M_eta = 100;
-	double mc_min = 7.0;
-	double eta_min = 0.1;
-	double mc_max = 7.6;
-	double eta_max = 0.25;
-	double f_min = 40.0;
-	double t_max = 0;
-	double f_max = 0;
-	double eta=0, mc=0, m1=0, m2=0;	
-	double outer_eta_min, outer_eta_max, outer_mc_min, outer_mc_max, mc_padding, eta_padding;
-	int number_of_templates_to_pad = 4;
-	FILE *list_of_overlaps;
-
-
-	struct twod_waveform_interpolant_manifold *manifold = NULL;
-
-	REAL8FrequencySeries *psd = NULL;
-        COMPLEX16FrequencySeries *fseries = NULL;
-	COMPLEX16FrequencySeries *fseries_for_ifft = NULL;
-        COMPLEX16TimeSeries *tseries = NULL;
-	COMPLEX16FFTPlan *revplan = NULL;
-*/
-	/* take in grid of interest and pad the boundry */
-/*	pad_parameter_bounds(mc_min, mc_max, eta_min, eta_max, &outer_eta_min, &outer_eta_max, &outer_mc_min, &outer_mc_max, number_templates_along_mc, number_templates_along_eta, number_of_templates_to_pad, &mc_padding, &eta_padding);
-*/
-	/* initialize LAL time and freq series */
-
-/*	initialize_time_and_freq_series(&psd, &fseries, &fseries_for_ifft, &tseries, &revplan, outer_mc_min, outer_eta_min, outer_eta_max, f_min, &length_max);*/
-
-	/* initialize global interpolant structure: FIXME need to pass param space ranges */
-
-/*	manifold = interpolants_manifold_init(psd, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding);
-
-	number_of_patches = patches_in_eta*patches_in_mc;
-
-	for(unsigned int i=0; i < number_of_patches; i++){
-		
-		make_patch_from_manifold(manifold);
-	}	
-
-*/
-	/* populate interpolants on each patch: FIXME also use this function to do partition the full space correctly */
-/*	populate_interpolants_on_patches(manifold, fseries, fseries_for_ifft, tseries, revplan, length_max, f_min);
-
-	compute_overlap(manifold, fseries, fseries_for_ifft, tseries, revplan, length_max, New_N_mc, New_M_eta, f_min);
-
-	XLALDestroyCOMPLEX16TimeSeries(tseries);
-        XLALDestroyCOMPLEX16FrequencySeries(fseries_for_ifft);
-        XLALDestroyCOMPLEX16FrequencySeries(fseries);
-        XLALDestroyCOMPLEX16FFTPlan(revplan);
-        XLALDestroyREAL8FrequencySeries(psd);
-	
-//	free_manifold(manifold);	
-
-	return 0;
-
-}
-*/

@@ -84,6 +84,8 @@
 
 //...other includes
 
+#include <LALInferenceInterps.h>
+
 struct tagLALInferenceRunState;
 struct tagLALInferenceIFOData;
 
@@ -390,7 +392,7 @@ tagLALInferenceIFOData
   LIGOTimeGPS		    epoch;              /** The epoch of this observation (the time of the first sample) */
   REAL8                     SNR;                /** IF INJECTION ONLY, E(SNR) of the injection in the detector.*/
   REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
-
+  struct twod_waveform_interpolant_manifold *manifold; /** For Chebyshev interpolated of SVD'd waveforms */ 
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
 } LALInferenceIFOData;
 
