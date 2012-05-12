@@ -505,7 +505,7 @@ static double ffinal(double m_total){
 
 	double f_isco;
 	
-	f_isco = 512;//pow(2., ceil( log( (1./LAL_PI)*( pow(6.,-3./2.) )*( pow((m_total)*LAL_MTSUN_SI,-1.) ) )  / log(2.) ) ); /* Next highest power of 2 of f_isco */
+	f_isco = pow(2., ceil( log( (1./LAL_PI)*( pow(6.,-3./2.) )*( pow((m_total)*LAL_MTSUN_SI,-1.) ) )  / log(2.) ) ); /* Next highest power of 2 of f_isco */
 	
 	return f_isco;
 }
@@ -545,7 +545,7 @@ static int get_psd_from_file(REAL8FrequencySeries *series,  const char *fname){
 	return 0;
 }
 
-static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_for_template_bank, REAL8FrequencySeries *psd_to_interpolate){
+/*static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_for_template_bank, REAL8FrequencySeries *psd_to_interpolate){
 
 	unsigned int i=0;
 	
@@ -576,7 +576,7 @@ static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_f
 	return 0;
 
 }
-
+*/
 static int freq_to_time_fft(COMPLEX16FrequencySeries *fseries, COMPLEX16TimeSeries *tseries, COMPLEX16FFTPlan *revplan){
 	
 	XLALCOMPLEX16FreqTimeFFT(tseries, fseries, revplan);
@@ -719,7 +719,7 @@ static gsl_vector *raw_nodes(int count) {
 	return out;
 }
 
-static gsl_vector *linear_space_for_interpolation(double min, double max, unsigned int count){
+/*static gsl_vector *linear_space_for_interpolation(double min, double max, unsigned int count){
 
         gsl_vector *out = gsl_vector_calloc(count);
         double x;
@@ -732,7 +732,7 @@ static gsl_vector *linear_space_for_interpolation(double min, double max, unsign
 
         return out;
 }
-
+*/
 
 static int generate_whitened_template(	double m1, double m2, double duration, double f_min, unsigned int length_max,
 					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
@@ -1111,7 +1111,7 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
         return i;
 }
 
-static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries,  COMPLEX16FFTPlan *revplan, double length_max, unsigned int New_N_mc, unsigned int New_M_eta, double f_min){
+/*static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries,  COMPLEX16FFTPlan *revplan, double length_max, unsigned int New_N_mc, unsigned int New_M_eta, double f_min){
 
 	FILE *list_of_overlaps;
 	double Overlap=0.;
@@ -1209,7 +1209,7 @@ static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, 
 
 	return 0;
 }
-
+*/
 
 struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(double mc_min, double mc_max, double eta_min, double eta_max, double f_min){
 
@@ -1261,7 +1261,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 }
 
 
-int main(){
+/*int main(){
 
 
 	unsigned int length_max = 0;
@@ -1297,4 +1297,4 @@ int main(){
 
 	return 0;
 
-}
+}*/
