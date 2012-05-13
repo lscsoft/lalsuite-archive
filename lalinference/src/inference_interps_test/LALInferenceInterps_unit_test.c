@@ -46,6 +46,22 @@ int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double)
  */
 
 
+
+
+int free_waveform_interp_objects(struct twod_waveform_interpolant_array * interps) {
+	unsigned int i;
+	struct twod_waveform_interpolant *interp = interps->interp;
+	for (i = 0; i < interps->size; i++) {
+		gsl_matrix_complex_free(interp[i].C_KL);
+		gsl_vector_free(interp[i].svd_basis);	
+	}
+	free(interps->interp);
+	free(interps);
+	return 0;
+
+}
+
+
 int free_manifold(struct twod_waveform_interpolant_manifold *manifold){
 
 	unsigned int i;
@@ -60,19 +76,6 @@ int free_manifold(struct twod_waveform_interpolant_manifold *manifold){
 
 	return 0;
 }
-
-int free_waveform_interp_objects(struct twod_waveform_interpolant_array * interps) {
-	unsigned int i;
-	struct twod_waveform_interpolant *interp = interps->interp;
-	for (i = 0; i < interps->size; i++, interp++) {
-		if (interp->C_KL) gsl_matrix_complex_free(interp->C_KL);
-	}
-	free(interps->interp);
-	free(interps);
-	return 0;
-	}
-
-
 struct twod_waveform_interpolant * new_waveform_interpolant_from_svd_bank(gsl_matrix *svd_bank){
 
 	unsigned int i,j;
@@ -671,7 +674,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 
 }
 
-static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
+static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
 	
 	unsigned int n = fseries_for_ifft->data->length;	
 
@@ -680,7 +683,8 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-	
+			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
+			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*2.;
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*2.;
 		}
@@ -719,7 +723,7 @@ static gsl_vector *raw_nodes(int count) {
 	return out;
 }
 
-/*static gsl_vector *linear_space_for_interpolation(double min, double max, unsigned int count){
+static gsl_vector *linear_space_for_interpolation(double min, double max, unsigned int count){
 
         gsl_vector *out = gsl_vector_calloc(count);
         double x;
@@ -732,7 +736,7 @@ static gsl_vector *raw_nodes(int count) {
 
         return out;
 }
-*/
+
 
 static int generate_whitened_template(	double m1, double m2, double duration, double f_min, unsigned int length_max,
 					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
@@ -742,7 +746,7 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	
 	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
-	add_quadrature_phase(fseries, fseries_for_ifft);
+	add_quadrature_phase(psd, fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
  
         for(unsigned int l = 0 ; l < length_max; l++){
@@ -751,8 +755,8 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 		gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].im);
 		norm += XLALCOMPLEX16Abs2(tseries->data->data[tseries->data->length - 1 - (length_max - 1)  + l]);
 	}
-	gsl_vector_scale (template_real, sqrt(2./norm));
-	gsl_vector_scale (template_imag, sqrt(2./norm));
+	//gsl_vector_scale (template_real, sqrt(2./norm));
+	//gsl_vector_scale (template_imag, sqrt(2./norm));
 
 	return 0;
 } 
@@ -1111,7 +1115,7 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
         return i;
 }
 
-/*static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries,  COMPLEX16FFTPlan *revplan, double length_max, unsigned int New_N_mc, unsigned int New_M_eta, double f_min){
+static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries,  COMPLEX16FFTPlan *revplan, double length_max, unsigned int New_N_mc, unsigned int New_M_eta, double f_min){
 
 	FILE *list_of_overlaps;
 	double Overlap=0.;
@@ -1209,16 +1213,16 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
 
 	return 0;
 }
-*/
+
 
 struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(double mc_min, double mc_max, double eta_min, double eta_max, double f_min){
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 1;
-        unsigned int patches_in_mc = 1;
-        unsigned int number_templates_along_eta = 5;
-        unsigned int number_templates_along_mc = 5;
+        unsigned int patches_in_eta = 6;
+        unsigned int patches_in_mc = 2;
+        unsigned int number_templates_along_eta = 15;
+        unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 0;
         unsigned int number_of_patches;
 
@@ -1261,13 +1265,13 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 }
 
 
-/*int main(){
+int main(){
 
 
 	unsigned int length_max = 0;
-	unsigned int New_N_mc = 2, New_M_eta = 2;
-	double mc_min = 7.2;
-	double eta_min = 0.11;
+	unsigned int New_N_mc = 100, New_M_eta = 100;
+	double mc_min = 7.1;
+	double eta_min = 0.1;
 	double mc_max = 7.6;
 	double eta_max = 0.25;
 	double f_min = 40.0;
@@ -1297,4 +1301,4 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	return 0;
 
-}*/
+}
