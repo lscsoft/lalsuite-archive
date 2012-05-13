@@ -643,7 +643,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			}
 			IFOdata[i].freqData = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
 			if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
-			/* Create the fake data */
+printf("deltaF before the noise is created %.5e \n",IFOdata[i].freqData->deltaF);		
+	/* Create the fake data */
 			int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
 			for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
 				IFOdata[i].freqData->data->data[j].re=XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF));
@@ -659,7 +660,15 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			XLALREAL8FreqTimeFFT(IFOdata[i].timeData,IFOdata[i].freqData,IFOdata[i].freqToTimeFFTPlan);
 			if(*XLALGetErrnoPtr()) printf("XLErr: %s\n",XLALErrorString(*XLALGetErrnoPtr()));
 			XLALDestroyRandomParams(datarandparam);
-
+                /*
+                char InjFileName[50];
+                sprintf(InjFileName,"LALINF_Noises_%i.dat",i);
+                FILE *outInj=fopen(InjFileName,"w");
+                for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
+                fprintf(outInj,"%.3e  %.5e %.5e %.5e \n",j*IFOdata[i].freqData->deltaF, IFOdata[i].freqData->data->data[j].re,IFOdata[i].freqData->data->data[j].im,IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]);
+                }
+                fclose(outInj);
+                 */
 
 		}
 		else{ /* Not using fake data, load the data from a cache file */
@@ -709,8 +718,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 				IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
 			}
 		} /* End of data reading process */
-
-		/* Now that the PSD is set up, make the TDW. */
+		
+               /* Now that the PSD is set up, make the TDW. */
     IFOdata[i].timeDomainNoiseWeights = 
                   (REAL8TimeSeries *)XLALCreateREAL8TimeSeries("time domain weights", 
                                                                &(IFOdata[i].oneSidedNoisePowerSpectrum->epoch),

@@ -871,7 +871,7 @@ int main( int argc, char *argv[])
 			memcpy(&(inputMCMC.stilde[i]->epoch),&segmentStart,sizeof(LIGOTimeGPS));
 			/*			inputMCMC.stilde[i]->epoch = datastart;
 			 XLALGPSAdd(&(inputMCMC.stilde[i]->epoch), (REAL8)TrigSegStart/(REAL8)SampleRate);*/
-			
+		printf("Delta F before creating the noise %.5e\n",inputMCMC.deltaF);	
 			/* Create the fake data */
                         int j_Lo = (int) inputMCMC.fLow/inputMCMC.deltaF;
 			for(j=j_Lo;j<inputMCMC.invspec[i]->data->length;j++){
@@ -879,6 +879,15 @@ int main( int argc, char *argv[])
 				inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 				inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 			}
+
+                /*char InjFileName[50];
+                sprintf(InjFileName,"Inspnest_Noises_%i.dat",i);
+                FILE *outInj=fopen(InjFileName,"w");
+                for(j=j_Lo;j<inputMCMC.invspec[i]->data->length;j++){
+                fprintf(outInj,"%.3e %.5e %.5e %.5e \n",j* inputMCMC.deltaF,inputMCMC.stilde[i]->data->data[j].re, inputMCMC.stilde[i]->data->data[j].im,1/inputMCMC.invspec[i]->data->data[j]);
+                }
+                fclose(outInj);
+                */
 		}
 		else FakeFlag=0;
 
