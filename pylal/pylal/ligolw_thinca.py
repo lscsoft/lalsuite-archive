@@ -121,7 +121,7 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 
 
-def append_process(xmldoc, **kwargs);
+def append_process(xmldoc, **kwargs):
 	process = llwapp.append_process(
 		xmldoc,
 		program = u"ligolw_thinca",
@@ -131,7 +131,7 @@ def append_process(xmldoc, **kwargs);
 		comment = kwargs["comment"]
 	)
 
-	params = [(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)]
+	params = [(u"--e-thinca-parameter", u"real_8", kwargs["e_thinca_parameter"])]
 
 	if kwargs["comment"] is not None:
 		params += [(u"--comment", u"lstring", kwargs["comment"])]

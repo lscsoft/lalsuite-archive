@@ -197,7 +197,7 @@ def get_experiment_times(xmldoc):
 def populate_experiment_table(
 	xmldoc,
 	search_group,
-	search,
+	trigger_program,
 	lars_id,
 	instruments,
 	comments = None,
@@ -214,7 +214,8 @@ def populate_experiment_table(
 	@xmldoc: xmldoc to get/write table to
 	@lars_id: lars_id of the experiment
 	@search_group: lsc group that performed the experiment (e.g., cbc)
-	@search: type of search performed (e.g., inspiral, grb, etc.)
+	@trigger_program: name of the program that performed the analysis
+		(e.g., inspiral, ringdown, etc.)
 	@comments: any desired comments
 	@add_inst_subsets: will write an entry for every possible subset
 		of @instruments
@@ -238,7 +239,7 @@ def populate_experiment_table(
 
 	experiment_ids[frozenset(instruments)] =  expr_table.write_new_expr_id(
 		search_group,
-		search,
+		trigger_program,
 		lars_id,
 		instruments,
 		expr_start_time,
@@ -254,7 +255,7 @@ def populate_experiment_table(
 				if frozenset(sub_combo) not in experiment_ids:
 					experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(
 						search_group,
-						search,
+						trigger_program,
 						lars_id,
 						sub_combo,
 						expr_start_time,
@@ -341,43 +342,36 @@ def populate_experiment_summ_table(
 
 def get_on_instruments(xmldoc, trigger_program):
 	process_tbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-        instruments = set([])
-        for row in process_tbl:
-                if row.program == trigger_program:
-                        instruments.add(row.ifos)
+	instruments = set([])
+	for row in process_tbl:
+		if row.program == trigger_program:
+			instruments.add(row.ifos)
 	return instruments
 
-def generate_experiment_tables(
-	xmldoc,
-	search_group,
-	trigger_program,
-	lars_id,
-	veto_def_name,
-	comments = None,
-	verbose = False
-):
+
+def generate_experiment_tables(xmldoc, **cmdline_opts):
 	"""
 	Create or adds entries to the experiment table and experiment_summ
 	table using instruments pulled from the search summary table and
 	offsets pulled from the time_slide table.
 	"""
 
-	if verbose:
+	if cmdline_opts["verbose"]:
 		print >> sys.stderr, "Populating the experiment and experiment_summary tables using search_summary and time_slide tables..."
 
 	# Get the instruments that were on
-	instruments = get_on_instruments(xmldoc, trigger_program)
+	instruments = get_on_instruments(xmldoc, cmdline_opts["trigger_program"])
 
 	# Populate the experiment table
 	experiment_ids = populate_experiment_table(
 		xmldoc,
-		search_group,
-		trigger_program,
-		lars_id,
+		cmdline_opts["search_group"],
+		cmdline_opts["trigger_program"],
+		cmdline_opts["lars_id"],
 		instruments,
-		comments = comments,
+		comments = cmdline_opts["comment"],
 		add_inst_subsets = True,
-		verbose = verbose
+		verbose = cmdline_opts["verbose"]
 	)
 
 	# Get the time_slide table as dict
@@ -389,20 +383,13 @@ def generate_experiment_tables(
 			xmldoc,
 			experiment_ids[instruments],
 			time_slide_dict,
-			veto_def_name,
+			cmdline_opts["vetoes_name"],
 			return_dict = False,
-			verbose = False
+			verbose = cmdline_opts["verbose"]
 		)
 
 
-def populate_experiment_map(
-	xmldoc,
-	search_group,
-	trigger_program,
-	lars_id,
-	veto_def_name,
-	verbose = False
-):
+def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 	from glue.pipeline import s2play as is_in_playground
 
 	#

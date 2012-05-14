@@ -259,24 +259,9 @@ if options.depop_sngl_inspiral:
 # remove any rows in the tables which lack either events or coinc-time
 #
 
-table_utils.generate_experiment_tables(
-	xmldoc,
-	options.search_group,
-	options.trigger_program,
-	options.lars_id,
-	options.vetoes_name,
-	comments = options.comment,
-	verbose = options.verbose
-)
+table_utils.generate_experiment_tables(xmldoc, **options.__dict__)
 
-table_utils.populate_experiment_map(
-	xmldoc,
-	options.search_group,
-	options.trigger_program,
-	options.lars_id,
-	options.vetoes_name,
-	verbose = options.verbose
-)
+table_utils.populate_experiment_map(xmldoc, options.vetoes_name, verbose = options.verbose)
 
 table_utils.depopulate_experiment_tables(xmldoc, verbose = options.verbose)
 
