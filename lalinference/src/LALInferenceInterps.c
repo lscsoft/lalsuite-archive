@@ -639,6 +639,9 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
+			/* dewhiten waveform */
+			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
+			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
 	
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*2.;
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*2.;
@@ -686,6 +689,7 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	
 	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
+	/* dewhiten and add quadrature-phase to waveform */
 	add_quadrature_phase(fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
  
@@ -695,8 +699,8 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 		gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].im);
 		norm += XLALCOMPLEX16Abs2(tseries->data->data[tseries->data->length - 1 - (length_max - 1)  + l]);
 	}
-	gsl_vector_scale (template_real, sqrt(2./norm));
-	gsl_vector_scale (template_imag, sqrt(2./norm));
+	//gsl_vector_scale (template_real, sqrt(2./norm));
+	//gsl_vector_scale (template_imag, sqrt(2./norm));
 
 	return 0;
 } 
