@@ -339,10 +339,18 @@ def populate_experiment_summ_table(
 			)
 
 
+def get_on_instruments(xmldoc, trigger_program):
+	process_tbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+        instruments = set([])
+        for row in process_tbl:
+                if row.program == trigger_program:
+                        instruments.add(row.ifos)
+	return instruments
+
 def generate_experiment_tables(
 	xmldoc,
 	search_group,
-	search,
+	trigger_program,
 	lars_id,
 	veto_def_name,
 	comments = None,
@@ -358,17 +366,13 @@ def generate_experiment_tables(
 		print >> sys.stderr, "Populating the experiment and experiment_summary tables using search_summary and time_slide tables..."
 
 	# Get the instruments that were on
-	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	instruments = set([])
-	for row in process_tbl:
-		if row.program == "inspiral":
-			instruments.add(row.ifos)
+	instruments = get_on_instruments(xmldoc, trigger_program)
 
 	# Populate the experiment table
 	experiment_ids = populate_experiment_table(
 		xmldoc,
 		search_group,
-		search,
+		trigger_program,
 		lars_id,
 		instruments,
 		comments = comments,
@@ -394,7 +398,7 @@ def generate_experiment_tables(
 def populate_experiment_map(
 	xmldoc,
 	search_group,
-	search,
+	trigger_program,
 	lars_id,
 	veto_def_name,
 	verbose = False
