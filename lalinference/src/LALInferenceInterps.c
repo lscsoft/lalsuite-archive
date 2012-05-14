@@ -45,7 +45,8 @@ int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold
 		free_waveform_interp_objects(&manifold->interp_arrays[i]);
 	
 	}	
-	
+
+	free(manifold->interp_arrays);
 	free(manifold);
 
 	return 0;
@@ -55,10 +56,11 @@ int free_waveform_interp_objects(struct twod_waveform_interpolant_array * interp
 	unsigned int i;
 	struct twod_waveform_interpolant *interp = interps->interp;
 	for (i = 0; i < interps->size; i++, interp++) {
-		if (interp->C_KL) gsl_matrix_complex_free(interp->C_KL);
+		gsl_matrix_complex_free(interp->C_KL);
+		gsl_vector_free(interp->svd_basis);	
 	}
-	free(interps->interp);
-	free(interps);
+	//free(interps->interp);
+	//free(interps);
 	return 0;
 	}
 
@@ -791,7 +793,7 @@ static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank
 		if (sqrt(sum_s / norm_s) >= tolerance) break;
 		}
 
-	fprintf(stderr,"SVD: using %d basis templates\n:", n);
+	fprintf(stderr,"SVD: using %d basis templates:\n", n);
 	
 	template_view = gsl_matrix_submatrix(template_bank, 0, 0, template_bank->size1, n);
 	output = gsl_matrix_calloc(template_bank->size1, n);
@@ -1059,8 +1061,8 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 1;
-        unsigned int patches_in_mc = 1;
+        unsigned int patches_in_eta = 2;
+        unsigned int patches_in_mc = 2;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;

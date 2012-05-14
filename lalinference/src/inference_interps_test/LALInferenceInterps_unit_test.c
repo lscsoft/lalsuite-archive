@@ -51,12 +51,13 @@ int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double)
 int free_waveform_interp_objects(struct twod_waveform_interpolant_array * interps) {
 	unsigned int i;
 	struct twod_waveform_interpolant *interp = interps->interp;
-	for (i = 0; i < interps->size; i++) {
-		gsl_matrix_complex_free(interp[i].C_KL);
-		gsl_vector_free(interp[i].svd_basis);	
+	for (i = 0; i < interps->size; i++, interp++) {
+		gsl_matrix_complex_free(interp->C_KL);
+		gsl_vector_free(interp->svd_basis);	
+		//free(&interps->interp[i]);
 	}
-	free(interps->interp);
-	free(interps);
+	//free(&interps->interp[i]);
+	//free(interps);
 	return 0;
 
 }
@@ -69,9 +70,9 @@ int free_manifold(struct twod_waveform_interpolant_manifold *manifold){
 	for(i=0; i < manifold->patches_in_eta*manifold->patches_in_mc; i++){
 
 		free_waveform_interp_objects(&manifold->interp_arrays[i]);
-	
+		fprintf(stderr, "%i\n", i);	
 	}	
-	
+	free(manifold->interp_arrays);	
 	free(manifold);
 
 	return 0;
@@ -1219,7 +1220,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 6;
+        unsigned int patches_in_eta = 2;
         unsigned int patches_in_mc = 2;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
@@ -1269,7 +1270,7 @@ int main(){
 
 
 	unsigned int length_max = 0;
-	unsigned int New_N_mc = 100, New_M_eta = 100;
+	unsigned int New_N_mc = 10, New_M_eta = 10;
 	double mc_min = 7.1;
 	double eta_min = 0.1;
 	double mc_max = 7.6;
