@@ -252,6 +252,9 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata);
  *    - \c "time"         (REAL8, coalescence time, or equivalent/analog/similar, GPS seconds)
  *    - \c "PNorder"      (REAL8, Phase PN order)
  */
+
+void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata);
+
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOdata);
 
 
