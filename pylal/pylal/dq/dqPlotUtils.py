@@ -2073,9 +2073,11 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
 
   # set up columns
   columns = list(map(str.lower, [xcolumn, ycolumn]))
-  if zcolumn: columns.append(zcolumn.lower())
-  if rankcolumn: columns.append(rankcolumn.lower())
-  else: columns.append(zcolumn.lower())
+  if zcolumn: 
+    columns.append(zcolumn.lower())
+    if rankcolumn: 
+      columns.append(rankcolumn.lower())
+    else: columns.append(zcolumn.lower())
 
   # set up limits
   limits    = [xlim, ylim, zlim, None]
