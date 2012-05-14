@@ -799,8 +799,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   if hipecp.has_section("input") and \
       hipecp.has_option("input", "fixed-bank"):
     tmpltbankfile = hipecp.get("input", "fixed-bank")
-    hipeJob.add_pfn_cache(os.path.join( os.getcwd(), hipe_pfn_list_cache(
-      [tmpltbankfile] )))
+    hipeJob.add_pfn_cache(hipe_pfn_list_cache( [tmpltbankfile] ))
 
   # add the maxjob categories to the dagman node class
   # FIXME pegasus should handle this in the dax schema itself
