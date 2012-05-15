@@ -89,6 +89,7 @@ typedef enum {
    TaylorEt,		/**< UNDOCUMENTED */
    TaylorT4,		/**< UNDOCUMENTED */
    TaylorN,		/**< UNDOCUMENTED */
+   MassiveGraviton,
    NumApproximants	/**< UNDOCUMENTED */
  } Approximant;
 

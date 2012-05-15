@@ -960,9 +960,6 @@ int  XLALInspiralWave3ForInjection(
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams);
 
-
-
-
 void LALInspiralStationaryPhaseApprox1 (
      LALStatus *status,
      REAL4Vector *signalvec,
@@ -988,6 +985,11 @@ XLALInspiralStationaryPhaseApprox2Test (
    REAL4Vector      *signalvec,
    InspiralTemplate *params);
 
+int
+XLALInspiralMassiveGraviton(
+   REAL4Vector      *signalvec,
+   InspiralTemplate *params);
+   
 void LALEOBWaveform(
      LALStatus *status,
      REAL4Vector *signalvec,

@@ -302,7 +302,10 @@ LALInspiralWave(
 	   break;
       case TaylorF2Test:
            if (XLALInspiralStationaryPhaseApprox2Test(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
-	   break;           
+	   break;     
+      case MassiveGraviton:
+           if (XLALInspiralMassiveGraviton(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
+	   break; 
       case TaylorF2RedSpin:
            if (XLALTaylorF2ReducedSpin(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
 	   break;

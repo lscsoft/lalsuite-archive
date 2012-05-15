@@ -401,6 +401,10 @@ XLALGetApproximantFromString(
   {
     *approximant = EOB;
   }
+  else if ( strstr(thisEvent, "MassiveGraviton" ) )
+  {
+    *approximant = MassiveGraviton;
+  }
   else if ( strstr(thisEvent, "PhenSpinTaylorRD" ) )
   {
     *approximant = PhenSpinTaylorRD;

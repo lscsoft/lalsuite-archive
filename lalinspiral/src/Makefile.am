@@ -141,6 +141,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralIIR.c \
 	LALInspiralInit.c \
 	LALInspiralLongestTemplateInBank.c \
+        LALInspiralMassiveGraviton.c \
 	LALInspiralMoments.c \
 	LALInspiralMomentsIntegrand.c \
 	LALInspiralNextTemplate.c \

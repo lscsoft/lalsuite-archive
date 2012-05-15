@@ -532,6 +532,7 @@ XLALInspiralChooseModel(
       {
          case AmpCorPPN:
          case Eccentricity:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -586,6 +587,7 @@ XLALInspiralChooseModel(
             XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -637,6 +639,7 @@ XLALInspiralChooseModel(
             XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -691,6 +694,7 @@ XLALInspiralChooseModel(
             XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -749,6 +753,7 @@ XLALInspiralChooseModel(
             XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -807,6 +812,7 @@ XLALInspiralChooseModel(
             XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -865,6 +871,7 @@ XLALInspiralChooseModel(
             XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -936,6 +943,7 @@ XLALInspiralChooseModel(
             f->flux = Fp7;
             break;
          case AmpCorPPN:
+         case MassiveGraviton:
          case TaylorT1:
          case TaylorT2:
          case TaylorT3:
@@ -971,6 +979,7 @@ XLALInspiralChooseModel(
    switch (params->approximant)
    {
       case AmpCorPPN:
+      case MassiveGraviton:
       case TaylorT1:
       case TaylorT2:
       case TaylorT3:
