@@ -328,13 +328,14 @@ tagLALMCMCInput
   REAL4Vector* Fwfp;
   REAL4Vector* Fwfc;
   REAL4FFTPlan *longplan;
+  REAL8Window  *longWindow;
   UINT4 mylength;
 
   /* Flags for PhenSpin approximant */  
   InputAxis axisChoice;
   UINT4 fixedStep;
   UINT4 inspiralOnly;
-
+ /* Flag for spinning waveforms*/                                                                LALSimInspiralInteraction spinInteraction;
 }  LALMCMCInput;
 
 
