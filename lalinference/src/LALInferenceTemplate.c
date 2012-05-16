@@ -38,6 +38,18 @@
 #include <lal/LALSimInspiral.h>
 
 #include <lal/LALInferenceTemplate.h>
+#include <lal/LALInferenceInterps.h>
+
+#include <complex.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_complex.h>
+#include <gsl/gsl_complex_math.h>
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_spline.h>
+#include <gsl/gsl_sf_gamma.h>
 
 #define PROGRAM_NAME "LALInferenceTemplate.c"
 #define CVS_ID_STRING "$Id$"
@@ -1059,7 +1071,161 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   return;
 }
 
+void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
+/*************************************************************************************************/
+/* Wrapper to Chebyshev waveform nterpolation function.                                          */
+/* Will always return frequency-domain templates numerically FT'ed                               */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Required (`IFOdata->modelParams') parameters are:                                             */
+/*   - "chirpmass"        (REAL8,units of solar masses)                                          */
+/*   - "massratio"        (symmetric mass ratio:  0 < eta <= 0.25, REAL8) <or asym_massratio>    */
+/*   - "asym_massratio"   (asymmetric mass ratio:  0 < q <= 1.0, REAL8)   <or massratio>         */
+/*   - "time"             (coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)      */
+/*   - "inclination"      (inclination angle, REAL8, radians)                                    */
+/*************************************************************************************************/
+{
+  static LALStatus status;
+  memset(&status,0,sizeof(status));
 
+  unsigned long i;
+  unsigned int patch_index;
+  UINT4 n;	
+  double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
+  double tc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");
+  double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
+  double eta;	
+  if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+    double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+    q2eta(q, &eta);
+  }
+  else
+    eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+  fprintf(stderr, "eta: %e, mchirp: %e\n", eta, mc); 
+  double m1, m2, chirptime, deltaT;
+  double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
+  double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
+  double instant;
+  int forceTimeLocation;
+  double twopit, f, deltaF, re, im, templateReal, templateImag;
+
+  gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
+   
+  if (IFOdata->timeData==NULL) {
+    XLALPrintError(" ERROR in templateLAL(): encountered unallocated 'timeData'.\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
+  if ((IFOdata->freqModelhPlus==NULL) || (IFOdata->freqModelhCross==NULL)) {
+    XLALPrintError(" ERROR in templateLAL(): encountered unallocated 'freqModelhPlus/-Cross'.\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
+ 
+  deltaT = IFOdata->timeData->deltaT;
+
+  mc2masses(mc, eta, &m1, &m2);
+  
+  IFOdata->modelDomain = LALINFERENCE_DOMAIN_TIME;
+ 
+  /**** Actual waveform computation. FIXME: declate h_t ****/ 
+
+  /* find correct patch */
+  patch_index = index_into_patch(IFOdata->manifold, mc, eta);
+  if(patch_index <= IFOdata->manifold->patches_in_eta*IFOdata->manifold->patches_in_mc - 1){
+  /* fill h_t */
+ 	 interpolate_waveform_from_mchirp_and_eta(&IFOdata->manifold->interp_arrays[patch_index], h_t, mc, eta);
+  /*********************************************************/
+  }
+
+  n = IFOdata->manifold->waveform_length;
+
+  memset(IFOdata->timeModelhPlus->data->data,0,IFOdata->timeModelhPlus->data->length*sizeof(REAL8));
+  memset(IFOdata->timeModelhCross->data->data,0,IFOdata->timeModelhCross->data->length*sizeof(REAL8));
+
+    /* copy over, normalise: */
+    for (i=0; i<n; ++i) {
+
+      IFOdata->timeModelhPlus->data->data[i]  = GSL_REAL(gsl_vector_complex_get(h_t, i)); /* Plus state is real part of interpolated waveform */
+      IFOdata->timeModelhCross->data->data[i] = GSL_IMAG(gsl_vector_complex_get(h_t, i));  /* Cross state is imag part of interpolated waveform */
+    }
+    /* apply window & execute FT of plus component: */
+    if (IFOdata->window==NULL) {
+      XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->window'.\n");
+      XLAL_ERROR_VOID(XLAL_EFAULT);
+    }
+    XLALDDVectorMultiply(IFOdata->timeModelhPlus->data, IFOdata->timeModelhPlus->data, IFOdata->window->data);
+    if (IFOdata->timeToFreqFFTPlan==NULL) {
+      XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->timeToFreqFFTPlan'.\n");
+      XLAL_ERROR_VOID(XLAL_EFAULT);
+    }
+    XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus, IFOdata->timeModelhPlus, IFOdata->timeToFreqFFTPlan);
+    XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
+    
+
+  chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 7, 0); 
+
+  /* (now frequency-domain plus-waveform has been computed, either directly or via FFT)   */
+
+  for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
+    // consider inclination angle's effect:
+    IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
+    IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
+    IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
+    IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
+  }
+
+
+  /* Now...template is not (necessarily) located at specified coalescence time  */
+  /* and/or we don't know even where it actually is located...                  */
+  /* Figure out time location corresponding to template just computed:          */
+
+  /* default: assume template to have correctly considered              */
+  /* the supplied "params.tC" value                                     */
+  /* (Roughly OK for "TaylorF1" (?), "TaylorT1", "TaylorT3", "EOB",     */
+  /* "EOBNR", and "PadeT1".                                             */
+  /* May still by off by tens/hundreds of milliseconds.):               */
+  instant = tc;
+
+  /* Signal simply evolved from start of template on,         */
+  /* for approximately "chirptime" seconds:                   */
+  instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
+
+
+  /* now either time-shift template or just store the time value: */
+  /* (time-shifting should not be necessary in general,           */
+  /* but may be neat to have for de-bugging etc.)                 */
+  forceTimeLocation = 0;  /* default: zero! */
+  if (instant != tc) {
+    if (forceTimeLocation) { /* time-shift the frequency-domain template: */
+      twopit = LAL_TWOPI * (tc - instant);
+      deltaF = 1.0 / (((double)IFOdata->timeData->data->length) * deltaT);
+      for (i=1; i<IFOdata->freqModelhPlus->data->length; ++i){
+        f = ((double) i) * deltaF;
+        /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+        re = cos(twopit * f);
+        im = - sin(twopit * f);
+        templateReal = IFOdata->freqModelhPlus->data->data[i].re;
+        templateImag = IFOdata->freqModelhPlus->data->data[i].im;
+        IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
+        IFOdata->freqModelhPlus->data->data[i].im = templateReal*im + templateImag*re;
+        templateReal = IFOdata->freqModelhCross->data->data[i].re;
+        templateImag = IFOdata->freqModelhCross->data->data[i].im;
+        IFOdata->freqModelhCross->data->data[i].re = templateReal*re - templateImag*im;
+        IFOdata->freqModelhCross->data->data[i].im = templateReal*im + templateImag*re;
+      }
+    }
+    else {
+      /* write template (time axis) location in "->modelParams" so that     */
+      /* template corresponds to stored parameter values                    */
+      /* and other functions may time-shift template to where they want it: */
+      LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+    }
+  }
+
+  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+
+  gsl_vector_complex_free(h_t);
+
+  return;
+}
 
 void LALInferenceTemplate3525TD(LALInferenceIFOData *IFOdata)
 /*****************************************************************/
@@ -1775,6 +1941,8 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
 	
 	return;
 }
+
+
 
 
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOdata)

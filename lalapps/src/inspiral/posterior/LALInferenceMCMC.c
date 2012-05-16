@@ -125,10 +125,10 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
         ifoPtr->modelParams = calloc(1, sizeof(LALInferenceVariables));
 
 	fprintf(stderr, "Creating interp manifold\n");  
-	ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum,7.0, 7.6, 0.1, 0.175, 40);
-	fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold\n", ifoPtr->manifold->number_templates_along_mc);
-	XLALInferenceDestroyInterpManifold(ifoPtr->manifold);
-	fprintf(stderr, "manifold free'd\n");
+	ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum, atof(LALInferenceGetProcParamVal(commandLine,"--mc-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--mc-max")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-max")->value), ifoPtr->fLow, 1./ifoPtr->timeData->deltaT);
+	//fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold\n", ifoPtr->manifold->number_templates_along_mc);
+	//XLALInferenceDestroyInterpManifold(ifoPtr->manifold);
+	//fprintf(stderr, "manifold free'd\n");
 
       }
       ifoPtr = ifoPtr->next;
@@ -264,13 +264,18 @@ void initializeMCMC(LALInferenceRunState *runState)
       }else if(strstr(ppt->value,"35phase_25amp")) {
         runState->template=&LALInferenceTemplate3525TD;
         fprintf(stdout,"Template function called is \"LALInferenceTemplate3525TD\"\n");
-      }else{
+      }
+      else if(strstr(ppt->value,"SVD")){
+	runState->template = &LALInferenceTemplateLALChebyshevInterp;
+	fprintf(stdout,"Template function called is \"LALInferenceTemplateLALChebyshevInterp\"\n");
+      }
+      else{
         runState->template=&LALInferenceTemplateLALGenerateInspiral;
         fprintf(stdout,"Template function called is \"LALInferenceTemplateLALGenerateInspiral\"\n");
       }
     }
   }
-
+  runState->template = &LALInferenceTemplateLALChebyshevInterp;
   if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
     fprintf(stderr, "Computing likelihood in the time domain.\n");
     runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
@@ -548,8 +553,8 @@ void initVariables(LALInferenceRunState *state)
   REAL8 logDmax=log(100.0);
   REAL8 Dmin=1.0;
   REAL8 Dmax=100.0;
-  REAL8 mcMin=1.0;
-  REAL8 mcMax=15.3;
+  REAL8 mcMin=7.1;
+  REAL8 mcMax=7.6;
   REAL8 mMin=1.0,mMax=30.0;
   REAL8 MTotMax=35.0;
   REAL8 etaMin=0.0312;
@@ -564,7 +569,7 @@ void initVariables(LALInferenceRunState *state)
   REAL8 tmpMin,tmpMax;//,tmpVal;
   gsl_rng * GSLrandom=state->GSLrandom;
   REAL8 endtime=0.0, timeParam=0.0;
-  REAL8 start_mc			=4.82+gsl_ran_gaussian(GSLrandom,0.025);
+  REAL8 start_mc			=mcMin+(mcMax-mcMin)*gsl_rng_uniform(GSLrandom);
   REAL8 start_eta			=etaMin+gsl_rng_uniform(GSLrandom)*(etaMax-etaMin);
   REAL8 start_q           =qMin+gsl_rng_uniform(GSLrandom)*(qMax-qMin);
   REAL8 start_phase		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);

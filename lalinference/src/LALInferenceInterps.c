@@ -81,7 +81,7 @@ struct twod_waveform_interpolant * new_waveform_interpolant_from_svd_bank(gsl_ma
 	return interp;
 }
 
-struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries *psd, unsigned int patches_in_eta, unsigned int patches_in_mc, int number_templates_along_mc, int number_templates_along_eta, double mc_min, double mc_max, double eta_min, double eta_max, double outer_mc_min, double outer_mc_max, double outer_eta_min, double outer_eta_max, double mc_padding, double eta_padding){
+struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries *psd, unsigned int patches_in_eta, unsigned int patches_in_mc, int number_templates_along_mc, int number_templates_along_eta, double mc_min, double mc_max, double eta_min, double eta_max, double outer_mc_min, double outer_mc_max, double outer_eta_min, double outer_eta_max, double mc_padding, double eta_padding, unsigned int length_max){
 
 	struct twod_waveform_interpolant_manifold * output = (struct twod_waveform_interpolant_manifold *) calloc( 1, sizeof(struct twod_waveform_interpolant_manifold));
 
@@ -101,7 +101,7 @@ struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8Frequ
 	output->outer_param1_max = outer_mc_max;
 	output->outer_param2_min = outer_eta_min;
 	output->outer_param2_max = outer_eta_max;
-	
+	output->waveform_length = length_max;	
 	return output;
 }
 
@@ -438,7 +438,7 @@ static int SPAWaveformReduceSpin (double mass1, double mass2, double chi,
 
 
 
-static double compute_chirp_time (double m1, double m2, double fLower, int order, double chi)
+double compute_chirp_time (double m1, double m2, double fLower, int order, double chi)
 	{
 
 	/* variables used to compute chirp time */
@@ -491,16 +491,17 @@ static double compute_chirp_time (double m1, double m2, double fLower, int order
 	return c0T * (1 + c2T * x2T + c3T * x3T + c4T * x4T + c5T * x5T + (c6T + c6LogT * log (xT)) * x6T + c7T * x7T) / x8T;
 }
 
-static double ffinal(double m_total){
+/*static double ffinal(double m_total){
 	
-	/* Compute frequency at Schwarzschild ISCO */
+	// Compute frequency at Schwarzschild ISCO 
 
 	double f_isco;
 	
-	f_isco = pow(2., ceil( log( (1./LAL_PI)*( pow(6.,-3./2.) )*( pow((m_total)*LAL_MTSUN_SI,-1.) ) )  / log(2.) ) ); /* Next highest power of 2 of f_isco */
+	f_isco = pow(2., ceil( log( (1./LAL_PI)*( pow(6.,-3./2.) )*( pow((m_total)*LAL_MTSUN_SI,-1.) ) )  / log(2.) ) ); // Next highest power of 2 of f_isco 
 	
 	return f_isco;
 }
+*/
 
 static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
 	SPAWaveformReduceSpin(m1, m2, 0, order, 0, 0, 1.0/duration, f_low, f_high, hOfF->data->length, hOfF->data->data);
@@ -549,37 +550,35 @@ static int freq_to_time_fft(COMPLEX16FrequencySeries *fseries, COMPLEX16TimeSeri
  * High level functions
  */
 
-static int compute_max_chirp_time_and_max_frequency(double mc_min, double eta_min, double eta_max, double f_min, double *f_max, double *t_max) {
+static int compute_max_chirp_time(double mc_min, double eta_min,  double f_min,  double *t_max) {
 	
 
 	/* FIXME longest chirp time comes from the smallest chirp mass and eta corrections which we say comes from the smallest eta but have not verified... */
 	double m1min = mc2mass1(mc_min, eta_min);
 	double m2min = mc2mass2(mc_min, eta_min);
-	double mt_min = mc_min/(pow(eta_max, 3./5.));
+	//double mt_min = mc_min/(pow(eta_max, 3./5.));
 
-	*f_max = ffinal(mt_min);
+	//*f_max = ffinal(mt_min);
 	*t_max = compute_chirp_time(m1min, m2min, f_min, 7, 0);
 	
 	return 0;
 }
 
-static int compute_working_length_and_sample_rate(double chirp_time, double f_max, unsigned int *working_length, double *sample_rate, unsigned int *length_max) {
+static int compute_working_length_and_sample_rate(double chirp_time, unsigned int *working_length, double sample_rate, unsigned int *length_max) {
 	
 	double duration = pow(2., ceil(log(chirp_time) / log(2.))); /* see SPADocstring in _spawaveform.c */
 	
-	*sample_rate = pow(2., ceil(log(2.* f_max) / log(2.)));
-	*length_max =  round(*sample_rate * duration);
-	*working_length = (unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * *(sample_rate))) / log(2.))));
+	//*sample_rate = pow(2., ceil(log(2.* f_max) / log(2.)));
+	*length_max =  round(sample_rate * duration);
+	*working_length = (unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * sample_rate)) / log(2.))));
 
 	return 0;
 }
 
-static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPLEX16FrequencySeries **fseries_ptr, COMPLEX16FrequencySeries **fseries_for_ifft_ptr, COMPLEX16TimeSeries **tseries_ptr, COMPLEX16FFTPlan **revplan_ptr, REAL8FrequencySeries *psd_to_interpolate, double mc_min, double eta_min, double eta_max, double f_min, unsigned int *length_max){
+static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPLEX16FrequencySeries **fseries_ptr, COMPLEX16FrequencySeries **fseries_for_ifft_ptr, COMPLEX16TimeSeries **tseries_ptr, COMPLEX16FFTPlan **revplan_ptr, REAL8FrequencySeries *psd_to_interpolate, double mc_min, double eta_min,  double f_min, unsigned int *length_max, double sample_rate){
 
-	double f_max=0;
 	double t_max=0;
 	double deltaT=0;
-	double sample_rate=0;
 	double deltaF=0;
 	double working_duration=0;
 	unsigned int working_length=0;
@@ -591,11 +590,11 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	COMPLEX16FrequencySeries *fseries_for_ifft = NULL;
 	COMPLEX16FFTPlan *revplan = NULL;
 	
-	compute_max_chirp_time_and_max_frequency(mc_min, eta_min, eta_max, f_min, &f_max, &t_max);
+	compute_max_chirp_time(mc_min, eta_min, f_min, &t_max);
 	t_max*=2;
-	fprintf(stderr, "f_max %e t_max %e\n", f_max, t_max);
+	fprintf(stderr, "f_max %e t_max %e\n", sample_rate/2., t_max);
 
-	compute_working_length_and_sample_rate(t_max, f_max, &working_length, &sample_rate, length_max);
+	compute_working_length_and_sample_rate(t_max, &working_length, sample_rate, length_max);
 	fprintf(stderr, "working_length %d sample_rate %e\n", working_length, sample_rate);
 
 
@@ -630,19 +629,16 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 
 }
 
-static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
+static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
 	
 	unsigned int n = fseries_for_ifft->data->length;	
-
 	fseries->data->data[0].re = 0;
 	fseries->data->data[0].im = 0;
-
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
 			/* dewhiten waveform */
 			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
 			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
-	
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*2.;
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*2.;
 		}
@@ -690,7 +686,7 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
 	/* dewhiten and add quadrature-phase to waveform */
-	add_quadrature_phase(fseries, fseries_for_ifft);
+	add_quadrature_phase(psd, fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
  
         for(unsigned int l = 0 ; l < length_max; l++){
@@ -1061,7 +1057,7 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
 
 
 
-struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min){
+struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min, double sample_rate){
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
@@ -1087,9 +1083,9 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 	pad_parameter_bounds(mc_min, mc_max, eta_min, eta_max, &outer_eta_min, &outer_eta_max, &outer_mc_min, &outer_mc_max, number_templates_along_mc, number_templates_along_eta, number_of_templates_to_pad, &mc_padding, &eta_padding);
 
 	/* FIXME: initialize_time_and_freq_series needs to take in psd_to_interpolate and return psd for use in template bank */	
-	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, outer_eta_max, f_min, &length_max);
+	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate);
 
-	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding);
+	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max);
 
 
 	number_of_patches = patches_in_eta*patches_in_mc;

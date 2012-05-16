@@ -668,8 +668,8 @@ static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySer
 		for (unsigned int i=1; i < (n/2); i++){		
 			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
 			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*2.;
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*=2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*=2.;
 		}
 	}
 	return 0;
@@ -1202,11 +1202,11 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 2;
+        unsigned int patches_in_eta = 4;
         unsigned int patches_in_mc = 2;
-        unsigned int number_templates_along_eta = 15;
-        unsigned int number_templates_along_mc = 15;
-	unsigned int number_of_templates_to_pad = 0;
+        unsigned int number_templates_along_eta = 10;
+        unsigned int number_templates_along_mc = 10;
+	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
         unsigned int length_max = 1;
@@ -1252,9 +1252,9 @@ int main(void){
 
 
 	unsigned int length_max = 0;
-	unsigned int New_N_mc = 10, New_M_eta = 10;
-	double mc_min = 7.1;
-	double eta_min = 0.1;
+	unsigned int New_N_mc = 100, New_M_eta = 100;
+	double mc_min = 7.2;
+	double eta_min = 0.175;
 	double mc_max = 7.6;
 	double eta_max = 0.25;
 	double f_min = 40.0;
