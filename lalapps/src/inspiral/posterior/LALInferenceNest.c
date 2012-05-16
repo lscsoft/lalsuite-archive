@@ -246,12 +246,12 @@ void initializeNS(LALInferenceRunState *runState)
 	char help[]="\
 Nested sampling arguments:\n\
  --Nlive N\tNumber of live points to use\n\
- --Nmcmc M\tNumber of MCMC point to use when evolving live points\n\
+(--Nmcmc M)\tOver-ride auto chain length determination and use this number of MCMC samples.\n\
+(--sloppyratio S)\tNumber of sub-samples of the prior for every sample from the limited prior\n\
 (--Nruns R)\tNumber of parallel samples from logt to use(1)\n\
 (--tolerance dZ)\tTolerance of nested sampling algorithm (0.1)\n\
 (--randomseed seed)\tRandom seed of sampling distribution\n\
 (--verbose)\tProduce progress information\n\
-(--mcmcprop)\tUse PTMCMC proposal engine\n\
 \t(--iotaDistance FRAC)\tPTMCMC: Use iota-distance jump FRAC of the time\n\
 \t(--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
 \t(--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
@@ -279,19 +279,17 @@ Nested sampling arguments:\n\
 	
 	/* Set up the appropriate functions for the nested sampling algorithm */
 	runState->algorithm=&LALInferenceNestedSamplingAlgorithm;
-	runState->evolve=&LALInferenceNestedSamplingOneStep;
-	if(LALInferenceGetProcParamVal(commandLine,"--mcmcprop")){
-	  /* Use the PTMCMC proposal to sample prior */
-	  runState->proposal=&NSWrapMCMCLALProposal;
-	  REAL8 temp=1.0;
-	  UINT4 dummy=0;
-	  LALInferenceAddVariable(runState->proposalArgs, "adaptableStep", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
-	  LALInferenceAddVariable(runState->proposalArgs, "proposedVariableNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
-	  LALInferenceAddVariable(runState->proposalArgs, "proposedArrayNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
-	  LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-	}
-	else
-	  runState->proposal=&LALInferenceProposalNS;
+        runState->evolve=&LALInferenceNestedSamplingOneStep;
+	
+    /* use the ptmcmc proposal to sample prior */
+    runState->proposal=&NSWrapMCMCLALProposal;
+    REAL8 temp=1.0;
+    UINT4 dummy=0;
+    LALInferenceAddVariable(runState->proposalArgs, "adaptableStep", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
+    LALInferenceAddVariable(runState->proposalArgs, "proposedVariableNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
+    LALInferenceAddVariable(runState->proposalArgs, "proposedArrayNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
+    LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+	
 
 	runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 
@@ -342,19 +340,21 @@ Nested sampling arguments:\n\
 	}
 	LALInferenceAddVariable(runState->algorithmParams,"Nlive",&tmpi, LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
 	
-	printf("set number of MCMC points.\n");
 	/* Number of points in MCMC chain */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--Nmcmc");
-    if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--nmcmc");
-	if(ppt)
+    	if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--nmcmc");
+	if(ppt){
 	  tmpi=atoi(ppt->value);
-	else {
-	  fprintf(stderr,"Error, must specify number of MCMC points\n");
-	  exit(1);
-	}
 	LALInferenceAddVariable(runState->algorithmParams,"Nmcmc",&tmpi,
-				LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
-	
+				LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
+	printf("set number of MCMC points, over-riding auto-determination!\n");
+	}
+	if((ppt=LALInferenceGetProcParamVal(commandLine,"--sloppyfraction")))
+        	tmp=atof(ppt->value);
+    	else tmp=0.0;
+    	LALInferenceAddVariable(runState->algorithmParams,"sloppyfraction",&tmp,
+                    LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
+
 	printf("set number of parallel runs.\n");
 	/* Optionally specify number of parallel runs */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--Nruns");
@@ -477,6 +477,7 @@ void initVariables(LALInferenceRunState *state)
     INT4 gr_tests =0;
     REAL8 testParameter_max = 0.25;
     REAL8 testParameter_min = -0.25;
+	char *pinned_params=NULL;
 	char help[]="\
 Parameter arguments:\n\
 (--inj injections.xml)\tInjection XML file to use\n\
@@ -499,7 +500,9 @@ Parameter arguments:\n\
 (--s1max SPIN)\tMax magnitude of spin (on both bodies!)\n\
 (--s1min SPIN)\tMin magnitude of spin (on both bodies!)\n\
 (--mcq)\tUse chirp mass and asymmetric mass ratio (m1/m2) as variables\n\
-(--crazyinjectionhlsign)\tFlip the sign of HL signal in likelihood function\n";
+(--crazyinjectionhlsign)\tFlip the sign of HL signal in likelihood function\n\
+(--pinparams [mchirp,asym_massratio,etc])\n\tList of parameters to set to injected values\n\
+(--no-logdistance)\tUse distance, not logdistance, as the sampling variable\n";
 
 	/* Print command line arguments if help requested */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
@@ -529,6 +532,24 @@ Parameter arguments:\n\
 		AmpOrder=injTable->amp_order;
 		XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
 		XLALGetApproximantFromString(injTable->waveform,&approx);
+		/* See if there are any parameters pinned to injection values */
+		if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+			pinned_params=ppt->value;
+			LALInferenceVariables tempParams;
+			memset(&tempParams,0,sizeof(tempParams));
+			char **strings=NULL;
+			UINT4 N;
+			LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+			LALInferenceInjectionToVariables(injTable,&tempParams);
+			LALInferenceVariableItem *node=NULL;
+			while(N>0){
+				N--;
+				char *name=strings[N];
+				node=LALInferenceGetItem(&tempParams,name);
+				if(node) LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary);
+				else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
+			}
+		}
 	}
 
 	/* Over-ride approximant if user specifies */
@@ -645,11 +666,11 @@ Parameter arguments:\n\
         tmpVal=mcMin+(mcMax-mcMin)/2.0;
         
         LALInferenceAddMinMaxPrior(priorArgs,   "chirpmass",    &mcMin, &mcMax,     LALINFERENCE_REAL8_t);
-        LALInferenceAddVariable(currentParams,"chirpmass",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        if(!LALInferenceCheckVariable(currentParams,"chirpmass")) LALInferenceAddVariable(currentParams,"chirpmass",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         tmpVal=1.5;
         REAL8 qMax=1.0;
         REAL8 qMin=mMin/mMax;
-        LALInferenceAddVariable(currentParams, "asym_massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+        if(!LALInferenceCheckVariable(currentParams,"asym_massratio")) LALInferenceAddVariable(currentParams, "asym_massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         LALInferenceAddMinMaxPrior(priorArgs,   "asym_massratio",    &qMin,    &qMax,    LALINFERENCE_REAL8_t);
 
     }
@@ -667,33 +688,43 @@ Parameter arguments:\n\
     	LALInferenceAddMinMaxPrior(priorArgs,	"massratio",	&etaMin,	&etaMax,	LALINFERENCE_REAL8_t);
 	}
 
-    	LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+    	if(!LALInferenceCheckVariable(currentParams,"time")) LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
 	tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
 	LALInferenceAddMinMaxPrior(priorArgs, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
 
 	tmpVal=1.0;
-    	LALInferenceAddVariable(currentParams, "phase",           &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+    	if(!LALInferenceCheckVariable(currentParams,"phase")) LALInferenceAddVariable(currentParams, "phase",           &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
 	tmpMin=0.0; tmpMax=LAL_TWOPI;
 	LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 	
-	tmpVal=logDmin+(logDmax-logDmin)/2.0;
-	LALInferenceAddVariable(currentParams,"logdistance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-	LALInferenceAddMinMaxPrior(priorArgs, "logdistance",     &logDmin, &logDmax,   LALINFERENCE_REAL8_t);
-	
+	if(LALInferenceGetProcParamVal(commandLine,"--no-logdistance"))
+	{
+		REAL8 Dmin=exp(logDmin);
+		REAL8 Dmax=exp(logDmax);
+		tmpVal=Dmin+(Dmax-Dmin)/2.;
+		LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+		LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);		
+	}
+	else 
+	{
+		tmpVal=logDmin+(logDmax-logDmin)/2.0;
+		if(!LALInferenceCheckVariable(currentParams,"logdistance")) LALInferenceAddVariable(currentParams,"logdistance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+		LALInferenceAddMinMaxPrior(priorArgs, "logdistance",     &logDmin, &logDmax,   LALINFERENCE_REAL8_t);
+	}
 	tmpVal=1.0;
-	LALInferenceAddVariable(currentParams, "rightascension",  &tmpVal,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+	if(!LALInferenceCheckVariable(currentParams,"rightascension")) LALInferenceAddVariable(currentParams, "rightascension",  &tmpVal,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
 	tmpMin=0.0; tmpMax=LAL_TWOPI;
 	LALInferenceAddMinMaxPrior(priorArgs, "rightascension",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
-	LALInferenceAddVariable(currentParams, "declination",     &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+	if(!LALInferenceCheckVariable(currentParams,"declination")) LALInferenceAddVariable(currentParams, "declination",     &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 	tmpMin=-LAL_PI/2.0; tmpMax=LAL_PI/2.0;
 	LALInferenceAddMinMaxPrior(priorArgs, "declination",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
     
-	LALInferenceAddVariable(currentParams, "polarisation",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+	if(!LALInferenceCheckVariable(currentParams,"polarisation")) LALInferenceAddVariable(currentParams, "polarisation",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
 	tmpMin=0.0; tmpMax=LAL_PI;
 	LALInferenceAddMinMaxPrior(priorArgs, "polarisation",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 	
- 	LALInferenceAddVariable(currentParams, "inclination",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+ 	if(!LALInferenceCheckVariable(currentParams,"inclination")) LALInferenceAddVariable(currentParams, "inclination",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 	tmpMin=0.0; tmpMax=LAL_PI;
 	LALInferenceAddMinMaxPrior(priorArgs, "inclination",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 	
@@ -709,38 +740,38 @@ Parameter arguments:\n\
 	
 	if(enable_spin){
 		tmpVal=a_spin1_min+(a_spin1_max-a_spin1_min)/2.0;
-		LALInferenceAddVariable(currentParams, "a_spin1",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+		if(!LALInferenceCheckVariable(currentParams,"a_spin1")) LALInferenceAddVariable(currentParams, "a_spin1",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 		LALInferenceAddMinMaxPrior(priorArgs, "a_spin1",     &a_spin1_min, &a_spin1_max,   LALINFERENCE_REAL8_t); 
 	        
 		tmpVal=a_spin2_min+(a_spin2_max-a_spin2_min)/2.0;
-		LALInferenceAddVariable(currentParams, "a_spin2",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+		if(!LALInferenceCheckVariable(currentParams,"a_spin2")) LALInferenceAddVariable(currentParams, "a_spin2",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
 		LALInferenceAddMinMaxPrior(priorArgs, "a_spin2",     &a_spin2_min, &a_spin2_max,   LALINFERENCE_REAL8_t); 
 	
 		
 		if(aligned_spin){ /* Set the spin angles to be parallel to orbital */
 			tmpVal=0;
-			LALInferenceAddVariable(currentParams,"theta_spin1",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-			LALInferenceAddVariable(currentParams,"theta_spin2",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-			LALInferenceAddVariable(currentParams,"phi_spin1",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-			LALInferenceAddVariable(currentParams,"phi_spin2",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+			if(!LALInferenceCheckVariable(currentParams,"theta_spin1")) LALInferenceAddVariable(currentParams,"theta_spin1",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+			if(!LALInferenceCheckVariable(currentParams,"theta_spin2")) LALInferenceAddVariable(currentParams,"theta_spin2",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+			if(!LALInferenceCheckVariable(currentParams,"phi_spin1")) LALInferenceAddVariable(currentParams,"phi_spin1",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+			if(!LALInferenceCheckVariable(currentParams,"phi_spin2")) LALInferenceAddVariable(currentParams,"phi_spin2",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 		}
 		else{ /* Use full spinning parameters */
 			tmpVal=theta_spin1_min+(theta_spin1_max - theta_spin1_min)/2.0;
 
-			LALInferenceAddVariable(currentParams,"theta_spin1",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+			if(!LALInferenceCheckVariable(currentParams,"theta_spin1")) LALInferenceAddVariable(currentParams,"theta_spin1",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 			LALInferenceAddMinMaxPrior(priorArgs, "theta_spin1",     &theta_spin1_min, &theta_spin1_max,   LALINFERENCE_REAL8_t); 
 	
 			tmpVal=theta_spin1_min+(theta_spin1_max - theta_spin1_min)/2.0;
-			LALInferenceAddVariable(currentParams,"theta_spin2",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+			if(!LALInferenceCheckVariable(currentParams,"theta_spin2")) LALInferenceAddVariable(currentParams,"theta_spin2",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
 			LALInferenceAddMinMaxPrior(priorArgs, "theta_spin2",     &theta_spin1_min, &theta_spin1_max,   LALINFERENCE_REAL8_t); 
 	
 			tmpVal=phi_spin1_min+(phi_spin1_max - phi_spin1_min)/2.0;
 	
-			LALInferenceAddVariable(currentParams,"phi_spin1",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+			if(!LALInferenceCheckVariable(currentParams,"phi_spin1")) LALInferenceAddVariable(currentParams,"phi_spin1",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin1",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t); 
 	
 			tmpVal=phi_spin1_min+(phi_spin1_max - phi_spin1_min)/2.0;
-			LALInferenceAddVariable(currentParams,"phi_spin2",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+			if(!LALInferenceCheckVariable(currentParams,"phi_spin2")) LALInferenceAddVariable(currentParams,"phi_spin2",		&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin2",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t);
 		}
 	}
