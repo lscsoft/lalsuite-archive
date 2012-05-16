@@ -207,7 +207,7 @@ for nmc in range(opts.n_montecarlo):
     mpl.pyplot.semilogx(mu, plotsingl, 'g-', label="Single analysis, exact Lambda")
     mpl.pyplot.xlabel("Rate (Mpc^-3 yr^-1)", size="large")
     mpl.pyplot.ylabel(r"Posterior pdf (Mpc^3 yr)", size="large")
-    mpl.pyplot.legend(loc="center right")
+    mpl.pyplot.legend(loc="upper right")
     mpl.pyplot.title("MC trial "+str(nmc+1)+", loudest event FAP="+str(FAP_from_FAN(min(FARs)*Ttot))[0:5])
     mpl.pyplot.savefig(opts.output_path+"posterior_trial_"+str(nmc+1)+"_ntimes_"+str(opts.ntimes)+".png")
     mpl.pyplot.close()
@@ -224,7 +224,6 @@ if opts.make_plots:
   # UL values vs. FAP of loudest event in single analysis
   FAPbins = rate.LinearBins(0.0, 1.0, 20)
   FAPindices = numpy.array([FAPbins[pF] for pF in singleFAP])
-  ULmeans = numpy.arange(len(FAPbins))
   fapplot = []
   meansplot = []
   stdevplot = []
