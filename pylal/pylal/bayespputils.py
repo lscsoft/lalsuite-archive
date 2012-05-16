@@ -68,7 +68,8 @@ __date__= git_version.date
 #===============================================================================
 # Constants
 #===============================================================================
-
+#Parameters which are not to be exponentiated when found
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw']
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -3326,7 +3327,6 @@ dec \t psi \t iota \t likelihood \n')
             llines.append(np.array(map(lambda a:float(a.text),row)))
         flines=np.array(llines)
         for i in range(0,len(header)):
-            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
@@ -3387,7 +3387,6 @@ dec \t psi \t iota \t likelihood \n')
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
