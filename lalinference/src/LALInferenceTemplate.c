@@ -1160,7 +1160,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
     
 
-  chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 7, 0); 
+  chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 4, 0); 
 
   /* (now frequency-domain plus-waveform has been computed, either directly or via FFT)   */
 

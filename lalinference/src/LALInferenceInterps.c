@@ -559,12 +559,12 @@ static int compute_max_chirp_time(double mc_min, double eta_min,  double f_min, 
 	//double mt_min = mc_min/(pow(eta_max, 3./5.));
 
 	//*f_max = ffinal(mt_min);
-	*t_max = compute_chirp_time(m1min, m2min, f_min, 7, 0);
+	*t_max = compute_chirp_time(m1min, m2min, f_min, 4, 0);
 	
 	return 0;
 }
 
-static int compute_working_length_and_sample_rate(double chirp_time, unsigned int *working_length, double sample_rate, unsigned int *length_max) {
+static int compute_working_length(double chirp_time, unsigned int *working_length, double sample_rate, unsigned int *length_max) {
 	
 	double duration = pow(2., ceil(log(chirp_time) / log(2.))); /* see SPADocstring in _spawaveform.c */
 	
@@ -594,7 +594,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	t_max*=2;
 	fprintf(stderr, "f_max %e t_max %e\n", sample_rate/2., t_max);
 
-	compute_working_length_and_sample_rate(t_max, &working_length, sample_rate, length_max);
+	compute_working_length(t_max, &working_length, sample_rate, length_max);
 	fprintf(stderr, "working_length %d sample_rate %e\n", working_length, sample_rate);
 
 
@@ -639,8 +639,8 @@ static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySer
 			/* dewhiten waveform */
 			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
 			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*2.;
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*=2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*=2.;
 		}
 	}
 	return 0;
@@ -731,7 +731,7 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
                         m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.05), 7, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.05), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 	
 			gsl_matrix_set_col(A, 2*k,  template_real);
 			gsl_matrix_set_col(A, 2*k+1, template_imag);
