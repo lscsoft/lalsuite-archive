@@ -130,8 +130,7 @@ XLALInspiralMassiveGraviton (REAL4Vector      *signalvec,
 //   fclose(model_output);
 //   exit(0);
    params->fFinal = fn;
-   DETATCHSTATUSPTR(status);
-   RETURN(status);
+   return XLAL_SUCCESS;
 }
 
 void LALInspiralMassiveGravitonPhasing(
