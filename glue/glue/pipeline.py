@@ -1667,6 +1667,13 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
     </replica-catalog>
 """ % (hostname,hostname,pwd,pwd,pwd,pwd)
+      cuda_install_path = '/usr/local/nvidia/cuda'
+      if cuda_install_path:
+        os.environ['LD_LIBRARY_PATH'] = '%s/lib:%s/lib64:%s' % (cuda_install_path, cuda_install_path, os.environ['LD_LIBRARY_PATH'])
+        try:
+          print >> sitefile, """    <profile namespace="env" key="CUDA_INSTALL_PATH">%s</profile>""" % cuda_install_path
+        except:
+          pass
       try:
         print >> sitefile, """    <profile namespace="env" key="GLOBUS_LOCATION">%s</profile>""" % os.environ['GLOBUS_LOCATION']
       except:
