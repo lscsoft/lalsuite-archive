@@ -33,7 +33,7 @@ LIGO Light Weight XML "ilwd:char" IDs are strings of the form
 "table:column:integer", for example "process:process_id:10".  Large complex
 documents can have many millions of these strings, and their storage
 represents a significant RAM burden.  However, while there can be millions
-of ID strings in use there may be only a small number (e.g. 10 or fewer)
+of ID strings in use there might be only a small number (e.g. 10 or fewer)
 unique ID prefixes in use (the table name and column name part).  The
 amount of RAM required to load a document can be significantly reduced if
 the small number of unique string prefixes is stored separately.  This

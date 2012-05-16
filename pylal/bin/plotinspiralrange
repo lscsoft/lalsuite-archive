@@ -81,10 +81,10 @@ def stairs(xVal,yVal):
       xStairs.append(xVal[len(xVal)-1])
       yStairs.append(yVal[len(yVal)-1])
     elif not i%2:
-      xStairs.append(mean(xVal[i/2-1],xVal[i/2]))
+      xStairs.append(mean((xVal[i/2-1],xVal[i/2])))
       yStairs.append(yVal[i/2])
     else:
-      xStairs.append(mean(xVal[(i-1)/2],xVal[(i+1)/2]))
+      xStairs.append(mean((xVal[(i-1)/2],xVal[(i+1)/2])))
       yStairs.append(yVal[(i-1)/2])
 
   return xStairs,yStairs

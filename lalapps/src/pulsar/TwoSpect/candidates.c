@@ -118,9 +118,9 @@ void clusterCandidates(candidateVector *output, candidateVector *input, ffdataSt
    REAL8 avefsig, aveperiod, mindf, maxdf;
    
    //Allocate int vectors for storage
-   INT4Vector *locs = XLALCreateINT4Vector((UINT4)input->numofcandidates);
-   INT4Vector *locs2 = XLALCreateINT4Vector((UINT4)input->numofcandidates);
-   INT4Vector *usedcandidate = XLALCreateINT4Vector((UINT4)input->numofcandidates);
+   INT4Vector *locs = XLALCreateINT4Vector(input->numofcandidates);
+   INT4Vector *locs2 = XLALCreateINT4Vector(input->numofcandidates);
+   INT4Vector *usedcandidate = XLALCreateINT4Vector(input->numofcandidates);
    if (locs==NULL) {
       fprintf(stderr,"%s: XLALCreateINT4Vector(%d) failed.\n", __func__, input->numofcandidates);
       XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -808,7 +808,7 @@ candidateVector * keepMostSignificantCandidates(candidateVector *input, inputPar
          REAL8 highestsignificance = 0.0;
          INT4 candidateWithHighestSignificance = 0;
          for (jj=0; jj<(INT4)input->numofcandidates; jj++) {
-            if (input->data[jj].prob<highestsignificance) {
+            if (input->data[jj].prob>highestsignificance) {
                highestsignificance = input->data[jj].prob;
                candidateWithHighestSignificance = jj;
             }

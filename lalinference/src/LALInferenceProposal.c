@@ -252,46 +252,6 @@ void NSFillMCMCVariables(LALInferenceVariables *proposedParams, LALInferenceVari
   return;
 }
 
-void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
-{
-  /* PTMCMC likes to read currentParams directly, whereas NS expects proposedParams
-   to be modified by the proposal. Back up currentParams and then restore it after
-   calling the MCMC proposal function. */
-  REAL8 oldlogdist=-1.0,oldlogmc=-1.0;
-  REAL8 newdist,newmc;
-  LALInferenceVariables *currentParamsBackup=runState->currentParams;
-  
-  /* PTMCMC expects some variables that NS doesn't use by default, so create them */
-  
-  if(LALInferenceCheckVariable(proposedParams,"logdistance"))
-    oldlogdist=*(REAL8 *)LALInferenceGetVariable(proposedParams,"logdistance");
-  if(LALInferenceCheckVariable(proposedParams,"logmc"))
-    oldlogmc=*(REAL8*)LALInferenceGetVariable(proposedParams,"logmc");
-  
-  NSFillMCMCVariables(proposedParams,runState->priorArgs);
-
-  runState->currentParams=proposedParams; 
-  LALInferenceDefaultProposal(runState,proposedParams);
-  /* Restore currentParams */
-  runState->currentParams=currentParamsBackup;
-  
-  /* If the remapped variables are not updated do it here */
-  if(oldlogdist!=-1.0)
-    if(oldlogdist==*(REAL8*)LALInferenceGetVariable(proposedParams,"logdistance"))
-      {
-	newdist=*(REAL8*)LALInferenceGetVariable(proposedParams,"distance");
-	newdist=log(newdist);
-	LALInferenceSetVariable(proposedParams,"logdistance",&newdist);
-      }
-  if(oldlogmc!=-1.0)
-    if(oldlogmc==*(REAL8*)LALInferenceGetVariable(proposedParams,"logmc"))
-    {
-      newmc=*(REAL8*)LALInferenceGetVariable(proposedParams,"chirpmass");
-      newmc=log(newmc);
-      LALInferenceSetVariable(proposedParams,"logmc",&newmc);
-    }
-  
-}
 
 void 
 LALInferenceCyclicProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
@@ -349,6 +309,81 @@ LALInferenceDeleteProposalCycle(LALInferenceRunState *runState) {
     LALInferenceRemoveVariable(propArgs, cycleArrayLengthName);
   }
 }
+
+static void
+SetupDefaultNSProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+  const UINT4 BIGWEIGHT = 20;
+  const UINT4 SMALLWEIGHT = 5;
+  const UINT4 TINYWEIGHT = 1;
+  const char defaultPropName[]="none";
+  UINT4 fullProp = 1;
+
+  if(!LALInferenceCheckVariable(runState->proposalArgs,LALInferenceCurrentProposalName))
+      LALInferenceAddVariable(runState->proposalArgs,LALInferenceCurrentProposalName, (void*)&defaultPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_OUTPUT);
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+
+  /* The default, single-parameter updates. */
+  /* Disable until adaptive step is turned on*/
+  //if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
+  //  LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, BIGWEIGHT);
+
+  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi"))
+    LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, TINYWEIGHT);
+
+  if (fullProp) {
+    if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
+      LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, SMALLWEIGHT);
+
+    UINT4 nDet = numDetectorsUniquePositions(runState);
+    if (nDet == 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skyreflect")) {
+      LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
+      LALInferenceAddProposalToCycle(runState, extrinsicParamProposalName, &LALInferenceExtrinsicParamProposal, SMALLWEIGHT);
+    }
+
+    if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-drawprior"))
+      LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
+
+    if(LALInferenceCheckVariable(proposedParams,"phase")) {
+      LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
+    }
+  }
+
+  /* Now add various special proposals that are conditional on
+     command-line arguments or variables in the params. */
+  /*
+  if(LALInferenceCheckVariable(proposedParams,"inclination")) {
+    LALInferenceAddProposalToCycle(runState, inclinationDistanceName, &LALInferenceInclinationDistance, TINYWEIGHT);
+  }
+  */
+
+  if (LALInferenceCheckVariable(proposedParams, "theta_spin1")) {
+  	if(LALInferenceGetVariableVaryType(proposedParams,"theta_spin1")==LALINFERENCE_PARAM_CIRCULAR 
+  		|| LALInferenceGetVariableVaryType(proposedParams,"theta_spin1")==LALINFERENCE_PARAM_LINEAR )
+	    LALInferenceAddProposalToCycle(runState, rotateSpinsName, &LALInferenceRotateSpins, SMALLWEIGHT);
+  }
+
+  /* Always use the covariance method */
+    LALInferenceAddProposalToCycle(runState, covarianceEigenvectorJumpName, &LALInferenceCovarianceEigenvectorJump, BIGWEIGHT);
+
+  /* Use differential evolution unless turned off */
+  if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-differentialevolution")) {
+    LALInferenceAddProposalToCycle(runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull, BIGWEIGHT);
+    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
+    if (LALInferenceCheckVariable(proposedParams, "theta_spin1")&&!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-rotate-spins")) {
+      LALInferenceAddProposalToCycle(runState, differentialEvolutionSpinsName, &LALInferenceDifferentialEvolutionSpins, SMALLWEIGHT);
+    }
+  }
+
+  if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-kdtree")) {
+    LALInferenceAddProposalToCycle(runState, KDNeighborhoodProposalName, &LALInferenceKDNeighborhoodProposal, SMALLWEIGHT);
+  }
+ 
+  LALInferenceRandomizeProposalCycle(runState);
+}
+
+
 
 static void
 SetupDefaultProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
@@ -851,7 +886,7 @@ void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALIn
   LALInferenceVariableItem *proposeIterator;
 
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
-
+  
   j = 0;
   proposeIterator = proposedParams->head;
   if (proposeIterator == NULL) {
@@ -863,15 +898,15 @@ void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALIn
     if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT) {
       REAL8 tmp = *((REAL8 *)proposeIterator->value);
       REAL8 inc = jumpSize*gsl_matrix_get(eigenvectors, j, i);
-
+      
       tmp += inc;
-
+      
       memcpy(proposeIterator->value, &tmp, sizeof(REAL8));
-
+      
       j++;
     }
   } while ((proposeIterator = proposeIterator->next) != NULL && j < N);
-
+  
   LALInferenceSetLogProposalRatio(runState, 0.0);
 }
 
@@ -1015,7 +1050,7 @@ draw_distance(LALInferenceRunState *runState) {
 
   REAL8 x = gsl_rng_uniform(runState->GSLrandom);
 
-  return pow(x*(dmax*dmax*dmax - dmin*dmin*dmin) + dmin*dmin*dmin, 1.0/3.0);
+  return cbrt(x*(dmax*dmax*dmax - dmin*dmin*dmin) + dmin*dmin*dmin);
 }
 
 static REAL8 
@@ -1058,8 +1093,8 @@ draw_chirp(LALInferenceRunState *runState) {
   LALInferenceGetMinMaxPrior(runState->priorArgs, "chirpmass", &min, &max);
 
   REAL8 x = gsl_rng_uniform(runState->GSLrandom);
-
-  return pow(pow(min, -5.0/6.0) - x*(pow(min, -5.0/6.0) - pow(max, -5.0/6.0)), -6.0/5.0);
+  REAL8 temp=pow(min, -5.0/6.0);
+  return pow(temp - x*(temp - pow(max, -5.0/6.0)), -6.0/5.0);
 }
 
 static REAL8
@@ -1708,28 +1743,19 @@ void LALInferenceOrbitalPhaseQuasiGibbsProposal(LALInferenceRunState *runState, 
   LALInferenceSetLogProposalRatio(runState, L0 - LDPhi);
 }
 
-static int inBounds(REAL8 *pt, REAL8 *low, REAL8 *high, size_t N) {
-  size_t i;
-  for (i = 0; i < N; i++) {
-    if (pt[i] < low[i] || pt[i] > high[i]) {
-      return 0;
-    }
-  }
-
-  return 1;
-}
-
 void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
   size_t NCell;
   LALInferenceVariables *proposalArgs = runState->proposalArgs;
 
   if (LALInferenceCheckVariable(runState->proposalArgs, "KDNCell")) {
     NCell = *(INT4 *)LALInferenceGetVariable(runState->proposalArgs, "KDNCell");
+  } else if (LALInferenceCheckVariable(runState->proposalArgs, "kdncell")) {
+    NCell = *(INT4 *)LALInferenceGetVariable(runState->proposalArgs, "kdncell");
   } else {
     /* NCell default value. */
     NCell = 64;
   }
-
+  
   const char *propName = KDNeighborhoodProposalName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
 
@@ -1745,51 +1771,29 @@ void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInfer
   
   LALInferenceKDTree *tree = *(LALInferenceKDTree **)LALInferenceGetVariable(proposalArgs, "kDTree");
   LALInferenceVariables *template = *(LALInferenceVariables **)LALInferenceGetVariable(proposalArgs, "kDTreeVariableTemplate");
-  REAL8 *pt = XLALMalloc(tree->ndim*sizeof(REAL8));
-
   /* If tree has zero points, bail. */
   if (tree->npts == 0) {
     LALInferenceSetLogProposalRatio(runState, 0.0);
     return;
   }
 
+  REAL8 *currentPt = XLALCalloc(tree->dim, sizeof(REAL8));
+  REAL8 *proposedPt = XLALCalloc(tree->dim, sizeof(REAL8));
+
   /* A randomly-chosen point from those in the tree. */
-  REAL8 *thePt = tree->pts[gsl_rng_uniform_int(runState->GSLrandom, tree->npts)];
-  LALInferenceKDCell *aCell = LALInferenceKDFindCell(tree, thePt, NCell);
+  LALInferenceKDDrawEigenFrame(runState->GSLrandom, tree, proposedPt, NCell);
+  LALInferenceKDREAL8ToVariables(proposedParams, proposedPt, template);
 
-  /* Proposed params chosen randomly from within the box bounding
-     points in aCell. */
-  size_t i;
-  for (i = 0; i < tree->ndim; i++) {
-    REAL8 delta = aCell->pointsUpperRight[i] - aCell->pointsLowerLeft[i];
-    pt[i] = aCell->pointsLowerLeft[i] + delta*gsl_rng_uniform(runState->GSLrandom);
-  }
-  LALInferenceKDREAL8ToVariables(proposedParams, pt, template);
+  /* Get the coordinates of the current point. */
+  LALInferenceKDVariablesToREAL8(runState->currentParams, currentPt, template);
 
-  /* Forward probability is N_Cell / N / Cell_Volume. */
-  REAL8 logForwardProb = log(aCell->npts) - log(tree->npts) - LALInferenceKDLogPointsVolume(tree, aCell);
+  REAL8 logPropRatio = LALInferenceKDLogProposalRatio(tree, currentPt, proposedPt, NCell);
 
-  /* To compute the backward jump probability, we need to know which
-     box contains the current point. */
-  LALInferenceKDVariablesToREAL8(runState->currentParams, pt, template);
-  LALInferenceKDCell *currentCell = LALInferenceKDFindCell(tree, pt, NCell);
-
-  /* Backward jump probability, based on the number of points and
-     volume of the cell containing the current point. */
-  REAL8 logBackwardProb;
-
-  if (inBounds(pt, currentCell->pointsLowerLeft, currentCell->pointsUpperRight, tree->ndim)) {
-    /* If the current point is within its cell's point-bounding-box, then this is jump probability. */
-    logBackwardProb = log(currentCell->npts) - log(tree->npts) - LALInferenceKDLogPointsVolume(tree, currentCell);
-  } else {
-    /* If current point outside its cell's points-bounding-box, then there is no probability of backward jump. */
-    logBackwardProb = log(0.0);
-  }
-
-  LALInferenceSetLogProposalRatio(runState, logBackwardProb - logForwardProb);
+  LALInferenceSetLogProposalRatio(runState, logPropRatio);
 
   /* Cleanup the allocated storage for currentPt. */
-  XLALFree(pt);
+  XLALFree(currentPt);
+  XLALFree(proposedPt);
 }
 
 
@@ -2034,3 +2038,55 @@ void LALInferenceExtrinsicParamProposal(LALInferenceRunState *runState, LALInfer
   return;
 }
 
+
+void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
+{
+  /* PTMCMC likes to read currentParams directly, whereas NS expects proposedParams
+   to be modified by the proposal. Back up currentParams and then restore it after
+   calling the MCMC proposal function. */
+  REAL8 oldlogdist=-1.0,oldlogmc=-1.0;
+  REAL8 newdist,newmc;
+  LALInferenceVariables *currentParamsBackup=runState->currentParams;
+  /* Create the proposal if none exists */
+  if (!LALInferenceCheckVariable(runState->proposalArgs, cycleArrayName) || !LALInferenceCheckVariable(runState->proposalArgs, cycleArrayLengthName))
+   {
+    /* In case there is a partial cycle set up already, delete it. */
+    LALInferenceDeleteProposalCycle(runState);
+    if(LALInferenceGetProcParamVal(runState->commandLine,"--mcmcprop")) 
+	   { SetupDefaultProposal(runState, proposedParams); }
+	 else {
+	 	SetupDefaultNSProposal(runState,proposedParams);
+	 }
+  }  
+  
+  /* PTMCMC expects some variables that NS doesn't use by default, so create them */
+  
+  if(LALInferenceCheckVariable(proposedParams,"logdistance"))
+    oldlogdist=*(REAL8 *)LALInferenceGetVariable(proposedParams,"logdistance");
+  if(LALInferenceCheckVariable(proposedParams,"logmc"))
+    oldlogmc=*(REAL8*)LALInferenceGetVariable(proposedParams,"logmc");
+  
+  NSFillMCMCVariables(proposedParams,runState->priorArgs);
+
+  runState->currentParams=proposedParams; 
+	  LALInferenceCyclicProposal(runState,proposedParams);
+  /* Restore currentParams */
+  runState->currentParams=currentParamsBackup;
+  
+  /* If the remapped variables are not updated do it here */
+  if(oldlogdist!=-1.0)
+    if(oldlogdist==*(REAL8*)LALInferenceGetVariable(proposedParams,"logdistance"))
+      {
+		newdist=*(REAL8*)LALInferenceGetVariable(proposedParams,"distance");
+		newdist=log(newdist);
+		LALInferenceSetVariable(proposedParams,"logdistance",&newdist);
+      }
+  if(oldlogmc!=-1.0)
+    if(oldlogmc==*(REAL8*)LALInferenceGetVariable(proposedParams,"logmc"))
+    {
+      newmc=*(REAL8*)LALInferenceGetVariable(proposedParams,"chirpmass");
+      newmc=log(newmc);
+      LALInferenceSetVariable(proposedParams,"logmc",&newmc);
+    }
+  
+}
