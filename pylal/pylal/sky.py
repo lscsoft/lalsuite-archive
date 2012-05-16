@@ -1099,10 +1099,10 @@ def CartesianToSpherical(x, system='equatorial'):
     return p
 
 def _rotation(axis, angle):
-  """
+    """
     Form 3x3 rotation matrix to rotate about a given 3-tuple axis by a given
     angle
-  """
+    """
 
     R = np.zeros((3,3))
 
