@@ -823,17 +823,26 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
 	chirptime=ak.tn;
   }
   // FILL THE DPHIS HERE! 
-  params.dphi0 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi0");
-  params.dphi1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi1");
-  params.dphi2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi2");
-  params.dphi3 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi3");
-  params.dphi4 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi4");
-  params.dphi5 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi5");
-  params.dphi5l = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi5l");
-  params.dphi6 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi6");
-  params.dphi6l = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi6l");
-  params.dphi7 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi7");
-   
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi0")) params.dphi0 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi0");
+  else params.dphi0 = 0.0;
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi1")) params.dphi1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi1");
+  else params.dphi1 = 0.0;
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi2")) params.dphi2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi2");
+  else params.dphi2 = 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi3")) params.dphi3 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi3");
+  else params.dphi3 = 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi4")) params.dphi4 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi4");
+  else params.dphi4 = 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi5")) params.dphi5 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi5");
+  else params.dphi5 = 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi5l")) params.dphi5l = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi5l");
+  else params.dphi5l = 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi6")) params.dphi6 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi6");
+  else params.dphi6 = 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi6l")) params.dphi6l = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi6l");
+  else params.dphi6l = 0.0;
+     if (LALInferenceCheckVariable(IFOdata->modelParams, "dphi7")) params.dphi7 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi7");
+  else params.dphi7 = 0.0;
   /* compute "params.signalAmplitude" slot: */
   LALInspiralRestrictedAmplitude(&status, &params);
 
