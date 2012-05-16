@@ -822,7 +822,18 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
 	LALInspiralChooseModel(&status,&expnFunction,&ak,&params);
 	chirptime=ak.tn;
   }
-
+  // FILL THE DPHIS HERE! 
+  params->dphi0 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi0");
+  params->dphi1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi1");
+  params->dphi2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi2");
+  params->dphi3 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi3");
+  params->dphi4 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi4");
+  params->dphi5 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi5");
+  params->dphi5l = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi5l");
+  params->dphi6 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi6");
+  params->dphi6l = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi6l");
+  params->dphi7 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dphi7");
+   
   /* compute "params.signalAmplitude" slot: */
   LALInspiralRestrictedAmplitude(&status, &params);
 
