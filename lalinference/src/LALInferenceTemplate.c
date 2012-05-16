@@ -483,9 +483,7 @@ static double m2mc(double m1, double m2);
 
 
 void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
-
-/** Template function for PhenSpinTaylorRingDown waveforms. 
- THIS HAS NOT BEEN TESTED! */
+/** Template function for PhenSpinTaylorRingDown waveforms. **/
 {
 	static LALStatus status;
 	memset(&status,0,sizeof(LALStatus));
@@ -501,7 +499,10 @@ void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
 	double a_spin2=0.	;
 	double theta_spin2=0.	;
 	double phi_spin2=0.	;
-	
+
+	INT4 inspiralOnlyFlag=0;
+	InputAxis axisFlag=0;
+
 	/* spin variables still need to be initialised */	
 	
 	/* spin variables still need to be initialised */
@@ -513,10 +514,6 @@ void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
 		theta_spin1	= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "theta_spin1");
 	}
 	
-	if (LALInferenceCheckVariable(IFOdata->modelParams, "phi_spin1")){
-		phi_spin1= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phi_spin1");
-	}
-	
 	if (LALInferenceCheckVariable(IFOdata->modelParams, "a_spin2")){		
 		a_spin2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "a_spin2");
 	}
@@ -525,10 +522,14 @@ void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
 		theta_spin2	= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "theta_spin2");
 	}
 	
-	if (LALInferenceCheckVariable(IFOdata->modelParams, "phi_spin2")){
-		phi_spin2= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phi_spin2");
+	if (LALInferenceCheckVariable(IFOdata->modelParams, "inspiralOnlyFlag")){
+	  inspiralOnlyFlag= 1;
 	}
-	
+
+	if (LALInferenceCheckVariable(IFOdata->modelParams, "axisFlag")){
+	  axisFlag= *(InputAxis*) LALInferenceGetVariable(IFOdata->modelParams, "axisFlag");
+	}
+
         //double distance = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"logdistance");
         //template.distance = exp(distance)*LAL_PC_SI*1.e6;  
 
@@ -548,80 +549,61 @@ void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata)
     else
         eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
 	
-    REAL8 mtot=mc/pow(eta,3./5.);	
-	
-	/* fill the template structure */
-	//double distance = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"logdistance");
-	template.spin1[0]=a_spin1*sin(theta_spin1)*cos(phi_spin1);
-	template.spin1[1]=a_spin1*sin(theta_spin1)*sin(phi_spin1);
-	template.spin1[2]=a_spin1*cos(theta_spin1); 
-	template.spin2[0]=a_spin2*sin(theta_spin2)*cos(phi_spin2);
-	template.spin2[1]=a_spin2*sin(theta_spin2)*sin(phi_spin2);
-	template.spin2[2]=a_spin2*cos(theta_spin2);
-	template.totalMass = mtot;
-	template.eta = eta;
-	template.massChoice = totalMassAndEta;
-	template.fLower = IFOdata->fLow;	
-	template.tSampling = 1./IFOdata->timeData->deltaT;
-	template.fCutoff = 0.5/IFOdata->timeData->deltaT-1.0;
-	template.nStartPad = 0;
-	template.nEndPad =0;
-	template.startPhase = phi;
-	template.startTime = 0.0;
-	template.ieta = 1;
-	template.inclination=iota;
-	//template.distance = exp(distance)*LAL_PC_SI*1.e6;
-	template.distance = LAL_PC_SI*1.e6;
-	int order = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_PNORDER");
-	template.order= (LALPNOrder) order; //check order is set correctly
-	if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT")){
-		template.approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
-		if(template.approximant!=PhenSpinTaylorRD) {
-			XLALPrintError("Error, LALInferenceTemplatePSTRD can only use PhenSpinTaylorRD approximant!");
-			XLAL_ERROR_VOID(XLAL_EDATA);
-		}
-	}
-	
-	template.next = NULL;
-	template.fine = NULL;
-	int UNUSED errnum;
-	XLAL_TRY(LALInspiralParameterCalc(&status,&template),errnum);
-	
-	REAL4Vector *hPlus = XLALCreateREAL4Vector(IFOdata->timeModelhPlus->data->length);
-	REAL4Vector *hCross = XLALCreateREAL4Vector(IFOdata->timeModelhCross->data->length);
-	
-	XLAL_TRY(LALPSpinInspiralRDTemplates(&status,hPlus,hCross,&template),errnum);
+    REAL8 m1,m2;
+    mc2masses(mc, eta, &m1, &m2);	
 
-	//REAL4 WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
-	for(idx=0;idx<hPlus->length;idx++) IFOdata->timeModelhPlus->data->data[idx]= (REAL8)hPlus->data[idx];
-	for(idx=0;idx<hCross->length;idx++) IFOdata->timeModelhCross->data->data[idx]= (REAL8)hCross->data[idx];
-	//for(idx=0;idx<hPlus->length;idx++) IFOdata->timeModelhPlus->data->data[idx]*=IFOdata->window->data->data[idx]/WinNorm;
-        //for(idx=0;idx<hCross->length;idx++) IFOdata->timeModelhCross->data->data[idx]*=IFOdata->window->data->data[idx]/WinNorm;
+    /* fill the template structure */
+    //double distance = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"logdistance");
+    double s1x=a_spin1*sin(theta_spin1)*cos(phi_spin1);
+    double s1y=a_spin1*sin(theta_spin1)*sin(phi_spin1);
+    double s1z=a_spin1*cos(theta_spin1); 
+    double s2x=a_spin2*sin(theta_spin2)*cos(phi_spin2);
+    double s2y=a_spin2*sin(theta_spin2)*sin(phi_spin2);
+    double s2z=a_spin2*cos(theta_spin2);
+    INT4 order = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_PNORDER");
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT")){
+      template.approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
+      if(template.approximant!=PhenSpinTaylorRD) {
+	XLALPrintError("Error, LALInferenceTemplatePSTRD can only use PhenSpinTaylorRD approximant!");
+	XLAL_ERROR_VOID(XLAL_EDATA);
+      }
+    }
 
-	XLALDestroyREAL4Vector(hPlus);
-	XLALDestroyREAL4Vector(hCross);
+    LIGOTimeGPS epoch;
+    XLALGPSSetREAL8(&epoch, 1.e10);
+    REAL8TimeSeries *hPlus = XLALCreateREAL8TimeSeries("hPlus", &epoch, IFOdata->fLow, IFOdata->timeData->deltaT, &lalDimensionlessUnit, IFOdata->timeModelhPlus->data->length);
+    REAL8TimeSeries *hCross = XLALCreateREAL8TimeSeries("hCross", &epoch, IFOdata->fLow, IFOdata->timeData->deltaT, &lalDimensionlessUnit, IFOdata->timeModelhCross->data->length);
 
-	//executeFT(LALIFOData *IFOdata); //for phenspin we need to transform each of the states separately so i think you can do it with this function, but can you check just incase
+    INT4 tCpts=XLALSimIMRPSpinInspiralRDGenerator(&hPlus,&hCross,phi,IFOdata->timeData->deltaT,m1,m2,IFOdata->fLow,LAL_PC_SI*1.e6,iota,s1x,s1y,s1z,s2x,s2y,s2z,order,axisFlag,inspiralOnlyFlag);
 
-	//XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus, IFOdata->timeModelhPlus, IFOdata->timeToFreqFFTPlan);
-	//XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
-	//for(idx=0;idx<hPlus->length;idx++) fprintf(stderr,"%12.6e\t %12.6ei\n",IFOdata->freqModelhCross->data->data[idx].re, IFOdata->freqModelhCross->data->data[idx].im);	
-	//IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+    //REAL4 WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
+    for(idx=0;idx<hPlus->data->length;idx++) IFOdata->timeModelhPlus->data->data[idx]= hPlus->data->data[idx];
+    for(idx=0;idx<hCross->data->length;idx++) IFOdata->timeModelhCross->data->data[idx]= hCross->data->data[idx];
+    //for(idx=0;idx<hPlus->length;idx++) IFOdata->timeModelhPlus->data->data[idx]*=IFOdata->window->data->data[idx]/WinNorm;
+    //for(idx=0;idx<hCross->length;idx++) IFOdata->timeModelhCross->data->data[idx]*=IFOdata->window->data->data[idx]/WinNorm;
 
-/*	for(idx=0;idx<IFOdata->timeModelhPlus->data->data[idx];idx++){
+    XLALDestroyREAL8TimeSeries(hPlus);
+    XLALDestroyREAL8TimeSeries(hCross);
+
+    //executeFT(LALIFOData *IFOdata); //for phenspin we need to transform each of the states separately so i think you can do it with this function, but can you check just incase
+
+    //XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus, IFOdata->timeModelhPlus, IFOdata->timeToFreqFFTPlan);
+    //XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
+    //for(idx=0;idx<hPlus->length;idx++) fprintf(stderr,"%12.6e\t %12.6ei\n",IFOdata->freqModelhCross->data->data[idx].re, IFOdata->freqModelhCross->data->data[idx].im);	
+    //IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+    
+    /*	for(idx=0;idx<IFOdata->timeModelhPlus->data->data[idx];idx++){
 	IFOdata->freqModelhPlus->data->data[idx].re*=IFOdata->timeData->deltaT;
 	IFOdata->freqModelhPlus->data->data[idx].im*=IFOdata->timeData->deltaT;
 	IFOdata->freqModelhCross->data->data[idx].re*=IFOdata->timeData->deltaT;
 	IFOdata->freqModelhCross->data->data[idx].im*=IFOdata->timeData->deltaT;
 	}
 */		
-	double tc       = IFOdata->epoch.gpsSeconds + 1.e-9*IFOdata->epoch.gpsNanoSeconds + template.tC;
-	LALInferenceSetVariable(IFOdata->modelParams, "time", &tc);
+    double tc= IFOdata->epoch.gpsSeconds + 1.e-9*IFOdata->epoch.gpsNanoSeconds + ((double)tCpts)*IFOdata->timeData->deltaT;
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &tc);
 
-	
-	return;
+    return;
 }
-
 
 void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
 /*************************************************************************************************/

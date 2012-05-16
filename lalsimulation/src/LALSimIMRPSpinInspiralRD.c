@@ -32,6 +32,7 @@
 #include <lal/RealFFT.h>
 #include <lal/SphericalHarmonics.h>
 #include <math.h>
+#include <lal/Date.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/LALSimInspiral.h>
 
@@ -2114,15 +2115,6 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   length = ceil(log10(x)/log10(2.));
   length = pow(2, length);
 
-  if (*hplus == NULL)
-    *hplus = XLALCreateREAL8TimeSeries("H+", &t_start, 0.0, deltaT, &lalDimensionlessUnit, length);
-
-  if (*hcross == NULL)
-    *hcross = XLALCreateREAL8TimeSeries("Hx", &t_start, 0.0, deltaT, &lalDimensionlessUnit, length);
-
-  if(*hplus == NULL || *hcross == NULL)
-    XLAL_ERROR(XLAL_ENOMEM);
-
   /* declare code parameters and variables */
   const INT4 neqs = 11+1;      // number of dynamical variables plus the energy function
   UINT4 count,apcount;         // integration steps performed
@@ -2991,6 +2983,17 @@ int XLALSimIMRPSpinInspiralRDGenerator(
    * If required by the user copy other data sets to the
    * relevant arrays
    ------------------------------------------------------*/
+
+  XLALGPSAdd( &t_start, -((double)count)*dt);
+
+  if (*hplus == NULL)
+    *hplus = XLALCreateREAL8TimeSeries("H+", &t_start, 0.0, deltaT, &lalDimensionlessUnit, length);
+
+  if (*hcross == NULL)
+    *hcross = XLALCreateREAL8TimeSeries("Hx", &t_start, 0.0, deltaT, &lalDimensionlessUnit, length);
+
+  if(*hplus == NULL || *hcross == NULL)
+    XLAL_ERROR(XLAL_ENOMEM);
 
   memcpy((*hplus)->data->data, sigp->data, length * (sizeof(REAL8)));
   memcpy((*hcross)->data->data, sigc->data, length * (sizeof(REAL8)));

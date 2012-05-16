@@ -219,7 +219,7 @@ void XLALDestroyCOMPLEX8FFTPlan( COMPLEX8FFTPlan *plan );
  *  - [\c XLAL_ENOMEM] Insufficient storage space is available.
  *  .
  */
-int XLALCOMPLEX8VectorFFT( COMPLEX8Vector * RESTRICT output, COMPLEX8Vector * RESTRICT input,
+int XLALCOMPLEX8VectorFFT( COMPLEX8Vector * /*RESTRICT*/ output, COMPLEX8Vector * /*RESTRICT*/ input,
     const COMPLEX8FFTPlan *plan );
 
 /*
@@ -352,7 +352,7 @@ void XLALDestroyCOMPLEX16FFTPlan( COMPLEX16FFTPlan *plan );
  *  - [\c XLAL_ENOMEM] Insufficient storage space is available.
  *  .
  */
-int XLALCOMPLEX16VectorFFT( COMPLEX16Vector * RESTRICT output, COMPLEX16Vector * RESTRICT input,
+int XLALCOMPLEX16VectorFFT( COMPLEX16Vector * /*RESTRICT*/ output, COMPLEX16Vector * /*RESTRICT*/ input,
     const COMPLEX16FFTPlan *plan );
 
 /*

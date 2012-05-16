@@ -371,7 +371,7 @@ int XLALREAL4ReverseFFT( REAL4Vector *output, const COMPLEX8Vector *input,
 }
 
 
-int XLALREAL4VectorFFT( REAL4Vector * restrict output, const REAL4Vector * restrict input,
+int XLALREAL4VectorFFT( REAL4Vector * /*restrict*/ output, const REAL4Vector * /*restrict*/ input,
     const REAL4FFTPlan *plan )
 {
   if ( ! output || ! input || ! plan )
@@ -644,7 +644,7 @@ int XLALREAL8ReverseFFT( REAL8Vector *output, COMPLEX16Vector *input,
 }
 
 
-int XLALREAL8VectorFFT( REAL8Vector * restrict output, REAL8Vector * restrict input,
+int XLALREAL8VectorFFT( REAL8Vector * /*restrict*/ output, REAL8Vector * /*restrict*/ input,
     const REAL8FFTPlan *plan )
 {
   if ( ! output || ! input || ! plan )
