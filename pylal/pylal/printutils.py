@@ -892,7 +892,9 @@ def printmissed(connection, simulation_table, recovery_table, map_label, livetim
                 print >> sys.stderr, "Applying to %s time..." % ','.join(sorted(on_instruments))
 
             # get on_time segments
-            on_times = ring_sets[frozenset(on_instruments)]
+            on_times = ring_sets[frozenset(on_instruments)].coalesce()
+            for instrument in on_instruments:
+                on_times = on_times - veto_segments[instrument]
             
             def is_in_on_time(gps_time, gps_time_ns):
                 return LIGOTimeGPS(gps_time, gps_time_ns) in on_times
