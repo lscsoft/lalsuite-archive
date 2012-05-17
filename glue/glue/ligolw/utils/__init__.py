@@ -74,7 +74,7 @@ __all__ = []
 
 
 # FIXME:  remove, use parameter passed to load_*() functions instead
-ContentHandler = ligolw.LIGOLWContentHandler
+ContentHandler = ligolw.DefaultLIGOLWContentHandler
 __orig_ContentHandler = ContentHandler	# to detect when ContentHandler symbol has been modified
 
 
@@ -314,8 +314,7 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	if contenthandler is None:
-		if ContentHandler is not __orig_ContentHandler:
-			warnings.warn("modification of glue.ligolw.utils.ContentHandler global variable for input customization is deprecated.  Use contenthandler keyword argument of glue.ligolw.utils.load_*() functions instead", DeprecationWarning)
+		assert ContentHandler is __orig_ContentHandler
 		contenthandler = ContentHandler
 	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
