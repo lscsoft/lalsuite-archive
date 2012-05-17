@@ -125,7 +125,7 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
         ifoPtr->modelParams = calloc(1, sizeof(LALInferenceVariables));
 
 	fprintf(stderr, "Creating interp manifold\n");  
-	ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum, atof(LALInferenceGetProcParamVal(commandLine,"--mc-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--mc-max")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-max")->value), ifoPtr->fLow, 1./ifoPtr->timeData->deltaT);
+	ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum, atof(LALInferenceGetProcParamVal(commandLine,"--mc-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--mc-max")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-max")->value), ifoPtr->fLow, 1./ifoPtr->timeData->deltaT, ifoPtr->freqData->deltaF);
 	//fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold\n", ifoPtr->manifold->number_templates_along_mc);
 	//XLALInferenceDestroyInterpManifold(ifoPtr->manifold);
 	//fprintf(stderr, "manifold free'd\n");

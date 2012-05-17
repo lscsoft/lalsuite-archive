@@ -575,11 +575,10 @@ static int compute_working_length(double chirp_time, unsigned int *working_lengt
 	return 0;
 }
 
-static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPLEX16FrequencySeries **fseries_ptr, COMPLEX16FrequencySeries **fseries_for_ifft_ptr, COMPLEX16TimeSeries **tseries_ptr, COMPLEX16FFTPlan **revplan_ptr, REAL8FrequencySeries *psd_to_interpolate, double mc_min, double eta_min,  double f_min, unsigned int *length_max, double sample_rate){
+static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPLEX16FrequencySeries **fseries_ptr, COMPLEX16FrequencySeries **fseries_for_ifft_ptr, COMPLEX16TimeSeries **tseries_ptr, COMPLEX16FFTPlan **revplan_ptr, REAL8FrequencySeries *psd_to_interpolate, double mc_min, double eta_min,  double f_min, unsigned int *length_max, double sample_rate, double deltaF){
 
 	double t_max=0;
 	double deltaT=0;
-	double deltaF=0;
 	double working_duration=0;
 	unsigned int working_length=0;
 	LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
@@ -595,12 +594,12 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	fprintf(stderr, "f_max %e t_max %e\n", sample_rate/2., t_max);
 
 	compute_working_length(t_max, &working_length, sample_rate, length_max);
-	fprintf(stderr, "working_length %d sample_rate %e\n", working_length, sample_rate);
-
 
 	deltaT = 1. / sample_rate;
-        working_duration = (working_length / sample_rate);
-	deltaF = 1. / working_duration;
+	working_duration = 1./deltaF;
+	working_length = round(working_duration*sample_rate);
+
+	fprintf(stderr, "working_length %d sample_rate %e length_max: %d\n", working_length, sample_rate, *length_max);
 
 	/* set up time series */	
 	tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0., deltaT, &lalDimensionlessUnit, working_length);
@@ -637,8 +636,8 @@ static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySer
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
 			/* dewhiten waveform */
-			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
-			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
+			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]/(2.*fseries->deltaF)) );
+			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]/(2.*fseries->deltaF)) );
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*=2.;
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*=2.;
 		}
@@ -731,7 +730,7 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
                         m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.05), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.0), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 	
 			gsl_matrix_set_col(A, 2*k,  template_real);
 			gsl_matrix_set_col(A, 2*k+1, template_imag);
@@ -1057,7 +1056,7 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
 
 
 
-struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min, double sample_rate){
+struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min, double sample_rate, double deltaF){
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
@@ -1083,7 +1082,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 	pad_parameter_bounds(mc_min, mc_max, eta_min, eta_max, &outer_eta_min, &outer_eta_max, &outer_mc_min, &outer_mc_max, number_templates_along_mc, number_templates_along_eta, number_of_templates_to_pad, &mc_padding, &eta_padding);
 
 	/* FIXME: initialize_time_and_freq_series needs to take in psd_to_interpolate and return psd for use in template bank */	
-	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate);
+	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate, deltaF);
 
 	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max);
 

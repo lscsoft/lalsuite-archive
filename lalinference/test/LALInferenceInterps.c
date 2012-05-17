@@ -622,7 +622,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	compute_working_length_and_sample_rate(t_max, f_max, &working_length, &sample_rate, length_max);
 	fprintf(stderr, "working_length %d sample_rate %e\n", working_length, sample_rate);
 
-
+	working_length = 32768;
 	deltaT = 1. / sample_rate;
         working_duration = (working_length / sample_rate);
 	deltaF = 1. / working_duration;
@@ -1202,10 +1202,10 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 4;
+        unsigned int patches_in_eta = 2;
         unsigned int patches_in_mc = 2;
-        unsigned int number_templates_along_eta = 10;
-        unsigned int number_templates_along_mc = 10;
+        unsigned int number_templates_along_eta = 15;
+        unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 

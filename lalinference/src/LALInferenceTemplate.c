@@ -83,13 +83,6 @@ void LALInferenceLALTemplateGeneratePPN(LALInferenceIFOData *IFOdata){
 	PPNParamStruc params;         /* input parameters */
 	CoherentGW waveform;          /* output waveform */	
 
-	//params.position.latitude = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"declination");
-	//params.position.longitude = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"rightascension");
-	//params.position.system = COORDINATESYSTEM_EQUATORIAL;
-	
-	//params.psi=*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"polarisation");
-
-  fprintf(stdout,"WARNING this routine LALInferenceLALTemplateGeneratePPN() is deprecated and will be removed. Use LALInferenceTemplateLALGenerateInspiral() or LALInferenceTemplateXLALSimInspiralChooseWaveform() instead");
   
     if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
         REAL8 tempEta;
@@ -101,7 +94,6 @@ void LALInferenceLALTemplateGeneratePPN(LALInferenceIFOData *IFOdata){
         params.eta = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"massratio");
     
 	params.mTot = (*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"chirpmass")) / pow(params.eta, 3.0/5.0);
-	//params.inc = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"inclination");
 	params.phi = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"phase");
 			
 	
@@ -119,15 +111,6 @@ void LALInferenceLALTemplateGeneratePPN(LALInferenceIFOData *IFOdata){
 	
 	INT4 order = 4;										/* PN order */
 	params.ppn = NULL;									/* PPN parameter*/
-
-
-
-	/* Make sure that values won't crash the system or anything. */
-//	CHECKVAL( order, -1, 5 );
-//	CHECKVAL( dt, LAL_REAL4_MIN, LAL_REAL4_MAX );
-//	CHECKVAL( deltat, 0.0, LAL_REAL4_MAX );
-	
-
 
 	/* Variable parameters. */
 
@@ -163,11 +146,6 @@ fprintf(stdout, "Timeshift %g\n", timeShift);
 		exit(1);
 	}
 	if(timeShift > 0){ //If we rightshift, we should window first
-		//if(!IFOData->window)
-		//	IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
-		//XLALDDVectorMultiply(waveform.a->data->data,waveform.a->data->data,IFOdata[i].window->data);
-		//fprintf(stderr, "ERROR: Desired tc is greater than generated tc; can't right-shift waveform\n");
-		//exit(1);
 	}
 	
 	/* Check if sampling interval was too large. */
@@ -175,7 +153,6 @@ fprintf(stdout, "Timeshift %g\n", timeShift);
 		printf(
 				 "Waveform sampling interval is too large:\n"
 				 "\tmaximum df*dt = %f", params.dfdt );
-		//WARNING( message );
 	}
 	
 	
@@ -184,22 +161,16 @@ fprintf(stdout, "Timeshift %g\n", timeShift);
 	REAL8 p,ap;//ac - set but not used
 	INT4 integerLeftShift = ceil(-timeShift/IFOdata->timeData->deltaT);
 	REAL8 fractionalRightShift = (IFOdata->timeData->deltaT*integerLeftShift+timeShift)/IFOdata->timeData->deltaT;
-		
-	//printf("deltaT %g, iLS %d, fRS %g\n", deltaT, integerLeftShift, fractionalRightShift);
-	//printf("t %d, a %d, phi %d\n", IFOdata->timeData->data->length, waveform.a->data->length, waveform.phi->data->length);
 	
 	UINT4 length = IFOdata->timeData->data->length;//waveform.a->data->length-1; 
 	REAL8 *phiData = waveform.phi->data->data;
 	REAL4 *aData = waveform.a->data->data;
 
 FILE* file=fopen("TempAPhi.dat", "w");	
-	//printf("iLS %d, fRS %g, length %d\n", integerLeftShift, fractionalRightShift, length);
 	
 	for(i=0; i<length; i++){
 fprintf(file, "%lg \t %lg\n", phiData[i], aData[i]);
 	
-		//printf("i %d integerLeftShift %d (waveform.phi->data->length) %d i+integerLeftShift %d\n", 
-			//i, integerLeftShift, (waveform.phi->data->length), i+integerLeftShift);
 		if(IFOdata->timeData->deltaT*i>desired_tc || (i+integerLeftShift+1)>=(waveform.phi->data->length - 1)
 			|| ((INT4)i+integerLeftShift)<0){	//set waveform to zero after desired tc, or if need to go past end of input
 			IFOdata->timeModelhPlus->data->data[i] = 0;
@@ -208,36 +179,12 @@ fprintf(file, "%lg \t %lg\n", phiData[i], aData[i]);
 		else{
 			p = (1.0-fractionalRightShift)*phiData[i+integerLeftShift] + fractionalRightShift*phiData[i+integerLeftShift+1];
 			ap = (1.0-fractionalRightShift)*aData[2*(i+integerLeftShift)] + fractionalRightShift*aData[2*(i+integerLeftShift)+2];
-			//ac = (1.0-fractionalRightShift)*aData[2*(i+integerLeftShift)+1] + fractionalRightShift*aData[2*(i+integerLeftShift)+3]; - set but not used
 			IFOdata->timeModelhPlus->data->data[i] = ap*cos(p);
 			IFOdata->timeModelhCross->data->data[i] = ap*sin(p);
 		}
 	}
 fclose(file);
-/*			
-			REAL8 dx = deltat/dt;
-			REAL8 xMax = waveform.a->data->length - 1;
-			REAL8 *phiData = waveform.phi->data->data;
-			//REAL4 *fData = waveform.f->data->data;
-			REAL4 *aData = waveform.a->data->data;
-			for ( ; x < xMax; x += dx, t += deltat ) {
-				UINT4 j = floor( x );
-				if(j < IFOdata->timeData->data->length ){
-					REAL8 frac = x - j;
-					REAL8 p = frac*phiData[j+1] + ( 1.0 - frac )*phiData[j];
-					//REAL8 f = frac*fData[j+1] + ( 1.0 - frac )*fData[j];
-					REAL8 ap = frac*aData[2*j+2] + ( 1.0 - frac )*aData[2*j];
-					REAL8 ac = frac*aData[2*j+3] + ( 1.0 - frac )*aData[2*j+1];
-					IFOdata->timeModelhPlus->data->data[j] = ap*cos( p );
-					IFOdata->timeModelhCross->data->data[j] = ac*sin( p );
-				}
-			}
-*/
-	//INT4 k = 0;
-	//for(k=0 ; k < IFOdata->timeData->data->length; k++ ){
-//		fprintf(stdout,"%d\t%13.6e\t%13.6e\n",k,IFOdata->timeModelhPlus->data->data[k],IFOdata->timeModelhCross->data->data[k]);
-//	    }
-	
+
 	
 	/*******************************************************************
 	 * CLEANUP                                                         *
@@ -1073,7 +1020,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
 
 void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
 /*************************************************************************************************/
-/* Wrapper to Chebyshev waveform nterpolation function.                                          */
+/* Wrapper to Chebyshev waveform interpolation function.                                         */
 /* Will always return frequency-domain templates numerically FT'ed                               */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Required (`IFOdata->modelParams') parameters are:                                             */
@@ -1100,7 +1047,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   }
   else
     eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
-  fprintf(stderr, "eta: %e, mchirp: %e\n", eta, mc); 
   double m1, m2, chirptime, deltaT;
   double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
@@ -1127,13 +1073,12 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  
   /**** Actual waveform computation. FIXME: declate h_t ****/ 
 
-  /* find correct patch */
+  /* find correct patch and interpolate a waveform*/
   patch_index = index_into_patch(IFOdata->manifold, mc, eta);
-  if(patch_index <= IFOdata->manifold->patches_in_eta*IFOdata->manifold->patches_in_mc - 1){
-  /* fill h_t */
+  if(patch_index < IFOdata->manifold->patches_in_eta*IFOdata->manifold->patches_in_mc ){
  	 interpolate_waveform_from_mchirp_and_eta(&IFOdata->manifold->interp_arrays[patch_index], h_t, mc, eta);
-  /*********************************************************/
   }
+  /*********************************************************/
 
   n = IFOdata->manifold->waveform_length;
 
@@ -1141,7 +1086,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   memset(IFOdata->timeModelhCross->data->data,0,IFOdata->timeModelhCross->data->length*sizeof(REAL8));
 
     /* copy over, normalise: */
-    for (i=0; i<n; ++i) {
+    for (i=0; i< n ; ++i) {
 
       IFOdata->timeModelhPlus->data->data[i]  = GSL_REAL(gsl_vector_complex_get(h_t, i)); /* Plus state is real part of interpolated waveform */
       IFOdata->timeModelhCross->data->data[i] = GSL_IMAG(gsl_vector_complex_get(h_t, i));  /* Cross state is imag part of interpolated waveform */
@@ -1152,12 +1097,15 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
       XLAL_ERROR_VOID(XLAL_EFAULT);
     }
     XLALDDVectorMultiply(IFOdata->timeModelhPlus->data, IFOdata->timeModelhPlus->data, IFOdata->window->data);
+    XLALDDVectorMultiply(IFOdata->timeModelhCross->data, IFOdata->timeModelhCross->data, IFOdata->window->data);
     if (IFOdata->timeToFreqFFTPlan==NULL) {
       XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->timeToFreqFFTPlan'.\n");
       XLAL_ERROR_VOID(XLAL_EFAULT);
     }
-    XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus, IFOdata->timeModelhPlus, IFOdata->timeToFreqFFTPlan);
-    XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
+
+
+   XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus, IFOdata->timeModelhPlus, IFOdata->timeToFreqFFTPlan);
+   XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
     
 
   chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 4, 0); 
@@ -1192,7 +1140,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /* now either time-shift template or just store the time value: */
   /* (time-shifting should not be necessary in general,           */
   /* but may be neat to have for de-bugging etc.)                 */
-  forceTimeLocation = 0;  /* default: zero! */
+  forceTimeLocation = 1;  /* default: zero! */
   if (instant != tc) {
     if (forceTimeLocation) { /* time-shift the frequency-domain template: */
       twopit = LAL_TWOPI * (tc - instant);
@@ -1201,7 +1149,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
         f = ((double) i) * deltaF;
         /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
         re = cos(twopit * f);
-        im = - sin(twopit * f);
+        im =  -sin(twopit * f);
         templateReal = IFOdata->freqModelhPlus->data->data[i].re;
         templateImag = IFOdata->freqModelhPlus->data->data[i].im;
         IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
