@@ -34,7 +34,7 @@ from optparse import OptionParser
 
 from glue import lal
 from glue import segments
-from pylal import git_version
+from lalapps import git_version
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
