@@ -275,7 +275,7 @@ llwapp.set_process_end_time(process)
 #
 # Write back to disk, and clean up.
 #
-output_filename = re.sub('THINCA','THINCA-OUTPUT',filename[0])
+output_filename = re.sub('LLWADD','THINCA',filename[0])
 utils.write_filename(xmldoc, output_filename, options.verbose, gz = (output_filename or "stdout").endswith(".gz"))
 xmldoc.unlink()
 

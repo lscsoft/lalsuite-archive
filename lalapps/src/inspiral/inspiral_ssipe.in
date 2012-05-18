@@ -353,13 +353,14 @@ def thinca_coinc(ifo_list, single_data_analyzed, cafe_caches, cafe_base,
         if ifo in ifos:
           thinca.set_ifo(ifo, pass_to_command_line=False)
                 
-          # add all inspiral jobs in this cache to input
-          if do_insp:
-            for cache_entry in cache.objects:
-              lladd.add_parent(single_data_analyzed[cache_entry])
+      # add all inspiral jobs in this cache to input
+      if do_insp:
+        for cache_entry in cache.objects:
+          lladd.add_parent(single_data_analyzed[cache_entry])
 
       # set output of ligolw_add jobs to follow thinca's convention
-      lladd.set_output(thinca.get_output())
+      lladd_outfile = re.sub('THINCA','LLWADD',thinca.get_output())
+      lladd.set_output(lladd_outfile)
       thinca.set_input(lladd.get_output(), pass_to_command_line=False)
       thinca.add_file_arg(lladd.get_output())
 
