@@ -295,9 +295,8 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	The optional contenthandler argument allows the SAX content handler
 	to be customized.  Previously, customization of the content handler
 	was accomplished by replacing the ContentHandler symbol in this
-	module with the custom handler, and although that technique is
-	still supported a warning will be emitted if modification of that
-	symbol is detected.  See
+	module with the custom handler.  That technique is now explictly
+	forbidden;  an assertion error is raised if this is detected.  See
 	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
 	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
