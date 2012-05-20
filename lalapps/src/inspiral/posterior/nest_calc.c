@@ -204,6 +204,11 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		for(j=topdown_sum[i]->length-2;j>0;j--) topdown_sum[i]->data[j]=topdown_sum[i]->data[j+1]+(pow(MCMCinput->stilde[i]->data->data[j].re,2.0)+pow(MCMCinput->stilde[i]->data->data[j].im,2.0))*MCMCinput->invspec[i]->data->data[j];
 	}
 	
+    if (MCMCinput->injectionTable!=NULL){		
+        LALMCMCParameter *injected  =(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
+        NestInitInjectedParam(injected,(void *)MCMCinput->injectionTable, MCMCinput);
+        fprintf(stdout,"Injected logL  %lf \n",MCMCinput->funcLikelihood(MCMCinput,injected));
+    }
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);
 	else MCMCinput->funcInit(temp,(void *)MCMCinput->inspiralTable);
 	if(!PriorIsSane(temp))
