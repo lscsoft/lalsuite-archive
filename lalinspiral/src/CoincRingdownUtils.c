@@ -1872,14 +1872,17 @@ XLALCoincRingdownStat(
   /* FIXME: Needs to be generalized to be applicable to ifoCounter > 3 */
   if ( coincStat == bitten_l && ifoCounter == 3 )
   {
-    statValues[0] = pow(snrs[0] + snrs[1] 
-      + bittenLParams->eff_snr_denom_fac,2);
-
-    statValues[1] = pow(snrs[1] + snrs[2]
-      + bittenLParams->eff_snr_denom_fac,2);
-
-    statValues[2] = pow(snrs[2] + snrs[0]
-      + bittenLParams->eff_snr_denom_fac,2);
+    i=0;
+    snrs[3] = snrs[0];
+    for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+    {
+      if ( (snglRingdown = coincRingdown->snglRingdown[ifoNumber]) )
+      {
+        statValues[ifoNumber] = pow(snrs[i] + snrs[i+1] 
+          + bittenLParams->eff_snr_denom_fac,2);
+        i++;
+      }
+    }
   }
 
   /*    for the bitten L case only , we need to compare different
