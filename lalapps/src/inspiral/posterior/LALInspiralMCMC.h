@@ -335,7 +335,10 @@ tagLALMCMCInput
   InputAxis axisChoice;
   UINT4 fixedStep;
   UINT4 inspiralOnly;
- /* Flag for spinning waveforms*/                                                                LALSimInspiralInteraction spinInteraction;
+ /* Flag for spinning waveforms*/                                                                
+ LALSimInspiralInteraction  spinInteraction;
+ /*For debuggin purposes */
+ UINT4 scrivi;
 }  LALMCMCInput;
 
 
