@@ -227,6 +227,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
 void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -1353,6 +1354,7 @@ doneinit:
 	    fprintf(stdout,"   Done.\n");
 	    #endif
 	  }
+      //if(verbose) inputMCMC.scrivi=1;
 	} 
 	
 	if(HighMassFlag) inputMCMC.funcPrior = NestPriorHighMass;
@@ -2196,3 +2198,26 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     fclose(snrout);
 
 }
+
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
+{  
+    char *pinned_params_temp=NULL;
+    int pin_was_null=1;
+    char full_list[]="a1,a2,logM,mchirp,logmchirp,logmc,eta,psi,dist,logdist,distMpc,logD,iota,ra,dec,time,phi,spin1z,spin2z,theta1,theta2,phi1,phi2,phiP,phiM";
+    if (pinned_params!=NULL){
+        pin_was_null=0;
+        pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
+        pinned_params_temp=pinned_params;
+        pinned_params=full_list;
+    }
+    else {
+        pinned_params=full_list ;
+    } 
+    MCMCinput->funcInit(parameter,iT);
+    if (pin_was_null)
+        pinned_params=NULL;
+    else {
+        pinned_params=pinned_params_temp;
+    }
+     return ;	
+     }
