@@ -654,6 +654,109 @@ XLALFindNRFile( NRWaveMetaData   *out,       /**< output wave data */
 
 }
 
+void LALInjectStrainGW_PhenSpin( LALStatus                 *status,
+    REAL4TimeSeries           *injData,
+    REAL4TimeVectorSeries     *strain,
+    SimInspiralTable          *thisInj,
+    CHAR                      *ifo,
+    REAL8                     dynRange,
+    REAL8 ppntC)
+{
+
+  REAL8 sampleRate;
+  REAL4TimeSeries *htData = NULL;
+  UINT4  k;
+  REAL8 offset;
+  LALSimInspiralApplyTaper taper = LAL_SIM_INSPIRAL_TAPER_NONE;
+
+  INITSTATUS(status);
+  ATTATCHSTATUSPTR (status);
+
+  /* sampleRate = 1.0/strain->deltaT;   */
+  /* use the sample rate required for the output time series */
+  sampleRate = 1.0/injData->deltaT;
+
+  /*compute strain for given sky location*/
+  htData = XLALCalculateNRStrain( strain, thisInj, ifo, sampleRate );
+  if ( !htData )
+  {
+    ABORTXLAL( status );
+  }
+
+  /* multiply the input data by dynRange */
+  for ( k = 0 ; k < htData->data->length ; ++k )
+  {
+    htData->data->data[k] *= dynRange;
+  }
+offset=ppntC;
+  //XLALFindNRCoalescenceTime( &offset, strain);
+fprintf(stdout,"In NRWaveInject.c epoch s %.20e ns %.20e offset %.20e\n",(double)htData->epoch.gpsSeconds ,(double)htData->epoch.gpsNanoSeconds,offset);
+  XLALGPSAdd( &(htData->epoch), -offset);
+
+
+  /* Taper the signal if required */
+  if ( strcmp( thisInj->taper, "TAPER_NONE" ) )
+  {
+
+    if ( ! strcmp( "TAPER_START", thisInj->taper ) )
+    {
+      taper = LAL_SIM_INSPIRAL_TAPER_START;
+    }
+    else if (  ! strcmp( "TAPER_END", thisInj->taper ) )
+    {
+      taper = LAL_SIM_INSPIRAL_TAPER_END;
+    }
+    else if (  ! strcmp( "TAPER_STARTEND", thisInj->taper ) )
+    {
+      taper = LAL_SIM_INSPIRAL_TAPER_STARTEND;
+    }
+    else
+    {
+      XLALPrintError( "Unsupported tapering type specified: %s\n", thisInj->taper );
+      XLALDestroyREAL4Vector ( htData->data);
+      LALFree(htData);
+      ABORT( status, NRWAVEINJECT_EVAL, NRWAVEINJECT_MSGEVAL );
+    }
+    if ( XLALSimInspiralREAL4WaveTaper( htData->data, taper ) == XLAL_FAILURE )
+    {
+      XLALClearErrno();
+      XLALDestroyREAL4Vector ( htData->data);
+      LALFree(htData);
+      ABORTXLAL( status );
+    }
+  }
+
+  /* Band-passing probably not as important for NR-type waveforms */
+  /* TODO: Implement if required at a later date */
+  if ( thisInj->bandpass )
+  {
+    XLALPrintError( "Band-passing not yet implemented for InjectStrainGW.\n" );
+    XLALDestroyREAL4Vector ( htData->data);
+    LALFree(htData);
+    ABORTXLAL( status );
+  }
+
+  /* inject the htData into injection time stream */
+  LALSSInjectTimeSeries( status->statusPtr, injData, htData );
+  BEGINFAIL( status )
+  {
+    XLALDestroyREAL4Vector ( htData->data);
+    LALFree( htData );
+  }
+  ENDFAIL( status );
+
+  /* set channel name */
+  snprintf( injData->name, sizeof(injData->name),
+      "%s:STRAIN", ifo );
+
+  XLALDestroyREAL4Vector ( htData->data);
+  LALFree(htData);
+
+  DETATCHSTATUSPTR(status);
+  RETURN(status);
+
+}
+
 
 void LALInjectStrainGW( LALStatus                 *status,
     REAL4TimeSeries           *injData,
@@ -690,7 +793,7 @@ void LALInjectStrainGW( LALStatus                 *status,
   }
 
   XLALFindNRCoalescenceTime( &offset, strain);
-
+fprintf(stdout,"In NRWaveInject.c epoch s %.20e ns %.20e offset %.20e\n",(double)htData->epoch.gpsSeconds ,(double)htData->epoch.gpsNanoSeconds,offset);
   XLALGPSAdd( &(htData->epoch), -offset);
 
 

@@ -1427,7 +1427,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 
    LALMCMCParam *head;
 
-  double lMcmin=log(manual_mass_low*pow(etamax,3./5.));  /* log MChirp min*/
+  double lMcmin=log(manual_mass_low*pow(etamin,3./5.));  /* log MChirp min*/
   double lMcmax=log(manual_mass_high*pow(etamax,3./5.)); /* log MChirp max*/
 
   REAL8 spin1max=s1_mag_max;  /* Why do we need to copy them here? Can't we just use the global ones? */
