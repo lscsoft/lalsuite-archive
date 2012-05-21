@@ -17,78 +17,71 @@
 *  MA  02111-1307  USA
 */
 
-#if 0
-<lalVerbatim file="LALInspiralRingdownWaveCV">
-Author: Yi Pan
-$Id$
-</lalVerbatim>
+/**
 
-<lalLaTeX>
-\subsection{Module \texttt{LALInspiralRingdownWave.c}}
+\author Yi Pan
+\file
 
-Module to compute the ring-down waveform as linear combination
+\brief Module to compute the ring-down waveform as linear combination
 of quasi-normal-modes decaying waveforms, which can be attached to
 the inspiral part of the compat binary coalescing waveform.
 
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{XLALXLALInspiralRingdownWaveCP}
-\idx{XLALXLALInspiralRingdownWave()}
-\begin{itemize}
-   \item \texttt{rdwave1,} Output, the real part of the ring-down waveform
-   \item \texttt{rdwave2,} Output, the imaginary part of the ring-down waveform
-   \item \texttt{params,} Input, the parameters where ring-down waveforms are computed
-   \item \texttt{inspwave1,} Input, the real part of the ring-down waveform
-   \item \texttt{inspwave2,} Input, the real part of the ring-down waveform
-   \item \texttt{modefreqs,} Input, the frequencies of the quasi-normal-modes
-   \item \texttt{nmode,} Input, the number of quasi-normal-modes to be combined.
-\end{itemize}
+\heading{Prototypes}
 
-\input{XLALGenerateWaveDerivativesCP}
-\idx{XLALGenerateWaveDerivatives()}
-\begin{itemize}
-   \item \texttt{dwave,} Output, time derivative of the input waveform
-   \item \texttt{ddwave,} Output, two time derivative of the input waveform
-   \item \texttt{wave,} Input, waveform to be differentiated in time
-   \item \texttt{params,} Input, the parameters of the input waveform.
-\end{itemize}
 
-\input{XLALGenerateQNMFreqCP}
-\idx{XLALGenerateQNMFreq()}
-\begin{itemize}
-   \item \texttt{ptfwave,} Output, the frequencies of the quasi-normal-modes
-   \item \texttt{params,} Input, the parameters of the binary system
-   \item \texttt{l,} Input, the l of the modes
-   \item \texttt{m,} Input, the m of the modes
-   \item \texttt{nmodes,} Input, the number of overtones considered.
-\end{itemize}
+<tt>XLALXLALInspiralRingdownWave()</tt>
+<ul>
+   <li> <tt>rdwave1,</tt> Output, the real part of the ring-down waveform
+   </li><li> <tt>rdwave2,</tt> Output, the imaginary part of the ring-down waveform
+   </li><li> <tt>params,</tt> Input, the parameters where ring-down waveforms are computed
+   </li><li> <tt>inspwave1,</tt> Input, the real part of the ring-down waveform
+   </li><li> <tt>inspwave2,</tt> Input, the real part of the ring-down waveform
+   </li><li> <tt>modefreqs,</tt> Input, the frequencies of the quasi-normal-modes
+   </li><li> <tt>nmode,</tt> Input, the number of quasi-normal-modes to be combined.</li>
+</ul>
 
-\input{XLALFinalMassSpinCP}
-\idx{XLALFinalMassSpin()}
-\begin{itemize}
-   \item \texttt{finalMass,} Output, the mass of the final Kerr black hole
-   \item \texttt{finalSpin,}  Input, the spin of the final Kerr balck hole
-   \item \texttt{params,} Input, the parameters of the binary system.
-\end{itemize}
 
-\subsubsection*{Description}
+<tt>XLALGenerateWaveDerivatives()</tt>
+<ul>
+   <li> <tt>dwave,</tt> Output, time derivative of the input waveform
+   </li><li> <tt>ddwave,</tt> Output, two time derivative of the input waveform
+   </li><li> <tt>wave,</tt> Input, waveform to be differentiated in time
+   </li><li> <tt>params,</tt> Input, the parameters of the input waveform.</li>
+</ul>
+
+
+<tt>XLALGenerateQNMFreq()</tt>
+<ul>
+   <li> <tt>ptfwave,</tt> Output, the frequencies of the quasi-normal-modes
+   </li><li> <tt>params,</tt> Input, the parameters of the binary system
+   </li><li> <tt>l,</tt> Input, the l of the modes
+   </li><li> <tt>m,</tt> Input, the m of the modes
+   </li><li> <tt>nmodes,</tt> Input, the number of overtones considered.</li>
+</ul>
+
+
+<tt>XLALFinalMassSpin()</tt>
+<ul>
+   <li> <tt>finalMass,</tt> Output, the mass of the final Kerr black hole
+   </li><li> <tt>finalSpin,</tt>  Input, the spin of the final Kerr balck hole
+   </li><li> <tt>params,</tt> Input, the parameters of the binary system.</li>
+</ul>
+
+\heading{Description}
 Generating ring-down waveforms.
 
-\subsubsection*{Algorithm}
+\heading{Algorithm}
 
-\subsubsection*{Uses}
+\heading{Uses}
 
-\begin{verbatim}
+\code
 LALMalloc
 LALFree
-\end{verbatim}
+\endcode
 
-\subsubsection*{Notes}
+\heading{Notes}
 
-\vfill{\footnotesize\input{LALInspiralRingdownWaveCV}}
-
-</lalLaTeX>
-#endif
+*/
 
 #include <stdlib.h>
 #include <lal/LALStdlib.h>
@@ -107,7 +100,6 @@ LALFree
 #define UNUSED
 #endif
 
-/* <lalVerbatim file="XLALInspiralHybridRingdownWaveCP">  */
 INT4 XLALInspiralHybridRingdownWave (
 	REAL4Vector			*rdwave1,
 	REAL4Vector			*rdwave2,
@@ -317,7 +309,7 @@ INT4 XLALInspiralRingdownWave (
 	COMPLEX8Vector			*modefreqs,
 	UINT4				nmodes
 	)
-/* </lalVerbatim> */
+
 {
 
   static const char *func = "XLALInspiralRingdownWave";
@@ -570,7 +562,7 @@ INT4 XLALGenerateWaveDerivatives (
 	REAL4Vector			*wave,
 	InspiralTemplate		*params
 	)
-/* </lalVerbatim> */
+
 {
   static const char *func = "XLALGenerateWaveDerivatives";
 
@@ -668,7 +660,7 @@ INT4 XLALGenerateQNMFreq(
 	UINT4			UNUSED m,
 	UINT4			nmodes
 	)
-/* </lalVerbatim> */
+
 {
   /* XLAL error handling */
   INT4 errcode = XLAL_SUCCESS;
@@ -937,13 +929,12 @@ INT4 XLALGenerateQNMFreqV2(
   return XLAL_SUCCESS;
 }
 
-/* <lalVerbatim file="XLALFinalMassSpinCP">  */
 INT4 XLALFinalMassSpin(
 	REAL8		 *finalMass,
 	REAL8		 *finalSpin,
 	InspiralTemplate *params
 	)
-/* </lalVerbatim> */
+
 {
   static const REAL8 root9ovr8minus1 = -0.057190958417936644;
   static const REAL8 root12          = 3.4641016151377544;
