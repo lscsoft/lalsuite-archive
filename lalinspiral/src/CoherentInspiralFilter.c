@@ -1921,6 +1921,7 @@ XLALCoherentInspiralFilterSegment (
 	      /* Fill thisEvent with this trigger's quadrature values */
 	      XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 	      thisEvent->snr = cohSNR;
+              thisEvent->kappa = nullStatRegul;
 	      strcpy(thisEvent->ifos,caseStr);
 	      thisEvent->mass1 = input->tmplt->mass1;
 	      thisEvent->mass2 = input->tmplt->mass2;
@@ -1960,6 +1961,7 @@ XLALCoherentInspiralFilterSegment (
 	      /* Fill thisEvent with this trigger's quadrature values */
 	      XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 	      thisEvent->snr = cohSNR;
+              thisEvent->kappa = nullStatRegul;
 	      strcpy(thisEvent->ifos, caseStr);
 	      thisEvent->mass1 = input->tmplt->mass1;
 	      thisEvent->mass2 = input->tmplt->mass2;
@@ -2012,6 +2014,7 @@ XLALCoherentInspiralFilterSegment (
 	      /* Fill thisEvent with this trigger's quadrature values */
 	      XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 	      thisEvent->snr = cohSNR;
+              thisEvent->kappa = nullStatRegul;
 	      strcpy(thisEvent->ifos,caseStr);
 	      thisEvent->mass1 = input->tmplt->mass1;
 	      thisEvent->mass2 = input->tmplt->mass2;
@@ -2078,8 +2081,8 @@ XLALCoherentInspiralFilterSegment (
 
             snrsq1 = pow(cData[0]->data->data[k].re,2) +
               pow(cData[0]->data->data[k].im,2);
-            chisqFac1 = (1 + snrsq1/eff_snr_denom_fac)*chisq[0]/
-                             (2*chisq_dof[0] -2);
+            /*CHECK: chisqFac1 = (1 + snrsq1/eff_snr_denom_fac)*chisq[0]/
+                             (2*chisq_dof[0] -2);*/
 
 	    for (q = k-slidePoints[1]-buffer; q < k+slidePoints[1]+buffer; q++)
 	      {
@@ -2087,8 +2090,8 @@ XLALCoherentInspiralFilterSegment (
 		  {
 		    snrsq2 = pow(cData[1]->data->data[q].re,2) +
 		      pow(cData[1]->data->data[q].im,2);
-		    chisqFac2 = (1 + snrsq2/eff_snr_denom_fac)*chisq[1]/
-				     (2*chisq_dof[1] -2);
+		    /*CHECK: chisqFac2 = (1 + snrsq2/eff_snr_denom_fac)*chisq[1]/
+				     (2*chisq_dof[1] -2);*/
 		    cohSNRLocal = snrsq1 + snrsq2;
 
 		    if(cohSNRLocal > cohSNR)
@@ -2129,7 +2132,8 @@ XLALCoherentInspiralFilterSegment (
 		/* Fill thisEvent with this trigger's quadrature values */
 		XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 		thisEvent->snr = cohSNR;
-		strcpy(thisEvent->ifos,caseStr);
+                thisEvent->kappa = nullStatRegul;
+   		strcpy(thisEvent->ifos,caseStr);
 		thisEvent->mass1 = input->tmplt->mass1;
 		thisEvent->mass2 = input->tmplt->mass2;
 		thisEvent->mchirp = input->tmplt->totalMass * pow( input->tmplt->eta, 3.0/5.0 );
@@ -2172,6 +2176,7 @@ XLALCoherentInspiralFilterSegment (
 		/* Fill thisEvent with this trigger's quadrature values */
 		XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 		thisEvent->snr = cohSNR;
+                thisEvent->kappa = nullStatRegul;
 		strcpy(thisEvent->ifos, caseStr);
 		thisEvent->mass1 = input->tmplt->mass1;
 		thisEvent->mass2 = input->tmplt->mass2;
@@ -2226,6 +2231,7 @@ XLALCoherentInspiralFilterSegment (
 		/* Fill thisEvent with this trigger's quadrature values */
 		XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 		thisEvent->snr = cohSNR;
+                thisEvent->kappa = nullStatRegul;
 		strcpy(thisEvent->ifos,caseStr);
 		thisEvent->mass1 = input->tmplt->mass1;
 		thisEvent->mass2 = input->tmplt->mass2;
@@ -2296,7 +2302,7 @@ XLALCoherentInspiralFilterSegment (
 			    /*FIXME: This will NOT work if G1 is present!
                               because it assumes that the "0" det is H1 and
                               "1" det is H2! Rectify in next rev. */
-			    REAL4          snrsq1 = 0.0;
+			    /* CHECK: UNUSED in RINGDOWN: REAL4          snrsq1 = 0.0;
 			    REAL4          snrsq2 = 0.0;
 			    REAL4          snrsq3 = 0.0;
 			    REAL4          chisqFac1 = 1.0;
@@ -2323,7 +2329,11 @@ XLALCoherentInspiralFilterSegment (
 			      + sqrt(sigmasq[2])*cData[1]->data->data[m].re/chisqFac2;
 			    cohSNRLocalIm = sqrt(sigmasq[1])*cData[0]->data->data[k].im/
 			      chisqFac1
-			      + sqrt(sigmasq[2])*cData[1]->data->data[m].im/chisqFac2;
+			      + sqrt(sigmasq[2])*cData[1]->data->data[m].im/chisqFac2; */
+                            cohSNRLocalRe = sqrt(sigmasq[1])*cData[0]->data->data[k].re
+                              + sqrt(sigmasq[2])*cData[1]->data->data[m].re;
+                            cohSNRLocalIm = sqrt(sigmasq[1])*cData[0]->data->data[k].im
+                              + sqrt(sigmasq[2])*cData[1]->data->data[m].im;
 
 			    cohSNRLocal = (cohSNRLocalRe*cohSNRLocalRe + cohSNRLocalIm*cohSNRLocalIm) /
 			      (sigmasq[1] + sigmasq[2]) ;
@@ -2331,7 +2341,7 @@ XLALCoherentInspiralFilterSegment (
 			    cohSNRLocal += (cData[2]->data->data[q].re
 					    *cData[2]->data->data[q].re +
 					    cData[2]->data->data[q].im
-					    *cData[2]->data->data[q].im)/chisqFac3;
+					    *cData[2]->data->data[q].im);/*CHECK:/chisqFac3;*/
 
 			  if(cohSNRLocal > cohSNR)
 			      {
@@ -2374,6 +2384,7 @@ XLALCoherentInspiralFilterSegment (
 		    /* Fill thisEvent with this trigger's quadrature values */
 		    XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 		    thisEvent->snr = cohSNR;
+                    thisEvent->kappa = nullStatRegul;
                     cohSNRLocalRe = sqrt(sigmasq[1])*thisEvent->h1quad.re
                                     + sqrt(sigmasq[2])*thisEvent->h2quad.re;
                     cohSNRLocalIm = sqrt(sigmasq[1])*thisEvent->h1quad.im
@@ -2399,7 +2410,7 @@ XLALCoherentInspiralFilterSegment (
 		       (double) quadTemp[2].re,(double) quadTemp[2].im,
 		       sigmasq4DArray, chisq, thisEvent);
 
-		    thisEvent->null_statistic = -1; /* store network null-statistic for numDetectors >2*/
+		    thisEvent->null_statistic = thisEvent->null_stat_h1h2; /* store null_stat_h1h2 */
 		    thisEvent->ligo_angle = acos( LAL_C_SI * deltaT * abs(k-w) / distance[1] );
                     thisEvent->coa_phase = -1001;
 
@@ -2428,6 +2439,7 @@ XLALCoherentInspiralFilterSegment (
 		    /* Fill thisEvent with this trigger's quadrature values */
 		    XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 		    thisEvent->snr = cohSNR;
+                    thisEvent->kappa = nullStatRegul;
                     cohSNRLocalRe = sqrt(sigmasq[1])*thisEvent->h1quad.re
                                     + sqrt(sigmasq[2])*thisEvent->h2quad.re;
                     cohSNRLocalIm = sqrt(sigmasq[1])*thisEvent->h1quad.im
@@ -2453,7 +2465,7 @@ XLALCoherentInspiralFilterSegment (
 		       (double) quadTemp[2].re,(double) quadTemp[2].im,
                        sigmasq4DArray, chisq, thisEvent);
 
-		    thisEvent->null_statistic = -1; /* store network null-statistic for numDetectors >2*/
+		    thisEvent->null_statistic = thisEvent->null_stat_h1h2; /* store null_stat_h1h2 */
 		    thisEvent->ligo_angle = acos( LAL_C_SI * deltaT * abs(k-w) / distance[1] );
                     thisEvent->coa_phase = -1001;
 
@@ -2495,6 +2507,7 @@ XLALCoherentInspiralFilterSegment (
 		    /* Fill thisEvent with this trigger's quadrature values */
 		    XLALAssignEventQuads(caseID,quadTemp,thisEvent);
 		    thisEvent->snr = cohSNR;
+                    thisEvent->kappa = nullStatRegul;
                     cohSNRLocalRe = sqrt(sigmasq[1])*thisEvent->h1quad.re
                                     + sqrt(sigmasq[2])*thisEvent->h2quad.re;
                     cohSNRLocalIm = sqrt(sigmasq[1])*thisEvent->h1quad.im
@@ -2520,7 +2533,7 @@ XLALCoherentInspiralFilterSegment (
 		       (double) quadTemp[2].re,(double) quadTemp[2].im,
                        sigmasq4DArray, chisq, thisEvent);
 
-		    thisEvent->null_statistic = -1; /* store network null-statistic for numDetectors >2*/
+		    thisEvent->null_statistic = thisEvent->null_stat_h1h2; /* store null_stat_h1h2 */
 		    thisEvent->ligo_angle = acos( LAL_C_SI * deltaT * abs(k-w) / distance[1] );
                     thisEvent->coa_phase = -1001;
 

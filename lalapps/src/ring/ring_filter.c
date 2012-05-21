@@ -89,7 +89,7 @@ int XLALAddCData( CDataNode **cdataStrCat, CHAR *id )
 {
       int notPresent = 1;
       int addedCData = 0;
-      CDataNode *prevCData = NULL;
+      //CDataNode *prevCData = NULL;
       CDataNode *nextCData = NULL;
       CDataNode *thisCData = NULL;
 
@@ -109,17 +109,25 @@ int XLALAddCData( CDataNode **cdataStrCat, CHAR *id )
 	  *cdataStrCat = thisCData;
 	}
 
-	prevCData = thisCData;
+	//prevCData = thisCData;
 	thisCData = thisCData->next;
-	if ( thisCData )
-	  nextCData = thisCData->next;
+	//if ( thisCData )
+	//  nextCData = thisCData->next;
       }
+
+      verbose( "Entered XLALAddCData loop; notPresent is %d\n", notPresent);
+      verbose( "Here addedCData is %d\n", addedCData); 
+      verbose( "Here cdataStrCat is %s\n", (*cdataStrCat)->cdataStrNode );
+      verbose( "Here cdataStr is %s\n", &id); 
 
       if ( notPresent ) {
 	(*cdataStrCat)->next = (CDataNode *) LALCalloc( 1, sizeof(CDataNode) );
 	strcpy( (*cdataStrCat)->next->cdataStrNode , id );
 	addedCData = 1;
       }
+
+      verbose( "Here addedCData AFTER check is %d\n", addedCData);
+      verbose( "Here cdataStrCat is %s\n", (*cdataStrCat)->next->cdataStrNode );
 
       return( addedCData );
 }
@@ -857,6 +865,73 @@ void XLALFindChirpCreateCoherentInput(
       fracpart = modf(tempTime, &intpart);
       cohInputData->epoch.gpsSeconds = (INT4) intpart;
       cohInputData->epoch.gpsNanoSeconds = (INT4) (fracpart*1.0e9);
+    }
+  else if ( eventTimePoint <= numPoints && eventTimePoint >= 0 )
+    {
+      /* return cohInputData with length 2*cohSegLength, 
+	 with strings of zeros at the beginning and end */
+      int j = 0;
+      INT4 eventTimeFromSegEnd = 0;
+      INT4 cohSegTimePointsBy2 = 0;
+      INT4 cohInputDataStart = 0;
+      INT4 cohInputDataLength = 0;
+
+      cohSegTimePointsBy2 = floor(cohSegLength/deltaT);
+      eventTimeFromSegEnd = numPoints - eventTimePoint;
+
+      cohInputData = *coherentInputData = (COMPLEX8TimeSeries *)
+	LALCalloc(1, sizeof(COMPLEX8TimeSeries) );
+
+      fullCohSegLength = 2*cohSegLength/deltaT;
+
+      cohInputData->data = XLALCreateCOMPLEX8Vector( fullCohSegLength );
+
+      /* store C-data snippet and its associated info */
+      memcpy(cohInputData->name, input->name, LALNameLength * sizeof(CHAR) );
+
+      verbose( "Initializing coherent input COMPLEX8 vector");
+
+      for(j=0;j<fullCohSegLength;j++)
+	{
+	  cohInputData->data->data[j].re = 0.0;
+	  cohInputData->data->data[j].im = 0.0;
+	}
+
+      if ( ( eventTimeFromSegEnd <= cohSegTimePointsBy2 ) )
+	{
+          verbose( "Deriving parameters for c-data snippet");
+	  cohSegStart = eventTimePoint - eventTimeFromSegEnd;
+	  cohInputDataStart = cohSegTimePointsBy2 - eventTimeFromSegEnd;
+	  cohInputDataLength = 2*eventTimeFromSegEnd;
+
+	  verbose( "When eventTimeFromSegEnd <= cohSegTimePointsBy2, then cohInputDataStart, cohSegStart, cohInputDataLength are %d, %d, %d\n", cohInputDataStart, cohSegStart, cohInputDataLength );
+
+	  memcpy(cohInputData->data->data + cohInputDataStart, &(input->data->data[cohSegStart]), cohInputDataLength * sizeof(COMPLEX8) );
+
+	}
+      else if ( ( eventTimePoint <= cohSegTimePointsBy2 ) )
+	{
+	  cohSegStart = 0;
+	  cohInputDataStart = cohSegTimePointsBy2 - eventTimePoint;
+	  cohInputDataLength = 2*eventTimePoint;
+
+	  verbose( "When eventTimePoint <= cohSegTimePointsBy2, then cohInputDataStart, eventTimePoint, cohInputDataLength are %d, %d, %d\n", cohInputDataStart, eventTimePoint, cohInputDataLength );
+
+	  if ( ( eventTimePoint <= cohSegTimePointsBy2 ) )
+	    memcpy(cohInputData->data->data + cohInputDataStart, &(input->data->data[cohSegStart]), cohInputDataLength * sizeof(COMPLEX8) );
+
+	}
+
+      cohInputData->deltaT = deltaT;
+      /*CHECK: Below is a temporary fix for communicating sigmasq
+	from inspiral to coherent_inspiral via the f0 member of
+	the COMPLEX8TimeSeries structure*/
+      cohInputData->f0 = (REAL8) templt->sigma_sq;
+      tempTime = inputEpochSeconds + inputEpochNanoSeconds*1.0e-9 + cohSegStart * deltaT;
+      fracpart = modf(tempTime, &intpart);
+      cohInputData->epoch.gpsSeconds = (INT4) intpart;
+      cohInputData->epoch.gpsNanoSeconds = (INT4) (fracpart*1.0e9);
+
     }
   else
     {

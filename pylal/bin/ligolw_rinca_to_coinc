@@ -1013,18 +1013,18 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 
 	# Reading CHIA files get coherent triggers
 
-        if options.ihope_cache is not None:
-                chia_cache = lal.Cache.fromfile(open(options.ihope_cache))
-        CohTrigs = []
-        file_sieve = 'CHIA_COHERENT'
-        trig_cache = chia_cache.sieve( description = file_sieve)
-        CohTrigs.extend(trig_cache.checkfilesexist()[0].pfnlist())
-
-        slide_file_sieve = 'CHIA_SLIDE_COHERENT'
-        trig_slide_cache = chia_cache.sieve( description = slide_file_sieve)
-        CohTrigs.extend(trig_slide_cache.checkfilesexist()[0].pfnlist())
-
 	if options.add_coherent:
+		if options.ihope_cache is not None:
+			chia_cache = lal.Cache.fromfile(open(options.ihope_cache))
+		CohTrigs = []
+		file_sieve = 'CHIA_COHERENT'
+		trig_cache = chia_cache.sieve( description = file_sieve)
+		CohTrigs.extend(trig_cache.checkfilesexist()[0].pfnlist())
+
+		slide_file_sieve = 'CHIA_SLIDE_COHERENT'
+		trig_slide_cache = chia_cache.sieve( description = slide_file_sieve)
+		CohTrigs.extend(trig_slide_cache.checkfilesexist()[0].pfnlist())
+
         	CoherentTriggers = []
         	CoherentTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(CohTrigs)
 
@@ -1118,17 +1118,21 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		# Comparing every event id with coherent triggres to store 
 		# coherent statistics
 
-                coincident_event_id = str(event_id).split(":")
 		if options.add_coherent:
-                	for row in CoherentTriggers:
-                        	coh_event_id = int(row.event_id)
-                        	if (int(coincident_event_id[2]) == coh_event_id):
-                                	coinc_ringdown.eff_coh_snr = math.sqrt(float(row.snr))
-                                	coinc_ringdown.null_stat = float(row.null_statistic)
-                                	break
-                        	else:
-                                	coinc_ringdown.eff_coh_snr = 0.0
-                                	coinc_ringdown.null_stat = 0.0
+                  coincident_event_id = str(event_id).split(":")
+                  for coh_idx, coh_row in enumerate(CoherentTriggers):
+                    coh_event_id = int(coh_row.event_id)
+                    if (int(coincident_event_id[2]) == coh_event_id):
+                      coinc_ringdown.null_stat = float(coh_row.null_statistic)
+                      if len(events) > 2: 
+                        coinc_ringdown.eff_coh_snr = math.sqrt(float(coh_row.snr))
+                      else: 
+                        coinc_ringdown.eff_coh_snr = float(coh_row.kappa)
+                      del CoherentTriggers[coh_idx]
+                      break
+                    else:
+                      coinc_ringdown.eff_coh_snr = 0.0
+                      coinc_ringdown.null_stat = 0.0
 
 		#
 		# the time of the coinc = the end time of the first trigger

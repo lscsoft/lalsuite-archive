@@ -192,10 +192,22 @@ INT8  gpsEndTimeNS     = 0;         /* input data GPS end time ns   */
 LIGOTimeGPS gpsEndTime;             /* input data GPS end time      */
 /* coinc statistic for comparison with coh-snr */
 CoincInspiralStatistic coincStat = no_stat;
-
+CoincInspiralStatParams    bittenLParams;
+REAL4 param_a[LAL_NUM_IFO] = {0.0,0.0,0.0,0.0,0.0,0.0};
+REAL4 param_b[LAL_NUM_IFO] = {0.0,0.0,0.0,0.0,0.0,0.0};
 double raStep = 1.0;
 double decStep = 1.0;
 REAL4  eff_snr_denom_fac = 50.0;
+/* CHECK:
+REAL4  h1-bittenl-a = 2.0;
+REAL4  h1-bittenl-b = 2.2;
+REAL4  h2-bittenl-a = 2.0;
+REAL4  h2-bittenl-b = 2.2;
+REAL4  l1-bittenl-a = 2.0;
+REAL4  l1-bittenl-b = 2.2;
+REAL4  v1-bittenl-a = 2.0;
+REAL4  v1-bittenl-b = 2.2;
+*/
 INT4  estimParams = 0;
 INT4  followup = 0;
 INT4  incohInj = 0;
@@ -264,9 +276,6 @@ int main( int argc, char *argv[] )
   UINT8  triggerNumber    = 0;
   UINT8  slideNumber      = 0;
   UINT8  slideSign        = 0;
-
-  /* Variables for tracking coincs */
-  CoincInspiralStatParams    bittenLParams;
 
   /* counters and other variables */
   UINT4   j,k,l;
@@ -412,6 +421,10 @@ int main( int argc, char *argv[] )
   memset( &bittenLParams, 0, sizeof(CoincInspiralStatParams   ) );
   /* default value from traditional effective snr formula */
   bittenLParams.eff_snr_denom_fac = eff_snr_denom_fac;
+  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ ) {
+    bittenLParams.param_a[ifoNumber] = param_a[ifoNumber];
+    bittenLParams.param_b[ifoNumber] = param_b[ifoNumber];
+  }
 
   fprintf(stdout,"Reading templates from %s\n",cohbankFileName);
 
@@ -1687,6 +1700,14 @@ this_proc_param = this_proc_param->next = (ProcessParamsTable *) \
 "  --cdata-length  cohSegLength  set length of CData segments (in seconds) \n"\
 "  --null-stat-regul nullStatRegul  a regulator for computing the ratio-statistic\n"\
 "  [--coinc-stat]    coincStat  use coinc statistic for comparing with coh-snr\n"\
+"  [--h1-bittenl-a]      bitten   paramater a for clustering\n"\
+"  [--h1-bittenl-b]      bitten   paramater b for clustering\n"\
+"  [--h2-bittenl-a]      bitten   paramater a for clustering\n"\
+"  [--h2-bittenl-b]      bitten   paramater b for clustering\n"\
+"  [--l1-bittenl-a]      bitten   paramater a for clustering\n"\
+"  [--l1-bittenl-b]      bitten   paramater b for clustering\n"\
+"  [--v1-bittenl-a]      bitten   paramater a for clustering\n"\
+"  [--v1-bittenl-b]      bitten   paramater b for clustering\n"\
 "  --maximize-over-chirp        do clustering\n"\
 "  --gps-start-time SEC         GPS second of data start time (needed if globbing)\n"\
 "  --gps-end-time SEC           GPS second of data end time (needed if globbing)\n"\
@@ -1741,6 +1762,14 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
      {"cdata-length",             required_argument, 0,                 's'},
      {"null-stat-regul",          required_argument, 0,                 'C'},
      {"coinc-stat",               required_argument, 0,                 'c'},
+     {"h1-bittenl-a",             required_argument, 0,                 '0'},
+     {"h1-bittenl-b",             required_argument, 0,                 '1'},
+     {"h2-bittenl-a",             required_argument, 0,                 '2'},
+     {"h2-bittenl-b",             required_argument, 0,                 '3'},
+     {"l1-bittenl-a",             required_argument, 0,                 '4'},
+     {"l1-bittenl-b",             required_argument, 0,                 '5'},
+     {"v1-bittenl-a",             required_argument, 0,                 '6'},
+     {"v1-bittenl-b",             required_argument, 0,                 '7'},
      {"maximize-over-chirp",      no_argument,       &maximizeOverChirp, 1 },
      {"write-events",             no_argument,       &eventsOut,         1 },
      {"write-cohsnr",             no_argument,       &cohSNROut,         1 },
@@ -1776,7 +1805,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
        size_t optarg_len;
 
        c = getopt_long_only( argc, argv,
-	   "A:B:a:b:c:D:G:I:L:l:e:g:W:X:Y:t:w:P:R:T:V:Z:d:f:h:p:s:C:r:u:U:v:",
+	   "A:B:a:b:c:D:G:I:L:l:e:g:W:X:Y:t:w:P:R:T:V:Z:d:f:h:p:s:C:r:u:U:v:"
+           "0:1:2:3:4:5:6:7",
            long_options, &option_index );
 
        if ( c == -1 )
@@ -2073,17 +2103,61 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
              {
                coincStat = effective_snrsq;
              }
+             else if ( ! strcmp( "bitten_l", optarg ) )
+             {
+               coincStat = bitten_l;
+             }
              else
              {
                fprintf( stderr, "invalid argument to  --%s:\n"
                  "unknown coinc statistic:\n "
                  "%s (must be one of:\n"
-                 "snrsq, effective_snrsq)\n",
+                 "snrsq, effective_snrsq, bitten_l)\n",
                  long_options[option_index].name, optarg);
                exit( 1 );
              }
              ADD_PROCESS_PARAM( "string", "%s", optarg );
            }
+           break;
+
+         case '0':
+           param_a[LAL_IFO_H1] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '1':
+           param_b[LAL_IFO_H1] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '2':
+           param_a[LAL_IFO_H2] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '3':
+           param_b[LAL_IFO_H2] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '4':
+           param_a[LAL_IFO_L1] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '5':
+           param_b[LAL_IFO_L1] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '6':
+           param_a[LAL_IFO_V1] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
+           break;
+
+         case '7':
+           param_b[LAL_IFO_V1] = atof(optarg);
+         ADD_PROCESS_PARAM( "float", "%s", optarg);
            break;
 
          case '?':
