@@ -17,50 +17,21 @@
 *  MA  02111-1307  USA
 */
 
-/*<lalVerbatim file="LALSTPNWaveformCV">
-  Author: Vallisneri, M.  Cokelaer, T.
-  $Id$
-  </lalVerbatim>  */
+/**
+  \author Vallisneri, M.  Cokelaer, T.
+  \file
+  \ingroup LALInspiral_h
 
+  \brief Module to generate STPN (spinning binaries) waveforms in agreement with
+  the injecttion  package (return a CoherentGW structure).
 
-
-/*  <lalLaTeX>
-
-\subsection{Module \texttt{LALSTPNWaveform.c}}
-DOCUMENTATION IN PROGRESS
-
-Module to generate STPN (spinning binaries) waveforms in agreement with
-the injecttion  package (return a CoherentGW structure).
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{LALSTPNWaveformForInjectionCP}
-\index{\verb&LALSTPNWaveformForInjection&}
-
-
-\subsubsection*{Description}
-
-\subsubsection*{Algorithm}
-
-
-\subsubsection*{Uses}
-\begin{verbatim}
-   LALSTPNderivatives
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-
-\vfill{\footnotesize\input{LALSTPNWaveformCV}}
-
-</lalLaTeX>  */
-
+*/
 
 
 #include <lal/Units.h>
 #include <lal/LALInspiral.h>
 #include <lal/SeqFactories.h>
-
+#include "LALSTPNWaveform2.h"
 
 NRCSID (LALSTPNWAVEFORMC, "$Id$");
 
@@ -298,14 +269,14 @@ void LALSTPNderivatives(REAL8Vector *values, REAL8Vector *dvalues, void *mparams
 
 
 
-/*  <lalVerbatim file="LALEOBWaveformCP"> */
+
 void
 LALSTPNWaveform (
    LALStatus        *status,
    REAL4Vector      *signalvec,
    InspiralTemplate *params
    )
-{ /* </lalVerbatim> */
+{
 
    UINT4 count;
    InspiralInit paramsInit;
@@ -345,7 +316,7 @@ LALSTPNWaveform (
 
 
 
-/*  <lalVerbatim file="LALEOBWaveformCP"> */
+
 void
 LALSTPNWaveformTemplates (
    LALStatus        *status,
@@ -353,7 +324,7 @@ LALSTPNWaveformTemplates (
    REAL4Vector      *signalvec2,
    InspiralTemplate *params
    )
-{ /* </lalVerbatim> */
+{
 
    UINT4 count;
 
@@ -412,7 +383,7 @@ int newswitch = 0;
 NRCSID (LALSTPNWAVEFORMFORINJECTIONC,
 "$Id$");
 
-/*  <lalVerbatim file="LALSTPNWaveformForInjectionCP"> */
+
 void
 LALSTPNWaveformForInjection (
 			     LALStatus        *status,
@@ -421,7 +392,7 @@ LALSTPNWaveformForInjection (
 			     PPNParamStruc    *ppnParams
 			    )
 {
-  /* </lalVerbatim> */
+
  UINT4 count, i;
 
   REAL4Vector *a=NULL;/* pointers to generated amplitude  data */
@@ -479,7 +450,18 @@ LALSTPNWaveformForInjection (
 
 
   /* Call the engine function */
-  LALSTPNWaveformEngine(status->statusPtr, NULL, NULL, a, ff, phi, shift,&count, params, &paramsInit);
+       if(newswitch==0) {
+    LALSTPNWaveformEngine(status->statusPtr, NULL, NULL, a, ff, phi, shift,&count, params, &paramsInit);
+    } else {
+  // void LALSTPNAdaptiveWaveformEngine(LALStatus *status,
+  //                                     REAL4Vector *signalvec1,REAL4Vector *signalvec2,
+  //                                                 REAL4Vector *a,REAL4Vector *ff,REAL8Vector *phi,REAL4Vector *shift,
+  //                                                 UINT4 *countback,
+  //                                                 InspiralTemplate *params,InspiralInit *paramsInit);
+
+    //fprintf(stderr,"Using new engine.\n");
+    LALSTPNAdaptiveWaveformEngine(status->statusPtr, NULL, NULL, a, ff, phi, shift,&count, params, &paramsInit);
+  }
 
   BEGINFAIL( status )
   {
@@ -638,7 +620,7 @@ LALSTPNWaveformForInjection (
 
 
 
-/*  <lalVerbatim file="LALSTPNWaveformInjectionCP"> */
+
 void
 LALSTPNWaveformEngine (
                 LALStatus        *status,
@@ -652,7 +634,7 @@ LALSTPNWaveformEngine (
                 InspiralTemplate *params,
                 InspiralInit     *paramsInit
                 )
-  /* </lalVerbatim> */
+
 {
   /* declare model parameters*/
 
@@ -691,7 +673,7 @@ LALSTPNWaveformEngine (
   /* declare dynamical variables*/
   REAL8 vphi, omega, LNhx, LNhy, LNhz, S1x, S1y, S1z, S2x, S2y, S2z;
   REAL8 test=-2;
-  REAL8 alpha, omegadot;
+  REAL8 alpha, alpha0, omegadot;
   REAL8 f2a, apcommon;
 
   INITSTATUS(status, "LALSTPNWaveform", LALSTPNWAVEFORMC);
@@ -965,6 +947,8 @@ LALSTPNWaveformEngine (
   S2y = initS2y;
   S2z = initS2z;
 
+  alpha0 = atan2(LNhy,LNhx);
+
   /* copy everything in the "values" structure*/
 
   values.data[0] = vphi;
@@ -1062,7 +1046,11 @@ LALSTPNWaveformEngine (
 
       /* now setting the wave from the dynamical variables*/
 
-      alpha = atan2(LNhy, LNhx);
+      if(LNhx*LNhx + LNhy*LNhy > 0.0) {
+        alpha = atan2(LNhy,LNhx); alpha0 = alpha;
+      } else {
+        alpha = alpha0;
+      }
 
       /* I don't really need i, because I can use the explicit formulae below*/
       /* i = acos(LNhz);*/
@@ -1145,7 +1133,7 @@ LALSTPNWaveformEngine (
 
   }
  /* Test that omega/unitHz < NYQUIST */
- while(test < 0.0 && omegadot > 0 && LNhz*LNhz < 1.0 - LNhztol && omega/unitHz < params->tSampling/2. && !(isnan(omega))) ;
+ while(test < 0.0 && omegadot > 0 && omega/unitHz < params->tSampling/2. && !(isnan(omega))) ;
 
  /* if code stopped since evolving quantities became nan write an error message */
  if (isnan(omega)){
