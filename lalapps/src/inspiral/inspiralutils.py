@@ -742,12 +742,18 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
       for hipe_arg in ["template-bank","ringdown"]:
         hipeCommand = test_and_add_hipe_arg(hipeCommand,hipe_arg)
   elif vetoCat:
-    if config.has_option("hipe-arguments","ringdown"):
+    if config.has_option("hipe-arguments","ringdown") and not config.has_option("hipe-arguments","ringdown-cluster"):
       hipe_args = ["coincidence", "ringdown","coire-coincidence",
-        "summary-first-coinc-triggers","write-script"]
+            "summary-first-coinc-triggers","write-script"]
       if vetoCat == 4 and config.has_option("hipe-arguments","coherent-bank"):
         hipe_args.extend(["coherent-bank","coherent-inspiral","cohire",
           "summary-coherent-inspiral-triggers"])
+    elif config.has_option("hipe-arguments","ringdown") and config.has_option("hipe-arguments","ringdown-cluster"):
+      hipe_args = ["ringdown","write-script"]
+      if vetoCat == 4 and config.has_option("hipe-arguments","coherent-bank"):
+        hipe_args.extend(["coire-coincidence","summary-first-coinc-triggers",
+          "coherent-bank","coherent-inspiral","cohire",
+          "summary-coherent-inspiral-triggers","ringdown-cluster"])
     elif config.has_option("hipe-arguments","second-coinc"):
       hipe_args = ["second-coinc", "coire-second-coinc",
         "summary-coinc-triggers", "sire-second-coinc",
@@ -755,9 +761,6 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
       if vetoCat == 4 and config.has_option("hipe-arguments","coherent-bank"):
         hipe_args.extend(["coherent-bank","coherent-inspiral","cohire",
           "summary-coherent-inspiral-triggers"])
-    elif vetoCat == 4 and config.has_option("hipe-arguments","coherent-bank"):
-      hipe_args = ["coherent-bank","coherent-inspiral","cohire",
-        "summary-coherent-inspiral-triggers","write-script"]
     else:
       hipe_args = ["coincidence","write-script"]
     for hipe_arg in hipe_args:
