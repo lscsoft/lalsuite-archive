@@ -567,7 +567,6 @@ setup(
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_cbc_svim"),
 		os.path.join("bin", "lalapps_cbc_sink"),
-		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_plot_tisi"),
 		os.path.join("bin", "lalapps_power_calc_likelihood"),
 		os.path.join("bin", "lalapps_power_plot_binj"),
