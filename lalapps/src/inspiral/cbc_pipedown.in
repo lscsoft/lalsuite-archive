@@ -98,7 +98,7 @@ parser.add_option( "", "--gps-end-time", action = "store", type = "string",
   help =
     "GPS end time of the ihope run."
   )
-parser.add_option( "", "--coherent-tiggers", action = "store_true",
+parser.add_option( "", "--coherent-triggers", action = "store_true",
   default = False,
   help =
     "Run pipedown with coherent stage output files."
@@ -167,10 +167,15 @@ print "Parsing the ihope cache..."
 coinc_zero_lag_tag = cp.get('pipeline', 'coinc-file-tag')
 coinc_slide_tag = cp.get('pipeline', 'coinc-slide-file-tag')
 search_file_tag = cp.get('pipeline', 'search-file-tag')
-ihope_cache = [line for line in file(options.ihope_cache) \
-  if coinc_zero_lag_tag in line or coinc_slide_tag in line \
-  or " INJECTIONS" in line or search_file_tag in line \
-  or "CHIA_COHERENT" in line or "CHIA_SLIDE_COHERENT" in line]
+if options.coherent_triggers:
+  ihope_cache = [line for line in file(options.ihope_cache) \
+    if coinc_zero_lag_tag in line or coinc_slide_tag in line \
+    or " INJECTIONS" in line or search_file_tag in line \
+    or "COHIRE" in line]
+else: 
+  ihope_cache = [line for line in file(options.ihope_cache) \
+    if coinc_zero_lag_tag in line or coinc_slide_tag in line \
+    or " INJECTIONS" in line or search_file_tag in line]
 
 zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if coinc_zero_lag_tag in entry])
@@ -180,10 +185,12 @@ inj_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache if \
   " INJECTIONS" in entry])
 all_inspirals_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if search_file_tag in entry]) 
+coh_inj_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
+  if "COHIRE_INJECTIONS" in entry])
 coh_zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
-  if "CHIA_COHERENT" in entry])
+  if "COHIRE_COHERENT" in entry])
 coh_slide_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
-  if "CHIA_SLIDE_COHERENT" in entry])
+  if "COHIRE_SLIDE_COHERENT" in entry])
 
 del ihope_cache
 
@@ -407,7 +414,10 @@ for tag in user_tags:
   # sieve zero_lag_cache for THINCA_SECOND files with this tag
   file_sieve = '*' + tag
   thinca_cache = zero_lag_cache.sieve( description = file_sieve, exact_match = True )
-  cohire_cache = coh_zero_lag_cache.sieve( description = file_sieve, exact_match = True )
+  if not simulation:
+    cohire_cache = coh_zero_lag_cache.sieve( description = file_sieve, exact_match = True )
+  else:
+    cohire_cache = coh_inj_cache.sieve( description = file_sieve, exact_match = True )
   # if not an injection run, check that there are an equal number of
   # slide files
   if not simulation and \
@@ -471,8 +481,8 @@ for tag in user_tags:
       if not simulation:
         slide_entry = lal.CacheEntry(re.sub(coinc_zero_lag_tag, coinc_slide_tag, str(entry)))
         this_cache.append(slide_entry)
-      if options.coherent_tiggers:
-          cohire_slide_entry = lal.CacheEntry(re.sub('CHIA', 'CHIA_SLIDE', str(coh_entry)))
+        if options.coherent_triggers:
+          cohire_slide_entry = lal.CacheEntry(re.sub('COHIRE', 'COHIRE_SLIDE', str(coh_entry)))
           this_cache.append(cohire_slide_entry)
 
       # if n*20th entry or last remainder, write to cache
