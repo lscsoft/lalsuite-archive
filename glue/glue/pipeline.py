@@ -122,6 +122,7 @@ class CondorJob:
     self.__grid_type = None
     self.__grid_server = None
     self.__grid_scheduler = None
+    self.__executable_installed = True
 
   def get_executable(self):
     """
@@ -187,6 +188,21 @@ class CondorJob:
     """
     self.__grid_scheduler = grid_scheduler
 
+  def set_executable_installed(self,installed):
+    """
+    If executable installed is true, then no copying of the executable is
+    done. If it is false, pegasus stages the executable to the remote site.
+    Default is executable is installed (i.e. True).
+    @param installed: true or fale
+    """
+    self.__executable_installed = installed
+
+  def get_executable_installed(self):
+    """
+    return whether or not the executable is installed
+    """
+    return self.__executable_installed
+
   def add_condor_cmd(self, cmd, value):
     """
     Add a Condor command to the submit file (e.g. a class add or evironment).
@@ -194,6 +210,12 @@ class CondorJob:
     @param value: value for command.
     """
     self.__condor_cmds[cmd] = value
+
+  def get_condor_cmds(self):
+    """
+    Return the dictionary of condor keywords to add to the job
+    """
+    return self.__condor_cmds
 
   def add_input_file(self, filename):
     """
@@ -634,6 +656,8 @@ class CondorDAGNode:
     self.__input_files = []
     self.__dax_collapse = None
     self.__vds_group = None
+    self.__grid_start = 'none'
+    self.__pegasus_profile = []
 
     # generate the md5 node name
     t = str( long( time.time() * 1000 ) )
@@ -650,6 +674,37 @@ class CondorDAGNode:
     Return the CondorJob that this node is associated with.
     """
     return self.__job
+
+  def add_pegasus_profile(self, namespace, key, value):
+    """
+    Add a Pegasus profile to this job which will be written to the dax as
+    <profile namespace="NAMESPACE" key="KEY">VALUE</profile>
+    This can be used to add classads to particular jobs in the DAX
+    @param namespace: A valid Pegasus namespace, e.g. condor.
+    @param key: The name of the attribute.
+    @param value: The value of the attribute.
+    """
+    self.__pegasus_profile.append((str(namespace),str(key),str(value)))
+
+  def get_pegasus_profile(self):
+    """
+    Return the pegasus profile dictionary for this node.
+    """
+    return self.__pegasus_profile
+
+  def set_grid_start(self, gridstart):
+    """
+    Set the grid starter that pegasus will use. 4.1 options
+    are none (the default), kickstart and pegasuslite
+    @param: gridstart pegasus.gridstart property
+    """
+    self.__grid_start = str(gridstart)
+
+  def get_grid_start(self):
+    """
+    Return the grid starter that pegasus will use.
+    """
+    return self.__grid_start
 
   def set_pre_script(self,script):
     """
@@ -1186,6 +1241,7 @@ class CondorDAG:
     self.__integer_node_names = 0
     self.__node_count = 0
     self.__nodes_finalized = 0
+    self.__pegasus_worker = None
 
   def get_nodes(self):
     """
@@ -1275,6 +1331,19 @@ class CondorDAG:
     """
     return self.__maxjobs_categories
 
+  def set_pegasus_worker(self, path):
+    """
+    Set the path of a pagsus worker package to use for the workflow.
+    @param path: path to worker package.
+    """
+    self.__pegasus_worker = path
+
+  def get_pegasus_worker(self):
+    """
+    Return the path to the pegasus worker package.
+    """
+    return self.__pegasus_worker
+
   def write_maxjobs(self,fh,category):
     """
     Write the DAG entry for this category's maxjobs to the DAG file descriptor.
@@ -1345,6 +1414,25 @@ class CondorDAG:
     # Pegasus should take care of this so we don't have to
     workflow_executable_dict = {}
     workflow_pfn_dict = {}
+
+    if self.get_pegasus_worker():
+      # write the executable into the dax
+      worker_package = Pegasus.DAX3.Executable(
+        namespace="pegasus", name="worker",
+        os="linux", arch="x86_64", installed=False)
+      worker_package.addPFN(Pegasus.DAX3.PFN(self.get_pegasus_worker(),"local"))
+      workflow_executable_dict['pegasus-pegasus_worker'] = worker_package
+
+    # check for the pegasus-cluster package
+    for path in os.environ["PATH"].split(":"):
+      cluster_path = os.path.join(path,"pegasus-cluster")
+      if os.path.exists(cluster_path):
+        # and add to the dax if it exists
+        seqexec_package = Pegasus.DAX3.Executable(
+          namespace="pegasus", name="seqexec",
+          os="linux", arch="x86_64", installed=True)
+        seqexec_package.addPFN(Pegasus.DAX3.PFN(cluster_path,"local"))
+        workflow_executable_dict['pegasus-pegasus_seqexec'] = seqexec_package
 
     id = 0
     for node in self.__nodes:
@@ -1426,10 +1514,11 @@ class CondorDAG:
         node_job_object_dict[node_name] = id_tag
 
         # get the name of the executable 
+        executable_namespace = 'ligo-' + str(node.job().__class__.__name__).lower()
         executable_base = os.path.basename(executable)
 
-        workflow_job = Pegasus.DAX3.Job(
-          namespace="ligo", name=executable_base, version="1.0", id=id_tag)
+        workflow_job = Pegasus.DAX3.Job( namespace=executable_namespace, 
+          name=executable_base, version="1.0", id=id_tag)
 
         cmd_line = node.get_cmd_tuple_list()
 
@@ -1461,13 +1550,18 @@ class CondorDAG:
             
         # write the executable into the dax
         job_executable = Pegasus.DAX3.Executable(
-          namespace="ligo", name=executable_base, version="1.0",
-          os="linux", arch="x86_64")
+          namespace=executable_namespace,
+          name=executable_base, version="1.0",
+          os="linux", arch="x86_64",
+          installed=node.job().get_executable_installed())
 
         executable_path = os.path.join(os.getcwd(),executable)
         job_executable.addPFN(Pegasus.DAX3.PFN(executable_path,"local"))
 
-        workflow_executable_dict[executable_base] = job_executable
+        workflow_executable_dict[executable_namespace + executable_base] = job_executable
+
+        # write the grid start parameter for this node (default is none)
+        workflow_job.addProfile(Pegasus.DAX3.Profile("pegasus","gridstart",node.get_grid_start()))
 
         # write the bundle parameter if this node has one
         if node.get_dax_collapse():
@@ -1503,6 +1597,11 @@ class CondorDAG:
         else:
           workflow_job.addProfile(Pegasus.DAX3.Profile("condor","universe",node.job().get_universe()))
 
+        # add any other user specified condor commands or classads
+        for p in node.get_pegasus_profile():
+            workflow_job.addProfile(Pegasus.DAX3.Profile(p[0],p[1],p[2]))
+
+        # finally add this job to the workflow
         workflow.addJob(workflow_job)
         node_job_object_dict[node_name] = workflow_job
 
@@ -1592,11 +1691,12 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         print >> sitefile, """    <profile namespace="env" key="S6_SEGMENT_SERVER">%s</profile>""" % os.environ['S6_SEGMENT_SERVER']
       except:
         pass
+
       print >> sitefile, """\
     <profile namespace="pegasus" key="style">condor</profile>
-    <profile namespace="pegasus" key="gridstart">none</profile>
+    <profile namespace="condor" key="getenv">True</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
-    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile> 
+    <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
   </site>
 </sitecatalog>""" 
       sitefile.close()
@@ -1916,6 +2016,9 @@ class AnalysisNode(CondorDAGNode):
       self.add_var_opt('glob-frame-data',' ')
       # only add the LFNs that actually overlap with this job
       # XXX FIXME this is a very slow algorithm
+      if len(filename) == 0:
+        raise CondorDAGNodeError, \
+          "LDR did not return any LFNs for query: check ifo and frame type"
       for lfn in filename:
         a, b, c, d = lfn.split('.')[0].split('-')
         t_start = int(c)

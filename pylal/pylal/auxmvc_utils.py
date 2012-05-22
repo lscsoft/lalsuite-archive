@@ -295,7 +295,7 @@ def ReadMVSCTriggers(files):
   return MVSCTriggers  
 
 
-def LoadCV(filename):
+def LoadOVL(filename):
 
   """
   Reads in the pickled output of CV data (eg: kwl1-35.track.9.pickle) and inverts the data storage. Returns a list of gwtrg's removed by the Cveto method.
@@ -345,9 +345,10 @@ def LoadCV(filename):
       vstats = [line[h['livetime']], line[h['#gwtrg']], line[h['dsec']], line[h['csec']], line[h['vact']], line[h['vsig']], c_livetime, c_ngwtrg, c_dsec, c_csec, c_vact, lineidx]
       gwtrg_vtd = line[h['gwtrg_vetoed']]
       # iterate through trg's and fill in gwtrg_vtd_tcent
-      for trg in gwtrg_vtd:
-        gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
-        tcentidx += 1
+      if gwtrg_vtd[0] != 'NONE':
+        for trg in gwtrg_vtd:
+          gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
+          tcentidx += 1
 
   # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
   return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])

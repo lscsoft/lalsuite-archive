@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lal],[6.7.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lal],[6.7.1.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([include/config.h include/lal/LALConfig.h])
 AC_CONFIG_SRCDIR([packages/std/include/LALStdio.h])
 AC_CONFIG_AUX_DIR([misc])
@@ -116,7 +116,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT],[3])
-AC_SUBST([LIBREVISION],[0])
+AC_SUBST([LIBREVISION],[1])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 
@@ -135,7 +135,7 @@ AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT_SUPPORT],[1])
-AC_SUBST([LIBREVISION_SUPPORT],[1])
+AC_SUBST([LIBREVISION_SUPPORT],[2])
 AC_SUBST([LIBAGE_SUPPORT],[1])
 AC_SUBST([LIBVERSION_SUPPORT],[${LIBCURRENT_SUPPORT}:${LIBREVISION_SUPPORT}:${LIBAGE_SUPPORT}])
 
@@ -160,6 +160,8 @@ LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
 
+LALSUITE_SWIG_REQUIRE_CXX
+
 # get version
 lal_version_major=`echo "$VERSION" | cut -d. -f1`
 lal_version_minor=`echo "$VERSION" | cut -d. -f2`
@@ -178,6 +180,15 @@ AC_DEFINE_UNQUOTED([LAL_CONFIGURE_DATE],["$lal_configure_date"],[LAL Configure D
 test "$prefix"="NONE" && lal_prefix="$ac_default_prefix" || lal_prefix="$prefix"
 AC_DEFINE_UNQUOTED([LAL_PREFIX],["$lal_prefix"],[LAL Install Prefix])
 
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
+
+# use silent build rules
+AM_SILENT_RULES([yes])
+
+# check for C/C++ compilers
+LALSUITE_PROG_CC_CXX
+
 # check for pthreads
 lal_pthread_available="yes"
 AX_PTHREAD(,[lal_pthread_available="no"])
@@ -191,25 +202,11 @@ if test "$lal_pthread_lock" = "true" ; then
   fi
 fi
 
-# workaround broken libtool multilib support on sl6
-LALSUITE_MULTILIB_LIBTOOL_HACK
-
-# check for c compiler
-AC_PROG_CC_C99
-
-# use silent build rules
-AM_SILENT_RULES([yes])
-
-# check for c++ compiler
-AC_PROG_CXX
-
 # check for programs
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
-LT_INIT
 AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
 AC_CHECK_PROGS([M4],[gm4 m4], m4)
 AC_CHECK_PROGS([LATEX],[pdflatex latex],[echo])
@@ -221,9 +218,6 @@ LALSUITE_OSX_VERSION_CHECK
 
 # link tests using libtool
 LALSUITE_USE_LIBTOOL
-
-# check complex number types
-LALSUITE_CHECK_COMPLEX_NUMBER_TYPES
 
 # check for support tex flags
 if test -z "$TEXFLAGS"

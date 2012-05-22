@@ -1575,8 +1575,8 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
                                                   LALInferenceIFOData UNUSED *data, 
                                                   LALInferenceTemplateFunction UNUSED *template) {
   const INT4 DIM = 15;
-  gsl_matrix *LUCM = NULL;
-  gsl_permutation *LUCMPerm = NULL;
+  static gsl_matrix *LUCM = NULL;
+  static gsl_permutation *LUCMPerm = NULL;
   INT4 mode = 0;
   
   REAL8 x[DIM];
@@ -1607,8 +1607,8 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
   for (i = 0; i < DIM; i++) {
     sum += xOrig[i]*x[i];
   }
-  gsl_matrix_free(LUCM);
-  gsl_permutation_free(LUCMPerm);
+  //gsl_matrix_free(LUCM);
+  //gsl_permutation_free(LUCMPerm);
   return -sum/2.0;
 }
 
@@ -1620,8 +1620,8 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
   INT4 i, mode;
   REAL8 sum = 0.0;
   REAL8 a, b;
-  gsl_matrix *LUCM = NULL;
-  gsl_permutation *LUCMPerm = NULL;
+  static gsl_matrix *LUCM = NULL;
+  static gsl_permutation *LUCMPerm = NULL;
   gsl_vector_view xView;
 
   REAL8 x[DIM];
@@ -1664,8 +1664,8 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
     a = exps[1];
     b = exps[0];
   }
-  gsl_matrix_free(LUCM);
-  gsl_permutation_free(LUCMPerm);
+  //gsl_matrix_free(LUCM);
+  //gsl_permutation_free(LUCMPerm);
 
   /* attempt to keep returned values finite */
   return a + log1p(exp(b-a));

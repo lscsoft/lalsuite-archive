@@ -118,9 +118,9 @@ void clusterCandidates(candidateVector *output, candidateVector *input, ffdataSt
    REAL8 avefsig, aveperiod, mindf, maxdf;
    
    //Allocate int vectors for storage
-   INT4Vector *locs = XLALCreateINT4Vector((UINT4)input->numofcandidates);
-   INT4Vector *locs2 = XLALCreateINT4Vector((UINT4)input->numofcandidates);
-   INT4Vector *usedcandidate = XLALCreateINT4Vector((UINT4)input->numofcandidates);
+   INT4Vector *locs = XLALCreateINT4Vector(input->numofcandidates);
+   INT4Vector *locs2 = XLALCreateINT4Vector(input->numofcandidates);
+   INT4Vector *usedcandidate = XLALCreateINT4Vector(input->numofcandidates);
    if (locs==NULL) {
       fprintf(stderr,"%s: XLALCreateINT4Vector(%d) failed.\n", __func__, input->numofcandidates);
       XLAL_ERROR_VOID(XLAL_EFUNC);
@@ -405,8 +405,12 @@ INT4 testIHScandidates(candidateVector *output, candidateVector *ihsCandidates, 
                fprintf(stderr,"%s: makeTemplateGaussians() failed.\n", __func__);
                XLAL_ERROR(XLAL_EFUNC);
             }
-            //TODO: remove this
-            /* for (jj=0; jj<(INT4)template->templatedata->length; jj++) fprintf(stderr, "%g %d %d %d\n", template->templatedata->data[jj], template->pixellocations->data[jj], template->firstfftfrequenciesofpixels->data[jj], template->secondfftfrequencies->data[jj]);
+            //remove this
+            /* for (jj=0; jj<(INT4)template->templatedata->length; jj++) fprintf(stderr, "%g %d %d %d %g\n", template->templatedata->data[jj], template->pixellocations->data[jj], template->firstfftfrequenciesofpixels->data[jj], template->secondfftfrequencies->data[jj], aveNoise->data[template->secondfftfrequencies->data[jj]]*aveTFnoisePerFbinRatio->data[template->firstfftfrequenciesofpixels->data[jj]]);
+            for (jj=0; jj<50; jj++) {
+               REAL8 probval = probR(template, aveNoise, aveTFnoisePerFbinRatio, 0.3*jj-2.0, inputParams, &proberrcode);
+               fprintf(stderr, "%f %g\n", 0.3*jj-2.0, pow(10.0, probval));
+            }
             resetTemplateStruct(template);
             REAL4FFTPlan *FFTplan = XLALCreateForwardREAL4FFTPlan(ffdata->numffts, inputParams->FFTplanFlag);
             INT4Vector *sftexist = XLALCreateINT4Vector(ffdata->numffts);
@@ -417,7 +421,11 @@ INT4 testIHScandidates(candidateVector *output, candidateVector *ihsCandidates, 
                XLAL_ERROR(XLAL_EFUNC);
             }
             fprintf(stderr, "\n");
-            for (jj=0; jj<(INT4)template->templatedata->length; jj++) fprintf(stderr, "%g %d %d %d\n", template->templatedata->data[jj], template->pixellocations->data[jj], template->firstfftfrequenciesofpixels->data[jj], template->secondfftfrequencies->data[jj]);
+            for (jj=0; jj<(INT4)template->templatedata->length; jj++) fprintf(stderr, "%g %d %d %d %g\n", template->templatedata->data[jj], template->pixellocations->data[jj], template->firstfftfrequenciesofpixels->data[jj], template->secondfftfrequencies->data[jj], aveNoise->data[template->secondfftfrequencies->data[jj]]*aveTFnoisePerFbinRatio->data[template->firstfftfrequenciesofpixels->data[jj]]);
+            for (jj=0; jj<50; jj++) {
+               REAL8 probval = probR(template, aveNoise, aveTFnoisePerFbinRatio, 0.75*jj-8.0, inputParams, &proberrcode);
+               fprintf(stderr, "%f %g\n", 0.75*jj-8.0, pow(10.0, probval));
+            }
             XLALDestroyREAL4FFTPlan(FFTplan);
             XLALDestroyINT4Vector(sftexist); */
             
@@ -800,7 +808,7 @@ candidateVector * keepMostSignificantCandidates(candidateVector *input, inputPar
          REAL8 highestsignificance = 0.0;
          INT4 candidateWithHighestSignificance = 0;
          for (jj=0; jj<(INT4)input->numofcandidates; jj++) {
-            if (input->data[jj].prob<highestsignificance) {
+            if (input->data[jj].prob>highestsignificance) {
                highestsignificance = input->data[jj].prob;
                candidateWithHighestSignificance = jj;
             }

@@ -47,5 +47,10 @@ ligolw_sqlite_test:
 	bash ligolw_sqlite_test.sh
 	@echo "<=== end ligolw_sqlite_test ==="
 
+glue_ligolw_ilwd_verify :
+	@echo "=== start glue_ligolw_ilwd_verify ===>"
+	python glue_ligolw_ilwd_verify.py
+	@echo "<=== end glue_ligolw_ilwd_verify ==="
+
 clean :
 	rm -f ligo_lw_test_01*png

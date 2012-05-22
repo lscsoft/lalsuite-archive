@@ -79,7 +79,7 @@ accumulateKDTreeSample(LALInferenceRunState *runState) {
   LALInferenceVariables *proposalParams = runState->proposalArgs;
 
   if (!LALInferenceCheckVariable(proposalParams, "kDTree") || !LALInferenceCheckVariable(proposalParams, "kDTreeVariableTemplate")) {
-    /* Improper setup---bail! */
+    /* Not setup correctly. */
     return;
   }
 
@@ -92,7 +92,7 @@ accumulateKDTreeSample(LALInferenceRunState *runState) {
 
   LALInferenceKDAddPoint(tree, pt);
 
-  XLALFree(pt);
+  /* Don't free pt, since it is now stored in tree. */
 }
 
 static void DEbuffer2array(LALInferenceRunState *runState, INT4 startCycle, INT4 endCycle, REAL8** DEarray) {
@@ -600,11 +600,11 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
     }
 
     if ((i % Nskip) == 0) {
-      if (!LALInferenceGetProcParamVal(runState->commandLine, "--noDifferentialEvolution")) {
+      if (!LALInferenceGetProcParamVal(runState->commandLine, "--noDifferentialEvolution") && !LALInferenceGetProcParamVal(runState->commandLine, "--nodifferentialevolution")) {
         accumulateDifferentialEvolutionSample(runState);
       }
 
-      if (LALInferenceGetProcParamVal(runState->commandLine, "--kDTree")) {
+      if (LALInferenceGetProcParamVal(runState->commandLine, "--kDTree") || LALInferenceGetProcParamVal(runState->commandLine, "--kdtree")) {
         accumulateKDTreeSample(runState);
       }
 
@@ -628,9 +628,10 @@ void PTMCMCAlgorithm(struct tagLALInferenceRunState *runState)
           fprintf(statfile,"%d\t",i);
 
           if (LALInferenceGetProcParamVal(runState->commandLine, "--adaptVerbose")){
+            s_gamma = *(REAL8*) LALInferenceGetVariable(runState->proposalArgs, "s_gamma");
             fprintf(statfile,"%f\t",s_gamma);
             for (p=0; p<nPar; ++p) {
-              fprintf(statfile,"%f\t",sigmas->data[p]);
+              fprintf(statfile,"%g\t",sigmas->data[p]);
             }
             for (p=0; p<nPar; ++p) {
               fprintf(statfile,"%f\t",PacceptCount->data[p]/( PproposeCount->data[p]==0 ? 1.0 : PproposeCount->data[p] ));
@@ -777,8 +778,11 @@ void PTMCMCOneStep(LALInferenceRunState *runState)
   else
     logLikelihoodProposed = -DBL_MAX;
 
+  //REAL8 nullLikelihood = *(REAL8*) LALInferenceGetVariable(runState->proposalArgs, "nullLikelihood");
+  //printf("%10.10f\t%10.10f\t%10.10f\n", logPriorProposed-logPriorCurrent, logLikelihoodProposed-nullLikelihood, logProposalRatio);
+  //LALInferencePrintVariables(&proposedParams);
+  
   // determine acceptance probability:
-  //printf("%f\t%f\n",logPriorProposed, logLikelihoodProposed);
   logAcceptanceProbability = (1.0/temperature)*(logLikelihoodProposed - logLikelihoodCurrent)
     + (logPriorProposed - logPriorCurrent)
     + logProposalRatio;
@@ -862,7 +866,7 @@ void PTMCMCOneStep(LALInferenceRunState *runState)
       }
 
       sigma = (sigma > dprior ? dprior : sigma);
-      sigma = (sigma < 0 ? 0 : sigma);
+      sigma = (sigma < DBL_MIN ? DBL_MIN : sigma);
 
       sigmas->data[i] = sigma;
 
@@ -1012,10 +1016,10 @@ FILE *LALInferencePrintPTMCMCHeader(LALInferenceRunState *runState) {
   int MPIrank;
   MPI_Comm_rank(MPI_COMM_WORLD, &MPIrank);
 
-  ppt = LALInferenceGetProcParamVal(runState->commandLine, "--output");
+  ppt = LALInferenceGetProcParamVal(runState->commandLine, "--outfile");
   if (ppt) {
     outFileName = (char*)XLALCalloc(strlen(ppt->value)+255,sizeof(char*));
-    sprintf(outFileName,"%s//PTMCMC.output.%u.%2.2d",ppt->value,randomseed,MPIrank);
+    sprintf(outFileName,"%s.%2.2d",ppt->value,MPIrank);
   } else {
     outFileName = (char*)XLALCalloc(255,sizeof(char*));
     sprintf(outFileName,"PTMCMC.output.%u.%2.2d",randomseed,MPIrank);
@@ -1137,7 +1141,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
 
   ppt = LALInferenceGetProcParamVal(runState->commandLine, "--inj");
   if (ppt) {
-    ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal(runState->commandLine, "--output");
+    ProcessParamsTable *ppt2 = LALInferenceGetProcParamVal(runState->commandLine, "--outfile");
     UINT4 randomseed = *(UINT4*) LALInferenceGetVariable(runState->algorithmParams,"random_seed");
     FILE *out = NULL;
     char *fname = NULL;
@@ -1147,7 +1151,7 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
 
     if (ppt2) {
       fname = (char *) XLALCalloc((strlen(ppt2->value)+255)*sizeof(char), 1);
-      sprintf(fname, "%s//PTMCMC.output.%u.injection", ppt2->value, randomseed);
+      sprintf(fname, "%s.injection", ppt2->value);
     } else {
       fname = (char *) XLALCalloc(255*sizeof(char), 1);
       sprintf(fname, "PTMCMC.output.%u.injection", randomseed);
@@ -1175,7 +1179,11 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
       theEventTable->next = NULL;
     }
 
-    REAL8 q = theEventTable->mass2 / theEventTable->mass1;
+    REAL8 m1 = theEventTable->mass1;
+    REAL8 m2 = theEventTable->mass2;
+    REAL8 q = m2/m1;
+    REAL8 eta = m1*m2/(m1+m2)/(m1+m2);
+
     if (q > 1.0) q = 1.0/q;
 
     REAL8 sx = theEventTable->spin1x;
@@ -1222,7 +1230,18 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
     REAL8 ra = theEventTable->longitude;
 
     LALInferenceSetVariable(runState->currentParams, "chirpmass", &chirpmass);
-    LALInferenceSetVariable(runState->currentParams, "asym_massratio", &q);
+    if (LALInferenceCheckVariable(runState->currentParams, "asym_massratio")) {
+      LALInferenceSetVariable(runState->currentParams, "asym_massratio", &q);
+    } else if (LALInferenceCheckVariable(runState->currentParams, "massratio")) {
+      LALInferenceSetVariable(runState->currentParams, "massratio", &eta);
+    } else {
+      /* Restore state, cleanup, and throw error */
+      LALInferenceCopyVariables(saveParams, runState->currentParams);
+      XLALFree(fname);
+      LALInferenceDestroyVariables(saveParams);
+      XLALFree(saveParams);
+      XLAL_ERROR_VOID(XLAL_EINVAL, "unknown mass ratio parameter name (allowed are 'massratio' or 'asym_massratio')");
+    }
     LALInferenceSetVariable(runState->currentParams, "time", &injGPSTime);
     LALInferenceSetVariable(runState->currentParams, "distance", &dist);
     LALInferenceSetVariable(runState->currentParams, "inclination", &inclination);
@@ -1250,12 +1269,14 @@ void LALInferencePrintPTMCMCInjectionSample(LALInferenceRunState *runState) {
     }
 
     runState->currentLikelihood = runState->likelihood(runState->currentParams, runState->data, runState->template);
+    runState->currentPrior = runState->prior(runState, runState->currentParams);
     setIFOAcceptedLikelihoods(runState);
     LALInferencePrintPTMCMCHeaderFile(runState, out);
     fclose(out);
     
     LALInferenceCopyVariables(saveParams, runState->currentParams);
     runState->currentLikelihood = runState->likelihood(runState->currentParams, runState->data, runState->template);
+    runState->currentPrior = runState->prior(runState, runState->currentParams);
     setIFOAcceptedLikelihoods(runState);    
 
     XLALFree(fname);

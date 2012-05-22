@@ -1000,10 +1000,16 @@ def cbcBayesPostProc(
     #Close files
     resultspage.close()
 
+USAGE='''%prog [options] datafile.dat [datafile2.dat ...]
+Generate a web page displaying results of parameter estimation based on the contents
+of one or more datafiles containing samples from one of the bayesian algorithms (MCMC, nested sampling).
+Options specify which extra statistics to compute and allow specification of additional information.
+'''
+
 if __name__=='__main__':
 
     from optparse import OptionParser
-    parser=OptionParser()
+    parser=OptionParser(USAGE)
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
@@ -1041,10 +1047,12 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
-    parser.add_option("--savepdfs",action="store_false",default=True,dest="savepdfs")
+    parser.add_option("--nopdfs",action="store_false",default=True,dest="nopdfs")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
+
+    datafiles=opts.data+args
 
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
@@ -1114,7 +1122,7 @@ if __name__=='__main__':
     #twoDplots=[['mc','eta'],['mchirp','eta'],['mc', 'time'],['mchirp', 'time'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra', 'dec'],['m1','dist'],['m2','dist'],['mc', 'dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'], ['a1', 'a2'], ['a1', 'iota'], ['a2', 'iota'],['eta','time'],['ra','iota'],['dec','iota'],['chi','iota'],['chi','mchirp'],['chi','eta'],['chi','distance'],['chi','ra'],['chi','dec'],['chi','psi']]
     twoDplots=twoDGreedyMenu
     cbcBayesPostProc(
-                        opts.outpath,opts.data,oneDMenu,twoDGreedyMenu,
+                        opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
                         injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
@@ -1141,7 +1149,7 @@ if __name__=='__main__':
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
-                        savepdfs=opts.savepdfs,
+                        savepdfs=opts.nopdfs,
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=opts.covarianceMatrices,
                         #List of meanVector csv files used, one csv file for each covariance matrix
