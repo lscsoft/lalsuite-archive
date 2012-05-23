@@ -1053,8 +1053,27 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double instant;
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
+ 
+  LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
   gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
+
+
+  COMPLEX16TimeSeries *tseries_for_dewhitening;
+  COMPLEX16FrequencySeries *fseries_for_dewhitening;
+  COMPLEX16FFTPlan *fwdplan_for_dewhitening;
+  COMPLEX16FFTPlan *revplan_for_dewhitening;
+ 
+  deltaT = IFOdata->timeData->deltaT;
+  deltaF = IFOdata->freqData->deltaF;
+  //deltaF = 1.0 / (((double)IFOdata->timeData->data->length) * deltaT);
+  fprintf(stderr, "%f\n", deltaF);
+  tseries_for_dewhitening = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
+  memset (tseries_for_dewhitening->data->data, 0, tseries_for_dewhitening->data->length * sizeof (COMPLEX16));
+  fseries_for_dewhitening = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
+  memset (fseries_for_dewhitening->data->data, 0, fseries_for_dewhitening->data->length * sizeof (COMPLEX16));
+  fwdplan_for_dewhitening = XLALCreateForwardCOMPLEX16FFTPlan(IFOdata->manifold->waveform_length, 1);       
+  revplan_for_dewhitening = XLALCreateReverseCOMPLEX16FFTPlan(IFOdata->manifold->waveform_length, 1);  
    
   if (IFOdata->timeData==NULL) {
     XLALPrintError(" ERROR in templateLAL(): encountered unallocated 'timeData'.\n");
@@ -1065,7 +1084,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     XLAL_ERROR_VOID(XLAL_EDATA);
   }
  
-  deltaT = IFOdata->timeData->deltaT;
 
   mc2masses(mc, eta, &m1, &m2);
   
@@ -1079,6 +1097,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  	 interpolate_waveform_from_mchirp_and_eta(&IFOdata->manifold->interp_arrays[patch_index], h_t, mc, eta);
   }
   /*********************************************************/
+
+  dewhiten_template_wave(h_t, tseries_for_dewhitening, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
 
   n = IFOdata->manifold->waveform_length;
 
@@ -1144,7 +1164,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   if (instant != tc) {
     if (forceTimeLocation) { /* time-shift the frequency-domain template: */
       twopit = LAL_TWOPI * (tc - instant);
-      deltaF = 1.0 / (((double)IFOdata->timeData->data->length) * deltaT);
       for (i=1; i<IFOdata->freqModelhPlus->data->length; ++i){
         f = ((double) i) * deltaF;
         /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
@@ -1171,7 +1190,10 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
 
   gsl_vector_complex_free(h_t);
-
+  XLALDestroyCOMPLEX16TimeSeries(tseries_for_dewhitening);
+  XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);
+  XLALDestroyCOMPLEX16FFTPlan(revplan_for_dewhitening);
+  XLALDestroyCOMPLEX16FFTPlan(fwdplan_for_dewhitening);
   return;
 }
 

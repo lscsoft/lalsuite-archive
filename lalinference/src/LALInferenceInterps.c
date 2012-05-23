@@ -628,16 +628,13 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 
 }
 
-static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
+static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
 	
 	unsigned int n = fseries_for_ifft->data->length;	
 	fseries->data->data[0].re = 0;
 	fseries->data->data[0].im = 0;
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			/* dewhiten waveform */
-			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]/(2.*fseries->deltaF)) );
-			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]/(2.*fseries->deltaF)) );
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*=2.;
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*=2.;
 		}
@@ -680,22 +677,18 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan) {
-	REAL8 norm = 0;
 	
 	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
-	/* dewhiten and add quadrature-phase to waveform */
-	add_quadrature_phase(psd, fseries, fseries_for_ifft);
+	/* add quadrature-phase to waveform */
+	add_quadrature_phase(fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
  
         for(unsigned int l = 0 ; l < length_max; l++){
 		
 		gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
 		gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].im);
-		norm += XLALCOMPLEX16Abs2(tseries->data->data[tseries->data->length - 1 - (length_max - 1)  + l]);
 	}
-	//gsl_vector_scale (template_real, sqrt(2./norm));
-	//gsl_vector_scale (template_imag, sqrt(2./norm));
 
 	return 0;
 } 
@@ -792,11 +785,16 @@ static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank
 		if (sqrt(sum_s / norm_s) >= tolerance) break;
 		}
 
+	if (n % 2)
+		n += 1;
+
 	fprintf(stderr,"SVD: using %d basis templates:\n", n);
 	
 	template_view = gsl_matrix_submatrix(template_bank, 0, 0, template_bank->size1, n);
 	output = gsl_matrix_calloc(template_bank->size1, n);
 	gsl_matrix_memcpy(output, &template_view.matrix);
+
+	
 	
 	gsl_vector_free(S);
 
@@ -949,9 +947,40 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 	return 0;
 }
 
+int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *tseries_for_dewhitening, COMPLEX16FrequencySeries *fseries_for_dewhitening, 
+				  COMPLEX16FFTPlan *fwdplan_for_dewhitening, COMPLEX16FFTPlan *revplan_for_dewhitening, REAL8FrequencySeries* psd){
+
+	unsigned int k, l, m;
+	double deltaF; 
+	gsl_complex z;
+
+	deltaF = fseries_for_dewhitening->deltaF;	
+
+               	for (k = 0; k < template->size; k++){
+			tseries_for_dewhitening->data->data[k].re = GSL_REAL(gsl_vector_complex_get(template, k));
+			tseries_for_dewhitening->data->data[k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
+               	}
+		
+		XLALCOMPLEX16TimeFreqFFT (fseries_for_dewhitening, tseries_for_dewhitening, fwdplan_for_dewhitening);			
+	
+		for (l = 0; l < template->size; l++){
+			fseries_for_dewhitening->data->data[l].re *= ( sqrt(psd->data->data[l]/(2.*deltaF)) );
+			fseries_for_dewhitening->data->data[l].im *= ( sqrt(psd->data->data[l]/(2.*deltaF)) );
+                }			
+		
+		XLALCOMPLEX16FreqTimeFFT(tseries_for_dewhitening, fseries_for_dewhitening, revplan_for_dewhitening);
+		
+		for (m = 0; m < template->size; m++){
+			GSL_SET_COMPLEX(&z, tseries_for_dewhitening->data->data[m].re, tseries_for_dewhitening->data->data[m].im);
+			gsl_vector_complex_set(template, m, z);
+		}
+
+	return 0;
+}
+
 static int populate_interpolants_on_patches(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries, COMPLEX16FFTPlan *revplan, int length_max, double f_min){
 
-	int i;
+	unsigned int i;
 	gsl_vector *x_nodes;
 	gsl_vector *y_nodes;
 	gsl_vector *mchirps_even;
@@ -964,9 +993,9 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 	gsl_matrix *templates_at_nodes;
 	gsl_matrix_complex *phase_M0_xy;
 	unsigned int N_mc, M_eta;
-	int number_of_patches;
+	unsigned int number_of_patches;
 	double mc_min, mc_max, eta_min, eta_max;
-	
+
 	number_of_patches = manifold->patches_in_mc * manifold->patches_in_eta;
 	
 	/* loop over each patch */
@@ -991,37 +1020,37 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		gsl_vector_free(mchirps_even);
 	
 		svd_basis = create_svd_basis_from_template_bank(templates);	
-	
+
 		manifold->interp_arrays[i].size = svd_basis->size2;	
 		manifold->interp_arrays[i].interp = new_waveform_interpolant_from_svd_bank(svd_basis);	
 
-
 		/* Compute new template bank at colocation points-> project onto basis vectors
- 		 * to get matrix of coefficients for C_KL computation */
+ 		 e to get matrix of coefficients for C_KL computation */
 	
 	        x_nodes = raw_nodes(N_mc);
 	        y_nodes = raw_nodes(M_eta);
 	
 		mchirps_nodes = node_param_spacing(mc_min, mc_max, x_nodes);
 		etas_nodes = node_param_spacing(eta_min, eta_max, y_nodes);
-	
+
 		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
-		
+
+
 		phase_M0_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
 		M_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
 	
-		for (unsigned int j = 0; j < manifold->interp_arrays[i].size; j++) {       
+		for (unsigned int n = 0; n < manifold->interp_arrays[i].size; n++) {       
 	
-			projection_coefficient(manifold->interp_arrays[i].interp[j].svd_basis, templates_at_nodes, M_xy, N_mc, M_eta);
+			projection_coefficient(manifold->interp_arrays[i].interp[n].svd_basis, templates_at_nodes, M_xy, N_mc, M_eta);
 	
-			if(j==0){
+			if(n==0){
 	
 				measure_m0_phase(M_xy, phase_M0_xy);
 			}
 	
 			rotate_M_xy(M_xy, phase_M0_xy);
 	
-			manifold->interp_arrays[i].interp[j].C_KL = compute_C_KL(x_nodes, y_nodes, M_xy);           
+			manifold->interp_arrays[i].interp[n].C_KL = compute_C_KL(x_nodes, y_nodes, M_xy);           
 	
 			
 		}
@@ -1035,7 +1064,7 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
                 gsl_matrix_complex_free(phase_M0_xy);
                 gsl_matrix_free(templates);	
 		gsl_matrix_free(svd_basis);
-	
+
 	} 
 	return 0;
 
@@ -1061,7 +1090,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
         unsigned int patches_in_eta = 2;
-        unsigned int patches_in_mc = 2;
+        unsigned int patches_in_mc = 1;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
@@ -1081,9 +1110,9 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 	pad_parameter_bounds(mc_min, mc_max, eta_min, eta_max, &outer_eta_min, &outer_eta_max, &outer_mc_min, &outer_mc_max, number_templates_along_mc, number_templates_along_eta, number_of_templates_to_pad, &mc_padding, &eta_padding);
 
-	/* FIXME: initialize_time_and_freq_series needs to take in psd_to_interpolate and return psd for use in template bank */	
-	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate, deltaF);
 
+	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate, deltaF);
+	fprintf(stderr, "%f\n", deltaF);
 	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max);
 
 

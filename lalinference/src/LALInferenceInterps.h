@@ -4,6 +4,7 @@
 #include <lal/FrequencySeries.h>
 
 
+
 int free_waveform_interp_objects(struct twod_waveform_interpolant_array *);
 
 struct twod_waveform_interpolant_array* new_waveform_interpolant_array_from_svd_bank(gsl_matrix *svd_bank);
@@ -23,3 +24,6 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double);
 
 double compute_chirp_time(double, double, double, int, double);
+
+int dewhiten_template_wave(gsl_vector_complex*, COMPLEX16TimeSeries*, COMPLEX16FrequencySeries* 
+,COMPLEX16FFTPlan*, COMPLEX16FFTPlan*, REAL8FrequencySeries*);

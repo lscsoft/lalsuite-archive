@@ -52,7 +52,6 @@ int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold
 	for(i=0; i < manifold->patches_in_eta*manifold->patches_in_mc; i++){
 
 		free_waveform_interp_objects(&manifold->interp_arrays[i]);
-		fprintf(stderr, "%i\n", i);	
 	}	
 	free(manifold->interp_arrays);	
 	free(manifold);
@@ -582,7 +581,7 @@ static int compute_max_chirp_time_and_max_frequency(double mc_min, double eta_mi
 	double mt_min = mc_min/(pow(eta_max, 3./5.));
 
 	*f_max = ffinal(mt_min);
-	*t_max = compute_chirp_time(m1min, m2min, f_min, 7, 0);
+	*t_max = compute_chirp_time(m1min, m2min, f_min, 4, 0);
 	
 	return 0;
 }
@@ -622,10 +621,14 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	compute_working_length_and_sample_rate(t_max, f_max, &working_length, &sample_rate, length_max);
 	fprintf(stderr, "working_length %d sample_rate %e\n", working_length, sample_rate);
 
-	working_length = 32768;
-	deltaT = 1. / sample_rate;
+	/*deltaT = 1. / sample_rate;
         working_duration = (working_length / sample_rate);
 	deltaF = 1. / working_duration;
+	*/
+	deltaF = 0.031250;
+	deltaT = 1. / sample_rate;
+        working_duration = 1./deltaF;
+        working_length = round(working_duration*sample_rate);
 
 	/* set up time series */	
 	tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0., deltaT, &lalDimensionlessUnit, working_length);
@@ -657,7 +660,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 
 }
 
-static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
+static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
 	
 	unsigned int n = fseries_for_ifft->data->length;	
 
@@ -666,8 +669,6 @@ static int add_quadrature_phase(REAL8FrequencySeries* psd, COMPLEX16FrequencySer
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries->data->data[i].re *= ( sqrt(psd->data->data[i]) );
-			fseries->data->data[i].im *= ( sqrt(psd->data->data[i]) );
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*=2.;
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*=2.;
 		}
@@ -725,21 +726,16 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan) {
-	REAL8 norm = 0;
 	
 	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
-	add_quadrature_phase(psd, fseries, fseries_for_ifft);
+	add_quadrature_phase(fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
- 
         for(unsigned int l = 0 ; l < length_max; l++){
 		
 		gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
 		gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].im);
-		norm += XLALCOMPLEX16Abs2(tseries->data->data[tseries->data->length - 1 - (length_max - 1)  + l]);
 	}
-	//gsl_vector_scale (template_real, sqrt(2./norm));
-	//gsl_vector_scale (template_imag, sqrt(2./norm));
 
 	return 0;
 } 
@@ -774,7 +770,7 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
                         m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.05), 7, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 	
 			gsl_matrix_set_col(A, 2*k,  template_real);
 			gsl_matrix_set_col(A, 2*k+1, template_imag);
@@ -836,6 +832,10 @@ static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank
 		if (sqrt(sum_s / norm_s) >= tolerance) break;
 		}
 
+	if (n % 2)
+		n += 1;
+
+
 	fprintf(stderr,"SVD: using %d basis templates\n:", n);
 	
 	template_view = gsl_matrix_submatrix(template_bank, 0, 0, template_bank->size1, n);
@@ -867,7 +867,6 @@ int interpolate_waveform_from_mchirp_and_eta(struct twod_waveform_interpolant_ar
 		gsl_blas_daxpy (GSL_REAL(M), interps->interp[i].svd_basis, &h_t_real.vector);
 		gsl_blas_daxpy (GSL_IMAG(M), interps->interp[i].svd_basis, &h_t_imag.vector);
 	}
-
 	
 	return 0;
 	
@@ -1152,7 +1151,7 @@ static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, 
 		        m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.05) , 7, manifold->psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.) , 4, manifold->psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 
 
 			for(unsigned int l = 0; l < length_max; l++){
@@ -1203,13 +1202,13 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
         unsigned int patches_in_eta = 2;
-        unsigned int patches_in_mc = 2;
+        unsigned int patches_in_mc = 1;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
-        unsigned int length_max = 1;
+        unsigned int length_max = 0;
 
 	double outer_eta_min, outer_eta_max, outer_mc_min, outer_mc_max, mc_padding, eta_padding;
 
@@ -1252,7 +1251,7 @@ int main(void){
 
 
 	unsigned int length_max = 0;
-	unsigned int New_N_mc = 100, New_M_eta = 100;
+	unsigned int New_N_mc = 10, New_M_eta = 10;
 	double mc_min = 7.2;
 	double eta_min = 0.175;
 	double mc_max = 7.6;
