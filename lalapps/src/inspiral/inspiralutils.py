@@ -550,7 +550,7 @@ def slide_sanity(config, playOnly = False):
 ##############################################################################
 # Function to set up lalapps_inspiral_hipe
 def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
-    tmpltBank = False, playOnly = False, vetoCat = 0, vetoFiles = None, \
+    tmpltBank = False, playOnly = False, vetoCat = None, vetoFiles = None, \
     dax = False, tmpltbankCache = None, local_exec_dir = None, \
     data_checkpoint = False):
   """
@@ -662,8 +662,8 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
     else:
       # add a vetoes section
       hipecp.add_section("vetoes")
-      hipecp.set("vetoes", "vetoes-file", vetoFiles["combined-veto-file"][max(1,vetoCat)])
-      hipecp.set("vetoes", "vetoes-name", "VETO_CAT%i_CUMULATIVE"%(max(1,vetoCat)))
+      hipecp.set("vetoes", "vetoes-file", vetoFiles["combined-veto-file"][vetoCat])
+      hipecp.set("vetoes", "vetoes-name", "VETO_CAT%i_CUMULATIVE"%(vetoCat))
 
   # set the usertag
   if hipeDir == "datafind":

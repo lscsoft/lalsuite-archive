@@ -149,6 +149,8 @@ def append_process(xmldoc, **kwargs):
 		params += [(u"--exact-mass", None, None)]
 	if kwargs["depop_sngl_inspiral"] is not None:
 		params += [(u"--depop-sngl-inspiral", None, None)]
+	if kwargs["make_expr_tables"] is not None:
+		params += [(u"--make-expr-tables", None, None)]
 	if kwargs["verbose"] is not None:
 		params += [(u"--verbose", None, None)]
 	if kwargs["coinc_end_time_segment"] is not None:

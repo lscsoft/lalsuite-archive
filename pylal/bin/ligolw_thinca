@@ -100,6 +100,7 @@ def parse_command_line():
 	parser.add_option("--search-group", metavar = "name", default = "cbc", help = "Set the name of the LSC search group that performed the analysis (default = \"cbc\").")
 	parser.add_option("--coinc-end-time-segment", metavar = "seg", help = "The segment of time to retain coincident triggers from. Uses segmentUtils.from_range_strings() format \"START:END\" for an interval of the form [START,END), \"START:\" for an interval of the form [START,INF), and \":END\" for an interval of the form (-INF,END).")
 	parser.add_option("--depop-sngl-inspiral", action = "store_true", help = "Removes all the rows in the sngl_inspiral table that are not associated with a coincident event.")
+	parser.add_option("--make-expr-tables", action = "store_true", help = "Make and populate the set of experiment tables needed for the pipedown post-processing pipeline.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filename = parser.parse_args()
 
@@ -255,16 +256,11 @@ if options.depop_sngl_inspiral:
 	table_utils.depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
 #
-# write the experiment_tables and populate them  
-# remove any rows in the tables which lack either events or coinc-time
+# Make the experiment, experiment_summary, and experiment_map tables
 #
 
-table_utils.generate_experiment_tables(xmldoc, **options.__dict__)
-
-table_utils.populate_experiment_map(xmldoc, options.vetoes_name, verbose = options.verbose)
-
-table_utils.depopulate_experiment_tables(xmldoc, verbose = options.verbose)
-
+if options.make_expr_tables:
+	table_utils.make_experiment_tables(xmldoc, **options.__dict__) 
 
 #
 # Close out the process table.

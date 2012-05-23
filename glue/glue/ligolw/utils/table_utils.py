@@ -86,7 +86,7 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 		for event in non_coincs:
 			del sngls_tbl[sngls_tbl_eid.index(event)]
 		if verbose:
-			print >> sys.stderr, "\n\tremoved %i single-ifo triggers that were not associated with a coincident found in the coinc_event_map table." %( len(non_coincs) )
+			print >> sys.stderr, "removed %i single-ifo triggers that were not associated with a coincident found in the coinc_event_map table." %( len(non_coincs) )
 
 	return xmldoc
 
@@ -158,7 +158,7 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
 		del experiment_summ_table[esid_index]
 
 	if verbose:
-		print >> sys.stderr, "\n\tremoved %i empty experiment(s) from the experiment table and %i associated time slides from the experiment_summary table." %( len(del_eid_indices), len(del_esid_indices) )
+		print >> sys.stderr, "removed %i empty experiment(s) from the experiment table and %i associated time slides from the experiment_summary table." %( len(del_eid_indices), len(del_esid_indices) )
 
 
 #
@@ -223,7 +223,7 @@ def populate_experiment_table(
 	"""
 
 	if verbose:
-		print >> sys.stderr, "populating the Experiment table..."
+		print >> sys.stderr, "\tPopulating the Experiment table..."
 
 	# find the experiment table or create one if needed
 	try:
@@ -318,7 +318,7 @@ def populate_experiment_summ_table(
 	"""
 
 	if verbose:
-		print >> sys.stderr, "populating the Experiment Summary table..."
+		print >> sys.stderr, "\tPopulating the Experiment Summary table..."
 
 	# find the experiment_summary table or create one if needed
 	try:
@@ -396,7 +396,7 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 	# find the experiment_map table or create one if needed
 	#
 	if verbose:
-		print >> sys.stderr, "Mapping coinc events to experiment_summary table..."
+		print >> sys.stderr, "\tMapping coinc events to experiment_summary table..."
 
 	try:
 		expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
@@ -467,4 +467,24 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 			expr_map_table.append(expr_map)
 			# Increment number of events in nevents column by 1
 			expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
+
+def make_experiment_tables(xmldoc, **cmdline_opts):
+	"""
+	This collection of functions creates and populates the experiment,
+	experiment_summary, and experiment_map tables.	
+	"""
+
+	try:
+		# Does the segment_summary table exist?
+		segment_summ_tbl = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+
+		generate_experiment_tables(xmldoc, **cmdline_opts)
+		populate_experiment_map(xmldoc, cmdline_opts["vetoes_name"], verbose = cmdline_opts["verbose"])
+		depopulate_experiment_tables(xmldoc, verbose = cmdline_opts["verbose"])
+	except ValueError:
+		# FIXME: The code which populates the experiment tables relies on the segment
+		# tables existing in the input file to ligolw_thinca. If these tables do not
+		# exist, then the experiment tables are not made. The easiest fix is to just
+		# add segments and vetoes information to each thinca file, event at cat-1.
+		print >> sys.stderr, "WARNING: the experiment tables will not be made - file lacks segments tables" \
 
