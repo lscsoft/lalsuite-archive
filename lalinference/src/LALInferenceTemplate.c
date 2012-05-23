@@ -1066,8 +1066,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  
   deltaT = IFOdata->timeData->deltaT;
   deltaF = IFOdata->freqData->deltaF;
-  //deltaF = 1.0 / (((double)IFOdata->timeData->data->length) * deltaT);
-  fprintf(stderr, "%f\n", deltaF);
+ 
   tseries_for_dewhitening = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
   memset (tseries_for_dewhitening->data->data, 0, tseries_for_dewhitening->data->length * sizeof (COMPLEX16));
   fseries_for_dewhitening = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);

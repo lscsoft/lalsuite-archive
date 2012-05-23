@@ -524,10 +524,9 @@ static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_f
 
 	for(i = 0; i < psd_to_interpolate->data->length; i++){
 		
-		freq_series_for_interp[i] = f0 + i*psd_to_interpolate->deltaF;
+		freq_series_for_interp[i] = f0 + i*deltaF;
 		psd_series_for_interp[i] = psd_to_interpolate->data->data[i];
 	}
-	
 	for(i = 0; i < psd_for_template_bank->data->length; i++){
 
 		f = f0 + i * deltaF;
@@ -564,13 +563,12 @@ static int compute_max_chirp_time(double mc_min, double eta_min,  double f_min, 
 	return 0;
 }
 
-static int compute_working_length(double chirp_time, unsigned int *working_length, double sample_rate, unsigned int *length_max) {
+static int compute_length_max(double chirp_time, double sample_rate, unsigned int *length_max) {
 	
 	double duration = pow(2., ceil(log(chirp_time) / log(2.))); /* see SPADocstring in _spawaveform.c */
 	
 	//*sample_rate = pow(2., ceil(log(2.* f_max) / log(2.)));
 	*length_max =  round(sample_rate * duration);
-	*working_length = (unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * sample_rate)) / log(2.))));
 
 	return 0;
 }
@@ -593,7 +591,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	t_max*=2;
 	fprintf(stderr, "f_max %e t_max %e\n", sample_rate/2., t_max);
 
-	compute_working_length(t_max, &working_length, sample_rate, length_max);
+	compute_length_max(t_max, sample_rate, length_max);
 
 	deltaT = 1. / sample_rate;
 	working_duration = 1./deltaF;
