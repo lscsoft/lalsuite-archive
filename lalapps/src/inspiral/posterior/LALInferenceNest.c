@@ -252,12 +252,13 @@ Nested sampling arguments:\n\
 (--tolerance dZ)\tTolerance of nested sampling algorithm (0.1)\n\
 (--randomseed seed)\tRandom seed of sampling distribution\n\
 (--verbose)\tProduce progress information\n\
-\t(--iotaDistance FRAC)\tPTMCMC: Use iota-distance jump FRAC of the time\n\
-\t(--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
-\t(--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
-\t(--prior_distr )\t Set the prior to use (for the moment the only possible choice is SkyLoc which will use the sky localization project prior. All other values or skipping this option select LALInferenceInspiralPriorNormalised)\n\
-\t(--correlatedgaussianlikelihood)\tUse analytic, correlated Gaussian for Likelihood.\n\
-\t(--bimodalgaussianlikelihood)\tUse analytic, bimodal correlated Gaussian for Likelihood.\n";
+(--iotaDistance FRAC)\tPTMCMC: Use iota-distance jump FRAC of the time\n\
+(--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
+(--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
+(--prior_distr )\t Set the prior to use (for the moment the only possible choice is SkyLoc which will use the sky localization project prior. All other values or skipping this option select LALInferenceInspiralPriorNormalised)\n\
+(--correlatedgaussianlikelihood)\tUse analytic, correlated Gaussian for Likelihood.\n\
+(--bimodalgaussianlikelihood)\tUse analytic, bimodal correlated Gaussian for Likelihood.\n";
+//(--tdlike)\tUse time domain likelihood.\n";
 
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
@@ -311,7 +312,11 @@ Nested sampling arguments:\n\
         	runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
 		runState->prior=LALInferenceAnalyticNullPrior;
 	}
-    
+
+//	if(LALInferenceGetProcParamVal(commandLine,"--tdlike")){
+//		fprintf(stderr, "Computing likelihood in the time domain.\n");
+//		runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
+//    	}
     
 	#ifdef HAVE_LIBLALXML
 	runState->logsample=LogNSSampleAsMCMCSampleToArray;
@@ -395,10 +400,21 @@ Nested sampling arguments:\n\
 void initVariablesReviewEvidence(LALInferenceRunState *state);
 void initVariablesReviewEvidence(LALInferenceRunState *state)
 {
+    ProcessParamsTable *commandLine=state->commandLine;
+    ProcessParamsTable *ppt=NULL;
+    char **strings=NULL;
+    char *pinned_params=NULL;
+    UINT4 N=0,i,j;
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+            pinned_params=ppt->value;
+            LALInferenceVariables tempParams;
+            memset(&tempParams,0,sizeof(tempParams));
+            LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+    }
 	LALInferenceVariables *priorArgs=state->priorArgs;
         state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
         LALInferenceVariables *currentParams=state->currentParams;
-	UINT4 i=0;
+	i=0;
 
 	struct varSettings {const char *name; REAL8 val, min, max;};
 	
@@ -424,8 +440,11 @@ void initVariablesReviewEvidence(LALInferenceRunState *state)
 
 	while(strcmp("END",setup[i].name))
 	{
-		LALInferenceAddVariable(currentParams,setup[i].name, &(setup[i].val) ,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-	        LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
+        LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
+        /* Check if it is to be fixed */
+        for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
+		LALInferenceAddVariable(currentParams,setup[i].name, &(setup[i].val) ,LALINFERENCE_REAL8_t, type);
+	    LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
 		i++;
 	}
 	return;

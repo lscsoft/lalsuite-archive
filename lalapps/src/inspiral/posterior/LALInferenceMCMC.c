@@ -159,7 +159,7 @@ void initializeMCMC(LALInferenceRunState *runState)
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Likelihood Functions -----------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
-               (--tdlike)                       Compute likelihood in the time domain.\n\
+               (--zeroLogLike)                  Use flat, null likelihood.\n\
                (--studentTLikelihood)           Use the Student-T Likelihood that marginalizes over noise.\n\
                (--correlatedGaussianLikelihood) Use analytic, correlated Gaussian for Likelihood.\n\
                (--bimodalGaussianLikelihood)    Use analytic, bimodal correlated Gaussian for Likelihood.\n\
@@ -260,10 +260,11 @@ void initializeMCMC(LALInferenceRunState *runState)
     }
   }
 
-  if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
-    fprintf(stderr, "Computing likelihood in the time domain.\n");
-    runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
+//  if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
+//    fprintf(stderr, "Computing likelihood in the time domain.\n");
+//    runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
+//  } else 
+  if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
     /* Use zero log(L) */
     runState->likelihood=&LALInferenceZeroLogLikelihood;
   } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
