@@ -74,19 +74,20 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 	coinc_map_tbl = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 
 	if len(coinc_map_tbl) == 0:
-		for i in xrange(len(sngls_tbl_eid) - 1, -1, -1):
-			 del sngls_tbl[i]
+		del sngls_tbl[:]
 		if verbose:
-			 print >> sys.stderr, "This file lacks any coincident events, so all triggers in the sngl_inspiral table have been removed.",
+			 print >> sys.stderr, "This file lacks any coincident events. All %i single-ifo inspiral triggers have been removed." %( len(sngls_tbl_eid) )
 	else:
 		coinc_map_tbl_eid = list(coinc_map_tbl.getColumnByName("event_id"))
 		non_coincs = list(set(sngls_tbl_eid) - set(coinc_map_tbl_eid))
-		non_coincs.sort(reverse = True)
 
-		for event in non_coincs:
-			del sngls_tbl[sngls_tbl_eid.index(event)]
+		coinc_sngls_tbl = xmldoc.childNodes[0].insertBefore( lsctables.New(lsctables.SnglInspiralTable), sngls_tbl)
+		for (idx,event_id) in enumerate(coinc_map_tbl_eid):
+			coinc_sngls_tbl.insert(idx, sngls_tbl[sngls_tbl_eid.index(event_id)] )
+		xmldoc.childNodes[0].removeChild(sngls_tbl)
+
 		if verbose:
-			print >> sys.stderr, "removed %i single-ifo triggers that were not associated with a coincident found in the coinc_event_map table." %( len(non_coincs) )
+			print >> sys.stderr, "%i single-ifo inspiral triggers not associated with a coincident event have been removed." %( len(non_coincs) )
 
 	return xmldoc
 
