@@ -1054,8 +1054,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
  
-  //FILE *whitened ;
-  //FILE *dewhitened ;
+  FILE *whitened ;
+  FILE *dewhitened ;
  
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
