@@ -39,6 +39,7 @@ from glue import segmentsUtils
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import lsctables
 from glue.ligolw import array
 from glue.ligolw import utils
 from glue import git_version
@@ -118,13 +119,16 @@ table.RowBuilder = table.InterningRowBuilder
 #
 
 
-def ContentHandler(xmldoc):
-	if not (options.table or options.array):
-		# parse the entire document
-		return ligolw.LIGOLWContentHandler(xmldoc)
+if not (options.table or options.array):
+	# parse the entire document
+	ContentHandler = ligolw.LIGOLWContentHandler
+else:
+	class ContentHandler(ligolw.PartialLIGOLWContentHandler):
+		def __init__(self, xmldoc):
+			ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
 
-	# parse just the desired table and/or array elements
-	return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
+
+array.use_in(ContentHandler)
 
 
 #
@@ -181,12 +185,14 @@ options, urls = parse_command_line()
 
 
 #
-# Importing the lsctables module enables additional LSC table constraints
+# Enable appropriate level of table parsing.
 #
 
 
 if options.constrain_lsc_tables:
-	from glue.ligolw import lsctables
+	lsctables.use_in(ContentHandler)
+else:
+	table.use_in(ContentHandler)
 
 
 #

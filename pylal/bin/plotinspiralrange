@@ -41,28 +41,9 @@ import sys
 import glob
 from optparse import *
 import numpy
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from glue import lal
 from pylal import InspiralUtils
 from pylal import git_version
-
-# ============================================================================
-class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-  def __init__(self, xmldoc):
-    """
-    New content handler that only reads in the SummValue table
-    """
-    def element_filter(name, attrs):
-      """
-      Return True if name and attrs describe a SummValueTable
-      """
-      return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs) 
-    ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
-
-utils.ContentHandler = ContentHandler
 
 # ============================================================================
 def stairs(xVal,yVal):
