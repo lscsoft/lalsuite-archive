@@ -1054,6 +1054,9 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
  
+  //FILE *whitened ;
+  //FILE *dewhitened ;
+ 
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
   gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
@@ -1096,11 +1099,33 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  	 interpolate_waveform_from_mchirp_and_eta(&IFOdata->manifold->interp_arrays[patch_index], h_t, mc, eta);
   }
   /*********************************************************/
+  
+  whitened = fopen("whitened_waveform.txt","w");
+
+  for( unsigned int m=0; m < h_t->size; m++){
+
+  	fprintf(whitened,"%e %e\n", GSL_REAL(gsl_vector_complex_get(h_t, m)), GSL_IMAG(gsl_vector_complex_get(h_t, m)) );
+
+  }
+  
+  fclose(whitened); 
+ 
+  dewhitened = fopen("dewhitened_waveform.txt","w");
+
 
   dewhiten_template_wave(h_t, tseries_for_dewhitening, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
 
-  n = IFOdata->manifold->waveform_length;
 
+  for( unsigned int m=0; m < h_t->size; m++){
+
+        fprintf(dewhitened,"%e %e\n", GSL_REAL(gsl_vector_complex_get(h_t, m)), GSL_IMAG(gsl_vector_complex_get(h_t, m)) );
+
+  }  
+  
+  fclose(dewhitened); 
+  
+  n = IFOdata->manifold->waveform_length;
+  
   memset(IFOdata->timeModelhPlus->data->data,0,IFOdata->timeModelhPlus->data->length*sizeof(REAL8));
   memset(IFOdata->timeModelhCross->data->data,0,IFOdata->timeModelhCross->data->length*sizeof(REAL8));
 

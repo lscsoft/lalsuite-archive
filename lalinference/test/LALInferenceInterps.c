@@ -669,11 +669,13 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].re = fseries->data->data[i].re*=2.;
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - ( (n/2 - 1)  ) + i].im = fseries->data->data[i].im*=2.;
+			fseries_for_ifft->data->data[i].re = fseries->data->data[i].re*=2.;
+			fseries_for_ifft->data->data[i].im = fseries->data->data[i].im*=2.;
 		}
 	}
+
 	return 0;
+
 }
 
 static gsl_vector *even_param_spacing(double min, double max, int count) {
@@ -732,9 +734,9 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	add_quadrature_phase(fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
         for(unsigned int l = 0 ; l < length_max; l++){
-		
-		gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
-		gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].im);
+
+                gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
+                gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max- 1) + l].im);		
 	}
 
 	return 0;
