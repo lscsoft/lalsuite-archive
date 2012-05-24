@@ -222,6 +222,14 @@ class MetadataContentHandler(ligolw.FilteringLIGOLWContentHandler):
 		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: not lsctables.IsTableProperties(lsctables.SnglInspiralTable, name, attrs))
 
 
+try:
+	lsctables.use_in(MetadataContentHandler)
+except AttributeError:
+	# old glue did not allow .use_in().
+	# FIXME:  remove when we can require the latest version of glue
+	pass
+
+
 #
 # uses a dictionary mapping filename to URL to retrieve the process
 # metadata for the lalapps_inspiral jobs whose triggers are found in

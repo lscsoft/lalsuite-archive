@@ -3038,18 +3038,34 @@ TableByName = {
 
 
 #
-# Override portions of the ligolw.LIGOLWContentHandler class
+# Override portions of the ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-__parent_startTable = ligolw.LIGOLWContentHandler.startTable
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the Table
+	class defined in this module when parsing XML documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import lsctables
+	>>> lsctables.use_in(MyContentHandler)
+	"""
+	table.use_in(ContentHandler)
+
+	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+		name = table.StripTableName(attrs[u"Name"])
+		if name in TableByName:
+			return TableByName[name](attrs)
+		return __parent_startTable(self, attrs)
+
+	ContentHandler.startTable = startTable
 
 
-def startTable(self, attrs):
-	name = table.StripTableName(attrs[u"Name"])
-	if name in TableByName:
-		return TableByName[name](attrs)
-	return __parent_startTable(self, attrs)
-
-
-ligolw.LIGOLWContentHandler.startTable = startTable
+use_in(ligolw.DefaultLIGOLWContentHandler)
