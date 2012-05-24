@@ -2626,6 +2626,9 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     y = getTrigAttribute(trig, bincolumn)
     for bin in ybins:
       if bin[0] <= y < bin[1]:
+        if x>=len(rate[bin[0]]):
+          print "trigger after end time, something is wrong", x, len(rate[bin[0]])
+          continue
         rate[bin[0]][x] += 1/average
         break
 
