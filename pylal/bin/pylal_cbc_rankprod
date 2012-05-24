@@ -475,8 +475,8 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
       coincFANs = []
       sortedFANs = []
 
-    # order the coincs by FAN
-  if numCoincs:
+  # order the coincs by FAN
+  if numCoincs: 
     sortedCoincEvents = coiuls.coincInspiralTable()
     fan_coinc_list = zip(coincFANs,[coinc for coinc in coincEventsinTime])
     fan_coinc_list.sort()
@@ -485,7 +485,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
 
   # make an IFAN graph
   if opts.display_coincs and numCoincs:
-    xlab = r"Inverse False Alarm Number"
+    xlab = r"Inverse FAN"
     ylab = "Cumulative number"
     points = "Coincident events"
     plot_one_thing(fig_num, array(sortedFANs)**-1, arange(1,len(sortedFANs)+1), plotcommand="loglog", \
@@ -499,10 +499,10 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
       #       statsq.append( sum([getattr(sngl,"get_"+opts.statistic)**2 for sngl in sngls]) )
       #     elif opts.statistic == "snr":
       #       statsq.append( sum([getattr(sngl,"snr")**2 for sngl in sngls]) )
-    sortedStats = [coinc.stat for coinc in sortedCoincEvents]
+    sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincEvents]
     xlab = r"Combined "+opts.statistic+" squared"
-    ylab = r"Estimated false alarm number (FAN)"
-    plot_one_thing(fig_num, sortedStats, sortedFANs, plotcommand="semilogy", marker="o", size=8, \
+    ylab = r"Estimated FAN"
+    plot_one_thing(fig_num, sortedStatsq, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
       plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
       figname="coinc_statsq_vs_FAN", figtag="statsq_vs_fan")
 
@@ -522,7 +522,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
         comments += InspiralUtils.message(opts, "")
         # FIXME how to get the string formatting to work for a variable number of ifos, three would be nice
         comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, combined statsq %.1f, triggers\
-          ranked (%d,%d) in (%s,%s)" % (i+1, sortedFANs[i], sortedStats[i]**2, ranklist[0], ranklist[1], ifos[0], ifos[1]) )
+          ranked (%d,%d) in (%s,%s)" % (i+1, sortedFANs[i], sortedStatsq[i], ranklist[0], ranklist[1], ifos[0], ifos[1]) )
         comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f),\
           chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
 
@@ -544,7 +544,7 @@ if opts.fake_coincs:
     fakeFANs = [FAP*max(1,numCoincs) for FAP in fakeFAPs]
     plottit = opts.ifo_tag+" sample background coincs"
     xlab = r"Combined "+opts.statistic+" squared"
-    ylab = r"Estimated false alarm number (FAN)"
+    ylab = r"Estimated FAN"
     plot_one_thing( fig_num, fakeStatsq, fakeFANs, plotcommand="semilogy", \
       marker="x", size=8, plotcolor="k", edgecolor=None, \
       legtext="Example trigger pairs", plotxlab=xlab, plotylab=ylab, plottit=plottit, \
