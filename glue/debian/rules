@@ -15,8 +15,8 @@ PACKAGE = python-glue
 PREFIX = /usr
 
 # list of pythonX.Y available for release used for building
-#PYVERS=$(shell pyversions -r)
-PYVERS=$(shell pyversions -s)
+PYVERS=$(shell pyversions -r)
+#PYVERS=$(shell pyversions -s)
 
 CFLAGS = -Wall -g
 

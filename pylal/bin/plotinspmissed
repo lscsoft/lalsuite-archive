@@ -34,30 +34,6 @@ from pylal import InspiralUtils
 from pylal import git_version
 import numpy
 
-#######################################################################
-def isSummValue(name, attrs):
-  return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs)
-
-#######################################################################
-def readFiles(fList):
-  """
-  read in the SummInspiralTables from a list of files
-  @param fList:  list of input files
-  """
-  output = {}
-  if not fList:
-    return output
-  for thisFile in fList:
-    doc = ligolw.Document()
-    # read in SummValueTable
-    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isSummValue)).parse(file(thisFile))
-    for row in doc.childNodes[0]:
-      if row.name == 'inspiral_effective_distance':
-        if not output.has_key(row.ifo):
-          output[row.ifo] = lsctables.New(lsctables.SummValueTable)
-        output[row.ifo].append(row)
-  return output
 
 #######################################################################
 def getData( table, xname, yname, ifo  ):
@@ -171,9 +147,6 @@ def parse_command_line():
   parser.add_option("-M","--min-distance",action="store",type="int",\
       default=None, metavar=" MIN_DIST",\
       help="provide time and dist of all missed injections closer than MIN_DIST [Mpc]")
-  parser.add_option("-r","--add-horizon",action="store",type="string",\
-      default=None,metavar="INSP",\
-      help="show the inspiral horizon obtained from files matching the glob INSP")
   parser.add_option("-p","--y-min",action="store",type="float",\
       default=None,metavar="YMIN",\
       help="set the y min range to YMIN")
@@ -385,17 +358,6 @@ if opts.do_followup:
 if opts.ifo:
   ifoList=[opts.ifo]
 
-  
-#######################################################################
-# identify the inspiral files if we want the horizon
-inspiralFiles = None
-if opts.add_horizon:
-  inspiralFiles = glob.glob(opts.add_horizon)
-  if not inspiralFiles:
-    print >>sys.stderr, "The glob for " + \
-          opts.inspiral_horizon + \
-          " returned no files"
-    sys.exit(1)
 
 ##############################################################################
 # read in tables into dictionaries of paired sets
@@ -505,17 +467,6 @@ else:
 
 
 ##############################################################################
-# read in the range if desired
-if inspiralFiles:
-  inspiralSumm = readFiles(inspiralFiles)
-  if not opts.ifo:
-    print >> sys.stderr, "Must specify --ifo for --show-horizon"
-    sys.exit(1)
-  
-  horizon = inspiralSumm[opts.ifo].getColumnByName('value').asarray()
-  startTime = viz.timeindays(inspiralSumm[opts.ifo].getColumnByName('start_time').asarray())
-
-##############################################################################
 # set lists of plot symbols
 plot1symbol=['bx','bo','b+','b^','b>','b<']
 plot2symbol=['rx','ro','r+','r^','r>','r<']
@@ -611,10 +562,6 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
     px, py, legx, legy = getData( missedInj, xname, yname, ifo )
     plot( px, py, 'ro', markerfacecolor='None',label='missed',\
           markeredgecolor='r',markersize=10, markeredgewidth=1)
-
-    if inspiralFiles:
-      semilogy(startTime, horizon, 'g.', label='Horizon (Mpc)',
-               linewidth=1)
 
     titleText = legx+' vs '+legy +' '+ifo
     title( opts.title + ' '+titleText+' in '+opts.ifo_times+' times', size='x-large')

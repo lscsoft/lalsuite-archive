@@ -1081,20 +1081,36 @@ NonDBTableNames = []
 
 
 #
-# Override portions of the ligolw.LIGOLWContentHandler class
+# Override portions of the ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-__parent_startTable = ligolw.LIGOLWContentHandler.startTable
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the DBTable
+	class defined in this module when parsing XML documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import dbtables
+	>>> dbtables.use_in(MyContentHandler)
+	"""
+	lsctables.use_in(ContentHandler)
+
+	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+		name = table.StripTableName(attrs[u"Name"])
+		if name in map(table.StripTableName, NonDBTableNames):
+			return __parent_startTable(self, attrs)
+		if name in TableByName:
+			return TableByName[name](attrs, connection = DBTable.connection)
+		return DBTable(attrs, connection = DBTable.connection)
+
+	ContentHandler.startTable = startTable
 
 
-def startTable(self, attrs):
-	name = table.StripTableName(attrs[u"Name"])
-	if name in map(table.StripTableName, NonDBTableNames):
-		return __parent_startTable(self, attrs)
-	if name in TableByName:
-		return TableByName[name](attrs, connection = DBTable.connection)
-	return DBTable(attrs, connection = DBTable.connection)
-
-
-ligolw.LIGOLWContentHandler.startTable = startTable
+use_in(ligolw.DefaultLIGOLWContentHandler)
