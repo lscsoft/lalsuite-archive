@@ -26,7 +26,7 @@ import unittest
 
 from pylal import git_version
 
-from pylal.lalinference import LALInferencePrior
+from pylal.ctypes.lalinference import LALInferencePrior
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>"
 __version__= "git id %s"%git_version.id
@@ -39,6 +39,9 @@ class test_LALInferencePrior(unittest.TestCase):
     def test_add_min_max(self):
         self.li_prior.addMinMaxPrior("mass",0.,10.,"REAL8")
         self.li_prior.getMinMaxPrior("mass")
+
+    def test_add_gaussian(self):
+        
 
 suite = unittest.TestSuite()
 suite.addTest(unittest.makeSuite(test_LALInferencePrior))
