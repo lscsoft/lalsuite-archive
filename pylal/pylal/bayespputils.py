@@ -2980,6 +2980,25 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
 
     return pos,bayesfactor
 
+
+def effectiveSampleSize(samples, Nskip=1):
+    mu = np.mean(samples)
+    N = len(samples)
+    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
+    acf = corr[N-1:]/corr[N-1]
+    acl = 1
+    i = 1
+    try:
+      while (acf[i] > 0.0005):
+          acl += 2.0*acf[i]
+          i+=1
+    except IndexError:
+      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = N
+    Neffective = floor(N/acl)
+    acl *= Nskip
+    return (Neffective, acl, acf)
+
 #===============================================================================
 # Parameter estimation codes results parser
 #===============================================================================
@@ -3011,24 +3030,33 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
-        if not (fixedBurnin is None):
+        if not (fixedBurnins is None):
             if not (deltaLogL is None):
                 print "Warning: using deltaLogL criteria in addition to fixed burnin"
-            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+            if len(fixedBurnins) == 1 and len(files) > 1:
+                print "Only one fixedBurnin criteria given for more than one output.  Applying this to all outputs."
+                fixedBurnins = np.ones(len(files),'int')*fixedBurnins[0]
+            elif len(fixedBurnins) != len(files):
+                raise RuntimeError("Inconsistent number of fixed burnin criteria and output files specified.")
+            print "Fixed burning criteria: ",fixedBurnins
         else:
-            fixedBurnin = 0
+            fixedBurnins = np.zeros(len(files))
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
-        nskip=1
-        if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
-            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
+        if nDownsample is None:
+            print "Downsampling to take only uncorrelated posterior samples from each file."
+            for i in range(len(nskips)):
+                if nskips[i] is None:
+                    print "%s eliminated since all samples are correlated."
+        else:
+            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -3036,14 +3064,14 @@ class PEOutputParser(object):
         runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnins, nskips, oldMassConvention)
         finally:
             runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -3053,7 +3081,9 @@ class PEOutputParser(object):
         nRead=0
         outputHeader=False
         acceptedChains=0
-        for infilename,i in zip(files,range(1,len(files)+1)):
+        if nskips is None:
+            nskips = np.ones(len(files),'int')
+        for infilename,i,nskip,fixedBurnin in zip(files,range(1,len(files)+1),nskips,fixedBurnins):
             infile=open(infilename,'r')
             try:
                 print "Writing header of %s to %s"%(infilename,runfile.name)
@@ -3134,21 +3164,26 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnins, nDownsample):
         """
         Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
-        ntot=0
-        for inpname in files:
+        nfiles = len(files)
+        ntots=[]
+        nEffectives = []
+        for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
                 runInfo,header = self._clear_infmcmc_header(infile)
+                header = [name.lower() for name in header]
                 loglindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
+                lines=[]
+                ntot=0
                 for line in infile:
                     line = line.lstrip().split()
                     iter = int(line[iterindex])
@@ -3158,13 +3193,38 @@ class PEOutputParser(object):
                     if logL > logLthreshold:
                         deltaLburnedIn = True
                     if fixedBurnedIn and deltaLburnedIn:
-                        ntot = ntot+1
+                        ntot += 1
+                        lines.append(line)
+                ntots.append(ntot)
+                if nDownsample is None:
+                    try:
+                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1"]
+                        nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
+                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
+                        samps = np.array(lines).astype(float)
+                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                    except:
+                        nEffectives.append(None)
+                        print "Error computing effective sample size of %s!"%inpname
+
             finally:
                 infile.close()
-        if ntot < nDownsample:
-            return 1
+        nskips = np.ones(nfiles,'int')
+        ntot = sum(ntots)
+        if nDownsample is not None:
+            if ntot > nDownsample:
+                nskips *= floor(ntot/nDownsample)
+
         else:
-            return floor(ntot/nDownsample)
+            for i in range(nfiles):
+                nEff = nEffectives[i]
+                ntot = ntots[i]
+                if nEff > 1:
+                    if ntot > nEff:
+                        nskips[i] = ceil(ntot/nEff)
+                else:
+                    nskips[i] = None
+        return nskips
 
     def _find_infmcmc_f_lower(self, runInfo):
         """
