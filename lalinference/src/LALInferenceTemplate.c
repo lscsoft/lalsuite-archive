@@ -1054,15 +1054,12 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
  
-  FILE *whitened ;
-  FILE *dewhitened ;
- 
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
   gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
 
 
-  COMPLEX16TimeSeries *tseries_for_dewhitening;
+  COMPLEX16TimeSeries *dewhitened_tseries;
   COMPLEX16FrequencySeries *fseries_for_dewhitening;
   COMPLEX16FFTPlan *fwdplan_for_dewhitening;
   COMPLEX16FFTPlan *revplan_for_dewhitening;
@@ -1070,8 +1067,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   deltaT = IFOdata->timeData->deltaT;
   deltaF = IFOdata->freqData->deltaF;
  
-  tseries_for_dewhitening = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
-  memset (tseries_for_dewhitening->data->data, 0, tseries_for_dewhitening->data->length * sizeof (COMPLEX16));
+  dewhitened_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
+  memset (dewhitened_tseries->data->data, 0, dewhitened_tseries->data->length * sizeof (COMPLEX16));
   fseries_for_dewhitening = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
   memset (fseries_for_dewhitening->data->data, 0, fseries_for_dewhitening->data->length * sizeof (COMPLEX16));
   fwdplan_for_dewhitening = XLALCreateForwardCOMPLEX16FFTPlan(IFOdata->manifold->waveform_length, 1);       
@@ -1100,30 +1097,10 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   }
   /*********************************************************/
   
-  whitened = fopen("whitened_waveform.txt","w");
 
-  for( unsigned int m=0; m < h_t->size; m++){
-
-  	fprintf(whitened,"%e %e\n", GSL_REAL(gsl_vector_complex_get(h_t, m)), GSL_IMAG(gsl_vector_complex_get(h_t, m)) );
-
-  }
-  
-  fclose(whitened); 
- 
-  dewhitened = fopen("dewhitened_waveform.txt","w");
+  dewhiten_template_wave(h_t, dewhitened_tseries, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
 
 
-  dewhiten_template_wave(h_t, tseries_for_dewhitening, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
-
-
-  for( unsigned int m=0; m < h_t->size; m++){
-
-        fprintf(dewhitened,"%e %e\n", GSL_REAL(gsl_vector_complex_get(h_t, m)), GSL_IMAG(gsl_vector_complex_get(h_t, m)) );
-
-  }  
-  
-  fclose(dewhitened); 
-  
   n = IFOdata->manifold->waveform_length;
   
   memset(IFOdata->timeModelhPlus->data->data,0,IFOdata->timeModelhPlus->data->length*sizeof(REAL8));
@@ -1132,8 +1109,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     /* copy over, normalise: */
     for (i=0; i< n ; ++i) {
 
-      IFOdata->timeModelhPlus->data->data[i]  = GSL_REAL(gsl_vector_complex_get(h_t, i)); /* Plus state is real part of interpolated waveform */
-      IFOdata->timeModelhCross->data->data[i] = GSL_IMAG(gsl_vector_complex_get(h_t, i));  /* Cross state is imag part of interpolated waveform */
+      IFOdata->timeModelhPlus->data->data[i]  = dewhitened_tseries->data->data[i].re; /* Plus state is real part of interpolated waveform */
+      IFOdata->timeModelhCross->data->data[i] = dewhitened_tseries->data->data[i].im;  /* Cross state is imag part of interpolated waveform */
     }
     /* apply window & execute FT of plus component: */
     if (IFOdata->window==NULL) {
@@ -1214,7 +1191,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
 
   gsl_vector_complex_free(h_t);
-  XLALDestroyCOMPLEX16TimeSeries(tseries_for_dewhitening);
+  XLALDestroyCOMPLEX16TimeSeries(dewhitened_tseries);
   XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);
   XLALDestroyCOMPLEX16FFTPlan(revplan_for_dewhitening);
   XLALDestroyCOMPLEX16FFTPlan(fwdplan_for_dewhitening);

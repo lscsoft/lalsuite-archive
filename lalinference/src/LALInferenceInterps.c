@@ -504,7 +504,9 @@ double compute_chirp_time (double m1, double m2, double fLower, int order, doubl
 */
 
 static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
+
 	SPAWaveformReduceSpin(m1, m2, 0, order, 0, 0, 1.0/duration, f_low, f_high, hOfF->data->length, hOfF->data->data);
+
 	return 0;
 }
 
@@ -634,8 +636,9 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[i].re = fseries->data->data[i].re*=2.;
-			fseries_for_ifft->data->data[i].im = fseries->data->data[i].im*=2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re*=2.;
+                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im*=2.;
+
 		}
 	}
 	return 0;
@@ -682,8 +685,9 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
 	/* add quadrature-phase to waveform */
 	add_quadrature_phase(fseries, fseries_for_ifft);
+
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
- 
+
         for(unsigned int l = 0 ; l < length_max; l++){
 		
 		gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
@@ -947,43 +951,37 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 	return 0;
 }
 
-int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *tseries_for_dewhitening, COMPLEX16FrequencySeries *fseries_for_dewhitening, 
+int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, 
 				  COMPLEX16FFTPlan *fwdplan_for_dewhitening, COMPLEX16FFTPlan *revplan_for_dewhitening, REAL8FrequencySeries* psd){
 
-	unsigned int k, l, m;
+	unsigned int k, l;
 	double deltaF; 
-	gsl_complex z;
-
 	deltaF = fseries_for_dewhitening->deltaF;	
-
                	for (k = 0; k < template->size; k++){
-			tseries_for_dewhitening->data->data[k].re = GSL_REAL(gsl_vector_complex_get(template, k));
-			tseries_for_dewhitening->data->data[k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
+			dewhitened_tseries->data->data[k].re = GSL_REAL(gsl_vector_complex_get(template, k));
+			dewhitened_tseries->data->data[k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
                	}
 		
-		XLALCOMPLEX16TimeFreqFFT(fseries_for_dewhitening, tseries_for_dewhitening, fwdplan_for_dewhitening);			
+		XLALCOMPLEX16TimeFreqFFT(fseries_for_dewhitening, dewhitened_tseries, fwdplan_for_dewhitening);			
 	
+
 		for (l = 0; l < template->size; l++){
 
 			if(l < template->size/2 + 1){
-				fseries_for_dewhitening->data->data[l].re *= ( sqrt(psd->data->data[l]/(2.*deltaF)) );
-				fseries_for_dewhitening->data->data[l].im *= ( sqrt(psd->data->data[l]/(2.*deltaF)) );
+				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[template->size/2 - l + 1]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[template->size/2 - l + 1]/(2.*deltaF)) ;
 
 			}
 
 			else{
-				fseries_for_dewhitening->data->data[l].re *= ( sqrt(psd->data->data[ psd->data->length - l ]/(2.*deltaF)) );
-				fseries_for_dewhitening->data->data[l].im *= ( sqrt(psd->data->data[ psd->data->length - l ]/(2.*deltaF)) );
+				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - template->size/2 ]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - template->size/2 ]/(2.*deltaF)) ;
 			}
 
                 }			
-		
-		XLALCOMPLEX16FreqTimeFFT(tseries_for_dewhitening, fseries_for_dewhitening, revplan_for_dewhitening);
-		
-		for (m = 0; m < template->size; m++){
-			GSL_SET_COMPLEX(&z, tseries_for_dewhitening->data->data[m].re, tseries_for_dewhitening->data->data[m].im);
-			gsl_vector_complex_set(template, m, z);
-		}
+
+		XLALCOMPLEX16FreqTimeFFT(dewhitened_tseries, fseries_for_dewhitening, revplan_for_dewhitening);
+	
 
 	return 0;
 }
@@ -1122,7 +1120,6 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 
 	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate, deltaF);
-	fprintf(stderr, "%f\n", deltaF);
 	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max);
 
 
