@@ -26,7 +26,7 @@ import unittest
 
 from pylal import git_version
 
-from pylal.lalinference import LALInferenceTemplateFunction
+from pylal.ctypes.lalinference import LALInferenceTemplateFunction
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>"
 __version__= "git id %s"%git_version.id

@@ -26,7 +26,7 @@ import unittest
 
 from pylal import git_version
 
-from pylal.lalinference import LALInferenceRunState,BaseLALInferencePriorFunction,LALInferenceLikelihoodFunction
+from pylal.ctypes.lalinference import LALInferenceRunState,BaseLALInferencePriorFunction,LALInferenceLikelihoodFunction
 
 __author__="Ben Aylott <benjamin.aylott@ligo.org>"
 __version__= "git id %s"%git_version.id
