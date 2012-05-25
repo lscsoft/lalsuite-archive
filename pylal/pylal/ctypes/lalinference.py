@@ -257,8 +257,6 @@ LALInferenceVariables_xlal_func_table=[
     ["LALInferenceGetVariableName",c_char_p,[POINTER(LALInferenceVariables),c_int]],
     ["LALInferenceSetVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p]],
     ["LALInferenceRemoveVariable",None,[POINTER(LALInferenceVariables),c_char_p]],
-    ["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
-    ["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceCopyVariables",None,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]],
     ["LALInferencePrintVariables",None,[POINTER(LALInferenceVariables)]],
     ["LALInferenceCompareVariables",c_int,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]]
