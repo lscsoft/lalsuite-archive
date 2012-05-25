@@ -257,30 +257,103 @@ LALInferenceVariables_xlal_func_table=[
     ["LALInferenceGetVariableName",c_char_p,[POINTER(LALInferenceVariables),c_int]],
     ["LALInferenceSetVariable",None,[POINTER(LALInferenceVariables),c_char_p,c_void_p]],
     ["LALInferenceRemoveVariable",None,[POINTER(LALInferenceVariables),c_char_p]],
-    #["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
-    #["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceCheckVariable",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceCheckVariableNonFixed",c_int,[POINTER(LALInferenceVariables),c_char_p]],
     ["LALInferenceCopyVariables",None,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]],
     ["LALInferencePrintVariables",None,[POINTER(LALInferenceVariables)]],
     ["LALInferenceCompareVariables",c_int,[POINTER(LALInferenceVariables),POINTER(LALInferenceVariables)]]
 ]
 
-#LALInferenceGetVariable=_set_xlal_types(pylal.ctypes.liblalinference,"LALInferenceGetVariable",c_void_p,[POINTER(LALInferenceVariables),c_char_p])
-
 #LALInferencePrior
 class LALInferencePrior(object):
     def __init__(self):
         self._as_parameter_=LALInferenceVariables()
-    
-    #def addMinMaxPrior(self):
+        self._ptr=pointer(self._as_parameter_)
         
-LALInferencePrior_func_table=[
-    ["LALInferenceAddMinMaxPrior",None,POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8),LALInferenceVariableType],
-    ["LALInferenceRemoveMinMaxPrior",None,POINTER(LALInferenceVariables),c_char_p],
-    ["LALInferenceAddGaussianPrior",None,POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8),LALInferenceVariableType],
-    ["LALInferenceRemoveMinMaxPrior",None,POINTER(LALInferenceVariables),c_char_p],
-    ["LALInferenceAddCorrelatedPrior",None,POINTER(LALInferenceVariables),c_char_p,POINTER(POINTER(gsl_matrix)),UINT4],
+    def addMinMaxPrior(self,name,min_value,max_value,li_variable_type):
+        
+        min_value_p=pointer(REAL8(min_value))
+        max_value_p=pointer(REAL8(max_value))
+        
+        LALInferenceAddMinMaxPrior(self._ptr,c_char_p(name),min_value_p,max_value_p,li_variable_type)
+        
+    def removeMinMaxPrior(self,name):
+        
+        LALInferenceRemoveMinMaxPrior(self._ptr,c_char_p(name))
     
+    def checkMinMaxPrior(self,name):
+        
+        return bool(LALInferenceCheckMinMaxPrior(self._ptr,c_char_p(name)))
+    
+    def getMinMaxPrior(self,name):
+        min_p=pointer(REAL8())
+        max_p=pointer(REAL8())
+    
+        LALInferenceGetMinMaxPrior(self._ptr,c_char_p(name),min_p,max_p)
+        
+        return min_p.contents.value,max_p.contents.value
+    
+    def addGaussianPrior(self,name,mu_value,sigma_value,li_variable_type):
+        
+        mu_value_p=pointer(REAL8(mu_value))
+        sigma_value_p=pointer(REAL8(sigma_value))
+        
+        LALInferenceAddGaussianPrior(self._ptr,c_char_p(name),mu_value_p,sigma_value_p,li_variable_type)
+        
+    def removeGaussianPrior(self,name):
+        
+        LALInferenceRemoveGaussianPrior(self._ptr,c_char_p(name))
+    
+    def checkGaussianPrior(self,name):
+        
+        return bool(LALInferenceCheckGaussianPrior(self._ptr,c_char_p(name)))
+    
+    def getGaussianPrior(self,name):
+        mu_p=pointer(REAL8())
+        sigma_p=pointer(REAL8())
+    
+        LALInferenceGetGaussianPrior(self._ptr,c_char_p(name),mu_p,sigma_p)
+        
+        return mu_p.contents.value,sigma_p.contents.value
+    
+    def addCorrelatedPrior(self,name,cor_matrix,idx):
+    
+        cor_matrix_pp=pointer(pointer(cor_matrix))
+        idx_p=pointer(UINT(idx))
+        
+        LALInferenceAddCorrelatedPrior(self._ptr,c_char_p(name),cor_matrix_pp,idx_p)
+        
+    def removeCorrelatedPrior(self,name):
+
+        LALInferenceRemoveCorrelatedPrior(self._ptr,c_char_p(name))
+        
+    def checkCorrelatedPrior(self,name):
+        
+        return bool(LALInferenceCheckCorrelatedPrior(self._ptr,c_char_p(name)))
+        
+    def getCorrelatedPrior(self,name):
+        pass
+        
+
+LALInferencePrior_func_table=[
+    ["LALInferenceCheckMinMaxPrior",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceCheckGaussianPrior",c_int,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceCheckCorrelatedPrior",c_int,[POINTER(LALInferenceVariables),c_char_p]],
 ]
+
+LALInferencePrior_xlal_func_table=[
+    ["LALInferenceAddMinMaxPrior",None,[POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8),LALInferenceVariableType]],
+    ["LALInferenceRemoveMinMaxPrior",None,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceGetMinMaxPrior",None,[POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8)]],
+    ["LALInferenceAddGaussianPrior",None,[POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8),LALInferenceVariableType]],
+    ["LALInferenceRemoveGaussianPrior",None,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceGetGaussianPrior",None,[POINTER(LALInferenceVariables),c_char_p,POINTER(REAL8),POINTER(REAL8)]],
+    ["LALInferenceAddCorrelatedPrior",None,[POINTER(LALInferenceVariables),c_char_p,POINTER(POINTER(gsl_matrix)),POINTER(UINT4)]],
+    ["LALInferenceRemoveCorrelatedPrior",None,[POINTER(LALInferenceVariables),c_char_p]],
+    ["LALInferenceGetCorrelatedPrior",None,[POINTER(LALInferenceVariables),c_char_p,POINTER(POINTER(gsl_matrix)),POINTER(UINT4)]],
+]
+
+
 
 #LALInferenceIFOData
 class LALInferenceIFOData(Structure): pass
@@ -369,6 +442,7 @@ LALInferenceRunState._fields_ = [
 def __create_lalinference_functions(tables):
     for table in tables:
         for funcname,restype,argtypes in table:
+            
             globals()[funcname]=_set_types(pylal.ctypes.liblalinference,funcname,restype,argtypes) 
 
 
@@ -379,3 +453,6 @@ def __create_lalinference_xlal_functions(tables):
 
 __create_lalinference_functions([LALInferenceVariables_func_table])
 __create_lalinference_xlal_functions([LALInferenceVariables_xlal_func_table])
+
+__create_lalinference_functions([LALInferencePrior_func_table])
+__create_lalinference_xlal_functions([LALInferencePrior_xlal_func_table])
