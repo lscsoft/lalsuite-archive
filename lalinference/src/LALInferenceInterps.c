@@ -636,8 +636,8 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re*=2.;
-                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im*=2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re;
+                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im;
 
 		}
 	}
@@ -683,6 +683,7 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	tmp = psd->data->data[0];	
 	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
+
 	/* add quadrature-phase to waveform */
 	add_quadrature_phase(fseries, fseries_for_ifft);
 
@@ -955,33 +956,31 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 				  COMPLEX16FFTPlan *fwdplan_for_dewhitening, COMPLEX16FFTPlan *revplan_for_dewhitening, REAL8FrequencySeries* psd){
 
 	unsigned int k, l;
-	double deltaF; 
+	double deltaF;
 	deltaF = fseries_for_dewhitening->deltaF;	
                	for (k = 0; k < template->size; k++){
-			dewhitened_tseries->data->data[k].re = GSL_REAL(gsl_vector_complex_get(template, k));
-			dewhitened_tseries->data->data[k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
+			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].re = GSL_REAL(gsl_vector_complex_get(template, k));
+			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
                	}
 		
 		XLALCOMPLEX16TimeFreqFFT(fseries_for_dewhitening, dewhitened_tseries, fwdplan_for_dewhitening);			
-	
+		
+		for (l = 0; l < dewhitened_tseries->data->length; l++){
 
-		for (l = 0; l < template->size; l++){
-
-			if(l < template->size/2 + 1){
-				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[template->size/2 - l + 1]/(2.*deltaF)) ;
-				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[template->size/2 - l + 1]/(2.*deltaF)) ;
+			if(l < dewhitened_tseries->data->length/2 + 1){
+				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
 
 			}
 
 			else{
-				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - template->size/2 ]/(2.*deltaF)) ;
-				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - template->size/2 ]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 ]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 ]/(2.*deltaF)) ;
 			}
 
                 }			
 
 		XLALCOMPLEX16FreqTimeFFT(dewhitened_tseries, fseries_for_dewhitening, revplan_for_dewhitening);
-	
 
 	return 0;
 }

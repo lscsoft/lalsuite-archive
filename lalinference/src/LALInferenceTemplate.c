@@ -1053,6 +1053,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double instant;
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
+
+  FILE *dewhiten;
  
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
@@ -1067,12 +1069,12 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   deltaT = IFOdata->timeData->deltaT;
   deltaF = IFOdata->freqData->deltaF;
  
-  dewhitened_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
+  dewhitened_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->timeData->data->length);
   memset (dewhitened_tseries->data->data, 0, dewhitened_tseries->data->length * sizeof (COMPLEX16));
-  fseries_for_dewhitening = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->manifold->waveform_length);
+  fseries_for_dewhitening = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->timeData->data->length);
   memset (fseries_for_dewhitening->data->data, 0, fseries_for_dewhitening->data->length * sizeof (COMPLEX16));
-  fwdplan_for_dewhitening = XLALCreateForwardCOMPLEX16FFTPlan(IFOdata->manifold->waveform_length, 1);       
-  revplan_for_dewhitening = XLALCreateReverseCOMPLEX16FFTPlan(IFOdata->manifold->waveform_length, 1);  
+  fwdplan_for_dewhitening = XLALCreateForwardCOMPLEX16FFTPlan(IFOdata->timeData->data->length, 1);       
+  revplan_for_dewhitening = XLALCreateReverseCOMPLEX16FFTPlan(IFOdata->timeData->data->length, 1);  
    
   if (IFOdata->timeData==NULL) {
     XLALPrintError(" ERROR in templateLAL(): encountered unallocated 'timeData'.\n");
@@ -1096,10 +1098,17 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  	 interpolate_waveform_from_mchirp_and_eta(&IFOdata->manifold->interp_arrays[patch_index], h_t, mc, eta);
   }
   /*********************************************************/
-  
+   
+  dewhiten = fopen("dewhitened_waveform.txt", "w");
 
   dewhiten_template_wave(h_t, dewhitened_tseries, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
+  for( unsigned int p = 0; p < dewhitened_tseries->data->length; p++){
 
+	fprintf(dewhiten, "%e %e\n", fseries_for_dewhitening->data->data[p].re, fseries_for_dewhitening->data->data[p].im);
+
+  }
+
+  fclose(dewhiten);
 
   n = IFOdata->manifold->waveform_length;
   
