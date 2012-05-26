@@ -1054,7 +1054,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
 
-  FILE *dewhiten;
  
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
@@ -1099,16 +1098,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   }
   /*********************************************************/
    
-  dewhiten = fopen("dewhitened_waveform.txt", "w");
 
   dewhiten_template_wave(h_t, dewhitened_tseries, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
-  for( unsigned int p = 0; p < dewhitened_tseries->data->length; p++){
-
-	fprintf(dewhiten, "%e %e\n", fseries_for_dewhitening->data->data[p].re, fseries_for_dewhitening->data->data[p].im);
-
-  }
-
-  fclose(dewhiten);
 
   n = IFOdata->manifold->waveform_length;
   
