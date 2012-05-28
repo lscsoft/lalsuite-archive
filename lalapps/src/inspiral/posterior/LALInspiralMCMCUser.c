@@ -975,7 +975,6 @@ REAL8 fplus,fcross;
 	      }
 	  }
 	}
-
 	template.totalMass = mtot;
 	template.eta = eta;
 	template.massChoice = totalMassAndEta;
@@ -1048,6 +1047,7 @@ REAL8 fplus,fcross;
 
 
     LALInspiralWaveLength(&status, &dummy_length, template);
+
     if(inputMCMC->numPoints>=dummy_length){
        hPlus=XLALCreateREAL4Vector(Npts); /* Allocate storage for the waveform */
        hCross=XLALCreateREAL4Vector(Npts);/* Allocate storage for the waveform */

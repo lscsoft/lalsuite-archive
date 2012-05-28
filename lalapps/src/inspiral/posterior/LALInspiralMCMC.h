@@ -552,6 +552,22 @@ INT4 XLALMCMCCheckWrapping(LALMCMCParameter *parameter,
 
 int PriorIsSane(LALMCMCParameter *parameter);
 
+void XLALMCMCRotateSpins(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter
+  );
+void XLALMCMCChangeSpinsMagnitude(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+  );
+void
+XLALMCMCJumpSpins(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+  );
+
 #ifdef  __cplusplus
 }
 #endif

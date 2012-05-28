@@ -113,7 +113,7 @@ the code \ref LALInspiralMCMCUser.c.
 #include <lal/AVFactories.h>
 #include <lal/TimeDelay.h>
 #include <lal/DetResponse.h>
-
+#include <fftw3.h>
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -1675,4 +1675,175 @@ for(i=0;i<parameter->dimension;i++){
         	return 0;
 }
 return 1;
+}
+
+
+void
+XLALMCMCJumpSpins(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+  )
+{
+  static LALStatus status;
+
+  LALMCMCParam *paraHead=NULL;
+  REAL4Vector  *step=NULL;
+  gsl_matrix *work=NULL;
+  REAL8 aii, aij, ajj;
+  INT4 i, j, dim;
+
+  /* set some values */
+  dim=parameter->dimension;
+
+  /* draw the mutinormal deviates */
+  LALSCreateVector( &status, &step, dim);
+  /* copy matrix into workspace and scale it appriopriately */
+  work =  gsl_matrix_alloc(dim,dim);
+  gsl_matrix_memcpy( work, covMat );
+  gsl_matrix_scale( work, inputMCMC->annealingTemp);
+
+  /* check if the matrix if positive definite */
+  while ( !XLALCheckPositiveDefinite( work, dim) ) {
+    printf("WARNING: Matrix not positive definite!\n");
+    /* downweight the off-axis elements */
+    for (i=0; i<dim; ++i)
+    {
+      for (j=0; j<dim; ++j)
+      {
+        aij=gsl_matrix_get( work, i, j);
+        aii=gsl_matrix_get( work, i, i);
+        ajj=gsl_matrix_get( work, j, j);
+
+        if ( fabs(aij) > 0.95* sqrt( aii*ajj ) )
+        {
+          aij=aij/fabs(aij)*0.95*sqrt( aii*ajj );
+        }
+        gsl_matrix_set( work, i, j, aij);
+        gsl_matrix_set( work, j, i, aij);
+        printf(" %f", gsl_matrix_get( work, i, j));
+      }
+      printf("\n");
+    }
+    exit(0);
+  }
+
+  /* draw multivariate student distribution with n=2 */
+  XLALMultiStudentDeviates( step, work, dim, 2, inputMCMC->randParams);
+
+  /* loop over all parameters */
+  for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
+  {
+    if(!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")||!strcmp(paraHead->core->name,"distMpc")||paraHead->core->wrapping==-1)
+    paraHead->value += step->data[i];
+	else
+	{;}
+  /*  if (inputMCMC->verbose)
+      printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
+             paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
+	}
+
+  XLALMCMCCyclicReflectiveBound(parameter);
+  /* destroy the vectors */
+  LALSDestroyVector(&status, &step);
+  gsl_matrix_free(work);
+}
+
+void
+XLALMCMCChangeSpinsMagnitude(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+  )
+{
+  static LALStatus status;
+  LALMCMCParam *paraHead=NULL;
+  REAL4Vector  *step=NULL;
+  gsl_matrix *work=NULL;
+  REAL8 aii, aij, ajj;
+  INT4 i, j, dim;
+
+  /* set some values */
+  dim=parameter->dimension;
+
+  /* draw the mutinormal deviates */
+  LALSCreateVector( &status, &step, dim);
+  /* copy matrix into workspace and scale it appriopriately */
+  work =  gsl_matrix_alloc(dim,dim);
+  gsl_matrix_memcpy( work, covMat );
+  gsl_matrix_scale( work, inputMCMC->annealingTemp);
+
+  /* check if the matrix if positive definite */
+  while ( !XLALCheckPositiveDefinite( work, dim) ) {
+    printf("WARNING: Matrix not positive definite!\n");
+    /* downweight the off-axis elements */
+    for (i=0; i<dim; ++i)
+    {
+      for (j=0; j<dim; ++j)
+      {
+        aij=gsl_matrix_get( work, i, j);
+        aii=gsl_matrix_get( work, i, i);
+        ajj=gsl_matrix_get( work, j, j);
+
+        if ( fabs(aij) > 0.95* sqrt( aii*ajj ) )
+        {
+          aij=aij/fabs(aij)*0.95*sqrt( aii*ajj );
+        }
+        gsl_matrix_set( work, i, j, aij);
+        gsl_matrix_set( work, j, i, aij);
+        printf(" %f", gsl_matrix_get( work, i, j));
+      }
+      printf("\n");
+    }
+    exit(0);
+  }
+
+  /* draw multivariate student distribution with n=2 */
+  XLALMultiStudentDeviates( step, work, dim, 2, inputMCMC->randParams);
+
+  /* loop over all parameters */
+  for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
+  {
+    if(!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||paraHead->core->wrapping==-1)
+    paraHead->value += step->data[i];
+	else
+	{;}
+  /*  if (inputMCMC->verbose)
+      printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
+             paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
+	}
+
+  XLALMCMCCyclicReflectiveBound(parameter);
+  /* destroy the vectors */
+  LALSDestroyVector(&status, &step);
+  gsl_matrix_free(work);
+}
+void
+XLALMCMCRotateSpins(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter
+  )
+{   static LALStatus status;
+
+  int i;
+  LALMCMCParam *paraHead=NULL;  
+  REAL4 my_random;
+  if(inputMCMC->randParams==NULL) LALCreateRandomParams(&status,&(inputMCMC->randParams),0);
+  /* loop over all parameters */
+  for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
+  { LALUniformDeviate( &status, &my_random, inputMCMC->randParams);
+    if(!strcmp(paraHead->core->name,"theta1") || !strcmp(paraHead->core->name,"theta2") || paraHead->core->wrapping==-1)
+    paraHead->value = my_random*LAL_PI;
+    else if(!strcmp(paraHead->core->name,"phi1") || !strcmp(paraHead->core->name,"phi2")||paraHead->core->wrapping==-1)
+	paraHead->value = my_random*LAL_TWOPI;
+    else if(!strcmp(paraHead->core->name,"phiP") || !strcmp(paraHead->core->name,"phiM")||paraHead->core->wrapping==-1)
+	paraHead->value = my_random*LAL_TWOPI;
+    else
+	{;}
+  /*  if (inputMCMC->verbose)
+      printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
+             paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
+	}
+
+  XLALMCMCCyclicReflectiveBound(parameter);
 }

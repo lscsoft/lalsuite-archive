@@ -207,8 +207,26 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
     if (MCMCinput->injectionTable!=NULL){		
         LALMCMCParameter *injected  =(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
         NestInitInjectedParam(injected,(void *)MCMCinput->injectionTable, MCMCinput);
+        /*REAL8 m1=5.0, m2=5.0,eta=0.0,m=0.0;
+        XLALMCMCGetParam(injected,"eta")->core->wrapping=0;
+                XLALMCMCGetParam(injected,"logmc")->core->wrapping=0;
+        for(i=0;i<50;i++){
+            m2=5.0;
+            for(UINT4 j=0;j<50;j++){
+                m=m1+m2;
+                eta=(m1*m2)/m/m;
+                XLALMCMCSetParameter(injected,"eta",eta);
+                XLALMCMCSetParameter(injected,"logmc",log(m*pow(eta,0.6)));
+                fprintf(stdout,"m %lf eta %.4f mc %lf \n",m,eta,m*pow(eta,0.6));
+                MCMCinput->funcLikelihood(MCMCinput,injected);
+                m2+=(35.-5.)/50.;
+            }
+            m1+=(35.-5.)/50.;
+        }
         fprintf(stdout,"Injected logL  %lf \n",MCMCinput->funcLikelihood(MCMCinput,injected));
-    }
+    exit(1);*/
+        fprintf(stdout,"Injected logL  %lf \n",MCMCinput->funcLikelihood(MCMCinput,injected));     
+     }
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);
 	else MCMCinput->funcInit(temp,(void *)MCMCinput->inspiralTable);
 	if(!PriorIsSane(temp))
@@ -421,6 +439,15 @@ REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, L
 			  /* Check for higher harmonics present */
 			  if((jump_select=gsl_rng_uniform(RNG))<0.1 && MCMCInput->ampOrder!=0)
 			    XLALMCMCJumpHarmonic(MCMCInput,temp);
+                /* Spin jumps */
+                else if ((jump_select=gsl_rng_uniform(RNG))<0.15 && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
+                {if((jump_select=gsl_rng_uniform(RNG))<0.50)
+                XLALMCMCJumpSpins(MCMCInput,temp,covM);
+                 else if((jump_select=gsl_rng_uniform(RNG))<0.2)
+                 XLALMCMCChangeSpinsMagnitude(MCMCInput,temp,covM);
+                 else 
+                 XLALMCMCRotateSpins(MCMCInput,temp);
+                 }
 			  else /* Otherwise just perform a regular jump */
 			    XLALMCMCJump(MCMCInput,temp,covM);
 			}
