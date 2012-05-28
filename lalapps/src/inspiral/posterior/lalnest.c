@@ -87,7 +87,7 @@ Optional OPTIONS:\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
 [--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
 [--chimin NUM\t:\tMin value of chi spin parameter]\n\
-[--etamin NUM\t:\tMinimum value of eta]\n\
+[--etamin NUM (0.03) \t:\tMinimum value of eta]\n\
 [--chimax NUM\t:\tMax value of chi spin parameter]\n\
 [--snrpath PATH\t:\tOutput SNRs to a file in PATH]\n\
 [--skyloc\t:\tUse Sky localisation prior for Larry's injections]\n\
@@ -552,6 +552,7 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 'e':
 			etamin=atof(optarg);
+            printf("setting eta_low=%lf\n",etamin);
 			break;
 		case 'r':
 			Nruns=atoi(optarg);
@@ -1424,6 +1425,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
   double etamax=0.25;
   SimInspiralTable *injTable = (SimInspiralTable *)iT;
   REAL8 trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+//double etamin=0.01;
 
    LALMCMCParam *head;
 
