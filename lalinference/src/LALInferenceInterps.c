@@ -491,17 +491,17 @@ double compute_chirp_time (double m1, double m2, double fLower, int order, doubl
 	return c0T * (1 + c2T * x2T + c3T * x3T + c4T * x4T + c5T * x5T + (c6T + c6LogT * log (xT)) * x6T + c7T * x7T) / x8T;
 }
 
-/*static double ffinal(double m_total){
-	
+static double ffinal(double m_total){
+
 	// Compute frequency at Schwarzschild ISCO 
 
 	double f_isco;
 	
-	f_isco = pow(2., ceil( log( (1./LAL_PI)*( pow(6.,-3./2.) )*( pow((m_total)*LAL_MTSUN_SI,-1.) ) )  / log(2.) ) ); // Next highest power of 2 of f_isco 
+	f_isco =  ( (1./LAL_PI)*( pow(6.,-3./2.) )*( pow((m_total)*LAL_MTSUN_SI,-1.) ) ); // Next highest power of 2 of f_isco 
 	
 	return f_isco;
 }
-*/
+
 
 static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
 
@@ -636,8 +636,8 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re;
-                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re*=2.;
+                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im*=2.;
 
 		}
 	}
@@ -953,32 +953,49 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 }
 
 int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, 
-				  COMPLEX16FFTPlan *fwdplan_for_dewhitening, COMPLEX16FFTPlan *revplan_for_dewhitening, REAL8FrequencySeries* psd){
+				  COMPLEX16FFTPlan *fwdplan_for_dewhitening, COMPLEX16FFTPlan *revplan_for_dewhitening, REAL8FrequencySeries* psd, double m1, double m2){
 
 	unsigned int k, l;
 	double deltaF;
+	unsigned int len_to_zero_before_f_low;
+	unsigned int len_to_zero_after_f_isco;
+	double f_isco;
+
 	deltaF = fseries_for_dewhitening->deltaF;	
+	len_to_zero_before_f_low = round(40./deltaF); /* the FT of the complex time series doesn't quite zero the negative freq components or the waveform below f_low so we multiply the first len_to_zero components*/
+
+	f_isco = ffinal(m1 + m2);
+	len_to_zero_after_f_isco = template->size - round( ( f_isco )/deltaF );
                	for (k = 0; k < template->size; k++){
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].re = GSL_REAL(gsl_vector_complex_get(template, k));
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
                	}
 		
 		XLALCOMPLEX16TimeFreqFFT(fseries_for_dewhitening, dewhitened_tseries, fwdplan_for_dewhitening);			
-		
+
+
 		for (l = 0; l < dewhitened_tseries->data->length; l++){
 
-			if(l < dewhitened_tseries->data->length/2 + 1){
-				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
-				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
+			if(l < dewhitened_tseries->data->length/2 + 1 + len_to_zero_before_f_low){
+				fseries_for_dewhitening->data->data[l].re *= 0.;//sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].im *= 0.;//sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
 
 			}
 
-			else{
+			else if ( l < dewhitened_tseries->data->length - 1 - len_to_zero_after_f_isco) {
 				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 ]/(2.*deltaF)) ;
 				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 ]/(2.*deltaF)) ;
 			}
 
-                }			
+			else{
+
+				fseries_for_dewhitening->data->data[l].re *= 0.; /* zero waveform after f_isco */
+				fseries_for_dewhitening->data->data[l].im *= 0.;				
+
+			}
+
+		   }			
+
 
 		XLALCOMPLEX16FreqTimeFFT(dewhitened_tseries, fseries_for_dewhitening, revplan_for_dewhitening);
 

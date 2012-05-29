@@ -1053,7 +1053,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double instant;
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
-
  
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
@@ -1099,7 +1098,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /*********************************************************/
    
 
-  dewhiten_template_wave(h_t, dewhitened_tseries, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd);
+  dewhiten_template_wave(h_t, dewhitened_tseries, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd, m1, m2);
 
   n = IFOdata->manifold->waveform_length;
   
@@ -1108,7 +1107,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
 
     /* copy over, normalise: */
     for (i=0; i< n ; ++i) {
-
+      
       IFOdata->timeModelhPlus->data->data[i]  = dewhitened_tseries->data->data[i].re; /* Plus state is real part of interpolated waveform */
       IFOdata->timeModelhCross->data->data[i] = dewhitened_tseries->data->data[i].im;  /* Cross state is imag part of interpolated waveform */
     }
