@@ -254,7 +254,7 @@ else
 	    if [ ".$release" = ".true" ]; then
 		CPPFLAGS="-DEXT_STACKTRACE -I$INSTALL/include/bfd $CPPFLAGS"
 		export RELEASE_DEPS="erp_execinfo_plus.o libstdc++.a libz.a"
-		export RELEASE_LDADD="erp_execinfo_plus.o -lbfd -liberty"
+		export RELEASE_LDADD="erp_execinfo_plus.o -lbfd -liberty /lib/libgcc_s.so.1"
 		build_binutils=true
 		enable_linux_compatibility_workarounds=true
 	    fi ;;
