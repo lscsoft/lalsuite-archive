@@ -542,6 +542,7 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 	REAL8 mc,eta;
 	REAL8 minCompMass = 1.0;
 	REAL8 maxCompMass = 34.0;
+	REAL8 spin_stddev = 0.05;
 #define MAX_MTOT 35.0
 	/* copied from alex's function */
 /*	logdl=2.0*XLALMCMCGetParameter(parameter,"distMpc");
@@ -569,6 +570,8 @@ REAL8 NestPriorConsistencyTest(LALMCMCInput *inputMCMC,LALMCMCParameter *paramet
 
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
+    if(XLALMCMCCheckParameter(parameter,"spin1")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"spin1")*XLALMCMCGetParameter(parameter,"spin1")/(spin_stddev*spin_stddev));
+    if(XLALMCMCCheckParameter(parameter,"spin2")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"spin2")*XLALMCMCGetParameter(parameter,"spin2")/(spin_stddev*spin_stddev));
     /*
     REAL8 std_dev=0.0025; 
     if(XLALMCMCCheckParameter(parameter,"dphi0")) parameter->logPrior+=-0.5*(XLALMCMCGetParameter(parameter,"dphi0")*XLALMCMCGetParameter(parameter,"dphi0")/std_dev);
@@ -2008,6 +2011,18 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 				phaseParams[i]=XLALMCMCGetParameter(parameter,paramName[i]);
 			}
             
+		}
+		
+	/* Sets the spins (only aligned or anti-aligned) */
+        if (XLALMCMCCheckParameter(parameter,"spin1")) {
+		    template->spin1[1] = XLALMCMCGetParameter(parameter,"spin1");
+		    template->spin1[2]=0.0;
+		    template->spin1[3]=0.0;
+		}
+        if (XLALMCMCCheckParameter(parameter,"spin2")) {
+		    template->spin2[1] = XLALMCMCGetParameter(parameter,"spin2");
+		    template->spin2[2]=0.0;
+		    template->spin2[3]=0.0;
 		}
 		
 		LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams, inputMCMC->cutoff);

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2007 Chad Hanna, Alexander Dietz, Duncan Brown, Gareth Jones, Jolien Creighton, Nickolas Fotopoulos, Patrick Brady, Stephen Fairhurst, Tania Regimbau
- *          Walter Del Pozzo, Tjonnie Li, Michalis Agathos
+ *          Walter Del Pozzo, Tjonnie Li
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -180,7 +180,7 @@ REAL8 redshift;
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
 INT4 dphiUniform=0;
-INT4 spin_dphis=0;
+INT4 spinGaussian=0;
 INT4 MGInjections = 0;
 INT4 BDinjections = 0;
 INT4 PPEinjections = 0;
@@ -209,7 +209,6 @@ REAL8 sdphi6l=0.0;
 REAL8 sdphi7=0.0;
 REAL8 sdphi8=0.0;
 REAL8 sdphi9=0.0;
-REAL8 spin_std=0.064;
 REAL8 loglambdaG=28.0;
 REAL8 ScalarCharge1 = 0.0;
 REAL8 ScalarCharge2 = 0.0;
@@ -687,8 +686,7 @@ static void print_usage(char *program)
       " --sdphi8 value            value of the dphi8 standard deviation\n"\
       " --dphi9 value             value of the dphi9 parameter\n"\
       " --sdphi9 value            value of the dphi9 standard deviation\n"\
-      " --dphi-spins              enables spin contributions in dphis up to 2.5PN\n"\
-      " --spin-stdev value        value of the standard deviation in injected spins\n");
+      " --spin-gaussian           enable gaussian spin distribution\n");
   fprintf(stderr,
 	  "Massive Graviton Information:\n"\
 	  " --enable-mg				  enable Massive Graviton injections\n"\
@@ -1454,8 +1452,7 @@ int main( int argc, char *argv[] )
     {"sdphi7",                  required_argument, 0,                 1042},
     {"sdphi8",                  required_argument, 0,                 1043},
     {"sdphi9",                  required_argument, 0,                 1044},
-    {"dphi-spins",              no_argument,       0,                 1046},
-    {"spin-stdev",              required_argument, 0,                 1047},
+    {"spin-gaussian",           no_argument,       0,                 1046},
     {"enable-mg",               no_argument,       0,                 1020},   
     {"loglambdaG",              required_argument, 0,                 1021},
     {"enable-bd",               no_argument,       0,                 1022},
@@ -2456,18 +2453,12 @@ int main( int argc, char *argv[] )
               "float", "%le", sdphi9 );
           break;
       case 1046:
-              /* add spin contribution to dphis */
+              /* gaussian distribution for spins from -1 to +1 */
         this_proc_param = this_proc_param->next = 
         next_process_param( long_options[option_index].name, "string", 
               "" );
-        spin_dphis = 1;
-          break;
-      case 1047:
-            spin_std = atof( optarg );
-            this_proc_param = this_proc_param->next =
-            next_process_param( long_options[option_index].name,
-              "float", "%le", spin_std );
-          break;
+        spinGaussian = 1;
+        break;
       case 1020:
               /* enable massive graviton injections */
         this_proc_param = this_proc_param->next = 
@@ -3237,39 +3228,22 @@ int main( int argc, char *argv[] )
       simTable->dphi9 = dphi9*(2.*XLALUniformDeviate(randPhaseShifts)-1.);	
 	}
 	
-	/* Add a spin contribution to the phase coefficients */
-
-    if ( spin_dphis )
-    {
-	  REAL8 spin1=-2.0;
-	  REAL8 spin2=-2.0;
-	  REAL8 spinbeta, spinsigma, spingamma, massdelta, spin_a, spin_s;
-	  
-          while ( spin1 > 1. || spin1 < -1. )
-          {
-              spin1 = spin_std*XLALNormalDeviate(randPhaseShifts);
-          }
-          while ( spin2 > 1. || spin2 < -1. )
-	  {
-              spin2 = spin_std*XLALNormalDeviate(randPhaseShifts);
-          }
-          
-	  spinbeta = 1./12.*((113.*pow((simTable->mass1/(simTable->mass1+simTable->mass2)),2.) + 
-	  75.*simTable->eta)*spin1 + (113.*pow((simTable->mass2/(simTable->mass1+simTable->mass2)),2.)+
-	  75.*simTable->eta)*spin2);
-          spinsigma = simTable->eta/48.*474.*spin1*spin2;
-          spin_s = 0.5*(spin1+spin2);
-          spin_a = 0.5*(spin1-spin2);
-          massdelta = (simTable->mass1 - simTable->mass2)/(simTable->mass1+simTable->mass2);
-          spingamma = (681145./2268. - 138140./567.*simTable->eta - 260./21.*simTable->eta*simTable->eta)*spin_s + 
-          (681145./2268. + 3860./63.*simTable->eta)*massdelta*spin_a;
-	      
-          simTable->dphi3 += (- spinbeta/(4*LAL_PI));
-          simTable->dphi4 += (-10.*spinsigma)/(15293365./508032. + 27145./504.*simTable->eta + 3085./72.*simTable->eta*simTable->eta);
-          simTable->dphi5 += (-spingamma/(38645./756. -65./9.*simTable->eta));
-          simTable->dphi5l += (-spingamma/(38645./756. -65./9.*simTable->eta));
-          // fprintf(stdout,"%e %e %e %e %e %e %e %e\n", simTable->mass1, simTable->mass2, spin1, spin2, simTable->dphi3, simTable->dphi4, simTable->dphi5, simTable->dphi5l);
+	// Pick (anti-)aligned spins from a Gaussian between -1 and 1
+	if ( spinGaussian ) {
+        simTable->spin1x = -2.0;
+        simTable->spin2x = -2.0;
+        while ( simTable->spin1x > 1 || simTable->spin1x < -1.0 ) {
+        simTable->spin1x = 0.05*XLALNormalDeviate(randPhaseShifts);
+        }
+        simTable->spin1y = 0.0;
+        simTable->spin1z = 0.0;
+        while ( simTable->spin2x > 1 || simTable->spin2x < -1.0 ) {
+        simTable->spin2x = 0.05*XLALNormalDeviate(randPhaseShifts);
+        }
+        simTable->spin2y = 0.0;
+        simTable->spin2z = 0.0;
     }
+		
 	
     /* populate the massive graviton parameter */
     

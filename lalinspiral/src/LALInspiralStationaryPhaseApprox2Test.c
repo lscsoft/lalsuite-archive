@@ -161,7 +161,7 @@ LALInspiralStationaryPhaseApprox2Test (
     
     /* FILL PHASE COEFFICIENTS */
     REAL8 phaseParams[10] = {0.0};
-  
+    
     TaylorF2fillPhaseParams(params, phaseParams, dphis);
 //    for (int k=0;k<10;k++) fprintf(stderr,"dphi%i = %e\n",k,dphis[k]);
 //	FILE* model_output;
@@ -263,6 +263,10 @@ void TaylorF2fillPhaseParams(
     // SYSTEM DEPENDENT PARAMETER - DUMMIES, NEED TO GET FROM PARAMETER STRUCTURES
     REAL8 mtot = params->totalMass;
     REAL8 eta = params->eta;
+    // We only need spin magnitudes and signs and we use the 1st component of each spin vector for that.
+    REAL8 spin1 = params->spin1[0];
+    REAL8 spin2 = params->spin2[0];
+    
     UINT4 i;
     REAL8 pimtot = LAL_PI*mtot*LAL_MTSUN_SI;
     REAL8 comprefac = 3.0/(128.0*eta);
@@ -284,21 +288,37 @@ void TaylorF2fillPhaseParams(
      */
      // pimtot1by3 is an alias for (pi*m)^(1/3)
     REAL8 pimtot1by3=cbrt(pimtot);
+
+    // Spin related parameters 
+    REAL8 spinbeta, spinsigma, spingamma, massdelta, spin_a, spin_s;
+
+    spinbeta = 1./12.*((113.*pow((params->mass1/(params->mass1+params->mass2)),2.) + 
+		  75.*params->eta)*spin1 + (113.*pow((params->mass2/(params->mass1+params->mass2)),2.)+
+		  75.*params->eta)*spin2);
+    spinsigma = params->eta/48.*474.*spin1*spin2;
+    spin_a = 0.5*(spin1+spin2);
+    spin_s = 0.5*(spin1-spin2);
+    massdelta = (params->mass1 - params->mass2)/(params->mass1+params->mass2);
+    spingamma = (681145./2268. - 138140./567.*params->eta - 260./21.*params->eta*params->eta)*spin_s + 
+          (681145./2268. + 3860./63.*params->eta)*massdelta*spin_a;
+
     
     // SEE arXiv:1005.0304
     phaseParams[0] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3)); //phi0
     /* this is needed otherwise phi1 is identically 0 regardless of the dphi1 */
     phaseParams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* dphis[1]; //phi1
     phaseParams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
-    phaseParams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI; //phi3
-    phaseParams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta); // phi4
-    phaseParams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta)+((38645.0/756.0 - 65.0/9.0*eta)*log(pimtot*pow(6.0, 1.5)))); //phi5
-    phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta); //phi5l
+    phaseParams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI + 4.*spinbeta; //phi3
+    phaseParams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta - 10.0*spinsigma); // phi4
+    phaseParams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta - spingamma)+((38645.0/756.0 - 65.0/9.0*eta - spingamma)*log(pimtot*pow(6.0, 1.5)))); //phi5
+    phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta - spingamma); //phi5l
     phaseParams[7] = comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta*(-15335597827.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI) + 47324.0/63.0-7948.0/9.0) + 76055.0/1728.0*eta*eta - 127825.0/1296.0*eta*eta*eta + -6848.0/21.0*log(4.0*pimtot1by3)); //phi6
     phaseParams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
     phaseParams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
     for(i=0;i<10;i++) {if (i!=1) {phaseParams[i]*=(1.0+dphis[i]);}}
-        
+    
+//    fprintf(stdout,"%e %e %e %e %e %e %e %e\n", params->mass1, params->mass2, spin1, spin2, phaseParams[3], phaseParams[4], phaseParams[5], phaseParams[6]);
+    
     return;
 }

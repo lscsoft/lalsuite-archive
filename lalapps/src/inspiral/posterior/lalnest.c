@@ -2152,6 +2152,8 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
     /* limits between +- 25 % */
     double phiMin=-0.25;
     double phiMax=0.25;
+    double spinMin=-1.0;
+    double spinMax=1.0;
     
 	lmmin=log(mcmin);
 	lmmax=log(mcmax);
@@ -2254,6 +2256,13 @@ void NestInitConsistencyTest(LALMCMCParameter *parameter, void *iT)
     //    XLALMCMCAddParam(parameter,"dphi7",0.0,phiMin,phiMax,-1);
     //else 
         XLALMCMCAddParam(parameter,"dphi7",phiMin+(phiMax-phiMin)*gsl_rng_uniform(RNG),phiMin,phiMax,0);
+
+    if(!checkParamInList(pinned_params,"spin1"))
+        XLALMCMCAddParam(parameter,"spin1",spinMin+(spinMax-spinMin)*gsl_rng_uniform(RNG),spinMin,spinMax,0);
+        
+    if(!checkParamInList(pinned_params,"spin2"))
+        XLALMCMCAddParam(parameter,"spin2",spinMin+(spinMax-spinMin)*gsl_rng_uniform(RNG),spinMin,spinMax,0);
+        
 	for (head=parameter->param;head;head=head->next)
 	{
 		if(head->core->wrapping==-1)
@@ -2567,7 +2576,7 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
 {  
     char *pinned_params_temp=NULL;
     int pin_was_null=1;
-    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,dphi8,dphi9,lnlambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,lnOmegaBD";
+    char full_list[]="logM,mchirp,logmchirp,logmc,eta,psi,logdist,dist,logD,iota,ra,dec,time,phi,spin1z,spin2z,spin1,spin2,dphi0,dphi1,dphi2,dphi3,dphi4,dphi5,dphi5l,dphi6,dphi6l,dphi7,dphi8,dphi9,lnlambdaG,aPPE,alphaPPE,bPPE,betaPPE,ScalarCharge1,ScalarCharge2,lnOmegaBD";
     if (pinned_params!=NULL){
         pin_was_null=0;
         pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
@@ -2681,7 +2690,15 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         dphis[7]=inj_table->dphi6;
         dphis[8]=inj_table->dphi6l;
         dphis[9]=inj_table->dphi7;
+        template.spin1[0]=inj_table->spin1x;
+        template.spin1[1]=inj_table->spin1y;
+        template.spin1[2]=inj_table->spin1z;
+        template.spin2[0]=inj_table->spin2x;
+        template.spin2[1]=inj_table->spin2y;
+        template.spin2[2]=inj_table->spin2z;
         for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+        fprintf(stderr, "Injecting spin1 : (%e, %e, %e)", template.spin1[1], template.spin1[2], template.spin1[3]);
+        fprintf(stderr, "Injecting spin2 : (%e, %e, %e)", template.spin2[1], template.spin2[2], template.spin2[3]);
         LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis, 0.0);
     }
     else if (template.approximant==MassiveGraviton) {
