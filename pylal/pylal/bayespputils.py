@@ -930,6 +930,8 @@ class Posterior(object):
         header=header.split()
 
         n=int(0.05*samples.shape[0])
+        if not n > 1:
+            raise IndexError
 
         coord_names=[name for name in allowed_coord_names if name in header]
         indexes=np.argsort(self._logL[:,0])
