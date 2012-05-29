@@ -293,7 +293,7 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
 ##############################################################################
 # function to do thinca on coincident IFO data  
 def thinca_coinc(ifo_list, single_data_analyzed, cafe_caches, cafe_base,
-    lladd_job, coinc_job, dag, do_coinc, do_insp, usertag=None):
+    lladd_job, coinc_job, dag, do_coinc, do_insp, usertag=None, inspinjNode=None):
   """
   Run thinca on the coincident times from each of the sets of IFOs. 
   Since the way we treat all this data is the same, this function is the same 
@@ -309,6 +309,7 @@ def thinca_coinc(ifo_list, single_data_analyzed, cafe_caches, cafe_base,
   do_coinc = whether we should add the thinca jobs to the dag
   do_insp  = whether previous inspiral jobs are in the dag
   usertag = the usertag to add to the output file name
+  inspinjNode = the inspinj node to be added as a parent to ligolw_add jobs
   """
 
   # create caches using ligolw_cafe
@@ -357,6 +358,9 @@ def thinca_coinc(ifo_list, single_data_analyzed, cafe_caches, cafe_base,
       if do_insp:
         for cache_entry in cache.objects:
           lladd.add_parent(single_data_analyzed[cache_entry])
+
+      # add inspinj job as parent of each ligolw_add job
+      if inspinjNode and opts.inspinj: lladd.add_parent(inspinjNode)
 
       # set output of ligolw_add jobs to follow thinca's convention
       lladd_outfile = re.sub('THINCA','LLWADD',thinca.get_output())
@@ -1152,7 +1156,7 @@ if opts.coincidence:
     # create the coinc nodes
     new_coinc_nodes = thinca_coinc(ifo_list, single_data_analyzed, cafe_caches,
         cafe_base, this_lladd_job, thinca_job, dag, opts.coincidence,
-        opts.inspiral, usertag)
+        opts.inspiral, usertag=usertag, inspinjNode=inspinj)
 
     coinc_nodes.extend(new_coinc_nodes)
 
