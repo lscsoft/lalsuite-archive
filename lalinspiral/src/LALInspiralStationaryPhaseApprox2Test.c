@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer, Tjonnie G.F. Li, Walter Del Pozzo
+*  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer, Tjonnie G.F. Li, Walter Del Pozzo, Michalis Agathos
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -296,24 +296,24 @@ void TaylorF2fillPhaseParams(
 		  75.*params->eta)*spin1 + (113.*pow((params->mass2/(params->mass1+params->mass2)),2.)+
 		  75.*params->eta)*spin2);
     spinsigma = params->eta/48.*474.*spin1*spin2;
-    spin_a = 0.5*(spin1+spin2);
-    spin_s = 0.5*(spin1-spin2);
+    spin_a = 0.5*(spin1-spin2);
+    spin_s = 0.5*(spin1+spin2);
     massdelta = (params->mass1 - params->mass2)/(params->mass1+params->mass2);
-    spingamma = (681145./2268. - 138140./567.*params->eta - 260./21.*params->eta*params->eta)*spin_s + 
-          (681145./2268. + 3860./63.*params->eta)*massdelta*spin_a;
+    spingamma = (732985./2268. - 24260./81.*params->eta - 340./9.*params->eta*params->eta)*spin_s + 
+          (732985./2268. + 140./9.*params->eta)*massdelta*spin_a;
 
     
-    // SEE arXiv:1005.0304
+    // SEE arXiv:0810.5336  NOTE: arXiv version (v3) includes errata!
     phaseParams[0] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3)); //phi0
     /* this is needed otherwise phi1 is identically 0 regardless of the dphi1 */
     phaseParams[1] = comprefac*(1.0/(pimtot1by3*pimtot1by3*pimtot1by3*pimtot1by3))* dphis[1]; //phi1
     phaseParams[2] = comprefac*(1.0/pimtot)* (3715.0/756.0 + 55.0/9.0*eta); //phi2
     phaseParams[3] = comprefac*(1.0/(pimtot1by3*pimtot1by3))* -16.0*LAL_PI + 4.*spinbeta; //phi3
     phaseParams[4] = comprefac*(1.0/pimtot1by3)* (15293365.0/508032.0 + 27145.0/504.0*eta + 3085.0/72.0*eta*eta - 10.0*spinsigma); // phi4
-    phaseParams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta - spingamma)+((38645.0/756.0 - 65.0/9.0*eta - spingamma)*log(pimtot*pow(6.0, 1.5)))); //phi5
-    phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta - spingamma); //phi5l
+    phaseParams[5] = comprefac*LAL_PI*((38645.0/756.0 - 65.0/9.0*eta - spingamma/LAL_PI)+((38645.0/756.0 - 65.0/9.0*eta - spingamma/LAL_PI)*log(pimtot*pow(6.0, 1.5)))); //phi5
+    phaseParams[6] = comprefac*LAL_PI*(38645.0/756.0 - 65.0/9.0*eta - spingamma/LAL_PI); //phi5l
     phaseParams[7] = comprefac*pimtot1by3* ((11583231236531.0/4694215680.0 - 640.0/3.0*(LAL_PI*LAL_PI) - 6848.0/21.0*LAL_GAMMA) + eta*(-15335597827.0/3048192.0 + 2255.0/12.0*(LAL_PI*LAL_PI) + 47324.0/63.0-7948.0/9.0) + 76055.0/1728.0*eta*eta - 127825.0/1296.0*eta*eta*eta + -6848.0/21.0*log(4.0*pimtot1by3)); //phi6
-    phaseParams[8] = comprefac*pimtot1by3* -6848.0/63.0; //phi6l
+    phaseParams[8] = comprefac*pimtot1by3* (-6848.0)/63.0; //phi6l
     phaseParams[9] = comprefac*pimtot1by3*pimtot1by3* LAL_PI*(77096675.0/254016.0 + 378515.0/1512.0*eta - 74045.0/756.0*eta*eta); //phi7
     
     for(i=0;i<10;i++) {if (i!=1) {phaseParams[i]*=(1.0+dphis[i]);}}

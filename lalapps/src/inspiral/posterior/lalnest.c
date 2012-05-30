@@ -1,6 +1,6 @@
 /* Nested Sampler Using LAL bayesian framework
 / (C) John Veitch 2009
-Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li, C. Van Den Broeck
+Authors J. Veitch, W.Del Pozzo,S. Vitale, T.G.F. Li, C. Van Den Broeck, Michalis Agathos
  */
 
 #include <stdlib.h>
@@ -2697,8 +2697,8 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
         template.spin2[1]=inj_table->spin2y;
         template.spin2[2]=inj_table->spin2z;
         for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
-        fprintf(stderr, "Injecting spin1 : (%e, %e, %e)", template.spin1[1], template.spin1[2], template.spin1[3]);
-        fprintf(stderr, "Injecting spin2 : (%e, %e, %e)", template.spin2[1], template.spin2[2], template.spin2[3]);
+        fprintf(stderr, "Injecting spin1 : (%e, %e, %e)\n", template.spin1[0], template.spin1[1], template.spin1[2]);
+        fprintf(stderr, "Injecting spin2 : (%e, %e, %e)\n", template.spin2[0], template.spin2[1], template.spin2[2]);
         LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis, 0.0);
     }
     else if (template.approximant==MassiveGraviton) {
