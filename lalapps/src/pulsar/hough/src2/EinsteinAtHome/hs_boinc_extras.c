@@ -69,6 +69,11 @@
 #include <gnu/libc-version.h>
 #endif
 
+/* try to dlopen("libgcc_s.so.1") */
+#ifdef DLOPEN_LIBGCC
+#include <dlfcn.h>
+#endif
+
 /* our own exception handler / runtime debugger */
 #if HAVE_EXCHNDL
 #include "exchndl.h"
@@ -1096,6 +1101,18 @@ static void worker (void) {
 #ifdef __GLIBC__
   /* log the glibc version */
   LogPrintf (LOG_DEBUG, "glibc version/release: %s/%s\n", gnu_get_libc_version(), gnu_get_libc_release());
+#endif
+
+#ifdef DLOPEN_LIBGCC
+  {
+    void *lib_handle = dlopen("libgcc_s.so.1", RTLD_LAZY);
+    if(lib_handle) {
+      LogPrintf (LOG_DEBUG, "Successfully loaded libgcc_s.so.1\n");
+      /* dlclose(lib_handle); */
+    } else {
+      LogPrintf (LOG_DEBUG, "Couldn't load libgcc_s.so.1: %s\n", dlerror());
+    }
+  }
 #endif
 
   /* if there already was an error, there is no use in continuing */
