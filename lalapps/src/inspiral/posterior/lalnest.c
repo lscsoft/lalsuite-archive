@@ -1429,7 +1429,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 
    LALMCMCParam *head;
 
-  double lMcmin=log(manual_mass_low*pow(etamin,3./5.));  /* log MChirp min*/
+  double lMcmin=log(manual_mass_low*pow(etamax,3./5.));  /* log MChirp min*/
   double lMcmax=log(manual_mass_high*pow(etamax,3./5.)); /* log MChirp max*/
 
   REAL8 spin1max=s1_mag_max;  /* Why do we need to copy them here? Can't we just use the global ones? */
@@ -1488,15 +1488,27 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 
     parameter->param=NULL;
     parameter->dimension = 0;
-  
+ REAL8 tmp_mtot=0.9*manual_mass_low;
+ REAL8 tmp_logmc=0.0;
+ REAL8 tmp_eta=0.0;
+
+while(tmp_mtot<manual_mass_low){
+     tmp_logmc=lMcmin+(lMcmax-lMcmin)*gsl_rng_uniform(RNG);
+     tmp_eta=gsl_rng_uniform(RNG)*(etamax-etamin)+etamin;
+     tmp_mtot=mc2mt(exp(tmp_logmc),tmp_eta);
+     fprintf(stdout,"Generated M=%lf eta=%lf mc=%lf ",tmp_mtot,tmp_eta,exp(tmp_logmc));
+   if(tmp_mtot<manual_mass_low)fprintf(stdout,"REFUSED!!\n"); 
+   else fprintf(stdout,"ACCEPTED!\n");
+}
     if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
       XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lMcmin,lMcmax,-1);
     else
-      XLALMCMCAddParam(parameter,"logmc",lMcmin+(lMcmax-lMcmin)*gsl_rng_uniform(RNG),lMcmin,lMcmax,0);
+      XLALMCMCAddParam(parameter,"logmc",tmp_logmc,lMcmin,lMcmax,0);
     if(checkParamInList(pinned_params,"eta"))
 	XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
     else
-	XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*(etamax-etamin)+etamin , etamin, etamax, 0);
+	XLALMCMCAddParam(parameter, "eta",tmp_eta , etamin, etamax, 0);
+
     if(checkParamInList(pinned_params,"time"))
 	XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
     else
