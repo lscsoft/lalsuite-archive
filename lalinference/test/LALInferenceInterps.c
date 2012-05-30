@@ -1170,7 +1170,7 @@ static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, 
 
 		 	Overlap = ( gsl_complex_abs( dotc1 ) / sqrt( gsl_complex_abs( dotc2 ) ) / sqrt( gsl_complex_abs( dotc3 ) ) );
 	
-			fprintf(list_of_overlaps,"%e\n",Overlap);
+			fprintf(list_of_overlaps,"mc = %f, eta=%f, overlap=%e\n", mc, eta, Overlap);
 	
 			GSL_SET_COMPLEX(&dotc1, 0, 0);
 		        GSL_SET_COMPLEX(&dotc2, 0 ,0);
@@ -1181,7 +1181,6 @@ static int compute_overlap(struct twod_waveform_interpolant_manifold *manifold, 
                                 gsl_vector_complex_set(h_t, m, dotc1);
 			}
 
-			fprintf(stderr,"mc = %f, eta=%f, overlap=%e\n", mc, eta, Overlap);
 
 			}
 		}		

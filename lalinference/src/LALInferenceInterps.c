@@ -636,8 +636,8 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re*=2.;
-                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im*=2.;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re;
+                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im;
 
 		}
 	}
@@ -965,7 +965,7 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 	len_to_zero_before_f_low = round(40./deltaF); /* the FT of the complex time series doesn't quite zero the negative freq components or the waveform below f_low so we multiply the first len_to_zero components*/
 
 	f_isco = ffinal(m1 + m2);
-	len_to_zero_after_f_isco = template->size - round( ( f_isco )/deltaF );
+	len_to_zero_after_f_isco = dewhitened_tseries->data->length/2 -  round( ( f_isco )/deltaF );
                	for (k = 0; k < template->size; k++){
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].re = GSL_REAL(gsl_vector_complex_get(template, k));
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
@@ -983,8 +983,8 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 			}
 
 			else if ( l < dewhitened_tseries->data->length - 1 - len_to_zero_after_f_isco) {
-				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 ]/(2.*deltaF)) ;
-				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 ]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 - 1 ]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 - 1 ]/(2.*deltaF)) ;
 			}
 
 			else{
