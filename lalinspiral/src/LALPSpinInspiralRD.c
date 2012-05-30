@@ -1872,7 +1872,7 @@ static int XLALSpinInspiralAdaptiveEngine(
 
   /* if we have enough space, compute the waveform components; otherwise abort */
   if ( intlen >= mparams->length ) {
-    XLALPrintError("**** LALPSpinInspiralRD ERROR ****: no space to write in waveforms: %d vs. %d\n",intlen,mparams->length);
+    XLALPrintError("**** LALPSpinInspiralRD ERROR ****: no space to write in waveforms: %d vs. %d. M was %lf eta %lf \n",intlen,mparams->length,mparams->m,mparams->eta);
     XLAL_ERROR(XLAL_ESIZE);
   }
 
