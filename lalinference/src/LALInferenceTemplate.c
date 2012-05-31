@@ -1054,6 +1054,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   int forceTimeLocation;
   double twopit, f, deltaF, re, im, templateReal, templateImag;
 
+  FILE *dw;
  
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
@@ -1063,17 +1064,20 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   COMPLEX16TimeSeries *dewhitened_tseries;
   COMPLEX16FrequencySeries *fseries_for_dewhitening;
   COMPLEX16FFTPlan *fwdplan_for_dewhitening;
-  COMPLEX16FFTPlan *revplan_for_dewhitening;
- 
+  COMPLEX16FrequencySeries *dewhitened_fseries; 
   deltaT = IFOdata->timeData->deltaT;
   deltaF = IFOdata->freqData->deltaF;
  
   dewhitened_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->timeData->data->length);
   memset (dewhitened_tseries->data->data, 0, dewhitened_tseries->data->length * sizeof (COMPLEX16));
+
   fseries_for_dewhitening = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->timeData->data->length);
   memset (fseries_for_dewhitening->data->data, 0, fseries_for_dewhitening->data->length * sizeof (COMPLEX16));
+
+  dewhitened_fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, IFOdata->freqData->data->length);
+  memset (dewhitened_fseries->data->data, 0, dewhitened_fseries->data->length * sizeof (COMPLEX16)); 
+
   fwdplan_for_dewhitening = XLALCreateForwardCOMPLEX16FFTPlan(IFOdata->timeData->data->length, 1);       
-  revplan_for_dewhitening = XLALCreateReverseCOMPLEX16FFTPlan(IFOdata->timeData->data->length, 1);  
    
   if (IFOdata->timeData==NULL) {
     XLALPrintError(" ERROR in templateLAL(): encountered unallocated 'timeData'.\n");
@@ -1087,7 +1091,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
 
   mc2masses(mc, eta, &m1, &m2);
   
-  IFOdata->modelDomain = LALINFERENCE_DOMAIN_TIME;
+  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
  
   /**** Actual waveform computation. FIXME: declate h_t ****/ 
 
@@ -1099,40 +1103,45 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /*********************************************************/
    
 
-  dewhiten_template_wave(h_t, dewhitened_tseries, fseries_for_dewhitening, fwdplan_for_dewhitening, revplan_for_dewhitening, IFOdata->manifold->psd, m1, m2);
+  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, m1, m2);
 
-  n = IFOdata->manifold->waveform_length;
-  
-  memset(IFOdata->timeModelhPlus->data->data,0,IFOdata->timeModelhPlus->data->length*sizeof(REAL8));
-  memset(IFOdata->timeModelhCross->data->data,0,IFOdata->timeModelhCross->data->length*sizeof(REAL8));
-    /* copy over, normalise: */
-    for (i=0; i< n ; ++i) {
-      
-      IFOdata->timeModelhPlus->data->data[i]  = dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - n + i].re; /* Plus state is real part of interpolated waveform */
-      IFOdata->timeModelhCross->data->data[i] = dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - n + i].im;  /* Cross state is imag part of interpolated waveform */
-
-    }
+  n = IFOdata->freqData->data->length;
     /* apply window & execute FT of plus component: */
     if (IFOdata->window==NULL) {
       XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->window'.\n");
       XLAL_ERROR_VOID(XLAL_EFAULT);
     }
-    XLALDDVectorMultiply(IFOdata->timeModelhPlus->data, IFOdata->timeModelhPlus->data, IFOdata->window->data);
-    XLALDDVectorMultiply(IFOdata->timeModelhCross->data, IFOdata->timeModelhCross->data, IFOdata->window->data);
     if (IFOdata->timeToFreqFFTPlan==NULL) {
       XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->timeToFreqFFTPlan'.\n");
       XLAL_ERROR_VOID(XLAL_EFAULT);
     }
 
+    dw = fopen("dewhitened_waveform.txt", "w");
+ 
+    for(unsigned int p=0; p < IFOdata->freqData->data->length; p++){
 
-   XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus, IFOdata->timeModelhPlus, IFOdata->timeToFreqFFTPlan);
-   XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross, IFOdata->timeModelhCross, IFOdata->timeToFreqFFTPlan);
-    
+    	fprintf(dw, "%e %e\n", dewhitened_fseries->data->data[p].re, dewhitened_fseries->data->data[p].im);
+
+    }
+    fclose(dw); 
+      /* copy over: */
+    dewhitened_fseries->data->data[0].re = dewhitened_fseries->data->data[0].re;
+    dewhitened_fseries->data->data[0].im = 0.0;
+    for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
+      IFOdata->freqModelhPlus->data->data[i].re = dewhitened_fseries->data->data[i].re;
+      IFOdata->freqModelhPlus->data->data[i].im = dewhitened_fseries->data->data[i].im;
+    }
+    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = dewhitened_fseries->data->data[IFOdata->freqModelhPlus->data->length-1].re;
+    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
+
 
   chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 4, 0); 
 
   /* (now frequency-domain plus-waveform has been computed, either directly or via FFT)   */
-
+  for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
+    IFOdata->freqModelhCross->data->data[i].re = -IFOdata->freqModelhPlus->data->data[i].im;
+    IFOdata->freqModelhCross->data->data[i].im = IFOdata->freqModelhPlus->data->data[i].re;
+  }
   for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
     // consider inclination angle's effect:
     IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
@@ -1188,12 +1197,11 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     }
   }
 
-  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
 
   gsl_vector_complex_free(h_t);
   XLALDestroyCOMPLEX16TimeSeries(dewhitened_tseries);
   XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);
-  XLALDestroyCOMPLEX16FFTPlan(revplan_for_dewhitening);
+  XLALDestroyCOMPLEX16FrequencySeries(dewhitened_fseries);
   XLALDestroyCOMPLEX16FFTPlan(fwdplan_for_dewhitening);
   return;
 }

@@ -638,7 +638,6 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 		for (unsigned int i=1; i < (n/2); i++){		
 			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re;
                         fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im;
-
 		}
 	}
 	return 0;
@@ -952,8 +951,7 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 	return 0;
 }
 
-int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, 
-				  COMPLEX16FFTPlan *fwdplan_for_dewhitening, COMPLEX16FFTPlan *revplan_for_dewhitening, REAL8FrequencySeries* psd, double m1, double m2){
+int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *dewhitened_fseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, COMPLEX16FFTPlan *fwdplan_for_dewhitening, REAL8FrequencySeries* psd, double m1, double m2){
 
 	unsigned int k, l;
 	double deltaF;
@@ -982,23 +980,20 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 
 			}
 
-			else if ( l < dewhitened_tseries->data->length - 1 - len_to_zero_after_f_isco) {
+			else {
 				fseries_for_dewhitening->data->data[l].re *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 - 1 ]/(2.*deltaF)) ;
 				fseries_for_dewhitening->data->data[l].im *= sqrt(psd->data->data[ l - dewhitened_tseries->data->length/2 - 1 ]/(2.*deltaF)) ;
 			}
 
-			else{
-
-				fseries_for_dewhitening->data->data[l].re *= 0.; /* zero waveform after f_isco */
-				fseries_for_dewhitening->data->data[l].im *= 0.;				
-
-			}
 
 		   }			
 
 
-		XLALCOMPLEX16FreqTimeFFT(dewhitened_tseries, fseries_for_dewhitening, revplan_for_dewhitening);
-
+		//XLALCOMPLEX16FreqTimeFFT(dewhitened_tseries, fseries_for_dewhitening, revplan_for_dewhitening);
+		for (unsigned int i=0; i < dewhitened_tseries->data->length/2 + 1; i ++){
+			dewhitened_fseries->data->data[dewhitened_fseries->data->length - 1 - i].re = fseries_for_dewhitening->data->data[fseries_for_dewhitening->data->length - 1 - i].re; 
+			dewhitened_fseries->data->data[dewhitened_fseries->data->length - 1 - i].im = fseries_for_dewhitening->data->data[fseries_for_dewhitening->data->length - 1 - i].im;
+		}
 	return 0;
 }
 
