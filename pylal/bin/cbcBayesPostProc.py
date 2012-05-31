@@ -425,19 +425,22 @@ def cbcBayesPostProc(
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(exp(log_ev),log_ev))
 
     if ellevidence:
-        html_model=html.add_section('Elliptical Evidence')
-        log_ev = pos.elliptical_subregion_evidence()
-        ev = exp(log_ev)
-        evfilename=os.path.join(outdir, 'ellevidence.dat')
-        evout=open(evfilename, 'w')
-        evout.write(str(ev) + ' ' + str(log_ev))
-        evout.close()
-        print 'Computing elliptical region evidence = %g (log(ev) = %g)'%(ev, log_ev)
-        html_model.p('Elliptical region evidence is %g, or log(Evidence) = %g.'%(ev, log_ev))
+        try:
+            html_model=html.add_section('Elliptical Evidence')
+            log_ev = pos.elliptical_subregion_evidence()
+            ev = exp(log_ev)
+            evfilename=os.path.join(outdir, 'ellevidence.dat')
+            evout=open(evfilename, 'w')
+            evout.write(str(ev) + ' ' + str(log_ev))
+            evout.close()
+            print 'Computing elliptical region evidence = %g (log(ev) = %g)'%(ev, log_ev)
+            html_model.p('Elliptical region evidence is %g, or log(Evidence) = %g.'%(ev, log_ev))
 
-        if 'logl' in pos.names:
-            log_ev=pos.harmonic_mean_evidence()
-            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence = %g))'%(exp(log_ev), log_ev))
+            if 'logl' in pos.names:
+                log_ev=pos.harmonic_mean_evidence()
+                html_model.p('Compare to harmonic mean evidence of %g (log(Evidence = %g))'%(exp(log_ev), log_ev))
+        except IndexError:
+            print 'Warning: Sample size too small to compute elliptical evidence!'
 
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
