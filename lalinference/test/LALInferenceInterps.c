@@ -1237,13 +1237,13 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 			fclose(TF2);
 			//XLALSimInspiralTaylorF2ReducedSpin(&htilde, 0, fseries->deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 0, f_min, 1e6*LAL_PC_SI, 4, 4);
 			for(unsigned int l = 0; l < dewhitened_fseries_interp->data->length; l++){
-				dewhitened_fseries_interp->data->data[i].re *=  sqrt(1. / manifold->psd->data->data[j]);
-				dewhitened_fseries_interp->data->data[i].im *=  sqrt(1. / manifold->psd->data->data[j]);
+				dewhitened_fseries_interp->data->data[l].re *=  sqrt(1. / manifold->psd->data->data[l]);
+				dewhitened_fseries_interp->data->data[l].im *=  sqrt(1. / manifold->psd->data->data[l]);
 			}
 	
 			for(unsigned int l = 0; l < fseries->data->length; l++){
-				fseries->data->data[l].re *= sqrt(1. / manifold->psd->data->data[j]);
-				fseries->data->data[l].im *= sqrt(1. / manifold->psd->data->data[j]);
+				fseries->data->data[l].re *= sqrt(1. / manifold->psd->data->data[l]);
+				fseries->data->data[l].im *= sqrt(1. / manifold->psd->data->data[l]);
 			}
 
 			for(unsigned int l = 0; l < fseries->data->length; l++){
@@ -1401,8 +1401,8 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 2;
-        unsigned int patches_in_mc = 2;
+        unsigned int patches_in_eta = 6;
+        unsigned int patches_in_mc = 6;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
