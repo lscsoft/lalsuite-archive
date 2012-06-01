@@ -87,7 +87,7 @@ Optional OPTIONS:\n \
 [--datadump DATA.txt\t:\tOutput frequency domain PSD and data segment to DATA.txt]\n \
 [--flow NUM\t:\t:Set low frequency cutoff (default 40Hz)]\n\
 [--chimin NUM\t:\tMin value of chi spin parameter]\n\
-[--etamin NUM\t:\tMinimum value of eta]\n\
+[--etamin NUM (0.03) \t:\tMinimum value of eta]\n\
 [--chimax NUM\t:\tMax value of chi spin parameter]\n\
 [--snrpath PATH\t:\tOutput SNRs to a file in PATH]\n\
 [--skyloc\t:\tUse Sky localisation prior for Larry's injections]\n\
@@ -227,6 +227,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT);
 void initialise(int argc, char *argv[]);
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC);
 void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_table);
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput);
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -551,6 +552,7 @@ void initialise(int argc, char *argv[]){
 			break;
 		case 'e':
 			etamin=atof(optarg);
+            printf("setting eta_low=%lf\n",etamin);
 			break;
 		case 'r':
 			Nruns=atoi(optarg);
@@ -1353,6 +1355,7 @@ doneinit:
 	    fprintf(stdout,"   Done.\n");
 	    #endif
 	  }
+      //if(verbose) inputMCMC.scrivi=1;
 	} 
 	
 	if(HighMassFlag) inputMCMC.funcPrior = NestPriorHighMass;
@@ -1422,6 +1425,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
   double etamax=0.25;
   SimInspiralTable *injTable = (SimInspiralTable *)iT;
   REAL8 trg_time = (REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8)injTable->geocent_end_time.gpsNanoSeconds *1.0e-9;
+//double etamin=0.01;
 
    LALMCMCParam *head;
 
@@ -1484,15 +1488,27 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 
     parameter->param=NULL;
     parameter->dimension = 0;
-  
+ REAL8 tmp_mtot=0.9*manual_mass_low;
+ REAL8 tmp_logmc=0.0;
+ REAL8 tmp_eta=0.0;
+
+while(tmp_mtot<manual_mass_low){
+     tmp_logmc=lMcmin+(lMcmax-lMcmin)*gsl_rng_uniform(RNG);
+     tmp_eta=gsl_rng_uniform(RNG)*(etamax-etamin)+etamin;
+     tmp_mtot=mc2mt(exp(tmp_logmc),tmp_eta);
+     fprintf(stdout,"Generated M=%lf eta=%lf mc=%lf ",tmp_mtot,tmp_eta,exp(tmp_logmc));
+   if(tmp_mtot<manual_mass_low)fprintf(stdout,"REFUSED!!\n"); 
+   else fprintf(stdout,"ACCEPTED!\n");
+}
     if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
       XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lMcmin,lMcmax,-1);
     else
-      XLALMCMCAddParam(parameter,"logmc",lMcmin+(lMcmax-lMcmin)*gsl_rng_uniform(RNG),lMcmin,lMcmax,0);
+      XLALMCMCAddParam(parameter,"logmc",tmp_logmc,lMcmin,lMcmax,0);
     if(checkParamInList(pinned_params,"eta"))
 	XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
     else
-	XLALMCMCAddParam(parameter, "eta", gsl_rng_uniform(RNG)*(etamax-etamin)+etamin , etamin, etamax, 0);
+	XLALMCMCAddParam(parameter, "eta",tmp_eta , etamin, etamax, 0);
+
     if(checkParamInList(pinned_params,"time"))
 	XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
     else
@@ -2196,3 +2212,26 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     fclose(snrout);
 
 }
+
+void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *MCMCinput)
+{  
+    char *pinned_params_temp=NULL;
+    int pin_was_null=1;
+    char full_list[]="a1,a2,logM,mchirp,logmchirp,logmc,eta,psi,dist,logdist,distMpc,logD,iota,ra,dec,time,phi,spin1z,spin2z,theta1,theta2,phi1,phi2,phiP,phiM";
+    if (pinned_params!=NULL){
+        pin_was_null=0;
+        pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
+        pinned_params_temp=pinned_params;
+        pinned_params=full_list;
+    }
+    else {
+        pinned_params=full_list ;
+    } 
+    MCMCinput->funcInit(parameter,iT);
+    if (pin_was_null)
+        pinned_params=NULL;
+    else {
+        pinned_params=pinned_params_temp;
+    }
+     return ;	
+     }

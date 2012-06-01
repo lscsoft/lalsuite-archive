@@ -335,7 +335,10 @@ tagLALMCMCInput
   InputAxis axisChoice;
   UINT4 fixedStep;
   UINT4 inspiralOnly;
- /* Flag for spinning waveforms*/                                                                LALSimInspiralInteraction spinInteraction;
+ /* Flag for spinning waveforms*/                                                                
+ LALSimInspiralInteraction  spinInteraction;
+ /*For debuggin purposes */
+ UINT4 scrivi;
 }  LALMCMCInput;
 
 
@@ -548,6 +551,22 @@ INT4 XLALMCMCCheckWrapping(LALMCMCParameter *parameter,
 						   const char *name);
 
 int PriorIsSane(LALMCMCParameter *parameter);
+
+void XLALMCMCRotateSpins(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter
+  );
+void XLALMCMCChangeSpinsMagnitude(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+  );
+void
+XLALMCMCJumpSpins(
+  LALMCMCInput     *inputMCMC,
+  LALMCMCParameter *parameter,
+  gsl_matrix       *covMat
+  );
 
 #ifdef  __cplusplus
 }

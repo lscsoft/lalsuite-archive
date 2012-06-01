@@ -192,12 +192,12 @@ for(i=0;i<parameter->dimension;i++){
 	p=p->next;
 }
  if(!inrange) {
-        p=parameter->param;
-        for(i=0;i<parameter->dimension;i++){   
-        fprintf(stderr,"WARNING: one or more parameters are being created outside from their prior ranges. If you see this behavior too ofter there may be a problem in the init function.\n");
-        fprintf(stderr,"par %s value %.5f min %.5f  max %.5f\n",p->core->name,p->value,p->core->minVal,p->core->maxVal);
-        p=p->next;
-        }
+        //p=parameter->param;
+        //fprintf(stderr,"WARNING: one or more parameters are being created outside from their prior ranges. If you see this behavior too ofter there may be a problem in the init function.\n");
+        //for(i=0;i<parameter->dimension;i++){   
+        //fprintf(stderr,"par %s value %.5f min %.5f  max %.5f\n",p->core->name,p->value,p->core->minVal,p->core->maxVal);
+        //p=p->next;
+        //}
    parameter->logPrior = -DBL_MAX;
  }
 return inrange;
@@ -975,7 +975,6 @@ REAL8 fplus,fcross;
 	      }
 	  }
 	}
-
 	template.totalMass = mtot;
 	template.eta = eta;
 	template.massChoice = totalMassAndEta;
@@ -1048,6 +1047,7 @@ REAL8 fplus,fcross;
 
 
     LALInspiralWaveLength(&status, &dummy_length, template);
+
     if(inputMCMC->numPoints>=dummy_length){
        hPlus=XLALCreateREAL4Vector(Npts); /* Allocate storage for the waveform */
        hCross=XLALCreateREAL4Vector(Npts);/* Allocate storage for the waveform */
@@ -1055,6 +1055,7 @@ REAL8 fplus,fcross;
        hCross2=XLALCreateREAL4Vector(Npts);/* Allocate storage for the waveform */
 
        errcode=XLALPSpinInspiralRDTemplates(hPlus2,hCross2,&template);
+       
        if(errcode!=0) {
          REPORTSTATUS(&status);
          chisq=DBL_MAX;
@@ -1065,7 +1066,7 @@ REAL8 fplus,fcross;
          idx=floor(template.tC/inputMCMC->deltaT);
          idxShiftTmplt=(Npts-idx)/2;
          timeShiftTmplt=(REAL8) idxShiftTmplt*inputMCMC->deltaT;
-
+        // printf("timeShiftTmplt %.20e\n",timeShiftTmplt);
          for (idx=0;idx<Npts;idx++) {
             hPlus->data[idx]=0.;
             hCross->data[idx]=0.;
@@ -1114,6 +1115,7 @@ REAL8 fplus,fcross;
     hCross2=XLALCreateREAL4Vector(Nlong);/* Allocate storage for the waveform */
 
     errcode=XLALPSpinInspiralRDTemplates(hPlus2,hCross2,&template);
+    
     idx=((UINT4) (template.tC/inputMCMC->deltaT));
     idxShiftTmplt=(Npts-idx)/2;
     timeShiftTmplt=idxShiftTmplt*inputMCMC->deltaT;
@@ -1217,13 +1219,14 @@ REAL8 fplus,fcross;
   timeTmplt=XLALMCMCGetParameter(parameter,"time");
   GPStimeTmplt.gpsSeconds=floor(timeTmplt);
   GPStimeTmplt.gpsNanoSeconds=floor((timeTmplt-GPStimeTmplt.gpsSeconds)*1.e9+0.5);
-
   /* Now we refer it to the beginning of the segment*/
-  TimeShiftToGeoC=timeTmplt-inputMCMC->epoch.gpsSeconds - 1.e-9*inputMCMC->epoch.gpsNanoSeconds;
+  TimeShiftToGeoC = timeTmplt-inputMCMC->epoch.gpsSeconds - 1.e-9*inputMCMC->epoch.gpsNanoSeconds;
+// printf("timeshifttoGeoc %f\n",TimeShiftToGeoC);
 
   /* Now we subtract the shift operated on the template waveform before
      taking the FFT*/
-  TimeShiftToGeoC-=template.tC+timeShiftTmplt;
+  TimeShiftToGeoC -= template.tC+timeShiftTmplt;
+ //printf("timeshifttoGeoc %f template.Tc %.20e timeShiftTmplt %.20e\n",TimeShiftToGeoC,template.tC,timeShiftTmplt);
 
   /*Now, if the guessed "time" is correct, the injection and template should
     be aligned, but for the geocenter delay*/
@@ -1284,6 +1287,7 @@ REAL8 fplus,fcross;
       chisq+=(real*real + imag*imag)*inputMCMC->invspec[det_i]->data->data[idx];
     }
     /* End loop over frequency */
+
 
 #if DEBUGMODEL   
     FILE *ftt=fopen(ttname,"w");

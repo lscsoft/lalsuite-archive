@@ -763,11 +763,12 @@ int XLALPSpinInspiralRDTemplates(
     if(params->tSampling<=0) XLAL_ERROR(XLAL_ETIME);
     if(params->totalMass<=0) XLAL_ERROR(XLAL_EDOM);
 
-    if (XLALInspiralSetup(&(paramsInit.ak), params))
+XLALInspiralInit(params, &paramsInit); //Salvo: Why don't we do the same thing done in the inj code, i.e. calling XLALInspiralInit?
+/*    if (XLALInspiralSetup(&(paramsInit.ak), params))
       XLAL_ERROR(XLAL_EFUNC);
     if (XLALInspiralChooseModel(&(paramsInit.func), &(paramsInit.ak), params))
       XLAL_ERROR(XLAL_EFUNC);
-
+*/
     REAL8Vector* s1=XLALCreateREAL8Vector(signalvec1->length);
     REAL8Vector* s2=XLALCreateREAL8Vector(signalvec2->length);
 
@@ -1871,7 +1872,7 @@ static int XLALSpinInspiralAdaptiveEngine(
 
   /* if we have enough space, compute the waveform components; otherwise abort */
   if ( intlen >= mparams->length ) {
-    XLALPrintError("**** LALPSpinInspiralRD ERROR ****: no space to write in waveforms: %d vs. %d\n",intlen,mparams->length);
+    XLALPrintError("**** LALPSpinInspiralRD ERROR ****: no space to write in waveforms: %d vs. %d. M was %lf eta %lf \n",intlen,mparams->length,mparams->m,mparams->eta);
     XLAL_ERROR(XLAL_ESIZE);
   }
 
