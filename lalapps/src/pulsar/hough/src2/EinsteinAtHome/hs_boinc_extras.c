@@ -418,10 +418,10 @@ static void sighandler(int sig)
   fputc('\n',stderr);
 
   /* ignore TERM interrupts once  */
-  if ( sig == SIGTERM || sig == SIGINT ) {
+  if ( sig == SIGINT ) {
     killcounter ++;
     if ( killcounter >= 4 ) {
-      fputs("App got 4th kill-signal, guess you mean it. Exiting.\n",stderr);
+      fputs("App got 4th SIGINT, guess you mean it.\nCalling boinc_finish().\n",stderr);
       boinc_finish(COMPUTEFSTAT_EXIT_USER);
     }
     else
