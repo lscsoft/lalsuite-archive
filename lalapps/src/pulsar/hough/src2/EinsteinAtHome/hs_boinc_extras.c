@@ -245,6 +245,8 @@ static toplist_t* toplist;                /**< the toplist we're checkpointing *
 static UINT4 last_count, last_total;      /**< last template count, see last_rac */
 static BOOLEAN do_sync = -1;              /**< sync checkpoint file to disk, default: yes */
 
+/** record whether loading libgcc_s.so.1 succeeded */
+static int libgcc_s_loaded = 0;
 
 
 /*^* LOCAL FUNCTION PROTOTYPES *^*/
@@ -427,6 +429,16 @@ static void sighandler(int sig)
     else
       return;
   } /* termination signals */
+
+  /* A SIABRT most likely came from a failure to load libgcc_s.so.1,
+     which is required for boinc_finish() (calling pthread_exit() calling
+     pthread_cancel()) to work properly. In this case take the "emergency
+     exit" with exit status 0 - the worst that can happen is that
+     the tasks ends up with "too many exits" error. */
+  if ( ( libgcc_s_loaded == -1 ) && ( sig == SIGABRT ) ) {
+    fputs("Program received SIGABRT probably because libgcc_s.so.1 wasn't loaded - trying exit(0)\n", stderr);
+    exit(0);
+  }
 
 #ifdef __GLIBC__
 #ifdef __X86__
@@ -1110,9 +1122,10 @@ static void worker (void) {
     void *lib_handle = dlopen("libgcc_s.so.1", RTLD_LAZY);
     if(lib_handle) {
       LogPrintf (LOG_DEBUG, "Successfully loaded libgcc_s.so.1\n");
-      /* dlclose(lib_handle); */
+      libgcc_s_loaded = 1;
     } else {
       LogPrintf (LOG_DEBUG, "Couldn't load libgcc_s.so.1: %s\n", dlerror());
+      libgcc_s_loaded = -1;
     }
   }
 #endif
