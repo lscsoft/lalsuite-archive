@@ -574,7 +574,7 @@ class Document(Element):
 #
 
 
-class LIGOLWContentHandler(sax.handler.ContentHandler):
+class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	"""
 	ContentHandler class for parsing LIGO Light Weight documents with a
 	SAX2-compliant parser.
@@ -749,7 +749,11 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 			self.current.appendData(xmlunescape(content))
 
 
-class PartialLIGOLWContentHandler(LIGOLWContentHandler):
+class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
+	pass
+
+
+class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
@@ -772,22 +776,22 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 		evaluates to True, and the children of those elements, will
 		be loaded.
 		"""
-		LIGOLWContentHandler.__init__(self, document)
+		super(PartialLIGOLWContentHandler, self).__init__(document)
 		self.element_filter = element_filter
 		self.depth = 0
 
 	def startElement(self, name, attrs):
 		if self.depth > 0 or self.element_filter(name, attrs):
-			LIGOLWContentHandler.startElement(self, name, attrs)
+			super(PartialLIGOLWContentHandler, self).startElement(name, attrs)
 			self.depth += 1
 
 	def endElement(self, name):
 		if self.depth > 0:
 			self.depth -= 1
-			LIGOLWContentHandler.endElement(self, name)
+			super(PartialLIGOLWContentHandler, self).endElement(name)
 
 
-class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
+class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 	"""
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
@@ -810,7 +814,7 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 		evaluates to False, and the children of those elements,
 		will not be loaded.
 		"""
-		LIGOLWContentHandler.__init__(self, document)
+		super(FilteringLIGOLWContentHandler, self).__init__(document)
 		self.element_filter = element_filter
 		self.depth = 0
 
@@ -818,13 +822,13 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 		if self.depth > 0 or not self.element_filter(name, attrs):
 			self.depth += 1
 		else:
-			LIGOLWContentHandler.startElement(self, name, attrs)
+			super(FilteringLIGOLWContentHandler, self).startElement(name, attrs)
 
 	def endElement(self, name):
 		if self.depth > 0:
 			self.depth -= 1
 		else:
-			LIGOLWContentHandler.endElement(self, name)
+			super(FilteringLIGOLWContentHandler, self).endElement(name)
 
 
 #

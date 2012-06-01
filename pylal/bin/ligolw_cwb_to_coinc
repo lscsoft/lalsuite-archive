@@ -23,26 +23,20 @@ Convert a ROOT file produced by cWB into a ligolw document.
 import sys
 from optparse import OptionParser
 
-try:
-  import glue
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import table
+from glue.ligolw import types
+from glue.ligolw import utils
+from glue.ligolw import ilwd
 
-  from glue import segments
-  from glue.ligolw import ligolw
-  from glue.ligolw import lsctables
-  from glue.ligolw import table
-  from glue.ligolw import types
-  from glue.ligolw import utils
-  from glue.ligolw import ilwd
+from glue.lal import LIGOTimeGPS
+from glue.lal import CacheEntry
 
-  from glue.lal import LIGOTimeGPS
-  from glue.lal import CacheEntry
+from lalsuite import git_version
 
-  from pylal import llwapp
-  from pylal import git_version
-
-  from pylal import ligolw_cwb_to_coinc
-except:
-  sys.exit("ERROR: Unable to import modules from pylal.")
+from pylal import ligolw_cwb_to_coinc
 
 #CONVERT_ROOT_VERSION = "0.0.8"
 __author__ = "Chris Pankow <chris.pankow@ligo.org>"
