@@ -35,6 +35,7 @@
 #include <lal/Date.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimIMR.h>
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -276,12 +277,11 @@ REAL8 ETaN(REAL8 eta)
 
 static int XLALPSpinInspiralRDparamsSetup(
     LALPSpinInspiralRDparams *mparams,  /** Output: RDparams structure */
-    UINT4 inspiralOnly,                 /** Only generate inspiral */
+    LALSimInspiralFlagContainer flags,    /** Generic flag container */
     REAL8 deltaT,                       /** sampling interval */
     REAL8 fLow,                         /** Starting frequency */
     REAL8 m1,                           /** Mass 1 */
     REAL8 m2,                           /** Mass 2 */
-    LALSimInspiralInteraction interaction, /** Spin interaction */
     UINT4 order                         /** twice PN Order in Phase */
     )
 {
@@ -292,7 +292,6 @@ static int XLALPSpinInspiralRDparamsSetup(
   
   XLALSimInspiralSpinTaylorCoeffs(ST,eta);
   
-  mparams->inspiralOnly = inspiralOnly;
   mparams->dt           = deltaT;
   mparams->lengths      = (5.0 / 256.0) / LAL_PI * pow(LAL_PI * chirpMass * LAL_MTSUN_SI * fLow,-5.0 / 3.0) / fLow;
   mparams->omOffset     = 0.006;
@@ -381,7 +380,7 @@ static int XLALPSpinInspiralRDparamsSetup(
       break;
   }
 
-  switch (interaction) {
+  switch (flags.spinInteraction) {
 
     case LAL_SIM_INSPIRAL_INTERACTION_NONE:
       /*This kills all spin effects in the phase. Still there are spin effects
@@ -717,7 +716,7 @@ static int XLALGenerateWaveDerivative (
   return errcode;
 }
 
-static int XLALSpinInspiralTest(UNUSED double t, const double values[], double dvalues[], void *mparams) {
+static int XLALSpinInspiralRDTest(UNUSED double t, const double values[], double dvalues[], void *mparams) {
 	
   LALPSpinInspiralRDparams *params = (LALPSpinInspiralRDparams *) mparams;
 	
@@ -754,9 +753,42 @@ static int XLALSpinInspiralTest(UNUSED double t, const double values[], double d
     /* omega is nan */
     return LALPSIRDPN_TEST_OMEGANAN;
   } 
-  else if ((params->inspiralOnly!=1)&&(omega>omegaMatch)) {
+  else if (omega>omegaMatch) {
     return LALPSIRDPN_TEST_OMEGAMATCH;
   }
+  else
+    return GSL_SUCCESS;
+}
+
+static int XLALSpinInspiralTest(UNUSED double t, const double values[], double dvalues[], void *mparams) {
+	
+  LALPSpinInspiralRDparams *params = (LALPSpinInspiralRDparams *) mparams;
+	
+  REAL8 omega;
+  REAL8 energy;
+  REAL8 denergy;
+	
+  omega   = values[1];
+  energy  = values[11];
+  denergy = dvalues[11];
+	
+  if ( (energy > 0.0) || (( denergy > - 0.01*energy/params->dt*params->m*LAL_MTSUN_SI )&&(energy<0.) ) ) {
+    /*energy increase*/
+    /*XLALPrintWarning("** LALPSpinInspiralRD WARNING **: Energy increases dE %12.6e E %12.6e  m/M:(%12.4e, %12.4e)  om %12.6e vs. omM %12.6e\n",denergy, 0.01*energy, params->m1m, params->m2m, omega, omegaMatch);*/
+    return LALPSIRDPN_TEST_ENERGY;
+  }
+  else if (omega < 0.0) {
+    fprintf(stderr,"** LALPSpinInspiralRD WARNING **: Omega has become -ve, this should lead to nan's \n");
+    return LALPSIRDPN_TEST_OMEGANONPOS;
+  }
+  else if (dvalues[1] < 0.0) {
+    /* omegadot < 0 */
+    return LALPSIRDPN_TEST_OMEGADOT;
+  }
+  else if (isnan(omega)) {
+    /* omega is nan */
+    return LALPSIRDPN_TEST_OMEGANAN;
+  } 
   else
     return GSL_SUCCESS;
 }
@@ -1146,7 +1178,11 @@ static int XLALSpinInspiralAdaptiveEngine(
   REAL8 *yin = (REAL8 *) LALMalloc(sizeof(REAL8) * neqs);
 	
   /* allocate the integrator */
-  integrator = XLALAdaptiveRungeKutta4Init(neqs,XLALSpinInspiralDerivatives,XLALSpinInspiralTest,1.0e-6,1.0e-6);
+  if (mparams->inspiralOnly==0)
+    integrator = XLALAdaptiveRungeKutta4Init(neqs,XLALSpinInspiralDerivatives,XLALSpinInspiralRDTest,1.0e-6,1.0e-6);
+  else
+    integrator = XLALAdaptiveRungeKutta4Init(neqs,XLALSpinInspiralDerivatives,XLALSpinInspiralTest,1.0e-6,1.0e-6);
+
   if (!integrator) {
     fprintf(stderr,"**** LALPSpinInspiralRD ERROR ****: Cannot allocate adaptive integrator.\n");
     if (XLALClearErrno() == XLAL_ENOMEM)
@@ -1470,11 +1506,11 @@ static int XLALSpinInspiralAdaptiveEngine(
 		 }
 		 }
 		 }*/
-		
-    XLALSpinInspiralFillH3Modes(h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,j,amp33,v,mparams->eta,mparams->dm,Psi,alpha,&trigAngle);
-		
-    XLALSpinInspiralFillH4Modes(h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,j,amp44,v,mparams->eta,mparams->dm,Psi,alpha,&trigAngle);
-		
+
+    if (h3P3 && h3M3 && h3P2 && h3M2 && h3P1 && h3M1 && h30 && h4P4 && h4M4 && h4P3 && h4M3 && h4P2 && h4M2 && h4P1 && h4M1 && h40 ) {		
+      XLALSpinInspiralFillH3Modes(h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,j,amp33,v,mparams->eta,mparams->dm,Psi,alpha,&trigAngle);
+      XLALSpinInspiralFillH4Modes(h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,j,amp44,v,mparams->eta,mparams->dm,Psi,alpha,&trigAngle);
+    }
   }
 	
   if (yin) LALFree(yin);
@@ -2103,8 +2139,7 @@ int XLALSimIMRPSpinInspiralRDGenerator(
     REAL8 s2y,                  /**< y-component of dimensionless spin for object 2 */
     REAL8 s2z,                  /**< z-component of dimensionless spin for object 2 */
     int phaseO,                 /**< twice post-Newtonian phase order */
-    InputAxis axisChoice,       /**< Choice of axis for input spin params */
-    int inspiralOnly            /**< 0 generate RD, 1 generate inspiralOnly*/
+    LALSimInspiralFlagContainer flags   /**< flag container */
     )
 {
 
@@ -2142,22 +2177,23 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   REAL8Vector* h2P1;
   REAL8Vector* h2M1;
   REAL8Vector* h20;
-  REAL8Vector* h3P3;
-  REAL8Vector* h3M3;
-  REAL8Vector* h3P2;
-  REAL8Vector* h3M2;
-  REAL8Vector* h3P1;
-  REAL8Vector* h3M1;
-  REAL8Vector* h30;
-  REAL8Vector* h4P4;
-  REAL8Vector* h4M4;
-  REAL8Vector* h4P3;
-  REAL8Vector* h4M3;
-  REAL8Vector* h4P2;
-  REAL8Vector* h4M2;
-  REAL8Vector* h4P1;
-  REAL8Vector* h4M1;
-  REAL8Vector* h40;
+
+  REAL8Vector* h3P3=NULL;
+  REAL8Vector* h3M3=NULL;
+  REAL8Vector* h3P2=NULL;
+  REAL8Vector* h3M2=NULL;
+  REAL8Vector* h3P1=NULL;
+  REAL8Vector* h3M1=NULL;
+  REAL8Vector* h30=NULL;
+  REAL8Vector* h4P4=NULL;
+  REAL8Vector* h4M4=NULL;
+  REAL8Vector* h4P3=NULL;
+  REAL8Vector* h4M3=NULL;
+  REAL8Vector* h4P2=NULL;
+  REAL8Vector* h4M2=NULL;
+  REAL8Vector* h4P1=NULL;
+  REAL8Vector* h4M1=NULL;
+  REAL8Vector* h40=NULL;
 
   REAL8Vector* sigp;
   REAL8Vector* sigc;
@@ -2213,12 +2249,11 @@ int XLALSimIMRPSpinInspiralRDGenerator(
 
   /* setup coefficients for PN equations */
   if(XLALPSpinInspiralRDparamsSetup(&mparams, /** Output: RDparams structure */
-			     inspiralOnly, 	/** Do not Only generate inspiral */
+			     flags, 	      /** Flag container */
 			     deltaT, 		/** sampling interval */
 			     f_min,		/** Starting frequency */
 			     mass1,		/** Mass 1 */
 			     mass2,		/** Mass 2 */
-			     LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN,	/** Spin interaction */
 			     phaseO		/** PN Order in Phase */ ))
     XLAL_ERROR(XLAL_EFUNC);
 
@@ -2288,9 +2323,9 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   initS2[1] = s2y * mass2 * mass2;
   initS2[2] = s2z * mass2 * mass2;
 
-  switch (axisChoice) {
+  switch (flags.axisChoice) {
 
-  case OrbitalL:
+  case  LAL_SIM_INSPIRAL_AXIS_ORBITAL_L:
     //printf("*** OrbitalL ***\n");
     initLNh[0] = 0.;
     initLNh[1] = 0.;
@@ -2298,7 +2333,7 @@ int XLALSimIMRPSpinInspiralRDGenerator(
     inc = iota;
     break;
 
-  case TotalJ:
+  case LAL_SIM_INSPIRAL_AXIS_TOTAL_J:
     //printf("*** TotalJ ***\n");
     for (j=0;j<3;j++) {
       iS1[j] = initS1[j];
@@ -2344,7 +2379,7 @@ int XLALSimIMRPSpinInspiralRDGenerator(
     inc = iota;
     break;
 
-  case View:
+  case LAL_SIM_INSPIRAL_AXIS_VIEW:
   default:
     //printf("*** View ***\n");
     initLNh[0] = sin(iota);
@@ -2372,28 +2407,30 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   h2P1 = XLALCreateREAL8Vector(length * 2);
   h2M1 = XLALCreateREAL8Vector(length * 2);
   h20  = XLALCreateREAL8Vector(length * 2);
-  h3P3 = XLALCreateREAL8Vector(length * 2);
-  h3M3 = XLALCreateREAL8Vector(length * 2);
-  h3P2 = XLALCreateREAL8Vector(length * 2);
-  h3M2 = XLALCreateREAL8Vector(length * 2);
-  h3P1 = XLALCreateREAL8Vector(length * 2);
-  h3M1 = XLALCreateREAL8Vector(length * 2);
-  h30  = XLALCreateREAL8Vector(length * 2);
-  h4P4 = XLALCreateREAL8Vector(length * 2);
-  h4M4 = XLALCreateREAL8Vector(length * 2);
-  h4P3 = XLALCreateREAL8Vector(length * 2);
-  h4M3 = XLALCreateREAL8Vector(length * 2);
-  h4P2 = XLALCreateREAL8Vector(length * 2);
-  h4M2 = XLALCreateREAL8Vector(length * 2);
-  h4P1 = XLALCreateREAL8Vector(length * 2);
-  h4M1 = XLALCreateREAL8Vector(length * 2);
-  h40  = XLALCreateREAL8Vector(length * 2);
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    h3P3 = XLALCreateREAL8Vector(length * 2);
+    h3M3 = XLALCreateREAL8Vector(length * 2);
+    h3P2 = XLALCreateREAL8Vector(length * 2);
+    h3M2 = XLALCreateREAL8Vector(length * 2);
+    h3P1 = XLALCreateREAL8Vector(length * 2);
+    h3M1 = XLALCreateREAL8Vector(length * 2);
+    h30  = XLALCreateREAL8Vector(length * 2);
+    h4P4 = XLALCreateREAL8Vector(length * 2);
+    h4M4 = XLALCreateREAL8Vector(length * 2);
+    h4P3 = XLALCreateREAL8Vector(length * 2);
+    h4M3 = XLALCreateREAL8Vector(length * 2);
+    h4P2 = XLALCreateREAL8Vector(length * 2);
+    h4M2 = XLALCreateREAL8Vector(length * 2);
+    h4P1 = XLALCreateREAL8Vector(length * 2);
+    h4M1 = XLALCreateREAL8Vector(length * 2);
+    h40  = XLALCreateREAL8Vector(length * 2);
+  }
   sigp = XLALCreateREAL8Vector(length);
   sigc = XLALCreateREAL8Vector(length);
   fap  = XLALCreateREAL8Vector(length);
   phap = XLALCreateREAL8Vector(length);
 
-  if (!(h2P2 && h2M2 && h2P1 && h2M1 && h20 && sigp && sigc && fap && phap && h3P3 && h3M3 && h3P2 && h3M2 && h3P1 && h3M1 && h30 && h4P4 && h4M4 && h4P3 && h4M3 && h4P2 && h4M2 && h4P1 && h4M1 && h40) ) {
+  if (!(h2P2 && h2M2 && h2P1 && h2M1 && h20 && sigp && sigc && fap && phap) ) {
     if (h2P2)
       XLALDestroyREAL8Vector(h2P2);
     if (h2M2)
@@ -2404,38 +2441,40 @@ int XLALSimIMRPSpinInspiralRDGenerator(
       XLALDestroyREAL8Vector(h2M1);
     if (h20)
       XLALDestroyREAL8Vector(h20);
-    if (h3P3)
-      XLALDestroyREAL8Vector(h3P3);
-    if (h3M3)
-      XLALDestroyREAL8Vector(h3M3);
-    if (h3P2)
-      XLALDestroyREAL8Vector(h3P2);
-    if (h3M2)
-      XLALDestroyREAL8Vector(h3M2);
-    if (h3P1)
-      XLALDestroyREAL8Vector(h3P1);
-    if (h3M1)
-      XLALDestroyREAL8Vector(h3M1);
-    if (h30)
-      XLALDestroyREAL8Vector(h30);
-    if (h4P4)
-      XLALDestroyREAL8Vector(h4P4);
-    if (h4M4)
-      XLALDestroyREAL8Vector(h4M4);
-    if (h4P3)
-      XLALDestroyREAL8Vector(h4P3);
-    if (h4M3)
-      XLALDestroyREAL8Vector(h4M3);
-    if (h4P2)
-      XLALDestroyREAL8Vector(h4P2);
-    if (h4M2)
-      XLALDestroyREAL8Vector(h4M2);
-    if (h4P1)
-      XLALDestroyREAL8Vector(h4P1);
-    if (h4M1)
-      XLALDestroyREAL8Vector(h4M1);
-    if (h40)
-      XLALDestroyREAL8Vector(h40);
+    if ( (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) && !( h3P3 && h3M3 && h3P2 && h3M2 && h3P1 && h3M1 && h30 && h4P4 && h4M4 && h4P3 && h4M3 && h4P2 && h4M2 && h4P1 && h4M1 && h40) ) {
+      if (h3P3)
+	XLALDestroyREAL8Vector(h3P3);
+      if (h3M3)
+	XLALDestroyREAL8Vector(h3M3);
+      if (h3P2)
+	XLALDestroyREAL8Vector(h3P2);
+      if (h3M2)
+	XLALDestroyREAL8Vector(h3M2);
+      if (h3P1)
+	XLALDestroyREAL8Vector(h3P1);
+      if (h3M1)
+	XLALDestroyREAL8Vector(h3M1);
+      if (h30)
+	XLALDestroyREAL8Vector(h30);
+      if (h4P4)
+	XLALDestroyREAL8Vector(h4P4);
+      if (h4M4)
+	XLALDestroyREAL8Vector(h4M4);
+      if (h4P3)
+	XLALDestroyREAL8Vector(h4P3);
+      if (h4M3)
+	XLALDestroyREAL8Vector(h4M3);
+      if (h4P2)
+	XLALDestroyREAL8Vector(h4P2);
+      if (h4M2)
+	XLALDestroyREAL8Vector(h4M2);
+      if (h4P1)
+	XLALDestroyREAL8Vector(h4P1);
+      if (h4M1)
+	XLALDestroyREAL8Vector(h4M1);
+      if (h40)
+	XLALDestroyREAL8Vector(h40);
+    }
     if (sigp)
       XLALDestroyREAL8Vector(sigp);
     if (sigc)
@@ -2452,22 +2491,24 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   memset(h2P1->data, 0, h2P1->length * sizeof(REAL8));
   memset(h2M1->data, 0, h2P1->length * sizeof(REAL8));
   memset(h20->data,  0, h20->length  * sizeof(REAL8));
-  memset(h3P3->data, 0, h3P3->length * sizeof(REAL8));
-  memset(h3M3->data, 0, h3M3->length * sizeof(REAL8));
-  memset(h3P2->data, 0, h3P2->length * sizeof(REAL8));
-  memset(h3M2->data, 0, h3M2->length * sizeof(REAL8));
-  memset(h3P1->data, 0, h3P1->length * sizeof(REAL8));
-  memset(h3M1->data, 0, h3M1->length * sizeof(REAL8));
-  memset(h30->data,  0, h30->length  * sizeof(REAL8));
-  memset(h4P4->data, 0, h3P3->length * sizeof(REAL8));
-  memset(h4M4->data, 0, h3M3->length * sizeof(REAL8));
-  memset(h4P3->data, 0, h3P3->length * sizeof(REAL8));
-  memset(h4M3->data, 0, h3M3->length * sizeof(REAL8));
-  memset(h4P2->data, 0, h3P2->length * sizeof(REAL8));
-  memset(h4M2->data, 0, h3M2->length * sizeof(REAL8));
-  memset(h4P1->data, 0, h3P1->length * sizeof(REAL8));
-  memset(h4M1->data, 0, h3M1->length * sizeof(REAL8));
-  memset(h40->data,  0, h30->length  * sizeof(REAL8));
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    memset(h3P3->data, 0, h3P3->length * sizeof(REAL8));
+    memset(h3M3->data, 0, h3M3->length * sizeof(REAL8));
+    memset(h3P2->data, 0, h3P2->length * sizeof(REAL8));
+    memset(h3M2->data, 0, h3M2->length * sizeof(REAL8));
+    memset(h3P1->data, 0, h3P1->length * sizeof(REAL8));
+    memset(h3M1->data, 0, h3M1->length * sizeof(REAL8));
+    memset(h30->data,  0, h30->length  * sizeof(REAL8));
+    memset(h4P4->data, 0, h4P4->length * sizeof(REAL8));
+    memset(h4M4->data, 0, h4M4->length * sizeof(REAL8));
+    memset(h4P3->data, 0, h4P3->length * sizeof(REAL8));
+    memset(h4M3->data, 0, h4M3->length * sizeof(REAL8));
+    memset(h4P2->data, 0, h4P2->length * sizeof(REAL8));
+    memset(h4M2->data, 0, h4M2->length * sizeof(REAL8));
+    memset(h4P1->data, 0, h4P1->length * sizeof(REAL8));
+    memset(h4M1->data, 0, h4M1->length * sizeof(REAL8));
+    memset(h40->data,  0, h40->length  * sizeof(REAL8));
+  }
   memset(sigp->data, 0, sigp->length * sizeof(REAL8));
   memset(sigc->data, 0, sigc->length * sizeof(REAL8));
   memset(fap->data,  0, fap->length  * sizeof(REAL8));
@@ -2476,7 +2517,7 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   /* Here there used to be a check that OmegaRD is smaller than Nyquist, it
      has been taken out */
 
-    amp22ini = -2.0 * mu * LAL_MRSUN_SI / r * sqrt(16. * LAL_PI / 5.);
+  amp22ini = -2.0 * mu * LAL_MRSUN_SI / r * sqrt(16. * LAL_PI / 5.);
  
   /* initialize the coordinates */
   yinit[0] = initphi;     /* phi */
@@ -2515,7 +2556,13 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   phenPars.S1S2      = 0.;
   phenPars.S2S2      = 0.;
 
-  errcode = XLALSpinInspiralAdaptiveEngine(neqs,yinit,amp22ini,&mparams,h2P2,h2M2,h2P1,h2M1,h20,h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,fap,phap,&phenPars);
+  mparams.inspiralOnly=0;
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    errcode = XLALSpinInspiralAdaptiveEngine(neqs,yinit,amp22ini,&mparams,h2P2,h2M2,h2P1,h2M1,h20,h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,fap,phap,&phenPars);
+  }
+  else {
+    errcode = XLALSpinInspiralAdaptiveEngine(neqs,yinit,amp22ini,&mparams,h2P2,h2M2,h2P1,h2M1,h20,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,fap,phap,&phenPars);
+  }
   if(errcode) XLAL_ERROR(XLAL_EFUNC);
   intreturn=phenPars.intreturn;
 
@@ -2561,22 +2608,24 @@ int XLALSimIMRPSpinInspiralRDGenerator(
       XLALDestroyREAL8Vector(h2P1);
       XLALDestroyREAL8Vector(h2M1);
       XLALDestroyREAL8Vector(h20);
-      XLALDestroyREAL8Vector(h3P3);
-      XLALDestroyREAL8Vector(h3M3);
-      XLALDestroyREAL8Vector(h3P2);
-      XLALDestroyREAL8Vector(h3M2);
-      XLALDestroyREAL8Vector(h3P1);
-      XLALDestroyREAL8Vector(h3M1);
-      XLALDestroyREAL8Vector(h30);
-      XLALDestroyREAL8Vector(h4P4);
-      XLALDestroyREAL8Vector(h4M4);
-      XLALDestroyREAL8Vector(h4P3);
-      XLALDestroyREAL8Vector(h4M3);
-      XLALDestroyREAL8Vector(h4P2);
-      XLALDestroyREAL8Vector(h4M2);
-      XLALDestroyREAL8Vector(h4P1);
-      XLALDestroyREAL8Vector(h4M1);
-      XLALDestroyREAL8Vector(h40);
+      if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	XLALDestroyREAL8Vector(h3P3);
+	XLALDestroyREAL8Vector(h3M3);
+	XLALDestroyREAL8Vector(h3P2);
+	XLALDestroyREAL8Vector(h3M2);
+	XLALDestroyREAL8Vector(h3P1);
+	XLALDestroyREAL8Vector(h3M1);
+	XLALDestroyREAL8Vector(h30);
+	XLALDestroyREAL8Vector(h4P4);
+	XLALDestroyREAL8Vector(h4M4);
+	XLALDestroyREAL8Vector(h4P3);
+	XLALDestroyREAL8Vector(h4M3);
+	XLALDestroyREAL8Vector(h4P2);
+	XLALDestroyREAL8Vector(h4M2);
+	XLALDestroyREAL8Vector(h4P1);
+	XLALDestroyREAL8Vector(h4M1);
+	XLALDestroyREAL8Vector(h40);
+      }
       XLALDestroyREAL8Vector(fap);
       XLALDestroyREAL8Vector(phap);
       XLALDestroyREAL8Vector(sigp);
@@ -2606,22 +2655,24 @@ int XLALSimIMRPSpinInspiralRDGenerator(
         XLALDestroyREAL8Vector(h2P1);
         XLALDestroyREAL8Vector(h2M1);
         XLALDestroyREAL8Vector(h20);
-        XLALDestroyREAL8Vector(h3P3);
-        XLALDestroyREAL8Vector(h3M3);
-        XLALDestroyREAL8Vector(h3P2);
-        XLALDestroyREAL8Vector(h3M2);
-        XLALDestroyREAL8Vector(h3P1);
-        XLALDestroyREAL8Vector(h3M1);
-        XLALDestroyREAL8Vector(h30);
-        XLALDestroyREAL8Vector(h4P4);
-        XLALDestroyREAL8Vector(h4M4);
-        XLALDestroyREAL8Vector(h4P3);
-        XLALDestroyREAL8Vector(h4M3);
-        XLALDestroyREAL8Vector(h4P2);
-        XLALDestroyREAL8Vector(h4M2);
-        XLALDestroyREAL8Vector(h4P1);
-        XLALDestroyREAL8Vector(h4M1);
-        XLALDestroyREAL8Vector(h40);
+	if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	  XLALDestroyREAL8Vector(h3P3);
+	  XLALDestroyREAL8Vector(h3M3);
+	  XLALDestroyREAL8Vector(h3P2);
+	  XLALDestroyREAL8Vector(h3M2);
+	  XLALDestroyREAL8Vector(h3P1);
+	  XLALDestroyREAL8Vector(h3M1);
+	  XLALDestroyREAL8Vector(h30);
+	  XLALDestroyREAL8Vector(h4P4);
+	  XLALDestroyREAL8Vector(h4M4);
+	  XLALDestroyREAL8Vector(h4P3);
+	  XLALDestroyREAL8Vector(h4M3);
+	  XLALDestroyREAL8Vector(h4P2);
+	  XLALDestroyREAL8Vector(h4M2);
+	  XLALDestroyREAL8Vector(h4P1);
+	  XLALDestroyREAL8Vector(h4M1);
+	  XLALDestroyREAL8Vector(h40);
+	}
         XLALDestroyREAL8Vector(fap);
         XLALDestroyREAL8Vector(phap);
         XLALDestroyREAL8Vector(sigp);
@@ -2649,22 +2700,24 @@ int XLALSimIMRPSpinInspiralRDGenerator(
           XLALDestroyREAL8Vector(h2P1);
           XLALDestroyREAL8Vector(h2M1);
           XLALDestroyREAL8Vector(h20);
-          XLALDestroyREAL8Vector(h3P3);
-          XLALDestroyREAL8Vector(h3M3);
-          XLALDestroyREAL8Vector(h3P2);
-          XLALDestroyREAL8Vector(h3M2);
-          XLALDestroyREAL8Vector(h3P1);
-          XLALDestroyREAL8Vector(h3M1);
-          XLALDestroyREAL8Vector(h30);
-          XLALDestroyREAL8Vector(h4P4);
-          XLALDestroyREAL8Vector(h4M4);
-          XLALDestroyREAL8Vector(h4P3);
-          XLALDestroyREAL8Vector(h4M3);
-          XLALDestroyREAL8Vector(h4P2);
-          XLALDestroyREAL8Vector(h4M2);
-          XLALDestroyREAL8Vector(h4P1);
-          XLALDestroyREAL8Vector(h4M1);
-          XLALDestroyREAL8Vector(h40);
+	  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	    XLALDestroyREAL8Vector(h3P3);
+	    XLALDestroyREAL8Vector(h3M3);
+	    XLALDestroyREAL8Vector(h3P2);
+	    XLALDestroyREAL8Vector(h3M2);
+	    XLALDestroyREAL8Vector(h3P1);
+	    XLALDestroyREAL8Vector(h3M1);
+	    XLALDestroyREAL8Vector(h30);
+	    XLALDestroyREAL8Vector(h4P4);
+	    XLALDestroyREAL8Vector(h4M4);
+	    XLALDestroyREAL8Vector(h4P3);
+	    XLALDestroyREAL8Vector(h4M3);
+	    XLALDestroyREAL8Vector(h4P2);
+	    XLALDestroyREAL8Vector(h4M2);
+	    XLALDestroyREAL8Vector(h4P1);
+	    XLALDestroyREAL8Vector(h4M1);
+	    XLALDestroyREAL8Vector(h40);
+	  }
           XLALDestroyREAL8Vector(fap);
           XLALDestroyREAL8Vector(phap);
           XLALDestroyREAL8Vector(sigp);
@@ -2711,10 +2764,10 @@ int XLALSimIMRPSpinInspiralRDGenerator(
 
         errcode=XLALSpinInspiralFillH2Modes(h2P2,h2M2,h2P1,h2M1,h20,count,amp22,v,mparams.eta,mparams.dm,Psi,alpha,&trigAngle);
 
-        errcode += XLALSpinInspiralFillH3Modes(h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,count,amp33,v,mparams.eta,mparams.dm,Psi,alpha,&trigAngle);
-
-        errcode += XLALSpinInspiralFillH4Modes(h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,count,amp44,v,mparams.eta,mparams.dm,Psi,alpha,&trigAngle);
-
+	if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	  errcode += XLALSpinInspiralFillH3Modes(h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,count,amp33,v,mparams.eta,mparams.dm,Psi,alpha,&trigAngle);
+	  errcode += XLALSpinInspiralFillH4Modes(h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,count,amp44,v,mparams.eta,mparams.dm,Psi,alpha,&trigAngle);
+	}
         fap->data[count] = om;
         phap->data[count] = Psi;
 
@@ -2748,69 +2801,72 @@ int XLALSimIMRPSpinInspiralRDGenerator(
       errcode += XLALPSpinInspiralAttachRingdownWave(h20, &apcount, nmodes, 2, 0, finalMass, finalSpin, tSampling, totalMass);
       for (i = 2 * apcount; i < 2 * length; i++) h20->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h3P3, &apcount, nmodes, 3, 3, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h3P3->data[i] = 0.;
+      if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h3P3, &apcount, nmodes, 3, 3, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h3P3->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h3M3, &apcount, nmodes, 3, -3, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h3M3->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h3M3, &apcount, nmodes, 3, -3, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h3M3->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h3P2, &apcount, nmodes, 3, 2, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h3P2->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h3P2, &apcount, nmodes, 3, 2, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h3P2->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h3M2, &apcount, nmodes, 3, -2, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h3P2->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h3M2, &apcount, nmodes, 3, -2, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h3P2->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h3P1, &apcount, nmodes, 3, 1, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h3P1->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h3P1, &apcount, nmodes, 3, 1, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h3P1->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h3M1, &apcount, nmodes, 3, -1, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h3M1->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h3M1, &apcount, nmodes, 3, -1, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h3M1->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h30, &apcount, nmodes, 3, 0, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h30->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h30, &apcount, nmodes, 3, 0, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h30->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4P4, &apcount, nmodes, 4, 4, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4P4->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4P4, &apcount, nmodes, 4, 4, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4P4->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4M4, &apcount, nmodes, 4, -4, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4M4->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4M4, &apcount, nmodes, 4, -4, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4M4->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4P3, &apcount, nmodes, 4, 3, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4P3->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4P3, &apcount, nmodes, 4, 3, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4P3->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4M3, &apcount, nmodes, 4, -3, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4M3->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4M3, &apcount, nmodes, 4, -3, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4M3->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4P2, &apcount, nmodes, 4, 2, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4P4->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4P2, &apcount, nmodes, 4, 2, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4P4->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4M2, &apcount, nmodes, 4, -2, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4M4->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4M2, &apcount, nmodes, 4, -2, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4M4->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4P1, &apcount, nmodes, 4, 1, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4P3->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4P1, &apcount, nmodes, 4, 1, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4P3->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h4M1, &apcount, nmodes, 4, -1, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h4M3->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h4M1, &apcount, nmodes, 4, -1, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h4M3->data[i] = 0.;
 
-      apcount  = count;
-      errcode += XLALPSpinInspiralAttachRingdownWave(h40 , &apcount, nmodes, 4, 0, finalMass, finalSpin, tSampling, totalMass);
-      for (i = 2 * apcount; i < 2 * length; i++) h40->data[i] = 0.;
+	apcount  = count;
+	errcode += XLALPSpinInspiralAttachRingdownWave(h40 , &apcount, nmodes, 4, 0, finalMass, finalSpin, tSampling, totalMass);
+	for (i = 2 * apcount; i < 2 * length; i++) h40->data[i] = 0.;
+
+      }
 
       if (errcode != XLAL_SUCCESS) {
 	fprintf(stderr,"**** LALPSpinInspiralRD ERROR ****: impossible to create RingDownWave\n");
@@ -2819,22 +2875,24 @@ int XLALSimIMRPSpinInspiralRDGenerator(
 	XLALDestroyREAL8Vector(h2P1);
 	XLALDestroyREAL8Vector(h2M1);
 	XLALDestroyREAL8Vector(h20);
-	XLALDestroyREAL8Vector(h3P3);
-	XLALDestroyREAL8Vector(h3M3);
-	XLALDestroyREAL8Vector(h3P2);
-	XLALDestroyREAL8Vector(h3M2);
-	XLALDestroyREAL8Vector(h3P1);
-	XLALDestroyREAL8Vector(h3M1);
-	XLALDestroyREAL8Vector(h30);
-	XLALDestroyREAL8Vector(h4P4);
-	XLALDestroyREAL8Vector(h4M4);
-	XLALDestroyREAL8Vector(h4P3);
-	XLALDestroyREAL8Vector(h4M3);
-	XLALDestroyREAL8Vector(h4P2);
-	XLALDestroyREAL8Vector(h4M2);
-	XLALDestroyREAL8Vector(h4P1);
-	XLALDestroyREAL8Vector(h4M1);
-	XLALDestroyREAL8Vector(h40);
+	if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	  XLALDestroyREAL8Vector(h3P3);
+	  XLALDestroyREAL8Vector(h3M3);
+	  XLALDestroyREAL8Vector(h3P2);
+	  XLALDestroyREAL8Vector(h3M2);
+	  XLALDestroyREAL8Vector(h3P1);
+	  XLALDestroyREAL8Vector(h3M1);
+	  XLALDestroyREAL8Vector(h30);
+	  XLALDestroyREAL8Vector(h4P4);
+	  XLALDestroyREAL8Vector(h4M4);
+	  XLALDestroyREAL8Vector(h4P3);
+	  XLALDestroyREAL8Vector(h4M3);
+	  XLALDestroyREAL8Vector(h4P2);
+	  XLALDestroyREAL8Vector(h4M2);
+	  XLALDestroyREAL8Vector(h4P1);
+	  XLALDestroyREAL8Vector(h4M1);
+	  XLALDestroyREAL8Vector(h40);
+	}
 	XLALDestroyREAL8Vector(fap);
 	XLALDestroyREAL8Vector(phap);
 	XLAL_ERROR(XLAL_EFAILED);
@@ -2886,97 +2944,726 @@ int XLALSimIMRPSpinInspiralRDGenerator(
     sigc->data[i] -= x1 * MultSphHarmP.im + x1 * MultSphHarmP.re;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 3);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -3);
-  for (i = 0; i < length; i++) {
-    x0 = h3P3->data[2 * i];
-    x1 = h3P3->data[2 * i + 1];
-    x2 = h3M3->data[2 * i];
-    x3 = h3M3->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 3);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -3);
+    for (i = 0; i < length; i++) {
+      x0 = h3P3->data[2 * i];
+      x1 = h3P3->data[2 * i + 1];
+      x2 = h3M3->data[2 * i];
+      x3 = h3M3->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 2);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -2);
+    for (i = 0; i < length; i++) {
+      x0 = h3P2->data[2 * i];
+      x1 = h3P2->data[2 * i + 1];
+      x2 = h3M2->data[2 * i];
+      x3 = h3M2->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 1);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -1);
+    for (i = 0; i < length; i++) {
+      x0 = h3P1->data[2 * i];
+      x1 = h3P1->data[2 * i + 1];
+      x2 = h3M1->data[2 * i];
+      x3 = h3M1->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 0);
+    for (i = 0; i < length; i++) {
+      x0 = h30->data[2 * i];
+      x1 = h30->data[2 * i + 1];    
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 4);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -4);
+    for (i = 0; i < length; i++) {
+      x0 = h4P4->data[2 * i];
+      x1 = h4P4->data[2 * i + 1];
+      x2 = h4P4->data[2 * i];
+      x3 = h4M4->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 3);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -3);
+    for (i = 0; i < length; i++) {
+      x0 = h4P3->data[2 * i];
+      x1 = h4P3->data[2 * i + 1];
+      x2 = h4M3->data[2 * i];
+      x3 = h4M3->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 2);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -2);
+    for (i = 0; i < length; i++) {
+      x0 = h4P2->data[2 * i];
+      x1 = h4P2->data[2 * i + 1];
+      x2 = h4M2->data[2 * i];
+      x3 = h4M2->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 1);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -1);
+    for (i = 0; i < length; i++) {
+      x0 = h4P1->data[2 * i];
+      x1 = h4P1->data[2 * i + 1];
+      x2 = h4M1->data[2 * i];
+      x3 = h4M1->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 0);
+    for (i = 0; i < length; i++) {
+      x0 = h40->data[2 * i];
+      x1 = h40->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re;
+    }
+  }
+  /*------------------------------------------------------
+   * If required by the user copy other data sets to the
+   * relevant arrays
+   ------------------------------------------------------*/
+
+  XLALGPSAdd( &t_start, -((double)count)*dt);
+
+  if (*hplus == NULL)
+    *hplus = XLALCreateREAL8TimeSeries("H+", &t_start, 0.0, deltaT, &lalDimensionlessUnit, length);
+
+  if (*hcross == NULL)
+    *hcross = XLALCreateREAL8TimeSeries("Hx", &t_start, 0.0, deltaT, &lalDimensionlessUnit, length);
+
+  if(*hplus == NULL || *hcross == NULL)
+    XLAL_ERROR(XLAL_ENOMEM);
+
+  memcpy((*hplus)->data->data, sigp->data, length * (sizeof(REAL8)));
+  memcpy((*hcross)->data->data, sigc->data, length * (sizeof(REAL8)));
+
+  /* Clean up */
+  XLALDestroyREAL8Vector(h2P2);
+  XLALDestroyREAL8Vector(h2M2);
+  XLALDestroyREAL8Vector(h2P1);
+  XLALDestroyREAL8Vector(h2M1);
+  XLALDestroyREAL8Vector(h20);
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    XLALDestroyREAL8Vector(h3P3);
+    XLALDestroyREAL8Vector(h3M3);
+    XLALDestroyREAL8Vector(h3P2);
+    XLALDestroyREAL8Vector(h3M2);
+    XLALDestroyREAL8Vector(h3P1);
+    XLALDestroyREAL8Vector(h3M1);
+    XLALDestroyREAL8Vector(h30);
+    XLALDestroyREAL8Vector(h4P4);
+    XLALDestroyREAL8Vector(h4M4);
+    XLALDestroyREAL8Vector(h4P3);
+    XLALDestroyREAL8Vector(h4M3);
+    XLALDestroyREAL8Vector(h4P2);
+    XLALDestroyREAL8Vector(h4M2);
+    XLALDestroyREAL8Vector(h4P1);
+    XLALDestroyREAL8Vector(h4M1);
+    XLALDestroyREAL8Vector(h40);
+  }
+  XLALDestroyREAL8Vector(fap);
+  XLALDestroyREAL8Vector(phap);
+  XLALDestroyREAL8Vector(sigp);
+  XLALDestroyREAL8Vector(sigc);
+
+  /* Careful here: count reports the bin number at the attachment of the
+     RD, useful for instance to determine tC, it is NOT the actual number
+     of waveform points*/
+  return count;
+  /*End RDGenerator*/
+}
+
+int XLALSimInspiralPSpinInspiralGenerator(
+    REAL8TimeSeries **hplus,	/**< +-polarization waveform */
+    REAL8TimeSeries **hcross,	/**< x-polarization waveform */
+    REAL8 phi_start,            /**< start phase */
+    REAL8 deltaT,               /**< sampling interval */
+    REAL8 m1,                   /**< mass of companion 1 */
+    REAL8 m2,                   /**< mass of companion 2 */
+    REAL8 f_min,                /**< start frequency */
+    REAL8 r,                    /**< distance of source */
+    REAL8 iota,                 /**< inclination of source (rad) */
+    REAL8 s1x,                  /**< x-component of dimensionless spin for object 1 */
+    REAL8 s1y,                  /**< y-component of dimensionless spin for object 1 */
+    REAL8 s1z,                  /**< z-component of dimensionless spin for object 1 */
+    REAL8 s2x,                  /**< x-component of dimensionless spin for object 2 */
+    REAL8 s2y,                  /**< y-component of dimensionless spin for object 2 */
+    REAL8 s2z,                  /**< z-component of dimensionless spin for object 2 */
+    int phaseO,                 /**< twice post-Newtonian phase order */
+    LALSimInspiralFlagContainer flags   /**< flag container */
+    )
+{
+
+  LIGOTimeGPS t_start = LIGOTIMEGPSZERO;
+  UINT4 length;                // signal vector length
+  REAL8 tn = XLALSimInspiralTaylorLength(deltaT, m1, m2, f_min, phaseO);
+  REAL8 x = 1.1 * (tn + 1. ) / deltaT;
+  length = ceil(log10(x)/log10(2.));
+  length = pow(2, length);
+
+  /* declare code parameters and variables */
+  const INT4 neqs = 11+1;      // number of dynamical variables plus the energy function
+  UINT4 count;         // integration steps performed
+  UINT4 i, j, k, l;            // counters
+
+  REAL8 unitHz;
+  REAL8 initomega,initphi;
+  REAL8 inc;
+  REAL8 LNhmag,initJmag;
+  REAL8 initS1[3],initS2[3],initLNh[3],initJ[3];
+  REAL8 iS1[3],iS2[3];
+  REAL8 phiJ,thetaJ;
+  REAL8 ry[3][3],rz[3][3];
+  REAL8 dt;
+  INT4  intreturn;
+  REAL8 yinit[neqs];
+
+  REAL8Vector* h2P2;
+  REAL8Vector* h2M2;
+  REAL8Vector* h2P1;
+  REAL8Vector* h2M1;
+  REAL8Vector* h20;
+
+  REAL8Vector* h3P3=NULL;
+  REAL8Vector* h3M3=NULL;
+  REAL8Vector* h3P2=NULL;
+  REAL8Vector* h3M2=NULL;
+  REAL8Vector* h3P1=NULL;
+  REAL8Vector* h3M1=NULL;
+  REAL8Vector* h30=NULL;
+  REAL8Vector* h4P4=NULL;
+  REAL8Vector* h4M4=NULL;
+  REAL8Vector* h4P3=NULL;
+  REAL8Vector* h4M3=NULL;
+  REAL8Vector* h4P2=NULL;
+  REAL8Vector* h4M2=NULL;
+  REAL8Vector* h4P1=NULL;
+  REAL8Vector* h4M1=NULL;
+  REAL8Vector* h40=NULL;
+
+  REAL8Vector* sigp;
+  REAL8Vector* sigc;
+  REAL8Vector* fap;
+  REAL8Vector* phap;
+
+  LALPSpinInspiralPhenPars phenPars;
+  LALPSpinInspiralRDparams mparams;
+
+  REAL8 amp22ini;
+
+  COMPLEX16 MultSphHarmP;       // Generic spin-weighted spherical harmonics
+  COMPLEX16 MultSphHarmM;       // Generic spin-weighted spherical harmonics
+  REAL8 x0, x1, x2, x3;
+
+  UINT4 errcode;
+
+  REAL8 mass1 = m1 / LAL_MSUN_SI; /* mass of object 1 in solar masses */
+  REAL8 mass2 = m2 / LAL_MSUN_SI; /* mass of object 2 in solar masses */
+  REAL8 totalMass = mass1 + mass2;
+  REAL8 eta = mass1 * mass2 / (totalMass * totalMass);
+  REAL8 mass = (m1 + m2) * LAL_G_SI / pow(LAL_C_SI, 3.0); /* convert m from kilograms to seconds */
+
+  REAL8 mu = eta * totalMass; /* Reduced mass in solar masses */
+  unitHz = mass * (REAL8) LAL_PI;
+
+  /*
+	 if ((signalvec2)||(hh))
+    params->nStartPad = 0;*/    /* must be zero for templates and injection */
+  /* -- length in seconds from Newtonian formula; */
+
+  dt = deltaT;
+
+  /* setup coefficients for PN equations */
+  if(XLALPSpinInspiralRDparamsSetup(&mparams, /** Output: RDparams structure */
+			     flags, 	      /** Flag container */
+			     deltaT, 		/** sampling interval */
+			     f_min,		/** Starting frequency */
+			     mass1,		/** Mass 1 */
+			     mass2,		/** Mass 2 */
+			     phaseO		/** PN Order in Phase */ ))
+    XLAL_ERROR(XLAL_EFUNC);
+
+  /* Check that initial frequency is smaller than omegamatch ~ xxyy for m=100 Msun */
+  initphi   = phi_start;
+  initomega = f_min*unitHz;
+
+  /* Here we use the following convention:
+     the coordinates of the spin vectors spin1,2 and the inclination 
+     variable refers to different physical parameters according to the value of 
+     axisChoice:
+
+     * OrbitalL: inclination denotes the angle between the view direction
+                 N and the initial L (initial L//z, N in the x-z plane) and the spin 
+		 coordinates are given with respect to initial L.
+     * TotalJ:   inclination denotes the angle between the view directoin 
+                 and J (J is constant during the evolution, J//z, both N and initial 
+		 L are in the x-z plane) and the spin coordinates are given wrt 
+		 initial ** L **.
+     * View:     inclination denotes the angle between the initial L and N 
+                 (N//z, initial L in the x-z plane) and the spin coordinates 
+		 are given with respect to N.
+
+     In order to reproduce the results of the SpinTaylor code View must be chosen.
+     The spin magnitude are normalized to the individual mass^2, i.e.
+     they are dimension-less.
+     The modulus of the initial angular momentum is fixed by m1,m2 and
+     initial frequency.
+     The polarization angle is not used here, it enters the pattern
+     functions along with the angles marking the sky position of the
+     source. However a misalignment of the line of nodes wrt to the standard
+     convention can take place when L is initially aligned with N, this is 
+     re-absorbed by a redefinition of the psi angle.*/
+
+  // Physical magnitude of the orbital angular momentum
+  LNhmag = eta * totalMass * totalMass / cbrt(initomega);
+
+  // Physical values of the spins
+  initS1[0] = s1x * mass1 * mass1;
+  initS1[1] = s1y * mass1 * mass1;
+  initS1[2] = s1z * mass1 * mass1;
+  initS2[0] = s2x * mass2 * mass2;
+  initS2[1] = s2y * mass2 * mass2;
+  initS2[2] = s2z * mass2 * mass2;
+
+  switch (flags.axisChoice) {
+
+  case LAL_SIM_INSPIRAL_AXIS_ORBITAL_L:
+    //printf("*** OrbitalL ***\n");
+    initLNh[0] = 0.;
+    initLNh[1] = 0.;
+    initLNh[2] = 1.;
+    inc = iota;
+    break;
+
+  case LAL_SIM_INSPIRAL_AXIS_TOTAL_J:
+    //printf("*** TotalJ ***\n");
+    for (j=0;j<3;j++) {
+      iS1[j] = initS1[j];
+      iS2[j] = initS2[j];
+      initJ[j] = iS1[j] + iS2[j];
+      initS1[j] = initS2[j]=0.;
+      initLNh[j] = 0.;
+    }
+    initJ[2] += LNhmag;
+    initJmag = sqrt(initJ[0] * initJ[0] + initJ[1] * initJ[1] + initJ[2] * initJ[2]);
+    if (initJ[1])
+      phiJ = atan2(initJ[1], initJ[0]);
+    else
+      phiJ = 0.;
+    thetaJ = acos(initJ[2]/initJmag);
+    rz[0][0] = -cos(phiJ);
+    rz[0][1] = -sin(phiJ);
+    rz[0][2] = 0.;
+    rz[1][0] = sin(phiJ);
+    rz[1][1] = -cos(phiJ);
+    rz[1][2] = 0.;
+    rz[2][0] = 0.;
+    rz[2][1] = 0.;
+    rz[2][2] = 1.;
+    ry[0][0] = cos(thetaJ);
+    ry[0][1] = 0;
+    ry[0][2] = sin(thetaJ);
+    ry[1][0] = 0.;
+    ry[1][1] = 1.;
+    ry[1][2] = 0.;
+    ry[2][0] = -sin(thetaJ);
+    ry[2][1] = 0.;
+    ry[2][2] = cos(thetaJ);
+    for (j = 0; j < 3; j++) {
+      for (k = 0; k < 3; k++) {
+	initLNh[j] += ry[j][k] * rz[k][2];
+	for (l = 0; l < 3; l++) {
+           initS1[j] += ry[j][k] * rz[k][l] * iS1[l];
+           initS2[j] += ry[j][k] * rz[k][l] * iS2[l];
+	}
+      }
+    }
+    inc = iota;
+    break;
+
+  case LAL_SIM_INSPIRAL_AXIS_VIEW:
+  default:
+    //printf("*** View ***\n");
+    initLNh[0] = sin(iota);
+    initLNh[1] = 0.;
+    initLNh[2] = cos(iota);
+    inc = 0.;
+    break;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 2);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -2);
-  for (i = 0; i < length; i++) {
-    x0 = h3P2->data[2 * i];
-    x1 = h3P2->data[2 * i + 1];
-    x2 = h3M2->data[2 * i];
-    x3 = h3M2->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+  /*All the PN formulas used in the differential equation integration 
+    assume that the spin variables are the physical ones divided by
+    totalmasss^2, here we introduce the correct normalization, changing the
+    input one, where spin components were normalized on individual mass. */
+  for (j = 0; j < 3; j++) {
+    initS1[j] /= totalMass * totalMass;
+    initS2[j] /= totalMass * totalMass;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 1);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -1);
-  for (i = 0; i < length; i++) {
-    x0 = h3P1->data[2 * i];
-    x1 = h3P1->data[2 * i + 1];
-    x2 = h3M1->data[2 * i];
-    x3 = h3M1->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+  mparams.length = length;
+
+  /* Allocate memory for temporary arrays */
+
+  h2P2 = XLALCreateREAL8Vector(length * 2);
+  h2M2 = XLALCreateREAL8Vector(length * 2);
+  h2P1 = XLALCreateREAL8Vector(length * 2);
+  h2M1 = XLALCreateREAL8Vector(length * 2);
+  h20  = XLALCreateREAL8Vector(length * 2);
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    h3P3 = XLALCreateREAL8Vector(length * 2);
+    h3M3 = XLALCreateREAL8Vector(length * 2);
+    h3P2 = XLALCreateREAL8Vector(length * 2);
+    h3M2 = XLALCreateREAL8Vector(length * 2);
+    h3P1 = XLALCreateREAL8Vector(length * 2);
+    h3M1 = XLALCreateREAL8Vector(length * 2);
+    h30  = XLALCreateREAL8Vector(length * 2);
+    h4P4 = XLALCreateREAL8Vector(length * 2);
+    h4M4 = XLALCreateREAL8Vector(length * 2);
+    h4P3 = XLALCreateREAL8Vector(length * 2);
+    h4M3 = XLALCreateREAL8Vector(length * 2);
+    h4P2 = XLALCreateREAL8Vector(length * 2);
+    h4M2 = XLALCreateREAL8Vector(length * 2);
+    h4P1 = XLALCreateREAL8Vector(length * 2);
+    h4M1 = XLALCreateREAL8Vector(length * 2);
+    h40  = XLALCreateREAL8Vector(length * 2);
+  }
+  sigp = XLALCreateREAL8Vector(length);
+  sigc = XLALCreateREAL8Vector(length);
+  fap  = XLALCreateREAL8Vector(length);
+  phap = XLALCreateREAL8Vector(length);
+
+  if (!(h2P2 && h2M2 && h2P1 && h2M1 && h20 && sigp && sigc && fap && phap ) ) {
+    if (h2P2)
+      XLALDestroyREAL8Vector(h2P2);
+    if (h2M2)
+      XLALDestroyREAL8Vector(h2M2);
+    if (h2P1)
+      XLALDestroyREAL8Vector(h2P1);
+    if (h2M2)
+      XLALDestroyREAL8Vector(h2M1);
+    if (h20)
+      XLALDestroyREAL8Vector(h20);
+    if ( (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) && !(h3P3 && h3M3 && h3P2 && h3M2 && h3P1 && h3M1 && h30 && h4P4 && h4M4 && h4P3 && h4M3 && h4P2 && h4M2 && h4P1 && h4M1 && h40) ) {
+      if (h3P3)
+	XLALDestroyREAL8Vector(h3P3);
+      if (h3M3)
+	XLALDestroyREAL8Vector(h3M3);
+      if (h3P2)
+	XLALDestroyREAL8Vector(h3P2);
+      if (h3M2)
+	XLALDestroyREAL8Vector(h3M2);
+      if (h3P1)
+	XLALDestroyREAL8Vector(h3P1);
+      if (h3M1)
+	XLALDestroyREAL8Vector(h3M1);
+      if (h30)
+	XLALDestroyREAL8Vector(h30);
+      if (h4P4)
+	XLALDestroyREAL8Vector(h4P4);
+      if (h4M4)
+	XLALDestroyREAL8Vector(h4M4);
+      if (h4P3)
+	XLALDestroyREAL8Vector(h4P3);
+      if (h4M3)
+	XLALDestroyREAL8Vector(h4M3);
+      if (h4P2)
+	XLALDestroyREAL8Vector(h4P2);
+      if (h4M2)
+	XLALDestroyREAL8Vector(h4M2);
+      if (h4P1)
+	XLALDestroyREAL8Vector(h4P1);
+      if (h4M1)
+	XLALDestroyREAL8Vector(h4M1);
+      if (h40)
+	XLALDestroyREAL8Vector(h40);
+    }
+    if (sigp)
+      XLALDestroyREAL8Vector(sigp);
+    if (sigc)
+      XLALDestroyREAL8Vector(sigc);
+    if (fap)
+      XLALDestroyREAL8Vector(fap);
+    if (phap)
+      XLALDestroyREAL8Vector(phap);
+    XLAL_ERROR(XLAL_ENOMEM);
+  }
+  
+  memset(h2P2->data, 0, h2P2->length * sizeof(REAL8));
+  memset(h2M2->data, 0, h2M2->length * sizeof(REAL8));
+  memset(h2P1->data, 0, h2P1->length * sizeof(REAL8));
+  memset(h2M1->data, 0, h2P1->length * sizeof(REAL8));
+  memset(h20->data,  0, h20->length  * sizeof(REAL8));
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    memset(h3P3->data, 0, h3P3->length * sizeof(REAL8));
+    memset(h3M3->data, 0, h3M3->length * sizeof(REAL8));
+    memset(h3P2->data, 0, h3P2->length * sizeof(REAL8));
+    memset(h3M2->data, 0, h3M2->length * sizeof(REAL8));
+    memset(h3P1->data, 0, h3P1->length * sizeof(REAL8));
+    memset(h3M1->data, 0, h3M1->length * sizeof(REAL8));
+    memset(h30->data,  0, h30->length  * sizeof(REAL8));
+    memset(h4P4->data, 0, h4P4->length * sizeof(REAL8));
+    memset(h4M4->data, 0, h4M4->length * sizeof(REAL8));
+    memset(h4P3->data, 0, h4P3->length * sizeof(REAL8));
+    memset(h4M3->data, 0, h4M3->length * sizeof(REAL8));
+    memset(h4P2->data, 0, h4P2->length * sizeof(REAL8));
+    memset(h4M2->data, 0, h4M2->length * sizeof(REAL8));
+    memset(h4P1->data, 0, h4P1->length * sizeof(REAL8));
+    memset(h4M1->data, 0, h4M1->length * sizeof(REAL8));
+    memset(h40->data,  0, h40->length  * sizeof(REAL8));
+  }
+  memset(sigp->data, 0, sigp->length * sizeof(REAL8));
+  memset(sigc->data, 0, sigc->length * sizeof(REAL8));
+  memset(fap->data,  0, fap->length  * sizeof(REAL8));
+  memset(phap->data, 0, phap->length * sizeof(REAL8));
+
+  amp22ini = -2.0 * mu * LAL_MRSUN_SI / r * sqrt(16. * LAL_PI / 5.);
+ 
+  /* initialize the coordinates */
+  yinit[0] = initphi;     /* phi */
+  yinit[1] = initomega;   /* omega (really pi M f) */
+  yinit[2] = initLNh[0];   /* LNh(x,y,z) */
+  yinit[3] = initLNh[1];
+  yinit[4] = initLNh[2];
+
+  yinit[5] = initS1[0];   /* Spin1(x,y,z) */
+  yinit[6] = initS1[1];
+  yinit[7] = initS1[2];
+
+  yinit[8] = initS2[0];   /* Spin2(x,y,z) */
+  yinit[9] = initS2[1];
+  yinit[10]= initS2[2];
+
+  yinit[11]= 0.;
+
+  phenPars.intreturn = 0;
+  phenPars.energy    = 0.;
+  phenPars.omega     = 0.;
+  phenPars.domega    = 0.;
+  phenPars.ddomega   = 0.;
+  phenPars.diota     = 0.;
+  phenPars.ddiota    = 0.;
+  phenPars.dalpha    = 0.;
+  phenPars.ddalpha   = 0.;
+  phenPars.countback = 0;
+  phenPars.endtime   = 0.;
+  phenPars.Psi       = 0.;
+  phenPars.alpha     = 0.;
+  phenPars.ci        = 0.;
+  phenPars.LNhS1     = 0.;
+  phenPars.LNhS2     = 0.;
+  phenPars.S1S1      = 0.;
+  phenPars.S1S2      = 0.;
+  phenPars.S2S2      = 0.;
+
+  mparams.inspiralOnly=1;
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES)
+    errcode = XLALSpinInspiralAdaptiveEngine(neqs,yinit,amp22ini,&mparams,h2P2,h2M2,h2P1,h2M1,h20,h3P3,h3M3,h3P2,h3M2,h3P1,h3M1,h30,h4P4,h4M4,h4P3,h4M3,h4P2,h4M2,h4P1,h4M1,h40,fap,phap,&phenPars);
+  else 
+    errcode = XLALSpinInspiralAdaptiveEngine(neqs,yinit,amp22ini,&mparams,h2P2,h2M2,h2P1,h2M1,h20,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,fap,phap,&phenPars);
+
+  if (errcode != XLAL_SUCCESS) {
+    fprintf(stderr,"**** LALPSpinInspiral ERROR ****: impossible to solve for the inspiral\n");
+	XLALDestroyREAL8Vector(h2P2);
+	XLALDestroyREAL8Vector(h2M2);
+	XLALDestroyREAL8Vector(h2P1);
+	XLALDestroyREAL8Vector(h2M1);
+	XLALDestroyREAL8Vector(h20);
+	if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+	  XLALDestroyREAL8Vector(h3P3);
+	  XLALDestroyREAL8Vector(h3M3);
+	  XLALDestroyREAL8Vector(h3P2);
+	  XLALDestroyREAL8Vector(h3M2);
+	  XLALDestroyREAL8Vector(h3P1);
+	  XLALDestroyREAL8Vector(h3M1);
+	  XLALDestroyREAL8Vector(h30);
+	  XLALDestroyREAL8Vector(h4P4);
+	  XLALDestroyREAL8Vector(h4M4);
+	  XLALDestroyREAL8Vector(h4P3);
+	  XLALDestroyREAL8Vector(h4M3);
+	  XLALDestroyREAL8Vector(h4P2);
+	  XLALDestroyREAL8Vector(h4M2);
+	  XLALDestroyREAL8Vector(h4P1);
+	  XLALDestroyREAL8Vector(h4M1);
+	  XLALDestroyREAL8Vector(h40);
+	}
+	XLALDestroyREAL8Vector(fap);
+	XLALDestroyREAL8Vector(phap);
+	XLAL_ERROR(XLAL_EFAILED);
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 0);
+  intreturn=phenPars.intreturn;
+  count= phenPars.countback;
+
+  /* report on abnormal termination:
+     Termination is fine if omegamatch is passed or if energy starts 
+     increasing  */
+
+  if ( intreturn != LALPSIRDPN_TEST_ENERGY )
+    {
+      XLALPrintWarning("** LALPSpinInspiralRD WARNING **: integration terminated with code %d.\n",intreturn);
+      fprintf(stderr,"  1025: Energy increases\n  1026: Omegadot -ve\n  1028: Omega NAN\n  1029: Omega > Omegamatch\n  1031: Omega -ve\n");
+      XLALPrintWarning("  Waveform parameters were m1 = %14.6e, m2 = %14.6e, inc = %10.6f,\n", mass1, mass2, iota);
+      XLALPrintWarning("                           S1 = (%10.6f,%10.6f,%10.6f)\n", s1x, s1y, s1z);
+      XLALPrintWarning("                           S2 = (%10.6f,%10.6f,%10.6f)\n", s2x, s2y, s2z);
+    }
+
+  /*-------------------------------------------------------------------
+   * Compute the spherical harmonics required for constructing (h+,hx).
+   -------------------------------------------------------------------*/
+
+  /* The angles theta for the spherical harmonics has been set according to 
+     the input inclination parameter and the axisChoice */
+
   for (i = 0; i < length; i++) {
-    x0 = h30->data[2 * i];
-    x1 = h30->data[2 * i + 1];    
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re;
+    fap->data[i] /= unitHz;
+    sigp->data[i] = 0.;
+    sigc->data[i] = 0.;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 4);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -4);
+  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 2, 2);
+  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 2, -2);
   for (i = 0; i < length; i++) {
-    x0 = h4P4->data[2 * i];
-    x1 = h4P4->data[2 * i + 1];
-    x2 = h4P4->data[2 * i];
-    x3 = h4M4->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    x0 = h2P2->data[2 * i];
+    x1 = h2P2->data[2 * i + 1];
+    x2 = h2M2->data[2 * i];
+    x3 = h2M2->data[2 * i + 1];
+    sigp->data[i] +=   x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+    sigc->data[i] += - x0 * MultSphHarmP.im - x1 * MultSphHarmP.re - x2 * MultSphHarmM.im - x3 * MultSphHarmM.re;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 3);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -3);
+  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 2, 1);
+  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 2, -1);
   for (i = 0; i < length; i++) {
-    x0 = h4P3->data[2 * i];
-    x1 = h4P3->data[2 * i + 1];
-    x2 = h4M3->data[2 * i];
-    x3 = h4M3->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    x0 = h2P1->data[2 * i];
+    x1 = h2P1->data[2 * i + 1];
+    x2 = h2M1->data[2 * i];
+    x3 = h2M1->data[2 * i + 1];
+    sigp->data[i] +=   x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+    sigc->data[i] += - x0 * MultSphHarmP.im - x1 * MultSphHarmP.re - x2 * MultSphHarmM.im - x3 * MultSphHarmM.re;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 2);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -2);
+  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 2, 0);
   for (i = 0; i < length; i++) {
-    x0 = h4P2->data[2 * i];
-    x1 = h4P2->data[2 * i + 1];
-    x2 = h4M2->data[2 * i];
-    x3 = h4M2->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    x0 = h20->data[2 * i];
+    x1 = h20->data[2 * i + 1];
+    sigp->data[i] += x1 * MultSphHarmP.re - x1 * MultSphHarmP.im;
+    sigc->data[i] -= x1 * MultSphHarmP.im + x1 * MultSphHarmP.re;
   }
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 1);
-  MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -1);
-  for (i = 0; i < length; i++) {
-    x0 = h4P1->data[2 * i];
-    x1 = h4P1->data[2 * i + 1];
-    x2 = h4M1->data[2 * i];
-    x3 = h4M1->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
-  }
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
 
-  MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 0);
-  for (i = 0; i < length; i++) {
-    x0 = h40->data[2 * i];
-    x1 = h40->data[2 * i + 1];
-    sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im;
-    sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re;
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 3);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -3);
+    for (i = 0; i < length; i++) {
+      x0 = h3P3->data[2 * i];
+      x1 = h3P3->data[2 * i + 1];
+      x2 = h3M3->data[2 * i];
+      x3 = h3M3->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 2);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -2);
+    for (i = 0; i < length; i++) {
+      x0 = h3P2->data[2 * i];
+      x1 = h3P2->data[2 * i + 1];
+      x2 = h3M2->data[2 * i];
+      x3 = h3M2->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 1);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, -1);
+    for (i = 0; i < length; i++) {
+      x0 = h3P1->data[2 * i];
+      x1 = h3P1->data[2 * i + 1];
+      x2 = h3M1->data[2 * i];
+      x3 = h3M1->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 3, 0);
+    for (i = 0; i < length; i++) {
+      x0 = h30->data[2 * i];
+      x1 = h30->data[2 * i + 1];    
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 4);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -4);
+    for (i = 0; i < length; i++) {
+      x0 = h4P4->data[2 * i];
+      x1 = h4P4->data[2 * i + 1];
+      x2 = h4P4->data[2 * i];
+      x3 = h4M4->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 3);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -3);
+    for (i = 0; i < length; i++) {
+      x0 = h4P3->data[2 * i];
+      x1 = h4P3->data[2 * i + 1];
+      x2 = h4M3->data[2 * i];
+      x3 = h4M3->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 2);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -2);
+    for (i = 0; i < length; i++) {
+      x0 = h4P2->data[2 * i];
+      x1 = h4P2->data[2 * i + 1];
+      x2 = h4M2->data[2 * i];
+      x3 = h4M2->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 1);
+    MultSphHarmM=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, -1);
+    for (i = 0; i < length; i++) {
+      x0 = h4P1->data[2 * i];
+      x1 = h4P1->data[2 * i + 1];
+      x2 = h4M1->data[2 * i];
+      x3 = h4M1->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im + x2 * MultSphHarmM.re - x3 * MultSphHarmM.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re + x2 * MultSphHarmM.im + x3 * MultSphHarmM.re;
+    }
+
+    MultSphHarmP=XLALSpinWeightedSphericalHarmonic(inc, 0., -2, 4, 0);
+    for (i = 0; i < length; i++) {
+      x0 = h40->data[2 * i];
+      x1 = h40->data[2 * i + 1];
+      sigp->data[i] += x0 * MultSphHarmP.re - x1 * MultSphHarmP.im;
+      sigc->data[i] -= x0 * MultSphHarmP.im + x1 * MultSphHarmP.re;
+    }
   }
 
   /*------------------------------------------------------
@@ -3004,30 +3691,30 @@ int XLALSimIMRPSpinInspiralRDGenerator(
   XLALDestroyREAL8Vector(h2P1);
   XLALDestroyREAL8Vector(h2M1);
   XLALDestroyREAL8Vector(h20);
-  XLALDestroyREAL8Vector(h3P3);
-  XLALDestroyREAL8Vector(h3M3);
-  XLALDestroyREAL8Vector(h3P2);
-  XLALDestroyREAL8Vector(h3M2);
-  XLALDestroyREAL8Vector(h3P1);
-  XLALDestroyREAL8Vector(h3M1);
-  XLALDestroyREAL8Vector(h30);
-  XLALDestroyREAL8Vector(h4P4);
-  XLALDestroyREAL8Vector(h4M4);
-  XLALDestroyREAL8Vector(h4P3);
-  XLALDestroyREAL8Vector(h4M3);
-  XLALDestroyREAL8Vector(h4P2);
-  XLALDestroyREAL8Vector(h4M2);
-  XLALDestroyREAL8Vector(h4P1);
-  XLALDestroyREAL8Vector(h4M1);
-  XLALDestroyREAL8Vector(h40);
+  if (flags.higherModes==LAL_SIM_INSPIRAL_HIGHER_MODES) {
+    XLALDestroyREAL8Vector(h3P3);
+    XLALDestroyREAL8Vector(h3M3);
+    XLALDestroyREAL8Vector(h3P2);
+    XLALDestroyREAL8Vector(h3M2);
+    XLALDestroyREAL8Vector(h3P1);
+    XLALDestroyREAL8Vector(h3M1);
+    XLALDestroyREAL8Vector(h30);
+    XLALDestroyREAL8Vector(h4P4);
+    XLALDestroyREAL8Vector(h4M4);
+    XLALDestroyREAL8Vector(h4P3);
+    XLALDestroyREAL8Vector(h4M3);
+    XLALDestroyREAL8Vector(h4P2);
+    XLALDestroyREAL8Vector(h4M2);
+    XLALDestroyREAL8Vector(h4P1);
+    XLALDestroyREAL8Vector(h4M1);
+    XLALDestroyREAL8Vector(h40);
+  }
   XLALDestroyREAL8Vector(fap);
   XLALDestroyREAL8Vector(phap);
   XLALDestroyREAL8Vector(sigp);
   XLALDestroyREAL8Vector(sigc);
 
-  /* Careful here: count reports the bin number at the attachment of the
-     RD, useful for instance to determine tC, it is NOT the actual number
-     of waveform points*/
+  /* Careful here: count reports the bin number at the end of the waveform*/
   return count;
   /*End */
 }

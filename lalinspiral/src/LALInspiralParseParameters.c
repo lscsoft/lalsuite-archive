@@ -179,8 +179,8 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	    params->approximant = SpinTaylorT4; }
 	  else if (strcmp(argv[i],"SpinQuadTaylor")==0){
 	    params->approximant = SpinQuadTaylor;}
-	  else if (strcmp(argv[i],"PhenSpinTaylorRDF")==0){
-	    params->approximant = PhenSpinTaylorRDF;}
+	  //else if (strcmp(argv[i],"PhenSpinTaylorRDF")==0){
+	  //  params->approximant = PhenSpinTaylorRDF;}
 	  else if (strcmp(argv[i],"PhenSpinTaylorRD")==0){
 	    params->approximant = PhenSpinTaylorRD;}
 	  else if (strcmp(argv[i],"FindChirpSP")==0){

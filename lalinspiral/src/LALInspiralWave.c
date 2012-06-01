@@ -162,8 +162,10 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
    REAL8 i = thisRow->inclination;
    REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
    REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
-   LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+   LALSimInspiralFlagContainer flags;
    int amplitudeO = thisRow->amp_order;
+
+   XLALSimInspiralFlagSetDefault(&flags);
 
    /* get approximant */
    if (XLALGetApproximantFromString(thisRow->waveform, &approximant) == XLAL_FAILURE)
@@ -178,7 +180,7 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
       XLAL_ERROR(XLAL_EFUNC);
 
    /* generate +,x waveforms */
-   if (XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, r, i, lambda1, lambda2, interactionFlags, amplitudeO, order, approximant) == XLAL_FAILURE)
+   if (XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, r, i, lambda1, lambda2, flags, amplitudeO, order, approximant) == XLAL_FAILURE)
       XLAL_ERROR(XLAL_EFUNC);
 
    /* taper the waveforms */
@@ -220,13 +222,15 @@ XLALSimInspiralChooseWaveformFromInspiralTemplate(
   REAL8 i = params->inclination;
   REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
   REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
-  LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+  LALSimInspiralFlagContainer flags;
   LALPNOrder amplitudeO = params->ampOrder;
   LALPNOrder order = params->order;
   Approximant approximant = params->approximant;
 
+  XLALSimInspiralFlagSetDefault(&flags);
+
   /* generate +,x waveforms */
-  if (XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, r, i, lambda1, lambda2, interactionFlags, amplitudeO, order, approximant) == XLAL_FAILURE)
+  if (XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, r, i, lambda1, lambda2, flags, amplitudeO, order, approximant) == XLAL_FAILURE)
     XLAL_ERROR(XLAL_EFUNC);
 
   return XLAL_SUCCESS;
@@ -321,12 +325,14 @@ LALInspiralWave(
       case SpinTaylorFrameless:
            if (XLALSTPNFramelessWaveform(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
            break;
+      case PhenSpinTaylor:
+	   params->inspiralOnly=1;
       case PhenSpinTaylorRD:
            if (XLALPSpinInspiralRD(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
            break;
-      case PhenSpinTaylorRDF:
-           if (XLALPSpinInspiralRDFreqDom(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
-           break;
+      //case PhenSpinTaylorRDF:
+      //     if (XLALPSpinInspiralRDFreqDom(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
+      //     break;
       case SpinQuadTaylor:
            if (XLALSQTPNWaveform(signalvec, params) == XLAL_FAILURE) ABORTXLAL(status);
            CHECKSTATUSPTR(status);
@@ -434,6 +440,8 @@ LALInspiralWaveTemplates(
       case SpinTaylorFrameless:
            if (XLALSTPNFramelessWaveformTemplates(signalvec1, signalvec2, params) == XLAL_FAILURE) ABORTXLAL(status);
            break;
+      case PhenSpinTaylor:
+	   params->inspiralOnly=1;
       case PhenSpinTaylorRD:
 	   if (XLALPSpinInspiralRDTemplates(signalvec1, signalvec2, params) == XLAL_FAILURE) ABORTXLAL(status);
 	   break;
@@ -513,6 +521,8 @@ LALInspiralWaveForInjection(
            LALSTPNWaveformForInjection(status->statusPtr, waveform, inspiralParams, ppnParams);
            CHECKSTATUSPTR(status);
            break;
+      case PhenSpinTaylor:
+	   inspiralParams->inspiralOnly=1;
       case PhenSpinTaylorRD:
            if (XLALPSpinInspiralRDForInjection(waveform, inspiralParams, ppnParams) == XLAL_FAILURE) ABORTXLAL(status);
            break;

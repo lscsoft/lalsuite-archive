@@ -109,21 +109,20 @@ LALGenerateInspiral(
   {
     inspiralParams.approximant = approximant;
     inspiralParams.order       = order;
-    if ((approximant == SpinQuadTaylor)||(approximant == PhenSpinTaylorRD)) {
+    if ( (approximant == SpinQuadTaylor) || (approximant == PhenSpinTaylorRD) || (approximant == PhenSpinTaylor) ) {
 		xlalErrno = 0;
 		if (XLALGetInteractionFromString(&inspiralParams.interaction, thisEvent->waveform) == XLAL_FAILURE) {
 			ABORTXLAL(status);
 		}
 	}
 
-	if (approximant == PhenSpinTaylorRD) {
-	  xlalErrno = 0;
-	  if ( (XLALGetAxisChoiceFromString(&inspiralParams.axisChoice, thisEvent->waveform) == XLAL_FAILURE) || 
-	       (XLALGetAdaptiveIntFromString(&inspiralParams.fixedStep, thisEvent->waveform) == XLAL_FAILURE) || 
-	       (XLALGetInspiralOnlyFromString(&inspiralParams.inspiralOnly, thisEvent->waveform) == XLAL_FAILURE ) ) {
-	    ABORTXLAL(status);
-	  }
-	}
+    if ( (approximant == PhenSpinTaylorRD)||(approximant == PhenSpinTaylor) ) {
+      xlalErrno = 0;
+      if ( (XLALGetAxisChoiceFromString(&inspiralParams.axisChoice, thisEvent->waveform) == XLAL_FAILURE) || 
+	   (XLALGetAdaptiveIntFromString(&inspiralParams.fixedStep, thisEvent->waveform) == XLAL_FAILURE) || 
+	   (XLALGetHigherModesFromString(&inspiralParams.higherModes, thisEvent->waveform) == XLAL_FAILURE) ) 
+	   ABORTXLAL(status);
+    }
 
     /* We fill ppnParams */
     oldxlalErrno = xlalErrno;
@@ -149,7 +148,7 @@ LALGenerateInspiral(
   }
 
   /* If no waveform has been generated. (AmpCorPPN and PhenSpinTaylorRD and SpinTaylorFrameless fill waveform.h) */
-  if ( waveform->a == NULL && approximant != AmpCorPPN && approximant != PhenSpinTaylorRD && approximant != SpinTaylorFrameless 
+  if ( waveform->a == NULL && approximant != AmpCorPPN && approximant != PhenSpinTaylor && approximant != PhenSpinTaylorRD && approximant != SpinTaylorFrameless 
        && approximant != EOBNRv2 && approximant != EOBNRv2HM )
   {
     snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
@@ -157,7 +156,7 @@ LALGenerateInspiral(
     LALInfo( status, warnMsg );
     ABORT( status, LALINSPIRALH_ENOWAVEFORM, LALINSPIRALH_MSGENOWAVEFORM );
   }
-  if ( waveform->h == NULL && ( approximant == AmpCorPPN || approximant == PhenSpinTaylorRD || approximant == SpinTaylorFrameless
+  if ( waveform->h == NULL && ( approximant == AmpCorPPN || approximant == PhenSpinTaylor || approximant == PhenSpinTaylorRD || approximant == SpinTaylorFrameless
        || approximant == EOBNRv2 || approximant == EOBNRv2HM ) )
   {
     snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
@@ -285,49 +284,7 @@ XLALGetOrderFromString(
  *	@param[in]	thisEvent	: string containing the spin interaction
  *	@return error code
  */
-int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent) {
-  if (strstr(thisEvent, "NO")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_NONE;
-  } else if (strstr(thisEvent, "SO15")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN;
-  } else if (strstr(thisEvent,"SS")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
-  } else if (strstr(thisEvent,"SELF")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
-  } else if (strstr(thisEvent, "QM")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
-  } else if (strstr(thisEvent, "SO25")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
-  } else if (strstr(thisEvent, "SO")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN;
-  } else if (strstr(thisEvent, "ALL_SPIN")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
-  } else if (strstr(thisEvent, "TIDAL5PN")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
-  } else if (strstr(thisEvent, "TIDAL")) {
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
-  } else if (strstr(thisEvent, "ALL")){
-    *inter = LAL_SIM_INSPIRAL_INTERACTION_ALL;
-  } else {
-    XLALPrintError( "Cannot parse LALSimInspiralInteraction from string: %s\n Please add 'ALL' to the above string for including all spin interactions\n", thisEvent );
-    XLAL_ERROR( XLAL_EINVAL );
-  }
-
-  return XLAL_SUCCESS;
-}
-
-/** \see See \ref GenerateInspiral_h for documentation */
-int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent) {
-  if (strstr(thisEvent, "TotalJ")) {
-    *axisChoice = TotalJ;
-  } else if  (strstr(thisEvent, "OrbitalL")) {
-    *axisChoice = OrbitalL;
-  }
-  else  
-    *axisChoice = View;
-  return XLAL_SUCCESS;
-}
-
+   
 /** \see See \ref GenerateInspiral_h for documentation */
 int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent) {
   if (strstr(thisEvent, "fixedStep")) {
@@ -337,15 +294,14 @@ int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent) {
   return XLAL_SUCCESS;
 }
 
-/** \see See \ref GenerateInspiral_h for documentation */
-int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent) {
+/*int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent) {
   if (strstr(thisEvent, "inspiralOnly")) {
     *inspiralOnly = 1;
   }
   else
     *inspiralOnly = 0;
   return XLAL_SUCCESS;
-}
+  }*/
 
 /** \see See \ref GenerateInspiral_h for documentation */
 int
@@ -400,6 +356,10 @@ XLALGetApproximantFromString(
   else if ( strstr(thisEvent, "PhenSpinTaylorRD" ) )
   {
     *approximant = PhenSpinTaylorRD;
+  }
+  else if ( strstr(thisEvent, "PhenSpinTaylor" ) )
+  {
+    *approximant = PhenSpinTaylor;
   }
   else if ( strstr(thisEvent, "SpinTaylorT4" ) )
   {

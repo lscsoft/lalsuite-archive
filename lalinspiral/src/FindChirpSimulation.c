@@ -315,7 +315,11 @@ LALFindChirpInjectSignals (
           ((REAL8) (chan->data->length - ppnParams.length) / 2.0) * chan->deltaT
           );
     }
-
+fprintf(stdout,"thisEvent->geocent_end_time.gpsSeconds = %d, thisEvent->geocent_end_time.gpsNanoSeconds = %d ppnParams.tc = %e waveformStartTime = %lf\n",
+        thisEvent->geocent_end_time.gpsSeconds,
+        thisEvent->geocent_end_time.gpsNanoSeconds,
+        ppnParams.tc,
+        (double) (waveformStartTime/10.0e8) );
     snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),
         "Injected waveform timing:\n"
         "thisEvent->geocent_end_time.gpsSeconds = %d\n"
@@ -488,8 +492,19 @@ LALFindChirpInjectSignals (
       memcpy(dataPtr, tmpdata, 2 * wfmLength * sizeof(*tmpdata));
       XLALFree(tmpdata);
       waveform.h->data->vectorLength = wfmLength;
-      waveform.h->data->length = 2;
-
+      waveform.h->data->length = 2; 
+      if(strstr(thisEvent->waveform,"PhenSpinTaylorRD"))
+      {
+       LALInjectStrainGW_PhenSpin( status->statusPtr ,
+                                      chan ,
+                                waveform.h ,
+                                 thisEvent ,
+                                       ifo ,
+                                  dynRange,
+                                  ppnParams.tc  );
+      CHECKSTATUSPTR( status );
+      }
+      else{
       LALInjectStrainGW( status->statusPtr ,
                                       chan ,
                                 waveform.h ,
@@ -497,7 +512,7 @@ LALFindChirpInjectSignals (
                                        ifo ,
                                   dynRange  );
       CHECKSTATUSPTR( status );
-
+      }
     }
 
 

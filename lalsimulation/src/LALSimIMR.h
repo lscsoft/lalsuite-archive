@@ -21,6 +21,7 @@
 #define _LALSIMIMR_H
 
 #include <lal/LALDatatypes.h>
+#include <lal/LALSimInspiral.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -40,14 +41,10 @@ extern "C" {
  */
 #define ninty4by3etc 18.687902694437592603
 
-/**
- * Enumerator for choosing the reference frame associated with
- * PSpinInspiralRD waveforms.
- */
-typedef enum {
+typedef enum{
   View,
-  TotalJ,
   OrbitalL,
+  TotalJ
 } InputAxis;
 
 /**
@@ -243,9 +240,71 @@ int XLALSimIMRPSpinInspiralRDGenerator(
     REAL8 s2y,                  /**< y-component of dimensionless spin for object 2 */
     REAL8 s2z,                  /**< z-component of dimensionless spin for object 2 */
     int phaseO,                 /**< twice post-Newtonian phase order */
-    InputAxis axisChoice,      	/**< Choice of axis for input spin params */
-    int inspiralOnly            /**< 0 generate RD, 1 generate inspiralOnly*/
+    LALSimInspiralFlagContainer flags  /**< flag container */
     );
+
+//int XLALSimIMRPSpinInspiralRDFGenerator(
+//    REAL8TimeSeries **hplus,    /**< +-polarization waveform */
+//    REAL8TimeSeries **hcross,   /**< x-polarization waveform */
+//    REAL8 phi0,                 /**< phase at time of peak amplitude*/
+//    REAL8 deltaT,               /**< sampling interval */
+//    REAL8 m1,                   /**< mass of companion 1 */
+//    REAL8 m2,                   /**< mass of companion 2 */
+//    REAL8 f_min,                /**< start frequency */
+//    REAL8 r,                    /**< distance of source */
+//    REAL8 iota,                 /**< inclination of source (rad) */
+//    REAL8 s1x,                  /**< x-component of dimensionless spin for object 1 */
+//    REAL8 s1y,                  /**< y-component of dimensionless spin for object 1 */
+//    REAL8 s1z,                  /**< z-component of dimensionless spin for object 1 */
+//    REAL8 s2x,                  /**< x-component of dimensionless spin for object 2 */
+//    REAL8 s2y,                  /**< y-component of dimensionless spin for object 2 */
+//    REAL8 s2z,                  /**< z-component of dimensionless spin for object 2 */
+//    int phaseO,                 /**< twice post-Newtonian phase order */
+//    LALSimInspiralFlagContainer flags  /**< flag container */
+//    );
+
+int XLALSimInspiralPSpinInspiralGenerator(
+    REAL8TimeSeries **hplus,    /**< +-polarization waveform */
+    REAL8TimeSeries **hcross,   /**< x-polarization waveform */
+    REAL8 phi0,                 /**< phase at time of peak amplitude*/
+    REAL8 deltaT,               /**< sampling interval */
+    REAL8 m1,                   /**< mass of companion 1 */
+    REAL8 m2,                   /**< mass of companion 2 */
+    REAL8 f_min,                /**< start frequency */
+    REAL8 r,                    /**< distance of source */
+    REAL8 iota,                 /**< inclination of source (rad) */
+    REAL8 s1x,                  /**< x-component of dimensionless spin for object 1 */
+    REAL8 s1y,                  /**< y-component of dimensionless spin for object 1 */
+    REAL8 s1z,                  /**< z-component of dimensionless spin for object 1 */
+    REAL8 s2x,                  /**< x-component of dimensionless spin for object 2 */
+    REAL8 s2y,                  /**< y-component of dimensionless spin for object 2 */
+    REAL8 s2z,                  /**< z-component of dimensionless spin for object 2 */
+    int phaseO,                 /**< twice post-Newtonian phase order */
+    LALSimInspiralFlagContainer flags  /**< flag container */
+    );
+
+/**
+ * Driver routine to compute a precessing post-Newtonian inspiral waveform
+ */
+//int XLALSimInspiralPSpinInspiralFGenerator(
+//    REAL8TimeSeries **hplus,    /**< +-polarization waveform */
+//    REAL8TimeSeries **hcross,   /**< x-polarization waveform */
+//    REAL8 phi0,                 /**< phase at time of peak amplitude*/
+//    REAL8 deltaT,               /**< sampling interval */
+//    REAL8 m1,                   /**< mass of companion 1 */
+//    REAL8 m2,                   /**< mass of companion 2 */
+//    REAL8 f_min,                /**< start frequency */
+//    REAL8 r,                    /**< distance of source */
+//    REAL8 iota,                 /**< inclination of source (rad) */
+//    REAL8 s1x,                  /**< x-component of dimensionless spin for object 1 */
+//    REAL8 s1y,                  /**< y-component of dimensionless spin for object 1 */
+//    REAL8 s1z,                  /**< z-component of dimensionless spin for object 1 */
+//    REAL8 s2x,                  /**< x-component of dimensionless spin for object 2 */
+//    REAL8 s2y,                  /**< y-component of dimensionless spin for object 2 */
+//    REAL8 s2z,                  /**< z-component of dimensionless spin for object 2 */
+//    int phaseO,                 /**< twice post-Newtonian phase order */
+//    LALSimInspiralFlagContainer flags  /**< flag container */
+//    );
 
 #if 0
 { /* so that editors will match succeeding brace */

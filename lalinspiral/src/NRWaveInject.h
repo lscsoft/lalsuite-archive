@@ -157,6 +157,14 @@ void LALInjectStrainGW( LALStatus *status,
                         CHAR *ifo,
                         REAL8 dynRange);
 
+void LALInjectStrainGW_PhenSpin( LALStatus                 *status,
+    REAL4TimeSeries           *injData,
+    REAL4TimeVectorSeries     *strain,
+    SimInspiralTable          *thisInj,
+    CHAR                      *ifo,
+    REAL8                     dynRange,
+    REAL8 ppntC);
+    
 void LALInjectStrainGWREAL8( LALStatus                 *status,
                              REAL8TimeSeries           *injData,
                              REAL8TimeVectorSeries     *strain,

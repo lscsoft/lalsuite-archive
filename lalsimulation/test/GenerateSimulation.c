@@ -39,6 +39,7 @@ typedef enum tagGSApproximant {
     GSApproximant_IMRPhenomB,
     GSApproximant_SpinTaylorT4,
     GSApproximant_PhenSpinTaylorRD,
+    GSApproximant_PhenSpinTaylor,
     GSApproximant_TaylorF2RedSpin,
     GSApproximant_SEOBNRv1,
     GSApproximant_TaylorF2RedSpinTidal,
@@ -76,9 +77,7 @@ typedef struct tagGSParams {
     REAL8 s2z;                /**< dimensionless spin, Kerr bound: |s2| <= 1 */
     REAL8 lambda1;	      /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2;	      /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-  LALSimInspiralInteraction interactionFlags;    /**< flag to control spin and tidal effects */
-  int axisChoice;            /**< flag to choose reference frame for spin coordinates */
-  int inspiralOnly;          /**< flag to choose if generating only the the inspiral 1 or also merger and ring-down*/
+    LALSimInspiralFlagContainer flags;    /**< flag container */
     char outname[256];        /**< file to which output should be written */
     int verbose;
 } GSParams;
@@ -154,7 +153,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     }
 
     /* tidal terms are not always used.  set to zero unless specified below */
-    /*params->interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_NONE;*/
+    /*params->flags->spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_NONE;*/
     /*params->lambda1 = 0.0;*/
     /*params->lambda2 = 0.0;*/
 
@@ -183,6 +182,8 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
                 params->approximant = GSApproximant_TaylorF2RedSpinTidal;
             else if (strcmp(argv[i], "PhenSpinTaylorRD") == 0)
                 params->approximant = GSApproximant_PhenSpinTaylorRD;
+            else if (strcmp(argv[i], "PhenSpinTaylor") == 0)
+                params->approximant = GSApproximant_PhenSpinTaylor;
             else if (strcmp(argv[i], "SEOBNRv1") == 0)
                 params->approximant = GSApproximant_SEOBNRv1;
             else {
@@ -236,17 +237,33 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             params->s2y = atof(argv[++i]);
         } else if (strcmp(argv[i], "--spin2z") == 0) {
             params->s2z = atof(argv[++i]);
-	} else if (strcmp(argv[i], "--tidal-flag") == 0) {
+	} else if (strcmp(argv[i], "--interaction-flag") == 0) {
             i++;
-            if (strcmp(argv[i], "NOTIDAL") == 0)
-                params->interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_NONE;
-            else if (strcmp(argv[i], "TIDAL5PN") == 0)
-                params->interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
-	    else if (strcmp(argv[i], "TIDAL6PN") == 0)
-                params->interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
-            else {
-                XLALPrintError("Error: Unknown interactionFlags\n");
-                goto fail;
+	    if ( (strcmp(argv[i], "NOTIDAL") == 0) || (strcmp(argv[i], "NO") == 0) ) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_NONE;
+	    } else if (strcmp(argv[i], "SO15") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN;
+	    } else if (strcmp(argv[i], "SS") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
+	    } else if (strcmp(argv[i], "SELF") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
+	    } else if (strcmp(argv[i], "QM") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
+	    } else if (strcmp(argv[i], "SO25") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
+	    } else if (strstr(argv[i], "SO") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN;
+	    } else if (strstr(argv[i], "ALL_SPIN") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
+	    } else if (strcmp(argv[i], "TIDAL5PN") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
+	    } else if (strcmp(argv[i], "TIDAL6PN") == 0) {
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
+	    } else if (strstr(argv[i], "ALL")){
+	      params->flags.spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+	    } else {
+	      XLALPrintError("Error: Unknown interactionFlags\n");
+	      goto fail;
 	    }
 	} else if (strcmp(argv[i], "--tidal-lambda1") == 0) {
             params->lambda1 = atof(argv[++i]);
@@ -261,9 +278,9 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
         } else if (strcmp(argv[i], "--inclination") == 0) {
             params->inclination = atof(argv[++i]);
         } else if (strcmp(argv[i], "--axis") == 0) {
-            params->axisChoice = atof(argv[++i]);
-        } else if (strcmp(argv[i], "--inspiralOnly") == 0) {
-	    params->inspiralOnly = 1;
+	    params->flags.axisChoice=atof(argv[++i]);
+        } else if (strcmp(argv[i], "--higher-modes") == 0) {
+	    params->flags.higherModes=LAL_SIM_INSPIRAL_HIGHER_MODES;
         } else if (strcmp(argv[i], "--outname") == 0) {
             strncpy(params->outname, argv[++i], 256);
         } else if (strcmp(argv[i], "--verbose") == 0) {
@@ -434,10 +451,8 @@ int main (int argc , char **argv) {
     REAL8TimeSeries *hplus = NULL;
     REAL8TimeSeries *hcross = NULL;
     GSParams *params;
-    // For now, hardcode spin flags as 1.5PN SO + 2PN SS
-    /*LALSpinInteraction spinFlags = LAL_SOInter | LAL_SSInter;*/
-	/*LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN | LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;*/
-	
+    XLALSimInspiralFlagSetDefault( &(params->flags) );	
+
     /* set us up to fail hard */
     lalDebugLevel = 7;
     XLALSetErrorHandler(XLALAbortErrorHandler);
@@ -447,7 +462,7 @@ int main (int argc , char **argv) {
 
 	// For now, hardcode spin flags as 1.5PN SO + 2PN SS
         // Note the existence of 3PN SO interaction
-	params->interactionFlags = params->interactionFlags | LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN | LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
+	params->flags.spinInteraction = params->flags.spinInteraction | LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN | LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
 	
     /* generate waveform */
     start_time = time(NULL);
@@ -510,10 +525,13 @@ int main (int argc , char **argv) {
                         params->s1x, params->s1y, params->s1z, params->s2x,
                         params->s2y, params->s2z, LNhatx, LNhaty, LNhatz, 
                         E1x, E1y, E1z, params->lambda1, params->lambda2, 
-                        params->interactionFlags, params->phaseO, params->ampO);
+                        params->flags.spinInteraction, params->phaseO, params->ampO);
                     break;
 	    case GSApproximant_PhenSpinTaylorRD:
-	      XLALSimIMRPSpinInspiralRDGenerator(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->fRef, params->distance, params->inclination, params->s1x, params->s1y, params->s1z, params->s2x, params->s2y, params->s2z, params->phaseO, params->axisChoice, params->inspiralOnly);
+	      XLALSimIMRPSpinInspiralRDGenerator(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->fRef, params->distance, params->inclination, params->s1x, params->s1y, params->s1z, params->s2x, params->s2y, params->s2z, params->phaseO, params->flags);
+                    break;
+	    case GSApproximant_PhenSpinTaylor:
+	      XLALSimInspiralPSpinInspiralGenerator(&hplus, &hcross, params->phiRef, params->deltaT, params->m1, params->m2, params->fRef, params->distance, params->inclination, params->s1x, params->s1y, params->s1z, params->s2x, params->s2y, params->s2z, params->phaseO, params->flags);
                     break;
                 case GSApproximant_SEOBNRv1:
                     XLALSimIMRSpinAlignedEOBWaveform( &hplus, &hcross,

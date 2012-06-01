@@ -26,7 +26,6 @@
 #endif
 
 #include <lal/LALDatatypes.h>
-#include <lal/LALSimIMR.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -66,7 +65,7 @@ typedef enum {
    SpinTaylorFrameless,	/**< Spinning case PN models (replace SpinTaylor by removing the coordinate singularity) */
    SpinTaylor,		/**< Spinning case PN models (should replace SpinTaylorT3 in the future) */
    PhenSpinTaylorRD,	/**< Phenomenological waveforms, interpolating between a T4 spin-inspiral and the ringdown. */
-   PhenSpinTaylorRDF,	/**< UNDOCUMENTED */
+   PhenSpinTaylor,	/**< PhenSpinTaylor without merger and ring-down */   
    SpinQuadTaylor,	/**< Spinning case PN models with quadrupole-monopole and self-spin interaction. */
    FindChirpSP,		/**< The stationary phase templates implemented by FindChirpSPTemplate in the findchirp package (equivalent to TaylorF2 at twoPN order). */
    FindChirpPTF,	/**< UNDOCUMENTED */
@@ -91,6 +90,26 @@ typedef enum {
    NumApproximants	/**< UNDOCUMENTED */
  } Approximant;
 
+/** Enumeration to specify the tapering method to apply to the waveform */
+typedef enum
+{
+  LAL_SIM_INSPIRAL_TAPER_NONE,		/**< No tapering */
+  LAL_SIM_INSPIRAL_TAPER_START,		/**< Taper the start of the waveform */
+  LAL_SIM_INSPIRAL_TAPER_END,		/**< Taper the end of the waveform */
+  LAL_SIM_INSPIRAL_TAPER_STARTEND,	/**< Taper the start and the end of the waveform */
+  LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< UNDOCUMENTED */
+}  LALSimInspiralApplyTaper;
+
+typedef enum {
+  LAL_SIM_INSPIRAL_HIGHER_MODES,
+  LAL_SIM_INSPIRAL_FUNDAMENTAL_MODE
+} LALSimInspiralHigherModes;
+
+typedef enum {
+  LAL_SIM_INSPIRAL_AXIS_VIEW,
+  LAL_SIM_INSPIRAL_AXIS_ORBITAL_L,
+  LAL_SIM_INSPIRAL_AXIS_TOTAL_J
+} LALSimInspiralAxisChoice;
 
 /** Enumeration to specify which interaction will be used in the waveform
  * generation. Their combination also can be used by the bitwise or.
@@ -109,17 +128,35 @@ typedef enum {
 	LAL_SIM_INSPIRAL_INTERACTION_ALL = (1 << 8) - 1 /**< all spin and tidal interactions */
 } LALSimInspiralInteraction;
 
+typedef struct 
+tagLALSimInspiralFlags {
+  LALSimInspiralHigherModes higherModes;
+  LALSimInspiralAxisChoice axisChoice;
+  LALSimInspiralInteraction spinInteraction;
+}LALSimInspiralFlagContainer;
 
-/** Enumeration to specify the tapering method to apply to the waveform */
-typedef enum
-{
-  LAL_SIM_INSPIRAL_TAPER_NONE,		/**< No tapering */
-  LAL_SIM_INSPIRAL_TAPER_START,		/**< Taper the start of the waveform */
-  LAL_SIM_INSPIRAL_TAPER_END,		/**< Taper the end of the waveform */
-  LAL_SIM_INSPIRAL_TAPER_STARTEND,	/**< Taper the start and the end of the waveform */
-  LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< UNDOCUMENTED */
-}  LALSimInspiralApplyTaper;
+/**
+ * Parses a string searching for interaction flag
+ */
+int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent);
 
+/**
+ * Parses a string searching for axis choice
+ */
+int XLALGetAxisChoiceFromString(LALSimInspiralAxisChoice *axisChoice, CHAR *thisEvent);
+
+/**
+ * Parses a string searching for higher mode flag
+ */
+int XLALGetHigherModesFromString(LALSimInspiralHigherModes *axisChoice, CHAR *thisEvent);
+
+/**
+ * Parses a string searching for flag specifiers
+ */
+int XLALSimInspiralGetFlagsFromString(
+			   LALSimInspiralFlagContainer *flags, 
+			   CHAR * flagString
+);
 
 /**
  * Tapers a REAL4 inspiral waveform in the time domain.
@@ -433,7 +470,7 @@ int XLALSimInspiralChooseWaveform(
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+    LALSimInspiralFlagContainer flags,          /**< flag container */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -464,7 +501,7 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 i,                    /**< inclination of source (rad) */
     REAL8 lambda1,              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+    LALSimInspiralFlagContainer flags, /**< flag container */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
     int phaseO,                 /**< twice post-Newtonian phase order */
     Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
@@ -496,7 +533,7 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+    LALSimInspiralFlagContainer flags,          /**< flag container */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -504,6 +541,10 @@ int XLALSimInspiralChooseFDWaveform(
 
 
 /* TaylorT4 functions */
+
+int XLALSimInspiralFlagSetDefault(
+				  LALSimInspiralFlagContainer *flags
+				  );
 
 /**
  * Evolves a post-Newtonian orbit using the Taylor T4 method.

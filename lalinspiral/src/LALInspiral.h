@@ -36,6 +36,7 @@
 # include <lal/LALDatatypes.h>
 # include <lal/LALComplex.h>
 # include <lal/LALSimInspiral.h>
+# include <lal/LALSimIMR.h>
 
 #ifdef  __cplusplus
 extern "C" {
@@ -394,9 +395,9 @@ tagInspiralTemplate
    */
   REAL4  Gamma[10];
   REAL4  qmParameter[2];
-  LALSimInspiralInteraction	interaction;
-
-  InputAxis axisChoice;
+  LALSimInspiralInteraction interaction;
+  LALSimInspiralAxisChoice axisChoice;
+  LALSimInspiralHigherModes higherModes;
   UINT4 fixedStep;
   UINT4 inspiralOnly;
 

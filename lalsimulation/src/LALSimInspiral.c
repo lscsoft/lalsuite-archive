@@ -26,6 +26,7 @@
 
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimIMR.h>
 #define LAL_USE_COMPLEX_SHORT_MACROS
 #include <lal/LALComplex.h>
 #include <lal/LALConstants.h>
@@ -988,7 +989,7 @@ int XLALSimInspiralChooseWaveform(
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+    LALSimInspiralFlagContainer flags,          /**< flag to control various waveforms details */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -996,7 +997,7 @@ int XLALSimInspiralChooseWaveform(
 {
     XLALPrintDeprecationWarning("XLALSimInspiralChooseWaveform", "XLALSimInspiralChooseTDWaveform");
 
-    return XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, r, i, lambda1, lambda2, interactionFlags, amplitudeO, phaseO, approximant);
+    return XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, r, i, lambda1, lambda2, flags, amplitudeO, phaseO, approximant);
 }
 
 /**
@@ -1024,7 +1025,7 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 i,                                    /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-    LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+    LALSimInspiralFlagContainer flags,          /**< flag to control varoius effects */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -1072,8 +1073,8 @@ int XLALSimInspiralChooseTDWaveform(
         // proposal: TotalJ frame of PSpinInspiralRD
         // inclination denotes the angle between the view directoin 
         // and J (J is constant during the evolution, J//z, both N and initial 
-		// L are in the x-z plane) and the spin coordinates are given wrt 
-		// initial ** L **.
+	// L are in the x-z plane) and the spin coordinates are given wrt 
+      	// initial ** L **.
         case SpinTaylorT4:
             LNhatx = sin(i);
             LNhaty = 0.;
@@ -1083,7 +1084,7 @@ int XLALSimInspiralChooseTDWaveform(
             E1z = - sin(i);
             /* Maximum PN amplitude order for precessing waveforms is MAX_PRECESSING_AMP_PN_ORDER */
             amplitudeO = amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ? amplitudeO : MAX_PRECESSING_AMP_PN_ORDER;
-            ret = XLALSimInspiralSpinTaylorT4(hplus, hcross, phi0, v0, deltaT, m1, m2, f_min, r, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2, interactionFlags, phaseO, amplitudeO);
+            ret = XLALSimInspiralSpinTaylorT4(hplus, hcross, phi0, v0, deltaT, m1, m2, f_min, r, S1x, S1y, S1z, S2x, S2y, S2z, LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2, flags.spinInteraction, phaseO, amplitudeO);
             break;
 
         /* spinning inspiral-merger-ringdown models */
@@ -1091,9 +1092,13 @@ int XLALSimInspiralChooseTDWaveform(
             ret = XLALSimIMRPhenomBGenerateTD(hplus, hcross, phi0, deltaT, m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z), f_min, .5/deltaT, r, i);
             break;
         case PhenSpinTaylorRD:
-            // FIXME: need to create a function to take in different modes or produce an error if all modes not given
-	  ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, TotalJ, 0);
+	  // FIXME: need to create a function to take in different modes or produce an error if all modes not given
+	  ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, flags);
             break;
+        case PhenSpinTaylor:
+	  ret = XLALSimInspiralPSpinInspiralGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, flags);
+            break;
+
         case SEOBNRv1:
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1z, S2z);
             break;
@@ -1109,6 +1114,17 @@ int XLALSimInspiralChooseTDWaveform(
     return ret;
 }
 
+int XLALSimInspiralFlagSetDefault(
+				  LALSimInspiralFlagContainer *flags
+				  )
+{
+  flags->axisChoice      = LAL_SIM_INSPIRAL_AXIS_VIEW;
+  flags->higherModes     = LAL_SIM_INSPIRAL_HIGHER_MODES;
+  flags->spinInteraction = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+
+  return XLAL_SUCCESS;
+}
+
 /**
  * Chooses between different approximants when requesting a waveform to be generated
  * For spinning waveforms, all known spin effects up to given PN order are included
@@ -1116,6 +1132,7 @@ int XLALSimInspiralChooseTDWaveform(
  */
 int XLALSimInspiralChooseFDWaveform(
     COMPLEX16FrequencySeries **htilde,          /**< FD waveform */
+    //COMPLEX16FrequencySeries **htildeC,          /**< FD waveform */
     REAL8 phi0,                                 /**< peak phase */
     REAL8 deltaF,                               /**< sampling interval */
     REAL8 m1,                                   /**< mass of companion 1 */
@@ -1132,7 +1149,7 @@ int XLALSimInspiralChooseFDWaveform(
     UNUSED REAL8 i,                             /**< inclination of source (rad) */
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
-    UNUSED LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+    UNUSED LALSimInspiralFlagContainer flags,   /**< flag container */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -1197,6 +1214,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SpinTaylorT4:
         case IMRPhenomB:
         case PhenSpinTaylorRD:
+        case PhenSpinTaylor:
         case SEOBNRv1:
             return 1;
 
@@ -1225,4 +1243,60 @@ int XLALSimInspiralImplementedFDApproximants(
         default:
             return 0;
     }
+}
+
+int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent) {
+  if (strstr(thisEvent, "NO")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_NONE;
+  } else if (strstr(thisEvent, "SO15")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN;
+  } else if (strstr(thisEvent,"SS")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
+  } else if (strstr(thisEvent,"SELF")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
+  } else if (strstr(thisEvent, "QM")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
+  } else if (strstr(thisEvent, "SO25")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
+  } else if (strstr(thisEvent, "SO")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN;
+  } else if (strstr(thisEvent, "ALL_SPIN")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
+  } else if (strstr(thisEvent, "TIDAL5PN")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
+  } else if (strstr(thisEvent, "TIDAL")) {
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
+  } else //if (strstr(thisEvent, "ALL")){
+    *inter = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+  //}
+
+  return XLAL_SUCCESS;
+}
+
+int XLALGetAxisChoiceFromString(LALSimInspiralAxisChoice *axisChoice, CHAR *thisEvent) {
+  if (strstr(thisEvent, "TOTAL_J")) {
+    *axisChoice = LAL_SIM_INSPIRAL_AXIS_TOTAL_J;
+  } else if (strstr(thisEvent, "ORBITAL_L")) {
+    *axisChoice = LAL_SIM_INSPIRAL_AXIS_ORBITAL_L;
+  } else
+    *axisChoice = LAL_SIM_INSPIRAL_AXIS_VIEW;
+
+  return XLAL_SUCCESS;
+}
+
+int XLALGetHigherModesFromString(LALSimInspiralHigherModes *higherModes, CHAR *thisEvent) {
+  if (strstr(thisEvent, "FUNDAMENTAL_MODE")) {
+    *higherModes = LAL_SIM_INSPIRAL_FUNDAMENTAL_MODE;
+  } else
+    *higherModes = LAL_SIM_INSPIRAL_HIGHER_MODES;
+
+  return XLAL_SUCCESS;
+}
+
+int XLALSimInspiralGetFlagsFromString(LALSimInspiralFlagContainer *flags, CHAR * flagString) {
+  XLALGetInteractionFromString( &(flags->spinInteraction), flagString);
+  XLALGetAxisChoiceFromString(  &(flags->axisChoice),      flagString);
+  XLALGetHigherModesFromString( &(flags->higherModes),     flagString);
+
+  return XLAL_SUCCESS;
 }

@@ -198,7 +198,7 @@ Initialisation arguments:\n\
 void initializeTemplate(LALInferenceRunState *runState)
 {
 	char help[]="\
-(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
+	(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
 	/* Print command line arguments if help requested */
@@ -243,7 +243,7 @@ void initializeTemplate(LALInferenceRunState *runState)
 /************************************************/
 void initializeNS(LALInferenceRunState *runState)
 {
-	char help[]="\
+char help[]="\
 Nested sampling arguments:\n\
  --Nlive N\tNumber of live points to use\n\
 (--Nmcmc M)\tOver-ride auto chain length determination and use this number of MCMC samples.\n\
@@ -256,8 +256,11 @@ Nested sampling arguments:\n\
 (--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
 (--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
 (--prior_distr )\t Set the prior to use (for the moment the only possible choice is SkyLoc which will use the sky localization project prior. All other values or skipping this option select LALInferenceInspiralPriorNormalised)\n\
-(--correlatedgaussianlikelihood)\tUse analytic, correlated Gaussian for Likelihood.\n\
-(--bimodalgaussianlikelihood)\tUse analytic, bimodal correlated Gaussian for Likelihood.\n";
+(--correlatedgaussianlikelihood)\tUse analytic, correlated Gaussian for Likelihood\n\
+(--bimodalgaussianlikelihood)\tUse analytic, bimodal correlated Gaussian for Likelihood\n\
+(--inj-interaction)\tSpecify interaction flag for injections\n\
+(--inj-axisChoice)\tSpecify reference frame (PhenSpin only) for injections\n\
+  (--inj-fundMode)\tOnly l=2 mode (PhenSpin only for injections).\n";
 //(--tdlike)\tUse time domain likelihood.\n";
 
 	ProcessParamsTable *ppt=NULL;
@@ -290,9 +293,9 @@ Nested sampling arguments:\n\
     LALInferenceAddVariable(runState->proposalArgs, "proposedVariableNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
     LALInferenceAddVariable(runState->proposalArgs, "proposedArrayNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
     LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-	
 
-	runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
+
+       runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 
         /* Check whether to use the SkyLocalization prior. Otherwise uses the default LALInferenceInspiralPriorNormalised. That should probably be replaced with a swhich over the possible priors. */
         ppt=LALInferenceGetProcParamVal(commandLine,"--prior_distr");
@@ -317,7 +320,7 @@ Nested sampling arguments:\n\
 //		fprintf(stderr, "Computing likelihood in the time domain.\n");
 //		runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
 //    	}
-    
+
 	#ifdef HAVE_LIBLALXML
 	runState->logsample=LogNSSampleAsMCMCSampleToArray;
 	#else
@@ -466,6 +469,7 @@ void initVariables(LALInferenceRunState *state)
 	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
 	int AmpOrder=0;
 	Approximant approx=TaylorF2;
+	LALSimInspiralFlagContainer flags;
 	REAL8 logDmin=log(1.0);
 	REAL8 logDmax=log(100.0);
 	REAL8 mcMin=1.0;
@@ -506,7 +510,7 @@ Parameter arguments:\n\
 (--trigtime time)\tTrigger time to use\n\
 (--Dmin dist)\tMinimum distance in Mpc (1)\n\
 (--Dmax dist)\tMaximum distance in Mpc (100)\n\
-(--approx ApproximantorderPN)\tSpecify a waveform to use, (default TaylorF2threePointFivePN)\n\
+(--approx ApproximantorderPN)\tSpecify a waveform to use, (default TaylorF2threePointFivePN, PhenSpin implicitly enables spin)\n\
 (--compmin min)\tMinimum component mass (1.0)\n\
 (--compmax max)\tMaximum component mass (30.0)\n\
 (--mtotalmin)\tMinimum total mass (2*compmin)\n\
@@ -514,12 +518,15 @@ Parameter arguments:\n\
 (--enable-spin)\tEnable spin parameters\n\
 (--aligned-spin)\tUse only aligned spin parameters (uses spins between -1 and 1)\n\
 (--single-spin)\tSet spin2=0\n\
-(--approx ApproximantphaseOrderPN)\tSet approximant (PhenSpin implicitly enables spin)\n\
+(--approx ApproximantphaseOrderPN)\tSet approximant\n\
 (--s1max SPIN)\tMax magnitude of spin (on both bodies!)\n\
 (--s1min SPIN)\tMin magnitude of spin (on both bodies!)\n\
 (--mcq)\tUse chirp mass and asymmetric mass ratio (m1/m2) as variables\n\
 (--crazyinjectionhlsign)\tFlip the sign of HL signal in likelihood function\n\
 (--pinparams [mchirp,asym_massratio,etc])\n\tList of parameters to set to injected values\n\
+(--interaction INTERACTION_FLAG)\tInteraction Flag\n\
+(--axis AXIS_CHOICE)\tAxis Choice (for PhenSpin approx. only)\n\
+(--fundMode)\tSwitch off l>2 modes (PhenSpin only)\n\
 (--no-logdistance)\tUse distance, not logdistance, as the sampling variable\n";
 
 	/* Print command line arguments if help requested */
@@ -546,10 +553,11 @@ Parameter arguments:\n\
 		  while(i<event) {i++; injTable = injTable->next;}
 		}
 		endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
-        fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
+		fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
 		AmpOrder=injTable->amp_order;
 		XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
 		XLALGetApproximantFromString(injTable->waveform,&approx);
+		XLALSimInspiralGetFlagsFromString(&flags,injTable->waveform);
 		/* See if there are any parameters pinned to injection values */
 		if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
 			pinned_params=ppt->value;
@@ -578,7 +586,51 @@ Parameter arguments:\n\
 		    XLALGetApproximantFromString(ppt->value,&approx);
         XLALGetOrderFromString(ppt->value,&PhaseOrder);
 	}
+
+	/* Over-ride flags if user specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--interaction");
+	if(ppt) XLALGetInteractionFromString(&flags.spinInteraction,ppt->value);
+	ppt=LALInferenceGetProcParamVal(commandLine,"--axis");
+	if(ppt) XLALGetAxisChoiceFromString(&flags.axisChoice,ppt->value);
+	if(LALInferenceGetProcParamVal(commandLine,"--fundMode"))
+	  flags.higherModes=LAL_SIM_INSPIRAL_FUNDAMENTAL_MODE;
 	fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",approx,PhaseOrder);
+	fprintf(stdout,"      interaction flag %i, axis flag %i, mode flag %i\n",flags.spinInteraction,flags.axisChoice,flags.higherModes);
+
+       /* Set the modeldomain appropriately */
+       switch(approx)
+       {
+               case GeneratePPN:
+               case TaylorT1:
+               case TaylorT2:
+               case TaylorT3:
+               case TaylorT4:
+               case EOB:
+               case EOBNR:
+               case EOBNRv2:
+               case EOBNRv2HM:
+               case SpinTaylor:
+               case SpinTaylorT4:
+               case SpinQuadTaylor:
+               case SpinTaylorFrameless:
+               case PhenSpinTaylorRD:
+               case PhenSpinTaylor:
+               case NumRel:
+                       state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
+                       break;
+               case TaylorF1:
+               case TaylorF2:
+               case TaylorF2RedSpin:
+               case TaylorF2RedSpinTidal:
+               case IMRPhenomA:
+               case IMRPhenomB:
+                       state->data->modelDomain=LALINFERENCE_DOMAIN_FREQUENCY;
+                       break;
+               default:
+                       fprintf(stderr,"ERROR. Unknown approximant number %i. Unale to choose time or frequency domain model.",approx);
+                       exit(1);
+                       break;
+       }
 
 	/* Over-ride end time if specified */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
@@ -666,16 +718,21 @@ Parameter arguments:\n\
     else mcMax=pow(mMax*mMax,0.6)/pow(2.0*mMax,0.2);
 
     INT4 tempint=1;
-	if(LALInferenceGetProcParamVal(commandLine,"--crazyinjectionhlsign") || LALInferenceGetProcParamVal(commandLine,"--crazyInjectionHLSign"))
-    {
+    if(LALInferenceGetProcParamVal(commandLine,"--crazyinjectionhlsign") || LALInferenceGetProcParamVal(commandLine,"--crazyInjectionHLSign"))
+      {
         printf("Using signal sign flip in Hanford and Livingston");
         LALInferenceAddVariable(currentParams,"crazyInjectionHLSign",&tempint,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+      }
+    printf("Read end time %f\n",endtime);
+
+    LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(currentParams, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    if ( (approx==PhenSpinTaylorRD) || (approx==PhenSpinTaylor) ) {
+      LALInferenceAddVariable(currentParams, "LAL_SIM_INSPIRAL_AXIS_CHOICE",  &(flags.axisChoice),      LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(currentParams, "LAL_SIM_INSPIRAL_HIGHER_MODES", &(flags.higherModes),     LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+      LALInferenceAddVariable(currentParams, "LAL_SIM_INSPIRAL_INTERACTION",  &(flags.spinInteraction), LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     }
-	printf("Read end time %f\n",endtime);
-	
-	LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-    	LALInferenceAddVariable(currentParams, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-	
+
     ppt=LALInferenceGetProcParamVal(commandLine,"--mcq");
     if(ppt) /* Use MC and Q as sampling variables */
     {
@@ -789,6 +846,7 @@ Parameter arguments:\n\
 		  REAL8 tmpValP=phi_spin1_min+(phi_spin1_max - phi_spin1_min)/2.0;
 		  if(!LALInferenceCheckVariable(currentParams,"phi_spin1")) 
 		    LALInferenceAddVariable(currentParams,"phi_spin1",		&tmpValP,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+		    LALInferenceAddMinMaxPrior(priorArgs, "phi_spin1",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t); 
 
 		  if (!single_spin) {
 		    if(!LALInferenceCheckVariable(currentParams,"theta_spin2")) 

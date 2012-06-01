@@ -149,13 +149,9 @@ LALGenerateInspiral(
     PPNParamStruc    *ppnParamsInputOutput
     );
 
-int XLALGetInteractionFromString(LALSimInspiralInteraction *inter, CHAR *thisEvent);
-
-int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent);
-
 int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent);
 
-int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent);
+//int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent);
 
 /* XLAL functions for parsing approximants and orders */
 /* and also for populating structures */
