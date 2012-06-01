@@ -1794,8 +1794,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 {
 	
 	Approximant			approximant= (Approximant) 0;
-	int			order=0;
-  int amporder=0;
+	int			order=-1;
+  int amporder=-1;
 
 	unsigned long				i;
 	static int sizeWarning = 0;
