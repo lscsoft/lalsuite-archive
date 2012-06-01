@@ -491,7 +491,7 @@ double compute_chirp_time (double m1, double m2, double fLower, int order, doubl
 	return c0T * (1 + c2T * x2T + c3T * x3T + c4T * x4T + c5T * x5T + (c6T + c6LogT * log (xT)) * x6T + c7T * x7T) / x8T;
 }
 
-static double ffinal(double m_total){
+/*static double ffinal(double m_total){
 
 	// Compute frequency at Schwarzschild ISCO 
 
@@ -501,7 +501,7 @@ static double ffinal(double m_total){
 	
 	return f_isco;
 }
-
+*/
 
 static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
 
@@ -951,19 +951,15 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 	return 0;
 }
 
-int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *dewhitened_fseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, COMPLEX16FFTPlan *fwdplan_for_dewhitening, REAL8FrequencySeries* psd, double m1, double m2){
+int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *dewhitened_fseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, COMPLEX16FFTPlan *fwdplan_for_dewhitening, REAL8FrequencySeries* psd){
 
 	unsigned int k, l;
 	double deltaF;
 	unsigned int len_to_zero_before_f_low;
-	unsigned int len_to_zero_after_f_isco;
-	double f_isco;
 
 	deltaF = fseries_for_dewhitening->deltaF;	
-	len_to_zero_before_f_low = round(40./deltaF); /* the FT of the complex time series doesn't quite zero the negative freq components or the waveform below f_low so we multiply the first len_to_zero components*/
+	len_to_zero_before_f_low = round(40./deltaF) - 1; /* the FT of the complex time series doesn't quite zero the negative freq components or the waveform below f_low so we multiply the first len_to_zero components*/
 
-	f_isco = ffinal(m1 + m2);
-	len_to_zero_after_f_isco = dewhitened_tseries->data->length/2 -  round( ( f_isco )/deltaF );
                	for (k = 0; k < template->size; k++){
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].re = GSL_REAL(gsl_vector_complex_get(template, k));
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].im = GSL_IMAG(gsl_vector_complex_get(template, k));
@@ -974,7 +970,7 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 
 		for (l = 0; l < dewhitened_tseries->data->length; l++){
 
-			if(l < dewhitened_tseries->data->length/2 + 1 + len_to_zero_before_f_low){
+			if(l < dewhitened_tseries->data->length/2 - 1 + len_to_zero_before_f_low){
 				fseries_for_dewhitening->data->data[l].re *= 0.;//sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
 				fseries_for_dewhitening->data->data[l].im *= 0.;//sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
 

@@ -26,4 +26,4 @@ int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double)
 double compute_chirp_time(double, double, double, int, double);
 
 int dewhiten_template_wave(gsl_vector_complex*, COMPLEX16TimeSeries*, COMPLEX16FrequencySeries*, COMPLEX16FrequencySeries* 
-,COMPLEX16FFTPlan*, REAL8FrequencySeries*, double, double);
+,COMPLEX16FFTPlan*, REAL8FrequencySeries*);
