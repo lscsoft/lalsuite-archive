@@ -112,26 +112,6 @@ table.RowBuilder = table.InterningRowBuilder
 
 
 #
-# If specific table names have been asked for, don't parse other tables so
-# as to improve parsing speed and reduce memory requirements.  Because we
-# do this, we can assume later that we should print all the tables that can
-# be found in the document.
-#
-
-
-if not (options.table or options.array):
-	# parse the entire document
-	ContentHandler = ligolw.LIGOLWContentHandler
-else:
-	class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-		def __init__(self, xmldoc):
-			ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
-
-
-array.use_in(ContentHandler)
-
-
-#
 # =============================================================================
 #
 #                         How to find things to print
@@ -185,9 +165,22 @@ options, urls = parse_command_line()
 
 
 #
-# Enable appropriate level of table parsing.
+# Enable appropriate level of table parsing.  If specific table names have
+# been asked for, don't parse other tables so as to improve parsing speed
+# and reduce memory requirements.  Because we do this, we can assume later
+# that we should print all the tables that can be found in the document.
 #
 
+
+if not (options.table or options.array):
+	# parse the entire document
+	ContentHandler = ligolw.LIGOLWContentHandler
+else:
+	class ContentHandler(ligolw.PartialLIGOLWContentHandler):
+		def __init__(self, xmldoc):
+			ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
+
+array.use_in(ContentHandler)
 
 if options.constrain_lsc_tables:
 	lsctables.use_in(ContentHandler)
