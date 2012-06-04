@@ -336,7 +336,10 @@ parser.add_option("", "--html-for-cbcweb",action="store", default=False, metavar
       "argument should be the cvs directory where the html file will be placed "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 parser.add_option("","--verbose", action="store_true", default=False, help="print information" )
-parser.add_option("","--write-combined-data",action="store_true", default="True", help="write combined data to disk")
+parser.add_option("","--write-combined-data",action="store_true", default="False", help="write combined data to disk")
+
+# option to switch 'signif' and 'snr' data (to fix a labeling issue)
+parser.add_option("","--switch-signif-and-snr", action="store_true", default=False, help="switch all signif and snr data to fix a mis-labeling issue upstream")
 
 # plotting options
 parser.add_option("","--DQ-ROC", type='string', default=False, help='plots DQ flags on ROC plots. DQ-ROC can be either S4 or S6') 
@@ -410,11 +413,8 @@ if opts.cluster:
 		print "Number of glitch samples after clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
 
 
-
-
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
-#  if not cls[0] == 'ovl':
   total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
 	
 # Computing combined rank		
@@ -426,6 +426,14 @@ total_ranked_data = CalculateFAPandEFF(total_ranked_data,'combined')
 # add combined  to the list of classifiers
 classifiers.append(['combined'])
 
+# fix signif/snr mis-labeling issue if it exists
+if opts.switch_signif_and_snr:
+  print 'switching DARM-signif and DARM-SNR'
+  for g in total_ranked_data:
+    signif = g['signif']
+    g['signif'] = g['SNR']
+    g['SNR'] = signif
+
 #splitting data into glitch and clean samples
 glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
 cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
@@ -433,10 +441,10 @@ cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],
 if opts.verbose:
 	print "Done."
 
-if opts.verbose:
-	print "Writing combined data into a file..."
-
 if opts.write_combined_data:
+        if opts.verbose:
+          print "Writing combined data into a file..."
+
 	# write glitch samples into a file
 	glitch_file=open(opts.user_tag+'_glitch_data.dat','w')
 	glitch_file.write(' '.join(glitches.dtype.names)+'\n')
@@ -455,8 +463,8 @@ if opts.write_combined_data:
 	
 	clean_file.close()
 
-if opts.verbose:
-	print "Done."
+        if opts.verbose:
+          print "Done."
 
 ################   PLOTS   #############################################################
 
@@ -632,7 +640,7 @@ if opts.bit_word:
   if opts.verbose:
     print '  bit-word histograms'
 
-  sigthr = 25
+  sigthr = 100
 
   # open pickle file
   pfile1 = open(opts.user_tag+'_bit-word_found_ANN-MVSC-SVM_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
@@ -696,7 +704,7 @@ if opts.bit_word:
         pickle.dump(clas, pfile1)
         # counts
         pickle.dump(fbw, pfile1)
-        pickle.dump(fbwAbove, pfile1)
+        pickle.dump(fbwBelow, pfile1)
         pickle.dump(fbwAbove, pfile1)
         pfile1.close()
 
@@ -706,7 +714,7 @@ if opts.bit_word:
         pickle.dump(numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), pfile2)
         # counts
         pickle.dump(fbw, pfile2)
-        pickle.dump(fbwAbove, pfile2)
+        pickle.dump(fbwBelow, pfile2)
         pickle.dump(fbwAbove, pfile2)
         pfile2.close()
 
@@ -794,7 +802,7 @@ if opts.bit_word:
       pylab.ylim(ymax = 1.0, ymin = 0.0)
       pylab.yscale('linear')
       pylab.title(opts.user_tag + '\nHistogram over Classifier Redundancy at FAP = '+str(FAPthr))
-      pylab.legend(loc = 'upper right')
+      pylab.legend(loc = 'upper center')
       pylab.grid(True, which = 'major')
       pylab.grid(True, which = 'minor')
     
@@ -843,7 +851,196 @@ if opts.bit_word:
       fnameList.append(fname)
       tagList.append(name)
       pylab.close()
- 
+
+
+#############################################################################################
+#
+### Bit-word histograms over cleans
+#
+# generate histograms representing the fractions of glitches removed by different combinations of classifiers
+#
+#############################################################################################
+
+if opts.bit_word:
+
+  if opts.verbose:
+    print '  bit-word histograms using cleans'
+
+  sigthr = 100
+
+  # open pickle file
+#  pfile1 = open(opts.user_tag+'_bit-word_found_ANN-MVSC-SVM_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
+#  pfile2 = open(opts.user_tag+'_bit-word_found_OVL-combined_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
+
+#  pickle.dump(sigthr, pfile1)
+#  pickle.dump(sigthr, pfile2)
+#  pickle.dump(opts.fap_threshold, pfile1)
+#  pickle.dump(opts.fap_threshold, pfile2)
+
+  ### we define a 5 bit word to be the concatenation of binary flags corresponding to whether or not a classifier removes a glitch at a set FAP
+  # 0: classifier did not remove glitch
+  # 1: classifier removed glitch
+
+  ### this next bit is fragile, and only handles the special case of svm being absent. you should extend this to a more general case
+
+  if opts.diagnostic_plots:
+    classify = [[['ann'], ['mvsc'], ['svm'], ['ovl'], ['combined']], [['ann'], ['mvsc'], ['svm'], ['ovl']], [['ann'], ['mvsc'], ['svm'], ['combined']], [['ann'], ['mvsc'], ['svm']], [['ovl'], ['combined']]]
+  else:
+    classify = [[['ann'], ['mvsc'], ['svm']], [['ovl'], ['combined']]]
+
+  for FAPthr in [opts.fap_threshold]:
+    for clas in classify:
+      #all glitches
+      fbw = []
+      for g in cleans:
+        s = ""
+        for cls in clas:
+          if g[cls[0]+'_fap'] <= FAPthr:
+            s += "1"
+          else:
+            s += "0"
+        fbw += [BinToDec(s)]
+
+      # dump data to pickle files
+#      if clas == [['ann'], ['mvsc'], ['svm']]:
+#        pickle.dump(clas, pfile1)
+        # counts
+#        pickle.dump(fbw, pfile1)
+#        pfile1.close()
+
+#      if clas == [['ovl'], ['combined']]:
+#        pickle.dump(clas, pfile2)
+        # bins
+#        pickle.dump(numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), pfile2)
+        # counts
+#        pickle.dump(fbw, pfile2)
+#        pfile2.close()
+
+      if opts.diagnostic_plots:
+        ### Add regular histograms
+        fig_num += 1
+        fig = matplotlib.pyplot.figure()
+        (num, bins, patches) = pylab.hist(fbw, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint=True), weights = numpy.ones(len(fbw))/len(fbw), histtype='step', log = True, label = 'all cleans')#, linewidth = 2)
+#        pylab.hist(fbwBelow, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwBelow))/len(fbwBelow), histtype = 'step', log = True, label = 'signif $\leq$ ' + str(sigthr))#,  linewidth = 2)
+#        (numA, bins, pathces) = pylab.hist(fbwAbove, bins = numpy.linspace(-0.5, 2**len(clas)-0.5, num = 2**len(clas) +1, endpoint = True), weights = numpy.ones(len(fbwAbove))/len(fbwAbove), histtype = 'step', log = True, label = 'signif $\geq$ ' + str(sigthr))#, linewidth = 2)
+        pylab.ylabel('Fraction of Glitches')
+        pylab.xlim(-0.5, 2**len(clas)-0.5)
+        pylab.ylim(ymax = 1.0)
+        pylab.title('Fig. '+str(fig_num)+': Histogram over Classifier Redundancy using cleans at FAP = '+str(FAPthr))
+        pylab.legend(loc = 'upper center')
+        pylab.grid(True, which = 'major')
+        pylab.grid(True, which = 'minor')
+
+        #convert decimals back to binaries and label the ticks accordingly
+        tick_locs = numpy.linspace(0,2**len(clas)-1,num=2**len(clas))
+        tick_labels = []
+        for loc in tick_locs:
+          s = ''
+          l = range(len(clas) - 1)
+          for ind in l[::-1]:
+            if int(loc)/2**(ind+1) == 0:
+              s += '0'
+            else:
+              s += '1'
+              loc = int(loc)-2**(ind+1)
+          if int(loc) == 0:
+            s += '0'
+          else:
+            s += '1'
+          tick_labels += [s]
+        pylab.xticks(tick_locs, tick_labels)
+        for label in fig.axes[0].xaxis.get_ticklabels():
+          label.set_rotation(45)
+
+        leg = "5 bit word is ordered in the following way:  "
+        for cls in clas:
+          leg += labelDIC[cls[0]]+' '
+        pylab.figtext(0.5, 0.98, leg, ha = 'center', va = 'top')
+
+        # print the fractions on top of the steps in the histograms
+        for indn in range(len(num)):
+          loc = tick_locs[indn]
+          if num[indn] > 0:
+            n = int(num[indn]*10**3)/10.0
+            pylab.text(loc,num[indn],str(n)+'\,\%',ha='center',va='bottom')
+
+        #adding to html page
+        strclas = ''
+        for cls in clas:
+          strclas += cls[0] + '_'
+        name = '_scatter_5bit-words_cleans_'+strclas+'_FAPthr_'+str(FAPthr)
+        fname = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append(name)
+        pylab.close()
+
+      ### add histograms over only those glitches that were removed
+      fig_num += 1
+      fig = matplotlib.pyplot.figure()
+      fbwFound = []
+      for fbwi in fbw:
+        if fbwi > 0:
+          fbwFound += [fbwi]
+
+      (num, bins, patches) = pylab.hist(fbwFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint=True), weights = numpy.ones(len(fbwFound))/len(fbwFound), histtype='step', log = True, label = 'all cleans')#, linewidth = 2)
+#      pylab.hist(fbwBelowFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwBelowFound))/len(fbwBelowFound), histtype = 'step', log = True, label = 'signif $\leq$ ' + str(sigthr))#, linewidth = 2)
+#      (numA, bins, patches) = pylab.hist(fbwAboveFound, bins = numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), weights = numpy.ones(len(fbwAboveFound))/len(fbwAboveFound), histtype = 'step', log = True, label = 'signif $\geq$ ' + str(sigthr))#, linewidth = 2)
+      pylab.ylabel('Fraction of Glitches Found')
+      pylab.xlim(0.5, 2**len(clas)-0.5)
+      pylab.ylim(ymax = 1.0, ymin = 0.0)
+      pylab.yscale('linear')
+      pylab.title(opts.user_tag + '\nHistogram over Classifier Redundancy using cleans at FAP = '+str(FAPthr))
+      pylab.legend(loc = 'upper right')
+      pylab.grid(True, which = 'major')
+      pylab.grid(True, which = 'minor')
+
+      #convert decimals back to binaries and label the ticks accordingly
+      tick_locs = numpy.linspace(1,2**len(clas)-1,num=2**len(clas)-1)
+      tick_labels = []
+      for loc in tick_locs:
+        s = ''
+        l = range(len(clas) - 1)
+        for ind in l[::-1]:
+          if int(loc)/2**(ind+1) == 0:
+            s += '0'
+          else:
+            s += '1'
+            loc = int(loc)-2**(ind+1)
+        if int(loc) == 0:
+          s += '0'
+        else:
+          s += '1'
+        tick_labels += [s]
+      pylab.xticks(tick_locs, tick_labels)
+      for label in fig.axes[0].xaxis.get_ticklabels():
+        label.set_rotation(45)
+
+      # print the fractions on top of the steps in the histograms
+      for indn in range(len(num)):
+        loc = tick_locs[indn]
+        if num[indn] > 0:
+          n = int(num[indn]*10**3)/10.0
+          pylab.text(loc,num[indn],str(n)+'\,\%',ha='center',va='bottom')
+
+      leg = "Bit-word ordering:\n("
+      for tmp in range(len(clas)-1):
+        cls = clas[tmp]
+        leg += labelDIC[cls[0]]+',\ '
+      leg += labelDIC[clas[len(clas)-1][0]]+')'
+      pylab.figtext(0.3, 0.8, leg, ha = 'center', va = 'center')
+
+      #adding to html page
+      strclas = ''
+      for cls in clas:
+        strclas += cls[0] + '_'
+      name = '_scatter_5bit-words_cleans_FOUND_'+strclas+'_FAPthr_'+str(FAPthr)
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(name)
+      pylab.close()
+
 
 #############################################################################################
 #
@@ -860,7 +1057,7 @@ if opts.diagnostic_plots:
   if opts.verbose:
     print '  Histogram over subsets of glitches from 5bit word plots'
 
-  sigthr = 25
+  sigthr = 100 
 
   ### this next bit is fragile, and only handles the special case of svm being absent. you should extend this to a more general case
 
@@ -871,6 +1068,7 @@ if opts.diagnostic_plots:
 
   for FAPthr in [opts.fap_threshold]:
     for clas in classify:
+      
       #all glitches
       fbw = []
       for g in glitches:
@@ -915,6 +1113,12 @@ if opts.diagnostic_plots:
  
         # cls_rank
         for indd in range(len(only1)):
+
+          # determine which rank corresponds to opts.fap_threshold
+          rankthr = glitches[numpy.nonzero(glitches[clas[indd][0]+'_fap'] <= opts.fap_threshold)[0],:]
+          rankthr = min(rankthr[clas[indd][0]+'_rank'])
+#          print str(rankthr)
+
           fig_num += 1
           fig = matplotlib.pyplot.figure()
           rank = [g[clas[indd][0]+'_rank'] for g in glitches for t in only1[ind] if g['GPS'] == t]
@@ -938,7 +1142,13 @@ if opts.diagnostic_plots:
             pass
           else:
             pylab.xlim(0,1)
-          
+        
+          # plot a line corresponding to opts.fap_threshold
+          lims = matplotlib.pyplot.axis()
+          fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+          fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+clas[indd][0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+          matplotlib.pyplot.axis(lims)
+  
           #adding to html page
           name = '_hist_'+clas[indd][0]+'_rank_glitches_removed_by_ONLY_'+clas[ind][0]+'_FAPthr_'+str(FAPthr)
           fname = InspiralUtils.set_figure_name(opts, name)
@@ -967,6 +1177,11 @@ if opts.diagnostic_plots:
   maxminrank = {'mvsc':[0,1], 'ann':[0,1], 'svm':[0,1], 'ovl':[0,2],'combined':[0,1000]}
 
   for cls in classifiers:
+
+    # determine which rank corresponds to opts.fap_threshold
+    rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
+    rankthr = min(rankthr[cls[0]+'_rank'])
+
     for sigthr in [0, 25, 50]:
       #pull out the subset of glitches
       g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
@@ -1011,6 +1226,13 @@ if opts.diagnostic_plots:
       pylab.ylabel('average GW significance')
       pylab.title('Fig. '+str(fig_num)+': Statistics for glitches with signif $\geq$ '+str(sigthr)+' binned over '+labelDIC[cls[0]]+'\_rank')
       pylab.ylim(ymin = 0)
+
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
+
       #adding to html page
       name = '_statistics_binned_by_'+cls[0]+'_rank_sigthr_'+str(sigthr)
       fname = InspiralUtils.set_figure_name(opts, name)
@@ -1028,7 +1250,7 @@ if opts.diagnostic_plots:
 #
 #############################################################################################
 
-if opts.hist_ranks:
+if opts.diagnostic_plots:
 
   if opts.verbose:
     print '  histograms of glitches over Classifier rank'
@@ -1037,8 +1259,9 @@ if opts.hist_ranks:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = max(rankthr[cls[0]+'_rank'])
+    rankthr = min(rankthr[cls[0]+'_rank'])
 
+    # STEP histograms
     fig_num += 1
     pylab.figure(fig_num)
     pylab.hold(True)
@@ -1046,8 +1269,10 @@ if opts.hist_ranks:
     # histogram using all the glitches
     pylab.hist(glitches[cls[0] + '_rank'], 100, histtype='step', label = 'all glitches')
 
+    sigthrs = [100, 200, 500, 1000]
+
     # histogram using only a subset of glitches with sufficiently large 'signif'
-    for sigthr in [10, 15, 25, 50]:
+    for sigthr in sigthrs:
       glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
       if cls[0] == 'ovl':
         pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', label = 'signif $\geq$ ' + repr(sigthr), log=True)
@@ -1082,6 +1307,69 @@ if opts.hist_ranks:
     tagList.append(name)
     pylab.close()
 
+    # BARSTACKED histograms
+    fig_num += 1
+    pylab.figure(fig_num)
+    pylab.hold(True)
+ 
+    sigthrs = [100, 200, 500, 1000]
+    counts = [[]]*(len(sigthrs)+1)
+    labels = ['']*(len(sigthrs)+1)
+
+    # histogram using only a subset of glitches with sufficiently large 'signif'
+    g_above = glitches
+    for ind in range(len(sigthrs)):
+      sigthr = sigthrs[ind]
+
+      # pull out the glitches that fall in the appropriate range of 'signif'
+      g_below = g_above[numpy.nonzero(g_above['signif'] <= sigthr)[0],:]
+      counts[ind] = numpy.zeros(len(g_below[cls[0]+'_rank']))
+      for d in range(len(counts[ind])):
+        counts[ind][d] = g_below[cls[0]+'_rank'][d]
+      
+      labels[ind] = labels[ind] + 'signif$<$'+str(sigthrs[ind])
+      labels[ind+1] = str(sigthrs[ind])+'$\leq$'
+
+      g_above = g_above[numpy.nonzero(g_above['signif'] > sigthr)[0],:]
+
+    counts[len(counts)-1] = numpy.zeros(len(g_above[cls[0]+'_rank']))
+    for d in range(len(counts[ind])):
+      counts[len(counts)-1][d] = g_above[cls[0]+'_rank'][d] 
+
+    labels[0] = ' $0\leq$' + labels[0]
+    labels[len(labels)-1] = labels[len(labels)-1] + 'signif$\leq\infty$'
+
+    pylab.hist(counts, 100, histtype = 'barstacked', label = labels)
+
+    pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+    pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
+    pylab.ylabel('Number of Glitches')
+    pylab.legend(loc = 'upper center')
+
+    # plot a line corresponding to opts.fap_threshold
+    lims = matplotlib.pyplot.axis()
+    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+    matplotlib.pyplot.axis(lims)
+
+    #adding to the html page
+    name = '_hist_glitches_' + cls[0] + '_rank_LOG_barstacked'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+
+    #adding to the html page
+    pylab.yscale('linear')
+    fig_num += 1
+    pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+    name = '_hist_glitches_' + cls[0] + '_rank_LINEAR_barstacked'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
+
 
 #############################################################################################
 #
@@ -1097,7 +1385,7 @@ if opts.diagnostic_plots:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = max(rankthr[cls[0]+'_rank'])
+    rankthr = min(rankthr[cls[0]+'_rank'])
 
     fig_num +=1
     pylab.figure(fig_num)
@@ -1149,8 +1437,9 @@ if opts.hist_ranks:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = max(rankthr[cls[0]+'_rank'])
+    rankthr = min(rankthr[cls[0]+'_rank'])
 
+    # STEP histograms
     fig_num += 1
     pylab.figure(fig_num)
     pylab.hold(True)
@@ -1159,24 +1448,24 @@ if opts.hist_ranks:
     pfile = open(opts.user_tag+'_hist_ranks_'+cls[0]+'.pickle', 'w')
     pickle.dump(cls, pfile)
 
-    # histogram using all the cleans
-    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step', weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']), label = 'all cleans', log = True)
-    pickle.dump(cleans[cls[0]+'_rank'], pfile)   
-
     # histogram using all the glitches
     pylab.hist(glitches[cls[0] + '_rank'], 100, histtype='step', weights = numpy.ones(len(glitches[cls[0]+'_rank']))/len(glitches[cls[0]+'_rank']), label = 'all glitches')
-    pickle.dump(glitches[cls[0]+'_rank'], pfile)
+
+    sigthrs = [100, 200, 500, 1000]
 
     # histogram using only a subset of glitches with sufficiently large 'signif'
-    for sigthr in [10, 15, 25, 50]:
+    for sigthr in sigthrs:
       glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
       pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', weights = numpy.ones(len(glitches_removed[cls[0]+'_rank']))/len(glitches_removed[cls[0]+'_rank']), label = 'signif $\geq$ ' + repr(sigthr), log=True)
     pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
     pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
     pylab.ylabel('Fraction of Glitches')
-    pylab.legend(loc = 'upper center')
 
-    pickle.dump(rankthr, pfile)    
+    # histogram using all the cleans
+    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step', weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']), label = 'all cleans', log = True)
+    pickle.dump(cleans[cls[0]+'_rank'], pfile)
+
+    pylab.legend(loc = 'upper center')
 
     # plot a line corresponding to opts.fap_threshold
     lims = matplotlib.pyplot.axis()
@@ -1201,8 +1490,79 @@ if opts.hist_ranks:
     fnameList.append(fname)
     tagList.append(name)
     pylab.close()
-  
-  pfile.close()
+
+    # BARSTACKED histograms
+    fig_num += 1
+    pylab.figure(fig_num)
+    pylab.hold(True)
+
+    sigthrs = [100, 200, 500, 1000]
+    counts = [[]]*(len(sigthrs)+1)
+    labels = ['']*(len(sigthrs)+1)
+
+    # histogram using only a subset of glitches with sufficiently large 'signif'
+    g_above = glitches
+    for ind in range(len(sigthrs)):
+      sigthr = sigthrs[ind]
+
+      # pull out the glitches that fall in the appropriate range of 'signif'
+      g_below = g_above[numpy.nonzero(g_above['signif'] <= sigthr)[0],:]
+      counts[ind] = numpy.zeros(len(g_below[cls[0]+'_rank']))
+      for d in range(len(counts[ind])):
+        counts[ind][d] = g_below[cls[0]+'_rank'][d]
+
+      labels[ind] = labels[ind] + 'signif$<$'+str(sigthrs[ind])
+      labels[ind+1] = str(sigthrs[ind])+'$\leq$'
+
+      g_above = g_above[numpy.nonzero(g_above['signif'] > sigthr)[0],:]
+
+    counts[len(counts)-1] = numpy.zeros(len(g_above[cls[0]+'_rank']))
+    for d in range(len(counts[ind])):
+      counts[len(counts)-1][d] = g_above[cls[0]+'_rank'][d]
+
+    labels[0] = ' $0\leq$' + labels[0]
+    labels[len(labels)-1] = labels[len(labels)-1] + 'signif$\leq\infty$'
+
+    # dump the remaining data to pickle file. we can reconstruct both barstacked and step histograms from this information
+    pickle.dump(counts, pfile)
+    pickle.dump(labels, pfile)
+    pickle.dump(sigthrs, pfile)
+    pickle.dump(rankthr, pfile)
+    pickle.dump(opts.fap_threshold, pfile)
+
+    pfile.close()
+
+    pylab.hist(counts, 100, histtype = 'barstacked', label = labels)
+    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step', label = 'all cleans', log = True) #weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']) )
+
+    pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+    pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
+    pylab.ylabel('Number of Glitches')
+    pylab.legend(loc = 'upper center')
+
+    # plot a line corresponding to opts.fap_threshold
+    lims = matplotlib.pyplot.axis()
+    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+    matplotlib.pyplot.axis(lims)
+
+    #adding to the html page
+    name = '_hist_glitches_and_cleans_' + cls[0] + '_rank_LOG_barstacked'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+
+    #adding to the html page
+    pylab.yscale('linear')
+    fig_num += 1
+    pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+    name = '_hist_glitches_and_cleans' + cls[0] + '_rank_LINEAR_barstacked'
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(name)
+    pylab.close()
 
 #############################################################################################
 #
@@ -1222,7 +1582,8 @@ if opts.cum_hist_signif:
 
   # create pickle file
   pfile = open(opts.user_tag+'_cum-hist-signif_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
-  pickle.dump(['all']+classifiers, pfile)
+  pickle.dump(opts.fap_threshold, pfile)
+  pickle.dump(classifiers, pfile)
 
   fig_num += 1
   pylab.figure(fig_num)
@@ -1242,7 +1603,7 @@ if opts.cum_hist_signif:
   pylab.ylabel('Number of Glitches')
   pylab.xscale('log')
   pylab.yscale('log')
-  pylab.xlim(xmin=min(glitches['signif']), xmax=4*10**2)
+  pylab.xlim(xmin=min(glitches['signif']), xmax=max(glitches['signif'])*1.05)
   pylab.legend()
 
   pfile.close()
@@ -1273,7 +1634,7 @@ if opts.cum_hist_signif:
       pylab.ylabel('Number of Glitches')
       pylab.xscale('log')
       pylab.yscale('log')
-      pylab.xlim(xmin=min(glitches['signif']), xmax=4*10**2)
+      pylab.xlim(xmin=min(glitches['signif']), xmax=max(glitches['signif'])*1.05)
       pylab.legend()
   
       # adding to html page
@@ -1302,7 +1663,7 @@ if opts.diagnostic_plots:
     start +=1
     for ind in range(start, len(classifiers)):
       cls2 = classifiers[ind]
-      for sigthr in [10, 15, 25, 50]:
+      for sigthr in [100, 200, 500, 1000]:
         g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
         fig_num += 1
         fig = matplotlib.pyplot.figure(fig_num)
@@ -1365,7 +1726,7 @@ if opts.diagnostic_plots:
     start +=1
     for ind in range(start, len(classifiers)):
       cls2 = classifiers[ind]
-      for sigthr in [10, 15, 25, 50]:
+      for sigthr in [100, 200, 500, 1000]:
         g_rem = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
         g_ebf = [g[cls[0]+'_eff']/g[cls[0]+'_fap'] for g in g_rem]
         g_ebf2 = [g[cls2[0]+'_eff']/g[cls2[0]+'_fap'] for g in g_rem]
