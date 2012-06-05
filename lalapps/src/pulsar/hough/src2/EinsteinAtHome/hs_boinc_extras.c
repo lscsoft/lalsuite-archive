@@ -188,17 +188,18 @@ void mytime(void) {
   char buf[64];
   struct timeval tv;
   struct tm *tmv;
-  if(gettimeofday(&tv,NULL))
+  if(gettimeofday(&tv,NULL)) {
+    fputs("Couldn't gettimeofday()", stderr);
     return;
-  tmv=localtime(&tv.tv_sec);
+  }
   tmv=localtime(&tv.tv_sec);
   if (!tmv) {
     fputs("Couldn't get localtime(gettimeofday))", stderr);
-    return -1;
+    return;
   }
-  fputs(myultoa(tmv->tm_year, buf, sizeof(buf)), stderr);
+  fputs(myultoa(tmv->tm_year+1900, buf, sizeof(buf)), stderr);
   fputc('-', stderr);
-  fputs(myultoa(tmv->tm_mon, buf, sizeof(buf)), stderr);
+  fputs(myultoa(tmv->tm_mon+1, buf, sizeof(buf)), stderr);
   fputc('-', stderr);
   fputs(myultoa(tmv->tm_mday, buf, sizeof(buf)), stderr);
   fputc(' ', stderr);
