@@ -147,9 +147,14 @@ typedef enum gdbcmd { gdb_dump_core, gdb_attach } gdb_cmd;
     fputs(" STACK_FAULT",stderr);      \
   PRINT_FPU_EXCEPTION_MASK(fpstat)
 
-static char* myultoa(unsigned long n, char*buf, size_t size) {
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+
+static char* myultoa2(unsigned long n, char*buf, size_t size, size_t mindig) {
   int i;
-  memset(buf,'\0',size);
+  memset(buf,'0',size);
+  buf[size-1] = '\0';
   for(i=size-2; i>=0; i--) {
     buf[i] = n % 10 + '0';
     n /= 10;
@@ -157,8 +162,12 @@ static char* myultoa(unsigned long n, char*buf, size_t size) {
       break;
   }
   if (i > 0)
-    return buf + i;
+    return MIN(buf + i, buf + (size - mindig - 1));
   return buf;
+}
+
+static char* myultoa(unsigned long n, char*buf, size_t size) {
+  return myultoa2(n, buf, size, 1);
 }
 
 static char* myltoa(long n, char*buf, size_t size) {
@@ -199,15 +208,15 @@ void mytime(void) {
   }
   fputs(myultoa(tmv->tm_year+1900, buf, sizeof(buf)), stderr);
   fputc('-', stderr);
-  fputs(myultoa(tmv->tm_mon+1, buf, sizeof(buf)), stderr);
+  fputs(myultoa2(tmv->tm_mon+1, buf, sizeof(buf), 2), stderr);
   fputc('-', stderr);
-  fputs(myultoa(tmv->tm_mday, buf, sizeof(buf)), stderr);
+  fputs(myultoa2(tmv->tm_mday, buf, sizeof(buf), 2), stderr);
   fputc(' ', stderr);
-  fputs(myultoa(tmv->tm_hour, buf, sizeof(buf)), stderr);
+  fputs(myultoa2(tmv->tm_hour, buf, sizeof(buf), 2), stderr);
   fputc(':', stderr);
-  fputs(myultoa(tmv->tm_min, buf, sizeof(buf)), stderr);
+  fputs(myultoa2(tmv->tm_min, buf, sizeof(buf), 2), stderr);
   fputc(':', stderr);
-  fputs(myultoa(tmv->tm_sec, buf, sizeof(buf)), stderr);
+  fputs(myultoa2(tmv->tm_sec, buf, sizeof(buf), 2), stderr);
   fputc('.', stderr);
   fputs(myultoa(tv.tv_usec, buf, sizeof(buf)), stderr);
 }
