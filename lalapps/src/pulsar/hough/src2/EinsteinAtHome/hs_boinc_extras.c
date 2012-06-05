@@ -1116,19 +1116,6 @@ static void worker (void) {
   fputs(" - mytime()\n",stderr);
 #endif
 
-#ifdef DLOPEN_LIBGCC
-  {
-    void *lib_handle = dlopen("libgcc_s.so.1", RTLD_LAZY);
-    if(lib_handle) {
-      LogPrintf (LOG_DEBUG, "Successfully loaded libgcc_s.so.1\n");
-      libgcc_s_loaded = 1;
-    } else {
-      LogPrintf (LOG_DEBUG, "Couldn't load libgcc_s.so.1: %s\n", dlerror());
-      libgcc_s_loaded = -1;
-    }
-  }
-#endif
-
   /* if there already was an error, there is no use in continuing */
   if (res) {
     LogPrintf (LOG_CRITICAL, "ERROR: error %d in command-line parsing\n", res);
@@ -1457,6 +1444,18 @@ int main(int argc, char**argv) {
   } /* if !skipsighandler */
 #endif /* WIN32 */
 
+#ifdef DLOPEN_LIBGCC
+  {
+    void *lib_handle = dlopen("libgcc_s.so.1", RTLD_LAZY);
+    if(lib_handle) {
+      LogPrintf (LOG_DEBUG, "Successfully loaded libgcc_s.so.1\n");
+      libgcc_s_loaded = 1;
+    } else {
+      LogPrintf (LOG_DEBUG, "Couldn't load libgcc_s.so.1: %s\n", dlerror());
+      libgcc_s_loaded = -1;
+    }
+  }
+#endif
 
 #ifdef _NO_MSC_VER
   if (try_load_dlls(delayload_dlls, "ERROR: Failed to load %s - terminating\n")) {
