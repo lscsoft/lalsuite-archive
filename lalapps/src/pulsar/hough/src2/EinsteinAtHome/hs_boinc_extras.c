@@ -456,19 +456,18 @@ static void sighandler(int sig)
   nostackframes = backtrace (stackframes, 64);
   fputs(myltoa(nostackframes, buf, sizeof(buf)), stderr);
   fputs(" stack frames obtained for this thread:\n", stderr);
+  fputs("Use gdb command: 'info line *0xADDRESS' to print corresponding line numbers.\n",stderr);
+  backtrace_symbols_fd(stackframes, nostackframes, fileno(stderr));
 #if defined(__i386__) && defined(EXT_STACKTRACE)
   /* overwrite sigaction with caller's address */
-  // stackframes[1] = (void *) uc->uc_mcontext.gregs[REG_EIP];
+  /* stackframes[1] = (void *) uc->uc_mcontext.gregs[REG_EIP]; */
+  fputs("Trying extended stacktrace:\n", stderr);
   backtracesymbols = backtrace_symbols(stackframes, nostackframes);
   if(backtracesymbols != NULL) {
     backtrace_symbols_fd_plus(backtracesymbols, nostackframes, fileno(stderr));
     free(backtracesymbols);
-  } else
-#endif /* __X86__ */
-  {
-    fputs("Use gdb command: 'info line *0xADDRESS' to print corresponding line numbers.\n",stderr);
-    backtrace_symbols_fd(stackframes, nostackframes, fileno(stderr));
   }
+#endif /* __X86__ */
   fputs("\nEnd of stcaktrace\n",stderr);
 #endif /* __GLIBC__ */
 
