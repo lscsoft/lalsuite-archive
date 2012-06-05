@@ -436,7 +436,7 @@ static void sighandler(int sig)
      pthread_cancel()) to work properly. In this case take the "emergency
      exit" with exit status 0 - the worst that can happen is that
      the tasks ends up with "too many exits" error. */
-  if ( ( libgcc_s_loaded == -1 ) && ( sig == SIGABRT ) ) {
+  if ( ( libgcc_s_loaded == -1 ) && ( sig == 6 ) ) {
     fputs("Program received SIGABRT probably because libgcc_s.so.1 wasn't loaded - trying exit(0)\n", stderr);
     exit(0);
   }
