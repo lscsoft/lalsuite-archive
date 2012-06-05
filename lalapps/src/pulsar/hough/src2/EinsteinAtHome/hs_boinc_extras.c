@@ -420,7 +420,7 @@ static void sighandler(int sig)
   fputs(myultoa(sig, buf, sizeof(buf)), stderr);
   fputc('\n',stderr);
 
-  /* ignore TERM interrupts once  */
+  /* ignore INT interrupts once  */
   if ( sig == SIGINT ) {
     killcounter ++;
     if ( killcounter >= 4 ) {
@@ -431,7 +431,7 @@ static void sighandler(int sig)
       return;
   } /* termination signals */
 
-  /* A SIABRT most likely came from a failure to load libgcc_s.so.1,
+  /* A SIGABRT most likely came from a failure to load libgcc_s.so.1,
      which is required for boinc_finish() (calling pthread_exit() calling
      pthread_cancel()) to work properly. In this case take the "emergency
      exit" with exit status 0 - the worst that can happen is that
