@@ -1035,7 +1035,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   memset(&status,0,sizeof(status));
 
   unsigned long i;
-  unsigned int patch_index;
+  unsigned int patch_index, size_at_f_isco, len_to_zero;
   UINT4 n;	
   double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
   double tc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");
@@ -1052,9 +1052,10 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
   double instant;
   int forceTimeLocation;
-  double twopit, f, deltaF, re, im, templateReal, templateImag;
-
- 
+  double f_isco, twopit, f, deltaF, re, im, templateReal, templateImag;
+  
+  FILE *strain;
+  
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
   gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
@@ -1089,10 +1090,12 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  
 
   mc2masses(mc, eta, &m1, &m2);
+
+  /* calculate frequency at ISCO */
+
   
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
  
-  /**** Actual waveform computation. FIXME: declate h_t ****/ 
 
   /* find correct patch and interpolate a waveform*/
   patch_index = index_into_patch(IFOdata->manifold, mc, eta);
@@ -1102,7 +1105,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /*********************************************************/
    
 
-  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd);
+  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow);
 
   n = IFOdata->freqData->data->length;
     /* apply window & execute FT of plus component: */
@@ -1114,8 +1117,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
       XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->timeToFreqFFTPlan'.\n");
       XLAL_ERROR_VOID(XLAL_EFAULT);
     }
-
  
+
       /* copy over: */
     dewhitened_fseries->data->data[0].re = dewhitened_fseries->data->data[0].re;
     dewhitened_fseries->data->data[0].im = 0.0;
@@ -1125,15 +1128,29 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     }
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = dewhitened_fseries->data->data[IFOdata->freqModelhPlus->data->length-1].re;
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
+ 
+    f_isco = ffinal(m1 + m2);
 
+    size_at_f_isco = floor( f_isco / deltaF );
 
-  chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 4, 0); 
+    len_to_zero = IFOdata->freqModelhPlus->data->length - size_at_f_isco;
+
+    for (i = 0; i < len_to_zero; i ++){
+	
+	IFOdata->freqModelhPlus->data->data[ IFOdata->freqModelhPlus->data->length - 1 - i].re = 0.;
+	IFOdata->freqModelhPlus->data->data[ IFOdata->freqModelhPlus->data->length - 1 - i].im = 0.;
+
+    }
+
 
   /* (now frequency-domain plus-waveform has been computed, either directly or via FFT)   */
   for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
     IFOdata->freqModelhCross->data->data[i].re = -IFOdata->freqModelhPlus->data->data[i].im;
     IFOdata->freqModelhCross->data->data[i].im = IFOdata->freqModelhPlus->data->data[i].re;
   }
+  /* calculate frequency at ISCO and zero waveform after f_isco */
+ 
+
   for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
     // consider inclination angle's effect:
     IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
@@ -1156,6 +1173,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
 
   /* Signal simply evolved from start of template on,         */
   /* for approximately "chirptime" seconds:                   */
+  chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 4, 0);
+
   instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
 
 
@@ -1189,7 +1208,13 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     }
   }
 
+  strain = fopen("strain.txt", "w");
 
+  for (i = 0; i <IFOdata->freqModelhPlus->data->length; ++i){
+	fprintf(strain, "%e %e\n", IFOdata->freqModelhPlus->data->data[i].re + IFOdata->freqModelhPlus->data->data[i].im, IFOdata->freqModelhCross->data->data[i].re + IFOdata->freqModelhCross->data->data[i].im);
+
+  }
+  fclose(strain);
   gsl_vector_complex_free(h_t);
   XLALDestroyCOMPLEX16TimeSeries(dewhitened_tseries);
   XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);

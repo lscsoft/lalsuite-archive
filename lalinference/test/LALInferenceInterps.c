@@ -1143,7 +1143,7 @@ static int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSer
 
 static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries,  double length_max, unsigned int New_N_mc, unsigned int New_M_eta, double f_min){
 
-	FILE *list_of_overlaps, *TF2, *INTERP;
+	FILE *list_of_overlaps, *F2;
 	double Overlap=0.;
 	double m1, m2, eta, mc, mc_min, mc_max, eta_min, eta_max;
 	int working_length, patch_index;
@@ -1215,39 +1215,25 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
                 
 			dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries_interp, fseries_for_dewhitening, fwdplan_for_dewhitening, manifold->psd);
 
-			INTERP = fopen("interp_spa_dewhiten.txt", "w");
-
-			for (unsigned int k =0; k < dewhitened_fseries_interp->data->length; k++){
-				fprintf(INTERP, "%e %e\n", dewhitened_fseries_interp->data->data[k].re, dewhitened_fseries_interp->data->data[k].im);
-
-			}
-
-			fclose(INTERP);
- 
-		        m1 = mc2mass1(mc, eta);
+			m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			SPAWaveformReduceSpin(m1, m2, 0, 4, 0, 0, fseries->deltaF, f_min, sample_rate/2., fseries->data->length, fseries->data->data);
+			F2 = fopen("tf2.txt", "w");
 
-			TF2 = fopen("spa.txt", "w");
-			for (unsigned int k =0; k < fseries->data->length; k++){
-				fprintf(TF2, "%e %e\n", fseries->data->data[k].re, fseries->data->data[k].im);
-
-			}
-			fclose(TF2);
-			//XLALSimInspiralTaylorF2ReducedSpin(&htilde, 0, fseries->deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 0, f_min, 1e6*LAL_PC_SI, 4, 4);
+			XLALSimInspiralTaylorF2ReducedSpin(&htilde, 0, fseries->deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 0, f_min, 1e6*LAL_PC_SI, 4, 4);
 			for(unsigned int l = 0; l < dewhitened_fseries_interp->data->length; l++){
 				dewhitened_fseries_interp->data->data[l].re *=  sqrt(1. / manifold->psd->data->data[l]);
 				dewhitened_fseries_interp->data->data[l].im *=  sqrt(1. / manifold->psd->data->data[l]);
 			}
 	
-			for(unsigned int l = 0; l < fseries->data->length; l++){
-				fseries->data->data[l].re *= sqrt(1. / manifold->psd->data->data[l]);
-				fseries->data->data[l].im *= sqrt(1. / manifold->psd->data->data[l]);
+			for(unsigned int l = 0; l < htilde->data->length; l++){
+				fprintf(F2, "%e %e\n", htilde->data->data[l].re, htilde->data->data[l].im);
+				htilde->data->data[l].re *= sqrt(1. / manifold->psd->data->data[l]);
+				htilde->data->data[l].im *= sqrt(1. / manifold->psd->data->data[l]);
 			}
-
-			for(unsigned int l = 0; l < fseries->data->length; l++){
-                                GSL_SET_COMPLEX(&z_tmp_element, fseries->data->data[l].re, fseries->data->data[l].im );
+			fclose(F2);
+			for(unsigned int l = 0; l < htilde->data->length; l++){
+                                GSL_SET_COMPLEX(&z_tmp_element, htilde->data->data[l].re, htilde->data->data[l].im );
                                 gsl_vector_complex_set(z_tmp, l, z_tmp_element);
 
                         }	
@@ -1277,6 +1263,8 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 
 				gsl_vector_complex_set(h_t, m, dotc1);
 			}
+			
+
 			}
 		}		
 
@@ -1401,8 +1389,8 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 6;
-        unsigned int patches_in_mc = 6;
+        unsigned int patches_in_eta = 2;
+        unsigned int patches_in_mc = 2;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
