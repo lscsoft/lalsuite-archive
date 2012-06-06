@@ -1,56 +1,56 @@
-all : test01 test02 lal_verify segmentsUtils_verify segments_verify iterutils_verify offsetvector_verify ligolw_sqlite_test
+all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligo_lw_test01 ligo_lw_test02 ligo_lw_test_03 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
 
-offsetvector_verify :
-	@echo "=== start offsetvector_verify ===>"
-	python offsetvector_verify.py
-	@echo "<=== end offsetvector_verify ==="
+glue_ligolw_ilwd_verify :
+	@echo "=== start glue_ligolw_ilwd_verify ===>"
+	python glue_ligolw_ilwd_verify.py && echo "Pass" || { echo "Fail" ; false ; }
+	@echo "<=== end glue_ligolw_ilwd_verify ==="
 
 iterutils_verify :
 	@echo "=== start iterutils_verify ===>"
-	python iterutils_verify.py
+	python iterutils_verify.py && echo "Pass" || { echo "Fail" ; false ; }
 	@echo "<=== end iterutils_verify ==="
 
 lal_verify :
 	@echo "=== start lal_verify ===>"
-	python lal_verify.py
+	python lal_verify.py && echo "Pass" || { echo "Fail" ; false ; }
 	@echo "<=== end lal_verify ==="
 
-segmentsUtils_verify :
-	@echo "=== start segmentsUtils_verify ===>"
-	python segmentsUtils_verify.py
-	@echo "<=== end segmentsUtils_verify ==="
-
-segments_verify :
-	@echo "=== start segments_verify ===>"
-	python segments_verify.py
-	@echo "<=== end segments_verify ==="
-
-test01 :
+ligo_lw_test01 :
 	@echo "=== start test01 ===>"
-	python ligo_lw_test_01.py
+	python ligo_lw_test_01.py && echo "Pass" || { echo "Fail" ; false ; }
 	@echo "<=== end test01 ==="
 
-test02 :
+ligo_lw_test02 :
 	@echo "=== start test02 ===>"
-	bash ligo_lw_test_02.sh
+	sh ligo_lw_test_02.sh && echo "Pass" || { echo "Fail" ; false ; }
 	@echo "<=== end test02 ==="
 
 ligo_lw_test_03 :
 	# test reading compressed and non-compressed files from stdin
 	@echo "=== start ligo_lw_test_03 ===>"
-	cat inspiral_event_id_test_in1.xml.gz | ligolw_print >/dev/null && echo "Pass" || { echo "Fail"; false; }
-	cat inspiral_event_id_test_in2.xml | ligolw_print >/dev/null && echo "Pass" || { echo "Fail"; false; }
+	{ cat inspiral_event_id_test_in1.xml.gz | ligolw_print >/dev/null ; } && echo "Pass" || { echo "Fail" ; false ; }
+	{ cat inspiral_event_id_test_in2.xml | ligolw_print >/dev/null ; } && echo "Pass" || { echo "Fail" ; false ; }
 	@echo "<=== end ligo_lw_test_03 ==="
 
-ligolw_sqlite_test:
+ligolw_sqlite_test :
 	@echo "=== start ligolw_sqlite_test ===>"
-	bash ligolw_sqlite_test.sh
+	sh ligolw_sqlite_test.sh && echo "Pass" || { echo "Fail" ; false ; }
 	@echo "<=== end ligolw_sqlite_test ==="
 
-glue_ligolw_ilwd_verify :
-	@echo "=== start glue_ligolw_ilwd_verify ===>"
-	python glue_ligolw_ilwd_verify.py
-	@echo "<=== end glue_ligolw_ilwd_verify ==="
+offsetvector_verify :
+	@echo "=== start offsetvector_verify ===>"
+	python offsetvector_verify.py && echo "Pass" || { echo "Fail" ; false ; }
+	@echo "<=== end offsetvector_verify ==="
+
+segmentsUtils_verify :
+	@echo "=== start segmentsUtils_verify ===>"
+	python segmentsUtils_verify.py && echo "Pass" || { echo "Fail" ; false ; }
+	@echo "<=== end segmentsUtils_verify ==="
+
+segments_verify :
+	@echo "=== start segments_verify ===>"
+	python segments_verify.py && echo "Pass" || { echo "Fail" ; false ; }
+	@echo "<=== end segments_verify ==="
 
 clean :
 	rm -f ligo_lw_test_01*png
