@@ -108,7 +108,7 @@ class test_LIGOTimeGPS(unittest.TestCase):
 			#"mod": (LIGOTimeGPS.__mod__, pylalLIGOTimeGPS.__mod__)
 		}
 
-		for i in xrange(1000000):
+		for i in xrange(10000):
 			key = random.choice(operators.keys())
 			op, pylalop = operators[key]
 			arg1 = randomLIGOTimeGPS() / 100
