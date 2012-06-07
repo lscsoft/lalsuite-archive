@@ -15,8 +15,8 @@ def ROC(clean_ranks, glitch_ranks):
   FAP = []
   Eff = []
   for i,rank in enumerate(clean_ranks_sorted):
-    FAP.append(compute_FAP(clean_ranks, glitch_ranks, rank))
-    Eff.append(compute_Eff(clean_ranks, glitch_ranks, rank))
+    FAP.append(compute_FAP(clean_ranks_sorted, glitch_ranks_sorted, rank))
+    Eff.append(compute_Eff(clean_ranks_sorted, glitch_ranks_sorted, rank))
 
   return numpy.asarray(FAP), numpy.asarray(Eff)
 
@@ -198,7 +198,7 @@ def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables
     KWvariables.remove('GPS')
   
   MVSCvariables = ['index', 'i', 'w', 'GPS_s', 'GPS_ms']+ KWvariables + ['glitch-rank']
-  formats = ['i','i'] + ['g8' for a in range(len(MVSCvariables) - 2)]
+  formats = ['i','i','g8','i', 'i'] + ['g8' for a in range(len(MVSCvariables) - 5)]
   n_triggers = len(KWAuxGlitchTriggers) + len(KWAuxCleanTriggers)
   
   i_row = numpy.concatenate((numpy.ones(len(KWAuxGlitchTriggers)), numpy.zeros(len(KWAuxCleanTriggers))))
@@ -234,7 +234,14 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
     for var in ['index', 'i', 'w', 'glitch-rank']:
       Unclassified_variables.remove(var)
     Unclassified_variables.append('i')
-    formats = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
+    formats = []
+    for var in Unclassified_variables:
+      if var in ['GPS_s', 'GPS_ms', 'i']:
+        formats.append('i')
+      else:
+        formats.append('g8')
+      
+    #formats = ['g8' for a in range(len(Unclassified_variables) - 1)] + ['i']
     Triggers = numpy.empty((n_triggers,), dtype={'names': Unclassified_variables,'formats':formats})
     
     for variable in Unclassified_variables:
@@ -273,7 +280,13 @@ def ReadMVSCTriggers(files):
   for (i,f) in enumerate(files):
     flines = open(f).readlines()
     variables = flines[0].split()
-    formats = ['i','i']+['g8' for a in range(len(variables)-2)]
+    formats = []
+    for var in variables:
+      if var in ['GPS_s', 'GPS_ms', 'i', 'index']:
+        formats.append('i')
+      else:
+        formats.append('g8')
+    #formats = ['i','i']+['g8' for a in range(len(variables)-2)]
     if i > 0:
       MVSCTriggers  = numpy.concatenate((MVSCTriggers ,numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})),axis=0)
     else:
@@ -282,7 +295,7 @@ def ReadMVSCTriggers(files):
   return MVSCTriggers  
 
 
-def LoadCV(filename):
+def LoadOVL(filename):
 
   """
   Reads in the pickled output of CV data (eg: kwl1-35.track.9.pickle) and inverts the data storage. Returns a list of gwtrg's removed by the Cveto method.
@@ -332,9 +345,10 @@ def LoadCV(filename):
       vstats = [line[h['livetime']], line[h['#gwtrg']], line[h['dsec']], line[h['csec']], line[h['vact']], line[h['vsig']], c_livetime, c_ngwtrg, c_dsec, c_csec, c_vact, lineidx]
       gwtrg_vtd = line[h['gwtrg_vetoed']]
       # iterate through trg's and fill in gwtrg_vtd_tcent
-      for trg in gwtrg_vtd:
-        gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
-        tcentidx += 1
+      if gwtrg_vtd[0] != 'NONE':
+        for trg in gwtrg_vtd:
+          gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
+          tcentidx += 1
 
   # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
   return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])

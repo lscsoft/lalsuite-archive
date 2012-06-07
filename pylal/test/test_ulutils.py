@@ -7,22 +7,35 @@ from numpy import random
 from pylal import upper_limit_utils
 
 class test_ulutils(unittest.TestCase):
+
+    def test_normalize_pdf(self):
+        '''
+        Check the normalization of pdfs
+        '''
+        mu = numpy.logspace(-10,-4,1e5)
+        likely = numpy.exp(-mu*3.14*10**6)  # just some number far from unity
+        junk, prob_norm = upper_limit_utils.normalize_pdf(mu, likely)
+        dmu = mu[1:] - mu[:-1]
+        prob_in_bin = (prob_norm[1:] + prob_norm[:-1]) /2
+        prob_integral = sum(dmu*prob_in_bin)
+        self.assertTrue( abs(prob_integral - 1.0) < 0.00001 )
+
     def test_gaussian_upper_limit(self):
         '''
         Give the upper_limit function some known distributions with known 95% upper limits.
         '''
-        # Gaussian
-        mu = numpy.linspace(-5,5,1e6)
+        # Gaussian over *positive* mu: 95% limit is equal to sqrt(2)*erfc^-1(0.05)
+        mu = numpy.linspace(0,5,1e6)
         post = numpy.exp(-(mu**2)/2)
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.95)
-        self.assertTrue( 1.6448 < muhi < 1.6449 ) # get upper limit to 4 sig figs
+        self.assertTrue( abs(muhi - 1.95996) < 0.0001 ) # get upper limit to 4 decimal places
 
     def test_exponential_upper_limit(self):
         # Exponential
         mu = numpy.linspace(0,15,1e6)
         post = numpy.exp(-mu)
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.95)
-        self.assertTrue( 2.9957 < muhi < 2.9958 ) # get upper limit to 4 sig figs
+        self.assertTrue( abs( muhi - numpy.log(20) ) < 0.0001 ) # get upper limit to 4 decimal places
 
     def test_uniform_upper_limit(self):
         # Uniform posterior
@@ -32,46 +45,51 @@ class test_ulutils(unittest.TestCase):
         alphas = numpy.arange(0.1,1,0.1)
         for a in alphas:
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = a)
-            self.assertTrue( a*mumax - 0.0001 < muhi < a*mumax + 0.0001) # get upper limit to 4 sig figs
+            self.assertTrue( a*mumax - 0.0001 < muhi < a*mumax + 0.0001) # get upper limit to 4 decimal places
 
     def test_logspacing_rate_upper_limit(self):
         '''
         Give the upper_limit function some known distributions with known 95% upper limits.
         '''
         # Exponential
-        mu = numpy.logspace(-4,2,5e6)
+        mu = numpy.logspace(-5,2,1e6)
         post = numpy.exp(-mu)
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.95)
-        self.assertTrue( 2.9957 < muhi < 2.9959 ) # get upper limit to ~4 sig figs
+        self.assertTrue( abs( muhi - numpy.log(20) ) < 0.0001 ) # get upper limit to 4 decimal places
+
+        # Gaussian over positive mu
+        post = numpy.exp(-(mu**2)/2)
+        muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.95)
+        self.assertTrue( abs(muhi - 1.95996) < 0.0001 ) # get upper limit to 4 decimal places
 
     def test_volume_lambda(self):
         '''
         Check the dependence of upper limits on volume and lambda.
         '''
-        # volumes to test
-        volumes = numpy.linspace(1e-3,100,1e2)
+        # volumes to test: these range over 5 orders of magnitude
+        volumes = numpy.logspace(-3,2,50)
 
         for vol in volumes:
-            mu = numpy.linspace(0,100/vol,1e4)
+            # take a large, fixed set of mu samples to bracket the 1/vol values
+            mu = numpy.logspace(-5,5,1e5)
 
             # lambda = 0
             likely = upper_limit_utils.margLikelihood([vol], [0], mu)
-            post = likely/likely.sum() #uniform prior
+            post = likely  # uniform prior; NB compute_upper_limit works for unnormalized posteriors
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
             self.assertTrue( 2.30/vol < muhi < 2.31/vol )
 
             # lambda = 1
             likely = upper_limit_utils.margLikelihood([vol], [1], mu)
-            post = likely/likely.sum() #uniform prior
+            post = likely  # uniform prior
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
             self.assertTrue( 3.27/vol < muhi < 3.28/vol )
 
             # lambda = infinity
             likely = upper_limit_utils.margLikelihood([vol], [1e6], mu)
-            post = likely/likely.sum() #uniform prior
+            post = likely  # uniform prior
             muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 0.90)
-            self.assertTrue( 3.88/vol < muhi < 3.90/vol )
-
+            self.assertTrue( 3.885/vol < muhi < 3.895/vol )
 
     def test_zero_volume_search(self):
         '''
@@ -134,7 +152,6 @@ class test_ulutils(unittest.TestCase):
         v, verr = upper_limit_utils.integrate_efficiency(xbins, mockeff, logbins=True)
         vexpect = 1 - numpy.exp(-1)
         self.assertTrue(abs(v -vexpect ) < 0.01)
-
 
     def test_integrate_realistic_efficiency(self):
         '''
@@ -210,7 +227,6 @@ class test_ulutils(unittest.TestCase):
         a = 1
         muhi = upper_limit_utils.compute_upper_limit(mu, post, alpha = 1)
         self.assertTrue( a*mumax - 0.0001 < muhi < a*mumax + 0.0001) # get upper limit to 4 sig figs
-
 
     def test_confidence_interval(self):
         '''

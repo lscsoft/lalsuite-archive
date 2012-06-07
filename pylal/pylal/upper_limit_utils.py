@@ -27,11 +27,11 @@ def margLikelihoodMonteCarlo(VTs, lambs, mu, mcerrs=None):
     for vA,dvA,mc in zip(VTs,lambs,mcerrs):
         if mc == 0:
             # we have perfectly measured our efficiency in this mass bin
-            # so the posterior is given by eqn (11) in BCB
+            # so the posterior is given by eqn (11) in Biswas et al. [arXiv:0710.0465]
             likely *= (1+mu*vA*dvA)*numpy.exp(-mu*vA)
         else:
             # we have uncertainty in our efficiency in this mass bin and
-            # want to marginalize it out using eqn (24) of BCB
+            # want to marginalize it out using eqn (24) of Biswas et al.
             k = (vA/mc)**2 # k is 1./fractional_error**2
             likely *= (1+mu*vA*(1/k+dvA))*(1+mu*vA/k)**(-(k+1))
 
@@ -62,43 +62,68 @@ def margLikelihood(VTs, lambs, mu, calerr=0, mcerrs=None):
     return likely
 
 
+def normalize_pdf(mu, pofmu):
+    """
+    Takes a function pofmu defined at rate sample values mu and 
+    normalizes it to be a suitable pdf. Both mu and pofmu must be
+    arrays or lists of the same length. 
+    """
+    if min(pofmu) < 0:
+        raise ValueError, "Probabilities cannot be negative, please don't \
+        ask me to normalize a function with negative values!"
+    if min(mu) < 0:
+        raise ValueError, "Rates cannot be negative, please don't \
+        ask me to normalize a function over a negative domain!"
+    # simple trapezoidal integral
+    dmu = mu[1:] - mu[:-1]
+    mean_in_bin = (pofmu[1:] + pofmu[:-1]) /2
+    dp = dmu*mean_in_bin
+
+    return mu, pofmu/sum(dp)
+
+
 def compute_upper_limit(mu_in, post, alpha = 0.9):
     """
     Returns the upper limit mu_high of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
-    # interpolate to a linearly spaced array for accuracy in mu
-    post_rep = interpolate.splrep(mu_in, post,k=1)
-    mu = numpy.linspace(mu_in.min(),mu_in.max(),len(mu_in))
-    post = interpolate.splev(mu, post_rep)
+    # simple trapezoidal integral
+    dmu = mu_in[1:] - mu_in[:-1]
+    mean_post = (post[1:] + post[:-1]) /2
+    dp = dmu*mean_post
 
     if 0 < alpha < 1:
-        high_idx = bisect.bisect_left( post.cumsum()/post.sum(), alpha )
+        high_idx = bisect.bisect_left( dp.cumsum()/dp.sum(), alpha )
         # if alpha is in (0,1] and post is non-negative, bisect_left
         # will always return an index in the range of mu since
         # post.cumsum()/post.sum() will always begin at 0 and end at 1
-        mu_high = mu[high_idx]
+        mu_high = mu_in[high_idx]
     elif alpha == 1:
-        mu_high = numpy.max(mu[post>0])
+        mu_high = numpy.max(mu_in[post>0])
     else:
         raise ValueError, "Confidence level must be in (0,1]."
 
     return mu_high
 
 
-def compute_lower_limit(mu, post, alpha = 0.9):
+def compute_lower_limit(mu_in, post, alpha = 0.9):
     """
     Returns the lower limit mu_low of confidence level alpha for a
     posterior distribution post on the given parameter mu.
     """
+    # simple trapezoidal integral
+    dmu = mu_in[1:] - mu_in[:-1]
+    mean_post = (post[1:] + post[:-1]) /2
+    dp = dmu*mean_post
+
     if 0 < alpha < 1:
-        low_idx = bisect.bisect_right( post.cumsum()/post.sum(), 1-alpha )
+        low_idx = bisect.bisect_right( dp.cumsum()/dp.sum(), 1-alpha )
         # if alpha is in [0,1) and post is non-negative, bisect_right
         # will always return an index in the range of mu since
         # post.cumsum()/post.sum() will always begin at 0 and end at 1
-        mu_low = mu[low_idx]
+        mu_low = mu_in[low_idx]
     elif alpha == 1:
-        mu_low = numpy.min(mu[post>0])
+        mu_low = numpy.min(mu_in[post>0])
     else:
         raise ValueError, "Confidence level must be in (0,1]."
 
@@ -286,9 +311,9 @@ def log_volume_derivative_fit(x, vols, xhat):
         return (0,0)
 
     coeffs, resids, rank, svs, rcond = numpy.polyfit(x, numpy.log(vols), 1, full=True)
-    if coeffs[0] < 0:
-        coeffs[0] = 0  #negative derivatives may arise from rounding error
+    if coeffs[0] < 0: #negative derivatives may arise from rounding error
         print >> sys.stderr, "Warning: Derivative fit resulted in Lambda =", coeffs[0]
+        coeffs[0] = 0
         print >> sys.stderr, "The value Lambda = 0 was substituted"
 
     return coeffs
@@ -319,7 +344,5 @@ def get_background_livetime(connection, verbose=False):
             print >>sys.stdout,"The background livetime for time slide experiments on %s data: %d seconds (%.2f years)" % (','.join(sorted(list(inst))),bglivetime[inst],bglivetime[inst]/float(constants.LAL_YRJUL_SI))
 
     return bglivetime
-
-
 
 

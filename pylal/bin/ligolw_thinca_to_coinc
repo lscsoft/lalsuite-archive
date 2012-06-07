@@ -222,6 +222,14 @@ class MetadataContentHandler(ligolw.FilteringLIGOLWContentHandler):
 		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: not lsctables.IsTableProperties(lsctables.SnglInspiralTable, name, attrs))
 
 
+try:
+	lsctables.use_in(MetadataContentHandler)
+except AttributeError:
+	# old glue did not allow .use_in().
+	# FIXME:  remove when we can require the latest version of glue
+	pass
+
+
 #
 # uses a dictionary mapping filename to URL to retrieve the process
 # metadata for the lalapps_inspiral jobs whose triggers are found in
@@ -549,13 +557,13 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 		for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
 			if row.process_id in slides_process_ids:
 				if row.param == u"--num-slides":
-					num_slides = row.get_pyvalue()
+					num_slides = row.pyvalue
 					if num_slides < 0:
 						raise ValueError, "invalid --num-slides '%s' for process '%s'" % (row.value, row.process_id)
 				else:
 					match = re.search(slide_option_pattern, row.param)
 					if match is not None:
-						offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
+						offset_vector[match.groupdict()["ifo"].upper()] = row.pyvalue
 
 		#
 		# confirm that the offset vector contains offsets for all

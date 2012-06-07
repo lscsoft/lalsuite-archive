@@ -44,7 +44,7 @@ pylab.rc('text', usetex=True)
 
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
 
-def plotErrorEllipse(pos,g,d,ax,edge='b',face='none', style='solid'):
+def plotErrorEllipse(xy,g,d,ax,edge='b',face='none', style='solid', **kwargs):
 	"""
 	Computes error ellipses for points in a two dimensional space given a
 	position and the 2D metric.
@@ -55,8 +55,8 @@ def plotErrorEllipse(pos,g,d,ax,edge='b',face='none', style='solid'):
 
 	U, s, Vh = scipy.linalg.svd(g)
 	orient = math.atan2(U[0,0],U[1,0])*180/pi
-	ellipsePlot = matplotlib.patches.Ellipse(xy=pos, width=2*d**.5*semimajor,
-		height=2*d**.5*semiminor, angle=-orient, facecolor=face, edgecolor=edge, linestyle=style)
+	ellipsePlot = matplotlib.patches.Ellipse(xy=xy, width=2*d**.5*semimajor,
+		height=2*d**.5*semiminor, angle=-orient, facecolor=face, edgecolor=edge, linestyle=style, **kwargs)
 	ax.add_patch(ellipsePlot)
 
 def plot_skymetric_from_file(filename,maxmismatch=0.1):

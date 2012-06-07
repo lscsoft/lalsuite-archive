@@ -122,7 +122,7 @@ def build_COMPLEX16TimeSeries(series, comment = None):
 	elem.appendChild(ligolw.Time(Attributes({u"Name": u"epoch", u"Type": u"GPS"}))).pcdata = unicode(series.epoch)
 	elem.appendChild(param.from_pyvalue(u"f0", series.f0, unit = LALUnit("s^-1")))
 	data = series.data
-	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaF, numpy.real(data), numpy.imag(data)))
+	data = numpy.row_stack((numpy.arange(0, len(data)) * series.deltaT, numpy.real(data), numpy.imag(data)))
 	a = ligolwarray.from_array(series.name, data, dim_names = (u"Time", u"Time,Real,Imaginary"))
 	a.setAttribute(u"Unit", unicode(series.sampleUnits))
 	dim0 = a.getElementsByTagName(ligolw.Dim.tagName)[0]

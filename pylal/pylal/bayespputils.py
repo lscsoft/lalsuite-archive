@@ -7,7 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@ from operator import itemgetter
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
+from scipy import special
 from numpy import linspace
 
 import random
@@ -67,7 +68,8 @@ __date__= git_version.date
 #===============================================================================
 # Constants
 #===============================================================================
-
+#Parameters which are not to be exponentiated when found
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw']
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -391,7 +393,7 @@ class OneDPosterior(object):
         if self.__injval is None:
             return None
         else:
-            return sqrt(np.var(self.__posterior_samples)+pow((np.mean(self.__posterior_samples)-self.__injval),2) )
+            return np.sqrt(np.mean((self.__posterior_samples - self.__injval)**2.0))
 
     @property
     def injval(self):
@@ -490,7 +492,7 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
-        self._loglaliases=['logl','logL','likelihood','posterior']
+        self._loglaliases=['posterior', 'logl','logL','likelihood']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -656,16 +658,18 @@ class Posterior(object):
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.coa_phase,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
+                        'rightascension':_inj_longitude,
                         'long':_inj_longitude,
                         'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
+                        'declination':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: inj.polarization,
+                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
@@ -893,7 +897,7 @@ class Posterior(object):
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
@@ -913,7 +917,73 @@ class Posterior(object):
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
+    def elliptical_subregion_evidence(self):
+        """Returns an approximation to the log(evidence) obtained by
+        fitting an ellipse around the highest-posterior samples and
+        performing the harmonic mean approximation within the ellipse.
+        Because the ellipse should be well-sampled, this provides a
+        better approximation to the evidence than the full-domain HM."""
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
+        samples,header=self.samples()
+        header=header.split()
 
+        n=int(0.05*samples.shape[0])
+        if not n > 1:
+            raise IndexError
+
+        coord_names=[name for name in allowed_coord_names if name in header]
+        indexes=np.argsort(self._logL[:,0])
+
+        my_samples=samples[indexes[-n:], :] # The highest posterior samples.
+        my_samples=np.array([ParameterSample(sample,header,coord_names).coord() for sample in my_samples])
+
+        mu=np.mean(my_samples, axis=0)
+        cov=np.cov(my_samples, rowvar=0)
+
+        d0=None
+        for mysample in my_samples:
+            d=np.dot(mysample-mu, np.linalg.solve(cov, mysample-mu))
+            if d0 is None:
+                d0 = d
+            else:
+                d0=max(d0,d)
+
+        ellipse_logl=[]
+        ellipse_samples=[]
+        for sample,logl in zip(samples, self._logL):
+            coord=ParameterSample(sample, header, coord_names).coord()
+            d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
+
+            if d <= d0:
+                ellipse_logl.append(logl)
+                ellipse_samples.append(sample)
+        
+        if len(ellipse_samples) > 5*n:
+            print 'WARNING: ellpise evidence region encloses significantly more samples than %d'%n
+
+        ellipse_samples=np.array(ellipse_samples)
+        ellipse_logl=np.array(ellipse_logl)
+
+        ndim = len(coord_names)
+        ellipse_volume=np.pi**(ndim/2.0)*d0**(ndim/2.0)/special.gamma(ndim/2.0+1)*np.sqrt(np.linalg.det(cov))
+
+        try:
+            prior_index=header.index('prior')
+            pmu=np.mean(ellipse_samples[:,prior_index])
+            pstd=np.std(ellipse_samples[:,prior_index])
+            if pstd/pmu > 1.0:
+                print 'WARNING: prior variation greater than 100\% over elliptical volume.'
+            approx_prior_integral=ellipse_volume*pmu
+        except KeyError:
+            # Maybe prior = 1?
+            approx_prior_integral=ellipse_volume
+
+        ll_bias=np.mean(ellipse_logl)
+        ellipse_logl = ellipse_logl - ll_bias
+
+        return np.log(approx_prior_integral) - np.log(np.mean(1.0/np.exp(ellipse_logl))) + ll_bias
 
     def harmonic_mean_evidence(self):
         """
@@ -1853,7 +1923,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
         ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
         inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
-        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+        plt.plot(inj_plx,inj_ply,'wx',linewidth=12, markersize=22,mew=2,alpha=0.6)
     
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
 
@@ -2175,25 +2245,35 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     return rbins,myfig#,rkde
 #
 
-def formatRATicks(locs, accuracy='hour'):
+def formatRATicks(locs, accuracy='auto'):
     """
     Format locs, ticks to RA angle with given accuracy
     accuracy can be 'hour', 'min', 'sec', 'all'
     returns (locs, ticks)
     'all' does no rounding, just formats the tick strings
+    'auto' will use smallest appropriate units
     """
     newmax=max(locs)
     newmin=min(locs)
+    if(accuracy=='auto'):
+        acc='hour'
+        if abs(newmax-newmin)<pi_constant/12.:
+            acc='min'
+        if abs(newmax-newmin)<pi_constant/(12.*60.):
+            acc='sec'
+    else:
+        acc=accuracy
+    
     if max(locs)>2*pi_constant: newmax=2.0*pi_constant
     if min(locs)<0.0: newmin=0.0
     locs=linspace(newmin,newmax,len(locs))
     
-    roundlocs=map(lambda a: roundRadAngle(a, accuracy=accuracy), locs)
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
     
     newlocs=filter(lambda a:a>=0 and a<=2.0*pi_constant, roundlocs)
     return (list(newlocs), map(getRAString, list(newlocs) ) )
 
-def formatDecTicks(locs, accuracy='deg'):
+def formatDecTicks(locs, accuracy='auto'):
     """
     Format locs to Dec angle with given accuracy
     accuracy can be 'deg', 'arcmin', 'arcsec', 'all'
@@ -2201,11 +2281,19 @@ def formatDecTicks(locs, accuracy='deg'):
     """
     newmax=max(locs)
     newmin=min(locs)
+    if(accuracy=='auto'):
+        acc='deg'
+        if abs(newmax-newmin)<pi_constant/360.:
+            acc='arcmin'
+        if abs(newmax-newmin)<pi_constant/(360.*60.):
+            acc='arcsec'
+    else:
+        acc=accuracy
     if newmax>0.5*pi_constant: newmax=0.5*pi_constant
     if newmin<-0.5*pi_constant: newmin=-0.5*pi_constant
     locs=linspace(newmin,newmax,len(locs))
     
-    roundlocs=map(lambda a: roundRadAngle(a, accuracy=accuracy), locs)
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
     newlocs=filter(lambda a:a>=-pi_constant/2.0 and a<=pi_constant/2.0, roundlocs)
     return (list(newlocs), map(getDecString, list(newlocs) ) )
 
@@ -2351,6 +2439,121 @@ def get_inj_by_time(injections,time):
     import itertools
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
+
+def histogram2D(posterior,greedy2Params,confidence_levels):
+    """
+    Returns a 2D histogram and edges for the two parameters passed in greedy2Params, plus the actual discrete confidence levels
+    imposed by the finite number of samples.
+       H,xedges,yedges,Hlasts = histogram2D(posterior,greedy2Params,confidence_levels)
+    @param posterior: Posterior instance
+    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map.
+    """
+
+    par1_name,par2_name=greedy2Params.keys()
+    par1_bin=greedy2Params[par1_name]
+    par2_bin=greedy2Params[par2_name]
+    par1_injvalue=posterior[par1_name.lower()].injval
+    par2_injvalue=posterior[par2_name.lower()].injval
+    a=np.squeeze(posterior[par1_name].samples)
+    b=np.squeeze(posterior[par2_name].samples)
+    par1pos_min=a.min()
+    par2pos_min=b.min()
+    par1pos_max=a.max()
+    par2pos_max=b.max()
+    par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
+    par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
+    H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
+    temp=np.copy(H)
+    temp=temp.ravel()
+    confidence_levels.sort()
+    Hsum=0
+    Hlasts=[]
+    for cl in confidence_levels:
+        while float(Hsum/np.sum(H))<cl:
+            ind = np.argsort(temp)
+            max_i=ind[-1:]
+            val = temp[max_i]
+            Hlast=val[0]
+            Hsum+=val
+            temp[max_i]=0
+        Hlasts.append(Hlast)
+    return (H,xedges,yedges,Hlasts)
+
+def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+    """
+    @param posteriors_by_name A dictionary of posterior objects indexed by name
+    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map. 
+    
+    """
+    fig=plt.figure(1,figsize=figsize,dpi=dpi)
+    plt.clf()
+    fig.add_axes(figposition)
+    CSlst=[]
+    name_list=[]
+    par1_name,par2_name=greedy2Params.keys()
+    for name,posterior in posteriors_by_name.items():
+        name_list.append(name)
+        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels+[0.99999999999999])
+        extent= [xedges[0], yedges[-1], xedges[-1], xedges[0]]
+        CS2=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] ,alpha=0.3 )
+        CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] )
+        CSlst.append(CS)
+    
+    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
+    if len(name_list)!=len(CSlst):
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
+    full_name_list=[]
+    dummy_lines=[]
+    for plot_name in name_list:
+        full_name_list.append(plot_name)
+        for cl in confidence_levels+[1]:
+            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
+            full_name_list.append('%s%%'%str(int(cl*100)))
+        fig_actor_lst = [cs.collections[0] for cs in CSlst]
+        fig_actor_lst.extend(dummy_lines)
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+        text.set_fontsize('small')
+    fix_axis_names(plt,par1_name,par2_name)
+    return fig
+
+def fix_axis_names(plt,par1_name,par2_name):
+    """
+    Fixes names of axes
+    """
+    # For ra and dec set custom labels and for RA reverse
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+            plt.ylim(ymax,ymin)
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            locs, ticks = plt.yticks()
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
+    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+            locs, ticks = plt.yticks()
+            newlocs,newticks=formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
+
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        locs, ticks = plt.xticks()
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
+    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+        locs, ticks = plt.xticks()
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
+    return plt
 
 def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
@@ -2779,6 +2982,25 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
 
     return pos,bayesfactor
 
+
+def effectiveSampleSize(samples, Nskip=1):
+    mu = np.mean(samples)
+    N = len(samples)
+    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
+    acf = corr[N-1:]/corr[N-1]
+    acl = 1
+    i = 1
+    try:
+      while (acf[i] > 0.0005):
+          acl += 2.0*acf[i]
+          i+=1
+    except IndexError:
+      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = N
+    Neffective = floor(N/acl)
+    acl *= Nskip
+    return (Neffective, acl, acf)
+
 #===============================================================================
 # Parameter estimation codes results parser
 #===============================================================================
@@ -2810,24 +3032,33 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
-        if not (fixedBurnin is None):
+        if not (fixedBurnins is None):
             if not (deltaLogL is None):
                 print "Warning: using deltaLogL criteria in addition to fixed burnin"
-            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+            if len(fixedBurnins) == 1 and len(files) > 1:
+                print "Only one fixedBurnin criteria given for more than one output.  Applying this to all outputs."
+                fixedBurnins = np.ones(len(files),'int')*fixedBurnins[0]
+            elif len(fixedBurnins) != len(files):
+                raise RuntimeError("Inconsistent number of fixed burnin criteria and output files specified.")
+            print "Fixed burning criteria: ",fixedBurnins
         else:
-            fixedBurnin = 0
+            fixedBurnins = np.zeros(len(files))
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
-        nskip=1
-        if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
-            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
+        if nDownsample is None:
+            print "Downsampling to take only uncorrelated posterior samples from each file."
+            for i in range(len(nskips)):
+                if nskips[i] is None:
+                    print "%s eliminated since all samples are correlated."
+        else:
+            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -2835,14 +3066,14 @@ class PEOutputParser(object):
         runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnins, nskips, oldMassConvention)
         finally:
             runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -2852,7 +3083,9 @@ class PEOutputParser(object):
         nRead=0
         outputHeader=False
         acceptedChains=0
-        for infilename,i in zip(files,range(1,len(files)+1)):
+        if nskips is None:
+            nskips = np.ones(len(files),'int')
+        for infilename,i,nskip,fixedBurnin in zip(files,range(1,len(files)+1),nskips,fixedBurnins):
             infile=open(infilename,'r')
             try:
                 print "Writing header of %s to %s"%(infilename,runfile.name)
@@ -2933,21 +3166,26 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnins, nDownsample):
         """
         Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
-        ntot=0
-        for inpname in files:
+        nfiles = len(files)
+        ntots=[]
+        nEffectives = []
+        for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
                 runInfo,header = self._clear_infmcmc_header(infile)
+                header = [name.lower() for name in header]
                 loglindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
+                lines=[]
+                ntot=0
                 for line in infile:
                     line = line.lstrip().split()
                     iter = int(line[iterindex])
@@ -2957,13 +3195,38 @@ class PEOutputParser(object):
                     if logL > logLthreshold:
                         deltaLburnedIn = True
                     if fixedBurnedIn and deltaLburnedIn:
-                        ntot = ntot+1
+                        ntot += 1
+                        lines.append(line)
+                ntots.append(ntot)
+                if nDownsample is None:
+                    try:
+                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1"]
+                        nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
+                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
+                        samps = np.array(lines).astype(float)
+                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                    except:
+                        nEffectives.append(None)
+                        print "Error computing effective sample size of %s!"%inpname
+
             finally:
                 infile.close()
-        if ntot < nDownsample:
-            return 1
+        nskips = np.ones(nfiles,'int')
+        ntot = sum(ntots)
+        if nDownsample is not None:
+            if ntot > nDownsample:
+                nskips *= floor(ntot/nDownsample)
+
         else:
-            return floor(ntot/nDownsample)
+            for i in range(nfiles):
+                nEff = nEffectives[i]
+                ntot = ntots[i]
+                if nEff > 1:
+                    if ntot > nEff:
+                        nskips[i] = ceil(ntot/nEff)
+                else:
+                    nskips[i] = None
+        return nskips
 
     def _find_infmcmc_f_lower(self, runInfo):
         """
@@ -3126,7 +3389,6 @@ dec \t psi \t iota \t likelihood \n')
             llines.append(np.array(map(lambda a:float(a.text),row)))
         flines=np.array(llines)
         for i in range(0,len(header)):
-            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
@@ -3187,7 +3449,6 @@ dec \t psi \t iota \t likelihood \n')
 
         flines=np.array(llines)
         for i in range(0,len(header)):
-            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 

@@ -136,7 +136,7 @@ def load_likelihood_data(filenames, verbose = False):
 	for filename in filenames:
 		connection = sqlite3.connect(":memory:")
 		dbtables.DBTable_set_connection(connection)
-		c, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = verbose)
+		c, ignored = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = verbose), u"ligolw_burca_tailor")
 		coinc_params_distributions += c
 		connection.close()
 	coinc_params_distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)

@@ -121,7 +121,7 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
         seg = segment(start, end)
 
         if not self._query(channel, start, end):
-            raise ValueError("%s not found in cache" % repr(seg - self._remotecoverage))
+            raise ValueError("%s not found in cache" % repr(segmentlist([seg]) - self._remotecoverage))
 
         # Need to cache files locally
         # Note: seg *will* be in self._cachecoverage if self.scratchdir is None.
@@ -132,7 +132,7 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
                     if self._verbose:
                         print "Copying %s -->\n          %s." % (f, dest)
                     shutil.copy(f, dest)
-                    ind = bisect_right(s, self._cached_segs)
+                    ind = bisect_right(s, self._cachedsegs)
                     self._cachedfiles.insert(ind, dest)
                     self._cachedsegs.insert(ind, s)
                     self._cachecoverage |= segmentlist([s])

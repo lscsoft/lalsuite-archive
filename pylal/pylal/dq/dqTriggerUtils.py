@@ -372,6 +372,7 @@ def trigger(data, etg, ifo=None, channel=None, loadcolumns=None):
     trig.central_freq            = float(data[2])
     trig.peak_frequency          = trig.central_freq
     trig.bandwidth               = float(data[3])
+    trig.peak_frequency_error    = trig.bandwidth/trig.central_freq
     trig.flow                    = trig.central_freq - 0.5*trig.bandwidth
     trig.fhigh                   = trig.central_freq + 0.5*trig.bandwidth
     #snr
@@ -854,8 +855,12 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
 
   # loop over time segments constructing file paths and appending to the cache
   while t<end:
-    trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
-               % (basedir, t, t+triglength, ifo, mask, t, triglength)
+    if ifo == 'G1':
+      trigfile = '%s/%.5d/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+          % (basedir, t/100000, t, t+triglength, ifo, mask, t, triglength)
+    else:
+      trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+          % (basedir, t, t+triglength, ifo, mask, t, triglength)
     if intersects(segment(t, t+triglength))\
     and (not check_files_exist or isfile(trigfile)):
       append(from_T050017(trigfile))
@@ -1231,7 +1236,6 @@ def cluster(triggers,params=[('time',1)],rank='snr'):
         t.flow = min(coldata['flow'][carray])
         t.fhigh = max(coldata['fhigh'][carray])
         t.bandwidth = t.fhigh-t.flow
-        t.central_freq = t.flow + t.bandwidth/2
         t.tfvolume = t.bandwidth * t.duration
       outtrigs.append(t)
 
@@ -1294,17 +1298,17 @@ def autocorr(triggers,column='time',timeStep=0.02,timeRange=60):
 # Get coincidences between two tables
 # =============================================================================
 
-def get_coincs(table1, table2, dt=1, returnsegs=False):
+def get_coincs(table1, table2, dt=1, returnsegs=False, timeshift=0):
 
   """
     Returns the table of those entries in table1 whose time is within +-dt of
-    and entry in table2.
+    an entry in table2.
   """
 
   t1 = get_column(table1, 'time')
   t2 = get_column(table2, 'time')
 
-  coincsegs  = segments.segmentlist(segments.segment(t-dt, t+dt) for t in t2)\
+  coincsegs  = segments.segmentlist(segments.segment(t-dt+timeshift, t+dt+timeshift) for t in t2)\
                    .coalesce()
   coincsegs.sort()
   coinctrigs = table.new_from_template(table1)
@@ -1314,6 +1318,46 @@ def get_coincs(table1, table2, dt=1, returnsegs=False):
     return coinctrigs,coincsegs
   else:
     return coinctrigs
+
+# =============================================================================
+# Get number of coincidences between two tables
+# =============================================================================
+
+def get_number_coincs(table1, table2, dt=1, timeshift=0):
+
+  """
+    Returns the numbers of entries in table1 whose time is within +-dt of
+    an entry in table2.
+  """
+
+  # t1 = get_column(table1, 'time')
+  # t2 = get_column(table2, 'time')
+
+  # coincsegs  = segments.segmentlist(segments.segment(t-dt+timeshift, t+dt+timeshift) for t in t2)\
+  #                  .coalesce()
+  # coincsegs.sort()
+  # coinctrigs = table.new_from_template(table1)
+  # coinctrigs.extend(t for i,t in enumerate(table1) if t1[i] in coincsegs)
+
+  # return len(coinctrigs)
+
+  time1 = get_column(table1, 'time')
+  time2 = get_column(table2, 'time')
+
+  time1.sort()
+  time2.sort()
+
+  i2 = 0
+  ncoinc = 0
+  for i1,t1 in enumerate(time1):
+    while  i2 < len(time2) and t1 > time2[i2]+timeshift+dt:
+      i2 = i2 + 1
+    if i2 >= len(time2):
+      break
+    if t1 >= time2[i2]+timeshift-dt:
+      ncoinc = ncoinc + 1
+
+  return ncoinc
 
 # ==============================================================================
 # Calculate poisson significance of coincidences
@@ -1332,25 +1376,29 @@ def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
     livetime = end-start
 
   # calculate probability of a GW trigger falling within the window
-  gwprob = len(gwtriggers) * float(window) / float(livetime)
+  gwprob = len(gwtriggers) * 2.0 * float(window) / float(livetime)
 
   # calculate mean of Poisson distribution
   mu = gwprob * len(auxtriggers)
 
   # get coincidences
-  coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
-                                       returnsegs=True)
+  if returnsegs:
+    coinctriggers,coincsegs = get_coincs(gwtriggers, auxtriggers, dt=window,\
+                                           returnsegs=True)
+    ncoinc = len(coinctriggers)
+  else:
+    ncoinc = get_number_coincs(gwtriggers, auxtriggers, dt=window)
 
-  g = special.gammainc(len(coinctriggers), mu)
+  g = special.gammainc(ncoinc, mu)
 
   # if no coincidences, set significance to zero
-  if len(coinctriggers)<1:
+  if ncoinc<1:
     significance = 0
   # if significance would blow up, use other formula (ref. hveto_significance.m)
   elif g == 0:
-    significance = -len(coinctriggers) * math.log10(mu) + \
+    significance = -ncoinc * math.log10(mu) + \
                    mu * math.log10(math.exp(1)) +\
-                   special.gammaln(len(coinctriggers) + 1) / math.log(10)
+                   special.gammaln(ncoinc + 1) / math.log(10)
   # otherwise use the standard formula
   else:
     significance = -math.log(g, 10)
@@ -1525,15 +1573,22 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
     duration = stop-start
     amplitude = snr**2/2
     omega_clusters = False
-  elif len(dat)==8:
-    peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
+  if len(dat)==11:
+    peak, freq, duration, bandwidth, amplitude, cls, cle, cln, av_freq, av_bandwidth, err_freq = dat
     omega_clusters = True
-  elif len(dat)==5:
-    peak, freq, duration, bandwidth, amplitude = dat
-    omega_clusters = False
   else:
-    raise ValueError("Wrong number of columns in omega format file. "\
-                     "Cannot read.")
+    if len(dat)==8:
+      peak, freq, duration, bandwidth, amplitude, cls, cle, cln = dat
+      omega_clusters = True
+    elif len(dat)==5:
+      peak, freq, duration, bandwidth, amplitude = dat
+      omega_clusters = False
+    else:
+      raise ValueError("Wrong number of columns in omega format file. "\
+                         "Cannot read.")
+    av_freq = freq
+    av_bandwidth = bandwidth
+    err_freq = av_bandwidth/av_freq
 
   numtrigs = len(peak)
   attr_map = dict()
@@ -1561,8 +1616,9 @@ def fromomegafile(fname, start=None, end=None, ifo=None, channel=None,\
         zip(*[(s.seconds, s.nanoseconds) for s in ms_stop])
 
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
-  if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
-  if 'bandwidth' in columns:      attr_map['bandwidth']      = bandwidth
+  if 'peak_frequency' in columns: attr_map['peak_frequency'] = av_freq
+  if 'peak_frequency_error' in columns: attr_map['peak_frequency_error'] = err_freq
+  if 'bandwidth' in columns:      attr_map['bandwidth']      = av_bandwidth
   if 'ms_bandwidth' in columns:   attr_map['ms_bandwidth']   = bandwidth
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2
@@ -2081,6 +2137,7 @@ def fromhacrfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'ms_duration' in columns:    attr_map['ms_duration']    = duration
   if 'central_freq' in columns:   attr_map['central_freq']   = freq
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
+  if 'peak_frequency_error' in columns: attr_map['peak_frequency_error'] = bandwidth/freq
 
   if 'flow' in columns:           attr_map['flow']           = freq-bandwidth/2
   if 'fhigh' in columns:          attr_map['fhigh']          = freq+bandwidth/2

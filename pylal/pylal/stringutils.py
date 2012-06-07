@@ -422,7 +422,7 @@ def load_likelihood_data(filenames, verbose = False):
 
 
 def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
-	return ligolw_burca_tailor.write_likelihood_data(filename, coincparamsdistributions, seglists, name = u"string_cusp_likelihood", verbose = verbose)
+	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #

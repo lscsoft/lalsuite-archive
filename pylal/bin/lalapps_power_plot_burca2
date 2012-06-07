@@ -259,7 +259,7 @@ seglists = segments.segmentlistdict()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, "ligolw_burca_tailor", verbose = options.verbose)
+	c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose), u"ligolw_burca_tailor")
 	distributions += c
 	seglists |= s
 if options.verbose:

@@ -841,53 +841,64 @@ class Table(ligolw.Table, list):
 
 
 #
-# Override portions of the ligolw.LIGOLWContentHandler class
+# Override portions of the ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-__parent_startStream = ligolw.LIGOLWContentHandler.startStream
-__parent_endStream = ligolw.LIGOLWContentHandler.endStream
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the Table,
+	Column, and Stream classes defined in this module when parsing XML
+	documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import table
+	>>> table.use_in(MyContentHandler)
+	"""
+	def startColumn(self, attrs):
+		return Column(attrs)
+
+	def startStream(self, attrs, __parent_startStream = ContentHandler.startStream):
+		if self.current.tagName == ligolw.Table.tagName:
+			self.current._end_of_columns()
+			return TableStream(attrs).config(self.current)
+		return __parent_startStream(self, attrs)
+
+	def endStream(self, __parent_endStream = ContentHandler.endStream):
+		# stream tokenizer uses delimiter to identify end of each
+		# token, so add a final delimiter to induce the last token
+		# to get parsed but only if there's something other than
+		# whitespace left in the tokenizer's buffer.  Also call
+		# _end_of_rows() hook.
+		if self.current.parentNode.tagName == ligolw.Table.tagName:
+			if not self.current._tokenizer.data.isspace():
+				self.current.appendData(self.current.getAttribute("Delimiter"))
+			self.current.parentNode._end_of_rows()
+		else:
+			__parent_endStream(self)
+
+	def startTable(self, attrs):
+		return Table(attrs)
+
+	def endTable(self):
+		# Table elements are allowed to contain 0 Stream children,
+		# but _end_of_columns() and _end_of_rows() hooks must be
+		# called regardless, so we do that here if needed.
+		if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
+			self.current._end_of_columns()
+			self.current._end_of_rows()
+
+	ContentHandler.startColumn = startColumn
+	ContentHandler.startStream = startStream
+	ContentHandler.endStream = endStream
+	ContentHandler.startTable = startTable
+	ContentHandler.endTable = endTable
 
 
-def startColumn(self, attrs):
-	return Column(attrs)
-
-
-def startStream(self, attrs):
-	if self.current.tagName == ligolw.Table.tagName:
-		self.current._end_of_columns()
-		return TableStream(attrs).config(self.current)
-	return __parent_startStream(self, attrs)
-
-
-def endStream(self):
-	# stream tokenizer uses delimiter to identify end of each token, so
-	# add a final delimiter to induce the last token to get parsed but
-	# only if there's something other than whitespace left in the
-	# tokenizer's buffer.  Also call _end_of_rows() hook.
-	if self.current.parentNode.tagName == ligolw.Table.tagName:
-		if not self.current._tokenizer.data.isspace():
-			self.current.appendData(self.current.getAttribute("Delimiter"))
-		self.current.parentNode._end_of_rows()
-	else:
-		__parent_endStream(self)
-
-
-def startTable(self, attrs):
-	return Table(attrs)
-
-
-def endTable(self):
-	# Table elements are allowed to contain 0 Stream children, but
-	# _end_of_columns() and _end_of_rows() hooks must be called
-	# regardless, so we do that here if needed.
-	if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
-		self.current._end_of_columns()
-		self.current._end_of_rows()
-
-
-ligolw.LIGOLWContentHandler.startColumn = startColumn
-ligolw.LIGOLWContentHandler.startStream = startStream
-ligolw.LIGOLWContentHandler.endStream = endStream
-ligolw.LIGOLWContentHandler.startTable = startTable
-ligolw.LIGOLWContentHandler.endTable = endTable
+use_in(ligolw.DefaultLIGOLWContentHandler)

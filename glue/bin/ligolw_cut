@@ -38,7 +38,6 @@ import sys
 from glue import git_version
 from glue.ligolw import ligolw
 from glue.ligolw import table
-#from glue.ligolw import lsctables
 from glue.ligolw import utils
 
 
@@ -109,9 +108,12 @@ class ElementFilter(object):
 		return True
 
 
-def ContentHandler(doc):
-	# uses options.delete_table global variable
-	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
+class ContentHandler(ligolw.FilteringLIGOLWContentHandler):
+	def __init__(self, xmldoc):
+		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, ElementFilter(options.delete_table).element_filter)
+
+
+table.use_in(ContentHandler)
 
 
 #
