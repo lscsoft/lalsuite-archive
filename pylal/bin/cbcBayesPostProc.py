@@ -575,7 +575,7 @@ def cbcBayesPostProc(
     sampsdir=os.path.join(outdir,'1Dsamps')
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
-
+    Nskip=0
     if 'chain' in pos.names:
         data,header=pos.samples()
         par_index=pos.names.index('cycle')
@@ -697,7 +697,7 @@ def cbcBayesPostProc(
                 try:
                     lines=plt.plot(acf, figure=acffig)
                     # Give ACL info if not already downsampled according to it
-                    if downsample is None:
+                    if nDownsample is None:
                         plt.title('Autocorrelation Function')
                     elif 'cycle' in pos.names:
                         last_color = lines[-1].get_color()
@@ -1056,7 +1056,12 @@ if __name__=='__main__':
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
 
-    datafiles=opts.data+args
+    datafiles=[]
+    if args:
+      datafiles=datafiles+args
+    if opts.data:
+      datafiles=datafiles + opts.data
+    
 
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
