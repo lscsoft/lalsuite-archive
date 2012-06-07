@@ -10,6 +10,7 @@ import uuid
 import ast
 import pdb
 import string
+from math import floor,ceil
 
 # We use the GLUE pipeline utilities to construct classes for each
 # type of job. Each class has inputs and outputs, which are used to
@@ -20,11 +21,13 @@ class Event():
   Represents a unique event to run on
   """
   new_id=itertools.count().next
-  def __init__(self,trig_time=None,SimInspiral=None,SnglInspiral=None,event_id=None,timeslide_dict=None):
+  def __init__(self,trig_time=None,SimInspiral=None,SnglInspiral=None,CoincInspiral=None,event_id=None,timeslide_dict=None,GID=None):
     self.trig_time=trig_time
     self.injection=SimInspiral
     self.sngltrigger=SnglInspiral
     self.timeslides=timeslide_dict
+    self.GID=GID
+    self.coinctrigger=CoincInspiral
     if event_id is not None:
         self.event_id=event_id
     else:
@@ -33,10 +36,29 @@ class Event():
         self.trig_time=self.injection.get_end()
         self.event_id=int(str(self.injection.simulation_id).split(':')[2])
     if self.sngltrigger is not None:
-        self.trig_time=sngltrigger.get_end()
+        self.trig_time=self.sngltrigger.get_end()
         self.event_id=int(str(self.sngltrigger.event_id).split(':')[2])
+    if self.coinctrigger is not None:
+        self.trig_time=self.coinctrigger.end_time + 1.0e-9 * self.coinctrigger.end_time_ns
+    if self.GID is not None:
+        self.event_id=int(''.join(i for i in self.GID if i.isdigit()))
 
 dummyCacheNames=['LALLIGO','LALVirgo','LALAdLIGO','LALAdVirgo']
+
+def readLValert(lvalertfile,SNRthreshold=0,GID=None):
+  """
+  Parse LV alert file, continaing coinc, sngl, coinc_event_map.
+  and create a list of Events as input for pipeline
+  Based on Chris Pankow's script
+  """ 
+  from glue.ligolw import utils
+  from glue.ligolw import lsctables
+  xmldoc=utils.load_filename(lvalertfile)
+  coinctable = lsctables.getTablesByType(xmldoc, lsctables.CoincInspiralTable)[0]
+  coinc_events = [event for event in coinctable]
+  print "Found %d coinc events in table." % len(coinc_events)
+  output=[Event(CoincInspiral=cevent,GID=GID) for cevent in coinc_events if cevent.snr>=SNRthreshold ]
+  return output
 
 def mkdirs(path):
   """
@@ -135,9 +157,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Set up the segments
     (mintime,maxtime)=self.get_required_data(self.times)
     if not self.config.has_option('input','gps-start-time'):
-      self.config.set('input','gps-start-time',str(mintime))
+      self.config.set('input','gps-start-time',str(int(floor(mintime))))
     if not self.config.has_option('input','gps-end-time'):
-      self.config.set('input','gps-end-time',str(maxtime))
+      self.config.set('input','gps-end-time',str(int(ceil(maxtime))))
     self.add_science_segments()
     
     # Save the final configuration that is being used
@@ -178,7 +200,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     in the [input] section of the ini file.
     And process the events found therein
     """
-    inputnames=['gps-time-file','injection-file','sngl-inspiral-file','coinc-inspiral-file','pipedown-database']
+    inputnames=['gps-time-file','injection-file','sngl-inspiral-file','coinc-inspiral-file','pipedown-database','lvalert-file']
     if sum([ 1 if self.config.has_option('input',name) else 0 for name in inputnames])!=1:
         print 'Plese specify only one input file'
         sys.exit(1)
@@ -196,6 +218,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       from pylal import SnglInspiralUtils
       trigTable=SnglInspiralUtils.ReadSnglInspiralFromFiles([self.config.get('input','sngl-inspiral-file')])
       events=[Event(SnglInspiral=trig) for trig in trigTable]
+    # CoincInspiral Table
+    if self.config.has_option('input','coinc-inspiral-file'):
+      events = readLValert(self.config.get('input','coinc-inspiral-file'))
     # TODO: pipedown-database 
     # TODO: timeslides
     return events
@@ -219,6 +244,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     mkdirs(pagedir)
     mergenode=MergeNSNode(self.merge_job,parents=enginenodes)
     mergedir=os.path.join(self.basepath,'nested_samples')
+    mkdirs(mergedir)
     mergenode.set_output_file(os.path.join(mergedir,'outfile_%s_%s.dat'%(myifos,evstring)))
     mergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(myifos,evstring)))
     self.add_node(mergenode)
@@ -230,7 +256,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             cotest_nodes=[self.add_engine_node(event,ifos=[ifo]) for i in range(Npar)]
             pmergenode=MergeNSNode(self.merge_job,parents=cotest_nodes)
             pmergenode.set_output_file(os.path.join(mergedir,'outfile_%s_%s.dat'%(ifo,evstring)))
-            pmergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(myifos,evstring)))
+            pmergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(ifo,evstring)))
             self.add_node(pmergenode)
             par_mergenodes.append(pmergenode)
             presultsdir=os.path.join(pagedir,ifo)
@@ -270,7 +296,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         end=self.config.getfloat('input','gps-end-time')
         i=0
         for ifo in self.ifos:
-          self.segments[ifo].append(pipeline.ScienceSegment((i,start,end,end-start)))
+          sciseg=pipeline.ScienceSegment((i,start,end,end-start))
+          df_node=self.get_datafind_node(ifo,self.frtypes[ifo],int(sciseg.start()),int(sciseg.end()))
+          sciseg.set_df_node(df_node)
+          self.segments[ifo].append(sciseg)
           i+=1
         return
     # Look up science segments as required
@@ -708,9 +737,32 @@ class MergeNSNode(pipeline.CondorDAGNode):
         self.nsfile=file
     
     def set_pos_output_file(self,file):
-        self.add_file_opt('posterior',file,file_is_output_file=True)
+        self.add_file_opt('pos',file,file_is_output_file=True)
         self.posfile=file
     
     def get_pos_file(self): return self.posfile
     def get_ns_file(self): return self.nsfile
     def get_B_file(self): return self.nsfile+'_B.txt'
+
+class GraceDBJob(pipeline.CondorDAGJob):
+    """
+    Class for a gracedb job
+    """
+    def __init__(self,cp,submitFile,logdir):
+      exe=cp.get('condor','gracedb')
+      pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+      self.set_sub_file(submitFile)
+      self.set_stdout_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).out'))
+      self.set_stderr_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).err'))
+      self.add_condor_cmd('getenv','True')
+      self.baseurl=cp.get('paths','baseurl')
+
+class GraceDBNode(pipeline.CondorDAGNode):
+    """
+    Run the gracedb executable to report the results
+    """
+    def __init__(self,gracedb_job,pagepath,parents=None):
+	pipeline.CondorDAGNode.__init__(self,gracedb_job)
+        self.resultsurl=os.path.join(gracedb_job.baseurl,pagepath)
+        # TODO: Add the command line arguments for gracedb to update the event
+

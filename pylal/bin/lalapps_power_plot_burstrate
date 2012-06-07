@@ -153,6 +153,8 @@ class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 	def __init__(self, doc):
 		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
 
+lsctables.use_in(ContentHandler)
+
 
 #
 # use ligolw_add module to load documents, and extract search_summary
@@ -160,10 +162,7 @@ class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 #
 
 
-ligolw_add.ContentHandler = ContentHandler
-
-
-seglist = table.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, verbose = True), lsctables.SearchSummaryTable.tableName).get_inlist().coalesce()
+seglist = table.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, verbose = True, contenthandler = ContentHandler), lsctables.SearchSummaryTable.tableName).get_inlist().coalesce()
 
 
 #

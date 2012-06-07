@@ -150,7 +150,9 @@ int XLALPopulateProcessTable(
 {
 	char *cvs_keyword_value;
 	uid_t uid;
+#if 0
 	struct passwd *pw;
+#endif
 	struct tm utc;
 
 	/*
@@ -211,7 +213,7 @@ int XLALPopulateProcessTable(
 	 * comment
 	 */
 
-	snprintf(ptable->comment, LIGOMETA_COMMENT_MAX, "");
+	snprintf(ptable->comment, LIGOMETA_COMMENT_MAX, " ");
 
 	/*
 	 * online flag and domain

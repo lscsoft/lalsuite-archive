@@ -33,6 +33,7 @@ from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
@@ -208,7 +209,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# extract the coalesced out segment lists from the trigger generator
 		#
 
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 		if vetoes is not None:
 			self.seglists -= vetoes
 

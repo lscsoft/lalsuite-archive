@@ -57,8 +57,11 @@ LDADD = liblalapps.la @LAL_LIBS@
 INCLUDES = -I$(top_srcdir)/src
 
 if HAVE_PYTHON
-pkgpython_DATA = \
+pkgpython_PYTHON = \
 	__init__.py
+dist_bin_SCRIPTS = \
+	lalapps_path2cache \
+	lalapps_searchsum2cache
 endif
 
 EXTRA_DIST = \
