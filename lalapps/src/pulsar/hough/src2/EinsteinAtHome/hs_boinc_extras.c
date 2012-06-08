@@ -51,6 +51,9 @@
 #include "boinc/boinc_zip.h"
 #endif
 #include "boinc/svn_version.h"
+/* this ultimately needs to be fixed in boinc_api.h,
+   #include "app_ipc.h" must be moved outside the C++ section */
+extern int boinc_resolve_filename(const char*, char*, int len);
 
 /* our own win_lib includes patches for chdir() and sleep() */
 #ifdef _WIN32
