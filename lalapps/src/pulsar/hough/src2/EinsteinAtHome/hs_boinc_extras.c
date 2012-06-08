@@ -487,9 +487,15 @@ static void sighandler(int sig)
   if (global_status)
     fputs("Stack trace of LAL functions in worker thread:\n", stderr);
   while (global_status) {
-    fputs(global_status->function, stderr);
+    if(global_status->function)
+      fputs(global_status->function, stderr);
+    else
+      fputs("global_status->function=NULL", stderr);
     fputs(" at ", stderr);
-    fputs(global_status->file, stderr);
+    if(global_status->file)
+      fputs(global_status->file, stderr);
+    else
+      fputs("global_status->file=NULL", stderr);
     fputc(':', stderr);
     fputs(myultoa(global_status->line, buf, sizeof(buf)), stderr);
     fputc('\n', stderr);
