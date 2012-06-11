@@ -450,6 +450,8 @@ static void sighandler(int sig)
      the tasks ends up with "too many exits" error. */
   if ( ( libgcc_s_loaded == -1 ) && ( sig == 6 ) ) {
     fputs("Program received SIGABRT probably because libgcc_s.so.1 wasn't loaded - trying exit(0)\n", stderr);
+    /* sleep a few seconds to let the OTHER thread(s) catch the signal too... */
+    sleep(5);
     exit(0);
   }
 
