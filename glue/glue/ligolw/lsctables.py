@@ -32,7 +32,7 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
-
+import numpy
 from xml import sax
 
 try:
@@ -1756,7 +1756,7 @@ class MultiInspiralTable(table.Table):
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
 		"ampMetricEigenVal2": "real_8",
-                "time_slide_id": "ilwd:char"
+		"time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1764,6 +1764,73 @@ class MultiInspiralTable(table.Table):
 
 	def get_column(self,column):
 		return self.getColumnByName(column).asarray()
+
+	def get_end(self):
+		return [row.get_end() for row in self]
+
+	def get_new_snr(self, index=6.0, column='chisq'):
+		# kwarg 'index' is assigned to the parameter chisq_index
+		# nhigh gives the asymptotic large rho behaviour of
+    # d (ln chisq) / d (ln rho) 
+    # for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_%s' % column)
+		nhigh = index/3.
+		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(newsnr, rchisq < 1, snr)
+		return newsnr
+
+	def get_null_snr(self):
+		"""
+		Get the coherent Null SNR for each row in the table.
+		"""
+		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.get_column('snr')**2)**(1/2)
+
+	def get_sigmasq(self, instrument):
+		"""
+		Get the single-detector SNR of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('sigmasq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sigmasqs(self, instruments=None):
+		"""
+		Return dictionary of single-detector sigmas for each row in the
+		table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sigmasq(ifo))\
+				    for ifo in instruments)
+		else:
+			return dict()
+
+
+	def get_sngl_snr(self, instrument):
+		"""
+		Get the single-detector SNR of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('snr_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sngl_snrs(self, instruments=None):
+		"""
+		Get the single-detector SNRs for each row in the table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sngl_snr(ifo))\
+				    for ifo in instruments)
+
 
 	def getstat(self):
 		return self.get_column('snr')
@@ -1806,14 +1873,48 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
-        def get_end(self):
-                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+        def get_new_snr(self,index=4.0, column='chisq'):
+                rchisq = getattr(self, column) /\
+                         (getattr(self, '%s_dof' % column))
+                nhigh = 3.0
+                if rchisq > 1.:
+                        return self.snr /\
+                               ((1+rchisq**(index/nhigh))/2)**(1./index)
+                else:
+                        return self.snr
+
+	def get_null_snr(self):
+		"""
+		Get the coherent Null SNR for this row.
+		"""
+		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.snr**2)**(1/2)
+
+	def get_sngl_snr(self, instrument):
+		"""
+		Get the single-detector SNR for the given instrument for this
+		row
+		"""
+		return getattr(self, 'snr_%s' % (instrument.lower() in\
+                                                 ['h1','h2'] and\
+                                                 instrument.lower() or\
+                                                 instrument[0].lower())) 
+
+	def get_sngl_snrs(self):
+		"""
+		Return a dictionary of single-detector SNRs for this row.
+		"""
+		return dict((ifo, self.get_sngl_snr(ifo)) for ifo in\
+                            instrument_set_from_ifos(self.ifos))
 
 	def set_ifos(self, instruments):
 		"""
@@ -1972,6 +2073,31 @@ class SimInspiralTable(table.Table):
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
+        def veto(self,seglist):
+                vetoed = table.new_from_template(self)
+                keep = table.new_from_template(self)
+                for row in self:
+                        time = row.get_end()
+                        if time in seglist:
+                                vetoed.append(row)
+                        else:
+                                keep.append(row)
+                return keep
+
+        def vetoed(self, seglist):
+                """
+                Return the inverse of what veto returns, i.e., return the triggers
+                that lie within a given seglist.
+                """
+                vetoed = table.new_from_template(self)
+                keep = table.new_from_template(self)
+                for row in self:
+                        time = row.get_end()
+                        if time in seglist:
+                                vetoed.append(row)
+                        else:
+                                keep.append(row)
+                return vetoed
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
