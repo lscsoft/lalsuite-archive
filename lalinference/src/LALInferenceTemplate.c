@@ -1056,6 +1056,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   }
   else
     eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+  FILE *dw;
   double m1, m2, chirptime, deltaT;
   double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
@@ -1115,7 +1116,14 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
    
 
   dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow);
+  dw = fopen("dw.txt", "w");
 
+	for (unsigned int l=0; l < dewhitened_fseries->data->length; l++){
+
+	  fprintf(dw, "%e %e\n", dewhitened_fseries->data->data[l].re, dewhitened_fseries->data->data[l].im);
+	}
+
+  fclose(dw);
   n = IFOdata->freqData->data->length;
     /* apply window & execute FT of plus component: */
     if (IFOdata->window==NULL) {
