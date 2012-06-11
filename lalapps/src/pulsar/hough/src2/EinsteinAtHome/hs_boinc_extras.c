@@ -477,7 +477,7 @@ static void sighandler(int sig)
   fputs("Trying extended stacktrace:\n", stderr);
   backtracesymbols = backtrace_symbols(stackframes, nostackframes);
   if(backtracesymbols != NULL) {
-    backtrace_symbols_fd_plus(backtracesymbols, nostackframes, fileno(stderr));
+    backtrace_symbols_fd_plus((const char *const *)(void**)backtracesymbols, nostackframes, fileno(stderr));
     free(backtracesymbols);
   }
 #endif /* __X86__ */
