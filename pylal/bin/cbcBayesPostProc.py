@@ -181,6 +181,8 @@ def cbcBayesPostProc(
         bfile=open(bayesfactornoise,'r')
         BSN=bfile.read()
         bfile.close()
+        if(len(BSN.split())!=1):
+          BSN=BSN.split()[0]
         print 'BSN: %s'%BSN
     if bayesfactorcoherent is not None:
         bfile=open(bayesfactorcoherent,'r')
