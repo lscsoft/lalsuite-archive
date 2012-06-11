@@ -567,7 +567,16 @@ XLALMCMCJumpSpins(
   LALMCMCParameter *parameter,
   gsl_matrix       *covMat
   );
-
+  
+/*static void
+rotateVectorAboutAxis(REAL8 vrot[3],
+                      const REAL8 v[3],
+                      const REAL8 axis[3],
+                      const REAL8 theta);
+static void
+vectorToColatLong(const REAL8 v[3],
+                  REAL8 *colat, REAL8 *longi);
+*/
 #ifdef  __cplusplus
 }
 #endif

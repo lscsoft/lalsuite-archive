@@ -1734,7 +1734,7 @@ XLALMCMCJumpSpins(
   /* loop over all parameters */
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   {
-    if(!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")||!strcmp(paraHead->core->name,"distMpc")||paraHead->core->wrapping==-1)
+    if(!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")||paraHead->core->wrapping==-1)
     paraHead->value += step->data[i];
 	else
 	{;}
@@ -1818,6 +1818,105 @@ XLALMCMCChangeSpinsMagnitude(
   LALSDestroyVector(&status, &step);
   gsl_matrix_free(work);
 }
+
+static void
+cross_product(REAL8 x[3], const REAL8 y[3], const REAL8 z[3]) {
+  x[0] = y[1]*z[2]-y[2]*z[1];
+  x[1] = y[2]*z[0]-y[0]*z[2];
+  x[2] = y[0]*z[1]-y[1]*z[0];
+}
+
+static REAL8
+norm(const REAL8 x[3]) {
+  return sqrt(x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
+}
+
+static void 
+unit_vector(REAL8 v[3], const REAL8 w[3]) {
+  REAL8 n = norm(w);
+
+  if (n == 0.0) { 
+    XLALError("unit_vector", __FILE__, __LINE__, XLAL_FAILURE);
+    exit(1);
+  } else {
+    v[0] = w[0] / n;
+    v[1] = w[1] / n;
+    v[2] = w[2] / n;
+  }
+}
+
+static REAL8 
+dot(const REAL8 v[3], const REAL8 w[3]) {
+  return v[0]*w[0] + v[1]*w[1] + v[2]*w[2];
+}
+
+static void
+project_along(REAL8 vproj[3], const REAL8 v[3], const REAL8 w[3]) {
+  REAL8 what[3];
+  REAL8 vdotw;
+
+  unit_vector(what, w);
+  vdotw = dot(v, w);
+
+  vproj[0] = what[0]*vdotw;
+  vproj[1] = what[1]*vdotw;
+  vproj[2] = what[2]*vdotw;
+}
+
+static void
+vsub(REAL8 diff[3], const REAL8 w[3], const REAL8 v[3]) {
+  diff[0] = w[0] - v[0];
+  diff[1] = w[1] - v[1];
+  diff[2] = w[2] - v[2];
+}
+
+static void
+vadd(REAL8 sum[3], const REAL8 w[3], const REAL8 v[3]) {
+  sum[0] = w[0] + v[0];
+  sum[1] = w[1] + v[1];
+  sum[2] = w[2] + v[2];
+}
+
+
+
+static void
+rotateVectorAboutAxis(REAL8 vrot[3],
+                      const REAL8 v[3],
+                      const REAL8 axis[3],
+                      const REAL8 theta) {
+  REAL8 vperp[3], vpar[3], vperprot[3];
+  REAL8 xhat[3], yhat[3], zhat[3];
+  REAL8 vp;
+  UINT4 i;
+
+  project_along(vpar, v, axis);
+  vsub(vperp, v, vpar);
+
+  vp = norm(vperp);
+
+  unit_vector(zhat, axis);
+  unit_vector(xhat, vperp);
+  cross_product(yhat, zhat, xhat);
+
+  for (i = 0; i < 3; i++) {
+    vperprot[i] = vp*(cos(theta)*xhat[i] + sin(theta)*yhat[i]);
+  }
+
+  vadd(vrot, vpar, vperprot);
+}
+
+static void
+vectorToColatLong(const REAL8 v[3],
+                  REAL8 *colat, REAL8 *longi) { 
+  *longi = atan2(v[1], v[0]);
+  if (*longi < 0.0) {
+    *longi += 2.0*M_PI;
+  }
+
+  *colat = acos(v[2] / sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]));
+}
+
+
 void
 XLALMCMCRotateSpins(
   LALMCMCInput     *inputMCMC,
@@ -1825,11 +1924,73 @@ XLALMCMCRotateSpins(
   )
 {   static LALStatus status;
 
-  int i;
-  LALMCMCParam *paraHead=NULL;  
-  REAL4 my_random;
+  //int i;
+  //LALMCMCParam *paraHead=NULL;  
+  REAL4 my_random1, my_random2;
   if(inputMCMC->randParams==NULL) LALCreateRandomParams(&status,&(inputMCMC->randParams),0);
+  LALUniformDeviate( &status, &my_random1, inputMCMC->randParams);
+  LALUniformDeviate( &status, &my_random2, inputMCMC->randParams);
+  REAL8 theta1 = 2.0*M_PI*my_random1;
+  REAL8 theta2 = 2.0*M_PI*my_random2;
   /* loop over all parameters */
+  if(XLALMCMCCheckParameter(parameter,"theta1")){
+      
+    REAL8 theta, phi, iota;
+    REAL8 s1[3], L[3], newS[3];
+    REAL8 newPhi, newTheta;
+    
+    theta = XLALMCMCGetParameter(parameter,"theta1");
+    if (XLALMCMCCheckParameter(parameter,"phi1")) phi = XLALMCMCGetParameter(parameter,"phi1");
+    else {fprintf(stderr,"In LALInspiralMCMC: phi1 is not present in parameter. Maybe you are using phiP and phiM, which are not still implemented. Exiting...\n");
+    exit(1);}
+    if (XLALMCMCCheckParameter(parameter,"iota")) iota = XLALMCMCGetParameter(parameter,"iota");
+
+    s1[0] = cos(phi)*sin(theta);
+    s1[1] = sin(phi)*sin(theta);
+    s1[2] = cos(theta);
+
+    L[0] = sin(iota);
+    L[1] = 0.0;
+    L[2] = cos(iota);
+
+    rotateVectorAboutAxis(newS, s1, L, theta1);
+
+    vectorToColatLong(newS, &newTheta, &newPhi);
+    XLALMCMCSetParameter(parameter,"phi1",newPhi);
+    XLALMCMCSetParameter(parameter,"theta1",newTheta);
+//fprintf(stdout,"Changing spin angles 1 from t=%lf p=%lf to t=%lf p=%lf\n",theta,phi,newTheta,newPhi);
+    }
+  
+  
+  if(XLALMCMCCheckParameter(parameter,"theta2")){
+      
+    REAL8 theta, phi, iota;
+    REAL8 s2[3], L[3], newS[3];
+      REAL8 newPhi, newTheta;
+
+    theta = XLALMCMCGetParameter(parameter,"theta2");
+    if (XLALMCMCCheckParameter(parameter,"phi2")) phi = XLALMCMCGetParameter(parameter,"phi2");
+    else {fprintf(stderr,"In LALInspiralMCMC: phi2 is not present in parameter. Maybe you are using phiP and phiM, which are not still implemented. Exiting...\n");
+    exit(1);}
+    if (XLALMCMCCheckParameter(parameter,"iota")) iota = XLALMCMCGetParameter(parameter,"iota");
+
+    s2[0] = cos(phi)*sin(theta);
+    s2[1] = sin(phi)*sin(theta);
+    s2[2] = cos(theta);
+
+    L[0] = sin(iota);
+    L[1] = 0.0;
+    L[2] = cos(iota);
+
+    rotateVectorAboutAxis(newS, s2, L, theta2);
+    vectorToColatLong(newS, &newTheta, &newPhi);
+    XLALMCMCSetParameter(parameter,"phi2",newPhi);
+    XLALMCMCSetParameter(parameter,"theta2",newTheta);
+//fprintf(stdout,"Changing spin angles 2 from t=%lf p=%lf to t=%lf p=%lf\n",theta,phi,newTheta,newPhi);
+
+    }
+  
+  /*
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   { LALUniformDeviate( &status, &my_random, inputMCMC->randParams);
     if(!strcmp(paraHead->core->name,"theta1") || !strcmp(paraHead->core->name,"theta2") || paraHead->core->wrapping==-1)
@@ -1840,10 +2001,11 @@ XLALMCMCRotateSpins(
 	paraHead->value = my_random*LAL_TWOPI;
     else
 	{;}
-  /*  if (inputMCMC->verbose)
-      printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
-             paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
+  //  if (inputMCMC->verbose)
+    //  printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
+      //       paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);
 	}
-
+*/
   XLALMCMCCyclicReflectiveBound(parameter);
 }
+
