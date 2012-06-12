@@ -977,7 +977,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	if(strstr(injTable->waveform,"TaylorF2Test") || strstr(injTable->waveform,"TaylorF2"))
 	{ 
         printf("Injecting approx %s in the frequency domain...\n",injTable->waveform);
-        InjectTaylorF2(IFOdata, injTable);
+        InjectTaylorF2(IFOdata, injTable,commandLine);
         return;
 	}
 	/* Begin loop over interferometers */
