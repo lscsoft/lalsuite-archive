@@ -1684,6 +1684,12 @@ void initVariables(LALInferenceRunState *state)
     LALInferenceSetVariable(state->proposalArgs, "adaptTau", &tau);
   }
 
+  INT4 Neff = 0;
+  ppt = LALInferenceGetProcParamVal(commandLine, "--Neff");
+  if (ppt)
+    Neff = atoi(ppt->value);
+  LALInferenceAddVariable(state->algorithmParams, "Neff", &Neff, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
+
   return;
 }
 
