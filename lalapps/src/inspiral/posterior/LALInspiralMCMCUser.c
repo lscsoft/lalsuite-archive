@@ -2015,14 +2015,14 @@ void TaylorF2_template(LALStatus *status,InspiralTemplate *template, LALMCMCPara
 		
 	/* Sets the spins (only aligned or anti-aligned) */
         if (XLALMCMCCheckParameter(parameter,"spin1")) {
-		    template->spin1[1] = XLALMCMCGetParameter(parameter,"spin1");
+		    template->spin1[0] = XLALMCMCGetParameter(parameter,"spin1");
+		    template->spin1[1]=0.0;
 		    template->spin1[2]=0.0;
-		    template->spin1[3]=0.0;
 		}
         if (XLALMCMCCheckParameter(parameter,"spin2")) {
-		    template->spin2[1] = XLALMCMCGetParameter(parameter,"spin2");
+		    template->spin2[0] = XLALMCMCGetParameter(parameter,"spin2");
+		    template->spin2[1]=0.0;
 		    template->spin2[2]=0.0;
-		    template->spin2[3]=0.0;
 		}
 		
 		LALInspiralStationaryPhaseApprox2Test(status, model, template, phaseParams, inputMCMC->cutoff);
