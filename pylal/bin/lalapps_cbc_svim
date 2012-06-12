@@ -473,6 +473,10 @@ class upper_limit(object):
       # throw out injections having all zero spin components
       if max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
 
+
+    chi = sim.mass1/(sim.mass1+sim.mass2) *sim.spin1z + sim.mass2/(sim.mass1+sim.mass2) *sim.spin2z
+    if not self.opts.min_aligned_spin < chi < self.opts.max_aligned_spin: return True
+
     if not self.opts.min_mtotal < sim.mass1 + sim.mass2 < self.opts.max_mtotal:
       return True
 
@@ -632,6 +636,8 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency
+  parser.add_option("--min-aligned-spin", metavar = "chi", type = 'float', default = -1.0, help = "Specify the minimum allowed value for the aligned spin parameter chi.")
+  parser.add_option("--max-aligned-spin", metavar = "chi", type = 'float', default = 1.0, help = "Specify the maximum allowed value for the aligned spin parameter chi.")
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
   parser.add_option("--disable-spin", default = False, action = "store_true", help = "When computing the search volume, exclude injections with any nonzero spin components.")
   parser.add_option("--spin-only", default = False, action = "store_true", help = "When computing the search volume, exclude injections with all spin components equal to zero. --disable-spin takes precedence.")
