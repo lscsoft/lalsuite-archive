@@ -24,6 +24,7 @@ lalinspiralinclude_HEADERS = \
 	GenerateRing.h \
 	InspiralInjectionParams.h \
 	LALEOBNRv2Waveform.h \
+	LALETNullStream.h \
 	LALInspiral.h \
 	LALInspiralBCVSpinBank.h \
 	LALInspiralBank.h \
@@ -112,6 +113,7 @@ liblalinspiral_la_SOURCES = \
 	LALEstimateEffectiveDistance.c \
 	LALEtaTau02.c \
 	LALEtaTau04.c \
+	LALETNullStream.c \
 	LALEvaluateInspiralChisqTest.c \
 	LALFactorizedFlux.c \
 	LALHexagonVertices.c \

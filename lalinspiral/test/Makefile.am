@@ -17,6 +17,7 @@ check_PROGRAMS = \
 	InjectionInterfaceTest \
 	InspiralBCVSpinBankTest \
 	InspiralSpinBankTest \
+	LALETNullStreamTest \
 	LALInspiralSpinningBHBinariesTest \
 	LALInspiralTest \
 	LALInspiralTaylorT2Test \
