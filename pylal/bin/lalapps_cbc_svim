@@ -454,7 +454,7 @@ class upper_limit(object):
       pyplot.title("Volume Derivative at the FAN=%.3f"%FAN)
       pyplot.gca().set_xscale("log", nonposx='clip')
       pyplot.gca().set_yscale("log", nonposy='clip')
-      name = InspiralUtils.set_figure_tag(tag, open_box = opts.open_box)
+      name = InspiralUtils.set_figure_tag(tag+"_BIN_"+str(j), open_box = opts.open_box)
       fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
