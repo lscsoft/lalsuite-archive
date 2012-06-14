@@ -86,7 +86,9 @@ def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
-                        injfile=None,eventnum=None,skyres=None,
+                        injfile=None,eventnum=None,
+                        trigfile=None,trignum=None,
+                        skyres=None,
                         #direct integration evidence
                         dievidence=False,boxing=64,difactor=1.0,
                         #elliptical evidence
@@ -125,6 +127,13 @@ def cbcBayesPostProc(
     votfile=None
     if eventnum is not None and injfile is None:
         print "You specified an event number but no injection file. Ignoring!"
+
+    if trignum is not None and trigfile is None:
+        print "You specified a trigger number but no trigger file. Ignoring!"
+
+    if trignum is None and trigfile is not None:
+        print "You specified a trigger file but no trigger number. Taking first entry (the case for GraceDB events)."
+        trignum=0
 
     if data is None:
         raise RuntimeError('You must specify an input data file')
@@ -174,6 +183,10 @@ def cbcBayesPostProc(
             else:
                 injection=injections[eventnum]
 
+    #Get trigger
+    triggers = None
+    if trigfile is not None and trignum is not None:
+        triggers = bppu.readCoincXML(trigfile, trignum)
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -211,7 +224,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -1020,8 +1033,10 @@ if __name__=='__main__':
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
+    parser.add_option("-t","--trig",dest="trigfile",help="Coinc XML file",metavar="COINC.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
+    parser.add_option("--trignum",dest="trignum",action="store",default=None,help="trigger number in CoincTable",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
     parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
@@ -1147,7 +1162,9 @@ if __name__=='__main__':
                         opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
-                        injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        injfile=opts.injfile,eventnum=opts.eventnum,
+                        trigfile=opts.trigfile,trignum=opts.trignum,
+                        skyres=opts.skyres,
                         # direct integration evidence
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         # Ellipitical evidence
