@@ -661,6 +661,7 @@ class Posterior(object):
                         'phi_orb': lambda inj: inj.coa_phase,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
+                        'distmpc':lambda inj:inj.distance,
                         'ra':_inj_longitude,
                         'rightascension':_inj_longitude,
                         'long':_inj_longitude,
