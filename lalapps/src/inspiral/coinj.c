@@ -42,7 +42,7 @@
 #include <lal/FrameStream.h>
 #include <lal/LALDetectors.h>
 #include <lal/LALFrameIO.h>
-
+#include <lal/LALNoiseModels.h>
 #define PROGRAM_NAME "coinj"
 
 #define USAGE \
@@ -310,10 +310,14 @@ int main(int argc, char *argv[])
   
       switch(det_idx)
         {
-        case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
+        //case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
         case LAL_IFO_H2: sprintf(det_name,"H2"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_2K_DETECTOR_BIT; break;
-        case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
-        case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALVIRGOPsd; PSDscale=1.0; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
+        //case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
+        //case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALVIRGOPsd; PSDscale=1.0; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
+        case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
+        case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
+        case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
+
         case LAL_IFO_G1: sprintf(det_name,"G1"); PSD=&LALGEOPsd; PSDscale=1E-46; detectorFlags = LAL_GEO_600_DETECTOR_BIT;  break;
         case LAL_IFO_T1: sprintf(det_name,"T1"); PSD=&LALTAMAPsd; PSDscale=75E-46; detectorFlags = LAL_TAMA_300_DETECTOR_BIT; break;
         default: fprintf(stderr,"Unknown IFO\n"); exit(1); break;
