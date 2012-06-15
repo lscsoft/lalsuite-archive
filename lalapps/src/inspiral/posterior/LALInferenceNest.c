@@ -554,7 +554,7 @@ Parameter arguments:\n\
 		}
 		endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
 		fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
-		AmpOrder=injTable->amp_order;
+		//AmpOrder=injTable->amp_order;
 		XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
 		XLALGetApproximantFromString(injTable->waveform,&approx);
 		XLALSimInspiralGetFlagsFromString(&flags,injTable->waveform);
