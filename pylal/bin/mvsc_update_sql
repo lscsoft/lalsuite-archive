@@ -33,6 +33,7 @@ time1=time()
 
 parser=OptionParser(usage="%prog [options] [file ...]", description = description, version="Name: %%prog\n%s" % git_version.verbose_msg)
 parser.add_option("-a","--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
+parser.add_option("-t","--output-tag", help = "tag to identify, for example, which category your zerolag average rank file is for")
 (opts,inputfiles)=parser.parse_args()
 
 all_ifos = opts.all_instruments.strip().split(',')
@@ -129,14 +130,14 @@ for comb in ifo_combinations:
 		#make a new array where each row has the ranks given by the different forests, then the mean, then the standard deviation
 		zerolag_header=numpy.array(zerolag_header)
 		zerolag_array=numpy.vstack((data,stddevs,means)).transpose()
-		prefix_string = zlfile.split('_')[0]+'_'+zlfile.split('_')[1]+'_'
-		with open(prefix_string+'zerolag_ranks_stddev_mean.txt','w') as fzl:
+		prefix_string = zlfile.split('_')[0]+'_'
+		with open(prefix_string+opts.output_tag+'_zerolag_ranks_stddev_mean.txt','w') as fzl:
 			for word in zerolag_header:
 				fzl.write(word+' ')
 			fzl.write('\n')
 			numpy.savetxt(fzl,zerolag_array)
 		# add zerolag to the file map
-		file_map.append([prefix_string+'zerolag_ranks_stddev_mean.txt',zerolag_infofiles_comb_dict[comb][0]])
+		file_map.append([prefix_string+opts.output_tag+'_zerolag_ranks_stddev_mean.txt',zerolag_infofiles_comb_dict[comb][0]])
 print file_map
 
 
