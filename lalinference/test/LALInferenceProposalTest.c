@@ -153,8 +153,6 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 	FILE *devrandom;
 	
 	irs = calloc(1, sizeof(LALInferenceRunState));
-	/* read data from files: */
-	fprintf(stdout, " readData(): started.\n");
 	irs->commandLine=commandLine;
 
 	/* set up GSL random number generator: */
@@ -310,7 +308,6 @@ void initVariables(LALInferenceRunState *state)
     //LALInferenceAddVariable(priorArgs,"MTotMax",&MTotMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	
 	endtime=10.;
-	printf("Read end time %f\n",endtime);
 	
 	LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
 	LALInferenceAddVariable(currentParams, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
@@ -513,6 +510,7 @@ int main(int argc, char *argv[]) {
 	LALInferenceAddVariable(state->algorithmParams,"logLmin",&logLmin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	
 	/* Use the PTMCMC proposal to sample prior */
+	
 	state->proposal=&NSWrapMCMCLALProposal;
 	REAL8 temp=1.0;
 	UINT4 dummy=0;
@@ -536,8 +534,8 @@ int main(int argc, char *argv[]) {
       if(!(i%thinfac)){
         if(state->logsample) state->logsample(state,state->currentParams);
         if(outfile) LALInferencePrintSample(outfile,state->currentParams);
+	if(outfile) fprintf(outfile,"\n");
       }
-	  if(outfile) fprintf(outfile,"\n");
 	  
 	}
     if(outfile) fclose(outfile);

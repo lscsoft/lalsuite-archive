@@ -1,4 +1,5 @@
 import random
+import sys
 import unittest
 import verifyutils
 import doctest
@@ -365,7 +366,8 @@ if __name__ == "__main__":
 	suite.addTest(unittest.makeSuite(test_segmentlist))
 	suite.addTest(unittest.makeSuite(test_segmentlistdict))
 
-	unittest.TextTestRunner(verbosity=2).run(suite)
+	if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
+		sys.exit(1)
 
 	doctest.testmod(segments)
 
@@ -384,6 +386,7 @@ if __name__ == "__main__":
 	suite.addTest(unittest.makeSuite(test_segmentlist))
 	suite.addTest(unittest.makeSuite(test_segmentlistdict))
 
-	unittest.TextTestRunner(verbosity=2).run(suite)
+	if not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful():
+		sys.exit(1)
 
 	doctest.testmod(segments)

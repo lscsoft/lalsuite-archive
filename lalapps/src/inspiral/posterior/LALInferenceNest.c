@@ -467,7 +467,7 @@ void initVariables(LALInferenceRunState *state)
 	REAL8 endtime;
 	ProcessParamsTable *ppt=NULL;
 	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
-	int AmpOrder=0;
+	//int AmpOrder=0;
 	Approximant approx=TaylorF2;
 	LALSimInspiralFlagContainer flags;
 	REAL8 logDmin=log(1.0);

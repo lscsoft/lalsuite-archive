@@ -8,6 +8,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
+#       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -85,7 +86,9 @@ def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
-                        injfile=None,eventnum=None,skyres=None,
+                        injfile=None,eventnum=None,
+                        trigfile=None,trignum=None,
+                        skyres=None,
                         #direct integration evidence
                         dievidence=False,boxing=64,difactor=1.0,
                         #elliptical evidence
@@ -124,6 +127,13 @@ def cbcBayesPostProc(
     votfile=None
     if eventnum is not None and injfile is None:
         print "You specified an event number but no injection file. Ignoring!"
+
+    if trignum is not None and trigfile is None:
+        print "You specified a trigger number but no trigger file. Ignoring!"
+
+    if trignum is None and trigfile is not None:
+        print "You specified a trigger file but no trigger number. Taking first entry (the case for GraceDB events)."
+        trignum=0
 
     if data is None:
         raise RuntimeError('You must specify an input data file')
@@ -173,6 +183,10 @@ def cbcBayesPostProc(
             else:
                 injection=injections[eventnum]
 
+    #Get trigger
+    triggers = None
+    if trigfile is not None and trignum is not None:
+        triggers = bppu.readCoincXML(trigfile, trignum)
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -180,6 +194,8 @@ def cbcBayesPostProc(
         bfile=open(bayesfactornoise,'r')
         BSN=bfile.read()
         bfile.close()
+        if(len(BSN.split())!=1):
+          BSN=BSN.split()[0]
         print 'BSN: %s'%BSN
     if bayesfactorcoherent is not None:
         bfile=open(bayesfactorcoherent,'r')
@@ -208,7 +224,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -574,7 +590,7 @@ def cbcBayesPostProc(
     sampsdir=os.path.join(outdir,'1Dsamps')
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
-
+    Nskip=0
     if 'chain' in pos.names:
         data,header=pos.samples()
         par_index=pos.names.index('cycle')
@@ -696,7 +712,7 @@ def cbcBayesPostProc(
                 try:
                     lines=plt.plot(acf, figure=acffig)
                     # Give ACL info if not already downsampled according to it
-                    if downsample is None:
+                    if nDownsample is None:
                         plt.title('Autocorrelation Function')
                     elif 'cycle' in pos.names:
                         last_color = lines[-1].get_color()
@@ -1017,8 +1033,10 @@ if __name__=='__main__':
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
+    parser.add_option("-t","--trig",dest="trigfile",help="Coinc XML file",metavar="COINC.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
+    parser.add_option("--trignum",dest="trignum",action="store",default=None,help="trigger number in CoincTable",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
     parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
@@ -1055,7 +1073,12 @@ if __name__=='__main__':
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     (opts,args)=parser.parse_args()
 
-    datafiles=opts.data+args
+    datafiles=[]
+    if args:
+      datafiles=datafiles+args
+    if opts.data:
+      datafiles=datafiles + opts.data
+    
 
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
@@ -1071,7 +1094,8 @@ if __name__=='__main__':
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams
+    tidalParams=['lambda1','lambda2']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
     for ifo1 in ifos_menu:
@@ -1114,13 +1138,18 @@ if __name__=='__main__':
             for sp2 in spinParams:
                 if not (sp1 == sp2):
                     twoDGreedyMenu.append([sp1, sp2])
+        for mp in massParams:
+             for tp in tidalParams:
+                 if not (mp == tp):
+                     twoDGreedyMenu.append([mp, tp])
+
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
     greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'distmpc':10.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
-    for param in tigerParams + bransDickeParams + massiveGravitonParams:
+    for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
         greedyBinSizes[param]=0.01
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
@@ -1133,7 +1162,9 @@ if __name__=='__main__':
                         opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
-                        injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        injfile=opts.injfile,eventnum=opts.eventnum,
+                        trigfile=opts.trigfile,trignum=opts.trignum,
+                        skyres=opts.skyres,
                         # direct integration evidence
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         # Ellipitical evidence

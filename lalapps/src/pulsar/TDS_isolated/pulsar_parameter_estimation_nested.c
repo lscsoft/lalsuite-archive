@@ -33,7 +33,8 @@ heterodyned data, e.g.
 ...
 
 Most commonly such data will have a sample rate of 1/60 Hz, giving a bandwidth
-of the same amount.
+of the same amount, but the code can accept any rate, or downsample data by a
+given factor.
 
 The code also requires that you specify which parameters are to be searched
 over, and the prior ranges over these. Any of the signal parameters can be
@@ -178,6 +179,9 @@ LALStringVector *corlist = NULL;
                      detector in the list (must be in the same order)\n\
                      delimited by commas. If not set you can generate fake\n\
                      data (see --fake-data below)\n"\
+" --downsample-factor (INT4) factor by which to downsample the input data\n\
+                     (default is for no downsampling and this is NOT\n\
+                     applied to fake data)\n"\
 " --outfile           name of output data file [required]\n"\
 " --outXML            name of output XML file [not required]\n"\
 " --chunk-min         (INT4) minimum stationary length of data to be used in\n\
@@ -252,8 +256,14 @@ LALStringVector *corlist = NULL;
 " --oldChunks         set if using fixed chunk sizes for dividing the data as\n\
                      in the old code, rather than the calculating chunks\n\
                      using the change point method.\n"\
+"\n"\
+" Phase parameter search speed-up factors:\n"\
+" --mismatch          Maximum allowed phase mismatch between consecutive\n\
+                     models (if phase mismatch is small do not update phase\n\
+                     correction)\n"\
+" --mm-factor         (INT4) Downsampling factor for the phase models used\n\
+                     to calculate the mismatch\n"\
 "\n"
-
 
 INT4 main( INT4 argc, CHAR *argv[] ){
   ProcessParamsTable *param_table;
@@ -512,7 +522,9 @@ void initialiseAlgorithm( LALInferenceRunState *runState )
  * If using real data the files must be specified in the \c input-files command
  * line argument - these should be comma separated for mulitple files and be in
  * the same order at the associated detector from which they came given by the
- * \c detectors command.
+ * \c detectors command. The data can be downsampled by a factor given by the \c
+ * downsample-factor command line argument, but by default no down-sampling is
+ * applied.
  * 
  * The function also check that valid Earth and Sun ephemeris files (from the
  * lalpulsar suite) are set with the \c ephem-earth and \c ephem-sun arguments,
@@ -557,7 +569,7 @@ void readPulsarData( LALInferenceRunState *runState ){
   
   CHAR *modeltype = NULL;
   REAL8Vector *modelFreqFactors = NULL;
-  INT4 ml = 1;
+  INT4 ml = 1, downs = 1;
   
   runState->data = NULL;
   
@@ -874,7 +886,12 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
   ppt = LALInferenceGetProcParamVal( commandLine, "--randomseed" );
   if ( ppt != NULL ) seed = atoi( ppt->value );
   else seed = 0; /* will be set from system clock */
-      
+  
+  /* check if we want to down-sample the input data by a given factor */
+  ppt = LALInferenceGetProcParamVal( commandLine, "--downsample-factor" );
+  if ( ppt != NULL ) downs = atoi( ppt->value );
+  else downs = 1; /* no downsampling */
+  
   /* reset filestr if using real data (i.e. not fake) */
   if ( !ppt2 ) filestr = XLALStringDuplicate( inputfile );
  
@@ -940,6 +957,8 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
     /*============================ GET DATA ==================================*/
     /* get i'th filename from the comma separated list */
     if ( !ppt2 ){ /* if using real data read in from the file */
+      UINT4 counter = 0;
+      
       datafile = strsep(&filestr, ",");
    
       /* open data file */
@@ -955,32 +974,37 @@ given must be %d times the number of detectors specified (no. dets =\%d)\n",
 
       /* read in data */
       while(fscanf(fp, "%lf%lf%lf", &times, &dataVals.re, &dataVals.im) != EOF){
+        j++;
+        
+        /* downsample if required */
+        if ( j%downs != 0 ) continue;
+        
+        counter++;
+        
         /* dynamically allocate more memory */
         ifodata->compTimeData =
-          XLALResizeCOMPLEX16TimeSeries( ifodata->compTimeData, 0, j+1 );
+          XLALResizeCOMPLEX16TimeSeries( ifodata->compTimeData, 0, counter );
 
         ifodata->compModelData = 
-          XLALResizeCOMPLEX16TimeSeries( ifodata->compModelData, 0, j+1 );
+          XLALResizeCOMPLEX16TimeSeries( ifodata->compModelData, 0, counter );
           
-        temptimes = XLALResizeREAL8Vector( temptimes, j+1 );
+        temptimes = XLALResizeREAL8Vector( temptimes, counter );
 
-        temptimes->data[j] = times;
-        ifodata->compTimeData->data->data[j].re = dataVals.re;
-        ifodata->compTimeData->data->data[j].im = dataVals.im;
-      
-        j++;
+        temptimes->data[counter-1] = times;
+        ifodata->compTimeData->data->data[counter-1].re = dataVals.re;
+        ifodata->compTimeData->data->data[counter-1].im = dataVals.im;
       }
-    
+
       fclose(fp);
-    
-      datalength = j;
-      
+
+      datalength = counter;
+
       /* allocate data time stamps */
       ifodata->dataTimes = NULL;
       ifodata->dataTimes = XLALCreateTimestampVector( datalength );
-    
+
       /* fill in time stamps as LIGO Time GPS Vector */
-      for ( k = 0; k<j; k++ )
+      for ( k = 0; k < datalength; k++ )
         XLALGPSSetREAL8( &ifodata->dataTimes->data[k], temptimes->data[k] );
       
       ifodata->compTimeData->epoch = ifodata->dataTimes->data[0];
@@ -1148,10 +1172,20 @@ void setupFromParFile( LALInferenceRunState *runState )
   LALInferenceIFOData *data = runState->data;
   LALInferenceVariables *scaletemp;
   ProcessParamsTable *ppt = NULL;
+  UINT4 mmfactor = 0;
+  REAL8 mm = 0;
   
   ppt = LALInferenceGetProcParamVal( runState->commandLine, "--par-file" );
   if( ppt == NULL ) { fprintf(stderr,"Must specify --par-file!\n"); exit(1); }
   CHAR *parFile = ppt->value;
+  
+  /* check if we needed a downsampled time stamp series */
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--mm-factor" );
+  if( ppt != NULL ) mmfactor = atoi( ppt->value );
+  
+  /* get mismatch value if required */
+  ppt = LALInferenceGetProcParamVal( runState->commandLine, "--mismatch" );
+  if( ppt != NULL ) mm = atof( ppt->value );
   
   /* get the pulsar parameters */
   XLALReadTEMPOParFile( &pulsar, parFile );
@@ -1197,7 +1231,7 @@ void setupFromParFile( LALInferenceRunState *runState )
                               LALINFERENCE_REAL8Vector_t, 
                               LALINFERENCE_PARAM_FIXED );
 
-      phase_vector = get_phase_model( pulsar, data, freqFactors->data[j] );
+      phase_vector = get_phase_model( pulsar, data, freqFactors->data[j], 0 );
   
       data->timeData = NULL;
       data->timeData = XLALCreateREAL8TimeSeries( "",
@@ -1214,6 +1248,39 @@ void setupFromParFile( LALInferenceRunState *runState )
         LALInferenceAddVariable( data->dataParams, scaleitem->name, 
                                  scaleitem->value, scaleitem->type,
                                  scaleitem->vary );
+      }
+    
+      /* get down sampled time stamps if required and set mismatch */
+      if ( mmfactor != 0 && mm != 0. ){
+        LIGOTimeGPSVector *downst = 
+          XLALCreateTimestampVector( floor(phase_vector->length/mmfactor) );
+        UINT4 k = 0;
+        
+        /* array to contain down-sampled phases */
+        REAL8Vector *dsphase = 
+          XLALCreateREAL8Vector( floor(phase_vector->length/mmfactor) );
+        
+        if ( downst->length < 2 ){
+          XLALPrintError("Error, downsampled time stamp factor to high!\n");
+          XLAL_ERROR_VOID(XLAL_EFAILED);
+        }
+        
+        for( k = 1; k < downst->length+1; k++ ){
+          downst->data[k-1] = data->dataTimes->data[(k-1)*mmfactor];
+          dsphase->data[k-1] = 0.;
+        }
+          
+        LALInferenceAddVariable( data->dataParams, "downsampled_times",
+                                 &downst, LALINFERENCE_void_ptr_t,
+                                 LALINFERENCE_PARAM_FIXED );
+        
+        LALInferenceAddVariable( data->dataParams, "ds_phase",
+                                 &dsphase, LALINFERENCE_REAL8Vector_t,
+                                 LALINFERENCE_PARAM_FIXED );
+        
+        LALInferenceAddVariable( data->dataParams, "mismatch",
+                                 &mm, LALINFERENCE_REAL8_t,
+                                 LALINFERENCE_PARAM_FIXED );
       }
     
       data = data->next;
@@ -1402,8 +1469,8 @@ void add_initial_variables( LALInferenceVariables *ini,
                             pars.rErr );
   add_variable_scale_prior( ini, scaleFac, priorArgs, "lambda", pars.lambda,  
                             pars.lambdaErr );
-  add_variable_scale_prior( ini, scaleFac, priorArgs, "theta", pars.theta,  
-                            pars.thetaErr );
+  add_variable_scale_prior( ini, scaleFac, priorArgs, "costheta", pars.costheta,  
+                            pars.costhetaErr );
     
   /* phase model parameters */
   
@@ -1753,16 +1820,6 @@ set.\n", propfile, tempPar);
         high = LAL_PI/2.;
       }
     }
-  
-    /* if theta is covering the range 0 to pi scale it, so that it covers
-    the 0 to 2pi range of a circular parameter */
-    if( !strcmp(tempPar, "theta") ){
-      if ( scale/LAL_TWOPI > 0.99 && scale/LAL_TWOPI < 1.01 ){
-        scale = 1.;
-        scaleMin = 0.;
-        high = 2.*LAL_PI;
-      }
-    }
     
     /* if lambda is covering the range 0 to pi scale it, so that it covers
     the 0 to pi range of a circular parameter */
@@ -1801,8 +1858,6 @@ set.\n", propfile, tempPar);
     else if ( !strcmp(tempPar, "psi") && scale == 0.25 ) 
       varyType = LALINFERENCE_PARAM_CIRCULAR;
     else if ( !strcmp(tempPar, "psi") && scale == 0.5 ) 
-      varyType = LALINFERENCE_PARAM_CIRCULAR;
-    else if ( !strcmp(tempPar, "theta") && scale == 1.0 ) 
       varyType = LALINFERENCE_PARAM_CIRCULAR;
     else if ( !strcmp(tempPar, "lambda") && scale == 0.5 )
       varyType = LALINFERENCE_PARAM_CIRCULAR;

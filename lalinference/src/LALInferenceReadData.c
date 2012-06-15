@@ -127,7 +127,7 @@ REAL8 interpolate(struct fvec *fvec, REAL8 f){
 	delta=fvec[i].x-fvec[i-1].x;
 	return (fvec[i-1].x + delta*a);
 }
-void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table);
+void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, ProcessParamsTable *commandLine);
 
 typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 void MetaNoiseFunc(LALStatus *status, REAL8 *psd, REAL8 f, struct fvec *interp, NoiseFunc *noisefunc);
@@ -683,7 +683,10 @@ printf("deltaF before the noise is created %.5e \n",IFOdata[i].freqData->deltaF)
 			if(!PSDtimeSeries) {XLALPrintError("Error reading PSD data for %s\n",IFOnames[i]); XLAL_ERROR_NULL(XLAL_EFUNC);}
 			XLALResampleREAL8TimeSeries(PSDtimeSeries,1.0/SampleRate);
 			PSDtimeSeries=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(PSDtimeSeries,(size_t) 0, (size_t) seglen*nSegs);
-			if(!PSDtimeSeries) XLAL_ERROR_NULL(XLAL_EFUNC);
+			if(!PSDtimeSeries) {
+                            fprintf(stderr,"ERROR while estimating PSD for %s\n",IFOnames[i]);
+                            XLAL_ERROR_NULL(XLAL_EFUNC);
+                        }
 			IFOdata[i].oneSidedNoisePowerSpectrum=(REAL8FrequencySeries *)XLALCreateREAL8FrequencySeries("spectrum",&PSDtimeSeries->epoch,0.0,(REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
 			if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
 			if (LALInferenceGetProcParamVal(commandLine, "--PSDwelch"))
@@ -991,7 +994,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	/* Check for frequency domain injection (TF2 only at present) */
 	if(strstr(injTable->waveform,"TaylorF2"))
 	{ printf("Injecting TaylorF2 in the frequency domain...\n");
-	 InjectTaylorF2(IFOdata, injTable);
+	 InjectTaylorF2(IFOdata, injTable, commandLine);
 	 return;
 	}
 	/* Begin loop over interferometers */
@@ -1721,7 +1724,7 @@ static int FindTimeSeriesStartAndEnd (
   
 }
 
-void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
+void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, ProcessParamsTable *commandLine)
 ///*-------------- Inject in Frequency domain -----------------*/
 {
         /* Inject a gravitational wave into the data in the frequency domain */
@@ -1771,13 +1774,32 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+      
+      REAL8 lambda1 = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
+        lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
+        fprintf(stdout,"Injection lambda1 set to %f\n",lambda1);
+        LALInferenceAddVariable(tmpdata->modelParams, "lambda1",&lambda1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      }
+      REAL8 lambda2 = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
+        lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
+        fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+        LALInferenceAddVariable(tmpdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      }
+      
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
    freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     COMPLEX16FrequencySeries *freqModelhPlus=NULL;
     freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     tmpdata->freqModelhPlus=freqModelhPlus;
     tmpdata->freqModelhCross=freqModelhCross;
-    LALInferenceTemplateLAL(tmpdata);
+      if(LALInferenceGetProcParamVal(commandLine,"--lalsimulationinjection")){
+        tmpdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+        LALInferenceTemplateXLALSimInspiralChooseWaveform(tmpdata);
+      }else{
+        LALInferenceTemplateLAL(tmpdata);
+      }
 
     tmpdata=tmpdata->next;
     
