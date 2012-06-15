@@ -113,7 +113,8 @@ xmldoc = dbtables.get_xml(connection)
 proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__, version = git_version.id)
 
 # create needed functions
-connection.create_aggregate("concatenate", 2, sqlutils.aggregate_concatenate)
+connection.create_aggregate("concat_2cols", 2, sqlutils.aggregate_concatenate)
+connection.create_aggregate("concat_5cols", 5, sqlutils.aggregate_concatenate)
 
 # create needed indices on tables if they don't already exist
 current_indices = [index[0] for index in 
@@ -152,8 +153,8 @@ CREATE TEMP TABLE segments_tbl AS
         segment_definer.process_id AS proc_id,
         segment_definer.segment_def_id AS segdef_id,
         segment_definer.ifos AS ifo,
-        concatenate(segment_definer.name, segment_definer.version) AS cat_vers,
-        concatenate(segment_summary.start_time, segment_summary.end_time) AS times
+        concat_2cols(segment_definer.name, segment_definer.version) AS cat_vers,
+        concat_2cols(segment_summary.start_time, segment_summary.end_time) AS times
     FROM
         segment_definer
         JOIN segment_summary ON (
@@ -367,6 +368,87 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+if opts.verbose:
+    print >> sys.stdout, "Cleaning simulation tables..."
+
+sqlscript = """
+--
+-- Simulation Tables Clean-up
+--
+
+-- Collect all the process information about the injection runs included
+-- in this database.  This means the input parameters to either 'inspinj'
+-- or 'rinj' stored in the process_params table as well as useful info
+-- from the process table itself.
+
+CREATE TEMP TABLE injrun_params AS
+    SELECT
+        pp_table.process_id AS proc_id,
+        pp_table.program
+        group_concat(pp_table.value) AS values,
+        concat_5cols(process.start_time, process.end_time, process.username,
+            process.node, process.version) AS process_info
+    FROM
+        process_params AS pp_table
+        JOIN process ON (
+            pp_table.proc_id == process.process_id)
+    WHERE process.program == "inspinj" OR "rinj"
+    GROUP BY proc_id;
+
+-- Create a map of process_ids between those redundant entries and those one
+-- wishes to keep
+CREATE TEMP TABLE _pidmap_ AS
+    SELECT
+        old_id_table.proc_id AS old_pid,
+        old_id_table.program 
+        MIN(new_id_table.proc_id) AS new_pid
+    FROM
+        injrun_params AS old_id_table 
+        JOIN injrun_params AS new_id_table ON (
+            new_id_table.values == old_id_table.values
+            AND new_id_table.program == old_id_table.program
+            AND new_id_table.process_info == old_id_table.process_info)       
+    GROUP BY old_pid;
+
+CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
+
+-- Update sim_proc_ids in the experiment_summary table
+UPDATE experiment_summary 
+    SET sim_proc_id = (
+        SELECT new_pid 
+        FROM _pidmap_ 
+        WHERE old_pid == sim_proc_id);
+
+DROP INDEX pidmap_index;
+
+-- Delete redundant entries in the process and process_params tables
+DELETE FROM process 
+    WHERE process_id IN (
+        SELECT old_pid
+        FROM _pidmap_ 
+        WHERE old_pid != new_pid);
+DELETE FROM process_params 
+    WHERE process_id IN (
+        SELECT old_pid 
+        FROM _pidmap_ 
+        WHERE old_pid != new_pid);
+
+-- Delete duplicate entries in the simulation tables
+DELETE FROM sim_inspiral 
+    WHERE process_id IN (
+        SELECT old_pid 
+        FROM _pidmap_ 
+        WHERE 
+            old_pid != new_pid
+            AND program == "inspinj");
+DELETE FROM sim_ringdown 
+    WHERE process_id IN (
+        SELECT old_pid 
+        FROM _pidmap_ 
+        WHERE 
+            old_pid != new_pid
+            AND program == "rinj");
+"""
 
 if opts.verbose:
     print >> sys.stdout, "Cleaning experiment tables..."
