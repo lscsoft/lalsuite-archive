@@ -1147,11 +1147,11 @@ if opts.coincidence:
         extentlimit = cafe_extent_limit)[1]
 
     # create the base name for the cafe jobs
-    cafe_base = "%%s%%s_%%0%dd_" % int(math.log10(len(tisi_file_nums))+1)
+    cafe_base = "%%s_%%0%dd%%s_" % int(math.log10(len(tisi_file_nums))+1)
     cafeusertag = ""
     if usertag:
       cafeusertag += "_" + usertag
-    cafe_base = cafe_base % ('CAFE',cafeusertag,tisi_file_num)
+    cafe_base = cafe_base % ('CAFE',tisi_file_num,cafeusertag)
 
     # create the coinc nodes
     new_coinc_nodes = thinca_coinc(ifo_list, single_data_analyzed, cafe_caches,
