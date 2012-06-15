@@ -197,6 +197,7 @@ class mvsc_update_sql_node(pipeline.CondorDAGNode):
     self.add_macro("macroid", dag.id)
     [self.add_var_arg(database) for database in databases]
     self.add_var_opt("all-instruments",opts.all_instruments)
+    self.add_var_opt("output-tag",opts.user_tag)
     for p in p_node:
       self.add_parent(p)
     dag.add_node(self)
