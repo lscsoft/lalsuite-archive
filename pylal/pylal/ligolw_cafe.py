@@ -377,7 +377,7 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 def write_caches(base, bins, instruments, verbose = False):
 	filenames = []
 	if len(bins):
-		pattern = "%%s%%0%dd.cache" % int(math.log10(len(bins)) + 1)
+		pattern = "%%s_%%0%dd.cache" % int(math.log10(len(bins)) + 1)
 	for n, bin in enumerate(bins):
 		filename = pattern % (base, n)
 		filenames.append(filename)
