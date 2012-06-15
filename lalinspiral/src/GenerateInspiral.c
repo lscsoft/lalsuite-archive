@@ -373,6 +373,14 @@ XLALGetApproximantFromString(
   {
     *approximant = TaylorT2;
   }
+  else if ( strstr(thisEvent, "TaylorF2RedSpinTidal") )
+  {
+    *approximant = TaylorF2RedSpinTidal;
+  }
+  else if (strstr(thisEvent, "TaylorF2RedSpin") )
+  {
+    *approximant = TaylorF2RedSpin;
+  }
   else if ( strstr(thisEvent, "TaylorF2" ) )
   {
     *approximant = TaylorF2;
@@ -470,7 +478,11 @@ XLALGetTaperFromString(
     )
 {
 
-  if ( ! strcmp( "TAPER_START", thisEvent ) )
+  if ( ! strcmp( "TAPER_NONE", thisEvent ) )
+  {
+    *taper = LAL_SIM_INSPIRAL_TAPER_NONE;
+  }
+  else if ( ! strcmp( "TAPER_START", thisEvent ) )
   {
     *taper = LAL_SIM_INSPIRAL_TAPER_START;
   }

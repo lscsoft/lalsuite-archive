@@ -51,7 +51,7 @@ bin_PROGRAMS      = ${STOCHASTICPROGRAMS} ${FRAMEPROGRAMS} ${METAIOPROGRAMS}
 if LALSTOCHASTIC
 if HAVE_PYTHON
 bin_SCRIPTS = lalapps_stochastic_pipe lalapps_stochastic_bayes
-pkgpython_DATA = stochastic.py
+pkgpython_PYTHON = stochastic.py
 endif
 endif
 
@@ -73,14 +73,12 @@ python_config.sed:
 	@echo "s+@PYTHONPROG@+@PYTHON@+g" >> python_config.sed
 
 lalapps_stochastic_pipe: $(srcdir)/stochastic_pipe.in python_config.sed
-	@echo "creating $@"
-	@sed -f python_config.sed $(srcdir)/stochastic_pipe.in > \
+	$(AM_V_GEN)sed -f python_config.sed $(srcdir)/stochastic_pipe.in > \
 		lalapps_stochastic_pipe
 	@chmod +x lalapps_stochastic_pipe
 
 lalapps_stochastic_bayes: $(srcdir)/stochastic_bayes.in python_config.sed
-	@echo "creating $@"
-	@sed -f python_config.sed $(srcdir)/stochastic_bayes.in > \
+	$(AM_V_GEN)sed -f python_config.sed $(srcdir)/stochastic_bayes.in > \
 		lalapps_stochastic_bayes
 	@chmod +x lalapps_stochastic_bayes
 

@@ -36,6 +36,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import SimBurstUtils
@@ -154,7 +155,7 @@ class DocContents(object):
 		# Find the out segments
 		#
 
-		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).coalesce()
+		self.outsegs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program).coalesce()
 
 		#
 		# Find the sngl_burst table
@@ -389,7 +390,7 @@ def ligolw_bucut(xmldoc, options, burst_test_func, veto_segments = segments.segm
 	llwapp.set_process_end_time(process)
 
 	seg = contents.outsegs.extent_all()
-	llwapp.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(contents.snglbursttable))
+	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(contents.snglbursttable))
 
 	return xmldoc
 

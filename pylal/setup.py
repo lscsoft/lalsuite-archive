@@ -477,6 +477,15 @@ setup(
 			include_dirs = [numpy_get_include()],
 			extra_compile_args = ["-std=c99"]
 		),
+		Extension(
+			"pylal.inspiral_metric",
+			["src/inspiral_metric.c", "src/xlal/misc.c"],
+			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + ["src/xlal/", "src/xlal/datatypes/"],
+			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
+			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
+		),
 	],
 	scripts = [
 		os.path.join("bin", "analyseQscan.py"),
@@ -562,12 +571,10 @@ setup(
 		os.path.join("bin", "lalapps_followup_pipe"),
 		os.path.join("bin", "lalapps_followup_page"),
 		os.path.join("bin", "WOD_Bologna.py"),
-		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_likeliness"),
 		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_cbc_svim"),
 		os.path.join("bin", "lalapps_cbc_sink"),
-		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_plot_tisi"),
 		os.path.join("bin", "lalapps_power_calc_likelihood"),
 		os.path.join("bin", "lalapps_power_plot_binj"),

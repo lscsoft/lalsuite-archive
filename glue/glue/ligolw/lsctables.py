@@ -32,7 +32,7 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
-
+import numpy
 from xml import sax
 
 try:
@@ -94,11 +94,11 @@ class TableRow(object):
 
 def New(Type, columns = None, **kwargs):
 	"""
-	Convenience function for constructing pre-defined LSC tables.  The
-	optional columns argument is a list of the names of the columns the
-	table should be constructed with.  If columns = None, then the
-	table is constructed with all valid columns included (pass columns
-	= [] to create a table with no columns).
+	Construct a pre-defined LSC table.  The optional columns argument
+	is a sequence of the names of the columns the table should be
+	constructed with.  If columns = None, then the table is constructed
+	with all valid columns (use columns = [] to create a table with no
+	columns).
 
 	Example:
 
@@ -160,11 +160,11 @@ def HasNonLSCTables(elem):
 
 def instrument_set_from_ifos(ifos):
 	"""
-	Convenience function for parsing the values stored in the "ifos"
-	and "instruments" columns found in many tables.  This function is
-	mostly for internal use by the .get_ifos() and .get_instruments()
-	methods of the corresponding row classes.  The mapping from input
-	to output is as follows (rules are applied in order):
+	Parse the values stored in the "ifos" and "instruments" columns
+	found in many tables.  This function is mostly for internal use by
+	the .get_ifos() and .get_instruments() methods of the corresponding
+	row classes.  The mapping from input to output is as follows (rules
+	are applied in order):
 
 	input is None --> output is None
 
@@ -212,16 +212,16 @@ def instrument_set_from_ifos(ifos):
 
 def ifos_from_instrument_set(instruments):
 	"""
-	Convenience function to convert an iterable of instrument names
-	into a value suitable for storage in the "ifos" column found in
-	many tables.  This function is mostly for internal use by the
-	.set_ifos() methods of the corresponding row classes.  The input
-	can be None or an interable of zero or more instrument names, none
-	of which may contain "," or "+" characters.  The output is a single
-	string containing the instrument names concatenated using "," as a
-	delimiter.  instruments will only be iterated over once and so can
-	be a generator expression.  Whitespace is allowed in instrument
-	names but may not be preserved.
+	Convert an iterable of instrument names into a value suitable for
+	storage in the "ifos" column found in many tables.  This function
+	is mostly for internal use by the .set_ifos() methods of the
+	corresponding row classes.  The input can be None or an interable
+	of zero or more instrument names, none of which may contain "," or
+	"+" characters.  The output is a single string containing the
+	instrument names concatenated using "," as a delimiter.
+	instruments will only be iterated over once and so can be a
+	generator expression.  Whitespace is allowed in instrument names
+	but may not be preserved.
 	"""
 	if instruments is None:
 		return None
@@ -362,7 +362,8 @@ class ProcessParamsTable(table.Table):
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
-	def get_pyvalue(self):
+	@property
+	def pyvalue(self):
 		if self.value is None:
 			return None
 		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
@@ -484,29 +485,57 @@ class SearchSummary(object):
 
 	def get_in(self):
 		"""
-		Return the input segment.
+		Get the input segment.  Returns a segment with both
+		boundaries set to None if all four input segment boundary
+		attributes are None.
 		"""
-		return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		try:
+			return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		except:
+			if (self.in_start_time, self.in_start_time_ns, self.in_end_time, self.in_end_time_ns) == (None, None, None, None):
+				return segments.segment(None, None)
+			raise
 
 	def set_in(self, seg):
 		"""
-		Set the input segment.
+		Set the input segment.  If seg's boundaries are both None
+		then all four input segment boundary attributes are set to
+		None.
 		"""
-		self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-		self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		try:
+			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
+			self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		except:
+			if seg != segments.segment(None, None):
+				raise
+			self.in_start_time = self.in_start_time_ns = self.in_end_time = self.in_end_time_ns = None
 
 	def get_out(self):
 		"""
-		Get the output segment.
+		Get the output segment.  Returns a segment with both
+		boundaries set to None if all four output segment boundary
+		attributes are None.
 		"""
-		return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		try:
+			return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		except:
+			if (self.out_start_time, self.out_start_time_ns, self.out_end_time, self.out_end_time_ns) == (None, None, None, None):
+				return segments.segment(None, None)
+			raise
 
 	def set_out(self, seg):
 		"""
-		Set the output segment.
+		Set the output segment.  If seg's boundaries are both None
+		then all four output segment boundary attributes are set to
+		None.
 		"""
-		self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-		self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		try:
+			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
+			self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		except:
+			if seg != segments.segment(None, None):
+				raise
+			self.out_start_time = self.out_start_time_ns = self.out_end_time = self.out_end_time_ns = None
 
 
 SearchSummaryTable.RowType = SearchSummary
@@ -1727,7 +1756,7 @@ class MultiInspiralTable(table.Table):
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
 		"ampMetricEigenVal2": "real_8",
-                "time_slide_id": "ilwd:char"
+		"time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1735,6 +1764,73 @@ class MultiInspiralTable(table.Table):
 
 	def get_column(self,column):
 		return self.getColumnByName(column).asarray()
+
+	def get_end(self):
+		return [row.get_end() for row in self]
+
+	def get_new_snr(self, index=6.0, column='chisq'):
+		# kwarg 'index' is assigned to the parameter chisq_index
+		# nhigh gives the asymptotic large rho behaviour of
+    # d (ln chisq) / d (ln rho) 
+    # for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_%s' % column)
+		nhigh = index/3.
+		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(newsnr, rchisq < 1, snr)
+		return newsnr
+
+	def get_null_snr(self):
+		"""
+		Get the coherent Null SNR for each row in the table.
+		"""
+		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.get_column('snr')**2)**(1/2)
+
+	def get_sigmasq(self, instrument):
+		"""
+		Get the single-detector SNR of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('sigmasq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sigmasqs(self, instruments=None):
+		"""
+		Return dictionary of single-detector sigmas for each row in the
+		table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sigmasq(ifo))\
+				    for ifo in instruments)
+		else:
+			return dict()
+
+
+	def get_sngl_snr(self, instrument):
+		"""
+		Get the single-detector SNR of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('snr_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sngl_snrs(self, instruments=None):
+		"""
+		Get the single-detector SNRs for each row in the table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sngl_snr(ifo))\
+				    for ifo in instruments)
+
 
 	def getstat(self):
 		return self.get_column('snr')
@@ -1777,14 +1873,48 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
-        def get_end(self):
-                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+        def get_new_snr(self,index=4.0, column='chisq'):
+                rchisq = getattr(self, column) /\
+                         (getattr(self, '%s_dof' % column))
+                nhigh = 3.0
+                if rchisq > 1.:
+                        return self.snr /\
+                               ((1+rchisq**(index/nhigh))/2)**(1./index)
+                else:
+                        return self.snr
+
+	def get_null_snr(self):
+		"""
+		Get the coherent Null SNR for this row.
+		"""
+		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.snr**2)**(1/2)
+
+	def get_sngl_snr(self, instrument):
+		"""
+		Get the single-detector SNR for the given instrument for this
+		row
+		"""
+		return getattr(self, 'snr_%s' % (instrument.lower() in\
+                                                 ['h1','h2'] and\
+                                                 instrument.lower() or\
+                                                 instrument[0].lower())) 
+
+	def get_sngl_snrs(self):
+		"""
+		Return a dictionary of single-detector SNRs for this row.
+		"""
+		return dict((ifo, self.get_sngl_snr(ifo)) for ifo in\
+                            instrument_set_from_ifos(self.ifos))
 
 	def set_ifos(self, instruments):
 		"""
@@ -1925,6 +2055,31 @@ class SimInspiralTable(table.Table):
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
+        def veto(self,seglist):
+                vetoed = table.new_from_template(self)
+                keep = table.new_from_template(self)
+                for row in self:
+                        time = row.get_end()
+                        if time in seglist:
+                                vetoed.append(row)
+                        else:
+                                keep.append(row)
+                return keep
+
+        def vetoed(self, seglist):
+                """
+                Return the inverse of what veto returns, i.e., return the triggers
+                that lie within a given seglist.
+                """
+                vetoed = table.new_from_template(self)
+                keep = table.new_from_template(self)
+                for row in self:
+                        time = row.get_end()
+                        if time in seglist:
+                                vetoed.append(row)
+                        else:
+                                keep.append(row)
+                return vetoed
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
@@ -2991,18 +3146,34 @@ TableByName = {
 
 
 #
-# Override portions of the ligolw.LIGOLWContentHandler class
+# Override portions of the ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-__parent_startTable = ligolw.LIGOLWContentHandler.startTable
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the Table
+	class defined in this module when parsing XML documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import lsctables
+	>>> lsctables.use_in(MyContentHandler)
+	"""
+	table.use_in(ContentHandler)
+
+	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+		name = table.StripTableName(attrs[u"Name"])
+		if name in TableByName:
+			return TableByName[name](attrs)
+		return __parent_startTable(self, attrs)
+
+	ContentHandler.startTable = startTable
 
 
-def startTable(self, attrs):
-	name = table.StripTableName(attrs[u"Name"])
-	if name in TableByName:
-		return TableByName[name](attrs)
-	return __parent_startTable(self, attrs)
-
-
-ligolw.LIGOLWContentHandler.startTable = startTable
+use_in(ligolw.DefaultLIGOLWContentHandler)

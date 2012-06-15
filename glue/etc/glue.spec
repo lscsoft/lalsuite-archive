@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.38
+Version:	1.39.2
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.37-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.39.2-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -94,6 +94,15 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Fri May 18 2012 Ryan Fisher <rpfisher@syr.edu>
+- Bugfix release of 1.39 labelled 1.39.2.  Includes fix to ligolw for URL reading, and packaging fixes. 
+
+* Fri May 11 2012 Ryan Fisher <rpfisher@syr.edu>
+- Bugfix release of 1.39 labelled 1.39.1 
+
+* Thu May 10 2012 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue to replace Apr 12 near-release.  This includes ligolw changes and updates for job submission over remote pools.
+
 * Thu Apr 12 2012 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.  
 

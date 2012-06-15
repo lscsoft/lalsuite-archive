@@ -1084,7 +1084,7 @@ int main(int argc, char *argv[])
     memmove(chan.data->data, chan.data->data + padData * sampleRate,
             (chan.data->length -
              2 * padData * sampleRate) * sizeof(REAL4));
-    LALRealloc(chan.data->data,
+    XLALRealloc(chan.data->data,
                (chan.data->length -
                 2 * padData * sampleRate) * sizeof(REAL4));
     chan.data->length -= 2 * padData * sampleRate;
@@ -2109,8 +2109,6 @@ int main(int argc, char *argv[])
         fprintf(stdout, "checking memory leaks and exiting\n");
     LALCheckMemoryLeaks();
 
-    /* print a success message to stdout for parsing by exitcode */
-    fprintf(stdout, "%s: EXITCODE0\n", argv[0]);
     exit(0);
 }
 

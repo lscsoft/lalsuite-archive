@@ -555,13 +555,15 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
     self.x_data_sets = []
     self.y_data_sets = []
     self.z_data_sets = []
+    self.rank_data_sets = []
     self.kwarg_sets = []
     self.color_label = zlabel
 
-  def add_content(self, x_data, y_data, z_data, **kwargs):
+  def add_content(self, x_data, y_data, z_data, rank_data, **kwargs):
     self.x_data_sets.append(x_data)
     self.y_data_sets.append(y_data)
     self.z_data_sets.append(z_data)
+    self.rank_data_sets.append(rank_data)
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
@@ -589,9 +591,9 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       cmax = numpy.math.log(cmax, base)
 
     # make plot
-    for x_vals, y_vals, z_vals, plot_kwargs in\
+    for x_vals, y_vals, z_vals, rank_vals, plot_kwargs in\
         itertools.izip(self.x_data_sets, self.y_data_sets, self.z_data_sets,\
-                       self.kwarg_sets):
+                       self.rank_data_sets, self.kwarg_sets):
 
       if logz:  z_vals = [numpy.math.log(z, base) for z in z_vals]
 
@@ -600,9 +602,9 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       plot_kwargs.setdefault("vmax", cmax)
 
       # sort data by z-value
-      zipped = zip(x_vals, y_vals, z_vals)
-      zipped.sort(key=lambda (x,y,z): z)
-      x_vals, y_vals, z_vals = map(list, zip(*zipped))
+      zipped = zip(x_vals, y_vals, z_vals, rank_vals)
+      zipped.sort(key=lambda (x,y,z,r): r)
+      x_vals, y_vals, z_vals, rank_vals = map(list, zip(*zipped))
 
       p.append(self.ax.scatter(x_vals, y_vals, c=z_vals, **plot_kwargs))
 
@@ -678,7 +680,7 @@ class DetCharScatterPlot(ColorbarScatterPlot):
 
   @plotutils.method_callable_once
   def finalize(self, loc='best', logx=False, logy=False, logz=True, base=10,\
-               clim=None, zthreshold=None):
+               clim=None, rankthreshold=None):
 
     p = []
     # set colorbar limits
@@ -692,19 +694,16 @@ class DetCharScatterPlot(ColorbarScatterPlot):
       except ValueError:
         cmin = 1
         cmax = 10 
-    if not zthreshold:
-      zthreshold = cmin + 0.1*(cmax-cmin)
 
     # reset logs
     if logz:
       cmin = numpy.math.log(cmin, base)
       cmax = numpy.math.log(cmax, base)
-      zthreshold = numpy.math.log(zthreshold, base)
 
     # make plot
-    for x_vals, y_vals, z_vals, plot_kwargs in\
+    for x_vals, y_vals, z_vals, rank_vals, plot_kwargs in\
         itertools.izip(self.x_data_sets, self.y_data_sets, self.z_data_sets,\
-                       self.kwarg_sets):
+                       self.rank_data_sets, self.kwarg_sets):
       plot_kwargs.setdefault("vmin", cmin)
       plot_kwargs.setdefault("vmax", cmax)
       plot_kwargs.setdefault("s", 15)
@@ -715,9 +714,9 @@ class DetCharScatterPlot(ColorbarScatterPlot):
         z_vals = [numpy.math.log(z, base) for z in z_vals]
 
       # sort data by z-value
-      zipped = zip(x_vals, y_vals, z_vals)
-      zipped.sort(key=lambda (x,y,z): z)
-      x_vals, y_vals, z_vals = map(list, zip(*zipped))
+      zipped = zip(x_vals, y_vals, z_vals, rank_vals)
+      zipped.sort(key=lambda (x,y,z,r): r)
+      x_vals, y_vals, z_vals, rank_vals = map(list, zip(*zipped))
 
       bins = ['low', 'high']
       x_bins = {}
@@ -728,7 +727,7 @@ class DetCharScatterPlot(ColorbarScatterPlot):
         y_bins[str(bin)] = []
         z_bins[str(bin)] = []
       for i in xrange(len(x_vals)):
-        if z_vals[i] < zthreshold:
+        if rankthreshold and rank_vals[i] < rankthreshold:
           x_bins[bins[0]].append(float(x_vals[i]))
           y_bins[bins[0]].append(float(y_vals[i]))
           z_bins[bins[0]].append(float(z_vals[i]))
@@ -1671,6 +1670,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot a histogram of any column
@@ -1937,7 +1937,7 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 # Plot one column against another column coloured by any third column
 
 def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
-                  ycolumn='snr', zcolumn=None, etg=None, start=None, end=None,\
+                  ycolumn='snr', zcolumn=None, rankcolumn=None, etg=None, start=None, end=None,\
                   zero=None, seglist=None, flag=None, **kwargs):
 
   """
@@ -1965,6 +1965,8 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
         valid column of triggers table to plot on y-axis
       zcolumn : string
         valid column of triggers table to use for colorbar (optional).
+      rankcolumn : string
+        valid column of triggers table to use for ranking events (optional).
       etg : string
         display name of trigger generator, defaults based on triggers tableName 
       start : [ float | int | LIGOTimeGPS ]
@@ -2072,10 +2074,14 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
 
   # set up columns
   columns = list(map(str.lower, [xcolumn, ycolumn]))
-  if zcolumn: columns.append(zcolumn.lower())
+  if zcolumn: 
+    columns.append(zcolumn.lower())
+    if rankcolumn: 
+      columns.append(rankcolumn.lower())
+    else: columns.append(zcolumn.lower())
 
   # set up limits
-  limits    = [xlim, ylim, zlim]
+  limits    = [xlim, ylim, zlim, None]
   for i,col in enumerate(columns):
     if re.search('time\Z', col) and not limits[i]:
       limits[i] = [start,end]
@@ -2266,25 +2272,25 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
 
   # find loudest event
   loudest = {}
-  if len(columns)==3 and\
+  if len(columns)==4 and\
      len(nvetoData[0][columns[0]])+len(vetoData[0][columns[0]])>=1:
     # find loudest vetoed event
     vetomax = 0
-    if len(vetoData[0][columns[2]])>=1:
-      vetomax = vetoData[0][columns[2]].max()
+    if len(vetoData[0][columns[3]])>=1:
+      vetomax = vetoData[0][columns[3]].max()
     nvetomax = 0
     # find loudest unvetoed event
-    if len(nvetoData[0][columns[2]])>=1:
-      nvetomax = nvetoData[0][columns[2]].max()
+    if len(nvetoData[0][columns[3]])>=1:
+      nvetomax = nvetoData[0][columns[3]].max()
     if vetomax == nvetomax == 0:
       pass
     # depending on which one is loudest, find loudest overall event
     elif vetomax > nvetomax:
-      index = vetoData[0][columns[2]].argmax()
+      index = vetoData[0][columns[3]].argmax()
       for col in columns:
         loudest[col] = vetoData[0][col][index]
     else:
-      index = nvetoData[0][columns[2]].argmax()
+      index = nvetoData[0][columns[3]].argmax()
       for col in columns:
         loudest[col] = nvetoData[0][col][index]
 
@@ -2316,7 +2322,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
     title += ' and %s segments' % (flag)
   title = kwargs.pop('title', title)
 
-  if len(columns)==3 and loudest:
+  if len(columns)==4 and loudest:
     subtitle = "Loudest event by %s:" % display_name(columns[-1])
     for col in columns:
       maxcol = loudest[col]
@@ -2367,7 +2373,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
     # finalise
     plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
   # initialise scatter plot with colorbar
-  elif len(columns)==3:
+  elif len(columns)==4:
     # initialize color bar plot
     if detchar:
       plot = DetCharScatterPlot(label[columns[0]], label[columns[1]],\
@@ -2379,16 +2385,18 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
     # add non veto triggers
     if len(nvetoData[0][columns[0]])>=1:
       plot.add_content(nvetoData[0][columns[0]], nvetoData[0][columns[1]],\
-                       nvetoData[0][columns[2]], **kwargs)
+                       nvetoData[0][columns[2]], nvetoData[0][columns[3]],\
+                       **kwargs)
     # add veto triggers
     if len(vetoData[0][columns[0]])>=1:
       plot.add_content(vetoData[0][columns[0]], vetoData[0][columns[1]],\
-                       vetoData[0][columns[2]], marker='x', edgecolor='r',\
+                       vetoData[0][columns[2]], vetoData[0][columns[2]],\
+                       marker='x', edgecolor='r',\
                        **kwargs)
     # finalise
     if detchar:
       plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim,\
-                    zthreshold=dcthresh)
+                    rankthreshold=dcthresh)
     else:
       plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim)
     # add loudest event to plot
@@ -2410,6 +2418,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
   # get both major and minor grid lines
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot a histogram of segment duration
@@ -2510,6 +2519,7 @@ def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -2619,6 +2629,9 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     y = getTrigAttribute(trig, bincolumn)
     for bin in ybins:
       if bin[0] <= y < bin[1]:
+        if x>=len(rate[bin[0]]):
+          print "trigger after end time, something is wrong", x, len(rate[bin[0]])
+          continue
         rate[bin[0]][x] += 1/average
         break
 
@@ -2688,6 +2701,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   # save
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot RMS versus time in bins
@@ -2878,6 +2892,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   # save
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot segments
@@ -2977,6 +2992,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
 
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Helper functions
@@ -3017,7 +3033,7 @@ def parse_plot_config(cp, section):
         True / False to plot log scale on z-axis
   """
 
-  columns = {'xcolumn':None, 'ycolumn':None, 'zcolumn':None}
+  columns = {'xcolumn':None, 'ycolumn':None, 'zcolumn':None, 'rankcolumn':None}
   params  = {}
 
   plot = re.split('[\s-]', section)[1:]
@@ -3025,8 +3041,10 @@ def parse_plot_config(cp, section):
     columns['xcolumn'] = plot[0]
   if len(plot)>=2:
     columns['ycolumn'] = plot[1]
-  if len(plot)>2:
+  if len(plot)>=3:
     columns['zcolumn'] = plot[2]
+  if len(plot)>=4:
+    columns['rankcolumn'] = plot[3]
 
   limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants',\
               'color_bins']
@@ -3210,6 +3228,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Significance drop plot (HVeto style)
@@ -3291,6 +3310,7 @@ def plot_significance_drop(startsig, endsig, outfile, **kwargs):
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot sky positions
@@ -3550,3 +3570,4 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
   # save
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)

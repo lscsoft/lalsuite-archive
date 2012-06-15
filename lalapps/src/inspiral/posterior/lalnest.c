@@ -664,7 +664,7 @@ int main( int argc, char *argv[])
 	REAL8FFTPlan *revplan = NULL;
 	REAL8Window  *windowplan = NULL;
 	INT4 stride=0;
-	REAL8 strideDur=0.0;
+	/* REAL8 strideDur=0.0; */
 	REAL8 evidence=0;
 	INT4 UNUSED segnum=0;
 	RandomParams *randparam=NULL;
@@ -708,7 +708,7 @@ int main( int argc, char *argv[])
 	fprintf(stderr,"Choosing %i segments length %i, (%f s)\n",nSegs,seglen,segDur);
 
 	stride = seglen; /* Overlap the padding */
-	strideDur = stride / SampleRate;
+	/* strideDur = stride / SampleRate; */
 
 
 	if(segDur<=2.0*padding){fprintf(stderr,"ERROR: Seg length %lf s too small for padding %lf s\n",segDur,padding);exit(-1);}
@@ -906,9 +906,9 @@ int main( int argc, char *argv[])
 					TSoffset=L1GPSshift;
 				else if(!strcmp(IFOnames[i],"V1"))
 					TSoffset=V1GPSshift;
-				/* datastart = realstart;
+				datastart = realstart;
 				XLALGPSAdd(&datastart, TSoffset);
-				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);*/
+				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);
 			}
 		}
 		
@@ -1899,7 +1899,7 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     char SnrName[70];
     char ListOfIFOs[10];
     REAL8 NetSNR=0.0;
-    sprintf(ListOfIFOs,"");
+    snprintf(ListOfIFOs, 10, " ");
 
     for (UINT4 det_i=0;det_i<nIFO;det_i++){
          sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);

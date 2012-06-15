@@ -1,3 +1,28 @@
+glue (1.39.2-1) unstable; urgency=low
+
+  * Obey debian/pyversions (build for 2.6 and up only)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Mon, 21 May 2012 09:45:00 +0200
+
+glue (1.39.2) unstable; urgency=low
+
+  * Bugfix release of 1.39 labelled 1.39.2, fixes ligolw URL reading,
+    packaging issues.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 18 May 2012 10:22:00 -0500
+
+glue (1.39.1) unstable; urgency=low
+
+  * Bugfix release of 1.39 labelled 1.39.1
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 11 May 2012 10:00:00 -0500
+
+glue (1.39) unstable; urgency=low
+
+  * Initial release of 1.39
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, 10 May 2012 17:11:00 -0500
+
 glue (1.38) unstable; urgency=low
 
   * Initial release of 1.38
