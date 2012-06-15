@@ -1906,7 +1906,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
   LALSimInspiralFlagContainer flags;
   XLALSimInspiralFlagSetDefault(&flags);
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) flags.spinInteraction = *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags");
+
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_INTERACTION")) 
+    flags.spinInteraction = *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_INTERACTION");
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_HIGHER_MODES"))
+    flags.higherModes= *(LALSimInspiralHigherModes*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_HIGHER_MODES");
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_AXIS_CHOICE"))
+    flags.axisChoice= *(LALSimInspiralAxisChoice*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_AXIS_CHOICE");
   
   if (IFOdata->timeData==NULL) {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
