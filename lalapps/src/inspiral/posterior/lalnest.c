@@ -113,6 +113,7 @@ Optional PhenSpinTaylorRD_template OPTIONS:\n \
 [--long_max FLOAT\t:\tSet upper limit on source plane RA for PhenSpinTaylorRD template waveform. Default is 2PI.]\n \
 [--iota_min FLOAT\t:\tSet lower limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is 0.]\n \
 [--iota_max FLOAT\t:\tSet upper limit on source plane inclination for PhenSpinTaylorRD template waveform. Default is PI.]\n \
+[--no-noise\t:\t Inject the signal without noise (The noise PSD is still non-zero).]\n \
 [--help\t:\tPrint this message]\n \
 "
 
@@ -186,6 +187,10 @@ INT4 phaseOrder=4;
 char *pinned_params=NULL;
 UINT4 fLowFlag=0;
 UINT4 m1m2Flag=0;
+
+/* Debug variables */
+
+INT4 no_noise=0;
 
 REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 int checkParamInList(const char *list, const char *param);
@@ -334,10 +339,14 @@ void initialise(int argc, char *argv[]){
 		{"snrpath",required_argument,0,123},
 		{"skyloc",no_argument,0,13},
 		{"m1m2",no_argument,0,24},
+                {"no-noise",no_argument,0,1111},
 		{0,0,0,0}};
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
 	while((i=getopt_long(argc,argv,"hi:D:G:T:R:g:m:z:P:C:S:I:N:t:X:O:a:M:o:j:e:Z:A:E:nlFVvb",long_options,&i))!=-1){ switch(i) {
+                case 1111:
+                       no_noise=1;
+                       break;
 		case 64:
 			manual_chi_min=atof(optarg);
 			break;
@@ -882,7 +891,13 @@ int main( int argc, char *argv[])
 				inputMCMC.stilde[i]->data->data[j].re=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 				inputMCMC.stilde[i]->data->data[j].im=XLALNormalDeviate(datarandparam)/(2.0*sqrt(inputMCMC.invspec[i]->data->data[j]*inputMCMC.deltaF));
 			}
+                        if(no_noise){
+                            for(j=j_Lo;j<inputMCMC.invspec[i]->data->length;j++){
+                          inputMCMC.stilde[i]->data->data[j].re=0.0;
+                          inputMCMC.stilde[i]->data->data[j].im=0.0;
 
+                            }
+                        }
                 /*char InjFileName[50];
                 sprintf(InjFileName,"Inspnest_Noises_%i.dat",i);
                 FILE *outInj=fopen(InjFileName,"w");
