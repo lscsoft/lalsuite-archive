@@ -177,16 +177,14 @@ def get_experiment_times(xmldoc):
 	to the file being analyzed and that the program used to make said vetoes file
 	is ligolw_segments_from_cats.
 	"""
-	if ".executable/ligolw_segments_from_cats" in process_tbl.getColumnByName("program")
+	# get the process table
+	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+
+	if ".executables/ligolw_segments_from_cats" in process_tbl.getColumnByName("program"):
 		# get the segment_summary table
-		segsum_tbl = lsctables.table.get_table(xmldoc, lsctables.SegmentSummaryTable.tableName)
-		expr_start_time = []
-		expr_end_time = []
-		for row segment_summary_tbl:
-			start_time.append(row.start_time)
-			end_time.append(row.end_time)
-		expr_start_time = min(expr_start_time)
-		expr_end_time = max(expr_end_time)
+		segment_summary_tbl = lsctables.table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+		expr_start_time = min(segment_summary_tbl.getColumnByName("start_time"))
+		expr_end_time = max(segment_summary_tbl.getColumnByName("end_time"))
 	else:
 		# if the segments tables are not in the file, set these times to None
 		expr_start_time = None
