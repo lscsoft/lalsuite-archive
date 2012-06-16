@@ -172,26 +172,25 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
 
 def get_experiment_times(xmldoc):
 	"""
-	Use the start & end-times stored in the process params table to define 
+	Use the start & end-times stored in the segment_summary table to define 
 	the experiment times.  This presumes that the vetoes file has been added
 	to the file being analyzed and that the program used to make said vetoes file
 	is ligolw_segments_from_cats.
 	"""
-	# Find the process and process_params tables
-	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
-	
-	# Get the experiment start-time & end-time
-	segment_proc_ids = []
-	for row in process_tbl:
-		if row.program == ".executables/ligolw_segments_from_cats": 
-			segment_proc_ids.append(row.process_id)
-	for row in process_params_tbl:
-		if row.process_id == segment_proc_ids[0]:
-			if row.param == "--gps-start-time":
-				expr_start_time = int(row.value)
-			elif row.param == "--gps-end-time":
-				expr_end_time = int(row.value)
+	if ".executable/ligolw_segments_from_cats" in process_tbl.getColumnByName("program")
+		# get the segment_summary table
+		segsum_tbl = lsctables.table.get_table(xmldoc, lsctables.SegmentSummaryTable.tableName)
+		expr_start_time = []
+		expr_end_time = []
+		for row segment_summary_tbl:
+			start_time.append(row.start_time)
+			end_time.append(row.end_time)
+		expr_start_time = min(expr_start_time)
+		expr_end_time = max(expr_end_time)
+	else:
+		# if the segments tables are not in the file, set these times to None
+		expr_start_time = None
+		expr_end_time = None
 
 	return expr_start_time, expr_end_time
 
@@ -284,10 +283,10 @@ def get_experiment_type(xmldoc, time_slide_dict):
 	if len(time_slide_dict) == 1:
 		if 'inspinj' in program:
 			datatypes = ['simulation']
-			sim_proc_id = process_tbl.get_ids_by_program("inspinj")
+			sim_proc_id = str(process_tbl.get_ids_by_program("inspinj").pop())
 		elif 'rinj' in program:
 			datatypes = ['simulation']
-			sim_proc_id = process_tbl.get_ids_by_program("rinj")
+			sim_proc_id = str(process_tbl.get_ids_by_program("rinj").pop())
 		else:
 			datatypes = ['all_data']
 			sim_proc_id = None
@@ -483,17 +482,9 @@ def make_experiment_tables(xmldoc, **cmdline_opts):
 	experiment_summary, and experiment_map tables.	
 	"""
 
-	try:
-		# Does the segment_summary table exist?
-		segment_summ_tbl = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+	generate_experiment_tables(xmldoc, **cmdline_opts)
 
-		generate_experiment_tables(xmldoc, **cmdline_opts)
-		populate_experiment_map(xmldoc, cmdline_opts["vetoes_name"], verbose = cmdline_opts["verbose"])
-		depopulate_experiment_tables(xmldoc, verbose = cmdline_opts["verbose"])
-	except ValueError:
-		# FIXME: The code which populates the experiment tables relies on the segment
-		# tables existing in the input file to ligolw_thinca. If these tables do not
-		# exist, then the experiment tables are not made. The easiest fix is to just
-		# add segments and vetoes information to each thinca file, event at cat-1.
-		print >> sys.stderr, "WARNING: the experiment tables will not be made - file lacks segments tables" \
+	populate_experiment_map(xmldoc, cmdline_opts["vetoes_name"], verbose = cmdline_opts["verbose"])
+
+	depopulate_experiment_tables(xmldoc, verbose = cmdline_opts["verbose"])
 
