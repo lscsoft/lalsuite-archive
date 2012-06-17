@@ -167,7 +167,7 @@ print "Parsing the ihope cache..."
 
 coinc_tag = cp.get('pipeline', 'coinc-file-tag')
 ihope_cache = [line for line in file(options.ihope_cache) \
-  if coinc_tag in line or " INJECTIONS" in line or search_file_tag in line]
+  if coinc_tag in line or " INJECTIONS" in line]
 
 thinca_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if coinc_tag in entry])
@@ -372,13 +372,17 @@ for tag in user_tags:
   file_sieve = '*' + tag
   thinca_usertag_cache = thinca_cache.sieve( description = file_sieve, exact_match = True )
 
-  # get distinct on_instruments in the thinca cache
+  # get distinct on_instruments in the thinca_usertag cache
   distinct_instrument_sets = set([ entry.observatory for entry in thinca_usertag_cache ])
   # from the distinct_instrument_sets figure out what distinct ifos there are
   distinct_ifo_set = set()
   for on_instruments in distinct_instrument_sets:
     distinct_ifo_set |= lsctables.instrument_set_from_ifos(on_instruments)
   distinct_ifos = ''.join(sorted(distinct_ifo_set))
+
+  # get the veto category
+  cat_num = str(get_veto_cat_from_tag( tag ))
+  veto_cat = '_'.join(['CAT', cat_num, 'VETO'])
 
   # create cache name from what's in the output cache
   cache_type = thinca_usertag_cache[0].description
