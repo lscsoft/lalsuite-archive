@@ -161,38 +161,34 @@ dag = pipeline.CondorDAG(logfile)
 dag.set_dag_file(basename)
 
 ##############################################################################
-# Open the ihope cache and sort THINCA_SECOND files by user_tag
+# Open the ihope cache and create THINCA cache
 
 print "Parsing the ihope cache..."
-coinc_zero_lag_tag = cp.get('pipeline', 'coinc-file-tag')
-coinc_slide_tag = cp.get('pipeline', 'coinc-slide-file-tag')
-search_file_tag = cp.get('pipeline', 'search-file-tag')
-ihope_cache = [line for line in file(options.ihope_cache) \
-  if coinc_zero_lag_tag in line or coinc_slide_tag in line \
-  or " INJECTIONS" in line or search_file_tag in line]
 
-zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
-  if coinc_zero_lag_tag in entry])
-slide_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
-  if coinc_slide_tag in entry])
+coinc_tag = cp.get('pipeline', 'coinc-file-tag')
+ihope_cache = [line for line in file(options.ihope_cache) \
+  if coinc_tag in line or " INJECTIONS" in line or search_file_tag in line]
+
+thinca_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
+  if coinc_tag in entry])
 inj_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache if \
   " INJECTIONS" in entry])
-all_inspirals_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
-  if search_file_tag in entry]) 
 
 del ihope_cache
 
-# get the user tags from the zero_lag_cache
-# for two stage runs, ihope sticks the instrument time in after the program name,
-# e.g., THINCA_SECONCD_H1L1_USER_TAG whereas for one stage pipelines it's
-# THINCA_FIRST_USER_TAG.
-if 'SECOND' in coinc_zero_lag_tag:
-  skip_tags = 3
-else:
-  skip_tags = 2
+# get the USERTAGS from the thinca_cache
+# for single stage runs with ssipe, the thinca's output is of the form
+# IFOs_THINCA_UserTag_StartTime_Duration.xml.gz
+# where UserTag = TiSiNum_RunName_CAT_X_VETO
+
+skip_tags = 1
 user_tags = set([ '_'.join([ entry.description.split('_')[ii] 
   for ii in range( skip_tags, len(entry.description.split('_')) ) ])
-  for entry in zero_lag_cache ])
+  for entry in thinca_cache ])
+
+# only do the cats requested
+if do_cats:
+  user_tags = set([tag for tag in user_tags if str(get_veto_cat_from_tag(tag)) in do_cats])
 
 # create a list to store non-injection databases for later caching
 non_sim_dbs = []
@@ -365,9 +361,6 @@ veto_files = {}
 cluster_nodes = {}
 injfind_parents = {}
 sim_tags = []
-# only do the cats requested
-if do_cats:
-  user_tags = set([tag for tag in user_tags if str(get_veto_cat_from_tag(tag)) in do_cats])
 
 for tag in user_tags:
 
