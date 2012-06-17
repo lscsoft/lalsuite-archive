@@ -391,17 +391,17 @@ for tag in user_tags:
   fp.close()
 
   ############################################################################
-  # Setup a LigolwSqliteNode for putting thinca_to_coincs into a sql db
+  # Setup a LigolwSqliteNode for putting thinca into a sql db
 
-  print "\tsetting up node to put thinca_to_coinc files into a SQLite database..."
+  print "\tsetting up node to put thinca files into a SQLite database..."
   
   # set node options
-  t2c2sql_node = pipeline.LigolwSqliteNode( sql_replace_job )
-  t2c2sql_node.set_category('ligolw_sqlite')
-  t2c2sql_node.set_input_cache( t2c_output_cache )
-  t2c2sql_node.set_tmp_space( tmp_space )
+  t2sql_node = pipeline.LigolwSqliteNode( sql_replace_job )
+  t2sql_node.set_category('ligolw_sqlite')
+  t2sql_node.set_input_cache( thinca_cache_name )
+  t2sql_node.set_tmp_space( tmp_space )
   # database name has form: 
-  # distinct_ifos-USER_TAG_CBC_RAW_RESULTS-cache_start-cache_duration.sqlite
+  # distinct_ifos-USER_TAG_RAW_CBC_RESULTS-cache_start-cache_duration.sqlite
   db_type = tag + '_RAW_CBC_RESULTS'
   raw_result_db = '.'.join([
     '-'.join([ distinct_ifos, db_type, experiment_start, experiment_duration ]),
@@ -411,15 +411,12 @@ for tag in user_tags:
     print "WARNING: Raw result database %s already exists; " % raw_result_db + \
     "if it isn't moved, it will be overwritten when DAG is submitted."
     
-  t2c2sql_node.set_database( raw_result_db )
+  t2sql_node.set_database( raw_result_db )
   
-  # set parent nodes to be all the thinca_to_coinc nodes
-  [t2c2sql_node.add_parent( node ) for node in t2c_nodes]
-      
-  dag.add_node( t2c2sql_node )
+  dag.add_node( t2sql_node )
   
   ############################################################################
-  # Setup a DBSimplifyNode to clean up the output of the t2c2sql_node 
+  # Setup a DBSimplifyNode to clean up the output of the t2sql_node 
   
   print "\tsetting up dbsimplify node to clean the database..."
   
@@ -430,7 +427,7 @@ for tag in user_tags:
   dbsimplify_node.set_database( raw_result_db )
   
   # set parent node
-  dbsimplify_node.add_parent( t2c2sql_node )
+  dbsimplify_node.add_parent( t2sql_node )
   
   dag.add_node( dbsimplify_node )
 
