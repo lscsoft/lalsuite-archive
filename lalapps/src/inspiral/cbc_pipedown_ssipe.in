@@ -203,20 +203,6 @@ time_column = cp.get('pipeline', 'time-column')
 ##############################################################################
 # Create the needed jobs to be run
 
-# thinca_to_coinc jobs
-# Note: the ringdown pipeline actually uses rinca_to_coinc, but that's ok b/c
-# both programs have the same options. The difference is handled in the condor
-# section of the ini file.
-t2c_job = inspiral.ThincaToCoincJob(cp)
-t2c_job.set_experiment_start_time(options.gps_start_time)
-t2c_job.set_experiment_end_time(options.gps_end_time)
-# because t2c simulation jobs require the --simulation option to be set, these
-# must be separate
-t2c_sim_job = inspiral.ThincaToCoincJob(cp)
-t2c_sim_job.set_simulation()
-t2c_sim_job.set_experiment_start_time(options.gps_start_time)
-t2c_sim_job.set_experiment_end_time(options.gps_end_time)
-
 # ligolw_sqlite jobs; there are 4 different types:
 # 1. sql_replace_job: reads from a cache and writes to a database
 #   with the --replace option set (only for adding thinca_to_coinc files )
@@ -301,8 +287,6 @@ mvsc_use_forest_job = inspiral.MvscUseForestJob(cp)
 mvsc_update_sql_job = inspiral.MvscUpdateSqlJob(cp)
 
 # set submit file names
-t2c_job.set_sub_file( '.'.join([ basename, 'thinca_to_coinc', 'sub' ]) )
-t2c_sim_job.set_sub_file( '.'.join([ basename, 'simulation', 'thinca_to_coinc', 'sub' ]) )
 sql_replace_job.set_sub_file( '.'.join([ basename, 'replace_from_cache', 'ligolw_sqlite', 'sub' ]) )
 sql_fromcache_job.set_sub_file( '.'.join([ basename, 'add_from_cache', 'ligolw_sqlite', 'sub' ]) )
 sql_frominput_job.set_sub_file( '.'.join([ basename, 'add_from_input', 'ligolw_sqlite', 'sub' ]) )
@@ -340,8 +324,6 @@ if options.generate_all_data_plots:
   plotcumhist_job.set_sub_file( '.'.join([ basename, 'plotcumhist', 'sub' ]) )
 
 # set memory requirments for memory intensive jobs
-t2c_job.add_condor_cmd("requirements", "Memory > 1000")
-t2c_sim_job.add_condor_cmd("requirements", "Memory > 1000")
 sql_replace_job.add_condor_cmd("requirements", "Memory > 1000")
 sql_fromcache_job.add_condor_cmd("requirements", "Memory > 1000")
 sql_frominput_job.add_condor_cmd("requirements", "Memory > 1000")
@@ -369,7 +351,7 @@ for tag in user_tags:
   # determine whether or not this was an injection run by checking if there
   # is an injection file for this tag
 
-  file_sieve = '_'.join([ r'INJECTIONS_[0-9]{1,}', tag.split('_CAT')[0] ]) + r'$'
+  file_sieve = '_'.join([ r'INJECTIONS_[0-9]{1,}', '_'.join(tag.split('_CAT')[0].split('_')[1:]) ]) + r'$'
   inj_file = [ entry for entry in inj_cache if re.match(file_sieve, entry.description) is not None ]
   if len(inj_file) == 0:
     simulation = False
@@ -382,106 +364,30 @@ for tag in user_tags:
 
 
   ############################################################################
-  # Setup thinca_to_coinc nodes
+  # Creating the thinca_user_tag cache file and writing it to disk
 
-  print "\tsetting up thinca_to_coinc nodes..."
+  print "\tcreating the thinca_usertag cache file..."
 
-  # set job options
-
-  # sieve zero_lag_cache for THINCA_SECOND files with this tag
+  # sieve thinca_cache for THINCA files with this tag
   file_sieve = '*' + tag
-  thinca_cache = zero_lag_cache.sieve( description = file_sieve, exact_match = True )
-  # if not an injection run, check that there are an equal number of
-  # slide files
-  if not simulation and \
-    len(slide_cache.sieve( description = file_sieve, exact_match = True )) != \
-    len(thinca_cache):
-    raise ValueError, "Number of %s slide files doesn't equal number of zero-lag files." % tag
-
-  # also sieve all_inspirals_cache
-  file_sieve = tag.split('_CAT_')[0]
-  inspiral_cache = all_inspirals_cache.sieve( description = file_sieve )
+  thinca_usertag_cache = thinca_cache.sieve( description = file_sieve, exact_match = True )
 
   # get distinct on_instruments in the thinca cache
-  distinct_instrument_sets = set([ entry.observatory for entry in thinca_cache ])
+  distinct_instrument_sets = set([ entry.observatory for entry in thinca_usertag_cache ])
   # from the distinct_instrument_sets figure out what distinct ifos there are
   distinct_ifo_set = set()
   for on_instruments in distinct_instrument_sets:
     distinct_ifo_set |= lsctables.instrument_set_from_ifos(on_instruments)
   distinct_ifos = ''.join(sorted(distinct_ifo_set))
 
-  # get the veto file
-  cat_num = str(get_veto_cat_from_tag( tag ))
-  veto_file_path = cp.get('input', 'ihope-segments-directory')
-  veto_file_name = ''.join([
-    distinct_ifos, '-VETOTIME_CAT_', cat_num, '-', experiment_start, '-', experiment_duration, 
-    '.xml' ])
-  veto_file = '/'.join([ veto_file_path, veto_file_name ])
-  if not os.path.exists( veto_file ):
-    raise ValueError, "Veto file %s could not be found." % veto_file
-  # store the veto file for additional later use
-  veto_cat = '_'.join(['CAT', cat_num, 'VETO'])
-  veto_files[veto_cat] = veto_file
-  # get the veto segments name
-  veto_segs_name = get_veto_segments_name( cat_num, cumulative = True )
-
-  t2c_output = []
-  t2c_nodes = []
-  this_cache = lal.Cache()
-  for on_instruments in distinct_instrument_sets:
-    instrument_cache = thinca_cache.sieve( ifos = on_instruments, exact_match = True )
-    instrument_cache.sort()
-    cache_start_time = int(experiment_start)
-    for entry_num, entry in enumerate(instrument_cache):
-      if not this_cache:
-        # first entry; store type for cache naming
-        # and add all the second_inspiral files to the cache
-        cache_type = entry.description
-        this_cache.extend(inspiral_cache)
-      # Add the zero-lag thinca entry to this_cache 
-      this_cache.append(entry)
-      # if this isn't a simulation add the slide file
-      if not simulation:
-        slide_entry = lal.CacheEntry(re.sub(coinc_zero_lag_tag, coinc_slide_tag, str(entry)))
-        this_cache.append(slide_entry)
-      # if n*20th entry or last remainder, write to cache
-      if (entry_num + 1) % 20 == 0 or (entry_num + 1) == len(instrument_cache):
-        # set duration to be end of this entry - start of first entry in cache
-        cache_duration = entry.segment[1].seconds - cache_start_time
-        this_cache_name = '.'.join([ 
-          '-'.join([on_instruments, cache_type, str(cache_start_time), str(cache_duration)]),
-          'cache' ])
-        this_cache_file = open( this_cache_name, 'w' )
-        this_cache.tofile(this_cache_file)
-        this_cache_file.close()
-        # write node
-        if simulation:
-          this_t2c_node = inspiral.ThincaToCoincNode(t2c_sim_job)
-        else:
-          this_t2c_node = inspiral.ThincaToCoincNode(t2c_job)
-        this_t2c_node.set_category('thinca_to_coinc')
-        this_t2c_node.set_instruments(lsctables.ifos_from_instrument_set( distinct_ifo_set ))
-        this_t2c_node.set_input_cache(this_cache_name)
-        this_t2c_node.set_veto_segments( veto_file )
-        this_t2c_node.set_veto_segments_name( veto_segs_name )
-        dag.add_node(this_t2c_node)
-        t2c_nodes.append(this_t2c_node)
-        # add output files to t2c_output
-        t2c_output += this_t2c_node.get_output_from_cache( coinc_zero_lag_tag )
-        # set end-time of last entry to be start time of next cache
-        cache_start_time = entry.segment[1].seconds
-        del this_cache
-        this_cache = lal.Cache()
-      
-  # write output cache
-  output_cache = lal.Cache().from_urls(t2c_output)
   # create cache name from what's in the output cache
-  cache_type = output_cache[0].description
-  t2c_output_cache = '.'.join([ 
+  cache_type = thinca_usertag_cache[0].description
+  thinca_cache_name = '.'.join([ 
     '-'.join([ distinct_ifos, cache_type, experiment_start, experiment_duration ]), 
     'cache' ])
-  fp = open( t2c_output_cache, 'w' )
-  output_cache.tofile( fp )
+  # write output cache
+  fp = open( thinca_cache_name, 'w' )
+  thinca_usertag_cache.tofile( fp )
   fp.close()
 
   ############################################################################
