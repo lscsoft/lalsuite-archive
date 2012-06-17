@@ -612,24 +612,6 @@ for result_db in result_dbs_cache:
     dag.add_node( dbsimplify2_node )
 
   ############################################################################
-  # Setup a LigolwSqliteNode for putting the veto-segments file into the
-  # database 
-  
-  # write node to add the veto file
-  veto2sql_node = pipeline.LigolwSqliteNode( sql_frominput_job )
-  veto2sql_node.set_category('ligolw_sqlite')
-  veto2sql_node.add_file_arg( veto_files[veto_cat] )
-  veto2sql_node.set_tmp_space( tmp_space )
-  veto2sql_node.set_database( result_db.path() )
-  
-  # set parent node
-  veto2sql_node.add_parent( cluster_nodes[tag] )
-  if 'FULL_DATA' in tag and veto_cat in sim_caches:
-    veto2sql_node.add_parent( dbsimplify2_node )
-  
-  dag.add_node( veto2sql_node )
-  
-  ############################################################################
   # Compute durations in the database
 
   print "\tsetting up compute_durations node..."
@@ -641,7 +623,9 @@ for result_db in result_dbs_cache:
   comp_durs_node.set_database( result_db.path() )
 
   # set parent node
-  comp_durs_node.add_parent( veto2sql_node )
+  comp_durs_node.add_parent( cluster_nodes[tag] )
+  if 'FULL_DATA' in tag and veto_cat in sim_caches:
+    veto2sql_node.add_parent( dbsimplify2_node )
 
   dag.add_node(comp_durs_node)
   
