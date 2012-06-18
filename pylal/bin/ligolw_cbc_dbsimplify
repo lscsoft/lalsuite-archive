@@ -115,6 +115,7 @@ proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dic
 # create needed functions
 connection.create_aggregate("concat_2cols", 2, sqlutils.aggregate_concatenate)
 connection.create_function("concat_5cols", 5, sqlutils.concatenate)
+connection.create_function("concat_7cols", 7, sqlutils.concatenate)
 
 # create needed indices on tables if they don't already exist
 current_indices = [index[0] for index in 
@@ -490,24 +491,22 @@ sqlscript = """
 -- to experiment ids that are to be discarded, in the same manner
 -- as done above
 
+CREATE TEMP TABLE expr_info AS
+    SELECT
+        expr.experiment_id AS eid,
+        concat_7cols(expr.search, expr.search_group, expr.instruments,
+            expr.gps_start_time, expr.gps_end_time, expr.lars_id, expr.comments) AS info
+    FROM experiment AS expr;
+
 CREATE TEMP TABLE _eidmap_ AS
     SELECT
-        old_exp.experiment_id AS old_eid,
-        MIN(new_exp.experiment_id) AS new_eid
+        old_exp.esid AS old_eid,
+        MIN(new_exp.esid) AS new_eid
     FROM
-        experiment AS old_exp
-        JOIN experiment AS new_exp ON (
-            (new_exp.search == old_exp.search
-                OR new_exp.search IS NULL AND old_exp.search IS NULL)
-            AND new_exp.search_group == old_exp.search_group
-            AND new_exp.instruments == old_exp.instruments
-            AND new_exp.gps_start_time == old_exp.gps_start_time
-            AND new_exp.gps_end_time == old_exp.gps_end_time
-            AND (new_exp.lars_id == old_exp.lars_id
-                OR (new_exp.lars_id IS NULL AND old_exp.lars_id IS NULL))
-            AND (new_exp.comments == old_exp.comments
-                OR (new_exp.comments IS NULL AND old_exp.comments IS NULL)) )
-    GROUP BY old_exp.experiment_id;
+        expr_info AS old_exp
+        JOIN expr_info AS new_exp ON (
+            old_exp.info == new_exp.info)
+    GROUP BY old_esid;
 
 DROP INDEX e_sgitlc_index;
 
@@ -530,20 +529,22 @@ DROP INDEX em_old_index;
 
 -- experiment summary clean up
 
--- create an table to map esids to be deleted to esids to be saved
+-- create a table to map esids to be deleted to esids to be saved
+CREATE TEMP TABLE expr_summ_info AS
+    SELECT
+        expr_summ.experiment_summ_id AS esid,
+        concat_5cols(expr_summ.experiment_id, expr_summ.time_slide_id, 
+            expr_summ.veto_def_name, expr_summ.datatype, expr_summ.sim_proc_id) AS info
+    FROM experiment_summary AS expr_summ;
+
 CREATE TEMP TABLE _esidmap_ AS
     SELECT
-        old_expsumm.experiment_summ_id AS old_esid,
-        MIN(new_expsumm.experiment_summ_id) AS new_esid
-    FROM 
-        experiment_summary AS old_expsumm
-        JOIN experiment_summary AS new_expsumm ON (
-            old_expsumm.experiment_id == new_expsumm.experiment_id
-            AND old_expsumm.time_slide_id == new_expsumm.time_slide_id
-            AND old_expsumm.veto_def_name == new_expsumm.veto_def_name
-            AND old_expsumm.datatype == new_expsumm.datatype
-            AND (old_expsumm.sim_proc_id == new_expsumm.sim_proc_id
-                OR (old_expsumm.sim_proc_id IS NULL AND new_expsumm.sim_proc_id IS NULL)) ) 
+        old_expsumm.esid AS old_esid,
+        MIN(new_expsumm.esid) AS new_esid
+    FROM
+        expr_summ_info AS old_expsumm
+        JOIN expr_summ_info AS new_expsumm ON (
+            old_expsumm.info == new_expsumm.info)
     GROUP BY old_esid;
 
 DROP INDEX es_etvds_index;
