@@ -269,7 +269,6 @@ if cp.has_section('repop_coinc'):
 
 # all other jobs: all the nodes share the same static options for these
 dbsimplify_job = inspiral.DBSimplifyJob(cp)
-dbaddinj_job = inspiral.DBAddInjJob(cp)
 injfind_job = inspiral.InjFindJob(cp)
 comp_durs_job = inspiral.ComputeDurationsJob(cp)
 cluster_job = inspiral.ClusterCoincsJob(cp)
@@ -292,7 +291,6 @@ sql_fromcache_job.set_sub_file( '.'.join([ basename, 'add_from_cache', 'ligolw_s
 sql_frominput_job.set_sub_file( '.'.join([ basename, 'add_from_input', 'ligolw_sqlite', 'sub' ]) )
 sql_extract_job.set_sub_file( '.'.join([ basename, 'extract', 'ligolw_sqlite', 'sub' ]) )
 dbsimplify_job.set_sub_file( '.'.join([ basename, 'dbsimplify', 'sub' ]) )
-dbaddinj_job.set_sub_file( '.'.join([ basename, 'dbaddinj', 'sub' ]) )
 injfind_job.set_sub_file( '.'.join([ basename, 'injfind', 'sub' ]) )
 comp_durs_job.set_sub_file( '.'.join([ basename, 'compute_durations', 'sub' ]) )
 for repoptag, repopjob in repop_coinc_jobs:
@@ -488,20 +486,6 @@ for tag in user_tags:
   # Do additional jobs for injection tags
 
   if simulation:
-    # add dbaddinj node
-    print "\tsetting up dbaddinj node to add the injection file..."
-  
-    # set node options
-    dbaddinj_node = inspiral.DBAddInjNode( dbaddinj_job )
-    dbaddinj_node.set_category('dbaddinj')
-    dbaddinj_node.set_tmp_space( tmp_space )
-    dbaddinj_node.set_database( result_db )
-    dbaddinj_node.set_injection_file( inj_file )
-  
-    dbaddinj_node.add_parent( cluster_node )
-  
-    dag.add_node( dbaddinj_node )
-
     # add sqlite extract node
     print "\tsetting up ligolw_sqlite node to extract the injection database to an xml..."
     
@@ -513,7 +497,7 @@ for tag in user_tags:
     sim_xml = result_db.replace('.sqlite', '.xml')
     simxml_node.set_xml_output( sim_xml )
 
-    simxml_node.add_parent( dbaddinj_node )
+    simxml_node.add_parent( cluster_node )
     dag.add_node( simxml_node )
 
     # add to list of injfind parents
