@@ -922,13 +922,7 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
     # set colorbar
     if colorbar:
-      if len(self.ax.lines) and len(x):
-        self.add_colorbar(self.ax.scatter(x[0], y[0], c=cmin, cmap=cmap,\
-                                          vmin=cmin, vmax=cmax, visible=False),\
-                          clim=[cmin, cmax], log=re.search('log', ctype, re.I),\
-                          label=self.color_label)
-      else:
-        self.add_colorbar(self.ax.scatter([1], [1], c=1, cmap=cmap,\
+      self.add_colorbar(self.ax.scatter([1], [1], c=1, cmap=cmap,\
                                           vmin=cmin, vmax=cmax, visible=False),\
                           clim=[cmin, cmax], label=self.color_label)
     elif hidden_colorbar:
