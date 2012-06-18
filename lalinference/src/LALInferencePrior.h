@@ -188,6 +188,12 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
 /** Uniform prior for correlated analytic Gaussian likelihood */
 REAL8 LALInferenceAnalyticGaussianCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
 
+/** Uniform prior for correlated analytic bi-modal Gaussian likelihood */
+REAL8 LALInferenceAnalyticBimodalGaussianCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+
+/** Uniform prior for Rosenbrock likelihood */
+REAL8 LALInferenceRosenbrockCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+
 /** Prior that checks for minimum and maximum prior range specified in runState->priorArgs
     and returns 0.0 if sample lies inside the boundaries, -DBL_MAX otherwise.
     Can be used with MinMaxPrior functions.
