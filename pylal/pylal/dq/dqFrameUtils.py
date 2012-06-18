@@ -1306,10 +1306,10 @@ def get_control_channel(cache, superchannel, channel, start=None, end=None,\
     if os.access(frame.path(), os.R_OK):
       frtime, frdata = fromframefile(frame.path(), str(superchannel),\
                                      start=start, end=end)
-      channelList = parse_composite_channels(superchannel)
+      channels_list = parse_composite_channels(superchannel)
       chanIndex = channels_list.find(channel)
-      channelData = separate_composite_data(frdata, len(channelList))[chanIndex]
-
+      channelData = separate_composite_data(frdata,\
+                                            len(channels_list))[chanIndex]
       time = numpy.append(time, frtime)
       data = numpy.append(data, channelData)
     else:
