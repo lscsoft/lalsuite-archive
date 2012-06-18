@@ -625,7 +625,7 @@ for result_db in result_dbs_cache:
   # set parent node
   comp_durs_node.add_parent( cluster_nodes[tag] )
   if 'FULL_DATA' in tag and veto_cat in sim_caches:
-    veto2sql_node.add_parent( dbsimplify2_node )
+    comp_durs_node.add_parent( dbsimplify2_node )
 
   dag.add_node(comp_durs_node)
   
