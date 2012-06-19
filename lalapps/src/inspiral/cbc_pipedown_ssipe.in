@@ -181,7 +181,7 @@ del ihope_cache
 # IFOs_THINCA_UserTag_StartTime_Duration.xml.gz
 # where UserTag = TiSiNum_RunName_CAT_X_VETO
 
-skip_tags = 1
+skip_tags = 2
 user_tags = set([ '_'.join([ entry.description.split('_')[ii] 
   for ii in range( skip_tags, len(entry.description.split('_')) ) ])
   for entry in thinca_cache ])
@@ -349,7 +349,7 @@ for tag in user_tags:
   # determine whether or not this was an injection run by checking if there
   # is an injection file for this tag
 
-  file_sieve = '_'.join([ r'INJECTIONS_[0-9]{1,}', '_'.join(tag.split('_CAT')[0].split('_')[1:]) ]) + r'$'
+  file_sieve = '_'.join([ r'INJECTIONS_[0-9]{1,}', tag.split('_CAT_')[0] ]) + r'$'
   inj_file = [ entry for entry in inj_cache if re.match(file_sieve, entry.description) is not None ]
   if len(inj_file) == 0:
     simulation = False
