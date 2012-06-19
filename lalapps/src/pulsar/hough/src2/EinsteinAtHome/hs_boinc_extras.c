@@ -469,21 +469,25 @@ static void sighandler(int sig)
 #endif /* __X86__ */
   /* now get TRUE stacktrace */
   nostackframes = backtrace (stackframes, 64);
-  fputs(myltoa(nostackframes, buf, sizeof(buf)), stderr);
-  fputs(" stack frames obtained for this thread:\n", stderr);
-  /* overwrite sigaction with caller's address */
-  stackframes[1] = (void *) uc->uc_mcontext.gregs[REG_EIP];
-  fputs("Use gdb command: 'info line *0xADDRESS' to print corresponding line numbers.\n",stderr);
-  backtrace_symbols_fd(stackframes, nostackframes, fileno(stderr));
+  if (nostackframes == 0) {
+    fputs("no stack frames obtained for this thread:\n", stderr);
+  } else {
+    fputs(myltoa(nostackframes, buf, sizeof(buf)), stderr);
+    fputs(" stack frames obtained for this thread:\n", stderr);
+    /* overwrite sigaction with caller's address */
+    stackframes[1] = (void *) uc->uc_mcontext.gregs[REG_EIP];
+    fputs("Use gdb command: 'info line *0xADDRESS' to print corresponding line numbers.\n",stderr);
+    backtrace_symbols_fd(stackframes, nostackframes, fileno(stderr));
 #if defined(__i386__) && defined(EXT_STACKTRACE)
-  fputs("Trying extended stacktrace:\n", stderr);
-  backtracesymbols = backtrace_symbols(stackframes, nostackframes);
-  if(backtracesymbols != NULL) {
-    backtrace_symbols_fd_plus((const char *const *)(void**)backtracesymbols, nostackframes, fileno(stderr));
-    free(backtracesymbols);
+    fputs("Trying extended stacktrace:\n", stderr);
+    backtracesymbols = backtrace_symbols(stackframes, nostackframes);
+    if(backtracesymbols != NULL) {
+      backtrace_symbols_fd_plus((const char *const *)(void**)backtracesymbols, nostackframes, fileno(stderr));
+      free(backtracesymbols);
+    }
+#endif /* EXT_STACKTRACE */
+    fputs("\nEnd of stcaktrace\n",stderr);
   }
-#endif /* __X86__ */
-  fputs("\nEnd of stcaktrace\n",stderr);
 #endif /* __GLIBC__ */
 
   if (global_status)
