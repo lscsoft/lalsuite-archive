@@ -500,13 +500,13 @@ CREATE TEMP TABLE expr_info AS
 
 CREATE TEMP TABLE _eidmap_ AS
     SELECT
-        old_exp.esid AS old_eid,
-        MIN(new_exp.esid) AS new_eid
+        old_exp.eid AS old_eid,
+        MIN(new_exp.eid) AS new_eid
     FROM
         expr_info AS old_exp
         JOIN expr_info AS new_exp ON (
             old_exp.info == new_exp.info)
-    GROUP BY old_esid;
+    GROUP BY old_eid;
 
 DROP INDEX e_sgitlc_index;
 
@@ -590,8 +590,8 @@ UPDATE experiment_map
         FROM _esidmap_
         WHERE experiment_map.experiment_summ_id == old_esid);
 
-DROP INDEX esidmap_index
-DROP TABLE _esidmap_
+DROP INDEX esidmap_index;
+DROP TABLE _esidmap_;
 """
 if opts.debug:
     print >> sys.stderr, sqlscript
