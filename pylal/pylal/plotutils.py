@@ -157,6 +157,25 @@ def method_callable_once(f):
     _new.__name__ = f.__name__
     return _new
 
+_dq_params = {"text.usetex": True,   "text.verticalalignment": "center",
+              "lines.linewidth": 2,  "xtick.labelsize": 16,
+              "ytick.labelsize": 16, "axes.titlesize": 22,
+              "axes.labelsize": 16,  "axes.linewidth": 1,
+              "grid.linewidth": 1,   "legend.fontsize": 16,
+              "legend.loc": "best",  "figure.figsize": [12,6],
+              "figure.dpi": 80,      "image.origin": 'lower',
+              "axes.grid": True,     "axes.axisbelow": False })
+
+def set_rcParams(params=_dq_params):
+    """
+    Update pylab plot parameters, defaulting to parameters for DQ-style trigger
+    plots.
+    """
+
+    # customise plot appearance
+    pylab.rcParams.update(params)
+
+
 ##############################################################################
 # generic, but usable classes
 
