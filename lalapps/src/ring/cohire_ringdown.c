@@ -895,7 +895,7 @@ int main( int argc, char *argv[] )
   if ( injectFileName || sortTriggers )
   {
     inspiralEventList = XLALSortMultiInspiral( inspiralEventList,
-        *LALCompareMultiInspiralByTime );
+        *LALCompareMultiInspiralByID );
   }
 
   /*
