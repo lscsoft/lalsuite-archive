@@ -113,7 +113,7 @@ xmldoc = dbtables.get_xml(connection)
 proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__, version = git_version.id)
 
 # create needed functions
-connection.create_aggregate("concat_2cols", 2, sqlutils.aggregate_concatenate)
+connection.create_function("concat_2cols", 2, sqlutils.concatenate)
 connection.create_function("concat_5cols", 5, sqlutils.concatenate)
 connection.create_function("concat_7cols", 7, sqlutils.concatenate)
 
@@ -136,6 +136,48 @@ if sqlscript != '':
     if opts.verbose:
         print >> sys.stdout, "Creating needed indices..."
     connection.cursor().executescript(sqlscript)
+
+if opts.verbose:
+   print >> sys.stdout, "Collect useful information from process"
+
+sqlscript = """
+CREATE TEMP TABLE proc_params AS
+    SELECT
+        process.process_id AS proc_id,
+        process.program AS program,
+        group_concat(pp_table.value) AS value,
+        group_concat(pp_table.param) AS params,
+        concat_5cols(process.start_time, process.end_time, process.username,
+            process.node, process.version) AS process_info
+    FROM
+        process_params AS pp_table
+        JOIN process ON (
+            pp_table.process_id == process.process_id)
+    GROUP BY proc_id;
+
+CREATE TEMP TABLE _pidmap_ AS
+    SELECT
+        old_pp_table.proc_id AS old_pid,
+        MIN(new_pp_table.proc_id) AS new_pid,
+        old_pp_table.program AS program
+    FROM
+        proc_params AS old_pp_table
+        JOIN proc_params AS new_pp_table ON (
+            old_pp_table.value == new_pp_table.value
+            AND old_pp_table.process_info == new_pp_table.process_info
+            AND old_pp_table.params == new_pp_table.params
+            AND old_pp_table.program == new_pp_table.program)
+    GROUP BY old_pid;
+
+CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
+
+"""
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+connection.cursor().executescript( sqlscript )
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 if opts.verbose:
    print >> sys.stdout, "Cleaning up the veto_definer and segments tables..."
@@ -207,49 +249,15 @@ if opts.verbose:
 
 sqlscript = """
 --
--- Cleaning up the time_slide table and its related entries in the process
--- & process_params tables
+-- Cleaning up the time_slide table
 --
-
--- Create a table that maps the process_ids of redundant time_slide entries
--- to those entries one is going to keep.
-CREATE TEMP TABLE _pidmap_ AS
-    SELECT
-        old_pp_table.process_id AS old_pid, 
-        MIN(new_pp_table.process_id) AS new_pid
-    FROM
-        process_params AS old_pp_table
-        JOIN process_params AS new_pp_table ON (
-            new_pp_table.value == old_pp_table.value)       
-    WHERE
-        old_pp_table.program == "ligolw_tisi"
-        AND old_pp_table.param == "--inspiral-num-slides"
-    GROUP BY old_pid;
-
-CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
 
 -- Update the process_ids in the time_slide table with the new ids from _pidmap_
 UPDATE time_slide 
     SET process_id = (
         SELECT new_pid 
         FROM _pidmap_ 
-        WHERE old_pid == process_id);
-
-DROP INDEX pidmap_index;
-
--- Delete redundant entries in the process and process_params tables
-DELETE FROM process 
-    WHERE process_id IN (
-        SELECT old_pid 
-        FROM _pidmap_ 
-        WHERE old_pid != new_pid);
-DELETE FROM process_params 
-    WHERE process_id IN (
-        SELECT old_pid 
-        FROM _pidmap_ 
-        WHERE old_pid != new_pid);
-
-DROP TABLE _pidmap_;
+        WHERE process_id == old_pid);
 
 -- Create a table that combines the information about a single time_slide into 
 -- a single row.  This makes comparison between time_slides easier.
@@ -360,6 +368,7 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
 if opts.verbose:
     print >> sys.stdout, "Checking whether this database has simulation tables..."
 
@@ -376,44 +385,6 @@ if len(set(['inspinj','rinj']) & set(programs)) != 0:
     -- Simulation Tables Clean-up
     --
 
-    -- Collect all the process information about the injection runs included
-    -- in this database.  This means the input parameters to either 'inspinj'
-    -- or 'rinj' stored in the process_params table as well as useful info
-    -- from the process table itself.
-
-    CREATE TEMP TABLE injrun_params AS
-        SELECT
-            process.process_id AS proc_id,
-            process.program AS program,
-            group_concat(pp_table.value) AS value,
-            concat_5cols(process.start_time, process.end_time, process.username,
-                process.node, process.version) AS process_info
-        FROM
-            process_params AS pp_table
-            JOIN process ON (
-                pp_table.process_id == process.process_id)
-        WHERE
-            pp_table.program == "inspinj"
-            OR pp_table.program == "rinj"
-        GROUP BY proc_id;
-
-    -- Create a map of process_ids between those redundant entries and those one
-    -- wishes to keep
-    CREATE TEMP TABLE _pidmap_ AS
-        SELECT
-            old_id_table.proc_id AS old_pid,
-            old_id_table.program AS program, 
-            MIN(new_id_table.proc_id) AS new_pid
-        FROM
-            injrun_params AS old_id_table 
-            JOIN injrun_params AS new_id_table ON (
-                new_id_table.value == old_id_table.value
-                AND new_id_table.program == old_id_table.program
-                AND new_id_table.process_info == old_id_table.process_info)       
-        GROUP BY old_pid;
-
-    CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
-
     -- Update sim_proc_ids in the experiment_summary table
     UPDATE experiment_summary 
         SET sim_proc_id = (
@@ -421,29 +392,9 @@ if len(set(['inspinj','rinj']) & set(programs)) != 0:
             FROM _pidmap_ 
             WHERE old_pid == sim_proc_id);
 
-    DROP INDEX pidmap_index;
-
-    -- Delete redundant entries in the process and process_params tables
-    DELETE FROM process 
-        WHERE process_id IN (
-            SELECT old_pid
-            FROM _pidmap_ 
-            WHERE old_pid != new_pid);
-    DELETE FROM process_params 
-        WHERE process_id IN (
-            SELECT old_pid 
-            FROM _pidmap_ 
-            WHERE old_pid != new_pid);
     """
-    if opts.debug:
-        print >> sys.stderr, sqlscript
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-    connection.cursor().executescript( sqlscript )    
-    if opts.debug:
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
     if 'inspinj' in programs:
-        sqlscript = """
+        sqlscript += """
         -- Delete duplicate entries in the simulation tables
         DELETE FROM sim_inspiral 
             WHERE process_id IN (
@@ -453,15 +404,8 @@ if len(set(['inspinj','rinj']) & set(programs)) != 0:
                     old_pid != new_pid
                     AND program == "inspinj");
         """
-        if opts.debug:
-            print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-        connection.cursor().executescript( sqlscript )
-        if opts.debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
     if 'rinj' in programs:
-        sqlscript = """
+        sqlscript += """
         DELETE FROM sim_ringdown 
             WHERE process_id IN (
                 SELECT old_pid 
@@ -470,12 +414,12 @@ if len(set(['inspinj','rinj']) & set(programs)) != 0:
                     old_pid != new_pid
                     AND program == "rinj");
         """
-        if opts.debug:
-            print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-        connection.cursor().executescript( sqlscript )
-        if opts.debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
 if opts.verbose:
@@ -592,6 +536,39 @@ UPDATE experiment_map
 
 DROP INDEX esidmap_index;
 DROP TABLE _esidmap_;
+"""
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+connection.cursor().executescript( sqlscript )
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
+if opts.verbose:
+    print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
+
+sqlscript = """
+-- Remove redundant process rows
+DELETE FROM process 
+    WHERE process_id IN (
+        SELECT old_pid 
+        FROM _pidmap_ 
+        WHERE old_pid != new_pid
+            AND (program = "inspinj"
+                OR program = "rinj"
+                OR program = "ligolw_tisi") );
+DELETE FROM process_params 
+        WHERE process_id IN (
+        SELECT old_pid 
+        FROM _pidmap_ 
+        WHERE old_pid != new_pid
+            AND (program = "inspinj"
+                OR program = "rinj"
+                OR program = "ligolw_tisi") );
+
+DROP INDEX pidmap_index;
+DROP TABLE _pidmap_;
 """
 if opts.debug:
     print >> sys.stderr, sqlscript
