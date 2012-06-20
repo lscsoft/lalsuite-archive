@@ -1159,16 +1159,16 @@ int main( int argc, char *argv[] )
   }
 
   /* Write the results to the inspiral table */
+  if ( vrbflg ) fprintf( stdout, "multi_inspiral... " );
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream,
+          multi_inspiral_table ), &status );
   if ( inspiralEventList )
   {
-    if ( vrbflg ) fprintf( stdout, "multi_inspiral... " );
     outputTable.multiInspiralTable = inspiralEventList;
-    LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlStream,
-          multi_inspiral_table ), &status );
     LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlStream, outputTable,
           multi_inspiral_table ), &status );
-    LAL_CALL( LALEndLIGOLwXMLTable( &status, &xmlStream ), &status);
   }
+  LAL_CALL( LALEndLIGOLwXMLTable( &status, &xmlStream ), &status);
 
   /* close the output file */
   LAL_CALL( LALCloseLIGOLwXMLFile(&status, &xmlStream), &status);
