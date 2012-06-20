@@ -561,6 +561,30 @@ LALCompareMultiInspiralByTime (
   }
 }
 
+int
+LALCompareMultiInspiralByID (
+    const void *a,
+    const void *b
+    )
+
+{
+  const MultiInspiralTable *aPtr = *((const MultiInspiralTable * const *)a);
+  const MultiInspiralTable *bPtr = *((const MultiInspiralTable * const *)b);
+
+  if ( aPtr->event_id->id > bPtr->event_id->id )
+  {
+    return 1;
+  }
+  else if ( aPtr->event_id->id < bPtr->event_id->id )
+  {
+    return -1;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
 /* <lalVerbatim file="MultiInspiralUtilsCP"> */
 int
 XLALMultiSimInspiralTest (
