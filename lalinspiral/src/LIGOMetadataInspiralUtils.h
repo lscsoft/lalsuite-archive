@@ -979,6 +979,12 @@ LALCompareMultiInspiralByTime (
     );
 
 int
+LALCompareMultiInspiralByID(
+    const void *a,
+    const void *b
+    );
+
+int
 XLALMultiSimInspiralTest (
     SimInspiralTable  **simHead,
     MultiInspiralTable **eventHead,
