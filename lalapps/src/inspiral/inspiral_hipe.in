@@ -2250,8 +2250,7 @@ else:
 if inj_file:
   inj_jobs = [sire_job, sire_summary_job, 
     coire_job, coire_slide_job, coire_summary_job, coire_slide_summary_job, 
-    coire2_job, coire2_slide_job, coire2_summary_job, coire2_slide_summary_job,
-    cohire_job, cohire_summary_job, cohire_slide_job, cohire_slide_summary_job]
+    coire2_job, coire2_slide_job, coire2_summary_job, coire2_slide_summary_job]
   inj_jobs.extend(insp_jobs.values())
   inj_jobs.extend(insp_veto_jobs.values())
   inj_jobs.extend(insp_coh_jobs.values())
@@ -2816,27 +2815,27 @@ for ifos in ifo_coincs:
     if not doExtTrig:
       cohire_nodes[ifos] = cohire_segments_individually(cohinsp_nodes[ifos],
           cohire_job, dag, opts.cohire, opts.coherent_inspiral,
-          ifos, 0, inj_file=inj_file, ifotag="COHERENT_" + ifos,
+          ifos, 0, inj_file=None, ifotag="COHERENT_" + ifos,
           usertag=usertag,inspinjNode=inspinj)
 
       if len(cohire_nodes[ifos]):
         cohire_segments(cohire_nodes[ifos], cohire_summary_job, dag,
              opts.summary_coherent_inspiral_triggers,
              opts.cohire, ifos, gps_start_time, gps_end_time,
-             0, inj_file=inj_file, ifotag="SUMMARY_COHERENT_" + ifos,
+             0, inj_file=None, ifotag="SUMMARY_COHERENT_" + ifos,
              usertag=usertag,inspinjNode=inspinj)
 
       if num_slides:
         cohire_slide_nodes[ifos] = cohire_segments_individually(cohinsp_slide_nodes[ifos],
           cohire_slide_job, dag, opts.cohire, opts.coherent_inspiral,
-          ifos, num_slides, inj_file=inj_file, ifotag="COHERENT_" + ifos,
+          ifos, num_slides, inj_file=None, ifotag="COHERENT_" + ifos,
           usertag=usertag,inspinjNode=inspinj)
 
         if len(cohire_slide_nodes[ifos]):
           cohire_segments(cohire_slide_nodes[ifos], cohire_slide_summary_job, dag,
              opts.summary_coherent_inspiral_triggers,
              opts.cohire, ifos, gps_start_time, gps_end_time,
-             num_slides, inj_file=inj_file, ifotag="SUMMARY_COHERENT_" + ifos,
+             num_slides, inj_file=None, ifotag="SUMMARY_COHERENT_" + ifos,
              usertag=usertag,inspinjNode=inspinj)
 
     print "done"
