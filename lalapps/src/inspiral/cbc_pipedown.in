@@ -185,8 +185,6 @@ inj_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache if \
   " INJECTIONS" in entry])
 all_inspirals_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if search_file_tag in entry]) 
-coh_inj_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
-  if "COHIRE_INJECTIONS" in entry])
 coh_zero_lag_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
   if "COHIRE_COHERENT" in entry])
 coh_slide_cache = lal.Cache([lal.CacheEntry(entry) for entry in ihope_cache \
@@ -414,10 +412,7 @@ for tag in user_tags:
   # sieve zero_lag_cache for THINCA_SECOND files with this tag
   file_sieve = '*' + tag
   thinca_cache = zero_lag_cache.sieve( description = file_sieve, exact_match = True )
-  if not simulation:
-    cohire_cache = coh_zero_lag_cache.sieve( description = file_sieve, exact_match = True )
-  else:
-    cohire_cache = coh_inj_cache.sieve( description = file_sieve, exact_match = True )
+  cohire_cache = coh_zero_lag_cache.sieve( description = file_sieve, exact_match = True )
   # if not an injection run, check that there are an equal number of
   # slide files
   if not simulation and \
