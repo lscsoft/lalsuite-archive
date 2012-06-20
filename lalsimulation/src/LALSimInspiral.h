@@ -89,9 +89,29 @@ typedef enum {
    TaylorEt,		/**< UNDOCUMENTED */
    TaylorT4,		/**< UNDOCUMENTED */
    TaylorN,		/**< UNDOCUMENTED */
+<<<<<<< HEAD
    MassiveGraviton,
    NumApproximants	/**< UNDOCUMENTED */
+=======
+   NumApproximants	/**< Number of elements in enum, useful for checking bounds */
+>>>>>>> f16bd969655bcfd5300f5e7bdbdca7471ccebfbc
  } Approximant;
+
+/** Enum of possible values to use for post-Newtonian order. */
+typedef enum {
+  LAL_PNORDER_NEWTONIAN,	/**< Newtonain (leading) order */
+  LAL_PNORDER_HALF,		/**< 0.5PN <==> O(v) */
+  LAL_PNORDER_ONE,		/**< 1PN <==> O(v^2) */
+  LAL_PNORDER_ONE_POINT_FIVE,	/**< 1.5PN <==> O(v^3) */
+  LAL_PNORDER_TWO,		/**< 2PN <==> O(v^4) */
+  LAL_PNORDER_TWO_POINT_FIVE,	/**< 2.5PN <==> O(v^5) */
+  LAL_PNORDER_THREE,		/**< 3PN <==> O(v^6) */
+  LAL_PNORDER_THREE_POINT_FIVE,	/**< 3.5PN <==> O(v^7)  */
+  LAL_PNORDER_PSEUDO_FOUR,	/**< pseudo-4PN tuning coefficients included, true 4PN terms currently unknown */
+  LAL_PNORDER_NUM_ORDER		/**< Number of elements in enum, useful for checking bounds */
+ } LALPNOrder;
+
+
 
 
 /** Enumeration to specify which interaction will be used in the waveform
@@ -119,7 +139,7 @@ typedef enum
   LAL_SIM_INSPIRAL_TAPER_START,		/**< Taper the start of the waveform */
   LAL_SIM_INSPIRAL_TAPER_END,		/**< Taper the end of the waveform */
   LAL_SIM_INSPIRAL_TAPER_STARTEND,	/**< Taper the start and the end of the waveform */
-  LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< UNDOCUMENTED */
+  LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< Number of elements in enum, useful for checking bounds */
 }  LALSimInspiralApplyTaper;
 
 
@@ -446,6 +466,50 @@ int XLALSimInspiralImplementedTDApproximants(
 int XLALSimInspiralImplementedFDApproximants(
     Approximant approximant /**< post-Newtonian approximant for use in waveform production */
     );
+
+/** 
+ * XLAL function to determine approximant from a string.  The string need not 
+ * match exactly, only contain a member of the Approximant enum.
+ */
+int XLALGetApproximantFromString(const CHAR *inString);
+
+/** 
+ * XLAL function to determine PN order from a string.  The string need not 
+ * match exactly, only contain a member of the LALPNOrder enum.
+ */
+int XLALGetOrderFromString(const CHAR *inString);
+
+/** 
+ * XLAL function to determine tapering flag from a string.  The string must 
+ * match exactly with a member of the LALSimInspiralApplyTaper enum. 
+ */
+int XLALGetTaperFromString(const CHAR *inString);
+
+/** 
+ * XLAL function to determine LALSimInspiralInteraction from a string.
+ *
+ * TODO: return the bit sum if the string is a concatenation of several 
+ * interaction terms. Also make names match cases of enum.
+ */
+int XLALGetInteractionFromString(const CHAR *inString);
+
+/** XLAL function to determine axis choice flag from a string */
+int XLALGetFrameAxisFromString(const CHAR *inString);
+
+/** 
+ * XLAL function to determine adaptive integration flag from a string.  Returns
+ * 1 if string contains 'fixedStep', otherwise returns 0 to signal 
+ * adaptive integration should be used.
+ */
+int XLALGetAdaptiveIntFromString(const CHAR *inString);
+
+/** 
+ * XLAL function to determine inspiral-only flag from a string.  Returns
+ * 1 if string contains 'inspiralOnly', otherwise returns 0 to signal 
+ * full inspiral-merger-ringdown waveform should be generated.
+ */
+int XLALGetInspiralOnlyFromString(const CHAR *inString);
+
 
 /**
  * DEPRECATED: USE XLALSimInspiralChooseTDWaveform() INSTEAD
@@ -951,6 +1015,23 @@ int XLALSimInspiralTaylorEtPNRestricted(
 	       	REAL8 r,                  /**< distance of source */
 	       	REAL8 i,                  /**< inclination of source (rad) */
 	       	int O                     /**< twice post-Newtonian phase order */
+		);
+
+/**
+ * Computes the stationary phase approximation to the Fourier transform of
+ * a chirp waveform with phase given by Eq.\eqref{eq_InspiralFourierPhase_f2}
+ * and amplitude given by expanding \f$1/\sqrt{\dot{F}}\f$ to the same order as
+ * the phase.
+ */
+int XLALSimInspiralTaylorF2(
+		COMPLEX16FrequencySeries **htilde, /**< FD waveform */
+		const REAL8 phic,                /**< coalescence GW phase (rad) */
+		const REAL8 deltaF,              /**< frequency resolution */
+		const REAL8 m1_SI,               /**< mass of companion 1 (kg) */
+		const REAL8 m2_SI,               /**< mass of companion 2 (kg) */
+		const REAL8 fStart,              /**< start GW frequency (Hz) */
+		const REAL8 r,                   /**< distance of source (m) */
+		const UINT4 O                    /**< twice PN phase order */
 		);
 
 

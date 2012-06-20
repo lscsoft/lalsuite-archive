@@ -49,10 +49,12 @@ LALGenerateInspiral(
   /* read the event waveform approximant and order */
   oldxlalErrno = xlalErrno;
   xlalErrno = 0;
-  if (XLALGetApproximantFromString(thisEvent->waveform, &approximant) == XLAL_FAILURE)
+  approximant = XLALGetApproximantFromString(thisEvent->waveform);
+  if ( (int) approximant == XLAL_FAILURE)
     ABORTXLAL(status);
 
-  if (XLALGetOrderFromString(thisEvent->waveform, &order) == XLAL_FAILURE)
+  order = XLALGetOrderFromString(thisEvent->waveform);
+  if ( (int) order == XLAL_FAILURE)
     ABORTXLAL(status);
   xlalErrno = oldxlalErrno;
 
@@ -110,20 +112,24 @@ LALGenerateInspiral(
     inspiralParams.approximant = approximant;
     inspiralParams.order       = order;
     if ((approximant == SpinQuadTaylor)||(approximant == PhenSpinTaylorRD)) {
-		xlalErrno = 0;
-		if (XLALGetInteractionFromString(&inspiralParams.interaction, thisEvent->waveform) == XLAL_FAILURE) {
-			ABORTXLAL(status);
-		}
-	}
+      xlalErrno = 0;
+      inspiralParams.interaction = XLALGetInteractionFromString(
+          thisEvent->waveform);
+      if ( (int) inspiralParams.interaction == XLAL_FAILURE)
+        ABORTXLAL(status);
+    }
 
-	if (approximant == PhenSpinTaylorRD) {
-	  xlalErrno = 0;
-	  if ( (XLALGetAxisChoiceFromString(&inspiralParams.axisChoice, thisEvent->waveform) == XLAL_FAILURE) || 
-	       (XLALGetAdaptiveIntFromString(&inspiralParams.fixedStep, thisEvent->waveform) == XLAL_FAILURE) || 
-	       (XLALGetInspiralOnlyFromString(&inspiralParams.inspiralOnly, thisEvent->waveform) == XLAL_FAILURE ) ) {
-	    ABORTXLAL(status);
-	  }
-	}
+    if (approximant == PhenSpinTaylorRD) {
+      xlalErrno = 0;
+      /* These next three functions cannot fail - they return a default value
+         if no target string is present - so we don't check for failure. */
+      inspiralParams.axisChoice = XLALGetFrameAxisFromString(
+          thisEvent->waveform);
+      inspiralParams.fixedStep = XLALGetAdaptiveIntFromString(
+          thisEvent->waveform);
+      inspiralParams.inspiralOnly = XLALGetInspiralOnlyFromString(
+          thisEvent->waveform);
+    }
 
     /* We fill ppnParams */
     oldxlalErrno = xlalErrno;
@@ -216,6 +222,7 @@ LALGenerateInspiral(
   RETURN( status );
 }
 
+<<<<<<< HEAD
 
 /** \see See \ref GenerateInspiral_h for documentation */
 int
@@ -511,6 +518,8 @@ XLALGetTaperFromString(
   return XLAL_SUCCESS;
 }
 
+=======
+>>>>>>> f16bd969655bcfd5300f5e7bdbdca7471ccebfbc
 /** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGenerateInspiralPopulatePPN(

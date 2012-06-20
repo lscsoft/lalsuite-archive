@@ -1243,3 +1243,76 @@ def _find_datafind_server():
     raise RuntimeError("Environment variable %s is not set" % var)
 
   return server
+
+# =============================================================================
+# Read GEO control channels from frames
+# =============================================================================
+
+def parse_composite_channels(superchannel, ifo='G1', frame_type='R'):
+
+  """
+    Seperate GEO superchannels into seperate channel names.
+  """
+
+  # get system name
+  tokens = re.split('#', superchannel)
+  system = tokens.pop(0)
+
+  channels = ChannelList()
+
+  # parse channels
+  while len(tokens) > 1:
+    # get subsystem
+    subsystem = tokens.pop(0)
+    
+    # get number of signals
+    N = int(tokens.pop(0))
+
+    for i in range(N):
+      signal = tokens.pop(0)
+      c = '%s:%s-%s_%s' % (ifo, system, subsystem, signal)
+      channels.append(Channel(c, frame_type, 1))
+
+  return channels
+
+def separate_composite_data(data, N=1):
+
+  """
+    Seperate GEO superchannels data into array of data for each of the composite
+    channels.
+  """
+
+  out = []
+  for i in range(N):
+    d = data[i::N]
+    out.append(d)
+
+  return out
+
+def get_control_channel(cache, superchannel, channel, start=None, end=None,\
+                        ifo='G1', frame_type='R'):
+
+  """
+    Get GEO control channel data for a single channel from a given superchannel,
+    control channels are sampled at 1Hz.
+  """
+
+  # initialise data
+  time = numpy.array([])
+  data = numpy.array([])
+
+  for frame in cache:
+    # check for read access
+    if os.access(frame.path(), os.R_OK):
+      frtime, frdata = fromframefile(frame.path(), str(superchannel),\
+                                     start=start, end=end)
+      channels_list = parse_composite_channels(superchannel)
+      chanIndex = channels_list.find(channel)
+      channelData = separate_composite_data(frdata,\
+                                            len(channels_list))[chanIndex]
+      time = numpy.append(time, frtime)
+      data = numpy.append(data, channelData)
+    else:
+      raise RuntimeError("Cannot read frame\n%s" % frame.path())
+
+  return time, data
