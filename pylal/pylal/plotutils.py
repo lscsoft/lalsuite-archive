@@ -61,7 +61,7 @@ class BasicPlot(object):
     It is up to developers to subclass BasicPlot and fill in the add_content()
     and finalize() methods.
     """
-    def __init__(self, xlabel="", ylabel="", title=""):
+    def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
         """
         Basic plot initialization.  A subclass can override __init__ and call
         this one (plotutils.BasicPlot.__init__(self, *args, **kwargs)) and
@@ -72,8 +72,12 @@ class BasicPlot(object):
 
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
-        self.ax.set_title(title)
-
+        if subtitle:
+            self.ax.set_title(title, x=0.5, y=1.025)
+            self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                         transform=self.ax.transAxes, verticalalignment='top')
+        else:
+            self.ax.set_title(title)
         self.ax.grid(True)
 
     def add_content(self, data, label="_nolabel_"):
