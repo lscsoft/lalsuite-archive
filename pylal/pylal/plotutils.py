@@ -26,6 +26,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 import numpy
 import pylab
+import re
 
 from glue import iterutils
 
@@ -164,7 +165,7 @@ _dq_params = {"text.usetex": True,   "text.verticalalignment": "center",
               "grid.linewidth": 1,   "legend.fontsize": 16,
               "legend.loc": "best",  "figure.figsize": [12,6],
               "figure.dpi": 80,      "image.origin": 'lower',
-              "axes.grid": True,     "axes.axisbelow": False })
+              "axes.grid": True,     "axes.axisbelow": False}
 
 def set_rcParams(params=_dq_params):
     """
@@ -175,6 +176,81 @@ def set_rcParams(params=_dq_params):
     # customise plot appearance
     pylab.rcParams.update(params)
 
+def display_name(columnName):
+    """
+    Format the string columnName (e.g. xml table column) into latex format for 
+    an axis label. Formats known acronyms, greek letters, units, subscripts, and
+    some miscellaneous entries.
+
+    Examples:
+
+    >>> display_name('snr')
+    'SNR'
+    >>> display_name('bank_chisq_dof')
+    'Bank $\\chi^2$ DOF'
+    >>> display_name('hoft')
+    '$h(t)$'
+
+    Arguments:
+
+      columnName : str
+        string to format
+    """
+
+    # define known acronyms
+    acro    = ['snr', 'ra','dof', 'id', 'ms', 'far']
+    # define greek letters
+    greek   = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta',\
+               'theta', 'iota', 'kappa', 'lamda', 'mu', 'nu', 'xi', 'omicron',\
+               'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi',\
+               'omega']
+    # define known units
+    unit    = {'ns':'ns', 'hz':'Hz'}
+    # define known subscripts
+    sub     = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
+    # define miscellaneous entries
+    misc    = {'hoft': '$h(t)$'}
+
+    # find all words, preserving acronyms in upper case
+    words = []
+    for w in re.split('\s', columnName):
+        if w.isupper(): words.append(w)
+        else:           words.extend(re.split('_', w))
+
+    # parse words
+    for i,w in enumerate(words):
+        wl = w.lower()
+        # get miscellaneous definitions
+        if wl in misc.keys():
+            words[i] = misc[wl]
+        # get acronym in lower case
+        elif wl in acro:
+            words[i] = w.upper()
+        # get numerical unit
+        elif wl in unit:
+            words[i] = '(%s)' % unit[wl]
+        # get character with subscript text
+        elif wl in sub:
+            words[i] = '%s$_{\mbox{\\small %s}}$' % (w[0], w[1:])
+        # get greek word
+        elif wl in greek:
+            words[i] = '$\%s$' % w
+        # get starting with greek word
+        elif re.match('(%s)' % '|'.join(greek), w):
+            if w[-1].isdigit():
+                words[i] = '$\%s_{%s}$''' %tuple(re.findall(r"[a-zA-Z]+|\d+",w))
+            elif wl.endswith('sq'):
+                words[i] = '$\%s^2$' % w[:2]
+        # get everything else
+        else:
+            if w.isupper():
+                words[i] = w
+            else:
+                words[i] = w.title()
+            # escape underscore
+            words[i] = re.sub('(?<!\\\\)_', '\_', words[i])
+
+    return ' '.join(words) 
 
 ##############################################################################
 # generic, but usable classes
