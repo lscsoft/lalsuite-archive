@@ -47,16 +47,10 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
-	
-//NRCSID (LALETNULLSTREAMH,"$Id$");
-    
-    REAL8TimeSeries * LALETNullStream (LIGOTimeGPS *GPSStart, REAL8 duration );
 
-    REAL8TimeSeries *ReadTimeSerieFromCache(const CHAR *cachefile, const CHAR *channel, LIGOTimeGPS *start, REAL8 duration);
-    
-    void PopulateNullStream(REAL8TimeSeries *NullStream, REAL8TimeSeries *RawData);
-    
-   REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(LIGOTimeGPS *GPSStart, REAL8 duration, UINT4 SampleRate, UINT4 nSegs); 
+REAL8TimeSeries * LALETNullStream (CHAR *ChannelNames[], CHAR *CacheFileNames[], LIGOTimeGPS *GPSStart, REAL8 duration, REAL8 SampleRate);
+void PopulateNullStream(REAL8TimeSeries *NullStream, REAL8TimeSeries *RawData);
+REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(REAL8TimeSeries *NullStream, REAL8 duration, REAL8 SampleRate, UINT4 nSegs);
 
 #ifdef  __cplusplus
 }
