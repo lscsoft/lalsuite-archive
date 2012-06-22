@@ -1,3 +1,9 @@
+glue (1.40) unstable; urgency=low
+
+  * Pre-ER2 release of glue with Kipp's bugfixes and fixed debian packaging. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 22 June 2012 11:22:00 -0500
+
 glue (1.39.2-4) unstable; urgency=low
 
   * build using debhelper 7 and python2
