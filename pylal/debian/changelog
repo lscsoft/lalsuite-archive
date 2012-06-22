@@ -1,3 +1,10 @@
+python-pylal (0.1.4-1) unstable; urgency=high
+
+  * Citizens demand releases; build more releases
+  * Lots of new and changed code
+
+ -- Nickolas Fotopoulos <nickolas.fotopoulos@ligo.org>  Wed, 20 Jun 2012 11:20:23 -0800
+
 python-pylal (0.1.3-1) unstable; urgency=high
 
   * Sync Debian and SL6 packaging
