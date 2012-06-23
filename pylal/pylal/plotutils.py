@@ -23,6 +23,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
 import itertools
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy
 import pylab
@@ -251,6 +252,72 @@ def display_name(columnName):
             words[i] = re.sub('(?<!\\\\)_', '\_', words[i])
 
     return ' '.join(words)
+
+def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
+                 label=None, **kwargs):
+    """
+    Adds a figure colorbar to the given Axes object ax, based on the values
+    found in the mappable object. If visible=True, returns the Colorbar object, 
+    otherwise, no return.
+
+    Arguments:
+
+        ax : matplotlib.axes.AxesSubplot
+            axes object beside which to draw colorbar
+
+    Keyword arguments:
+
+        mappable : [ matplotlib.image.Image | matplotlib.contour.ContourSet... ]
+            image object from which to map colorbar values
+        visible : [ True | False]
+            add colorbar to figure, or simply resposition ax as if to draw one
+        log : [ True | False ]
+            use logarithmic scale for colorbar
+        clim : tuple
+            (vmin, vmax) pair for limits of colorbar
+        label : str
+            label string for colorbar
+
+    All other keyword arguments will be passed to pylab.colorbar. Logarithmic
+    colorbars can be created by plotting log10 of the data and setting log=True.
+    """
+
+    div = make_axes_locatable(ax)
+    cax = div.append_axes("right", "3%", pad="1%", add_to_figure=visible)
+    if not visible: return
+    
+    # set default tex formatting for colorbar
+    if pylab.rcParams['text.usetex'] and log:
+        kwargs.setdefault('format',\
+            pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%s$"\
+                                                  % float_to_latex(10**x)))
+    elif pylab.rcParams['text.usetex']:
+        kwargs.setdefault('format',\
+            pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%s$"\
+                                                  % float_to_latex(x)))
+
+    # set limits
+    if clim:
+        if log:
+            clim = numpy.log10(clim)
+        kwargs.setdefault("ticks", numpy.linspace(clim[0], clim[1], num=9))
+
+    # convert data to log10 for logarithmic colorbar
+    colorarray = mappable.get_array()
+    if log:
+        mappable.set_array(numpy.log10(colorarray))
+
+    # generate colorbar
+    colorbar = ax.figure.colorbar(mappable, cax=cax, **kwargs)
+    colorbar.set_clim(clim)
+    colorbar.set_label(label)
+    colorbar.draw_all()
+
+    # reset color array values
+    if log:
+        mappable.set_array(colorarray)
+
+    return colorbar
 
 ##############################################################################
 # generic, but usable classes
