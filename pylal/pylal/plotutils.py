@@ -105,7 +105,7 @@ class BasicPlot(object):
         Close the plot and release its memory.
         """
         pylab.close(self.fig)
-        
+
     def add_legend_if_labels_exist(self, *args, **kwargs):
         """
         Create a legend if there are any non-trivial labels.
@@ -178,7 +178,7 @@ def set_rcParams(params=_dq_params):
 
 def display_name(columnName):
     """
-    Format the string columnName (e.g. xml table column) into latex format for 
+    Format the string columnName (e.g. xml table column) into latex format for
     an axis label. Formats known acronyms, greek letters, units, subscripts, and
     some miscellaneous entries.
 
@@ -250,7 +250,7 @@ def display_name(columnName):
             # escape underscore
             words[i] = re.sub('(?<!\\\\)_', '\_', words[i])
 
-    return ' '.join(words) 
+    return ' '.join(words)
 
 ##############################################################################
 # generic, but usable classes
@@ -372,7 +372,7 @@ class VerticalBarHistogram(BasicPlot):
                    not plot_kwargs["label"].startswith("_"):
 
                 legends.append(plot_kwargs["label"])
-                plot_list.append(plot_item[0])                
+                plot_list.append(plot_item[0])
 
         # add legend if there are any non-trivial labels
         self.ax.legend(plot_list, legends)
@@ -915,21 +915,21 @@ class QQPlot(BasicPlot):
 
 class SimpleMapPlot(BasicPlot):
     """
-    Class to create a clickable map html page. 
+    Class to create a clickable map html page.
     """
     def __init__(self, *args, **kwargs):
         BasicPlot.__init__(self, *args, **kwargs)
         self.x_data_sets = []
         self.y_data_sets = []
-        self.link_list = []        
+        self.link_list = []
         self.kwarg_sets = []
 
         self.click_size = 5
-        
+
         self.click_x = []
         self.click_y = []
         self.click_link = []
-        
+
     def set_click_size(self, size):
         """
         Sets the size of the area around a point that can be clicked at.
@@ -942,10 +942,10 @@ class SimpleMapPlot(BasicPlot):
         self.link_list.append(link)
         self.kwarg_sets.append(kwargs)
 
-        
+
     @method_callable_once
     def finalize(self, loc=0):
-        
+
         # make plot
         for x_vals, y_vals, plot_kwargs in \
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets):
@@ -954,7 +954,7 @@ class SimpleMapPlot(BasicPlot):
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc)
 
-          
+
     def rescale(self, dpi):
         """
         Calculate the rescaling to map the point coordinates
@@ -978,14 +978,14 @@ class SimpleMapPlot(BasicPlot):
             # skip if no link is associated with these point(s)
             if link is None:
                 continue
-            
+
             for point in zip(xvec, yvec):
 
                 # transform the data coordinates into piel coordinates
                 pixel = self.ax.transData.transform(point)
 
                 # save the new coordinates. The y-coordinate is just
-                # the other way around. 
+                # the other way around.
                 self.click_x.append(pixel[0])
                 self.click_y.append(height - pixel[1])
                 self.click_link.append(link)
@@ -998,24 +998,24 @@ class SimpleMapPlot(BasicPlot):
         If the actual plot is saved with a different
         dpi than the standard one, it must be specified here!!
         """
-                                  
+
         # points need to be rescaled first
         self.rescale(dpi)
-        
+
         # get the full extend of the final image
         _, _, width, height = self.fig.bbox.extents
-        
+
         # create the map-page
         page = ''
         page += '<IMG src="%s" width=%dpx '\
-            'usemap="#map">' % ( plotname, width) 
-        page +=  '<MAP name="map"> <P>' 
+            'usemap="#map">' % ( plotname, width)
+        page +=  '<MAP name="map"> <P>'
         n=0
         for px, py, link in zip( self.click_x, self.click_y, self.click_link):
             n+=1
             page +=  '<area href="%s" shape="circle" '\
                 'coords="%d, %d, 5"> Point%d</a>' %\
-                ( link, px, py, n) 
+                ( link, px, py, n)
         page += '</P></MAP></OBJECT><br>'
         page += "<hr/>"
 
@@ -1070,7 +1070,7 @@ Uize.module ({
   ],
   builder:function () {
     /*** create the example page widget ***/
-      var page = window.page = Uize.Widget.Page  ({evaluator:function (code) {eval (code)}}); 
+      var page = window.page = Uize.Widget.Page  ({evaluator:function (code) {eval (code)}});
 
     /*** configuration variables ***/
       var
@@ -1159,11 +1159,11 @@ class Plot3D(BasicPlot):
     """
     def __init__(self, *args, **kwargs):
 
-      
+
         BasicPlot.__init__(self)
         self.x_data_sets = []
         self.y_data_sets = []
-        self.z_data_sets = []        
+        self.z_data_sets = []
         self.kwarg_sets = []
 
         # need the 3D axes
@@ -1176,11 +1176,11 @@ class Plot3D(BasicPlot):
         self.ax.set_title(args[3])
 
         self.ax.grid(True)
-        
+
     def add_content(self, x_data, y_data, z_data, **kwargs):
         self.x_data_sets.append(x_data)
         self.y_data_sets.append(y_data)
-        self.z_data_sets.append(z_data)        
+        self.z_data_sets.append(z_data)
         self.kwarg_sets.append(kwargs)
 
 
@@ -1194,7 +1194,7 @@ class Plot3D(BasicPlot):
 
         fig = pylab.figure()
         ax = Axes3D(fig)
-        
+
         # create plot
         for x_vals, y_vals, z_vals, plot_kwargs in \
             itertools.izip(self.x_data_sets, self.y_data_sets, \
@@ -1207,7 +1207,7 @@ class Plot3D(BasicPlot):
         # loop over a full circle with n steps
         dphi = 360.0/float(n)
         for i, angle in enumerate(numpy.arange(0.0, 360.0, dphi)):
-            
+
             # make the rotation of the image
             self.ax.view_init(30.0, angle)
 
@@ -1215,11 +1215,11 @@ class Plot3D(BasicPlot):
             picname = '%s/%s-%02d'%(plot_dir, plot_basename, i)
             self.savefig(picname+'.png',dpi=dpi)
 
-            
+
         # decrement reference counts
         del self.x_data_sets
         del self.y_data_sets
-        del self.z_data_sets        
+        del self.z_data_sets
         del self.kwarg_sets
 
 
@@ -1232,7 +1232,7 @@ class Plot3D(BasicPlot):
         # return the html snippets
         return plot3D_head, body
 
-    
+
 ###################################################
 ## unittest section
 ###################################################
@@ -1280,8 +1280,8 @@ class TestSimpleMapPlot(unittest.TestCase):
         f.write(html)
         f.close()
 
-# --------------------------------------------    
+# --------------------------------------------
 if __name__ == '__main__':
 
-    
+
     unittest.main()
