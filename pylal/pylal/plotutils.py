@@ -112,10 +112,26 @@ class BasicPlot(object):
         """
         Create a legend if there are any non-trivial labels.
         """
+
+        # extract useable parameters that don't get passed to ax.legend
+        alpha      = kwargs.pop("alpha", None)
+        linewidth  = kwargs.pop("linewidth", None)
+        markersize = kwargs.pop("markersize", None)
+
+        # make legend if any data set requires it
         for plot_kwargs in self.kwarg_sets:
             if "label" in plot_kwargs and \
                 not plot_kwargs["label"].startswith("_"):
+                # generate legend
                 self.ax.legend(*args, **kwargs)
+                # apply extra formatting
+                leg   = self.ax.get_legend()
+                frame = leg.get_frame()
+                if alpha:
+                    frame.set_alpha(alpha)
+                if linewidth:
+                    for l in leg.get_lines():
+                        l.set_linewidth(linewidth)
                 return
 
 ##############################################################################
