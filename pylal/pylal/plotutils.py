@@ -1433,6 +1433,69 @@ class Plot3D(BasicPlot):
         # return the html snippets
         return plot3D_head, body
 
+class ScatterPlot(SimplePlot):
+    """
+    Exactly what you get from calling pylab.scatter(), but with the handy extras
+    of the BasicPlot class.
+    """
+
+    @method_callable_once
+    def finalize(self, loc=0):
+        # make plot
+        for x_vals, y_vals, plot_kwargs, color in \
+            itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
+                           default_colors()):
+            plot_kwargs.setdefault("c", color)
+            self.ax.scatter(x_vals, y_vals, **plot_kwargs)
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc)
+
+        # decrement reference counts
+        del self.x_data_sets
+        del self.y_data_sets
+        del self.kwarg_sets
+
+class ColorbarScatterPlot(BasicPlot):
+    """
+    Exactly what you get from calling pylab.scatter() when you want a colorbar,
+    but with the handy extras of the BasicPlot class.
+    """
+
+    def __init__(self, xlabel="", ylabel="", clabel="", title="", subtitle=""):
+        BasicPlot.__init__(self, xlabel=xlabel, ylabel=ylabel, title=title,\
+                           subtitle=subtitle)
+        self.clabel      = clabel
+        self.x_data_sets = []
+        self.y_data_sets = []
+        self.c_data_sets = []
+        self.kwarg_sets  = []
+
+    def add_content(self, x_data, y_data, c_data, **kwargs):
+        self.x_data_sets.append(x_data)
+        self.y_data_sets.append(y_data)
+        self.c_data_sets.append(c_data)
+        self.kwarg_sets.append(kwargs)
+
+    def finalize(self, loc=0, colorbar=True, logcolor=False):
+        # make plot
+        p = None
+        for x_vals, y_vals, c_vals, plot_kwargs in\
+            itertools.izip(self.x_data_sets, self.y_data_sets, self.c_data_sets,
+                           self.kwarg_sets):
+            p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
+
+        if colorbar and p is not None:
+            add_colorbar(self.ax, p, log=logcolor, label=self.clabel)
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc)
+
+        # decrement reference counts
+        del self.x_data_sets
+        del self.y_data_sets
+        del self.c_data_sets
+        del self.kwarg_sets
 
 ###################################################
 ## unittest section
