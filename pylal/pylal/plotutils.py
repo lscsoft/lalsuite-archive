@@ -28,6 +28,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy
 import pylab
 import re
+import ConfigParser
 
 from glue import iterutils
 
@@ -318,6 +319,123 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
         mappable.set_array(colorarray)
 
     return colorbar
+
+def parse_plot_config(cp, section):
+    """
+    Parser ConfigParser.ConfigParser section for plotting parameters. Returns
+    a dict that can be passed to any plotutils.plot_xxx function in **kwargs
+    form. Set ycolumn to 'hist' or 'rate' to generate those types of plots.
+
+    Arguments:
+
+        cp : ConfigParser.ConfigParser
+            INI file object from which to read
+        section : str
+            section name to read for options
+
+    Basic parseable options:
+
+        xcolumn : str
+            parameter to plot on x-axis    
+        ycolumn : str
+            parameter to plot on y-axis    
+        zcolumn : str
+            parameter to plot on z-axis    
+        rank-by : str
+            parameter by which to rank elements
+        xlim : list
+            [xmin, xmax] pair for x-axis limits
+        ylim : list
+            [ymin, ymax] pair for y-axis limits
+        zlim : list
+            [zmin, zmax] pair for z-axis limits
+        clim : list
+            [cmin, cmax] pair for colorbar limits
+        logx : [ True | False ]
+            plot x-axis in log scale
+        logy : [ True | False ]
+            plot y-axis in log scale
+        logz : [ True | False ]
+            plot z-axis in log scale
+
+    Trigger plot options:
+
+        detchar-style : [ True | False ]
+            use S6-style plotting: low snr triggers small with no edges
+        detchar-style-theshold : float
+            z-column threshold at below which to apply detchar-style
+
+    Trigger rate plot options:
+
+        bins : str
+            semi-colon-separated list of comma-separated bins for rate plot
+
+    Histogram options:
+
+        cumulative : [ True | False ]
+            plot cumulative counts in histogram
+        rate : [ True | False ]
+            plot histogram counts as rate
+        num-bins : int
+            number of bins for histogram
+        fill : [ True | False ]
+            plot solid colour underneath histogram curve
+        color-bins : str
+            semi-colon-separated list of comma-separated bins for colorbar
+            histogram
+
+    Data plot options:
+
+        zero-indicator : [ True | False ]
+            draw vertical dashed red line at t=0
+
+    Other options:
+
+        greyscale : [ True | False ]
+            save plot in black-and-white
+        bbox-inches : 'tight'
+            save figure with tight bounding box around Axes
+        calendar-time : [ True | False ]
+            plot time axis with date and time instead of time from zero.
+    """
+    params = dict()
+
+    # define option types
+    pairs    = ['xlim', 'ylim', 'zlim', 'clim']
+    pairlist = ['bins', 'color-bins']
+    booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar-style',\
+                'greyscale', 'zero-indicator', 'normalized', 'fill',\
+                'calendar-time']
+    floats   = ['detchar-style-threshold']
+    ints     = ['num-bins']
+
+    # construct param dict
+    for key,val in cp.items(section):
+        # remove quotes
+        val = val.rstrip('"').strip('"')
+        # format key key
+        hkey = re.sub('_', '-', key)
+        ukey = re.sub('-', '_', key)
+        # get limit pairs
+        if hkey in pairs:
+            params[ukey] = map(float, val.split(','))
+        # get bins
+        elif hkey in pairlist:
+            params[ukey] = map(lambda p: map(float,p.split(',')),val.split(';'))
+        # get booleans
+        elif hkey in booleans:
+            params[ukey] = cp.getboolean(section, key)
+        # get float values
+        elif key in floats:
+            params[ukey] = float(val)
+        # get float values
+        elif key in ints:
+            params[ukey] = int(val)
+        # else construct strings
+        else:
+            params[ukey] = str(val)
+
+    return params
 
 ##############################################################################
 # generic, but usable classes
