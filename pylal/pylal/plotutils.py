@@ -304,11 +304,7 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
     if not visible: return
     
     # set default tex formatting for colorbar
-    if pylab.rcParams['text.usetex'] and log:
-        kwargs.setdefault('format',\
-            pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%s$"\
-                                                  % float_to_latex(10**x)))
-    elif pylab.rcParams['text.usetex']:
+    if pylab.rcParams['text.usetex']:
         kwargs.setdefault('format',\
             pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%s$"\
                                                   % float_to_latex(x)))
