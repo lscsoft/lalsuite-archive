@@ -443,6 +443,25 @@ def parse_plot_config(cp, section):
 
     return params
 
+def log_transform(lin_range):
+    """
+    Return the logarithmic ticks and labels corresponding to the
+    input lin_range.
+    """
+    log_range = numpy.log10(lin_range)
+    slope = (lin_range[1] - lin_range[0]) / (log_range[1] - log_range[0])
+    inter = lin_range[0] - slope * log_range[0]
+    tick_range = [tick for tick in range(int(log_range[0] - 1.0),\
+                                         int(log_range[1] + 1.0))\
+                  if tick >= log_range[0] and tick<=log_range[1]]
+    ticks = [inter + slope * tick for tick in tick_range]
+    labels = ["${10^{%d}}$" % tick for tick in tick_range]
+    minorticks = []
+    for i in range(len(ticks[:-1])):
+        minorticks.extend(numpy.logspace(numpy.log10(ticks[i]),\
+                                         numpy.log10(ticks[i+1]), num=10)[1:-1])
+    return ticks, labels, minorticks
+
 ##############################################################################
 # generic, but usable classes
 
@@ -740,9 +759,12 @@ class ImagePlot(BasicPlot):
     """
     def __init__(self, *args, **kwargs):
         BasicPlot.__init__(self, *args, **kwargs)
-        self.image = None
+        self.image_sets  = []
+        self.x_bins_sets = []
+        self.y_bins_sets = []
+        self.kwarg_sets  = []
 
-    def add_content(self, image, x_bins, y_bins):
+    def add_content(self, image, x_bins, y_bins, **kwargs):
         """
         Add a given image to this plot.
 
@@ -750,58 +772,62 @@ class ImagePlot(BasicPlot):
         @param x_bins: pylal.rate.Bins instance describing the x binning
         @param y_bins: pylal.rate.Bins instance describing the y binning
         """
-        if self.image is not None:
-            raise ValueError, "can only plot one image"
         if image.ndim != 2:
             raise ValueError, "require 2-D array"
-        self.image = image
-        self.x_bins = x_bins
-        self.y_bins = y_bins
+        self.image_sets.append(image)
+        self.x_bins_sets.append(x_bins)
+        self.y_bins_sets.append(y_bins)
+        self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, colorbar=True, **kwargs):
-        if self.image is None:
-            raise ValueError, "nothing to finalize"
+    def finalize(self, colorbar=True, logcolor=False, minorticks=False):
+        from pylal import rate
+        if not self.image_sets:
+            raise ValueError("nothing to finalize")
 
-        extent = [self.x_bins.lower()[0], self.x_bins.upper()[-1],
-                  self.y_bins.lower()[0], self.y_bins.upper()[-1]]
+        logx = False
+        logy = False
 
-        kwargs.setdefault("origin", "lower")
-        kwargs.setdefault("interpolation", "nearest")
+        for image,x_bins,y_bins,plot_kwargs in\
+            itertools.izip(self.image_sets, self.x_bins_sets, self.y_bins_sets,\
+                           self.kwarg_sets):
+            extent = [x_bins.lower()[0], x_bins.upper()[-1],
+                      y_bins.lower()[0], y_bins.upper()[-1]]
+            plot_kwargs.setdefault("origin", "lower")
+            plot_kwargs.setdefault("interpolation", "nearest")
+            if logcolor:
+                plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
 
-        im = self.ax.imshow(self.image, extent=extent, **kwargs)
+            im = self.ax.imshow(image, extent=extent, **plot_kwargs)
+
+            # set log axes, raise error if you try to use both log and lin on
+            # the same plot
+            if isinstance(x_bins, rate.LogarithmicBins):
+                logx = True
+            if logx and not isinstance(x_bins, rate.LogarithmicBins):
+                raise ValueError("Cannot process both linear and logarithmic "+\
+                                 "Images on the same Axis.")
+            if isinstance(y_bins, rate.LogarithmicBins):
+                logy = True
+            if logy and not isinstance(y_bins, rate.LogarithmicBins):
+                raise ValueError("Cannot process both linear and logarithmic "+\
+                                 "Images on the same Axis.")
 
         pylab.axis('tight')
 
         if colorbar:
-            self.fig.colorbar(im)
+            add_colorbar(self.ax, im, log=logcolor)
 
-        # XXX: hack our ticks into log space; imshow doesn't support log scales
-        def log_transform(lin_range):
-            """
-            Return the logarithmic ticks and labels corresponding to the
-            input lin_range.
-            """
-            log_range = numpy.log10(lin_range)
-            slope = (lin_range[1] - lin_range[0]) \
-                  / (log_range[1] - log_range[0])
-            inter = lin_range[0] - slope * log_range[0]
-            tick_range = [tick for tick in range(int(log_range[0] - 1.0),
-                                                 int(log_range[1] + 1.0))\
-                          if tick >= log_range[0] and tick<=log_range[1]]
-            ticks = [inter + slope * tick for tick in tick_range]
-            labels = ["${10^{%d}}$" % tick for tick in tick_range]
-            return ticks, labels
-        from pylal import rate
-        if isinstance(self.x_bins, rate.LogarithmicBins):
-            xticks, xlabels = log_transform(self.ax.get_xlim())
+        if logx:
+            xticks, xlabels, xminorticks = log_transform(self.ax.get_xlim())
             self.ax.set_xticks(xticks)
             self.ax.set_xticklabels(xlabels)
-        if isinstance(self.y_bins, rate.LogarithmicBins):
-            yticks, ylabels = log_transform(self.ax.get_ylim())
+            if minorticks: self.ax.set_xticks(xminorticks, minor=True)
+        if logy:
+            yticks, ylabels, yminorticks = log_transform(self.ax.get_ylim())
             self.ax.set_yticks(yticks)
             self.ax.set_yticklabels(ylabels)
-
+            if minorticks: self.ax.set_yticks(yminorticks, minor=True)
 
 class FillPlot(BasicPlot):
     """
