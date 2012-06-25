@@ -63,13 +63,13 @@ class NoiseTerm(object):
     channel    = None
     frame_type = None
     sum        = False
-    data       = numpy.array([])
+    data       = None
     deltaT     = 0
-    spectrum   = numpy.array([])
+    spectrum   = None
     deltaF     = 0
     f0         = 0
     epoch      = seriesutils.lal.LIGOTimeGPS()
-    ref_spectrum = numpy.array([])
+    ref_spectrum = None
     ref_deltaF = 0
     ref_f0     = 0
     ref_epoch  = seriesutils.lal.LIGOTimeGPS()
@@ -153,15 +153,19 @@ class NoiseTerm(object):
 
     Arguments:
 
-        func : callable
-            any callable function that accepts numpy.array as input
+        func : [ callable | numpy.array ]
+            any callable function that accepts numpy.array as input or
+            array by which to multiply spectrum.
         """
         if not hasattr(self, "spectrum"):
             raise RuntimeError("No spectrum has been loaded for this channel."+\
                                " Please use one of the spectrum getting "+\
                                "methods for this NoiseTerm before applying "+\
                                "calibration.")
-        self.spectrum = func(self.spectrum)
+        if hasattr(func, "shape"):
+            self.spectrum *= func
+        else:
+            self.spectrum = func(self.spectrum)
 
     def loadreference(self, referencefile, epoch=seriesutils.lal.LIGOTimeGPS(),\
                       sampleUnits=seriesutils.lal.lalStrainUnit, fcol=0,acol=1):
@@ -259,7 +263,7 @@ class NoiseTerm(object):
                          label=dqPlotUtils.display_name(self.name),\
                          color=self.color, **params)
        
-        if hasattr(self, "ref_spectrum"):
+        if self.ref_spectrum is not None:
             params["linestyle"] = "--"
             params['linewidth'] = 0.3
             f = numpy.arange(self.ref_spectrum.size) *\
@@ -444,8 +448,7 @@ class NoiseBudget(list):
         xlabel   = params.pop("xlabel", "Frequency (Hz)")
         ylabel   = params.pop("ylabel", "Strain amplitude spectral density "
                                         "$/\sqrt{\mbox{Hz}}$")
-        title    = params.pop("title", "%s noise budget"\
-                                       % dqPlotUtils.display_name(self.name))
+        title    = params.pop("title", dqPlotUtils.display_name(self.name))
         subtitle = params.pop("subtitle", "")
 
         # copy params for reference lines
@@ -469,7 +472,7 @@ class NoiseBudget(list):
                                  linecolor=term.color, **params)
  
                 # plot reference
-                if hasattr(term, "ref_spectrum"):
+                if term.ref_spectrum is not None:
                     f = numpy.arange(term.ref_spectrum.size) *\
                         self.ref_frequencyseries.deltaF +\
                         self.ref_frequencyeries.f0
@@ -485,7 +488,7 @@ class NoiseBudget(list):
             plot.add_content(f, term.spectrum,\
                              label=dqPlotUtils.display_name(term.name),\
                              color=term.color, **params)
-            if plot_component_ref and hasattr(term, "ref_spectrum"):
+            if plot_component_ref and term.ref_spectrum is not None:
                     f = numpy.arange(term.ref_spectrum.size) *\
                         term.ref_frequencyseries.deltaF +\
                         term.ref_frequencyseries.f0
