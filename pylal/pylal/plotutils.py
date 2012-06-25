@@ -310,25 +310,19 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
                                                   % float_to_latex(x)))
 
     # set limits
-    if clim:
-        if log:
-            clim = numpy.log10(clim)
-        kwargs.setdefault("ticks", numpy.linspace(clim[0], clim[1], num=9))
-
-    # convert data to log10 for logarithmic colorbar
-    colorarray = mappable.get_array()
+    if not clim:
+        clim = mappable.get_array().min(),mappable.get_array().max()
     if log:
-        mappable.set_array(numpy.log10(colorarray))
+        kwargs.setdefault("ticks", numpy.logspace(numpy.log10(clim[0]),\
+                                                  numpy.log10(clim[1]), num=9))
+    else:
+        kwargs.setdefault("ticks", numpy.linspace(clim[0], clim[1], num=9))
 
     # generate colorbar
     colorbar = ax.figure.colorbar(mappable, cax=cax, **kwargs)
-    colorbar.set_clim(clim)
-    colorbar.set_label(label)
+    if clim: colorbar.set_clim(clim)
+    if label: colorbar.set_label(label)
     colorbar.draw_all()
-
-    # reset color array values
-    if log:
-        mappable.set_array(colorarray)
 
     return colorbar
 
