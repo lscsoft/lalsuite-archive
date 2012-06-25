@@ -49,14 +49,14 @@ class NoiseTerm(object):
                'sum':        bool,\
                'data':       numpy.array,\
                'deltaT':     float,\
-               'spectrum':   numpy.array\
+               'spectrum':   numpy.array,\
                'deltaF':     float,\
                'f0':         float,\
-               'epoch':      seriersutils.lal.LIGOTimeGPS,\
+               'epoch':      seriesutils.lal.LIGOTimeGPS,\
                'ref_spectrum': numpy.array,\
                'ref_deltaF': float,\
                'ref_f0':     float,\
-               'ref_epoch':  seriesutils.lal.LIGOTimeGPS}
+               'ref_epoch':  seriesutils.lal.LIGOTimeGPS\
                }
     # set defaults
     name       = None
@@ -72,7 +72,7 @@ class NoiseTerm(object):
     ref_spectrum = numpy.array([])
     ref_deltaF = 0
     ref_f0     = 0
-    ref_epoch  = seriresutils.lal.LIGOTimeGPS()
+    ref_epoch  = seriesutils.lal.LIGOTimeGPS()
 
     def __init__(self, **kwargs):
         """"
@@ -368,8 +368,8 @@ class NoiseBudget(list):
             raise RuntimeError("No NoiseTerms were set to be included in the "+\
                                "budget sum.")
         self.noise_sum = NoiseTerm(name=name)
-        data = numpy.asarray([t.spectrum for t in\
-                              sum_terms])**2.sum(axis=0)**(1/2)
+        data = (numpy.asarray([t.spectrum for t in\
+                              sum_terms])**2).sum(axis=0)**(1/2)
         self.noise_sum.frequencyseries =\
             seriesutils.fromarray(data, str(name), epoch=epoch,\
                                   deltaT=deltaF, f0=f0, frequencyseries=True)
@@ -418,7 +418,7 @@ class NoiseBudget(list):
         return self.compute_deficit(func=lambda (s,t): t/s)
 
     # plot
-    def plot( outfile, **params):
+    def plot(self, outfile, **params):
 
         """
     Plot this NoiseBudget
