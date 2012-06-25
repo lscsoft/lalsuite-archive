@@ -311,12 +311,22 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
 
     # set limits
     if not clim:
-        clim = mappable.get_array().min(),mappable.get_array().max()
+        cmin = min([c.get_array().min() for c in ax.collections+ax.images])
+        cmax = max([c.get_array().max() for c in ax.collections+ax.images])
+        clim = [cmin, cmax]
     if log:
         kwargs.setdefault("ticks", numpy.logspace(numpy.log10(clim[0]),\
-                                                  numpy.log10(clim[1]), num=9))
+                                                  numpy.log10(clim[1]), num=9,\
+                                                  endpoint=True))
     else:
-        kwargs.setdefault("ticks", numpy.linspace(clim[0], clim[1], num=9))
+        kwargs.setdefault("ticks", numpy.linspace(clim[0], clim[1], num=9,\
+                                                  endpoint=True))
+
+    # find mappable with lowest maximum
+    if not mappable:
+      minindex = numpy.asarray([c.get_array().min()\
+                                for c in  ax.collections+ax.images]).argmin()
+      mappable = (ax.collections+ax.images)[minindex]
 
     # generate colorbar
     colorbar = ax.figure.colorbar(mappable, cax=cax, **kwargs)
@@ -780,7 +790,8 @@ class ImagePlot(BasicPlot):
         self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, colorbar=True, logcolor=False, minorticks=False):
+    def finalize(self, colorbar=True, logcolor=False, minorticks=False,\
+                 clim=None):
         from pylal import rate
         if not self.image_sets:
             raise ValueError("nothing to finalize")
@@ -816,7 +827,7 @@ class ImagePlot(BasicPlot):
         pylab.axis('tight')
 
         if colorbar:
-            add_colorbar(self.ax, im, log=logcolor)
+            add_colorbar(self.ax, log=logcolor, clim=clim)
 
         if logx:
             xticks, xlabels, xminorticks = log_transform(self.ax.get_xlim())
@@ -1493,7 +1504,7 @@ class ColorbarScatterPlot(BasicPlot):
         self.c_data_sets.append(c_data)
         self.kwarg_sets.append(kwargs)
 
-    def finalize(self, loc=0, colorbar=True, logcolor=False):
+    def finalize(self, loc=0, colorbar=True, logcolor=False, clim=None):
         # make plot
         p = None
         for x_vals, y_vals, c_vals, plot_kwargs in\
@@ -1504,7 +1515,7 @@ class ColorbarScatterPlot(BasicPlot):
             p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
 
         if colorbar and p is not None:
-            add_colorbar(self.ax, p, log=logcolor, label=self.clabel)
+            add_colorbar(self.ax, log=logcolor, label=self.clabel, clim=clim)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc)
