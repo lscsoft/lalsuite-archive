@@ -42,13 +42,66 @@ _typestr = {\
             lal.LAL_U8_TYPE_CODE: 'UINT8',\
             lal.LAL_S_TYPE_CODE:  'REAL4',\
             lal.LAL_D_TYPE_CODE:  'REAL8',\
-            lal.LAL_S_TYPE_CODE:  'COMPLEX8',\
-            lal.LAL_D_TYPE_CODE:  'COMPLEX16',\
+            lal.LAL_C_TYPE_CODE:  'COMPLEX8',\
+            lal.LAL_Z_TYPE_CODE:  'COMPLEX16',\
             }
+
+# =============================================================================
+# Data conversion
+# =============================================================================
+
+def fromarray(array, name="", epoch=lal.LIGOTimeGPS(), deltaT=1,\
+              f0=0, sampleUnits=lal.lalDimensionlessUnit,\
+              frequencyseries=False):
+    """
+    Convert numpy.array to REAL8TimeSeries. Use frequencyseries to return
+    REAL8FrequencySeries.
+
+    Arguments:
+
+        array : numpy.array
+            input data array
+
+    Keyword arguments:
+
+        name : str
+            name of data source
+        epoch : lal.LIGOTimeGPS
+            GPS start time for array
+        deltaT : float
+            sampling time for data (or frequency spacing for FrequencySeries)
+        f0 : float
+            lower frequency limit for data
+        sampleUnits : lal.LALUnit
+            amplitude unit for array
+    """
+  
+    if frequencyseries:
+      series = lal.XLALCreateREAL8FrequencySeries(name, epoch, f0, deltaT,\
+                                                  sampleUnits, array.size)
+    else:
+      series = lal.XLALCreateREAL8TimeSeries(name, epoch, f0, deltaT,\
+                                             sampleUnits, array.size)
+    series.data.data = array.astype(float)
+    return series
 
 # =============================================================================
 # Frame reading helpers
 # =============================================================================
+
+def fromNDS(chname, start, duration, server="nds.ligo.caltech.edu",\
+            port=31200):
+    """
+    Read data from NDS into a REAL?TimeSeries
+    """
+
+    import nds
+
+    connection = nds.daq(server, port)
+    data       = connection.fetch(start, start+duration, chname)[0]
+    epoch      = lal.LIGOTimeGPS(start)
+    deltaT     = duration/data.size
+    return fromarray(data, name=chname, epoch=epoch, deltaT=deltaT)
 
 def fromframefile(framefile, chname, start=-1, duration=1,\
                   datatype=-1, verbose=False):
@@ -356,20 +409,22 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
     numseg  = 1 + int((reclen - seglen)/stride)
     worklen = (numseg - 1)*stride + seglen
     if worklen != reclen:
-      warnings.warn("Data is not long enough to be covered completely, the "+\
-                    "trailing %d samples will not be used for spectrum "\
-                    "calculation" % (reclen-worklen))
-      series = duplicate(series)
-      lal.XLALResizeREAL8TimeSeries(series, 0, worklen)
-      reclen  = series.data.length
-      numseg  = 1 + int((reclen - seglen)/stride)
+        warnings.warn("Data is not long enough to be covered completely, the "+\
+                      "trailing %d samples will not be used for spectrum "\
+                      "calculation" % (reclen-worklen))
+        series = duplicate(series)
+        func = getattr(lal, 'XLALResize%sTimeSeries' % TYPESTR)
+        func(series, 0, worklen)
+        reclen  = series.data.length
+        numseg  = 1 + int((reclen - seglen)/stride)
     if numseg % 2 == 1:
-      warnings.warn("Data is not long enough to be covered completely, the "+\
-                    "trailing %d samples will not be used for spectrum "\
-                    "calculation" % (seglen-stride))
-      worklen = reclen - (seglen-stride)
-      series = duplicate(series)
-      lal.XLALResizeREAL8TimeSeries(series, 0, worklen)
+        warnings.warn("Data is not long enough to be covered completely, the "+\
+                      "trailing %d samples will not be used for spectrum "\
+                      "calculation" % (seglen-stride))
+        worklen = reclen - (seglen-stride)
+        series = duplicate(series)
+        func = getattr(lal, 'XLALResize%sTimeSeries' % TYPESTR)
+        func(series, 0, worklen)
 
     # generate window
     if not window:
@@ -389,14 +444,14 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
 
     # calculate medianmean spectrum
     if re.match('median?mean\Z', average, re.I):
-      func = getattr(lal, "XLAL%sAverageSpectrumMedianMean" % TYPESTR)
+        func = getattr(lal, "XLAL%sAverageSpectrumMedianMean" % TYPESTR)
     elif re.match('median\Z', average, re.I):
-      func = getattr(lal, "XLAL%sAverageSpectrumMedian" % TYPESTR)
+        func = getattr(lal, "XLAL%sAverageSpectrumMedian" % TYPESTR)
     elif re.match('welch\Z', average, re.I):
-      func = getattr(lal, "XLAL%sAverageSpectrumWelch" % TYPESTR)
+        func = getattr(lal, "XLAL%sAverageSpectrumWelch" % TYPESTR)
     else:
-      raise NotImplementedError("Sorry, only 'median' and 'medianmean' "+\
-                                " and 'welch' average methods are available.")
+        raise NotImplementedError("Sorry, only 'median' and 'medianmean' "+\
+                                  " and 'welch' average methods are available.")
     func(spectrum, series, seglen, stride, window, plan)
 
     # dereference
