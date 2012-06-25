@@ -1473,6 +1473,8 @@ class ColorbarScatterPlot(BasicPlot):
         for x_vals, y_vals, c_vals, plot_kwargs in\
             itertools.izip(self.x_data_sets, self.y_data_sets, self.c_data_sets,
                            self.kwarg_sets):
+            if logcolor:
+                plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
             p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
 
         if colorbar and p is not None:
