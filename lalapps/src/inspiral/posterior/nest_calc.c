@@ -207,26 +207,11 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
     if (MCMCinput->injectionTable!=NULL){		
         LALMCMCParameter *injected  =(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));    
         NestInitInjectedParam(injected,(void *)MCMCinput->injectionTable, MCMCinput);
-        /*REAL8 m1=5.0, m2=5.0,eta=0.0,m=0.0;
-        XLALMCMCGetParam(injected,"eta")->core->wrapping=0;
-                XLALMCMCGetParam(injected,"logmc")->core->wrapping=0;
-        for(i=0;i<50;i++){
-            m2=5.0;
-            for(UINT4 j=0;j<50;j++){
-                m=m1+m2;
-                eta=(m1*m2)/m/m;
-                XLALMCMCSetParameter(injected,"eta",eta);
-                XLALMCMCSetParameter(injected,"logmc",log(m*pow(eta,0.6)));
-                fprintf(stdout,"m %lf eta %.4f mc %lf \n",m,eta,m*pow(eta,0.6));
-                MCMCinput->funcLikelihood(MCMCinput,injected);
-                m2+=(35.-5.)/50.;
-            }
-            m1+=(35.-5.)/50.;
-        }
-        fprintf(stdout,"Injected logL  %lf \n",MCMCinput->funcLikelihood(MCMCinput,injected));
-    exit(1);*/
-        fprintf(stdout,"Injected logL  %lf \n",MCMCinput->funcLikelihood(MCMCinput,injected));     
+        REAL8 injlogL=MCMCinput->funcLikelihood(MCMCinput,injected);
+        fprintf(stdout,"Injected logL  %10.15e \n",injlogL);  
+        XLALMCMCDestroyPara(&injected);     
      }
+     //exit(1);
 	if(MCMCinput->injectionTable!=NULL) MCMCinput->funcInit(temp,(void *)MCMCinput->injectionTable);
 	else MCMCinput->funcInit(temp,(void *)MCMCinput->inspiralTable);
 	if(!PriorIsSane(temp))
