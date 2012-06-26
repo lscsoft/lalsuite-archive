@@ -32,6 +32,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 #include <lal/LALError.h>
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GeneratePPNInspiral.h>
+#include <lal/GenerateInspiral.h>
 #include <lal/DetResponse.h>
 #include <lal/TimeDelay.h>
 #include <lal/Units.h>
@@ -986,6 +987,7 @@ REAL8 fplus,fcross;
 	    template.distance=exp(XLALMCMCGetParameter(parameter,"logdist"))*LAL_PC_SI*1.e6;
 	  }
 	template.order=inputMCMC->phaseOrder;
+	  template.ampOrder= LAL_PNORDER_HALF;
 	template.approximant=inputMCMC->approximant;
 	template.tSampling = 1.0/inputMCMC->deltaT;
 	template.fCutoff = 0.5/inputMCMC->deltaT -1.0;
@@ -995,7 +997,16 @@ REAL8 fplus,fcross;
 	template.startTime = 0.0;
 	template.ieta = 1;
 	template.inclination=XLALMCMCGetParameter(parameter,"iota");
-
+//salvo
+template.alpha=-1;
+template.beta=-1;
+template.sourceTheta=GENERATEINSPIRAL_SOURCETHETA;;
+template.sourcePhi=GENERATEINSPIRAL_SOURCEPHI;
+template.alpha1=-1;
+template.alpha2=-1;
+ template.OmegaS = GENERATEINSPIRAL_OMEGAS;/* EOB 3PN contribution */
+  template.Theta	 = GENERATEINSPIRAL_THETA; /* EOB 3PN contribution */
+  template.Zeta2	 = GENERATEINSPIRAL_ZETA2; /* EOB 3PN contribution */
 	template.fixedStep=inputMCMC->fixedStep;
 	template.inspiralOnly=inputMCMC->inspiralOnly;
 	template.axisChoice=inputMCMC->axisChoice;
@@ -1063,9 +1074,17 @@ REAL8 fplus,fcross;
          exit(1);
        }
        else{
-         idx=floor(template.tC/inputMCMC->deltaT);
+         /*idx=floor(template.tC/inputMCMC->deltaT);
          idxShiftTmplt=(Npts-idx)/2;
          timeShiftTmplt=(REAL8) idxShiftTmplt*inputMCMC->deltaT;
+        */
+         idx=floor(template.tC/inputMCMC->deltaT); //This is the number of bins that correspond to the length of the WF
+          if (!(idx==template.tC/inputMCMC->deltaT))
+                fprintf(stderr,"WARNING: loss of information in calculating the number of bins in the WF! idx=%d, without_floor=%lf\n",idx,template.tC/inputMCMC->deltaT);
+         REAL8 idxShiftTmplt_r8=((REAL8) (Npts-(template.tC/inputMCMC->deltaT)))/2.; // This is the number of bins that correspond to the segment length minus the points of the WF divided by 2 (why do I need that? Centering??)
+          idxShiftTmplt=(INT8) idxShiftTmplt_r8;
+          
+         timeShiftTmplt=(REAL8) (idxShiftTmplt*inputMCMC->deltaT); 
         // printf("timeShiftTmplt %.20e\n",timeShiftTmplt);
          for (idx=0;idx<Npts;idx++) {
             hPlus->data[idx]=0.;
@@ -1084,9 +1103,11 @@ REAL8 fplus,fcross;
              hPlus->data[idx]  *= inputMCMC->window->data->data[idx]/WinNorm;
              hCross->data[idx] *= inputMCMC->window->data->data[idx]/WinNorm;
           }
-
+                   
           XLALREAL4VectorFFT(inputMCMC->Fwfp,hPlus,inputMCMC->likelihoodPlan);
           XLALREAL4VectorFFT(inputMCMC->Fwfc,hCross,inputMCMC->likelihoodPlan);
+        
+ 
         }
      } 
 
@@ -1244,7 +1265,8 @@ REAL8 fplus,fcross;
 
     /* Compute time delay for individual detectors to the center of the earth*/
     TimeFromGeoC = XLALTimeDelayFromEarthCenter(inputMCMC->detector[det_i]->location, source.equatorialCoords.longitude, source.equatorialCoords.latitude,&GPStimeTmplt);
-
+    REAL8 tmp_var=  ( (REAL8) inputMCMC->bufferstart->gpsSeconds +  (REAL8) 1.0E-9*inputMCMC->bufferstart->gpsNanoSeconds -(((REAL8) timeTmplt)-template.tC+TimeFromGeoC))/inputMCMC->deltaT;
+    REAL8 time_shift_fraction_bin=(tmp_var-floor(tmp_var))*inputMCMC->deltaT;
     XLALComputeDetAMResponse(&fplus, &fcross, inputMCMC->detector[det_i]->response, source.equatorialCoords.longitude, source.equatorialCoords.latitude, source.orientation, XLALGreenwichMeanSiderealTime(&GPStimeTmplt));
 
     /* Compute the response to the wave in the detector */
@@ -1264,7 +1286,7 @@ REAL8 fplus,fcross;
     FILE *ftf=fopen(tfname,"w");
 #endif
 
-    double tfshift=TimeShiftToGeoC+TimeFromGeoC;
+    double tfshift=TimeShiftToGeoC+TimeFromGeoC+time_shift_fraction_bin;
     double time_sin,time_cos;
 
     for(idx=lowBin;idx<=highBin;idx++){
@@ -1279,7 +1301,6 @@ REAL8 fplus,fcross;
       resp_i = (REAL8)( plus_im*fplus + cross_im*fcross );
       real=inputMCMC->stilde[det_i]->data->data[idx].re - resp_r;
       imag=inputMCMC->stilde[det_i]->data->data[idx].im - resp_i;
-
       #if DEBUGMODEL
       fprintf(ftf,"%16.8e  %16.8e  %16.8e\n",idx*inputMCMC->deltaF,resp_r,resp_i);
       #endif
