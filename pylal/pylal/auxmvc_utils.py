@@ -353,5 +353,31 @@ def LoadOVL(filename):
   # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
   return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])
 
+def Convert_ovl_chan(chan, channels)
 
-  
+  """
+  converts a channel name into an integer (or vice versa) using channels (a file) as a dictionary. 
+  channels should correspond to a file in which each line is a channel name, and the line number defines the int.
+  the idea is to convert between OVL channel integers and channel names quickly.
+  """
+
+  channels_file=open(channels, 'r')
+
+  # if chan is a string, we return an int
+  if isinstance(chan, str):
+    chan_int=0
+    for line in channels_file:
+      if line == chan:
+        return chan_int
+      else:
+        chan_int+=1
+    return False # chan wasn't in channels_file
+
+  # if chan is an int, we return a string
+  if isinstance(chan, (int,float)):
+    chan_int=int(chan)
+    if chan_int < len(channels_file) and chan_int >= 0:
+      return channels_file[chan_int]
+    else:
+      return False # not in channels_file
+
