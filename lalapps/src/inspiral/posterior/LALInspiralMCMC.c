@@ -1734,7 +1734,7 @@ XLALMCMCJumpSpins(
   /* loop over all parameters */
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   {
-    if(!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")||paraHead->core->wrapping==-1)
+    if((!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")) && paraHead->core->wrapping!=-1)
     paraHead->value += step->data[i];
 	else
 	{;}
@@ -1804,7 +1804,7 @@ XLALMCMCChangeSpinsMagnitude(
   /* loop over all parameters */
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   {
-    if(!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||paraHead->core->wrapping==-1)
+    if((!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")) && paraHead->core->wrapping!=-1)
     paraHead->value += step->data[i];
 	else
 	{;}
@@ -1923,16 +1923,15 @@ XLALMCMCRotateSpins(
   LALMCMCParameter *parameter
   )
 {   static LALStatus status;
-
-  //int i;
-  //LALMCMCParam *paraHead=NULL;  
+  /* STILL NEED TO TAKE CARE OF THE CASE WHEN PHIP AND PHIM ARE USED AS PARAMETERS ISTEAD OF PHI1 AND PHI2 */
+  
   REAL4 my_random1, my_random2;
   if(inputMCMC->randParams==NULL) LALCreateRandomParams(&status,&(inputMCMC->randParams),0);
   LALUniformDeviate( &status, &my_random1, inputMCMC->randParams);
   LALUniformDeviate( &status, &my_random2, inputMCMC->randParams);
   REAL8 theta1 = 2.0*M_PI*my_random1;
   REAL8 theta2 = 2.0*M_PI*my_random2;
-  /* loop over all parameters */
+
   if(XLALMCMCCheckParameter(parameter,"theta1")){
       
     REAL8 theta, phi, iota;
@@ -1990,22 +1989,6 @@ XLALMCMCRotateSpins(
 
     }
   
-  /*
-  for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
-  { LALUniformDeviate( &status, &my_random, inputMCMC->randParams);
-    if(!strcmp(paraHead->core->name,"theta1") || !strcmp(paraHead->core->name,"theta2") || paraHead->core->wrapping==-1)
-    paraHead->value = my_random*LAL_PI;
-    else if(!strcmp(paraHead->core->name,"phi1") || !strcmp(paraHead->core->name,"phi2")||paraHead->core->wrapping==-1)
-	paraHead->value = my_random*LAL_TWOPI;
-    else if(!strcmp(paraHead->core->name,"phiP") || !strcmp(paraHead->core->name,"phiM")||paraHead->core->wrapping==-1)
-	paraHead->value = my_random*LAL_TWOPI;
-    else
-	{;}
-  //  if (inputMCMC->verbose)
-    //  printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
-      //       paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);
-	}
-*/
   XLALMCMCCyclicReflectiveBound(parameter);
 }
 
