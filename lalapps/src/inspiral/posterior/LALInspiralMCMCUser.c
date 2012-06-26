@@ -1106,7 +1106,7 @@ template.alpha2=-1;
                    
           XLALREAL4VectorFFT(inputMCMC->Fwfp,hPlus,inputMCMC->likelihoodPlan);
           XLALREAL4VectorFFT(inputMCMC->Fwfc,hCross,inputMCMC->likelihoodPlan);
-        
+
  
         }
      } 
