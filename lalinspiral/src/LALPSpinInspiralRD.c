@@ -782,9 +782,15 @@ XLALInspiralInit(params, &paramsInit); //Salvo: Why don't we do the same thing d
 
     UINT4 i;
     for (i=0;i<s1->length;i++) {
-      signalvec1->data[i]=(REAL4) s1->data[i];
+      signalvec1->data[i]=0.0;
     }
     for (i=0;i<s2->length;i++) {
+      signalvec2->data[i]=0.0;
+    }
+    for (i=0;i<(UINT4) count;i++) {
+      signalvec1->data[i]=(REAL4) s1->data[i];
+    }
+    for (i=0;i<(UINT4) count;i++) {
       signalvec2->data[i]=(REAL4) s2->data[i];
     }
 
