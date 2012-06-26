@@ -260,6 +260,8 @@ LALSSInjectTimeSeries( LALStatus       *stat,
   /* Compute initial value of i, and correct to ensure we will never
      index either array out of its bounds. */
   i = (INT4)( -offset / dt );
+  REAL8 reminder=fabs(offset/dt +i);
+  printf("i=%d %lf %d \n",i, -offset/dt,signalvec->data->length);
   if ( i < 0 )
     i = 0;
   while ( offset + i*dt < 0.0 )
@@ -278,9 +280,11 @@ LALSSInjectTimeSeries( LALStatus       *stat,
   if ( n <= 0 )
     LALWarning( stat, "Signal ends before the start of the output"
 		" time series." );
+//INT4 old_i=i;
+  int nonzero=0;
 
   /* Start injecting... */
-  for ( ; i < n; i++ ) {
+  for ( ; i <= n; i++ ) {
 
     /* Interpolate the signal.  ***REMOVED***
     REAL8 t = offset + i*dt;          interpolated signal index
@@ -288,15 +292,22 @@ LALSSInjectTimeSeries( LALStatus       *stat,
     REAL4 frac = (REAL4)( t - j );    interpolation fraction
     REAL4 y = frac*(signalvec->data->data[j+1]) +    interpolated signal
       ( 1.0 - frac )*(signalvec->data->data[j]);     value */
+  //printf("i=%d %lf %d %lf \n",i, offset + i*dt ,(INT4)floor( offset + i*dt +0.5),floor( offset + i*dt +0.5));exit(1);
 
     /* Extract the nearest signal sample. */
-    INT4 j = (INT4)floor( offset + i*dt + 0.5 );
+    INT4 j = (INT4)floor( offset + i*dt + reminder/2.0);
     REAL4 y = signalvec->data->data[j];
 
     /* Add the signal to the output. */
     outData[i] += y;
-  }
+        if (y!=0.0) nonzero+=1;
 
+  }
+  fprintf(stdout,"nonzeros InjectTimeSeries.c=%d.\n",nonzero);
+
+/*for(i=old_i;i<n;i++){
+  fprintf(stdout, "%d %10.10e %10.10e\n",i,outData[i],signalvec->data->data[(INT4)floor( offset + i*dt + 0.0001 )] );
+}*/
   /* Exit. */
   DETATCHSTATUSPTR( stat );
   RETURN( stat );
