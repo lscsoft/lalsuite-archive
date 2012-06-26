@@ -338,7 +338,7 @@ XLALInterpolateNRWave( REAL4TimeSeries *in,           /**< input strain time ser
     /* y_1 and y_2 are the input values at x1 and x2 */
     /* here we need to make sure that we don't exceed
        bounds of input vector */
-    if ( lo < in->data->length - 1) {
+    if ( lo <= in->data->length - 1) {
       y_1 = in->data->data[lo];
       y_2 = in->data->data[lo+1];
 
