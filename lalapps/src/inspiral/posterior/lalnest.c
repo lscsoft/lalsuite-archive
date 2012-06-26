@@ -933,13 +933,14 @@ int main( int argc, char *argv[])
 				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);*/
 			}
 		}
-		
+		const REAL8 Exact_TrigSegStart=(ETgpsSeconds - realstart.gpsSeconds)+(1e-9*ETgpsNanoseconds - 1e-9*realstart.gpsNanoSeconds)+2.-seglen/SampleRate;
 		TrigSample=(INT4)(SampleRate*(ETgpsSeconds - realstart.gpsSeconds));
 		TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*realstart.gpsNanoSeconds);
 		/*TrigSegStart=TrigSample+SampleRate*(0.5*(segDur-InjParams.tc)) - seglen; */ /* Centre the injection */
 		TrigSegStart=TrigSample+ (2*SampleRate) - seglen; /* Put trigger 2 s before end of segment */
 		if(InjParams.tc>segDur) fprintf(stderr,"Warning! Your template is longer than the data segment\n");
-		XLALGPSAdd(&segmentStart, (REAL8)TrigSegStart/(REAL8)SampleRate);
+		XLALGPSAdd(&segmentStart, Exact_TrigSegStart);
+		//XLALGPSAdd(&segmentStart, (REAL8)TrigSegStart/(REAL8)SampleRate);
 		memcpy(&(inputMCMC.epoch),&segmentStart,sizeof(LIGOTimeGPS));
 		
 		/* set up a Tukey Window */
@@ -1045,7 +1046,7 @@ int main( int argc, char *argv[])
 			memcpy(&bufferstart,&segmentStart,sizeof(LIGOTimeGPS));
 			XLALGPSAdd(&bufferstart,((REAL8)seglen*inputMCMC.deltaT));
 			XLALGPSAdd(&bufferstart,-((REAL8)bufferlength*inputMCMC.deltaT));
-
+            inputMCMC.bufferstart=&bufferstart;
 			REAL4TimeSeries *injWave=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(IFOnames[i],&(bufferstart),0.0,inputMCMC.deltaT,&lalADCCountUnit,(size_t)bufferlength);
 
 			for (j=0;j<injWave->data->length;j++) injWave->data->data[j]=0.0;
@@ -1117,7 +1118,7 @@ int main( int argc, char *argv[])
 			XLALDestroyREAL4TimeSeries(injWave);
 			XLALDestroyREAL8TimeSeries(inj8Wave);
 
-			if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%lf\n",IFOnames[i],SNR);}
+			if(status.statusCode==0) {fprintf(stderr,"Injected signal into %s. SNR=%f\n",IFOnames[i],SNR);}
 			else {fprintf(stderr,"injection failed!!!\n"); REPORTSTATUS(&status); exit(-1);}
 		}
 
