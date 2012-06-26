@@ -261,6 +261,7 @@ tagLALMCMCInput
   REAL4FFTPlan *likelihoodRevPlan;
   REAL8Window *window; /* Window for FFTing the data */
   LIGOTimeGPS epoch;
+  LIGOTimeGPS *bufferstart;
   REAL4   fLow;
   REAL8   deltaT;
   REAL8   deltaF;
