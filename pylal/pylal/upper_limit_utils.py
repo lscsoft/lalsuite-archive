@@ -301,10 +301,9 @@ def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbi
     return volArray, vol2Array, foundArray, missedArray, effvmass, errvmass
 
 
-def log_volume_derivative_fit(x, vols, xhat):
+def log_volume_derivative_fit(x, vols):
     '''
-    Performs a linear least squares fit for each mass bin to find the 
-    (logarithmic) derivative of the search volume vs x at the given xhat.
+    Performs a linear least squares to log(vols) as a function of x.
     '''
     if numpy.min(vols) == 0:
         print >> sys.stderr, "Warning: cannot fit log volume derivative as all volumes are zero!"
