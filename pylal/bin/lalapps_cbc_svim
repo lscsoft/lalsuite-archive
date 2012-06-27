@@ -434,7 +434,7 @@ class upper_limit(object):
       v2tmp = self.livetime[instruments]*numpy.array([v[mbin] for v in vA2])
 
       tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
-      coeffs = upper_limit_utils.log_volume_derivative_fit(numpy.log(fans), vtmp, FAN)
+      coeffs = upper_limit_utils.log_volume_derivative_fit(numpy.log(fans), vtmp)
       volDeriv[mbin] = coeffs[0]/FAN
       if self.opts.verbose:
         print >> sys.stdout, "mass bin %s" %str(mbin)
