@@ -1521,15 +1521,21 @@ while(tmp_mtot<manual_mass_low){
    if(tmp_mtot<manual_mass_low)fprintf(stdout,"REFUSED!!\n"); 
    else fprintf(stdout,"ACCEPTED!\n");
 }
-    if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
-      XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lMcmin,lMcmax,-1);
-    else
-      XLALMCMCAddParam(parameter,"logmc",tmp_logmc,lMcmin,lMcmax,0);
-    if(checkParamInList(pinned_params,"eta"))
-	XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
-    else
-	XLALMCMCAddParam(parameter, "eta",tmp_eta , etamin, etamax, 0);
 
+ if(checkParamInList(pinned_params,"mass1") &&  checkParamInList(pinned_params,"mass2")){ //SALVO
+        XLALMCMCAddParam(parameter,"mass1",(injTable->mass1),1.,30.,-1);
+        XLALMCMCAddParam(parameter,"mass2",(injTable->mass2),1.,30.,-1);
+        }
+    else{
+        if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+          XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lMcmin,lMcmax,-1);
+        else
+          XLALMCMCAddParam(parameter,"logmc",tmp_logmc,lMcmin,lMcmax,0);
+        if(checkParamInList(pinned_params,"eta"))
+        XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+        else
+        XLALMCMCAddParam(parameter, "eta",tmp_eta , etamin, etamax, 0);
+    }
     if(checkParamInList(pinned_params,"time"))
 	XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
     else
