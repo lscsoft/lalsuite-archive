@@ -273,11 +273,13 @@ XLALCalculateNRStrain( REAL4TimeVectorSeries *strain, /**< h+, hx time series da
 
   htData->deltaT = strain->deltaT;
   htData->sampleUnits = lalADCCountUnit;
+printf("vecLength %d\n",vecLength);
 
   for ( k = 0; k < vecLength; ++k )
   {
     htData->data->data[k] = (fplus * strain->data->data[k]  +
         fcross * strain->data->data[vecLength + k]) / inj->distance;
+if(k==0 || k>vecLength-5) printf("htdata[%d]=%10.10e strainR=%10.10e strainI=%10.10e\n",k,htData->data->data[k],strain->data->data[k],strain->data->data[vecLength + k]);
   }
 
   /*interpolate to given sample rate */
@@ -331,14 +333,14 @@ XLALInterpolateNRWave( REAL4TimeSeries *in,           /**< input strain time ser
 
   /* go over points of output vector and interpolate linearly
      using closest points of input */
-  for (k = 0; k < numPoints; k++) {
+  for (k = 0; k <numPoints; k++) {
 
     lo = (UINT4)( k*deltaTout / deltaTin);
 
     /* y_1 and y_2 are the input values at x1 and x2 */
     /* here we need to make sure that we don't exceed
        bounds of input vector */
-    if ( lo <= in->data->length - 1) {
+    if ( lo < in->data->length - 1) {
       y_1 = in->data->data[lo];
       y_2 = in->data->data[lo+1];
 
@@ -348,6 +350,17 @@ XLALInterpolateNRWave( REAL4TimeSeries *in,           /**< input strain time ser
 
       ret->data->data[k] = y_2 * r + y_1 * (1 - r);
     }
+    else if(lo==in->data->length-1){
+      y_1 = in->data->data[lo];
+      y_2 = 0.0;
+
+      /* we want to calculate y_2*r + y_1*(1-r) where
+ *          r = (x-x1)/(x2-x1) */
+      r = k*deltaTout / deltaTin - lo;
+
+      ret->data->data[k] = y_2 * r + y_1 * (1 - r);
+
+	}
     else {
       ret->data->data[k] = 0.0;
     }
