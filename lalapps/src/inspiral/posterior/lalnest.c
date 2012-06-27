@@ -933,7 +933,7 @@ int main( int argc, char *argv[])
 				fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realstart.gpsSeconds+1e-9*realstart.gpsNanoSeconds,datastart.gpsSeconds+1e-9*datastart.gpsNanoSeconds);*/
 			}
 		}
-		const REAL8 Exact_TrigSegStart=(ETgpsSeconds - realstart.gpsSeconds)+(1e-9*ETgpsNanoseconds - 1e-9*realstart.gpsNanoSeconds)+2.-seglen/SampleRate;
+		REAL8 Exact_TrigSegStart=(ETgpsSeconds - realstart.gpsSeconds)+(1e-9*ETgpsNanoseconds - 1e-9*realstart.gpsNanoSeconds)+2.-seglen/SampleRate;
 		TrigSample=(INT4)(SampleRate*(ETgpsSeconds - realstart.gpsSeconds));
 		TrigSample+=(INT4)(1e-9*SampleRate*ETgpsNanoseconds - 1e-9*SampleRate*realstart.gpsNanoSeconds);
 		/*TrigSegStart=TrigSample+SampleRate*(0.5*(segDur-InjParams.tc)) - seglen; */ /* Centre the injection */
@@ -1046,7 +1046,7 @@ int main( int argc, char *argv[])
 			memcpy(&bufferstart,&segmentStart,sizeof(LIGOTimeGPS));
 			XLALGPSAdd(&bufferstart,((REAL8)seglen*inputMCMC.deltaT));
 			XLALGPSAdd(&bufferstart,-((REAL8)bufferlength*inputMCMC.deltaT));
-            inputMCMC.bufferstart=&bufferstart;
+                        inputMCMC.bufferstart=&bufferstart;
 			REAL4TimeSeries *injWave=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries(IFOnames[i],&(bufferstart),0.0,inputMCMC.deltaT,&lalADCCountUnit,(size_t)bufferlength);
 
 			for (j=0;j<injWave->data->length;j++) injWave->data->data[j]=0.0;
@@ -1082,7 +1082,7 @@ int main( int argc, char *argv[])
 			REAL4 WinNorm = sqrt(windowplan->sumofsquares/windowplan->data->length);
 			for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=SNRfac*windowplan->data->data[j]/WinNorm;
 			XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
-			
+			//for(j=0;j<inj8Wave->data->length;j++) if( inj8Wave->data->data[j]!=0.0) fprintf(stdout,"%d %10.10e\n",j,inj8Wave->data->data[j]);
 			REPORTSTATUS(&status);
 			if(estimatenoise){
 				for(j=(UINT4) (inputMCMC.fLow/inputMCMC.invspec[i]->deltaF),SNR=0.0;j<inputMCMC.invspec[i]->data->length;j++){
@@ -1093,7 +1093,7 @@ int main( int argc, char *argv[])
 			LALDestroyREAL4FFTPlan(&status,&inj_plan);
 
 			networkSNR+=SNR;
-            SNRs[i]=sqrt(SNR);
+                        SNRs[i]=sqrt(SNR);
 			SNR=sqrt(SNR);
 
 			/* Actually inject the waveform */
@@ -1521,15 +1521,20 @@ while(tmp_mtot<manual_mass_low){
    if(tmp_mtot<manual_mass_low)fprintf(stdout,"REFUSED!!\n"); 
    else fprintf(stdout,"ACCEPTED!\n");
 }
-    if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
-      XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lMcmin,lMcmax,-1);
-    else
-      XLALMCMCAddParam(parameter,"logmc",tmp_logmc,lMcmin,lMcmax,0);
-    if(checkParamInList(pinned_params,"eta"))
-	XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
-    else
-	XLALMCMCAddParam(parameter, "eta",tmp_eta , etamin, etamax, 0);
-
+ if(checkParamInList(pinned_params,"mass1") &&  checkParamInList(pinned_params,"mass2")){ //SALVO
+        XLALMCMCAddParam(parameter,"mass1",(injTable->mass1),1.,30.,-1);
+        XLALMCMCAddParam(parameter,"mass2",(injTable->mass2),1.,30.,-1);
+        }
+    else{
+        if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
+          XLALMCMCAddParam(parameter,"logmc",log(injTable->mchirp),lMcmin,lMcmax,-1);
+        else
+          XLALMCMCAddParam(parameter,"logmc",tmp_logmc,lMcmin,lMcmax,0);
+        if(checkParamInList(pinned_params,"eta"))
+        XLALMCMCAddParam(parameter,"eta",injTable->eta,etamin,etamax,-1);
+        else
+        XLALMCMCAddParam(parameter, "eta",tmp_eta , etamin, etamax, 0);
+    }
     if(checkParamInList(pinned_params,"time"))
 	XLALMCMCAddParam(parameter,"time",trg_time,trg_time-0.5*timewindow,trg_time+0.5*timewindow,-1);
     else
@@ -2238,7 +2243,7 @@ void NestInitInjectedParam(LALMCMCParameter *parameter, void *iT, LALMCMCInput *
 {  
     char *pinned_params_temp=NULL;
     int pin_was_null=1;
-    char full_list[]="a1,a2,logM,mchirp,logmchirp,logmc,eta,psi,dist,logdist,distMpc,logD,iota,ra,dec,time,phi,spin1z,spin2z,theta1,theta2,phi1,phi2,phiP,phiM";
+    char full_list[]="a1,a2,mass1,mass2,logM,mchirp,logmchirp,logmc,eta,psi,dist,logdist,distMpc,logD,iota,ra,dec,time,phi,spin1z,spin2z,theta1,theta2,phi1,phi2,phiP,phiM";
     if (pinned_params!=NULL){
         pin_was_null=0;
         pinned_params_temp=calloc(strlen(pinned_params)+1 ,sizeof(char));
