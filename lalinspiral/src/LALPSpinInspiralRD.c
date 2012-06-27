@@ -777,6 +777,7 @@ XLALInspiralInit(params, &paramsInit); //Salvo: Why don't we do the same thing d
 
     /* Call the engine function*/
     count = XLALPSpinInspiralRDEngine(s1, s2, NULL, NULL, NULL, params, &paramsInit);
+
     if (count == XLAL_FAILURE)
       XLAL_ERROR(XLAL_EFUNC);
 
@@ -861,6 +862,7 @@ int XLALPSpinInspiralRDForInjection(
     memset(phi->data, 0,     nbins * sizeof(REAL8));
 
     /* Call the engine function */
+if(params->inspiralOnly==1) printf("inspiralOnly=1 in injection\n");
     count = XLALPSpinInspiralRDEngine(NULL, NULL, h, f, phi, params, &paramsInit);
     if (count == XLAL_FAILURE)
       XLAL_ERROR(XLAL_EFUNC);

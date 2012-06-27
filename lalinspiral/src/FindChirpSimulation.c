@@ -493,7 +493,7 @@ fprintf(stdout,"thisEvent->geocent_end_time.gpsSeconds = %d, thisEvent->geocent_
       XLALFree(tmpdata);
       waveform.h->data->vectorLength = wfmLength;
       waveform.h->data->length = 2; 
-      if(strstr(thisEvent->waveform,"PhenSpinTaylorRD"))
+      if(strstr(thisEvent->waveform,"PhenSpinTaylor") || strstr(thisEvent->waveform,"PhenSpinTaylorRD") )
       {
        LALInjectStrainGW_PhenSpin( status->statusPtr ,
                                       chan ,

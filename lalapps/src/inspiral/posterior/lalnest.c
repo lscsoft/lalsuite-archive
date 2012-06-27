@@ -1178,7 +1178,7 @@ int main( int argc, char *argv[])
 	CHAR BBH[]="IMRPhenomFA"; CHAR BBHSpin1[]="IMRPhenomFB_NS"; CHAR BBHSpin2[]="IMRPhenomFB";
 	CHAR BBHSpin3[]="IMRPhenomFB_Chi"; CHAR EBNR[]="EOBNR"; CHAR AMPCOR[]="AmpCorPPN";
 	CHAR ST[]="SpinTaylor"; CHAR LowMassIMRFB[]="IMRPhenomFB_Chi_low"; CHAR LowMassIMRB[]="IMRPhenomB_Chi_low";
-	CHAR PSTRD[]="PhenSpinTaylorRD";
+	CHAR PSTRD[]="PhenSpinTaylorRD";CHAR PST[]="PhenSpinTaylor";
 	/*CHAR PSTRD[]="PhenSpinTaylorRD"; */ /* Commented out until PhenSpin waveforms are in master */
 	inputMCMC.approximant = TaylorF2; /* Default */
 	if(!strcmp(approx,TF2)) inputMCMC.approximant=TaylorF2;
@@ -1194,14 +1194,14 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
-	else if(strstr(approx,PSTRD)) {
+	else if(strstr(approx,PSTRD) ||strstr(approx,PST)) {
+            if (strstr(approx,PST)){
+            inputMCMC.approximant=PhenSpinTaylor;
+            inputMCMC.inspiralOnly=1;}
+            if (strstr(approx,PSTRD)){
 	    inputMCMC.approximant=PhenSpinTaylorRD;
-	    if (strstr(approx,"inspiralOnly")) {
-	      inputMCMC.inspiralOnly=1;
-	    }
-	    else {
-	      inputMCMC.inspiralOnly=0;
-	    }
+	    inputMCMC.inspiralOnly=0;}
+            
 	    if (strstr(approx,"fixedStep")) {
 	      inputMCMC.fixedStep=1;
 	    }
@@ -1217,7 +1217,9 @@ int main( int argc, char *argv[])
 	    else {
 	      inputMCMC.axisChoice=View;
 	    }
-            if (XLALGetInteractionFromString(&inputMCMC.spinInteraction, approx) == XLAL_FAILURE)                                                                                                           exit(-1);
+            if (XLALGetInteractionFromString(&inputMCMC.spinInteraction, approx) == XLAL_FAILURE){ 
+            fprintf(stderr,"ERROR. Cannot get interaction from string in lalnest. Exiting...\n");  exit(-1);}
+
 	 }
 	 else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
@@ -1329,7 +1331,7 @@ doneinit:
 	inputMCMC.funcInit = NestInitManualIMRBChi;
     }
    
-    	if(strstr(approx,PSTRD)) {
+    	if(strstr(approx,PSTRD)||strstr(approx,PST)) {
           inputMCMC.funcPrior = NestPrior;
 	  inputMCMC.funcLikelihood = MCMCLikelihoodMultiCoherentF_PhenSpin;
 	  inputMCMC.likelihoodPlan = NULL;
@@ -1347,7 +1349,10 @@ doneinit:
           InspiralTemplate template; 
 	  template.fCutoff=SampleRate/2.-1.;
 	  template.tSampling=SampleRate;
-	  template.approximant=PhenSpinTaylorRD;
+          if(strstr(approx,PST))
+	  template.approximant=PhenSpinTaylor;
+          if(strstr(approx,PSTRD))
+          template.approximant=PhenSpinTaylorRD;
 	  template.eta=0.25;
 	  template.totalMass=manual_mass_low; /*CHECK THIS! */
 	  template.massChoice=totalMassAndEta;
@@ -1434,7 +1439,7 @@ doneinit:
 } /* End main() */
 
 
-
+/* This works with both PhenSpin and PhenSpinRD */
 void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 {
 
