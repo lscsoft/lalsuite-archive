@@ -958,29 +958,44 @@ REAL8 fplus,fcross;
 		return 0.0;
 	}
 
-	eta = XLALMCMCGetParameter(parameter,"eta");
+	if (XLALMCMCGetParameter(parameter,"eta")){
+        eta = XLALMCMCGetParameter(parameter,"eta");
 
-	if (XLALMCMCCheckParameter(parameter,"logmc")) {
-	  mchirp=exp(XLALMCMCGetParameter(parameter,"logmc"));
-	  mtot=mchirp/pow(eta,3./5.);
-	}
-	else {
-	  if (XLALMCMCCheckParameter(parameter,"mchirp")) {
-	    mchirp=XLALMCMCGetParameter(parameter,"mchirp");
-	    mtot=mchirp/pow(eta,3./5.);
-	  }
-	  else {
-	    if (XLALMCMCCheckParameter(parameter,"mtotal"))
-	      {
-		mtot=XLALMCMCGetParameter(parameter,"mtotal");
-	      }
-	  }
-	}
-	template.totalMass = mtot;
-	template.eta = eta;
-	template.massChoice = totalMassAndEta;
-	template.fLower = inputMCMC->fLow;
-	if (XLALMCMCCheckParameter(parameter,"distMpc"))
+        if (XLALMCMCCheckParameter(parameter,"logmc")) {
+          mchirp=exp(XLALMCMCGetParameter(parameter,"logmc"));
+          mtot=mchirp/pow(eta,3./5.);
+        }
+        else {
+          if (XLALMCMCCheckParameter(parameter,"mchirp")) {
+            mchirp=XLALMCMCGetParameter(parameter,"mchirp");
+            mtot=mchirp/pow(eta,3./5.);
+          }
+          else {
+            if (XLALMCMCCheckParameter(parameter,"mtotal"))
+              {
+            mtot=XLALMCMCGetParameter(parameter,"mtotal");
+              }
+          }
+        }
+    template.massChoice = totalMassAndEta;
+
+    }
+    else if(XLALMCMCCheckParameter(parameter,"mass1") && XLALMCMCCheckParameter(parameter,"mass2")){
+        REAL8 mass1,mass2;
+        mass1=XLALMCMCGetParameter(parameter,"mass1");
+        mass2=XLALMCMCGetParameter(parameter,"mass2");
+        mtot=mass1+mass2;
+        template.mass1=mass1;
+        template.mass2=mass2;
+        fprintf(stdout,"using m1=%lf  and m2=%lf in recovery!!!! \n",mass1,mass2);
+                template.massChoice = m1Andm2;
+                eta=m2eta(mass1,mass2);
+                mchirp=m2mc(mass1,mass2);
+                        }
+                        	template.totalMass = mtot;
+                        		template.eta = eta;
+                        			template.fLower = inputMCMC->fLow;
+        if (XLALMCMCCheckParameter(parameter,"distMpc"))
 	  template.distance = XLALMCMCGetParameter(parameter,"distMpc")*LAL_PC_SI*1.e6; /* This must be metres */
 	else 
 	  if(XLALMCMCCheckParameter(parameter,"logdist")) {
