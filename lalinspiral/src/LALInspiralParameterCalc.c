@@ -210,6 +210,11 @@ XLALInspiralParameterCalc (
             params->mass1 = 0.5*totalMass * ( 1.L + sqrt(1.L - 4.L*eta));
             params->mass2 = 0.5*totalMass * ( 1.L - sqrt(1.L - 4.L*eta));
          }
+if (params->mass1<params->mass2){ //SALVO 
+               double tmp=params->mass2;
+                            params->mass2=params->mass1;
+                                         params->mass1=tmp;
+                                                      }
          params->mu = eta*totalMass;
          params->chirpMass = pow(eta,0.6)*totalMass;
 
