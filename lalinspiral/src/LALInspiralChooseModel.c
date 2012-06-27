@@ -542,6 +542,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
          case IMRPhenomA:
@@ -595,6 +596,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
          case IMRPhenomA:
@@ -645,6 +647,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
          case IMRPhenomA:
@@ -698,6 +701,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
 /*
@@ -755,6 +759,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
 /*
@@ -812,6 +817,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
 /*
@@ -869,6 +875,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
 	 case SpinQuadTaylor:
             ak->vn = ak->vlso = vlso = ak->vlsoT2;
@@ -939,6 +946,7 @@ XLALInspiralChooseModel(
          case SpinTaylorT3:
          case SpinTaylor:
          case PhenSpinTaylorRD:
+         case PhenSpinTaylor:
 	 //case PhenSpinTaylorRDF:
          case SpinQuadTaylor:
          case PadeT1:
@@ -977,6 +985,7 @@ XLALInspiralChooseModel(
       case SpinTaylorT3:
       case SpinTaylor:
       case PhenSpinTaylorRD:
+      case PhenSpinTaylor:
       //case PhenSpinTaylorRDF:
       case SpinQuadTaylor:
       case TaylorEt:
