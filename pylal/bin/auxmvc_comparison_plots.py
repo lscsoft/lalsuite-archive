@@ -50,23 +50,180 @@ def CalculateFAPandEFF(total_data,classifier):
 	return total_data
 
 
-def compute_combined_rank(total_data):
-	"""
-	Computes combined rank defined as logarithm of highest EFF/FAP from the classifiers.
-	"""
+def compute_combined_rank(total_data, type='max'):
+  # Computes combined rank defined as logarithm of highest EFF/FAP from the classifiers.
+  # we define two types of classifiers: 
+  #   max:= combined_rank = max{ EFF/FAP } (DEFAULT)
+  #     appropriate when classifiers are highly corrolated on both glitches and cleans
+  #   max_hist:= combined_rank = max{ p(r|g)/p(r|g) }
+  #     approximates the likelihood ratio from 1D histograms over each classifier's rank, and takes the maximum
+  #     as written, this will only work when ANN, MVSC, and SVM are present
+  #   max_pi:= combined_rank = max{ EFF } / product{ FAP }            
+  #     appropriate when classifiers are corrolated on glitches but uncorrolated on cleans
+  #   hist:= combined_rank = p({ranks}|glitch) / p({ranks}|clean)
+  #     the probabilities are estimated from a historgram of events in MVC_rank-space
+  #     appropriate in all situations, but may take longer to compute
+  #     as written, this will only work when ANN, MVSC, and SVM are present
 
-	for trigger in total_data:
-		# We need to add here OVL
-		combined_mvc_rank = max([eff_over_fap(trigger, cls[0]) for cls in classifiers if cls[0]!='ovl'])
-#		combined_mvc_rank = max(eff_over_fap(trigger,'mvsc'), eff_over_fap(trigger,'ann'), eff_over_fap(trigger,'svm'))
-		# set highest combined rank to 1000.0
-		if combined_mvc_rank == numpy.inf: 
-			trigger['combined_rank'] = 1000.0
-		else:
-			trigger['combined_rank'] = combined_mvc_rank
-	
-	return total_data
-	
+  # define the bins for our histogram
+  n_bins = 500
+  bins = numpy.linspace(0, 1, n_bins+1)
+
+  if type=='max':
+    for trigger in total_data:
+    # We need to add here OVL
+      combined_mvc_rank = max([eff_over_fap(trigger, cls[0]) for cls in classifiers if cls[0]!='ovl'])     
+      # set highest combined rank to 1000.0
+      if combined_mvc_rank == numpy.inf: 
+        trigger['combined_rank'] = 1000.0
+      else:
+        trigger['combined_rank'] = combined_mvc_rank
+
+  if type=='max_hist':
+    total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
+    ranks=[[glitch['glitch']] + [glitch[cls[0]+'_rank'] for cls in classifiers if cls[0]!='ovl'] + [0, 0, 0] for glitch in total_data]
+    n_ranks = len(ranks)
+
+    p_glitch = [ [0]*n_bins ]*len([c for c in classifiers if c[0]!='ovl'])
+    p_cleans = [ [0]*n_bins ]*len(p_glitch)
+
+    for i in range(n_bins):
+      for ind in range(n_ranks):
+        if ranks[ind][1] > bins[i] and ranks[ind][1] <= bins[i+1]:
+          ranks[ind][4] = i
+          if ranks[ind][0] == 1:
+            p_glitch[0][i] += 1
+          else:
+            p_cleans[0][i] += 1
+        if ranks[ind][2] > bins[i] and ranks[ind][2] <= bins[i+1]:
+          ranks[ind][5] = i
+          if ranks[ind][0] == 1:
+            p_glitch[1][i] += 1
+          else:
+            p_cleans[1][i] += 1
+        if ranks[ind][3] > bins[i] and ranks[ind][3] <= bins[i+1]:
+          ranks[ind][6] = i
+          if ranks[ind][0] == 1:
+            p_glitch[2][i] += 1
+          else:
+            p_cleans[2][i] += 1
+
+    for ind in range(n_ranks):
+      n_cleans = len([r for r in ranks if r[0]==0])
+      if p_cleans[0][ranks[ind][4]] > 0:
+        L_ann = p_glitch[0][ranks[ind][4]] / float(p_cleans[0][ranks[ind][4]])
+      else:
+        L_ann = p_glitch[0][ranks[ind][4]]*2*n_cleans
+      if p_cleans[1][ranks[ind][5]] > 0:
+        L_mvsc = p_glitch[1][ranks[ind][5]] / float(p_cleans[1][ranks[ind][5]])
+      else:
+        L_mvsc = p_glitch[1][ranks[ind][5]]*2*n_cleans
+      if p_cleans[2][ranks[ind][6]] > 0:
+        L_svm = p_glitch[2][ranks[ind][6]] / float(p_cleans[2][ranks[ind][6]])
+      else:
+        L_svm = p_glitch[2][ranks[ind][6]]*2*n_cleans
+
+      total_data[ind]['combined_rank']=max([L_ann, L_mvsc, L_svm])
+
+
+  if type=='max_pi':
+    for trigger in total_data:
+      product = 1
+      for P in [cls[0] for cls in classifiers if cls[0]!='ovl']:
+        product *= trigger[P+'_fap']
+      if product != 0.0:
+        trigger['combined_rank'] = max([trigger[cls[0]+'_eff'] for cls in classifiers if cls[0]!='ovl']) / product
+      else:
+        trigger['combined_rank'] = 10.0**25
+     
+  if type=='hist':
+    # we need to sort total_data in the correct way: do this by the order of classifiers and by cls_rank so that the we end up with total_data sorted by classifiers[0]_rank, and then that sub-sorted by classifiers[1]_rank, etc
+    # also want these in increasing order
+    # sort total data first by glitch and then by GPS time.
+    # numpy.lexsort() does inderct sort and return array's indices
+    total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
+
+    #define a list of sets of ranks so that we don't have to manipulate total_data
+    # the order of this list also corresponds to the order of glitches in total_data, which we will exploit
+    # each element of ranks has the following form: [ glitch, cls1_rank, cls2_rank, cls3_rank, cls1_bin, cls2_bin, cls3-bin]
+    ranks=[[glitch['glitch']] + [glitch[cls[0]+'_rank'] for cls in classifiers if cls[0]!='ovl'] + [0, 0, 0] for glitch in total_data]
+    n_ranks = len(ranks)
+
+    # define the 'histograms' as array like structures
+    # we will count glitches as elements of a bin if they fall into ( bin[i], bin[i+1] ], with the special case of the first bin, which is defined as [ bin[0], bin[1] ]
+    p_glitch = [ [ [0]*n_bins ]*n_bins ]*n_bins
+    p_cleans = [ [ [0]*n_bins ]*n_bins ]*n_bins
+
+    # iterate through all possible bins
+    # we count the number of elements from ranks in each bin and also label the elements in ranks by their corresponding bins (saves time later)
+    # we know that ranks is sorted, so on the next iteration we pick up where we left off (this will only work for the top level though)
+    i_ind = 0
+    
+    # we also instantiate counters for the number of glitches
+    n_glitches = 0
+    n_cleans = 0
+
+    for i in range(n_bins):
+      # these store the elements of ranks that fall into bin "i"
+      i_ranks = []
+      i_ranks_inds = [] # corresponds to the index in ranks for all elements in i_ranks
+
+      # iterate over all elements of ranks that we haven't already seen
+      for ind in range(n_ranks):
+        if ranks[ind][1] < bins[i]: # falls to the left of the bin
+          pass
+        elif ranks[ind][1] <= bins[i+1]: # falls within the bin, increment where appropriate
+          i_ranks += [ranks[ind]]
+          i_ranks_inds += [ind]
+          ranks[ind][4] = i # label the element of ranks
+      
+      # iterate over all elements we haven't seen. same logic as above, except we only iterate through the truncated list "i_ranks"
+      for j in range(n_bins):
+        j_ranks = []
+        j_ranks_inds = [] 
+
+        for ind in range(len(i_ranks)):
+          if i_ranks[ind][2] < bins[j]:
+            pass
+          elif i_ranks[ind][2] <= bins[j+1]:
+            j_ranks += [i_ranks[ind]]
+            j_ranks_inds += [i_ranks_inds[ind]]
+            ranks[i_ranks_inds[ind]][5] = j
+
+        # iterate as above, but through the even further truncated list "j_ranks"
+        for k in range(n_bins):
+          k_ranks = []
+          for ind in range(len(j_ranks)):
+            if j_ranks[ind][3] < bins[k]:
+              pass
+            elif j_ranks[ind][3] <= bins[k+1]: # falls within the bin, and we simply add 1 to the number of elements in that bin
+              k_ranks += [j_ranks[ind]]
+              if j_ranks[ind][0] == 1:
+                p_glitch[i][j][k] += 1
+                n_glitches += 1
+              else:
+                p_cleans[i][j][k] += 1
+                n_cleans += 1
+              ranks[j_ranks_inds[ind]][6] = k
+ 
+    # we should check that we've place all the glitches and cleans: see if n_glitches == len(glitches), etc
+    print len(total_data[numpy.nonzero(total_data['glitch'] == 1)[0]])
+    print n_glitches
+
+    print len(total_data[numpy.nonzero(total_data['glitch'] == 0)[0]])
+    print n_cleans
+
+    for ind in range(n_ranks):
+       # compute the likelihood ratio from the histograms
+       p_g = p_glitch[ranks[ind][4]][ranks[ind][5]][ranks[ind][6]]/float(n_glitches)
+       p_c = p_cleans[ranks[ind][4]][ranks[ind][5]][ranks[ind][6]]/float(n_cleans)
+       if p_c != 0:
+         total_data[ind]['combined_rank'] = p_g/p_c
+       else:
+         total_data[ind]['combined_rank'] = p_g*2*n_cleans # we define a bin with zero elements as having a probability of 1/(2*n_cleans)
+
+  return total_data
+
 def eff_over_fap(trigger, classifier):
   """
   Calculate ratio of eff over fap which approximates likelihood ratio.
@@ -311,7 +468,31 @@ def cluster(data, rank='signif', cluster_window=1.0):
 			
 	data = numpy.concatenate((glitches, data[numpy.nonzero(data['glitch'] == 0.0)[0],:]))
 	return data
-    
+
+def EstimateP(rank, ranks, dr=0.001, last_dr=0, N=100, tolerance=0.01, max_iter=25, iter=0):
+  # written to estimate the probability density at (rank) from the distribution (ranks)
+  # we use a simple counting algorithm to estimate the number of elements of (ranks) in the neighborhood or (rank), and use that to estimate the density at (rank)
+  p=[]
+  for r in rank:
+    Sn=sum([1 for e in ranks if abs(e-r) <= dr])
+    if max_iter==iter:
+      p += [Sn/(2*dr)]
+    elif numpy.abs(Sn-N) <= tolerance*N:
+      p += [Sn/(2*dr)]
+    elif Sn < N:
+      if last_dr > dr:
+        new_dr = 0.5*(last_dr + dr)
+      else:
+        new_dr = 10*dr
+      p += EstimateP([r], ranks, dr=new_dr, last_dr=dr, N=N, tolerance=tolerance, iter=(iter+1))
+    else:
+      if last_dr < dr:
+        new_dr = 0.5*(dr+last_dr)
+      else:
+        new_dr = 0.1*dr
+      p += EstimateP([r], ranks, dr=new_dr, last_dr=dr, N=N, tolerance=tolerance, iter=(iter+1))
+  return p
+         
 
 usage= """Written to load and manipulate output from different classifiers."""
 
@@ -322,11 +503,14 @@ parser.add_option("","--ovl-ranked-files", default=False, type="string", help="P
 parser.add_option("","--mvsc-ranked-files", default=False, type="string", help="Provide the path for MVSC *.dat files and globbing pattern")
 parser.add_option("","--ann-ranked-files", default=False, type="string", help="Provide the path for ANN *.dat files and globbing pattern")
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
+
+parser.add_option("","--combined-algorithm", default='max', type="string", help='Change the algorithm with which MVC data is combined')
 parser.add_option("","--fap-threshold", default=0.1,type="float", help="False Alarm Probability which is adapted to veto")
 parser.add_option("","--cluster",action="store_true", default=False, help="cluster glitch samples")
 parser.add_option("","--cluster-window", default=1.0, type="float", help="clustering window in seconds, default is 1 second.")
 parser.add_option("","--cluster-rank", default='signif', type="string", help="rank used in clustering, default rank is significance of trigger in DARM.")
-parser.add_option("-P","--output-path",action="store",type="string",default="",  metavar="PATH", help="path where the figures would be stored")	  
+
+parser.add_option("-P","--output-path",action="store",type="string",default="./",  metavar="PATH", help="path where the figures would be stored")	  
 parser.add_option("-O","--enable-output",action="store_true", default="True",  metavar="OUTPUT", help="enable the generation of the html and cache documents")	 	  
 parser.add_option("-u","--user-tag",action="store",type="string", default=None,metavar=" USERTAG", help="a user tag for the output filenames" )
 parser.add_option("", "--figure-resolution",action="store",type="int", default=50, help="dpi of the thumbnails (50 by default)")
@@ -336,7 +520,7 @@ parser.add_option("", "--html-for-cbcweb",action="store", default=False, metavar
       "argument should be the cvs directory where the html file will be placed "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 parser.add_option("","--verbose", action="store_true", default=False, help="print information" )
-parser.add_option("","--write-combined-data",action="store_true", default="False", help="write combined data to disk")
+parser.add_option("","--write-combined-data",action="store_true", default=False, help="write combined data to disk")
 
 # option to switch 'signif' and 'snr' data (to fix a labeling issue)
 parser.add_option("","--switch-signif-and-snr", action="store_true", default=False, help="switch all signif and snr data to fix a mis-labeling issue upstream")
@@ -416,12 +600,16 @@ if opts.cluster:
 # Computing FAP and Efficiency for MVCs
 for cls in classifiers:
   total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
-	
+
+if opts.verbose:
+  print 'combining...'	
 # Computing combined rank		
-total_ranked_data = compute_combined_rank(total_ranked_data)
+total_ranked_data = compute_combined_rank(total_ranked_data, type=opts.combined_algorithm)
 
 # Computing FAP and Efficiency for combned rank
 total_ranked_data = CalculateFAPandEFF(total_ranked_data,'combined')
+if opts.verbose:
+  print 'done'
 
 # add combined  to the list of classifiers
 classifiers.append(['combined'])
@@ -482,6 +670,14 @@ if opts.verbose:
 
 colorDIC = {'ann':'b', 'mvsc':'g', 'svm':'r', 'ovl':'c', 'combined':'m'}
 labelDIC = {'ann':'ANN', 'mvsc':'MVSC', 'svm':'SVM', 'ovl':'OVL', 'combined':'MVC$_{\mathrm{max}}$'}
+
+if opts.combined_algorithm == 'max_pi':
+  labelDIC['combined'] = '$\mathrm{max} \{ eff \} / \Pi \{ fap \}$'
+elif opts.combined_algorithm == 'hist':
+  labelDIC['combined'] = '$p(\{r_k\}|g)/p(\{r_k\}|c)$'
+elif opts.combined_algorithm == 'max_hist':
+  labelDIC['combined'] = '$\mathrm{max} \{ p(r_i|g)/p(r_i|c) \}$'
+
 
 matplotlib.rc('text', usetex=True)
 
@@ -1116,7 +1312,12 @@ if opts.diagnostic_plots:
 
           # determine which rank corresponds to opts.fap_threshold
           rankthr = glitches[numpy.nonzero(glitches[clas[indd][0]+'_fap'] <= opts.fap_threshold)[0],:]
-          rankthr = min(rankthr[clas[indd][0]+'_rank'])
+          rankthr = rankthr[clas[indd][0]+'_rank']
+          if len(rankthr) != 0:
+            rankthr = min(rankthr)
+          else:
+            rankthr = False
+            print 'WARNING: glitches[numpy.nonzero(glitches['+clas[indd][0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
 #          print str(rankthr)
 
           fig_num += 1
@@ -1143,11 +1344,12 @@ if opts.diagnostic_plots:
           else:
             pylab.xlim(0,1)
         
-          # plot a line corresponding to opts.fap_threshold
-          lims = matplotlib.pyplot.axis()
-          fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-          fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+clas[indd][0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-          matplotlib.pyplot.axis(lims)
+          if rankthr:
+            # plot a line corresponding to opts.fap_threshold
+            lims = matplotlib.pyplot.axis()
+            fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+            fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+clas[indd][0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+            matplotlib.pyplot.axis(lims)
   
           #adding to html page
           name = '_hist_'+clas[indd][0]+'_rank_glitches_removed_by_ONLY_'+clas[ind][0]+'_FAPthr_'+str(FAPthr)
@@ -1180,7 +1382,12 @@ if opts.diagnostic_plots:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = min(rankthr[cls[0]+'_rank'])
+    rankthr = rankthr[cls[0]+'_rank']
+    if len(rankthr) != 0:
+      rankthr = min(rankthr)
+    else:
+      rankthr = False
+      print 'WARNING: glitches[numpy.nonzero(glitches['+cls[0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
 
     for sigthr in [0, 25, 50]:
       #pull out the subset of glitches
@@ -1227,11 +1434,12 @@ if opts.diagnostic_plots:
       pylab.title('Fig. '+str(fig_num)+': Statistics for glitches with signif $\geq$ '+str(sigthr)+' binned over '+labelDIC[cls[0]]+'\_rank')
       pylab.ylim(ymin = 0)
 
-      # plot a line corresponding to opts.fap_threshold
-      lims = matplotlib.pyplot.axis()
-      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-      matplotlib.pyplot.axis(lims)
+      if rankthr:
+        # plot a line corresponding to opts.fap_threshold
+        lims = matplotlib.pyplot.axis()
+        fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+        fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+        matplotlib.pyplot.axis(lims)
 
       #adding to html page
       name = '_statistics_binned_by_'+cls[0]+'_rank_sigthr_'+str(sigthr)
@@ -1259,8 +1467,13 @@ if opts.diagnostic_plots:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = min(rankthr[cls[0]+'_rank'])
-
+    rankthr = rankthr[cls[0]+'_rank']
+    if len(rankthr) != 0:
+      rankthr = min(rankthr)
+    else:
+      rankthr = False
+      print 'WARNING: glitches[numpy.nonzero(glitches['+clas[indd][0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
+    
     # STEP histograms
     fig_num += 1
     pylab.figure(fig_num)
@@ -1282,12 +1495,13 @@ if opts.diagnostic_plots:
     pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
     pylab.ylabel('Number of Glitches')
     pylab.legend(loc = 'upper center')
-  
-    # plot a line corresponding to opts.fap_threshold
-    lims = matplotlib.pyplot.axis()
-    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-    matplotlib.pyplot.axis(lims)
+ 
+    if rankthr: 
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
 
     #adding to the html page
     name = '_hist_glitches_' + cls[0] + '_rank_LOG'
@@ -1346,11 +1560,12 @@ if opts.diagnostic_plots:
     pylab.ylabel('Number of Glitches')
     pylab.legend(loc = 'upper center')
 
-    # plot a line corresponding to opts.fap_threshold
-    lims = matplotlib.pyplot.axis()
-    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-    matplotlib.pyplot.axis(lims)
+    if rankthr:
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
 
     #adding to the html page
     name = '_hist_glitches_' + cls[0] + '_rank_LOG_barstacked'
@@ -1385,7 +1600,12 @@ if opts.diagnostic_plots:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = min(rankthr[cls[0]+'_rank'])
+    rankthr = rankthr[cls[0]+'_rank']
+    if len(rankthr) != 0:
+      rankthr = min(rankthr)
+    else:
+      rankthr = False
+      print 'WARNING: glitches[numpy.nonzero(glitches['+clas[indd][0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
 
     fig_num +=1
     pylab.figure(fig_num)
@@ -1397,11 +1617,12 @@ if opts.diagnostic_plots:
     pylab.xlabel(labelDIC[cls[0]]+'\_rank')
     pylab.ylabel('Number of Samples')
 
-    # plot a line corresponding to opts.fap_threshold
-    lims = matplotlib.pyplot.axis()
-    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-    matplotlib.pyplot.axis(lims)
+    if rankthr:
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
 
     #adding to html page
     name = '_hist_cleans'+cls[0]+'_rank-LOG'
@@ -1437,7 +1658,12 @@ if opts.hist_ranks:
 
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
-    rankthr = min(rankthr[cls[0]+'_rank'])
+    rankthr = rankthr[cls[0]+'_rank']
+    if len(rankthr) != 0:
+      rankthr = min(rankthr)
+    else:
+      rankthr = False
+      print 'WARNING: glitches[numpy.nonzero(glitches['+clas[indd][0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
 
     # STEP histograms
     fig_num += 1
@@ -1467,11 +1693,12 @@ if opts.hist_ranks:
 
     pylab.legend(loc = 'upper center')
 
-    # plot a line corresponding to opts.fap_threshold
-    lims = matplotlib.pyplot.axis()
-    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-    matplotlib.pyplot.axis(lims)
+    if rankthr:
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
 
     #adding to the html page
     name = '_hist_glitches_and_cleans_' + cls[0] + '_rank_LOG'
@@ -1540,11 +1767,12 @@ if opts.hist_ranks:
     pylab.ylabel('Number of Glitches')
     pylab.legend(loc = 'upper center')
 
-    # plot a line corresponding to opts.fap_threshold
-    lims = matplotlib.pyplot.axis()
-    fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
-    fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
-    matplotlib.pyplot.axis(lims)
+    if rankthr:
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
 
     #adding to the html page
     name = '_hist_glitches_and_cleans_' + cls[0] + '_rank_LOG_barstacked'
@@ -2001,4 +2229,4 @@ if opts.html_for_cbcweb:
 ##############################################################################################################
 if opts.verbose:
   print 'Done.'
-
+  print "\a"

@@ -1,5 +1,6 @@
 /*
 *  Copyright (C) 2007 David Chin, Jolien Creighton, Kipp Cannon, Teviet Creighton
+*  Copyright (C) 2012 Matthew Pitkin
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -191,6 +192,21 @@ void XLALComputeDetAMResponse(
 	const double gmst
 );
 
+
+void XLALComputeDetAMResponseExtraModes(
+  double *fplus,
+  double *fcross,
+  double *fb,
+  double *fl,
+  double *fx,
+  double *fy,
+  REAL4 D[3][3],
+  const double ra,
+  const double dec,
+  const double psi,
+  const double gmst
+);
+
 /*
  * Gives a time series of the detector's response to plus and cross
  * polarization
@@ -211,6 +227,22 @@ int XLALComputeDetAMResponseSeries(
 	const LIGOTimeGPS *start,
 	const double deltaT,
 	const int n
+);
+
+int XLALComputeDetAMResponseExtraModesSeries(
+  REAL4TimeSeries **fplus,
+  REAL4TimeSeries **fcross,
+  REAL4TimeSeries **fb,
+  REAL4TimeSeries **fl,
+  REAL4TimeSeries **fx,
+  REAL4TimeSeries **fy,
+  REAL4 D[3][3],
+  const double ra,
+  const double dec,
+  const double psi,
+  const LIGOTimeGPS *start,
+  const double deltaT,
+  const int n  
 );
 
 /*@}*/
