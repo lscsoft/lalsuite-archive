@@ -197,6 +197,7 @@ class RateVsPeakFreq(object):
 	def __init__(self, ifo, interval, width):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Peak Frequency (Hz)", "Trigger Rate Spectral Density (triggers / s / Hz)")
 		self.ifo = ifo
+		self.nevents = 0
 		# 21 bins per filter width
 		bins = int(float(abs(interval)) / width) * 21
 		binning = rate.NDBins((rate.LinearBins(interval[0], interval[1], bins),))
