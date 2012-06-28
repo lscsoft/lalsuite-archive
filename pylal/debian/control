@@ -14,7 +14,7 @@ Build-Depends:
  lalinspiral-dev,
  lalmetaio-dev,
  debhelper (>= 5)
-Standards-Version: 3.9.2
+Standards-Version: 3.9.3
 
 Package: python-pylal
 Architecture: any
