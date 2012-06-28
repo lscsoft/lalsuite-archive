@@ -146,7 +146,8 @@ const char *gengetopt_args_info_help[] = {
   "      --tmedian-noise-level=INT Use TMedians to estimate noise level (as \n                                  opposed to in-place standard deviation)  \n                                  (default=`1')",
   "      --summing-step=DOUBLE     integration step size, in seconds",
   "      --max-first-shift=INT     larger values accomodate bigger spindown ranges \n                                  but require more bins to be computed in \n                                  uncached function  (default=`10')",
-  "      --statistics-function=STRING\n                                specify statistics postprocessing to apply. \n                                  Possible values: linear, robust, sorted  \n                                  (default=`robust')",
+  "      --statistics-function=STRING\n                                specify statistics postprocessing to apply. \n                                  Possible values: linear, universal, sorted  \n                                  (default=`robust')",
+  "      --confidence-level=DOUBLE specify desired confidence level for universal \n                                  upper limit function  (default=`0.95')",
   "      --dump-power-sums=INT     Write out all power sum data into data.log \n                                  file. It is recommend to restrict the sky to \n                                  very few pixels  (default=`0')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
   "      --fine-grid-skymarks=INT  use sky marks from the fine grid, this uses \n                                  constant spindown  (default=`0')",
@@ -327,6 +328,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->summing_step_given = 0 ;
   args_info->max_first_shift_given = 0 ;
   args_info->statistics_function_given = 0 ;
+  args_info->confidence_level_given = 0 ;
   args_info->dump_power_sums_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
   args_info->fine_grid_skymarks_given = 0 ;
@@ -557,6 +559,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->max_first_shift_orig = NULL;
   args_info->statistics_function_arg = gengetopt_strdup ("robust");
   args_info->statistics_function_orig = NULL;
+  args_info->confidence_level_arg = 0.95;
+  args_info->confidence_level_orig = NULL;
   args_info->dump_power_sums_arg = 0;
   args_info->dump_power_sums_orig = NULL;
   args_info->compute_skymaps_arg = 0;
@@ -709,21 +713,22 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->summing_step_help = gengetopt_args_info_help[112] ;
   args_info->max_first_shift_help = gengetopt_args_info_help[113] ;
   args_info->statistics_function_help = gengetopt_args_info_help[114] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[115] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[116] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[117] ;
-  args_info->half_window_help = gengetopt_args_info_help[118] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[119] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[120] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[121] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[122] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[123] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[124] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[125] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[126] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[127] ;
-  args_info->sse_help = gengetopt_args_info_help[128] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[129] ;
+  args_info->confidence_level_help = gengetopt_args_info_help[115] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[116] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[117] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[118] ;
+  args_info->half_window_help = gengetopt_args_info_help[119] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[120] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[121] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[122] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[123] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[124] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[125] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[126] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[127] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[128] ;
+  args_info->sse_help = gengetopt_args_info_help[129] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[130] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -986,6 +991,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->max_first_shift_orig));
   free_string_field (&(args_info->statistics_function_arg));
   free_string_field (&(args_info->statistics_function_orig));
+  free_string_field (&(args_info->confidence_level_orig));
   free_string_field (&(args_info->dump_power_sums_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
   free_string_field (&(args_info->fine_grid_skymarks_orig));
@@ -1266,6 +1272,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "max-first-shift", args_info->max_first_shift_orig, 0);
   if (args_info->statistics_function_given)
     write_into_file(outfile, "statistics-function", args_info->statistics_function_orig, 0);
+  if (args_info->confidence_level_given)
+    write_into_file(outfile, "confidence-level", args_info->confidence_level_orig, 0);
   if (args_info->dump_power_sums_given)
     write_into_file(outfile, "dump-power-sums", args_info->dump_power_sums_orig, 0);
   if (args_info->compute_skymaps_given)
@@ -1981,6 +1989,7 @@ cmdline_parser_internal (
         { "summing-step",	1, NULL, 0 },
         { "max-first-shift",	1, NULL, 0 },
         { "statistics-function",	1, NULL, 0 },
+        { "confidence-level",	1, NULL, 0 },
         { "dump-power-sums",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
         { "fine-grid-skymarks",	1, NULL, 0 },
@@ -3560,7 +3569,7 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* specify statistics postprocessing to apply. Possible values: linear, robust, sorted.  */
+          /* specify statistics postprocessing to apply. Possible values: linear, universal, sorted.  */
           else if (strcmp (long_options[option_index].name, "statistics-function") == 0)
           {
           
@@ -3570,6 +3579,20 @@ cmdline_parser_internal (
                 &(local_args_info.statistics_function_given), optarg, 0, "robust", ARG_STRING,
                 check_ambiguity, override, 0, 0,
                 "statistics-function", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* specify desired confidence level for universal upper limit function.  */
+          else if (strcmp (long_options[option_index].name, "confidence-level") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->confidence_level_arg), 
+                 &(args_info->confidence_level_orig), &(args_info->confidence_level_given),
+                &(local_args_info.confidence_level_given), optarg, 0, "0.95", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "confidence-level", '-',
                 additional_error))
               goto failure;
           

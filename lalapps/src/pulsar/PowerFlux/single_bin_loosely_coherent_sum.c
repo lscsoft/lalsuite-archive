@@ -1514,8 +1514,10 @@ get_uncached_loose_single_bin_partial_power_sum(ctx, si, count, ps1);
 sse_get_uncached_loose_single_bin_partial_power_sum(ctx, si, count, ps2);
 result+=compare_partial_power_sums_F("sse_get_uncached_single_bin_power_sum:", ps1, ps2, 1, 2e-5);
 
-// dump_partial_power_sum_F(stderr, ps1);
-// dump_partial_power_sum_F(stderr, ps2);
+if(result<0) {
+	dump_partial_power_sum_F(stderr, ps1);
+	dump_partial_power_sum_F(stderr, ps2);
+	}
 
 free(si);
 free_partial_power_sum_F(ps1);

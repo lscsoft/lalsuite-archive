@@ -374,9 +374,12 @@ struct gengetopt_args_info
   int max_first_shift_arg;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function (default='10').  */
   char * max_first_shift_orig;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function original value given at command line.  */
   const char *max_first_shift_help; /**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function help description.  */
-  char * statistics_function_arg;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, robust, sorted (default='robust').  */
-  char * statistics_function_orig;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, robust, sorted original value given at command line.  */
-  const char *statistics_function_help; /**< @brief specify statistics postprocessing to apply. Possible values: linear, robust, sorted help description.  */
+  char * statistics_function_arg;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, universal, sorted (default='robust').  */
+  char * statistics_function_orig;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, universal, sorted original value given at command line.  */
+  const char *statistics_function_help; /**< @brief specify statistics postprocessing to apply. Possible values: linear, universal, sorted help description.  */
+  double confidence_level_arg;	/**< @brief specify desired confidence level for universal upper limit function (default='0.95').  */
+  char * confidence_level_orig;	/**< @brief specify desired confidence level for universal upper limit function original value given at command line.  */
+  const char *confidence_level_help; /**< @brief specify desired confidence level for universal upper limit function help description.  */
   int dump_power_sums_arg;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels (default='0').  */
   char * dump_power_sums_orig;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels original value given at command line.  */
   const char *dump_power_sums_help; /**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels help description.  */
@@ -539,6 +542,7 @@ struct gengetopt_args_info
   unsigned int summing_step_given ;	/**< @brief Whether summing-step was given.  */
   unsigned int max_first_shift_given ;	/**< @brief Whether max-first-shift was given.  */
   unsigned int statistics_function_given ;	/**< @brief Whether statistics-function was given.  */
+  unsigned int confidence_level_given ;	/**< @brief Whether confidence-level was given.  */
   unsigned int dump_power_sums_given ;	/**< @brief Whether dump-power-sums was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
   unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */

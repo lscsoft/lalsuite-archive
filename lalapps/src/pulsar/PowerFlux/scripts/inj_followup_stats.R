@@ -1,23 +1,14 @@
 library("lattice")
 
 p<-function(...)paste(..., sep="")
+ExcludeMissingUL<-TRUE
 
 source("params.R")
-
-Params<-read.table("../params.txt", header=TRUE)
-Input<-read.table("input_matches.csv", header=TRUE)
-Input<-merge(Params, Input, by="i", all=TRUE, suffixes=c("_inj", ""))
-Input[,"line_id"]<-as.character(Input[,"line_id"])
-
-
-Output<-read.table("followup_matches.csv", header=TRUE)
-Output<-merge(Params, Output, by="i", all=TRUE, suffixes=c("_inj", ""))
-Output[,"line_id"]<-as.character(Output[,"line_id"])
 
 cosdist<-function(ra1, dec1, ra2, dec2) (sin(dec1)*sin(dec2)+cos(dec1)*cos(dec2)*cos(ra1-ra2))
 dist<-function(ra1, dec1, ra2, dec2) {
 	a<-cosdist(ra1, dec1, ra2, dec2)
-	return(ifelse(a>=1.0,  0.0 , ifelse(a<= -1, -pi, acos(a))))
+	return(ifelse(a>=1.0,  0.0 , ifelse(a<= -1.0, -pi, acos(a))))
 	}
 
 epsilon<-23.439281*pi/180
@@ -36,13 +27,49 @@ ecliptic_dist<-function(ra1, dec1, ra2, dec2) {
 	return(sqrt((x-a*ecliptic_pole[1])^2+(y-a*ecliptic_pole[2])^2+(z-a*ecliptic_pole[3])^2))
 	}
 
+Params<-read.table("../params.txt", header=TRUE)
+UL<-read.table("../upper_limits.csv", header=TRUE)
+UL[,"non_gaussian"]<- UL[,"max_m1_neg"]>0.44 | UL[,"min_m4"]<1.6
+
+Params<-merge(Params, UL, by.x="i", by.y="instance", suffixes=c("", "_UL"), all.x=TRUE)
+Params[,"h0_rel"]<-Params[,"h0"]/Params[,"ul"]
+Params[,"ecl_cos"]<-dot2(Params[,"ra"], Params[,"dec"], ecliptic_pole)
+
+Params[,"h0_rel_gaussian"]<-ifelse(Params[,"non_gaussian"], NA, Params[,"h0_rel"])
+Params[,"h0_rel_non_gaussian"]<-ifelse(!Params[,"non_gaussian"], NA, Params[,"h0_rel"])
+
+Params[,"ecl_cos_large"]<-ifelse(Params[,"h0_rel"]>=1, Params[,"ecl_cos"], NA)
+Params[,"spindown_large"]<-ifelse(Params[,"h0_rel"]>=1, Params[,"spindown"], NA)
+Params[,"f0_large"]<-ifelse(Params[,"h0_rel"]>=1, Params[,"f0"], NA)
+
+Params[,"ecl_cos_large2"]<-ifelse(Params[,"h0_rel"]>=2, Params[,"ecl_cos"], NA)
+Params[,"spindown_large2"]<-ifelse(Params[,"h0_rel"]>=2, Params[,"spindown"], NA)
+Params[,"f0_large2"]<-ifelse(Params[,"h0_rel"]>=2, Params[,"f0"], NA)
+
+Params[,"ecl_cos_large2_gaussian"]<-ifelse(Params[,"h0_rel"]>=2 & !Params[,"non_gaussian"], Params[,"ecl_cos"], NA)
+Params[,"spindown_large2_gaussian"]<-ifelse(Params[,"h0_rel"]>=2 & !Params[,"non_gaussian"], Params[,"spindown"], NA)
+Params[,"f0_large2_gaussian"]<-ifelse(Params[,"h0_rel"]>=2 & !Params[,"non_gaussian"], Params[,"f0"], NA)
+
+Input<-read.table("input_matches.csv", header=TRUE)
+Input<-merge(Params, Input, by="i", all=TRUE, suffixes=c("_inj", ""))
+Input[,"line_id"]<-as.character(Input[,"line_id"])
+
+
+Output<-read.table("followup_matches.csv", header=TRUE)
+Output<-merge(Params, Output, by="i", all=TRUE, suffixes=c("_inj", ""))
+Output[,"line_id"]<-as.character(Output[,"line_id"])
+
+if(ExcludeMissingUL) {
+	Params<-Params[!is.na(Params[,"h0_rel"]),,drop=FALSE]
+	Input<-Input[!is.na(Input[,"h0_rel"]),,drop=FALSE]
+	Output<-Output[!is.na(Output[,"h0_rel"]),,drop=FALSE]
+	}
+
 Input[,"dist"]<-dist(Input[,"ra"], Input[,"dec"], Input[,"ra_inj"], Input[,"dec_inj"])
 Input[is.na(Input[,"dist"]), "dist"]<-0.3
-Input[,"h0_rel"]<-Input[,"h0_inj"]/FoundUpperLimit
 
 Output[,"dist"]<-dist(Output[,"ra_orig"], Output[,"dec_orig"], Output[,"ra_inj"], Output[,"dec_inj"])
 Output[is.na(Output[,"dist"]), "dist"]<-0.3
-Output[,"h0_rel"]<-Output[,"h0_inj"]/FoundUpperLimit
 
 ROC_table<-function(table, col="h0_inj", group.func=function(x)return(x), groups) {
 	table[,"Found"]<- as.integer(!is.na(table[,"snr"]))
@@ -71,7 +98,7 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 	}
 
 ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
-	C<-merge(Input, Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=omit.found)
+	C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=omit.found)
 	if(!omit.found)C<-C[!is.na(C[,"line_id"]),]
 	if(best.snr) {
 		C<-C[order(C[,"snr_output"], decreasing=TRUE),,drop=FALSE]
@@ -83,35 +110,70 @@ ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FA
 	print(xyplot(formula, C, auto.key=auto.key, pch=pch, par.settings=list(superpose.symbol=list(pch=c(3,1,4))), ...))
 	}
 
-# make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
-# 	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
-# 	}
+ make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
+ 	png(p(name, ".png"), width=width, height=height, res=dpi, pointsize=18, ...)
+ 	}
 
-make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
-	pdf(p(name, ".pdf"), width=width*5/600, height=height*5/600, bg="white", ...)
-	}
+#make_plot<-function(name, width=600, height=600, dpi=100, pointsize=18, ...) {
+#	pdf(p(name, ".pdf"), width=width*5/600, height=height*5/600, bg="white", ...)
+#	}
 
 
 make_plot("injection_recovery")
-ROC_plot(group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0", ylab="% found")
+ROC_plot(group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0", ylab="% found", groups=60)
 dev.off()
 
 make_plot("injection_recovery_rel")
-ROC_plot(col="h0_rel", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found")
+ROC_plot(col="h0_rel", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=60, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
+dev.off()
+
+make_plot("injection_recovery_rel_gaussian")
+ROC_plot(col="h0_rel_gaussian", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=60, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
+dev.off()
+
+make_plot("injection_recovery_rel_non_gaussian")
+ROC_plot(col="h0_rel_non_gaussian", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=20, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=75, col="green4"); panel.xyplot(x,y,...) })
 dev.off()
 
 make_plot("injection_recovery_by_f0")
 ROC_plot(col="f0_inj", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found")
 dev.off()
 
+make_plot("injection_recovery_by_f0_large")
+ROC_plot(col="f0_large", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_by_f0_large2")
+ROC_plot(col="f0_large2", auto.key=list(columns=2), xlab="Injection frequency", ylab="% found")
+dev.off()
+
 make_plot("injection_recovery_by_spindown")
 ROC_plot(col="spindown_inj", auto.key=list(columns=2), xlab="Injection spindown", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_by_spindown_large")
+ROC_plot(col="spindown_large", auto.key=list(columns=2), xlab="Injection spindown", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_by_spindown_large2")
+ROC_plot(col="spindown_large2", auto.key=list(columns=2), xlab="Injection spindown", ylab="% found")
 dev.off()
 
 make_plot("injection_recovery_by_distance")
 ROC_plot(col="dist", auto.key=list(columns=2), xlab="Distance from injection", ylab="% found")
 dev.off()
 
+make_plot("injection_recovery_by_ecliptic_pole_projection")
+ROC_plot(col="ecl_cos", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_by_ecliptic_pole_projection_large")
+ROC_plot(col="ecl_cos_large", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_by_ecliptic_pole_projection_large2")
+ROC_plot(col="ecl_cos_large2", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+dev.off()
 
 make_plot("snr_improvement")
 ComparisonPlot(I(snr_output/snr_input)~h0_input, auto.key=FALSE, xlab="h0", ylab="SNR Output/SNR input", pch=3)
@@ -182,11 +244,11 @@ ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(
 dev.off()
 
 make_plot("distance_improvement_zoomed")
-ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
+ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_input, xlab="h0", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationToleranceMax))
 dev.off()
 
 make_plot("distance_improvement_rel_zoomed")
-ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationTolerance))
+ComparisonPlot(I(dist(ra_input, dec_input, ra_inj_input, dec_inj_input))+I(dist(ra_output, dec_output, ra_inj_input, dec_inj_input))~h0_rel_input, xlab="h0 relative to upper limit", ylab="Distance from injection, rad", best.snr=TRUE, ylim=c(0, 2*LocationToleranceMax))
 dev.off()
 
 #

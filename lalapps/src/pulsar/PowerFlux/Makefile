@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.50-64
+VERSION=1.4.52-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -332,9 +332,9 @@ test6b: powerflux-mt2
 	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
-		--statistics-function=robust \
+		--statistics-function=universal \
 		--expected-timebase 14 \
-		--output test6b
+		--output test6b --num-threads=1
 
 #  		--fake-ref-time=793154935 \
 #  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \

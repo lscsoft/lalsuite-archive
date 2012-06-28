@@ -280,7 +280,7 @@ TEST(c_weight_im_ppcc, "%g", rel_tolerance)
 	{ \
 	REAL max_field=0.0; \
 	for(i=0;i<pps_bins;i++) { \
-		if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
+		if((rel_tolerance<1.0) && (ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<rel_tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
 			fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
 			return -4; \
 			} \
