@@ -353,7 +353,7 @@ def LoadOVL(filename):
   # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
   return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])
 
-def Convert_ovl_chan(chan, channels)
+def Convert_ovl_chan(chan, channels):
 
   """
   converts a channel name into an integer (or vice versa) using channels (a file) as a dictionary. 
