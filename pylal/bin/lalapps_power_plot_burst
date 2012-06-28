@@ -68,6 +68,8 @@ def parse_command_line():
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
 	parser.add_option("-i", "--input-cache", metavar = "filename", default = None, help = "get file names from this LAL cache file")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "only generate the given plot number")
+	parser.add_option("--frequency-range", metavar = "low,high", default = "0,2200", help = "set the peak frequency range for the plots (default = 0,2200)")
+	parser.add_option("--livetime-program", metavar = "name", default = "lalapps_power", help = "set the name of the program whose search_summary rows will define the livetime (default = \"lalapps_power\").")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -78,6 +80,8 @@ def parse_command_line():
 		options.plot = map(int, options.plot)
 	else:
 		options.plot = range(8)
+
+	options.frequency_range = map(float, options.frequency_range.split(","))
 
 	return options, (filenames or [None])
 
@@ -396,7 +400,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose)
-	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, "lalapps_power").coalesce()
+	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.livetime_program).coalesce()
 	xmldoc.unlink()
 
 
@@ -411,7 +415,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 def new_plots(ifo, plots):
 	l = (
-		RateVsPeakFreq(ifo, segments.segment(70, 2118), 4),
+		RateVsPeakFreq(ifo, segments.segment(options.frequency_range), 4),
 		Durations(ifo),
 		Delays(ifo, 0.25, 20),
 		RateVsSNR(ifo),
