@@ -138,6 +138,7 @@ class ConfidenceVsTime(object):
 	def __init__(self, ifo):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("GPS Time (s)", "Confidence")
 		self.ifo = ifo
+		self.nevents = 0
 		self.x = []
 		self.y = []
 		self.seglist = segments.segmentlist()
@@ -169,6 +170,7 @@ class ConfidenceVsFrequencyScatter(object):
 	def __init__(self, ifo):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Peak Frequency (Hz)", "Confidence")
 		self.ifo = ifo
+		self.nevents = 0
 		self.x = []
 		self.y = []
 		self.axes.semilogy()
@@ -231,6 +233,7 @@ class Durations(object):
 	def __init__(self, ifo):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Duration (s)", "Trigger Count")
 		self.ifo = ifo
+		self.nevents = 0
 		self.bins = {}
 
 	def add_contents(self, contents, seglists):
@@ -260,6 +263,7 @@ class Delays(object):
 	def __init__(self, ifo, width, max):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Delay (s)", "Count / Delay")
 		self.ifo = ifo
+		self.nevents = 0
 		# 21 bins per filter width
 		interval = segments.segment(0, max + 2)
 		self.bins = rate.BinnedArray(rate.NDBins((rate.LinearBins(interval[0], interval[1], int(float(abs(interval)) / width) * 21),)))
@@ -301,6 +305,7 @@ class RateVsSNR(object):
 	def __init__(self, ifo):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("SNR", "Trigger Rate (Hz)")
 		self.ifo = ifo
+		self.nevents = 0
 		self.x = []
 		self.seglist = segments.segmentlist()
 		self.axes.loglog()
@@ -330,6 +335,7 @@ class RateVsConfidence(object):
 	def __init__(self, ifo):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("Confidence", "Trigger Rate (Hz)")
 		self.ifo = ifo
+		self.nevents = 0
 		self.x = []
 		self.seglist = segments.segmentlist()
 		self.axes.loglog()
@@ -359,6 +365,7 @@ class TimeFrequencyPlane(object):
 	def __init__(self, ifo):
 		self.fig, self.axes = SnglBurstUtils.make_burst_plot("GPS Time (s)", "Frequency (Hz)")
 		self.ifo = ifo
+		self.nevents = 0
 		self.seglist = segments.segmentlist()
 
 	def add_contents(self, contents, seglists):
