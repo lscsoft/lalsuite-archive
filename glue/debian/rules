@@ -1,4 +1,4 @@
-#!/usr/bin/make -f                                                                                                             
+#!/usr/bin/make -f
 DH_VERBOSE=1
 
 PYTHON2=$(shell pyversions -vr)
@@ -20,5 +20,5 @@ override_dh_auto_install:
 # remove pyversions file
 override_dh_clean:
 	dh_clean
-	rm -f debian/pyversions
-	ls -l debian
+#	rm -f debian/pyversions
+#	ls -l debian
