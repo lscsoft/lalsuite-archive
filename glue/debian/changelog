@@ -1,3 +1,9 @@
+glue (1.41.1) unstable; urgency=low
+
+  * Bug-fix release of 1.41 for debian package changes. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, 28 June 2012 12:54:00 -0500 
+
 glue (1.41-2) unstable; urgency=low
 
   * Add *.dirs and *.install files to get non-empty packages
