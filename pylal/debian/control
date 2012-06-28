@@ -1,4 +1,4 @@
-Source: python-pylal
+Source: pylal
 Section: python
 Priority: optional
 Maintainer: Jameson Rollins <jameson.rollins@ligo.org>
