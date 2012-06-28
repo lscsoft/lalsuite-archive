@@ -185,7 +185,11 @@ class pylal_install(install.install):
 class pylal_sdist(sdist.sdist):
 	def run(self):
 		# customize tarball contents
-		self.distribution.data_files = ["debian/%s" % f for f in os.listdir("debian")] + ["pylal.spec"]
+		self.distribution.data_files = []
+		for root,dirs,files in os.walk("debian"):
+			for file in files:
+				self.distribution.data_files += [os.path.join(root,file)]
+		self.distribution.data_files += ["pylal.spec"]
 		self.distribution.scripts = []
 
 		# create the git_version module
