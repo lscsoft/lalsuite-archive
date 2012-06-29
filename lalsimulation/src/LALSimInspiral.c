@@ -1284,7 +1284,7 @@ int XLALSimInspiralChooseTDWaveform(
             break;
         case PhenSpinTaylorRD:
             // FIXME: need to create a function to take in different modes or produce an error if all modes not given
-	  ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, TotalJ, 0);
+	  ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J, 0);
             break;
         case SEOBNRv1:
             ret = XLALSimIMRSpinAlignedEOBWaveform(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1z, S2z);
@@ -1741,18 +1741,19 @@ int XLALGetInteractionFromString(const CHAR *inString)
 }
 
 /** 
- * XLAL function to determine axis choice flag from a string.  The string need 
- * not match exactly, only contain a member of the FrameAxis enum.  Will return
- * default case 'View' (line of sight) if the string contains no match.
+ * XLAL function to determine axis choice flag from a string.
+ * The string need not match exactly, only contain a member 
+ * of the LALSimInspiralFrameAxis enum.  Will return default case 
+ * 'View' (line of sight) if the string contains no match.
  */
 int XLALGetFrameAxisFromString(const CHAR *inString) 
 {
   if (strstr(inString, "TotalJ"))
-    return TotalJ;
+    return LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J;
   else if (strstr(inString, "OrbitalL"))
-    return OrbitalL;
+    return LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L;
   else
-    return View;
+    return LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
 }
 
 /** 
