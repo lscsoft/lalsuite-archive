@@ -479,6 +479,9 @@ class upper_limit(object):
     if not self.opts.min_mtotal < sim.mass1 + sim.mass2 < self.opts.max_mtotal:
       return True
 
+    if self.opts.max_mass_ratio and not (1.0/self.opts.max_mass_ratio <= sim.mass1/sim.mass2 <= self.opts.max_mass_ratio):
+      return True
+
     if bin_type == "Component_Mass":
       if not (self.opts.min_mass2 < sim.mass1 < self.opts.max_mass2 or self.opts.min_mass2 < sim.mass2 < self.opts.max_mass2):
         return True # neither component in the right range, throw out injection
@@ -635,6 +638,7 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency
+  parser.add_option("--max-mass-ratio", metavar = "q", type = 'float', default = None, help = "Specify the maximum allowed mass ratio. Should be >= 1.")
   parser.add_option("--min-aligned-spin", metavar = "chi", type = 'float', default = -1.0, help = "Specify the minimum allowed value for the aligned spin parameter chi.")
   parser.add_option("--max-aligned-spin", metavar = "chi", type = 'float', default = 1.0, help = "Specify the maximum allowed value for the aligned spin parameter chi.")
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
@@ -688,6 +692,9 @@ will compute the search volume using all injections with at least one component 
 
   if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
     opts.bin_by_total_mass = True # choose a default binning method
+
+  if opts.max_mass_ratio and (opts.max_mass_ratio < 1):
+    raise ValueError, "The maximum mass ratio must be >=1!"
 
   return opts, filenames[0]
 
