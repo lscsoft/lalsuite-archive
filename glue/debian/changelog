@@ -1,3 +1,9 @@
+glue (1.41.2) unstable; urgency=low
+
+  * Bug-fix release of 1.41 for Jamie's debian package changes.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, 29 June 2012 09:40:00 -0500 
+
 glue (1.41-3) unstable; urgency=low
 
   * Move to simplified rules file
