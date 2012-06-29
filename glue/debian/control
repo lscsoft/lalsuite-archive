@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
 Build-Depends: debhelper (>= 7.0.50), python-all-dev, git-core
 X-Python-Version: >= 2.6
-Standards-Version: 3.9.1
+Standards-Version: 3.9.3
 
 Package: python-glue
 Architecture: any
