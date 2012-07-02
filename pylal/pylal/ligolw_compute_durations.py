@@ -64,16 +64,19 @@ def get_single_ifo_segments(connection, program_name = "inspiral", usertag = Non
 			FROM search_summary
 				JOIN process_params ON (
 					process_params.process_id == search_summary.process_id)
-			WHERE process_params.value == ?
-		""", (usertag,) )):
+			WHERE
+				process_params.value == :1
+				AND process_params.program == :2
+		""", (usertag, program_name) )):
 
-		instrument = frozenset(row.get_ifos())
+		instrument = row.get_ifos().pop()
 		try:
 			seglist_dict[instrument].append(row.get_out())
 		except KeyError:
 			seglist_dict[instrument] = [row.get_out()]
 	xmldoc.unlink()
 
+	seglist_dict = segments.segmentlistdict((key, segments.segmentlist(sorted(set(value)))) for key, value in seglist_dict.items())
 	return seglist_dict.coalesce()
 
 def get_allifo_combos(ifo_keys, min_num_ifos):
@@ -96,20 +99,6 @@ def get_allifo_combos(ifo_keys, min_num_ifos):
 
 	return on_ifos, excluded_ifos
 
-
-
-def unfreeze_segment_keys(segment_dict):
-	"""
-	A simple function that the keys of a dictionary that were originally frozensets
-	and replaces them with the contents of that frozenset. This was initially 
-	designed so that the keys from an single-ifo segments dictionary would match
-	those from a veto segments dictionary.
-	"""
-	for key in segment_dict.keys():
-		segment_dict[set(key).pop()] = segment_dict[key]
-		del segment_dict[key]
-
-	return segment_dict
 
 def get_veto_segments(connection, name):
 	"""
@@ -184,29 +173,29 @@ def get_livetimes(segments_dict, time_slide_dict, verbose = False):
 	coinc_segs = {}
 	livetimes = {}
 
+	shifted_segments_dict = segments_dict.copy()
 	for time_slide_id, offset_vec in time_slide_dict.items():
 		# shift the segment times according to the values in the offset vector
-		tsid = str(time_slid_id)
-		shifted_segments_dict = segments_dict.copy()
+		tsid = str(time_slide_id)
 		for ifo, shift in offset_vec.items():
-			shifted_segments_dict.offset[ifo] = shift
+			shifted_segments_dict.offsets[ifo] = shift
 
 		for on_ifos_key, combo in on_ifos_dict.items():
 			# determine inclusive coincident segments for each time_slide
 			coinc_segs[tsid, on_ifos_key] = segments.segmentlistdict()
-			coinc_segs[tsid, on_ifos_key][on_ifos_key] = shifted_segments_dict.copy()
-			coinc_segs[tsid, on_ifos_key][on_ifos_key].intersection( combo )
+			coinc_segs[tsid, on_ifos_key][on_ifos_key] = shifted_segments_dict.copy( combo )
+			coinc_segs[tsid, on_ifos_key][on_ifos_key] = coinc_segs[tsid, on_ifos_key][on_ifos_key].intersection( combo )
 			
 			# get lists of excluded ifos and associated keys for this coinc-time type
-			excluded_ifos = excluded_ifos_dict[on_ifos]
+			excluded_ifos = excluded_ifos_dict[on_ifos_key]
 			excluded_ifos_key = ','.join(excluded_ifos)
 			
 			if len(excluded_ifos) == 0:
-				coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos][on_ifos]
+				coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos_key][on_ifos_key]
 			else:
 				# get segments for ifos excluded for this coinc-time type
-				coinc_segs[tsid, on_ifos_key][excluded_ifos_key] = shifted_segments_dict.copy(keys = excluded_ifos)
-				coinc_segs[tsid, on_ifos_key][excluded_ifos_key].union( excluded_ifos )
+				coinc_segs[tsid, on_ifos_key][excluded_ifos_key] = shifted_segments_dict.copy( excluded_ifos )
+				coinc_segs[tsid, on_ifos_key][excluded_ifos_key] = coinc_segs[tsid, on_ifos_key][excluded_ifos_key].union( excluded_ifos )
 				# Make exclusive segments
 				coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos_key][on_ifos_key] - coinc_segs[tsid, on_ifos_key][excluded_ifos_key]
 
