@@ -452,9 +452,9 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 		for type in datatypes:
 			# make sure that all_data triggers also get mapped to the right
 			# all_data sub-type: exclude_play or playground
-			if in_playground & (type = "exclude_play"):
+			if in_playground & (type == "exclude_play"):
 				continue
-			elif (not in_playground) & (type = "playground"):
+			elif (not in_playground) & (type == "playground"):
 				continue
 			else:
 				# map the coinc to an experiment
