@@ -475,6 +475,33 @@ def log_transform(lin_range):
                                          numpy.log10(ticks[i+1]), num=10)[1:-1])
     return ticks, labels, minorticks
 
+def time_axis_unit(duration):
+    """
+    Work out renormalisation for the time axis, makes the label more
+    appropriate. Returns unit (in seconds) and string descriptor.
+
+    Example:
+
+    >>> time_axis_unit(100)
+    (1, 'seconds')
+
+    >>> time_axis_unit(604800)
+    (86400, 'days')
+
+    Arguments:
+
+        duration : float
+            plot duration to normalise
+    """
+    if (duration) < 1000:
+        return 1,"seconds"
+    elif (duration) < 20000:
+        return 60,"minutes"
+    elif (duration) >= 20000 and (duration) < 604800:
+        return 3600,"hours"
+    else:
+        return 86400,"days"
+
 ##############################################################################
 # generic, but usable classes
 
