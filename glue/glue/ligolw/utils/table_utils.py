@@ -286,17 +286,12 @@ def get_experiment_type(xmldoc, time_slide_dict):
 			datatypes = ['simulation']
 			sim_proc_id = str(process_tbl.get_ids_by_program("rinj").pop())
 		else:
-			datatypes = ['all_data']
+			datatypes = ['playground']
 			sim_proc_id = None
-			if 'PLAYGROUND' in pp_value:
-				datatypes += ['playground']
-			else:
-				datatypes += ['exclude_play']
+			if 'PLAYGROUND' not in pp_value:
+				datatypes += ['all_data', 'exclude_play']
 	elif len(time_slide_dict) > 1:
-		if 'PLAYGROUND' in pp_value:
-			datatypes = ['play_slide']
-		else:
-			datatypes = ['slide']
+		datatypes = ['slide']
 		sim_proc_id = None
 
 	return datatypes, sim_proc_id
@@ -435,7 +430,7 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
 
 	#
-	# determine what experiment datatype this file belongs to
+	# determine what experiment datatypes are in this file
 	#
 
 	datatypes, sim_proc_id = get_experiment_type(xmldoc, time_slide_dict)
@@ -453,26 +448,34 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 			if expr.instruments == coinc.instruments:
 				expr_id =  expr.experiment_id
 
+		in_playground = is_in_playground( coinc_index[coinc.coinc_event_id].end_time ) 
 		for type in datatypes:
-			# map the coinc to an experiment
-			expr_map = lsctables.ExperimentMap()
-			expr_map.coinc_event_id = coinc.coinc_event_id
-
-			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id(
-				expr_id,
-				coinc.time_slide_id,
-				veto_def_name,
-				type,
-				sim_proc_id = sim_proc_id
-			)
-			if not expr_map.experiment_summ_id:
-				raise ValueError, "%s experiment_summ_id could not be found with %s" \
-				%( type, ','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
-
-			# map the experiment
-			expr_map_table.append(expr_map)
-			# Increment number of events in nevents column by 1
-			expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
+			# make sure that all_data triggers also get mapped to the right
+			# all_data sub-type: exclude_play or playground
+			if in_playground & (type = "exclude_play"):
+				continue
+			elif (not in_playground) & (type = "playground"):
+				continue
+			else:
+				# map the coinc to an experiment
+				expr_map = lsctables.ExperimentMap()
+				expr_map.coinc_event_id = coinc.coinc_event_id
+	
+				expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id(
+					expr_id,
+					coinc.time_slide_id,
+					veto_def_name,
+					type,
+					sim_proc_id = sim_proc_id
+				)
+				if not expr_map.experiment_summ_id:
+					raise ValueError, "%s experiment_summ_id could not be found with %s" \
+					%( type, ','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
+	
+				# map the experiment
+				expr_map_table.append(expr_map)
+				# Increment number of events in nevents column by 1
+				expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
 
 def make_experiment_tables(xmldoc, **cmdline_opts):
 	"""

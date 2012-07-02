@@ -213,16 +213,18 @@ for tag in (set(usertags) & set(["FULL_DATA","PLAYGROUND"])):
     if tag == "FULL_DATA":
         datatypes[tag] = ["all_data","slide"]
     elif tag == "PLAYGROUND":
-        datatypes[tag] = ["playground","play_slide"]
+        datatypes[tag] = ["playground","slide"]
 
 if "FULL_DATA" in usertags:
     # find playground segments despite a playground analysis not being done
     if "PLAYGROUND" not in usertags:
-        playground_seglistdict = get_playground_sets_from_fulldata(ifo_segments["FULL_DATA"])
+        tag = unicode("PLAYGROUND")
+        ifo_segments[tag] = get_playground_sets_from_fulldata(ifo_segments["FULL_DATA"])
+        datatype[tag] = ["playground"]
 
     tag = unicode("EXCLUDE_PLAY")
-    ifo_segments[tag] = ifo_segments["FULL_DATA"] - playground_seglistdict
-    datatypes[tag] = "exclude_play"
+    ifo_segments[tag] = ifo_segments["FULL_DATA"] - ifo_segments["PLAYGROUND"]
+    datatypes[tag] = ["exclude_play"]
 
 if options.verbose:
     print >> sys.stderr, "Getting all veto categories in the experiment_summary table..."
@@ -246,7 +248,7 @@ for veto_def_name in veto_segments.keys():
         # durations[(on_instruments, veto_def_name, datatype, time_slide_id)] = livetime (in seconds)
 
         if options.verbose:
-            print >> sys.stderr, "\n\tCalculating live-time for %s zerolag time" % usertag
+            print >> sys.stderr, "\n\t\tCalculating live-time for %s zerolag time" % usertag
         # determine the durations for the zerolag time
         livetime_dict = compute_dur.get_livetimes(
             post_vetoes_ifosegs[veto_def_name][usertag],
@@ -258,9 +260,9 @@ for veto_def_name in veto_segments.keys():
             livetime_dict)
 
         # determine the durations for each separate time-slide
-        if ["FULL_DATA","PLAYGROUND"].__contains__(usertag):
+        if len(datatypes[usertag]) > 1:
             if options.verbose:
-                print >> sys.stderr, "\n\tCalculating live-time for each %s time slide" % usertag
+                print >> sys.stderr, "\n\t\tCalculating live-time for each %s time slide" % usertag
             livetime_dict = compute_dur.get_livetimes(
                 post_vetoes_ifosegs[veto_def_name][usertag],
                 time_slide_dict,
