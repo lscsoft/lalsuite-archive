@@ -19,6 +19,8 @@ This module is intended to store generic, reusable, sub-classable plot classes
 to minimize formulaic copying and pasting.
 """
 
+from __future__ import division
+
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
 import itertools
@@ -31,6 +33,7 @@ import re
 import ConfigParser
 
 from glue import iterutils
+from glue import segments
 
 from pylal import viz
 
@@ -1525,6 +1528,90 @@ class ColorbarScatterPlot(BasicPlot):
         del self.y_data_sets
         del self.c_data_sets
         del self.kwarg_sets
+
+class PlotSegmentsPlot(BasicPlot):
+    """
+    Horizontal bar segment plot.
+    """
+    color_code = {'H1':'r', 'H2':'b', 'L1':'g', 'V1':'m', 'G1':'k'}
+
+    def __init__(self, xlabel="", ylabel="", title="", subtitle="", t0=0,\
+                 dt=1):
+        """
+        Create a fresh plot. Provide t0 to provide reference time to use as
+        zero, and dt to use a different number of seconds for each unit of the
+        x-axis.
+        """
+        BasicPlot.__init__(self, xlabel, ylabel, title)
+        self.segdict = segments.segmentlistdict()
+        self.keys = []
+        self._time_transform = lambda t: float(t - t0)/dt
+
+    def add_content(self, segdict, keys=None):
+        if not keys:
+            keys = sorted(segdict.keys())
+        for key in keys:
+            if key in self.segdict.keys():
+                self.segdict[key] += segdict[key]
+            else:
+                self.keys.append(key)
+                self.segdict[key] = segdict[key]
+                
+    def highlight_segment(self, seg, **plot_args):
+        """
+        Highlight a particular segment with dashed lines.
+        """
+        a,b = map(self._time_transform,seg)
+        plot_args.setdefault('linestyle', '--')
+        plot_args.setdefault('color','r')
+        self.ax.axvline(a, **plot_args)
+        self.ax.axvline(b, **plot_args)
+
+    def set_window(self, window_seg, padding=0):
+        """
+        Define a window of interest by setting the x-limits of the plot
+        appropriately.  If padding is also present, protract the x-limits by
+        that quantity and mark the unpadded window with solid black lines.
+        """
+        a = self._time_transform(window_seg[0])
+        b = self._time_transform(window_seg[1])
+        self.window = segments.segment((a - padding, b + padding))
+  
+        if padding > 0:
+            self.ax.axvline(a, color='k', linewidth=2)
+            self.ax.axvline(b, color='k', linewidth=2)
+
+    @method_callable_once
+    def finalize(self, labels_inset=False, hidden_colorbar=False):
+
+        for row,key in enumerate(self.keys):
+            if self.color_code.has_key(key):
+                col = self.color_code[key]
+            else:
+                col = 'b'
+            for seg in self.segdict[key]:
+                a,b = map(self._time_transform, seg)
+                self.ax.fill([a, b, b, a, a],\
+                             [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
+            if labels_inset:
+                print (row+1)/(len(self.keys)+1)
+                self.ax.text(0.01, (row+1)/(len(self.keys)+1),\
+                             re.sub('\\+_+','\_',key),\
+                             horizontalalignment='left',\
+                             verticalalignment='center',\
+                             transform=self.ax.transAxes,\
+                             backgroundcolor='white',\
+                             bbox=dict(facecolor='white', alpha=0.5,\
+                                       edgecolor='none'))
+    
+        ticks = pylab.arange(len(self.keys))
+        self.ax.set_yticks(ticks)
+        if labels_inset:
+            self.ax.set_yticklabels(ticks, color='white')
+        else:
+            self.ax.set_yticklabels([re.sub(r'\\+_+', '\_', k)\
+                                       for k in self.keys], size='small')
+        self.ax.set_ylim(-1, len(self.keys))
 
 ###################################################
 ## unittest section
