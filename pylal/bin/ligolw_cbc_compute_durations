@@ -25,6 +25,7 @@ import os
 import copy
 
 from pylal import ligolw_sqlutils as sqlutils
+from pylal import ligolw_compute_durations as compute_dur
 
 from glue import git_version
 from glue import segments
@@ -66,10 +67,10 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time."
         )
-    parser.add_option( "", "--live-time-program", action = "store", type = "string", default = None,
+    parser.add_option( "", "--filter-program", action = "store", type = "string", default = None,
         help = 
-            "Required; Set the name of the program whos entries in the " +
-            "experiment summary table will set the live time. Ex. thinca, rinca"
+            "Required; Set the name of the program whose entries in the " +
+            "search summary table will set the live time. Ex. inspiral, ringdown"
         )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
@@ -89,8 +90,8 @@ def parse_command_line():
     if not options.database:
         raise ValueError, "No database specified."
 
-    if not options.live_time_program:
-        raise ValueError, "No live-time program specified."
+    if not options.filter_program:
+        raise ValueError, "No filter program specified."
 
     return options, sys.argv[1:]
 
@@ -101,42 +102,43 @@ def parse_command_line():
 # =============================================================================
 
 
-def get_playground_sets_from_all_data(all_data_ring_sets):
+def get_playground_sets_from_fulldata(full_data_dict):
     """
-    Calculates playground segment sets using all_data ring_sets.
-    Returns a dictionary of segments (which is of form {instrument_set:segmentlist})
+    Calculates playground segment sets using full_data single-ifo segments.
+    Returns a dictionary of segments (which is of form {instrument:segmentlist})
     with just playground segments in them.
     
-    @all_data_ring_sets: all_data ring sets
+    @param full_data_dict: the full_data single-ifo analyzed segments dictionary
     """
-    playground_sets = {}
-    playground = segmentsUtils.S2playground(all_data_ring_sets.extent_all())
-    for instruments, seglist in all_data_ring_sets.items():
+    playground_listdict = segments.segmentlistdict()
+    playground_seglist = segmentsUtils.S2playground(full_data_dict.extent_all())
+    for instruments, seglist in full_data_dict.items():
         coalesced_seglist = copy.copy(seglist)
-        playground_sets[instruments] = coalesced_seglist.coalesce() & playground 
+        playground_listdict[instruments] = coalesced_seglist.coalesce() & playground 
 
-    return playground_sets
+    return playground_listdict
 
 
 class Durations:
     """
     Class to store and retrieve durations.
     self.durations has the structure:
-    self.durations[(on_instruments, veto_def_name,datatype, time_slide_id)]
+    self.durations[(on_instruments, veto_def_name, datatype, time_slide_id)]
     """
     def __init__( self ):
         self.durations = {}
 
-    def map_slides_to_durations( self, veto_def_name, datatype, time_slide_dict, livetime_dict ):
-        for instruments in livetime_dict:
-            for slide_id, duration in zip(time_slide_dict.keys(), livetime_dict[instruments]):
-                self.durations[(instruments, veto_def_name, datatype, str(slide_id))] = duration
+    def map_slides_to_durations( self, veto_def_name, datatype, livetime_dict ):
+        for key, duration in livetime_dict.items():
+            # the dictionary key is of the form (time_slide_id, on_instruments)
+            self.durations[(key[1], veto_def_name, datatype, key[0])] = duration
 
     def retrieve_duration( self, on_instruments, veto_def_name, datatype, time_slide_id ):
-        on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
-        if not (datatype == "playground" or datatype == "exclude_play"):
+        # when both simulations & full_data are in the same database, use full_data livetime
+        if datatype == "simulation":
             datatype = "full_data"
-        if (on_instruments, veto_def_name, datatype, str(time_slide_id)) in self.durations:
+        # when tuple from the experiment tables is a key of the durations dict, return duration
+        if (on_instruments, veto_def_name, datatype, str(time_slide_id)) in self.durations.keys():
             return self.durations[( on_instruments, veto_def_name, datatype, str(time_slide_id) )]
 
 
