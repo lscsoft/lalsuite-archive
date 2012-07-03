@@ -113,8 +113,7 @@ def get_playground_sets_from_fulldata(full_data_dict):
     playground_listdict = segments.segmentlistdict()
     playground_seglist = segmentsUtils.S2playground(full_data_dict.extent_all())
     for instruments, seglist in full_data_dict.items():
-        coalesced_seglist = copy.copy(seglist)
-        playground_listdict[instruments] = coalesced_seglist.coalesce() & playground 
+        playground_listdict[instruments] = seglist.coalesce() & playground_seglist 
 
     return playground_listdict
 
@@ -191,7 +190,7 @@ time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 time_slide_dict = time_slide_table.as_dict()
 
 zero_lag_dict = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
-time_slide_dict.pop( zero_lag_dict.keys()[0] )
+del time_slide_dict[ zero_lag_dict.keys()[0] ]
 
 # initialize duration bank
 dur_bank = Durations()
@@ -220,7 +219,7 @@ if "FULL_DATA" in usertags:
     if "PLAYGROUND" not in usertags:
         tag = unicode("PLAYGROUND")
         ifo_segments[tag] = get_playground_sets_from_fulldata(ifo_segments["FULL_DATA"])
-        datatype[tag] = ["playground"]
+        datatypes[tag] = ["playground"]
 
     tag = unicode("EXCLUDE_PLAY")
     ifo_segments[tag] = ifo_segments["FULL_DATA"] - ifo_segments["PLAYGROUND"]
