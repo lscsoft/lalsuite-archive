@@ -16,6 +16,7 @@ import sys
 import re
 import os
 import bisect
+import copy
 
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
@@ -697,9 +698,17 @@ class Summaries:
         """
         Sums the background durs for each time-slide (experiment_summ_id).
         """
-        for eid in self.frg_durs:
-            for this_esid in self.frg_durs[eid]:
-                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid]])
+        for eid, durs_dict in self.frg_durs.items():
+            culled_durs_dict = copy.deepcopy(durs_dict)
+            if eid in self.zero_lag_ids:
+                for frgd_esid in self.zero_lag_ids[eid]:
+                    del culled_durs_dict[frgd_esid]
+            tot_dur = sum( culled_durs_dict.values() )
+            for esid, duration in durs_dict.items():
+                if esid in culled_durs_dict.keys():
+                    self.bkg_durs[esid] = tot_dur - duration
+                else:
+                    self.bkg_durs[esid] = tot_dur
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
