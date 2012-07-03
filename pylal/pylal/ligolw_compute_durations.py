@@ -157,9 +157,9 @@ def get_vetosegs_allcats(connection, verbose):
 
 	return veto_segments
 
-def get_livetimes(segments_dict, time_slide_dict, verbose = False):
+def get_coinc_segments(segments_dict, time_slide_dict):
 	"""
-	Return the exclusive livetime for each (time-slide,on instruments) pair for
+	Return the exclusive coinc segments for each (time-slide,on instruments) pair for
 	time-slides done along a line (as opposed to rings).
 
 	@param segments_dict: the glue.segments.segmentlistdict object which contains the 
@@ -169,9 +169,8 @@ def get_livetimes(segments_dict, time_slide_dict, verbose = False):
 	"""
 	segments_dict.coalesce()
 	on_ifos_dict, excluded_ifos_dict = get_allifo_combos(segments_dict, 2)
-	# the keys for the livetimes & coinc-segs dictionaries are the TS-ids & ifo-combos
+	# the keys for the coinc-segs dictionaries are the TS-ids & ifo-combos
 	coinc_segs = {}
-	livetimes = {}
 
 	shifted_segments_dict = segments_dict.copy()
 	for time_slide_id, offset_vec in time_slide_dict.items():
@@ -182,25 +181,35 @@ def get_livetimes(segments_dict, time_slide_dict, verbose = False):
 
 		for on_ifos_key, combo in on_ifos_dict.items():
 			# determine inclusive coincident segments for each time_slide
-			coinc_segs[tsid, on_ifos_key] = segments.segmentlistdict()
-			coinc_segs[tsid, on_ifos_key][on_ifos_key] = shifted_segments_dict.copy( combo )
-			coinc_segs[tsid, on_ifos_key][on_ifos_key] = coinc_segs[tsid, on_ifos_key][on_ifos_key].intersection( combo )
+			coinc_segs[tsid, on_ifos_key] = shifted_segments_dict.copy( combo )
+			coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos_key].intersection( combo )
 			
 			# get lists of excluded ifos and associated keys for this coinc-time type
 			excluded_ifos = excluded_ifos_dict[on_ifos_key]
 			excluded_ifos_key = ','.join(excluded_ifos)
 			
-			if len(excluded_ifos) == 0:
-				coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos_key][on_ifos_key]
-			else:
+			if len(excluded_ifos) > 0:
 				# get segments for ifos excluded for this coinc-time type
-				coinc_segs[tsid, on_ifos_key][excluded_ifos_key] = shifted_segments_dict.copy( excluded_ifos )
-				coinc_segs[tsid, on_ifos_key][excluded_ifos_key] = coinc_segs[tsid, on_ifos_key][excluded_ifos_key].union( excluded_ifos )
+				excluded_segs = shifted_segments_dict.copy( excluded_ifos )
+				excluded_segs = excluded_segs.union( excluded_ifos )
 				# Make exclusive segments
-				coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos_key][on_ifos_key] - coinc_segs[tsid, on_ifos_key][excluded_ifos_key]
+				coinc_segs[tsid, on_ifos_key] = coinc_segs[tsid, on_ifos_key] - excluded_segs
 
 			coinc_segs[tsid, on_ifos_key].coalesce()
-			# calculate inclusive live-times
-			livetimes[tsid, on_ifos_key] = float( abs(coinc_segs[tsid, on_ifos_key]) )
+
+	return coinc_segs
+
+def get_livetimes(segments_dict, time_slide_dict, verbose = False):
+	"""
+	Obtain the live-times for each set of coincident segments grouped by
+	time_slide_id and on-ifos.
+	"""
+	livetimes = {}
+	# determine coincident segments by (time-slide, on-ifos) pair
+	coinc_segs = get_coincident_segments(segments_dict, time_slide_dict)
+
+	# calculate the livetime for each pair
+	for key, segments_list in coinc_segs.items():
+		livetimes[key] = float( abs(segments_list) )
 
 	return livetimes
