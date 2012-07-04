@@ -163,6 +163,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LALStatus status;
   memset(&status,0,sizeof(status));
   LALInferenceVariables intrinsicParams;
+  
 
   logDistFlag=LALInferenceCheckVariable(currentParams, "logdistance");
   if(LALInferenceCheckVariable(currentParams,"logmc")){
@@ -294,7 +295,6 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
                           +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].re;
       plainTemplateImag = FplusScaled * dataPtr->freqModelhPlus->data->data[i].im  
                           +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im;
-
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
       f = ((double) i) * deltaF;

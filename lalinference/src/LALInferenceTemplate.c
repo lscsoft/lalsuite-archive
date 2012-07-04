@@ -633,6 +633,9 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
     eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
   double spin1    = 0.0;
   double spin2    = 0.0;
+
+  FILE *tf2;
+
   /* Just two spins specified - assume they are the z-components */
   if (LALInferenceCheckVariable(IFOdata->modelParams, "spin1")){
 	    spin1 =  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin1");
@@ -715,7 +718,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   params.massChoice  = m1Andm2;
   params.approximant = (Approximant) approximant;  /*  TaylorT1, ...   */
   params.order       = (LALPNOrder) order;        /*  Newtonian, ...  */
-  params.fLower      = IFOdata->fLow * 0.9;
+  params.fLower      = IFOdata->fLow ;
   params.fCutoff     = (IFOdata->freqData->data->length-1) * IFOdata->freqData->deltaF;  /* (Nyquist freq.) */
   params.tSampling   = 1.0 / deltaT;
   params.startTime   = 0.0;
@@ -876,13 +879,17 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
     /* copy over: */
     IFOdata->freqModelhPlus->data->data[0].re = ((REAL8) LALSignal->data[0]);
     IFOdata->freqModelhPlus->data->data[0].im = 0.0;
+    tf2 = fopen("tf2.txt", "w");
     for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
       IFOdata->freqModelhPlus->data->data[i].re = ((REAL8) LALSignal->data[i]);
       IFOdata->freqModelhPlus->data->data[i].im = ((REAL8) LALSignal->data[n-i]);
+      fprintf(tf2, "%e %e\n", IFOdata->freqModelhPlus->data->data[i].re, IFOdata->freqModelhPlus->data->data[i].im);
     }
+    fclose(tf2);
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = LALSignal->data[IFOdata->freqModelhPlus->data->length-1];
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
     LALDestroyVector(&status, &LALSignal);
+
     /* nomalise (apply same scaling as in XLALREAL8TimeFreqFFT()") : */
     for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
       IFOdata->freqModelhPlus->data->data[i].re *= ((REAL8) n) * deltaT;
@@ -1022,7 +1029,6 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
       LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
     }
   }
-
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
   return;
 }
@@ -1043,6 +1049,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   static LALStatus status;
   memset(&status,0,sizeof(status));
 
+  static InspiralTemplate params;
+  int approximant=0, order=0; 
   unsigned long i;
   unsigned int patch_index, size_at_f_isco, len_to_zero;
   UINT4 n;	
@@ -1050,22 +1058,21 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double tc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");
   double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
   double eta;	
+  double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
   if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
     double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
     q2eta(q, &eta);
   }
   else
     eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
-  FILE *dw;
   double m1, m2, chirptime, deltaT;
   double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
   double instant;
   int forceTimeLocation;
   double f_isco, twopit, f, deltaF, re, im, templateReal, templateImag;
-  
-  FILE *strain;
-  
+  //int Nfft = IFOdata->timeData->data->length;
+
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
   gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
@@ -1077,6 +1084,20 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   COMPLEX16FrequencySeries *dewhitened_fseries; 
   deltaT = IFOdata->timeData->deltaT;
   deltaF = IFOdata->freqData->deltaF;
+
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
+    approximant = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
+  else {
+    XLALPrintError(" ERROR in templateLAL(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
+
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_PNORDER"))
+    order = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_PNORDER");
+  else {
+    XLALPrintError(" ERROR in templateLAL(): (INT4) \"LAL_PNORDER\" parameter not provided!\n");
+    XLAL_ERROR_VOID(XLAL_EDATA);
+  }
  
   dewhitened_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, deltaT, &lalDimensionlessUnit, IFOdata->timeData->data->length);
   memset (dewhitened_tseries->data->data, 0, dewhitened_tseries->data->length * sizeof (COMPLEX16));
@@ -1100,9 +1121,80 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  
 
   mc2masses(mc, eta, &m1, &m2);
+  params.OmegaS      = 0.0;     /* (?) */
+  params.Theta       = 0.0;     /* (?) */
+  /* params.Zeta2    = 0.0; */  /* (?) */
+  params.ieta        = 1; 
+  params.nStartPad   = 0;
+  params.nEndPad     = 0;
+  params.massChoice  = m1Andm2;
+  params.approximant = (Approximant) approximant;  /*  TaylorT1, ...   */
+  params.order       = (LALPNOrder) order;        /*  Newtonian, ...  */
+  params.fLower      = IFOdata->fLow ;
+  params.fCutoff     = (IFOdata->freqData->data->length-1) * IFOdata->freqData->deltaF;  /* (Nyquist freq.) */
+  params.tSampling   = 1.0 / deltaT;
+  params.startTime   = 0.0;
 
-  /* calculate frequency at ISCO */
+  /* actual inspiral parameters: */
+  params.mass1       = m1;
+  params.mass2       = m2;
+  params.startPhase  = 0;
+  if ((params.approximant == EOB) 
+      || (params.approximant == EOBNR)
+      || (params.approximant == TaylorT3)
+      || (params.approximant == IMRPhenomA)
+      || (params.approximant == TaylorF2RedSpin))
+    params.distance  = LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
+  else if ((params.approximant == TaylorT1)
+           || (params.approximant == TaylorT2)
+           || (params.approximant == PadeT1)
+           || (params.approximant == TaylorF1)
+           || (params.approximant == TaylorF2)
+           || (params.approximant == PadeF1)
+           || (params.approximant == BCV))
+    params.distance  = 1.0;                                          /* distance in Mpc */
+  else                                                     
+    params.distance  = LAL_PC_SI * 1.0e6 / ((double) LAL_C_SI);  /* distance in seconds */
 
+  /* ensure proper "fCutoff" setting: */
+  if (params.fCutoff >= 0.5*params.tSampling)
+    params.fCutoff = 0.5*params.tSampling - 0.5*IFOdata->freqData->deltaF;
+  if (! (params.tSampling > 2.0*params.fCutoff)){
+    fprintf(stderr," ERROR in templateLAL(): 'LALInspiralSetup()' (called within 'LALInspiralWavelength()')\n");
+    fprintf(stderr,"                         requires (tSampling > 2 x fCutoff) !!\n");
+    fprintf(stderr," (settings are:  tSampling = %f s,  fCutoff = %f Hz)  \n", params.tSampling, params.fCutoff);
+    exit(1);
+  }
+
+  /* ensure compatible sampling rate: */
+  if ((params.approximant == EOBNR)
+      && (fmod(log((double)params.tSampling)/log(2.0),1.0) != 0.0)) {
+    fprintf(stderr, " ERROR in templateLAL(): \"EOBNR\" templates require power-of-two sampling rates!\n");
+    fprintf(stderr, "                         (params.tSampling = %f Hz)\n", params.tSampling);
+    exit(1);
+  }
+
+  /* compute other elements of `params', check out the `.tC' value, */
+  /* shift the start time to match the coalescence time,            */
+  /* and eventually re-do parameter calculations:                   */
+  /* Reset errno. */
+
+  LALInspiralParameterCalc(&status, &params);
+  chirptime = params.tC;
+  if ((params.approximant != TaylorF2) && (params.approximant != TaylorF2RedSpin) && (params.approximant != BCV)) {
+    params.startTime = (tc - XLALGPSGetREAL8(&IFOdata->timeData->epoch)) - chirptime;
+    LALInspiralParameterCalc(&status, &params); /* (re-calculation necessary? probably not...) */
+  }
+
+  if (params.approximant == TaylorF2 || params.approximant == TaylorF2RedSpin) {	
+	expnCoeffs ak;
+	expnFunc expnFunction;
+	memset(&ak,0,sizeof(expnCoeffs));
+	/* Calculate the time of ISCO (v = 6^(-1/2) ) */
+	LALInspiralSetup(&status,&ak,&params);
+	LALInspiralChooseModel(&status,&expnFunction,&ak,&params);
+	chirptime=ak.tn;
+  }
   
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
  
@@ -1116,34 +1208,29 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
    
 
   dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow);
-  dw = fopen("dw.txt", "w");
-
-	for (unsigned int l=0; l < dewhitened_fseries->data->length; l++){
-
-	  fprintf(dw, "%e %e\n", dewhitened_fseries->data->data[l].re, dewhitened_fseries->data->data[l].im);
-	}
-
-  fclose(dw);
   n = IFOdata->freqData->data->length;
-    /* apply window & execute FT of plus component: */
-    if (IFOdata->window==NULL) {
-      XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->window'.\n");
-      XLAL_ERROR_VOID(XLAL_EFAULT);
-    }
-    if (IFOdata->timeToFreqFFTPlan==NULL) {
-      XLALPrintError(" ERROR in templateLAL(): ran into uninitialized 'IFOdata->timeToFreqFFTPlan'.\n");
-      XLAL_ERROR_VOID(XLAL_EFAULT);
-    }
- 
 
       /* copy over: */
     dewhitened_fseries->data->data[0].re = dewhitened_fseries->data->data[0].re;
     dewhitened_fseries->data->data[0].im = 0.0;
+
+
     for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
-      IFOdata->freqModelhPlus->data->data[i].re = dewhitened_fseries->data->data[i].re;
-      IFOdata->freqModelhPlus->data->data[i].im = dewhitened_fseries->data->data[i].im;
+      templateReal = dewhitened_fseries->data->data[i].re;
+ 	
+      templateImag = dewhitened_fseries->data->data[i].im;
+
+      twopit = LAL_TWOPI * (chirptime);
+      f = ((double) i) * deltaF;
+      re = cos(twopit * f + phi );
+      im =  -sin(twopit * f + phi );
+
+      IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
+      IFOdata->freqModelhPlus->data->data[i].im = templateImag*re + templateReal*im;
+
+
     }
-    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = dewhitened_fseries->data->data[IFOdata->freqModelhPlus->data->length-1].re;
+    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re;
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
  
     f_isco = ffinal(m1 + m2);
@@ -1151,12 +1238,10 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     size_at_f_isco = floor( f_isco / deltaF );
 
     len_to_zero = IFOdata->freqModelhPlus->data->length - size_at_f_isco;
-
-    for (i = 0; i < len_to_zero; i ++){
+    for (i = 0; i < len_to_zero + 1; i ++){
 	
 	IFOdata->freqModelhPlus->data->data[ IFOdata->freqModelhPlus->data->length - 1 - i].re = 0.;
 	IFOdata->freqModelhPlus->data->data[ IFOdata->freqModelhPlus->data->length - 1 - i].im = 0.;
-
     }
 
 
@@ -1181,24 +1266,13 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /* and/or we don't know even where it actually is located...                  */
   /* Figure out time location corresponding to template just computed:          */
 
-  /* default: assume template to have correctly considered              */
-  /* the supplied "params.tC" value                                     */
-  /* (Roughly OK for "TaylorF1" (?), "TaylorT1", "TaylorT3", "EOB",     */
-  /* "EOBNR", and "PadeT1".                                             */
-  /* May still by off by tens/hundreds of milliseconds.):               */
-  instant = tc;
-
-  /* Signal simply evolved from start of template on,         */
-  /* for approximately "chirptime" seconds:                   */
-  chirptime = compute_chirp_time(m1, m2,IFOdata->fLow, 4, 0);
-
   instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
 
 
   /* now either time-shift template or just store the time value: */
   /* (time-shifting should not be necessary in general,           */
   /* but may be neat to have for de-bugging etc.)                 */
-  forceTimeLocation = 1;  /* default: zero! */
+  forceTimeLocation = 0;  /* default: zero! */
   if (instant != tc) {
     if (forceTimeLocation) { /* time-shift the frequency-domain template: */
       twopit = LAL_TWOPI * (tc - instant);
@@ -1225,13 +1299,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     }
   }
 
-  strain = fopen("strain.txt", "w");
-
-  for (i = 0; i <IFOdata->freqModelhPlus->data->length; ++i){
-	fprintf(strain, "%e %e\n", IFOdata->freqModelhPlus->data->data[i].re + IFOdata->freqModelhPlus->data->data[i].im, IFOdata->freqModelhCross->data->data[i].re + IFOdata->freqModelhCross->data->data[i].im);
-
-  }
-  fclose(strain);
   gsl_vector_complex_free(h_t);
   XLALDestroyCOMPLEX16TimeSeries(dewhitened_tseries);
   XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);
@@ -1660,7 +1727,8 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
 	unsigned long				i;
 	int					forceTimeLocation;
 	static int sizeWarning = 0;
-  
+ 
+ 
 	REAL8 a1,a2,phi,shift;
 	REAL8 m1,m2,mc,eta;
 	REAL8 chirplength;

@@ -1385,9 +1385,9 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
         unsigned int patches_in_eta = 2;
-        unsigned int patches_in_mc = 1;
-        unsigned int number_templates_along_eta = 15;
-        unsigned int number_templates_along_mc = 15;
+        unsigned int patches_in_mc = 2;
+        unsigned int number_templates_along_eta = 30;
+        unsigned int number_templates_along_mc = 30;
 	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
