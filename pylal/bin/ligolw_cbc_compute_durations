@@ -67,7 +67,7 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time."
         )
-    parser.add_option( "", "--filter-program", action = "store", type = "string", default = None,
+    parser.add_option( "", "--livetime-program", action = "store", type = "string", default = None,
         help = 
             "Required; Set the name of the program whose entries in the " +
             "search summary table will set the live time. Ex. inspiral, ringdown"
@@ -90,8 +90,8 @@ def parse_command_line():
     if not options.database:
         raise ValueError, "No database specified."
 
-    if not options.filter_program:
-        raise ValueError, "No filter program specified."
+    if not options.livetime_program:
+        raise ValueError, "No livetime program specified."
 
     return options, sys.argv[1:]
 
@@ -170,7 +170,7 @@ if options.tmp_space:
 dbtables.DBTable_set_connection( connection )
 xmldoc = dbtables.get_xml(connection)
 
-filter_program = sqlutils.validate_option( options.filter_program )
+livetime_program = sqlutils.validate_option( options.livetime_program )
 
 # Add program to process and process params table
 
@@ -208,7 +208,7 @@ usertags = set(usertag[0] for usertag in connection.cursor().execute(sqlquery) )
 ifo_segments = segments.segmentlistdict()
 datatypes = {}
 for tag in (set(usertags) & set(["FULL_DATA","PLAYGROUND"])):
-    ifo_segments[tag] = compute_dur.get_single_ifo_segments(connection, program_name = filter_program, usertag = tag)
+    ifo_segments[tag] = compute_dur.get_single_ifo_segments(connection, program_name = livetime_program, usertag = tag)
     if tag == "FULL_DATA":
         datatypes[tag] = ["all_data","slide"]
     elif tag == "PLAYGROUND":
