@@ -70,10 +70,19 @@ def get_single_ifo_segments(connection, program_name = "inspiral", usertag = Non
 		""", (usertag, program_name) )):
 
 		instrument = row.get_ifos().pop()
-		try:
-			seglist_dict[instrument].append(row.get_out())
-		except KeyError:
-			seglist_dict[instrument] = [row.get_out()]
+		if usertag == "FULL_DATA" or usertag == "PLAYGROUND":
+			try:
+				seglist_dict[instrument].append(row.get_out())
+			except KeyError:
+				seglist_dict[instrument] = [row.get_out()]
+		else:
+			buffer_time = 72
+			filtered_segment = segments.segment(row.get_in()[0]+buffer_time, row.get_in()[1]-buffer_time)
+			try:
+				seglist_dict[instrument].append(filtered_segment)
+			except KeyError:
+				seglist_dict[instrument] = [filtered_segment]
+			
 	xmldoc.unlink()
 
 	seglist_dict = segments.segmentlistdict((key, segments.segmentlist(sorted(set(value)))) for key, value in seglist_dict.items())
