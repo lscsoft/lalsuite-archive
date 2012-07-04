@@ -123,7 +123,7 @@ def parse_command_line():
             )
     parser.add_option( "-l", "--livetime-program", action = "store", type = "string", default = None,
         help =
-            "Requried. Name of program used to get the analysis segments. This is needed to figure out " + \
+            "Required. Name of program used to get the analysis segments. This is needed to figure out " + \
             "what instruments (if any) were on during missed injections."
         )
     parser.add_option("-c", "--columns", action = "store", type = "string", default = None,

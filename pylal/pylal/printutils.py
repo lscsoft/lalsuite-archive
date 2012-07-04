@@ -723,7 +723,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
     from pylal import ligolw_sqlutils as sqlutils
-    from pylal import db_thinca_rings
+    from pylal import ligolw_compute_durations as compute_dur
     from glue import segments
 
     # Get simulation/recovery tables
@@ -809,69 +809,53 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
             sqlutils.parse_coinc_options( exclude_coincs, verbose = verbose ).get_coinc_types().items()
             if 'ALL' in type]
 
-    #
-    #   Get the veto segments
-    #
-
-    ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = livetime_program)
-    if ring_sets == {}:
+    # get the usertags of inspiral jobs in this database
+    sqlquery = """
+        SELECT value
+        FROM process_params
+        WHERE param == "-userTag"
+        GROUP BY value
+    """
+    usertags = set(usertag[0] for usertag in connection.cursor().execute(sqlquery) )
+    
+    # Get the single-ifo science segments after CAT-1 vetoes
+    if "FULL_DATA" in usertags:
+        tag = "FULL_DATA"
+    else:
+        tag = list(usertags)[0]
+    ifo_segments = compute_dur.get_single_ifo_segments(connection, program_name = livetime_program, usertag = tag)
+    if ifo_segments == {}:
         raise ValueError, "Cannot find any analysis segments using %s as a livetime program; cannot get missed injections." % livetime_program
     
     if verbose:
         print >> sys.stderr, "Getting all veto category names from the experiment_summary table..."
-    
     # get veto_segments
-    sqlquery = """
-        SELECT DISTINCT
-            veto_def_name
-        FROM
-            experiment_summary
-        """
-    for veto_def_name in connection.cursor().execute(sqlquery).fetchall():
-        veto_def_name = veto_def_name[0]
-        if verbose:
-            print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
-        try:
-            veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-        except AttributeError:
-            # will get an AttributeError if using newer format veto segment file because
-            # the new format does not include _ns; if so, remove the _ns columns from the
-            # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-        
-            del lsctables.SegmentTable.validcolumns['start_time_ns']
-            del lsctables.SegmentTable.validcolumns['end_time_ns']
-        
-            def get_segment(self):
-                """
-                Return the segment described by this row.
-                """
-                return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-        
-            def set_segment(self, segment):
-                """
-                Set the segment described by this row.
-                """
-                self.start_time = segment[0].seconds
-                self.end_time = segment[1].seconds
-        
-            lsctables.Segment.get = get_segment
-            lsctables.Segment.set = set_segment
-        
-            veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
-        
+    veto_segments = compute_dur.get_vetosegs_allcats(connection, options.verbose)
+
+    # make a single-element dictionary for the zerolag entry in the time-slide table
+    time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+    time_slide_dict = time_slide_table.as_dict()
+    zero_lag_dict = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
+
+    # Cycle over available veto categories
+    for veto_def_name, veto_seg_dict in veto_segments.items():
+        post_vetoes_ifosegs = ifo_segments - veto_seg_dict
+    
+        # make a dictionary of coincident segments by exclusive on-ifos
+        coinc_segs = compute_dur.get_coinc_segments(post_vetoes_ifosegs, zero_lag_dict)
+        # key only the on-instruments 'key[1]' as the dictionary key
+        coinc_segs = dict( (key[1], segmentlist) for key, segmentlist in coinc_segs.items() ) 
+    
         #
         #   Get all the on_instrument times and cycle over them
         #
         sqlquery = """
-            SELECT DISTINCT
-                experiment.instruments
-            FROM    
-                experiment
-            JOIN
-                experiment_summary ON
-                    experiment.experiment_id == experiment_summary.experiment_id
-            WHERE
-                experiment_summary.veto_def_name == ?"""
+            SELECT DISTINCT experiment.instruments
+            FROM experiment
+                JOIN experiment_summary ON (
+                    experiment.experiment_id == experiment_summary.experiment_id )
+            WHERE experiment_summary.veto_def_name == ?
+        """
         for on_instruments in connection.cursor().execute(sqlquery, (veto_def_name,)).fetchall():
             on_instruments = lsctables.instrument_set_from_ifos(on_instruments[0])
     
@@ -880,14 +864,8 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
                 continue
             if exclude_coincs is not None and frozenset(on_instruments) in exclude_times:
                 continue
-            
-            if verbose:
-                print >> sys.stderr, "Applying to %s time..." % ','.join(sorted(on_instruments))
-
-            # get on_time segments
-            on_times = ring_sets[frozenset(on_instruments)]
-            for instrument in on_instruments:
-                on_times = on_times - veto_segments[instrument]
+    
+            on_times = coinc_segs[on_instruments]
             
             def is_in_on_time(gps_time, gps_time_ns):
                 return LIGOTimeGPS(gps_time, gps_time_ns) in on_times
