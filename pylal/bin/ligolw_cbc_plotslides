@@ -213,7 +213,7 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         slide_numbers[ esid ] = slide_num
         datatypes[ esid ] = datatype
         durations[ esid ] = duration
-        if datatype == 'all_data':
+        if datatype != 'slide':
             zero_lag_slide_num = slide_numbers[esid]
         # if plotting playground_only, don't store tot_events
         if opts.plot_playground_only and (datatype == "all_data" or datatype == "exclude_play"):

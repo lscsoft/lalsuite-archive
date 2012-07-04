@@ -135,7 +135,7 @@ class Durations:
     def retrieve_duration( self, on_instruments, veto_def_name, datatype, time_slide_id ):
         # when both simulations & full_data are in the same database, use full_data livetime
         if datatype == "simulation":
-            datatype = "full_data"
+            datatype = "all_data"
         # when tuple from the experiment tables is a key of the durations dict, return duration
         if (on_instruments, veto_def_name, datatype, str(time_slide_id)) in self.durations.keys():
             return self.durations[( on_instruments, veto_def_name, datatype, str(time_slide_id) )]
