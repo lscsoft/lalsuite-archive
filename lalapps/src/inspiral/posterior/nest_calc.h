@@ -20,7 +20,7 @@ REAL8 computeZ(LALMCMCInput *MCMCinput);
 
 REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live,LALMCMCInput *MCMCinput);
 
-REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, LALMCMCInput *MCMCInput,REAL8 minL,gsl_matrix *covM,INT4 N);
+REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, LALMCMCInput *MCMCInput,REAL8 minL,gsl_matrix *covM,INT4 N, REAL8 dZ);
 
 void calcCVM(gsl_matrix *cvm, LALMCMCParameter **samples,UINT4 N);
 

@@ -160,6 +160,9 @@ REAL8 computeZ(LALMCMCInput *MCMCinput)
   return logZnoise;
 }
 
+REAL8 logLmax=-DBL_MAX;
+
+
 REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCMCinput)
 {
 	UINT4 i=0;
@@ -170,7 +173,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	REAL8 logw, H=0.0, logLmin, UNUSED logWt, logZ=-DBL_MAX, logZnew, UNUSED deltaZ;
 	REAL8 MCMCfail=0;
 	REAL8 logZnoise=0.0;
-	REAL8 logLmax=-DBL_MAX;
+//	REAL8 logLmax=-DBL_MAX;
 	FILE *fpout=NULL;
 	CHAR outEnd[FILENAME_MAX];
 	LALMCMCParameter *temp=(LALMCMCParameter *)malloc(sizeof(LALMCMCParameter));
@@ -216,7 +219,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	else MCMCinput->funcInit(temp,(void *)MCMCinput->inspiralTable);
 	if(!PriorIsSane(temp))
 		{fprintf(stderr,"ERROR: Prior is not sane, check ranges specified\n"); exit(1);}
-
+   
 	/* Likelihood of the noise model */
 	logZnoise=0.0;
 	for (j=0;j<MCMCinput->numberDataStreams;j++){
@@ -245,8 +248,10 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	calcCVM(cov_mat,Live,Nlive);
 	
 	for(i=0;i<Nlive;i++) {
-		accept=MCMCSampleLimitedPrior(Live[i],temp,MCMCinput,-DBL_MAX,cov_mat,MCMCinput->numberDraw);
+		accept=MCMCSampleLimitedPrior(Live[i],temp,MCMCinput,-DBL_MAX,cov_mat,MCMCinput->numberDraw,10.0);
 		if(i%50==0)fprintf(stderr,".");
+        Live[i]->dZ=0.0;//logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ;
+        Live[i]->accept=accept;
 	}
 	if(MCMCinput->verbose) fprintf(stderr,"Set up %i live points\n",Nlive);
 	
@@ -318,17 +323,49 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		/* Update covariance matrix every so often */
 		if(!(i%(Nlive/4)))	calcCVM(cov_mat,Live,Nlive);
 		/* generate new live point */
+/*UINT4 kk;       
+ for(kk=0;kk<Nlive;kk++) {
+		printf("before LP i=%i logL=%10.10e dist=%10.10e \n",kk,Live[kk]->logLikelihood,XLALMCMCGetParameter(Live[kk],"distMpc"));
+	}
+    int once=0;*/
 		do{
 			while((j=gsl_rng_uniform_int(RNG,Nlive))==minpos){};
+           // printf("Changing logMin=%10.20e address %p j=%d minpos=%d\n",logLmin,&(Live[minpos]),j,minpos);
 			XLALMCMCCopyPara(&(Live[minpos]),Live[j]);
-			accept = MCMCSampleLimitedPrior(Live[minpos],temp,MCMCinput,logLmin,cov_mat,MCMCinput->numberDraw);
+           	accept = MCMCSampleLimitedPrior(Live[minpos],temp,MCMCinput,logLmin,cov_mat,MCMCinput->numberDraw,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ);
 			MCMCinput->funcLikelihood(MCMCinput,Live[minpos]);
 			MCMCinput->funcPrior(MCMCinput,Live[minpos]);
 			MCMCfail+=1.0;
+            /*if (accept==0 && once==0) 
+            {fprintf(stdout,"accept end NS =%lf \n",accept);
+            once=1;}
+            else fprintf(stdout,"accept end NS =%lf but not zero\n",accept);*/
 		}while((Live[minpos]->logLikelihood<=logLmin)||(accept==0.0));
+     
+    /*    for(kk=0;kk<Nlive;kk++) {
+		printf("after LP i=%i logL=%10.10e dist=%10.10e \n",kk,Live[kk]->logLikelihood,XLALMCMCGetParameter(Live[kk],"distMpc"));
+	}
+    once=0 ;
+    for(kk=0;kk<Nlive;kk++) {
+       
+	 if (fabs((REAL8) ((REAL8)Live[kk]->logLikelihood+ (REAL8)35011.8127710000 ))<5.E-5) {once++;printf("logL FOUND %d ##########################################\n",kk);}
+       
+	}
+    
+    if (once==1) 
+    printf("1\n");
+    else if (once==2)
+        printf("2\n");
+        else if(once==3)
+            printf("3\n");
+            else if(once==4)
+                exit(1);
+      */          
 		if(Live[minpos]->logLikelihood > logLmax) logLmax = Live[minpos]->logLikelihood;
 		for(j=0;j<Nruns;j++) logwarray[j]+=sample_logt(Nlive);
 		logw=mean(logwarray,Nruns);
+        Live[minpos]->dZ=logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ;
+        Live[minpos]->accept=accept;
 		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db\n",
 									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise));
 		if(fpout && !(i%50)) fflush(fpout);
@@ -357,7 +394,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		fprintSample(fpout,Live[i]);
 	}
 	
-	/* Output the aximum template, data, etc */
+	/* Output the maximum template, data, etc */
 	sprintf(outEnd,"%s_maxLdata.dat",outfile);
 	MCMCinput->dumpfile=outEnd;
 	MCMCinput->funcLikelihood(MCMCinput,Live[Nlive-1]);
@@ -387,7 +424,7 @@ REAL8 mean(REAL8 *array,int N){
 	return sum/((REAL8) N);
 }
 
-REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, LALMCMCInput *MCMCInput,REAL8 minL,gsl_matrix *covM,INT4 N)
+REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, LALMCMCInput *MCMCInput,REAL8 minL,gsl_matrix *covM,INT4 N,REAL8 dZ)
 {
 	/* Sample from prior using MCMC to evolve the existing value of sample subject to the new likelihood being >minL*/
 	/* Returns acceptance ratio */
@@ -399,50 +436,88 @@ REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, L
 	int nreflect=0;
 	REAL8 jump_select=0;
 	int ret=0;
+
+int sky_rotate_i=0;
+int normal_jump_i=0;
+int diffusive_i=0;
+int spin_rotate_i=0;
+
+int sky_rotate_t=0;
+int normal_jump_t=0;
+int diffusive_t=0;
+int spin_rotate_t=0;
+
+int sky_rotate_s=0;
+int normal_jump_s=0;
+int diffusive_s=0;
+int spin_rotate_s=0;
+
+int failed_logP=0;
+    REAL8 spin_only_ratio=0.01;
+    REAL8 sky_jump=0.02;
+    REAL8 differential_ratio=0.01;
+
+if (dZ>30.0  && dZ!=0.0){differential_ratio=0.2;spin_only_ratio=0.05;sky_jump=0.1;}
+if (dZ<6.0  && dZ!=0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.05;}
+//if (dZ<3.0  && dZ!=0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.00;}
 	
-	MCMCInput->funcPrior(MCMCInput,sample);
+MCMCInput->funcPrior(MCMCInput,sample);
 	
 	XLALMCMCCopyPara(&temp,sample);
 	
 	i=0;
 	while (i<N || (nreflect==a_cnt && nreflect>0 && nreflect%2==0)){
+        sky_rotate_i=0;
+        normal_jump_i=0;
+        diffusive_i=0;
+        spin_rotate_i=0;
 		i++;
 		jump_select = gsl_rng_uniform(RNG);
-		if(jump_select<0.1 && MCMCInput->numberDataStreams>1 && XLALMCMCCheckWrapping(sample,"ra")!=-1 && XLALMCMCCheckWrapping(sample,"dec")!=-1){
+		if(jump_select<sky_jump && MCMCInput->numberDataStreams>1 && XLALMCMCCheckWrapping(sample,"ra")!=-1 && XLALMCMCCheckWrapping(sample,"dec")!=-1){
 			if(MCMCInput->numberDataStreams>1) jump_select = gsl_rng_uniform(RNG);
 			else jump_select=0;
 			if(jump_select>0.5) {
-				ret=0;
-				/* Custom proposal for symmetry of the sky sphere */
-				if(MCMCInput->numberDataStreams>=3 && jump_select>0.9) ret=XLALMCMCReflectDetPlane(MCMCInput,temp);
-				if(ret==0) nreflect++;
-				if(ret==-1 || jump_select <=0.9 || MCMCInput->numberDataStreams==2) XLALMCMCRotateSky(MCMCInput,temp);
-				/* Custom proposal for mass/eta1 surface of constant 1PN term */
-				/* if(gsl_rng_uniform(RNG)<0.1) XLALMCMC1PNMasseta(MCMCInput,temp); */
+			    ret=0;
+			    /* Custom proposal for symmetry of the sky sphere */
+			    if(MCMCInput->numberDataStreams>=3 && jump_select>0.9){ 
+                    ret=XLALMCMCReflectDetPlane(MCMCInput,temp);sky_rotate_t+=1;sky_rotate_i=1; 
+                    //printf("Reflect Sky proposal iteration %d\n",i);
+                }
+                else { //printf("Im in the pitch iteration %d\n",i);
+                    goto here;}
+			    if(ret==0) nreflect++;
+			    if(ret==-1 || jump_select <=0.9 || MCMCInput->numberDataStreams==2) XLALMCMCRotateSky(MCMCInput,temp);
+			    /* Custom proposal for mass/eta1 surface of constant 1PN term */
+			    /* if(gsl_rng_uniform(RNG)<0.1) XLALMCMC1PNMasseta(MCMCInput,temp); */
 			}
-			else  XLALMCMCDifferentialEvolution(MCMCInput,temp);
+            else { here: XLALMCMCDifferentialEvolution(MCMCInput,temp);diffusive_t+=1;diffusive_i=1;
+                 //  printf("Differential proposal iteration %d\n",i);
+            }
 		}
 		else 
 		{
-			if( (jump_select=gsl_rng_uniform(RNG))<0.2/*0.2*/) XLALMCMCDifferentialEvolution(MCMCInput,temp);
-			else {
-			  /* Check for higher harmonics present */
-			  if((jump_select=gsl_rng_uniform(RNG))<0.1 && MCMCInput->ampOrder!=0)
-			    XLALMCMCJumpHarmonic(MCMCInput,temp);
-                /* Spin jumps */
-                else if ((jump_select=gsl_rng_uniform(RNG))<0.15 && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
-                {if((jump_select=gsl_rng_uniform(RNG))<0.50)
-                XLALMCMCJumpSpins(MCMCInput,temp,covM);
-                 else if((jump_select=gsl_rng_uniform(RNG))<0.2)
-                 XLALMCMCChangeSpinsMagnitude(MCMCInput,temp,covM);
-                 else 
-                 XLALMCMCRotateSpins(MCMCInput,temp);
-                 }
-			  else /* Otherwise just perform a regular jump */
-			    XLALMCMCJump(MCMCInput,temp,covM);
-			}
+		    if( (jump_select=gsl_rng_uniform(RNG))<differential_ratio/*0.2*/){ XLALMCMCDifferentialEvolution(MCMCInput,temp);diffusive_t+=1;diffusive_i=1;
+                //printf("Differential2 proposal iteration %d\n",i);
+            }
+		    else {
+		    /* Check for higher harmonics present */
+		        if((jump_select=gsl_rng_uniform(RNG))<0.1 && MCMCInput->ampOrder!=0)
+                    {XLALMCMCJumpHarmonic(MCMCInput,temp);printf("Higher Harmonic  proposal iteration %d\n",i);}
+                    /* Spin jumps */
+                    // else if ((jump_select=gsl_rng_uniform(RNG))<spin_only_ratio && XLALMCMCCheckParameter(sample,"a1") && XLALMCMCCheckParameter(sample,"a1")){
+                else if ((jump_select=gsl_rng_uniform(RNG))<spin_only_ratio && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
+                    {
+                    XLALMCMCRotateSpins(MCMCInput,temp);spin_rotate_t+=1;spin_rotate_i=1; 
+                    // printf("Rotate Spins iteration %d ============= SPINS \n",i);
+                }
+                else /* Otherwise just perform a regular jump */
+                    {XLALMCMCJump(MCMCInput,temp,covM);normal_jump_t+=1;normal_jump_i=1;
+                    //printf("Normal Jumps proposal iteration %d\n",i);
+                }
+            }
 		}
-		/* Evoluate the MH ratio */		
+		/* Evoluate the MH ratio */	
+        //printf("Entering calculation prior temp \n");	
 		MCMCInput->funcPrior(MCMCInput,temp);
 		if(temp->logPrior!=-DBL_MAX && ( (temp->logPrior - sample->logPrior) > log(gsl_rng_uniform(RNG)) )) {
 			/* this would be accepted based on the priors, we can now confirm that its likelihood is above the limit
@@ -450,9 +525,34 @@ REAL4 MCMCSampleLimitedPrior(LALMCMCParameter *sample, LALMCMCParameter *temp, L
 			MCMCInput->funcLikelihood(MCMCInput,temp);
 			if(temp->logLikelihood>minL) accept = 1;
 		}
-		if(accept==1) {XLALMCMCCopyPara(&sample,temp); a_cnt++; accept=0;}
-		else XLALMCMCCopyPara(&temp,sample);
-	}
+        //else if (temp->logPrior==-DBL_MAX) {failed_logP+=1;}//printf("logPrior was -inf. Jump tried %d %d %d %d %d %d \n",sky_rotate_i,normal_jump_i,diffusive_i,spin_jump_i,spin_diffusive_i,spin_rotate_i);}
+
+sky_rotate_s+=accept*sky_rotate_i;
+normal_jump_s+=accept*normal_jump_i;
+diffusive_s+=accept*diffusive_i;
+//spin_jump_s+=accept*spin_jump_i;
+//spin_diffusive_s+=accept*spin_diffusive_i;
+spin_rotate_s+=accept*spin_rotate_i;
+
+		if(accept==1) {
+        // printf("LogL GOOD PRIOR AND LOGL %d (old=%lf proposed %lf) ACCEPT:1\n",i,sample->logLikelihood,temp->logLikelihood);
+            XLALMCMCCopyPara(&sample,temp); a_cnt++; accept=0;
+            if(temp->logLikelihood > logLmax) logLmax = temp->logLikelihood;
+                     
+        }
+		else {XLALMCMCCopyPara(&temp,sample); 
+        //printf("LogL was REFUSED at the iteration %d (old=%lf proposed %lf) ACCEPT:%d\n",i,sample->logLikelihood,temp->logLikelihood,accept);
+        //if (i==N && a_cnt==0) printf("Could not find a better point in %d MCMC jumps\n",N);}
+        }
+    }   
+sample->sky_rotate_s=(sky_rotate_t==0? 41.: (REAL8) sky_rotate_s/ (REAL8)sky_rotate_t);
+sample->normal_jump_s=(normal_jump_t==0?41.: (REAL8) normal_jump_s/ (REAL8)normal_jump_t);
+sample->diffusive_s=(diffusive_t==0?41.:(REAL8)diffusive_s/ (REAL8)diffusive_t);
+sample->spin_jump_s=41.;//(spin_jump_t==0?41.:(REAL8) spin_jump_s/ (REAL8)spin_jump_t);
+sample->spin_diffusive_s=41.;//(spin_diffusive_t==0?41.:(REAL8) spin_diffusive_s/ (REAL8)spin_diffusive_t);
+sample->spin_rotate_s=(spin_rotate_s==0?41.:(REAL8) spin_rotate_s/ (REAL8)spin_rotate_t);
+//sample->failed_logP=failed_logP;
+
 	return(((REAL4) a_cnt)/((REAL4) i));
 }
 
@@ -585,6 +685,15 @@ void fprintSample(FILE *fp,LALMCMCParameter *sample){
 	LALMCMCParam *p=sample->param;
 	if(fp==NULL) return;
 	while(p!=NULL) {fprintf(fp,"%15.15lf\t",p->value); p=p->next;}
+    fprintf(fp,"%lf\t",sample->dZ);
+    fprintf(fp,"%lf\t",sample->accept);
+    fprintf(fp,"%d\t",sample->failed_logP);    
+    fprintf(fp,"%lf\t",sample->sky_rotate_s);
+    fprintf(fp,"%lf\t",sample->normal_jump_s);
+    fprintf(fp,"%lf\t",sample-> diffusive_s);
+    fprintf(fp,"%lf\t",sample->spin_jump_s);
+    fprintf(fp,"%lf\t",sample->spin_diffusive_s);
+    fprintf(fp,"%lf\t",sample->spin_rotate_s);
 	fprintf(fp,"%lf\n",sample->logLikelihood);
 	return;
 }

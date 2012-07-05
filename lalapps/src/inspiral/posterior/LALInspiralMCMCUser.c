@@ -193,12 +193,12 @@ for(i=0;i<parameter->dimension;i++){
 	p=p->next;
 }
  if(!inrange) {
-        //p=parameter->param;
-        //fprintf(stderr,"WARNING: one or more parameters are being created outside from their prior ranges. If you see this behavior too ofter there may be a problem in the init function.\n");
-        //for(i=0;i<parameter->dimension;i++){   
-        //fprintf(stderr,"par %s value %.5f min %.5f  max %.5f\n",p->core->name,p->value,p->core->minVal,p->core->maxVal);
-        //p=p->next;
-        //}
+       /* p=parameter->param;
+        fprintf(stderr,"WARNING: one or more parameters are being created outside from their prior ranges. If you see this behavior too ofter there may be a problem in the init function.\n");
+        for(i=0;i<parameter->dimension;i++){   
+        fprintf(stderr,"par %s value %.5f min %.5f  max %.5f\n",p->core->name,p->value,p->core->minVal,p->core->maxVal);
+        p=p->next;
+        }*/
    parameter->logPrior = -DBL_MAX;
  }
 return inrange;
@@ -436,7 +436,7 @@ if(XLALMCMCCheckParameter(parameter,"logmc")) mc=exp(XLALMCMCGetParameter(parame
 	if(XLALMCMCCheckParameter(parameter,"logdist"))
 		parameter->logPrior+=3.0*XLALMCMCGetParameter(parameter,"logdist");
 	else
-		parameter->logPrior+=2.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
+		parameter->logPrior+=3.0*log(XLALMCMCGetParameter(parameter,"distMpc"));
 	parameter->logPrior+=log(fabs(cos(XLALMCMCGetParameter(parameter,"dec"))));
 	parameter->logPrior+=log(fabs(sin(XLALMCMCGetParameter(parameter,"iota"))));
 	/*	parameter->logPrior+=logJacobianMcEta(mc,eta);*/
@@ -450,9 +450,9 @@ if(XLALMCMCCheckParameter(parameter,"logmc")) mc=exp(XLALMCMCGetParameter(parame
 	}	
 	ParamInRange(parameter);
 	if(inputMCMC->approximant==IMRPhenomA && mc2mt(mc,eta)>475.0) parameter->logPrior=-DBL_MAX;
-	if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;
-	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;
-	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;
+	if(m1<minCompMass || m2<minCompMass) parameter->logPrior=-DBL_MAX;// printf("logPrior -inf because of mincompMass\n");}
+	if(m1>maxCompMass || m2>maxCompMass) parameter->logPrior=-DBL_MAX;//printf("logPrior -inf because of mincompMass\n");}
+	if(m1+m2>MAX_MTOT) parameter->logPrior=-DBL_MAX;//printf("logPrior -inf because of MaxtotMass\n");}
 	return parameter->logPrior;
 }
 
