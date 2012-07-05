@@ -577,6 +577,50 @@ XLALGenerateInspiralPopulateInspiral(
   inspiralParams->spin1[2]    = thisEvent->spin1z;
   inspiralParams->spin2[2]    = thisEvent->spin2z;
 
+
+/* Salvo: Here I make a bit of useless calculations just to introduced here the same numerical approximations made in the recovery code*/
+if (1==1){
+  REAL8 inj_a1,inj_a2,inj_theta1=0.0,inj_theta2=0.0,inj_phi1=0.0,inj_phi2=0.0;
+  inj_a1=sqrt(thisEvent->spin1x*thisEvent->spin1x+thisEvent->spin1y*thisEvent->spin1y+thisEvent->spin1z*thisEvent->spin1z);
+  inj_a2=sqrt(thisEvent->spin2x*thisEvent->spin2x+thisEvent->spin2y*thisEvent->spin2y+thisEvent->spin2z*thisEvent->spin2z);
+  if (inj_a1>0) inj_theta1=acos(thisEvent->spin1z/inj_a1);
+  if (inj_a2>0) inj_theta2=acos(thisEvent->spin2z/inj_a2);
+  if (!(thisEvent->spin1y==0 && thisEvent->spin1x==0)){ 
+     inj_phi1=atan2(thisEvent->spin1y,thisEvent->spin1x);
+     if(inj_phi1<0.0){
+         do{
+             inj_phi1+=LAL_TWOPI;
+            }while(!(inj_phi1>=0.0 && inj_phi1<=LAL_TWOPI));
+     }
+     if(inj_phi1>LAL_TWOPI){
+         do{
+             inj_phi1-=LAL_TWOPI;
+            }while(!(inj_phi1>=0.0 && inj_phi1<=LAL_TWOPI));
+      }
+  }
+    if (!(thisEvent->spin2y==0 && thisEvent->spin2x==0)){ 
+     inj_phi2=atan2(thisEvent->spin2y,thisEvent->spin2x);
+     if(inj_phi2<0.0){
+         do{
+             inj_phi2+=LAL_TWOPI;
+            }while(!(inj_phi2>=0.0 && inj_phi2<=LAL_TWOPI));
+     }
+     if(inj_phi2>LAL_TWOPI){
+         do{
+             inj_phi2-=LAL_TWOPI;
+            }while(!(inj_phi2>=0.0 && inj_phi2<=LAL_TWOPI));
+      }
+  }
+  
+    inspiralParams->spin1[0]=inj_a1*sin(inj_theta1)*cos(inj_phi1);
+	inspiralParams->spin1[1]=inj_a1*sin(inj_theta1)*sin(inj_phi1);
+	inspiralParams->spin1[2]=inj_a1*cos(inj_theta1);
+    inspiralParams->spin2[0]=inj_a2*sin(inj_theta2)*cos(inj_phi2);
+    inspiralParams->spin2[1]=inj_a2*sin(inj_theta2)*sin(inj_phi2);;
+	inspiralParams->spin2[2]=inj_a2*cos(inj_theta2);
+  }
+  //
+
   inspiralParams->orbitTheta0 = thisEvent->theta0;
   inspiralParams->orbitPhi0   = thisEvent->phi0;
   inspiralParams->qmParameter[0] = thisEvent->qmParameter1;

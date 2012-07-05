@@ -744,6 +744,48 @@ vec[2]/=my_abs;
 return;
 }
 
+INT4 XLALMCMCDifferentialEvolution_Spins(
+        LALMCMCInput *inputMCMC,
+        LALMCMCParameter *parameter)
+{
+        static LALStatus status;
+        LALMCMCParameter **Live=inputMCMC->Live;
+        int i=0, j=0, UNUSED dim=0, same=1;
+        REAL4 randnum;
+        int Nlive = (int)inputMCMC->Nlive;
+        LALMCMCParam *paraHead=NULL;
+        LALMCMCParam *paraA=NULL;
+        LALMCMCParam *paraB=NULL;
+
+        dim = parameter->dimension;
+        if(inputMCMC->randParams==NULL) LALCreateRandomParams(&status,&(inputMCMC->randParams),0);
+        /* Select two other samples A and B*/
+        LALUniformDeviate(&status,&randnum,inputMCMC->randParams);
+        i=(int)(Nlive*randnum);
+        /* Draw two different samples from the basket. Will loop back here if the original sample is chosen*/
+        drawtwo:
+        do {LALUniformDeviate(&status,&randnum,inputMCMC->randParams); j=(int)(Nlive*randnum);} while(j==i);
+        paraHead=parameter->param;
+        paraA=Live[i]->param; paraB=Live[j]->param;
+                /* Add the vector B-A */
+        same=1;
+        while(paraHead)
+        {       
+           if((!strcmp(paraHead->core->name,"eta") ||!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")) && paraHead->core->wrapping!=-1){
+                 paraHead->value+=paraB->value;
+                paraHead->value-=paraA->value;
+                if(paraHead->value!=paraA->value && paraHead->value!=paraB->value && paraA->value!=paraB->value) same=0;
+
+}
+                paraB=paraB->next; paraA=paraA->next;
+                paraHead=paraHead->next;
+        }
+        if(same==1) goto drawtwo;
+        /* Bring the sample back into bounds */
+        XLALMCMCCyclicReflectiveBound(parameter);
+        return(0);
+}
+
 INT4 XLALMCMCDifferentialEvolution(
 	LALMCMCInput *inputMCMC,
 	LALMCMCParameter *parameter)
@@ -760,10 +802,10 @@ INT4 XLALMCMCDifferentialEvolution(
 	dim = parameter->dimension;
 	if(inputMCMC->randParams==NULL) LALCreateRandomParams(&status,&(inputMCMC->randParams),0);
 	/* Select two other samples A and B*/
-	LALUniformDeviate(&status,&randnum,inputMCMC->randParams);
+	drawtwo:
+    LALUniformDeviate(&status,&randnum,inputMCMC->randParams);
 	i=(int)(Nlive*randnum);
 	/* Draw two different samples from the basket. Will loop back here if the original sample is chosen*/
-	drawtwo:
 	do {LALUniformDeviate(&status,&randnum,inputMCMC->randParams); j=(int)(Nlive*randnum);} while(j==i);
 	paraHead=parameter->param;
 	paraA=Live[i]->param; paraB=Live[j]->param;
@@ -773,10 +815,12 @@ INT4 XLALMCMCDifferentialEvolution(
 	{
 		paraHead->value+=paraB->value;
 		paraHead->value-=paraA->value;
-		if(paraHead->value!=paraA->value && paraHead->value!=paraB->value && paraA->value!=paraB->value) same=0;
+        if(fabs(paraHead->value-paraA->value)>1.E-6 && fabs(paraHead->value-paraB->value)>1.E-6 && fabs(paraA->value-paraB->value)>1.E-6) same=0;
+        //printf("same %d i=%d j=%d value %10.30e A %10.30e B %10.30e \n",same,i,j,paraHead->value,paraA->value,paraB->value);
 		paraB=paraB->next; paraA=paraA->next;
 		paraHead=paraHead->next;
 	}
+    
 	if(same==1) goto drawtwo;
 	/* Bring the sample back into bounds */
 	XLALMCMCCyclicReflectiveBound(parameter);
@@ -1119,10 +1163,12 @@ XLALMCMCJump(
       printf("MCMCJUMP: %10s: value: %8.3f  step: %8.3f newVal: %8.3f\n",
              paraHead->core->name, paraHead->value, step->data[i] , paraHead->value + step->data[i]);*/
 
-	  if(paraHead->core->wrapping!=-1) paraHead->value += step->data[i];
+	  if(paraHead->core->wrapping!=-1) 
+      paraHead->value += step->data[i];
 	}
 
   XLALMCMCCyclicReflectiveBound(parameter);
+    
   /* destroy the vectors */
   LALSDestroyVector(&status, &step);
   gsl_matrix_free(work);
@@ -1215,12 +1261,20 @@ function to keep its proposals inside the parameter space */
 			while ( paraHead->value < paraHead->core->minVal)
 			paraHead->value += delta;
 		}
-		else if(paraHead->core->wrapping==0) /* Use reflective boundaries */
-		{
-			if(paraHead->core->maxVal < paraHead->value) paraHead->value-=2.0*(paraHead->value - paraHead->core->maxVal);
-			if(paraHead->core->minVal > paraHead->value) paraHead->value+=2.0*(paraHead->core->minVal - paraHead->value);
-		}
-	}
+		 /* Use reflective boundaries */
+                /*else if(paraHead->core->wrapping==0)
+		{       
+			if(paraHead->core->maxVal < paraHead->value) {
+                               delta=floor((paraHead->value-paraHead->core->maxVal)/(paraHead->core->maxVal-paraHead->core->minVal));
+                               paraHead->value=2.0*paraHead->core->maxVal-paraHead->value+delta*(paraHead->core->maxVal-paraHead->core->minVal);                               
+                               }
+			if(paraHead->core->minVal > paraHead->value) {
+                               delta=floor((paraHead->core->minVal-paraHead->value)/(paraHead->core->maxVal-paraHead->core->minVal));
+                               paraHead->value=2.0*paraHead->core->minVal-paraHead->value-delta*(paraHead->core->maxVal-paraHead->core->minVal);    
+                               }
+		}*/
+	
+    }
 }
 
 INT4 XLALMCMCCheckParameter(
@@ -1734,7 +1788,7 @@ XLALMCMCJumpSpins(
   /* loop over all parameters */
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   {
-    if((!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")) && paraHead->core->wrapping!=-1)
+    if((!strcmp(paraHead->core->name,"eta") || !strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")) && paraHead->core->wrapping!=-1)
     paraHead->value += step->data[i];
 	else
 	{;}
@@ -1943,7 +1997,7 @@ XLALMCMCRotateSpins(
     else {fprintf(stderr,"In LALInspiralMCMC: phi1 is not present in parameter. Maybe you are using phiP and phiM, which are not still implemented. Exiting...\n");
     exit(1);}
     if (XLALMCMCCheckParameter(parameter,"iota")) iota = XLALMCMCGetParameter(parameter,"iota");
-
+//printf("Old spin1 %lf %lf iota %lf \n",theta,phi,iota);
     s1[0] = cos(phi)*sin(theta);
     s1[1] = sin(phi)*sin(theta);
     s1[2] = cos(theta);
@@ -1957,6 +2011,8 @@ XLALMCMCRotateSpins(
     vectorToColatLong(newS, &newTheta, &newPhi);
     XLALMCMCSetParameter(parameter,"phi1",newPhi);
     XLALMCMCSetParameter(parameter,"theta1",newTheta);
+//printf("New spin1 %lf %lf\n",newTheta,newPhi);
+
 //fprintf(stdout,"Changing spin angles 1 from t=%lf p=%lf to t=%lf p=%lf\n",theta,phi,newTheta,newPhi);
     }
   
@@ -1972,6 +2028,7 @@ XLALMCMCRotateSpins(
     else {fprintf(stderr,"In LALInspiralMCMC: phi2 is not present in parameter. Maybe you are using phiP and phiM, which are not still implemented. Exiting...\n");
     exit(1);}
     if (XLALMCMCCheckParameter(parameter,"iota")) iota = XLALMCMCGetParameter(parameter,"iota");
+//printf("Old spin2 %lf %lf iota %lf \n",theta,phi,iota);
 
     s2[0] = cos(phi)*sin(theta);
     s2[1] = sin(phi)*sin(theta);
@@ -1986,6 +2043,7 @@ XLALMCMCRotateSpins(
     XLALMCMCSetParameter(parameter,"phi2",newPhi);
     XLALMCMCSetParameter(parameter,"theta2",newTheta);
 //fprintf(stdout,"Changing spin angles 2 from t=%lf p=%lf to t=%lf p=%lf\n",theta,phi,newTheta,newPhi);
+//printf("New spin2 %lf %lf\n",newTheta,newPhi);
 
     }
   

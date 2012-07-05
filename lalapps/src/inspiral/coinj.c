@@ -43,6 +43,8 @@
 #include <lal/LALDetectors.h>
 #include <lal/LALFrameIO.h>
 #include <lal/LALNoiseModels.h>
+#include <gsl/gsl_rng.h>
+
 #define PROGRAM_NAME "coinj"
 
 #define USAGE \
@@ -53,6 +55,7 @@
 --skip-ascii-output           skip generation of  ASCII txt output file\n\
 --response-type TYPE         TYPE of injection, [ strain | etmx | etmy ]\n\
 --frames                     Create h(t) frame files\n\n\
+[--AdvNoise\t\t Use AdvLIGO noise to estimate the SNR]\n\
 [--maxSNR snrhigh --minSNR snrlow                     Adjust injections to have combined SNR between snrlow and snrhigh in the H1H2L1V1 network]\n\
 [--SNR snr      adjust distance to get precisely this snr]\n\
 [--GPSstart A --GPSend B     Only generate waveforms for injection between GPS seconds A and B (int)]\n\
@@ -67,7 +70,8 @@ lalapps_coinj: create coherent injection files for LIGO and VIRGO\n"
 
 extern int vrbflg;
 extern int lalDebugLevel;
-
+int AdvNoises=0;
+gsl_rng *RNG;
 typedef enum
 {
   noResponse,
@@ -121,8 +125,14 @@ int main(int argc, char *argv[])
   REAL8                injLength=100.0; /* Ten seconds at end */
   REAL8                LeadupTime=95.0;
   REAL8                dynRange=1.0/3.0e-23;
+  INT4 seed=0;
 
   UINT4                Nsamples,det_idx,i,inj_num=0;
+  /* Initialise the RNG */
+  gsl_rng_env_setup();
+  RNG=gsl_rng_alloc(gsl_rng_default);
+  gsl_rng_set(RNG,seed==0 ? (unsigned long int)time(NULL) : (unsigned int long) seed);
+
   ActuationParametersType actuationParams[LAL_NUM_IFO];
   ActuationParametersType actData = {0,0,0,0,0,0,0};
   ResponseType injectionResponse=noResponse;
@@ -187,6 +197,7 @@ int main(int argc, char *argv[])
       {"GPSstart",required_argument,0,4},
       {"GPSend",required_argument,0,5},
       {"max-chirp-dist",required_argument,0,'d'},
+      {"AdvNoise",no_argument,0,11},
       {0,0,0,0}
     };
 
@@ -270,7 +281,14 @@ int main(int argc, char *argv[])
 	  max_chirp_dist=atof(optarg);
           fprintf(stderr,"Using maximum chirp distance of %lf\n",max_chirp_dist);
 	  break;
-	}
+        case 11:
+          AdvNoises=1;
+          fprintf(stdout,"Using Advanced LIGO noise\n");
+          break;
+        default:
+	     fprintf(stdout,USAGE); exit(0);
+	     break;	
+       }
     }
 
   if(minSNR!=0 && maxSNR!=0 && (maxSNR<minSNR)){
@@ -287,11 +305,15 @@ int main(int argc, char *argv[])
   SimInspiralTableFromLIGOLw(&injTable,inputfile,0,0);
   headTable=injTable;
   Nsamples = (UINT4)injLength/deltaT;
+    REAL8 singleIFO_threshold=5.5;
+    REAL8 * SNRs=NULL;
+    SNRs=calloc(LAL_NUM_IFO+1 ,sizeof(REAL8));
 
   do{
     memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
     this_injection.next=NULL;
     NetworkSNR=0.0;
+
     /* Set epoch */
     memcpy(&inj_epoch,&(this_injection.geocent_end_time),sizeof(LIGOTimeGPS));
     inj_epoch = this_injection.geocent_end_time;
@@ -307,22 +329,28 @@ int main(int argc, char *argv[])
       if((this_injection.geocent_end_time.gpsSeconds-(int)LeadupTime )<GPSstart || (this_injection.geocent_end_time.gpsSeconds-(int)LeadupTime)>GPSend) continue;
 
       if(det_idx==LAL_IFO_T1||det_idx==LAL_IFO_G1||det_idx==LAL_IFO_H2) continue; /* Don't generate for GEO or TAMA */
-  
+      if (AdvNoises==0){
       switch(det_idx)
         {
-        //case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
+        case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
         case LAL_IFO_H2: sprintf(det_name,"H2"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_2K_DETECTOR_BIT; break;
-        //case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
-        //case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALVIRGOPsd; PSDscale=1.0; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
-        case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
-        case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
-        case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
-
+        case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
+        case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALVIRGOPsd; PSDscale=1.0; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
         case LAL_IFO_G1: sprintf(det_name,"G1"); PSD=&LALGEOPsd; PSDscale=1E-46; detectorFlags = LAL_GEO_600_DETECTOR_BIT;  break;
         case LAL_IFO_T1: sprintf(det_name,"T1"); PSD=&LALTAMAPsd; PSDscale=75E-46; detectorFlags = LAL_TAMA_300_DETECTOR_BIT; break;
         default: fprintf(stderr,"Unknown IFO\n"); exit(1); break;
         }
-
+      }
+      else{
+      /*Uses ALIGO noise */
+      switch(det_idx)
+        {
+        case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
+        case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
+        case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALAdvLIGOPsd; PSDscale=1E-49; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
+        default: fprintf(stderr,"Unknown IFO\n"); exit(1); break;
+        }
+      }
       TimeSeries=XLALCreateREAL4TimeSeries(det_name,&inj_epoch,0.0,deltaT,&lalADCCountUnit,(size_t)Nsamples);
       for(i=0;i<Nsamples;i++) TimeSeries->data->data[i]=0.0;
       resp = XLALCreateCOMPLEX8FrequencySeries("response",&inj_epoch,0.0,1.0/injLength,&strainPerCount,(size_t)Nsamples/2+1);
@@ -418,6 +446,7 @@ int main(int argc, char *argv[])
       XLALDestroyCOMPLEX8FrequencySeries( fftData );
       if(det_idx==LAL_IFO_H2) mySNRsq/=4.0;
       mySNR = sqrt(mySNRsq)/dynRange;
+      SNRs[det_idx]=mySNR;
       fprintf(stdout,"SNR in design %s of injection %i = %lf\n",det_name,inj_num,mySNR);
 
       for(i=0;i<TimeSeries->data->length;i++) {
@@ -474,7 +503,32 @@ int main(int argc, char *argv[])
         injTable->eff_dist_t*=(REAL4)(NetworkSNR/targetSNR);
         rewriteXML=1; repeatLoop=1; hitTarget=1;}
       else {repeatLoop=0; hitTarget=0;}
-      if(targetSNR==0.0 && minSNR>NetworkSNR) {
+      if(targetSNR==0.0 && (minSNR>NetworkSNR || maxSNR<NetworkSNR)) {
+      REAL8 randomSNR;
+      INT4 above_threshold;
+      REAL8 local_min=minSNR;
+      do{
+      randomSNR=local_min+(maxSNR-local_min)*gsl_rng_uniform(RNG);
+      printf("Setting random to %lf\n",randomSNR);
+      local_min=randomSNR;
+      above_threshold=0;
+      for(i=0;i<LAL_NUM_IFO;i++)
+      {
+      if(SNRs[i]*randomSNR/NetworkSNR>singleIFO_threshold) above_threshold+=1;
+      }
+      if ((maxSNR-local_min)<0.001) goto here;
+      }while(above_threshold<2);       
+      printf("DONE!\n");
+      here:
+ injTable->distance*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_h*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_l*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_v*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_t*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_g*=(REAL4)(1.*NetworkSNR/randomSNR);
+        rewriteXML=1; repeatLoop=1;
+fprintf(stderr,"Multiplying by %lf to get from %lf to target %lf \n",0.99*(NetworkSNR/randomSNR),NetworkSNR,randomSNR);}
+      /*if(targetSNR==0.0 && minSNR>NetworkSNR) {
         injTable->distance*=(REAL4)(0.99*NetworkSNR/minSNR);
         injTable->eff_dist_h*=(REAL4)(0.99*NetworkSNR/minSNR);
         injTable->eff_dist_l*=(REAL4)(0.99*NetworkSNR/minSNR);
@@ -490,11 +544,11 @@ int main(int argc, char *argv[])
           injTable->eff_dist_v*=(1.01*NetworkSNR/maxSNR);
           injTable->eff_dist_t*=(1.01*NetworkSNR/maxSNR);
           injTable->eff_dist_g*=(1.01*NetworkSNR/maxSNR);
-          /*injTable->distance+=0.01;*/
+          //injTable->distance+=0.01;
           rewriteXML=1;
           repeatLoop=1;
           fprintf(stderr,"Multiplying by %lf to get from %lf to target\n",1.01*(NetworkSNR/maxSNR),NetworkSNR);}
-      }
+      }*/
     }
     if(max_chirp_dist!=0.0 && (maxSNR==0 || (maxSNR!=0 && (maxSNR>NetworkSNR) ) )  ){
 	double this_max=0.0;

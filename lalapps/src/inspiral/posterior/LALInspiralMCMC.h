@@ -216,6 +216,15 @@ tagLALMCMCParameter
   UINT4                   dimension;
   REAL8                   logLikelihood;
   REAL8                   logPrior;
+  REAL8 dZ;
+  REAL4 accept;
+  REAL8 sky_rotate_s;
+REAL8 normal_jump_s;
+REAL8 diffusive_s;
+REAL8 spin_jump_s;
+REAL8 spin_diffusive_s;
+REAL8 spin_rotate_s;
+int failed_logP;
 }  LALMCMCParameter;
 
 
@@ -456,6 +465,11 @@ void crossProduct(REAL8 out[3],REAL8 x[3],REAL8 y[3]);
 INT4 XLALMCMCDifferentialEvolution(
         LALMCMCInput *inputMCMC,
         LALMCMCParameter *parameter);
+
+INT4 XLALMCMCDifferentialEvolution_Spins(
+        LALMCMCInput *inputMCMC,
+        LALMCMCParameter *parameter);
+
 
 INT4 XLALMCMCReflectDetPlane(
 	LALMCMCInput *inputMCMC,
