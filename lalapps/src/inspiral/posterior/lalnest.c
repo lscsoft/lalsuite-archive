@@ -1513,12 +1513,12 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
  REAL8 tmp_logmc=0.0;
  REAL8 tmp_eta=0.0;
 
-while(tmp_mtot<manual_mass_low){
+while(tmp_mtot<manual_mass_low || tmp_mtot>manual_mass_high){
      tmp_logmc=lMcmin+(lMcmax-lMcmin)*gsl_rng_uniform(RNG);
      tmp_eta=gsl_rng_uniform(RNG)*(etamax-etamin)+etamin;
      tmp_mtot=mc2mt(exp(tmp_logmc),tmp_eta);
      fprintf(stdout,"Generated M=%lf eta=%lf mc=%lf ",tmp_mtot,tmp_eta,exp(tmp_logmc));
-   if(tmp_mtot<manual_mass_low)fprintf(stdout,"REFUSED!!\n"); 
+   if(tmp_mtot<manual_mass_low || tmp_mtot>manual_mass_high)fprintf(stdout,"REFUSED!!\n"); 
    else fprintf(stdout,"ACCEPTED!\n");
 }
     if(checkParamInList(pinned_params,"logmc")||checkParamInList(pinned_params,"mchirp"))
