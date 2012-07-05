@@ -454,10 +454,10 @@ int spin_rotate_s=0;
 
 int failed_logP=0;
     REAL8 spin_only_ratio=0.01;
-    REAL8 sky_jump=0.02;
+    REAL8 sky_jump=0.05;
     REAL8 differential_ratio=0.01;
 
-if (dZ>30.0  && dZ!=0.0){differential_ratio=0.2;spin_only_ratio=0.05;sky_jump=0.1;}
+if (dZ>30.0  && dZ!=0.0){differential_ratio=0.2;spin_only_ratio=0.1;sky_jump=0.15;}
 if (dZ<6.0  && dZ!=0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.05;}
 //if (dZ<3.0  && dZ!=0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.00;}
 	
