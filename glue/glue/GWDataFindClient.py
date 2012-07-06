@@ -386,7 +386,7 @@ def find_server():
                 port = int(port)
         return host, port
     else:
-        raise RuntimeError("Environment variable %s is not set" % var)
+        raise RuntimeError("Environment variable %s is not set" % _server_env)
 
 # =============================================================================
 # Unit test
