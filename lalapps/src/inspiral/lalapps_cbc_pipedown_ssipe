@@ -6,7 +6,7 @@ import os, sys, re, copy
 import ConfigParser
 from optparse import OptionParser
 import tempfile
-sys.path.append('/home/mtwest/local_branches/LALsuite_builds/compute_durations_dev/opt/lscsoft/lalapps/lib/python2.6/site-packages/lalapps')
+sys.path.append('/home/mtwest/local_branches/LALsuite_builds/sngl_stage_dev/opt/lscsoft/lalapps/lib/python2.6/site-packages/lalapps')
 
 ##############################################################################
 # import the modules we need to build the pipeline

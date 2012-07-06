@@ -215,7 +215,7 @@ def get_livetimes(segments_dict, time_slide_dict, verbose = False):
 	"""
 	livetimes = {}
 	# determine coincident segments by (time-slide, on-ifos) pair
-	coinc_segs = get_coincident_segments(segments_dict, time_slide_dict)
+	coinc_segs = get_coinc_segments(segments_dict, time_slide_dict)
 
 	# calculate the livetime for each pair
 	for key, segments_list in coinc_segs.items():

@@ -725,6 +725,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     from pylal import ligolw_sqlutils as sqlutils
     from pylal import ligolw_compute_durations as compute_dur
     from glue import segments
+    from glue.ligolw import dbtables
 
     # Get simulation/recovery tables
     simulation_table = sqlutils.validate_option(simulation_table)
@@ -830,9 +831,10 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     if verbose:
         print >> sys.stderr, "Getting all veto category names from the experiment_summary table..."
     # get veto_segments
-    veto_segments = compute_dur.get_vetosegs_allcats(connection, options.verbose)
+    veto_segments = compute_dur.get_vetosegs_allcats(connection, verbose)
 
     # make a single-element dictionary for the zerolag entry in the time-slide table
+    xmldoc = dbtables.get_xml(connection)
     time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
     time_slide_dict = time_slide_table.as_dict()
     zero_lag_dict = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
@@ -854,7 +856,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
             FROM experiment
                 JOIN experiment_summary ON (
                     experiment.experiment_id == experiment_summary.experiment_id )
-            WHERE experiment_summary.veto_def_name == ?
+            WHERE experiment_summary.veto_def_name == :1
         """
         for on_instruments in connection.cursor().execute(sqlquery, (veto_def_name,)).fetchall():
             on_instruments = lsctables.instrument_set_from_ifos(on_instruments[0])
@@ -865,7 +867,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
             if exclude_coincs is not None and frozenset(on_instruments) in exclude_times:
                 continue
     
-            on_times = coinc_segs[on_instruments]
+            on_times = coinc_segs[','.join(sorted(on_instruments))]
             
             def is_in_on_time(gps_time, gps_time_ns):
                 return LIGOTimeGPS(gps_time, gps_time_ns) in on_times
