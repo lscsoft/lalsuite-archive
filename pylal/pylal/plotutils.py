@@ -502,6 +502,51 @@ def time_axis_unit(duration):
     else:
         return 86400,"days"
 
+def set_time_ticks(ax):
+    """
+    Quick utility to set better formatting for ticks on a time axis.
+    """
+    xticks = ax.get_xticks()
+    if len(xticks)>1 and xticks[1]-xticks[0]==5:
+        ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(base=2))
+    return
+
+def set_minor_ticks(ax, x=True, y=True):
+    """
+    Labels first minor tick in the case that there is only a single major
+    tick label visible.
+    """
+
+    def even(x, pos):
+        if int(str(int(x*10**8))[0]) % 2:
+            return ""
+        elif pylab.rcParams["text.usetex"]:
+            return "$%s$" % plotutils.float_to_latex(x)
+        else:
+            return str(int(x))
+
+    # xticks
+    if x:
+        ticks = list(ax.get_xticks())
+        xlim  = ax.get_xlim()
+        for i,tick in enumerate(ticks[::-1]):
+            if not xlim[0] <= tick <= xlim[1]:
+                ticks.pop(-1)
+        if len(ticks) <= 1:
+            ax.xaxis.set_minor_formatter(pylab.FuncFormatter(even))
+
+    # yticks
+    if y:
+        ticks = list(ax.get_yticks())
+        ylim  = ax.get_ylim()
+        for i,tick in enumerate(ticks[::-1]):
+            if not ylim[0] <= tick <= ylim[1]:
+                ticks.pop(-1)
+        if len(ticks)<=1:
+            ax.yaxis.set_minor_formatter(pylab.FuncFormatter(even))
+
+    return
+
 ##############################################################################
 # generic, but usable classes
 
