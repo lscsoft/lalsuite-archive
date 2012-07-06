@@ -508,7 +508,7 @@ def set_time_ticks(ax):
     """
     xticks = ax.get_xticks()
     if len(xticks)>1 and xticks[1]-xticks[0]==5:
-        ax.xaxis.set_major_locator(matplotlib.ticker.MultipleLocator(base=2))
+        ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=2))
     return
 
 def set_minor_ticks(ax, x=True, y=True):
