@@ -17,7 +17,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-Query a LDRDataFindServer to obtain physical filenames or URLs for data files from a certain instrument and of a particular frame type within a GPS range.
+Query the GWDataFindServer to obtain physical filenames or URLs for data files from a certain instrument and of a particular frame type within a GPS range.
 """
 
 from __future__ import division
@@ -31,19 +31,19 @@ __usage__ = """usage: %prog --server=HOST:PORT --observatory=OBS --type=NAME
 
 For example,
 
-  ligo_data_find --server=HOST:PORT --observatory OBS --type TYPE --latest
+    gw_data_find --server=HOST:PORT --observatory OBS --type TYPE --latest
 
-  ligo_data_find --server=HOST:PORT --filename
+    gw_data_find --server=HOST:PORT --filename
 
-  ligo_data_find --server=HOST:PORT --show-observatories
+    gw_data_find --server=HOST:PORT --show-observatories
 
-  ligo_data_find --server=HOST:PORT --show-types
+    gw_data_find --server=HOST:PORT --show-types
  
-  ligo_data_find --server=HOST:PORT --show-times --type TYPE --observatory OBS
+    gw_data_find --server=HOST:PORT --show-times --type TYPE --observatory OBS
+ 
+    gw_data_find --server=HOST:PORT --ping
 
-  ligo_data_find --server=HOST:PORT --ping
-
-  ligo_data_find --server=HOST:PORT --help"""
+    gw_data_find --server=HOST:PORT --help"""
 
 # =============================================================================
 # Preamble
@@ -86,7 +86,7 @@ def parse_command_line():
     Take arguments from the command line and format them appropriately.
     """
 
-    parser = optparse.OptionParser(description=__doc__[1:],\
+    parser = optparse.OptionParser(usage=__usage__, description=__doc__[1:],\
                                    formatter=optparse.IndentedHelpFormatter(4))
     parser.add_option("-V", "--version", action="version",\
                       help="show progam's version number and exit")

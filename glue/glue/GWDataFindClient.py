@@ -15,7 +15,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-This module defines the GWDataFindHTTPConnection and GWDataFindHTTPSConnection objects for handling connections to the LDRDataFindServer.
+This module defines the GWDataFindHTTPConnection and GWDataFindHTTPSConnection objects for handling connections to the GWDataFindServer.
 """
 
 # =============================================================================
