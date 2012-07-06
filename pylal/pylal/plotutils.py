@@ -1706,6 +1706,159 @@ class PlotSegmentsPlot(BasicPlot):
                                        for k in self.keys], size='small')
         self.ax.set_ylim(-1, len(self.keys))
 
+class DQScatterPlot(ColorbarScatterPlot):
+    """
+    A DQ-formatted scatter plot, with those triggers below some threshold on the
+    colour axis get plotted tiny wee.
+    """
+    def finalize(self, loc=0, alpha=0.8, colorbar=True, logcolor=False,\
+                 clim=None, threshold=0):
+        # make plot
+        p = None
+        for x_vals, y_vals, c_vals, plot_kwargs in\
+            itertools.izip(self.x_data_sets, self.y_data_sets, self.c_data_sets,
+                           self.kwarg_sets):
+            plot_kwargs.setdefault("s", 15)
+            if logcolor:
+                plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
+            if clim:
+                plot_kwargs.setdefault("vmin", clim[0])
+                plot_kwargs.setdefault("vmax", clim[1])
+
+            zipped = zip(x_vals, y_vals, c_vals)
+            zipped.sort(key=lambda (x,y,c): c)
+            x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
+
+            # split triggers on threshold
+            idx  = (c_vals>=threshold).nonzero()[0][0]
+            xlow,xhigh = numpy.split(x_vals, [idx])
+            ylow,yhigh = numpy.split(y_vals, [idx])
+            clow,chigh = numpy.split(c_vals, [idx])
+
+            if xlow.size > 0:
+                lowargs = copy.deepcopy(plot_kwargs)
+                lowargs["s"] /= 4
+                if lowargs.get("marker", None) != "x":
+                    lowargs["edgecolor"] = "none"
+                self.ax.scatter(xlow, ylow, c=clow, **lowargs)
+            p = self.ax.scatter(xhigh, yhigh, c=chigh, **plot_kwargs)
+
+        if colorbar and p is not None:
+            add_colorbar(self.ax, log=logcolor, label=self.clabel, clim=clim,\
+                         cmap=plot_kwargs.get("cmap", None))
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc, alpha=alpha)
+
+        # decrement reference counts
+        del self.x_data_sets
+        del self.y_data_sets
+        del self.c_data_sets
+        del self.kwarg_sets
+
+class LineHistogram(BasicPlot):
+    """
+    A simple line histogram plot. The values of each histogram bin are plotted
+    using pylab.plot(), with points centred on the x values and height equal
+    to the y values.
+
+    Cumulative, and rate options can be passeed to the finalize() method to
+    format each trace individually.
+    """
+    def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+        BasicPlot.__init__(self, xlabel, ylabel, title, subtitle)
+        self.data_sets        = []
+        self.normalize_values = []
+        self.kwarg_sets       = []
+
+    def add_content(self, data, normalize=1, **kwargs):
+        self.data_sets.append(data)
+        self.normalize_values.append(normalize)
+        self.kwarg_sets.append(kwargs)
+
+    @method_callable_once
+    def finalize(self, loc=0, num_bins=100, cumulative=False, rate=False,\
+                 bar=False, fill=False, logx=False, logy=False, alpha=0.8):
+        # determine binning
+        min_stat, max_stat = determine_common_bin_limits(self.data_sets)
+        if logx:
+            bins = numpy.logspace(numpy.log10(min_stat), numpy.log10(max_stat),\
+                                  num_bins + 1, endpoint=True)
+        else:
+            bins = numpy.linspace(min_stat, max_stat, num_bins+1, endpoint=True)
+
+        # determine bar width; gets silly for more than a few data sets
+        if logx:
+            width = list(numpy.diff(bins))
+        else:
+            width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
+        width = numpy.asarray(width)
+
+        # make plot
+        ymin = None
+
+        for data_set, norm, plot_kwargs in\
+            itertools.izip(self.data_sets, self.normalize_values,\
+                           self.kwarg_sets):
+            # make histogram
+            npv = [int(v) for v in numpy.version.version.split('.')]
+            if npv[1] < 3:
+                y, x = numpy.histogram(data_set, bins=bins, normed=False,\
+                                       new=True)
+            else:
+                y, x = numpy.histogram(data_set, bins=bins, normed=False)
+            y = y.astype(float)
+            x = x[:-1]
+
+            # set defaults
+            if fill:
+                plot_kwargs.setdefault("linewidth", 1)
+                plot_kwargs.setdeafult("alpha", 0.8)
+
+            # get cumulative sum
+            if cumulative:
+                y = y[::-1].cumsum()[::-1]
+
+            # normalize
+            if norm != 1:
+                y /= norm
+
+            # get bars
+            if bar:
+                x = numpy.vstack((x-width/2, x+width/2)).reshape((-1,),\
+                                                             order="F")
+                y = numpy.vstack((y, y)).reshape((-1,), order="F")
+
+            # mask zeros for logy
+            if logy:
+                if not ymin:
+                    ymin = y[y!=0].min()*0.9
+                else:
+                    ymin = min(ymin, y[y!=0].min()*0.9)
+                numpy.putmask(y, y==0, ymin*0.9)
+                #y = numpy.ma.masked_where(y==0, y, copy=False)
+
+            # plot
+            self.ax.plot(x, y, **plot_kwargs)
+            if fill:
+                plot_kwargs.pop("label", None)
+                self.ax.fill_between(x, 1e-100, y, **plot_kwargs)
+
+        if logx:
+            self.ax.set_xscale("log")
+            if ymin:
+                self.ax.set_ybound(lower=ymin)
+        if logy:
+            self.ax.set_yscale("log")
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc, alpha=0.8)
+
+        # decrement reference counts
+        del self.data_sets
+        del self.normalize_values
+        del self.kwarg_sets
+
 ###################################################
 ## unittest section
 ###################################################
