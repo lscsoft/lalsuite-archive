@@ -588,13 +588,20 @@ class VerticalBarHistogram(BasicPlot):
         self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, num_bins=20, normed=False):
+    def finalize(self, num_bins=20, normed=False, logx=False, logy=False):
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(self.data_sets)
-        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+        if logx:
+            bins = numpy.logspace(numpy.log10(min_stat), numpy.log10(max_stat),\
+                                  num_bins + 1, endpoint=True)
+        else:
+            bins = numpy.linspace(min_stat, max_stat, num_bins+1, endpoint=True)
 
         # determine bar width; gets silly for more than a few data sets
-        width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
+        if logx:
+            width = list(numpy.diff(bins))
+        else:
+            width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
 
         # make plot
         legends = []
@@ -607,11 +614,20 @@ class VerticalBarHistogram(BasicPlot):
             plot_kwargs.setdefault("width", width)
 
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins, normed=normed, new=True)
+            npv = [int(v) for v in numpy.version.version.split('.')]
+            if npv[1] < 3:
+                y, x = numpy.histogram(data_set, bins=bins, normed=normed,\
+                                       new=True)
+            else:
+                y, x = numpy.histogram(data_set, bins=bins, normed=normed)
             x = x[:-1]
 
             # stagger bins for pure aesthetics
             x += 0.1 * i * max_stat / num_bins
+
+            # mask zeros for logy
+            if logy:
+                y = numpy.ma.masked_where(y==0, y, copy=False)
 
             # plot
             plot_item = self.ax.bar(x, y, **plot_kwargs)
@@ -626,6 +642,11 @@ class VerticalBarHistogram(BasicPlot):
 
         # add legend if there are any non-trivial labels
         self.ax.legend(plot_list, legends)
+
+        if logx:
+            self.ax.set_xscale("log")
+        if logy:
+            self.ax.set_yscale("log")
 
         # decrement reference counts
         del self.data_sets
