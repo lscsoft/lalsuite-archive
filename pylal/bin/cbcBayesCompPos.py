@@ -369,6 +369,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     plt.grid()
     plt.xlim(min_pos,max_pos)
+    plt.ylim(0,1)
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
