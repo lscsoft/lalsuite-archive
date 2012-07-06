@@ -567,14 +567,14 @@ class SimplePlot(BasicPlot):
         self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, loc=0):
+    def finalize(self, loc=0, alpha=0.8):
         # make plot
         for x_vals, y_vals, plot_kwargs in \
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets):
             self.ax.plot(x_vals, y_vals, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist(loc=loc)
+        self.add_legend_if_labels_exist(loc=loc, alpha=alpha)
 
         # decrement reference counts
         del self.x_data_sets
@@ -598,7 +598,7 @@ class BarPlot(BasicPlot):
         self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, orientation="vertical"):
+    def finalize(self, loc=0, orientation="vertical", alpha=0.8):
         # make plot
         for x_vals, y_vals, plot_kwargs in \
             itertools.izip(self.x_data_sets, self.y_data_sets,
@@ -612,7 +612,7 @@ class BarPlot(BasicPlot):
             self.ax.bar(x_vals, y_vals, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist()
+        self.add_legend_if_labels_exist(loc=loc, alpha=alpha)
 
         # decrement reference counts
         del self.x_data_sets
@@ -1563,7 +1563,7 @@ class ScatterPlot(SimplePlot):
     """
 
     @method_callable_once
-    def finalize(self, loc=0):
+    def finalize(self, loc=0, alpha=0.8):
         # make plot
         for x_vals, y_vals, plot_kwargs, color in \
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
@@ -1572,7 +1572,7 @@ class ScatterPlot(SimplePlot):
             self.ax.scatter(x_vals, y_vals, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist(loc=loc)
+        self.add_legend_if_labels_exist(loc=loc, alpha=0.8)
 
         # decrement reference counts
         del self.x_data_sets
@@ -1600,7 +1600,8 @@ class ColorbarScatterPlot(BasicPlot):
         self.c_data_sets.append(c_data)
         self.kwarg_sets.append(kwargs)
 
-    def finalize(self, loc=0, colorbar=True, logcolor=False, clim=None):
+    def finalize(self, loc=0, colorbar=True, logcolor=False, clim=None,\
+                 alpha=0.8):
         # make plot
         p = None
         for x_vals, y_vals, c_vals, plot_kwargs in\
@@ -1614,7 +1615,7 @@ class ColorbarScatterPlot(BasicPlot):
             add_colorbar(self.ax, log=logcolor, label=self.clabel, clim=clim)
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist(loc=loc)
+        self.add_legend_if_labels_exist(loc=loc, alpha=alpha)
 
         # decrement reference counts
         del self.x_data_sets
@@ -1687,7 +1688,6 @@ class PlotSegmentsPlot(BasicPlot):
                 self.ax.fill([a, b, b, a, a],\
                              [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
             if labels_inset:
-                print (row+1)/(len(self.keys)+1)
                 self.ax.text(0.01, (row+1)/(len(self.keys)+1),\
                              re.sub('\\+_+','\_',key),\
                              horizontalalignment='left',\
