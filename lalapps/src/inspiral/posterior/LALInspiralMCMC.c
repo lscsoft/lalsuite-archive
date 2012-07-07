@@ -1255,13 +1255,28 @@ function to keep its proposals inside the parameter space */
 	{
 		if(paraHead->core->wrapping==1) /* For cyclic boundaries */
 		{
-			delta = paraHead->core->maxVal - paraHead->core->minVal;
+            
+            if(paraHead->core->maxVal < paraHead->value) {
+                //printf("BIGGER Moving par %s from %lf to ",paraHead->core->name,paraHead->value);
+                   delta=(REAL8) floor((paraHead->value-paraHead->core->maxVal)/(paraHead->core->maxVal-paraHead->core->minVal));
+                   paraHead->value=paraHead->value- (1.0+delta)*(paraHead->core->maxVal-paraHead->core->minVal);                               
+                   //printf("to %lf \n",paraHead->value);
+                               }
+			else if(paraHead->core->minVal > paraHead->value) {
+                     //           printf("SMALLER Moving par %s from %lf to ",paraHead->core->name,paraHead->value);
+                               delta=floor((paraHead->core->minVal-paraHead->value)/(paraHead->core->maxVal-paraHead->core->minVal));
+                               paraHead->value=paraHead->value+(1.0+ delta)*(paraHead->core->maxVal-paraHead->core->minVal);    
+                       //                           printf("to %lf \n",paraHead->value);
+
+            }
+           } 
+/*			delta = paraHead->core->maxVal - paraHead->core->minVal;
 			while ( paraHead->value > paraHead->core->maxVal)
 				paraHead->value -= delta;
 			while ( paraHead->value < paraHead->core->minVal)
 			paraHead->value += delta;
 		}
-		 /* Use reflective boundaries */
+		  Use reflective boundaries */
                 /*else if(paraHead->core->wrapping==0)
 		{       
 			if(paraHead->core->maxVal < paraHead->value) {
@@ -1788,7 +1803,7 @@ XLALMCMCJumpSpins(
   /* loop over all parameters */
   for (paraHead=parameter->param,i=0; paraHead; paraHead=paraHead->next,i++)
   {
-    if((!strcmp(paraHead->core->name,"eta") || !strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")) && paraHead->core->wrapping!=-1)
+    if((!strcmp(paraHead->core->name,"a1") || !strcmp(paraHead->core->name,"a2")||!strcmp(paraHead->core->name,"theta1")||!strcmp(paraHead->core->name,"theta2")||!strcmp(paraHead->core->name,"phi1")||!strcmp(paraHead->core->name,"phi2")||!strcmp(paraHead->core->name,"phiP")||!strcmp(paraHead->core->name,"phiM")) && paraHead->core->wrapping!=-1)
     paraHead->value += step->data[i];
 	else
 	{;}

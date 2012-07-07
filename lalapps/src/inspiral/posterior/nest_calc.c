@@ -17,7 +17,8 @@
 #include "nest_calc.h"
 #include <float.h>
 
-#define TOLERANCE 0.1
+//#define TOLERANCE 0.1
+#define TOLERANCE 0.01
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -250,7 +251,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 	for(i=0;i<Nlive;i++) {
 		accept=MCMCSampleLimitedPrior(Live[i],temp,MCMCinput,-DBL_MAX,cov_mat,MCMCinput->numberDraw,10.0);
 		if(i%50==0)fprintf(stderr,".");
-        Live[i]->dZ=0.0;//logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ;
+        Live[i]->dZ=1000.0;//logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ;
         Live[i]->accept=accept;
 	}
 	if(MCMCinput->verbose) fprintf(stderr,"Set up %i live points\n",Nlive);
@@ -365,7 +366,7 @@ REAL8 nestZ(UINT4 Nruns, UINT4 Nlive, LALMCMCParameter **Live, LALMCMCInput *MCM
 		for(j=0;j<Nruns;j++) logwarray[j]+=sample_logt(Nlive);
 		logw=mean(logwarray,Nruns);
         Live[minpos]->dZ=logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ;
-        Live[minpos]->accept=accept;
+        Live[minpos]->accept=accept/MCMCfail;
 		if(MCMCinput->verbose) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf dZ: %lf logZ: %lf Zratio: %lf db\n",
 									   i,100.0*((REAL8)i)/(((REAL8) Nlive)*H),accept/MCMCfail,H,H/log(2.0),logLmin,Live[minpos]->logLikelihood,logadd(logZ,logLmax+logw+log((REAL8)Nlive))-logZ,logZ,10.0*log10(exp(1.0))*(logZ-logZnoise));
 		if(fpout && !(i%50)) fflush(fpout);
@@ -441,26 +442,35 @@ int sky_rotate_i=0;
 int normal_jump_i=0;
 int diffusive_i=0;
 int spin_rotate_i=0;
+int spin_jump_i=0;
 
 int sky_rotate_t=0;
 int normal_jump_t=0;
 int diffusive_t=0;
 int spin_rotate_t=0;
+int spin_jump_t=0;
 
 int sky_rotate_s=0;
 int normal_jump_s=0;
 int diffusive_s=0;
 int spin_rotate_s=0;
+int spin_jump_s=0;
 
 int failed_logP=0;
     REAL8 spin_only_ratio=0.01;
     REAL8 sky_jump=0.05;
-    REAL8 differential_ratio=0.01;
-
-if (dZ>30.0  && dZ!=0.0){differential_ratio=0.2;spin_only_ratio=0.1;sky_jump=0.15;}
-if (dZ<6.0  && dZ!=0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.05;}
-//if (dZ<3.0  && dZ!=0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.00;}
+    REAL8 differential_ratio=0.2;
+    REAL8 spin_jump_ratio=0.01;
+    int dont_skip=1;
+if (dZ> 100.0){differential_ratio=0.2;spin_only_ratio=0.15;sky_jump=0.15;}    
+else if(dZ>80.0){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ<70.0 && dZ>60.0 ){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ>30.0){differential_ratio=0.2;spin_only_ratio=0.;sky_jump=0.;}
+else if (dZ>20.0){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ<10.0 && dZ>8.0 ){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ>0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.4;}
 	
+
 MCMCInput->funcPrior(MCMCInput,sample);
 	
 	XLALMCMCCopyPara(&temp,sample);
@@ -471,6 +481,7 @@ MCMCInput->funcPrior(MCMCInput,sample);
         normal_jump_i=0;
         diffusive_i=0;
         spin_rotate_i=0;
+        spin_jump_i=0;
 		i++;
 		jump_select = gsl_rng_uniform(RNG);
 		if(jump_select<sky_jump && MCMCInput->numberDataStreams>1 && XLALMCMCCheckWrapping(sample,"ra")!=-1 && XLALMCMCCheckWrapping(sample,"dec")!=-1){
@@ -480,24 +491,30 @@ MCMCInput->funcPrior(MCMCInput,sample);
 			    ret=0;
 			    /* Custom proposal for symmetry of the sky sphere */
 			    if(MCMCInput->numberDataStreams>=3 && jump_select>0.9){ 
+                    sky_rotate:
                     ret=XLALMCMCReflectDetPlane(MCMCInput,temp);sky_rotate_t+=1;sky_rotate_i=1; 
                     //printf("Reflect Sky proposal iteration %d\n",i);
                 }
                 else { //printf("Im in the pitch iteration %d\n",i);
-                    goto here;}
+                    if (dont_skip==1) goto diff_jump;
+                    else {goto spin_jump;}}
 			    if(ret==0) nreflect++;
-			    if(ret==-1 || jump_select <=0.9 || MCMCInput->numberDataStreams==2) XLALMCMCRotateSky(MCMCInput,temp);
+			    if(ret==-1 || jump_select <=0.9 || MCMCInput->numberDataStreams==2) {XLALMCMCRotateSky(MCMCInput,temp);
+                //printf("RotateSky 2 proposal iteration %d\n",i);
+                }
 			    /* Custom proposal for mass/eta1 surface of constant 1PN term */
 			    /* if(gsl_rng_uniform(RNG)<0.1) XLALMCMC1PNMasseta(MCMCInput,temp); */
 			}
-            else { here: XLALMCMCDifferentialEvolution(MCMCInput,temp);diffusive_t+=1;diffusive_i=1;
-                 //  printf("Differential proposal iteration %d\n",i);
+            else if (dont_skip!=1) goto spin_jump;
+            else { diff_jump: {XLALMCMCDifferentialEvolution(MCMCInput,temp);diffusive_t+=1;diffusive_i=1;
+                   //printf("Differential proposal iteration %d\n",i);
+                   }
             }
 		}
-		else 
+		else    
 		{
 		    if( (jump_select=gsl_rng_uniform(RNG))<differential_ratio/*0.2*/){ XLALMCMCDifferentialEvolution(MCMCInput,temp);diffusive_t+=1;diffusive_i=1;
-                //printf("Differential2 proposal iteration %d\n",i);
+                    //printf("Differential2 proposal iteration %d\n",i);
             }
 		    else {
 		    /* Check for higher harmonics present */
@@ -506,10 +523,16 @@ MCMCInput->funcPrior(MCMCInput,sample);
                     /* Spin jumps */
                     // else if ((jump_select=gsl_rng_uniform(RNG))<spin_only_ratio && XLALMCMCCheckParameter(sample,"a1") && XLALMCMCCheckParameter(sample,"a1")){
                 else if ((jump_select=gsl_rng_uniform(RNG))<spin_only_ratio && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
-                    {
+                    {spin_jump:
                     XLALMCMCRotateSpins(MCMCInput,temp);spin_rotate_t+=1;spin_rotate_i=1; 
-                    // printf("Rotate Spins iteration %d ============= SPINS \n",i);
+                     //printf("Rotate Spins iteration %d ============= SPINS \n",i);
                 }
+                else if ((jump_select=gsl_rng_uniform(RNG))<spin_jump_ratio && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
+                {
+                    XLALMCMCJumpSpins(MCMCInput,temp,covM);spin_jump_t+=1;spin_jump_i=1; 
+                     //printf("Rotate Spins iteration %d ============= SPINS \n",i);
+                }
+                else if (dont_skip!=1) {goto sky_rotate;}
                 else /* Otherwise just perform a regular jump */
                     {XLALMCMCJump(MCMCInput,temp,covM);normal_jump_t+=1;normal_jump_i=1;
                     //printf("Normal Jumps proposal iteration %d\n",i);
@@ -530,7 +553,7 @@ MCMCInput->funcPrior(MCMCInput,sample);
 sky_rotate_s+=accept*sky_rotate_i;
 normal_jump_s+=accept*normal_jump_i;
 diffusive_s+=accept*diffusive_i;
-//spin_jump_s+=accept*spin_jump_i;
+spin_jump_s+=accept*spin_jump_i;
 //spin_diffusive_s+=accept*spin_diffusive_i;
 spin_rotate_s+=accept*spin_rotate_i;
 
@@ -542,13 +565,13 @@ spin_rotate_s+=accept*spin_rotate_i;
         }
 		else {XLALMCMCCopyPara(&temp,sample); 
         //printf("LogL was REFUSED at the iteration %d (old=%lf proposed %lf) ACCEPT:%d\n",i,sample->logLikelihood,temp->logLikelihood,accept);
-        //if (i==N && a_cnt==0) printf("Could not find a better point in %d MCMC jumps\n",N);}
+        if (i==N && a_cnt==0) printf("Could not find a better point in %d MCMC jumps\n",N);
         }
     }   
 sample->sky_rotate_s=(sky_rotate_t==0? 41.: (REAL8) sky_rotate_s/ (REAL8)sky_rotate_t);
 sample->normal_jump_s=(normal_jump_t==0?41.: (REAL8) normal_jump_s/ (REAL8)normal_jump_t);
 sample->diffusive_s=(diffusive_t==0?41.:(REAL8)diffusive_s/ (REAL8)diffusive_t);
-sample->spin_jump_s=41.;//(spin_jump_t==0?41.:(REAL8) spin_jump_s/ (REAL8)spin_jump_t);
+sample->spin_jump_s=(spin_jump_t==0?41.:(REAL8) spin_jump_s/ (REAL8)spin_jump_t);
 sample->spin_diffusive_s=41.;//(spin_diffusive_t==0?41.:(REAL8) spin_diffusive_s/ (REAL8)spin_diffusive_t);
 sample->spin_rotate_s=(spin_rotate_s==0?41.:(REAL8) spin_rotate_s/ (REAL8)spin_rotate_t);
 //sample->failed_logP=failed_logP;
