@@ -634,7 +634,6 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   double spin1    = 0.0;
   double spin2    = 0.0;
 
-  FILE *tf2;
 
   /* Just two spins specified - assume they are the z-components */
   if (LALInferenceCheckVariable(IFOdata->modelParams, "spin1")){
@@ -879,22 +878,21 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
     /* copy over: */
     IFOdata->freqModelhPlus->data->data[0].re = ((REAL8) LALSignal->data[0]);
     IFOdata->freqModelhPlus->data->data[0].im = 0.0;
-    tf2 = fopen("tf2.txt", "w");
     for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
       IFOdata->freqModelhPlus->data->data[i].re = ((REAL8) LALSignal->data[i]);
       IFOdata->freqModelhPlus->data->data[i].im = ((REAL8) LALSignal->data[n-i]);
-      fprintf(tf2, "%e %e\n", IFOdata->freqModelhPlus->data->data[i].re, IFOdata->freqModelhPlus->data->data[i].im);
     }
-    fclose(tf2);
+
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = LALSignal->data[IFOdata->freqModelhPlus->data->length-1];
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
     LALDestroyVector(&status, &LALSignal);
-
-    /* nomalise (apply same scaling as in XLALREAL8TimeFreqFFT()") : */
-    for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-      IFOdata->freqModelhPlus->data->data[i].re *= ((REAL8) n) * deltaT;
-      IFOdata->freqModelhPlus->data->data[i].im *= ((REAL8) n) * deltaT;
-    }
+    if (params.approximant == TaylorF2){
+    	/* nomalise (apply same scaling as in XLALREAL8TimeFreqFFT()") : */
+    	for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
+      	IFOdata->freqModelhPlus->data->data[i].re *= ((REAL8) n) * deltaT;
+      	IFOdata->freqModelhPlus->data->data[i].im *= ((REAL8) n) * deltaT;
+    	}
+    }	
     if(LALInferenceCheckVariable(IFOdata->modelParams, "ppealpha") && LALInferenceCheckVariable(IFOdata->modelParams, "ppeuppera") &&
        LALInferenceCheckVariable(IFOdata->modelParams, "ppelowera") && LALInferenceCheckVariable(IFOdata->modelParams, "ppebeta") &&
        LALInferenceCheckVariable(IFOdata->modelParams, "ppeupperb") && LALInferenceCheckVariable(IFOdata->modelParams, "ppelowerb")){
@@ -1219,8 +1217,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
       templateReal = dewhitened_fseries->data->data[i].re;
  	
       templateImag = dewhitened_fseries->data->data[i].im;
-
-      twopit = LAL_TWOPI * (chirptime);
+      twopit = -LAL_TWOPI * ( 1./deltaF + params.nStartPad/params.tSampling + params.startTime  );
       f = ((double) i) * deltaF;
       re = cos(twopit * f + phi );
       im =  -sin(twopit * f + phi );

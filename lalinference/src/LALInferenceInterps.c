@@ -311,108 +311,172 @@ static double mc2mass2(double mc, double eta)
  return mc * (pow(1+inversefraction,0.2) / pow(inversefraction,0.6));
 }
 
-static int SPAWaveformReduceSpin (double mass1, double mass2, double chi, 
-        int order, double startTime, double phi0, double deltaF,
-        double fLower, double fFinal, int numPoints, COMPLEX16* hOfF) {
+static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_low, double f_high, double deltaF, int order, int numPoints, COMPLEX16 *hOfF) {
 
-	double m = mass1 + mass2;
-	double eta = mass1 * mass2 / m / m;
+    REAL8 df, shft, phi0, amp0, amp, f, m, eta, delta, chi_s, chi_a, chi, Psi;
+    REAL8 psiNewt, psi2, psi3, psi4, psi5, psi6, psi6L, psi7, psi3S, psi4S, psi5S;
+    REAL8 alpha2, alpha3, alpha4, alpha5, alpha6, alpha6L, alpha7, alpha3S, alpha4S, alpha5S; 
+    REAL8 v, v2, v3, v4, v5, v6, v7, v0, mSevenBySix, piM, oneByThree; 
+    INT4 i, n, nBy2;
+
+    /* check inputs */
     
-    double psi2 = 0., psi3 = 0., psi4 = 0., psi5 = 0., psi6 = 0., psi6L = 0., psi7 = 0.; 
-    double psi3S = 0., psi4S = 0., psi5S = 0., psi0; 
-    double alpha2 = 0., alpha3 = 0., alpha4 = 0., alpha5 = 0., alpha6 = 0., alpha6L = 0.;
-    double alpha7 = 0., alpha3S = 0., alpha4S = 0., alpha5S = 0.; 
-    double f, v, v2, v3, v4, v5, v6, v7, Psi, amp, shft, amp0, d_eff; 
-    int k, kmin, kmax; 
 
-    double mSevenBySix = -7./6.;
-    double piM = LAL_PI*m*LAL_MTSUN_SI;
-    double oneByThree = 1./3.;
-    double piBy4 = LAL_PI/4.;
-	
-    COMPLEX16 H;
+    /* compute total mass (secs), mass ratio and the reduced spin parameter */
+    m = (m1 + m2)*LAL_MTSUN_SI;
+    eta = m1*m2/pow(m1 + m2,2.);
+    delta = (m1 - m2)/(m1 + m2);
+    chi_s = 0.;
+    chi_a = 0.;
+    chi = chi_s*(1. - 76.*eta/113.) + delta*chi_a;
 
-    /************************************************************************/
-    /* spin terms in the ampl & phase in terms of the 'reduced-spin' param. */
-    /************************************************************************/
+    /* freq resolution and the low-freq bin */
+    df = deltaF;
+    n = numPoints;
+
+    /* extrinsic parameters */
+    phi0  = 0.;
+    amp0 = pow(m,5./6.)*sqrt(5.*eta/24.)/(pow(LAL_PI,2./3.)*LAL_PC_SI * 1.0e6/LAL_C_SI);
+
+    shft = 0.;
+
+    /* spin terms in the amplitude and phase (in terms of the reduced
+     * spin parameter */
     psi3S = 113.*chi/3.;
-    psi4S = 63845.*(-81. + 4.*eta)*chi*chi/(8.*pow(-113. + 76.*eta, 2.));  
+    psi4S = 63845.*(-81. + 4.*eta)*chi*chi/(8.*pow(-113. + 76.*eta, 2.)); 
     psi5S = -565.*(-146597. + 135856.*eta + 17136.*eta*eta)*chi/(2268.*(-113. + 76.*eta)); 
 
-    alpha3S = (113*chi)/24.; 
-    alpha4S = (12769*pow(chi,2)*(-81 + 4*eta))/(32.*pow(-113 + 76*eta,2)); 
-    alpha5S = (-113*chi*(502429 - 591368*eta + 1680*pow(eta,2)))/(16128.*(-113 + 76*eta)); 
+    alpha3S = (113.*chi)/24.; 
+    alpha4S = (12769.*pow(chi,2)*(-81. + 4.*eta))/(32.*pow(-113. + 76.*eta,2)); 
+    alpha5S = (-113.*chi*(502429. - 591368.*eta + 1680*eta*eta))/(16128.*(-113 + 76*eta)); 
 
     /* coefficients of the phase at PN orders from 0 to 3.5PN */
-    psi0 = 3./(128.*eta);
+    psiNewt = 3./(128.*eta);
+    psi2 = 3715./756. + 55.*eta/9.;
+    psi3 = psi3S - 16.*LAL_PI;
+    psi4 = 15293365./508032. + 27145.*eta/504. + 3085.*eta*eta/72. + psi4S;
+    psi5 = (38645.*LAL_PI/756. - 65.*LAL_PI*eta/9. + psi5S);
+    psi6 = 11583231236531./4694215680. - (640.*LAL_PI*LAL_PI)/3. - (6848.*LAL_GAMMA)/21. 
+             + (-5162.983708047263 + 2255.*LAL_PI*LAL_PI/12.)*eta 
+             + (76055.*eta*eta)/1728. - (127825.*eta*eta*eta)/1296.;
+    psi6L = -6848./21.;
+    psi7 = (77096675.*LAL_PI)/254016. + (378515.*LAL_PI*eta)/1512.  
+             - (74045.*LAL_PI*eta*eta)/756.;
 
-    /************************************************************************/
-    /* set the amplitude and phase coefficients according to the PN order   */
-    /************************************************************************/
+    /* amplitude coefficients */
+    alpha2 = 1.1056547619047619 + (11*eta)/8.; 
+    alpha3 = -2*LAL_PI + alpha3S; 
+    alpha4 = 0.8939214212884228 + (18913*eta)/16128. + (1379*eta*eta)/1152. + alpha4S; 
+    alpha5 = (-4757*LAL_PI)/1344. + (57*eta*LAL_PI)/16. + alpha5S; 
+    alpha6 = -58.601030974347324 + (3526813753*eta)/2.7869184e7 - 
+                (1041557*eta*eta)/258048. + (67999*eta*eta*eta)/82944. + 
+                (10*pow(LAL_PI,2))/3. - (451*eta*pow(LAL_PI,2))/96.; 
+    alpha6L = 856/105.; 
+    alpha7 = (-5111593*LAL_PI)/2.709504e6 - (72221*eta*LAL_PI)/24192. - 
+                (1349*eta*eta*LAL_PI)/24192.; 
+
+    /* select the terms according to the PN order chosen */
     switch (order) {
-        case 7: 
-            psi7 = (77096675.*LAL_PI)/254016. + (378515.*LAL_PI*eta)/1512.  
-                     - (74045.*LAL_PI*eta*eta)/756.;
-            alpha7 = (-5111593*LAL_PI)/2.709504e6 - (72221*eta*LAL_PI)/24192. - 
-                        (1349*pow(eta,2)*LAL_PI)/24192.; 
         case 6:
-            psi6 = 11583231236531./4694215680. - (640.*LAL_PI*LAL_PI)/3. - (6848.*LAL_GAMMA)/21. 
-                     + (-5162.983708047263 + 2255.*LAL_PI*LAL_PI/12.)*eta 
-                     + (76055.*eta*eta)/1728. - (127825.*eta*eta*eta)/1296.;
-            psi6L = -6848./21.;
-            alpha6 = -58.601030974347324 + (3526813753*eta)/2.7869184e7 - 
-                        (1041557*pow(eta,2))/258048. + (67999*pow(eta,3))/82944. + 
-                        (10*pow(LAL_PI,2))/3. - (451*eta*pow(LAL_PI,2))/96.; 
-            alpha6L = 856/105.; 
+            psi7 = 0.;
+            alpha7 = 0.;
+            break;
         case 5:
-            psi5 = (38645.*LAL_PI/756. - 65.*LAL_PI*eta/9. + psi5S);
-            alpha5 = (-4757*LAL_PI)/1344. + (57*eta*LAL_PI)/16. + alpha5S; 
+            psi6 = 0.;
+            psi6L = 0.;
+            psi7 = 0.;
+            alpha6 = 0.;
+            alpha6L = 0.;
+            alpha7 = 0.;
+            break;
         case 4:
-            psi4 = 15293365./508032. + 27145.*eta/504. + 3085.*eta*eta/72. + psi4S;
-            alpha4 = 0.8939214212884228 + (18913*eta)/16128. + (1379*pow(eta,2))/1152. + alpha4S; 
+            psi5 = 0.;
+            psi6 = 0.;
+            psi6L = 0.;
+            psi7 = 0.;
+            alpha5 = 0.;
+            alpha6 = 0.;
+            alpha6L = 0.;
+            alpha7 = 0.;
+            break;
         case 3:
-            psi3 = psi3S - 16.*LAL_PI;
-            alpha3 = -2*LAL_PI + alpha3S; 
+            psi4 = 0.;
+            psi5 = 0.;
+            psi6 = 0.;
+            psi6L = 0.;
+            psi7 = 0.;
+            alpha4 = 0.;
+            alpha5 = 0.;
+            alpha6 = 0.;
+            alpha6L = 0.;
+            alpha7 = 0.;
+            break;
         case 2:
-            psi2 = 3715./756. + 55.*eta/9.;
-            alpha2 = 1.1056547619047619 + (11*eta)/8.; 
+            psi3 = 0.;
+            psi4 = 0.;
+            psi5 = 0.;
+            psi6 = 0.;
+            psi6L = 0.;
+            psi7 = 0.;
+            alpha3 = 0.;
+            alpha4 = 0.;
+            alpha5 = 0.;
+            alpha6 = 0.;
+            alpha6L = 0.;
+            alpha7 = 0.;
+            break;
+        case 1:
+            psi2 = 0.;
+            psi3 = 0.;
+            psi4 = 0.;
+            psi5 = 0.;
+            psi6 = 0.;
+            psi6L = 0.;
+            psi7 = 0.;
+            alpha2 = 0.;
+            alpha3 = 0.;
+            alpha4 = 0.;
+            alpha5 = 0.;
+            alpha6 = 0.;
+            alpha6L = 0.;
+            alpha7 = 0.;
+            break;
         default:
             break;
     }
+    
+    /* fill the zero and Nyquist */
+    mSevenBySix = -7./6.;
+    piM = LAL_PI*m;
+    oneByThree = 1./3.;
+    nBy2 = n/2;
 
-    /* compute the amplitude assuming effective dist. of 1 Mpc */
-    d_eff = 1e6*LAL_PC_SI/LAL_C_SI;  /*1 Mpc in seconds */
-    amp0 = sqrt(5.*eta/24.)*pow(m*LAL_MTSUN_SI, 5./6.)/(d_eff*pow(LAL_PI, 2./3.));
+    v0 = pow(LAL_PI*m*f_low, 1./3.);
 
-    shft = 2.*LAL_PI *startTime;
+    COMPLEX16 H;
 
-    /* zero outout */    
     memset (hOfF, 0, numPoints * sizeof (complex double));
 
-	kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
-	kmax = fFinal / deltaF < numPoints  ? fFinal / deltaF : numPoints ;
-
-    /************************************************************************/
-    /*          now generate the waveform at all frequency bins             */
-    /************************************************************************/
-    for (k = kmin; k < kmax; k++) {
+    for (i=1; i<n; i++) {
 
         /* fourier frequency corresponding to this bin */
-      	f = k * deltaF;
+      	f = i * df;
+    
+        /* PN expansion parameter */
         v = pow(piM*f, oneByThree);
 
         v2 = v*v;   v3 = v2*v;  v4 = v3*v;  v5 = v4*v;  v6 = v5*v;  v7 = v6*v;
 
-        /* compute the phase and amplitude */
-        if ((f < fLower) || (f > fFinal)) {
+        if ((f < f_low) || (f > f_high)) {
             amp = 0.;
             Psi = 0.;
         }
         else {
 
-            Psi = psi0*pow(v, -5.)*(1. 
+            /* compute the phase and amplitude */
+            Psi = psiNewt*pow(v, -5.)*(1. 
                     + psi2*v2 + psi3*v3 + psi4*v4 
-                    + psi5*v5*(1.+3.*log(v)) 
+                    + psi5*v5*(1.+3.*log(v/v0)) 
                     + (psi6 + psi6L*log(4.*v))*v6 + psi7*v7); 
 
             amp = amp0*pow(f, mSevenBySix)*(1. 
@@ -422,19 +486,15 @@ static int SPAWaveformReduceSpin (double mass1, double mass2, double chi,
 
         }
 
+        H.re = (REAL4) (amp * cos(Psi+shft*f+phi0+LAL_PI/4.));   /* real */
+        H.im = (REAL4) -(amp * sin(Psi+shft*f+phi0+LAL_PI/4.));  /* imag */
 
-    	H.re =  amp * (cos(Psi+shft*f+phi0+piBy4));
-	H.im =  -amp*sin(Psi+shft*f+phi0+piBy4);
-        
-	/* generate the waveform */
-	hOfF[k] = H;
-    }    
+	hOfF[i] = H;    
+   }    
 
 	return 0;
+
 }
-
-
-
 
 
 
@@ -505,8 +565,8 @@ double ffinal(double m_total){
 
 static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
 
-	SPAWaveformReduceSpin(m1, m2, 0, order, 0, 0, 1.0/duration, f_low, f_high, hOfF->data->length, hOfF->data->data);
-
+	generate_template_TaylorF2ReducedSpin(m1, m2, f_low, f_high, 1./duration, order, hOfF->data->length, hOfF->data->data);
+	
 	return 0;
 }
 
@@ -971,8 +1031,8 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 		for (l = 0; l < dewhitened_tseries->data->length; l++){
 
 			if(l < dewhitened_tseries->data->length/2 - 1 + len_to_zero_before_f_low){
-				fseries_for_dewhitening->data->data[l].re *= 0.;//sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
-				fseries_for_dewhitening->data->data[l].im *= 0.;//sqrt(psd->data->data[dewhitened_tseries->data->length/2 + 1 - l]/(2.*deltaF)) ;
+				fseries_for_dewhitening->data->data[l].re *= 0.;
+				fseries_for_dewhitening->data->data[l].im *= 0.;
 
 			}
 
@@ -985,12 +1045,14 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 		   }			
 
 
-		//XLALCOMPLEX16FreqTimeFFT(dewhitened_tseries, fseries_for_dewhitening, revplan_for_dewhitening);
 		for (unsigned int i=0; i < dewhitened_tseries->data->length/2 + 1; i ++){
-			dewhitened_fseries->data->data[dewhitened_fseries->data->length - 1 - i].re = fseries_for_dewhitening->data->data[fseries_for_dewhitening->data->length - 1 - i].re; 
-			dewhitened_fseries->data->data[dewhitened_fseries->data->length - 1 - i].im = fseries_for_dewhitening->data->data[fseries_for_dewhitening->data->length - 1 - i].im;
+			dewhitened_fseries->data->data[i].re = fseries_for_dewhitening->data->data[fseries_for_dewhitening->data->length - 1 - (dewhitened_tseries->data->length/2) + i].re; 
+			dewhitened_fseries->data->data[i].im = fseries_for_dewhitening->data->data[fseries_for_dewhitening->data->length - 1 - (dewhitened_tseries->data->length/2) + i].im;
+
 		}
+
 	return 0;
+
 }
 
 static int populate_interpolants_on_patches(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries, COMPLEX16FFTPlan *revplan, int length_max, double f_min){
@@ -1105,9 +1167,9 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
         unsigned int patches_in_eta = 2;
-        unsigned int patches_in_mc = 1;
-        unsigned int number_templates_along_eta = 15;
-        unsigned int number_templates_along_mc = 15;
+        unsigned int patches_in_mc = 2;
+        unsigned int number_templates_along_eta = 20;
+        unsigned int number_templates_along_mc = 20;
 	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
