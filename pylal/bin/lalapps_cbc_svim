@@ -31,7 +31,7 @@ from glue import segmentsUtils
 from glue import lal
 from glue import iterutils
 
-from pylal import db_thinca_rings
+from pylal import ligolw_compute_durations as compute_dur
 from pylal import llwapp
 from pylal import rate
 from pylal import InspiralUtils
@@ -180,41 +180,27 @@ class upper_limit(object):
 
   def get_segments(self):
     '''Retrieve raw single IFO segments from the database and apply vetoes.'''
-    if self.opts.verbose: print >>sys.stdout,"\nQuerying database for single IFO zero lag segments..."
-    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(self.connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
 
     if self.opts.verbose:
-      for ifo in self.segments:
+      print >>sys.stdout,"\nQuerying database for single IFO segments..."
+    self.segments = compute_dur.get_single_ifo_segments(
+      self.connection,
+      program_name = self.opts.live_time_program,
+      usertag = "FULL_DATA")
+    if self.opts.verbose:
+      for ifo in self.segments.keys():
         print "\t%s was on for %d seconds" % (ifo,abs(self.segments[ifo]))
 
-    if self.opts.verbose: print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
+    # getting vetoes
+    veto_segments = compute_dur.get_vetosegs_allcats(self.connection, self.opts.verbose)
+    veto_segments = veto_segments[self.opts.veto_segments_name]
 
-    if self.opts.veto_segments_name is None:
-      veto_segments = segments.segmentlistdict()
-    else:
-      #FIXME super hack to work around missing nanoseconds column in veto definer
-      try:
-        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
-      except AttributeError:
-        # will get an AttributeError if using newer format veto segment file because
-        # the new format does not include _ns; if so, remove the _ns columns from the
-        # segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
-        from glue.lal import LIGOTimeGPS
-        del lsctables.SegmentTable.validcolumns['start_time_ns']
-        del lsctables.SegmentTable.validcolumns['end_time_ns']
-        def get_segment(self):
-          return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-        def set_segment(self, segment):
-          self.start_time = segment[0].seconds
-          self.end_time = segment[1].seconds
-        lsctables.Segment.get = get_segment
-        lsctables.Segment.set = set_segment
-        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
-
-    self.segments -= veto_segments
-
+    # applying vetoes
     if self.opts.verbose:
-      for ifo in self.segments:
+      print >>sys.stdout,"\nApplying vetoes to single IFO zero lag segments..."
+    self.segments -= veto_segments
+    if self.opts.verbose:
+      for ifo in self.segments.keys():
         print "\t%s was on for %d seconds (after vetoes)" % (ifo,abs(self.segments[ifo]))
 
     return self.segments
