@@ -429,7 +429,8 @@ def parse_plot_config(cp, section):
     ints     = ['num-bins']
 
     # construct param dict
-    for key,val in cp.items(section):
+    for key,val in cp.items(section, raw=True):
+        if val == None: continue
         # remove quotes
         val = val.rstrip('"').strip('"')
         # format key key
