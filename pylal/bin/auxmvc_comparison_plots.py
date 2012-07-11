@@ -29,6 +29,22 @@ import pickle
 from pylal import InspiralUtils
 import math
 
+numpy.seterr(all='warn')
+
+def Nd_gaussian_kernal(x1, x2, sigma):
+  # computes the gaussian kernal : exp( -|x1-x2|^2/(2*sigma^2) ), where |x| is the norm of the vector x with euclidean metric
+  if isinstance(x1, (int, float, numpy.float128, numpy.float64)) or isinstance(x2, (int, float, numpy.float128, numpy.float64)):
+    if isinstance(x1, (int, float, numpy.float128, numpy.float64)) and isinstance(x2, (int, float, numpy.float128, numpy.float64)):
+      return numpy.exp(-(x1-x2)**2/(2.0*sigma**2))
+    else:
+      return False # bad input
+  else:
+    if len(x1) != len(x2):
+      return False # bad input
+    else:
+      return numpy.exp(-sum([(x1[ind] - x2[ind])**2 for ind in range(len(x1))])/(2.0*sigma**2))
+
+
 def CalculateFAPandEFF(total_data,classifier):
 	"""
 	Calculates fap, eff for the classifier and saves them into the corresponding columns of total_data.
@@ -66,7 +82,7 @@ def compute_combined_rank(total_data, type='max'):
   #     as written, this will only work when ANN, MVSC, and SVM are present
 
   # define the bins for our histogram
-  n_bins = 500
+  n_bins = opts.n_bins
   bins = numpy.linspace(0, 1, n_bins+1)
 
   if type=='max':
@@ -80,50 +96,129 @@ def compute_combined_rank(total_data, type='max'):
         trigger['combined_rank'] = combined_mvc_rank
 
   if type=='max_hist':
-    total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
-    ranks=[[glitch['glitch']] + [glitch[cls[0]+'_rank'] for cls in classifiers if cls[0]!='ovl'] + [0, 0, 0] for glitch in total_data]
-    n_ranks = len(ranks)
+    if opts.combined_algorithm_gaussian_width:
+      # we need to pull out the ranks for each type of glitch
+      # we store these as a list of lists, with the first index corresponding to the classifier
+      g_ranks = [ [ g[cls[0]+'_rank'] for g in total_data[numpy.nonzero(total_data['glitch']==1)[0]] ] for cls in classifiers if cls[0] != 'ovl' ]    
+      c_ranks = [ [ g[cls[0]+'_rank'] for g in total_data[numpy.nonzero(total_data['glitch']==0)[0]] ] for cls in classifiers if cls[0] != 'ovl' ]
 
-    p_glitch = [ [0]*n_bins ]*len([c for c in classifiers if c[0]!='ovl'])
-    p_cleans = [ [0]*n_bins ]*len(p_glitch)
+      # although this isn't the most efficient algorithm, we compute the likelihood ratio for each glitch through a direct computation of the kde
+      for g in total_data:
+        count = 0 # tracks which classifier we're on
+        L = [] # stores the different likelihood ratios
+        for cls in [cls for cls in classifiers if cls[0] != 'ovl']:
+          # compute the estimated probabilities directly through sums over gaussian kernals
+          p_g = (len(g_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, g[cls[0]+'_rank'], opts.combined_algorithm_gaussian_width) for r in g_ranks[count]])
+          p_c = (len(c_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, g[cls[0]+'_rank'], opts.combined_algorithm_gaussian_width) for r in c_ranks[count]])
+          # compute likelihood ratio
+          if p_c != 0:
+            L += [p_g / p_c]
+          else:
+            L += [p_g*(100**100)] # if p_c is zero, we approximate it as 1/extremely tiny number 
 
-    for i in range(n_bins):
+          count += 1
+
+        g['combined_rank'] = max(L)
+
+      if opts.verbose:
+        print 'building smoothed histogram estimates'
+      # we dump the data into a pickle file
+      pfile = open(opts.user_tag + '_max_hist_kde_data.pickle', 'w')
+      pickle.dump([cls[0] for cls in classifiers if cls[0] != 'ovl'], pfile)
+      pickle.dump(opts.combined_algorithm_gaussian_width, pfile)
+      # define our fine sampling
+      xpts=numpy.linspace(0,1,10*n_bins+1)
+      pickle.dump(xpts, pfile)
+      count = 0
+      for cls in [cls[0] for cls in classifiers if cls[0] != 'ovl']:
+        # we estimate the pdf's at every point in xpts
+        p_g_kde = [(len(g_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in g_ranks[count]]) for x in xpts]
+        p_c_kde = [(len(c_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in c_ranks[count]]) for x in xpts]
+        print max(p_g_kde)
+        print max(p_c_kde)
+        # dump to pickle
+        pickle.dump(p_g_kde, pfile)
+        pickle.dump(p_c_kde, pfile)
+        
+        count += 1
+
+        if opts.combined_diagnostic_plots:
+          if opts.verbose:
+            print 'building smoothed kde figures for ' + cls
+
+          # kde estimates
+          f=pylab.figure()
+          pylab.plot(xpts, p_g_kde, label='p(rank | glitch)')
+          pylab.plot(xpts, p_c_kde, label='p(rank | clean)')
+          pylab.legend()
+          pylab.xlabel(cls+' rank')
+          pylab.ylabel('kde')
+          pylab.title(cls + ' kernal density estimates')
+          pylab.savefig(opts.user_tag + '_max_hist_kde_'+cls+'.png')
+          pylab.close(f)
+
+          # map from rank to likelihood ratio
+          f=pylab.figure()
+          L = []
+          for ind in range(len(xpts)):
+            if p_c_kde[ind] == 0:
+              L += [p_g_kde[ind]*(100**100)] # same procedure as above (assigning combined_rank's)
+            else:
+              L += [p_g_kde[ind] / p_c_kde[ind] ]
+          pylab.semilogy(xpts, L, label=cls)
+          pylab.xlabel(cls + ' rank')
+          pylab.ylabel('Likelihood ratio ($\Lambda$)')
+          pylab.title('Estimates of likelihood ratio from '+cls+' kde probability distributions')
+          pylab.savefig(opts.user_tag + '_max_hist_likelihood_'+cls+'.png')
+          pylab.close(f)
+
+      pfile.close()
+
+    else:
+      total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
+      ranks=[[glitch['glitch']] + [glitch[cls[0]+'_rank'] for cls in classifiers if cls[0]!='ovl'] + [0, 0, 0] for glitch in total_data]
+      n_ranks = len(ranks)
+
+      p_glitch = [ [0]*n_bins ]*len([c for c in classifiers if c[0]!='ovl'])
+      p_cleans = [ [0]*n_bins ]*len(p_glitch)
+
+      for i in range(n_bins):
+        for ind in range(n_ranks):
+          if ranks[ind][1] > bins[i] and ranks[ind][1] <= bins[i+1]:
+            ranks[ind][4] = i
+            if ranks[ind][0] == 1:
+              p_glitch[0][i] += 1
+            else:
+              p_cleans[0][i] += 1
+          if ranks[ind][2] > bins[i] and ranks[ind][2] <= bins[i+1]:
+            ranks[ind][5] = i
+            if ranks[ind][0] == 1:
+              p_glitch[1][i] += 1
+            else:
+              p_cleans[1][i] += 1
+          if ranks[ind][3] > bins[i] and ranks[ind][3] <= bins[i+1]:
+            ranks[ind][6] = i
+            if ranks[ind][0] == 1:
+              p_glitch[2][i] += 1
+            else:
+              p_cleans[2][i] += 1
+
       for ind in range(n_ranks):
-        if ranks[ind][1] > bins[i] and ranks[ind][1] <= bins[i+1]:
-          ranks[ind][4] = i
-          if ranks[ind][0] == 1:
-            p_glitch[0][i] += 1
-          else:
-            p_cleans[0][i] += 1
-        if ranks[ind][2] > bins[i] and ranks[ind][2] <= bins[i+1]:
-          ranks[ind][5] = i
-          if ranks[ind][0] == 1:
-            p_glitch[1][i] += 1
-          else:
-            p_cleans[1][i] += 1
-        if ranks[ind][3] > bins[i] and ranks[ind][3] <= bins[i+1]:
-          ranks[ind][6] = i
-          if ranks[ind][0] == 1:
-            p_glitch[2][i] += 1
-          else:
-            p_cleans[2][i] += 1
+        n_cleans = len([r for r in ranks if r[0]==0])
+        if p_cleans[0][ranks[ind][4]] > 0:
+          L_ann = p_glitch[0][ranks[ind][4]] / float(p_cleans[0][ranks[ind][4]])
+        else:
+          L_ann = p_glitch[0][ranks[ind][4]]*2*n_cleans
+        if p_cleans[1][ranks[ind][5]] > 0:
+          L_mvsc = p_glitch[1][ranks[ind][5]] / float(p_cleans[1][ranks[ind][5]])
+        else:
+          L_mvsc = p_glitch[1][ranks[ind][5]]*2*n_cleans
+        if p_cleans[2][ranks[ind][6]] > 0:
+          L_svm = p_glitch[2][ranks[ind][6]] / float(p_cleans[2][ranks[ind][6]])
+        else:
+          L_svm = p_glitch[2][ranks[ind][6]]*2*n_cleans
 
-    for ind in range(n_ranks):
-      n_cleans = len([r for r in ranks if r[0]==0])
-      if p_cleans[0][ranks[ind][4]] > 0:
-        L_ann = p_glitch[0][ranks[ind][4]] / float(p_cleans[0][ranks[ind][4]])
-      else:
-        L_ann = p_glitch[0][ranks[ind][4]]*2*n_cleans
-      if p_cleans[1][ranks[ind][5]] > 0:
-        L_mvsc = p_glitch[1][ranks[ind][5]] / float(p_cleans[1][ranks[ind][5]])
-      else:
-        L_mvsc = p_glitch[1][ranks[ind][5]]*2*n_cleans
-      if p_cleans[2][ranks[ind][6]] > 0:
-        L_svm = p_glitch[2][ranks[ind][6]] / float(p_cleans[2][ranks[ind][6]])
-      else:
-        L_svm = p_glitch[2][ranks[ind][6]]*2*n_cleans
-
-      total_data[ind]['combined_rank']=max([L_ann, L_mvsc, L_svm])
+        total_data[ind]['combined_rank']=max([L_ann, L_mvsc, L_svm])
 
 
   if type=='max_pi':
@@ -137,90 +232,113 @@ def compute_combined_rank(total_data, type='max'):
         trigger['combined_rank'] = 10.0**25
      
   if type=='hist':
-    # we need to sort total_data in the correct way: do this by the order of classifiers and by cls_rank so that the we end up with total_data sorted by classifiers[0]_rank, and then that sub-sorted by classifiers[1]_rank, etc
-    # also want these in increasing order
-    # sort total data first by glitch and then by GPS time.
-    # numpy.lexsort() does inderct sort and return array's indices
-    total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
-
-    #define a list of sets of ranks so that we don't have to manipulate total_data
-    # the order of this list also corresponds to the order of glitches in total_data, which we will exploit
-    # each element of ranks has the following form: [ glitch, cls1_rank, cls2_rank, cls3_rank, cls1_bin, cls2_bin, cls3-bin]
-    ranks=[[glitch['glitch']] + [glitch[cls[0]+'_rank'] for cls in classifiers if cls[0]!='ovl'] + [0, 0, 0] for glitch in total_data]
-    n_ranks = len(ranks)
-
-    # define the 'histograms' as array like structures
-    # we will count glitches as elements of a bin if they fall into ( bin[i], bin[i+1] ], with the special case of the first bin, which is defined as [ bin[0], bin[1] ]
-    p_glitch = [ [ [0]*n_bins ]*n_bins ]*n_bins
-    p_cleans = [ [ [0]*n_bins ]*n_bins ]*n_bins
-
-    # iterate through all possible bins
-    # we count the number of elements from ranks in each bin and also label the elements in ranks by their corresponding bins (saves time later)
-    # we know that ranks is sorted, so on the next iteration we pick up where we left off (this will only work for the top level though)
-    i_ind = 0
-    
-    # we also instantiate counters for the number of glitches
-    n_glitches = 0
-    n_cleans = 0
-
-    for i in range(n_bins):
-      # these store the elements of ranks that fall into bin "i"
-      i_ranks = []
-      i_ranks_inds = [] # corresponds to the index in ranks for all elements in i_ranks
-
-      # iterate over all elements of ranks that we haven't already seen
-      for ind in range(n_ranks):
-        if ranks[ind][1] < bins[i]: # falls to the left of the bin
-          pass
-        elif ranks[ind][1] <= bins[i+1]: # falls within the bin, increment where appropriate
-          i_ranks += [ranks[ind]]
-          i_ranks_inds += [ind]
-          ranks[ind][4] = i # label the element of ranks
+    if opts.combined_algorithm_gaussian_width:
+      # we estimate the 3-D probability distribution in classifier-rank space using a gaussian kernal density estimate
       
-      # iterate over all elements we haven't seen. same logic as above, except we only iterate through the truncated list "i_ranks"
-      for j in range(n_bins):
-        j_ranks = []
-        j_ranks_inds = [] 
+      # grab the ranks from total_data
+      g_ranks = [[g[cls[0]+'_rank'] for cls in classifiers if cls[0] != 'ovl'] for g in total_data if g['glitch'] == 1]
+      c_ranks = [[g[cls[0]+'_rank'] for cls in classifiers if cls[0] != 'ovl'] for g in total_data if g['glitch'] == 0]
 
-        for ind in range(len(i_ranks)):
-          if i_ranks[ind][2] < bins[j]:
+      # we directly compute the kde for each element of total_data assuming a uniform standard deviation in all directions
+      for g in total_data:
+        this_g_ranks = [g[cls[0]+'_rank'] for cls in classifiers if cls[0] != 'ovl']
+        p_g = (len(g_ranks)*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-3 * sum([Nd_gaussian_kernal(ranks, this_g_ranks, opts.combined_algorithm_gaussian_width) for ranks in g_ranks])
+        p_c = (len(c_ranks)*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-3 * sum([Nd_gaussian_kernal(ranks, this_g_ranks, opts.combined_algorithm_gaussian_width) for ranks in c_ranks])
+        #compute the likelihood ratio
+        if p_c != 0:
+          g['combined_rank'] = p_g / p_c
+        else:
+          g['combined_rank'] = p_g / ( 1 / (6*opts.combined_algorithm_gaussian_width)**len(this_g_ranks) ) # we estimate the vanishing p_c as one event in a (hyper-)cube of side-length 6*sigma
+      
+      ###############
+      # this is where we should put the diagnostic plots for the smoothed 3-D histogram, once we figure out what those should be
+      ##############
+
+    else:
+      # we need to sort total_data in the correct way: do this by the order of classifiers and by cls_rank so that the we end up with total_data sorted by classifiers[0]_rank, and then that sub-sorted by classifiers[1]_rank, etc
+      # also want these in increasing order
+      # sort total data first by glitch and then by GPS time.
+      # numpy.lexsort() does inderct sort and return array's indices
+      total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
+
+      #define a list of sets of ranks so that we don't have to manipulate total_data
+      # the order of this list also corresponds to the order of glitches in total_data, which we will exploit
+      # each element of ranks has the following form: [ glitch, cls1_rank, cls2_rank, cls3_rank, cls1_bin, cls2_bin, cls3-bin]
+      ranks=[[glitch['glitch']] + [glitch[cls[0]+'_rank'] for cls in classifiers if cls[0]!='ovl'] + [0, 0, 0] for glitch in total_data]
+      n_ranks = len(ranks)
+
+      # define the 'histograms' as array like structures
+      # we will count glitches as elements of a bin if they fall into ( bin[i], bin[i+1] ], with the special case of the first bin, which is defined as [ bin[0], bin[1] ]
+      p_glitch = [ [ [0]*n_bins ]*n_bins ]*n_bins
+      p_cleans = [ [ [0]*n_bins ]*n_bins ]*n_bins
+
+      # iterate through all possible bins
+      # we count the number of elements from ranks in each bin and also label the elements in ranks by their corresponding bins (saves time later)
+      # we know that ranks is sorted, so on the next iteration we pick up where we left off (this will only work for the top level though)
+      i_ind = 0
+    
+      # we also instantiate counters for the number of glitches
+      n_glitches = 0
+      n_cleans = 0
+
+      for i in range(n_bins):
+        # these store the elements of ranks that fall into bin "i"
+        i_ranks = []
+        i_ranks_inds = [] # corresponds to the index in ranks for all elements in i_ranks
+
+        # iterate over all elements of ranks that we haven't already seen
+        for ind in range(n_ranks):
+          if ranks[ind][1] < bins[i]: # falls to the left of the bin
             pass
-          elif i_ranks[ind][2] <= bins[j+1]:
-            j_ranks += [i_ranks[ind]]
-            j_ranks_inds += [i_ranks_inds[ind]]
-            ranks[i_ranks_inds[ind]][5] = j
+          elif ranks[ind][1] <= bins[i+1]: # falls within the bin, increment where appropriate
+            i_ranks += [ranks[ind]]
+            i_ranks_inds += [ind]
+            ranks[ind][4] = i # label the element of ranks
+      
+        # iterate over all elements we haven't seen. same logic as above, except we only iterate through the truncated list "i_ranks"
+        for j in range(n_bins):
+          j_ranks = []
+          j_ranks_inds = [] 
 
-        # iterate as above, but through the even further truncated list "j_ranks"
-        for k in range(n_bins):
-          k_ranks = []
-          for ind in range(len(j_ranks)):
-            if j_ranks[ind][3] < bins[k]:
+          for ind in range(len(i_ranks)):
+            if i_ranks[ind][2] < bins[j]:
               pass
-            elif j_ranks[ind][3] <= bins[k+1]: # falls within the bin, and we simply add 1 to the number of elements in that bin
-              k_ranks += [j_ranks[ind]]
-              if j_ranks[ind][0] == 1:
-                p_glitch[i][j][k] += 1
-                n_glitches += 1
-              else:
-                p_cleans[i][j][k] += 1
-                n_cleans += 1
-              ranks[j_ranks_inds[ind]][6] = k
+            elif i_ranks[ind][2] <= bins[j+1]:
+              j_ranks += [i_ranks[ind]]
+              j_ranks_inds += [i_ranks_inds[ind]]
+              ranks[i_ranks_inds[ind]][5] = j
  
-    # we should check that we've place all the glitches and cleans: see if n_glitches == len(glitches), etc
-    print len(total_data[numpy.nonzero(total_data['glitch'] == 1)[0]])
-    print n_glitches
+          # iterate as above, but through the even further truncated list "j_ranks"
+          for k in range(n_bins):
+            k_ranks = []
+            for ind in range(len(j_ranks)):
+              if j_ranks[ind][3] < bins[k]:
+                pass
+              elif j_ranks[ind][3] <= bins[k+1]: # falls within the bin, and we simply add 1 to the number of elements in that bin
+                k_ranks += [j_ranks[ind]]
+                if j_ranks[ind][0] == 1:
+                  p_glitch[i][j][k] += 1
+                  n_glitches += 1
+                else:
+                  p_cleans[i][j][k] += 1
+                  n_cleans += 1
+                ranks[j_ranks_inds[ind]][6] = k
+ 
+      # we should check that we've place all the glitches and cleans: see if n_glitches == len(glitches), etc
+      print len(total_data[numpy.nonzero(total_data['glitch'] == 1)[0]])
+      print n_glitches
 
-    print len(total_data[numpy.nonzero(total_data['glitch'] == 0)[0]])
-    print n_cleans
+      print len(total_data[numpy.nonzero(total_data['glitch'] == 0)[0]])
+      print n_cleans
 
-    for ind in range(n_ranks):
-       # compute the likelihood ratio from the histograms
-       p_g = p_glitch[ranks[ind][4]][ranks[ind][5]][ranks[ind][6]]/float(n_glitches)
-       p_c = p_cleans[ranks[ind][4]][ranks[ind][5]][ranks[ind][6]]/float(n_cleans)
-       if p_c != 0:
-         total_data[ind]['combined_rank'] = p_g/p_c
-       else:
-         total_data[ind]['combined_rank'] = p_g*2*n_cleans # we define a bin with zero elements as having a probability of 1/(2*n_cleans)
+      for ind in range(n_ranks):
+         # compute the likelihood ratio from the histograms
+         p_g = p_glitch[ranks[ind][4]][ranks[ind][5]][ranks[ind][6]]/float(n_glitches)
+         p_c = p_cleans[ranks[ind][4]][ranks[ind][5]][ranks[ind][6]]/float(n_cleans)
+         if p_c != 0:
+           total_data[ind]['combined_rank'] = p_g/p_c
+         else:
+           total_data[ind]['combined_rank'] = p_g*2*n_cleans # we define a bin with zero elements as having a probability of 1/(2*n_cleans)
 
   return total_data
 
@@ -505,6 +623,9 @@ parser.add_option("","--ann-ranked-files", default=False, type="string", help="P
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
 
 parser.add_option("","--combined-algorithm", default='max', type="string", help='Change the algorithm with which MVC data is combined')
+parser.add_option("","--combined-algorithm-gaussian-width", default=False, type="float", help="the standard deviation used when computing gaussian kernal estimates of pdf's")
+parser.add_option("","--combined-diagnostic-plots", default=False, action="store_true", help="generates plots showing the kde estimates of smoothed pdf's")
+parser.add_option("","--n-bins", default=100, type="int", help="the number of bins used when creating histogram estimates of pdf's")
 parser.add_option("","--fap-threshold", default=0.1,type="float", help="False Alarm Probability which is adapted to veto")
 parser.add_option("","--cluster",action="store_true", default=False, help="cluster glitch samples")
 parser.add_option("","--cluster-window", default=1.0, type="float", help="clustering window in seconds, default is 1 second.")
@@ -1663,7 +1784,7 @@ if opts.hist_ranks:
       rankthr = min(rankthr)
     else:
       rankthr = False
-      print 'WARNING: glitches[numpy.nonzero(glitches['+clas[indd][0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
+      print 'WARNING: glitches[numpy.nonzero(glitches['+cls[0]+'_fap] <= opts.fap_threshold)[0] is an empty list!!!'
 
     # STEP histograms
     fig_num += 1
@@ -2214,7 +2335,6 @@ if opts.diagnostic_plots:
     fnameList.append(fname)
     tagList.append(name)
     pylab.close()
-
 
 ##############################################################################################################
 ### this next bit will help to print the options nicely on the html page
