@@ -21,7 +21,7 @@ This module provides a few extensions to glue.markup to streamline GEO/LIGO dete
 # Write table
 # =============================================================================
 
-def write_table(page, headers, data, classdict={}):
+def write_table(headers, data, classdict={}):
 
     """
     Write table into glue.markup.page object. headers are written with <th>,
@@ -51,6 +51,8 @@ def write_table(page, headers, data, classdict={}):
     rclass = classdict.get("tr","")
     hclass = classdict.get("th","")
     dclass = classdict.get("td","")
+
+    page = markup.page()
 
     # open table
     page.table(class_=tclass)
@@ -87,13 +89,13 @@ def write_table(page, headers, data, classdict={}):
     return page
 
 # =============================================================================
-# Write <div id="menubar">
+# Write <div id_="menubar">
 # =============================================================================
 
 def write_menu(sections, pages, current=None, classdict={"a":"menulink"}):
 
     """
-    Returns glue.markup.page object for <div id="menubar">, constructing menu
+    Returns glue.markup.page object for <div id_="menubar">, constructing menu
     in HTML.
 
     Arguments:
@@ -114,7 +116,7 @@ def write_menu(sections, pages, current=None, classdict={"a":"menulink"}):
     """
 
     page = markup.page()
-    page.div(id="menubar", class_=classdict.get("div", ""))
+    page.div(id_="menubar", class_=classdict.get("div", ""))
 
     for i,sec in enumerate(sections):
         # set current class
@@ -130,7 +132,7 @@ def write_menu(sections, pages, current=None, classdict={"a":"menulink"}):
             href = pages[sec]
 
         # make link
-        page.a(sec, id="a_%d" % i, class_=cl, href=href)
+        page.a(sec, id_="a_%d" % i, class_=cl, href=href)
 
     page.div.close()
 
@@ -162,21 +164,21 @@ def write_glossary(entries, htag="h1",\
     page = markup.page()
 
     # write heading and description
-    getattr(page, htag)("Glossary", id="%s_glossary" % htag)
-    page.div(id="div_glossary", style="display: block;",\
+    getattr(page, htag)("Glossary", id_="%s_glossary" % htag)
+    page.div(id_="div_glossary", style="display: block;",\
              class_=classdict.get("div", ""))
     page.p("This section gives a glossary of terms relevant to this page.",\
            class_=classdict.get("p", ""))
     lvwiki = "https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/Acronyms"
-    page.p("The LIGO-Virgo acronym wiki can be found on %d."\
+    page.p("The LIGO-Virgo acronym wiki can be found on %s."\
            % markup.oneliner.a("this page", href=lvwiki),\
            class_=classdict.get("p", ""))
 
     # write glossary table
     terms = sorted(entries.keys())
     for i,term in enumerate(terms):
-        page.h4(term, id="glossaryh4_%d" % i, class_=classdict.get("h4", ""))
-        page.div(entries[term], id="div_%d" % i, style="display: none;",\
+        page.h4(term, id_="glossaryh4_%d" % i, class_=classdict.get("h4", ""))
+        page.div(entries[term], id_="div_%d" % i, style="display: none;",\
                  class_="glossary")
 
     page.div.close()
@@ -272,14 +274,14 @@ def simple_page(header, htag="h1", desc=None, plotlist=None,
     # print header
     if header is not None:
         getattr(page, htag)(header, class_=classdict.get(htag,""),\
-                            id="%s_simple-page" % htag,
+                            id_="%s_simple-page" % htag,
                             onclick="toggleVisible();")
 
     # set div
     hclass = classdict.get(htag, "open")
     if hclass == "closed":   display="none"
     else:                    display="block"
-    page.div(class_=classdict.get("div",""), id="div_simple-page",\
+    page.div(class_=classdict.get("div",""), id_="div_simple-page",\
              style="display: %s;" % display)
 
     if desc is not None:
@@ -320,8 +322,8 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
 
     Body is built to the following format:
 
-    <div id="container">
-        <div class="content" id="header">
+    <div id_="container">
+        <div class="content" id_="header">
             <div>
                 <div class="nav">
                     ICON
@@ -331,7 +333,7 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
                 </div>
             </div>
         </div>
-        <div class="content" id="tabs">
+        <div class="content" id_="tabs">
             <div>
                 <div class="nav">
                     HOMEBUTTON
@@ -341,7 +343,7 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
                 </div>
             </div>
         </div>
-        <div class="content" id="main">
+        <div class="content" id_="main">
             <div>
                 <div class="nav">
                     MENUBAR
@@ -360,14 +362,14 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
     initargs.setdefault("doctype", "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">")
     page.init(**initargs)
 
-    page.div(id="container")
+    page.div(id_="container")
 
     # build top bar from icon and banner
     if icon is not None or banner is not None:
         page.div(class_="content", id_="header")
         page.div()
-        page.div(str(icon), class_="nav", id="headernav")
-        page.div(str(banner), class_="frame", id="headerframe")
+        page.div(str(icon), class_="nav", id_="headernav")
+        page.div(str(banner), class_="frame", id_="headerframe")
         page.div.close()
         page.div.close()
 
@@ -375,8 +377,8 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
     if homebutton is not None or tabs is not None:
         page.div(class_="content", id_="tabs")
         page.div()
-        page.div(str(homebutton), class_="nav", id="tabsnav")
-        page.div(str(tabs), class_="frame", id="tabsframe")
+        page.div(str(homebutton), class_="nav", id_="tabsnav")
+        page.div(str(tabs), class_="frame", id_="tabsframe")
         page.div.close()
         page.div.close()
 
@@ -384,8 +386,8 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
     if menu is not None or frame is not None:
         page.div(class_="content", id_="main")
         page.div()
-        page.div(str(menu), class_="nav", id="mainnav")
-        page.div(str(frame), class_="frame", id="mainframe")
+        page.div(str(menu), class_="nav", id_="mainnav")
+        page.div(str(frame), class_="frame", id_="mainframe")
         page.div.close()
         page.div.close()
 
@@ -442,14 +444,14 @@ def summary_page(header=None, htag="h1", desc=None, plotlist=None,
     # print header
     if header is not None:
         getattr(page, htag)(header, class_=classdict.get(htag,""),\
-                            id="%s_simple-page" % htag,
+                            id_="%s_simple-page" % htag,
                             onclick="toggleVisible();")
 
     # set div
     hclass = classdict.get(htag, "open")
     if hclass == "closed":   display="none"
     else:                    display="block"
-    page.div(class_=classdict.get("div"), id="div_simple-page",\
+    page.div(class_=classdict.get("div"), id_="div_simple-page",\
              style="display: %s;" % display)
 
     # print description
@@ -494,3 +496,66 @@ def summary_page(header=None, htag="h1", desc=None, plotlist=None,
             page.p(str(info), class_=classdict.get("p",""))
 
     page.div.close()
+
+# =============================================================================
+# Write about page
+# =============================================================================
+
+def about_page(executable, cmdargs, version=False, filedict={},\
+               classdict={"h2":"open", "p":"line", "div":"about"}, init=False):
+    """
+    Returns a glue.markup.page object formatting the given executable,\
+    commandline arguments, and any included files.
+
+    Arguments:
+
+        executable : string
+            path of executable file (sys.argv[0])
+        cmdargs : iterable
+            set of command line arguments (sys.argv[1:])
+ 
+    Keyword arguments:
+
+        filedict : [ dict | iterable ]
+            iterable of ("name", filepath) pairs to insert in full into the page
+        classdict : dict
+            dict containing HTML class strings for each tag used
+        init : [ True | False ]
+            initialise the markup.page object, adds HTML and BODY tags
+    """
+    page = markup.page()
+
+    # initialise
+    if init: page.init()
+
+    page.h1("About", class_=classdict.get("h1",None))
+    page.p("This page was generated with %s using the following tools."\
+           % (executable), class_=classdict.get("p",None))
+
+    def pre(h2, content, id_=0):
+        page.h2(h2, id_="h2_%s" % id_, onclick="toggleVisible();",\
+                class_=classdict.get("h2",None))
+        page.div(id_="div_%s" % id_, style="display: block;",\
+                 class_=classdict.get("div",None))
+        page.pre(content, class_=classdict.get("pre",None))
+        page.div.close()
+
+    i = 0
+
+    # write command line
+    pre("Command line arguments", " ".join([executable]+cmdargs), id_=i)
+    i += 1
+
+    # write version
+    if version:
+        pre("Version", version, id_=i)
+        i += 1
+  
+    if isinstance(filedict, dict):
+        filedict = filedict.iteritems()
+
+    for name,path in filedict:
+        pre(name, open(path, "r").read(), id_=i)
+        i += 1
+
+    return page
