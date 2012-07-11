@@ -81,7 +81,7 @@ struct twod_waveform_interpolant * new_waveform_interpolant_from_svd_bank(gsl_ma
 	return interp;
 }
 
-struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries *psd, unsigned int patches_in_eta, unsigned int patches_in_mc, int number_templates_along_mc, int number_templates_along_eta, double mc_min, double mc_max, double eta_min, double eta_max, double outer_mc_min, double outer_mc_max, double outer_eta_min, double outer_eta_max, double mc_padding, double eta_padding, unsigned int length_max){
+struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries *psd, unsigned int patches_in_eta, unsigned int patches_in_mc, int number_templates_along_mc, int number_templates_along_eta, double mc_min, double mc_max, double eta_min, double eta_max, double outer_mc_min, double outer_mc_max, double outer_eta_min, double outer_eta_max, double mc_padding, double eta_padding, unsigned int length_max, double f_ref){
 
 	struct twod_waveform_interpolant_manifold * output = (struct twod_waveform_interpolant_manifold *) calloc( 1, sizeof(struct twod_waveform_interpolant_manifold));
 
@@ -102,6 +102,7 @@ struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8Frequ
 	output->outer_param2_min = outer_eta_min;
 	output->outer_param2_max = outer_eta_max;
 	output->waveform_length = length_max;	
+	output->f_ref = f_ref;
 	return output;
 }
 
@@ -311,7 +312,10 @@ static double mc2mass2(double mc, double eta)
  return mc * (pow(1+inversefraction,0.2) / pow(inversefraction,0.6));
 }
 
-static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_low, double f_high, double deltaF, int order, int numPoints, COMPLEX16 *hOfF) {
+static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_low, double f_high, double f_ref, double deltaF, int order, int numPoints, COMPLEX16 *hOfF) {
+
+    
+    double t_shift = - compute_chirp_time(m1, m2, f_ref, 4, 0);
 
     REAL8 df, shft, phi0, amp0, amp, f, m, eta, delta, chi_s, chi_a, chi, Psi;
     REAL8 psiNewt, psi2, psi3, psi4, psi5, psi6, psi6L, psi7, psi3S, psi4S, psi5S;
@@ -338,7 +342,7 @@ static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_
     phi0  = 0.;
     amp0 = pow(m,5./6.)*sqrt(5.*eta/24.)/(pow(LAL_PI,2./3.)*LAL_PC_SI * 1.0e6/LAL_C_SI);
 
-    shft = 0.;
+    shft = 2.*LAL_PI*(t_shift);
 
     /* spin terms in the amplitude and phase (in terms of the reduced
      * spin parameter */
@@ -563,9 +567,9 @@ double ffinal(double m_total){
 }
 
 
-static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
+static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double f_ref, double order, COMPLEX16FrequencySeries *hOfF){
 
-	generate_template_TaylorF2ReducedSpin(m1, m2, f_low, f_high, 1./duration, order, hOfF->data->length, hOfF->data->data);
+	generate_template_TaylorF2ReducedSpin(m1, m2, f_low, f_high, f_ref, 1./duration, order, hOfF->data->length, hOfF->data->data);
 	
 	return 0;
 }
@@ -734,13 +738,12 @@ static gsl_vector *raw_nodes(int count) {
 	return out;
 }
 
-static int generate_whitened_template(	double m1, double m2, double duration, double f_min, unsigned int length_max,
-					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
+static int generate_whitened_template(	double m1, double m2, double duration, double f_min, unsigned int length_max, double f_ref, double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan) {
 	double tmp;
 	tmp = psd->data->data[0];	
-	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
+	generate_template(m1, m2, duration, f_min, f_max, f_ref, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
 
 	/* add quadrature-phase to waveform */
@@ -757,7 +760,7 @@ static int generate_whitened_template(	double m1, double m2, double duration, do
 	return 0;
 } 
 
-static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vector *etavec, double f_min, int length_max, REAL8FrequencySeries* psd, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan){
+static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vector *etavec, double f_min, int length_max, double f_ref, REAL8FrequencySeries* psd, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan){
        /*
  	* N_mc is number of points on M_c grid
  	* viceversa for M_eta
@@ -787,7 +790,7 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
                         m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.*1.0), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, f_ref, sample_rate / (2.*1.0), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 	
 			gsl_matrix_set_col(A, 2*k,  template_real);
 			gsl_matrix_set_col(A, 2*k+1, template_imag);
@@ -1091,7 +1094,7 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		mchirps_even = even_param_spacing(mc_min, mc_max, N_mc);
 		etas_even = even_param_spacing(eta_min, eta_max, M_eta);
 
-		templates = create_templates_from_mc_and_eta(mchirps_even, etas_even, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
+		templates = create_templates_from_mc_and_eta(mchirps_even, etas_even, f_min, length_max, manifold->f_ref, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
 
 		gsl_vector_free(etas_even);
 		gsl_vector_free(mchirps_even);
@@ -1110,7 +1113,7 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		mchirps_nodes = node_param_spacing(mc_min, mc_max, x_nodes);
 		etas_nodes = node_param_spacing(eta_min, eta_max, y_nodes);
 
-		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
+		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, length_max, manifold->f_ref, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
 
 
 		phase_M0_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
@@ -1162,14 +1165,14 @@ int index_into_patch(struct twod_waveform_interpolant_manifold *manifold, double
 
 
 
-struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min, double sample_rate, double deltaF){
+struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries *psd_to_interpolate, double mc_min, double mc_max, double eta_min, double eta_max, double f_min, double sample_rate, double deltaF, double f_ref){
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
         unsigned int patches_in_eta = 2;
         unsigned int patches_in_mc = 2;
-        unsigned int number_templates_along_eta = 20;
-        unsigned int number_templates_along_mc = 20;
+        unsigned int number_templates_along_eta = 15;
+        unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
@@ -1189,7 +1192,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 
 	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate, deltaF);
-	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max);
+	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max, f_ref);
 
 
 	number_of_patches = patches_in_eta*patches_in_mc;

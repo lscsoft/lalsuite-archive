@@ -15,11 +15,11 @@ int XLALInferenceDestroyInterpManifold(struct twod_waveform_interpolant_manifold
 
 struct twod_waveform_interpolant* new_waveform_interpolant_from_svd_bank(gsl_matrix*);
 
-struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries*, unsigned int, unsigned int , int , int , double , double , double , double , double , double , double , double , double , double, unsigned int );
+struct twod_waveform_interpolant_manifold* interpolants_manifold_init(REAL8FrequencySeries*, unsigned int, unsigned int , int , int , double , double , double , double , double , double , double , double , double , double, unsigned int, double );
 
 int interpolate_waveform_from_mchirp_and_eta(struct twod_waveform_interpolant_array*, gsl_vector_complex*, double, double);
 
-struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries* , double, double, double, double, double, double, double);
+struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REAL8FrequencySeries* , double, double, double, double, double, double, double, double);
 
 int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double);
 

@@ -124,12 +124,18 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
                                                                      ifoPtr->freqData->data->length);
         ifoPtr->modelParams = calloc(1, sizeof(LALInferenceVariables));
 
-	fprintf(stderr, "Creating interp manifold\n");  
-	ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum, atof(LALInferenceGetProcParamVal(commandLine,"--mc-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--mc-max")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-max")->value), ifoPtr->fLow, 1./ifoPtr->timeData->deltaT, ifoPtr->freqData->deltaF);
-	//fprintf(stderr, "Manifold created with %i templates along mc; freeing manifold\n", ifoPtr->manifold->number_templates_along_mc);
-	//XLALInferenceDestroyInterpManifold(ifoPtr->manifold);
-	//fprintf(stderr, "manifold free'd\n");
+	int min_index = 1280;
+	double f_ref = 0;
+	for(unsigned int p = 1280; p < ifoPtr->oneSidedNoisePowerSpectrum->data->length; p++){
+		if(ifoPtr->oneSidedNoisePowerSpectrum->data->data[p] < ifoPtr->oneSidedNoisePowerSpectrum->data->data[min_index]){
+			min_index = p;
+		}
 
+	}
+	f_ref = min_index*ifoPtr->oneSidedNoisePowerSpectrum->deltaF;
+	fprintf(stderr, "f_ref: %e min_index %d deltaF %e length %d\n", f_ref, min_index, ifoPtr->oneSidedNoisePowerSpectrum->deltaF, ifoPtr->oneSidedNoisePowerSpectrum->data->length);
+        fprintf(stderr, "Creating interp manifold\n");
+                ifoPtr->manifold = XLALInferenceCreateInterpManifold(ifoPtr->oneSidedNoisePowerSpectrum, atof(LALInferenceGetProcParamVal(commandLine,"--mc-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--mc-max")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-min")->value), atof(LALInferenceGetProcParamVal(commandLine,"--eta-max")->value), ifoPtr->fLow, 1./ifoPtr->timeData->deltaT, ifoPtr->freqData->deltaF, f_ref);
       }
       ifoPtr = ifoPtr->next;
 
@@ -275,7 +281,7 @@ void initializeMCMC(LALInferenceRunState *runState)
       }
     }
   }
- runState->template = &LALInferenceTemplateLALChebyshevInterp;
+ //runState->template = &LALInferenceTemplateLALChebyshevInterp;
 //  if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
 //    fprintf(stderr, "Computing likelihood in the time domain.\n");
 //    runState->likelihood=&LALInferenceTimeDomainLogLikelihood;

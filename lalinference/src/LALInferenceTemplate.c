@@ -1068,7 +1068,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
   double instant;
   int forceTimeLocation;
-  double f_isco, twopit, f, deltaF, re, im, templateReal, templateImag;
+  double f_isco, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
+ 
   //int Nfft = IFOdata->timeData->data->length;
 
   LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
@@ -1212,12 +1213,13 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     dewhitened_fseries->data->data[0].re = dewhitened_fseries->data->data[0].re;
     dewhitened_fseries->data->data[0].im = 0.0;
 
+    t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
 
     for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
       templateReal = dewhitened_fseries->data->data[i].re;
  	
       templateImag = dewhitened_fseries->data->data[i].im;
-      twopit = -LAL_TWOPI * ( 1./deltaF + params.nStartPad/params.tSampling + params.startTime  );
+      twopit = -LAL_TWOPI * ( 1./deltaF + params.nStartPad/params.tSampling + params.startTime - t_shift );
       f = ((double) i) * deltaF;
       re = cos(twopit * f + phi );
       im =  -sin(twopit * f + phi );

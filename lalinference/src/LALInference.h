@@ -206,6 +206,7 @@ struct twod_waveform_interpolant_manifold {
 	double outer_param2_min;
 	double outer_param2_max;
 	unsigned int waveform_length; /* length of the interpolated waveform */
+	double f_ref;
 };
 
 

@@ -1,3 +1,4 @@
+    double f_dummy = 0.0;
 /* Use old lal complex structures for now */
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 
@@ -177,26 +178,8 @@ static double chebyshev_node(int j, int J_max) {
 /* 
  * Formula (5) in http://arxiv.org/pdf/1108.5618v1.pdf
  */
-/*
-static double optimal_t_shift(gsl_vector *Mcs, gsl_vector Etas*, order, f_ref){
 
-	int N_mc = Mcs->length;
-	int M_eta = Etas->length; 
 
-	double t_optimal;
-	int scaling;	
-	for(i =0; i < N_mc; i++){
-		for(unsigned int j=0; j < M_eta; j++){
-			m1_i = mc2masses1(gsl_vector_get(Mcs, i), gsl_vector_get(Etas, j) );
-			m2_j = mc2masses2(gs_vector_get(Mcs, i), gsl_vector_get(Etas, j));
-			t_optimal += (compute_chirp_time(m1, m2, f_ref, order, 0) - compute_chirp_time(m1_i, m2_j, f_ref, order, 0) ) - (compute_chirp_time(m1_ref, m2_ref, f_ref, order, 0) - compute_chirp_time(m1_j, m2_j, f_ref, order, 0) );
-			scaling += 1;
-		}
-	}	
-
-	return t_optimal / scaling
-}
-*/
 
 static double onedCheby(double x, int J, int J_max) {
 	double w=0;
@@ -411,7 +394,6 @@ static int compute_max_chirp_time_and_max_frequency(double mc_min, double mc_max
 			m2 = mc2mass2(mc, eta);
 			t_max_tmp = compute_chirp_time(m1, m2, f_min, 4, 0);
 			if (t_max_tmp > *t_max ) *t_max = t_max_tmp;
-			fprintf(stderr, "%e %e %e %e %e\n", mc_min, mc_max, eta_min, eta_max, *t_max);
 			
 
 		}
@@ -422,39 +404,36 @@ static int compute_max_chirp_time_and_max_frequency(double mc_min, double mc_max
 	return 0;
 }
 
-static int compute_min_chirp_time_and_max_frequency(double mc_min, double mc_max, double eta_min, double eta_max, double f_min, double *f_max, double *t_max) {
-
-        double m1, m2, mc, eta, t_max_tmp;
-        int N_mc = 10;
-        int M_eta = 10;
-        for(int i = 0; i < N_mc; i++){
-                for(int j = 0; j < M_eta; j++){
-
-                        mc = mc_min + i*(mc_max - mc_min)/(N_mc - 1);
-                        eta = eta_min + j*(eta_max - eta_min)/(M_eta - 1);
-                        m1 = mc2mass1(mc, eta);
-                        m2 = mc2mass2(mc, eta);                        
-			t_max_tmp = compute_chirp_time(m1, m2, f_min, 4, 0);
-                        if (t_max_tmp < *t_max ) *t_max = t_max_tmp;
-                        fprintf(stderr, "%e %e %e %e %e\n", mc_min, mc_max, eta_min, eta_max, *t_max);
 
 
-                }
-        }
-        eta_min +=0.;
-        double mt_min = mc_min/(pow(eta_max, 3./5.));
-        *f_max = ffinal(mt_min);
-        return 0;
-}
+/*static double optimal_t_shift(double m1, double m2, double mc_min, double mc_max, double eta_min, double eta_max, int order, double f_ref, double t_ref){
 
-static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double mc_min, double mc_max, double eta_min, double eta_max, double f_low, double f_high, double deltaF, int order, int numPoints, COMPLEX16 *hOfF) {
+	int N_mc = 100;
+	int M_eta = 100; 
+	double m1_i, m2_j, mc, eta;
+	double t_optimal = 0.;
+	int scaling = 0;	
+	for(int i =0; i < N_mc; i++){
+		for(int j=0; j < M_eta; j++){
+			mc = mc_min + i*(mc_max - mc_min)/(N_mc - 1);
+			eta = eta_min + j*(eta_max - eta_min)/(M_eta - 1);
+			m1_i = mc2mass1(mc, eta);
+			m2_j = mc2mass2(mc, eta);
+			t_optimal += (compute_chirp_time(m1, m2, f_ref, order, 0) - compute_chirp_time(m1_i, m2_j, f_ref, order, 0) ) - ( t_ref - compute_chirp_time(m1_i, m2_j, f_ref, order, 0) );
+			scaling += 1;
+		}
+	}	
+
+	return t_optimal / scaling;
+}*/
+
+static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_low, double f_high, double deltaF, int order, int numPoints, COMPLEX16 *hOfF) {
    
-    double f_ref = 156; 
-    double t_ref = 0.0;
-    double f_dummy = 0.0;
-    compute_min_chirp_time_and_max_frequency(mc_min, mc_max, eta_min, eta_max, f_ref, &f_dummy, &t_ref); 
+    double f_ref = 150.; 
+    double t_shift = - compute_chirp_time(m1, m2, f_ref, 4, 0);
 
-    double t_shift = t_ref - compute_chirp_time(m1, m2, f_ref, 4, 0);
+
+
     REAL8 df, shft, phi0, amp0, amp, f, m, eta, delta, chi_s, chi_a, chi, Psi;
     REAL8 psiNewt, psi2, psi3, psi4, psi5, psi6, psi6L, psi7, psi3S, psi4S, psi5S;
     REAL8 alpha2, alpha3, alpha4, alpha5, alpha6, alpha6L, alpha7, alpha3S, alpha4S, alpha5S; 
@@ -638,9 +617,9 @@ static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double mc
 }
 
 
-static int generate_template(double m1, double m2, double mc_min, double mc_max, double eta_min, double eta_max, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
+static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
 	
-	generate_template_TaylorF2ReducedSpin(m1, m2, mc_min, mc_max, eta_min, eta_max, f_low, f_high, 1./duration, order, hOfF->data->length, hOfF->data->data);
+	generate_template_TaylorF2ReducedSpin(m1, m2, f_low, f_high, 1./duration, order, hOfF->data->length, hOfF->data->data);
 	return 0;
 }
 
@@ -853,12 +832,12 @@ static gsl_vector *linear_space_for_interpolation(double min, double max, unsign
 }
 
 
-static int generate_whitened_template(	double m1, double m2, double mc_min, double mc_max, double eta_min, double eta_max, 
+static int generate_whitened_template(	double m1, double m2, 
 					double duration, double f_min, unsigned int length_max,
 					double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan) {
-	generate_template(m1, m2, mc_min, mc_max, eta_min, eta_max, duration, f_min, f_max, order, fseries);
+	generate_template(m1, m2, duration, f_min, f_max, order, fseries);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
 	add_quadrature_phase(fseries, fseries_for_ifft);
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
@@ -870,7 +849,7 @@ static int generate_whitened_template(	double m1, double m2, double mc_min, doub
 	return 0;
 } 
 
-static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vector *etavec, double f_min, double mc_min, double mc_max, double eta_min, double eta_max, int length_max, REAL8FrequencySeries* psd, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan){
+static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vector *etavec, double f_min, int length_max, REAL8FrequencySeries* psd, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan){
        /*
  	* N_mc is number of points on M_c grid
  	* viceversa for M_eta
@@ -900,7 +879,7 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
                         m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, mc_min, mc_max, eta_min, eta_max, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 	
 			gsl_matrix_set_col(A, 2*k,  template_real);
 			gsl_matrix_set_col(A, 2*k+1, template_imag);
@@ -1158,7 +1137,7 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		mchirps_even = even_param_spacing(mc_min, mc_max, N_mc);
 		etas_even = even_param_spacing(eta_min, eta_max, M_eta);
 
-		templates = create_templates_from_mc_and_eta(mchirps_even, etas_even, f_min, mc_min, mc_max, eta_min, eta_max, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
+		templates = create_templates_from_mc_and_eta(mchirps_even, etas_even, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
 
 		gsl_vector_free(etas_even);
 		gsl_vector_free(mchirps_even);
@@ -1178,7 +1157,7 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		mchirps_nodes = node_param_spacing(mc_min, mc_max, x_nodes);
 		etas_nodes = node_param_spacing(eta_min, eta_max, y_nodes);
 	
-		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, mc_min, mc_max, eta_min, eta_max, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
+		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
 		
 		phase_M0_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
 		M_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
@@ -1335,13 +1314,13 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 
 	list_of_overlaps = fopen("overlaps_dewhitened.txt","w");		
 
-	double f_ref = 150.;
+	/*double f_ref = 155;
 	double f_dummy = 0.;
 
 	double t_ref = compute_min_chirp_time_and_max_frequency(mc_min, mc_max, eta_min, eta_max, f_ref, &f_dummy, &t_ref);
 	double twopit ;
 	double templateReal, templateImag, re, im, f;	
-
+	*/
 	for (unsigned int i =0; i <  mchirps_interps->size; i++){
 		for (unsigned int j =0; j <  etas_interps->size; j++){
 			gsl_vector_complex_set_all(h_t, complex_zero);
@@ -1356,7 +1335,7 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 			m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			twopit = 2.*LAL_PI*( t_ref - compute_chirp_time(m1, m2, f_ref, 4, 0) );
+			//twopit = 2.*LAL_PI*( t_ref - compute_chirp_time(m1, m2, f_ref, 4, 0) );
 
 			dewhiten_template_wave(m1, m2, h_t, dewhitened_tseries, dewhitened_fseries_interp, fseries_for_dewhitening, fwdplan_for_dewhitening, manifold->psd, f_min);
 
@@ -1364,7 +1343,7 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 
     			len_to_zero = dewhitened_fseries_interp->data->length - size_at_f_isco;
 			
-			generate_template_TaylorF2ReducedSpin(m1, m2, mc_min, mc_max, eta_min, eta_max, f_min, sample_rate/2., fseries_for_ifft->deltaF, 4, htilde->data->length, htilde->data->data);
+			generate_template_TaylorF2ReducedSpin(m1, m2, f_min, sample_rate/2., fseries_for_ifft->deltaF, 4, htilde->data->length, htilde->data->data);
 
  			for (unsigned int l = 0; l < (unsigned int )len_to_zero + 1; l ++){
 	
@@ -1384,7 +1363,7 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 				htilde->data->data[l].im *= sqrt(1. / manifold->psd->data->data[l]);
 			}
 
-			for(unsigned int l = 0; l < htilde->data->length; l++){
+			/*for(unsigned int l = 0; l < htilde->data->length; l++){
 				templateReal = dewhitened_fseries_interp->data->data[l].re;
 				templateImag = dewhitened_fseries_interp->data->data[l].im;
 
@@ -1400,7 +1379,7 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
 			
 				htilde->data->data[l].re = templateReal*re - templateImag*im;
 				htilde->data->data[l].im = templateImag*re + templateReal*im;
-			}
+			}*/
 
 			for(unsigned int l = 0; l < htilde->data->length; l++){
                                 GSL_SET_COMPLEX(&z_tmp_element, htilde->data->data[l].re, htilde->data->data[l].im );
@@ -1509,7 +1488,7 @@ static int compute_overlap_whitened_waveform(struct twod_waveform_interpolant_ma
 		        m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, mc_min, mc_max, eta_min, eta_max, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.) , 4, manifold->psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, sample_rate / (2.) , 4, manifold->psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
 			
 			for(unsigned int l = 0; l < length_max; l++){
 				GSL_SET_COMPLEX(&z_tmp_element, gsl_vector_get(template_real, l), gsl_vector_get(template_imag, l) );
@@ -1556,7 +1535,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
         unsigned int patches_in_eta = 2;
-        unsigned int patches_in_mc = 1;
+        unsigned int patches_in_mc = 2;
         unsigned int number_templates_along_eta = 15;
         unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
