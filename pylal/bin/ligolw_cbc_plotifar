@@ -459,8 +459,16 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
             background.append_zero_lag_id(eid, esid)
 
     # check that there is only a single plot_datatype entry for this experiment
-    if len(background.datatypes[eid][plot_datatype]) > 1:
-        raise ValueError, "more than one %s entry found for experiment %s" %(plot_datatype, eid)
+    if eid in background.datatypes.keys():
+        if plot_datatype in background.datatypes[eid].keys():
+            if len(background.datatypes[eid][plot_datatype]) > 1:
+                raise ValueError, "more than one %s entry found for experiment %s" %(plot_datatype, eid)
+        else:
+            print >> sys.stderr, "\tNo time for datatype %s in %s" %(plot_datatype, eid)
+    else:
+        print >> sys.stderr, "\tNo datatypes for this experiment_id "
+        continue
+
 
     # calculate the background durations
     background.calc_bkg_durs()
@@ -623,19 +631,22 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
     fnameList = [] # used for the html cache file
     tagList = [] # ditto
 
-    # get the esid of the zero-lag for this eid
-    zero_esid = background.datatypes[ eid ][ plot_datatype ][0]
-
     # set bkg_correction: this is the zero-lag duration of the plot_datatype divided
     # by the all_data duration; this is needed to set the background correctly
     all_data_dur = 0
     if 'all_data' in background.datatypes[eid]:
         all_data_dur = background.frg_durs[eid][background.datatypes[eid]['all_data'][0]]
 
-    if all_data_dur != 0:
-        bkg_correction = background.frg_durs[eid][zero_esid] / all_data_dur
-    else: # if not all_data, just set bkg_correction to 1. to avoid errors
-        bkg_correction = 1.
+    # get the esid of the zero-lag for this eid
+    if plot_datatype in background.datatypes[ eid ].keys():
+        zero_esid = background.datatypes[ eid ][ plot_datatype ][0]
+        if all_data_dur != 0:
+            bkg_correction = background.frg_durs[eid][zero_esid] / all_data_dur
+        else: # if not all_data, just set bkg_correction to 1. to avoid errors
+            bkg_correction = 1.
+    else:
+        zero_esid = 0
+
     
     #
     #   Plot Uncombined IFAR
@@ -649,12 +660,16 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         figure_number += 1
 
         # check that there's something to plot; if there isn't, just make an empty plot
-        if len(ufar_summaries.sngl_slide_stats.keys()) == 0 or background.frg_durs[eid][zero_esid] == 0:
-            msg = ''
-            if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
-                msg = "No uncombined fars found for this experiment."
+        msg = ''
+        if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
+            msg = "No uncombined fars found for this experiment."
+        if zero_esid == 0:
+            msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+        else:
             if background.frg_durs[eid][zero_esid] == 0:
                 msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+
+        if len(msg) != 0:
             text( 0.5, 0.5, msg, 
                 ha = 'center', va = 'center' )
             xlabel( r"No data", size='x-large' )

@@ -163,6 +163,14 @@ rc('text', usetex=True)
 #   Program-specific Initialization
 #
 
+# Get zero_lag time-slide ID
+xmldoc = dbtables.get_xml(connection)
+time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+time_slide_dict = time_slide_table.as_dict()
+zero_lag_slide_id = str(slide_id) for slide_id in time_slide_dict.keys() if not any(time_slide_dict[slide_id].values())
+xmldoc.unlink()
+
+
 # Get all the experiment_ids
 sqlquery = """
     SELECT
@@ -213,8 +221,6 @@ for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor(
         slide_numbers[ esid ] = slide_num
         datatypes[ esid ] = datatype
         durations[ esid ] = duration
-        if datatype != 'slide':
-            zero_lag_slide_num = slide_numbers[esid]
         # if plotting playground_only, don't store tot_events
         if opts.plot_playground_only and (datatype == "all_data" or datatype == "exclude_play"):
             continue
