@@ -30,6 +30,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy
 import pylab
 import re
+import copy
 import ConfigParser
 
 from glue import iterutils
@@ -327,10 +328,20 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
 
     # find mappable with lowest maximum
     if not mappable:
-      minindex = numpy.asarray([c.get_array().min()\
-                                for c in  ax.collections+ax.images]).argmin()
-      mappable = (ax.collections+ax.images)[minindex]
+        if len(ax.collections+ax.images) == 0:
+            mappable = ax.scatter([1], [1], c=[clim[0]], vmin=clim[0],\
+                                   vmax=clim[1], visible=False)
+        else:
+            minindex = numpy.asarray([c.get_array().min() for c in\
+                                      ax.collections+ax.images]).argmin()
+            mappable = (ax.collections+ax.images)[minindex]
 
+    # make sure the mappable has at least one element
+    if mappable.get_array() is None:
+        mappable = ax.scatter([1], [1], c=[clim[0]], vmin=clim[0],\
+                               vmax=clim[1], visible=False)
+        
+    
     # generate colorbar
     colorbar = ax.figure.colorbar(mappable, cax=cax, **kwargs)
     if clim: colorbar.set_clim(clim)
@@ -420,7 +431,7 @@ def parse_plot_config(cp, section):
     params = dict()
 
     # define option types
-    pairs    = ['xlim', 'ylim', 'zlim', 'clim']
+    pairs    = ['xlim', 'ylim', 'zlim', 'colorlim']
     pairlist = ['bins', 'color-bins']
     booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar-style',\
                 'greyscale', 'zero-indicator', 'normalized', 'fill',\
@@ -1608,12 +1619,16 @@ class ColorbarScatterPlot(BasicPlot):
         for x_vals, y_vals, c_vals, plot_kwargs in\
             itertools.izip(self.x_data_sets, self.y_data_sets, self.c_data_sets,
                            self.kwarg_sets):
+            zipped = zip(x_vals, y_vals, c_vals)
+            zipped.sort(key=lambda (x,y,c): c)
+            x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
             if logcolor:
                 plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
             p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
 
         if colorbar and p is not None:
-            add_colorbar(self.ax, log=logcolor, label=self.clabel, clim=clim)
+            add_colorbar(self.ax, mappable=p, log=logcolor, label=self.clabel,\
+                         clim=clim)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=alpha)
@@ -1738,6 +1753,7 @@ class DQScatterPlot(ColorbarScatterPlot):
 
             if xlow.size > 0:
                 lowargs = copy.deepcopy(plot_kwargs)
+                lowargs.pop("label", None)
                 lowargs["s"] /= 4
                 if lowargs.get("marker", None) != "x":
                     lowargs["edgecolor"] = "none"
