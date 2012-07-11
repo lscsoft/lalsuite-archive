@@ -1984,6 +1984,7 @@ int main( int argc, char *argv[] )
       case PadeT1:
       case EOB:
       case EOBNR:
+      case EOBNRv2:
       case FindChirpPTF:
       case IMRPhenomB:
         if ( vrbflg )
@@ -2270,6 +2271,7 @@ int main( int argc, char *argv[] )
           case PadeT1:
           case EOB:
           case EOBNR:
+          case EOBNRv2:
           case IMRPhenomB:
             LAL_CALL( LALFindChirpTDTemplate( &status, fcFilterInput->fcTmplt,
                   bankCurrent, fcTmpltParams ), &status );
@@ -2460,6 +2462,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case EOBNRv2:
               case IMRPhenomB:
                 /* construct normalization for time domain templates... */
                 LAL_CALL( LALFindChirpTDNormalize( &status,
@@ -2603,6 +2606,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case EOBNRv2:
               case IMRPhenomB:
                 /* recompute the template norm since it has been over written */
                 /* ( When doing the chisq test and the bank veto for          */
@@ -2847,6 +2851,7 @@ int main( int argc, char *argv[] )
         case PadeT1:
         case EOB:
         case EOBNR:
+        case EOBNRv2:
         case FindChirpSP:
         case IMRPhenomB:
           /* the chisq bins need to be re-computed for the next template */
@@ -3674,7 +3679,7 @@ fprintf( a, "  --dynamic-range-exponent X   set dynamic range scaling to 2^X\n")
 fprintf( a, "\n");\
 fprintf( a, "  --approximant APPROX         set approximant of the waveform to APPROX\n");\
 fprintf( a, "                               (FindChirpSP|BCV|BCVC|BCVSpin|TaylorT1|TaylorT2|IMRPhenomB\n");\
-fprintf( a, "                                  TaylorT3|PadeT1|EOB|GeneratePPN|FindChirpPTF) \n");\
+fprintf( a, "                                  TaylorT3|PadeT1|EOB|EOBNR|EOBNRv2|GeneratePPN|FindChirpPTF) \n");\
 fprintf( a, "  --order ORDER                set the pN order of the waveform to ORDER\n");\
 fprintf( a, "                               (twoPN|twoPointFivePN|threePN|threePointFivePN|\n");\
 fprintf( a, "                                  pseudoFourPN) \n");\
@@ -3741,7 +3746,7 @@ fprintf( a, "  --enable-bank-sim-max        compute the maximum match over the b
 fprintf( a, "  --disable-bank-sim-max       do not maximize the match over the bank\n");\
 fprintf( a, "  --sim-approximant APX        set approximant of the injected waveform to APX\n");\
 fprintf( a, "                                 (TaylorT1|TaylorT2|TaylorT3|PadeT1|EOB|\n");\
-fprintf( a, "                                  GeneratePPN|FrameFile) \n");\
+fprintf( a, "                                  EOBNR|EOBNRv2|GeneratePPN|FrameFile) \n");\
 fprintf( a, "  --sim-frame-file F           read the bank sim waveform from frame named F\n");\
 fprintf( a, "  --sim-frame-channel C        read the bank sim waveform from frame channel C\n");\
 fprintf( a, "  --sim-minimum-mass M         set minimum mass of bank injected signal to M\n");\
@@ -4432,6 +4437,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           approximant = EOBNR;
         }
+        else if ( ! strcmp( "EOBNRv2", optarg ) )
+        {
+          approximant = EOBNRv2;
+        }
         else if ( ! strcmp( "FindChirpSP", optarg ) )
         {
           approximant = FindChirpSP;
@@ -4463,7 +4472,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
               "unknown order specified: "
               "%s (must be either FindChirpSP, BCV, BCVC, BCVSpin, \n"
               "FindChirpPTF,TaylorT1, TaylorT2, TaylorT3, GeneratePPN,\n"
-              "IMRPhenomB, PadeT1 or EOB)\n",
+              "IMRPhenomB, PadeT1, EOB, EOBNR or EOBNRv2)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
