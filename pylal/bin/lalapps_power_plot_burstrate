@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006,2012  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -28,12 +28,13 @@
 
 from optparse import OptionParser
 import matplotlib
-matplotlib.use("Agg")
+matplotlib.rcParams.update({
+	"text.usetex": False	# SVG backend doesn't support LaTeX
+})
 from matplotlib import figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import sys
 import time
-import urllib
 
 
 from glue.lal import CacheEntry
@@ -43,9 +44,12 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import rate
-from pylal.date import XLALGPSToUTC, UTCMidnights
 from pylal import git_version
+from pylal.date import XLALGPSToUTC, UTCMidnights
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+
+bins_per_filterwidth = 21
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -75,22 +79,23 @@ cache files."""
 	parser.add_option("-w", "--window", metavar = "seconds", type = "float", default = 3600.0, help = "Set width of averaging window in seconds (default = 3600.0).")
 	parser.add_option("-i", "--instrument", metavar = "name", help = "Set instrument name (required).")
 	parser.add_option("-o", "--output-base", metavar = "base", help = "Set base (no extension) of output file name (required).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, cache_names = parser.parse_args()
 
-	# check for required arguments
-	if not options.output_base:
-		raise ValueError, "missing required option --output-base"
-	if not options.instrument:
-		raise ValueError, "missing required option --instrument"
+	# check for required options
+	required_options = ["gps_start_time", "gps_end_time", "output_base", "instrument"]
+	missing_options = [option for option in required_options if getattr(options, option) is None]
+	if missing_options:
+		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
 
 	# parse trigger cache files
-	if not cache:
+	if not cache_names:
 		raise ValueError, "no cache files named on command line"
 	cache = [CacheEntry(l, coltype = LIGOTimeGPS) for name in cache_names for l in file(name)]
 
 	# set segment
-	options.gps_start_time = LIGOTimeGPS(options.gps_start_time)
-	options.gps_end_time = LIGOTimeGPS(options.gps_end_time)
+	options.gps_start_time = int(LIGOTimeGPS(options.gps_start_time))
+	options.gps_end_time = int(LIGOTimeGPS(options.gps_end_time))
 	options.segment = segments.segment(options.gps_start_time, options.gps_end_time)
 	options.read_segment = options.segment.protract(5.0 * options.window)
 
@@ -110,21 +115,20 @@ options, filenames = parse_command_line()
 #
 
 
-# 21 bins per filter width
-bins = int(float(abs(options.read_segment)) / options.window) * 21
-binning = rate.NDBins((rate.LinearBins(options.read_segment[0], options.read_segment[1], bins),))
+nbins = int(float(abs(options.read_segment)) / options.window) * bins_per_filterwidth
+binning = rate.NDBins((rate.LinearBins(options.read_segment[0], options.read_segment[1], nbins),))
 trigger_rate = rate.BinnedArray(binning)
 
 num_triggers = 0
 
 
-def snglburst_append(self, row):
+def snglburst_append(self, row, verbose = options.verbose):
 	global num_triggers, rate
 	t = row.get_peak()
 	if t in options.read_segment:
 		trigger_rate[t,] += 1.0
 	num_triggers += 1
-	if not (num_triggers % 500):
+	if verbose and not (num_triggers % 125):
 		print >>sys.stderr, "sngl_burst rows read:  %d\r" % num_triggers,
 
 
@@ -162,7 +166,7 @@ lsctables.use_in(ContentHandler)
 #
 
 
-seglist = table.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, verbose = True, contenthandler = ContentHandler), lsctables.SearchSummaryTable.tableName).get_inlist().coalesce()
+seglist = table.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, verbose = options.verbose, contenthandler = ContentHandler), lsctables.SearchSummaryTable.tableName).get_inlist().coalesce()
 
 
 #
@@ -176,7 +180,7 @@ seglist = table.get_table(ligolw_add.ligolw_add(ligolw.Document(), filenames, ve
 
 def make_xticks(segment):
 	# generate tick locations and labels
-	values = list(UTCMidnights(*segment))
+	values = list(UTCMidnights(*(LIGOTimeGPS(t) for t in segment)))
 	labels = []
 	for tm in map(lambda t: time.struct_time(XLALGPSToUTC(t)), values):
 		if tm.tm_wday == 1:	# tuesday
@@ -197,17 +201,18 @@ def make_xticks(segment):
 
 #
 # build a figure whose axes are 3" wide per week, and whose height is the
-# width of a US letter page (minus some typical printer margins)
+# width of a US letter page (minus some typical printer margins).  if there
+# isn't enough data, make sure plot is at least 10" wide.
 #
 
 def newfig(segment):
 	weeks = float(abs(segment)) / 86400.0 / 7.0	# FIXME: leep seconds?
 	border = (0.5, 0.75, 0.125, 0.625)	# inches
-	width = weeks * 3.0 + border[0] + border[2]	# inches
+	width = max(10.0, weeks * 3.0 + border[0] + border[2])	# inches
 	height = 8.0	# inches
 	fig = figure.Figure()
-	canvas = FigureCanvasAgg(fig)
-	fig.set_figsize_inches(width, height)
+	canvas = FigureCanvas(fig)
+	fig.set_size_inches(width, height)
 	fig.gca().set_position([border[0] / width, border[1] / height, (width - border[0] - border[2]) / width, (height - border[1] - border[3]) / height])
 	return fig
 
@@ -216,8 +221,7 @@ fig = newfig(options.segment)
 axes = fig.gca()
 
 
-# 21 bins per filter width
-rate.to_moving_mean_density(trigger_rate, rate.gaussian_window(21))
+rate.to_moving_mean_density(trigger_rate, rate.gaussian_window(bins_per_filterwidth))
 
 
 axes.plot(trigger_rate.centres()[0], trigger_rate.array)
@@ -231,7 +235,7 @@ for seg in ~seglist & segments.segmentlist([options.segment]):
 	axes.axvspan(seg[0], seg[1], facecolor = "k", alpha = 0.2)
 
 
-axes.set_title("%s Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Average)" % (options.instrument, num_triggers, options.window))
+axes.set_title("%s Excess Power Trigger Rate vs. Time\n(%d Triggers, %g s Moving Average)" % (options.instrument, num_triggers, options.window))
 
 
 ticks = make_xticks(options.segment)
@@ -242,6 +246,8 @@ axes.set_xlabel("UTC")
 axes.set_ylabel("Trigger Rate (Hz)")
 
 
-fig.savefig(options.output_base + ".eps")
-fig.savefig(options.output_base + ".png")
-fig.savefig(options.output_base + ".svg")
+for extension in (".pdf", ".png", ".svg"):
+	filename = options.output_base + extension
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % filename
+	fig.savefig(filename)
