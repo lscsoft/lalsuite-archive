@@ -1866,6 +1866,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
      chisquared = 0.0;
+
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re  
@@ -1886,15 +1887,14 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table)
        //  fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,dataPtr->freqData->data->data[i].re,dataPtr->freqData->data->data[i].im,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       dataPtr->freqData->data->data[i].re+=templateReal;
       dataPtr->freqData->data->data[i].im+=templateImag;
-   
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       chisquared  += temp;
     }
+    
     printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
     NetSNR+=2.0*chisquared;
     dataPtr->SNR=sqrt(2.0*chisquared);
     dataPtr = dataPtr->next;
-    
 // fclose(outInj);
   }
 

@@ -879,10 +879,19 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
     IFOdata->freqModelhPlus->data->data[0].re = ((REAL8) LALSignal->data[0]);
     IFOdata->freqModelhPlus->data->data[0].im = 0.0;
     for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
+
       IFOdata->freqModelhPlus->data->data[i].re = ((REAL8) LALSignal->data[i]);
       IFOdata->freqModelhPlus->data->data[i].im = ((REAL8) LALSignal->data[n-i]);
-    }
+      templateReal = IFOdata->freqModelhPlus->data->data[i].re;
+      templateImag = IFOdata->freqModelhPlus->data->data[i].im; 
+      twopit = LAL_TWOPI * ( 1./IFOdata->freqModelhPlus->deltaF);
+      f = ((double) i) * IFOdata->freqModelhPlus->deltaF;
+      re = cos(twopit * f + phi );
+      im =  -sin(twopit * f + phi );
+      IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
+      IFOdata->freqModelhPlus->data->data[i].im = templateImag*re + templateReal*im;
 
+    }
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = LALSignal->data[IFOdata->freqModelhPlus->data->length-1];
     IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
     LALDestroyVector(&status, &LALSignal);
@@ -953,9 +962,11 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   /* for approximately "chirptime" seconds:                   */
   if ((params.approximant == TaylorT2) 
       || (params.approximant == TaylorF2)
-      || (params.approximant == TaylorF2RedSpin))
-    instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
-
+      || (params.approximant == TaylorF2RedSpin)){
+    //instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
+        instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+   }
   /* Coalescence happens at very end of signal template:      */
   else if (params.approximant == BCV) 
     instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + ((double) IFOdata->timeData->data->length) * deltaT;
@@ -1047,13 +1058,11 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   static LALStatus status;
   memset(&status,0,sizeof(status));
 
-  static InspiralTemplate params;
   int approximant=0, order=0; 
   unsigned long i;
-  unsigned int patch_index, size_at_f_isco, len_to_zero;
+  unsigned int patch_index;
   UINT4 n;	
   double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-  double tc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");
   double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
   double eta;	
   double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
@@ -1063,11 +1072,10 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   }
   else
     eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
-  double m1, m2, chirptime, deltaT;
+  double m1, m2, deltaT;
   double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
   double instant;
-  int forceTimeLocation;
   double f_isco, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
  
   //int Nfft = IFOdata->timeData->data->length;
@@ -1120,80 +1128,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
  
 
   mc2masses(mc, eta, &m1, &m2);
-  params.OmegaS      = 0.0;     /* (?) */
-  params.Theta       = 0.0;     /* (?) */
-  /* params.Zeta2    = 0.0; */  /* (?) */
-  params.ieta        = 1; 
-  params.nStartPad   = 0;
-  params.nEndPad     = 0;
-  params.massChoice  = m1Andm2;
-  params.approximant = (Approximant) approximant;  /*  TaylorT1, ...   */
-  params.order       = (LALPNOrder) order;        /*  Newtonian, ...  */
-  params.fLower      = IFOdata->fLow ;
-  params.fCutoff     = (IFOdata->freqData->data->length-1) * IFOdata->freqData->deltaF;  /* (Nyquist freq.) */
-  params.tSampling   = 1.0 / deltaT;
-  params.startTime   = 0.0;
-
-  /* actual inspiral parameters: */
-  params.mass1       = m1;
-  params.mass2       = m2;
-  params.startPhase  = 0;
-  if ((params.approximant == EOB) 
-      || (params.approximant == EOBNR)
-      || (params.approximant == TaylorT3)
-      || (params.approximant == IMRPhenomA)
-      || (params.approximant == TaylorF2RedSpin))
-    params.distance  = LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
-  else if ((params.approximant == TaylorT1)
-           || (params.approximant == TaylorT2)
-           || (params.approximant == PadeT1)
-           || (params.approximant == TaylorF1)
-           || (params.approximant == TaylorF2)
-           || (params.approximant == PadeF1)
-           || (params.approximant == BCV))
-    params.distance  = 1.0;                                          /* distance in Mpc */
-  else                                                     
-    params.distance  = LAL_PC_SI * 1.0e6 / ((double) LAL_C_SI);  /* distance in seconds */
-
-  /* ensure proper "fCutoff" setting: */
-  if (params.fCutoff >= 0.5*params.tSampling)
-    params.fCutoff = 0.5*params.tSampling - 0.5*IFOdata->freqData->deltaF;
-  if (! (params.tSampling > 2.0*params.fCutoff)){
-    fprintf(stderr," ERROR in templateLAL(): 'LALInspiralSetup()' (called within 'LALInspiralWavelength()')\n");
-    fprintf(stderr,"                         requires (tSampling > 2 x fCutoff) !!\n");
-    fprintf(stderr," (settings are:  tSampling = %f s,  fCutoff = %f Hz)  \n", params.tSampling, params.fCutoff);
-    exit(1);
-  }
-
-  /* ensure compatible sampling rate: */
-  if ((params.approximant == EOBNR)
-      && (fmod(log((double)params.tSampling)/log(2.0),1.0) != 0.0)) {
-    fprintf(stderr, " ERROR in templateLAL(): \"EOBNR\" templates require power-of-two sampling rates!\n");
-    fprintf(stderr, "                         (params.tSampling = %f Hz)\n", params.tSampling);
-    exit(1);
-  }
-
-  /* compute other elements of `params', check out the `.tC' value, */
-  /* shift the start time to match the coalescence time,            */
-  /* and eventually re-do parameter calculations:                   */
-  /* Reset errno. */
-
-  LALInspiralParameterCalc(&status, &params);
-  chirptime = params.tC;
-  if ((params.approximant != TaylorF2) && (params.approximant != TaylorF2RedSpin) && (params.approximant != BCV)) {
-    params.startTime = (tc - XLALGPSGetREAL8(&IFOdata->timeData->epoch)) - chirptime;
-    LALInspiralParameterCalc(&status, &params); /* (re-calculation necessary? probably not...) */
-  }
-
-  if (params.approximant == TaylorF2 || params.approximant == TaylorF2RedSpin) {	
-	expnCoeffs ak;
-	expnFunc expnFunction;
-	memset(&ak,0,sizeof(expnCoeffs));
-	/* Calculate the time of ISCO (v = 6^(-1/2) ) */
-	LALInspiralSetup(&status,&ak,&params);
-	LALInspiralChooseModel(&status,&expnFunction,&ak,&params);
-	chirptime=ak.tn;
-  }
   
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
  
@@ -1205,42 +1139,33 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   }
   /*********************************************************/
    
+  f_isco = ffinal(m1 + m2);
 
-  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow);
+  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow, f_isco);
+
   n = IFOdata->freqData->data->length;
 
       /* copy over: */
     dewhitened_fseries->data->data[0].re = dewhitened_fseries->data->data[0].re;
     dewhitened_fseries->data->data[0].im = 0.0;
 
-    t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
+    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re;
+    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
+ 
 
+    t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
     for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
       templateReal = dewhitened_fseries->data->data[i].re;
- 	
+
       templateImag = dewhitened_fseries->data->data[i].im;
-      twopit = -LAL_TWOPI * ( 1./deltaF + params.nStartPad/params.tSampling + params.startTime - t_shift );
+      twopit = LAL_TWOPI * (t_shift);
       f = ((double) i) * deltaF;
-      re = cos(twopit * f + phi );
-      im =  -sin(twopit * f + phi );
+      re = cos(twopit * f + phi);
+      im =  -sin(twopit * f + phi);
 
       IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
       IFOdata->freqModelhPlus->data->data[i].im = templateImag*re + templateReal*im;
 
-
-    }
-    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re;
-    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
- 
-    f_isco = ffinal(m1 + m2);
-
-    size_at_f_isco = floor( f_isco / deltaF );
-
-    len_to_zero = IFOdata->freqModelhPlus->data->length - size_at_f_isco;
-    for (i = 0; i < len_to_zero + 1; i ++){
-	
-	IFOdata->freqModelhPlus->data->data[ IFOdata->freqModelhPlus->data->length - 1 - i].re = 0.;
-	IFOdata->freqModelhPlus->data->data[ IFOdata->freqModelhPlus->data->length - 1 - i].im = 0.;
     }
 
 
@@ -1265,38 +1190,9 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /* and/or we don't know even where it actually is located...                  */
   /* Figure out time location corresponding to template just computed:          */
 
-  instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
+    instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
 
-
-  /* now either time-shift template or just store the time value: */
-  /* (time-shifting should not be necessary in general,           */
-  /* but may be neat to have for de-bugging etc.)                 */
-  forceTimeLocation = 0;  /* default: zero! */
-  if (instant != tc) {
-    if (forceTimeLocation) { /* time-shift the frequency-domain template: */
-      twopit = LAL_TWOPI * (tc - instant);
-      for (i=1; i<IFOdata->freqModelhPlus->data->length; ++i){
-        f = ((double) i) * deltaF;
-        /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
-        re = cos(twopit * f);
-        im =  -sin(twopit * f);
-        templateReal = IFOdata->freqModelhPlus->data->data[i].re;
-        templateImag = IFOdata->freqModelhPlus->data->data[i].im;
-        IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
-        IFOdata->freqModelhPlus->data->data[i].im = templateReal*im + templateImag*re;
-        templateReal = IFOdata->freqModelhCross->data->data[i].re;
-        templateImag = IFOdata->freqModelhCross->data->data[i].im;
-        IFOdata->freqModelhCross->data->data[i].re = templateReal*re - templateImag*im;
-        IFOdata->freqModelhCross->data->data[i].im = templateReal*im + templateImag*re;
-      }
-    }
-    else {
-      /* write template (time axis) location in "->modelParams" so that     */
-      /* template corresponds to stored parameter values                    */
-      /* and other functions may time-shift template to where they want it: */
-      LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-    }
-  }
 
   gsl_vector_complex_free(h_t);
   XLALDestroyCOMPLEX16TimeSeries(dewhitened_tseries);
@@ -2179,7 +2075,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       previous_inclination = inclination;
     
       COMPLEX16 *dataPtr = htilde->data->data;
-
       for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
         dataPtr = htilde->data->data;
         if(i < htilde->data->length){

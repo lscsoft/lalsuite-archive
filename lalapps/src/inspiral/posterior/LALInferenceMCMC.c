@@ -281,7 +281,7 @@ void initializeMCMC(LALInferenceRunState *runState)
       }
     }
   }
- //runState->template = &LALInferenceTemplateLALChebyshevInterp;
+ runState->template = &LALInferenceTemplateLALChebyshevInterp;
 //  if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
 //    fprintf(stderr, "Computing likelihood in the time domain.\n");
 //    runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
