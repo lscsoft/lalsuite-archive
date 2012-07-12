@@ -26,17 +26,16 @@ import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
-_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
-"""
+_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib."""
 if not _display and not matplotlib.get_backend().lower() == 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
 
 try: from mpl_toolkits.basemap import Basemap
-except ImportError,e: warnings.warn(e)
+except ImportError,e: warnings.warn(str(e))
 try: from mpl_toolkits import axes_grid
-except ImportError,e: warning.warn(e)
+except ImportError,e: warnings.warn(str(e))
 
 from datetime import datetime
 from glue import segments,git_version

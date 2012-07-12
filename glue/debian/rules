@@ -1,24 +1,3 @@
-#!/usr/bin/make -f                                                                                                             
-DH_VERBOSE=1
-
-PYTHON2=$(shell pyversions -vr)
-#PYTHON3=$(shell py3versions -vr)
-
+#!/usr/bin/make -f
 %:
-	dh $@ --buildsystem=python_distutils --with=python2
-	#dh $@ --buildsystem=python_distutils --with=python2,python3
-
-#test-python%:
-#	python$* setup.py test -vv
-
-#override_dh_auto_test: $(PYTHON2:%=test-python%) #$(PYTHON3:%=test-python%)
-
-override_dh_auto_install:
-	dh_auto_install
-	#for python in $(PYTHON3): do python$$python setup.py install --install-layout=deb --root=debian/tmp ; done
-
-# remove pyversions file
-override_dh_clean:
-	dh_clean
-	rm -f debian/pyversions
-	ls -l debian
+	dh $@

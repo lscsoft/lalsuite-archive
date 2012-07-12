@@ -287,7 +287,7 @@ class LogarithmicBins(Bins):
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
-		self.delta = math.log(float(max / min)) / n
+		self.delta = (math.log(max) - math.log(min)) / n
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -303,7 +303,7 @@ class LogarithmicBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return int(math.floor(math.log(x / self.min) / self.delta))
+			return int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
 			return len(self) - 1
@@ -353,7 +353,7 @@ class LogarithmicPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError, "n must be >= 3"
 		Bins.__init__(self, min, max, n)
-		self.delta = math.log(float(max / min)) / (n-2)
+		self.delta = (math.log(max) - math.log(min)) / (n-2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -369,7 +369,7 @@ class LogarithmicPlusOverflowBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return 1 + int(math.floor(math.log(x / self.min) / self.delta))
+			return 1 + int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x >= self.max:
 			# infinity overflow bin
 			return len(self) - 1

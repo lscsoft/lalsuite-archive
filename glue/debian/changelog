@@ -1,3 +1,18 @@
+glue (1.41-3) unstable; urgency=low
+
+  * Move to simplified rules file
+  * Update to machine-parsable copyright file
+  * Bump standards version (3.9.3)
+  * Remove version build dependency on python-all-dev
+
+ -- Jameson Rollins <jameson.rollins@ligo.org>  Thu, 28 Jun 2012 17:06:51 -0700
+
+glue (1.41-2) unstable; urgency=low
+
+  * Add *.dirs and *.install files to get non-empty packages
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 28 Jun 2012 09:22:00 +0200
+
 glue (1.41) unstable; urgency=low
 
   * Pre-ER2 release of glue with Kipp's bugfixes and fixed debian packaging.

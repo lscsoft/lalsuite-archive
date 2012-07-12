@@ -43,7 +43,7 @@ void initializeNS(LALInferenceRunState *runState);
 void initVariables(LALInferenceRunState *state);
 void initStudentt(LALInferenceRunState *state);
 void initializeTemplate(LALInferenceRunState *runState);
-static void mc2masses(double mc, double eta, double *m1, double *m2);
+// static void mc2masses(double mc, double eta, double *m1, double *m2);
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);                             
 void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);                              
 int checkParamInList(const char *list, const char *param);
@@ -463,7 +463,7 @@ void initVariables(LALInferenceRunState *state)
 	REAL8 endtime;
 	ProcessParamsTable *ppt=NULL;
 	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
-	int AmpOrder=0;
+	INT4 AmpOrder=0;
 	Approximant approx=TaylorF2;
 	REAL8 logDmin=log(1.0);
 	REAL8 logDmax=log(100.0);
@@ -508,6 +508,7 @@ Parameter arguments:\n\
 (--Dmin dist)\tMinimum distance in Mpc (1)\n\
 (--Dmax dist)\tMaximum distance in Mpc (100)\n\
 (--approx ApproximantorderPN)\tSpecify a waveform to use, (default TaylorF2threePointFivePN)\n\
+(--amporder INT)\tSpecify post-Newtonian amplitude order to use (defaults to 0. -1 will use highest available)\n\
 (--compmin min)\tMinimum component mass (1.0)\n\
 (--compmax max)\tMaximum component mass (30.0)\n\
 (--mtotalmin)\tMinimum total mass (2*compmin)\n\
@@ -585,13 +586,9 @@ Parameter arguments:\n\
 	        if( (int) PhaseOrder == XLAL_FAILURE)
 	                ABORTXLAL(&status);
 	}
-/*
-        if(strstr(ppt->value,"TaylorF2Test")) approx=TaylorF2Test;
-		else if(strstr(ppt->value,"TaylorF2")) approx=TaylorF2;
-		else XLALGetApproximantFromString(ppt->value,&approx);
-        XLALGetOrderFromString(ppt->value,&PhaseOrder);
-*/
-	fprintf(stdout,"Templates will run using Approximant %i, phase order %i\n",approx,PhaseOrder);
+	ppt=LALInferenceGetProcParamVal(commandLine,"--amporder");
+	if(ppt) AmpOrder=atoi(ppt->value);
+	fprintf(stdout,"Templates will run using Approximant %i, phase order %i, amp order %i\n",approx,PhaseOrder,AmpOrder);
 
 	/* Set the modeldomain appropriately */
 	switch(approx)
@@ -723,6 +720,7 @@ Parameter arguments:\n\
 	
 	LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     	LALInferenceAddVariable(currentParams, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+	LALInferenceAddVariable(currentParams, "LAL_AMPORDER", &AmpOrder, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
 	
     ppt=LALInferenceGetProcParamVal(commandLine,"--mcq");
     if(ppt) /* Use MC and Q as sampling variables */
