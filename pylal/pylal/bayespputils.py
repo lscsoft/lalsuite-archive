@@ -725,6 +725,8 @@ class Posterior(object):
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
                         'tilt2':_inj_tilt2,
+                        'costilt1': lambda inj: np.cos(_inj_tilt1),
+                        'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
                         'theta_s':_inj_thetas,
                         'beta':_inj_beta

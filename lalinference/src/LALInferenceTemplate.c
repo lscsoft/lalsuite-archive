@@ -1557,15 +1557,26 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
 //	if (approximant == SpinTaylorT3){
 //    snprintf(injParams.waveform,LIGOMETA_WAVEFORM_MAX*sizeof(CHAR),"SpinTaylorFramelessthreePointFivePN");
 //  }
-	mc  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-    if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
-        REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
-        q2eta(q, &eta);
-    }
-    else
-        eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
-	
-	mc2masses(mc, eta, &m1, &m2);
+
+	/* Prefer m1 and m2 if available */
+	REAL8 *m1p=NULL; 
+	REAL8 *m2p=NULL;
+	if( (m1p=(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"mass1")) && (m2p=(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"mass2")))
+	{
+	 m1=*m1p; m2=*m2p;
+	 eta=(m1*m2)/((m1+m2)*(m1+m2));
+	 mc=(m1+m2)*pow(eta,0.6);
+	}
+	else{
+	  mc  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
+	  if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+	    REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+	    q2eta(q, &eta);
+	  }
+	  else
+	    eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+	  mc2masses(mc, eta, &m1, &m2);
+	}
 	
 	injParams.mass1			= m1;				/* stellar mass */
 	injParams.mass2			= m2;			    /* stellar mass */
@@ -1769,8 +1780,6 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
 					fprintf( stderr, " ERROR in templateLALGenerateInspiral(): no generated waveform.\n");
 			}
 		}
-
-	
 	
 	if(LALInferenceCheckVariable(IFOdata->modelParams, "INFERENCE_TAPER")){
 		
@@ -1826,7 +1835,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 /*	 - "shift0"			(shift offset; REAL8, radians)			                            */
 /*   - "time"			(coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)	*/
 /*	 - "PNorder"		(Phase PN order)												*/
-/*   - "Amporder"   (Amplitude PN order)                                                    */
+/*   - "Amporder"   (Amplitude PN order) */
+/*   - "fRef"            (Optional; frequency at which the above parameters are defined (useful for fixing values 'in the bucket'). Defaults to 0.)                                                 */
 /********************************************************************************************/
 {
 	
@@ -1845,7 +1855,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   COMPLEX16FrequencySeries *htilde=NULL;
   
 	REAL8 mc;
-  REAL8 phi0, deltaT, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, inclination;
+        REAL8 phi0, deltaT, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, inclination;
   
   static REAL8 previous_m1;
   static REAL8 previous_m2;
@@ -1928,7 +1938,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   
 	distance	= LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
 	
-  f_min = IFOdata->fLow /** 0.9*/ ;
+  f_min = IFOdata->fLow /** 0.9 */;
   f_max = IFOdata->fHigh;
   
 	REAL8 start_time	= *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "time");   			/* START time as per lalsimulation conventions */
@@ -1943,6 +1953,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
   if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) interactionFlags = *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags");
   
+  REAL8 fRef = 0.0;
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
+
   if (IFOdata->timeData==NULL) {
     XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
     XLAL_ERROR_VOID(XLAL_EFAULT);
@@ -1974,6 +1987,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       previous_phi0 = phi0;
       previous_inclination = inclination;
     
+      if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
+        XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");
+        XLAL_ERROR_VOID(XLAL_EFAULT);
+      }
+      
       COMPLEX16 *dataPtr = htilde->data->data;
 
       for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
@@ -2030,10 +2048,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     }
     
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 
-                                                 spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, 
+                                                 spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, fRef, distance, 
                                                  inclination, lambda1, lambda2, interactionFlags, 
                                                  amporder, order, approximant), errnum);
-  
+    
   if (ret == XLAL_FAILURE)
   {
 		XLALPrintError(" ERROR in XLALSimInspiralChooseWaveform(): error generating waveform. errnum=%d\n",errnum );

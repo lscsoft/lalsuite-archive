@@ -146,7 +146,7 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 	(--randomseed seed           Random seed for Nested Sampling)\n\n";
  */
 	LALInferenceRunState *irs=NULL;
-//	LALInferenceIFOData *ifoPtr, *ifoListStart;
+	LALInferenceIFOData *ifoPtr;
 	ProcessParamsTable *ppt=NULL;
 	unsigned long int randomseed;
 	struct timeval tv;
@@ -181,6 +181,11 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine)
 	fprintf(stdout, " initialize(): random seed: %lu\n", randomseed);
 	gsl_rng_set(irs->GSLrandom, randomseed);
 	
+	/* Add a site for the inclination-distance jump */
+	ifoPtr=calloc(1,sizeof(LALInferenceIFOData));
+	ifoPtr->detector=calloc(1,sizeof(LALDetector));
+	memcpy(ifoPtr->detector,&lalCachedDetectors[LALDetectorIndexLHODIFF],sizeof(LALDetector));
+	irs->data=ifoPtr;
 	return(irs);
 }
 
@@ -214,12 +219,12 @@ void initVariables(LALInferenceRunState *state)
 	REAL8 qMax=1.0;
 	REAL8 dt=0.1;            /* Width of time prior */
 	REAL8 tmpMin,tmpMax,tmpVal;
-    REAL8 one=1.0;
+	REAL8 one=1.0;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
 	INT4 enable_spin=0;
 	INT4 aligned_spin=0;
-    gsl_rng *RNG=state->GSLrandom;
+	gsl_rng *RNG=state->GSLrandom;
 	char help[]="\
 	Parameter arguments:\n\
 	(--qmin eta)\tMinimum eta\n\
@@ -460,9 +465,10 @@ int main(int argc, char *argv[]) {
 	state->proposalArgs=calloc(1,sizeof(LALInferenceVariables));
 	state->algorithmParams=calloc(1,sizeof(LALInferenceVariables));
 	//state->prior=LALInferenceInspiralPriorNormalised;
-    state->prior=LALInferenceInspiralPrior;
+	state->prior=LALInferenceInspiralPrior;
 	state->likelihood=&LALInferenceZeroLogLikelihood;
 	state->proposal=&NSWrapMCMCLALProposal;
+	state->proposalStats = calloc(1,sizeof(LALInferenceVariables));
 	
 	/* Set up a sample to evolve */
     LALInferenceVariables **samples=calloc(sizeof(LALInferenceVariables *),NCOV);
@@ -505,26 +511,15 @@ int main(int argc, char *argv[]) {
 	LALInferenceAddVariable(state->proposalArgs, "covarianceEigenvalues", &eigenValues, LALINFERENCE_REAL8Vector_t, LALINFERENCE_PARAM_FIXED);
 	
 	LALInferenceAddVariable(state->proposalArgs,"covarianceMatrix",cvm,LALINFERENCE_gslMatrix_t,LALINFERENCE_PARAM_OUTPUT);
-    
-    /* set up k-D tree if required and not already set */
-    LALInferenceSetupkDTreeNSLivePoints( state );
-    
-
 	
+	/* set up k-D tree if required and not already set */
+	LALInferenceSetupkDTreeNSLivePoints( state );
+	LALInferenceSetupAdaptiveProposals(state);
+    
 	/* Set up the proposal function requirements */
 	LALInferenceAddVariable(state->algorithmParams,"Nmcmc",&thinfac,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
 	LALInferenceAddVariable(state->algorithmParams,"logLmin",&logLmin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-	
-	/* Use the PTMCMC proposal to sample prior */
-	
-	state->proposal=&NSWrapMCMCLALProposal;
-	REAL8 temp=1.0;
-	UINT4 dummy=0;
-	LALInferenceAddVariable(state->proposalArgs, "adaptableStep", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
-	LALInferenceAddVariable(state->proposalArgs, "proposedVariableNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
-	LALInferenceAddVariable(state->proposalArgs, "proposedArrayNumber", &dummy, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_OUTPUT);
-	LALInferenceAddVariable(state->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-	
+
 	/* Open the output file */
 	if(filename) outfile=fopen(filename,"w");
 	if(!outfile) fprintf(stdout,"No output file specified, internal testing only\n");
@@ -532,17 +527,15 @@ int main(int argc, char *argv[]) {
 	/* Burn in */
 	LALInferenceNestedSamplingOneStep(state);
 	
-	
 	/* Evolve with fixed likelihood */
 	for(i=0;i<Nmcmc*thinfac;i++){
 	  LALInferenceMCMCSamplePrior(state);
 	  /* output sample */
-      if(!(i%thinfac)){
-        if(state->logsample) state->logsample(state,state->currentParams);
-        if(outfile) LALInferencePrintSample(outfile,state->currentParams);
-	if(outfile) fprintf(outfile,"\n");
-      }
-	  
+	  if(!(i%thinfac)){
+	    if(state->logsample) state->logsample(state,state->currentParams);
+	    if(outfile) LALInferencePrintSample(outfile,state->currentParams);
+	    if(outfile) fprintf(outfile,"\n");
+	  } 
 	}
     if(outfile) fclose(outfile);
 	outfile=fopen("headers.txt","w");

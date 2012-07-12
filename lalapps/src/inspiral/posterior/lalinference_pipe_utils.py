@@ -167,7 +167,7 @@ def chooseEngineNode(name):
     return LALInferenceMCMCNode
   return EngineNode
 
-def scan_timefile(self,timefile):
+def scan_timefile(timefile):
     import re
     p=re.compile('[\d.]+')
     times=[]
@@ -306,7 +306,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       gpsend=self.config.getfloat('input','gps-end-time')
     # ASCII list of GPS times
     if self.config.has_option('input','gps-time-file'):
-      times=scan_time_file(cp.get('input','gps-time-file'))
+      times=scan_timefile(self.config.get('input','gps-time-file'))
       events=[Event(trig_time=time) for time in times]
     # Siminspiral Table
     if self.config.has_option('input','injection-file'):
@@ -470,7 +470,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     Will determine the data to be read and the output file.
     Will use all IFOs known to the DAG, unless otherwise specified as a list of strings
     """
-    if ifos is None and event.ifos is not None:
+    if ifos is None and len(event.ifos)>0:
       ifos=event.ifos
     if ifos is None:
       ifos=self.ifos
@@ -488,18 +488,27 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       for seg in self.segments[ifo]:
         if end_time >= seg.start() and end_time < seg.end():
           gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],timeslide=slide)
+    if self.config.has_option('lalinference','fake-cache'):
+      node.cachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
+      node.channels=ast.literal_eval(self.config.get('data','channels'))
+      if len(ifos)==0: node.ifos=node.cachefiles.keys()
+      else: node.ifos=ifos
+      print 'added ifos %s'%(str(ifos))
+      node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
+      gotdata=1
+    else:
+      # Add the nodes it depends on
+      for seg in node.scisegs.values():
+        dfnode=seg.get_df_node()
+        if dfnode is not None and dfnode not in self.get_nodes():
+    	  self.add_node(dfnode)
+    self.add_node(node)
     if gotdata==0:
       'Print no data found for time %f'%(end_time)
       return None
     if extra_options is not None:
       for opt in extra_options.keys():
 	    node.add_var_arg('--'+opt+' '+extra_options[opt])
-    # Add the nodes it depends on
-    for seg in node.scisegs.values():
-      dfnode=seg.get_df_node()
-      if dfnode is not None and dfnode not in self.get_nodes():
-    	self.add_node(dfnode)
-    self.add_node(node)
     # Add control options
     if self.config.has_option('input','injection-file'):
        node.set_injection(self.config.get('input','injection-file'),event.event_id)
@@ -509,8 +518,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if self.config.has_option('input','psd-start-time'):
       node.set_psdstart(self.config.getint('input','psd-start-time'))
     node.set_max_psdlength(self.config.getint('input','max-psd-length'))
-    if self.config.has_option('lalinference','fake-cache'):
-      node.cachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
     out_dir=os.path.join(self.basepath,'engine')
     mkdirs(out_dir)
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
@@ -690,8 +697,13 @@ class EngineNode(pipeline.CondorDAGNode):
       # NOTE: We perform this arithmetic for all ifos to ensure that a common data set is
       # Used when we are running the coherence test.
       # Otherwise the noise evidence will differ.
-      starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
-      endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
+      if self.scisegs!={}:
+        print self.scisegs
+        starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
+        endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
+      else:
+        starttime=self.get_trig_time()-0.5*self.maxlength
+        endtime=starttime+self.maxlength
       self.GPSstart=starttime
       self.__GPSend=endtime
       length=endtime-starttime
@@ -707,9 +719,9 @@ class EngineNode(pipeline.CondorDAGNode):
       if self.psdstart is not None:
         self.GPSstart=self.psdstart
         print 'Over-riding start time to user-specified value %f'%(self.GPSstart)
-        if self.GPSstart<starttime or self.GPSstart>endtime:
-          print 'ERROR: Over-ridden time lies outside of science segment!'
-          raise Exception('Bad psdstart specified') 
+        #if self.GPSstart<starttime or self.GPSstart>endtime:
+        #  print 'ERROR: Over-ridden time lies outside of science segment!'
+        #  raise Exception('Bad psdstart specified') 
       self.add_var_opt('psdstart',str(self.GPSstart))
       if self.psdlength is None:
         self.psdlength=self.__GPSend-self.GPSstart

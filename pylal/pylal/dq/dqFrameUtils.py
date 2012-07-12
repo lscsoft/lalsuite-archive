@@ -713,8 +713,8 @@ class ChannelList(list):
     Return the smallest i such that i is the index of an element that wholly
     contains item.  Raises ValueError if no such element exists.
     """
-    for i, seg in enumerate(self):
-      if item in seg:
+    for i,chan in enumerate(self):
+      if item.name == chan.name:
         return i
     raise ValueError(item)
 
