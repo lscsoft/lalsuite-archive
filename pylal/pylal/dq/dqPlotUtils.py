@@ -26,17 +26,16 @@ import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
-_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
-"""
+_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib."""
 if not _display and not matplotlib.get_backend().lower() == 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
 
 try: from mpl_toolkits.basemap import Basemap
-except ImportError,e: warnings.warn(e)
+except ImportError,e: warnings.warn(str(e))
 try: from mpl_toolkits import axes_grid
-except ImportError,e: warning.warn(e)
+except ImportError,e: warnings.warn(str(e))
 
 from datetime import datetime
 from glue import segments,git_version
@@ -922,13 +921,7 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
     # set colorbar
     if colorbar:
-      if len(self.ax.lines) and len(x):
-        self.add_colorbar(self.ax.scatter(x[0], y[0], c=cmin, cmap=cmap,\
-                                          vmin=cmin, vmax=cmax, visible=False),\
-                          clim=[cmin, cmax], log=re.search('log', ctype, re.I),\
-                          label=self.color_label)
-      else:
-        self.add_colorbar(self.ax.scatter([1], [1], c=1, cmap=cmap,\
+      self.add_colorbar(self.ax.scatter([1], [1], c=1, cmap=cmap,\
                                           vmin=cmin, vmax=cmax, visible=False),\
                           clim=[cmin, cmax], label=self.color_label)
     elif hidden_colorbar:
@@ -1670,6 +1663,7 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
 
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot a histogram of any column
@@ -2417,6 +2411,7 @@ def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
   # get both major and minor grid lines
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot a histogram of segment duration
@@ -2517,6 +2512,7 @@ def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -2626,6 +2622,9 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     y = getTrigAttribute(trig, bincolumn)
     for bin in ybins:
       if bin[0] <= y < bin[1]:
+        if x>=len(rate[bin[0]]):
+          print "trigger after end time, something is wrong", x, len(rate[bin[0]])
+          continue
         rate[bin[0]][x] += 1/average
         break
 
@@ -2695,6 +2694,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   # save
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot RMS versus time in bins
@@ -2885,6 +2885,7 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   # save
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot segments
@@ -2984,6 +2985,7 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
 
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Helper functions
@@ -3219,6 +3221,7 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Significance drop plot (HVeto style)
@@ -3300,6 +3303,7 @@ def plot_significance_drop(startsig, endsig, outfile, **kwargs):
   # save figure
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot sky positions
@@ -3559,3 +3563,4 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
   # save
   plot.savefig(outfile, bbox_inches=bbox_inches,\
                bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)

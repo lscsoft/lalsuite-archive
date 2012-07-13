@@ -410,49 +410,51 @@ class upper_limit(object):
 
     # compute volume for the chosen FAR values
     nbins = 10
-    fars = numpy.linspace( FARl, FARh, nbins)
+    fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
     if self.opts.verbose:
       print >>sys.stdout, "\nComputing Lambda at FAR=%f binning by %s" % (FAR,bin_type)
       print >>sys.stdout, "FARs = ",fars
 
     # compute the volume in each mass bin for a few fars
     vA = []
-
+    vA2 = []
     for far in fars:
       found, missed = self.get_injections(instruments,far,bin_type=bin_type)
       vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
+      vA2.append(vA2t)
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
-    fars *= self.livetime[instruments]
-    FAR *= self.livetime[instruments]
+    fans = fars*self.livetime[instruments]
+    FAN = FAR*self.livetime[instruments]
 
     # plot volume fits
     for j,mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
       if bin_type == "BNS_BBH": label = ["NS-NS","NS-BH","BH-BH"][j]
       else: label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
       vtmp = self.livetime[instruments]*numpy.array([v[mbin] for v in vA])
+      v2tmp = self.livetime[instruments]*numpy.array([v[mbin] for v in vA2])
 
       tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
-      coeffs = upper_limit_utils.log_volume_derivative_fit(fars, vtmp, FAR)
-      volDeriv[mbin] = coeffs[0]
+      coeffs = upper_limit_utils.log_volume_derivative_fit(numpy.log(fans), vtmp)
+      volDeriv[mbin] = coeffs[0]/FAN
       if self.opts.verbose:
         print >> sys.stdout, "mass bin %s" %str(mbin)
         print >> sys.stdout, "vols = ", vtmp
         print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[mbin],)
 
       if vtmp.max() == 0: continue
-      numpy.linspace(fars[0],fars[-1],100)
-      pyplot.plot(fars,numpy.log(vtmp),'rx')
-      farsi = numpy.linspace(fars[0],fars[-1],100)
-      pyplot.plot(farsi,coeffs[0]*farsi+coeffs[1],label=label)
+      pyplot.errorbar(fans,vtmp,yerr=v2tmp,color='k')
+      pyplot.plot(fans,numpy.exp(coeffs[0]*numpy.log(fans)+coeffs[1]),lw=2,label="%s\nlambda=%.3f"%(label,volDeriv[mbin],))
 
-      pyplot.legend(loc="lower right")
-      pyplot.xlabel("False Alarm Number (per expt)")
-      pyplot.ylabel("log VT")
-      pyplot.title("Volume Derivative at the Loudest Event")
-      name = InspiralUtils.set_figure_tag(tag +"_BIN_"+str(j+1), open_box = opts.open_box)
+      pyplot.legend(loc="lower left")
+      pyplot.xlabel("FAN")
+      pyplot.ylabel("VT")
+      pyplot.title("Volume Derivative at the FAN=%.3f"%FAN)
+      pyplot.gca().set_xscale("log", nonposx='clip')
+      pyplot.gca().set_yscale("log", nonposy='clip')
+      name = InspiralUtils.set_figure_tag(tag+"_BIN_"+str(j), open_box = opts.open_box)
       fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
@@ -473,7 +475,14 @@ class upper_limit(object):
       # throw out injections having all zero spin components
       if max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
 
+
+    chi = sim.mass1/(sim.mass1+sim.mass2) *sim.spin1z + sim.mass2/(sim.mass1+sim.mass2) *sim.spin2z
+    if not self.opts.min_aligned_spin < chi < self.opts.max_aligned_spin: return True
+
     if not self.opts.min_mtotal < sim.mass1 + sim.mass2 < self.opts.max_mtotal:
+      return True
+
+    if self.opts.max_mass_ratio and not (1.0/self.opts.max_mass_ratio <= sim.mass1/sim.mass2 <= self.opts.max_mass_ratio):
       return True
 
     if bin_type == "Component_Mass":
@@ -633,6 +642,9 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency
+  parser.add_option("--max-mass-ratio", metavar = "q", type = 'float', default = None, help = "Specify the maximum allowed mass ratio. Should be >= 1.")
+  parser.add_option("--min-aligned-spin", metavar = "chi", type = 'float', default = -1.0, help = "Specify the minimum allowed value for the aligned spin parameter chi.")
+  parser.add_option("--max-aligned-spin", metavar = "chi", type = 'float', default = 1.0, help = "Specify the maximum allowed value for the aligned spin parameter chi.")
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
   parser.add_option("--disable-spin", default = False, action = "store_true", help = "When computing the search volume, exclude injections with any nonzero spin components.")
   parser.add_option("--spin-only", default = False, action = "store_true", help = "When computing the search volume, exclude injections with all spin components equal to zero. --disable-spin takes precedence.")
@@ -684,6 +696,9 @@ will compute the search volume using all injections with at least one component 
 
   if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
     opts.bin_by_total_mass = True # choose a default binning method
+
+  if opts.max_mass_ratio and (opts.max_mass_ratio < 1):
+    raise ValueError, "The maximum mass ratio must be >=1!"
 
   return opts, filenames[0]
 
