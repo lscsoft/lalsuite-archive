@@ -28,6 +28,7 @@ import bisect
 import pickle
 from pylal import InspiralUtils
 import math
+import scipy.interpolate
 
 numpy.seterr(all='warn')
 
@@ -101,52 +102,36 @@ def compute_combined_rank(total_data, type='max'):
       # we store these as a list of lists, with the first index corresponding to the classifier
       g_ranks = [ [ g[cls[0]+'_rank'] for g in total_data[numpy.nonzero(total_data['glitch']==1)[0]] ] for cls in classifiers if cls[0] != 'ovl' ]    
       c_ranks = [ [ g[cls[0]+'_rank'] for g in total_data[numpy.nonzero(total_data['glitch']==0)[0]] ] for cls in classifiers if cls[0] != 'ovl' ]
-
-      # although this isn't the most efficient algorithm, we compute the likelihood ratio for each glitch through a direct computation of the kde
-      for g in total_data:
-        count = 0 # tracks which classifier we're on
-        L = [] # stores the different likelihood ratios
-        for cls in [cls for cls in classifiers if cls[0] != 'ovl']:
-          # compute the estimated probabilities directly through sums over gaussian kernals
-          p_g = (len(g_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, g[cls[0]+'_rank'], opts.combined_algorithm_gaussian_width) for r in g_ranks[count]])
-          p_c = (len(c_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, g[cls[0]+'_rank'], opts.combined_algorithm_gaussian_width) for r in c_ranks[count]])
-          # compute likelihood ratio
-          if p_c != 0:
-            L += [p_g / p_c]
-          else:
-            L += [p_g*(100**100)] # if p_c is zero, we approximate it as 1/extremely tiny number 
-
-          count += 1
-
-        g['combined_rank'] = max(L)
-
-      if opts.verbose:
-        print 'building smoothed histogram estimates'
-      # we dump the data into a pickle file
+     
+      # we dump data to a pickle file
       pfile = open(opts.user_tag + '_max_hist_kde_data.pickle', 'w')
       pickle.dump([cls[0] for cls in classifiers if cls[0] != 'ovl'], pfile)
       pickle.dump(opts.combined_algorithm_gaussian_width, pfile)
-      # define our fine sampling
-      xpts=numpy.linspace(0,1,10*n_bins+1)
+
+      # we define a fine sampling (set by opts.combined_algorithm_gaussian_width) and computed the kde values at this sampling
+      xpts = numpy.linspace(0, 1, 10*math.ceil(1./opts.combined_algorithm_gaussian_width) + 1)
       pickle.dump(xpts, pfile)
+
+      # iterate over classifiers      
+      # we compute kde estimates at every point in xpts, and then interpolate from these using scipy.interpolate.interp1d()
+      p_g_curves = {}
+      p_c_curves = {}
       count = 0
       for cls in [cls[0] for cls in classifiers if cls[0] != 'ovl']:
-        # we estimate the pdf's at every point in xpts
-        p_g_kde = [(len(g_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in g_ranks[count]]) for x in xpts]
+        if opts.verbose: 
+          print 'building kde estimates for '+cls
+        # compute estimates at every point in xpts (this part is slow)
+        p_g_kde = [(len(g_ranks[count])*opts.combined_algorithm_gaussian_width*(2.*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in g_ranks[count]]) for x in xpts]
         p_c_kde = [(len(c_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in c_ranks[count]]) for x in xpts]
-        print max(p_g_kde)
-        print max(p_c_kde)
-        # dump to pickle
+        count += 1
         pickle.dump(p_g_kde, pfile)
         pickle.dump(p_c_kde, pfile)
-        
-        count += 1
 
+        # build diagnostic figures
         if opts.combined_diagnostic_plots:
           if opts.verbose:
-            print 'building smoothed kde figures for ' + cls
-
-          # kde estimates
+            print 'building smoothed histogram figures for '+cls
+          # kde figures
           f=pylab.figure()
           pylab.plot(xpts, p_g_kde, label='p(rank | glitch)')
           pylab.plot(xpts, p_c_kde, label='p(rank | clean)')
@@ -156,7 +141,6 @@ def compute_combined_rank(total_data, type='max'):
           pylab.title(cls + ' kernal density estimates')
           pylab.savefig(opts.user_tag + '_max_hist_kde_'+cls+'.png')
           pylab.close(f)
-
           # map from rank to likelihood ratio
           f=pylab.figure()
           L = []
@@ -172,7 +156,23 @@ def compute_combined_rank(total_data, type='max'):
           pylab.savefig(opts.user_tag + '_max_hist_likelihood_'+cls+'.png')
           pylab.close(f)
 
+        # build the interpolation objects
+        p_g_curves[cls] = scipy.interpolate.interp1d(xpts, p_g_kde, kind='linear')
+        p_c_curves[cls] = scipy.interpolate.interp1d(xpts, p_c_kde, kind='linear')
+
       pfile.close()
+
+      # now we interpolate values for each element of total_data and take the maximum likelihood as our rank
+      for glitch in total_data:
+        L = []
+        for cls in [cls[0] for cls in classifiers if cls[0] != 'ovl']:
+          p_g = p_g_curves[cls](glitch[cls+'_rank'])
+          p_c = p_c_curves[cls](glitch[cls+'_rank'])
+          if p_c == 0:
+            L += [p_g * 100**100]
+          else:
+            L += [p_g / p_c ]
+        glitch['combined_rank'] = max(L) 
 
     else:
       total_data=total_data[numpy.lexsort(tuple([total_data[cls[0]+'_rank'] for cls in reversed(classifiers)]))]
@@ -222,14 +222,92 @@ def compute_combined_rank(total_data, type='max'):
 
 
   if type=='max_pi':
-    for trigger in total_data:
-      product = 1
-      for P in [cls[0] for cls in classifiers if cls[0]!='ovl']:
-        product *= trigger[P+'_fap']
-      if product != 0.0:
-        trigger['combined_rank'] = max([trigger[cls[0]+'_eff'] for cls in classifiers if cls[0]!='ovl']) / product
-      else:
-        trigger['combined_rank'] = 10.0**25
+    if opts.combined_algorithm_gaussian_width:
+      # we need to pull out the ranks for each type of glitch
+      # we store these as a list of lists, with the first index corresponding to the classifier
+      g_ranks = [ [ g[cls[0]+'_rank'] for g in total_data[numpy.nonzero(total_data['glitch']==1)[0]] ] for cls in classifiers if cls[0] != 'ovl' ]
+      c_ranks = [ [ g[cls[0]+'_rank'] for g in total_data[numpy.nonzero(total_data['glitch']==0)[0]] ] for cls in classifiers if cls[0] != 'ovl' ]
+
+      # we dump data to a pickle file
+      pfile = open(opts.user_tag + '_max_hist_kde_data.pickle', 'w')
+      pickle.dump([cls[0] for cls in classifiers if cls[0] != 'ovl'], pfile)
+      pickle.dump(opts.combined_algorithm_gaussian_width, pfile)
+
+      # we define a fine sampling (set by opts.combined_algorithm_gaussian_width) and computed the kde values at this sampling
+      xpts = numpy.linspace(0, 1, 10*math.ceil(1./opts.combined_algorithm_gaussian_width) + 1)
+      pickle.dump(xpts, pfile)
+
+      # iterate over classifiers
+      # we compute kde estimates at every point in xpts, and then interpolate from these using scipy.interpolate.interp1d()
+      p_g_curves = {}
+      p_c_curves = {}
+      count = 0
+      for cls in [cls[0] for cls in classifiers if cls[0] != 'ovl']:
+        if opts.verbose:
+          print 'building kde estimates for '+cls
+        # compute estimates at every point in xpts (this part is slow)
+        p_g_kde = [(len(g_ranks[count])*opts.combined_algorithm_gaussian_width*(2.*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in g_ranks[count]]) for x in xpts]
+        p_c_kde = [(len(c_ranks[count])*opts.combined_algorithm_gaussian_width*(2*numpy.pi)**0.5)**-1 * sum([Nd_gaussian_kernal(r, x, opts.combined_algorithm_gaussian_width) for r in c_ranks[count]]) for x in xpts]
+        count += 1
+        pickle.dump(p_g_kde, pfile)
+        pickle.dump(p_c_kde, pfile)
+
+        # build diagnostic figures
+        if opts.combined_diagnostic_plots:
+          if opts.verbose:
+            print 'building smoothed histogram figures for '+cls
+          # kde figures
+          f=pylab.figure()
+          pylab.plot(xpts, p_g_kde, label='p(rank | glitch)')
+          pylab.plot(xpts, p_c_kde, label='p(rank | clean)')
+          pylab.legend()
+          pylab.xlabel(cls+' rank')
+          pylab.ylabel('kde')
+          pylab.title(cls + ' kernal density estimates')
+          pylab.savefig(opts.user_tag + '_max_hist_kde_'+cls+'.png')
+          pylab.close(f)
+          # map from rank to likelihood ratio
+          f=pylab.figure()
+          L = []
+          for ind in range(len(xpts)):
+            if p_c_kde[ind] == 0:
+              L += [p_g_kde[ind]*(100**100)] # same procedure as above (assigning combined_rank's)
+            else:
+              L += [p_g_kde[ind] / p_c_kde[ind] ]
+          pylab.semilogy(xpts, L, label=cls)
+          pylab.xlabel(cls + ' rank')
+          pylab.ylabel('Likelihood ratio ($\Lambda$)')
+          pylab.title('Estimates of likelihood ratio from '+cls+' kde probability distributions')
+          pylab.savefig(opts.user_tag + '_max_hist_likelihood_'+cls+'.png')
+          pylab.close(f)
+
+        # build the interpolation objects
+        p_g_curves[cls] = scipy.interpolate.interp1d(xpts, p_g_kde, kind='linear')
+        p_c_curves[cls] = scipy.interpolate.interp1d(xpts, p_c_kde, kind='linear')
+
+      pfile.close()
+
+      # now we interpolate values for each element of total_data and compute the estimated likelihood ratio: max{p_g} / prod{p_c}
+      for glitch in total_data:
+        prod_p_c = 1
+        max_p_g = 0
+        for cls in [cls[0] for cls in classifiers if cls[0] != 'ovl']:
+          max_p_g = max([p_g_curves[cls](glitch[cls+'_rank']), max_p_g])
+          prod_p_c = prod_p_c * p_c_curves[cls](glitch[cls+'_rank'])
+        if prod_p_c == 0:
+          glitch['combined_rank'] = max_p_g * 100**100
+        else:
+          glitch['combined_rank'] = max_p_g / prod_p_c
+
+    else:
+      for trigger in total_data:
+        product = 1
+        for P in [cls[0] for cls in classifiers if cls[0]!='ovl']:
+          product *= trigger[P+'_fap']
+        if product != 0.0:
+          trigger['combined_rank'] = max([trigger[cls[0]+'_eff'] for cls in classifiers if cls[0]!='ovl']) / product
+        else:
+          trigger['combined_rank'] = 10.0**25
      
   if type=='hist':
     if opts.combined_algorithm_gaussian_width:
@@ -707,6 +785,15 @@ for ind in range(0,10):
   print 'ovl_fdt = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_fdt'])
   print 'ovl_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_chan'])
 '''
+
+# fix signif/snr mis-labeling issue if it exists
+if opts.switch_signif_and_snr:
+  print 'switching DARM-signif and DARM-SNR'
+  for g in total_ranked_data:
+    signif = g['signif']
+    g['signif'] = g['SNR']
+    g['SNR'] = signif
+
 # cluster glitch samples if --cluster option is given
 if opts.cluster:
 	if opts.verbose:
@@ -719,6 +806,8 @@ if opts.cluster:
 
 
 # Computing FAP and Efficiency for MVCs
+if opts.verbose:
+  print 'computing FAP and Eff'
 for cls in classifiers:
   total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
 
@@ -734,14 +823,6 @@ if opts.verbose:
 
 # add combined  to the list of classifiers
 classifiers.append(['combined'])
-
-# fix signif/snr mis-labeling issue if it exists
-if opts.switch_signif_and_snr:
-  print 'switching DARM-signif and DARM-SNR'
-  for g in total_ranked_data:
-    signif = g['signif']
-    g['signif'] = g['SNR']
-    g['SNR'] = signif
 
 #splitting data into glitch and clean samples
 glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
@@ -793,7 +874,10 @@ colorDIC = {'ann':'b', 'mvsc':'g', 'svm':'r', 'ovl':'c', 'combined':'m'}
 labelDIC = {'ann':'ANN', 'mvsc':'MVSC', 'svm':'SVM', 'ovl':'OVL', 'combined':'MVC$_{\mathrm{max}}$'}
 
 if opts.combined_algorithm == 'max_pi':
-  labelDIC['combined'] = '$\mathrm{max} \{ eff \} / \Pi \{ fap \}$'
+  if opts.combined_algorithm_gaussian_width:
+    labelDIC['combined'] = '$\mathrm{max} \{ p(r_i|g)\} / \Pi \{ p(r_i|c)\}$'
+  else:
+    labelDIC['combined'] = '$\mathrm{max} \{ eff \} / \Pi \{ fap \}$'
 elif opts.combined_algorithm == 'hist':
   labelDIC['combined'] = '$p(\{r_k\}|g)/p(\{r_k\}|c)$'
 elif opts.combined_algorithm == 'max_hist':
