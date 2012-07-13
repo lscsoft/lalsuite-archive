@@ -73,19 +73,14 @@ typedef enum {
 /**
  * Struct containing several enumerated flags that control specialized behavior
  * for some waveform approximants.
- * 
+ *
  * Users: Access this struct only through the Create/Destroy/Set/Get/IsDefault
  * functions declared in this file.
- * 
+ *
  * Developers: Do not add anything but enumerated flags to this struct. Avoid
  * adding extra flags whenever possible.
  */
-typedef struct tagLALSimInspiralWaveformFlags
-{
-    LALSimInspiralInteraction interactionChoice; /**< Flag to control spin/tidal effects */
-    LALSimInspiralFrameAxis axisChoice; /**< Flag to set frame z-axis convention */
-    LALSimInspiralModesChoice modesChoice; /**< Flag to control which modes are included in IMR models */
-} LALSimInspiralWaveformFlags;
+typedef struct tagLALSimInspiralWaveformFlags LALSimInspiralWaveformFlags;
 
 /**
  * Create a new LALSimInspiralWaveformFlags struct 

@@ -19,6 +19,23 @@
 #include  <lal/LALSimInspiralWaveformFlags.h>
 
 /**
+ * Struct containing several enumerated flags that control specialized behavior
+ * for some waveform approximants.
+ *
+ * Users: Access this struct only through the Create/Destroy/Set/Get/IsDefault
+ * functions declared in this file.
+ *
+ * Developers: Do not add anything but enumerated flags to this struct. Avoid
+ * adding extra flags whenever possible.
+ */
+struct tagLALSimInspiralWaveformFlags
+{
+    LALSimInspiralInteraction interactionChoice; /**< Flag to control spin/tidal effects */
+    LALSimInspiralFrameAxis axisChoice; /**< Flag to set frame z-axis convention */
+    LALSimInspiralModesChoice modesChoice; /**< Flag to control which modes are included in IMR models */
+};
+
+/**
  * Create a new LALSimInspiralWaveformFlags struct 
  * with all flags set to their default values.
  * 

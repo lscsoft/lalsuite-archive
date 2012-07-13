@@ -1523,11 +1523,13 @@ int XLALSimInspiralChooseTDWaveform(
         case SpinTaylorT4:
             /* Waveform-specific sanity checks */
             /* Sanity check unused fields of waveFlags */
-            if( !XLALSimInspiralFrameAxisIsDefault(waveFlags->axisChoice) )
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
             {
                 ABORT_NONDEFAULT_FRAME_AXIS(waveFlags);
             }
-            if( !XLALSimInspiralModesChoiceIsDefault(waveFlags->modesChoice) )
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
             {
                 ABORT_NONDEFAULT_MODES_CHOICE(waveFlags);
             }
@@ -1545,7 +1547,8 @@ int XLALSimInspiralChooseTDWaveform(
             ret = XLALSimInspiralSpinTaylorT4(hplus, hcross, phi0, v0, deltaT, 
                     m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z, 
                     LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2, 
-                    waveFlags->interactionChoice, phaseO, amplitudeO);
+                    XLALSimInspiralGetInteraction(waveFlags),
+                    phaseO, amplitudeO);
             break;
 
         /* spinning inspiral-merger-ringdown models */
@@ -1565,7 +1568,9 @@ int XLALSimInspiralChooseTDWaveform(
             }
             /* Call the waveform driver routine */
             // NB: f_max = 0 will generate up to the ringdown cut-off frequency
-            ret = XLALSimIMRPhenomBGenerateTD(hplus, hcross, phi0, deltaT, m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z), f_min, 0., r, i);
+            ret = XLALSimIMRPhenomBGenerateTD(hplus, hcross, phi0, deltaT,
+                    m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
+                    f_min, 0., r, i);
             break;
 
         case PhenSpinTaylorRD:
@@ -1576,7 +1581,9 @@ int XLALSimInspiralChooseTDWaveform(
                 ABORT_NONZERO_TIDES(waveFlags);
             }
             /* Call the waveform driver routine */
-            ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0, deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z, phaseO, waveFlags->axisChoice, 0);
+            ret = XLALSimIMRPSpinInspiralRDGenerator(hplus, hcross, phi0,
+                    deltaT, m1, m2, f_min, r, i, S1x, S1y, S1z, S2x, S2y, S2z,
+                    phaseO, XLALSimInspiralGetFrameAxis(waveFlags), 0);
             break;
 
         case SEOBNRv1:
