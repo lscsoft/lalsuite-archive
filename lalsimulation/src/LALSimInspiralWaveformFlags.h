@@ -19,6 +19,7 @@
 #ifndef _LALSIMINSPIRALWAVEFORMFLAGS_H
 #define _LALSIMINSPIRALWAVEFORMFLAGS_H
 
+#include <stdbool.h>
 #include <lal/LALMalloc.h>
 #include <lal/LALError.h>
 
@@ -102,10 +103,10 @@ void XLALSimInspiralDestroyWaveformFlags(
         );
 
 /**
- * Returns 1 if all fields of LALSimInspiralWaveformFlags have default value, 
- * returns 0 otherwise.
+ * Returns true if all fields of LALSimInspiralWaveformFlags have default value
+ * returns false otherwise.
  */
-int XLALSimInspiralWaveformFlagsIsDefault(
+bool XLALSimInspiralWaveformFlagsIsDefault(
         LALSimInspiralWaveformFlags *waveFlags
         );
 
@@ -125,9 +126,10 @@ LALSimInspiralInteraction XLALSimInspiralGetInteraction(
         );
 
 /**
- * Returns 1 if LALSimInspiralInteraction has default value, 0 otherwise
+ * Returns true if LALSimInspiralInteraction has default value
+ * reutrns false otherwise
  */
-int XLALSimInspiralInteractionIsDefault(
+bool XLALSimInspiralInteractionIsDefault(
         LALSimInspiralInteraction interactionChoice
         );
 
@@ -147,9 +149,10 @@ LALSimInspiralFrameAxis XLALSimInspiralGetFrameAxis(
         );
 
 /**
- * Returns 1 if LALSimInspiralFrameAxis has default value, 0 otherwise
+ * Returns true if LALSimInspiralFrameAxis has default value
+ * returns false otherwise
  */
-int XLALSimInspiralFrameAxisIsDefault(
+bool XLALSimInspiralFrameAxisIsDefault(
         LALSimInspiralFrameAxis axisChoice
         );
 
@@ -169,9 +172,10 @@ LALSimInspiralModesChoice XLALSimInspiralGetModesChoice(
         );
 
 /**
- * Returns 1 if LALSimInspiralModesChoice has default value, 0 otherwise
+ * Returns true if LALSimInspiralModesChoice has default value
+ * returns false otherwise
  */
-int XLALSimInspiralModesChoiceIsDefault(
+bool XLALSimInspiralModesChoiceIsDefault(
         LALSimInspiralModesChoice modesChoice
         );
 

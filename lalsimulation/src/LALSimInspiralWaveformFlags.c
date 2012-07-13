@@ -58,21 +58,21 @@ void XLALSimInspiralDestroyWaveformFlags(
 }
 
 /**
- * Returns 1 if all fields of LALSimInspiralWaveformFlags have default value, 
- * returns 0 otherwise.
+ * Returns true if all fields of LALSimInspiralWaveformFlags have default value
+ * returns false otherwise.
  */
-int XLALSimInspiralWaveformFlagsIsDefault(
+bool XLALSimInspiralWaveformFlagsIsDefault(
         LALSimInspiralWaveformFlags *waveFlags
         )
 {
-    int check1, check2, check3;
+    bool check1, check2, check3;
     /* Check every field of WaveformFlags, each returns 1/0 for true/false */
     check1 = XLALSimInspiralInteractionIsDefault(waveFlags->interactionChoice);
     check2 = XLALSimInspiralFrameAxisIsDefault(waveFlags->axisChoice);
     check3 = XLALSimInspiralModesChoiceIsDefault(waveFlags->modesChoice);
 
-    /* Will return 1 (true) iff all checks are true */
-    return check1 * check2 * check3;
+    /* Return true iff all checks are true */
+    return check1 && check2 && check3;
 }
 
 
@@ -100,16 +100,17 @@ LALSimInspiralInteraction XLALSimInspiralGetInteraction(
 }
 
 /**
- * Returns 1 if LALSimInspiralInteraction has default value, 0 otherwise
+ * Returns true if LALSimInspiralInteraction has default value
+ * returns false otherwise
  */
-int XLALSimInspiralInteractionIsDefault(
+bool XLALSimInspiralInteractionIsDefault(
         LALSimInspiralInteraction interactionChoice
         )
 {
     if( interactionChoice == LAL_SIM_INSPIRAL_INTERACTION_DEFAULT )
-        return 1;
+        return true;
     else 
-        return 0;
+        return false;
 }
 
 /**
@@ -135,16 +136,17 @@ LALSimInspiralFrameAxis XLALSimInspiralGetFrameAxis(
 }
 
 /**
- * Returns 1 if LALSimInspiralFrameAxis has default value, 0 otherwise
+ * Returns true if LALSimInspiralFrameAxis has default value
+ * returns false otherwise
  */
-int XLALSimInspiralFrameAxisIsDefault(
+bool XLALSimInspiralFrameAxisIsDefault(
         LALSimInspiralFrameAxis axisChoice
         )
 {
     if( axisChoice == LAL_SIM_INSPIRAL_FRAME_AXIS_DEFAULT )
-        return 1;
+        return true;
     else 
-        return 0;
+        return false;
 }
 
 /**
@@ -170,15 +172,16 @@ LALSimInspiralModesChoice XLALSimInspiralGetModesChoice(
 }
 
 /**
- * Returns 1 if LALSimInspiralModesChoice has default value, 0 otherwise
+ * Returns true if LALSimInspiralModesChoice has default value
+ * returns false otherwise
  */
-int XLALSimInspiralModesChoiceIsDefault(
+bool XLALSimInspiralModesChoiceIsDefault(
         LALSimInspiralModesChoice modesChoice
         )
 {
     if( modesChoice == LAL_SIM_INSPIRAL_MODES_CHOICE_DEFAULT )
-        return 1;
+        return true;
     else 
-        return 0;
+        return false;
 }
 
