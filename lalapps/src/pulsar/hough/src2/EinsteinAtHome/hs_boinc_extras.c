@@ -413,6 +413,12 @@ int BOINC_LAL_ErrHand (LALStatus  *status,
 #endif /*  __x86_64__ */
 #endif /* __GLIBC__ */
 
+/* Use thread-local storage only where needed & supported */
+#if defined(__GLIBC__) && defined(__GNUC__)
+#define THREAD_LOCAL static __thread
+#else
+#define THREAD_LOCAL static
+#endif
 
 #ifdef __GLIBC__
 static void sighandler(int sig,
@@ -431,10 +437,8 @@ static void sighandler(int sig)
   static char **backtracesymbols = NULL;
   ucontext_t *uc = (ucontext_t *)secret;
 #endif
-   static __thread int boinc_finish_in_sighabdler = 0;
+  THREAD_LOCAL int boinc_finish_in_sighabdler = 0;
 
-  /* lets start by ignoring ANY further occurences of this signal
-     (hopefully just in THIS thread, if truly implementing POSIX threads */
   fputc('\n',stderr);
   mytime();
   fputs("\n-- signal handler called: signal ",stderr);
