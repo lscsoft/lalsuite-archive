@@ -28,7 +28,6 @@ import bisect
 import pickle
 from pylal import InspiralUtils
 import math
-import scipy.interpolate
 
 numpy.seterr(all='warn')
 
