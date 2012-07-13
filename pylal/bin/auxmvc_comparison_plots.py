@@ -33,7 +33,9 @@ import scipy.interpolate
 numpy.seterr(all='warn')
 
 def Nd_gaussian_kernal(x1, x2, sigma):
+  """
   # computes the gaussian kernal : exp( -|x1-x2|^2/(2*sigma^2) ), where |x| is the norm of the vector x with euclidean metric
+  """
   if isinstance(x1, (int, float, numpy.float128, numpy.float64)) or isinstance(x2, (int, float, numpy.float128, numpy.float64)):
     if isinstance(x1, (int, float, numpy.float128, numpy.float64)) and isinstance(x2, (int, float, numpy.float128, numpy.float64)):
       return numpy.exp(-(x1-x2)**2/(2.0*sigma**2))
@@ -420,6 +422,8 @@ def compute_combined_rank(total_data, type='max'):
 
   return total_data
 
+
+
 def eff_over_fap(trigger, classifier):
   """
   Calculate ratio of eff over fap which approximates likelihood ratio.
@@ -432,7 +436,9 @@ def eff_over_fap(trigger, classifier):
 	
   
 def PrateToRank(ranks,Prate):
+	"""
 	### convert a certain positive rate(Prate) to a corresponding rank in rank data
+	"""
 	ranks_sorted=numpy.sort(ranks)
 	PositiveRates=[]
 	for i,rank in enumerate(ranks_sorted):
@@ -447,7 +453,9 @@ def PrateToRank(ranks,Prate):
 
 
 def vetoGlitchesUnderFAP(glitch_data, rank_name, Rankthr, FAPthr):
+	"""
 	## veto triggers at Rankthr corresponding to FAPthr and return remained triggers
+	"""
 	glitch_data_sorted = numpy.sort(glitch_data,order=[rank_name])
 	total_number_of_glitches = len(glitch_data_sorted[rank_name])
 	number_of_vetoed_glitches = numpy.searchsorted(glitch_data_sorted[rank_name],Rankthr)
@@ -666,8 +674,10 @@ def cluster(data, rank='signif', cluster_window=1.0):
 	return data
 
 def EstimateP(rank, ranks, dr=0.001, last_dr=0, N=100, tolerance=0.01, max_iter=25, iter=0):
+  """
   # written to estimate the probability density at (rank) from the distribution (ranks)
   # we use a simple counting algorithm to estimate the number of elements of (ranks) in the neighborhood or (rank), and use that to estimate the density at (rank)
+  """
   p=[]
   for r in rank:
     Sn=sum([1 for e in ranks if abs(e-r) <= dr])
@@ -699,6 +709,7 @@ parser.add_option("","--ovl-ranked-files", default=False, type="string", help="P
 parser.add_option("","--mvsc-ranked-files", default=False, type="string", help="Provide the path for MVSC *.dat files and globbing pattern")
 parser.add_option("","--ann-ranked-files", default=False, type="string", help="Provide the path for ANN *.dat files and globbing pattern")
 parser.add_option("","--svm-ranked-files", default=False, type="string", help="Provide the path for SVM *.dat files and globbing pattern")
+parser.add_option("","--combined-files", default=False, type="string", help="Provide the path for combined *.dat files and globbing pattern")
 
 parser.add_option("","--combined-algorithm", default='max', type="string", help='Change the algorithm with which MVC data is combined')
 parser.add_option("","--combined-algorithm-gaussian-width", default=False, type="float", help="the standard deviation used when computing gaussian kernal estimates of pdf's")
@@ -729,132 +740,188 @@ parser.add_option("","--DQ-ROC", type='string', default=False, help='plots DQ fl
 parser.add_option("","--ROC", action="store_true", default=False, help="generate ROC Curves")
 parser.add_option("","--bit-word", action="store_true", default=False, help="generate bit-word plots")
 parser.add_option("","--hist-ranks", action="store_true", default=False, help="generate histograms over classifier ranks")
+parser.add_option("","--hist-ranks-bins", default=100, type="int", help="the number of bins used when creating histograms over classifier ranks")
 parser.add_option("","--cum-hist-signif", action="store_true", default=False, help="generate cumulative histograms over DARM significance before and after applying classifiers")
 parser.add_option("","--diagnostic-plots", action="store_true", default=False, help="generates a large number of diagnostic plots meant to help determine the relative performance and correlation of classifiers")
 
 (opts,args)=parser.parse_args()
 
+columns_for_slim_catalog = ['GPS', 'glitch', 'signif', 'SNR', 'mvsc_rank', 'mvsc_fap', 'mvsc_eff', 'ann_rank', 'ann_fap', 'ann_eff', 'svm_rank', 'svm_fap', 'svm_eff', 'ovl_rank', 'ovl_fap', 'ovl_eff', 'ovl_chan', 'ovl_fdt', 'combined_rank', 'combined_eff', 'combined_fap']
+
+
 try: os.mkdir(opts.output_path)
 except: pass
 
 
-### Making ranked data to use glitch ranks and GW snr for plotting 
-ranked_data={}
+# sanity checks
 
-classifiers=[]
-if opts.ann_ranked_files:
-	classifiers.append(['ann',glob.glob(opts.ann_ranked_files)])
-	#classifiers.append(['ann',opts.ann_ranked_files.split(',')])
-if opts.mvsc_ranked_files:
-	classifiers.append(['mvsc',glob.glob(opts.mvsc_ranked_files)])
-	#classifiers.append(['mvsc',opts.mvsc_ranked_files.split(',')])
-if opts.svm_ranked_files:
-	classifiers.append(['svm',glob.glob(opts.svm_ranked_files)])
-	#classifiers.append(['svm',opts.svm_ranked_files.split(',')])
-if opts.ovl_ranked_files:
-	classifiers.append(['ovl',glob.glob(opts.ovl_ranked_files)])
-	#classifiers.append(['ovl',opts.ovl_ranked_files.split(',')])
+if (opts.ovl_ranked_files or opts.mvsc_ranked_files or opts.ann_ranked_files or opts.svm_ranked_files) and opts.combined_files:
+  print "Error: Option --combined-files can not be used together with either of --ovl-ranked-files, --mvsc-ranked-files, --ann-ranked-files, --svm-ranked-files "
+  sys.exit(1)
 
-#mvc_types=BinToDec(''.join(map(str,mvc_read)))
 
-if not classifiers:
-	print "Errors!! No Input Files(*.dat with MVCs' ranks and/or *.pickle with HVeto's ranks)"
-	sys.exit()
+if not opts.combined_files:
 
-if opts.verbose:
-	print "Reading and combining data..."
+  ### Making ranked data to use glitch ranks and GW snr for plotting 
 
-# Reading and combining data from all classifers(MVSC,ANN,SVM,OVL).
-total_ranked_data = ReadDataFromClassifiers(classifiers)
+  classifiers=[]
+  if opts.ann_ranked_files:
+	  classifiers.append(['ann',glob.glob(opts.ann_ranked_files)])
+	  #classifiers.append(['ann',opts.ann_ranked_files.split(',')])
+  if opts.mvsc_ranked_files:
+	  classifiers.append(['mvsc',glob.glob(opts.mvsc_ranked_files)])
+	  #classifiers.append(['mvsc',opts.mvsc_ranked_files.split(',')])
+  if opts.svm_ranked_files:
+	  classifiers.append(['svm',glob.glob(opts.svm_ranked_files)])
+	  #classifiers.append(['svm',opts.svm_ranked_files.split(',')])
+  if opts.ovl_ranked_files:
+	  classifiers.append(['ovl',glob.glob(opts.ovl_ranked_files)])
+	  #classifiers.append(['ovl',opts.ovl_ranked_files.split(',')])
 
-### TESTING OVL LOADING FUNCTIONALITY
-'''
-ovl_raw = auxmvc_utils.LoadOVL(classifiers[-1][1][0])
-# we pull 10 random GPS times from ovl_raw[] and the corresponding data from total_ranked_data[]
-# this is printed so we can check by eye whether they match
-import random
-deltaT = 0.0015
-for ind in range(0,10):
-  rind = random.randint(0,len(ovl_raw)-1)
-  print '\n ovl_raw'
-  print ovl_raw[rind] 
-  print '\n total_ranked_data'
-#  print total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]
-  print 'GPS = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['GPS'])
-  print 'ovl_eff = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_eff'])
-  print 'ovl_fdt = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_fdt'])
-  print 'ovl_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_chan'])
-'''
+  #mvc_types=BinToDec(''.join(map(str,mvc_read)))
 
-# fix signif/snr mis-labeling issue if it exists
-if opts.switch_signif_and_snr:
-  print 'switching DARM-signif and DARM-SNR'
-  for g in total_ranked_data:
-    signif = g['signif']
-    g['signif'] = g['SNR']
-    g['SNR'] = signif
 
-# cluster glitch samples if --cluster option is given
-if opts.cluster:
+  if not classifiers:
+	  print "Errors!! No Input Files(*.dat with MVCs' ranks and/or *.pickle with HVeto's ranks)"
+	  sys.exit()
+
+  if opts.verbose:
+	  print "Reading and combining data..."
+
+  # Reading and combining data from all classifers(MVSC,ANN,SVM,OVL).
+  total_ranked_data = ReadDataFromClassifiers(classifiers)
+
+  ### TESTING OVL LOADING FUNCTIONALITY
+  '''
+  ovl_raw = auxmvc_utils.LoadOVL(classifiers[-1][1][0])
+  # we pull 10 random GPS times from ovl_raw[] and the corresponding data from total_ranked_data[]
+  # this is printed so we can check by eye whether they match
+  import random
+  deltaT = 0.0015
+  for ind in range(0,10):
+	rind = random.randint(0,len(ovl_raw)-1)
+	print '\n ovl_raw'
+	print ovl_raw[rind] 
+	print '\n total_ranked_data'
+  #  print total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]
+	print 'GPS = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['GPS'])
+	print 'ovl_eff = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_eff'])
+	print 'ovl_fdt = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_fdt'])
+	print 'ovl_chan = ' + repr(total_ranked_data[numpy.nonzero( abs(ovl_raw[rind][0] - total_ranked_data['GPS']) <= deltaT )[0]]['ovl_chan'])
+  '''
+  # fix signif/snr mis-labeling issue if it exists
+  if opts.switch_signif_and_snr:
+	print 'switching DARM-signif and DARM-SNR'
+	for g in total_ranked_data:
+	  signif = g['signif']
+	  g['signif'] = g['SNR']
+	  g['SNR'] = signif
+   
+  
+  # cluster glitch samples if --cluster option is given
+  if opts.cluster:
+	  if opts.verbose:
+		  print "Number of glitch samples before clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+		  
+	  total_ranked_data = cluster(total_ranked_data, rank=opts.cluster_rank, cluster_window=opts.cluster_window)
+	  
+	  if opts.verbose:
+		  print "Number of glitch samples after clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+
+
+  # Computing FAP and Efficiency for MVCs
+  for cls in classifiers:
+	total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
+
+  if opts.verbose:
+	print 'combining...'	
+  # Computing combined rank		
+  total_ranked_data = compute_combined_rank(total_ranked_data, type=opts.combined_algorithm)
+
+  # Computing FAP and Efficiency for combned rank
+  total_ranked_data = CalculateFAPandEFF(total_ranked_data,'combined')
+  if opts.verbose:
+	print 'done'
+
+  # add combined  to the list of classifiers
+  classifiers.append(['combined'])
+
+
+  #splitting data into glitch and clean samples
+  glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
+  cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
+
+  if opts.verbose:
+	  print "Done."
+
+  if opts.write_combined_data:
 	if opts.verbose:
-		print "Number of glitch samples before clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
-		
-	total_ranked_data = cluster(total_ranked_data, rank=opts.cluster_rank, cluster_window=opts.cluster_window)
-	
-	if opts.verbose:
-		print "Number of glitch samples after clustering: ", len(total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:])
+	  print "Writing combined data into a file..."
 
-
-# Computing FAP and Efficiency for MVCs
-if opts.verbose:
-  print 'computing FAP and Eff'
-for cls in classifiers:
-  total_ranked_data = CalculateFAPandEFF(total_ranked_data,cls[0])
-
-if opts.verbose:
-  print 'combining...'	
-# Computing combined rank		
-total_ranked_data = compute_combined_rank(total_ranked_data, type=opts.combined_algorithm)
-
-# Computing FAP and Efficiency for combned rank
-total_ranked_data = CalculateFAPandEFF(total_ranked_data,'combined')
-if opts.verbose:
-  print 'done'
-
-# add combined  to the list of classifiers
-classifiers.append(['combined'])
-
-#splitting data into glitch and clean samples
-glitches = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 1.0)[0],:]
-cleans = total_ranked_data[numpy.nonzero(total_ranked_data['glitch'] == 0.0)[0],:]
-
-if opts.verbose:
-	print "Done."
-
-if opts.write_combined_data:
-        if opts.verbose:
-          print "Writing combined data into a file..."
-
-	# write glitch samples into a file
+	# write glitch samples into a file (full and slim catalog)
 	glitch_file=open(opts.user_tag+'_glitch_data.dat','w')
 	glitch_file.write(' '.join(glitches.dtype.names)+'\n')
+	
+	glitch_slim_file=open(opts.user_tag+'_glitch_slim_data.dat','w')
+	glitch_slim_file.write(' '.join(columns_for_slim_catalog)+'\n')
 
 	for da in glitches:
-		glitch_file.write(' '.join(map(str,da))+'\n')	
+	  glitch_file.write(' '.join(map(str,da))+'\n')
+	  glitch_slim_file.write(' '.join(map(str,da[columns_for_slim_catalog]))+'\n')	
 	
 	glitch_file.close()
-
-	# write clean samples into a file
+	glitch_slim_file.close()
+	
+	# write clean samples into a file (full and slim catalog)
 	clean_file=open(opts.user_tag+'_clean_data.dat','w')
 	clean_file.write(' '.join(cleans.dtype.names)+'\n')
+	
+	clean_slim_file=open(opts.user_tag+'_clean_slim_data.dat','w')
+	clean_slim_file.write(' '.join(columns_for_slim_catalog)+'\n')
 
 	for da in cleans:
-		clean_file.write(' '.join(map(str,da))+'\n')
+	  clean_file.write(' '.join(map(str,da))+'\n')
+	  clean_slim_file.write(' '.join(map(str,da[columns_for_slim_catalog]))+'\n')
 	
 	clean_file.close()
+	clean_slim_file.close()
 
-        if opts.verbose:
-          print "Done."
+	if opts.verbose:
+	  print "Done."
+
+else:
+  # skip combining and read combined data from files
+  
+  # construct lists of glitch and clean files 
+  combined_files = glob.glob(opts.combined_files)
+  
+  glitch_combined_files = []
+  clean_combined_files = []
+  for file in combined_files:
+    if "_glitch_" in file:
+      glitch_combined_files.append(file)
+    elif "_clean_" in file:
+      clean_combined_files.append(file)
+    else:
+      print "Warning: Could not classify" + file + " because it does not contain _glitch_ or _clean_ in the name."
+      print "Ommiting" + file + "."
+	  
+  # reading in glitch samples 
+  glitches = auxmvc_utils.ReadKWAuxTriggers(glitch_combined_files)
+  
+  # reading in clean samples
+  cleans = auxmvc_utils.ReadKWAuxTriggers(clean_combined_files)
+  
+  # construct total combined data  
+  #total_ranked_data = numpy.concatenate((glitches,cleans),axis=0) 
+	
+  # determine which classifiers are in the data
+  classifiers = [[name.split("_rank")[0]] for name in glitches.dtype.names if "_rank" in name]
+	
+# constract slim version of total data
+
+total_ranked_slim_data = numpy.concatenate((glitches[columns_for_slim_catalog],cleans[columns_for_slim_catalog]),axis=0)	
+	
 
 ################   PLOTS   #############################################################
 
@@ -907,7 +974,7 @@ if opts.diagnostic_plots:
   # generate figure
   fig_num += 1
   fig = pylab.figure(fig_num)
-  pylab.plot(total_ranked_data['ovl_fap'], total_ranked_data['ovl_fdt'], 'o', markerfacecolor = 'none', markeredgecolor = 'blue')
+  pylab.plot(total_ranked_slim_data['ovl_fap'], total_ranked_slim_data['ovl_fdt'], 'o', markerfacecolor = 'none', markeredgecolor = 'blue')
   pylab.plot(faircoin, faircoin, 'k--')
   pylab.plot([opts.fap_threshold, opts.fap_threshold], [10**-5, 10**1], 'r')
   pylab.grid(True)
@@ -930,8 +997,6 @@ if opts.diagnostic_plots:
 
 #############################################################################################
 #
-### ROC curves from total_ranked_data[0]
-#
 # generates the standard ROC curves using values for eff and fap computed within this script.
 #
 #############################################################################################
@@ -939,7 +1004,7 @@ if opts.diagnostic_plots:
 if opts.ROC:
 
   if opts.verbose:
-    print '  ROC curves from total_ranked_data[0]'
+    print '  Computing ROC curves'
   
   # generate a pickle file for ROC data
   pfile = open(opts.user_tag + '_ROC.pickle', 'w')
@@ -949,16 +1014,16 @@ if opts.ROC:
   fig_num += 1
   fig = pylab.figure(fig_num)
   for cls in classifiers:
-    total_data=total_ranked_data[numpy.lexsort((total_ranked_data[cls[0]+'_fap'], total_ranked_data[cls[0]+'_eff']))]
+    total_ranked_slim_data=total_ranked_slim_data[numpy.lexsort((total_ranked_slim_data[cls[0]+'_fap'], total_ranked_slim_data[cls[0]+'_eff']))]
     if cls[0] == 'ovl': # plot the ROC curve corresponding to the glitches that were actually removed by OVL
-      fap = total_data[numpy.nonzero(total_data['ovl_fap'] < 1)[0],:]
+      fap = total_ranked_slim_data[numpy.nonzero(total_ranked_slim_data['ovl_fap'] < 1)[0],:]
       pylab.plot(fap['ovl_fap'], fap['ovl_eff'], label = labelDIC[cls[0]], color=colorDIC[cls[0]])#, linewidth = 2)
       pickle.dump(fap['ovl_fap'], pfile)
       pickle.dump(fap['ovl_eff'], pfile)
     else:
-      pylab.plot(total_data[cls[0]+'_fap'],total_data[cls[0]+'_eff'],label=labelDIC[cls[0]], color=colorDIC[cls[0]])#, linewidth = 2)
-      pickle.dump(total_data[cls[0]+'_fap'], pfile)
-      pickle.dump(total_data[cls[0]+'_eff'], pfile)
+      pylab.plot(total_ranked_slim_data[cls[0]+'_fap'],total_ranked_slim_data[cls[0]+'_eff'],label=labelDIC[cls[0]], color=colorDIC[cls[0]])#, linewidth = 2)
+      pickle.dump(total_ranked_slim_data[cls[0]+'_fap'], pfile)
+      pickle.dump(total_ranked_slim_data[cls[0]+'_eff'], pfile)
   pylab.plot(faircoin, faircoin, '--k')
   pylab.xlabel('False Alarm Probability')
   pylab.ylabel('Efficiency')
@@ -1027,7 +1092,8 @@ if opts.ROC:
   tagList.append(name)
   pylab.close()
 
-
+  if opts.verbose:
+    print "Finish computing and plotting ROC curves."
 #############################################################################################
 #
 ### Bit-word histograms
@@ -1793,7 +1859,7 @@ if opts.diagnostic_plots:
 
 #############################################################################################
 #
-### Histogras of clean samples over classifiers' ranks
+### histograms of clean samples over classifiers' ranks
 #
 #############################################################################################
 
@@ -1857,10 +1923,9 @@ if opts.diagnostic_plots:
 if opts.hist_ranks:
 
   if opts.verbose:
-    print '  Overlay of histogras of glitches and histograms of cleans over Classifier rank'
+    print '  Overlay of histograms of glitches and histograms of cleans over Classifier rank'
 
   for cls in classifiers:
-
     # determine which rank corresponds to opts.fap_threshold
     rankthr = glitches[numpy.nonzero(glitches[cls[0]+'_fap'] <= opts.fap_threshold)[0],:]
     rankthr = rankthr[cls[0]+'_rank']
@@ -1873,27 +1938,40 @@ if opts.hist_ranks:
     # STEP histograms
     fig_num += 1
     pylab.figure(fig_num)
-    pylab.hold(True)
+    #pylab.hold(True)
 
     # create pickle files
     pfile = open(opts.user_tag+'_hist_ranks_'+cls[0]+'.pickle', 'w')
     pickle.dump(cls, pfile)
 
     # histogram using all the glitches
-    pylab.hist(glitches[cls[0] + '_rank'], 100, histtype='step', weights = numpy.ones(len(glitches[cls[0]+'_rank']))/len(glitches[cls[0]+'_rank']), label = 'all glitches')
+    if (cls[0] == 'combined') and (opts.combined_algorithm == 'max'):
+	# get only glitches with nonzero fap
+	  glitch_ranks = glitches[numpy.nonzero(glitches[cls[0]+'_rank'] < 1000.0)[0],:][cls[0] + '_rank']
+	  #find maximum rank
+	  max_hist_rank = numpy.max(glitches[numpy.nonzero(glitches[cls[0]+'_rank'] < 1000.0)[0],:][cls[0] + '_rank'])
+	  # find how many glitches has zero fap
+	  n_fap_zero_glitches = len(glitches[numpy.nonzero(glitches[cls[0]+'_rank'] < 1000.0)[0],:][cls[0] + '_rank'])
+	  # set their rank to maximum rank and add to glitch_ranks
+	  glitch_ranks = numpy.concatenate((glitch_ranks, max_hist_rank*numpy.ones(n_fap_zero_glitches)))
+	  pylab.hist(glitch_ranks, opts.hist_ranks_bins, histtype='step', weights = numpy.ones(len(glitch_ranks))/len(glitch_ranks), label = 'all glitches')
 
-    sigthrs = [100, 200, 500, 1000]
+    else:  
+	  pylab.hist(glitches[cls[0] + '_rank'], opts.hist_ranks_bins, histtype='step', weights = numpy.ones(len(glitches[cls[0]+'_rank']))/len(glitches[cls[0]+'_rank']), label = 'all glitches', log=True)
+    pickle.dump(glitches[cls[0]+'_rank'], pfile)
+	
+#    sigthrs = [100, 200, 500, 1000]
 
     # histogram using only a subset of glitches with sufficiently large 'signif'
-    for sigthr in sigthrs:
-      glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
-      pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', weights = numpy.ones(len(glitches_removed[cls[0]+'_rank']))/len(glitches_removed[cls[0]+'_rank']), label = 'signif $\geq$ ' + repr(sigthr), log=True)
-    pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+#    for sigthr in sigthrs:
+#      glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+#      pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', weights = numpy.ones(len(glitches_removed[cls[0]+'_rank']))/len(glitches_removed[cls[0]+'_rank']), label = 'signif $\geq$ ' + repr(sigthr), log=True)
+    pylab.title('Fig. '+str(fig_num)+': Normalized Histograms Based on ' + labelDIC[cls[0]] + '\_rank')
     pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
-    pylab.ylabel('Fraction of Glitches')
+    pylab.ylabel('Fraction of Samples')
 
     # histogram using all the cleans
-    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step', weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']), label = 'all cleans', log = True)
+    pylab.hist(cleans[cls[0]+'_rank'], opts.hist_ranks_bins, histtype='step', weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']), label = 'all cleans', log = True)
     pickle.dump(cleans[cls[0]+'_rank'], pfile)
 
     pylab.legend(loc = 'upper center')
@@ -1911,10 +1989,53 @@ if opts.hist_ranks:
     fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(name)
+    pylab.close()
+
+    # liner scale histograms ################
+    fig_num += 1
+    pylab.figure(fig_num)
+
+   # histogram using all the glitches
+    if (cls[0] == 'combined') and (opts.combined_algorithm == 'max'):
+	# get only glitches with nonzero fap
+	  glitch_ranks = glitches[numpy.nonzero(glitches[cls[0]+'_rank'] < 1000.0)[0],:][cls[0] + '_rank']
+	  #find maximum rank
+	  max_hist_rank = numpy.max(glitches[numpy.nonzero(glitches[cls[0]+'_rank'] < 1000.0)[0],:][cls[0] + '_rank'])
+	  # find how many glitches has zero fap
+	  n_fap_zero_glitches = len(glitches[numpy.nonzero(glitches[cls[0]+'_rank'] < 1000.0)[0],:][cls[0] + '_rank'])
+	  # set their rank to maximum rank and add to glitch_ranks
+	  glitch_ranks = numpy.concatenate((glitch_ranks, max_hist_rank*numpy.ones(n_fap_zero_glitches)))
+	  pylab.hist(glitch_ranks, opts.hist_ranks_bins, histtype='step', weights = numpy.ones(len(glitch_ranks))/len(glitch_ranks), label = 'all glitches')
+
+    else:  
+	  pylab.hist(glitches[cls[0] + '_rank'], opts.hist_ranks_bins, histtype='step', weights = numpy.ones(len(glitches[cls[0]+'_rank']))/len(glitches[cls[0]+'_rank']), label = 'all glitches')
+    pickle.dump(glitches[cls[0]+'_rank'], pfile)
+	
+#    sigthrs = [100, 200, 500, 1000]
+
+    # histogram using only a subset of glitches with sufficiently large 'signif'
+#    for sigthr in sigthrs:
+#      glitches_removed = glitches[numpy.nonzero(glitches['signif'] >= sigthr)[0],:]
+#      pylab.hist(glitches_removed[cls[0]+'_rank'], 100, histtype = 'step', weights = numpy.ones(len(glitches_removed[cls[0]+'_rank']))/len(glitches_removed[cls[0]+'_rank']), label = 'signif $\geq$ ' + repr(sigthr), log=True)
+    pylab.title('Fig. '+str(fig_num)+': Normalized Histograms Based on ' + labelDIC[cls[0]] + '\_rank')
+    pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
+    pylab.ylabel('Fraction of Samples')
+
+    # histogram using all the cleans
+    pylab.hist(cleans[cls[0]+'_rank'], opts.hist_ranks_bins, histtype='step', weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']), label = 'all cleans')
+    pickle.dump(cleans[cls[0]+'_rank'], pfile)
+
+    pylab.legend(loc = 'upper center')
+
+    if rankthr:
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
+
 
     #adding to the html page
-    pylab.yscale('linear')
-    fig_num += 1
     pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
     name = '_hist_glitches_and_cleans_' + cls[0] + '_rank_LINEAR'
     fname = InspiralUtils.set_figure_name(opts, name)
@@ -1926,7 +2047,7 @@ if opts.hist_ranks:
     # BARSTACKED histograms
     fig_num += 1
     pylab.figure(fig_num)
-    pylab.hold(True)
+    #pylab.hold(True)
 
     sigthrs = [100, 200, 500, 1000]
     counts = [[]]*(len(sigthrs)+1)
@@ -1964,9 +2085,11 @@ if opts.hist_ranks:
 
     pfile.close()
 
-    pylab.hist(counts, 100, histtype = 'barstacked', label = labels)
-    pylab.hist(cleans[cls[0]+'_rank'], 100, histtype='step', label = 'all cleans', log = True) #weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']) )
-
+    pylab.hist(counts, opts.hist_ranks_bins, histtype = 'barstacked', log = True, label = labels)
+    #pylab.hist(cleans[cls[0]+'_rank'], opts.hist_ranks_bins, histtype='bar', label = 'all cleans', log = True, alpha=0.5, color='gray') #weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']) )
+    
+    #pylab.yscale('log')
+	
     pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
     pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
     pylab.ylabel('Number of Glitches')
@@ -1985,9 +2108,32 @@ if opts.hist_ranks:
     fname_thumb = InspiralUtils.savefig_pylal(filename = fname, doThumb = True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(name)
+    pylab.close()
+ 	
+   # BARSTACKED linear scale histograms  #############
+    fig_num += 1
+    pylab.figure(fig_num)
+	
+    pylab.hist(counts, opts.hist_ranks_bins, histtype = 'barstacked', label = labels)
+    #pylab.hist(cleans[cls[0]+'_rank'], opts.hist_ranks_bins, histtype='bar', label = 'all cleans', log = True, alpha=0.5, color='gray') #weights = numpy.ones(len(cleans[cls[0]+'_rank']))/len(cleans[cls[0]+'_rank']) )
+    
+    #pylab.yscale('log')
+	
+    pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
+    pylab.xlabel(labelDIC[cls[0]]+ '\_rank')
+    pylab.ylabel('Number of Glitches')
+    pylab.legend(loc = 'upper center')
+
+    if rankthr:
+      # plot a line corresponding to opts.fap_threshold
+      lims = matplotlib.pyplot.axis()
+      fapthrLINE = pylab.plot([rankthr, rankthr], [lims[2], lims[3]], color = 'k', linewidth = 2)
+      fapthrTEXT = pylab.text(rankthr, 0.5*(lims[3]-lims[2])+lims[2], 'FAP = '+str(opts.fap_threshold)+' \n'+cls[0]+'\_rank = ' + str(int(rankthr*10**4)/10**4.0) +' ', ha = 'right', va = 'center')
+      matplotlib.pyplot.axis(lims)
+	
 
     #adding to the html page
-    pylab.yscale('linear')
+    #pylab.yscale('linear')
     fig_num += 1
     pylab.title('Fig. '+str(fig_num)+': Histogram for Glitches Based on ' + labelDIC[cls[0]] + '\_rank')
     name = '_hist_glitches_and_cleans' + cls[0] + '_rank_LINEAR_barstacked'
