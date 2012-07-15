@@ -133,8 +133,10 @@ def fromframefile(framefile, chname, start=-1, duration=1,\
     stream = lalframe.XLALFrOpen('', framefile)
 
     # return
-    return fromFrStream(stream, chname, start=start, duration=duration,\
-                        datatype=datatype, verbose=verbose)
+    series = fromFrStream(stream, chname, start=start, duration=duration,\
+                          datatype=datatype, verbose=verbose)
+    lalframe.XLALFrClose(stream)
+    return series
 
 def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
                  verbose=False):
@@ -175,8 +177,10 @@ def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
     stream = lalframe.XLALFrCacheOpen(cache)
 
     # return
-    return fromFrStream(stream, chname, start=start, duration=duration,\
-                        datatype=datatype, verbose=verbose)
+    series = fromFrStream(stream, chname, start=start, duration=duration,\
+                          datatype=datatype, verbose=verbose)
+    lalframe.XLALFrClose(stream)
+    return series
 
 def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
                  verbose=False):
@@ -210,15 +214,18 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
 
     # set time
     if int(start) == -1:  start = stream.epoch
-    start = lal.LIGOTimeGPS(start)
+    start = lal.LIGOTimeGPS(float(start))
     duration = float(duration)
     
     # get series type
-    if datatype == -1:
-        datatype = lalframe.XLALFrGetTimeSeriesType(chname, stream)
-      
+    if datatype == 11:
+        func = getattr(lalframe, "XLALFrInputREAL8TimeSeries")
+    else:
+        if datatype == -1:
+            datatype = lalframe.XLALFrGetTimeSeriesType(chname, stream)
+        func = getattr(lalframe, 'XLALFrRead%sTimeSeries' % _typestr[datatype])
+    
     # read to series
-    func = getattr(lalframe, 'XLALFrRead%sTimeSeries' % _typestr[datatype])
     series = func(stream, chname, start, duration, 0)
 
     # return
@@ -369,7 +376,6 @@ def duplicate(series):
     out.data.data = series.data.data
     return out
 
-
 # =============================================================================
 # Average spectrum
 # =============================================================================
@@ -427,6 +433,8 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
         func(series, 0, worklen)
 
     # generate window
+    destroywindow = not window
+    destroyplan   = not plan
     if not window:
         func   = getattr(lal, "XLALCreateKaiser%sWindow" % TYPESTR)
         window = func(seglen, 24)
@@ -455,11 +463,90 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
     func(spectrum, series, seglen, stride, window, plan)
 
     # dereference
-    del window
-    del plan
+    if destroywindow:
+       del window
+    if destroyplan:
+       func = getattr(lal, "XLALDestroy%sFFTPlan" % TYPESTR)
+       func(plan)
+       del plan
 
     # return
     return spectrum
+
+def compute_average_spectrogram(series, step, seglen, stride, window=None,\
+                                plan=None, average='medianmean',\
+                                unit=lal.lalStrainUnit):
+    """
+    Compute the average (power) spectrogram of the given REAL?TimeSeries by
+    stacking together average spectra for each timestep.
+
+    Arguments:
+
+        series : REAL8TimeSeries
+            input data
+        step : int
+            length of single average spectrum (in samples)
+        seglen : int
+            length of FFT (in samples)
+        stride : int
+            gap between FFTs (in samples)
+
+    Keyword arguments:
+
+        window : lal.REAL8Window
+            swiglal window
+        plan : lal.REAL8FFTPlan
+            plan for FFT
+        spectrum : [ 'median' | 'medianmean' | 'welch' ]
+            averaging method for spectrum, default: 'medianmean'
+        unit : lal.lalUnit
+            LAL unit for data
+    """
+
+    datatype = _series_type_code(type(series))
+    TYPESTR  = _typestr[datatype]
+
+    step   = int(step)
+    seglen = int(seglen)
+    stride = int(stride)
+
+    # generate window
+    if not window:
+        func   = getattr(lal, "XLALCreateKaiser%sWindow" % TYPESTR)
+        window = func(seglen, 24)
+
+    # generate FFT plan
+    if not plan:
+        func = getattr(lal, "XLALCreateForward%sFFTPlan" % TYPESTR)
+        plan = func(seglen, 1)
+
+    # get number of segments
+    duration = series.data.length
+    numseg   = int(duration//step)
+    if duration % step != 0:
+        warnings.warn("data is not the right size for complete coverage in %d "\
+                      "point steps. %d steps will be computed and the "\
+                      "remaining %d samples will be discarded."\
+                      % (step, numseg, duration % step))
+
+    # set up return object
+    func = getattr(lal, "XLALCreate%sVectorSequence" % TYPESTR)
+    out = func(numseg, seglen//2+1)
+
+    if numseg == 0:
+        return out
+
+    # loop over steps
+    cut = getattr(lal, "XLALCut%sTimeSeries" % TYPESTR)
+    for i in range(numseg):
+        # extract portion of time series
+        stepseries = cut(series, i*step, step)
+        spectrum   = compute_average_spectrum(stepseries, seglen, stride,\
+                                              window=window, plan=plan,\
+                                              average=average)
+        out.data[i,:] = spectrum.data.data
+
+    return out, spectrum.deltaF, spectrum.f0
 
 # =============================================================================
 # Get data type from series
