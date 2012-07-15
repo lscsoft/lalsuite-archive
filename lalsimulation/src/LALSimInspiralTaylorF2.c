@@ -184,7 +184,6 @@ int XLALSimInspiralTaylorF2(
                 phasing += 1.;
                 break;
             default:
-                XLALDestroyCOMPLEX16FrequencySeries(htilde);
                 XLAL_ERROR(XLAL_ETYPE);
         }
         switch (amplitudeO)
