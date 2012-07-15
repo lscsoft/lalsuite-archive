@@ -156,23 +156,47 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             t0 = numpy.infty
             for t in tables:
                 timedata = get_column(t, "time")
-                t0 = min(t0, timedata.min())
+                if len(timedata):
+                    t0 = min(t0, timedata.min())
+            if numpy.isinf(t0):
+                t0 = 0
             t0 = int(t0)
 
-    unit = 3600
-    timestr = "hours"
+    #
+    # get data
+    #
 
     # extract columns
     data = list()
     for i,name in enumerate(tablenames):
-        data.append(list())
+        data.append([get_column(tables[i], c.lower()) for c in columns])
 
-        # get columns and renormalise time
+    # add our own limits
+    for i in range(len(columns)):
+        if not limits[i]:
+            mins = [data[j][i].min() for j in range(len(tablenames))\
+                    if len(data[j][1])]
+            if len(mins):
+                lmin = min(ymins)
+                lmax = max(data[j][i].max() for j in range(len(tablenames))\
+                           if len(data[j][i]))
+                limits[i] = [lmin, lmax]
+
+    # get time unit
+    if "time" in columns:
+        idx = columns.index("time")
+        if limits[idx]:
+            unit, timestr = plotutils.time_axis_unit(limits[idx][1]\
+                                                     - limits[idx][0])
+        else:
+            unit, timestr = plotutils.time_axis_unit(1)
+
+    # format data
+    for i,name in enumerate(tablenames):
         for j,column in enumerate(columns):
-            data[i].append(get_column(tables[i], column.lower()))
             if column == "time":
                 data[i][j] = (data[i][j] - t0) / unit
-                if limits[j]:
+                if i==0 and limits[j]:
                     limits[j] = [float(limits[j][0] - t0) / unit,\
                                  float(limits[j][1] - t0) / unit]
 
@@ -202,12 +226,13 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     #
 
     label = {}
-    for label,column in zip(["xlabel", "ylabel", "colorlabel"], columns):
+    for i,(label,column) in enumerate(zip(["xlabel", "ylabel", "colorlabel"],\
+                                          columns)):
         # get given label
         l = kwargs.pop(label, None)
         if l is None:
             # format time string
-            if column == "time":
+            if column == "time" and limits[i]:
                 zerostr = datetime.datetime(\
                               *date.XLALGPSToUTC(LIGOTimeGPS(t0))[:6])\
                                        .strftime("%B %d %Y, %H:%M:%S %ZUTC")
@@ -227,6 +252,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     if subtitle is None and loudest:
         subtitle = "Loudest event by %s:" % plotutils.display_name(columns[-1])
         for j,c in enumerate(columns):
+            if j!= 0 and c == columns[j-1]: continue
             lstr = loudest[j]
             if c == "time":
                 lstr = lstr * unit + t0
@@ -267,6 +293,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     # make the plot
     #
 
+    tablenames = map(plotutils.display_name, tablenames)
+
     if len(columns) == 2:
         plot = plotutils.ScatterPlot(xlabel, ylabel,title, subtitle)
         for i in range(len(tablenames)):
@@ -285,9 +313,6 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
         plot.add_content(data[0][0], data[0][1], data[0][2],\
                          label=tablenames[0], **kwargs)
         kwargs.pop("cmap", None)
-        for i in range(len(tablenames[1:])):
-            plot.add_content(data[i+1][0], data[i+1][1], label=tablenames[0],\
-                             **kwargs)
         if dqstyle:
             plot.finalize(logcolor=logcolor, clim=colorlim, loc=loc,\
                           threshold=dqthresh)
@@ -311,7 +336,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     if limits[1]:
         plot.ax.set_ylim(limits[1])
 
-    plot.ax.grid(True, which="both", axis="both")
+    plot.ax.grid(True, which="both")
     if xcolumn == "time":
         plotutils.set_time_ticks(plot.ax)
     plotutils.set_minor_ticks(plot.ax)
@@ -359,9 +384,6 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
     tablenames = sorted(tables.keys())
     tables     = [tables[n] for n in tablenames]
 
-    if not normalize:
-        normalize = [1]*len(tablenames)
-
     # get axis limits
     xlim = kwargs.pop("xlim", None)
     ylim = kwargs.pop("ylim", None)
@@ -383,7 +405,12 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
     fill = kwargs.pop("fill", False)
 
     # get extras
-    if normalize != None: rate = True
+    rate = kwargs.pop("rate", False)
+    cumulative = kwargs.pop("cumulative", False)
+    if normalize:
+        rate = True
+    else:
+        normalize = [1]*len(tablenames)
     loc        = kwargs.pop("loc", 0)
 
     # set labels
@@ -394,7 +421,7 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
         ylabel = kwargs.pop("ylabel", "Rate (Hz)")
     elif not rate and cumulative:
         ylabel = kwargs.pop("ylabel", "Cumulative number")
-    elif not rate and not cumulative:
+    else:
         ylabel = kwargs.pop("ylabel", "Number")
 
     title = kwargs.pop("title", "")
@@ -486,16 +513,23 @@ def plotrate(lsctable, outfile, stride=60, column="peak_frequency", bins=[],\
     timedata = get_column(lsctable, "time")
     ratedata = get_column(lsctable, column)
     # sort in time
-    timedata, ratedata = map(numpy.asarray, zip(*sorted(zip(timedata,ratedata),\
-                                                key=lambda (t,r): t)))
+    if timedata.size:
+        timedata, ratedata = map(numpy.asarray,\
+                                 zip(*sorted(zip(timedata,ratedata),\
+                                             key=lambda (t,r): t)))
+    
 
     # get x-axis limits
     xlim = kwargs.pop("xlim", None)
     if xlim:
         start,end = xlim
+    elif timedata.size:
+        start = timedata.min()
+        end   = timedata.max()
+        xlim  = start, end
     else:
-        start   = timedata.min()
-        end     = timedata.max()
+        start = 0
+        end   = 1
 
     # get other params
     logx            = kwargs.pop("logx", False)
@@ -527,11 +561,12 @@ def plotrate(lsctable, outfile, stride=60, column="peak_frequency", bins=[],\
             # get triggers in this time bin
             ratebin = numpy.asarray(sorted(ratedata[:idx]))
             break_ = False
+            # get triggers in this time bin
+            ratebin = numpy.asarray(sorted(ratedata[:idx]))
         except IndexError:
+            idx = None
             ratebin = numpy.asarray(sorted(ratedata))
             break_ = True
-        # get triggers in this time bin
-        ratebin = numpy.asarray(sorted(ratedata[:idx]))
         # loop over ybins
         for j,ybin in enumerate(ybins):
             # work out index of first trigger outside this y bin
@@ -542,8 +577,8 @@ def plotrate(lsctable, outfile, stride=60, column="peak_frequency", bins=[],\
                 break
             ydata[i][j] = len(ratebin[:yidx])/stride
             ratebin = ratebin[yidx:]
-        timedata = timedata[idx:]
         if break_: break
+        timedata = timedata[idx:]
     xdata = xbins + stride/2
  
     # set xlabel and renomalize time
@@ -589,7 +624,10 @@ def plotrate(lsctable, outfile, stride=60, column="peak_frequency", bins=[],\
         ydata = numpy.ma.masked_where(ydata==0, ydata, copy=False)
 
     for i,ybin in enumerate(ybins):
-        label = "%s-%s" % (ybin[0], ybin[1])
+        if list(ybin) == [0, numpy.inf]:
+            label = "_"
+        else:
+            label = "%s-%s" % (ybin[0], ybin[1])
         plot.add_content(xdata, ydata[:,i], label=label, **kwargs)
 
     plot.finalize(loc=loc)
@@ -605,9 +643,9 @@ def plotrate(lsctable, outfile, stride=60, column="peak_frequency", bins=[],\
         plot.ax.set_ylim(ylim)
 
     # set grid and ticks
-    plot.ax.grid(True, which="both", axis="both")
-    set_time_ticks(plot.ax)
-    set_minor_ticks(plot.ax)
+    plot.ax.grid(True, which="both")
+    plotutils.set_time_ticks(plot.ax)
+    plotutils.set_minor_ticks(plot.ax)
 
     # save
     plot.savefig(outfile, bbox_inches=bbox_inches,\
