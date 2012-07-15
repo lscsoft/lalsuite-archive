@@ -19,6 +19,7 @@
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
 import datetime, re
+import numpy
 
 from glue import segments
 from pylal import plotutils
@@ -119,9 +120,9 @@ class PlotSegmentsPlot(object):
 # Plot segments
 # =============================================================================
 
-def plotsegmentlistdict(segdict, outfile, keys=None, start=None,\
-                        end=None, zero=None, highlight_segments=None,\
-                        insetlabels=None, **kwargs):
+def plotsegmentlistdict(segdict, outfile, keys=None, t0=None,\
+                        highlight_segments=None, insetlabels=None,\
+                        **kwargs):
     """
     Plots a glue.segments.segmentlistdict using the PlotSegmentsPlot class from
     pylal.plotutils.
@@ -137,11 +138,7 @@ def plotsegmentlistdict(segdict, outfile, keys=None, start=None,\
 
         keys : list
             ordered list of keys to use in this order on the plot
-        start : float
-            GPS start time for plot
-        end : float
-            GPS end time for plot
-        zero : float
+        t0 : float
             GPS time around which to zero plot
         highlight_segments : glue.segments.segmentlistdict
             list of segments to highlight with vertical red dashed lines
@@ -161,67 +158,86 @@ def plotsegmentlistdict(segdict, outfile, keys=None, start=None,\
         bbox_inches : str
             use "tight" to get a bounding box tight to the axis.
     """
-    # get zeros
-    if not start or not end:
+    # get time limits
+    xlim = kwargs.pop("xlim", None)
+    if xlim is None:
         extents = [seg.extent() for seg in segdict.values()]
-    if not start:
         start = min(s[0] for s in extents)
-    if not end:
         end   = max(s[1] for s in extents)
-    if not zero:
-        zero = start
+        xlim  = start,end
+    else:
+        start,end = xlim
 
     # get unit for plot
     unit, timestr = plotutils.time_axis_unit(end-start)
 
-    # set labels
-    zero = LIGOTimeGPS("%.3f" % zero)
-    if zero.nanoseconds==0:
-        tlabel = datetime.datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
-                     .strftime("%B %d %Y, %H:%M:%S %ZUTC")
-    else:
-        tlabel = datetime.datetime(*date.XLALGPSToUTC(LIGOTimeGPS(\
-                     zero.seconds))[:6]).strftime("%B %d %Y, %H:%M:%S %ZUTC")
-        tlabel = tlabel.replace(" UTC", ".%.3s UTC" % zero.nanoseconds)
-    xlabel   = kwargs.pop("xlabel",\
-                          "Time (%s) since %s (%s)" % (timestr, tlabel, zero))
-    ylabel   = kwargs.pop("ylabel", "")
-    title    = kwargs.pop("title", "")
+    # set xlabel and renomalize time
+    xlabel = kwargs.pop("xlabel", None)
+    if not xlabel:
+        if not t0:
+            t0 = start
+        unit, timestr = plotutils.time_axis_unit(end-start)
+        t0 = LIGOTimeGPS(t0)
+        if t0.nanoseconds==0:
+            xlabel = datetime.datetime(*date.XLALGPSToUTC(LIGOTimeGPS(t0))[:6])\
+                         .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+            xlabel = "Time (%s) since %s (%s)" % (timestr, xlabel, int(t0))
+        else:
+            xlabel = datetime.datetime(*date.XLALGPSToUTC(\
+                                                  LIGOTimeGPS(t0.seconds))[:6])\
+                          .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+            xlabel = "Time (%s) since %s (%s)"\
+                     % (timestr,
+                        xlabel.replace(" UTC", ".%.3s UTC" % t0.nanoseconds),\
+                        t0)
+        t0 = float(t0)
+    ylabel   = kwargs.pop("ylabel",   "")
+    title    = kwargs.pop("title",    "")
     subtitle = kwargs.pop("subtitle", "")
 
     # get other parameters
-    labels_inset = kwargs.pop("labels_inset", False)
-    bbox_inches  = kwargs.pop("bbox_inches", "tight")
+    labels_inset    = kwargs.pop("labels_inset", False)
+    bbox_inches     = kwargs.pop("bbox_inches", "tight")
+    hidden_colorbar = kwargs.pop("hidden_colorbar", False)
 
     # escape underscores for latex text
+    if not keys:
+        keys = segdict.keys()
     if pylab.rcParams["text.usetex"]:
-        if keys:
-            keys = [re.sub('(?<!\\\\)_', '\_', key) for key in keys]
-        segkeys = segdict.keys()
         newdict = segments.segmentlistdict()
-        for key in segkeys:
+        for i,key in enumerate(keys):
            newkey = re.sub('(?<!\\\\)_', '\_', key)
+           keys[i] = newkey
            newdict[newkey] = segdict[key]
         segdict = newdict
 
     # generate plot
     plot = plotutils.PlotSegmentsPlot(xlabel, ylabel, title, subtitle,\
-                                       t0=zero, dt=unit)
+                                       t0=t0, dt=unit)
     plot.add_content(segdict, keys, **kwargs)
     plot.finalize(labels_inset=insetlabels)
 
-    # highligh segments
+    # highlight segments
     if highlight_segments:
         for seg in highlight_segments:
             plot.highlight_segment(seg)
  
+    # add colorbar
+    if hidden_colorbar:
+        plotutils.add_colorbar(plot.ax, visible=False)
+
     # set axis limits
-    xlim = [float(start-zero)/unit, float(end-zero)/unit]
+    xlim = [float(start-t0)/unit, float(end-t0)/unit]
     plot.ax.set_xlim(*xlim)
 
     # set grid
-    plot.ax.grid(True,which='major')
-    plot.ax.grid(True,which='majorminor')
+    plot.ax.grid(True, which="both")
+    plotutils.set_time_ticks(plot.ax)
+    plotutils.set_minor_ticks(plot.ax, x=False)
+
+    # set ticks
+    plotutils.set_time_ticks(plot.ax)
+    plot
 
     # save
     plot.savefig(outfile, bbox_inches=bbox_inches,\
@@ -289,14 +305,16 @@ def plothistogram(segdict, outfile, keys=None, num_bins=100, **kwargs):
 
     # get savefig option
     bbox_inches = kwargs.pop('bbox_inches', 'tight')
+    hidden_colorbar = kwargs.pop("hidden_colorbar", False)
  
     # escape underscores for latex text
+    if not keys:
+        keys = segdict.keys()
     if pylab.rcParams["text.usetex"]:
-        if not keys:
-            keys = segdict.keys()
         newdict = segments.segmentlistdict()
-        for key in segdict.keys():
+        for i,key in enumerate(keys):
            newkey = re.sub('(?<!\\\\)_', '\_', key)
+           keys[i] = newkey
            newdict[newkey] = segdict[key]
         segdict = newdict
 
@@ -324,62 +342,118 @@ def plothistogram(segdict, outfile, keys=None, num_bins=100, **kwargs):
     plot.close()
 
 # =============================================================================
-# Plot segment duration histogram
+# Plot duty cycle
 # =============================================================================
 
-def plotduration(seglist, outfile, flag="_", binlength=3600, start=None,\
-                 end=None, zero=None, cumulative=False, normalized=False,\
-                 **kwargs):
+def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
+                  showmean=False, **kwargs):
     """
-    Plot the duration of entries in a given glue.segments.segmentlist segs,
-    to the given output file, using bins of the given length. Output can be in 
-    either format='line' or format='bar', and can be cumulative and normalized
-    to show segment number instead of time.
+    Plot the percentage duty cycle each flag in the given
+    glue.segments.segmentlistdict, binned over the given duration.
     """
-    if not start:
-        start = seglist.extent()[0]
-    if not end: 
-        end   = seglist.extent()[1]
-    if not zero:
-        zero  = start
-    
-    # restrict to start and end
-    span = segments.segmentlist([segments.segment(start, end)])
-    segs = segs & span
-
-    unit,timestr = dqPlotUtils.time_unit(end-start)
-
-    # get labels
-    if normalized:
-        xlabel  = kwargs.pop("xlabel", "Segment number")
+    # get time limits
+    xlim = kwargs.pop("xlim", None)
+    if xlim is None:
+        extents = [seg.extent() for seg in segdict.values()]
+        start = min(s[0] for s in extents)
+        end   = max(s[1] for s in extents)
+        xlim  = start,end
     else:
-        zerostr = datetime.datetime(*date.XLALGPSToUTC(\
-                                    datatypes.LIGOTimeGPS(zero))[:6])\
-                                    .strftime("%B %d %Y, %H:%M:%S %ZUTC")
-        xlabel  = kwargs.pop('xlabel', 'Time (%s) since %s (%s)'\
-                                       % (timestr, zerostr, zero))
-    if cumulative:
-        ylabel   = kwargs.pop('ylabel', 'Cumulative segment duration (seconds)')
+        start,end = xlim
+
+    # get unit for plot
+    unit, timestr = plotutils.time_axis_unit(end-start)
+
+    # set xlabel and renomalize time
+    xlabel = kwargs.pop("xlabel", None)
+    if not xlabel:
+        if not t0:
+            t0 = start
+        unit, timestr = plotutils.time_axis_unit(end-start)
+        t0 = LIGOTimeGPS(t0)
+        if t0.nanoseconds==0:
+            xlabel = datetime.datetime(*date.XLALGPSToUTC(LIGOTimeGPS(t0))[:6])\
+                         .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+            xlabel = "Time (%s) since %s (%s)" % (timestr, xlabel, int(t0))
+        else:
+            xlabel = datetime.datetime(*date.XLALGPSToUTC(\
+                                                  LIGOTimeGPS(t0.seconds))[:6])\
+                          .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+            xlabel = "Time (%s) since %s (%s)"\
+                     % (timestr,
+                        xlabel.replace(" UTC", ".%.3s UTC" % t0.nanoseconds),\
+                        t0)
+        t0 = float(t0)
+        xlim[0] = (start - t0)/unit
+        xlim[1] = (end - t0)/unit
+    ylabel   = kwargs.pop("ylabel",   "")
+    title    = kwargs.pop("title",    "")
+    subtitle = kwargs.pop("subtitle", "")
+
+    # get other parameters
+    loc = kwargs.pop("loc", 0)
+    legalpha = kwargs.pop("alpha", 0.8)
+    labels_inset    = kwargs.pop("labels_inset", False)
+    bbox_inches     = kwargs.pop("bbox_inches", "tight")
+    hidden_colorbar = kwargs.pop("hidden_colorbar", False)
+
+    # escape underscores for latex text
+    if not keys:
+        keys = segdict.keys()
+    if pylab.rcParams["text.usetex"]:
+        newdict = segments.segmentlistdict()
+        for i,key in enumerate(keys):
+           newkey = re.sub('(?<!\\\\)_', '\_', key)
+           keys[i] = newkey
+           newdict[newkey] = segdict[key]
+        segdict = newdict
+
+    #
+    # generate duty cycle info
+    #
+
+    # generate bins
+    if int(end-start) % binlength == 0:
+        numbins = int(end-start)/binlength
     else:
-        ylabel   = kwargs.pop('ylabel', 'Segment duration (seconds)')
-    title    = kwargs.pop('title',  'Segment duration summary')
-    subtitle = kwargs.pop("subtitle",\
-                          "Running time: %.2f %s. Duty cycle: %.2f\%%"\
-                          % ((end-start)/unit, timestr,\
-                          livetime/(end-start)*100))
+        numbins = float(end-start)//binlength+1
+    bins = numpy.arange(start, end, binlength) + binlength/2
 
-    # get axis scale
-    logx = kwargs.pop('logx', False)
-    logy = kwargs.pop('logy', False)
+    duty = dict((key, numpy.zeros(numbins)) for key in keys)
 
-    # get savefig option
-    bbox_inches = kwargs.pop('bbox_inches', 'tight')
+    bs = start
+    for i in range(numbins):
+        be = float(bs + binlength)
+        seg = segments.segmentlist([segments.segment(bs, be)])
+        for key in keys:
+            duty[key][i] = float(abs(segdict[key] & seg))/abs(seg) * 100
+        bs += binlength
 
-    # get axis limits
-    if not normalized:
-        xlim = kwargs.pop('xlim', (float(start-zero)/unit,float(end-zero)/unit))
-    else:
-        xlim = kwargs.pop('xlim', (0.5, len(segs)+0.9))
-    ylim = kwargs.pop('ylim', None)
+    if showmean:
+        mean = [duty_cycle[keys[0]][:i+1].mean() for i in range(numbins)]
 
+    #
+    # generate plot
+    #
 
+    bins = (bins-t0)/unit
+
+    plot = plotutils.BarPlot(xlabel, ylabel, title, subtitle)
+    for i,key in enumerate(keys):
+        plot.add_content(bins, duty[key], label=plotutils.display_name(key),\
+                         alpha=0.8, width=binlength/unit)
+    plot.finalize(loc=loc, alpha=legalpha)
+
+    # add colorbar
+    if hidden_colorbar:
+        plotutils.add_colorbar(plot.ax, visible=False)
+
+    # set limits
+    plot.ax.autoscale_view(tight=True, scalex=True)
+    if xlim:
+        plot.ax.set_xlim(map(float, xlim))
+    plot.ax.set_ylim(0, 100)
+
+    # save figure
+    plot.savefig(outfile, bbox_inches=bbox_inches,\
+                 bbox_extra_artists=plot.ax.texts)
