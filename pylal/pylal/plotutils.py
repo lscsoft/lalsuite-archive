@@ -25,7 +25,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 
 import itertools
 from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid import make_axes_locatable
 
 import numpy
 import pylab
@@ -68,19 +68,19 @@ class BasicPlot(object):
     It is up to developers to subclass BasicPlot and fill in the add_content()
     and finalize() methods.
     """
-    def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    def __init__(self, xlabel="", ylabel="", title="", subtitle="", **kwargs):
         """
         Basic plot initialization.  A subclass can override __init__ and call
         this one (plotutils.BasicPlot.__init__(self, *args, **kwargs)) and
         then initialize variables to hold data to plot and labels.
         """
-        self.fig = pylab.figure()
+        self.fig = pylab.figure(**kwargs)
         self.ax = self.fig.add_subplot(111)
 
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
         if subtitle:
-            self.ax.set_title(title, x=0.5, y=1.025)
+            self.ax.set_title(title, x=0.5, y=1.04)
             self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
                          transform=self.ax.transAxes, verticalalignment='top')
         else:
@@ -236,7 +236,7 @@ def display_name(columnName):
     # find all words, preserving acronyms in upper case
     words = []
     for w in re.split('\s', columnName):
-        if w.isupper(): words.append(w)
+        if w[:-1].isupper(): words.append(w)
         else:           words.extend(re.split('_', w))
 
     # parse words
@@ -265,7 +265,7 @@ def display_name(columnName):
                 words[i] = '$\%s^2$' % w[:2]
         # get everything else
         else:
-            if w.isupper():
+            if w[:-1].isupper():
                 words[i] = w
             else:
                 words[i] = w.title()
@@ -533,7 +533,7 @@ def set_minor_ticks(ax, x=True, y=True):
         if int(str(int(x*10**8))[0]) % 2:
             return ""
         elif pylab.rcParams["text.usetex"]:
-            return "$%s$" % plotutils.float_to_latex(x)
+            return "$%s$" % float_to_latex(x)
         else:
             return str(int(x))
 
@@ -612,10 +612,11 @@ class BarPlot(BasicPlot):
     @method_callable_once
     def finalize(self, loc=0, orientation="vertical", alpha=0.8):
         # make plot
-        for x_vals, y_vals, plot_kwargs in \
+        for x_vals, y_vals, plot_kwargs, c in \
             itertools.izip(self.x_data_sets, self.y_data_sets,
-                           self.kwarg_sets):
+                           self.kwarg_sets, default_colors()):
             plot_kwargs.setdefault("align", "center")
+            plot_kwargs.setdefault("color", c)
             # FIXME: linewidth is not a valid kwarg in matplotlib 0.87.7
             # Reenable once clusters upgrade to CentOS 5.  Until then,
             # all bars have thick, black borders.
@@ -645,7 +646,8 @@ class VerticalBarHistogram(BasicPlot):
         self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, num_bins=20, normed=False, logx=False, logy=False):
+    def finalize(self, loc=0, alpha=0.8, num_bins=20, normed=False,\
+                 logx=False, logy=False):
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(self.data_sets)
         if logx:
@@ -661,14 +663,13 @@ class VerticalBarHistogram(BasicPlot):
             width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
 
         # make plot
-        legends = []
-        plot_list = []
-        for i, (data_set, plot_kwargs) in \
-            enumerate(itertools.izip(self.data_sets, self.kwarg_sets)):
+        for i, (data_set, plot_kwargs, c) in \
+            enumerate(itertools.izip(self.data_sets, self.kwarg_sets,\
+                                     default_colors())):
             # set default values
             plot_kwargs.setdefault("alpha", 0.6)
-            plot_kwargs.setdefault("align", "center")
             plot_kwargs.setdefault("width", width)
+            plot_kwargs.setdefault("color", c)
 
             # make histogram
             npv = [int(v) for v in numpy.version.version.split('.')]
@@ -679,9 +680,6 @@ class VerticalBarHistogram(BasicPlot):
                 y, x = numpy.histogram(data_set, bins=bins, normed=normed)
             x = x[:-1]
 
-            # stagger bins for pure aesthetics
-            x += 0.1 * i * max_stat / num_bins
-
             # mask zeros for logy
             if logy:
                 y = numpy.ma.masked_where(y==0, y, copy=False)
@@ -689,16 +687,8 @@ class VerticalBarHistogram(BasicPlot):
             # plot
             plot_item = self.ax.bar(x, y, **plot_kwargs)
 
-            # add legend and the right plot instance
-            # for creating the correct labels!
-            if "label" in plot_kwargs and \
-                   not plot_kwargs["label"].startswith("_"):
-
-                legends.append(plot_kwargs["label"])
-                plot_list.append(plot_item[0])
-
         # add legend if there are any non-trivial labels
-        self.ax.legend(plot_list, legends)
+        self.add_legend_if_labels_exist(loc=loc, alpha=alpha)
 
         if logx:
             self.ax.set_xscale("log")
@@ -876,11 +866,13 @@ class ImagePlot(BasicPlot):
     correctly, and a colorbar.
     """
     def __init__(self, *args, **kwargs):
+        colorlabel = kwargs.pop("colorlabel", None)
         BasicPlot.__init__(self, *args, **kwargs)
         self.image_sets  = []
         self.x_bins_sets = []
         self.y_bins_sets = []
         self.kwarg_sets  = []
+        self.colorlabel  = colorlabel
 
     def add_content(self, image, x_bins, y_bins, **kwargs):
         """
@@ -935,7 +927,8 @@ class ImagePlot(BasicPlot):
         pylab.axis('tight')
 
         if colorbar:
-            add_colorbar(self.ax, log=logcolor, clim=clim)
+            add_colorbar(self.ax, log=logcolor, clim=clim,\
+                         label=self.colorlabel)
 
         if logx:
             xticks, xlabels, xminorticks = log_transform(self.ax.get_xlim())
@@ -1581,7 +1574,11 @@ class ScatterPlot(SimplePlot):
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
                            default_colors()):
             plot_kwargs.setdefault("c", color)
-            self.ax.scatter(x_vals, y_vals, **plot_kwargs)
+            if len(x_vals):
+                self.ax.scatter(x_vals, y_vals, **plot_kwargs)
+            else:
+                plot_kwargs["visible"] = False
+                self.ax.scatter([1], [1], **plot_kwargs)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=0.8)
@@ -1705,13 +1702,13 @@ class PlotSegmentsPlot(BasicPlot):
                              [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
             if labels_inset:
                 self.ax.text(0.01, (row+1)/(len(self.keys)+1),\
-                             re.sub('\\+_+','\_',key),\
+                             re.sub(r'\\+_+','\_',key),\
                              horizontalalignment='left',\
                              verticalalignment='center',\
                              transform=self.ax.transAxes,\
                              backgroundcolor='white',\
                              bbox=dict(facecolor='white', alpha=0.5,\
-                                       edgecolor='none'))
+                                       edgecolor='white'))
     
         ticks = pylab.arange(len(self.keys))
         self.ax.set_yticks(ticks)
