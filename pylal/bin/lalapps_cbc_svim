@@ -208,18 +208,27 @@ class upper_limit(object):
 
   def get_zero_lag_segments(self):
     '''Compute multi-ifo (coincident) segment list from single ifo segments.'''
-    if self.opts.verbose: print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
+    if self.opts.verbose:
+      print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
+  
+    self.zero_lag_segments = segments.segmentlistdict()
+    on_ifos_dict, excluded_ifos_dict = compute_dur.get_allifo_combos(self.segments, 2)
 
-    self.zero_lag_segments = dict( (inst,0) for inst in self.instruments )
-    for inst in self.instruments:
-      self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
+    for on_ifos_key, combo in on_ifos_dict.items():
+      ifos = frozenset(lsctables.instrument_set_from_ifos(on_ifos_key))
+      self.zero_lag_segments[ifos] = self.segments.intersection( combo )
+  
+      excluded_ifos = excluded_ifos_dict[on_ifos_key]
+      self.zero_lag_segments[ifos] -= self.segments.union( excluded_ifos )
+  
+      if not self.opts.include_play: # subtract playground segments 
+        self.zero_lag_segments[ifos] -= segmentsUtils.S2playground(self.segments.extent_all())
+        play_status = 'excludes playground'
+      else:
+        play_status = 'includes playground'
+  
       if self.opts.verbose:
-        print >>sys.stdout,"\t%s were on for %d seconds (includes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
-
-      if not self.opts.include_play: #subtract playground segments
-        self.zero_lag_segments[inst] -= segmentsUtils.S2playground(self.zero_lag_segments[inst].extent())
-        if self.opts.verbose:
-          print >>sys.stdout,"\t%s were on for %d seconds (excludes playground)" % (','.join(sorted(list(inst))),abs(self.zero_lag_segments[inst]))
+        print >> sys.stdout,"\t%s were on for %d seconds (%s)" % ( on_ifos_key, float(abs(self.zero_lag_segments[ifos])), play_status )
 
     return self.zero_lag_segments
 
@@ -506,19 +515,18 @@ class upper_limit(object):
        SELECT sim_inspiral.*,
        -- true if injection matched a coinc below the false alarm rate threshold
        EXISTS (
-	     SELECT *
-	     FROM coinc_event_map AS mapa
-	     JOIN coinc_event_map AS mapb ON ( mapa.coinc_event_id == mapb.coinc_event_id )
-	     JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id )
-	     WHERE mapa.table_name == "sim_inspiral"
-	     AND mapa.event_id == sim_inspiral.simulation_id
-	     AND coinc_inspiral.combined_far < ?
-	     )
+          SELECT *
+          FROM coinc_event_map AS mapa
+              JOIN coinc_event_map AS mapb ON ( mapa.coinc_event_id == mapb.coinc_event_id )
+              JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id )
+          WHERE mapa.table_name == "sim_inspiral"
+              AND mapa.event_id == sim_inspiral.simulation_id
+              AND coinc_inspiral.combined_far < ? )
        FROM sim_inspiral
        WHERE
-       -- only interested in injections that were injected
-       injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
-	 """
+           -- only interested in injections that were injected
+           injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
+       """
 
     for values in self.connection.cursor().execute(injection_finding_query,(FAR,)):
       sim = make_sim_inspiral(values)

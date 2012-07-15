@@ -510,12 +510,13 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         ufar_summaries.add_to_bkg_stats(eid, esid, ifos, param_group, ufar)
         # since the ufar_summaries class doesn't know about zero-lag esids,
         # we must remove the zero-lag stats from it's bkg_stats list by hand
-        if esid in background.zero_lag_ids[eid]:
-            ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
-        if opts.plot_combined:
-            cfar_summaries.add_to_bkg_stats(eid, esid, "ALL_IFOS", "ALL_PARAM_BINS", cfar)
+        if eid in background.zero_lag_ids.keys():
             if esid in background.zero_lag_ids[eid]:
-                cfar_summaries.bkg_stats[(eid, "ALL_IFOS", "ALL_PARAM_BINS")].remove(cfar)
+                ufar_summaries.bkg_stats[(eid, ifos, param_group)].remove(ufar)
+            if opts.plot_combined:
+                cfar_summaries.add_to_bkg_stats(eid, esid, "ALL_IFOS", "ALL_PARAM_BINS", cfar)
+                if esid in background.zero_lag_ids[eid]:
+                    cfar_summaries.bkg_stats[(eid, "ALL_IFOS", "ALL_PARAM_BINS")].remove(cfar)
 
     # calculate max-bkg fars
     if opts.verbose:
