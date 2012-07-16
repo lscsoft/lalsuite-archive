@@ -213,7 +213,10 @@ class RateVsPeakFreq(object):
 	def add_contents(self, contents, seglists):
 		self.nevents += contents[self.ifo].nevents
 		for f in contents[self.ifo].peak_freq:
-			self.rate[f,] += 1.0
+			try:
+				self.rate[f,] += 1.0
+			except IndexError, e:
+				raise ValueError, "trigger peak frequency %g Hz outside plot range [%g Hz, %g Hz]" % (f, self.rate.bins[0].min, self.rate.bins[0].max)
 
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Peak Frequency\n(%d Triggers)" % self.nevents)
