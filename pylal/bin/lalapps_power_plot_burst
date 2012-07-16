@@ -37,6 +37,7 @@ from glue.lal import CacheEntry
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import date
 from pylal import git_version
 from pylal import llwapp
@@ -400,7 +401,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose)
-	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.livetime_program).coalesce()
+	seglists |= ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, options.livetime_program).coalesce()
 	xmldoc.unlink()
 
 
