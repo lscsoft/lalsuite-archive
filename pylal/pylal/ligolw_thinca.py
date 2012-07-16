@@ -252,7 +252,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			coinc_inspiral.snr = None
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
-		coinc_inspiral.minimum_duration = None
+		coinc_inspiral.minimum_duration = min(event.template_duration for event in events)
 		coinc_inspiral.set_end(coinc_inspiral_end_time(events, self.time_slide_index[time_slide_id]))
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
