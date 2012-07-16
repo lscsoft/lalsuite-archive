@@ -1616,9 +1616,10 @@ class ColorbarScatterPlot(BasicPlot):
         for x_vals, y_vals, c_vals, plot_kwargs in\
             itertools.izip(self.x_data_sets, self.y_data_sets, self.c_data_sets,
                            self.kwarg_sets):
-            zipped = zip(x_vals, y_vals, c_vals)
-            zipped.sort(key=lambda (x,y,c): c)
-            x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
+            if len(x_vals):
+                zipped = zip(x_vals, y_vals, c_vals)
+                zipped.sort(key=lambda (x,y,c): c)
+                x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
             if logcolor:
                 plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
             p = self.ax.scatter(x_vals, y_vals, c=c_vals, **plot_kwargs)
@@ -1738,15 +1739,24 @@ class DQScatterPlot(ColorbarScatterPlot):
                 plot_kwargs.setdefault("vmin", clim[0])
                 plot_kwargs.setdefault("vmax", clim[1])
 
-            zipped = zip(x_vals, y_vals, c_vals)
-            zipped.sort(key=lambda (x,y,c): c)
-            x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
+            if len(x_vals):
+                zipped = zip(x_vals, y_vals, c_vals)
+                zipped.sort(key=lambda (x,y,c): c)
+                x_vals, y_vals, c_vals = map(numpy.asarray, zip(*zipped))
 
-            # split triggers on threshold
-            idx  = (c_vals>=threshold).nonzero()[0][0]
-            xlow,xhigh = numpy.split(x_vals, [idx])
-            ylow,yhigh = numpy.split(y_vals, [idx])
-            clow,chigh = numpy.split(c_vals, [idx])
+            t = (c_vals>=threshold).nonzero()[0]
+            if len(t):
+                idx = t[0]
+                xlow,xhigh = numpy.split(x_vals, [idx])
+                ylow,yhigh = numpy.split(y_vals, [idx])
+                clow,chigh = numpy.split(c_vals, [idx])
+            else:
+                xlow  = x_vals
+                ylow  = y_vals
+                clow  = c_vals
+                xhigh = numpy.array([])
+                yhigh = numpy.array([])
+                chigh = numpy.array([])
 
             if xlow.size > 0:
                 lowargs = copy.deepcopy(plot_kwargs)
@@ -1755,9 +1765,13 @@ class DQScatterPlot(ColorbarScatterPlot):
                 if lowargs.get("marker", None) != "x":
                     lowargs["edgecolor"] = "none"
                 self.ax.scatter(xlow, ylow, c=clow, **lowargs)
-            p = self.ax.scatter(xhigh, yhigh, c=chigh, **plot_kwargs)
+            if xhigh.size > 0:
+                self.ax.scatter(xhigh, yhigh, c=chigh, **plot_kwargs)
+            if not len(x_vals):
+                plot_kwargs["visible"] = False
+                self.ax.scatter([1], [1], c=1, **plot_kwargs)
 
-        if colorbar and p is not None:
+        if colorbar:
             add_colorbar(self.ax, log=logcolor, label=self.clabel, clim=clim,\
                          cmap=plot_kwargs.get("cmap", None))
 
