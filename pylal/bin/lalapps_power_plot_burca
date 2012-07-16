@@ -134,7 +134,7 @@ class RateContours(object):
 
 			# use an average of 3 bins per time slide in each
 			# direction, but round to an odd integer
-			nbins = math.ciel((max_offset - min_offset) / time_slide_spacing * 3)
+			nbins = math.ceil((max_offset - min_offset) / time_slide_spacing * 3)
 
 			# construct the binning
 			self.bins = rate.BinnedRatios(rate.NDBins((rate.LinearBins(min_offset, max_offset, nbins), rate.LinearBins(min_offset, max_offset, nbins))))
