@@ -89,6 +89,7 @@ def DBTable_set_connection(connection):
 	Set the Python DB-API 2.0 compatible connection the DBTable class
 	will use.
 	"""
+	warnings.warn("DBTable_set_connection() function is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
 	DBTable.connection = connection
 
 
@@ -674,7 +675,7 @@ class DBTable(table.Table):
 	no way to indicate the constraints that should be imposed on the
 	columns, for example which columns should be used as primary keys
 	and so on.  This can result in poor query performance.  It is also
-	possible to write a database' contents to a LIGO Light Weight XML
+	possible to extract a database' contents to a LIGO Light Weight XML
 	file even when the database contains unrecognized tables, but
 	without developer intervention the column types will be guessed
 	using a generic mapping of SQL types to LIGO Light Weight types.
@@ -685,15 +686,15 @@ class DBTable(table.Table):
 
 	Example:
 
+	>>> import sqlite3
+	>>> connection = sqlite3.connection()
 	>>> tbl = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}), connection = connection)
 
-	There is not yet a LIGO Light Weight content handler that is able
-	to do this correctly, so for the time-being a mechanism is used
-	where in the connection is stored as an attribute of the DBTable
-	class.  This makes it difficult to work with more than one database
-	at a time, and is the subject of on-going development effort.  See
-	the DBTable_set_connection() function for information on how to set
-	the class attribute.
+	A custom content handler must be created in order to pass the
+	connection keyword argument to the DBTable class when instances are
+	created, since the default content handler does not do this.  See
+	the use_in() function defined in this module for information on how
+	to create such a content handler
 
 	If a custom glue.ligolw.Table subclass is defined in
 	glue.ligolw.lsctables whose name matches the name of the DBTable
@@ -755,13 +756,8 @@ class DBTable(table.Table):
 		# save the stripped name
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 
-		# replace connection class attribute with an instance
-		# attribute
-		if "connection" in kwargs:
-			self.connection = kwargs.pop("connection")
-		else:
-			warnings.warn("use of \"connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated.  Use \"connection\" parameter of .__init__() method instead", DeprecationWarning)
-			self.connection = self.connection
+		# retrieve connection object from kwargs
+		self.connection = kwargs.pop("connection")
 
 		# pre-allocate a cursor for internal queries
 		self.cursor = self.connection.cursor()
@@ -1089,26 +1085,42 @@ def use_in(ContentHandler):
 	"""
 	Modify ContentHandler, a sub-class of
 	glue.ligolw.LIGOLWContentHandler, to cause it to use the DBTable
-	class defined in this module when parsing XML documents.
+	class defined in this module when parsing XML documents.  Instances
+	of the class must provide a connection attribute.  When a document
+	is parsed, the value of this attribute will be passed to the
+	DBTable class' .__init__() method as each table object is created,
+	and thus sets the database connection for all table objects in the
+	document.
 
 	Example:
 
+	>>> import sqlite3
 	>>> from glue.ligolw import ligolw
 	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
-	...	pass
+	...	def __init__(self, *args):
+	...		super(MyContentHandler, self).__init__(*args)
+	...		self.connection = sqlite3.connection()
 	...
 	>>> from glue.ligolw import dbtables
 	>>> dbtables.use_in(MyContentHandler)
+
+	Multiple database files can be in use at once by creating a content
+	handler class for each one.
 	"""
 	lsctables.use_in(ContentHandler)
 
 	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+		try:
+			connection = self.connection
+		except AttributeError:
+			warnings.warn("use of \"DBTable.connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
+			connection = DBTable.connection
 		name = table.StripTableName(attrs[u"Name"])
 		if name in map(table.StripTableName, NonDBTableNames):
 			return __parent_startTable(self, attrs)
 		if name in TableByName:
-			return TableByName[name](attrs, connection = DBTable.connection)
-		return DBTable(attrs, connection = DBTable.connection)
+			return TableByName[name](attrs, connection = connection)
+		return DBTable(attrs, connection = connection)
 
 	ContentHandler.startTable = startTable
 
