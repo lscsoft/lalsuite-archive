@@ -393,7 +393,6 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
            # interpolate the data onto a log-scale
            sequence,ydata = loginterpolate(sequence, f0[i], deltaF[i])
         if logy and ylim:
-           print ylim, ydata
            plotted = (ydata > ylim[0]) & (ydata <= ylim[1])
            newVectorLength = numpy.where((plotted))[0].size
            newsequence = lal.XLALCreateREAL8VectorSequence(sequence.length,\
@@ -462,6 +461,9 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
     if ylim:
         plot.ax.set_ylim(ylim)
 
+    # set grid and ticks
+    plot.ax.grid(True, which="both")
+    plotutils.set_time_ticks(plot.ax)
     plotutils.set_minor_ticks(plot.ax)
 
     # save and close
