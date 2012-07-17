@@ -161,9 +161,13 @@ def plotsegmentlistdict(segdict, outfile, keys=None, t0=None,\
     # get time limits
     xlim = kwargs.pop("xlim", None)
     if xlim is None:
-        extents = [seg.extent() for seg in segdict.values()]
-        start = min(s[0] for s in extents)
-        end   = max(s[1] for s in extents)
+        try:
+            extents = [seg.extent() for seg in segdict.values()]
+            start = min(s[0] for s in extents)
+            end   = max(s[1] for s in extents)
+        except ValueError:
+            start = 0
+            end   = 1 
         xlim  = start,end
     else:
         start,end = xlim
@@ -354,9 +358,13 @@ def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
     # get time limits
     xlim = kwargs.pop("xlim", None)
     if xlim is None:
-        extents = [seg.extent() for seg in segdict.values()]
-        start = min(s[0] for s in extents)
-        end   = max(s[1] for s in extents)
+        try:
+            extents = [seg.extent() for seg in segdict.values()]
+            start = min(s[0] for s in extents)
+            end   = max(s[1] for s in extents)
+        except ValueError:
+            start = 0
+            end   = 1 
         xlim  = start,end
     else:
         start,end = xlim
