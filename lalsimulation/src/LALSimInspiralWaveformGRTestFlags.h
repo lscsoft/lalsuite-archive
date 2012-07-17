@@ -19,71 +19,87 @@
 #ifndef _LALSIMINSPIRALWAVEFORMGRFLAGS_H
 #define _LALSIMINSPIRALWAVEFORMGRFLAGS_H
 
-#include <stdio.h> 
+#include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h> 
 #include <string.h>
 #include <lal/LALMalloc.h>
 #include <lal/LALError.h>
 
-/** Default values for all enumerated flags */ 
-#define LAL_SIM_INSPIRAL_GR_TEST_DEFAULT LAL_SIM_INSPIRAL_GR_TEST_NONE
-
-/***************************************
-* Enumerator that contains all flags to turn on testing each PN cefficient
-***************************************/
-
-typedef enum {
-    LAL_SIM_INSPIRAL_GR_TEST_NONE = 1, /**< No GR test */
-    LAL_SIM_INSPIRAL_GR_TEST_0PN = 0, /**< Leading order */
-    LAL_SIM_INSPIRAL_GR_TEST_05PN = 0, /**< 0.5PN */
-    LAL_SIM_INSPIRAL_GR_TEST_1PN = 0, /**< 1PN */
-    LAL_SIM_INSPIRAL_GR_TEST_15PN = 0, /**< 1.5PN */
-    LAL_SIM_INSPIRAL_GR_TEST_2PN = 0, /**< 2PN */
-    LAL_SIM_INSPIRAL_GR_TEST_25PN = 0, /**< 2.5PN */
-    LAL_SIM_INSPIRAL_GR_TEST_25PNL = 0, /**< 2.5PN logarithmic term */
-    LAL_SIM_INSPIRAL_GR_TEST_3PN = 0, /**< 3PN */    
-    LAL_SIM_INSPIRAL_GR_TEST_3PNL = 0, /**< 3PN logarithmic term*/   
-    LAL_SIM_INSPIRAL_GR_TEST_35PN = 0, /**< 3.5PN */
-} LALSimInspiralGRTestFlags;
-
-/***************************************
-* Linked list node for the testing GR parameters
-***************************************/
-
+/**
+ * Linked list node for the testing GR parameters
+ */
 typedef struct tagLALSimGRTestParamData
 {
-    char        name[32];
-    double    value;
+    char name[32]; 	/**< Name of the variable */
+    double value;  	/**< Value of the variable */
 } LALSimInspiralGRTestParamData;
 
+/**
+ * Linked list of any number of parameters for testing GR
+ */
 typedef struct tagLALSimGRTestParam
 {
-    struct tagLALSimGRTestParamData *data;
-    struct tagLALSimGRTestParam *next;
+    struct tagLALSimGRTestParamData *data; /**< Current variable */
+    struct tagLALSimGRTestParam *next; /**< The next variable in linked list */
 }  LALSimGRTestParam;
 
-LALSimGRTestParam *XLALSimCreateGRParam(const char *name, 
-                                                        double value);
-    
-void XLALSimAddGRParam(LALSimGRTestParam *parameter,
-                                                    const char *name, 
-                                                    double value);
+/**
+ * Function that creates the head node of the GR parameters linked list.
+ * It is initialized with a single parameter with given name and value
+ */
+LALSimGRTestParam *XLALSimCreateGRParam(
+        const char *name, /**< Name of first parameter in new linked list */
+        double value 	 /**< Value of first parameter in new linked list */
+        );
 
-void XLALSimSetGRParamValue(LALSimGRTestParam *parameter, 
-                                                        const char *name, 
-                                                        double value);
-  
-double XLALSimGetGRParamValue(LALSimGRTestParam *parameter, 
-                                                                const char *name);
+/**
+ * Function that adds a prameter to the GR parameters linked list. If the
+ * parameter already exists, it prints a warning and does nothing.
+*/
+void XLALSimAddGRParam(
+        LALSimGRTestParam *parameter, 	/**< Linked list of parameters */
+        const char *name, 		/**< Parameter name */
+        double value 			/**< Parameter value */
+        );
 
-int XLALSimGRParamExists(LALSimGRTestParam *parameter, 
-                                                    const char *name);
+/**
+ * Function that sets the value of the desired parameter in the GR parameters
+ * linked list to 'value'.  Throws an error if the parameter is not found
+ */
+int XLALSimSetGRParamValue(
+        LALSimGRTestParam *parameter, 	/**< Linked list to be modified */
+        const char *name, 		/**< Name of parameter to be modified */
+        double value 			/**< New value for parameter */
+        );
 
-//void XLALSimCopyGRPara(LALSimGRTestParam **parameterOutPtr, 
-//                                                   LALSimGRTestParam *parameterIn);
+/**
+ * Function that returns the value of the desired parameters in the
+ * GR parameters linked list.  Aborts if the parameter is not found
+ */
+double XLALSimGetGRParamValue(
+        LALSimGRTestParam *parameter, 	/**< Linked list to retrieve from */
+        const char *name 	   /**< Name of parameter to be retrieved */
+        );
 
-void XLALSimPrintGRParamStruct(FILE *fp, LALSimGRTestParam *parameter);
-                                                        
-void XLALSimFreeGRParam(LALSimGRTestParam *parameter);
+/**
+ * Function that checks whether the requested parameter exists within the
+ * GR parameters linked list.  Returns true (1) or false (0) accordingly
+ */
+bool XLALSimGRParamExists(
+        LALSimGRTestParam *parameter, 	/**< Linked list to check */
+        const char *name 		/**< Parameter name to check for */
+        );
+
+/** Function that prints off the whole list */
+void XLALSimPrintGRParamStruct(
+        FILE *fp, 			/** FILE pointer to write to */
+        LALSimGRTestParam *parameter 	/**< Linked list to print */
+        );
+
+/** Function that destroys the list */
+void XLALSimDestroyGRParam(
+        LALSimGRTestParam *parameter 	/**< Linked list to destroy */
+        );
 
 #endif /* _LALSIMINSPIRALWAVEFORMGRFLAGS_H */
