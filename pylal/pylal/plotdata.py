@@ -484,7 +484,7 @@ def loginterpolate(sequence, y0, deltaY, N=None):
                            endpoint=False)
 
     # make new sequence
-    datatype = seriesutils._series_type_code(type(sequence))
+    datatype = seriesutils.typecode(type(sequence))
     TYPESTR  = seriesutils._typestr[datatype]
     func     = getattr(lal, "XLALCreate%sVectorSequence" % TYPESTR)
     out      = func(sequence.length, N)

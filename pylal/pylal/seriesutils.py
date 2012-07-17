@@ -207,6 +207,8 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
             verbose output
     """
 
+    TYPESTR  = _typestr[datatype]
+
     # set mode
     if verbose:  mode = lalframe.LAL_FR_VERBOSE_MODE
     else:        mode = lalframe.LAL_FR_DEFAULT_MODE
@@ -217,17 +219,25 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     start = lal.LIGOTimeGPS(float(start))
     duration = float(duration)
     
-    # get series type
-    if datatype == 11:
-        func = getattr(lalframe, "XLALFrInputREAL8TimeSeries")
-    else:
-        if datatype == -1:
-            datatype = lalframe.XLALFrGetTimeSeriesType(chname, stream)
-        func = getattr(lalframe, 'XLALFrRead%sTimeSeries' % _typestr[datatype])
-    
-    # read to series
-    series = func(stream, chname, start, duration, 0)
+    lalframe.XLALFrSeek(stream, start)
 
+    # get series type
+    frdatatype = lalframe.XLALFrGetTimeSeriesType(chname, stream)
+
+    # get data
+    if frdatatype == datatype:
+        func = getattr(lalframe, 'XLALFrRead%sTimeSeries' % TYPESTR)
+        series = func(stream, chname, start, duration, 0)
+    else:
+        dblseries = lalframe.XLALFrInputREAL8TimeSeries(stream, chname, start,\
+                                                        duration, 0)
+        func = getattr(lal, 'XLALCreate%sTimeSeries' % TYPESTR)
+        series = func(dblseries.name, dblseries.epoch, dblseries.f0,\
+                      dblseries.deltaT, dblseries.sampleUnits,\
+                      dblseries.data.length)
+        series.data.data = dblseries.data.data
+        del dblseries
+        
     # return
     return series
 
@@ -252,7 +262,7 @@ def resample(series, rate, inplace=True):
             state.
     """
 
-    datatype = _series_type_code(type(series))
+    datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
     func = getattr(lal, 'XLALResample%sTimeSeries' % TYPESTR)
@@ -287,7 +297,7 @@ def highpass(series, frequency, amplitude=0.9, filtorder=8, inplace=True):
             state.
     """
 
-    datatype = _series_type_code(type(series))
+    datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
     func = getattr(lal, 'XLALHighPass%sTimeSeries' % TYPESTR)
@@ -322,7 +332,7 @@ def lowpass(series, frequency, amplitude=0.9, filtorder=8, inplace=True):
             state.
     """
 
-    datatype = _series_type_code(type(series))
+    datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
     func = getattr(lal, 'XLALLowPass%sTimeSeries' % TYPESTR)
@@ -368,7 +378,7 @@ def duplicate(series):
         series : swiglal.REAL?TimeSeries
             input series to duplicate
     """
-    datatype = _series_type_code(type(series))
+    datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
     func     = getattr(lal, 'XLALCreate%sTimeSeries' % TYPESTR)
     out      = func(series.name, series.epoch, series.f0, series.deltaT,\
@@ -404,7 +414,7 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
             LAL unit for data
     """
 
-    datatype = _series_type_code(type(series))
+    datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
     seglen = int(seglen)
@@ -503,7 +513,7 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
             LAL unit for data
     """
 
-    datatype = _series_type_code(type(series))
+    datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
     step   = int(step)
@@ -552,13 +562,14 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
 # Get data type from series
 # =============================================================================
 
-def _series_type_code(t):
+def typecode(t):
     """
     Return LAL type code for this type string.
     """
-    if re.search('REAL4', str(t)):   return lal.LAL_S_TYPE_CODE
-    elif re.search('REAL8', str(t)): return lal.LAL_D_TYPE_CODE
-    else: raise TypeError("Cannot find type code for %s" % str(t))
+    for datatype,key in _typestr.iteritems():
+        if re.search(key, str(t)):
+            return datatype
+    raise TypeError("Cannot find type code for %s" % str(t))
 
 # =============================================================================
 # Helper functions
