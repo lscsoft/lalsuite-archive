@@ -747,9 +747,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
-	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program)
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(working_filename), options.live_time_program)
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)
 	if options.plot:
@@ -798,7 +796,7 @@ AS
 			if options.verbose:
 				print >>sys.stderr, "adding to coinc plot %d ..." % options.coinc_plot[n]
 			plot.add_contents(database)
-	connection.close()
+	database.connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 

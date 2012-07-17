@@ -603,9 +603,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames) - options.skip, filename)
 
-	connection = sqlite3.connect(filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program)
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(filename), options.live_time_program)
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)
 
@@ -614,7 +612,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			print >>sys.stderr, "adding to burca plot %d ..." % n
 		plot.add_contents(database)
 
-	connection.close()
+	database.connection.close()
 
 
 # delete the plots as we go to save memory
