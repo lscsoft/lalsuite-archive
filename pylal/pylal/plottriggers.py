@@ -175,7 +175,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     for i in range(len(columns)):
         if not limits[i]:
             mins = [data[j][i].min() for j in range(len(tablenames))\
-                    if len(data[j][1])]
+                    if len(data[j][i])]
             if len(mins):
                 lmin = min(mins)
                 lmax = max(data[j][i].max() for j in range(len(tablenames))\
