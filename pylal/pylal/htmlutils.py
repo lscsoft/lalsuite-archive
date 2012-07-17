@@ -219,7 +219,7 @@ def get_ldas_url():
             host = match.group()
             root = "https://%s.atlas.aei.uni-hannover.de" % host
         else:
-            match = "https://atlas1.atlas.aei.uni-hannover.de"
+            root = "https://atlas1.atlas.aei.uni-hannover.de"
     elif re.search("phy.syr", fqdn):
         root = "https://sugar-jobs.phy.syr.edu"
     elif re.search("astro.cf", fqdn):
