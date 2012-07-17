@@ -1167,7 +1167,9 @@ void
 LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
   const char *propName = drawApproxPriorName;
 
-  REAL8 logBackwardJump = approxLogPrior(runState->currentParams);
+  REAL8 tmp = 0.0;
+  UINT4 analyticTest = 0;
+  REAL8 logBackwardJump;
 
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
@@ -1175,14 +1177,32 @@ LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVariable
   REAL8 Mc = draw_chirp(runState);
   LALInferenceSetVariable(proposedParams, "chirpmass", &Mc);
 
-  if (LALInferenceCheckVariableNonFixed(runState->currentParams, "asym_massratio")) {
-    REAL8 q = draw_flat(runState, "asym_massratio");
-    LALInferenceSetVariable(proposedParams, "asym_massratio", &q);
-  }
-  else if (LALInferenceCheckVariableNonFixed(runState->currentParams, "massratio")) {
-    REAL8 eta = draw_flat(runState, "massratio");
-    LALInferenceSetVariable(proposedParams, "massratio", &eta);
-  }
+  if (analyticTest) {
+    LALInferenceVariableItem *ptr = runState->currentParams->head;
+    while(ptr!=NULL) {
+      if(ptr->vary != LALINFERENCE_PARAM_FIXED) {
+        tmp = draw_flat(runState, ptr->name);
+        LALInferenceSetVariable(proposedParams, ptr->name, &tmp);
+      }
+      ptr=ptr->next;
+    }
+  } else {
+    logBackwardJump = approxLogPrior(runState->currentParams);
+
+    REAL8 Mc = draw_chirp(runState);
+    LALInferenceSetVariable(proposedParams, "chirpmass", &Mc);
+
+    if (LALInferenceCheckVariableNonFixed(runState->currentParams, "asym_massratio")) {
+      REAL8 q = draw_flat(runState, "asym_massratio");
+      LALInferenceSetVariable(proposedParams, "asym_massratio", &q);
+    }
+    else if (LALInferenceCheckVariableNonFixed(runState->currentParams, "massratio")) {
+      REAL8 eta = draw_flat(runState, "massratio");
+      LALInferenceSetVariable(proposedParams, "massratio", &eta);
+    }
+
+    REAL8 theTime = draw_flat(runState, "time");
+    LALInferenceSetVariable(proposedParams, "time", &theTime);
 
   REAL8 theTime = draw_flat(runState, "time");
   LALInferenceSetVariable(proposedParams, "time", &theTime);
