@@ -132,7 +132,7 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
                     if self._verbose:
                         print "Copying %s -->\n          %s." % (f, dest)
                     shutil.copy(f, dest)
-                    ind = bisect_right(s, self._cachedsegs)
+                    ind = bisect_right(self._cachedsegs, s)
                     self._cachedfiles.insert(ind, dest)
                     self._cachedsegs.insert(ind, s)
                     self._cachecoverage |= segmentlist([s])
