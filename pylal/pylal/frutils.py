@@ -161,7 +161,7 @@ Removing /tmp/H-H1_RDS_C03_L2-861417967-128.gwf.
         except ValueError:
             print >>sys.stderr, "Couldn't find any frame files to cover",\
                 str(start),"to",str(end),"among:"
-            print >>sys.stderr, str(framefilelist)
+            print >>sys.stderr, str(self._cachedfiles)
             return toreturn
 
         # Get frames; an error probably means that the frames didn't cover
@@ -272,6 +272,7 @@ Please run 'grid-proxy-init -rfc' and try again.
         raise RuntimeError(rfc_proxy_msg)
 
     # attempt to make sure the proxy is still good for more than 15 minutes
+    import time, calendar
     try:
         expireASN1 = proxy.get_not_after().__str__()
         expireGMT  = time.strptime(expireASN1, "%b %d %H:%M:%S %Y %Z")
