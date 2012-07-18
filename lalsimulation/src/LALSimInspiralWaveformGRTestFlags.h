@@ -57,7 +57,7 @@ LALSimGRTestParam *XLALSimCreateGRParam(
  * Function that adds a prameter to the GR parameters linked list. If the
  * parameter already exists, it prints a warning and does nothing.
 */
-void XLALSimAddGRParam(
+LALSimGRTestParam *XLALSimAddGRParam(
         LALSimGRTestParam *parameter, 	/**< Linked list of parameters */
         const char *name, 		/**< Parameter name */
         double value 			/**< Parameter value */
@@ -78,7 +78,7 @@ int XLALSimSetGRParamValue(
  * GR parameters linked list.  Aborts if the parameter is not found
  */
 double XLALSimGetGRParamValue(
-        LALSimGRTestParam *parameter, 	/**< Linked list to retrieve from */
+        const LALSimGRTestParam *parameter, 	/**< Linked list to retrieve from */
         const char *name 	   /**< Name of parameter to be retrieved */
         );
 
@@ -87,18 +87,18 @@ double XLALSimGetGRParamValue(
  * GR parameters linked list.  Returns true (1) or false (0) accordingly
  */
 bool XLALSimGRParamExists(
-        LALSimGRTestParam *parameter, 	/**< Linked list to check */
+        const LALSimGRTestParam *parameter, 	/**< Linked list to check */
         const char *name 		/**< Parameter name to check for */
         );
 
 /** Function that prints off the whole list */
-void XLALSimPrintGRParamStruct(
+int XLALSimPrintGRParamStruct(
         FILE *fp, 			/** FILE pointer to write to */
         LALSimGRTestParam *parameter 	/**< Linked list to print */
         );
 
 /** Function that destroys the list */
-void XLALSimDestroyGRParam(
+int XLALSimDestroyGRParam(
         LALSimGRTestParam *parameter 	/**< Linked list to destroy */
         );
 
