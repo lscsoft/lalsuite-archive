@@ -87,6 +87,21 @@ class SnglInspiral( snglinspiraltable.SnglInspiralTable):
 	def get_weighted_snr(self, fac):
 		return self.snr
 
+	def get_new_snr(self, fac):
+		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/((1+rchisq**(fac/nhigh))/2)**(1./fac)
+		else:
+			return self.snr
+
+	def get_effective_snr(self, fac):
+		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		return self.snr/( (1 + self.snr**2/fac) * rchisq )**(0.25)
+
+	def get_snr_over_chi(self, fac):
+		return self.snr/self.chisq**(0.5)
+
 	def __eq__(self, other):
 		return not (
 			cmp(self.ifo, other.ifo) or
@@ -137,8 +152,8 @@ def append_process(xmldoc, **kwargs):
 		params += [(u"--comment", u"lstring", kwargs["comment"])]
 	if kwargs["weighted_snr"] is not None:
 		params += [(u"--weighted-snr", u"lstring", kwargs["weighted_snr"])]
-	if kwargs["weight_factor"] is not None:
-		params += [(u"--weight-factor", u"real_8", kwargs["weight_factor"])]
+	if kwargs["magic_number"] is not None:
+		params += [(u"--magic-number", u"real_8", kwargs["magic_number"])]
 	if kwargs["vetoes_name"] is not None:
 		params += [(u"--vetoes-name", u"lstring", kwargs["vetoes_name"])]
 	if kwargs["search_group"] is not None:
@@ -220,7 +235,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		if vetoes is not None:
 			self.seglists -= vetoes
 
-	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, weight_factor):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id, events, magic_number):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
@@ -246,7 +261,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		if all(event.chisq for event in events):
-			coinc_inspiral.snr = math.sqrt(sum(event.get_weighted_snr(fac = weight_factor)**2 for event in events))
+			coinc_inspiral.snr = math.sqrt(sum(event.get_weighted_snr(fac = magic_number)**2 for event in events))
 		else:
 			# would get divide-by-zero without a \chi^{2} value
 			coinc_inspiral.snr = None
@@ -473,7 +488,7 @@ def ligolw_thinca(
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = default_ntuple_comparefunc,
-	weight_factor = None,
+	magic_number = None,
 	veto_segments = None,
 	trigger_program = u"inspiral",
 	likelihood_func = None,
@@ -549,7 +564,7 @@ def ligolw_thinca(
 				node.time_slide_id,
 				coinc_def_id,
 				ntuple,
-				weight_factor
+				magic_number
 			)
 
 	#
