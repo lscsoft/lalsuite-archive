@@ -147,7 +147,7 @@ int XLALSimPrintGRParamStruct(
     else 
     {
         XLALPrintError("XLAL Error - %s: parameter not allocated!\n",
-                __func__, name);
+                __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }    
 }
