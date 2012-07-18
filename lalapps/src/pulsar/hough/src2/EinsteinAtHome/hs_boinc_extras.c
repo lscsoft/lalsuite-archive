@@ -1281,10 +1281,6 @@ static void worker (void) {
   }
 #endif
 
-  /* finally set (fl)ops count if given */
-  if (estimated_flops >= 0)
-    boinc_ops_cumulative( estimated_flops, 0 /*ignore IOPS*/ );
-
   LogPrintf (LOG_NORMAL, "done. calling boinc_finish(%d).\n",res);
   boinc_finish(boinc_finish_status=res);
 } /* worker() */
