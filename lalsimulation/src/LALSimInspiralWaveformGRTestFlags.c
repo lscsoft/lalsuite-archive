@@ -39,27 +39,27 @@ LALSimGRTestParam *XLALSimCreateGRParam(
  * Function that adds a prameter to the GR parameters linked list. If the
  * parameter already exists, it prints a warning and does nothing.
 */
-void XLALSimAddGRParam(
+LALSimGRTestParam *XLALSimAddGRParam(
         LALSimGRTestParam *parameter, 	/**< Linked list of parameters */
         const char *name, 		/**< Parameter name */
         double value 			/**< Parameter value */
         )
 {
+    LALSimGRTestParam *newParam=NULL;
     if (!XLALSimGRParamExists(parameter, name))
     {
-        LALSimGRTestParam *newParam = (LALSimGRTestParam *)XLALMalloc(sizeof(LALSimGRTestParam));
+        newParam = (LALSimGRTestParam *)XLALMalloc(sizeof(LALSimGRTestParam));
         newParam->data =  (LALSimInspiralGRTestParamData *)XLALMalloc(sizeof(LALSimInspiralGRTestParamData));
         memcpy(newParam->data->name, name, 32);
         newParam->data->value = value;
-        newParam->next = parameter->next;
-        parameter->next = newParam;
+        newParam->next = parameter;
     }
     else 
     {
         XLALPrintWarning("XLAL Warning - %s: parameter '%s' exists already! Not added to the structure\n",
                 __func__, name);
     }
-
+    return newParam;
 }
 
 /**
@@ -67,10 +67,11 @@ void XLALSimAddGRParam(
  * GR parameters linked list.  Returns true (1) or false (0) accordingly
  */
 bool XLALSimGRParamExists(
-        LALSimGRTestParam *parameter, 	/**< Linked list to check */
+        const LALSimGRTestParam *parameter, 	/**< Linked list to check */
         const char *name 		/**< Parameter name to check for */
         )
 {
+  if(!parameter) return false;
   while(parameter) {if(!strcmp(parameter->data->name, name)) return true; else parameter=parameter->next;}
   return false;
 }
@@ -80,7 +81,7 @@ bool XLALSimGRParamExists(
  * GR parameters linked list.  Aborts if the parameter is not found
  */
 double XLALSimGetGRParamValue(
-        LALSimGRTestParam *parameter, 	/**< Linked list to retrieve from */
+        const LALSimGRTestParam *parameter, 	/**< Linked list to retrieve from */
         const char *name 	   /**< Name of parameter to be retrieved */
         )
 {
@@ -129,20 +130,30 @@ int XLALSimSetGRParamValue(
 }
 
 /** Function that prints off the whole list */
-void XLALSimPrintGRParamStruct(
+int XLALSimPrintGRParamStruct(
         FILE *fp, 			/** FILE pointer to write to */
         LALSimGRTestParam *parameter 	/**< Linked list to print */
         )
 {
+    if (parameter!=NULL) 
+    {
         while(parameter) 
         {
             fprintf(fp,"%s %10.5f\n",parameter->data->name,parameter->data->value);
             parameter=parameter->next;
         }
+        return XLAL_SUCCESS;
+    }
+    else 
+    {
+        XLALPrintError("XLAL Error - %s: parameter not allocated!\n",
+                __func__, name);
+        XLAL_ERROR(XLAL_EINVAL);
+    }    
 }
 
 /** Function that destroys the list */
-void XLALSimDestroyGRParam(
+int XLALSimDestroyGRParam(
         LALSimGRTestParam *parameter 	/**< Linked list to destroy */
         )
 {
@@ -152,4 +163,5 @@ void XLALSimDestroyGRParam(
         parameter->next = NULL;
     }
     XLALFree(parameter);
+    return XLAL_SUCCESS;
 }
