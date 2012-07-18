@@ -210,7 +210,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.1.4",
+	version = "0.1.5",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
