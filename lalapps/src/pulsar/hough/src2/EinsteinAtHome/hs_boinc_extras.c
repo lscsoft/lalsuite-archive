@@ -565,8 +565,6 @@ void show_progress(REAL8 rac,   /**< right ascension */
 
   /* tell BOINC client about fraction done and flops so far (faked from estimation) */
   boinc_fraction_done(fraction);
-  if (estimated_flops >= 0)
-    boinc_ops_cumulative( estimated_flops * fraction, 0 /*ignore IOPS*/ );
 
   /* tell APIv6 graphics about status */
   boincv6_progress.skypos_rac = rac;
