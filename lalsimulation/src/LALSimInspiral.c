@@ -1613,7 +1613,7 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONZERO_TIDES(waveFlags);
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2(htilde, phi0, deltaF, m1, m2,
-                    f_min, r, phaseO);
+                    f_min, r, phaseO, amplitudeO);
             break;
 
         /* non-spinning inspiral-merger-ringdown models */

@@ -36,6 +36,7 @@
 # include <lal/LALDatatypes.h>
 # include <lal/LALComplex.h>
 # include <lal/LALSimInspiral.h>
+# include <lal/LALSimInspiralWaveformFlags.h>
 
 #ifdef  __cplusplus
 extern "C" {
