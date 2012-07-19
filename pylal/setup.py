@@ -39,6 +39,7 @@ lalburst_pkg_config = PkgConfig("lalburst")
 # FIXME:  works for GCC only!!!
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
+libframe_pkg_config = PkgConfig("libframe")
 lalmetaio_pkg_config = PkgConfig("lalmetaio")
 lalsimulation_pkg_config = PkgConfig("lalsimulation")
 lalinspiral_pkg_config = PkgConfig("lalinspiral")
@@ -232,10 +233,11 @@ setup(
 		Extension(
 			"pylal.Fr",
 			["src/Fr.c"],
+			# Use lalframe headers to silence warnings but link against libframe
 			include_dirs = lalframe_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lalframe_pkg_config.libs,
-			library_dirs = lalframe_pkg_config.libdirs,
-			runtime_library_dirs = lalframe_pkg_config.libdirs,
+			libraries = libframe_pkg_config.libs,
+			library_dirs = libframe_pkg_config.libdirs,
+			runtime_library_dirs = libframe_pkg_config.libdirs,
 			extra_compile_args = lalframe_pkg_config.extra_cflags
 		),
 		Extension(
