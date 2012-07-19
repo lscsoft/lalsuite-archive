@@ -1,8 +1,12 @@
-pylal (0.1.5-1) unstable; urgency=high
+pylal (0.1.5) unstable; urgency=high
 
+  [ Nickolas Fotopoulos ]
   * Critical fix to frutils
 
- -- Nickolas Fotopoulos <nickolas.fotopoulos@ligo.org>  Wed, 18 Jul 2012 16:01:15 -0800
+  [ Jameson Rollins ]
+  * Move to source 3.0 "native" package format.
+
+ -- Jameson Rollins <jameson.rollins@ligo.org>  Thu, 19 Jul 2012 15:02:54 -0700
 
 pylal (0.1.4-2) unstable; urgency=low
 
