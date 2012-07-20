@@ -389,7 +389,7 @@ static PyObject *ligolw_ilwdchar___conform__(PyObject *self, PyObject *protocol)
 
 
 static struct PyMethodDef methods[] = {
-	{"__conform__", ligolw_ilwdchar___conform__, METH_O, NULL},
+	{"__conform__", ligolw_ilwdchar___conform__, METH_O, "See http://www.python.org/dev/peps/pep-0246 for more information."},
 	{NULL,}
 };
 
