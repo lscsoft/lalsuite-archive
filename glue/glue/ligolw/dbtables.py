@@ -1056,18 +1056,6 @@ TableByName = {
 
 
 #
-# The database-backed table implementation requires there to be no more
-# than one table of each name in the document.  Some documents require
-# multiple tables with the same name, and those tables cannot be stored in
-# the database.  Use this list to set which tables are not to be stored in
-# the database.
-#
-
-
-NonDBTableNames = []
-
-
-#
 # =============================================================================
 #
 #                               Content Handler
@@ -1109,15 +1097,13 @@ def use_in(ContentHandler):
 	"""
 	lsctables.use_in(ContentHandler)
 
-	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+	def startTable(self, attrs):
 		try:
 			connection = self.connection
 		except AttributeError:
 			warnings.warn("use of \"DBTable.connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
 			connection = DBTable.connection
 		name = table.StripTableName(attrs[u"Name"])
-		if name in map(table.StripTableName, NonDBTableNames):
-			return __parent_startTable(self, attrs)
 		if name in TableByName:
 			return TableByName[name](attrs, connection = connection)
 		return DBTable(attrs, connection = connection)
