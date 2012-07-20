@@ -26,32 +26,32 @@
 
 """
 The ilwd:char type is used to store ID strings for objects within LIGO
-Light-Weight XML files.  This module provides the ilwdchar class used as a
-parent class for memory-efficient storage of ilwd:char strings.
+Light-Weight XML files.  This module and its associated C extention module
+__ilwd provide a class for memory-efficient storage of ilwd:char strings.
 
 LIGO Light Weight XML "ilwd:char" IDs are strings of the form
 "table:column:integer", for example "process:process_id:10".  Large complex
 documents can have many millions of these strings, and their storage
 represents a significant RAM burden.  However, while there can be millions
-of ID strings in use there might be only a small number (e.g. 10 or fewer)
-unique ID prefixes in use (the table name and column name part).  The
-amount of RAM required to load a document can be significantly reduced if
-the small number of unique string prefixes is stored separately.  This
-module (and the __ilwd C extension module it uses) implement the machinery
-used to do this.
+of ID strings in a document there might be only a small number (e.g., 10 or
+fewer) unique ID prefixes in a document (the table name and column name
+part).  The amount of RAM required to load a document can be significantly
+reduced if the small number of unique string prefixes are stored separately
+and reused.  This module provides the machinery used to do this.
 
-To get started, the get_ilwdchar() function provided by this module is the
-means by which an ID string is converted into an instance of the
-appropriate subclass of ilwdchar.
+The ilwdchar class in this module converts a string or unicode object
+containing an ilwd:char ID into an more memory efficient representation.
 
 Example:
 
->>> x = get_ilwdchar("process:process_id:10")
+>>> x = ilwdchar("process:process_id:10")
+>>> print x
+process:process_id:10
 
-Like strings, the object resulting from this function call is immutable.
-It provides two read-only attributes, "table_name" and "column_name", that
-can be used to access the table and column parts of the original ID string.
-The integer suffix can be retrieved by converting the object to an integer.
+Like strings, the object resulting from this is immutable.  It provides two
+read-only attributes, "table_name" and "column_name", that can be used to
+access the table and column parts of the original ID string.  The integer
+suffix can be retrieved by converting the object to an integer.
 
 Example:
 
@@ -77,32 +77,64 @@ Example:
 'process:process_id:15'
 >>> int(y - x)
 5
+
+The objects are pickle-able.
+
+Example:
+
+>>> import pickle
+>>> x == pickle.loads(pickle.dumps(x))
+True
+
+To simplify interaction with documents that do not contain fully-populated
+columns, None is allowed as an input value and is not converted.
+
+Example:
+
+>>> print ilwdchar(None)
+None
+
+
+Implementation details
+======================
+
+Memory is reduced by storing the table_name, column_name, and index_offset
+values as class attributes, so only one copy is present in memory and is
+shared across all instances of the class.  This means that each unique
+table_name and column_name pair requires its own class.  These classes are
+created on the fly as new IDs are processed, and get added to this module's
+name space.  They are all subclasses of __ilwd.ilwdchar, which implements
+the low-level machinery.  After a new class is created it can be accessed
+as a symbol in this module, but each of those symbols does not exist until
+at least one corresponding ID string has been processed.
+
+Example:
+
+>>> import ilwd
+>>> "foo_bar_class" in ilwd.__dict__
+False
+>>> x = ilwd.ilwdchar("foo:bar:0")
+>>> type(x)
+<class 'glue.ligolw.ilwd.foo_bar_class'>
+>>> "foo_bar_class" in ilwd.__dict__
+True
+>>> print ilwd.foo_bar_class(10)
+foo:bar:10
+
+The ilwdchar class itself it never instantiated, its .__new__() method
+parses the ID string parameter and creates an instance of the appropriate
+subclass of __ilwd.ilwdchar, creating a new subclass before doing so if
+neccessary.
 """
 
 
 from glue import git_version
+from glue.ligolw import __ilwd
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
-
-
-#
-# =============================================================================
-#
-#                               ID Parent Class
-#
-# =============================================================================
-#
-
-
-#
-# Load the C extension module that provides the ilwdchar parent class.
-#
-
-
-from glue.ligolw.__ilwd import *
 
 
 #
@@ -115,33 +147,23 @@ from glue.ligolw.__ilwd import *
 
 
 #
-# Cache of pre-defined ilwd:char subclasses, indexed by the string prefix
-# used with each.
-#
-
-
-ilwdchar_class_cache = {}
-
-
-#
-# Functions for retrieving ilwdchar subclasses, and constructing subclass
-# instances.
+# Function for retrieving ilwdchar subclasses.
 #
 
 
 def get_ilwdchar_class(tbl_name, col_name):
 	"""
-	Searches the cache of pre-defined ilwdchar subclasses for a class
+	Searches this module's namespace for a subclass of __ilwd.ilwdchar
 	whose table_name and column_name attributes match those provided.
-	If a matching subclass is found it is returned;  otherwise a new
-	class is defined, added to the cache, and returned.
+	If a matching subclass is found it is returned; otherwise a new
+	class is defined, added to this module's namespace, and returned.
 
 	Example:
 
 	>>> process_id = get_ilwdchar_class("process", "process_id")
 	>>> x = process_id(10)
 	>>> str(type(x))
-	"<class 'glue.ligolw.ilwd.cached_ilwdchar_class'>"
+	"<class 'glue.ligolw.ilwd.process_process_id_class'>"
 	>>> str(x)
 	'process:process_id:10'
 
@@ -169,8 +191,10 @@ def get_ilwdchar_class(tbl_name, col_name):
 	#
 
 	key = (str(tbl_name), str(col_name))
+	cls_name = "%s_%s_class" % key
+	assert cls_name != "get_ilwdchar_class"
 	try:
-		return ilwdchar_class_cache[key]
+		return globals()[cls_name]
 	except KeyError:
 		pass
 
@@ -178,68 +202,98 @@ def get_ilwdchar_class(tbl_name, col_name):
 	# otherwise define a new class, and add it to the cache
 	#
 
-	class cached_ilwdchar_class(ilwdchar):
+	class new_class(__ilwd.ilwdchar):
 		__slots__ = ()
 		table_name, column_name = key
 		index_offset = len("%s:%s:" % key)
 
 		def __reduce__(self):
-			# The presence of this method allows ilwdchar
-			# sub-classes to be pickled and unpickled
-			return get_ilwdchar, (unicode(self),)
+			# The presence of this method allows this class to
+			# be pickled and unpickled
+			return ilwdchar, (unicode(self),)
 
-	ilwdchar_class_cache[key] = cached_ilwdchar_class
+	new_class.__name__ = cls_name
+
+	globals()[cls_name] = new_class
 
 	#
 	# return the new class
 	#
 
-	return cached_ilwdchar_class
+	return new_class
 
 
-def get_ilwdchar(s):
+#
+# Metaclass to redirect instantiation to the correct subclass for
+# __ilwd.ilwdchar
+#
+
+
+class ilwdchar(object):
 	"""
-	Convert an ilwd:char-formated string into an instance of the
-	matching subclass of ilwdchar.  If the input is None then the
-	return value is None.
-
-	Example:
-
-	>>> x = get_ilwdchar("process:process_id:10")
-	>>> str(x)
-	'process:process_id:10'
-	>>> x.table_name
-	'process'
-	>>> x.column_name
-	'process_id'
-	>>> int(x)
-	10
-	>>> x.index_offset
-	19
-	>>> str(x)[x.index_offset:]
-	'10'
-	>>> print get_ilwdchar(None)
-	None
+	Metaclass wrapper of glue.ligolw.__ilwd.ilwdchar class.
+	Instantiating this class constructs and returns an instance of a
+	subclass of glue.ligolw.__ilwd.ilwdchar.
 	"""
-	#
-	# None is no-op
-	#
+	def __new__(cls, s):
+		"""
+		Convert an ilwd:char-formated string into an instance of
+		the matching subclass of __ilwd.ilwdchar.  If the input is
+		None then the return value is None.
 
-	if s is None:
-		return None
+		Example:
 
-	#
-	# try parsing the string as an ilwd:char formated string
-	#
+		>>> x = ilwdchar("process:process_id:10")
+		>>> str(x)
+		'process:process_id:10'
+		>>> x.table_name
+		'process'
+		>>> x.column_name
+		'process_id'
+		>>> int(x)
+		10
+		>>> x.index_offset
+		19
+		>>> str(x)[x.index_offset:]
+		'10'
+		>>> print ilwdchar(None)
+		None
+		"""
+		#
+		# None is no-op
+		#
 
-	try:
-		table_name, column_name, i = s.strip().split(":")
-	except ValueError, AttributeError:
-		raise ValueError, "invalid ilwd:char %s" % repr(s)
+		if s is None:
+			return None
 
-	#
-	# retrieve the matching class from the ID class cache, and return
-	# an instance initialized to the desired value
-	#
+		#
+		# try parsing the string as an ilwd:char formated string
+		#
 
-	return get_ilwdchar_class(table_name, column_name)(int(i))
+		try:
+			table_name, column_name, i = s.strip().split(":")
+		except (ValueError, AttributeError):
+			raise ValueError("invalid ilwd:char %s" % repr(s))
+
+		#
+		# retrieve the matching class from the ID class cache, and
+		# return an instance initialized to the desired value
+		#
+
+		return get_ilwdchar_class(table_name, column_name)(int(i))
+
+
+#
+# for backwards compatibility.  do not use
+#
+# FIXME:  remove when not used
+#
+
+
+def get_ilwdchar(*args):
+	"""
+	Deprecated interface to ilwdchar class.
+	"""
+	import warnings
+	warnings.warn("glue.ligolw.ilwd.get_ilwdchar() is deprecated.  use glue.ligolw.ilwd.ilwdchar() instead")
+	return ilwdchar(*args)
