@@ -533,7 +533,7 @@ def idmap_get_new(connection, old, tbl):
 	new = cursor.fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
-		return ilwd.get_ilwdchar(new[0])
+		return ilwd.ilwdchar(new[0])
 	# this ID was not found in _idmap_ table, assign a new ID and
 	# record it
 	new = tbl.get_next_id()
@@ -548,7 +548,7 @@ def idmap_get_max_id(connection, id_class):
 
 	Example:
 
-	>>> event_id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> event_id = ilwd.ilwdchar("sngl_burst:event_id:0")
 	>>> print event_id
 	sngl_inspiral:event_id:0
 	>>> max_id = get_max_id(connection, type(event_id))
@@ -865,7 +865,7 @@ class DBTable(table.Table):
 		row = self.RowType()
 		for c, t, v in zip(self.dbcolumnnames, self.dbcolumntypes, values):
 			if t in ligolwtypes.IDTypes:
-				v = ilwd.get_ilwdchar(v)
+				v = ilwd.ilwdchar(v)
 			setattr(row, c, v)
 		return row
 	# backwards compatibility
@@ -931,7 +931,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		return dict((ilwd.get_ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
+		return dict((ilwd.ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""

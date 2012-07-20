@@ -193,7 +193,7 @@ glue.ligolw XML writing codes.
 ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
-	u"ilwd:char": ilwd.get_ilwdchar,
+	u"ilwd:char": ilwd.ilwdchar,
 	u"ilwd:char_u": lambda s: buffer(base64.b64decode(s)),
 	u"blob": lambda s: buffer(base64.b64decode(s)),
 	u"lstring": unicode,
