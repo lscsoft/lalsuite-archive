@@ -128,6 +128,9 @@ neccessary.
 """
 
 
+import copy_reg
+
+
 from glue import git_version
 from glue.ligolw import __ilwd
 
@@ -207,14 +210,15 @@ def get_ilwdchar_class(tbl_name, col_name):
 		table_name, column_name = key
 		index_offset = len("%s:%s:" % key)
 
-		def __reduce__(self):
-			# The presence of this method allows this class to
-			# be pickled and unpickled
-			return ilwdchar, (unicode(self),)
-
 	new_class.__name__ = cls_name
 
 	globals()[cls_name] = new_class
+
+	#
+	# pickle support
+	#
+
+	copy_reg.pickle(new_class, lambda x: (ilwdchar, (unicode(x),)))
 
 	#
 	# return the new class
