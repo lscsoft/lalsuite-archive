@@ -1149,6 +1149,10 @@ if __name__=='__main__':
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
+            for sp in skyParams:
+                twoDGreedyMenu.append([psip,sp])
+            for sp in spinParams:
+                twoDGreedyMenu.append([psip,sp])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
