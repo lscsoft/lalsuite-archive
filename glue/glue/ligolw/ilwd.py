@@ -299,5 +299,5 @@ def get_ilwdchar(*args):
 	Deprecated interface to ilwdchar class.
 	"""
 	import warnings
-	warnings.warn("glue.ligolw.ilwd.get_ilwdchar() is deprecated.  use glue.ligolw.ilwd.ilwdchar() instead")
+	warnings.warn("glue.ligolw.ilwd.get_ilwdchar() is deprecated.  use glue.ligolw.ilwd.ilwdchar() instead", DeprecationWarning)
 	return ilwdchar(*args)
