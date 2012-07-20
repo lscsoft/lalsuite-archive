@@ -703,13 +703,13 @@ def cbcBayesPostProc(
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
-
+        acfail=0
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
-                (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                 try:
+		    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                     lines=plt.plot(acf, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
@@ -720,6 +720,7 @@ def cbcBayesPostProc(
                         plt.title('ACL = %i   N = %i'%(acl,Neff))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
             else:
                 try:
@@ -740,13 +741,18 @@ def cbcBayesPostProc(
                         plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+	  if not acfail:
+	    acfhtml='<td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
+	  else:
+	    acfhtml='<td>ACF generation failed!</td>'
+          html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
         else:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
 
