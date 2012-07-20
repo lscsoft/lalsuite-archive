@@ -179,7 +179,7 @@ def uninstall_signal_trap(signums = None):
 	signal handlers.  If signums is a sequence of signal numbers the
 	only the signal handlers for thos signals will be restored.  If
 	signums is None (the default) then all signals that have been
-	modified by previous calls to install_cleanup_handler() are
+	modified by previous calls to install_signal_trap() are
 	restored.
 
 	Note:  this function is called by put_connection_filename() and
