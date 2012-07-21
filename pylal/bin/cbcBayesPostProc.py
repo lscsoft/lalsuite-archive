@@ -1170,7 +1170,7 @@ if __name__=='__main__':
             if dt1!=dt2:
                 twoDGreedyMenu.append([dt1,dt2])
     for dt1 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
-        for dt2 in ['h1_end_time','l1_end_time','v1_end_time']:
+        for dt2 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
             if dt1!=dt2:
                  twoDGreedyMenu.append([dt1,dt2])
     for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
