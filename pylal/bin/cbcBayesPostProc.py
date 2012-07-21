@@ -269,11 +269,18 @@ def cbcBayesPostProc(
     else:
         q_name = 'q'
 
-    if (mchirp_name in pos.names and 'eta' in pos.names) and \
+    if 'sym_massratio' in pos.names:
+        eta_name= 'sym_massratio'
+    else if 'massratio' in pos.names:
+        eta_name= 'massratio'
+    else:
+        eta_name='eta'
+
+    if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
+        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,eta_name))
 
     if (mchirp_name in pos.names and q_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
