@@ -892,8 +892,13 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
       # convert to rate
       if rate:
-        y = y/livetime
-        ymin /= livetime
+        if livetime > 0:
+          y = y/livetime
+          ymin /= livetime
+        else:
+          y = numpy.empty(y.shape)
+          y.fill(numpy.nan)
+          ymin = numpy.nan
 
       # reset zeros on logscale, tried with numpy, unreliable
       if logy:
