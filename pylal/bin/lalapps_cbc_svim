@@ -646,7 +646,7 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--include-play", default = False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
 
   # Techincal options which the general user won't care about
-  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
+  parser.add_option("--live-time-program", default = "inspiral", metavar = "name", help = "Set the name of the program whose analyzed segments will be extracted from the search_summary table.  Default = \"inspiral\".")
   parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
   parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
