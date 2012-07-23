@@ -222,14 +222,13 @@ parser.add_option("-v","--verbose",action="store_true",\
 
 (opts,args) = parser.parse_args()
 
-if opts.table_name == 'loudest_events':
-  FUPtype = 'LE'
-elif opts.table_name == 'close_missed_injections':
-  FUPtype = 'CMI'
-elif opts.table_name == 'selected_found_injections':
-  FUPtype = 'SFI'
-else:
+#
+# Check arguments
+# 
+
+if opts.table_name not in ("loudest_events","close_missed_injections","selected_found_injections"):
   raise ValueError, "--table-name is not a recognized table name. Run --help."
+
 
 # Followup_trigger needs the following options to be set
 
@@ -265,7 +264,8 @@ else:
 # Read in the xml file
 xmldoc = utils.load_filename( opts.input_xml,
     gz = opts.input_xml.endswith("gz"))
-if FUPtype == 'LE':
+
+if opts.table_name == "loudest_events":
   coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
   coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
   sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
@@ -282,9 +282,11 @@ if FUPtype == 'LE':
     for key in segs:
       seg_lists[key] = segments.segmentlist(set(segs[key]))
       seg_lists[key].sort()
-elif FUPtype == 'CMI':
+
+elif opts.table_name == "close_missed_injections":
   summTable = table.get_table(xmldoc,opts.table_name + ":table")
-elif FUPtype == 'SFI':
+
+elif opts.table_name == "selected_found_injections":
   xmlSummary = utils.load_filename(opts.input_xml_summary,\
                    gz = opts.input_xml_summary.endswith("gz"))
   summTable = table.get_table(xmlSummary,opts.table_name + ":table")
@@ -299,7 +301,8 @@ elif FUPtype == 'SFI':
 page = []
 omegaScans = []
 numF = 0
-if FUPtype == 'CMI':
+
+if opts.table_name == "close_missed_injections":
   for inj in summTable:
     if numF < opts.max_followups:
       if opts.do_omega_scan:
@@ -307,7 +310,8 @@ if FUPtype == 'CMI':
         omegaScans.append(omegaLinks)
       page.append( followup.from_injection( inj,more_infos=True ) )
       numF += 1
-elif FUPtype == 'LE':
+
+elif opts.table_name == "loudest_events":
   for coinc in coincTable:
     if numF < opts.max_followups:
       if opts.do_omega_scan:
@@ -338,7 +342,8 @@ elif FUPtype == 'LE':
       else:
         page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
       numF += 1
-elif FUPtype == 'SFI':
+
+elif opts.table_name == "selected_found_injections":
   for event in simTable:
     if numF < opts.max_followups:
       if opts.do_omega_scan:
@@ -350,7 +355,7 @@ elif FUPtype == 'SFI':
 # If opts.html_table is used we read in the table add the followup to the
 # table and write it out again
 
-if FUPtype == 'LE':
+if opts.table_name == "loudest_events":
   for event in summTable:
     if omegaScans:
       for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
@@ -361,7 +366,7 @@ if FUPtype == 'LE':
       for coinc,p in zip(coincTable,page):
         if event.coinc_event_id == coinc[0].coinc_event_id:
           event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-elif FUPtype == 'CMI' or FUPtype == 'SFI':
+else:
   if omegaScans:
     for event,p,omegaScan in zip(summTable,page,omegaScans):
       event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
@@ -381,7 +386,7 @@ if opts.output_html_table is not None:
     rspan_break_columns = rspan_break_columns)
   output.close()
 
-if FUPtype == 'LE':
+if opts.table_name == "loudest_events":
   for event in summTable:
     if omegaScans:
       for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
