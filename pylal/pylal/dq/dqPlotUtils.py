@@ -3191,8 +3191,8 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
         limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
       for i,data_limits in enumerate(data_limit_sets):
         if calendar_time:
-          data_limit_sets[i][0] = gps2datenum(data_limits[0])
-          data_limit_sets[i][1] = gps2datenum(data_limits[1])
+          data_limit_sets[i][0] = gps2datenum(float(data_limits[0]))
+          data_limit_sets[i][1] = gps2datenum(float(data_limits[1]))
         else:
           data_limit_sets[i][0] = float(data_limits[0]-zero)/unit
           data_limit_sets[i][1] = float(data_limits[1]-zero)/unit
