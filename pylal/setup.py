@@ -246,7 +246,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.complex16fftplan",
