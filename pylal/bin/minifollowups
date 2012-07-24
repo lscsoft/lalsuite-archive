@@ -42,7 +42,7 @@ def make_external_call(command, show_stdout=False, show_command=False):
       print >>sys.stderr, "  stdout: %s" % out.read()
       print >>sys.stderr, "  stderr: %s" % err.read()
       print >>sys.stderr, "  command: %s" % command
-      # FIXME: find a permanent solution for the xvfb_kill error that is causing a status=256 error	
+      # FIXME: find a permanent solution for the xvfb_kill error that is causing a status=256 error
       #sys.exit(status)
   if show_stdout:
       print out.read()
@@ -172,105 +172,105 @@ def get_column_list(tableName, with_sngl = False):
 
 def loudest_events(xmldoc, opts, summTable, followup):
 
-	coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-	coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-	sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-	coincTable = organize_coincs(coincT, sngls, coincMap)
+  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  coincTable = organize_coincs(coincT, sngls, coincMap)
 
-	xmlSummary = utils.load_filename(opts.input_xml_summary,\
-		gz = opts.input_xml_summary.endswith("gz"))
+  xmlSummary = utils.load_filename(opts.input_xml_summary,\
+    gz = opts.input_xml_summary.endswith("gz"))
 
-	coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-	timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	coincTable = organize_slides(coincTable, coincEvent, timeSlide)
+  coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+  timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+  coincTable = organize_slides(coincTable, coincEvent, timeSlide)
 
-	page = []
-	omegaScans = []
-	numFU = 0
+  page = []
+  omegaScans = []
+  numFU = 0
 
-	for coinc in coincTable:
-		if numF < opts.max_followups:
-			if opts.do_omega_scan:
-				omegaDirs, omegaLinks = omega_scan_coinc(opts,coinc[1])
-				omegaScans.append(omegaLinks)
-			else:
-				omegaScans.append(None)
-			if opts.time_slides:
-				for sngl in coinc[1]:
-					SnglInspiralUtils.slideTriggersOnLines([sngl],coinc[2])
-				slideDict = {}
-				for ifo, shift in coinc[2].items():
-					slideDict[ifo] = shift
-				page.append( followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict) )
-			else:
-				page.append( followup.from_new_coinc(coinc[0],coinc[1]) )
-			numFU += 1
+  for coinc in coincTable:
+    if numF < opts.max_followups:
+      if opts.do_omega_scan:
+        omegaDirs, omegaLinks = omega_scan_coinc(opts,coinc[1])
+        omegaScans.append(omegaLinks)
+      else:
+        omegaScans.append(None)
+      if opts.time_slides:
+        for sngl in coinc[1]:
+          SnglInspiralUtils.slideTriggersOnLines([sngl],coinc[2])
+        slideDict = {}
+        for ifo, shift in coinc[2].items():
+          slideDict[ifo] = shift
+        page.append( followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict) )
+      else:
+        page.append( followup.from_new_coinc(coinc[0],coinc[1]) )
+      numFU += 1
 
-	for event in summTable:
-		for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
-			if event.coinc_event_id == coinc[0].coinc_event_id:
-				event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-				if omegaScan:
-					event.omega_scan = omegaScan
+  for event in summTable:
+    for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
+      if event.coinc_event_id == coinc[0].coinc_event_id:
+        event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+        if omegaScan:
+          event.omega_scan = omegaScan
 
-	return coincTable, page, omegaScans	
+  return summTable, coincTable, page, omegaScans  
 
 
 def missed_injections(xmldoc, opts, summTable, followup):
 
-	page = []
-	omegaScans = []
-	numFU = 0
+  page = []
+  omegaScans = []
+  numFU = 0
 
-	for inj in summTable:
-		if numF < opts.max_followups:
-			if opts.do_omega_scan:
-				omegaDirs,omegaLinks = omega_scan_inj(opts,inj)
-				omegaScans.append(omegaLinks)
-			else:
-				omegaScans.append(None)
-			page.append( followup.from_injection( inj,more_infos=True ) )
-			numFU += 1
+  for inj in summTable:
+    if numF < opts.max_followups:
+      if opts.do_omega_scan:
+        omegaDirs,omegaLinks = omega_scan_inj(opts,inj)
+        omegaScans.append(omegaLinks)
+      else:
+        omegaScans.append(None)
+      page.append( followup.from_injection( inj,more_infos=True ) )
+      numFU += 1
 
-	for event,p,omegaScan in zip(summTable,page,omegaScans):
-		event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-		if omegaScan:
-			event.omega_scan = omegaScan
+  for event,p,omegaScan in zip(summTable,page,omegaScans):
+    event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+    if omegaScan:
+      event.omega_scan = omegaScan
 
-	return coincTable, page, omegaScans	
+  return summTable, page, omegaScans
 
 
 def found_injections(xmldoc, opts, summTable, followup):
 
-	sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
-	coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-	coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-	sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-	simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
+  sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
 
-	xmlSummary = utils.load_filename(opts.input_xml_summary,\
+  xmlSummary = utils.load_filename(opts.input_xml_summary,\
                    gz = opts.input_xml_summary.endswith("gz"))
 
-	page = []
-	omegaScans = []
-	numFU = 0
+  page = []
+  omegaScans = []
+  numFU = 0
 
-	for event in simTable:
-		if numF < opts.max_followups:
-			if opts.do_omega_scan:
-				omegaDirs,omegaLinks = omega_scan_inj(opts,event[1])
-				omegaScans.append(omegaLinks)
-			else:
-				omegaScans.append(None)
-			page.append( followup.from_found( event[1],more_infos=True,coinc = event[2],sngls = event[3]))
-			numFU += 1
+  for event in simTable:
+    if numF < opts.max_followups:
+      if opts.do_omega_scan:
+        omegaDirs,omegaLinks = omega_scan_inj(opts,event[1])
+        omegaScans.append(omegaLinks)
+      else:
+        omegaScans.append(None)
+      page.append( followup.from_found( event[1],more_infos=True,coinc = event[2],sngls = event[3]))
+      numFU += 1
 
-	for event,p,omegaScan in zip(summTable,page,omegaScans):
-		event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-		if omegaScan:
-			event.omega_scan = omegaScan
+  for event,p,omegaScan in zip(summTable,page,omegaScans):
+    event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+    if omegaScan:
+      event.omega_scan = omegaScan
 
-	return coincTable, page, omegaScans	
+  return summTable, page, omegaScans
 
 
 
@@ -399,6 +399,44 @@ else:
 xmldoc = utils.load_filename( opts.input_xml,
     gz = opts.input_xml.endswith("gz"))
 
+summTable = table.get_table(xmlSummary,opts.table_name + ":table")
+
+# Make minifollowup page and run omegascans
+if opts.table_name == "loudest_events":
+  summTable, coincTable, page, omegaScans = loudest_events(xmldoc, opts, summTable, followup)  
+elif opts.table_name = "close_missed_injections":
+  summTable, page, omegaScans = missed_injections(xmldoc, opts, summTable, followup)  
+elif opts.table_name = "selected_found_injections":
+  summTable, page, omegaScans = found_injections(xmldoc, opts, summTable, followup)  
+
+if opts.output_html_table:
+  output = open(opts.output_html_table,'w')
+  tableList = [opts.table_name]
+  columnList, row_span_columns, rspan_break_columns = get_column_list(opts.table_name, with_sngl = opts.time_slides)
+  print_tables.print_tables(summTable, output, "html",\
+    tableList = tableList, columnList = columnList, round_floats = True, \
+    decimal_places = 2, title = None, print_table_names = False, unique_rows = True,
+    row_span_columns = row_span_columns, 
+    rspan_break_columns = rspan_break_columns)
+  output.close()
+
+if opts.table_name == "loudest_events":
+  for event in summTable:
+    for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
+      if event.coinc_event_id == coinc[0].coinc_event_id:
+        event.mini_followup = page
+        if omegaScan:
+          event.omega_scan = omegaScan
+  utils.write_filename(xmlSummary,opts.input_xml_summary,xsl_file='ligolw.xsl')
+else:
+  for event,p,omegaScan in zip(summTable,page,omegaScans):
+    event.mini_followup = page
+    if omegaScan:
+      event.omega_scan = omegaScan
+  utils.write_filename(xmldoc,opts.input_xml,xsl_file='ligolw.xsl')
+
+
+###################################################################################################
 if opts.table_name == "loudest_events":
   coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
   coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
@@ -508,51 +546,5 @@ else:
   else:
     for event,p in zip(summTable,page):
       event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-
-###################################################################################################
-summTable = table.get_table(xmlSummary,opts.table_name + ":table")
-
-if opts.table_name == "loudest_events":
-  coincTable, page, omegaScans = loudest_events(xmldoc, opts, summTable, followup)  
-elif opts.table_name = "close_missed_injections":
-  coincTable, page, omegaScans = missed_injections(xmldoc, opts, summTable, followup)  
-elif opts.table_name = "selected_found_injections":
-  coincTable, page, omegaScans = found_injections(xmldoc, opts, summTable, followup)  
-###################################################################################################
-
-
-
-if opts.output_html_table is not None:
-  output = open(opts.output_html_table,'w')
-  tableList = [opts.table_name]
-  columnList, row_span_columns, rspan_break_columns = get_column_list(opts.table_name, with_sngl = opts.time_slides)
-  print_tables.print_tables(summTable, output, "html",\
-    tableList = tableList, columnList = columnList, round_floats = True, \
-    decimal_places = 2, title = None, print_table_names = False, unique_rows = True,
-    row_span_columns = row_span_columns, 
-    rspan_break_columns = rspan_break_columns)
-  output.close()
-
-if opts.table_name == "loudest_events":
-  for event in summTable:
-    if omegaScans:
-      for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
-        if event.coinc_event_id == coinc[0].coinc_event_id:
-          event.mini_followup = p
-          event.omega_scan = omegaScan
-    else:
-      for coinc,p in zip(coincTable,page,omegaScans):
-        if event.coinc_event_id == coinc[0].coinc_event_id:
-          event.mini_followup = p
-  utils.write_filename(xmlSummary,opts.input_xml_summary,xsl_file='ligolw.xsl')
-else:
-  if omegaScans:
-    for event,p,omegaScan in zip(summTable,page,omegaScans):
-      event.mini_followup = p
-      event.omega_scan = omegaScan
-  else:
-    for event,p in zip(summTable,page):
-      event.mini_followup = p
-  utils.write_filename(xmldoc,opts.input_xml,xsl_file='ligolw.xsl')
 
 
