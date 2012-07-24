@@ -333,7 +333,8 @@ class upper_limit(object):
     # if no far specified, use expected-loudest-event for closed box
     elif not self.opts.open_box:
       for inst in self.instruments:
-        self.far[inst] = 1./self.livetime[inst]
+        if inst in self.livetime.keys():
+          self.far[inst] = 1./self.livetime[inst]
     # for open box use true loudest event
     if self.opts.open_box:
       if self.opts.include_play:
