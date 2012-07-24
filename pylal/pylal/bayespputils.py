@@ -3457,7 +3457,7 @@ class PEOutputParser(object):
         
         # check if there's a file containing the parameter names
         parsfilename = it.next()+'_params.txt'
-        if(os.path.isfile(parsfilename):
+        if(os.path.isfile(parsfilename)):
             print 'Looking for '+parsfilename
             if os.access(parsfilename,os.R_OK):
                 outpars=parsfile.readline()
@@ -3473,7 +3473,7 @@ class PEOutputParser(object):
         parsvec=outpars.split()
         logLcol=-1
         for i in range(len(parsvec)):
-            if parsvec[i].lower()=='logl'
+            if parsvec[i].lower()=='logl':
                 logLcol=i
         if logLcol==-1:
             print 'Error! Could not find logL column in parameter list: %s'%(outpars)
