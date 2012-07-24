@@ -385,7 +385,6 @@ if not os.path.isdir('Images'):
 # =============================================================================
 #
 
-
 # Sieve the ihope cache file
 cache = lal.Cache.fromfile( open( opts.cache_file ) )
 temp_cache = cache.sieve (description = opts.cache_string )
@@ -434,117 +433,5 @@ else:
     if omegaScan:
       event.omega_scan = omegaScan
   utils.write_filename(xmldoc,opts.input_xml,xsl_file='ligolw.xsl')
-
-
-###################################################################################################
-if opts.table_name == "loudest_events":
-  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-  coincTable = organize_coincs(coincT,sngls,coincMap)
-  xmlSummary = utils.load_filename(opts.input_xml_summary,\
-                 gz = opts.input_xml_summary.endswith("gz"))  
-  summTable = table.get_table(xmlSummary,opts.table_name + ":table")
-  if opts.time_slides:
-    coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-    timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-    coincTable = organize_slides(coincTable,coincEvent,timeSlide)
-    segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc,program="thinca")
-    seg_lists = {}
-    for key in segs:
-      seg_lists[key] = segments.segmentlist(set(segs[key]))
-      seg_lists[key].sort()
-
-elif opts.table_name == "close_missed_injections":
-  summTable = table.get_table(xmldoc,opts.table_name + ":table")
-
-elif opts.table_name == "selected_found_injections":
-  xmlSummary = utils.load_filename(opts.input_xml_summary,\
-                   gz = opts.input_xml_summary.endswith("gz"))
-  summTable = table.get_table(xmlSummary,opts.table_name + ":table")
-  sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
-  coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
-  coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-  sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-  simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
-  
-# Run the followups on each of the coincs. coinc[0] is the coinc itself
-# coinc[1] is a list of its sngls (created by organize_coincs)
-page = []
-omegaScans = []
-numF = 0
-
-if opts.table_name == "close_missed_injections":
-  for inj in summTable:
-    if numF < opts.max_followups:
-      if opts.do_omega_scan:
-        omegaDirs,omegaLinks = omega_scan_inj(opts,inj)
-        omegaScans.append(omegaLinks)
-      page.append( followup.from_injection( inj,more_infos=True ) )
-      numF += 1
-
-elif opts.table_name == "loudest_events":
-  for coinc in coincTable:
-    if numF < opts.max_followups:
-      if opts.do_omega_scan:
-        omegaDirs,omegaLinks = omega_scan_coinc(opts,coinc[1])
-        omegaScans.append(omegaLinks)
-      if opts.time_slides:
-        for sngl in coinc[1]:
-          SnglInspiralUtils.slideTriggersOnRings([sngl],seg_lists[sngl.ifo],coinc[2])
-        slideDict = {}
-        # If the detector didnt have a trigger but was on we need to know how
-        # much it was being slid by.
-        for ifo in ['H1','L1','H2','V1','G1','T1']:
-          if seg_lists.has_key(ifo):
-            sngl = copy.deepcopy(coinc[1][0])
-            if (sngl.get_end() in seg_lists[ifo]):
-              sngl.ifo = ifo
-              slidEndTime = sngl.get_end()
-              SnglInspiralUtils.unslideTriggersOnRings([sngl],seg_lists[sngl.ifo],coinc[2])
-              unslidEndTime = sngl.get_end()
-              slideDict[ifo] = slidEndTime - unslidEndTime
-            else:
-              # If the trigger is in double time you dont want to know about the
-              # other ifo triggers, slide 'em out of the way!
-              slideDict[ifo] = -1000000
-          else:
-            slideDict[ifo] = -1000000
-        page.append(followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict))
-      else:
-        page.append( followup.from_new_coinc( coinc[0],coinc[1] ) )
-      numF += 1
-
-elif opts.table_name == "selected_found_injections":
-  for event in simTable:
-    if numF < opts.max_followups:
-      if opts.do_omega_scan:
-        omegaDirs,omegaLinks = omega_scan_inj(opts,event[1])
-        omegaScans.append(omegaLinks)
-      page.append( followup.from_found( event[1],more_infos=True,coinc = event[2],sngls = event[3]))
-      numF += 1
-
-# If opts.html_table is used we read in the table add the followup to the
-# table and write it out again
-
-if opts.table_name == "loudest_events":
-  for event in summTable:
-    if omegaScans:
-      for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
-        if event.coinc_event_id == coinc[0].coinc_event_id:
-          event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-          event.omega_scan = omegaScan
-    else:
-      for coinc,p in zip(coincTable,page):
-        if event.coinc_event_id == coinc[0].coinc_event_id:
-          event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-else:
-  if omegaScans:
-    for event,p,omegaScan in zip(summTable,page,omegaScans):
-      event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
-      event.omega_scan = omegaScan
-  else:
-    for event,p in zip(summTable,page):
-      event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
 
 
