@@ -162,6 +162,68 @@ def get_column_list(tableName, with_sngl = False):
     row_span_columns = rspan_break_columns = ['injected_decisive_distance', 'injected_gps_time','injected_event_time_utc__Px_click_for_daily_ihope_xP_', 'elogs','injected_mass1', 'injected_mass2', 'injected_mchirp']
   return columnList, row_span_columns, rspan_break_columns
 
+#
+# =============================================================================
+#
+#                                FollowUp Setup
+#
+# =============================================================================
+#
+
+def loudest_events(xmldoc, opts, summTable, followup)
+
+	coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+	coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+	sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	coincTable = organize_coincs(coincT, sngls, coincMap)
+
+	xmlSummary = utils.load_filename(opts.input_xml_summary,\
+		gz = opts.input_xml_summary.endswith("gz"))
+
+	coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+	timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	coincTable = organize_slides(coincTable, coincEvent, timeSlide)
+
+	page = []
+	omegaScans = []
+	numFU = 0
+
+	for coinc in coincTable:
+		if numF < opts.max_followups:
+			if opts.do_omega_scan:
+				omegaDirs, omegaLinks = omega_scan_coinc(opts,coinc[1])
+				omegaScans.append(omegaLinks)
+			else:
+				omegaScans.append(None)
+			if opts.time_slides:
+				for sngl in coinc[1]:
+					SnglInspiralUtils.slideTriggersOnLines([sngl],coinc[2])
+				slideDict = {}
+				for ifo, shift in coinc[2].items():
+					slideDict[ifo] = shift
+				page.append( followup.from_new_slide_coinc(coinc[0],coinc[1],slideDict) )
+			else:
+				page.append( followup.from_new_coinc(coinc[0],coinc[1]) )
+			numFU += 1
+
+	for event in summTable:
+		for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
+			if event.coinc_event_id == coinc[0].coinc_event_id:
+				event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+				if omegaScan:
+					event.omega_scan = omegaScan
+
+	return coincTable, page, omegaScans	
+		
+#
+# =============================================================================
+#
+#                                Command Line
+#
+# =============================================================================
+#
+
+
 usage = """%prog [options]
 
 Minifollowup is a code designed to run followups on new style xml files with
@@ -251,6 +313,15 @@ if opts.v1_omega_config_file:
 
 if not os.path.isdir('Images'):
   os.mkdir('Images')
+
+#
+# =============================================================================
+#
+#                                    Main
+#
+# =============================================================================
+#
+
 
 # Sieve the ihope cache file
 cache = lal.Cache.fromfile( open( opts.cache_file ) )
@@ -374,6 +445,11 @@ else:
   else:
     for event,p in zip(summTable,page):
       event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+
+summTable = table.get_table(xmlSummary,opts.table_name + ":table")
+
+if opts.table_name == "loudest_events":
+  coincTable, page, omegaScans = loudest_events(xmldoc, opts, summTable, followup)  
 
 if opts.output_html_table is not None:
   output = open(opts.output_html_table,'w')
