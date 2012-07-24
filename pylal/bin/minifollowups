@@ -286,96 +286,101 @@ def found_injections(xmldoc, opts, summTable, followup):
 # =============================================================================
 #
 
+def parse_command_line():
+  description = """
+  Minifollowup is a code designed to run followups on new style xml files with
+  coinc_inspiral_tables in them. It can also take in the html table files output
+  by printlc and add the mini followup to it for write_ihope_page usage.
+  """
+  parser = OptionParser(
+    version = "Name: %%prog\n%s" % git_version.verbose_msg,
+    usage = "%prog [options]",
+    description = dscription
+  )
+  parser.add_option("-g","--cache-string",action="store",type="string",\
+        default=None, metavar=" USERTAG",\
+        help="This is used to parse the cache file. Only files with this string in them will be used" )
+  parser.add_option("-c", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
+        help="The ihope cache file to be used")
+  parser.add_option("-p","--prefix",action="store",type="string",\
+        default=None, metavar=" PREFIX",\
+        help="Used to prefix the plot names" )
+  parser.add_option("-s","--suffix",action="store",type="string",\
+        default=None, metavar=" SUFFIX",\
+        help="Used as a suffix in the plot names" )
+  parser.add_option("-o","--output-path",action="store",type="string",\
+        default=".", metavar=" PATH",\
+        help="The output path for the plots" )
+  parser.add_option("-x","--input-xml",action="store",type="string",\
+        default=None, metavar=" INPUTXML",\
+        help="The input xml file containing the relevant events for followup" )
+  parser.add_option("-N","--table-name",action="store",type="string",\
+        default=None, metavar="INJTABNAME",\
+        help="The table we want to add followups to. Currently can be 'loudest_events' 'close_missed_injection' or 'selected_found_injections'" )
+  parser.add_option("-t","--input-xml-summary",action="store",type="string",\
+        default=None, metavar=" INPXMLSUMMTABLE",\
+        help="The input xml summary table (needed for quiet found injections and coinc triggers if you want to add the followups to these tables)" )
+  parser.add_option("-T","--output-html-table",action="store",type="string",\
+        default=None, metavar=" INPXMLSUMMTABLE",\
+        help="The output html summary table file name." )
+  parser.add_option("","--max-followups",action="store",\
+        type="int",  metavar="MAXFOLLOWUPS",default = 15,\
+        help="Only followup this number of files.")
+  parser.add_option("-O","--do-omega-scan",action="store_true",\
+        default=False,help="Use this flag to enable omega scans.")
+  parser.add_option("-H","--h1-omega-config-file",action="store",\
+        default=None,help="The omega config file for H1.")
+  parser.add_option("-f","--h1-omega-frame-file",action="store",\
+        default=None,help="The omega frame file for H1.")
+  parser.add_option("-L","--l1-omega-config-file",action="store",\
+        default=None,help="The omega config file for L1.")
+  parser.add_option("-l","--l1-omega-frame-file",action="store",\
+        default=None,help="The omega frame file for L1.")
+  parser.add_option("-V","--v1-omega-config-file",action="store",\
+        default=None,help="The omega config file for V1.")
+  parser.add_option("-a","--v1-omega-frame-file",action="store",\
+        default=None,help="The omega frame file for V1.")
+  parser.add_option("-e","--omega-executable",action="store",\
+        default=None,help="The omega executable.")
+  parser.add_option("","--time-slides",action="store_true",\
+        default=False,help="Use this flag to followup time slide triggers.")
+  parser.add_option("-v","--verbose",action="store_true",\
+        default=False,help="print information" )
+  
+  (opts,args) = parser.parse_args()
+  
+  #
+  # Check arguments
+  # 
+  
+  if opts.table_name not in ("loudest_events","close_missed_injections","selected_found_injections"):
+    raise ValueError, "--table-name is not a recognized table name. Run --help."
+  
+  
+  # Followup_trigger needs the following options to be set
+  
+  opts.followup_exttrig = False
+  opts.followup_flow = 40.0
+  opts.figure_resolution = 50
+  opts.output_path = opts.output_path + '/'
+  opts.suffix = '_' + opts.suffix
+  opts.verbose = True
+  opts.followup_time_window = 10
+  opts.user_tag = opts.cache_string
+  opts.omega_ifos = []
+  
+  if opts.h1_omega_config_file:
+    opts.omega_ifos.append('H1')
+  if opts.l1_omega_config_file:
+    opts.omega_ifos.append('L1')
+  if opts.v1_omega_config_file:
+    opts.omega_ifos.append('V1')
 
-usage = """%prog [options]
+  #
+  # done
+  #
 
-Minifollowup is a code designed to run followups on new style xml files with
-coinc_inspiral_tables in them. It can also take in the html table files output
-by printlc and add the mini followup to it for write_ihope_page usage.
-"""
-
-parser = OptionParser( usage=usage, version = git_version.verbose_msg)
-parser.add_option("-g","--cache-string",action="store",type="string",\
-      default=None, metavar=" USERTAG",\
-      help="This is used to parse the cache file. Only files with this string in them will be used" )
-parser.add_option("-c", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
-      help="The ihope cache file to be used")
-parser.add_option("-p","--prefix",action="store",type="string",\
-      default=None, metavar=" PREFIX",\
-      help="Used to prefix the plot names" )
-parser.add_option("-s","--suffix",action="store",type="string",\
-      default=None, metavar=" SUFFIX",\
-      help="Used as a suffix in the plot names" )
-parser.add_option("-o","--output-path",action="store",type="string",\
-      default=".", metavar=" PATH",\
-      help="The output path for the plots" )
-parser.add_option("-x","--input-xml",action="store",type="string",\
-      default=None, metavar=" INPUTXML",\
-      help="The input xml file containing the relevant events for followup" )
-parser.add_option("-N","--table-name",action="store",type="string",\
-      default=None, metavar="INJTABNAME",\
-      help="The table we want to add followups to. Currently can be 'loudest_events' 'close_missed_injection' or 'selected_found_injections'" )
-parser.add_option("-t","--input-xml-summary",action="store",type="string",\
-      default=None, metavar=" INPXMLSUMMTABLE",\
-      help="The input xml summary table (needed for quiet found injections and coinc triggers if you want to add the followups to these tables)" )
-parser.add_option("-T","--output-html-table",action="store",type="string",\
-      default=None, metavar=" INPXMLSUMMTABLE",\
-      help="The output html summary table file name." )
-parser.add_option("","--max-followups",action="store",\
-      type="int",  metavar="MAXFOLLOWUPS",default = 15,\
-      help="Only followup this number of files.")
-parser.add_option("-O","--do-omega-scan",action="store_true",\
-      default=False,help="Use this flag to enable omega scans.")
-parser.add_option("-H","--h1-omega-config-file",action="store",\
-      default=None,help="The omega config file for H1.")
-parser.add_option("-f","--h1-omega-frame-file",action="store",\
-      default=None,help="The omega frame file for H1.")
-parser.add_option("-L","--l1-omega-config-file",action="store",\
-      default=None,help="The omega config file for L1.")
-parser.add_option("-l","--l1-omega-frame-file",action="store",\
-      default=None,help="The omega frame file for L1.")
-parser.add_option("-V","--v1-omega-config-file",action="store",\
-      default=None,help="The omega config file for V1.")
-parser.add_option("-a","--v1-omega-frame-file",action="store",\
-      default=None,help="The omega frame file for V1.")
-parser.add_option("-e","--omega-executable",action="store",\
-      default=None,help="The omega executable.")
-parser.add_option("","--time-slides",action="store_true",\
-      default=False,help="Use this flag to followup time slide triggers.")
-parser.add_option("-v","--verbose",action="store_true",\
-      default=False,help="print information" )
-
-(opts,args) = parser.parse_args()
-
-#
-# Check arguments
-# 
-
-if opts.table_name not in ("loudest_events","close_missed_injections","selected_found_injections"):
-  raise ValueError, "--table-name is not a recognized table name. Run --help."
-
-
-# Followup_trigger needs the following options to be set
-
-opts.followup_exttrig = False
-opts.followup_flow = 40.0
-opts.figure_resolution = 50
-opts.output_path = opts.output_path + '/'
-opts.suffix = '_' + opts.suffix
-opts.verbose = True
-opts.followup_time_window = 10
-opts.user_tag = opts.cache_string
-opts.omega_ifos = []
-
-if opts.h1_omega_config_file:
-  opts.omega_ifos.append('H1')
-if opts.l1_omega_config_file:
-  opts.omega_ifos.append('L1')
-if opts.v1_omega_config_file:
-  opts.omega_ifos.append('V1')
-
-if not os.path.isdir('Images'):
-  os.mkdir('Images')
+  return opts, args
 
 #
 # =============================================================================
@@ -384,6 +389,16 @@ if not os.path.isdir('Images'):
 #
 # =============================================================================
 #
+
+#
+# Command Line
+#
+
+opts, args = parse_command_line()
+
+# Make the Images directory if one does not exist
+if not os.path.isdir('Images'):
+  os.mkdir('Images')
 
 # Sieve the ihope cache file
 cache = lal.Cache.fromfile( open( opts.cache_file ) )
@@ -408,17 +423,19 @@ elif opts.table_name = "close_missed_injections":
 elif opts.table_name = "selected_found_injections":
   summTable, page, omegaScans = found_injections(xmldoc, opts, summTable, followup)  
 
+# Write output html file if desired
 if opts.output_html_table:
   output = open(opts.output_html_table,'w')
   tableList = [opts.table_name]
   columnList, row_span_columns, rspan_break_columns = get_column_list(opts.table_name, with_sngl = opts.time_slides)
   print_tables.print_tables(summTable, output, "html",\
     tableList = tableList, columnList = columnList, round_floats = True, \
-    decimal_places = 2, title = None, print_table_names = False, unique_rows = True,
-    row_span_columns = row_span_columns, 
+    decimal_places = 2, title = None, print_table_names = False, unique_rows = True, \
+    row_span_columns = row_span_columns, \
     rspan_break_columns = rspan_break_columns)
   output.close()
 
+# Write output to .xsl file
 if opts.table_name == "loudest_events":
   for event in summTable:
     for coinc,p,omegaScan in zip(coincTable,page,omegaScans):
