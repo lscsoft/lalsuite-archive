@@ -115,21 +115,21 @@ class FollowupTrigger:
 
     # setting the color definition and the stages of the pipeline
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
+    self.stageLabels = ['INSPIRAL_FIRST']
     if do_slides:
-      self.stageLabels = ['INSPIRAL_FIRST', 'THINCA_SLIDE_FIRST',\
-                        'INSPIRAL_SECOND', 'THINCA_SLIDE_SECOND']
+      self.stageLabels.append('THINCA_1')
     else:
-      self.stageLabels = ['INSPIRAL_FIRST', 'THINCA_FIRST',\
-                          'INSPIRAL_SECOND', 'THINCA_SECOND']
+      self.stageLabels.append('THINCA_0')
+
     self.orderLabels = copy.deepcopy(self.stageLabels)
     if do_slides:
-      self.orderLabels.extend( [ 'THINCA_SLIDE_SECOND_CAT_1',\
-          'THINCA_SLIDE_SECOND_CAT_2', 'THINCA_SLIDE_SECOND_CAT_3',\
-          'THINCA_SLIDE_SECOND_CAT_4', 'THINCA_SLIDE_SECOND_CAT_5'] )
+      self.orderLabels.extend( [ 'THINCA_1_CAT_1',\
+          'THINCA_1_CAT_2', 'THINCA_1_CAT_3',\
+          'THINCA_1_CAT_4', 'THINCA_1_CAT_5'] )
     else:
-      self.orderLabels.extend( [ 'THINCA_SECOND_CAT_1','THINCA_SECOND_CAT_2', \
-                                 'THINCA_SECOND_CAT_3','THINCA_SECOND_CAT_4', \
-                                 'THINCA_SECOND_CAT_5'] )
+      self.orderLabels.extend( [ 'THINCA_0_CAT_1','THINCA_0_CAT_2', \
+                                 'THINCA_0_CAT_3','THINCA_0_CAT_4', \
+                                 'THINCA_0_CAT_5'] )
 
     # set arguments from the options
     self.opts = opts
@@ -570,7 +570,7 @@ class FollowupTrigger:
     Investigate inspiral triggers and create a time-series
     of the SNRs around the injected time
     @param trigger_files: List of files containing the inspiral triggers
-    @param stage:        the name of the stage (FIRST, SECOND)
+    @param stage:        the name of the stage (INSPIRAL_FIRST, THINCA_0_CAT_2)
     @param number:       the consecutive number for this inspiral followup
     @param slideDict: A dictionary of ifo keyed slide times if using slides
     """
@@ -1262,13 +1262,13 @@ class FollowupTrigger:
         continue
 
       # call the function to create the timeseries
-      if ('THINCA_SECOND' in stage) or ('THINCA_SLIDE_SECOND' in stage):
+      if stage in ('THINCA_0','THINCA_1'):
         # ... need to loop over the four categories
         for cat in [1,2,3,4,5]:          
           select_list=self.select_category(file_list, cat)
           if len(select_list)==0:
             print "WARNING (not that bad): "\
-                  "No THINCA_SECOND files found for category ", cat
+                  "No THINCA files found for category ", cat
             continue          
           modstage = stage+'_CAT_' + str(cat)
           invest_dict[modstage] = self.create_timeseries(select_list,modstage,\
