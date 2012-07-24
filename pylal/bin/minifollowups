@@ -170,7 +170,7 @@ def get_column_list(tableName, with_sngl = False):
 # =============================================================================
 #
 
-def loudest_events(xmldoc, opts, summTable, followup)
+def loudest_events(xmldoc, opts, summTable, followup):
 
 	coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
 	coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
@@ -214,7 +214,70 @@ def loudest_events(xmldoc, opts, summTable, followup)
 					event.omega_scan = omegaScan
 
 	return coincTable, page, omegaScans	
-		
+
+
+def missed_injections(xmldoc, opts, summTable, followup):
+
+	page = []
+	omegaScans = []
+	numFU = 0
+
+	for inj in summTable:
+		if numF < opts.max_followups:
+			if opts.do_omega_scan:
+				omegaDirs,omegaLinks = omega_scan_inj(opts,inj)
+				omegaScans.append(omegaLinks)
+			else:
+				omegaScans.append(None)
+			page.append( followup.from_injection( inj,more_infos=True ) )
+			numFU += 1
+
+	for event,p,omegaScan in zip(summTable,page,omegaScans):
+		event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+		if omegaScan:
+			event.omega_scan = omegaScan
+
+	return coincTable, page, omegaScans	
+
+
+def found_injections(xmldoc, opts, summTable, followup):
+
+	sims = table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+	coincT = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+	coincMap = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+	sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
+
+	xmlSummary = utils.load_filename(opts.input_xml_summary,\
+                   gz = opts.input_xml_summary.endswith("gz"))
+
+	page = []
+	omegaScans = []
+	numFU = 0
+
+	for event in simTable:
+		if numF < opts.max_followups:
+			if opts.do_omega_scan:
+				omegaDirs,omegaLinks = omega_scan_inj(opts,event[1])
+				omegaScans.append(omegaLinks)
+			else:
+				omegaScans.append(None)
+			page.append( followup.from_found( event[1],more_infos=True,coinc = event[2],sngls = event[3]))
+			numFU += 1
+
+	for event,p,omegaScan in zip(summTable,page,omegaScans):
+		event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
+		if omegaScan:
+			event.omega_scan = omegaScan
+
+	return coincTable, page, omegaScans	
+
+
+
+
+
+
+
 #
 # =============================================================================
 #
@@ -446,10 +509,18 @@ else:
     for event,p in zip(summTable,page):
       event.mini_followup = '''<a href = "pipedown/''' + p + '''" rel="external"> link </a>'''
 
+###################################################################################################
 summTable = table.get_table(xmlSummary,opts.table_name + ":table")
 
 if opts.table_name == "loudest_events":
   coincTable, page, omegaScans = loudest_events(xmldoc, opts, summTable, followup)  
+elif opts.table_name = "close_missed_injections":
+  coincTable, page, omegaScans = missed_injections(xmldoc, opts, summTable, followup)  
+elif opts.table_name = "selected_found_injections":
+  coincTable, page, omegaScans = found_injections(xmldoc, opts, summTable, followup)  
+###################################################################################################
+
+
 
 if opts.output_html_table is not None:
   output = open(opts.output_html_table,'w')
