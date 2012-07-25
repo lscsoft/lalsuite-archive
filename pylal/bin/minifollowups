@@ -186,7 +186,7 @@ def loudest_events(xmldoc, opts, summTable, followup):
   numFU = 0
 
   for coinc in coincTable:
-    if numF < opts.max_followups:
+    if numFU < opts.max_followups:
       if opts.do_omega_scan:
         omegaDirs, omegaLinks = omega_scan_coinc(opts,coinc[1])
         omegaScans.append(omegaLinks)
@@ -220,7 +220,7 @@ def missed_injections(opts, summTable, followup):
   numFU = 0
 
   for inj in summTable:
-    if numF < opts.max_followups:
+    if numFU < opts.max_followups:
       if opts.do_omega_scan:
         omegaDirs,omegaLinks = omega_scan_inj(opts,inj)
         omegaScans.append(omegaLinks)
@@ -250,7 +250,7 @@ def found_injections(xmldoc, opts, summTable, followup):
   numFU = 0
 
   for event in simTable:
-    if numF < opts.max_followups:
+    if numFU < opts.max_followups:
       if opts.do_omega_scan:
         omegaDirs,omegaLinks = omega_scan_inj(opts,event[1])
         omegaScans.append(omegaLinks)
@@ -284,7 +284,7 @@ def parse_command_line():
   parser = OptionParser(
     version = "Name: %%prog\n%s" % git_version.verbose_msg,
     usage = "%prog [options]",
-    description = dscription
+    description = description
   )
   parser.add_option("-g","--cache-string",action="store",type="string",\
         default=None, metavar=" USERTAG",\

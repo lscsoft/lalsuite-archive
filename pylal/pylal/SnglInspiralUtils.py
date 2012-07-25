@@ -164,7 +164,7 @@ def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
 # =============================================================================
 #
 
-def slideTimeOnLines(triggerList, shifts):
+def slideTriggersOnLines(triggerList, shifts):
   """
   In-place modify trigger_list so that triggers are slid by appropriate value
   of shifts.
