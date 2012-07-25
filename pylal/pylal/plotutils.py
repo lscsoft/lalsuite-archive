@@ -80,7 +80,7 @@ class BasicPlot(object):
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
         if subtitle:
-            self.ax.set_title(title, x=0.5, y=1.04)
+            self.ax.set_title(title, x=0.5, y=1.03)
             self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
                          transform=self.ax.transAxes, verticalalignment='top')
         else:
@@ -233,6 +233,9 @@ def display_name(columnName):
     # define miscellaneous entries
     misc    = {'hoft': '$h(t)$'}
 
+    if len(columnName)==1:
+        return columnName
+
     # find all words, preserving acronyms in upper case
     words = []
     for w in re.split('\s', columnName):
@@ -304,8 +307,11 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
     """
 
     div = make_axes_locatable(ax)
-    cax = div.append_axes("right", "3%", pad="1%", add_to_figure=visible)
-    if not visible: return
+    cax = div.new_horizontal("3%", pad="1%")
+    if not visible:
+        return
+    else:
+        div._fig.add_axes(cax)
     
     # set default tex formatting for colorbar
     if pylab.rcParams['text.usetex']:
@@ -457,10 +463,10 @@ def parse_plot_config(cp, section):
         elif hkey in booleans:
             params[ukey] = cp.getboolean(section, key)
         # get float values
-        elif key in floats:
+        elif hkey in floats:
             params[ukey] = float(val)
         # get float values
-        elif key in ints:
+        elif hkey in ints:
             params[ukey] = int(val)
         # else construct strings
         else:
@@ -1654,8 +1660,9 @@ class PlotSegmentsPlot(BasicPlot):
         self.segdict = segments.segmentlistdict()
         self.keys = []
         self._time_transform = lambda t: float(t - t0)/dt
+        self.kwarg_sets  = []
 
-    def add_content(self, segdict, keys=None):
+    def add_content(self, segdict, keys=None, **kwargs):
         if not keys:
             keys = sorted(segdict.keys())
         for key in keys:
@@ -1664,6 +1671,7 @@ class PlotSegmentsPlot(BasicPlot):
             else:
                 self.keys.append(key)
                 self.segdict[key] = segdict[key]
+            self.kwarg_sets.append(kwargs)
                 
     def highlight_segment(self, seg, **plot_args):
         """
@@ -1692,15 +1700,18 @@ class PlotSegmentsPlot(BasicPlot):
     @method_callable_once
     def finalize(self, labels_inset=False, hidden_colorbar=False):
 
-        for row,key in enumerate(self.keys):
+        for row,(key,plot_kwargs)\
+        in enumerate(itertools.izip(self.keys, self.kwarg_sets)):
+            plot_kwargs.setdefault("edgecolor", "k")
             if self.color_code.has_key(key):
-                col = self.color_code[key]
+                plot_kwargs.setdefault("color", self.color_code[key])
             else:
-                col = 'b'
+                plot_kwargs.setdefault("color", "b")
             for seg in self.segdict[key]:
                 a,b = map(self._time_transform, seg)
                 self.ax.fill([a, b, b, a, a],\
-                             [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
+                             [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4],\
+                             **plot_kwargs)
             if labels_inset:
                 self.ax.text(0.01, (row+1)/(len(self.keys)+1),\
                              re.sub(r'\\+_+','\_',key),\
@@ -1719,6 +1730,11 @@ class PlotSegmentsPlot(BasicPlot):
             self.ax.set_yticklabels([re.sub(r'\\+_+', '\_', k)\
                                        for k in self.keys], size='small')
         self.ax.set_ylim(-1, len(self.keys))
+
+        # dereference
+        del self.keys
+        del self.segdict
+        del self.kwarg_sets
 
 class DQScatterPlot(ColorbarScatterPlot):
     """
@@ -1806,12 +1822,16 @@ class LineHistogram(BasicPlot):
 
     @method_callable_once
     def finalize(self, loc=0, num_bins=100, cumulative=False, rate=False,\
-                 bar=False, fill=False, logx=False, logy=False, alpha=0.8):
+                 xlim=None, bar=False, fill=False, logx=False, logy=False,\
+                 alpha=0.8):
         # determine binning
-        min_stat, max_stat = determine_common_bin_limits(self.data_sets)
+        if xlim:
+            min_stat, max_stat = xlim
+        else:
+            min_stat, max_stat = determine_common_bin_limits(self.data_sets)
         if logx:
             bins = numpy.logspace(numpy.log10(min_stat), numpy.log10(max_stat),\
-                                  num_bins + 1, endpoint=True)
+                                  int(num_bins) + 1, endpoint=True)
         else:
             bins = numpy.linspace(min_stat, max_stat, num_bins+1, endpoint=True)
 
