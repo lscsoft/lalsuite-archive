@@ -1297,7 +1297,7 @@ int XLALSimInspiralChooseWaveform(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families */
-    LALSimGRTestParam *nonGRparams, 		/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -1338,7 +1338,7 @@ int XLALSimInspiralChooseTDWaveform(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families */
-    LALSimGRTestParam *nonGRparams, 		/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -1355,7 +1355,7 @@ int XLALSimInspiralChooseTDWaveform(
      */
     if( nonGRparams )
     {
-        XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimGRTestParam for an approximant that does not use LALSimGRTestParam\n", __func__);
+        XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }
 
@@ -1658,7 +1658,7 @@ int XLALSimInspiralChooseFDWaveform(
     REAL8 lambda1,                              /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2,                              /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags,     /**< Set of flags to control special behavior of some waveform families */
-    LALSimGRTestParam *nonGRparams, 		/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
     Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
@@ -1673,7 +1673,7 @@ int XLALSimInspiralChooseFDWaveform(
      */
     if( nonGRparams )
     {
-        XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimGRTestParam for an approximant that does not use LALSimGRTestParam\n", __func__);
+        XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
     }
 

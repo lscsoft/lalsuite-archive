@@ -61,7 +61,7 @@ typedef struct tagGSParams {
     REAL8 lambda1;	      /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
     REAL8 lambda2;	      /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
     LALSimInspiralWaveformFlags *waveFlags; /**< Set of flags to control special behavior of some waveform families */
-    LALSimGRTestParam *nonGRparams; /**< Linked list of non-GR parameters. Pass in NULL for standard GR waveforms */
+    LALSimInspiralTestGRParam *nonGRparams; /**< Linked list of non-GR parameters. Pass in NULL for standard GR waveforms */
     int axisChoice;           /**< flag to choose reference frame for spin coordinates */
     int inspiralOnly;         /**< flag to choose if generating only the the inspiral 1 or also merger and ring-down*/
     char outname[256];        /**< file to which output should be written */
@@ -348,12 +348,14 @@ int main (int argc , char **argv) {
 
     /* clean up */
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
+    XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
     XLALFree(params);
     XLALDestroyCOMPLEX16FrequencySeries(htilde);
     return 0;
 
     fail:
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
+    XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
     XLALFree(params);
     XLALDestroyCOMPLEX16FrequencySeries(htilde);
     return 1;
