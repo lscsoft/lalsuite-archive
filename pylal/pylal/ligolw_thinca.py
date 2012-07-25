@@ -1,4 +1,4 @@
-# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
+ (C) 2008  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -160,8 +160,8 @@ def append_process(xmldoc, **kwargs):
 		params += [(u"--search-group", u"lstring", kwargs["search_group"])]
 	if kwargs["trigger_program"] is not None:
 		params += [(u"--trigger-program", u"lstring", kwargs["trigger_program"])]
-	if kwargs["exact_mass"] is not None:
-		params += [(u"--exact-mass", None, None)]
+	if kwargs["exact_match"] is not None:
+		params += [(u"--exact-match", None, None)]
 	if kwargs["depop_sngl_inspiral"] is not None:
 		params += [(u"--depop-sngl-inspiral", None, None)]
 	if kwargs["make_expr_tables"] is not None:
@@ -421,7 +421,7 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
 	Returns False (a & b are coincident) if they pass the ellipsoidal
 	thinca test and their component masses are equal.
 	"""
-	if ((a.mass1 == b.mass1) or (a.mass2 == b.mass2)):
+	if ((a.mass1 == b.mass1) or (a.mass2 == b.mass2) or (a.chi == b.chi) or (a.kappa == b.kappa) ):
 		return inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
 	else:
 		return True
