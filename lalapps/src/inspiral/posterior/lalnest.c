@@ -747,7 +747,9 @@ int main( int argc, char *argv[])
 	REAL8 networkSNR=0.0;
         REAL8 * SNRs=NULL;
         SNRs=calloc(nIFO+1 ,sizeof(REAL8));
-    
+        REAL8 singleIFO_SNRcut=5.5;
+        REAL8 network_SNRcut=8.0;
+
 	lal_errhandler = LAL_ERR_EXIT;
         set_debug_level( "33" );
 
@@ -1009,7 +1011,7 @@ int main( int argc, char *argv[])
 		memcpy(&(inputMCMC.epoch),&segmentStart,sizeof(LIGOTimeGPS));
 		
 		/* set up a Tukey Window */
-		if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen, 0.1*(REAL8)8.0*SampleRate/(REAL8)seglen); /* 0.1 agreed on beta parameter for review */
+		if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen, 0.1*(8.0/(seglen/SampleRate))); /* 0.1 agreed on beta parameter for review */
 		/* if (inputMCMC.window==NULL) inputMCMC.window = windowplan = XLALCreateTukeyREAL8Window( seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen); */ /* Original window, commented out for review */
 		/* Read the data from disk into a vector (RawData) */
 		if(!FakeFlag){
@@ -1245,6 +1247,24 @@ int main( int argc, char *argv[])
 if(NULL!=injXMLFile && fakeinj==0 && !(check_approx==TaylorF2 || check_approx==TaylorF2Test || check_approx==MassiveGraviton || check_approx==IMRPhenomFB || check_approx==IMRPhenomFBTest)&&  SNRpath!=NULL) {
     /* Print the SNRs in a file */
     PrintSNRsToFile(SNRs,injTable,&inputMCMC);
+
+    /* Check whether at least two IFOs are above singleIFO_SNRcut, and the networks SNR is above network_SNRcut */
+    UINT4 above=0;
+    UINT4 det_i=0;
+    networkSNR=0.0;
+    for (det_i=0;det_i<nIFO;det_i++){
+        fprintf(stderr, "SNRs[%i]=%e\n", det_i, SNRs[det_i]);
+        networkSNR+=pow(SNRs[det_i],2.);
+        if (SNRs[det_i]>=singleIFO_SNRcut) above++;
+    }
+    networkSNR=sqrt(networkSNR);
+    fprintf(stderr, "Network SNR=%e\n", networkSNR);
+    if (!(above>=2 && networkSNR>=network_SNRcut)) {
+        fprintf(stderr,"The network SNR is below the threshold (%.1lf) or less than two IFOs are above the single IFO threshold (%.1lf). Exiting... \n", network_SNRcut,singleIFO_SNRcut);
+        exit(-1);
+    }
+
+
 }
 
 	/* Data is now all in place in the inputMCMC structure for all IFOs and for one trigger */
