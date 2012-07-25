@@ -50,9 +50,8 @@ _typestr = {\
 # Data conversion
 # =============================================================================
 
-def fromarray(array, name="", epoch=lal.LIGOTimeGPS(), deltaT=1,\
-              f0=0, sampleUnits=lal.lalDimensionlessUnit,\
-              frequencyseries=False):
+def fromarray(array, name="", epoch=lal.LIGOTimeGPS(), f0=0, deltaT=1,\
+              sampleUnits=lal.lalDimensionlessUnit, frequencyseries=False):
     """
     Convert numpy.array to REAL8TimeSeries. Use frequencyseries to return
     REAL8FrequencySeries.
@@ -207,8 +206,6 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
             verbose output
     """
 
-    TYPESTR  = _typestr[datatype]
-
     # set mode
     if verbose:  mode = lalframe.LAL_FR_VERBOSE_MODE
     else:        mode = lalframe.LAL_FR_DEFAULT_MODE
@@ -219,10 +216,12 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     start = lal.LIGOTimeGPS(float(start))
     duration = float(duration)
     
-    lalframe.XLALFrSeek(stream, start)
-
     # get series type
     frdatatype = lalframe.XLALFrGetTimeSeriesType(chname, stream)
+    if datatype == -1:
+        datatype = frdatatype
+
+    TYPESTR  = _typestr[datatype]
 
     # get data
     if frdatatype == datatype:
@@ -235,7 +234,7 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
         series = func(dblseries.name, dblseries.epoch, dblseries.f0,\
                       dblseries.deltaT, dblseries.sampleUnits,\
                       dblseries.data.length)
-        series.data.data = dblseries.data.data
+        series.data.data = dblseries.data.data.astype(type(series.data.data[0]))
         del dblseries
         
     # return
@@ -371,17 +370,22 @@ def bandpass(series, fmin, fmax, amplitude=0.9, filtorder=8, inplace=True):
 
 def duplicate(series):
     """
-    Duplicate a REAL?TimeSeries.
+    Duplicate a TimeSeries or FrequencySeries.
 
     Arguments:
 
-        series : swiglal.REAL?TimeSeries
+        series : [ TimeSeries | FrequencySeries ]
             input series to duplicate
     """
-    datatype = typecode(type(series))
+    seriestype = (type(series)).rstrip("'>").split('.')[-1]
+    datatype = typecode(seriestype)
     TYPESTR  = _typestr[datatype]
-    func     = getattr(lal, 'XLALCreate%sTimeSeries' % TYPESTR)
-    out      = func(series.name, series.epoch, series.f0, series.deltaT,\
+    func     = getattr(lal, 'XLALCreate%s' % seriestype)
+    if seriestype.endswith("FrequencySeries"):
+        out  = func(series.name, series.epoch, series.f0, series.deltaF,\
+                        series.sampleUnits, series.data.length)
+    elif seriestype.endswith("TimeSeries"):
+        out  = func(series.name, series.epoch, series.f0, series.deltaT,\
                     series.sampleUnits, series.data.length)
     out.data.data = series.data.data
     return out
