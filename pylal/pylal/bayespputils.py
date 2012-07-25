@@ -35,6 +35,7 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
+import sys
 from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
@@ -3450,6 +3451,11 @@ class PEOutputParser(object):
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
                        
+        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
+
+        posfilename='posterior_samples.dat'
+        posfile=open(posfilename,'w')
+       
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
@@ -3457,33 +3463,21 @@ class PEOutputParser(object):
         
         # check if there's a file containing the parameter names
         parsfilename = it.next()+'_params.txt'
-        if(os.path.isfile(parsfilename)):
+        
+        if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
             if os.access(parsfilename,os.R_OK):
-                outpars=parsfile.readline()
+                parsfile = open(parsfilename,'r')
+                outpars = parsfile.readline()
                 parsfile.close()
             else:
-                print 'Cannot open parameters file %s!'%(parsfilename)
-                raise
-        else: # Use hardcoded CBC parameter names
-            outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
-            dec \t psi \t iota \t logl \n'
-
-        # Find the logL column
-        parsvec=outpars.split()
-        logLcol=-1
-        for i in range(len(parsvec)):
-            if parsvec[i].lower()=='logl':
-                logLcol=i
-        if logLcol==-1:
-            print 'Error! Could not find logL column in parameter list: %s'%(outpars)
-            raise
-
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive,logLcolumn=logLcol)
-
-        posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
-        posfile.write(outpars)
+              print "Need files of parameters "+parsfilename
+              raise RuntimeError
+        
+            posfile.write(outpars+'\n')
+        else: # use hardcoded CBC parameter names 
+            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+dec \t psi \t iota \t likelihood \n')     
         
         for row in pos:
             for i in row:
@@ -3593,12 +3587,12 @@ class PEOutputParser(object):
 
         header=formatstr.split(delimiter)
         header[-1]=header[-1].rstrip('\n')
-
+	nparams=len(header)
         llines=[]
         import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
-        line_count=0
-        for line in infile:
+        
+	for line_number,line in enumerate(infile):
             sline=line.split(delimiter)
             if sline[-1] == '\n':
                 del(sline[-1])
@@ -3606,19 +3600,27 @@ class PEOutputParser(object):
             if len(sline)<1:
                 print 'Ignoring empty line in input file: %s'%(sline)
                 proceed=False
+	    elif len(sline)!=nparams:
+		sys.stderr.write('WARNING: Malformed row %i, read %i elements but there is meant to be %i\n'%(line_number,len(sline),nparams))
+		proceed=False
 
-            for st in sline:
+            for elemn,st in enumerate(sline):
                 s=st.replace('\n','')
                 if dec.search(s) is None:
-                    print 'Warning! Ignoring non-numeric data after the header: %s'%s
+                    print 'Warning! Ignoring non-numeric data after the header: %s. Row = %i,Element=%i'%(s,line_number,elemn)
                     proceed=False
-                if s is '\n':
+                elif s is '\n':
                     proceed=False
 
             if proceed:
-                llines.append(np.array(map(float,sline)))
+	    	llines.append(map(float,sline))	
 
         flines=np.array(llines)
+
+	if not flines.any():
+	   raise RuntimeError("ERROR: no lines read in!")	
+           
+
         for i in range(0,len(header)):
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
