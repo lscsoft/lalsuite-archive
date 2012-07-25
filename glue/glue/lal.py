@@ -434,12 +434,11 @@ class CacheEntry(object):
 	This module also provides a Cache class, which some codes use to
 	represent an entire LAL cache file.  However, for most use cases a
 	simple Python list or set of CacheEntry objects is sufficient for
-	representing a LAL cache file.  The Cache class has been developed
-	specifically to support CBC codes.
+	representing a LAL cache file.
 
 	Example (one-liners to read and write a cache file):
 
-	>>> cache = [CacheEntry(line) for line in open(filename)]
+	>>> cache = map(CacheEntry, open(filename))
 	>>> f = open(filename, "w")
 	>>> for cacheentry in cache: print >>f, str(cacheentry)
 
@@ -553,9 +552,20 @@ class CacheEntry(object):
 			raise TypeError, "can only compare CacheEntry to CacheEntry"
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
 
+	def __hash__(self):
+		return hash((self.observatory, self.description, self.segment, self.url))
+
+	@property
+	def url(self):
+		return urlparse.urlunparse((self._scheme, self._host, self._path, None, None, None))
+
+	@url.setter
+	def url(self, url):
+		self._scheme, self._host, self._path = urlparse.urlparse(url)[:3]
+
 	def scheme(self):
 		"""
-		Return the scheme part of the URL.
+		The scheme part of the URL.
 
 		Example:
 
@@ -563,11 +573,12 @@ class CacheEntry(object):
 		>>> c.scheme()
 		'file'
 		"""
-		return urlparse.urlparse(self.url)[0]
+		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
+		return self._scheme
 
 	def host(self):
 		"""
-		Return the host part of the URL.
+		The host part of the URL.
 
 		Example:
 
@@ -575,11 +586,12 @@ class CacheEntry(object):
 		>>> c.host()
 		'localhost'
 		"""
-		return urlparse.urlparse(self.url)[1]
+		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
+		return self._host
 
 	def path(self):
 		"""
-		Return the path part of the URL.
+		The path part of the URL.
 
 		Example:
 
@@ -587,7 +599,8 @@ class CacheEntry(object):
 		>>> c.path()
 		'/home/kipp/tmp/1/H1-815901601-576.xml'
 		"""
-		return urlparse.urlparse(self.url)[2]
+		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
+		return self._path
 
 	def to_segmentlistdict(self):
 		"""
