@@ -164,6 +164,18 @@ def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
 # =============================================================================
 #
 
+def slideTimeOnLines(triggerList, shifts):
+  """
+  In-place modify trigger_list so that triggers are slid by appropriate value
+  of shifts.
+
+  @param triggerList: a SnglInspiralTable
+  @param shifts:      a dictionary of the time-shifts keyed by IFO
+  """
+  for trigger in triggerList:
+    end_time = trigger.get_end()
+    trigger.set_end( end_time + shifts[trigger.ifo]) )  
+
 def slideTimeOnRing(time, shift, ring):
   """
   Return time after adding shift, but constrained to lie along the ring

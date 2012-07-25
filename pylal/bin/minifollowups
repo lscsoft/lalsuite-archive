@@ -177,9 +177,6 @@ def loudest_events(xmldoc, opts, summTable, followup):
   sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
   coincTable = organize_coincs(coincT, sngls, coincMap)
 
-  xmlSummary = utils.load_filename(opts.input_xml_summary,\
-    gz = opts.input_xml_summary.endswith("gz"))
-
   coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
   timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
   coincTable = organize_slides(coincTable, coincEvent, timeSlide)
@@ -216,7 +213,7 @@ def loudest_events(xmldoc, opts, summTable, followup):
   return summTable, coincTable, page, omegaScans  
 
 
-def missed_injections(xmldoc, opts, summTable, followup):
+def missed_injections(opts, summTable, followup):
 
   page = []
   omegaScans = []
@@ -248,9 +245,6 @@ def found_injections(xmldoc, opts, summTable, followup):
   sngls = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
   simTable = organize_found_injs(summTable,sims,coincT,coincMap,sngls)
 
-  xmlSummary = utils.load_filename(opts.input_xml_summary,\
-                   gz = opts.input_xml_summary.endswith("gz"))
-
   page = []
   omegaScans = []
   numFU = 0
@@ -271,11 +265,6 @@ def found_injections(xmldoc, opts, summTable, followup):
       event.omega_scan = omegaScan
 
   return summTable, page, omegaScans
-
-
-
-
-
 
 
 #
@@ -413,15 +402,18 @@ else:
 xmldoc = utils.load_filename( opts.input_xml,
     gz = opts.input_xml.endswith("gz"))
 
-summTable = table.get_table(xmlSummary,opts.table_name + ":table")
-
 # Make minifollowup page and run omegascans
-if opts.table_name == "loudest_events":
-  summTable, coincTable, page, omegaScans = loudest_events(xmldoc, opts, summTable, followup)  
-elif opts.table_name = "close_missed_injections":
-  summTable, page, omegaScans = missed_injections(xmldoc, opts, summTable, followup)  
-elif opts.table_name = "selected_found_injections":
-  summTable, page, omegaScans = found_injections(xmldoc, opts, summTable, followup)  
+if opts.table_name == "close_missed_injections":
+  summTable = table.get_table(xmldoc,opts.table_name + ":table")
+  summTable, page, omegaScans = missed_injections(opts, summTable, followup)  
+else:
+  xmlSummary = utils.load_filename(opts.input_xml_summary,\
+                 gz = opts.input_xml_summary.endswith("gz"))
+  summTable = table.get_table(xmlSummary,opts.table_name + ":table")
+  if opts.table_name == "loudest_events":
+    summTable, coincTable, page, omegaScans = loudest_events(xmldoc, opts, summTable, followup)  
+  elif opts.table_name == "selected_found_injections":
+    summTable, page, omegaScans = found_injections(xmldoc, opts, summTable, followup)  
 
 # Write output html file if desired
 if opts.output_html_table:
@@ -450,5 +442,4 @@ else:
     if omegaScan:
       event.omega_scan = omegaScan
   utils.write_filename(xmldoc,opts.input_xml,xsl_file='ligolw.xsl')
-
 
