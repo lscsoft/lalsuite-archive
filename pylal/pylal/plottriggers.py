@@ -169,13 +169,19 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     # extract columns
     data = list()
     for i,name in enumerate(tablenames):
-        data.append([get_column(tables[i], c.lower()) for c in columns])
+        data.append([])
+        for c in columns:
+            data[-1].append(get_column(tables[i], c.lower()))
+            if not len(data[-1][-1].shape)\
+            or data[-1][-1].shape[0] != len(tables[i]):
+                raise AttributeError("No data loaded for column \"%s\" and "\
+                                     "table \"%s\"" % (c, name))
 
     # add our own limits
     for i in range(len(columns)):
         if not limits[i]:
             mins = [data[j][i].min() for j in range(len(tablenames))\
-                    if len(data[j][i])]
+                    if len(data[j][i].shape) and data[j][i].shape[0] != 0]
             if len(mins):
                 lmin = min(mins)
                 lmax = max(data[j][i].max() for j in range(len(tablenames))\
