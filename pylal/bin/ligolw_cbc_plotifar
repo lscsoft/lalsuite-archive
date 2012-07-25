@@ -646,7 +646,7 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         else: # if not all_data, just set bkg_correction to 1. to avoid errors
             bkg_correction = 1.
     else:
-        zero_esid = 0
+        zero_esid = None
 
     
     #
@@ -664,11 +664,11 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         msg = ''
         if len(ufar_summaries.sngl_slide_stats.keys()) == 0:
             msg = "No uncombined fars found for this experiment."
-        if zero_esid == 0:
-            msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
-        else:
+        if zero_esid:
             if background.frg_durs[eid][zero_esid] == 0:
                 msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+        else:
+            msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
 
         if len(msg) != 0:
             text( 0.5, 0.5, msg, 
@@ -896,8 +896,19 @@ for eid, on_inst, exp_start_time, exp_end_time in connection.cursor().execute( s
         figure(figure_number)
         figure_number += 1
 
+        # check that there's something to plot; if there isn't, just make an empty plot
+        msg = ''
         if len(cfar_summaries.sngl_slide_stats.keys()) == 0:
-            text( 0.5, 0.5, "No combined fars found for this experiment.", 
+            msg = "No combined fars found for this experiment."
+        if zero_esid:
+            if background.frg_durs[eid][zero_esid] == 0:
+                msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+        else:
+            msg = ' '.join([ msg, "No", plot_datatype, "time for this experiment." ])
+
+
+        if len(msg) != 0:
+            text( 0.5, 0.5, msg, 
                 ha = 'center', va = 'center' )
             xlabel( r"No data", size='x-large' )
             ylabel( r"No data", size='x-large' )
