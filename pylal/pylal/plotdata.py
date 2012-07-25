@@ -83,13 +83,6 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
     # get savefig option
     bbox_inches = kwargs.pop("bbox_inches", None)
 
-    # set default params
-    if kwargs.has_key("marker"):
-        kwargs.setdefault("markersize", 5)
-    else:
-        kwargs.setdefault("linestyle", "-")
-        kwargs.setdefault("linewidth", "1")
-    
     #
     # get labels
     #
@@ -120,6 +113,21 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
     subtitle = kwargs.pop("subtitle", "")
 
     #
+    # set default line params
+    #
+
+    color = kwargs.pop("color", None)
+    kwargs2 = dict()
+    kwargs2.update(kwargs)
+    if kwargs.has_key("marker"):
+        kwargs.setdefault("markersize", 5)
+        kwargs2.setdefault("markersize", 2)
+    else:
+        kwargs.setdefault("linestyle", "-")
+        kwargs.setdefault("linewidth", "1")
+        kwargs2.setdefault("linewidth", "0.1")
+
+    #
     # make plot
     #
 
@@ -129,23 +137,25 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
     plot = plotutils.SimplePlot(xlabel, ylabel, title, subtitle)
     for i,(series,c) in enumerate(itertools.izip(namedseries,\
                                                  plotutils.default_colors())):
-        x = numpy.arange(series.data.length) * series.deltaT + series.epoch - t0
+        x = numpy.arange(series.data.length) * series.deltaT +\
+            float(series.epoch) - float(t0)
         x = x.astype(float)
         x /= unit
+        if color: c = color
         plot.add_content(x, series.data.data, color=c,\
                          label=plotutils.display_name(series.name), **kwargs)
         # find min/max and plot
         for i,name in enumerate(allnames):
             for ext in ["min", "max"]:
-                if re.match("%s\w%s" % (name, ext), series.name):
+                if re.match("%s[- _]%s" % (re.escape(series.name), ext), name):
                     series2 = serieslist[i]
                     x2 = numpy.arange(series2.data.length) * series2.deltaT\
-                         + series2.epoch - t0
+                         + float(series2.epoch) - float(t0)
                     x2 /= unit
-                    plot.ax.plot(x2, series2.data.data, color=c, linewidth=0.3,\
-                                 **kwargs)
+                    plot.ax.plot(x2, series2.data.data, color=c, **kwargs2)
                     plot.ax.fill_between(x2, series.data.data,\
-                                         series2.data.data, color=c, alpha=0.25)
+                                         series2.data.data, alpha=0.1,\
+                                         color=c)
 
     # finalize
     plot.finalize(loc=loc, alpha=alpha)
@@ -215,13 +225,6 @@ def plotfrequencyseries(series, outfile, **kwargs):
     # get savefig option
     bbox_inches = kwargs.pop("bbox_inches", None)
 
-    # set default params
-    if kwargs.has_key("marker"):
-        kwargs.setdefault("markersize", 5)
-    else:
-        kwargs.setdefault("linestyle", "-")
-        kwargs.setdefault("linewidth", "1")
-    
     #
     # get labels
     #
@@ -230,6 +233,21 @@ def plotfrequencyseries(series, outfile, **kwargs):
     ylabel   = kwargs.pop("ylabel", "Amplitude")
     title    = kwargs.pop("title", "")
     subtitle = kwargs.pop("subtitle", "")
+
+    #
+    # set default line params
+    #
+
+    color = kwargs.pop("color", None)
+    kwargs2 = dict()
+    kwargs2.update(kwargs)
+    if kwargs.has_key("marker"):
+        kwargs.setdefault("markersize", 5)
+        kwargs2.setdefault("markersize", 2)
+    else:
+        kwargs.setdefault("linestyle", "-")
+        kwargs.setdefault("linewidth", "1")
+        kwargs2.setdefault("linewidth", "0.1")
 
     #
     # make plot
@@ -243,19 +261,20 @@ def plotfrequencyseries(series, outfile, **kwargs):
                                                  plotutils.default_colors())):
         x = numpy.arange(series.data.length) * series.deltaF + series.f0 
         x = x.astype(float)
-        plot.add_content(x, series.data.data, color=c,\
+        if color: c = color
+        plot.add_content(x, series.data.data, color=c,
                          label=plotutils.display_name(series.name), **kwargs)
         # find min/max and plot
         for i,name in enumerate(allnames):
             for ext in ["min", "max"]:
-                if re.match("%s\w%s" % (name, ext), series.name):
+                if re.match("%s[- _]%s" % (re.escape(series.name), ext), name):
                     series2 = serieslist[i]
                     x2 = numpy.arange(series2.data.length) * series2.deltaF\
                          + series2.f0 
-                    plot.ax.plot(x2, series2.data.data, color=c, linewidth=0.3,\
-                                 **kwargs)
+                    plot.ax.plot(x2, series2.data.data, color=c, **kwargs2)
                     plot.ax.fill_between(x2, series.data.data,\
-                                         series2.data.data, color=c, alpha=0.25)
+                                         series2.data.data, alpha=0.1,\
+                                         color=c)
 
     # finalize
     plot.finalize(loc=loc, alpha=alpha)
@@ -389,12 +408,12 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
     #
 
     for i,sequence in enumerate(sequencelist):
-        if logy and not ydata:
+        if logy and ydata is None:
            # interpolate the data onto a log-scale
            sequence,ydata = loginterpolate(sequence, f0[i], deltaF[i])
         if logy and ylim:
            plotted = (ydata > ylim[0]) & (ydata <= ylim[1])
-           newVectorLength = numpy.where((plotted))[0].size
+           newVectorLength = int(plotted.sum())
            newsequence = lal.XLALCreateREAL8VectorSequence(sequence.length,\
                                                            newVectorLength)
            for j in range(sequence.length):
@@ -440,7 +459,9 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
                                subtitle=subtitle, colorlabel=colorlabel)
 
     for sequence,x,y in zip(sequencelist, xbins, ybins):
-        plot.add_content(sequence.data.T, x, y, **kwargs)
+        data = numpy.ma.masked_where(numpy.isnan(sequence.data), sequence.data,\
+                                     copy=False)
+        plot.add_content(data.T, x, y, **kwargs)
 
     # finalize
     plot.finalize(colorbar=True, logcolor=logcolor, minorticks=True,\
@@ -497,3 +518,75 @@ def loginterpolate(sequence, y0, deltaY, N=None):
         out.data[i,:] = intplt(ylog)
 
     return out,ylog
+
+# =============================================================================
+# Plot histogram of series
+# =============================================================================
+
+def plothistogram(serieslist, outfile, nonzero=False, num_bins=100,\
+                  cumulative=False, bar=False, **kwargs):
+    """
+    Plots a line histogram of the data contained in the series, or list of
+    series'.
+    """
+    # construct list of series
+    if not hasattr(serieslist, "__contains__"):
+        serieslist = [serieslist]
+
+    # get limits
+    xlim = kwargs.pop("xlim", None)
+    ylim = kwargs.pop("ylim", None)
+
+    # set labels
+    xlabel   = kwargs.pop("xlabel", "Amplitude")
+    ylabel   = kwargs.pop("ylabel", "Fraction of data")
+    title    = kwargs.pop("title", "")
+    subtitle = kwargs.pop("subtitle","")
+
+    # get axis scales
+    logx     = kwargs.pop("logx", False)
+    logy     = kwargs.pop("logy", False)
+
+    # get colorbar options
+    hidden_colorbar = kwargs.pop("hidden_colorbar", False)
+
+    # get savefig option
+    bbox_inches = kwargs.pop("bbox_inches", "tight")
+
+    # get fill
+    fill = kwargs.pop("fill", False)
+
+    # get legend loc
+    loc = kwargs.pop("loc", 0)
+    alpha = kwargs.pop("alpha", 0.8)
+
+    #
+    # plot
+    #
+
+    plot = plotutils.LineHistogram(xlabel, ylabel, title, subtitle)
+
+    for series in serieslist:
+        data = series.data.data
+        if nonzero:
+            data = data[data!=0]
+        plot.add_content(data, normalize=data.size, label=series.name, **kwargs)
+    plot.finalize(loc=loc, alpha=alpha, logx=logx, logy=logy, bar=bar,\
+                  xlim=xlim, num_bins=num_bins, cumulative=cumulative)
+    if hidden_colorbar:
+        plotutils.add_colorbar(plot.ax, visible=False)
+
+    plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+
+    if xlim:
+        plot.ax.set_xlim(xlim)
+    if ylim:
+        plot.ax.set_ylim(ylim)
+
+    plotutils.set_minor_ticks(plot.ax)
+
+    # save and close
+    plot.savefig(outfile, bbox_inches=bbox_inches,\
+                 bbox_extra_artists=plot.ax.texts)
+    plot.close()
+
