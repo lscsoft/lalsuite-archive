@@ -517,6 +517,14 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       else: node.ifos=ifos
       node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
       gotdata=1
+    if self.config.has_option('lalinference','ER2-cache'):
+      node.cachefiles=ast.literal_eval(self.config.get('lalinference','ER2-cache'))
+      node.channels=ast.literal_eval(self.config.get('data','channels'))
+      if len(ifos)==0: node.ifos=node.cachefiles.keys()
+      else: node.ifos=ifos
+      print 'added ifos %s'%(str(ifos))
+      node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
+      gotdata=1
     else:
       # Add the nodes it depends on
       for seg in node.scisegs.values():
