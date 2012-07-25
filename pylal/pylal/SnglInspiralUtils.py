@@ -174,7 +174,7 @@ def slideTimeOnLines(triggerList, shifts):
   """
   for trigger in triggerList:
     end_time = trigger.get_end()
-    trigger.set_end( end_time + shifts[trigger.ifo]) )  
+    trigger.set_end( end_time + shifts[trigger.ifo] )  
 
 def slideTimeOnRing(time, shift, ring):
   """

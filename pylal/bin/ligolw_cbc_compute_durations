@@ -36,8 +36,6 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw.utils import process
 
-from pylal import db_thinca_rings
-
 __prog__ = "ligolw_cbc_compute_durations"
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 
