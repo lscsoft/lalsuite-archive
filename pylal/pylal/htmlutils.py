@@ -377,6 +377,7 @@ def build_page(icon=None, banner=None, homebutton=None, tabs=None,\
     if homebutton is not None or tabs is not None:
         page.div(class_="content", id_="tabs")
         page.div()
+        if not homebutton: homebutton = ""
         page.div(str(homebutton), class_="nav", id_="tabsnav")
         page.div(str(tabs), class_="frame", id_="tabsframe")
         page.div.close()
