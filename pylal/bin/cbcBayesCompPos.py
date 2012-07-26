@@ -588,7 +588,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            my_cm=mpl_cm.gist_ncar
+            my_cm=mpl_cm.spectral
             cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
