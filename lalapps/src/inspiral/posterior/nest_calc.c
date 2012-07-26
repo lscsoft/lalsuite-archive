@@ -457,18 +457,18 @@ int spin_rotate_s=0;
 int spin_jump_s=0;
 
 int failed_logP=0;
-    REAL8 spin_only_ratio=0.01;
+    REAL8 spin_rotate_ratio=0.01;
     REAL8 sky_jump=0.05;
     REAL8 differential_ratio=0.2;
     REAL8 spin_jump_ratio=0.01;
     int dont_skip=1;
-if (dZ> 100.0){differential_ratio=0.2;spin_only_ratio=0.15;sky_jump=0.15;}    
-else if(dZ>80.0){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
-else if (dZ<70.0 && dZ>60.0 ){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
-else if (dZ>30.0){differential_ratio=0.2;spin_only_ratio=0.;sky_jump=0.;}
-else if (dZ>20.0){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
-else if (dZ<10.0 && dZ>8.0 ){dont_skip=0;differential_ratio=0.0;spin_only_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
-else if (dZ>0.0) {spin_only_ratio=0.00;sky_jump=0.00;differential_ratio=0.4;}
+if (dZ> 100.0){differential_ratio=0.2;spin_rotate_ratio=0.15;spin_jump_ratio=0.15;sky_jump=0.15;}    
+else if(dZ<85.0 && dZ>80.0){dont_skip=0;differential_ratio=0.0;spin_rotate_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ<65.0 && dZ>60.0 ){dont_skip=0;differential_ratio=0.0;spin_rotate_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ>30.0){differential_ratio=0.3;spin_rotate_ratio=0.;spin_jump_ratio=0.0;sky_jump=0.;}
+else if (dZ<22.0 && dZ>20.0){dont_skip=0;differential_ratio=0.0;spin_rotate_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ<9.0 && dZ>8.0 ){dont_skip=0;differential_ratio=0.0;spin_rotate_ratio=.5;spin_jump_ratio=.5;sky_jump=0.5;}
+else if (dZ>0.0) {spin_rotate_ratio=0.00;spin_jump_ratio=0.0;sky_jump=0.00;differential_ratio=0.4;}
 	
 
 MCMCInput->funcPrior(MCMCInput,sample);
@@ -522,7 +522,7 @@ MCMCInput->funcPrior(MCMCInput,sample);
                     {XLALMCMCJumpHarmonic(MCMCInput,temp);printf("Higher Harmonic  proposal iteration %d\n",i);}
                     /* Spin jumps */
                     // else if ((jump_select=gsl_rng_uniform(RNG))<spin_only_ratio && XLALMCMCCheckParameter(sample,"a1") && XLALMCMCCheckParameter(sample,"a1")){
-                else if ((jump_select=gsl_rng_uniform(RNG))<spin_only_ratio && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
+                else if ((jump_select=gsl_rng_uniform(RNG))<spin_rotate_ratio && XLALMCMCCheckWrapping(sample,"theta1")!=-1 && XLALMCMCCheckWrapping(sample,"theta2")!=-1 && XLALMCMCCheckWrapping(sample,"phi1")!=-1 && XLALMCMCCheckWrapping(sample,"phi2")!=-1 && XLALMCMCCheckWrapping(sample,"a1")!=-1 && XLALMCMCCheckWrapping(sample,"a2")!=-1)
                     {spin_jump:
                     XLALMCMCRotateSpins(MCMCInput,temp);spin_rotate_t+=1;spin_rotate_i=1; 
                      //printf("Rotate Spins iteration %d ============= SPINS \n",i);
