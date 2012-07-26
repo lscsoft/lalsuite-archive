@@ -1,14 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-#       cbcBayesPostProc.py
+#       cbcBayesConvergence.py
 #
-#       Copyright 2010
-#       Benjamin Aylott <benjamin.aylott@ligo.org>,
-#       Benjamin Farr <bfarr@u.northwestern.edu>,
-#       Will M. Farr <will.farr@ligo.org>,
-#       John Veitch <john.veitch@ligo.org>
-#       Vivien Raymond <vivien.raymond@ligo.org>
+#       Copyright 2012
+#       Alex Mellus <flyers585@gmail.com>
 #
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -428,7 +424,7 @@ def cbcBayesPostProc(
     #Create webpage with nested sampling convergence information
     #==================================================================#
     if nsconvergence and ns_flag:
-	import nsconvergence as nsc
+	import pylal.nsconvergence as nsc
 	runs = len(pos_samples)
 	html_nsconvergence=bppu.htmlPage('Convergence Information', css=bppu.__default_css_string)
 
