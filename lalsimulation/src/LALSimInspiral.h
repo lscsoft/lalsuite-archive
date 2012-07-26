@@ -84,12 +84,8 @@ typedef enum {
    TaylorEt,		/**< UNDOCUMENTED */
    TaylorT4,		/**< UNDOCUMENTED */
    TaylorN,		/**< UNDOCUMENTED */
-<<<<<<< HEAD
    MassiveGraviton,
-   NumApproximants	/**< UNDOCUMENTED */
-=======
    NumApproximants	/**< Number of elements in enum, useful for checking bounds */
->>>>>>> f16bd969655bcfd5300f5e7bdbdca7471ccebfbc
  } Approximant;
 
 /** Enum of possible values to use for post-Newtonian order. */
