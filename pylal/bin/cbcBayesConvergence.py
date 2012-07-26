@@ -114,7 +114,9 @@ def cbcBayesPostProc(
                         #List of meanVector csv files used, one csv file for each covariance matrix
                         meanVectors=None,
 			#Creates webpage with nested sampling convergence information
-			nsconvergence=None
+			nsconvergence=None,
+			#Threshold for failure for gelman-rubin test
+			gelmanthresh=1.01
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -485,6 +487,18 @@ def cbcBayesPostProc(
                 os.makedirs(gelmandir)	
 	
 	gelmanrubin = nsc.gelman_rubin(pos_samples, param_arr, gelmandir)
+	warn = False
+	warnparams = []
+	for index,g in enumerate(gelmanrubin):
+		if g > gelmanthresh:
+			warn = True
+			html_nsconvergence_gelman.p('%s has a high R value!'%param_arr[index])
+			warnparams.append(index)
+	if warn:
+		warnfile = open(outdir+'/warning.txt', 'w')
+		for i in warnparams:
+			warnfile.write('%s has a high R value!\n'%param_arr[i])
+		warnfile.close()	
 
 	colors = ['b', 'r', 'g', 'c', 'k', 'm', 'y', .25, .5, .75]
 	for param_index, param in enumerate(param_arr):
@@ -493,11 +507,16 @@ def cbcBayesPostProc(
 			for j in range(len(pos_samples[i])):
 				data_range.append(j) 
 			col = nsc.get_data_col(pos_samples[i], param_arr, param)
-        		plt.figure(param_index)#,figsize=(4,3.5),dpi=200)
-			plt.scatter(data_range, col, c = colors, s = 5, edgecolors = 'none')#marker = '.')
+        		#for z in range(5):
+			#	col.pop(0)
+			#	data_range.pop(0)
+			plt.figure(param_index)
+			plt.scatter(data_range, col, c = colors, s = 5, edgecolors = 'none')
 			plt.title('R = ' + str(gelmanrubin[param_index]))
 			plt.xlabel('Sample')
-			plt.ylabel(param)		
+			plt.ylabel(param)	
+			plt.xlim(0,len(pos_samples[i]))	
+			plt.ylim(min(col),max(col))
 			plt.savefig(gelmandir+'/'+param)
        	
 	for p in param_arr:
@@ -1192,6 +1211,7 @@ if __name__=='__main__':
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     parser.add_option("--nsconvergence", action="store_true", default=False, help="make page with nested sampling convergence information in DIR")
+    parser.add_option("--gelmanthresh", action="store", type="float", dest="gelmanthresh", default=1.01, help="set threshold for failure for gelman-rubin test")
 
     (opts,args)=parser.parse_args()
 
@@ -1316,6 +1336,8 @@ if __name__=='__main__':
                         #List of meanVector csv files used, one csv file for each covariance matrix
                         meanVectors=opts.meanVectors,
 			#Creates webpage with nested sampling convergence information
-			nsconvergence=opts.nsconvergence
+			nsconvergence=opts.nsconvergence,
+			#Threshold for failure for gelman-rubin test
+			gelmanthresh=opts.gelmanthresh
                     )
-#
+
