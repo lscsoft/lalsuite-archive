@@ -210,24 +210,18 @@ def parse_command_line():
     (options,filenames) = parser.parse_args()
 
     #check if required options specified and for self-consistency
-    if options.x_var is None:
-        raise ValueError, "Option --x-var must be specified."
-    if options.y_var is None:
-        raise ValueError, "Option --y-var must be specified."
-    if options.x_ifo is None:
-        raise ValueError, "Option --x-ifo must be specified."
-    if options.datatype is None:
-        raise ValueError, "Option --datatypes must be specified."
-    if 'injection' is in options.datatype and options.simulation_table is None:
+    required_options = ["x_var", "y_var", "x_ifo", "datatypes"]
+    missing_options = [option for option in required_options if getattr(options, option) is None]
+    if missing_options:
+        raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
+
+    if 'injection' in options.datatype and options.simulation_table is None:
         raise ValueError, "Must specify --simulation-table for injection datatype."
-    if options.logx and options.xmin is not None and options.xmin <= 0:
-        raise ValueError, "If --logx desired, --xmin must be > 0."
-    if options.logx and options.xmax is not None and options.xmax <= 0:
-        raise ValueError, "If --logx desired, --xmax must be > 0."
-    if options.logy and options.ymin is not None and options.ymin <= 0:
-        raise ValueError, "If --logy desired, --ymin must be > 0."
-    if options.logy and options.ymax is not None and options.ymax <= 0:
-        raise ValueError, "If --logy desired, --ymax must be > 0."
+
+    if options.logx and (options.xmin > 0 and options.xmax > 0):
+        raise ValueError, "If --logx desired, x-limits must be > 0."
+    if options.logy and (options.ymin > 0 and options.ymax > 0):
+        raise ValueError, "If --logy desired, y-limits must be > 0."
 
     return options, filenames, sys.argv[1:]
             
