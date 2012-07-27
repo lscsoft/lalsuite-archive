@@ -390,11 +390,11 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         class StorageTable(table.Table):
             tableName = "storage:table"
             validcolumns = {}
-                if col_name in lsctables.TableByName[sngl_table].validcolumns.keys():
-                    validcolumns[col_name] = lsctables.TableByName[sngl_table].validcolumns[col_name]
-                # if custom columns exist in the database, just set them to lstrings
-                else:
-                    validcolumns[col_name] = "lstring"
+            if col_name in lsctables.TableByName[sngl_table].validcolumns.keys():
+                validcolumns[col_name] = lsctables.TableByName[sngl_table].validcolumns[col_name]
+            # if custom columns exist in the database, just set them to lstrings
+            else:
+                validcolumns[col_name] = "lstring"
 
         class Storage(object):
             __slots__ = StorageTable.validcolumns.keys()
