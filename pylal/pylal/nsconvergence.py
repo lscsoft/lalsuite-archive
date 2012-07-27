@@ -43,7 +43,7 @@ def merge_files(data, param_arr, writefile):
         for i in d:
             for j in i:
                 wf.write(str(j)+' ')
-        wf.write(str(run_num)+'\n')
+            wf.write(str(run_num)+'\n')
         run_num+=1
     wf.close()
 
@@ -59,6 +59,8 @@ def kstest(pos_samples, param_arr, outdir):
     if not os.path.isdir(ksdir):
         os.makedirs(ksdir)
 
+    print "RUNS: %i"%runs
+
     k = 1
     ks_arr = []
     for param in param_arr:
@@ -72,10 +74,12 @@ def kstest(pos_samples, param_arr, outdir):
                 D, p = stats.ks_2samp(data1, data2)
                 D_arr.append(D)
                 p_arr.append(p)
-        if i is not j:
-            p_plot_arr.append(p)    
+                if i is not j:
+                    p_plot_arr.append(p)    
+        
         ks_arr.append(p_arr)
         plt.figure(k)
+        
         plt.hist(p_plot_arr, bins = 20, normed = True)
         plt.xlabel('p-value')
         plt.ylabel('probability density')
@@ -88,9 +92,10 @@ def gelman_rubin(pos_samples, param_arr, outdir):
     """
     Compute Gelman-Rubin R-statistic for each parameter in param_arr.
     """
-    writefile = outdir + '/merged_files.dat'
+    writefile = os.path.join(outdir,'merged_files.dat')
     runs = len(pos_samples)
     R_arr = []
+    print pos_samples,param_arr,writefile
     merge_files(pos_samples, param_arr, writefile)
     for param in param_arr:
         data=bppu.PEOutputParser('common')

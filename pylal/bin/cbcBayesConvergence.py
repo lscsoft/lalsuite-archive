@@ -118,10 +118,10 @@ def cbcBayesConvergence(
         pos = bppu.Posterior(commonResultsObj)
         pos.write_to_file(posfilename)
     
-    with open(posfilename) as f:
-        param_arr = string.split(f.readline())
-        loadfile = loadtxt(f)
-        pos_samples.append(loadfile)
+        with open(posfilename) as f:
+            param_arr = string.split(f.readline())
+            loadfile = loadtxt(f)
+            pos_samples.append(loadfile)
    
     #==================================================================#
     #Create webpage with nested sampling convergence information
@@ -178,8 +178,8 @@ def cbcBayesConvergence(
             ks_table_string += '</tr>'	
         ks_table_string += '</table>'
         html_nsconvergence_ks.write(ks_table_string)
-        for p in param_arr:
-            html_nsconvergence_ks.write('<a href="./convergence/ks/'+p+'_ks.png" target="_blank"><img width="35%" src="./convergence/ks/'+p+'_ks.png"/></a>')
+    for p in param_arr:
+        html_nsconvergence_ks.write('<a href="./convergence/ks/'+p+'_ks.png" target="_blank"><img width="35%" src="./convergence/ks/'+p+'_ks.png"/></a>')
 
     #Gelman Rubin Section
     html_nsconvergence_gelman=html_nsconvergence.add_section('Gelman Rubin')
