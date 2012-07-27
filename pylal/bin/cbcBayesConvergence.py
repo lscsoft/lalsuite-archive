@@ -79,8 +79,11 @@ def multipleFileCB(opt, opt_str, value, parser):
 
 def cbcBayesConvergence(
                         outdir,data,
+                        #Number of live points used in data
+                        ns_Nlive,
                         #Threshold for failure for gelman-rubin test
                         gelmanthresh=1.01
+                        #
                     ):
     """
     This is a script which calculates convergence statistics for nested 
@@ -108,8 +111,10 @@ def cbcBayesConvergence(
     peparser=bppu.PEOutputParser('ns')
     posfilename=os.path.join(outdir,'posterior_samples.dat')
     
+    print new_data
+    
     for i in range(len(data)):
-        commonResultsObj=peparser.parse(new_data[i],Nlive=ns_Nlive,xflag=ns_xflag)
+        commonResultsObj=peparser.parse(new_data[i],Nlive=ns_Nlive)
         pos = bppu.Posterior(commonResultsObj)
         pos.write_to_file(posfilename)
     
@@ -117,22 +122,6 @@ def cbcBayesConvergence(
         param_arr = string.split(f.readline())
         loadfile = loadtxt(f)
         pos_samples.append(loadfile)
-
-    ## Load Bayes factors ##
-    # Add Bayes factor information to summary file #
-    if bayesfactornoise is not None:
-        bfile=open(bayesfactornoise,'r')
-        BSN=bfile.read()
-        bfile.close()
-        if(len(BSN.split())!=1):
-          BSN=BSN.split()[0]
-        print 'BSN: %s'%BSN
-
-    if bayesfactorcoherent is not None:
-        bfile=open(bayesfactorcoherent,'r')
-        BCI=bfile.read()
-        bfile.close()
-        print 'BCI: %s'%BCI
    
     #==================================================================#
     #Create webpage with nested sampling convergence information
@@ -148,6 +137,7 @@ def cbcBayesConvergence(
 
     #Summary Section
     html_nsconvergence_stats=html_nsconvergence.add_section('Summary')
+    print pos_samples, param_arr
     max_l, l_diff_string = nsc.compare_maxl(pos_samples, param_arr)
     html_nsconvergence_stats.p(l_diff_string)
     summary_table_string = ''
@@ -164,7 +154,7 @@ def cbcBayesConvergence(
         max_l_val = max_l[i]
         #dival = di_evidence_arr[i]
         summary_table_string += '<tr><td>%i</td><td>%f</td><td></td>'%(i,max_l_val) #,dival)
-        if param_arr.count('prior') > 0:	
+        if param_arr.count('prior') > 0:
             max_pos_val = max_pos[i]
             summary_table_string += '<td>%f</td>'%max_pos_val
         summary_table_string += '</tr>'
@@ -196,7 +186,7 @@ def cbcBayesConvergence(
     
     gelmandir = os.path.join(convergencedir,'gelmanrubin')
     if not os.path.isdir(gelmandir):
-        os.makedirs(gelmandir)	
+        os.makedirs(gelmandir)
     
     gelmanrubin = nsc.gelman_rubin(pos_samples, param_arr, gelmandir)
     warn = False
@@ -252,7 +242,8 @@ if __name__=='__main__':
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     parser.add_option("--gelmanthresh", action="store", type="float", dest="gelmanthresh", default=1.01, help="set threshold for failure for gelman-rubin test")
-
+    parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
+    
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -264,6 +255,7 @@ if __name__=='__main__':
     cbcBayesConvergence(
                         opts.outpath,datafiles,                        
                         #Threshold for failure for gelman-rubin test
+                        opts.Nlive,
                         gelmanthresh=opts.gelmanthresh
                     )
 
