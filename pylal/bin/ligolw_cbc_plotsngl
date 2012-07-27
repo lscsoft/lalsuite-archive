@@ -466,7 +466,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     WHERE
                         experiment_instruments == ''',on_instr,''' AND
                         experiment_summary.datatype == ''',datatype])
-                 for data in connection.cursor().execute(sqlquery).fetchall():
+                for data in connection.cursor().execute(sqlquery).fetchall():
                     this_row = Storage()
                     [setattr(this_row, col_name, x) for (col_name,x) in zip(sngl_table_cols,data)]
                     xval = get_row_stat(this_row, opts.x_var)
