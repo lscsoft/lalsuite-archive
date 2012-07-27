@@ -211,11 +211,11 @@ double loglambdaG_max = 18.0;
 void NestInitPPE(LALMCMCParameter *parameter, void *iT);
 /* limits for the PPE waveform */
 double aPPE_min = -3.0;
-double aPPE_max = 3.0;
+double aPPE_max = 2.0/3.0;
 double alphaPPE_min = -1000.0;
 double alphaPPE_max = 1000.0;
-double bPPE_min = -3.0;
-double bPPE_max = 3.0;
+double bPPE_min = -4.5;
+double bPPE_max = 1.0;
 double betaPPE_min = -1000.0;
 double betaPPE_max = 1000.0;
 
