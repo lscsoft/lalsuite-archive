@@ -137,23 +137,21 @@ def cbcBayesConvergence(
 
     #Summary Section
     html_nsconvergence_stats=html_nsconvergence.add_section('Summary')
-    print pos_samples, param_arr
-    max_l, l_diff_string = nsc.compare_maxl(pos_samples, param_arr)
-    html_nsconvergence_stats.p(l_diff_string)
+    max_l, l_diff = nsc.compare_maxl(pos_samples, param_arr)
+    html_nsconvergence_stats.p('Max difference in loglikelihood: %f'%l_diff)
     summary_table_string = ''
-    summary_table_header = '<table border="1"><tr><th>Run</th><th>maxloglikelihood</th><th>evidence</th>'
+    summary_table_header = '<table border="1"><tr><th>Run</th><th>maxloglikelihood</th>'
     #maxposterior column
     if param_arr.count('prior') > 0:
-        max_pos, pos_diff_string = nsc.compare_maxposterior(pos_samples, param_arr)
-        html_nsconvergence_stats.p(pos_diff_string)
+        max_pos, pos_diff = nsc.compare_maxposterior(pos_samples, param_arr)
+        html_nsconvergence_stats.p('Max difference in posterior: %f'%pos_diff)
         summary_table_header += '<th>maxposterior</th>'	
 
     summary_table_header += '</tr>'
     summary_table_string += summary_table_header
     for i in range(runs):
         max_l_val = max_l[i]
-        #dival = di_evidence_arr[i]
-        summary_table_string += '<tr><td>%i</td><td>%f</td><td></td>'%(i,max_l_val) #,dival)
+        summary_table_string += '<tr><td>%i</td><td>%f</td>'%(i,max_l_val)
         if param_arr.count('prior') > 0:
             max_pos_val = max_pos[i]
             summary_table_string += '<td>%f</td>'%max_pos_val
@@ -194,13 +192,13 @@ def cbcBayesConvergence(
     for index,g in enumerate(gelmanrubin):
         if g > gelmanthresh:
             warn = True
-            html_nsconvergence_gelman.p('%s has a high R value!'%param_arr[index])
             warnparams.append(index)
     if warn:
         with open(outdir+'/warning.txt', 'w') as warnfile:
+            warnfile.write('Gelman-Rubin threshold set to %f\n'%gelmanthresh)
             for i in warnparams:
-                warnfile.write('%s has a high R value!\n'%param_arr[i])
-
+                warnfile.write('%s has an R-value of %f\n'%(param_arr[i], gelmanrubin[i]))
+                    
     colors = ['b', 'r', 'g', 'c', 'k', 'm', 'y', .25, .5, .75]
     for param_index, param in enumerate(param_arr):
         for i in range(runs):
@@ -208,9 +206,6 @@ def cbcBayesConvergence(
             for j in range(len(pos_samples[i])):
                 data_range.append(j) 
             col = nsc.get_data_col(pos_samples[i], param_arr, param)
-                #for z in range(5):
-            #col.pop(0)
-            #data_range.pop(0)
             plt.figure(param_index)
             plt.scatter(data_range, col, c = colors, s = 5, edgecolors = 'none')
             plt.title('R = ' + str(gelmanrubin[param_index]))
@@ -254,8 +249,8 @@ if __name__=='__main__':
     
     cbcBayesConvergence(
                         opts.outpath,datafiles,                        
-                        #Threshold for failure for gelman-rubin test
                         opts.Nlive,
+                        #Threshold for failure for gelman-rubin test
                         gelmanthresh=opts.gelmanthresh
                     )
 

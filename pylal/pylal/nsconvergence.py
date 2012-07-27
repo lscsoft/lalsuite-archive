@@ -59,8 +59,6 @@ def kstest(pos_samples, param_arr, outdir):
     if not os.path.isdir(ksdir):
         os.makedirs(ksdir)
 
-    print "RUNS: %i"%runs
-
     k = 1
     ks_arr = []
     for param in param_arr:
@@ -95,7 +93,6 @@ def gelman_rubin(pos_samples, param_arr, outdir):
     writefile = os.path.join(outdir,'merged_files.dat')
     runs = len(pos_samples)
     R_arr = []
-    print pos_samples,param_arr,writefile
     merge_files(pos_samples, param_arr, writefile)
     for param in param_arr:
         data=bppu.PEOutputParser('common')
@@ -119,8 +116,8 @@ def compare_maxl(pos_samples, param_arr):
             l = get_data_col(pos_samples[i], param_arr, 'likelihood')
         maxl = max(l)
         maxl_arr.append(maxl)
-
-    return (maxl_arr, 'Max difference in logl = '+str(max(maxl_arr)-min(maxl_arr)))
+    max_diff = max(maxl_arr)-min(maxl_arr)
+    return (maxl_arr, max_diff)
 
 def compare_maxposterior(pos_samples, param_arr):
     """
@@ -134,11 +131,12 @@ def compare_maxposterior(pos_samples, param_arr):
         l.append(get_data_col(pos_samples[i], param_arr, 'logl'))
         p.append(get_data_col(pos_samples[i], param_arr, 'prior'))
 
-    max_pos = []
+    max_pos_arr = []
     for i in range(runs):
         pos = []
         for j in range(len(pos_samples[i])):
             pos.append(l[i][j]+p[i][j])
-        max_pos.append(max(pos))    
-    return (max_pos, 'Max difference in logposterior = '+str(max(max_pos)-min(max_pos)))
+        max_pos_arr.append(max(pos))   
+    max_diff = max(max_pos_arr)-min(max_pos_arr)
+    return (max_pos_arr, max_diff)
 
