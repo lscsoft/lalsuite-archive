@@ -27,8 +27,7 @@ import numpy
 import re
 
 from socket import getfqdn
-from swiglal import LIGOTimeGPS
-from swiglal import lalStrainUnit
+from lal import LIGOTimeGPS, lalStrainUnit
 
 from pylal import git_version
 from glue.ligolw import lsctables
@@ -267,7 +266,7 @@ def tofrequencyseries(bursttable, fcol='peak_frequency', pcol=None,\
                       name="", epoch=LIGOTimeGPS(), deltaF=0, f0=0,\
                       unit=lalStrainUnit):
     """
-    Returns a numpy.array and REAL8FrequencySeries built from these\
+    Returns a numpy.array and REAL8FrequencySeries built from these
     OmegaSpectrum triggers. The array holds the discrete frequencies at
     which the sectrum was calculated and the series holds the data and
     associated metadata.
