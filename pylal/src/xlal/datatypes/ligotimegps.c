@@ -502,7 +502,7 @@ static PyTypeObject pylal_ligotimegps_type = {
  */
 
 
-void initligotimegps(void)
+PyMODINIT_FUNC initligotimegps(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's LIGOTimeGPS type.");
 

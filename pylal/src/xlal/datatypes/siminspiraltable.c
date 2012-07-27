@@ -229,7 +229,7 @@ static struct PyMethodDef functions[] = {
 };
 
 
-void initsiminspiraltable(void)
+PyMODINIT_FUNC initsiminspiraltable(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SimInspiralTable type.");
 

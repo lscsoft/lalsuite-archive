@@ -256,7 +256,7 @@ static struct PyMethodDef methods[] = {
 };
 
 
-void initwindow(void)
+PyMODINIT_FUNC initwindow(void)
 {
 	/* commented out to silence warning */
 	/*PyObject *module = */Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's window package.");

@@ -484,7 +484,7 @@ static struct PyMethodDef module_methods[] = {
 };
 
 
-void initdate(void)
+PyMODINIT_FUNC initdate(void)
 {
 	/* commented out to silence warning */
 	/*PyObject *module = */Py_InitModule3(MODULE_NAME, module_methods, "Wrapper for LAL's date package.");
