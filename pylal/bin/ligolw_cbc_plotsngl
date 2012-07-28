@@ -512,7 +512,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 plotvals = [ (sqlutils.convert_duration( x - gps_start_time + 1, is_time_x.group(1) ), y) for (x,y) in plotvals ]
             is_time_y = re.match(r'gps_(s|min|hr|days|yr)', ylabel)
             if is_time_y is not None:
-                plotvals = [ (x, sqlutils.convert_duration( y - gps_start_time + 1, is_time_y.group(1) ) for (x,y) in plotvals ]
+                plotvals = [ (x, sqlutils.convert_duration( y - gps_start_time + 1, is_time_y.group(1) )) for (x,y) in plotvals ]
 
             xval = [val[0] for val in plotvals]
             yval = [val[1] for val in plotvals]
