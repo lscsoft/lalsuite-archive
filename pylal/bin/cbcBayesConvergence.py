@@ -207,7 +207,7 @@ def cbcBayesConvergence(
                 data_range.append(j) 
             col = nsc.get_data_col(pos_samples[i], param_arr, param)
             plt.figure(param_index)
-            plt.scatter(data_range, col, c = colors, s = 5, edgecolors = 'none')
+            plt.scatter(data_range, col, c = colors[i], s = 5, edgecolors = 'none')
             plt.title('R = ' + str(gelmanrubin[param_index]))
             plt.xlabel('Sample')
             plt.ylabel(param)	
