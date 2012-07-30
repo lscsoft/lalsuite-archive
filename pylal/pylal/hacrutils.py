@@ -25,8 +25,7 @@ import MySQLdb
 import re
 import datetime
 
-from swiglal import LIGOTimeGPS
-from swiglal import XLALGPSToUTC
+from lal import LIGOTimeGPS, GPSToUTC
 
 from pylal import git_version
 
@@ -144,8 +143,8 @@ def find_geo_databases(start_time, end_time, host, user="reader",\
     alldbs = find_databases(host, user=user, passwd=passwd, match=match)
 
     # format dates
-    start_date = datetime.date(*XLALGPSToUTC([2000]*6, int(start_time))[:3])
-    end_date   = datetime.date(*XLALGPSToUTC([2000]*6, int(end_time))[:3])
+    start_date = datetime.date(*GPSToUTC(int(start_time))[:3])
+    end_date   = datetime.date(*GPSToUTC(int(end_time))[:3])
 
     # pick out those databases whose dates look correct
     databases = []

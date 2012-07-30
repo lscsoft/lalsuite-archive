@@ -26,8 +26,8 @@ from __future__ import division
 import os,re,tempfile,warnings
 
 # import swig LALSuite packages
-import swiglal as lal
-import swiglalframe as lalframe
+import lal
+import lalframe
 
 # import gluecache
 from glue import lal as _gluecache
@@ -76,10 +76,10 @@ def fromarray(array, name="", epoch=lal.LIGOTimeGPS(), f0=0, deltaT=1,\
     """
   
     if frequencyseries:
-      series = lal.XLALCreateREAL8FrequencySeries(name, epoch, f0, deltaT,\
+      series = lal.CreateREAL8FrequencySeries(name, epoch, f0, deltaT,\
                                                   sampleUnits, array.size)
     else:
-      series = lal.XLALCreateREAL8TimeSeries(name, epoch, f0, deltaT,\
+      series = lal.CreateREAL8TimeSeries(name, epoch, f0, deltaT,\
                                              sampleUnits, array.size)
     series.data.data = array.astype(float)
     return series
@@ -129,12 +129,12 @@ def fromframefile(framefile, chname, start=-1, duration=1,\
 
     # open frame
     framefile = os.path.abspath(framefile)
-    stream = lalframe.XLALFrOpen('', framefile)
+    stream = lalframe.FrOpen('', framefile)
 
     # return
     series = fromFrStream(stream, chname, start=start, duration=duration,\
                           datatype=datatype, verbose=verbose)
-    lalframe.XLALFrClose(stream)
+    #lalframe.FrClose(stream)
     return series
 
 def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
@@ -168,17 +168,18 @@ def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
 
     # read cache from glue.lal.Cache, or lalframe.FrCache, or file
     if cache and isinstance(cache, _gluecache.Cache):
+        cache.sort(key=lambda e: e.segment[0])
         cache = gluecache_to_FrCache(cache)
     elif isinstance(cache, str):
-        cache = lalframe.XLALFrImportCache(cache)
+        cache = lalframe.FrImportCache(cache)
 
     # open cache to stream
-    stream = lalframe.XLALFrCacheOpen(cache)
+    stream = lalframe.FrCacheOpen(cache)
 
     # return
     series = fromFrStream(stream, chname, start=start, duration=duration,\
                           datatype=datatype, verbose=verbose)
-    lalframe.XLALFrClose(stream)
+    #lalframe.FrClose(stream)
     return series
 
 def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
@@ -209,15 +210,18 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     # set mode
     if verbose:  mode = lalframe.LAL_FR_VERBOSE_MODE
     else:        mode = lalframe.LAL_FR_DEFAULT_MODE
-    lalframe.XLALFrSetMode(stream, mode)
+    lalframe.FrSetMode(stream, mode)
 
     # set time
-    if int(start) == -1:  start = stream.epoch
-    start = lal.LIGOTimeGPS(float(start))
+    if int(start) == -1:
+        start = stream.epoch
+    else:
+        start = lal.LIGOTimeGPS(float(start))
     duration = float(duration)
+    lalframe.FrSeek(stream, start)
     
     # get series type
-    frdatatype = lalframe.XLALFrGetTimeSeriesType(chname, stream)
+    frdatatype = lalframe.FrGetTimeSeriesType(chname, stream)
     if datatype == -1:
         datatype = frdatatype
 
@@ -225,12 +229,12 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
 
     # get data
     if frdatatype == datatype:
-        func = getattr(lalframe, 'XLALFrRead%sTimeSeries' % TYPESTR)
+        func = getattr(lalframe, 'FrRead%sTimeSeries' % TYPESTR)
         series = func(stream, chname, start, duration, 0)
     else:
-        dblseries = lalframe.XLALFrInputREAL8TimeSeries(stream, chname, start,\
+        dblseries = lalframe.FrInputREAL8TimeSeries(stream, chname, start,\
                                                         duration, 0)
-        func = getattr(lal, 'XLALCreate%sTimeSeries' % TYPESTR)
+        func = getattr(lal, 'Create%sTimeSeries' % TYPESTR)
         series = func(dblseries.name, dblseries.epoch, dblseries.f0,\
                       dblseries.deltaT, dblseries.sampleUnits,\
                       dblseries.data.length)
@@ -264,7 +268,7 @@ def resample(series, rate, inplace=True):
     datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
-    func = getattr(lal, 'XLALResample%sTimeSeries' % TYPESTR)
+    func = getattr(lal, 'Resample%sTimeSeries' % TYPESTR)
     if inplace:
       func(series, 1/rate)
       return series
@@ -299,7 +303,7 @@ def highpass(series, frequency, amplitude=0.9, filtorder=8, inplace=True):
     datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
-    func = getattr(lal, 'XLALHighPass%sTimeSeries' % TYPESTR)
+    func = getattr(lal, 'HighPass%sTimeSeries' % TYPESTR)
     if inplace:
       func(series, frequency, amplitude, filtorder)
       return series
@@ -334,7 +338,7 @@ def lowpass(series, frequency, amplitude=0.9, filtorder=8, inplace=True):
     datatype = typecode(type(series))
     TYPESTR  = _typestr[datatype]
 
-    func = getattr(lal, 'XLALLowPass%sTimeSeries' % TYPESTR)
+    func = getattr(lal, 'LowPass%sTimeSeries' % TYPESTR)
     if inplace:
       func(series, frequency, amplitude, filtorder)
       return series
@@ -380,7 +384,7 @@ def duplicate(series):
     seriestype = (type(series)).rstrip("'>").split('.')[-1]
     datatype = typecode(seriestype)
     TYPESTR  = _typestr[datatype]
-    func     = getattr(lal, 'XLALCreate%s' % seriestype)
+    func     = getattr(lal, 'Create%s' % seriestype)
     if seriestype.endswith("FrequencySeries"):
         out  = func(series.name, series.epoch, series.f0, series.deltaF,\
                         series.sampleUnits, series.data.length)
@@ -433,7 +437,7 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
                       "trailing %d samples will not be used for spectrum "\
                       "calculation" % (reclen-worklen))
         series = duplicate(series)
-        func = getattr(lal, 'XLALResize%sTimeSeries' % TYPESTR)
+        func = getattr(lal, 'Resize%sTimeSeries' % TYPESTR)
         func(series, 0, worklen)
         reclen  = series.data.length
         numseg  = 1 + int((reclen - seglen)/stride)
@@ -443,34 +447,34 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
                       "calculation" % (seglen-stride))
         worklen = reclen - (seglen-stride)
         series = duplicate(series)
-        func = getattr(lal, 'XLALResize%sTimeSeries' % TYPESTR)
+        func = getattr(lal, 'Resize%sTimeSeries' % TYPESTR)
         func(series, 0, worklen)
 
     # generate window
     destroywindow = not window
     destroyplan   = not plan
     if not window:
-        func   = getattr(lal, "XLALCreateKaiser%sWindow" % TYPESTR)
+        func   = getattr(lal, "CreateKaiser%sWindow" % TYPESTR)
         window = func(seglen, 24)
     # generate FFT plan
     if not plan:
-        func = getattr(lal, "XLALCreateForward%sFFTPlan" % TYPESTR)
+        func = getattr(lal, "CreateForward%sFFTPlan" % TYPESTR)
         plan = func(seglen, 1)
 
     # generate output spectrum
     f0       = (1/series.deltaT) * (1/seglen)
     deltaF   = (1/seglen)
-    func     = getattr(lal, "XLALCreate%sFrequencySeries" % TYPESTR)
+    func     = getattr(lal, "Create%sFrequencySeries" % TYPESTR)
     spectrum = func(series.name, series.epoch, f0, deltaF, lal.lalStrainUnit,\
                     seglen//2+1)
 
     # calculate medianmean spectrum
     if re.match('median?mean\Z', average, re.I):
-        func = getattr(lal, "XLAL%sAverageSpectrumMedianMean" % TYPESTR)
+        func = getattr(lal, "%sAverageSpectrumMedianMean" % TYPESTR)
     elif re.match('median\Z', average, re.I):
-        func = getattr(lal, "XLAL%sAverageSpectrumMedian" % TYPESTR)
+        func = getattr(lal, "%sAverageSpectrumMedian" % TYPESTR)
     elif re.match('welch\Z', average, re.I):
-        func = getattr(lal, "XLAL%sAverageSpectrumWelch" % TYPESTR)
+        func = getattr(lal, "%sAverageSpectrumWelch" % TYPESTR)
     else:
         raise NotImplementedError("Sorry, only 'median' and 'medianmean' "+\
                                   " and 'welch' average methods are available.")
@@ -480,7 +484,7 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
     if destroywindow:
        del window
     if destroyplan:
-       func = getattr(lal, "XLALDestroy%sFFTPlan" % TYPESTR)
+       func = getattr(lal, "Destroy%sFFTPlan" % TYPESTR)
        func(plan)
        del plan
 
@@ -526,12 +530,12 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
 
     # generate window
     if not window:
-        func   = getattr(lal, "XLALCreateKaiser%sWindow" % TYPESTR)
+        func   = getattr(lal, "CreateKaiser%sWindow" % TYPESTR)
         window = func(seglen, 24)
 
     # generate FFT plan
     if not plan:
-        func = getattr(lal, "XLALCreateForward%sFFTPlan" % TYPESTR)
+        func = getattr(lal, "CreateForward%sFFTPlan" % TYPESTR)
         plan = func(seglen, 1)
 
     # get number of segments
@@ -544,14 +548,14 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
                       % (step, numseg, duration % step))
 
     # set up return object
-    func = getattr(lal, "XLALCreate%sVectorSequence" % TYPESTR)
+    func = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out = func(numseg, seglen//2+1)
 
     if numseg == 0:
         return out
 
     # loop over steps
-    cut = getattr(lal, "XLALCut%sTimeSeries" % TYPESTR)
+    cut = getattr(lal, "Cut%sTimeSeries" % TYPESTR)
     for i in range(numseg):
         # extract portion of time series
         stepseries = cut(series, i*step, step)
@@ -591,7 +595,7 @@ def gluecache_to_FrCache(cache):
     """
     t = tempfile.NamedTemporaryFile(delete=False)
     cache.tofile(t)
-    frcache = lalframe.XLALFrImportCache(t.name)
+    frcache = lalframe.FrImportCache(t.name)
     t.close()
     os.remove(t.name)
     return frcache
