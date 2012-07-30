@@ -725,6 +725,8 @@ class Posterior(object):
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
                         'tilt2':_inj_tilt2,
+                        'costilt1': lambda inj: np.cos(_inj_tilt1),
+                        'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
                         'theta_s':_inj_thetas,
                         'beta':_inj_beta
@@ -3448,11 +3450,6 @@ class PEOutputParser(object):
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
                        
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
-
-        posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
-       
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
@@ -3460,21 +3457,33 @@ class PEOutputParser(object):
         
         # check if there's a file containing the parameter names
         parsfilename = it.next()+'_params.txt'
-        
-        if os.path.isfile(parsfilename):
+        if(os.path.isfile(parsfilename)):
             print 'Looking for '+parsfilename
             if os.access(parsfilename,os.R_OK):
-                parsfile = open(parsfilename,'r')
-                outpars = parsfile.readline()
+                outpars=parsfile.readline()
                 parsfile.close()
             else:
-              print "Need files of parameters "+parsfilename
-              raise
-        
-            posfile.write(outpars)
-        else: # use hardcoded CBC parameter names 
-            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
-dec \t psi \t iota \t likelihood \n')     
+                print 'Cannot open parameters file %s!'%(parsfilename)
+                raise
+        else: # Use hardcoded CBC parameter names
+            outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+            dec \t psi \t iota \t logl \n'
+
+        # Find the logL column
+        parsvec=outpars.split()
+        logLcol=-1
+        for i in range(len(parsvec)):
+            if parsvec[i].lower()=='logl':
+                logLcol=i
+        if logLcol==-1:
+            print 'Error! Could not find logL column in parameter list: %s'%(outpars)
+            raise
+
+        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive,logLcolumn=logLcol)
+
+        posfilename='posterior_samples.dat'
+        posfile=open(posfilename,'w')
+        posfile.write(outpars)
         
         for row in pos:
             for i in row:

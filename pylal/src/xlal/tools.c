@@ -379,9 +379,11 @@ static struct PyMethodDef methods[] = {
 };
 
 
-void inittools(void)
+PyMODINIT_FUNC inittools(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's tools package.");
+	if(!module)
+		goto nomodule;
 
 	pylal_laldetector_import();
 	pylal_snglinspiraltable_import();
@@ -392,19 +394,34 @@ void inittools(void)
 	coinc_def_id_type = pylal_get_ilwdchar_class("coinc_definer", "coinc_def_id");
 	coinc_event_id_type = pylal_get_ilwdchar_class("coinc_event", "coinc_event_id");
 	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
+	if(!process_id_type || !coinc_def_id_type || !coinc_event_id_type || !time_slide_id_type)
+		goto noids;
 
 	/* cached_detector */
 	PyModule_AddObject(module, "cached_detector", make_cached_detectors());
 
 	/* Coinc */
 	if(PyType_Ready(&ligolw_Coinc_Type) < 0)
-		return;
+		goto nocoinctype;
 	Py_INCREF(&ligolw_Coinc_Type);
 	PyModule_AddObject(module, "Coinc", (PyObject *) &ligolw_Coinc_Type);
 
 	/* CoincMap */
 	if(PyType_Ready(&ligolw_CoincMap_Type) < 0)
-		return;
+		goto nocoincmaptype;
 	Py_INCREF(&ligolw_CoincMap_Type);
 	PyModule_AddObject(module, "CoincMap", (PyObject *) &ligolw_CoincMap_Type);
+
+	return;
+
+nocoinctype:
+nocoincmaptype:
+noids:
+	Py_XDECREF(process_id_type);
+	Py_XDECREF(coinc_def_id_type);
+	Py_XDECREF(coinc_event_id_type);
+	Py_XDECREF(time_slide_id_type);
+
+nomodule:
+	return;
 }

@@ -179,7 +179,6 @@ for n, filename in enumerate(filenames):
 
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
 	if options.tmp_space is not None:
 		dbtables.set_temp_store_directory(connection, options.tmp_space, verbose = options.verbose)
 
