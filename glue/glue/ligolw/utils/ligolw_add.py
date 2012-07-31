@@ -36,7 +36,6 @@ from urlparse import urlparse
 
 from glue import git_version
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
@@ -172,7 +171,12 @@ def merge_compatible_tables(elem):
 #
 
 
-def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, contenthandler = None):
+class DefaultContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(DefaultContentHandler)
+
+
+def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, contenthandler = DefaultContentHandler):
 	"""
 	An implementation of the LIGO LW add algorithm.  urls is a list of
 	URLs (or filenames) to load, xmldoc is the XML document tree to
