@@ -144,7 +144,7 @@ def get_array(xmldoc, name):
 	"""
 	arrays = getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
-		raise ValueError, "document must contain exactly one %s array" % StripArrayName(name)
+		raise ValueError("document must contain exactly one %s array" % StripArrayName(name))
 	return arrays[0]
 
 
