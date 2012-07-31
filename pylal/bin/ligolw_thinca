@@ -38,13 +38,6 @@ from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
-# Don't use sngl_inspiral event_id derived from the long built-in.  this
-# must be done before importing pylal.xlal.tools or bad things happen.
-# FIXME:  remove when thinca no longer generates bazillion-digit long
-# event_ids and the custom screwy event ID mess is all gone away.  (or
-# people stop using Macs, which ever comes first).
-del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
-lsctables.SnglInspiralID = lsctables.ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import llwapp
