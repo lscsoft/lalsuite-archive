@@ -24,6 +24,7 @@
 #include <getopt.h>
 #include <string.h>
 
+//#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <processtable.h>
 #include <lal/LALStdio.h>
@@ -41,6 +42,15 @@
 #include <lal/FrameStream.h>
 #include <lal/LALDetectors.h>
 #include <lal/LALFrameIO.h>
+#include <lal/LALNoiseModels.h>
+#include <gsl/gsl_rng.h>
+
+#include <lal/LALInspiralStationaryPhaseApprox2Test.h>
+#include <lal/LALInspiralMassiveGraviton.h>
+#include <lal/LALInspiralBransDicke.h>
+#include <lal/LALInspiralPPE.h>
+#include <lal/GenerateInspiral.h>
+
 
 #define PROGRAM_NAME "coinj"
 
@@ -52,6 +62,7 @@
 --skip-ascii-output           skip generation of  ASCII txt output file\n\
 --response-type TYPE         TYPE of injection, [ strain | etmx | etmy ]\n\
 --frames                     Create h(t) frame files\n\n\
+[--AdvNoise\t\t Use AdvLIGO noise to estimate the SNR]\n\
 [--maxSNR snrhigh --minSNR snrlow                     Adjust injections to have combined SNR between snrlow and snrhigh in the H1H2L1V1 network]\n\
 [--SNR snr      adjust distance to get precisely this snr]\n\
 [--GPSstart A --GPSend B     Only generate waveforms for injection between GPS seconds A and B (int)]\n\
@@ -63,12 +74,13 @@ lalapps_coinj: create coherent injection files for LIGO and VIRGO\n"
 #else
 #define UNUSED
 #endif
-
 RCSID("$Id");
 
 extern int vrbflg;
 extern int lalDebugLevel;
-
+int AdvNoises=0;
+REAL8 srate=4096.0;
+gsl_rng *RNG;
 typedef enum
 {
   noResponse,
@@ -90,8 +102,10 @@ typedef struct actuationparameters
 } ActuationParametersType;
 
 typedef void (NoiseFunc)(LALStatus *status,REAL8 *psd,REAL8 f);
+void InjectFD_singleIFO(LALStatus status, COMPLEX16FrequencySeries *injFD_out,LALDetector *detector, SimInspiralTable *inj_table);
 
 double chirpDist(SimInspiralTable *inj, char ifo);
+
 double chirpDist(SimInspiralTable *inj, char ifo){
   /* eff_dist(IFO)*(2.8*0.25^(3/5)/mchirp)^(5/6) */
   double eff_dist=0.0;
@@ -118,12 +132,20 @@ int main(int argc, char *argv[])
   CHAR                det_name[10];
   INT4                detectorFlags;
   LIGOTimeGPS inj_epoch;
-  REAL8                deltaT= 1.0/16384.0;
-  REAL8                injLength=100.0; /* Ten seconds at end */
+  REAL8                deltaT= 1.0/srate;
+  REAL8                injLength=210.0; /* Ten seconds at end */
+    REAL8 deltaF=1.0/injLength;
+
   REAL8                LeadupTime=95.0;
   REAL8                dynRange=1.0/3.0e-23;
-
+  INT4 seed=0;
+  //UINT4 det_id=0;
   UINT4                Nsamples,det_idx,i,inj_num=0;
+  /* Initialise the RNG */
+  gsl_rng_env_setup();
+  RNG=gsl_rng_alloc(gsl_rng_default);
+  gsl_rng_set(RNG,seed==0 ? (unsigned long int)time(NULL) : (unsigned int long) seed);
+
   ActuationParametersType actuationParams[LAL_NUM_IFO];
   ActuationParametersType actData = {0,0,0,0,0,0,0};
   ResponseType injectionResponse=noResponse;
@@ -158,7 +180,7 @@ int main(int argc, char *argv[])
   REAL8                NetworkSNR=0.0;
   INT4  makeFrames=0;
   INT4 outputRaw=0;
-  INT4 skipASCIIoutput=0;
+  INT4 skipASCIIoutput=1;
   COMPLEX8FrequencySeries *fftData;
   REAL8 mySNRsq,mySNR;
   REAL4FFTPlan *fwd_plan;
@@ -169,6 +191,10 @@ int main(int argc, char *argv[])
   int UNUSED SNROK=1;
   int rewriteXML=0;
   FrameH *frame;
+  LALDetector*	 detector;
+  LALDetector *detector2=calloc(LAL_NUM_DETECTORS,sizeof(LALDetector));
+	for(i=0;i<LAL_NUM_DETECTORS;i++) memcpy(&(detector2[i]),&lalCachedDetectors[i],sizeof(LALDetector));
+
   /*vrbflg=6;
     lalDebugLevel=6; */
 
@@ -188,6 +214,7 @@ int main(int argc, char *argv[])
       {"GPSstart",required_argument,0,4},
       {"GPSend",required_argument,0,5},
       {"max-chirp-dist",required_argument,0,'d'},
+      {"AdvNoise",no_argument,0,11},
       {0,0,0,0}
     };
 
@@ -271,7 +298,14 @@ int main(int argc, char *argv[])
 	  max_chirp_dist=atof(optarg);
           fprintf(stderr,"Using maximum chirp distance of %lf\n",max_chirp_dist);
 	  break;
-	}
+        case 11:
+          AdvNoises=1;
+          fprintf(stdout,"Using Advanced LIGO noise\n");
+          break;
+        default:
+	     fprintf(stdout,USAGE); exit(0);
+	     break;	
+       }
     }
 
   if(minSNR!=0 && maxSNR!=0 && (maxSNR<minSNR)){
@@ -288,11 +322,15 @@ int main(int argc, char *argv[])
   SimInspiralTableFromLIGOLw(&injTable,inputfile,0,0);
   headTable=injTable;
   Nsamples = (UINT4)injLength/deltaT;
+    REAL8 singleIFO_threshold=5.5;
+    REAL8 * SNRs=NULL;
+    SNRs=calloc(LAL_NUM_IFO+1 ,sizeof(REAL8));
 
   do{
     memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
     this_injection.next=NULL;
     NetworkSNR=0.0;
+
     /* Set epoch */
     memcpy(&inj_epoch,&(this_injection.geocent_end_time),sizeof(LIGOTimeGPS));
     inj_epoch = this_injection.geocent_end_time;
@@ -308,7 +346,7 @@ int main(int argc, char *argv[])
       if((this_injection.geocent_end_time.gpsSeconds-(int)LeadupTime )<GPSstart || (this_injection.geocent_end_time.gpsSeconds-(int)LeadupTime)>GPSend) continue;
 
       if(det_idx==LAL_IFO_T1||det_idx==LAL_IFO_G1||det_idx==LAL_IFO_H2) continue; /* Don't generate for GEO or TAMA */
-  
+      if (AdvNoises==0){
       switch(det_idx)
         {
         case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALLIGOIPsd; PSDscale=9E-46; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
@@ -319,8 +357,21 @@ int main(int argc, char *argv[])
         case LAL_IFO_T1: sprintf(det_name,"T1"); PSD=&LALTAMAPsd; PSDscale=75E-46; detectorFlags = LAL_TAMA_300_DETECTOR_BIT; break;
         default: fprintf(stderr,"Unknown IFO\n"); exit(1); break;
         }
-
+      }
+      else{
+      /*Uses ALIGO noise */
+      switch(det_idx)
+        {
+        case LAL_IFO_H1: sprintf(det_name,"H1"); PSD=&LALAdvLIGOPsd; PSDscale=1.35e-50; detectorFlags = LAL_LHO_4K_DETECTOR_BIT; break;
+        case LAL_IFO_L1: sprintf(det_name,"L1"); PSD=&LALAdvLIGOPsd; PSDscale=1.35e-50; detectorFlags = LAL_LLO_4K_DETECTOR_BIT; break; 
+        case LAL_IFO_V1: sprintf(det_name,"V1"); PSD=&LALAdvVIRGOPsd; PSDscale=1E-47; detectorFlags = LAL_VIRGO_DETECTOR_BIT;  break;
+        default: fprintf(stderr,"Unknown IFO\n"); exit(1); break;
+        }
+      }
       TimeSeries=XLALCreateREAL4TimeSeries(det_name,&inj_epoch,0.0,deltaT,&lalADCCountUnit,(size_t)Nsamples);
+
+      if (strstr(this_injection.waveform,"TaylorT2")){
+        printf("I'm in TaylorT2 WF\n");
       for(i=0;i<Nsamples;i++) TimeSeries->data->data[i]=0.0;
       resp = XLALCreateCOMPLEX8FrequencySeries("response",&inj_epoch,0.0,1.0/injLength,&strainPerCount,(size_t)Nsamples/2+1);
       for(i=0;i<resp->data->length;i++) {resp->data->data[i].re=(REAL4)1.0/dynRange; resp->data->data[i].im=0.0;}
@@ -398,8 +449,8 @@ int main(int argc, char *argv[])
       fftData = XLALCreateCOMPLEX8FrequencySeries(TimeSeries->name,&(TimeSeries->epoch),0,1.0/TimeSeries->deltaT,&lalDimensionlessUnit,TimeSeries->data->length/2 +1);
       XLALREAL4TimeFreqFFT(fftData,TimeSeries,fwd_plan);
       XLALDestroyREAL4FFTPlan(fwd_plan);
-
-      mySNRsq = 0.0;
+      
+        mySNRsq = 0.0;
       mySNR=0.0;
       for(i=1;i<fftData->data->length;i++){
         REAL8 freq;
@@ -415,6 +466,7 @@ int main(int argc, char *argv[])
       XLALDestroyCOMPLEX8FrequencySeries( fftData );
       if(det_idx==LAL_IFO_H2) mySNRsq/=4.0;
       mySNR = sqrt(mySNRsq)/dynRange;
+      SNRs[det_idx]=mySNR;
       fprintf(stdout,"SNR in design %s of injection %i = %lf\n",det_name,inj_num,mySNR);
 
       for(i=0;i<TimeSeries->data->length;i++) {
@@ -457,6 +509,47 @@ int main(int argc, char *argv[])
         if(injectionResponse) XLALDestroyREAL4TimeSeries(actuationTimeSeries);
         XLALDestroyREAL4TimeSeries(TimeSeries);
       }
+} //end if TaylorT2
+else if (strstr(this_injection.waveform,"TaylorF2")){
+          printf("I'm in TaylorF2 WF deltaF %lf \n",(REAL8) 1.0/injLength);
+
+      COMPLEX16FrequencySeries *FData=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjFD",  &inj_epoch,0.0,(REAL8)1.0/injLength,&lalDimensionlessUnit,(Nsamples-1)*2);
+      
+       for (UINT4 Midx=0;Midx<FData->data->length;Midx++){
+         FData->data->data[Midx].re=0.0;
+            FData->data->data[Midx].im=0.0;
+         }
+         
+if(!strcmp(det_name,"H1")) detector=&detector2[LALDetectorIndexLHODIFF];
+else if (!strcmp(det_name,"L1")) detector=&detector2[LALDetectorIndexLLODIFF];
+else if (!strcmp(det_name,"V1")) detector=&detector2[LALDetectorIndexVIRGODIFF];
+
+InjectFD_singleIFO(status, FData,detector,injTable);
+ mySNRsq = 0.0;
+      mySNR=0.0;
+      UINT4 lowBin = (UINT4)(injTable->f_lower/deltaF);
+      for(i=lowBin;i<FData->data->length-1;i++){
+        REAL8 freq;
+        REAL8 sim_psd_value=0;
+        freq = FData->deltaF * i;
+        PSD( &status, &sim_psd_value, freq );
+        mySNRsq += FData->data->data[i].re * FData->data->data[i].re /
+          (sim_psd_value*PSDscale);
+        mySNRsq += FData->data->data[i].im * FData->data->data[i].im /
+          (sim_psd_value*PSDscale);
+          //printf("F %lf Re %10.10e IM %10.10e\n",freq,FData->data->data[i].re,FData->data->data[i].im);
+      }
+      mySNRsq *= 4.0*FData->deltaF;
+      XLALDestroyCOMPLEX16FrequencySeries( FData );
+      
+      mySNR = sqrt(mySNRsq);
+      SNRs[det_idx]=mySNR;
+      fprintf(stdout,"SNR in design %s of injection %i = %lf\n",det_name,inj_num,mySNR);
+      NetworkSNR+=mySNR*mySNR;
+
+
+} //end if TF2
+    
 } /* End loop over detectors */
 
     /*fprintf(stdout,"Finished injecting signal %i, network SNR %f\n",inj_num,sqrt(NetworkSNR));*/
@@ -471,27 +564,39 @@ int main(int argc, char *argv[])
         injTable->eff_dist_t*=(REAL4)(NetworkSNR/targetSNR);
         rewriteXML=1; repeatLoop=1; hitTarget=1;}
       else {repeatLoop=0; hitTarget=0;}
-      if(targetSNR==0.0 && minSNR>NetworkSNR) {
-        injTable->distance*=(REAL4)(0.99*NetworkSNR/minSNR);
-        injTable->eff_dist_h*=(REAL4)(0.99*NetworkSNR/minSNR);
-        injTable->eff_dist_l*=(REAL4)(0.99*NetworkSNR/minSNR);
-        injTable->eff_dist_v*=(REAL4)(0.99*NetworkSNR/minSNR);
-        injTable->eff_dist_t*=(REAL4)(0.99*NetworkSNR/minSNR);
-        injTable->eff_dist_g*=(REAL4)(0.99*NetworkSNR/minSNR);
-        rewriteXML=1; repeatLoop=1;}
-      else {
-        if(targetSNR==0.0 && maxSNR!=0.0 && maxSNR<NetworkSNR) {
-          injTable->distance*=(1.01*NetworkSNR/maxSNR);
-          injTable->eff_dist_h*=(1.01*NetworkSNR/maxSNR);
-          injTable->eff_dist_l*=(1.01*NetworkSNR/maxSNR);
-          injTable->eff_dist_v*=(1.01*NetworkSNR/maxSNR);
-          injTable->eff_dist_t*=(1.01*NetworkSNR/maxSNR);
-          injTable->eff_dist_g*=(1.01*NetworkSNR/maxSNR);
-          /*injTable->distance+=0.01;*/
-          rewriteXML=1;
-          repeatLoop=1;
-          fprintf(stderr,"Multiplying by %lf to get from %lf to target\n",1.01*(NetworkSNR/maxSNR),NetworkSNR);}
+      if(targetSNR==0.0 && (minSNR>NetworkSNR || maxSNR<NetworkSNR)) {
+      REAL8 randomSNR;
+      INT4 above_threshold;
+      REAL8 local_min=minSNR;
+      do{
+      // We want the distances to be uniform in the volume i.e. p(D)\propto D^2. Changing variable, we need to have p(SNR)\propto 1/SNR^4.
+      // This implies that p(1/SNR^3) is uniform. We can extract from this uniform distribution and then find SNR taking the inverse of the cube root.
+
+      randomSNR=1.0/(maxSNR*maxSNR*maxSNR)+(1.0/(local_min*local_min*local_min)- 1.0/(maxSNR*maxSNR*maxSNR))*gsl_rng_uniform(RNG);
+      randomSNR=1.0/cbrt(randomSNR);
+      printf("Setting random SNR to %lf\n",randomSNR); 
+      local_min=randomSNR;
+      above_threshold=0;
+      for(i=0;i<LAL_NUM_IFO;i++)
+      {
+      if(SNRs[i]*randomSNR/NetworkSNR>singleIFO_threshold) above_threshold+=1;
       }
+      if ((maxSNR-local_min)<0.001) goto here;
+      }while(above_threshold<2);       
+      printf("DONE!\n");
+      here:
+ injTable->distance*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_h*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_l*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_v*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_t*=(REAL4)(1.*NetworkSNR/randomSNR);
+        injTable->eff_dist_g*=(REAL4)(1.*NetworkSNR/randomSNR);
+        rewriteXML=1; repeatLoop=0; //SALVO
+fprintf(stderr,"Multiplying distance by %lf to get from Distance %lf to target %lf \n",0.99*(NetworkSNR/randomSNR),injTable->distance*(randomSNR/NetworkSNR),injTable->distance);
+fprintf(stderr,"Multiplying SNR by %lf to get from SNR %lf to %lf \n",1/(0.99*(NetworkSNR/randomSNR)),NetworkSNR,randomSNR);
+
+}
+     
     }
     if(max_chirp_dist!=0.0 && (maxSNR==0 || (maxSNR!=0 && (maxSNR>NetworkSNR) ) )  ){
 	double this_max=0.0;
@@ -530,7 +635,7 @@ int main(int argc, char *argv[])
     memset(&MDT,0,sizeof(MDT));
     MDT.simInspiralTable = headTable;
         
-    fprintf(stderr,"Overwriting %s with adjusted distances\n",inputfile);
+    fprintf(stdout,"Overwriting %s with adjusted distances\n",inputfile);
     strncat(adjustedfile,inputfile,strlen(inputfile)-4); /* Cut off the .xml */
     sprintf(inputfile,"%s_adj.xml",adjustedfile);
     xmlfp=XLALOpenLIGOLwXMLFile((const char *)inputfile);
@@ -542,4 +647,242 @@ int main(int argc, char *argv[])
   }
 
   return(0);
+}
+
+///*-----------------------------------------------------------*/
+void InjectFD_singleIFO(LALStatus status, COMPLEX16FrequencySeries *injFD_out,LALDetector *detector, SimInspiralTable *inj_table)
+///*-------------- Inject in Frequency domain -----------------*/
+{
+	/* Inject a gravitational wave into the data in the frequency domain */
+	REAL4Vector *injWaveFD=NULL;
+    InspiralTemplate template;
+	UINT4 idx;
+	REAL8 end_time = 0.0;
+	//REAL8 deltaF = inputMCMC->deltaF;
+	REAL8 TimeFromGC,resp_r,resp_i;
+	UINT4 Nmodel; /* Length of the model */
+	LALDetAMResponse det_resp;
+    memset(&template,0,sizeof(InspiralTemplate));
+    REAL8 dphis[10]={0.0};
+    /* Populate the template */
+	  REAL8 ChirpISCOLength;
+  	expnFunc expnFunction;
+	  expnCoeffs ak;
+    TofVIn TofVparams;
+    //REAL8 * SNRs=NULL;
+    //SNRs=calloc(nIFO+1 ,sizeof(REAL8));
+    REAL8 fLow=(REAL8) inj_table->f_lower;
+    REAL8 injLength=210.0;
+    REAL8 deltaT= 1.0/srate;
+    REAL8 deltaF=1.0/injLength; 
+    UINT4 Nsamples = (UINT4)injLength/deltaT;
+    LIGOTimeGPS epoch;
+    Nmodel=(UINT4) (Nsamples-1)*2;
+    REAL8  LeadupTime=95.0;
+    memcpy(&epoch,&(inj_table->geocent_end_time),sizeof(LIGOTimeGPS));
+    epoch = inj_table->geocent_end_time;
+    XLALGPSAdd(&epoch, -LeadupTime);
+    epoch.gpsNanoSeconds=0;
+printf("Nmodel %d Nsamples %d \n",Nmodel,Nsamples);
+    /* read in the injection approximant and determine whether is TaylorF2 or something else*/
+    Approximant injapprox;
+    LALPNOrder phase_order;
+    LALGetApproximantFromString(&status,inj_table->waveform,&injapprox);
+    LALGetOrderFromString(&status,inj_table->waveform,&phase_order);
+	template.totalMass = inj_table->mass1+inj_table->mass2;
+	template.eta = inj_table->eta;
+	template.massChoice = totalMassAndEta;
+	template.fLower = inj_table->f_lower;
+    template.distance = inj_table->distance; /* This must be in Mpc, contrary to the docs */
+	template.order=phase_order;
+	template.approximant=injapprox;
+	template.tSampling = 1.0/deltaT;
+	template.fCutoff = 0.5/deltaT -1.0;
+    //fprintf(stdout,"%f \n", template.fCutoff);
+	template.nStartPad = 0;
+	template.nEndPad =0;
+    template.startPhase = inj_table->coa_phase;
+	template.startTime = 0.0;
+	template.ieta = 1;
+	template.next = NULL;
+	template.fine = NULL;
+	//Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
+
+    COMPLEX16FrequencySeries *injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("InjF",  &epoch,0.0,deltaF,&lalDimensionlessUnit,Nmodel);
+   
+	if(injWaveFD==NULL)	LALCreateVector(&status,&injWaveFD,Nmodel); /* Allocate storage for the waveform */
+        
+	/* Create the wave */
+	LALInspiralParameterCalc(&status,&template);
+	LALInspiralRestrictedAmplitude(&status,&template);
+    
+    printf("Injection Approx: %i\n",template.approximant);
+    if (template.approximant==IMRPhenomFBTest) {
+        dphis[0]=inj_table->dphi0;
+        dphis[1]=inj_table->dphi1;
+        dphis[2]=inj_table->dphi2;
+        dphis[3]=inj_table->dphi3;
+        dphis[4]=inj_table->dphi4;
+        dphis[5]=inj_table->dphi5;
+        dphis[6]=inj_table->dphi6;
+        dphis[7]=inj_table->dphi7;
+        dphis[8]=inj_table->dphi8;
+        dphis[9]=inj_table->dphi9;
+        printf("Using approximant IMRPhenomFBTest\n");
+        for (int k=0;k<10;k++) {
+			fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+		}
+		if (dphis[9]!=0.) {
+			fprintf(stderr,"Coefficient psi_9 is not available in IMRPhenomB. Value is set to 0.");
+			dphis[9]=0.;
+		}
+        LALBBHPhenWaveFreqDomTest(&status, injWaveFD, &template, dphis, 0.0);
+    }
+    else if (template.approximant==TaylorF2Test){
+        dphis[0]=inj_table->dphi0;
+        dphis[1]=inj_table->dphi1;
+        dphis[2]=inj_table->dphi2;
+        dphis[3]=inj_table->dphi3;
+        dphis[4]=inj_table->dphi4;
+        dphis[5]=inj_table->dphi5;
+        dphis[6]=inj_table->dphi5l;
+        dphis[7]=inj_table->dphi6;
+        dphis[8]=inj_table->dphi6l;
+        dphis[9]=inj_table->dphi7;
+        template.spin1[0]=inj_table->spin1x;
+        template.spin1[1]=inj_table->spin1y;
+        template.spin1[2]=inj_table->spin1z;
+        template.spin2[0]=inj_table->spin2x;
+        template.spin2[1]=inj_table->spin2y;
+        template.spin2[2]=inj_table->spin2z;
+        for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+        fprintf(stderr, "Injecting spin1 : (%e, %e, %e)\n", template.spin1[0], template.spin1[1], template.spin1[2]);
+        fprintf(stderr, "Injecting spin2 : (%e, %e, %e)\n", template.spin2[0], template.spin2[1], template.spin2[2]);
+        LALInspiralStationaryPhaseApprox2Test(&status, injWaveFD, &template, dphis, 0.0);
+    }
+    else if (template.approximant==MassiveGraviton) {
+		fprintf(stderr,"Injecting logLambdaG = %e\n",inj_table->loglambdaG);
+        template.loglambdaG=inj_table->loglambdaG;
+		LALInspiralMassiveGraviton(&status, injWaveFD, &template);
+	} 
+    else if (template.approximant==PPE) {
+		fprintf(stderr,"Injecting aPPE = %e\n",inj_table->aPPE);
+        fprintf(stderr,"Injecting alphaPPE = %e\n",inj_table->alphaPPE);
+        fprintf(stderr,"Injecting bPPE = %e\n",inj_table->bPPE);
+        fprintf(stderr,"Injecting betaPPE = %e\n",inj_table->betaPPE);
+        template.aPPE=inj_table->aPPE;
+        template.alphaPPE=inj_table->alphaPPE;
+        template.bPPE=inj_table->bPPE;
+        template.betaPPE=inj_table->betaPPE;
+		LALInspiralPPE(&status, injWaveFD, &template, 0.0);    
+    }
+    else if (template.approximant==BransDicke) {
+		fprintf(stderr,"Injecting Scalar Charge 1 = %e\n",inj_table->ScalarCharge1);
+        fprintf(stderr,"Injecting Scalar Charge 2 = %e\n",inj_table->ScalarCharge2);
+        fprintf(stderr,"Injecting OmegaBD = %e\n",inj_table->omegaBD);
+        template.ScalarCharge1=inj_table->ScalarCharge1;
+        template.ScalarCharge2=inj_table->ScalarCharge2;
+        template.omegaBD=inj_table->omegaBD;
+		LALInspiralBransDicke(&status, injWaveFD, &template);    
+    }
+ /*   else if (template.approximant==IMRPhenomFB) {
+		fprintf(stderr,"GR injection");
+        LALBBHPhenWaveFreqDom(&status, injWaveFD, &template);
+    } */
+    else {
+		fprintf(stderr,"GR injection\n");
+        LALInspiralWave(&status,injWaveFD,&template);
+    }
+    
+    memset(&ak,0,sizeof(expnCoeffs));
+	memset(&TofVparams,0,sizeof(TofVparams));
+
+    LALInspiralSetup(&status,&ak,&template);
+	LALInspiralChooseModel(&status,&expnFunction,&ak,&template);
+	TofVparams.coeffs=&ak;
+	TofVparams.dEnergy=expnFunction.dEnergy;
+	TofVparams.flux=expnFunction.flux;
+	TofVparams.v0= ak.v0;
+	TofVparams.t0= ak.t0;
+	TofVparams.vlso= ak.vlso;
+	TofVparams.totalmass=ak.totalmass;
+/*	LALInspiralTofV(&status,&ChirpISCOLength,pow(6.0,-0.5),(void *)&TofVparams);*/
+	ChirpISCOLength=ak.tn;
+   
+    if(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest){
+		ChirpISCOLength = template.tC;
+	}
+
+    end_time = (REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
+    end_time-=(REAL8) epoch.gpsSeconds + 1.0e-9*epoch.gpsNanoSeconds;
+    
+    if(!(template.approximant == IMRPhenomB || template.approximant==IMRPhenomFB || template.approximant==IMRPhenomFBTest)){
+       /* IMR FD is created with the end of the waveform at the time of epoch. So we don't need to shift by the length of the WF. */
+        end_time-=ChirpISCOLength;
+	}
+    
+	/* Calculate response of the detectors */
+	LALSource source;
+	memset(&source,0,sizeof(LALSource));
+	source.equatorialCoords.longitude = (REAL8) inj_table->longitude;
+	source.equatorialCoords.latitude = (REAL8) inj_table->latitude;
+	source.equatorialCoords.system = COORDINATESYSTEM_EQUATORIAL;
+	source.orientation = (REAL8) inj_table->polarization;
+	strncpy(source.name,"blah",sizeof(source.name));
+
+	LALDetAndSource det_source;
+	det_source.pSource = &source;
+
+	REAL8 ci = cos((REAL8) inj_table->inclination);
+//	REAL8 SNRinj=0;
+
+	REAL8 time_sin,time_cos;
+    //inputMCMC->numberDataStreams=nIFO;
+   
+	//for (det_i=0;det_i<nIFO;det_i++){ //nIFO
+        UINT4 lowBin = (UINT4)(fLow /deltaF);
+        UINT4 highBin = (UINT4)(template.fFinal / deltaF);
+        
+        if(highBin==0 || highBin>Nmodel-1) highBin=Nmodel-1;
+		
+        if(template.approximant==IMRPhenomFB || template.approximant==IMRPhenomB || template.approximant==IMRPhenomFBTest || template.approximant==EOBNR) highBin=Nmodel-1;
+		//char InjFileName[50];
+		//sprintf(InjFileName,"injection_%i.dat",det_i);
+		//FILE *outInj=fopen(InjFileName,"w");
+
+		/* Compute detector amplitude response */
+		det_source.pDetector = (detector); /* select detector */
+		LALComputeDetAMResponse(&status,&det_resp,&det_source,&epoch); /* Compute det_resp */
+        /* Time delay from geocentre */
+        TimeFromGC = (REAL8) XLALTimeDelayFromEarthCenter(detector->location, source.equatorialCoords.longitude, source.equatorialCoords.latitude, &(epoch));
+		det_resp.plus*=0.5*(1.0+ci*ci);
+		det_resp.cross*=-ci;
+		//REAL8 chisq=0.0;
+        
+        
+        for(idx=lowBin;idx<=highBin;idx++){
+        /* Calculate the WF to be injected for each frequency bin and fill injF, injFnoError and injFwithError with it. 
+         * Nothing is yet added to the data */
+			time_sin = sin(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(deltaF));
+			time_cos = cos(LAL_TWOPI*(end_time+TimeFromGC)*((REAL8) idx)*(deltaF));
+			REAL8 hc = (REAL8)injWaveFD->data[idx]*time_cos + (REAL8)injWaveFD->data[Nmodel-idx]*time_sin;
+			REAL8 hs = (REAL8)injWaveFD->data[Nmodel-idx]*time_cos - (REAL8)injWaveFD->data[idx]*time_sin;
+      //printf("idx %d injWaveRE %10.10e injWaveIM %10.10e time sin %lf time cos %lf\n",idx,injWaveFD->data[idx],injWaveFD->data[Nmodel-idx],time_sin,time_cos);
+			resp_r = det_resp.plus * hc - det_resp.cross * hs;
+			resp_i = det_resp.cross * hc + det_resp.plus * hs;
+			resp_r/=deltaF; resp_i/=deltaF;
+            injF->data->data[idx].re=resp_r;
+            injF->data->data[idx].im=resp_i;
+        }
+        
+                
+        for(idx=lowBin;idx<=highBin;idx++){
+		 /* Copy the WF. */  
+            injFD_out->data->data[idx].re=injF->data->data[idx].re;
+            injFD_out->data->data[idx].im=injF->data->data[idx].im;
+
+		}
+   
+    
+	return;
 }
