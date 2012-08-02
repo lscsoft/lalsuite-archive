@@ -17,6 +17,7 @@ import sys, os, math, re
 import numpy
 
 from glue import git_version
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 
@@ -215,7 +216,7 @@ def parse_command_line():
     if missing_options:
         raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
 
-    if 'injection' in options.datatype and options.simulation_table is None:
+    if 'injection' in options.datatypes and options.simulation_table is None:
         raise ValueError, "Must specify --simulation-table for injection datatype."
 
     if options.logx and (options.xmin > 0 and options.xmax > 0):
@@ -303,12 +304,12 @@ y, ylabel = len(y.split(':')) == 2 and y.split(':') or [y.split(':')[0], y.split
 xlabel, ylabel = xlabel.strip(), ylabel.strip()
 
 xifo = opts.x_ifo
-if opt.y_ifo is None:
+if opts.y_ifo is None:
     yifo = opts.x_ifo
 else:
     yifo = opts.y_ifo
 
-sngl_table = sqlutils.validate_option(opts.sngl_table)
+sngl_table = sqlutils.validate_option(opts.single_table)
 
 # get rank_by
 rank_by = sqlutils.validate_option(opts.rank_by, lower = False).upper()
@@ -390,11 +391,12 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         class StorageTable(table.Table):
             tableName = "storage:table"
             validcolumns = {}
-            if col_name in lsctables.TableByName[sngl_table].validcolumns.keys():
-                validcolumns[col_name] = lsctables.TableByName[sngl_table].validcolumns[col_name]
-            # if custom columns exist in the database, just set them to lstrings
-            else:
-                validcolumns[col_name] = "lstring"
+            for col_name in sngl_table_cols:
+                if col_name in lsctables.TableByName[sngl_table].validcolumns.keys():
+                    validcolumns[col_name] = lsctables.TableByName[sngl_table].validcolumns[col_name]
+                # if custom columns exist in the database, just set them to lstrings
+                else:
+                    validcolumns[col_name] = "lstring"
 
         class Storage(object):
             __slots__ = StorageTable.validcolumns.keys()
@@ -415,7 +417,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         # connect the row to the table
         StorageTable.RowType = Storage
 
-        for datatype in datatypes:
+        for datatype in opts.datatypes:
             if opts.verbose:
                 print >> sys.stderr, "\tgetting %s..." % datatype
             stats.setdefault(datatype, [])
@@ -450,7 +452,6 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                         stats[datatype].append( (cprow.ifo, pval, xval, yval) )
 
             else:
-
                 sqlquery = ''.join(['''
                     SELECT
                         ''',sngl_table,'''.*
