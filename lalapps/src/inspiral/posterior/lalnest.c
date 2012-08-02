@@ -2909,7 +2909,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 
 void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *inputMCMC){
 /* open the SNR file */
-    char SnrName[300];
+    char SnrName[500];
     char ListOfIFOs[10];
     REAL8 NetSNR=0.0;
     sprintf(ListOfIFOs,"");
