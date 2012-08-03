@@ -80,6 +80,8 @@ extern int vrbflg;
 extern int lalDebugLevel;
 int AdvNoises=0;
 REAL8 srate=4096.0;
+INT4 above_threshold=0;
+
 gsl_rng *RNG;
 typedef enum
 {
@@ -564,9 +566,15 @@ InjectFD_singleIFO(status, FData,detector,injTable);
         injTable->eff_dist_t*=(REAL4)(NetworkSNR/targetSNR);
         rewriteXML=1; repeatLoop=1; hitTarget=1;}
       else {repeatLoop=0; hitTarget=0;}
-      if(targetSNR==0.0 && (minSNR>NetworkSNR || maxSNR<NetworkSNR)) {
+
+    above_threshold=0;
+    for(det_idx=0;det_idx<LAL_NUM_IFO;det_idx++){
+    if (SNRs[det_idx]>singleIFO_threshold) above_threshold+=1;
+    }
+ 
+if(targetSNR==0.0 && (minSNR>NetworkSNR || maxSNR<NetworkSNR || !(above_threshold>1))) {
       REAL8 randomSNR;
-      INT4 above_threshold;
+      
       REAL8 local_min=minSNR;
       do{
       // We want the distances to be uniform in the volume i.e. p(D)\propto D^2. Changing variable, we need to have p(SNR)\propto 1/SNR^4.
