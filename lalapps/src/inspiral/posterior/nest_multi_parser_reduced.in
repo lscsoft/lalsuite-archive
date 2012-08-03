@@ -401,7 +401,10 @@ def nest_pipe(opts=None,num=0):
             glob_caler_folders_by_num[num]=calerr_dir
             inspnest_job.add_opt('calib-errors-path',calerr_dir)
             if cp.has_option('calibration','calib-seed'):
-                inspnest_job.add_opt('calib-seed',cp.get('calibration','calib-seed'))
+                #inspnest_job.add_opt('calib-seed',cp.get('calibration','calib-seed'))
+                calib_seed=int(cp.get('calibration','calib-seed'))
+            else:
+                calib_seed=0
             checkDir(calerr_dir)
         else:
             print "The parser %s has a calibration section but it does not contain an enable-calfreq=1 line. Exiting..."%opts.ini_file
@@ -444,6 +447,8 @@ def nest_pipe(opts=None,num=0):
             inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=sorted(segments_by_time[time].keys(),sort_ifo),event=thisevent)
             inspnest_node.set_priority(int(-round(40*(float(times.index(time))/float(len(times))-0.5))))
             inspnest_nodes_by_time[time]=inspnest_node
+            if cp.has_section('calibration'):
+                inspnest_node.add_var_opt("calib-seed",str(int(calib_seed+11*times.index(time))))
             dag.add_node(inspnest_node)
             combine_each_time_nodes[time].add_parent(inspnest_node)
             nest_files[time]=inspnest_node.get_output_files()[0]
