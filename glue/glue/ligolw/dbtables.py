@@ -81,7 +81,7 @@ def connection_db_type(connection):
 		return "sqlite"
 	if "mysql" in repr(connection):
 		return "mysql"
-	raise TypeError, connection
+	raise TypeError(connection)
 
 
 def DBTable_set_connection(connection):
@@ -179,7 +179,7 @@ def uninstall_signal_trap(signums = None):
 	signal handlers.  If signums is a sequence of signal numbers the
 	only the signal handlers for thos signals will be restored.  If
 	signums is None (the default) then all signals that have been
-	modified by previous calls to install_cleanup_handler() are
+	modified by previous calls to install_signal_trap() are
 	restored.
 
 	Note:  this function is called by put_connection_filename() and
@@ -310,7 +310,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		temporary_files_lock.acquire()
 		try:
 			if filename in temporary_files:
-				raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
+				raise ValueError("file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename)
 		finally:
 			temporary_files_lock.release()
 		target = filename
@@ -533,7 +533,7 @@ def idmap_get_new(connection, old, tbl):
 	new = cursor.fetchone()
 	if new is not None:
 		# a new ID has already been created for this old ID
-		return ilwd.get_ilwdchar(new[0])
+		return ilwd.ilwdchar(new[0])
 	# this ID was not found in _idmap_ table, assign a new ID and
 	# record it
 	new = tbl.get_next_id()
@@ -548,7 +548,7 @@ def idmap_get_max_id(connection, id_class):
 
 	Example:
 
-	>>> event_id = ilwd.get_ilwdchar("sngl_burst:event_id:0")
+	>>> event_id = ilwd.ilwdchar("sngl_burst:event_id:0")
 	>>> print event_id
 	sngl_inspiral:event_id:0
 	>>> max_id = get_max_id(connection, type(event_id))
@@ -778,7 +778,10 @@ class DBTable(table.Table):
 			"sqlite": ligolwtypes.ToSQLiteType,
 			"mysql": ligolwtypes.ToMySQLType
 		}[connection_db_type(self.connection)]
-		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		try:
+			statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		except KeyError, e:
+			raise ValueError("column type '%s' not supported" % str(e))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -865,7 +868,7 @@ class DBTable(table.Table):
 		row = self.RowType()
 		for c, t, v in zip(self.dbcolumnnames, self.dbcolumntypes, values):
 			if t in ligolwtypes.IDTypes:
-				v = ilwd.get_ilwdchar(v)
+				v = ilwd.ilwdchar(v)
 			setattr(row, c, v)
 		return row
 	# backwards compatibility
@@ -914,7 +917,7 @@ class ProcessParamsTable(DBTable):
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
-			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
+			raise ligolw.ElementError("unrecognized type '%s'" % row.type)
 		DBTable.append(self, row)
 
 
@@ -931,7 +934,7 @@ class TimeSlideTable(DBTable):
 		Return a ditionary mapping time slide IDs to offset
 		dictionaries.
 		"""
-		return dict((ilwd.get_ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
+		return dict((ilwd.ilwdchar(id), offsetvector.offsetvector((instrument, offset) for id, instrument, offset in values)) for id, values in itertools.groupby(self.cursor.execute("SELECT time_slide_id, instrument, offset FROM time_slide ORDER BY time_slide_id"), lambda (id, instrument, offset): id))
 
 	def get_time_slide_id(self, offsetdict, create_new = None, superset_ok = False, nonunique_ok = False):
 		"""
@@ -981,14 +984,14 @@ class TimeSlideTable(DBTable):
 				# and that's OK
 				return ids[0]
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		if len(ids) == 1:
 			# found one
 			return ids[0]
 		# offset vector not found in table
 		if create_new is None:
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		# that's OK, create new vector
 		id = self.get_next_id()
 		for instrument, offset in offsetdict.items():
@@ -1056,18 +1059,6 @@ TableByName = {
 
 
 #
-# The database-backed table implementation requires there to be no more
-# than one table of each name in the document.  Some documents require
-# multiple tables with the same name, and those tables cannot be stored in
-# the database.  Use this list to set which tables are not to be stored in
-# the database.
-#
-
-
-NonDBTableNames = []
-
-
-#
 # =============================================================================
 #
 #                               Content Handler
@@ -1109,15 +1100,13 @@ def use_in(ContentHandler):
 	"""
 	lsctables.use_in(ContentHandler)
 
-	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+	def startTable(self, attrs):
 		try:
 			connection = self.connection
 		except AttributeError:
 			warnings.warn("use of \"DBTable.connection\" class attribute to provide database connection information at DBTable instance creation time is deprecated;  use a LIGOLWContentHandler subclass with a \"connection\" attribute instead.  see glue.ligolw.dbtables.use_in() for more information.", DeprecationWarning)
 			connection = DBTable.connection
 		name = table.StripTableName(attrs[u"Name"])
-		if name in map(table.StripTableName, NonDBTableNames):
-			return __parent_startTable(self, attrs)
 		if name in TableByName:
 			return TableByName[name](attrs, connection = connection)
 		return DBTable(attrs, connection = connection)
