@@ -20,14 +20,14 @@ shift=10.0            ## This is in percent. If type_inj is GR this will be igno
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
 sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=500 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
-add_cal_err=0
+add_cal_err=1
 #remote_script='svitale@login.nikhef.nl:/project/gravwav/safe_append.sh' ## This is the remote file which appends to the database
 #remote_database='TF2Cut_db.txt'   ## Succesful runs are appended to remote_database. Failed runs are appended to 'remote_database'_failed
 
 approx_for_inj='TaylorF2TestthreePointFivePN' ## This is the WF to use for the inj file. Use the usual lalapps_inspinj sintax here.
 
-use_inj_file=0  ## Set to 1 if you want to use a previuosly generated inj file
-inj_file='/Users/svitale/TestingGR_calibration_FG/dchi3_10.0pc/7005/injections_dchi3_10.0pc_7005.xml_adj.xml'   ## The full path of the inj file to use
+use_inj_file=1  ## Set to 1 if you want to use a previuosly generated inj file
+inj_file='/scratch2/salvatore.vitale/TestingGR_calibration_FG/injections_dchi3_10.0pc_7005.xml_adj.xml'   ## The full path of the inj file to use
 
 minSNR=8 ## Set this the minimum desired value of the network SNR. Set to None to disable the rescaling (e.g. minSNR=8)$^
 maxSNR=30 ## Set this the minimum desired value of the network SNR. Set to None to disable the rescaling (e.g. maxSNR=30)
@@ -47,12 +47,13 @@ if type_inj!='GR':
 else:
     type_name=type_inj
 
-PATH_TO_OPT="/Users/svitale/lalsuites/testingGR_UWM/opt"  ## Path to the opt folder of your installation
+PATH_TO_OPT="/home/salvatore.vitale/lalsuites/master/opt"  ## Path to the opt folder of your installation
 CALIB_SEED="1234"
-basefolder = "/Users/svitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)                       ##
-postprocfolder = "/Users/svitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)       ##
-scratchdir = "/localscratch/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)            ##
-logdir = "/scratch2/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
+
+basefolder = "/scratch2/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)                       ##
+postprocfolder = "home/salvatore.vitale/public_html/%s/%s"%(type_name,inspinj_seed)       ##
+logdir = "/localscratch/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)            ##
+scratchdir = "/scratch2/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
 
  ## NOTE: You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code w#ill add the seed and the type of run (GR or tested param +value of the shift)
 
@@ -142,7 +143,6 @@ if scale_dist==1:
         os.system("cp %s %s"%(outname+"_adj.xml",outname))
     #else:
     #    os.system("cp %s %s"%(outname+"_back",outname))    
-    exit(1)
 
 
 ################################################################################
@@ -349,7 +349,7 @@ logd="None"
 scrd="None"
         
 for i in os.uname():
-    if i.find("uwm")!=-1:
+    if (i.find("uwm")!=-1) or (i.find("hydra")!=-1):
         logd=logdir
         scrd=scratchdir
 #print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
