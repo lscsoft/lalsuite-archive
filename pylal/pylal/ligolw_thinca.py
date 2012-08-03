@@ -418,10 +418,10 @@ def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_p
 
 def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
 	"""
-	Returns False (a & b are coincident) if they pass the ellipsoidal
-	thinca test and their component masses are equal.
+	Returns False (a & b are coincident) if their component masses and spins
+	are equal and they pass the ellipsoidal thinca test.
 	"""
-	if ((a.mass1 == b.mass1) or (a.mass2 == b.mass2) or (a.chi == b.chi) or (a.kappa == b.kappa) ):
+	if ( (a.mass1 == b.mass1) and (a.mass2 == b.mass2) and (a.chi == b.chi) and (a.kappa == b.kappa) ):
 		return inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
 	else:
 		return True
