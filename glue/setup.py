@@ -254,7 +254,8 @@ setup(
     os.path.join('bin','segdb_coalesce'),
     os.path.join('bin', 'glue_nmi_genbuild'),
     os.path.join('bin', 'ligolw_print_tables'),
-    os.path.join('bin', 'ligolw_veto_def_check')],
+    os.path.join('bin', 'ligolw_veto_def_check'),
+    os.path.join('bin', 'gw_data_find')],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),

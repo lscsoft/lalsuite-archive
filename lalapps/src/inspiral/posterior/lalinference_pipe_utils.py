@@ -65,6 +65,11 @@ def readLValert(lvalertfile,SNRthreshold=0,gid=None):
   output=[]
   from glue.ligolw import utils
   from glue.ligolw import lsctables
+  from glue.ligolw import ligolw
+  from glue.ligolw import param
+  from glue.ligolw import array
+  from pylal import series as lalseries
+  import numpy as np
   xmldoc=utils.load_filename(lvalertfile)
   coinctable = lsctables.getTablesByType(xmldoc, lsctables.CoincInspiralTable)[0]
   coinc_events = [event for event in coinctable]
@@ -72,6 +77,14 @@ def readLValert(lvalertfile,SNRthreshold=0,gid=None):
   sngl_events = [event for event in sngltable]
   search_summary = lsctables.getTablesByType(xmldoc, lsctables.SearchSummaryTable)[0]
   ifos = search_summary[0].ifos.split(",")
+  # Parse PSD
+  xmlpsd = utils.load_filename("psd.xml.gz")
+  psddict = dict((param.get_pyvalue(elem, u"instrument"), lalseries.parse_REAL8FrequencySeries(elem)) for elem in xmlpsd.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"REAL8FrequencySeries")
+  for instrument, psd in psddict.items():
+    combine=[]
+    for i,p in enumerate(psd.data):
+      combine.append([psd.f0+i*psd.deltaF,np.sqrt(p)])
+    np.savetxt(instrument+'psd.txt',combine)
   # Logic for template duration and sample rate disabled
   coinc_map = lsctables.getTablesByType(xmldoc, lsctables.CoincMapTable)[0]
   for coinc in coinc_events:
@@ -513,6 +526,12 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if self.config.has_option('lalinference','ER2-cache'):
       node.cachefiles=ast.literal_eval(self.config.get('lalinference','ER2-cache'))
       node.channels=ast.literal_eval(self.config.get('data','channels'))
+      node.psds=ast.literal_eval(self.config.get('lalinference','psds'))
+      for ifo in ifos:
+        node.add_input_file(os.path.join(self.basepath,node.cachefiles[ifo]))
+        node.cachefiles[ifo]=os.path.join(self.basepath,node.cachefiles[ifo])
+        node.add_input_file(os.path.join(self.basepath,node.psds[ifo]))
+        node.psds[ifo]=os.path.join(self.basepath,node.psds[ifo])
       if len(ifos)==0: node.ifos=node.cachefiles.keys()
       else: node.ifos=ifos
       node.timeslides=dict([ (ifo,0) for ifo in node.ifos])
@@ -620,6 +639,7 @@ class EngineNode(pipeline.CondorDAGNode):
     self.ifos=[]
     self.scisegs={}
     self.channels={}
+    self.psds={}
     self.timeslides={}
     self.seglen=None
     self.psdlength=None
@@ -698,6 +718,7 @@ class EngineNode(pipeline.CondorDAGNode):
       """
       ifostring='['
       cachestring='['
+      psdstring='['
       channelstring='['
       slidestring='['
       first=True
@@ -708,15 +729,18 @@ class EngineNode(pipeline.CondorDAGNode):
         else: delim=','
         ifostring=ifostring+delim+ifo
         cachestring=cachestring+delim+self.cachefiles[ifo]
+        psdstring=psdstring+delim+self.psds[ifo]
         channelstring=channelstring+delim+self.channels[ifo]
         slidestring=slidestring+delim+str(self.timeslides[ifo])
       ifostring=ifostring+']'
       cachestring=cachestring+']'
+      psdstring=psdstring+']'
       channelstring=channelstring+']'
       slidestring=slidestring+']'
       self.add_var_opt('IFO',ifostring)
       self.add_var_opt('channel',channelstring)
       self.add_var_opt('cache',cachestring)
+      self.add_var_opt('psd',psdstring)
       if any(self.timeslides):
 	self.add_var_opt('timeslides',slidestring)
       # Start at earliest common time
@@ -987,7 +1011,8 @@ class GraceDBJob(pipeline.CondorDAGJob):
     """
     def __init__(self,cp,submitFile,logdir):
       exe=cp.get('condor','gracedb')
-      pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+      #pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
+      pipeline.CondorDAGJob.__init__(self,"scheduler",exe)
       self.set_sub_file(submitFile)
       self.set_stdout_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'gracedb-$(cluster)-$(process).err'))
@@ -1031,5 +1056,6 @@ class GraceDBNode(pipeline.CondorDAGNode):
             return
         self.add_var_arg('log')
         self.add_var_arg(str(self.gid))
+        #self.add_var_arg('"Parameter estimation finished. <a href=\"'+self.resultsurl+'/posplots.html\">'+self.resultsurl+'/posplots.html</a>"')
         self.add_var_arg('Parameter estimation finished. '+self.resultsurl+'/posplots.html')
         self.__finalized=True

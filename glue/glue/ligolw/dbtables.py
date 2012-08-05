@@ -81,7 +81,7 @@ def connection_db_type(connection):
 		return "sqlite"
 	if "mysql" in repr(connection):
 		return "mysql"
-	raise TypeError, connection
+	raise TypeError(connection)
 
 
 def DBTable_set_connection(connection):
@@ -310,7 +310,7 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 		temporary_files_lock.acquire()
 		try:
 			if filename in temporary_files:
-				raise ValueError, "file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename
+				raise ValueError("file '%s' appears to be in use already as a temporary database file and is to be deleted" % filename)
 		finally:
 			temporary_files_lock.release()
 		target = filename
@@ -778,7 +778,10 @@ class DBTable(table.Table):
 			"sqlite": ligolwtypes.ToSQLiteType,
 			"mysql": ligolwtypes.ToMySQLType
 		}[connection_db_type(self.connection)]
-		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		try:
+			statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ToSQLType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		except KeyError, e:
+			raise ValueError("column type '%s' not supported" % str(e))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -914,7 +917,7 @@ class ProcessParamsTable(DBTable):
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
-			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
+			raise ligolw.ElementError("unrecognized type '%s'" % row.type)
 		DBTable.append(self, row)
 
 
@@ -981,14 +984,14 @@ class TimeSlideTable(DBTable):
 				# and that's OK
 				return ids[0]
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		if len(ids) == 1:
 			# found one
 			return ids[0]
 		# offset vector not found in table
 		if create_new is None:
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		# that's OK, create new vector
 		id = self.get_next_id()
 		for instrument, offset in offsetdict.items():
