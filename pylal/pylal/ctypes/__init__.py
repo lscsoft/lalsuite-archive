@@ -44,6 +44,6 @@ def __load_lib(libname, mode = None):
         lib = CDLL(lib_path, mode)
     return lib
 
-libc = __load_lib("c")
-liblal = __load_lib("lal")
-liblalinference = __load_lib("lalinference")
+libc = __load_lib("c",mode=RTLD_GLOBAL)
+liblal = __load_lib("lal",mode=RTLD_GLOBAL)
+liblalinference = __load_lib("lalinference",mode=RTLD_GLOBAL)

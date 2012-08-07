@@ -25,7 +25,7 @@
 #  
 
 
-from ctypes import Structure,POINTER,pointer,byref,create_string_buffer,cast,c_char_p,c_ssize_t
+from ctypes import Structure,POINTER,pointer,byref,create_string_buffer,cast,c_char_p,c_size_t
 
 import pylal.ctypes
 from pylal.ctypes.utils import _set_types
@@ -54,4 +54,4 @@ class REAL8FrequencySeries(Structure):
         self.deltaT=REAL8(deltaT)
         self.data=pointer(REAL8Sequence(np.array(length*[0.],dtype=np.float64)))
     
-#XLALCreateREAL8TimeSeries=_set_types(pylal.ctypes.liblal,"XLALCreateREAL8TimeSeries",POINTER(REAL8TimeSeries),[POINTER(CHAR),POINTER(LIGOTimeGPS),REAL8,REAL8,POINTER(LALUnit),c_ssize_t])
+#XLALCreateREAL8TimeSeries=_set_types(pylal.ctypes.liblal,"XLALCreateREAL8TimeSeries",POINTER(REAL8TimeSeries),[POINTER(CHAR),POINTER(LIGOTimeGPS),REAL8,REAL8,POINTER(LALUnit),c_size_t])
