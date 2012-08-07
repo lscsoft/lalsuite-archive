@@ -57,6 +57,9 @@ except ImportError:
 
 #local application/library specific imports
 import pylal
+from pylal import lalconstants
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_burnin
@@ -235,76 +238,40 @@ def _inj_phi2(inj):
             return phi_mpi_to_pi
 
 def _inj_tilt1(inj):
-    Sx  = inj.spin1x
-    Sy  = inj.spin1y
-    Sz  = inj.spin1z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt1 = array_ang_sep(L,S1)
+    if np.max(S1) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt1
 
 def _inj_tilt2(inj):
-    Sx  = inj.spin2x
-    Sy  = inj.spin2y
-    Sz  = inj.spin2z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt2 = array_ang_sep(L,S2)
+    if np.max(S2) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt2
 
 def _inj_thetas(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
 
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
-    
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
-    
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos(Jz/Jmag)
+    thetas = array_polar_ang(J)
+    return thetas
     
 def _inj_beta(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
-
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
     
-    S1x  = inj.mass1*inj.mass1*inj.spin1x
-    S1y  = inj.mass1*inj.mass1*inj.spin1y
-    S1z  = inj.mass1*inj.mass1*inj.spin1z
-    
-    S2x  = inj.mass2*inj.mass2*inj.spin2x
-    S2y  = inj.mass2*inj.mass2*inj.spin2y
-    S2z  = inj.mass2*inj.mass2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+    beta  = array_ang_sep(J,L)
+    return beta
 
 
 #===============================================================================
@@ -315,19 +282,21 @@ class OneDPosterior(object):
     """
     A data structure for a single chain of posterior samples.
     """
-    def __init__(self,name,posterior_samples,injected_value=None,prior=None):
+    def __init__(self,name,posterior_samples,injected_value=None,trigger_values=None,prior=None):
         """
         Constructor.
 
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
+        @keyword trigger_values: The trigger values of the parameter (dictionary w/ IFOs as keys).
         @keyword prior: The prior value corresponding to each sample.
         """
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
 
         self.__injval=injected_value
+        self.__trigvals=trigger_values
         self.__prior=prior
 
         return
@@ -342,7 +311,7 @@ class OneDPosterior(object):
         """
         Container method . Returns posterior containing sample idx (allows slicing).
         """
-        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval)
+        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
         
     @property
     def name(self):
@@ -403,6 +372,14 @@ class OneDPosterior(object):
         """
         return self.__injval
 
+    @property
+    def trigvals(self):
+        """
+        Return the trigger values set at construction . If no value was set
+        will return None .
+        """
+        return self.__trigvals
+
     #@injval.setter #Python 2.6+
     def set_injval(self,new_injval):
         """
@@ -412,6 +389,15 @@ class OneDPosterior(object):
         """
 
         self.__injval=new_injval
+
+    def set_trigvals(self,new_trigvals):
+        """
+        Set the trigger values of the parameter.
+
+        @param new_trigvals: Dictionary containing trigger values with IFO keys.
+        """
+
+        self.__trigvals=new_trigvals
 
     @property
     def samples(self):
@@ -481,7 +467,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None,votfile=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,SnglInpiralList=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -492,6 +478,7 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
+        self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood']
         self._votfile=votfile
         
@@ -499,15 +486,15 @@ class Posterior(object):
         
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             
-            self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
+            self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
         and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
             try:
                 print 'Inferring m1 and m2 from mchirp and eta'
                 (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
-                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'))
-                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'))
+                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'),trigger_values=self._gettrigpar('m1'))
+                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'),trigger_values=self._gettrigpar('m2'))
             except KeyError:
                 print 'Unable to deduce m1 and m2 from input columns'
 
@@ -556,7 +543,7 @@ class Posterior(object):
         for i in range(Nsamp):
             bootstrapSamples[i,:]=random.choice(rows)
 
-        return Posterior((names,bootstrapSamples),self._injection)
+        return Posterior((names,bootstrapSamples),self._injection,self._triggers)
 
     def delete_samples_by_idx(self,samples):
         """
@@ -598,6 +585,14 @@ class Posterior(object):
         """
 
         return self._injection
+
+    @property
+    def triggers(self):
+        """
+        Return the trigger values .
+        """
+
+        return self._triggers
 
     def _total_incl_restarts(self, samples):
         total=0
@@ -643,6 +638,19 @@ class Posterior(object):
                 if new_injval is not None:
                     self[name].set_injval(new_injval)
 
+    def set_triggers(self,triggers):
+        """
+        Set the trigger values of the parameters.
+
+        @param triggers: A list of SnglInspiral objects.
+        """
+        if triggers is not None:
+            self._triggers=triggers
+            for name,onepos in self:
+                new_trigvals=self._gettrigpar(name)
+                if new_trigvals is not None:
+                    self[name].set_trigvals(new_trigvals)
+
 
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
@@ -682,8 +690,10 @@ class Posterior(object):
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
                         'tilt2':_inj_tilt2,
+                        'costilt1': lambda inj: np.cos(_inj_tilt1),
+                        'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
-                        'theta_s':_inj_thetas,
+                        'thetas':_inj_thetas,
                         'beta':_inj_beta
                        }
 
@@ -697,6 +707,19 @@ class Posterior(object):
                     return self._injXMLFuncMap[key](self._injection)
         return None
 
+    def _gettrigpar(self,paramname):
+        """
+        Map parameter names to parameters in a SnglInspiral.
+        """
+        vals = None
+        if self._triggers is not None:
+            for key,value in self._injXMLFuncMap.items():
+                if paramname.lower().strip() == key.lower().strip():
+                    try:
+                        vals = dict([(trig.ifo,self._injXMLFuncMap[key](trig)) for trig in self._triggers])
+                    except AttributeError:
+                        break
+        return vals
 
     def __getitem__(self,key):
         """
@@ -825,12 +848,20 @@ class Posterior(object):
         if isinstance(post_names, str):
             old_post = self[post_names]
             old_inj  = old_post.injval
+            old_trigs  = old_post.trigvals
             if old_inj:
                 new_inj = func(old_inj)
             else:
                 new_inj = None
+            if old_trigs:
+                new_trigs = {}
+                for IFO in old_trigs.keys():
+                    new_trigs[IFO] = func(old_trigs[IFO])
+            else:
+                new_trigs = None
+
             samps = func(old_post.samples)
-            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj)
+            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
             if new_post.samples.ndim is 0:
                 print "WARNING: No posterior calculated for %s ..." % post.name
             else:
@@ -839,6 +870,7 @@ class Posterior(object):
         else:
             old_posts = [self[post_name] for post_name in post_names]
             old_injs = [post.injval for post in old_posts]
+            old_trigs = [post.trigvals for post in old_posts]
             samps = func(*[post.samples for post in old_posts])
             #1D output
             if isinstance(new_param_names, str):
@@ -846,7 +878,14 @@ class Posterior(object):
                     inj = func(*old_injs)
                 else:
                     inj = None
-                new_post = OneDPosterior(new_param_names, samps, injected_value=inj)
+                if None not in old_trigs:
+                    new_trigs = {}
+                    for IFO in old_trigs[0].keys():
+                        oldvals = [param[IFO] for param in old_trigs]
+                        new_trigs[IFO] = func(*oldvals)
+                else:
+                    new_trigs = None
+                new_post = OneDPosterior(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
                 self.append(new_post)
             #MultiD output
             else:
@@ -854,7 +893,16 @@ class Posterior(object):
                     injs = func(*old_injs)
                 else:
                     injs = [None for name in new_param_names]
-                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+                if None not in old_trigs:
+                    new_trigs = [{} for param in range(len(new_param_names))]
+                    for IFO in old_trigs[0].keys():
+                        oldvals = [param[IFO] for param in old_trigs]
+                        newvals = func(*oldvals)
+                        for param,newval in enumerate(newvals):
+                            new_trigs[param][IFO] = newval
+                else:
+                    new_trigs = [None for param in range(len(new_param_names))]
+                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
                 for post in new_posts: 
                     if post.samples.ndim is 0: 
                         print "WARNING: No posterior calculated for %s ..." % post.name
@@ -930,6 +978,8 @@ class Posterior(object):
         header=header.split()
 
         n=int(0.05*samples.shape[0])
+        if not n > 1:
+            raise IndexError
 
         coord_names=[name for name in allowed_coord_names if name in header]
         indexes=np.argsort(self._logL[:,0])
@@ -1097,6 +1147,12 @@ class Posterior(object):
         return_val='<table border="1" id="statstable"><tr><th/>'
 
         column_names=['maxL','stdev','mean','median','stacc','injection value']
+        IFOs = []
+        if self._triggers is not None:
+            IFOs = [trig.ifo for trig in self._triggers]
+            for IFO in IFOs:
+                column_names.append(IFO+' trigger values')
+
         for column_name in column_names:
             return_val+='<th>%s</th>'%column_name
 
@@ -1111,8 +1167,16 @@ class Posterior(object):
             median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
+            trigvals=oned_pos.trigvals
 
-            return_val+=self._print_table_row(name,[maxL,stdev,mean,median,stacc,injval])
+            row = [maxL,stdev,mean,median,stacc,injval]
+            if self._triggers is not None:
+                for IFO in IFOs:
+                    try:
+                        row.append(str(trigvals[IFO]))
+                    except TypeError:
+                        row.append(None)
+            return_val+=self._print_table_row(name,row)
 
         return_val+='</table>'
 
@@ -2108,8 +2172,7 @@ def orbital_momentum(f_lower, mc, inclination):
     """
     Calculate orbital angular momentum vector.
     """
-    mtsun = 4.92549095e-06          #Msol in seconds
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * f_lower, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -2189,6 +2252,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
 
     pos_samps=posterior[param].samples
     injpar=posterior[param].injval
+    trigvals=posterior[param].trigvals
 
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
     axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
@@ -2200,7 +2264,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='red', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x), color='b', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
@@ -2209,7 +2273,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
 
     if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.axvline(injpar, color='r', linestyle='-.')
+            plt.axvline(injpar, color='b', linestyle='-.')
 
             #rkde=gkde.integrate_box_1d(min(pos[:,i]),getinjpar(injection,i))
             #print "r of injected value of %s (kde) = %f"%(param,rkde)
@@ -2222,6 +2286,15 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
             #Integrate over the bins
             rbins=(sum(n[0:injbinh-1])+injbin_frac*n[injbinh])*histbinSize
 
+    if trigvals is not None:
+        for IFO in [IFO for IFO in trigvals.keys()]:
+            trigval = trigvals[IFO]
+            if min(pos_samps)<trigval and max(pos_samps)>trigval:
+                if IFO=='H1': color = 'r'
+                elif IFO=='L1': color = 'g'
+                elif IFO=='V1': color = 'm'
+                else: color = 'c'
+                plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
     plt.xlabel(param)
@@ -2372,6 +2445,9 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     par_injvalue1=posterior[par1_name].injval
     par_injvalue2=posterior[par2_name].injval
 
+    par_trigvalues1=posterior[par1_name].trigvals
+    par_trigvalues2=posterior[par2_name].trigvals
+
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
 
@@ -2396,7 +2472,18 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.colorbar()
 
     if par_injvalue1 is not None and par_injvalue2 is not None:
-        plt.plot([par_injvalue1],[par_injvalue2],'go',scalex=False,scaley=False)
+        plt.plot([par_injvalue1],[par_injvalue2],'bo',scalex=False,scaley=False)
+
+    if par_trigvalues1 is not None and par_trigvalues2 is not None:
+        par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
+        par2IFOs = set([IFO for IFO in par_trigvalues2.keys()])
+        IFOs = par1IFOs.intersection(par2IFOs)
+        for IFO in IFOs:
+            if IFO=='H1': color = 'r'
+            elif IFO=='L1': color = 'g'
+            elif IFO=='V1': color = 'm'
+            else: color = 'c'
+            plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     plt.xlabel(par1_name)
     plt.ylabel(par2_name)
@@ -2594,6 +2681,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         par1_injvalue=posterior[par1_name.lower()].injval
         par2_injvalue=posterior[par2_name.lower()].injval
 
+        #Extract trigger information
+        par1_trigvalues=posterior[par1_name.lower()].trigvals
+        par2_trigvalues=posterior[par2_name.lower()].trigvals
+
         a=np.squeeze(posterior[par1_name].samples)
         b=np.squeeze(posterior[par2_name].samples)
 
@@ -2629,7 +2720,16 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par2_injvalue],[par1_injvalue],'g*',scalex=False,scaley=False)
+            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False)
+        if(par1_trigvalues is not None and par2_trigvalues is not None):
+            par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
+            par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
+            IFOs = par1IFOs.intersection(par2IFOs)
+            if IFO=='H1': color = 'r'
+            elif IFO=='L1': color = 'g'
+            elif IFO=='V1': color = 'm'
+            else: color = 'c'
+            plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='*',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2730,6 +2830,10 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par1_injvalue=posterior[par1_name.lower()].injval
     par2_injvalue=posterior[par2_name.lower()].injval
 
+    #Extract trigger information
+    par1_trigvalues=posterior[par1_name.lower()].trigvals
+    par2_trigvalues=posterior[par2_name.lower()].trigvals
+
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
     myfig.add_axes([0.2,0.2,0.8,0.8])
     plt.clf()
@@ -2763,8 +2867,17 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.colorbar()
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
+        plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
 
+    if par1_trigvalues is not None and par2_trigvalues is not None:
+        par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
+        par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
+        IFOs = par1IFOs.intersection(par2IFOs)
+        if IFO=='H1': color = 'r'
+        elif IFO=='L1': color = 'g'
+        elif IFO=='V1': color = 'm'
+        else: color = 'c'
+        plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
@@ -2980,6 +3093,42 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
 
     return pos,bayesfactor
 
+
+def effectiveSampleSize(samples, Nskip=1):
+    mu = np.mean(samples)
+    N = len(samples)
+    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
+    acf = corr[N-1:]/corr[N-1]
+    acl = 1
+    i = 1
+    try:
+      while (acf[i] > 0.0005):
+          acl += 2.0*acf[i]
+          i+=1
+    except IndexError:
+      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = N
+    Neffective = floor(N/acl)
+    acl *= Nskip
+    return (Neffective, acl, acf)
+
+
+def readCoincXML(xml_file, trignum):
+    triggers=None
+
+    coincXML = utils.load_filename(xml_file)
+    coinc = lsctables.getTablesByType(coincXML, lsctables.CoincTable)[0]
+    coincMap = lsctables.getTablesByType(coincXML, lsctables.CoincMapTable)[0]
+    snglInsps = lsctables.getTablesByType(coincXML, lsctables.SnglInspiralTable)[0]
+
+    if (trignum>len(coinc)):
+        raise RuntimeError("Error: You asked for trigger %d, but %s contains only %d triggers" %(trignum,coincfile,len(tiggers)))
+    else:
+        coincEventID = coinc.getColumnByName('coinc_event_id')[trignum]
+        eventIDs = [row.event_id for row in coincMap if row.coinc_event_id == coincEventID]
+        triggers = [row for row in snglInsps if row.event_id in eventIDs]
+    return triggers
+
 #===============================================================================
 # Parameter estimation codes results parser
 #===============================================================================
@@ -3011,24 +3160,33 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
-        if not (fixedBurnin is None):
+        if not (fixedBurnins is None):
             if not (deltaLogL is None):
                 print "Warning: using deltaLogL criteria in addition to fixed burnin"
-            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+            if len(fixedBurnins) == 1 and len(files) > 1:
+                print "Only one fixedBurnin criteria given for more than one output.  Applying this to all outputs."
+                fixedBurnins = np.ones(len(files),'int')*fixedBurnins[0]
+            elif len(fixedBurnins) != len(files):
+                raise RuntimeError("Inconsistent number of fixed burnin criteria and output files specified.")
+            print "Fixed burning criteria: ",fixedBurnins
         else:
-            fixedBurnin = 0
+            fixedBurnins = np.zeros(len(files))
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
-        nskip=1
-        if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
-            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
+        if nDownsample is None:
+            print "Downsampling to take only uncorrelated posterior samples from each file."
+            for i in range(len(nskips)):
+                if nskips[i] is None:
+                    print "%s eliminated since all samples are correlated."
+        else:
+            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -3036,14 +3194,14 @@ class PEOutputParser(object):
         runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnins, nskips, oldMassConvention)
         finally:
             runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -3053,7 +3211,9 @@ class PEOutputParser(object):
         nRead=0
         outputHeader=False
         acceptedChains=0
-        for infilename,i in zip(files,range(1,len(files)+1)):
+        if nskips is None:
+            nskips = np.ones(len(files),'int')
+        for infilename,i,nskip,fixedBurnin in zip(files,range(1,len(files)+1),nskips,fixedBurnins):
             infile=open(infilename,'r')
             try:
                 print "Writing header of %s to %s"%(infilename,runfile.name)
@@ -3134,21 +3294,26 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnins, nDownsample):
         """
         Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
-        ntot=0
-        for inpname in files:
+        nfiles = len(files)
+        ntots=[]
+        nEffectives = []
+        for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
                 runInfo,header = self._clear_infmcmc_header(infile)
+                header = [name.lower() for name in header]
                 loglindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
+                lines=[]
+                ntot=0
                 for line in infile:
                     line = line.lstrip().split()
                     iter = int(line[iterindex])
@@ -3158,13 +3323,38 @@ class PEOutputParser(object):
                     if logL > logLthreshold:
                         deltaLburnedIn = True
                     if fixedBurnedIn and deltaLburnedIn:
-                        ntot = ntot+1
+                        ntot += 1
+                        lines.append(line)
+                ntots.append(ntot)
+                if nDownsample is None:
+                    try:
+                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1"]
+                        nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
+                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
+                        samps = np.array(lines).astype(float)
+                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                    except:
+                        nEffectives.append(None)
+                        print "Error computing effective sample size of %s!"%inpname
+
             finally:
                 infile.close()
-        if ntot < nDownsample:
-            return 1
+        nskips = np.ones(nfiles,'int')
+        ntot = sum(ntots)
+        if nDownsample is not None:
+            if ntot > nDownsample:
+                nskips *= floor(ntot/nDownsample)
+
         else:
-            return floor(ntot/nDownsample)
+            for i in range(nfiles):
+                nEff = nEffectives[i]
+                ntot = ntots[i]
+                if nEff > 1:
+                    if ntot > nEff:
+                        nskips[i] = ceil(ntot/nEff)
+                else:
+                    nskips[i] = None
+        return nskips
 
     def _find_infmcmc_f_lower(self, runInfo):
         """
@@ -3224,11 +3414,6 @@ class PEOutputParser(object):
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
                        
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
-
-        posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
-       
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
         # get parameter list
@@ -3236,21 +3421,33 @@ class PEOutputParser(object):
         
         # check if there's a file containing the parameter names
         parsfilename = it.next()+'_params.txt'
-        
-        if os.path.isfile(parsfilename):
+        if(os.path.isfile(parsfilename)):
             print 'Looking for '+parsfilename
             if os.access(parsfilename,os.R_OK):
-                parsfile = open(parsfilename,'r')
-                outpars = parsfile.readline()
+                outpars=parsfile.readline()
                 parsfile.close()
             else:
-              print "Need files of parameters "+parsfilename
-              raise
-        
-            posfile.write(outpars)
-        else: # use hardcoded CBC parameter names 
-            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
-dec \t psi \t iota \t likelihood \n')     
+                print 'Cannot open parameters file %s!'%(parsfilename)
+                raise
+        else: # Use hardcoded CBC parameter names
+            outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+            dec \t psi \t iota \t logl \n'
+
+        # Find the logL column
+        parsvec=outpars.split()
+        logLcol=-1
+        for i in range(len(parsvec)):
+            if parsvec[i].lower()=='logl':
+                logLcol=i
+        if logLcol==-1:
+            print 'Error! Could not find logL column in parameter list: %s'%(outpars)
+            raise
+
+        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive,logLcolumn=logLcol)
+
+        posfilename='posterior_samples.dat'
+        posfile=open(posfilename,'w')
+        posfile.write(outpars)
         
         for row in pos:
             for i in row:

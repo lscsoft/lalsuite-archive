@@ -90,7 +90,6 @@ def load_segments(filename, name, verbose = False):
 	if verbose:
 		print >>sys.stderr, "loading \"%s\" segments ... " % name,
 	connection = sqlite3.connect(filename)
-	dbtables.DBTable_set_connection(connection)
 	segs = ligolw_segments.segmenttable_get_by_name(dbtables.get_xml(connection), name).coalesce()
 	connection.close()
 	if verbose:
@@ -307,7 +306,6 @@ for n, filename in enumerate(filenames):
 	connection = sqlite3.connect(working_filename)
 	connection.execute("PRAGMA synchronous = OFF;")
 	connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
-	dbtables.DBTable_set_connection(connection)
 
 	#
 	# Apply vetoes

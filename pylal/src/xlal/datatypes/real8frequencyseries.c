@@ -225,7 +225,7 @@ PyTypeObject pylal_real8frequencyseries_type = {
  */
 
 
-void initreal8frequencyseries(void)
+PyMODINIT_FUNC initreal8frequencyseries(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8FrequencySeries type.");
 
