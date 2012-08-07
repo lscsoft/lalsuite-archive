@@ -1,6 +1,6 @@
 import os
 import fnmatch
-from ctypes import CDLL
+from ctypes import CDLL, RTLD_GLOBAL
 from ctypes.util import find_library
 
 class PkgConfig(object):
