@@ -134,7 +134,7 @@ UINT4       vecLengthTwo
   {
     coh_PTF_calculate_rotated_vectors(params,PTFqVec,SNRu1,SNRu2,a,b,
         timeOffsetPoints,Bankeigenvecs[subBankSize],Bankeigenvals[subBankSize],
-        numPoints,position,vecLength,vecLengthTwo);
+        numPoints,position,vecLength,vecLengthTwo,LAL_NUM_IFO);
   }
   
   /* The normalization factors are already calculated, they are the eigenvalues*/
@@ -203,7 +203,7 @@ UINT4       vecLengthTwo
       coh_PTF_calculate_rotated_vectors(params,dataOverlaps[ui].PTFqVec,
           TjwithS1,TjwithS2,a,b,calTimeOffsetPoints,Bankeigenvecs[ui],
           Bankeigenvals[ui],halfNumPoints,position-numPoints/4+5000,
-          vecLength,vecLengthTwo);
+          vecLength,vecLengthTwo,LAL_NUM_IFO);
       for (uj = 0; uj < 2*vecLengthTwo; uj++)
       {
         normFac = 0;
@@ -307,7 +307,7 @@ UINT4       vecLengthTwo
   {
     coh_PTF_calculate_rotated_vectors(params,PTFqVec,SNRu1,SNRu2,a,b,
         timeOffsetPoints,Autoeigenvecs,Autoeigenvals,
-        numPoints,position,vecLength,vecLengthTwo);
+        numPoints,position,vecLength,vecLengthTwo,LAL_NUM_IFO);
   }
 
   for ( ui = 0 ; ui < params->numAutoPoints ; ui++ )
@@ -368,7 +368,7 @@ UINT4       vecLengthTwo
       coh_PTF_calculate_rotated_vectors(params,PTFqVec,TjwithS1,
           TjwithS2,a,b,timeOffsetPoints,Autoeigenvecs,
           Autoeigenvals,numPoints,position-((ui+1) * timeStepPoints),vecLength,
-          vecLengthTwo);
+          vecLengthTwo,LAL_NUM_IFO);
       for (uj = 0; uj < 2*vecLengthTwo; uj++)
       {
         normFac = 0;
@@ -923,7 +923,7 @@ UINT4 vecLengthTwo
   {
     coh_PTF_calculate_rotated_vectors(params,PTFqVec,v1full,v2full,a,b,
           timeOffsetPoints,eigenvecs,eigenvals,numPoints,
-          position,vecLength,vecLengthTwo);
+          position,vecLength,vecLengthTwo,LAL_NUM_IFO);
   }
   else
   {
@@ -947,12 +947,12 @@ UINT4 vecLengthTwo
       /* calculate SNR in this frequency bin */
       coh_PTF_calculate_rotated_vectors(params,chisqOverlaps[i].PTFqVec,v1Plus,
           v2Plus,a,b,timeOffsetPoints,eigenvecs,eigenvals,halfNumPoints,
-          position-numPoints/4+5000,vecLength,vecLengthTwo);
+          position-numPoints/4+5000,vecLength,vecLengthTwo,LAL_NUM_IFO);
 
       coh_PTF_calculate_rotated_vectors(params,
           chisqOverlaps[i+numChiSquareBins].PTFqVec,v1Cross,
           v2Cross,a,b,timeOffsetPoints,eigenvecs,eigenvals,halfNumPoints,
-          position-numPoints/4+5000,vecLength,vecLengthTwo);
+          position-numPoints/4+5000,vecLength,vecLengthTwo,LAL_NUM_IFO);
 
       SNRtemp= pow((v1Plus[0] - v1full[0]*powerBinsPlus[i]),2)/powerBinsPlus[i];
       SNRtemp+= pow((v2Plus[0] - v2full[0]*powerBinsPlus[i]),2)/powerBinsPlus[i];

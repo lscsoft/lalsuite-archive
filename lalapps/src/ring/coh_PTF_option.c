@@ -47,6 +47,7 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "do-auto-veto",       no_argument, &localparams.doAutoVeto, 1 },
     { "do-chi-square",      no_argument, &localparams.doChiSquare, 1 },
     { "do-sngl-chi-tests",  no_argument, &localparams.doSnglChiSquared, 1},
+    { "do-clustering",      no_argument, &localparams.clusterFlag, 1},
 /*    {"g1-data",             no_argument, &(haveTrig[LAL_IFO_G1]), 1 },*/
     {"h1-data",             no_argument, &(localparams.haveTrig[LAL_IFO_H1]),1},
     {"h2-data",             no_argument, &(localparams.haveTrig[LAL_IFO_H2]),1},
@@ -77,6 +78,7 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "highpass-frequency",      required_argument, 0, 'E' },
     { "injection-file",          required_argument, 0, 'i' },
     { "snr-threshold",           required_argument, 0, 'j' },
+    { "spin-snr-threshold",      required_argument, 0, '2' },
     { "sngl-snr-threshold",      required_argument, 0, '1' },
     { "trig-time-window",        required_argument, 0, 'J' },
     { "user-tag",                required_argument, 0, 'k' },
@@ -115,9 +117,10 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "v1-slide-segment",        required_argument, 0, ')' },
     { "sky-positions-file",      required_argument, 0, '#' },
     { "fft-level",               required_argument, 0, '|' },
+    { "cluster-window",          required_argument, 0, '4' },
     { 0, 0, 0, 0 }
   };
-  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:g:G:h:H:i:I:j:J:k:K:l:L:m:M:n:N:o:O:p:P:q:Q:r:R:s:S:t:T:u:U:v:V:w:W:x:X:y:Y:z:Z:1:6:<:>:!:&:(:):#:|";
+  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:g:G:h:H:i:I:j:J:k:K:l:L:m:M:n:N:o:O:p:P:q:Q:r:R:s:S:t:T:u:U:v:V:w:W:x:X:y:Y:z:Z:1:2:4:6:<:>:!:&:(:):#:|";
   char *program = argv[0];
 
   /* set default values for parameters before parsing arguments */
@@ -325,6 +328,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
       case 'j':
         localparams.threshold = atof(optarg); 
         break;
+      case '2':
+        localparams.spinThreshold = atof(optarg);
+        break;
       case '1':
         localparams.snglSNRThreshold = atof(optarg);
         break;
@@ -423,6 +429,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
         break;
      case '|': /* FFT-level for plans */
         localparams.fftLevel = atoi( optarg );
+        break;
+      case '4': /* Cluster window */
+        localparams.clusterWindow = atof(optarg);
         break;
      case '?':
         error( "unknown error while parsing options\n" );
@@ -654,6 +663,10 @@ int coh_PTF_params_inspiral_sanity_check( struct coh_PTF_params *params )
   trigTime = epoch_to_ns( &params->trigTime );
   sanity_check( trigTime > 0 );
   sanity_check( params->threshold );
+  if ( params->spinBank )
+  {
+    sanity_check( params->spinThreshold );
+  }
   sanity_check( params->timeWindow );
 // This sanity check needs fixing!
 //  sanity_check( params->outputFile );
@@ -687,6 +700,9 @@ int coh_PTF_params_inspiral_sanity_check( struct coh_PTF_params *params )
     sanity_check(params->doChiSquare && params->numChiSquareBins);
   }
   sanity_check(params->spinBank || params->noSpinBank);
+  if ( params->clusterFlag)
+    sanity_check( params->clusterWindow);
+
   return 0;
 }
 
@@ -780,6 +796,7 @@ int coh_PTF_usage( const char *program )
 
   fprintf( stderr, "\nTrigger extraction options:\n" );
   fprintf( stderr, "--snr-threshold=threshold Only keep triggers with a snr above threshold\n" );
+  fprintf( stderr, "--spin-snr-threshold=threshold Only keep spinning triggers with a snr above threshold\n" );
   fprintf( stderr, "--sngl-snr-threshold Only keep triggers if at least one ifo has snr above value\n" );
   fprintf( stderr, "--non-spin-snr2-threshold=value SNR squared value over which a non spin trigger is considered found for spin checker program\n" );
   fprintf( stderr, "--spin-snr2-threshold=value SNR squared value over which a spin trigger is considered found for spin checker program\n" );
@@ -800,6 +817,8 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "--trig-end-time=sec        output only triggers before GPS time sec. CURRENTLY NONFUNCTIONAL\n" );
   fprintf( stderr, "--ifo-tag=string           set ifotag to string for file naming\n" );
   fprintf( stderr, "--user-tag=string          set the process_params usertag to string\n" );
+  fprintf( stderr, "--do-clustering            turn on clustering\n");
+  fprintf( stderr, "--cluster-window=arg       cluster window length\n");
 
   fprintf( stderr, "\nintermediate data output options:\n" );
   fprintf( stderr, "--write-raw-data           write raw data before injection or conditioning\n" );
