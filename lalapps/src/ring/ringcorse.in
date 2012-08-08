@@ -82,7 +82,7 @@ def parse_command_line():
 	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
 	parser.add_option("--categories", metavar = "{\"frequency-ifos-oninstruments\",\"oninstruments\"}", default="oninstruments", help = "Select the event categorization algorithm.  Default oninstruments")
 	parser.add_option("-b", "--frequency-bins", metavar = "frequency,frequency[,frequency,...]", help = "Set the boundaries of the frequency bins in Hz.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if frequency-based categorization algorithm has been selected.")
-	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", default="snr", help = "Select the event ranking method.  Default is snr")
+	parser.add_option("--rank-by", metavar = "{\"choppedl_snr\",\"uncombined-ifar\",\"likelihood\"}", default="choppedl_snr", help = "Select the event ranking method.  Default is choppedl_snr")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-n","--extrapolation-num",action="store",type="int",default=0, metavar="num",help="number of time-slide points to use in FAR extrapolation" )
 	parser.add_option("-g", "--input-cache", help="cache of sqlite files")
@@ -96,7 +96,7 @@ def parse_command_line():
 
 	if options.categories not in ("frequency-ifos-oninstruments", "oninstruments"):
 		raise ValueError, "missing or unrecognized --categories option"
-	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
+	if options.rank_by not in ("choppedl_snr", "uncombined-ifar", "likelihood"):
 		raise ValueError, "missing or unrecognized --rank-by option"
 
 
@@ -154,7 +154,7 @@ def extrapolation_coeffs(rank_by, N, reputations, t):
 
 	x = reputations[-N:]
 
-	if rank_by == "snr":
+	if rank_by == "choppedl_snr":
 		y = range(1, len(x) + 1, 1)
 		y.reverse()
 
@@ -179,7 +179,7 @@ def extrapolate_reputation(rank_by, coeffs, reputation, t):
 	# calculate the FAN from the reputation and the extrapolation coefficients
 	#
 
-	if rank_by == "snr":
+	if rank_by == "choppedl_snr":
 		return coeffs[0] * numpy.exp(coeffs[1] * reputation**2.)
 	if rank_by == "uncombined-ifar":
 		return coeffs[0] * t / reputation
@@ -204,14 +204,14 @@ class Summaries(object):
 			raise ValueError, category_algorithm
 		self.category_func = instancemethod(self.category_func, self, self.__class__)
 
-		if rank_by == "snr":
-			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
+		if rank_by == "choppedl_snr":
+			self.reputation_func = lambda self, choppedl_snr, uncombined_ifar, likelihood: choppedl_snr
 		elif rank_by == "uncombined-ifar":
 			# cast to float so this does the right thing when
 			# we get "inf" as a string
-			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: float(uncombined_ifar)
+			self.reputation_func = lambda self, choppedl_snr, uncombined_ifar, likelihood: float(uncombined_ifar)
 		elif rank_by == "likelihood":
-			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
+			self.reputation_func = lambda self, choppedl_snr, uncombined_ifar, likelihood: likelihood
 		else:
 			raise ValueError, rank_by
 		self.rank_by = rank_by
@@ -246,8 +246,8 @@ class Summaries(object):
 			except KeyError:
 				self.cached_livetime[key] = bglivetime[key]
 
-	def add_coinc(self, on_instruments, participating_instruments, frequency, snr, uncombined_ifar, likelihood):
-		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, frequency), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
+	def add_coinc(self, on_instruments, participating_instruments, frequency, choppedl_snr, uncombined_ifar, likelihood):
+		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, frequency), []).append(self.reputation_func(choppedl_snr, uncombined_ifar, likelihood))
 		if self.category_func(on_instruments, participating_instruments, frequency) not in self.categories:
 			self.categories.append(self.category_func(on_instruments, participating_instruments, frequency))
 
@@ -266,7 +266,7 @@ class Summaries(object):
 			reputations = self.reputations.setdefault(category, [])
 			self.extrapolation_coeffs[category] = extrapolation_coeffs(self.rank_by, N, reputations, t)
 
-	def rate(self, on_instruments, participating_instruments, frequency, snr, uncombined_ifar, likelihood):
+	def rate(self, on_instruments, participating_instruments, frequency, choppedl_snr, uncombined_ifar, likelihood):
 		#
 		# retrieve the appropriate reputation list (create an empty
 		# one if there are no reputations for this category)
@@ -281,7 +281,7 @@ class Summaries(object):
 		# elements in list >= reputation
 		#
 
-		n = len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))
+		n = len(reputations) - bisect.bisect_left(reputations, self.reputation_func(choppedl_snr, uncombined_ifar, likelihood))
 
 		#
 		# retrieve the livetime
@@ -290,7 +290,7 @@ class Summaries(object):
 		t = self.cached_livetime.setdefault(frozenset(lsctables.instrument_set_from_ifos(on_instruments)), 0.0)
 		if self.extrapolate:
 			if n < self.extrapolation_coeffs[category][0]:
-				n = extrapolate_reputation(self.rank_by, self.extrapolation_coeffs[category][1], self.reputation_func(snr, uncombined_ifar, likelihood), t)
+				n = extrapolate_reputation(self.rank_by, self.extrapolation_coeffs[category][1], self.reputation_func(choppedl_snr, uncombined_ifar, likelihood), t)
 
 		#
 		# return the rate of events above the given reputation
@@ -378,12 +378,12 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "\tcollecting background statistics ..."
-	for on_instruments, participating_instruments, frequency, snr, uncombined_ifar, likelihood in connection.cursor().execute("""
+	for on_instruments, participating_instruments, frequency, choppedl_snr, uncombined_ifar, likelihood in connection.cursor().execute("""
 SELECT
 	coinc_event.instruments,
 	coinc_ringdown.ifos,
 	coinc_ringdown.frequency,
-	coinc_ringdown.snr,
+	coinc_ringdown.choppedl_snr,
 	CASE coinc_ringdown.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_ringdown.false_alarm_rate END,
 	coinc_event.likelihood
 FROM
@@ -405,7 +405,7 @@ WHERE
 	"""):
 		on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
 		participating_instruments = frozenset(lsctables.instrument_set_from_ifos(participating_instruments))
-		background.add_coinc(on_instruments, participating_instruments, frequency, snr, uncombined_ifar, likelihood)
+		background.add_coinc(on_instruments, participating_instruments, frequency, choppedl_snr, uncombined_ifar, likelihood)
 
 	#
 	# close the database
@@ -458,7 +458,7 @@ SET
 				coinc_event.instruments,
 				coinc_ringdown.ifos,
 				coinc_ringdown.frequency,
-				coinc_ringdown.snr,
+				coinc_ringdown.choppedl_snr,
 				CASE coinc_ringdown.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_ringdown.false_alarm_rate END,
 				coinc_event.likelihood
 			)
