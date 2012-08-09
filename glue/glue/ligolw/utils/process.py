@@ -164,7 +164,7 @@ def append_process_params(xmldoc, process, params):
 		if type is not None:
 			row.type = unicode(type)
 			if row.type not in ligolwtypes.Types:
-				raise ValueError, "invalid type '%s' for parameter '%s'" % (row.type, row.param)
+				raise ValueError("invalid type '%s' for parameter '%s'" % (row.type, row.param))
 		else:
 			row.type = None
 		if value is not None:
@@ -185,7 +185,7 @@ def get_process_params(xmldoc, program, param):
 	"""
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 	if len(process_ids) != 1:
-		raise ValueError, "process table must contain exactly one program named '%s'" % program
+		raise ValueError("process table must contain exactly one program named '%s'" % program)
 	return [row.pyvalue for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 

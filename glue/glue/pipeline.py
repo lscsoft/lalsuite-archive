@@ -50,8 +50,6 @@ try:
 except:
   pass
 
-import Pegasus.DAX3
-
 def s2play(t):
   """
   Return True if t is in the S2 playground, False otherwise
@@ -1396,6 +1394,8 @@ class CondorDAG:
     """
     Write all the nodes in the workflow to the DAX file.
     """
+    import Pegasus.DAX3
+
     if not self.__dax_file_path:
       # this workflow is not dax-compatible, so don't write a dax
       return

@@ -128,7 +128,7 @@ class LigolwSegments(object):
 		# segment_definer id
 		self.segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, comment = row.comment)) for row in self.segment_def_table)
 		if len(self.segment_lists) != len(self.segment_def_table):
-			raise ValueError, "duplicate segment_definer IDs detected in segment_definer table"
+			raise ValueError("duplicate segment_definer IDs detected in segment_definer table")
 		del self.segment_def_table[:]
 
 		# populate LigolwSegmentList objects from segment table and

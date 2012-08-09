@@ -32,7 +32,7 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
-
+import numpy
 from xml import sax
 
 try:
@@ -110,7 +110,7 @@ def New(Type, columns = None, **kwargs):
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (key, new.tableName)
+				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.tableName))
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
@@ -227,7 +227,7 @@ def ifos_from_instrument_set(instruments):
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
 	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
-		raise ValueError, instruments
+		raise ValueError(instruments)
 	return u",".join(instruments)
 
 
@@ -355,7 +355,7 @@ class ProcessParamsTable(table.Table):
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
-			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
+			raise ligolw.ElementError("unrecognized type '%s'" % row.type)
 		table.Table.append(self, row)
 
 
@@ -664,9 +664,9 @@ class ExperimentTable(table.Table):
 		"""
 		row = [row for row in self if row.experiment_id == experiment_id]
 		if len(row) > 1:
-			raise ValueError, "Duplicate ids in experiment table"
+			raise ValueError("duplicate ids in experiment table")
 		if len(row) == 0:
-			raise ValueError, "id %s not found in table" %(`experiment_id`)
+			raise ValueError("id '%s' not found in table" % experiment_id)
 
 		return row[0]
 
@@ -737,7 +737,7 @@ class ExperimentSummaryTable(table.Table):
 				d[row.experiment_id] = {}
 			if (row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) in d[row.experiment_id]:
 				# entry already exists, raise error
-				raise KeyError, "Duplicate entries in experiment_summary table" 
+				raise KeyError("duplicate entries in experiment_summary table")
 			d[row.experiment_id][(row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id)] = row.experiment_summ_id
 
 		return d
@@ -846,7 +846,7 @@ class ExperimentSummaryTable(table.Table):
 				return row.nevents
 				
 		# if get to here, couldn't find experiment_summ_id in the table
-		raise ValueError, "%s could not be found in the table" %(str(experiment_summ_id))
+		raise ValueError("'%s' could not be found in the table" % (str(experiment_summ_id)))
 
 
 class ExperimentSummary(object):
@@ -885,7 +885,7 @@ class ExperimentMapTable(table.Table):
 			if row.coinc_event_id == coinc_event_id:
 				experiment_summ_ids.append(row.experiment_summ_id)
 		if len(experiment_summ_ids) == 0:
-			raise ValueError, "%s could not be found in the experiment_map table." %(`coinc_event_id`)
+			raise ValueError("'%s' could not be found in the experiment_map table" % coinc_event_id)
 		return experiment_summ_ids
 
 
@@ -1756,7 +1756,7 @@ class MultiInspiralTable(table.Table):
 		"crossCorrNullSq": "real_4",
 		"ampMetricEigenVal1": "real_8",
 		"ampMetricEigenVal2": "real_8",
-                "time_slide_id": "ilwd:char"
+		"time_slide_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
@@ -1764,6 +1764,73 @@ class MultiInspiralTable(table.Table):
 
 	def get_column(self,column):
 		return self.getColumnByName(column).asarray()
+
+	def get_end(self):
+		return [row.get_end() for row in self]
+
+	def get_new_snr(self, index=6.0, column='chisq'):
+		# kwarg 'index' is assigned to the parameter chisq_index
+		# nhigh gives the asymptotic large rho behaviour of
+    # d (ln chisq) / d (ln rho) 
+    # for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
+		snr = self.get_column('snr')
+		rchisq = self.get_column('reduced_%s' % column)
+		nhigh = index/3.
+		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
+		numpy.putmask(newsnr, rchisq < 1, snr)
+		return newsnr
+
+	def get_null_snr(self):
+		"""
+		Get the coherent Null SNR for each row in the table.
+		"""
+		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.get_column('snr')**2)**(1/2)
+
+	def get_sigmasq(self, instrument):
+		"""
+		Get the single-detector SNR of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('sigmasq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sigmasqs(self, instruments=None):
+		"""
+		Return dictionary of single-detector sigmas for each row in the
+		table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sigmasq(ifo))\
+				    for ifo in instruments)
+		else:
+			return dict()
+
+
+	def get_sngl_snr(self, instrument):
+		"""
+		Get the single-detector SNR of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('snr_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sngl_snrs(self, instruments=None):
+		"""
+		Get the single-detector SNRs for each row in the table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sngl_snr(ifo))\
+				    for ifo in instruments)
+
 
 	def getstat(self):
 		return self.get_column('snr')
@@ -1806,14 +1873,48 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
-        def get_end(self):
-                return LIGOTimeGPS(self.end_time, self.end_time_ns)
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def get_ifos(self):
 		"""
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+        def get_new_snr(self,index=4.0, column='chisq'):
+                rchisq = getattr(self, column) /\
+                         (getattr(self, '%s_dof' % column))
+                nhigh = 3.0
+                if rchisq > 1.:
+                        return self.snr /\
+                               ((1+rchisq**(index/nhigh))/2)**(1./index)
+                else:
+                        return self.snr
+
+	def get_null_snr(self):
+		"""
+		Get the coherent Null SNR for this row.
+		"""
+		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.snr**2)**(1/2)
+
+	def get_sngl_snr(self, instrument):
+		"""
+		Get the single-detector SNR for the given instrument for this
+		row
+		"""
+		return getattr(self, 'snr_%s' % (instrument.lower() in\
+                                                 ['h1','h2'] and\
+                                                 instrument.lower() or\
+                                                 instrument[0].lower())) 
+
+	def get_sngl_snrs(self):
+		"""
+		Return a dictionary of single-detector SNRs for this row.
+		"""
+		return dict((ifo, self.get_sngl_snr(ifo)) for ifo in\
+                            instrument_set_from_ifos(self.ifos))
 
 	def set_ifos(self, instruments):
 		"""
@@ -1954,6 +2055,31 @@ class SimInspiralTable(table.Table):
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
+        def veto(self,seglist):
+                vetoed = table.new_from_template(self)
+                keep = table.new_from_template(self)
+                for row in self:
+                        time = row.get_end()
+                        if time in seglist:
+                                vetoed.append(row)
+                        else:
+                                keep.append(row)
+                return keep
+
+        def vetoed(self, seglist):
+                """
+                Return the inverse of what veto returns, i.e., return the triggers
+                that lie within a given seglist.
+                """
+                vetoed = table.new_from_template(self)
+                keep = table.new_from_template(self)
+                for row in self:
+                        time = row.get_end()
+                        if time in seglist:
+                                vetoed.append(row)
+                        else:
+                                keep.append(row)
+                return vetoed
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
@@ -2551,7 +2677,7 @@ class TimeSlideTable(table.Table):
 			if row.time_slide_id not in d:
 				d[row.time_slide_id] = offsetvector.offsetvector()
 			if row.instrument in d[row.time_slide_id]:
-				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
+				raise KeyError("'%s': duplicate instrument '%s'" % (row.time_slide_id, row.instrument))
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
@@ -2603,14 +2729,14 @@ class TimeSlideTable(table.Table):
 				# and that's OK
 				return ids[0]
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		if len(ids) == 1:
 			# found one
 			return ids[0]
 		# offset vector not found in table
 		if create_new is None:
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		# that's OK, create new vector
 		id = self.get_next_id()
 		for instrument, offset in offsetdict.items():
@@ -2673,13 +2799,13 @@ class CoincDefTable(table.Table):
 		# look for the ID
 		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
 		if len(rows) > 1:
-			raise ValueError, "(search, search coincidence type) = (\"%s\", %d) is not unique" % (search, search_coinc_type)
+			raise ValueError("(search, search coincidence type) = ('%s', %d) is not unique" % (search, search_coinc_type))
 		if len(rows) > 0:
 			return rows[0].coinc_def_id
 
 		# coinc type not found in table
 		if not create_new:
-			raise KeyError, (search, search_coinc_type)
+			raise KeyError((search, search_coinc_type))
 		row = self.RowType()
 		row.coinc_def_id = self.get_next_id()
 		row.search = search

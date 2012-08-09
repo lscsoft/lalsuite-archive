@@ -363,8 +363,35 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 
 
 /*
+ * The presence of this method allows ilwdchar sub-classes to be inserted
+ * directly into SQLite databases as strings. See
+ * http://www.python.org/dev/peps/pep-0246 for more information.
+ *
+ * FIXME: GvR has rejected that PEP, so this mechanism is obsolete.  Be
+ * prepared to fix this, replacing it with whatever replaces it.
+ *
+ * FIXME: The return should be inside an "if protocol is
+ * sqlite3.PrepareProtocol:" conditional, but that would require importing
+ * sqlite3 which would break this module on FC4 boxes, and I'm not going to
+ * spend time fixing something that's obsolete anyway.
+ */
+
+
+static PyObject *ligolw_ilwdchar___conform__(PyObject *self, PyObject *protocol)
+{
+	return PyObject_Unicode(self);
+}
+
+
+/*
  * Type
  */
+
+
+static struct PyMethodDef methods[] = {
+	{"__conform__", ligolw_ilwdchar___conform__, METH_O, "See http://www.python.org/dev/peps/pep-0246 for more information."},
+	{NULL,}
+};
 
 
 PyTypeObject ligolw_ilwdchar_Type = {
@@ -413,6 +440,7 @@ PyTypeObject ligolw_ilwdchar_Type = {
 		.nb_int = ligolw_ilwdchar___int__,
 		.nb_subtract = ligolw_ilwdchar___sub__,
 	},
+	.tp_methods = methods,
 	.tp_new = ligolw_ilwdchar___new__,
 };
 
