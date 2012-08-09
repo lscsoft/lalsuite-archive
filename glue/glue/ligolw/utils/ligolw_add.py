@@ -36,6 +36,7 @@ from urlparse import urlparse
 
 from glue import git_version
 from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
