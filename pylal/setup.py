@@ -33,6 +33,7 @@ class PkgConfig(object):
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
+gsl_pkg_config = PkgConfig("gsl")
 lal_pkg_config = PkgConfig("lal")
 lalsupport_pkg_config = PkgConfig("lalsupport")
 lalburst_pkg_config = PkgConfig("lalburst")
@@ -484,6 +485,16 @@ setup(
 			["src/_stats.c"],
 			include_dirs = [numpy_get_include()],
 			extra_compile_args = ["-std=c99"]
+		),
+		Extension(
+			"pylal.cbc_network_efficiency",
+			["src/cbc_network_efficiency.c"],
+			include_dirs = [numpy_get_include()] + gsl_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lal_pkg_config.incdirs,
+			library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
+			runtime_library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
+			libraries = gsl_pkg_config.libs + lalsimulation_pkg_config.libs + lal_pkg_config.libs,
+			extra_compile_args = ["-std=c99", "-ffast-math", "-mfpmath=387", "-O3", "-Wno-unknown-pragmas"] + gsl_pkg_config.extra_cflags + lalsimulation_pkg_config.extra_cflags + lal_pkg_config.extra_cflags,  # , "-fopenmp"
+			#extra_link_args=['-fopenmp']
 		),
 		Extension(
 			"pylal.inspiral_metric",
