@@ -124,6 +124,51 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
   return inspTriggers
 
 
+def ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage):
+  """
+  Collect the sngl_inspiral rows from a desired stage in the pipeline.
+  -- For the INSPIRAL stage, the entire sngl_inspiral table is returned.
+  -- For the THINCA stage, return only the rows in the sngl_inspiral that
+     compose a coincident event from the desired time-slide
+  @param xmldoc:    ligolw_xml doc
+  @param slideDict: dictionary of the desired time-slide (eg. {u'H1': 0.0, u'L1': 100.0})
+  @param stage:    the name of the stage (INSPIRAL_FIRST, THINCA_0_CAT_2, etc)
+  """
+
+  sngls_tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+  if 'THINCA' in stage:
+    # get the time-slides as a dictionary
+    time_slide_tbl = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+    time_slide_dict = time_slide_tbl.as_dict()
+
+    coinc_event_tbl = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+    coinc_map_tbl = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+
+    # get the time_slide_ids that have 
+    time_slide_ids = set()
+    for tsid, offsets in time_slide_dict.items():
+      if offsets.values() == slideDict.values():
+        time_slide_ids.add( tsid )
+    # get the coinc_event_ids for coincs from the desired slides
+    coinc_event_ids = set()
+    for coinc in coinc_event_tbl:
+      if coinc.time_slide_id in time_slide_ids:
+        coinc_event_ids.add( coinc.coinc_event_id )
+    # get the inspiral event_ids associated with the above coinc events
+    event_ids = set()
+    for row in coinc_map_tbl:
+      if row.coinc_event in coinc_event_ids:
+        event_ids.add( row.event_id )
+
+    coinc_sngls_tbl = xmldoc.childNodes[0].insertBefore( lsctables.New(lsctables.SnglInspiralTable), sngls_tbl)
+    for idx, event_id in enumerate(eids_in_slide):
+      coinc_sngls_tbl.insert( idx, sngls_tbl[sngls_tbl_eid.index(event_id)] )
+
+    return coinc_sngls_tbl
+  else:
+    return sngls_tbl
+
+
 #
 # =============================================================================
 #
@@ -315,7 +360,7 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # performance aid:  if there are no offset vectors to consider, the
   # livetime is trivial
   if not offsetvectors:
-  	return []
+    return []
 
   # check that each offset vector provides values for all instruments of
   # interest
