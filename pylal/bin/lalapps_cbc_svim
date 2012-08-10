@@ -720,7 +720,7 @@ opts.gps_end_time = UL.end_time
 # FAR for the given mass bin
 #
 for bin_type in UL.mass_bins:
-  for instruments in UL.instruments:
+  for instruments in UL.livetime.keys():
     # initialize plotting util helper
     __prog__ = "lalapps_cbc_svim_by_" + bin_type.lower()
     opts.ifo_times = "".join(sorted(list(instruments)))
