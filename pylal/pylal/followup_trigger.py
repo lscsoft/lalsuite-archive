@@ -580,7 +580,7 @@ class FollowupTrigger:
       print "Processing INSPIRAL triggers from files ", trigger_files
 
     xmldoc = ligolw_add.ligolw_add(ligolw.Document(), trigger_files,\
-               non_lsc_tables_ok=False, verbose=True)
+               non_lsc_tables_ok=False, verbose=False)
 
     sngls_tbl = SnglInspiralUtils.ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage)
 
@@ -625,19 +625,19 @@ class FollowupTrigger:
         if len(time_small)>0:
           foundSet.add(ifo)                  
 
-        # record details of the loudest trigger
-        loudest = selected_small[selected_small.get_column('snr').argmax()]
-        loudest_details[ifo] = {}
-        loudest_details[ifo]["snr"] = loudest.snr
-        loudest_details[ifo]["mchirp"] = loudest.mchirp
-        loudest_details[ifo]["eta"] = loudest.eta
-        loudest_details[ifo]["eff_dist"] = loudest.eff_distance
-        loudest_details[ifo]["chisq"] = loudest.chisq
-        loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
-        loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
-        loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
-        loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
-        loudest_details[ifo]["trig"] = loudest
+          # record details of the loudest trigger
+          loudest = selected_small[selected_small.get_column('snr').argmax()]
+          loudest_details[ifo] = {}
+          loudest_details[ifo]["snr"] = loudest.snr
+          loudest_details[ifo]["mchirp"] = loudest.mchirp
+          loudest_details[ifo]["eta"] = loudest.eta
+          loudest_details[ifo]["eff_dist"] = loudest.eff_distance
+          loudest_details[ifo]["chisq"] = loudest.chisq
+          loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
+          loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
+          loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
+          loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
+          loudest_details[ifo]["trig"] = loudest
 
         # plot the triggers
         pylab.plot( time_large, selected_large.get_column('snr'),\

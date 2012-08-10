@@ -127,8 +127,8 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
 def ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage):
   """
   Collect the sngl_inspiral rows from a desired stage in the pipeline.
-  -- For the INSPIRAL stage, the entire sngl_inspiral table is returned.
-  -- For the THINCA stage, return only the rows in the sngl_inspiral that
+  -- For the INSPIRAL and zerolag THINCA stages, the entire sngl_inspiral table is returned.
+  -- For the slide THINCA stages, return only the rows in the sngl_inspiral that
      compose a coincident event from the desired time-slide
   @param xmldoc:    ligolw_xml doc
   @param slideDict: dictionary of the desired time-slide (eg. {u'H1': 0.0, u'L1': 100.0})
@@ -136,7 +136,7 @@ def ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage):
   """
 
   sngls_tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-  if 'THINCA' in stage:
+  if 'THINCA' in stage and slideDict:
     # get the time-slides as a dictionary
     time_slide_tbl = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
     time_slide_dict = time_slide_tbl.as_dict()
@@ -157,11 +157,12 @@ def ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage):
     # get the inspiral event_ids associated with the above coinc events
     event_ids = set()
     for row in coinc_map_tbl:
-      if row.coinc_event in coinc_event_ids:
+      if row.coinc_event_id in coinc_event_ids:
         event_ids.add( row.event_id )
 
+    sngls_tbl_eid = sngls_tbl.getColumnByName("event_id")
     coinc_sngls_tbl = xmldoc.childNodes[0].insertBefore( lsctables.New(lsctables.SnglInspiralTable), sngls_tbl)
-    for idx, event_id in enumerate(eids_in_slide):
+    for idx, event_id in enumerate(event_ids):
       coinc_sngls_tbl.insert( idx, sngls_tbl[sngls_tbl_eid.index(event_id)] )
 
     return coinc_sngls_tbl
