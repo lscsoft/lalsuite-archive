@@ -575,65 +575,49 @@ class FollowupTrigger:
     @param slideDict: A dictionary of ifo keyed slide times if using slides
     """
     
-    # read the inspiral file(s)
+    # read the file(s) and get the desired sngl_inspiral rows
     if self.verbose:
       print "Processing INSPIRAL triggers from files ", trigger_files
-      
-    sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-              trigger_files , mangle_event_id = True,\
-              verbose=False, old_document=self.old_document)
 
-    if slideDict:
-      if sngls:
-        for sngl in sngls:
-          sngl.set_end(sngl.get_end() + slideDict[sngl.ifo])
+    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), trigger_files,\
+               non_lsc_tables_ok=False, verbose=True)
+
+    sngls_tbl = SnglInspiralUtils.ReadSnglInspiralsForPipelineStage(xmldoc, slideDict, stage)
 
     # create a figure and initialize some lists
     fig=pylab.figure()
     foundSet = set()
     loudest_details = {}
     no_triggers_found = True
-    
-    if sngls is None:
-      self.put_text( 'No sngl_inspiral triggers in %s' % str(trigger_files))
 
+    if len(sngls_tbl) == 0:
+      self.put_text( 'No sngl_inspiral triggers in %s' % str(trigger_files))
     else:
+      if slideDict:
+        for event in sngls_tbl:
+          event.set_end( event.get_end() + slideDict[event.ifo] )
+
       # create the small and large segments
       seg_small =  segments.segment(self.followup_time - self.injection_window, \
                                     self.followup_time + self.injection_window)
       seg_large =  segments.segment(self.followup_time - self.time_window, \
                                     self.followup_time + self.time_window)
 
-      # create coincidences for THINCA stage
-      coincs = None
-      if 'THINCA' in stage:
-        coincs = CoincInspiralUtils.coincInspiralTable(sngls, \
-                   CoincInspiralUtils.coincStatistic("snr"))
-        selected_coincs = coincs.vetoed(seg_small)
-      
-      # loop over the IFOs 
+      # loop over the IFOs
       for ifo in self.colors.keys():
-
         # get the singles for this ifo
-        sngls_ifo = sngls.ifocut(ifo)
+        sngls_ifo = sngls_tbl.ifocut(ifo)
 
-        # select a range of triggers
+        # select the triggers within a given time window
         selected_large = sngls_ifo.vetoed(seg_large)
         time_large = [ float(sel.get_end()) - self.followup_time \
                       for sel in selected_large ]
-
         selected_small = sngls_ifo.vetoed(seg_small)
         time_small = [ float(sel.get_end()) - self.followup_time \
                       for sel in selected_small ]
-
-        # use the set of selected coincident triggers in the THINCA stages
-        if coincs:
-          selected_small = selected_coincs.cluster(2 * self.injection_window).getsngls(ifo)
-          time_small = [ float(sel.get_end())-self.followup_time \
-                        for sel in selected_small ]
-          
-        # skip if no triggers in the large time window
-        if len(time_large)==0:
+ 
+        # skip if no triggers from ifo in the large time window
+        if len(time_large) == 0:
           continue
         no_triggers_found = False
 
@@ -641,19 +625,19 @@ class FollowupTrigger:
         if len(time_small)>0:
           foundSet.add(ifo)                  
 
-          # record details of the loudest trigger
-          loudest = selected_small[selected_small.get_column('snr').argmax()]
-          loudest_details[ifo] = {}
-          loudest_details[ifo]["snr"] = loudest.snr
-          loudest_details[ifo]["mchirp"] = loudest.mchirp
-          loudest_details[ifo]["eta"] = loudest.eta
-          loudest_details[ifo]["eff_dist"] = loudest.eff_distance
-          loudest_details[ifo]["chisq"] = loudest.chisq
-          loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
-          loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
-          loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
-          loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
-          loudest_details[ifo]["trig"] = loudest
+        # record details of the loudest trigger
+        loudest = selected_small[selected_small.get_column('snr').argmax()]
+        loudest_details[ifo] = {}
+        loudest_details[ifo]["snr"] = loudest.snr
+        loudest_details[ifo]["mchirp"] = loudest.mchirp
+        loudest_details[ifo]["eta"] = loudest.eta
+        loudest_details[ifo]["eff_dist"] = loudest.eff_distance
+        loudest_details[ifo]["chisq"] = loudest.chisq
+        loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
+        loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
+        loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
+        loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
+        loudest_details[ifo]["trig"] = loudest
 
         # plot the triggers
         pylab.plot( time_large, selected_large.get_column('snr'),\
