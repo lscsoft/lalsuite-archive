@@ -2600,6 +2600,9 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get averaging time
+  average = kwargs.pop('average',average)
+
   # get colorbar options
   hidden_colorbar = kwargs.pop('hidden_colorbar', False)
 
@@ -2783,6 +2786,9 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   # get axis scales
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
+
+  # get averaging time
+  average = kwargs.pop('average',average)
 
   # get colorbar options
   hidden_colorbar = kwargs.pop('hidden_colorbar', False)
@@ -3051,7 +3057,7 @@ def parse_plot_config(cp, section):
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator', 'normalized', 'include_downtime',\
               'calendar_time', 'fill', 'hidden_colorbar']
-  values   = ['dcthresh','amplitude','num_bins']
+  values   = ['dcthresh','amplitude','num_bins','linewidth','average','s']
 
   # extract plot params as a dict
   params = {}
