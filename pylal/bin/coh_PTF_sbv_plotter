@@ -6,7 +6,12 @@
 
 from __future__ import division
 
-import os,matplotlib,copy,time
+# set up timer
+import time
+start = int(time.time()*10**6)
+elapsed_time = lambda: int(time.time()*10**6-start)
+
+import os,matplotlib,copy
 matplotlib.use('Agg')
 import pylab
 from math import sqrt
@@ -21,10 +26,6 @@ from pylal.coh_PTF_pyutils import *
 __author__  = "Ian Harry <ian.harry@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
 __date__    = git_version.date
-
-# set up timer
-start = int(time.time()*10**6)
-elapsed_time = lambda: int(time.time()*10**6-start)
 
 # =============================================================================
 # Parse command line
@@ -79,10 +80,6 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                     default=None,\
                     help="The location of the CAT2/3 veto files")
 
-  parser.add_option( "-M", "--max-chirp-mass", action="store", type="float",\
-                     default=8.0,\
-                     help="maximum allowed chirp mass, default %default" )
-
   (opts,args) = parser.parse_args()
 
   if not opts.trig_file:
@@ -101,9 +98,11 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # =============================================================================
 
 def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
-         chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=8.0,\
-         vetoFiles=[], verbose=False):
-  
+         chisq_nhigh=3.0, null_thresh=[4.25,6],verbose=False,vetoFiles=[]):
+ 
+  if verbose:
+    sys.stdout.write("Imported and ready to go at %d.\n" % elapsed_time())
+ 
   # set output directory
   if not os.path.isdir(outdir):
     os.makedirs(outdir)
@@ -137,17 +136,20 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' } 
 
   # load triggers
-  trigs  = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+  tmp   = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+  lsctables.MultiInspiralTable.loadcolumns =\
+      [slot for slot in tmp[0].__slots__ if hasattr(tmp[0], slot)]
+  trigs = lsctables.New(lsctables.MultiInspiralTable,\
+                        columns=lsctables.MultiInspiralTable.loadcolumns)
+  trigs.extend(t for t in tmp if t.get_end() not in vetoes)
 
-  # extract variables
-  ifos = sorted(map(str, searchSumm[0].get_ifos()))
-  ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }
-
-  if len(trigs)<1:
+  numtrigs = len(trigs)
+  if numtrigs<1:
     sys.stderr.write("WARNING: No triggers found.")
-  elif len(trigs)>=1 and verbose:
+  elif numtrigs >= 1 and verbose:
     sys.stdout.write("%d triggers found at %d.\n"\
-                     % (len(trigs), elapsed_time()))
+                     % (numtrigs, elapsed_time()))
+
 
   #
   # load injections
@@ -163,252 +165,73 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
                        % (len(injs), elapsed_time()))
 
   #
-  # extract data
+  # extract trigger data
   #
 
-  if verbose:
-    sys.stdout.write("\nExtracting and calculating parameters...\n")
 
   # work out if using sngl chisqs
   i = ifoAtt[ifos[0]]
-  sngl_chisq = 'chisq_%s' % i in trigs.columnnames
-  sngl_bank_chisq = 'bank_chisq_%s' % i in trigs.columnnames
-  sngl_cont_chisq = 'cont_chisq_%s' % i in trigs.columnnames
+  sngl_chisq      = 'chisq_%s' % i\
+                    in lsctables.MultiInspiralTable.loadcolumns
+  sngl_bank_chisq = 'bank_chisq_%s' % i\
+                    in lsctables.MultiInspiralTable.loadcolumns
+  sngl_cont_chisq = 'cont_chisq_%s' % i\
+                    in lsctables.MultiInspiralTable.loadcolumns
 
-  # set lists
-  trigTime      = []
-  trigSNR       = []
-  trigMchirp    = []
-  trigBestNR    = []
-  trigNullstat  = []
-  trigTraceSNR  = []
-  trigChiSquare = []
-  trigBankVeto  = []
-  trigAutoVeto  = []
-  trigCoincSNR  = []
-  trigFirstSNR  = []
-  trigSecondSNR = []
-  trigThirdSNR  = []
-  trigLongitude = []
-  trigLatitude  = []
-  # initiate injection lists
-  injTime       = []
-  injSNR        = []
-  injMchirp     = []
-  injBestNR     = []
-  injNullstat   = []
-  injTraceSNR   = []
-  injChiSquare  = []
-  injBankVeto   = []
-  injAutoVeto   = []
-  injCoincSNR   = []
-  injFirstSNR   = []
-  injSecondSNR  = []
-  injThirdSNR   = []
-  injLongitude  = []
-  injLatitude   = []
-  # initiate amplitude lists for 4 amplitudes
+  # initiate amplitude generator
   numAmp  = 4
   amplitudes = xrange(1,numAmp+1)
-  trigAmp = {}
-  injAmp  = {}
-  for amp in amplitudes:
-    trigAmp[amp] = []
-    injAmp[amp]  = []
 
-  # initiate single IFO lists
-  trigIfoSNR = {}
-  trigIfobankCS = {}
-  trigIfoautoCS = {}
-  trigIfostanCS = {}
-  trigSigma  = {}
-  injIfoSNR  = {}
-  injIfobankCS = {}
-  injIfoautoCS = {}
-  injIfostanCS = {}
-  injSigma   = {}
-  for ifo in ifos:
-    trigIfoSNR[ifo] = []
-    trigIfobankCS[ifo] = []
-    trigIfoautoCS[ifo] = []
-    trigIfostanCS[ifo] = []
-    trigSigma[ifo] = []
-    injIfoSNR[ifo] = []
-    injIfobankCS[ifo] = []
-    injIfoautoCS[ifo] = []
-    injIfostanCS[ifo] = []
-    injSigma[ifo] = []
-  trigSigmaTot = []
+  # set basic data
+  trigTime      = numpy.asarray(trigs.get_end())
+  trigSNR       = numpy.asarray(trigs.get_column('snr'))
+  trigBestNR    = numpy.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                               null_thresh=null_thresh) for t in trigs])
+  trigNullSNR   = numpy.asarray(trigs.get_null_snr())
+  trigNullstat  = numpy.asarray(trigs.get_column('null_statistic'))
+  trigTraceSNR  = numpy.asarray(trigs.get_column('null_stat_degen'))
 
-  null_grad_snr = 20
- 
-  aPat  = {}
-  fResp = {}
-  for ifo in ifos:
-    fResp[ifo] = [] 
-
-  # get trigger parameters
-  for trig in trigs:
-
-    # Remove vetoed triggers
-    if trig.get_end() in vetoes:
-      continue
-
-    # calculate fResp for each IFO is we haven't done so already
-    trigPos = (trig.ra,trig.dec)
-    if trigPos not in aPat.keys():
-      ra  = numpy.degrees(trig.ra)
-      dec = numpy.degrees(trig.dec)
-      trigLongitude.append(ra)
-      trigLatitude.append(dec)
-      fPlus,fCross  = get_det_response(ra, dec, trig.get_end())
-      aPat[trigPos] = {}
-      for ifo in ifos:
-        aPat[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
-    
+  # get chisq data
+  trigChiSquare = numpy.asarray(trigs.get_column('chisq'))
+  trigBankVeto  = numpy.asarray(trigs.get_column('bank_chisq')) 
+  trigAutoVeto  = numpy.asarray(trigs.get_column('cont_chisq'))
+  numpy.putmask(trigChiSquare, trigChiSquare==0, 0.005)
+  numpy.putmask(trigBankVeto, trigBankVeto==0, 0.005)
+  numpy.putmask(trigAutoVeto, trigAutoVeto==0, 0.005)
+   
+  # get single detector data
+  trigCoincSNR  = (trigs.get_column('coinc_snr'))
+  trigIfoSNR    = trigs.get_sngl_snrs()
+  tmp           = numpy.sort(trigIfoSNR.values(), 0)
+  trigFirstSNR  = tmp[-1,:]
+  if len(ifos)>1:
+    trigSecondSNR = tmp[-1,:]
+  if len(ifos)>2:
+    trigThirdSNR  = tmp[-3,:]
+  if sngl_bank_chisq:
+    trigIfobankCS = trigs.get_sngl_bank_chisqs()
     for ifo in ifos:
-      fResp[ifo].append(aPat[trigPos][ifo])
-
-    # extract basic parameters
-    trigTime.append(    trig.get_end())
-    trigSNR.append(     trig.snr)
-    trigMchirp.append(   trig.mchirp)
-    trigNullstat.append(trig.null_statistic)
-    trigTraceSNR.append(trig.null_stat_degen)
-
-    # extract single IFO SNRs and trig sigma
-    sigmaTot = 0
-    compsList = []
+      trigIfobankCS[ifo] = numpy.asarray(trigIfobankCS[ifo])
+      numpy.putmask(trigIfobankCS[ifo], trigIfobankCS[ifo]==0, 0.005)
+  if sngl_cont_chisq:
+    trigIfoautoCS = trigs.get_sngl_cont_chisqs()
     for ifo in ifos:
-      ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
-      trigIfoSNR[ifo].append(ifoSNR)
-      compsList.append(ifoSNR)
-      if sngl_chisq:
-        ifoStanCS = getattr(trig, 'chisq_%s' % ifoAtt[ifo])
-        trigIfostanCS[ifo].append(ifoStanCS)
-      if sngl_bank_chisq:
-        ifoBankCS = getattr(trig, 'bank_chisq_%s' % ifoAtt[ifo])
-        trigIfobankCS[ifo].append(ifoBankCS)
-      if sngl_cont_chisq:
-        ifoAutoCS = getattr(trig, 'cont_chisq_%s' % ifoAtt[ifo])
-        trigIfoautoCS[ifo].append(ifoAutoCS)
-      sig = getattr(trig,'sigmasq_%s' % ifoAtt[ifo])
-      trigSigma[ifo].append(sig)
-      sigmaTot += sig * aPat[trigPos][ifo]
-    trigSigmaTot.append(sigmaTot)
+      trigIfoautoCS[ifo] = numpy.asarray(trigIfoautoCS[ifo])
+      numpy.putmask(trigIfoautoCS[ifo], trigIfoautoCS[ifo]==0, 0.005)
+  if sngl_chisq:
+    trigIfostanCS = trigs.get_sngl_chisqs()
+    for ifo in ifos:
+      trigIfostanCS[ifo] = numpy.asarray(trigIfostanCS[ifo])
+      numpy.putmask(trigIfostanCS[ifo], trigIfostanCS[ifo]==0, 0.005)
+  trigSigma  = trigs.get_sigmasqs()
+  trigSigmaTot = numpy.zeros(numtrigs)
 
-    compsList.sort(reverse=True)
-    trigFirstSNR.append((compsList[0]))
-    if len(ifos)>1:
-      trigSecondSNR.append((compsList[1]))
-    if len(ifos)>2:
-      trigThirdSNR.append((compsList[2])) 
-    # calculate coinc SNR
-    trigCoincSNR.append(sqrt(sum([e**2 for e in compsList])))
-  
-    # get signal based tests
-    if trig.chisq == 0:
-      trigChiSquare.append(0.0001)
-    else:
-      trigChiSquare.append(trig.chisq)
-    trigBankVeto.append(trig.bank_chisq)
-    trigAutoVeto.append(trig.cont_chisq)
-
-    for amp in amplitudes:
-      a = getattr(trig,'amp_term_%d' % amp)
-      if a == 0:
-        a = 0.0001
-      trigAmp[amp].append(a)
-
-    bestNR = get_bestnr(trig, q=chisq_index, n=chisq_nhigh,\
-                         null_thresh=null_thresh, fResp=aPat[trigPos])
-    trigBestNR.append(bestNR)
-
-  if verbose:
-    sys.stdout.write("Trigger parameters extracted at %d\n" % elapsed_time())
-
-  # get injection parameters 
-  if injFile:
-    for trig in injs:
-      if trig.get_end() in vetoes:
-        continue
-
-      # calculate fResp for each IFO is we haven't done so already
-      trigPos = (trig.ra,trig.dec)
-      if trigPos not in aPat.keys():
-        ra  = numpy.degrees(trig.ra)
-        dec = numpy.degrees(trig.dec)
-        injLongitude.append(ra)
-        injLatitude.append(dec)
-        fPlus,fCross   = get_det_response(ra, dec, trig.get_end())
-        aPat[trigPos] = {}
-        for ifo in ifos:
-          aPat[trigPos][ifo] = fPlus[ifo]*fPlus[ifo] + fCross[ifo]*fCross[ifo]
-
-      # extract basic parameters
-      injTime.append(    trig.get_end())
-      injSNR.append(     trig.snr)
-      injMchirp.append(   trig.mchirp)
-      injNullstat.append(trig.null_statistic)
-      injTraceSNR.append(trig.null_stat_degen)
-
-      # extract single IFO SNRs
-      compsList = []
-      for ifo in ifos:
-        ifoSNR = getattr(trig,'snr_%s' % ifoAtt[ifo])
-        injIfoSNR[ifo].append(ifoSNR)
-        compsList.append(ifoSNR)
-        if sngl_chisq:
-          ifoStanCS = getattr(trig, 'chisq_%s' % ifoAtt[ifo])
-          injIfostanCS[ifo].append(ifoStanCS)
-        if sngl_bank_chisq:
-          ifoBankCS = getattr(trig, 'bank_chisq_%s' % ifoAtt[ifo])
-          injIfobankCS[ifo].append(ifoBankCS)
-        if sngl_cont_chisq:
-          ifoAutoCS = getattr(trig, 'cont_chisq_%s' % ifoAtt[ifo])
-          injIfoautoCS[ifo].append(ifoAutoCS)
-
-      compsList.sort(reverse=True)
-      injFirstSNR.append((compsList[0]))
-      if len(ifos)>1:
-        injSecondSNR.append((compsList[1]))
-      if len(ifos)>2:
-        injThirdSNR.append((compsList[2]))
-      injCoincSNR.append(sqrt(sum([e**2 for e in compsList])))
-
-      if trig.chisq == 0:  
-        injChiSquare.append(0.0001)
-      else:
-        injChiSquare.append(trig.chisq)
-      injBankVeto.append(trig.bank_chisq)
-      injAutoVeto.append(trig.cont_chisq)
-      for amp in amplitudes:
-        a = getattr(trig,'amp_term_%d' % amp)
-        if a == 0:
-          a = 0.0001
-        injAmp[amp].append(a)
-
-      bestNR = get_bestnr(trig, q=chisq_index, n=chisq_nhigh,\
-                           null_thresh=null_thresh, fResp=aPat[trigPos])
-
-      injBestNR.append(bestNR)
-
-  if verbose:
-    sys.stdout.write("Injection parameters extracted at %d\n" % elapsed_time())
-
-  # set arrays
-  trigSNR       = pylab.asarray(trigSNR)
-  trigBestNR = pylab.asarray(trigBestNR)
-  trigMChirp    = pylab.asarray( trigMchirp)
-  trigChiSquare = pylab.asarray(trigChiSquare)
-  trigNullstat  = pylab.asarray(trigNullstat)
-  trigTraceSNR  = pylab.asarray(trigTraceSNR)
-  trigCoincSNR  = pylab.asarray(trigCoincSNR)
-  trigNullSNR = (trigCoincSNR**2 - trigSNR**2)**0.5
-  for amp in amplitudes:
-    trigAmp[amp]   = pylab.asarray(trigAmp[amp])
+  # get amplitude terms
+  trigAmp       = dict((amp,\
+                        numpy.asarray(trigs.get_column('amp_term_%d' % amp)))\
+                       for amp in amplitudes)
   trigRelAmp1    = pylab.sqrt((trigAmp[1]**2 + trigAmp[2]**2)/\
-                               (trigAmp[3]**2 + trigAmp[4]**2))
+                              (trigAmp[3]**2 + trigAmp[4]**2))
   trigGammaR     = trigAmp[1] - trigAmp[4]
   trigGammaI     = trigAmp[2] + trigAmp[3]
   trigDeltaR     = trigAmp[1] + trigAmp[4]
@@ -417,11 +240,24 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   trigNorm2      = trigGammaR*trigGammaR + trigGammaI*trigGammaI
   trigNorm3      = ((trigNorm1**0.25) + (trigNorm2**0.25))**2
   trigAmpPlus    = (trigNorm1)**0.5 + (trigNorm2)**0.5
-  trigAmpCross   = ((trigNorm1)**0.5 - (trigNorm2)**0.5).__abs__()
+  trigAmpCross   = abs((trigNorm1)**0.5 - (trigNorm2)**0.5)
   trigRelAmp2    = trigAmpPlus/trigAmpCross
   trigInclination = trigAmpCross/trigNorm3
+
+  # get antenna response based parameters
+  trigLongitude = numpy.degrees(trigs.get_column('ra'))
+  trigLatitude  = numpy.degrees(trigs.get_column('dec'))
+  fResp = dict((ifo, numpy.empty(numtrigs)) for ifo in ifos)
+  for i in xrange(numtrigs):
+    # calculate fResp for each IFO is we haven't done so already
+    fPlus,fCross     = get_det_response(trigLongitude[i], trigLatitude[i],\
+                                        trigTime[i])
+    for ifo in ifos:
+      fResp[ifo][i]    = sum(numpy.array([fPlus[ifo], fCross[ifo]])**2)
+      trigSigmaTot[i] += trigSigma[ifo][i] * fResp[ifo][i]
+
   for ifo in ifos:
-    fResp[ifo] = pylab.asarray(fResp[ifo]).mean()
+    fResp[ifo] = fResp[ifo].mean()
 
   # normalise trigSigma
   for ifo in ifos:
@@ -430,31 +266,6 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   for ifo in ifos:
     trigSigma[ifo] /= trigSigmaTot
 
-  if injFile:
-    injSNR         = pylab.asarray(injSNR)
-    injBestNR      = pylab.asarray(injBestNR)
-    injMChirp      = pylab.asarray( injMchirp)
-    injChiSquare   = pylab.asarray(injChiSquare)
-    injNullstat    = pylab.asarray(injNullstat)
-    injTraceSNR    = pylab.asarray(injTraceSNR)
-    injCoincSNR    = pylab.asarray(injCoincSNR)
-    injNullSNR   = (injCoincSNR**2 - injSNR**2)**0.5
-    for amp in amplitudes:
-      injAmp[amp]  = pylab.asarray(injAmp[amp])
-    injRelAmp1     = pylab.sqrt((injAmp[1]**2 + injAmp[2]**2)/\
-                                 (injAmp[3]**2 + injAmp[4]**2))
-    injGammaR      = injAmp[1] - injAmp[4]
-    injGammaI      = injAmp[2] + injAmp[3]
-    injDeltaR      = injAmp[1] + injAmp[4]
-    injDeltaI      = injAmp[3] - injAmp[2]
-    injNorm1       = injDeltaR*injDeltaR + injDeltaI*injDeltaI
-    injNorm2       = injGammaR*injGammaR + injGammaI*injGammaI
-    injNorm3       = ((injNorm1**0.25) + (injNorm2**0.25))**2
-    injAmpPlus     = (injNorm1)**0.5 + (injNorm2)**0.5
-    injAmpCross    = ((injNorm1)**0.5 - (injNorm2)**0.5).__abs__()
-    injRelAmp2     = injAmpPlus/injAmpCross
-    injInclination = injAmpCross/injNorm3
-  
   trigSigmaMean = {}
   trigSigmaMax  = {}
   trigSigmaMin  = {}
@@ -469,14 +280,67 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
       trigSigmaMin[ifo]  = 0
 
   if verbose:
-    sys.stdout.write("Loudest trigger by SNR: %f\n" % trigSNR.max())
-    sys.stdout.write("Loudest trigger by BestNR: %f\n" % trigBestNR.max())
+    sys.stdout.write("Trigger parameters extracted at %d\n"\
+                     % elapsed_time())
+
+  #
+  # get injection data
+  #
+
+  if injFile:
+
+    # get basics
+    injTime      = numpy.asarray(injs.get_end())
+    injSNR       = numpy.asarray(injs.get_column('snr'))
+    injBestNR    = numpy.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                                 null_thresh=null_thresh) for t in injs])
+    injNullSNR   = numpy.asarray(injs.get_null_snr())
+    injNullstat  = numpy.asarray(injs.get_column('null_statistic'))
+    injTraceSNR  = numpy.asarray(injs.get_column('null_stat_degen'))
   
-  bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
-      calculate_contours(q=chisq_index, n=chisq_nhigh,\
-                          null_thresh=null_thresh[-1],\
-                          null_grad_snr=null_grad_snr)
+    # get chisq data
+    injChiSquare = numpy.asarray(injs.get_column('chisq'))
+    injBankVeto  = numpy.asarray(injs.get_column('bank_chisq'))
+    injAutoVeto  = numpy.asarray(injs.get_column('cont_chisq'))
   
+    # get single detector data
+    injCoincSNR  = numpy.asarray(injs.get_column('coinc_snr'))
+    injIfoSNR    = injs.get_sngl_snrs()
+    tmp          = numpy.sort(injIfoSNR.values(), 0)
+    injFirstSNR  = tmp[-1,:]
+    if len(ifos)>1:
+      injSecondSNR = tmp[-1,:]
+    if len(ifos)>2:
+      injThirdSNR  = tmp[-3,:]
+    if sngl_bank_chisq:
+      injIfobankCS = injs.get_sngl_bank_chisqs()
+    if sngl_cont_chisq:
+      injIfoautoCS = injs.get_sngl_cont_chisqs()
+    if sngl_chisq:
+      injIfostanCS = injs.get_sngl_chisqs()
+    injSigma  = injs.get_sigmasqs()
+  
+    # get amplitude terms
+    injAmp    = dict((amp, numpy.asarray(injs.get_column('amp_term_%d' % amp)))\
+                     for amp in amplitudes)
+    injRelAmp1     = numpy.sqrt((injAmp[1]**2 + injAmp[2]**2)/\
+                                (injAmp[3]**2 + injAmp[4]**2))
+    injGammaR      = injAmp[1] - injAmp[4]
+    injGammaI      = injAmp[2] + injAmp[3]
+    injDeltaR      = injAmp[1] + injAmp[4]
+    injDeltaI      = injAmp[3] - injAmp[2]
+    injNorm1       = injDeltaR*injDeltaR + injDeltaI*injDeltaI
+    injNorm2       = injGammaR*injGammaR + injGammaI*injGammaI
+    injNorm3       = ((injNorm1**0.25) + (injNorm2**0.25))**2
+    injAmpPlus     = (injNorm1)**0.5 + (injNorm2)**0.5
+    injAmpCross    = abs((injNorm1)**0.5 - (injNorm2)**0.5)
+    injRelAmp2     = injAmpPlus/injAmpCross
+    injInclination = injAmpCross/injNorm3
+  
+    if verbose:
+      sys.stdout.write("Injection parameters extracted at %d\n"\
+                       % elapsed_time())
+
   #
   # generate plots
   #
@@ -488,6 +352,11 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ptfcolormap = pylab.cm.spring
   ptfcolormap.set_over('g')
        
+  bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
+      calculate_contours(q=chisq_index, n=chisq_nhigh,\
+                          null_thresh=null_thresh[-1],\
+                          null_grad_snr=20)
+
   # reset times
   segs = readSegFiles(segdir)
   grbTime = segs['on'][1] - 1
@@ -497,7 +366,8 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   start -= duration*0.05
   end += duration*0.05
   trigTime = [t-grbTime for t in trigTime]
-  injTime  = [t-grbTime for t in injTime]
+  if injFile:
+    injTime  = [t-grbTime for t in injTime]
  
   # plot time versus SNR
   fig = pylab.figure()
@@ -562,13 +432,13 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   mass_vals = numpy.asarray([max_mchirp]*len(snr_vals))
   fig = pylab.figure()
   ax  = fig.gca()
-  ax.plot( trigSNR, trigMchirp, 'bx' )
+  ax.plot(trigSNR, trigMchirp, 'bx')
   ax.grid()
   if injFile:
-    ax.plot( injSNR, injMchirp, 'r+' )
-  ax.set_xlabel( "Coherent SNR" )
-  ax.set_ylabel( "Chirp mass ($M_{\odot}$)" )
-  ax.plot( snr_vals, mass_vals, 'k-' )
+    ax.plot(injSNR, injMchirp, 'r+')
+  ax.set_xlabel("Coherent SNR")
+  ax.set_ylabel("Chirp mass ($M_{\odot}$)")
+  ax.plot(snr_vals, mass_vals, 'k-')
   # Shade vetoed area
   limy = list(ax.get_ylim())
   limx = list(ax.get_xlim())
@@ -578,13 +448,13 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   polyx.extend([limx[1],0])
   polyy.extend([limy[1], limy[1]])
   ax.fill(polyx, polyy, color = '#dddddd')
-  fig.savefig( "%s/%s_mchirp_vs_snr.png" % ( outdir, tag ),\
-               bbox_inches='tight' )
-  ax.set_xlim( [6,50] )
-  ax.set_ylim( [0,12] )
-  fig.savefig( "%s/%s_mchirp_vs_snr_zoom.png" % ( outdir, tag ),\
-               bbox_inches='tight' )
-  
+  fig.savefig("%s/%s_mchirp_vs_snr.png" % (outdir, tag),\
+              bbox_inches='tight' )
+  ax.set_xlim([6,50])
+  ax.set_ylim([0,12])
+  fig.savefig("%s/%s_mchirp_vs_snr_zoom.png" % (outdir, tag),\
+              bbox_inches='tight')
+
   # plot coherent SNR versus null stat
   fig = pylab.figure()
   ax  = fig.gca()
@@ -758,7 +628,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.set_ylim([1,2000])
   fig.savefig("%s/%s_chi_square_vs_snr_zoom.png" % (outdir, tag))
   p+=1
-  
+
   # plot SNR versus loudest SNR
   fig = pylab.figure()
   ax  = fig.gca()
@@ -1168,7 +1038,6 @@ if __name__=='__main__':
   GRBnum    = 'GRB%s' % opts.grb_name
   q         = opts.chisq_index
   n         = opts.chisq_nhigh
-  max_mchirp = opts.max_chirp_mass
   segdir    = opts.segment_dir
   nullt     = map(float, opts.null_snr_threshold.split(','))
   vetoFiles = []
@@ -1177,6 +1046,5 @@ if __name__=='__main__':
 
 
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
-       chisq_nhigh=n, null_thresh = nullt, max_mchirp=max_mchirp,\
-       vetoFiles=vetoFiles, verbose=verbose)
+        chisq_nhigh=n,null_thresh = nullt, verbose=verbose,vetoFiles=vetoFiles)
   if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))

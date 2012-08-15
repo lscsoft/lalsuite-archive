@@ -11,6 +11,7 @@ from optparse import OptionParser
 from glue import markup
 from pylal import grbsummary,date,rate,antenna
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+import os.path
 #from pylal.coh_PTF_pyutils import *
 
 def make_external_call(\
@@ -142,32 +143,70 @@ def write_table( page, headers, data, cl='' ):
 
   return page
 
-def write_summary( page, ExtTrigger, ifos, skyError=None ):
+def write_summary( page, ExtTrigger, ifos, skyError=None, ipn=False, ipnError=False ):
 
   """
     Write summary of information to markup.page object page
   """
 
-  gps,ra,dec = ExtTrigger.start_time,ExtTrigger.event_ra,ExtTrigger.event_dec
+  gps = ExtTrigger.start_time
   grbdate = datetime.datetime( *date.XLALGPSToUTC( LIGOTimeGPS(gps) )[:6] )\
                 .strftime( "%B %d %Y, %H:%M:%S %ZUTC" )
-
   page.h3()
   page.add( 'Basic information' )
   page.h3.close()
 
-  if skyError:
-    th = [ 'GPS', 'Date', 'RA', 'DEC', 'Sky Error', 'IFOs' ]
-    td = [ gps, grbdate, ra, dec, skyError, ifos ]
-  else:
-    th = [ 'GPS', 'Date', 'RA', 'DEC', 'IFOs' ]
-    td = [ gps, grbdate, ra, dec, ifos ]
+  if ipn:
+    ra = []
+    dec = []
+    td1 = []
+    td2 = []
+    td3 = []
+    timedelay = {}
+    deltat = []
+    search_file = '../../../S5IPN_GRB%s_search_180deg.txt' % ExtTrigger.event_number_grb
+    for line in open(search_file):
+      ra.append(line.split()[0])
+      dec.append(line.split()[1])
+    th1 = [ 'GPS', 'Date', 'Error Box (sq.deg.)', 'IFOs' ]
+    td1 = [ gps, grbdate, ipnError, ifos ]
+    th2 = [ 'RA', 'DEC' ]
+    th3 = ['Timedelays (ms)', '', '' ]
+    for ra_i,dec_i in zip(ra,dec):
+      td_i = [ ra_i, dec_i ]
+      td2.append(td_i)
+    ifo_list = [ ifos[i*2:(i*2)+2] for i in range(int(len(ifos)/2)) ]
+    for j in td2:
+      for p in range(0, len(ifo_list)):
+        for q in range(0, len(ifo_list)):
+          pairs = [ifo_list[p], ifo_list[q]]
+          ifo_pairs = "".join(pairs)
+          timedelay[ifo_pairs]   = antenna.timeDelay(int(gps),float(j[0]),float(j[1]), 'degree',ifo_list[p],ifo_list[q])
+          timedelay[ifo_pairs]="%.4f" % timedelay[ifo_pairs]
+      if ifos == 'H1H2L1':
+        td3.append(['H1L1: %f' % float(timedelay['H1L1'])])
+      if ifos == 'H1H2L1V1':
+        td3.append(['H1L1: %f' % float(timedelay['H1L1']), 'H1V1: %f' % float(timedelay['H1V1']), 'L1V1: %f' % float(timedelay['L1V1'])])
+      if ifos == 'L1V1':
+        td3.append(['L1V1: %f' % float(timedelay['L1V1'])])
+    page = write_table( page, th1, td1 )
+    page = write_table( page, th2, td2 )
+    page = write_table( page, th3, td3 )
 
-  page = write_table( page, th, td )
+  else:
+    ra,dec = ExtTrigger.event_ra, ExtTrigger.event_dec
+    if skyError:
+      th = [ 'GPS', 'Date', 'RA', 'DEC', 'Sky Error', 'IFOs' ]
+      td = [ gps, grbdate, ra, dec, skyError, ifos ]
+    else:
+      th = [ 'GPS', 'Date', 'RA', 'DEC', 'IFOs' ]
+      td = [ gps, grbdate, ra, dec, ifos ]
+
+    page = write_table( page, th, td )
 
   return page
 
-def write_antenna( page, ExtTrigger, ifos, grid=False ):
+def write_antenna( page, ExtTrigger, ifos, grid=False, ipn=False ):
 
   """
     Write antenna factors to merkup.page object page and generate John's
@@ -176,38 +215,80 @@ def write_antenna( page, ExtTrigger, ifos, grid=False ):
 
   page.h3()
   page.add( 'Antenna factors' )
-  if grid:
+
+  if grid or ipn:
     page.add(' and Sky Grid')
   page.h3.close()
 
   th = []
   td = []
+  th2 = []
+  td2 = []
 
-  for ifo in ifos:
-    th.append( ifo )
-    _, _, _, f_q = antenna.response( ExtTrigger.start_time,
-                                     ExtTrigger.event_ra, ExtTrigger.event_dec,\
-                                     0.0, 0.0, 'degree',ifo )
-    td.append( round( f_q, 3 ) )
+  if ipn:
+    antenna_ifo = {}
+    ra = []
+    dec = []
+    search_file = open('../../../S5IPN_GRB%s_search_180deg.txt' % ExtTrigger.event_number_grb)
+    for line in search_file:
+      ra.append(line.split()[0])
+      dec.append(line.split()[1])
+    for ifo in ifos:
+      antenna_ifo[ifo] = []
+      for k, l in zip(ra, dec):
+        _, _, _, f_q = antenna.response( ExtTrigger.start_time,
+                                         float(k), float(l),\
+                                         0.0, 0.0, 'degree',ifo )
+        antenna_ifo[ifo].append(round(f_q,3))
+    dectKeys = antenna_ifo.keys()
+    newList=[]
 
-  cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
-      % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
-  for ifo in ifos:
-    if ifo == 'H1':
-      cmmnd += ' --display-lho'
-    elif ifo == 'L1':
-      cmmnd += ' --display-llo'
-    elif ifo == 'V1':
-      cmmnd += ' --display-virgo'
-  output,status = make_external_call(cmmnd)
-  plot = markup.page()
-  p = "projtens.png"
-  plot.a( href=p, title="Detector response and polarization" )
-  plot.img( src=p )
-  plot.a.close()
-  th2 = ['Reponse Diagram']
-  td2 = [plot() ]
-  if grid:
+    for elements in range(len(antenna_ifo.values()[0])):
+        newDict={}
+        for detectors in range(len(antenna_ifo.keys())):
+            newDict[dectKeys[detectors]] = antenna_ifo[ dectKeys[detectors] ][elements]
+        for key in newDict.keys():
+          th.append(key)
+        td.append(newDict.values())        
+    page = write_table( page, list(set(th)), td )
+
+    cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
+        % (ExtTrigger.start_time,float(ra[0]), float(dec[0]))
+    for ifo in ifos:
+      if ifo == 'H1':
+        cmmnd += ' --display-lho'
+      elif ifo == 'L1':
+        cmmnd += ' --display-llo'
+      elif ifo == 'V1':
+        cmmnd += ' --display-virgo'
+    output,status = make_external_call(cmmnd)
+
+    plot = markup.page()
+    p = "projtens.png"
+    plot.a( href=p, title="Detector response and polarization" )
+    plot.img( src=p )
+    plot.a.close()
+    th2 = ['Response Diagram']
+    td2 = [plot() ]
+
+    plot = markup.page()
+    p = "ALL_TIMES/plots_clustered/GRB%s_search.png"\
+        % ExtTrigger.event_number_grb
+    plot.a(href=p, title="Error Box Search")
+    plot.img(src=p)
+    plot.a.close()
+    th2.append('Error Box Search')
+    td2.append(plot())
+
+    plot = markup.page()
+    p = "ALL_TIMES/plots_clustered/GRB%s_simulations.png"\
+        % ExtTrigger.event_number_grb
+    plot.a(href=p, title="Error Box Simulations")
+    plot.img(src=p)
+    plot.a.close()
+    th2.append('Error Box Simulations')
+    td2.append(plot())
+
     plot = markup.page()
     p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
         % ExtTrigger.event_number_grb
@@ -217,8 +298,57 @@ def write_antenna( page, ExtTrigger, ifos, grid=False ):
     th2.append('Sky Grid')
     td2.append(plot())
 
-  page = write_table( page, th, td )
-  page = write_table( page, th2, td2 )
+    plot = markup.page()
+    p = "ALL_TIMES/plots_clustered/GRB%s_inspiral_horizon_distance.png"\
+        % ExtTrigger.event_number_grb
+    plot.a(href=p, title="Inspiral Horizon Distance")
+    plot.img(src=p)
+    plot.a.close()
+    th2.append('Inspiral Horizon Distance')
+    td2.append(plot())
+
+
+    page = write_table( page, th2, td2 )
+
+  else:
+    for ifo in ifos:
+      _, _, _, f_q = antenna.response( ExtTrigger.start_time,
+                                       ExtTrigger.event_ra, ExtTrigger.event_dec,\
+                                       0.0, 0.0, 'degree',ifo )
+      th.append( ifo )
+      td.append( round( f_q, 3 ) )
+
+    cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
+        % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
+    for ifo in ifos:
+      if ifo == 'H1':
+        cmmnd += ' --display-lho'
+      elif ifo == 'L1':
+        cmmnd += ' --display-llo'
+      elif ifo == 'V1':
+        cmmnd += ' --display-virgo'
+    output,status = make_external_call(cmmnd)
+    page = write_table( page, th, td )
+
+    plot = markup.page()
+    p = "projtens.png"
+    plot.a( href=p, title="Detector response and polarization" )
+    plot.img( src=p )
+    plot.a.close()
+    th2 = ['Response Diagram']
+    td2 = [plot() ]
+
+    if grid:
+      plot = markup.page()
+      p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
+          % ExtTrigger.event_number_grb
+      plot.a(href=p, title="Sky Grid")
+      plot.img(src=p)
+      plot.a.close()
+      th2.append('Sky Grid')
+      td2.append(plot())
+
+    page = write_table( page, th2, td2 )
 
   return page
 
@@ -269,24 +399,25 @@ def write_chisq( page, injList, grbtag ):
   """
 
   if injList:
-    th = ['']+injList
+    th = ['']+injList + ['OFFSOURCE']
   else:
     th= ['','OFFSOURCE']
     injList = ['OFFSOURCE']
   td = []
 
-  plots = ['bank_veto','auto_veto','chi_square']
+  plots = ['bank_veto','auto_veto','chi_square', 'mchirp']
 
   for test in plots:
     pTag = test.replace('_',' ').title()
     d = [pTag]
-    for inj in injList:
+    for inj in injList + ['OFFSOURCE']:
       plot = markup.page()
       p = "%s/plots_clustered/GRB%s_%s_vs_snr_zoom.png" % ( inj, grbtag, test )
       plot.a( href=p, title="%s %s versus SNR" % ( inj, pTag ) )
       plot.img( src=p )
       plot.a.close()
       d.append( plot() )
+ 
     td.append(d)
 
   page = write_table( page, th, td )
@@ -300,7 +431,7 @@ def write_inj_snrs( page, ifos, injList, grbtag ):
   """
 
   if injList:
-    th = ['']+injList
+    th = ['']+injList + ['OFFSOURCE']
   else:
     th= ['','OFFSOURCE']
     injList = ['OFFSOURCE']
@@ -311,7 +442,7 @@ def write_inj_snrs( page, ifos, injList, grbtag ):
   for row in plots:
     pTag = row.replace('_',' ').title()
     d = [pTag]
-    for inj in injList:
+    for inj in injList + ['OFFSOURCE']:
       plot = markup.page()
       p = "%s/plots_clustered/GRB%s_%s_vs_snr_zoom.png" % ( inj, grbtag, row )
       plot.a( href=p, title="%s %s versus SNR" % ( inj, pTag ) )
@@ -584,6 +715,11 @@ coh_PTF_injfinder will find and record found and missed injections for the given
   parser.add_option( "-G", "--sky-grid", action="store_true", default=False,\
                      help="Include sky grid information, default: %default" )
 
+  parser.add_option( "", "--ipn", action="store_true", default=False,\
+                     help="Include ipn information on extra to Fermi case, default: %default" )
+  parser.add_option( "", "--ipn-error", action="store", type="float",\
+                     default=None, help="size of the IPN error box" )
+
   (opts,args) = parser.parse_args()
 
   if not opts.grb_xml:
@@ -604,7 +740,7 @@ coh_PTF_injfinder will find and record found and missed injections for the given
 # =============================================================================
 
 def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
-        tuningInjList=[], open_box=False, grid=False ):
+        tuningInjList=[], open_box=False, grid=False, ipn=False ):
 
   # get entry information  
   ifos     = [ ifoTag[i*2:(i*2)+2] for i in range(int(len(ifoTag)/2)) ]
@@ -656,9 +792,13 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
     err = cp.get('coh_PTF_inspiral', 'sky-error') 
   else:
     err = None
-
-  webpage = write_summary( webpage, grb, ifoTag, err )
-  webpage = write_antenna( webpage, grb, ifos, grid )
+  if opts.ipn:
+    ipnerr = opts.ipn_error
+    webpage = write_summary( webpage, grb, ifoTag, None, opts.ipn, ipnerr )
+    webpage = write_antenna( webpage, grb, ifos, None, opts.ipn )
+  else:
+    webpage = write_summary( webpage, grb, ifoTag, err, None, None )
+    webpage = write_antenna( webpage, grb, ifos, grid, None )
 
   # add links
   grbsumlink = 'http://grblog.org/grblog.php?view=burst&GRB=%s' % GRBnum
@@ -792,6 +932,16 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
     webpage = write_recovery( webpage, detectionInjList )
     webpage.div.close()
 
+  if tuningInjList and ipn:
+    # add injection recovery plots
+    secname = 'Injection recovery'
+    i += 1
+    webpage.input( id="input_%s" % i, type="button", class_="h2",\
+                   onclick="toggleVisible('%d');" % i, value=secname )
+    webpage.div( id="div_%s" % i, style="display: none;" )
+    webpage = write_recovery( webpage, detectionInjList )
+    webpage.div.close()
+
   # add loudest off source events
   secname = 'Loudest offsource events'
   i += 1
@@ -799,7 +949,7 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
                  onclick="toggleVisible('%s');" % i, value=secname )
   webpage.div( id="div_%s" % i, style="display: none;" )
 
-  massbins = [('0','3.48'),('3.48','6.0'),('6.0','20')]
+  massbins = [('0','8.0')]
   webpage = write_loudest_events( webpage, massbins )
 
   webpage.div.close()
@@ -863,6 +1013,7 @@ if __name__=='__main__':
   outdir     = os.path.abspath( opts.output_path )
   ifoTag     = opts.ifo_tag
   grid       = opts.sky_grid
+  ipn        = opts.ipn
   detInjsList = []
   tunInjsList = []
   if opts.exclusion_injections:
@@ -872,5 +1023,5 @@ if __name__=='__main__':
   
   
   main( grbxml, inifile, outdir, ifoTag, detectionInjList=detInjsList,\
-        tuningInjList=tunInjsList, open_box=opts.open_box, grid=grid )
+        tuningInjList=tunInjsList, open_box=opts.open_box, grid=grid, ipn=ipn )
 
