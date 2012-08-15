@@ -110,7 +110,7 @@ def rank_statistics(sngls, statname, fac=50., index=6.):
   for trig in sngls:
     gpsns = 10**9*trig.end_time + trig.end_time_ns
     try: 
-      statistics[gpsns] = [getstat(trig,statname), trig.mchirp, trig.eta, None]
+      statistics[gpsns] = [getstat(trig, statname, fac=fac, index=index), trig.mchirp, trig.eta, None]
     except:
       raise ValueError, "Trigger with end time "+str(gpsns/10**9)+"could not be assigned a statistic!"
 
@@ -133,7 +133,18 @@ def rank_statistics(sngls, statname, fac=50., index=6.):
   return statistics, ranks, statvals
 
 
-def FAP_via_rankprod(ranklist, lenlist):
+def cut_coincs(coincEvents, statname, cutval):
+  cutCoincs = coiuls.coincInspiralTable()
+  for coinc in coincEvents:
+    # only append those coincs for which the condition is False for all trigs
+    # thus the sum is equal to zero
+    if sum([(getstat(trig, statname) < cutval) for trig in coinc]) == 0:
+      cutCoincs.append(coinc)
+
+  return cutCoincs
+
+
+def num_louder_rankprod(ranklist, lenlist):
   if len(ranklist) == 2:
     # http://oeis.org/A006218: number of ordered pairs of integers whose product
     # is less than n, valid if the rank product is not greater than the number
@@ -141,32 +152,28 @@ def FAP_via_rankprod(ranklist, lenlist):
     integerseq = (-1,1,3,5,8,10,14,16,20,23,27)
     # NB rankprod value is never equal to 0
     rankprod = ranklist[0]*ranklist[1]
+    num_pairs = lenlist[0]*lenlist[1]
     if rankprod <= 10 and min(lenlist) > 9:
-      louderprods = integerseq[rankprod]
-      jointfap = louderprods/lenlist[0]/lenlist[1]
+      number_louder = integerseq[rankprod]
     elif rankprod < min(lenlist):
-    # asymptotic formula for the above
-      louderprods = rankprod*(log(rankprod)+2*0.57721-1)
-      jointfap = louderprods/lenlist[0]/lenlist[1]
+      # asymptotic formula for the above
+      number_louder = rankprod*(log(rankprod)+2*0.57721-1)
     else:
-    # Drew's approximate continuous integral
-      fapproduct = ranklist[0]*ranklist[1]/lenlist[0]/lenlist[1]
-      jointfap = fapproduct*(1 - log(fapproduct))
+      # Drew's approximate continuous integral
+      fapproduct = rankprod/num_pairs
+      number_louder = rankprod*(1 - log(fapproduct))
+      # equal to N1*N2 * P(1-log(P)) where P = P1*P2 = N>1*N>2/N1*N2
   else:
     raise ValueError, "I can't deal with a product of more than 2 ranks, sorry"
 
-  return jointfap
+  return number_louder
 
 
-def FAP_via_combined_stat(statval, combinedStatlist, lenlist):
-  if len(lenlist) == 2:
-    num_pairs = lenlist[0]*lenlist[1]
-    # significance is given by number of pairs *at least as loud as* candidate
-    number_louder = sum(combinedStatlist >= statval)
-  else:
-    raise ValueError, "I can't deal with more than 2 ifos, sorry"
+def num_louder_combined_stat(statval, combinedStatlist):
+  # significance is given by number of pairs *at least as loud as* candidate
+  number_louder = sum(combinedStatlist >= statval)
 
-  return number_louder/num_pairs
+  return number_louder
 
 
 def plot_one_thing( fig_num, xvals, yvals, plotcommand="plot", gridval=True, \
@@ -249,7 +256,7 @@ def parse_command_line():
   parser.add_option("-S","--statistic",action="store",type="string",
     help="Single-ifo ranking statistic: must be snr, snrchi, effective_snr or new_snr")
   parser.add_option("-X","--search-statistic-cut",action="store",type="float",
-    help="Cut to be applied to single-ifo statistic values for coincs considered \
+    help="Cut to be applied to single-ifo statistic values in all ifos for coincs considered \
 as potential candidates and contributing to FAR")
   parser.add_option("-x","--trig-statistic-cut",action="store",type="string",
     help="Cut(s) to be applied to single-ifo statistic values for ranking and evaluation of FAPs. \
@@ -303,7 +310,7 @@ coinc events: use for closed-box")
   if opts.trig_statistic_cut and opts.search_statistic_cut and sum([trigstatcut<opts.search_statistic_cut \
     for trigstatcut in opts.trig_statistic_cut.split(",")]):
     raise ValueError, "Trigger statistic cut must not be smaller than search statistic cut!"
-  if len(opts.trig_statistic_cut.split(",")) > 1 and not ( len(opts.trig_statistic_cut.split(","))\
+  if opts.trig_statistic_cut and len(opts.trig_statistic_cut.split(",")) > 1 and not ( len(opts.trig_statistic_cut.split(","))\
       == len(opts.ifo_list.split(",")) ):
     raise ValueError, "If assigning different cuts to different ifos, there must be \
 exactly one cut value per ifo!"
@@ -330,7 +337,7 @@ if opts.veto_files:
 comments += InspiralUtils.message(opts, "Statistic is "+opts.statistic+"\n")
 
 if opts.search_statistic_cut:
-  comments += InspiralUtils.message(opts, "Coincs used to evaluate coinc \ 
+  comments += InspiralUtils.message(opts, "Coincs used to evaluate coinc \
 probability and FAN trials factor will be subject to a trigger statistic cut of "\
 +str(opts.search_statistic_cut))
 
@@ -340,14 +347,12 @@ if opts.trig_statistic_cut:
   if len(opts.trig_statistic_cut.split(",")) == 1:
     for ifo in ifos:
       ifocut[ifo] = float(opts.trig_statistic_cut)
-      print ifo, ifocut[ifo]
     comments += InspiralUtils.message(opts, "Ranks and FANs will be evaluated for \
 triggers passing a cut of "+opts.trig_statistic_cut+" in all ifos")
   else:
     cuts = opts.statistic_cut.split(",")
     for i,ifo in enumerate(ifos):
       ifocut[ifo] = float(cuts[i])
-      print ifo, ifocut[ifo]
       comments += InspiralUtils.message(opts, "Ranks and FANs will be evaluated for \
 triggers passing a cut of "+str(ifocut[ifo])+" in "+ifo)
 
@@ -373,6 +378,7 @@ if opts.coinc_file:
 trigFiles = {}
 vetofiles = {}
 numinSearch = {}
+numCut = {}
 statistics = {}
 ranks = {}
 statlist = {}
@@ -523,71 +529,88 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
     comments += InspiralUtils.message(opts, "Reading coincs from "+opts.coinc_file)
   # we don't use the coinc statistic calculated by the coiuls module .. for much .. except the plot of FAN vs statsq
   coincEvents = coiuls.readCoincInspiralFromFiles(coincFiles, coiuls.coincStatistic(opts.statistic))
-  if len(coincEvents) == 0:
-    numCoincs = 0
   coincEvents = coincEvents[0]
-  comments += InspiralUtils.message(opts, str(len(coincEvents))+" coincident events were found before statistic cut")
+  print str(len(coincEvents)), "coincident events were found before statistic cut"
+  comments += InspiralUtils.message(opts, str(len(coincEvents))+" coincident events were found before search statistic cut")
+  coincEvents = cut_coincs(coincEvents, opts.statistic, opts.search_statistic_cut)
+  print str(len(coincEvents)), "coincs survived search statistic cut"
+  comments += InspiralUtils.message(opts, str(len(coincEvents))+" coincs survived search statistic cut")
 
-  # calculate coinc probability using uncut trigger and coinc counts at given veto level
+  # calculate coinc probability using trigger and coinc counts at given veto level
+  # after applying statistic cut used in search
   trigpairs = 1
   for ifo in ifos:
-    trigpairs = trigpairs*uncut_num[ifo]
-  coincProbability = float(len(coincEvents))/trigpairs
-  comments += InspiralUtils.message( opts, "Average probability of coincidence per pair of\
-        triggers is estimated to be %.2G" % (coincProbability) )
-
+    trigpairs = trigpairs*numinSearch[ifo]
+  trigcounts = [numinSearch[ifo] for ifo in ifos]
   numCoincs = 0 # use as a flag to display zerolag coincs later
+  coincsRanked = 0
+
   # get the single-ifo ranks and calculate the joint FAPs and FANs
   if len(coincEvents):
+    numLouder = []
     coincFAPs = []
-    trigcounts = [uncut_num[ifo] for ifo in ifos]
     coincEventsinTime = []
+    coincEventsRanked = []
     for coinc in coincEvents:
       ranklist = []
       inTime = True
-      unCut = True
+      unCut = True 
       for ifo in ifos:
-        endTime = getattr(coinc,ifo).end_time
+        endTime = getattr(coinc,ifo).end_time + 10**-9*getattr(coinc,ifo).end_time_ns
         if endTime >= opts.gps_start_time and endTime < opts.gps_end_time:
-          gpsns = 10**9*endTime + getattr(coinc,ifo).end_time_ns
+          gpsns = 10**9*getattr(coinc,ifo).end_time + getattr(coinc,ifo).end_time_ns
           # If you try to get the rank of a coinc at least one of whose sngls
-          # falls below the statistic cut, it will fail. We ignore these coincs 'gracefully'.
+          # falls below the statistic cut used for computational convenience
+          # it will fail. We ignore these coincs 'gracefully'.
           try: 
             ranklist.append(statistics[ifo][gpsns][3])
           except:
             unCut = False
         else:
           inTime = False
+      if inTime:
+        coincEventsinTime.append(coinc)
       if len(ranklist) and inTime and unCut:
-        # use trigger counts before applying statistic cut for more accurate FAP estimate
+        # use trigger counts before applying computational cut to find number of possible pairs
         if opts.combined_statistic:
           combinedVal = get_combined_stat(coinc, opts.statistic, opts.combined_statistic)
-          coincFAPs.append( FAP_via_combined_stat(combinedVal, combinedStatvals, trigcounts) )
+          n_louder = num_louder_combined_stat(combinedVal, combinedStatvals, )
         else:
-          coincFAPs.append( FAP_via_rankprod(ranklist, trigcounts) )
-        coincEventsinTime.append(coinc)
+          n_louder = num_louder_rankprod(ranklist, trigcounts)
+        numLouder.append(n_louder)
+        coincFAPs.append(n_louder/trigpairs)
+        coincEventsRanked.append(coinc)
     numCoincs = len(coincEventsinTime)
+    print 'numCoincs', numCoincs
+    coincsRanked = len(coincEventsRanked)
+    print 'coincsRanked', coincsRanked
     if numCoincs:
-      comments += InspiralUtils.message(opts, str(numCoincs)+" events lie within the specified\
-        GPS start and end times and were not subject to any statistic cut")
-      # 'trials factor' on FAN
+      comments += InspiralUtils.message(opts, str(numCoincs)+" events were found within the specified\
+        GPS times and survived the search statistic cut")
+      comments += InspiralUtils.message(opts, str(coincsRanked)+" of these were ranked")
+      coincProbability = float(numCoincs)/trigpairs
+      comments += InspiralUtils.message( opts, "Average probability of coincidence per pair of\
+        triggers is estimated to be %.2G" % (coincProbability) )
+     # 'trials factor' on FAN
       coincFANs = [FAP*numCoincs for FAP in coincFAPs]
-    else:
+    if not coincsRanked:
       comments += InspiralUtils.message(opts, "No coincident events fell within the specified\
-        GPS start and end times -- IFAN and statistic vs FAN graphs may be absent!")
+        GPS start and end times and could be ranked -- IFAN and statistic vs FAN graphs may be\
+        absent!")
       coincFANs = []
       sortedFANs = []
 
   # order the coincs by FAN
-  if numCoincs: 
+  if coincsRanked: 
     sortedCoincEvents = coiuls.coincInspiralTable()
-    fan_coinc_list = zip(coincFANs,[coinc for coinc in coincEventsinTime])
+    fan_coinc_list = zip(coincFANs,numLouder,[coinc for coinc in coincEventsRanked])
     fan_coinc_list.sort()
-    sortedCoincEvents = [coinc for (coincFAN,coinc) in fan_coinc_list]
-    sortedFANs = [coincFAN for (coincFAN,coinc) in fan_coinc_list]
+    sortedCoincs = [coinc for (coincFAN,n_louder,coinc) in fan_coinc_list]
+    sortednLouder = [n_louder for (coincFan,n_louder,coinc) in fan_coinc_list]
+    sortedFANs = [coincFAN for (coincFAN,n_louder,coinc) in fan_coinc_list]
 
   # make an IFAN graph
-  if opts.display_coincs and numCoincs:
+  if opts.display_coincs and coincsRanked:
     xlab = r"Inverse FAN"
     ylab = "Cumulative number"
     points = "Coincident events"
@@ -596,21 +619,17 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
       plottit=opts.ifo_tag, figname="coinc_IFAN", figtag="coinc_ifan")
 
     # and make a FAN vs combined statistic-squared graph
-      #   for coinc in sortedCoincEvents:
+      #   for coinc in sortedCoincs:
       #     sngls = [getattr(coinc,ifo) for ifo in ifos]
-      #     if opts.statistic in ["effective_snr","new_snr"]:
-      #       statsq.append( sum([getattr(sngl,"get_"+opts.statistic)**2 for sngl in sngls]) )
-      #     elif opts.statistic == "snr":
-      #       statsq.append( sum([getattr(sngl,"snr")**2 for sngl in sngls]) )
-    sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincEvents]
+    sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincs]
     xlab = r"Combined "+opts.statistic+" squared"
     ylab = r"Estimated FAN"
     plot_one_thing(fig_num, sortedStatsq, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
       plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
       figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
 
-    # cross fingers and make plot of FAN combined sum-statistic
-    sortedSumstat = [sum(trig.get_new_snr() for trig in coinc) for coinc in sortedCoincEvents]
+    # make plot of FAN combined sum-statistic
+    sortedSumstat = [sum(getstat(trig,opts.statistic) for trig in coinc) for coinc in sortedCoincs]
     xlab = r"Combined sum of "+opts.statistic
     ylab = r"Estimated FAN"
     plot_one_thing(fig_num, sortedSumstat, sortedFANs, plotcommand="semilogy", marker="go", size=8, \
@@ -618,7 +637,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
       figname="coinc_sumstat_vs_FAN", figtag="sumstat_vs_FAN")
 
     # and write details of the loudest 20 events
-    for i,coinc in enumerate(sortedCoincEvents):
+    for i,coinc in enumerate(sortedCoincs):
       if i < 20:
         coincgps = []
         ranklist = []
@@ -634,6 +653,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
         # FIXME how to get the string formatting to work for a variable number of ifos, three would be nice
         comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, combined statsq %.1f, triggers\
           ranked (%d,%d) in (%s,%s)" % (i+1, sortedFANs[i], sortedStatsq[i], ranklist[0], ranklist[1], ifos[0], ifos[1]) )
+        comments += InspiralUtils.message(opts, "Estimated number of louder trig pairs: %d" % (sortednLouder[i]) )
         comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f),\
           chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
 
@@ -648,10 +668,8 @@ if opts.fake_coincs and not opts.combined_statistic:
     if rank <= min(statlengths):    
       stat1 = statlist[ifos[0]][rank-1]
       stat2 = statlist[ifos[1]][rank-1]
-      fakeFAPs.append(FAP_via_rankprod([rank,rank],trigcounts))
+      fakeFAPs.append(num_louder_rankprod([rank,rank],trigcounts)/trigpairs)
       fakeStatsq.append(stat1**2+stat2**2)
-  #    print calculate_FAP([rank,rank],statlengths)
-  #    print stat1**2+stat2**2
   if len(fakeFAPs):
     fig_num +=1
     figure(fig_num)
