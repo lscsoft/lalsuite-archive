@@ -1014,14 +1014,13 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 	return 0;
 }
 
-int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *dewhitened_fseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, COMPLEX16FFTPlan *fwdplan_for_dewhitening, REAL8FrequencySeries* psd, double f_min, double f_isco){
+int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *dewhitened_tseries, COMPLEX16FrequencySeries *dewhitened_fseries, COMPLEX16FrequencySeries *fseries_for_dewhitening, COMPLEX16FFTPlan *fwdplan_for_dewhitening, REAL8FrequencySeries* psd, double f_min, double f_isco, double f_max){
 
 	unsigned int k, l;
+	size_t iISCO, iSTART, n;	
 	double deltaF;
-	//unsigned int len_to_zero_before_f_low;
 
 	deltaF = fseries_for_dewhitening->deltaF;	
-	//len_to_zero_before_f_low = ceil(f_min/deltaF) - 1; /* the FT of the complex time series doesn't quite zero the negative freq components or the waveform below f_low so we multiply the first len_to_zero components*/
 
                	for (k = 0; k < template->size; k++){
 			dewhitened_tseries->data->data[dewhitened_tseries->data->length - 1 - (template->size -1) + k].re = GSL_REAL(gsl_vector_complex_get(template, k));
@@ -1030,33 +1029,21 @@ int dewhiten_template_wave(gsl_vector_complex* template, COMPLEX16TimeSeries *de
 		
 		XLALCOMPLEX16TimeFreqFFT(fseries_for_dewhitening, dewhitened_tseries, fwdplan_for_dewhitening);			
 
+		n = f_max/deltaF + 1;
+		iISCO = (size_t) (f_isco / deltaF);
+  		iISCO = (iISCO < n) ? iISCO : n;
+		iSTART = ceil(f_min/deltaF);
 
-		for (l = 0; l < dewhitened_fseries->data->length; l++){
+		for (l = iSTART; l < iISCO; l++){
 
-			//if(l < dewhitened_tseries->data->length/2 - 1 + len_to_zero_before_f_low){
-				if(l < ceil(f_min/deltaF) || l > f_isco/deltaF){
-					dewhitened_fseries->data->data[l].re = 0;
-					dewhitened_fseries->data->data[l].im = 0;
-				
-
-				}
-
-				else {
 					dewhitened_fseries->data->data[l].re = fseries_for_dewhitening->data->data[l + dewhitened_tseries->data->length/2 - 1 ].re*sqrt(psd->data->data[ l ]/(2.*deltaF)) ;
-					dewhitened_fseries->data->data[l].im = fseries_for_dewhitening->data->data[l + dewhitened_tseries->data->length/2 - 1].im*sqrt(psd->data->data[ l ]/(2.*deltaF)) ;
-				}
-
-				if (isnan(dewhitened_fseries->data->data[l].im) || isnan(dewhitened_fseries->data->data[l].re)){
-					fprintf(stderr, "%d", l);
-					exit(1);
-				}
+					dewhitened_fseries->data->data[l].im = fseries_for_dewhitening->data->data[l + dewhitened_tseries->data->length/2 - 1 ].im*sqrt(psd->data->data[ l ]/(2.*deltaF)) ;
 		   }			
-
-
 
 	return 0;
 
 }
+
 
 static int populate_interpolants_on_patches(struct twod_waveform_interpolant_manifold *manifold, COMPLEX16FrequencySeries *fseries, COMPLEX16FrequencySeries *fseries_for_ifft, COMPLEX16TimeSeries *tseries, COMPLEX16FFTPlan *revplan, int length_max, double f_min){
 

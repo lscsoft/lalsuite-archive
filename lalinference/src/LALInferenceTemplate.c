@@ -41,11 +41,10 @@
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceInterps.h>
 
+#include <math.h>
 #include <complex.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_blas.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_vector.h>
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_complex_math.h>
 #include <gsl/gsl_linalg.h>
@@ -69,10 +68,15 @@ extern int newswitch; //temporay global variable to use the new LALSTPN
 static void destroyCoherentGW( CoherentGW *waveform );
 static void q2eta(double q, double *eta);
 static void q2masses(double mc, double q, double *m1, double *m2);
-
+static size_t NextPow2(const size_t n);
 //////////////////////////////////////////////////////////////////
 //DEPRECATED. Use LALInferenceTemplateLALGenerateInspiral() or LALInferenceTemplateXLALSimInspiralChooseWaveform() instead
 //////////////////////////////////////////////////////////////////
+
+static size_t NextPow2(const size_t n) {
+      return 1 << (size_t) ceil(log2(n));
+    }
+
 void LALInferenceLALTemplateGeneratePPN(LALInferenceIFOData *IFOdata){
 
 	static LALStatus status;								/* status structure */	
@@ -1076,7 +1080,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
   double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
   double instant;
-  double f_isco, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
+  double f_isco, f_max, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
  
   //int Nfft = IFOdata->timeData->data->length;
 
@@ -1091,7 +1095,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   COMPLEX16FrequencySeries *dewhitened_fseries; 
   deltaT = IFOdata->timeData->deltaT;
   deltaF = IFOdata->freqData->deltaF;
-
+  
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
     approximant = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
   else {
@@ -1140,21 +1144,16 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   /*********************************************************/
    
   f_isco = ffinal(m1 + m2);
+  f_max = NextPow2(f_isco);
 
-  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow, f_isco);
+  dewhiten_template_wave(h_t, dewhitened_tseries, dewhitened_fseries, fseries_for_dewhitening, fwdplan_for_dewhitening, IFOdata->manifold->psd, IFOdata->fLow, f_isco, f_max);
 
   n = IFOdata->freqData->data->length;
 
-      /* copy over: */
-    dewhitened_fseries->data->data[0].re = dewhitened_fseries->data->data[0].re;
-    dewhitened_fseries->data->data[0].im = 0.0;
 
-    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re = IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].re;
-    IFOdata->freqModelhPlus->data->data[IFOdata->freqModelhPlus->data->length-1].im = 0.0;
  
-
     t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
-    for (i=1; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
+    for (i=0; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
       templateReal = dewhitened_fseries->data->data[i].re;
 
       templateImag = dewhitened_fseries->data->data[i].im;
@@ -1162,15 +1161,13 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
       f = ((double) i) * deltaF;
       re = cos(twopit * f + phi);
       im =  -sin(twopit * f + phi);
-
       IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
       IFOdata->freqModelhPlus->data->data[i].im = templateImag*re + templateReal*im;
 
     }
 
-
   /* (now frequency-domain plus-waveform has been computed, either directly or via FFT)   */
-  for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
+  for (i=0; i<IFOdata->freqModelhCross->data->length-1; ++i) {
     IFOdata->freqModelhCross->data->data[i].re = -IFOdata->freqModelhPlus->data->data[i].im;
     IFOdata->freqModelhCross->data->data[i].im = IFOdata->freqModelhPlus->data->data[i].re;
   }
@@ -1188,7 +1185,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
 
   /* Now...template is not (necessarily) located at specified coalescence time  */
   /* and/or we don't know even where it actually is located...                  */
-  /* Figure out time location corresponding to template just computed:          */
+  /* Figure out time locatin corresponding to template just computed:          */
 
     instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
@@ -1199,6 +1196,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);
   XLALDestroyCOMPLEX16FrequencySeries(dewhitened_fseries);
   XLALDestroyCOMPLEX16FFTPlan(fwdplan_for_dewhitening);
+
+
   return;
 }
 
@@ -2028,7 +2027,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   
 	distance	= LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
 	
-  f_min = IFOdata->fLow * 0.9;
+  f_min = IFOdata->fLow;
   f_max = IFOdata->fHigh;
   
 	REAL8 start_time	= *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "time");   			/* START time as per lalsimulation conventions */
