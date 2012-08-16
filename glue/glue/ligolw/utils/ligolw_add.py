@@ -63,7 +63,7 @@ def url2path(url):
 	scheme, host, path, nul, nul, nul = urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return path
-	raise ValueError, url
+	raise ValueError(url)
 
 
 def remove_input(urls, preserves, verbose = False):
@@ -152,7 +152,7 @@ def merge_compatible_tables(elem):
 				# src and dest have the same names
 				if compare_table_cols(dest, src):
 					# but they have different columns
-					raise ValueError, "document contains %s tables with incompatible columns" % dest.getAttribute("Name")
+					raise ValueError("document contains %s tables with incompatible columns" % dest.getAttribute("Name"))
 				# and the have the same columns
 				# copy src rows to dest
 				for row in src:
@@ -172,7 +172,16 @@ def merge_compatible_tables(elem):
 #
 
 
-def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, contenthandler = None):
+class DefaultContentHandler(ligolw.LIGOLWContentHandler):
+	"""
+	Default content handler used by ligolw_add().  Not intended for use
+	outside this module.
+	"""
+	pass
+lsctables.use_in(DefaultContentHandler)
+
+
+def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, contenthandler = DefaultContentHandler):
 	"""
 	An implementation of the LIGO LW add algorithm.  urls is a list of
 	URLs (or filenames) to load, xmldoc is the XML document tree to
@@ -186,7 +195,7 @@ def ligolw_add(xmldoc, urls, non_lsc_tables_ok = False, verbose = False, content
 
 	# ID reassignment
 	if not non_lsc_tables_ok and lsctables.HasNonLSCTables(xmldoc):
-		raise ValueError, "non-LSC tables found.  Use --non-lsc-tables-ok to force"
+		raise ValueError("non-LSC tables found.  Use --non-lsc-tables-ok to force")
 	reassign_ids(xmldoc, verbose = verbose)
 
 	# Document merge

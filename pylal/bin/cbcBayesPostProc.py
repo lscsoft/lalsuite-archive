@@ -86,7 +86,9 @@ def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
-                        injfile=None,eventnum=None,skyres=None,
+                        injfile=None,eventnum=None,
+                        trigfile=None,trignum=None,
+                        skyres=None,
                         #direct integration evidence
                         dievidence=False,boxing=64,difactor=1.0,
                         #elliptical evidence
@@ -125,6 +127,13 @@ def cbcBayesPostProc(
     votfile=None
     if eventnum is not None and injfile is None:
         print "You specified an event number but no injection file. Ignoring!"
+
+    if trignum is not None and trigfile is None:
+        print "You specified a trigger number but no trigger file. Ignoring!"
+
+    if trignum is None and trigfile is not None:
+        print "You specified a trigger file but no trigger number. Taking first entry (the case for GraceDB events)."
+        trignum=0
 
     if data is None:
         raise RuntimeError('You must specify an input data file')
@@ -174,6 +183,10 @@ def cbcBayesPostProc(
             else:
                 injection=injections[eventnum]
 
+    #Get trigger
+    triggers = None
+    if trigfile is not None and trignum is not None:
+        triggers = bppu.readCoincXML(trigfile, trignum)
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -181,6 +194,8 @@ def cbcBayesPostProc(
         bfile=open(bayesfactornoise,'r')
         BSN=bfile.read()
         bfile.close()
+        if(len(BSN.split())!=1):
+          BSN=BSN.split()[0]
         print 'BSN: %s'%BSN
     if bayesfactorcoherent is not None:
         bfile=open(bayesfactorcoherent,'r')
@@ -209,7 +224,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -254,11 +269,19 @@ def cbcBayesPostProc(
     else:
         q_name = 'q'
 
-    if (mchirp_name in pos.names and 'eta' in pos.names) and \
+    if 'sym_massratio' in pos.names:
+        eta_name= 'sym_massratio'
+    else:
+	if 'massratio' in pos.names:
+        	eta_name= 'massratio'
+    	else:
+        	eta_name='eta'
+
+    if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
+        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,eta_name))
 
     if (mchirp_name in pos.names and q_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -688,13 +711,13 @@ def cbcBayesPostProc(
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
-
+        acfail=0
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
-                (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                 try:
+		    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                     lines=plt.plot(acf, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
@@ -705,6 +728,7 @@ def cbcBayesPostProc(
                         plt.title('ACL = %i   N = %i'%(acl,Neff))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
             else:
                 try:
@@ -725,13 +749,18 @@ def cbcBayesPostProc(
                         plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+	  if not acfail:
+	    acfhtml='<td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
+	  else:
+	    acfhtml='<td>ACF generation failed!</td>'
+          html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
         else:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
 
@@ -1018,8 +1047,10 @@ if __name__=='__main__':
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
+    parser.add_option("-t","--trig",dest="trigfile",help="Coinc XML file",metavar="COINC.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
+    parser.add_option("--trignum",dest="trignum",action="store",default=None,help="trigger number in CoincTable",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
     parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
@@ -1067,7 +1098,7 @@ if __name__=='__main__':
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
-    polParams=['psi']
+    polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
@@ -1113,6 +1144,10 @@ if __name__=='__main__':
         for ip in incParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([ip,sp])
+            for phip in phaseParams:
+                twoDGreedyMenu.append([ip,phip])
+            for psip in polParams:
+                twoDGreedyMenu.append([ip,psip])
         for sp1 in skyParams:
             for sp2 in skyParams:
                 if not (sp1 == sp2):
@@ -1125,13 +1160,28 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
-
+        for psip in polParams:
+            for phip in phaseParams:
+                twoDGreedyMenu.append([psip,phip])
+            for sp in skyParams:
+                twoDGreedyMenu.append([psip,sp])
+            for sp in spinParams:
+                twoDGreedyMenu.append([psip,sp])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
+    if not opts.no2D:
+        for dt1 in ['h1_end_time','l1_end_time','v1_end_time']:
+            for dt2 in ['h1_end_time','l1_end_time','v1_end_time']:
+                if dt1!=dt2:
+                    twoDGreedyMenu.append([dt1,dt2])
+        for dt1 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
+            for dt2 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
+                if dt1!=dt2:
+                    twoDGreedyMenu.append([dt1,dt2])
     for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
         greedyBinSizes[param]=0.01
     #Confidence levels
@@ -1145,7 +1195,9 @@ if __name__=='__main__':
                         opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
-                        injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        injfile=opts.injfile,eventnum=opts.eventnum,
+                        trigfile=opts.trigfile,trignum=opts.trignum,
+                        skyres=opts.skyres,
                         # direct integration evidence
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         # Ellipitical evidence

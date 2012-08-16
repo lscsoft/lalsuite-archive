@@ -129,7 +129,7 @@ def get_param(xmldoc, name):
 	"""
 	params = getParamsByName(xmldoc, name)
 	if len(params) != 1:
-		raise ValueError, "document must contain exactly one %s param" % StripParamName(name)
+		raise ValueError("document must contain exactly one %s param" % StripParamName(name))
 	return params[0]
 
 
@@ -199,7 +199,7 @@ class Param(ligolw.Param):
 		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(file, indent + ligolw.Indent)
 		if self.pcdata is not None:
 			# we have to strip quote characters from string

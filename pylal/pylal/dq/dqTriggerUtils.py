@@ -690,7 +690,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 # =============================================================================
 
 def fromLALCache(cache, etg, start=None, end=None, columns=None,\
-                 virgo=False, verbose=False):
+                 virgo=False, verbose=False, snr=False):
 
   """
     Extract triggers froa given ETG from all files in a glue.lal.Cache object.
@@ -710,11 +710,17 @@ def fromLALCache(cache, etg, start=None, end=None, columns=None,\
   # load files
   for i,e in enumerate(cache):
     if re.search('(xml|xml.gz)\Z', e.path()):
-      trigs.extend(fromtrigxml(open(e.path()), tablename=trigs.tableName,\
-                               start=start, end=end, columns=columns))
+      trigsTmp = fromtrigxml(open(e.path()), tablename=trigs.tableName,\
+                               start=start, end=end, columns=columns)
     else:
-      trigs.extend(fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
-                                columns=columns, virgo=virgo))
+      trigsTmp = fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
+                                columns=columns, virgo=virgo)
+    # keep only triggers above SNR threshold if requested
+    if snr:
+      trigs.extend(t for t in trigsTmp if t.snr > snr)
+    else:
+      trigs.extend(trigsTmp)
+
     # print verbose message
     if verbose and len(cache)>1:
       progress = int((i+1)/num)

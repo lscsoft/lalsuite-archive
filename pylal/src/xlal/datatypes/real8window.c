@@ -126,7 +126,7 @@ static PyTypeObject pylal_real8window_type = {
  */
 
 
-void initreal8window(void)
+PyMODINIT_FUNC initreal8window(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8Window type.");
 

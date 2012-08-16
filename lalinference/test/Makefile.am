@@ -29,6 +29,13 @@ LALInferenceProposalTest_SOURCES = \
 LALInferenceInterpsTest_SOURCES = \
 	LALInferenceInterps.c \
 	LALInferenceInterps.h
+LALInferenceInjectionTest_SOURCES = \
+	LALInferenceTestInjectionLikelihood.c
+	LALInferenceTest.h
+
+LALInferenceKDTest_SOURCES = \
+	LALInferenceKDTest.c \
+	LALInferenceTest.h
 
 check_PROGRAMS = \
 	LALInferenceTest \
@@ -36,6 +43,8 @@ check_PROGRAMS = \
 	LALInferenceLikelihoodTest \
 	LALInferenceProposalTest \
 	LALInferenceInterpsTest
+	LALInferenceKDTest \
+	LALInferenceInjectionTest \
 	$(XMLPRG)
 
 TESTS = \
@@ -43,6 +52,7 @@ TESTS = \
 	LALInferencePriorTest \
 	LALInferenceLikelihoodTest \
 	LALInferenceInterpsTest \
+	LALInferenceKDTest \
 	$(XMLPRG)
 
 endif

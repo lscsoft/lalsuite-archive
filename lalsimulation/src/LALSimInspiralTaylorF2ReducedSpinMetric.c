@@ -584,6 +584,17 @@ int XLALSimInspiralTaylorF2RedSpinComputeNoiseMoments(
     REAL8 df)               /**< frequency resolution of the psd vector (Hz) */
 {
     size_t i;
+    const size_t ilow = (size_t) (fLow / df);  /* PSD starts at 0 Hz; others start at fLow */
+
+    /* some minimum error checking */
+    if ( !momI_0 || !momI_2 || !momI_3 || !momI_4 || !momI_5 || !momI_6 || !momI_7 || !momI_8 || !momI_9 || !momI_10 || !momI_11 || !momI_12 || !momI_13 || !momI_14 || !momI_15 || !momI_16 || !momJ_5 || !momJ_6 || !momJ_7 || !momJ_8 || !momJ_9 || !momJ_10 || !momJ_11 || !momJ_12 || !momJ_13 || !momJ_14 || !momK_10 || !momK_11 || !momK_12) {
+        XLALPrintError("Moments not initialized");
+        XLAL_ERROR(XLAL_EDOM);
+    }
+    if (momI_0->length > (Sh->length - ilow)) {
+        XLALPrintError("Sh not long enough to fill moment vectors");
+        XLAL_ERROR(XLAL_EDOM);
+    }
 
     momI_0->data[0] = 0.;
     momI_2->data[0] = 0.;
@@ -619,8 +630,7 @@ int XLALSimInspiralTaylorF2RedSpinComputeNoiseMoments(
 
     const REAL8 fLowmSevenBythree = pow(fLow, -7./3.);
     const REAL8 fLowFac = fLowmSevenBythree * df;
-    const size_t ilow = (size_t) (fLow / df);  /* PSD starts at 0 Hz; others start at fLow */
-    for (i=1; i<Sh->length; i++) {
+    for (i=1; i < momI_0->length; i++) {
          const REAL8 psdfac = Sh->data[i + ilow];
          if (psdfac) {
              const REAL8 fbyfLow = (i*df+fLow)/fLow;
@@ -717,6 +727,11 @@ int XLALSimInspiralTaylorF2RedSpinMetricChirpTimes(
     REAL8Vector *momK_12     /**< noise moments: momK_16(f) = \int_f0^f (f'/f0)^{(16-17)/3} log(f'/f0) log(f'/f0) df' */
 ) {
 
+    if (theta0 <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (theta3 <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (fLow <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (df <= 0) XLAL_ERROR(XLAL_EDOM);
+
     REAL8 theta0_p2 = theta0 * theta0;
     REAL8 theta3_p2 = theta3 * theta3;
     REAL8 theta3s_p2 = theta3s * theta3s;
@@ -745,7 +760,15 @@ int XLALSimInspiralTaylorF2RedSpinMetricChirpTimes(
      * (Schwarzschild test particle ISCO). Note that the first frequency
      * bin correspond to a frequency of fLow  */
     REAL8 fISCO = (8*sqrt(0.6666666666666666)*fLow*LAL_PI*theta0)/(15.*theta3);
+    if (fISCO <= fLow) {
+        XLALPrintError("fISCO <= fLow");
+        XLAL_ERROR(XLAL_EDOM);
+    }
     size_t iCut = (fISCO - fLow) / df;
+    if (iCut > momI_10->length - 1) {
+        XLALPrintWarning("moments do not cover fISCO (%g Hz); truncating to (%g Hz)", fISCO, (momI_10->length - 1) * df + fLow);
+        iCut = momI_10->length - 1;
+    }
 
     /* template norm */
     REAL8 hSqr = 2.*momI_10->data[iCut];

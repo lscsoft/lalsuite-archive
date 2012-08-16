@@ -33,9 +33,20 @@ import sys
 
 
 from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import array
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
+
+
+class ContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+
+array.use_in(ContentHandler)
+lsctables.use_in(ContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -259,7 +270,7 @@ seglists = segments.segmentlistdict()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose), u"ligolw_burca_tailor")
+	c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler), u"ligolw_burca_tailor")
 	distributions += c
 	seglists |= s
 if options.verbose:
