@@ -1488,6 +1488,7 @@ if __name__=='__main__':
   wavErr       = opts.waveform_error
   calErrs      = {}
   calErrs['H1']= opts.h1_cal_error
+  calErrs['H2']= opts.h2_cal_error
   calErrs['L1']= opts.l1_cal_error
   calErrs['V1']= opts.v1_cal_error
   calDCErrs       = {}
