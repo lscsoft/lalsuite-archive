@@ -99,7 +99,7 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
     raise Error("No injection files found.")
 
   # get ifos
-  ifos = lsctables.instrument_set_from_ifos(trigcache[0].observatory)
+  ifos = lsctables.instrument_set_from_ifos(trigcache[-1].observatory)
 
   if verbose: sys.stdout.write("Cache files loaded at %d.\n" % elapsed_time())
 
