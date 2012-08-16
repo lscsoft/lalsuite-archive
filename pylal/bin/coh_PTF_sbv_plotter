@@ -80,6 +80,10 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                     default=None,\
                     help="The location of the CAT2/3 veto files")
 
+  parser.add_option( "-M", "--max-chirp-mass", action="store", type="float",\
+                     default=8.0,\
+                     help="maximum allowed chirp mass, default %default" )
+
   (opts,args) = parser.parse_args()
 
   if not opts.trig_file:
@@ -98,7 +102,8 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 # =============================================================================
 
 def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
-         chisq_nhigh=3.0, null_thresh=[4.25,6],verbose=False,vetoFiles=[]):
+         chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=8.0,\
+         vetoFiles=[], verbose=False):
  
   if verbose:
     sys.stdout.write("Imported and ready to go at %d.\n" % elapsed_time())
@@ -190,6 +195,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   trigNullSNR   = numpy.asarray(trigs.get_null_snr())
   trigNullstat  = numpy.asarray(trigs.get_column('null_statistic'))
   trigTraceSNR  = numpy.asarray(trigs.get_column('null_stat_degen'))
+  trigMchirp    = numpy.asarray(trigs.get_column('mchirp'))
 
   # get chisq data
   trigChiSquare = numpy.asarray(trigs.get_column('chisq'))
@@ -297,6 +303,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     injNullSNR   = numpy.asarray(injs.get_null_snr())
     injNullstat  = numpy.asarray(injs.get_column('null_statistic'))
     injTraceSNR  = numpy.asarray(injs.get_column('null_stat_degen'))
+    #injMchirp    = numpy.asarray(injs.get_column('mchirp'))
   
     # get chisq data
     injChiSquare = numpy.asarray(injs.get_column('chisq'))
@@ -434,8 +441,8 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax  = fig.gca()
   ax.plot(trigSNR, trigMchirp, 'bx')
   ax.grid()
-  if injFile:
-    ax.plot(injSNR, injMchirp, 'r+')
+  #if injFile:
+  #  ax.plot(injSNR, injMchirp, 'r+')
   ax.set_xlabel("Coherent SNR")
   ax.set_ylabel("Chirp mass ($M_{\odot}$)")
   ax.plot(snr_vals, mass_vals, 'k-')
@@ -1038,6 +1045,7 @@ if __name__=='__main__':
   GRBnum    = 'GRB%s' % opts.grb_name
   q         = opts.chisq_index
   n         = opts.chisq_nhigh
+  max_mchirp = opts.max_chirp_mass
   segdir    = opts.segment_dir
   nullt     = map(float, opts.null_snr_threshold.split(','))
   vetoFiles = []
@@ -1046,5 +1054,6 @@ if __name__=='__main__':
 
 
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
-        chisq_nhigh=n,null_thresh = nullt, verbose=verbose,vetoFiles=vetoFiles)
+       chisq_nhigh=n, null_thresh = nullt, max_mchirp=max_mchirp,\
+       vetoFiles=vetoFiles, verbose=verbose)
   if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))
