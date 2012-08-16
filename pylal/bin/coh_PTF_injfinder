@@ -145,7 +145,7 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
 
   # set up columns
   cols = ['end_time', 'end_time_ns', 'ifos', 'process_id', 'ra', 'dec', 'snr',\
-          'null_statistic', 'null_stat_degen']
+          'null_statistic', 'null_stat_degen','mass1','mass2','eta','mchirp']
   # add snr
   cols.extend(['snr_%s' % ifoAtt[i] for i in ifos])\
   # add chisq
@@ -169,7 +169,8 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   # SimInspiralTable
   cols = ['geocent_end_time', 'geocent_end_time_ns', 'mass1', 'mass2',\
           'mchirp', 'f_lower', 'inclination', 'spin1x', 'spin1y', 'spin1z',\
-          'spin2x', 'spin2y', 'spin2z', 'longitude', 'latitude', 'distance']
+          'spin2x', 'spin2y', 'spin2z', 'longitude', 'latitude', 'distance',\
+          'eff_dist_h','eff_dist_l','eff_dist_v']
   cols = [c for c in cols if c\
           in lsctables.SimInspiralTable.validcolumns.keys()]
   lsctables.SimInspiralTable.loadcolumns = cols
