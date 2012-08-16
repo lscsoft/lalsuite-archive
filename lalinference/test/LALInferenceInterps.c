@@ -619,7 +619,7 @@ static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_
 
 static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double order, COMPLEX16FrequencySeries *hOfF){
 	
-	generate_template_TaylorF2ReducedSpin(m1, m2, f_low, f_high, 1./duration, order, hOfF->data->length, hOfF->data->data);
+	generate_template_TaylorF2ReducedSpin(m1, m2, 0.5*f_low, f_high, 1./duration, order, hOfF->data->length, hOfF->data->data);
 	return 0;
 }
 

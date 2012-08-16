@@ -1160,7 +1160,7 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
 
   n = IFOdata->freqData->data->length;
 
-
+  
  
     t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
     for (i=0; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
@@ -1171,8 +1171,8 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
       f = ((double) i) * deltaF;
       re = cos(twopit * f + phi);
       im =  -sin(twopit * f + phi);
-      IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
-      IFOdata->freqModelhPlus->data->data[i].im = templateImag*re + templateReal*im;
+      IFOdata->freqModelhPlus->data->data[i].re = -templateReal*re + templateImag*im;
+      IFOdata->freqModelhPlus->data->data[i].im = -templateImag*re - templateReal*im;
 
     }
 
@@ -1181,10 +1181,10 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
     IFOdata->freqModelhCross->data->data[i].re = -IFOdata->freqModelhPlus->data->data[i].im;
     IFOdata->freqModelhCross->data->data[i].im = IFOdata->freqModelhPlus->data->data[i].re;
   }
-  /* calculate frequency at ISCO and zero waveform after f_isco */
+ /* calculate frequency at ISCO and zero waveform after f_isco */
  
 
-  for (i=1; i<IFOdata->freqModelhCross->data->length-1; ++i) {
+  for (i=0; i<IFOdata->freqModelhCross->data->length-1; ++i) {
     // consider inclination angle's effect:
     IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
     IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
@@ -1206,8 +1206,6 @@ void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
   XLALDestroyCOMPLEX16FrequencySeries(fseries_for_dewhitening);
   XLALDestroyCOMPLEX16FrequencySeries(dewhitened_fseries);
   XLALDestroyCOMPLEX16FFTPlan(fwdplan_for_dewhitening);
-
-
   return;
 }
 
@@ -2031,7 +2029,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   
 	inclination	= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");	    /* inclination in radian */
 	phi0		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase"); /* START phase as per lalsimulation convention*/
-	
 	REAL8 a_spin1		= 0.0;
 	if(LALInferenceCheckVariable(IFOdata->modelParams, "a_spin1"))		a_spin1		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "a_spin1");
 	REAL8 theta_spin1	= inclination; //default to spin aligned case if no angles are provided for the spins. 
@@ -2115,7 +2112,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");
         XLAL_ERROR_VOID(XLAL_EFAULT);
       }
-      
       COMPLEX16 *dataPtr = htilde->data->data;
       for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
         dataPtr = htilde->data->data;
@@ -2128,7 +2124,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       }
       /* nomalise (apply same scaling as in XLALREAL8TimeFreqFFT()") : */
       //for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-        //IFOdata->freqModelhPlus->data->data[i].re *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
+        //IFOdata->reqModelhPlus->data->data[i].re *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
         //IFOdata->freqModelhPlus->data->data[i].im *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
       //}
 

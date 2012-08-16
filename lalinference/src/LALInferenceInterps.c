@@ -490,8 +490,8 @@ static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_
 
         }
 
-        H.re = (REAL4) (amp * cos(Psi+shft*f+phi0+LAL_PI/4.));   /* real */
-        H.im = (REAL4) -(amp * sin(Psi+shft*f+phi0+LAL_PI/4.));  /* imag */
+        H.re = (REAL4) (amp * cos(Psi+shft*f + phi0 + LAL_PI/4.));   /* real */
+        H.im = (REAL4) -(amp * sin(Psi+shft*f + phi0 + LAL_PI/4.));  /* imag */
 
 	hOfF[i] = H;    
    }    

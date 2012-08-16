@@ -2122,7 +2122,6 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
       sprintf(fname,"%s.injection",ppt->value);
     }
     else fname=defaultname;
-
     ppt=LALInferenceGetProcParamVal(runState->commandLine,"--event");
     if (ppt) {
       UINT4 event = atoi(ppt->value);
@@ -2176,7 +2175,6 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     fprintf(outfile,"\n");
     LALInferencePrintSample(outfile,runState->currentParams);
     fclose(outfile);
-    
     /* Set things back the way they were */    
     //LALInferenceCopyVariables(&backup,runState->currentParams);
     //if(runState->currentParams && runState->currentParams->head) runState->likelihood(runState->currentParams,runState->data,runState->template);
