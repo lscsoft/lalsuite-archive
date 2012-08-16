@@ -136,7 +136,7 @@ option "power-max-median-factor" - "This determines scaling factor between media
 option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed to in-place standard deviation)" int default="1" no
 option "summing-step" - "integration step size, in seconds" double no
 option "max-first-shift" - "larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function" int default="10" no
-option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, universal, sorted" string default="robust" no
+option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, universal, sorted" string default="universal" no
 option "confidence-level" - "specify desired confidence level for universal upper limit function" double default="0.95" no
 
 option "dump-power-sums" - "Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels" int default="0" no

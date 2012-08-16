@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.52-64
+VERSION=1.4.53-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -301,7 +301,7 @@ test5c: powerflux-mt2
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
   		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.5e2 \
 		--extra-phase "H1 45" --extra-phase "L1 90" --extra-phase "test 180" \
-		--output test5c
+		--output test5c --preallocate-memory=0.5 --expected-timebase 14
 
 test6a: powerflux-mt2
 	 ./powerflux-mt2 --dataset=random.dst -f 180002 -n 501 \

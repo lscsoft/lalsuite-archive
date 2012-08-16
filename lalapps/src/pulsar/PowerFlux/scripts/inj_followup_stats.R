@@ -36,9 +36,11 @@ Params[,"h0_rel"]<-Params[,"h0"]/Params[,"ul"]
 Params[,"ecl_cos"]<-dot2(Params[,"ra"], Params[,"dec"], ecliptic_pole)
 
 Params[,"h0_rel_gaussian"]<-ifelse(Params[,"non_gaussian"], NA, Params[,"h0_rel"])
+Params[,"h0_rel_gaussian_B"]<-ifelse(Params[,"non_gaussian"] | abs(Params[,"f0"]-615)<10, NA, Params[,"h0_rel"])
 Params[,"h0_rel_non_gaussian"]<-ifelse(!Params[,"non_gaussian"], NA, Params[,"h0_rel"])
 
 Params[,"ecl_cos_large"]<-ifelse(Params[,"h0_rel"]>=1, Params[,"ecl_cos"], NA)
+Params[,"ecl_cos_large_B"]<-ifelse(Params[,"h0_rel"]>=1 & abs(Params[,"f0"]-615)>10, Params[,"ecl_cos"], NA)
 Params[,"spindown_large"]<-ifelse(Params[,"h0_rel"]>=1, Params[,"spindown"], NA)
 Params[,"f0_large"]<-ifelse(Params[,"h0_rel"]>=1, Params[,"f0"], NA)
 
@@ -71,20 +73,40 @@ Input[is.na(Input[,"dist"]), "dist"]<-0.3
 Output[,"dist"]<-dist(Output[,"ra_orig"], Output[,"dec_orig"], Output[,"ra_inj"], Output[,"dec_inj"])
 Output[is.na(Output[,"dist"]), "dist"]<-0.3
 
+C<-merge(Input[,setdiff(names(Input), "line_id_orig"),drop=FALSE], Output, by.x=c("i", "line_id"), by.y=c("i", "line_id_orig"), suffixes=c("_input", "_output"), all=TRUE)
+missing_injections<-C[is.na(C[,"snr_output"]) & !is.na(C[,"snr_input"]),,drop=FALSE]
+
+write.table(missing_injections, "missing_injections.csv", col.names=TRUE, row.names=FALSE)
+
+
 ROC_table<-function(table, col="h0_inj", group.func=function(x)return(x), groups) {
 	table[,"Found"]<- as.integer(!is.na(table[,"snr"]))
 	X<-table[order(table[,"Found"], decreasing=TRUE),,drop=FALSE]
 	X<-X[!duplicated(X[,"i"]),,drop=FALSE]
 	Gy<-group.func(X[,col])
-	Group<-findInterval(Gy, groups, rightmost.closed=TRUE)
+	Group<-findInterval(Gy, groups, rightmost.closed=TRUE, all.inside=TRUE)
 
+	# Aggregate orders Group column right now - but just to be sure in case later R versions do it differently
 	Y<-aggregate(X[,"Found",drop=FALSE], list(Group=Group), mean)
-	return(Y)
+	Y<-Y[order(Y[,1]),,drop=FALSE]
+	Y2<-aggregate(X[,"Found",drop=FALSE], list(Group=Group), sd)
+	Y2<-Y2[order(Y2[,1]),,drop=FALSE]
+	Y3<-aggregate(X[,"Found",drop=FALSE], list(Group=Group), length)
+	Y3<-Y3[order(Y3[,1]),,drop=FALSE]
+
+	return(cbind(Y, data.frame(Found_sd=Y2[,2]/sqrt(Y3[,2]))))
 	}
 
-ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func=function(x)return(x), groups=10, ...) {
+error.bar <- function(x, y, upper, lower=upper, length=0.1,...) {
+	if(length(x) != length(y) | length(y) !=length(lower) | length(lower) != length(upper))
+		stop("vectors must be same length")
+	panel.arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+	}
+
+ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func=function(x)return(x), groups=10, error.bars=FALSE, ...) {
 	Gy<-group.func(c(Input[,col], Output[,col]))
-	Groups<-seq(min(Gy, na.rm=TRUE), max(Gy, na.rm=TRUE), length.out=groups)
+	#Groups<-seq(min(Gy, na.rm=TRUE), max(Gy, na.rm=TRUE), length.out=groups)
+	Groups<-quantile(Gy, (0:groups)/groups, na.rm=TRUE)
 
 	ROCInput<-ROC_table(Input, col=col, group.func=group.func, groups=Groups)
 	ROCOutput<-ROC_table(Output, col=col, group.func=group.func, groups=Groups)
@@ -94,7 +116,15 @@ ROC_plot<-function(col="h0_inj", group.func=function(x)return(x), group.inv.func
 
 	C[,"Found_input"]<-C[,"Found_input"]*100
 	C[,"Found_output"]<-C[,"Found_output"]*100
-	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), par.settings=list(superpose.symbol=list(pch=c(3,1,4))), cex=1, ...))
+	C[,"Found_sd_input"]<-C[,"Found_sd_input"]*100
+	C[,"Found_sd_output"]<-C[,"Found_sd_output"]*100
+	print(xyplot(as.formula(p("Found_input+Found_output~", col)), C, pch=c(3, 1), par.settings=list(superpose.symbol=list(pch=c(3,1,4))), cex=1, col=c("blue", "magenta"), ...))
+	trellis.focus("panel", row=1, column=1)
+	if(error.bars) {
+		print(error.bar(C[,col], C[,"Found_input"], C[,"Found_sd_input"], col="blue"))
+		print(error.bar(C[,col], C[,"Found_output"], C[,"Found_sd_output"], col="magenta"))
+		}
+	trellis.unfocus()
 	}
 
 ComparisonPlot<-function(formula, decreasing=TRUE, best.snr=FALSE, omit.found=FALSE, auto.key=list(text=c("Input", "Output"), columns=2), pch=c(3, 1), ...) {
@@ -124,11 +154,15 @@ ROC_plot(group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list
 dev.off()
 
 make_plot("injection_recovery_rel")
-ROC_plot(col="h0_rel", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=60, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
+ROC_plot(col="h0_rel", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=40, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
 dev.off()
 
 make_plot("injection_recovery_rel_gaussian")
-ROC_plot(col="h0_rel_gaussian", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=60, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
+ROC_plot(col="h0_rel_gaussian", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=40, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
+dev.off()
+
+make_plot("injection_recovery_rel_gaussian_B")
+ROC_plot(col="h0_rel_gaussian_B", group.func=log10, group.inv.func=function(x)return(10^x), auto.key=list(columns=2), xlab="h0 relative to upper limit", ylab="% found", groups=40, panel=function(x,y,...) { panel.abline(v=1, col="green4"); panel.abline(h=95, col="green4"); panel.xyplot(x,y,...) })
 dev.off()
 
 make_plot("injection_recovery_rel_non_gaussian")
@@ -169,6 +203,10 @@ dev.off()
 
 make_plot("injection_recovery_by_ecliptic_pole_projection_large")
 ROC_plot(col="ecl_cos_large", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
+dev.off()
+
+make_plot("injection_recovery_by_ecliptic_pole_projection_large_B")
+ROC_plot(col="ecl_cos_large_B", auto.key=list(columns=2), xlab="Projection on ecliptic axis", ylab="% found")
 dev.off()
 
 make_plot("injection_recovery_by_ecliptic_pole_projection_large2")
