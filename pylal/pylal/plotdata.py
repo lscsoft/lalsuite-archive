@@ -409,8 +409,10 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
     # restrict data to the correct limits for plotting
     #
 
+    interpolate = logy and ydata is None
+
     for i,sequence in enumerate(sequencelist):
-        if logy and ydata is None:
+        if interpolate:
            # interpolate the data onto a log-scale
            sequence,ydata = loginterpolate(sequence, f0[i], deltaF[i])
         if logy and ylim:
@@ -422,7 +424,8 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
                newsequence.data[j,:] = sequence.data[j,:][plotted]
            del sequence
            sequencelist[i] = newsequence
-           ydata = ydata[plotted]
+    if len(sequencelist) and logy and ylim:
+        ydata = ydata[plotted]
 
     #
     # format bins
