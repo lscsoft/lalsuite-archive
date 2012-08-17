@@ -98,7 +98,7 @@ def cbcBayesPostProc(
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=None,
                         #nested sampling options
-                        ns_flag=False,ns_xflag=False,ns_Nlive=None,
+                        ns_flag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
                         ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
@@ -150,7 +150,7 @@ def cbcBayesPostProc(
 
     elif ns_flag and not ss_flag:
         peparser=bppu.PEOutputParser('ns')
-        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive,xflag=ns_xflag)
+        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive)
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
@@ -1207,7 +1207,7 @@ if __name__=='__main__':
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=opts.snr,
                         #nested sampling options
-                        ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
+                        ns_flag=opts.ns,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options

@@ -3401,14 +3401,17 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,xflag=False):
+    def _ns_to_pos(self,files,Nlive=None,Npost=10000):
         """
         Parser for nested sampling output.
+        files : list of input NS files
+        Nlive : Number of live points
+        Npost : Desired number of posterior samples
         """
         try:
-            from lalapps.combine_evidence import combine_evidence
+            from lalapps.nest2pos import draw_N_posterior_many
         except ImportError:
-            print "Need lalapps.combine_evidence to convert nested sampling output!"
+            print "Need lalapps.nest2pos to convert nested sampling output!"
             raise
 
         if Nlive is None:
@@ -3424,6 +3427,7 @@ class PEOutputParser(object):
         if(os.path.isfile(parsfilename)):
             print 'Looking for '+parsfilename
             if os.access(parsfilename,os.R_OK):
+                parsfile=open(parsfilename,'r')
                 outpars=parsfile.readline()
                 parsfile.close()
             else:
@@ -3443,7 +3447,8 @@ class PEOutputParser(object):
             print 'Error! Could not find logL column in parameter list: %s'%(outpars)
             raise
 
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive,logLcolumn=logLcol)
+        inarrays=map(np.loadtxt,files)
+        pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
 
         posfilename='posterior_samples.dat'
         posfile=open(posfilename,'w')
