@@ -123,7 +123,7 @@ def readTimeSeries(h5file, name, group=None, start=None, duration=None,\
     length = endidx-startidx
 
     # build series
-    createTimeSeries = getattr(lal, "create%sTimeSeries" % TYPECODE)
+    createTimeSeries = getattr(lal, "Create%sTimeSeries" % TYPECODE)
     series = createTimeSeries(name, epoch, f0, deltaT, sampleUnits,\
                               length)
     series.data.data = dataset[startidx:endidx].astype(numpytype)
@@ -191,7 +191,7 @@ def readFrequencySeries(h5file, name, group=None, fmin=None, fmax=None,\
     length = endidx-startidx
     
     # build series
-    createFrequencySeries = getattr(lal, "create%sFrequencySeries" % TYPECODE)
+    createFrequencySeries = getattr(lal, "Create%sFrequencySeries" % TYPECODE)
     series = createFrequencySeries(name, epoch, f0, deltaF, sampleUnits,\
                                    length)
     series.data.data = dataset[startidx:endidx].astype(numpytype)
