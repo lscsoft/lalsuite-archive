@@ -804,7 +804,7 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 # Function to generate an omega online cache
 # =============================================================================
 
-def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
+def omega_online_cache(start, end, channel, mask='DOWNSELECT',\
                        check_files_exist=False, **kwargs):
 
   """
@@ -818,9 +818,16 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
         GPS start time of requested period
       end : [ float | int | LIGOTimeGPS ]
         GPS end time of requested period
-      ifo : [ "H1" | "L1" | "V1" ]
+      channel name or ifo : [ "H1" | "L1" | "V1" | "G1:SEI_TCC_STS2x" | ... ]
         IFO
   """
+
+  # format channel
+  if re.match('\w\d:', channel):
+    ifo, channel = channel.split(':', 1)
+  else:
+    ifo = channel
+    channel = None
 
   cache = LALCache()
 
@@ -834,8 +841,11 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
 
   span = segments.segment(start,end)
   if ifo == 'G1':
-    kwargs.setdefault('directory', '/home/omega/online/G1/segments')
-    kwargs.setdefault('epoch', 983669456)
+    if channel:
+      kwargs.setdefault('directory', '/home/omega/online/%s_%s/segments' % (ifo, channel))
+    else:
+      kwargs.setdefault('directory', '/home/omega/online/%s/segments' % ifo)
+    kwargs.setdefault('epoch', 0)
   else:
     kwargs.setdefault('directory',\
                       '/home/omega/online/%s/archive/S6/segments' % ifo)
