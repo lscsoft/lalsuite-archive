@@ -198,6 +198,97 @@ def readFrequencySeries(h5file, name, group=None, fmin=None, fmax=None,\
 
     return series
 
+def readVectorSequence(h5file, name, group=None, start=None, duration=None,\
+                       fmin=None, fmax=None, datatype=None):
+    """
+    Read VectorSequence object from HDF5 file.
+
+    Returns SWIG-bound LAL VectorSequence, LIGOTimeGPS epoch, float deltaT,
+    float f0, float deltaF.
+
+    Arguments:
+
+        h5file : [ h5py.File | str ]
+            open HDF5 file object, or path to HDF5 file on disk.
+        name : str
+            name of data object in HDF5 file relative in it's group.
+
+    Keyword arguments:
+
+        group : str
+            name of HDF5 Group containing data object required.
+        start : LIGOTimeGPS
+            GPS start time of data requested, defaults to first data point.
+        duration : float
+            length of data (seconds) requested, default to all data.
+        fmin : float
+            lower frequency bound on data returned
+        fmax : float
+            upper frequency bound on data returned
+        datatype : int
+            LAL typecode for output datatype, defaults to type of data found.
+    """
+    own = False
+    if not isinstance(h5file, h5py.File):
+       h5file = h5py.File(h5file, "r")
+       own = True
+
+    # read data
+    dataset, metadata =  readArray(h5file, name, group=group)
+    if own:
+        h5file.close()
+
+    # parse metadata
+    epoch = lal.LIGOTimeGPS(metadata.pop("epoch", 0))
+    deltaT = float(metadata.pop("dx", 0))
+    f0 = float(metadata.pop("f0", 0))
+    deltaF = float(metadata.pop("dy", 0))
+
+    # get series type
+    if not datatype:
+        datatype = _numpy_lal_typemap[dataset.dtype.type]
+    TYPECODE = seriesutils._typestr[datatype]
+    numpytype = _lal_numpy_typemap[datatype]
+
+    # cut data to size
+    if duration is None:
+        length = dataset.shape[0]
+    else:
+        length = int(duration / deltaT)
+    if start is None:
+        x0 = 0
+    else:
+        start = float(epoch) + (float(start)-float(epoch))//deltaT*deltaT
+        if start < epoch:
+            start = epoch
+        x0 = int(max(0, (float(start)-float(epoch))/deltaT))
+        epoch = lal.LIGOTimeGPS(start)
+    length = min(dataset.size, x0 + length) - x0
+    if fmin is None:
+        fmin = f0
+    else:
+        fmin = f0 + (fmin-f0)//deltaF*deltaF
+    y0 = int(max(0, (fmin-f0)/deltaF))
+    if fmax is None:
+        fmax = f0 + dataset.shape[1] * deltaF
+    else:
+        fmax = f0 + ((fmax-f0)//deltaF)*deltaF
+    vectorLength = int(min(dataset.size, (fmax-fmin)/deltaF)) - y0
+
+    # build series
+    createVectorSequence = getattr(lal, "Create%sVectorSequence" % TYPECODE)
+    sequence = createVectorSequence(length, vectorLength)
+
+    for i,x in enumerate(numpy.arange(length)+x0):
+        # get correct array
+        sequence.data[i] = dataset[x,:][y0:y0+vectorLength].astype(numpytype)
+        
+    return sequence, epoch, deltaT, f0, deltaF
+
+    series.data.data = dataset[startidx:endidx].astype(numpytype)
+
+    return series
+
 def readArray(h5file, name, group=None):
     """
     Read numpy.ndarray from h5py.File object h5file.
