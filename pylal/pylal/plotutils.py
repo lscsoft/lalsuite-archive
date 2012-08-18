@@ -913,8 +913,21 @@ class ImagePlot(BasicPlot):
                       y_bins.lower()[0], y_bins.upper()[-1]]
             plot_kwargs.setdefault("origin", "lower")
             plot_kwargs.setdefault("interpolation", "nearest")
-            if logcolor:
-                plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
+            if logcolor and clim:
+                plot_kwargs.setdefault(\
+                    "norm", pylab.matplotlib.colors.LogNorm(vmin=clim[0],\
+                                                            vmax=clim[1]))
+            elif logcolor:
+                plot_kwargs.setdefault("norm",\
+                                       pylab.matplotlib.colors.LogNorm())
+            elif clim:
+                plot_kwargs.setdefault(\
+                    "norm", pylab.matplotlib.colors.Normalize(vmin=clim[0],\
+                                                              vmax=clim[1]))
+            if colorbar:
+                plot_kwargs.setdefault("cmap", \
+                     pylab.matplotlib.colors.LinearSegmentedColormap("clrs",\
+                                       pylab.matplotlib.cm.jet._segmentdata))
 
             im = self.ax.imshow(image, extent=extent, **plot_kwargs)
 

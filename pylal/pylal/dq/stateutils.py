@@ -52,10 +52,10 @@ def tosegmentlistdict(timeseries, bitmask):
         segdict[flag] = segments.segmentlist()
 
     # convert DQ bits into segments
-    tarray = arange(timeseries.data.length) * timeseries.deltaT +\
-             timeseries.epoch
+    tarray = arange(timeseries.data.length) * float(timeseries.deltaT) +\
+             float(timeseries.epoch)
     for t,d in zip(tarray.astype(float), timeseries.data.data):
-        binary = _bits(d, len(bits))
+        binary = _bits(d, bits[-1]+1)
         seg    = segments.segment(t, t-timeseries.deltaT)
         for bit,flag in zip(bits, flags):
             if binary[bit] == 1:
