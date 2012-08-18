@@ -361,8 +361,8 @@ else
     log_and_show "retrieving boinc"
     log_and_do cd "$SOURCE"
     if test ".$gitweb" = ".true" ; then
-        log_and_do wget --no-check-certificate -O "boinc-$boinc_rev.tar.gz" \
-            "https://git.aei.uni-hannover.de/cgi-bin/gitweb.cgi?p=shared/einsteinathome/boinc.git;a=snapshot;h=$boinc_rev;sf=tgz"
+        echo "curl -k 'https://git.aei.uni-hannover.de/cgi-bin/gitweb.cgi?p=shared/einsteinathome/boinc.git;a=snapshot;h=$boinc_rev;sf=tgz' > 'boinc-$boinc_rev.tar.gz'" >> "$LOGFILE"
+        curl -k "https://git.aei.uni-hannover.de/cgi-bin/gitweb.cgi?p=shared/einsteinathome/boinc.git;a=snapshot;h=$boinc_rev;sf=tgz" > "boinc-$boinc_rev.tar.gz" 2>> "$LOGFILE" || fail
         log_and_do rm -rf boinc
         log_and_do tar -xzvf "boinc-$boinc_rev.tar.gz"
     elif test -d "boinc" -a -d "boinc/.git"; then
