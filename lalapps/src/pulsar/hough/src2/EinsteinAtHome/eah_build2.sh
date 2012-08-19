@@ -279,13 +279,21 @@ if echo "$LDFLAGS" | grep -e -m64 >/dev/null; then
     LDFLAGS="-L$INSTALL/lib64 $LDFLAGS"
 fi
 
+# Jenkins build info
+if [ -n "$BUILD_NUMBER" -a -n "$JOB_NAME" -a -z "$BUILD_INFO" ]; then
+  export BUILD_INFO="Jenkins build #$BUILD_NUMBER of $JOB_NAME"
+fi
+if [ -n "$BUILD_INFO" ]; then
+  CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO_H"
+fi
+
+# export environment variables
 export CPPFLAGS="-DGCTTOP_MAX_IFOS=2 -DUSEXLALLOADSFTS -DBOINC_APIV6 -D__NO_CTYPE -DUSE_BOINC -DEAH_BOINC -I$INSTALL/include $CPPFLAGS"
 export LDFLAGS
 export LD_LIBRARY_PATH="$INSTALL/lib:$LD_LIBRARY_PATH"
 export DYLD_LIBRARY_PATH="$INSTALL/lib:$DYLD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$INSTALL/lib/pkgconfig:$PKG_CONFIG_PATH"
 export BOINC_PREFIX="$INSTALL"
-
 
 # make sure the E@H directory exists (for logging)
 mkdir -p "$EAH" || fail
@@ -294,6 +302,7 @@ echo " " >> "$LOGFILE"
 log_and_show "==========================================="
 log_and_show "Build start `date`"
 
+# log environment variables
 echo "$0" "$@" >> "$LOGFILE"
 echo CC="\"$CC\"" >> "$LOGFILE"
 echo CXX="\"$CXX\"" >> "$LOGFILE"
@@ -308,6 +317,7 @@ echo PKG_CONFIG_PATH="\"$PKG_CONFIG_PATH\"" >> "$LOGFILE"
 echo BOINC_PREFIX="\"$BOINC_PREFIX\"" >> "$LOGFILE"
 echo RELEASE_DEPS="\"$RELEASE_DEPS\"" >> "$LOGFILE"
 echo RELEASE_LDADD="\"$RELEASE_LDADD\"" >> "$LOGFILE"
+echo BUILD_INFO="\"$BUILD_INFO\"" >> "$LOGFILE"
 
 gsl=gsl-1.9
 fftw=fftw-3.2.2
@@ -326,7 +336,9 @@ if [ ."$build_win32" = ."true" ] ; then
     echo '#define index(s,c) strchr(s,c)'  >> "$INSTALL/include/win32_hacks.h"
 fi
 
-
+if [ -n "$BUILD_INFO" ]; then
+  echo '#define BUILD_INFO "'"$BUILD_INFO"'"' > "$INSTALL/include/build_info.h"
+fi
 
 log_and_do cd "$SOURCE"
 
