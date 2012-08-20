@@ -29,8 +29,8 @@ from glue import iterutils
 from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import lsctables
 from glue.ligolw import table
+from glue.ligolw import lsctables
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
@@ -46,7 +46,7 @@ def new_coincs_from_coincs(coincTable, coinc_stat):
   these new (sub)coincidences, we have to assign each of them a unique event ID.
   """
   newCoincTable = CoincInspiralUtils.coincInspiralTable()
-  id_generator = lsctables.SnglInspiralID_old()
+  id_generator = SnglInspiralUtils.SnglInspiralID_old()
   for row in coincTable:
     break_up_coinc(row, newCoincTable, coinc_stat, id_generator)
   return newCoincTable

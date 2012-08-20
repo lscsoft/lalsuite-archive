@@ -1129,24 +1129,6 @@ MultiBurstTable.RowType = MultiBurst
 SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 
 
-class SnglInspiralID_old(object):
-	"""
-	Custom row ID thing for sngl_inspiral tables with int_8s event IDs.
-	"""
-	# FIXME: remove this class when the event_id column no longer
-	# encodes time slide information.
-	column_name = "event_id"
-
-	def __init__(self, n = 0):
-		self.n = n
-
-	def new(self, row):
-		self.n += 1
-		a = self.n // 100000
-		b = self.n % 100000
-		return SnglInspiralID(a * 1000000000 + row.get_id_parts()[1] * 100000 + b)
-
-
 class SnglInspiralTable(table.Table):
 	tableName = "sngl_inspiral:table"
 	validcolumns = {
@@ -1210,22 +1192,33 @@ class SnglInspiralTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  uncomment the next line when the event_id column no
-	# longer encodes time slide information
 	# FIXME:  lal uses an ID of 0 to indicate "no valid ID has been
 	# set", so we start at 1 for safety, but eventually that should be
 	# fixed in LAL and then this can be put back to 0 for cleanliness.
-	#next_id = SnglInspiralID(1)
+	next_id = SnglInspiralID(1)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 	def updateKeyMapping(self, mapping):
-		# FIXME: remove this method when the event_id column no
-		# longer encodes time slide information
-		if self.next_id is not None:
-			for row in self:
-				if row.event_id not in mapping:
-					mapping[row.event_id] = self.next_id.new(row)
-				row.event_id = mapping[row.event_id]
+		# hacked version of stock .updateKeyMapping() method that
+		# can detect lalapps_thinca-style event IDs, to prevent
+		# accidentally ligolw_adding old-style thinca documents.
+		#
+		# FIXME: remove this method when we can be certain nobody
+		# is trying to run ligolw_add on lalapps_thinca files
+		if self.next_id is None:
+			raise ValueError(self)
+		try:
+			column = self.getColumnByName(self.next_id.column_name)
+		except KeyError:
+			# table is missing its ID column, this is a no-op
+			return mapping
+		for i, old in enumerate(column):
+			if int(old) >= 100000000000000000:
+				raise ValueError("ligolw_add does not support lalapps_thinca documents;  convert to coinc tables format and try again")
+			if old in mapping:
+				column[i] = mapping[old]
+			else:
+				column[i] = mapping[old] = self.get_next_id()
 		return mapping
 
 	def get_column(self,column):

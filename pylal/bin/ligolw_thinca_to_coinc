@@ -94,15 +94,6 @@ lsctables.SnglInspiral.__hash__ = __sngl_inspiral_hash__
 
 
 #
-# Disable the custom ID remapping attached to the SnglInspiralTable class
-# (use the generic ID mapping provided by the parent class instead)
-#
-
-
-del lsctables.SnglInspiralTable.updateKeyMapping
-
-
-#
 # =============================================================================
 #
 #                                 Command Line
@@ -1617,8 +1608,12 @@ for (tag, veto_category), url_pairs in url_categories.items():
 	else:
 		output_template = None
 	for n, url_pair in enumerate(url_pairs):
+		# temporarily disable sngl_inspiral ID remapping for
+		# lalapps_thinca input
 		lsctables.SnglInspiralTable.next_id = None
+		# load lalapps_thinca document(s)
 		xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
+		# re-enable sngl_inspiral ID remapping
 		lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
 		process = initialize_process(xmldoc)
