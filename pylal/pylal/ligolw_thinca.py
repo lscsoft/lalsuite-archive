@@ -561,10 +561,10 @@ class sngl_inspiral_coincs(object):
 	coinc_definer:coinc_def_id:0
 	>>> coincs.keys()
 	[<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x41a4328>]
-	>>> id = coincs.keys()[0]
-	>>> print id
+	>>> coinc_id = coincs.keys()[0]
+	>>> print coinc_id
 	coinc_event:coinc_event_id:83763
-	>>> coincs[id].write()
+	>>> coincs[coinc_id].write()
 	<?xml version='1.0' encoding='utf-8'?>
 	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
 	<LIGO_LW>
