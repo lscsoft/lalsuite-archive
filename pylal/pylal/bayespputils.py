@@ -3418,10 +3418,7 @@ class PEOutputParser(object):
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
                        
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
-
         posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
        
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
@@ -3433,14 +3430,14 @@ class PEOutputParser(object):
         
         if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
+
             if os.access(parsfilename,os.R_OK):
 
-                parsfile=open(parsfilename,'r')
-                outpars=parsfile.readline()
-                parsfile.close()
+                with open(parsfilename,'r') as parsfile: 
+                    outpars=parsfile.readline()+'\n'
             else:
-                print 'Cannot open parameters file %s!'%(parsfilename)
-                raise
+                raise RuntimeError('Cannot open parameters file %s!'%(parsfilename))
+
         else: # Use hardcoded CBC parameter names
             outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
             dec \t psi \t iota \t logl \n'
@@ -3453,25 +3450,23 @@ class PEOutputParser(object):
                 logLcol=i
         if logLcol==-1:
             print 'Error! Could not find logL column in parameter list: %s'%(outpars)
-            raise
+            raise RuntimeError
 
         inarrays=map(np.loadtxt,files)
         pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
 
-        posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
-        posfile.write(outpars)
+        with open(posfilename,'w') as posfile:
+            
+            posfile.write(outpars)
         
-        for row in pos:
-            for i in row:
-                posfile.write('%.12e\t' %(i))
-            posfile.write('\n')
-        posfile.close()
-
-        posfile=open(posfilename,'r')
-        return_val=self._common_to_pos(posfile)
-        posfile.close()
-
+            for row in pos:
+                for i in row:
+                    posfile.write('%.12e\t' %(i))
+                posfile.write('\n')
+        
+        with open(posfilename,'r') as posfile:
+            return_val=self._common_to_pos(posfile)
+        
         return return_val
 
     def _followupmcmc_to_pos(self,files):
