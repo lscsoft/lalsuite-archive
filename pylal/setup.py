@@ -714,7 +714,7 @@ setup(
 		os.path.join("bin", "auxmvc_comparison_plots.py"),
 		os.path.join("bin", "pylal_imr_search_volume"),
 		os.path.join("bin", "pylal_imr_plot_search_volume"),
-		os.path.join("bin", "pylal_imr_plot_search_volume"),
+		os.path.join("bin", "pylal_imr_plot_ifar"),
 		os.path.join("bin", "pylal_cbc_rankprod"),
 		os.path.join("bin", "pylal_cbc_ulmc"),
 		os.path.join("bin", "pylal_noise_budget")
