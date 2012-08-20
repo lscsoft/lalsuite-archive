@@ -111,8 +111,6 @@ def cbcBayesConvergence(
     peparser=bppu.PEOutputParser('ns')
     posfilename=os.path.join(outdir,'posterior_samples.dat')
     
-    print new_data
-    
     for i in range(len(data)):
         commonResultsObj=peparser.parse(new_data[i],Nlive=ns_Nlive)
         pos = bppu.Posterior(commonResultsObj)
