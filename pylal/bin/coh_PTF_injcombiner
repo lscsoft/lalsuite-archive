@@ -80,13 +80,48 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
   sieved = injcache.sieve(description=injString, exact_match=False)
   foundcache = sieved.sieve(description='FOUND', exact_match=False)
   missedcache = sieved.sieve(description='MISSED', exact_match=False)
-
+  ifos = lsctables.instrument_set_from_ifos(foundcache[0].observatory)
 
   if len(foundcache)<1 or len(missedcache)<1:
     raise Error, 'No injection files found.'
 
   if len(foundcache) != len(missedcache):
     raise Error, "Length of found and missed not equal!"
+
+  # set columns
+  ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' }
+
+  # set up columns
+  cols = ['end_time', 'end_time_ns', 'ifos', 'process_id', 'ra', 'dec', 'snr',\
+          'null_statistic', 'null_stat_degen']
+  # add snr
+  cols.extend(['snr_%s' % ifoAtt[i] for i in ifos])\
+  # add chisq
+  cols.extend(['chisq', 'chisq_dof'])
+  cols.extend(['chisq_%s' % ifoAtt[i] for i in ifos])
+  # add bank chisq
+  cols.extend(['bank_chisq', 'bank_chisq_dof'])
+  #cols.extend(['bank_chisq_%s' % ifoAtt[i] for i in ifos])
+  # add auto chisq  
+  cols.extend(['cont_chisq', 'cont_chisq_dof'])
+  #cols.extend(['cont_chisq_%s' % ifoAtt[i] for i in ifos])
+  # add sigmasq
+  cols.extend(['sigmasq_%s' % ifoAtt[i] for i in ifos])
+  # add amplitude terms
+  cols.extend(['amp_term_%d' % i for i in xrange(1,11)])
+  # set columns
+  cols = [c for c in cols if c\
+          in lsctables.MultiInspiralTable.validcolumns.keys()]
+  lsctables.MultiInspiralTable.loadcolumns = cols
+
+  # SimInspiralTable
+  cols = ['geocent_end_time', 'geocent_end_time_ns', 'mass1', 'mass2',\
+          'mchirp', 'f_lower', 'inclination', 'spin1x', 'spin1y', 'spin1z',\
+          'spin2x', 'spin2y', 'spin2z', 'longitude', 'latitude', 'distance']
+  cols = [c for c in cols if c\
+          in lsctables.SimInspiralTable.validcolumns.keys()]
+  lsctables.SimInspiralTable.loadcolumns = cols
+
 
 
   cache_dict = {}
@@ -102,9 +137,9 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
       raise Error, "Cannot match up found and missed files"
     cache_dict[angle] = [found,miss]
 
-  foundInjs = lsctables.New(lsctables.SimInspiralTable)
-  missedInjs = lsctables.New(lsctables.SimInspiralTable)
-  foundTrigs = lsctables.New(lsctables.MultiInspiralTable)
+  foundInjs = lsctables.New(lsctables.SimInspiralTable,columns=lsctables.SimInspiralTable.loadcolumns)
+  missedInjs = lsctables.New(lsctables.SimInspiralTable,columns=lsctables.SimInspiralTable.loadcolumns)
+  foundTrigs = lsctables.New(lsctables.MultiInspiralTable,columns=lsctables.MultiInspiralTable.loadcolumns)
  
   for angle,[found,missed] in cache_dict.items():
     if angle >= maxIncl:

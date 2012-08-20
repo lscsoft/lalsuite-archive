@@ -189,17 +189,17 @@ class RewindableInputFile(object):
 			if offset >= 0 and pos - len(self.buf) <= offset <= pos:
 				self.reuse = pos - offset
 			else:
-				raise IOError, "seek out of range"
+				raise IOError("seek out of range")
 		elif whence == os.SEEK_CUR:
 			if self.reuse - len(self.buf) <= offset:
 				self.reuse -= offset
 			else:
-				raise IOError, "seek out of range"
+				raise IOError("seek out of range")
 		elif whence == os.SEEK_END:
 			if offset == 0:
 				self.gzip_hack_pretend_to_be_at_eof = True
 			else:
-				raise IOError, "seek out of range"
+				raise IOError("seek out of range")
 
 	def tell(self):
 		if self.gzip_hack_pretend_to_be_at_eof:
@@ -476,5 +476,5 @@ def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_si
 	else:
 		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
-		raise ValueError, "%s is not a local file" % repr(url)
+		raise ValueError("%s is not a local file" % repr(url))
 	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)

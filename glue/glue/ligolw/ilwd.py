@@ -277,7 +277,7 @@ class ilwdchar(object):
 		try:
 			table_name, column_name, i = s.strip().split(":")
 		except (ValueError, AttributeError):
-			raise ValueError("invalid ilwd:char %s" % repr(s))
+			raise ValueError("invalid ilwd:char '%s'" % repr(s))
 
 		#
 		# retrieve the matching class from the ID class cache, and
