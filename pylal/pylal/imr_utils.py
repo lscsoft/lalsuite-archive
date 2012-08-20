@@ -139,7 +139,12 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 	segs = segments.segmentlistdict()
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
-		segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		if live_time_program == "gstlal_inspiral":
+			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		elif live_time_program == "thinca":
+			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		else:
+			raise ValueError("for burst tables livetime program must be one of gstlal_inspiral, thinca")
 		if veto_segments_name is not None:
 			veto_segs = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
 			segs -= veto_segs
