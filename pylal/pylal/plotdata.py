@@ -34,8 +34,7 @@ import numbers
 
 from scipy import interpolate
 
-import swiglal as lal
-import swiglalframe as lalframe
+import lal
 
 from pylal import plotutils
 from pylal import seriesutils
@@ -96,12 +95,11 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
             t0 = start
         t0 = lal.LIGOTimeGPS(t0)
         if int(t0.gpsNanoSeconds) == 0:
-            xlabel = datetime.datetime(*lal.XLALGPSToUTC([2000]*6,int(t0))[:6])\
+            xlabel = datetime.datetime(*lal.GPSToUTC(int(t0))[:6])\
                          .strftime("%B %d %Y, %H:%M:%S %ZUTC")
             xlabel = "Time (%s) since %s (%s)" % (timestr, xlabel, int(t0))
         else:
-            xlabel = datetime.datetime(*lal.XLALGPSToUTC([2000]*6,\
-                                                         t0.gpsSeconds)[:6])\
+            xlabel = datetime.datetime(*lal.GPSToUTC(t0.gpsSeconds)[:6])\
                           .strftime("%B %d %Y, %H:%M:%S %ZUTC")
             xlabel = "Time (%s) since %s (%s)"\
                      % (timestr,
@@ -142,6 +140,9 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
         x = x.astype(float)
         x /= unit
         if color: c = color
+        d = series.data.data
+        if logy and ylim:
+            numpy.putmask(d, d==0, ylim[0]-abs(ylim[0])*0.01)
         plot.add_content(x, series.data.data, color=c,\
                          label=plotutils.display_name(series.name), **kwargs)
         # find min/max and plot
@@ -152,9 +153,11 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
                     x2 = numpy.arange(series2.data.length) * series2.deltaT\
                          + float(series2.epoch) - float(t0)
                     x2 /= unit
-                    plot.ax.plot(x2, series2.data.data, color=c, **kwargs2)
-                    plot.ax.fill_between(x2, series.data.data,\
-                                         series2.data.data, alpha=0.1,\
+                    d2 = series2.data.data
+                    if logy and ylim:
+                        numpy.putmask(d2, d2==0, ylim[0]-abs(ylim[0])*0.01)
+                    plot.ax.plot(x2, d2, color=c, **kwargs2)
+                    plot.ax.fill_between(x2, d, d2, alpha=0.1,\
                                          color=c)
 
     # finalize
@@ -386,12 +389,11 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
             t0 = start
         t0 = lal.LIGOTimeGPS(t0)
         if int(t0.gpsNanoSeconds) == 0:
-            xlabel = datetime.datetime(*lal.XLALGPSToUTC([2000]*6,int(t0))[:6])\
+            xlabel = datetime.datetime(*lal.GPSToUTC(int(t0))[:6])\
                          .strftime("%B %d %Y, %H:%M:%S %ZUTC")
             xlabel = "Time (%s) since %s (%s)" % (timestr, xlabel, int(t0))
         else:
-            xlabel = datetime.datetime(*lal.XLALGPSToUTC([2000]*6,\
-                                                         t0.gpsSeconds)[:6])\
+            xlabel = datetime.datetime(*lal.GPSToUTC(t0.gpsSeconds)[:6])\
                           .strftime("%B %d %Y, %H:%M:%S %ZUTC")
             xlabel = "Time (%s) since %s (%s)"\
                      % (timestr,
@@ -407,20 +409,23 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
     # restrict data to the correct limits for plotting
     #
 
+    interpolate = logy and ydata is None
+
     for i,sequence in enumerate(sequencelist):
-        if logy and ydata is None:
+        if interpolate:
            # interpolate the data onto a log-scale
            sequence,ydata = loginterpolate(sequence, f0[i], deltaF[i])
         if logy and ylim:
            plotted = (ydata > ylim[0]) & (ydata <= ylim[1])
            newVectorLength = int(plotted.sum())
-           newsequence = lal.XLALCreateREAL8VectorSequence(sequence.length,\
+           newsequence = lal.CreateREAL8VectorSequence(sequence.length,\
                                                            newVectorLength)
            for j in range(sequence.length):
                newsequence.data[j,:] = sequence.data[j,:][plotted]
            del sequence
            sequencelist[i] = newsequence
-           ydata = ydata[plotted]
+    if len(sequencelist) and logy and ylim:
+        ydata = ydata[plotted]
 
     #
     # format bins
@@ -509,7 +514,7 @@ def loginterpolate(sequence, y0, deltaY, N=None):
     # make new sequence
     datatype = seriesutils.typecode(type(sequence))
     TYPESTR  = seriesutils._typestr[datatype]
-    func     = getattr(lal, "XLALCreate%sVectorSequence" % TYPESTR)
+    func     = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out      = func(sequence.length, N)
     
     # interpolate columnwise

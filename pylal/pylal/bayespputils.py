@@ -58,6 +58,7 @@ except ImportError:
 
 #local application/library specific imports
 import pylal
+from pylal import lalconstants
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
@@ -238,76 +239,40 @@ def _inj_phi2(inj):
             return phi_mpi_to_pi
 
 def _inj_tilt1(inj):
-    Sx  = inj.spin1x
-    Sy  = inj.spin1y
-    Sz  = inj.spin1z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt1 = array_ang_sep(L,S1)
+    if np.max(S1) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt1
 
 def _inj_tilt2(inj):
-    Sx  = inj.spin2x
-    Sy  = inj.spin2y
-    Sz  = inj.spin2z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt2 = array_ang_sep(L,S2)
+    if np.max(S2) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt2
 
 def _inj_thetas(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
 
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
-    
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
-    
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos(Jz/Jmag)
+    thetas = array_polar_ang(J)
+    return thetas
     
 def _inj_beta(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
-
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
     
-    S1x  = inj.mass1*inj.mass1*inj.spin1x
-    S1y  = inj.mass1*inj.mass1*inj.spin1y
-    S1z  = inj.mass1*inj.mass1*inj.spin1z
-    
-    S2x  = inj.mass2*inj.mass2*inj.spin2x
-    S2y  = inj.mass2*inj.mass2*inj.spin2y
-    S2z  = inj.mass2*inj.mass2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+    beta  = array_ang_sep(J,L)
+    return beta
 
 
 #===============================================================================
@@ -729,7 +694,7 @@ class Posterior(object):
                         'costilt1': lambda inj: np.cos(_inj_tilt1),
                         'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
-                        'theta_s':_inj_thetas,
+                        'thetas':_inj_thetas,
                         'beta':_inj_beta
                        }
 
@@ -2208,8 +2173,7 @@ def orbital_momentum(f_lower, mc, inclination):
     """
     Calculate orbital angular momentum vector.
     """
-    mtsun = 4.92549095e-06          #Msol in seconds
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * f_lower, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -3438,14 +3402,17 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,xflag=False):
+    def _ns_to_pos(self,files,Nlive=None,Npost=10000):
         """
         Parser for nested sampling output.
+        files : list of input NS files
+        Nlive : Number of live points
+        Npost : Desired number of posterior samples
         """
         try:
-            from lalapps.combine_evidence import combine_evidence
+            from lalapps.nest2pos import draw_N_posterior_many
         except ImportError:
-            print "Need lalapps.combine_evidence to convert nested sampling output!"
+            print "Need lalapps.nest2pos to convert nested sampling output!"
             raise
 
         if Nlive is None:
@@ -3467,17 +3434,33 @@ class PEOutputParser(object):
         if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
             if os.access(parsfilename,os.R_OK):
-                parsfile = open(parsfilename,'r')
-                outpars = parsfile.readline()
+
+                parsfile=open(parsfilename,'r')
+                outpars=parsfile.readline()
                 parsfile.close()
             else:
-              print "Need files of parameters "+parsfilename
-              raise RuntimeError
-        
-            posfile.write(outpars+'\n')
-        else: # use hardcoded CBC parameter names 
-            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
-dec \t psi \t iota \t likelihood \n')     
+                print 'Cannot open parameters file %s!'%(parsfilename)
+                raise
+        else: # Use hardcoded CBC parameter names
+            outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+            dec \t psi \t iota \t logl \n'
+
+        # Find the logL column
+        parsvec=outpars.split()
+        logLcol=-1
+        for i in range(len(parsvec)):
+            if parsvec[i].lower()=='logl':
+                logLcol=i
+        if logLcol==-1:
+            print 'Error! Could not find logL column in parameter list: %s'%(outpars)
+            raise
+
+        inarrays=map(np.loadtxt,files)
+        pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+
+        posfilename='posterior_samples.dat'
+        posfile=open(posfilename,'w')
+        posfile.write(outpars)
         
         for row in pos:
             for i in row:

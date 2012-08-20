@@ -257,7 +257,7 @@ def get_table(xmldoc, name):
 	"""
 	tables = getTablesByName(xmldoc, name)
 	if len(tables) != 1:
-		raise ValueError, "document must contain exactly one %s table" % StripTableName(name)
+		raise ValueError("document must contain exactly one %s table" % StripTableName(name))
 	return tables[0]
 
 
@@ -381,7 +381,7 @@ class Column(ligolw.Column):
 		for i in xrange(len(self.parentNode)):
 			if getattr(self.parentNode[i], self.asattribute) == value:
 				return i
-		raise ValueError, value
+		raise ValueError(value)
 
 	def __contains__(self, value):
 		"""
@@ -400,7 +400,7 @@ class Column(ligolw.Column):
 		array will *not* be recorded in the original document.
 		"""
 		if self.getAttribute("Type") not in ligolwtypes.NumericTypes:
-			raise TypeError, "Column '%s' does not have numeric type" % self.getAttribute("Name")
+			raise TypeError("Column '%s' does not have numeric type" % self.getAttribute("Name"))
 		import numpy
 		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.getAttribute("Type")])
 
@@ -611,7 +611,7 @@ class Table(ligolw.Table, list):
 			col, = getColumnsByName(self, name)
 		except ValueError:
 			# did not find exactly 1 matching child
-			raise KeyError, name
+			raise KeyError(name)
 		return col
 
 
@@ -640,7 +640,7 @@ class Table(ligolw.Table, list):
 		try:
 			self.getColumnByName(name)
 			# if we get here the table already has that column
-			raise ValueError, "duplicate Column '%s'" % name
+			raise ValueError("duplicate Column '%s'" % name)
 		except KeyError:
 			pass
 		column = Column(AttributesImpl({u"Name": "%s:%s" % (StripTableName(self.tableName), name), u"Type": self.validcolumns[name]}))
@@ -670,17 +670,17 @@ class Table(ligolw.Table, list):
 			if self.validcolumns is not None:
 				try:
 					if self.validcolumns[colname] != llwtype:
-						raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s', expected type '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"), self.validcolumns[colname])
+						raise ligolw.ElementError("invalid type '%s' for Column '%s' in Table '%s', expected type '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"), self.validcolumns[colname]))
 				except KeyError:
-					raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
+					raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name")))
 			if colname in self.columnnames:
-				raise ligolw.ElementError, "duplicate Column '%s' in Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
+				raise ligolw.ElementError("duplicate Column '%s' in Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name")))
 			self.columnnames.append(colname)
 			self.columntypes.append(llwtype)
 			try:
 				self.columnpytypes.append(ligolwtypes.ToPyType[llwtype])
 			except KeyError:
-				raise ligolw.ElementError, "unrecognized Type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
+				raise ligolw.ElementError("unrecognized Type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name")))
 
 	def _verifyChildren(self, i):
 		"""
@@ -693,7 +693,7 @@ class Table(ligolw.Table, list):
 			self._update_column_info()
 		elif child.tagName == ligolw.Stream.tagName:
 			if child.getAttribute("Name") != self.getAttribute("Name"):
-				raise ligolw.ElementError, "Stream name '%s' does not match Table name '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
+				raise ligolw.ElementError("Stream name '%s' does not match Table name '%s'" % (child.getAttribute("Name"), self.getAttribute("Name")))
 
 	def _end_of_columns(self):
 		"""
@@ -802,7 +802,7 @@ class Table(ligolw.Table, list):
 		Raises ValueError if the table's next_id attribute is None.
 		"""
 		if self.next_id is None:
-			raise ValueError, self
+			raise ValueError(self)
 		try:
 			column = self.getColumnByName(self.next_id.column_name)
 		except KeyError:

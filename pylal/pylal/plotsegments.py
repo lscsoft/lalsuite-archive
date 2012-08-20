@@ -239,10 +239,6 @@ def plotsegmentlistdict(segdict, outfile, keys=None, t0=None,\
     plotutils.set_time_ticks(plot.ax)
     plotutils.set_minor_ticks(plot.ax, x=False)
 
-    # set ticks
-    plotutils.set_time_ticks(plot.ax)
-    plot
-
     # save
     plot.savefig(outfile, bbox_inches=bbox_inches,\
                  bbox_extra_artists=plot.ax.texts)
@@ -461,6 +457,11 @@ def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
     if xlim:
         plot.ax.set_xlim(map(float, xlim))
     plot.ax.set_ylim(0, 100)
+
+    # set grid
+    plot.ax.grid(True, which="both")
+    plotutils.set_time_ticks(plot.ax)
+    plotutils.set_minor_ticks(plot.ax, x=False)
 
     # save figure
     plot.savefig(outfile, bbox_inches=bbox_inches,\

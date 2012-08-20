@@ -335,8 +335,9 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
     # find mappable with lowest maximum
     if not mappable:
         if len(ax.collections+ax.images) == 0:
+            norm = log and pylab.matplotlib.colors.LogNorm() or none
             mappable = ax.scatter([1], [1], c=[clim[0]], vmin=clim[0],\
-                                   vmax=clim[1], visible=False)
+                                   vmax=clim[1], visible=False, norm=norm)
         else:
             minindex = numpy.asarray([c.get_array().min() for c in\
                                       ax.collections+ax.images]).argmin()
@@ -344,9 +345,9 @@ def add_colorbar(ax, mappable=None, visible=True, log=False, clim=None,\
 
     # make sure the mappable has at least one element
     if mappable.get_array() is None:
+        norm = log and pylab.matplotlib.colors.LogNorm() or none
         mappable = ax.scatter([1], [1], c=[clim[0]], vmin=clim[0],\
-                               vmax=clim[1], visible=False)
-        
+                               vmax=clim[1], visible=False, norm=norm)
     
     # generate colorbar
     colorbar = ax.figure.colorbar(mappable, cax=cax, **kwargs)
@@ -517,8 +518,10 @@ def time_axis_unit(duration):
         return 60,"minutes"
     elif (duration) >= 20000 and (duration) < 604800:
         return 3600,"hours"
-    else:
+    elif (duration) < 8640000:
         return 86400,"days"
+    else:
+        return 2592000,"months"
 
 def set_time_ticks(ax):
     """
@@ -899,8 +902,6 @@ class ImagePlot(BasicPlot):
     def finalize(self, colorbar=True, logcolor=False, minorticks=False,\
                  clim=None):
         from pylal import rate
-        if not self.image_sets:
-            raise ValueError("nothing to finalize")
 
         logx = False
         logy = False
@@ -912,8 +913,21 @@ class ImagePlot(BasicPlot):
                       y_bins.lower()[0], y_bins.upper()[-1]]
             plot_kwargs.setdefault("origin", "lower")
             plot_kwargs.setdefault("interpolation", "nearest")
-            if logcolor:
-                plot_kwargs.setdefault("norm",pylab.matplotlib.colors.LogNorm())
+            if logcolor and clim:
+                plot_kwargs.setdefault(\
+                    "norm", pylab.matplotlib.colors.LogNorm(vmin=clim[0],\
+                                                            vmax=clim[1]))
+            elif logcolor:
+                plot_kwargs.setdefault("norm",\
+                                       pylab.matplotlib.colors.LogNorm())
+            elif clim:
+                plot_kwargs.setdefault(\
+                    "norm", pylab.matplotlib.colors.Normalize(vmin=clim[0],\
+                                                              vmax=clim[1]))
+            if colorbar:
+                plot_kwargs.setdefault("cmap", \
+                     pylab.matplotlib.colors.LinearSegmentedColormap("clrs",\
+                                       pylab.matplotlib.cm.jet._segmentdata))
 
             im = self.ax.imshow(image, extent=extent, **plot_kwargs)
 
