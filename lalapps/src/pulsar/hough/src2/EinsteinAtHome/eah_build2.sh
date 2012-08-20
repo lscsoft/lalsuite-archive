@@ -280,8 +280,9 @@ if echo "$LDFLAGS" | grep -e -m64 >/dev/null; then
 fi
 
 # Jenkins build info
-if [ -n "$BUILD_NUMBER" -a -n "$JOB_NAME" -a -z "$BUILD_INFO" ]; then
-  export BUILD_INFO="Jenkins build #$BUILD_NUMBER of $JOB_NAME"
+if [ ".$BUILD_INFO" = "." ]; then
+  test ".$BUILD_TAG" = "." || BUILD_INFO="Build $BUILD_TAG"
+  test ".$NODE_NAME" = "." || BUILD_INFO="$BUILD_INFO on $NODE_NAME"
 fi
 if [ -n "$BUILD_INFO" ]; then
   CPPFLAGS="$CPPFLAGS -DHAVE_BUILD_INFO_H"
