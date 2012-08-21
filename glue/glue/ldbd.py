@@ -554,7 +554,8 @@ class LIGOMetadata:
             if re.match(r'\Ailwd:char_u\Z',coltype):
               ligolw += '"'
               for ch in str(tupi):
-                ligolw += '\\%.3o' % (ord(ch))
+                # NOTE: escape the backslash in the ilwd:char_u octal string
+                ligolw += '\\\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
               if ilwdchar_to_hex is True:
