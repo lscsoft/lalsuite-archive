@@ -468,7 +468,7 @@ int main(int argc, char **argv)
   {
     fcTmplt->PTFQtilde          = 
         XLALCreateCOMPLEX8VectorSequence(5, numPoints / 2 + 1); 
-    fcTmplt->PTFQ         = XLALCreateVectorSequence(5, numPoints);
+    fcTmpltParams->PTFQ         = XLALCreateVectorSequence(5, numPoints);
     fcTmpltParams->PTFphi       = XLALCreateVector(numPoints);
     fcTmpltParams->PTFomega_2_3 = XLALCreateVector(numPoints);
     fcTmpltParams->PTFe1        = XLALCreateVectorSequence(3, numPoints);

@@ -370,6 +370,7 @@ tagFindChirpTmpltParams
   REAL4                         dynRange;
   REAL4Vector                  *xfacVec;
   REAL4VectorSequence          *ACTDVecs;
+  REAL4VectorSequence          *PTFQ;
   REAL4Vector                  *PTFphi;
   REAL4Vector                  *PTFomega_2_3;
   REAL4VectorSequence          *PTFe1;

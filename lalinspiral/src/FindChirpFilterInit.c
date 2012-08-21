@@ -132,46 +132,41 @@ LALCreateFindChirpInput (
     ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
   }
 
-  if( params->approximant == AmpCorPPN )
+  if ( params->approximant == FindChirpPTF )
   {
-    outputPtr->fcTmplt->ACTDtilde = 
+    /* create memory for the PTF template data */
+    outputPtr->fcTmplt->PTFQtilde =
+      XLALCreateCOMPLEX8VectorSequence( 5, params->numPoints / 2 + 1 );
+    if ( ! outputPtr->fcTmplt->PTFQtilde )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
+
+    outputPtr->fcTmplt->PTFBinverse = XLALCreateArrayL( 2, 5, 5 );
+    if ( ! outputPtr->fcTmplt->PTFBinverse )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
+
+    outputPtr->fcTmplt->PTFB = XLALCreateArrayL( 2, 5, 5 );
+    if ( ! outputPtr->fcTmplt->PTFB )
+    {
+      ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
+    }
+
+
+  }
+  else if( params->approximant == AmpCorPPN )
+  {
+    outputPtr->fcTmplt->ACTDtilde =
      XLALCreateCOMPLEX8VectorSequence( NACTDVECS, params->numPoints / 2 + 1 );
     if ( ! outputPtr->fcTmplt->ACTDtilde )
     {
       ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
     }
   }
-  else 
-  {  
-    if ( params->approximant == FindChirpPTF )
-    {
-      /* create memory for the PTF template data */
-
-      outputPtr->fcTmplt->PTFQ = XLALCreateVectorSequence( 5, params->numPoints );
-      if ( ! outputPtr->fcTmplt->PTFQ )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-
-      outputPtr->fcTmplt->PTFQtilde = 
-        XLALCreateCOMPLEX8VectorSequence( 5, params->numPoints / 2 + 1 );
-      if ( ! outputPtr->fcTmplt->PTFQtilde )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-
-      outputPtr->fcTmplt->PTFBinverse = XLALCreateArrayL( 2, 5, 5 );
-      if ( ! outputPtr->fcTmplt->PTFBinverse )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-
-      outputPtr->fcTmplt->PTFB = XLALCreateArrayL( 2, 5, 5 );
-      if ( ! outputPtr->fcTmplt->PTFB )
-      {
-        ABORT( status, FINDCHIRPH_EALOC, FINDCHIRPH_MSGEALOC );
-      }
-    }
+  else
+  {
     /* create memory for the chirp template data */
     LALCCreateVector (status->statusPtr, &(outputPtr->fcTmplt->data),
         params->numPoints / 2 + 1 );
@@ -291,11 +286,7 @@ LALDestroyFindChirpInput (
     CHECKSTATUSPTR( status );
   }
 
-  /* destroy the PTF work space */
-  if ( outputPtr->fcTmplt->PTFQ )
-  {
-    XLALDestroyVectorSequence( outputPtr->fcTmplt->PTFQ );
-  }
+  /* destroy the PTF vector sequence which stores the Qtilde's and the B^-1 */
   if ( outputPtr->fcTmplt->PTFQtilde )
   {
     XLALDestroyCOMPLEX8VectorSequence( outputPtr->fcTmplt->PTFQtilde );
