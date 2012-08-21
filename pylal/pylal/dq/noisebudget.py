@@ -15,8 +15,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-noisebudget.py - class definitions and helper functions for building a GW interferometer or system noise budget.
-
+Class definitions and helper functions for building a GW
+interferometer or system noise budget.
 Bugs/change requests: https://bugs.ligo.org/redmine/projects/detchar/issues/new
 """
 
@@ -26,10 +26,18 @@ Bugs/change requests: https://bugs.ligo.org/redmine/projects/detchar/issues/new
 
 from __future__ import division
 
-import numpy,re,copy
+import numpy
+import re
+import copy
 
 from pylal import seriesutils
-from pylal.dq import dqPlotUtils
+from pylal import plotutils
+from pylal import git_version
+
+# set metadata
+__author__  = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__version__ = git_version.id
+__date__    = git_version.date
 
 # =============================================================================
 # NoiseBudget class
@@ -39,7 +47,7 @@ class NoiseTerm(object):
     """
     Object representing one term in a noise budget/projection. It holds a few
     parameters and has methods to read data and generate ASD spectrum borrowed
-    from pylal.seriesutils, and simple plotting from pylal.dq.dqPlotUtils.
+    from pylal.seriesutils, and simple plotting from pylal.plotutils
     """
     # set types 
     typemap = {\
@@ -225,21 +233,19 @@ class NoiseTerm(object):
 
     def plot(self, outfile, **params):
         """
-    Plot the spectrum of this NoiseTerm.
+        Plot the spectrum of this NoiseTerm.
 
-    Arguments:
+        Arguments:
 
         outfile : str
             path to output file for this plot
-
-    Reference all keyword arguments from dqPlotUtils.plot_data_series.
         """
         # labels
         xlabel   = params.pop("xlabel", "Frequency (Hz)")
         ylabel   = params.pop("ylabel", "Strain amplitude spectral density "
                                         "$/\sqrt{\mbox{Hz}}$")
         title    = params.pop("title", "%s noise curve"\
-                                       % dqPlotUtils.display_name(self.name))
+                                       % plotutils.display_name(self.name))
         subtitle = params.pop("subtitle", "")
 
         # extract params
@@ -255,12 +261,12 @@ class NoiseTerm(object):
         ylim   = params.pop("ylim", None)
 
         # set plot object
-        plot = dqPlotUtils.DataPlot(xlabel, ylabel, title, subtitle)
+        plot = plotutils.DataPlot(xlabel, ylabel, title, subtitle)
 
         f = numpy.arange(self.spectrum.size) * self.deltaF +\
                          self.f0
         plot.add_content(f, self.spectrum,\
-                         label=dqPlotUtils.display_name(self.name),\
+                         label=plotutils.display_name(self.name),\
                          color=self.color, **params)
        
         if self.ref_spectrum is not None:
@@ -269,7 +275,7 @@ class NoiseTerm(object):
             f = numpy.arange(self.ref_spectrum.size) *\
                 self.ref_frequencyseries.deltaF + self.frequencyseries.f0
             plot.add_content(f, self.ref_spectrum,\
-                         label=dqPlotUtils.display_name(self.name),\
+                         label=plotutils.display_name(self.name),\
                          color=self.color, **params)
 
         # finalize plot
@@ -448,7 +454,7 @@ class NoiseBudget(list):
         xlabel   = params.pop("xlabel", "Frequency (Hz)")
         ylabel   = params.pop("ylabel", "Strain amplitude spectral density "
                                         "$/\sqrt{\mbox{Hz}}$")
-        title    = params.pop("title", dqPlotUtils.display_name(self.name))
+        title    = params.pop("title", plotutils.display_name(self.name))
         subtitle = params.pop("subtitle", "")
 
         # copy params for reference lines
@@ -457,7 +463,7 @@ class NoiseBudget(list):
         refparams['linewidth'] = 0.3
 
         # set plot object
-        plot = dqPlotUtils.DataPlot(xlabel, ylabel, title, subtitle)
+        plot = plotutils.DataPlot(xlabel, ylabel, title, subtitle)
         reference_plotted = False
 
         # plot target and noise sum
@@ -468,7 +474,7 @@ class NoiseBudget(list):
                     term.frequencyseries.f0
 
                 plot.add_content(f, term.data,\
-                                 label=dqPlotUtils.display_name(term.name),\
+                                 label=plotutils.display_name(term.name),\
                                  linecolor=term.color, **params)
  
                 # plot reference
@@ -477,7 +483,7 @@ class NoiseBudget(list):
                         self.ref_frequencyseries.deltaF +\
                         self.ref_frequencyeries.f0
                     plot.add_content(f, term.ref_spectrum,\
-                                     label=dqPlotUtils.display_name(self.name),\
+                                     label=plotutils.display_name(self.name),\
                                      color=self.color, **refparams)
                     reference_plotted = True
 
@@ -486,7 +492,7 @@ class NoiseBudget(list):
             f = numpy.arange(term.spectrum.size) * term.deltaF +\
                 term.f0
             plot.add_content(f, term.spectrum,\
-                             label=dqPlotUtils.display_name(term.name),\
+                             label=plotutils.display_name(term.name),\
                              color=term.color, **params)
             if plot_component_ref and term.ref_spectrum is not None:
                     f = numpy.arange(term.ref_spectrum.size) *\
