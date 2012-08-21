@@ -27,6 +27,7 @@ try:
   from glue import gpstime
   from glue import ldbd
   from glue import segments
+  from glue import git_version
   from glue.segmentdb import segmentdb_utils
   from glue.ligolw import table
   from glue.ligolw import lsctables
@@ -44,9 +45,9 @@ Check that glue is correctly installed and in your PYTHONPATH.
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"
-__version__ ="$Revision$"
-__src__ = "$Source$"
+__date__ = git_version.date
+__version__ = git_version.id
+__src__ = git_version.status
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -439,7 +440,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
      __version__, 
      __src__,
      gpstime.GpsSecondsFromPyUTC( time.mktime( time.strptime( 
-      __date__, "%Y/%m/%d %H:%M:%S" ) ) ),
+      __date__, "%Y-%m-%d %H:%M:%S +0000" ) ) ),
      0,
      socket.gethostname(),
      pwd.getpwuid(os.geteuid())[0],
