@@ -1,8 +1,9 @@
+import doctest
+import pickle
 import random
 import sys
 import unittest
 import verifyutils
-import doctest
 
 
 #
@@ -355,6 +356,13 @@ class test_segmentlistdict(unittest.TestCase):
 		self.assertEqual(b.all_intersects(a), False)
 
 		self.assertEqual(a.all_intersects_all(b), False)
+
+	def testpickle(self):
+		a = segments.segmentlistdict({"H1": segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])})
+		a.offsets["H1"] = 10.0
+		self.assertEqual(a, pickle.loads(pickle.dumps(a, protocol = 0)))
+		self.assertEqual(a, pickle.loads(pickle.dumps(a, protocol = 1)))
+		self.assertEqual(a, pickle.loads(pickle.dumps(a, protocol = 2)))
 
 
 #
