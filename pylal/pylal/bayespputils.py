@@ -153,27 +153,45 @@ border-bottom-style:double;
 #===============================================================================
 def _inj_m1(inj):
     """
-    Function mapping (mchirp,eta)->m1; m1>m2 .
+    Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
+    components (m1) calculated from the chirp mass and the symmetric mass ratio.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+    @rtype: number
     """
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass1
 def _inj_m2(inj):
     """
-    Function mapping (mchirp,eta)->m2; m1>m2 .
+    Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
+    components (m2) calculated from the chirp mass and the symmetric mass ratio.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+    @rtype: number
     """
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2
 
 def _inj_q(inj):
     """
-    Function mapping (mchirp,eta)->q; m1>m2 .
+    Return the mapping of (mchirp,eta)->q; m1>m2 i.e. return the mass ratio q=m2/m1.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+    @rtype: number 
     """
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2/mass1
 
 def _inj_longitude(inj):
     """
-    Map the value of the longitude found in inj to an interval [0,2*pi).
+    Return the mapping of longitude found in inj to the interval [0,2*pi).
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attribute 'longitude'.
+    @rtype: number
     """
     if inj.longitude>2*pi_constant or inj.longitude<0.0:
         maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
@@ -183,12 +201,28 @@ def _inj_longitude(inj):
         return inj.longitude
 
 def _inj_a1(inj):
+    """
+    Return the magnitude of the spin 1 vector. Calculates the spin magnitude
+    from it's components.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attribute 'spin1x','spin1y', and 'spin1z' (the spin components).
+    @rtype: number
+    """
     x = inj.spin1x
     y = inj.spin1y
     z = inj.spin1z
     return sqrt(x*x + y*y + z*z)
 
 def _inj_a2(inj):
+    """
+    Return the magnitude of the spin 2 vector. Calculates the spin magnitude
+    from it's components.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attribute 'spin2x','spin2y', and 'spin2z' (the spin components).
+    @rtype: number
+    """
     x = inj.spin2x
     y = inj.spin2y
     z = inj.spin2z
@@ -279,17 +313,21 @@ def _inj_beta(inj):
 # Class definitions
 #===============================================================================
 
-class OneDPosterior(object):
+class PosteriorOneDPDF(object):
     """
-    A data structure for a single chain of posterior samples.
+    A data structure representing one parameter in a chain of posterior samples. 
+    The Posterior class generates instances of this class for pivoting onto a given
+    parameter (the Posterior class is per-Sampler oriented whereas this class represents
+    the same one parameter in successive samples in the chain).
     """
     def __init__(self,name,posterior_samples,injected_value=None,trigger_values=None,prior=None):
         """
-        Constructor.
+        Create an instance of PosteriorOneDPDF based on a table of posterior_samples.
 
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
+        @type injected_value: glue.ligolw.lsctables.SimInspiral
         @keyword trigger_values: The trigger values of the parameter (dictionary w/ IFOs as keys).
         @keyword prior: The prior value corresponding to each sample.
         """
@@ -312,33 +350,41 @@ class OneDPosterior(object):
         """
         Container method . Returns posterior containing sample idx (allows slicing).
         """
-        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
+        return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
         
     @property
     def name(self):
         """
-        Return the literal name of the parameter.
+        Return the string literal name of the parameter.
+        
+        @rtype: string
         """
         return self.__name
 
     @property
     def mean(self):
         """
-        Calculate the arithmetic mean of the 1D samples.
+        Return the arithmetic mean for the marginal PDF on the parameter.
+        
+        @rtype: number
         """
         return np.mean(self.__posterior_samples)
 
     @property
     def median(self):
         """
-        Find the median value of the 1D samples.
+        Return the median value for the marginal PDF on the parameter.
+        
+        @rtype: number
         """
         return np.median(self.__posterior_samples)
 
     @property
     def stdev(self):
         """
-        Return the standard deviation of the 1D samples.
+        Return the standard deviation of the marginal PDF on the parameter.
+        
+        @rtype: number
         """
         try:
             stdev = sqrt(np.var(self.__posterior_samples))
@@ -352,13 +398,17 @@ class OneDPosterior(object):
     @property
     def stacc(self):
         """
-         The 'standard accuracy statistic' (stacc) - a standard deviant incorporating
-        information about the accuracy of the waveform recovery. Defined as
-        the mean of the sum of the squared differences between the points
-        in the PDF (x_i - sampled according to the posterior) and the
-        true value (x_{\rm true}).
-        So for a marginalized one-dimensional PDF:
+        Return the 'standard accuracy statistic' (stacc) of the marginal 
+        posterior of the parameter. 
+        
+        stacc is a standard deviant incorporating information about the 
+        accuracy of the waveform recovery. Defined as the mean of the sum 
+        of the squared differences between the points in the PDF 
+        (x_i - sampled according to the posterior) and the true value 
+        (x_{\rm true}).  So for a marginalized one-dimensional PDF:
         stacc = \sqrt{\frac{1}{N}\sum_{i=1}^N (x_i-x_{\rm true})2}
+        
+        @rtype: number
         """
         if self.__injval is None:
             return None
@@ -370,14 +420,18 @@ class OneDPosterior(object):
         """
         Return the injected value set at construction . If no value was set
         will return None .
+        
+        @rtype: undefined
         """
         return self.__injval
 
     @property
     def trigvals(self):
         """
-        Return the trigger values set at construction . If no value was set
+        Return the trigger values set at construction. If no value was set
         will return None .
+        
+        @rtype: undefined
         """
         return self.__trigvals
 
@@ -387,6 +441,7 @@ class OneDPosterior(object):
         Set the injected/real value of the parameter.
 
         @param new_injval: The injected/real value to set.
+        @type new_injval: glue.ligolw.lsctables.SimInspiral
         """
 
         self.__injval=new_injval
@@ -396,6 +451,7 @@ class OneDPosterior(object):
         Set the trigger values of the parameter.
 
         @param new_trigvals: Dictionary containing trigger values with IFO keys.
+        @type new_trigvals: glue.ligolw.lsctables.SnglInspiral
         """
 
         self.__trigvals=new_trigvals
@@ -404,6 +460,8 @@ class OneDPosterior(object):
     def samples(self):
         """
         Return a 1D numpy.array of the samples.
+        
+        @rtype: numpy.array
         """
         return self.__posterior_samples
 
@@ -411,14 +469,17 @@ class OneDPosterior(object):
         """
         Remove samples from posterior, analagous to numpy.delete but opperates in place.
 
-        @param samples: A list of the indexes of the samples to remove.
+        @param samples: A list containing the indexes of the samples to be removed.
+        @type samples: list
         """
         self.__posterior_samples=np.delete(self.__posterior_samples,samples).reshape(-1,1)
 
     @property
     def gaussian_kde(self):
         """
-        Return a gaussian kde of the samples.
+        Return a SciPy gaussian_kde (representing a Gaussian KDE) of the samples.
+        
+        @rtype: scipy.stats.kde.gaussian_kde
         """
         from numpy import seterr as np_seterr
         from scipy import seterr as sp_seterr
@@ -440,6 +501,7 @@ class OneDPosterior(object):
         Evaluate probability intervals.
 
         @param intervals: A list of the probability intervals [0-1]
+        @type intervals: list
         """
         list_of_ci=[]
         samples_temp=np.sort(np.squeeze(self.samples))
@@ -474,7 +536,12 @@ class Posterior(object):
 
         @param commonResultsFormatData: A 2D array containing the posterior
             samples and related data. The samples chains form the columns.
-
+        @type commonResultsFormatData: custom type
+        @param SimInspiralTableEntry: A SimInspiralTable row containing the injected values.
+        @type SimInspiralTableEntry: glue.ligolw.lsctables.SimInspiral
+        @param SnglInspiralList: A list of SnglInspiral objects containing the triggers.
+        @type SnglInspiralList: list
+        
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
@@ -487,15 +554,15 @@ class Posterior(object):
         
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             
-            self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
         and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
             try:
                 print 'Inferring m1 and m2 from mchirp and eta'
                 (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
-                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'),trigger_values=self._gettrigpar('m1'))
-                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'),trigger_values=self._gettrigpar('m2'))
+                self._posterior['m1']=PosteriorOneDPDF('m1',m1,injected_value=self._getinjpar('m1'),trigger_values=self._gettrigpar('m1'))
+                self._posterior['m2']=PosteriorOneDPDF('m2',m2,injected_value=self._getinjpar('m2'),trigger_values=self._gettrigpar('m2'))
             except KeyError:
                 print 'Unable to deduce m1 and m2 from input columns'
 
@@ -527,6 +594,8 @@ class Posterior(object):
         """
         Returns a new Posterior object that contains a bootstrap
         sample of self.
+        
+        @rtype: Posterior
         """
         names=[]
         samples=[]
@@ -550,7 +619,8 @@ class Posterior(object):
         """
         Remove samples from all OneDPosteriors.
 
-        @param samples: The indixes of the samples to remove.
+        @param samples: The indexes of the samples to be removed.
+        @type samples: list
         """
         for name,pos in self:
             pos.delete_samples_by_idx(samples)
@@ -561,6 +631,7 @@ class Posterior(object):
         Remove samples containing NaN in request params.
 
         @param param_list: The parameters to be checked for NaNs.
+        @type param_list: list
         """
         nan_idxs = np.array(())
         nan_dict = {}
@@ -582,7 +653,9 @@ class Posterior(object):
     @property
     def injection(self):
         """
-        Return the injected values .
+        Return the injected values.
+        
+        @rtype: glue.ligolw.lsctables.SimInspiral
         """
 
         return self._injection
@@ -591,6 +664,8 @@ class Posterior(object):
     def triggers(self):
         """
         Return the trigger values .
+        
+        @rtype: list
         """
 
         return self._triggers
@@ -608,6 +683,8 @@ class Posterior(object):
     def longest_chain_cycles(self):
         """
         Returns the number of cycles in the longest chain
+        
+        @rtype: number
         """
         samps,header=self.samples()
         header=header.split()
@@ -630,7 +707,8 @@ class Posterior(object):
         """
         Set the injected values of the parameters.
 
-        @param injection: A SimInspiralTable row object.
+        @param injection: A SimInspiralTable row object containing the injected parameters.
+        @type injection: glue.ligolw.lsctables.SimInspiral
         """
         if injection is not None:
             self._injection=injection
@@ -644,6 +722,7 @@ class Posterior(object):
         Set the trigger values of the parameters.
 
         @param triggers: A list of SnglInspiral objects.
+        @type triggers: list
         """
         if triggers is not None:
             self._triggers=triggers
@@ -763,7 +842,7 @@ class Posterior(object):
         pos_array,header=self.samples
         while current_item < len(self):
             sample_array=(np.squeeze(pos_array[current_item,:]))
-            yield ParameterSample(sample_array, header, header)
+            yield PosteriorSample(sample_array, header, header)
             current_item += 1
 
 
@@ -837,7 +916,7 @@ class Posterior(object):
 
     def pop(self,param_name):
         """
-        Container method.  Remove OneDPosterior from the Posterior instance.
+        Container method.  Remove PosteriorOneDPDF from the Posterior instance.
         """
         return self._posterior.pop(param_name)
 
@@ -862,7 +941,7 @@ class Posterior(object):
                 new_trigs = None
 
             samps = func(old_post.samples)
-            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
+            new_post = PosteriorOneDPDF(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
             if new_post.samples.ndim is 0:
                 print "WARNING: No posterior calculated for %s ..." % post.name
             else:
@@ -886,7 +965,7 @@ class Posterior(object):
                         new_trigs[IFO] = func(*oldvals)
                 else:
                     new_trigs = None
-                new_post = OneDPosterior(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
+                new_post = PosteriorOneDPDF(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
                 self.append(new_post)
             #MultiD output
             else:
@@ -903,7 +982,7 @@ class Posterior(object):
                             new_trigs[param][IFO] = newval
                 else:
                     new_trigs = [None for param in range(len(new_param_names))]
-                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
+                new_posts = [PosteriorOneDPDF(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
                 for post in new_posts: 
                     if post.samples.ndim is 0: 
                         print "WARNING: No posterior calculated for %s ..." % post.name
@@ -950,7 +1029,7 @@ class Posterior(object):
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
-        coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+        coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
         if "prior" in header and "logl" in header:
@@ -986,7 +1065,7 @@ class Posterior(object):
         indexes=np.argsort(self._logL[:,0])
 
         my_samples=samples[indexes[-n:], :] # The highest posterior samples.
-        my_samples=np.array([ParameterSample(sample,header,coord_names).coord() for sample in my_samples])
+        my_samples=np.array([PosteriorSample(sample,header,coord_names).coord() for sample in my_samples])
 
         mu=np.mean(my_samples, axis=0)
         cov=np.cov(my_samples, rowvar=0)
@@ -1002,7 +1081,7 @@ class Posterior(object):
         ellipse_logl=[]
         ellipse_samples=[]
         for sample,logl in zip(samples, self._logL):
-            coord=ParameterSample(sample, header, coord_names).coord()
+            coord=PosteriorSample(sample, header, coord_names).coord()
             d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
 
             if d <= d0:
@@ -1353,7 +1432,7 @@ class KDTree(object):
             
     
     
-class ParameterSample(object):
+class PosteriorSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
     kD-tree.
@@ -1759,7 +1838,7 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
     samples,header=posterior.samples()
     header=header.split()
     coord_names=["ra","dec","dist"]
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
     tree=KDTree(coordinatized_samples)
     
     a=Harvester()
@@ -3503,9 +3582,9 @@ class PEOutputParser(object):
             if table.get('utype')=='lalinference:results:posteriorsamples':
                 return(self._VOTTABLE2pos(table))
         for table in tables:
-	  if table.get('utype')=='lalinference:results:nestedsamples':
-	    nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
-	    return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
+          if table.get('utype')=='lalinference:results:nestedsamples':
+            nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
+            return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
         raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
         
     def _VOTTABLE2pos(self,table):
@@ -3515,18 +3594,19 @@ class PEOutputParser(object):
         from xml.etree import ElementTree as ET
         xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
         try:
-	  register_namespace=ET.register_namespace
-	except AttributeError:
-	  def register_namespace(prefix,uri):
-	    ET._namespace_map[uri]=prefix
-	register_namespace('vot',xmlns)
+            register_namespace=ET.register_namespace
+        except AttributeError:
+            def register_namespace(prefix,uri):
+                ET._namespace_map[uri]=prefix
+                register_namespace('vot',xmlns)
+
         header=[]
         for field in table.findall('./{%s}FIELD'%(xmlns)):
             header.append(field.attrib['name'])
         if(len(header)==0):
             raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
         data=table.findall('./{%s}DATA'%(xmlns))
-	tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
+        tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
         llines=[]
         for row in tabledata:
             llines.append(np.array(map(lambda a:float(a.text),row)))
@@ -3565,12 +3645,12 @@ class PEOutputParser(object):
 
         header=formatstr.split(delimiter)
         header[-1]=header[-1].rstrip('\n')
-	nparams=len(header)
+        nparams=len(header)
         llines=[]
         import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
         
-	for line_number,line in enumerate(infile):
+        for line_number,line in enumerate(infile):
             sline=line.split(delimiter)
             if sline[-1] == '\n':
                 del(sline[-1])
@@ -3578,9 +3658,9 @@ class PEOutputParser(object):
             if len(sline)<1:
                 print 'Ignoring empty line in input file: %s'%(sline)
                 proceed=False
-	    elif len(sline)!=nparams:
-		sys.stderr.write('WARNING: Malformed row %i, read %i elements but there is meant to be %i\n'%(line_number,len(sline),nparams))
-		proceed=False
+            elif len(sline)!=nparams:
+                sys.stderr.write('WARNING: Malformed row %i, read %i elements but there is meant to be %i\n'%(line_number,len(sline),nparams))
+                proceed=False
 
             for elemn,st in enumerate(sline):
                 s=st.replace('\n','')
@@ -3591,12 +3671,12 @@ class PEOutputParser(object):
                     proceed=False
 
             if proceed:
-	    	llines.append(map(float,sline))	
+                llines.append(map(float,sline))	
 
         flines=np.array(llines)
 
-	if not flines.any():
-	   raise RuntimeError("ERROR: no lines read in!")	
+        if not flines.any():
+            raise RuntimeError("ERROR: no lines read in!")	
            
 
         for i in range(0,len(header)):
@@ -3649,57 +3729,6 @@ def parse_converge_output_section(fo):
                         pass
 
         return result
-
-def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_frac2=0.5,heidelberger=True,effectiveSize=True,warnings=False):
-    """
-    This function spawns a process to run an R script to use the coda package
-    to calculate the following convergence diagnostics for the chains contained in the input
-    Posterior instance:
-    
-    Gelman-Rubin
-    Geweke
-    Heidelberger & Welch
-    Effective sample sizes
-
-    These can be turned on and off using the flags.
-    
-    Python scrapes the output produced by the R script and returns a (nested) dictionary:
-    {'test':{'chainN':[['param':'test_value'],...],...},...}
-
-    You will need R with the coda and lattice libraries for this to work . 
-    """
-    from subprocess import Popen,PIPE
-
-    print "Calculating convergence diagnostics using R coda library..."
-
-    posterior.write_to_file('tmp.dat')
-
-    R_process=Popen(["R","-q","--vanilla","--slave"],stdin=PIPE,stdout=PIPE)
-    script=convergenceTests_R%(str(gelman).upper(),str(geweke).upper(),geweke_frac1,geweke_frac2,str(heidelberger).upper(),str(effectiveSize).upper(),str(warnings).upper())
-    #print script
-    rp_stdout,rp_stderr=R_process.communicate(input=script)
-
-    outdict=parse_converge_output_section(rp_stdout)
-    
-    #Check outdict
-    if outdict is {}:
-        print "No results found! Check for any errors above. You can turn on the R warning messages with warnings=True ."
-        return None
-    else:
-        test_pass=False
-        for test,test_result in outdict.items():
-            
-            if not test_result:
-                print "Convergence test failed : %s ! Check for any errors above. You can turn on the R warning messages with warnings=True ."%test
-            else:
-                test_pass=True
-
-        if test_pass:
-            return outdict
-
-        else:
-            return None
-    
 #
 
 def vo_nest2pos(nsresource,Nlive=None):
@@ -3714,11 +3743,11 @@ def vo_nest2pos(nsresource,Nlive=None):
     from math import log, exp
     xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
     try:
-      register_namespace=ET.register_namespace
+        register_namespace=ET.register_namespace
     except AttributeError:
-	def register_namespace(prefix,uri):
-	  ET._namespace_map[uri]=prefix
-    register_namespace('vot',xmlns)
+    def register_namespace(prefix,uri):
+        ET._namespace_map[uri]=prefix
+        register_namespace('vot',xmlns)
     
     postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
     i=0
@@ -3763,190 +3792,50 @@ def vo_nest2pos(nsresource,Nlive=None):
 xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
 
 class VOT2HTML:
-  def __init__(self):
-    self.html=htmlSection("VOTable information")
-    self.skiptable=0
-  def start(self,tag,attrib):
-    if tag=='{%s}TABLE'%(xmlns):
-	if attrib['utype']=='lalinference:results:nestedsamples'\
-	or attrib['utype']=='lalinference:results:posteriorsamples':
-	  self.skiptable=1
-	else:
-	  self.skiptable=0
-	self.tableouter=htmlChunk('div')
-	self.tableouter.h2(attrib['name'])
-	try:
-	  self.tableouter.p(attrib['utype'])
-	except KeyError:
-	    pass
-	self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
-	self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
-	self.tabheader=htmlChunk('tr',parent=self.table)
-    if tag=='{%s}FIELD'%(xmlns):
-	self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
-    if tag=='{%s}TR'%(xmlns):
-	self.tabrow=htmlChunk('tr',parent=self.table)
-    if tag=='{%s}TD'%(xmlns):
-	self.td=htmlChunk('td',parent=self.tabrow)
-    if tag=='{%s}PARAM'%(xmlns):
-	pnode=htmlChunk('tr',parent=self.fixedparams)
-	namenode=htmlChunk('td',parent=pnode)
-	namenode.p(attrib['name'])
-	valnode=htmlChunk('td',parent=pnode)
-	valnode.p(attrib['value'])
-  def end(self,tag):
-    if tag=='{%s}TABLE'%(xmlns):
-      if not self.skiptable:
-	self.html.append(self.tableouter._html)
-    if tag=='{%s}FIELD'%(xmlns):
-      self.field.p(self.data)
-    if tag=='{%s}TD'%(xmlns):
-      self.td.p(self.data)
+    def __init__(self):
+        self.html=htmlSection("VOTable information")
+        self.skiptable=0
+        
+    def start(self,tag,attrib):
+        if tag=='{%s}TABLE'%(xmlns):
+            if attrib['utype']=='lalinference:results:nestedsamples'\
+            or attrib['utype']=='lalinference:results:posteriorsamples':
+                self.skiptable=1
+            else:
+                self.skiptable=0
+            self.tableouter=htmlChunk('div')
+            self.tableouter.h2(attrib['name'])
+            try:
+                self.tableouter.p(attrib['utype'])
+            except KeyError:
+                pass
+            self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+            self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+            self.tabheader=htmlChunk('tr',parent=self.table)
+        if tag=='{%s}FIELD'%(xmlns):
+            self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
+        if tag=='{%s}TR'%(xmlns):
+            self.tabrow=htmlChunk('tr',parent=self.table)
+        if tag=='{%s}TD'%(xmlns):
+            self.td=htmlChunk('td',parent=self.tabrow)
+        if tag=='{%s}PARAM'%(xmlns):
+            pnode=htmlChunk('tr',parent=self.fixedparams)
+            namenode=htmlChunk('td',parent=pnode)
+            namenode.p(attrib['name'])
+            valnode=htmlChunk('td',parent=pnode)
+            valnode.p(attrib['value'])
+        
+    def end(self,tag):
+        if tag=='{%s}TABLE'%(xmlns):
+            if not self.skiptable:
+                self.html.append(self.tableouter._html)
+        if tag=='{%s}FIELD'%(xmlns):
+            self.field.p(self.data)
+        if tag=='{%s}TD'%(xmlns):
+            self.td.p(self.data)
 
-  def data(self,data):
-    self.data=data
+    def data(self,data):
+        self.data=data
   
-  def close(self):
-    return self.html.toprettyxml()
-
-
-
-#R convergenceTest script
-convergenceTests_R="""
-convergenceTests <- function(data,
-                             gelman=TRUE,
-                             geweke=TRUE, geweke.frac1=0.1, geweke.frac2=0.5,
-                             heidelberger=TRUE,
-                             effectiveSize=TRUE)
-# The argument `data' is a matrix (or data frame)
-# of (supposedly post burn-in) posterior samples.
-# Rows correspond to samples, columns correspond to variables.
-# If `data' contains a variable named "chain",
-# this is assumed to indicate chains from independent runs.
-# By default, Gelman's, Geweke's and Heidelberger & Welch's convergence
-# diagnostics, and effectice sample sizes are computed.
-# Geweke's diagnostic is directly converted to p-values,
-# and the effective sample size is divided by the number of MCMC samples
-# to give /relative/ sample sizes.
-# In order to suppress computation of any of the 3 figures, supply
-# an additional (e.g.)  `geweke=FALSE'  or  `geweke=F'  argument.
-{
-  # check whether "coda" library is installed:
-  codaInstalled <- require("coda")
-  if (codaInstalled) {
-    # check whether a "chain" variable indicates presence of multiple chains:
-    if (is.element("chain",colnames(data))) {
-      chainIndicator <- data[,"chain"]
-      # which chains present?:
-      chainLabels <- sort(unique(data[,"chain"]))
-      # how many samples of each chain?:
-      chainFrequencies <- table(data[,"chain"])
-      # drop "chain" column from data:
-      data <- data[,colnames(data)!="chain"]
-    }
-    else { # (no "chain" indicator means a single chain)
-      chainIndicator <- rep(1, nrow(data))
-      chainLabels <- 1
-      chainFrequencies <- c("1"=nrow(data))
-    }
-
-    
-    # Gelman diagnostic - need at least 2 chains with at least 2 samples:
-    if (gelman && (length(chainFrequencies>=2) >= 2)) {
-      codaList <- mcmc.list()
-      for (i in 1:sum(chainFrequencies>=2)){
-        # filter out i-th chain:
-        finalSamples <- which(chainIndicator==chainLabels[chainFrequencies>=2][i])
-        # filter out final samples:
-        finalSamples <- finalSamples[length(finalSamples)+((-(min(chainFrequencies[chainFrequencies>=2])-1)):0)]
-        # add to list:
-        codaList[[i]] <- mcmc(data=data[finalSamples,])
-      }
-      GD <- try(gelman.diag(codaList), silent=TRUE)
-      rm("codaList")
-      if (class(GD) != "try-error") RHatP <- c("RHatP"=Re(GD$mpsrf))
-      else RHatP <- c("RHatP"=NA)
-    }
-    else RHatP <- c("RHatP"=NA)
-
-    
-    # Geweke diagnostic:
-    if (geweke) {
-      geweke.p <- geweke.z <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
-                                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
-      # compute diagnostic for each variable and chain:
-      for (i in 1:length(chainLabels)) {
-        GD <- try(geweke.diag(mcmc(data[chainIndicator==chainLabels[i],]),
-                              frac1=geweke.frac1, frac2=geweke.frac2))
-        if (class(GD) != "try-error") zScores <- GD$z
-        else zScores <- rep(NA, ncol(data))
-        geweke.z[,i] <- zScores
-      }
-      # compute corresponding matrix of p-values:
-      geweke.p <- (1.0 - pnorm(abs(geweke.z))) / 2.0
-    }
-    else geweke.p <- NA
-
-    
-    # Heidelberger & Welch diagnostic:
-    if (heidelberger) {
-      heidelberger.p  <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
-                                    dimnames=list("variable"=colnames(data), "chain"=chainLabels))
-      # compute diagnostic for each variable and chain:
-      for (i in 1:length(chainLabels)) {
-        HWD <- try(heidel.diag(mcmc(data[chainIndicator==chainLabels[i],])))
-        if (class(HWD) != "try-error") pvalues <- HWD[,"pvalue"]
-        else pvalues <- rep(NA, ncol(data))
-        heidelberger.p[,i] <- pvalues
-      }
-    }
-    else heidelberger.p <- NA
-
-    
-    # effective sample size:
-    if (effectiveSize) {
-      Neff <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
-                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
-      # compute N_eff for each variable and chain:
-      for (i in 1:length(chainLabels)) {
-        ES <- try(effectiveSize(mcmc(data[chainIndicator==chainLabels[i],])))
-        if (class(ES) != "try-error") sizes <- ES
-        else sizes <- rep(NA, ncol(data))
-        Neff[,i] <- sizes
-      }
-      # normalize (to /relative/ sample sizes):
-      Reff <- Neff / matrix(chainFrequencies, nrow=ncol(data), ncol=length(chainLabels), byrow=TRUE)
-    }
-    else Reff <- NA
-
-    
-    # assemble eventual results:
-    result <- list("gelman"       = RHatP,          # "multivariate scale reduction factor", $\hat{R}^p$
-                   "geweke"       = geweke.p,       # matrix of p-values
-                   "heidelberger" = heidelberger.p, # matrix of p-values
-                   "effectiveSize"     = Reff)           # matrix of /relative/ effective sample sizes
-  }
-  else {
-    warning("coda library not installed.")
-    result <- list("gelman"       = NA,
-                   "geweke"       = NA,
-                   "heidelberger" = NA,
-                   "effectiveSize"     = NA)
-  }
-  return(result)
-} 
-
-A <- read.table("tmp.dat",header=TRUE)
-result <- convergenceTests(A,gelman=%s,geweke=%s,geweke.frac1=%f, geweke.frac2=%f,heidelberger=%s,effectiveSize=%s)
-for (name in names(result)) {
-    print(name)
-    print(result[[name]])
-    
-}
-warnings_flag <- %s
-if (warnings_flag){
-    warnings()
-}
-
-"""
-#
+    def close(self):
+        return self.html.toprettyxml()
