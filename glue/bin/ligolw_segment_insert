@@ -10,6 +10,7 @@ import sys
 import commands
 import StringIO
 import exceptions
+import binascii
 from optparse import OptionParser
 
 try:
@@ -399,7 +400,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     sdf_col = \
      seg_def_md.table['segment_definer']['orderedcol'].index('segment_def_id')
     creator_db = seg_def_md.table['segment_definer']['stream'][0][cdb_col]
-    seg_def_id = seg_def_md.table['segment_definer']['stream'][0][sdf_col]
+    seg_def_id = binascii.a2b_hex(seg_def_md.table['segment_definer']['stream'][0][sdf_col])
     #-----------------------------------------------------------------------------#
     # create the elements in the process table that need to be filled in
     process_cols = {
