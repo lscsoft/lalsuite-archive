@@ -17,72 +17,48 @@
 *  MA  02111-1307  USA
 */
 
-/****************************** <lalVerbatim file="IIRFilterVectorCV">
-Author: Creighton, T. D.
-$Id$
-**************************************************** </lalVerbatim> */
+#include <lal/LALStdlib.h>
+#include <lal/IIRFilter.h>
 
-/********************************************************** <lalLaTeX>
+/**
+   \addtogroup IIRFilterVector_c
+   \author Creighton, T. D.
 
-\subsection{Module \texttt{IIRFilterVector.c}}
-\label{ss:IIRFilterVector.c}
+   \brief Applies an IIR filter to a data stream.
 
-Applies an IIR filter to a data stream.
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{IIRFilterVectorCP}
-\idx{LALIIRFilterREAL4Vector()}
-\idx{LALIIRFilterREAL8Vector()}
-\idx{LALDIIRFilterREAL4Vector()}
-
-\subsubsection*{Description}
+\heading{Description}
 
 These functions apply a generic time-domain filter given by an object
-\verb@*filter@ of type \verb@REAL4IIRFilter@ or \verb@REAL8IIRFilter@
-to a list \verb@*vector@ of data representing a time series.  This is
+<tt>*filter</tt> of type \c REAL4IIRFilter or \c REAL8IIRFilter
+to a list <tt>*vector</tt> of data representing a time series.  This is
 done in place using the auxiliary data series formalism described in
-\verb@IIRFilter.h@, so as to accomodate potentially large data series.
+\ref IIRFilter.h, so as to accomodate potentially large data series.
 To filter a piece of a larger dataset, the calling routine may pass a
 vector structure whose data pointer and length fields specify a subset
 of a larger vector.
 
-The routine \verb@LALDIIRFilterREAL4Vector()@ applies a
+The routine <tt>LALDIIRFilterREAL4Vector()</tt> applies a
 double-precision filter to single-precision data.  It makes a single
 pass through the data, continuously updating the filter history at
 each step rather than storing the auxiliary array in-place.  This
-reduces roundoff error by keeping \emph{all} intermediate results to
+reduces roundoff error by keeping \e all intermediate results to
 double-precision.
 
-\subsubsection*{Algorithm}
+\heading{Algorithm}
 
-The implementation of \verb@LALDIIRFilterREAL4Vector()@ not only has
-lower truncation errors than \verb@LALIIRFilterREAL4Vector()@, but
+The implementation of <tt>LALDIIRFilterREAL4Vector()</tt> not only has
+lower truncation errors than <tt>LALIIRFilterREAL4Vector()</tt>, but
 also appears to be more computationally efficient, for reasons I have
-not yet determined; see the documentation for \verb@IIRFilterTest.c@.
-These combine to suggest that \verb@LALDIIRFilterREAL4Vector()@ is the
-better overall algorithm for filtering \verb@REAL4Vector@s.
+not yet determined; see the documentation for \ref IIRFilterTest.c.
+These combine to suggest that <tt>LALDIIRFilterREAL4Vector()</tt> is the
+better overall algorithm for filtering \c REAL4Vectors.
 
-\subsubsection*{Uses}
-\begin{verbatim}
-LALMalloc()
-LALFree()
-\end{verbatim}
+*/
+/*@{*/
 
-\subsubsection*{Notes}
-
-\vfill{\footnotesize\input{IIRFilterVectorCV}}
-
-******************************************************* </lalLaTeX> */
-
-#include <lal/LALStdlib.h>
-#include <lal/IIRFilter.h>
-
-NRCSID(IIRFILTERVECTORC,"$Id$");
-
+/** \see See \ref IIRFilterVector_c for documentation */
 int XLALIIRFilterREAL4Vector( REAL4Vector *vector, REAL8IIRFilter *filter )
 {
-  static const char *func = "XLALIIRFilterREAL4Vector";
   INT4 j;            /* Index for filter coeficients. */
   INT4 length;       /* Length of vector. */
   REAL4 *data;       /* Vector data. */
@@ -96,13 +72,13 @@ int XLALIIRFilterREAL4Vector( REAL4Vector *vector, REAL8IIRFilter *filter )
 
   /* Make sure all the structures have been initialized. */
   if ( ! vector || ! filter )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( ! vector->data )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( ! filter->directCoef || ! filter->recursCoef || ! filter->history
       || !  filter->directCoef->data || ! filter->recursCoef->data
       || !  filter->history->data )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   length=vector->length;
   data=vector->data;
@@ -113,7 +89,7 @@ int XLALIIRFilterREAL4Vector( REAL4Vector *vector, REAL8IIRFilter *filter )
   numHist=filter->history->length+1;
   temp = LALMalloc( numHist*sizeof(*temp) );
   if ( ! temp )
-    XLAL_ERROR( func, XLAL_ENOMEM );
+    XLAL_ERROR( XLAL_ENOMEM );
   memcpy(temp,filter->history->data,(numHist-1)*sizeof(*temp));
 
   /* Run through the vector. */
@@ -141,10 +117,9 @@ int XLALIIRFilterREAL4Vector( REAL4Vector *vector, REAL8IIRFilter *filter )
   return 0;
 }
 
-
+/** \see See \ref IIRFilterVector_c for documentation */
 int XLALIIRFilterREAL8Vector( REAL8Vector *vector, REAL8IIRFilter *filter )
 {
-  static const char *func = "XLALIIRFilterREAL8Vector";
   INT4 i;            /* Loop counter for data vector. */
   INT4 j;            /* Index for filter coeficients. */
   INT4 k;            /* Index for filter history. */
@@ -161,13 +136,13 @@ int XLALIIRFilterREAL8Vector( REAL8Vector *vector, REAL8IIRFilter *filter )
 
   /* Make sure all the structures have been initialized. */
   if ( ! vector || ! filter )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( ! vector->data )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( ! filter->directCoef || ! filter->recursCoef || ! filter->history
       || !  filter->directCoef->data || ! filter->recursCoef->data
       || !  filter->history->data )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   length=vector->length;
   data=vector->data;
@@ -179,7 +154,7 @@ int XLALIIRFilterREAL8Vector( REAL8Vector *vector, REAL8IIRFilter *filter )
   history=filter->history->data;
   temp = LALMalloc( numHist*sizeof(*temp) );
   if ( ! temp )
-    XLAL_ERROR( func, XLAL_ENOMEM );
+    XLAL_ERROR( XLAL_ENOMEM );
 
   /* Compute the auxiliary data series. */
   for(i=0;(i<recursOrder)&&(i<length);i++,data++){
@@ -229,19 +204,14 @@ int XLALIIRFilterREAL8Vector( REAL8Vector *vector, REAL8IIRFilter *filter )
   return 0;
 }
 
-
-/*
- *
- * WARNING: THIS FUNCTION IS OBSOLETE!
- *
+/** WARNING: THIS FUNCTION IS OBSOLETE.
+ * \deprecated
  */
-
-/* <lalVerbatim file="IIRFilterVectorCP"> */
 void
 LALIIRFilterREAL4Vector( LALStatus      *stat,
 			 REAL4Vector    *vector,
 			 REAL4IIRFilter *filter )
-{ /* </lalVerbatim> */
+{
   INT4 i;            /* Loop counter for data vector. */
   INT4 j;            /* Index for filter coeficients. */
   INT4 k;            /* Index for filter history. */
@@ -256,7 +226,7 @@ LALIIRFilterREAL4Vector( LALStatus      *stat,
   REAL4 *history;    /* Filter history. */
   REAL4 *temp=NULL;  /* Temporary storage for the filter history. */
 
-  INITSTATUS(stat,"LALIIRFilterREAL4Vector",IIRFILTERVECTORC);
+  INITSTATUS(stat);
 
   /* Make sure all the structures have been initialized. */
   ASSERT(vector,stat,IIRFILTERH_ENUL,IIRFILTERH_MSGENUL);
@@ -332,13 +302,15 @@ LALIIRFilterREAL4Vector( LALStatus      *stat,
 }
 
 
-/* <lalVerbatim file="IIRFilterVectorCP"> */
-  void
+/** WARNING: THIS FUNCTION IS OBSOLETE.
+ * \deprecated
+ */
+void
 LALIIRFilterREAL8Vector( LALStatus      *stat,
     REAL8Vector    *vector,
     REAL8IIRFilter *filter )
-{ /* </lalVerbatim> */
-  INITSTATUS(stat,"LALIIRFilterREAL8Vector",IIRFILTERVECTORC);
+{
+  INITSTATUS(stat);
 
   /* Make sure all the structures have been initialized. */
   ASSERT(vector,stat,IIRFILTERH_ENUL,IIRFILTERH_MSGENUL);
@@ -364,13 +336,15 @@ LALIIRFilterREAL8Vector( LALStatus      *stat,
 }
 
 
-/* <lalVerbatim file="IIRFilterVectorCP"> */
+/** WARNING: THIS FUNCTION IS OBSOLETE.
+ * \deprecated
+ */
 void
 LALDIIRFilterREAL4Vector( LALStatus      *stat,
 			  REAL4Vector    *vector,
 			  REAL8IIRFilter *filter )
-{ /* </lalVerbatim> */
-  INITSTATUS(stat,"LALDIIRFilterREAL4Vector",IIRFILTERVECTORC);
+{
+  INITSTATUS(stat);
 
   /* Make sure all the structures have been initialized. */
   ASSERT(vector,stat,IIRFILTERH_ENUL,IIRFILTERH_MSGENUL);
@@ -394,3 +368,4 @@ LALDIIRFilterREAL4Vector( LALStatus      *stat,
   /* Normal exit */
   RETURN(stat);
 }
+/*@}*/

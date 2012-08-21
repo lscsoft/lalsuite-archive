@@ -36,7 +36,7 @@ __prog__ = "lalapps_cbc_sink"
 
 # FIXME:  the latex rendering sucks :(
 pylab.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
-matplotlib.rcParams.update({"text.usetex": False})
+matplotlib.rcParams.update({"text.usetex": True})
 
 def edges(bins):
   """Get the boundary points of a rate.NDBins object."""
@@ -46,13 +46,22 @@ def edges(bins):
 def get_bins(file,bin_type):
 	xmldoc = utils.load_filename(file, gz = (file or "stdin").endswith(".gz")).childNodes[0]
 	mbins = xmldoc.getChildrenByAttributes({"Name":"mass_bins:%s" % bin_type})
-	if len(mbins) == 1:
+	m1bins = xmldoc.getChildrenByAttributes({"Name":"mass1_bins:%s" % bin_type})
+	m2bins = xmldoc.getChildrenByAttributes({"Name":"mass2_bins:%s" % bin_type})
+	if len(mbins) == 1 and len(m1bins) == 0 and len(m2bins) == 0:
 		mbins = array.get_array(mbins[0],u"array").array
+		bins = rate.NDBins((rate.IrregularBins(mbins),))
+	elif len(mbins) == 0 and len(m1bins) == 1 and len(m2bins) == 0:
+		m1bins = array.get_array(m1bins[0],u"array").array
+		bins = rate.NDBins((rate.IrregularBins(m1bins),))
+	elif len(mbins) == 0 and len(m1bins) == 1 and len(m2bins) == 1:
+		m1bins = array.get_array(m1bins[0],u"array").array
+		m2bins = array.get_array(m2bins[0],u"array").array
+		bins = rate.NDBins((rate.IrregularBins(m1bins),rate.IrregularBins(m2bins)))
 	else:
-		print >>sys.stderr,"XML must contain exactly 1 mass bin. Found %d."%len(mbins)
+		print >>sys.stderr,"XML must contain either one mass_bins column, or one mass1_bins column, ",\
+  "or one each of mass1_bins and mass2_bins. Found %d mass_bins, %d mass1_bins, %d mass2_bins." % ( len(mbins), len(m1bins), len(m2bins) )
 		sys.exit(1)
-
-        bins = rate.NDBins((rate.IrregularBins(mbins),))
 
 	return bins
 
@@ -86,14 +95,21 @@ def savefig_pylal(plot_description, open_box, inspiral_utils_opts, fnameList, ta
 class UpperLimitTable(table.Table):
 	tableName = "upper_limit:table"
 
-        validcolumns = {"mass_bin":"lstring",
-                        "sensitivity_in_Mpc3_yr":"lstring",
-                        "avg_reach_in_Mpc":"lstring",
-                        "lambda_ratio":"lstring",
-                        "fractional_error":"lstring",
-                        "upper_limit_in_mergers_per_Mpc3_per_yr":"lstring",
+        validcolumns = {"mass1":"lstring",
+                        "mass2":"lstring",
+                        "mass_bin":"lstring",
+                        "prior_upper_limit":"lstring",
+                        "livetime":"lstring",
+                        "avg_reach":"lstring",
+                        "sensitivity_VT":"lstring",
+                        "effective_lambda":"lstring",
+                        "MC_error":"lstring",
+                        "calib_error":"lstring",
+                        "wave_error":"lstring",
+                        "uncombined_upper_limit":"lstring",
+                        "combined_upper_limit":"lstring",
                         "effective_numerator":"lstring",
-                        "livetime_in_days":"lstring",
+                        "naive_combined_upper_limit":"lstring",
                         "injs_found":"int_4s",
                         "injs_missed":"int_4s"}
 
@@ -107,12 +123,24 @@ def parse_command_line():
 	parser.add_option("-f", "--output-format", action = "store", type = "string",
 			  default = "html", metavar = "wiki, html, OR xml",
 			  help = "Format of output summary table. Choices are 'wiki', 'html', or 'xml'. Default is html.")
+	parser.add_option("--cal-err", default = "0", action = "store",type="float",
+			  help="Fractional uncertainty in the measured volume. Will marginalize over this uncertainty with a log-normal volume distribution with the specified width.")
+	parser.add_option("--wave-err", default = "0", action = "store",type="float", metavar="delta",
+			  help="Fractional uncertainty in the waveform amplitude. Applies a one-sided offset (1-delta) to the distance, reducing the volume by (1-delta)**3.")
+	parser.add_option("--disable-mc-marg", default = False, action = "store_true",
+			  help="Turn off Monte Carlo marginalization.")
 	parser.add_option("--output-path", default = "./", action = "store",
 			  help="Choose directory to save output files.")
 	parser.add_option("--open-box", default = False, action = "store_true",
 			  help="Turn flag on to indicate that input data describes zero-lag coincident events.")
+	parser.add_option("--verbose", default = False, action = "store_true",
+			  help="Talk to me baby, I'm listening.")
         parser.add_option("--user-tag",default = '',help = "Add a descriptive string to the output file names.")
         parser.add_option("--prior-cache",default = None, help = "Specify a cache file containing rate priors. The first column of the files in the cache will be interpreseted as the rate. The second column will be interpreted as the posterior density. The description field of the cache file should indicate the number of the mass bin to which the prior corresponds, counting up from 1, the lowest bin .")
+	parser.add_option("--rate-min", default = "1e-10", action = "store",type="float",
+			  help="Minimum rate for which to compute the posteriors.")
+	parser.add_option("--rate-max", default = "1e-4", action = "store",type="float",
+			  help="Maximum rate for which to compute the posteriors.")
         ##########################
 
 	opts, files = parser.parse_args()
@@ -124,12 +152,10 @@ def parse_command_line():
 	opts.gps_extent =  opts.input_cache.to_segmentlistdict().extent()
 	opts.enable_output = True
 
-	return opts
+	return opts, sys.argv[1:] 
 
 
-opts  = parse_command_line()
-
-Mpc3_per_L10 = 50.0
+opts, args  = parse_command_line()
 
 # a lot of work to get the list of instruments that were used
 def any(iterable):
@@ -143,7 +169,7 @@ for ifo in ['H1','L1','V1']:
     combined_ifos += ifo
 
 
-for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
+for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Mass"]:
 
    __prog__ = "lalapps_cbc_sink_by_"+bin_type.lower() # have you ever met a program with multiple identities?
    total_vol = total_err = total_found = total_missed = total_lt = 0
@@ -153,7 +179,7 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
    # read in the data produced by lalapps_cbc_svim
    bins = get_bins(files[0].path(),bin_type) # better use same binning in all files!!
-   vols = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
+   vols = [rate.BinnedArray(bins,array=(1-opts.wave_err)**3 *get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
    volErrs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeSecondMoment")) for entry in files]
    volDerivs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeDerivative")) for entry in files]
    foundInjs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFoundInjections")) for entry in files]
@@ -162,10 +188,11 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
 
    # get some aggregate data
    total_vol = rate.BinnedArray(bins,array=numpy.sum(a.array for a in vols))
-   total_err = rate.BinnedArray(bins,array=numpy.sum(a.array**2 for a in volErrs))
+   total_err = rate.BinnedArray(bins,array=numpy.sqrt(numpy.sum(a.array**2 for a in volErrs)))
    total_found = rate.BinnedArray(bins,array=numpy.sum(a.array for a in foundInjs))
    total_missed = rate.BinnedArray(bins,array=numpy.sum(a.array for a in missedInjs))
    total_lt = rate.BinnedArray(bins,array=numpy.sum(a.array for a in livetimes))
+   eff_deriv = rate.BinnedArray(bins,array=numpy.sum(a.array*b.array for a,b in zip(vols,volDerivs))/total_vol.array)
 
    # get mass ranges
    mrange = [(min(b),max(b)) for b in edges(bins)]
@@ -177,9 +204,16 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    opts.gps_end_time = numpy.max([entry.segment[1] for entry in files])
    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
    fnameList = []; tagList = []
+   postnameList = [];posttagList = []
+   cpnameList = [];cptagList = []
+   if opts.verbose:
+     print >>sys.stdout,"Computing posteriors binning by %s"%bin_type.lower().replace('_'," ")
 
+   # will report four different upper limits
    prior_upper_limit = rate.BinnedArray(bins)
+   uncombined_upper_limit = rate.BinnedArray(bins)
    combined_upper_limit = rate.BinnedArray(bins)
+   effective_comb_upper_limit = rate.BinnedArray(bins)
 
    # Gather priors.
    if opts.prior_cache:
@@ -187,129 +221,231 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    else:
      priors = lal.Cache([])
 
-   # compute the combined posterior with errors included
+   mu = numpy.logspace(numpy.log10(opts.rate_min),numpy.log10(opts.rate_max),1e5)
    for j,mbin in enumerate(iterutils.MultiIter(*bins.centres())):
-     pk = priors.sieve(description=bin_type+":"+str(j+1))
-     length = 100000
+     vs = numpy.array([v[mbin] for v in vols])
+     pk = priors.sieve(description="%s:%d:"%(bin_type,j+1))
      if len(pk) == 1: # use given prior
-       mu_in = numpy.loadtxt(pk[0].path())[:,0] / Mpc3_per_L10
-       mu = mu_in[:]
+       if opts.verbose:
+         print >>sys.stdout,"\tbin %d, %s... using input prior %s"%(j+1,str(mbin),pk[0].path())
+       mu_in = numpy.loadtxt(pk[0].path())[:,0]
        prior = numpy.loadtxt(pk[0].path())[:,1]
+       prior_new = interpolate.splrep(mu_in,prior,k=1,s=0)
+       prior = interpolate.splev(mu,prior_new,der=0)
+       prior[prior<0] = 0
+       #mu_in = mu[:]
+       prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, prior, 0.90)
      elif len(pk) > 1:
        print [p.path() for p in pk]
        print >>sys.stderr, "Too many priors given in input cache."
        sys.exit(1)
      else: # use flat prior
-       mu = None
-       prior = None
+       if opts.verbose:
+         print >>sys.stdout,"\tbin %d, %s... using uniform in rate prior"%(j+1,str(mbin))
+       #mu_in = mu[:]
+       prior = numpy.ones(mu.shape)
+       junk, prior = upper_limit_utils.normalize_pdf(mu,prior)
+       # compute the combined posterior with errors included
+       prior_upper_limit[mbin] = float('inf')
+       if total_vol[mbin] == 0:
+         uncombined_upper_limit[mbin] = float('inf')
+         combined_upper_limit[mbin] = float('inf')
+         continue
+
+     if bin_type == 'Mass1_Mass2' and mbin[1]>mbin[0]:
+         total_vol[mbin] = 0
+         combined_upper_limit[mbin] = float('inf')
+         uncombined_upper_limit[mbin] = float('inf')
+         prior_upper_limit[mbin] = float('inf')
+         continue
 
      # compute posterior/upper limits marginalizing over uncertainties
-     mu, combined_post = upper_limit_utils.compute_many_posterior([v[mbin] for v in vols],
-                                                                  [v2[mbin]/v[mbin] for v2,v in zip(volErrs,vols)],
-                                                                  [v[mbin] for v in volDerivs],
-                                                                  mu_in = mu, prior = prior,
-                                                                  mkplot = True,
-                                                                  plottag = '%s%s-%s_combined_posterior_by_%s_bin%d-%d-%d'%(opts.output_path,combined_ifos,__prog__,bin_type.lower(), j,opts.gps_start_time, opts.gps_end_time-opts.gps_start_time))
+     if opts.disable_mc_marg:
+       for v in volErrs: v.array *= 0
+       total_err.array *= 0
+
+     uncombined_post = upper_limit_utils.margLikelihood(numpy.array([v[mbin] for v in vols]),
+                                                        numpy.array([v[mbin] for v in volDerivs]),
+                                                        mu = mu, calerr = opts.cal_err,mcerrs=numpy.array([v[mbin] for v in volErrs]))
+     eff_uncomb_post = upper_limit_utils.margLikelihood(numpy.array([total_vol[mbin]]),
+                                                        numpy.array([eff_deriv[mbin]]),
+                                                        mu = mu, calerr = opts.cal_err, mcerrs=numpy.array([total_err[mbin]]))
+     uncombined_post /= uncombined_post.sum()
+     eff_uncomb_post /= eff_uncomb_post.sum()
+     combined_post = prior*uncombined_post
+     eff_comb_post = prior*eff_uncomb_post
+     combined_post /= combined_post.sum()
+     eff_comb_post /= eff_comb_post.sum()
+     uncombined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, uncombined_post, 0.90)
      combined_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, combined_post, 0.90)
-     if prior is not None:
-       prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu_in, prior, 0.90)
+     effective_comb_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, eff_comb_post, 0.90)
 
-     if combined_upper_limit[mbin] == 0: continue
+     if opts.verbose:
+       print >>sys.stdout,"\t\tUL (uncombined):  %g"%uncombined_upper_limit[mbin]
+       print >>sys.stdout,"\t\tUL (prior): %g"%prior_upper_limit[mbin]
+       print >>sys.stdout,"\t\tUL (combined):  %g"%combined_upper_limit[mbin]
+       print >>sys.stdout,"\t\tUL (effective):  %g"%effective_comb_upper_limit[mbin]
+       print >>sys.stdout,"\t\tfold-improvement:  %g"%(prior_upper_limit[mbin]/combined_upper_limit[mbin])
+     if combined_upper_limit[mbin] == float('inf'): continue
      if bin_type == "BNS_BBH": label = ["BNS","NSBH","BBH"][bins[mbin][0]]
-     else: label = ','.join(["%.1f"%m for m in mbin])+"M$_{\odot}$"
-     pylab.figure(1)
-     pylab.semilogx(mu,combined_post/combined_post.sum(),label=label)
-     pylab.figure(2)
-     pylab.semilogx(mu,combined_post.cumsum(),label=label)
-     pylab.figure(3)
-     if prior is not None:
-       pylab.semilogx(mu_in,prior/prior.sum(),label=label)
+     else: label = ','.join(["%d"%m for m in mbin])+"M$_\odot$"
 
-   axis_font_size = 16
-   pylab.figure(1)
-   #pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
-   pylab.legend(loc='upper right')
-   pylab.ylabel("Probability Density",fontsize=axis_font_size)
-   pylab.xlabel('Merger Rate $\mathrm{(Mpc^{-3} yr^{-1})}$',fontsize=axis_font_size)
-   pylab.grid()
-   pylab.xlim([mu.min(), mu.max()])
-   #pylab.ylim([0, 1e-1])
-   savefig_pylal('combined_posterior_density', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-   pylab.clf()
+     junk, norm_prior = upper_limit_utils.normalize_pdf(mu, prior)
+     junk, norm_uncombined_post = upper_limit_utils.normalize_pdf(mu, uncombined_post)
+     junk, norm_combined_post = upper_limit_utils.normalize_pdf(mu, combined_post)
+     pylab.semilogx(mu, norm_prior, label=label+" prior")
+     pylab.semilogx(mu, norm_uncombined_post, label=label+" uncombined")
+     pylab.semilogx(mu, norm_combined_post, label=label+" combined")
+     axis_font_size = 16
+     #pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
+     pylab.legend(loc="lower center")
+     pylab.ylabel("Probability Density (Mpc$^{3}\,$yr)", fontsize=axis_font_size)
+     pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
+     pylab.grid()
+     pylab.xlim([mu.min(), mu.max()])
+     savefig_pylal('combined_posterior_density_'+str(j), opts.open_box, InspiralUtilsOpts,postnameList,posttagList)
+     pylab.clf()
 
-   pylab.figure(2)
-   #pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=18)
-   pylab.legend(loc='upper left')
-   pylab.ylabel('Cumulative Probability',fontsize=axis_font_size)
-   pylab.xlabel('Merger Rate $\mathrm{(Mpc^{-3} yr^{-1})}$',fontsize=axis_font_size)
-   pylab.ylim([1e-2, 1])
-   pylab.grid()
-   pylab.xlim([mu.min(), mu.max()])
-   savefig_pylal('combined_posterior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-   pylab.clf()
+     muplot = (mu[1:] + mu[:-1]) /2
+     dmu = mu[1:] - mu[:-1]
+     normpri_bin = (norm_prior[1:] + norm_prior[:-1]) /2
+     normuncpost_bin = (norm_uncombined_post[1:] + norm_uncombined_post[:-1]) /2
+     normpost_bin = (norm_combined_post[1:] + norm_combined_post[:-1]) /2
+     pylab.semilogx(muplot, (dmu*normpri_bin).cumsum(), label=label+" prior")
+     pylab.semilogx(muplot, (dmu*normuncpost_bin).cumsum(), label=label+" uncombined")
+     pylab.semilogx(muplot, (dmu*normpost_bin).cumsum(), label=label+" combined")
+     pylab.semilogx(muplot, 0.9*numpy.ones(len(muplot)), 'k--')
+     #pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=18)
+     pylab.legend(loc="upper left")
+     pylab.ylabel("Cumulative Probability", fontsize=axis_font_size)
+     pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
+     pylab.ylim([1e-2, 1])
+     pylab.grid()
+     pylab.xlim([mu.min(), mu.max()])
+     savefig_pylal('combined_posterior_cumulative_'+str(j), opts.open_box, InspiralUtilsOpts,cpnameList,cptagList)
+     pylab.clf()
 
-   pylab.figure(3)
-   #pylab.title(combined_ifos+ " Prior Rate Distributions",fontsize=18)
-   pylab.legend(loc='upper right')
-   pylab.ylabel('Probability Density',fontsize=axis_font_size)
-   pylab.xlabel('Merger Rate $\mathrm{(Mpc^{-3} yr^{-1})}$',fontsize=axis_font_size)
-   pylab.grid()
-   pylab.xlim([mu.min(), mu.max()])
-   savefig_pylal('prior', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-   pylab.clf()
+
+   if bin_type == "Mass1_Mass2":
+     xtick_locs = edges(bins)[0]
+     xtick_strings = ["%.1f"% m for m in xtick_locs]
+     ytick_locs = edges(bins)[1]
+     ytick_strings = ["%.1f"% m for m in ytick_locs]
+
+     m1range = [numpy.min(bins.lower()[0]), numpy.max(bins.upper()[0])]
+     m2range = [numpy.min(bins.lower()[1]), numpy.max(bins.upper()[1])]
+     livetime = total_lt.array[0,0]*constants.LAL_YRJUL_SI/(24.0*3600)
+
+     #
+     # log distance plot
+     #
+     distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
+     pylab.pcolor(xtick_locs,ytick_locs, pylab.log10(distance.T) , vmin=0, vmax=3)
+     pylab.colorbar().set_label("log$_{10}$ Mpc")
+     pylab.xlim(m1range)
+     pylab.ylim(m2range)
+     pylab.xticks(xtick_locs,xtick_strings)
+     pylab.yticks(ytick_locs,ytick_strings)
+     pylab.grid()
+     pylab.title("Search Range (%.1f days livetime)"%(livetime),fontsize=14)
+     pylab.xlabel("Mass 1",fontsize=18)
+     pylab.ylabel("Mass 2",fontsize=18)
+     pylab.gca().set_aspect(1)
+     savefig_pylal('distance', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
+
+     #
+     # upper limit plot
+     #
+     #fudge = 0.01 * min (upper_limit_werrs.array[upper_limit_werrs.array !=0])
+     log_ul = pylab.log10(combined_upper_limit.array)
+     pylab.pcolor(xtick_locs,ytick_locs, log_ul.T, vmin=numpy.log10(opts.rate_min), vmax=numpy.log10(opts.rate_max))
+     pylab.colorbar().set_label("log$_{10}$ mergers/Mpc$^3$/yr")
+     pylab.xlim(m1range)
+     pylab.ylim(m2range)
+     pylab.xticks(xtick_locs,xtick_strings)
+     pylab.yticks(ytick_locs,ytick_strings)
+     pylab.grid()
+     pylab.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
+     pylab.xlabel("Mass 1",fontsize=18)
+     pylab.ylabel("Mass 2",fontsize=18)
+     pylab.gca().set_aspect(1)
+     savefig_pylal('upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
+
+
+     #
+     # upper limit comparison plot
+     #
+     pylab.pcolor(xtick_locs,ytick_locs, prior_upper_limit.array.T/combined_upper_limit.array.T,vmin=1,vmax=10)
+     pylab.colorbar().set_label("prior/combined upper limit")
+     pylab.xlim(m1range)
+     pylab.ylim(m2range)
+     pylab.xticks(xtick_locs,xtick_strings)
+     pylab.yticks(ytick_locs,ytick_strings)
+     pylab.grid()
+     pylab.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
+     pylab.xlabel("Mass 1",fontsize=18)
+     pylab.ylabel("Mass 2",fontsize=18)
+     pylab.gca().set_aspect(1)
+     savefig_pylal('upper_limit_compare_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
 
 
    # for bar plots, treat bns/bbh special
-   if bin_type == "BNS_BBH":
-     tick_locs = [0.5,1.5,2.5] #center the labels
-     tick_strings = ["BNS","NSBH","BBH"]
-     left = numpy.array([0,1,2])
-     width = numpy.ones(len(left))
    else:
-     tick_locs = edges(bins)[0]
-     tick_strings = ["%.1f"% m for m in tick_locs]
-     left = bins.lower()[0]
-     width = bins.upper()[0]-bins.lower()[0]
+     if bin_type == "BNS_BBH":
+       tick_locs = [0.5,1.5,2.5] #center the labels
+       tick_strings = ["BNS","NSBH","BBH"]
+       left = numpy.array([0,1,2])
+       width = numpy.ones(len(left))
+     else:
+       tick_locs = edges(bins)[0]
+       tick_strings = ["%.1f"% m for m in tick_locs]
+       left = bins.lower()[0]
+       width = bins.upper()[0]-bins.lower()[0]
 
-   #
-   # combined upper limit plot
-   #
-   bottom = combined_upper_limit.array
-   top = numpy.ones(len(bottom))
-   pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8)
-   bottom = prior_upper_limit.array
-   top = numpy.ones(len(bottom))
-   pylab.bar(left, top, width, bottom = bottom, color='gray')
-   pylab.gca().semilogy()
-   pylab.gca().set_ylim([1e-7,1e-1]) #FIXME
-   #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
-   pylab.xticks(tick_locs,tick_strings)
-   pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
-   if bin_type != "BNS_BBH":
-     pylab.xlabel(bin_type.replace('_',' ') + "$\mathrm{(M_{\odot})}$",size=axis_font_size)
+     #
+     # combined upper limit plot
+     #
+     bottom = combined_upper_limit.array
+     top = numpy.ones(len(bottom))
+     pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8)
+     bottom_prior = prior_upper_limit.array
+     pylab.bar(left, top, width, bottom = bottom_prior, color='gray')
+     pylab.gca().semilogy()
+     pylab.gca().set_ylim([opts.rate_min,opts.rate_max])
+     #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     pylab.xticks(tick_locs,tick_strings)
+     pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
+     if bin_type != "BNS_BBH":
+       pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",size=axis_font_size)
+       pylab.grid()
+     pylab.ylabel('Rate (Mpc$^{-3}$ yr$^{-1}$)', size=axis_font_size)
+     savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
+
+     #
+     # distance plot in 1d
+     #
+     distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
+     derr = (distance /3) *( total_err.array / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
+     pylab.bar(left,distance,width,yerr=derr)
      pylab.grid()
-   pylab.ylabel('Rate $\mathrm{(Mpc^{-3} yr^{-1})}$', size=axis_font_size)
-   savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-   pylab.clf()
+     pylab.xticks(tick_locs,tick_strings)
+     pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
+     #pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     if bin_type != "BNS_BBH":
+       pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=axis_font_size)
+     pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
+     savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
+     pylab.clf()
 
-   #
-   # distance plot in 1d
-   #
-   distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
-   derr = (distance /3) *( total_err.array**0.5 / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
-   pylab.bar(left,distance,width,yerr=derr)
-   pylab.grid()
-   pylab.xticks(tick_locs,tick_strings)
-   pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
-   #pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
-   if bin_type != "BNS_BBH":
-     pylab.xlabel(bin_type.replace('_',' ') + " $\mathrm{M_{\odot}}$)",fontsize=axis_font_size)
-   pylab.ylim([0,100])
-   pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
-   savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-   pylab.clf()
-
-   plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [], fnameList,
+   fnameList.extend(postnameList) # these plots are nice, but too many!
+   fnameList.extend(cpnameList)
+   tagList.extend(posttagList)
+   tagList.extend(cptagList)
+   plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList,
 					       tagList, add_box_flag = False ) #FIXME
    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
 
@@ -325,23 +461,37 @@ for bin_type in ["Chirp_Mass","Total_Mass","Component_Mass","BNS_BBH"]:
    for j, mbin in enumerate(iterutils.MultiIter(*bins.centres())):
 
       row = ul_table.RowType()
+      if combined_upper_limit[mbin] == float('inf'): continue
+      if bin_type == 'Mass1_Mass2' and mbin[1]>mbin[0]: continue
 
-      if bin_type == "BNS_BBH":
-        row.mass_bin = tick_strings[j]
+      if bin_type == "Mass1_Mass2":
+        columnList = ["mass1","mass2"]
+        row.mass1 = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+        row.mass2 = "%.1f-%.1f"%(bins.lower()[1][bins[mbin][1]],bins.upper()[1][bins[mbin][1]])
       else:
-        row.mass_bin = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
-      row.sensitivity_in_Mpc3_yr = "%.3g" % (total_vol[mbin],)
-      row.livetime_in_days = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
-      row.avg_reach_in_Mpc = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
-      row.upper_limit_in_mergers_per_Mpc3_per_yr = "%.3g" % (combined_upper_limit[mbin],)
-      row.effective_numerator = "%.2f" % (combined_upper_limit[mbin]*total_vol[mbin],)
-      row.fractional_error = "%.2f" % (total_err[mbin]**0.5 / total_vol[mbin],)
+        columnList = ["mass_bin"]
+        if bin_type == "BNS_BBH":
+          row.mass_bin = tick_strings[j]
+        else:
+          row.mass_bin = "%.1f-%.1f"%(bins.lower()[0][bins[mbin][0]],bins.upper()[0][bins[mbin][0]])
+      row.sensitivity_VT = "%.3g" % (total_vol[mbin],)
+      row.livetime = "%f" % (total_lt[mbin]*constants.LAL_YRJUL_SI/(3600*24),)
+      row.avg_reach = "%.1f" % ((total_vol[mbin]/total_lt[mbin] /(4*numpy.pi/3) )**(1./3),)
+      row.uncombined_upper_limit = "%.3g" % (uncombined_upper_limit[mbin],)
+      row.combined_upper_limit = "%.3g" % (combined_upper_limit[mbin],)
+      row.prior_upper_limit = "%.3g" % (prior_upper_limit[mbin],)
+      row.effective_numerator = "%.3f" % (combined_upper_limit[mbin]*total_vol[mbin],)
+      row.effective_lambda = "%.3f" % (eff_deriv[mbin],)
+      row.naive_combined_upper_limit = "%.3g" % (effective_comb_upper_limit[mbin],)
+      row.MC_error = "%.3f" % (total_err[mbin] / total_vol[mbin],)
+      row.calib_error = "%.2f" % (opts.cal_err,)
+      row.wave_error = "%.2f" % (opts.wave_err,)
       row.injs_found = total_found[mbin]
       row.injs_missed = total_missed[mbin]
 
       ul_table.append(row)
 
-   columnList = ['mass_bin','sensitivity_in_Mpc3_yr','livetime_in_days','avg_reach_in_Mpc','upper_limit_in_mergers_per_Mpc3_per_yr','effective_numerator','fractional_error','injs_found','injs_missed']
+   columnList += ['sensitivity_VT','effective_lambda','livetime','avg_reach','prior_upper_limit','uncombined_upper_limit','combined_upper_limit','naive_combined_upper_limit','effective_numerator','MC_error','calib_error','wave_error','injs_found','injs_missed']
    print_tables.print_tables(summary_doc,summary_file,opts.output_format,
 			     tableList=['upper_limit'],
 			     columnList = columnList)

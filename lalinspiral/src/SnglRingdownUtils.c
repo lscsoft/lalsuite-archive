@@ -41,8 +41,6 @@
 #include <lal/TimeDelay.h>
 #include <lal/RingUtils.h>
 
-NRCSID( SNGLRINGDOWNUTILSC, "$Id$" );
-
 /**
 \author Brown, D. A., Fairhurst, S. and Messaritaki, E.
 \file
@@ -163,7 +161,7 @@ LALFreeSnglRingdown (
     )
 
 {
-  INITSTATUS( status, "LALFreeSnglRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   XLALFreeSnglRingdown( eventHead );
   RETURN( status );
 }
@@ -187,7 +185,7 @@ XLALFreeSnglRingdown (
     if( (thisCoinc = eventId->coincRingdownTable) )
     {
       /* this Sngl is still part of a coinc, set pointer to NULL */
-      for ( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+      for ( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
       {
         if ( *eventHead == thisCoinc->snglRingdown[ifoNumber] )
         {
@@ -212,7 +210,7 @@ LALSortSnglRingdown (
     )
 
 {
-  INITSTATUS( status, "LALSortSnglRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
 
   *eventHead = XLALSortSnglRingdown ( *eventHead, comparfunc );
 
@@ -318,7 +316,7 @@ LALCompareRingdowns (
     )
 
 {
-  INITSTATUS( status, "LALCompareRingdowns", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
   SnglRingdownAccuracy aAcc, bAcc;
   InterferometerNumber ifoaNum,  ifobNum;
@@ -328,8 +326,8 @@ LALCompareRingdowns (
   const LALDetector *aDet;
   const LALDetector *bDet;
 
-  ifoaNum = XLALIFONumber( aPtr->ifo );
-  ifobNum = XLALIFONumber( bPtr->ifo );
+  ifoaNum = (InterferometerNumber) XLALIFONumber( aPtr->ifo );
+  ifobNum = (InterferometerNumber) XLALIFONumber( bPtr->ifo );
   aAcc = params->ifoAccuracy[ifoaNum];
   bAcc = params->ifoAccuracy[ifobNum];
   ta = XLALGPSToINT8NS( &(aPtr->start_time) );
@@ -512,7 +510,7 @@ LALClusterSnglRingdownTable (
   SnglRingdownTable     *thisEvent=NULL;
   SnglRingdownTable     *prevEvent=NULL;
 
-  INITSTATUS( status, "LALClusterSnglRingdownTable", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( ringdownEvent, status,
@@ -611,7 +609,7 @@ LALIfoCutSingleRingdown(
   SnglRingdownTable    *ifoHead   = NULL;
   SnglRingdownTable    *thisEvent = NULL;
 
-  INITSTATUS( status, "LALIfoCutSingleRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ifoHead = XLALIfoCutSingleRingdown( eventHead, ifo );
@@ -638,7 +636,6 @@ XLALIfoCutSingleRingdown(
     )
 
 {
-  static const char *func = "IfoCutSingleRingdown";
   SnglRingdownTable    *prevEvent   = NULL;
   SnglRingdownTable    *thisEvent   = NULL;
   SnglRingdownTable    *ifoHead     = NULL;
@@ -647,7 +644,7 @@ XLALIfoCutSingleRingdown(
   /* check that eventHead is non-null */
   if ( ! eventHead )
     {
-      XLAL_ERROR_NULL(func,XLAL_EIO);
+      XLAL_ERROR_NULL(XLAL_EIO);
      }
   /* Scan through a linked list of sngl_ringdown tables and return a
      pointer to the head of a linked list of tables for a specific IFO */
@@ -707,7 +704,7 @@ LALTimeCutSingleRingdown(
     )
 
 {
-  INITSTATUS( status, "LALTimeCutSingleRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   *eventHead = XLALTimeCutSingleRingdown( *eventHead, startTime, endTime );
@@ -783,7 +780,7 @@ LALIfoCountSingleRingdown(
 {
   SnglRingdownTable    *thisEvent = NULL;
 
-  INITSTATUS( status, "LALIfoCountSingleRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check that output is null and input non-null */
@@ -823,7 +820,7 @@ LALTimeSlideSingleRingdown(
   INT8                  endTimeNS   = 0;
   INT8                  slideNS     = 0;
   INT8                  trigTimeNS  = 0;
-  INITSTATUS( status, "LALTimeSlideSingleRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* time slide triggers by a time = slideTime, except those from the
@@ -959,7 +956,7 @@ LALPlayTestSingleRingdown(
     )
 
 {
-  INITSTATUS( status, "LALPlayTestSingleRingdown", SNGLRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   *eventHead = XLALPlayTestSingleRingdown(*eventHead, dataType);

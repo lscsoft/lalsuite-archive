@@ -1,5 +1,6 @@
 /*
 *  Copyright (C) 2007 Reinhard Prix, Teviet Creighton
+*  Copyright (C) 2012 Teviet Creighton, Evan Goetz
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -17,33 +18,51 @@
 *  MA  02111-1307  USA
 */
 
+#include <lal/LALStdio.h>
+#include <lal/LALStdlib.h>
+#include <lal/LALConstants.h>
+#include <lal/Units.h>
+#include <lal/AVFactories.h>
+#include <lal/SeqFactories.h>
+#include <lal/SimulateCoherentGW.h>
+#include <lal/GenerateSpinOrbitCW.h>
+#include <gsl/gsl_roots.h>
+
+
+REAL8 gsl_E_solver(REAL8 e, void *p);
+
+struct E_solver_params {
+   REAL8 a, b, x;
+};
+
+REAL8 gsl_E_solver(REAL8 e, void *p) {
+   struct E_solver_params *params = (struct E_solver_params*)p;
+   return e + params->a*sin(e) + params->b*(cos(e) - 1.0) - params->x;
+}
+
 /**
 \author Creighton, T. D.
-\file
-\ingroup pulsarTODO
 
 \brief Computes a continuous waveform with frequency drift and Doppler
 modulation from an elliptical orbital trajectory.
-
-\heading{Description}
 
 This function computes a quaiperiodic waveform using the spindown and
 orbital parameters in <tt>*params</tt>, storing the result in
 <tt>*output</tt>.
 
 In the <tt>*params</tt> structure, the routine uses all the "input"
-fields specified in \ref GenerateSpinOrbitCW.h, and sets all of the
-"output" fields.  If <tt>params->f</tt>=\c NULL, no spindown
-modulation is performed.  If <tt>params->oneMinusEcc</tt>\f$\notin(0,1]\f$
+fields specified in \ref GenerateSpinOrbitCW_h, and sets all of the
+"output" fields.  If <tt>params-\>f</tt>=\c NULL, no spindown
+modulation is performed.  If <tt>params-\>oneMinusEcc</tt>\f$\notin(0,1]\f$
 (an open orbit), or if
-<tt>params->rPeriNorm</tt>\f$\times\f$<tt>params->angularSpeed</tt>\f$\geq1\f$
+<tt>params-\>rPeriNorm</tt>\f$\times\f$<tt>params-\>angularSpeed</tt>\f$\geq1\f$
 (faster-than-light speed at periapsis), an error is returned.
 
-In the <tt>*output</tt> structure, the field <tt>output->h</tt> is
+In the <tt>*output</tt> structure, the field <tt>output-\>h</tt> is
 ignored, but all other pointer fields must be set to \c NULL.  The
-function will create and allocate space for <tt>output->a</tt>,
-<tt>output->f</tt>, and <tt>output->phi</tt> as necessary.  The
-<tt>output->shift</tt> field will remain set to \c NULL.
+function will create and allocate space for <tt>output-\>a</tt>,
+<tt>output-\>f</tt>, and <tt>output-\>phi</tt> as necessary.  The
+<tt>output-\>shift</tt> field will remain set to \c NULL.
 
 \heading{Algorithm}
 
@@ -66,8 +85,8 @@ period of the orbit.  For simplicity we write this as:
 t_r = T_p + \frac{1}{n}\left( E + A\sin E + B[\cos E - 1] \right) \;,
 \f}
 
-\wrapfig{r,0.28\textwidth,fig_binary-orbit_ell}
-\image html  inject_eanomaly.png "Fig. [fig_binary-orbit_ell]: Function to be inverted to find eccentric anomaly"
+\wrapfig{r,0.28\textwidth,fig_binary_orbit_ell}
+\image html  inject_eanomaly.png "Fig. [fig_binary_orbit_ell]: Function to be inverted to find eccentric anomaly"
 \image latex inject_eanomaly.pdf "Function to be inverted to find eccentric anomaly" width=0.23\textwidth
 
 where \f$T_p\f$ is the \e observed time of periapsis passage and
@@ -87,7 +106,9 @@ iteration off to unacceptably large or small values.  However, by
 restricting all initial guesses and iterations to the domain
 \f$E\in[0,2\pi)\f$, one will always end up on a trajectory branch that
 will converge uniformly.  This should converge faster than the more
-generically robust technique of bisection.
+generically robust technique of bisection. (Note: the danger with Newton's method
+has been found to be unstable for certain binary orbital parameters. So if
+Newton's method fails to converge, a bisection algorithm is employed.)
 
 In this algorithm, we start the computation with an arbitrary initial
 guess of \f$E=0\f$, and refine it until the we get agreement to within
@@ -132,44 +153,18 @@ periapsis, and \f$\Delta(r_p/r)\f$ is the total range swept out by the
 quantity \f$r_p/r\f$ over the course of the observation.  Other
 relativistic effects such as special relativistic time dilation are
 comparable in magnitude.  We make a crude estimate of when this is
-significant by noting that \f$v/c\greatersim v_p\f$ but
-\f$\Delta(r_p/r)\lessim 2e/(1+e)\f$; we take these approximations as
-equalities and require that \f$\Delta\phi\lessim\pi\f$, giving:
+significant by noting that \f$v/c\gtrsim v_p\f$ but
+\f$\Delta(r_p/r)\lesssim 2e/(1+e)\f$; we take these approximations as
+equalities and require that \f$\Delta\phi\lesssim\pi\f$, giving:
 \anchor eq_relativistic-orbit \f{equation}{
 \label{eq_relativistic-orbit}
-f_0Tv_p^2\frac{4e}{1+e}\lessim1 \;.
+f_0Tv_p^2\frac{4e}{1+e}\lesssim1 \;.
 \f}
 When this critereon is violated, a warning is generated.  Furthermore,
 as noted earlier, when \f$v_p\geq1\f$ the routine will return an error, as
 faster-than-light speeds can cause the emission and reception times to
 be non-monotonic functions of one another.
-
-\heading{Uses}
-\code
-LALMalloc()                   LALFree()
-LALSCreateVectorSequence()    LALSDestroyVectorSequence()
-LALSCreateVector()            LALSDestroyVector()
-LALDCreateVector()            LALDDestroyVector()
-snprintf()                 LALWarning()
-\endcode
-
-\heading{Notes}
-
-
 */
-
-#include <lal/LALStdio.h>
-#include <lal/LALStdlib.h>
-#include <lal/LALConstants.h>
-#include <lal/Units.h>
-#include <lal/AVFactories.h>
-#include <lal/SeqFactories.h>
-#include <lal/SimulateCoherentGW.h>
-#include <lal/GenerateSpinOrbitCW.h>
-
-NRCSID( GENERATEELLIPTICSPINORBITCWC, "$Id$" );
-
-
 void
 LALGenerateEllipticSpinOrbitCW( LALStatus             *stat,
 				CoherentGW            *output,
@@ -194,13 +189,13 @@ LALGenerateEllipticSpinOrbitCW( LALStatus             *stat,
   REAL8 ecc;               /* orbital eccentricity */
   REAL8 oneMinusEcc, onePlusEcc; /* 1 - ecc and 1 + ecc */
   REAL8 e = 0.0;                 /* eccentric anomaly */
+  REAL8 de = 0.0;                /* eccentric anomaly step */
   REAL8 sine = 0.0, cose = 0.0;  /* sine of e, and cosine of e minus 1 */
   REAL8 *fSpin = NULL;           /* pointer to Taylor coefficients */
   REAL4 *fData;                  /* pointer to frequency data */
   REAL8 *phiData;                /* pointer to phase data */
 
-  INITSTATUS( stat, "LALGenerateEllipticSpinOrbitCW",
-	      GENERATEELLIPTICSPINORBITCWC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Make sure parameter and output structures exist. */
@@ -379,15 +374,73 @@ LALGenerateEllipticSpinOrbitCW( LALStatus             *stat,
       nOrb -= 1;
     x -= LAL_TWOPI*nOrb;
 
-    /* Newton-Raphson iteration to find E(x). */
-    while ( fabs( dx = e + a*sine + b*cose - x ) > dxMax ) {
-      e -= dx/( 1.0 + a*cose + a - b*sine );
+    /* Newton-Raphson iteration to find E(x). Maximum of 100 iterations. */
+    INT4 maxiter = 100, iter = 0;
+    while ( iter<maxiter && fabs( dx = e + a*sine + b*cose - x ) > dxMax ) {
+      iter++;
+      //Make a check on the step-size so we don't step too far
+      de = dx/( 1.0 + a*cose + a - b*sine );
+      if ( de > LAL_PI )
+        de = LAL_PI;
+      else if ( de < -LAL_PI )
+        de = -LAL_PI;
+      e -= de;
+
       if ( e < 0.0 )
-	e = 0.0;
+        e = 0.0;
       else if ( e > LAL_TWOPI )
-	e = LAL_TWOPI;
+        e = LAL_TWOPI;
       sine = sin( e );
       cose = cos( e ) - 1.0;
+    }
+    /* Bisection algorithm from GSL if Newton's method (above) fails to converge. */
+    if (iter==maxiter && fabs( dx = e + a*sine + b*cose - x ) > dxMax ) {
+       //Initialize solver
+       const gsl_root_fsolver_type *T = gsl_root_fsolver_bisection;
+       gsl_root_fsolver *s = gsl_root_fsolver_alloc(T);
+       REAL8 e_lo = 0.0, e_hi = LAL_TWOPI;
+       gsl_function F;
+       struct E_solver_params pars = {a, b, x};
+       F.function = &gsl_E_solver;
+       F.params = &pars;
+
+       if (gsl_root_fsolver_set(s, &F, e_lo, e_hi) != 0) {
+          LALFree( output->a );   output->a = NULL;
+          LALFree( output->f );   output->f = NULL;
+          LALFree( output->phi ); output->phi = NULL;
+          ABORT( stat, -1, "GSL failed to set initial points" );
+       }
+
+       INT4 keepgoing = 1;
+       INT4 success = 0;
+       INT4 root_status = keepgoing;
+       e = 0.0;
+       iter = 0;
+       while (root_status==keepgoing && iter<maxiter) {
+          iter++;
+          root_status = gsl_root_fsolver_iterate(s);
+          if (root_status!=keepgoing && root_status!=success) {
+             LALFree( output->a );   output->a = NULL;
+             LALFree( output->f );   output->f = NULL;
+             LALFree( output->phi ); output->phi = NULL;
+             ABORT( stat, -1, "gsl_root_fsolver_iterate() failed" );
+          }
+          e = gsl_root_fsolver_root(s);
+          sine = sin(e);
+          cose = cos(e) - 1.0;
+          if (fabs( dx = e + a*sine + b*cose - x ) > dxMax) root_status = keepgoing;
+          else root_status = success;
+       }
+
+       if (root_status!=success) {
+          LALFree( output->a );   output->a = NULL;
+          LALFree( output->f );   output->f = NULL;
+          LALFree( output->phi ); output->phi = NULL;
+          gsl_root_fsolver_free(s);
+          ABORT( stat, -1, "Could not converge using bisection algorithm" );
+       }
+
+       gsl_root_fsolver_free(s);
     }
 
     /* Compute source emission time, phase, and frequency. */

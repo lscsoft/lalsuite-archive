@@ -41,14 +41,13 @@
 /*---------- INCLUDES ----------*/
 #include <math.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/AVFactories.h>
 #include <lal/ComputeFstat.h>
 #include <lal/LogPrintf.h>
 
 
 #include "ComputeFstatREAL4.h"
-
-NRCSID( COMPUTEFSTATC, "$Id$");
 
 #ifdef EAH_OPTIMIZATION_FLAGS
 #include "LocalOptimizationFlags.h"
@@ -73,6 +72,9 @@ NRCSID( COMPUTEFSTATC, "$Id$");
 #define TWOPI_FLOAT     6.28318530717958f  	/**< single-precision 2*pi */
 #define OOTWOPI_FLOAT   (1.0f / TWOPI_FLOAT)	/**< single-precision 1 / (2pi) */
 
+/** fixed DTERMS to allow for loop unrolling */
+#define DTERMS 8
+
 /*----- Macros ----- */
 #define SQ(x) ( (x) * (x) )
 #define REM(x) ( (x) - (INT4)(x) )
@@ -87,17 +89,10 @@ static const REAL4 inv_fact[PULSAR_MAX_SPINS] = { 1.0, 1.0, (1.0/2.0), (1.0/6.0)
 /* empty initializers  */
 static const LALStatus empty_LALStatus;
 static const AMCoeffs empty_AMCoeffs;
-
-// const SSBtimes empty_SSBtimes;
-// const MultiSSBtimes empty_MultiSSBtimes;
-// const AntennaPatternMatrix empty_AntennaPatternMatrix;
-// const MultiAMCoeffs empty_MultiAMCoeffs;
-// const Fcomponents empty_Fcomponents;
-// const ComputeFBuffer empty_ComputeFBuffer;
-const PulsarSpinsREAL4 empty_PulsarSpinsREAL4;
+static const PulsarSpinsREAL4 empty_PulsarSpinsREAL4;
+static const FcomponentsREAL4 empty_FcomponentsREAL4;
 const ComputeFBufferREAL4 empty_ComputeFBufferREAL4;
 const ComputeFBufferREAL4V empty_ComputeFBufferREAL4V;
-const FcomponentsREAL4 empty_FcomponentsREAL4;
 
 
 /*---------- internal prototypes ----------*/
@@ -126,8 +121,6 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
                                       ComputeFBufferREAL4V *cfvBuffer			/**< buffer quantities that don't need to be recomputed */
                                       )
 {
-  static const char *fn = "XLALComputeFStatFreqBandVector()";
-
   UINT4 numBins, k;
   UINT4 numSegments, n;
   REAL8 f0, deltaF;
@@ -138,32 +131,32 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
 
   /* check input consistency */
   if ( !doppler || !multiSFTsV || !multiWeightsV || !multiDetStatesV || !cfvBuffer ) {
-    XLALPrintError ("%s: illegal NULL input pointer.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: illegal NULL input pointer.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   if ( !fstatBandV || !fstatBandV->length ) {
-    XLALPrintError ("%s: illegal NULL or empty output pointer 'fstatBandV'.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: illegal NULL or empty output pointer 'fstatBandV'.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   numSegments = fstatBandV->length;
 
   if ( (multiSFTsV->length != numSegments) || (multiDetStatesV->length != numSegments ) ) {
     XLALPrintError ("%s: inconsistent number of segments between fstatBandV (%d), multiSFTsV(%d) and multiDetStatesV (%d)\n",
-                    fn, numSegments, multiSFTsV->length, multiDetStatesV->length );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+                    __func__, numSegments, multiSFTsV->length, multiDetStatesV->length );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   if ( multiWeightsV->length != numSegments ) {
     XLALPrintError ("%s: inconsistent number of segments between fstatBandV (%d) and multiWeightsV (%d)\n",
-                    fn, numSegments, multiWeightsV->length );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+                    __func__, numSegments, multiWeightsV->length );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
 #ifdef AUTOVECT_HOTLOOP
   {
     static int firstcall = -1;
-    nDterms = 4 * (Dterms / 4);
+    UINT4 nDterms = 4 * (Dterms / 4);
     if ((firstcall) && (Dterms != nDterms)) {
       firstcall = 0;
       fprintf (stderr, "WARNING: continuing with Dterms = %d instead of the passed %d\n", nDterms, Dterms);
@@ -173,11 +166,11 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
 #elif __ALTIVEC__ || __SSE__
   {
     static int firstcall = -1;
-    if ((firstcall) && (Dterms != 8)) {
+    if ((firstcall) && (Dterms != DTERMS)) {
       firstcall = 0;
-      fprintf (stderr, "WARNING: continuing with Dterms = 8 instead of the passed %d\n", Dterms);
+      fprintf (stderr, "WARNING: continuing with Dterms = %d instead of the passed %d\n", DTERMS, Dterms);
     }
-    Dterms = 8;
+    Dterms = DTERMS;
   }
 #endif
 
@@ -189,8 +182,8 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
    * at least close to each other -- this is only meant to catch
    * stupid errors but not subtle ones */
   if ( fabs(f0 - doppler->fkdot[0]) >= deltaF ) {
-    XLALPrintError ("%s: fstatVector->f0 = %f differs from doppler->fkdot[0] = %f by more than deltaF = %g\n", fn, f0, doppler->fkdot[0], deltaF );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: fstatVector->f0 = %f differs from doppler->fkdot[0] = %f by more than deltaF = %g\n", __func__, f0, doppler->fkdot[0], deltaF );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   /* ---------- prepare REAL4 version of PulsarSpins to be passed into core functions */
@@ -234,13 +227,13 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
       cfvBuffer->numSegments = numSegments;
 
       if ( (cfvBuffer->multiSSB4V = XLALCalloc ( numSegments, sizeof(*cfvBuffer->multiSSB4V) )) == NULL ) {
-        XLALPrintError ("%s: XLALCalloc ( %d, %d) failed.\n", fn, numSegments, sizeof(*cfvBuffer->multiSSB4V) );
-        XLAL_ERROR ( fn, XLAL_ENOMEM );
+        XLALPrintError ("%s: XLALCalloc ( %d, %d) failed.\n", __func__, numSegments, sizeof(*cfvBuffer->multiSSB4V) );
+        XLAL_ERROR ( XLAL_ENOMEM );
       }
       if ( (cfvBuffer->multiAMcoefV = XLALCalloc ( numSegments, sizeof(*cfvBuffer->multiAMcoefV) )) == NULL ) {
         XLALEmptyComputeFBufferREAL4V ( cfvBuffer );
-        XLALPrintError ("%s: XLALCalloc ( %d, %d) failed.\n", fn, numSegments, sizeof(*cfvBuffer->multiAMcoefV) );
-        XLAL_ERROR ( fn, XLAL_ENOMEM );
+        XLALPrintError ("%s: XLALCalloc ( %d, %d) failed.\n", __func__, numSegments, sizeof(*cfvBuffer->multiAMcoefV) );
+        XLAL_ERROR ( XLAL_ENOMEM );
       }
 
       for ( n=0; n < numSegments; n ++ )
@@ -250,22 +243,22 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
           /* compute new SSB timings over all segments */
           if ( (cfvBuffer->multiSSB4V[n] = XLALGetMultiSSBtimesREAL4 ( multiDetStatesV->data[n], doppler->Alpha, doppler->Delta, doppler->refTime)) == NULL ) {
             XLALEmptyComputeFBufferREAL4V ( cfvBuffer );
-            XLALPrintError ( "%s: XLALGetMultiSSBtimesREAL4() failed. xlalErrno = %d.\n", fn, xlalErrno );
-            XLAL_ERROR ( fn, XLAL_EFUNC );
+            XLALPrintError ( "%s: XLALGetMultiSSBtimesREAL4() failed. xlalErrno = %d.\n", __func__, xlalErrno );
+            XLAL_ERROR ( XLAL_EFUNC );
           }
 
           LALGetMultiAMCoeffs ( &status, &(cfvBuffer->multiAMcoefV[n]), multiDetStatesV->data[n], skypos );
           if ( status.statusCode ) {
             XLALEmptyComputeFBufferREAL4V ( cfvBuffer );
-            XLALPrintError ("%s: LALGetMultiAMCoeffs() failed with statusCode=%d, '%s'\n", fn, status.statusCode, status.statusDescription );
-            XLAL_ERROR ( fn, XLAL_EFAILED );
+            XLALPrintError ("%s: LALGetMultiAMCoeffs() failed with statusCode=%d, '%s'\n", __func__, status.statusCode, status.statusDescription );
+            XLAL_ERROR ( XLAL_EFAILED );
           }
 
           /* apply noise-weights to Antenna-patterns and compute A,B,C */
-          if ( XLALWeighMultiAMCoeffs ( cfvBuffer->multiAMcoefV[n], multiWeightsV->data[n] ) != XLAL_SUCCESS ) {
+          if ( XLALWeightMultiAMCoeffs ( cfvBuffer->multiAMcoefV[n], multiWeightsV->data[n] ) != XLAL_SUCCESS ) {
             XLALEmptyComputeFBufferREAL4V ( cfvBuffer );
-            XLALPrintError("%s: XLALWeighMultiAMCoeffs() failed with error = %d\n", fn, xlalErrno );
-            XLAL_ERROR ( fn, XLAL_EFUNC );
+            XLALPrintError("%s: XLALWeightMultiAMCoeffs() failed with error = %d\n", __func__, xlalErrno );
+            XLAL_ERROR ( XLAL_EFUNC );
           }
 
         } /* for n < numSegments */
@@ -293,8 +286,8 @@ XLALComputeFStatFreqBandVectorCPU (   REAL4FrequencySeriesVector *fstatBandV, 		
 
           if ( xlalErrno ) {
             XLALEmptyComputeFBufferREAL4V ( cfvBuffer );
-            XLALPrintError ("%s: XLALCoreFstatREAL4() failed with errno = %d in loop n=%d, k=%d.\n", fn, xlalErrno, n, k );
-            XLAL_ERROR ( fn, XLAL_EFUNC );
+            XLALPrintError ("%s: XLALCoreFstatREAL4() failed with errno = %d in loop n=%d, k=%d.\n", __func__, xlalErrno, n, k );
+            XLAL_ERROR ( XLAL_EFUNC );
           }
 
           fstatBandV->data[n].data->data[k] = Fstat;
@@ -327,8 +320,6 @@ XLALDriverFstatREAL4 ( REAL4 *Fstat,	                 		/**< [out] Fstatistic va
                      ComputeFBufferREAL4 *cfBuffer       		/**< CF-internal buffering structure */
                      )
 {
-  static const char *fn = "XLALDriverFstatREAL4()";
-
   MultiSSBtimesREAL4 *multiSSB4 = NULL;
   MultiAMCoeffs *multiAMcoef = NULL;
   PulsarSpinsREAL4 fkdot4 = empty_PulsarSpinsREAL4;
@@ -337,17 +328,17 @@ XLALDriverFstatREAL4 ( REAL4 *Fstat,	                 		/**< [out] Fstatistic va
 
   /* check input consistency */
   if ( !Fstat || !doppler || !multiSFTs || !multiDetStates || !cfBuffer ) {
-    XLALPrintError("%s: Illegal NULL pointer input.\n", fn );
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLALPrintError("%s: Illegal NULL pointer input.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   numIFOs = multiSFTs->length;
   if ( multiDetStates->length != numIFOs ) {
-    XLALPrintError("%s: inconsistent number of IFOs in SFTs (%d) and detector-states (%d).\n", fn, numIFOs, multiDetStates->length);
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLALPrintError("%s: inconsistent number of IFOs in SFTs (%d) and detector-states (%d).\n", __func__, numIFOs, multiDetStates->length);
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   if ( multiWeights && multiWeights->length != numIFOs ) {
-    XLALPrintError("%s: inconsistent number of IFOs in SFTs (%d) and noise-weights (%d).\n", fn, numIFOs, multiWeights->length);
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLALPrintError("%s: inconsistent number of IFOs in SFTs (%d) and noise-weights (%d).\n", __func__, numIFOs, multiWeights->length);
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   /* make sure sin/cos lookup-tables are initialized */
@@ -366,8 +357,8 @@ XLALDriverFstatREAL4 ( REAL4 *Fstat,	                 		/**< [out] Fstatistic va
 
       /* compute new SSB timings */
       if ( (multiSSB4 = XLALGetMultiSSBtimesREAL4 ( multiDetStates, doppler->Alpha, doppler->Delta, doppler->refTime)) == NULL ) {
-        XLALPrintError ( "%s: XLALGetMultiSSBtimesREAL4() failed. xlalErrno = %d.\n", fn, xlalErrno );
-	XLAL_ERROR ( fn, XLAL_EFUNC );
+        XLALPrintError ( "%s: XLALGetMultiSSBtimesREAL4() failed. xlalErrno = %d.\n", __func__, xlalErrno );
+	XLAL_ERROR ( XLAL_EFUNC );
       }
 
       /* compute new AM-coefficients */
@@ -377,14 +368,14 @@ XLALDriverFstatREAL4 ( REAL4 *Fstat,	                 		/**< [out] Fstatistic va
 
       LALGetMultiAMCoeffs ( &status, &multiAMcoef, multiDetStates, skypos );
       if ( status.statusCode ) {
-        XLALPrintError ("%s: LALGetMultiAMCoeffs() failed with statusCode=%d, '%s'\n", fn, status.statusCode, status.statusDescription );
-        XLAL_ERROR ( fn, XLAL_EFAILED );
+        XLALPrintError ("%s: LALGetMultiAMCoeffs() failed with statusCode=%d, '%s'\n", __func__, status.statusCode, status.statusDescription );
+        XLAL_ERROR ( XLAL_EFAILED );
       }
 
       /* apply noise-weights to Antenna-patterns and compute A,B,C */
-      if ( XLALWeighMultiAMCoeffs ( multiAMcoef, multiWeights ) != XLAL_SUCCESS ) {
-	XLALPrintError("%s: XLALWeighMultiAMCoeffs() failed with error = %d\n", fn, xlalErrno );
-	XLAL_ERROR ( fn, XLAL_EFUNC );
+      if ( XLALWeightMultiAMCoeffs ( multiAMcoef, multiWeights ) != XLAL_SUCCESS ) {
+	XLALPrintError("%s: XLALWeightMultiAMCoeffs() failed with error = %d\n", __func__, xlalErrno );
+	XLAL_ERROR ( XLAL_EFUNC );
       }
 
       /* store these in buffer */
@@ -419,8 +410,8 @@ XLALDriverFstatREAL4 ( REAL4 *Fstat,	                 		/**< [out] Fstatistic va
   XLALCoreFstatREAL4 (Fstat, &fkdot4, multiSFTs, multiSSB4, multiAMcoef, Dterms );
 
   if ( xlalErrno ) {
-    XLALPrintError ("%s: XLALCoreFstatREAL4() failed with errno = %d.\n", fn, xlalErrno );
-    XLAL_ERROR ( fn, XLAL_EFUNC );
+    XLALPrintError ("%s: XLALCoreFstatREAL4() failed with errno = %d.\n", __func__, xlalErrno );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
 
   return XLAL_SUCCESS;
@@ -453,13 +444,13 @@ XLALCoreFstatREAL4 (REAL4 *Fstat,				/**< [out] multi-IFO F-statistic value 'F' 
   /* check input consistency */
   if ( !Fstat || !fkdot4 || !multiSFTs || !multiSSB4 || !multiAMcoef ) {
     XLALPrintError ("%s: illegal NULL input.\n", __func__);
-    XLAL_ERROR_VOID ( __func__, XLAL_EINVAL );
+    XLAL_ERROR_VOID ( XLAL_EINVAL );
   }
   if ( multiSFTs->length == 0 || multiSSB4->length == 0 || multiAMcoef->length == 0 ||
        !multiSFTs->data || !multiSSB4->data || !multiAMcoef->data )
     {
       XLALPrintError ("%s: invalid empty input.\n", __func__);
-      XLAL_ERROR_VOID ( __func__, XLAL_EINVAL );
+      XLAL_ERROR_VOID ( XLAL_EINVAL );
     }
 #endif
 
@@ -468,7 +459,7 @@ XLALCoreFstatREAL4 (REAL4 *Fstat,				/**< [out] multi-IFO F-statistic value 'F' 
 #ifndef LAL_NDEBUG
   if ( multiSSB4->length != numIFOs || multiAMcoef->length != numIFOs ) {
     XLALPrintError ("%s: inconsistent number of IFOs between multiSFTs, multiSSB4 and multiAMcoef.\n", __func__);
-    XLAL_ERROR_VOID ( __func__, XLAL_EINVAL );
+    XLAL_ERROR_VOID ( XLAL_EINVAL );
   }
 #endif
 
@@ -484,12 +475,12 @@ XLALCoreFstatREAL4 (REAL4 *Fstat,				/**< [out] multi-IFO F-statistic value 'F' 
 #ifndef LAL_NDEBUG
       if ( xlalErrno ) {
         XLALPrintError ("%s: XALComputeFaFbREAL4() failed\n", __func__ );
-        XLAL_ERROR_VOID ( __func__, XLAL_EFUNC );
+        XLAL_ERROR_VOID ( XLAL_EFUNC );
       }
       if ( !finite(FcX.Fa.re) || !finite(FcX.Fa.im) || !finite(FcX.Fb.re) || !finite(FcX.Fb.im) ) {
 	XLALPrintError("%s: XLALComputeFaFbREAL4() returned non-finite: Fa_X=(%f,%f), Fb_X=(%f,%f) for X=%d\n",
                        __func__, FcX.Fa.re, FcX.Fa.im, FcX.Fb.re, FcX.Fb.im, X );
-	XLAL_ERROR_VOID ( __func__, XLAL_EFPINVAL );
+	XLAL_ERROR_VOID ( XLAL_EFPINVAL );
       }
 #endif
 
@@ -540,8 +531,6 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
                        const AMCoeffs *amcoe,		/**< [in] single-IFO antenna-pattern coefficients */
                        UINT4 Dterms)			/**< [in] number of Dterms to use in Dirichlet kernel */
 {
-  static const char *fn = "XLALComputeFaFbREAL4()";
-
   UINT4 alpha;                 	/* loop index over SFTs */
   UINT4 numSFTs;		/* number of SFTs (M in the Notes) */
   COMPLEX8 Fa, Fb;
@@ -565,19 +554,19 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
   /* ----- check validity of input */
 #ifndef LAL_NDEBUG
   if ( !FaFb ) {
-    XLALPrintError ("%s: Output-pointer is NULL !\n", fn);
-    XLAL_ERROR_VOID ( fn, XLAL_EINVAL);
+    XLALPrintError ("%s: Output-pointer is NULL !\n", __func__);
+    XLAL_ERROR_VOID ( XLAL_EINVAL);
   }
 
   if ( !sfts || !sfts->data ) {
-    XLALPrintError ("%s: Input SFTs are NULL!\n", fn);
-    XLAL_ERROR_VOID ( fn, XLAL_EINVAL);
+    XLALPrintError ("%s: Input SFTs are NULL!\n", __func__);
+    XLAL_ERROR_VOID ( XLAL_EINVAL);
   }
 
   if ( !fkdot4 || !tSSB || !tSSB->DeltaT_int || !tSSB->DeltaT_rem || !tSSB->TdotM1 || !amcoe || !amcoe->a || !amcoe->b )
     {
-      XLALPrintError ("%s: Illegal NULL in input !\n", fn);
-      XLAL_ERROR_VOID ( fn, XLAL_EINVAL);
+      XLALPrintError ("%s: Illegal NULL in input !\n", __func__);
+      XLAL_ERROR_VOID ( XLAL_EINVAL);
     }
 #endif
 
@@ -624,7 +613,7 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
       REAL4 realQXP, imagQXP;	/* Re/Im of Q_alpha R_alpha */
 
       REAL4 lambda_alpha;
-      REAL4 kappa_max, kappa_star;
+      REAL4 kappa_star;
 
       /* ----- calculate kappa_max and lambda_alpha */
       {
@@ -676,7 +665,6 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
 
         kstar = (INT4)Dphi_alpha_int + (INT4)Dphi_alpha_rem;
 	kappa_star = REM(Dphi_alpha_int) + REM(Dphi_alpha_rem);
-	kappa_max = kappa_star + 1.0f * Dterms - 1.0f;
 
 	/* ----- check that required frequency-bins are found in the SFTs ----- */
 	k0 = kstar - Dterms + 1;
@@ -684,8 +672,8 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
 	if ( (k0 < freqIndex0) || (k1 > freqIndex1) )
 	  {
 	    XLALPrintError ("%s: Required frequency-bins [%d, %d] not covered by SFT-interval [%d, %d]\n\n",
-                            fn, k0, k1, freqIndex0, freqIndex1 );
-	    XLAL_ERROR_VOID( fn, XLAL_EDOM);
+                            __func__, k0, k1, freqIndex0, freqIndex1 );
+	    XLAL_ERROR_VOID( XLAL_EDOM);
 	  }
 
       } /* compute kappa_star, lambda_alpha */
@@ -731,18 +719,17 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
 #include "hotloop_autovect.ci"
 #elif __ALTIVEC__
 #include "hotloop_altivec.ci"
-#elif __SSE__
-#ifdef _MSC_VER
+#elif __SSE__ && defined(_MSC_VER)
 #include "hotloop_sse_msc.ci"
-#else
+#elif __SSE__ && defined(__OPTIMIZE__)
 #include "hotloop_precalc.ci"
-#endif /* MSC_VER */
 #else
 	{
 	  /* improved hotloop algorithm by Fekete Akos:
 	   * take out repeated divisions into a single common denominator,
 	   * plus use extra cleverness to compute the nominator efficiently...
 	   */
+          REAL4 kappa_max = kappa_star + 1.0f * Dterms - 1.0f;
 	  REAL4 Sn = (*Xalpha_l).re;
 	  REAL4 Tn = (*Xalpha_l).im;
 	  REAL4 pn = kappa_max;
@@ -769,7 +756,7 @@ XLALComputeFaFbREAL4 ( FcomponentsREAL4 *FaFb,		/**< [out] single-IFO Fa/Fb for 
 
 #ifndef LAL_NDEBUG
 	  if ( !finite(U_alpha) || !finite(V_alpha) || !finite(pn) || !finite(qn) || !finite(Sn) || !finite(Tn) ) {
-	    XLAL_ERROR_VOID (fn, XLAL_EFPINVAL );
+	    XLAL_ERROR_VOID ( XLAL_EFPINVAL );
 	  }
 #endif
 
@@ -912,35 +899,33 @@ XLALGetMultiSSBtimesREAL4 ( const MultiDetectorStateSeries *multiDetStates, 	/**
                             LIGOTimeGPS refTime			/**< reference time to be used for the returned SSB timings */
                             )
 {
-  static const char *fn = "XLALGetMultiSSBtimesREAL4()";
-
   UINT4 X, numDetectors;
   MultiSSBtimesREAL4 *ret;
 
   /* check input */
   if ( !multiDetStates || multiDetStates->length==0 ) {
-    XLALPrintError ("%s: illegal NULL or empty input 'multiDetStates'.\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: illegal NULL or empty input 'multiDetStates'.\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   numDetectors = multiDetStates->length;
 
   if ( ( ret = XLALCalloc( 1, sizeof( *ret ) )) == NULL ) {
-    XLALPrintError ("%s: XLALCalloc( 1, %d ) failed.\n", fn, sizeof( *ret ) );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLALPrintError ("%s: XLALCalloc( 1, %d ) failed.\n", __func__, sizeof( *ret ) );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   ret->length = numDetectors;
   if ( ( ret->data = XLALCalloc ( numDetectors, sizeof ( *ret->data ) )) == NULL ) {
     XLALFree ( ret );
-    XLALPrintError ("%s: XLALCalloc( %d, %d ) failed.\n", fn, numDetectors, sizeof( *ret->data ) );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLALPrintError ("%s: XLALCalloc( %d, %d ) failed.\n", __func__, numDetectors, sizeof( *ret->data ) );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   for ( X=0; X < numDetectors; X ++ )
     {
       if ( (ret->data[X] = XLALGetSSBtimesREAL4 (multiDetStates->data[X], Alpha, Delta, refTime)) == NULL ) {
-        XLALPrintError ("%s: XLALGetSSBtimesREAL4() failed. xlalErrno = %d\n", fn, xlalErrno );
+        XLALPrintError ("%s: XLALGetSSBtimesREAL4() failed. xlalErrno = %d\n", __func__, xlalErrno );
         goto failed;
       }
 
@@ -951,7 +936,7 @@ XLALGetMultiSSBtimesREAL4 ( const MultiDetectorStateSeries *multiDetStates, 	/**
  failed:
   /* free all memory allocated so far */
   XLALDestroyMultiSSBtimesREAL4 ( ret );
-  XLAL_ERROR_NULL (fn, XLAL_EFAILED );
+  XLAL_ERROR_NULL ( XLAL_EFAILED );
 
  success:
   return ret;
@@ -970,16 +955,14 @@ XLALGetSSBtimesREAL4 ( const DetectorStateSeries *DetectorStates,	/**< [in] dete
                        LIGOTimeGPS refTime	/**< reference time to be used for the returned SSB timings */
                        )
 {
-  static const char *fn = "XLALGetSSBtimesREAL4()";
-
   UINT4 numSteps, i;
   REAL8 refTimeREAL8;
   SSBtimesREAL4 *ret;
 
   /* check input consistency */
   if ( !DetectorStates || DetectorStates->length==0 ) {
-    XLALPrintError ("%s: illegal NULL or empty input 'DetectorStates'.\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: illegal NULL or empty input 'DetectorStates'.\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   numSteps = DetectorStates->length;		/* number of timestamps */
@@ -989,14 +972,14 @@ XLALGetSSBtimesREAL4 ( const DetectorStateSeries *DetectorStates,	/**< [in] dete
 
   /* allocate return container */
   if ( ( ret = XLALMalloc( sizeof(*ret))) == NULL ) {
-    XLALPrintError ("%s: XLALMalloc(%d) failed.\n", fn, sizeof(*ret) );
+    XLALPrintError ("%s: XLALMalloc(%d) failed.\n", __func__, sizeof(*ret) );
     goto failed;
   }
   if ( (ret->DeltaT_int  = XLALCreateREAL4Vector ( numSteps )) == NULL ||
        (ret->DeltaT_rem  = XLALCreateREAL4Vector ( numSteps )) == NULL ||
        (ret->TdotM1      = XLALCreateREAL4Vector ( numSteps )) == NULL )
     {
-      XLALPrintError ("%s: XLALCreateREAL4Vector ( %d ) failed.\n", fn, numSteps );
+      XLALPrintError ("%s: XLALCreateREAL4Vector ( %d ) failed.\n", __func__, numSteps );
       goto failed;
     }
 
@@ -1022,7 +1005,7 @@ XLALGetSSBtimesREAL4 ( const DetectorStateSeries *DetectorStates,	/**< [in] dete
 
       LALBarycenter(&status, &emit, &baryinput, &(state->earthState) );
       if ( status.statusCode ) {
-        XLALPrintError ("%s: LALBarycenter() failed with status = %d, '%s'\n", fn, status.statusCode, status.statusDescription );
+        XLALPrintError ("%s: LALBarycenter() failed with status = %d, '%s'\n", __func__, status.statusCode, status.statusDescription );
         goto failed;
       }
 
@@ -1042,7 +1025,7 @@ XLALGetSSBtimesREAL4 ( const DetectorStateSeries *DetectorStates,	/**< [in] dete
 
  failed:
   XLALDestroySSBtimesREAL4 ( ret );
-  XLAL_ERROR_NULL ( fn, XLAL_EFAILED );
+  XLAL_ERROR_NULL ( XLAL_EFAILED );
 
  success:
   return ret;

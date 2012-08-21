@@ -115,6 +115,7 @@ list of all the files which must be updated.
 
 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,11 +139,6 @@ list of all the files which must be updated.
 #include <lal/LIGOLwXMLHeaders.h>
 #include <lal/LIGOLwXMLInspiralHeaders.h>
 
-
-NRCSID( LIGOLWXMLC, "$Id$" );
-
-
-
 /* JC: ISO C89 COMPILERS ARE REQUIRED TO SUPPORT STRINGS UP TO 509 CHARS LONG;
  * MANY OF THE STRINGS IN THE ORIGINAL MACROS WERE LONGER.  TO FIX I CHANGED
  * THE ORIGINAL MACROS TO BE A SERIES OF FPUTS COMMANDS AND PREFIXED THEM
@@ -164,14 +160,13 @@ XLALOpenLIGOLwXMLFile (
     const char *path
 )
 {
-  static const char func[] = "XLALOpenLIGOLwXMLFile";
   LIGOLwXMLStream *new;
 
   /* malloc a new XML file handle */
 
   new = XLALMalloc( sizeof( *new ) );
   if ( ! new )
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
 
   /* fopen() the underlying C file */
 
@@ -179,7 +174,7 @@ XLALOpenLIGOLwXMLFile (
   if ( ! new->fp )
   {
     XLALFree(new);
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   }
 
   /* initialize the table flag */
@@ -192,7 +187,7 @@ XLALOpenLIGOLwXMLFile (
   {
     XLALFileClose( new->fp );
     XLALFree( new );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   /* done */
@@ -211,7 +206,7 @@ LALOpenLIGOLwXMLFile (
 {
   LIGOLwXMLStream *new;
   XLALPrintDeprecationWarning("LALOpenLIGOLwXMLFile", "XLALOpenLIGOLwXMLFile");
-  INITSTATUS( status, "LALOpenLIGOLwXMLFile", LIGOLWXMLC );
+  INITSTATUS(status);
   ASSERT( xml, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   ASSERT( ! xml->fp, status, LIGOLWXMLH_ENNUL, LIGOLWXMLH_MSGENNUL );
 
@@ -238,19 +233,17 @@ XLALCloseLIGOLwXMLFile (
   LIGOLwXMLStream *xml
 )
 {
-  static const char func[] = "XLALCloseLIGOLwXMLFile";
-
   if ( xml )
   {
     if ( xml->table != no_table)
       /* trying to close the file in the middle of a table */
-      XLAL_ERROR(func, XLAL_EFAILED);
+      XLAL_ERROR(XLAL_EFAILED);
     if ( myfprintf( xml->fp, LIGOLW_XML_FOOTER ) < 0 )
       /* can't write XML footer */
-      XLAL_ERROR( func, XLAL_EIO );
+      XLAL_ERROR( XLAL_EIO );
     if ( XLALFileClose( xml->fp ) )
       /* fclose() on the underlying C file failed */
-      XLAL_ERROR( func, XLAL_EFUNC );
+      XLAL_ERROR( XLAL_EFUNC );
   }
 
   XLALFree( xml );
@@ -270,7 +263,7 @@ LALCloseLIGOLwXMLFile (
   LIGOLwXMLStream *copy;
   XLALPrintDeprecationWarning("LALCloseLIGOLwXMLFile", "XLALCloseLIGOLwXMLFile");
   /* print the xml footer and close the file handle */
-  INITSTATUS( status, "LALCloseLIGOLwXMLFile", LIGOLWXMLC );
+  INITSTATUS(status);
   ASSERT( xml, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   ASSERT( xml->fp, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   /* make an XLALFree()'able copy */
@@ -299,7 +292,7 @@ LALBeginLIGOLwXMLTable (
 
 {
   /* print the header for the xml table */
-  INITSTATUS( status, "LALBeginLIGOLwXMLTable", LIGOLWXMLC );
+  INITSTATUS(status);
   ASSERT( xml, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   ASSERT( xml->fp, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   if ( xml->table != no_table )
@@ -378,7 +371,7 @@ LALEndLIGOLwXMLTable (
 
 {
   /* print the header for the xml table */
-  INITSTATUS( status, "LALEndLIGOLwXMLTable", LIGOLWXMLC );
+  INITSTATUS(status);
   ASSERT( xml, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   ASSERT( xml->fp, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   if ( xml->table == no_table )
@@ -411,7 +404,7 @@ LALWriteLIGOLwXMLTable (
 
 {
   /* print contents of the database struct into the xml table */
-  INITSTATUS( status, "LALWriteLIGOLwXMLTable", LIGOLWXMLC );
+  INITSTATUS(status);
   ASSERT( xml, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   ASSERT( xml->fp, status, LIGOLWXMLH_ENULL, LIGOLWXMLH_MSGENULL );
   if ( xml->table == no_table )
@@ -1071,12 +1064,11 @@ int XLALWriteLIGOLwXMLProcessTable(
 	const ProcessTable *process
 )
 {
-	static const char func[] = "XLALWriteLIGOLwXMLProcessTable";
 	const char *row_head = "\n\t\t\t";
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(func, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1100,7 +1092,7 @@ int XLALWriteLIGOLwXMLProcessTable(
 	fputs("\t\t<Column Name=\"process:process_id\" Type=\"ilwd:char\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"process:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1123,14 +1115,14 @@ int XLALWriteLIGOLwXMLProcessTable(
 			process->ifos,
 			process->process_id
 		) < 0)
-			XLAL_ERROR(func, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 
@@ -1148,12 +1140,11 @@ int XLALWriteLIGOLwXMLProcessParamsTable(
 	const ProcessParamsTable *process_params
 )
 {
-	static const char func[] = "XLALWriteLIGOLwXMLProcessParamsTable";
 	const char *row_head = "\n\t\t\t";
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(func, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1167,7 +1158,7 @@ int XLALWriteLIGOLwXMLProcessParamsTable(
 	fputs("\t\t<Column Name=\"process_params:value\" Type=\"lstring\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"process_params:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1180,14 +1171,14 @@ int XLALWriteLIGOLwXMLProcessParamsTable(
 			process_params->type,
 			process_params->value
 		) < 0)
-			XLAL_ERROR(func, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 
@@ -1205,12 +1196,11 @@ int XLALWriteLIGOLwXMLSearchSummaryTable(
 	const SearchSummaryTable *search_summary
 )
 {
-	static const char func[] = "XLALWriteLIGOLwXMLSearchSummaryTable";
 	const char *row_head = "\n\t\t\t";
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(func, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1235,7 +1225,7 @@ int XLALWriteLIGOLwXMLSearchSummaryTable(
 	fputs("\t\t<Column Name=\"search_summary:nnodes\" Type=\"int_4s\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"search_summary:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1257,14 +1247,14 @@ int XLALWriteLIGOLwXMLSearchSummaryTable(
 			search_summary->nevents,
 			search_summary->nnodes
 		) < 0)
-			XLAL_ERROR(func, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 
@@ -1282,12 +1272,11 @@ int XLALWriteLIGOLwXMLSnglBurstTable(
 	const SnglBurst *sngl_burst
 )
 {
-	static const char func[] = "XLALWriteLIGOLwXMLSnglBurstTable";
 	const char *row_head = "\n\t\t\t";
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(func, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1313,7 +1302,7 @@ int XLALWriteLIGOLwXMLSnglBurstTable(
 	fputs("\t\t<Column Name=\"sngl_burst:event_id\" Type=\"ilwd:char\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"sngl_burst:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1338,14 +1327,14 @@ int XLALWriteLIGOLwXMLSnglBurstTable(
 			sngl_burst->chisq_dof,
 			sngl_burst->event_id
 		) < 0)
-			XLAL_ERROR(func, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 
@@ -1357,12 +1346,11 @@ int XLALWriteLIGOLwXMLSnglInspiralTable(
 	const SnglInspiralTable *sngl_inspiral
 )
 {
-	static const char func[] = "XLALWriteLIGOLwXMLSnglInspiralTable";
 	const char *row_head = "\n\t\t\t";
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(func, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1429,7 +1417,7 @@ int XLALWriteLIGOLwXMLSnglInspiralTable(
 	fputs("\t\t<Column Name=\"sngl_inspiralgroup:sngl_inspiral:event_id\" Type=\"ilwd:char\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"sngl_inspiral:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1492,13 +1480,13 @@ int XLALWriteLIGOLwXMLSnglInspiralTable(
 			   sngl_inspiral->Gamma[7],
 			   sngl_inspiral->Gamma[8],
 			   sngl_inspiral->Gamma[9]  )  < 0)
-			XLAL_ERROR(func, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 	return 0;
@@ -1521,7 +1509,7 @@ int XLALWriteLIGOLwXMLSimBurstTable(
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(__func__, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1550,7 +1538,7 @@ int XLALWriteLIGOLwXMLSimBurstTable(
 	fputs("\t\t<Column Name=\"sim_burst:simulation_id\" Type=\"ilwd:char\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"sim_burst:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1578,14 +1566,14 @@ int XLALWriteLIGOLwXMLSimBurstTable(
 			sim_burst->time_slide_id,
 			sim_burst->simulation_id
 		) < 0)
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 
@@ -1607,7 +1595,7 @@ int XLALWriteLIGOLwXMLTimeSlideTable(
 
 	if(xml->table != no_table) {
 		XLALPrintError("a table is still open");
-		XLAL_ERROR(__func__, XLAL_EFAILED);
+		XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/* table header */
@@ -1620,7 +1608,7 @@ int XLALWriteLIGOLwXMLTimeSlideTable(
 	fputs("\t\t<Column Name=\"time_slide:offset\" Type=\"real_8\"/>\n", xml->fp);
 	fputs("\t\t<Stream Name=\"time_slide:table\" Type=\"Local\" Delimiter=\",\">", xml->fp);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* rows */
 
@@ -1632,14 +1620,14 @@ int XLALWriteLIGOLwXMLTimeSlideTable(
 			time_slide->instrument,
 			time_slide->offset
 		) < 0)
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		row_head = ",\n\t\t\t";
 	}
 
 	/* table footer */
 
 	if(fputs("\n\t\t</Stream>\n\t</Table>\n", xml->fp) < 0)
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/* done */
 
@@ -1661,14 +1649,12 @@ int XLALCreateLIGODataFileName(
         const char* extension
 )
 {
-     static const char func[] = "XLALCreateLIGODataFileName";
-
      INT4 gpsDuration;
 
      /* check input structures */
      if (!filename || !dataSource || !dataDescription ||
 	 !gpsStartTime || !gpsEndTime || !extension)
-          XLAL_ERROR(func, XLAL_EFAULT);
+          XLAL_ERROR(XLAL_EFAULT);
 
      /* check the correctnes of the input strings */
      if ( strchr(dataSource, '-') || strchr(dataDescription, '-'))
@@ -1676,7 +1662,7 @@ int XLALCreateLIGODataFileName(
           filename = NULL;
           XLALPrintError("the input character strings contain invalid"
 			 " dashes ('-').");
-          XLAL_ERROR(func, XLAL_EINVAL);
+          XLAL_ERROR(XLAL_EINVAL);
       }
 
       /* calculate the GPS duration */

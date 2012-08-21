@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
    CHAR *IFO = XLALCalloc(strlen(args_info.IFO_arg)+1, sizeof(*IFO));
    if (IFO==NULL) {
       fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", fn, sizeof(*IFO));
-      XLAL_ERROR(fn, XLAL_ENOMEM);
+      XLAL_ERROR(XLAL_ENOMEM);
    }
    sprintf(IFO, "%s", args_info.IFO_arg);
    if (strcmp("L1", IFO)==0) {
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
    DopplerSkyScanInit scanInit = empty_DopplerSkyScanInit;
    DopplerSkyScanState scan = empty_DopplerSkyScanState;
    PulsarDopplerParams dopplerpos;
-   scanInit.gridType = 1;     //Default value for an approximate-isotropic grid
+   scanInit.gridType = GRID_ISOTROPIC;     //Default value for an approximate-isotropic grid
    scanInit.skyRegionString = sky;      //"allsky" = Default value for all-sky search
    scanInit.numSkyPartitions = 1;   //Default value so sky is not broken into chunks
    scanInit.Freq = args_info.fmin_arg+0.5*args_info.fspan_arg;  //Mid-point of the frequency band

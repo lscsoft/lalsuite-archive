@@ -17,17 +17,11 @@
 *  MA  02111-1307  USA
 */
 
-/* <lalVerbatim file="LALErrnoHV">
-Author: Cannon, K. C.
-Revision: $Id$
-</lalVerbatim>
+/** \author: Cannon, K. C.
  */
 
 #ifndef _LALERRNO_H
 #define _LALERRNO_H
-
-#include <lal/LALRCSID.h>
-NRCSID (LALERRNOH,"$Id$");
 
 /*
  * Error codes and corresponding error messages.

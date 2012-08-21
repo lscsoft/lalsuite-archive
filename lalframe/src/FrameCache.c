@@ -77,7 +77,7 @@
  * (or <tt>.</tt> if \c NULL) for files that match a given glob pattern
  * (default is <tt>*.gwf</tt> if \c NULL), and uses these to generate a
  * frame cache (with the metadata extracted from the file names).  The routine
- * \c LALFrCacheSieve applies regular expression filters to various
+ * \c LALFrSieveCache applies regular expression filters to various
  * pieces of metadata to distill a frame cache into a sorted sub-cache of frame
  * files of interst.  The routine \c LALDestroyFrCache destroys a frame
  * cache.
@@ -109,8 +109,6 @@
 #include <lal/LALStdlib.h>
 #include <lal/FrameCache.h>
 
-NRCSID( FRAMECACHEC, "$Id$" );
-
 #define TMPSTRLEN 15
 #define XSTR( x ) #x
 #define STR( x ) XSTR( x )
@@ -125,7 +123,6 @@ static int FrStatCompare( const void *p1, const void *p2 );
 
 FrCache * XLALFrImportCache( const char *fname )
 {
-  static const char *func = "XLALFrImportCache";
   UINT4 numLines = 0;
   CHAR  line[1024];
   FILE *fp;
@@ -135,8 +132,8 @@ FrCache * XLALFrImportCache( const char *fname )
   if ( ! fp )
   {
     XLALPrintError( "XLAL Error - %s: couldn't open file %s for input\n",
-        func, fname );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+        __func__, fname );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
   numLines = 0;
   while ( fgets( line, sizeof( line ), fp ) )
@@ -144,26 +141,26 @@ FrCache * XLALFrImportCache( const char *fname )
     if ( strlen( line ) > sizeof( line ) - 2 )
     {
       XLALPrintError( "XLAL Error - %s: line too long in %s (max length: %d)\n",
-          func, fname, (int)sizeof( line ) - 2 );
-      XLAL_ERROR_NULL( func, XLAL_EBADLEN );
+          __func__, fname, (int)sizeof( line ) - 2 );
+      XLAL_ERROR_NULL( XLAL_EBADLEN );
     }
     ++numLines;
   }
   if ( ! numLines )
   {
-    XLALPrintError( "XLAL Error - %s: empty file %s\n", func, fname );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+    XLALPrintError( "XLAL Error - %s: empty file %s\n", __func__, fname );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   cache = LALCalloc( 1, sizeof( *cache ) );
   if ( ! cache )
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   cache->numFrameFiles = numLines;
   cache->frameFiles = LALCalloc( numLines, sizeof( *cache->frameFiles ) );
   if ( ! cache->frameFiles )
   {
     LALFree( cache );
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   rewind( fp );
@@ -186,7 +183,7 @@ FrCache * XLALFrImportCache( const char *fname )
     if ( ! file->source || ! file->description || ! file->url )
     {
       XLALFrDestroyCache( cache );
-      XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+      XLAL_ERROR_NULL( XLAL_ENOMEM );
     }
     c = sscanf( line, "%[a-zA-Z0-9_+#-] %[a-zA-Z0-9_+#-] %" STR( TMPSTRLEN )
         "s %" STR( TMPSTRLEN ) "s %s", file->source, file->description,
@@ -222,7 +219,6 @@ FrCache * XLALFrImportCache( const char *fname )
 
 FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
 {
-  static const char *func = "XLALFrSieveCache";
   FrCache *cache;
 
   regex_t srcReg;
@@ -264,7 +260,7 @@ FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
 
   cache = LALCalloc( 1, sizeof( *cache ) );
   if ( ! cache )
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
 
   cache->numFrameFiles = n;
   if ( ! cache->numFrameFiles )
@@ -275,7 +271,7 @@ FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
     if ( ! cache->frameFiles )
     {
       LALFree( cache );
-      XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+      XLAL_ERROR_NULL( XLAL_ENOMEM );
     }
 
     n = 0;
@@ -308,7 +304,7 @@ FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
         if ( ! cache->frameFiles[n].source )
         {
           XLALFrDestroyCache( cache );
-          XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+          XLAL_ERROR_NULL( XLAL_ENOMEM );
         }
         memcpy( cache->frameFiles[n].source, file->source, size );
       }
@@ -319,7 +315,7 @@ FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
         if ( ! cache->frameFiles[n].description )
         {
           XLALFrDestroyCache( cache );
-          XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+          XLAL_ERROR_NULL( XLAL_ENOMEM );
         }
         memcpy( cache->frameFiles[n].description, file->description, size );
       }
@@ -330,7 +326,7 @@ FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
         if ( ! cache->frameFiles[n].url )
         {
           XLALFrDestroyCache( cache );
-          XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+          XLAL_ERROR_NULL( XLAL_ENOMEM );
         }
         memcpy( cache->frameFiles[n].url, file->url, size );
       }
@@ -351,7 +347,6 @@ FrCache * XLALFrSieveCache( FrCache *input, FrCacheSieve *params )
 
 FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
 {
-  static const char *func = "XLALFrGenerateCache";
   FrCache *cache;
   glob_t g;
   int globflags = 0;
@@ -390,15 +385,15 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
   if ( ! g.gl_pathc )
   {
     XLALPrintError( "XLAL Error - %s: no frame files found in %s",
-        func, fnptrn );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+        __func__, fnptrn );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   cache = LALCalloc( 1, sizeof( *cache ) );
   if ( ! cache )
   {
     globfree( &g );
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
   cache->numFrameFiles = g.gl_pathc;
   cache->frameFiles = LALCalloc( g.gl_pathc, sizeof( *cache->frameFiles ) );
@@ -406,7 +401,7 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
   {
     globfree( &g );
     LALFree( cache );
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   /* copy file names */
@@ -432,7 +427,7 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
       {
         globfree( &g );
         XLALFrDestroyCache( cache );
-        XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+        XLAL_ERROR_NULL( XLAL_ENOMEM );
       }
       snprintf( file->url, urlsz, "file://localhost%s", path );
     }
@@ -448,7 +443,7 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
       {
         globfree( &g );
         XLALFrDestroyCache( cache );
-        XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+        XLAL_ERROR_NULL( XLAL_ENOMEM );
       }
       snprintf( file->url, urlsz, "file://localhost%s/%s", cwd, path );
     }
@@ -463,7 +458,7 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
       {
         globfree( &g );
         XLALFrDestroyCache( cache );
-        XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+        XLAL_ERROR_NULL( XLAL_ENOMEM );
       }
       strcpy( file->source, src );
       file->description = LALMalloc( strlen( dsc ) + 1 );
@@ -471,7 +466,7 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
       {
         globfree( &g );
         XLALFrDestroyCache( cache );
-        XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+        XLAL_ERROR_NULL( XLAL_ENOMEM );
       }
       strcpy( file->description, dsc );
       file->startTime = t0;
@@ -490,19 +485,18 @@ FrCache * XLALFrGenerateCache( const CHAR *dirstr, const CHAR *fnptrn )
 
 int XLALFrExportCache( FrCache *cache, const CHAR *fname )
 {
-  static const char *func = "XLALFrExportCache";
   UINT4 i;
   FILE *fp;
 
   if ( ! cache || ! fname )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
 
   fp = LALFopen( fname, "w" );
   if ( ! fp )
   {
     XLALPrintError( "XLAL Error - %s: could not open file %s for output\n",
-        func, fname );
-    XLAL_ERROR( func, XLAL_EIO );
+        __func__, fname );
+    XLAL_ERROR( XLAL_EIO );
   }
 
   for ( i = 0; i < cache->numFrameFiles; ++i )
@@ -526,8 +520,8 @@ int XLALFrExportCache( FrCache *cache, const CHAR *fname )
     if ( c < 1 )
     {
       XLALPrintError( "XLAL Error - %s: could not output to file %s\n",
-          func, fname );
-      XLAL_ERROR( func, XLAL_EIO );
+          __func__, fname );
+      XLAL_ERROR( XLAL_EIO );
     }
   }
   LALFclose( fp );
@@ -573,7 +567,7 @@ void LALFrCacheImport(
     const CHAR  *fname
     )
 { 
-  INITSTATUS( status, "LALFrCacheImport", FRAMECACHEC );
+  INITSTATUS(status);
   ASSERT( output, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
   ASSERT( ! *output, status, FRAMECACHEH_ENNUL, FRAMECACHEH_MSGENNUL );
   ASSERT( fname, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
@@ -607,7 +601,7 @@ void LALFrCacheExport(
     const CHAR *fname
     )
 { 
-  INITSTATUS( status, "LALFrCacheExport", FRAMECACHEC );
+  INITSTATUS(status);
   ASSERT( cache, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
   ASSERT( fname, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
 
@@ -628,7 +622,7 @@ LALDestroyFrCache(
     FrCache   **cache
     )
 { 
-  INITSTATUS( status, "LALDestroyFrCache", FRAMECACHEC );
+  INITSTATUS(status);
   ASSERT( cache, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
   ASSERT( *cache, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
 
@@ -641,14 +635,14 @@ LALDestroyFrCache(
 
 
 void
-LALFrCacheSieve(
+LALFrSieveCache(
     LALStatus     *status,
     FrCache      **output,
     FrCache       *input,
     FrCacheSieve  *params
     )
 { 
-  INITSTATUS( status, "LALFrCacheSieve", FRAMECACHEC );
+  INITSTATUS(status);
   ASSERT( output, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
   ASSERT( ! *output, status, FRAMECACHEH_ENNUL, FRAMECACHEH_MSGENNUL );
   ASSERT( input, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
@@ -674,7 +668,7 @@ LALFrCacheGenerate(
     const CHAR  *fnptrn
     )
 { 
-  INITSTATUS( status, "LALFrCacheGenerate", FRAMECACHEC );
+  INITSTATUS(status);
   ASSERT( output, status, FRAMECACHEH_ENULL, FRAMECACHEH_MSGENULL );
   ASSERT( ! *output, status, FRAMECACHEH_ENNUL, FRAMECACHEH_MSGENNUL );
 

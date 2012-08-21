@@ -1,4 +1,3 @@
-# $Id$
 # 
 # setup script for glue
 
@@ -28,7 +27,7 @@ from distutils import log
 
 from misc import generate_vcs_info as gvcsi
 
-ver = "1.34"
+ver = "1.41"
 
 def remove_root(path,root):
   if root:
@@ -187,7 +186,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.gracedb', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb', 'glue.nmi' ],
+  packages = [ 'glue', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb', 'glue.nmi' ],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
@@ -224,12 +223,8 @@ setup(
     )
   ],
   scripts = [
-    os.path.join('bin','gracedb'),
     os.path.join('bin','LSCdataFind'),
     os.path.join('bin','ligo_data_find'),
-    os.path.join('bin','lars'),
-    os.path.join('bin','lars_add'),
-    os.path.join('bin','lars_search'),
     os.path.join('bin','ldbdc'),
     os.path.join('bin','ldg_submit_dax'),
     os.path.join('bin','dmtdq_seg_insert'),
@@ -252,9 +247,6 @@ setup(
     os.path.join('bin','ligolw_dq_active'),
     os.path.join('bin','ligolw_dq_active_cats'),
     os.path.join('bin','ligolw_dq_grapher'),
-    os.path.join('bin','lvalert_admin'),
-    os.path.join('bin','lvalert_send'),
-    os.path.join('bin','lvalert_listen'),
        os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
     os.path.join('bin','ligolw_diff'),
@@ -262,7 +254,8 @@ setup(
     os.path.join('bin','segdb_coalesce'),
     os.path.join('bin', 'glue_nmi_genbuild'),
     os.path.join('bin', 'ligolw_print_tables'),
-    os.path.join('bin', 'ligolw_veto_def_check')],
+    os.path.join('bin', 'ligolw_veto_def_check'),
+    os.path.join('bin', 'gw_data_find')],
   data_files = [
     ( 'etc',
       [ os.path.join('etc','ldg-sites.xml'),

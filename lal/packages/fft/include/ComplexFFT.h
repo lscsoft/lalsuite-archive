@@ -20,6 +20,7 @@
 #ifndef _COMPLEXFFT_H
 #define _COMPLEXFFT_H
 
+#include <lal/LALStdlib.h>
 #include <lal/LALDatatypes.h>
 
 #if defined(__cplusplus)
@@ -27,18 +28,6 @@ extern "C" {
 #elif 0
 } /* so that editors will match preceding brace */
 #endif
-
-#ifdef  __cplusplus
-#ifdef __GNUC__
-#define RESTRICT __restrict__
-#else
-#define RESTRICT
-#endif
-#else
-#define RESTRICT restrict
-#endif
-
-NRCSID( COMPLEXFFTH, "$Id$" );
 
 /**
  * \addtogroup ComplexFFT_h
@@ -56,7 +45,8 @@ NRCSID( COMPLEXFFTH, "$Id$" );
 */
 /*@{*/
 
-/** \name Error Codes */ /*@{*/
+/** \name Error Codes */
+/*@{*/
 #define COMPLEXFFTH_ENULL 1	/**< Null pointer */
 #define COMPLEXFFTH_ENNUL 2	/**< Non-null pointer */
 #define COMPLEXFFTH_ESIZE 4	/**< Invalid input size */
@@ -69,7 +59,6 @@ NRCSID( COMPLEXFFTH, "$Id$" );
 #define COMPLEXFFTH_EINTL 512	/**< Error in Intel FFT library */
 #define COMPLEXFFTH_ESIGN 1024	/**< Unknown sign of transform in plan */
 /*@}*/
-
 
 /** \cond DONT_DOXYGEN */
 #define COMPLEXFFTH_MSGENULL "Null pointer"
@@ -466,8 +455,7 @@ LALCOMPLEX16VectorFFT (
     );
 
 
-/*@} */
-#undef RESTRICT
+/*@}*/
 
 #if 0
 { /* so that editors will match succeeding brace */

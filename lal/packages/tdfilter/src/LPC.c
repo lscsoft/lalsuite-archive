@@ -17,48 +17,34 @@
 *  MA  02111-1307  USA
 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LPC.h>
-#include "lal/LALRCSID.h"
 #include <lal/LALError.h>
 #include <lal/LALStatusMacros.h>
 #include <lal/RealFFT.h>
 #include <string.h>
-
-NRCSID (LPCC, "$Id$");
 
 static INT4 balanc(REAL4 **a, INT4 n);
 static INT4 toeplz(REAL4 r[], REAL4 x[], REAL4 y[], INT4 n);
 static INT4 zrhqr(REAL4 a[], INT4 m, REAL4 rtr[], REAL4 rti[]);
 static INT4 hqr(REAL4 **a, INT4 n, REAL4 wr[], REAL4 wi[]);
 
-/******** <lalLaTeX file="LPCC"> ********
-\noindent
-Compute the coefficients of a linear predictor filter.
-\subsubsection*{Prototype}
-********* </lalLaTeX> ********/
-/* <lalVerbatim> */
-void LALLPC(LALStatus *status,
-	    REAL4Vector *aout,    /* returned filter coefficients */
-	    REAL4Vector *x,    /* training data */
-	    UINT4 p            /* filter order */
-	    ) {
-/* </lalVerbatim> */
-/******** <lalLaTeX file="LPCC"> ********
-\subsubsection*{Description}
-Train a FIR filter aout of order p on the data x.
-
-\subsubsection*{Uses}
-\begin{verbatim}
-...
-\end{verbatim}
-********* </lalLaTeX> ********/
+/** Compute the coefficients of a linear predictor filter;
+ * Train a FIR filter aout of order p on the data x.
+ */
+void LALLPC(LALStatus *status,	/**< LAL status pointer */
+	    REAL4Vector *aout,  /**< returned filter coefficients */
+	    REAL4Vector *x,     /**< training data */
+	    UINT4 p             /**< filter order */
+	    )
+{
   UINT4 i,/*j,*/npad;
   REAL4 *r, *R, *a, *y;
   RealFFTPlan *pfwd = NULL, *pinv = NULL;
   COMPLEX8Vector *Hvec = NULL;
   REAL4Vector rv;
 
-  INITSTATUS (status, "LALLPC", LPCC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT(x->length>=p+1, status, LPCH_EIN, LPCH_MSGEIN);
@@ -168,27 +154,13 @@ Train a FIR filter aout of order p on the data x.
   RETURN (status);
 }
 
-
-/******** <lalLaTeX file="LPCC"> ********
-\noindent
-Stabilizes a polynomial.
-\subsubsection*{Prototype}
-********* </lalLaTeX> ********/
-/* <lalVerbatim> */
+/** Stabilizes a polynomial; Reflects poles and zeroes of a inside the complex unit circle.
+*/
 void LALPolystab(LALStatus *status,
-		 REAL4Vector *a) {
-/* </lalVerbatim> */
-/******** <lalLaTeX file="LPCC"> ********
-\subsubsection*{Description}
-Reflects poles and zeroes of a inside the complex unit circle.
-
-\subsubsection*{Uses}
-\begin{verbatim}
-...
-\end{verbatim}
-********* </lalLaTeX> ********/
-
-  INITSTATUS (status, "LALPolystab", LPCC);
+		 REAL4Vector *a
+                 )
+{
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   if(a->length > 1) {
@@ -567,4 +539,3 @@ static INT4 balanc(REAL4 **a, INT4 n)
 	return 0;
 }
 #undef RADIX
-

@@ -34,16 +34,20 @@ from glue import iterutils
 from pylal import db_thinca_rings
 from pylal import llwapp
 from pylal import rate
-from pylal import SimInspiralUtils
+from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.xlal import constants
 from pylal import upper_limit_utils
+from pylal import InspiralUtils
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
+
+pyplot.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
+matplotlib.rcParams.update({"text.usetex": True})
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -53,19 +57,6 @@ def chirp_mass(m1,m2):
   mu = (m1*m2)/(m1+m2)
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
-
-def plot_efficiency(eff,err,dbins,mass_bins,tag):
-  for j,ml,mc,mh in zip(range(len(mass_bins.centres()[0])),mass_bins.lower()[0],mass_bins.centres()[0],mass_bins.upper()[0]):
-    pyplot.errorbar((dbins[:-1]+dbins[1:])/2, eff[j], yerr=err[j],label="%.1f-%.1f"%(ml,mh))
-
-  pyplot.legend(loc='upper right')
-  pyplot.ylim([0,1])
-  pyplot.xlim([0,max(dbins)])
-  pyplot.xlabel("Distance (Mpc)")
-  pyplot.ylabel("Efficiency")
-  pyplot.savefig(tag +".png")
-  pyplot.close()
-
 
 #
 # Functions for reading from results DB
@@ -170,13 +161,15 @@ class upper_limit(object):
       self.mass_bins["Chirp_Mass"] = self.set_chirp_mass_bins()
     if self.opts.bin_by_bns_bbh:
       self.mass_bins["BNS_BBH"] = self.set_bns_bbh_bins()
+    if self.opts.bin_by_mass1_mass2:
+      self.mass_bins["Mass1_Mass2"] = self.set_m1m2_bins()
 
     # get the rest of the goodies
     self.get_segments()                   #get single ifo segments with vetoes applied
     self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
     self.get_far_thresholds()             #determine FAR to use for computing search volume
     self.get_gps_times_duration()
-    self.get_distance_bins()    #determine the distance bins to use for integration
+    self.get_distance_bins()              #determine the distance bins to use for integration
 
   def __del__(self):
     # clean up after yourself
@@ -199,7 +192,7 @@ class upper_limit(object):
     if self.opts.veto_segments_name is None:
       veto_segments = segments.segmentlistdict()
     else:
-      #FIXME super hack to work around missing NS column in veto definer
+      #FIXME super hack to work around missing nanoseconds column in veto definer
       try:
         veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
       except AttributeError:
@@ -261,8 +254,7 @@ class upper_limit(object):
         if self.opts.log_dist_bins:
           self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
         else:
-          scalefac = max(numpy.exp(self.opts.dist_err*scipy.random.randn(10*self.opts.iterations)))
-          self.dbins[instr] = numpy.linspace(0, scalefac*dmax,self.opts.dist_bins)
+          self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
 
     return self.dbins
 
@@ -321,20 +313,34 @@ class upper_limit(object):
     return self.bns_bbh_bins
 
 
+  def set_m1m2_bins(self):
+    bin1Edges = numpy.linspace(self.minmass,self.maxmass,self.opts.mass_bins)
+    m2bins = int(self.opts.mass_bins/2) + numpy.mod(self.opts.mass_bins,2) # ensures equal bin width in m2 as in m1
+    bin2Edges = bin1Edges[:m2bins+1]
+    mass1Bin = rate.IrregularBins(bin1Edges)
+    mass2Bin = rate.IrregularBins(bin2Edges)
+    self.m1m2_bins = rate.NDBins( (mass1Bin,mass2Bin) )
+
+    return self.m1m2_bins
+
+
   def get_far_thresholds(self):
     """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
     be the FAR of the most rare zero-lag coinc)."""
-    if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for the loudest event..."
+    if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for finding injections..."
 
     self.far = dict( (inst,-1) for inst in self.instruments )
 
-    if self.opts.use_expected_loudest_event:
-      for inst in self.instruments:
-        self.far[inst] = 1./self.livetime[inst]
-    elif self.opts.far:
+    # far option takes precedence for closed box
+    if self.opts.far and not self.opts.open_box:
       for inst in self.instruments:
         self.far[inst] = self.opts.far
-    else:
+    # if no far specified, use expected-loudest-event for closed box
+    elif not self.opts.open_box:
+      for inst in self.instruments:
+        self.far[inst] = 1./self.livetime[inst]
+    # for open box use true loudest event
+    if self.opts.open_box:
       if self.opts.include_play:
         datatype = "all_data"
       else:
@@ -356,7 +362,7 @@ class upper_limit(object):
 
     if self.opts.verbose:
       for inst in self.instruments:
-        print >>sys.stdout,"\tloudest event in %s time has FAR = %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
+        print >>sys.stdout,"\tFAR threshold used in %s time is %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
 
     return self.far
 
@@ -378,36 +384,82 @@ class upper_limit(object):
     return self.instruments
 
 
-  def get_volume_derivative(self,instruments,bin_type,FAR):
+  def get_volume_derivative(self,instruments,bin_type,FAR,fnameList=None, tagList=None,InspiralUtilsOpts=None):
     """
     Compute the derivative of the search volume at the FAR of the loudest event
     """
-    # choose a range of fars at which to evaluate the volume
-    FARh = 2.0*FAR
+    # check for infinite FAR. if no found injections there, return
+    f,m =  self.get_injections(instruments,float('inf'),bin_type=bin_type)
+    if len(f) == 0: return rate.BinnedArray(self.mass_bins[bin_type])
+
+    # guess an initial range of fars at which to evaluate the volume
+    FARh = FAR*2.0
     FARl = FAR/4.0
+
+    # get the volume at the extreme FARs
+    flo,mlo = self.get_injections(instruments,FARl,bin_type=bin_type)
+    fhi,mhi = self.get_injections(instruments,FARh,bin_type=bin_type)
+
+    # expand the FAR range as needed
+    while len(flo) == len(fhi):
+      FARh *= 2
+      FARl /= 2
+      # get the volume at the extreme FARs
+      flo,mlo = self.get_injections(instruments,FARl,bin_type=bin_type)
+      fhi,mhi = self.get_injections(instruments,FARh,bin_type=bin_type)
+
+    # compute volume for the chosen FAR values
     nbins = 10
-    fars = numpy.linspace( FARl, FARh, nbins)
+    fars = numpy.logspace( numpy.log10(FARl), numpy.log10(FARh), nbins)
     if self.opts.verbose:
-      print >>sys.stdout, "\nCOMPUTING LAMBDA AT far=%f BINNING BY %s"%(FAR,bin_type)
-      print >>sys.stdout, "FARs =",fars
+      print >>sys.stdout, "\nComputing Lambda at FAR=%f binning by %s" % (FAR,bin_type)
+      print >>sys.stdout, "FARs = ",fars
 
     # compute the volume in each mass bin for a few fars
     vA = []
+    vA2 = []
     for far in fars:
       found, missed = self.get_injections(instruments,far,bin_type=bin_type)
-      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, bootnum=1, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
       vA.append(vAt)
+      vA2.append(vA2t)
 
     # compute the volume derivative in each mass bin
     volDeriv = rate.BinnedArray(self.mass_bins[bin_type])
-    for j,m in enumerate(self.mass_bins[bin_type].centres()[0]):
-      vtmp = numpy.array([v[(m,)] for v in vA])
-      tag = "%s-%s-BINNED_BY_%s_bin%d-%d-%d" % ("".join(sorted(list(instruments))), self.opts.output_name_tag,bin_type.upper(),j,self.start_time,self.end_time-self.start_time)
-      volDeriv[(m,)] = upper_limit_utils.log_volume_derivative_fit(fars*self.livetime[instruments], vtmp, FAR*self.livetime[instruments], tag=tag)
+    fans = fars*self.livetime[instruments]
+    FAN = FAR*self.livetime[instruments]
+
+    # plot volume fits
+    for j,mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
+      if bin_type == "BNS_BBH": label = ["NS-NS","NS-BH","BH-BH"][j]
+      else: label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
+      vtmp = self.livetime[instruments]*numpy.array([v[mbin] for v in vA])
+      v2tmp = self.livetime[instruments]*numpy.array([v[mbin] for v in vA2])
+
+      tag = "%s-VOLUME_DERIVATIVE_FIT" % ("".join(sorted(list(instruments))),)
+      coeffs = upper_limit_utils.log_volume_derivative_fit(numpy.log(fans), vtmp)
+      volDeriv[mbin] = coeffs[0]/FAN
       if self.opts.verbose:
-        print >> sys.stdout, "mass bin = %f" %(m,)
+        print >> sys.stdout, "mass bin %s" %str(mbin)
         print >> sys.stdout, "vols = ", vtmp
-        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[(m,)],)
+        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[mbin],)
+
+      if vtmp.max() == 0: continue
+      pyplot.errorbar(fans,vtmp,yerr=v2tmp,color='k')
+      pyplot.plot(fans,numpy.exp(coeffs[0]*numpy.log(fans)+coeffs[1]),lw=2,label="%s\nlambda=%.3f"%(label,volDeriv[mbin],))
+
+      pyplot.legend(loc="lower left")
+      pyplot.xlabel("FAN")
+      pyplot.ylabel("VT")
+      pyplot.title("Volume Derivative at the FAN=%.3f"%FAN)
+      pyplot.gca().set_xscale("log", nonposx='clip')
+      pyplot.gca().set_yscale("log", nonposy='clip')
+      name = InspiralUtils.set_figure_tag(tag+"_BIN_"+str(j), open_box = opts.open_box)
+      fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+      fnameList.append(fname)
+      tagList.append(name)
+      pyplot.close()
 
     return volDeriv
 
@@ -416,7 +468,21 @@ class upper_limit(object):
     if sim.waveform in self.opts.exclude_sim_type:
       return True
 
+    if self.opts.disable_spin:
+      # throw out if any spin component is nonzero
+      if not max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
+    elif self.opts.spin_only:
+      # throw out injections having all zero spin components
+      if max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
+
+
+    chi = sim.mass1/(sim.mass1+sim.mass2) *sim.spin1z + sim.mass2/(sim.mass1+sim.mass2) *sim.spin2z
+    if not self.opts.min_aligned_spin < chi < self.opts.max_aligned_spin: return True
+
     if not self.opts.min_mtotal < sim.mass1 + sim.mass2 < self.opts.max_mtotal:
+      return True
+
+    if self.opts.max_mass_ratio and not (1.0/self.opts.max_mass_ratio <= sim.mass1/sim.mass2 <= self.opts.max_mass_ratio):
       return True
 
     if bin_type == "Component_Mass":
@@ -505,64 +571,49 @@ def parse_command_line():
   description = '''
    description:
 
-The program lalapps_cbc_svim computes the average volume to which a given CBC search was sensitive to its sources. For CBC searches whose characteristic range extends significantly beyond the local blue-light density fluctuations (about 20Mpc), the number of potential sources to which a search is exposed is proportional to (i) the volume of space from which the search could have detected a signal and (ii) the livetime of the search.
+The program lalapps_cbc_svim computes the sensitive volume of a CBC search from a database containing triggers from simulation experiments. These triggers need to be ranked by false alarm rate, the detection statistic used in S6 searches. Then injections which register a trigger louder than the loudest event, by false alarm rate, are considered found. All others are considered missed. The efficiency of detecting an event depends on the source parameters, such as its component masses, distance, spin, inclination, sky position, etc. However, lalapps_cbc_svim only considers the dependency of the efficiency on distance and mass, marginalizing over the other parameters. Injections are binned in distance and mass and the estimated efficiency is integrated over distance to convert the efficiency into a physical volume.
 
-The search volume calculation implemented in lalapps_cbc_svim uses the loudest event statistic method (Biswas, Creighton, Fairhurst, 2007). The efficiency of the search is estimated by analysis of data with fake signals injected. The cFAR of the loudest zero-lag event sets a threshold which divides injections into found and missed categories. The efficiency of detecting an event depends on the source parameters, such as its component masses, distance, spin, inclination, sky position, etc. However, lalapps_cbc_svim only considers the dependency of the efficiency on distance and mass, marginalizing over the other parameters. Injections are binned in distance and mass and the estimated efficiency is integrated over distance to convert the efficiency into a physical volume.
+The output of lalapps_cbc_svim is input for lalapps_cbc_sink, which uses the loudest event statistic method (Biswas, Creighton, Fairhurst, 2007) to compute a posterior on the rate, given the observed volumes.
 
 implementation and workflow:
 
 1. Extract information about the particular search that was performed.
-  a. instruments that were on (used)
-  b. the segments of time during which the instruments were on
-  c. the significance of the loudest event
-  d. the mass ranges of the simulated waveforms from the injection runs
-  e. distance ranges of simulated waveforms
+  a. which instruments were on in the search
+  b. the segments of time for which there is coincident data
+  c. the significance of the loudest event (for blinded searches, use a dummy FAR value instead)
+  d. set up mass and distance bins
 2. Compute search volume above loudest event
-  a. query the database for all injections made
-  b. query the database for triggers that are louder than the loudest foreground event and that are also coincident with the time of the injection
-  c. compute the efficiency of the search as a function of distance
-  d. integrates the efficiency over space and time to compute the search volume.
-  e. Step 2 is (optionally) repeated a large number of times with bootstrapping to estimate uncertainties in the computed search volume.
+  a. separate injections by found and missed based on the loudest event
+  b. ensure that the injection was made within the recorded segments
+  c. compute the efficiency of the search as a function of distance and mass
+  d. integrate the efficiency over distance and time to compute the search volume.
 3. Compute volume derivative (lambda) at the cFAR of the loudest event
-  a. Choose a number of FARs log-spaced around the FAR of the loudest event.
-  b. Compute search below that FAR via previous method (calling the same routines)
-  c. Fit a curve to the resulting volume-versus-FAR data and estimate the slope near the loudest event FAR
-4. Write the computed search volume (for each instrument set found) and search volume derivative to disk, together with some diagnostic data.
+  a. Choose a number of FARs linearly-spaced around the FAR of the loudest event
+  b. Compute search volume below each FAR (calling the same routines as in 2)
+  c. Linear least-squares fit to volume vs FAR points to estimate the volume derivative
+4. Write the computed search volume and search volume derivative to disk
 '''
 
   usage = '''lalapps_cbc_svim [options] database
 
-lalapps_cbc_svim is supposed to \"just work\" and give the user control when needed. At the simplest level, all svim needs is a pipedown results database from which to read. The bare-bones command
+The input to svim is a single database containing simulation experiments with triggers ranked by false alarm rate. The bare-bones command
 
-  lalapps_cbc_svim --bootstrap H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+  lalapps_cbc_svim H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
 
-will compute from the results database the search volume, volume derivative, and volume uncertainty as a function of total mass for each IFO set found in the database. The user may desire the volume calculation to be organized differently on the m1-m2 plane. You can override the default mass binning and bin injections by chirp mass or component mass. For instance, the command
+will compute from the results database the search volume, volume derivative, and volume uncertainty as a function of total mass for each IFO set found in the database. You can override the default mass binning with, for instance,
 
-  lalapps_cbc_svim --bin-by-component-mass --component-mass1-bins=\'1,3,8,13,18,23\' --min-mass2 1 --max-mass2 3 --bootstrap H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
+  lalapps_cbc_svim --bin-by-component-mass --component-mass1-bins=\'1,3,8,13,18,23\' --min-mass2 1 --max-mass2 3 H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
 
 will compute the search volume using all injections with at least one component in the mass range 1-3Msun as a function of the other component mass, using the specified boundaries for the mass of the first object.
-
-You can compute multiple mass binnings at once if you like simply by specifying more than one type at the command line. For instance, the command
-
-  lalapps_cbc_svim --bin-by-component-mass --component-mass1-bins=\'1,3,8,13,18,23\' --min-mass2 1 --max-mass2 3 --bin-by-total-mass --total-mass-bin \'2,5,8,11,14,17,20,25\' --bin-by-bns-bbh --bin-by-chirp-mass --bootstrap H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
-
-By default, lalapps_cbc_svim makes no estimate of the volume uncertainty. With the bootstrap flag, svim will estimate the volume uncertainty associate with having a finite number of injections. If additionally an error distance estimate if provided by the user, svim will propagate the distance uncertainty into volume uncertainty during the bootstrapping process. The command
-
-  lalapps_cbc_svim --bootstrap --iterations 10000 --dist-err 0.2 --dist-sys-err 0.1 H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
-
-will compute the search volume 10000 times. Each time the injected distances will be adjusted according to a 10% systematic error and a random 20% log-normal rescaling factor.
-
-In the IHOPE workflow, the typical svim usage is much more complicated. In case you need this level of complication, here is an example command line that uses most of the available options:
-
-lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 0.20 --exclude-sim-type SpinTaylorthreePointFivePN --bin-by-chirp-mass --output-name-tag SEARCH_VOLUME --bin-by-bns-bbh  --bootstrap  --component-mass1-bins \'1,3,8,13,18,23\' --dist-sys-err 0.1 --max-mtotal 25 --total-mass-bins \'2,5,8,11,14,17,20,25\' --output-cache H1L1V1-FULL_DATA_CAT_4_VETO_SEARCH_VOLUME_CBC_RESULTS-968803143-1209744.cache --seed 1 --iterations 10000 --tmp-space /usr1/sprivite H1L1V1-FULL_DATA_CAT_4_VETO_CLUSTERED_CBC_RESULTS-968803143-1209744.sqlite
 '''
 
 
   parser = OptionParser(version = git_version.verbose_msg, usage = usage + description)
 
   #
-  # The code supports three mass binning modes.
+  # The code supports five mass binning modes.
   #
+  parser.add_option("--bin-by-mass1-mass2", default = False, action = "store_true", help = "Bin injections by component mass in two dimensions when estimating the search efficiency.")
 
   # Bin injections by total mass
   parser.add_option("--bin-by-total-mass", default = False, action = "store_true", help = "Bin injections by total mass when estimating the search efficiency.")
@@ -575,8 +626,8 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   # Bin injections by component mass, with one mass fixed
   parser.add_option("--bin-by-component-mass", default = False, action = "store_true", help = "Bin injections by the first component's mass with the second component restricted to a small bin (specified by --min/max-mass2).")
   parser.add_option("--component-mass1-bins", default = None, metavar = "\'m0,m1,...,mk''", help = "Specify the boundaries of the first component's mass bins. Input should be a comma separated list of masses. Injections outside the range of the bins will be ignored. This option implies --bin-by-component-mass.")
-  parser.add_option("--min-mass2", metavar = "m", type = 'float', default = 1.0, help = "Specify the minimum of the seconds component's mass bins.")
-  parser.add_option("--max-mass2", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum of the seconds component's mass bins.")
+  parser.add_option("--min-mass2", metavar = "m", type = 'float', default = 1.0, help = "Specify the minimum of the second component's mass bins.")
+  parser.add_option("--max-mass2", metavar = "m", type = 'float', default = 3.0, help = "Specify the maximum of the second component's mass bins.")
 
   # Bin injections into three
   parser.add_option("--bin-by-bns-bbh", default = False, action = "store_true", help = "Compute the sensitive volume for three mass bins: BNS, NSBH, and BBH.")
@@ -591,33 +642,39 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency
+  parser.add_option("--max-mass-ratio", metavar = "q", type = 'float', default = None, help = "Specify the maximum allowed mass ratio. Should be >= 1.")
+  parser.add_option("--min-aligned-spin", metavar = "chi", type = 'float', default = -1.0, help = "Specify the minimum allowed value for the aligned spin parameter chi.")
+  parser.add_option("--max-aligned-spin", metavar = "chi", type = 'float', default = 1.0, help = "Specify the maximum allowed value for the aligned spin parameter chi.")
   parser.add_option("--exclude-sim-type", default = [], action = "append", metavar = "SIM", help = "When computing the search volume, exclude injections made using the SIM waveform family. Example: SpinTaylorthreePointFivePN. Use this option multiple times to exclude more than one injection type.")
+  parser.add_option("--disable-spin", default = False, action = "store_true", help = "When computing the search volume, exclude injections with any nonzero spin components.")
+  parser.add_option("--spin-only", default = False, action = "store_true", help = "When computing the search volume, exclude injections with all spin components equal to zero. --disable-spin takes precedence.")
 
   # These options control the volume uncertainty estimation.
-  parser.add_option("--iterations", default = 1000, metavar = "integer", type = "int", help = "Number of trials to use for computing the mean and variance of the search volume. A good number is 10000.")
-  parser.add_option("--bootstrap", default = False, action = "store_true", help = "Turn on bootstrapping (injection population resampling). Override default nubmer of trials with --iterations.")
-  parser.add_option("--dist-err", default = 0.20, metavar = "float", type = "float", help = "When iterating the volume calculation, simulate a log-normal amplitude calibration error of the specified size.")
-  parser.add_option("--dist-sys-err", default = 0.0, metavar = "float", type = "float", help = "Apply a systematic error on distance (should use worst).")
   parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Space distance bins evenly and specify the number of distance bins to use.")
   parser.add_option("--log-dist-bins", default = False, action="store_true", help = "Space distance bins evenly in log-distance and specify the number of bins to use for integration over distance.")
-  parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set by the user, you can specify here the number of mass bins to use along a single dimension.")
+  parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set, you can specify here the number of mass bins to use along a single dimension. The number of bins is currently 1 fewer than the value you specify.")
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
   # the FAR of the loudest non-playground event.
-  parser.add_option("--far", type = "float", help = "Specify the cFAR to use for classifying injections into found or missed instead of using the cFAR of the loudest event.")
-  parser.add_option("--use-expected-loudest-event", default=False, action = "store_true", help = "Instead of using the observed cFAR for the loudest event, estimate the cFAR based on livetime. This option overrides the --far option.")
-  parser.add_option("--include-play", default=False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
+  parser.add_option("--far", type = "float", help = "Specify a cFAR threshold for classifying injections into found or missed, rather than using cFAR of the actual or expected loudest event. Overridden by the --open-box option.")
+  parser.add_option("--open-box", default = False, action = "store_true", help = "Use the observed cFAR for the loudest event: only appropriate when the full search result is known. If neither --far nor --open-box is given, default action is to use cFAR=1/livetime.")
+  parser.add_option("--include-play", default = False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
 
   # Techincal options which the general user won't care about
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
-  parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
+  parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
   parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
+
+  # options for level of output
+  parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
+  parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
+  parser.add_option("--plot-derivative-fit", action = "store_true", help = "Plot the volume derivative fit for each mass bin.")
 
   opts, filenames = parser.parse_args()
 
@@ -625,8 +682,10 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
     opts.instruments = frozenset(lsctables.instrument_set_from_ifos(opts.instruments))
 
   if len(filenames) != 1:
-    print >>sys.stderr, "must specify exactly one database file"
+    print >>sys.stderr, "Error: must specify exactly one database file"
     sys.exit(1)
+
+  opts.enable_output = True
 
   if opts.chirp_mass_bins:
     opts.bin_by_chirp_mass = True
@@ -635,8 +694,11 @@ lalapps_cbc_svim --veto-segments-name VETO_CAT4_CUMULATIVE --verbose --dist-err 
   if opts.total_mass_bins:
     opts.bin_by_total_mass = True
 
-  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh):
+  if (not opts.bin_by_chirp_mass) and (not opts.bin_by_component_mass) and (not opts.bin_by_bns_bbh) and (not opts.bin_by_mass1_mass2):
     opts.bin_by_total_mass = True # choose a default binning method
+
+  if opts.max_mass_ratio and (opts.max_mass_ratio < 1):
+    raise ValueError, "The maximum mass ratio must be >=1!"
 
   return opts, filenames[0]
 
@@ -667,49 +729,67 @@ def write_cache(cache_list, fileout):
 opts, database = parse_command_line()
 
 # read in data from input database, store in upper limit object
-UL = upper_limit(database, opts)
-#
+UL = upper_limit(database, opts)#
+
+# Set up opts structure for use with InspiralUtils
+opts.gps_start_time = UL.start_time
+opts.gps_end_time = UL.end_time
+
 # loop over the requested instruments and mass bin types,
 # compute the search volume and volume derivative at the specified
 # FAR for the given mass bin
 #
-for instruments in UL.instruments:
-  for bin_type in UL.mass_bins:
-
-    #compute volume derivitive at loudest event
-    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments])
+for bin_type in UL.mass_bins:
+  for instruments in UL.instruments:
+    # initialize plotting util helper
+    __prog__ = "lalapps_cbc_svim_by_" + bin_type.lower()
+    opts.ifo_times = "".join(sorted(list(instruments)))
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, git_version.verbose_msg )
+    fnameList = []; tagList = []
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type, bootnum=opts.iterations,relerr=opts.dist_err,syserr=opts.dist_sys_err,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
 
-    vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
-    vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
+    # plot efficiencies
+    if opts.plot_efficiency:
+      tag = "%s-SEARCH_EFFICIENCY_BINNED_BY_%s" % ("".join(sorted(list(instruments))),bin_type.upper())
+      for j,mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
+        if bin_type == "BNS_BBH": label = ["NS-NS","NS-BH","BH-BH"][j]
+        else: label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
+        pyplot.errorbar((UL.dbins[instruments][:-1]+UL.dbins[instruments][1:])/2, eff[j], yerr=err[j],label=label)
+        pyplot.legend(loc='upper right')
+        pyplot.ylim([0,1])
+        pyplot.xlim([0,max(UL.dbins[instruments])])
+        pyplot.xlabel("Distance (Mpc)")
+        pyplot.ylabel("Efficiency")
+        name = InspiralUtils.set_figure_tag(tag + "_BIN_"+str(j+1), open_box = opts.open_box)
+        fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+        fnameList.append(fname)
+        tagList.append(name)
+        pyplot.close()
 
-    # it is useful to look at the efficiencies
-    if opts.verbose:
-      tag = "%s-SEARCH_EFFICIENCY-%s-BINNED_BY_%s-%d-%d" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper(),UL.start_time,UL.end_time-UL.start_time)
-      plot_efficiency(eff,err,UL.dbins[instruments],UL.mass_bins[bin_type],tag)
-
-      wikisum = tag + ".wiki"
-      fd = open(wikisum,'w')
-      masstags = ''.join([" ||<-3>'''%.1f-%.1f Msun''' VT (Mpc3*yr) / Lambda / error ||"%(ml,mh) for ml,mh in zip(UL.mass_bins[bin_type].lower()[0],UL.mass_bins[bin_type].upper()[0])])
-      fd.write("|| '''Analysis time''' || '''Livetime''' (exc. play, secs/days) || '''FAP of Loudest Event''' (1/yr) || %s\n"%(masstags,))
-      masstags = ''.join([" ||  %.0f || %.2f || %.2f ||"%(v,dv,er) for v,dv,er in zip(vA.array,dvA.array,vA2.array/vA.array)])
-      fd.write("|| %d-%d || %d (%f) || %.2f || %s\n" %(UL.start_time,UL.end_time,UL.livetime[instruments]*constants.LAL_YRJUL_SI,UL.livetime[instruments]*constants.LAL_YRJUL_SI/(3600*24.0),1-numpy.exp(-UL.far[instruments]*UL.livetime[instruments]),masstags))
-      fd.close()
-
+    #compute volume derivative at loudest event
+    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments],fnameList,tagList,InspiralUtilsOpts) #Grrr FIXME
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
 
+    vA.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
+    vA2.array *= UL.livetime[instruments] #preferred unit is Mpc^3*yr
+
     #write out the results to the xml file
     xmldoc = ligolw.Document()
     child = xmldoc.appendChild(ligolw.LIGO_LW())
-    xml = ligolw.LIGO_LW({u"Name": u"mass_bins:%s" % (bin_type)})
-    edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
-    xml.appendChild(array.from_array(u"array", edges[0]))
-    child.appendChild(xml)
+
+    # write out mass bins
+    dim = len(UL.mass_bins[bin_type])
+    for j in range(dim):
+      xml = ligolw.LIGO_LW({u"Name": u"mass%d_bins:%s" % (j+1,bin_type)})
+      edges = tuple( numpy.concatenate((l,u[-1:])) for l,u in zip(UL.mass_bins[bin_type].lower(),UL.mass_bins[bin_type].upper()) )
+      xml.appendChild(array.from_array(u"array", edges[j]))
+      child.appendChild(xml)
 
     output_arrays = {"SearchVolumeFirstMoment":vA.array,
                      "SearchVolumeSecondMoment":vA2.array,
@@ -722,7 +802,7 @@ for instruments in UL.instruments:
       xml.appendChild(array.from_array(u"array",output_arrays[arr]))
       child.appendChild(xml)
 
-    output_filename = "%s-SEARCH_VOLUME-%s-BINNED_BY_%s-%d-%d.xml" % ("".join(sorted(list(instruments))),opts.output_name_tag,bin_type.upper(),UL.start_time,UL.end_time-UL.start_time)
+    output_filename = "%s-SEARCH_VOLUME_BINNED_BY_%s_%s-%d-%d.xml" % ("".join(sorted(list(instruments))),bin_type.upper(),opts.user_tag,UL.start_time,UL.end_time-UL.start_time)
     utils.write_filename(xmldoc, output_filename)
     cache_entry =  lal.CacheEntry( "".join(sorted(list(instruments))),
                                    bin_type,
@@ -730,6 +810,12 @@ for instruments in UL.instruments:
                                    "file://localhost%s/%s" % (os.getcwd(),output_filename) )
 
     cache_list.append(cache_entry)
+
+    plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [database], fnameList,
+                                                tagList, add_box_flag = False )
+    InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
+
+
 
 # write a cache file describing the files generated during by this program
 if opts.output_cache:

@@ -17,50 +17,33 @@
 *  MA  02111-1307  USA
 */
 
-#if 0 /* autodoc block */
+/**
+   \file
+   \ingroup Integrate_h
 
-<lalVerbatim file="IntegrateTestCV">
-$Id$
-</lalVerbatim>
+   \brief Tests the routines in \ref Integrate_h by performing a suite of numerical
+   integrations and checking the accuracy of the results.
 
-<lalLaTeX>
-
-\subsection{Program \texttt{IntegrateTest.c}}
-\label{ss:IntegrateTest.c}
-
-Tests the routines in \verb+Integrate.h+ by performing a suite of numerical
-integrations and checking the accuracy of the results.
-
-\subsection*{Usage}
-\begin{verbatim}
+\heading{Usage}
+\code
 IntegrateTest [options]
 Options:
   -h         print this message
   -q         quiet: run silently
   -v         verbose: print extra information
   -d level   set lalDebugLevel to level
-\end{verbatim}
+\endcode
 
-\subsubsection*{Description}
-\subsubsection*{Exit codes}
-\begin{tabular}{|c|l|}
-\hline
- Code & Explanation                   \\
-\hline
-\tt 0 & Success, normal exit.         \\
-\tt 1 & Subroutine failed.            \\
-\hline
-\end{tabular}
+\heading{Exit codes}
 
-\subsubsection*{Uses}
-\subsubsection*{Notes}
+<table><tr><th>Code</th><th>Explanation</th></tr>
+<tr><td>0</td><td>Success, normal exit.</td></tr>
+<tr><td>1</td><td>Subroutine failed.</td></tr>
+</table>
 
-\vfill{\footnotesize\input{IntegrateTestCV}}
+*/
 
-</lalLaTeX>
-
-#endif /* autodoc block */
-
+/** \cond DONT_DOXYGEN */
 
 #include <stdio.h>
 #include <string.h>
@@ -89,9 +72,6 @@ Options:
 #define CODES_(x) #x
 #define CODES(x) CODES_(x)
 
-NRCSID (MAIN, "$Id$");
-
-
 /*
  *
  * These functions are used as integrands for the test integrations.
@@ -104,7 +84,7 @@ static void f1 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
   REAL4  x2 = x*x;
   REAL4  x4 = x2*x2;
   INT4  *n;
-  INITSTATUS (s, "f1", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = x4*log(x + sqrt(x2 + 1));
@@ -116,7 +96,7 @@ static void ff1 (LALStatus *s, REAL8 *y, REAL8 x, void *p)
   REAL8  x2 = x*x;
   REAL8  x4 = x2*x2;
   INT4  *n;
-  INITSTATUS (s, "ff1", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = x4*log(x + sqrt(x2 + 1));
@@ -130,7 +110,7 @@ static REAL8 xff1 (REAL8 x, void *p)
   REAL8  x4 = x2*x2;
   INT4  *n;
   if (p == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   ++(*(n = (INT4 *)p));
   y = x4*log(x + sqrt(x2 + 1));
   return y;
@@ -139,7 +119,7 @@ static REAL8 xff1 (REAL8 x, void *p)
 static void f2 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "f2", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = 1/(x*x*x);
@@ -149,7 +129,7 @@ static void f2 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 static void ff2 (LALStatus *s, REAL8 *y, REAL8 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "ff2", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = 1/(x*x*x);
@@ -161,7 +141,7 @@ static REAL8 xff2 (REAL8 x, void *p)
   REAL8  y;
   INT4  *n;
   if (p == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   ++(*(n = (INT4 *)p));
   y = 1/(x*x*x);
   return y;
@@ -170,7 +150,7 @@ static REAL8 xff2 (REAL8 x, void *p)
 static void f3 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "f3", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = exp(-x*x/2);
@@ -180,7 +160,7 @@ static void f3 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 static void ff3 (LALStatus *s, REAL8 *y, REAL8 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "ff3", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = exp(-x*x/2);
@@ -192,7 +172,7 @@ static REAL8 xff3 (REAL8 x, void *p)
   REAL8  y;
   INT4  *n;
   if (p == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   ++(*(n = (INT4 *)p));
   y = exp(-x*x/2);
   return y;
@@ -201,7 +181,7 @@ static REAL8 xff3 (REAL8 x, void *p)
 static void f4 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "f4", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = 1/sqrt(x);
@@ -211,7 +191,7 @@ static void f4 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 static void ff4 (LALStatus *s, REAL8 *y, REAL8 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "ff4", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = 1/sqrt(x);
@@ -223,7 +203,7 @@ static REAL8 xff4 (REAL8 x, void *p)
   REAL8  y;
   INT4  *n;
   if (p == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   ++(*(n = (INT4 *)p));
   y = 1/sqrt(x);
   return y;
@@ -232,7 +212,7 @@ static REAL8 xff4 (REAL8 x, void *p)
 static void f5 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "f5", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = x + 1/sqrt(5 - x);
@@ -242,7 +222,7 @@ static void f5 (LALStatus *s, REAL4 *y, REAL4 x, void *p)
 static void ff5 (LALStatus *s, REAL8 *y, REAL8 x, void *p)
 {
   INT4 *n;
-  INITSTATUS (s, "ff5", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   ++(*(n = (INT4 *)p));
   *y = x + 1/sqrt(5 - x);
@@ -254,7 +234,7 @@ static REAL8 xff5 (REAL8 x, void *p)
   REAL8  y;
   INT4  *n;
   if (p == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   ++(*(n = (INT4 *)p));
   y = x + 1/sqrt(5 - x);
   return y;
@@ -263,7 +243,7 @@ static REAL8 xff5 (REAL8 x, void *p)
 static void g (LALStatus *s, REAL4 *z, REAL4 x, void *p)
 {
   REAL4 y;
-  INITSTATUS (s, "g", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   y  = *((REAL4 *)p);
   *z = exp(-(x*x + y*y)/2);
@@ -273,7 +253,7 @@ static void g (LALStatus *s, REAL4 *z, REAL4 x, void *p)
 static void gg (LALStatus *s, REAL8 *z, REAL8 x, void *p)
 {
   REAL8 y;
-  INITSTATUS (s, "gg", MAIN);
+  INITSTATUS(s);
   ASSERT (p, s, 1, "Null pointer");
   y  = *((REAL8 *)p);
   *z = exp(-(x*x + y*y)/2);
@@ -283,9 +263,10 @@ static void gg (LALStatus *s, REAL8 *z, REAL8 x, void *p)
 static void h (LALStatus *s, REAL4 *z, REAL4 y, void *p)
 {
   SIntegrateIn intinp;
-  INITSTATUS (s, "h", MAIN);
+  INITSTATUS(s);
   ATTATCHSTATUSPTR (s);
-  ASSERT (!p, s, 2, "Non-null pointer");
+  if ( p )
+    ABORT ( s, 2, "Non-null pointer");
   p = NULL;
   intinp.function = g;
   intinp.xmin     = 0;
@@ -300,9 +281,10 @@ static void h (LALStatus *s, REAL4 *z, REAL4 y, void *p)
 static void hh (LALStatus *s, REAL8 *z, REAL8 y, void *p)
 {
   DIntegrateIn intinp;
-  INITSTATUS (s, "hh", MAIN);
+  INITSTATUS(s);
   ATTATCHSTATUSPTR (s);
-  ASSERT (!p, s, 2, "Non-null pointer");
+  if ( p )
+    ABORT ( s, 2, "Non-null pointer");
   p = NULL;
   intinp.function = gg;
   intinp.xmin     = 0;
@@ -1033,6 +1015,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -1054,8 +1038,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':
@@ -1076,3 +1070,4 @@ ParseOptions (int argc, char *argv[])
   return;
 }
 
+/** \endcond */

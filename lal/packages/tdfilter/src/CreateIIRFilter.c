@@ -17,117 +17,92 @@
 *  MA  02111-1307  USA
 */
 
-/****************************** <lalVerbatim file="CreateIIRFilterCV">
-Author: Creighton, T. D.
-$Id$
-**************************************************** </lalVerbatim> */
-
-/********************************************************** <lalLaTeX>
-
-\subsection{Module \texttt{CreateIIRFilter.c}}
-\label{ss:CreateIIRFilter.c}
-
-Creates IIR filter objects.
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{CreateIIRFilterCP}
-\idx{LALCreateREAL4IIRFilter()}
-\idx{LALCreateREAL8IIRFilter()}
-
-\subsubsection*{Description}
-
-These functions create an object \verb@**output@ of type
-\verb@<datatype>IIRFilter@, where \verb@<datatype>@ is \verb@REAL4@ or
-\verb@REAL8@.  The filter coefficients are computed from the zeroes,
-poles, and gain of an input object \verb@*input@ of type
-\verb@COMPLEX8ZPGFilter@ or \verb@COMPLEX16ZPGFilter@, respectively;
-the sampling time interval is taken directly from
-\verb@input->deltaT@.  The ZPG filter should express the factored
-transfer function in the $z=\exp(2\pi if)$ plane.  Initially the
-output handle must be a valid handle (\verb@output@$\neq$\verb@NULL@)
-but should not point to an existing object
-(\verb@*output@=\verb@NULL@)
-
-\subsubsection*{Algorithm}
-
-An IIR filter is a real time-domain filter, which imposes certain
-constraints on the zeros, poles, and gain of the filter transfer
-function.  The function \verb@Create<datatype>IIRFilter()@ deals with
-the constraints either by aborting if they are not met, or by
-adjusting the filter response so that they are met.  In the latter
-case, warning messages will be issued if the external parameter
-\verb@lalDebugLevel@ is set to allow such messages.  The specific
-constraints, and how they are dealt with, are as follows:
-
-First, the filter must be \emph{causal}; that is, the output at any
-time can be generated entirely from the input at previous times.  In
-practice this means that the number of (finite) poles in the $z$ plane
-must equal or exceed the number of (finite) zeros.  If this is not the
-case, \verb@Create<datatype>IIRFilter()@ will add additional poles at
-$z=0$.  Effectively this is just adding a delay to the filter response
-in order to make it causal.
-
-Second, the filter should be \emph{stable}, which means that all poles
-should be located on or within the circle $|z|=1$.  This is not
-enforced by \verb@Create<datatype>IIRFilter()@, which can be used to
-make unstable filters; however, warnings will be issued.  (In some
-sense the first condition is a special case of this one, since a
-transfer function with more zeros than poles actually has
-corresponding poles at infinity.)
-
-Third, the filter must be \emph{physically realizable}; that is, the
-transfer function should expand to a rational function of $z$ with
-real coefficients.  Necessary and sufficient conditions for this are
-that the gain be real, and that all zeros and poles either be real or
-come in complex conjugate pairs.  The routine
-\verb@Create<datatype>IIRFilter()@ enforces this by using only the
-real part of the gain, and only the real or positive-imaginary zeros
-and poles; it assumes that the latter are paired with
-negative-imaginary conjugates.  The routine will abort if this
-assumption results in a change in the given number of zeros or poles.
-If \verb@lalDebugLevel@ is set to allow warnings, the routine will
-actually check to see that each pair of nonreal poles or zeros are in
-fact complex conjugates, and will issue a warning if an unmatched pair
-is detected; however, the algorithm will then simply proceed as if the
-negative-imaginary points were relocated to the ``correct'' positions.
-
-The code associated with the warning messages is potentially rather
-cumbersome for production algorithms; therefore, the value of
-\verb@lalDebugLevel@ is tested before performing any other tests
-associated with warning messages.  Furthermore, this code block is
-surrounded with compiler directives to exclude the code entirely if
-the module is compiled with the \verb@NDEBUG@ flag set.
-
-\subsubsection*{Uses}
-\begin{verbatim}
-lalDebugLevel
-LALWarning()                    LALPrintError()
-LALMalloc()                     LALFree()
-LALSCreateVector()              LALSDestroyVector()
-LALDCreateVector()              LALDDestroyVector()
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-\vfill{\footnotesize\input{CreateIIRFilterCV}}
-
-******************************************************* </lalLaTeX> */
-
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
 #include <lal/AVFactories.h>
 #include <math.h>
 #include <lal/IIRFilter.h>
 
-NRCSID(CREATEIIRFILTERC,"$Id$");
-
 extern INT4 lalDebugLevel;
 
 
+/**
+   \addtogroup CreateIIRFilter_c
+   \author Creighton, T. D.
+
+   \brief Creates IIR filter objects.
+
+\heading{Description}
+
+These functions create an object <tt>**output</tt> of type
+<tt>\<datatype\>IIRFilter</tt>, where <tt>\<datatype\></tt> is \c REAL4 or
+\c REAL8.  The filter coefficients are computed from the zeroes,
+poles, and gain of an input object <tt>*input</tt> of type
+\c COMPLEX8ZPGFilter or \c COMPLEX16ZPGFilter, respectively;
+the sampling time interval is taken directly from
+<tt>input->deltaT</tt>.  The ZPG filter should express the factored
+transfer function in the \f$z=\exp(2\pi if)\f$ plane.  Initially the
+output handle must be a valid handle (\c output\f$\neq\f$\c NULL)
+but should not point to an existing object
+(<tt>*output</tt>=\c NULL)
+
+\heading{Algorithm}
+
+An IIR filter is a real time-domain filter, which imposes certain
+constraints on the zeros, poles, and gain of the filter transfer
+function.  The function <tt>Create\<datatype\>IIRFilter()</tt> deals with
+the constraints either by aborting if they are not met, or by
+adjusting the filter response so that they are met.  In the latter
+case, warning messages will be issued if the external parameter
+\c lalDebugLevel is set to allow such messages.  The specific
+constraints, and how they are dealt with, are as follows:
+
+First, the filter must be \e causal; that is, the output at any
+time can be generated entirely from the input at previous times.  In
+practice this means that the number of (finite) poles in the \f$z\f$ plane
+must equal or exceed the number of (finite) zeros.  If this is not the
+case, <tt>Create\<datatype\>IIRFilter()</tt> will add additional poles at
+\f$z=0\f$.  Effectively this is just adding a delay to the filter response
+in order to make it causal.
+
+Second, the filter should be \e stable, which means that all poles
+should be located on or within the circle \f$|z|=1\f$.  This is not
+enforced by <tt>Create\<datatype\>IIRFilter()</tt>, which can be used to
+make unstable filters; however, warnings will be issued.  (In some
+sense the first condition is a special case of this one, since a
+transfer function with more zeros than poles actually has
+corresponding poles at infinity.)
+
+Third, the filter must be <em>physically realizable</em>; that is, the
+transfer function should expand to a rational function of \f$z\f$ with
+real coefficients.  Necessary and sufficient conditions for this are
+that the gain be real, and that all zeros and poles either be real or
+come in complex conjugate pairs.  The routine
+<tt>Create\<datatype\>IIRFilter()</tt> enforces this by using only the
+real part of the gain, and only the real or positive-imaginary zeros
+and poles; it assumes that the latter are paired with
+negative-imaginary conjugates.  The routine will abort if this
+assumption results in a change in the given number of zeros or poles.
+If \c lalDebugLevel is set to allow warnings, the routine will
+actually check to see that each pair of nonreal poles or zeros are in
+fact complex conjugates, and will issue a warning if an unmatched pair
+is detected; however, the algorithm will then simply proceed as if the
+negative-imaginary points were relocated to the "correct" positions.
+
+The code associated with the warning messages is potentially rather
+cumbersome for production algorithms; therefore, the value of
+\c lalDebugLevel is tested before performing any other tests
+associated with warning messages.  Furthermore, this code block is
+surrounded with compiler directives to exclude the code entirely if
+the module is compiled with the \c NDEBUG flag set.
+
+*/
+/*@{*/
+
+/** \see See \ref CreateIIRFilter_c for documentation */
 REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
 {
-  static const char *func = "XLALCreateREAL4IIRFilter";
   REAL4IIRFilter *output;
   INT4 i;          /* Index counter for zeros and poles. */
   INT4 numZeros;   /* The number of zeros. */
@@ -143,10 +118,10 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
 
   /* Make sure all the input structures have been initialized. */
   if ( ! input )
-    XLAL_ERROR_NULL( func, XLAL_EFAULT );
+    XLAL_ERROR_NULL( XLAL_EFAULT );
   if ( ! input->zeros || ! input->poles
       || ! input->zeros->data || ! input->poles->data )
-    XLAL_ERROR_NULL( func, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
   numZeros=input->zeros->length;
   numPoles=input->poles->length;
@@ -185,7 +160,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
 	  }
 	}
 	if(sep>LAL_REAL4_EPS){
-          XLALPrintWarning( "XLAL Warning - %s: ", func );
+          XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
           XLALPrintWarning("Complex zero has no conjugate pair\n");
 	  XLALPrintWarning("\tUnmatched zero z_%i = %.8e + i*%.8e\n",i,
               zeros[i].re,zeros[i].im);
@@ -197,7 +172,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
     }
 
   if ( num != numZeros )
-    XLAL_ERROR_NULL( func, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
   /* Check that poles are appropriately paired.  Also, keep track of
      the number of poles at z=0, since these will reduce the number of
@@ -231,7 +206,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
 	  }
 	}
 	if(sep>LAL_REAL4_EPS){
-          XLALPrintWarning( "XLAL Warning - %s: ", func );
+          XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
           XLALPrintWarning("Complex pole has no conjugate pair\n");
 	  XLALPrintWarning("\tUnmatched pole p_%i = %.8e + i*%.8e\n",i,
               poles[i].re,poles[i].im);
@@ -243,13 +218,13 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
     }
 
   if ( num != numPoles )
-    XLAL_ERROR_NULL( func, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
 #ifndef NDEBUG
   if(lalDebugLevel&LALWARNING){
     /* Issue a warning if the gain is nonreal. */
     if(fabs(input->gain.im)>fabs(LAL_REAL4_EPS*input->gain.re)){
-      XLALPrintWarning( "XLAL Warning - %s: ", func );
+      XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
       XLALPrintWarning("Gain is non-real\n");
       XLALPrintWarning("\tg = %.8e + i*%.8e\n", input->gain.re, input->gain.im);
     }
@@ -258,7 +233,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
       INT4 j=0;
       for(;j<numZeros;j++)
 	if((poles[i].re==zeros[j].re)&&(poles[i].im==zeros[j].im)){
-          XLALPrintWarning( "XLAL Warning - %s: ", func );
+          XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
 	  XLALPrintWarning("Removeable pole\n");
 	  XLALPrintWarning("\tp_%i = z_%i = %.8e + i*%.8e\n",i,j,
               poles[i].re,poles[i].im);
@@ -266,7 +241,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
     }
     /* Issue a warning if extra factors of 1/z will be applied. */
     if(numPoles<numZeros){
-      XLALPrintWarning( "XLAL Warning - %s: ", func );
+      XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
       XLALPrintWarning("Filter has more zeros than poles\n");
       XLALPrintWarning("\t%i poles added at complex origin\n",
           numZeros-numPoles);
@@ -275,7 +250,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
     for(i=0;i<numPoles;i++){
       REAL4 zAbs=poles[i].re*poles[i].re+poles[i].im*poles[i].im;
       if(zAbs>1.0){
-        XLALPrintWarning( "XLAL Warning - %s: ", func );
+        XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
 	XLALPrintWarning("Filter has pole outside of unit circle\n");
 	XLALPrintWarning("\tp_%i = %.8e + i*%.8e, |p_%i| = %.8e\n",i,
 		      poles[i].re,poles[i].im,i,zAbs);
@@ -287,7 +262,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
   /* Everything seems okay, so initialize the filter. */
   output=LALCalloc(1,sizeof(*output));
   if ( ! output )
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   num = (numPoles>=numZeros) ? numZeros : numPoles;
   numDirect+=num;
   numRecurs+=num;
@@ -298,7 +273,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
   if ( ! output->directCoef || ! output->recursCoef )
   {
     XLALDestroyREAL4IIRFilter( output );
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   }
   direct=output->directCoef->data;
   recurs=output->recursCoef->data;
@@ -348,7 +323,7 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
   if ( ! output->history )
   {
     XLALDestroyREAL4IIRFilter( output );
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   }
   history=output->history->data;
   for(i=0;i<num;i++)
@@ -358,9 +333,9 @@ REAL4IIRFilter *XLALCreateREAL4IIRFilter( COMPLEX8ZPGFilter *input )
   return output;
 }
 
+/** \see See \ref CreateIIRFilter_c for documentation */
 REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
 {
-  static const char *func = "XLALCreateREAL8IIRFilter";
   REAL8IIRFilter *output;
   INT4 i;          /* Index counter for zeros and poles. */
   INT4 numZeros;   /* The number of zeros. */
@@ -376,10 +351,10 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
 
   /* Make sure all the input structures have been initialized. */
   if ( ! input )
-    XLAL_ERROR_NULL( func, XLAL_EFAULT );
+    XLAL_ERROR_NULL( XLAL_EFAULT );
   if ( ! input->zeros || ! input->poles
       || ! input->zeros->data || ! input->poles->data )
-    XLAL_ERROR_NULL( func, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
   numZeros=input->zeros->length;
   numPoles=input->poles->length;
@@ -418,7 +393,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
 	  }
 	}
 	if(sep>LAL_REAL8_EPS){
-          XLALPrintWarning( "XLAL Warning - %s: ", func );
+          XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
           XLALPrintWarning("Complex zero has no conjugate pair\n");
 	  XLALPrintWarning("\tUnmatched zero z_%i = %.8e + i*%.8e\n",i,
               zeros[i].re,zeros[i].im);
@@ -430,7 +405,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
     }
 
   if ( num != numZeros )
-    XLAL_ERROR_NULL( func, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
   /* Check that poles are appropriately paired.  Also, keep track of
      the number of poles at z=0, since these will reduce the number of
@@ -464,7 +439,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
 	  }
 	}
 	if(sep>LAL_REAL8_EPS){
-          XLALPrintWarning( "XLAL Warning - %s: ", func );
+          XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
           XLALPrintWarning("Complex pole has no conjugate pair\n");
 	  XLALPrintWarning("\tUnmatched pole p_%i = %.8e + i*%.8e\n",i,
               poles[i].re,poles[i].im);
@@ -476,13 +451,13 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
     }
 
   if ( num != numPoles )
-    XLAL_ERROR_NULL( func, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
 #ifndef NDEBUG
   if(lalDebugLevel&LALWARNING){
     /* Issue a warning if the gain is nonreal. */
     if(fabs(input->gain.im)>fabs(LAL_REAL8_EPS*input->gain.re)){
-      XLALPrintWarning( "XLAL Warning - %s: ", func );
+      XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
       XLALPrintWarning("Gain is non-real\n");
       XLALPrintWarning("\tg = %.8e + i*%.8e\n", input->gain.re, input->gain.im);
     }
@@ -491,7 +466,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
       INT4 j=0;
       for(;j<numZeros;j++)
 	if((poles[i].re==zeros[j].re)&&(poles[i].im==zeros[j].im)){
-          XLALPrintWarning( "XLAL Warning - %s: ", func );
+          XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
 	  XLALPrintWarning("Removeable pole\n");
 	  XLALPrintWarning("\tp_%i = z_%i = %.8e + i*%.8e\n",i,j,
               poles[i].re,poles[i].im);
@@ -499,7 +474,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
     }
     /* Issue a warning if extra factors of 1/z will be applied. */
     if(numPoles<numZeros){
-      XLALPrintWarning( "XLAL Warning - %s: ", func );
+      XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
       XLALPrintWarning("Filter has more zeros than poles\n");
       XLALPrintWarning("\t%i poles added at complex origin\n",
           numZeros-numPoles);
@@ -508,7 +483,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
     for(i=0;i<numPoles;i++){
       REAL8 zAbs=poles[i].re*poles[i].re+poles[i].im*poles[i].im;
       if(zAbs>1.0){
-        XLALPrintWarning( "XLAL Warning - %s: ", func );
+        XLALPrintWarning( "XLAL Warning - %s: ", __func__ );
 	XLALPrintWarning("Filter has pole outside of unit circle\n");
 	XLALPrintWarning("\tp_%i = %.8e + i*%.8e, |p_%i| = %.8e\n",i,
 		      poles[i].re,poles[i].im,i,zAbs);
@@ -520,7 +495,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
   /* Everything seems okay, so initialize the filter. */
   output=LALCalloc(1,sizeof(*output));
   if ( ! output )
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   num = (numPoles>=numZeros) ? numZeros : numPoles;
   numDirect+=num;
   numRecurs+=num;
@@ -531,7 +506,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
   if ( ! output->directCoef || ! output->recursCoef )
   {
     XLALDestroyREAL8IIRFilter( output );
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   }
   direct=output->directCoef->data;
   recurs=output->recursCoef->data;
@@ -581,7 +556,7 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
   if ( ! output->history )
   {
     XLALDestroyREAL8IIRFilter( output );
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   }
   history=output->history->data;
   for(i=0;i<num;i++)
@@ -592,12 +567,13 @@ REAL8IIRFilter *XLALCreateREAL8IIRFilter( COMPLEX16ZPGFilter *input )
 }
 
 
-/* <lalVerbatim file="CreateIIRFilterCP"> */
+/** Deprecated.
+ * \deprecated Use XLALCreateREAL4IIRFilter() instead */
 void LALCreateREAL4IIRFilter( LALStatus         *stat,
 			      REAL4IIRFilter    **output,
 			      COMPLEX8ZPGFilter *input )
-{ /* </lalVerbatim> */
-  INITSTATUS(stat,"LALCreateREAL4IIRFilter",CREATEIIRFILTERC);
+{
+  INITSTATUS(stat);
 
   /* Make sure all the input structures have been initialized. */
   ASSERT(input,stat,IIRFILTERH_ENUL,IIRFILTERH_MSGENUL);
@@ -631,12 +607,13 @@ void LALCreateREAL4IIRFilter( LALStatus         *stat,
 }
 
 
-/* <lalVerbatim file="CreateIIRFilterCP"> */
+/** Deprecated.
+ * \deprecated Use XLALCreateREAL8IIRFilter() instead */
 void LALCreateREAL8IIRFilter( LALStatus          *stat,
 			      REAL8IIRFilter     **output,
 			      COMPLEX16ZPGFilter *input )
-{ /* </lalVerbatim> */
-  INITSTATUS(stat,"LALCreateREAL8IIRFilter",CREATEIIRFILTERC);
+{
+  INITSTATUS(stat);
 
   /* Make sure all the input structures have been initialized. */
   ASSERT(input,stat,IIRFILTERH_ENUL,IIRFILTERH_MSGENUL);
@@ -668,3 +645,4 @@ void LALCreateREAL8IIRFilter( LALStatus          *stat,
 
   RETURN(stat);
 }
+/*@}*/

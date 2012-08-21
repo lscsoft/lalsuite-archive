@@ -144,8 +144,8 @@ void templateLAL12(struct parSet *par, struct interferometer *ifo[], int ifonr, 
   
   // Compute the detector response
   //double delay = LALFpFc(&thewaveform, wave, &lengthLAL, length, par, ifonr);
-  double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
-  delay = delay; //MvdS: remove 'declared but never referenced' warnings
+  /* double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); */ //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x) - JOHN: Commented out as never used.
+  /* delay = delay; */ //MvdS: remove 'declared but never referenced' warnings
   
   // printf("LALdelay = %10.10f\n", delay);
   
@@ -542,8 +542,9 @@ void templateLAL15old(struct parSet *par, struct interferometer *ifo[], int ifon
   
   // Compute the detector response
   //double delay = LALFpFc(&thewaveform, wave, &lengthLAL, length, par, ifonr);
-  double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
-  delay = delay; //MvdS: remove 'declared but never referenced' warnings
+  /* double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); */
+  //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
+  /* delay = delay; */ //MvdS: remove 'declared but never referenced' warnings
   
   // printf("LALdelay = %10.10f\n", delay);
   
@@ -935,8 +936,8 @@ void templateLAL15(struct parSet *par, struct interferometer *ifo[], int ifonr, 
   
   
   // Compute the detector response:
-  double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
-  delay = delay; //MvdS: remove 'declared but never referenced' warnings
+  /* double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); */ //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
+  /* delay = delay; */ //MvdS: remove 'declared but never referenced' warnings
   
   
   for (i=0; i<length; ++i) ifo[ifonr]->FTin[i] = wave[i];
@@ -1493,7 +1494,7 @@ void templateLALnonSpinning(struct parSet *par, struct interferometer *ifo[], in
   
   snprintf(injParams.waveform,LIGOMETA_WAVEFORM_MAX*sizeof(CHAR),"%s",waveformApproximant);
   Approximant injapprox;
-  LALGetApproximantFromString(&status,injParams.waveform,&injapprox);
+  injapprox = XLALGetApproximantFromString(injParams.waveform);
   if(injapprox!=GeneratePPN) fprintf(stderr,"\n *** Warning:  not using GeneratePPN approximant causes incoherent injections. Used: %s\t%s***\n",waveformApproximant,injParams.waveform);
   
   // Fill injParam with the waveform parameters:
@@ -1545,8 +1546,8 @@ void templateLALnonSpinning(struct parSet *par, struct interferometer *ifo[], in
   
   
   // Compute the detector response  -  Is this done by LALGenerateInspiral for the non-spinning case?
-  double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
-  delay = delay; //MvdS: remove 'declared but never referenced' warnings
+  /* double delay = LALFpFc(&status, &waveform, &injParams, &ppnParams, wave, length, par, ifo[ifonr], ifonr); */ //Vivien: lentghLAL is set in LALinteface.c But is is also availble in the structure thewaveform (which holds h+,x) and the structure wave (which holds F+,x)
+  /* delay = delay; */ //MvdS: remove 'declared but never referenced' warnings
   
   
   

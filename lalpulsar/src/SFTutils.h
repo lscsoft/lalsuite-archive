@@ -24,7 +24,6 @@
  * \ingroup SFTfileIO
  * \brief Utility functions for handling of SFTtype and SFTVectors
  *
- * $Id$
  *
  *  The helper functions LALCreateSFTtype(), LALDestroySFTtype(), LALCreateSFTVector()
  * and LALDestroySFTVector() respectively allocate and free SFT-structs and SFT-vectors.
@@ -36,25 +35,11 @@
 #ifndef _SFTUTILS_H  /* Double-include protection. */
 #define _SFTUTILS_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-#if !defined(SWIG) && !defined(SWIGLAL_DYNAMIC_1DARRAY_BEGIN)
-#define SWIGLAL_DYNAMIC_1DARRAY_BEGIN(...)
-#define SWIGLAL_DYNAMIC_1DARRAY_END(...)
-#endif
-#if !defined(SWIG) && !defined(SWIGLAL_DYNAMIC_2DARRAY_BEGIN)
-#define SWIGLAL_DYNAMIC_2DARRAY_BEGIN(...)
-#define SWIGLAL_DYNAMIC_2DARRAY_END(...)
-#endif
-
 /* C++ protection. */
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-NRCSID( SFTUTILSH, "$Id$" );
 /*---------- INCLUDES ----------*/
 #include <stdarg.h>
 
@@ -87,30 +72,30 @@ NRCSID( SFTUTILSH, "$Id$" );
 /*---------- exported types ----------*/
 
 /** A vector of COMPLEX8FrequencySeries */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(COMPLEX8FrequencySeries, data, length);
+typedef struct tagCOMPLEX8FrequencySeriesVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(COMPLEX8FrequencySeries, data, UINT4, length));
+#endif /* SWIG */
   UINT4 			length;		/**< number of SFTs */
   COMPLEX8FrequencySeries 	*data;		/**< array of SFTs */
-  SWIGLAL_DYNAMIC_1DARRAY_END(COMPLEX8FrequencySeries, data, length);
 } COMPLEX8FrequencySeriesVector;
 
 /** A vector of REAL8FrequencySeries */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(REAL8FrequencySeries, data, length);
+typedef struct tagREAL8FrequencySeriesVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(REAL8FrequencySeries, data, UINT4, length));
+#endif /* SWIG */
   UINT4                  length;
   REAL8FrequencySeries   *data;
-  SWIGLAL_DYNAMIC_1DARRAY_END(REAL8FrequencySeries, data, length);
 } REAL8FrequencySeriesVector;
 
 /** A vector of REAL4FrequencySeries */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(REAL4FrequencySeries, data, length);
+typedef struct tagREAL4FrequencySeriesVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(REAL4FrequencySeries, data, UINT4, length));
+#endif /* SWIG */
   UINT4                  length;
   REAL4FrequencySeries   *data;
-  SWIGLAL_DYNAMIC_1DARRAY_END(REAL4FrequencySeries, data, length);
 } REAL4FrequencySeriesVector;
 
 
@@ -126,59 +111,59 @@ typedef REAL8FrequencySeriesVector PSDVector;
 
 /** A collection of SFT vectors -- one for each IFO in a multi-IFO search */
 typedef struct tagMultiSFTVector {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(SFTVector*, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(SFTVector*, data, UINT4, length));
+#endif /* SWIG */
   UINT4      length;  	/**< number of ifos */
   SFTVector  **data; 	/**< sftvector for each ifo */
-  SWIGLAL_DYNAMIC_1DARRAY_END(SFTVector*, data, length);
 } MultiSFTVector;
 
 
 /** A collection of PSD vectors -- one for each IFO in a multi-IFO search */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(PSDVector*, data, length);
+typedef struct tagMultiPSDVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(PSDVector*, data, UINT4, length));
+#endif /* SWIG */
   UINT4      length;  	/**< number of ifos */
   PSDVector  **data; 	/**< sftvector for each ifo */
-  SWIGLAL_DYNAMIC_1DARRAY_END(PSDVector*, data, length);
 } MultiPSDVector;
 
 /** One noise-weight (number) per SFT (therefore indexed over IFOs and SFTs */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(REAL8Vector*, data, length);
+typedef struct tagMultiNoiseWeights {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(REAL8Vector*, data, UINT4, length));
+#endif /* SWIG */
   UINT4 length;		/**< number of ifos */
   REAL8Vector **data;	/**< weights-vector for each SFTs */
-  SWIGLAL_DYNAMIC_1DARRAY_END(REAL8Vector*, data, length);
   REAL8 Sinv_Tsft;	/**< normalization factor used: \f$\mathcal{S}^{-1}\,T_\mathrm{SFT}\f$ (using single-sided PSD!) */
 } MultiNoiseWeights;
 
 /** A collection of (multi-IFO) time-series */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(REAL4TimeSeries*, data, length);
+typedef struct tagMultiREAL4TimeSeries {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(REAL4TimeSeries*, data, UINT4, length));
+#endif /* SWIG */
   UINT4 length;			/**< number of ifos */
   REAL4TimeSeries **data;	/**< vector of REAL4 timeseries */
-  SWIGLAL_DYNAMIC_1DARRAY_END(REAL4TimeSeries*, data, length);
 } MultiREAL4TimeSeries;
 
 /** A vector of 'timestamps' of type LIGOTimeGPS */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(LIGOTimeGPS, data, length);
+typedef struct tagLIGOTimeGPSVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(LIGOTimeGPS, data, UINT4, length));
+#endif /* SWIG */
   UINT4 	length;		/**< number of timestamps */
   LIGOTimeGPS 	*data;		/**< array of timestamps */
-  SWIGLAL_DYNAMIC_1DARRAY_END(LIGOTimeGPS, data, length);
   REAL8		deltaT;		/**< 'length' of each timestamp (e.g. typically Tsft) */
 } LIGOTimeGPSVector;
 
 /** A vector of 'timestamps' of type LIGOTimeGPS */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(LIGOTimeGPSVector*, data, length);
+typedef struct tagMultiLIGOTimeGPSVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(LIGOTimeGPSVector*, data, UINT4, length));
+#endif /* SWIG */
   UINT4 	        length;	   /**< number of timestamps vectors or ifos */
   LIGOTimeGPSVector 	**data;    /**< timestamps vector for each ifo */
-  SWIGLAL_DYNAMIC_1DARRAY_END(LIGOTimeGPSVector*, data, length);
 } MultiLIGOTimeGPSVector;
 
 /*---------- Global variables ----------*/

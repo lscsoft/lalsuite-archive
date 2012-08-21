@@ -1,6 +1,5 @@
 #include "coh_PTF.h"
 
-RCSID( "$Id$" );
 #define PROGRAM_NAME "lalapps_coh_PTF_spin_checker"
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE   "$Source$"
@@ -227,7 +226,7 @@ int main( int argc, char **argv )
       XLALCreateCOMPLEX8VectorSequence( 5, numPoints / 2 + 1 );
 /*  fcTmplt->PTFBinverse = XLALCreateArrayL( 2, 5, 5 );
   fcTmplt->PTFB = XLALCreateArrayL( 2, 5, 5 );*/
-  fcTmpltParams->PTFQ = XLALCreateVectorSequence( 5, numPoints );
+  fcTmplt->PTFQ = XLALCreateVectorSequence( 5, numPoints );
   fcTmpltParams->PTFphi = XLALCreateVector( numPoints );
   fcTmpltParams->PTFomega_2_3 = XLALCreateVector( numPoints );
   fcTmpltParams->PTFe1 = XLALCreateVectorSequence( 3, numPoints );

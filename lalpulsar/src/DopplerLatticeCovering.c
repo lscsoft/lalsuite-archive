@@ -42,7 +42,6 @@
 #include <lal/UniversalDopplerMetric.h>
 
 /*---------- DEFINES ----------*/
-NRCSID( DOPPLERLATTICECOVERING, "$Id$" );
 
 /* turn off  gsl range-checking in non-debug compilations */
 #ifdef LAL_NDEBUG
@@ -153,7 +152,7 @@ InitDopplerLatticeScan ( LALStatus *status,		/**< pointer to LALStatus structure
   gsl_matrix *gij, *gijLattice;
   UINT4 i, j;
 
-  INITSTATUS( status, "InitDopplerLatticeScan", DOPPLERLATTICECOVERING );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR ( status );
 
   ASSERT ( scan, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL );
@@ -299,21 +298,19 @@ XLALFreeDopplerLatticeScan ( DopplerLatticeScan **scan )
 int
 XLALgetCurrentLatticeIndex ( gsl_vector_int **Index, const DopplerLatticeScan *scan  )
 {
-  const CHAR *fn = "XLALgetCurrentLatticeIndex()";
-
   if ( !Index || !scan || (scan->state != STATE_READY ) ) {
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   if ( *Index == NULL )	/* allocate output-vector */
     {
       if ( ((*Index) = gsl_vector_int_calloc ( scan->dimLattice )) == NULL ) {
-	XLAL_ERROR (fn, XLAL_ENOMEM );
+	XLAL_ERROR ( XLAL_ENOMEM );
       }
     }
   else if ( (*Index)->size != scan->dimLattice ) {
     XLALPrintError ("\n\nOutput vector has wrong dimension %d instead of %d!\n\n", (*Index)->size, scan->dimLattice);
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   gsl_vector_int_memcpy ( (*Index), scan->latticeIndex );
@@ -326,10 +323,8 @@ XLALgetCurrentLatticeIndex ( gsl_vector_int **Index, const DopplerLatticeScan *s
 int
 XLALsetCurrentLatticeIndex ( DopplerLatticeScan *scan, const gsl_vector_int *Index )
 {
-  const CHAR *fn = "XLALsetCurrentLatticeIndex()";
-
   if ( !Index || !scan || (scan->state != STATE_READY) || (Index->size != scan->dimLattice) ) {
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   gsl_vector_int_memcpy ( scan->latticeIndex, Index );
@@ -390,19 +385,18 @@ XLALCountLatticeTemplates ( const DopplerLatticeScan *scan )
 int
 XLALadvanceLatticeIndex ( DopplerLatticeScan *scan )
 {
-  const CHAR *fn = "XLALadvanceLatticeIndex()";
   UINT4 dim, aI;
   int ret;
   gsl_vector_int *next_Index;
 
   if ( !scan || scan->state != STATE_READY ) {
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   dim = scan->dimLattice;
 
   if ( (next_Index = gsl_vector_int_calloc ( dim )) == NULL ) {
-    XLAL_ERROR (fn, XLAL_ENOMEM );
+    XLAL_ERROR ( XLAL_ENOMEM );
   }
 
   gsl_vector_int_memcpy ( next_Index, scan->latticeIndex );
@@ -479,21 +473,20 @@ XLALadvanceLatticeIndex ( DopplerLatticeScan *scan )
 int
 XLALgetCurrentDopplerPos ( PulsarDopplerParams *pos, const DopplerLatticeScan *scan, CoordinateSystem skyCoords )
 {
-  const CHAR *fn = "XLALgetCurrentDopplerPos()";
   dopplerParams_t doppler = empty_dopplerParams;
   SkyPosition skypos = empty_SkyPosition;
 
   if ( !pos || !scan || (scan->state != STATE_READY) ) {
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   if ( XLALIndexToDoppler ( &doppler, scan->latticeIndex, scan ) ) {
-    XLAL_ERROR (fn, XLAL_EFUNC );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
 
   skypos.system = skyCoords;
   if ( vect2DToSkypos ( &skypos, &(doppler.vn), scan->boundary.hemisphere) ) {
-    XLAL_ERROR (fn, XLAL_EFUNC );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
 
   /* convert into PulsarDopplerParams type */
@@ -610,20 +603,19 @@ XLALDuplicateDopplerLatticeScan ( const DopplerLatticeScan *scan )
 int
 XLALIndexToDoppler ( dopplerParams_t *doppler, const gsl_vector_int *Index, const DopplerLatticeScan *scan )
 {
-  const CHAR *fn = "XLALIndexToDoppler()";
   gsl_vector *canonical = NULL;
 
   if ( !doppler || !Index || !scan ) {
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   if ( IndexToCanonical ( &canonical, Index, scan ) ) {
-    XLAL_ERROR (fn, XLAL_EFUNC );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
 
   if ( convertCanonical2Doppler ( doppler, canonical, scan->dopplerUnits ) ) {
     gsl_vector_free ( canonical );
-    XLAL_ERROR (fn, XLAL_EFUNC );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
   gsl_vector_free ( canonical );
 
@@ -707,7 +699,7 @@ setupSearchRegion ( LALStatus *status, DopplerLatticeScan *scan, const DopplerRe
   UINT4 i;
   vect3Dlist_t *points3D = NULL;
 
-  INITSTATUS( status, "InitDopplerLatticeScan", DOPPLERLATTICECOVERING );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR ( status );
 
   ASSERT ( scan, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL );
@@ -967,7 +959,7 @@ skyRegionString2vect3D ( LALStatus *status,		/**< pointer to LALStatus structure
   SkyRegion region = empty_SkyRegion;
   UINT4 i, j, refineby, N0, N1;
 
-  INITSTATUS( status, "skyRegionString2vect3D()", DOPPLERLATTICECOVERING );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR ( status );
 
   ASSERT ( skyRegion, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL );
@@ -1036,12 +1028,12 @@ onWhichHemisphere ( const vect3Dlist_t *skypoints )
   hemisphere_t our_hemi = HEMI_BOTH;
 
   if ( !skypoints || (skypoints->length == 0) )
-    return FALSE;
+    return (hemisphere_t) FALSE;
 
   for ( i=0; i < skypoints->length; i ++ )
     {
       vect3D_t *thisPoint = &(skypoints->data[i]);
-      hemisphere_t this_hemi = VECT_HEMI ( *thisPoint );
+      hemisphere_t this_hemi = (hemisphere_t) VECT_HEMI ( *thisPoint );
       if ( (our_hemi == HEMI_BOTH) && (this_hemi != HEMI_BOTH) ) /* set our_hemi to first non-zero hemisphere */
 	our_hemi = this_hemi;
       if ( (this_hemi != HEMI_BOTH) && (this_hemi != our_hemi ) )
@@ -1082,7 +1074,7 @@ skyposToVect3D ( vect3D_t *eclVect, const SkyPosition *skypos )
       sineps = 0; coseps = 1;
       break;
     default:
-      XLAL_ERROR ( "skyposToVect3D", XLAL_EINVAL );
+      XLAL_ERROR ( XLAL_EINVAL );
       break;
     } /* switch(system) */
 
@@ -1123,7 +1115,7 @@ vect2DToSkypos ( SkyPosition *skypos, vect2D_t * const vect2D, hemisphere_t hemi
       sineps = 0; coseps = 1;
       break;
     default:
-      XLAL_ERROR ( "vect3DToSkypos", XLAL_EINVAL );
+      XLAL_ERROR ( XLAL_EINVAL );
       break;
     } /* switch(system) */
 

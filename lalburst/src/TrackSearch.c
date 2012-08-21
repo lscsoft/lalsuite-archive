@@ -25,7 +25,6 @@
  * Current Developer: Torres, Cristina V. (LLO)
  * Original Developer: R. Balasubramanian
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  *
@@ -66,9 +65,6 @@
 #include <lal/TrackSearch.h>
 #include <lal/Date.h>
 #include <lal/TSData.h>
-
-NRCSID (TRACKSEARCHC, "$Id$");
-
 
 /* Local Structure definitions */
 typedef struct tagLinePoints {
@@ -122,7 +118,7 @@ LALSignalTrackSearch(LALStatus *status,
   /*INT4 tempmaskcount; remove later on temp */
 
   /* Initialize status structure   */
-  INITSTATUS(status,"LALSignalTrackSearch",TRACKSEARCHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* Check the the arguments are not null pointers */
@@ -207,7 +203,7 @@ InitializeStorage( LALStatus * status,
   INT4 maskSize; /* size of the mask arrays (gaussMask.k[i]) */
 
   /* Initialize status structure   */
-  INITSTATUS(status,"InitializeStorage",TRACKSEARCHC);
+  INITSTATUS(status);
 
   /* check for null pointers */
   ASSERT (store !=NULL, status, TS_NULL_POINTER, TS_MSG_NULL_POINTER);
@@ -296,7 +292,7 @@ DestroyStorage (LALStatus *status,
 
 
   /* Initialize status structure   */
-  INITSTATUS(status,"DestroyStorage",TRACKSEARCHC);
+  INITSTATUS(status);
 
   /* check for null pointers */
   ASSERT (store !=NULL, status, TS_NULL_POINTER, TS_MSG_NULL_POINTER);
@@ -341,11 +337,10 @@ ComputeConvolutions (LALStatus *status,
   REAL4 **convolvedMatrix=0;  /* A pointer used to point at one of the 5 smoothed derivative images k[i]*/
   INT4 derivType;           /* Is one of the 5 possible 1st and 2nd directional derivatives
 			       along the row and column directions*/
-  REAL4 check;              /* a variable used to check if the Gaussian mask arrays have been Allocated */
   INT4 heightTemp, widthTemp;/* variables used for reflecting images at its edges*/
 
   /* Initialize status structure   */
-  INITSTATUS(status,"ComputeConvolutions",TRACKSEARCHC);
+  INITSTATUS(status);
 
   /* check for null pointers */
   ASSERT(store->k[0],status,TS_NULL_POINTER, TS_MSG_NULL_POINTER);
@@ -354,8 +349,12 @@ ComputeConvolutions (LALStatus *status,
   ASSERT(store->gaussMask[0],status,TS_NULL_POINTER, TS_MSG_NULL_POINTER);
 
   /* check whether the Gaussian mask arrays have been set */
+#ifndef LAL_NDEBUG
+  REAL4 check;              /* a variable used to check if the Gaussian mask arrays have been Allocated */
   check = (*(store->gaussMask[0] + (INT4)(MASK_SIZE*params->sigma)));
   ASSERT(check, status,TS_UNITIALIZED_MASKS, TS_MSG_UNINITIALIZED_MASKS);
+#endif
+
   /*
    *  Computing Derivatives
    *  store->k[0] 1st derivative along column direction          (dI/df)
@@ -482,7 +481,7 @@ ComputeLinePoints (LALStatus *status,
   /*FILE* fp;*/ /* temp added by cwt */
 
   /* Initialize status structure   */
-  INITSTATUS(status,"ComputeLinePoints",TRACKSEARCHC);
+  INITSTATUS(status);
   /* initialize the number of possible line start points and line points */
   store->numLStartPoints=0;
   store->numLPoints=0;
@@ -600,7 +599,6 @@ ConnectLinePoints(LALStatus *status,
   INT4  curveLength=0; /* the length of the current curve segment */
   REAL4 curvePower=0; /* the total energy of the current curve segment */
   REAL4 *curveDepth=NULL; /*tmp pointer for array of depth values to sum */
-  INT4 maxCurveLen; /* the maximum curve lenght allowed */
   INT4 direction; /* the 2 opposite directions to traverse to obtain the complete line */
   INT4 reject[2],check[3],which;/* the list of surrounding points to reject and select */
   REAL4 *eigenVec; /* a pointer defined for convenience; points to a particular element of an array */
@@ -612,10 +610,8 @@ ConnectLinePoints(LALStatus *status,
   REAL4 *meanProfile=NULL; /* Pointer to array of REAL4s */
   REAL4 mySNR=0; /*current estimate of SNR for particular curve*/
 
-  maxCurveLen=MAX_CURVE_LENGTH;
-
   /* Initialize status structure   */
-  INITSTATUS(status,"ConnectLinePoints",TRACKSEARCHC);
+  INITSTATUS(status);
   /* check if the caller has passed a non NULL pointer for Curves */
   ASSERT(out->curves==NULL,status,TS_NON_NULL_POINTER,TS_MSGNON_NULL_POINTER);
   /* a pointer to the storage structure */
@@ -850,7 +846,11 @@ ConnectLinePoints(LALStatus *status,
 	contour[direction].col[curveLength]=nextCol;
 	curveLength++;
 	/* check if the maximum curve length is reached */
+#ifndef LAL_NDEBUG
+        INT4 maxCurveLen; /* the maximum curve lenght allowed */
+        maxCurveLen=MAX_CURVE_LENGTH;
 	ASSERT(curveLength<=maxCurveLen,status,TS_ARRAY_OVERFLOW,MSG_TS_ARRAY_OVERFLOW);
+#endif
 	/* if the line point is also a line start point mark it is processed */
 	if(linePoints[nextIndex].pValue==2)
 	  linePoints[nextIndex].flag=0;
@@ -1205,7 +1205,7 @@ void LALTrackSearchInsertMarkers(
   INT4 j;
 
   /* Initialize status structure   */
-  INITSTATUS(status,"LALTrackSearchInsertMarkers",TRACKSEARCHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   /* Still need to include error checking code */
   i=0;

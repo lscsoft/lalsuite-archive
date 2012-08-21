@@ -17,50 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-#if 0 /* autodoc block */
-
-<lalVerbatim file="RandomTestCV">
-$Id$
-</lalVerbatim>
-
-<lalLaTeX>
-
-\subsection{Program \texttt{RandomTest.c}}
-\label{ss:RandomTest.c}
-
-Tests the routines in \verb+Random.h+.  Outputs random numbers to a file.
-
-\subsection*{Usage}
-\begin{verbatim}
-RandomTest [options]
-Options:
-  -h         print this message
-  -q         quiet: run silently
-  -v         verbose: print extra information
-  -d level   set lalDebugLevel to level
-  -o         output random numbers to files
-\end{verbatim}
-
-\subsubsection*{Description}
-\subsubsection*{Exit codes}
-\begin{tabular}{|c|l|}
-\hline
- Code & Explanation                   \\
-\hline
-\tt 0 & Success, normal exit.         \\
-\tt 1 & Subroutine failed.            \\
-\hline
-\end{tabular}
-
-\subsubsection*{Uses}
-\subsubsection*{Notes}
-
-\vfill{\footnotesize\input{RandomTestCV}}
-
-</lalLaTeX>
-
-#endif /* autodoc block */
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -78,10 +34,36 @@ Options:
 #include <lal/AVFactories.h>
 #include <lal/Random.h>
 
+/**
+   \file
+   \ingroup Random_h
+
+   \brief Tests the routines in \ref Random.h.  Outputs random numbers to a file.
+
+\heading{Usage}
+\code
+RandomTest [options]
+Options:
+  -h         print this message
+  -q         quiet: run silently
+  -v         verbose: print extra information
+  -d level   set lalDebugLevel to level
+  -o         output random numbers to files
+\endcode
+
+\heading{Exit codes}
+
+<table>
+<tr><th>Code</th><th>Explanation</th></tr>
+<tr><td>0</td><td>Success, normal exit.</td></tr>
+<tr><td>1</td><td>Subroutine failed.</td></tr>
+</table>
+
+*/
+/** \cond DONT_DOXYGEN */
+
 #define CODES_(x) #x
 #define CODES(x) CODES_(x)
-
-NRCSID (MAIN, "$Id$");
 
 extern char *optarg;
 extern int   optind;
@@ -381,6 +363,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -406,8 +390,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':
@@ -428,3 +422,4 @@ ParseOptions (int argc, char *argv[])
   return;
 }
 
+/** \endcond */

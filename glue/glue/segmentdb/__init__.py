@@ -1,4 +1,3 @@
-# $Id$
 #
 # Copyright (C) 2006  Larne Pekowsky
 #
@@ -29,8 +28,8 @@ Utilities for working with segment databases
 """
 
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"
+__version__ = "$Revision$"
 
 __all__ = ["query_engine", "segmentdb_utils.py"]
 

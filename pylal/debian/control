@@ -1,19 +1,40 @@
-Source: python-pylal
-Section: lscsoft
+Source: pylal
+Section: python
 Priority: optional
-Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
-#Build-Depends: debhelper (>= 5), pkg-config, libframe-dev, libmetaio-dev (>= 8.2), lal-dev (>= 5.3), python2.4-dev, python2.5-dev, python-numpy (>= 1.1), python-matplotlib, texlive-base-bin
-Build-Depends: debhelper (>= 5), pkg-config, libframe-dev, lal-dev (>= 5.3), python2.4-dev, python-numpy, texlive-base-bin | tetex-bin, git-core
-Standards-Version: 3.7.2
+Maintainer: Jameson Rollins <jameson.rollins@ligo.org>
+Build-Depends:
+ pkg-config,
+ python,
+ python-all-dev,
+ python-numpy,
+ libframe-dev,
+ lal-dev,
+ lalburst-dev,
+ lalframe-dev,
+ lalinspiral-dev,
+ lalmetaio-dev,
+ debhelper (>= 5)
+Standards-Version: 3.9.3
 
 Package: python-pylal
 Architecture: any
-#Depends: ${shlibs:Depends}, ${misc:Depends}, libframe1, libmetaio1 (>= 8.2), lal (>= 5.3), python2.4, python-numpy (>= 1.1), python-matplotlib
-Depends: ${shlibs:Depends}, ${misc:Depends}, libframe1, lal (>= 5.3), python2.4, python-numpy, python-matplotlib, python-scipy, python-pysqlite2, python-glue
-#Recommends: lalapps (>= 5.3), python2.5
-Recommends: lalapps (>= 5.3)
-Replaces: pylal
-Conflicts: pylal
-Description: Python LAL add-ons
- PyLAL is a collection of utilities for plotting the output files from LSC
- analysis pipelines.
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Recommends:
+ python-numpy,
+ python-scipy,
+ python-matplotlib,
+ python-glue
+Description: Python LSC Algorithm Library
+ The PyLAL package is best described as the Python LIGO Algorithm
+ Library. It was originally a Python wrapping of parts of the LAL
+ library, and although it continues to provide that function it has
+ acquired a large collection of independent code of its own so that it
+ is no longer exclusively a Python interface to LAL. In this package
+ you will find convenience code to assist with manipulating XML
+ documents using the glue.ligolw I/O library, you will find a wrapping
+ to libframe to enable GWF frame-file reading, you will find binning
+ and smoothing code, and you will find (partial) wrappings of LAL's
+ burstsearch, date, inject, tools, and window packages. Additionally,
+ you will find most, if not all, of the inspiral pipeline's follow-up
+ and summary tools, and several burst-related trigger post-production
+ tools.

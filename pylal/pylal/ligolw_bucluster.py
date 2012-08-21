@@ -32,6 +32,7 @@ from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcluster
@@ -78,8 +79,9 @@ def append_process(xmldoc, cluster_algorithm, comment):
 #
 
 
-def add_ms_columns(sngl_burst_table):
+def add_ms_columns(xmldoc):
 	# add columns if required
+	sngl_burst_table = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 	added = False
 	for colname in ("peak_frequency", "ms_start_time", "ms_start_time_ns", "ms_duration", "ms_flow", "ms_bandwidth", "ms_hrss", "ms_snr", "ms_confidence"):
 		try:
@@ -288,10 +290,7 @@ def ligolw_bucluster(
 		if verbose:
 			print >>sys.stderr, "document does not contain a sngl_burst table, skipping ..."
 		return xmldoc, False
-	seg = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce().extent_all()
-
-	# FIXME:  don't do this:  fix lalapps_power's output
-	add_ms_columns(sngl_burst_table)
+	seg = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce().extent_all()
 
 	#
 	# Remove all H2 triggers intersecting the frequency band
@@ -332,7 +331,7 @@ def ligolw_bucluster(
 	# Add search summary information
 	#
 
-	llwapp.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(sngl_burst_table))
+	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(sngl_burst_table))
 
 	#
 	# Done

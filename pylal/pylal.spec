@@ -1,29 +1,22 @@
-%define _prefix /opt/lscsoft/pylal
-%define _sysconfdir %{_prefix}/etc
-%define _docdir %{_datadir}/doc
-%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_prefix}')")}
+%define _pylal_prefix /usr
 
-
-Name: 		pylal
-Summary:	LSC Algorithm Library for Python
-Version:	0.1
+Name: 		python-pylal
+Summary:	Python LSC Algorithm Library
+Version:	0.1.5
 Release:	1.lscsoft
-License:	GPL
+License:	See file LICENSE
 Group:		Development/Libraries
-Source:		%{name}-%{version}.tar.gz
+Source:		pylal-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/pylal.html
-BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	glue lal lalburst libframe
-BuildRequires:  lal-devel lalburst-devel libframe-devel python-devel
-Prefix:         %{_prefix}
-
+BuildRoot:	%{_tmppath}/pylal-%{version}-root
+Requires:	python glue glue-common glue-segments lal lalmetaio lalframe lalsimulation lalinspiral lalburst numpy scipy python-matplotlib
+BuildRequires:  python-devel lal-devel lalmetaio-devel lalframe-devel lalsimulation-devel lalinspiral-devel lalburst-devel numpy pkgconfig
+Prefix:         %{_pylal_prefix}
 %description
-pylal is a collection of python programs and modules for gravitational-wave
-data analysis.  pylal modules are a mixture of pure python code and python
-bindings of LAL and related libraries.
+The PyLAL package is best described as the Python LIGO Algorithm Library. It was originally a Python wrapping of parts of the LAL library, and although it continues to provide that function it has acquired a large collection of independent code of its own so that it is no longer exclusively a Python interface to LAL. In this package you will find convenience code to assist with manipulating XML documents using the glue.ligolw I/O library, you will find a wrapping to libframe to enable GWF frame-file reading, you will find binning and smoothing code, and you will find (partial) wrappings of LAL's burstsearch, date, inject, tools, and window packages. Additionally, you will find most, if not all, of the inspiral pipeline's follow-up and summary tools, and several burst-related trigger post-production tools.
 
 %prep
-%setup 
+%setup -n pylal-%{version}
 
 %build
 CFLAGS="%{optflags}" %{__python} setup.py build
@@ -33,19 +26,12 @@ rm -rf %{buildroot}
 %{__python} setup.py install -O1 \
         --skip-build \
         --root=%{buildroot} \
-        --prefix=%{_prefix}
-
+        --prefix=%{_pylal_prefix} \
+        --record=INSTALLED_FILES
 
 %clean
-rm -rf $RPM_BUILD_ROOT
+[ ${RPM_BUILD_ROOT} != "/" ] && rm -Rf ${RPM_BUILD_ROOT}
+rm -Rf ${RPM_BUILD_DIR}/pylal-%{version}
 
-%files
+%files -f INSTALLED_FILES
 %defattr(-,root,root)
-%{python_sitearch}/pylal/
-%{_prefix}/bin/
-%{_prefix}/etc/
-%{_prefix}/var/
-
-%changelog
-* Wed Nov 30 2009 Kipp Cannon <kipp.cannon@ligo.org>
-- First release of pylal package

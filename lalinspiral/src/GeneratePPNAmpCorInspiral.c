@@ -18,47 +18,6 @@
 *  MA  02111-1307  USA
 */
 
-/**
-\author Creighton, T. D., McKechan David, Van Den Broeck Chris
-\file
-\ingroup GeneratePPNInspiral_h
-
-\brief Computes a parametrized post-Newtonian inspiral waveform
-with ampltidude corrections.
-
-\heading{Description}
-
-See \ref GeneratePPNInspiral.c
-
-Phase computed to 3.5PN.
-Amplitude computed to 2.5PN.
-
-The ampitude corrrected gravitaional wave polarizations \f$h_+\f$ and \f$h_x\f$
-are stored in output.h.
-
-Warning! output.a is used to store the first three harmonics in
-alternate values, (i.e. [a1(0),a2(0),a3(0),a1(dt),a2(dt),a3(dt)...]) as
-this will be used for filtering with higher harmonic waveforms.
-
-Although \f$h_{+,\times} are computed, \f$output.phi is also required for filtering.
-
-
-\heading{Algorithm}
-
-
-\heading{Uses}
-\code
-LALMalloc()                   LALFree()
-LALSCreateVectorSequence()    LALSDestroyVectorSequence()
-LALSCreateVector()            LALSDestroyVector()
-LALDCreateVector()            LALDDestroyVector()
-LALSBisectionFindRoot()       snprintf()
-\endcode
-
-\heading{Notes}
-
-*/
-
 #include <math.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -69,8 +28,6 @@ LALSBisectionFindRoot()       snprintf()
 #include <lal/SeqFactories.h>
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GeneratePPNInspiral.h>
-
-NRCSID( GENERATEPPNAMPCORINSPIRALC, "$Id$" );
 
 /* Define some constants used in this module. */
 #define MAXORDER 8               /* Maximum number of N and PN terms */
@@ -143,7 +100,7 @@ FreqDiff( LALStatus *stat, REAL4 *y, REAL4 x, void *p )
   BOOLEAN b0, b1, b2, b3, b4, b5, b6, b7;   /* whether each order is nonzero */
   REAL4 x2, x3, x4, x5, x6, x7;             /* x^2, x^3, x^4, x^5, x^6, & x^7 */
 
-  INITSTATUS( stat, "FreqDiff", GENERATEPPNAMPCORINSPIRALC );
+  INITSTATUS(stat);
   ASSERT( p, stat, 1, "Null pointer" );
 
   /* Set constants used by FREQ() macro. */
@@ -199,12 +156,33 @@ do {                                                                 \
  * MAIN FUNCTION                                                     *
  *********************************************************************/
 
+/**
+\author Creighton, T. D., McKechan David, Van Den Broeck Chris
 
+\brief Computes a parametrized post-Newtonian inspiral waveform
+with ampltidude corrections.
+
+\heading{Description}
+
+See \ref GeneratePPNInspiral.c
+
+Phase computed to 3.5PN.
+Amplitude computed to 2.5PN.
+
+The ampitude corrrected gravitaional wave polarizations \f$h_+\f$ and \f$h_x\f$
+are stored in output.h.
+
+Warning! output.a is used to store the first three harmonics in
+alternate values, (i.e. [a1(0),a2(0),a3(0),a1(dt),a2(dt),a3(dt)...]) as
+this will be used for filtering with higher harmonic waveforms.
+
+Although \f$h_{+,\times} are computed, \f$output.phi is also required for filtering.
+*/
 void
 LALGeneratePPNAmpCorInspiral(
-                              LALStatus     *stat,
-                              CoherentGW    *output,
-                              PPNParamStruc *params
+                             LALStatus     *stat,	/**< UNDOCUMENTED */
+                             CoherentGW    *output,	/**< UNDOCUMENTED */
+                             PPNParamStruc *params	/**< UNDOCUMENTED */
                             )
 {
 
@@ -272,7 +250,7 @@ LALGeneratePPNAmpCorInspiral(
 
   PPNInspiralBuffer *head, *here; /* pointers to buffered data */
 
-  INITSTATUS( stat, "LALGeneratePPNAmpCorInspiral", GENERATEPPNAMPCORINSPIRALC);
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /*******************************************************************

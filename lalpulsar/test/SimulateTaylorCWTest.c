@@ -18,14 +18,11 @@
 */
 
 /**
-\author Creighton, T. D.
 \file
-\ingroup pulsarTODO
+\ingroup GenerateTaylorCW_h
+\author Creighton, T. D.
 
-\heading{Program \ref SimulateTaylorCWTest.c}
-\latexonly\label{ss_SimulateTaylorCWTest_c}\endlatexonly
-
-Generates a quasiperiodic waveform.
+\brief Generates a quasiperiodic waveform.
 
 \heading{Usage}
 \code
@@ -141,28 +138,21 @@ repeated and the new waveforms added into the output.  A warning is
 generated if the wave frequency exceeds the Nyquist rate for the
 output time series.
 
-\heading{Uses}
-\code
-lalDebugLevel
-LALPrintError()                 LALCheckMemoryLeaks()
-LALSCreateVector()              LALSDestroyVector()
-LALGenerateTaylorCW()           LALSDestroyVectorSequence()
-\endcode
-
-\heading{Notes}
-
 */
 
-/** \name Error Codes */ /*@{*/
-#define SIMULATETAYLORCWTESTC_ENORM  0
-#define SIMULATETAYLORCWTESTC_ESUB   1
-#define SIMULATETAYLORCWTESTC_EARG   2
-#define SIMULATETAYLORCWTESTC_EVAL   3
-#define SIMULATETAYLORCWTESTC_EFILE  4
-#define SIMULATETAYLORCWTESTC_EINPUT 5
-#define SIMULATETAYLORCWTESTC_EMEM   6
-#define SIMULATETAYLORCWTESTC_EPRINT 7
+/** \name Error Codes */
+/*@{*/
+#define SIMULATETAYLORCWTESTC_ENORM  0	/**< Normal exit */
+#define SIMULATETAYLORCWTESTC_ESUB   1	/**< Subroutine failed */
+#define SIMULATETAYLORCWTESTC_EARG   2	/**< Error parsing arguments */
+#define SIMULATETAYLORCWTESTC_EVAL   3	/**< Input argument out of valid range */
+#define SIMULATETAYLORCWTESTC_EFILE  4	/**< Could not open file */
+#define SIMULATETAYLORCWTESTC_EINPUT 5	/**< Error reading file */
+#define SIMULATETAYLORCWTESTC_EMEM   6	/**< Out of memory */
+#define SIMULATETAYLORCWTESTC_EPRINT 7	/**< Wrote past end of message string */
+/*@}*/
 
+/** \cond DONT_DOXYGEN */
 #define SIMULATETAYLORCWTESTC_MSGENORM  "Normal exit"
 #define SIMULATETAYLORCWTESTC_MSGESUB   "Subroutine failed"
 #define SIMULATETAYLORCWTESTC_MSGEARG   "Error parsing arguments"
@@ -171,8 +161,9 @@ LALGenerateTaylorCW()           LALSDestroyVectorSequence()
 #define SIMULATETAYLORCWTESTC_MSGEINPUT "Error reading file"
 #define SIMULATETAYLORCWTESTC_MSGEMEM   "Out of memory"
 #define SIMULATETAYLORCWTESTC_MSGEPRINT "Wrote past end of message string"
-/*@}*/
 
+
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <stdlib.h>
 #include <lal/LALStdio.h>
@@ -188,8 +179,6 @@ LALGenerateTaylorCW()           LALSDestroyVectorSequence()
 #include <lal/GenerateTaylorCW.h>
 #include <lal/LALBarycenter.h>
 #include <lal/LALInitBarycenter.h>
-
-NRCSID( SIMULATETAYLORCWTESTC, "$Id$" );
 
 /* Default parameter settings. */
 extern int lalDebugLevel;
@@ -227,7 +216,7 @@ if ( lalDebugLevel & LALERROR )                                      \
 {                                                                    \
   XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
 		 "        %s %s\n", (code), *argv, __FILE__,         \
-		 __LINE__, SIMULATETAYLORCWTESTC,                    \
+		 __LINE__, "$Id$",                    \
 		 statement ? statement : "", (msg) );                \
 }                                                                    \
 while (0)
@@ -238,7 +227,7 @@ if ( lalDebugLevel & LALINFO )                                       \
 {                                                                    \
   XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"       \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 SIMULATETAYLORCWTESTC, (statement) );               \
+		 "$Id$", (statement) );               \
 }                                                                    \
 while (0)
 
@@ -248,7 +237,7 @@ if ( lalDebugLevel & LALWARNING )                                    \
 {                                                                    \
   XLALPrintError( "Warning[0]: program %s, file %s, line %d, %s\n"    \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 SIMULATETAYLORCWTESTC, (statement) );               \
+		 "$Id$", (statement) );               \
 }                                                                    \
 while (0)
 
@@ -810,3 +799,4 @@ choose( UINT4 a, UINT4 b )
   }
   return numer/denom;
 }
+/** \endcond */

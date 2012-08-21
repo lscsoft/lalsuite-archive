@@ -31,16 +31,13 @@
 #include <math.h>
 #include <string.h>
 #include <gsl/gsl_sf_bessel.h>
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALComplex.h>
 #include <lal/LALConstants.h>
 #include <lal/LALStdlib.h>
 #include <lal/Sequence.h>
 #include <lal/Window.h>
 #include <lal/XLALError.h>
-
-
-NRCSID(WINDOWC, "$Id$");
-
 
 /*
  * ============================================================================
@@ -51,15 +48,13 @@ NRCSID(WINDOWC, "$Id$");
  */
 
 
-/*
+/**
  * Constructs a REAL4Window from a REAL8Window by quantizing the
  * double-precision data to single-precision.  The REAL8Window is freed
  * unconditionally.  Intended to be used as a wrapper, to convert any
  * function that constructs a REAL8Window into a function to construct a
  * REAL4Window.
  */
-
-
 static REAL4Window *XLALREAL4Window_from_REAL8Window(REAL8Window *orig)
 {
 	REAL4Window *new;
@@ -67,7 +62,7 @@ static REAL4Window *XLALREAL4Window_from_REAL8Window(REAL8Window *orig)
 	UINT4 i;
 
 	if(!orig)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	new = XLALMalloc(sizeof(*new));
 	data = XLALCreateREAL4Sequence(orig->data->length);
@@ -76,7 +71,7 @@ static REAL4Window *XLALREAL4Window_from_REAL8Window(REAL8Window *orig)
 		XLALDestroyREAL8Window(orig);
 		XLALFree(new);
 		XLALDestroyREAL4Sequence(data);
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 	}
 
 	for(i = 0; i < data->length; i++)
@@ -91,7 +86,7 @@ static REAL4Window *XLALREAL4Window_from_REAL8Window(REAL8Window *orig)
 }
 
 
-/*
+/**
  * Maps the length of a window and the offset within the window to the "y"
  * co-ordinate of the LAL documentation.
  *
@@ -111,8 +106,6 @@ static REAL4Window *XLALREAL4Window_from_REAL8Window(REAL8Window *orig)
  * (in the latter case, obviously i can't be a non-integer, but that's the
  * value it would have to be for this function to return 0.0)
  */
-
-
 static double Y(int length, int i)
 {
 	length -= 1;
@@ -120,7 +113,7 @@ static double Y(int length, int i)
 }
 
 
-/*
+/**
  * Computes the sum of squares, and sum, of the samples in a window
  * function.
  *
@@ -132,8 +125,6 @@ static double Y(int length, int i)
  * which a second variable is used to accumulate round-off errors and fold
  * them into later iterations.
  */
-
-
 static REAL8 sum_squares(REAL8 *start, int length)
 {
 
@@ -210,8 +201,6 @@ static REAL8 sum_samples(REAL8 *start, int length)
  * The return value is the address of the newly allocated REAL8Window or
  * NULL on failure.
  */
-
-
 REAL8Window *XLALCreateREAL8WindowFromSequence(REAL8Sequence *sequence)
 {
 	REAL8Window *new;
@@ -219,7 +208,7 @@ REAL8Window *XLALCreateREAL8WindowFromSequence(REAL8Sequence *sequence)
 	new = XLALMalloc(sizeof(*new));
 	if(!new) {
 		XLALDestroyREAL8Sequence(sequence);
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 	}
 
 	new->data = sequence;
@@ -233,8 +222,6 @@ REAL8Window *XLALCreateREAL8WindowFromSequence(REAL8Sequence *sequence)
 /**
  * Single-precision version of XLALCreateREAL8WindowFromSequence().
  */
-
-
 REAL4Window *XLALCreateREAL4WindowFromSequence(REAL4Sequence *sequence)
 {
 	/* a double-precision copy of the data is used from which to
@@ -251,7 +238,7 @@ REAL4Window *XLALCreateREAL4WindowFromSequence(REAL4Sequence *sequence)
 		XLALDestroyREAL4Sequence(sequence);
 		XLALDestroyREAL8Sequence(workspace);
 		XLALFree(new);
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 	}
 
 	for(i = 0; i < workspace->length; i++)
@@ -274,17 +261,15 @@ REAL4Window *XLALCreateREAL4WindowFromSequence(REAL4Sequence *sequence)
  * S, then the input sequence is multiplied by the window * \f$\sqrt{N / S}\f$.
  * Returns the address of the REAL8Sequence or NULL on failure.
  */
-
-
 REAL8Sequence *XLALUnitaryWindowREAL8Sequence(REAL8Sequence *sequence, const REAL8Window *window)
 {
 	unsigned i;
 	double norm = sqrt(window->data->length / window->sumofsquares);
 
 	if(window->sumofsquares <= 0)
-		XLAL_ERROR_NULL(__func__, XLAL_EDOM);
+		XLAL_ERROR_NULL(XLAL_EDOM);
 	if(sequence->length != window->data->length)
-		XLAL_ERROR_NULL(__func__, XLAL_EBADLEN);
+		XLAL_ERROR_NULL(XLAL_EBADLEN);
 
 	for(i = 0; i < window->data->length; i++)
 		sequence->data[i] *= window->data->data[i] * norm;
@@ -296,17 +281,15 @@ REAL8Sequence *XLALUnitaryWindowREAL8Sequence(REAL8Sequence *sequence, const REA
 /**
  * Double-precision complex version of XLALUnitaryWindowREAL8Sequence().
  */
-
-
 COMPLEX16Sequence *XLALUnitaryWindowCOMPLEX16Sequence(COMPLEX16Sequence *sequence, const REAL8Window *window)
 {
 	unsigned i;
 	double norm = sqrt(window->data->length / window->sumofsquares);
 
 	if(window->sumofsquares <= 0)
-		XLAL_ERROR_NULL(__func__, XLAL_EDOM);
+		XLAL_ERROR_NULL(XLAL_EDOM);
 	if(sequence->length != window->data->length)
-		XLAL_ERROR_NULL(__func__, XLAL_EBADLEN);
+		XLAL_ERROR_NULL(XLAL_EBADLEN);
 
 	for(i = 0; i < window->data->length; i++)
 		sequence->data[i] = XLALCOMPLEX16MulReal(sequence->data[i], window->data->data[i] * norm);
@@ -318,17 +301,15 @@ COMPLEX16Sequence *XLALUnitaryWindowCOMPLEX16Sequence(COMPLEX16Sequence *sequenc
 /**
  * Single-precision version of XLALUnitaryWindowREAL8Sequence().
  */
-
-
 REAL4Sequence *XLALUnitaryWindowREAL4Sequence(REAL4Sequence *sequence, const REAL4Window *window)
 {
 	unsigned i;
 	float norm = sqrt(window->data->length / window->sumofsquares);
 
 	if(window->sumofsquares <= 0)
-		XLAL_ERROR_NULL(__func__, XLAL_EDOM);
+		XLAL_ERROR_NULL(XLAL_EDOM);
 	if(sequence->length != window->data->length)
-		XLAL_ERROR_NULL(__func__, XLAL_EBADLEN);
+		XLAL_ERROR_NULL(XLAL_EBADLEN);
 
 	for(i = 0; i < window->data->length; i++)
 		sequence->data[i] *= window->data->data[i] * norm;
@@ -340,17 +321,15 @@ REAL4Sequence *XLALUnitaryWindowREAL4Sequence(REAL4Sequence *sequence, const REA
 /**
  * Single-precision complex version of XLALUnitaryWindowREAL8Sequence().
  */
-
-
 COMPLEX8Sequence *XLALUnitaryWindowCOMPLEX8Sequence(COMPLEX8Sequence *sequence, const REAL4Window *window)
 {
 	unsigned i;
 	double norm = sqrt(window->data->length / window->sumofsquares);
 
 	if(window->sumofsquares <= 0)
-		XLAL_ERROR_NULL(__func__, XLAL_EDOM);
+		XLAL_ERROR_NULL(XLAL_EDOM);
 	if(sequence->length != window->data->length)
-		XLAL_ERROR_NULL(__func__, XLAL_EBADLEN);
+		XLAL_ERROR_NULL(XLAL_EBADLEN);
 
 	for(i = 0; i < window->data->length; i++)
 		sequence->data[i] = XLALCOMPLEX8MulReal(sequence->data[i], window->data->data[i] * norm);
@@ -368,16 +347,16 @@ COMPLEX8Sequence *XLALUnitaryWindowCOMPLEX8Sequence(COMPLEX8Sequence *sequence, 
  */
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateRectangularREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* flat, box-car, top-hat, rectangle, whatever */
 	for(i = 0; i < length; i++)
@@ -387,16 +366,16 @@ REAL8Window *XLALCreateRectangularREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateHannREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* cos^2, zero at both end points, 1 in the middle */
 	for(i = 0; i < (length + 1) / 2; i++)
@@ -406,16 +385,16 @@ REAL8Window *XLALCreateHannREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateWelchREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* downward-opening parabola, zero at both end points, 1 in the
 	 * middle */
@@ -426,16 +405,16 @@ REAL8Window *XLALCreateWelchREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateBartlettREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* downward-opening triangle, zero at both end points (non-zero end
 	 * points is a different window called the "triangle" window), 1 in
@@ -447,16 +426,16 @@ REAL8Window *XLALCreateBartlettREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateParzenREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* ?? Copied from LAL Software Description */
 	for(i = 0; i < (length + 1) / 4; i++)
@@ -470,16 +449,16 @@ REAL8Window *XLALCreateParzenREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreatePapoulisREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* ?? Copied from LAL Software Description */
 	for(i = 0; i < (length + 1) / 2; i++) {
@@ -491,16 +470,16 @@ REAL8Window *XLALCreatePapoulisREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateHammingREAL8Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* cos^2, like Hann window, but with a bias of 0.08 */
 	for(i = 0; i < (length + 1) / 2; i++)
@@ -510,20 +489,20 @@ REAL8Window *XLALCreateHammingREAL8Window(UINT4 length)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateKaiserREAL8Window(UINT4 length, REAL8 beta)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	REAL8 I0beta=0;
 	UINT4 i;
 
 	if(beta < 0)
-		XLAL_ERROR_NULL(__func__, XLAL_ERANGE);
+		XLAL_ERROR_NULL(XLAL_ERANGE);
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* pre-compute I0(beta) */
 	if(beta < 705)
@@ -596,19 +575,19 @@ REAL8Window *XLALCreateKaiserREAL8Window(UINT4 length, REAL8 beta)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateCreightonREAL8Window(UINT4 length, REAL8 beta)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	if(beta < 0)
-		XLAL_ERROR_NULL(__func__, XLAL_ERANGE);
+		XLAL_ERROR_NULL(XLAL_ERANGE);
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* ?? Copied from LAL Software Description */
 	for(i = 0; i < (length + 1) / 2; i++) {
@@ -632,20 +611,20 @@ REAL8Window *XLALCreateCreightonREAL8Window(UINT4 length, REAL8 beta)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateTukeyREAL8Window(UINT4 length, REAL8 beta)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 transition_length = beta * length + 0.5;
 	UINT4 i;
 
 	if(beta < 0 || beta > 1)
-		XLAL_ERROR_NULL(__func__, XLAL_ERANGE);
+		XLAL_ERROR_NULL(XLAL_ERANGE);
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* 1.0 and flat in the middle, cos^2 transition at each end, zero
 	 * at end points, 0.0 <= beta <= 1.0 sets what fraction of the
@@ -660,19 +639,19 @@ REAL8Window *XLALCreateTukeyREAL8Window(UINT4 length, REAL8 beta)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL8Window *XLALCreateGaussREAL8Window(UINT4 length, REAL8 beta)
-/* </lalVerbatim> */
+
 {
 	REAL8Sequence *sequence;
 	UINT4 i;
 
 	if(beta < 0)
-		XLAL_ERROR_NULL(__func__, XLAL_ERANGE);
+		XLAL_ERROR_NULL(XLAL_ERANGE);
 
 	sequence = XLALCreateREAL8Sequence(length);
 	if(!sequence)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 
 	/* pre-compute -1/2 beta^2 */
 	beta = -0.5 * beta * beta;
@@ -689,9 +668,9 @@ REAL8Window *XLALCreateGaussREAL8Window(UINT4 length, REAL8 beta)
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 void XLALDestroyREAL8Window(REAL8Window * window)
-/* </lalVerbatim> */
+
 {
 	if(window)
 		XLALDestroyREAL8Sequence(window->data);
@@ -708,97 +687,97 @@ void XLALDestroyREAL8Window(REAL8Window * window)
  */
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateRectangularREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateRectangularREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateHannREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateHannREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateWelchREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateWelchREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateBartlettREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateBartlettREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateParzenREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateParzenREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreatePapoulisREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreatePapoulisREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateHammingREAL4Window(UINT4 length)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateHammingREAL8Window(length));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateKaiserREAL4Window(UINT4 length, REAL4 beta)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateKaiserREAL8Window(length, beta));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateCreightonREAL4Window(UINT4 length, REAL4 beta)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateCreightonREAL8Window(length, beta));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateTukeyREAL4Window(UINT4 length, REAL4 beta)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateTukeyREAL8Window(length, beta));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 REAL4Window *XLALCreateGaussREAL4Window(UINT4 length, REAL4 beta)
-/* </lalVerbatim> */
+
 {
 	return XLALREAL4Window_from_REAL8Window(XLALCreateGaussREAL8Window(length, beta));
 }
 
 
-/* <lalVerbatim file="WindowCP"> */
+
 void XLALDestroyREAL4Window(REAL4Window * window)
-/* </lalVerbatim> */
+
 {
 	if(window)
 		XLALDestroyREAL4Sequence(window->data);

@@ -17,9 +17,17 @@
 *  MA  02111-1307  USA
 */
 
+#include <math.h>
+#define LAL_USE_OLD_COMPLEX_STRUCTS
+#define LAL_USE_COMPLEX_SHORT_MACROS 1
+#include <lal/LALComplex.h>
+#include <lal/LALStdlib.h>
+#include <lal/LALConstants.h>
+#include <lal/VectorOps.h>
+
 /**
- * \author T. D. Creighton, A. M. Sintes
  * \addtogroup VectorPolar_c
+ * \author T. D. Creighton, A. M. Sintes
  *
  * \brief Convert complex vector components from rectangular coordinates to polar coordinates.
  *
@@ -79,32 +87,19 @@
  *
  * For the LALUnwrapREAL4Angle() and LALUnwrapREAL8Angle() functions, \c a,
  * and \c b should  not point to the same memory location (<tt>a != b</tt>).
- *
- * @{
-*/
-
-/** \cond DONT_DOXYGEN */
-#include <math.h>
-#define LAL_USE_COMPLEX_SHORT_MACROS 1
-#include <lal/LALComplex.h>
-#include <lal/LALStdlib.h>
-#include <lal/LALConstants.h>
-#include <lal/VectorOps.h>
-
-NRCSID (VECTORPOLARC, "$Id$");
-/** \endcond */
+ */
+/*@{*/
 
 /** computes the magnitudes of a vector of complex numbers */
 int XLALCOMPLEX8VectorAbs( REAL4Vector *out, const COMPLEX8Vector *in )
 {
-	static const char *func = "XLALCOMPLEX8VectorAbs";
 	UINT4 i;
 	if ( ! out || ! in )
-		XLAL_ERROR( func, XLAL_EFAULT );
+		XLAL_ERROR( XLAL_EFAULT );
 	if ( ! out->data || ! in->data )
-		XLAL_ERROR( func, XLAL_EINVAL );
+		XLAL_ERROR( XLAL_EINVAL );
 	if ( out->length != in->length )
-		XLAL_ERROR( func, XLAL_EBADLEN );
+		XLAL_ERROR( XLAL_EBADLEN );
 	for ( i = 0; i < in->length; ++i )
 		out->data[i] = cabsf( in->data[i] );
 	return 0;
@@ -113,14 +108,13 @@ int XLALCOMPLEX8VectorAbs( REAL4Vector *out, const COMPLEX8Vector *in )
 /** computes the magnitudes of a vector of complex numbers */
 int XLALCOMPLEX16VectorAbs( REAL8Vector *out, const COMPLEX16Vector *in )
 {
-	static const char *func = "XLALCOMPLEX16VectorAbs";
 	UINT4 i;
 	if ( ! out || ! in )
-		XLAL_ERROR( func, XLAL_EFAULT );
+		XLAL_ERROR( XLAL_EFAULT );
 	if ( ! out->data || ! in->data )
-		XLAL_ERROR( func, XLAL_EINVAL );
+		XLAL_ERROR( XLAL_EINVAL );
 	if ( out->length != in->length )
-		XLAL_ERROR( func, XLAL_EBADLEN );
+		XLAL_ERROR( XLAL_EBADLEN );
 	for ( i = 0; i < in->length; ++i )
 		out->data[i] = cabs( in->data[i] );
 	return 0;
@@ -130,14 +124,13 @@ int XLALCOMPLEX16VectorAbs( REAL8Vector *out, const COMPLEX16Vector *in )
 /** computes the arguments of a vector of complex numbers */
 int XLALCOMPLEX8VectorArg( REAL4Vector *out, const COMPLEX8Vector *in )
 {
-	static const char *func = "XLALCOMPLEX8VectorArg";
 	UINT4 i;
 	if ( ! out || ! in )
-		XLAL_ERROR( func, XLAL_EFAULT );
+		XLAL_ERROR( XLAL_EFAULT );
 	if ( ! out->data || ! in->data )
-		XLAL_ERROR( func, XLAL_EINVAL );
+		XLAL_ERROR( XLAL_EINVAL );
 	if ( out->length != in->length )
-		XLAL_ERROR( func, XLAL_EBADLEN );
+		XLAL_ERROR( XLAL_EBADLEN );
 	for ( i = 0; i < in->length; ++i )
 		out->data[i] = cargf( in->data[i] );
 	return 0;
@@ -146,14 +139,13 @@ int XLALCOMPLEX8VectorArg( REAL4Vector *out, const COMPLEX8Vector *in )
 /** computes the arguments of a vector of complex numbers */
 int XLALCOMPLEX16VectorArg( REAL8Vector *out, const COMPLEX16Vector *in )
 {
-	static const char *func = "XLALCOMPLEX16VectorArg";
 	UINT4 i;
 	if ( ! out || ! in )
-		XLAL_ERROR( func, XLAL_EFAULT );
+		XLAL_ERROR( XLAL_EFAULT );
 	if ( ! out->data || ! in->data )
-		XLAL_ERROR( func, XLAL_EINVAL );
+		XLAL_ERROR( XLAL_EINVAL );
 	if ( out->length != in->length )
-		XLAL_ERROR( func, XLAL_EBADLEN );
+		XLAL_ERROR( XLAL_EBADLEN );
 	for ( i = 0; i < in->length; ++i )
 		out->data[i] = carg( in->data[i] );
 	return 0;
@@ -165,17 +157,16 @@ int XLALCOMPLEX16VectorArg( REAL8Vector *out, const COMPLEX16Vector *in )
  * pi radians */
 int XLALREAL4VectorUnwrapAngle( REAL4Vector *out, const REAL4Vector *in )
 {
-	static const char *func = "XLALREAL4VectorUnwrapAngle";
 	REAL4 prev;
 	REAL4 diff;
 	INT4  wrap;
 	UINT4 i;
 	if ( ! out || ! in )
-		XLAL_ERROR( func, XLAL_EFAULT );
+		XLAL_ERROR( XLAL_EFAULT );
 	if ( ! out->data || ! in->data || in->length == 0 )
-		XLAL_ERROR( func, XLAL_EINVAL );
+		XLAL_ERROR( XLAL_EINVAL );
 	if ( out->length != in->length )
-		XLAL_ERROR( func, XLAL_EBADLEN );
+		XLAL_ERROR( XLAL_EBADLEN );
        	wrap = 0;
 	prev = out->data[0] = in->data[0];
 	for ( i = 1; i < in->length; ++i ) {
@@ -192,17 +183,16 @@ int XLALREAL4VectorUnwrapAngle( REAL4Vector *out, const REAL4Vector *in )
  * pi radians */
 int XLALREAL8VectorUnwrapAngle( REAL8Vector *out, const REAL8Vector *in )
 {
-	static const char *func = "XLALREAL8VectorUnwrapAngle";
 	REAL8 prev;
 	REAL8 diff;
 	INT4  wrap;
 	UINT4 i;
 	if ( ! out || ! in )
-		XLAL_ERROR( func, XLAL_EFAULT );
+		XLAL_ERROR( XLAL_EFAULT );
 	if ( ! out->data || ! in->data || in->length == 0 )
-		XLAL_ERROR( func, XLAL_EINVAL );
+		XLAL_ERROR( XLAL_EINVAL );
 	if ( out->length != in->length )
-		XLAL_ERROR( func, XLAL_EBADLEN );
+		XLAL_ERROR( XLAL_EBADLEN );
        	wrap = 0;
 	prev = out->data[0] = in->data[0];
 	for ( i = 1; i < in->length; ++i ) {
@@ -223,7 +213,7 @@ LALCVectorAbs(
     const COMPLEX8Vector *in
     )
 {
-  INITSTATUS (status, "LALCVectorAbs", VECTORPOLARC);
+  INITSTATUS(status);
 
   /* Make sure the arguments are not NULL: */
   ASSERT (out, status, VECTOROPSH_ENULL, VECTOROPSH_MSGENULL);
@@ -254,7 +244,7 @@ LALZVectorAbs(
     const COMPLEX16Vector *in
     )
 {
-  INITSTATUS (status, "LALZVectorAbs", VECTORPOLARC);
+  INITSTATUS(status);
 
   /* Make sure the arguments are not NULL: */
   ASSERT (out, status, VECTOROPSH_ENULL, VECTOROPSH_MSGENULL);
@@ -285,7 +275,7 @@ LALCVectorAngle (
     const COMPLEX8Vector *in
     )
 {
-  INITSTATUS (status, "LALCVectorAngle", VECTORPOLARC);
+  INITSTATUS(status);
 
   /* Make sure the arguments are not NULL: */
   ASSERT (out, status, VECTOROPSH_ENULL, VECTOROPSH_MSGENULL);
@@ -316,7 +306,7 @@ LALZVectorAngle (
     const COMPLEX16Vector  *in
     )
 {
-  INITSTATUS (status, "LALZVectorAngle", VECTORPOLARC);
+  INITSTATUS(status);
 
   /* Make sure the arguments are not NULL: */
   ASSERT (out, status, VECTOROPSH_ENULL, VECTOROPSH_MSGENULL);
@@ -346,7 +336,7 @@ LALUnwrapREAL4Angle (
     const REAL4Vector    *in
     )
 {
-  INITSTATUS (status, "LALUnwrapREAL4Angle", VECTORPOLARC );
+  INITSTATUS(status);
 
   /* Make sure the arguments are not NULL: */
   ASSERT (out, status, VECTOROPSH_ENULL, VECTOROPSH_MSGENULL);
@@ -379,7 +369,7 @@ LALUnwrapREAL8Angle (
     const REAL8Vector    *in
     )
 {
-  INITSTATUS (status, "LALUnwrapREAL8Angle", VECTORPOLARC );
+  INITSTATUS(status);
 
   /* Make sure the arguments are not NULL: */
   ASSERT (out, status, VECTOROPSH_ENULL, VECTOROPSH_MSGENULL);
@@ -403,5 +393,4 @@ LALUnwrapREAL8Angle (
 
   RETURN (status);
 }
-
-/** @} */
+/*@}*/

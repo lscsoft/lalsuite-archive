@@ -23,7 +23,6 @@
  *
  * Author: Brown, D. A.
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  */
@@ -41,12 +40,20 @@
 #include <regex.h>
 #include <time.h>
 #include <math.h>
-#include <fftw3.h>
 
+#if HAVE_FFTW3_H
+#include <fftw3.h>
+#endif
+
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
 #include <lalappsfrutils.h>
+
+#ifdef LALAPPS_CUDA_ENABLED
+#include <cuda_runtime_api.h>
+#endif
 
 #include <lal/LALConfig.h>
 #include <lal/LALStdio.h>
@@ -81,14 +88,11 @@
 #include <lal/NRWaveIO.h>
 #include <lal/NRWaveInject.h>
 #include <lal/LALFrameL.h>
-#include <lal/FFTWMutex.h>
 #include <lal/LALSimulation.h>
 
 #include <LALAppsVCSInfo.h>
 
 #include "inspiral.h"
-
-RCSID( "$Id$" );
 
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
@@ -147,8 +151,6 @@ tagFrameHNode
   struct tagFrameHNode *next;
 }
 FrameHNode;
-
-
 
 /*
  *
@@ -280,7 +282,7 @@ INT4 reverseChirpBank      = 0;         /* enable the reverse chirp     */
 
 /* taper/band pass template options */
 INT4  bandPassTmplt           = 0;
-InspiralApplyTaper taperTmplt = INSPIRAL_TAPER_NONE;
+LALSimInspiralApplyTaper taperTmplt = LAL_SIM_INSPIRAL_TAPER_NONE;
 
 /* template bank veto options */
 UINT4 subBankSize          = 0;         /* num templates in a subbank   */
@@ -331,6 +333,10 @@ int    writeTemplate    = 0;            /* write the template time series */
 
 /* other command line args */
 CHAR comment[LIGOMETA_COMMENT_MAX];     /* process param comment        */
+
+#ifdef LALAPPS_CUDA_ENABLED
+INT4  gpuDeviceID       = 0;            /* device Id of GPU             */ 
+#endif
 
 int main( int argc, char *argv[] )
 {
@@ -415,8 +421,10 @@ int main( int argc, char *argv[] )
   /* counters and other variables */
   const LALUnit strainPerCount = {0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
   UINT4 i, j, k;
-  INT4  UNUSED cDataForFrame = 0;
   CHAR  fname[FILENAME_MAX];
+  INT4  CDataAdded = 0;
+  CDataNode  *cdataStrCat = NULL;
+  CDataNode  *thisCDataStr = NULL;
   CHAR  cdataStr[LALNameLength];
   REAL8 inputLengthNS;
   UINT4 numInputPoints;
@@ -511,14 +519,13 @@ int main( int argc, char *argv[] )
 
   /* wind to the end of the process params table */
   for ( this_proc_param = procparams.processParamsTable; this_proc_param->next;
-      this_proc_param = this_proc_param->next );
+      this_proc_param = this_proc_param->next )
+    ;
 
   /* Import system wide FFTW wisdom file, if it exists.  Only single precision used. */
 
 #ifdef LAL_FFTW3_ENABLED
-  LAL_FFTW_PTHREAD_MUTEX_LOCK;
   fftwf_import_system_wisdom();
-  LAL_FFTW_PTHREAD_MUTEX_UNLOCK;
 #endif
 
   /* can use LALMalloc() and LALCalloc() from here onwards */
@@ -527,20 +534,20 @@ int main( int argc, char *argv[] )
   snprintf( filtertable.filterTable->program, LIGOMETA_PROGRAM_MAX, "%s",
             PROGRAM_NAME );
   filtertable.filterTable->start_time = gpsStartTime.gpsSeconds;
-  snprintf( filtertable.filterTable->filter_name, LIGOMETA_COMMENT_MAX,
+  snprintf( filtertable.filterTable->filter_name, LIGOMETA_FILTER_NAME_MAX,
       "%s%s", approximantName, orderName );
 
   /* fill the comment, if a user has specified on, or leave it blank */
   if ( ! *comment )
   {
     snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX, " " );
-    snprintf( filtertable.filterTable->comment, LIGOMETA_COMMENT_MAX, " " );
+    snprintf( filtertable.filterTable->comment, LIGOMETA_SUMMVALUE_COMM_MAX, " " );
   }
   else
   {
     snprintf( proctable.processTable->comment, LIGOMETA_COMMENT_MAX,
               "%s", comment );
-    snprintf( filtertable.filterTable->comment, LIGOMETA_COMMENT_MAX,
+    snprintf( filtertable.filterTable->comment, LIGOMETA_SUMMVALUE_COMM_MAX,
               "%s", comment );
   }
 
@@ -643,7 +650,7 @@ int main( int argc, char *argv[] )
                        trigEndTimeNS );
     }
 
-    if( writeCData ) 
+    if( writeCData )
     {
       goto cleanexit;
     }
@@ -704,7 +711,7 @@ int main( int argc, char *argv[] )
               fqChanName[0] );
     sieve.srcRegEx = ifoRegExPattern;
     sieve.dscRegEx = frInType;
-    LAL_CALL( LALFrCacheSieve( &status, &frInCache, frGlobCache, &sieve ),
+    LAL_CALL( LALFrSieveCache( &status, &frInCache, frGlobCache, &sieve ),
         &status );
 
     /* check we got at least one frame file back after the sieve */
@@ -1408,8 +1415,12 @@ int main( int argc, char *argv[] )
 
       /* read the event waveform approximant to see if we've been asked to
        perform NumRel injections */
-      LAL_CALL( LALGetApproximantFromString( &status, injections->waveform,
-                                  &injApproximant ), &status);
+      injApproximant = XLALGetApproximantFromString(injections->waveform);
+      if ( (int) injApproximant == XLAL_FAILURE)
+      {
+        fprintf( stderr, "could not parse approximant from sim_inspiral.waveform\n" );
+        exit( 1 );
+      }
 
       if (injApproximant == NumRel)
       {
@@ -1433,46 +1444,7 @@ int main( int argc, char *argv[] )
       }
       else if (injApproximant == NumRelNinja2)
       {
-        /* New REAL8, NINJA-2 code */
-        REAL8TimeSeries *tempStrain = NULL;
-        REAL8TimeSeries *tempChan   = NULL;
-
-        /* Make a REAL8 version of the channel data    */
-        /* so we can call Jolien's new inject function */
-        tempChan = XLALCreateREAL8TimeSeries(
-                                chan.name,
-                                &(chan.epoch),
-                                chan.f0,
-                                chan.deltaT,
-                                &(chan.sampleUnits),
-                                chan.data->length);
-
-        for ( j = 0 ; j < tempChan->data->length ; ++j )
-          {
-            tempChan->data->data[j] = (REAL8) ( chan.data->data[j] );
-          }
-       
-        /* loop over injections */
-        for ( thisInj = injections; thisInj; thisInj = thisInj->next )
-          {
-            tempStrain = XLALNRInjectionStrain(ifo, thisInj);
-            
-            for ( j = 0 ; j < tempStrain->data->length ; ++j )
-              {
-                tempStrain->data->data[j] *= dynRange;
-              }
-            
-            XLALSimAddInjectionREAL8TimeSeries( tempChan, tempStrain, NULL);
-            XLALDestroyREAL8TimeSeries(tempStrain);
-          } /* loop over injections */
-
-        /* Back to REAL4 */
-        for ( j = 0 ; j < tempChan->data->length ; ++j )
-          {
-            chan.data->data[j] = (REAL4) ( tempChan->data->data[j] );
-          }
-
-        XLALDestroyREAL8TimeSeries(tempChan);
+        XLALSimInjectNinjaSignals(&chan,ifo,dynRange,injections);
       }
       else
       {
@@ -1551,9 +1523,22 @@ int main( int argc, char *argv[] )
     {
       snprintf( fname, FILENAME_MAX, "%s.ckpt", fileName );
     }
+
     if ( vrbflg ) fprintf( stdout, "checkpointing to file %s\n", fname );
     init_image_with_file_name( fname );
+
+    /* flush stdout before we checkpoint as otherwise we may not see any */
+    /* output from the verbose messages in the job before the checkpoint */
+    fflush( stdout );
+    
+    /* now create a memory image and exit with SIGUSR2 (signal 12)       */
+    /* if doing this, we must run in the vanilla universe or condor will */
+    /* just resubmit the job as it thinks it is a regular checkpoint     */
     ckpt_and_exit();
+
+    /* say that we are back and flush stdout so we see the message */
+    if ( vrbflg ) fprintf( stdout, "resuming from checkpoint file\n" );
+    fflush( stdout );
 #else
     fprintf( stderr, "--data-checkpoint cannot be used unless "
         "lalapps is condor compiled\n" );
@@ -1590,7 +1575,7 @@ int main( int argc, char *argv[] )
   /* remove pad from requested data from start and end of time series */
   memmove( chan.data->data, chan.data->data + padData * sampleRate,
       (chan.data->length - 2 * padData * sampleRate) * sizeof(REAL4) );
-  LALRealloc( chan.data->data,
+  XLALRealloc( chan.data->data,
       (chan.data->length - 2 * padData * sampleRate) * sizeof(REAL4) );
   chan.data->length -= 2 * padData * sampleRate;
   chan.epoch.gpsSeconds += padData;
@@ -2000,6 +1985,7 @@ int main( int argc, char *argv[] )
       case PadeT1:
       case EOB:
       case EOBNR:
+      case EOBNRv2:
       case FindChirpPTF:
       case IMRPhenomB:
         if ( vrbflg )
@@ -2077,7 +2063,6 @@ int main( int argc, char *argv[] )
               m, mu, candle.rhosq, chan.deltaT, numPoints,
               fcSegVec->data->segNorm->data[fcSegVec->data->segNorm->length-1],
               candleTmpltNorm, candle.distance, candle.sigmasq );
-          fflush( stdout );
         }
       }
       else if ( approximant == BCV )
@@ -2117,7 +2102,6 @@ int main( int argc, char *argv[] )
               m,mu,candle.rhosq,chan.deltaT,
               numPoints,fcSegVec->data->segNorm->data[kmax],kmax,
               candleTmpltNorm,candle.distance,candle.sigmasq);
-          fflush(stdout);
         }
       }
       else
@@ -2127,7 +2111,6 @@ int main( int argc, char *argv[] )
           fprintf( stdout, "standard candle not calculated;\n"
               "chan.deltaT = %e\nnumPoints = %d\n",
               chan.deltaT, numPoints );
-          fflush( stdout );
         }
       }
     }
@@ -2241,6 +2224,10 @@ int main( int argc, char *argv[] )
     /* set the workspace vectors to null before they are allocated later */
     XLALInitBankVetoData(&bankVetoData);
 
+    /* flush stdout before we start the computationally intensive loop */
+    fflush( stdout );
+
+
     /*
      *
      * search engine
@@ -2285,6 +2272,7 @@ int main( int argc, char *argv[] )
           case PadeT1:
           case EOB:
           case EOBNR:
+          case EOBNRv2:
           case IMRPhenomB:
             LAL_CALL( LALFindChirpTDTemplate( &status, fcFilterInput->fcTmplt,
                   bankCurrent, fcTmpltParams ), &status );
@@ -2327,7 +2315,7 @@ int main( int argc, char *argv[] )
         COMPLEX8Vector *templateFFTDataVector = NULL;
         REAL4FFTPlan *plan = NULL;
         REAL8 deltaF;
-        INT4 kmax, num_points;
+        UINT4 kmax, num_points;
         UINT4 nb2;
         snprintf( snrsqStr, LALNameLength, "TEMPLATE");
         memcpy(&templateTimeSeries, &chan, sizeof(REAL4TimeSeries));
@@ -2336,7 +2324,7 @@ int main( int argc, char *argv[] )
         if ( approximant==FindChirpSP )
           {
           nb2 = fcTmpltParams->xfacVec->length;
-          num_points = (INT4) floor( (nb2-1) * 2.0);
+          num_points = (UINT4) floor( (nb2-1) * 2.0);
           templateTimeSeriesVector = XLALCreateREAL4Vector(num_points);
           templateFFTDataVector = XLALCreateCOMPLEX8Vector(nb2);
           num_points = templateTimeSeriesVector->length;
@@ -2475,6 +2463,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case EOBNRv2:
               case IMRPhenomB:
                 /* construct normalization for time domain templates... */
                 LAL_CALL( LALFindChirpTDNormalize( &status,
@@ -2530,143 +2519,6 @@ int main( int argc, char *argv[] )
                   fcFilterParams->rhosqVec, "none", snrsqStr );
             }
 
-
-            if ( writeCData && ! strcmp(ifo, bankCurrent->ifo) )
-            {
-              /* Discard 64s of analysis segment at both ends */
-              REAL8 buffer = 64.0;
-              trigTime = bankCurrent->end_time.gpsSeconds + 1e-9 *
-                bankCurrent->end_time.gpsNanoSeconds;
-
-              lowerBound = rint(fcSegStartTimeNS/1000000000L) + buffer;
-              upperBound = rint(fcSegEndTimeNS/1000000000L) - buffer;
-
-              if ( vrbflg ) fprintf(stdout,
-                 "GPS end time of bankCurrent in s and ns are %d and %d; trigtime in (s) is %12.3f; lower and upper bounds in (s) is %12.3f, %12.3f\n",
-                 bankCurrent->end_time.gpsSeconds,bankCurrent->end_time.gpsNanoSeconds, trigTime, lowerBound, upperBound);
-
-
-              if ( trigTime >= lowerBound && trigTime <= upperBound )
-                {
-                  REAL8 sigmasq = 0.0;
-                  REAL4 chisq=0.0;
-
-                  if ( vrbflg ) fprintf(stdout,
-                                        "The bankCurrent event id is %" LAL_UINT8_FORMAT "\n",
-                                        bankCurrent->event_id->id);
-
-                  if ( ! eventList ) {
-                    chisq = 1.0;
-                    if ( vrbflg ) fprintf(stdout,
-                       "No eventlist found! chisq is set to %e\n",chisq);
-                  }
-                  else {
-                    chisq = eventList->chisq;
-                    if ( vrbflg ) fprintf(stdout,
-                       "Eventlist found; chisq read is %e\n",chisq);
-                  }
-
-                  tempTmplt = (SnglInspiralTable *)
-                    LALCalloc(1, sizeof(SnglInspiralTable) );
-                  tempTmplt->event_id = (EventIDColumn *)
-                    LALCalloc(1, sizeof(EventIDColumn) );
-                  tempTmplt->mass1 = bankCurrent->mass1;
-                  tempTmplt->end_time.gpsSeconds =
-                    bankCurrent->end_time.gpsSeconds;
-                  tempTmplt->end_time.gpsNanoSeconds =
-                    bankCurrent->end_time.gpsNanoSeconds;
-                  if (bankCurrent->event_id)
-                    tempTmplt->event_id->id = bankCurrent->event_id->id;
-                  else tempTmplt->event_id->id = 0;
-
-                  if ( ! eventList ) {
-                    UINT4 kmax;
-                    REAL8 deltaF=0.0;
-
-                    /* Compute sigmasq for coherent statistic */
-                    deltaF = 1.0 / ( (REAL4) fcFilterParams->deltaT *
-                                     (REAL4) fcFilterParams->qVec->length );
-
-                    kmax = fcFilterInput->fcTmplt->tmplt.fFinal / deltaF <
-                      fcFilterParams->qVec->length/2 ?
-                      fcFilterInput->fcTmplt->tmplt.fFinal / deltaF :
-                      fcFilterParams->qVec->length/2;
-
-                    sigmasq = fcFilterInput->segment->segNorm->data[kmax] *
-                      fcFilterInput->segment->segNorm->data[kmax] *
-                      fcFilterInput->fcTmplt->tmpltNorm *
-                      fcFilterInput->fcTmplt->norm;
-
-                    /* If sigmasq is still zero */
-                    if ( (sigmasq == 0.0) )
-                      {
-                        REAL4 totalMass = bankCurrent->mass1 + bankCurrent->mass2;
-                        REAL4 mu = bankCurrent->mass1 * bankCurrent->mass2 / totalMass;
-
-                        sigmasq = candle.sigmasq * pow( totalMass /
-                                                        (REAL4) candle.tmplt.totalMass,2.0/3.0);
-                        sigmasq *= mu / candle.tmplt.mu;
-                      }
-                    tempTmplt->sigmasq = sigmasq;
-                  }
-                  else {
-                    tempTmplt->sigmasq = eventList->sigmasq;
-                  }
-
-                  tempTmplt->chisq = chisq;
-
-                  LAL_CALL( LALFindChirpCreateCoherentInput( &status,
-                        &coherentInputData, fcFilterParams->cVec,
-                        tempTmplt, CDataLength/2,
-                        (INT4) rint(CDataLength/(2*fcFilterParams->deltaT))), &status );
-                  if ( vrbflg ) fprintf(stdout,
-                                        "coherentInputData Name string is %s\n",
-                                        coherentInputData->name);
-
-                  if ( coherentInputData )
-                    {
-                      cDataForFrame = 1;
-                      snprintf( cdataStr, LALNameLength*sizeof(CHAR),
-                                "%" LAL_UINT8_FORMAT, tempTmplt->event_id->id );
-                      snprintf( coherentInputData->name,
-                                LALNameLength*sizeof(CHAR),
-                                "%s:CBC-CData", ifo );
-                      if ( ! coherentFrames )
-                        {
-                          thisCoherentFrame = coherentFrames = (FrameHNode *)
-                            LALCalloc( 1, sizeof(FrameHNode) );
-                        }
-                      else
-                        {
-                          thisCoherentFrame = thisCoherentFrame->next =
-                            (FrameHNode *) LALCalloc( 1, sizeof(FrameHNode) );
-                        }
-                      thisCoherentFrame->frHeader = fr_add_proc_COMPLEX8TimeSeries(
-                                                                                   outFrame, coherentInputData, "none", cdataStr );
-
-                      if ( vrbflg ) fprintf(stdout,
-                         "GPS end time in s and ns are: %d and %d\n",
-                         coherentInputData->epoch.gpsSeconds, coherentInputData->epoch.gpsNanoSeconds);
-                      if ( vrbflg ) fprintf(stdout,
-                         "Event ID used for C Data is %" LAL_UINT8_FORMAT "\n",
-                         tempTmplt->event_id->id);
-                      if ( vrbflg ) fprintf(stdout,
-                         "C Data string is %s\n",
-                        cdataStr);
-                      if ( vrbflg ) fprintf(stdout,
-                         "coherentInputData Name string is %s\n",
-                         coherentInputData->name);
-
-                      LAL_CALL( LALCDestroyVector( &status,
-                                 &(coherentInputData->data) ), &status );
-                      LALFree( coherentInputData );
-                      coherentInputData = NULL;
-                    }
-                  LALFree( tempTmplt->event_id );
-                  LALFree( tempTmplt );
-                }
-            }
-
             if ( vrbflg )
               fprintf( stdout, "epoch = %d\n",
                   fcFilterInput->segment->data->epoch.gpsSeconds );
@@ -2719,11 +2571,11 @@ int main( int argc, char *argv[] )
         /* If doing bank veto compute CC Matrix */
         if (ccFlag && (subBankCurrent->subBankSize >= 1) && analyseTag)
         {
-	  
-          if (vrbflg) fprintf(stderr, "doing ccmat\n");
-          XLALBankVetoCCMat( &bankVetoData, 
+
+          if (vrbflg) fprintf(stdout, "doing ccmat\n");
+          XLALBankVetoCCMat( &bankVetoData,
 			     fcDataParams->ampVec,
-			     subBankCurrent->subBankSize, 
+			     subBankCurrent->subBankSize,
 			     dynRange, fLow, spec.deltaF,chan.deltaT);
 
 	  ccFlag = 0;
@@ -2755,6 +2607,7 @@ int main( int argc, char *argv[] )
               case PadeT1:
               case EOB:
               case EOBNR:
+              case EOBNRv2:
               case IMRPhenomB:
                 /* recompute the template norm since it has been over written */
                 /* ( When doing the chisq test and the bank veto for          */
@@ -2769,8 +2622,8 @@ int main( int argc, char *argv[] )
               case FindChirpSP:
                 /* find any events in the time series of snr and chisq */
                 LAL_CALL( LALFindChirpClusterEvents( &status,
-                      &eventList, fcFilterInput, fcFilterParams,
-                      &bankVetoData, subBankIndex, writeCData ), &status );
+                      &eventList, fcFilterInput, fcFilterParams, &bankVetoData,
+		      subBankIndex, writeCData, bankCurrent ), &status );
 
                 if ( writeChisq )
                 {
@@ -2796,6 +2649,141 @@ int main( int argc, char *argv[] )
               default:
                 break;
             }
+
+	    /* CData writing starts here */
+            if ( eventList ) {
+              if ( writeCData && ! strcmp(ifo, eventList->ifo) )
+                {
+                  /* Discard 64s of analysis segment at both ends */
+                  REAL8 buffer = 64.0;
+
+                  trigTime = bankCurrent->end_time.gpsSeconds + 1e-9 *
+                    bankCurrent->end_time.gpsNanoSeconds;
+
+                  lowerBound = rint(fcSegStartTimeNS/1000000000L) + buffer;
+                  upperBound = rint(fcSegEndTimeNS/1000000000L) - buffer;
+
+                  if ( vrbflg ) fprintf(stdout,
+                      "GPS end time of bankCurrent in s and ns are %d and %d; trigtime in (s) is %12.3f; lower and upper bounds in (s) is %12.3f, %12.3f\n",
+                      bankCurrent->end_time.gpsSeconds,bankCurrent->end_time.gpsNanoSeconds, trigTime, lowerBound, upperBound);
+
+                  if ( vrbflg ) fprintf(stdout,
+                      "GPS end time of trigger in s and ns are %d and %d; trigtime in (s) is %12.3f; lower and upper bounds in (s) is %12.3f, %12.3f\n",
+                      eventList->end_time.gpsSeconds,eventList->end_time.gpsNanoSeconds, trigTime, lowerBound, upperBound);
+
+
+                  if ( trigTime >= lowerBound && trigTime <= upperBound )
+                  {
+                    int temp_mass1 = 0;
+                    int temp_mass2 = 0;
+
+                    if ( vrbflg ) fprintf(stdout,
+                                        "The event id is %" LAL_UINT8_FORMAT "\n",
+                                        eventList->event_id->id);
+
+                    tempTmplt = (SnglInspiralTable *)
+                      LALCalloc(1, sizeof(SnglInspiralTable) );
+                    tempTmplt->event_id = (EventIDColumn *)
+                      LALCalloc(1, sizeof(EventIDColumn) );
+                    tempTmplt->end_time.gpsSeconds =
+                      eventList->end_time.gpsSeconds;
+                    tempTmplt->end_time.gpsNanoSeconds =
+                      eventList->end_time.gpsNanoSeconds;
+                    if (eventList->event_id->id)
+                      tempTmplt->event_id->id = eventList->event_id->id;
+                    else tempTmplt->event_id->id = 0;
+
+                    if ( vrbflg ) {
+                      fprintf(stdout, "eventList->mass1 is %2.8f\n", eventList->mass1);
+                      fprintf(stdout, "eventList->mass2 is %1.8f\n", eventList->mass2);
+                    }
+                    temp_mass1 = floor( eventList->mass1 * 10000.0 );
+                    temp_mass2 = floor( eventList->mass2 * 10000.0 );
+                    if ( vrbflg ) {
+                      fprintf(stdout, "temp_mass1 is %d\n", temp_mass1);
+                      fprintf(stdout, "temp_mass2 is %d\n", temp_mass2);
+                    }
+
+		    snprintf( cdataStr, LALNameLength*sizeof(CHAR),
+                         "%d_%d_%d_%d", tempTmplt->end_time.gpsSeconds,
+                         (tempTmplt->end_time.gpsNanoSeconds - (tempTmplt->end_time.gpsNanoSeconds % 1000000))/1000000,
+                         temp_mass1, temp_mass2 );
+
+		    /* Add frame if cdataStr NOT present in cdataStrCat */
+		    if ( !cdataStrCat ) {
+		      LAL_CALL( LALFindChirpCreateCoherentInput( &status,
+                        &coherentInputData, fcFilterParams->cVec,
+                        tempTmplt, CDataLength/2,
+                        (INT4) rint(CDataLength/(2*fcFilterParams->deltaT))), &status );
+
+		      thisCDataStr = cdataStrCat = (CDataNode *) LALCalloc( 1, sizeof(CDataNode) );
+		      strcpy( thisCDataStr->cdataStrNode , cdataStr );
+		      if ( vrbflg )  fprintf(stdout, "tempcdataStrNode is %s\n", thisCDataStr->cdataStrNode);
+		      CDataAdded = 1;
+		    }
+		    else {
+		      CDataAdded = 0;
+		      if ( vrbflg ) fprintf(stdout,
+                                        "The event id in ELSE is %" LAL_UINT8_FORMAT "\n",
+                                        bankCurrent->event_id->id);
+		      CDataAdded = XLALAddSnglInspiralCData( &cdataStrCat, cdataStr );
+		      if ( CDataAdded ) {
+			LAL_CALL( LALFindChirpCreateCoherentInput( &status,
+                          &coherentInputData, fcFilterParams->cVec,
+                          tempTmplt, CDataLength/2,
+                          (INT4) rint(CDataLength/(2*fcFilterParams->deltaT))), &status );
+		      }
+
+		    }
+
+		    if ( CDataAdded && coherentInputData )
+		    {
+		      if ( vrbflg ) fprintf(stdout,
+				        "coherentInputData Name string is %s\n",
+                                        coherentInputData->name);
+
+		      snprintf( coherentInputData->name,
+                                LALNameLength*sizeof(CHAR),
+                                "%s:CBC-CData", ifo );
+
+		      if ( ! coherentFrames )
+		      {
+			thisCoherentFrame = coherentFrames = (FrameHNode *)
+                              LALCalloc( 1, sizeof(FrameHNode) );
+		      }
+		      else
+		      {
+			thisCoherentFrame = thisCoherentFrame->next =
+			    (FrameHNode *) LALCalloc( 1, sizeof(FrameHNode) );
+		      }
+
+		      thisCoherentFrame->frHeader = fr_add_proc_COMPLEX8TimeSeries(
+			  outFrame, coherentInputData, "none", cdataStr );
+
+		      if ( vrbflg ) fprintf(stdout,
+			    "GPS end time in s and ns are: %d and %d\n",
+                            coherentInputData->epoch.gpsSeconds, coherentInputData->epoch.gpsNanoSeconds);
+		      if ( vrbflg ) fprintf(stdout,
+                            "Event ID used for C Data is %" LAL_UINT8_FORMAT "\n",
+                            tempTmplt->event_id->id);
+		      if ( vrbflg ) fprintf(stdout,
+                            "C Data string is %s\n",
+			    cdataStr);
+		      if ( vrbflg ) fprintf(stdout,
+                            "coherentInputData Name string is %s\n",
+			    coherentInputData->name);
+
+		      LAL_CALL( LALCDestroyVector( &status,
+                                 &(coherentInputData->data) ), &status );
+		      LALFree( coherentInputData );
+		      coherentInputData = NULL;
+		    }
+
+		    LALFree( tempTmplt->event_id );
+		    LALFree( tempTmplt );
+                  }
+                }
+            }/* CData writing ends here */
 
             /*  test if filter returned any events */
             if ( eventList )
@@ -2864,6 +2852,7 @@ int main( int argc, char *argv[] )
         case PadeT1:
         case EOB:
         case EOBNR:
+        case EOBNRv2:
         case FindChirpSP:
         case IMRPhenomB:
           /* the chisq bins need to be re-computed for the next template */
@@ -3056,7 +3045,7 @@ int main( int argc, char *argv[] )
 
   cleanexit:
 
-  if ( writeCohTrigs || writeCData ) 
+  if ( writeCohTrigs || writeCData )
   {
     char *cdata_cwd = NULL;
     int cdata_rc = 0;
@@ -3064,12 +3053,12 @@ int main( int argc, char *argv[] )
     char full_cdata_path[MAXPATHLEN];
     hostnameTmp[1023] = '\0';
     hostname[1023] = '\0';
-  
+
     if (outputPath[0]) {
 
-      if ( username == NULL ) 
+      if ( username == NULL )
       {
-        fprintf( stderr, 
+        fprintf( stderr,
             "error: must specify username for cdata when using output-path" );
         exit( 1 );
       }
@@ -3077,8 +3066,8 @@ int main( int argc, char *argv[] )
       {
         if ( vrbflg ) fprintf( stdout, "username is %s\n", username );
       }
-   
-    }/*closes if outputpath */   
+
+    }/*closes if outputpath */
 
     if ( (cdata_rc = gethostname(hostnameTmp, 1023)) )
     {
@@ -3111,7 +3100,7 @@ int main( int argc, char *argv[] )
       strcat( full_cdata_path, "/" );
       strcat( full_cdata_path, username );
       strcat( full_cdata_path, "/" );
-      if ( outputDir[0] ) 
+      if ( outputDir[0] )
       {
         strcat( full_cdata_path, outputDir );
         strcat( full_cdata_path, "/" );
@@ -3121,13 +3110,13 @@ int main( int argc, char *argv[] )
       {
         if ( errno == EEXIST )
         {
-          if ( vrbflg ) fprintf( stdout, "The c-data directory %s exists.\n", 
+          if ( vrbflg ) fprintf( stdout, "The c-data directory %s exists.\n",
                                     full_cdata_path);
         }
         else
         {
           perror( "Error creating c-data directory on compute-node.");
-          if ( vrbflg ) fprintf( stderr, "Error creating c-data directory = %s\n", 
+          if ( vrbflg ) fprintf( stderr, "Error creating c-data directory = %s\n",
                                     full_cdata_path );
           exit( 1 );
         }
@@ -3146,11 +3135,11 @@ int main( int argc, char *argv[] )
   {
     if ( outputPath[0] )
     {
-      if ( writeCData && outputDir[0] && username[0] ) {
+      if ( writeCData && outputDir[0] ) {
         snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s/%s.gwf",
                   outputPath, hostname, username, outputDir, fileName );
       }
-      else if ( writeCData && !outputDir[0] && username[0] ) {
+      else if ( writeCData && !outputDir[0] ) {
         snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s.gwf",
                   outputPath, hostname, username, fileName );
       }
@@ -3187,7 +3176,7 @@ int main( int argc, char *argv[] )
     FrFileOEnd( frOutFile );
     if ( vrbflg ) fprintf( stdout, "done\n" );
 
-    if ( writeCData && outputPath[0] ) 
+    if ( writeCData && outputPath[0] )
     {
       int cdata_rc = 0;
 
@@ -3210,18 +3199,15 @@ int main( int argc, char *argv[] )
         if ( vrbflg ) fprintf( stdout, "removed old symlink... " );
       }
 
+      if ( vrbflg ) fprintf( stdout, "Creating symlink for %s...\n", runpath );
+
       /* create a new symbolic link */
-      if ( username[0] )
-      {
-        if ( vrbflg ) fprintf( stdout, "Creating symlink for %s...\n", runpath );
-  
-        if ( (cdata_rc = symlink( fname, runpath ))  )
+      if ( (cdata_rc = symlink( fname, runpath ))  )
         {
-            perror( "Error creating symlink for output cdata frame" );
-            exit( 1 );
-          }
-      }  
-      
+	  perror( "Error creating symlink for output cdata frame" );
+	  exit( 1 );
+	}
+
     }
   }
 
@@ -3338,7 +3324,7 @@ int main( int argc, char *argv[] )
   memset( &results, 0, sizeof(LIGOLwXMLStream) );
   if ( outputPath[0] )
   {
-    if ( (writeCohTrigs || writeCData) && outputDir[0] && username[0] ) {
+    if ( (writeCohTrigs || writeCData) && outputDir[0] ) {
       if ( outCompress )
       {
         snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s/%s.xml.gz",
@@ -3350,7 +3336,7 @@ int main( int argc, char *argv[] )
                   outputPath, hostname, username, outputDir, fileName );
       }
     }
-    else if ( (writeCohTrigs || writeCData) && !outputDir[0] && username[0] ) {
+    else if ( (writeCohTrigs || writeCData) && !outputDir[0] ) {
       if ( outCompress )
       {
         snprintf( fname, FILENAME_MAX, "%s/%s/%s/%s.xml.gz",
@@ -3402,7 +3388,7 @@ int main( int argc, char *argv[] )
     printf("%s\n", runpath);
     remove(runpath);
     unlink(runpath);
-    if ( outputPath[0] && username[0] ) {
+    if ( outputPath[0] ) {
       int cdata_rc = 0;
       if ( (cdata_rc = symlink(fname,runpath)) )
       {
@@ -3608,8 +3594,10 @@ int main( int argc, char *argv[] )
   if ( vrbflg ) fprintf( stdout, "checking memory leaks and exiting\n" );
   LALCheckMemoryLeaks();
 
-  /* print a success message to stdout for parsing by exitcode */
-  fprintf( stdout, "%s: EXITCODE0\n", argv[0] );
+#ifdef LALAPPS_CUDA_ENABLED
+  cudaThreadExit();
+#endif
+
   exit( 0 );
 }
 
@@ -3634,6 +3622,7 @@ fprintf( a, "  --debug-level LEVEL          set the LAL debug level to LEVEL\n")
 fprintf( a, "  --user-tag STRING            set the process_params usertag to STRING\n");\
 fprintf( a, "  --ifo-tag STRING             set the ifotag to STRING - for file naming\n");\
 fprintf( a, "  --comment STRING             set the process table comment to STRING\n");\
+fprintf( a, "  --gpu-device-id ID           set GPU device id (works only with Cuda enabled version) \n");\
 fprintf( a, "\n");\
 fprintf( a, "  --gps-start-time SEC         GPS second of data start time\n");\
 fprintf( a, "  --gps-start-time-ns NS       GPS nanosecond of data start time\n");\
@@ -3691,7 +3680,7 @@ fprintf( a, "  --dynamic-range-exponent X   set dynamic range scaling to 2^X\n")
 fprintf( a, "\n");\
 fprintf( a, "  --approximant APPROX         set approximant of the waveform to APPROX\n");\
 fprintf( a, "                               (FindChirpSP|BCV|BCVC|BCVSpin|TaylorT1|TaylorT2|IMRPhenomB\n");\
-fprintf( a, "                                  TaylorT3|PadeT1|EOB|GeneratePPN|FindChirpPTF) \n");\
+fprintf( a, "                                  TaylorT3|PadeT1|EOB|EOBNR|EOBNRv2|GeneratePPN|FindChirpPTF) \n");\
 fprintf( a, "  --order ORDER                set the pN order of the waveform to ORDER\n");\
 fprintf( a, "                               (twoPN|twoPointFivePN|threePN|threePointFivePN|\n");\
 fprintf( a, "                                  pseudoFourPN) \n");\
@@ -3758,7 +3747,7 @@ fprintf( a, "  --enable-bank-sim-max        compute the maximum match over the b
 fprintf( a, "  --disable-bank-sim-max       do not maximize the match over the bank\n");\
 fprintf( a, "  --sim-approximant APX        set approximant of the injected waveform to APX\n");\
 fprintf( a, "                                 (TaylorT1|TaylorT2|TaylorT3|PadeT1|EOB|\n");\
-fprintf( a, "                                  GeneratePPN|FrameFile) \n");\
+fprintf( a, "                                  EOBNR|EOBNRv2|GeneratePPN|FrameFile) \n");\
 fprintf( a, "  --sim-frame-file F           read the bank sim waveform from frame named F\n");\
 fprintf( a, "  --sim-frame-channel C        read the bank sim waveform from frame channel C\n");\
 fprintf( a, "  --sim-minimum-mass M         set minimum mass of bank injected signal to M\n");\
@@ -3817,6 +3806,9 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"number-of-segments",      required_argument, 0,                'e'},
     {"segment-overlap",         required_argument, 0,                'f'},
     {"sample-rate",             required_argument, 0,                'g'},
+#ifdef LALAPPS_CUDA_ENABLED
+    {"gpu-device-id",           required_argument, 0,                '+'},
+#endif
     {"calibrated-data",         required_argument, 0,                'y'},
     {"strain-high-pass-freq",   required_argument, 0,                'E'},
     {"strain-high-pass-order",  required_argument, 0,                'P'},
@@ -3905,6 +3897,9 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {0, 0, 0, 0}
   };
   int c;
+#ifdef LALAPPS_CUDA_ENABLED
+  cudaError_t cudaError = cudaSuccess;
+#endif 
   INT4 haveDynRange = 0;
   INT4 haveApprox = 0;
   INT4 haveOrder = 0;
@@ -3925,13 +3920,20 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     /* getopt_long stores long option here */
     int option_index = 0;
     size_t optarg_len;
-
+#ifdef LALAPPS_CUDA_ENABLED
+    c = getopt_long_only( argc, argv,
+        "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:?:X:Y:Z:"
+        "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
+        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:+:",
+        long_options, &option_index );
+#endif
+#ifndef LALAPPS_CUDA_ENABLED
     c = getopt_long_only( argc, argv,
         "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:?:X:Y:Z:"
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
         "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:",
         long_options, &option_index );
-
+#endif
     /* detect the end of the options */
     if ( c == - 1 )
     {
@@ -4184,6 +4186,23 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         ADD_PROCESS_PARAM( "int", "%d", sampleRate );
         break;
 
+#ifdef LALAPPS_CUDA_ENABLED
+      case '+':
+        gpuDeviceID = (INT4) atoi( optarg );
+        cudaError = cudaSetDevice( gpuDeviceID );
+        if ( cudaError != cudaSuccess )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+		           "could not associate thread to GPU %d\n"
+		           "CudaError: %s\n",
+                   long_options[option_index].name, gpuDeviceID,
+                   cudaGetErrorString(cudaError));
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "int", "%d", gpuDeviceID );
+        break;
+#endif
+
       case 'y':
         /* specify which type of calibrated data */
         {
@@ -4419,6 +4438,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           approximant = EOBNR;
         }
+        else if ( ! strcmp( "EOBNRv2", optarg ) )
+        {
+          approximant = EOBNRv2;
+        }
         else if ( ! strcmp( "FindChirpSP", optarg ) )
         {
           approximant = FindChirpSP;
@@ -4450,7 +4473,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
               "unknown order specified: "
               "%s (must be either FindChirpSP, BCV, BCVC, BCVSpin, \n"
               "FindChirpPTF,TaylorT1, TaylorT2, TaylorT3, GeneratePPN,\n"
-              "IMRPhenomB, PadeT1 or EOB)\n",
+              "IMRPhenomB, PadeT1, EOB, EOBNR or EOBNRv2)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -5201,15 +5224,15 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
       case '{':
         if ( !strcmp( "start", optarg ) )
         {
-          taperTmplt = INSPIRAL_TAPER_START;
+          taperTmplt = LAL_SIM_INSPIRAL_TAPER_START;
         }
         else if ( !strcmp( "end", optarg ) )
         {
-          taperTmplt = INSPIRAL_TAPER_END;
+          taperTmplt = LAL_SIM_INSPIRAL_TAPER_END;
         }
         else if ( !strcmp( "startend", optarg ) )
         {
-          taperTmplt = INSPIRAL_TAPER_STARTEND;
+          taperTmplt = LAL_SIM_INSPIRAL_TAPER_STARTEND;
         }
         else
         {

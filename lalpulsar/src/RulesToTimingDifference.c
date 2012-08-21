@@ -23,8 +23,6 @@
 #include <lal/AVFactories.h>
 #include <lal/Resample.h>
 
-NRCSID(RULESTOTIMINGDIFFERENCEC,"$Id$");
-
 /** \author Creighton, T. D.
     \ingroup Resample_h
     \brief Computes values of the timing difference \f$(\tau-t)/\Delta t\f$ from a set of resampling rules.
@@ -71,9 +69,7 @@ LALRulesToTimingDifference( LALStatus       *stat,
 			    ResampleRules   *rules )
 {
   REAL8 tRuleStart; /* Start time of resampling rules */
-  REAL8 tRuleStop;  /* Stop time of resampling rules */
   REAL8 tDiffStart; /* Start time of time series */
-  REAL8 tDiffStop;  /* Stop time of time series */
   REAL8 t;          /* Current normalized time in time series */
   REAL8 dt;         /* Normalized sampling interval in time series */
   REAL8 diff = 0;   /* Normalized difference (tau-t)/deltaT */
@@ -85,8 +81,7 @@ LALRulesToTimingDifference( LALStatus       *stat,
   INT2 *shift;      /* Pointer to data in rules->shift */
   REAL4 *data;      /* Pointer to data in difference->data->data */
 
-  INITSTATUS( stat, "LALRulesToTimingDifference",
-	      RULESTOTIMINGDIFFERENCEC);
+  INITSTATUS(stat);
 
   /* Check that the input fields exist. */
   ASSERT( difference, stat, RESAMPLEH_ENUL, RESAMPLEH_MSGENUL );
@@ -108,12 +103,16 @@ LALRulesToTimingDifference( LALStatus       *stat,
   /* Make sure that the rules cover the entire time series. */
   tRuleStart = rules->start.gpsSeconds
     + (1.0e-9)*rules->start.gpsNanoSeconds;
-  tRuleStop = rules->stop.gpsSeconds
-    + (1.0e-9)*rules->stop.gpsNanoSeconds;
   tDiffStart = difference->epoch.gpsSeconds
     + (1.0e-9)*difference->epoch.gpsNanoSeconds;
+#ifndef LAL_NDEBUG
+  REAL8 tRuleStop;  /* Stop time of resampling rules */
+  tRuleStop = rules->stop.gpsSeconds
+    + (1.0e-9)*rules->stop.gpsNanoSeconds;
+  REAL8 tDiffStop;  /* Stop time of time series */
   tDiffStop = tDiffStart
     + difference->data->length*difference->deltaT;
+#endif
   ASSERT( tDiffStop < tRuleStop, stat, RESAMPLEH_ETIME,
 	  RESAMPLEH_MSGETIME );
   ASSERT( tDiffStart > tRuleStart, stat, RESAMPLEH_ETIME,

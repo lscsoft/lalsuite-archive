@@ -7,7 +7,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -35,14 +35,18 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
+import sys
 from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
+from operator import itemgetter
 
 #related third party imports
 import numpy as np
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
+from scipy import special
+from numpy import linspace
 
 import random
 
@@ -54,6 +58,9 @@ except ImportError:
 
 #local application/library specific imports
 import pylal
+from pylal import lalconstants
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import git_version
 #C extensions
 from _bayespputils import _skyhist_cart,_burnin
@@ -65,7 +72,8 @@ __date__= git_version.date
 #===============================================================================
 # Constants
 #===============================================================================
-
+#Parameters which are not to be exponentiated when found
+logParams=['logl','loglh1','loglh2','logll1','loglv1','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','logw']
 #Pre-defined ordered list of line styles for use in matplotlib contour plots.
 __default_line_styles=['solid', 'dashed', 'dashdot', 'dotted']
 #Pre-defined ordered list of matplotlib colours for use in plots.
@@ -156,6 +164,13 @@ def _inj_m2(inj):
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2
 
+def _inj_q(inj):
+    """
+    Function mapping (mchirp,eta)->q; m1>m2 .
+    """
+    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+    return mass2/mass1
+
 def _inj_longitude(inj):
     """
     Map the value of the longitude found in inj to an interval [0,2*pi).
@@ -224,76 +239,40 @@ def _inj_phi2(inj):
             return phi_mpi_to_pi
 
 def _inj_tilt1(inj):
-    Sx  = inj.spin1x
-    Sy  = inj.spin1y
-    Sz  = inj.spin1z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt1 = array_ang_sep(L,S1)
+    if np.max(S1) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt1
 
 def _inj_tilt2(inj):
-    Sx  = inj.spin2x
-    Sy  = inj.spin2y
-    Sz  = inj.spin2z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt2 = array_ang_sep(L,S2)
+    if np.max(S2) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt2
 
 def _inj_thetas(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
 
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
-    
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
-    
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos(Jz/Jmag)
+    thetas = array_polar_ang(J)
+    return thetas
     
 def _inj_beta(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
-
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
     
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
-    
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+    beta  = array_ang_sep(J,L)
+    return beta
 
 
 #===============================================================================
@@ -304,19 +283,21 @@ class OneDPosterior(object):
     """
     A data structure for a single chain of posterior samples.
     """
-    def __init__(self,name,posterior_samples,injected_value=None,prior=None):
+    def __init__(self,name,posterior_samples,injected_value=None,trigger_values=None,prior=None):
         """
         Constructor.
 
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
+        @keyword trigger_values: The trigger values of the parameter (dictionary w/ IFOs as keys).
         @keyword prior: The prior value corresponding to each sample.
         """
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
 
         self.__injval=injected_value
+        self.__trigvals=trigger_values
         self.__prior=prior
 
         return
@@ -331,7 +312,7 @@ class OneDPosterior(object):
         """
         Container method . Returns posterior containing sample idx (allows slicing).
         """
-        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval)
+        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
         
     @property
     def name(self):
@@ -382,7 +363,7 @@ class OneDPosterior(object):
         if self.__injval is None:
             return None
         else:
-            return sqrt(np.var(self.__posterior_samples)+pow((np.mean(self.__posterior_samples)-self.__injval),2) )
+            return np.sqrt(np.mean((self.__posterior_samples - self.__injval)**2.0))
 
     @property
     def injval(self):
@@ -391,6 +372,14 @@ class OneDPosterior(object):
         will return None .
         """
         return self.__injval
+
+    @property
+    def trigvals(self):
+        """
+        Return the trigger values set at construction . If no value was set
+        will return None .
+        """
+        return self.__trigvals
 
     #@injval.setter #Python 2.6+
     def set_injval(self,new_injval):
@@ -401,6 +390,15 @@ class OneDPosterior(object):
         """
 
         self.__injval=new_injval
+
+    def set_trigvals(self,new_trigvals):
+        """
+        Set the trigger values of the parameter.
+
+        @param new_trigvals: Dictionary containing trigger values with IFO keys.
+        """
+
+        self.__trigvals=new_trigvals
 
     @property
     def samples(self):
@@ -470,7 +468,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,name=None,description=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,SnglInpiralList=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -481,21 +479,23 @@ class Posterior(object):
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
-        self._loglaliases=['logl','logL','likelihood','posterior']
-
+        self._triggers=SnglInpiralList
+        self._loglaliases=['posterior', 'logl','logL','likelihood']
+        self._votfile=votfile
+        
         common_output_table_header=[i.lower() for i in common_output_table_header]
         
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             
-            self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name))
+            self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
         and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
             try:
                 print 'Inferring m1 and m2 from mchirp and eta'
                 (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
-                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'))
-                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'))
+                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'),trigger_values=self._gettrigpar('m1'))
+                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'),trigger_values=self._gettrigpar('m2'))
             except KeyError:
                 print 'Unable to deduce m1 and m2 from input columns'
 
@@ -544,7 +544,7 @@ class Posterior(object):
         for i in range(Nsamp):
             bootstrapSamples[i,:]=random.choice(rows)
 
-        return Posterior((names,bootstrapSamples),self._injection)
+        return Posterior((names,bootstrapSamples),self._injection,self._triggers)
 
     def delete_samples_by_idx(self,samples):
         """
@@ -586,6 +586,14 @@ class Posterior(object):
         """
 
         return self._injection
+
+    @property
+    def triggers(self):
+        """
+        Return the trigger values .
+        """
+
+        return self._triggers
 
     def _total_incl_restarts(self, samples):
         total=0
@@ -631,42 +639,62 @@ class Posterior(object):
                 if new_injval is not None:
                     self[name].set_injval(new_injval)
 
+    def set_triggers(self,triggers):
+        """
+        Set the trigger values of the parameters.
+
+        @param triggers: A list of SnglInspiral objects.
+        """
+        if triggers is not None:
+            self._triggers=triggers
+            for name,onepos in self:
+                new_trigvals=self._gettrigpar(name)
+                if new_trigvals is not None:
+                    self[name].set_trigvals(new_trigvals)
+
 
     _injXMLFuncMap={
                         'mchirp':lambda inj:inj.mchirp,
+                        'chirpmass':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
                         'mass1':_inj_m1,
                         'm1':_inj_m1,
                         'mass2':_inj_m2,
                         'm2':_inj_m2,
                         'eta':lambda inj:inj.eta,
+                        'q':_inj_q,
+                        'asym_massratio':_inj_q,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.phi0,
+                        'phi_orb': lambda inj: inj.coa_phase,
                         'dist':lambda inj:inj.distance,
                         'distance':lambda inj:inj.distance,
                         'ra':_inj_longitude,
+                        'rightascension':_inj_longitude,
                         'long':_inj_longitude,
                         'longitude':_inj_longitude,
                         'dec':lambda inj:inj.latitude,
+                        'declination':lambda inj:inj.latitude,
                         'lat':lambda inj:inj.latitude,
                         'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: inj.polarization,
+                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
                         'iota':lambda inj: inj.inclination,
                         'inclination': lambda inj: inj.inclination,
                         'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
                         'f_lower': lambda inj: inj.f_lower,
-                        'a1':_inj_a1,
-                        'a2':_inj_a2,
+                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
+                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
                         'theta1':_inj_theta1,
                         'theta2':_inj_theta2,
                         'phi1':_inj_phi1,
                         'phi2':_inj_phi2,
                         'tilt1':_inj_tilt1,
                         'tilt2':_inj_tilt2,
+                        'costilt1': lambda inj: np.cos(_inj_tilt1),
+                        'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
-                        'theta_s':_inj_thetas,
+                        'thetas':_inj_thetas,
                         'beta':_inj_beta
                        }
 
@@ -680,6 +708,19 @@ class Posterior(object):
                     return self._injXMLFuncMap[key](self._injection)
         return None
 
+    def _gettrigpar(self,paramname):
+        """
+        Map parameter names to parameters in a SnglInspiral.
+        """
+        vals = None
+        if self._triggers is not None:
+            for key,value in self._injXMLFuncMap.items():
+                if paramname.lower().strip() == key.lower().strip():
+                    try:
+                        vals = dict([(trig.ifo,self._injXMLFuncMap[key](trig)) for trig in self._triggers])
+                    except AttributeError:
+                        break
+        return vals
 
     def __getitem__(self,key):
         """
@@ -794,6 +835,12 @@ class Posterior(object):
         self._posterior[one_d_posterior.name]=one_d_posterior
         return
 
+    def pop(self,param_name):
+        """
+        Container method.  Remove OneDPosterior from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
+
     def append_mapping(self, new_param_names, func, post_names):
         """
         Append posteriors pos1,pos2,...=func(post_names)
@@ -802,12 +849,20 @@ class Posterior(object):
         if isinstance(post_names, str):
             old_post = self[post_names]
             old_inj  = old_post.injval
+            old_trigs  = old_post.trigvals
             if old_inj:
                 new_inj = func(old_inj)
             else:
                 new_inj = None
+            if old_trigs:
+                new_trigs = {}
+                for IFO in old_trigs.keys():
+                    new_trigs[IFO] = func(old_trigs[IFO])
+            else:
+                new_trigs = None
+
             samps = func(old_post.samples)
-            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj)
+            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
             if new_post.samples.ndim is 0:
                 print "WARNING: No posterior calculated for %s ..." % post.name
             else:
@@ -816,6 +871,7 @@ class Posterior(object):
         else:
             old_posts = [self[post_name] for post_name in post_names]
             old_injs = [post.injval for post in old_posts]
+            old_trigs = [post.trigvals for post in old_posts]
             samps = func(*[post.samples for post in old_posts])
             #1D output
             if isinstance(new_param_names, str):
@@ -823,7 +879,14 @@ class Posterior(object):
                     inj = func(*old_injs)
                 else:
                     inj = None
-                new_post = OneDPosterior(new_param_names, samps, injected_value=inj)
+                if None not in old_trigs:
+                    new_trigs = {}
+                    for IFO in old_trigs[0].keys():
+                        oldvals = [param[IFO] for param in old_trigs]
+                        new_trigs[IFO] = func(*oldvals)
+                else:
+                    new_trigs = None
+                new_post = OneDPosterior(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
                 self.append(new_post)
             #MultiD output
             else:
@@ -831,7 +894,16 @@ class Posterior(object):
                     injs = func(*old_injs)
                 else:
                     injs = [None for name in new_param_names]
-                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj) for (new_param_name,samp,inj) in zip(new_param_names,samps,injs)]
+                if None not in old_trigs:
+                    new_trigs = [{} for param in range(len(new_param_names))]
+                    for IFO in old_trigs[0].keys():
+                        oldvals = [param[IFO] for param in old_trigs]
+                        newvals = func(*oldvals)
+                        for param,newval in enumerate(newvals):
+                            new_trigs[param][IFO] = newval
+                else:
+                    new_trigs = [None for param in range(len(new_param_names))]
+                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
                 for post in new_posts: 
                     if post.samples.ndim is 0: 
                         print "WARNING: No posterior calculated for %s ..." % post.name
@@ -874,7 +946,7 @@ class Posterior(object):
         """
         allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
                              "iota", "psi", "ra", "dec",
-                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "eta"]
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
@@ -894,7 +966,73 @@ class Posterior(object):
         else:
             raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
 
+    def elliptical_subregion_evidence(self):
+        """Returns an approximation to the log(evidence) obtained by
+        fitting an ellipse around the highest-posterior samples and
+        performing the harmonic mean approximation within the ellipse.
+        Because the ellipse should be well-sampled, this provides a
+        better approximation to the evidence than the full-domain HM."""
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
+        samples,header=self.samples()
+        header=header.split()
 
+        n=int(0.05*samples.shape[0])
+        if not n > 1:
+            raise IndexError
+
+        coord_names=[name for name in allowed_coord_names if name in header]
+        indexes=np.argsort(self._logL[:,0])
+
+        my_samples=samples[indexes[-n:], :] # The highest posterior samples.
+        my_samples=np.array([ParameterSample(sample,header,coord_names).coord() for sample in my_samples])
+
+        mu=np.mean(my_samples, axis=0)
+        cov=np.cov(my_samples, rowvar=0)
+
+        d0=None
+        for mysample in my_samples:
+            d=np.dot(mysample-mu, np.linalg.solve(cov, mysample-mu))
+            if d0 is None:
+                d0 = d
+            else:
+                d0=max(d0,d)
+
+        ellipse_logl=[]
+        ellipse_samples=[]
+        for sample,logl in zip(samples, self._logL):
+            coord=ParameterSample(sample, header, coord_names).coord()
+            d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
+
+            if d <= d0:
+                ellipse_logl.append(logl)
+                ellipse_samples.append(sample)
+        
+        if len(ellipse_samples) > 5*n:
+            print 'WARNING: ellpise evidence region encloses significantly more samples than %d'%n
+
+        ellipse_samples=np.array(ellipse_samples)
+        ellipse_logl=np.array(ellipse_logl)
+
+        ndim = len(coord_names)
+        ellipse_volume=np.pi**(ndim/2.0)*d0**(ndim/2.0)/special.gamma(ndim/2.0+1)*np.sqrt(np.linalg.det(cov))
+
+        try:
+            prior_index=header.index('prior')
+            pmu=np.mean(ellipse_samples[:,prior_index])
+            pstd=np.std(ellipse_samples[:,prior_index])
+            if pstd/pmu > 1.0:
+                print 'WARNING: prior variation greater than 100\% over elliptical volume.'
+            approx_prior_integral=ellipse_volume*pmu
+        except KeyError:
+            # Maybe prior = 1?
+            approx_prior_integral=ellipse_volume
+
+        ll_bias=np.mean(ellipse_logl)
+        ellipse_logl = ellipse_logl - ll_bias
+
+        return np.log(approx_prior_integral) - np.log(np.mean(1.0/np.exp(ellipse_logl))) + ll_bias
 
     def harmonic_mean_evidence(self):
         """
@@ -1010,6 +1148,12 @@ class Posterior(object):
         return_val='<table border="1" id="statstable"><tr><th/>'
 
         column_names=['maxL','stdev','mean','median','stacc','injection value']
+        IFOs = []
+        if self._triggers is not None:
+            IFOs = [trig.ifo for trig in self._triggers]
+            for IFO in IFOs:
+                column_names.append(IFO+' trigger values')
+
         for column_name in column_names:
             return_val+='<th>%s</th>'%column_name
 
@@ -1024,8 +1168,16 @@ class Posterior(object):
             median=str(np.squeeze(oned_pos.median))
             stacc=str(oned_pos.stacc)
             injval=str(oned_pos.injval)
+            trigvals=oned_pos.trigvals
 
-            return_val+=self._print_table_row(name,[maxL,stdev,mean,median,stacc,injval])
+            row = [maxL,stdev,mean,median,stacc,injval]
+            if self._triggers is not None:
+                for IFO in IFOs:
+                    try:
+                        row.append(str(trigvals[IFO]))
+                    except TypeError:
+                        row.append(None)
+            return_val+=self._print_table_row(name,row)
 
         return_val+='</table>'
 
@@ -1039,6 +1191,16 @@ class Posterior(object):
         return_val=reparsed.toprettyxml(indent="  ")
 
         return return_val
+
+    def write_vot_info(self):
+      """
+      Writes the information stored in the VOTtree if there is one
+      """
+      target=VOT2HTML()
+      parser=XMLParser(target=target)
+      parser.feed(self._votfile)
+      return parser.close()
+
 
 class KDTree(object):
     """
@@ -1160,17 +1322,37 @@ class KDTree(object):
             v = v*(h - l)
         return v
 
-    def integrate(self, f, boxing=64):
+    def integrate(self,f,boxing=64):
         """
         Returns the integral of f(objects) over the tree.  The
         optional boxing parameter determines how deep to descend into
         the tree before computing f.
         """
+        # if len(self._objects) <= boxing:
+        #     return self.volume()*f(self._objects)
+        # else:
+        #     return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
+        
+        def x(tree):
+            return tree.volume()*f(tree._objects)
+            
+        def y(a,b):
+            return a+b
+        
+        return self.operate(x,y,boxing=boxing)
+        
+    def operate(self,f,g,boxing=64):
+        """
+        Operates on tree nodes exceeding boxing parameter depth.
+        """
         if len(self._objects) <= boxing:
-            return self.volume()*f(self._objects)
+            return f(self)
         else:
-            return self._left.integrate(f, boxing) + self._right.integrate(f, boxing)
-
+            
+            return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
+            
+    
+    
 class ParameterSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
@@ -1208,6 +1390,84 @@ class ParameterSample(object):
         Return the coordinates for the parameter sample.
         """
         return self._samples[self._coord_indexes]
+
+
+class AnalyticLikelihood(object):
+    """
+    Return analytic likelihood values.
+    """
+
+    def __init__(self, covariance_matrix_files, mean_vector_files):
+        """
+        Prepare analytic likelihood for the given parameters.
+        """
+        # Make sure files names are in a list
+        if isinstance(covariance_matrix_files, str):
+            covariance_matrix_files = [covariance_matrix_files]
+        if isinstance(mean_vector_files, str):
+            mean_vector_files = [mean_vector_files]
+
+        covarianceMatrices = [np.loadtxt(csvFile, delimiter=',') for csvFile in covariance_matrix_files]
+        num_matrices = len(covarianceMatrices)
+
+        if num_matrices != len(mean_vector_files):
+            raise RuntimeError('Must give a mean vector list for every covariance matrix')
+
+        param_line = open(mean_vector_files[0]).readline()
+        self._params = [param.strip() for param in param_line.split(',')]
+
+        converter=lambda x: eval(x.replace('pi','%.32f'%pi_constant))  # converts fractions w/ pi (e.g. 3.0*pi/2.0)
+        self._modes = []
+        for i in range(num_matrices):
+            CM = covarianceMatrices[i]
+            vecFile = mean_vector_files[i]
+
+            param_line = open(vecFile).readline()
+            params = [param.strip() for param in param_line.split(',')]
+            if set(params)!=set(self._params):
+                raise RuntimeError('Parameters do not agree between mean vector files.')
+
+            sigmas = dict(zip(params,np.sqrt(CM.diagonal())))
+            colNums = range(len(params))
+            converters = dict(zip(colNums,[converter for i in colNums]))
+            meanVectors = np.loadtxt(vecFile, delimiter=',', skiprows=1, converters=converters)
+            try:
+                for vec in meanVectors:
+                    means = dict(zip(params,vec))
+                    mode = [(param, stats.norm(loc=means[param],scale=sigmas[param])) for param in params]
+                    self._modes.append(dict(mode))
+            except TypeError:
+                means = dict(zip(params,meanVectors))
+                mode = [(param, stats.norm(loc=means[param],scale=sigmas[param])) for param in params]
+                self._modes.append(dict(mode))
+        self._num_modes = len(self._modes)
+
+    def pdf(self, param):
+        """
+        Return PDF function for parameter.
+        """
+        pdf = None
+        if param in self._params:
+            pdf = lambda x: (1.0/self._num_modes) * sum([mode[param].pdf(x) for mode in self._modes])
+        return pdf
+
+    def cdf(self, param):
+        """
+        Return PDF function for parameter.
+        """
+        cdf = None
+        if param in self._params:
+            cdf = lambda x: (1.0/self._num_modes) * sum([mode[param].cdf(x) for mode in self._modes])
+        return cdf
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names described by analytic likelihood function.
+        """
+        return self._params
+
+
 
 #===============================================================================
 # Web page creation classes (wrap ElementTrees)
@@ -1471,6 +1731,60 @@ def _greedy_bin(greedyHist,greedyPoints,injection_bin_index,bin_size,Nsamples,co
 # Public module functions
 #===============================================================================
 
+def kdtree_bin_sky_volume(posterior,confidence_levels):
+    
+    confidence_levels.sort()
+    
+    class Harvester(list):
+        
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+            
+        def __call__(self,tree):
+            number_density=float(len(tree.objects()))/float(tree.volume())
+            self.append([number_density,tree.volume(),tree.bounds()])
+            self.unrho+=number_density
+            
+        def close_ranks(self):
+            
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+            
+            return sorted(self,key=itemgetter(0))
+    
+    def h(a,b):
+        pass
+    
+    samples,header=posterior.samples()
+    header=header.split()
+    coord_names=["ra","dec","dist"]
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    tree=KDTree(coordinatized_samples)
+    
+    a=Harvester()
+    samples_per_bin=10
+    tree.operate(a,h,boxing=samples_per_bin)
+    
+    b=a.close_ranks()
+    b.reverse()
+    
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+    confidence_intervals={}
+    for rho,vol,bounds in b:
+        acc_rho+=rho
+        acc_vol+=vol
+    
+        if acc_rho>confidence_levels[cl_idx]:
+            confidence_intervals[acc_rho]=acc_vol
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+    
+    return confidence_intervals
+
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
     Determine the 2-parameter Bayesian Confidence Intervals using a greedy
@@ -1672,7 +1986,7 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
     if (inj_pos is not None and inj_pos[1] is not None and inj_pos[0] is not None):
         ra_inj_rev=2*pi_constant - inj_pos[1]*57.296
         inj_plx,inj_ply=m(ra_inj_rev, inj_pos[0]*57.296)
-        plt.plot(inj_plx,inj_ply,'kx',linewidth=12, markersize=22,mew=2,alpha=0.6)
+        plt.plot(inj_plx,inj_ply,'wx',linewidth=12, markersize=22,mew=2,alpha=0.6)
     
     ra_reverse = 2*pi_constant - np.asarray(top_ranked_pixels)[::-1,1]*57.296
 
@@ -1729,6 +2043,29 @@ def mc2ms(mc,eta):
 
     m1= mc* np.power(1+invfraction,0.2) / np.power(invfraction,0.6)
     return (m1,m2)
+#
+#
+
+def q2ms(mc,q):
+    """
+    Utility function for converting mchirp,q to component masses. The
+    masses are defined so that m1>m2. The rvalue is a tuple (m1,m2).
+    """
+    factor = mc * np.power(1+q, 1.0/5.0);
+    m1 = factor * np.power(q, -3.0/5.0);
+    m2 = factor * np.power(q, 2.0/5.0);
+    return (m1,m2)
+#
+#
+
+def q2eta(mc,q):
+    """
+    Utility function for converting mchirp,q to eta. The
+    rvalue is eta.
+    """
+    m1,m2 = q2ms(mc,q)
+    eta = m1*m2/( (m1+m2)*(m1+m2) )
+    return eta
 #
 #
 
@@ -1836,8 +2173,7 @@ def orbital_momentum(f_lower, mc, inclination):
     """
     Calculate orbital angular momentum vector.
     """
-    mtsun = 4.92549095e-06          #Msol in seconds
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * f_lower, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -1883,19 +2219,21 @@ def plot_one_param_pdf_kde(fig,onedpos):
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
     pos_samps=onedpos.samples
-    gkde=onedpos.gaussian_kde
-
-    ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
-    kdepdf=gkde.evaluate(ind)
-    plt.plot(ind,kdepdf)
-
+    try:
+        gkde=onedpos.gaussian_kde
+    except np.linalg.linalg.LinAlgError:
+        print 'Singular matrix in KDE. Skipping'
+    else:
+        ind=np.linspace(np.min(pos_samps),np.max(pos_samps),101)
+        kdepdf=gkde.evaluate(ind)
+        plt.plot(ind,kdepdf,color='green')
     return
 
 def plot_one_param_pdf_line_hist(fig,pos_samps):
     plt.hist(pos_samps,kdepdf)
 
 
-def plot_one_param_pdf(posterior,plot1DParams):
+def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,plotkde=False):
     """
     Plots a 1D histogram and (gaussian) kernel density estimate of the
     distribution of posterior samples for a given parameter.
@@ -1904,6 +2242,10 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     @param plot1DParams: a dict; {paramName:Nbins}
 
+    @param analyticPDF: an analytic probability distribution function describing the distribution.
+
+    @param analyticCDF: an analytic cumulative distribution function describing the distribution.
+
     """
 
     param=plot1DParams.keys()[0].lower()
@@ -1911,21 +2253,28 @@ def plot_one_param_pdf(posterior,plot1DParams):
 
     pos_samps=posterior[param].samples
     injpar=posterior[param].injval
+    trigvals=posterior[param].trigvals
 
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
     axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
     myfig.add_axes(axes)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
+    if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
-
-    plot_one_param_pdf_kde(myfig,posterior[param])
+    if analyticPDF:
+        (xmin,xmax)=plt.xlim()
+        x = np.linspace(xmin,xmax,2*len(bins))
+        plt.plot(x, analyticPDF(x), color='b', linewidth=2, linestyle='dashed')
+        if analyticCDF:
+            D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
+            plt.title("%s: ks p-value %.3f"%(param,p))
 
     rbins=None
 
-    if injpar:
+    if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.axvline(injpar, color='r', linestyle='-.')
+            plt.axvline(injpar, color='b', linestyle='-.')
 
             #rkde=gkde.integrate_box_1d(min(pos[:,i]),getinjpar(injection,i))
             #print "r of injected value of %s (kde) = %f"%(param,rkde)
@@ -1938,6 +2287,15 @@ def plot_one_param_pdf(posterior,plot1DParams):
             #Integrate over the bins
             rbins=(sum(n[0:injbinh-1])+injbin_frac*n[injbinh])*histbinSize
 
+    if trigvals is not None:
+        for IFO in [IFO for IFO in trigvals.keys()]:
+            trigval = trigvals[IFO]
+            if min(pos_samps)<trigval and max(pos_samps)>trigval:
+                if IFO=='H1': color = 'r'
+                elif IFO=='L1': color = 'g'
+                elif IFO=='V1': color = 'm'
+                else: color = 'c'
+                plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
     plt.xlabel(param)
@@ -1949,37 +2307,123 @@ def plot_one_param_pdf(posterior,plot1DParams):
         plt.xlim(xmax,xmin)
     if(param.lower()=='ra' or param.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
     if(param.lower()=='dec' or param.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
 
     return rbins,myfig#,rkde
 #
 
-def getRAString(radians):
-    hours = floor(radians*(12.0/pi_constant))
-    rem = radians-hours*(pi_constant/12.0)
-    mins = floor(rem*((12*60)/pi_constant))
-    rem = rem - mins*(pi_constant/(12*60))
-    secs = rem*(12*3600/pi_constant)
-    return '$%i\mathrm{h}%i^{\'}%2.0f^{\'\'}$'%(hours,mins,secs)
-
-def getDecString(radians):
-    if(radians<0):
-        round = ceil
-        sign=-1
+def formatRATicks(locs, accuracy='auto'):
+    """
+    Format locs, ticks to RA angle with given accuracy
+    accuracy can be 'hour', 'min', 'sec', 'all'
+    returns (locs, ticks)
+    'all' does no rounding, just formats the tick strings
+    'auto' will use smallest appropriate units
+    """
+    newmax=max(locs)
+    newmin=min(locs)
+    if(accuracy=='auto'):
+        acc='hour'
+        if abs(newmax-newmin)<pi_constant/12.:
+            acc='min'
+        if abs(newmax-newmin)<pi_constant/(12.*60.):
+            acc='sec'
     else:
-        round = floor
-        sign=+1
-    deg = round(radians*(180.0/pi_constant))
-    rem = radians - deg*(pi_constant/180.0)
-    mins = round(rem*((180.0*60.0)/pi_constant))
-    rem = rem - mins*(pi_constant/(180.0*60.0))
-    secs = rem * (180.0*60.0*60.0)/pi_constant
-    return '$%i^\circ%i^{\'}%2.0f^{\'\'}$'%(deg,sign*mins,sign*secs)
+        acc=accuracy
+    
+    if max(locs)>2*pi_constant: newmax=2.0*pi_constant
+    if min(locs)<0.0: newmin=0.0
+    locs=linspace(newmin,newmax,len(locs))
+    
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
+    
+    newlocs=filter(lambda a:a>=0 and a<=2.0*pi_constant, roundlocs)
+    return (list(newlocs), map(getRAString, list(newlocs) ) )
+
+def formatDecTicks(locs, accuracy='auto'):
+    """
+    Format locs to Dec angle with given accuracy
+    accuracy can be 'deg', 'arcmin', 'arcsec', 'all'
+    'all' does no rounding, just formats the tick strings
+    """
+    newmax=max(locs)
+    newmin=min(locs)
+    if(accuracy=='auto'):
+        acc='deg'
+        if abs(newmax-newmin)<pi_constant/360.:
+            acc='arcmin'
+        if abs(newmax-newmin)<pi_constant/(360.*60.):
+            acc='arcsec'
+    else:
+        acc=accuracy
+    if newmax>0.5*pi_constant: newmax=0.5*pi_constant
+    if newmin<-0.5*pi_constant: newmin=-0.5*pi_constant
+    locs=linspace(newmin,newmax,len(locs))
+    
+    roundlocs=map(lambda a: roundRadAngle(a, accuracy=acc), locs)
+    newlocs=filter(lambda a:a>=-pi_constant/2.0 and a<=pi_constant/2.0, roundlocs)
+    return (list(newlocs), map(getDecString, list(newlocs) ) )
+
+def roundRadAngle(rads,accuracy='all'):
+    """
+    round given angle in radians to integer hours, degrees, mins or secs
+    accuracy can be 'hour'. 'deg', 'min', 'sec', 'all', all does nothing
+    'arcmin', 'arcsec'
+    """
+    if accuracy=='all': return locs
+    if accuracy=='hour': mult=24
+    if accuracy=='deg': mult=360
+    if accuracy=='min': mult=24*60
+    if accuracy=='sec': mult=24*60*60
+    if accuracy=='arcmin': mult=360*60
+    if accuracy=='arcsec': mult=360*60*60
+    mult=mult/(2.0*pi_constant)
+    return round(rads*mult)/mult
+
+def getRAString(radians,accuracy='auto'):
+    hours, rem = divmod(radians, pi_constant/12.0)
+    mins,rem = divmod(rem, pi_constant/(12.0*60.0))
+    secs = rem*12.0*3600.0/pi_constant
+    if secs>=59.5:
+        secs=secs-60
+        mins=mins+1
+    if mins>=59.5:
+        mins=mins-60
+        hours=hours+1
+    if accuracy=='hour': return ur'%ih'%(hours)
+    if accuracy=='min': return ur'%ih%im'%(hours,mins)
+    if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
+    else:
+        if secs>=0.5: return(getRAString(radians,accuracy='sec'))
+        if mins>=0.5: return(getRAString(radians,accuracy='min'))
+        else: return(getRAString(radians,accuracy='hour'))
+        
+def getDecString(radians,accuracy='auto'):
+    if(radians<0):
+        radians=-radians
+        sign=-1
+    else: sign=+1
+    deg,rem=divmod(radians,pi_constant/180.0)
+    mins, rem = divmod(rem, pi_constant/(180.0*60.0))
+    secs = rem * (180.0*3600.0)/pi_constant
+    if secs>=59.5:
+        secs=secs-60.0
+        mins=mins+1
+    if mins>=59.5:
+        mins=mins-60.0
+        deg=deg+1
+    if accuracy=='deg': return ur'%i\u00B0'%(sign*deg)
+    if accuracy=='arcmin': return ur'%i\u00B0%i\u0027'%(sign*deg,mins)
+    if accuracy=='arcsec': return ur'%i\u00B0%i\u0027%2.0f\u2033'%(sign*deg,mins,secs)
+    else:
+        if secs>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
+        if mins>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+        else: return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -2001,6 +2445,9 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
 
     par_injvalue1=posterior[par1_name].injval
     par_injvalue2=posterior[par2_name].injval
+
+    par_trigvalues1=posterior[par1_name].trigvals
+    par_trigvalues2=posterior[par2_name].trigvals
 
     np.seterr(under='ignore')
     sp_seterr(under='ignore')
@@ -2026,7 +2473,18 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.colorbar()
 
     if par_injvalue1 is not None and par_injvalue2 is not None:
-        plt.plot([par_injvalue1],[par_injvalue2],'go',scalex=False,scaley=False)
+        plt.plot([par_injvalue1],[par_injvalue2],'bo',scalex=False,scaley=False)
+
+    if par_trigvalues1 is not None and par_trigvalues2 is not None:
+        par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
+        par2IFOs = set([IFO for IFO in par_trigvalues2.keys()])
+        IFOs = par1IFOs.intersection(par2IFOs)
+        for IFO in IFOs:
+            if IFO=='H1': color = 'r'
+            elif IFO=='L1': color = 'g'
+            elif IFO=='V1': color = 'm'
+            else: color = 'c'
+            plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     plt.xlabel(par1_name)
     plt.ylabel(par2_name)
@@ -2038,24 +2496,24 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
             plt.xlim(xmax,xmin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.xticks()
-            strticks=map(getRAString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            (newlocs, newticks)=formatRATicks(locs, ticks)
+            plt.xticks(newlocs,newticks,rotation=45)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
             locs, ticks = plt.xticks()
-            strticks=map(getDecString,locs)
-            plt.xticks(locs,strticks,rotation=45)
+            newlocs, newticks = formatDecTicks(locs)
+            plt.xticks(newlocs,newticks,rotation=45)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         ymin,ymax=plt.ylim()
         plt.ylim(ymax,ymin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.yticks()
-        strticks=map(getRAString,locs)
-        plt.yticks(locs,strticks)
+        newlocs,newticks=formatRATicks(locs)
+        plt.yticks(newlocs,newticks)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.yticks()
-        strticks=map(getDecString,locs)
-        plt.yticks(locs,strticks)
+        newlocs,newticks=formatDecTicks(locs)
+        plt.yticks(newlocs,newticks)
 
     return myfig
 #
@@ -2068,7 +2526,122 @@ def get_inj_by_time(injections,time):
     injection = itertools.ifilter(lambda a: abs(float(a.get_end()) - time) < 0.1, injections).next()
     return injection
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75]):
+def histogram2D(posterior,greedy2Params,confidence_levels):
+    """
+    Returns a 2D histogram and edges for the two parameters passed in greedy2Params, plus the actual discrete confidence levels
+    imposed by the finite number of samples.
+       H,xedges,yedges,Hlasts = histogram2D(posterior,greedy2Params,confidence_levels)
+    @param posterior: Posterior instance
+    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map.
+    """
+
+    par1_name,par2_name=greedy2Params.keys()
+    par1_bin=greedy2Params[par1_name]
+    par2_bin=greedy2Params[par2_name]
+    par1_injvalue=posterior[par1_name.lower()].injval
+    par2_injvalue=posterior[par2_name.lower()].injval
+    a=np.squeeze(posterior[par1_name].samples)
+    b=np.squeeze(posterior[par2_name].samples)
+    par1pos_min=a.min()
+    par2pos_min=b.min()
+    par1pos_max=a.max()
+    par2pos_max=b.max()
+    par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
+    par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
+    H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
+    temp=np.copy(H)
+    temp=temp.ravel()
+    confidence_levels.sort()
+    Hsum=0
+    Hlasts=[]
+    for cl in confidence_levels:
+        while float(Hsum/np.sum(H))<cl:
+            ind = np.argsort(temp)
+            max_i=ind[-1:]
+            val = temp[max_i]
+            Hlast=val[0]
+            Hsum+=val
+            temp[max_i]=0
+        Hlasts.append(Hlast)
+    return (H,xedges,yedges,Hlasts)
+
+def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+    """
+    @param posteriors_by_name A dictionary of posterior objects indexed by name
+    @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
+    @param confidence_levels: a list of the required confidence levels to plot on the contour map. 
+    
+    """
+    fig=plt.figure(1,figsize=figsize,dpi=dpi)
+    plt.clf()
+    fig.add_axes(figposition)
+    CSlst=[]
+    name_list=[]
+    par1_name,par2_name=greedy2Params.keys()
+    for name,posterior in posteriors_by_name.items():
+        name_list.append(name)
+        H,xedges,yedges,Hlasts=histogram2D(posterior,greedy2Params,confidence_levels+[0.99999999999999])
+        extent= [xedges[0], yedges[-1], xedges[-1], xedges[0]]
+        CS2=plt.contourf(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] ,alpha=0.3 )
+        CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,extend='max',colors=[colors_by_name[name]] )
+        CSlst.append(CS)
+    
+    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    plt.xlabel(par2_name)
+    plt.ylabel(par1_name)
+    if len(name_list)!=len(CSlst):
+        raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
+    full_name_list=[]
+    dummy_lines=[]
+    for plot_name in name_list:
+        full_name_list.append(plot_name)
+        for cl in confidence_levels+[1]:
+            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
+            full_name_list.append('%s%%'%str(int(cl*100)))
+        fig_actor_lst = [cs.collections[0] for cs in CSlst]
+        fig_actor_lst.extend(dummy_lines)
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+        text.set_fontsize('small')
+    fix_axis_names(plt,par1_name,par2_name)
+    return fig
+
+def fix_axis_names(plt,par1_name,par2_name):
+    """
+    Fixes names of axes
+    """
+    # For ra and dec set custom labels and for RA reverse
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            ymin,ymax=plt.ylim()
+            if(ymin<0.0): ylim=0.0
+            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+            plt.ylim(ymax,ymin)
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            locs, ticks = plt.yticks()
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
+    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+            locs, ticks = plt.yticks()
+            newlocs,newticks=formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
+
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        locs, ticks = plt.xticks()
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
+    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+        locs, ticks = plt.xticks()
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
+    return plt
+
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -2080,6 +2653,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     @param confidence_levels: a list of the required confidence levels to plot on the contour map.
 
     @param colors_by_name: A dict of colors cross-referenced to the above Posterior ids.
+
+    @param legend: Argument for legend placement or None for no legend ('right', 'upper left', 'center' etc)
 
     """
 
@@ -2106,6 +2681,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         #Extract injection information
         par1_injvalue=posterior[par1_name.lower()].injval
         par2_injvalue=posterior[par2_name.lower()].injval
+
+        #Extract trigger information
+        par1_trigvalues=posterior[par1_name.lower()].trigvals
+        par2_trigvalues=posterior[par2_name.lower()].trigvals
 
         a=np.squeeze(posterior[par1_name].samples)
         b=np.squeeze(posterior[par2_name].samples)
@@ -2141,7 +2720,17 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
-
+        if(par1_injvalue is not None and par2_injvalue is not None):
+            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False)
+        if(par1_trigvalues is not None and par2_trigvalues is not None):
+            par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
+            par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
+            IFOs = par1IFOs.intersection(par2IFOs)
+            if IFO=='H1': color = 'r'
+            elif IFO=='L1': color = 'g'
+            elif IFO=='V1': color = 'm'
+            else: color = 'c'
+            plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='*',scalex=False,scaley=False)
         CSlst.append(CS)
 
 
@@ -2164,7 +2753,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     fig_actor_lst.extend(dummy_lines)
 
-    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
 
     for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
@@ -2178,12 +2767,12 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
-            strticks=map(getRAString,locs)
-            plt.yticks(locs,strticks)
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
             locs, ticks = plt.yticks()
-            strticks=map(getDecString,locs)
-            plt.yticks(locs,strticks)
+            newlocs,newticks=formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
@@ -2192,12 +2781,12 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
 
     return fig
 #
@@ -2242,6 +2831,10 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par1_injvalue=posterior[par1_name.lower()].injval
     par2_injvalue=posterior[par2_name.lower()].injval
 
+    #Extract trigger information
+    par1_trigvalues=posterior[par1_name.lower()].trigvals
+    par2_trigvalues=posterior[par2_name.lower()].trigvals
+
     myfig=plt.figure(1,figsize=(10,8),dpi=300)
     myfig.add_axes([0.2,0.2,0.8,0.8])
     plt.clf()
@@ -2275,8 +2868,17 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     plt.colorbar()
 
     if par1_injvalue is not None and par2_injvalue is not None:
-        plt.plot([par1_injvalue],[par2_injvalue],'go',scalex=False,scaley=False)
+        plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
 
+    if par1_trigvalues is not None and par2_trigvalues is not None:
+        par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
+        par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
+        IFOs = par1IFOs.intersection(par2IFOs)
+        if IFO=='H1': color = 'r'
+        elif IFO=='L1': color = 'g'
+        elif IFO=='V1': color = 'm'
+        else: color = 'c'
+        plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
@@ -2284,12 +2886,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
             plt.ylim(ymax,ymin)
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             locs, ticks = plt.yticks()
-            strticks=map(getRAString,locs)
-            plt.yticks(locs,strticks)
+            newlocs, newticks = formatRATicks(locs)
+            plt.yticks(newlocs,newticks)
     if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
             locs, ticks = plt.yticks()
-            strticks=map(getDecString,locs)
-            plt.yticks(locs,strticks)
+            newlocs, newticks = formatDecTicks(locs)
+            plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
@@ -2298,12 +2900,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.xlim(xmax,xmin)
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         locs, ticks = plt.xticks()
-        strticks=map(getRAString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatRATicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
     if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
         locs, ticks = plt.xticks()
-        strticks=map(getDecString,locs)
-        plt.xticks(locs,strticks,rotation=45)
+        newlocs, newticks = formatDecTicks(locs)
+        plt.xticks(newlocs,newticks,rotation=45)
 
     return myfig
 
@@ -2356,7 +2958,7 @@ def greedy_bin_one_param(posterior,greedy1Param,confidence_levels):
         par_binNumber=floor((par_injvalue-parpos_min)/par_bin)
         injbin=par_binNumber
 
-    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin*par_bin),int(len(par_samps)),confidence_levels)
+    toppoints,injectionconfidence,reses,injection_area=_greedy_bin(greedyHist,greedyPoints,injbin,float(par_bin),int(len(par_samps)),confidence_levels)
     cl_intervals=[]
     confidence_levels.sort()
     for cl in confidence_levels:
@@ -2492,6 +3094,42 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
 
     return pos,bayesfactor
 
+
+def effectiveSampleSize(samples, Nskip=1):
+    mu = np.mean(samples)
+    N = len(samples)
+    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
+    acf = corr[N-1:]/corr[N-1]
+    acl = 1
+    i = 1
+    try:
+      while (acf[i] > 0.0005):
+          acl += 2.0*acf[i]
+          i+=1
+    except IndexError:
+      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = N
+    Neffective = floor(N/acl)
+    acl *= Nskip
+    return (Neffective, acl, acf)
+
+
+def readCoincXML(xml_file, trignum):
+    triggers=None
+
+    coincXML = utils.load_filename(xml_file)
+    coinc = lsctables.getTablesByType(coincXML, lsctables.CoincTable)[0]
+    coincMap = lsctables.getTablesByType(coincXML, lsctables.CoincMapTable)[0]
+    snglInsps = lsctables.getTablesByType(coincXML, lsctables.SnglInspiralTable)[0]
+
+    if (trignum>len(coinc)):
+        raise RuntimeError("Error: You asked for trigger %d, but %s contains only %d triggers" %(trignum,coincfile,len(tiggers)))
+    else:
+        coincEventID = coinc.getColumnByName('coinc_event_id')[trignum]
+        eventIDs = [row.event_id for row in coincMap if row.coinc_event_id == coincEventID]
+        triggers = [row for row in snglInsps if row.event_id in eventIDs]
+    return triggers
+
 #===============================================================================
 # Parameter estimation codes results parser
 #===============================================================================
@@ -2523,24 +3161,33 @@ class PEOutputParser(object):
         """
         return self._parser(files,**kwargs)
 
-    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnin=None,nDownsample=None,oldMassConvention=False,**kwargs):
+    def _infmcmc_to_pos(self,files,outdir=None,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,**kwargs):
         """
         Parser for lalinference_mcmcmpi output.
         """
-        if not (fixedBurnin is None):
+        if not (fixedBurnins is None):
             if not (deltaLogL is None):
                 print "Warning: using deltaLogL criteria in addition to fixed burnin"
-            print "Eliminating the first ",fixedBurnin,"samples as burnin."
+            if len(fixedBurnins) == 1 and len(files) > 1:
+                print "Only one fixedBurnin criteria given for more than one output.  Applying this to all outputs."
+                fixedBurnins = np.ones(len(files),'int')*fixedBurnins[0]
+            elif len(fixedBurnins) != len(files):
+                raise RuntimeError("Inconsistent number of fixed burnin criteria and output files specified.")
+            print "Fixed burning criteria: ",fixedBurnins
         else:
-            fixedBurnin = 0
+            fixedBurnins = np.zeros(len(files))
         logLThreshold=-1e200 # Really small?
         if not (deltaLogL is None):
             logLThreshold=self._find_max_logL(files) - deltaLogL
             print "Eliminating any samples before log(Post) = ", logLThreshold
-        nskip=1
-        if not (nDownsample is None):
-            nskip=self._find_ndownsample(files, logLThreshold, fixedBurnin, nDownsample)
-            print "Downsampling by a factor of ", nskip, " to achieve approximately ", nDownsample, " posterior samples"
+        nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
+        if nDownsample is None:
+            print "Downsampling to take only uncorrelated posterior samples from each file."
+            for i in range(len(nskips)):
+                if nskips[i] is None:
+                    print "%s eliminated since all samples are correlated."
+        else:
+            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -2548,14 +3195,14 @@ class PEOutputParser(object):
         runfile=open(runfileName, 'w')
         outfile=open(postName, 'w')
         try:
-            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnin, nskip, oldMassConvention)
+            self._infmcmc_output_posterior_samples(files, runfile, outfile, logLThreshold, fixedBurnins, nskips, oldMassConvention)
         finally:
             runfile.close()
             outfile.close()
         return self._common_to_pos(open(postName,'r'))
 
 
-    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnin, nskip=1, oldMassConvention=False):
+    def _infmcmc_output_posterior_samples(self, files, runfile, outfile, logLThreshold, fixedBurnins, nskips=None, oldMassConvention=False):
         """
         Concatenate all the samples from the given files into outfile.
         For each file, only those samples past the point where the
@@ -2564,7 +3211,10 @@ class PEOutputParser(object):
         """
         nRead=0
         outputHeader=False
-        for infilename,i in zip(files,range(1,len(files)+1)):
+        acceptedChains=0
+        if nskips is None:
+            nskips = np.ones(len(files),'int')
+        for infilename,i,nskip,fixedBurnin in zip(files,range(1,len(files)+1),nskips,fixedBurnins):
             infile=open(infilename,'r')
             try:
                 print "Writing header of %s to %s"%(infilename,runfile.name)
@@ -2612,8 +3262,10 @@ class PEOutputParser(object):
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1
+                if output: acceptedChains += 1
             finally:
                 infile.close()
+        print "%i of %i chains accepted."%(acceptedChains,len(files))
 
     def _swaplabel12(self, label):
         if label[-1] == '1':
@@ -2643,21 +3295,26 @@ class PEOutputParser(object):
         print "Found max log(Post) = ", maxLogL
         return maxLogL
 
-    def _find_ndownsample(self, files, logLthreshold, fixedBurnin, nDownsample):
+    def _find_ndownsample(self, files, logLthreshold, fixedBurnins, nDownsample):
         """
         Given a list of files, threshold value, and a desired
         number of outputs posterior samples, return the skip number to
         achieve the desired number of posterior samples.
         """
-        ntot=0
-        for inpname in files:
+        nfiles = len(files)
+        ntots=[]
+        nEffectives = []
+        for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
                 runInfo,header = self._clear_infmcmc_header(infile)
+                header = [name.lower() for name in header]
                 loglindex = header.index("logpost")
                 iterindex = header.index("cycle")
                 deltaLburnedIn = False
                 fixedBurnedIn  = False
+                lines=[]
+                ntot=0
                 for line in infile:
                     line = line.lstrip().split()
                     iter = int(line[iterindex])
@@ -2667,13 +3324,38 @@ class PEOutputParser(object):
                     if logL > logLthreshold:
                         deltaLburnedIn = True
                     if fixedBurnedIn and deltaLburnedIn:
-                        ntot = ntot+1
+                        ntot += 1
+                        lines.append(line)
+                ntots.append(ntot)
+                if nDownsample is None:
+                    try:
+                        nonParams = ["logpost", "cycle", "logprior", "logl", "loglh1", "logll1", "loglv1"]
+                        nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
+                        paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
+                        samps = np.array(lines).astype(float)
+                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                    except:
+                        nEffectives.append(None)
+                        print "Error computing effective sample size of %s!"%inpname
+
             finally:
                 infile.close()
-        if ntot < nDownsample:
-            return 1
+        nskips = np.ones(nfiles,'int')
+        ntot = sum(ntots)
+        if nDownsample is not None:
+            if ntot > nDownsample:
+                nskips *= floor(ntot/nDownsample)
+
         else:
-            return floor(ntot/nDownsample)
+            for i in range(nfiles):
+                nEff = nEffectives[i]
+                ntot = ntots[i]
+                if nEff > 1:
+                    if ntot > nEff:
+                        nskips[i] = ceil(ntot/nEff)
+                else:
+                    nskips[i] = None
+        return nskips
 
     def _find_infmcmc_f_lower(self, runInfo):
         """
@@ -2720,35 +3402,71 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,xflag=False):
+    def _ns_to_pos(self,files,Nlive=None,Npost=10000):
         """
         Parser for nested sampling output.
+        files : list of input NS files
+        Nlive : Number of live points
+        Npost : Desired number of posterior samples
         """
         try:
-            from lalapps.combine_evidence import combine_evidence
+            from lalapps.nest2pos import draw_N_posterior_many
         except ImportError:
-            print "Need lalapps.combine_evidence to convert nested sampling output!"
+            print "Need lalapps.nest2pos to convert nested sampling output!"
             raise
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
-            
-
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
-
+                       
         posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
-        posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t psi \t iota \t likelihood \n')
-        for row in pos:
-            for i in row:
-                posfile.write('%f\t' %(i))
-            posfile.write('\n')
-        posfile.close()
+       
+        #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
+        #psi \t iota \t likelihood \n')
+        # get parameter list
+        it = iter(files)
+        
+        # check if there's a file containing the parameter names
+        parsfilename = it.next()+'_params.txt'
+        
+        if os.path.isfile(parsfilename):
+            print 'Looking for '+parsfilename
 
-        posfile=open(posfilename,'r')
-        return_val=self._common_to_pos(posfile)
-        posfile.close()
+            if os.access(parsfilename,os.R_OK):
 
+                with open(parsfilename,'r') as parsfile: 
+                    outpars=parsfile.readline()+'\n'
+            else:
+                raise RuntimeError('Cannot open parameters file %s!'%(parsfilename))
+
+        else: # Use hardcoded CBC parameter names
+            outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+            dec \t psi \t iota \t logl \n'
+
+        # Find the logL column
+        parsvec=outpars.split()
+        logLcol=-1
+        for i in range(len(parsvec)):
+            if parsvec[i].lower()=='logl':
+                logLcol=i
+        if logLcol==-1:
+            print 'Error! Could not find logL column in parameter list: %s'%(outpars)
+            raise RuntimeError
+
+        inarrays=map(np.loadtxt,files)
+        pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+
+        with open(posfilename,'w') as posfile:
+            
+            posfile.write(outpars)
+        
+            for row in pos:
+                for i in row:
+                    posfile.write('%.12e\t' %(i))
+                posfile.write('\n')
+        
+        with open(posfilename,'r') as posfile:
+            return_val=self._common_to_pos(posfile)
+        
         return return_val
 
     def _followupmcmc_to_pos(self,files):
@@ -2777,31 +3495,43 @@ class PEOutputParser(object):
                     ET._namespace_map[uri]=prefix
         register_namespace('vot',xmlns)
         tree = ET.ElementTree()
+        
         tree.parse(infile)
         # Find the posterior table
         tables = tree.findall('.//{%s}TABLE'%(xmlns))
         for table in tables:
-            if table.get('name')=='Posterior Samples':
+            if table.get('utype')=='lalinference:results:posteriorsamples':
                 return(self._VOTTABLE2pos(table))
+        for table in tables:
+	  if table.get('utype')=='lalinference:results:nestedsamples':
+	    nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
+	    return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
         raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
         
     def _VOTTABLE2pos(self,table):
         """
         Parser for a VOT TABLE element with FIELDs and TABLEDATA elements
         """
+        from xml.etree import ElementTree as ET
         xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+        try:
+	  register_namespace=ET.register_namespace
+	except AttributeError:
+	  def register_namespace(prefix,uri):
+	    ET._namespace_map[uri]=prefix
+	register_namespace('vot',xmlns)
         header=[]
         for field in table.findall('./{%s}FIELD'%(xmlns)):
             header.append(field.attrib['name'])
         if(len(header)==0):
             raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
-        tabledata=table.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
+        data=table.findall('./{%s}DATA'%(xmlns))
+	tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
         llines=[]
         for row in tabledata:
             llines.append(np.array(map(lambda a:float(a.text),row)))
         flines=np.array(llines)
         for i in range(0,len(header)):
-            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
@@ -2835,12 +3565,12 @@ class PEOutputParser(object):
 
         header=formatstr.split(delimiter)
         header[-1]=header[-1].rstrip('\n')
-
+	nparams=len(header)
         llines=[]
         import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
-        line_count=0
-        for line in infile:
+        
+	for line_number,line in enumerate(infile):
             sline=line.split(delimiter)
             if sline[-1] == '\n':
                 del(sline[-1])
@@ -2848,21 +3578,28 @@ class PEOutputParser(object):
             if len(sline)<1:
                 print 'Ignoring empty line in input file: %s'%(sline)
                 proceed=False
+	    elif len(sline)!=nparams:
+		sys.stderr.write('WARNING: Malformed row %i, read %i elements but there is meant to be %i\n'%(line_number,len(sline),nparams))
+		proceed=False
 
-            for st in sline:
+            for elemn,st in enumerate(sline):
                 s=st.replace('\n','')
                 if dec.search(s) is None:
-                    print 'Warning! Ignoring non-numeric data after the header: %s'%s
+                    print 'Warning! Ignoring non-numeric data after the header: %s. Row = %i,Element=%i'%(s,line_number,elemn)
                     proceed=False
-                if s is '\n':
+                elif s is '\n':
                     proceed=False
 
             if proceed:
-                llines.append(np.array(map(float,sline)))
+	    	llines.append(map(float,sline))	
 
         flines=np.array(llines)
+
+	if not flines.any():
+	   raise RuntimeError("ERROR: no lines read in!")	
+           
+
         for i in range(0,len(header)):
-            logParams=['logl','loglh1','loglh2','logll1','loglv1']
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
 
@@ -2975,15 +3712,22 @@ def vo_nest2pos(nsresource,Nlive=None):
     from xml.etree import ElementTree as ET
     import copy
     from math import log, exp
-    postable=ET.Element("vot:TABLE",attrib={'name':'Posterior Samples'})
-    i=0
     xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
-    nstable=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("name")=="Nested Samples"][0]
+    try:
+      register_namespace=ET.register_namespace
+    except AttributeError:
+	def register_namespace(prefix,uri):
+	  ET._namespace_map[uri]=prefix
+    register_namespace('vot',xmlns)
+    
+    postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
+    i=0
+    nstables=[resource for resource in nsresource.findall("./{%s}TABLE"%(xmlns)) if resource.get("utype")=="lalinference:results:nestedsamples"]
+
+    nstable=nstables[0]
     if Nlive is None:
-        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("name")=="Run State Configuration"][0]
-        print runstateResource
-        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("name")=="Algorithm Params"][0]
-        print algTable
+        runstateResource = [resource for resource in nsresource.findall("./{%s}RESOURCE"%(xmlns)) if resource.get("utype")=="lalinference:state"][0]
+        algTable = [table for table in runstateResource.findall("./{%s}TABLE"%(xmlns)) if table.get("utype")=="lalinference:state:algorithmparams"][0]
         Nlive = int ([param for param in algTable.findall("./{%s}PARAM"%(xmlns)) if param.get("name")=='Nlive'][0].get('value'))
         print 'Found Nlive %i'%(Nlive)
     if Nlive is None:
@@ -2998,8 +3742,8 @@ def vo_nest2pos(nsresource,Nlive=None):
         postable.append(copy.deepcopy(paramnode))
     if logLcol is None:
         RuntimeError("Unable to find logL column")
-    posdataNode=ET.Element("vot:DATA")
-    postabledataNode=ET.Element("vot:TABLEDATA")
+    posdataNode=ET.Element("{%s}DATA"%(xmlns))
+    postabledataNode=ET.Element("{%s}TABLEDATA"%(xmlns))
     postable.append(posdataNode)
     posdataNode.append(postabledataNode)
     nstabledata=nstable.find('./{%s}DATA/{%s}TABLEDATA'%(xmlns,xmlns))
@@ -3015,6 +3759,56 @@ def vo_nest2pos(nsresource,Nlive=None):
         if weight > log(random.random()):
             postabledataNode.append(copy.deepcopy(row))
     return postable
+
+xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
+
+class VOT2HTML:
+  def __init__(self):
+    self.html=htmlSection("VOTable information")
+    self.skiptable=0
+  def start(self,tag,attrib):
+    if tag=='{%s}TABLE'%(xmlns):
+	if attrib['utype']=='lalinference:results:nestedsamples'\
+	or attrib['utype']=='lalinference:results:posteriorsamples':
+	  self.skiptable=1
+	else:
+	  self.skiptable=0
+	self.tableouter=htmlChunk('div')
+	self.tableouter.h2(attrib['name'])
+	try:
+	  self.tableouter.p(attrib['utype'])
+	except KeyError:
+	    pass
+	self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+	self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+	self.tabheader=htmlChunk('tr',parent=self.table)
+    if tag=='{%s}FIELD'%(xmlns):
+	self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
+    if tag=='{%s}TR'%(xmlns):
+	self.tabrow=htmlChunk('tr',parent=self.table)
+    if tag=='{%s}TD'%(xmlns):
+	self.td=htmlChunk('td',parent=self.tabrow)
+    if tag=='{%s}PARAM'%(xmlns):
+	pnode=htmlChunk('tr',parent=self.fixedparams)
+	namenode=htmlChunk('td',parent=pnode)
+	namenode.p(attrib['name'])
+	valnode=htmlChunk('td',parent=pnode)
+	valnode.p(attrib['value'])
+  def end(self,tag):
+    if tag=='{%s}TABLE'%(xmlns):
+      if not self.skiptable:
+	self.html.append(self.tableouter._html)
+    if tag=='{%s}FIELD'%(xmlns):
+      self.field.p(self.data)
+    if tag=='{%s}TD'%(xmlns):
+      self.td.p(self.data)
+
+  def data(self,data):
+    self.data=data
+  
+  def close(self):
+    return self.html.toprettyxml()
+
 
 
 #R convergenceTest script

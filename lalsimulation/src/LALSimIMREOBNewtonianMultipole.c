@@ -29,11 +29,15 @@
  * for calculating the standard scalar spherical harmonics Ylm.
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALComplex.h>
 
 #include <gsl/gsl_sf_gamma.h>
 
 #include "LALSimIMREOBNRv2.h"
+
+#ifndef _LALSIMIMRNEWTONIANMULTIPOLE_C
+#define _LALSIMIMRNEWTONIANMULTIPOLE_C
 
 static REAL8
 XLALAssociatedLegendreXIsZero( const int l,
@@ -88,11 +92,11 @@ static int XLALSimIMREOBComputeNewtonMultipolePrefixes(
  * This function calculates the Newtonian multipole part of the
  * factorized waveform. This is defined in Pan et al, arXiv:1106.1021v1 [gr-qc].
  */
-static int
+UNUSED static int
 XLALSimIMREOBCalculateNewtonianMultipole(
                             COMPLEX16 *multipole, /**<< Newtonian multipole (returned) */
                             REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
-                            REAL8 r,              /**<< Orbital separation (units of total mass M */
+                            UNUSED REAL8 r,              /**<< Orbital separation (units of total mass M */
                             REAL8 phi,            /**<< Orbital phase (in radians) */
                             UINT4  l,             /**<< Mode l */
                             INT4  m,              /**<< Mode m */
@@ -112,7 +116,7 @@ XLALSimIMREOBCalculateNewtonianMultipole(
   xlalStatus = XLALScalarSphHarmThetaPiBy2( &y, l - epsilon, - m, phi );
   if (xlalStatus != XLAL_SUCCESS )
   {
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
 
@@ -124,6 +128,43 @@ XLALSimIMREOBCalculateNewtonianMultipole(
   {
     *multipole = XLALCOMPLEX16MulReal( params->prefixes->values[l][m], pow( x, (REAL8)(l+epsilon)/2.0) );
   }
+  *multipole = XLALCOMPLEX16Mul( *multipole, y );
+
+  return XLAL_SUCCESS;
+}
+
+
+/**
+ * This function calculates the Newtonian multipole part of the
+ * factorized waveform for spin aligned waveforms.
+ */
+UNUSED static int
+XLALSimIMRSpinEOBCalculateNewtonianMultipole(
+                            COMPLEX16 *multipole, /**<< Newtonian multipole (returned) */
+                            REAL8 x,              /**<< Dimensionless parameter \f$\equiv v^2\f$ */
+                            UNUSED REAL8 r,              /**<< Orbital separation (units of total mass M */
+                            REAL8 phi,            /**<< Orbital phase (in radians) */
+                            UINT4  l,             /**<< Mode l */
+                            INT4  m,              /**<< Mode m */
+                            EOBParams *params     /**<< Pre-computed coefficients, parameters, etc. */
+                            )
+{
+   INT4 xlalStatus;
+
+   COMPLEX16 y;
+
+   INT4 epsilon = (l + m) % 2;
+
+   y.re = y.im = 0.0;
+
+  /* Calculate the necessary Ylm */
+  xlalStatus = XLALScalarSphHarmThetaPiBy2( &y, l - epsilon, - m, phi );
+  if (xlalStatus != XLAL_SUCCESS )
+  {
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  *multipole = XLALCOMPLEX16MulReal( params->prefixes->values[l][m], pow( x, (REAL8)(l+epsilon)/2.0) );
   *multipole = XLALCOMPLEX16Mul( *multipole, y );
 
   return XLAL_SUCCESS;
@@ -148,7 +189,7 @@ XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
 
   if ( l < 0 || absM > (INT4) l )
   {
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   /* For some reason GSL will not take negative m */
@@ -156,7 +197,7 @@ XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
   legendre = XLALAssociatedLegendreXIsZero( l, absM );
   if ( XLAL_IS_REAL8_FAIL_NAN( legendre ))
   {
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Compute the values for the spherical harmonic */
@@ -174,7 +215,9 @@ XLALScalarSphHarmThetaPiBy2(COMPLEX16 *y,
 }
 
 
-
+/**
+ * Function to calculate associated Legendre function used by the spherical harmonics function
+ */
 static REAL8
 XLALAssociatedLegendreXIsZero( const int l,
                                const int m )
@@ -185,13 +228,13 @@ XLALAssociatedLegendreXIsZero( const int l,
   if ( l < 0 )
   {
     XLALPrintError( "l cannot be < 0\n" );
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
   
   if ( m < 0 || m > l )
   {
     XLALPrintError( "Invalid value of m!\n" );
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
 
   /* we will switch on the values of m and n */
@@ -204,7 +247,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = - 1.;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 2:
@@ -217,7 +260,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0.;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 3:
@@ -233,7 +276,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 1.5;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 4:
@@ -252,7 +295,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 5:
@@ -274,7 +317,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = - 1.875;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 6:
@@ -299,7 +342,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 7:
@@ -327,7 +370,7 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 2.1875;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     case 8:
@@ -358,12 +401,12 @@ XLALAssociatedLegendreXIsZero( const int l,
           legendre = 0.;
           break;
         default:
-          XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+          XLAL_ERROR_REAL8( XLAL_EINVAL );
       }
       break;
     default:
       XLALPrintError( "Unsupported (l, m): %d, %d\n", l, m );
-      XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+      XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
 
   legendre *= sqrt( (REAL8)(2*l+1)*gsl_sf_fact( l-m ) / (4.*LAL_PI*gsl_sf_fact(l+m)));
@@ -371,13 +414,16 @@ XLALAssociatedLegendreXIsZero( const int l,
   return legendre;
 }
 
+/**
+ * Function to calculate the numerical prefix in the Newtonian amplitude
+ */
 static int
 CalculateThisMultipolePrefix(
-               COMPLEX16 *prefix,
-               const REAL8 m1,
-               const REAL8 m2,
-               const INT4 l,
-               const INT4 m )
+               COMPLEX16 *prefix, /**<< Prefix value (returned) */
+               const REAL8 m1,    /**<< mass 1 */
+               const REAL8 m2,    /**<< mass 2 */
+               const INT4 l,      /**<< l mode index */
+               const INT4 m )     /**<< m mode index */
 
 {
 
@@ -416,7 +462,28 @@ CalculateThisMultipolePrefix(
      sign = -1;
    }
 
-   c = pow( x2, l + epsilon - 1 ) + sign * pow(x1, l + epsilon - 1 );
+   if  ( m1 != m2 || sign == 1 )
+   {
+     c = pow( x2, l + epsilon - 1 ) + sign * pow(x1, l + epsilon - 1 );
+   }
+   else
+   {
+     switch( l )
+     {
+       case 2:
+         c = -1.0;
+         break;
+       case 3:
+         c = -1.0;
+         break;
+       case 4:
+         c = -0.5;
+         break;
+       default:
+         c = 0.0;
+         break;
+     }
+   }
 
    /* Dependent on the value of epsilon, we get different n */
    if ( epsilon == 0 )
@@ -452,10 +519,12 @@ CalculateThisMultipolePrefix(
   else
   {
     XLALPrintError( "Epsilon must be 0 or 1.\n");
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   *prefix = XLALCOMPLEX16MulReal( n, eta * c );
 
   return XLAL_SUCCESS;
 }
+
+#endif /*_LALSIMIMRNEWTONIANMULTIPOLE_C*/

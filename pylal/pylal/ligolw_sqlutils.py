@@ -411,17 +411,19 @@ class parse_coinc_options:
         return self.coinc_types
 
 
-    def get_coinc_filters( self ):
+    def get_coinc_filters( self, coinc_instruments_table = 'coinc_inspiral' ):
         """
         Converts self.coinc_types to a list of strings that can be used
         in a SQLite WHERE clause to filter coincs by coinc_type,
-        by coinc_instruments (which is stored in the coinc_inspiral table)
+        by coinc_instruments (which is stored in the given coinc_instruments_table)
         in instruments_on (which is stored in the experiment table).
         """
         self.coinc_filters = []
         # import ifos_from_instrument_set in lsctables for converting
         # instrument sets in self.coinc_types to strings
         from glue.ligolw.lsctables import ifos_from_instrument_set
+
+        coinc_instruments_table = validate_option( coinc_instruments_table )
         
         # cycle through instruments_on in coinc_types
         for instruments_on in self.coinc_types:
@@ -436,14 +438,14 @@ class parse_coinc_options:
                     this_coincfilter = ' '.join([ this_coincfilter, 'AND (' ])
                     for coinc_instruments in self.coinc_types[ instruments_on ]:
                         this_coincfilter = ''.join([ this_coincfilter,
-                            ' coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
+                            ' %s.ifos == "' % coinc_instruments_table, ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
                     # strip the last 'OR' and replace with a ')' to close out the coinc_instruments
                     this_coincfilter = this_coincfilter.rstrip('OR') + ')'
             # if instruments_on is 'ALL', just add what coincs to filter
             elif instruments_on == 'ALL' and 'ALL' not in self.coinc_types[ instruments_on ]:
                 for coinc_instruments in self.coinc_types[ instruments_on ]:
                     this_coincfilter = ''.join([ this_coincfilter,
-                        ' coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
+                        ' %s.ifos == "' % coinc_instruments_table, ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
                 # strip the last 'OR'
                 this_coincfilter = this_coincfilter.rstrip('OR')
 
@@ -1128,7 +1130,7 @@ class sim_tag_proc_id_mapper:
                         sim_proc_id
                     FROM
                         experiment_summary )
-                AND param == "--userTag"
+                AND (param == "--userTag" OR param=="-userTag")
             """
         for proc_id, sim_tag in connection.cursor().execute(sqlquery):
             self.id_tag_map[proc_id] = sim_tag
@@ -1242,6 +1244,48 @@ def clean_using_coinc_table( connection, table_name, verbose = False,
         connection.cursor().execute( sqlquery )
         connection.commit()
 
+def apply_inclusion_rules_to_coinc_table( connection, coinc_table, exclude_coincs = None, include_coincs = None, 
+        param_filters = None, verbose = False ):
+    """
+    Clears the given table of coinc triggers falling outside of the
+    desired ranges, as specified by parse_param_ranges and parse_coinc_opts.
+
+    @connection: connection to a SQLite database with lsctables
+    @coinc_table: name of the coinc_table to delete the triggers from.
+     Can be any table with a coinc_event_id.
+    @param_filters: output of parse_param_ranges(...).get_param_filters()
+    @include_coincs: output of parse_coinc_opts(...).get_coinc_filters().
+       The coincs that are specified in this list will be SAVED.
+    @exclude_coincs: output of parse_coinc_opts(...).get_coinc_filters().
+        The coincs that are specified in this list will be DELETED.
+    Note: exclude_coincs is applied first, so anything falling in it will 
+    be deleted, regardless of wether or not the same falls in include_coincs.
+    To avoid confusion, it is best to only specify one or the other, not both.
+    """
+    coinc_table = validate_option( coinc_table )
+    if verbose:
+        print >> sys.stderr, "Removing coincs from %s table that " % coinc_table + \
+            "fall outside of desired ranges and coinc-types..."
+
+    join_conditions = join_experiment_tables_to_coinc_table( coinc_table )
+
+    if exclude_coincs:
+        del_rows_from_table( connection, coinc_table, 'coinc_event_id', 
+            join_conditions,
+            del_filters = exclude_coincs, verbose = verbose )
+    if include_coincs:
+        del_rows_from_table( connection, coinc_table, 'coinc_event_id',
+            join_conditions,
+            save_filters = include_coincs, verbose = verbose )
+    if param_filters:
+        del_rows_from_table( connection, coinc_table, 'coinc_event_id',
+            join_conditions,
+            save_filters = param_filters, verbose = verbose )
+
+    # remove deleted coincs from other tables
+    clean_using_coinc_table( connection, coinc_table, verbose = verbose,
+            clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
+            clean_coinc_event_map = True, clean_mapped_tables = True )
 
 # =============================================================================
 #
@@ -1339,40 +1383,10 @@ def apply_inclusion_rules_to_coinc_inspiral( connection, exclude_coincs = None, 
     Clears coinc_inspiral table of coinc triggers falling outside of the
     desired ranges, as specified by parse_param_ranges and parse_coinc_opts.
 
-    @connection: connection to a SQLite database with lsctables
-    @param_filters: output of parse_param_ranges(...).get_param_filters()
-    @include_coincs: output of parse_coinc_opts(...).get_coinc_filters().
-       The coincs that are specified in this list will be SAVED.
-    @exclude_coincs: output of parse_coinc_opts(...).get_coinc_filters().
-        The coincs that are specified in this list will be DELETED.
-    Note: exclude_coincs is applied first, so anything falling in it will 
-    be deleted, regardless of wether or not the same falls in include_coincs.
-    To avoid confusion, it is best to only specify one or the other, not both.
+    See apply_inclusion_rules_to_coinc_table for more info.
     """
-    if verbose:
-        print >> sys.stderr, "Removing coincs from coinc_inspiral table that " + \
-            "fall outside of desired ranges and coinc-types..."
-
-    join_conditions = join_experiment_tables_to_coinc_inspiral()
-
-    if exclude_coincs:
-        del_rows_from_table( connection, 'coinc_inspiral', 'coinc_event_id', 
-            join_conditions,
-            del_filters = exclude_coincs, verbose = verbose )
-    if include_coincs:
-        del_rows_from_table( connection, 'coinc_inspiral', 'coinc_event_id',
-            join_conditions,
-            save_filters = include_coincs, verbose = verbose )
-    if param_filters:
-        del_rows_from_table( connection, 'coinc_inspiral', 'coinc_event_id',
-            join_conditions,
-            save_filters = param_filters, verbose = verbose )
-
-    # remove deleted coincs from other tables
-    clean_using_coinc_table( connection, 'coinc_inspiral', verbose = verbose,
-            clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
-            clean_coinc_event_map = True, clean_mapped_tables = True)
-
+    apply_inclusion_rules_to_coinc_table(connection, 'coinc_inspiral', exclude_coincs = exclude_coincs, include_coincs = include_coincs, 
+        param_filters = param_filters, verbose = verbose )
 
 
 def clean_inspiral_tables( connection, verbose = False ):

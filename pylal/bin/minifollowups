@@ -155,11 +155,11 @@ def get_column_list(tableName, with_sngl = False):
         printutils.get_columns_to_print(xmlSummary, tableName, with_sngl = with_sngl)
     columnList.remove('instruments_on')
   elif tableName == "close_missed_injections":
-    columnList = ['rank', 'decisive_distance', 'end_time', 'end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup','omega_scan']
+    columnList = ['rank', 'decisive_distance', 'gps_time', 'injection_time_utc__Px_click_for_daily_ihope_xP_', 'elogs', 'mini_followup','omega_scan']
     row_span_columns = rspan_break_columns = []
   elif tableName == 'selected_found_injections':
-    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','recovered_ifos','injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_mchirp','omega_scan']
-    row_span_columns = rspan_break_columns = ['injected_decisive_distance', 'injected_end_time', 'injected_end_time','injected_end_time_utc__Px_click_for_daily_ihope_xP_', 'elogs','injected_mass1', 'injected_mass2', 'injected_mchirp']
+    columnList = ['injected_decisive_distance','recovered_combined_far','recovered_snr','recovered_ifos','injected_gps_time','injected_event_time_utc__Px_click_for_daily_ihope_xP_','elogs','mini_followup','injected_mass1','injected_mass2','injected_mchirp','omega_scan']
+    row_span_columns = rspan_break_columns = ['injected_decisive_distance', 'injected_gps_time','injected_event_time_utc__Px_click_for_daily_ihope_xP_', 'elogs','injected_mass1', 'injected_mass2', 'injected_mchirp']
   return columnList, row_span_columns, rspan_break_columns
 
 usage = """%prog [options]
@@ -205,6 +205,10 @@ parser.add_option("-H","--h1-omega-config-file",action="store",\
       default=None,help="The omega config file for H1.")
 parser.add_option("-f","--h1-omega-frame-file",action="store",\
       default=None,help="The omega frame file for H1.")
+parser.add_option("","--h2-omega-config-file",action="store",\
+      default=None,help="The omega config file for H2.")
+parser.add_option("","--h2-omega-frame-file",action="store",\
+      default=None,help="The omega frame file for H2.")
 parser.add_option("-L","--l1-omega-config-file",action="store",\
       default=None,help="The omega config file for L1.")
 parser.add_option("-l","--l1-omega-frame-file",action="store",\
@@ -245,6 +249,8 @@ opts.omega_ifos = []
 
 if opts.h1_omega_config_file:
   opts.omega_ifos.append('H1')
+if opts.h2_omega_config_file:
+  opts.omega_ifos.append('H2')
 if opts.l1_omega_config_file:
   opts.omega_ifos.append('L1')
 if opts.v1_omega_config_file:

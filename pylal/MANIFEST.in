@@ -1,5 +1,4 @@
-include README MANIFEST.in
+include LICENSE MANIFEST.in README pylal.spec
 recursive-include src *.c *.h
-include bin/followup_virgo_scripts/*
 include misc/*
 include test/*

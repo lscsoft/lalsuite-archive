@@ -17,34 +17,7 @@
 *  MA  02111-1307  USA
 */
 
-/**
-\author Goggin, L. M., and Brown, D. A.
-\file
-\ingroup GenerateRing_h
-
-\brief Computes the ringdown waveform with specified \f$h_{rss}\f$.
-
-\heading{Description}
-
-This function the following burst waveforms:
-<dl>
-<dt>Sine-Gaussian</dt><dd>:  exponentially decaying sinusoid with specified frequency and decay constant.</dd>
-</dl>
-
-\heading{Uses}
-\code
-LALMalloc()                   LALFree()
-LALSCreateVectorSequence()    LALSDestroyVectorSequence()
-LALSCreateVector()            LALSDestroyVector()
-LALDCreateVector()            LALDDestroyVector()
-\endcode
-
-\heading{Notes}
-
-
-
-*/
-
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
@@ -65,9 +38,6 @@ LALDCreateVector()            LALDDestroyVector()
 #else
 #define UNUSED
 #endif
-
-NRCSID( GENERATERINGC, "$Id$" );
-
 
 void
 LALGenerateRing(
@@ -102,7 +72,7 @@ LALGenerateRing(
   LALTimeInterval dummyInterval;
 #endif
 
-  INITSTATUS( stat, "LALGenerateRing", GENERATERINGC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Make sure parameter and output structures exist. */
@@ -244,7 +214,6 @@ LALGenerateRing(
 }
 
 
-
 void
 LALRingInjectSignals(
     LALStatus               *stat,
@@ -267,7 +236,7 @@ LALRingInjectSignals(
   LALDetector       *tmpDetector=NULL /*,*nullDetector=NULL*/;
   COMPLEX8FrequencySeries    *transfer = NULL;
 
-  INITSTATUS( stat, "LALRingInjectSignals", GENERATERINGC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* set up start and end of injection zone TODO: fix this hardwired 10 */

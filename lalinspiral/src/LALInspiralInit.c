@@ -60,9 +60,6 @@ function.
 #include <lal/LALInspiral.h>
 #define  LALINSPIRALINIT_LENGTHOVERESTIMATION  0.1       /* 10 % */
 
-NRCSID (LALINSPIRALAMPLITUDEC, "$Id$");
-
-
 void
 LALInspiralInit (LALStatus        *status,
 		 InspiralTemplate *params,
@@ -70,7 +67,7 @@ LALInspiralInit (LALStatus        *status,
 {
   XLALPrintDeprecationWarning("LALInspiralInit", "XLALInspiralInit");
 
-  INITSTATUS (status, "LALInspiralInit", LALINSPIRALAMPLITUDEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   if ( XLALInspiralInit(params, paramsInit) == XLAL_FAILURE )
@@ -88,30 +85,29 @@ XLALInspiralInit (InspiralTemplate *params,
 {
   UINT4 ndx;
   REAL8 x;
-  CHAR message[256];
 
 
   if (params == NULL)
-    XLAL_ERROR(__func__, XLAL_EFAULT);
+    XLAL_ERROR(XLAL_EFAULT);
 
   if ( XLALInspiralParameterCalc(params) == XLAL_FAILURE )
   {
-    XLAL_ERROR(__func__, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   }
 
   if ( XLALInspiralRestrictedAmplitude(params) == XLAL_FAILURE )
   {
-    XLAL_ERROR(__func__, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   }
 
   if ( XLALInspiralSetup(&(paramsInit->ak), params) == XLAL_FAILURE )
   {
-    XLAL_ERROR(__func__, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   }
   if ( XLALInspiralChooseModel(&(paramsInit->func), &(paramsInit->ak), params) 
        == XLAL_FAILURE )
   {
-    XLAL_ERROR(__func__, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   }
 
   /* The parameters have been initialized now. However, we can have some problems
@@ -127,9 +123,7 @@ XLALInspiralInit (InspiralTemplate *params,
     XLALPrintWarning(LALINSPIRALH_MSGEFLOWER);
     paramsInit->nbins = 0;
 
-    sprintf(message, "#Estimated Length (seconds) requested = %f | fCutoff = %f",
-	    paramsInit->ak.tn, params->fCutoff);
-    XLALPrintInfo(message);
+    XLALPrintInfo("XLAL Info - %s: Estimated Length (seconds) requested = %f | fCutoff = %f\n", __func__, paramsInit->ak.tn, params->fCutoff);
 
     return XLAL_SUCCESS;
   }
@@ -137,9 +131,7 @@ XLALInspiralInit (InspiralTemplate *params,
   if( paramsInit->ak.tn <=0 || params->tC <= 0){
     XLALPrintWarning(LALINSPIRALH_MSGESIZE);
     paramsInit->nbins = 0;
-    sprintf(message, "#Estimated Length (seconds) requested = %f ",
-	    paramsInit->ak.tn);
-    XLALPrintInfo(message);
+    XLALPrintInfo("XLAL Info - %s: Estimated Length (seconds) requested = %f\n", __func__, paramsInit->ak.tn);
 
     return XLAL_SUCCESS;
   }
@@ -154,10 +146,8 @@ XLALInspiralInit (InspiralTemplate *params,
   ndx = ceil(log10(x)/log10(2.));
   paramsInit->nbins = pow(2, ndx) ;
 
-  sprintf(message, "#Estimated Length (seconds) = %f | Allocated length (bins) = %d",
-    paramsInit->ak.tn,
-    paramsInit->nbins);
-  XLALPrintInfo(message);
+  XLALPrintInfo("XLAL Info - %s: Estimated Length (seconds)= %f | Allocated length (bins) = %d\n", __func__, paramsInit->ak.tn, paramsInit->nbins);
+
 
   return XLAL_SUCCESS;
 }

@@ -13,10 +13,34 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
+/**
+\addtogroup LALAdaptiveRungeKutta4_h
+\author Vallisneri, M.
+\brief Adaptive Runge-Kutta4
+
+<ul>
+<li> \c integrator Integration structure (quasi-class). Created using <tt>XLALAdaptiveRungeKutta4Init()</tt>.
+...</li>
+</ul>
+
+\heading{Description}
+The code \ref LALAdaptiveRungeKutta4.c evolves a system of \f$n\f$ coupled first--order differential equations.
+Internally, it uses GSL routines to perform adaptive-step evolution, and then interpolates the resulting
+trajectories to a fixed step size.
+
+Prior to evolving a system using <tt>XLALAdaptiveRungeKutta4()</tt>, it is necessary to create an integrator structure using
+<tt>XLALAdaptiveRungeKutta4Init()</tt>. Once you are done with the integrator, free it with <tt>XLALAdaptiveRungeKutta4Free()</tt>.
+\heading{Algorithm}
+TBF.
+
+\heading{Uses}
+For updated SpinTaylor waveforms.
+
+\heading{Notes}
+None so far...
+
+*/
+/*@{*/
 
 #define XLAL_BEGINGSL \
         { \
@@ -33,7 +57,6 @@ extern "C" {
 typedef struct
 tagark4GSLIntegrator
 {
-  SWIGLAL_STRUCT_LALALLOC();
   gsl_odeiv_step    *step;
   gsl_odeiv_control *control;
   gsl_odeiv_evolve  *evolve;
@@ -50,9 +73,6 @@ tagark4GSLIntegrator
 } ark4GSLIntegrator;
 
 
-/**
-\c ark4GSLIntegrator
-*/
 ark4GSLIntegrator *XLALAdaptiveRungeKutta4Init( int dim,
                              int (* dydt) (double t, const double y[], double dydt[], void * params),
                              int (* stop) (double t, const double y[], double dydt[], void * params),
@@ -67,6 +87,16 @@ int XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
                          REAL8 tinit, REAL8 tend, REAL8 deltat,
                          REAL8Array **yout
                          );
+int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,
+                                    void *params,
+                                    REAL8 *yinit,
+                                    REAL8 tinit,
+                                    REAL8 tend_in,
+                                    REAL8 deltat,
+                                    REAL8Array **yout
+                                    );
+
+/*@}*/
 
 #if 0
 { /* so that editors will match succeeding brace */

@@ -42,8 +42,6 @@
 #include <lal/DetResponse.h>
 #include <lal/TimeDelay.h>
 
-NRCSID( SIMINSPIRALUTILSC, "$Id$" );
-
 /**
 \author Brown, D. A.
 \file
@@ -440,7 +438,7 @@ LALGalacticInspiralParamsToSimInspiralTable(
   REAL8     time_diff;
   REAL4                 splus, scross, cosiota;
 
-  INITSTATUS( status, "LALGalacticParamsToSimInspiral", SIMINSPIRALUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( output, status,
@@ -584,7 +582,7 @@ LALInspiralSiteTimeAndDist(
   REAL8                 time_diff;
   REAL4                 splus, scross, cosiota;
 
-  INITSTATUS( status, "LALInspiralSiteTimeAndDist", SIMINSPIRALUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check that the arguments are not null */
@@ -651,7 +649,7 @@ LALPopulateSimInspiralSiteInfo(
   LIGOTimeGPS          *end_time;
 
 
-  INITSTATUS( status, "LALPopulateSimInspiralSiteInfo", SIMINSPIRALUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( output, status,
@@ -802,7 +800,6 @@ XLALReturnSimInspiralEndTime (
     )
 
 {
-  static const char *func = "ReturnSimInspiralEndTime";
   if ( ! strcmp( "L1", ifo ) )
   {
     return( XLALGPSToINT8NS(&(event->l_end_time) ) );
@@ -826,7 +823,7 @@ XLALReturnSimInspiralEndTime (
   }
   else
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
 }
@@ -1099,7 +1096,7 @@ XLALCoincSimInspiralTest (
     thisSim = NULL;
     /* loop over the interferometers to get the event_id*/
 
-    for ( ifoInCoinc = 0; ifoInCoinc < LAL_NUM_IFO; ifoInCoinc++)
+    for ( ifoInCoinc = ( InterferometerNumber ) 0; ifoInCoinc < LAL_NUM_IFO; ifoInCoinc++)
     {
       if ( (thisSngl = thisCoinc->snglInspiral[ifoInCoinc]) )
       {

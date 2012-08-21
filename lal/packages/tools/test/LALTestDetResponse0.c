@@ -41,8 +41,6 @@
 #include <lal/PrintFTSeries.h>
 #include <lal/StreamOutput.h>
 
-NRCSID( LALTESTDETRESPONSE0C, "$Id$" );
-
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -1074,7 +1072,7 @@ int main(int argc, char *argv[])
     {
       fprintf(stderr,
               "LALTestDetResponse0: LALCreateDetector failed, line %i, %s\n",
-              __LINE__, LALTESTDETRESPONSE0C);
+              __LINE__, "$Id$");
       REPORTSTATUS(&status);
       return status.statusCode;
     }
@@ -1268,7 +1266,7 @@ int main(int argc, char *argv[])
     {
       fprintf(stderr,
               "LALTestDetResponse0: LALCreateDetector failed, line %i, %s\n",
-              __LINE__, LALTESTDETRESPONSE0C);
+              __LINE__, "$Id$");
       REPORTSTATUS(&status);
       return status.statusCode;
     }
@@ -1279,8 +1277,9 @@ int main(int argc, char *argv[])
   utcDate.tm_mday = 17;
   utcDate.tm_mon  = 4;	/* may */
   utcDate.tm_year = 1994 - 1900;
-  utcDate.tm_isdst = 1;
-  mktime(&utcDate);
+  utcDate.tm_wday = 2;
+  utcDate.tm_yday = 136;
+  utcDate.tm_isdst = 0;
 
   XLALGPSSet(&gps, XLALUTCToGPS(&utcDate), 0);
 
@@ -1324,8 +1323,9 @@ int main(int argc, char *argv[])
   utcDate.tm_mday = 17;
   utcDate.tm_mon  = 4;	/* may */
   utcDate.tm_year = 1994 - 1900;
-  utcDate.tm_isdst = 1;
-  mktime(&utcDate);
+  utcDate.tm_wday = 2;
+  utcDate.tm_yday = 136;
+  utcDate.tm_isdst = 0;
 
   XLALGPSSet(&gps, XLALUTCToGPS(&utcDate), 0);
 
@@ -1445,7 +1445,7 @@ int main(int argc, char *argv[])
     {
       fprintf(stderr,
               "LALTestDetResponse0: error in LALComputeDetAMResponseSeries, line %i, %s\n",
-              __LINE__, LALTESTDETRESPONSE0C);
+              __LINE__, "$Id$");
       return status.statusCode;
     }
 

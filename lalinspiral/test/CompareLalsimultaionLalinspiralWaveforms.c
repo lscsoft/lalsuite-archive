@@ -44,8 +44,6 @@ generated using the lalinspiral routine.
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
 
-NRCSID(CompareLalsimultaionLalinspiralWaveformsC, "$Id$");
-
 typedef struct{
   INT4 order;
   char waveformString[LIGOMETA_WAVEFORM_MAX];
@@ -95,6 +93,15 @@ int main(int argc , char **argv)
 	int i,length;
 	REAL8 dt;
 	LIGOTimeGPS tc = LIGOTIMEGPSZERO;
+	/* The two tidal lambda's and the WaveformFlags below can't be
+	 * set from the command line. However, they aren't used in the old
+	 * code, so to sanity check old vs new code, this is OK.
+	 * We just set the lambda's to zero and create a WaveformFlags struct
+	 * with default values (in particular, it turns on all interactions).
+	 */  
+	REAL8 lambda1 = 0., lambda2 = 0., fRef = 0.;
+	LALSimInspiralWaveformFlags *waveFlags=XLALSimInspiralCreateWaveformFlags();
+	LALSimInspiralTestGRParam *nonGRparams = NULL;
 
 	memset( &mystatus, 0, sizeof(LALStatus) );
 	memset( &params, 0, sizeof(InspiralTemplate) );
@@ -134,7 +141,11 @@ int main(int argc , char **argv)
 			exit(1);
 	}
 
-	if (strcmp(otherIn.waveformString, "TaylorT2") == 0)
+	if (strcmp(otherIn.waveformString, "TaylorEt") == 0)
+		params.approximant = TaylorEt;
+	else if (strcmp(otherIn.waveformString, "TaylorT1") == 0)
+		params.approximant = TaylorT1;
+	else if (strcmp(otherIn.waveformString, "TaylorT2") == 0)
 		params.approximant = TaylorT2;
 	else if (strcmp(otherIn.waveformString, "TaylorT3") == 0)
 		params.approximant = TaylorT3;
@@ -167,14 +178,9 @@ int main(int argc , char **argv)
 
 	start = clock();
 	/* --- now we can call the lalsimulation function --- */
-	switch (params.approximant)
-	{
-		case EOBNRv2HM:
-			length = XLALSimInspiralChooseWaveform(&hplus, &hcross, &tc, 0., dt, params.mass1*LAL_MSUN_SI, params.mass2*LAL_MSUN_SI, params.spin1, params.spin2, params.fLower, params.distance, params.inclination, otherIn.order, params.approximant);
-			break;
-		default:
-			length = XLALSimInspiralChooseRestrictedWaveform(&hplus, &hcross, &tc, 0., dt, params.mass1*LAL_MSUN_SI, params.mass2*LAL_MSUN_SI, params.spin1, params.spin2, params.fLower, params.distance, params.inclination, otherIn.order, params.approximant);
-	}
+	length = XLALSimInspiralChooseTDWaveform(&hplus, &hcross, 0., dt, params.mass1*LAL_MSUN_SI, params.mass2*LAL_MSUN_SI, params.spin1[0], params.spin1[1], params.spin1[2], params.spin2[0], params.spin2[1], params.spin2[2], params.fLower, fRef, params.distance, params.inclination, lambda1, lambda2, waveFlags, nonGRparams, 0, otherIn.order, params.approximant);
+	XLALSimInspiralDestroyWaveformFlags(waveFlags);
+	XLALSimInspiralDestroyTestGRParam(nonGRparams);
 	diff = clock() - start;
 	msec = diff * 1000 / CLOCKS_PER_SEC;
 	printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);

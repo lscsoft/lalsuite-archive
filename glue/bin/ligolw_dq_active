@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #
-# $Id$
 #
 # Copyright (C) 2009  Larne Pekowsky
 #

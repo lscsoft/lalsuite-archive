@@ -6,7 +6,6 @@ Tomoki Isogai (isogait@carleton.edu)
 
 This program parses param file, sets up a segment file, and creates dag file.
 
-$Id: KW_veto_setup,v 1.6 2008/12/06 06:57:09 isogait Exp $
 """
 # =============================================================================
 #
@@ -31,8 +30,8 @@ from pylal import git_version
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date: 2008/12/06 06:57:09 $"[7:-2]
-__version__ = "$Revision: 1.6 $"[11:-2]
+__date__ = "$Date$"
+__version__ = "$Revision$"
 
 def parse_commandline():
     """
@@ -380,9 +379,11 @@ def get_analyze_segment():
     in param file
   - subtract category specified 
   """
-  if opts.verbose: print "making segment list..."
+  if opts.verbose:
+      print "making segment list..."
 
-  if not os.path.exists("segfiles"): os.makedirs("segfiles")
+  if not os.path.exists("segfiles"):
+      os.makedirs("segfiles")
   
   ################# take a union of analyzed_seg_files ###################
   
@@ -638,9 +639,10 @@ if opts.verbose:
 # if not exist, download
 ############################################################################
 inputfiles = {}
-if not os.path.isdir("inputfiles"): os.mkdir("inputfiles")
+if not os.path.isdir("inputfiles"):
+    os.mkdir("inputfiles")
 
-for f in ("vstyle.css","S6_channel_list.txt", "S5_LIGO_channel_list.txt", "E14_channel_list.txt"):
+for f in ("vstyle.css","S6_channel_list.txt", "S5_LIGO_channel_list.txt", "E14_channel_list.txt", "VSR4_channel_list.txt"):
   if not os.path.isfile("inputfiles/%s"%f):
     inputfile = "https://virgo.physics.carleton.edu/public/UPV_inputfiles/%s"%f
     outfile = os.path.join("inputfiles",f)
@@ -847,7 +849,7 @@ if any(cats.values()) == True:
   # if http, copy it over
   if cp.get("input","veto_definer_file").startswith("http"):
     outfile = os.path.join("inputfiles",os.path.basename(cp.get("input","veto_definer_file")))
-    cmd = "wget -O %s %s"%(outfile,cp.get("input","veto_definer_file"))
+    cmd = "wget -O %s %s --no-check-certificate"%(outfile,cp.get("input","veto_definer_file"))
     exit = os.system(cmd)
     if exit > 0:
       print >> sys.stderr, "Error: could not download %s. Please check the address."%cp.get("input","veto_definer_file")

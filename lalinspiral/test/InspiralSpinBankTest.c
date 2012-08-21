@@ -110,8 +110,6 @@ extern char *optarg;
 #define INSPIRALSPINBANKTESTC_MSGEFILE  "File I/O error"
 /*@}*/
 
-NRCSID(LALINSPIRALSPINBANKTESTC, "$Id$");
-
 int main( int argc, char *argv[] )
 {
   static LALStatus status;
@@ -130,6 +128,8 @@ int main( int argc, char *argv[] )
   InspiralTemplate inspiralTemplate;
   REAL4 noiseMin = 1;
   BOOLEAN haveXML = 0;
+
+  lalDebugLevel = 33;
 
   if( (list = (Math3DPointList *) LALCalloc( 1, sizeof( Math3DPointList )))
       == NULL )

@@ -19,7 +19,7 @@ VTYPE * XFUNC ( UINT4 length )
   VTYPE * vector;
   vector = LALMalloc( sizeof( *vector ) );
   if ( ! vector )
-    XLAL_ERROR_NULL( STRING(XFUNC), XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   vector->length = length;
   if ( ! length ) /* zero length: set data pointer to be NULL */
     vector->data = NULL;
@@ -29,7 +29,7 @@ VTYPE * XFUNC ( UINT4 length )
     if ( ! vector->data )
     {
       LALFree( vector );
-      XLAL_ERROR_NULL( STRING(XFUNC), XLAL_ENOMEM );
+      XLAL_ERROR_NULL( XLAL_ENOMEM );
     }
   }
   return vector;
@@ -42,7 +42,7 @@ void FUNC ( LALStatus *status, VTYPE **vector, UINT4 length )
    * Initialize status structure
    */
 
-  INITSTATUS( status, STRING(FUNC), VECTORFACTORIESC );
+  INITSTATUS(status);
 
   /* Check sequence length: report error if 0
    * Use of unsigned for length means we can't check if negative

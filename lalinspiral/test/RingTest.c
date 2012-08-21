@@ -17,6 +17,14 @@
 *  MA  02111-1307  USA
 */
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <lal/LALStdlib.h>
+#include <lal/LALConstants.h>
+#include <lal/AVFactories.h>
+#include <lal/RingUtils.h>
+
 /**
  * \author Jolien Creighton
  * \file
@@ -40,15 +48,7 @@
  *
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <lal/LALStdlib.h>
-#include <lal/LALConstants.h>
-#include <lal/AVFactories.h>
-#include <lal/RingUtils.h>
-
-NRCSID (RINGTESTC,"$Id$");
+/** \cond DONT_DOXYGEN */
 
 #define TestStatus( ps ) \
   if ( (ps)->statusCode ) { \
@@ -126,3 +126,4 @@ int main( void )
   LALCheckMemoryLeaks();
   return 0;
 }
+/** \endcond */

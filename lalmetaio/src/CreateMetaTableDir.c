@@ -72,16 +72,12 @@ Functions in the Metaio library:
 #define UNUSED
 #endif
 
-NRCSID( CREATEMETATABLEDIRC, "$Id$" );
-
-
 MetaTableDirectory* XLALCreateMetaTableDir(
     const MetaioParseEnv    env,
     MetadataTableType       table
     )
 
 {
-  static const char   *func = "XLALCreateMetaTableDir";
   MetaTableDirectory  *tableDir;
   INT4 i;
 
@@ -89,7 +85,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
   {
     case no_table:
       XLALPrintError( "XLALError - unable to index type no_table\n" );
-      XLAL_ERROR_NULL( func, XLAL_EINVAL );
+      XLAL_ERROR_NULL( XLAL_EINVAL );
       break;
     case process_table:
       {
@@ -117,7 +113,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
           {
             XLALPrintError( "XLALError - unable to find column %s\n",
                 tmpTableDir[i].name );
-            XLAL_ERROR_NULL( func, XLAL_EFAILED );
+            XLAL_ERROR_NULL( XLAL_EFAILED );
           }
         }
 
@@ -143,7 +139,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
           {
             XLALPrintError( "XLALError - unable to find column %s\n",
                 tmpTableDir[i].name );
-            XLAL_ERROR_NULL( func, XLAL_EFAILED );
+            XLAL_ERROR_NULL( XLAL_EFAILED );
           }
         }
 
@@ -155,17 +151,17 @@ MetaTableDirectory* XLALCreateMetaTableDir(
     case search_summary_table:
       XLALPrintError( "XLALError - "
           "unable to index type search_summary_table\n" );
-      XLAL_ERROR_NULL( func, XLAL_EINVAL );
+      XLAL_ERROR_NULL( XLAL_EINVAL );
       break;
     case search_summvars_table:
       XLALPrintError( "XLALError - "
           "unable to index type search_summvars_table\n" );
-      XLAL_ERROR_NULL( func, XLAL_EINVAL );
+      XLAL_ERROR_NULL( XLAL_EINVAL );
       break;
     case sngl_inspiral_table:
       XLALPrintError( "XLALError - "
           "unable to index type sngl_inspiral_table\n" );
-      XLAL_ERROR_NULL( func, XLAL_EINVAL );
+      XLAL_ERROR_NULL( XLAL_EINVAL );
       break;
     case sngl_ringdown_table:
       {
@@ -200,7 +196,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
           {
             XLALPrintError( "XLALError - unable to find column %s\n",
                 tmpTableDir[i].name );
-            XLAL_ERROR_NULL( func, XLAL_EFAILED );
+            XLAL_ERROR_NULL( XLAL_EFAILED );
           }
         }
 
@@ -258,7 +254,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
           {
             XLALPrintError( "XLALError - unable to find column %s\n",
                 tmpTableDir[i].name );
-            XLAL_ERROR_NULL( func, XLAL_EFAILED );
+            XLAL_ERROR_NULL( XLAL_EFAILED );
           }
         }
 
@@ -270,7 +266,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
     case sim_inspiral_table:
       XLALPrintError( "XLALError - "
           "unable to index type sim_inspiral_table\n" );
-      XLAL_ERROR_NULL( func, XLAL_EINVAL );
+      XLAL_ERROR_NULL( XLAL_EINVAL );
       break;
     case sim_ringdown_table:
       {
@@ -315,7 +311,7 @@ MetaTableDirectory* XLALCreateMetaTableDir(
           {
             XLALPrintError( "XLALError - unable to find column %s\n",
                 tmpTableDir[i].name );
-            XLAL_ERROR_NULL( func, XLAL_EFAILED );
+            XLAL_ERROR_NULL( XLAL_EFAILED );
           }
         }
 
@@ -327,12 +323,12 @@ MetaTableDirectory* XLALCreateMetaTableDir(
     case summ_value_table:
       XLALPrintError( "XLALError - "
           "unable to index type summ_value_table\n" );
-      XLAL_ERROR_NULL( func, XLAL_EINVAL );
+      XLAL_ERROR_NULL( XLAL_EINVAL );
       break;
     default:
       XLALPrintError( "XLALError - "
           "unable to index table due to unknown table type error\n" );
-      XLAL_ERROR_NULL( func, XLAL_EFAILED );
+      XLAL_ERROR_NULL( XLAL_EFAILED );
   }
 
   return tableDir;
@@ -348,7 +344,7 @@ LALCreateMetaTableDir(
     )
 
 {
-  INITSTATUS( status, "LALCreateMetaTableDir", CREATEMETATABLEDIRC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check the inputs */

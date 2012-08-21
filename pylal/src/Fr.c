@@ -12,6 +12,7 @@
 #define OOM_ERROR printf("Unable to allocate space for data.\n");return PyErr_NoMemory();
 #define CHECK_ERROR if (PyErr_Occurred()) {Py_XDECREF(framedict); Py_DECREF(channellist_iter); FrameFree(frame); return NULL;}
 #define MAX_VECT_DIMS 10
+#define MAX_STR_LEN 256
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
@@ -40,38 +41,38 @@ const char FrDocstring[] =
 a dict and convert them into C datatypes.  They should perform type checking
 and raise appropriate exceptions. */
 
-void PyDict_ExtractString(char out[100], PyObject *dict, char *key) {
-    char msg[100];
+void PyDict_ExtractString(char out[MAX_STR_LEN], PyObject *dict, char *key) {
+    char msg[MAX_STR_LEN];
     PyObject *temp;
 
     temp = PyDict_GetItemString(dict, key);
 
     if (temp == NULL) {
-        sprintf(msg, "%s not in dict", key);
+        snprintf(msg, MAX_STR_LEN, "%s not in dict", key);
         PyErr_SetString(PyExc_KeyError, msg);
         return;
     } else if (!PyString_Check(temp)) {
-        sprintf(msg, "%s is not a string", key);
+        snprintf(msg, MAX_STR_LEN, "%s is not a string", key);
         PyErr_SetString(PyExc_TypeError, msg);
         return;
     }
-    strcpy(out, PyString_AsString(temp));
+    strncpy(out, PyString_AsString(temp), MAX_STR_LEN);
     return;
 }
 
 double PyDict_ExtractDouble(PyObject *dict, char *key) {
-    char msg[100];
+    char msg[MAX_STR_LEN];
     double ret;
     PyObject *temp;
 
     temp = PyDict_GetItemString(dict, key);
 
     if (temp == NULL) {
-        sprintf(msg, "%s not in dict", key);
+        snprintf(msg, MAX_STR_LEN, "%s not in dict", key);
         PyErr_SetString(PyExc_KeyError, msg);
         return -1.;
     } else if (!PyNumber_Check(temp)) {
-        sprintf(msg, "%s is not a number", key);
+        snprintf(msg, MAX_STR_LEN, "%s is not a number", key);
         PyErr_SetString(PyExc_KeyError, msg);
         return -1.;
     }
@@ -112,7 +113,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     int verbose, i, nDim;
     long nData;
     double start, span;
-    char *filename, *channel, msg[200];
+    char *filename, *channel, msg[MAX_STR_LEN];
 
     npy_intp shape[MAX_VECT_DIMS];
 
@@ -155,7 +156,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
 
     iFile = FrFileINew(filename);
     if (iFile == NULL){
-        sprintf(msg, "%s", FrErrorGetHistory());
+        snprintf(msg, MAX_STR_LEN, "%s", FrErrorGetHistory());
         PyErr_SetString(PyExc_IOError, msg);
         return NULL;
     }
@@ -189,13 +190,13 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         /* and more below */
         if (verbose > 0) FrStatDataDump(sd, stdout, verbose);
         if (sd == NULL) {
-            sprintf(msg, "In file %s, vector not found: %s", filename, channel);
+            snprintf(msg, MAX_STR_LEN, "In file %s, vector not found: %s", filename, channel);
             FrFileIEnd(iFile);
             PyErr_SetString(PyExc_KeyError, msg);
             return NULL;
         }
         if (sd->next != NULL) {
-            sprintf(msg, "In file %s, staticData channel %s has next!=NULL. "
+            snprintf(msg, MAX_STR_LEN, "In file %s, staticData channel %s has next!=NULL. "
                     "Freaking out.", filename, channel);
             FrFileIEnd(iFile);
             PyErr_SetString(PyExc_KeyError, msg);
@@ -203,14 +204,14 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         }
         vect = sd->data;
         if (vect == NULL) {
-            sprintf(msg, "In file %s, staticData channel %s has no vector. "
+            snprintf(msg, MAX_STR_LEN, "In file %s, staticData channel %s has no vector. "
                     "Freaking out.", filename, channel);
             FrFileIEnd(iFile);
             PyErr_SetString(PyExc_KeyError, msg);
             return NULL;
         }
         if (vect->nDim != 1) {
-            sprintf(msg, "In file %s, staticData channel %s has multiple "
+            snprintf(msg, MAX_STR_LEN, "In file %s, staticData channel %s has multiple "
                     "dimensions. Freaking out.", filename, channel);
             FrFileIEnd(iFile);
             PyErr_SetString(PyExc_KeyError, msg);
@@ -312,7 +313,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         if (data_float64==NULL) {OOM_ERROR;}
         for(i=0; i<2*nData; i++) {data_float64[i] = vect->dataD[i];}}
     else{
-        sprintf(msg, "Unrecognized vect->type (= %d)\n", vect->type);
+        snprintf(msg, MAX_STR_LEN, "Unrecognized vect->type (= %d)\n", vect->type);
         FrVectFree(vect);
         FrFileIEnd(iFile);
         PyErr_SetString(PyExc_TypeError, msg);
@@ -457,9 +458,9 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
     double dx, sampleRate, start;
     char blank[] = "";
     char *filename=NULL, *history=NULL;
-    char channel[100], x_unit[100], y_unit[100], kind[100];
+    char channel[MAX_STR_LEN], x_unit[MAX_STR_LEN], y_unit[MAX_STR_LEN], kind[MAX_STR_LEN];
     PyObject *temp;
-    char msg[200];
+    char msg[MAX_STR_LEN];
 
     PyObject *channellist, *channellist_iter, *framedict, *array;
     PyArrayIterObject *arrayIter;
@@ -509,7 +510,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
 
     frame = FrameNew(channel);
     if (frame == NULL) {
-        sprintf(msg, "FrameNew failed (%s)", FrErrorGetHistory());
+        snprintf(msg, MAX_STR_LEN, "FrameNew failed (%s)", FrErrorGetHistory());
         PyErr_SetString(PyExc_FrError, msg);
         return NULL;
     }
@@ -538,7 +539,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
 
         array = PyDict_GetItemString(framedict, "data");
         if (!PyArray_Check(array)) {
-            sprintf(msg, "data is not an array");
+            snprintf(msg, MAX_STR_LEN, "data is not an array");
             PyErr_SetString(PyExc_TypeError, msg);
         }
         CHECK_ERROR;
@@ -549,16 +550,16 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
 
         // kind, x_unit, y_unit, type, and subType have default values
         temp = PyDict_GetItemString(framedict, "kind");
-        if (temp != NULL) {strcpy(kind, PyString_AsString(temp));}
-        else {sprintf(kind, "PROC");}
+        if (temp != NULL) {strncpy(kind, PyString_AsString(temp), MAX_STR_LEN);}
+        else {snprintf(kind, MAX_STR_LEN, "PROC");}
 
         temp = PyDict_GetItemString(framedict, "x_unit");
-        if (temp != NULL) {strcpy(x_unit, PyString_AsString(temp));}
-        else {strcpy(x_unit, blank);}
+        if (temp != NULL) {strncpy(x_unit, PyString_AsString(temp), MAX_STR_LEN);}
+        else {strncpy(x_unit, blank, MAX_STR_LEN);}
 
         temp = PyDict_GetItemString(framedict, "y_unit");
-        if (temp != NULL) {strcpy(y_unit, PyString_AsString(temp));}
-        else {strcpy(y_unit, blank);}
+        if (temp != NULL) {strncpy(y_unit, PyString_AsString(temp), MAX_STR_LEN);}
+        else {strncpy(y_unit, blank, MAX_STR_LEN);}
 
         temp = PyDict_GetItemString(framedict, "type");
         if (temp != NULL) {type = (int)PyInt_AsLong(temp);}
@@ -572,7 +573,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         CHECK_ERROR;
         if (dx <= 0 || array == NULL || nData==0) {
             temp = PyObject_Str(framedict);
-            sprintf(msg, "Input dictionary contents: %s", PyString_AsString(temp));
+            snprintf(msg, MAX_STR_LEN, "Input dictionary contents: %s", PyString_AsString(temp));
             Py_XDECREF(temp);
             FrameFree(frame);
             Py_XDECREF(framedict);
@@ -684,7 +685,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         }
 
         // Add Fr*Data to frame and attach vector to Fr*Data
-        if (strcmp(kind, "PROC")==0) {
+        if (strncmp(kind, "PROC", MAX_STR_LEN)==0) {
             proc = FrProcDataNew(frame, channel, sampleRate, 1, nBits);
             FrVectFree(proc->data);
             proc->data = vect;
@@ -698,7 +699,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
             } else if (type==2) {  // frequency series
                 proc->fRange = nData*dx;
             }
-        } else if (strcmp(kind, "ADC")==0) {
+        } else if (strncmp(kind, "ADC", MAX_STR_LEN)==0) {
             adc = FrAdcDataNew(frame, channel, sampleRate, 1, nBits);
             FrVectFree(adc->data);
             adc->data = vect;
@@ -730,13 +731,13 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
     oFile = FrFileONewH(filename, 1, history); // 1 ==> gzip contents
 
     if (oFile == NULL) {
-        sprintf(msg, "%s\n", FrErrorGetHistory());
+        snprintf(msg, MAX_STR_LEN, "%s\n", FrErrorGetHistory());
         PyErr_SetString(PyExc_FrError, msg);
         FrFileOEnd(oFile);
         return NULL;
     }
     if (FrameWrite(frame, oFile) != FR_OK) {
-        sprintf(msg, "%s\n", FrErrorGetHistory());
+        snprintf(msg, MAX_STR_LEN, "%s\n", FrErrorGetHistory());
         PyErr_SetString(PyExc_FrError, msg);
         FrFileOEnd(oFile);
         return NULL;
@@ -808,7 +809,7 @@ static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
 
     int verbose=0, status;
     char *filename=NULL;
-    char msg[200];
+    char msg[MAX_STR_LEN];
 
     PyObject *event_list=NULL, *event_dict=NULL, *verbose_obj=NULL,
         *output=NULL;
@@ -829,7 +830,7 @@ static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
 
     iFile = FrFileINew(filename);
     if (iFile == NULL){
-        sprintf(msg, "%s", FrErrorGetHistory());
+        snprintf(msg, MAX_STR_LEN, "%s", FrErrorGetHistory());
         PyErr_SetString(PyExc_IOError, msg);
         return NULL;
     }
@@ -837,7 +838,7 @@ static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
     /* require at least one frame in the file */
     frame = FrameRead(iFile);
     if (frame == NULL) {
-        sprintf(msg, "%s", FrErrorGetHistory());
+        snprintf(msg, MAX_STR_LEN, "%s", FrErrorGetHistory());
         PyErr_SetString(PyExc_IOError, msg);
         FrFileIEnd(iFile);
         return NULL;

@@ -33,7 +33,7 @@
 
 Given \f$t\f$ and \f$v\f$ this module computes the quantity
 \f{equation}{
-\c tofv = t - t_C - t_N(v) \sum t_k v^k,
+tofv = t - t_C - t_N(v) \sum t_k v^k,
 \f}
 where the coefficients \f$t_k\f$ and the Newtonian value \f$t_N\f$ are all defined
 in Table.\tableref{table_flux}.
@@ -56,9 +56,6 @@ None
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
 
-NRCSID (LALINSPIRALTIMING2C, "$Id$");
-
-
 void
 LALInspiralTiming2_0PN (
    LALStatus *status,
@@ -69,7 +66,7 @@ LALInspiralTiming2_0PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_0PN", "XLALInspiralTiming2_0PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_0PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -93,14 +90,14 @@ XLALInspiralTiming2_0PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM * f,oneby3);
@@ -122,7 +119,7 @@ LALInspiralTiming2_2PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_2PN", "XLALInspiralTiming2_2PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_2PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -146,14 +143,14 @@ XLALInspiralTiming2_2PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM * f,oneby3);
@@ -177,7 +174,7 @@ LALInspiralTiming2_3PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_3PN", "XLALInspiralTiming2_3PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_3PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -201,14 +198,14 @@ XLALInspiralTiming2_3PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM * f,oneby3);
@@ -234,7 +231,7 @@ LALInspiralTiming2_4PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_4PN", "XLALInspiralTiming2_4PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_4PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -258,14 +255,14 @@ XLALInspiralTiming2_4PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM * f,oneby3);
@@ -293,7 +290,7 @@ LALInspiralTiming2_5PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_5PN", "XLALInspiralTiming2_5PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_5PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -317,14 +314,14 @@ XLALInspiralTiming2_5PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM * f,oneby3);
@@ -354,7 +351,7 @@ LALInspiralTiming2_6PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_6PN", "XLALInspiralTiming2_6PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_6PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -379,14 +376,14 @@ XLALInspiralTiming2_6PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM * f,oneby3);
@@ -418,7 +415,7 @@ LALInspiralTiming2_7PN (
 {
   XLALPrintDeprecationWarning("LALInspiralTiming2_7PN", "XLALInspiralTiming2_7PN");
 
-  INITSTATUS (status, "LALInspiralTiming2_7PN", LALINSPIRALTIMING2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(toff, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -442,14 +439,14 @@ XLALInspiralTiming2_7PN (
   REAL8 toff;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (f <= 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   toffIn = (InspiralToffInput *) params;
 
   if (toffIn->t < 0)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
 
   v = pow(toffIn->piM*f, oneby3);

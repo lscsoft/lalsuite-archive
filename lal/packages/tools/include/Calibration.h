@@ -20,15 +20,8 @@
 #ifndef _CALIBRATION_H
 #define _CALIBRATION_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 #include <lal/BandPassTimeSeries.h>
-
-NRCSID (CALIBRATIONH,"$Id$");
 
 #if defined(__cplusplus)
 extern "C" {
@@ -36,9 +29,9 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-/**
+/** \addtogroup Calibration_h
  * \author P. R. Brady, J. D. E. Creighton
- * \addtogroup Calibration_h
+ * \brief Calibration API
  *
  * \heading{Synopsis}
  * \code
@@ -46,9 +39,10 @@ extern "C" {
  * \endcode
  *
  */
-/** @{ */
+/*@{*/
 
-/**\name Error Codes */ /*@{*/
+/**\name Error Codes */
+/*@{*/
 #define CALIBRATIONH_ENULL 001	/**< Null pointer */
 #define CALIBRATIONH_ESIZE 002	/**< Invalid size */
 #define CALIBRATIONH_ESZMM 004	/**< Size mismatch */
@@ -82,7 +76,6 @@ CalibrationType;
 typedef struct
 tagCalFactors
 {
-  SWIGLAL_STRUCT_LALALLOC();
   COMPLEX16 alpha;
   COMPLEX16 alphabeta;
   COMPLEX16 beta;
@@ -97,7 +90,6 @@ CalFactors;
 typedef struct
 tagUpdateFactorsParams
 {
-   SWIGLAL_STRUCT_LALALLOC();
    REAL8 lineFrequency;
    COMPLEX16 openloop;
    COMPLEX16 digital;
@@ -113,7 +105,6 @@ UpdateFactorsParams;
 typedef struct
 tagCalibrationRecord
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                     name[LALNameLength];
   LIGOTimeGPS              epoch;
   REAL8                    duration;
@@ -138,7 +129,6 @@ CalibrationRecord;
 typedef struct
 tagCalibrationFunctions
 {
-  SWIGLAL_STRUCT_LALALLOC();
   COMPLEX8FrequencySeries *responseFunction;
   COMPLEX8FrequencySeries *sensingFunction;
 }
@@ -160,7 +150,6 @@ CalibrationFunctions;
 typedef struct
 tagCalibrationUpdateParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   LIGOTimeGPS epoch;
   LIGOTimeGPS duration;
   CHAR *ifo;
@@ -173,8 +162,7 @@ CalibrationUpdateParams;
 
 /** UNDOCUMENTED */
 typedef
-struct StrainOutTag {
-  SWIGLAL_STRUCT_LALALLOC();
+struct tagStrainOut {
   REAL8TimeSeries h;         	/**<  timeseries containing h(t) */
   REAL8TimeSeries hC;         	/**< timeseries containing the control signal */
   REAL8TimeSeries hR;         	/**< timeseries containing the residual signal */
@@ -186,8 +174,7 @@ struct StrainOutTag {
 
 /** UNDOCUMENTED */
 typedef
-struct StrainInTag {
-  SWIGLAL_STRUCT_LALALLOC();
+struct tagStrainIn {
   REAL4TimeSeries AS_Q ;   /**< timeseries containing ASQ */
   REAL4TimeSeries DARM_ERR;/**< timeseries containing DARM_ERR */
   REAL4TimeSeries DARM ;   /**< timeseries containing DARM_CTRL */
@@ -229,8 +216,7 @@ struct StrainInTag {
 
 /** UNDOCUMENTED */
 typedef
-struct MyIIRFilter {
-  SWIGLAL_STRUCT_LALALLOC();
+struct tagMyIIRFilter {
   INT4 yOrder;
   INT4 xOrder;
   REAL8 a[20];
@@ -239,7 +225,7 @@ struct MyIIRFilter {
   REAL8 xhist[20];
 } MyIIRFilter;
 
-/** @} */
+/*@}*/
 
 /* ----- Prototypes ----- */
 
@@ -289,11 +275,6 @@ void LALGetFactors(
     LALStatus              *status,
     StrainOut              *output,
     StrainIn               *input
-    );
-
-int XLALFIRFilter(
-    REAL8TimeSeries        *tseries,
-    REAL8IIRFilter         *FIR
     );
 
 void LALMakeFIRLP(LALStatus *status,

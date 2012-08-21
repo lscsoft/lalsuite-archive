@@ -1,4 +1,3 @@
-# $Id$
 #
 # Copyright (C) 2006  Kipp C. Cannon
 #
@@ -31,13 +30,12 @@ try:
   from glue import gpstime
   from glue import segments
 except ImportError:
-  e = "Error, unable to import modules from glue. Check that glue is correctly installed and in your PYTHONPATH."
-  raise ImportError, e
+  raise ImportError("Error, unable to import modules from glue. Check that glue is correctly installed and in your PYTHONPATH.")
 
 #================================================================================
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ ="$Revision$"[11:-2]
+__date__ = "$Date$"
+__version__ ="$Revision$"
 __src__ = "$Source$"
 #================================================================================
 
@@ -109,7 +107,8 @@ def coalesce_seg(database, start_time, end_time):
     sql += "AND segment_summary.segment_def_cdb=segment_definer.creator_db "
     sql += "AND segment_summary.process_id=process.process_id "
     sql += "AND segment_summary.creator_db=process.creator_db "
-    sql += "AND ((segment_definer.name like 'DMT-%' and segment_definer.version=1) or (process.ifos='V1' and process.program='SegOnline')) "
+    # Removed next line so that all segments are coalesced: this will be slower up front but faster for queries and the long run
+    #sql += "AND ((segment_definer.name like 'DMT-%' and segment_definer.version=1) or (process.ifos='V1' and process.program='SegOnline')) "
     sql += "AND segment_summary.start_time <=%d " % et
     sql += "AND segment_summary.end_time >= %d " % st
     curs.execute(sql)

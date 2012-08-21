@@ -23,7 +23,6 @@
  *
  * Author: Robinson, C. A., and Sengupta, A.
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  */
@@ -34,11 +33,6 @@ Author: Robinson, C. A. and Sengupta, A. S.
 
 #ifndef _ELLIPSOIDOVERLAPTOOLS_H
 #define _ELLIPSOIDOVERLAPTOOLS_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 
 #include    <math.h>
@@ -58,11 +52,8 @@ Author: Robinson, C. A. and Sengupta, A. S.
 extern "C" {
 #endif
 
-NRCSID( ELLIPSOIDOVERLAPTOOLSH, "$Id$" );
-
 typedef struct tagfContactWorkSpace
 {
-    SWIGLAL_STRUCT_LALALLOC();
     /* Dimension of the matrices & vectors */
     UINT4             n;
 

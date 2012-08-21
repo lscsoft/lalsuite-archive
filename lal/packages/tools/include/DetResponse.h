@@ -1,5 +1,6 @@
 /*
 *  Copyright (C) 2007 David Chin, Jolien Creighton, Kipp Cannon, Teviet Creighton
+*  Copyright (C) 2012 Matthew Pitkin
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -20,11 +21,6 @@
 #ifndef _DETRESPONSE_H
 #define _DETRESPONSE_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
 #include <lal/LALConstants.h>
@@ -37,15 +33,12 @@ extern "C"
 {
 #endif
 
-NRCSID( DETRESPONSEH, "$Id$" );
+/** \addtogroup DetResponse_h
+    \author David Chin <dwchin@umich.edu>, Kipp Cannon <kipp@gravity.phys.uwm.edu>
 
-/**
-\author David Chin <dwchin@umich.edu>, Kipp Cannon <kipp@gravity.phys.uwm.edu>
-\addtogroup DetResponse_h
-
-\brief Provides routines to compute gravitational wave detector response to
-polarized planar gravitational wave originating from a given source,
-detected at a given time.
+    \brief Provides routines to compute gravitational wave detector response to
+    polarized planar gravitational wave originating from a given source,
+    detected at a given time.
 
 \heading{Synopsis}
 
@@ -68,21 +61,16 @@ Anderson, <em>et al.</em> [\ref Anderson_2000].  We compute the \f$h\f$-tensors 
 them (take the scalar product) with the detector response tensors as
 described in the \ref LALDetectors_h section of the \c tools package.
 
-\ref LALDetectors_h in the \c tools package  provides predefined
+\ref LALDetectors_h provides predefined
 \c LALDetector structures representing most current detectors,
 including LIGO (Hanford and Livingston), and GEO.
 
-\heading{Uses}
-LALGPStoGMST1()
-
 \heading{Notes}
 
-For examples of usage, please see the test programs in the \c test
-directory.
+For examples of usage, please see the test programs in the \c test directory.
 
 */
-
-/** @{ */
+/*@{*/
 
 /** \name Error Codes */
 /*@{*/
@@ -112,7 +100,6 @@ directory.
 typedef struct
 tagLALSource
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR         name[LALNameLength];  /**< name of source, eg catalog number */
   SkyPosition  equatorialCoords;     /**< equatorial coordinates of source, in decimal RADIANS */
   REAL8        orientation;          /**< Orientation angle (\f$\psi\f$) of source:
@@ -132,7 +119,6 @@ LALSource;
 typedef struct
 tagLALDetAndSource
 {
-  SWIGLAL_STRUCT_LALALLOC();
   LALDetector  *pDetector;	/**< Pointer to ::LALDetector object containing information about the detector */
   LALSource    *pSource;	/**< Pointer to ::LALSource object containing information about the source */
 }
@@ -144,7 +130,6 @@ LALDetAndSource;
 typedef struct
 tagLALDetAMResponse
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4 plus;	/**< Detector response to \f$+\f$-polarized gravitational radiation  */
   REAL4 cross;	/**< Detector response to \f$\times\f$-polarized gravitational radiation */
   REAL4 scalar;	/**< Detector response to scalar gravitational radiation (NB: ignored at present -- scalar response computation not yet implemented) */
@@ -157,7 +142,6 @@ LALDetAMResponse;
 typedef struct
 tagLALDetAMResponseSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4TimeSeries *pPlus;	/**< timeseries of detector response to \f$+\f$-polarized gravitational radiation */
   REAL4TimeSeries *pCross;	/**< timeseries of detector response to \f$\times\f$-polarized gravitational radiation */
   REAL4TimeSeries *pScalar;	/**< timeseries of detector response to scalar gravitational radiation (NB: not yet implemented.) */
@@ -172,7 +156,6 @@ LALDetAMResponseSeries;
 typedef struct
 tagLALTimeIntervalAndNSample
 {
-  SWIGLAL_STRUCT_LALALLOC();
   LIGOTimeGPS     epoch;	/**< The start time \f$t_0\f$ of the time series */
   REAL8           deltaT;	/**< The sampling interval \f$\Delta t\f$, in seconds */
   UINT4           nSample;	/**< The total number of samples to be computed */
@@ -199,6 +182,21 @@ void XLALComputeDetAMResponse(
 	const double gmst
 );
 
+
+void XLALComputeDetAMResponseExtraModes(
+  double *fplus,
+  double *fcross,
+  double *fb,
+  double *fl,
+  double *fx,
+  double *fy,
+  REAL4 D[3][3],
+  const double ra,
+  const double dec,
+  const double psi,
+  const double gmst
+);
+
 /*
  * Gives a time series of the detector's response to plus and cross
  * polarization
@@ -221,13 +219,26 @@ int XLALComputeDetAMResponseSeries(
 	const int n
 );
 
-/** @} */
+int XLALComputeDetAMResponseExtraModesSeries(
+  REAL4TimeSeries **fplus,
+  REAL4TimeSeries **fcross,
+  REAL4TimeSeries **fb,
+  REAL4TimeSeries **fl,
+  REAL4TimeSeries **fx,
+  REAL4TimeSeries **fy,
+  REAL4 D[3][3],
+  const double ra,
+  const double dec,
+  const double psi,
+  const LIGOTimeGPS *start,
+  const double deltaT,
+  const int n  
+);
+
+/*@}*/
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* !defined _DETRESPONSE_H */
-
-
-

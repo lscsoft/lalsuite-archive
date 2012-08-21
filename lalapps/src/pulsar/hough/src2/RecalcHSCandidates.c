@@ -67,7 +67,7 @@
      combines the different stacks following the \e master equation
      \f[ f(t) - F_0(t) = \xi(t).(\hat{n} - \hat{n}_0) \f]
      where
-     \f[ F_0 = f_0 + \sum \Delta f_k {(\Delta t)^k \over k!}  \f]
+     \f[ F_0 = f_0 + \sum \Delta f_k \frac{(\Delta t)^k}{k!}  \f]
      Here \f$ \hat{n}_0 \f$ is the sky-point at which the F-statistic is
      calculated and \f$ \Delta f_k \f$ is the \e residual spindown
      parameter.  For details see Phys.Rev.D 70, 082001 (2004).  The
@@ -114,9 +114,6 @@
 #include "OptimizedCFS/ComputeFstatREAL4.h"
 #include "HierarchicalSearch.h"
 #include "../../GCT/LineVeto.h"
-
-
-RCSID( "$Id$");
 
 #define TRUE (1==1)
 #define FALSE (1==0)
@@ -301,8 +298,6 @@ const SemiCohCandidate empty_SemiCohCandidate;
 /* ==================== ==================== */
 
 int MAIN( int argc, char *argv[]) {
-  const char *fn = __func__;
-
   LALStatus status = blank_status;
 
   /* temp loop variables: generally k loops over stacks and j over SFTs in a stack*/
@@ -318,9 +313,7 @@ int MAIN( int argc, char *argv[]) {
 
 
   LIGOTimeGPS refTimeGPS = empty_LIGOTimeGPS;
-  LIGOTimeGPS tStartGPS = empty_LIGOTimeGPS;
   LIGOTimeGPS tMidGPS = empty_LIGOTimeGPS;
-  REAL8 tObs;
 
   /* velocities and positions at midTstack */
   REAL8VectorSequence *velStack=NULL;
@@ -562,7 +555,7 @@ int MAIN( int argc, char *argv[]) {
   REAL8 FreqShift = 0;	/* frequency-shift correction for frequency-quantization offset bug */
   if ( uvar_WU_Freq > 0 )
     FreqShift = uvar_WU_Freq - uvar_WU_dFreq * floor ( uvar_WU_Freq / uvar_WU_dFreq + 0.5 );
-  LogPrintf (LOG_NORMAL, "Applying frequency-correction shift of %.9g Hz \n", FreqShift );
+  LogPrintf (LOG_DEBUG, "Applying frequency-correction shift of %.9g Hz \n", FreqShift );
 
   HoughCandidateList *InputCandList;
   if ( ( InputCandList = XLALLoadHoughCandidateList ( uvar_followupList, FreqShift )) == NULL ) {
@@ -610,7 +603,7 @@ int MAIN( int argc, char *argv[]) {
   /* read in ephemeris data */
   EphemerisData * edat;
   if ( (edat = XLALInitBarycenter ( uvar_ephemE, uvar_ephemS )) == NULL ) {
-    XLALPrintError ("%s: XLALInitBarycenter() failed to load ephemeris files '%s' or '%s'\n", fn, uvar_ephemE, uvar_ephemS );
+    XLALPrintError ("%s: XLALInitBarycenter() failed to load ephemeris files '%s' or '%s'\n", __func__, uvar_ephemE, uvar_ephemS );
     return XLAL_EFUNC;
   }
 
@@ -703,9 +696,8 @@ int MAIN( int argc, char *argv[]) {
 
   /* some useful params computed by SetUpSFTs */
   tStack = usefulParams.tStack;
-  tObs = usefulParams.tObs;
   nStacks = usefulParams.nStacks;
-  tStartGPS = usefulParams.tStartGPS;
+  /* currently unused: LIGOTimeGPS tStartGPS = usefulParams.tStartGPS; */
   midTstack = usefulParams.midTstack;
   startTstack = usefulParams.startTstack;
   tMidGPS = usefulParams.spinRange_midTime.refTime;
@@ -1041,7 +1033,7 @@ int MAIN( int argc, char *argv[]) {
     xlalErrno = 0;
     XLALComputeExtraStatsForToplist ( semiCohToplist, "HoughFStat", &stackMultiSFT, multiNoiseWeightsPointer, &stackMultiDetStates, &CFparams, refTimeGPS, FALSE, uvar_outputSingleSegStats );
     if ( xlalErrno != 0 ) {
-      XLALPrintError ("%s line %d : XLALComputeLineVetoForToplist() failed with xlalErrno = %d.\n\n", fn, __LINE__, xlalErrno );
+      XLALPrintError ("%s line %d : XLALComputeLineVetoForToplist() failed with xlalErrno = %d.\n\n", __func__, __LINE__, xlalErrno );
       return(HIERARCHICALSEARCH_EBAD);
     }
     LogPrintfVerbatim ( LOG_DEBUG, " done.\n");
@@ -1058,7 +1050,7 @@ int MAIN( int argc, char *argv[]) {
       return HIERARCHICALSEARCH_EFILE;
     }
   /* write header-line comment explaining columns */
-  fprintf ( fpSemiCoh, "%%%% Freq       Alpha      Delta     f1dot  HoughFStat AlphaBest DeltaBest MeanSig VarSig <multiF> <F1> <F2> ...\n" );
+  fprintf ( fpSemiCoh, "%%%%  Freq            Alpha              Delta              f1dot                 HoughFStat        AlphaBest          DeltaBest          MeanSig   VarSig    <multiF>   <F1>    <F2> ...\n");
 
   sort_houghFStat_toplist(semiCohToplist);
   if ( write_houghFStat_toplist_to_fp( semiCohToplist, fpSemiCoh, NULL) < 0)
@@ -1164,7 +1156,7 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
 
   INT4 sft_check_result = 0;
 
-  INITSTATUS( status, "SetUpSFTs", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* get sft catalog */
@@ -1365,7 +1357,7 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
 
 
 /** Function for calculating Hough Maps and candidates.
- *
+
     This function takes a peakgram as input. This peakgram was constructed
     by setting a threshold on a sequence of Fstatistic vectors.  The function
     produces a Hough map in the sky for each value of the frequency and spindown.
@@ -1379,7 +1371,7 @@ RCComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure *
                        SemiCohCandidateList  *out,   /**< Candidates from thresholding Hough number counts */
                        HOUGHPeakGramVector *pgV, 	/**< HOUGHPeakGramVector obtained after thresholding Fstatistic vectors */
                        SemiCoherentParams *params,	/**< pointer to HoughParams -- parameters for calculating Hough maps */
-                       INT8 fBin0
+                       INT8 fBin0			/**< UNDOCUMENTED */
                      )
 {
 
@@ -1411,7 +1403,7 @@ RCComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure *
   CHAR *fileStats = NULL;
   FILE *fpStats = NULL;
 
-  INITSTATUS( status, "RCComputeFstatHoughMap", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input is not null */
@@ -1721,7 +1713,7 @@ RCComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure *
       parDem.timeDiff = timeDiffV->data[j];
 
       /* calculate parameters needed for buiding the LUT */
-      TRY( LALHOUGHParamPLUT( status->statusPtr, &parLut, &parSize, &parDem), status);
+      TRY( LALHOUGHCalcParamPLUT( status->statusPtr, &parLut, &parSize, &parDem), status);
 
       /* build the LUT */
       TRY( LALHOUGHConstructPLUT( status->statusPtr, &(lutV.lut[j]), &patch, &parLut ), status);
@@ -1929,7 +1921,7 @@ void FstatVectToPeakGram (LALStatus *status,			/**< pointer to LALStatus structu
   INT4 nStacks, nSearchBins, nPeaks;
   UCHAR *upg;
 
-  INITSTATUS( status, "FstatVectToPeakGram", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   if ( FstatVect == NULL ) {
@@ -2031,7 +2023,7 @@ void SetUpStacks(LALStatus *status, 	   /**< pointer to LALStatus structure */
   REAL8 tStart, thisTime;
   REAL8 Tsft;
 
-  INITSTATUS( status, "SetUpStacks", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input parameters */
@@ -2128,7 +2120,7 @@ void PrintHmap2file(LALStatus *status,
   INT4  k, i ;
   UINT2 xSide, ySide;
 
-  INITSTATUS( status, "PrintHmap2file", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   strcpy(  filename, fnameOut);
@@ -2171,7 +2163,7 @@ void PrintHoughGrid(LALStatus *status,
   INT4  k, i ;
   REAL8UnitPolarCoor sourceLocation;
 
-  INITSTATUS( status, "PrintHoughGrid", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   sprintf( filenumber, ".%06d",iHmap);
@@ -2244,7 +2236,7 @@ void ValidateHoughLUT(LALStatus       *status,
 
   BOOLEAN validateFlag = FALSE;
 
-  INITSTATUS( status, "ValidateHoughLUT", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   strcpy(  filename, basename);
@@ -2347,7 +2339,7 @@ void DumpLUT2file(LALStatus       *status,
   HOUGHMapDeriv  hd;
   HOUGHMapTotal  ht;
 
-  INITSTATUS( status, "DumpLUT2file", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   strcpy(  filename, basename);
@@ -2445,7 +2437,7 @@ void GetHoughCandidates_toplist(LALStatus *status,
   INT4 i,j, xSide, ySide;
   SemiCohCandidate thisCandidate;
 
-  INITSTATUS( status, "GetHoughCandidates_toplist", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   deltaF = ht->deltaF;
@@ -2507,7 +2499,7 @@ GetHoughPatchTopCandidate (LALStatus            *status,
   INT4 i,j, xSide, ySide;
   SemiCohCandidate thisCandidate = empty_SemiCohCandidate;
 
-  INITSTATUS( status, __func__, rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( topCand != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
@@ -2591,7 +2583,7 @@ void PrintSemiCohCandidates(LALStatus *status,
   INT4 k;
   PulsarSpins  fkdotIn, fkdotOut;
 
-  INITSTATUS( status, "PrintSemiCohCandidates", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   INIT_MEM ( fkdotIn );
@@ -2629,7 +2621,7 @@ void PrintSemiCohCandidates(LALStatus *status,
   REAL8 f0, deltaF, alpha, delta;
   PulsarSpins fkdot;
 
-  INITSTATUS( status, "PrintFstatVec", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   INIT_MEM(fkdot);
@@ -2671,7 +2663,7 @@ void PrintHoughHistogram( LALStatus *status,
   char filename[256];
   UINT4  i ;
 
-  INITSTATUS( status, "PrintHoughHistogram", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   strcpy(  filename, fnameOut);
@@ -2702,7 +2694,7 @@ void PrintCatalogInfo( LALStatus  *status,
   INT4 nSFT;
   LIGOTimeGPS start, end;
 
-  INITSTATUS( status, "PrintCatalogInfo", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( fp != NULL, status, HIERARCHICALSEARCH_EFILE, HIERARCHICALSEARCH_MSGEFILE );
@@ -2731,7 +2723,7 @@ void PrintStackInfo( LALStatus  *status,
 
   INT4 nStacks, k;
 
-  INITSTATUS( status, "PrintStackInfo", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( fp != NULL, status, HIERARCHICALSEARCH_EFILE, HIERARCHICALSEARCH_MSGEFILE );
@@ -2767,7 +2759,7 @@ void GetChkPointIndex( LALStatus *status,
   UINT4 tmpIndex;
   CHAR lastnewline='\0';
 
-  INITSTATUS( status, "GetChkPointIndex", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* if something goes wrong later then lopindex will be 0 */
@@ -2819,7 +2811,7 @@ void GetStackVelPos( LALStatus *status,
   INT4 counter, numifo;
   CreateVectorSequenceIn createPar;
 
-  INITSTATUS( status, "GetStackVelPos", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -2910,7 +2902,7 @@ void ComputeStackNoiseWeights( LALStatus *status,
   MultiNoiseWeights *multNoiseWts;
 
 
-  INITSTATUS( status, "", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( in != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
@@ -2977,7 +2969,7 @@ void ComputeStackNoiseAndAMWeights( LALStatus *status,
   MultiDetectorStateSeries *multDetStates;
   MultiAMCoeffs *multiAMcoef = NULL;
 
-  INITSTATUS( status, "ComputeStackNoiseAndAMWeights", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( inNoise != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
@@ -3052,10 +3044,10 @@ void GetSemiCohToplist(LALStatus            *status,
 		       REAL8                sigmaN)
 {
 
-  INT4 k, debug;
+  INT4 k;
   HoughFStatOutputEntry line;
 
-  INITSTATUS( status, "GetSemiCohToplist", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( list != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
@@ -3094,7 +3086,7 @@ void GetSemiCohToplist(LALStatus            *status,
     line.sumTwoF = -1;    	/* sum of 2F-values for LV postprocessing */
     line.sumTwoFX = NULL; 	/* sum of 2F-values per detector for LV postprocessing */
 
-    debug = INSERT_INTO_HOUGHFSTAT_TOPLIST( list, line);
+    INSERT_INTO_HOUGHFSTAT_TOPLIST( list, line);
 
   }
 
@@ -3129,7 +3121,7 @@ void ComputeNumExtraBins(LALStatus            *status,
   REAL8VectorSequence  *pos;
   LIGOTimeGPSVector    *tsMid;
 
-  INITSTATUS( status, "ComputeNumExtraBins", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   vel = par->vel;
@@ -3209,7 +3201,7 @@ void ComputeNumExtraBins(LALStatus            *status,
     parDem.timeDiff = timeDiffV->data[j];
 
     /* calculate parameters needed for buiding the LUT */
-    TRY( LALHOUGHParamPLUT( status->statusPtr, &parLut, &parSize, &parDem),status );
+    TRY( LALHOUGHCalcParamPLUT( status->statusPtr, &parLut, &parSize, &parDem),status );
     /* build the LUT */
     TRY( LALHOUGHConstructPLUT( status->statusPtr, &lut, &patch, &parLut ),
 	 status );
@@ -3322,7 +3314,7 @@ void GetXiInSingleStack (LALStatus         *status,
   REAL8   timeDiffProd;
   /* --------------------------------------------- */
 
-  INITSTATUS (status, "GetXiInSingleStack", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -3406,20 +3398,18 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
                              REAL8 FreqShift	/**< apply this shift to input frequencies to correct HS offset-bug */
                              )
 {
-  const char *fn = __func__;
-
   if ( ! fname )
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
 
   LALParsedDataFile *data = NULL;
   if ( XLALParseDataFile (&data, fname) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
 
   UINT4 nCands = data->lines->nTokens;
 
   HoughCandidateList *out;
   if ( ( out = XLALCreateHoughCandidateList ( nCands )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
 
   HoughCandidate candMax = { 0,   -1, -2, -1, 0 };	/* initialize with impossibly small values */
   HoughCandidate candMin = { 1e9, 10, 10,  1, 0 }; /* initialize with impossibly large values */
@@ -3431,10 +3421,10 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
       HoughCandidate *cand = &out->data[i];
       if ( 5 != sscanf( data->lines->tokens[i], "%lg %lg %lg %lg %lg", &cand->Freq, &cand->Alpha, &cand->Delta, &cand->f1dot, &cand->sig ))
 	{
-	  XLALPrintError ( "%s: could not parse 5 numbers from line %d in candidate-file '%s':\n", fn, i, fname);
+	  XLALPrintError ( "%s: could not parse 5 numbers from line %d in candidate-file '%s':\n", __func__, i, fname);
           XLALPrintError ("'%s'\n", data->lines->tokens[i] );
           XLALDestroyHoughCandidateList ( out );
-          XLAL_ERROR_NULL ( fn,   XLAL_EDATA );
+          XLAL_ERROR_NULL (   XLAL_EDATA );
 	}
       /* apply frequency correction */
       cand->Freq += FreqShift;
@@ -3451,7 +3441,7 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
 
     } /* for i < nLines */
 
-  XLALDestroyParsedDataFile ( &data );
+  XLALDestroyParsedDataFile ( data );
 
   /* set frequency/f1dot search-space boundaries */
   out->FreqMin  = candMin.Freq;
@@ -3475,14 +3465,12 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
 HoughCandidateList *
 XLALCreateHoughCandidateList ( UINT4 length )
 {
-  const char *fn = __func__;
-
   HoughCandidateList *out;
   if ( (out = XLALCalloc ( 1, sizeof(HoughCandidateList) )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
 
   if ( (out->data = XLALCalloc ( length, sizeof(*out->data) )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
 
   out->length = length;
 

@@ -20,10 +20,17 @@
  * Author: Torres Cristina 
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include "tracksearch.h"
-#include "lal/FrameStream.h"
+#include <lal/FrameStream.h>
 
 #define PROGRAM_NAME "tracksearch"
+
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
 
 typedef struct
 {
@@ -32,8 +39,6 @@ typedef struct
 }LALInitSearchParams;
 
 /* Code Identifying information */
-NRCSID( TRACKSEARCHC, "tracksearch $Id$");
-RCSID( "tracksearch $Id$");
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
@@ -1604,6 +1609,7 @@ void LALappsGetAsciiData(
 {
   FILE                 *fp=NULL;
   INT4                  i;
+  int                   n;
 
   /* File opening via an absolute path */
   fp = fopen(dirname->data,"r");
@@ -1614,7 +1620,12 @@ void LALappsGetAsciiData(
     };
   for(i=0;i<(INT4)params->TimeLengthPoints;i++)
     {
-      fscanf(fp,"%f\n",&(DataIn->data->data[i]));
+      n = fscanf(fp,"%f\n",&(DataIn->data->data[i]));
+      if (n != 1)
+      {
+        fprintf(stderr,TRACKSEARCHC_MSGEREAD);
+        exit(TRACKSEARCHC_EREAD);
+      }
     }
   fclose(fp);
   if (DataIn->data->length != params->TimeLengthPoints)
@@ -3270,7 +3281,7 @@ void LALappsTrackSearchBandPassing(
  * Variation that removes harmonics from individual data segments
  */ 
 void LALappsTracksearchRemoveHarmonicsFromSegments(
-						   REAL4TimeSeries *dataSet,
+						   REAL4TimeSeries UNUSED *dataSet,
 						   TSSegmentVector *dataSegments,
 						   TSSearchParams   params)
 {
@@ -3618,7 +3629,7 @@ void LALappsTrackSearchWhitenSegments( REAL4TimeSeries  *dataSet,
   UINT4                    planLength=0;
   REAL4TimeSeries          *tmpSignalPtr=NULL;
   LALUnit                   originalFrequecyUnits;
-  AverageSpectrumParams     avgPSDParams;
+  AverageSpectrumParams    UNUSED avgPSDParams;
   CHARVector               *dataLabel=NULL;
   COMPLEX8FrequencySeries  *signalFFT=NULL;
   REAL4FFTPlan             *reversePlan=NULL;

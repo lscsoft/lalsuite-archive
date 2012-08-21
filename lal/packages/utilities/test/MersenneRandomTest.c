@@ -17,91 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/****************** <lalVerbatim file="MersenneRandomTestCV">
-Author: Tibbits, M. M.
-$Id$
-********************************* </lalVerbatim> */
-
-/********************************************************** <lalLaTeX>
-\subsection{Program \texttt{MersenneRandomTest.c}}
-\label{s:MersenneRandomTest.c}
-
-A program to test \texttt{LALMersenneRandom()} and \texttt{LALMersenneRandomVector()}
-\subsubsection*{Usage}
-
-\begin{verbatim}
-./MersenneRandomTest [options]
-Options:
-  -h             print usage message
-  -q             quiet: run silently
-  -v             verbose: print extra information
-  -d level       set lalDebugLevel to level
-\end{verbatim}
-
-This program tests the function
-\texttt{LALMersenneRandom()},which generates a random
-number based on the Mersenne Twister algorithm.
-
-First, it tests that the correct error codes
-are generated for the following error conditions passed
-to the function LALMersenneRandom() (tests in \textit{italics}
-are not performed if \verb+LAL_NEDEBUG+ is set, as the
-corresponding checks in the code are made using the ASSERT macro):
-
-\begin{itemize}
-\item \textit{null pointer to output structure}
-\item \textit{null pointer to params structure}
-\item \textit{params not initialized}
-\end{itemize}
-
-Second, it tests that the correct error codes
-are generated for the following error conditions passed
-to the function LALMersenneRandomVector() (tests in \textit{italics}
-are not performed if \verb+LAL_NEDEBUG+ is set, as the
-corresponding checks in the code are made using the ASSERT macro):
-
-\begin{itemize}
-\item \textit{null pointer to output structure}
-\item \textit{null pointer to params structure}
-\item \textit{params not initialized}
-\item \textit{outputVector-$>$length = 0}
-\end{itemize}
-
-Third, it verifies the output of the generator
-for each of the following simple test cases:
-\begin{enumerate}
-\item given a certain seed, does the output match the expected?
-\item does calling the function again reinitialize it to the new seed properly?
-\item does it create a vector of random numbers correctly?
-\end{enumerate}
-
-For each successful test
-(both of these valid data and the invalid ones described above), it
-prints ``\texttt{PASS}'' to standard output; if a test fails, it
-prints ``\texttt{FAIL}''.
-
-\subsubsection*{Exit codes}
-
-\input{MersenneRandomTestCE}
-
-\subsubsection*{Uses}
-
-\begin{verbatim}
-LALMersenneRandom()
-LALMersenneRandomVector()
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-\begin{itemize}
-\item{Vector must come in allocated}
-\item{params must be initialized before calls can be made.}
-\end{itemize}
-
-\vfill{\footnotesize\input{MersenneRandomTestCV}}
-
-******************************************************* </lalLaTeX> */
-
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
 
@@ -120,9 +35,76 @@ LALMersenneRandomVector()
 
 #include <lal/Random.h>
 
+/**
+   \author Tibbits, M. M.
+   \file
+   \ingroup Random_h
 
-NRCSID (MERSENNERANDOMTESTC, "$Id$");
+   \brief A program to test <tt>LALMersenneRandom()</tt> and <tt>LALMersenneRandomVector()</tt>
 
+\heading{Usage}
+
+\code
+./MersenneRandomTest [options]
+Options:
+  -h             print usage message
+  -q             quiet: run silently
+  -v             verbose: print extra information
+  -d level       set lalDebugLevel to level
+\endcode
+
+This program tests the function
+<tt>LALMersenneRandom()</tt>,which generates a random
+number based on the Mersenne Twister algorithm.
+
+First, it tests that the correct error codes
+are generated for the following error conditions passed
+to the function LALMersenneRandom() (tests in \e italics
+are not performed if \c LAL_NEDEBUG is set, as the
+corresponding checks in the code are made using the ASSERT macro):
+
+<ul>
+<li> <em>null pointer to output structure</em></li>
+<li> <em>null pointer to params structure</em></li>
+<li> <em>params not initialized</em></li>
+</ul>
+
+Second, it tests that the correct error codes
+are generated for the following error conditions passed
+to the function LALMersenneRandomVector() (tests in \e italics
+are not performed if \c LAL_NEDEBUG is set, as the
+corresponding checks in the code are made using the ASSERT macro):
+
+<ul>
+<li> <em>null pointer to output structure</em></li>
+<li> <em>null pointer to params structure</em></li>
+<li> <em>params not initialized</em></li>
+<li> <em>outputVector-\f$>\f$length = 0</em></li>
+</ul>
+
+Third, it verifies the output of the generator
+for each of the following simple test cases:
+<ol>
+<li> given a certain seed, does the output match the expected?</li>
+<li> does calling the function again reinitialize it to the new seed properly?</li>
+<li> does it create a vector of random numbers correctly?</li>
+</ol>
+
+For each successful test
+(both of these valid data and the invalid ones described above), it
+prints "\c PASS" to standard output; if a test fails, it
+prints "\c FAIL".
+
+\heading{Notes}
+
+<ul>
+<li>Vector must come in allocated</li>
+<li>params must be initialized before calls can be made.</li>
+</ul>
+
+*/
+
+/** \cond DONT_DOXYGEN */
 
 /* bogus type */
 struct
@@ -168,7 +150,7 @@ static void ParseOptions
 );
 
 
-/*************** <lalErrTable file="MersenneRandomTestCE"> */
+/**\name Error Codes */ /*@{*/
 #define	MERSENNERANDOMTESTC_ENOM     0
 #define	MERSENNERANDOMTESTC_EARG     1
 #define	MERSENNERANDOMTESTC_ECHK     2
@@ -185,7 +167,7 @@ static void ParseOptions
 #define	MERSENNERANDOMTESTC_MSGENULL "Null Pointer."
 #define MERSENNERANDOMTESTC_MSGEALOC "Memory Allocation Error"
 #define	MERSENNERANDOMTESTC_MSGENMM  "Randeom Number Mismatch"
-/***************************** </lalErrTable> */
+/*@}*/
 
 
 
@@ -199,26 +181,19 @@ int main( int argc, char *argv[] )
 	REAL8Vector	*testVector1;
 	REAL8Vector	*testVector2;
 	REAL8Vector	*testVector3;
-	REAL8Vector	*nullVector;
 	MTRandomParams	*params;
-	MTRandomParams	*nullParams;
-	REAL8		*nullOutput;
 	REAL8		output;
-	UINT8		tempLength;
 	INT8		iterator;
-	INT4		code;
 	INT4		count;
 
 	ParseOptions( argc, argv );
 
 	/*  Initialize Variables  */
-	nullOutput	= NULL;
-	nullVector	= NULL;
 	outputVector	= NULL;
 	testVector1	= NULL;
 	testVector2	= NULL;
 	testVector3	= NULL;
-	nullParams	= NULL;
+
 	params		= NULL;
 	count		= 0;
 
@@ -230,9 +205,14 @@ int main( int argc, char *argv[] )
 	/*  Initialize Parameter structure  */
 	LALCreateMTRandomParams(&status, 4357, &params);
 
-	printf("\n\nMESG: %s \n",MERSENNERANDOMTESTC);
+	printf("\n\nMESG: %s \n","$Id$");
 
 #ifndef LAL_NDEBUG
+	INT4		code;
+	REAL8		*nullOutput = NULL;
+	MTRandomParams	*nullParams	= NULL;
+	REAL8Vector	*nullVector	= NULL;
+
   if ( ! lalNoDebug )
   {
 	/*******************  Test LALMersenneRandom()  *********************/
@@ -304,7 +284,7 @@ int main( int argc, char *argv[] )
 	params->initialized = 1;
 
 	/* test behavior for outputVector length = 0  */
-	tempLength = outputVector->length;
+	UINT8		tempLength = outputVector->length;
 	outputVector->length = 0;
 	LALMersenneRandomVector(&status, outputVector, params);
 	if ( ( code = CheckStatus(&status, RANDOMH_EZERO, RANDOMH_MSGEZERO,
@@ -316,9 +296,6 @@ int main( int argc, char *argv[] )
 	printf("       \"%s\"\n", RANDOMH_MSGEZERO);
 	outputVector->length = tempLength;
   }
-#else
-  code = 0;
-  tempLength = 0;
 #endif
 
 	for (iterator = 0; iterator < 1000; iterator++)
@@ -405,6 +382,8 @@ static void Usage (const char *program, int exitcode)
 
 static void ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -426,8 +405,18 @@ static void ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':
@@ -473,3 +462,4 @@ CheckStatus(LALStatus *status, const INT4 code, const CHAR *message,
   return 0;
 }
 
+/** \endcond */

@@ -106,14 +106,10 @@ None
 #define  INSPIRALTEMPLATE_SOURCEPHI             0.
 #define  INSPIRALTEMPLATE_POLARISATIONANGLE     0.
 
-#define INSPIRALTEMPLATE_SPININTERACTION        LAL_SOInter
-#define INSPIRALTEMPLATE_AXISCHOICE             View
+#define INSPIRALTEMPLATE_INTERACTION	   LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN
+#define INSPIRALTEMPLATE_AXISCHOICE             LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW
 #define INSPIRALTEMPLATE_FIXEDSTEP              0
 #define INSPIRALTEMPLATE_INSPIRALONLY           0
-
-NRCSID (LALINSPIRALPARSEPARAMETERSC, "");
-
-
 
 void LALInspiralITStructureParseParameters(LALStatus *status,
 					   UINT4 argc,
@@ -123,7 +119,7 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 {
   UINT4 i	= 1;
 
-  INITSTATUS( status, "LALInspiralParseParameters", LALINSPIRALPARSEPARAMETERSC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   while(i <argc)
@@ -179,12 +175,14 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	    params->approximant = SpinTaylorFrameless;}
 	  else if (strcmp(argv[i],"SpinTaylorT3")==0){
 	    params->approximant = SpinTaylorT3; }
+	  else if (strcmp(argv[i],"SpinTaylorT4")==0){
+	    params->approximant = SpinTaylorT4; }
 	  else if (strcmp(argv[i],"SpinQuadTaylor")==0){
 	    params->approximant = SpinQuadTaylor;}
-	  else if (strcmp(argv[i],"PhenSpinTaylorRD")==0){
-	    params->approximant = PhenSpinTaylorRD;}
 	  else if (strcmp(argv[i],"PhenSpinTaylorRDF")==0){
 	    params->approximant = PhenSpinTaylorRDF;}
+	  else if (strcmp(argv[i],"PhenSpinTaylorRD")==0){
+	    params->approximant = PhenSpinTaylorRD;}
 	  else if (strcmp(argv[i],"FindChirpSP")==0){
 	    params->approximant = FindChirpSP;}
 	  else if (strcmp(argv[i],"FindChirpPTF")==0){
@@ -210,9 +208,9 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	  else {fprintf(stderr,"Approximant not found in ParseParameter function\n");}
 	  }
       else if (strcmp(argv[i],"--order")==0){
-	params->order = atoi(argv[++i]);}
+	params->order = (LALPNOrder) atoi(argv[++i]);}
       else if (strcmp(argv[i],"--amp-order")==0){
-	params->ampOrder = atoi(argv[++i]);}
+	params->ampOrder = (LALPNOrder) atoi(argv[++i]);}
       else if (strcmp(argv[i],"--mass1")==0){
 	params->mass1 = atof(argv[++i]);}
       else if (strcmp(argv[i],"--mass2")==0){
@@ -299,31 +297,41 @@ void LALInspiralITStructureParseParameters(LALStatus *status,
 	params->chi = atof(argv[++i]); }
       else if (strcmp(argv[i],"--kappa")==0){
 	params->kappa = atof(argv[++i]); }
-      else if (strcmp(argv[i],"--spinInteraction")==0)
+      else if (strcmp(argv[i],"--interaction")==0)
       {
-        if (strcmp(argv[++i],"LAL_NOInter")==0){
-          params->spinInteraction = LAL_NOInter; }
-        else if (strcmp(argv[i],"LAL_SOInter")==0){
-          params->spinInteraction = LAL_SOInter; }
-        else if (strcmp(argv[i],"LAL_SSInter")==0){
-          params->spinInteraction = LAL_SSInter; }
-        else if (strcmp(argv[i],"LAL_SSselfInter")==0){
-          params->spinInteraction = LAL_SSselfInter; }
-        else if (strcmp(argv[i],"LAL_QMInter")==0){
-          params->spinInteraction = LAL_QMInter; }
-        else if (strcmp(argv[i],"LAL_AllInter")==0){
-          params->spinInteraction = LAL_AllInter; }
+        if (strcmp(argv[++i],"NO")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_NONE; }
+        else if (strcmp(argv[i],"SO15")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN; }
+        else if (strcmp(argv[i],"SS")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN; }
+        else if (strcmp(argv[i],"SSself")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN; }
+        else if (strcmp(argv[i],"QM")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN; }
+        else if (strcmp(argv[i],"SO25")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN; }
+        else if (strcmp(argv[i],"SO30")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN; }
+        else if (strcmp(argv[i],"AllSpin")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN; }
+        else if (strcmp(argv[i],"Tidal")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN; }
+        else if (strcmp(argv[i],"Tidal6")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN; }
+        else if (strcmp(argv[i],"All")==0){
+          params->interaction = LAL_SIM_INSPIRAL_INTERACTION_ALL; }
         else
-          fprintf(stderr,"Invalid choice of --spinInteraction\n");
+          fprintf(stderr,"Invalid choice of --interaction\n");
       }
       else if (strcmp(argv[i],"--axisChoice")==0)
       {
         if (strcmp(argv[++i],"TotalJ")==0){
-          params->axisChoice = TotalJ; }
+          params->axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J; }
         else if (strcmp(argv[i],"View")==0){
-          params->axisChoice = View; }
+          params->axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW; }
         else if (strcmp(argv[i],"OrbitalL")==0){
-          params->axisChoice = OrbitalL; }
+          params->axisChoice = LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L; }
         else
           fprintf(stderr,"Invalid choice of --axisChoice\n");
       }
@@ -388,7 +396,7 @@ void LALInspiralITStructurePrint(LALStatus *status,
   printf("# kappa               = %-15.12f\n", params.kappa);
   printf("# orbitTheta0         = %-15.12f\n", params.orbitTheta0);
   printf("# orbitPhi0           = %-15.12f\n", params.orbitPhi0);
-  printf("# spinInteraction     = %-15.12d\n", params.spinInteraction);
+  printf("# interaction         = %-15.12d\n", params.interaction);
   printf("# axisChoice          = %-15.12d\n", params.axisChoice);
   printf("# fixedStep           = %-15.12d\n", params.fixedStep);
   printf("# inspiralOnly        = %-15.12d\n", params.inspiralOnly);
@@ -468,7 +476,7 @@ void LALInspiralITStructureSetDefault(LALStatus *status,
   params->orbitPhi0                     = INSPIRALTEMPLATE_ORBITPHI0;
   params->chi                           = INSPIRALTEMPLATE_CHI;
   params->kappa                         = INSPIRALTEMPLATE_KAPPA;
-  params->spinInteraction               = INSPIRALTEMPLATE_SPININTERACTION;
+  params->interaction               = INSPIRALTEMPLATE_INTERACTION;
   params->axisChoice                    = INSPIRALTEMPLATE_AXISCHOICE;
   params->fixedStep                     = INSPIRALTEMPLATE_FIXEDSTEP;
   params->inspiralOnly                  = INSPIRALTEMPLATE_INSPIRALONLY;
@@ -536,13 +544,13 @@ void LALInspiralITStructureHelp()
   fprintf(stderr,"--kappa       (PTF spin angle cosine)\n");
   fprintf(stderr,"--orbitTheta0 (initial orientation of L - not used)\n");
   fprintf(stderr,"--orbitPhi0   (initial orientation of L - not used)\n");
-  fprintf(stderr,"--spinInteraction  (used by PhenSpinTaylorRD to control spin effects included)\n");
-  fprintf(stderr,"              LAL_NOInter - no spin effects\n");
-  fprintf(stderr,"              LAL_SOInter - spin-orbit effects (default)\n");
-  fprintf(stderr,"              LAL_SSInter - spin-spin effects\n");
-  fprintf(stderr,"              LAL_SSselfInter - self spin-spin effects\n");
-  fprintf(stderr,"              LAL_QMInter - quadrupole-monopole effects\n");
-  fprintf(stderr,"              LAL_AllInter - all of the above effects\n");
+  fprintf(stderr,"--interaction (used by PhenSpinTaylorRD to control spin effects included)\n");
+  fprintf(stderr,"              NO - no spin effects\n");
+  fprintf(stderr,"              SO - spin-orbit effects (default)\n");
+  fprintf(stderr,"              SS - spin-spin effects\n");
+  fprintf(stderr,"              SSself - self spin-spin effects\n");
+  fprintf(stderr,"              QM - quadrupole-monopole effects\n");
+  fprintf(stderr,"              Allspin - all of the above effects\n");
   fprintf(stderr,"--inputAxis   (used by PhenSpinTaylorRD to set frame z-axis)\n");
   fprintf(stderr,"              TotalJ - z-axis along initial total angular momentum\n");
   fprintf(stderr,"              View - z-axis along line of sight\n");

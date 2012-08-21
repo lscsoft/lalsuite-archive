@@ -30,17 +30,11 @@
 #include <gsl/gsl_rng.h>
 #include <lal/LALDatatypes.h>
 
-
-#include <lal/LALRCSID.h>
-
 #if defined(__cplusplus)
 extern "C" {
 #elif 0
 } /* so that editors will match preceding brace */
 #endif
-
-NRCSID(LALSIMBURSTH, "$Id:");
-
 
 /*
  * ============================================================================
@@ -90,6 +84,32 @@ int XLALSimBurstSineGaussian(
 	REAL8 polarization,
 	REAL8 delta_t
 );
+
+
+int XLALSimBurstImg(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross, 
+	REAL8Array *image,
+	double dt,
+	double df,
+	double fstart,
+	double hrss,
+	double deltaT,
+	gsl_rng *rng
+);
+
+
+int XLALSimUnicorn(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	double f_min,
+	double f_max,
+	double V,
+	double hrss,
+	double deltaT,
+	gsl_rng *rng
+);
+
 
 
 REAL8 XLALMeasureHPeak(const REAL8TimeSeries *);

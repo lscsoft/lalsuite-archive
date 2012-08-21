@@ -54,8 +54,6 @@ Basically, you can provide all the arguments from the InspiralTemplate structure
 #include <lal/Random.h>
 #include <lal/GenerateInspiral.h>
 
-NRCSID( LALGENERATEINSPIRALWAVEFORMC, "$Id$" );
-
 INT4 lalDebugLevel=1;
 #define ERROR( code, msg, statement )                                \
 do                                                                   \
@@ -63,7 +61,7 @@ if ( lalDebugLevel & LALERROR )                                      \
 {                                                                    \
   LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
          "        %s %s\n", (code), program, __FILE__,       \
-         __LINE__, LALGENERATEINSPIRALWAVEFORMC, statement ? statement :  \
+         __LINE__, "$Id$", statement ? statement :  \
                  "", (msg) );                                        \
 }                                                                    \
 while (0)
@@ -74,7 +72,7 @@ if ( lalDebugLevel & LALWARNING )                                    \
 {                                                                    \
   LALPrintError( "Warning[0]: program %s, file %s, line %d, %s\n"    \
          "        %s\n", program, __FILE__, __LINE__,        \
-         LALGENERATEINSPIRALWAVEFORMC, (statement) );                         \
+         "$Id$", (statement) );                         \
 }                                                                    \
 while (0)
 
@@ -84,7 +82,7 @@ if ( lalDebugLevel & LALINFO )                                       \
 {                                                                    \
   LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"       \
          "        %s\n", program, __FILE__, __LINE__,        \
-         LALGENERATEINSPIRALWAVEFORMC, (statement) );                         \
+         "$Id$", (statement) );                         \
 }                                                                    \
 while (0)
 
@@ -321,12 +319,12 @@ int main (int argc , char **argv) {
       }
       if(otherIn.taper) /* Taper if requested */
       {
-        InspiralApplyTaper bookends;
+        LALSimInspiralApplyTaper bookends;
         bookends = 0;
-        if (otherIn.taper==1) bookends = INSPIRAL_TAPER_START;
-        if (otherIn.taper==2) bookends = INSPIRAL_TAPER_END;
-        if (otherIn.taper==3) bookends = INSPIRAL_TAPER_STARTEND;
-        XLALInspiralWaveTaper(signal1, bookends);
+        if (otherIn.taper==1) bookends = LAL_SIM_INSPIRAL_TAPER_START;
+        if (otherIn.taper==2) bookends = LAL_SIM_INSPIRAL_TAPER_END;
+        if (otherIn.taper==3) bookends = LAL_SIM_INSPIRAL_TAPER_STARTEND;
+        XLALSimInspiralREAL4WaveTaper(signal1, bookends);
       }
       break;
   }
@@ -673,9 +671,9 @@ void buildhoft(LALStatus *status, REAL4Vector *wave,
           sizeof(otherIn->waveformString) );
 
   if (strstr(simTable.waveform,"PhenSpinTaylorRD")) {
-    if (params->axisChoice==OrbitalL) {
+    if (params->axisChoice==LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L) {
       strcat(simTable.waveform,"OrbitalL");}
-    else if (params->axisChoice==TotalJ) {
+    else if (params->axisChoice==LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J) {
       strcat(simTable.waveform,"TotalJ");
     }
     if (params->inspiralOnly==1) {
@@ -685,28 +683,41 @@ void buildhoft(LALStatus *status, REAL4Vector *wave,
       strcat(simTable.waveform,"fixedStep");
     }
   }
-  switch (params->spinInteraction) {
-  case LAL_NOInter:
-    strcat(simTable.waveform,"LAL_NOInter");
+  switch (params->interaction) {
+  case LAL_SIM_INSPIRAL_INTERACTION_NONE:
+    strcat(simTable.waveform,"NO");
     break;
-  case LAL_SOInter:
-    strcat(simTable.waveform,"LAL_SOInter");
+  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN:
+    strcat(simTable.waveform,"SO15PN");
     break;
-  case LAL_SSInter:
-    strcat(simTable.waveform,"LAL_SSInter");
+  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN:
+    strcat(simTable.waveform,"SO25PN");
     break;
-  case LAL_SSselfInter:
-    strcat(simTable.waveform,"LAL_SSselfInter");
+  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN:
+    strcat(simTable.waveform,"SO");
     break;
-  case LAL_QMInter:
-    strcat(simTable.waveform,"LAL_QMInter");
+  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN:
+    strcat(simTable.waveform,"SS");
     break;
-  case LAL_SO25Inter:
-    strcat(simTable.waveform,"LAL_SO25Inter");
+  case LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN:
+    strcat(simTable.waveform,"SELF");
     break;
-  case LAL_AllInter:
-    strcat(simTable.waveform,"LAL_AllInter");
+  case LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN:
+    strcat(simTable.waveform,"QM");
     break;
+  case LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN:
+    strcat(simTable.waveform,"ALL_SPIN");
+    break;
+  case LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN:
+	strcat(simTable.waveform,"TIDAL5PN");
+	break;
+  case LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN:
+	strcat(simTable.waveform,"TIDAL");
+	break;
+  case LAL_SIM_INSPIRAL_INTERACTION_ALL:
+	strcat(simTable.waveform,"ALL");
+	break;
+		  
   }
 
   simTable.mass1 = params->mass1;
@@ -793,16 +804,14 @@ void buildhoft(LALStatus *status, REAL4Vector *wave,
   }
   else /* build h(t) from h+ and hx in waveform->h */
   {
-    len = waveform.h->data->length;
+    len=waveform.h->data->length < wave->length ? waveform.h->data->length : wave->length;
     for(i = 0; i < len; i++)
-    {
-      wave->data[i] = Fp * waveform.h->data->data[2*i] 
-                    + Fc * waveform.h->data->data[2*i+1];
-    }
+      {
+	wave->data[i] = Fp * waveform.h->data->data[2*i] 
+	  + Fc * waveform.h->data->data[2*i+1];
+      }
+    for (i=len;i<wave->length;i++) wave->data[i]=0.;
   }
-
-  for (i=len;i<wave->length;i++) wave->data[i]=0.;
 
   return;
 }
-

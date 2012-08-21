@@ -69,34 +69,25 @@ If the <tt>-w</tt> \e and <tt>-o</tt> options are given, the
 amplitude, phase, and frequency are generated as above, but are then
 resampled at intervals \c deltat to generate actual wave output.
 
-\heading{Uses}
-\code
-lalDebugLevel
-LALPrintError()                 LALCheckMemoryLeaks()
-LALSCreateVector()              LALSDestroyVector()
-LALGeneratePPNInspiral()        LALSDestroyVectorSequence()
-\endcode
-
-\heading{Notes}
-
 */
 
-/** \name Error Codes */ /*@{*/
-#define GENERATEPPNINSPIRALTESTC_ENORM  0
-#define GENERATEPPNINSPIRALTESTC_ESUB   1
-#define GENERATEPPNINSPIRALTESTC_EARG   2
-#define GENERATEPPNINSPIRALTESTC_EVAL   3
-#define GENERATEPPNINSPIRALTESTC_EFILE  4
-#define GENERATEPPNINSPIRALTESTC_EPRINT 5
+/** \name Error Codes */
+/*@{*/
+#define GENERATEPPNINSPIRALTESTC_ENORM  0	/**< Normal exit */
+#define GENERATEPPNINSPIRALTESTC_ESUB   1	/**< Subroutine failed */
+#define GENERATEPPNINSPIRALTESTC_EARG   2	/**< Error parsing arguments */
+#define GENERATEPPNINSPIRALTESTC_EVAL   3	/**< Input argument out of valid range */
+#define GENERATEPPNINSPIRALTESTC_EFILE  4	/**< Could not open file */
+#define GENERATEPPNINSPIRALTESTC_EPRINT 5	/**< Wrote past end of message string */
+/*@}*/
 
+/** \cond DONT_DOXYGEN */
 #define GENERATEPPNINSPIRALTESTC_MSGENORM  "Normal exit"
 #define GENERATEPPNINSPIRALTESTC_MSGESUB   "Subroutine failed"
 #define GENERATEPPNINSPIRALTESTC_MSGEARG   "Error parsing arguments"
 #define GENERATEPPNINSPIRALTESTC_MSGEVAL   "Input argument out of valid range"
 #define GENERATEPPNINSPIRALTESTC_MSGEFILE  "Could not open file"
 #define GENERATEPPNINSPIRALTESTC_MSGEPRINT "Wrote past end of message string"
-/*@}*/
-
 
 #include <math.h>
 #include <stdlib.h>
@@ -107,8 +98,6 @@ LALGeneratePPNInspiral()        LALSDestroyVectorSequence()
 #include <lal/SeqFactories.h>
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GeneratePPNInspiral.h>
-
-NRCSID( GENERATEPPNINSPIRALTESTC, "$Id$" );
 
 /* Default parameter settings. */
 extern int lalDebugLevel;
@@ -137,7 +126,7 @@ if ( lalDebugLevel & LALERROR )                                      \
 {                                                                    \
   LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
 		 "        %s %s\n", (code), *argv, __FILE__,         \
-		 __LINE__, GENERATEPPNINSPIRALTESTC,                 \
+		 __LINE__, "$Id$",                 \
 		 statement ? statement : "", (msg) );                \
 }                                                                    \
 while (0)
@@ -148,7 +137,7 @@ if ( lalDebugLevel & LALINFO )                                       \
 {                                                                    \
   LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"       \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 GENERATEPPNINSPIRALTESTC, (statement) );            \
+		 "$Id$", (statement) );            \
 }                                                                    \
 while (0)
 
@@ -158,7 +147,7 @@ if ( lalDebugLevel & LALWARNING )                                    \
 {                                                                    \
   LALPrintError( "Warning[0]: program %s, file %s, line %d, %s\n"    \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 GENERATEPPNINSPIRALTESTC, (statement) );            \
+		 "$Id$", (statement) );            \
 }                                                                    \
 while (0)
 
@@ -504,3 +493,4 @@ I8ToLIGOTimeGPS( LIGOTimeGPS *output, INT8 input )
   output->gpsNanoSeconds = (INT4)( input - 1000000000LL*s );
   return;
 }
+/** \endcond */

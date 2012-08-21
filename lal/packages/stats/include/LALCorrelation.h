@@ -20,11 +20,6 @@
 #ifndef _LALCORRELATION_H
 #define _LALCORRELATION_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 /* ****** INCLUDE ANY OTHER LAL HEADERS needed for header (NOT module) ****/
 
@@ -32,11 +27,9 @@
 extern "C" {
 #endif
 
-NRCSID (LALCORRELATIONH, "$Id$");
-
 /**
-\author Yakushin, Igor
 \addtogroup LALCorrelation_h
+\author Yakushin, Igor
 
 \brief [One sentence briefly defining scope of the header]
 
@@ -49,9 +42,10 @@ NRCSID (LALCORRELATIONH, "$Id$");
 document any stuff not specific to the module]
 
 */
-/** @{ */
+/*@{*/
 
-/**\name Error Codes */ /*@{*/
+/**\name Error Codes */
+/*@{*/
 #define LALCORRELATIONH_ENULLP        1		/**< Null pointer */
 #define LALCORRELATIONH_ESTART        2		/**< Time series do not start simultaneously */
 #define LALCORRELATIONH_ESAMPLING     3		/**< Time series are not sampled with the same rate */
@@ -68,18 +62,18 @@ document any stuff not specific to the module]
 
 /* ***** DEFINE NEW STRUCTURES AND TYPES ************/
 
+/** UNDOCUMENTED */
 typedef struct
 tagCorrelationParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4 maxTimeShiftNan;
 }
 CorrelationParams;
 
+/** UNDOCUMENTED */
 typedef struct
 tagInputCorrelation
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4TimeSeries *one;
   REAL4TimeSeries *two;
 }
@@ -89,7 +83,6 @@ InputCorrelation;
 typedef struct
 tagOutputCorrelation
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4 *timeShiftedCorrelation; /**< cor(x(t-T),y(t)) or cor(x(t),y(t-T)) as a function of T*/
 
   INT4 maxCorrelationTimeShift;  /**< time step (from shift=0) at which correlation is maximum */
@@ -114,7 +107,7 @@ LALCorrelation( LALStatus                      *status,
 		const InputCorrelation         *input,
 		const CorrelationParams        *params);
 
-/** @} */
+/*@}*/
 
 #ifdef  __cplusplus
 }

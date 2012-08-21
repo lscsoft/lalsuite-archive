@@ -6,6 +6,7 @@ lalburstinclude_HEADERS = \
 	EPSearch.h \
 	GenerateBurst.h \
 	LALBurstConfig.h \
+	LALBurstLibVCSInfo.h \
 	LALBurstVCSInfo.h \
 	LIGOLwXMLBurstRead.h \
 	LIGOMetadataBurstUtils.h \
@@ -42,8 +43,7 @@ liblalburst_la_SOURCES = \
 	TfrWv.c \
 	Thresholds.c \
 	TrackSearch.c \
-	cs_lambda_cosmo.c \
-	check_series_macros.h
+	cs_lambda_cosmo.c
 
 liblalburst_la_LDFLAGS = -version-info $(LIBVERSION)
 
@@ -72,8 +72,7 @@ lalburst-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
 
 lalburst-user-env.csh lalburst-user-env.sh: lalburst-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALBurstConfig.h.in \
@@ -84,7 +83,6 @@ EXTRA_DIST = \
 LALBurstVCSInfo.h: ._vcsinfo
 
 ._vcsinfo: $(srcdir)/generate_vcs_info.py LALBurstConfig.h
-	@echo "creating LALBurstVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALBurst $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALBurst $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@

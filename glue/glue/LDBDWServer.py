@@ -16,7 +16,7 @@ details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__='$Revision: 1.0 $'[11:-2]
+__version__='$Revision$'
 
 
 import os

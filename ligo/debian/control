@@ -1,0 +1,12 @@
+Source: ligo-common
+Section: python
+Priority: extra
+Maintainer: Brian Moe <brian.moe@ligo.org>
+Build-Depends: debhelper (>= 7), python-support, python (>=2.4)
+Standards-Version: 3.8.4
+
+Package: python-ligo-common
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+Description: Common package for LIGO Python libs
+

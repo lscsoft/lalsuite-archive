@@ -292,7 +292,10 @@ SET
         WHERE 
             experiment_summary.experiment_id == distinct_experiments.experiment_id
             AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
-            AND experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+            AND (
+	      experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+		OR (
+	          experiment_summary.veto_def_name IS NULL AND distinct_experiments.veto_def_name IS NULL))	
             AND experiment_summary.datatype == distinct_experiments.datatype
             AND (
               experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
@@ -309,7 +312,10 @@ CREATE TEMP TABLE esidmap AS
     JOIN distinct_experiments ON (
         experiment_summary.experiment_id == distinct_experiments.experiment_id
         AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
-        AND experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+        AND (
+          experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+	OR (
+	  experiment_summary.veto_def_name IS NULL AND distinct_experiments.veto_def_name IS NULL))	
         AND experiment_summary.datatype == distinct_experiments.datatype
         AND (
           experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id

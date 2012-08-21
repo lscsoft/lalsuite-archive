@@ -8,7 +8,6 @@ pkginclude_HEADERS = \
 	LALError.h \
 	LALGSL.h \
 	LALMalloc.h \
-	LALRCSID.h \
 	LALStatusMacros.h \
 	LALStdio.h \
 	LALStdlib.h \
@@ -16,28 +15,20 @@ pkginclude_HEADERS = \
 	LALVersion.h \
 	StringInput.h \
 	XLALError.h \
-	XLALGSL.h
+	XLALGSL.h \
+	lalswig_error.i \
+	lalswig_gsl.i \
+	lalswig_ligotimegps.i
 
-if SWIG_BUILD
-pkginclude_HEADERS += \
-	swig-lal-error.i
-endif
-
-EXTRA_DIST = LALPrimer.h
-
-EXTRA_TEXSOURCES = LALPrimer.h
+EXTRA_DIST =
 
 CLEANFILES =
-MOSTLYCLEANFILES = .dvi-dep
-DISTCLEANFILES = *.tex
+MOSTLYCLEANFILES =
+DISTCLEANFILES =
 
 all-local: include-link
 
-dvi-local: .dvi-dep
-
 @INCLUDEMKFILE@
-@DVIMKFILE@
 
 swig_headers = $(pkginclude_HEADERS)
-CLEANFILES += $(swig_clean)
-@SWIG_HEADER_MK@
+include $(top_srcdir)/swig/swiglal_header.am

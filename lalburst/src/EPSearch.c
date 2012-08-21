@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2007  Brady, P. and Kipp Cannon
  *
@@ -37,16 +36,9 @@
 #include <lal/XLALError.h>
 #include <lal/Window.h>
 
-
-#include <lal/LALRCSID.h>
-NRCSID(EPSEARCHC, "$Id$");
-
-
-/*
+/**
  * Generate a linked list of burst events from a time series.
  */
-
-
 SnglBurst *XLALEPSearch(
 	struct XLALEPSearchDiagnostics *diagnostics,
 	const REAL8TimeSeries *tseries,
@@ -241,7 +233,7 @@ SnglBurst *XLALEPSearch(
 	XLALDestroyTFPlane(plane);
 	if(errorcode) {
 		XLALDestroySnglBurstTable(head);
-		XLAL_ERROR_NULL(__func__, errorcode);
+		XLAL_ERROR_NULL(errorcode);
 	}
 	return(head);
 }

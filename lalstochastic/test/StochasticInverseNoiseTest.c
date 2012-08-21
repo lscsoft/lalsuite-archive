@@ -82,7 +82,7 @@ noise are generated for a simple test case:
 <ol>
 <li> \f$\tilde{R}(f)=(1+i)f^2\f$, \f$P(f)=f^3\f$.  The
   expected results are \f$1/P^{\mathrm{C}}(f)=2f\f$,
-  \f$1/P^{\mathrm{HC}(f)=(1-i)f^{-1}\f$.</li>
+  \f$1/P^{\mathrm{HC}}(f)=(1-i)f^{-1}\f$.</li>
 </ol>
 
 For each successful test (both of these valid data and the invalid ones
@@ -142,6 +142,7 @@ LALCheckMemoryLeaks()
 #define STOCHASTICINVERSENOISETESTC_MSGEUSE "Bad user-entered data"
 
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 
 #include <math.h>
@@ -164,8 +165,6 @@ LALCheckMemoryLeaks()
 #include <lal/Units.h>
 
 #include "CheckStatus.h"
-
-NRCSID(STOCHASTICINVERSENOISETESTC, "$Id$");
 
 #define STOCHASTICINVERSENOISETESTC_TRUE     1
 #define STOCHASTICINVERSENOISETESTC_FALSE    0
@@ -203,8 +202,6 @@ int main(int argc, char *argv[])
   StochasticInverseNoiseInput        input;
   StochasticInverseNoiseOutput       output;
 
-  REAL4FrequencySeries     realBadData;
-  COMPLEX8FrequencySeries  complexBadData;
   LIGOTimeGPS              epoch = {1234,56789};
 
   REAL4FrequencySeries     wNoise;
@@ -233,16 +230,18 @@ int main(int argc, char *argv[])
   wNoise.epoch  = epoch;
   wNoise.data   = NULL;
   invNoise.data = NULL;
-
-  realBadData = wNoise;
+#ifndef LAL_NDEBUG
+  REAL4FrequencySeries     realBadData = wNoise;
+#endif
 
   wFilter.f0     = wNoise.f0;
   wFilter.deltaF  = wNoise.deltaF;
   wFilter.epoch   = wNoise.epoch;
   wFilter.data    = NULL;
   hwInvNoise.data = NULL;
-
-  complexBadData  = wFilter;
+#ifndef LAL_NDEBUG
+  COMPLEX8FrequencySeries  complexBadData  = wFilter;
+#endif
 
   /******** Set Testing  Units ********/
   /* response function */
@@ -1165,6 +1164,8 @@ static void Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -1207,8 +1208,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

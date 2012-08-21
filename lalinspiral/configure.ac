@@ -1,4 +1,5 @@
-AC_INIT([lalinspiral],[1.1.0.4],[lal-discuss@gravity.phys.uwm.edu])
+AC_PREREQ([2.63])
+AC_INIT([lalinspiral],[1.3.2.1],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALInspiralConfig.h])
 AC_CONFIG_SRCDIR([src/LALInspiral.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -14,11 +15,12 @@ AC_CONFIG_FILES([ \
   src/Makefile \
   test/Makefile
 ])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info
 # 1. start with version information of "0:0:0" for each libtool library
@@ -34,19 +36,25 @@ LALSUITE_ARG_VAR
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[1])
+AC_SUBST([LIBCURRENT],[5])
 AC_SUBST([LIBREVISION],[0])
-AC_SUBST([LIBAGE],[0])
+AC_SUBST([LIBAGE],[1])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
-
-# default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalinspiral])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
 
 # debug
 LALSUITE_ENABLE_DEBUG
+
+# enable CUDA support
+LALSUITE_WITH_CUDA
+
+# enable strict gcc flags
+LALSUITE_ENABLE_GCC_FLAGS
+
+# optional lal libraries
+LALSUITE_ENABLE_LALFRAME
 
 # put version/configure info in config header
 lalinspiral_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -70,26 +78,21 @@ AC_DEFINE_UNQUOTED([LALINSPIRAL_CONFIGURE_ARGS],["$ac_configure_args"],
 AC_DEFINE_UNQUOTED([LALINSPIRAL_CONFIGURE_DATE],["$lalinspiral_configure_date"],
                    [LALInspiral Configure Date])
 
-# enable strict gcc flags
-LALSUITE_ENABLE_GCC_FLAGS
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
-# optional lal libraries
-LALSUITE_ENABLE_LALFRAME
+# use silent build rules
+AM_SILENT_RULES([yes])
 
-# check for c compiler
-m4_pattern_allow([AC_PROG_CC_C99])
-m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
-
-# use silent build rules if available
-m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
+# check for C/C++ compilers
+LALSUITE_PROG_CC_CXX
 
 # checks for programs
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
-LT_INIT
-AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
+AC_PROG_SED
+AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -123,21 +126,40 @@ AC_CHECK_LIB([metaio],[MetaioOpen],,[AC_MSG_ERROR([could not find the metaio lib
 # check for libmetaio headers
 AC_CHECK_HEADERS([metaio.h],,[AC_MSG_ERROR([could not find the metaio.h header])])
 
+# check for frame library
+PKG_CHECK_MODULES([LIBFRAME],[libframe],[true],[false])
+CPPFLAGS="$CPPFLAGS $LIBFRAME_CFLAGS"
+LIBS="$LIBS $LIBFRAME_LIBS"
+AC_CHECK_LIB([Frame],[FrLibIni],,[AC_MSG_ERROR([could not find the frame library])])
+
+# check for frame library headers
+AC_CHECK_HEADERS([FrameL.h],,[AC_MSG_ERROR([could not find the FrameL.h header])])
+
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.4.0.4],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.4.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_LIB([LALMetaIO],[1.0.1],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.1],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[1.0.4],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALSimulation],[0.4.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALFrame],[1.0.5],[LALFrOpen],[lal/LALFrameL.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
+  # don't use gcc flags when cuda is enabled
+  if test "${cuda}" != "true"; then
+    CFLAGS="$CFLAGS $lal_gcc_flags"
+  else
+    AC_MSG_NOTICE([CUDA support is enabled, disabling GCC flags])
+  fi
 
   # add mac os x specific flags
   if test "x$MACOSX_VERSION" != "x"; then
     CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
   fi
+fi
+
+# define if CUDA is enabled
+if test "${cuda}" = "true"; then
+  AC_DEFINE([LALINSPIRAL_CUDA_ENABLED],[1],[Define if using cuda library])
 fi
 
 # output
@@ -146,12 +168,15 @@ AC_SUBST_FILE([LAL_HEADER_LINK])
 AC_PROG_MAKE_SET
 AC_OUTPUT
 echo "
-================================================================
+=================================================================
 
-        LALInspiral has now been successfully configured
+        LALInspiral has now been successfully configured:
+
+            CUDA support is $CUDA_ENABLE_VAL
+
         and will be installed under the directory:
 
-          ${prefix}
+            ${prefix}
 
         Now run 'make' to build LALInspiral
         and run 'make install' to install LALInspiral

@@ -30,8 +30,6 @@
 #define LAL_HSERIES (0.0001) /* value H below which we expand sqrt(1+H)-1 */
 #define LAL_BSERIES (0.001)  /* value B below which we expand v */
 
-NRCSID( TERRESTRIALCOORDINATESC, "$Id$" );
-
 /**
    \author Creighton, T. D.
    \addtogroup TerrestrialCoordinates_c
@@ -226,7 +224,7 @@ v & = & \left\{\begin{array}{lr}
 		\arccos\left[\frac{Q}{-P\sqrt{-P}}\right]\right) &
 		D\leq0 \end{array}\right.\nonumber\\
 W & = & \sqrt{E^2 + \varpi v} \nonumber\\
-G & = & \mbox{\f$\frac{1}{2}\f$}\left(E+W\right)\;,\nonumber\\
+G & = & \frac{1}{2}\left(E+W\right)\;,\nonumber\\
 t & = & \sqrt{G^2+\frac{\varpi^2 F - \varpi vG}{W}}-G \;.\nonumber
 \f}
 Once we have \f$t\f$ and \f$\varpi\f$, we can compute the geodetic longitude
@@ -298,8 +296,8 @@ we have \f$E<0\f$ and the expression for \f$G\f$ becomes of this form.
 </ol>
 In each case, we expand in the small parameter \f$H=b/a^2\f$, giving:
 \f[
-\sqrt{a^2+b}-a \;\;\approx\;\; a\left(\mbox{\f$\frac{1}{2}\f$}H
--\mbox{\f$\frac{1}{8}\f$}H^2+\mbox{\f$\frac{1}{16}\f$}H^3\right)
+\sqrt{a^2+b}-a \;\;\approx\;\; a\left(\frac{1}{2} H
+- \frac{1}{8} H^2 + \frac{1}{16} H^3\right)
 \qquad\mbox{for}\qquad |H| = \left|\frac{b}{a^2}\right| \ll 1
 \f]
 
@@ -338,9 +336,9 @@ XLALGreenwichMeanSiderealTime()
 \endcode
 
 */
-/** @{ */
+/*@{*/
 
-/** See documentation in \ref TerrestrialCoordinates_c */
+/** \see See documentation in \ref TerrestrialCoordinates_c */
 void
 LALEquatorialToGeographic( LALStatus   *stat,
 			   SkyPosition *output,
@@ -349,7 +347,7 @@ LALEquatorialToGeographic( LALStatus   *stat,
 {
   REAL8 gmst;            /* siderial time (radians) */
 
-  INITSTATUS( stat, "LALEquatorialToGeographic", TERRESTRIALCOORDINATESC );
+  INITSTATUS(stat);
 
   /* Make sure parameter structures exist. */
   ASSERT( input, stat, SKYCOORDINATESH_ENUL, SKYCOORDINATESH_MSGENUL );
@@ -374,7 +372,7 @@ LALEquatorialToGeographic( LALStatus   *stat,
 }
 
 
-/** See documentation in \ref TerrestrialCoordinates_c */
+/** \see See documentation in \ref TerrestrialCoordinates_c */
 void
 LALGeographicToEquatorial( LALStatus   *stat,
 			   SkyPosition *output,
@@ -383,7 +381,7 @@ LALGeographicToEquatorial( LALStatus   *stat,
 {
   REAL8 gmst;            /* siderial time (radians) */
 
-  INITSTATUS( stat, "LALEquatorialToGeographic", TERRESTRIALCOORDINATESC );
+  INITSTATUS(stat);
 
   /* Make sure parameter structures exist. */
   ASSERT( input, stat, SKYCOORDINATESH_ENUL, SKYCOORDINATESH_MSGENUL );
@@ -408,7 +406,7 @@ LALGeographicToEquatorial( LALStatus   *stat,
 }
 
 
-/** See documentation in \ref TerrestrialCoordinates_c */
+/** \see See documentation in \ref TerrestrialCoordinates_c */
 void
 LALSystemToHorizon( LALStatus   *stat,
 		    SkyPosition *output,
@@ -420,7 +418,7 @@ LALSystemToHorizon( LALStatus   *stat,
   REAL8 sinD, cosD;    /* sin and cos of position latitude (declination) */
   REAL8 sina, sinA, cosA; /* sin and cos of altitude and -azimuth */
 
-  INITSTATUS( stat, "LALSystemToHorizon", TERRESTRIALCOORDINATESC );
+  INITSTATUS(stat);
 
   /* Make sure parameter structures exist. */
   ASSERT( input, stat, SKYCOORDINATESH_ENUL, SKYCOORDINATESH_MSGENUL );
@@ -463,7 +461,7 @@ LALSystemToHorizon( LALStatus   *stat,
 }
 
 
-/** See documentation in \ref TerrestrialCoordinates_c */
+/** \see See documentation in \ref TerrestrialCoordinates_c */
 void
 LALHorizonToSystem( LALStatus   *stat,
 		    SkyPosition *output,
@@ -475,7 +473,7 @@ LALHorizonToSystem( LALStatus   *stat,
   REAL8 sinA, cosA;       /* sin and cos of -azimuth */
   REAL8 sinD, sinH, cosH; /* sin and cos of declination and hour angle */
 
-  INITSTATUS( stat, "LALHorizonToSystem", TERRESTRIALCOORDINATESC );
+  INITSTATUS(stat);
 
   /* Make sure parameter structures exist. */
   ASSERT( input, stat, SKYCOORDINATESH_ENUL, SKYCOORDINATESH_MSGENUL );
@@ -517,7 +515,7 @@ LALHorizonToSystem( LALStatus   *stat,
 }
 
 
-/** See documentation in \ref TerrestrialCoordinates_c */
+/** \see See documentation in \ref TerrestrialCoordinates_c */
 void
 LALGeodeticToGeocentric( LALStatus *stat, EarthPosition *location )
 {
@@ -527,7 +525,7 @@ LALGeodeticToGeocentric( LALStatus *stat, EarthPosition *location )
   REAL8 x, y;       /* Cartesian coordinates */
   REAL8 maxComp, r; /* max{x,y,z}, and sqrt(x^2+y^2+z^2) */
 
-  INITSTATUS( stat, "LALGeodeticToGeocentric", TERRESTRIALCOORDINATESC );
+  INITSTATUS(stat);
 
   /* Make sure parameter structure exists. */
   ASSERT( location, stat, SKYCOORDINATESH_ENUL, SKYCOORDINATESH_MSGENUL );
@@ -572,7 +570,7 @@ LALGeodeticToGeocentric( LALStatus *stat, EarthPosition *location )
 }
 
 
-/** See documentation in \ref TerrestrialCoordinates_c */
+/** \see See documentation in \ref TerrestrialCoordinates_c */
 void
 LALGeocentricToGeodetic( LALStatus *stat, EarthPosition *location )
 {
@@ -584,7 +582,7 @@ LALGeocentricToGeodetic( LALStatus *stat, EarthPosition *location )
   const REAL8 f1 = 1.0 - LAL_EARTHFLAT;
   const REAL8 f2 = LAL_EARTHFLAT*( 2.0 - LAL_EARTHFLAT );
 
-  INITSTATUS( stat, "LALGeocentricToGeodetic", TERRESTRIALCOORDINATESC );
+  INITSTATUS(stat);
 
   /* Make sure parameter structure exists. */
   ASSERT( location, stat, SKYCOORDINATESH_ENUL, SKYCOORDINATESH_MSGENUL );
@@ -685,4 +683,4 @@ LALGeocentricToGeodetic( LALStatus *stat, EarthPosition *location )
   /* Transformation complete. */
   RETURN( stat );
 }
-/** @} */
+/*@}*/

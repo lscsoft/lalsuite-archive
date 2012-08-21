@@ -186,9 +186,6 @@ fabs()
 
 #include "CheckStatus.h"
 
-NRCSID(STOCHASTICOPTIMALFILTERNORMALIZATIONTESTC,
-       "$Id$");
-
 #define STOCHASTICOPTIMALFILTERNORMALIZATIONTESTC_TRUE     1
 #define STOCHASTICOPTIMALFILTERNORMALIZATIONTESTC_FALSE    0
 #define STOCHASTICOPTIMALFILTERNORMALIZATIONTESTC_DELTAF   1.0
@@ -233,7 +230,6 @@ int main(int argc, char *argv[])
 
   REAL4WithUnits           normOut, varOut;
 
-  REAL4FrequencySeries     realBadData;
   LIGOTimeGPS              epoch = {1,0};
 
   REAL4FrequencySeries     overlap;
@@ -262,8 +258,10 @@ int main(int argc, char *argv[])
   overlap.epoch  = epoch;
   overlap.data   = NULL;
   overlap.sampleUnits = lalDimensionlessUnit;
-
-  realBadData = omegaGW = invNoise1 = invNoise2 = overlap;
+  omegaGW = invNoise1 = invNoise2 = overlap;
+#ifndef LAL_NDEBUG
+  REAL4FrequencySeries     realBadData = omegaGW;
+#endif
 
   invNoise1.sampleUnits.unitNumerator[LALUnitIndexStrain] = -2;
   invNoise1.sampleUnits.unitNumerator[LALUnitIndexSecond] = -1;
@@ -1378,6 +1376,8 @@ static void Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -1431,8 +1431,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

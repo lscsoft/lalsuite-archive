@@ -25,6 +25,7 @@
  * model. Flux function given by Phys.Rev.D79:064004,2009.
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALComplex.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALEOBNRv2Waveform.h>
@@ -50,13 +51,13 @@ REAL8 XLALInspiralFactorizedFlux(
 #ifndef LAL_NDEBUG
   if ( !values || !ak )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFAULT );
+    XLAL_ERROR_REAL8( XLAL_EFAULT );
   }
 #endif
 
   if ( lMax < 2 )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
 
   nqcCoeffs = ak->nqcCoeffs;
@@ -75,13 +76,13 @@ REAL8 XLALInspiralFactorizedFlux(
 
   if ( XLALEOBNonQCCorrection( &hNQC, values, omega, nqcCoeffs ) == XLAL_FAILURE )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
 
   if ( XLALGetFactorizedWaveform( &hLM, values, v, l, m, ak )
            == XLAL_FAILURE )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
   /* For the 2,2 mode, we apply NQC correction to the flux */
   hLM = XLALCOMPLEX16Mul( hNQC, hLM );
@@ -95,7 +96,7 @@ REAL8 XLALInspiralFactorizedFlux(
   if ( XLALGetFactorizedWaveform( &hLM, values, v, l, m, ak )
            == XLAL_FAILURE )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
 
   flux += (REAL8)(m * m) * omegaSq * XLALCOMPLEX16Abs2( hLM );
@@ -113,7 +114,7 @@ REAL8 XLALInspiralFactorizedFlux(
       if ( XLALGetFactorizedWaveform( &hLM, values, v, l, m, ak )
              == XLAL_FAILURE )
       {
-        XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+        XLAL_ERROR_REAL8( XLAL_EFUNC );
       }
 
       flux += (REAL8)(m * m) * omegaSq * XLALCOMPLEX16Abs2( hLM );

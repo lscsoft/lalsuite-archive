@@ -33,8 +33,6 @@
 #include <lal/LIGOLwXMLRingdownRead.h>
 #include <lal/StringInput.h>
 
-NRCSID( LIGOLWXMLRINGDOWNREADC, "$Id$" );
-
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -67,7 +65,7 @@ Functions in the Metaio library:
 
 
 #define XLAL_CLOBBER_EVENTS \
-  while ( eventHead ); \
+  while ( eventHead ) \
 { \
   thisEvent = eventHead; \
   eventHead = (eventHead)->next; \
@@ -81,7 +79,6 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
     )
 
 {
-  static const char *func = "XLALSnglRingdownTableFromLIGOLw";
   int                            i, j;
   int                            mioStatus = 0;
   INT4                           i4colData;
@@ -100,7 +97,7 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
   {
     XLALPrintError( "XLAL Error - unable to open sngl_ringdown table: "
         "metaio error code %d\n", mioStatus );
-    XLAL_ERROR_NULL( func, XLAL_EDATA );
+    XLAL_ERROR_NULL( XLAL_EDATA );
    /* return 0;*/
   }
 
@@ -110,7 +107,7 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
   {
     XLALPrintError( "XLAL Error - "
         "unable to create sngl_ringdown table directory\n" );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   /* loop over the rows in the file */
@@ -136,7 +133,7 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
       XLALPrintError( "XLAL Error - could not allocate sngl_ringdown table\n" );
       XLAL_CLOBBER_EVENTS;
       MetaioClose( env );
-      XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+      XLAL_ERROR_NULL( XLAL_ENOMEM );
     }
 
     /* parse the contents of the row into the SnglRingdownTable structure */
@@ -146,7 +143,7 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
       {
         XLALPrintError( "XLAL Error - bad table directory for element %d\n", j );
         XLAL_CLOBBER_EVENTS;
-        XLAL_ERROR_NULL( func, XLAL_EIO );
+        XLAL_ERROR_NULL( XLAL_EIO );
       }
 
       /* dereference the data stored in the table */
@@ -245,7 +242,7 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
         XLALPrintError( "XLAL Error - "
             "table directory index %d out of bounds\n", j );
         XLAL_CLOBBER_EVENTS;
-        XLAL_ERROR_NULL( func, XLAL_EIO );
+        XLAL_ERROR_NULL( XLAL_EIO );
       }
     }
   }
@@ -255,7 +252,7 @@ SnglRingdownTable* XLALSnglRingdownTableFromLIGOLw (
     XLALPrintError( "XLAL Error - error parsing after row %d\n", i );
     XLAL_CLOBBER_EVENTS;
     MetaioClose( env );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   /* Normal exit */
@@ -274,7 +271,6 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
     )
 
 {
-  static const char *func = "XLALSimRingdownTableFromLIGOLw";
   int                            i, j;
   int                            mioStatus = 0;
   INT4                           i4colData;
@@ -293,7 +289,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
   {
     XLALPrintError( "XLAL Error - unable to open sim_ringdown table: "
         "metaio error code %d\n", mioStatus );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   /* create table directory to find columns in file */
@@ -302,7 +298,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
   {
     XLALPrintError( "XLAL Error - "
         "unable to create sim_ringdown table directory\n" );
-    XLAL_ERROR_NULL( func, XLAL_EIO );
+    XLAL_ERROR_NULL( XLAL_EIO );
   }
 
   /* loop over the rows in the file */
@@ -317,7 +313,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
     {
       XLALPrintError( "XLAL Error - bad table directory for element %d\n", i );
       XLAL_CLOBBER_EVENTS;
-      XLAL_ERROR_NULL( func, XLAL_EIO );
+      XLAL_ERROR_NULL( XLAL_EIO );
     }
 
     i4colData = env->ligo_lw.table.elt[tableDir[2].pos].data.int_4s;
@@ -340,7 +336,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
         XLALPrintError( "XLAL Error - could not allocate sim_ringdown table\n" );
         XLAL_CLOBBER_EVENTS;
         MetaioClose( env );
-        XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+        XLAL_ERROR_NULL( XLAL_ENOMEM );
       }
 
       /* parse the contents of the row into the SimRingdownTable structure */
@@ -350,7 +346,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
         {
           XLALPrintError( "XLAL Error - bad table directory for element %d\n", j );
           XLAL_CLOBBER_EVENTS;
-          XLAL_ERROR_NULL( func, XLAL_EIO );
+          XLAL_ERROR_NULL( XLAL_EIO );
         }
 
         /* dereference the data stored in the table */
@@ -487,7 +483,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
           XLALPrintError( "XLAL Error - "
               "table directory index %d out of bounds\n", j );
           XLAL_CLOBBER_EVENTS;
-          XLAL_ERROR_NULL( func, XLAL_EIO );
+          XLAL_ERROR_NULL( XLAL_EIO );
         }
       }
     }
@@ -498,7 +494,7 @@ SimRingdownTable* XLALSimRingdownTableFromLIGOLw (
     XLALPrintError( "XLAL Error - error parsing after row %d\n", i );
     XLAL_CLOBBER_EVENTS;
     MetaioClose( env );
-    XLAL_ERROR_NULL( func, XLAL_EIO);
+    XLAL_ERROR_NULL( XLAL_EIO);
   }
 
   /* Normal exit */
@@ -520,7 +516,6 @@ INT4 XLALReadRingdownTriggerFile (
     )
 
 {
-  const char *func = "XLALReadRingdownTriggerFile";
   INT4                 numFileTriggers = 0;
   int 		       errnum;
   SnglRingdownTable   *inputData = NULL;
@@ -548,7 +543,7 @@ INT4 XLALReadRingdownTriggerFile (
   if ( ! thisInputFile )
   {
     XLALPrintError( "XLAL Error - could not allocate search_summvars table\n" );
-    XLAL_ERROR( func, XLAL_ENOMEM );
+    XLAL_ERROR( XLAL_ENOMEM );
   }
 
   snprintf( thisInputFile->name, LIGOMETA_NAME_MAX, "input_file" );
@@ -564,7 +559,7 @@ INT4 XLALReadRingdownTriggerFile (
     LALFree( thisInputFile );
     XLALPrintError( "XLAL Error - error reading search_summary table from %s\n",
         fileName );
-    XLAL_ERROR( func, XLAL_EIO );
+    XLAL_ERROR( XLAL_EIO );
   }
   else
   {
@@ -593,7 +588,7 @@ INT4 XLALReadRingdownTriggerFile (
         break;
       default:
         XLALSetErrno( errnum );
-        XLAL_ERROR( func, XLAL_EFUNC );
+        XLAL_ERROR( XLAL_EFUNC );
   }
   else
   {

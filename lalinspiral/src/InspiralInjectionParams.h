@@ -1,15 +1,30 @@
-/** \defgroup InspiralInjectionParams Inspiral Injection package
- * \ingroup inject
+/* includes */
+#include <stdlib.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <lal/LALStdlib.h>
+#include <lal/LALConstants.h>
+#include <lal/AVFactories.h>
+#include <lal/SeqFactories.h>
+#include <lal/LIGOMetadataTables.h>
+#include <lal/LIGOMetadataInspiralUtils.h>
+#include <lal/TimeDelay.h>
+#include <lal/DetResponse.h>
+
+#ifdef  __cplusplus   /* C++ protection. */
+extern "C" {
+#endif
+
+/** \addtogroup InspiralInjectionParams_h
  * \author D. Brown, J. Creighton, S. Fairhurst, G. Jones, E. Messaritaki
  *
  * \brief Module for generating randomly distributed inspiral parameters
  *
- */
-
-/** \file
- *  \ingroup InspiralInjectionParams
  *
  */
+/*@{*/
 
 /** enum containing the different ways in which the time step to
  injections can be distributed */
@@ -29,6 +44,7 @@ typedef enum
   unknownDistanceDist,
   distFromSourceFile,
   uniformDistance,
+  uniformDistanceSquared,
   uniformLogDistance,
   uniformVolume,
   sfr
@@ -43,7 +59,8 @@ typedef enum
   locationFromSourceFile,
   locationFromExttrigFile,
   uniformSkyLocation,
-  fixedSkyLocation
+  fixedSkyLocation,
+  locationFromIPNFile
 }
 SkyLocationDistribution;
 
@@ -87,26 +104,6 @@ typedef enum
 }
 AlignmentType;
 
-/* includes */
-#include <stdlib.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <lal/LALStdlib.h>
-#include <lal/LALConstants.h>
-#include <lal/AVFactories.h>
-#include <lal/SeqFactories.h>
-#include <lal/LIGOMetadataTables.h>
-#include <lal/LIGOMetadataInspiralUtils.h>
-#include <lal/TimeDelay.h>
-#include <lal/DetResponse.h>
-
-#ifdef  __cplusplus   /* C++ protection. */
-extern "C" {
-#endif
-
-NRCSID( NRWAVEIOC, "$Id$");
 
 SimInspiralTable* XLALRandomInspiralTime( SimInspiralTable *inj,
   RandomParams *randParams,
@@ -225,6 +222,7 @@ COMPLEX8FrequencySeries *generateActuation(
     REAL4                    pendF,
     REAL4                    pendQ );
 
+/*@}*/
 
 #ifdef  __cplusplus
 }                /* Close C++ protection */

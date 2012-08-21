@@ -25,8 +25,6 @@
 
 #include "../HierarchicalSearch.h"
 
-RCSID( "$Id$");
-
 #define HSMAX(x,y) ( (x) > (y) ? (x) : (y) )
 #define HSMIN(x,y) ( (x) < (y) ? (x) : (y) )
 #define INIT_MEM(x) memset(&(x), 0, sizeof((x)))
@@ -59,7 +57,7 @@ static int smallerHough(const void *a,const void *b) {
 
 #define LocalHOUGHComputeSizePar     LALHOUGHComputeSizePar
 #define LocalHOUGHFillPatchGrid      LALHOUGHFillPatchGrid
-#define LocalHOUGHParamPLUT          LALHOUGHParamPLUT
+#define LocalHOUGHCalcParamPLUT      LALHOUGHCalcParamPLUT
 #define LocalHOUGHConstructPLUT      LALHOUGHConstructPLUT
 #define LocalHOUGHConstructSpacePHMD LALHOUGHConstructSpacePHMD
 #define LocalHOUGHWeighSpacePHMD     LALHOUGHWeighSpacePHMD
@@ -139,7 +137,7 @@ LocalComputeFstatHoughMap (LALStatus            *status,
 
   toplist_t *houghToplist;
 
-  INITSTATUS( status, "LocalComputeFstatHoughMap", rcsid );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input is not null */
@@ -412,7 +410,7 @@ LocalComputeFstatHoughMap (LALStatus            *status,
       parDem.timeDiff = timeDiffV->data[j];
 
       /* calculate parameters needed for buiding the LUT */
-      TRY( LocalHOUGHParamPLUT( status->statusPtr, &parLut, &parSize, &parDem), status);
+      TRY( LocalHOUGHCalcParamPLUT( status->statusPtr, &parLut, &parSize, &parDem), status);
 
       /* build the LUT */
       TRY( LocalHOUGHConstructPLUT( status->statusPtr, &(lutV.lut[j]), &patch, &parLut ), status);
@@ -570,7 +568,7 @@ LocalHOUGHConstructHMT_W (LALStatus                  *status,
   HOUGHMapDeriv hd; /* the Hough map derivative */
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHConstructHMT_W", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status); 
 
   /*   Make sure the arguments are not NULL: */ 
@@ -670,7 +668,7 @@ LocalHOUGHAddPHMD2HD_W (LALStatus      *status, /**< the status pointer */
   UINT2    xSide,ySide;
   HoughDT  weight;
 
-  INITSTATUS (status, "LALHOUGHAddPHMD2HD_W", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status); 
 
   /*   Make sure the arguments are not NULL: */ 

@@ -26,31 +26,6 @@
  *-----------------------------------------------------------------------
  */
 
-/**
- * \defgroup FindChirpBCVSpin_h FindChirpBCVSpin_h
- * \ingroup CBC_findchirp
- *
- */
-
-/**
-
-\author Brown, D. A. and Jones, G
-\file
-\ingroup FindChirpBCVSpin_h
-
-\brief Provides structures and functions to condition interferometer data
-and generate binary inspiral chirps using the spinning BCV detection
-template family.
-
-\heading{Synopsis}
-
-\code
-#include <lal/FindChirpBCVSpin.h>
-\endcode
-
-*/
-
-
 #ifndef _FINDCHIRPBCVSPINH_H
 #define _FINDCHIRPBCVSPINH_H
 
@@ -66,10 +41,25 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
+/**
+   \addtogroup FindChirpBCVSpin_h
+   \author Brown, D. A. and Jones, G
 
-NRCSID (FINDCHIRPBCVSPINH, "$Id$");
+\brief Provides structures and functions to condition interferometer data
+and generate binary inspiral chirps using the spinning BCV detection
+template family.
 
-/**\name Error Codes */ /*@{*/
+\heading{Synopsis}
+
+\code
+#include <lal/FindChirpBCVSpin.h>
+\endcode
+
+*/
+/*@{*/
+
+/**\name Error Codes */
+/*@{*/
 #define FINDCHIRPBCVSPINH_ENULL 1
 #define FINDCHIRPBCVSPINH_ENNUL 2
 #define FINDCHIRPBCVSPINH_EALOC 3
@@ -84,6 +74,9 @@ NRCSID (FINDCHIRPBCVSPINH, "$Id$");
 #define FINDCHIRPBCVSPINH_EMAPX 12
 #define FINDCHIRPBCVSPINH_EUAPX 13
 #define FINDCHIRPBCVSPINH_ECLUW 14
+/*@}*/
+/*@}*/
+
 #define FINDCHIRPBCVSPINH_MSGENULL "Null pointer"
 #define FINDCHIRPBCVSPINH_MSGENNUL "Non-null pointer"
 #define FINDCHIRPBCVSPINH_MSGEALOC "Memory allocation error"
@@ -99,7 +92,7 @@ NRCSID (FINDCHIRPBCVSPINH, "$Id$");
 #define FINDCHIRPBCVSPINH_MSGEUAPX "Unknown approximant"
 #define FINDCHIRPBCVSPINH_MSGECLUW "Unacceptable max-over-chirp clustering method for BCVSpin"
 
-/*@}*/
+
 
 void
 LALFindChirpBCVSpinData (

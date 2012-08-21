@@ -90,6 +90,7 @@
  * SenseMon frames are used in preference.
  * </li></ol>
 */
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <string.h>
 #include <lal/LALStdlib.h>
@@ -100,8 +101,6 @@
 #include <lal/Date.h>
 #include <lal/FrameStream.h>
 #include <lal/FrameCalibration.h>
-
-NRCSID( FRAMECALIBRATIONC, "$Id$" );
 
 #define DURATION 256
 
@@ -197,7 +196,7 @@ LALExtractFrameResponse(
   REAL8				duration_real;
   const REAL8                   fuzz = 0.1 / 16384.0;
 
-  INITSTATUS( status, "LALFrameExtractResponse", FRAMECALIBRATIONC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( output, status,
@@ -252,7 +251,7 @@ LALExtractFrameResponse(
   /* sieve the calibration cache for the reference frame */
   memset( &sieve, 0, sizeof(FrCacheSieve) );
   sieve.dscRegEx = REF_TYPE;
-  LALFrCacheSieve( status->statusPtr, &refCache, calCache, &sieve );
+  LALFrSieveCache( status->statusPtr, &refCache, calCache, &sieve );
   if ( status->statusPtr->statusCode || ! refCache->numFrameFiles )
   {
     /* if we don't have a reference calibration, we can't do anything */
@@ -327,7 +326,7 @@ LALExtractFrameResponse(
   {
     /* try and get sensemon frames */
     snprintf( facDsc, LALNameLength * sizeof(CHAR), SENSEMON_FAC_TYPE );
-    LALFrCacheSieve( status->statusPtr, &facCache, calCache, &sieve );
+    LALFrSieveCache( status->statusPtr, &facCache, calCache, &sieve );
     BEGINFAIL( status )
     {
       RETURN_POINT_CAL;
@@ -474,7 +473,7 @@ LALExtractFrameResponse(
 
     /* try and get the the factors from lalapps_mkcalfac frames */
     sieve.dscRegEx = FAC_TYPE;
-    LALFrCacheSieve( status->statusPtr, &facCache, calCache, &sieve );
+    LALFrSieveCache( status->statusPtr, &facCache, calCache, &sieve );
     BEGINFAIL( status )
     {
       RETURN_POINT_CAL;
@@ -646,7 +645,7 @@ LALCreateCalibFrCache(
 
 { 
 
-  INITSTATUS( status, "LALCreateCalibFrCache", FRAMECALIBRATIONC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( output, status,

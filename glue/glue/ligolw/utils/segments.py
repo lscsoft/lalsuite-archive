@@ -80,6 +80,7 @@ class LigolwSegmentList(object):
 		"""
 		self.valid.coalesce()
 		self.active.coalesce()
+		return self
 
 
 #
@@ -127,7 +128,7 @@ class LigolwSegments(object):
 		# segment_definer id
 		self.segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, comment = row.comment)) for row in self.segment_def_table)
 		if len(self.segment_lists) != len(self.segment_def_table):
-			raise ValueError, "duplicate segment_definer IDs detected in segment_definer table"
+			raise ValueError("duplicate segment_definer IDs detected in segment_definer table")
 		del self.segment_def_table[:]
 
 		# populate LigolwSegmentList objects from segment table and
@@ -148,7 +149,9 @@ class LigolwSegments(object):
 		#
 
 		# FIXME:  why am I doing this!?  I've just deleted all the
-		# rows.
+		# rows.  the id generators should probably be 0'ed here,
+		# and these sync's moved to the .finalize() method to
+		# prevent collisions
 		self.segment_def_table.sync_next_id()
 		self.segment_table.sync_next_id()
 		self.segment_sum_table.sync_next_id()
@@ -158,12 +161,39 @@ class LigolwSegments(object):
 		#
 
 
+	def insert_from_segwizard(self, fileobj, instruments, name, comment):
+		"""
+		Parse the contents of the file object fileobj as a
+		segwizard-format segment list, and insert the result as a
+		new list of "active" segments into this LigolwSegments
+		object.  A new entry will be created in the segment_definer
+		table for the segment list, and instruments, name and
+		comment are used to populate the entry's metadata.
+		"""
+		self.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
+
+
+	def insert_from_segmentlistdict(self, seglists, name, comment):
+		"""
+		Insert the segments from the segmentlistdict object
+		seglists as a new list of "active" segments into this
+		LigolwSegments object.  The dictionary's keys are assumed
+		to provide the instrument name for each segment list.  A
+		new entry will be created in the segment_definer table for
+		the segment lists, and the dictionary's keys, the name, and
+		comment will be used to populate the entry's metadata.
+		"""
+		for instrument, segments in seglists.items():
+			self.segment_lists.append(LigolwSegmentList(active = segments, instruments = set([instrument]), name = name, comment = comment))
+
+
 	def coalesce(self):
 		"""
 		Coalesce the segment lists.
 		"""
 		for ligolw_segment_list in self.segment_lists:
 			ligolw_segment_list.coalesce()
+		return self
 
 
 	def sort(self, *args):
@@ -216,10 +246,9 @@ class LigolwSegments(object):
 		self.sort()
 
 		#
-		# generator function to return active and inactive segment
-		# table rows from a LigolwSegmentList object in time order,
-		# each paired with a handle to the matching row in the
-		# segment_definer table
+		# generator function to convert segments into row objects,
+		# each paired with the table to which the row is to be
+		# appended
 		#
 
 		def row_generator(segs, target_table, process_row, segment_def_row):
@@ -275,32 +304,6 @@ class LigolwSegments(object):
 #
 # =============================================================================
 #
-
-
-def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
-	"""
-	Parse the contents of the file object fileobj as a segwizard-format
-	segment list, and insert the result as a new list of "active"
-	segments into the LigolwSegments object ligolw_segments.  A new
-	entry will be created in the segment_definer table for the segment
-	list, and instruments, name and comment are used to populate the
-	entry's metadata.
-	"""
-	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
-
-
-def insert_from_segmentlistdict(ligolw_segments, seglists, name, comment):
-	"""
-	Insert the segments from the segmentlistdict object seglists as a
-	new list of "active" segments into the LigolwSegments object
-	ligolw_segments.  The dictionary's keys are assumed to provide the
-	instrument name for each segment list.  A new entry will be created
-	in the segment_definer table for the segment lists, and the
-	dictionary's keys, the name, and comment will be used to populate
-	the entry's metadata.
-	"""
-	for instrument, segments in seglists.items():
-		ligolw_segments.segment_lists.append(LigolwSegmentList(active = segments, instruments = set([instrument]), name = name, comment = comment))
 
 
 def has_segment_tables(xmldoc, name = None):

@@ -6,7 +6,7 @@ the standalone inspiral code on LIGO data
 
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
 __date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
+__version__ = '$Revision$'
 
 import string
 import exceptions
@@ -222,6 +222,27 @@ class InspiralJob(InspiralAnalysisJob):
     extension = 'xml'
     InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+
+
+class InspiralCkptJob(InspiralAnalysisJob):
+  """
+  A lalapps_inspiral job used by the inspiral pipeline. The static options
+  are read from the sections [data] and [inspiral] in the ini file. The
+  stdout and stderr from the job are directed to the logs directory. The job
+  runs in the universe specfied in the ini file. The path to the executable
+  is determined from the ini file.
+  This one checkpoints.
+  """
+  def __init__(self,cp,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    exec_name = 'inspiral'
+    sections = []
+    extension = 'xml'
+    InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
+    self.add_short_opt('_condor_relocatable', '')
+
 
 class PTFInspiralJob(InspiralAnalysisJob):
   """
@@ -488,6 +509,25 @@ class CohBankJob(InspiralAnalysisJob):
     InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
 
 
+class InspiralCoherentJob(InspiralAnalysisJob):
+  """
+  A lalapps_inspiral job used by the inspiral pipeline. The static options
+  are read from the sections [data] and [inspiral] in the ini file. The
+  stdout and stderr from the job are directed to the logs directory. The job
+  runs in the universe specfied in the ini file. The path to the executable
+  is determined from the ini file.
+  """
+  def __init__(self,cp,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    exec_name = 'inspiral'
+    sections = ['data']
+    extension = 'xml'
+    InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
+    self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+
+
 class CohInspBankJob(InspiralAnalysisJob):
   """
   A lalapps_coherent_inspiral job used by the inspiral pipeline. The static
@@ -542,17 +582,17 @@ class CohireJob(InspiralAnalysisJob):
     self.set_stderr_file('logs/cohire-$(macroifo)-$(cluster)-$(process).err')
 
 
-class InspInjFindJob(InspiralAnalysisJob):
+class InjFindJob(InspiralAnalysisJob):
   """
-  An inspinjfind job. The static options are read from the [inspinjfind]
+  An injfind job. The static options are read from the [injfind]
   section in the cp file.
   """
   def __init__(self, cp, dax = False):
     """
     @cp: a ConfigParser object from which the options are read.
     """
-    exec_name = 'inspinjfind'
-    sections = ['inspinjfind']
+    exec_name = 'injfind'
+    sections = ['injfind']
     extension = 'xml'
     InspiralAnalysisJob.__init__(self, cp, sections, exec_name, extension, dax)
     self.add_condor_cmd('getenv', 'True')
@@ -580,6 +620,7 @@ class InspiralAnalysisNode(pipeline.AnalysisNode, pipeline.CondorDAGNode):
       self.set_pad_data(int(opts['pad-data']))
 
     self.__zip_output = ("write-compress" in opts)
+    self.__data_checkpoint = False
 
   def set_zip_output(self,zip):
     """
@@ -626,9 +667,35 @@ class InspiralAnalysisNode(pipeline.AnalysisNode, pipeline.CondorDAGNode):
     if self.get_zip_output():
       filename += '.gz'
 
+    if self.__data_checkpoint is False:
+      self.add_output_file(filename)
+
+    return filename
+
+  def get_checkpoint_image(self):
+    """
+    Returns the file name of condor checkpoint from the inspiral code. This is
+    obtained from the get_output_base() method, with the correct extension added.
+    """
+    filename = self.get_output_base()
+    filename += '.ckpt'
+
     self.add_output_file(filename)
 
     return filename
+
+  def set_data_checkpoint(self):
+    """
+    Lets it be known that data checkpointing exists
+    """
+    self.add_var_opt('data-checkpoint','')
+    self.__data_checkpoint = True
+
+  def get_data_checkpoint(self):
+    """
+    Lets it be known that data checkpointing exists
+    """
+    return self.__data_checkpoint
 
   def get_output_cache(self):
     """
@@ -887,6 +954,58 @@ class InspiralNode(InspiralAnalysisNode):
     Returns the injection file
     """
     return self.__injections
+
+
+class InspiralCkptNode(InspiralAnalysisNode):
+  """
+  An InspiralCkptNode runs an instance of the inspiral code in a Condor DAG.
+  It then checkpoints to a file. This sets the file.
+  """
+  def __init__(self,job):
+    """
+    job = A CondorDAGJob that can run an instance of lalapps_inspiral.
+    """
+    InspiralAnalysisNode.__init__(self,job)
+    self.__outfile = None
+    self.__injections = None
+
+  def set_output(self, outfile):
+    """
+    Sets a placeholder output name which we can use to pass through the
+    name of the output file from the original inspiral job.
+    """
+    self.__outfile = outfile
+
+  def get_output(self):
+    """
+    Returns the filename from set_output().
+    """ 
+    if self.__outfile:
+      self.add_output_file(self.__outfile)
+    return self.__outfile
+
+  def set_injections(self, injections):
+    """
+    Set the injection file for this node
+    """
+    self.__injections = injections
+
+  def get_injections(self):
+    """
+    Returns the injection file
+    """
+    return self.__injections
+
+  def set_checkpoint_image(self, ckptin):
+    """
+    Adds the argument -_condor_restart for the
+    cases in which we want to checkpoint and grabs the
+    checkpoint image name from get_checkpoint_image in
+    the InspiralAnalysisCode section.
+    """
+    self.add_input_file(ckptin)
+    self.add_var_opt('_condor_restart', ckptin, short=True)
+
 
 class PTFInspiralNode(InspiralAnalysisNode):
   """
@@ -1247,7 +1366,7 @@ class ThincaToCoincNode(InspiralAnalysisNode):
     """
     return self.__input_cache
 
-  def get_output_from_cache(self):
+  def get_output_from_cache(self, coinc_file_tag ):
     """
     Returns a list of files that this node will generate using the input_cache.
     The output file names are the same as the input urls, but with the 
@@ -1259,10 +1378,10 @@ class ThincaToCoincNode(InspiralAnalysisNode):
       raise ValueError, "no input-cache specified"
     # open the input cache file
     fp = open(self.__input_cache, 'r')
-    input_cache = lal.Cache().fromfile(fp).sieve( description = 'THINCA_SECOND' )
+    input_cache = lal.Cache().fromfile(fp).sieve( description = coinc_file_tag )
     output_files = [ \
       '/'.join([ os.getcwd(), 
-      re.sub('THINCA', 'THINCA_TO_COINC', os.path.basename(entry.url)) ]) for entry in input_cache \
+      re.sub('INCA', 'INCA_TO_COINC', os.path.basename(entry.url)) ]) for entry in input_cache \
       ]
     return output_files
 
@@ -1739,6 +1858,13 @@ class CohBankNode(InspiralAnalysisNode):
   def get_ifos(self):
     return self.__ifos
 
+  def set_num_slides(self, num_slides):
+    """
+    Set number of time slides to undertake
+    """
+    self.add_var_opt('num-slides',num_slides)
+    self.__num_slides = num_slides
+
   def get_output(self):
     """
     Returns the file name of output from the coherent bank. 
@@ -1789,6 +1915,13 @@ class CohInspBankNode(InspiralAnalysisNode):
 
   def get_ifos(self):
     return self.__ifos
+
+  def set_num_slides(self, num_slides):
+    """
+    Set number of time slides to undertake
+    """
+    self.add_var_opt('num-slides',num_slides)
+    self.__num_slides = num_slides
 
   def get_output(self):
     """
@@ -3333,8 +3466,9 @@ def overlap_test(interval1, interval2, slide_sec=0):
 class SearchVolumeJob(pipeline.SqliteJob):
   """
   A search volume job. Computes the observed physical volume
-  above a specified FAR (if FAR is not specified, computes the
-  volume above the loudest event).
+  above a specified FAR; if FAR is not specified, computes the
+  volume above the loudest event (open box) or FAR=1/livetime 
+  (closed box).
   """
   def __init__(self, cp, dax = False):
     """
@@ -3360,13 +3494,13 @@ class SearchVolumeNode(pipeline.SqliteNode):
     self.add_var_opt("output-cache", file)
 
   def set_output_tag(self, tag):
-    self.add_var_opt("output-name-tag",tag)
+    self.add_var_opt("user-tag",tag)
 
   def set_veto_segments_name(self, name):
     self.add_var_opt("veto-segments-name", name)
 
-  def use_expected_loudest_event(self):
-    self.add_var_arg("--use-expected-loudest-event")
+  def set_open_box(self):
+    self.add_var_arg("--open-box")
 
 
 class SearchUpperLimitJob(pipeline.SqliteJob):
@@ -3404,3 +3538,4 @@ class SearchUpperLimitNode(pipeline.SqliteNode):
     if not self.open_box:
       self.open_box = True
       self.add_var_arg("--open-box")
+

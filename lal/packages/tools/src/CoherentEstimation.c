@@ -29,15 +29,13 @@
 #define Cosh(x) cosh(x)
 #define ACosh(x) acosh(x)
 
-NRCSID( COHERENTESTIMATIONC, "$Id$" );
-
 double cosh(double);
 double acosh(double);
 
 static INT4 jacobi(float **a, int n, float d[], float **v, int *nrot);
 
 void
-LALCoherentEstimation ( LALStatus          *stat,
+LALDoCoherentEstimation ( LALStatus          *stat,
 			REAL4TimeSeries *output,
 			CoherentEstimation *params,
 			DetectorsData      *in) {
@@ -79,7 +77,7 @@ LALCoherentEstimation ( LALStatus          *stat,
   /***********************************************************************/
   /* initialize status & validate input                                  */
   /***********************************************************************/
-  INITSTATUS( stat, "LALCoherentEstimation", COHERENTESTIMATIONC);
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
 
@@ -385,7 +383,7 @@ LALClearCoherentData (
 
   UINT4 i;
 
-  INITSTATUS( stat, "LALClearCoherentData", COHERENTESTIMATIONC);
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   if(!dat) {
@@ -415,7 +413,7 @@ LALClearCoherentInfo (
 
   UINT4 i;
 
-  INITSTATUS( stat, "LALClearCoherentInfo", COHERENTESTIMATIONC);
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   if(!dat) {

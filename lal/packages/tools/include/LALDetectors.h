@@ -20,34 +20,25 @@
 #ifndef _LALDETECTORS_H
 #define _LALDETECTORS_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-NRCSID( LALDETECTORSH, "$Id$" );
+/** \addtogroup LALDetectors_h
+    \author J. T. Whelan and J. D. E. Creighton
 
-/**
-   \author J. T. Whelan and J. D. E. Creighton
-   \addtogroup LALDetectors_h
+    \brief This header defines structures to hold the basic data describing a gravitational wave detector.
 
-   \brief This header defines structures to hold the basic data describing
-   a gravitational wave detector.
-
-\heading{Synopsis}
-\code
-#include <lal/LALDetectors.h>
-\endcode
+    \heading{Synopsis}
+    \code
+    #include <lal/LALDetectors.h>
+    \endcode
 
 According to the common frame format specification
 [\ref LIGOVIRGO_2000] the geometry of an interferometric
-detector will be stored in a \c ::FrDetector structure, specifying
+detector will be stored in a \c FrDetector structure, specifying
 the location of the detector vertex and the orientation of its arms in
 geodetic coördinates suited to geographical surveying.  Resonant
 bars and other sorts of detectors, if they write their data to frames,
@@ -65,7 +56,7 @@ h = h_{ab} \, d^{ab}
 \f}
 
 This header defines a \c ::LALFrDetector structure which contains
-essentially the same information as the \c ::FrDetector structure,
+essentially the same information as the \c FrDetector structure,
 as well as a \c LALDetector structure which contains the
 Cartesian coördinates of the detector along with the components of
 the response tensor \f$d^{ab}\f$ in the same coördinate system.
@@ -156,9 +147,10 @@ x^3 &=\left(
  *
  *
  */
-/** @{ */
+/*@{*/
 
-/** \name Error Codes */ /*@{*/
+/** \name Error Codes */
+/*@{*/
 #define LALDETECTORSH_ENULLP        1	/**< Null pointer */
 #define LALDETECTORSH_ETYPE         2	/**< Unsupported detector type */
 /*@}*/
@@ -187,7 +179,7 @@ enum {
 	LAL_NUM_DETECTORS	=	12
 };
 
-/**< Detector DQ bit assignments (2 bits per detector) */
+/** Detector DQ bit assignments (2 bits per detector) */
 enum {
 	LAL_TAMA_300_DETECTOR_BIT	=	1 << 2 * LAL_TAMA_300_DETECTOR,
 	LAL_VIRGO_DETECTOR_BIT   	=	1 << 2 * LAL_VIRGO_DETECTOR,
@@ -231,7 +223,6 @@ LALDetectorType;
  */
 typedef struct tagLALFrDetector
 {
-	SWIGLAL_STRUCT_LALALLOC();
 	CHAR	name[LALNameLength];	/**< A unique identifying string */
 	CHAR	prefix[3];		/**< Two-letter prefix for detector's channel names */
 	REAL8	vertexLongitudeRadians;	/**< The geodetic longitude \f$\lambda\f$ of the vertex in radians */
@@ -254,7 +245,6 @@ LALFrDetector;
  */
 typedef struct tagLALDetector
 {
-	SWIGLAL_STRUCT_LALALLOC();
 	REAL8		location[3];	/**< The three components, in an Earth-fixed Cartesian coordinate system, of the position vector from the center of the Earth to the detector in meters */
 	REAL4		response[3][3];	/**< The Earth-fixed Cartesian components of the detector's response tensor \f$d^{ab}\f$ */
 	LALDetectorType	type;		/**< The type of the detector (e.g., IFO in differential mode, cylindrical bar, etc.) */
@@ -269,18 +259,18 @@ extern const LALDetector lalCachedDetectors[LAL_NUM_DETECTORS];
 SWIGLAL_GLOBAL_CONST_FIXED_1DARRAY_ELEM(LALDetector, lalCachedDetectors);
 #endif
 
+/*@}*/
 
 
 /* Routine to create a LALDetector. */
 LALDetector * XLALCreateDetector( LALDetector *detector, const LALFrDetector *frDetector, LALDetectorType type );
 void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetector *input, const LALDetectorType type );
 
-/** @} */
+
 
 /* Interferometric Detectors */
 
-/**
- * \defgroup DetectorConstants Detector Constants
+/** \defgroup DetectorConstants Detector Constants
  * \ingroup LALDetectors_h
  * \brief Constants describing various gravitational wave detectors
  *
@@ -311,8 +301,8 @@ void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetec
  * Data in this file (e.g., angle conventions etc.) is intended
  * to conform to the conventions of the Frame format specification [\ref LIGOVIRGO_2000]
  *
- * @{
  */
+/*@{*/
 
 /** \name TAMA 300m Interferometric Detector constants
  * The following constants describe the location and geometry of the
@@ -527,7 +517,7 @@ void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetec
 #define LAL_ALLEGRO_320_AXIS_DIRECTION_X            	-0.63467362345	/**< ALLEGRO_320 x-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_ALLEGRO_320_AXIS_DIRECTION_Y            	0.40093077976	/**< ALLEGRO_320 y-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_ALLEGRO_320_AXIS_DIRECTION_Z            	0.66063901000	/**< ALLEGRO_320 z-component of unit vector pointing along axis in Earth-centered frame */
-
+/*@}*/
 
 /** \name AURIGA Resonant Mass Detector constants
  * The following constants describe the location and geometry of the
@@ -550,7 +540,7 @@ void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetec
 #define LAL_AURIGA_AXIS_DIRECTION_X            	-0.64450412225	/**< AURIGA x-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_AURIGA_AXIS_DIRECTION_Y            	0.57365538956	/**< AURIGA y-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_AURIGA_AXIS_DIRECTION_Z            	0.50550364038	/**< AURIGA z-component of unit vector pointing along axis in Earth-centered frame */
-
+/*@}*/
 
 /** \name EXPLORER Resonant Mass Detector constants
  * The following constants describe the location and geometry of the
@@ -573,7 +563,7 @@ void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetec
 #define LAL_EXPLORER_AXIS_DIRECTION_X            	-0.62792641437	/**< EXPLORER x-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_EXPLORER_AXIS_DIRECTION_Y            	0.56480832712	/**< EXPLORER y-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_EXPLORER_AXIS_DIRECTION_Z            	0.53544371484	/**< EXPLORER z-component of unit vector pointing along axis in Earth-centered frame */
-
+/*@}*/
 
 /** \name Nautilus Resonant Mass Detector constants
  * The following constants describe the location and geometry of the
@@ -596,7 +586,7 @@ void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetec
 #define LAL_NAUTILUS_AXIS_DIRECTION_X            	-0.62039441384	/**< Nautilus x-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_NAUTILUS_AXIS_DIRECTION_Y            	0.57250373141	/**< Nautilus y-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_NAUTILUS_AXIS_DIRECTION_Z            	0.53605060283	/**< Nautilus z-component of unit vector pointing along axis in Earth-centered frame */
-
+/*@}*/
 
 /** \name NIOBE Resonant Mass Detector constants
  * The following constants describe the location and geometry of the
@@ -619,9 +609,9 @@ void LALCreateDetector( LALStatus *status, LALDetector *output, const LALFrDetec
 #define LAL_NIOBE_AXIS_DIRECTION_X            	-0.23034623759	/**< NIOBE x-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_NIOBE_AXIS_DIRECTION_Y            	0.47614056486	/**< NIOBE y-component of unit vector pointing along axis in Earth-centered frame */
 #define LAL_NIOBE_AXIS_DIRECTION_Z            	0.84866411101	/**< NIOBE z-component of unit vector pointing along axis in Earth-centered frame */
-/** @} */
+/*@}*/
 
-/** @} */
+/*@}*//* end: DetectorConstants */
 
 #ifdef __cplusplus
 }

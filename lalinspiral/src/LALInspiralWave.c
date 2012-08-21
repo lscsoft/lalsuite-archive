@@ -22,7 +22,7 @@
 \file
 \ingroup LALInspiral_h
 
-\brief Interface routine needed to generate all waveforms in the \ref CBC_inspiral package.
+\brief Interface routine needed to generate all waveforms in the \ref pkg_inspiral package.
 
 To generate a waveform
 a user is noramlly required to (a) choose the binary parameters, starting frequency, number of
@@ -125,8 +125,140 @@ LALInspiralSpinModulatedWave()
 #include <lal/LALStdlib.h>
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/LALSQTPNWaveformInterface.h>
+#include <lal/TimeSeries.h>
 
-NRCSID (LALINSPIRALWAVEC, "$Id$");
+/**
+ * Generate the plus and cross polarizations for a waveform
+ * form a row of the sim_inspiral table.
+ *
+ * Parses a row from the sim_inspiral table and passes the appropriate members
+ * to XLALSimInspiralChooseWaveform().
+ *
+ * FIXME: this should eventually be moved to lalsimulation
+ * along with the appropriate string parsing functions
+ */
+int XLALSimInspiralChooseWaveformFromSimInspiral(
+    REAL8TimeSeries **hplus,	/**< +-polarization waveform */
+    REAL8TimeSeries **hcross,	/**< x-polarization waveform */
+    SimInspiralTable *thisRow,	/**< row from the sim_inspiral table containing waveform parameters */
+    REAL8 deltaT		/**< time step */
+    )
+{
+   int ret;
+   LALPNOrder order;
+   Approximant approximant;
+   LALSimInspiralApplyTaper taper;
+
+   REAL8 phi0 = thisRow->coa_phase;
+   REAL8 m1 = thisRow->mass1 * LAL_MSUN_SI;
+   REAL8 m2 = thisRow->mass2 * LAL_MSUN_SI;
+   REAL8 S1x = thisRow->spin1x;
+   REAL8 S1y = thisRow->spin1y;
+   REAL8 S1z = thisRow->spin1z;
+   REAL8 S2x = thisRow->spin2x;
+   REAL8 S2y = thisRow->spin2y;
+   REAL8 S2z = thisRow->spin2z;
+   REAL8 f_min = thisRow->f_lower;
+   REAL8 f_ref = 0.;
+   REAL8 r = thisRow->distance * LAL_PC_SI * 1e6;
+   REAL8 i = thisRow->inclination;
+   REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
+   REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
+   LALSimInspiralWaveformFlags *waveFlags=XLALSimInspiralCreateWaveformFlags();
+   LALSimInspiralTestGRParam *nonGRparams = NULL;
+   int amplitudeO = thisRow->amp_order;
+
+   /* get approximant */
+   approximant = XLALGetApproximantFromString(thisRow->waveform);
+   if ( (int) approximant == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   /* get phase PN order; this is an enum such that the value is twice the PN order */
+   order = XLALGetOrderFromString(thisRow->waveform);
+   if ( (int) order == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   /* get taper option */
+   taper = XLALGetTaperFromString(thisRow->taper);
+   if ( (int) taper == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   /* generate +,x waveforms */
+   /* special case for NR waveforms */
+   switch(approximant)
+   {
+      case NumRelNinja2:
+         if (XLALNRInjectionFromSimInspiral(hplus, hcross, thisRow, deltaT) == XLAL_FAILURE)
+            XLAL_ERROR(XLAL_EFUNC);
+         break;
+
+      default:
+         ret = XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT,
+               m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
+               lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
+               order, approximant);
+         XLALSimInspiralDestroyWaveformFlags(waveFlags);
+         XLALSimInspiralDestroyTestGRParam(nonGRparams);
+         if( ret == XLAL_FAILURE )
+            XLAL_ERROR(XLAL_EFUNC);
+   }
+
+   /* taper the waveforms */
+   if (XLALSimInspiralREAL8WaveTaper((*hplus)->data, taper) == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   if (XLALSimInspiralREAL8WaveTaper((*hcross)->data, taper) == XLAL_FAILURE)
+      XLAL_ERROR(XLAL_EFUNC);
+
+   return XLAL_SUCCESS;
+}
+
+/**
+ * Generate the plus and cross polarizations for a waveform
+ * form a row of the InspiralTemplate structure.
+ *
+ * Parses the InspiralTemplate stucture and passes the appropriate members
+ * to XLALSimInspiralChooseWaveform().
+ */
+int
+XLALSimInspiralChooseWaveformFromInspiralTemplate(
+   REAL8TimeSeries **hplus,	/**< +-polarization waveform */
+   REAL8TimeSeries **hcross,	/**< x-polarization waveform */
+   InspiralTemplate *params	/**< stucture containing waveform parameters */
+   )
+{
+  int ret;
+  REAL8 deltaT = 1./params->tSampling;
+  REAL8 phi0 = params->startPhase; /* startPhase is used as the peak amplitude phase here */
+  REAL8 m1 = params->mass1 * LAL_MSUN_SI;
+  REAL8 m2 = params->mass2 * LAL_MSUN_SI;
+  REAL8 S1x = params->spin1[0];
+  REAL8 S1y = params->spin1[1];
+  REAL8 S1z = params->spin1[2];
+  REAL8 S2x = params->spin2[0];
+  REAL8 S2y = params->spin2[1];
+  REAL8 S2z = params->spin2[2];
+  REAL8 f_min = params->fLower;
+  REAL8 f_ref = 0.;
+  REAL8 r = params->distance; /* stored as Mpc in InspiralTemplate */
+  REAL8 i = params->inclination;
+  REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
+  REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
+  LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+  LALSimInspiralTestGRParam *nonGRparams = NULL;
+  LALPNOrder amplitudeO = params->ampOrder;
+  LALPNOrder order = params->order;
+  Approximant approximant = params->approximant;
+
+  /* generate +,x waveforms */
+  ret = XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2, waveFlags, nonGRparams, amplitudeO, order, approximant);
+  XLALSimInspiralDestroyWaveformFlags(waveFlags);
+  XLALSimInspiralDestroyTestGRParam(nonGRparams);
+  if( ret == XLAL_FAILURE)
+    XLAL_ERROR(XLAL_EFUNC);
+
+  return XLAL_SUCCESS;
+}
 
 
 void
@@ -137,7 +269,7 @@ LALInspiralWave(
    )
 {
 
-   INITSTATUS(status, "LALInspiralWave", LALINSPIRALWAVEC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    ASSERT (signalvec,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -253,10 +385,6 @@ LALInspiralWave(
    RETURN (status);
 }
 
-
-NRCSID (LALINSPIRALWAVETEMPLATESC, "$Id$");
-
-
 void
 LALInspiralWaveTemplates(
    LALStatus        *status,
@@ -266,7 +394,7 @@ LALInspiralWaveTemplates(
    )
 {
 
-   INITSTATUS(status, "LALInspiralWaveTemplates", LALINSPIRALWAVETEMPLATESC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    ASSERT (signalvec1,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -294,6 +422,9 @@ LALInspiralWaveTemplates(
            break;
       case TaylorT3:
            if (XLALInspiralWave3Templates(signalvec1, signalvec2, params) == XLAL_FAILURE) ABORTXLAL(status);
+      	   break;
+      case TaylorEt:
+           if (XLALTaylorEtWaveformTemplates(signalvec1, signalvec2, params) == XLAL_FAILURE) ABORTXLAL(status);
       	   break;
       case EOB:
       case EOBNR:
@@ -354,20 +485,15 @@ LALInspiralWaveTemplates(
    RETURN (status);
 }
 
-
-
-NRCSID (LALINSPIRALWAVEFORINJECTIONC, "$Id$");
-
-
 void
 LALInspiralWaveForInjection(
    LALStatus        *status,
    CoherentGW       *waveform,
    InspiralTemplate *inspiralParams,
-   PPNParamStruc  *ppnParams)
+   PPNParamStruc    *ppnParams)
 {
 
-   INITSTATUS(status, "LALInspiralWaveForInjection", LALINSPIRALWAVEFORINJECTIONC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    ASSERT (inspiralParams,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);

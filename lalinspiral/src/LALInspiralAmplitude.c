@@ -51,17 +51,13 @@ When appropriate this function calls:\\
 
 #include <lal/LALInspiral.h>
 
-
-NRCSID (LALINSPIRALAMPLITUDEC, "$Id$");
-
-
 void
 LALInspiralRestrictedAmplitude (LALStatus        *status,
 				InspiralTemplate *params )
 {
   XLALPrintDeprecationWarning("LALInspiralRestrictedAmplitude", "XLALInspiralRestrictedAmplitude");
 
-  INITSTATUS (status, "LALInspiralAmplitude", LALINSPIRALAMPLITUDEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   if ( XLALInspiralRestrictedAmplitude(params) == XLAL_FAILURE )
@@ -76,17 +72,17 @@ int
 XLALInspiralRestrictedAmplitude (InspiralTemplate *params)
 {
   if (params == NULL)
-    XLAL_ERROR(__func__, XLAL_EFAULT);
+    XLAL_ERROR(XLAL_EFAULT);
   if ((INT4)params->massChoice < 0)
-    XLAL_ERROR(__func__, XLAL_EDOM);
+    XLAL_ERROR(XLAL_EDOM);
   if ((INT4)params->massChoice > 15)
-    XLAL_ERROR(__func__, XLAL_EDOM);
+    XLAL_ERROR(XLAL_EDOM);
 
   if (params->massChoice != totalMassAndEta)
   {
     if ( XLALInspiralParameterCalc(params) == XLAL_FAILURE )
     {
-      XLAL_ERROR(__func__, XLAL_EFUNC);
+      XLAL_ERROR(XLAL_EFUNC);
     }
   }
 

@@ -96,9 +96,6 @@ static REAL8 XLALInspiralTaylorF2Phasing5PN (REAL8 v, expnCoeffs *ak);
 static REAL8 XLALInspiralTaylorF2Phasing6PN (REAL8 v, expnCoeffs *ak);
 static REAL8 XLALInspiralTaylorF2Phasing7PN (REAL8 v, expnCoeffs *ak);
 
-NRCSID (LALINSPIRALSTATIONARYPHASEAPPROX2C, "$Id$");
-
-
 void
 LALInspiralStationaryPhaseApprox2 (
    LALStatus        *status,
@@ -111,8 +108,7 @@ LALInspiralStationaryPhaseApprox2 (
 			      "XLALInspiralStationaryPhaseApprox2");
 
   /* Initialize the status pointer */
-  INITSTATUS (status, "LALInspiralStationaryPhaseApprox2", 
-	      LALINSPIRALSTATIONARYPHASEAPPROX2C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   /* Call XLAL function and check for errors */
@@ -140,13 +136,13 @@ XLALInspiralStationaryPhaseApprox2 (
 
    /* Perform some initial checks */
    if (signalvec == NULL)
-     XLAL_ERROR(__func__, XLAL_EFAULT);
+     XLAL_ERROR(XLAL_EFAULT);
    if (signalvec->data == NULL)
-     XLAL_ERROR(__func__, XLAL_EFAULT);
+     XLAL_ERROR(XLAL_EFAULT);
    if (params == NULL)
-     XLAL_ERROR(__func__, XLAL_EFAULT);  
+     XLAL_ERROR(XLAL_EFAULT);  
    if (signalvec->length<=2)
-     XLAL_ERROR(__func__, XLAL_EBADLEN);  
+     XLAL_ERROR(XLAL_EBADLEN);  
 
    /* chose the required phasing function */
    switch (params->order)
@@ -174,7 +170,7 @@ XLALInspiralStationaryPhaseApprox2 (
 		   XLALInspiralTaylorF2Phasing = XLALInspiralTaylorF2Phasing7PN;
 		   break;
            default:
-	     XLAL_ERROR(__func__, XLAL_ETYPE);  
+	     XLAL_ERROR(XLAL_ETYPE);  
 
    }
 
@@ -183,13 +179,13 @@ XLALInspiralStationaryPhaseApprox2 (
    nby2 = n/2;
    memset( &ak, 0, sizeof( ak ) );
    if ( XLALInspiralSetup(&ak, params) == XLAL_FAILURE )
-     XLAL_ERROR(__func__, XLAL_EFUNC);
+     XLAL_ERROR(XLAL_EFUNC);
 
    
    /* Set up the functions required for the chosen signal 
       approximation scheme */
    if ( XLALInspiralChooseModel(&func, &ak, params) == XLAL_FAILURE)
-     XLAL_ERROR(__func__, XLAL_EFUNC);
+     XLAL_ERROR(XLAL_EFUNC);
 
    /* compute some basic variables */
    Oneby3 = 1.L/3.L;

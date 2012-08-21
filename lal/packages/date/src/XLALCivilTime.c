@@ -1,4 +1,5 @@
 /*
+*  Copyright (C) 2012 Karl Wette
 *  Copyright (C) 2007 Bernd Machenschalk, Jolien Creighton, Kipp Cannon
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -28,8 +29,8 @@
 /* in case this is not prototyped ... */
 struct tm * gmtime_r(const time_t *, struct tm *);
 
-/** \defgroup CivilTime CivilTime
- * \ingroup date
+/** \defgroup XLALCivilTime_c CivilTime
+ * \ingroup Date_h
  * \author Chin, D. W. and Creighton, J. D. E.
  *
  * \brief XLAL routines for converting civil time structures to GPS times.
@@ -79,7 +80,7 @@ struct tm * gmtime_r(const time_t *, struct tm *);
  * The inverse conversion is not attempted.
  *
  */
-
+/*@{*/
 
 /* change in TAI-UTC from previous second:
  *
@@ -114,7 +115,6 @@ static int delta_tai_utc( INT4 gpssec )
   return 0;
 }
 
-/** \ingroup CivilTime *//*@{*/
 /** Returns the leap seconds TAI-UTC at a given GPS second. */
 int XLALLeapSeconds( INT4 gpssec /**< [In] Seconds relative to GPS epoch.*/ )
 {
@@ -124,7 +124,7 @@ int XLALLeapSeconds( INT4 gpssec /**< [In] Seconds relative to GPS epoch.*/ )
   {
     XLALPrintError( "XLAL Error - Don't know leap seconds before GPS time %d\n",
         leaps[0].gpssec );
-    XLAL_ERROR( __func__, XLAL_EDOM );
+    XLAL_ERROR( XLAL_EDOM );
   }
 
   /* scan leap second table and locate the appropriate interval */
@@ -144,7 +144,7 @@ int XLALGPSLeapSeconds( INT4 gpssec /**< [In] Seconds relative to GPS epoch.*/ )
 
   leapTAI = XLALLeapSeconds ( gpssec );
   if ( leapTAI < 0 )
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   leapGPS = leapTAI - 19;	/* subtract 19 seconds to get leap-seconds wrt to GPS epoch */
 
@@ -160,12 +160,12 @@ int XLALLeapSecondsUTC( const struct tm *utc /**< [In] UTC as a broken down time
 
   jd = XLALJulianDay( utc );
   if ( XLAL_IS_REAL8_FAIL_NAN( jd ) )
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   if ( jd < leaps[0].jd )
   {
     XLALPrintError( "XLAL Error - Don't know leap seconds before Julian Day %9.1f\n", leaps[0].jd );
-    XLAL_ERROR( __func__, XLAL_EDOM );
+    XLAL_ERROR( XLAL_EDOM );
   }
 
   /* scan leap second table and locate the appropriate interval */
@@ -188,7 +188,7 @@ INT4 XLALUTCToGPS( const struct tm *utc /**< [In] UTC time in a broken down time
   /* compute leap seconds */
   leapsec = XLALLeapSecondsUTC( utc );
   if ( leapsec < 0 )
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   /* compute unix epoch time: seconds since 1970 JAN 1 0h UTC */
   /* POSIX:2001 definition of seconds since the (UNIX) Epoch */
   unixsec = utc->tm_sec + utc->tm_min*60 + utc->tm_hour*3600
@@ -217,7 +217,7 @@ struct tm * XLALGPSToUTC(
   int delta;
   leapsec = XLALLeapSeconds( gpssec );
   if ( leapsec < 0 )
-    XLAL_ERROR_NULL( __func__, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   unixsec  = gpssec - leapsec + XLAL_EPOCH_GPS_TAI_UTC; /* get rid of leap seconds */
   unixsec += XLAL_EPOCH_UNIX_GPS; /* change to unix epoch */
   memset( utc, 0, sizeof( *utc ) ); /* blank out utc structure */
@@ -286,7 +286,7 @@ REAL8 XLALJulianDay( const struct tm *utc /**< [In] UTC time in a broken down ti
   if ( utc->tm_year <= 0 )
   {
     XLALPrintError( "XLAL Error - Year must be after 1900\n" );
-    XLAL_ERROR_REAL8( __func__, XLAL_EDOM );
+    XLAL_ERROR_REAL8( XLAL_EDOM );
   }
 
   year  = utc->tm_year + 1900;
@@ -319,9 +319,64 @@ INT4 XLALModifiedJulianDay( const struct tm *utc /**< [In] UTC time in a broken 
   INT4 mjd;
   jd = XLALJulianDay( utc );
   if ( XLAL_IS_REAL8_FAIL_NAN( jd ) )
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   mjd = floor( jd - XLAL_MJD_REF );
   return mjd;
+}
+
+/** Fill in missing fields of a C 'tm' broken-down time struct.
+ *
+ *  We want to use the C time functions in to fill in values for 'tm_wday' and
+ *  'tm_yday', and normalise the ranges of the other members. mktime() does this,
+ *  but it also assumes local time, so that the 'tm' struct members are adjusted
+ *  according to the timezone. timegm() would be a more appropriate, but it seems
+ *  that it is not portable (BSD/Mac, but not standard GNU); neither is using the
+ *  'timezone' variable to get the correct offset (works on GNU but not BSD/Mac!)
+ *  The method used here (idea from somewhere on the internet) should be safe.
+ */
+int XLALFillBrokenDownTime(struct tm *tm /**< Broken-down time struct. */) {
+
+  /* Check input. */
+  XLAL_CHECK( tm, XLAL_EINVAL );
+
+  /* Set timezone. */
+  tzset();
+
+  /* Set daylight savings flag to zero, since we want to get the timezone
+     difference against UTC. We save its initial value for use later. */
+  int isdst = tm->tm_isdst;
+  tm->tm_isdst = 0;
+
+  /* Call mktime() to get a time 't1', adjusted for the timezone. */
+  time_t t1 = mktime(tm);
+  XLAL_CHECK( t1 >= 0, XLAL_ESYS );
+
+  /* If original daylight savings flag was -1 (i.e. daylight savings unknown),
+     save the current value of the flag for use later. */
+  if (isdst < 0) {
+    isdst = tm->tm_isdst;
+  }
+
+  /* Convert 't2' back into a 'tm' struct. gmtime() will preserve the timezone. */
+  XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
+
+  /* Now call mktime() again to get time 't2', *twice* adjusted for the timezone. */
+  time_t t2 = mktime(tm);
+  XLAL_CHECK( t2 >= 0, XLAL_ESYS );
+
+  /* Since 't1' has been adjusted for the timezone once, and 't2' twice, their
+     difference is precisely the correct timezone difference! We substract this
+     from 't1', which is now the desired time in UTC. */
+  t1 -= t2 - t1;
+
+  /* Call gmtime() to convert the desired time 't1' back into a 'tm' struct. */
+  XLAL_CHECK( gmtime_r(&t1, tm) != NULL, XLAL_ESYS );
+
+  /* Restore the daylight savings flag. */
+  tm->tm_isdst = isdst;
+
+  return XLAL_SUCCESS;
+
 }
 
 /*@}*/

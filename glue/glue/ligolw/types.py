@@ -88,14 +88,31 @@ __date__ = git_version.date
 
 
 IDTypes = set([u"ilwd:char", u"ilwd:char_u"])
+"""LIGO Light-Weight XML type strings for ID-like data."""
+
 BlobTypes = set([u"blob", u"ilwd:char_u"])
+"""LIGO Light-Weight XML type strings for binary blob-like data."""
+
 StringTypes = set([u"char_s", u"char_v", u"lstring", u"string", u"ilwd:char"])
+"""LIGO Light-Weight XML type strings for string-like data."""
+
 IntTypes = set([u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"])
+"""LIGO Light-Weight XML type strings for integer-like data."""
+
 FloatTypes = set([u"real_4", u"real_8", u"float", u"double"])
+"""LIGO Light-Weight XML type strings for floating-point-like data."""
+
 ComplexTypes = set([u"complex_8", u"complex_16"])
+"""LIGO Light-Weight XML type strings for complex-like data."""
+
 NumericTypes = IntTypes | FloatTypes | ComplexTypes
+"""LIGO Light-Weight XML type strings for number-like data."""
+
 TimeTypes = set([u"GPS", u"Unix", u"ISO-8601"])
+"""LIGO Light-Weight XML type strings for time-like data."""
+
 Types = BlobTypes | StringTypes | NumericTypes | TimeTypes
+"""All valid LIGO Light-Weight XML type strings."""
 
 
 #
@@ -108,14 +125,27 @@ Types = BlobTypes | StringTypes | NumericTypes | TimeTypes
 
 
 def string_format_func(s):
+	"""
+	Function used internally to format string data for output to XML.
+	Escapes back-slashes and quotes, and wraps the resulting string in
+	quotes.
+	"""
 	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
 def blob_format_func(b):
+	"""
+	Function used internally to format binary data.  Base64-encodes the
+	data and wraps the resulting string in quotes.
+	"""
 	return u"\"%s\"" % base64.standard_b64encode(b)
 
 
 def mk_complex_format_func(fmt):
+	"""
+	Function used internally to generate functions to format complex
+	valued data.
+	"""
 	fmt = fmt + u"+i" + fmt
 	def complex_format_func(z):
 		return fmt % (z.real, z.imag)
@@ -144,6 +174,11 @@ FormatFunc = {
 	u"complex_8": mk_complex_format_func(u"%.8g"),
 	u"complex_16": mk_complex_format_func(u"%.16g")
 }
+"""
+Look-up table mapping LIGO Light-Weight XML data type strings to functions
+for formating Python data for output.  This table is used universally by
+glue.ligolw XML writing codes.
+"""
 
 
 #
@@ -155,14 +190,10 @@ FormatFunc = {
 #
 
 
-def parse_complex(s):
-	return complex(*map(float, s.split(u"+i")))
-
-
 ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
-	u"ilwd:char": ilwd.get_ilwdchar,
+	u"ilwd:char": ilwd.ilwdchar,
 	u"ilwd:char_u": lambda s: buffer(base64.b64decode(s)),
 	u"blob": lambda s: buffer(base64.b64decode(s)),
 	u"lstring": unicode,
@@ -178,9 +209,14 @@ ToPyType = {
 	u"real_8": float,
 	u"float": float,
 	u"double": float,
-	u"complex_8": parse_complex,
-	u"complex_16": parse_complex
+	u"complex_8": lambda s: complex(*map(float, s.split(u"+i"))),
+	u"complex_16": lambda s: complex(*map(float, s.split(u"+i")))
 }
+"""
+Look-up table mapping LIGO Light-Weight XML data type strings to functions
+for parsing Python data from input.  This table is used universally by
+glue.ligolw XML parsing codes.
+"""
 
 
 FromPyType = {
@@ -194,6 +230,11 @@ FromPyType = {
 	float: u"real_8",
 	complex: u"complex_16"
 }
+"""
+Look-up table used to guess LIGO Light-Weight XML data type strings from
+Python types.  This table is used when auto-generating XML from Python
+objects.
+"""
 
 
 #
@@ -220,6 +261,10 @@ ToNumPyType = {
 	u"complex_8": "complex64",
 	u"complex_16": "complex128"
 }
+"""
+Look-up table mapping LIGO Light-Weight XML data type strings to numpy
+array type strings.  Used by glue.ligolw array reading codes.
+"""
 
 
 FromNumPyType = {
@@ -234,6 +279,10 @@ FromNumPyType = {
 	"complex64": u"complex_8",
 	"complex128": u"complex_16"
 }
+"""
+Look-up table mapping numpy array type strings to LIGO Light-Weight XML
+data type strings.  Uesd by glue.ligolw array writing codes.
+"""
 
 
 #
@@ -272,6 +321,10 @@ ToMySQLType = {
 	u"float": "FLOAT",
 	u"double": "DOUBLE"
 }
+"""
+Look-up table mapping LIGO Light-Weight XML data type strings to MySQL
+column types.  Used by XML --> MySQL conversion codes.
+"""
 
 
 ToSQLiteType = {
@@ -294,6 +347,10 @@ ToSQLiteType = {
 	u"float": "REAL",
 	u"double": "REAL"
 }
+"""
+Look-up table mapping LIGO Light-Weight XML data type strings to SQLite
+column types.  Used by XML --> SQLite conversion codes.
+"""
 
 
 FromSQLiteType = {
@@ -303,3 +360,8 @@ FromSQLiteType = {
 	"INTEGER": u"int_4s",
 	"REAL": u"real_8"
 }
+"""
+Look-up table used to guess LIGO Light-Weight XML data type strings from
+SQLite column types.  Used when auto-generating XML from the contents of an
+SQLite database.
+"""

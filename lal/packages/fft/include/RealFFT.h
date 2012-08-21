@@ -20,6 +20,7 @@
 #ifndef _REALFFT_H
 #define _REALFFT_H
 
+#include <lal/LALStdlib.h>
 #include <lal/LALDatatypes.h>
 
 #if defined(__cplusplus)
@@ -27,25 +28,6 @@ extern "C" {
 #elif 0
 } /* so that editors will match preceding brace */
 #endif
-
-#ifdef  __cplusplus
-#ifdef __GNUC__
-#define RESTRICT __restrict__
-#else
-#define RESTRICT
-#endif
-#else
-#define RESTRICT restrict
-#endif
-
-NRCSID( REALFFTH, "$Id$" );
-
-/** Plan to perform FFT of REAL4 data */
-typedef struct tagREAL4FFTPlan REAL4FFTPlan;
-/** Plan to perform FFT of REAL8 data */
-typedef struct tagREAL8FFTPlan REAL8FFTPlan;
-#define tagRealFFTPlan tagREAL4FFTPlan
-#define RealFFTPlan REAL4FFTPlan
 
 /**
  *
@@ -97,7 +79,7 @@ typedef struct tagREAL8FFTPlan REAL8FFTPlan;
  * but they are double-precision versions, i.e., they convert
  * \c REAL8Vectors into \c COMPLEX16Vectors.
  *
- * The routine XLALCreateREAL4FFTPlan() creates a ::REAL4FFTPlan
+ * The routine XLALCreateREAL4FFTPlan() creates a REAL4FFTPlan
  * structure to perform FFTs of vectors of length \c size.  If
  * \c fwdflg is non-zero then the plan is created to perform forward
  * (real-to-complex) FFTs with a negative exponential sign.  Otherwise
@@ -172,8 +154,18 @@ typedef struct tagREAL8FFTPlan REAL8FFTPlan;
  * same way but for double-precision transforms.
  *
 */
-/*@{ */
-/** \name Error Codes */ /*@{*/
+/*@{*/
+
+/** Plan to perform FFT of REAL4 data */
+typedef struct tagREAL4FFTPlan REAL4FFTPlan;
+/** Plan to perform FFT of REAL8 data */
+typedef struct tagREAL8FFTPlan REAL8FFTPlan;
+#define tagRealFFTPlan tagREAL4FFTPlan
+#define RealFFTPlan REAL4FFTPlan
+
+
+/** \name Error Codes */
+/*@{*/
 #define REALFFTH_ENULL 1	/**< Null pointer */
 #define REALFFTH_ENNUL 2	/**< Non-null pointer */
 #define REALFFTH_ESIZE 4	/**< Invalid input size */
@@ -187,8 +179,8 @@ typedef struct tagREAL8FFTPlan REAL8FFTPlan;
 #define REALFFTH_ESNGL 1024	/**< FFTW library is not single-precision */
 #define REALFFTH_EINTL 2048	/**< Error in Intel FFT library */
 /*@}*/
-/*@}*/
 
+/** \cond DONT_DOXYGEN */
 #define REALFFTH_MSGENULL "Null pointer"
 #define REALFFTH_MSGENNUL "Non-null pointer"
 #define REALFFTH_MSGESIZE "Invalid input size"
@@ -201,9 +193,7 @@ typedef struct tagREAL8FFTPlan REAL8FFTPlan;
 #define REALFFTH_MSGEFFTW "Error in FFTW"
 #define REALFFTH_MSGESNGL "FFTW library is not single-precision"
 #define REALFFTH_MSGEINTL "Error in Intel FFT library"
-
-/** \addtogroup RealFFT_h */
-/*@{ */
+/** \endcond */
 
 /*
  *
@@ -225,8 +215,8 @@ typedef struct tagREAL8FFTPlan REAL8FFTPlan;
  *
  * @note
  * The reverse transform of the forward transform of some data is
- * equal to N times the original data (we therefore call it a "reverse"
- * transform rather than an "inverse" transform).
+ * equal to N times the original data (we therefore call it a \"reverse\"
+ * transform rather than an \"inverse\" transform).
  *
  * @param[in] size The number of points in the real data.
  * @param[in] fwdflg Set non-zero for a forward FFT plan;
@@ -283,8 +273,8 @@ REAL4FFTPlan * XLALCreateForwardREAL4FFTPlan( UINT4 size, int measurelvl );
  *
  * @note
  * The reverse transform of the forward transform of some data is
- * equal to N times the original data (we therefore call it a "reverse"
- * transform rather than an "inverse" transform).
+ * equal to N times the original data (we therefore call it a \"reverse\"
+ * transform rather than an \"inverse\" transform).
  *
  * @param[in] size The number of points in the real data.
  * @param[in] measurelvl Measurement level for plan creation:
@@ -320,8 +310,8 @@ void XLALDestroyREAL4FFTPlan( REAL4FFTPlan *plan );
  * Due to the reality of the input data x, the following identity
  * holds for the complex FFT data: \f$z[N-k]=z^\ast[k]\f$.  Therefore,
  * the length of the output vector is equal to \f$\lfloor N/2\rfloor + 1\f$
- * since the remaining "negative" frequency components can be obtained from the
- * "positive" frequency components.
+ * since the remaining \"negative\" frequency components can be obtained from the
+ * \"positive\" frequency components.
  *
  * @param[out] output The complex data vector z of length [N/2] + 1
  * that results from the transform
@@ -351,8 +341,8 @@ int XLALREAL4ForwardFFT( COMPLEX8Vector *output, const REAL4Vector *input,
  * Due to the reality of the output data y, the following identity
  * holds for the complex data: \f$z[N-k]=z^\ast[k]\f$.  Therefore,
  * the length of the input vector is equal to \f$\lfloor N/2\rfloor + 1\f$
- * since the remaining "negative" frequency components can be obtained from the
- * "positive" frequency components.
+ * since the remaining \"negative\" frequency components can be obtained from the
+ * \"positive\" frequency components.
  *
  * @param[out] output The real data vector y of length N
  * that results from the transform
@@ -449,8 +439,8 @@ int XLALREAL4PowerSpectrum( REAL4Vector *spec, const REAL4Vector *data,
  *
  * @note
  * The reverse transform of the forward transform of some data is
- * equal to N times the original data (we therefore call it a "reverse"
- * transform rather than an "inverse" transform).
+ * equal to N times the original data (we therefore call it a \"reverse\"
+ * transform rather than an \"inverse\" transform).
  *
  * @param[in] size The number of points in the real data.
  * @param[in] fwdflg Set non-zero for a forward FFT plan;
@@ -507,8 +497,8 @@ REAL8FFTPlan * XLALCreateForwardREAL8FFTPlan( UINT4 size, int measurelvl );
  *
  * @note
  * The reverse transform of the forward transform of some data is
- * equal to N times the original data (we therefore call it a "reverse"
- * transform rather than an "inverse" transform).
+ * equal to N times the original data (we therefore call it a \"reverse\"
+ * transform rather than an \"inverse\" transform).
  *
  * @param[in] size The number of points in the real data.
  * @param[in] measurelvl Measurement level for plan creation:
@@ -544,8 +534,8 @@ void XLALDestroyREAL8FFTPlan( REAL8FFTPlan *plan );
  * Due to the reality of the input data x, the following identity
  * holds for the complex FFT data: \f$z[N-k]=z^\ast[k]\f$.  Therefore,
  * the length of the output vector is equal to \f$\lfloor N/2\rfloor + 1\f$
- * since the remaining "negative" frequency components can be obtained from the
- * "positive" frequency components.
+ * since the remaining \"negative\" frequency components can be obtained from the
+ * \"positive\" frequency components.
  *
  * @param[out] output The complex data vector z of length [N/2] + 1
  * that results from the transform
@@ -575,8 +565,8 @@ int XLALREAL8ForwardFFT( COMPLEX16Vector *output, REAL8Vector *input,
  * Due to the reality of the output data y, the following identity
  * holds for the complex data: \f$z[N-k]=z^\ast[k]\f$.  Therefore,
  * the length of the input vector is equal to \f$\lfloor N/2\rfloor + 1\f$
- * since the remaining "negative" frequency components can be obtained from the
- * "positive" frequency components.
+ * since the remaining \"negative\" frequency components can be obtained from the
+ * \"positive\" frequency components.
  *
  * @param[out] output The real data vector y of length N
  * that results from the transform
@@ -840,8 +830,6 @@ LALREAL8VectorFFT(
     );
 
 /*@}*/
-
-#undef RESTRICT
 
 #if 0
 { /* so that editors will match succeeding brace */

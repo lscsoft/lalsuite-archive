@@ -142,6 +142,7 @@ fabs()
 #define SZEROPADANDFFTTESTC_MSGEUSE "Bad user-entered data"
 
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/Window.h>
 
@@ -165,8 +166,6 @@ fabs()
 #include <lal/Units.h>
 
 #include "CheckStatus.h"
-
-NRCSID(SZEROPADANDFFTTESTC, "$Id$");
 
 #define SZEROPADANDFFTTESTC_LENGTH        8
 #define SZEROPADANDFFTTESTC_FULLLENGTH (2 * SZEROPADANDFFTTESTC_LENGTH - 1)
@@ -239,15 +238,15 @@ main( int argc, char *argv[] )
                         {+3.090169943749475e-01, +4.306254604896173e+00},
                         {+2.208174802380956e-01, -4.325962305777781e+00}};
 
-   REAL4TimeSeries             goodInput, badInput;
-   COMPLEX8FrequencySeries     goodOutput, badOutput;
+   REAL4TimeSeries             goodInput;
+   COMPLEX8FrequencySeries     goodOutput;
 
    BOOLEAN                result;
    LALUnitPair            unitPair;
    LALUnit                expectedUnit;
    CHARVector             *unitString;
 
-   SZeroPadAndFFTParameters   goodParams, badParams;
+   SZeroPadAndFFTParameters   goodParams;
 
    lalDebugLevel = LALNDEBUG;
 
@@ -257,8 +256,9 @@ main( int argc, char *argv[] )
 
    /* build window */
    goodParams.window = XLALCreateRectangularREAL4Window(SZEROPADANDFFTTESTC_LENGTH);
-
-   badParams = goodParams;
+#ifndef LAL_NDEBUG
+   SZeroPadAndFFTParameters badParams = goodParams;
+#endif
 
    /* Fill in expected output */
 
@@ -280,8 +280,10 @@ main( int argc, char *argv[] )
    goodInput.data                 = NULL;
    goodOutput.data                = NULL;
 
-   badInput = goodInput;
-   badOutput = goodOutput;
+#ifndef LAL_NDEBUG
+   REAL4TimeSeries badInput = goodInput;
+   COMPLEX8FrequencySeries badOutput = goodOutput;
+#endif
 
    /* construct plan */
    LALCreateForwardRealFFTPlan(&status, &(goodParams.fftPlan),
@@ -857,6 +859,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -894,8 +898,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

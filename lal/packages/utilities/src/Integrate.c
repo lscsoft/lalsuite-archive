@@ -17,95 +17,7 @@
 *  MA  02111-1307  USA
 */
 
-#if 0  /* autodoc block */
-
-<lalVerbatim file="IntegrateCV">
-$Id$
-</lalVerbatim>
-
-<lalLaTeX>
-\subsection{Module \texttt{Integrate.c}}
-\label{ss:Integrate.c}
-
-Functions for generating random numbers.
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{IntegrateCP}
-\idx{LALSRombergIntegrate()}
-\idx{LALDRombergIntegrate()}
-
-\subsubsection*{Description}
-
-The routine \verb+LALSRombergIntegrate+ performs the integral specified by the
-structure \verb+input+ and the result is returned as \verb+result+.  Any
-additional parameters (other than the integration variable $x$) can be passed
-as \verb+params+.  The routine \verb+LALSRombergIntegrate+ does not use
-\verb+params+ but just passes it to the integrand.  The routine
-\verb+LALDRombergIntegrate+ is the same but for double precision.
-
-\subsubsection*{Operating Instructions}
-
-The following program performs the integral $\int_0^2F(x)dx$ where
-$F(x)=x^4\log(x+\sqrt{x^2+1})$.
-
-\begin{verbatim}
-#include <math.h>
-#include <lal/LALStdlib.h>
-#include <lal/Integrate.h>
-
-static void F( LALStatus *s, REAL4 *y, REAL4 x, void *p )
-{
-  REAL4 x2 = x*x;
-  REAL4 x4 = x2*x2;
-  INITSTATUS( s, "F", "Function F()" );
-  ASSERT( !p, s, 1, "Non-null pointer" );
-  *y = x4 * log( x + sqrt( x2 + 1 ) );
-  RETURN( s );
-}
-
-int main ()
-{
-  const REAL4       epsilon = 1e-6;
-  const long double expect  = 8.153364119811650205L;
-  static LALStatus  status;
-  SIntegrateIn      intinp;
-  REAL4             result;
-
-  intinp.function = F;
-  intinp.xmin     = 0;
-  intinp.xmax     = 2;
-  intinp.type     = ClosedInterval;
-
-  LALSRombergIntegrate( &status, &result, &intinp, NULL );
-  if ( fabs( result - expect ) > epsilon * fabs( expect ) )
-  {
-    /* integration did not achieve desired accuracy --- exit failure */
-    return 1;
-  }
-
-  return 0;
-}
-\end{verbatim}
-
-\subsubsection*{Algorithm}
-
-This is an implementation of the Romberg integrating function \verb+qromb+ in
-Numerical Recipes~\cite{ptvf:1992}.
-
-\subsubsection*{Uses}
-
-These routines use the functions \verb+LALSPolynomialInterpolation()+ and
-\verb+LALDPolynomialInterpolation()+.
-
-\subsubsection*{Notes}
-\vfill{\footnotesize\input{IntegrateCV}}
-
-</lalLaTeX>
-
-#endif /* autodoc block */
-
-
+/* ---------- see Integrate.h for doxygen documentation ---------- */
 #include <math.h>
 #include <string.h>
 #include <lal/LALStdlib.h>
@@ -117,8 +29,6 @@ These routines use the functions \verb+LALSPolynomialInterpolation()+ and
 #else
 #define UNUSED
 #endif
-
-NRCSID (INTEGRATEC, "$Id$");
 
 typedef struct
 tagSIntegralState
@@ -144,7 +54,7 @@ STrapezoid (
     void           *params
     )
 {
-  INITSTATUS (status, "STrapezoid", INTEGRATEC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   if (output->refinement)
@@ -189,7 +99,7 @@ DTrapezoid (
     void           *params
     )
 {
-  INITSTATUS (status, "DTrapezoid", INTEGRATEC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   if (output->refinement)
@@ -255,7 +165,7 @@ XLALREAL8Trapezoid (
       REAL8 y;
       y = f (x, params);
       if (xlalErrno)
-        XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+        XLAL_ERROR_REAL8(XLAL_EFUNC);
       sum += y;
       x   += dx;
     }
@@ -268,10 +178,10 @@ XLALREAL8Trapezoid (
     REAL8 y_1;
     y_0 = f (xmin, params);
     if (xlalErrno)
-      XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
     y_1 = f (xmax, params);
     if (xlalErrno)
-      XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
     integral = (xmax - xmin)*(y_1 + y_0)/2;
   }
 
@@ -341,7 +251,7 @@ SMidpoint (
   REAL4 xmax;
   REAL4 xmin;
 
-  INITSTATUS (status, "SMidpoint", INTEGRATEC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   switch (input->type)
@@ -476,7 +386,7 @@ DMidpoint (
   REAL8 xmax;
   REAL8 xmin;
 
-  INITSTATUS (status, "DMidpoint", INTEGRATEC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   switch (input->type)
@@ -597,7 +507,7 @@ XLALREAL8Midpoint (
 
     case InfiniteDomainPow:
       if (!((b > 0 && a > 0) || (b < 0 && a < 0)))
-        XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+        XLAL_ERROR_REAL8(XLAL_EDOM);
       ChangeOfVariables = DEqualsInvX;
       xmax = 1/a;
       xmin = 1/b;
@@ -610,7 +520,7 @@ XLALREAL8Midpoint (
       break;
 
     default: /* unrecognized type */
-      XLAL_ERROR_REAL8(__func__, XLAL_EINVAL);
+      XLAL_ERROR_REAL8(XLAL_EINVAL);
   }
 
   if (refinement)
@@ -628,13 +538,13 @@ XLALREAL8Midpoint (
 
       y = f (ChangeOfVariables (x, a, b, &jac), params);
       if (xlalErrno)
-        XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+        XLAL_ERROR_REAL8(XLAL_EFUNC);
       sum += y*jac;
       x   += dx2;
 
       y = f (ChangeOfVariables (x, a, b, &jac), params);
       if (xlalErrno)
-        XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+        XLAL_ERROR_REAL8(XLAL_EFUNC);
       sum += y*jac;
       x   += dx1;
     }
@@ -648,7 +558,7 @@ XLALREAL8Midpoint (
     REAL8 jac;
     y = f (ChangeOfVariables (x, a, b, &jac), params);
     if (xlalErrno)
-      XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
     integral = (xmax - xmin)*y*jac;
   }
 
@@ -656,7 +566,7 @@ XLALREAL8Midpoint (
 }
 
 
-/* <lalVerbatim file="IntegrateCP"> */
+
 void
 LALSRombergIntegrate (
     LALStatus    *status,
@@ -664,7 +574,7 @@ LALSRombergIntegrate (
     SIntegrateIn *input,
     void         *params
     )
-{ /* </lalVerbatim> */
+{
   const REAL4 epsilon = 1e-6;
   enum { MaxSteps     = 20 };
   enum { Order        = 4  };
@@ -676,7 +586,7 @@ LALSRombergIntegrate (
   REAL4          stepSize[MaxSteps + 1];
   REAL4          refineFactor;
 
-  INITSTATUS (status, "LALSRombergIntegrate", INTEGRATEC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (result, status, INTEGRATEH_ENULL, INTEGRATEH_MSGENULL);
@@ -742,7 +652,7 @@ LALSRombergIntegrate (
 }
 
 
-/* <lalVerbatim file="IntegrateCP"> */
+
 void
 LALDRombergIntegrate (
     LALStatus    *status,
@@ -750,7 +660,7 @@ LALDRombergIntegrate (
     DIntegrateIn *input,
     void         *params
     )
-{ /* </lalVerbatim> */
+{
   const REAL8 epsilon = 1e-15;
   enum { MaxSteps     = 20 };
   enum { Order        = 4  };
@@ -762,7 +672,7 @@ LALDRombergIntegrate (
   REAL8          stepSize[MaxSteps + 1];
   REAL8          refineFactor;
 
-  INITSTATUS (status, "LALDRombergIntegrate", INTEGRATEC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (result, status, INTEGRATEH_ENULL, INTEGRATEH_MSGENULL);
@@ -828,7 +738,7 @@ LALDRombergIntegrate (
 }
 
 
-/* <lalVerbatim file="IntegrateCP"> */
+
 REAL8
 XLALREAL8RombergIntegrate (
     REAL8 (*f)(REAL8 x, void *params),
@@ -837,7 +747,7 @@ XLALREAL8RombergIntegrate (
     REAL8 xmax,
     IntegralType type
     )
-{ /* </lalVerbatim> */
+{
   const REAL8 epsilon = 1e-15;
   enum { MaxSteps     = 20 };
   enum { Order        = 4  };
@@ -851,9 +761,9 @@ XLALREAL8RombergIntegrate (
   int            refinement;
 
   if (f == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (xmax <= xmin)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   switch (type)
   {
@@ -872,7 +782,7 @@ XLALREAL8RombergIntegrate (
       break;
 
     default: /* unrecognized type */
-      XLAL_ERROR_REAL8(__func__, XLAL_EINVAL);
+      XLAL_ERROR_REAL8(XLAL_EINVAL);
   }
 
   stepSize[0] = 1;
@@ -880,7 +790,7 @@ XLALREAL8RombergIntegrate (
   {
     temp = Algorithm (temp, f, params, xmin, xmax, type, refinement);
     if (xlalErrno)
-      XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
 
     integral[refinement] = temp;
 
@@ -892,7 +802,7 @@ XLALREAL8RombergIntegrate (
       /* extrapolate to continuum limit (stepSize = 0) */
       dy = XLALREAL8PolynomialInterpolation (&y, 0, integral + refinement - Order, stepSize + refinement - Order, Order + 1);
       if (xlalErrno)
-        XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+        XLAL_ERROR_REAL8(XLAL_EFUNC);
 
       if (fabs(dy) < epsilon*fabs(y))
       {
@@ -904,5 +814,5 @@ XLALREAL8RombergIntegrate (
     stepSize[refinement + 1] = refineFactor*stepSize[refinement];
   }
 
-  XLAL_ERROR_REAL8(__func__, XLAL_EMAXITER);
+  XLAL_ERROR_REAL8(XLAL_EMAXITER);
 }

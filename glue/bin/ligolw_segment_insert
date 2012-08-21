@@ -27,6 +27,7 @@ try:
   from glue import gpstime
   from glue import ldbd
   from glue import segments
+  from glue import git_version
   from glue.segmentdb import segmentdb_utils
   from glue.ligolw import table
   from glue.ligolw import lsctables
@@ -44,9 +45,9 @@ Check that glue is correctly installed and in your PYTHONPATH.
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date: 2009/03/30 04:17:22 $"[7:-2]
-__version__ ="$Revision: 1.3 $"[11:-2]
-__src__ = "$Source: /usr/local/cvs/lscsoft/glue/bin/ligolw_segment_insert,v $"
+__date__ = git_version.date
+__version__ = git_version.id
+__src__ = git_version.status
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -236,13 +237,13 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     current_time = str(gpstime.GpsSecondsFromPyUTC(time.time()))
 
     # make sure gps time is 9 digits
-    if (len(sum_line[0])!=9 or len(sum_line[1])!=9):
-       print "\nERROR: gps time must be 9 digits"
-       print "Invalid interval in your --summary-file row number: %d " % line_no
-       print "Invalid interval is %s" % str(sum_line)
-       sys.exit(1)
-    # make sure interval start time is less than and not equal to end time
-    elif (int(sum_line[0]) >= int(sum_line[1])):
+    #if (len(sum_line[0])!=9 or len(sum_line[1])!=9):
+    #   print "\nERROR: gps time must be 9 digits"
+    #   print "Invalid interval in your --summary-file row number: %d " % line_no
+    #   print "Invalid interval is %s" % str(sum_line)
+    #   sys.exit(1)
+    ## make sure interval start time is less than and not equal to end time
+    if (int(sum_line[0]) >= int(sum_line[1])):
        print "\nERROR: start_time MUST be less than the end_time"
        print "Invalid interval in your --summary-file row number: %d " % line_no
        print "Invalid interval is %s" % str(sum_line)
@@ -278,11 +279,11 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
        print "Invalid segment is %s" % str(seg_line)
        sys.exit(1)
     # make sure gps time is 9 digits
-    if (len(seg_line[0]) != 9 or len(seg_line[1])!=9): 
-       print "\nERROR: gps time must be 9 digits"
-       print "Invalid segment in your --segment-file row number: %d" % line_no
-       print "Invalid segment is %s" % str(seg_line)
-       sys.exit(1)
+    #if (len(seg_line[0]) != 9 or len(seg_line[1])!=9): 
+    #   print "\nERROR: gps time must be 9 digits"
+    #   print "Invalid segment in your --segment-file row number: %d" % line_no
+    #   print "Invalid segment is %s" % str(seg_line)
+    #   sys.exit(1)
     # make sure segment start_time is less than end_time:
     if int(seg_line[0])>=int(seg_line[1]):
       print "\nERROR: segment start_time MUST be less than the end_time"
@@ -439,7 +440,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
      __version__, 
      __src__,
      gpstime.GpsSecondsFromPyUTC( time.mktime( time.strptime( 
-      __date__, "%Y/%m/%d %H:%M:%S" ) ) ),
+      __date__, "%Y-%m-%d %H:%M:%S +0000" ) ) ),
      0,
      socket.gethostname(),
      pwd.getpwuid(os.geteuid())[0],

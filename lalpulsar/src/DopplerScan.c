@@ -87,8 +87,6 @@
  */
 #define EPS4	1e-6
 
-NRCSID( DOPPLERSCANC, "$Id$" );
-
 /*---------- internal types ----------*/
 /** TwoDMesh() can have either of two preferred directions of meshing: */
 enum {
@@ -200,7 +198,7 @@ InitDopplerSkyScan( LALStatus *status,			/**< pointer to LALStatus structure */
 {
   DopplerSkyGrid *node;
 
-  INITSTATUS( status, "InitDopplerSkyScan", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* This traps coding errors in the calling routine. */
@@ -337,7 +335,7 @@ void
 FreeDopplerSkyScan (LALStatus *status, DopplerSkyScanState *skyScan)
 {
 
-  INITSTATUS( status, "FreeDopplerSkyScan", DOPPLERSCANC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* This traps coding errors in the calling routine. */
@@ -413,7 +411,7 @@ void getRange( LALStatus *status, meshREAL y[2], meshREAL UNUSED x, void *params
   SkyRegion *region = (SkyRegion*)params;
 
   /* Set up shop. */
-  INITSTATUS( status, "getRange", DOPPLERSCANC );
+  INITSTATUS(status);
   /*   ATTATCHSTATUSPTR( status ); */
 
   /* for now: we return the fixed y-range, indendent of x */
@@ -453,7 +451,7 @@ void getMetric( LALStatus *status, meshREAL g[3], meshREAL skypos[2], void *para
   PtoleMetricIn metricpar = empty_metricpar;
 
   /* Set up shop. */
-  INITSTATUS( status, "getMetric", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* set up the metric parameters proper (using PtoleMetricIn as container-type) */
@@ -570,7 +568,7 @@ plotSkyGrid (LALStatus *status,
     "@yaxis label \"Delta\"\n";
 
   /* Set up shop. */
-  INITSTATUS( status, "plotSkyGrid", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   fp = LALFopen ("mesh_debug.agr", "w");
@@ -785,7 +783,7 @@ ConvertTwoDMesh2SkyGrid ( LALStatus *status,
   DopplerSkyGrid *node = NULL;
   SkyPosition point;
 
-  INITSTATUS( status, "ConvertTwoDMesh2SkyGrid", DOPPLERSCANC );
+  INITSTATUS(status);
 
   ASSERT ( *skyGrid == NULL, status, DOPPLERSCANH_ENONULL, DOPPLERSCANH_MSGENONULL );
   ASSERT (region, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -852,7 +850,7 @@ buildFlatSkyGrid (LALStatus *status,
   DopplerSkyGrid head = empty_DopplerSkyGrid;  /* empty head to start grid-list */
   DopplerSkyGrid *node = NULL;
 
-  INITSTATUS( status, "buildFlatSkyGrid", DOPPLERSCANC );
+  INITSTATUS(status);
 
   ASSERT ( skyGrid, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
   ASSERT ( skyRegion, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -917,7 +915,7 @@ buildIsotropicSkyGrid (LALStatus *status, DopplerSkyGrid **skyGrid, const SkyReg
   DopplerSkyGrid *node = NULL;
   REAL8 step_Alpha, step_Delta, cos_Delta;
 
-  INITSTATUS( status, "buildIsotropicSkyGrid", DOPPLERSCANC );
+  INITSTATUS(status);
 
   ASSERT ( skyGrid, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
   ASSERT ( skyRegion, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -994,7 +992,7 @@ buildMetricSkyGrid (LALStatus *status,
   PtoleMetricIn metricpar = empty_metricpar;
   DopplerSkyScanInit params = (*init);
 
-  INITSTATUS( status, "buildMetricSkyGrid", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( skyGrid, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -1070,7 +1068,7 @@ loadSkyGridFile (LALStatus *status,
   UINT4 i;
   SkyPosition thisPoint = empty_SkyPosition;
 
-  INITSTATUS( status, "loadSkyGridFile", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( skyGrid, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -1127,7 +1125,7 @@ writeSkyGridFile (LALStatus *status,
   FILE *fp;
   const DopplerSkyGrid *node;
 
-  INITSTATUS( status, "writeSkyGridFile", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( skyGrid, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -1183,7 +1181,7 @@ printFrequencyShifts ( LALStatus *status, const DopplerSkyScanState *skyScan, co
   REAL8 Tobs, dT;
   REAL8 V0[3], V1[3], V2[3];
 
-  INITSTATUS( status, "printFrequencyShifts", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   if ( (fp = LALFopen(fname, "w")) == NULL) {
@@ -1313,7 +1311,7 @@ ParseSkyRegionString (LALStatus *status, SkyRegion *region, const CHAR *input)
   CHAR buf[100];
   UINT4 i;
 
-  INITSTATUS( status, "ParseSkyRegionString", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (region != NULL, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL);
@@ -1406,13 +1404,14 @@ SkySquare2String (LALStatus *status,	/**< pointer to LALStatus structure */
   BOOLEAN onePoint, region2D;
   CHAR *ret, *buf;
 
-  INITSTATUS( status, "SkySquare2String", DOPPLERSCANC );
+  INITSTATUS(status);
 
   /* consistency check either one single point or a real 2D region! */
   onePoint = (AlphaBand == 0) && (DeltaBand == 0);
   region2D = (AlphaBand != 0) && (DeltaBand != 0);
 
-  ASSERT ( onePoint || region2D, status, DOPPLERSCANH_EINPUT, DOPPLERSCANH_MSGEINPUT );
+  if ( ! ( onePoint || region2D ) )
+    ABORT ( status, DOPPLERSCANH_EINPUT, DOPPLERSCANH_MSGEINPUT );
 
   Da = AlphaBand;
   Dd = DeltaBand;
@@ -1468,7 +1467,7 @@ getGridSpacings( LALStatus *status,			/**< pointer to LALStatus structure */
   PtoleMetricIn metricpar = empty_metricpar;
   UINT4 s;
 
-  INITSTATUS( status, "getGridSpacings", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( params != NULL, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL );
@@ -1587,7 +1586,7 @@ getMCDopplerCube (LALStatus *status,		/**< pointer to LALStatus structure */
   REAL8 AlphaBand, DeltaBand, FreqBand, f1dotBand;
   REAL8 numSteps;
 
-  INITSTATUS( status, "getMCDopplerCube", DOPPLERSCANC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( params != NULL, status, DOPPLERSCANH_ENULL, DOPPLERSCANH_MSGENULL );
@@ -1699,12 +1698,14 @@ getMetricEllipse(LALStatus *status,
 
   REAL8 gaa, gad, gdd;
   REAL8 smin, smaj, angle;
-  UINT4 dim;
-  INITSTATUS( status, "getMetricEllipse", DOPPLERSCANC );
+
+  INITSTATUS(status);
 
   ASSERT ( metric, status, DOPPLERSCANH_ENULL ,  DOPPLERSCANH_MSGENULL );
-  dim = dim0 + 2;
-  ASSERT ( metric->length >= dim*(dim+1)/2, status, DOPPLERSCANH_EINPUT, DOPPLERSCANH_MSGEINPUT);
+
+  UINT4 dim = dim0 + 2;
+  if ( ! ( metric->length >= dim*(dim+1)/2 ) )
+    ABORT ( status, DOPPLERSCANH_EINPUT, DOPPLERSCANH_MSGEINPUT);
 
   gaa = metric->data[ PMETRIC_INDEX(dim0 + 0, dim0 + 0) ];
   gad = metric->data[ PMETRIC_INDEX(dim0 + 0, dim0 + 1) ];
@@ -1756,7 +1757,6 @@ fprintfDopplerParams ( FILE *fp, const PulsarDopplerParams *params )
 DopplerSkyGrid *
 XLALEquiPartitionSkygrid ( const DopplerSkyGrid *skygrid, UINT4 partitionIndex, UINT4 numPartitions )
 {
-  const CHAR *fn = "XLALEquiPartitionSkygrid";
   UINT4 Nsky, Nt, dp;
   UINT4 iMin, numPoints;
   UINT4 counter;
@@ -1764,7 +1764,7 @@ XLALEquiPartitionSkygrid ( const DopplerSkyGrid *skygrid, UINT4 partitionIndex, 
   DopplerSkyGrid *newNode, newGrid = empty_DopplerSkyGrid;
 
   if ( !skygrid || (numPartitions == 0) || (partitionIndex >= numPartitions) )
-    XLAL_ERROR_NULL( fn, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
 
   /* ----- count total sky-grid */
@@ -1774,7 +1774,7 @@ XLALEquiPartitionSkygrid ( const DopplerSkyGrid *skygrid, UINT4 partitionIndex, 
     Nsky ++;
 
   if ( Nsky < numPartitions )
-    XLAL_ERROR_NULL( fn, XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
 
   /* ----- determine integer equi-patitions (+/- 1) */
   Nt = Nsky / numPartitions;		/* integer division! */
@@ -1800,7 +1800,7 @@ XLALEquiPartitionSkygrid ( const DopplerSkyGrid *skygrid, UINT4 partitionIndex, 
       if ( (newNode->next = LALCalloc ( 1, sizeof(DopplerSkyGrid) )) == NULL )
 	{
 	  freeSkyGrid ( newGrid.next );
-	  XLAL_ERROR_NULL( fn, XLAL_ENOMEM );
+	  XLAL_ERROR_NULL( XLAL_ENOMEM );
 	}
       newNode = newNode->next;
 

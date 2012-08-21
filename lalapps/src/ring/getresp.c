@@ -20,6 +20,7 @@
 #include <math.h>
 #include <string.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
 #include <lal/AVFactories.h>
@@ -34,8 +35,6 @@
 #include "getresp.h"
 #include "errutil.h"
 #include "gpstime.h"
-
-RCSID( "$Id$" );
 
 /* a few useful constants */
 static LALUnit      strainPerCount = {0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
@@ -128,7 +127,6 @@ COMPLEX8FrequencySeries * get_frame_response(
   char ifo[3];
   UINT4 npoints;
   UINT4 k;
-  static const char func[] = "generate_response";
   memset(&calfacts, 0, sizeof(calfacts));
 
   /* create frequency series */
@@ -137,7 +135,7 @@ COMPLEX8FrequencySeries * get_frame_response(
 
   if(!response) 
   {
-    XLAL_ERROR_NULL(func, XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
     return NULL;
   }
     

@@ -25,8 +25,6 @@
 #include <lal/Random.h>
 #include <lal/Inject.h>
 
-NRCSID( INJECTTIMESERIESC, "$Id$" );
-
 /**
 \author Creighton, T. D.
 \addtogroup InjectTimeSeries_c
@@ -68,18 +66,10 @@ low-pass filter with an attenuation factor of \f$\sim0.8\f$ at frequencies
 near their Nyquist frequencies, this would represent an unacceptable
 level of attenuation.  For this reason, the current version of the
 algorithm eliminates the interpolation procedure.
-
-\heading{Uses}
-\code
-LALCreateRandomParams()
-LALDestroyRandomParams()
-LALUniformDeviate()
-\endcode
-
-@{
 */
+/*@{*/
 
-/** See documentation in \ref InjectTimeSeries_c */
+/** \see See documentation in \ref InjectTimeSeries_c */
 void
 LALSI2InjectTimeSeries( LALStatus       *stat,
 			INT2TimeSeries  *output,
@@ -97,7 +87,7 @@ LALSI2InjectTimeSeries( LALStatus       *stat,
   const INT2 max = 32767;  /* largest INT2 */
   const INT2 min = -32768; /* smallest INT2 */
 
-  INITSTATUS( stat, "LALSI2InjectTimeSeries", INJECTTIMESERIESC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Make sure parameter structures and their fields exist. */
@@ -212,7 +202,7 @@ LALSI2InjectTimeSeries( LALStatus       *stat,
 }
 
 
-/** See documentation in \ref InjectTimeSeries_c */
+/** \see See documentation in \ref InjectTimeSeries_c */
 void
 LALSSInjectTimeSeries( LALStatus       *stat,
 		       REAL4TimeSeries *output,
@@ -225,7 +215,7 @@ LALSSInjectTimeSeries( LALStatus       *stat,
   REAL8 offset;   /* the time from the start of *signalvec to the start
 		     of *output, in units of signalvec->deltaT. */
 
-  INITSTATUS( stat, "LALSSInjectTimeSeries", INJECTTIMESERIESC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Make sure parameter structures and their fields exist. */
@@ -311,4 +301,5 @@ LALSSInjectTimeSeries( LALStatus       *stat,
   DETATCHSTATUSPTR( stat );
   RETURN( stat );
 }
-/** @} */
+
+/*@}*/

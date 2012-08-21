@@ -24,7 +24,6 @@
  * \ingroup PulsarMetric
  * \brief Calculate flat approximation to the pulsar-metric.
  *
- * $Id$
  *
  */
 
@@ -42,8 +41,6 @@
 #include <lal/DetectorStates.h>
 #include <lal/PulsarTimes.h>
 #include <lal/FlatPulsarMetric.h>
-
-NRCSID( FLATPULSARMETRICC, "$Id$");
 
 /*---------- DEFINES ----------*/
 #define TRUE (1==1)
@@ -105,7 +102,7 @@ cov_Phi_ij ( const cov_params_t *params )
   if ( stat != 0 )
     {
       XLALPrintError ( "\nGSL-integration 'gsl_integration_qng()' of <Phi_i Phi_j> failed!\n");
-      XLAL_ERROR_REAL8( "cov_Phi_ij", XLAL_EFUNC );
+      XLAL_ERROR_REAL8( XLAL_EFUNC );
     }
   /*
   printf ( "Integration of <Phi_i Phi_j> succeeded with abserr = %g, neval = %d: result = %g\n", abserr, neval, av_ij );
@@ -117,7 +114,7 @@ cov_Phi_ij ( const cov_params_t *params )
   if ( stat != 0 )
     {
       XLALPrintError ( "\nGSL-integration 'gsl_integration_qng()' of <Phi_i> failed!\n");
-      XLAL_ERROR_REAL8( "cov_Phi_ij", XLAL_EFUNC );
+      XLAL_ERROR_REAL8( XLAL_EFUNC );
     }
   /*
   printf ( "Integration of <Phi_i> succeeded with abserr = %g, neval = %d: result = %g\n", abserr, neval, av_i );
@@ -129,7 +126,7 @@ cov_Phi_ij ( const cov_params_t *params )
   if ( stat != 0 )
     {
       XLALPrintError ( "\nGSL-integration 'gsl_integration_qng()' of <Phi_j> failed!\n");
-      XLAL_ERROR_REAL8( "cov_Phi_ij", XLAL_EFUNC );
+      XLAL_ERROR_REAL8( XLAL_EFUNC );
     }
   /*
   printf ( "Integration of <Phi_i> succeeded with abserr = %g, neval = %d: result = %g\n", abserr, neval, av_j );
@@ -266,14 +263,14 @@ XLALFlatMetricCW ( gsl_matrix *gij, 			/**< [out] metric */
   for ( s=0; s < numSpins; s ++ )
     {
       params.comp1 = COMP_RX;
-      params.comp2 = s;
+      params.comp2 = (component_t) s;
       gg = cov_Phi_ij ( &params );
 
       gsl_matrix_set (gij, 0, s+2, gg);
       gsl_matrix_set (gij, s+2, 0, gg);
 
       params.comp1 = COMP_RY;
-      params.comp2 = s;
+      params.comp2 = (component_t) s;
       gg = cov_Phi_ij ( &params );
 
       gsl_matrix_set (gij, 1, s+2, gg);
@@ -281,8 +278,8 @@ XLALFlatMetricCW ( gsl_matrix *gij, 			/**< [out] metric */
 
       for ( sp = s; sp < numSpins; sp ++ )
 	{
-	  params.comp1 = s;
-	  params.comp2 = sp;
+	  params.comp1 = (component_t) s;
+	  params.comp2 = (component_t) sp;
 	  gg = cov_Phi_ij ( &params );
 
 	  gsl_matrix_set (gij, s+2,  sp+2, gg);
@@ -314,7 +311,7 @@ XLALFlatMetricCW ( gsl_matrix *gij, 			/**< [out] metric */
  *
  * The (dimensionless) parameter-space coordinates (and their order) are:
  * \f$\{ \kappa^X, \kappa^Y, \varpi_0, \varpi_1, \varpi_2, ...\}\f$, defined as
- * \f[ \kappa^i \equiv R_{ES} {2\pi \over c} f \, n^i\,, \f]
+ * \f[ \kappa^i \equiv R_{ES} \frac{2\pi}{c} f \, n^i\,, \f]
  * \f[ \varpi_s \equiv T^{s+1}\, 2\pi f^{(s)}\, \f]
  * where \f$R_{ES} = 1\,\textrm{AU} \sim 1.5\times10^{11}\f$ m is the orbital radius,
  * \f$f\f$ is the frequency, \f$n^i\f$ is the unit-vector pointing to a sky-location,
@@ -357,7 +354,7 @@ LALFlatPulsarMetric ( LALStatus *status,	/**< pointer to LALStatus structure */
   REAL8 cosEps;				/* Eps = ecliptic inclination of earth-spin (ca 23.4deg) */
 
   /*----------*/
-  INITSTATUS( status, "LALFlatPulsarMetric", FLATPULSARMETRICC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* get detector's position */

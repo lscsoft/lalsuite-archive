@@ -35,7 +35,6 @@ importing xlal.date directly.
 import math
 
 
-from glue import segments
 from pylal import git_version
 from pylal.xlal.date import *
 
@@ -151,6 +150,7 @@ def gmst_days(gps_start, gps_stop):
 	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
 
 	# initialize a segmentlist with the first sidereal day
+	from glue import segments
 	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next())])
 
 	# append each subsequent sideral day as another segment

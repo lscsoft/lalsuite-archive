@@ -416,7 +416,7 @@ class cbcpage(markup.page):
 	def add_external_frame(self, linkurl, linktext):
 		self.external_frames.append([linkurl, linktext])
 
-	def write(self, file_name="index"):
+	def write(self, file_name="index", image = "https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/thomasLegacy.jpg", tag = "CBC"):
 
 		if self.subpage_ids:
 
@@ -440,8 +440,8 @@ class cbcpage(markup.page):
 			self.div.close()
 			self.div.close()
 			self.div(id_="ihope")
-			self.add('<h2> CBC </h2>')
-			self.add('<img width=90 src="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/thomasLegacy.jpg">')
+			self.add('<h2> %s </h2>'%tag)
+			self.add('<img width=90 src="%s">'%image)
 			self.div.close()
 			self.div(id_='header')
 			self.add('<h1>' + self._title  +' </h1>')

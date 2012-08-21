@@ -20,11 +20,6 @@
 #ifndef _LALNOISEMODELS_H
 #define _LALNOISEMODELS_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,8 +30,6 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-  NRCSID( LALNOISEMODELSH, "$Id$" );
 
 /**
 
@@ -72,19 +65,17 @@ detectors and signals with random parameters in background noise.
 #define LALNOISEMODELSH_MSGESIZE "Invalid input size"
 /** \endcond */
 
-    typedef enum
+    enum enumDetector
     {
         geo,
         ligo,
         tama,
         virgo
-    }
-    Detector;
+    };
 
     typedef struct
             tagAddVectorsIn
             {
-                SWIGLAL_STRUCT_LALALLOC();
                 REAL4Vector *v1;
                 REAL4Vector *v2;
                 REAL8       a1;
@@ -96,7 +87,6 @@ detectors and signals with random parameters in background noise.
     typedef struct
             tagStatsREAL4VectorOut
             {
-                SWIGLAL_STRUCT_LALALLOC();
                 REAL8 mean;
                 REAL8 var;
                 REAL8 stddev;

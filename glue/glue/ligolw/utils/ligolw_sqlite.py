@@ -26,6 +26,18 @@
 #
 
 
+"""
+Convert tabular data in LIGO LW XML files to and from SQL databases.
+
+This module provides a library interface to the machinery used by the
+ligolw_sqlite command-line tool, facilitating it's re-use in other
+applications.  The real XML<-->database translation machinery is
+implemented in the glue.ligolw.dbtables module.  The code here wraps the
+machinery in that mdoule in functions that are closer to the command-line
+level operations provided by the ligolw_sqlite program.
+"""
+
+
 try:
 	import sqlite3
 except ImportError:
@@ -64,8 +76,8 @@ __date__ = git_version.date
 #
 
 
-def setup(target, check_same_thread=True):
-	connection = sqlite3.connect(target, check_same_thread=check_same_thread)
+def setup(target, check_same_thread = True):
+	connection = sqlite3.connect(target, check_same_thread = check_same_thread)
 	dbtables.DBTable_set_connection(connection)
 
 	dbtables.idmap_sync(connection)
@@ -105,22 +117,36 @@ def update_ids(connection, xmldoc, verbose = False):
 def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
-	database the at the given connection.
+	database the at the given connection.  If preserve_ids is False
+	(default), then row IDs are modified during the insert process to
+	prevent collisions with IDs already in the database.  If
+	preserve_ids is True then IDs are not modified;  this will result
+	in database consistency violations if any of the IDs of
+	newly-inserted rows collide with row IDs already in the database,
+	and is generally only sensible when inserting a document into an
+	empty database.  If verbose is True then progress reports will be
+	printed to stderr.  contenthandler allows a custom XML SAX content
+	handler to be provided.
 	"""
-	#
-	# retrieve an XML-ish representation of the database.  see the note
-	# in update_ids() about the order in which this must be done
-	#
-
-	xmldoc = dbtables.get_xml(connection)
-
+	# FIXME:  remove the connection parameter, replace it with a
+	# mandatory content handler.  or should this function create its
+	# own content handler if one isn't provided?
+	if contenthandler is not None:
+		assert contenthandler.connection is connection
 	#
 	# load document.  this process inserts the document's contents into
-	# the database.  the document is unlinked to delete database cursor
-	# objects it retains
+	# the database.  the XML tree constructed by this process contains
+	# a table object for each table found in the newly-inserted
+	# document and those table objects' last_max_rowid values have been
+	# initialized prior to rows being inserted.  therefore, this is the
+	# XML tree that must be passed to update_ids in order to ensure (a)
+	# that all newly-inserted tables are processed and (b) all
+	# newly-inserted rows are processed.  NOTE:  it is assumed the
+	# content handler is creating DBTable instances in the XML tree,
+	# not regular Table instances, but this is not checked.
 	#
 
-	utils.load_url(url, verbose = verbose, contenthandler = contenthandler).unlink()
+	xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
 
 	#
 	# update references to row IDs
@@ -139,14 +165,22 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose = False):
 	"""
 	Insert the tables from an in-ram XML document into the database at
-	the given connection.
+	the given connection.  If preserve_ids is False (default), then row
+	IDs are modified during the insert process to prevent collisions
+	with IDs already in the database.  If preserve_ids is True then IDs
+	are not modified;  this will result in database consistency
+	violations if any of the IDs of newly-inserted rows collide with
+	row IDs already in the database, and is generally only sensible
+	when inserting a document into an empty database.  If verbose is
+	True then progress reports will be printed to stderr.
 	"""
 	#
-	# retrieve an XML-ish representation of the database.  see the note
-	# in update_ids() about the order in which this must be done
+	# create a place-holder XML representation of the target document
+	# so we can pass the correct tree to update_ids()
 	#
 
-	xmldoc = dbtables.get_xml(connection)
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(ligolw.LIGO_LW())
 
 	#
 	# iterate over tables in the XML tree, reconstructing each inside
@@ -156,7 +190,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
 		#
 		# instantiate the correct table class, connected to the
-		# target database
+		# target database, and save in XML tree
 		#
 
 		name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
@@ -164,7 +198,7 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 			cls = dbtables.TableByName[name]
 		except KeyError:
 			cls = dbtables.DBTable
-		dbtbl = cls(tbl.attributes, connection = connection)
+		dbtbl = xmldoc.childNodes[-1].appendChild(cls(tbl.attributes, connection = connection))
 
 		#
 		# copy table element child nodes from source XML tree
@@ -182,12 +216,6 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 		for row in tbl:
 			dbtbl.append(row)
 		dbtbl._end_of_rows()
-
-		#
-		# unlink to delete cursor objects
-		#
-
-		dbtbl.unlink()
 
 	#
 	# update references to row IDs
@@ -209,32 +237,43 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 	then build the indexes indicated by the metadata in lsctables.py.
 	"""
 	#
-	# enable/disable ID remapping
+	# save the original .append() method
 	#
 
 	orig_DBTable_append = dbtables.DBTable.append
-	if not preserve_ids:
-		dbtables.idmap_create(connection)
-		dbtables.DBTable.append = dbtables.DBTable._remapping_append
-	else:
-		dbtables.DBTable.append = dbtables.DBTable._append
 
-	#
-	# load documents
-	#
+	try:
+		#
+		# enable/disable ID remapping
+		#
 
-	for n, url in enumerate(urls):
-		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
-	connection.commit()
+		if not preserve_ids:
+			dbtables.idmap_create(connection)
+			dbtables.DBTable.append = dbtables.DBTable._remapping_append
+		else:
+			dbtables.DBTable.append = dbtables.DBTable._append
 
-	#
-	# done.  build indexes, restore original .append() method
-	#
+		#
+		# load documents
+		#
 
-	dbtables.build_indexes(connection, verbose)
-	dbtables.DBTable.append = orig_DBTable_append
+		for n, url in enumerate(urls):
+			if verbose:
+				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+			insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
+		connection.commit()
+
+		#
+		# done.  build indexes
+		#
+
+		dbtables.build_indexes(connection, verbose)
+	finally:
+		#
+		# restore original .append() method
+		#
+
+		dbtables.DBTable.append = orig_DBTable_append
 
 
 #
@@ -243,6 +282,14 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 
 
 def extract(connection, filename, table_names = None, verbose = False, xsl_file = None):
+	"""
+	Convert the database at the given connection to a tabular LIGO
+	Light-Weight XML document.  The XML document is written to the file
+	named filename.  If table_names is not None, it should be a
+	sequence of strings and only the tables in that sequence will be
+	converted.  If verbose is True then progress messages will be
+	printed to stderr.
+	"""
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(dbtables.get_xml(connection, table_names))
 	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose, xsl_file = xsl_file)

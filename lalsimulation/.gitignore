@@ -1,5 +1,6 @@
 *.la
 *.lo
+*.log
 *.o
 .deps
 .libs
@@ -14,6 +15,7 @@ configure
 include/config.h
 include/config.h.in
 include/lal/*.h
+include/lal/*.i
 include/stamp-h1
 lalsimulation-*.tar.gz
 lalsimulation.pc
@@ -24,13 +26,16 @@ src/LALSimulationVCSInfo.h
 src/lalsim-bh-qnmode
 src/lalsim-bh-ringdown
 src/lalsim-bh-sphwf
-src/lalsim-ligo-noise
+src/lalsim-detector-noise
 src/lalsim-sgwb
+src/lalsim-unicorn
 src/lalsimulation-user-env.csh
 src/lalsimulation-user-env.sh
 src/lalsimulation-user-env.shell
 src/stamp-h2
 test/GenerateSimulation
 test/ST4-dynamics.dat
+test/TestEOBNRv2
 test/TestSpinTaylorT4Dynamics
+test/eobHPlusCross.dat
 test/simulation.dat

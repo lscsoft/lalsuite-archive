@@ -23,7 +23,6 @@
  *
  * Author: Goggin, L. M. based on sire.c by Brady, P. R, Brown, D. A., and Fairhurst, S
  * 
- * Revision: $Id$
  * 
  *-----------------------------------------------------------------------
  */
@@ -49,8 +48,6 @@
 #include <lalapps.h>
 #include <processtable.h>
 #include <LALAppsVCSInfo.h>
-
-RCSID("$Id$");
 
 #define PROGRAM_NAME "ringread.c"
 #define CVS_ID_STRING "$Id$"
@@ -158,7 +155,6 @@ int main( int argc, char *argv[] )
   char **inFileNameList;
   char line[MAX_PATH];
   int  errnum;
-  static const char *func = "XLALSnglRingdownTableFromLIGOLw"; 
 
   UINT8 triggerInputTimeNS = 0;
 
@@ -1035,7 +1031,7 @@ int main( int argc, char *argv[] )
             break;
           default:
             XLALSetErrno( errnum );
-            XLAL_ERROR( func, XLAL_EFUNC );
+            XLAL_ERROR(XLAL_EFUNC );
         }
       
       /* only keep triggers from the data that we want to analyze */

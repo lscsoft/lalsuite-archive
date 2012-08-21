@@ -35,9 +35,6 @@
 #include <lal/LALMoment.h>
 #include "CheckStatus.h"
 
-
-NRCSID (LALMOMENTTESTC, "$Id$");
-
 /**
 \author Tibbits, M. M.
 \file
@@ -155,14 +152,11 @@ int main( int argc, char *argv[] )
 	/* Variable declarations */
 	REAL8			data[40];
 	REAL8			*result;
-	REAL8			*nullResult;
 	INT4			length;
 	INT4			whichMoment;
 	INT4			iterator;
-	INT4			code;
 	REAL8			testOutput[7];
 	REAL8Sequence		*sequence;
-	REAL8Sequence		*nullSequence;
 
 
 	const  INT4     	constantData[]	=
@@ -173,8 +167,6 @@ int main( int argc, char *argv[] )
 				{ 10,20,10,20,10,20,10,20,10,20};
 
 	length		=  40;
-	nullResult	=  NULL;
-	nullSequence	=  NULL;
 	whichMoment	=  3;
 
 	result	=  (REAL8*) LALMalloc(sizeof(REAL8));
@@ -200,9 +192,12 @@ int main( int argc, char *argv[] )
 
 	ParseOptions( argc, argv );
 
-	printf("\n\nMESG: %s \n",LALMOMENTTESTC);
+	printf("\n\nMESG: %s \n","$Id$");
 
 #ifndef LAL_NDEBUG
+	REAL8Sequence		*nullSequence	=  NULL;
+	INT4			code;
+	REAL8			*nullResult	=  NULL;
   if ( ! lalNoDebug )
   {
 	/* test behavior for null pointer to input structure */
@@ -242,8 +237,6 @@ int main( int argc, char *argv[] )
 	printf("\nPASS: non-null pointer to output structure results in error:\n");
 	printf("       \"%s\"\n", LALMOMENTH_MSGENULL);
   }
-#else
-  code = 0;
 #endif
 
 
@@ -366,6 +359,8 @@ static void Usage (const char *program, int exitcode)
 
 static void ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -387,8 +382,18 @@ static void ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

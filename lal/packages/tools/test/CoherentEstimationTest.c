@@ -17,14 +17,13 @@
 *  MA  02111-1307  USA
 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/CoherentEstimation.h>
 #include <lal/DetectorSite.h>
 #include <lal/LALNoiseModels.h>
 #include <lal/AVFactories.h>
 #include <lal/Random.h>
 #include <lal/SkyCoordinates.h>
-
-NRCSID( COHERENTESTIMATIONTESTC, "$Id$" );
 
 extern int lalDebugLevel;
 
@@ -148,7 +147,7 @@ main(void)
   */
 
   /* run code */
-  LALCoherentEstimation(&stat, &output, &params, &in);
+  LALDoCoherentEstimation(&stat, &output, &params, &in);
 
   for(i=0;i<length;i++)
     printf("%g\n",output.data->data[i]);

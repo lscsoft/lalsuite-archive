@@ -26,27 +26,6 @@
  *-----------------------------------------------------------------------
  */
 
-/**
- * \defgroup FindChirpPTF_h FindChirpPTF_h
- * \ingroup CBC_findchirp
- */
-
-/**
-\author Brown, D. A., and Fazi, D.
-\file
-\ingroup FindChirpPTF_h
-
-\brief Provides structures and functions to filter interferometer data using the
-physical template family.
-
-\heading{Synopsis}
-\code
-#include <lal/FindChirpPTF.h>
-\endcode
-
-*/
-
-
 #ifndef _FINDCHIRPPTFH_H
 #define _FINDCHIRPPTFH_H
 
@@ -61,8 +40,19 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
+/**
+ * \addtogroup FindChirpPTF_h
+ \author Brown, D. A., and Fazi, D.
 
-NRCSID (FINDCHIRPPTFH, "$Id$");
+\brief Provides structures and functions to filter interferometer data using the
+physical template family.
+
+\heading{Synopsis}
+\code
+#include <lal/FindChirpPTF.h>
+\endcode
+
+*/
 
 void
 LALFindChirpPTFTemplate (
@@ -79,12 +69,6 @@ LALFindChirpPTFNormalize(
     FindChirpSegment           *fcSeg,
     FindChirpDataParams        *params
     );
-
-
-
-
-
-
 
 REAL4Vector*
 XLALPTFOmegaPNCoeffsOrbital(
@@ -128,12 +112,6 @@ XLALPTFWaveformDerivatives(
         const REAL8  y[14],
               REAL8  dydt[14],
               void  *params );
-
-
-
-
-
-
 
 void
 LALFindChirpPTFFilterSegment (

@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <sys/stat.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
 #include <lal/FrameCache.h>
@@ -34,8 +35,6 @@
 #include <fftw3.h>
 
 #include "nest_calc.h"
-
-RCSID(LALAPPS_VCS_IDENT_ID);
 
 #define MAXSTR 128
 #define TIMESLIDE 10 /* Length of time to slide data to lose coherency */
@@ -656,7 +655,7 @@ int main( int argc, char *argv[])
 	REAL8FFTPlan *revplan = NULL;
 	REAL8Window  *windowplan = NULL;
 	INT4 stride=0;
-	REAL8 strideDur=0.0;
+	/* REAL8 strideDur=0.0; */
 	REAL8 evidence=0;
 	INT4 UNUSED segnum=0;
 	RandomParams *randparam=NULL;
@@ -700,7 +699,7 @@ int main( int argc, char *argv[])
 	fprintf(stderr,"Choosing %i segments length %i, (%f s)\n",nSegs,seglen,segDur);
 
 	stride = seglen; /* Overlap the padding */
-	strideDur = stride / SampleRate;
+	/* strideDur = stride / SampleRate; */
 
 
 	if(segDur<=2.0*padding){fprintf(stderr,"ERROR: Seg length %lf s too small for padding %lf s\n",segDur,padding);exit(-1);}
@@ -960,11 +959,11 @@ int main( int argc, char *argv[])
                         	if( ( !strcmp(IFOnames[i],"H1") && H1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"L1") &&
                                         L1GPSshift != 0.0 ) || ( !strcmp(IFOnames[i],"V1") && V1GPSshift != 0.0 ) ) {
                                 if(!strcmp(IFOnames[i],"H1"))
-                                        TSoffset=H1GPSshift;
+                                        TSoffset=-H1GPSshift;
                                 else if(!strcmp(IFOnames[i],"L1"))
-                                        TSoffset=L1GPSshift;
+                                        TSoffset=-L1GPSshift;
                                 else if(!strcmp(IFOnames[i],"V1"))
-                                        TSoffset=V1GPSshift;
+                                        TSoffset=-V1GPSshift;
                                 XLALGPSAdd(&segmentStart, TSoffset);
                                 fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],TSoffset,realsegstart.gpsSeconds+1e-9*realsegstart.gpsNanoSeconds,segmentStart.gpsSeconds+1e-9*segmentStart.gpsNanoSeconds);
                         	}
@@ -1154,7 +1153,30 @@ int main( int argc, char *argv[])
     else if(!strcmp(approx,EBNR)) inputMCMC.approximant=EOBNR;
 	else if(!strcmp(approx,AMPCOR)) inputMCMC.approximant=AmpCorPPN;
 	else if(!strcmp(approx,ST)) inputMCMC.approximant=SpinTaylor;
-	else if(!strcmp(approx,PSTRD)) inputMCMC.approximant=PhenSpinTaylorRD;
+	else if(!strcmp(approx,PSTRD)) {
+	    inputMCMC.approximant=PhenSpinTaylorRD;
+	    if (strstr(approx,"inspiralOnly")) {
+	      inputMCMC.inspiralOnly=1;
+	    }
+	    else {
+	      inputMCMC.inspiralOnly=0;
+	    }
+	    if (strstr(approx,"fixedStep")) {
+	      inputMCMC.fixedStep=1;
+	    }
+	    else {
+	      inputMCMC.fixedStep=0;
+	    }
+	    if (strstr(approx,"TotalJ")) {
+	      inputMCMC.axisChoice=LAL_SIM_INSPIRAL_FRAME_AXIS_TOTAL_J;
+	    }
+	    else if (strstr(approx,"OrbitalL")) {
+	      inputMCMC.axisChoice=LAL_SIM_INSPIRAL_FRAME_AXIS_ORBITAL_L;
+	    }
+	    else {
+	      inputMCMC.axisChoice=LAL_SIM_INSPIRAL_FRAME_AXIS_VIEW;
+	    }
+	}
 	else {fprintf(stderr,"Unknown approximant: %s\n",approx); exit(-1);}
 
 	if(inputMCMC.approximant!=AmpCorPPN && ampOrder!=0){
@@ -1407,7 +1429,7 @@ void NestInitManualPhenSpinRD(LALMCMCParameter *parameter, void *iT)
 
     XLALMCMCAddParam(parameter,"time",(gsl_rng_uniform(RNG)-0.5)*timewindow +manual_end_time,manual_end_time-0.5*timewindow,manual_end_time+0.5*timewindow,0);
     XLALMCMCAddParam(parameter,"phi", LAL_TWOPI*gsl_rng_uniform(RNG),0.0,LAL_TWOPI,1);
-    XLALMCMCAddParam(parameter,"distance", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax,0);
+    XLALMCMCAddParam(parameter,"distMpc", (dmax-dmin)*gsl_rng_uniform(RNG)+dmin,dmin,dmax,0);
    
     if ((long_min<=0.)&&(long_max>=2.*LAL_PI))
     XLALMCMCAddParam(parameter,"ra",gsl_rng_uniform(RNG)*2.*LAL_PI,0.,2.*LAL_PI,1);
@@ -1606,8 +1628,8 @@ void NestInitManual(LALMCMCParameter *parameter, void UNUSED *iT)
 	double mcmin,mcmax;
 	parameter->param=NULL;
 	parameter->dimension = 0;
-	mcmin=manual_mass_low;
-	mcmax=manual_mass_high;
+	mcmin=manual_mass_low*pow(etamin,3./5.);
+	mcmax=manual_mass_high*pow(0.25,3./5.);
 	double lmmin=log(mcmin);
 	double lmmax=log(mcmax);
 	double lDmin=log(manual_dist_min);
@@ -1751,9 +1773,9 @@ void NestInitInj(LALMCMCParameter *parameter, void *iT){
 	etamin=0.01;
 	double etamax = 0.25;
 	mc=m2mc(injTable->mass1,injTable->mass2);
-	mcmin=manual_mass_low;
+	mcmin=manual_mass_low*pow(etamin,3./5.);
 	REAL8 m_comp_min=1., m_comp_max=15.;
-	mcmax=manual_mass_high;
+	mcmax=manual_mass_high*pow(etamax,3./5.);
 
 	lmmin=log(mcmin);
 	lmmax=log(mcmax);
@@ -1853,7 +1875,7 @@ void PrintSNRsToFile(REAL8* SNRs,SimInspiralTable *inj_table,LALMCMCInput *input
     char SnrName[70];
     char ListOfIFOs[10];
     REAL8 NetSNR=0.0;
-    sprintf(ListOfIFOs,"");
+    snprintf(ListOfIFOs, 10, " ");
 
     for (UINT4 det_i=0;det_i<nIFO;det_i++){
          sprintf(ListOfIFOs,"%s%s",ListOfIFOs,inputMCMC->ifoID[det_i]);

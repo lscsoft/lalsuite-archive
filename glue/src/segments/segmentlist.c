@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2006  Kipp C. Cannon
  *
@@ -34,6 +33,13 @@
 
 #include <segments.h>
 
+/* Gain access to 64-bit addressing where possible
+ * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
+#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
+typedef int Py_ssize_t;
+#define PY_SSIZE_T_MAX INT_MAX
+#define PY_SSIZE_T_MIN INT_MIN
+#endif
 
 /*
  * ============================================================================
@@ -61,7 +67,7 @@ static int segments_SegmentList_Check(PyObject *obj)
 
 /* copied from bisect.py */
 
-static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
+static Py_ssize_t bisect_left(PyObject *seglist, PyObject *seg, Py_ssize_t lo, Py_ssize_t hi)
 {
 	if(lo < 0)
 		lo = 0;
@@ -73,9 +79,9 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 	}
 
 	while(lo < hi) {
-		int mid = (lo + hi) / 2;
+		Py_ssize_t mid = (lo + hi) / 2;
 		PyObject *item = PyList_GET_ITEM(seglist, mid);
-		int result;
+		Py_ssize_t result;
 		if(!item)
 			return -1;
 		Py_INCREF(item);
@@ -98,7 +104,7 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 
 /* copied from bisect.py */
 
-static int bisect_right(PyObject *seglist, PyObject *seg, int lo, int hi)
+static Py_ssize_t bisect_right(PyObject *seglist, PyObject *seg, Py_ssize_t lo, Py_ssize_t hi)
 {
 	if(lo < 0)
 		lo = 0;
@@ -110,9 +116,9 @@ static int bisect_right(PyObject *seglist, PyObject *seg, int lo, int hi)
 	}
 
 	while(lo < hi) {
-		int mid = (lo + hi) / 2;
+		Py_ssize_t mid = (lo + hi) / 2;
 		PyObject *item = PyList_GET_ITEM(seglist, mid);
-		int result;
+		Py_ssize_t result;
 		if(!item)
 			return -1;
 		Py_INCREF(item);
@@ -246,8 +252,8 @@ static PyListObject *segments_SegmentList_New(PyTypeObject *type, PyObject *sequ
 
 static PyObject *__abs__(PyObject *self)
 {
-	int n = PyList_GET_SIZE(self);
-	int i;
+	Py_ssize_t n = PyList_GET_SIZE(self);
+	Py_ssize_t i;
 	PyObject *abs;
 
 	if(n < 0)
@@ -285,8 +291,8 @@ static PyObject *__abs__(PyObject *self)
 
 static PyObject *extent(PyObject *self, PyObject *nul)
 {
-	int n = PyList_GET_SIZE(self);
-	int i;
+	Py_ssize_t n = PyList_GET_SIZE(self);
+	Py_ssize_t i;
 	PyObject *lo, *hi;
 
 	if(n < 0)
@@ -329,15 +335,15 @@ static PyObject *extent(PyObject *self, PyObject *nul)
 
 static PyObject *find(PyObject *self, PyObject *item)
 {
-	int n = PyList_GET_SIZE(self);
-	int i;
+	Py_ssize_t n = PyList_GET_SIZE(self);
+	Py_ssize_t i;
 
 	if(n < 0)
 		return NULL;
 
 	Py_INCREF(item);
 	for(i = 0; i < n; i++) {
-		int result;
+		Py_ssize_t result;
 		PyObject *seg = PyList_GET_ITEM(self, i);
 		Py_INCREF(seg);
 		result = PySequence_Contains(seg, item);
@@ -365,15 +371,15 @@ static PyObject *find(PyObject *self, PyObject *item)
 
 static PyObject *intersects(PyObject *self, PyObject *other)
 {
-	int n_self = PyList_GET_SIZE(self);
-	int n_other = PySequence_Size(other);
+	Py_ssize_t n_self = PyList_GET_SIZE(self);
+	Py_ssize_t n_other = PySequence_Size(other);
 	PyObject *seg;
 	PyObject *lo;
 	PyObject *hi;
 	PyObject *olo;
 	PyObject *ohi;
 	int result;
-	int i, j;
+	Py_ssize_t i, j;
 
 	if((n_self < 0) || (n_other < 0))
 		return NULL;
@@ -454,7 +460,7 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 
 static PyObject *intersects_segment(PyObject *self, PyObject *other)
 {
-	int i = bisect_left(self, other, -1, -1);
+	Py_ssize_t i = bisect_left(self, other, -1, -1);
 	PyObject *a = NULL, *b = NULL;
 	int result;
 
@@ -503,8 +509,8 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 
 static int __contains__(PyObject *self, PyObject *other)
 {
-	int i;
-	int result;
+	Py_ssize_t i;
+	Py_ssize_t result;
 
 	if(PyObject_TypeCheck(other, self->ob_type)) {
 		for(i = 0; i < PyList_GET_SIZE(other); i++) {
@@ -558,8 +564,8 @@ static PyObject *coalesce(PyObject *self, PyObject *nul)
 {
 	PyObject *lo, *hi;
 	int result;
-	int i, j;
-	int n;
+	Py_ssize_t i, j;
+	Py_ssize_t n;
 
 	if(PyList_Sort(self) < 0)
 		return NULL;
@@ -674,7 +680,8 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 {
 	PyObject *seg, *lo, *hi;
 	int result;
-	int i, j, n;
+	Py_ssize_t i, j;
+	Py_ssize_t n;
 
 	/* Faster algorithm when the two lists have very different sizes.
 	 * OK to not test size functions for error return values */
@@ -866,8 +873,8 @@ static PyObject *__isub__(PyObject *self, PyObject *other)
 	PyObject *olo, *ohi;
 	PyObject *lo, *hi;
 	int result;
-	int i, j;
-	int n;
+	Py_ssize_t i, j;
+	Py_ssize_t n;
 	
 	n = PySequence_Size(other);
 	if(n < 0)
@@ -1056,8 +1063,8 @@ static PyObject *__invert__(PyObject *self)
 	PyObject *a, *last;
 	PyObject *new;
 	int result;
-	int n;
-	int i;
+	Py_ssize_t i;
+	Py_ssize_t n;
 
 	n = PyList_GET_SIZE(self);
 	if(n < 0)
@@ -1180,8 +1187,8 @@ static PyObject *protract(PyObject *self, PyObject *delta)
 {
 	PyObject *protract;
 	PyObject *seg, *new;
-	int i;
-	int n;
+	Py_ssize_t i;
+	Py_ssize_t n;
 
 	n = PyList_GET_SIZE(self);
 	if(n < 0)
@@ -1219,8 +1226,8 @@ static PyObject *contract(PyObject *self, PyObject *delta)
 {
 	PyObject *contract;
 	PyObject *seg, *new;
-	int i;
-	int n;
+	Py_ssize_t i;
+	Py_ssize_t n;
 
 	n = PyList_GET_SIZE(self);
 	if(n < 0)
@@ -1258,8 +1265,8 @@ static PyObject *shift(PyObject *self, PyObject *delta)
 {
 	PyObject *shift;
 	PyObject *seg, *new;
-	int i;
-	int n;
+	Py_ssize_t i;
+	Py_ssize_t n;
 
 	n = PyList_GET_SIZE(self);
 	if(n < 0)

@@ -26,14 +26,7 @@
  *-----------------------------------------------------------------------
  */
 
-/**
-
-\author Brown, D. A. and Fazi, D.
-\file
-\ingroup FindChirpPTF_h
-
-*/
-
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <config.h>
 #include <stdlib.h>
 #include <math.h>
@@ -47,10 +40,6 @@
 #include <lal/LALInspiral.h>
 #include <lal/FindChirpPTF.h>
 #include <lal/MatrixUtils.h>
-
-NRCSID (FINDCHIRPPTFFILTERC, "$Id$");
-
-
 
 void
 LALFindChirpPTFFilterSegment (
@@ -103,7 +92,7 @@ LALFindChirpPTFFilterSegment (
   kmax        = fFinal / deltaF < numPoints/2 ? fFinal / deltaF : numPoints/2;
   kmin        = f_min / deltaF > 1.0 ? f_min/ deltaF : 1;
 
-  INITSTATUS( status, "LALFindChirpPTFFilter", FINDCHIRPPTFFILTERC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
 
@@ -334,7 +323,7 @@ LALFindChirpPTFFilterSegment (
   input->fcTmplt->norm = 1.0;
 
   LALFindChirpClusterEvents( status->statusPtr, eventList,
-      input, params, &clusterInput, 0 , 0);
+      input, params, &clusterInput, 0 , 0, NULL);
   CHECKSTATUSPTR( status );
 
   params->qVec = NULL;

@@ -17,6 +17,14 @@
 *  MA  02111-1307  USA
 */
 
+#include <lal/LALStdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <lal/Units.h>
+
+#define UNITDEFSC_TEMPSIZE 20
+
+
 /**
 \author J. T. Whelan <john.whelan@ligo.org>
 \addtogroup UnitDefs_c
@@ -118,18 +126,8 @@ And finally a couple of convenient scaled units:
 </table>
 
 */
+/*@{*/
 
-#include <lal/LALStdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <lal/Units.h>
-
-NRCSID( UNITDEFSC, "$Id$" );
-
-#define UNITDEFSC_TEMPSIZE 20
-
-/**\addtogroup UnitDefs_c
- * @{ */
 /** To convert a units structure to a string repesentation, we need to
  * define the names of the basic units.
  */
@@ -138,7 +136,7 @@ const CHAR lalUnitName[LALNumUnits][LALUnitNameSize] =
   "m", "kg", "s", "A", "K", "strain", "count"
 };
 
-/*********************************************************
+/* ********************************************************
  *                                                       *
  *                 Predefined units                      *
  *                                                       *
@@ -156,7 +154,8 @@ const CHAR lalUnitName[LALNumUnits][LALUnitNameSize] =
 
 const LALUnit lalDimensionlessUnit = {  0, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< dimensionless units */
 
-/* Basic Units */
+/** \name Basic Units */
+/*@{*/
 const LALUnit lalMeterUnit         = {  0, { 1, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< meter [m] */
 const LALUnit lalKiloGramUnit      = {  0, { 0, 1, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< kilogram [kg]*/
 const LALUnit lalSecondUnit        = {  0, { 0, 0, 1, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< second [s] */
@@ -164,15 +163,19 @@ const LALUnit lalAmpereUnit        = {  0, { 0, 0, 0, 1, 0, 0, 0}, { 0, 0, 0, 0,
 const LALUnit lalKelvinUnit        = {  0, { 0, 0, 0, 0, 1, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Kelvin [K] */
 const LALUnit lalStrainUnit        = {  0, { 0, 0, 0, 0, 0, 1, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Strain [1] */
 const LALUnit lalADCCountUnit      = {  0, { 0, 0, 0, 0, 0, 0, 1}, { 0, 0, 0, 0, 0, 0, 0} };	/**< ADC count [count] */
+/*@}*/
 
-/* Derived Mechanical Units */
+/** \name Derived Mechanical Units */
+/*@{*/
 const LALUnit lalHertzUnit         = {  0, { 0, 0,-1, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Hertz [Hz] */
 const LALUnit lalNewtonUnit        = {  0, { 1, 1,-2, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Newton [N] */
 const LALUnit lalPascalUnit        = {  0, {-1, 1,-2, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Pascal [Pa] */
 const LALUnit lalJouleUnit         = {  0, { 2, 1,-2, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Joule [J] */
 const LALUnit lalWattUnit          = {  0, { 2, 1,-3, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Watt [W ] */
+/*@}*/
 
-/* Derived Electromagnetic Units */
+/** \name Derived Electromagnetic Units */
+/*@{*/
 const LALUnit lalCoulombUnit       = {  0, { 0, 0, 1, 1, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Coulomb [C] */
 const LALUnit lalVoltUnit          = {  0, { 2, 1,-3,-1, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Volt [V] */
 const LALUnit lalOhmUnit           = {  0, { 2, 1,-3,-2, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Ohm [\f$\Omega\f$] */
@@ -180,8 +183,10 @@ const LALUnit lalFaradUnit         = {  0, {-2,-1, 4, 2, 0, 0, 0}, { 0, 0, 0, 0,
 const LALUnit lalWeberUnit         = {  0, { 2, 1,-2,-1, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Weber [Wb] */
 const LALUnit lalHenryUnit         = {  0, { 2, 1,-2,-2, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Henry [H] */
 const LALUnit lalTeslaUnit         = {  0, { 0, 1,-2,-1, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Tesla [T] */
+/*@}*/
 
-/* Powers of Ten */
+/** \name Powers of Ten */
+/*@{*/
 const LALUnit lalYottaUnit         = { 24, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Yotta [1e24] */
 const LALUnit lalZettaUnit         = { 21, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Zetta [1e21] */
 const LALUnit lalExaUnit           = { 18, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Exa [1e18] */
@@ -202,13 +207,14 @@ const LALUnit lalFemtoUnit         = {-15, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0,
 const LALUnit lalAttoUnit          = {-18, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Atto [1e-18] */
 const LALUnit lalZeptoUnit         = {-21, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Zepto [1e-21] */
 const LALUnit lalYoctoUnit         = {-24, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Yocto [1e-24] */
+/*@}*/
 
-/* Convenient Scaled Units */
+/** \name Convenient Scaled Units */
+/*@{*/
 const LALUnit lalGramUnit          = { -3, { 0, 1, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< Gram [1e-3] */
 const LALUnit lalAttoStrainUnit    = {-18, { 0, 0, 0, 0, 0, 1, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< AttoStrain [1e-18] */
 const LALUnit lalPicoFaradUnit     = {-12, {-2,-1, 2, 2, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };	/**< PicoFarad [1e-12 F] */
-
-/** @} */
+/*@}*/
 
 /* Static function to read a number into a character array */
 /* returns 0 on success, 1 on failure */
@@ -273,9 +279,9 @@ char * XLALUnitAsString( char *string, UINT4 length, const LALUnit *input )
   CHAR         *charPtr, *charStopPtr;
 
   if ( ! string || ! input )
-    XLAL_ERROR_NULL( __func__, XLAL_EFAULT );
+    XLAL_ERROR_NULL( XLAL_EFAULT );
   if ( ! length )
-    XLAL_ERROR_NULL( __func__, XLAL_EBADLEN );
+    XLAL_ERROR_NULL( XLAL_EBADLEN );
 
   charPtr = string;
   charStopPtr = string + length;
@@ -287,7 +293,7 @@ char * XLALUnitAsString( char *string, UINT4 length, const LALUnit *input )
   {
     sprintf(temp, "10^%d", input->powerOfTen);
     if ( charPtr + strlen(temp) >= charStopPtr)
-      XLAL_ERROR_NULL( __func__, XLAL_EBADLEN );
+      XLAL_ERROR_NULL( XLAL_EBADLEN );
     strncpy(charPtr, temp, charStopPtr - charPtr);
     charPtr += strlen(temp);
   } /* if (input->powerOfTen != 0) */
@@ -318,7 +324,7 @@ char * XLALUnitAsString( char *string, UINT4 length, const LALUnit *input )
 		 input->unitDenominatorMinusOne[i] + 1);
       }
       if ( charPtr + strlen(temp) >= charStopPtr)
-        XLAL_ERROR_NULL( __func__, XLAL_EBADLEN );
+        XLAL_ERROR_NULL( XLAL_EBADLEN );
       strncpy(charPtr, temp, charStopPtr - charPtr);
       charPtr += strlen(temp);
     } /* if (numer != 0) */
@@ -327,8 +333,7 @@ char * XLALUnitAsString( char *string, UINT4 length, const LALUnit *input )
   return string;
 }
 
-/** \ingroup UnitDefs_c
- * \deprecated Use XLALUnitAsString() instead.
+/** \deprecated Use XLALUnitAsString() instead.
  */
 void
 LALUnitAsString( LALStatus *status,
@@ -336,7 +341,7 @@ LALUnitAsString( LALStatus *status,
 		 const LALUnit *input )
 
 {
-  INITSTATUS( status, "LALUnitAsString", UNITDEFSC );
+  INITSTATUS(status);
   /* ATTATCHSTATUSPTR (status); */
 
   ASSERT( input != NULL, status, UNITSH_ENULLPIN, UNITSH_MSGENULLPIN );
@@ -384,7 +389,6 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
   UINT2        i;
   INT2         sign;
   CHAR         temp[20];
-  const CHAR   *charPtr, *charStopPtr;
   int outputAllocated = 0;
 
   if ( ! output )
@@ -392,7 +396,7 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
     output = LALMalloc( sizeof( *output ) );
     outputAllocated = 1;
     if ( ! output )
-      XLAL_ERROR_NULL( __func__, XLAL_ENOMEM );
+      XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   /* Start with dimensionless (all zeros) and fill in from there */
@@ -402,31 +406,25 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
   if ( ! string )
     return output;
 
-  charPtr = string;
-  charStopPtr = string + strlen(string);
-
-  /* Strip whitespace */
-  while(charPtr < charStopPtr && isspace(*charPtr))
-    charPtr++;
-  while(charPtr < charStopPtr && isspace(*(charStopPtr - 1)))
-    charStopPtr--;
+  /* Strip leading whitespace */
+  string += strspn(string, "\t\n\v\f\r ");
 
   /* If the string is empty, it represents dimensionless */
-  if (charPtr == charStopPtr)
+  if ( ! *string )
     return output;
 
   /* Look for power of ten; note LALUnitsAsString is set up to say
    * "10^1" rather than "10", so need not allow for missing '^'
    */
-  if (*charPtr == '1' && *(charPtr+1) == '0' && *(charPtr+2) == '^')
+  if (*string == '1' && *(string+1) == '0' && *(string+2) == '^')
   {
-    charPtr += 3;
+    string += 3;
     /* now pointing at first digit of power of ten (or minus sign) */
 
-    if ( *charPtr == '-'  )
+    if ( *string == '-'  )
     {
       sign = -1;
-      ++charPtr;
+      ++string;
     }
     else
     {
@@ -434,44 +432,44 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
     }
 
     /* read power of ten into temp[]; return value of 1 means failure */
-    if ( readNumber( temp, &charPtr ) )
+    if ( readNumber( temp, &string ) )
     {
       if ( outputAllocated )
         LALFree( output );
-      XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+      XLAL_ERROR_NULL( XLAL_EFAILED );
     }
-    /* charPtr now points to one after end of power of ten */
+    /* string now points to one after end of power of ten */
 
     output->powerOfTen = sign*atoi(temp);
 
     /* If the power of ten was all there was, return */
-    if (*charPtr == '\0')
+    if (*string == '\0')
       return output;
 
-    if ( *charPtr != ' ')
+    if ( *string != ' ')
     {
       if ( outputAllocated )
         LALFree( output );
-      XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+      XLAL_ERROR_NULL( XLAL_EFAILED );
     }
 
-    ++charPtr;
-  } /* if (*charPtr == '1' && *(charPtr+1) == '0' && *(charPtr+2) == '^') */
+    ++string;
+  } /* if (*string == '1' && *(string+1) == '0' && *(string+2) == '^') */
 
-  /* charPtr now points to start of first unit */
+  /* string now points to start of first unit */
 
   /* Read units and exponents, one unit per pass of the following do loop */
   do
   {
     /* read unit name into temp[]; return value of 1 means failure */
-    if ( readString( temp, &charPtr ) )
+    if ( readString( temp, &string ) )
     {
       if ( outputAllocated )
         LALFree( output );
-      XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+      XLAL_ERROR_NULL( XLAL_EFAILED );
     }
 
-    /* charPtr now points to one after end of unit name */
+    /* string now points to one after end of unit name */
 
     /* find which unit name this matches */
     for (i=0; strcmp(temp,lalUnitName[i]); ++i)
@@ -480,7 +478,7 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
       {
         if ( outputAllocated )
           LALFree( output );
-        XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+        XLAL_ERROR_NULL( XLAL_EFAILED );
       }
     }
 
@@ -489,22 +487,22 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
     {
       if ( outputAllocated )
         LALFree( output );
-      XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+      XLAL_ERROR_NULL( XLAL_EFAILED );
     }
 
-    if ( *charPtr == ' ' || *charPtr == '\0' )
+    if ( *string == ' ' || *string == '\0' )
     { /* We have only one power of the unit */
       output->unitNumerator[i] = 1;
     }
-    else if ( *charPtr == '^' )
+    else if ( *string == '^' )
     {
-      ++charPtr;
+      ++string;
       /* now points to the first digit of the exponent, or minus sign */
 
-      if ( *charPtr == '-'  )
+      if ( *string == '-'  )
       {
 	sign = -1;
-	++charPtr;
+	++string;
       }
       else
       {
@@ -513,48 +511,47 @@ LALUnit * XLALParseUnitString( LALUnit *output, const char *string )
 
       /* read exponent numerator into temp[];
 	 return value of 1 means failure */
-      if ( readNumber( temp, &charPtr ) )
+      if ( readNumber( temp, &string ) )
       {
         if ( outputAllocated )
           LALFree( output );
-        XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+        XLAL_ERROR_NULL( XLAL_EFAILED );
       }
       output->unitNumerator[i] = sign * atoi(temp);
 
-      if ( *charPtr == '/' )
+      if ( *string == '/' )
       {
-	++charPtr;
+	++string;
 	/* now points to first digit of denominator */
 
 	/* read exponent denominator into temp[];
 	   return value of 1 means failure */
-	if ( readNumber( temp, &charPtr ) || temp[0] == '0')
+	if ( readNumber( temp, &string ) || temp[0] == '0')
         {
           if ( outputAllocated )
             LALFree( output );
-          XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+          XLAL_ERROR_NULL( XLAL_EFAILED );
         }
 	output->unitDenominatorMinusOne[i] = atoi(temp) - 1;
-      } /* if ( *charPtr == '/' ) */
-    } /* else if ( *charPtr == '^' ) */
+      } /* if ( *string == '/' ) */
+    } /* else if ( *string == '^' ) */
     else
     {
       if ( outputAllocated )
         LALFree( output );
-      XLAL_ERROR_NULL( __func__, XLAL_EFAILED );
+      XLAL_ERROR_NULL( XLAL_EFAILED );
     }
 
-    if ( *charPtr == ' ') ++charPtr;
+    if ( *string == ' ') ++string;
 
   }
-  while ( *charPtr != '\0' );
+  while ( *string != '\0' );
 
   return output;
 }
 
 
-/** \ingroup UnitDefs_c
- * \deprecated Use XLALParseUnitString() instead.
+/** \deprecated Use XLALParseUnitString() instead.
  */
 void
 LALParseUnitString ( LALStatus *status,
@@ -564,7 +561,7 @@ LALParseUnitString ( LALStatus *status,
 {
   CHAR         *charPtr, *charStopPtr;
 
-  INITSTATUS( status, "LALParseUnitString", UNITDEFSC );
+  INITSTATUS(status);
 
   ASSERT( input != NULL, status, UNITSH_ENULLPIN, UNITSH_MSGENULLPIN );
 
@@ -591,3 +588,4 @@ LALParseUnitString ( LALStatus *status,
 
   RETURN(status);
 }
+/*@}*//* end: UnitDefs_c */

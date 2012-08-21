@@ -39,6 +39,7 @@
 #include <lal/LALDatatypes.h>
 #include <lal/Sequence.h>
 #include <lal/TFTransform.h>
+#include <lal/Thresholds.h>
 #include <lal/Window.h>
 
 
@@ -196,16 +197,26 @@ static PyObject *pylal_XLALExcessPowerFilterInnerProduct(PyObject *self, PyObjec
 	pylal_COMPLEX16FrequencySeries *filter1;
 	pylal_COMPLEX16FrequencySeries *filter2;
 	PyArrayObject *correlation;
+	REAL8Sequence corr;
 	pylal_REAL8FrequencySeries *psd = NULL;
 	double result;
 
-	if(!PyArg_ParseTuple(args, "O!O!O!|O!", &pylal_COMPLEX16FrequencySeries_Type, &filter1, &pylal_COMPLEX16FrequencySeries_Type, &filter2, &PyArray_Type, &correlation, &pylal_REAL8FrequencySeries_Type, &psd))
+	if(!PyArg_ParseTuple(args, "O!O!O!|O", &pylal_COMPLEX16FrequencySeries_Type, &filter1, &pylal_COMPLEX16FrequencySeries_Type, &filter2, &PyArray_Type, &correlation, &psd))
 		return NULL;
 	correlation = PyArray_GETCONTIGUOUS(correlation);
 	if(!correlation)
 		return NULL;
+	corr.length = PyArray_DIM(correlation, 0);
+	corr.data = PyArray_DATA(correlation);
+	if((PyObject *) psd == Py_None)
+		psd = NULL;
+	else if(psd && !PyObject_TypeCheck((PyObject *) psd, &pylal_REAL8FrequencySeries_Type)) {
+		Py_DECREF(correlation);
+		PyErr_SetObject(PyExc_TypeError, (PyObject *) psd);
+		return NULL;
+	}
 
-	result = XLALExcessPowerFilterInnerProduct(filter1->series, filter2->series, PyArray_DATA(correlation), psd ? psd->series : NULL);
+	result = XLALExcessPowerFilterInnerProduct(filter1->series, filter2->series, &corr, psd ? psd->series : NULL);
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
 		Py_DECREF(correlation);
 		pylal_set_exception_from_xlalerrno();
@@ -227,7 +238,8 @@ static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *arg
 	double flow;
 	double width;
 	pylal_REAL8FrequencySeries *psd = NULL;
-	PyArrayObject *correlation;
+	PyArrayObject *correlation = NULL;
+	REAL8Sequence corr;
 	COMPLEX16FrequencySeries *filter;
 
 	if(!PyArg_ParseTuple(args, "ddO!O!", &flow, &width, &pylal_REAL8FrequencySeries_Type, &psd, &PyArray_Type, &correlation))
@@ -235,16 +247,89 @@ static PyObject *pylal_XLALCreateExcessPowerFilter(PyObject *self, PyObject *arg
 	correlation = PyArray_GETCONTIGUOUS(correlation);
 	if(!correlation)
 		return NULL;
+	corr.length = PyArray_DIM(correlation, 0);
+	corr.data = PyArray_DATA(correlation);
 
-	filter = XLALCreateExcessPowerFilter(flow, width, psd->series, PyArray_DATA(correlation));
+	filter = XLALCreateExcessPowerFilter(flow, width, psd->series, &corr);
+	Py_DECREF(correlation);
 	if(!filter) {
-		Py_DECREF(correlation);
 		pylal_set_exception_from_xlalerrno();
 		return NULL;
 	}
 
-	Py_DECREF(correlation);
 	return pylal_COMPLEX16FrequencySeries_new(filter, NULL);
+}
+
+
+/*
+ * XLALChisqCdf()
+ */
+
+
+static PyObject *pylal_XLALChisqCdf(PyObject *self, PyObject *args)
+{
+	double chi2;
+	double dof;
+	double P;
+
+	if(!PyArg_ParseTuple(args, "dd", &chi2, &dof))
+		return NULL;
+
+	P = XLALChisqCdf(chi2, dof);
+	if(XLALIsREAL8FailNaN(P)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(P);
+}
+
+
+/*
+ * XLALOneMinusChisqCdf()
+ */
+
+
+static PyObject *pylal_XLALOneMinusChisqCdf(PyObject *self, PyObject *args)
+{
+	double chi2;
+	double dof;
+	double P;
+
+	if(!PyArg_ParseTuple(args, "dd", &chi2, &dof))
+		return NULL;
+
+	P = XLALOneMinusChisqCdf(chi2, dof);
+	if(XLALIsREAL8FailNaN(P)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(P);
+}
+
+
+/*
+ * XLALlnOneMinusChisqCdf()
+ */
+
+
+static PyObject *pylal_XLALlnOneMinusChisqCdf(PyObject *self, PyObject *args)
+{
+	double chi2;
+	double dof;
+	double P;
+
+	if(!PyArg_ParseTuple(args, "dd", &chi2, &dof))
+		return NULL;
+
+	P = XLALlnOneMinusChisqCdf(chi2, dof);
+	if(XLALIsREAL8FailNaN(P)) {
+		pylal_set_exception_from_xlalerrno();
+		return NULL;
+	}
+
+	return PyFloat_FromDouble(P);
 }
 
 
@@ -265,11 +350,14 @@ static struct PyMethodDef methods[] = {
 	{"XLALREAL8WindowTwoPointSpectralCorrelation", pylal_XLALREAL8WindowTwoPointSpectralCorrelation, METH_VARARGS, NULL},
 	{"XLALExcessPowerFilterInnerProduct", pylal_XLALExcessPowerFilterInnerProduct, METH_VARARGS, NULL},
 	{"XLALCreateExcessPowerFilter", pylal_XLALCreateExcessPowerFilter, METH_VARARGS, NULL},
+	{"XLALChisqCdf", pylal_XLALChisqCdf, METH_VARARGS, NULL},
+	{"XLALOneMinusChisqCdf", pylal_XLALOneMinusChisqCdf, METH_VARARGS, NULL},
+	{"XLALlnOneMinusChisqCdf", pylal_XLALlnOneMinusChisqCdf, METH_VARARGS, NULL},
 	{NULL,}
 };
 
 
-void initlalburst(void)
+PyMODINIT_FUNC initlalburst(void)
 {
 	Py_InitModule3(MODULE_NAME, methods, "Wrapper for LALBurst package.");
 

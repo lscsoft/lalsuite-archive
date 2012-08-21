@@ -12,7 +12,7 @@ echo chr(60).chr(63).'xml version="1.0" encoding="utf-8" '.chr(63).chr(62);
 <body>
 <?php require './header.php';
 
-  function getrepo($time){
+  function getrepo($time,$isi){
       $gluepath = getenv('GLUEPATH');
       $pythonpath = getenv('PYTHONPATH');
       $ldlibpath = getenv('LD_LIBRARY_PATH');
@@ -25,9 +25,14 @@ echo chr(60).chr(63).'xml version="1.0" encoding="utf-8" '.chr(63).chr(62);
       putenv("LDBD_SERVER=" . $ldbdserver);
       putenv("X509_USER_CERT=" . $x509_cert);
       putenv("X509_USER_KEY=" . $x509_key);
-            
+      // Added -i flag, we should probably make this an option on the initial page.       
+      if ($isi=="1") {
+      $com = "ligolw_dq_query --segment-url https://segdb.ligo.caltech.edu -i --report ".$time ." 2>&1";
+      $com = $gluepath . '/' . $com;
+      } else {
       $com = "ligolw_dq_query --segment-url ldbd://segdb.ligo.caltech.edu:30020 --report ".$time ." 2>&1";
       $com = $gluepath . '/' . $com;
+      }
 ?>
 <p><pre>
 <?php
@@ -50,6 +55,8 @@ echo "<br>time = ". $time."</br>";
 <?php require '../seginsert/scripts/time_conv_functions.php' ?>
 
 <?php
+
+  $isi = $_POST['isi'];
 
   //convert start time
   if (!strcmp("time", $_POST['timevsgps'])) {
@@ -83,7 +90,7 @@ echo "<br>time = ". $time."</br>";
          echo "<p><font color='red'>GPS time must be 9 digits</font></p>";
       }
   else{
-    getrepo($gps);
+    getrepo($gps,$isi);
   }
 ?>
 

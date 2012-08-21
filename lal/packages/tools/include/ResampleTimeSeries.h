@@ -20,11 +20,6 @@
 #include <lal/LALDatatypes.h>
 #include <lal/BandPassTimeSeries.h>
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #ifndef _RESAMPLETIMESERIES_H
 #define _RESAMPLETIMESERIES_H
 
@@ -34,11 +29,8 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-NRCSID( RESAMPLETIMESERIESH, "$Id$" );
-
-/**
- * \author Brown, D. A.
- * \addtogroup ResampleTimeSeries_h Header ResampleTimeSeries.h
+/** \addtogroup ResampleTimeSeries_h
+ *  \author Brown, D. A.
  *
  * \brief Provides routines to resample a time series.
  *
@@ -54,9 +46,10 @@ NRCSID( RESAMPLETIMESERIESH, "$Id$" );
  * documentation is given in the individual routines' modules.
  *
 */
-/** @{ */
+/*@{*/
 
-/**\name Error Codes */ /*@{*/
+/**\name Error Codes */
+/*@{*/
 #define RESAMPLETIMESERIESH_ENULL 1	/**< Null pointer */
 #define RESAMPLETIMESERIESH_ENNUL 2	/**< Non-null pointer */
 #define RESAMPLETIMESERIESH_EZERO 3	/**< Length of input time series is zero */
@@ -67,7 +60,7 @@ NRCSID( RESAMPLETIMESERIESH, "$Id$" );
 #define RESAMPLETIMESERIESH_EFILT 8	/**< Unknown filter type */
 #define RESAMPLETIMESERIESH_EINVD 9	/**< Invalid or non-integer resample factor */
 #define RESAMPLETIMESERIESH_ELDAS 10	/**< Input resample factor with LDAS FIR */
-/** @} */
+/*@}*/
 
 /** \cond DONT_DOXYGEN */
 #define RESAMPLETIMESERIESH_MSGENULL "Null pointer"
@@ -107,9 +100,8 @@ ResampleTSFilter;
  * This is not presently implemented and this structure may be ignored.
  */
 typedef union
-tagResampleTimeSeriesFilterPars
+tagResampleTSFilterParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   PassBandParamStruc    butterworth;	/**< A structure of type \c PassBandParamStruc used to store the parameters
                                          * of the butterworth filter used to perform low pass filtering
                                          */
@@ -122,17 +114,17 @@ ResampleTSFilterParams;
 /** This structure controls the behaviour of the resampling function.
  */
 typedef struct
-tagResampleTimeSeriesParams
+tagResampleTSParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8                   deltaT;	/**< The sample interval desired in the down sampled time series */
   ResampleTSFilter        filterType;	/**< The type of filter with which to perform the low pass filtering */
   ResampleTSFilterParams  filterParams;	/**< Filter parameters for the low pass filter (Presently ignored) */
 }
 ResampleTSParams;
 
-/** @} */
+/*@}*/
 
+/* ---------- Function prototypes ---------- */
 
 int XLALResampleREAL4TimeSeries( REAL4TimeSeries *series, REAL8 dt );
 int XLALResampleREAL8TimeSeries( REAL8TimeSeries *series, REAL8 dt );

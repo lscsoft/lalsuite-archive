@@ -26,26 +26,22 @@ import math,re,numpy,itertools,copy,matplotlib,sys,warnings
 # test matplotlib backend and reset if needed
 from os import getenv
 _display = getenv('DISPLAY','')
-_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib.
-"""
-if not _display and matplotlib.get_backend().lower() is not 'agg':
+_backend_warn = """No display detected, moving to 'Agg' backend in matplotlib."""
+if not _display and not matplotlib.get_backend().lower() == 'agg':
   warnings.warn(_backend_warn)
   matplotlib.use('Agg', warn=False)
 import pylab
 
-try:  
-  from mpl_toolkits.basemap import Basemap
-except ImportError:
-  pass
+try: from mpl_toolkits.basemap import Basemap
+except ImportError,e: warnings.warn(str(e))
+try: from mpl_toolkits import axes_grid
+except ImportError,e: warnings.warn(str(e))
 
 from datetime import datetime
 from glue import segments,git_version
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-from pylal.xlal import constants as XLALConstants
-from pylal.xlal import tools as XLALTools
-
-from pylal import date,plotutils,inject,plotsegments
-from pylal.dq.dqTriggerUtils import def_get_time
+from pylal import date,plotutils
+from pylal.dq.dqTriggerUtils import def_get_time,get_column
 
 __author__  = "Duncan Macleod <duncan.macleod@astro.cf.ac.uk>"
 __version__ = "git id %s" % git_version.id
@@ -69,20 +65,21 @@ def set_rcParams():
   pylab.rcParams.update({"text.usetex": True,
                          "text.verticalalignment": "center",
                          "lines.linewidth": 2,
-                         "xtick.labelsize": 18,
-                         "ytick.labelsize": 18,
+                         "xtick.labelsize": 16,
+                         "ytick.labelsize": 16,
                          "axes.titlesize": 22,
-                         "axes.labelsize": 18,
+                         "axes.labelsize": 16,
                          "axes.linewidth": 1,
                          "grid.linewidth": 1,
-                         "legend.fontsize": 18,
+                         "legend.fontsize": 16,
                          "legend.loc": "best",
                          "figure.figsize": [12,6],
                          "figure.dpi": 80,
+                         "image.origin": 'lower',
                          "axes.grid": True,
-                         "axes.axisbelow": True })
+                         "axes.axisbelow": False })
 
-def set_ticks(ax):
+def set_ticks(ax, calendar_time=False):
 
   """
     Format the x- and y-axis ticks to ensure minor ticks appear when needed
@@ -94,16 +91,61 @@ def set_ticks(ax):
         Axes object to format
   """
 
+  #
   # make sure we get minor ticks if there are no major ticks in the range
-  if len(ax.get_xticks())<=2:
+  #
+
+  # xticks
+  ticks = list(ax.get_xticks())
+  xlim  = ax.get_xlim()
+  for i,tick in enumerate(ticks[::-1]):
+    if not xlim[0] <= tick <= xlim[1]: ticks.pop(-1)
+  if len(ticks)<=1:
     ax.xaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
-  if len(ax.get_yticks())<=2:
+
+  # yticks
+  ticks = list(ax.get_yticks())
+  ylim  = ax.get_ylim()
+  for i,tick in enumerate(ticks[::-1]): 
+    if not ylim[0] <= tick <= ylim[1]: ticks.pop(-1)
+  if len(ticks)<=1:
     ax.yaxis.set_minor_formatter(pylab.matplotlib.ticker.ScalarFormatter())
 
-  # set xticks for 4 hours rather than 5
-  xticks = ax.get_xticks()
-  if len(xticks)>1 and xticks[1]-xticks[0]==5:
-    ax.xaxis.set_major_locator(pylab.matplotlib.ticker.MultipleLocator(base=4))
+  # set xticks in time format, python2.5 is not new enough for
+  # flexibility, recoding part of AutoDateFormatter to get it
+  if calendar_time:
+    dateLocator = pylab.matplotlib.dates.AutoDateLocator()
+    dateLocator.set_axis(ax.xaxis)
+    dateLocator.refresh()
+    scale = float( dateLocator._get_unit() )
+    if ( scale == 365.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%Y$")
+    elif ( scale == 30.0 ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%y$/$%m$")
+    elif ( (scale == 1.0) or (scale == 7.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%m$/$%d$")
+    elif ( scale == (1.0/24.0) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%d$-$%H$")
+    elif ( scale == (1.0/(24*60)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%H$:$%M$")
+    elif ( scale == (1.0/(24*3600)) ):
+      dateFormatter = pylab.matplotlib.dates.DateFormatter("$%H$:$%M$")
+  
+    ax.xaxis.set_major_locator(dateLocator)
+    ax.xaxis.set_major_formatter(dateFormatter)
+
+  else:
+    # set xticks for 4 hours rather than 5
+    xticks = ax.get_xticks()
+    if len(xticks)>1 and xticks[1]-xticks[0]==5:
+      ax.xaxis.set_major_locator(\
+          pylab.matplotlib.ticker.MultipleLocator(base=2))
+
+  
+  # set tick linewidth
+  for line in ax.get_xticklines() + ax.get_yticklines():
+    line.set_markersize(10)
+    line.set_markeredgewidth(1)
 
 def display_name(columnName):
 
@@ -132,26 +174,84 @@ def display_name(columnName):
   unit  = ['ns']
   sub   = ['flow', 'fhigh', 'hrss', 'mtotal', 'mchirp']
 
-  words = columnName.split('_')
+  words = []
+  for w in re.split('\s', columnName):
+    if w.isupper(): words.append(w)
+    else:           words.extend(re.split('_', w))
+
+  # parse words
   for i,w in enumerate(words):
+    # get acronym in lower case
     if w in acro:
       words[i] = w.upper()
+    # get numerical unit
     elif w in unit:
       words[i] = '$(%s)$' % w
+    # get character with subscript text
     elif w in sub:
       words[i] = '%s$_{\mbox{\\small %s}}$' % (w[0], w[1:])
+    # get greek word
     elif w in greek:
       words[i] = '$\%s$' % w
+    # get starting with greek word
     elif re.match('(%s)' % '|'.join(greek), w):
       if w[-1].isdigit():
         words[i] = '$\%s_{%s}$''' % tuple(re.findall(r"[a-zA-Z]+|\d+",w))
       elif w.endswith('sq'):
         words[i] = '$\%s^2$' % w.rstrip('sq')
+    # get everything else
     else:
-      words[i] = w.title()
+      if w.isupper():
+        words[i] = w
+      else:
+        words[i] = w.title()
+      # escape underscore
+      words[i] = re.sub('(?<!\\\\)_', '\_', words[i])
 
   return ' '.join(words) 
 
+def gps2datenum(gpstime):
+
+  """
+    Convert GPS time into floating in standard python time format
+    (days since Jan 01 0000), don't seem to use properly leap seconds
+  """
+  
+  # set time of 0 GPS in datenum units
+  zeroGPS = 722820.0
+  ## correct for leap seconds assuming that all time stamps are within
+  # a range not including a leap
+  # select the first time stamp
+  if isinstance(gpstime,float) or isinstance(gpstime,int):
+    repTime = gpstime
+  else:
+    if len(gpstime)>0:
+      repTime = gpstime[0]
+    else:
+      return gpstime
+
+  zeroGPS = zeroGPS  + float(date.XLALLeapSeconds(LIGOTimeGPS(0)) -\
+                                 date.XLALLeapSeconds(LIGOTimeGPS(repTime)))/86400
+  # convert to datenum (days)
+  datenum = gpstime/86400 + zeroGPS
+
+  return datenum
+
+def calendar_time_unit(duration):
+
+  if duration > 63072000:
+    return "year"
+  elif duration > 5184000:
+    return "year/month"
+  elif duration > 604800:
+    return "month/day"
+  elif duration > 7200:
+    return "day-hour"
+  elif duration > 600:
+    return "hour:minute"
+  else: 
+    return "hour:minute:second"
+  
 def time_unit(duration):
 
   """
@@ -225,6 +325,69 @@ def getTrigAttribute(trig, col):
   except:
     raise KeyError, "Column '%s' not found in %s." % (col, type(trig))
 
+def add_colorbar(self, mappable, cax=None, clim=None, log=False, base=10,\
+                 label=None, **kwargs):
+
+  # set axes for colorbar
+  #if not cax:
+  #  div = axes_grid.make_axes_locatable(self.ax)
+  #  cax = div.new_horizontal(size="2%", pad=0.05, visible=True)
+    #cax = div.append_axes("right", size="2%", pad=0.05)
+
+  cmin, cmax = clim
+
+  # construct colorbar tick formatter, using logic not supported before python
+  # 2.5
+  colorticksize = None
+  if log and numpy.power(base,cmax)-numpy.power(base,cmin) > 4:
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                    numpy.power(base,x)>=1 and\
+                        "$%d$" % round(numpy.power(base, x)) or\
+                    numpy.power(base,x)>=0.01 and\
+                        "$%.2f$" % numpy.power(base, x) or\
+                    numpy.power(base,x)<0.01 and "$%f$")
+  elif log and numpy.power(base,cmax)-numpy.power(base,cmin) > 0.4:
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.2f$"\
+                                                      % numpy.power(base, x))
+  elif log:
+    colorticksize = 'small'
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: '$%.2e$'\
+                                                      % numpy.power(base, x))
+  elif not log and cmax-cmin > 4:
+    formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
+                    x>=1 and "$%d$" % round(x) or\
+                    x>=0.01 and "$%.2f$" % x or\
+                    x==0.0 and "$0$" or\
+                    x and "$%f$")
+  else:
+    formatter = None
+
+  if clim:
+    colorticks = numpy.linspace(cmin, cmax, 4)
+  else:
+    colorticks = None
+
+  self.colorbar = self.ax.figure.colorbar(mappable, cax=cax, format=formatter,\
+                                          ticks=colorticks, pad=0.005,\
+                                          fraction=0.02, aspect=40, **kwargs)
+  if colorticksize is not None:
+    for l in self.colorbar.ax.yaxis.get_ticklabels():
+      l.set_size(colorticksize)
+#  colorbar = pylab.colorbar(mappable, cax=cax, format=formatter,\
+                            #ticks=colorticks, **kwargs)
+  self.colorbar.set_label(label)
+  self.colorbar.draw_all()
+
+  #try:
+  #  self.colorbar = colorbar
+  #except:
+  #  return colorbar
+
+def add_hidden_colorbar(self):
+
+  # set axes for colorbar
+  div = axes_grid.make_axes_locatable(self.ax)
+  cax = div.new_horizontal(size="2%", pad=0.05, visible=False)
 
 # =============================================================================
 # Abstract classes for plots
@@ -242,7 +405,8 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
 
   color_code = {'H1':'r', 'H2':'b', 'L1':'g', 'V1':'m', 'G1':'k'}
 
-  def __init__(self, xlabel="", ylabel="", title="", subtitle="", t0=0, unit=1):
+  def __init__(self, xlabel="", ylabel="", title="", subtitle="", t0=0, unit=1,\
+               calendar_time=False):
     """
     Create a fresh plot.  Provide t0 to provide a reference time to use as
     zero.
@@ -253,8 +417,16 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
                  transform=self.ax.transAxes, verticalalignment='top')
     self.segdict = segments.segmentlistdict()
     self.keys = []
-    self._time_transform = lambda seg: segments.segment(float(seg[0]-t0)/unit,\
-                                             float(seg[1]-t0)/unit)
+    if calendar_time:
+      self._time_transform =\
+          lambda seg: segments.segment(gps2datenum(float(seg[0])),\
+                                       gps2datenum(float(seg[1])))
+    else:
+      self._time_transform =\
+          lambda seg: segments.segment(float(seg[0]-t0)/unit,\
+                                       float(seg[1]-t0)/unit)
+
+
 
   def add_content(self, segdict, keys=None, t0=0, unit=1):
     if not keys:
@@ -274,7 +446,7 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
     self.ax.axvline(b, **plot_args)
 
   @plotutils.method_callable_once
-  def finalize(self):
+  def finalize(self, labels_inset=False, hidden_colorbar=False):
 
     for row,key in enumerate(self.keys):
       if self.color_code.has_key(key):
@@ -285,118 +457,26 @@ class PlotSegmentsPlot(plotutils.BasicPlot):
         a,b = self._time_transform(seg)
         self.ax.fill([a, b, b, a, a],\
                      [row-0.4, row-0.4, row+0.4, row+0.4, row-0.4], 'b')
+      if labels_inset:
+        self.ax.text(0.01,(row+1)/(len(self.keys)+1), re.sub('\\+_+','\_',key),\
+                     horizontalalignment='left', verticalalignment='center',\
+                     transform=self.ax.transAxes, backgroundcolor='white',\
+                     bbox=dict(facecolor='white', alpha=0.5, edgecolor='none'))
 
     ticks = pylab.arange(len(self.keys))
     self.ax.set_yticks(ticks)
-    self.ax.set_yticklabels([k.replace('_','\_').replace('\\\_','\_')\
-                             for k in self.keys], size='small')
+    if labels_inset:
+      self.ax.set_yticklabels(ticks, color='white')
+    else:
+      self.ax.set_yticklabels([re.sub(r'\\+_+', '\_', k)\
+                               for k in self.keys], size='small')
     self.ax.set_ylim(-1, len(self.keys))
 
-# =============================================================================
-# Class for line histogram
+    # add hidden colorbar
+    if hidden_colorbar:
+      self.add_hidden_colorbar()
 
-class LineHistogram(plotutils.BasicPlot):
-
-  """
-    A simple line histogram plot. The values of each histogram bin are plotted
-    using pylab.plot(), with points centred on the x values and height equal
-    to the y values.
-
-    Cumulative, and rate options can be passeed to the finalize() method to
-    format each trace individually.
-
-  """
-
-  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
-    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
-    self.ax.set_title(title, x=0.5, y=1.025)
-    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
-                 transform=self.ax.transAxes, verticalalignment='top')
-    self.data_sets = []
-    self.livetimes = []
-    self.kwarg_sets = []
-
-  def add_content(self, data, livetime=1, **kwargs):
-    self.data_sets.append(data)
-    self.livetimes.append(livetime)
-    self.kwarg_sets.append(kwargs)
-
-  @plotutils.method_callable_once
-  def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
-               logx=False, logy=False, fill=False, base=10):
-
-    # determine binning
-    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
-    if min_stat!=max_stat:
-      if logx:
-        bins = numpy.logspace(numpy.math.log(min_stat, base),\
-                              numpy.math.log(max_stat, base),\
-                              num_bins+1, endpoint=True)
-      else:
-        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
-    else:
-      bins = []
-
-    if logy:
-      ymin = 5/base
-    else:
-      ymin = 0
-
-    legends = []
-    plot_list = []
-
-    for i, (data_set, livetime, plot_kwargs) in\
-        enumerate(itertools.izip(self.data_sets, self.livetimes,\
-                  self.kwarg_sets)):
-
-      # make histogram
-      y, x = numpy.histogram(data_set, bins=bins)
-      #x = x[:-1]
-
-      # get cumulative sum
-      if cumulative:
-        y = y[::-1].cumsum()[::-1]
-
-      # convert to rate
-      if rate:
-        y = y/livetime
-        ymin /= livetime
-
-      # reset zeros on logscale, tried with numpy, unreliable
-      if logy:
-        y = list(y)
-        for j in xrange(0,len(y)):
-          if y[j]==0:
-            y[j] = ymin
-        y = numpy.array(y)
-
-      # plot
-      if fill:
-        plot_kwargs.setdefault('linewidth', 1)
-        plot_kwargs.setdefault('alpha', 0.8)
-        self.ax.plot(x, y, **plot_kwargs)
-        self.ax.fill_between(x, ymin, y, **plot_kwargs)
-      else:
-        self.ax.plot(x, y, **plot_kwargs)
-
-    # set axes
-    if logx:
-      self.ax.set_xscale('log')
-    if logy:
-      self.ax.set_yscale('log')
-
-    # set logy minimum
-    self.ax.set_ybound(lower=ymin/livetime)
-
-    # add legend if there are any non-trivial labels
-    self.add_legend_if_labels_exist(loc=loc)
-
-    # fix legend
-    leg = self.ax.legend()
-    if leg:
-      for l in leg.get_lines():
-        l.set_linewidth(4)
-
+PlotSegmentsPlot.add_hidden_colorbar = add_hidden_colorbar
 
 # =============================================================================
 # Class for standard scatter plot
@@ -422,7 +502,7 @@ class ScatterPlot(plotutils.BasicPlot):
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
-  def finalize(self, loc='best', logx=False, logy=False):
+  def finalize(self, loc='best', logx=False, logy=False, hidden_colorbar=False):
     # make plot
     for x_vals, y_vals, plot_kwargs, c in \
         itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
@@ -433,14 +513,26 @@ class ScatterPlot(plotutils.BasicPlot):
 
       self.ax.scatter(x_vals, y_vals, c=c, **plot_kwargs)
 
+    # add hidden colorbar to make plots the right aspect
+    if hidden_colorbar:
+      self.add_hidden_colorbar()
+
     # add legend if there are any non-trivial labels
     self.add_legend_if_labels_exist(loc=loc)
+
+    leg = self.ax.get_legend()
+    # set transparent legend
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
 
     # set axes
     if logx:
       self.ax.set_xscale('log')
     if logy:
       self.ax.set_yscale('log')
+
+ScatterPlot.add_hidden_colorbar = add_hidden_colorbar
 
 # =============================================================================
 # Class for scatter plot with colorbar
@@ -462,13 +554,15 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
     self.x_data_sets = []
     self.y_data_sets = []
     self.z_data_sets = []
+    self.rank_data_sets = []
     self.kwarg_sets = []
     self.color_label = zlabel
 
-  def add_content(self, x_data, y_data, z_data, **kwargs):
+  def add_content(self, x_data, y_data, z_data, rank_data, **kwargs):
     self.x_data_sets.append(x_data)
     self.y_data_sets.append(y_data)
     self.z_data_sets.append(z_data)
+    self.rank_data_sets.append(rank_data)
     self.kwarg_sets.append(kwargs)
 
   @plotutils.method_callable_once
@@ -496,9 +590,9 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       cmax = numpy.math.log(cmax, base)
 
     # make plot
-    for x_vals, y_vals, z_vals, plot_kwargs in\
+    for x_vals, y_vals, z_vals, rank_vals, plot_kwargs in\
         itertools.izip(self.x_data_sets, self.y_data_sets, self.z_data_sets,\
-                       self.kwarg_sets):
+                       self.rank_data_sets, self.kwarg_sets):
 
       if logz:  z_vals = [numpy.math.log(z, base) for z in z_vals]
 
@@ -507,9 +601,9 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       plot_kwargs.setdefault("vmax", cmax)
 
       # sort data by z-value
-      zipped = zip(x_vals, y_vals, z_vals)
-      zipped.sort(key=lambda (x,y,z): z)
-      x_vals, y_vals, z_vals = map(list, zip(*zipped))
+      zipped = zip(x_vals, y_vals, z_vals, rank_vals)
+      zipped.sort(key=lambda (x,y,z,r): r)
+      x_vals, y_vals, z_vals, rank_vals = map(list, zip(*zipped))
 
       p.append(self.ax.scatter(x_vals, y_vals, c=z_vals, **plot_kwargs))
 
@@ -519,7 +613,9 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
 
 
     # write colorbar
-    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    #self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    self.add_colorbar(p[-1], clim=[cmin, cmax], log=logz,\
+                      label=self.color_label, base=10)
 
     # set axes
     if logx:
@@ -528,6 +624,12 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       self.ax.set_yscale('log')
 
     self.add_legend_if_labels_exist(loc=loc)
+
+    # set transparent legend
+    leg = self.ax.get_legend()
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
 
   def set_colorbar(self, mappable, clim=None, log=True, base=10): 
 
@@ -546,16 +648,11 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
       formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.2f$"\
                                                         % numpy.power(base, x))
     elif log:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%f$"\
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
                                                         % numpy.power(base, x))
-    elif not log and cmax-cmin > 4:
-      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos:\
-                      x>=1 and "$%d$" % round(x) or\
-                      x>=0.01 and "$%.2f$" % x or\
-                      x==0.0 and "$0$" or\
-                      x and "$%f$")
     else:
-      formatter = None
+      formatter = pylab.matplotlib.ticker.FuncFormatter(lambda x,pos: "$%.4e$"\
+                                                        % x)
 
     if clim:
       colorticks = numpy.linspace(cmin, cmax, 4)
@@ -566,6 +663,8 @@ class ColorbarScatterPlot(plotutils.BasicPlot):
 
     self.colorbar.set_label(self.color_label)
     self.colorbar.draw_all()
+
+ColorbarScatterPlot.add_colorbar = add_colorbar
 
 # =============================================================================
 # Extension of ColorbarScatterPlot to plot DetChar-style scatter plot
@@ -580,7 +679,7 @@ class DetCharScatterPlot(ColorbarScatterPlot):
 
   @plotutils.method_callable_once
   def finalize(self, loc='best', logx=False, logy=False, logz=True, base=10,\
-               clim=None, zthreshold=None):
+               clim=None, rankthreshold=None):
 
     p = []
     # set colorbar limits
@@ -594,22 +693,19 @@ class DetCharScatterPlot(ColorbarScatterPlot):
       except ValueError:
         cmin = 1
         cmax = 10 
-    if not zthreshold:
-      zthreshold = cmin + 0.1*(cmax-cmin)
 
     # reset logs
     if logz:
       cmin = numpy.math.log(cmin, base)
       cmax = numpy.math.log(cmax, base)
-      zthreshold = numpy.math.log(zthreshold, base)
 
     # make plot
-    for x_vals, y_vals, z_vals, plot_kwargs in\
+    for x_vals, y_vals, z_vals, rank_vals, plot_kwargs in\
         itertools.izip(self.x_data_sets, self.y_data_sets, self.z_data_sets,\
-                       self.kwarg_sets):
+                       self.rank_data_sets, self.kwarg_sets):
       plot_kwargs.setdefault("vmin", cmin)
       plot_kwargs.setdefault("vmax", cmax)
-      plot_kwargs.setdefault("s", 20)
+      plot_kwargs.setdefault("s", 15)
       plot_kwargs.setdefault("marker", "o")
       plot_kwargs.setdefault("edgecolor", "k")
 
@@ -617,9 +713,9 @@ class DetCharScatterPlot(ColorbarScatterPlot):
         z_vals = [numpy.math.log(z, base) for z in z_vals]
 
       # sort data by z-value
-      zipped = zip(x_vals, y_vals, z_vals)
-      zipped.sort(key=lambda (x,y,z): z)
-      x_vals, y_vals, z_vals = map(list, zip(*zipped))
+      zipped = zip(x_vals, y_vals, z_vals, rank_vals)
+      zipped.sort(key=lambda (x,y,z,r): r)
+      x_vals, y_vals, z_vals, rank_vals = map(list, zip(*zipped))
 
       bins = ['low', 'high']
       x_bins = {}
@@ -630,7 +726,7 @@ class DetCharScatterPlot(ColorbarScatterPlot):
         y_bins[str(bin)] = []
         z_bins[str(bin)] = []
       for i in xrange(len(x_vals)):
-        if z_vals[i] < zthreshold:
+        if rankthreshold and rank_vals[i] < rankthreshold:
           x_bins[bins[0]].append(float(x_vals[i]))
           y_bins[bins[0]].append(float(y_vals[i]))
           z_bins[bins[0]].append(float(z_vals[i]))
@@ -644,7 +740,8 @@ class DetCharScatterPlot(ColorbarScatterPlot):
         if bin == bins[0]:
           args = copy.deepcopy(plot_kwargs)
           args['s']/=4
-          args['edgecolor'] = 'none'
+          if not (args.has_key('marker') and args['marker']=='x'):
+            args['edgecolor'] = 'none'
           if len(x_bins[bin])>=1:
             p.append(self.ax.scatter(x_bins[bin], y_bins[bin], c=z_bins[bin],\
                                      **args))
@@ -659,7 +756,9 @@ class DetCharScatterPlot(ColorbarScatterPlot):
                                vmax=cmax, visible=False))
 
     # write colorbar
-    self.set_colorbar(p[-1], [cmin, cmax], logz, base)
+    self.add_colorbar(p[-1], clim=[cmin, cmax], log=logz,\
+                      label=self.color_label, base=10)
+    #self.set_colorbar(p[-1], [cmin, cmax], logz, base)
 
     # set axes
     if logx:
@@ -670,7 +769,433 @@ class DetCharScatterPlot(ColorbarScatterPlot):
     self.add_legend_if_labels_exist(loc=loc)
 
 # =============================================================================
-# Moll projection for sky position plotting
+# Class for line histogram
+
+class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
+
+  """
+    A simple line histogram plot. The values of each histogram bin are plotted
+    using pylab.plot(), with points centred on the x values and height equal
+    to the y values.
+
+    Cumulative, and rate options can be passeed to the finalize() method to
+    format each trace individually.
+
+  """
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle="",\
+               colorlabel=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.livetimes = []
+    self.kwarg_sets = []
+    self.color_label = colorlabel
+    self.color_values = []
+
+  def add_content(self, data, livetime=1, cval=None, **kwargs):
+    self.data_sets.append(data)
+    self.livetimes.append(livetime)
+    self.kwarg_sets.append(kwargs)
+    self.color_values.append(cval)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', num_bins=100, cumulative=False, rate=False,\
+               logx=False, logy=False, fill=False, base=10, xlim=None,\
+               colorbar=None, clim=None, hidden_colorbar=False):
+
+    # determine binning
+    if xlim:
+      min_stat, max_stat = xlim
+    else:
+      min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    
+    if min_stat!=max_stat:
+      max_stat *= 1.001
+      if logx:
+        bins = numpy.logspace(numpy.math.log(min_stat, base),\
+                              numpy.math.log(max_stat, base),\
+                              num_bins+1, endpoint=True)
+      else:
+        bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+    else:
+      bins = [min_stat]
+
+    if logy:
+      ymin = 1E-100
+    else:
+      ymin = 0
+
+    # get colors
+    if colorbar:
+      if isinstance(colorbar, str):
+        ctype = colorbar
+        cmap = pylab.matplotlib.colors.LinearSegmentedColormap('clrs',\
+                                           pylab.matplotlib.cm.jet._segmentdata)
+      else:
+        ctype, cmap = colorbar
+      assert re.match('(lin|log)', ctype, re.I),\
+             "colorbar must have type 'linear', or 'log'"
+      try:
+        colors = pylab.matplotlib.colors.makeMappingArray(100000,\
+                                                          cmap)
+      except IndexError:
+        xind = numpy.linspace(0, 1, 100000)
+        colors = numpy.clip(numpy.array(cmap(xind), dtype=numpy.float), 0, 1)
+      
+      if clim:
+        cmin,cmax = clim
+      else:
+        try:
+          cmin = min(self.color_values)
+          cmax = max(self.color_values)
+        except ValueError:
+          cmin = 1
+          cmax = 10
+
+      if re.search('log', ctype, re.I):
+        cmin = numpy.math.log(cmin, base)
+        cmax = numpy.math.log(cmax, base)
+        self.color_values = [numpy.math.log(x, base) for x in self.color_values]
+      color_idx = lambda x: int((x-cmin)/(cmax-cmin)*(len(colors)-1))
+      self.color_values = [colors[color_idx(x)] for x in self.color_values]
+
+    # add hidden colorbar to make plots the right aspect
+    elif hidden_colorbar:
+      self.add_hidden_colorbar()
+ 
+    p = []
+    for i, (data_set, livetime, plot_kwargs, col) in\
+        enumerate(itertools.izip(self.data_sets, self.livetimes,\
+                  self.kwarg_sets, self.color_values)):
+
+      #
+      # make histogram
+      #
+
+      # get version
+      v = [int(i) for i in numpy.version.version.split('.')]
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins)
+        x = x[:-1]
+
+      # get cumulative sum
+      if cumulative:
+        y = y[::-1].cumsum()[::-1]
+
+      # convert to rate
+      if rate:
+        if livetime > 0:
+          y = y/livetime
+          ymin /= livetime
+        else:
+          y = numpy.empty(y.shape)
+          y.fill(numpy.nan)
+          ymin = numpy.nan
+
+      # reset zeros on logscale, tried with numpy, unreliable
+      if logy:
+        y = y.astype(float)
+        numpy.putmask(y, y==0, ymin)
+
+      # set color
+      if colorbar:
+        plot_kwargs['color'] = col
+
+      # plot
+      if fill:
+        plot_kwargs.setdefault('linewidth', 1)
+        plot_kwargs.setdefault('alpha', 0.8)
+        p.append(self.ax.plot(x, y, **plot_kwargs))
+        self.ax.fill_between(x, 1E-100, y, **plot_kwargs)
+      else:
+        p.append(self.ax.plot(x, y, **plot_kwargs))
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    # set colorbar
+    if colorbar:
+      self.add_colorbar(self.ax.scatter([1], [1], c=1, cmap=cmap,\
+                                          vmin=cmin, vmax=cmax, visible=False),\
+                          clim=[cmin, cmax], label=self.color_label)
+    elif hidden_colorbar:
+      self.add_hidden_colorbar()
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+
+    # fix legend
+    leg = self.ax.get_legend()
+    if leg:
+      for l in leg.get_lines():
+        l.set_linewidth(4)
+
+LineHistogram.add_hidden_colorbar = add_hidden_colorbar
+
+# =============================================================================
+# Extension of VerticalBarHistogram to include log axes
+
+class VerticalBarHistogram(plotutils.VerticalBarHistogram):
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets = []
+    self.kwarg_sets = []
+
+  @plotutils.method_callable_once
+  def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
+               base=10, hidden_colorbar=False, loc='best'):
+
+    # determine binning
+    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
+    if logx and min_stat!=0 and max_stat!=0:
+      bins = numpy.logspace(numpy.math.log(min_stat, base),\
+                            numpy.math.log(max_stat, base),\
+                            num_bins+1, endpoint=True)
+    else:
+      bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
+
+    # determine bar width; gets silly for more than a few data sets
+    if logx:
+      width = [bins[i+1]-bins[i] for i in xrange(len(bins)-1)]
+      width.append(width[-1])
+    else:
+      width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
+
+    width = numpy.asarray(width)/2
+
+    # get version
+    v = map(int, numpy.version.version.split('.'))
+    if v[1] >= 1: width = width[:-1]
+
+    # set base of plot in log scale
+    if logy:
+      ymin = (base**-1)*5
+    else:
+      ymin = 0
+
+    # make plot
+    legends = []
+    plot_list = []
+    for i, (data_set, plot_kwargs) in \
+        enumerate(itertools.izip(self.data_sets, self.kwarg_sets)):
+      # set default values
+      plot_kwargs.setdefault("alpha", 0.6)
+      plot_kwargs.setdefault("align", "center")
+      plot_kwargs.setdefault("width", width)
+      if logy:
+        plot_kwargs.setdefault("bottom", ymin)
+      else:
+        plot_kwargs.setdefault("bottom", ymin)
+
+      # make histogram
+      if v[1] < 1:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+      elif v[1] < 3:
+        y, x = numpy.histogram(data_set, bins=bins, new=True, normed=normed)
+        x = x[:-1]
+      else:
+        y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+        x = x[:-1]
+
+      if logy:
+        y = y-ymin
+
+      # stagger bins for pure aesthetics
+      #x += 0.1 * i * max_stat / num_bins
+
+      # plot
+      self.ax.bar(x, y, **plot_kwargs)
+
+    # set axes
+    if logx:
+      self.ax.set_xscale('log')
+    if logy:
+      self.ax.set_yscale('log')
+
+    # set logy minimum
+    self.ax.set_ybound(lower=ymin)
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+    # set transparent legend
+    leg = self.ax.get_legend()
+    if leg: leg.get_frame().set_alpha(0.5)
+
+
+    # add hidden colorbar
+    if hidden_colorbar:
+      self.add_hidden_colorbar()
+
+VerticalBarHistogram.add_hidden_colorbar = add_hidden_colorbar
+
+# =============================================================================
+# Class for time series plot
+
+class DataPlot(plotutils.BasicPlot):
+
+  """
+    Time-series data plot. Just a nice looking line plot.
+  """
+
+  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.x_data_sets = []
+    self.y_data_sets = []
+    self.kwarg_sets = []
+
+  def add_content(self, x_data, y_data, **kwargs):
+    self.x_data_sets.append(numpy.ma.asarray(x_data))
+    self.y_data_sets.append(numpy.ma.asarray(y_data))
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False, hidden_colorbar=False):
+    # make plot
+    plots = []
+    markersizes = []
+    markerscale = 4
+
+    for x_vals, y_vals, plot_kwargs, c in \
+        itertools.izip(self.x_data_sets, self.y_data_sets,\
+                       self.kwarg_sets, plotutils.default_colors()):
+
+      # magnify the markers on the legend
+      plot_kwargs.setdefault('markersize', 5)
+      markersizes.append(plot_kwargs['markersize'])
+      plot_kwargs['markersize'] = min(20, plot_kwargs['markersize']*markerscale)
+      # plot
+      if logx:
+        x_vals = x_vals.astype(float)
+        numpy.putmask(x_vals, x_vals==0, 1E-100)
+      if logy:
+        y_vals = y_vals.astype(float)
+        numpy.putmask(y_vals, y_vals==0, 1E-100)
+
+      plots.append(self.ax.plot(x_vals, y_vals, **plot_kwargs))
+
+    # add legend if there are any non-trivial labels
+    self.add_legend_if_labels_exist(loc=loc)
+    leg = self.ax.get_legend()
+    # magnify the lines on the legend 
+    if leg:
+      try:
+        for l in leg.get_lines():
+          if l.get_linewidth():
+            l.set_linewidth(4)
+      except AttributeError:
+        pass
+
+    # reset markersizes on plot
+    for i,plot in enumerate(plots):
+      l = plot[0] 
+      l.set_markersize(markersizes[i])
+
+    # set transparent legend
+    if leg:
+      legfr = leg.get_frame()
+      legfr.set_alpha(0.5)
+
+    # add hidden colorbar
+    if hidden_colorbar: self.add_hidden_colorbar()
+
+    # set axes
+    if logx:  self.ax.set_xscale('log')
+    if logy:  self.ax.set_yscale('log')
+
+DataPlot.add_hidden_colorbar = add_hidden_colorbar
+
+# =============================================================================
+# Class for color map plot
+
+class ColorMap(ColorbarScatterPlot):
+
+  def __init__(self, xlabel="", ylabel="", zlabel="", title="", subtitle=""):
+    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
+    self.color_label = zlabel
+    self.ax.set_title(title, x=0.5, y=1.025)
+    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
+                 transform=self.ax.transAxes, verticalalignment='top')
+    self.data_sets   = []
+    self.extent_sets = []
+    self.kwarg_sets  = []
+
+  def add_content(self, data, extent, **kwargs):
+    self.data_sets.append(numpy.asarray(data))
+    self.extent_sets.append(extent)
+    self.kwarg_sets.append(kwargs)
+
+  @plotutils.method_callable_once
+  def finalize(self, loc='best', logx=False, logy=False, logz=False, clim=None,\
+               origin=pylab.rcParams['image.origin'], base=10):
+
+    # set colorbar limits
+    if clim:
+      cmin,cmax = clim
+    else:
+      cmin = min([z_vals.min() for z_vals in self.data_sets])*0.99
+      cmax = max([z_vals.max() for z_vals in self.data_sets])*1.01
+
+    # reset logs
+    if logz:
+      cmin = numpy.math.log(cmin, base)
+      cmax = numpy.math.log(cmax, base)
+
+    p = []
+
+    for i, (data_set, extent, plot_kwargs) in \
+        enumerate(itertools.izip(self.data_sets, self.extent_sets,\
+                  self.kwarg_sets)):
+ 
+      plot_kwargs.setdefault("vmin", cmin)
+      plot_kwargs.setdefault("vmax", cmax)
+      plot_kwargs.setdefault("norm", None)
+      plot_kwargs.setdefault("interpolation", "kaiser")
+
+      if logz:
+        if base==10:
+          data_set = numpy.log10(data_set)
+        elif base==numpy.e:
+          data_set = numpy.log(data_set)
+        elif base==2:
+          data_set = numpy.log2(data_set)
+        else:
+          raise AttributeError("Can only use base = 2, e, or 10.")
+
+      p.append(self.ax.imshow(data_set, extent=extent, origin=origin,\
+                              **plot_kwargs))
+
+    if len(p)==0:
+      p.append(self.ax.imshow([[1]], vmin=cmin,\
+                               vmax=cmax, visible=False))
+
+    # write colorbar
+    self.add_colorbar(p[-1], clim=[cmin, cmax], log=logz,\
+                      label=self.color_label, base=10)
+
+    # set axes
+    if logx:  self.ax.set_xscale('log')
+    if logy:  self.ax.set_yscale('log')
+
+# =============================================================================
+# Projection for sky position plotting
 
 class SkyPositionsPlot(ScatterPlot):
 
@@ -704,6 +1229,7 @@ class SkyPositionsPlot(ScatterPlot):
     projection = projection.lower()
     if not centre:
       centre = (0,0)
+    centre = [(-(centre[0]-180)+180) % 360, centre[1]]
     m1 = Basemap(projection=projection, lon_0=centre[0], lat_0=centre[1],\
                  resolution=None, ax=self.ax)
 
@@ -740,11 +1266,10 @@ class SkyPositionsPlot(ScatterPlot):
       plot_kwargs.setdefault("facecolor", c)
 
       # project data
+      convert = lambda x: (x>=180 and x-360) or (x<180 and x)
+      x_vals  = [-convert(x) for x in x_vals]
       if projection in ['moll', 'hammer', 'orth']:
         convert = lambda x: (x>=0 and x) or (x<0 and x+360)
-      else:
-        convert = lambda x: (x>=180 and x-360) or (x<180 and x)
-      x_vals  = [convert(x) for x in x_vals]
       x_vals, y_vals = m(x_vals, y_vals)
       m.scatter(x_vals, y_vals, **plot_kwargs)
 
@@ -757,7 +1282,7 @@ class SkyPositionsPlot(ScatterPlot):
       mlabels = [0, 0, 0, 0]
     else:
       plabels = [1, 0, 0, 0]
-      mlabels = [0, 0, 0, 1]
+      mlabels = [0, 0, 0, 0]
 
     # draw parallels
     parallels = numpy.arange(-90., 120., 30.)
@@ -782,18 +1307,15 @@ class SkyPositionsPlot(ScatterPlot):
         and xrange[0]<x<xrange[1] and yrange[0]<=y<=yrange[1]:
           m.ax.text(x, y, r"$%0.0f^\circ$" % lat)
 
-    # label meridians for certain projections
-    if projection in ['moll', 'hammer', 'ortho']:
-      for lon,lat in zip(meridians, [0.]*len(meridians)):
-        #if lonrange[0]<=lon<=lonrange[1] and latrange[0]<=lat<=latrange[1]:
-        tlon = lon
-        while tlon < 0:  tlon += 360
-        x, y = m(lon, lat)
-        lon, lat = m1(x, y, inverse=True)
+    # label meridians for all projections
+    for lon,lat in zip(meridians, [0.]*len(meridians)):
+      tlon = (-(lon-180)+180) % 360
+      x, y = m(lon, lat)
+      lon, lat = m1(x, y, inverse=True)
 
-        if x<=10**20 and y<=10**20\
-        and xrange[0]<x<xrange[1] and yrange[0]<=y<=yrange[1]:
-          m.ax.text(x, y, r"$%0.0f^\circ$" % tlon)
+      if x<=10**20 and y<=10**20\
+      and xrange[0]<x<xrange[1] and yrange[0]<=y<=yrange[1]:
+        m.ax.text(x, y, r"$%0.0f^\circ$" % tlon)
 
     # set legend
     self.add_legend_if_labels_exist(loc=loc, scatterpoints=1)
@@ -954,141 +1476,6 @@ class ColorbarSkyPositionsPlot(ColorbarScatterPlot):
     self.add_legend_if_labels_exist(loc=loc, scatterpoints=1)
 
 # =============================================================================
-# Extension of VerticalBarHistogram to include log axes
-
-class VerticalBarHistogram(plotutils.VerticalBarHistogram):
-
-  @plotutils.method_callable_once
-  def finalize(self, num_bins=20, normed=False, logx=False, logy=False,\
-               base=10):
-
-    # determine binning
-    min_stat, max_stat = plotutils.determine_common_bin_limits(self.data_sets)
-    if logx:
-      bins = numpy.logspace(numpy.math.log(min_stat, base),\
-                            numpy.math.log(max_stat, base),\
-                            num_bins+1, endpoint=True)
-    else:
-      bins = numpy.linspace(min_stat, max_stat, num_bins + 1, endpoint=True)
-
-    # determine bar width; gets silly for more than a few data sets
-    if logx:
-      width = [bins[i+1]-bins[i] for i in xrange(len(bins)-1)]
-    else:
-      width = (1 - 0.1 * len(self.data_sets)) * (bins[1] - bins[0])
-
-    # set base of plot in log scale
-    if logy:
-      ymin = (base**-1)*5
-    else:
-      ymin = 0
-
-    # make plot
-    legends = []
-    plot_list = []
-    for i, (data_set, plot_kwargs) in \
-        enumerate(itertools.izip(self.data_sets, self.kwarg_sets)):
-      # set default values
-      plot_kwargs.setdefault("alpha", 0.6)
-      plot_kwargs.setdefault("align", "center")
-      plot_kwargs.setdefault("width", width)
-      if logy:
-        plot_kwargs.setdefault("bottom", ymin)
-      else:
-        plot_kwargs.setdefault("bottom", ymin)
-
-      # make histogram
-      y, x = numpy.histogram(data_set, bins=bins, normed=normed)
-      x = x[:-1]
-
-      if logy:
-        y = y-ymin
-
-      # stagger bins for pure aesthetics
-      #x += 0.1 * i * max_stat / num_bins
-
-      # plot
-      plot_item = self.ax.bar(x, y, **plot_kwargs)
-
-      # add legend and the right plot instance
-      # for creating the correct labels!
-      if "label" in plot_kwargs and \
-           not plot_kwargs["label"].startswith("_"):
-
-        legends.append(plot_kwargs["label"])
-        plot_list.append(plot_item[0])
-
-    # set axes
-    if logx:
-      self.ax.set_xscale('log')
-    if logy:
-      self.ax.set_yscale('log')
-
-    # set logy minimum
-    self.ax.set_ybound(lower=ymin)
-
-    # add legend if there are any non-trivial labels
-    self.ax.legend(plot_list, legends)
-
-# =============================================================================
-# Class for time series plot
-
-class DataPlot(plotutils.BasicPlot):
-
-  """
-    Time-series data plot. Just a nice looking line plot.
-  """
-
-  def __init__(self, xlabel="", ylabel="", title="", subtitle=""):
-    plotutils.BasicPlot.__init__(self, xlabel, ylabel, title)
-    self.ax.set_title(title, x=0.5, y=1.025)
-    self.ax.text(0.5, 1.035, subtitle, horizontalalignment='center',
-                 transform=self.ax.transAxes, verticalalignment='top')
-    self.x_data_sets = []
-    self.y_data_sets = []
-    self.kwarg_sets = []
-
-  def add_content(self, x_data, y_data, **kwargs):
-    self.x_data_sets.append(x_data)
-    self.y_data_sets.append(y_data)
-    self.kwarg_sets.append(kwargs)
-
-  @plotutils.method_callable_once
-  def finalize(self, loc='best', logx=False, logy=False):
-    # make plot
-    plots = []
-    markersizes = []
-    markerscale = 4
-
-    for x_vals, y_vals, plot_kwargs, c in \
-        itertools.izip(self.x_data_sets, self.y_data_sets,\
-                       self.kwarg_sets, plotutils.default_colors()):
-
-      # magnify the markers on the legend
-      plot_kwargs.setdefault('markersize', 5)
-      markersizes.append(plot_kwargs['markersize'])
-      plot_kwargs['markersize'] = min(20, plot_kwargs['markersize']*markerscale)
-      # plot
-      plots.append(self.ax.plot(x_vals, y_vals, **plot_kwargs))
-
-    # add legend if there are any non-trivial labels
-    self.add_legend_if_labels_exist(loc=loc)
-    leg = self.ax.legend()
-    # magnify the lines on the legend 
-    for l in leg.get_lines():
-      if l.get_linewidth():
-        l.set_linewidth(4)
-
-    # reset markersizes on plot
-    for i,plot in enumerate(plots):
-      l = plot[0] 
-      l.set_markersize(markersizes[i])
-
-    # set axes
-    if logx:  self.ax.set_xscale('log')
-    if logy:  self.ax.set_yscale('log')
-
-# =============================================================================
 # Wrappers to translate ligolw table into plot
 # =============================================================================
 
@@ -1180,10 +1567,20 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
   # get limits
   xlim = kwargs.pop('xlim', None)
   ylim = kwargs.pop('ylim', None)
+  calendar_time = kwargs.pop('calendar_time', False)
 
   # get axis scales
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
+
+  # get legend loc
+  loc = kwargs.pop('loc', 'best')
+
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # generate plot object
   plot = DataPlot(xlabel, ylabel, title, subtitle)
@@ -1200,15 +1597,46 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
     kwargs.setdefault('linewidth', 0)
     kwargs.pop('linestyle', ' ')
 
+  # get uniq data sets that aren't errors
+  allchannels = []
+  channels    = []
+  for i,(c,_,_) in enumerate(data):
+    allchannels.append(c)
+    if not re.search('(min|max)\Z', str(c)):
+      channels.append((i,c))
+
   # add data
-  for channel,x_data,y_data in data:
+  for i,c in channels:
+    x_data,y_data = data[i][1:]
     if x_format=='time':
-      x_data = (numpy.array(map(float, x_data))-float(zero))/unit
-    plot.add_content(x_data, y_data, label=str(channel).replace('_', '\_'),\
-                     **kwargs)
+      if calendar_time:
+        x_data = gps2datenum(numpy.array(map(float, x_data)))
+      else:
+        x_data = (x_data.astype(float)-float(zero))/unit
+    lab = str(c)
+    if lab != '_': lab = lab.replace('_', '\_')
+    plot.add_content(x_data, y_data, label=lab,**kwargs)
 
   # finalize plot
-  plot.finalize(logx=logx, logy=logy)
+  plot.finalize(logx=logx, logy=logy, loc=loc, hidden_colorbar=hidden_colorbar)
+
+  # plot errors
+  l = None
+  for (i,channel),c in itertools.izip(channels, plotutils.default_colors()):
+    try:
+      minidx = allchannels.index('%s_min' % str(channel))
+      maxidx = allchannels.index('%s_max' % str(channel))
+    except ValueError:
+      continue
+    y = []
+    for idx in [minidx,maxidx]:
+      x_data,y_data = data[idx][1:]
+      y.append(y_data)
+      if x_format=='time':
+        x_data = (numpy.array(map(float, x_data))-float(zero))/unit
+      l = l!=None and l or float(kwargs.pop('linewidth', 1))/4
+      plot.ax.plot(x_data, y_data, color=c, linewidth=l, **kwargs)
+    plot.ax.fill_between(x_data, y[1], y[0], color=c, alpha=0.25)
 
   # set axes
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -1223,16 +1651,30 @@ def plot_data_series(data, outfile, x_format='time', zero=None, \
       plot.ax.set_ylim([ axis_lims[0], axis_lims[1] ])
 
     # set x axis
-    plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+    if xlim and calendar_time:
+      plot.ax.set_xlim([gps2datenum(float(xlim[0])),\
+                        gps2datenum(float(xlim[1]))])
+    elif xlim:
+      plot.ax.set_xlim([ float(xlim[0]-zero)/unit, float(xlim[1]-zero)/unit ])
+  else:
+      # set global axis limits
+    if xlim:
+      plot.ax.set_xlim(xlim)
+    if ylim:
+      plot.ax.set_ylim(ylim)
 
-  set_ticks(plot.ax)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  set_ticks(plot.ax, calendar_time=calendar_time)
+
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot a histogram of any column
 
 def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
+                      color_column=None, color_bins=10,\
                       seglist=None, flag='unknown', start=None, end=None,\
                       livetime=None, etg=None, **kwargs):
 
@@ -1314,20 +1756,51 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     livetime = end-start
   livetime = float(livetime)
 
-  # format seglist and work out vetoed triggers
+  # format seglist
   if seglist==None:
     seglist = segments.segmentlist()
   else:
     seglist = segments.segmentlist(seglist)
 
-  preData  = []
-  postData = []
-  for trig in triggers:
-    datum = float(getTrigAttribute(trig, column))
-    preData.append(datum)
-    if get_time(trig) not in seglist:
-      postData.append(datum)
+  # format colours
+  logz = kwargs.pop('logz', False)
+  clim = kwargs.pop('clim', None)
+ 
+  if color_column:
+    colData = get_column(triggers, color_column).astype(float)
+    if not clim:
+      if len(colData)>0:
+        clim = [colData.min(), colData.max()]
+      else:
+        clim = [1,10]
+    if isinstance(color_bins, int):
+      num_color_bins = color_bins
+      if logz:
+        color_bins = numpy.logspace(numpy.math.log10(clim[0]),\
+                                    numpy.math.log10(clim[1]),\
+                                    num=num_color_bins)
+      else:
+        color_bins = numpy.linspace(0, clim[1],\
+                                    num=num_color_bins)
+    else:
+      num_color_bins = len(color_bins)
+  else:
+    num_color_bins = 1
 
+  # get data
+  tdata    = get_column(triggers, 'time')
+  preData = []
+  postData = []
+  for i in range(num_color_bins):
+    if color_column:
+      preData.append(get_column(triggers, column).astype(float)\
+                                                 [colData>=color_bins[i]])
+    else:
+      preData.append(get_column(triggers, column).astype(float))
+    postData.append([p for j,p in enumerate(preData[i])\
+                     if tdata[j] not in seglist])
+
+  # get veto livetime
   vetoLivetime = livetime-float(abs(seglist))
 
   # set some random plot parameters
@@ -1361,6 +1834,12 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
   # get fill
   fill = kwargs.pop('fill', False)
 
@@ -1381,11 +1860,11 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
 
   # get ETG
   if not etg:
-    if re.search('burst', trigs.tableName.lower()):
+    if re.search('burst', triggers.tableName.lower()):
       etg = 'Burst'
-    elif re.search('inspiral', trigs.tableName.lower()):
+    elif re.search('inspiral', triggers.tableName.lower()):
       etg = 'Inspiral'
-    elif re.search('ringdown', trigs.tableName.lower()):
+    elif re.search('ringdown', triggers.tableName.lower()):
       etg = 'Ringdown'
     else:
       etg = 'Unknown'
@@ -1395,25 +1874,39 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
     title += ' and %s segments' % (flag)
   title = kwargs.pop('title', title)
   if start and end:
-    subtitle = '%s-%s' % (start, end)
+    subtitle = '%d-%d' % (start, math.ceil(end))
   else:
     subtitle = ""
   subtitle = kwargs.pop('subtitle', subtitle)
+  zlabel  = kwargs.pop('zlabel',\
+                       color_column and display_name(color_column) or "")
 
   # generate plot object
-  plot = LineHistogram(xlabel, ylabel, title, subtitle)
+  plot = LineHistogram(xlabel, ylabel, title, subtitle, zlabel)
 
   # add each data set
-  plot.add_content(preData, livetime=livetime, color=color[0],\
-                   linestyle=linestyle[0], label=label[0], **kwargs)
-  if seglist:
-    plot.add_content(postData, livetime=vetoLivetime, color=color[1],\
-                     linestyle=linestyle[1], label=label[1], **kwargs)
+  if color_column: 
+    for i in range(len(preData)):
+      plot.add_content(preData[i], livetime=livetime, cval=color_bins[i],\
+                       linestyle=linestyle[0], label=label[0], **kwargs)
+  else:
+    plot.add_content(preData[0], livetime=livetime, color=color[0],\
+                     linestyle=linestyle[0], label=label[0], **kwargs)
+    if seglist:
+      plot.add_content(postData[0], livetime=vetoLivetime, color=color[1],\
+                       linestyle=linestyle[1], label=label[1], **kwargs)
+
+  
 
   # finalize plot with histograms
   if not num_bins: num_bins=100
+  if color_column:
+    colorbar = logz and 'log' or 'linear'
+  else:
+    colorbar = None
   plot.finalize(num_bins=num_bins, logx=logx, logy=logy, cumulative=cumulative,\
-                rate=rate, fill=fill)
+                rate=rate, fill=fill, colorbar=colorbar,\
+                hidden_colorbar=hidden_colorbar)
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
 
   # set lower y axis limit
@@ -1429,17 +1922,21 @@ def plot_trigger_hist(triggers, outfile, column='snr', num_bins=1000,\
   if xlim:
     plot.ax.set_xlim(xlim)
   if ylim:
-    ploy.ax.set_ylim(ylim)
+    plot.ax.set_ylim(ylim)
+
+  # set global ticks
+  set_ticks(plot.ax)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
 
 # =============================================================================
 # Plot one column against another column coloured by any third column
 
-def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
-                  zcolumn=None, etg=None, start=None, end=None, zero=None,\
-                  seglist=None, flag=None, **kwargs):
+def plot_triggers(triggers, outfile, reftriggers=None, xcolumn='time',\
+                  ycolumn='snr', zcolumn=None, rankcolumn=None, etg=None, start=None, end=None,\
+                  zero=None, seglist=None, flag=None, **kwargs):
 
   """
     Plots ycolumn against xcolumn for columns in given
@@ -1466,6 +1963,8 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
         valid column of triggers table to plot on y-axis
       zcolumn : string
         valid column of triggers table to use for colorbar (optional).
+      rankcolumn : string
+        valid column of triggers table to use for ranking events (optional).
       etg : string
         display name of trigger generator, defaults based on triggers tableName 
       start : [ float | int | LIGOTimeGPS ]
@@ -1518,17 +2017,35 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     All other given arguments will be passed to matplotlib.axes.Axes.scatter. 
   """
 
+  from pylal import plotutils
+
+  # test multiple tables
+  if not len(triggers)==0 and \
+     (isinstance(triggers[0], tuple) or isinstance(triggers[0], list)):
+    assert not zcolumn,\
+           "Can only plot single table when using colorbar plot"
+    tables = [t[1] for t in triggers]
+    tablelabel = [t[0] for t in triggers]
+    for i,t in enumerate(tablelabel):
+      if t!='_':
+        tablelabel[i] = t.replace('_','\_')
+  else:
+    tables = [triggers]
+    tablelabel = '_'
+
   # get time column
-  get_time = def_get_time(triggers.tableName)
+  get_time = []
+  for t in tables:
+    get_time.append(def_get_time(t.tableName))
 
   # set start and end time if needed
   if not start or not end:
-    times = [ get_time(t) for t in triggers ]
-  if not start and len(triggers)>=1:
+    times = [get_time[i](t)  for i in xrange(len(tables)) for t in tables[i]]
+  if not start and len(times)>=1:
     start = int(math.floor(min(times)))
   elif not start:
-    start = 0 
-  if not end and len(triggers)>=1:
+    start = 0
+  if not end and len(times)>=1:
     end   = int(math.ceil(max(times)))
   elif not end:
     end   = 1
@@ -1551,56 +2068,195 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   ylim = kwargs.pop('ylim', None)
   zlim = kwargs.pop('zlim', None)
   clim = kwargs.pop('clim', zlim)
+  calendar_time = kwargs.pop('calendar_time', None)
 
-  # set up columns and lists
-  columns = map(str.lower, [xcolumn, ycolumn])
-  if zcolumn: columns.append(zcolumn.lower())
-  vetoData  = {}
-  nvetoData = {}
-  label     = {}
-  limits    = [xlim, ylim, zlim]
+  # set up columns
+  columns = list(map(str.lower, [xcolumn, ycolumn]))
+  if zcolumn: 
+    columns.append(zcolumn.lower())
+    if rankcolumn: 
+      columns.append(rankcolumn.lower())
+    else: columns.append(zcolumn.lower())
+
+  # set up limits
+  limits    = [xlim, ylim, zlim, None]
   for i,col in enumerate(columns):
     if re.search('time\Z', col) and not limits[i]:
       limits[i] = [start,end]
-    vetoData[col]  = []
-    nvetoData[col] = []
 
-  # separate triggers
-  for trig in triggers:
-    use=True
+  # get veto info
+  if seglist:
+    tdata = get_column(triggers, 'time')
+
+  # get all data
+  vetoData  = []
+  nvetoData = []
+  for j,tab in enumerate(tables):
+    vetoData.append({})
+    nvetoData.append({})
+    # get veto info
+    if seglist:
+      tdata = get_column(tab, 'time')
+    # get data
     for i,col in enumerate(columns):
-      val = float(getTrigAttribute(trig, col))
-      if limits[i] and not limits[i][0] <= val <= limits[i][1]:
-        use=False
-    if use:
-      for i,col in enumerate(columns):
-        val = float(getTrigAttribute(trig, col))
-        if get_time(trig) in segs:
-          vetoData[col].append(val)
-        else:
-          nvetoData[col].append(val)
+      nvetoData[j][col]  = get_column(tab, col).astype(float)
+    # apply limits and vetoes
+    condition = True
+    for i,col in enumerate(columns):
+      if limits[i]:
+        condition = condition & (limits[i][0] <= nvetoData[j][col])\
+                              & (nvetoData[j][col] <= limits[i][1])
+    for col in nvetoData[j].keys():
+      nvetoData[j][col] = nvetoData[j][col][condition]
+      if seglist:
+        vetoData[j][col] = numpy.asarray([d for i,d in\
+                                          enumerate(nvetoData[j][col]) if\
+                                          tdata[i] in seglist])
+      else:
+        vetoData[j][col] = numpy.array([])
 
   data = {}
+
+      
+    
+  # normalize zcolumn by time-averaged value
+  whitenedFlag = kwargs.pop('whitened', False)
+  if zcolumn and whitenedFlag:
+    # get ref data if provided
+    refData = {}
+    if reftriggers:
+      for i,col in enumerate(columns):
+        refData[col]  = get_column(reftriggers, col).astype(float)
+    else:
+      for i,col in enumerate(columns):
+        refData[col]  = nvetoData[0][col]
+      
+    uniqYvalues = numpy.unique1d(refData[ycolumn])
+    # building look back table by hand, is included in unique1d for numpy >= v1.3
+    for yVal in uniqYvalues:
+      backTable = numpy.where(yVal == nvetoData[0][ycolumn])
+      zMedian =  numpy.median(refData[zcolumn][yVal == refData[ycolumn]])
+      for  iTrig in backTable[0]:
+        nvetoData[0][zcolumn][iTrig] /= zMedian
+
+  # filter zcolumn by  provided poles/zeros filter as a function of ycolumn
+  flatenedFlag = kwargs.pop('filter', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    polesList = kwargs.pop('poles', None)
+    zerosList = kwargs.pop('zeros', None)
+    amplitude = kwargs.pop('amplitude', 1)
+    nvetoData[0][zcolumn] *= amplitude
+    for filtPole in polesList:
+      nvetoData[0][zcolumn] /= abs(nvetoData[0][ycolumn] - filtPole)
+    for filtZero in zerosList:
+      nvetoData[0][zcolumn] *= abs(nvetoData[0][ycolumn] - filtZero)
+    nvetoData[0][zcolumn].astype(float)
+
+  # flaten zcolumn by 1/sqrt of sum given rational fraction mononomes as a 
+  # function of ycolumn
+  flatenedFlag = kwargs.pop('flaten', False)
+  if zcolumn and flatenedFlag:
+    # get filter params
+    expList = kwargs.pop('exponents', None)
+    constList = kwargs.pop('constants', None)
+    filter = numpy.zeros(len(nvetoData[0][zcolumn]))
+    for iTerm, exponent in enumerate(expList):
+      filter += pow(constList[iTerm]*numpy.power(nvetoData[0][ycolumn],expList[iTerm]),2)
+    filter = numpy.sqrt(filter)
+    nvetoData[0][zcolumn] /= filter
+  
+  # median/min/max of ycolumn binned by exact xcolumn values
+  minmaxmedianFlag = kwargs.pop('minmaxmedian', False)
+  if minmaxmedianFlag:
+    uniqXvalues = numpy.unique1d(nvetoData[j][xcolumn])
+    # building look back table by hand, is included in unique1d for numpy >= v1.3
+    for xVal in uniqXvalues:
+      backTable = numpy.where(xVal == nvetoData[j][xcolumn])
+      if len(backTable[0]) > 3:
+        nvetoData[j][ycolumn][backTable[0][0]] =\
+            numpy.median(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        nvetoData[j][ycolumn][backTable[0][1]] =\
+            numpy.min(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        nvetoData[j][ycolumn][0][backTable[0][2]] =\
+            numpy.max(nvetoData[j][ycolumn][xVal == nvetoData[j][xcolumn]])
+        for iTrig in backTable[0][3:]:
+          nvetoData[j][ycolumn][iTrig] = numpy.nan
+
+  # down-sample (xaxis) the triggers by plotting only median z-value over averaging window 
+  medianDuration = float(kwargs.pop('medianduration', 0))
+  stdDuration = float(kwargs.pop('stdduration', 0))
+  if medianDuration or stdDuration:
+    uniqYvalues = numpy.unique1d(nvetoData[0][ycolumn])
+    if medianDuration:
+      avDuration = medianDuration
+    elif stdDuration:
+      avDuration = stdDuration
+    tedges = numpy.arange(float(start), float(end), avDuration)
+    tedges = numpy.append(tedges, float(end))
+    # array for repacking triggers into time-frequency bins
+    repackTrig = {}
+    for yVal in uniqYvalues:
+      repackTrig[yVal] = {}
+      for iBin in range(len(tedges)-1):
+        repackTrig[yVal][iBin] = []
+    # building new set of triggers
+    newTrigs = {}
+    newTrigs[xcolumn] = []
+    newTrigs[ycolumn] = []
+    newTrigs[zcolumn] = []
+    for iTrig in range(len(nvetoData[0][zcolumn])):
+      trigVal = nvetoData[0][ycolumn][iTrig]
+      trigBin = math.floor((nvetoData[0][xcolumn][iTrig]-float(start))/avDuration)
+      repackTrig[trigVal][trigBin].append(nvetoData[0][zcolumn][iTrig])
+    for yVal in uniqYvalues:
+      for iBin in range(len(tedges)-1):
+        # keep only if at least a few elements, std doesn't make sens otherwise
+        if medianDuration and len(repackTrig[yVal][iBin]) > 0:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.median(numpy.array(repackTrig[yVal][iBin])))
+        elif stdDuration and len(repackTrig[yVal][iBin]) > 5:
+          newTrigs[xcolumn].append( (tedges[iBin]+tedges[iBin+1])/2 )
+          newTrigs[ycolumn].append(yVal)
+          newTrigs[zcolumn].append(numpy.std(numpy.array(repackTrig[yVal][iBin]))/ \
+                                     numpy.median(numpy.array(repackTrig[yVal][iBin])))
+          if newTrigs[zcolumn][-1] == 0:
+            newTrigs[zcolumn][-1] = numpy.nan
+    for i,col in enumerate(columns):
+      nvetoData[0][col] = numpy.array(newTrigs[col])
+
+  # get limits
   for i,col in enumerate(columns):
-    vetoData[col]  = numpy.array(vetoData[col])
-    nvetoData[col] = numpy.array(nvetoData[col])
-    data[col] = numpy.concatenate((nvetoData[col], vetoData[col]))
-    if not limits[i] and len(data[col])>=1:
+    if not limits[i]:
       limits[i] = [0,0]
-      limits[i][0] = data[col].min()*0.99
-      limits[i][1] = data[col].max()*1.01
+      for j in xrange(len(tables)):
+        data[col] = numpy.concatenate((nvetoData[j][col], vetoData[j][col]))
+        if len(data[col])>=1:
+          limits[i][0] = min(data[col].min()*0.99, limits[i][0])
+          limits[i][1] = max(data[col].max()*1.01, limits[i][1])
 
     # renormalise time and set time axis label unless given
     if re.search('time\Z', col):
       renormalise = True
       if kwargs.has_key('xlabel'):  renormalise = False
       if renormalise:
-        vetoData[col] = (vetoData[col]-float(zero))/unit
-        nvetoData[col] = (nvetoData[col]-float(zero))/unit
-        limits[i] = [float(limits[i][0]-zero)/unit,\
-                     float(limits[i][1]-zero)/unit]
+        for j in xrange(len(tables)):
+          if calendar_time:
+            vetoData[j][col] = gps2datenum(vetoData[j][col])
+            nvetoData[j][col] = gps2datenum(nvetoData[j][col])
+          else:
+            vetoData[j][col] = (vetoData[j][col]-float(zero))/unit
+            nvetoData[j][col] = (nvetoData[j][col]-float(zero))/unit
+        if calendar_time:        
+          limits[i] = [gps2datenum(float(limits[i][0])),\
+                       gps2datenum(float(limits[i][1]))]
+        else:
+          limits[i] = [float(limits[i][0]-zero)/unit,\
+                       float(limits[i][1]-zero)/unit]
 
   # set labels
+  label = {}
   for i,col in enumerate(['xcolumn', 'ycolumn', 'zcolumn']):
     if i >= len(columns):  continue
     if re.search('time\Z', columns[i]):
@@ -1614,27 +2270,27 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # find loudest event
   loudest = {}
-  if len(columns)==3 and\
-     len(nvetoData[columns[0]])+len(vetoData[columns[0]])>=1:
+  if len(columns)==4 and\
+     len(nvetoData[0][columns[0]])+len(vetoData[0][columns[0]])>=1:
     # find loudest vetoed event
     vetomax = 0
-    if len(vetoData[columns[2]])>=1:
-      vetomax = vetoData[columns[2]].max()
+    if len(vetoData[0][columns[3]])>=1:
+      vetomax = vetoData[0][columns[3]].max()
     nvetomax = 0
     # find loudest unvetoed event
-    if len(nvetoData[columns[2]])>=1:
-      nvetomax = nvetoData[columns[2]].max()
+    if len(nvetoData[0][columns[3]])>=1:
+      nvetomax = nvetoData[0][columns[3]].max()
     if vetomax == nvetomax == 0:
       pass
     # depending on which one is loudest, find loudest overall event
     elif vetomax > nvetomax:
-      index = vetoData[columns[2]].argmax()
+      index = vetoData[0][columns[3]].argmax()
       for col in columns:
-        loudest[col] = vetoData[col][index] 
+        loudest[col] = vetoData[0][col][index]
     else:
-      index = nvetoData[columns[2]].argmax()
+      index = nvetoData[0][columns[3]].argmax()
       for col in columns:
-        loudest[col] = nvetoData[col][index]
+        loudest[col] = nvetoData[0][col][index]
 
   # fix flag for use with latex
   if flag:
@@ -1644,11 +2300,11 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # get ETG
   if not etg:
-    if re.search('burst', triggers.tableName.lower()):
+    if re.search('burst', tables[0].tableName.lower()):
       etg = 'Burst'
-    elif re.search('inspiral', triggers.tableName.lower()):
+    elif re.search('inspiral', tables[0].tableName.lower()):
       etg = 'Inspiral'
-    elif re.search('ringdown', triggers.tableName.lower()):
+    elif re.search('ringdown', tables[0].tableName.lower()):
       etg = 'Ringdown'
     else:
       etg = 'Unknown'
@@ -1664,7 +2320,7 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
     title += ' and %s segments' % (flag)
   title = kwargs.pop('title', title)
 
-  if len(columns)==3 and loudest:
+  if len(columns)==4 and loudest:
     subtitle = "Loudest event by %s:" % display_name(columns[-1])
     for col in columns:
       maxcol = loudest[col]
@@ -1684,6 +2340,12 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   logy = kwargs.pop('logy', False)
   logz = kwargs.pop('logz', False)
 
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
   # get detchar plot params
   detchar = kwargs.pop('detchar', False)
   dcthresh = float(kwargs.pop('dcthreshold', 10))
@@ -1696,18 +2358,20 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
 
   # initialise standard scatter plot
   if len(columns)==2:
+    plotutils.default_colors = lambda: itertools.cycle(('b', 'r', 'g', 'c', 'm', 'y', 'k'))
     plot = ScatterPlot(label[columns[0]], label[columns[1]], title, subtitle)
-    # add non veto triggers
-    if len(nvetoData[columns[0]])>=1:
-      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]], **kwargs)
-    # add veto triggers
-    if len(vetoData[columns[0]])>=1:
-      plot.add_content(vetoData[columns[0]], vetoData[columns[1]], marker='x',\
-                       color='r')
+    for j in xrange(len(tables)):
+      if len(nvetoData[j][columns[0]])>=1:
+        plot.add_content(nvetoData[j][columns[0]], nvetoData[j][columns[1]],\
+                         label=tablelabel[j], **kwargs)
+      # add veto triggers
+      if len(vetoData[j][columns[0]])>=1:
+        plot.add_content(vetoData[j][columns[0]], vetoData[j][columns[1]],\
+                         label=tablelabel[j], marker='x', color='r')
     # finalise
-    plot.finalize(logx=logx, logy=logy)
+    plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
   # initialise scatter plot with colorbar
-  elif len(columns)==3:
+  elif len(columns)==4:
     # initialize color bar plot
     if detchar:
       plot = DetCharScatterPlot(label[columns[0]], label[columns[1]],\
@@ -1717,18 +2381,20 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
                                  label[columns[2]], title, subtitle)
 
     # add non veto triggers
-    if len(nvetoData[columns[0]])>=1:
-      plot.add_content(nvetoData[columns[0]], nvetoData[columns[1]],\
-                       nvetoData[columns[2]], **kwargs)
+    if len(nvetoData[0][columns[0]])>=1:
+      plot.add_content(nvetoData[0][columns[0]], nvetoData[0][columns[1]],\
+                       nvetoData[0][columns[2]], nvetoData[0][columns[3]],\
+                       **kwargs)
     # add veto triggers
-    if len(vetoData[columns[0]])>=1:
-      plot.add_content(vetoData[columns[0]], vetoData[columns[1]],\
-                       vetoData[columns[2]], marker='x', edgecolor='r',\
+    if len(vetoData[0][columns[0]])>=1:
+      plot.add_content(vetoData[0][columns[0]], vetoData[0][columns[1]],\
+                       vetoData[0][columns[2]], vetoData[0][columns[2]],\
+                       marker='x', edgecolor='r',\
                        **kwargs)
     # finalise
     if detchar:
       plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim,\
-                    zthreshold=dcthresh)
+                    rankthreshold=dcthresh)
     else:
       plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim)
     # add loudest event to plot
@@ -1740,27 +2406,23 @@ def plot_triggers(triggers, outfile, xcolumn='time', ycolumn='snr',\
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
 
   if limits[0]:
-    if logx and limits[0][0]==0:
-      limits[0][0] = min(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
-    if logx and limits[0][1]==0:
-      limits[0][1] = max(list(nvetoData[columns[0]])+list(vetoData[columns[0]]))
     plot.ax.set_xlim(limits[0])
   if limits[1]:
-    if logy and limits[1][0]==0:
-      limits[1][0] = min(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
-    if logy and limits[1][1]==0:
-      limits[1][1] = max(list(nvetoData[columns[1]])+list(vetoData[columns[1]]))
     plot.ax.set_ylim(limits[1])
 
   # reset ticks
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time=calendar_time)
+
   # get both major and minor grid lines
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot a histogram of segment duration
 
-def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
+def plot_segment_hist(segs, outfile, keys=None, num_bins=100, coltype=int,\
+                      **kwargs):
 
   """
     segments.
@@ -1787,41 +2449,75 @@ def plot_segment_hist(segs, outfile, num_bins=100, coltype=int, **kwargs):
   # customise plot appearance
   set_rcParams()
 
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+
   # get labels
   xlabel = kwargs.pop('xlabel', 'Length of segment (seconds)')
   ylabel = kwargs.pop('ylabel', 'Number of segments')
   title  = kwargs.pop('title',  'Segment Duration Histogram')
+  subtitle = kwargs.pop('subtitle', "")
 
   # get axis scale
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # get colorbar option
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
   # format mutltiple segments
   if isinstance(segs,list):
-    segs = segments.segmentlistdict({'_':segs})
+    if keys and isinstance(keys, 'str'):
+      segs = segments.segmentlistdict({keys:segs})
+      keys = [keys]
+    elif keys:
+      segs = segments.segmentlistdict({keys[0]:segs})
+    else:
+      segs = segments.segmentlistdict({'_':segs})
+      keys = ['_']
   else:
-    flags = segs.keys()
-    for flag in flags:
-      flag2 = flag.replace('_','\_')
-      if flag2!=flag:
-        segs[flag.replace('_','\_')] = segs[flag]
+    if not keys:
+      keys = segs.keys()
+    for i,flag in enumerate(keys):
+      keys[i] = display_name(flag)
+      if keys[i]!=flag:
+        segs[keys[i]] = segs[flag]
         del segs[flag]
 
-  flags = sorted(segs.keys())
+  if kwargs.has_key('color'):
+    colors = kwargs.pop('color').split(',')
+  else:
+    colors = zip(*zip(range(len(keys)), plotutils.default_colors()))[-1]
 
   # generate plot object
-  plot = VerticalBarHistogram(xlabel, ylabel, title)
+  plot = VerticalBarHistogram(xlabel, ylabel, title, subtitle)
 
   # add each segmentlist
-  for flag,c in zip(flags, plotutils.default_colors()):
-    plot.add_content([abs(seg) for seg in segs[flag]], label=flag, color=c,\
-                     **kwargs)
+  for flag,c in zip(keys, colors):
+    plot.add_content([float(abs(seg)) for seg in segs[flag]],\
+                      label=flag, color=c, **kwargs)
 
   # finalize plot with histograms
-  plot.finalize(num_bins=num_bins, logx=logx, logy=logy)
+  plot.finalize(num_bins=num_bins, logx=logx, logy=logy,\
+                hidden_colorbar=hidden_colorbar)
+
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  if ylim:
+    ylim = map(float, ylim)
+    plot.ax.set_ylim(ylim)
+  if xlim:
+    xlim = map(float, xlim)
+    plot.ax.set_xlim(xlim)
 
   # save figure
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot rate versus time in bins
@@ -1892,12 +2588,26 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
       etg = 'Unknown'
 
   # get limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  calendar_time = kwargs.pop('calendar_time', False)
+  if calendar_time:
+    xlim = kwargs.pop('xlim', [gps2datenum(float(start)),\
+                               gps2datenum(float(end))])
+  else:
+    xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
   ylim = kwargs.pop('ylim', None)
 
   # get axis scales
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
+
+  # get averaging time
+  average = kwargs.pop('average',average)
+
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # format ybins
   if not bins:
@@ -1908,7 +2618,11 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   tbins   = {}
   rate = {}
   for bin in ybins:
-    tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    if calendar_time:
+      tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start), float(end),\
+                                                    average)))
+    else:
+      tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
     rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
 
   for trig in triggers:
@@ -1916,6 +2630,9 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     y = getTrigAttribute(trig, bincolumn)
     for bin in ybins:
       if bin[0] <= y < bin[1]:
+        if x>=len(rate[bin[0]]):
+          print "trigger after end time, something is wrong", x, len(rate[bin[0]])
+          continue
         rate[bin[0]][x] += 1/average
         break
 
@@ -1971,7 +2688,7 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
                        **kwargs)
 
   # finalise plot
-  plot.finalize(logx=logx, logy=logy)
+  plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
 
   # set limits
   plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
@@ -1980,10 +2697,206 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
     plot.ax.set_ylim(ylim)
 
   # normalize ticks
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time)
 
   # save
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
+
+# =============================================================================
+# Plot RMS versus time in bins
+
+def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
+                     zero=None, rmscolumn='snr', bincolumn='peak_frequency',\
+                     bins=[], etg='Unknown', **kwargs):
+
+  """
+    Plot RMS versus time for the given ligolw table triggers, binned by the
+    given bincolumn using the bins list.
+
+    Arguments:
+
+      triggers : glue.ligolw.table
+        LIGOLW table containing a list of triggers
+      outfile : string
+        string path for output plot
+
+    Keyword arguments:
+
+      average : float
+        Length (seconds) of RMS segment
+      start : [ float | int | LIGOTimeGPS ]
+        GPS start time
+      end : [ float | int | LIGOTimeGPS ]
+        GPS end time
+      zero : [ float | int | LIGOTimeGPS ]
+        GPS time to use for 0 on time axis
+      rmscolumn : string
+        valid column of the trigger table to RMS over
+      bincolumn : string
+        valid column of the trigger table to use for binning
+      bins : list
+        list of tuples defining the rate bins
+      etg : string
+        display name of trigger generator
+      logy : [ True | False ]
+        boolean option to display y-axis in log scale
+      ylim : tuple
+        (ymin, ymax) limits for rate axis
+  """
+
+  tableName = triggers.tableName.lower()
+  get_time = def_get_time(tableName)
+
+  # set start and end times
+  if not start and not end:
+    times = [get_time(t) for t in triggers]
+  if not start:
+    start = min(times)
+  if not end:
+    end   = max(times)
+
+  if not zero:
+    zero = start
+
+  # set plot time unit whether it's used or not
+  unit, timestr = time_unit(end-start)
+
+  # set ETG
+  if not etg:
+    if re.search('burst', tableName):
+      etg = 'Burst'
+    elif re.search('inspiral', tableName):
+      etg = 'Inspiral'
+    elif re.search('ringdown', tableName):
+      etg = 'Ringdown'
+    else:
+      etg = 'Unknown'
+
+  # get limits
+  calendar_time = kwargs.pop('calendar_time', False)
+  if calendar_time:
+    xlim = kwargs.pop('xlim', [gps2datenum(float(start)),\
+                               gps2datenum(float(end))])
+  else:
+    xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  ylim = kwargs.pop('ylim', None)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+
+  # get averaging time
+  average = kwargs.pop('average',average)
+
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # format ybins
+  if not bins:
+    bins  = [[0,float('inf')]]
+  ybins   = [map(float, bin) for bin in bins]
+
+  # bin data
+  tbins   = {}
+  rate = {}
+  rms = {}
+  for bin in ybins:
+    if calendar_time:
+      tbins[bin[0]] = list(gps2datenum(numpy.arange(float(start), float(end),\
+                                                    average)))
+    else:
+      tbins[bin[0]] = list(numpy.arange(0,float(end-start), average)/unit)
+    rate[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+    rms[bin[0]] = list(numpy.zeros(len(tbins[bin[0]])))
+
+  for trig in triggers:
+    x = int(float(getTrigAttribute(trig, 'time')-start)//average)
+    y = getTrigAttribute(trig, bincolumn)
+    z = getTrigAttribute(trig, rmscolumn)
+    for bin in ybins:
+      if bin[0] <= y < bin[1]:
+        rms[bin[0]][x] += z*z
+        rate[bin[0]][x] += 1
+        break
+
+  # Normalize the RMS to get the mean not the sum
+  for bin in ybins:
+    for x in range(len(tbins[bin[0]])):
+      if rate[bin[0]][x] :
+        rms[bin[0]][x] = math.sqrt(rms[bin[0]][x]/rate[bin[0]][x])
+
+  # if logscale includes zeros, pylab.scatter will break, so remove zeros
+  if logy:
+    for bin in ybins:
+      removes = 0
+      numtbins = len(tbins[bin[0]])
+      for rbin in xrange(0,numtbins):
+        if rms[bin[0]][rbin-removes]==0:
+          rms[bin[0]].pop(rbin-removes)
+          tbins[bin[0]].pop(rbin-removes)
+          removes+=1
+
+  # set labels
+  etg   = etg.replace('_', '\_')
+  zero = LIGOTimeGPS('%.3f' % zero)
+  if zero.nanoseconds==0:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                 .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+  else:
+    tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                  .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+    tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+  xlabel = kwargs.pop('xlabel',\
+                      'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel = kwargs.pop('ylabel', 'RMS')
+  title = kwargs.pop('title', '%s triggers binned by %s'\
+                              % (etg, display_name(bincolumn)))
+  if start and end:
+    subtitle = '%s-%s' % (start, end)
+  else:
+    subtitle = " "
+  subtitle = kwargs.pop('subtitle', subtitle)
+
+  # customise plot appearance
+  set_rcParams()
+
+  # generms plot object
+  plot = ScatterPlot(xlabel, ylabel, title, subtitle)
+
+  # plot rmss
+  for bin in ybins:
+    if logy:
+      if len(rms[bin[0]])>0:
+        plot.add_content(tbins[bin[0]], rms[bin[0]],\
+                         label='-'.join(map(str, bin)), **kwargs)
+      else:
+        plot.add_content([1],[0.1], label='-'.join(map(str, bin)),\
+                         visible=False)
+    else:
+      plot.add_content(tbins[bin[0]], rms[bin[0]], label='-'.join(map(str, bin)),\
+                       **kwargs)
+
+  # finalise plot
+  plot.finalize(logx=logx, logy=logy, hidden_colorbar=hidden_colorbar)
+
+  # set limits
+  plot.ax.autoscale_view(tight=True, scalex=True, scaley=True)
+  plot.ax.set_xlim(xlim)
+  if ylim:
+    plot.ax.set_ylim(ylim)
+
+  # normalize ticks
+  set_ticks(plot.ax, calendar_time=calendar_time)
+
+  # save
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot segments
@@ -2029,28 +2942,44 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
     tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
   xlabel   = kwargs.pop('xlabel',\
                         'Time (%s) since %s (%s)' % (timestr, tlabel, zero))
+  ylabel   = kwargs.pop('ylabel', "")
   title    = kwargs.pop('title', '')
   subtitle = kwargs.pop('subtitle', '')
 
   # get axis limits
-  xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+  calendar_time = kwargs.pop('calendar_time', False)
+  if calendar_time:
+    xlim = kwargs.pop('xlim', [gps2datenum(float(start)),\
+                               gps2datenum(float(end))])
+  else:
+    xlim = kwargs.pop('xlim', [float(start-zero)/unit, float(end-zero)/unit])
+
+  # get label param
+  labels_inset = kwargs.pop('labels_inset', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # get colorbar option
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
 
   if keys:
     # escape underscore, but don't do it twice
     keys = [key.replace('_','\_').replace('\\_','\_') for key in keys]
   segkeys = segdict.keys()
+  newdict = segments.segmentlistdict()
   for key in segkeys:
     newkey = key.replace('_','\_').replace('\\\_','\_')
-    if key!=newkey:
-      segdict[newkey] = segdict[key]
-      del segdict[key]
+    newdict[newkey] = segdict[key]
+  segdict = newdict
 
   # set params
   set_rcParams()
 
-  plot = PlotSegmentsPlot(xlabel, "", title, subtitle, t0=zero, unit=unit)
+  plot = PlotSegmentsPlot(xlabel, ylabel, title, subtitle, t0=zero, unit=unit,\
+                          calendar_time=calendar_time)
   plot.add_content(segdict, keys, **kwargs)
-  plot.finalize()
+  plot.finalize(labels_inset=labels_inset, hidden_colorbar=hidden_colorbar)
 
   # indicate last frame
   if highlight_segments:
@@ -2063,9 +2992,329 @@ def plot_segments(segdict, outfile, start=None, end=None, zero=None,
   plot.ax.grid(True,which='major')
   plot.ax.grid(True,which='majorminor')
 
-  set_ticks(plot.ax)
+  set_ticks(plot.ax, calendar_time)
 
-  plot.savefig(outfile, bbox_inches='tight')
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+def parse_plot_config(cp, section):
+
+  """
+    Parse ConfigParser.ConfigParser section for plot parameters. Sections should
+    be name '[plot xcolumn-ycolumn-zcolumn]' e.g.
+    '[plot time-peak_frequency-snr]'. Returns a pair of dicts with the
+    following keys:
+
+    columns:
+
+      xcolumn : [ string | None ]
+        column string to plot on x-axis
+      ycolumn : [ string | None ]
+        column string to plot on y-axis
+      zcolumn : [ string | None ]
+        column string to plot on z-axis
+
+    params:
+
+      xlim : list
+        [xmin, xmax] pair for x-axis limits
+      ylim : list
+        [ymin, ymax] pair for y-axis limits
+      zlim : list
+        [zmin, zmax] pair for z-axis limits
+      clim : list
+        [cmin, cmax] pair for colorbar limits
+      logx : bool
+        True / False to plot log scale on x-axis
+      logy : bool
+        True / False to plot log scale on y-axis
+      logz : bool
+        True / False to plot log scale on z-axis
+  """
+
+  columns = {'xcolumn':None, 'ycolumn':None, 'zcolumn':None, 'rankcolumn':None}
+  params  = {}
+
+  plot = re.split('[\s-]', section)[1:]
+  if len(plot)>=1:
+    columns['xcolumn'] = plot[0]
+  if len(plot)>=2:
+    columns['ycolumn'] = plot[1]
+  if len(plot)>=3:
+    columns['zcolumn'] = plot[2]
+  if len(plot)>=4:
+    columns['rankcolumn'] = plot[3]
+
+  limits   = ['xlim', 'ylim', 'zlim', 'clim', 'exponents', 'constants',\
+              'color_bins']
+  filters  = ['poles', 'zeros']
+  bins     = ['bins']
+  booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
+              'greyscale', 'zeroindicator', 'normalized', 'include_downtime',\
+              'calendar_time', 'fill', 'hidden_colorbar']
+  values   = ['dcthresh','amplitude','num_bins','linewidth','average','s']
+
+  # extract plot params as a dict
+  params = {}
+  for key,val in cp.items(section):
+    val = val.rstrip('"').strip('"')
+    if key in limits:
+      params[key] = map(float, val.split(','))
+    elif key in filters:
+      params[key] = map(complex, val.split(','))
+    elif key in bins:
+       params[key] = map(lambda p: map(float, p.split(',')), val.split(';'))
+    elif key in booleans:
+      params[key] = cp.getboolean(section, key)
+    elif key in values:
+      params[key] = float(val)
+    else:
+      params[key] = val
+
+  return columns, params
+
+# ==============================================================================
+# Plot color map
+
+def plot_color_map(data, outfile, data_limits=None, x_format='time',\
+                   y_format='frequency', z_format='amplitude', zero=None,\
+                   x_range=None, y_range=None, **kwargs):
+
+  """
+    Plots data in a 2d color map.
+  """
+ 
+  if not (isinstance(data, list) or isinstance(data, tuple)):
+    data_sets = [data]
+    data_limit_sets = [data_limits]
+  else:
+    data_sets = data
+    data_limit_sets = data_limits
+    if not len(data_sets) == len(data_limit_sets):
+      raise AttributeError("You have given %d data sets and %d limit sets! Eh?"\
+                           % (len(data_sets), len(data_limit_sets)))
+
+  # set data limits
+  for i,data_limits in enumerate(data_limit_sets):
+    if not data_limits:
+      numrows, numcols = numpy.shape(data_sets[i])
+      if kwargs.has_key('xlim'):
+        xlim = kwargs['xlim']
+      else:
+        xlim = [0, numrows]
+      if kwargs.has_key('ylim'):
+        ylim = kwargs['ylim']
+      elif pylab.rcParams['image.origin'] == 'upper':
+        ylim = [numrows, 0]
+      else:
+        ylim = [0, numrows]
+
+      data_limit_sets[i] = [xlim[0], xlim[1], ylim[0], ylim[1]]
+
+  # get limits
+  xlim = kwargs.pop('xlim', None)
+  ylim = kwargs.pop('ylim', None)
+  zlim = kwargs.pop('zlim', None)
+  clim = kwargs.pop('clim', None)
+  calendar_time = kwargs.pop('calendar_time', False)
+
+  # get axis scales
+  logx = kwargs.pop('logx', False)
+  logy = kwargs.pop('logy', False)
+  logz = kwargs.pop('logz', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # restrict data to meet limits if using log
+  for i,(data, data_limits) in enumerate(zip(data_sets, data_limit_sets)):
+    if logx and xlim:
+      shape = numpy.shape(data)
+      xmin, xmax = data_limits[0], data_limits[1]
+      if x_range==None:
+        x_range = numpy.logspace(numpy.log10(xmin), numpy.log10(xmax),\
+                               num.shape[-1])
+      condition = (x_range>xlim[0]) & (x_range<=xlim[1])
+      newx = numpy.where(condition)[0]
+      data2 = numpy.resize(data, (len(newx), shape[-2]))
+      for j in xrange(newx):
+        data2[:,j] = data[newx[j],:]
+      data = data2.transpose()
+
+    if logy and ylim:
+      shape = numpy.shape(data)
+      ymin, ymax = data_limits[2], data_limits[3]
+      if y_range==None:
+        y_range = numpy.logspace(numpy.log10(ymin), numpy.log10(ymax),\
+                               num=shape[-2])
+      condition = (y_range>ylim[0]) & (y_range<=ylim[1])
+      newy  = numpy.where((condition))[0]
+      data2 = numpy.resize(data, (len(newy), shape[-1]))
+      for j in xrange(shape[-1]):
+        data2[:,j] = data[:,j][condition]
+      data = data2
+      data_limits[2:] = ylim
+    data_sets[i] = data
+
+  # get columnar params
+  columns = list(map(str.lower, [x_format, y_format, z_format]))
+  limits  = [xlim, ylim, zlim]
+  for i,lim in enumerate(limits):
+    if lim:
+      limits[i] = list(map(float, lim))
+  labels = ["", "", "", "", ""]
+
+  # get zero time for normalisation
+  if 'time' in columns and not zero:
+    i = columns.index('time')
+    if limits[i]:
+      zero = limits[i][0]
+    else:
+      zero = min(data_limits[0] for data_limits in data_limit_sets)
+
+  # format labels
+  for i,(col,c) in enumerate(zip(columns, ['x', 'y', 'z'])):
+    if col.lower() == 'time' and limits[i]:
+      unit, timestr = time_unit(float(limits[i][1]-limits[i][0]))
+      zero = LIGOTimeGPS('%.3f' % zero)
+      if zero.nanoseconds==0:
+        tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero))[:6])\
+                     .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+      else:
+        tlabel = datetime(*date.XLALGPSToUTC(LIGOTimeGPS(zero.seconds))[:6])\
+                    .strftime("%B %d %Y, %H:%M:%S %ZUTC")
+        tlabel = tlabel.replace(' UTC', '.%.3s UTC' % zero.nanoseconds)
+      labels[i] = kwargs.pop('%slabel' % c, 'Time (%s) since %s (%s)'\
+                                            % (timestr, tlabel, zero))
+      if calendar_time:
+        limits[i] = gps2datenum(numpy.asarray(limits[i]))
+      else:
+        limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
+      for i,data_limits in enumerate(data_limit_sets):
+        if calendar_time:
+          data_limit_sets[i][0] = gps2datenum(float(data_limits[0]))
+          data_limit_sets[i][1] = gps2datenum(float(data_limits[1]))
+        else:
+          data_limit_sets[i][0] = float(data_limits[0]-zero)/unit
+          data_limit_sets[i][1] = float(data_limits[1]-zero)/unit
+    else:
+      labels[i] = kwargs.pop('%slabel' % c, display_name(col))
+
+  labels[3] = kwargs.pop('title', "")
+  labels[4] = kwargs.pop('subtitle', "")
+
+  # customise plot appearance
+  set_rcParams()
+
+  # generate plot object
+  plot = ColorMap(*labels)
+
+  # add data
+  for i, (data, data_limits) in enumerate(zip(data_sets, data_limit_sets)):
+    plot.add_content(data, data_limits, aspect='auto')
+
+  # finalize
+  plot.finalize(logx=logx, logy=logy, logz=logz, clim=clim, origin='lower')
+
+  if limits[0] is not None and len(limits[0])==2:
+    plot.ax.set_xlim(limits[0])
+  if limits[1] is not None and len(limits[1])==2:
+    plot.ax.set_ylim(limits[1])
+
+  # set global ticks
+  set_ticks(plot.ax, calendar_time=calendar_time)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
+
+# =============================================================================
+# Significance drop plot (HVeto style)
+
+def plot_significance_drop(startsig, endsig, outfile, **kwargs):
+
+  """
+    Plot significance drop for each channel relative to the application of
+    HVeto round veto segments.
+  """
+
+  # get channels
+  channels = startsig.keys()
+  for c in channels:
+    if c not in endsig.keys():
+      raise AttributeError("Significance lists do not match.")
+  channels.sort()
+
+  # find winner
+  wch,wsig = max(startsig.items(), key=lambda x: x[1])
+
+  # extract parameters
+  kwargs.pop('xlim', None)
+  ylim     = kwargs.pop('ylim', (0, wsig+1))
+  xlabel   = kwargs.pop('xlabel',   "")
+  ylabel   = kwargs.pop('ylabel',   "Significance")
+  title    = kwargs.pop('title',    "Coincidence significance drop plot")
+  subtitle = kwargs.pop('subtitle',\
+                        "Winner: %s, significance: %s" % (wch, wsig))
+
+  kwargs.setdefault('linestyle', '-')
+  kwargs.setdefault('marker', 'o')
+  color    = kwargs.pop('color', None)
+
+  # customise plot appearance
+  set_rcParams()
+  pylab.rcParams.update({"figure.figsize":[24,6], "xtick.labelsize": 8})
+
+  # get colorbar options
+  hidden_colorbar = kwargs.pop('hidden_colorbar', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
+
+  # generate plot object
+  plot = DataPlot(xlabel, ylabel, title, subtitle)
+
+  kwargs.setdefault('markersize', 10)
+
+  # plot each channel's drop
+  for i,c in enumerate(channels):
+    s   = startsig[c]
+    e   = endsig[c]
+    col = color and color or s>e and 'b' or 'r'
+    plot.add_content([i,i], [s,e], color=col, **kwargs)
+
+  # finalise plot object
+  plot.finalize(logx=False, logy=False, hidden_colorbar=hidden_colorbar)
+
+  # set xticks to channel names and rotate
+  plot.ax.set_xlim(-1, len(channels))
+  plot.ax.set_xticks(numpy.arange(0,len(channels)))
+  plot.ax.set_xticklabels([c.replace('_','\_') for c in channels])
+  for i,t in enumerate(plot.ax.get_xticklabels()):
+    t.set_rotation(315)
+    #t.set_position(((i+1)/(len(channels)+1), 0.1))
+    t.set_verticalalignment('top')
+    t.set_horizontalalignment('left')
+    #t.set_bbox(dict(facecolor='white', alpha=0.5, edgecolor='none'))
+
+  # set ylim
+  plot.ax.set_ylim(ylim)
+
+  # turn off x grid
+  plot.ax.xaxis.grid(False)
+
+  plot.fig.subplots_adjust(bottom=0.3)
+
+  # save figure
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)
 
 # =============================================================================
 # Plot sky positions
@@ -2171,8 +3420,7 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
   etg = etg.replace('_', '\_')
 
   # get title
-  title = '%s sky positions' % etg
-  title    = kwargs.pop("title", title)
+  title    = kwargs.pop("title", "")
   subtitle = kwargs.pop("subtitle", "")
 
   # get limits
@@ -2185,6 +3433,9 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
   logz = kwargs.pop('logz', False)
+
+  # get savefig option
+  bbox_inches = kwargs.pop('bbox_inches', 'tight')
 
   # get IFO data
   detData = []
@@ -2229,10 +3480,11 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
         lon.append(getattr(p, loncol))
         lat.append(getattr(p, latcol))
     lineData.append((label, [lon, lat]))
-  for c in plotutils.default_colors():
-    if c=='b': continue
-    lineCol.append(c)
-    if len(lineCol)==len(lineData):  break
+  if len(lineData):
+    for c in plotutils.default_colors():
+      if c=='b': continue
+      lineCol.append(c)
+      if len(lineCol)==len(lineData):  break
 
   # get point data
   columns = ['longitude', 'latitude']
@@ -2320,78 +3572,6 @@ def plot_sky_positions(skyTable, outfile, format='radians', zcolumn=None,\
     plot.ax.set_ylim(ylim)
 
   # save
-  try:
-    plot.savefig(outfile, bbox_inches='tight', bbox_extra_artists=plot.ax.texts)
-  except AssertionError:
-    plot.savefig(outfile, bbox_inches='tight')
-
-
-# =============================================================================
-# Helper functions
-# =============================================================================
-
-def parse_plot_config(cp, section):
-
-  """
-    Parse ConfigParser.ConfigParser section for plot parameters. Sections should
-    be name '[plot xcolumn-ycolumn-zcolumn]' e.g.
-    '[plot time-peak_frequency-snr]'. Returns a pair of dicts with the
-    following keys:
-
-    columns:
-
-      xcolumn : [ string | None ]
-        column string to plot on x-axis
-      ycolumn : [ string | None ]
-        column string to plot on y-axis
-      zcolumn : [ string | None ]
-        column string to plot on z-axis
-
-    params:
-
-      xlim : list
-        [xmin, xmax] pair for x-axis limits
-      ylim : list
-        [ymin, ymax] pair for y-axis limits
-      zlim : list
-        [zmin, zmax] pair for z-axis limits
-      clim : list
-        [cmin, cmax] pair for colorbar limits
-      logx : bool
-        True / False to plot log scale on x-axis
-      logy : bool
-        True / False to plot log scale on y-axis
-      logz : bool
-        True / False to plot log scale on z-axis
-  """
-
-  columns = {}
-  params  = {}
-
-  plot = re.split('[\s-]', section)[1:]
-  columns['xcolumn'] = plot[0]
-  columns['ycolumn'] = plot[1]
-  if len(plot)>2:
-    columns['zcolumn'] = plot[2]
-  else:
-    columns['zcolumn'] = None
-
-  limits   = ['xlim', 'ylim', 'zlim', 'clim']
-  booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
-              'greyscale', 'zeroindicator']
-  values   = ['dcthresh']
-
-  # extract plot params as a dict
-  params = {}
-  for key,val in cp.items(section):
-    if key in limits:
-      params[key] = map(float, val.split(','))
-    elif key in booleans:
-      params[key] = cp.getboolean(section, key)
-    elif key in values:
-      params[key] = float(val)
-    else:
-      params[key] = val
-
-  return columns, params
-
+  plot.savefig(outfile, bbox_inches=bbox_inches,\
+               bbox_extra_artists=plot.ax.texts)
+  pylab.close(plot.fig)

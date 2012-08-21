@@ -43,7 +43,7 @@ SEQUENCETYPE *CFUNC (
 	if(!new || (length && !data)) {
 		XLALFree(new);
 		XLALFree(data);
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 	}
 
 	new->data = data;
@@ -61,7 +61,7 @@ SEQUENCETYPE *XFUNC (
 {
 	SEQUENCETYPE *new = CFUNC (length);
 	if(!new)
-		XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+		XLAL_ERROR_NULL(XLAL_EFUNC);
 	memcpy(new->data, sequence->data + first, length * sizeof(*new->data));
 
 	return new;
@@ -115,7 +115,7 @@ SEQUENCETYPE *RFUNC (
 			sequence->length = length;
 			SFUNC (sequence, -first);
 		} else
-			XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+			XLAL_ERROR_NULL(XLAL_EFUNC);
 	} else {
 		/* do not need to increase memory */
 		SFUNC (sequence, -first);
@@ -124,7 +124,7 @@ SEQUENCETYPE *RFUNC (
 			sequence->data = new_data;
 			sequence->length = length;
 		} else
-			XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+			XLAL_ERROR_NULL(XLAL_EFUNC);
 	}
 
 	return sequence;
@@ -147,10 +147,10 @@ DATATYPE TYPESUM (
 	size_t count
 )
 {
-	DATATYPE sum = ZERO;
+	DATATYPE sum = 0;
 
 	for(data += first; count-- > 0; data++)
-		SUM
+		sum += *data;
 
 	return sum;
 }
@@ -165,7 +165,10 @@ SQUAREDATATYPE TYPESUMSQ (
 	SQUAREDATATYPE sum = 0;
 
 	for(data += first; count-- > 0; data++)
-		sum += SUMSQ;
+		/* clang cannot compile complex compound assignments yet
+		 * radr://11224126 */
+		/* sum += *data * *data; */
+		sum = sum + (*data * *data);
 
 	return sum;
 }
@@ -178,7 +181,7 @@ DATATYPE SEQUENCESUM (
 )
 {
 	if(first >= sequence->length)
-		return ZERO;
+		return 0;
 	if(first + count > sequence->length)
 		count = sequence->length - first;
 	return TYPESUM (sequence->data, first, count);

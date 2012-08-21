@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2007  Kipp Cannon and Flanagan, E.
  *
@@ -28,6 +27,7 @@
  */
 
 
+#include <complex.h>
 #include <math.h>
 
 
@@ -45,11 +45,6 @@
 #include <lal/TFTransform.h>
 #include <lal/Thresholds.h>
 #include <lal/XLALError.h>
-
-
-#include <lal/LALRCSID.h>
-NRCSID(FREQSERIESTOTFPLANEC, "$Id:");
-
 
 /*
  * ============================================================================
@@ -94,7 +89,7 @@ static COMPLEX16Sequence *apply_filter(
 	const COMPLEX16 *filter = filterseries->data->data + (int) floor((flo - filterseries->f0) / filterseries->deltaF + 0.5);
 
 	if(outputseq->length != inputseries->data->length)
-		XLAL_ERROR_NULL(__func__, XLAL_EBADLEN);
+		XLAL_ERROR_NULL(XLAL_EBADLEN);
 
 	if(((unsigned) (output - outputseq->data) > outputseq->length) || (last - outputseq->data < 0))
 		/* inputseries and filterseries don't intersect */
@@ -103,7 +98,7 @@ static COMPLEX16Sequence *apply_filter(
 		/* output = inputseries * conj(filter) */
 		memset(outputseq->data, 0, (output - outputseq->data) * sizeof(*outputseq->data));
 		for(; output < last; output++, input++, filter++)
-			*output = XLALCOMPLEX16Mul(*input, XLALCOMPLEX16Conjugate(*filter));
+			*output = *input * conj(*filter);
 		memset(last, 0, (outputseq->length - (last - outputseq->data)) * sizeof(*outputseq->data));
 	}
 
@@ -111,11 +106,9 @@ static COMPLEX16Sequence *apply_filter(
 }
 
 
-/*
+/**
  * Project a frequency series onto the comb of channel filters
  */
-
-
 int XLALFreqSeriesToTFPlane(
 	REAL8TimeFrequencyPlane *plane,
 	const LALExcessPowerFilterBank *filter_bank,
@@ -129,17 +122,17 @@ int XLALFreqSeriesToTFPlane(
 	/* check input parameters */
 	if((fmod(plane->deltaF, fseries->deltaF) != 0.0) ||
 	   (fmod(plane->flow - fseries->f0, fseries->deltaF) != 0.0))
-		XLAL_ERROR(__func__, XLAL_EINVAL);
+		XLAL_ERROR(XLAL_EINVAL);
 
 	/* make sure the frequency series spans an appropriate band */
 	if((plane->flow < fseries->f0) ||
 	   (plane->flow + plane->channel_data->size2 * plane->deltaF > fseries->f0 + fseries->data->length * fseries->deltaF))
-		XLAL_ERROR(__func__, XLAL_EDATA);
+		XLAL_ERROR(XLAL_EDATA);
 
 	/* create temporary vectors */
 	fcorr = XLALCreateCOMPLEX16Sequence(fseries->data->length);
 	if(!fcorr)
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 #if 0
 	/* diagnostic code to dump data for the \hat{s}_{k} histogram */
@@ -188,7 +181,7 @@ int XLALFreqSeriesToTFPlane(
 		apply_filter(fcorr, fseries, filter_bank->basis_filters[i].fseries);
 		if(XLALREAL8ReverseFFT(plane->channel_buffer, fcorr, reverseplan)) {
 			XLALDestroyCOMPLEX16Sequence(fcorr);
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		}
 		/* interleave the result into the channel_data array */
 		for(j = 0; j < plane->channel_buffer->length; j++)
@@ -236,7 +229,7 @@ static SnglBurst *XLALTFTileToBurstEvent(
 	SnglBurst *event = XLALCreateSnglBurst();
 
 	if(!event)
-		XLAL_ERROR_NULL(__func__, XLAL_ENOMEM);
+		XLAL_ERROR_NULL(XLAL_ENOMEM);
 
 	event->next = NULL;
 	strncpy(event->ifo, plane->name, 2);
@@ -326,7 +319,7 @@ SnglBurst *XLALComputeExcessPower(
 			gsl_vector_free(channel_buffer);
 		if(unwhitened_channel_buffer)
 			gsl_vector_free(unwhitened_channel_buffer);
-		XLAL_ERROR_NULL(__func__, XLAL_ENOMEM);
+		XLAL_ERROR_NULL(XLAL_ENOMEM);
 	}
 
 	/*
@@ -415,7 +408,7 @@ SnglBurst *XLALComputeExcessPower(
 		if(XLALIsREAL8FailNaN(confidence)) {
 			gsl_vector_free(channel_buffer);
 			gsl_vector_free(unwhitened_channel_buffer);
-			XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+			XLAL_ERROR_NULL(XLAL_EFUNC);
 		}
 
 		/* record tiles whose statistical confidence is above
@@ -431,7 +424,7 @@ SnglBurst *XLALComputeExcessPower(
 			if(!head) {
 				gsl_vector_free(channel_buffer);
 				gsl_vector_free(unwhitened_channel_buffer);
-				XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+				XLAL_ERROR_NULL(XLAL_EFUNC);
 			}
 			head->next = oldhead;
 		}

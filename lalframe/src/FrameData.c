@@ -113,6 +113,7 @@ LALI2DestroyVector( &status, &dmro.data );
 */
 
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -122,18 +123,13 @@ LALI2DestroyVector( &status, &dmro.data );
 #include <lal/FrameData.h>
 #include <lal/LALFrameL.h>
 
-NRCSID (FRAMEDATAC, "$Id$");
-
-
 void
 LALInitializeFrameData (
     LALStatus  *status,
     FrameData **frameData,
     CHAR       *framePath
     )
-{ 
-  const CHAR *headNames[]       = {"C1-*.F", "H-*.F", "H-*.T", "L-*.F",
-                                   "L-*.T", "C1-*[0-9]"};
+{
   const INT4  numHeadNames      = 6;
   const INT4  maxNumFiles       = 2048;
   const INT4  maxFileNameLength = 256;
@@ -142,11 +138,12 @@ LALInitializeFrameData (
   CHAR                   command[1024];
   INT4                   nameType;
 
-  INITSTATUS (status, "LALInitializeFrameData", FRAMEDATAC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* make sure arguments are reasonable */
-  ASSERT (framePath, status, FRAMEDATAH_ENULL, FRAMEDATAH_MSGENULL);
+  if ( framePath == NULL ) ABORT(status, FRAMEDATAH_ENULL, FRAMEDATAH_MSGENULL);
+
   ASSERT (frameData, status, FRAMEDATAH_ENULL, FRAMEDATAH_MSGENULL);
   ASSERT (!(*frameData), status, FRAMEDATAH_ENNUL, FRAMEDATAH_MSGENNUL);
 
@@ -177,15 +174,18 @@ LALInitializeFrameData (
   for (nameType = 0; nameType < numHeadNames; ++nameType)
   {
     FILE *fp;
-    INT4  nbytes;
     INT4  numFiles;
 
     /* command to list frame files of current name type */
+#ifndef LAL_NDEBUG
+    INT4  nbytes;
+    const CHAR *headNames[]       = {"C1-*.F", "H-*.F", "H-*.T", "L-*.F", "L-*.T", "C1-*[0-9]"};
     nbytes = sprintf (command, "ls %s/%s 2>/dev/null",
                       framePath, headNames[nameType]);
     ASSERT (nbytes > 0, status, FRAMEDATAH_EREAD, FRAMEDATAH_MSGEREAD);
     ASSERT (nbytes < (INT4)sizeof(command), status,
             FRAMEDATAH_EREAD, FRAMEDATAH_MSGEREAD);
+#endif
 
     /* fp is a stream containing the filenames */
     fp = popen (command, "r");
@@ -225,7 +225,7 @@ LALFinalizeFrameData (
     FrameData **frameData
     )
 { 
-  INITSTATUS (status, "LALFinalizeFrameData", FRAMEDATAC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* make sure argument is reasonable */
@@ -265,7 +265,7 @@ GetNewFrame (
 {
   const REAL4 resolution = 3.2e-3;
 
-  INITSTATUS (status, "GetNewFrame", FRAMEDATAC);
+  INITSTATUS(status);
 
   /* make sure argument is not NULL */
   ASSERT (frameData, status, FRAMEDATAH_ENULL, FRAMEDATAH_MSGENULL);
@@ -399,7 +399,7 @@ LALGetFrameData (
   INT4 numPoints;
   INT4 needed;
 
-  INITSTATUS (status, "LALGetFrameData", FRAMEDATAC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* make sure arguments are reasonable */
@@ -569,7 +569,7 @@ SplineFit (
   REAL4       *ypp;
   UINT4        n;
 
-  INITSTATUS (status, "SplineFit", FRAMEDATAC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* make sure arguments are reasonable */
@@ -705,7 +705,7 @@ LALGetFrameDataResponse (
   INT4   n;
   UINT4  i;
 
-  INITSTATUS (status, "LALGetFrameDataResponse", FRAMEDATAC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (frameData, status, FRAMEDATAH_ENULL, FRAMEDATAH_MSGENULL);

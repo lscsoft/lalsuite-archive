@@ -17,12 +17,6 @@
  *  MA  02111-1307  USA
  */
 
-/**
- * \author Karl Wette
- * \file
- * \brief Support routines for GSL
- */
-
 #include <math.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -31,14 +25,11 @@
 #include <gsl/gsl_permutation.h>
 #include <gsl/gsl_math.h>
 
-#include <lal/LALRCSID.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALMalloc.h>
 #include <lal/LALConstants.h>
 #include <lal/XLALError.h>
 #include <lal/GSLSupport.h>
-
-NRCSID(GSLSUPPORTC, "$Id$");
 
 /**
  * Convert variable argument list to a gsl_vector
@@ -88,7 +79,7 @@ gsl_vector *XLALGSLVectorFromLALStringVector(
   for (i = 0; i < (INT4)args->length; ++i) {
     if (sscanf(args->data[i], "%le", &x) != 1) {
       XLALPrintError("'%s' is not numeric\n", args->data[i]);
-      XLAL_ERROR_NULL("An element of 'args' is not numeric", XLAL_EINVAL);
+      XLAL_ERROR_NULL(XLAL_EINVAL);
     }
     gsl_vector_set(result, i, x);
   }

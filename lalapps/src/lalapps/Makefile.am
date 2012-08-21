@@ -57,9 +57,11 @@ LDADD = liblalapps.la @LAL_LIBS@
 INCLUDES = -I$(top_srcdir)/src
 
 if HAVE_PYTHON
-pkgpython_DATA = \
-	__init__.py \
-	defaults.py
+pkgpython_PYTHON = \
+	__init__.py
+dist_bin_SCRIPTS = \
+	lalapps_path2cache \
+	lalapps_searchsum2cache
 endif
 
 EXTRA_DIST = \
@@ -67,7 +69,6 @@ EXTRA_DIST = \
 	series.h \
 	getdate.y \
 	__init__.py \
-	defaults.py \
 	fftw_wisdom.c \
 	fftwf_wisdom.c \
 	lalappsfrutils.c \
@@ -75,16 +76,19 @@ EXTRA_DIST = \
 	processtable.c \
 	processtable.h \
 	LALAppsVCSInfo.h.in \
-	generate_vcs_info.py
+	generate_vcs_info.py\
+	git_version.py.in
 
 BUILT_SOURCES = \
 	._vcsinfo \
-	LALAppsVCSInfo.h
+	LALAppsVCSInfo.h \
+	git_version.py
 
 LALAppsVCSInfo.h: ._vcsinfo
 
+git_version.py: ._vcsinfo
+
 ._vcsinfo: $(srcdir)/generate_vcs_info.py
-	@echo "creating LALAppsVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALApps $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALApps $(srcdir) $$PWD
 
 TESTS = lalapps_version

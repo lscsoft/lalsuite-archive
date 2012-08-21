@@ -43,8 +43,6 @@
 #include <lal/TimeDelay.h>
 #include <lal/XLALError.h>
 
-NRCSID( COINCRINGDOWNUTILSC, "$Id$" );
-
 /**
 \author Fairhurst, S.
 \file
@@ -196,7 +194,7 @@ LALCreateTwoIFORingdownCoincList(
   INT4                          ifoNumber;
   INT8                          maxTimeDiff = 0;
 
-  INITSTATUS( status, "LALCreateTwoIFOCoincList", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( coincOutput, status,
@@ -307,7 +305,7 @@ LALCreateNIFORingdownCoincList(
   EventIDColumn                *thisID        = NULL;
 
 
-  INITSTATUS( status, "LALCreateNIFORingdownCoincList", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* loop over all the coincidences in the list */
@@ -319,7 +317,7 @@ LALCreateNIFORingdownCoincList(
     if ( thisCoinc->numIfos == N - 1 )
     {
       /* look up the first single ringdown */
-      for ( firstEntry = 0; firstEntry < LAL_NUM_IFO; firstEntry++)
+      for ( firstEntry = (InterferometerNumber) 0; firstEntry < LAL_NUM_IFO; firstEntry++)
       {
         if ( thisCoinc->snglRingdown[firstEntry] )
         {
@@ -341,7 +339,7 @@ LALCreateNIFORingdownCoincList(
         {
           /* loop over all singles which are alphabetically before the
            * first one in thisCoinc */
-          for( ifoNumber = 0; ifoNumber < firstEntry; ifoNumber++ )
+          for( ifoNumber = (InterferometerNumber) 0; ifoNumber < firstEntry; ifoNumber++ )
           {
             /* test whether we have an N ifo coincidence */
             accuracyParams->match = 0;
@@ -374,7 +372,7 @@ LALCreateNIFORingdownCoincList(
                   otherCoinc->snglRingdown[ifoNumber] );
 
               /* add the triggers from the (N-1) coinc to the new N coinc */
-              for( ifoNum = 0; ifoNum < LAL_NUM_IFO; ifoNum++ )
+              for( ifoNum = (InterferometerNumber) 0; ifoNum < LAL_NUM_IFO; ifoNum++ )
               {
                 if( thisCoinc->snglRingdown[ifoNum] )
                 {
@@ -417,7 +415,7 @@ LALRemoveRepeatedRingdownCoincs(
   EventIDColumn                *thisID        = NULL;
 
 
-  INITSTATUS( status, "LALRemoveRepeatedRingdownCoincs", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* loop over all the coincidences in the list */
@@ -426,7 +424,7 @@ LALRemoveRepeatedRingdownCoincs(
   while( thisCoinc )
   {
     /* look up the first single ringdown */
-    for ( firstEntry = 0; firstEntry < LAL_NUM_IFO; firstEntry++)
+    for ( firstEntry = (InterferometerNumber) 0; firstEntry < LAL_NUM_IFO; firstEntry++)
     {
       if ( thisCoinc->snglRingdown[firstEntry] )
       {
@@ -453,7 +451,7 @@ LALRemoveRepeatedRingdownCoincs(
         /* we have a higher (or equal) coinc, thisCoinc could be a subset
          * test whether all sngls in thisCoinc are also in otherCoinc */
 
-        for( ifoNumber = firstEntry + 1; ifoNumber < LAL_NUM_IFO;
+        for( ifoNumber = (InterferometerNumber) ( firstEntry + 1 ); ifoNumber < LAL_NUM_IFO;
             ifoNumber++ )
         {
           if ( thisCoinc->snglRingdown[ifoNumber] &&
@@ -508,7 +506,7 @@ LALFreeCoincRingdown(
     CoincRingdownTable        **coincPtr
     )
 {
-  INITSTATUS( status, "LALFreeCoincRingdown", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   XLALFreeCoincRingdown( coincPtr );
@@ -524,13 +522,12 @@ XLALFreeCoincRingdown(
     CoincRingdownTable        **coincPtr
     )
 {
-  /*static const char *func = "FreeCoincRingdown";*/
   InterferometerNumber          ifoNumber  = LAL_UNKNOWN_IFO;
   EventIDColumn                *prevID     = NULL;
   EventIDColumn                *thisID     = NULL;
   SnglRingdownTable            *thisSngl   = NULL;
 
-  for ( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+  for ( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
   {
     if ( (thisSngl = (*coincPtr)->snglRingdown[ifoNumber]) )
     {
@@ -580,7 +577,7 @@ LALAddSnglRingdownToCoinc(
   EventIDColumn       *eventId = NULL;
   */
 
-  INITSTATUS( status, "LALAddSnglRingdownToCoinc", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( coincPtr, status,
@@ -603,7 +600,6 @@ XLALAddSnglRingdownToCoinc(
     )
 
 {
-  static const char *func = "XLALAddSnglRingdownToCoinc";
   EventIDColumn     *eventId = NULL;
 
   /* allocate memory for new coinc if it doesn't exist */
@@ -614,7 +610,7 @@ XLALAddSnglRingdownToCoinc(
     if ( !coincRingdown )
     {
       LALFree( coincRingdown );
-      XLAL_ERROR_NULL(func,XLAL_ENOMEM);
+      XLAL_ERROR_NULL(XLAL_ENOMEM);
     }
   }
 
@@ -633,7 +629,7 @@ XLALAddSnglRingdownToCoinc(
       {
         /* Invalid Hanford Detector */
         XLALPrintError( "Invalid ifo in input snglInspiral" );
-        XLAL_ERROR_NULL(func,XLAL_EIO);
+        XLAL_ERROR_NULL(XLAL_EIO);
       }
       break;
 
@@ -648,7 +644,7 @@ XLALAddSnglRingdownToCoinc(
     default:
       /* Invalid Detector Site */
       XLALPrintError( "Invalid ifo in input snglInspiral" );
-      XLAL_ERROR_NULL(func,XLAL_EIO);
+      XLAL_ERROR_NULL(XLAL_EIO);
   }
 
   ++(coincRingdown->numIfos);
@@ -660,7 +656,7 @@ XLALAddSnglRingdownToCoinc(
     if ( !eventId )
     {
       LALFree(eventId);
-      XLAL_ERROR_NULL(func,XLAL_ENOMEM);
+      XLAL_ERROR_NULL(XLAL_ENOMEM);
     }
     snglRingdown->event_id = eventId;
   }
@@ -673,7 +669,7 @@ XLALAddSnglRingdownToCoinc(
     if ( !eventId )
     {
       LALFree(eventId);
-      XLAL_ERROR_NULL(func,XLAL_ENOMEM);
+      XLAL_ERROR_NULL(XLAL_ENOMEM);
     }
   }
   eventId->snglRingdownTable = snglRingdown;
@@ -696,7 +692,7 @@ LALSnglRingdownCoincTest(
   INT4                  match = 1;
   INT4                  ifoNumber = 0;
 
-  INITSTATUS( status, "LALSnglRingdownCoincTest", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
 
@@ -747,7 +743,7 @@ LALExtractSnglRingdownFromCoinc(
     )
 
 {
-  INITSTATUS( status, "LALExtractCoincSngls", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   *snglPtr = XLALExtractSnglRingdownFromCoinc( coincRingdown, gpsStartTime,
@@ -767,7 +763,6 @@ XLALExtractSnglRingdownFromCoinc(
     )
 
 {
-  static const char *func = "ExtractSnglRingdownFromCoinc";
   SnglRingdownTable  *snglHead = NULL;
   SnglRingdownTable  *thisSngl = NULL;
   SnglRingdownTable  *thisCoincEntry = NULL;
@@ -833,7 +828,7 @@ XLALExtractSnglRingdownFromCoinc(
             snglHead = snglHead->next;
             XLALFreeSnglRingdown( &thisSngl );
           }
-          XLAL_ERROR_NULL(func,XLAL_EIO);
+          XLAL_ERROR_NULL(XLAL_EIO);
         }
 
         if ( slideNum < 0 )
@@ -872,7 +867,7 @@ XLALCoincRingdownIfos (
     return ( 0 );
   }
 
-  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+  for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
   {
     XLALReturnIFO( ifo, ifoNumber);
 
@@ -939,16 +934,15 @@ XLALCoincRingdownIdNumber (
     )
 
 {
-  static const char *func = "CoincRingdownIdNumber";
   SnglRingdownTable    *thisSngl = NULL;
   InterferometerNumber  ifoNumber  = LAL_UNKNOWN_IFO;
 
   if ( !coincRingdown )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
-  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+  for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
   {
     EventIDColumn *thisID = NULL;
     if ( (thisSngl = coincRingdown->snglRingdown[ifoNumber]) )
@@ -970,7 +964,7 @@ XLALCoincRingdownIdNumber (
   }
   /* should never get here */
   XLALPrintError( "Unable to find id associated to this event" );
-  XLAL_ERROR(func,XLAL_EIO);
+  XLAL_ERROR(XLAL_EIO);
 }
 
 
@@ -1114,7 +1108,6 @@ XLALCompleteCoincRingdown (
     )
 
 {
-  static const char     *func = "XLALCompleteCoincRingdown";
   CoincRingdownTable    *thisCoinc = NULL;
   SnglRingdownTable     *snglHead  = NULL;
   SnglRingdownTable     *thisSngl   = NULL;
@@ -1123,7 +1116,7 @@ XLALCompleteCoincRingdown (
 
   for ( thisCoinc = eventHead; thisCoinc; thisCoinc = thisCoinc->next )
   {
-    for ( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+    for ( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
     {
       if ( ifoList[ifoNumber] && !thisCoinc->snglRingdown[ifoNumber] )
       {
@@ -1148,7 +1141,7 @@ XLALCompleteCoincRingdown (
             snglHead = snglHead->next;
             LALFree(thisSngl);
           }
-          XLAL_ERROR_NULL(func,XLAL_ENOMEM);
+          XLAL_ERROR_NULL(XLAL_ENOMEM);
         }
 
         /* populate the ifo field */
@@ -1156,7 +1149,7 @@ XLALCompleteCoincRingdown (
         XLALPrintInfo( "Appending a zero snr trigger for %s\n", thisSngl->ifo);
 
         /* obtain the end time */
-        ifoNum = 0;
+        ifoNum = (InterferometerNumber) 0;
         while (!thisCoinc->snglRingdown[ifoNum]) ifoNum++;
         thisSngl->start_time = thisCoinc->snglRingdown[ifoNum]->start_time;
 
@@ -1256,7 +1249,6 @@ XLALRecreateRingdownCoincFromSngls(
     )
 
 {
-  static const char *func = "RecreateCoincFromSngls";
   SnglRingdownTable    *thisSngl  = NULL;
   CoincRingdownTable   *thisCoinc = NULL;
   CoincRingdownTable   *prevCoinc = NULL;
@@ -1277,12 +1269,12 @@ XLALRecreateRingdownCoincFromSngls(
   /* loop over the linked list of sngl ringdowns */
   for( thisSngl = snglRingdown; thisSngl; thisSngl = thisSngl->next )
   {
-    ifoNumber = XLALIFONumber( thisSngl->ifo );
+    ifoNumber = (InterferometerNumber) XLALIFONumber( thisSngl->ifo );
     thisCoinc = coincHead;
     while ( thisCoinc )
     {
       /* loop over the interferometers to get the event_id*/
-      for ( ifoInCoinc = 0; ifoInCoinc < LAL_NUM_IFO; ifoInCoinc++)
+      for ( ifoInCoinc = (InterferometerNumber) 0; ifoInCoinc < LAL_NUM_IFO; ifoInCoinc++)
       {
         if ( thisCoinc->snglRingdown[ifoInCoinc] )
         {
@@ -1307,7 +1299,7 @@ XLALRecreateRingdownCoincFromSngls(
             coincHead = coincHead->next;
             LALFree(thisCoinc);
           }
-          XLAL_ERROR(func, XLAL_EDATA);
+          XLAL_ERROR( XLAL_EDATA);
         }
         else
         {
@@ -1344,7 +1336,7 @@ XLALRecreateRingdownCoincFromSngls(
           coincHead = coincHead->next;
           LALFree( thisCoinc );
         }
-        XLAL_ERROR(func,XLAL_ENOMEM);
+        XLAL_ERROR(XLAL_ENOMEM);
       }
 
       thisCoinc->snglRingdown[ifoNumber] = thisSngl;
@@ -1370,7 +1362,6 @@ XLALGenerateCoherentBank(
     )
 
 {
-  static const char *func = "CreateCoherentBank";
   InterferometerNumber  ifoInCoinc = LAL_UNKNOWN_IFO;
   InterferometerNumber  ifoNumber  = LAL_UNKNOWN_IFO;
   InterferometerNumber  ifoMax  = LAL_UNKNOWN_IFO;
@@ -1459,7 +1450,7 @@ XLALGenerateCoherentBank(
     bankHead = bankHead->next;
     XLALFreeSnglRingdown( &currentTrigger );
   }
-  XLAL_ERROR(func,XLAL_ENOMEM);
+  XLAL_ERROR(XLAL_ENOMEM);
 
 }
 #endif
@@ -1473,7 +1464,6 @@ XLALRingdownDistanceCut(
     )
 
 {
-  /*static const char *func = "RingdownDistanceCut";*/
   InterferometerNumber  ifoA = LAL_UNKNOWN_IFO;
   InterferometerNumber  ifoB = LAL_UNKNOWN_IFO;
   CoincRingdownTable   *thisCoinc = NULL;
@@ -1493,10 +1483,10 @@ XLALRingdownDistanceCut(
     CoincRingdownTable *tmpCoinc = thisCoinc;
     thisCoinc = thisCoinc->next;
 
-    for ( ifoA = 0; ifoA < LAL_NUM_IFO; ifoA++ )
+    for ( ifoA = (InterferometerNumber) 0; ifoA < LAL_NUM_IFO; ifoA++ )
     {
       kappaA = accuracyParams->ifoAccuracy[ifoA].kappa;
-      for ( ifoB = ifoA + 1; ifoB < LAL_NUM_IFO; ifoB++ )
+      for ( ifoB = (InterferometerNumber) ( ifoA + 1 ); ifoB < LAL_NUM_IFO; ifoB++ )
       {
         kappaB = accuracyParams->ifoAccuracy[ifoB].kappa;
 
@@ -1561,7 +1551,7 @@ LALCoincCutSnglInspiral(
   SnglInspiralTable  *prevEvent = NULL;
   SnglInspiralTable  *thisEvent = NULL;
 
-  INITSTATUS( status, "LALCoincCutSnglInspiral", COINCINSPIRALUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check that eventHead is non-null */
@@ -1632,11 +1622,10 @@ XLALCoincRingdownTimeNS (
     const CoincRingdownTable         *coincRingdown
     )
 {
-  static const char *func = "XLALCoincRingdownTimeNS";
   InterferometerNumber  ifoNumber;
   INT8 startTime = 0;
 
-  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+  for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
   {
     if ( coincRingdown->snglRingdown[ifoNumber] )
     {
@@ -1645,7 +1634,7 @@ XLALCoincRingdownTimeNS (
       return(startTime);
     }
   }
-  XLAL_ERROR(func,XLAL_EIO);
+  XLAL_ERROR(XLAL_EIO);
 }
 
 
@@ -1678,7 +1667,7 @@ XLALCoincRingdownStat(
   }
 
 
-  for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+  for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
   {
     if ( (snglRingdown = coincRingdown->snglRingdown[ifoNumber]) )
     {
@@ -1706,7 +1695,7 @@ XLALCoincRingdownStat(
   if ( coincStat == bitten_l )
   {
     if (coincStat == bitten_l || ifoCounter<3) {
-      for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+      for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
       {
         if ( (snglRingdown = coincRingdown->snglRingdown[ifoNumber]) )
         {
@@ -1734,7 +1723,6 @@ XLALClusterCoincRingdownTable (
     )
 
 {
-  static const char *func = "XLALClusterCoincRingdownTable";
   CoincRingdownTable     *thisCoinc = NULL;
   CoincRingdownTable     *prevCoinc = NULL;
   CoincRingdownTable     *nextCoinc = NULL;
@@ -1748,7 +1736,7 @@ XLALClusterCoincRingdownTable (
 
   if ( !coincList )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
   if ( ! *coincList )
@@ -1788,7 +1776,7 @@ XLALClusterCoincRingdownTable (
         nextStat = XLALCoincRingdownStat( nextCoinc, coincStat, bittenLParams );
       }
 
-      for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+      for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
       {
         if ( (snglRingdown = thisCoinc->snglRingdown[ifoNumber]) )
         {
@@ -1835,7 +1823,7 @@ XLALClusterCoincRingdownTable (
         thisStat = XLALCoincRingdownStat( thisCoinc, coincStat, bittenLParams );
       }
 
-      for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
+      for( ifoNumber = (InterferometerNumber) 0; ifoNumber < LAL_NUM_IFO; ifoNumber++ )
       {
         if ( (snglRingdown = thisCoinc->snglRingdown[ifoNumber]) )
         {
@@ -1958,7 +1946,7 @@ LALRingdownH1H2Consistency(
   CoincRingdownTable   *prevCoinc = NULL;
   CoincRingdownTable   *coincHead = NULL;
   REAL4 snrH1;
-  INITSTATUS( status, "LALRingdownH1H2Consistency", COINCRINGDOWNUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   thisCoinc = *coincRingdown;

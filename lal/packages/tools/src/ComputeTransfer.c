@@ -18,6 +18,7 @@
 */
 
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -29,14 +30,11 @@
 #define CAL_S2START 729273613
 #define CAL_S2END 734367613
 
-NRCSID( COMPUTETRANSFERC, "$Id$" );
+/** \defgroup ComputeTransfer_c Module ComputeTransfer.c
+    \ingroup Calibration_h
+    \author Patrick Brady, Jolien Creighton
 
-/**
-\author Patrick Brady, Jolien Creighton
-\defgroup ComputeTransfer_c Module ComputeTransfer.c
-\ingroup Calibration_h
-
-\brief Computes the transfer function from zero-pole-gain representation.
+    \brief Computes the transfer function from zero-pole-gain representation.
 
 A transfer function can either be specified as a list of coefficients or a
 list of poles and zeros. The function LALComputeTransfer() computes the
@@ -129,7 +127,7 @@ In most cases,  this should be irrelevant for gravitational wave data analysis,
 but care should be taken if DC is relevant when this function is used.
 
 */
-/** @{ */
+/*@{*/
 
 static void product(COMPLEX8 *c,COMPLEX8 *a, COMPLEX8 *b) {
 
@@ -163,7 +161,7 @@ LALComputeTransfer( LALStatus                 *stat,
   REAL4         f,df;                    /* freq and interval     */
   REAL8         norm;
 
-  INITSTATUS( stat, "LALComputeTransfer", COMPUTETRANSFERC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR (stat);
 
   /* Make sure parameter structures and their fields exist. */
@@ -307,7 +305,7 @@ LALUpdateCalibration(
   UINT4 length = 0;
   CHAR  warnMsg[512];
 
-  INITSTATUS( status, "LALUpdateCalibration", COMPUTETRANSFERC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check input */
@@ -522,7 +520,7 @@ LALResponseConvert(
   INT4 fac;
   INT4 bad;
 
-  INITSTATUS( status, "LALResponseConvert", COMPUTETRANSFERC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   output->epoch = input->epoch;
@@ -632,7 +630,6 @@ XLALResponseConvert(
     COMPLEX8FrequencySeries *input
     )
 {
-  static const char *func = "XLALResponseConvert";
   COMPLEX8 tmpb, tmpc;
   REAL4 tmpx, tmpy;
   LALUnit unitOne;
@@ -713,7 +710,7 @@ XLALResponseConvert(
   }
   if ( bad ) /* units were bad: abort */
   {
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   /* determine if there is a scale factor that needs to be applied */
@@ -742,4 +739,4 @@ XLALResponseConvert(
   return 0;
 }
 
-/** @} */
+/*@}*/

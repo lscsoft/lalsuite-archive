@@ -119,10 +119,6 @@ LALPopulateNarrowEdge(LALStatus       	*status,
 		      INT4 flag
 		      );
 
-
-NRCSID(LALINSPIRALHYBRIDHEXAGONALBANKC, "$Id$");
-
-
 void
 LALInspiralCreatePNCoarseBankHybridHexa(
     LALStatus            *status,
@@ -138,13 +134,12 @@ LALInspiralCreatePNCoarseBankHybridHexa(
   InspiralBankParams    bankPars;
   InspiralTemplate      *tempPars;
   InspiralMomentsEtc    moments;
-  InspiralCell          *cells;
+  InspiralCell          *cells = 0;
   HexaGridParam         gridParam;
   CellEvolution         cellEvolution;
   CellList 		*cellList = NULL;
 
-  INITSTATUS( status, "LALInspiralHybridHexagonalBank",
-      LALINSPIRALHYBRIDHEXAGONALBANKC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( coarseIn.mMin > 0., status,
@@ -304,7 +299,7 @@ LALInspiralCreatePNCoarseBankHybridHexa(
     while (i<cellEvolution.nTemplate){
       if (cells[i].position == Edge){
 	edge1 = i;
-	cells[i].status = In;
+	cells[i].position = In;
 	i=cellEvolution.nTemplate;
       }
       i++;
@@ -313,7 +308,7 @@ LALInspiralCreatePNCoarseBankHybridHexa(
     while (i<cellEvolution.nTemplate){
       if (cells[i].position == Edge){
 	edge2=i;
-	cells[i].status = In;
+	cells[i].position = In;
 	i=cellEvolution.nTemplate;
       }
       i++;
@@ -581,8 +576,7 @@ LALPopulateNarrowEdge(LALStatus               *status,
   INT4 next, iteration;
   REAL4 x_int, y_int,xr_int, yr_int, c,s, dy,theta_min, theta_max, theta_int, a, b, t0, t3;
 
-  INITSTATUS( status, "LALPopulateNarrowEdge",
-	      LALINSPIRALHYBRIDHEXAGONALBANKC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* aliases to get the characteristics of the parent template, that we refer

@@ -17,36 +17,8 @@
 *  MA  02111-1307  USA
 */
 
-/************************************ <lalVerbatim file="LALRunningMedianHV">
-Author: B. Machenschalk
-$Id$
-************************************* </lalVerbatim> */
-
-/* <lalLaTeX>
-
-\section{Header \texttt{LALRunningMedian.h}}
-\label{s:LALRunningMedian.h}
-
-Provides routines to efficiently calculate the running median
-
-\subsection*{Synopsis}
-\begin{verbatim}
-#include <lal/LALRunningMedian.h>
-\end{verbatim}
-
-\noindent This header covers routines to efficiently calculate the
-running median of REAL4 and REAL8 sequences
-
-</lalLaTeX> */
-
-
 #ifndef _LALRUNNINGMEDIAN_H
 #define _LALRUNNINGMEDIAN_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 #include <lal/LALDatatypes.h>
 
@@ -54,31 +26,56 @@ running median of REAL4 and REAL8 sequences
 extern "C" {
 #endif
 
-NRCSID (LALRUNNINGMEDIANH, "$Id$");
 
-/* <lalLaTeX>
+/**
+\addtogroup LALRunningMedian_h
+\author Somya D. Mohanty, B. Machenschalk
 
-\subsection*{Error conditions}
-\input{LALRunningMedianHErrTab}
+\brief Provides routines to efficiently calculate the running median
 
-</lalLaTeX> */
+\heading{Synopsis}
+\code
+#include <lal/LALRunningMedian.h>
+\endcode
 
-/*
-<lalErrTable file="LALRunningMedianHErrTab">
+This header covers routines to efficiently calculate the
+running median of REAL4 and REAL8 sequences
+
+The routine <tt>LALDRunningMedian()</tt> calculates the running medians of a
+REAL8Sequence. The routine <tt>LALSRunningMedian()</tt> does the same for a REAL4Sequence.
+\c input ist a REAL4/REAL8Sequence containing the input array, \c blocksize
+is the length of the block the medians are calculated of.
+With n being the lenght of the input array and b being the blocksize,
+the medians array must be a REAL4/REAL8 sequence of length (n-b+1).
+<tt>LALDRunningMedian2()</tt> and <tt>LALSRunningMedian2()</tt> are a
+different implentation of the same algorithm. It should behave exactly like
+<tt>LALDRunningMedian()</tt>, but has proven to be a
+little faster and more stable. Check if it works for you.
+\heading{Algorithm}
+
+For a detailed description of the algorithm see the
+LIGO document T-030168-00-D, Somya D. Mohanty:
+Efficient Algorithm for computing a Running Median
+
 */
+/*@{*/
 
-#define LALRUNNINGMEDIANH_EMALOC1 1
-#define LALRUNNINGMEDIANH_EMALOC2 2
-#define LALRUNNINGMEDIANH_EMALOC3 3
-#define LALRUNNINGMEDIANH_EMALOC4 4
-#define LALRUNNINGMEDIANH_EMALOC5 5
-#define LALRUNNINGMEDIANH_EMALOC6 6
-#define LALRUNNINGMEDIANH_ECV 7
-#define LALRUNNINGMEDIANH_ENULL 8
-#define LALRUNNINGMEDIANH_EZERO 9
-#define LALRUNNINGMEDIANH_ELARGE 10
-#define LALRUNNINGMEDIANH_EIMED 11
+/** \name Error Codes */
+/*@{*/
+#define LALRUNNINGMEDIANH_EMALOC1 1		/**< Could not allocate indexblock */
+#define LALRUNNINGMEDIANH_EMALOC2 2		/**< Could not allocate checks */
+#define LALRUNNINGMEDIANH_EMALOC3 3		/**< Could not allocate checks4shift */
+#define LALRUNNINGMEDIANH_EMALOC4 4		/**< Could not allocate nodeaddresses */
+#define LALRUNNINGMEDIANH_EMALOC5 5		/**< Could not aloocate first node */
+#define LALRUNNINGMEDIANH_EMALOC6 6		/**< Could not allocate node */
+#define LALRUNNINGMEDIANH_ECV 7			/**< Could not create output vector (LALCreateVector() failed) */
+#define LALRUNNINGMEDIANH_ENULL 8		/**< Invalid input: NULL pointer. */
+#define LALRUNNINGMEDIANH_EZERO 9		/**< Invalid input: block length must be \>2 */
+#define LALRUNNINGMEDIANH_ELARGE 10		/**< Invalid input: block length larger than imput length */
+#define LALRUNNINGMEDIANH_EIMED 11		/**< Invalid input: wrong size of median array */
+/*@}*/
 
+/** \cond DONT_DOXYGEN */
 #define LALRUNNINGMEDIANH_MSGEMALOC1 "Could not allocate indexblock"
 #define LALRUNNINGMEDIANH_MSGEMALOC2 "Could not allocate checks"
 #define LALRUNNINGMEDIANH_MSGEMALOC3 "Could not allocate checks4shift"
@@ -90,72 +87,53 @@ NRCSID (LALRUNNINGMEDIANH, "$Id$");
 #define LALRUNNINGMEDIANH_MSGEZERO   "Invalid input: block length must be >2"
 #define LALRUNNINGMEDIANH_MSGELARGE  "Invalid input: block length larger than imput length"
 #define LALRUNNINGMEDIANH_MSGEIMED   "Invalid input: wrong size of median array"
-
-/*
-</lalErrTable>
-*/
-
+/** \endcond */
 
 /* Structures. */
 
-/* <lalLaTeX>
-\subsection*{Structures}
-This is the parameter structure for the LALRunningMedian functions.
+/** This is the parameter structure for the LALRunningMedian functions.
 Currently the only parameter supported is the blocksize, the number
 of elements a single median is calculated from. The current
-implementation requires the blocksize to be $< 2$.
-\begin{verbatim}
+implementation requires the blocksize to be \< 2.
+*/
 typedef struct tagLALRunningMedianPar
 {
-  UINT4 blocksize;
-}
-LALRunningMedianPar;
-\end{verbatim}
-</lalLaTeX> */
-
-typedef struct tagLALRunningMedianPar
-{
-  SWIGLAL_STRUCT_LALALLOC();
-  UINT4 blocksize;
+  UINT4 blocksize;	/**< the number of elements a single median is calculated from */
 }
 LALRunningMedianPar;
 
 
 /* Function prototypes. */
 
+/** See LALRunningMedian_h for documentation */
 void
 LALDRunningMedian( LALStatus *status,
 		   REAL8Sequence *medians,
 		   const REAL8Sequence *input,
 		   LALRunningMedianPar param);
 
+/** See LALRunningMedian_h for documentation */
 void
 LALSRunningMedian( LALStatus *status,
 		   REAL4Sequence *medians,
 		   const REAL4Sequence *input,
 		   LALRunningMedianPar param);
 
+/** See LALRunningMedian_h for documentation */
 void
 LALDRunningMedian2( LALStatus *status,
 		    REAL8Sequence *medians,
 		    const REAL8Sequence *input,
 		    LALRunningMedianPar param);
 
+/** See LALRunningMedian_h for documentation */
 void
 LALSRunningMedian2( LALStatus *status,
 		    REAL4Sequence *medians,
 		    const REAL4Sequence *input,
 		    LALRunningMedianPar param);
 
-/* <lalLaTeX>
-\newpage\input{LALRunningMedianC}
-</lalLaTeX> */
-
-
-/* Test program. */
-/* <lalLaTeX>
-\newpage\input{LALRunningMedianTestC}
-</lalLaTeX> */
+/*@}*/
 
 #ifdef  __cplusplus
 }

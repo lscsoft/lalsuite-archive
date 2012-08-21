@@ -85,10 +85,13 @@ def get_username():
 def append_process(xmldoc, program = None, version = None, cvs_repository = None, cvs_entry_time = None, comment = None, is_online = False, jobid = 0, domain = None, ifos = None):
 	"""
 	Add an entry to the process table in xmldoc.  program, version,
-	cvs_repository, comment, domain, and ifos should all be strings or
+	cvs_repository, comment, and domain should all be strings or
 	unicodes.  cvs_entry_time should be a string or unicode in the
 	format "YYYY/MM/DD HH:MM:SS".  is_online should be a boolean, jobid
-	an integer.
+	an integer.  ifos should be an iterable (set, tuple, etc.) of
+	instrument names.
+
+	See also register_to_xmldoc().
 	"""
 	try:
 		proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
@@ -144,6 +147,8 @@ def append_process_params(xmldoc, process, params):
 	xmldoc is an XML document tree, process is the row in the process
 	table for which these are the parameters, and params is a list of
 	(name, type, value) tuples one for each parameter.
+
+	See also process_params_from_dict(), register_to_xmldoc().
 	"""
 	try:
 		paramtable = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
@@ -159,7 +164,7 @@ def append_process_params(xmldoc, process, params):
 		if type is not None:
 			row.type = unicode(type)
 			if row.type not in ligolwtypes.Types:
-				raise ValueError, "invalid type '%s' for parameter '%s'" % (row.type, row.param)
+				raise ValueError("invalid type '%s' for parameter '%s'" % (row.type, row.param))
 		else:
 			row.type = None
 		if value is not None:
@@ -180,8 +185,8 @@ def get_process_params(xmldoc, program, param):
 	"""
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 	if len(process_ids) != 1:
-		raise ValueError, "process table must contain exactly one program named '%s'" % program
-	return [row.get_pyvalue() for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+		raise ValueError("process table must contain exactly one program named '%s'" % program)
+	return [row.pyvalue for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def doc_includes_process(xmldoc, program):
@@ -200,21 +205,26 @@ def process_params_from_dict(paramdict):
 	convenience for converting command-line options into process_params
 	rows.  The name values in the output have "--" prepended to them
 	and all "_" characters replaced with "-".  The type strings are
-	guessed from the Python types of the values.
+	guessed from the Python types of the values.  If a value is a
+	Python list (or instance of a subclass thereof), then one tuple is
+	produced for each of the items in the list.
 
 	Example:
 
-	>>> list(process_params_from_dict({"verbose": True, "window": 4.0}))
-	[('--window', u'real_8', 4.0), ('--verbose', None, None)]
+	>>> list(process_params_from_dict({"verbose": True, "window": 4.0, "include": ["/tmp", "/var/tmp"]}))
+	[('--window', u'real_8', 4.0), ('--verbose', None, None), ('--include', u'lstring', '/tmp'), '--include', u'lstring', '/var/tmp')]
 	"""
-	for name, value in paramdict.items():
+	for name, values in paramdict.items():
 		# change the name back to the form it had on the command line
 		name = "--%s" % name.replace("_", "-")
 
-		if value is True or value is False:
+		if values is True or values is False:
 			yield (name, None, None)
-		elif value is not None:
-			yield (name, ligolwtypes.FromPyType[type(value)], value)
+		elif values is not None:
+			if not isinstance(values, list):
+				values = [values]
+			for value in values:
+				yield (name, ligolwtypes.FromPyType[type(value)], value)
 
 
 def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
@@ -222,10 +232,10 @@ def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 	Register the current process and params to an XML document.
 	program is the name of the program.  paramdict is a dictionary of
 	name/value pairs that will be used to populate the process_params
-	table (the LIGO Light Weight type string for each param will be
-	deduced from the Python type of the param).  Any additional keyword
-	arguments are passed to append_process().  Returns the new row from
-	the process table.
+	table;  see process_params_from_dict() for information on how these
+	name/value pairs are interpreted.  Any additional keyword arguments
+	are passed to append_process().  Returns the new row from the
+	process table.
 	"""
 	process = append_process(xmldoc, program = program, **kwargs)
 	append_process_params(xmldoc, process, process_params_from_dict(paramdict))

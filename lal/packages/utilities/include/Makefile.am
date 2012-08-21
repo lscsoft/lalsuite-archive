@@ -2,6 +2,7 @@ pkginclude_HEADERS = \
 	BitField.h \
 	CoarseGrainFrequencySeries.h \
 	Dirichlet.h \
+	Factorial.h \
 	FindRoot.h \
 	GSLSupport.h \
 	Integrate.h \
@@ -16,16 +17,12 @@ pkginclude_HEADERS = \
 	SphericalHarmonics.h
 
 CLEANFILES =
-MOSTLYCLEANFILES = .dvi-dep
-DISTCLEANFILES = *.tex
+MOSTLYCLEANFILES =
+DISTCLEANFILES =
 
 all-local: include-link
 
-dvi-local: .dvi-dep
-
 @INCLUDEMKFILE@
-@DVIMKFILE@
 
 swig_headers = $(pkginclude_HEADERS)
-CLEANFILES += $(swig_clean)
-@SWIG_HEADER_MK@
+include $(top_srcdir)/swig/swiglal_header.am

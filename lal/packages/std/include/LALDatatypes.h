@@ -17,195 +17,18 @@
 *  MA  02111-1307  USA
 */
 
-/** \file
- * \ingroup std
- * \author Creighton, J. D. E., and Creighton, T. D.
- * \date $Id$
- * \brief Provides the basic LAL datatypes.
- *
- * This header defines the standard data types and data
- * structures that are used throughout LAL.  They fall into three general
- * categories: primitive datatypes, aggregates of primitive
- * datatypes, and structured datatypes.  The LAL status structure
- * is a special case of a structured datatype that is used in every
- * standard LAL function.
- *
- * This header file is automatically included by the header
- * <tt>LALStdlib.h</tt>.  In turn, this header file starts by including the
- * header <tt>LALAtomicDatatypes.h</tt>.
- *
- */
-/********************************* <lalVerbatim file="LALDatatypesHV">
-Author: J. D. E. Creighton, T. D. Creighton
-$Id$
-********************************** </lalVerbatim> */
-
-/* <lalLaTeX>
-
-\section{Header \texttt{LALDatatypes.h}}
-\label{s:LALDatatypes.h}
-
-Provides the basic LAL datatypes.
-
-\subsection*{Synopsis}
-\begin{verbatim}
-#include <lal/LALDatatypes.h>
-\end{verbatim}
-
-\noindent This header defines the standard data types and data
-structures that are used throughout LAL.  They fall into three general
-categories: \emph{primitive} datatypes, \emph{aggregates} of primitive
-datatypes, and \emph{structured} datatypes.  The LAL status structure
-is a special case of a structured datatype that is used in every
-standard LAL function.
-
-This header file is automatically included by the header
-\verb@LALStdlib.h@.  In turn, this header file starts by including the
-header \verb@LALAtomicDatatypes.h@, which is discussed in the
-following section.
-
-</lalLaTeX> */
+// ---------- SEE LALDatatypes.dox for doxygen documentation ----------
 
 #ifndef _LALDATATYPES_H
 #define _LALDATATYPES_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_NO_LALALLOC)
-#define SWIGLAL_STRUCT_NO_LALALLOC(...)
-#endif
-#if !defined(SWIG) && !defined(SWIGLAL_DYNAMIC_1DARRAY_BEGIN)
-#define SWIGLAL_DYNAMIC_1DARRAY_BEGIN(...)
-#define SWIGLAL_DYNAMIC_1DARRAY_END(...)
-#endif
-#if !defined(SWIG) && !defined(SWIGLAL_DYNAMIC_2DARRAY_BEGIN)
-#define SWIGLAL_DYNAMIC_2DARRAY_BEGIN(...)
-#define SWIGLAL_DYNAMIC_2DARRAY_END(...)
-#endif
-
-/* <lalLaTeX>
-\newpage\input{LALAtomicDatatypesH}
-</lalLaTeX> */
 #include <lal/LALAtomicDatatypes.h>
 
-/**** <lalLaTeX>
- * \newpage
- * \subsection{Atomic datatypes codes}
- * \label{ss:atomic-datatype-codes}
- * \idx[Constant]{LAL\_1\_BYTE\_TYPE\_SIZE}
- * \idx[Constant]{LAL\_2\_BYTE\_TYPE\_SIZE}
- * \idx[Constant]{LAL\_4\_BYTE\_TYPE\_SIZE}
- * \idx[Constant]{LAL\_8\_BYTE\_TYPE\_SIZE}
- * \idx[Constant]{LAL\_16\_BYTE\_TYPE\_SIZE}
- * \idx[Constant]{LAL\_TYPE\_SIZE\_MASK}
- * \idx[Constant]{LAL\_FLTPT\_TYPE\_FLAG}
- * \idx[Constant]{LAL\_CMPLX\_TYPE\_FLAG}
- * \idx[Constant]{LAL\_UNSGN\_TYPE\_FLAG}
- * \idx[Constant]{LAL\_CHAR\_TYPE\_CODE}
- * \idx[Constant]{LAL\_I2\_TYPE\_CODE}
- * \idx[Constant]{LAL\_I4\_TYPE\_CODE}
- * \idx[Constant]{LAL\_I8\_TYPE\_CODE}
- * \idx[Constant]{LAL\_UCHAR\_TYPE\_CODE}
- * \idx[Constant]{LAL\_U2\_TYPE\_CODE}
- * \idx[Constant]{LAL\_U4\_TYPE\_CODE}
- * \idx[Constant]{LAL\_U8\_TYPE\_CODE}
- * \idx[Constant]{LAL\_S\_TYPE\_CODE}
- * \idx[Constant]{LAL\_D\_TYPE\_CODE}
- * \idx[Constant]{LAL\_C\_TYPE\_CODE}
- * \idx[Constant]{LAL\_Z\_TYPE\_CODE}
- * \idx[Type]{LALTYPECODE}
- *
- * The following constants specify the size, in bytes, of the atomic datatype.
- *
- * \begin{center}
- * \begin{tabular}{|lcl|}
- * \hline
- * Name & Octal Value & Description \\
- * \hline
- * \tt LAL\_1\_BYTE\_TYPE\_SIZE & 000 & 1 byte type \\
- * \tt LAL\_2\_BYTE\_TYPE\_SIZE & 001 & 2 byte type \\
- * \tt LAL\_4\_BYTE\_TYPE\_SIZE & 002 & 4 byte type \\
- * \tt LAL\_8\_BYTE\_TYPE\_SIZE & 003 & 8 byte type \\
- * \tt LAL\_16\_BYTE\_TYPE\_SIZE & 004 & 16 byte type \\
- * \tt LAL\_TYPE\_SIZE\_MASK & 007 & Mask for byte type size fields \\
- * \hline
- * \end{tabular}
- * \end{center}
- *
- * \noindent
- * The constant \verb+LAL_TYPE_SIZE_MASK+ is useful in extracting the size
- * information from other type attributes.  For example, the size, in bytes,
- * of an atomic datatype can be found using something like the following:
- * \begin{verbatim}
- * UINT4 code = LAL_S_TYPE_CODE;
- * UINT4 size = 1U << ( code & LAL_TYPE_SIZE_MASK );
- * \end{verbatim}
- *
- * \vspace{3ex}
- *
- * The following constants are flags describing the type attributes.  A type
- * is either an integer or a floating-point, either purely real or complex,
- * and, if integer, is either signed or unsigned.
- *
- * \begin{center}
- * \begin{tabular}{|lcl|}
- * \hline
- * Name & Octal Value & Description \\
- * \hline
- * \tt LAL\_FLTPT\_TYPE\_FLAG & 010 & Floating-point (not integer) type \\
- * \tt LAL\_CMPLX\_TYPE\_FLAG & 020 & Complex (not purely real) type \\
- * \tt LAL\_UNSGN\_TYPE\_FLAG & 040 & Unsigned (no sign info) type \\
- * \hline
- * \end{tabular}
- * \end{center}
- *
- * To get the actual type, these flags are combined together and with the
- * type size constants using the bitwise-or operator (\verb+|+).  For example,
- * an eight-byte floating point number would be
- * \verb+LAL_8_BYTE_TYPE_SIZE | LAL_FLTPT_TYPE_FLAG+.
- * Conceivably you could have a complex type made from a pair of unsigned
- * one-byte integers that would be specified as
- * \verb+LAL_1_BYTE_TYPE_SIZE | LAL_CMPLX_TYPE_FLAG | LAL_UNSGN_TYPE_FLAG+.
- * Fortunately, there are none of these in LAL.  Attribues of a particular
- * type can be extracted using the bitwise-and operator.  For example:
- * \begin{verbatim}
- * UINT4 code = LAL_S_TYPE_CODE;
- * UINT4 isfloat = ( code & LAL_FLTPT_TYPE_FLAG );
- * UINT4 iscmplx = ( code & LAL_CMPLX_TYPE_FLAG );
- * \end{verbatim}
- *
- * \vspace{3ex}
- *
- * The following constants correspond to the types that actually exist in LAL.
- * Their enumeration is the type \verb+LALTYPECODE+.
- * \begin{center}
- * \begin{tabular}{|lcl|}
- * \hline
- * Name & Octal Value & Corresponding Type \\
- * \hline
- * \tt LAL\_CHAR\_TYPE\_CODE & 000 & \tt CHAR \\
- * \tt LAL\_I2\_TYPE\_CODE & 001 & \tt INT2 \\
- * \tt LAL\_I4\_TYPE\_CODE & 002 & \tt INT4 \\
- * \tt LAL\_I8\_TYPE\_CODE & 003 & \tt INT8 \\
- * \tt LAL\_UCHAR\_TYPE\_CODE & 040 & \tt UCHAR \\
- * \tt LAL\_U2\_TYPE\_CODE & 041 & \tt UINT2 \\
- * \tt LAL\_U4\_TYPE\_CODE & 042 & \tt UINT4 \\
- * \tt LAL\_U8\_TYPE\_CODE & 043 & \tt UINT8 \\
- * \tt LAL\_S\_TYPE\_CODE & 012 & \tt REAL4 \\
- * \tt LAL\_D\_TYPE\_CODE & 013 & \tt REAL8 \\
- * \tt LAL\_C\_TYPE\_CODE & 033 & \tt COMPLEX8 \\
- * \tt LAL\_Z\_TYPE\_CODE & 034 & \tt COMPLEX16 \\
- * \hline
- * \end{tabular}
- * \end{center}
- *
- **** </lalLaTeX> */
+/** \addtogroup LALDatatypes */ /*@{*/
 
-/* constants */
+/* ---------- constants ---------- */
 
-/** Type size constants. */
+/** Type size constants, see \ref LALDatatypes for more details. */
 enum
 {
   LAL_1_BYTE_TYPE_SIZE  = 000,   /**< One byte size 00 = 0 */
@@ -216,7 +39,7 @@ enum
   LAL_TYPE_SIZE_MASK    = 007    /**< Type size mask 0111 = 7 */
 };
 
-/** Type flag constants. */
+/** Type flag constants, see \ref LALDatatypes for more details. */
 enum
 {
   LAL_FLTPT_TYPE_FLAG   = 010,   /**< Floating-point (vs integer) type 01000 =  8 */
@@ -224,8 +47,7 @@ enum
   LAL_UNSGN_TYPE_FLAG   = 040    /**< Unsigned (vs signed) type 0100000 = 32 */
 };
 
-/** Type codes: use these type codes to identify a LAL atomic data type.
- */
+/** Type codes: use these type codes to identify a LAL atomic data type, see \ref LALDatatypes for more details. */
 typedef enum
 {
   LAL_CHAR_TYPE_CODE    = LAL_1_BYTE_TYPE_SIZE, /**< CHAR type code (0) */
@@ -243,608 +65,410 @@ typedef enum
 }
 LALTYPECODE;
 
-
-#include <lal/LALRCSID.h>
-
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-NRCSID (LALDATATYPESH, "$Id$");
 
+/* ---------- Vector types ---------- */
 
-/* <lalLaTeX>
-\newpage
-\subsection{Aggregate datatypes}
-\label{ss:aggregate-datatypes}
-
-These datatypes store arbitrarily large sets or collections of
-primitive datatypes.  At this level there is no physical
-interpretation assigned to the objects (such as names or units); the
-aggregate datatypes simply collect and arrange the primitive
-datatypes.  The following types of aggregate datatypes are defines:
-vectors, arrays, sequences, vector sequences, and array sequences.
-
-\vspace{2ex}
-\begin{verbatim}
-<datatype>Vector
-\end{verbatim}
-This structure stores an ordered set of $n$ elements of type
-\verb@<datatype>@, which can be any primitive datatype.  The data are
-to be interpreted as being a point in an $n$-dimensional vector space.
-The fields are:
-\begin{description}
-\item[\texttt{UINT4 length}] The number of data $n$.
-\item[\texttt{<datatype> *data}] Pointer to the data array.  The data
-are stored sequentially as \verb@data[@$0,\ldots,n-1$\verb@]@.
-\end{description}
-
-</lalLaTeX> */
-
-/** \name Aggregate datatypes.
- *
- * These datatypes store arbitrarily large sets or collections of
- * primitive datatypes.  At this level there is no physical
- * interpretation assigned to the objects (such as names or units); the
- * aggregate datatypes simply collect and arrange the primitive
- * datatypes.  The following types of aggregate datatypes are defines:
- * vectors, arrays, sequences, vector sequences, and array sequences.
- *
- * \b Vector structures store an ordered set of \a n elements of any
- * primative datatype.
- *
- * \b Sequence structures are synonyms for Vector structures.
- *
- * \b Array structures store a set of elements of any primative
- * datatype, arranged as an \a m dimensional
- * array.  That is, each element can be thought of as having \a m
- * indecies, \f$A_{i_0\cdots i_{m-1}}\f$, where each index \f$i_k\f$
- * runs over its own range \f$0,\ldots,n_k-1\f$.  The total number of
- * elements is then \f$N=n_0\times\cdots\times n_{m-1}\f$.  In memory the
- * array is flattened so that the elements are stored sequentially in
- * a contiguous block.  That is, the array of memory is packed so that
- * element \f$A_{i_0\cdots i_{m-1}}\f$ is stored as
- * \f$\mathtt{data[}i_{m-1} + n_{m-2}\times(i_{m-2} +
- * n_{m-3}\times(\cdots(i_1 + n_0\times i_0)\cdots))\mathtt{]}\f$.
- *
- * \b VectorSequence structures store an ordered set of \a l elements of type
- * \c \<datatype\>Vector, where \c \<datatype\> can be any primitive
- * datatype.  Mathematically the sequence can be written as
- * \f$\{\vec{v}^{(0)},\ldots,\vec{v}^{(l-1)}\}\f$, where each element
- * \f$\vec{v}^{(j)}=(v^{(j)}_0,\ldots,v^{(i)}_{n-1})\f$ is a vector of length
- * \f$n\f$.  In memory the elements are flattened; that is, they are
- * stored sequentially in a contiguous block of memory such that
- * element \f$v^{(j)}_i\f$ is stored as
- * \f$\mathtt{data[}j\times n + i\mathtt{]}\f$.
- *
- * \b ArraySequence structures stores an ordered set of \a l elements of type
- * \c \<datatype\>Array where \c \<datatype\> can be any primitive
- * datatype.  The indexing of an array sequence can get quite
- * complicated; it helps to read first the documentation for data arrays,
- * above.  Mathematically the data can be written as a set
- * \f$\{A^{(j)}_{i_0\cdots i_{m-1}}\f$, where the sequence number
- * \f$j\f$ runs from 0 to \f$l-1\f$, and each array index \f$i_k\f$ runs over its own
- * range \f$0,\ldots,n_k-1\f$.  The total number of data in a given array
- * element is then \f$N=n_0\times\cdots\times n_{m-1}\f$, and the total
- * number of data in the sequence is \f$N\times l\f$.  In memory the array is
- * flattened so that the elements are stored sequentially in a
- * contiguous block.
- * The element
- * \f$A^{(j)}_{i_0\cdots i_{m-1}}\f$ is stored as
- * \f$\mathtt{data[}j\times N + i_{m-1} + n_{m-2}\times(i_{m-2} +
- * n_{m-3}\times(\cdots(i_1 + n_0\times i_0)\cdots))\mathtt{]}\f$; that is,
- * the index of \c data[] runs over the internal indecies of each
- * array element before incrementing to the next array element.
- *
- */
-/*@{*/
-/** Vector of type CHAR. */
+/** Vector of type CHAR, see \ref ss_Vector for more details. */
 typedef struct
 tagCHARVector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(CHAR, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(CHAR, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   CHAR  *data;   /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(CHAR, data, length);
 }
 CHARVector;
 
-/** Vector of type CHAR*, ie 'strings'  */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(CHAR*, data, length);
+/** Vector of type CHAR*, ie 'strings', see \ref ss_Vector for more details.  */
+typedef struct tagLALStringVector {
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(CHAR*, data, UINT4, length));
+#endif /* SWIG */
   UINT4 length;  /**< Number of elements in array. */
   CHAR **data;	 /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(CHAR*, data, length);
 } LALStringVector;
 
-/** Vector of type INT2. */
+/** Vector of type INT2, see \ref ss_Vector for more details. */
 typedef struct
 tagINT2Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(INT2, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(INT2, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   INT2  *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(INT2, data, length);
 }
 INT2Vector;
 
-/** Vector of type UINT2. */
+/** Vector of type UINT2, see \ref ss_Vector for more details. */
 typedef struct
 tagUINT2Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(UINT2, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(UINT2, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   UINT2 *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(UINT2, data, length);
 }
 UINT2Vector;
 
-/** Vector of type INT4. */
+/** Vector of type INT4, see \ref ss_Vector for more details. */
 typedef struct
 tagINT4Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(INT4, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(INT4, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   INT4  *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(INT4, data, length);
 }
 INT4Vector;
 
-/** Vector of type UINT4. */
+/** Vector of type UINT4, see \ref ss_Vector for more details. */
 typedef struct
 tagUINT4Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(UINT4, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(UINT4, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   UINT4  *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(UINT4, data, length);
 }
 UINT4Vector;
 
-/** Vector of type INT8. */
+/** Vector of type INT8, see \ref ss_Vector for more details. */
 typedef struct
 tagINT8Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(INT8, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(INT8, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   INT8  *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(INT8, data, length);
 }
 INT8Vector;
 
-/** Vector of type UINT8. */
+/** Vector of type UINT8, see \ref ss_Vector for more details. */
 typedef struct
 tagUINT8Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(UINT8, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(UINT8, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   UINT8 *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(UINT8, data, length);
 }
 UINT8Vector;
 
-/** Vector of type REAL4. */
+/** Vector of type REAL4, see \ref ss_Vector for more details. */
 typedef struct
 tagREAL4Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(REAL4, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(REAL4, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   REAL4 *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(REAL4, data, length);
 }
 REAL4Vector;
 
-/** Vector of type REAL8. */
+/** Vector of type REAL8, see \ref ss_Vector for more details. */
 typedef struct tagREAL8Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(REAL8, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(REAL8, data, UINT4, length));
+#endif /* SWIG */
   UINT4  length; /**< Number of elements in array. */
   REAL8 *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(REAL8, data, length);
 }
 REAL8Vector;
 
-/** Vector of type COMPLEX8. */
+/** Vector of type COMPLEX8, see \ref ss_Vector for more details. */
 typedef struct tagCOMPLEX8Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(COMPLEX8, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(COMPLEX8, data, UINT4, length));
+#endif /* SWIG */
   UINT4     length; /**< Number of elements in array. */
   COMPLEX8 *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(COMPLEX8, data, length);
 }
 COMPLEX8Vector;
 
-/** Vector of type COMPLEX16. */
+/** Vector of type COMPLEX16, see \ref ss_Vector for more details. */
 typedef struct tagCOMPLEX16Vector
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_1DARRAY_BEGIN(COMPLEX16, data, length);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(1D_ARRAY(COMPLEX16, data, UINT4, length));
+#endif /* SWIG */
   UINT4      length; /**< Number of elements in array. */
   COMPLEX16 *data; /**< Pointer to the data array. */
-  SWIGLAL_DYNAMIC_1DARRAY_END(COMPLEX16, data, length);
 }
 COMPLEX16Vector;
 
 
-/* <lalLaTeX>
+  /* ---------- Array types ---------- */
 
-\vspace{2ex}
-\begin{verbatim}
-<datatype>Array
-\end{verbatim}
-This structure stores a set of elements of type \verb@<datatype>@,
-which can be any primitive datatype, arranged as an $m$-dimensional
-array.  That is, each element can be thought of as having $m$
-indecies, $\mathsf{A}_{i_0\cdots i_{m-1}}$, where each index $i_k$
-runs over its own range $0,\ldots,n_k-1$.  The total number of
-elements is then $N=n_0\times\cdots\times n_{m-1}$.  In memory the
-array is ``flattened'' so that the elements are stored sequentially in
-a contiguous block.  The fields are:
-\begin{description}
-\item[\texttt{UINT4Vector *dimLength}] Pointer to a vector of length
-$m$, storing the index ranges $(n_0,\ldots,n_{m-1})$.
-\item[\texttt{<datatype> *data}] Pointer to the data array.  The data
-element $\mathsf{A}_{i_0\cdots i_{m-1}}$ is stored as
-\verb@data[@$i_{m-1} + n_{m-2}\times(i_{m-2} +
-n_{m-3}\times(\cdots(i_1 + n_0\times i_0)\cdots))$\verb@]@; that is,
-the index of \verb@data[]@ runs over the entire range of an index
-$i_{k+1}$ before incrementing $i_k$.
-\end{description}
-
-</lalLaTeX> */
-
-/** Multidimentional array of INT2. */
+/** Multidimentional array of INT2, see \ref ss_Array for more details. */
 typedef struct
 tagINT2Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   INT2        *data; /**< Pointer to the data array. */
 }
 INT2Array;
 
-/** Multidimentional array of UINT2. */
+/** Multidimentional array of UINT2, see \ref ss_Array for more details. */
 typedef struct
 tagUINT2Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   UINT2       *data; /**< Pointer to the data array. */
 }
 UINT2Array;
 
-/** Multidimentional array of INT4. */
+/** Multidimentional array of INT4, see \ref ss_Array for more details. */
 typedef struct
 tagINT4Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   INT4        *data; /**< Pointer to the data array. */
 }
 INT4Array;
 
-/** Multidimentional array of UINT4. */
+/** Multidimentional array of UINT4, see \ref ss_Array for more details. */
 typedef struct
 tagUINT4Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   UINT4       *data; /**< Pointer to the data array. */
 }
 UINT4Array;
 
-/** Multidimentional array of INT8. */
+/** Multidimentional array of INT8, see \ref ss_Array for more details. */
 typedef struct
 tagINT8Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   INT8        *data; /**< Pointer to the data array. */
 }
 INT8Array;
 
-/** Multidimentional array of UINT8. */
+/** Multidimentional array of UINT8, see \ref ss_Array for more details. */
 typedef struct
 tagUINT8Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   UINT8       *data; /**< Pointer to the data array. */
 }
 UINT8Array;
 
-/** Multidimentional array of REAL4. */
+/** Multidimentional array of REAL4, see \ref ss_Array for more details. */
 typedef struct
 tagREAL4Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   REAL4       *data; /**< Pointer to the data array. */
 }
 REAL4Array;
 
-/** Multidimentional array of REAL8. */
+/** Multidimentional array of REAL8, see \ref ss_Array for more details. */
 typedef struct
 tagREAL8Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   REAL8       *data; /**< Pointer to the data array. */
 }
 REAL8Array;
 
-/** Multidimentional array of COMPLEX8. */
+/** Multidimentional array of COMPLEX8, see \ref ss_Array for more details. */
 typedef struct
 tagCOMPLEX8Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   COMPLEX8    *data; /**< Pointer to the data array. */
 }
 COMPLEX8Array;
 
-/** Multidimentional array of COMPLEX16. */
+/** Multidimentional array of COMPLEX16, see \ref ss_Array for more details. */
 typedef struct
 tagCOMPLEX16Array
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4Vector *dimLength; /**< Vector of array dimensions. */
   COMPLEX16   *data; /**< Pointer to the data array. */
 }
 COMPLEX16Array;
 
 
-/* <lalLaTeX>
+  /* ---------- Sequence types ---------- */
 
-\vspace{2ex}
-\begin{verbatim}
-<datatype>Sequence
-\end{verbatim}
-This structure stores an ordered set of $l$ elements of type
-\verb@<datatype>@, which can be any primitive datatype.  It is
-identical to \verb@<datatype>Vector@, except that the elements are to
-be interpreted as $l$ consecutive elements rather than the components
-of an $l$-dimensional vector.  The fields are:
-\begin{description}
-\item[\texttt{UINT4 length}] The number of data $l$.
-\item[\texttt{<datatype> *data}] Pointer to the data array.  The data
-are stored sequentially as \verb@data[@$0,\ldots,l-1$\verb@]@.
-\end{description}
+typedef CHARVector      CHARSequence;	/**< See \ref ss_Sequence for documentation */
+typedef INT2Vector      INT2Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef UINT2Vector     UINT2Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef INT4Vector      INT4Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef UINT4Vector     UINT4Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef INT8Vector      INT8Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef UINT8Vector     UINT8Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef REAL4Vector     REAL4Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef REAL8Vector     REAL8Sequence;	/**< See \ref ss_Sequence for documentation */
+typedef COMPLEX8Vector  COMPLEX8Sequence;/**< See \ref ss_Sequence for documentation */
+typedef COMPLEX16Vector COMPLEX16Sequence;/**< See \ref ss_Sequence for documentation */
 
-</lalLaTeX> */
+  /* ---------- VectorSequence types ---------- */
 
-typedef CHARVector      CHARSequence;
-typedef INT2Vector      INT2Sequence;
-typedef UINT2Vector     UINT2Sequence;
-typedef INT4Vector      INT4Sequence;
-typedef UINT4Vector     UINT4Sequence;
-typedef INT8Vector      INT8Sequence;
-typedef UINT8Vector     UINT8Sequence;
-typedef REAL4Vector     REAL4Sequence;
-typedef REAL8Vector     REAL8Sequence;
-typedef COMPLEX8Vector  COMPLEX8Sequence;
-typedef COMPLEX16Vector COMPLEX16Sequence;
-
-
-/* <lalLaTeX>
-
-\vspace{2ex}
-\begin{verbatim}
-<datatype>VectorSequence
-\end{verbatim}
-This structure stores an ordered set of $l$ elements of type
-\verb@<datatype>Vector@, where \verb@<datatype>@ can be any primitive
-datatype.  Mathematically the sequence can be written as
-$\{\vec{v}^{(0)},\ldots,\vec{v}^{(l-1)}\}$, where each element
-$\vec{v}^{(j)}=(v^{(j)}_0,\ldots,v^{(i)}_{n-1})$ is a vector of length
-$n$.  In memory the elements are ``flattened''; that is, they are
-stored sequentially in a contiguous block of memory.  The fields are:
-\begin{description}
-\item[\texttt{UINT4 length}] The number of vectors $l$.
-\item[\texttt{UINT4 vectorLength}] The length $n$ of each vector.
-\item[\texttt{<datatype> *data}] Pointer to the data array.  The data
-element $v^{(j)}_i$ is stored as \verb@data[@$j\times n + i$\verb@]@;
-that is, the index of \verb@data[]@ runs over the internal index of
-each vector element before incrementing to the next vector element.
-\end{description}
-
-</lalLaTeX> */
-
-/** Sequence of CHAR Vectors. */
+/** Sequence of CHAR Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagCHARVectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(CHAR, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(CHAR, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   CHAR  *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(CHAR, data, length, vectorLength);
 }
 CHARVectorSequence;
 
-/** Sequence of INT2 Vectors. */
+/** Sequence of INT2 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagINT2VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(INT2, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(INT2, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   INT2  *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(INT2, data, length, vectorLength);
 }
 INT2VectorSequence;
 
-/** Sequence of UINT2 Vectors. */
+/** Sequence of UINT2 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagUINT2VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(UINT2, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(UINT2, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   UINT2 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(UINT2, data, length, vectorLength);
 }
 UINT2VectorSequence;
 
-/** Sequence of INT4 Vectors. */
+/** Sequence of INT4 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagINT4VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(INT4, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(INT4, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   INT4  *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(INT4, data, length, vectorLength);
 }
 INT4VectorSequence;
 
-/** Sequence of UINT4 Vectors. */
+/** Sequence of UINT4 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagUINT4VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(UINT4, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(UINT4, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   UINT4 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(UINT4, data, length, vectorLength);
 }
 UINT4VectorSequence;
 
-/** Sequence of INT8 Vectors. */
+/** Sequence of INT8 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagINT8VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(INT8, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(INT8, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   INT8  *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(INT8, data, length, vectorLength);
 }
 INT8VectorSequence;
 
-/** Sequence of UINT8 Vectors. */
+/** Sequence of UINT8 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagUINT8VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(UINT8, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(UINT8, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   UINT8 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(UINT8, data, length, vectorLength);
 }
 UINT8VectorSequence;
 
-/** Sequence of REAL4 Vectors. */
+/** Sequence of REAL4 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagREAL4VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(REAL4, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(REAL4, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   REAL4 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(REAL4, data, length, vectorLength);
 }
 REAL4VectorSequence;
 
-/** Sequence of REAL8 Vectors. */
+/** Sequence of REAL8 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagREAL8VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(REAL8, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(REAL8, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4  length; /**< The number \a l of vectors. */
   UINT4  vectorLength; /**< The length \a n of each vector. */
   REAL8 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(REAL8, data, length, vectorLength);
 }
 REAL8VectorSequence;
 
-/** Sequence of COMPLEX8 Vectors. */
+/** Sequence of COMPLEX8 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagCOMPLEX8VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(COMPLEX8, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(COMPLEX8, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4     length; /**< The number \a l of vectors. */
   UINT4     vectorLength; /**< The length \a n of each vector. */
   COMPLEX8 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(COMPLEX8, data, length, vectorLength);
 }
 COMPLEX8VectorSequence;
 
-/** Sequence of COMPLEX16 Vectors. */
+/** Sequence of COMPLEX16 Vectors, see \ref ss_VectorSequence for more details. */
 typedef struct
 tagCOMPLEX16VectorSequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
-  SWIGLAL_DYNAMIC_2DARRAY_BEGIN(COMPLEX16, data, length, vectorLength);
+#ifdef SWIG /* SWIG interface directives */
+  SWIGLAL(2D_ARRAY(COMPLEX16, data, UINT4, length, vectorLength));
+#endif /* SWIG */
   UINT4      length; /**< The number \a l of vectors. */
   UINT4      vectorLength; /**< The length \a n of each vector. */
   COMPLEX16 *data; /**< Pointer to the data array.  Element \a i of vector \a j is \c data[ \a jn + \a i \c ]. */
-  SWIGLAL_DYNAMIC_2DARRAY_END(COMPLEX16, data, length, vectorLength);
 }
 COMPLEX16VectorSequence;
 
+  /* ---------- ArraySequence types ---------- */
 
-/* <lalLaTeX>
-
-\vspace{2ex}
-\begin{verbatim}
-<datatype>ArraySequence
-\end{verbatim}
-This structure stores an ordered set of $l$ elements of type
-\verb@<datatype>Array@, where \verb@<datatype>@ can be any primitive
-datatype.  The indexing of an array sequence can get quite
-complicated; it helps to read first the documentation for data arrays,
-above.  Mathematically the data can be written as a set
-$\{\mathsf{A}^{(j)}_{i_0\cdots i_{m-1}}$, where the sequence number
-$j$ runs from 0 to $l-1$, and each array index $i_k$ runs over its own
-range $0,\ldots,n_k-1$.  The total number of data in a given array
-element is then $N=n_0\times\cdots\times n_{m-1}$, and the total
-number of data in the sequence is $N\times l$.  In memory the array is
-``flattened'' so that the elements are stored sequentially in a
-contiguous block.  The fields are:
-\begin{description}
-\item[\texttt{UINT4 length}] The number $l$ of array elements in the
-sequence.
-\item[\texttt{UINT4 arrayDim}] The number of data $N$ (\emph{not} the
-number of indecies $m$) in each array element of the sequence.
-\item[\texttt{UINT4Vector *dimLength}] Pointer to a vector of length
-$m$, storing the index ranges $(n_0,\ldots,n_{m-1})$.
-\item[\texttt{<datatype> *data}] Pointer to the data.  The element
-$\mathsf{A}^{(j)}_{i_0\cdots i_{m-1}}$ is stored as
-\verb@data[@$j\times N + i_{m-1} + n_{m-2}\times(i_{m-2} +
-n_{m-3}\times(\cdots(i_1 + n_0\times i_0)\cdots))$\verb@]@; that is,
-the index of \verb@data[]@ runs over the internal indecies of each
-array element before incrementing to the next array element.
-\end{description}
-
-</lalLaTeX> */
-
-/** Sequency of INT2 multidimensional arrays. */
+/** Sequence of INT2 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagINT2ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -852,11 +476,10 @@ tagINT2ArraySequence
 }
 INT2ArraySequence;
 
-/** Sequency of UINT2 multidimensional arrays. */
+/** Sequence of UINT2 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagUINT2ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -864,11 +487,10 @@ tagUINT2ArraySequence
 }
 UINT2ArraySequence;
 
-/** Sequency of INT4 multidimensional arrays. */
+/** Sequence of INT4 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagINT4ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -876,11 +498,10 @@ tagINT4ArraySequence
 }
 INT4ArraySequence;
 
-/** Sequency of UINT4 multidimensional arrays. */
+/** Sequence of UINT4 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagUINT4ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -888,11 +509,10 @@ tagUINT4ArraySequence
 }
 UINT4ArraySequence;
 
-/** Sequency of INT8 multidimensional arrays. */
+/** Sequence of INT8 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagINT8ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -900,11 +520,10 @@ tagINT8ArraySequence
 }
 INT8ArraySequence;
 
-/** Sequency of UINT8 multidimensional arrays. */
+/** Sequence of UINT8 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagUINT8ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -912,11 +531,10 @@ tagUINT8ArraySequence
 }
 UINT8ArraySequence;
 
-/** Sequency of REAL4 multidimensional arrays. */
+/** Sequence of REAL4 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagREAL4ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -924,11 +542,10 @@ tagREAL4ArraySequence
 }
 REAL4ArraySequence;
 
-/** Sequency of REAL8 multidimensional arrays. */
+/** Sequence of REAL8 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagREAL8ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -936,11 +553,10 @@ tagREAL8ArraySequence
 }
 REAL8ArraySequence;
 
-/** Sequency of COMPLEX8 multidimensional arrays. */
+/** Sequence of COMPLEX8 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagCOMPLEX8ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
@@ -948,162 +564,63 @@ tagCOMPLEX8ArraySequence
 }
 COMPLEX8ArraySequence;
 
-/** Sequency of COMPLEX16 multidimensional arrays. */
+/** Sequence of COMPLEX16 multidimensional arrays, see \ref ss_ArraySequence for more details. */
 typedef struct
 tagCOMPLEX16ArraySequence
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4        length; /**< The number \a l of vectors. */
   UINT4        arrayDim; /**< The number of data \a N in each array element (this is not the number \a m of indices). */
   UINT4Vector *dimLength; /**< Pointer to a vector of length \a m storing the array dimensions */
   COMPLEX16   *data; /**< Pointer to the data array. */
 }
 COMPLEX16ArraySequence;
-/*@}*/
 
+  /* ---------- Structured datatypes ---------- */
 
-/* <lalLaTeX>
-\newpage
-\subsection{Structured datatypes}
-\label{ss:structured-datatypes}
-
-These datatypes embed primitive and aggregate datatypes inside
-structures that define their physical meaning.  Most of these
-structures are wrappers for aggregate datatypes that store a physical
-quantity as a function of time or frequency.  Other structures store
-specific physical information, such as the GPS time, or the factored
-response function of a filter.
-
-\vspace{2ex}
-\begin{verbatim}
-LIGOTimeGPS
-\end{verbatim}
-This structure stores the time, to nanosecond precision, synchronized
-to the Global Positioning System time reference.  The zero time for
-the GPS standard is the moment of midnight beginning January~6, 1980,
-UTC.  The \verb@LIGOTimeGPS@ structure can represent times up to
-68~years on either side of this epoch.  (Note that this is better than
-an equivalently-sized \verb@REAL8@ representation of time, which can
-maintain nanosecond precision only for times within 104~days of its
-reference point.  However, the \verb@REAL8@ representation does allow
-one to cover arbitrarily long timescales at correspondingly lower
-precision.)  The fields are:
-\begin{description}
-\item[\texttt{INT4 gpsSeconds}] The number of seconds since the GPS
-reference time.
-\item[\texttt{INT4 gpsNanoSeconds}] The number of nanoseconds since
-the last GPS second.
-\end{description}
-
-The macro \verb@LIGOTIMEGPSZERO@ can be used to statically initialize a
-\verb@LIGOTimeGPS@ object, for example:
-\begin{quote}
-\verb@LIGOTimeGPS epoch = LIGOTIMEGPSZERO;@
-\end{quote}
-
-</lalLaTeX> */
-
-/** \name Structured datatypes.
- *
- * These datatypes embed primitive and aggregate datatypes inside
- * structures that define their physical meaning.  Most of these
- * structures are wrappers for aggregate datatypes that store a physical
- * quantity as a function of time or frequency.  Other structures store
- * specific physical information, such as the GPS time, or the factored
- * response function of a filter.
- *
- */
-/*@{*/
-
-/** Epoch relative to GPS epoch */
+/** Epoch relative to GPS epoch, see \ref ss_LIGOTimeGPS for more details */
 typedef struct
 tagLIGOTimeGPS
 {
-  SWIGLAL_STRUCT_NO_LALALLOC();
   INT4 gpsSeconds; /**< Seconds since 0h UTC 6 Jan 1980. */
   INT4 gpsNanoSeconds; /**< Residual nanoseconds. */
 }
 LIGOTimeGPS;
 
+/** Zero-initializer for LIGOTimeGPS structs */
 #define LIGOTIMEGPSZERO { 0, 0 }
-
-/* <lalLaTeX>
-
-\vspace{2ex}
-\begin{verbatim}
-LALUnit
-\end{verbatim}
-This structure stores units in the mksA system (plus Kelvin, Strain,
-and ADC Count).  It also stores an overall power-of-ten scaling factor.
-The fields are:
-\begin{description}
-\item[\texttt{INT2 powerOfTen}] The power $p$ of ten scaling factor.
-\item[\texttt{INT2 unitNumerator[LALNumUnits]}] Array of unit numerators,
-  $N_i$, $i=0\ldots\textrm{LALNumUnits}-1$.
-\item[\texttt{INT2 unitDenominatorMinusOne[LALNumUnits]}] Array of unit
-  denominators-minus-one, $D_i$, $i=0\ldots\textrm{LALNumUnits}-1$.
-\end{description}
-Thus, the units are given by
-\begin{equation}
-  10^p\times\textrm{m}^{N_0/(1+D_0)}\times\textrm{kg}^{N_1/(1+D_1)}
-  \times\textrm{s}^{N_2/(1+D_2)}\times\textrm{A}^{N_3/(1+D_3)}
-  \times\textrm{K}^{N_4/(1+D_4)}\times\textrm{strain}^{N_5/(1+D_5)}
-  \times\textrm{count}^{N_6/(1+D_6)}
-\end{equation}
-The indexes of the units can be specified using the constants
-\texttt{LALUnitIndexMeter},
-\texttt{LALUnitIndexKiloGram},
-\texttt{LALUnitIndexSecond},
-\texttt{LALUnitIndexAmpere},
-\texttt{LALUnitIndexKelvin},
-\texttt{LALUnitIndexStrain},
-\texttt{LALUnitIndexADCCount},
-while \texttt{LALNumUnits} is the total number of units.
-
-</lalLaTeX> */
 
 /** Indices of arrays corresponding to particular units.
  *
- * The LALUnit structure has arrays giving the numerators
+ * The ::LALUnit structure has arrays giving the numerators
  * and denominators-minus-one of the powers of various units.
  * These are the indices for the particular units.
  */
 enum
 {
-  LALUnitIndexMeter, /**< The meter index. */
+  LALUnitIndexMeter, 	/**< The meter index. */
   LALUnitIndexKiloGram, /**< The kilogram index. */
-  LALUnitIndexSecond, /**< The second index. */
-  LALUnitIndexAmpere, /**< The ampere index. */
-  LALUnitIndexKelvin, /**< The kelvin index. */
-  LALUnitIndexStrain, /**< The strain index. */
+  LALUnitIndexSecond, 	/**< The second index. */
+  LALUnitIndexAmpere, 	/**< The ampere index. */
+  LALUnitIndexKelvin, 	/**< The kelvin index. */
+  LALUnitIndexStrain, 	/**< The strain index. */
   LALUnitIndexADCCount, /**< The ADC counts index. */
-  LALNumUnits /**< The number of units. */
+  LALNumUnits 		/**< The number of units. */
 };
 
-/** Unit in the mksA system.
- *
- * This structure stores units in the mksA system (plus Kelvin, Strain,
- * and ADC Count).  It also stores an overall power-of-ten \a p scaling factor.
- * The units are represented by an array of integer numerators \a N
- * and denominators-minus-one \a D representing the powers of the various
- * units.  The units are given by
- * \f[
+/** This structure stores units in the mksA system (plus Kelvin, Strain,
+ * and ADC Count).  It also stores an overall power-of-ten scaling factor.
+ * Thus, the units are given by
+ * \f{equation}{
  * 10^p\times\textrm{m}^{N_0/(1+D_0)}\times\textrm{kg}^{N_1/(1+D_1)}
  * \times\textrm{s}^{N_2/(1+D_2)}\times\textrm{A}^{N_3/(1+D_3)}
  * \times\textrm{K}^{N_4/(1+D_4)}\times\textrm{strain}^{N_5/(1+D_5)}
  * \times\textrm{count}^{N_6/(1+D_6)}
- * \f]
- * The indexes of the units can be specified using the constants
- * LALUnitIndexMeter, LALUnitIndexKiloGram,
- * LALUnitIndexSecond, LALUnitIndexAmpere,
- * LALUnitIndexKelvin, LALUnitIndexStrain,
- * LALUnitIndexADCCount,  while LALNumUnits is the total number of units.
+ * \f}
  *
  */
 typedef struct
 tagLALUnit
 {
-  SWIGLAL_STRUCT_LALALLOC();
   INT2  powerOfTen; /**< Overall power-of-ten scaling is 10^\c powerOfTen. */
   INT2  unitNumerator[LALNumUnits]; /**< Array of unit power numerators. */
   UINT2 unitDenominatorMinusOne[LALNumUnits]; /**< Array of unit power denominators-minus-one. */
@@ -1111,44 +628,15 @@ tagLALUnit
 LALUnit;
 
 
-/* <lalLaTeX>
-
-\vspace{2ex}
-\begin{verbatim}
-<datatype>TimeSeries
-\end{verbatim}
-This structure represents a sequence of data of type \verb@<datatype>@
-(where \verb@<datatype>@ can be any primitive datatype), sampled over
-uniform time intervals $t_0, t_0+\Delta t, \ldots , t_0+l\Delta t$.
-Essentially this is a \verb@<datatype>Sequence@ with extra fields
-defining the sample times and the type of data being sampled.  The raw
-data may also have been \emph{heterodyned}; that is, multiplied by a
-sinusoid of some frequency $f_0$, low-pass filtered, and resampled, in
-order to extract the behaviour in a small bandwidth about $f_0$.  The
-fields are:
-\begin{description}
-\item[\texttt{CHAR name[LALNameLength]}] The name of the data series (i.e.\
-the type of data being sampled).
-\item[\texttt{LIGOTimeGPS epoch}] The start time $t_0$ of the data
-series.
-\item[\texttt{REAL8 deltaT}] The sampling interval $\Delta t$, in
-seconds.
-\item[\texttt{REAL8 f0}] The heterodyning frequency $f_0$, in hertz.
-\item[\texttt{LALUnit sampleUnits}] The physical units of the
-quantity being sampled.
-\item[\texttt{<datatype>Sequence *data}] The sequence of sampled data.
-\end{description}
-
-</lalLaTeX> */
+  /* ---------- TimeSeries types ---------- */
 
 /** Length of name fields of LAL structured data types. */
-enum { LALNameLength = 64 };
+enum enumLALNameLength { LALNameLength = 64 };
 
-/** Time series of INT2 data. */
+/** Time series of INT2 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagINT2TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR          name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS   epoch; /**< The start time of the time series. */
   REAL8         deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1158,11 +646,10 @@ tagINT2TimeSeries
 }
 INT2TimeSeries;
 
-/** Time series of UINT2 data. */
+/** Time series of UINT2 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagUINT2TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS    epoch; /**< The start time of the time series. */
   REAL8          deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1172,11 +659,10 @@ tagUINT2TimeSeries
 }
 UINT2TimeSeries;
 
-/** Time series of INT4 data. */
+/** Time series of INT4 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagINT4TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR          name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS   epoch; /**< The start time of the time series. */
   REAL8         deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1186,11 +672,10 @@ tagINT4TimeSeries
 }
 INT4TimeSeries;
 
-/** Time series of UINT4 data. */
+/** Time series of UINT4 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagUINT4TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS    epoch; /**< The start time of the time series. */
   REAL8          deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1200,11 +685,10 @@ tagUINT4TimeSeries
 }
 UINT4TimeSeries;
 
-/** Time series of INT8 data. */
+/** Time series of INT8 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagINT8TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR          name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS   epoch; /**< The start time of the time series. */
   REAL8         deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1214,11 +698,10 @@ tagINT8TimeSeries
 }
 INT8TimeSeries;
 
-/** Time series of UINT8 data. */
+/** Time series of UINT8 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagUINT8TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS    epoch; /**< The start time of the time series. */
   REAL8          deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1228,11 +711,10 @@ tagUINT8TimeSeries
 }
 UINT8TimeSeries;
 
-/** Time series of REAL4 data. */
+/** Time series of REAL4 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagREAL4TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS    epoch; /**< The start time of the time series. */
   REAL8          deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1242,11 +724,10 @@ tagREAL4TimeSeries
 }
 REAL4TimeSeries;
 
-/** Time series of REAL8 data. */
+/** Time series of REAL8 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagREAL8TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS    epoch; /**< The start time of the time series. */
   REAL8          deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1256,11 +737,10 @@ tagREAL8TimeSeries
 }
 REAL8TimeSeries;
 
-/** Time series of COMPLEX8 data. */
+/** Time series of COMPLEX8 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagCOMPLEX8TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR              name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS       epoch; /**< The start time of the time series. */
   REAL8             deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1270,11 +750,10 @@ tagCOMPLEX8TimeSeries
 }
 COMPLEX8TimeSeries;
 
-/** Time series of COMPLEX16 data. */
+/** Time series of COMPLEX16 data, see \ref ss_TimeSeries for more details. */
 typedef struct
 tagCOMPLEX16TimeSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR               name[LALNameLength]; /**< The name of the time series. */
   LIGOTimeGPS        epoch; /**< The start time of the time series. */
   REAL8              deltaT; /**< The time step between samples of the time series in seconds. */
@@ -1285,34 +764,12 @@ tagCOMPLEX16TimeSeries
 COMPLEX16TimeSeries;
 
 
-/* <lalLaTeX>
+  /* ---------- TimeVectorSeries types ---------- */
 
-\vspace{2ex}
-\begin{verbatim}
-<datatype>TimeVectorSeries
-\end{verbatim}
-Like \verb@<datatype>TimeSeries@, above, except that the sampled data
-are of type type \verb@<datatype>Vector@ (where \verb@<datatype>@ can
-be any primitive datatype).  The fields are:
-\begin{description}
-\item[\texttt{CHAR name[LALNameLength]}] The name of the data series (i.e.\
-the type of data being sampled).
-\item[\texttt{LIGOTimeGPS epoch}] The start time of the data series.
-\item[\texttt{REAL8 deltaT}] The sampling interval, in seconds.
-\item[\texttt{REAL8 f0}] The heterodyning frequency, in hertz.
-\item[\texttt{LALUnit sampleUnits}] The physical units of the
-quantity being sampled.
-\item[\texttt{<datatype>VectorSequence *data}] The sequence of sampled
-data.
-\end{description}
-
-</lalLaTeX> */
-
-/** Time series of INT2 vectors. */
+/** Time series of INT2 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagINT2TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1322,11 +779,10 @@ tagINT2TimeVectorSeries
 }
 INT2TimeVectorSeries;
 
-/** Time series of UINT2 vectors. */
+/** Time series of UINT2 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagUINT2TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1336,11 +792,10 @@ tagUINT2TimeVectorSeries
 }
 UINT2TimeVectorSeries;
 
-/** Time series of INT4 vectors. */
+/** Time series of INT4 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagINT4TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1350,11 +805,10 @@ tagINT4TimeVectorSeries
 }
 INT4TimeVectorSeries;
 
-/** Time series of UINT4 vectors. */
+/** Time series of UINT4 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagUINT4TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1364,11 +818,10 @@ tagUINT4TimeVectorSeries
 }
 UINT4TimeVectorSeries;
 
-/** Time series of INT8 vectors. */
+/** Time series of INT8 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagINT8TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1378,11 +831,10 @@ tagINT8TimeVectorSeries
 }
 INT8TimeVectorSeries;
 
-/** Time series of UINT8 vectors. */
+/** Time series of UINT8 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagUINT8TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1392,11 +844,10 @@ tagUINT8TimeVectorSeries
 }
 UINT8TimeVectorSeries;
 
-/** Time series of REAL4 vectors. */
+/** Time series of REAL4 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagREAL4TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1406,11 +857,10 @@ tagREAL4TimeVectorSeries
 }
 REAL4TimeVectorSeries;
 
-/** Time series of REAL8 vectors. */
+/** Time series of REAL8 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagREAL8TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                 name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS          epoch; /**< The start time of the time series of vectors. */
   REAL8                deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1420,11 +870,10 @@ tagREAL8TimeVectorSeries
 }
 REAL8TimeVectorSeries;
 
-/** Time series of COMPLEX8 vectors. */
+/** Time series of COMPLEX8 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagCOMPLEX8TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                     name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS              epoch; /**< The start time of the time series of vectors. */
   REAL8                    deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1434,11 +883,10 @@ tagCOMPLEX8TimeVectorSeries
 }
 COMPLEX8TimeVectorSeries;
 
-/** Time series of COMPLEX16 vectors. */
+/** Time series of COMPLEX16 vectors, see \ref ss_TimeVectorSeries for more details. */
 typedef struct
 tagCOMPLEX16TimeVectorSeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                      name[LALNameLength]; /**< The name of the time series of vectors. */
   LIGOTimeGPS               epoch; /**< The start time of the time series of vectors. */
   REAL8                     deltaT; /**< The time step between samples of the time series of vectors in seconds. */
@@ -1449,33 +897,12 @@ tagCOMPLEX16TimeVectorSeries
 COMPLEX16TimeVectorSeries;
 
 
-/* <lalLaTeX>
+/* ---------- TimeArraySeries ---------- */
 
-\vspace{2ex}
-\begin{verbatim}
-<datatype>TimeArraySeries
-\end{verbatim}
-Like \verb@<datatype>TimeSeries@, above, except that the sampled data
-are of type type \verb@<datatype>Array@ (where \verb@<datatype>@ can
-be any primitive datatype).  The fields are:
-\begin{description}
-\item[\texttt{CHAR name[LALNameLength]}] The name of the data series (i.e.\
-the type of data being sampled).
-\item[\texttt{LIGOTimeGPS epoch}] The start time of the data series.
-\item[\texttt{REAL8 deltaT}] The sampling interval, in seconds.
-\item[\texttt{REAL8 f0}] The heterodyning frequency, in hertz.
-\item[\texttt{LALUnit sampleUnits}] The physical units of the
-quantity being sampled.
-\item[\texttt{<datatype>ArraySequence *data}] The sequence of sampled
-data.
-\end{description}
-
-</lalLaTeX> */
-
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagINT2TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1485,10 +912,10 @@ tagINT2TimeArraySeries
 }
 INT2TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagUINT2TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1498,10 +925,10 @@ tagUINT2TimeArraySeries
 }
 UINT2TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagINT4TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1511,10 +938,10 @@ tagINT4TimeArraySeries
 }
 INT4TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagUINT4TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1524,10 +951,10 @@ tagUINT4TimeArraySeries
 }
 UINT4TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagINT8TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1537,10 +964,10 @@ tagINT8TimeArraySeries
 }
 INT8TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagUINT8TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1550,10 +977,10 @@ tagUINT8TimeArraySeries
 }
 UINT8TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagREAL4TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1563,10 +990,10 @@ tagREAL4TimeArraySeries
 }
 REAL4TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagREAL8TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                name[LALNameLength];
   LIGOTimeGPS         epoch;
   REAL8               deltaT;
@@ -1576,10 +1003,10 @@ tagREAL8TimeArraySeries
 }
 REAL8TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagCOMPLEX8TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                   name[LALNameLength];
   LIGOTimeGPS            epoch;
   REAL8                  deltaT;
@@ -1589,10 +1016,10 @@ tagCOMPLEX8TimeArraySeries
 }
 COMPLEX8TimeArraySeries;
 
+/** See \ref ss_TimeArraySeries for documentation */
 typedef struct
 tagCOMPLEX16TimeArraySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR                    name[LALNameLength];
   LIGOTimeGPS             epoch;
   REAL8                   deltaT;
@@ -1603,39 +1030,12 @@ tagCOMPLEX16TimeArraySeries
 COMPLEX16TimeArraySeries;
 
 
-/* <lalLaTeX>
+/* ---------- FrequencySeries types ---------- */
 
-\vspace{2ex}
-\begin{verbatim}
-<datatype>FrequencySeries
-\end{verbatim}
-This structure represents a frequency spectrum of data of type
-\verb@<datatype>@ (where \verb@<datatype>@ can be any primitive
-datatype), sampled over uniform frequency intervals $f_0, f_0+\Delta
-f, \ldots , f_0+l\Delta f$.  Essentially this is a
-\verb@<datatype>Sequence@ with extra fields defining the sample
-frequencies, the timestamp of the spectrum, and the type of data being
-sampled.  The fields are:
-\begin{description}
-\item[\texttt{CHAR name[LALNameLength]}] The name of the data series (i.e.\
-the type of data being sampled).
-\item[\texttt{LIGOTimeGPS epoch}] The start time of the \emph{time}
-series from which the spectrum was calculated.
-\item[\texttt{REAL8 f0}] The lowest frequency $f_0$ being sampled, in
-hertz.
-\item[\texttt{REAL8 deltaF}] The frequency sampling interval $\Delta
-f$, in hertz.
-\item[\texttt{LALUnit sampleUnits}] The physical units of the
-quantity being sampled.
-\item[\texttt{<datatype>Sequence *data}] The sequence of sampled data.
-\end{description}
-
-</lalLaTeX> */
-
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagINT2FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR          name[LALNameLength];
   LIGOTimeGPS   epoch;
   REAL8         f0;
@@ -1645,10 +1045,10 @@ tagINT2FrequencySeries
 }
 INT2FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagUINT2FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength];
   LIGOTimeGPS    epoch;
   REAL8          f0;
@@ -1658,10 +1058,10 @@ tagUINT2FrequencySeries
 }
 UINT2FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagINT4FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR          name[LALNameLength];
   LIGOTimeGPS   epoch;
   REAL8         f0;
@@ -1671,10 +1071,10 @@ tagINT4FrequencySeries
 }
 INT4FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagUINT4FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength];
   LIGOTimeGPS    epoch;
   REAL8          f0;
@@ -1684,10 +1084,10 @@ tagUINT4FrequencySeries
 }
 UINT4FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagINT8FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR          name[LALNameLength];
   LIGOTimeGPS   epoch;
   REAL8         f0;
@@ -1697,10 +1097,10 @@ tagINT8FrequencySeries
 }
 INT8FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagUINT8FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength];
   LIGOTimeGPS    epoch;
   REAL8          f0;
@@ -1710,10 +1110,10 @@ tagUINT8FrequencySeries
 }
 UINT8FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagREAL4FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength];
   LIGOTimeGPS    epoch;
   REAL8          f0;
@@ -1723,10 +1123,10 @@ tagREAL4FrequencySeries
 }
 REAL4FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagREAL8FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR           name[LALNameLength];
   LIGOTimeGPS    epoch;
   REAL8          f0;
@@ -1736,10 +1136,10 @@ tagREAL8FrequencySeries
 }
 REAL8FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagCOMPLEX8FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR              name[LALNameLength];
   LIGOTimeGPS       epoch;
   REAL8             f0;
@@ -1749,10 +1149,10 @@ tagCOMPLEX8FrequencySeries
 }
 COMPLEX8FrequencySeries;
 
+/** See \ref ss_FrequencySeries for documentation */
 typedef struct
 tagCOMPLEX16FrequencySeries
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR               name[LALNameLength];
   LIGOTimeGPS        epoch;
   REAL8              f0;
@@ -1762,49 +1162,12 @@ tagCOMPLEX16FrequencySeries
 }
 COMPLEX16FrequencySeries;
 
-/* <lalLaTeX>
+/* ---------- ZPGFilter types ---------- */
 
-\vspace{2ex}
-\begin{verbatim}
-<datatype>ZPGFilter
-\end{verbatim}
-This structure stores the complex frequency response of a filter or
-transfer function in a factored form, where \verb@<datatype>@ can be
-either \verb@COMPLEX8@ or \verb@COMPLEX16@.  One defines a
-(dimensionless) complex frequency variable $\zeta(f\Delta t)$, where
-$\Delta t$ is the time sampling interval of the data to which the
-filter will be applied (in the case of a digital filter), or some
-other reference timescale (in the case of an analog filter).  The
-complex response function can then be given (or approximated) as
-$H(f)=g\times\prod_k(\zeta-z_k)/\prod_l(\zeta-p_l)$, where $z_k$ are
-the complex \emph{zeros}, $p_l$ are the complex \emph{poles}, and $g$
-is the complex \emph{gain} of the response function.  Some common
-complex frequency representations are the $z$-plane representation
-$\zeta(f\Delta t)=\exp(2\pi if\Delta t)$, which maps the Nyquist
-interval $f\in[0,1/2\Delta t)$ onto the upper-half unit circle in
-$\zeta$, and the $w$-plane representation $\zeta(f\Delta t)=\tan(\pi
-f\Delta t)$, which maps the Nyquist interval onto the positive real
-axis in $\zeta$.  The fields of \verb@<datatype>ZPGFilter@ are:
-\begin{description}
-\item[\texttt{CHAR name[LALNameLength]}] The name of the filter or transfer
-function.  This should also mention its complex frequency
-representation.
-\item[\texttt{REAL8 deltaT}] The sampling time or reference timescale
-$\Delta t$ for the filter, in seconds.  If zero, it will be treated as
-being equal to the sampling interval of the data being filtered.
-\item[\texttt{<datatype>Vector *zeros}]	Pointer to a vector storing
-the zeros $z_k$ of the filter.
-\item[\texttt{<datatype>Vector *poles}]	Pointer to a vector storing
-the poles $p_k$ of the filter.
-\item[\texttt{<datatype> gain}] The gain $g$ of the filter.
-\end{description}
-
-</lalLaTeX> */
-
+/** See \ref ss_ZPGFilter for details */
 typedef struct
 tagCOMPLEX8ZPGFilter
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR            name[LALNameLength];
   REAL8           deltaT;
   COMPLEX8Vector *zeros;
@@ -1813,10 +1176,10 @@ tagCOMPLEX8ZPGFilter
 }
 COMPLEX8ZPGFilter;
 
+/** See \ref ss_ZPGFilter for details */
 typedef struct
 tagCOMPLEX16ZPGFilter
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR             name[LALNameLength];
   REAL8            deltaT;
   COMPLEX16Vector *zeros;
@@ -1824,71 +1187,29 @@ tagCOMPLEX16ZPGFilter
   COMPLEX16        gain;
 }
 COMPLEX16ZPGFilter;
-/*@}*/
 
+/*@}*/ // end of LALDatatypes documentation group
 
-/* <lalLaTeX>
-\newpage
-\subsection{The LAL universal status structure \texttt{LALStatus}}
-\label{ss:status-structure}
-
-This structure is the means by which LAL functions report their
-success or failure; it provides a useful mechanism for tracking
-progress and errors through nested function calls.  The error
-reporting structure is a linked list of \verb@LALStatus@ structures, with
-each node corresponding to a given function in the current calling
-sequence.  When a function terminates successfully, its node is
-dropped from the list.  If a function encounters an error, it must
-still return control to the calling routine, reporting the error
-through its \verb@LALStatus@.  The calling routine must either deal with
-the error (pruning the linked list if it succeeds), or else return an
-error itself.  A fatal error will thus return a linked list of
-\verb@LALStatus@ structures to the top-level routine, where the tail of
-the list identifies the source of the error, and the intermediate
-nodes identify the sequence of nested function calls that led to the
-error.  The fields of the \verb@LALStatus@ are as follows:
-\begin{description}
-\item[\texttt{INT4 statusCode}] A numerical code identifying the type
-of error, or 0 for nominal status.
-\item[\texttt{const CHAR *statusDescription}] A description of the
-current status or error.
-\item[\texttt{volatile const CHAR *Id}] The RCS ID string of the
-source file of the current function.
-\item[\texttt{const CHAR *function}] The name of the current function.
-\item[\texttt{const CHAR *file}] The name of the source file of the
-current function.
-\item[\texttt{INT4 line}] The line number in the source file where the
-current \verb@statusCode@ was set.
-\item[\texttt{LALStatus *statusPtr}] Pointer to the next node in the
-list; \verb@NULL@ if this function is not reporting a subroutine
-error.
-\item[\texttt{INT4 level}] The current level in the nested calling
-sequence.
-\end{description}
-
-</lalLaTeX> */
 
 #ifndef SWIG /* exclude from SWIG interface */
+
+/** \ingroup LALStatusMacros_h
+ * \brief LAL status structure, see \ref ss_LALStatus for more details.
+ */
 typedef struct
 tagLALStatus
 {
-  INT4                 statusCode;
-  const CHAR          *statusDescription;
-  volatile const CHAR *Id;
-  const CHAR          *function;
-  const CHAR          *file;
-  INT4                 line;
-  struct tagLALStatus *statusPtr;
-  INT4                 level;
+  INT4                 statusCode;		/**< A numerical code identifying the type of error, or 0 for nominal status; Negative values are reserved for certain standard error types */
+  const CHAR          *statusDescription;	/**< An explanatory string corresponding to the numerical status code */
+  volatile const CHAR *Id;			/**< A character string identifying the source file and version number of the function being reported on */
+  const CHAR          *function;		/**< The name of the function */
+  const CHAR          *file;			/**< The name of the source file containing the function code */
+  INT4                 line;			/**< The line number in the source file where the current \c statusCode was set */
+  struct tagLALStatus *statusPtr;		/**< Pointer to the next node in the list; \c NULL if this function is not reporting a subroutine error */
+  INT4                 level;			/**< The nested-function level where any error was reported */
 }
 LALStatus;
 #endif /* SWIG */
-
-
-/* <lalLaTeX>
-\vfill{\footnotesize\input{LALDatatypesHV}}
-</lalLaTeX> */
-
 
 #ifdef  __cplusplus
 }

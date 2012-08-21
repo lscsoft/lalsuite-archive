@@ -24,16 +24,10 @@
  * \file
  * \brief Header file defining the API for DopplerFullScan.
  *
- * $Id$
  */
 
 #ifndef _DOPPLERFULLSCAN_H  /* Double-include protection. */
 #define _DOPPLERFULLSCAN_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 /* C++ protection. */
 #ifdef  __cplusplus
@@ -51,9 +45,6 @@ extern "C" {
 
 #include "DopplerScan.h"
 
-
-NRCSID( DOPPLERFULLSCANH, "$Id$" );
-
 /*---------- DEFINES ----------*/
 
 /*---------- external types ----------*/
@@ -68,7 +59,6 @@ NRCSID( DOPPLERFULLSCANH, "$Id$" );
 %warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagDopplerFullScanInit::gridFile;
 #endif /* SWIG */
 typedef struct tagDopplerFullScanInit {
-  SWIGLAL_STRUCT_LALALLOC();
   DopplerRegion searchRegion;		/**< Doppler-space region to be covered + scanned */
   DopplerGridType gridType;		/**< which type of grid to generate */
   LALPulsarMetricType metricType; 	/**< which metric to use if GRID_METRIC */
@@ -99,6 +89,7 @@ void loadFullGridFile ( LALStatus *, DopplerFullScanState *scan, const DopplerFu
 int  XLALNextDopplerPos(PulsarDopplerParams *pos, DopplerFullScanState *scan);
 void FreeDopplerFullScan (LALStatus *status, DopplerFullScanState **scan);
 REAL8 XLALNumDopplerTemplates ( DopplerFullScanState *scan);
+int XLALGetDopplerSpinRange ( PulsarSpinRange *spinRange, const DopplerFullScanState *scan );
 
 /* ----- variout utility functions ----- */
 

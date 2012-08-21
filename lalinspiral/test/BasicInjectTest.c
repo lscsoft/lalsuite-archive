@@ -125,36 +125,19 @@ accordance with frame format.
 The output file \c outfile containing injected data is written in
 the same format.
 
-\heading{Algorithm}
-
-\heading{Uses}
-\code
-lalDebugLevel
-LALPrintError()                 LALCheckMemoryLeaks()
-LALMalloc()                     LALFree()
-LALCreateRandomParams()         LALDestroyRandomParams()
-LALI2CreateVector()             LALI2DestroyVector()
-LALSCreateVector()              LALSDestroyVector()
-LALCCreateVector()              LALCDestroyVector()
-LALSReadVectorSequence()        LALSDestroyVectorSequence()
-LALCCVectorDivide()             LALGeneratePPNInspiral()
-LALSimulateCoherentGW()         LALSI2InjectTimeSeries()
-LALNormalDeviates()
-\endcode
-
-\heading{Notes}
-
 */
 
 /** \name Error Codes */ /*@{*/
-#define BASICINJECTTESTC_ENORM  0
-#define BASICINJECTTESTC_ESUB   1
-#define BASICINJECTTESTC_EARG   2
-#define BASICINJECTTESTC_EVAL   3
-#define BASICINJECTTESTC_EFILE  4
-#define BASICINJECTTESTC_EINPUT 5
-#define BASICINJECTTESTC_EMEM   6
+#define BASICINJECTTESTC_ENORM  0	/**< Normal exit */
+#define BASICINJECTTESTC_ESUB   1	/**< Subroutine failed */
+#define BASICINJECTTESTC_EARG   2	/**< Error parsing arguments */
+#define BASICINJECTTESTC_EVAL   3	/**< Input argument out of valid range */
+#define BASICINJECTTESTC_EFILE  4	/**< Could not open file */
+#define BASICINJECTTESTC_EINPUT 5	/**< Error reading file */
+#define BASICINJECTTESTC_EMEM   6	/**< Out of memory */
+/*@}*/
 
+/** \cond DONT_DOXYGEN */
 #define BASICINJECTTESTC_MSGENORM  "Normal exit"
 #define BASICINJECTTESTC_MSGESUB   "Subroutine failed"
 #define BASICINJECTTESTC_MSGEARG   "Error parsing arguments"
@@ -162,9 +145,10 @@ LALNormalDeviates()
 #define BASICINJECTTESTC_MSGEFILE  "Could not open file"
 #define BASICINJECTTESTC_MSGEINPUT "Error reading file"
 #define BASICINJECTTESTC_MSGEMEM   "Out of memory"
-/*@}*/
 
 
+
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <stdlib.h>
 #include <lal/LALStdio.h>
@@ -178,8 +162,6 @@ LALNormalDeviates()
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/StreamInput.h>
-
-NRCSID( BASICINJECTTESTC, "$Id$" );
 
 /* Default parameter settings. */
 extern int lalDebugLevel;
@@ -211,7 +193,7 @@ if ( lalDebugLevel & LALERROR )                                      \
 {                                                                    \
   LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
 		 "        %s %s\n", (code), *argv, __FILE__,         \
-		 __LINE__, BASICINJECTTESTC, statement ? statement : \
+		 __LINE__, "$Id$", statement ? statement : \
                  "", (msg) );                                        \
 }                                                                    \
 while (0)
@@ -222,7 +204,7 @@ if ( lalDebugLevel & LALINFO )                                       \
 {                                                                    \
   LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"       \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 BASICINJECTTESTC, (statement) );                    \
+		 "$Id$", (statement) );                    \
 }                                                                    \
 while (0)
 
@@ -232,7 +214,7 @@ if ( lalDebugLevel & LALWARNING )                                    \
 {                                                                    \
   LALPrintError( "Warning[0]: program %s, file %s, line %d, %s\n"    \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 BASICINJECTTESTC, (statement) );                    \
+		 "$Id$", (statement) );                    \
 }                                                                    \
 while (0)
 
@@ -708,3 +690,4 @@ I8ToLIGOTimeGPS( LIGOTimeGPS *output, INT8 input )
   output->gpsNanoSeconds = (INT4)( input - 1000000000LL*s );
   return;
 }
+/** \endcond */

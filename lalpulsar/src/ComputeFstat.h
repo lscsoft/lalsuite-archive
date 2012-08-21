@@ -29,25 +29,16 @@
  * ComputSky.[ch] by Jolien Creighton, Reinhard Prix, Steve Berukoff
  * LALComputeAM.[ch] by Jolien Creighton, Maria Alessandra Papa, Reinhard Prix, Steve Berukoff, Xavier Siemens
  *
- * $Id$
  *
  */
 
 #ifndef _COMPUTEFSTAT_H  /* Double-include protection. */
 #define _COMPUTEFSTAT_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 /* C++ protection. */
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-#include <lal/LALRCSID.h>
-NRCSID( COMPUTEFSTATH, "$Id$" );
 
 /*---------- exported INCLUDES ----------*/
 #include <lal/LALComputeAM.h>
@@ -82,23 +73,20 @@ NRCSID( COMPUTEFSTATH, "$Id$" );
  * with one entry per SFT-timestamp. These are required input for XLALNewDemod().
  * We also store the SSB reference-time tau0.
  */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagSSBtimes {
   LIGOTimeGPS refTime;
   REAL8Vector *DeltaT;		/**< Time-difference of SFT-alpha - tau0 in SSB-frame */
   REAL8Vector *Tdot;		/**< dT/dt : time-derivative of SSB-time wrt local time for SFT-alpha */
 } SSBtimes;
 
 /** Multi-IFO container for SSB timings */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagMultiSSBtimes {
   UINT4 length;		/**< number of IFOs */
   SSBtimes **data;	/**< array of SSBtimes (pointers) */
 } MultiSSBtimes;
 
 /** one F-statistic 'atom', ie the elementary per-SFT quantities required to compute F, for one detector X */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagFstatAtom {
   UINT4 timestamp;		/**< SFT GPS timestamp t_i in seconds */
   REAL8 a2_alpha;		/**< antenna-pattern factor a^2(X,t_i) */
   REAL8 b2_alpha;		/**< antenna-pattern factor b^2(X,t_i) */
@@ -108,25 +96,25 @@ typedef struct {
 } FstatAtom;
 
 /** vector of F-statistic 'atoms', ie all per-SFT quantities required to compute F, for one detector X */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagFstatAtomVector {
   UINT4 length;			/**< number of per-SFT 'atoms' */
   FstatAtom *data;		/** FstatAtoms array of given length */
   UINT4 TAtom;			/**< time-baseline of F-stat atoms (typically Tsft) */
 } FstatAtomVector;
 
 /** multi-detector version of FstatAtoms type */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagMultiFstatAtomVector {
   UINT4 length;			/**< number of detectors */
   FstatAtomVector **data;	/**< array of FstatAtom (pointers), one for each detector X */
 } MultiFstatAtomVector;
 
-
+#define CFS_MAX_IFOS 10
 /** Type containing F-statistic proper plus the two complex amplitudes Fa and Fb (for ML-estimators) */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagFcomponents {
   REAL8 F;				/**< F-statistic value */
+  REAL8 FX[CFS_MAX_IFOS];		/**< vector of single-detector F-statistic values (array of fixed size) */
+  UINT4 numDetectors;			/**< number of detectors = effective vector length. numDetectors=0 should make all code ignore the FX field. */
+  LIGOTimeGPS refTime;			/**< 'internal' refTime used to compute the F-statistic: only relevant for phase of complex amplitudes {Fa,Fb} */
   COMPLEX16 Fa;				/**< complex amplitude Fa */
   COMPLEX16 Fb;				/**< complex amplitude Fb */
   MultiFstatAtomVector *multiFstatAtoms;/**< per-IFO, per-SFT arrays of F-stat 'atoms', ie quantities required to compute F-stat */
@@ -140,11 +128,10 @@ typedef enum {
 } SSBprecision;
 
 /** [opaque] type holding a ComputeFBuffer for use in the resampling F-stat codes */
-typedef struct tag_ComputeFBuffer_RS ComputeFBuffer_RS;
+typedef struct tagComputeFBuffer_RS ComputeFBuffer_RS;
 
 /** Extra parameters controlling the actual computation of F */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagComputeFParams {
   UINT4 Dterms;		/**< how many terms to keep in the Dirichlet kernel (~16 is usually fine) */
   REAL8 upsampling;	/**< frequency-upsampling applied to SFTs ==> dFreq != 1/Tsft ... */
   SSBprecision SSBprec; /**< whether to use full relativist SSB-timing, or just simple Newtonian */
@@ -153,6 +140,7 @@ typedef struct {
   ComputeFBuffer_RS *buffer; /**< buffer for storing pre-resampled timeseries (used for resampling implementation) */
   EphemerisData *edat;   /**< ephemeris data for re-computing multidetector states */
   BOOLEAN returnAtoms;	/**< whether or not to return the 'FstatAtoms' used to compute the F-statistic */
+  BOOLEAN returnSingleF; /**< in multi-detector case, whether or not to also return the single-detector Fstats computed from the atoms */
 } ComputeFParams;
 
 
@@ -160,8 +148,7 @@ typedef struct {
  * recomputing things that depend ONLY on the skyposition and detector-state series (but not on the spins).
  * For the first call of ComputeFStat() the pointer-entries should all be NULL.
  */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagComputeFBuffer {
   const MultiDetectorStateSeries *multiDetStates;/**< buffer for each detStates (store pointer) and skypos */
   REAL8 Alpha, Delta;				/**< skyposition of candidate */
   MultiSSBtimes *multiSSB;
@@ -170,6 +157,16 @@ typedef struct {
   MultiCmplxAMCoeffs *multiCmplxAMcoef;
 } ComputeFBuffer;
 
+  /** Struct containing vectors of multi- and single-IFO F-stats over a frequency range and full search parameter info in dopplerParams */
+typedef struct tagMultiFstatFrequencySeries {
+  PulsarDopplerParams doppler;	/**< full info about {sky position, fkdot, refTime, .. and *frequency band*} for which these F values are computed */
+  REAL4Vector *F;		/**< 1D array of multi-IFO  F-stat values over {frequencies} */
+  REAL4VectorSequence *FX;	/**< 2D array of single-IFO F-stat values over {detectors, frequencies}, ordered as (det1bin1,det1bin2,..,det1binN,det2bin1,...detMbinN) */
+} MultiFstatFrequencySeries;
+
+/* macro to index arrays in the MultiFstatFrequencySeries->FX structure */
+#define FX_INDEX(FX, iDet, iFreq)          \
+  ( ( (iDet) * (FX)->vectorLength ) + (iFreq) )
 
 /*---------- exported Global variables ----------*/
 /* empty init-structs for the types defined in here */
@@ -183,7 +180,7 @@ extern const ComputeFBuffer empty_ComputeFBuffer;
 int
 XLALComputeFaFb ( Fcomponents *FaFb,
 		  const SFTVector *sfts,
-		  constPulsarSpins fkdot,
+		  const PulsarSpins fkdot,
 		  const SSBtimes *tSSB,
 		  const AMCoeffs *amcoe,
 		  const ComputeFParams *params);
@@ -191,14 +188,14 @@ XLALComputeFaFb ( Fcomponents *FaFb,
 int
 XLALComputeFaFbXavie ( Fcomponents *FaFb,
 		       const SFTVector *sfts,
-		       constPulsarSpins fkdot,
+		       const PulsarSpins fkdot,
 		       const SSBtimes *tSSB,
 		       const AMCoeffs *amcoe,
 		       const ComputeFParams *params);
 int
 XLALComputeFaFbCmplx ( Fcomponents *FaFb,
 		       const SFTVector *sfts,
-		       constPulsarSpins fkdot,
+		       const PulsarSpins fkdot,
 		       const SSBtimes *tSSB,
 		       const CmplxAMCoeffs *amcoe,
 		       const ComputeFParams *params);
@@ -255,14 +252,13 @@ void
 LALEstimatePulsarAmplitudeParams (LALStatus * status,
 				  PulsarCandidate *pulsarParams,
 				  const Fcomponents *Fstat,
-				  const LIGOTimeGPS *FstatRefTime,
 				  const CmplxAntennaPatternMatrix *Mmunu
 				  );
 
 FstatAtomVector * XLALCreateFstatAtomVector ( UINT4 num );
 
 int XLALAmplitudeParams2Vect ( PulsarAmplitudeVect A_Mu, const PulsarAmplitudeParams Amp );
-int XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp, constPulsarAmplitudeVect A_Mu );
+int XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp, const PulsarAmplitudeVect A_Mu );
 
 /* destructors */
 void XLALDestroyMultiSSBtimes ( MultiSSBtimes *multiSSB );

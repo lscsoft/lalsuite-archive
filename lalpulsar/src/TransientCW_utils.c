@@ -32,6 +32,7 @@
 #include <math.h>
 
 /* LAL-includes */
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/XLALError.h>
 #include <lal/Date.h>
 #include <lal/AVFactories.h>
@@ -77,12 +78,10 @@ XLALGetTransientWindowTimespan ( UINT4 *t0,				/**< [out] window start-time */
                                  transientWindow_t transientWindow	/**< [in] window-parameters */
                                  )
 {
-  const char *fn = __func__;
-
   /* check input consistency */
   if ( !t0 || !t1 ) {
-    XLALPrintError ("%s: invalid NULL input 't0=%p', 't1=%p'\n", fn, t0, t1 );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input 't0=%p', 't1=%p'\n", __func__, t0, t1 );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   UINT4 win_t0 = transientWindow.t0;
@@ -110,7 +109,7 @@ XLALGetTransientWindowTimespan ( UINT4 *t0,				/**< [out] window start-time */
     default:
       XLALPrintError ("invalid transient window type %d not in [%d, %d].\n",
                       transientWindow.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
-      XLAL_ERROR ( fn, XLAL_EINVAL );
+      XLAL_ERROR ( XLAL_EINVAL );
 
     } /* switch window-type */
 
@@ -127,12 +126,10 @@ XLALApplyTransientWindow ( REAL4TimeSeries *series,		/**< input timeseries to ap
                            transientWindow_t transientWindow	/**< transient-CW window to apply */
                            )
 {
-  const CHAR *fn = __func__;
-
   /* check input consistency */
   if ( !series || !series->data ){
-    XLALPrintError ("%s: Illegal NULL in input timeseries!\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: Illegal NULL in input timeseries!\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   /* special time-saving break-condition: do nothing for window=none */
@@ -146,8 +143,8 @@ XLALApplyTransientWindow ( REAL4TimeSeries *series,		/**< input timeseries to ap
 
   UINT4 t0, t1;
   if ( XLALGetTransientWindowTimespan ( &t0, &t1, transientWindow ) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: XLALGetTransientWindowTimespan() failed.\n", fn );
-    XLAL_ERROR_REAL8 ( fn, XLAL_EFUNC );
+    XLALPrintError ("%s: XLALGetTransientWindowTimespan() failed.\n", __func__ );
+    XLAL_ERROR_REAL8 ( XLAL_EFUNC );
   }
 
   UINT4 i;
@@ -173,8 +170,8 @@ XLALApplyTransientWindow ( REAL4TimeSeries *series,		/**< input timeseries to ap
 
     default:
       XLALPrintError ("%s: invalid transient window type %d not in [%d, %d].\n",
-                      fn, transientWindow.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
-      XLAL_ERROR ( fn, XLAL_EINVAL );
+                      __func__, transientWindow.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
+      XLAL_ERROR ( XLAL_EINVAL );
       break;
 
     } /* switch (window.type) */
@@ -193,25 +190,23 @@ XLALApplyTransientWindow2NoiseWeights ( MultiNoiseWeights *multiNoiseWeights,	/*
                                         transientWindow_t transientWindow	/**< [in] transient window parameters */
                                         )
 {
-  static const char *fn = __func__;
-
   UINT4 numIFOs, X;
   UINT4 numTS, i;
 
   /* check input consistency */
   if ( !multiNoiseWeights || multiNoiseWeights->length == 0 ) {
-    XLALPrintError ("%s: empty or NULL input 'multiNoiseWeights'.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: empty or NULL input 'multiNoiseWeights'.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   if ( !multiTS || multiTS->length == 0 ) {
-    XLALPrintError ("%s: empty or NULL input 'multiTS'.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: empty or NULL input 'multiTS'.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   numIFOs = multiNoiseWeights->length;
   if ( multiTS->length != numIFOs ) {
-    XLALPrintError ("%s: inconsistent numIFOs between 'multiNoiseWeights' (%d) and 'multiTS' (%d).\n", fn, numIFOs, multiTS->length );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: inconsistent numIFOs between 'multiNoiseWeights' (%d) and 'multiTS' (%d).\n", __func__, numIFOs, multiTS->length );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   /* special time-saving break-condition: do nothing for window=none */
@@ -221,8 +216,8 @@ XLALApplyTransientWindow2NoiseWeights ( MultiNoiseWeights *multiNoiseWeights,	/*
   /* deal with non-trivial windows */
   UINT4 t0, t1;
   if ( XLALGetTransientWindowTimespan ( &t0, &t1, transientWindow ) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: XLALGetTransientWindowTimespan() failed.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EFUNC );
+    XLALPrintError ("%s: XLALGetTransientWindowTimespan() failed.\n", __func__ );
+    XLAL_ERROR ( XLAL_EFUNC );
   }
 
   /* loop over all detectors X */
@@ -231,8 +226,8 @@ XLALApplyTransientWindow2NoiseWeights ( MultiNoiseWeights *multiNoiseWeights,	/*
       numTS = multiNoiseWeights->data[X]->length;
 
       if ( multiTS->data[X]->length != numTS ) {
-        XLALPrintError ("%s: inconsistent number of timesteps 'multiNoiseWeights[%d]' (%d) and 'multiTS[%d]' (%d).\n", fn, X, numTS, X, multiTS->data[X]->length );
-        XLAL_ERROR ( fn, XLAL_EINVAL );
+        XLALPrintError ("%s: inconsistent number of timesteps 'multiNoiseWeights[%d]' (%d) and 'multiTS[%d]' (%d).\n", __func__, X, numTS, X, multiTS->data[X]->length );
+        XLAL_ERROR ( XLAL_EINVAL );
       }
 
       switch ( transientWindow.type )
@@ -257,8 +252,8 @@ XLALApplyTransientWindow2NoiseWeights ( MultiNoiseWeights *multiNoiseWeights,	/*
 
         default:
           XLALPrintError ("%s: invalid transient window type %d not in [%d, %d].\n",
-                          fn, transientWindow.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
-          XLAL_ERROR ( fn, XLAL_EINVAL );
+                          __func__, transientWindow.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
+          XLAL_ERROR ( XLAL_EINVAL );
           break;
 
         } /* switch (window.type) */
@@ -277,7 +272,6 @@ XLALApplyTransientWindow2NoiseWeights ( MultiNoiseWeights *multiNoiseWeights,	/*
 CHAR*
 XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 {
-  const CHAR *fn = __func__;
 #define MAXLEN 1024
   CHAR buf[MAXLEN];
   CHAR *ret = NULL;
@@ -286,8 +280,8 @@ XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 
   if ( !par )
     {
-      LogPrintf(LOG_CRITICAL, "%s: NULL params input.\n", fn );
-      XLAL_ERROR_NULL( fn, XLAL_EDOM);
+      LogPrintf(LOG_CRITICAL, "%s: NULL params input.\n", __func__ );
+      XLAL_ERROR_NULL( XLAL_EDOM);
     }
 
   len = snprintf ( buf, MAXLEN, "tRef%09d_RA%.9g_DEC%.9g_Freq%.15g",
@@ -297,8 +291,8 @@ XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 		      par->fkdot[0] );
   if ( len >= MAXLEN )
     {
-      LogPrintf(LOG_CRITICAL, "%s: filename-size (%d) exceeded maximal length (%d): '%s'!\n", fn, len, MAXLEN, buf );
-      XLAL_ERROR_NULL( fn, XLAL_EDOM);
+      LogPrintf(LOG_CRITICAL, "%s: filename-size (%d) exceeded maximal length (%d): '%s'!\n", __func__, len, MAXLEN, buf );
+      XLAL_ERROR_NULL( XLAL_EDOM);
     }
 
   for ( i = 1; i < PULSAR_MAX_SPINS; i++)
@@ -309,8 +303,8 @@ XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 	  len = snprintf ( buf1, MAXLEN, "%s_f%ddot%.7g", buf, i, par->fkdot[i] );
 	  if ( len >= MAXLEN )
 	    {
-	      LogPrintf(LOG_CRITICAL, "%s: filename-size (%d) exceeded maximal length (%d): '%s'!\n", fn, len, MAXLEN, buf1 );
-	      XLAL_ERROR_NULL( fn, XLAL_EDOM);
+	      LogPrintf(LOG_CRITICAL, "%s: filename-size (%d) exceeded maximal length (%d): '%s'!\n", __func__, len, MAXLEN, buf1 );
+	      XLAL_ERROR_NULL( XLAL_EDOM);
 	    }
 	  strcpy ( buf, buf1 );
 	}
@@ -318,14 +312,14 @@ XLALPulsarDopplerParams2String ( const PulsarDopplerParams *par )
 
   if ( par->orbit )
     {
-      LogPrintf(LOG_NORMAL, "%s: orbital params not supported in Doppler-filenames yet\n", fn );
+      LogPrintf(LOG_NORMAL, "%s: orbital params not supported in Doppler-filenames yet\n", __func__ );
     }
 
   len = strlen(buf) + 1;
   if ( (ret = LALMalloc ( len )) == NULL )
     {
-      LogPrintf(LOG_CRITICAL, "%s: failed to LALMalloc(%d)!\n", fn, len );
-      XLAL_ERROR_NULL( fn, XLAL_ENOMEM);
+      LogPrintf(LOG_CRITICAL, "%s: failed to LALMalloc(%d)!\n", __func__, len );
+      XLAL_ERROR_NULL( XLAL_ENOMEM);
     }
 
   strcpy ( ret, buf );
@@ -348,16 +342,14 @@ XLALComputeTransientBstat ( transientWindowRange_t windowRange,		/**< [in] type 
                             const transientFstatMap_t *FstatMap		/**< [in] pre-computed transient-Fstat map F_mn over {t0, tau} ranges */
                             )
 {
-  const char *fn = __func__;
-
   /* ----- check input consistency */
   if ( !FstatMap || !FstatMap->F_mn ) {
-    XLALPrintError ("%s: invalid NULL input 'FstatMap' or 'FstatMap->F_mn'\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input 'FstatMap' or 'FstatMap->F_mn'\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   if ( windowRange.type >= TRANSIENT_LAST ) {
-    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", fn, windowRange.type, TRANSIENT_LAST-1);
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", __func__, windowRange.type, TRANSIENT_LAST-1);
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   /* ----- step through F_mn array subtract maxF and sum e^{F_mn - maxF}*/
@@ -416,16 +408,14 @@ XLALComputeTransientPosterior_t0 ( transientWindowRange_t windowRange,		/**< [in
                                    const transientFstatMap_t *FstatMap		/**< [in] pre-computed transient-Fstat map F_mn over {t0, tau} ranges */
                                    )
 {
-  const char *fn = __func__;
-
   /* ----- check input consistency */
   if ( !FstatMap || !FstatMap->F_mn ) {
-    XLALPrintError ("%s: invalid NULL input 'FstatMap' or 'FstatMap->F_mn'\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input 'FstatMap' or 'FstatMap->F_mn'\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
   if ( windowRange.type >= TRANSIENT_LAST ) {
-    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", fn, windowRange.type, TRANSIENT_LAST-1);
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", __func__, windowRange.type, TRANSIENT_LAST-1);
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   /* ----- step through F_mn array subtract maxF and sum e^{F_mn - maxF}*/
@@ -445,24 +435,24 @@ XLALComputeTransientPosterior_t0 ( transientWindowRange_t windowRange,		/**< [in
   if ( N_t0Range == 1 && (windowRange.t0Band == 0) )
     {
       if ( (ret = XLALCreateSingularPDF1D ( t0 )) == NULL ) {
-        XLALPrintError ("%s: failed to create singular pdf for t0 = %g\n", fn, t0 );
-        XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+        XLALPrintError ("%s: failed to create singular pdf for t0 = %g\n", __func__, t0 );
+        XLAL_ERROR_NULL ( XLAL_EFUNC );
       }
       return ret;
     } /* if singular pdf in t0 */
   if ( (N_t0Range == 1) && (windowRange.t0Band > 0) )
     {
       if ( (ret = XLALCreateUniformPDF1D ( t0, t1 )) == NULL ) {
-        XLALPrintError ( "%s: failed to created unform pdf over [%g, %g]\n", fn, t0, t1 );
-        XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+        XLALPrintError ( "%s: failed to created unform pdf over [%g, %g]\n", __func__, t0, t1 );
+        XLAL_ERROR_NULL ( XLAL_EFUNC );
       }
       return ret;
     } /* if uniform pdf over small band t0Band */
 
   /* ----- general N>1 point pdf case ----- */
   if ( ( ret = XLALCreateDiscretePDF1D ( t0, t1, N_t0Range )) == NULL ) {
-    XLALPrintError ("%s: XLALCreateDiscretePDF1D() failed with xlalErrno = %d\n", fn, xlalErrno );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLALPrintError ("%s: XLALCreateDiscretePDF1D() failed with xlalErrno = %d\n", __func__, xlalErrno );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   UINT4 m, n;
@@ -487,8 +477,8 @@ XLALComputeTransientPosterior_t0 ( transientWindowRange_t windowRange,		/**< [in
 
   /* normalize this PDF */
   if ( XLALNormalizePDF1D ( ret ) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: failed to normalize posterior pdf ..\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLALPrintError ("%s: failed to normalize posterior pdf ..\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
   }
 
   /* ----- return ----- */
@@ -508,16 +498,14 @@ XLALComputeTransientPosterior_tau ( transientWindowRange_t windowRange,		/**< [i
                                     const transientFstatMap_t *FstatMap		/**< [in] pre-computed transient-Fstat map F_mn over {t0, tau} ranges */
                                     )
 {
-  const char *fn = __func__;
-
   /* ----- check input consistency */
   if ( !FstatMap || !FstatMap->F_mn ) {
-    XLALPrintError ("%s: invalid NULL input 'FstatMap' or 'FstatMap->F_mn'\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input 'FstatMap' or 'FstatMap->F_mn'\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
   if ( windowRange.type >= TRANSIENT_LAST ) {
-    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", fn, windowRange.type, TRANSIENT_LAST-1);
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", __func__, windowRange.type, TRANSIENT_LAST-1);
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   /* ----- step through F_mn array subtract maxF and sum e^{F_mn - maxF}*/
@@ -537,24 +525,24 @@ XLALComputeTransientPosterior_tau ( transientWindowRange_t windowRange,		/**< [i
   if ( N_tauRange == 1 && (windowRange.tauBand == 0) )
     {
       if ( (ret = XLALCreateSingularPDF1D ( tau0 )) == NULL ) {
-        XLALPrintError ("%s: failed to create singular pdf for tau0 = %g\n", fn, tau0 );
-        XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+        XLALPrintError ("%s: failed to create singular pdf for tau0 = %g\n", __func__, tau0 );
+        XLAL_ERROR_NULL ( XLAL_EFUNC );
       }
       return ret;
     } /* if singular pdf in tau */
   if ( (N_tauRange == 1) && (windowRange.tauBand > 0) )
     {
       if ( (ret = XLALCreateUniformPDF1D ( tau0, tau1 )) == NULL ) {
-        XLALPrintError ( "%s: failed to created unform pdf over [%g, %g]\n", fn, tau0, tau1 );
-        XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+        XLALPrintError ( "%s: failed to created unform pdf over [%g, %g]\n", __func__, tau0, tau1 );
+        XLAL_ERROR_NULL ( XLAL_EFUNC );
       }
       return ret;
     } /* if uniform pdf over small band tauBand */
 
   /* ----- general N>1 point pdf case ----- */
   if ( ( ret = XLALCreateDiscretePDF1D ( tau0, tau1, N_tauRange )) == NULL ) {
-    XLALPrintError ("%s: XLALCreateDiscretePDF1D() failed with xlalErrno = %d\n", fn, xlalErrno );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLALPrintError ("%s: XLALCreateDiscretePDF1D() failed with xlalErrno = %d\n", __func__, xlalErrno );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   UINT4 m, n;
@@ -579,8 +567,8 @@ XLALComputeTransientPosterior_tau ( transientWindowRange_t windowRange,		/**< [i
 
   /* normalize this PDF */
   if ( XLALNormalizePDF1D ( ret ) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: failed to normalize posterior pdf ..\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLALPrintError ("%s: failed to normalize posterior pdf ..\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
   }
 
   /* ----- return ----- */
@@ -608,23 +596,21 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
                                BOOLEAN useFReg					/**< [in] experimental switch: compute FReg = F - log(D) instead of F */
                                )
 {
-  const char *fn = __func__;
-
   /* check input consistency */
   if ( !multiFstatAtoms || !multiFstatAtoms->data || !multiFstatAtoms->data[0]) {
-    XLALPrintError ("%s: invalid NULL input.\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input.\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
   if ( windowRange.type >= TRANSIENT_LAST ) {
-    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", fn, windowRange.type, TRANSIENT_LAST-1);
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: unknown window-type (%d) passes as input. Allowed are [0,%d].\n", __func__, windowRange.type, TRANSIENT_LAST-1);
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   /* ----- pepare return container ----- */
   transientFstatMap_t *ret;
   if ( (ret = XLALCalloc ( 1, sizeof(*ret) )) == NULL ) {
     XLALPrintError ("%s: XLALCalloc(1,%s) failed.\n", sizeof(*ret) );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   /* ----- first combine all multi-atoms into a single atoms-vector with *unique* timestamps */
@@ -633,8 +619,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
   UINT4 TAtomHalf = TAtom/2;	/* integer division */
 
   if ( (atoms = XLALmergeMultiFstatAtomsBinned ( multiFstatAtoms, TAtom )) == NULL ) {
-    XLALPrintError ("%s: XLALmergeMultiFstatAtomsSorted() failed with code %d\n", fn, xlalErrno );
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLALPrintError ("%s: XLALmergeMultiFstatAtomsSorted() failed with code %d\n", __func__, xlalErrno );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
   }
   UINT4 numAtoms = atoms->length;
   /* actual data spans [t0_data, t0_data + numAtoms * TAtom] in steps of TAtom */
@@ -677,8 +663,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
   UINT4 N_tauRange = (UINT4) floor ( windowRange.tauBand / windowRange.dtau ) + 1;
 
   if ( ( ret->F_mn = gsl_matrix_calloc ( N_t0Range, N_tauRange )) == NULL ) {
-    XLALPrintError ("%s: failed ret->F_mn = gsl_matrix_calloc ( %d, %d )\n", fn, N_tauRange, N_t0Range );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLALPrintError ("%s: failed ret->F_mn = gsl_matrix_calloc ( %d, %d )\n", __func__, N_tauRange, N_t0Range );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   transientWindow_t win_mn;
@@ -709,8 +695,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
           /* get end-time t1 of this transient-window search */
           UINT4 t0, t1;
           if ( XLALGetTransientWindowTimespan ( &t0, &t1, win_mn ) != XLAL_SUCCESS ) {
-            XLALPrintError ("%s: XLALGetTransientWindowTimespan() failed.\n", fn );
-            XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+            XLALPrintError ("%s: XLALGetTransientWindowTimespan() failed.\n", __func__ );
+            XLAL_ERROR_NULL ( XLAL_EFUNC );
           }
 
           /* compute window end-time Fstat-atom index i_t1 in [0, numAtoms) */
@@ -721,11 +707,11 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
 
           /* protection against degenerate 1-atom case: (this implies D=0 and therefore F->inf) */
           if ( i_t1 == i_t0 ) {
-            XLALPrintError ("%s: encountered a single-atom Fstat-calculation. This is degenerate and cannot be computed!\n", fn );
+            XLALPrintError ("%s: encountered a single-atom Fstat-calculation. This is degenerate and cannot be computed!\n", __func__ );
             XLALPrintError ("Window-values m=%d (t0=%d=t0_data + %d), n=%d (tau=%d) ==> t1_data - t0 = %d\n",
                             m, win_mn.t0, i_t0 * TAtom, n, win_mn.tau, t1_data - win_mn.t0 );
             XLALPrintError ("The most likely cause is that your t0-range covered all of your data: t0 must stay away *at least* 2*TAtom from the end of the data!\n");
-            XLAL_ERROR_NULL ( fn, XLAL_EDOM );
+            XLAL_ERROR_NULL ( XLAL_EDOM );
           }
 
           /* now we have two valid atoms-indices [i_t0, i_t1] spanning our Fstat-window to sum over,
@@ -793,8 +779,8 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
 
             default:
               XLALPrintError ("%s: invalid transient window type %d not in [%d, %d].\n",
-                              fn, windowRange.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
-              XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+                              __func__, windowRange.type, TRANSIENT_NONE, TRANSIENT_LAST -1 );
+              XLAL_ERROR_NULL ( XLAL_EINVAL );
               break;
 
             } /* switch window.type */
@@ -849,11 +835,9 @@ XLALComputeTransientFstatMap ( const MultiFstatAtomVector *multiFstatAtoms, 	/**
 FstatAtomVector *
 XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *multiAtoms, UINT4 deltaT )
 {
-  const char *fn = __func__;
-
   if ( !multiAtoms || !multiAtoms->length || !multiAtoms->data[0] || (deltaT==0) ) {
-    XLALPrintError ("%s: invalid NULL input or deltaT=0.\n", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input or deltaT=0.\n", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   UINT4 numDet = multiAtoms->length;
@@ -864,8 +848,8 @@ XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *multiAtoms, UINT4 d
   for ( X=0; X < numDet; X ++ ) {
     if ( multiAtoms->data[X]->TAtom != TAtom ) {
       XLALPrintError ("%s: Invalid input, atoms baseline TAtom=%d must be identical for all multiFstatAtomVectors (IFO=%d: TAtom=%d)\n",
-                      fn, TAtom, X, multiAtoms->data[X]->TAtom );
-      XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+                      __func__, TAtom, X, multiAtoms->data[X]->TAtom );
+      XLAL_ERROR_NULL ( XLAL_EINVAL );
     }
   } /* for X < numDet */
 
@@ -890,8 +874,8 @@ XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *multiAtoms, UINT4 d
 
   FstatAtomVector *atomsOut;
   if ( (atomsOut = XLALCreateFstatAtomVector ( NBinnedAtoms )) == NULL ) {	/* NOTE: these atoms are pre-initialized to zero already! */
-    XLALPrintError ("%s: failed to XLALCreateFstatAtomVector ( %d )\n", fn, NBinnedAtoms );
-    XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+    XLALPrintError ("%s: failed to XLALCreateFstatAtomVector ( %d )\n", __func__, NBinnedAtoms );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   atomsOut->TAtom = deltaT;	/* output atoms-vector has new atoms baseline 'deltaT' */
@@ -936,12 +920,10 @@ XLALmergeMultiFstatAtomsBinned ( const MultiFstatAtomVector *multiAtoms, UINT4 d
 int
 write_transientCandidate_to_fp ( FILE *fp, const transientCandidate_t *thisCand )
 {
-  const char *fn = __func__;
-
   /* sanity checks */
   if ( !fp ) {
-    XLALPrintError ( "%s: invalid NULL filepointer input.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ( "%s: invalid NULL filepointer input.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
 
@@ -952,8 +934,8 @@ write_transientCandidate_to_fp ( FILE *fp, const transientCandidate_t *thisCand 
   else
     {
       if ( !thisCand->FstatMap ) {
-        XLALPrintError ("%s: incomplete: transientCand->FstatMap == NULL!\n", fn );
-        XLAL_ERROR ( fn, XLAL_EINVAL );
+        XLALPrintError ("%s: incomplete: transientCand->FstatMap == NULL!\n", __func__ );
+        XLAL_ERROR ( XLAL_EINVAL );
       }
       UINT4 t0 = thisCand->windowRange.t0;
       REAL8 t0_d_ML = 1.0 * (thisCand->FstatMap->t0_ML - t0) / DAY24;
@@ -981,12 +963,11 @@ write_transientCandidate_to_fp ( FILE *fp, const transientCandidate_t *thisCand 
 int
 write_MultiFstatAtoms_to_fp ( FILE *fp, const MultiFstatAtomVector *multiAtoms )
 {
-  const char *fn = __func__;
   UINT4 X, alpha;
 
   if ( !fp || !multiAtoms ) {
-    XLALPrintError ( "%s: invalid NULL input.\n", fn );
-    XLAL_ERROR (fn, XLAL_EINVAL );
+    XLALPrintError ( "%s: invalid NULL input.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   fprintf ( fp, "%%%% GPS[s]     a^2(t_i)   b^2(t_i)  ab(t_i)            Fa(t_i)                  Fb(t_i)\n");
@@ -1019,19 +1000,17 @@ write_MultiFstatAtoms_to_fp ( FILE *fp, const MultiFstatAtomVector *multiAtoms )
 int
 XLALCreateExpLUT ( void )
 {
-  const char *fn = __func__;
-
   /* create empty output LUT */
   gsl_vector *ret;
-  if ( ( ret = gsl_vector_alloc ( EXPLUT_LENGTH )) == NULL ) {
-    XLALPrintError ("%s: failed to gsl_vector_alloc (%s)\n", fn, EXPLUT_LENGTH );
-    XLAL_ERROR ( fn, XLAL_ENOMEM );
+  if ( ( ret = gsl_vector_alloc ( EXPLUT_LENGTH + 1)) == NULL ) {
+    XLALPrintError ("%s: failed to gsl_vector_alloc (%s)\n", __func__, EXPLUT_LENGTH +1 );
+    XLAL_ERROR ( XLAL_ENOMEM );
   }
 
   /* fill output LUT */
   REAL8 dx = EXPLUT_XMAX / EXPLUT_LENGTH;
   UINT4 i;
-  for ( i=0; i < EXPLUT_LENGTH; i ++ )
+  for ( i=0; i <= EXPLUT_LENGTH; i ++ )
     {
       REAL8 xi = i * dx;
 
@@ -1075,8 +1054,6 @@ XLALDestroyExpLUT ( void )
 REAL8
 XLALFastNegExp ( REAL8 mx )
 {
-  const char *fn = __func__;
-
   if ( mx > EXPLUT_XMAX )	/* for values smaller than e^(-xmax) we truncate to 0 */
     return 0.0;
 
@@ -1085,7 +1062,7 @@ XLALFastNegExp ( REAL8 mx )
 
   /* if lookup table doesn't exist yet: generate it now */
   if ( !expLUT && ( XLALCreateExpLUT() != XLAL_SUCCESS) ) {
-    XLAL_ERROR_REAL8 ( fn, XLAL_EFUNC );
+    XLAL_ERROR_REAL8 ( XLAL_EFUNC );
   }
 
   /* find index of closest point xp in LUT to xm */

@@ -41,9 +41,8 @@ code can also be used to update heterodyned data using new parameters (old and n
 are required) i.e. it will take the difference of the original heterodyne phase and the new phase
 and reheterodyne with this phase difference. */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include "heterodyne_pulsar.h"
-
-RCSID("$Id$");
 
 /* define a macro to round a number without having to use the C round function */
 #define ROUND(a) (floor(a+0.5))
@@ -81,7 +80,8 @@ int main(int argc, char *argv[]){
 
   CHAR outputfile[256]="";
   CHAR channel[128]="";
-
+  CHAR *psrname = NULL;
+  
   INT4Vector *starts=NULL, *stops=NULL; /* science segment start and stop times */
   INT4 numSegs=0;
 
@@ -107,6 +107,21 @@ int main(int argc, char *argv[]){
   /* read in pulsar data */
   XLALReadTEMPOParFile( &hetParams.het, inputParams.paramfile );
 
+  /* set pulsar name - take from par file if available, or if not get from
+     command line args */
+  if( hetParams.het.jname )
+    psrname = XLALStringDuplicate( hetParams.het.jname );
+  else if ( hetParams.het.bname )
+    psrname = XLALStringDuplicate( hetParams.het.bname );
+  else if ( hetParams.het.name )
+    psrname = XLALStringDuplicate( hetParams.het.name );
+  else if ( inputParams.pulsar )
+    psrname = XLALStringDuplicate( inputParams.pulsar );
+  else{
+    fprintf(stderr, "No pulsar name specified!\n");
+    exit(0);
+  }
+  
   /* if there is an epoch given manually (i.e. not from the pulsar parameter
      file) then set it here and overwrite any other value - this is used, for
      example, with the pulsar hardware injections in which this should be set
@@ -117,8 +132,7 @@ int main(int argc, char *argv[]){
   }
 
   if(verbose){
-    fprintf(stderr, "I've read in the pulsar parameters for %s.\n",
-      inputParams.pulsar);
+    fprintf(stderr, "I've read in the pulsar parameters for %s.\n", psrname);
     fprintf(stderr, "alpha = %lf rads, delta = %lf rads.\n", hetParams.het.ra,
       hetParams.het.dec);
     fprintf(stderr, "f0 = %.1lf Hz, f1 = %.1e Hz/s, epoch = %.1lf.\n",
@@ -157,8 +171,7 @@ pulsars spin frequency.\n", inputParams.freqfactor);
     }
 
     if(verbose){
-      fprintf(stderr, "I've read the updated parameters for %s.\n",
-        inputParams.pulsar);
+      fprintf(stderr, "I've read the updated parameters for %s.\n", psrname);
       fprintf(stderr, "alpha = %lf rads, delta = %lf rads.\n",
         hetParams.hetUpdate.ra, hetParams.hetUpdate.dec);
       fprintf(stderr, "f0 = %.1lf Hz, f1 = %.1e Hz/s, epoch = %.1lf.\n",
@@ -274,13 +287,13 @@ directory of the form /GPS_START_TIME-GPS_END_TIME!\n");
   
   if(inputParams.heterodyneflag == 0){
     snprintf(outputfile, sizeof(outputfile), "%s/coarsehet_%s_%s_%s",
-      inputParams.outputdir, inputParams.pulsar, inputParams.ifo, pos+1);
+      inputParams.outputdir, psrname, inputParams.ifo, pos+1);
     if(verbose){  fprintf(stderr, "I'm performing a coarse \
 heterodyne.\n");  }
   }
   else{
     snprintf(outputfile, sizeof(outputfile), "%s/finehet_%s_%s",
-      inputParams.outputdir, inputParams.pulsar, inputParams.ifo);
+      inputParams.outputdir, psrname, inputParams.ifo);
     if(verbose){  fprintf(stderr, "I'm performing a fine \
 heterodyne.\n");  }
   }
@@ -422,7 +435,7 @@ heterodyne.\n");  }
           rc = fread((void*)&data->data->data[i].re, sizeof(REAL8), 1, fpin);
           rc = fread((void*)&data->data->data[i].im, sizeof(REAL8), 1, fpin);
 
-          if( feof(fpin) ) break;
+          if( feof(fpin) || rc == 0 ) break;
           
           if(inputParams.scaleFac > 1.0){
             data->data->data[i].re *= inputParams.scaleFac;
@@ -577,6 +590,8 @@ sigma for 2nd time.\n",
       /* if data has been scaled then undo scaling for output */
       
       if( inputParams.binaryoutput ){
+        size_t rc = 0;        
+
         /*FIXME: maybe add header info to binary output - or output to frames!*/
         /* binary output will be same as ASCII text - time real imag */
         if( inputParams.scaleFac > 1.0 ){
@@ -585,17 +600,17 @@ sigma for 2nd time.\n",
           tempreal = resampData->data->data[i].re/inputParams.scaleFac;
           tempimag = resampData->data->data[i].im/inputParams.scaleFac;
           
-          fwrite(&times->data[i], sizeof(REAL8), 1, fpout);
-          fwrite(&tempreal, sizeof(REAL8), 1, fpout);
-          fwrite(&tempimag, sizeof(REAL8), 1, fpout);
+          rc = fwrite(&times->data[i], sizeof(REAL8), 1, fpout);
+          rc = fwrite(&tempreal, sizeof(REAL8), 1, fpout);
+          rc = fwrite(&tempimag, sizeof(REAL8), 1, fpout);
         }
         else{
-          fwrite(&times->data[i], sizeof(REAL8), 1, fpout);
-          fwrite(&resampData->data->data[i].re, sizeof(REAL8), 1, fpout);
-          fwrite(&resampData->data->data[i].im, sizeof(REAL8), 1, fpout);
+          rc = fwrite(&times->data[i], sizeof(REAL8), 1, fpout);
+          rc = fwrite(&resampData->data->data[i].re, sizeof(REAL8), 1, fpout);
+          rc = fwrite(&resampData->data->data[i].im, sizeof(REAL8), 1, fpout);
         }
         
-        if( ferror(fpout) ){
+        if( ferror(fpout) || !rc ){
           fprintf(stderr, "Error... problem writing out data to binary \
 file!\n");
           exit(1);
@@ -700,6 +715,7 @@ void get_input_args(InputParams *inputParams, int argc, char *argv[]){
   char *program = argv[0];
 
   /* set defaults */
+  inputParams->pulsar = NULL;
   inputParams->filterknee = 0.; /* default is not to filter */
   inputParams->resamplerate = 0.; /* resample to 1 Hz */
   inputParams->samplerate = 0.;
@@ -730,7 +746,7 @@ the pulsar parameter file */
     int option_index = 0;
     int c;
 
-    c = getopt_long_only( argc, argv, args, long_options, &option_index );
+    c = getopt_long( argc, argv, args, long_options, &option_index );
     if ( c == -1 ) /* end of options */
       break;
 
@@ -755,8 +771,7 @@ the pulsar parameter file */
         inputParams->heterodyneflag = atoi(optarg);
         break;
       case 'p': /* pulsar name */
-        snprintf(inputParams->pulsar, sizeof(inputParams->pulsar), "%s",
-          optarg);
+        inputParams->pulsar = XLALStringDuplicate( optarg );
         break;
       case 'A': /* calibration flag */
         inputParams->calibrate = 1;
@@ -946,8 +961,6 @@ heterodyne!\n");
 /* heterodyne data function */
 void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
   HeterodyneParams hetParams, REAL8 freqfactor, FilterResponse *filtresp){
-  static LALStatus status;
-
   REAL8 phaseCoarse=0., phaseUpdate=0., deltaphase=0.;
   REAL8 t=0., t2=0., tdt=0., tdt2=0., T0=0., T0Update=0.;
   REAL8 dtpos=0.; /* time between position epoch and data timestamp */
@@ -990,11 +1003,8 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
 
   /* set up ephemeris files */
   if( hetParams.heterodyneflag > 0){
-    edat = XLALMalloc(sizeof(*edat));
-
-    (*edat).ephiles.earthEphemeris = hetParams.earthfile;
-    (*edat).ephiles.sunEphemeris = hetParams.sunfile;
-    LAL_CALL( LALInitBarycenter(&status, edat), &status );
+    XLAL_CHECK_VOID( (edat = XLALInitBarycenter( hetParams.earthfile,
+                hetParams.sunfile )) != NULL, XLAL_EFUNC );
 
     /* set up location of detector */
     baryinput.site.location[0] = hetParams.detector.location[0]/LAL_C_SI;
@@ -1054,9 +1064,10 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
 
       XLALGPSSetREAL8(&baryinput.tgps, t);	
 
-      LAL_CALL( LALBarycenterEarth(&status, &earth, &baryinput.tgps, edat),
-        &status );
-      LAL_CALL( LALBarycenter(&status, &emit, &baryinput, &earth), &status );
+      XLAL_CHECK_VOID( XLALBarycenterEarth( &earth, &baryinput.tgps, edat ) ==
+                       XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_VOID( XLALBarycenter( &emit, &baryinput, &earth ) ==
+                       XLAL_SUCCESS, XLAL_EFUNC );
 
       /* if binary pulsar add extra time delay */
       if(hetParams.het.model!=NULL){
@@ -1115,13 +1126,15 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
       
       XLALGPSSetREAL8(&baryinput2.tgps, t2);
       
-      LAL_CALL( LALBarycenterEarth(&status, &earth, &baryinput.tgps, edat),
-        &status );
-      LAL_CALL( LALBarycenter(&status, &emit, &baryinput, &earth), &status );
+      XLAL_CHECK_VOID( XLALBarycenterEarth( &earth, &baryinput.tgps, edat ) ==
+                       XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_VOID( XLALBarycenter( &emit, &baryinput, &earth ) ==
+                       XLAL_SUCCESS, XLAL_EFUNC );
 
-      LAL_CALL( LALBarycenterEarth(&status, &earth2, &baryinput2.tgps, edat),
-        &status );
-      LAL_CALL( LALBarycenter(&status, &emit2, &baryinput2, &earth2), &status );
+      XLAL_CHECK_VOID( XLALBarycenterEarth( &earth2, &baryinput2.tgps, edat ) ==
+                       XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_VOID( XLALBarycenter( &emit2, &baryinput2, &earth2 ) ==
+                       XLAL_SUCCESS, XLAL_EFUNC );
 
       /* if binary pulsar add extra time delay */
       if(hetParams.hetUpdate.model!=NULL){
@@ -1209,19 +1222,8 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
       dataTemp.im*cos(-deltaphase);
   }
 
-  if(hetParams.heterodyneflag > 0){
-    XLALFree(edat->ephemE);
-    XLALFree(edat->ephemS);
-    XLALFree(edat);
-  }
+  if(hetParams.heterodyneflag > 0) XLALDestroyEphemerisData( edat );
 
-  /* check LALstatus error code in case any of the barycntring code has had a
-     problem */
-  if(status.statusCode){
-    fprintf(stderr, "Error... got error code %d and message:\n\t%s\n", 
-    status.statusCode, status.statusDescription);
-    exit(1);
-  }
 }
 
 /* function to extract the frame time and duration from the file name */
@@ -1287,10 +1289,8 @@ REAL8TimeSeries *get_frame_data(CHAR *framefile, CHAR *channel, REAL8 ttime,
 
   FrFileIEnd(frfile);
 
-  /* fill into REAL8 vector */
-  if((strstr(channel, "STRAIN") == NULL && strstr(channel, "DER_DATA") == NULL)
-    && strstr(channel, ":LSC") != NULL){ 
-
+  /* fill in vector - checking for frame data type */
+  if( frvect->type == FR_VECT_4R ){ /* data is float */
     /* check that data doesn't contain NaNs */
     if(isnan(frvect->dataF[0]) != 0){
       XLALDestroyREAL8Vector(dblseries->data);
@@ -1299,62 +1299,39 @@ REAL8TimeSeries *get_frame_data(CHAR *framefile, CHAR *channel, REAL8 ttime,
       return NULL; /* couldn't read frame data */
     }
 
-    /* data is uncalibrated single precision - not neccesarily from DARM_ERR
-      or AS_Q though - might be analysing an enviromental channel */
     for(i=0;i<(INT4)length;i++)
       dblseries->data->data[i] = scalefac*(REAL8)frvect->dataF[i];
   }
-  else if(strstr(channel, "STRAIN") != NULL || strstr(channel, "DER_DATA") !=
-    NULL || strstr(channel, "h_16384Hz") != NULL || strstr(channel, 
-    "h_20000Hz") != NULL || strstr(channel, "LDAS_C02") != NULL){ 
-    /* data is calibrated h(t) */
-    /* calibrated Virgo data has the channel h_16384/20000Hz and is single
-       precision */
-    if( strstr(channel, "h_16384Hz") == NULL && strstr(channel, "h_20000Hz")
-      == NULL){
-      /* check that data doesn't contain NaNs */
-      if(isnan(frvect->dataD[0]) != 0){
-        XLALDestroyREAL8Vector(dblseries->data);
-        XLALFree(dblseries);
-        FrVectFree(frvect);
-        return NULL; /* couldn't read frame data */
-      }
-
-      for(i=0;i<(INT4)length;i++)
-        dblseries->data->data[i] = scalefac*frvect->dataD[i];
-
-    }
-    else{ /* Virgo data */
-      /* check that data doesn't contain NaNs */
-      if(isnan(frvect->dataF[0]) != 0){
-        XLALDestroyREAL8Vector(dblseries->data);
-        XLALFree(dblseries);
-        FrVectFree(frvect);
-        return NULL; /* couldn't read frame data */
-      }
-
-      for(i=0;i<(INT4)length;i++)
-        dblseries->data->data[i] = scalefac*(REAL8)frvect->dataF[i];
+  else if( frvect->type == FR_VECT_8R ){ /* data is double */
+    /* check that data doesn't contain NaNs */
+    if(isnan(frvect->dataD[0]) != 0){
+      XLALDestroyREAL8Vector(dblseries->data);
+      XLALFree(dblseries);
+      FrVectFree(frvect);
+      return NULL; /* couldn't read frame data */
     }
 
-    /* if a high-pass filter is specified (>0) then filter data */
-    if(highpass > 0.){
-      PassBandParamStruc highpasspar;
-
-      /* uses 8th order Butterworth, with 10% attenuation */
-      highpasspar.nMax = 8;
-      highpasspar.f1   = -1;
-      highpasspar.a1   = -1;
-      highpasspar.f2   = highpass;
-      highpasspar.a2   = 0.9; /* this means 10% attenuation at f2 */
-
-      XLALButterworthREAL8TimeSeries( dblseries, &highpasspar );
-    }
+    for(i=0;i<(INT4)length;i++)
+      dblseries->data->data[i] = scalefac*(REAL8)frvect->dataD[i];
   }
   else{ /* channel name is not recognised */
     fprintf(stderr, "Error... Channel name %s is not recognised as a proper \
 channel.\n", channel);
     exit(1); /* abort code */
+  }
+
+  /* if a high-pass filter is specified (>0) then filter data */
+  if(highpass > 0.){
+    PassBandParamStruc highpasspar;
+
+    /* uses 8th order Butterworth, with 10% attenuation */
+    highpasspar.nMax = 8;
+    highpasspar.f1   = -1;
+    highpasspar.a1   = -1;
+    highpasspar.f2   = highpass;
+    highpasspar.a2   = 0.9; /* this means 10% attenuation at f2 */
+
+    XLALButterworthREAL8TimeSeries( dblseries, &highpasspar );
   }
 
   FrVectFree(frvect);
@@ -1621,7 +1598,6 @@ INT4 heterodyneflag){
   INT4 num, dur; /* variable to contain the segment number and duration */
   INT4 linecount=0; /* number of lines in the segment file */
   INT4 ch=0;
-  int rc;
 
   if((fp=fopen(seglistfile, "r"))==NULL){
     fprintf(stderr, "Error... can't open science segment list file.\n");
@@ -1812,7 +1788,9 @@ Assume calibration coefficients are 1 and use the response function.\n",
       }
       if(strstr(jnkstr, "%")){
         rc = fscanf(fpcoeff, "%*[^\n]");   /* if == % then skip to the end of the
-                                         line */
+                                              line */
+        if( rc == EOF ) continue;
+          
         continue;
       }
       else{
@@ -1944,6 +1922,8 @@ calibfilename);
     rc = fscanf(fp, "%s", jnkstr); /* scan in value and check if == to % */
     if(strstr(jnkstr, "%")){
       rc = fscanf(fp, "%*[^\n]");   /* if == % then skip to the end of the line */
+      
+      if ( rc == EOF ) continue;
       continue;
     }
     else{

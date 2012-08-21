@@ -165,6 +165,26 @@ def uniq(iterable):
 		if e not in temp_dict:
 			yield temp_dict.setdefault(e, e)
 
+
+def nonuniq(iterable):
+	"""
+	Yield the non-unique items of an iterable, preserving order.  If an
+	item occurs N > 0 times in the input sequence, it will occur N-1
+	times in the output sequence.
+
+	Example:
+
+	>>> x = nonuniq([0, 0, 2, 6, 2, 0, 5])
+	>>> list(x)
+	[0, 2, 0]
+	"""
+	temp_dict = {}
+	for e in iterable:
+		if e in temp_dict:
+			yield e
+		temp_dict.setdefault(e, e)
+
+
 def flatten(sequence, levels = 1):
 	"""
 	Example:
@@ -302,11 +322,21 @@ def inorder(*iterables, **kwargs):
 	>>> z = [1.75, 2.25, 3.75, 4.25]
 	>>> list(inorder(x, y, z))
 	[0, 1, 1.5, 1.75, 2, 2.25, 2.5, 3, 3.5, 3.75, 4.25, 4.5]
+	>>> list(inorder(x, y, z, key=lambda x: x * x))
+	[0, 1, 1.5, 1.75, 2, 2.25, 2.5, 3, 3.5, 3.75, 4.25, 4.5]
+
+	>>> x.sort(key=lambda x: abs(x-3))
+	>>> y.sort(key=lambda x: abs(x-3))
+	>>> z.sort(key=lambda x: abs(x-3))
+	>>> list(inorder(x, y, z, key=lambda x: abs(x - 3)))
+	[3, 2.5, 3.5, 2.25, 3.75, 2, 1.75, 4.25, 1.5, 4.5, 1, 0]
 
 	>>> x = [3, 2, 1, 0]
 	>>> y = [4.5, 3.5, 2.5, 1.5]
 	>>> z = [4.25, 3.75, 2.25, 1.75]
 	>>> list(inorder(x, y, z, reverse = True))
+	[4.5, 4.25, 3.75, 3.5, 3, 2.5, 2.25, 2, 1.75, 1.5, 1, 0]
+	>>> list(inorder(x, y, z, key = lambda x: -x))
 	[4.5, 4.25, 3.75, 3.5, 3, 2.5, 2.25, 2, 1.75, 1.5, 1, 0]
 
 	NOTE:  this function will never reverse the order of elements in
@@ -318,19 +348,22 @@ def inorder(*iterables, **kwargs):
 	reasons no check is performed to validate the element order in the
 	input sequences.
 	"""
-	reverse = False
+	try:
+		reverse = kwargs.pop("reverse")
+	except KeyError:
+		reverse = False
+	try:
+		keyfunc = kwargs.pop("key")
+	except KeyError:
+		keyfunc = lambda x: x  # identity
 	if kwargs:
-		try:
-			reverse = kwargs.pop("reverse")
-		except KeyError:
-			pass
-		if kwargs:
-			raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
+		raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next
 		try:
-			nextvals[next] = next(), next
+			nextval = next()
+			nextvals[next] = keyfunc(nextval), nextval, next
 		except StopIteration:
 			pass
 	if not nextvals:
@@ -343,16 +376,17 @@ def inorder(*iterables, **kwargs):
 	values = nextvals.itervalues
 	if len(nextvals) > 1:
 		while True:
-			val, next = select(values())
+			_, val, next = select(values())
 			yield val
 			try:
-				nextvals[next] = next(), next
+				nextval = next()
+				nextvals[next] = keyfunc(nextval), nextval, next
 			except StopIteration:
 				del nextvals[next]
 				if len(nextvals) < 2:
 					break
 	# exactly one sequence remains, short circuit and drain it
-	(val, next), = values()
+	(_, val, next), = values()
 	yield val
 	while True:
 		yield next()

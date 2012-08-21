@@ -55,11 +55,6 @@ their character and edge effects when clipping on a finite patch.
 #ifndef _PHMD_H
 #define _PHMD_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 /*
  * 5. Includes. This header may include others; if so, they go immediately
  *    after include-loop protection. Includes should appear in the following
@@ -82,26 +77,12 @@ their character and edge effects when clipping on a finite patch.
 #include <lal/LUT.h>
 
 /*
- *  #include "LALRCSID.h"
- *  not needed, it is included in "LALConstants.h"
- */
-
-
-
-/*
  *   Protection against C++ name mangling
  */
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-/*
- * 6. Assignment of Id string using NRCSID()
- */
-/** \cond DONT_DOXYGEN */
-NRCSID (PHMDH, "$Id$");
-/** \endcond */
 
 /*
  * 7. Error codes and messages. This must be auto-extracted for
@@ -154,7 +135,6 @@ typedef REAL8 HoughDT; /* for weighted hough maps */
  * \ingroup PHMD_h
  */
   typedef struct tagHOUGHPeakGram{
-    SWIGLAL_STRUCT_LALALLOC();
     INT2    timeIndex;  /**< The time index of the peak-gram */
     REAL8   deltaF;     /**< Frequency resolution: <tt>df=1/TCOH</tt> */
     UINT8   fBinIni;    /**< Frequency index of the first element of the spectrum covered by this peak-gram; it can be seen as an offset */
@@ -167,7 +147,6 @@ typedef REAL8 HoughDT; /* for weighted hough maps */
 * \ingroup PHMD_h
 */
 typedef struct tagHOUGHphmd{
-  SWIGLAL_STRUCT_LALALLOC();
   UINT8          fBin;  	/**< Frequency bin of this partial map derivative */
   UINT2          lengthLeft; 	/**< Exact number of \e Left borders */
   UINT2          lengthRight;	/**< Exact number of \e Right borders */

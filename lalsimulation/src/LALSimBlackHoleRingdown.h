@@ -20,29 +20,13 @@
 #ifndef _LALSIMBLACKHOLERINGDOWN_H
 #define _LALSIMBLACKHOLERINGDOWN_H
 
-/* C++ cannot handle 'complex' because it confuses it with the template
- * std::complex, which is brought into the global namespace if we
- * include <complex.h> under g++.  Swig cannot handle 'double complex' either.
- */
-#if defined(__cplusplus)
-#include <complex>
-typedef std::complex<double> complex;
-#else
-#include <complex.h>
-#endif
-
 #include <lal/LALDatatypes.h>
-
-#include <lal/LALRCSID.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #elif 0
 } /* so that editors will match preceding brace */
 #endif
-
-NRCSID(LALSIMBLACKHOLERINGDOWNH, "$Id$");
-
 
 /* LOW-LEVEL ROUTINES (USE LEAVER'S CONVENSIONS G = c = 2M = 1) */
 
@@ -64,8 +48,8 @@ NRCSID(LALSIMBLACKHOLERINGDOWNH, "$Id$");
  * \todo Extend so that overtones can be computed too.
  */
 int XLALSimBlackHoleRingdownModeEigenvaluesLeaver(
-	complex *A,		/**< angular separation constant [returned] */
-	complex *omega,		/**< eigenfrequency [returned] */
+	COMPLEX16 *A,		/**< angular separation constant [returned] */
+	COMPLEX16 *omega,		/**< eigenfrequency [returned] */
 	double a,		/**< spin parameter (note: |a| < 0.5) */
 	int l,			/**< mode value l */
 	int m,			/**< mode value m */
@@ -92,14 +76,14 @@ int XLALSimBlackHoleRingdownModeEigenvaluesLeaver(
  *
  * \todo Extend so that overtones can be computed too.
  */
-complex XLALSimBlackHoleRingdownSpheroidalWaveFunctionLeaver(
+COMPLEX16 XLALSimBlackHoleRingdownSpheroidalWaveFunctionLeaver(
 	double mu,		/**< cosine of polar angle */
 	double a,		/**< spin parameter (note: |a| < 0.5) */
 	int l,			/**< mode value l */
 	int m,			/**< mode value m */
 	int s,			/**< spin weight (s = -2 for gravitational perturbations) */
-	complex A,		/**< angular separation constant */
-	complex omega		/**< eigenfrequency */
+	COMPLEX16 A,		/**< angular separation constant */
+	COMPLEX16 omega		/**< eigenfrequency */
 );
 
 
@@ -144,7 +128,7 @@ int XLALSimBlackHoleRingdownMode(
  *
  * \todo Extend so that overtones can be computed too.
  */
-complex XLALSimBlackHoleRingdownSpheroidalWaveFunction(
+COMPLEX16 XLALSimBlackHoleRingdownSpheroidalWaveFunction(
 	double theta,			/**< polar angle (radians) */
 	double dimensionless_spin,	/**< black hole dimensionless spin parameter */
 	int l,				/**< polar mode number */

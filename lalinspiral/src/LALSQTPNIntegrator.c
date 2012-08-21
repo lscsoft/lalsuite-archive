@@ -8,21 +8,19 @@
 #include <lal/LALSQTPNIntegrator.h>
 #include <lal/LALSQTPNWaveform.h>
 
-NRCSID (LALSQTPNINTEGRATORC, "$Id LALSQTPNIntegrator.c$");
-
 int XLALSQTPNIntegratorInit(LALSQTPNIntegratorSystem *integrator, INT2 num, 
 		void *params, int(*derivator)(REAL8, const REAL8[], REAL8[], 
 		void *)) {
 	
 	// Check for input errors
 	if (num <= 0) {
-		XLAL_ERROR(__func__, XLAL_EBADLEN);
+		XLAL_ERROR(XLAL_EBADLEN);
 	}
 	if (!params) {
-		XLAL_ERROR(__func__, XLAL_EFAULT);
+		XLAL_ERROR(XLAL_EFAULT);
 	}
 	if (!derivator) {
-		XLAL_ERROR(__func__, XLAL_EFAULT);
+		XLAL_ERROR(XLAL_EFAULT);
 	}
 
 	// Initialise GSL integrator
@@ -41,7 +39,7 @@ int XLALSQTPNIntegratorInit(LALSQTPNIntegratorSystem *integrator, INT2 num,
 	if (!(integrator->step) || !(integrator->control) 
 			|| !(integrator->evolve)) {
 		XLALSQTPNIntegratorFree(integrator);
-		XLAL_ERROR(__func__, XLAL_ENOMEM);
+		XLAL_ERROR(XLAL_ENOMEM);
 	}
 	return XLAL_SUCCESS;
 }
@@ -70,7 +68,7 @@ int XLALSQTPNIntegratorFunc(REAL8 values[],
 		if (time == time_Old) {
 			memset(values, 0, 
 				integrator->system.dimension * sizeof(REAL8));
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		}
 	}
 	return XLAL_SUCCESS;

@@ -17,31 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-#if 0 /* autodoc block */
-<lalVerbatim file="LALVersionCV">
-$Id$
-</lalVerbatim>
-
-<lalLaTeX>
-\subsection*{Module \texttt{LALVersion.c}}
-
-Routine that returns the version of LAL.
-
-\subsubsection*{Prototypes}
-\input{LALVersionCP}
-\idx{LALVersion()}
-
-\subsubsection*{Description}
-
-This function writes a version message into the string buffer of specified
-size (and is truncated if the buffer is too small).  Configuration information
-is also provided if the verbose flag is set.
-
-\vfill{\footnotesize\input{LALVersionCV}}
-
-</lalLaTeX>
-#endif /* autodoc block */
-
 /*
  *
  * Use LAL's config.h file rather than LALConfig.h which may be from some
@@ -56,8 +31,6 @@ is also provided if the verbose flag is set.
 #include <lal/LALVersion.h>
 #include <lal/LALVCSInfo.h>
 
-NRCSID( LALVERSIONC, "$Id$" );
-
 const char *const lalVersion       = LAL_VERSION;
 const int         lalVersionMajor  = LAL_VERSION_MAJOR;
 const int         lalVersionMinor  = LAL_VERSION_MINOR;
@@ -66,12 +39,18 @@ const int         lalVersionDevel  = LAL_VERSION_DEVEL;
 const char *const lalConfigureArgs = LAL_CONFIGURE_ARGS;
 const char *const lalConfigureDate = LAL_CONFIGURE_DATE;
 
-/* <lalVerbatim file="LALVersionCP"> */
+/** \ingroup LALVersion_h
+ * Routine that returns the version of LAL.
+ * This function writes a version message into the string buffer of specified
+ * size (and is truncated if the buffer is too small).  Configuration information
+ * is also provided if the verbose flag is set.
+ *
+ */
 void
 LALVersion( LALStatus *status, CHAR *message, UINT4 size, INT4 verbose )
-{ /* </lalVerbatim> */
+{
   INT4 nchar;
-  INITSTATUS( status, "LALVersion", LALVERSIONC );
+  INITSTATUS(status);
 
   ASSERT( message,  status, LALVERSIONH_ENULL, LALVERSIONH_MSGENULL );
   ASSERT( size > 0, status, LALVERSIONH_ESIZE, LALVERSIONH_MSGESIZE );

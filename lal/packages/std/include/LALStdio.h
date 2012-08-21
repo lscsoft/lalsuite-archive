@@ -17,28 +17,18 @@
 *  MA  02111-1307  USA
 */
 
-#if 0 /* autodoc block */
+/**
+   \addtogroup LALStdio_h
 
-<lalVerbatim file="LALStdioHV">
-$Id$
-</lalVerbatim>
+   \brief Provides LAL functions similar to the non-file functions in <tt><stdio.h></tt>.
 
-<lalLaTeX>
+   \heading{Synopsis}
+   \code
+   #include <lal/LALStdio.h>
+   #include <lal/FileIO.h>
+   \endcode
 
-\section{Header \texttt{LALStdio.h}}
-\label{s:LALStdio.h}
-
-Provides LAL functions similar to the non-file functions in \verb+<stdio.h>+.
-
-\subsection*{Synopsis}
-\begin{verbatim}
-#include <lal/LALStdio.h>
-#include <lal/FileIO.h>
-\end{verbatim}
-
-\vfill{\footnotesize\input{LALStdioHV}}
-</lalLaTeX>
-#endif /* autodoc block */
+*/
 
 #ifndef _LALSTDIO_H
 #define _LALSTDIO_H
@@ -47,13 +37,10 @@ Provides LAL functions similar to the non-file functions in \verb+<stdio.h>+.
 #include <stdarg.h>
 #include <inttypes.h>
 #include <lal/LALConfig.h>
-#include <lal/LALRCSID.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-NRCSID( LALSTDIOH, "$Id$" );
 
 #if LAL_BOINC_ENABLED
   extern FILE* boinc_fopen(const char* path, const char* mode);

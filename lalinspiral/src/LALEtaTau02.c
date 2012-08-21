@@ -57,8 +57,6 @@ of type ::EtaTau02In :
 
 #include <lal/LALInspiral.h>
 
-NRCSID (LALETATAU02C, "$Id$");
-
 void
 LALEtaTau02(
    LALStatus *status,
@@ -69,7 +67,7 @@ LALEtaTau02(
 {
    XLALPrintDeprecationWarning("LALEtaTau02", "XLALEtaTau02");
 
-   INITSTATUS(status, "LALEtaTau02", LALETATAU02C);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
    ASSERT (x,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 
@@ -91,9 +89,9 @@ XLALEtaTau02(
    EtaTau02In *q;
 
    if (p == NULL)
-      XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+      XLAL_ERROR_REAL8(XLAL_EFAULT);
    if (eta <= 0)
-      XLAL_ERROR_REAL8(__func__, XLAL_EDOM);      
+      XLAL_ERROR_REAL8(XLAL_EDOM);
 
    q = (EtaTau02In *) p;
    x = -q->t2 + q->A2/pow(eta,0.4) * (1. + q->B2*eta);

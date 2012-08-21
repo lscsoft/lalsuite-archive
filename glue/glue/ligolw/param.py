@@ -129,7 +129,7 @@ def get_param(xmldoc, name):
 	"""
 	params = getParamsByName(xmldoc, name)
 	if len(params) != 1:
-		raise ValueError, "document must contain exactly one %s param" % StripParamName(name)
+		raise ValueError("document must contain exactly one %s param" % StripParamName(name))
 	return params[0]
 
 
@@ -199,7 +199,7 @@ class Param(ligolw.Param):
 		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(file, indent + ligolw.Indent)
 		if self.pcdata is not None:
 			# we have to strip quote characters from string
@@ -220,17 +220,33 @@ class Param(ligolw.Param):
 
 
 #
-# Override portions of ligolw.LIGOLWContentHandler class
+# Override portions of ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-def startParam(self, attrs):
-	return Param(attrs)
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the Param
+	class defined in this module when parsing XML documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import param
+	>>> param.use_in(MyContentHandler)
+	"""
+	def startParam(self, attrs):
+		return Param(attrs)
+
+	def endParam(self):
+		self.current.pcdata = self.current.pytype(self.current.pcdata.strip())
+
+	ContentHandler.startParam = startParam
+	ContentHandler.endParam = endParam
 
 
-def endParam(self):
-	self.current.pcdata = self.current.pytype(self.current.pcdata.strip())
-
-
-ligolw.LIGOLWContentHandler.startParam = startParam
-ligolw.LIGOLWContentHandler.endParam = endParam
+use_in(ligolw.DefaultLIGOLWContentHandler)

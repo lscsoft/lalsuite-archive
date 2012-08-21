@@ -16,6 +16,7 @@ The algorithms used in these functions are explained in detail in [Ref Needed].
 
 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
@@ -57,8 +58,6 @@ REAL4Vector *Tmodel;
 REAL8Sequence **topdown_sum;
 REAL8 *normalisations;
 const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
-
-/*NRCSID (LALINSPIRALMCMCUSERC, "$Id: LALInspiralPhase.c,v 1.9 2003/04/14 00:27:22 sathya Exp $"); */
 
 double mc2mass1(double mc, double eta)
 /* mass 1 (the smaller one) for given mass ratio & chirp mass */
@@ -958,8 +957,8 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 	template.eta = eta;
 	template.massChoice = totalMassAndEta;
 	template.fLower = inputMCMC->fLow;
-	if (XLALMCMCCheckParameter(parameter,"distance"))
-	  template.distance = XLALMCMCGetParameter(parameter,"distance")*LAL_PC_SI*1.e6; /* This must be metres */
+	if (XLALMCMCCheckParameter(parameter,"distMpc"))
+	  template.distance = XLALMCMCGetParameter(parameter,"distMpc")*LAL_PC_SI*1.e6; /* This must be metres */
 	else 
 	  if(XLALMCMCCheckParameter(parameter,"logdist")) {
 	    template.distance=exp(XLALMCMCGetParameter(parameter,"logdist"))*LAL_PC_SI*1.e6;
@@ -975,9 +974,12 @@ REAL8 MCMCLikelihoodMultiCoherentF_PhenSpin(LALMCMCInput *inputMCMC,LALMCMCParam
 	template.ieta = 1;
 	template.inclination=XLALMCMCGetParameter(parameter,"iota");
 
+	template.fixedStep=inputMCMC->fixedStep;
+	template.inspiralOnly=inputMCMC->inspiralOnly;
+	template.axisChoice=inputMCMC->axisChoice;
+
 	//template.totalMass=mtot;
 	//template.eta=eta;
-
 
 	double a1=0.;
 	double theta1=0.;
@@ -1636,10 +1638,10 @@ void TaylorT_template(LALStatus *status,InspiralTemplate *template, LALMCMCParam
 
 void IMRPhenomB_template(LALStatus *status, InspiralTemplate *template, LALMCMCParameter *parameter, LALMCMCInput *inputMCMC)
 {
-	UINT4 NtimeModel, NfreqModel, idx;
+	UINT4 NtimeModel, idx; /*NfreqModel*/
 	/*REAL4 deltaF = inputMCMC->deltaF;*/
 	NtimeModel = 2*(inputMCMC->stilde[0]->data->length+1);
-	NfreqModel = inputMCMC->stilde[0]->data->length;
+	/*NfreqModel = inputMCMC->stilde[0]->data->length;*/
 	if(Tmodel ==NULL) LALCreateVector(status, &Tmodel, NtimeModel);
 
         /*'x' and 'y' components of spins must be set to zero.*/

@@ -42,8 +42,7 @@ copy_reg.pickle(type(segments.segmentlist([])),
 
 from glue import git_version
 
-__author__  = "Andrew P Lundgren <andrew.lundgren@ligo.org>, "+\
-              "Duncan Macleod <duncan.macleod@ligo.org>"
+__author__  = "Andrew P Lundgren <andrew.lundgren@ligo.org>, Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__    = git_version.date
 
@@ -112,8 +111,6 @@ def fromsegmentxml(file, dict=False, id=None):
 
   xmldoc.unlink()
 
-  xmldoc.unlink()
-
   return segs
 
 # ==============================================================================
@@ -168,7 +165,7 @@ def fromsegmentcsv(csvfile):
   """
 
   def CSVLineToSeg(line):
-    tstart, tend = map(LIGOTimeGPS, line.split(', '))
+    tstart, tend = map(LIGOTimeGPS, line.split(','))
     return segments.segment(tstart, tend)
 
   segs = segments.segmentlist([CSVLineToSeg(line) for line in csvfile])
@@ -192,18 +189,21 @@ def CBCAnalyzableSegs(seglist):
 # Function to pad a list of segments given start and end paddings
 # ==============================================================================
 
-def pad_segmentlist(seglist, start_pad, end_pad):
+def pad_segmentlist(seglist, start_pad, end_pad=None):
 
   """
     Given a veto segmentlist, start pad, and end pad, pads and coalesces the
-    segments. Signs of start and end pad are disregarded - the segment is always
-    expanded outward.
+    segments. Convention is to expand segments with positive padding, contract
+    with negative. Any segments that are not big enough to be contracted
+    appropriately are removed.
   """
 
-  padded = lambda seg: segments.segment(seg[0]-abs(start_pad),\
-                                        seg[1]+abs(end_pad))
+  if not end_pad: end_pad = start_pad
 
-  seglist = segments.segmentlist([padded(seg) for seg in seglist])
+  padded = lambda seg: segments.segment(seg[0]-start_pad, seg[1]+end_pad)
+
+  seglist = segments.segmentlist([padded(seg) for seg in seglist if \
+                                  abs(seg) > start_pad+end_pad])
 
   return seglist.coalesce()
 
@@ -227,11 +227,29 @@ def crop_segmentlist(seglist, end_chop=30):
 # =============================================================================
 
 def grab_segments(start, end, flag,\
-                  segment_url='https://segdb.ligo.caltech.edu'):
+                  segment_url='https://segdb.ligo.caltech.edu',\
+                  segment_summary=False):
 
   """
     Returns a segmentlist containing the segments during which the given flag
     was active in the given period.
+
+    Arguments:
+
+      start : int
+        GPS start time
+      end : int
+        GPS end time
+      flag : string
+        'IFO:NAME:VERSION' format string
+
+    Keyword arguments:
+
+      segment_url : string
+        url of segment database to query, default https://segdb.ligo.caltech.edu
+      segment_summary : [ True | False ]
+        also return the glue.segments.segmentlist defining the valid span of the
+        returned segments
   """
 
   # set times
@@ -262,10 +280,13 @@ def grab_segments(start, end, flag,\
   segdefs = segmentdb_utils.expand_version_number(engine, (ifo, name, version, \
                                                           start, end, 0, 0))
 
-  # query segs
+  # query database and return
   segs = segmentdb_utils.query_segments(engine, 'segment', segdefs)
   segs = reduce(operator.or_, segs).coalesce()
-
+  if segment_summary:
+    segsums = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
+    segsums = reduce(operator.or_, segsums).coalesce()
+    return segs,segsums
   return segs
 
 # ==============================================================================

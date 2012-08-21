@@ -38,6 +38,8 @@ import sys
 
 from glue import segments
 from glue.lal import CacheEntry
+from glue.ligolw import lsctables
+from glue.ligolw import array
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
@@ -46,17 +48,20 @@ from pylal import git_version
 from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
-__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
-__version__ = "git id %s" % git_version.id
-__date__ = git_version.date
-
-
-# so they aren't inserted into a database
-dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
+# content handler for distribution data
+class StatsContentHandler(lsctables.ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(StatsContentHandler)
+array.use_in(StatsContentHandler)
 
 
 # characters allowed to appear in the description string
 T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
+
+
+__author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
 
 
 #
@@ -134,12 +139,9 @@ if options.add_from:
 	for n, filename in enumerate(options.add_from):
 		if options.verbose:
 			print >>sys.stderr, "%d/%d: " % (n + 1, len(options.add_from)),
-		connection = sqlite3.connect(":memory:")
-		dbtables.DBTable_set_connection(connection)
-		c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = options.verbose)
+		c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = StatsContentHandler), u"ligolw_burca_tailor")
 		extra_data += c
 		segs |= s
-		connection.close()
 else:
 	extra_data = None
 
@@ -171,7 +173,6 @@ for n, filename in enumerate(filenames):
 	connection = sqlite3.connect(working_filename)
 	connection.execute("PRAGMA synchronous = OFF;")
 	connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir()) 
-	dbtables.DBTable_set_connection(connection)
 
 	#
 	# Summarize the database.

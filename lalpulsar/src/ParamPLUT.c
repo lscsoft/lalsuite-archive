@@ -23,7 +23,6 @@
  *
  * Authors: Sintes, A.M., Krishnan, B.,
  *
- * Revision: $Id$
  *
  * History:   Created by Sintes May 15, 2001
  *            Modified by Badri Krishnan Feb 2003
@@ -67,11 +66,7 @@ LALRotatePolarU()
 
 #include <lal/LUT.h>
 
-/** \cond DONT_DOXYGEN */
-NRCSID (PARAMPLUTC, "$Id$");
-/** \endcond */
-
-void LALHOUGHParamPLUT (LALStatus    *status,
+void LALHOUGHCalcParamPLUT (LALStatus    *status,
                    HOUGHParamPLUT    *out, /* parameters needed build LUT*/
                    HOUGHSizePar      *size,
                    HOUGHDemodPar     *par)  /* demodulation parameters */
@@ -93,7 +88,7 @@ void LALHOUGHParamPLUT (LALStatus    *status,
   REAL8   timeDiffProd;
   /* --------------------------------------------- */
 
-  INITSTATUS (status, "LALHOUGHParamPLUT", PARAMPLUTC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */

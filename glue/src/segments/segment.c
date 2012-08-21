@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2006  Kipp C. Cannon
  *
@@ -151,7 +150,7 @@ static int __nonzero__(PyObject *self)
 
 static PyObject *richcompare(PyObject *self, PyObject *other, int op_id)
 {
-	if(!segments_Segment_Check(other)) {
+	if(!PyTuple_Check(other)) {
 		PyObject *sa = PyTuple_GET_ITEM(self, 0);
 		PyObject *result;
 		Py_INCREF(sa);

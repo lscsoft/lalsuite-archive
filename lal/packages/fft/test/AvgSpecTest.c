@@ -27,9 +27,6 @@
 #include <lal/Random.h>
 #include <lal/ResampleTimeSeries.h>
 
-#include <lal/LALRCSID.h>
-NRCSID (AVGSPECTESTC,"$Id$");
-
 #define TESTSTATUS( s ) \
   if ( (s)->statusCode ) { REPORTSTATUS( s ); exit( 1 ); } else ((void)0)
 
@@ -127,7 +124,7 @@ int main( void )
       specpar.window, specpar.plan );
   if ( xlalErrno )
   {
-    XLAL_PERROR( "main" );
+    XLAL_PERROR();
     exit( 1 );
   }
 
@@ -149,7 +146,7 @@ int main( void )
       specpar.window, specpar.plan );
   if ( xlalErrno )
   {
-    XLAL_PERROR( "main" );
+    XLAL_PERROR();
     exit( 1 );
   }
 
@@ -171,7 +168,7 @@ int main( void )
       specpar.window, specpar.plan );
   if ( xlalErrno )
   {
-    XLAL_PERROR( "main" );
+    XLAL_PERROR();
     exit( 1 );
   }
 

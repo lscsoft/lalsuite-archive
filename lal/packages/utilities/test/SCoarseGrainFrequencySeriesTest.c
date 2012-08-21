@@ -17,120 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/****************** <lalVerbatim file="SCoarseGrainFrequencySeriesTestCV">
-Author: UTB Relativity Group; contact whelan@phys.utb.edu
-$Id$
-********************************* </lalVerbatim> */
-
-/********************************************************** <lalLaTeX>
-\subsection{Program \texttt{SCoarseGrainFrequencySeriesTest.c}}
-\label{utilities:ss:SCoarseGrainFrequencySeriesTest.c}
-
-Test suite for \texttt{LALSCoarseGrainFrequencySeries()}.
-
-\subsubsection*{Usage}
-\begin{verbatim}
-./SCoarseGrainFrequencySeriesTest
-Options:
-  -h             print usage message
-  -q             quiet: run silently
-  -v             verbose: print extra information
-  -d level       set lalDebugLevel to level
-  -i filename    read fine grained series from file filename
-  -o filename    print coarse grained  series to file filename
-  -n length      input series contains length points
-  -m length      output series contains length points
-  -e deltaF      set coarse grained frequency spacing to deltaF
-  -f f0          set start frequency of output to f0
-\end{verbatim}
-
-\subsubsection*{Description}
-
-This program tests the routine
-\texttt{LALSCoarseGrainFrequencySeries()}, which coarse-grains a
-frequency series.
-
-First, it tests that the correct error codes
-(\textit{cf.}\ Sec.~\ref{utilities:s:CoarseGrainFrequencySeries.h})
-are generated for the following error conditions (tests in
-\textit{italics} are not performed if \verb+LAL_NDEBUG+ is set, as
-the corresponding checks in the code are made using the ASSERT macro):
-\begin{itemize}
-\item \textit{null pointer to output series}
-\item \textit{null pointer to input series}
-\item \textit{null pointer to data member of output series}
-\item \textit{null pointer to data member of input series}
-\item \textit{null pointer to data member of data member of input series}
-\item \textit{null pointer to data member of data member of output series}
-%\item \textit{duplicate pointers to input and output series}
-%\item \textit{duplicate pointers to data members of input and output series}
-%\item \textit{duplicate pointers to data members of data members of input and output series}
-\item \textit{zero length}
-\item \textit{negative frequency spacing}
-\item \textit{zero frequency spacing}
-\end{itemize}
-
-It then verifies that the correct
-values are obtained for some simple test cases
-\begin{itemize}
-\item $\{h_\ell'\}=\{0,1,2,3,4,5,6,7\}$, $f'_0=f_0$, $\delta f'=1$, $\delta
-f=2$, $N=3$; the expected output is $\{h_k\}=\{1/2,2,4,6\}$.
-\item $\{h_\ell'\}=\{0,1,2,3,4,5,6,7\}$, $f'_0=f_0$, $\delta f'=1$, $\delta
-f=3$, $N=3$; the expected output is $\{h_k\}=\{2/3,3,6\}$.
-\end{itemize}
-For each successful test (both of these valid data and the invalid
-ones described above), it prints ``\texttt{PASS}'' to standard output;
-if a test fails, it prints ``\texttt{FAIL}''.
-
-If the \texttt{filename} arguments are present, it also reads a
-frequency series from a file, calls
-\texttt{LALSCoarseGrainFrequencySeries()}, and writes the results to
-the specified output file.
-
-\subsubsection*{Exit codes}
-\input{SCoarseGrainFrequencySeriesTestCE}
-
-\subsubsection*{Uses}
-\begin{verbatim}
-LALSCoarseGrainFrequencySeries()
-LALCheckMemoryLeaks()
-LALSReadFrequencySeries()
-LALSPrintFrequencySeries()
-LALSCreateVector()
-LALSDestroyVector()
-LALCHARCreateVector()
-LALCHARDestroyVector()
-LALUnitAsString()
-LALUnitCompare()
-getopt()
-printf()
-fprintf()
-freopen()
-fabs()
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-\begin{itemize}
-\item In addition to the error checks tested in this routine, the
-  function checks for errors related to inconsistency of coarse
-  graining parameters.  Tests of these error checks are still to be
-  added to this test program.
-\item No specific error checking is done on user-specified data.  If
-  \texttt{length} is missing, the resulting default will cause a bad
-  data error.
-\item The length of the user-provided series must be specified, even
-  though it could in principle be deduced from the input file, because
-  the data sequences must be allocated before the
-  \texttt{LALSReadFrequencySeries()} function is called.
-\item If one \texttt{filename} argument, but not both, is present,
-  the user-specified data will be silently ignored.
-\end{itemize}
-
-\vfill{\footnotesize\input{SCoarseGrainFrequencySeriesTestCV}}
-
-******************************************************* </lalLaTeX> */
-
 #include <lal/LALStdlib.h>
 
 #include <math.h>
@@ -154,7 +40,107 @@ fabs()
 
 #include "CheckStatus.h"
 
-NRCSID(SCOARSEGRAINFREQUENCYSERIESTESTC, "$Id$");
+/**
+   \file
+   \ingroup CoarseGrainFrequencySeries_h
+   \author UTB Relativity Group; contact whelan@phys.utb.edu
+
+   \brief Test suite for <tt>LALSCoarseGrainFrequencySeries()</tt>.
+
+\heading{Usage}
+\code
+./SCoarseGrainFrequencySeriesTest
+Options:
+  -h             print usage message
+  -q             quiet: run silently
+  -v             verbose: print extra information
+  -d level       set lalDebugLevel to level
+  -i filename    read fine grained series from file filename
+  -o filename    print coarse grained  series to file filename
+  -n length      input series contains length points
+  -m length      output series contains length points
+  -e deltaF      set coarse grained frequency spacing to deltaF
+  -f f0          set start frequency of output to f0
+\endcode
+
+\heading{Description}
+
+This program tests the routine
+<tt>LALSCoarseGrainFrequencySeries()</tt>, which coarse-grains a
+frequency series.
+
+First, it tests that the correct error codes (cf \ref CoarseGrainFrequencySeries_h)
+are generated for the following error conditions (tests in
+\e italics are not performed if \c LAL_NDEBUG is set, as
+the corresponding checks in the code are made using the ASSERT macro):
+<ul>
+<li> <em>null pointer to output series</em></li>
+<li> <em>null pointer to input series</em></li>
+<li> <em>null pointer to data member of output series</em></li>
+<li> <em>null pointer to data member of input series</em></li>
+<li> <em>null pointer to data member of data member of input series</em></li>
+<li> <em>null pointer to data member of data member of output series</em>
+<li> <em>zero length</em></li>
+<li> <em>negative frequency spacing</em></li>
+<li> <em>zero frequency spacing</em></li>
+</ul>
+
+It then verifies that the correct
+values are obtained for some simple test cases
+<ul>
+<li> \f$\{h_\ell'\}=\{0,1,2,3,4,5,6,7\}\f$, \f$f'_0=f_0\f$, \f$\delta f'=1\f$, \f$\delta
+f=2\f$, \f$N=3\f$; the expected output is \f$\{h_k\}=\{1/2,2,4,6\}\f$.</li>
+<li> \f$\{h_\ell'\}=\{0,1,2,3,4,5,6,7\}\f$, \f$f'_0=f_0\f$, \f$\delta f'=1\f$, \f$\delta
+f=3\f$, \f$N=3\f$; the expected output is \f$\{h_k\}=\{2/3,3,6\}\f$.</li>
+</ul>
+For each successful test (both of these valid data and the invalid
+ones described above), it prints \c PASS to standard output;
+if a test fails, it prints \c FAIL.
+
+If the \c filename arguments are present, it also reads a
+frequency series from a file, calls
+<tt>LALSCoarseGrainFrequencySeries()</tt>, and writes the results to
+the specified output file.
+
+\heading{Notes}
+
+<ul>
+<li> In addition to the error checks tested in this routine, the
+  function checks for errors related to inconsistency of coarse
+  graining parameters.  Tests of these error checks are still to be
+  added to this test program.</li>
+<li> No specific error checking is done on user-specified data.  If
+  \c length is missing, the resulting default will cause a bad
+  data error.</li>
+<li> The length of the user-provided series must be specified, even
+  though it could in principle be deduced from the input file, because
+  the data sequences must be allocated before the
+  <tt>LALSReadFrequencySeries()</tt> function is called.</li>
+<li> If one \c filename argument, but not both, is present,
+  the user-specified data will be silently ignored.</li>
+</ul>
+
+*/
+/*@{*/
+/**\name Error Codes */ /*@{*/
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_ENOM 0		/**< Nominal exit */
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_EARG 1		/**< Error parsing command-line arguments */
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_ECHK 2		/**< Error checking failed to catch bad data */
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_EFLS 3		/**< Incorrect answer for valid data */
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_EUSE 4		/**< Bad user-entered data */
+/*@}*/
+/*@}*/
+
+/** \cond DONT_DOXYGEN */
+
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGENOM "Nominal exit"
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGEARG "Error parsing command-line arguments"
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGECHK "Error checking failed to catch bad data"
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGEFLS "Incorrect answer for valid data"
+#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGEUSE "Bad user-entered data"
+
+
+
 
 #define SCOARSEGRAINFREQUENCYSERIESTESTC_TOL           1e-6
 
@@ -197,19 +183,6 @@ Usage (const char *program, int exitflag);
 static void
 ParseOptions (int argc, char *argv[]);
 
-/***************************** <lalErrTable file="SCoarseGrainFrequencySeriesTestCE"> */
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_ENOM 0
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_EARG 1
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_ECHK 2
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_EFLS 3
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_EUSE 4
-
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGENOM "Nominal exit"
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGEARG "Error parsing command-line arguments"
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGECHK "Error checking failed to catch bad data"
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGEFLS "Incorrect answer for valid data"
-#define SCOARSEGRAINFREQUENCYSERIESTESTC_MSGEUSE "Bad user-entered data"
-/***************************** </lalErrTable> */
 
 int
 main( int argc, char *argv[] )
@@ -220,8 +193,6 @@ main( int argc, char *argv[] )
    UINT4      i;
    REAL8      f;
 
-   REAL4                   *sPtr;
-
    const REAL4    testInputDataData[SCOARSEGRAINFREQUENCYSERIESTESTC_LENGTH0]
                      = {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0};
 
@@ -231,8 +202,8 @@ main( int argc, char *argv[] )
    const REAL4 expectedOutput2DataData[SCOARSEGRAINFREQUENCYSERIESTESTC_LENGTH2]
                      = {(2.0/3.0), 3.0, 6.0};
 
-   REAL4FrequencySeries             goodInput, badInput;
-   REAL4FrequencySeries     goodOutput, badOutput;
+   REAL4FrequencySeries             goodInput;
+   REAL4FrequencySeries     goodOutput;
 
    BOOLEAN                result;
    LALUnitPair            unitPair;
@@ -259,8 +230,10 @@ main( int argc, char *argv[] )
    params.deltaF               = SCOARSEGRAINFREQUENCYSERIESTESTC_DELTAF0;
    params.length               = SCOARSEGRAINFREQUENCYSERIESTESTC_LENGTH0;
 
-   badInput = goodInput;
-   badOutput = goodOutput;
+#ifndef LAL_NDEBUG
+   REAL4FrequencySeries   badInput = goodInput;
+   REAL4FrequencySeries   badOutput = goodOutput;
+#endif
 
    /* allocate input and output vectors */
    LALSCreateVector(&status, &(goodInput.data),
@@ -345,7 +318,7 @@ main( int argc, char *argv[] )
      {
        return code;
      }
-     sPtr = badOutput.data->data;
+     REAL4 *sPtr = badOutput.data->data;
      badOutput.data->data = NULL;
      LALSCoarseGrainFrequencySeries(&status, &badOutput, &goodInput, &params);
      if ( ( code = CheckStatus(&status, COARSEGRAINFREQUENCYSERIESH_ENULLPTR,
@@ -525,8 +498,6 @@ main( int argc, char *argv[] )
        = SCOARSEGRAINFREQUENCYSERIESTESTC_DELTAF0;
 
    } /* if ( ! lalNoDebug ) */
-#else
-   sPtr = NULL;
 #endif /* LAL_NDEBUG */
 
    LALSDestroyVector(&status, &(goodOutput.data));
@@ -1040,6 +1011,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -1085,8 +1058,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':
@@ -1107,3 +1090,4 @@ ParseOptions (int argc, char *argv[])
 
   return;
 }
+/** \endcond */

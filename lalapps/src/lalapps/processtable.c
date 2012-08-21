@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2007 Duncan Brown, Jolien Creighton, Kipp Cannon, Reinhard
- * Prix
+ * Copyright (C) 2007-2012 Duncan Brown, Jolien Creighton, Kipp Cannon,
+ * Reinhard Prix, Bernd Machenschalk
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -17,6 +17,8 @@
  * Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
  * 02111-1307  USA
  */
+
+#ifndef _WIN32
 
 #define _GNU_SOURCE
 
@@ -146,10 +148,11 @@ int XLALPopulateProcessTable(
 	long process_id
 )
 {
-	static const char func[] = "XLALPopulateProcessTable";
 	char *cvs_keyword_value;
 	uid_t uid;
+#if 0
 	struct passwd *pw;
+#endif
 	struct tm utc;
 
 	/*
@@ -164,8 +167,8 @@ int XLALPopulateProcessTable(
 
 	cvs_keyword_value = cvs_get_keyword_value(cvs_revision);
 	if(!cvs_keyword_value) {
-		XLALPrintError("%s(): cannot parse \"%s\"\n", func, cvs_revision);
-		XLAL_ERROR(func, XLAL_EINVAL);
+		XLALPrintError("%s(): cannot parse \"%s\"\n", __func__, cvs_revision);
+		XLAL_ERROR(XLAL_EINVAL);
 	}
 	snprintf(ptable->version, LIGOMETA_VERSION_MAX, "%s", cvs_keyword_value);
 	free(cvs_keyword_value);
@@ -176,8 +179,8 @@ int XLALPopulateProcessTable(
 
 	cvs_keyword_value = cvs_get_keyword_value(cvs_source);
 	if(!cvs_keyword_value) {
-		XLALPrintError("%s(): cannot parse \"%s\"\n", func, cvs_source);
-		XLAL_ERROR(func, XLAL_EINVAL);
+		XLALPrintError("%s(): cannot parse \"%s\"\n", __func__, cvs_source);
+		XLAL_ERROR(XLAL_EINVAL);
 	}
 	snprintf(ptable->cvs_repository, LIGOMETA_CVS_REPOSITORY_MAX, "%s", cvs_keyword_value);
 	free(cvs_keyword_value);
@@ -188,29 +191,29 @@ int XLALPopulateProcessTable(
 
 	cvs_keyword_value = cvs_get_keyword_value(cvs_date);
 	if(!cvs_keyword_value) {
-		XLALPrintError("%s(): cannot parse \"%s\"\n", func, cvs_date);
-		XLAL_ERROR(func, XLAL_EINVAL);
+		XLALPrintError("%s(): cannot parse \"%s\"\n", __func__, cvs_date);
+		XLAL_ERROR(XLAL_EINVAL);
 	}
 	if(!strptime(cvs_keyword_value, "%Y/%m/%d %T", &utc))
 	  {
 	    if(!strptime(cvs_keyword_value, "%Y-%m-%d %T", &utc))
 	      {
-		XLALPrintError("%s(): cannot parse \"%s\"\n", func, cvs_keyword_value);
+		XLALPrintError("%s(): cannot parse \"%s\"\n", __func__, cvs_keyword_value);
 		free(cvs_keyword_value);
-		XLAL_ERROR(func, XLAL_EINVAL);
+		XLAL_ERROR(XLAL_EINVAL);
 	      }
 	  }
 	free(cvs_keyword_value);
 	XLALClearErrno();
 	XLALGPSSet(&ptable->cvs_entry_time, XLALUTCToGPS(&utc), 0);
 	if(XLALGetBaseErrno())
-		XLAL_ERROR(func, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	/*
 	 * comment
 	 */
 
-	snprintf(ptable->comment, LIGOMETA_COMMENT_MAX, "");
+	snprintf(ptable->comment, LIGOMETA_COMMENT_MAX, " ");
 
 	/*
 	 * online flag and domain
@@ -228,13 +231,17 @@ int XLALPopulateProcessTable(
 		ptable->unix_procid = getppid();
 	if(gethostname(ptable->node, LIGOMETA_NODE_MAX) < 0) {
 		perror("could not determine host name");
-		XLAL_ERROR(func, XLAL_ESYS);
+		XLAL_ERROR(XLAL_ESYS);
 	}
 	uid = geteuid();
+#if 0
 	if(!(pw = getpwuid(uid)))
+#endif
 		snprintf(ptable->username, LIGOMETA_USERNAME_MAX, "%d", uid);
+#if 0
 	else
 		snprintf(ptable->username, LIGOMETA_USERNAME_MAX, "%s", pw->pw_name);
+#endif
 	ptable->process_id = process_id;
 
 	/*
@@ -244,34 +251,20 @@ int XLALPopulateProcessTable(
 	return 0;
 }
 
+#else /* _WIN32 */
 
-/**
- * Legacy compatibility wrapper.  Remove when not used.
- */
+#include <stdio.h>
 
-
-#include <lal/LALStatusMacros.h>
-
-
-NRCSID(PROCESSTABLEC, "$Id$");
-
-
-void populate_process_table(
-	LALStatus *status,
+int XLALPopulateProcessTable(
 	ProcessTable *ptable,
-	const CHAR *program_name,
-	const CHAR *cvs_revision,
-	const CHAR *cvs_source,
-	const CHAR *cvs_date
-)
-{
-	INITSTATUS(status, "populate_process_table", PROCESSTABLEC);
-	ATTATCHSTATUSPTR(status);
-
-	XLALPrintDeprecationWarning("populate_process_table", "XLALPopulateProcessTable");
-
-	ASSERT(!XLALPopulateProcessTable(ptable, program_name, cvs_revision, cvs_source, cvs_date, 0), status, LAL_EXLAL, LAL_MSGEXLAL);
-
-	DETATCHSTATUSPTR(status);
-	RETURN(status);
+	const char *program_name,
+	const char *cvs_revision,
+	const char *cvs_source,
+	const char *cvs_date,
+	long process_id
+) {
+  fprintf(stderr, "XLALPopulateProcessTable() not implemented for WIN32\n");
+  return 1;
 }
+
+#endif /* __WIN32 */

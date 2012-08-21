@@ -23,7 +23,6 @@
  *
  * Author: Brady, P. R., Brown, D. A., Fairhurst, S. and Pekowsky, L.
  * 
- * Revision: $Id$
  * 
  *-----------------------------------------------------------------------
  */
@@ -45,8 +44,6 @@
 #include <lalapps.h>
 #include <processtable.h>
 #include <LALAppsVCSInfo.h>
-
-RCSID("$Id$");
 
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
@@ -641,7 +638,5 @@ int main( int argc, char *argv[] )
 
   LALCheckMemoryLeaks();
 
-  /* print a success message to stdout for parsing by exitcode */
-  fprintf( stdout, "%s: EXITCODE0\n", argv[0] );
   exit( 0 );
 }

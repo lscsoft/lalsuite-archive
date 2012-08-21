@@ -17,82 +17,14 @@
 *  MA  02111-1307  USA
 */
 
-#if 0  /* autodoc block */
-
-<lalVerbatim file="InterpolateCV">
-$Id$
-</lalVerbatim>
-
-<lalLaTeX>
-\subsection{Module \texttt{Interpolate.c}}
-\label{ss:Interpolate.c}
-
-Functions for generating random numbers.
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\input{InterpolateCP}
-\idx{LALSPolynomialInterpolation()}
-\idx{LALDPolynomialInterpolation()}
-
-\subsubsection*{Description}
-
-The routine \verb+LALSPolynomialInterpolation()+ computes the interpolated $y$
-value \verb+output+ at the $x$ value \verb+target+ by fitting a polynomial of
-order \verb+params.n-1+ to the data.  The result \verb+output+ is of type
-\verb+SInterpolateOut+, which contains the value \verb+output.y+ as well as
-an estimate of the error \verb+output.dy+.  The routine
-\verb+LALDPolynomialInterpolation()+ is the same but for double precision.
-
-
-\subsubsection*{Operating Instructions}
-
-The following program fits a fourth-order polynomial to the five data points
-$\{(0,0),(1,1),(2,3),(3,4),(4,3)\}$, and interpolates the value at $x=2.4$.
-
-\begin{verbatim}
-#include <lal/LALStdlib.h>
-#include <lal/Interpolate.h>
-
-int main ()
-{
-  enum { ArraySize = 5 };
-  static LALStatus status;
-  REAL4            x[ArraySize] = {0,1,2,3,4};
-  REAL4            y[ArraySize] = {0,1,3,4,3};
-  REAL4            target       = 2.4;
-  SInterpolatePar  intpar       = {ArraySize, x, y};
-  SInterpolateOut  intout;
-
-  LALSPolynomialInterpolation( &status, &intout, target, &intpar );
-
-  return 0;
-}
-\end{verbatim}
-
-\subsubsection*{Algorithm}
-
-This is an implementation of the Neville algroithm, see \verb+polint+ in
-Numerical Recipes~\cite{ptvf:1992}.
-
-\subsubsection*{Uses}
-
-\subsubsection*{Notes}
-\vfill{\footnotesize\input{InterpolateCV}}
-
-</lalLaTeX>
-
-#endif /* autodoc block */
-
+/* ---------- see Interpolate.h for doxygen documentation ---------- */
 
 #include <math.h>
 #include <string.h>
 #include <lal/LALStdlib.h>
 #include <lal/Interpolate.h>
 
-NRCSID (INTERPOLATEC, "$Id$");
 
-/* <lalVerbatim file="InterpolateCP"> */
 void
 LALSPolynomialInterpolation (
     LALStatus       *status,
@@ -100,7 +32,7 @@ LALSPolynomialInterpolation (
     REAL4            target,
     SInterpolatePar *params
     )
-{ /* </lalVerbatim> */
+{
   REAL4 *dn;   /* difference in a step down */
   REAL4 *up;   /* difference in a step up   */
   REAL4  diff;
@@ -109,7 +41,7 @@ LALSPolynomialInterpolation (
   UINT4  n;
   UINT4  i;
 
-  INITSTATUS (status, "LALSPolynomialInterpolation", INTERPOLATEC);
+  INITSTATUS(status);
 
   ASSERT (output, status, INTERPOLATEH_ENULL, INTERPOLATEH_MSGENULL);
   ASSERT (params, status, INTERPOLATEH_ENULL, INTERPOLATEH_MSGENULL);
@@ -178,7 +110,7 @@ LALSPolynomialInterpolation (
 }
 
 
-/* <lalVerbatim file="InterpolateCP"> */
+
 void
 LALDPolynomialInterpolation (
     LALStatus       *status,
@@ -186,8 +118,8 @@ LALDPolynomialInterpolation (
     REAL8            target,
     DInterpolatePar *params
     )
-{ /* </lalVerbatim> */
-  INITSTATUS (status, "LALDPolynomialInterpolation", INTERPOLATEC);
+{
+  INITSTATUS(status);
 
   XLALPrintDeprecationWarning("LALDPolynomialInterpolation", "XLALDPolynomialInterpolation");
 
@@ -203,7 +135,7 @@ LALDPolynomialInterpolation (
   RETURN  (status);
 }
 
-/* <lalVerbatim file="InterpolateCP"> */
+
 REAL8
 XLALREAL8PolynomialInterpolation (
     REAL8 *yout,
@@ -212,7 +144,7 @@ XLALREAL8PolynomialInterpolation (
     REAL8 *x,
     UINT4  n
     )
-{ /* </lalVerbatim> */
+{
   REAL8  dy;
   REAL8 *dn;   /* difference in a step down */
   REAL8 *up;   /* difference in a step up   */
@@ -222,18 +154,18 @@ XLALREAL8PolynomialInterpolation (
   UINT4  i;
 
   if ( yout == NULL || y == NULL || x == NULL )
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   if ( n <= 1 )
-    XLAL_ERROR_REAL8(__func__, XLAL_ESIZE);
+    XLAL_ERROR_REAL8(XLAL_ESIZE);
 
   dn = (REAL8 *) LALMalloc (n*sizeof(*dn));
   if ( !dn )
-    XLAL_ERROR_REAL8(__func__, XLAL_ENOMEM);
+    XLAL_ERROR_REAL8(XLAL_ENOMEM);
 
   up = (REAL8 *) LALMalloc (n*sizeof(*up));
   if ( !up )
-    XLAL_ERROR_REAL8(__func__, XLAL_ENOMEM);
+    XLAL_ERROR_REAL8(XLAL_ENOMEM);
 
 
   /*
@@ -274,7 +206,7 @@ XLALREAL8PolynomialInterpolation (
       {
 	LALFree (dn);
 	LALFree (up);
-        XLAL_ERROR_REAL8 (__func__, XLAL_EFPDIV0);
+        XLAL_ERROR_REAL8 (XLAL_EFPDIV0);
       }
       fac   = (dn[i + 1] - up[i])/den;
       dn[i] = fac*(xdn - xtarget);

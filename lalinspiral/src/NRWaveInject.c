@@ -17,14 +17,7 @@
  *  MA  02111-1307  USA
  */
 
-/** \file NRWaveInject.c
- *  \ingroup NRWaveInject
- *  \author S.Fairhurst, B.Krishnan, L.Santamaria
- *
- *  \brief Functions for reading/writing numerical relativity waveforms
- *
- */
-
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/FileIO.h>
 #include <lal/NRWaveIO.h>
@@ -55,8 +48,6 @@
 #else
 #define UNUSED
 #endif
-
-NRCSID (NRWAVEINJECTC, "$Id$");
 
 int compare_abs_float(const void *a, const void *b);
 int compare_abs_double(const void *a, const void *b);
@@ -233,7 +224,7 @@ XLALCalculateNRStrain( REAL4TimeVectorSeries *strain, /**< h+, hx time series da
 
   /* get the detector information */
   memset( &det, 0, sizeof(LALDetector) );
-  ifoNumber = XLALIFONumber( ifo );
+  ifoNumber = (InterferometerNumber) XLALIFONumber( ifo );
   XLALReturnDetector( &det, ifoNumber );
 
   if( ifoNumber == LAL_UNKNOWN_IFO )
@@ -258,14 +249,14 @@ XLALCalculateNRStrain( REAL4TimeVectorSeries *strain, /**< h+, hx time series da
   htData = LALCalloc(1, sizeof(*htData));
   if (!htData)
   {
-    XLAL_ERROR_NULL( "XLALCalculateNRStrain", XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
   vecLength = strain->data->vectorLength;
   htData->data = XLALCreateREAL4Vector( vecLength );
   if ( ! htData->data )
   {
     LALFree( htData );
-    XLAL_ERROR_NULL( "XLALCalculateNRStrain", XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   /* store the htData */
@@ -320,13 +311,13 @@ XLALInterpolateNRWave( REAL4TimeSeries *in,           /**< input strain time ser
   ret = LALCalloc(1, sizeof(*ret));
   if (!ret)
   {
-    XLAL_ERROR_NULL( "XLALCalculateNRStrain", XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   ret->data = XLALCreateREAL4Vector( numPoints );
   if (! ret->data)
   {
-    XLAL_ERROR_NULL( "XLALCalculateNRStrain", XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   ret->deltaT = 1./sampleRate;
@@ -356,6 +347,10 @@ XLALInterpolateNRWave( REAL4TimeSeries *in,           /**< input strain time ser
       r = k*deltaTout / deltaTin - lo;
 
       ret->data->data[k] = y_2 * r + y_1 * (1 - r);
+    }
+    /* Copy the end point if we are exactly at it */
+    else if(lo==in->data->length-1){
+      ret->data->data[k]=in->data->data[lo];
     }
     else {
       ret->data->data[k] = 0.0;
@@ -393,13 +388,13 @@ XLALInterpolateNRWaveREAL8( REAL8TimeSeries *in,           /**< input strain tim
   ret = LALCalloc(1, sizeof(*ret));
   if (!ret)
   {
-    XLAL_ERROR_NULL( "XLALCalculateNRStrain", XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   ret->data = XLALCreateREAL8Vector( numPoints );
   if (! ret->data)
   {
-    XLAL_ERROR_NULL( "XLALCalculateNRStrain", XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   ret->deltaT = 1./sampleRate;
@@ -429,6 +424,9 @@ XLALInterpolateNRWaveREAL8( REAL8TimeSeries *in,           /**< input strain tim
       r = k*deltaTout / deltaTin - lo;
 
       ret->data->data[k] = y_2 * r + y_1 * (1 - r);
+    }    /* Copy the end point if we are exactly at it */
+    else if(lo==in->data->length-1){
+      ret->data->data[k]=in->data->data[lo];
     }
     else {
       ret->data->data[k] = 0.0;
@@ -503,6 +501,38 @@ XLALFindNRCoalescenceTime(REAL8 *tc,  /**< FIXME: !TO BE DOCUMENTED! */
 }
 
 
+  INT4
+XLALFindNRCoalescencePlusCrossREAL8(REAL8 *tc,  /**< FIXME: !TO BE DOCUMENTED! */
+    const REAL8TimeSeries *plus,   /**< input strain plus time series */
+    const REAL8TimeSeries *cross   /**< input strain cross time series */)
+{
+
+  size_t *ind=NULL;
+  size_t len;
+  REAL8 *sumSquare=NULL;
+  UINT4 k;
+
+  len = plus->data->length;
+  ind = LALCalloc(1,len*sizeof(*ind));
+
+  sumSquare = LALCalloc(1, len*sizeof(*sumSquare));
+
+  for (k=0; k < len; k++) {
+    sumSquare[k] = plus->data->data[k]*plus->data->data[k] +
+      cross->data->data[k]*cross->data->data[k];
+  }
+
+  gsl_heapsort_index( ind, sumSquare, len, sizeof(REAL8), compare_abs_double);
+
+  *tc = ind[len-1] * plus->deltaT;
+
+  LALFree(ind);
+  LALFree(sumSquare);
+
+  return 0;
+}
+
+
 /** Function for calculating the coalescence time (defined to be the
   peak) of a NR wave
   This uses the peak of h(t)
@@ -569,17 +599,17 @@ XLALFindNRFile( NRWaveMetaData   *out,       /**< output wave data */
   /* check arguments are sensible */
   if ( !out ) {
     LALPrintError ("\nOutput pointer is NULL !\n\n");
-    XLAL_ERROR ( "XLALFindNRFile", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !nrCatalog ) {
     LALPrintError ("\n NR Catalog pointer is NULL !\n\n");
-    XLAL_ERROR ( "XLALFindNRFile", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !inj ) {
     LALPrintError ("\n SimInspiralTable pointer is NULL !\n\n");
-    XLAL_ERROR ( "XLALFindNRFile", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   /* we want to check for the highest mass before calculating the mass ratio */
@@ -602,7 +632,7 @@ XLALFindNRFile( NRWaveMetaData   *out,       /**< output wave data */
     /* check catalog data is not null */
     if ( nrCatalog->data + k == NULL ) {
       LALPrintError ("\n NR Catalog data is NULL !\n\n");
-      XLAL_ERROR ( "XLALFindNRFile", XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 
     /* look for waveforms with correct mode values */
@@ -621,7 +651,7 @@ XLALFindNRFile( NRWaveMetaData   *out,       /**< output wave data */
   /* error checking if waveforms with input mode values were not found */
   if ( diff < 0) {
     LALPrintError ("\n Input mode numbers not found !\n\n");
-    XLAL_ERROR ( "XLALFindNRFile", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   /* copy best match to output */
@@ -644,9 +674,9 @@ void LALInjectStrainGW( LALStatus                 *status,
   REAL4TimeSeries *htData = NULL;
   UINT4  k;
   REAL8 offset;
-  InspiralApplyTaper taper = INSPIRAL_TAPER_NONE;
+  LALSimInspiralApplyTaper taper = LAL_SIM_INSPIRAL_TAPER_NONE;
 
-  INITSTATUS (status, "LALNRInject",  NRWAVEINJECTC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* sampleRate = 1.0/strain->deltaT;   */
@@ -677,15 +707,15 @@ void LALInjectStrainGW( LALStatus                 *status,
 
     if ( ! strcmp( "TAPER_START", thisInj->taper ) )
     {
-      taper = INSPIRAL_TAPER_START;
+      taper = LAL_SIM_INSPIRAL_TAPER_START;
     }
     else if (  ! strcmp( "TAPER_END", thisInj->taper ) )
     {
-      taper = INSPIRAL_TAPER_END;
+      taper = LAL_SIM_INSPIRAL_TAPER_END;
     }
     else if (  ! strcmp( "TAPER_STARTEND", thisInj->taper ) )
     {
-      taper = INSPIRAL_TAPER_STARTEND;
+      taper = LAL_SIM_INSPIRAL_TAPER_STARTEND;
     }
     else
     {
@@ -694,7 +724,7 @@ void LALInjectStrainGW( LALStatus                 *status,
       LALFree(htData);
       ABORT( status, NRWAVEINJECT_EVAL, NRWAVEINJECT_MSGEVAL );
     }
-    if ( XLALInspiralWaveTaper( htData->data, taper ) == XLAL_FAILURE )
+    if ( XLALSimInspiralREAL4WaveTaper( htData->data, taper ) == XLAL_FAILURE )
     {
       XLALClearErrno();
       XLALDestroyREAL4Vector ( htData->data);
@@ -713,14 +743,30 @@ void LALInjectStrainGW( LALStatus                 *status,
     ABORTXLAL( status );
   }
 
+  /* Cast to REAL8 for injection */
+  REAL8TimeSeries *injData8=XLALCreateREAL8TimeSeries("temporary", &(injData->epoch), injData->f0, injData->deltaT, &(injData->sampleUnits), injData->data->length);
+  if(!injData8) XLAL_ERROR_VOID(XLAL_ENOMEM,"Unable to allocate injection buffer\n");
+  REAL8TimeSeries *htData8=XLALCreateREAL8TimeSeries("signal, temp", &(htData->epoch), htData->f0, htData->deltaT, &(htData->sampleUnits), htData->data->length);
+  if(!htData8) XLAL_ERROR_VOID(XLAL_ENOMEM,"Unable to allocate signal buffer\n");
+
+  for(UINT4 i=0;i<htData->data->length;i++) htData8->data->data[i]=(REAL8)htData->data->data[i];
+
   /* inject the htData into injection time stream */
-  LALSSInjectTimeSeries( status->statusPtr, injData, htData );
-  BEGINFAIL( status )
+  int retcode = XLALSimAddInjectionREAL8TimeSeries(injData8, htData8, NULL);
+  if(retcode!=XLAL_SUCCESS)
   {
-    XLALDestroyREAL4Vector ( htData->data);
-    LALFree( htData );
+    XLALDestroyREAL8TimeSeries(htData8);
+    XLALDestroyREAL8TimeSeries(injData8);
+    XLALDestroyREAL4Vector(htData->data);
+    LALFree(htData);
+    ABORTXLAL(status);
   }
-  ENDFAIL( status );
+
+  for(UINT4 i=0;i<injData8->data->length;i++) injData->data->data[i]=(REAL4)injData8->data->data[i];
+
+  XLALDestroyREAL8TimeSeries(injData8);
+  XLALDestroyREAL8TimeSeries(htData8);
+
 
   /* set channel name */
   snprintf( injData->name, sizeof(injData->name),
@@ -752,12 +798,12 @@ void LALInjectStrainGWREAL8( LALStatus                 *status,
   InterferometerNumber  ifoNumber = LAL_UNKNOWN_IFO;
   LALDetector det;
 
-  INITSTATUS (status, "LALNRInject",  NRWAVEINJECTC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* get the detector information */
   memset( &det, 0, sizeof(LALDetector) );
-  ifoNumber = XLALIFONumber( ifo );
+  ifoNumber = (InterferometerNumber) XLALIFONumber( ifo );
   XLALReturnDetector( &det, ifoNumber );
 
   /* Band-passing and tapering not yet implemented for REAL8 data */
@@ -787,7 +833,8 @@ void LALInjectStrainGWREAL8( LALStatus                 *status,
   XLALFindNRCoalescenceTimeREAL8( &offset, htData);
   XLALGPSAdd( &(htData->epoch), -offset);
 
-  XLALSimAddInjectionREAL8TimeSeries( injData, htData, NULL);
+  int retcode=XLALSimAddInjectionREAL8TimeSeries( injData, htData, NULL);
+  XLAL_CHECK_VOID(retcode==XLAL_SUCCESS, XLAL_EFUNC, "Unable to add injection to data\n");
 
   /* set channel name */
   snprintf( injData->name, sizeof(injData->name),
@@ -812,7 +859,7 @@ CHAR* XLALGetNinjaChannelName(const CHAR *polarisation, UINT4 l, INT4 m)
   CHAR *channel=NULL;
 
   if ( !((strncmp(polarisation, "plus", 4) == 0) || (strncmp(polarisation, "cross", 5) == 0))) {
-    XLAL_ERROR_NULL( "XLALGetNinjaChannelName",   XLAL_EINVAL );
+    XLAL_ERROR_NULL( XLAL_EINVAL );
   }
 
   /* allocate memory for channel */

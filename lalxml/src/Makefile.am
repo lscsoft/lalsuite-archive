@@ -4,6 +4,7 @@ lalxmlincludedir = $(includedir)/lal
 lalxmlinclude_HEADERS = \
 	LALXML.h \
 	LALXMLConfig.h \
+	LALXMLLibVCSInfo.h \
 	LALXMLVCSInfo.h \
 	LALXMLVOTableCommon.h \
 	LALXMLVOTableSerializers.h
@@ -39,11 +40,10 @@ lalxml-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "$(SWIG_USER_ENV)" | $(SED) 's|~E~O~L~|\n|g' >>$@
+	@printf "$(SWIG_USER_ENV)" >>$@
 
 lalxml-user-env.csh lalxml-user-env.sh: lalxml-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	generate_user_env.awk \
@@ -54,11 +54,9 @@ EXTRA_DIST = \
 LALXMLVCSInfo.h: ._vcsinfo
 
 ._vcsinfo: $(srcdir)/generate_vcs_info.py LALXMLConfig.h
-	@echo "creating LALXMLVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALXML $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALXML $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@
 
 swig_headers = $(lalxmlinclude_HEADERS)
-CLEANFILES += $(swig_clean)
-@SWIG_HEADER_MK@
+include $(top_srcdir)/swig/swiglal_header.am

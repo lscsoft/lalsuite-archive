@@ -67,7 +67,6 @@
 #include "inspiral.h"
 
 /* program info */
-RCSID(LALAPPS_VCS_IDENT_ID);
 #define PROGRAM_NAME "lalapps_ninja"
 
 /* verbose flag */
@@ -251,7 +250,7 @@ int main(INT4 argc, CHAR *argv[])
 
   memset(&sieve, 0, sizeof(FrCacheSieve));
   /* sieve doesn't actually do anything yet */
-  LAL_CALL( LALFrCacheSieve(&status, &frInCache, frGlobCache, &sieve),
+  LAL_CALL( LALFrSieveCache(&status, &frInCache, frGlobCache, &sieve),
             &status);
 
   LAL_CALL(LALDestroyFrCache(&status, &frGlobCache), &status);
@@ -304,6 +303,7 @@ int main(INT4 argc, CHAR *argv[])
       this_inj->spin2x = metaData.spin2[0];
       this_inj->spin2y = metaData.spin2[1];
       this_inj->spin2z = metaData.spin2[2];
+      this_inj->f_lower = metaData.freqStart22;
 
       strcpy(this_inj->numrel_data, frInCache->frameFiles[k].url);
 

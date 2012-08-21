@@ -17,11 +17,22 @@
 *  MA  02111-1307  USA
 */
 
-/**
-\author Peter Shawhan
-\defgroup Segments_h Segments
-\ingroup tools
-\brief Provides data types and functions for manipulating lists of ``segments'' (GPS time intervals).
+#ifndef _SEGMENTS_H
+#define _SEGMENTS_H
+
+#include <lal/LALDatatypes.h>
+#include <lal/XLALError.h>
+
+#if defined(__cplusplus)
+extern "C" {
+#elif 0
+} /* so that editors will match preceding brace */
+#endif
+
+/** \addtogroup Segments_h
+    \author Peter Shawhan
+
+    \brief Provides data types and functions for manipulating lists of ``segments'' (GPS time intervals).
 
 \heading{Synopsis}
 \code
@@ -118,30 +129,9 @@ structure specifically means that the list is sorted \e and disjoint.
 Also all segments in a segment list can be time-shifted using \c XLALSegListShift().
 
 */
-
-#ifndef _SEGMENTS_H
-#define _SEGMENTS_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
-#include <lal/LALDatatypes.h>
-#include <lal/XLALError.h>
-
-#if defined(__cplusplus)
-extern "C" {
-#elif 0
-} /* so that editors will match preceding brace */
-#endif
-
-/** \cond DONT_DOXYGEN */
-NRCSID( SEGMENTSH, "$Id$" );
-/** \endcond */
+/*@{*/
 
 /*------------------- Compile-time parameters -------------------*/
-/** \ingroup Segments_h */ /*@{*/
 #define SEGMENTSH_ALLOCBLOCK 64  /**< Initial number of LALSeg spaces to
 				  * allocate in memory at one time; this is
 				  * intended to reduce the number of memory
@@ -162,20 +152,16 @@ NRCSID( SEGMENTSH, "$Id$" );
 typedef struct
 tagLALSeg
 {
-  SWIGLAL_STRUCT_LALALLOC();
   LIGOTimeGPS start; /**< Beginning time of the segment */
   LIGOTimeGPS end;   /**< Ending time of the segment */
   INT4 id;           /**< Identifier (segment ID, array index, etc.) for user */
 }
 LALSeg;
 
-
-
 /** Struct holding a segment list */
 typedef struct
 tagLALSegList
 {
-  SWIGLAL_STRUCT_LALALLOC();
   LALSeg *segs;      /**< Pointer to array of segments (LALSeg structures) */
   size_t arraySize;  /**< Size of array for which memory is allocated */
   UINT4 length;      /**< Number of segments in this segment list */
@@ -187,11 +173,7 @@ tagLALSegList
 }
 LALSegList;
 
-/*@}*/
-
 /*----------------------- Function prototypes ----------------------*/
-/** \cond DONT_DOXYGEN */
-
 INT4
 XLALSegSet( LALSeg *seg, const LIGOTimeGPS *start, const LIGOTimeGPS *end,
 	    const INT4 id );
@@ -230,8 +212,7 @@ XLALSegListShift( LALSegList *seglist, const LIGOTimeGPS *shift );
 INT4
 XLALSegListKeep(  LALSegList *seglist, const LIGOTimeGPS *start, const LIGOTimeGPS *end );
 
-/** \endcond */
-/*----------------------- Trailer stuff ----------------------------*/
+/*@}*/
 
 #if 0
 { /* so that editors will match succeeding brace */

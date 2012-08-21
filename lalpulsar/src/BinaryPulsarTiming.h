@@ -45,14 +45,11 @@
 #ifndef _BINARYPULSARTIMING_H
 #define _BINARYPULSARTIMING_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
+#include <ctype.h>
+#include <unistd.h>
 
 #include <lal/LALStdlib.h>
-
-NRCSID (BINARYPULSARTIMINGH,"$Id$");
+#include <lal/StringVector.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,9 +86,10 @@ not be in the binary timing routine"
 typedef struct
 tagBinaryPulsarParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR *name;   /**< pulsar name */
-
+  CHAR *jname;  /**< pulsar J name */
+  CHAR *bname;  /**< pulsar B name */
+  
   CHAR *model;  /**< TEMPO binary model e.g. BT, DD, ELL1 */
 
   REAL8 f0;     /**< spin frequency (Hz) */
@@ -163,26 +161,29 @@ tagBinaryPulsarParams
 
   /* orbital frequency coefficients for BTX model (only for one orbit at the
      moment i.e. a two body system) */
-  REAL8 fb[12]; /**> orbital frequency coefficients for BTX model */
-  INT4 nfb;     /**> the number of fb coefficients */
+  REAL8 fb[12]; /**< orbital frequency coefficients for BTX model */
+  INT4 nfb;     /**< the number of fb coefficients */
 
-  REAL8 px;     /**> pulsar parallax (in milliarcsecs) */
-  REAL8 dist;   /**> pulsar distance (in kiloparsecs) */
+  REAL8 px;     /**< pulsar parallax (in milliarcsecs) */
+  REAL8 dist;   /**< pulsar distance (in kiloparsecs) */
 
-  REAL8 DM;     /**> dispersion measure */
-  REAL8 DM1;    /**> first derivative of dispersion measure */
+  REAL8 DM;     /**< dispersion measure */
+  REAL8 DM1;    /**< first derivative of dispersion measure */
 
   /* gravitational wave parameters */
-  REAL8 h0;     /**> gravitational wave amplitude */
-  REAL8 cosiota;/**> cosine of the pulsars orientation angle */
-  REAL8 psi;    /**> polarisation angle */
-  REAL8 phi0;   /**> initial phase */
-  REAL8 Aplus;  /**> 0.5*h0*(1+cos^2iota) */
-  REAL8 Across; /**> h0*cosiota */
+  REAL8 h0;     /**< gravitational wave amplitude */
+  REAL8 cosiota;/**< cosine of the pulsars orientation angle */
+  REAL8 psi;    /**< polarisation angle */
+  REAL8 phi0;   /**< initial phase */
+  REAL8 Aplus;  /**< 0.5*h0*(1+cos^2iota) */
+  REAL8 Across; /**< h0*cosiota */
   /*pinned superfluid gw parameters*/
-  REAL8 h1;     /**> determines relative strength of 2 vs 2f emission */
-  REAL8 lambda;/**> this is a longitude like angle between pinning axis and line of sight */
-  REAL8 theta;    /**> angle between rotation axis and pinning axis */
+  REAL8 I21;    /**< parameter for pinsf model.**/
+  REAL8 I31;    /**< parameter for pinsf model.**/
+  REAL8 r;      /**< parameter for pinsf model.**/
+  REAL8 lambda; /**< this is a longitude like angle between pinning axis and
+                     line of sight */
+  REAL8 costheta;  /**< angle between rotation axis and pinning axis */
   
   /******** errors read in from a .par file **********/
   REAL8 f0Err;
@@ -245,16 +246,17 @@ tagBinaryPulsarParams
   REAL8 phi0Err;
   REAL8 AplusErr;
   REAL8 AcrossErr;
-  REAL8 h1Err;
+  REAL8 I21Err;
+  REAL8 I31Err;
+  REAL8 rErr;
   REAL8 lambdaErr;
-  REAL8 thetaErr;
+  REAL8 costhetaErr;
 }BinaryPulsarParams;
 
 /** structure containing the input parameters for the binary delay function */
 typedef struct
 tagBinaryPulsarInput
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 tb;    /**< Time of arrival (TOA) at the SSB */
 }BinaryPulsarInput;
 
@@ -262,13 +264,8 @@ tagBinaryPulsarInput
 typedef struct
 tagBinaryPulsarOutput
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 deltaT;	/**< deltaT to add to TDB in order to account for binary */
 }BinaryPulsarOutput;
-
-
-
-
 
 /**** DEFINE FUNCTIONS ****/
 /** function to calculate the binary system delay
@@ -294,6 +291,30 @@ void
 LALReadTEMPOParFile( LALStatus              *status,
                      BinaryPulsarParams    *output,
                      CHAR                  *pulsarAndPath );
+
+/** \brief This function will read in a TEMPO-style parameter correlation matrix
+ *
+ * This function will read in a TEMPO-style parameter correlation matrix file,
+ * which contains the correlations between parameters as fit by TEMPO. An
+ * example the format would be:
+\verbatim
+     RA     DEC    F0
+RA   1.000
+DEC  0.954  1.000
+F0   -0.007 0.124  1.000
+\endverbatim
+ *
+ * In the output all parameter names will sometimes be
+ * converted to a more convenient naming convention. If non-diagonal parameter
+ * correlation values are +/-1 then they will be converted to be +/-0.99999 to
+ * avoid some problems of the matrix becoming singular. The output matrix will
+ * have both the upper and lower triangle completed.
+ *
+ * \param cormat [out] A REAL8 array into which the correlation matrix will be output
+ * \param corfile [in] A string containing the path and filename of the
+ * 			TEMPO-style correlation matrix file
+ */
+LALStringVector *XLALReadTEMPOCorFile( REAL8Array *cormat, CHAR *corfile );
 
 /** A function to convert RA and Dec in format dd:mm:ss.ss or ddmmss.ss into the
  * number of degrees as a float degs is the string containing the

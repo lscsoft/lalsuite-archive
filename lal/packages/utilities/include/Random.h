@@ -17,34 +17,8 @@
 *  MA  02111-1307  USA
 */
 
-/**** <lalVerbatim file="RandomHV">
- * Author: Creighton, J. D. E. and Tibbits, M. M.
- * $Id$
- **** </lalVerbatim> */
-
-/**** <lalLaTeX>
- *
- * \section{Header \texttt{Random.h}}
- * \label{s:Random.h}
- *
- * Generates random numbers.
- *
- * \subsection*{Synopsis}
- * \begin{verbatim}
- * #include <lal/Random.h>
- * \end{verbatim}
- *
- * \noindent This header covers the routines for generating random numbers.
- *
- **** </lalLaTeX> */
-
 #ifndef _RANDOM_H
 #define _RANDOM_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 #include <lal/LALDatatypes.h>
 #include <lal/AVFactories.h>
@@ -54,26 +28,39 @@ extern "C" {
 #endif
 
 
-NRCSID (RANDOMH, "$Id$");
-
-
-/**** <lalLaTeX>
+/**
+ * \addtogroup Random_h
+ * \author Creighton, J. D. E. and Tibbits, M. M.
  *
- * \subsection*{Error conditions}
+ * \brief Generates random numbers.
  *
- **** </lalLaTeX> */
+ * \heading{Synopsis}
+ * \code
+ * #include <lal/Random.h>
+ * \endcode
+ *
+ * This header covers the routines for generating random numbers.
+ *
+*/
+/*@{*/
 
-/* <lalErrTable> */
-#define RANDOMH_ENULL 1
-#define RANDOMH_ENNUL 2
-#define RANDOMH_ESIZE 4
-#define RANDOMH_ELNTH 8
-#define RANDOMH_ESEGZ 16
-#define RANDOMH_ENUMZ 32
-#define RANDOMH_EALOC 64
-#define RANDOMH_EINIT 128
-#define RANDOMH_EZERO 256
-#define RANDOMH_ESEED 512
+/**\name Error Codes */
+/*@{*/
+#define RANDOMH_ENULL 1		/**< Null pointer */
+#define RANDOMH_ENNUL 2		/**< Non-null pointer */
+#define RANDOMH_ESIZE 4		/**< Invalid size */
+#define RANDOMH_ELNTH 8		/**< Must have more than one data point */
+#define RANDOMH_ESEGZ 16		/**< Invalid number of segments */
+#define RANDOMH_ENUMZ 32		/**< Invalid number of points in segment */
+#define RANDOMH_EALOC 64		/**< Memory Allocation Error */
+#define RANDOMH_EINIT 128		/**< Params must be initialized with CreateParams first */
+#define RANDOMH_EZERO 256		/**< Output Vector length must be greater than zero */
+#define RANDOMH_ESEED 512		/**< Improper seed value */
+/*@}*/
+
+/*@}*/
+
+/** \cond DONT_DOXYGEN */
 #define RANDOMH_MSGENULL "Null pointer"
 #define RANDOMH_MSGENNUL "Non-null pointer"
 #define RANDOMH_MSGESIZE "Invalid size"
@@ -84,36 +71,16 @@ NRCSID (RANDOMH, "$Id$");
 #define RANDOMH_MSGEINIT "Params must be initialized with CreateParams first"
 #define RANDOMH_MSGEZERO "Output Vector length must be greater than zero"
 #define RANDOMH_MSGESEED "Improper seed value"
-/* </lalErrTable> */
+/** \endcond */
 
-/**** <lalLaTeX>
- *
- * \subsection*{Structures}
- * \idx[Type]{RandomParams}
- * \idx[Type]{MTRandomParams}
- *
- * \begin{verbatim}
- * typedef struct tagRandomParams RandomParams;
- * \end{verbatim}
- *
- * This structure contains the parameters necessary for generating the current
- * sequence of random numbers (based on the initial seed).  The contents should
- * not be manually adjusted.
- *
- * \begin{verbatim}
- * typedef struct tagMTRandomParams MTRandomParams;
- * \end{verbatim}
- *
- * This structure contains the parameters necessary for generating the current
- * sequence of Mersenne twiser random numbers (based on the initial seed).  The
- * contents should not be manually adjusted.
- *
- **** </lalLaTeX> */
-
+/** \ingroup Random_h
+ * \brief This structure contains the parameters necessary for generating the current
+ * sequence of random numbers (based on the initial seed).
+ * \note The contents should not be manually adjusted.
+ */
 typedef struct
 tagRandomParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   INT4 i;
   INT4 y;
   INT4 v[32];
@@ -122,14 +89,6 @@ RandomParams;
 
 typedef struct tagMTRandomParams MTRandomParams;
 
-/**** <lalLaTeX>
- *
- * \newpage\input{RandomC}
- * \newpage\input{RandomTestC}
- * \newpage\input{MersenneRandomC}
- * \newpage\input{MersenneRandomTestC}
- *
- **** </lalLaTeX> */
 
 INT4 XLALBasicRandom( INT4 i );
 RandomParams * XLALCreateRandomParams( INT4 seed );

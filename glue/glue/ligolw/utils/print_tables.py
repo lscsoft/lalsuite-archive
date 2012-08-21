@@ -19,8 +19,8 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 
 __author__ = "Collin Capano <cdcapano@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"
+__date__ = "$Date$"
 
 
 #
@@ -82,7 +82,7 @@ def set_output_format( output_format ):
         xhl = "</a>"
 
     else:
-        raise ValueError, "unrecognized output_format %s" % output_format
+        raise ValueError("unrecognized output_format %s" % output_format)
 
     return ttx, xtt, tx, xt, capx, xcap, rx, xr, cx, xc, rspx, xrsp, hlx, hxl, xhl
 

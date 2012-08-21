@@ -1,4 +1,5 @@
 /*
+*  Copyright (C) 2012 Karl Wette
 *  Copyright (C) 2007 Duncan Brown, David Chin, Jolien Creighton, Kipp Cannon, Reinhard Prix, Stephen Fairhurst
 *
 *  This program is free software; you can redistribute it and/or modify
@@ -17,29 +18,8 @@
 *  MA  02111-1307  USA
 */
 
-/**
- * \defgroup Date_h Time Conversions
- * \ingroup date
- * \author D.W. Chin, J.D.E. Creighton and Kipp Cannon
- * \brief Provides routines for manipulating date and time information.
-
-\heading{Synopsis}
-\code
-#include <lal/Date.h>
-\endcode
-
-This header covers routines for manipulating date and time
-information.  The various time systems are discussed in [\ref esaa1992].
-
-*/
-
 #ifndef _DATE_H
 #define _DATE_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 /* the following two preprocessor defines are to include the prototypes for
  * gmtime_r() and asctime_r() from /usr/include/time.h
@@ -81,7 +61,23 @@ extern "C"
 #define XLAL_BILLION_INT8 LAL_INT8_C( 1000000000 )
 #define XLAL_BILLION_REAL8 1e9
 
-/** \ingroup Date_h *//*@{*/
+
+/**
+ * \addtogroup Date_h
+ * \author D.W. Chin, J.D.E. Creighton and Kipp Cannon
+ * \brief Provides routines for manipulating date and time information.
+
+\heading{Synopsis}
+\code
+#include <lal/Date.h>
+\endcode
+
+This header covers routines for manipulating date and time
+information.  The various time systems are discussed in [\ref esaa1992].
+
+*/
+/*@{*/
+
 /** The UNIX time of the GPS origin epoch.
  *
  * 1980 6 JAN 0h UTC is 3657 days after 1970 1 JAN 0h UTC:
@@ -104,14 +100,30 @@ extern "C"
  * \c t=315964800.  That is what this is.
  */
 #define XLAL_EPOCH_UNIX_GPS 315964800
-#define XLAL_EPOCH_J2000_0_JD 2451545.0 /**< Julian Day of the J2000.0 epoch (2000 JAN 1 12h UTC). */
-#define XLAL_EPOCH_J2000_0_TAI_UTC 32 /**< Leap seconds (TAI-UTC) on the J2000.0 epoch (2000 JAN 1 12h UTC). */
-#define XLAL_EPOCH_J2000_0_GPS 630763213 /**< GPS seconds of the J2000.0 epoch (2000 JAN 1 12h UTC). */
-#define XLAL_EPOCH_GPS_JD 2444244.5 /**< Julian Day of the GPS epoch (1980 JAN 6 0h UTC) */
-#define XLAL_EPOCH_GPS_TAI_UTC 19 /**< Leap seconds (TAI-UTC) on the GPS epoch (1980 JAN 6 0h UTC) */
-#define XLAL_MJD_REF 2400000.5 /**< Reference Julian Day for Mean Julian Day. */
+
+#define XLAL_EPOCH_J2000_0_JD 2451545.0 	/**< Julian Day of the J2000.0 epoch (2000 JAN 1 12h UTC). */
+#define XLAL_EPOCH_J2000_0_TAI_UTC 32 		/**< Leap seconds (TAI-UTC) on the J2000.0 epoch (2000 JAN 1 12h UTC). */
+#define XLAL_EPOCH_J2000_0_GPS 630763213 	/**< GPS seconds of the J2000.0 epoch (2000 JAN 1 12h UTC). */
+#define XLAL_EPOCH_GPS_JD 2444244.5 		/**< Julian Day of the GPS epoch (1980 JAN 6 0h UTC) */
+#define XLAL_EPOCH_GPS_TAI_UTC 19 		/**< Leap seconds (TAI-UTC) on the GPS epoch (1980 JAN 6 0h UTC) */
+#define XLAL_MJD_REF 2400000.5 			/**< Reference Julian Day for Mean Julian Day. */
 #define XLAL_MODIFIED_JULIEN_DAY(utc) (XLALJulianDay(utc)-XLAL_MJD_REF) /**< Modified Julian Day for specified civil time structure. */
+
+/** This structure stores pointers to a ::LALDetector and a
+ * ::LIGOTimeGPS. Its sole purpose is to aggregate these
+ * structures for passing to functions.
+ */
+typedef struct
+tagLALPlaceAndGPS
+{
+    LALDetector *p_detector;   /**< pointer to a detector */
+    LIGOTimeGPS *p_gps;        /**< Pointer to a GPS time structure */
+}
+LALPlaceAndGPS;
+
 /*@}*/
+
+/* ---------- Function prototypes : see respective source.c files for doxygen documentation ---------- */
 
 /* Converts GPS time to nano seconds stored as an INT8. */
 INT8 XLALGPSToINT8NS( const LIGOTimeGPS *epoch );
@@ -120,7 +132,7 @@ INT8 XLALGPSToINT8NS( const LIGOTimeGPS *epoch );
 LIGOTimeGPS * XLALINT8NSToGPS( LIGOTimeGPS *epoch, INT8 ns );
 
 /* Sets GPS time given GPS integer seconds and residual nanoseconds. */
-LIGOTimeGPS * XLALGPSSet( LIGOTimeGPS *epoch, INT4 gpssec, INT4 gpsnan );
+LIGOTimeGPS * XLALGPSSet( LIGOTimeGPS *epoch, INT4 gpssec, INT8 gpsnan );
 
 /* Sets GPS time given GPS seconds as a REAL8. */
 LIGOTimeGPS * XLALGPSSetREAL8( LIGOTimeGPS *epoch, REAL8 t );
@@ -147,30 +159,42 @@ LIGOTimeGPS *XLALGPSMultiply( LIGOTimeGPS *gps, REAL8 x );
 LIGOTimeGPS *XLALGPSDivide( LIGOTimeGPS *gps, REAL8 x );
 
 /* Returns the leap seconds TAI-UTC at a given GPS second. */
-int XLALLeapSeconds( INT4 gpssec /**< [In] Seconds relative to GPS epoch.*/ );
+int XLALLeapSeconds( INT4 gpssec );
 
 /* Returns the leap seconds GPS-UTC at a given GPS second. */
-int XLALGPSLeapSeconds( INT4 gpssec /**< [In] Seconds relative to GPS epoch.*/ );
+int XLALGPSLeapSeconds( INT4 gpssec );
 
 /* Returns the leap seconds TAI-UTC for a given UTC broken down time. */
-int XLALLeapSecondsUTC( const struct tm *utc /**< [In] UTC as a broken down time.*/ );
+int XLALLeapSecondsUTC( const struct tm *utc );
 
 /* Returns the GPS seconds since the GPS epoch for a specified UTC time structure. */
-INT4 XLALUTCToGPS( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ );
+  INT4 XLALUTCToGPS( const struct tm *utc );
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(EMPTY_ARGUMENT(struct tm*, utc));
+SWIGLAL(RETURN_VALUE(struct tm*, XLALGPSToUTC));
+#endif
 
 /* Returns a pointer to a tm structure representing the time
  * specified in seconds since the GPS epoch.  */
 struct tm * XLALGPSToUTC(
-    struct tm *utc, /**< [Out] Pointer to tm struct where result is stored. */
-    INT4 gpssec /**< [In] Seconds since the GPS epoch. */
+    struct tm *utc,
+    INT4 gpssec
     );
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL_CLEAR(EMPTY_ARGUMENT(struct tm*, utc));
+#endif
 
 /* Returns the Julian Day (JD) corresponding to the date given in a broken
  * down time structure. */
-REAL8 XLALJulianDay( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ );
+REAL8 XLALJulianDay( const struct tm *utc);
 
 /* Returns the Modified Julian Day (MJD) corresponding to the date given in a broken down time structure.*/
-INT4 XLALModifiedJulianDay( const struct tm *utc /**< [In] UTC time in a broken down time structure. */ );
+INT4 XLALModifiedJulianDay( const struct tm *utc );
+
+/* Fill in missing fields of a C 'tm' broken-down time struct. */
+int XLALFillBrokenDownTime(struct tm *tm);
 
 /* Returns the Greenwich mean or aparent sideral time in radians. */
 REAL8 XLALGreenwichSiderealTime(
@@ -196,39 +220,14 @@ LIGOTimeGPS *XLALGreenwichSiderealTimeToGPS(
 	LIGOTimeGPS *gps
 );
 
-
-/** \ingroup Date_h
- * This structure is just the standard Unix \c tm structure, described
- * in the man page for <tt>ctime(3)</tt>.  We shall
- * {\em always} ignore the daylight savings time field, \c tm_isdst.
- */
-typedef struct
-tm
-LALUnixDate;
-
-
-/** \ingroup Date_h
- * This structure stores pointers to a ::LALDetector and a
- * ::LIGOTimeGPS. Its sole purpose is to aggregate these
- * structures for passing to functions.
- */
-typedef struct
-tagLALPlaceAndGPS
-{
-    SWIGLAL_STRUCT_LALALLOC();
-    LALDetector *p_detector;   /**< pointer to a detector */
-    LIGOTimeGPS *p_gps;        /**< Pointer to a GPS time structure */
-}
-LALPlaceAndGPS;
-
-
-/*
- * Function prototypes
- */
-
 int XLALStrToGPS(LIGOTimeGPS *t, const char *nptr, char **endptr);
 char *XLALGPSToStr(char *, const LIGOTimeGPS *t);
 
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
+SWIGLAL(RETURN_VALUE(LIGOTimeGPS*, XLALGPSTimeNow));
+#endif
 
 /* This function returns the current GPS time according to the system clock */
 LIGOTimeGPS *
@@ -236,10 +235,15 @@ XLALGPSTimeNow (
     LIGOTimeGPS *gpstime
     );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL_CLEAR(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
+#endif
+
 int
 XLALINT8NanoSecIsPlayground (
     INT8        ns
     );
+
 
 #ifdef  __cplusplus
 }

@@ -76,25 +76,9 @@ If no option flags are specified at all, then the routine will
 randomly generate a sky position in Galactic coordinates, convert it
 to ecliptic coordinates and back again, and return an error if the
 result disagrees by more than a milliradian.
-
-\heading{Algorithm}
-
-\heading{Uses}
-\code
-lalDebugLevel
-LALPrintError()                 LALCheckMemoryLeaks()
-LALMalloc()                     LALFree()
-LALGeocentricToGeodetic()       LALGeodeticToGeocentric()
-LALGPStoGMST1()
-LALCHARCreateVector()           LALCHARDestroyVector()
-LALCreateRandomParams()         LALDestroyRandomParams()
-LALUniformDeviate()             LALConvertSkyCoordinates()
-LALNormalizeSkyPosition()
-\endcode
-
-\heading{Notes}
-
-\name Error Codes */ /**@{*/
+*/
+/** \name Error Codes */
+/*@{*/
 #define SKYCOORDINATESTESTC_ENORM 0	/**< Normal exit */
 #define SKYCOORDINATESTESTC_ESUB  1	/**< Subroutine failed */
 #define SKYCOORDINATESTESTC_EARG  2	/**< Error parsing arguments */
@@ -120,8 +104,6 @@ LALNormalizeSkyPosition()
 #include <lal/Date.h>
 #include <lal/SkyCoordinates.h>
 
-NRCSID( SKYCOORDINATESTESTC, "$Id$" );
-
 /* Default parameter settings. */
 extern int lalDebugLevel;
 
@@ -136,7 +118,7 @@ if ( lalDebugLevel & LALERROR )                                      \
 {                                                                    \
   LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
 		 "        %s %s\n", (code), *argv, __FILE__,         \
-		 __LINE__, SKYCOORDINATESTESTC, statement ?          \
+		 __LINE__, "$Id$", statement ?          \
                  statement : "", (msg) );                            \
 }                                                                    \
 while (0)
@@ -147,7 +129,7 @@ if ( lalDebugLevel & LALINFO )                                       \
 {                                                                    \
   LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"       \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 SKYCOORDINATESTESTC, (statement) );                 \
+		 "$Id$", (statement) );                 \
 }                                                                    \
 while (0)
 
@@ -157,7 +139,7 @@ if ( lalDebugLevel & LALWARNING )                                    \
 {                                                                    \
   LALPrintError( "Warning[0]: program %s, file %s, line %d, %s\n"    \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 SKYCOORDINATESTESTC, (statement) );                 \
+		 "$Id$", (statement) );                 \
 }                                                                    \
 while (0)
 

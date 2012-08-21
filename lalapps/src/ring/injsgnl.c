@@ -23,19 +23,20 @@
 #include <lal/LALStdio.h>
 #include <lal/AVFactories.h>
 #include <lal/GenerateRing.h>
+#include <lal/GenerateInspiral.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
 #include <lal/LIGOLwXMLRingdownRead.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/Units.h>
 #include <lal/FindChirp.h>
+#include <lal/LALSimInspiral.h>
+#include <lal/LALInspiral.h>
 
 #include "lalapps.h"
 #include "injsgnl.h"
 #include "getresp.h"
 #include "errutil.h"
-
-RCSID( "$Id$" );
 
 /* maximum length of filename */
 #define FILENAME_LENGTH 255
@@ -73,6 +74,7 @@ int ring_inject_signal(
   CHAR                  fname[FILENAME_MAX];
   MetadataTable         ringinjections;
   LIGOLwXMLStream       xmlfp;
+  Approximant injApproximant;
  
   /* copy injectFile to injFile (to get rid of const qual) */
   strncpy( injFile, injectFile, sizeof( injFile ) - 1 );
@@ -143,7 +145,21 @@ int ring_inject_signal(
               response, injectSignalType ), &status );
         break;
       case LALRINGDOWN_EOBNR_INJECT: case LALRINGDOWN_PHENOM_INJECT:
-        LAL_CALL( LALFindChirpInjectSignals( &status, series, injectList, response ), &status );
+        // Check if these are NINJA injections
+        injApproximant = XLALGetApproximantFromString(injectList->waveform);
+        if ( (int) injApproximant == XLAL_FAILURE)
+        {
+          fprintf( stderr, "could not parse approximant from sim_inspiral.waveform\n" );
+          exit( 1 );
+        }
+        if (injApproximant == NumRelNinja2)
+        {
+          XLALSimInjectNinjaSignals(series,ifoName,1./responseScale,injectList);
+        }
+        else
+        {
+          LAL_CALL( LALFindChirpInjectSignals( &status, series, injectList, response ), &status );
+        }
         break;
       default:
         error( "unrecognized injection signal type\n" );

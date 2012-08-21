@@ -19,6 +19,7 @@
 
 #include <math.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALSimInspiral.h>
 #define LAL_USE_COMPLEX_SHORT_MACROS
 #include <lal/FindRoot.h>
@@ -27,8 +28,9 @@
 #include <lal/LALStdlib.h>
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
-#include <lal/LALSimInspiraldEnergyFlux.h>
-#include <LALSimInspiralPNCoefficients.c>
+
+#include "LALSimInspiraldEnergyFlux.c"
+#include "LALSimInspiralPNCoefficients.c"
 
 #include "check_series_macros.h"
 
@@ -37,8 +39,6 @@
 #else
 #define UNUSED
 #endif
-
-NRCSID(LALSIMINSPIRALTAYLORT3C, "$Id$");
 
 typedef struct
 tagexpnCoeffsTaylorT3 {
@@ -85,15 +85,13 @@ FreqInFromChirptime;
 
 static REAL8 XLALInspiralFrequency3Wrapper(REAL8 tC, void *pars)
 {
-  static const char *func = "XLALInspiralFrequency3Wrapper";
-
   FreqInFromChirptime *in;
   REAL8 freq, f;
 
   in = (FreqInFromChirptime *) pars;
   freq = in->func(tC, &(in->ak));
   if (XLAL_IS_REAL8_FAIL_NAN(freq))
-    XLAL_ERROR_REAL8(func, XLAL_EFUNC);
+    XLAL_ERROR_REAL8(XLAL_EFUNC);
   f = freq - in->ak.f0;
 
   /*
@@ -113,7 +111,7 @@ XLALSimInspiralFrequency3_0PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta3 = theta*theta*theta;
@@ -134,7 +132,7 @@ XLALSimInspiralFrequency3_2PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -157,7 +155,7 @@ XLALSimInspiralFrequency3_3PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -181,7 +179,7 @@ XLALSimInspiralFrequency3_4PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -207,7 +205,7 @@ XLALSimInspiralFrequency3_5PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -235,7 +233,7 @@ XLALSimInspiralFrequency3_6PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -265,7 +263,7 @@ XLALSimInspiralFrequency3_7PN (
   REAL8 frequency;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -297,7 +295,7 @@ XLALSimInspiralPhasing3_0PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta5 = pow(td,-0.625);
   phase = (ak->ptaN/theta5);
@@ -316,7 +314,7 @@ XLALSimInspiralPhasing3_2PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -339,7 +337,7 @@ XLALSimInspiralPhasing3_3PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -364,7 +362,7 @@ XLALSimInspiralPhasing3_4PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -391,7 +389,7 @@ XLALSimInspiralPhasing3_5PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -419,7 +417,7 @@ XLALSimInspiralPhasing3_6PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -449,7 +447,7 @@ XLALSimInspiralPhasing3_7PN (
   REAL8 phase;
 
   if (ak == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
 
   theta = pow(td,-0.125);
   theta2 = theta*theta;
@@ -530,11 +528,11 @@ static REAL8 XLALSimInspiralChirpLength(
 			break;
 		case 8:
 			XLALPrintError("XLAL Error - %s: Not supported for requested PN order\n", __func__);
-			XLAL_ERROR_REAL8(__func__, XLAL_EINVAL);
+			XLAL_ERROR_REAL8(XLAL_EINVAL);
 			break;
 		default:
 			XLALPrintError("XLAL Error - %s: Unknown PN order in switch\n", __func__);
-			XLAL_ERROR_REAL8(__func__, XLAL_EINVAL);
+			XLAL_ERROR_REAL8(XLAL_EINVAL);
 	}
 
 	tC = -tN / v8 * (1.
@@ -605,7 +603,7 @@ static int XLALSimInspiralTaylorT3Setup(
            break;
      case 1:
            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
-           XLAL_ERROR(__func__, XLAL_EINVAL);
+           XLAL_ERROR(XLAL_EINVAL);
            break;
      case 2:
            f->phasing3 = &XLALSimInspiralPhasing3_2PN;
@@ -633,11 +631,11 @@ static int XLALSimInspiralTaylorT3Setup(
            break;
      case 8:
            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
-           XLAL_ERROR(__func__, XLAL_EINVAL);
+           XLAL_ERROR(XLAL_EINVAL);
            break;
      default:
         XLALPrintError("XLAL Error - %s: Unknown PN order in switch\n", __func__);
-        XLAL_ERROR(__func__, XLAL_EINVAL);
+        XLAL_ERROR(XLAL_EINVAL);
   }
 
   tn = XLALSimInspiralTaylorLength(deltaT, m1, m2, f_min, O);
@@ -653,7 +651,6 @@ static int XLALSimInspiralTaylorT3Setup(
 int XLALSimInspiralTaylorT3PNEvolveOrbit(
 		REAL8TimeSeries **V,   /**< post-Newtonian parameter [returned] */
 	       	REAL8TimeSeries **phi, /**< orbital phase [returned] */
-	       	LIGOTimeGPS *t_end,    /**< time at end of waveform */
 	       	REAL8 phi_end,         /**< GW phase at end of waveform */
 	       	REAL8 deltaT,          /**< sampling interval */
 		REAL8 m1,              /**< mass of companion 1 */
@@ -670,6 +667,7 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 	REAL8 tmptC, tC, c1, xmin, xmax, xacc, v, phase, fOld, t, td, temp, tempMin = 0, tempMax = 0;
 	REAL8 (*freqfunction)(REAL8, void *);
 	UINT4 j;
+	LIGOTimeGPS t_end = LIGOTIMEGPSZERO;
 	REAL8 f;
 	void *pars;
 
@@ -679,16 +677,16 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 
 	/* allocate memory */
 
-	*V = XLALCreateREAL8TimeSeries("ORBITAL_FREQUENCY_PARAMETER", t_end, 0.0, deltaT, &lalDimensionlessUnit,
+	*V = XLALCreateREAL8TimeSeries("ORBITAL_FREQUENCY_PARAMETER", &t_end, 0.0, deltaT, &lalDimensionlessUnit,
 		blocklen);
-	*phi = XLALCreateREAL8TimeSeries("ORBITAL_PHASE", t_end, 0.0, deltaT, &lalDimensionlessUnit, blocklen);
+	*phi = XLALCreateREAL8TimeSeries("ORBITAL_PHASE", &t_end, 0.0, deltaT, &lalDimensionlessUnit, blocklen);
 	if (!V || !phi)
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 
 	/* initialize expnCoeffsTaylorT3 and expnFuncTaylorT3 structures */
 	if (XLALSimInspiralTaylorT3Setup(&ak, &expnfunc, deltaT, m1, m2, f_min, O))
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	tC = XLALSimInspiralChirpLength(m1, m2, f_min, O);
 	c1 = nu/(5.*m);
@@ -721,7 +719,7 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 	for (tmptC = c1*tC/1000.; tmptC < xmax; tmptC+=c1*tC/1000.){
 		temp = XLALInspiralFrequency3Wrapper(tmptC , pars);
 		if (XLAL_IS_REAL8_FAIL_NAN(temp))
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		if (temp > tempMax) {
 			xmin = tmptC;
 			tempMax = temp;
@@ -736,11 +734,11 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 	if (tempMax > 0  &&  tempMin < 0){
 		tC = XLALDBisectionFindRoot (freqfunction, xmin, xmax, xacc, pars);
 		if (XLAL_IS_REAL8_FAIL_NAN(tC))
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 	}
 	else{
 		XLALPrintError("Can't find good bracket for BisectionFindRoot");
-		XLAL_ERROR(__func__, XLAL_EMAXITER);
+		XLAL_ERROR(XLAL_EMAXITER);
 	}
 
 	tC /= c1;
@@ -751,10 +749,10 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 	td = c1 * (tC - t);
 	phase = expnfunc.phasing3(td, &ak);
 	if (XLAL_IS_REAL8_FAIL_NAN(phase))
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 	f = expnfunc.frequency3(td, &ak);
 	if (XLAL_IS_REAL8_FAIL_NAN(f))
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	v = cbrt(f * LAL_PI * m);
 	(*V)->data->data[0] = v;
@@ -771,18 +769,14 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 		td = c1 * (tC - t);
 		phase = expnfunc.phasing3(td, &ak);
 		if (XLAL_IS_REAL8_FAIL_NAN(phase))
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		f = expnfunc.frequency3(td, &ak);
 		if (XLAL_IS_REAL8_FAIL_NAN(f))
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		v = cbrt(f * LAL_PI * m);
 
 		/* check termination conditions */
 
-		if (t >= tC) {
-			XLALPrintInfo("XLAL Info - %s: PN inspiral terminated at coalesence time\n", __func__);
-			break;
-		}
 		if (v >= visco) {
 			XLALPrintInfo("XLAL Info - %s: PN inspiral terminated at ISCO\n", __func__);
 			break;
@@ -796,9 +790,9 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 
 		if ( j >= (*V)->data->length ) {
 			if ( ! XLALResizeREAL8TimeSeries(*V, 0, (*V)->data->length + blocklen) )
-				XLAL_ERROR(__func__, XLAL_EFUNC);
+				XLAL_ERROR(XLAL_EFUNC);
 			if ( ! XLALResizeREAL8TimeSeries(*phi, 0, (*phi)->data->length + blocklen) )
-				XLAL_ERROR(__func__, XLAL_EFUNC);
+				XLAL_ERROR(XLAL_EFUNC);
 		}
 		(*V)->data->data[j] = v;
 		(*phi)->data->data[j] = phase;
@@ -807,11 +801,11 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 	/* make the correct length */
 
 	if ( ! XLALResizeREAL8TimeSeries(*V, 0, j) )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 	if ( ! XLALResizeREAL8TimeSeries(*phi, 0, j) )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
-	/* adjust to correct tc and phic */
+	/* adjust to correct time */
 
 	XLALGPSAdd(&(*phi)->epoch, -1.0*j*deltaT);
 	XLALGPSAdd(&(*V)->epoch, -1.0*j*deltaT);
@@ -837,9 +831,8 @@ int XLALSimInspiralTaylorT3PNEvolveOrbit(
 int XLALSimInspiralTaylorT3PNGenerator(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
-	       	LIGOTimeGPS *t_end,       /**< time at end of waveform */
 	       	REAL8 phi_end,            /**< GW phase at end of waveform */
-	       	REAL8 x0,                 /**< tail-term gauge choice thing (if you don't know, just set it to zero) */
+	       	REAL8 v0,                 /**< tail-term gauge choice thing (default = 1) */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
 	       	REAL8 m2,                 /**< mass of companion 2 */
@@ -854,14 +847,14 @@ int XLALSimInspiralTaylorT3PNGenerator(
 	REAL8TimeSeries *phi;
 	int status;
 	int n;
-	n = XLALSimInspiralTaylorT3PNEvolveOrbit(&V, &phi, t_end, phi_end, deltaT, m1, m2, f_min, phaseO);
+	n = XLALSimInspiralTaylorT3PNEvolveOrbit(&V, &phi, phi_end, deltaT, m1, m2, f_min, phaseO);
 	if ( n < 0 )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
-	status = XLALSimInspiralPNPolarizationWaveforms(hplus, hcross, V, phi, x0, m1, m2, r, i, amplitudeO);
+		XLAL_ERROR(XLAL_EFUNC);
+	status = XLALSimInspiralPNPolarizationWaveforms(hplus, hcross, V, phi, v0, m1, m2, r, i, amplitudeO);
 	XLALDestroyREAL8TimeSeries(phi);
 	XLALDestroyREAL8TimeSeries(V);
 	if ( status < 0 )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 	return n;
 }
 
@@ -873,12 +866,11 @@ int XLALSimInspiralTaylorT3PNGenerator(
  * (unless the order is -1 in which case the highest available
  * order is used for both of these -- which might not be the same).
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT3PN(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
-	       	LIGOTimeGPS *t_end,       /**< time at end of waveform */
 	       	REAL8 phi_end,            /**< GW phase at end of waveform */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
@@ -889,8 +881,8 @@ int XLALSimInspiralTaylorT3PN(
 	       	int O                     /**< twice post-Newtonian order */
 		)
 {
-	/* set x0=0 to ignore log terms */
-	return XLALSimInspiralTaylorT3PNGenerator(hplus, hcross, t_end, phi_end, 0.0, deltaT, m1, m2, f_min, r, i, O, O);
+	/* set v0 to default value 1 */
+	return XLALSimInspiralTaylorT3PNGenerator(hplus, hcross, phi_end, 1.0, deltaT, m1, m2, f_min, r, i, O, O);
 }
 
 
@@ -900,12 +892,11 @@ int XLALSimInspiralTaylorT3PN(
  * This routine computes the phasing to the specified order, but
  * only computes the amplitudes to the Newtonian (quadrupole) order.
  *
- * Log terms in amplitudes are ignored.  This is a gauge choice.
+ * Constant log term in amplitude set to 1.  This is a gauge choice.
  */
 int XLALSimInspiralTaylorT3PNRestricted(
 		REAL8TimeSeries **hplus,  /**< +-polarization waveform */
 	       	REAL8TimeSeries **hcross, /**< x-polarization waveform */
-	       	LIGOTimeGPS *t_end,       /**< time at end of waveform */
 	       	REAL8 phi_end,            /**< GW phase at end of waveform */
 	       	REAL8 deltaT,             /**< sampling interval */
 	       	REAL8 m1,                 /**< mass of companion 1 */
@@ -917,6 +908,6 @@ int XLALSimInspiralTaylorT3PNRestricted(
 		)
 {
 	/* use Newtonian order for amplitude */
-	/* set x0=0 to ignore log terms */
-	return XLALSimInspiralTaylorT3PNGenerator(hplus, hcross, t_end, phi_end, 0.0, deltaT, m1, m2, f_min, r, i, 0, O);
+	/* set v0 to default value 1 */
+	return XLALSimInspiralTaylorT3PNGenerator(hplus, hcross, phi_end, 1.0, deltaT, m1, m2, f_min, r, i, 0, O);
 }

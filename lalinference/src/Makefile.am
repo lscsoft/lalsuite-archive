@@ -15,6 +15,7 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceReadData.h \
 	LALInferenceTemplate.h \
 	LALInferenceProposal.h \
+	LALInferenceLibVCSInfo.h \
 	LALInferenceVCSInfo.h \
 	$(XMLHDR)
 
@@ -57,8 +58,7 @@ lalinference-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
 
 lalinference-user-env.csh lalinference-user-env.sh: lalinference-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALInferenceConfig.h.in \
@@ -71,7 +71,6 @@ EXTRA_DIST = \
 LALInferenceVCSInfo.h: ._vcsinfo
 
 ._vcsinfo: $(srcdir)/generate_vcs_info.py LALInferenceConfig.h
-	@echo "creating LALInferenceVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALInference $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALInference $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@

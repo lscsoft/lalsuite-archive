@@ -20,11 +20,7 @@
 #include <math.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALSimInspiral.h>
-#define LAL_USE_COMPLEX_SHORT_MACROS
-#include <lal/LALComplex.h>
 #include <lal/LALConstants.h>
-
-NRCSID(LALSIMINSPIRALPNMODEC, "$Id$");
 
 /**
  * Computes h(2,2) mode of spherical harmonic decomposition of
@@ -36,47 +32,57 @@ NRCSID(LALSIMINSPIRALPNMODEC, "$Id$");
  * Orbit", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 COMPLEX16 XLALSimInspiralPNMode22(
-		REAL8 x,      /**< post-Newtonian parameter */
+		REAL8 v,      /**< post-Newtonian parameter */
 	       	REAL8 phi,    /**< orbital phase */
-	       	REAL8 logx,   /**< log(x/x0) tail gauge parameter */
+	       	REAL8 v0,     /**< tail gauge parameter */
 	       	REAL8 m1,     /**< mass of companion 1 */
 	       	REAL8 m2,     /**< mass of companion 2 */
 		REAL8 r,      /**< distance of source */
 		int O         /**< twice post-Newtonian order */
 		)
 {
-	static const char *func = "XLALSimInspiralPNMode22";
 	REAL8 fac = -8.0*sqrt(LAL_PI/5.0)*LAL_G_SI*pow(LAL_C_SI, -2.0);
 	REAL8 m = m1 + m2;
 	REAL8 mu = m1*m2/m;
 	REAL8 nu = mu/m;
+	REAL8 nu2 = nu*nu;
+	REAL8 nu3 = nu*nu2;
+	REAL8 pi2 = LAL_PI*LAL_PI;
+	REAL8 v2 = v*v;
 	COMPLEX16 ans;
 	REAL8 re = 0.0;
 	REAL8 im = 0.0;
 	switch (O) {
 		default: /* unsupported pN order */
-			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", func, O/2, O%2?".5":"" );
-			XLAL_ERROR_VAL(func, XLAL_EINVAL, czero);
+			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", __func__, O/2, O%2?".5":"" );
+			XLAL_ERROR_VAL(0, XLAL_EINVAL);
 		case -1: /* use highest available pN order */
 		case 6:
-			re += ((27027409.0/646800.0) - (856.0/105.0)*LAL_GAMMA + (2.0/3.0)*pow(LAL_PI, 2.0) - (1712.0/105.0)*log(2.0) - (428.0/105.0)*log(x) - 18.0*pow(logx, 2.0) - ((278185.0/33264.0) - (41.0/96.0)*pow(LAL_PI, 2.0))*nu - (20261.0/2772.0)*pow(nu, 2.0) + (114635.0/99792.0)*pow(nu, 3.0))*pow(x, 3.0);
-			im += ((428.0/105.0) + 12.0*logx)*LAL_PI*pow(x, 3.0);
+			re += ((27027409.0/646800.0) - (856.0/105.0)*LAL_GAMMA 
+			        + (2.0/3.0)*pi2 - (1712.0/105.0)*log(2.0) 
+			        - (856.0/105.0)*log(v) 
+			        - 72.0*log(v/v0)*log(v/v0) - ((278185.0/33264.0)
+			        - (41.0/96.0)*pi2)*nu - (20261.0/2772.0)*nu2 
+			        + (114635.0/99792.0)*nu3)*v2*v2*v2;
+			im += ((428.0/105.0) + 24.0*log(v/v0))*LAL_PI*v2*v2*v2;
 		case 5:
-			re -= ((107.0/21.0) - (34.0/21.0)*nu)*LAL_PI*pow(x, 2.5);
-			im -= (24.0*nu + ((107.0/7.0) - (34.0/7.0)*nu)*logx)*pow(x, 2.5);
+			re -= ((107.0/21.0) - (34.0/21.0)*nu)*LAL_PI*v2*v2*v;
+			im -= (24.0*nu + ((107.0/7.0) - (34.0/7.0)*nu)
+			        * 2.0*log(v/v0))*v2*v2*v;
 		case 4:
-			re -= ((2173.0/1512.0) + (1069.0/216.0)*nu - (2047.0/1512.0)*pow(nu, 2.0))*pow(x, 2.0);
+			re -= ((2173.0/1512.0) + (1069.0/216.0)*nu 
+			        - (2047.0/1512.0)*pow(nu, 2.0))*v2*v2;
 		case 3:
-			re += 2.0*LAL_PI*pow(x, 1.5);
-			im += 6.0*logx*pow(x, 1.5);
+			re += 2.0*LAL_PI*v2*v;
+			im += 12.0*log(v/v0)*v2*v;
 		case 2:
-			re -= ((107.0/42.0) - (55.0/42.0)*nu)*x;
+			re -= ((107.0/42.0) - (55.0/42.0)*nu)*v2;
 		case 1:
 		case 0:
 			re += 1.0;
 	}
-	ans = cmul(cpolar(1.0, -2.0*phi), crect(re, im));
-	ans = cmulr(ans, (fac*nu*m/r)*x);
+	ans = CX16polar(1.0, -2.0*phi) * CX16rect(re, im);
+	ans = ans * ((fac*nu*m/r)*v2);
 	return ans;
 }
 
@@ -90,44 +96,46 @@ COMPLEX16 XLALSimInspiralPNMode22(
  * Orbit", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 COMPLEX16 XLALSimInspiralPNMode21(
-		REAL8 x,      /**< post-Newtonian parameter */
+		REAL8 v,      /**< post-Newtonian parameter */
 	       	REAL8 phi,    /**< orbital phase */
-	       	REAL8 logx,   /**< log(x/x0) tail gauge parameter */
+	       	REAL8 v0,     /**< tail gauge parameter */
 	       	REAL8 m1,     /**< mass of companion 1 */
 	       	REAL8 m2,     /**< mass of companion 2 */
 		REAL8 r,      /**< distance of source */
 		int O         /**< twice post-Newtonian order */
 		)
 {
-	static const char *func = "XLALSimInspiralPNMode21";
 	REAL8 fac = -8.0*sqrt(LAL_PI/5.0)*LAL_G_SI*pow(LAL_C_SI, -2.0);
 	REAL8 m = m1 + m2;
 	REAL8 dm = m1 - m2;
 	REAL8 mu = m1*m2/m;
 	REAL8 nu = mu/m;
+	REAL8 nu2 = nu*nu;
+	REAL8 v2 = v*v;
 	COMPLEX16 ans;
 	REAL8 re = 0.0;
 	REAL8 im = 0.0;
 	switch (O) {
 		default: /* unsupported pN order */
-			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", func, O/2, O%2?".5":"" );
-			XLAL_ERROR_VAL(func, XLAL_EINVAL, czero);
+			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", __func__, O/2, O%2?".5":"" );
+			XLAL_ERROR_VAL(0, XLAL_EINVAL);
 		case -1: /* use highest available pN order */
 		case 5:
-			re -= ((43.0/126.0) + (509.0/126.0)*nu - (79.0/168.0)*pow(nu, 2.0))*pow(x, 2.0);
+			re -= ((43.0/126.0) + (509.0/126.0)*nu 
+			        - (79.0/168.0)*nu2)*v2*v2;
 		case 4:
-			re += LAL_PI*pow(x, 1.5);
-			im += (-(1.0/2.0) - 2.0*log(2.0) + 3.0*logx)*pow(x, 1.5);
+			re += LAL_PI*v2*v;
+			im += (-(1.0/2.0) - 2.0*log(2.0) + 6.0*log(v/v0))*v2*v;
 		case 3:
-			re -= ((17.0/28.0) - (5.0/7.0)*nu)*x;
+			re -= ((17.0/28.0) - (5.0/7.0)*nu)*v2;
 		case 2:
 		case 1:
 			re += 1.0;
 		case 0:
 			re += 0.0;
 	}
-	ans = cmul(cpolar(1.0, -phi), crect(re, im));
-	ans = cmuli(ans, (fac*nu*dm/r)*pow(x, 1.5));
+	ans = CX16polar(1.0, -phi) * CX16rect(re, im);
+	ans = ans * I * ((fac*nu*dm/r)*v2*v);
 	return ans;
 }
 
@@ -141,44 +149,47 @@ COMPLEX16 XLALSimInspiralPNMode21(
  * Orbit", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 COMPLEX16 XLALSimInspiralPNMode33(
-		REAL8 x,      /**< post-Newtonian parameter */
+		REAL8 v,      /**< post-Newtonian parameter */
 	       	REAL8 phi,    /**< orbital phase */
-	       	REAL8 logx,   /**< log(x/x0) tail gauge parameter */
+	       	REAL8 v0,     /**< tail gauge parameter */
 	       	REAL8 m1,     /**< mass of companion 1 */
 	       	REAL8 m2,     /**< mass of companion 2 */
 		REAL8 r,      /**< distance of source */
 		int O         /**< twice post-Newtonian order */
 		)
 {
-	static const char *func = "XLALSimInspiralPNMode33";
 	REAL8 fac = 3.0*sqrt(6.0*LAL_PI/7.0)*LAL_G_SI*pow(LAL_C_SI, -2.0);
 	REAL8 m = m1 + m2;
 	REAL8 dm = m1 - m2;
 	REAL8 mu = m1*m2/m;
 	REAL8 nu = mu/m;
+	REAL8 nu2 = nu*nu;
+	REAL8 v2 = v*v;
 	COMPLEX16 ans;
 	REAL8 re = 0.0;
 	REAL8 im = 0.0;
 	switch (O) {
 		default: /* unsupported pN order */
-			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", func, O/2, O%2?".5":"" );
-			XLAL_ERROR_VAL(func, XLAL_EINVAL, czero);
+			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", __func__, O/2, O%2?".5":"" );
+			XLAL_ERROR_VAL(0, XLAL_EINVAL);
 		case -1: /* use highest available pN order */
 		case 5:
-			re += ((123.0/110.0) - (1838.0/165.0)*nu - (887.0/330.0)*pow(nu, 2.0))*pow(x, 2.0);
+			re += ((123.0/110.0) - (1838.0/165.0)*nu 
+			        - (887.0/330.0)*nu2)*v2*v2;
 		case 4:
-			re += 3.0*LAL_PI*pow(x, 1.5);
-			im += (-(21.0/5.0) + 6.0*log(3.0/2.0) + 9.0*logx)*pow(x, 1.5);
+			re += 3.0*LAL_PI*v2*v;
+			im += (-(21.0/5.0) + 6.0*log(3.0/2.0) 
+			        + 18.0*log(v/v0))* v2*v;
 		case 3:
-			re -= (4.0 - 2.0*nu)*x;
+			re -= (4.0 - 2.0*nu)*v2;
 		case 2:
 		case 1:
 			re += 1.0;
 		case 0:
 			re += 0.0;
 	}
-	ans = cmul(cpolar(1.0, -3.0*phi), crect(re, im));
-	ans = cmuli(ans, (fac*nu*dm/r)*pow(x, 1.5));
+	ans = CX16polar(1.0, -3.0*phi) * CX16rect(re, im);
+	ans = ans * I * ((fac*nu*dm/r)*v2*v);
 	return ans;
 }
 
@@ -193,33 +204,36 @@ COMPLEX16 XLALSimInspiralPNMode33(
  * Orbit", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 COMPLEX16 XLALSimInspiralPNMode32(
-		REAL8 x,      /**< post-Newtonian parameter */
+		REAL8 v,      /**< post-Newtonian parameter */
 	       	REAL8 phi,    /**< orbital phase */
-	       	REAL8 logx,   /**< log(x/x0) tail gauge parameter */
+	       	REAL8 v0,     /**< tail gauge parameter */
 	       	REAL8 m1,     /**< mass of companion 1 */
 	       	REAL8 m2,     /**< mass of companion 2 */
 		REAL8 r,      /**< distance of source */
 		int O         /**< twice post-Newtonian order */
 		)
 {
-	static const char *func = "XLALSimInspiralPNMode32";
 	REAL8 fac = -(8.0/3.0)*sqrt(LAL_PI/7.0)*LAL_G_SI*pow(LAL_C_SI, -2.0);
 	REAL8 m = m1 + m2;
 	REAL8 mu = m1*m2/m;
 	REAL8 nu = mu/m;
+	REAL8 nu2 = nu*nu;
+	REAL8 v2 = v*v;
 	COMPLEX16 ans;
 	REAL8 re = 0.0;
 	REAL8 im = 0.0;
 	switch (O) {
 		default: /* unsupported pN order */
-			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", func, O/2, O%2?".5":"" );
-			XLAL_ERROR_VAL(func, XLAL_EINVAL, czero);
+			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", __func__, O/2, O%2?".5":"" );
+			XLAL_ERROR_VAL(0, XLAL_EINVAL);
 		case -1: /* use highest available pN order */
 		case 5:
-			re += 2.0*LAL_PI*(1.0 - 3.0*nu)*pow(x, 1.5);
-			im += (-3.0 + (66.0/5.0)*nu + 6.0*(1.0 - 3.0*nu)*logx)*pow(x, 1.5);
+			re += 2.0*LAL_PI*(1.0 - 3.0*nu)*v2*v;
+			im += (-3.0 + (66.0/5.0)*nu + 12.0*(1.0 - 3.0*nu)
+			        * log(v/v0))*v2*v;
 		case 4:
-			re -= ((193.0/90.0) - (145.0/18.0)*nu + (73.0/18.0)*pow(nu, 2.0))*x;
+			re -= ((193.0/90.0) - (145.0/18.0)*nu 
+			        + (73.0/18.0)*nu2)*v2;
 		case 3:
 		case 2:
 			re += 1.0 - 3.0*nu;
@@ -227,8 +241,8 @@ COMPLEX16 XLALSimInspiralPNMode32(
 		case 0:
 			re += 0.0;
 	}
-	ans = cmul(cpolar(1.0, -2.0*phi), crect(re, im));
-	ans = cmulr(ans, (fac*nu*m/r)*pow(x, 2.0));
+	ans = CX16polar(1.0, -2.0*phi) * CX16rect(re, im);
+	ans = ans * ((fac*nu*m/r)*v2*v2);
 	return ans;
 }
 
@@ -242,43 +256,45 @@ COMPLEX16 XLALSimInspiralPNMode32(
  * Orbit", Physical Review D 77, 044016 (2008), arXiv:0710.0614v1 [gr-qc].
  */
 COMPLEX16 XLALSimInspiralPNMode31(
-		REAL8 x,      /**< post-Newtonian parameter */
+		REAL8 v,      /**< post-Newtonian parameter */
 	       	REAL8 phi,    /**< orbital phase */
-	       	REAL8 logx,   /**< log(x/x0) tail gauge parameter */
+	       	REAL8 v0,     /**< tail gauge parameter */
 	       	REAL8 m1,     /**< mass of companion 1 */
 	       	REAL8 m2,     /**< mass of companion 2 */
 		REAL8 r,      /**< distance of source */
 		int O         /**< twice post-Newtonian order */
 		)
 {
-	static const char *func = "XLALSimInspiralPNMode31";
 	REAL8 fac = -(1.0/3.0)*sqrt(2.0*LAL_PI/35.0)*LAL_G_SI*pow(LAL_C_SI, -2.0);
 	REAL8 m = m1 + m2;
 	REAL8 dm = m1 - m2;
 	REAL8 mu = m1*m2/m;
 	REAL8 nu = mu/m;
+	REAL8 nu2 = nu*nu;
+	REAL8 v2 = v*v;
 	COMPLEX16 ans;
 	REAL8 re = 0.0;
 	REAL8 im = 0.0;
 	switch (O) {
 		default: /* unsupported pN order */
-			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", func, O/2, O%2?".5":"" );
-			XLAL_ERROR_VAL(func, XLAL_EINVAL, czero);
+			XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", __func__, O/2, O%2?".5":"" );
+			XLAL_ERROR_VAL(0, XLAL_EINVAL);
 		case -1: /* use highest available pN order */
 		case 5:
-			re += ((607.0/198.0) - (136.0/99.0)*nu - (247.0/198.0)*pow(nu, 2.0))*pow(x, 2.0);
+			re += ((607.0/198.0) - (136.0/99.0)*nu 
+			        - (247.0/198.0)*nu2)*v2*v2;
 		case 4:
-			re += LAL_PI*pow(x, 1.5);
-			im += (-(7.0/5.0) - 2.0*log(2.0) + 3.0*logx)*pow(x, 1.5);
+			re += LAL_PI*v2*v;
+			im += (-(7.0/5.0) - 2.0*log(2.0) + 6.0*log(v/v0))*v2*v;
 		case 3:
-			re -= ((8.0/3.0) + (2.0/3.0)*nu)*x;
+			re -= ((8.0/3.0) + (2.0/3.0)*nu)*v2;
 		case 2:
 		case 1:
 			re += 1.0;
 		case 0:
 			re += 0.0;
 	}
-	ans = cmul(cpolar(1.0, -phi), crect(re, im));
-	ans = cmuli(ans, (fac*nu*dm/r)*pow(x, 1.5));
+	ans = CX16polar(1.0, -phi) * CX16rect(re, im);
+	ans = ans * I * ((fac*nu*dm/r)*v2*v);
 	return ans;
 }

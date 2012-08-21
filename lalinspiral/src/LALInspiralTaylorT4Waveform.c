@@ -71,9 +71,6 @@ void LALTaylorT4WaveformEngine (
   InspiralInit     *paramsInit
 );
 
-NRCSID (LALTAYLORT4WAVEFORMC,
-"$Id$");
-
 void LALTaylorT4Derivatives4PN(
   REAL8Vector *values,
   REAL8Vector *dvalues,
@@ -276,7 +273,7 @@ void LALTaylorT4Waveform (
 
    InspiralInit paramsInit;
    UINT4        count;
-   INITSTATUS(status, "LALTaylorT4Waveform", LALTAYLORT4WAVEFORMC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    ASSERT(signalvec,  status,
@@ -327,7 +324,7 @@ LALTaylorT4WaveformTemplates(
 
   InspiralInit paramsInit;
 
-  INITSTATUS (status, "LALTaylorT4WaveformTemplates", LALTAYLORT4WAVEFORMC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(signalvec1, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -375,7 +372,7 @@ LALTaylorT4WaveformForInjection(
   InspiralInit paramsInit;
 
 
-  INITSTATUS(status, "LALInspirallTaylorT4WaveformForInjection", LALTAYLORT4WAVEFORMC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   /* Make sure parameter and waveform structures exist. */
@@ -386,7 +383,7 @@ LALTaylorT4WaveformForInjection(
   ASSERT( !( waveform->f ), status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
   ASSERT( !( waveform->phi ), status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL );
 
-  params->ampOrder = 0;
+  params->ampOrder = (LALPNOrder) 0;
   XLALPrintInfo( "WARNING: Amp Order has been reset to %d", params->ampOrder);
 
   /* Compute some parameters*/
@@ -540,7 +537,7 @@ LALTaylorT4WaveformEngine (
    void                  *funcParams;
    UINT4                 length=0, count, ndx;
    INT4                  nn=2;
-   REAL8                 h, omega, omegaMax, t, dt, m, eta, phi, v;
+   REAL8                 omega, omegaMax, t, dt, m, phi, v;
    REAL8Vector           dummy, values, dvalues, newvalues, yt, dym, dyt;
    rk4GSLIntegrator      *integrator = NULL;
    InspiralDerivativesIn in2;
@@ -562,7 +559,7 @@ LALTaylorT4WaveformEngine (
    REAL8 apFac = 0, acFac = 0;/* extra factor in plus and cross amplitudes */
 
 
-   INITSTATUS(status, "LALTaylorT4WaveformEngine", LALTAYLORT4WAVEFORMC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    ASSERT( signalvec1 || ( ff && a && phiVec ), status,
@@ -625,7 +622,7 @@ LALTaylorT4WaveformEngine (
    {
      length = ff->length;
    }
-   eta = ak.eta;
+   // UNUSED!!: eta = ak.eta;
    m = ak.totalmass;
 
    /* Begin initial conditions */
@@ -704,7 +701,7 @@ LALTaylorT4WaveformEngine (
 	ABORT(status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
       }
 
-      h = 4 * m * eta * v*v * cos(2.*phi);
+      // UNUSED!!: REAL8 h = 4 * m * eta * v*v * cos(2.*phi);
       if ( signalvec1 )
       {
         signalvec1->data[ndx] = apFac * v*v * cos(2.*phi);

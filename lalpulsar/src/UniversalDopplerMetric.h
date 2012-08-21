@@ -25,20 +25,10 @@
  * Function to compute the full F-statistic metric, including
  * antenna-pattern functions from multi-detector, derived in \ref Prix07.
  *
- * Revision: $Id$
- *
  */
 
 #ifndef _UNIVERSALDOPPLERMETRIC_H  /* Double-include protection. */
 #define _UNIVERSALDOPPLERMETRIC_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-#if !defined(SWIG) && !defined(SWIGLAL_FIXED_1DARRAY_ELEM)
-#define SWIGLAL_FIXED_1DARRAY_ELEM(...)
-#endif
 
 /* C++ protection. */
 #ifdef  __cplusplus
@@ -71,23 +61,20 @@ typedef REAL8 vect3D_t[3];
 typedef REAL8 mat33_t[3][3];
 
 /** variable-length list of 2D-vectors */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagvect2Dlist_t {
   UINT4 length;			/**< number of elements */
   vect2D_t *data;		/**< array of 2D vectors */
 } vect2Dlist_t;
 
 /** variable-length list of 3D vectors */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagvect3Dlist_t {
   UINT4 length;			/**< number of elements */
   vect3D_t *data;		/**< array of 3D vectors */
 } vect3Dlist_t;
 
 
 /** Small Container to hold two 3D vectors: position and velocity */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagPosVel3D_t {
   vect3D_t pos;
   vect3D_t vel;
 } PosVel3D_t;
@@ -119,24 +106,6 @@ typedef enum {
   METRIC_TYPE_LAST
 } MetricType_t;
 
-
-/** Array of symbolic 'names' for various detector-motions
- */
-#ifdef IN_UNIVERSALDOPPLERMETRICC
-const CHAR *DetectorMotionNames[] = {
-  "spin+orbit",
-  "orbit",
-  "spin",
-
-  "spin+ptoleorbit",
-  "ptoleorbit",
-
-  "orbit+spin_Z",
-  "orbit+spin_XY",
-
-  "NONE"
-};
-#endif
 
 /** enum listing symbolic 'names' for all Doppler Coordinates
  * supported by the metric codes in FstatMetric
@@ -173,117 +142,34 @@ typedef enum {
   DOPPLERCOORD_N3Y_ECL,			/**< unconstrained sky-vector n3: ecliptic-y coordinate */
   DOPPLERCOORD_N3Z_ECL,			/**< unconstrained sky-vector n3: ecliptic-z coordinate */
 
-
   DOPPLERCOORD_NU0,			/**< 'global correlation' frequency coordinate nu_0 */
   DOPPLERCOORD_NU1,			/**< 'global correlation' f1dot coordinate nu_1 */
   DOPPLERCOORD_NU2,			/**< 'global correlation' f2dot coordinate nu_2 */
   DOPPLERCOORD_NU3,			/**< 'global correlation' f3dot coordinate nu_3 */
 
+  /** \name Karl's super-duper-sky coordinates */
+  /*@{*/
+  DOPPLERCOORD_KAPPA_S,			/**< Karl's coordinates 'kappa_s': cosine-part of Earth-spin sky-coordinate */
+  DOPPLERCOORD_SIGMA_S,			/**< Karl's coordinates 'sigma_s': sine-part of Earth-spin sky-coordinate */
+  DOPPLERCOORD_KAPPA_O,			/**< Karl's coordinates 'kappa_o': cosine-part of Earth-orbit sky-coordinate */
+  DOPPLERCOORD_SIGMA_O,			/**< Karl's coordinates 'sigma_o': sine-part of Earth-orbit sky-coordinate */
+
+  DOPPLERCOORD_OMEGA_0,			/**< Karl's coordinates 'omega_0': rescaled natural frequency    omega_0 = 4pi * (Tspan/2)   * f / (2! * sqrt(3)) */
+  DOPPLERCOORD_OMEGA_1,			/**< Karl's coordinates 'omega_1': rescaled natural 1st spindown omega_1 = 4pi * (Tspan/2)^2 * f1dot / (3! * sqrt(5)) */
+  DOPPLERCOORD_OMEGA_2,			/**< Karl's coordinates 'omega_2': rescaled natural 2nd spindown omega_2 = 4pi * (Tspan/2)^3 * 2 * f2dot / (4! * sqrt(7)) */
+  DOPPLERCOORD_OMEGA_3,			/**< Karl's coordinates 'omega_3': rescaled natural 3rd spindown omega_3 = 4pi * (Tspan/2)^4 * 2 * f3dot / (5! * sqrt(9)) */
+  /*@}*/
+
   DOPPLERCOORD_LAST
 } DopplerCoordinateID;
-
-#ifdef IN_UNIVERSALDOPPLERMETRICC
-/** Array of Doppler coordinate names, which *MUST*
- * correspond to the order in which they are listed in
- * DopplerCoordinateID
- */
-const CHAR *DopplerCoordinateNames[] = {
-  "Freq",
-  "f1dot",
-  "f2dot",
-  "f3dot",
-
-  "Alpha",
-  "Delta",
-
-  "Freq_Nat",
-  "f1dot_Nat",
-  "f2dot_Nat",
-  "f3dot_Nat",
-
-  "Alpha_Nat",
-  "Delta_Nat",
-
-  "nEcl_x_Nat",
-  "nEcl_y_Nat",
-
-  "nEqu_x_Nat",
-  "nEqu_y_Nat",
-
-  "n3Equ_x",
-  "n3Equ_y",
-  "n3Equ_z",
-
-  "n3Ecl_x",
-  "n3Ecl_y",
-  "n3Ecl_z",
-
-  "nu0",
-  "nu1",
-  "nu2",
-  "nu3",
-
-  "NONE"
-};
-
-/** Array of help-strings explaining the meaning/conventions of the Doppler coordinate names,
- * NOTE: this *MUST* correspond to the order in which they are listed in DopplerCoordinateID.
- *
- * NOTE2: It's important to also specify the "coordinate-set" this coordinate is meant to belong to,
- * in the sense of which other coordinates need to be held constant in partial derivatives wrt to this coordinate!
- *
- */
-const CHAR *DopplerCoordinateNamesHelp[] = {
-  "Signal frequency in SSB [Units:Hz]. Coordinate-set: {fkdot, sky}.",
-  "First frequency-derivative dFreq/dtau in SSB [Units:Hz/s]. Coordinate-set: {fkdot, sky}.",
-  "Second frequency-derivative d2Freq/dtau^2 in SSB [Units:Hz/s^2]. Coordinate-set: {fkdot, sky}.",
-  "Third frequency-derivative d3Freq/dtau^3 in SSB [Units:Hz/s^3]. Coordinate-set: {fkdot, sky}.",
-
-  "Sky-position: Right-ascension (longitude) wrt ephemeris coord-system [Units:rad]. Coordinate-set: {fkdot, Alpha, Delta}.",
-  "Sky-position: Declination (latitude) wrt ephemeris coord-system [Units:rad]. Coordinate-set: {fkdot, Alpha, Delta}.",
-
-  "Same as Freq, but in 'natural units': Freq_Nat = 2 pi Freq (Tspan/2) [Units:1]",
-  "Same as f1dot, but in 'natural units': f1dot_Nat = 2 pi f1dot/2! (Tspan/2)^2 [Units:1]",
-  "Same as f2dot, but in 'natural units': f2dot_Nat = 2 pi f2dot/3! (Tspan/2)^3 [Units:1]",
-  "Same as f3dot, but in 'natural units': f3dot_Nat = 2 pi f3dot/4! (Tspan/2)^4 [Units:1]",
-
-  "Sky-position: Right-ascension (longitude) in 'natural units' dAlpha * (f * T / (Vorb/c) )",
-  "Sky-position: Declination (longitude) in 'natural units' dDelta * (f * T / (Vorb/c) )",
-
-  "Sky-position: x-component of sky-position vector n in ECLIPTIC Cartesian coordinates (in natural units: 2pi*Rorb/c*f). Holding fkdot const",
-  "Sky-position: y-component of sky-position vector n in ECLIPTIC Cartesian coordinates (in natural units: 2pi*Rorb/c*f). Holding fkdot const",
-
-  "Sky-position: x-component of sky-position vector n in EQUATORIAL Cartesian coordinates (in natural units: 2pi*Rorb/c*f). Holding fkdot const",
-  "Sky-position: y-component of sky-position vector n in EQUATORIAL Cartesian coordinates (in natural units: 2pi*Rorb/c*f). Holding fkdoo const",
-
-  "experimental: unconstrained sky-vector n3: equatorial-x coordinate",
-  "experimental: unconstrained sky-vector n3: equatorial-y coordinate",
-  "experimental: unconstrained sky-vector n3: equatorial-z coordinate",
-
-  "experimental: unconstrained sky-vector n3: ecliptic-x coordinate",
-  "experimental: unconstrained sky-vector n3: ecliptic-y coordinate",
-  "experimental: unconstrained sky-vector n3: ecliptic-z coordinate",
-
-
-  "'global correlation' frequency coordinate nu_0",
-  "'global correlation' f1dot coordinate nu_1",
-  "'global correlation' f2dot coordinate nu_2",
-  "'global correlation' f3dot coordinate nu_3",
-
-  "NONE"
-};
-#endif
-
 
 #define DOPPLERMETRIC_MAX_DIM 60	/**< should be large enough for a long time ... */
 /** type describing a Doppler coordinate system:
  * lists the number of dimensions and the symbolic names of the coordinates.
  */
-typedef struct
+typedef struct tagDopplerCoordinateSystem
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 dim;						/**< number of dimensions covered */
-  SWIGLAL_FIXED_1DARRAY_ELEM(DopplerCoordinateID, coordIDs);
   DopplerCoordinateID coordIDs[DOPPLERMETRIC_MAX_DIM];	/**< coordinate 'names' */
 } DopplerCoordinateSystem;
 
@@ -291,21 +177,17 @@ typedef struct
 /** type describing a set of detectors and their relative noise-weights
  * This is only used for full multi-IFO Fstatistic-metrics
  */
-typedef struct
+typedef struct tagMultiDetectorInfo
 {
-  SWIGLAL_STRUCT_LALALLOC();
   UINT4 length;						/**< number N of detectors */
-  SWIGLAL_FIXED_1DARRAY_ELEM(LALDetector, sites);
   LALDetector sites[DOPPLERMETRIC_MAX_DETECTORS]; 	/**< array of N detectors */
-  SWIGLAL_FIXED_1DARRAY_ELEM(REAL8, detWeights);
   REAL8 detWeights[DOPPLERMETRIC_MAX_DETECTORS];	/**< array of N detector noise-weights: must satisfy \f$\sum_{i=1}^N w_i = 1\f$ */
 } MultiDetectorInfo;
 
 /**< meta-info specifying a Doppler-metric
  */
-typedef struct
+typedef struct tagDopplerMetricParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   DopplerCoordinateSystem coordSys;		/**< number of dimensions and coordinate-IDs of Doppler-metric */
   DetectorMotionType detMotionType;		/**< the type of detector-motion assumed: full spin+orbit, pure orbital, Ptole, ... */
 
@@ -317,6 +199,7 @@ typedef struct
   INT4 projectCoord;				/**< project metric onto subspace orthogonal to this axis (-1 = none, 0 = 1st coordinate, etc) */
 
   MetricType_t metricType;			/**< switch controlling which types of metric to compute: 0 = PhaseMetric g_ij, 1 = Fmetrics gF.., 2=BOTH */
+  BOOLEAN approxPhase;				/**< use an approximate phase-model, neglecting Roemer delay in spindown coordinates */
 } DopplerMetricParams;
 
 
@@ -326,9 +209,8 @@ typedef struct
  * \f$\langle Q\rangle \equiv \frac{1}{T} \, \sum_X w^X\, \int_0^T Q\, dt \f$, where \f$w^X\f$ is the noise-weight for detector X,
  * and \f$T\f$ is the observation time, see \ref Prix07 for details.
  */
-typedef struct
+typedef struct tagFmetricAtoms_t
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 a_a;		/**< \f$ \langle a^2 \rangle = A \f$ */
   REAL8 a_b;		/**< \f$ \langle a b \rangle = C \f$ */
   REAL8 b_b;		/**< \f$ \langle b^2 \rangle = B \f$ */
@@ -348,9 +230,8 @@ typedef struct
 /** struct to hold a DopplerMetric, including meta-info on the number of
  * dimensions, the coordinate-system and type of metric.
  */
-typedef struct
+typedef struct tagDopplerMetric
 {
-  SWIGLAL_STRUCT_LALALLOC();
   DopplerMetricParams meta;		/**< "meta-info" describing/specifying the type of Doppler metric */
 
   gsl_matrix *g_ij;			/**< symmetric matrix holding the usual Phase-metric */
@@ -369,9 +250,11 @@ typedef struct
 
 
 /*---------- Global variables ----------*/
+extern const PosVel3D_t empty_PosVel3D_t;
 extern const DopplerMetricParams empty_DopplerMetricParams;
 extern const MultiDetectorInfo empty_MultiDetectorInfo;
 extern const DopplerCoordinateSystem empty_DopplerCoordinateSystem;
+#define empty_vect3D_t {0,0,0}
 
 /*---------- exported prototypes [API] ----------*/
 gsl_matrix *
@@ -393,12 +276,22 @@ XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,
 
 
 int
-XLALDetectorPosVel ( PosVel3D_t *pos_vel3D,
+XLALDetectorPosVel (PosVel3D_t *spin_posvel,
+		    PosVel3D_t *orbit_posvel,
 		    const LIGOTimeGPS *tGPS,
 		    const LALDetector *site,
 		    const EphemerisData *edat,
 		    DetectorMotionType special
 		    );
+
+int
+XLALAverageDetectorPosVel ( PosVel3D_t *avg_spin_posvel,
+                            PosVel3D_t *avg_orbit_posvel,
+                            const LIGOTimeGPS *tGPS,
+                            const MultiDetectorInfo *detInfo,
+                            const EphemerisData *edat,
+                            DetectorMotionType special
+                            );
 
 
 vect3Dlist_t *
@@ -409,8 +302,8 @@ void XLALDestroyFmetricAtoms ( FmetricAtoms_t *atoms );
 
 void XLALDestroyDopplerMetric ( DopplerMetric *metric );
 
-DetectorMotionType XLALParseDetectorMotionString ( const CHAR *detMotionString );
-DopplerCoordinateID XLALParseDopplerCoordinateString ( const CHAR *coordName );
+int XLALParseDetectorMotionString ( const CHAR *detMotionString );
+int XLALParseDopplerCoordinateString ( const CHAR *coordName );
 int XLALDopplerCoordinateNames2System ( DopplerCoordinateSystem *coordSys, const LALStringVector *coordNames );
 
 const CHAR *XLALDetectorMotionName ( DetectorMotionType detType );
@@ -418,6 +311,8 @@ const CHAR *XLALDopplerCoordinateName ( DopplerCoordinateID coordID );
 const CHAR *XLALDopplerCoordinateHelp ( DopplerCoordinateID coordID );
 CHAR *XLALDopplerCoordinateHelpAll ( void );
 int XLALParseMultiDetectorInfo ( MultiDetectorInfo *detInfo, const LALStringVector *detNames, const LALStringVector *detWeights );
+
+gsl_matrix *XLALDiagNormalizeMetric ( const gsl_matrix * g_ij );
 
 // destructor for vect3Dlist_t type
 void XLALDestroyVect3Dlist ( vect3Dlist_t *list );

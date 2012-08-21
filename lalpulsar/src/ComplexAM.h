@@ -29,11 +29,6 @@
 #ifndef _COMPLEXAM_H
 #define _COMPLEXAM_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <math.h>
 #include <lal/DetResponse.h>
 #include <lal/DetectorSite.h>
@@ -43,8 +38,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-NRCSID (COMPLEXAMH, "$Id: ComplexAM.h");
 
 /* ---------- exported defines and macros -------------------- */
 
@@ -73,18 +66,16 @@ NRCSID (COMPLEXAMH, "$Id: ComplexAM.h");
  * in the case of a complex detector tensor, and some relevant scalar
  * products. That is:
  */
-typedef struct CmplxAMCoeffsTag
+typedef struct tagCmplxAMCoeffs
 {
-  SWIGLAL_STRUCT_LALALLOC();
   COMPLEX8Vector     *a;          /**< the a coefficient evaluated at the relevant times */
   COMPLEX8Vector     *b;          /**< the b coefficient evaluated at the relevant times  */
 } CmplxAMCoeffs;
 
 /** Convenience container for precomputed pi f L/c  and skyposition vector
 */
-typedef struct
+typedef struct tagFreqSkypos_t
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4 Freq;		/**< signal frequency */
   REAL8 skyposV[3];	/**< unit vector pointing to skyposition of source */
   SymmTensor3 ePlus;	/**< ePlus polarization tensor (skypos-dependent) */
@@ -94,37 +85,40 @@ typedef struct
 /** Struct holding the "antenna-pattern" matrix \f$\mathcal{M}_{\mu\nu} \equiv \left( \mathbf{h}_\mu|\mathbf{h}_\nu\right)\f$,
  * in terms of the multi-detector scalar product. This matrix can be shown to be expressible, in the case of complex AM co\"{e}fficients, as
  * \f{equation}
- * \mathcal{M}_{\mu\nu} = \mathcal{S}^{-1}\,T_\mathrm{SFT}\,\left( \begin{array}{c c c c} A_d & C_d & 0 & -E_d \\ C_d & B_d & E_d & 0 \\ 0 & E_d & A_d & C_d \\ -E_d & 0 & C_d & B_d \\ \end{array}\right)\,,
+ * \mathcal{M}_{\mu\nu} = \mathcal{S}^{-1}\,T_\mathrm{SFT}\,\left( \begin{array}{c c c c}
+ * \widehat{A} & \widehat{C} & 0 & -\widehat{E} \\
+ * \widehat{C} & \widehat{B} & \widehat{E} & 0 \\
+ * 0 & \widehat{E} & \widehat{A} & \widehat{C} \\
+ * -\widehat{E} & 0 & \widehat{C} & \widehat{B} \\
+ * \end{array}\right)\,,
  * \f}
  * where (here) \f$\mathcal{S} \equiv \frac{1}{N_\mathrm{SFT}}\sum_{X,\alpha} S_{X\alpha}\f$ characterizes the multi-detector noise-floor, and
  * \f{equation}
- * A_d \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{a}^X_\alpha\,,\quad
- * B_d \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{b}^X_\alpha{}^* \widehat{b}^X_\alpha \,,\quad
- * C_d \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha \,,
- * E_d \equiv \mathrm{Im} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha \,,
+ * \widehat{A} \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{a}^X_\alpha\,,\quad
+ * \widehat{B} \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{b}^X_\alpha{}^* \widehat{b}^X_\alpha \,,\quad
+ * \widehat{C} \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha \,,
+ * \widehat{E} \equiv \mathrm{Im} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha \,,
  * \f}
  * and the noise-weighted atenna-functions \f$\widehat{a}^X_\alpha = \sqrt{w^X_\alpha}\,a^X_\alpha\f$,
  * \f$\widehat{b}^X_\alpha = \sqrt{w^X_\alpha}\,b^X_\alpha\f$, and noise-weights
- * \f$w^X_\alpha \equiv {S^{-1}_{X\alpha}/{\mathcal{S}^{-1}}\f$.
+ * \f$w^X_\alpha \equiv S^{-1}_{X\alpha}/{\mathcal{S}^{-1}}\f$.
  *
  * \note One reason for storing the un-normalized \a Ad, \a Bd, \a Cd, \a Ed and the normalization-factor \a Sinv_Tsft separately
  * is that the former are of order unity, while \a Sinv_Tsft is very large, and it has numerical advantages for parameter-estimation
  * to use that fact.
  */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
-  REAL8 Ad; 		/**<  \f$A_d \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{a}^X_\alpha\f$ */
-  REAL8 Bd; 		/**<  \f$B_d \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{b}^X_\alpha{}^* \widehat{b}^X_\alpha\f$ */
-  REAL8 Cd; 		/**<  \f$C_d \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha\f$ */
-  REAL8 Ed; 		/**<  \f$E_d \equiv \mathrm{Im} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha\f$ */
-  REAL8 Dd; 		/**<  determinant \f$D_d \equiv A_d B_d - C_d^2 -E_d^2 \f$ */
+typedef struct tagCmplxAntennaPatternMatrix {
+  REAL8 Ad; 		/**<  \f$\widehat{A} \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{a}^X_\alpha\f$ */
+  REAL8 Bd; 		/**<  \f$\widehat{B} \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{b}^X_\alpha{}^* \widehat{b}^X_\alpha\f$ */
+  REAL8 Cd; 		/**<  \f$\widehat{C} \equiv \mathrm{Re} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha\f$ */
+  REAL8 Ed; 		/**<  \f$\widehat{E} \equiv \mathrm{Im} \sum_{X,\alpha} \widehat{a}^X_\alpha{}^* \widehat{b}^X_\alpha\f$ */
+  REAL8 Dd; 		/**<  determinant \f$\widehat{D} \equiv \widehat{A} \widehat{B} - \widehat{C}^2 -\widehat{E}^2 \f$ */
   REAL8 Sinv_Tsft;	/**< normalization-factor \f$\mathcal{S}^{-1}\,T_\mathrm{SFT}\f$ (wrt single-sided PSD!) */
 } CmplxAntennaPatternMatrix;
 
 
 /** Multi-IFO container for antenna-pattern coefficients a^X(t), b^X(t) and atenna-pattern matrix M_mu_nu */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagMultiCmplxAMCoeffs {
   UINT4 length;		/**< number of IFOs */
   CmplxAMCoeffs **data;	/**< noise-weighted am-coeffs \f$\widehat{a}_{X\alpha}\f$, and \f$\widehat{b}_{X\alpha}\f$ */
   CmplxAntennaPatternMatrix Mmunu;	/**< antenna-pattern matrix \f$\mathcal{M}_{\mu\nu}\f$ */
@@ -134,7 +128,7 @@ typedef struct {
 void LALGetCmplxAMCoeffs( LALStatus *, CmplxAMCoeffs *coeffs, const DetectorStateSeries *DetectorStates, const FreqSkypos_t *freq_skypos );
 void LALGetMultiCmplxAMCoeffs( LALStatus *, MultiCmplxAMCoeffs **multiAMcoef, const MultiDetectorStateSeries *multiDetStates, PulsarDopplerParams doppler );
 
-int XLALWeighMultiCmplxAMCoeffs ( MultiCmplxAMCoeffs *multiAMcoef, const MultiNoiseWeights *multiWeights );
+int XLALWeightMultiCmplxAMCoeffs ( MultiCmplxAMCoeffs *multiAMcoef, const MultiNoiseWeights *multiWeights );
 
 /* destructors */
 void XLALDestroyMultiCmplxAMCoeffs ( MultiCmplxAMCoeffs *multiAMcoef );

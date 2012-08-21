@@ -37,6 +37,7 @@
 #define __USE_ISOC99 1
 #include <math.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/FindRoot.h>
 
@@ -52,8 +53,6 @@
 #include <lal/AVFactories.h>
 #include "ComputeFstat.h"
 #include "ComplexAM.h"
-
-NRCSID( COMPUTEFSTATC, "$Id$");
 
 /*---------- local DEFINES ----------*/
 #define TRUE (1==1)
@@ -97,6 +96,8 @@ const Fcomponents empty_Fcomponents;
 const ComputeFParams empty_ComputeFParams;
 const ComputeFBuffer empty_ComputeFBuffer;
 
+static const LALStatus blank_status;
+
 static REAL8 p,q,r;          /* binary time delay coefficients (need to be global so that the LAL root finding procedure can see them) */
 
 /*---------- internal prototypes ----------*/
@@ -122,14 +123,13 @@ void ComputeFStatFreqBand ( LALStatus *status,				/**< pointer to LALStatus stru
 			    const ComputeFParams *params		/**< addition computational params */
 			    )
 {
-  const char *fn = "ComputeFStatFreqBand()";
-  UINT4 numDetectors, numBins, k;
+  UINT4 numBins, k;
   REAL8 deltaF, fStart;
   Fcomponents Fstat;
   PulsarDopplerParams thisPoint;
   ComputeFBuffer cfBuffer = empty_ComputeFBuffer;
 
-  INITSTATUS( status, "ComputeFStatFreqBand", COMPUTEFSTATC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( multiSFTs, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
@@ -137,8 +137,7 @@ void ComputeFStatFreqBand ( LALStatus *status,				/**< pointer to LALStatus stru
   ASSERT ( multiDetStates, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
   ASSERT ( params, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
 
-  numDetectors = multiSFTs->length;
-  ASSERT ( multiDetStates->length == numDetectors, status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT );
+  ASSERT ( multiDetStates->length == multiSFTs->length, status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT );
   ASSERT ( fstatVector, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
   ASSERT ( fstatVector->data, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
   ASSERT ( fstatVector->data->data, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
@@ -146,7 +145,7 @@ void ComputeFStatFreqBand ( LALStatus *status,				/**< pointer to LALStatus stru
 
   if ( params->returnAtoms )
     {
-      XLALPrintError ("%s: using the option 'returnAtoms' is not supported in this function!\n", fn );
+      XLALPrintError ("%s: using the option 'returnAtoms' is not supported in this function!\n", __func__ );
       ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT );
     }
 
@@ -224,7 +223,7 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
   REAL8 Ad, Bd, Cd, Dd_inv, Ed;
   SkyPosition skypos;
 
-  INITSTATUS( status, "ComputeFStat", COMPUTEFSTATC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input */
@@ -310,8 +309,8 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
       } ENDFAIL (status);
 
       /* noise-weight Antenna-patterns and compute A,B,C */
-      if ( XLALWeighMultiCmplxAMCoeffs ( multiCmplxAMcoef, multiWeights ) != XLAL_SUCCESS ) {
-	XLALPrintError("\nXLALWeighMultiCmplxAMCoeffs() failed with error = %d\n\n", xlalErrno );
+      if ( XLALWeightMultiCmplxAMCoeffs ( multiCmplxAMcoef, multiWeights ) != XLAL_SUCCESS ) {
+	XLALPrintError("\nXLALWeightMultiCmplxAMCoeffs() failed with error = %d\n\n", xlalErrno );
 	ABORT ( status, COMPUTEFSTATC_EXLAL, COMPUTEFSTATC_MSGEXLAL );
       }
 
@@ -333,8 +332,8 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
       } ENDFAIL (status);
 
       /* noise-weight Antenna-patterns and compute A,B,C */
-      if ( XLALWeighMultiAMCoeffs ( multiAMcoef, multiWeights ) != XLAL_SUCCESS ) {
-	XLALPrintError("\nXLALWeighMultiAMCoeffs() failed with error = %d\n\n", xlalErrno );
+      if ( XLALWeightMultiAMCoeffs ( multiAMcoef, multiWeights ) != XLAL_SUCCESS ) {
+	XLALPrintError("\nXLALWeightMultiAMCoeffs() failed with error = %d\n\n", xlalErrno );
 	ABORT ( status, COMPUTEFSTATC_EXLAL, COMPUTEFSTATC_MSGEXLAL );
       }
 
@@ -367,6 +366,16 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
     {
       XLALPrintError ( "Programming error: neither 'multiAMcoef' nor 'multiCmplxAMcoef' are available!\n");
       ABORT ( status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
+    }
+
+  /* if requested, prepare for returning single-IFO F-stat vector */
+  if ( params->returnSingleF )
+    {
+      retF.numDetectors = numDetectors;
+      if ( numDetectors > CFS_MAX_IFOS ) {
+        XLALPrintError ("%s: numDetectors = %d exceeds currently allowed upper limit of detectors (%d) for returnSingleF=TRUE\n", __func__, numDetectors, CFS_MAX_IFOS );
+        ABORT ( status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT );
+      }
     }
 
   /* ----- loop over detectors and compute all detector-specific quantities ----- */
@@ -414,6 +423,21 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
       }
 #endif
 
+      /* compute single-IFO F-stats, if requested */
+      if ( params->returnSingleF )
+        {
+         REAL8 AdX = multiAMcoef->data[X]->A;
+         REAL8 BdX = multiAMcoef->data[X]->B;
+         REAL8 CdX = multiAMcoef->data[X]->C;
+         REAL8 DdX_inv = 1.0 / multiAMcoef->data[X]->D;
+
+	 /* compute final single-IFO F-stat */
+	 retF.FX[X] = DdX_inv * (  BdX * (SQ(FcX.Fa.re) + SQ(FcX.Fa.im) )
+	                           + AdX * ( SQ(FcX.Fb.re) + SQ(FcX.Fb.im) )
+		                   - 2.0 * CdX *( FcX.Fa.re * FcX.Fb.re + FcX.Fa.im * FcX.Fb.im )
+		                   );
+        } /* if returnSingleF */
+
       /* Fa = sum_X Fa_X */
       retF.Fa.re += FcX.Fa.re;
       retF.Fa.im += FcX.Fa.im;
@@ -438,7 +462,8 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
   if ( Ed != 0 ) /* extra term in RAA case */
     retF.F += - 2.0 * Dd_inv * Ed *( - retF.Fa.re * retF.Fb.im + retF.Fa.im * retF.Fb.re ); /* -2 E Im(Fa Fb^* ) / D */
 
-  (*Fstat) = retF;
+  /* set correct F-stat reference time (taken from template 'doppler') [relevant only for phase of {Fa,Fb}] */
+  retF.refTime = doppler->refTime;
 
   /* free memory if no buffer was available */
   if ( !cfBuffer )
@@ -450,6 +475,9 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
 
   /* this always needs to be free'ed, as it's no longer buffered */
   XLALDestroyMultiSSBtimes ( multiBinary );
+
+  /* return final Fstat result */
+  (*Fstat) = retF;
 
   DETATCHSTATUSPTR (status);
   RETURN (status);
@@ -487,31 +515,31 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 #ifndef LAL_NDEBUG
   if ( !FaFb ) {
     XLALPrintError ("\nOutput-pointer is NULL !\n\n");
-    XLAL_ERROR ( "XLALComputeFaFb", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !sfts || !sfts->data ) {
     XLALPrintError ("\nInput SFTs are NULL!\n\n");
-    XLAL_ERROR ( "XLALComputeFaFb", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !tSSB || !tSSB->DeltaT || !tSSB->Tdot || !amcoe || !amcoe->a || !amcoe->b || !params)
     {
       XLALPrintError ("\nIllegal NULL in input !\n\n");
-      XLAL_ERROR ( "XLALComputeFaFb", XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 
   if ( PULSAR_MAX_SPINS > NUM_FACT )
     {
       XLALPrintError ("\nInverse factorials table only up to order s=%d, can't handle %d spin-order\n\n",
 		     NUM_FACT, PULSAR_MAX_SPINS - 1 );
-      XLAL_ERROR ( "XLALComputeFaFb", XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 #endif
 
   if ( params->upsampling > 1 ) {
     fprintf (stderr, "\n===== WARNING: XLALComputeFaFb() should not be used with upsampled-SFTs!\n");
-    XLAL_ERROR ( "XLALComputeFaFb", XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   /* ----- prepare convenience variables */
@@ -527,17 +555,17 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
   if ( params->returnAtoms )
     {
       if ( (FaFb->multiFstatAtoms = LALMalloc ( sizeof(*FaFb->multiFstatAtoms) )) == NULL ){
-	XLAL_ERROR ( "XLALComputeFaFb", XLAL_ENOMEM );
+	XLAL_ERROR ( XLAL_ENOMEM );
       }
       FaFb->multiFstatAtoms->length = 1;	/* in this function: single-detector only */
       if ( (FaFb->multiFstatAtoms->data = LALMalloc ( 1 * sizeof( *FaFb->multiFstatAtoms->data) )) == NULL ){
 	LALFree (FaFb->multiFstatAtoms);
-	XLAL_ERROR ( "XLALComputeFaFb", XLAL_ENOMEM );
+	XLAL_ERROR ( XLAL_ENOMEM );
       }
       if ( (FaFb->multiFstatAtoms->data[0] = XLALCreateFstatAtomVector ( numSFTs )) == NULL ) {
 	LALFree ( FaFb->multiFstatAtoms->data );
 	LALFree ( FaFb->multiFstatAtoms );
-	XLAL_ERROR( "XLALComputeFaFb", XLAL_ENOMEM );
+	XLAL_ERROR( XLAL_ENOMEM );
       }
 
       FaFb->multiFstatAtoms->data[0]->TAtom = Tsft;	/* time-baseline of returned atoms is Tsft */
@@ -605,7 +633,7 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 
 	/* real- and imaginary part of e^{-i 2 pi lambda_alpha } */
 	if ( sin_cos_2PI_LUT ( &imagQ, &realQ, - lambda_alpha ) ) {
-	  XLAL_ERROR ( "XLALComputeFaFb", XLAL_EFUNC);
+	  XLAL_ERROR ( XLAL_EFUNC);
 	}
 
 	kstar = (INT4) (Dphi_alpha);	/* k* = floor(Dphi_alpha) for positive Dphi */
@@ -619,7 +647,7 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	  {
 	    XLALPrintError ("Required frequency-bins [%d, %d] not covered by SFT-interval [%d, %d]\n\n",
 			   k0, k1, freqIndex0, freqIndex1 );
-	    XLAL_ERROR("XLALComputeFaFb", XLAL_EDOM);
+	    XLAL_ERROR(XLAL_EDOM);
 	  }
 
       } /* compute kappa_star, lambda_alpha */
@@ -678,7 +706,7 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 
 #ifndef LAL_NDEBUG
 	  if ( !finite(U_alpha) || !finite(V_alpha) || !finite(pn) || !finite(qn) || !finite(Sn) || !finite(Tn) ) {
-	    XLAL_ERROR ("XLALComputeFaFb()", COMPUTEFSTATC_EIEEE);
+	    XLAL_ERROR (COMPUTEFSTATC_EIEEE);
 	  }
 #endif
 
@@ -777,35 +805,35 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 #ifndef LAL_NDEBUG
   if ( !FaFb ) {
     XLALPrintError ("\nOutput-pointer is NULL !\n\n");
-    XLAL_ERROR ( __func__, XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !sfts || !sfts->data ) {
     XLALPrintError ("\nInput SFTs are NULL!\n\n");
-    XLAL_ERROR ( __func__, XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !tSSB || !tSSB->DeltaT || !tSSB->Tdot || !amcoe || !amcoe->a || !amcoe->b || !params)
     {
       XLALPrintError ("\nIllegal NULL in input !\n\n");
-      XLAL_ERROR ( __func__, XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 
   if ( PULSAR_MAX_SPINS > NUM_FACT )
     {
       XLALPrintError ("\nInverse factorials table only up to order s=%d, can't handle %d spin-order\n\n",
 		     NUM_FACT, PULSAR_MAX_SPINS - 1 );
-      XLAL_ERROR ( __func__, XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
   if ( params->upsampling > 1 ) {
     fprintf (stderr, "\n===== WARNING: XLALComputeFaFbCmplx() should not be used with upsampled-SFTs!\n");
-    XLAL_ERROR ( __func__, XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( params->returnAtoms )
     {
       XLALPrintError ("%s: using the option 'returnAtoms' is not supported in this function!\n", __func__ );
-      XLAL_ERROR ( __func__, XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 #endif
 
@@ -878,7 +906,7 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 
 	/* real- and imaginary part of e^{-i 2 pi lambda_alpha } */
 	if ( sin_cos_2PI_LUT ( &imagQ, &realQ, - lambda_alpha ) ) {
-	  XLAL_ERROR ( "XLALComputeFaFbCmplx", XLAL_EFUNC);
+	  XLAL_ERROR ( XLAL_EFUNC);
 	}
 
 	kstar = (INT4) (Dphi_alpha);	/* k* = floor(Dphi_alpha) for positive Dphi */
@@ -892,7 +920,7 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 	  {
 	    XLALPrintError ("Required frequency-bins [%d, %d] not covered by SFT-interval [%d, %d]\n\n",
 			   k0, k1, freqIndex0, freqIndex1 );
-	    XLAL_ERROR("XLALComputeFaFbCmplx", XLAL_EDOM);
+	    XLAL_ERROR(XLAL_EDOM);
 	  }
 
       } /* compute kappa_star, lambda_alpha */
@@ -951,7 +979,7 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 
 #ifndef LAL_NDEBUG
 	  if ( !finite(U_alpha) || !finite(V_alpha) || !finite(pn) || !finite(qn) || !finite(Sn) || !finite(Tn) ) {
-	    XLAL_ERROR ("XLALComputeFaFbCmplx()", COMPUTEFSTATC_EIEEE);
+	    XLAL_ERROR (COMPUTEFSTATC_EIEEE);
 	  }
 #endif
 
@@ -1034,30 +1062,30 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 #ifndef LAL_NDEBUG
   if ( !FaFb ) {
     XLALPrintError ("\nOutput-pointer is NULL !\n\n");
-    XLAL_ERROR ( __func__, XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !sfts || !sfts->data ) {
     XLALPrintError ("\nInput SFTs are NULL!\n\n");
-    XLAL_ERROR ( __func__, XLAL_EINVAL);
+    XLAL_ERROR ( XLAL_EINVAL);
   }
 
   if ( !tSSB || !tSSB->DeltaT || !tSSB->Tdot || !amcoe || !amcoe->a || !amcoe->b || !params)
     {
       XLALPrintError ("\nIllegal NULL in input !\n\n");
-      XLAL_ERROR ( __func__, XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 
   if ( PULSAR_MAX_SPINS > NUM_FACT )
     {
       XLALPrintError ("\nInverse factorials table only up to order s=%d, can't handle %d spin-order\n\n",
 		     NUM_FACT, PULSAR_MAX_SPINS - 1 );
-      XLAL_ERROR ( __func__, XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
   if ( params->returnAtoms )
     {
       XLALPrintError ("%s: using the option 'returnAtoms' is not supported in this function!\n", __func__ );
-      XLAL_ERROR ( __func__, XLAL_EINVAL);
+      XLAL_ERROR ( XLAL_EINVAL);
     }
 #endif
 
@@ -1130,7 +1158,7 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 
 	/* real- and imaginary part of e^{-i 2 pi lambda_alpha } */
 	if ( sin_cos_2PI_LUT ( &imagQ, &realQ, - lambda_alpha ) ) {
-	  XLAL_ERROR ( "XLALComputeFaFb", XLAL_EFUNC);
+	  XLAL_ERROR (XLAL_EFUNC);
 	}
 
 	kstar = (INT4) (Dphi_alpha * Upsampling + 0.5f - freqIndex0);	/* k* = round(Dphi_alpha*chi) for positive Dphi */
@@ -1140,7 +1168,7 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 	  {
 	    XLALPrintError ("Required frequency-bin [%d] not covered by SFT-interval [%d, %d]\n\n",
 			   freqIndex0 + kstar, freqIndex0, freqIndex1 );
-	    XLAL_ERROR("XLALComputeFaFb", XLAL_EDOM);
+	    XLAL_ERROR(XLAL_EDOM);
 	  }
 
       } /* compute kstar, lambda_alpha */
@@ -1222,7 +1250,7 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
   DFindRootIn input;    /* the input structure for the root finding procedure */
   REAL8 acc;            /* the accuracy in radians of the eccentric anomoly computation */
 
-  INITSTATUS( status, "LALGetBinarytimes", COMPUTEFSTATC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (DetectorStates, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL);
@@ -1306,7 +1334,7 @@ static void EccentricAnomoly(LALStatus *status,
 			     void *tr0
 			     )
 {
-  INITSTATUS(status, "EccentricAnomoly", "Function EccentricAnomoly()");
+  INITSTATUS(status);
   ASSERT(tr0,status, 1, "Null pointer");
 
   /* this is the function relating the observed time since periapse in the SSB to the true eccentric anomoly E */
@@ -1331,7 +1359,7 @@ LALGetMultiBinarytimes (LALStatus *status,				/**< pointer to LALStatus structur
   UINT4 X, numDetectors;
   MultiSSBtimes *ret = NULL;
 
-  INITSTATUS( status, "LALGetMultiBinarytimes", COMPUTEFSTATC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input */
@@ -1412,7 +1440,7 @@ LALGetSSBtimes (LALStatus *status,		/**< pointer to LALStatus structure */
   REAL8 alpha, delta;	/* source position */
   REAL8 refTimeREAL8;
 
-  INITSTATUS( status, "LALGetSSBtimes", COMPUTEFSTATC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (DetectorStates, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL);
@@ -1518,7 +1546,7 @@ LALGetMultiSSBtimes (LALStatus *status,			/**< pointer to LALStatus structure */
   UINT4 X, numDetectors;
   MultiSSBtimes *ret = NULL;
 
-  INITSTATUS( status, "LALGetMultiSSBtimes", COMPUTEFSTATC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input */
@@ -1720,7 +1748,6 @@ void
 LALEstimatePulsarAmplitudeParams (LALStatus * status,			/**< pointer to LALStatus structure */
 				  PulsarCandidate *pulsarParams,  	/**< [out] estimated params {h0,cosi,phi0,psi} plus error-estimates */
 				  const Fcomponents *Fstat,	 	/**<  Fstat-components Fa, Fb */
-				  const LIGOTimeGPS *FstatRefTime,	/**<  reference-time for the phase of Fa, Fb */
 				  const CmplxAntennaPatternMatrix *Mmunu/**<  antenna-pattern A,B,C and normalization S_inv*Tsft */
 				  )
 {
@@ -1748,12 +1775,11 @@ LALEstimatePulsarAmplitudeParams (LALStatus * status,			/**< pointer to LALStatu
   gsl_matrix *tmp, *tmp2;
   int signum;
 
-  INITSTATUS (status, "LALEstimatePulsarAmplitudeParams", COMPUTEFSTATC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( pulsarParams, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
   ASSERT ( Fstat, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
-  ASSERT ( FstatRefTime, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
   ASSERT ( Mmunu, status, COMPUTEFSTATC_ENULL, COMPUTEFSTATC_MSGENULL );
 
   Ad = Mmunu->Ad;
@@ -1937,8 +1963,7 @@ LALEstimatePulsarAmplitudeParams (LALStatus * status,			/**< pointer to LALStatu
 
   /* ===== debug-output resulting matrices ===== */
   /* propagate initial-phase from Fstat-reference-time to refTime of Doppler-params */
-  TRY ( LALExtrapolatePulsarPhase (status->statusPtr, &phi0, pulsarParams->Doppler.fkdot, pulsarParams->Doppler.refTime, phi0, (*FstatRefTime) ),
-	status );
+  TRY ( LALExtrapolatePulsarPhase (status->statusPtr, &phi0, pulsarParams->Doppler.fkdot, pulsarParams->Doppler.refTime, phi0, Fstat->refTime ), status );
 
   if ( phi0 < 0 )	      /* make sure phi0 in [0, 2*pi] */
     phi0 += LAL_TWOPI;
@@ -1978,7 +2003,6 @@ LALEstimatePulsarAmplitudeParams (LALStatus * status,			/**< pointer to LALStatu
 FstatAtomVector *
 XLALCreateFstatAtomVector ( UINT4 num )
 {
-  const CHAR *fn = __func__;
   FstatAtomVector *ret;
 
   if ( (ret = LALCalloc ( 1, sizeof(*ret))) == NULL )
@@ -1996,7 +2020,7 @@ XLALCreateFstatAtomVector ( UINT4 num )
 
  failed:
   XLALDestroyFstatAtomVector ( ret );
-  XLAL_ERROR_NULL ( fn, XLAL_ENOMEM );
+  XLAL_ERROR_NULL ( XLAL_ENOMEM );
 
 } /* XLALCreateFstatAtomVector() */
 
@@ -2072,8 +2096,6 @@ XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp,	  /**< [out] output physi
                            const PulsarAmplitudeVect A_Mu /**< [in] input canonical amplitude vector A^mu = {A1,A2,A3,A4} */
                            )
 {
-  const char *fn = __func__;
-
   REAL8 h0Ret, cosiRet, psiRet, phi0Ret;
 
   REAL8 A1, A2, A3, A4, Asq, Da, disc;
@@ -2081,12 +2103,12 @@ XLALAmplitudeVect2Params ( PulsarAmplitudeParams *Amp,	  /**< [out] output physi
   REAL8 beta, b1, b2, b3;
 
   if ( !A_Mu ) {
-    XLALPrintError ( "%s: Invalid NULL input vector A_Mu\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ( "%s: Invalid NULL input vector A_Mu\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
   if ( !Amp ) {
-    XLALPrintError ("%s: invalid NULL input Amp.\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input Amp.\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   A1 = A_Mu[0];

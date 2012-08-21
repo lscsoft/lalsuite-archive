@@ -94,9 +94,6 @@ Spinning waveforms are only defined at the highest PN order.</li>
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
 
-NRCSID (LALINSPIRALCHOOSEMODELC, "$Id$");
-
-
 static REAL8 dEt0(REAL8 v, expnCoeffs *ak)
 {
    REAL8 dEnergy;
@@ -490,7 +487,7 @@ LALInspiralChooseModel(
 {
    XLALPrintDeprecationWarning("LALInspiralChooseModel", "XLALInspiralChooseModel");
 
-   INITSTATUS (status, "LALInspiralChooseModel", LALINSPIRALCHOOSEMODELC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    if (XLALInspiralChooseModel(f, ak, params))
@@ -507,25 +504,23 @@ XLALInspiralChooseModel(
    InspiralTemplate *params
    )
 {
-   static const char *func = "XLALInspiralChooseModel";
-
    REAL8 vn, vlso;
    TofVIn in1;
    REAL8 tofv;
    void *in2;
 
    if (f == NULL)
-      XLAL_ERROR(func, XLAL_EFAULT);
+      XLAL_ERROR(XLAL_EFAULT);
    if (ak == NULL)
-      XLAL_ERROR(func, XLAL_EFAULT);
+      XLAL_ERROR(XLAL_EFAULT);
    if (params == NULL)
-      XLAL_ERROR(func, XLAL_EFAULT);
+      XLAL_ERROR(XLAL_EFAULT);
    if (params->order == LAL_PNORDER_HALF || (INT4)params->order < 0
       || (INT4)params->order > 8)
    {
-      XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", func,
+      XLALPrintError("XLAL Error - %s: PN order %d%s not supported\n", __func__,
          ((INT4)params->order)/2, ((INT4)params->order)%2?".5":"");
-      XLAL_ERROR(func, XLAL_EINVAL);
+      XLAL_ERROR(XLAL_EINVAL);
    }
 
    vlso = 0;
@@ -570,24 +565,24 @@ XLALInspiralChooseModel(
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
       }
       break;
       case LAL_PNORDER_HALF:
-        XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-        XLAL_ERROR(func, XLAL_EINVAL);
+        XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+        XLAL_ERROR(XLAL_EINVAL);
         break;
       case LAL_PNORDER_ONE:
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
          case TaylorT1:
@@ -624,20 +619,20 @@ XLALInspiralChooseModel(
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
       }
       break;
       case LAL_PNORDER_ONE_POINT_FIVE:
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
          case TaylorT1:
@@ -677,20 +672,20 @@ XLALInspiralChooseModel(
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
       }
       break;
       case LAL_PNORDER_TWO:
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
          case TaylorT1:
@@ -734,20 +729,20 @@ XLALInspiralChooseModel(
             f->flux = Fp4;
             break;
          case PadeF1:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
       }
       break;
       case LAL_PNORDER_TWO_POINT_FIVE:
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
          case TaylorT1:
@@ -791,20 +786,20 @@ XLALInspiralChooseModel(
             f->flux = Fp5;
             break;
          case PadeF1:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
       }
       break;
       case LAL_PNORDER_THREE:
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
          case TaylorT1:
@@ -848,20 +843,20 @@ XLALInspiralChooseModel(
             f->flux = Fp6;
             break;
          case PadeF1:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
       }
       break;
       case LAL_PNORDER_THREE_POINT_FIVE:
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case AmpCorPPN:
          case TaylorT1:
@@ -901,12 +896,12 @@ XLALInspiralChooseModel(
             f->flux = Fp7;
             break;
          case PadeF1:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
       }
       break;
@@ -914,8 +909,8 @@ XLALInspiralChooseModel(
       switch (params->approximant)
       {
          case Eccentricity:
-            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: The PN order requested is not implemented for this approximant\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          case EOBNRv2:
          case EOBNRv2HM:
@@ -951,18 +946,18 @@ XLALInspiralChooseModel(
          case TaylorEt:
          case TaylorT4:
          case TaylorN:
-            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: PN approximant not supported for requested PN order\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
          default:
-            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-            XLAL_ERROR(func, XLAL_EINVAL);
+            XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+            XLAL_ERROR(XLAL_EINVAL);
             break;
       }
       break;
       default:
-         XLALPrintError("XLAL Error - %s: Unknown PN order in switch\n", func);
-         XLAL_ERROR(func, XLAL_EINVAL);
+         XLALPrintError("XLAL Error - %s: Unknown PN order in switch\n", __func__);
+         XLAL_ERROR(XLAL_EINVAL);
    }
 
    switch (params->approximant)
@@ -1008,7 +1003,7 @@ XLALInspiralChooseModel(
 
          tofv = XLALInspiralTofV(ak->vn, in2);
          if (XLAL_IS_REAL8_FAIL_NAN(tofv))
-            XLAL_ERROR(func, XLAL_EFUNC);
+            XLAL_ERROR(XLAL_EFUNC);
 
          ak->tn = -tofv - ak->samplinginterval;
          params->fCutoff = ak->fn = pow(ak->vn, 3.)/(LAL_PI * ak->totalmass);
@@ -1042,8 +1037,8 @@ XLALInspiralChooseModel(
          ak->flso = vlso * vlso * vlso /(LAL_PI * ak->totalmass);
          break;
       default:
-         XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", func);
-         XLAL_ERROR(func, XLAL_EINVAL);
+         XLALPrintError("XLAL Error - %s: Unknown case in PN approximant switch\n", __func__);
+         XLAL_ERROR(XLAL_EINVAL);
    }
 
   return 0;

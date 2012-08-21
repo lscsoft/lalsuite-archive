@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2006  Kipp C. Cannon
  *
@@ -30,10 +29,18 @@
 
 #include <Python.h>
 #include <ctype.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tokenizer.h>
 
+/* Gain access to 64-bit addressing where possible
+ * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
+#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
+typedef int Py_ssize_t;
+#define PY_SSIZE_T_MAX INT_MAX
+#define PY_SSIZE_T_MIN INT_MIN
+#endif
 
 /*
  * ============================================================================
@@ -73,7 +80,7 @@ typedef struct {
 	/* the character to interpret as the escape character */
 	Py_UNICODE escape_character;
 	/* size of internal buffer, minus null terminator */
-	int allocation;
+	Py_ssize_t allocation;
 	/* internal buffer */
 	Py_UNICODE *data;
 	/* end of internal buffer's contents (null terminator) */
@@ -91,7 +98,7 @@ typedef struct {
 
 static int add_to_data(ligolw_Tokenizer *tokenizer, PyObject *unicode)
 {
-	int n = PyUnicode_GET_SIZE(unicode);
+	Py_ssize_t n = PyUnicode_GET_SIZE(unicode);
 
 	if(n) {
 		if(tokenizer->length - tokenizer->data + n > tokenizer->allocation) {
@@ -99,8 +106,8 @@ static int add_to_data(ligolw_Tokenizer *tokenizer, PyObject *unicode)
 			 * convert pointers to integer offsets
 			 */
 
-			int pos = tokenizer->pos - tokenizer->data;
-			int length = tokenizer->length - tokenizer->data;
+			ptrdiff_t pos = tokenizer->pos - tokenizer->data;
+			ptrdiff_t length = tokenizer->length - tokenizer->data;
 
 			/*
 			 * increase buffer size, adding 1 to leave room for
@@ -185,7 +192,7 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
  */
 
 
-static void parse_error(PyObject *exception, const Py_UNICODE *buffer, size_t buffer_length, const Py_UNICODE *pos, const char *msg)
+static void parse_error(PyObject *exception, const Py_UNICODE *buffer, const ptrdiff_t buffer_length, const Py_UNICODE *pos, const char *msg)
 {
 	PyObject *buffer_str;
 	PyObject *pos_str;
@@ -194,7 +201,7 @@ static void parse_error(PyObject *exception, const Py_UNICODE *buffer, size_t bu
 	pos_str = PyUnicode_Encode(pos, 1, NULL, NULL);
 
 	if(buffer_str && pos_str)
-		PyErr_Format(exception, "parse error in '%s' near '%s' at position %zd: %s", PyString_AS_STRING(buffer_str), PyString_AS_STRING(pos_str), pos - buffer + 1, msg);
+		PyErr_Format(exception, "parse error in '%s' near '%s' at position %td: %s", PyString_AS_STRING(buffer_str), PyString_AS_STRING(pos_str), pos - buffer + 1, msg);
 	else
 		PyErr_Format(exception, "parse error (details not available): %s", msg);
 
@@ -608,7 +615,7 @@ static PyObject *next(PyObject *self)
 static PyObject *set_types(PyObject *self, PyObject *sequence)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	int length, i;
+	Py_ssize_t length, i;
 
 	/*
 	 * Simplify the sequence access.

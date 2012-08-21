@@ -1,5 +1,6 @@
 *.la
 *.lo
+*.log
 *.o
 .deps
 .libs
@@ -14,6 +15,7 @@ configure
 include/config.h
 include/config.h.in
 include/lal/*.h
+include/lal/*.i
 include/stamp-h1
 lalframe-*.tar.gz
 lalframe.pc
@@ -21,9 +23,10 @@ lalframe.spec
 libtool
 src/LALFrameConfig.h
 src/LALFrameVCSInfo.h
-src/lalframe-user-env.shell
 src/lalframe-user-env.csh
 src/lalframe-user-env.sh
+src/lalframe-user-env.shell
+src/lalframe_lld
 src/stamp-h2
 test/AggregationTest
 test/FrameCacheTest
@@ -34,4 +37,5 @@ test/MakeFrames
 test/Read40mData
 test/ReadGEOData
 test/ReadLHOData
+test/TestLowLatencyData*
 test/catalog*

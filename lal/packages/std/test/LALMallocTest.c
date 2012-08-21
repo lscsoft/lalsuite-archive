@@ -17,53 +17,33 @@
 *  MA  02111-1307  USA
 */
 
-/*************** <lalVerbatim file="LALMallocTestCV"> *************
-$Id$
-**************** </lalVerbatim> ***********************************/
+/**
+   \file
+   \ingroup LALMalloc_h
 
-/* <lalLaTeX>
+   \brief Tests the routines in \ref LALMalloc_h.
 
-\subsection{Program \texttt{LALMallocTest.c}}
-\label{s:LALMallocTest.c}
+   \heading{Usage}
+   \code
+   LALMallocTest
+   \endcode
 
-Tests the routines in \verb@LALMalloc.h@.
+   \heading{Description}
 
-\subsubsection*{Usage}
-\begin{verbatim}
-LALMallocTest
-\end{verbatim}
+   This program has ugly code for testing the LAL memory allocation and freeing
+   routines.
 
-\subsubsection*{Description}
+   \heading{Exit codes}
 
-This program has ugly code for testing the LAL memory allocation and freeing
-routines.
+<table>
+<tr><th>Code</th><th>Explanation</th></tr>
+<tr><td> 0</td><td>Success.</td></tr>
+<tr><td> 1</td><td>Failure.</td></tr>
+</table>
 
-\subsubsection*{Exit codes}
-\begin{tabular}{|c|l|}
-\hline
- Code & Explanation                   \\
-\hline
-\tt 0 & Success.                      \\
-\tt 1 & Failure.                      \\
-\hline
-\end{tabular}
+*/
 
-\subsubsection*{Uses}
-\begin{verbatim}
-lalDebugLevel
-LALMalloc()
-LALCalloc()
-LALRealloc()
-LALFree()
-LALCheckMemoryLeaks()
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-\vfill{\footnotesize\input{LALMallocTestCV}}
-
-</lalLaTeX> */
-
+/** \cond DONT_DOXYGEN */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,8 +53,6 @@ LALCheckMemoryLeaks()
 #include <signal.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
-
-NRCSID (LALMALLOCTESTC,"$Id$");
 
 char caughtMessage[1024];
 jmp_buf jump;
@@ -129,9 +107,11 @@ do { \
   } \
 } \
 while ( 0 )
-
-#define die( msg ) ( fputs( "Error: " #msg "\n", mystderr ), exit( 1 ), 1 )
-
+#define die(msg) \
+  do { \
+    fputs("Error: " #msg "\n", mystderr); \
+    exit(1); \
+  } while (0)
 
 extern int lalDebugLevel;
 
@@ -352,7 +332,8 @@ int main( void )
 
   /* get rid of annoying messages from elsewhere */
   setvbuf( mystderr = stdout, NULL, _IONBF, 0 );
-  freopen( "/dev/null", "w", stderr );
+  FILE *fp = freopen( "/dev/null", "w", stderr );
+  if (fp == NULL) die ( unable to open /dev/null );
 
   lalRaiseHook = TestRaise;
 
@@ -369,3 +350,5 @@ int main( void )
   return 0;
 #endif
 }
+
+/** \endcond */

@@ -95,9 +95,6 @@ XLALPsiOfT (
    void      *param
    );
 
-
-NRCSID (LALINSPIRALSTATIONARYPHASEAPPROX1C, "$Id$");
-
 /* This is the main function to compute the stationary phase approximation */
 
 
@@ -113,8 +110,7 @@ LALInspiralStationaryPhaseApprox1 (
 			      "XLALInspiralStationaryPhaseApprox1");
 
   /* Initialize the status pointer */
-  INITSTATUS (status, "LALInspiralStationaryPhaseApprox1", 
-	      LALINSPIRALSTATIONARYPHASEAPPROX1C);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   /* Call XLAL function and check for errors */
@@ -147,21 +143,21 @@ XLALInspiralStationaryPhaseApprox1 (
 
    /* Perform some initial checks */
    if (signalvec == NULL)
-     XLAL_ERROR(__func__, XLAL_EFAULT);
+     XLAL_ERROR(XLAL_EFAULT);
    if (signalvec->data == NULL)
-     XLAL_ERROR(__func__, XLAL_EFAULT);
+     XLAL_ERROR(XLAL_EFAULT);
    if (params == NULL)
-     XLAL_ERROR(__func__, XLAL_EFAULT);     
+     XLAL_ERROR(XLAL_EFAULT);     
 
    /* Set up the coefficients in post-Newtonian expansion, vlso, etc. */
    if ( XLALInspiralSetup(&ak, params) == XLAL_FAILURE )
-     XLAL_ERROR(__func__, XLAL_EFUNC);
+     XLAL_ERROR(XLAL_EFUNC);
 
    /* Set up the functions required for the chosen signal 
       approximation scheme */
    if ( XLALInspiralChooseModel(&func, &ak, params) 
 	== XLAL_FAILURE )
-     XLAL_ERROR(__func__, XLAL_EFUNC);
+     XLAL_ERROR(XLAL_EFUNC);
 
    /* Cast the struct required for the phase function */
    psiIn.dEnergy = func.dEnergy;
@@ -244,7 +240,7 @@ XLALInspiralStationaryPhaseApprox1 (
 	    psif = XLALREAL8RombergIntegrate(integratedfunction, funcParams, \
 					     xmin, xmax, integrationtype);
 	    if (XLAL_IS_REAL8_FAIL_NAN(psif))
-	      XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+	      XLAL_ERROR_REAL8(XLAL_EFUNC);
 
 	    psif *= sign;
 	 }

@@ -94,11 +94,11 @@ class TableRow(object):
 
 def New(Type, columns = None, **kwargs):
 	"""
-	Convenience function for constructing pre-defined LSC tables.  The
-	optional columns argument is a list of the names of the columns the
-	table should be constructed with.  If columns = None, then the
-	table is constructed with all valid columns included (pass columns
-	= [] to create a table with no columns).
+	Construct a pre-defined LSC table.  The optional columns argument
+	is a sequence of the names of the columns the table should be
+	constructed with.  If columns = None, then the table is constructed
+	with all valid columns (use columns = [] to create a table with no
+	columns).
 
 	Example:
 
@@ -110,7 +110,7 @@ def New(Type, columns = None, **kwargs):
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (key, new.tableName)
+				raise ligolw.ElementError("invalid Column '%s' for Table '%s'" % (key, new.tableName))
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
@@ -160,11 +160,11 @@ def HasNonLSCTables(elem):
 
 def instrument_set_from_ifos(ifos):
 	"""
-	Convenience function for parsing the values stored in the "ifos"
-	and "instruments" columns found in many tables.  This function is
-	mostly for internal use by the .get_ifos() and .get_instruments()
-	methods of the corresponding row classes.  The mapping from input
-	to output is as follows (rules are applied in order):
+	Parse the values stored in the "ifos" and "instruments" columns
+	found in many tables.  This function is mostly for internal use by
+	the .get_ifos() and .get_instruments() methods of the corresponding
+	row classes.  The mapping from input to output is as follows (rules
+	are applied in order):
 
 	input is None --> output is None
 
@@ -212,22 +212,22 @@ def instrument_set_from_ifos(ifos):
 
 def ifos_from_instrument_set(instruments):
 	"""
-	Convenience function to convert an iterable of instrument names
-	into a value suitable for storage in the "ifos" column found in
-	many tables.  This function is mostly for internal use by the
-	.set_ifos() methods of the corresponding row classes.  The input
-	can be None or an interable of zero or more instrument names, none
-	of which may contain "," or "+" characters.  The output is a single
-	string containing the instrument names concatenated using "," as a
-	delimiter.  instruments will only be iterated over once and so can
-	be a generator expression.  Whitespace is allowed in instrument
-	names but may not be preserved.
+	Convert an iterable of instrument names into a value suitable for
+	storage in the "ifos" column found in many tables.  This function
+	is mostly for internal use by the .set_ifos() methods of the
+	corresponding row classes.  The input can be None or an interable
+	of zero or more instrument names, none of which may contain "," or
+	"+" characters.  The output is a single string containing the
+	instrument names concatenated using "," as a delimiter.
+	instruments will only be iterated over once and so can be a
+	generator expression.  Whitespace is allowed in instrument names
+	but may not be preserved.
 	"""
 	if instruments is None:
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
 	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
-		raise ValueError, instruments
+		raise ValueError(instruments)
 	return u",".join(instruments)
 
 
@@ -355,14 +355,15 @@ class ProcessParamsTable(table.Table):
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
-			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
+			raise ligolw.ElementError("unrecognized type '%s'" % row.type)
 		table.Table.append(self, row)
 
 
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
-	def get_pyvalue(self):
+	@property
+	def pyvalue(self):
 		if self.value is None:
 			return None
 		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
@@ -484,29 +485,57 @@ class SearchSummary(object):
 
 	def get_in(self):
 		"""
-		Return the input segment.
+		Get the input segment.  Returns a segment with both
+		boundaries set to None if all four input segment boundary
+		attributes are None.
 		"""
-		return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		try:
+			return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		except:
+			if (self.in_start_time, self.in_start_time_ns, self.in_end_time, self.in_end_time_ns) == (None, None, None, None):
+				return segments.segment(None, None)
+			raise
 
 	def set_in(self, seg):
 		"""
-		Set the input segment.
+		Set the input segment.  If seg's boundaries are both None
+		then all four input segment boundary attributes are set to
+		None.
 		"""
-		self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-		self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		try:
+			self.in_start_time, self.in_start_time_ns = seg[0].seconds, seg[0].nanoseconds
+			self.in_end_time, self.in_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		except:
+			if seg != segments.segment(None, None):
+				raise
+			self.in_start_time = self.in_start_time_ns = self.in_end_time = self.in_end_time_ns = None
 
 	def get_out(self):
 		"""
-		Get the output segment.
+		Get the output segment.  Returns a segment with both
+		boundaries set to None if all four output segment boundary
+		attributes are None.
 		"""
-		return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		try:
+			return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		except:
+			if (self.out_start_time, self.out_start_time_ns, self.out_end_time, self.out_end_time_ns) == (None, None, None, None):
+				return segments.segment(None, None)
+			raise
 
 	def set_out(self, seg):
 		"""
-		Set the output segment.
+		Set the output segment.  If seg's boundaries are both None
+		then all four output segment boundary attributes are set to
+		None.
 		"""
-		self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
-		self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		try:
+			self.out_start_time, self.out_start_time_ns = seg[0].seconds, seg[0].nanoseconds
+			self.out_end_time, self.out_end_time_ns = seg[1].seconds, seg[1].nanoseconds
+		except:
+			if seg != segments.segment(None, None):
+				raise
+			self.out_start_time = self.out_start_time_ns = self.out_end_time = self.out_end_time_ns = None
 
 
 SearchSummaryTable.RowType = SearchSummary
@@ -635,9 +664,9 @@ class ExperimentTable(table.Table):
 		"""
 		row = [row for row in self if row.experiment_id == experiment_id]
 		if len(row) > 1:
-			raise ValueError, "Duplicate ids in experiment table"
+			raise ValueError("duplicate ids in experiment table")
 		if len(row) == 0:
-			raise ValueError, "id %s not found in table" %(`experiment_id`)
+			raise ValueError("id '%s' not found in table" % experiment_id)
 
 		return row[0]
 
@@ -708,7 +737,7 @@ class ExperimentSummaryTable(table.Table):
 				d[row.experiment_id] = {}
 			if (row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) in d[row.experiment_id]:
 				# entry already exists, raise error
-				raise KeyError, "Duplicate entries in experiment_summary table" 
+				raise KeyError("duplicate entries in experiment_summary table")
 			d[row.experiment_id][(row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id)] = row.experiment_summ_id
 
 		return d
@@ -817,7 +846,7 @@ class ExperimentSummaryTable(table.Table):
 				return row.nevents
 				
 		# if get to here, couldn't find experiment_summ_id in the table
-		raise ValueError, "%s could not be found in the table" %(str(experiment_summ_id))
+		raise ValueError("'%s' could not be found in the table" % (str(experiment_summ_id)))
 
 
 class ExperimentSummary(object):
@@ -856,7 +885,7 @@ class ExperimentMapTable(table.Table):
 			if row.coinc_event_id == coinc_event_id:
 				experiment_summ_ids.append(row.experiment_summ_id)
 		if len(experiment_summ_ids) == 0:
-			raise ValueError, "%s could not be found in the experiment_map table." %(`coinc_event_id`)
+			raise ValueError("'%s' could not be found in the experiment_map table" % coinc_event_id)
 		return experiment_summ_ids
 
 
@@ -1508,7 +1537,10 @@ class SnglRingdownTable(table.Table):
 		"num_clust_trigs": "int_4s",
 		"ds2_H1H2": "real_4",
 		"ds2_H1L1": "real_4",
+		"ds2_H1V1": "real_4",
 		"ds2_H2L1": "real_4",
+		"ds2_H2V1": "real_4",
+		"ds2_L1V1": "real_4",
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"eff_dist": "real_4",
@@ -1517,8 +1549,10 @@ class SnglRingdownTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = SnglRingdownID(0)
-	interncolumns = ("process_id", "ifo", "search", "channel")
+	interncolumns = ("process_id", "ifo", "channel")
 
+	def get_start(self):
+		return [row.get_start() for row in self]
 
 class SnglRingdown(object):
 	__slots__ = SnglRingdownTable.validcolumns.keys()
@@ -1529,9 +1563,18 @@ class SnglRingdown(object):
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_id_parts(self):
+		"""
+		Return the three pieces of the int_8s-style event_id.
+		"""
+		int_event_id = int(self.event_id)
+		a = int_event_id // 1000000000
+		slidenum = (int_event_id % 1000000000) // 100000
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
+
 
 SnglRingdownTable.RowType = SnglRingdown
-
 
 #
 # =============================================================================
@@ -1551,10 +1594,16 @@ class CoincRingdownTable(table.Table):
 		"start_time_ns": "int_4s",
 		"frequency": "real_8",
 		"quality": "real_8",
+		"mass": "real_8",
+		"spin": "real_8",
 		"snr": "real_8",
-		"false_alarm_rate": "real_8"
+		"eff_coh_snr": "real_8",
+		"null_stat": "real_8",
+		"kappa": "real_8",
+		"false_alarm_rate": "real_8",
+		"combined_far": "real_8"
 	}
-	constraints = "PRIMARY KEY (coinc_event_id)"
+	# constraints = "PRIMARY KEY (coinc_event_id)"
 	how_to_index = {
 		"cr_cei_index": ("coinc_event_id",)
 	}
@@ -2180,6 +2229,8 @@ class SimRingdownTable(table.Table):
 		"h_start_time_ns": "int_4s",
 		"l_start_time": "int_4s",
 		"l_start_time_ns": "int_4s",
+		"v_start_time": "int_4s",
+		"v_start_time_ns": "int_4s",
 		"start_time_gmst": "real_8",
 		"longitude": "real_4",
 		"latitude": "real_4",
@@ -2195,9 +2246,11 @@ class SimRingdownTable(table.Table):
 		"amplitude": "real_4",
 		"eff_dist_h": "real_4",
 		"eff_dist_l": "real_4",
+		"eff_dist_v": "real_4",
 		"hrss": "real_4",
 		"hrss_h": "real_4",
 		"hrss_l": "real_4",
+		"hrss_v": "real_4",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
@@ -2663,7 +2716,7 @@ class TimeSlideTable(table.Table):
 			if row.time_slide_id not in d:
 				d[row.time_slide_id] = offsetvector.offsetvector()
 			if row.instrument in d[row.time_slide_id]:
-				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
+				raise KeyError("'%s': duplicate instrument '%s'" % (row.time_slide_id, row.instrument))
 			d[row.time_slide_id][row.instrument] = row.offset
 		return d
 
@@ -2715,14 +2768,14 @@ class TimeSlideTable(table.Table):
 				# and that's OK
 				return ids[0]
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		if len(ids) == 1:
 			# found one
 			return ids[0]
 		# offset vector not found in table
 		if create_new is None:
 			# and that's not OK
-			raise KeyError, offsetdict
+			raise KeyError(offsetdict)
 		# that's OK, create new vector
 		id = self.get_next_id()
 		for instrument, offset in offsetdict.items():
@@ -2785,13 +2838,13 @@ class CoincDefTable(table.Table):
 		# look for the ID
 		rows = [row for row in self if (row.search, row.search_coinc_type) == (search, search_coinc_type)]
 		if len(rows) > 1:
-			raise ValueError, "(search, search coincidence type) = (\"%s\", %d) is not unique" % (search, search_coinc_type)
+			raise ValueError("(search, search coincidence type) = ('%s', %d) is not unique" % (search, search_coinc_type))
 		if len(rows) > 0:
 			return rows[0].coinc_def_id
 
 		# coinc type not found in table
 		if not create_new:
-			raise KeyError, (search, search_coinc_type)
+			raise KeyError((search, search_coinc_type))
 		row = self.RowType()
 		row.coinc_def_id = self.get_next_id()
 		row.search = search
@@ -3132,18 +3185,34 @@ TableByName = {
 
 
 #
-# Override portions of the ligolw.LIGOLWContentHandler class
+# Override portions of the ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-__parent_startTable = ligolw.LIGOLWContentHandler.startTable
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the Table
+	class defined in this module when parsing XML documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import lsctables
+	>>> lsctables.use_in(MyContentHandler)
+	"""
+	table.use_in(ContentHandler)
+
+	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+		name = table.StripTableName(attrs[u"Name"])
+		if name in TableByName:
+			return TableByName[name](attrs)
+		return __parent_startTable(self, attrs)
+
+	ContentHandler.startTable = startTable
 
 
-def startTable(self, attrs):
-	name = table.StripTableName(attrs[u"Name"])
-	if name in TableByName:
-		return TableByName[name](attrs)
-	return __parent_startTable(self, attrs)
-
-
-ligolw.LIGOLWContentHandler.startTable = startTable
+use_in(ligolw.DefaultLIGOLWContentHandler)

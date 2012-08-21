@@ -17,21 +17,18 @@
 *  MA  02111-1307  USA
 */
 
-/**** <lalVerbatim file="LALGSLTestCV">
- * Author: Creighton, J. D. E.
- * $Id$
- **** </lalVerbatim> */
+/**
+ * \file
+ * \ingroup LALGSL_h
+ * \author Creighton, J. D. E.
 
-/* <lalLaTeX>
-\subsection{Program \texttt{LALGSLTest.c}}
-\label{ss:LALGSLTest.c}
+ This program tests the LAL macros for GSL function calls.  It makes sure
+ that a nominal status is returned if the GSL function succeeds, and that
+ an error code is returned if the GSL function fails.
 
-This program tests the LAL macros for GSL function calls.  It makes sure
-that a nominal status is returned if the GSL function succeeds, and that
-an error code is returned if the GSL function fails.
+*/
 
-\vfill{\footnotesize\input{LALGSLTestCV}}
-</lalLaTeX> */
+/** \cond DONT_DOXYGEN */
 
 #include <math.h>
 #include <stdio.h>
@@ -42,8 +39,6 @@ an error code is returned if the GSL function fails.
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_errno.h>
-
-NRCSID( LALGSLTESTC, "$Id$" );
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -86,7 +81,7 @@ static void ClearStatus( LALStatus *status )
 /* call the GSL log routine to test the GSL macros */
 static void Logarithm( LALStatus *status, REAL8 *output, REAL8 input )
 {
-  INITSTATUS( status, "Logarithm", LALGSLTESTC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   CALLGSL( *output = gsl_sf_log( input ), status );
@@ -138,7 +133,7 @@ static void Integral( LALStatus *status, REAL8 *y, REAL8 a, REAL8 b, REAL8 eps )
   gsl_integration_workspace *work = NULL;
   gsl_function F;
   REAL8  err;
-  INITSTATUS( status, "Integral", LALGSLTESTC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   F.function = &Heaviside;
@@ -216,3 +211,5 @@ int main( void )
 
   return 0;
 }
+
+/** \endcond */

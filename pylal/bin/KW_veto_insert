@@ -158,7 +158,8 @@ try:
           tmpSegFile = os.path.join(opts.scratch_dir, "tmp_%s_%s_%s_%s.segs"%(params['channel'],candidateData[0],params['start_time'],params['end_time']))
           gpsNow = int(os.popen('tconvert now').readline())
 
-          cmd = "ligolw_segment_query --database --query-segments --include-segments %s --gps-start-time 0 --gps-end-time %d --output-file %s"%(flag,gpsNow,tmpSegFile)
+          cmd = "ligolw_segment_query --segment-url %s --query-segments --include-segments %s --gps-start-time 0 --gps-end-time %d --output-file %s"%(opts.segment_url,flag,gpsNow,tmpSegFile)
+          print >> sys.stderr, cmd
           exit = os.system(cmd)
           if exit > 0:
             print >> sys.stderr, "failed:\n %s"%cmd
@@ -195,7 +196,7 @@ try:
               operation = "--insert"
               version = max_version + 1
 
-          explain = "Used Percentage Veto derived segments from Kline Welle running on %s; threshold %s"%(params['channel'],candidateData[0])
+          explain = "Used Percentage Veto derived segments from Kleine Welle running on %s; threshold %s"%(params['channel'],candidateData[0])
 
           # store information necessary to constract veto definer file
           channel_info[params['channel']] =\
@@ -245,32 +246,32 @@ try:
       # erase temporal database
       if globals().has_key('working_filename'):
         db = globals()['working_filename']
-        if opts.verbose:
-          print >> sys.stderr, "removing temporary workspace '%s'..." % db
-        if os.path.isfile(db):
-          os.remove(db)
+#         if opts.verbose:
+#           print >> sys.stderr, "removing temporary workspace '%s'..." % db
+#         if os.path.isfile(db):
+#           os.remove(db)
       # erase tmp segment
       if globals().has_key('tmpSegFile'):
         ts = globals()['tmpSegFile']
-        if opts.verbose:
-          print >> sys.stderr, "tmpSegFile '%s'..." % ts
-        if os.path.isfile(ts):
-          os.remove(ts)
+#         if opts.verbose:
+#           print >> sys.stderr, "tmpSegFile '%s'..." % ts
+#         if os.path.isfile(ts):
+#           os.remove(ts)
       # erase veto segment
       if globals().has_key('seg_file'):
         vs = globals()['seg_file']
-        if opts.verbose:
-          print >> sys.stderr, "removing temporary workspace '%s'..." % vs
-        if os.path.isfile(vs):
-          os.remove(vs)
+#         if opts.verbose:
+#           print >> sys.stderr, "removing temporary workspace '%s'..." % vs
+#         if os.path.isfile(vs):
+#           os.remove(vs)
       
 finally:  
   # erase summary segment
   if globals().has_key("summary_seg"):
     summmary_seg = globals()["summary_seg"]
-    if opts.verbose:
-      print >> sys.stderr, "removing tmp summary file %s..."%summary_seg
-    os.remove(summary_seg)
+#     if opts.verbose:
+#       print >> sys.stderr, "removing tmp summary file %s..."%summary_seg
+#     os.remove(summary_seg)
 
 # create a veto definer file
 

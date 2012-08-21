@@ -1,39 +1,26 @@
-@SWIG_COMMON_MK@
+# this Makefile.am should NOT be modified; all SWIG configuration should
+# be performed in lalsuite_swig.m4, swiglal_common.am, or swiglal_octave.am
+
+CPPFLAGS = $(SWIG_CPPFLAGS)
+CFLAGS = $(SWIG_CFLAGS)
+CXXFLAGS = $(SWIG_CXXFLAGS)
+LDFLAGS = $(SWIG_LDFLAGS)
+LIBS = $(SWIG_LIBS)
+
+TEST_EXTENSIONS = .m
+
+include $(top_srcdir)/swig/octave/swiglal_octave.am
 
 if SWIG_BUILD_OCTAVE
 
-swig_language = octave
-swig_wrapobj = $(swig_wrapname).oct
-
-# start from scratch if build script changes
-$(swig_wrapobj) : $(srcdir)/mkoct.m
-
-# build SWIG wrapping code
-$(swig_wrapobj) :
-	$(OCTAVE) $(srcdir)/mkoct.m
-
-# test SWIG wrapping module
-check .PHONY : check-swig
-check-swig : $(swig_wrapobj)
-	test -f $(swig_wrapcheck).m && \
-	$(swig_ldlibpath) \
-	OCTAVE_PATH="$${PWD}:$${OCTAVE_PATH}" \
-	$(OCTAVE) $(swig_wrapcheck).m
-
-# install SWIG wrapping module
-install-exec-local :
-	$(MKDIR_P) $(octfiledir)
-	$(INSTALL) $(swig_wrapobj) $(octfiledir)
-
-# uninstall SWIG wrapping module
-uninstall-local :
-	rm -f $(octfiledir)/$(swig_wrapobj)
-
-# cleanup
-CLEANFILES = $(swig_cleanfiles) \
-             $(swig_wrapname).o \
-             $(swig_wrapobj)
-
-EXTRA_DIST = mkoct.m
+octexec_LTLIBRARIES = lal.la
+lal_la_SOURCES = $(swig_lt_sources)
+nodist_lal_la_SOURCES = $(swig_lt_nodist_sources)
+lal_la_CPPFLAGS = $(swig_lt_cppflags)
+lal_la_CFLAGS = $(swig_lt_cflags)
+lal_la_CXXFLAGS = $(swig_lt_cxxflags)
+lal_la_LDFLAGS = $(swig_lt_ldflags)
+lal_la_LIBADD = $(swig_lt_libadd)
+lal_la_LIBTOOLFLAGS = $(swig_lt_libtoolflags)
 
 endif # SWIG_BUILD_OCTAVE

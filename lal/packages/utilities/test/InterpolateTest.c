@@ -17,49 +17,32 @@
 *  MA  02111-1307  USA
 */
 
-#if 0 /* autodoc block */
+/**
+   \file
+   \ingroup Interpolate_h
 
-<lalVerbatim file="InterpolateTestCV">
-$Id$
-</lalVerbatim>
+   \brief Tests the routines in \ref Interpolate.h.
 
-<lalLaTeX>
-
-\subsection{Program \texttt{InterpolateTest.c}}
-\label{ss:InterpolateTest.c}
-
-Tests the routines in \verb+Interpolate.h+.
-
-\subsection*{Usage}
-\begin{verbatim}
+\heading{Usage}
+\code
 InterpolateTest [options]
 Options:
   -h         print this message
   -q         quiet: run silently
   -v         verbose: print extra information
   -d level   set lalDebugLevel to level
-\end{verbatim}
+\endcode
 
-\subsubsection*{Description}
-\subsubsection*{Exit codes}
-\begin{tabular}{|c|l|}
-\hline
- Code & Explanation                   \\
-\hline
-\tt 0 & Success, normal exit.         \\
-\tt 1 & Subroutine failed.            \\
-\hline
-\end{tabular}
+\heading{Exit codes}
 
-\subsubsection*{Uses}
-\subsubsection*{Notes}
+<table><tr><th>Code</th><th>Explanation</th></tr>
+<tr><td>0</td><td>Success, normal exit.</td></tr>
+<tr><td>1</td><td>Subroutine failed.</td></tr>
+</table>
 
-\vfill{\footnotesize\input{InterpolateTestCV}}
+*/
 
-</lalLaTeX>
-
-#endif /* autodoc block */
-
+/** \cond DONT_DOXYGEN */
 
 #include <stdio.h>
 #include <string.h>
@@ -82,8 +65,6 @@ Options:
 
 #define CODES_(x) #x
 #define CODES(x) CODES_(x)
-
-NRCSID (MAIN, "$Id$");
 
 extern char *optarg;
 extern int   optind;
@@ -391,6 +372,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -412,8 +395,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':
@@ -433,5 +426,4 @@ ParseOptions (int argc, char *argv[])
 
   return;
 }
-
-
+/** \endcond */

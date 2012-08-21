@@ -17,10 +17,7 @@
 *  MA  02111-1307  USA
 */
 
-#include <lal/FFTWMutex.h>
-
-#include <lal/LALRCSID.h>
-NRCSID (FFTWMUTEXC,"$Id$");
+#include "FFTWMutex.h"
 
 #ifdef LAL_PTHREAD_LOCK
 pthread_mutex_t lalFFTWMutex = PTHREAD_MUTEX_INITIALIZER;

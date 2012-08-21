@@ -28,9 +28,6 @@
 #include <lal/LALCorrelation.h>
 #include <math.h>
 
-/* ****** DEFINE RCS ID STRING ************/
-NRCSID( LALCORRELATIONC, "$Id$" );
-
 /* ****** DEFINE LOCAL CONSTANTS AND MACROS ************/
 
 /* ****** DECLARE LOCAL (static) FUNCTIONS ************/
@@ -45,9 +42,8 @@ static REAL4 findCrossProduct( REAL4 data1[], REAL4 mean1, REAL4 data2[], REAL4 
 
 /* ****** DEFINE GLOBAL FUNCTIONS ************/
 
-/** \ingroup LALCorrelation_h
-\author Yakushin, Igor
-\brief LALCorrelation() is designed to compute a time shifted correlation between two time series given in <tt>input->one</tt> and <tt>input->two</tt>.
+/** \brief LALCorrelation() is designed to compute a time shifted correlation between two time series given in <tt>input-\>one</tt> and <tt>input-\>two</tt>.
+    \author Yakushin, Igor
 
 The maximum time shift in nanoseconds is given in <tt>params->maxTimeShiftNan</tt>. The output consists of a correlation for each
 time shift in the range <tt>out->timeShiftedCorrelation</tt>, maximum and minimum values of correlations and corresponding time shifts.
@@ -62,7 +58,7 @@ that seems to be too computationally expensive.
 \heading{Algorithm}
 
 Just a straightforward computation of correlation for different time shifts. This computation is applied to time series of the length
-\f$originalLength - maxShift\f$.
+<tt>originalLength - maxShift</tt>.
 
 \heading{Notes}
 
@@ -86,7 +82,7 @@ LALCorrelation( LALStatus                      *status,
   REAL4 *data1, *data2;
   OutputCorrelation *output;
 
-  INITSTATUS( status, "LALCorrelation", LALCORRELATIONC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* ****** CHECK VALIDITY OF ARGUMENTS; for example ************/

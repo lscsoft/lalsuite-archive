@@ -17,10 +17,9 @@
 *  MA  02111-1307  USA
 */
 
-/**
- * \author Brown, D. A.
+/** \ingroup ResampleTimeSeries_h
  * \file
- * \ingroup ResampleTimeSeries_h
+ * \author Brown, D. A.
  *
  * \brief Tests the routines in \ref ResampleTimeSeries.h
  *
@@ -102,8 +101,6 @@
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #endif
-
-NRCSID (MAIN, "$Id$");
 
 extern char *optarg;
 extern int   optind;

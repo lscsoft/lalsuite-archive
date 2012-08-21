@@ -23,7 +23,6 @@
  *
  * Author: Keppel, D. G., Jones, G. W.
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  */
@@ -41,6 +40,7 @@
 #include <time.h>
 #include <math.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
@@ -83,8 +83,6 @@
 #include <lal/LALFrameL.h>
 
 #include <LALAppsVCSInfo.h>
-
-RCSID( "$Id$" );
 
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
@@ -1430,10 +1428,6 @@ int main( int argc, char *argv[] )
 
   /*check for memory leaks */
   LALCheckMemoryLeaks(); 
-
-  /*print a success message to stdout for parsing by exitcode */
-  fprintf( stdout, "\n%s: EXITCODE0\n", argv[0] );
-  fflush( stdout );
 
   exit( 0 ); 
 }

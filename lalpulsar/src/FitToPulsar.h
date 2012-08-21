@@ -32,7 +32,7 @@ non-precessing pulsar.
 
 The model to be fitted to the data after \c LALFineHeterodyneToPulsar has been applied is
 \f{equation}{
-y(t;\textrm{\c a}) = F_{+}(t;\psi)h_{0} (1 + \cos^{2}\iota)e^{i2\phi_{0}} - 2iF_{\times}(t;\psi) h_{0} \cos\iota e^{i2\phi_{0}}
+y(t;\mathrm{a}) = F_{+}(t;\psi)h_{0} (1 + \cos^{2}\iota)e^{i2\phi_{0}} - 2iF_{\times}(t;\psi) h_{0} \cos\iota e^{i2\phi_{0}}
 \f}
 
 
@@ -40,7 +40,7 @@ The reduced set of data points is fitted to this model by minimizing
  \f$\chi^2\f$ over \f$h_{0}\f$, \f$\phi_{0}\f$, \f$\iota\f$, and \f$\psi\f$.
 
 \f{equation}{
-\chi^2(\textrm{\c a}) = \sum_{k}\left|\frac{B_{k} - y(t;\textrm{\c a})}{\sigma_{k}^{2}}\right|^2
+\chi^2(\mathrm{a}) = \sum_{k}\left|\frac{B_{k} - y(t;\mathrm{a})}{\sigma_{k}^{2}}\right|^2
 \f}
 
 The minimization of \f$\chi^2\f$ is done in two steps <tt>LALCoarseFitToPulsar()</tt> and <tt>LALFineFitToPulsar()</tt>.
@@ -91,11 +91,6 @@ This structure stores the parameters for the coarse fit.
 #ifndef _FITTOPULSAR_H
 #define _FITTOPULSAR_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 /******* INCLUDE ANY OTHER LAL HEADERS needed for header (NOT module) ****/
 
@@ -116,8 +111,6 @@ This structure stores the parameters for the coarse fit.
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-NRCSID (FITTOPULSARH, "$Id$");
 
 /**\name Error Codes */ /*@{*/
 #define FITTOPULSARH_ENULLINPUT 1
@@ -146,7 +139,6 @@ NRCSID (FITTOPULSARH, "$Id$");
 typedef struct
 tagCoarseFitInput
 {
-  SWIGLAL_STRUCT_LALALLOC();
   COMPLEX16Vector *B;     /* heterodyned, averaged and resampled data */
   COMPLEX16Vector *var;   /* variance of the rFactor points that were averaged */
   LIGOTimeGPS *t;        /* time stamp for each data point (not necessarily with equal time steps)*/
@@ -156,7 +148,6 @@ tagCoarseFitInput
 typedef struct
 tagCoarseFitOutput
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 h0;              /* best fit h0 */
   REAL8	eh0[3];		 /* standard error for h0, min standard error, max standard error */
   REAL8 cosIota;         /* best fit cosIota */
@@ -169,7 +160,6 @@ tagCoarseFitOutput
 typedef struct
 tagCoarseFitParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 meshH0[3];	  /* min h0, delta h0, number of steps */
   REAL8 meshCosIota[3];   /* min cosIota, delta cosIota, number of steps */
   REAL8 meshPhase[3];     /* min phase, delta phase, number of steps */

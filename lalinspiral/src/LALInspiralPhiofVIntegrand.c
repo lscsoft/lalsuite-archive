@@ -48,9 +48,6 @@ and pointed to the appropriate PN functions with a call to <tt>XLALInspiralChoos
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
 
-NRCSID (LALINSPIRALPHIOFVINTEGRANDC, "$Id$");
-
-
 void
 LALInspiralPhiofVIntegrand (
    LALStatus  *status,
@@ -61,7 +58,7 @@ LALInspiralPhiofVIntegrand (
 {
   XLALPrintDeprecationWarning("LALInspiralPhiofVIntegrand", "XLALInspiralPhiofVIntegrand");
 
-  INITSTATUS (status, "LALInspiralPhiofVIntegrand", LALINSPIRALPHIOFVINTEGRANDC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT (integrand, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -86,11 +83,11 @@ XLALInspiralPhiofVIntegrand (
   PhiofVIntegrandIn *in;
 
   if (params == NULL)
-    XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+    XLAL_ERROR_REAL8(XLAL_EFAULT);
   if (v <= 0.)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
   if (v >= 1.)
-    XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
 
   in = (PhiofVIntegrandIn *) params;
 

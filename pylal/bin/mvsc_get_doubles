@@ -250,7 +250,7 @@ if len(allinjections) != 0:
 	f_zerolag.write(parameters + "\n")
 	for row in zerolag:
 		f_zerolag.write("%s\n" % " ".join(map(str,row)))
-	f_zerolag_info=open(''.join(ifos) + '_' + str(zlstr) + '_info.pat', 'w')
+	f_zerolag_info=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(zlstr) + '_info.pat', 'w')
 	for row in zerolag_info:
 		f_zerolag_info.write("%s\n" % " ".join(map(str,row)))
 else: print "There were no injections found for the specified ifo combination %s" % ifos

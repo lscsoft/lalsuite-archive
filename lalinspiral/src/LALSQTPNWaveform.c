@@ -9,8 +9,6 @@
 #include <lal/LALSQTPNIntegrator.h>
 #include <lal/LALSQTPNWaveformInterface.h>
 
-NRCSID (LALSQTPNWAVEFORMC, "$Id LALSQTPN_Waveform.c$");
-
 /**		The macro function calculates the scalar product of two vectors.
  * @param[in]  a1	: the left vector
  * @param[in]  a2	: the right vector
@@ -78,7 +76,7 @@ int XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 				+ etaPow2 * 59. / 18.;
 			params->coeff.domegaSSselfConst = 0.;
 			params->coeff.domegaQMConst = 0.;
-			if ((params->spinInteraction & LAL_SSInter) == LAL_SSInter) {
+			if ((params->interaction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
 				params->coeff.dchihSS[0] = spin_MPow2[1] / 2.;
 				params->coeff.dchihSS[1] = spin_MPow2[0] / 2.;
 				params->coeff.domegaSS[0] = 721. * params->eta
@@ -89,7 +87,7 @@ int XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 				params->coeff.mecoSS = -spin_MPow2[0] 
 					* spin_MPow2[1];
 			}
-			if ((params->spinInteraction & LAL_SSselfInter) == LAL_SSselfInter) {
+			if ((params->interaction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) == LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) {
 				for (i = 0; i < 2; i++) {
 					params->coeff.domegaSSself[i] 
 						= -spin_MPow2[i] 
@@ -98,7 +96,7 @@ int XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 						* params->coeff.domegaSSself[i];
 				}
 			}
-			if ((params->spinInteraction & LAL_QMInter) == LAL_QMInter) {
+			if ((params->interaction & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) == LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) {
 				for (i = 0; i < 2; i++) {
 					params->coeff.domegaQM[i] 
 						= spin_MPow2[i] 
@@ -119,7 +117,7 @@ int XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 		case LAL_PNORDER_ONE_POINT_FIVE:
 			params->coeff.domega[LAL_PNORDER_ONE_POINT_FIVE] 
 				= 4. * LAL_PI;
-			if (params->spinInteraction != 0) {
+			if (params->interaction != 0) {
 				for (i = 0; i < 2; i++) {
 					params->coeff.dchihSO[i] = (4. + 3. 
 						* m_m[i]) * params->eta / 2.;
@@ -145,7 +143,7 @@ int XLALSQTPNFillCoefficients(LALSQTPNWaveformParams * const params) {
 			params->coeff.domega[LAL_PNORDER_NEWTONIAN] = 1.;
 			break;
 		default:
-			XLAL_ERROR(__func__, XLAL_EINVAL);
+			XLAL_ERROR(XLAL_EINVAL);
 			break;
 	}
 
@@ -203,8 +201,8 @@ int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[],
 					* omegaPowi_3[LAL_PNORDER_THREE];
 		case LAL_PNORDER_TWO_POINT_FIVE:
 		case LAL_PNORDER_TWO:
-			if ((params->spinInteraction & LAL_SSInter) 
-					== LAL_SSInter) {
+			if ((params->interaction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) 
+					== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN) {
 				// SS for domega
 				SS_Omega = params->coeff.domegaSS[0] 
 					* LNhchih[0] * LNhchih[1]
@@ -233,8 +231,8 @@ int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[],
 					}
 				}
 			}
-			if ((params->spinInteraction & LAL_SSselfInter) 
-					== LAL_SSselfInter) {
+			if ((params->interaction & LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) 
+					== LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN) {
 				// SSself for domega
 				SSself_Omega = params->coeff.domegaSSselfConst;
 				for (i = 0; i < 2; i++) {
@@ -243,8 +241,8 @@ int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[],
 						* SQT_SQR(LNhchih[i]);
 				}
 			}
-			if ((params->spinInteraction & LAL_QMInter) 
-					== LAL_QMInter) {
+			if ((params->interaction & LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) 
+					== LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN) {
 				QM_Omega = params->coeff.domegaQMConst;
 				for (i = 0; i < 2; i++) {
 					QM_Omega += params->coeff.domegaQM[i] 
@@ -269,7 +267,7 @@ int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[],
 			dvalues[LALSQTPN_OMEGA] += (QM_Omega + SSself_Omega 
 				+ SS_Omega) * omegaPowi_3[LAL_PNORDER_TWO];
 		case LAL_PNORDER_ONE_POINT_FIVE:
-			if (params->spinInteraction != 0) {
+			if (params->interaction != 0) {
 				// SO for domega and MECO
 				for (i = 0; i < 2; i++) {
 					dvalues[LALSQTPN_OMEGA] 
@@ -319,7 +317,7 @@ int XLALSQTPNDerivator(REAL8 t, const REAL8 values[], REAL8 dvalues[],
 // LAL wrapper to XLAL Generator function
 void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 	XLALPrintDeprecationWarning("LALSQTPNGenerator", "XLALSQTPNGenerator");
-	INITSTATUS(status, "LALSQTPNGenerator", LALSQTPNWAVEFORMC);
+	INITSTATUS(status);
 	ATTATCHSTATUSPTR(status);
 
 	if(XLALSQTPNGenerator(waveform, params))
@@ -332,7 +330,7 @@ void LALSQTPNGenerator(LALStatus *status, LALSQTPNWave *waveform, LALSQTPNWavefo
 int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 
 	if( !params || !waveform )
-		XLAL_ERROR(__func__, XLAL_EFAULT);
+		XLAL_ERROR(XLAL_EFAULT);
 
 	// variable declaration and initialization
 	UINT4 i = 0; // index
@@ -347,7 +345,7 @@ int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 	xlalErrno = 0;
 	if( XLALSQTPNIntegratorInit(&integrator, LALSQTPN_NUM_OF_VAR, 
 			params, XLALSQTPNDerivator) )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 
 	// initializing the dynamic variables
 	values[LALSQTPN_PHASE] = params->phi;
@@ -364,9 +362,9 @@ int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 	// filling the LALSQTPNCoefficients
 	xlalErrno = 0;
 	if( XLALSQTPNFillCoefficients(params) )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 	if( XLALSQTPNDerivator(time, values, dvalues, params) )
-		XLAL_ERROR(__func__, XLAL_EFUNC);
+		XLAL_ERROR(XLAL_EFUNC);
 	dvalues[LALSQTPN_MECO] = -1.; // to be able to start the loop
 	i = 0;
 	do {
@@ -412,7 +410,7 @@ int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 		time = i++ * params->samplingTime;
 		xlalErrno = 0;
 		if(XLALSQTPNIntegratorFunc(values, &integrator, step)) {
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		}
 		// if one of the variables is nan, the PN approximation broke down
 		if (isnan(values[LALSQTPN_PHASE]) 
@@ -429,13 +427,13 @@ int XLALSQTPNGenerator(LALSQTPNWave *waveform, LALSQTPNWaveformParams *params) {
 			break;
 		}
 		if( XLALSQTPNDerivator(time, values, dvalues, params) )
-			XLAL_ERROR(__func__, XLAL_EFUNC);
+			XLAL_ERROR(XLAL_EFUNC);
 		if ((waveform->waveform && 
 				i == waveform->waveform->f->data->length) ||
 				(waveform->hp && i == waveform->hp->length) ||
 				(waveform->hc && i == waveform->hc->length)) {
 			XLALSQTPNIntegratorFree(&integrator);
-			XLAL_ERROR(__func__, XLAL_EBADLEN);
+			XLAL_ERROR(XLAL_EBADLEN);
 		}
 	} while (dvalues[LALSQTPN_MECO] < 0. && dvalues[LALSQTPN_OMEGA] > 0.0 
 			&& SQT_SQR(values[LALSQTPN_LNH_3]) < 1. - LNhztol 

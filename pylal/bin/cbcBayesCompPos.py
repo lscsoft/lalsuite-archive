@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#       cbcBayesCompPos.py
-#       Copyright 2010 Benjamin Aylott <benjamin.aylott@ligo.org>
+#       cbcBayesCompPos.py Copyright 2010--2012 Benjamin Aylott
+#       <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -49,12 +49,24 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb']
 #List of parameter pairs to bin . Need to match (converted) column names.
-twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)']]
+twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota']]
 #Bin size/resolution for binning. Need to match (converted) column names.
 
-greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01}
+#Convert parameter names to LaTeX; if not mentioned here, just use parameter name.
+paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchirp' : r'\mathcal{M}',
+                     'mc': r'\mathcal{M}', 'distance' : 'd', 'distMPC' : 'd', 'dist': 'd',
+                     'iota': r'\iota', 'psi': '\psi', 'eta': '\eta', 'asym_massratio': 'q', 'a1': 'a_1',
+                     'a2': 'a_2', 'phi1': r'\phi_1', 'phi2': r'\phi_2', 'theta1': r'\theta_1', 'theta2': r'\theta_2',
+                     'cos(tilt1)': r'\cos t_1', 'cos(tilt2)': r'\cos t_2', 'cos(thetas)': r'\cos \theta_s',
+                     'cosbeta': r'\cos \beta', 'phi_orb': r'\phi_{\rm orb}', 'cos(beta)': r'\cos \beta',
+                     'cos(iota)': r'\cos \iota', 'tilt1': r't_1', 'tilt2': r't_2', 'ra': r'\alpha', 'dec': r'\delta'}
+
+# Only these parameters, in this order appear in confidence level table.
+clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
+
+greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'chirpmass':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2}
 
 #Confidence levels
 OneDconfidenceLevels=[0.9]
@@ -62,8 +74,8 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
-twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)']
+twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota']]
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb']
 
 def open_url(url,username,password):
 
@@ -148,13 +160,16 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(10,8),dpi=150)
+    myfig=plt.figure(figsize=(6,4),dpi=150)
 
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
-    min_pos=np.min(list_of_pos[0][param].samples)
-    max_pos=np.max(list_of_pos[0][param].samples)
+    allmins=map(lambda a: np.min(a[param].samples), list_of_pos)
+    allmaxes=map(lambda a: np.max(a[param].samples), list_of_pos)
+    min_pos=np.min(allmins)
+    max_pos=np.max(allmaxes)
+    print 'Found global min: %f, max: %f'%(min_pos,max_pos)
 
     gkdes={}
     injvals=[]
@@ -187,8 +202,9 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
         plt.grid()
         plt.legend()
         plt.xlabel(param)
+        plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
-
+        #plt.tight_layout()
         if injvals:
             print "Injection parameter is %f"%(float(injvals[0]))
             injpar=injvals[0]
@@ -196,7 +212,6 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
                 plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
 
     #
-
     return myfig#,rkde
 #
 def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
@@ -215,10 +230,15 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(18,12),dpi=300)
+    myfig=plt.figure(figsize=(6,4),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
+
+    allmins=map(lambda a: np.min(a[param].samples), list_of_pos)
+    allmaxes=map(lambda a: np.max(a[param].samples), list_of_pos)
+    min_pos=np.min(allmins)
+    max_pos=np.max(allmaxes)
 
     injvals=[]
 
@@ -242,8 +262,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
         patch_list.append(patches[0])
 
-
-
+    plt.xlim(min_pos,max_pos)
     top_cl_intervals_list={}
     pos_names=list_of_pos_by_name.keys()
 
@@ -265,14 +284,14 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         patch_list.append(mpl.lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),linestyle='--',color='black'))
 
     plt.grid()
-
+    plt.xlim(min_pos,max_pos)
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
     plt.xlabel(param)
     plt.ylabel('Probability density')
     plt.draw()
-
+    #plt.tight_layout()
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
@@ -280,7 +299,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
-
+    
     return myfig,top_cl_intervals_list#,rkde
 
 #
@@ -299,13 +318,17 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(18,12),dpi=300)
+    myfig=plt.figure(figsize=(6,4),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
     injvals=[]
-
+    allmins=map(lambda a: np.min(a[param].samples), list_of_pos)
+    allmaxes=map(lambda a: np.max(a[param].samples), list_of_pos)
+    min_pos=np.min(allmins)
+    max_pos=np.max(allmaxes)
+ 
     patch_list=[]
     max_y=1.
 
@@ -345,14 +368,15 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
         patch_list.append(mpl.lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),linestyle='--',color='black'))
 
     plt.grid()
-
+    plt.xlim(min_pos,max_pos)
+    plt.ylim(0,1)
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
     plt.xlabel(param)
     plt.ylabel('Probability density')
     plt.draw()
-
+    #plt.tight_layout()
     if injvals:
         print "Injection parameter is %f"%(float(injvals[0]))
         injpar=injvals[0]
@@ -362,7 +386,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(7,6),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(6,4),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
     injection=None
 
@@ -437,6 +461,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'distance','dist')
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
+        test_and_switch_param(common_output_table_header,'asym_massratio','q')
         test_and_switch_param(common_output_table_header,'RA','ra')
         test_and_switch_param(common_output_table_header,'rightascension','ra')
         test_and_switch_param(common_output_table_header,'declination','dec')
@@ -454,6 +479,14 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             except:
                 pass
 
+
+        # try:
+        #     print "Converting phi_orb-> 2phi_orb"
+        #     idx=common_output_table_header.index('phi_orb')
+        #     common_output_table_header[idx]='2phi_orb'
+        #     common_output_table_raw[:,idx]= 2*common_output_table_raw[:,idx]
+        # except:
+        #     pass
 
         try:
             print "Converting iota-> cos(iota)"
@@ -540,6 +573,10 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    pdfdir=os.path.join(outdir,'pdfs')
+    if not os.path.exists(pdfdir):
+        os.makedirs(pdfdir)
+
     greedy2savepaths=[]
 
     if common_params is not [] and common_params is not None: #If there are common parameters....
@@ -551,7 +588,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            my_cm=mpl_cm.jet
+            my_cm=mpl_cm.spectral
             cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
@@ -571,6 +608,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 if pplst_cond or rpplst_cond:#If this pair of parameters is in the plotting list...
 
                     try:
+                        print '2d plots: building ',i,j
                         greedy2Params={i:greedyBinSizes[i],j:greedyBinSizes[j]}
                     except KeyError:
                         continue
@@ -584,10 +622,12 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
+                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])))
 
 
             plt.clf()
         oned_data={}
+        confidence_levels={}
         for param in common_params:
             print "Plotting comparison for '%s'"%param
 
@@ -602,13 +642,24 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
 
+                # Save confidence levels
+                confidence_levels[param]=[]
+                for name,pos in pos_list.items():
+                    median=pos[param].median
+                    low,high=cl_intervals[name]
+                    confidence_levels[param].append((name,low,median,high))
+
                 save_path=''
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
+                    save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
                     hist_fig.savefig(save_path)
+                    hist_fig.savefig(save_path_pdf)
                     save_paths.append(save_path)
                     save_path=os.path.join(outdir,'%s_%i_cum.png'%(param,int(100*confidence_level)))
+                    save_path_pdf=os.path.join(pdfdir,'%s_%i_cum.pdf'%(param,int(100*confidence_level)))
                     hist_fig2.savefig(save_path)
+                    hist_fig2.savefig(save_path_pdf)
                     save_paths.append(save_path)
                 min_low,max_high=cl_intervals.values()[0]
                 for name,interval in cl_intervals.items():
@@ -633,8 +684,46 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
 
 
-    return greedy2savepaths,oned_data
+    return greedy2savepaths,oned_data,confidence_levels
 
+def output_confidence_levels_tex(clevels,outpath):
+    """Outputs a LaTeX table of parameter and run medians and confidence levels."""
+    params=clevels.keys()
+
+    clevels_by_name={}
+    for param in clTableParams:
+        if param in params:
+            for name,low,med,high in clevels[param]:
+                if name in clevels_by_name:
+                    clevels_by_name[name].append((param,low,med,high))
+                else:
+                    clevels_by_name[name] = [(param,low,med,high)]
+
+    outfile=open(os.path.join(outpath,'confidence_table.tex'), 'w')
+    try:
+        outfile.write(r'\begin{tabular}{|l||')
+        for param in clTableParams:
+            if param in params:
+                outfile.write('c|')
+        outfile.write('}\n')
+
+        outfile.write(r'\hline ')
+        for param in clTableParams:
+            if param in params:
+                tparam=paramNameLatexMap.get(param,param)
+                outfile.write(r'& $%s$ '%tparam)
+        outfile.write('\\\\ \n \\hline \\hline ')
+
+        for name,levels in clevels_by_name.items():
+            outfile.write(name)
+            for param,low,med,high in levels:
+                outfile.write(r' & $%.3g^{%.3g}_{%.3g}$ '%(med,high,low))
+            outfile.write('\\\\ \n')
+
+        outfile.write('\\hline \n \\end{tabular}')
+    finally:
+        outfile.close()
+            
 if __name__ == '__main__':
     from optparse import OptionParser
     parser=OptionParser()
@@ -676,8 +765,11 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_levels=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
+    ####Print Confidence Levels######
+    output_confidence_levels_tex(confidence_levels,outpath)    
+    
     ####Print HTML!#######
 
     compare_page=bppu.htmlPage('Compare PDFs (single event)',css=bppu.__default_css_string)
@@ -690,6 +782,7 @@ if __name__ == '__main__':
     param_section_write+='</ul></div>'
 
     param_section.write(param_section_write)
+    param_section.write('<div><p><a href="confidence_table.tex">LaTeX table</a> of medians and confidence levels.</p></div>')
     if oned_data:
 
         param_section=compare_page.add_section('1D marginal posteriors')

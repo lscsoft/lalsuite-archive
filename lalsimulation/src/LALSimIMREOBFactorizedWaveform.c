@@ -1,5 +1,5 @@
 /*
-*  Copyright (C) 2010 Craig Robinson 
+*  Copyright (C) 2010 Craig Robinson, Yi Pan
 *
 *  This program is free software; you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 
 /**
- * \author Craig Robinson
+ * \author Craig Robinson, Yi Pan
  *
  * \brief The functions contained within this file pre-compute the various
  * coefficients which are required for calculating the factorized waveform
@@ -30,7 +30,212 @@
  */
 
 #include <math.h>
+#include <lal/LALComplex.h>
 #include "LALSimIMREOBNRv2.h"
+
+/* Include static functions */
+#include "LALSimInspiraldEnergyFlux.c"
+#include "LALSimIMREOBNewtonianMultipole.c" 
+#include "LALSimIMREOBNQCCorrection.c"
+
+#ifndef _LALSIMIMRFACTORIZEDWAVEFORM_C
+#define _LALSIMIMRFACTORIZEDWAVEFORM_C
+
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
+
+static inline REAL8 XLALCalculateA5( REAL8 eta );
+
+static inline REAL8 XLALCalculateA6( REAL8 eta );
+
+static
+REAL8 XLALCalculateEOBD( REAL8    r,
+                         REAL8	eta) UNUSED;
+
+
+/**
+ * Calculates the a5 parameter in the A potential function in EOBNRv2
+ */
+static inline
+REAL8 XLALCalculateA5( const REAL8 eta /**<< Symmetric mass ratio */
+                     )
+{
+  return - 5.82827 - 143.486 * eta + 447.045 * eta * eta;
+}
+
+/**
+ * Calculates the a6 parameter in the A potential function in EOBNRv2
+ */
+static inline
+REAL8 XLALCalculateA6( const REAL8 UNUSED eta /**<< Symmetric mass ratio */
+                     )
+{
+  return 184.0;
+}
+
+
+/**
+ * Function to pre-compute the coefficients in the EOB A potential function
+ */
+UNUSED static
+int XLALCalculateEOBACoefficients(
+          EOBACoefficients * const coeffs, /**<< A coefficients (populated in function) */
+          const REAL8              eta     /**<< Symmetric mass ratio */
+          )
+{
+  REAL8 eta2, eta3;
+  REAL8 a4, a5, a6;
+
+  eta2 = eta*eta;
+  eta3 = eta2 * eta;
+
+  /* Note that the definitions of a5 and a6 DO NOT correspond to those in the paper */
+  /* Therefore we have to multiply the results of our a5 and a6 finctions by eta. */
+
+  a4 = ninty4by3etc * eta;
+  a5 = XLALCalculateA5( eta ) * eta;
+  a6 = XLALCalculateA6( eta ) * eta;
+
+  coeffs->n4 =  -64. + 12.*a4 + 4.*a5 + a6 + 64.*eta - 4.*eta2;
+  coeffs->n5 = 32. -4.*a4 - a5 - 24.*eta;
+  coeffs->d0 = 4.*a4*a4 + 4.*a4*a5 + a5*a5 - a4*a6 + 16.*a6
+             + (32.*a4 + 16.*a5 - 8.*a6) * eta + 4.*a4*eta2 + 32.*eta3;
+  coeffs->d1 = 4.*a4*a4 + a4*a5 + 16.*a5 + 8.*a6 + (32.*a4 - 2.*a6)*eta + 32.*eta2 + 8.*eta3;
+  coeffs->d2 = 16.*a4 + 8.*a5 + 4.*a6 + (8.*a4 + 2.*a5)*eta + 32.*eta2;
+  coeffs->d3 = 8.*a4 + 4.*a5 + 2.*a6 + 32.*eta - 8.*eta2;
+  coeffs->d4 = 4.*a4 + 2.*a5 + a6 + 16.*eta - 4.*eta2;
+  coeffs->d5 = 32. - 4.*a4 - a5 - 24. * eta;
+
+  return XLAL_SUCCESS;
+}
+
+/**
+ * This function calculates the EOB A function which using the pre-computed
+ * coefficients which should already have been calculated.
+ */
+static
+REAL8 XLALCalculateEOBA( const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
+                         EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
+                       )
+{
+
+  REAL8 r2, r3, r4, r5;
+  REAL8 NA, DA;
+
+  /* Note that this function uses pre-computed coefficients,
+   * and assumes they have been calculated. Since this is a static function,
+   * so only used here, I assume it is okay to neglect error checking
+   */
+
+  r2 = r*r;
+  r3 = r2 * r;
+  r4 = r2*r2;
+  r5 = r4*r;
+
+
+  NA = r4 * coeffs->n4
+     + r5 * coeffs->n5;
+
+  DA = coeffs->d0
+     + r  * coeffs->d1
+     + r2 * coeffs->d2
+     + r3 * coeffs->d3
+     + r4 * coeffs->d4
+     + r5 * coeffs->d5;
+
+  return NA/DA;
+}
+
+/**
+ * Calculated the derivative of the EOB A function with respect to 
+ * r, using the pre-computed A coefficients
+ */
+static
+REAL8 XLALCalculateEOBdAdr( const REAL8 r,                     /**<< Orbital separation (in units of total mass M) */
+                            EOBACoefficients * restrict coeffs /**<< Pre-computed coefficients for the A function */
+                          )
+{
+  REAL8 r2, r3, r4, r5;
+
+  REAL8 NA, DA, dNA, dDA, dA;
+
+  r2 = r*r;
+  r3 = r2 * r;
+  r4 = r2*r2;
+  r5 = r4*r;
+
+  NA = r4 * coeffs->n4
+     + r5 * coeffs->n5;
+
+  DA = coeffs->d0
+     + r  * coeffs->d1
+     + r2 * coeffs->d2
+     + r3 * coeffs->d3
+     + r4 * coeffs->d4
+     + r5 * coeffs->d5;
+
+  dNA = 4. * coeffs->n4 * r3
+      + 5. * coeffs->n5 * r4;
+
+  dDA = coeffs->d1
+      + 2. * coeffs->d2 * r
+      + 3. * coeffs->d3 * r2
+      + 4. * coeffs->d4 * r3
+      + 5. * coeffs->d5 * r4;
+
+  dA = dNA * DA - dDA * NA;
+
+  return dA / (DA*DA);
+}
+
+/**
+ * Calculate the EOB D function.
+ */
+static REAL8 XLALCalculateEOBD( REAL8   r, /**<< Orbital separation (in units of total mass M) */
+                         REAL8 eta  /**<< Symmetric mass ratio */
+                       )
+{
+	REAL8  u, u2, u3;
+
+	u = 1./r;
+	u2 = u*u;
+	u3 = u2*u;
+
+	return 1./(1.+6.*eta*u2+2.*eta*(26.-3.*eta)*u3);
+}
+
+
+/**
+ * Function to calculate the EOB effective Hamiltonian for the
+ * given values of the dynamical variables. The coefficients in the
+ * A potential function should already have been computed.
+ * Note that the pr used here is the tortoise co-ordinate.
+ */
+static
+REAL8 XLALEffectiveHamiltonian( const REAL8 eta,          /**<< Symmetric mass ratio */
+                                const REAL8 r,            /**<< Orbital separation */
+                                const REAL8 pr,           /**<< Tortoise co-ordinate */
+                                const REAL8 pp,           /**<< Momentum pphi */
+                                EOBACoefficients *aCoeffs /**<< Pre-computed coefficients in A function */
+                              )
+{
+
+        /* The pr used in here is the tortoise co-ordinate */
+        REAL8 r2, pr2, pp2, z3, eoba;
+
+        r2   = r * r;
+        pr2  = pr * pr;
+        pp2  = pp * pp;
+
+        eoba = XLALCalculateEOBA( r, aCoeffs );
+        z3   = 2. * ( 4. - 3. * eta ) * eta;
+        return sqrt( pr2 + eoba * ( 1.  + pp2/r2 + z3*pr2*pr2/r2 ) );
+}
+
 
 /**
  * Function which calculates the various coefficients used in the generation
@@ -41,7 +246,7 @@
  * using XLALModifyFacWaveformCoefficients(). THe non-spinning parts of these
  * coefficients can be found in Pan et al, arXiv:1106.1021v1 [gr-qc].
  */
-static int XLALSimIMREOBCalcFacWaveformCoefficients(
+UNUSED static int XLALSimIMREOBCalcFacWaveformCoefficients(
           FacWaveformCoeffs * const coeffs, /**<< Structure containing coefficients (populated in function) */
           const REAL8               eta     /**<< Symmetric mass ratio */
           )
@@ -50,15 +255,13 @@ static int XLALSimIMREOBCalcFacWaveformCoefficients(
   REAL8 eta2 = eta*eta;
   REAL8 eta3 = eta2 * eta;
 
-  REAL8 dM, dM2, dM3;
+  REAL8 dM, dM2; //dM3;
 
   REAL8 a = 0;
   REAL8 a2 = 0;
   REAL8 a3 = 0;
   REAL8 chiS = 0;
   REAL8 chiA = 0;
-
-  REAL8 chiAPlusChiSdM;
 
   /* Combination which appears a lot */
   REAL8 m1Plus3eta, m1Plus3eta2, m1Plus3eta3;
@@ -69,13 +272,11 @@ static int XLALSimIMREOBCalcFacWaveformCoefficients(
   if ( dM2 < 0 )
   {
     XLALPrintError( "eta seems to be < 0.25 - this isn't allowed!\n" );
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   dM  = sqrt( dM2 );
-  dM3 = dM2 * dM;
-
-  chiAPlusChiSdM = chiA + chiS*dM;
+  //dM3 = dM2 * dM;
 
   m1Plus3eta  = - 1. + 3.*eta;
   m1Plus3eta2 = m1Plus3eta * m1Plus3eta;
@@ -118,12 +319,14 @@ static int XLALSimIMREOBCalcFacWaveformCoefficients(
     coeffs->delta21vh9 = -272./81. + (214.*LAL_PI*LAL_PI)/315.;
     coeffs->delta21v5  = - 493. * eta /42.;
 
-    coeffs->rho21v1   = (-3.*chiAPlusChiSdM)/(4.*dM);
-    coeffs->rho21v2   = -59./56 - (9.*chiAPlusChiSdM*chiAPlusChiSdM)/(32.*dM2) + (23.*eta)/84.;
-    coeffs->rho21v3   = (-567.*chiA*chiA*chiA - 1701.*chiA*chiA*chiS*dM
+    coeffs->rho21v1   = (-3.*(chiS+chiA/dM))/(4.);
+    //coeffs->rho21v2   = -59./56 - (9.*chiAPlusChiSdM*chiAPlusChiSdM)/(32.*dM2) + (23.*eta)/84.;
+    /*coeffs->rho21v3   = (-567.*chiA*chiA*chiA - 1701.*chiA*chiA*chiS*dM
                         + chiA*(-4708. + 1701.*chiS*chiS - 2648.*eta)*(-1. + 4.*eta)
                         + chiS* dM3 *(4708. - 567.*chiS*chiS
-                        + 1816.*eta))/(2688.*dM3);
+                        + 1816.*eta))/(2688.*dM3);*/
+    coeffs->rho21v2   = -59./56. + (23.*eta)/84. - 9./32.*a2;
+    coeffs->rho21v3   = 1177./672.*a - 27./128.*a3;
     coeffs->rho21v4   = -47009./56448.- (865.*a2)/1792. - (405.*a2*a2)/2048. - (10993.*eta)/14112.
                         + (617.*eta2)/4704.;
     coeffs->rho21v5   = (-98635.*a)/75264. + (2031.*a*a2)/7168. - (1701.*a2*a3)/8192.;
@@ -458,7 +661,7 @@ static int XLALSimIMREOBCalcFacWaveformCoefficients(
  * SHOULD ALREADY HAVE BEEN CALCULATED using XLALCalcFacWaveformCoefficients() prior
  * to calling this function.
  */
-static int XLALSimIMREOBModifyFacWaveformCoefficients( 
+UNUSED static int XLALSimIMREOBModifyFacWaveformCoefficients( 
                                        FacWaveformCoeffs * const coeffs, /**<< Structure containing coefficients */
                                        const REAL8 eta                   /**<< Symmetric mass ratio */
                                      )
@@ -466,7 +669,7 @@ static int XLALSimIMREOBModifyFacWaveformCoefficients(
 
   if ( !coeffs )
   {
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
   /* Tweak the relevant coefficients for the generation of the waveform */
@@ -513,7 +716,7 @@ nonKeplerianCoefficient(
  * The function returns XLAL_SUCCESS if everything works out properly,
  * otherwise XLAL_FAILURE will be returned.
  */
-static int  XLALSimIMREOBGetFactorizedWaveform( 
+UNUSED static int  XLALSimIMREOBGetFactorizedWaveform( 
                                 COMPLEX16   * restrict hlm,    /**<< The value of hlm (populated by the function) */
                                 REAL8Vector * restrict values, /**<< Vector containing dynamics r, phi, pr, pphi for a given point */
                                 const REAL8 v,                 /**<< Velocity (in geometric units) */
@@ -542,7 +745,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
 
   if ( abs(m) > (INT4) l )
   {
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
 
 
@@ -552,7 +755,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
   if ( eta > 0.25 )
   {
     XLALPrintError("Eta seems to be > 0.25 - this isn't allowed!\n" );
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
   else if ( eta == 0.25 && m % 2 )
   {
@@ -575,17 +778,21 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
 
 
   /* Calculate the non-Keplerian velocity */
+  /* given by Eq. (18) of Pan et al, PRD84, 124052(2011) */
+  /* psi given by Eq. (19) of Pan et al, PRD84, 124052(2011) */
+  /* Assign temporarily to vPhi */
   vPhi = nonKeplerianCoefficient( values, eta, params->aCoeffs );
-
+  /* Assign rOmega value temporarily to vPhi */
   vPhi  = r * cbrt(vPhi);
+  /* Assign rOmega * Omega to vPhi */
   vPhi *= Omega;
 
   /* Calculate the newtonian multipole */
-  status = XLALSimIMREOBCalculateNewtonianMultipole( &hNewton, vPhi * vPhi, r,
+  status = XLALSimIMREOBCalculateNewtonianMultipole( &hNewton, vPhi * vPhi, vPhi/Omega,
             values->data[1], (UINT4)l, m, params );
   if ( status == XLAL_FAILURE )
   {
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* Calculate the source term */
@@ -605,13 +812,13 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
   if (status != GSL_SUCCESS)
   {
     XLALPrintError("Error in GSL function\n" );
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
   XLAL_CALLGSL( status = gsl_sf_fact_e( l, &z2 ) );
   if ( status != GSL_SUCCESS)
   {
     XLALPrintError("Error in GSL function\n" );
-    XLAL_ERROR( __func__, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
   Tlm = XLALCOMPLEX16Exp( XLALCOMPLEX16Rect( lnr1.val + LAL_PI * hathatk,
         arg1.val + 2.0 * hathatk * log(4.0*k/sqrt(LAL_E)) ) );
@@ -646,7 +853,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
             + (hCoeffs->rho21v10 + hCoeffs->rho21v10l * eulerlogxabs)*v2))))))));
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
@@ -677,7 +884,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
             + v*(hCoeffs->rho31v7 + (hCoeffs->rho31v8 + hCoeffs->rho31v8l*eulerlogxabs)*v))))));
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
@@ -715,7 +922,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
             + (hCoeffs->rho41v6 +  hCoeffs->rho41v6l*eulerlogxabs)*v))));
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
@@ -749,7 +956,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
             + v*(hCoeffs->rho51v3 + v*(hCoeffs->rho51v4 + hCoeffs->rho51v5*v)));
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
@@ -784,7 +991,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
           rholm  = 1. + v2*(hCoeffs->rho61v2 + hCoeffs->rho61v3*v);
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
@@ -820,7 +1027,7 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
           rholm   = 1. + v2*(hCoeffs->rho71v2 +hCoeffs->rho71v3 * v);
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
@@ -860,12 +1067,12 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
           rholm  = 1. + hCoeffs->rho81v2 * v2;
           break;
         default:
-          XLAL_ERROR( __func__, XLAL_EINVAL );
+          XLAL_ERROR( XLAL_EINVAL );
           break;
       }
       break;
     default:
-      XLAL_ERROR( __func__, XLAL_EINVAL );
+      XLAL_ERROR( XLAL_EINVAL );
       break;
   }
 
@@ -883,3 +1090,5 @@ static int  XLALSimIMREOBGetFactorizedWaveform(
 
   return XLAL_SUCCESS;
 } 
+
+#endif /*_LALSIMIMRFACTORIZEDWAVEFORM_C*/

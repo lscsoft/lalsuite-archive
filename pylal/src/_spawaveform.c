@@ -1,3 +1,5 @@
+#include <Python.h>
+
 /* standard includes */
 #include <stdio.h>
 #include <math.h>
@@ -20,8 +22,6 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_blas.h>
 
-
-#include <Python.h>
 #include <numpy/arrayobject.h>
 
 
@@ -35,6 +35,7 @@ static double light_ring(double m1, double m2);
 static int IMRSPAWaveform(double mass1, double mass2, double spin1,  double spin2, double deltaF, double fLower, int numPoints, complex double *hOfF);
 static int SPAWaveformReduceSpin (double mass1, double mass2, double chi, int order, double startTime, double phi0, double deltaF, double fLower, double fFinal, int numPoints, complex double *hOfF);
 static int IMRSPAWaveformFromChi(double mass1, double mass2, double chi, double deltaF, double fLower, int numPoints, complex double *hOfF);
+static int GenericSPAWaveform (double *psis, double *psils, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints, complex double *expPsi);
 static double imr_merger(double m1, double m2, double chi);
 static double imr_ring(double m1, double m2, double chi);
 static double imr_fcut(double m1, double m2, double chi);
@@ -186,6 +187,52 @@ static PyObject *PyIMRSPAWaveform(PyObject *self, PyObject *args)
 	/* depending on the number of arguments given call a different function */
 	if (spin1 != -100.0 && spin2 == -100.0) IMRSPAWaveformFromChi(mass1, mass2, spin1, deltaF, fLower, dims[0], data);
 	else IMRSPAWaveform(mass1, mass2, spin1, spin2, deltaF, fLower, dims[0], data);
+	Py_DECREF(py_spa_array);
+        Py_INCREF(Py_None);
+        return Py_None;
+	}
+
+/* Function to compute the frequency domain generic inspiral waveform */
+static PyObject *PyGenericSPAWaveform(PyObject *self, PyObject *args)
+	{
+	/* Generate a generic SPA (frequency domain) waveform of given PN order */
+	PyObject *arg1, *py_psi_array;
+	PyObject *arg2, *py_psil_array;
+	PyObject *arg8, *py_spa_array;
+	double deltaF, deltaT, fLower, fFinal;
+	int order;
+	npy_intp *psidims = NULL;
+	double *psis = NULL;
+	npy_intp *psildims = NULL;
+	double *psils = NULL;
+	npy_intp *dims = NULL;
+	complex double *data = NULL;
+
+	/* FIXME properly handle references */
+	if(!PyArg_ParseTuple(args, "OOiddddO", &arg1, &arg2, &order, &deltaF, &deltaT, &fLower, &fFinal, &arg8)) return NULL;
+	/* this gets a contiguous memory numpy arrays */
+        py_psi_array = PyArray_FROM_OTF(arg1, NPY_DOUBLE, NPY_IN_ARRAY);
+	if (py_psi_array == NULL) return NULL;
+        py_psil_array = PyArray_FROM_OTF(arg2, NPY_DOUBLE, NPY_IN_ARRAY);
+	if (py_psil_array == NULL) return NULL;
+        py_spa_array = PyArray_FROM_OTF(arg8, NPY_CDOUBLE, NPY_IN_ARRAY);
+	if (py_spa_array == NULL) return NULL;
+
+	/* get PN coefficients and check they match the order requested */
+	psidims = PyArray_DIMS(py_psi_array);
+	psis = PyArray_DATA(py_psi_array);
+	psildims = PyArray_DIMS(py_psil_array);
+	psils = PyArray_DATA(py_psil_array);
+	if (order != psidims[0]-1) return NULL;
+	if (order != psildims[0]-1) return NULL;
+
+	/* Actually call the SPA waveform C function */
+	/* FIXME no checking of the array dimensions, this could be done in a python wrapper */
+	dims = PyArray_DIMS(py_spa_array);
+	data = PyArray_DATA(py_spa_array);
+	GenericSPAWaveform(psis, psils, order, deltaF, deltaT, fLower, fFinal, dims[0], data);
+	Py_DECREF(py_psi_array);
+	Py_DECREF(py_psil_array);
 	Py_DECREF(py_spa_array);
         Py_INCREF(Py_None);
         return Py_None;
@@ -452,6 +499,11 @@ static struct PyMethodDef methods[] = {
 	 "Or you can produce a spin aligned waveform by doing\n\n"
 	 "waveform(m1, m2, order, deltaF, deltaT, fLower, fFinal, signalArray, chi)"
 	},
+	{"genericwaveform", PyGenericSPAWaveform, METH_VARARGS,
+	 "This function produces a frequency domain waveform at a "
+	 "specified PN order using user defined PN coefficients.\n\n"
+	 "genericwaveform(psis, psils, order, deltaF, deltaT, fLower, fFinal, signalArray)"
+	},
 	{"imrwaveform", PyIMRSPAWaveform, METH_VARARGS,
 	 "This function produces a frequency domain IMR waveform at a "
 	 "specified mass1, mass2 by calling \n\n"
@@ -668,7 +720,7 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 	{
 	double m = mass1 + mass2;
 	double eta = mass1 * mass2 / m / m;
-	double mu = mass1 * mass2 / m;
+	double mchirp = m * pow(eta, 3.0 / 5.0);
 
 	double x1 = pow (LAL_PI * m * LAL_MTSUN_SI * deltaF, -1.0 / 3.0);
 	double psi = 0.0;
@@ -678,9 +730,9 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 	int kmax = fFinal / deltaF < numPoints / 2 ? fFinal / deltaF : numPoints / 2;
 
 	const double cannonDist = 1.0; /* Mpc */
-	double distNorm = 2.0 * LAL_MRSUN_SI / (cannonDist * 1.0e6 * LAL_PC_SI);
-	/* from FINDCHIRP paper */
-	double tNorm = sqrt(5.0 * LAL_PI / 24.0) * pow(LAL_PI, -1./6.) * sqrt(mu) * pow(m, 1.0 / 3.0);
+	double distNorm = LAL_MRSUN_SI / (cannonDist * 1.0e6 * LAL_PC_SI);
+	/* from FINDCHIRP paper arXiv:gr-qc/0509116v2 */
+	double tNorm = sqrt(5.0 / 24.0 / LAL_PI) * pow(LAL_PI * LAL_MTSUN_SI, -1.0 / 6.0) * pow(mchirp, 5.0 / 6.0);
 
 	/* pn constants */
 	double c0, c10, c15, c20, c25, c25Log, c30, c30Log, c35, c40P;
@@ -786,6 +838,100 @@ static int SPAWaveform (double mass1, double mass2, int order, double deltaF, do
 			}
 		/* put in the first order amplitude factor */
 		expPsi[k] *= pow(k*deltaF, -7.0 / 6.0) * tNorm;
+		}
+	return 0;
+	}
+
+/* FIXME make this function exist in LAL and have the LAL SPA waveform generator call it? */
+static int GenericSPAWaveform (double *psis, double *psils, int order, double deltaF, double deltaT, double fLower, double fFinal, int numPoints,  complex double *expPsi)
+	{
+	int i,k = 0;
+	int kmin = fLower / deltaF > 1 ? fLower / deltaF : 1;
+	int kmax = fFinal / deltaF < numPoints / 2 ? fFinal / deltaF : numPoints / 2;
+
+	double x1, x, logx, psi, dpsi, psi0, psi1, psi2;
+
+	/* chebychev coefficents for expansion of sin and cos */
+	const double s2 = -0.16605;
+	const double s4 = 0.00761;
+	const double c2 = -0.49670;
+	const double c4 = 0.03705;
+
+	complex double value;
+
+	/* zero output */
+	memset (expPsi, 0, numPoints * sizeof (complex double));
+
+	/* f1 */
+	x1 = pow ((double) deltaF, 1.0 / 3.0);
+	x = x1 * pow ((double) kmin, 1.0 / 3.0);
+	logx = log(x);
+
+	psi = 0;
+	for (i = order; i >= 0; i--)
+		{
+		dpsi = psis[i] + psils[i]*3.*logx;
+		psi = dpsi + x*psi;
+		}
+	psi *= pow(x, -5.);
+	psi0 = -2 * LAL_PI * (floor (0.5 * psi / LAL_PI));
+	
+	for (k = kmin; k < kmax; ++k)
+		{
+		x = x1 * pow ((double) k, 1.0 / 3.0);
+		logx = log(x);
+
+		psi = 0;
+		for (i = order; i >= 0; i--)
+			{
+			dpsi = psis[i] + psils[i]*3.*logx;
+			psi = dpsi + x*psi;
+			}
+		psi *= pow(x, -5);
+
+		psi1 = psi + psi0;
+
+		/* range reduction of psi1 */
+		while (psi1 < -LAL_PI)
+			{
+			psi1 += 2 * LAL_PI;
+			psi0 += 2 * LAL_PI;
+			}
+		while (psi1 > LAL_PI)
+			{
+			psi1 -= 2 * LAL_PI;
+			psi0 -= 2 * LAL_PI;
+			}
+
+		/* compute approximate sine and cosine of psi1 */
+		if (psi1 < -LAL_PI / 2)
+			{
+			psi1 = -LAL_PI - psi1;
+			psi2 = psi1 * psi1;
+			/* XXX minus sign added because of new sign convention for fft */
+			/* FIXME minus sign put back because it makes a reverse chirp with scipy's ifft */
+			value = psi1 * (1 + psi2 * (s2 + psi2 * s4)) +  I * (0. - 1. - psi2 * (c2 + psi2 * c4));
+			expPsi[k]  = value;
+			}
+		else if (psi1 > LAL_PI / 2)
+			{
+			psi1 = LAL_PI - psi1;
+			psi2 = psi1 * psi1;
+			/* XXX minus sign added because of new sign convention for fft */
+			/* FIXME minus sign put back because it makes a reverse chirp with scipy's ifft */
+			value = psi1 * (1 + psi2 * (s2 + psi2 * s4)) + I * (0. - 1. - psi2 * (c2 + psi2 * c4));
+			expPsi[k] = value;
+			}
+		else
+			{
+			psi2 = psi1 * psi1;
+			/* XXX minus sign added because of new sign convention for fft */
+			/* FIXME minus sign put back because it makes a reverse chirp with scipy's ifft */
+			value = psi1 * (1 + psi2 * (s2 + psi2 * s4)) + I * (1. + psi2 * (c2 + psi2 * c4));
+			expPsi[k] = value;
+			}
+		/* put in the first order amplitude factor */
+		expPsi[k] *= pow(k*deltaF, -7.0 / 6.0);
 		}
 	return 0;
 	}

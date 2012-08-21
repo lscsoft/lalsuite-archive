@@ -1,5 +1,4 @@
 #!/bin/sh
-# $Id$
 
 # wrap this whole script in a block combining stdout & stderr
 {

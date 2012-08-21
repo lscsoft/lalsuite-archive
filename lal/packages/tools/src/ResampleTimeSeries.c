@@ -26,14 +26,12 @@
 #include <lal/BandPassTimeSeries.h>
 #include <lal/ResampleTimeSeries.h>
 
-NRCSID( RESAMPLETIMESERIESC, "$Id$" );
-
-/**
+/** \defgroup ResampleTimeSeries_c Module ResampleTimeSeries.c
+ * \ingroup ResampleTimeSeries_h
+ *
  * \author Brown, D. A., Brady, P. R., Charlton, P.
  *
  * \brief Downsamples a time series in place by an integer power of two.
- * \defgroup ResampleTimeSeries_c Module ResampleTimeSeries.c
- * \ingroup ResampleTimeSeries_h
  *
 
 The routine LALResampleREAL4TimeSeries() provided functionality to
@@ -114,27 +112,12 @@ The filter coefficents used were produced by LDAS-CIT running version 0.7.0 of
 LDAS. See the LDAS dataconditioning API documentation for more information.
 </ol>
 
-\heading{Uses}
-\code
-lalDebugLevel
-LALInfo()
-LALDButterworthREAL4TimeSeries()
-LALDCreateVector()
-LALDIIRFilterREAL4Vector()
-snprintf()
-LALWarning()
-LALDDestroyVector()
-LALRealloc()
-memmove()
-\endcode
-
 */
-/** @{ */
+/*@{*/
 
-/** UNDOCUMENTED */
+/** \see See \ref ResampleTimeSeries_c for documentation */
 int XLALResampleREAL4TimeSeries( REAL4TimeSeries *series, REAL8 dt )
 {
-  static const char *func = "XLALResampleREAL4TimeSeries";
   const INT4 filterOrder = 20;
   const REAL8 newNyquistAmplitude = 0.1;
   REAL8 newNyquistFrequency;
@@ -148,12 +131,12 @@ int XLALResampleREAL4TimeSeries( REAL4TimeSeries *series, REAL8 dt )
   /* check that the resampling factor is valid */
   if ( resampleFactor < 1 ||
       fabs( dt - resampleFactor * series->deltaT ) > 1e-3 * series->deltaT )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* just return if no resampling is required */
   if ( resampleFactor == 1 )
   {
-    XLALPrintInfo( "XLAL Info - %s: No resampling required", func );
+    XLALPrintInfo( "XLAL Info - %s: No resampling required", __func__ );
     return 0;
   }
 
@@ -162,11 +145,11 @@ int XLALResampleREAL4TimeSeries( REAL4TimeSeries *series, REAL8 dt )
         resampleFactor == 0x4 || resampleFactor == 0x8 ||
         resampleFactor == 0x10 || resampleFactor == 0x20 ||
         resampleFactor == 0x40 || resampleFactor == 0x80 ) )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   if ( XLALLowPassREAL4TimeSeries( series, newNyquistFrequency,
         newNyquistAmplitude, filterOrder ) < 0 )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* decimate the time series */
   series->deltaT = dt;
@@ -183,10 +166,9 @@ int XLALResampleREAL4TimeSeries( REAL4TimeSeries *series, REAL8 dt )
   return 0;
 }
 
-/** UNDOCUMENTED */
+/** \see See \ref ResampleTimeSeries_c for documentation */
 int XLALResampleREAL8TimeSeries( REAL8TimeSeries *series, REAL8 dt )
 {
-  static const char *func = "XLALResampleREAL8TimeSeries";
   const INT4 filterOrder = 20;
   const REAL8 newNyquistAmplitude = 0.1;
   REAL8 newNyquistFrequency;
@@ -200,12 +182,12 @@ int XLALResampleREAL8TimeSeries( REAL8TimeSeries *series, REAL8 dt )
   /* check that the resampling factor is valid */
   if ( resampleFactor < 1 ||
       fabs( dt - resampleFactor * series->deltaT ) > 1e-3 * series->deltaT )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* just return if no resampling is required */
   if ( resampleFactor == 1 )
   {
-    XLALPrintInfo( "XLAL Info - %s: No resampling required", func );
+    XLALPrintInfo( "XLAL Info - %s: No resampling required", __func__ );
     return 0;
   }
 
@@ -214,11 +196,11 @@ int XLALResampleREAL8TimeSeries( REAL8TimeSeries *series, REAL8 dt )
         resampleFactor == 0x4 || resampleFactor == 0x8 ||
         resampleFactor == 0x10 || resampleFactor == 0x20 ||
         resampleFactor == 0x40 || resampleFactor == 0x80 ) )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   if ( XLALLowPassREAL8TimeSeries( series, newNyquistFrequency,
         newNyquistAmplitude, filterOrder ) < 0 )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* decimate the time series */
   series->deltaT = dt;
@@ -376,7 +358,7 @@ LALResampleREAL4TimeSeries(
     -6.5785565693739621e-05, -1.7899485045886187e-19
   };
 
-  INITSTATUS( status, "LALResampleREAL4TimeSeries", RESAMPLETIMESERIESC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( ts, status,
@@ -515,4 +497,4 @@ LALResampleREAL4TimeSeries(
   DETATCHSTATUSPTR( status );
   RETURN( status );
 }
-/** @} */
+/*@}*/

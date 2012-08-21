@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2007  Kipp Cannon and Flanagan, E
  *
@@ -30,10 +29,12 @@
 extern "C" {
 #endif
 
-
-#include <lal/LALRCSID.h>
-NRCSID(THRESHOLDSH, "$Id:");
-
+  /** \defgroup Thresholds_h Header Thresholds.h
+   * \ingroup pkg_burstsearch
+   *
+   * \brief UNDOCUMENTED
+   */
+  /*@{*/
 
 REAL8 XLALChisqCdf(
 	REAL8 chi2,
@@ -78,6 +79,8 @@ REAL8 XLALRhoThreshold(
 	REAL8 dof,
 	REAL8 falseDismissal
 );
+
+  /*@}*/
 
 #ifdef  __cplusplus
 }

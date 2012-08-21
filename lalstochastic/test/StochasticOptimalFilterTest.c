@@ -163,6 +163,7 @@ fabs()
 #define STOCHASTICOPTIMALFILTERTESTC_MSGEFLS "Incorrect answer for valid data"
 #define STOCHASTICOPTIMALFILTERTESTC_MSGEUSE "Bad user-entered data"
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
 
@@ -186,9 +187,6 @@ fabs()
 #include <lal/Units.h>
 
 #include "CheckStatus.h"
-
-NRCSID(STOCHASTICOPTIMALFILTERTESTC,
-       "$Id$");
 
 #define STOCHASTICOPTIMALFILTERTESTC_TRUE     1
 #define STOCHASTICOPTIMALFILTERTESTC_FALSE    0
@@ -233,8 +231,6 @@ int main(int argc, char *argv[])
   StochasticOptimalFilterNormalizationOutput normOut;
   StochasticOptimalFilterNormalizationParameters normParams;
 
-  REAL4FrequencySeries     realBadData;
-  COMPLEX8FrequencySeries  complexBadData;
   LIGOTimeGPS              epoch = {1,0};
 
   REAL4FrequencySeries     overlap;
@@ -271,8 +267,10 @@ int main(int argc, char *argv[])
   overlap.epoch  = epoch;
   overlap.data   = NULL;
   overlap.sampleUnits = lalDimensionlessUnit;
-
-  realBadData = omegaGW = invNoise1 = invNoise2 = overlap;
+  omegaGW = invNoise1 = invNoise2 = overlap;
+#ifndef LAL_NDEBUG
+  REAL4FrequencySeries     realBadData = omegaGW;
+#endif
 
   invNoise1.sampleUnits.unitNumerator[LALUnitIndexStrain] = -2;
   invNoise1.sampleUnits.unitNumerator[LALUnitIndexSecond] = -1;
@@ -291,8 +289,9 @@ int main(int argc, char *argv[])
   hcInvNoise1.epoch  = overlap.epoch;
   hcInvNoise1.data   = NULL;
   hcInvNoise1.sampleUnits = lalDimensionlessUnit;
-
-  complexBadData = optimal = hcInvNoise2 = hcInvNoise1;
+#ifndef LAL_NDEBUG
+  COMPLEX8FrequencySeries  complexBadData = optimal = hcInvNoise2 = hcInvNoise1;
+#endif
 
   hcInvNoise1.sampleUnits.unitNumerator[LALUnitIndexStrain] = -1;
   hcInvNoise1.sampleUnits.unitNumerator[LALUnitIndexADCCount] = -1;
@@ -1603,6 +1602,8 @@ static void Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -1664,8 +1665,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

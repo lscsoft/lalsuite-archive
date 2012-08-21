@@ -149,7 +149,7 @@ periapsis passage near the desired time, and the epoch of this passage
 is determined by inverting the formula (and again expanding only to
 first order):
 \f[
-t = nP_0\left(1+\mbox{\f$\frac{1}{2}\f$}n\dot{P}\right) \;.
+t = nP_0\left(1+\frac{1}{2}n\dot{P}\right) \;.
 \f]
 Once the new epoch is determined, the period and longitude of
 periapsis will be updated using their first derivatives.
@@ -180,9 +180,6 @@ LALDDestroyVector()           LALFree()
 #include <lal/SkyCoordinates.h>
 #include <lal/PulsarCat.h>
 
-NRCSID( PULSARCATC, "$Id$" );
-
-
 /* First, define a function to compute n!. */
 static UINT4
 fact( UINT2 n );
@@ -210,7 +207,7 @@ LALUpdatePulsarCatNode( LALStatus      *stat,
   ConvertSkyParams params;    /* sky coordinate parameters */
   CompanionNode *here;        /* paramaters of system companions */
 
-  INITSTATUS( stat, "LALUpdatePulsarCatNode", PULSARCATC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Check that required input parameters exist. */
@@ -395,7 +392,7 @@ LALUpdatePulsarCat( LALStatus      *stat,
 		    LALPlaceAndGPS *detectorTime,
 		    EphemerisData  *edat )
 {
-  INITSTATUS( stat, "LALUpdatePulsarCat", PULSARCATC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Check that head points to a list.  All further pointer checks are
@@ -420,7 +417,7 @@ void
 LALDestroyPulsarCat( LALStatus    *stat,
 		     PulsarCatNode **head )
 {
-  INITSTATUS( stat, "LALDestroyPulsarCat", PULSARCATC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Check that the list exists. */

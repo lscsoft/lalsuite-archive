@@ -42,7 +42,7 @@ template_trigger_hipe_inj = "./lalapps_trigger_hipe"\
   " --overwrite-dir"
 
 # list of used IFOs
-basic_ifolist = ['H1','L1','V1']
+basic_ifolist = ['H1','H2','L1','V1']
 
 # some predefinitions of colors and run times in S6
 colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y'])
@@ -578,7 +578,7 @@ def check_veto_time(used_ifos, list_cat, timerange, path = '.', tag = None):
     return clear_ifos
  
 # -----------------------------------------------------
-def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = False):
+def get_segment_info(pas,timerange, minsciseg, plot_segments_file = None, path = '.', tag = None, segs1 = False):
     """
     Function to get the segment info for a timerange
     @param timerange: The range of time the SCIENCE segments should be checked
@@ -601,6 +601,8 @@ def get_segment_info(timerange, minsciseg, plot_segments_file = None, path = '.'
 
     # get the segment dicts, check ALL ifos
     for ifo in basic_ifolist:
+      if not pas.cp.has_option('segments','%s-segments'%ifo.lower()):
+        continue
       ifo_segfile = '%s/%s-science%s.txt' % (path, ifo, tag)
       if ifo_segfile is not None:
         tmplist = segmentsUtils.fromsegwizard(open(ifo_segfile))
@@ -719,7 +721,8 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   # get the science segment specifier from the config file
   seg_names = {}
   for ifo in basic_ifolist:
-    seg_names[ifo] = pas.cp.get('segments','%s-segments'%ifo.lower())
+    if pas.cp.has_option('segments','%s-segments'%ifo.lower()):
+      seg_names[ifo] = pas.cp.get('segments','%s-segments'%ifo.lower())
 
   # update the science segments around the trigger time
   timerange = [ trigger - offset, trigger + offset]
@@ -729,7 +732,7 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
   if onsource is None:
     onsource = [trigger - int(pas.cp.get('exttrig','onsource_left')), \
                     trigger + int(pas.cp.get('exttrig','onsource_right'))]
-  offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, tag = tag, path = path)
+  offsource, ifolist, ifotimes = get_segment_info(pas,onsource, minscilength, tag = tag, path = path)
   trend_ifos.append(ifolist)
 
   # check the vetoes if there is enough data
@@ -758,14 +761,14 @@ def get_available_ifos(trigger,  minscilength, path = '.', tag = '', useold = Fa
 
     # read all CAT1 veto lists into a dictionary
     segsdict = {}
-    for ifo in basic_ifolist:
+    for ifo in ifolist:
       xmlsegfile = "%s/%s-VETOTIME_CAT1_%s.xml" % (path, ifo,tag)
       segsdict[ifo] = read_xmlsegfile(xmlsegfile)
       segsdict[ifo].coalesce()
 
     # do the segment check again, including the CAT1 segs
     outname = 'plot_segments_%s.png' % tag
-    offsource, ifolist, ifotimes = get_segment_info(onsource, minscilength, plot_segments_file=outname, \
+    offsource, ifolist, ifotimes = get_segment_info(pas,onsource, minscilength, plot_segments_file=outname, \
          segs1 = True, tag = tag, path = path)
     trend_ifos.append(ifolist)
 
@@ -1880,7 +1883,7 @@ class GRB(object):
     for ifo in basic_ifolist:
 
       # create common cache-file names
-      output_location = '%s/%s-DATA-%9d-%9d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
+      output_location = '%s/%s-DATA-%10d-%10d.cache' % (cache_dir, ifo[0].upper(), starttime, endtime)
 
       # decide: should I use online data (deleted after a month or so)
       # or do I require offline data? That changes everything...

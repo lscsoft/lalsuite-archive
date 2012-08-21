@@ -55,7 +55,7 @@ where
 
 In writing the previous equation we have assumed that there is a total of \f$M\cdot N\f$ data
 samples and \f$0\leq a<MN\f$.  \f$\Phi_{ab}\f$ is the expected phase at time \f$a\f$ for an
-intrinsic emission frequency \f$b\over T_{DeFT}\f$ (where the denominator is the DeFT time
+intrinsic emission frequency \f$\frac{b}{T_{DeFT}}\f$ (where the denominator is the DeFT time
 baseline). \f$\Phi\f$ depends on \f$\vec\lambda\f$, a vector of parameters that defines the phase
 model.  Typically these are the source location and the spin-down parameter values of the template
 source for which one is demodulating.  For simplicity, we will focus only on \f$F_{a}\f$; the
@@ -92,7 +92,7 @@ expressed in closed form, thus saving computations, and Eq.\eqref{eq_e4} can be 
 with
 \anchor DeFT_defs \f{eqnarray}{
 \label{DeFT_defs}
-P_{\alpha k}(b,\vec{\lambda})={\sin{x'}\over x'}-i{1-\cos{x'}\over x'}\\
+P_{\alpha k}(b,\vec{\lambda})= \frac{\sin{x'}}{x'}-i \frac{1-\cos{x'}}{x'}\\
 x'=\sum_{s} f_s B_{s\alpha} - k\\
 y_\alpha=\sum_{s} f_s A_{s\alpha}.
 \f}
@@ -169,19 +169,12 @@ of the individual "filters" \f$F_a\f$ and \f$F_b\f$, depending on the
 #ifndef _LALDEMOD_H
 #define _LALDEMOD_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
 #include <lal/LALComputeAM.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-NRCSID (LALDEMODH, "$Id$");
 
 /**
  \name Error Codes */ /*@{*/
@@ -194,8 +187,7 @@ NRCSID (LALDEMODH, "$Id$");
 #define SMALL	0.000000001
 
 /* PARAMETERS */
-typedef struct DemodParTag{
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagDemodPar {
   INT4		spinDwnOrder;	/* Maximum order of spdwn parameter */
   REAL8		*skyConst;	/* Constants computed in ComputeSky.c */
   REAL8		*spinDwn;	/* Spindown parameter set */
@@ -210,8 +202,7 @@ typedef struct DemodParTag{
 }DemodPar;
 
 
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagLALFstat {
   REAL8         *F;            /* Array of value of the F statistic */
   COMPLEX16     *Fa;           /* Results of match filter with a(t) */
   COMPLEX16     *Fb;           /* Results of match filter with b(t) */
@@ -220,9 +211,8 @@ typedef struct {
 
 
 /*This structure will hold a single FFT*/
-typedef struct FFTTag
+typedef struct tagFFT
 {
-  SWIGLAL_STRUCT_LALALLOC();
   COMPLEX8FrequencySeries *fft;
 } FFT;
 

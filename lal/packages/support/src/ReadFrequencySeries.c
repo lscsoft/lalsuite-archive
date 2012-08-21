@@ -1,47 +1,4 @@
-/**
-\author Torres, C. V.
-\file
-
-\heading{Module \ref ReadFrequencySeries.c}
-\latexonly\label{ss_ReadFrequencySeries_c}\endlatexonly
-
-\heading{Prototypes}
-
-
-
-
-
-
-
-
-\heading{Description}
-
-Each member of this family of functions reads from a file the output
-of the corresponding \c PrintFrequencySeries routine.
-
-\heading{Algorithm}
-
-\heading{Uses}
-
-\code
-LALOpenDataFile()
-LALParseUnitString()
-LALCHARCreateVector()
-LALCHARDestroyVector()
-LALDCreateVector()
-LALDDestroyVector()
-\endcode
-
-\heading{Notes}
-
-These functions perform I/O operations, which are not a part of LAL
-proper. They should only be used for debugging purposes in test
-functions, not in any production code.
-
-
-
-*/
-
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
 #include <lal/FileIO.h>
@@ -58,10 +15,6 @@ void LALParseUnitString ( LALStatus *status,
 		          const CHARVector *input );
 static const LALUnit lalDimensionlessUnit 
 	= {  0, { 0, 0, 0, 0, 0, 0, 0}, { 0, 0, 0, 0, 0, 0, 0} };
-
-
-NRCSID( READFREQUENCYSERIESC, "$Id$" );
-
 
 /* Change the first instance of the target to '\0'; returns 0 on success,
    1 on failure */

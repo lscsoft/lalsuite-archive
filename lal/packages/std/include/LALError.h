@@ -17,29 +17,7 @@
 *  MA  02111-1307  USA
 */
 
-/************************************ <lalVerbatim file="LALErrorHV">
-$Id$
-************************************* </lalVerbatim> */
-
-/* <lalLaTeX>
-
-\section{Header \texttt{LALError.h}}
-\label{s:LALError.h}
-
-Provides routines to report and handle errors.
-
-\subsection*{Synopsis}
-\begin{verbatim}
-#include <lal/LALError.h>
-\end{verbatim}
-
-\noindent This header covers routines that print status messages, and
-that allow functions to abort.
-
-\vfill{\footnotesize\input{LALErrorHV}}
-\newpage\input{LALErrorC}
-
-</lalLaTeX> */
+// ---------- SEE LALError.dox for doxygen documentation ----------
 
 #ifndef _LALERROR_H
 #define _LALERROR_H
@@ -51,9 +29,6 @@ that allow functions to abort.
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-
-NRCSID( LALERRORH, "$Id$" );
 
 /* lalDebugLevel bit field values: */
 enum
@@ -78,10 +53,11 @@ enum { LALMEMTRACE = LALTRACE | LALMEMINFO };
 enum { LALALLDBG   = ~( LALNMEMDBG | LALNMEMPAD | LALNMEMTRK ) };
 
 #ifndef SWIG /* exclude from SWIG interface */
+
 extern int  ( *lalRaiseHook )( int, const char *, ... );
 extern void ( *lalAbortHook )( const char *, ... );
-#endif /* SWIG */
 
+/** \addtogroup LALError_h */ /*@{*/
 int
 LALPrintError( const char *fmt, ... );
 
@@ -102,6 +78,8 @@ LALInfo( LALStatus *status, const char *info );
 
 int
 LALTrace( LALStatus *status, int exitflg );
+
+/*@}*/
 
 int
 LALInitStatus( LALStatus *status, const char *function, const char *id,
@@ -129,11 +107,15 @@ int
 LALCheckStatusPtr( LALStatus *status, const char *statement, const char *file,
                    const int line );
 
+#ifdef NOLALMACROS
+
 void
 FREESTATUSPTR( LALStatus *status );
 
 void
 REPORTSTATUS( LALStatus *status );
+
+#endif
 
 #ifdef NDEBUG
 
@@ -179,6 +161,8 @@ REPORTSTATUS( LALStatus *status );
 #endif /* NOLALMACROS */
 
 #endif /* NDEBUG */
+
+#endif /* SWIG */
 
 #ifdef  __cplusplus
 }

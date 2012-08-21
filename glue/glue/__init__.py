@@ -1,6 +1,5 @@
 # Initialization module for glue
 #
-# $Id$
 #
 # This file is part of the Grid LSC User Environment (GLUE)
 # 
@@ -24,5 +23,4 @@ try:
   __version__ = __cvs_tag__.split('-')[1] + '.' + __cvs_tag__.split('-')[2][0:-2]
 except IndexError:
   __version__ = ''
-# $Source$
 

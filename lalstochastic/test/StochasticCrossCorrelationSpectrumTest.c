@@ -141,6 +141,7 @@ fabs()
 #define STOCHASTICCROSSCORRELATIONSPECTRUMTESTC_MSGEUSE "Bad user-entered data"
 
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 
 #include <math.h>
@@ -163,8 +164,6 @@ fabs()
 #include <lal/Units.h>
 
 #include "CheckStatus.h"
-
-NRCSID (STOCHASTICCROSSCORRELATIONSPECTRUMTESTC, "$Id$");
 
 #define STOCHASTICCROSSCORRELATIONSPECTRUMTESTC_LENGTH    9
 #define STOCHASTICCROSSCORRELATIONSPECTRUMTESTC_F0        80.0
@@ -210,11 +209,6 @@ int main( int argc, char *argv[] )
   COMPLEX8FrequencySeries  goodFilter;
   COMPLEX8FrequencySeries  goodOutput;
 
-  COMPLEX8FrequencySeries  badData1;
-  COMPLEX8FrequencySeries  badData2;
-  COMPLEX8FrequencySeries  badFilter;
-  COMPLEX8FrequencySeries  badOutput;
-
   LIGOTimeGPS              epoch0 = {0,0};
   LIGOTimeGPS              epoch1 = {630720000,123456789};
   LIGOTimeGPS              epoch2 = {630720000,987654321};
@@ -240,9 +234,13 @@ int main( int argc, char *argv[] )
   goodOutput = goodFilter;
 
   goodData1.epoch = epoch1;
-  badFilter = goodFilter;
-  badData2 = badData1 = goodData2 = goodData1;
-  badOutput = goodOutput;
+  goodData2 = goodData1;
+#ifndef LAL_NDEBUG
+  COMPLEX8FrequencySeries  badData1 = goodData2;
+  COMPLEX8FrequencySeries  badData2 = badData1;
+  COMPLEX8FrequencySeries  badFilter = goodFilter;
+  COMPLEX8FrequencySeries  badOutput = goodOutput;
+#endif
 
   LALCCreateVector(&status, &(goodData1.data),
                           STOCHASTICCROSSCORRELATIONSPECTRUMTESTC_LENGTH);
@@ -905,6 +903,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -954,8 +954,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

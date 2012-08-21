@@ -17,67 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/**
-
-\author Thomas Cokelaer
-\file
-\ingroup GenerateInspiral_h
-
-
-<dl>
-<dt><tt>LALGenerateInspiral()</tt></dt><dd> create an inspiral binary
-waveform generated either by the \c inspiral package (EOB,
-EOBNR, PadeT1, TaylorT1, TaylorT2, TaylorT3, SpinTaylor, PhenSpinTaylorRD, SpinQuadTaylor)
-or the \c inject package (GeneratePPN).  It is used in the module
-\c FindChirpSimulation in \c findchirp package.
-
-There are three  parsed arguments
-<ul>
-<li> a \c CoherentGW  structure which stores amplitude,
-frequency and phase of the  waveform (output)</li>
-<li> a \c thisEvent  structure which provides some
-waveform parameters (input)</li>
-<li> a \c PPNParamStruc which gives some input
-parameters needed by the GeneratePPN waveform  generation. That
-arguments is also used as an output by all the different
-approximant  (output/input).</li>
-</ul>
-
-The input must be composed of a valid thisEvent structure as well as
-the  variable deltaT of the PPNparamsStruct. All others variables
-of the PPNParamStruc are populated within that function.</dd>
-
-<dt><tt>LALGetOrderFromString()</tt></dt><dd> convert a string
-provided by the \c CoherentGW structure in order to retrieve the
-order of the waveform to generate.</dd>
-
-<dt><tt>LALGetApproximantFromString()</tt></dt><dd> convert a string
-provided by the \c CoherentGW structure in order to retrieve the
-approximant of the waveform to generate.</dd>
-
-<dt><tt>LALGenerateInspiralPopulatePPN()</tt></dt><dd> Populate the
-PPNParamsStruc with the input argument \c thisEvent. That
-structure is used by both inspiral waveforms inject waveforms.</dd>
-
-<dt><tt>LALGenerateInspiralPopulateInspiral()</tt></dt><dd>  Populate the
-InspiralTemplate structure if the model chosen belongs to the
-inspiral package.
-</dd>
-</dl>
-
-\heading{Algorithm}
-None.
-
-\heading{Notes}
-Inject only time-domain waveforms for the time being such as GeneratePPN,
-  TaylorT1, TaylorT2, TaylorT3, PadeT1 and EOB , SpinTaylor, PhenSpinTaylorRD.
-\heading{Uses}
-\code
-None.
-\endcode
-
-*/
-
 #include <lal/LALInspiral.h>
 #include <lal/LALStdlib.h>
 #include <lal/GenerateInspiral.h>
@@ -85,16 +24,13 @@ None.
 #include <lal/SeqFactories.h>
 #include <lal/Units.h>
 
-NRCSID( GENERATEINSPIRALC,
-"$Id$" );
-
-
+/** \see See \ref GenerateInspiral_h for documentation */
 void
 LALGenerateInspiral(
-    LALStatus		*status,
-    CoherentGW		*waveform,
-    SimInspiralTable	*thisEvent,
-    PPNParamStruc	*ppnParams
+    LALStatus		*status,	/**< UNDOCUMENTED */
+    CoherentGW		*waveform,	/**< UNDOCUMENTED */
+    SimInspiralTable	*thisEvent,	/**< UNDOCUMENTED */
+    PPNParamStruc	*ppnParams	/**< UNDOCUMENTED */
     )
 
 {
@@ -102,20 +38,25 @@ LALGenerateInspiral(
   Approximant       approximant;        /* And its approximant value      */
   InspiralTemplate  inspiralParams;     /* structure for inspiral package */
   CHAR              warnMsg[1024];
+  int               oldxlalErrno;       /* store old xlal error number    */
 
-  INITSTATUS(status, "LALGenerateInspiral",GENERATEINSPIRALC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR(status);
 
   ASSERT(thisEvent, status,
       GENERATEINSPIRALH_ENULL, GENERATEINSPIRALH_MSGENULL);
 
   /* read the event waveform approximant and order */
-  LALGetApproximantFromString(status->statusPtr, thisEvent->waveform,
-      &approximant);
-  CHECKSTATUSPTR(status);
+  oldxlalErrno = xlalErrno;
+  xlalErrno = 0;
+  approximant = XLALGetApproximantFromString(thisEvent->waveform);
+  if ( (int) approximant == XLAL_FAILURE)
+    ABORTXLAL(status);
 
-  LALGetOrderFromString(status->statusPtr, thisEvent->waveform, &order);
-  CHECKSTATUSPTR(status);
+  order = XLALGetOrderFromString(thisEvent->waveform);
+  if ( (int) order == XLAL_FAILURE)
+    ABORTXLAL(status);
+  xlalErrno = oldxlalErrno;
 
   /* when entering here, approximant is in principle well defined.  */
   /* We dont need any else if or ABORT in the if statement.         */
@@ -123,8 +64,11 @@ LALGenerateInspiral(
   if ( approximant == GeneratePPN )
   {
     /* fill structure with input parameters */
-    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulatePPN(ppnParams, thisEvent) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* generate PPN waveform */
     LALGeneratePPNInspiral(status->statusPtr, waveform, ppnParams);
@@ -135,8 +79,11 @@ LALGenerateInspiral(
     int i;
 
     /* fill structure with input parameters */
-    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulatePPN(ppnParams, thisEvent) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* PPN parameter. */
     ppnParams->ppn = NULL;
@@ -165,29 +112,38 @@ LALGenerateInspiral(
     inspiralParams.approximant = approximant;
     inspiralParams.order       = order;
     if ((approximant == SpinQuadTaylor)||(approximant == PhenSpinTaylorRD)) {
-		xlalErrno = 0;
-		if (XLALGetSpinInteractionFromString(&inspiralParams.spinInteraction, thisEvent->waveform) == XLAL_FAILURE) {
-			ABORTXLAL(status);
-		}
-	}
+      xlalErrno = 0;
+      inspiralParams.interaction = XLALGetInteractionFromString(
+          thisEvent->waveform);
+      if ( (int) inspiralParams.interaction == XLAL_FAILURE)
+        ABORTXLAL(status);
+    }
 
-	if (approximant == PhenSpinTaylorRD) {
-	  xlalErrno = 0;
-	  if ( (XLALGetAxisChoiceFromString(&inspiralParams.axisChoice, thisEvent->waveform) == XLAL_FAILURE) || 
-	       (XLALGetAdaptiveIntFromString(&inspiralParams.fixedStep, thisEvent->waveform) == XLAL_FAILURE) || 
-	       (XLALGetInspiralOnlyFromString(&inspiralParams.inspiralOnly, thisEvent->waveform) == XLAL_FAILURE ) ) {
-	    ABORTXLAL(status);
-	  }
-	}
+    if (approximant == PhenSpinTaylorRD) {
+      xlalErrno = 0;
+      /* These next three functions cannot fail - they return a default value
+         if no target string is present - so we don't check for failure. */
+      inspiralParams.axisChoice = XLALGetFrameAxisFromString(
+          thisEvent->waveform);
+      inspiralParams.fixedStep = XLALGetAdaptiveIntFromString(
+          thisEvent->waveform);
+      inspiralParams.inspiralOnly = XLALGetInspiralOnlyFromString(
+          thisEvent->waveform);
+    }
 
     /* We fill ppnParams */
-    LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulatePPN(ppnParams, thisEvent) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* we fill inspiralParams structure as well.*/
-    LALGenerateInspiralPopulateInspiral(status->statusPtr, &inspiralParams,
-        thisEvent, ppnParams);
-    CHECKSTATUSPTR(status);
+    oldxlalErrno = xlalErrno;
+    xlalErrno = 0;
+    if (XLALGenerateInspiralPopulateInspiral(&inspiralParams, thisEvent, ppnParams) == XLAL_FAILURE)
+      ABORTXLAL(status);
+    xlalErrno = oldxlalErrno;
 
     /* the waveform generation itself */
     LALInspiralWaveForInjection(status->statusPtr, waveform, &inspiralParams,
@@ -195,9 +151,6 @@ LALGenerateInspiral(
     /* we populate the simInspiral table with the fFinal needed for
        template normalisation. */
     thisEvent->f_final = inspiralParams.fFinal;
-    // The following is necessary in the case the PhenSpin code performs a 
-    // rotation to a new frame axis, affecting the original psi.
-    if (approximant==PhenSpinTaylorRD) thisEvent->polarization = waveform->psi;
     CHECKSTATUSPTR(status);
   }
 
@@ -269,295 +222,7 @@ LALGenerateInspiral(
   RETURN( status );
 }
 
-
-
-void
-LALGetOrderFromString(
-    LALStatus  *status,
-    CHAR       *thisEvent,
-    LALPNOrder *order
-    )
-
-{
-
-  INITSTATUS( status, "LALGetOrderFromString", GENERATEINSPIRALC );
-
-  XLALPrintDeprecationWarning( "LALGetOrderFromString", "XLALGetOrderFromString" );
-
-  if ( XLALGetOrderFromString( thisEvent, order ) == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
-int
-XLALGetOrderFromString(
-    CHAR       * restrict thisEvent,
-    LALPNOrder * restrict order
-    )
-{
-
-#ifndef LAL_NDEBUG
-  if ( !thisEvent )
-    XLAL_ERROR( __func__, XLAL_EFAULT );
-
-  if ( !order )
-    XLAL_ERROR( __func__, XLAL_EFAULT );
-#endif
-
-  if ( strstr(thisEvent, "newtonian") )
-  {
-    *order = LAL_PNORDER_NEWTONIAN;
-  }
-  else if ( strstr(thisEvent, "oneHalfPN") )
-  {
-    *order = LAL_PNORDER_HALF;
-  }
-  else if ( strstr(thisEvent, "onePN") )
-  {
-    *order = LAL_PNORDER_ONE;
-  }
-  else if ( strstr(thisEvent, "onePointFivePN") )
-  {
-    *order = LAL_PNORDER_ONE_POINT_FIVE;
-  }
-  else if ( strstr(thisEvent, "twoPN") )
-  {
-    *order = LAL_PNORDER_TWO;
-  }
-  else if ( strstr(thisEvent, "twoPointFivePN") )
-  {
-    *order = LAL_PNORDER_TWO_POINT_FIVE;
-  }
-  else if (strstr(thisEvent, "threePN") )
-  {
-    *order = LAL_PNORDER_THREE;
-  }
-  else if ( strstr(thisEvent, "threePointFivePN") )
-  {
-    *order = LAL_PNORDER_THREE_POINT_FIVE;
-  }
-  else if ( strstr(thisEvent, "pseudoFourPN") )
-  {
-    *order = LAL_PNORDER_PSEUDO_FOUR;
-  }
-  else
-  {
-    XLALPrintError( "Cannot parse order from string: %s\n", thisEvent );
-    XLAL_ERROR( __func__, XLAL_EINVAL );
-  }
-
-  return XLAL_SUCCESS;
-}
-
-int XLALGetSpinInteractionFromString(LALSpinInteraction *inter, CHAR *thisEvent) {
-	static const char *func = "XLALGetSpinInteractionFromString";
-
-	if (strstr(thisEvent, "ALL")) {
-		*inter = LAL_AllInter;
-	} else if (strstr(thisEvent, "NO")) {
-		*inter = LAL_NOInter;
-	} else {
-		*inter = LAL_SOInter;
-		if (strstr(thisEvent, "SO")) {
-			*inter |= LAL_SOInter;
-		}
-		if (strstr(thisEvent, "QM")) {
-			*inter |= LAL_QMInter;
-		}
-		if (strstr(thisEvent, "SELF")) {
-			*inter |= LAL_SSselfInter;
-		}
-		if (strstr(thisEvent, "SS")) {
-			*inter |= LAL_SSInter;
-		}
-		if (*inter == LAL_NOInter) {
-			XLAL_ERROR(func, XLAL_EDOM);
-		}
-	}
-	return XLAL_SUCCESS;
-}
-
-int XLALGetAxisChoiceFromString(InputAxis *axisChoice, CHAR *thisEvent) {
-  //static const char *func = "XLALGetAxisChoiceFromString";
-  if (strstr(thisEvent, "TotalJ")) {
-    *axisChoice = TotalJ;
-  } else if  (strstr(thisEvent, "OrbitalL")) {
-    *axisChoice = OrbitalL;
-  }
-  else  
-    *axisChoice = View;
-  return XLAL_SUCCESS;
-}
-
-int XLALGetAdaptiveIntFromString(UINT4 *fixedStep, CHAR *thisEvent) {
-  //static const char *func = "XLALGetAdaptiveIntFromString";
-  if (strstr(thisEvent, "fixedStep")) {
-    *fixedStep = 1;
-  } else 
-    *fixedStep = 0;
-  return XLAL_SUCCESS;
-}
-
-int XLALGetInspiralOnlyFromString(UINT4 *inspiralOnly, CHAR *thisEvent) {
-  //static const char *func = "XLALGetinspiralOnlyFromString";
-  if (strstr(thisEvent, "inspiralOnly")) {
-    *inspiralOnly = 1;
-  }
-  else
-    *inspiralOnly = 0;
-  return XLAL_SUCCESS;
-}
-
-void
-LALGetApproximantFromString(
-    LALStatus   *status,
-    CHAR        *thisEvent,
-    Approximant *approximant
-    )
-
-{
-
-  INITSTATUS( status, "LALGenerateInspiralGetApproxFromString",
-      GENERATEINSPIRALC );
-
-  XLALPrintDeprecationWarning("LALGetApproximantFromString", "XLALGetApproximantFromString");
-
-  if ( XLALGetApproximantFromString( thisEvent, approximant) == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
-int
-XLALGetApproximantFromString(
-    CHAR        * restrict thisEvent,
-    Approximant * restrict approximant
-    )
-{
-  /* Function to search for the approximant into a string */
-
-
-#ifndef LAL_NDEBUG
-  if ( !thisEvent )
-    XLAL_ERROR( __func__, XLAL_EFAULT );
-
-  if ( !approximant )
-    XLAL_ERROR( __func__, XLAL_EFAULT );
-#endif
-
-  if ( strstr(thisEvent, "TaylorT1" ) )
-  {
-    *approximant = TaylorT1;
-  }
-  else if ( strstr(thisEvent, "TaylorT2" ) )
-  {
-    *approximant = TaylorT2;
-  }
-  else if ( strstr(thisEvent, "TaylorT3" ) )
-  {
-    *approximant = TaylorT3;
-  }
-  else if ( strstr(thisEvent, "EOBNRv2HM" ) )
-  {
-    *approximant = EOBNRv2HM;
-  }
-  else if ( strstr(thisEvent, "EOBNRv2" ) )
-  {
-    *approximant = EOBNRv2;
-  }
-  else if ( strstr(thisEvent, "EOBNR" ) )
-  {
-    *approximant = EOBNR;
-  }
-  else if ( strstr(thisEvent, "EOB" ) )
-  {
-    *approximant = EOB;
-  }
-  else if ( strstr(thisEvent, "PhenSpinTaylorRD" ) )
-  {
-    *approximant = PhenSpinTaylorRD;
-  }
-  else if ( strstr(thisEvent, "SpinTaylorFrameless" ) )
-  {
-	  *approximant = SpinTaylorFrameless;
-  }
-  else if ( strstr(thisEvent, "SpinTaylorT3" ) )
-  {
-    *approximant = SpinTaylorT3;
-  }
-  else if ( strstr(thisEvent, "SpinTaylor" ) )
-  {
-    *approximant = SpinTaylor;
-  }
-  else if ( strstr(thisEvent, "SpinQuadTaylor" ) )
-  {
-	*approximant = SpinQuadTaylor;
-  }
-  else if ( strstr(thisEvent, "PadeT1" ) )
-  {
-    *approximant = PadeT1;
-  }
-  else if ( strstr(thisEvent, "AmpCorPPN" ) )
-  {
-    *approximant = AmpCorPPN;
-  }
-  else if ( strstr(thisEvent, "GeneratePPN" ) )
-  {
-    *approximant = GeneratePPN;
-  }
-  else if ( strstr(thisEvent, "TaylorT4" ) )
-  {
-    *approximant = TaylorT4;
-  }
-  else if ( strstr(thisEvent, "NumRel" ) )
-  {
-    *approximant = NumRel;
-  }
-  else if ( strstr(thisEvent, "NumRelNinja2" ) )
-  {
-    *approximant = NumRelNinja2;
-  }
-  else if ( strstr(thisEvent, "IMRPhenomA" ) )
-  {
-    *approximant = IMRPhenomA;
-  }
-  else if ( strstr(thisEvent, "IMRPhenomB" ) )
-  {
-    *approximant = IMRPhenomB;
-  }
-  else
-  {
-    XLALPrintError( "Cannot parse approximant from string: %s \n", thisEvent );
-    XLAL_ERROR( __func__, XLAL_EINVAL );
-  }
-
-  return XLAL_SUCCESS;
-}
-
-
-
-void
-LALGenerateInspiralPopulatePPN(
-    LALStatus             *status,
-    PPNParamStruc         *ppnParams,
-    SimInspiralTable      *thisEvent
-    )
-
-{
-
-  INITSTATUS( status, "LALGenerateInspiralPopulatePPN", GENERATEINSPIRALC );
-
-  XLALPrintDeprecationWarning( "LALGenerateInspiralPopulatePPN", 
-      "XLALGenerateInspiralPopulatePPN" );
-
-  if ( XLALGenerateInspiralPopulatePPN( ppnParams, thisEvent )
-       == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
+/** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGenerateInspiralPopulatePPN(
     PPNParamStruc    * restrict ppnParams,
@@ -566,7 +231,7 @@ XLALGenerateInspiralPopulatePPN(
 {
 #ifndef LAL_NDEBUG
   if ( !ppnParams || !thisEvent )
-    XLAL_ERROR( __func__, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
 #endif
 
   /* input fields */
@@ -586,7 +251,7 @@ XLALGenerateInspiralPopulatePPN(
   {
     XLALPrintError( 
         "f_lower must be specified in the injection file generation.\n" );
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
   ppnParams->fStopIn  = -1.0 /
     ( sqrt(216.0) * LAL_PI * ppnParams->mTot * LAL_MTSUN_SI);
@@ -603,31 +268,7 @@ XLALGenerateInspiralPopulatePPN(
 }
 
 
-
-void
-LALGenerateInspiralPopulateInspiral(
-    LALStatus           *status,
-    InspiralTemplate    *inspiralParams,
-    SimInspiralTable    *thisEvent,
-    PPNParamStruc       *ppnParams
-    )
-
-
-{
-  INITSTATUS( status, "LALGenerateInspiralPopulateInspiral",
-      GENERATEINSPIRALC );
-
-  XLALPrintDeprecationWarning( "LALGenerateInspiralPopulateInspiral",
-     "XLALGenerateInspiralPopulateInspiral" );
-
-  if ( XLALGenerateInspiralPopulateInspiral( inspiralParams, thisEvent, ppnParams )
-         == XLAL_FAILURE )
-    ABORTXLAL( status );
-
-  RETURN( status );
-}
-
-
+/** \see See \ref GenerateInspiral_h for documentation */
 int
 XLALGenerateInspiralPopulateInspiral(
     InspiralTemplate * restrict inspiralParams,
@@ -638,7 +279,7 @@ XLALGenerateInspiralPopulateInspiral(
 
 #ifndef LAL_NDEBUG
   if ( !inspiralParams || !thisEvent || !ppnParams )
-    XLAL_ERROR( __func__, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
 #endif
 
   /* --- Let's fill the inspiral structure now --- */
@@ -673,7 +314,7 @@ XLALGenerateInspiralPopulateInspiral(
   if ( inspiralParams->approximant == SpinTaylor && thisEvent->inclination == 0 )
   {
     XLALPrintError( "Inclination cannot be exactly zero for SpinTaylor approximant.\n");
-    XLAL_ERROR( __func__, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   }
   inspiralParams->inclination =  thisEvent->inclination;
 

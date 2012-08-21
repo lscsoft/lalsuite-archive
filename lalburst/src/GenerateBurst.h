@@ -41,9 +41,10 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-
-NRCSID(GENERATEBURSTH, "$Id$");
-
+/** \addtogroup GenerateBurst_h
+ * \brief UNDOCUMENTED
+ */
+/*@{*/
 
 /*
  * ============================================================================
@@ -69,6 +70,7 @@ int XLALBurstInjectSignals(
 	const COMPLEX16FrequencySeries *response
 );
 
+/*@}*/
 
 #if 0
 { /* so that editors will match succeeding brace */

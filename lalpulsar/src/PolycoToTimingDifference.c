@@ -23,8 +23,6 @@
 #include <lal/AVFactories.h>
 #include <lal/Resample.h>
 
-NRCSID(POLYCOTOTIMINGDIFFERENCEC,"$Id$");
-
 /** \author Creighton, T. D.
     \ingroup Resample_h
     \brief Computes values of the timing difference \f$(\tau-t)/\Delta t\f$ from a polynomial fit.
@@ -65,7 +63,6 @@ LALPolycoToTimingDifference( LALStatus       *stat,
   REAL8 tDiffStart; /* Start time of data series */
   REAL8 tDiffStop;  /* Stop time of data series */
   REAL8 tPolyStart; /* Start time of polynomial fit */
-  REAL8 tPolyStop;  /* Stop time of polynomial fit */
   REAL8 t;          /* Time index relative to a fit time */
   REAL8 tNext;      /* Value at which t moves to the next fit */
   REAL8 dt;         /* Sampling interval */
@@ -74,8 +71,7 @@ LALPolycoToTimingDifference( LALStatus       *stat,
   REAL4 *t0;        /* Pointer to polynomial fit times */
   REAL4 *poly;      /* Pointer to polynomial coefficients */
 
-  INITSTATUS(stat,"LALPolycoToTimingDifference",
-	     POLYCOTOTIMINGDIFFERENCEC);
+  INITSTATUS(stat);
 
   /* Check that the input fields exist. */
   ASSERT(difference,stat,RESAMPLEH_ENUL,RESAMPLEH_MSGENUL);
@@ -106,9 +102,12 @@ LALPolycoToTimingDifference( LALStatus       *stat,
   tDiffStop=tDiffStart+difference->data->length*difference->deltaT;
   tPolyStart=polyco->start.gpsSeconds
     +(1.0e-9)*polyco->start.gpsNanoSeconds;
+#ifndef LAL_NDEBUG
+  REAL8 tPolyStop;  /* Stop time of polynomial fit */
   tPolyStop=tPolyStart+polyco->tBound->data[polyco->tBound->length-1];
   ASSERT(tDiffStop<tPolyStop,stat,RESAMPLEH_ETIME,
 	 RESAMPLEH_MSGETIME);
+#endif
   ASSERT(tDiffStart>tPolyStart,stat,RESAMPLEH_ETIME,
 	 RESAMPLEH_MSGETIME);
 

@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-# $Id$
 __author__ = "Alexander Dietz <alexanderdietz1@googlemail.com>"
 
 import sys

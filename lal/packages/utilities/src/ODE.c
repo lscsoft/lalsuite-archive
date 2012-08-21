@@ -17,48 +17,35 @@
 *  MA  02111-1307  USA
 */
 
-/**** <lalVerbatim file="ODECV">
- * Author: J. D. E. Creighton
- * $Id$
- **** </lalVerbatim> */
-/**** <lalLaTeX>
+/**
+ * \addtogroup ODE_h
  *
- * \subsection{Module \texttt{ODE.c}}
+ * \heading{Description}
  *
- * Routines to integrate ODEs.
- *
- * \subsubsection*{Prototypes}
- * \input{ODECP}
- * \idx{LALSRungeKutta4}
- * \idx{LALSRungeKutta5}
- * \idx{LALSRungeKutta5Adapt}
- *
- * \subsubsection*{Description}
- *
- * The routines \verb+LALSRungeKutta4+, \verb+LALSRungeKutta5+, and
- * \verb+LALSRungeKutta5Adapt+ are used to advance an ODE solution from one
- * time step to the next.  \verb+LALSRungeKutta4+ and \verb+LALSRungeKutta5+
+ * The routines \c LALSRungeKutta4(), \c LALSRungeKutta5(), and
+ * \c LALSRungeKutta5Adapt() are used to advance an ODE solution from one
+ * time step to the next.  \c LALSRungeKutta4() and \c LALSRungeKutta5()
  * advance by the specified time step.  The former uses a 4th order Runge Kutta
  * method while the latter, which uses a 5th order Runge Kutta method, also
  * makes an estimate of the error accumulated in the step.
- * \verb+LALSRungeKutta5Adapt+ uses \verb+LALSRungeKutta5+ to take a step and,
+ * \c LALSRungeKutta5Adapt() uses \c LALSRungeKutta5() to take a step and,
  * if the error in the step is too larger (compared to the fractional error
- * specified by \verb+eps+), then it re-does that step with a finer step size;
+ * specified by \c eps), then it re-does that step with a finer step size;
  * the step size is modified by the routine.
  *
  * All the routines advance the time after each step.
  *
- * The sequence length of the \verb+dt+ field of the parameter structure must
- * be \verb+4+ for \verb+LALSRungeKutta4+ and \verb+6+ for
- * \verb+LALSRungeKutta5+ and \verb+LALSRungeKutta5Adapt+.
+ * The sequence length of the \c dt field of the parameter structure must
+ * be \c 4 for \c LALSRungeKutta4() and \c 6 for
+ * \c LALSRungeKutta5() and \c LALSRungeKutta5Adapt().
  *
- * \subsubsection*{Operating Instructions}
+ * \heading{Operating Instructions}
  *
  * The following routine specifies the ODE for the Kepler problem:
- * \begin{displaymath}
+ * \f[
  *   \frac{d}{dt}\{ x, y, v_x, v_y \} = \{ v_x, v_y, -x/r^3, -y/r^3 \}
- * \end{displaymath}
- * \begin{verbatim}
+ * \f]
+ * \code
  * #include <math.h>
  * #include <lal/LALStdlib.h>
  *
@@ -71,11 +58,11 @@
  *   xdot->data[2] = - x->data[0] / rcb;
  *   xdot->data[3] = - x->data[1] / rcb;
  * }
- * \end{verbatim}
+ * \endcode
  *
  * The following programs integrate the Kepler problem.  The first program
  * integrates a circular orbit with fixed step sizes:
- * \begin{verbatim}
+ * \code
  * #include <math.h>
  * #include <stdio.h>
  * #include <string.h>
@@ -127,12 +114,12 @@
  *
  *   return 0;
  * }
- * \end{verbatim}
+ * \endcode
  *
  * This second program integrates a highly-eccentric bound orbit with adaptive
  * step sizes (and also computes the orbit using Kepler's method for
  * comparison):
- * \begin{verbatim}
+ * \code
  * #include <math.h>
  * #include <stdio.h>
  * #include <string.h>
@@ -213,15 +200,15 @@
  *
  *   return 0;
  * }
- * \end{verbatim}
+ * \endcode
  *
- * \subsubsection*{Algorithm}
+ * \heading{Algorithm}
  * These routines are based on the methods presented in Numerical Recipes
- * \cite{ptvf:1992}.
+ * [\ref ptvf1992].
  *
- * \vfill{\footnotesize\input{ODECV}}
  *
- **** </lalLaTeX> */
+ *
+*/
 
 #include <math.h>
 #include <lal/LALStdlib.h>
@@ -229,17 +216,15 @@
 #include <lal/AVFactories.h>
 #include <lal/ODE.h>
 
-NRCSID( ODEC, "$Id$" );
-
 #define NSTEP 4
-/* <lalVerbatim file="ODECP"> */
+
 void LALSRungeKutta4(
     LALStatus      *status,
     REAL4Vector    *output,
     REAL4Vector    *input,
     REAL4ODEParams *params
     )
-{ /* </lalVerbatim> */
+{
   static const REAL4 a[NSTEP] = { 0, 0.5, 0.5, 1.0 };
   static const REAL4 b[NSTEP][NSTEP-1] =
     { { 0, 0, 0 }, { 0.5, 0, 0 }, { 0, 0.5, 0 }, { 0, 0, 1 } };
@@ -253,7 +238,7 @@ void LALSRungeKutta4(
   REAL4  dt;
   REAL4  t;
 
-  INITSTATUS( status, "LALSRungeKutta4", ODEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( input,  status, ODEH_ENULL, ODEH_MSGENULL );
@@ -338,14 +323,14 @@ void LALSRungeKutta4(
 
 
 #define NSTEP 6
-/* <lalVerbatim file="ODECP"> */
+
 void LALSRungeKutta5(
     LALStatus      *status,
     REAL4Vector    *output,
     REAL4Vector    *input,
     REAL4ODEParams *params
     )
-{ /* </lalVerbatim> */
+{
   static const REAL4 a[NSTEP] = { 0, 1.0/5.0, 3.0/10.0, 3.0/5.0, 1, 7.0/8.0 };
   static const REAL4 b[NSTEP][NSTEP-1] =
     { { 0, 0, 0, 0, 0 },
@@ -371,7 +356,7 @@ void LALSRungeKutta5(
   REAL4  dt;
   REAL4  t;
 
-  INITSTATUS( status, "LALSRungeKutta5", ODEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( input,  status, ODEH_ENULL, ODEH_MSGENULL );
@@ -473,20 +458,20 @@ void LALSRungeKutta5(
 }
 #undef NSTEP
 
-/* <lalVerbatim file="ODECP"> */
+
 void LALSRungeKutta5Adapt(
     LALStatus      *status,
     REAL4Vector    *output,
     REAL4Vector    *input,
     REAL4ODEParams *params
     )
-{ /* </lalVerbatim> */
+{
   REAL4 eps;
   REAL4 t;
   UINT4 n;
   UINT4 i;
 
-  INITSTATUS( status, "LALSRungeKutta5Adapt", ODEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( input,  status, ODEH_ENULL, ODEH_MSGENULL );

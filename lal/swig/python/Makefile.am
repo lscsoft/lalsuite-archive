@@ -1,46 +1,26 @@
-@SWIG_COMMON_MK@
+# this Makefile.am should NOT be modified; all SWIG configuration should
+# be performed in lalsuite_swig.m4, swiglal_common.am, or swiglal_python.am
+
+CPPFLAGS = $(SWIG_CPPFLAGS)
+CFLAGS = $(SWIG_CFLAGS)
+CXXFLAGS = $(SWIG_CXXFLAGS)
+LDFLAGS = $(SWIG_LDFLAGS)
+LIBS = $(SWIG_LIBS)
+
+TEST_EXTENSIONS = .py
+
+include $(top_srcdir)/swig/python/swiglal_python.am
 
 if SWIG_BUILD_PYTHON
 
-swig_language = python
-swig_language_opts = -modern
-swig_wrapobj = _$(swig_wrapname).so
-
-# start from scratch if build script changes
-$(swig_wrapobj) : $(srcdir)/setup.py
-
-# build SWIG wrapping code
-$(swig_wrapobj) :
-	$(PYTHON) $(srcdir)/setup.py build
-	rm -f $(swig_wrapobj) && $(LN_S) build/lib/$(swig_wrapobj) $(swig_wrapobj)
-
-# test SWIG wrapping module
-check .PHONY : check-swig
-check-swig : $(swig_wrapobj)
-	test -f $(swig_wrapcheck).py && \
-	$(swig_ldlibpath) \
-	PYTHONPATH="$${PWD}:$${PYTHONPATH}" \
-	$(PYTHON) $(swig_wrapcheck).py
-
-# install SWIG wrapping module
-install-exec-local :
-	$(PYTHON) $(srcdir)/setup.py install --prefix=$(prefix) --record .install.txt
-
-# uninstall SWIG wrapping module
-uninstall-local :
-	-test -f .install.txt && rm -f `cat .install.txt`
-
-# cleanup
-clean-local :
-	$(PYTHON) $(srcdir)/setup.py clean --all
-
-CLEANFILES = $(swig_cleanfiles) \
-             $(swig_wrapname).py \
-             $(swig_wrapname).pyc \
-             $(swig_wrapobj)
-
-DISTCLEANFILES = .install.txt
-
-EXTRA_DIST = setup.py
+pyexec_LTLIBRARIES = _lal.la
+_lal_la_SOURCES = $(swig_lt_sources)
+nodist__lal_la_SOURCES = $(swig_lt_nodist_sources)
+_lal_la_CPPFLAGS = $(swig_lt_cppflags)
+_lal_la_CFLAGS = $(swig_lt_cflags)
+_lal_la_CXXFLAGS = $(swig_lt_cxxflags)
+_lal_la_LDFLAGS = $(swig_lt_ldflags)
+_lal_la_LIBADD = $(swig_lt_libadd)
+_lal_la_LIBTOOLFLAGS = $(swig_lt_libtoolflags)
 
 endif # SWIG_BUILD_PYTHON

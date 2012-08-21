@@ -2,14 +2,13 @@ EXTRA_DIST = \
 	ax_pthread.m4 \
 	config.guess \
 	config.sub \
+	cuda.common \
 	depcomp \
-	doc.mk \
-	dvi.mk \
+	generate_user_env.awk \
 	include.mk \
 	install-sh \
 	lal.m4 \
 	lalsuite_build.m4 \
-	lalsuite_c99.m4 \
 	lalsuite_gccflags.m4 \
 	libtool.m4 \
 	ltmain.sh \
@@ -17,10 +16,9 @@ EXTRA_DIST = \
 	ltsugar.m4 \
 	ltversion.m4 \
 	lt~obsolete.m4 \
-	main.tex.in \
 	missing \
 	mkinstalldirs \
-	generate_user_env.awk
+	test-driver
 
 CLEANFILES = \
 	lal-user-env.shell \
@@ -45,10 +43,9 @@ lal-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "$(SWIG_USER_ENV)" | $(SED) 's|~E~O~L~|\n|g' >>$@
+	@printf "$(SWIG_USER_ENV)" >>$@
 
 lal-user-env.csh lal-user-env.sh: lal-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 @INCLUDEMKFILE@

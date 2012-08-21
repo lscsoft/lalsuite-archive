@@ -23,9 +23,8 @@
  *
  * File Name: inspinj.c
  *
- * Author: Brown, D. A., Creighton, J. D. E. and Dietz A.
+ * Author: Brown, D. A., Creighton, J. D. E. and Dietz A. IPN contributions from Predoi, V.
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  */
@@ -48,8 +47,6 @@
 #include <LALAppsVCSInfo.h>
 
 #include "inspiral.h"
-
-RCSID( "$Id$" );
 
 #define CVS_REVISION "$Revision$"
 #define CVS_ID_STRING "$Id$"
@@ -90,6 +87,9 @@ void drawFromSource( REAL8 *rightAscension,
     REAL8 *declination,
     REAL8 *distance,
     CHAR  name[LIGOMETA_SOURCE_MAX] );
+void read_IPN_grid_from_file( char *fname );
+void drawFromIPNsim( REAL8 *rightAscension,
+    REAL8 *declination  );
 void drawLocationFromExttrig( SimInspiralTable* table );
 void drawMassFromSource( SimInspiralTable* table );
 void drawMassSpinFromNR( SimInspiralTable* table );
@@ -101,6 +101,10 @@ REAL8 network_snr(const char *ifos, SimInspiralTable *inj);
 REAL8 snr_in_ifo(const char *ifo, SimInspiralTable *inj);
 REAL8 network_snr_real8(const char *ifos, SimInspiralTable *inj);
 REAL8 snr_in_ifo_real8(const char *ifo, SimInspiralTable *inj);
+
+REAL8 snr_in_psd_real8(const char *ifo, REAL8FrequencySeries *psd, REAL8 start_freq, SimInspiralTable *inj);
+REAL8 network_snr_with_psds_real8(int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs, SimInspiralTable *inj);
+void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs);
 
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
@@ -128,9 +132,11 @@ char *nrFileName = NULL;
 char *sourceFileName = NULL;
 char *outputFileName = NULL;
 char *exttrigFileName = NULL;
+char *IPNSkyPositionsFile = NULL;
 
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
+INT4 real8Ninja2 = 0;
 
 INT4 logSNR      = 0;
 REAL4 minSNR     = -1;
@@ -178,7 +184,7 @@ REAL4 deltaMass1=-1;
 REAL4 deltaMass2=-1;
 INT4 bandPassInj = 0;
 INT4 writeSimRing = 0;
-InspiralApplyTaper taperInj = INSPIRAL_TAPER_NONE;
+LALSimInspiralApplyTaper taperInj = LAL_SIM_INSPIRAL_TAPER_NONE;
 AlignmentType alignInj = notAligned;
 REAL8 redshift;
 
@@ -188,6 +194,7 @@ INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
 
 int num_source;
+int numSkyPoints;
 int galaxynum;
 struct {
   char   name[LIGOMETA_SOURCE_MAX];
@@ -196,7 +203,7 @@ struct {
   REAL8 dist;
   REAL8 lum;
   REAL8 fudge;
-} *source_data, *old_source_data,*temparray;
+} *source_data, *old_source_data,*temparray, *skyPoints;
 
 char MW_name[LIGOMETA_SOURCE_MAX] = "MW";
 REAL8* fracVec  =NULL;
@@ -286,6 +293,12 @@ REAL8 redshift_mass(REAL8 mass, REAL8 z)
   return mz;
 }
 
+
+/*************************************************************
+ * Routines that calculate/adjust SNRs for REAL4 NINJA-1
+ * injections.  In principle these are obsolete and could be
+ * deleted.
+ *************************************************************/
 REAL8 snr_in_ifo(const char *ifo, SimInspiralTable *inj)
 {
   REAL8 this_snr;
@@ -304,6 +317,87 @@ REAL8 snr_in_ifo(const char *ifo, SimInspiralTable *inj)
 }
 
 
+REAL8 network_snr(const char *ifo_list, SimInspiralTable *inj)
+{
+  char *tmp;
+  char *ifo;
+  REAL8 snr_total = 0.0;
+  REAL8 this_snr;
+
+  tmp = LALCalloc(1, strlen(ifos) + 1);
+  strcpy(tmp, ifo_list);
+
+  ifo = strtok (tmp,",");
+  while (ifo != NULL)
+  {
+    this_snr   = snr_in_ifo(ifo, inj);
+    snr_total += this_snr * this_snr;
+    ifo        = strtok (NULL, ",");
+  }
+
+  LALFree(tmp);
+
+  return sqrt(snr_total);
+}
+
+void adjust_snr(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_list)
+{
+  /* Vars for calculating SNRs */
+  REAL8 this_snr;
+  REAL8 UNUSED low_snr, UNUSED high_snr;
+  REAL8 low_dist,high_dist;
+
+  this_snr = network_snr(ifo_list, inj);
+
+  if (this_snr > target_snr)
+  {
+    high_snr  = this_snr;
+    high_dist = inj->distance;
+
+    while (this_snr > target_snr)
+    {
+      inj-> distance = inj->distance * 3.0;
+      this_snr       = network_snr(ifo_list, inj);
+    }
+    low_snr  = this_snr;
+    low_dist = inj->distance;
+  } else {
+    low_snr  = this_snr;
+    low_dist = inj->distance;
+
+    while (this_snr < target_snr)
+    {
+      inj->distance = (inj->distance) / 3.0;
+      this_snr      = network_snr(ifo_list, inj);
+    }
+    high_snr  = this_snr;
+    high_dist = inj->distance;
+  }
+
+  while ( abs(target_snr - this_snr) > 1.0 )
+  {
+    inj->distance = (high_dist + low_dist) / 2.0;
+    this_snr = network_snr(ifo_list, inj);
+
+    if (this_snr > target_snr)
+    {
+      high_snr  = this_snr;
+      high_dist = inj->distance;
+    } else {
+      low_snr  = this_snr;
+      low_dist = inj->distance;
+    }
+  }
+}
+
+
+/*************************************************************
+ * Routines that calculate/adjust SNRs for REAL8 NINJA-2
+ * injections, using the initial LIGO/Virgo noise curves from
+ * the noisemodels package.  In principle these could be replaced
+ * with the next group, which will default to these noise curves
+ * when alternatives are not provided.
+ *************************************************************/
 REAL8 snr_in_ifo_real8(const char *ifo, SimInspiralTable *inj)
 {
   REAL8       this_snr;
@@ -333,30 +427,6 @@ REAL8 network_snr_real8(const char *ifo_list, SimInspiralTable *inj)
   while (ifo != NULL)
   {
     this_snr   = snr_in_ifo_real8(ifo, inj);
-    snr_total += this_snr * this_snr;
-    ifo        = strtok (NULL, ",");
-  }
-
-  LALFree(tmp);
-
-  return sqrt(snr_total);
-}
-
-
-REAL8 network_snr(const char *ifo_list, SimInspiralTable *inj)
-{
-  char *tmp;
-  char *ifo;
-  REAL8 snr_total = 0.0;
-  REAL8 this_snr;
-
-  tmp = LALCalloc(1, strlen(ifos) + 1);
-  strcpy(tmp, ifo_list);
-
-  ifo = strtok (tmp,",");
-  while (ifo != NULL)
-  {
-    this_snr   = snr_in_ifo(ifo, inj);
     snr_total += this_snr * this_snr;
     ifo        = strtok (NULL, ",");
   }
@@ -418,55 +488,46 @@ void adjust_snr_real8(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_l
 }
 
 
+/*************************************************************
+ * Routines that calculate/adjust SNRs for REAL8 NINJA-2
+ * injections, using arbitrary LIGO/Virgo noise curves given
+ * in files.
+ *************************************************************/
+REAL8 snr_in_psd_real8(const char *ifo, REAL8FrequencySeries *psd, REAL8 start_freq, SimInspiralTable *inj)
+{
+  REAL8       this_snr;
+  REAL8TimeSeries *strain = NULL;
 
-void adjust_snr(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_list)
+  strain   = XLALNRInjectionStrain(ifo, inj);
+  this_snr = calculate_snr_from_strain_and_psd_real8(strain, psd, start_freq, ifo);
+
+  XLALDestroyREAL8TimeSeries (strain);
+
+  return this_snr;
+}
+
+REAL8 network_snr_with_psds_real8(int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs, SimInspiralTable *inj)
+{
+  REAL8 snr_total = 0.0;
+  REAL8 this_snr;
+
+  for (i=0; i< num_ifos; i++)
+  {
+    this_snr   = snr_in_psd_real8(ifo_list[i], psds[i], start_freqs[i], inj);
+    snr_total += this_snr * this_snr;
+  }
+
+  return sqrt(snr_total);
+}
+
+void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs)
 {
   /* Vars for calculating SNRs */
   REAL8 this_snr;
-  REAL8 UNUSED low_snr, UNUSED high_snr;
-  REAL8 low_dist,high_dist;
 
-  this_snr = network_snr(ifo_list, inj);
+  this_snr = network_snr_with_psds_real8(num_ifos, ifo_list, psds, start_freqs, inj);
+  inj->distance = inj->distance * (this_snr/target_snr);
 
-  if (this_snr > target_snr)
-  {
-    high_snr  = this_snr;
-    high_dist = inj->distance;
-
-    while (this_snr > target_snr)
-    {
-      inj-> distance = inj->distance * 3.0;
-      this_snr       = network_snr(ifo_list, inj);
-    }
-    low_snr  = this_snr;
-    low_dist = inj->distance;
-  } else {
-    low_snr  = this_snr;
-    low_dist = inj->distance;
-
-    while (this_snr < target_snr)
-    {
-      inj->distance = (inj->distance) / 3.0;
-      this_snr      = network_snr(ifo_list, inj);
-    }
-    high_snr  = this_snr;
-    high_dist = inj->distance;
-  }
-
-  while ( abs(target_snr - this_snr) > 1.0 )
-  {
-    inj->distance = (high_dist + low_dist) / 2.0;
-    this_snr = network_snr(ifo_list, inj);
-
-    if (this_snr > target_snr)
-    {
-      high_snr  = this_snr;
-      high_dist = inj->distance;
-    } else {
-      low_snr  = this_snr;
-      low_dist = inj->distance;
-    }
-  }
 }
 
 
@@ -523,6 +584,7 @@ static void print_usage(char *program)
       "Time distribution information:\n"\
       "  --gps-start-time start   GPS start time for injections\n"\
       "  --gps-end-time end       GPS end time for injections\n"\
+      "  --ipn-gps-time IPNtime   GPS end time for IPN trigger\n"\
       "  --t-distr timeDist       set the time step distribution of injections\n"\
       "                           fixed: fixed time step\n"\
       "                           uniform: uniform distribution\n"\
@@ -539,11 +601,13 @@ static void print_usage(char *program)
       "                           exttrig: use external trigger file\n"\
       "                           random: uses random locations\n"\
       "                           fixed: set fixed location\n"\
+      "                           ipn: random locations from IPN skypoints\n"\
       " [--longitude] longitude   read longitude if fixed value (degrees)\n"
       " [--latitude] latitude     read latitide if fixed value (degrees)\n"
       "  --d-distr distDist       set the distance distribution of injections\n"\
       "                           source: take distance from galaxy source file\n"\
       "                           uniform: uniform distribution in distance\n"\
+      "                           distancesquared: uniform distribution in distance^2\n"\
       "                           log10: uniform distribution in log10(d) \n"\
       "                           volume: uniform distribution in volume\n"\
       "                           sfr: distribution derived from the SFR\n"\
@@ -560,6 +624,7 @@ static void print_usage(char *program)
       " [--max-inc]  max_inc      value for the maximum inclination angle (in degrees) if '--i-distr uniform' is chosen. \n"\
       " [--source-file] sources   read source parameters from sources\n"\
       "                           requires enable/disable milkyway\n"\
+      " [--ipn-file] ipnskypoints read IPN sky points from file\n"\
       " [--sourcecomplete] distance \n"
       "                           complete galaxy catalog out to distance (kPc)\n"\
       " [--make-catalog]          create a text file of the completed galaxy catalog\n"\
@@ -574,6 +639,10 @@ static void print_usage(char *program)
       " [--min-snr] SMIN          Sets the minimum network snr\n"\
       " [--max-snr] SMAX          Sets the maximum network snr\n"\
       " [--log-snr]               If set distribute uniformly in log(snr) rather than snr\n"\
+      " [--ligo-psd] filename     Ascii, tab-separated file of frequency, value pairs to use for LIGO PSD in snr computation\n"\
+      " [--ligo-start-freq] freq  Frequency in Hz to use for LIGO snr computation\n"\
+      " [--virgo-psd] filename    Ascii, tab-separated file of frequency, value pairs to use for Virgo PSD in snr computation\n"\
+      " [--virgo-start-freq] freq Frequency in Hz to use for Virgo snr computation\n"\
       " [--ifos] ifos             Comma-separated list of ifos to include in network SNR\n\n");
   fprintf(stderr,
       "Mass distribution information:\n"\
@@ -595,6 +664,7 @@ static void print_usage(char *program)
       "                           m1m2SquareGrid: component masses on a square grid\n"\
       "                           fixMasses: fix m1 and m2 to specific values\n"\
       " [--ninja2-mass]           use the NINJA 2 mass-selection algorithm\n"\
+      " [--real8-ninja2]          when distributing by SNR for NINJA2, assume frames are REAL8\n"\
       " [--mass-file] mFile       read population mass parameters from mFile\n"\
       " [--nr-file] nrFile        read mass/spin parameters from xml nrFile\n"\
       " [--min-mass1] m1min       set the minimum component mass to m1min\n"\
@@ -810,8 +880,8 @@ read_source_data( char* filename )
   /* close file */
   fclose( fp );
 
-
   /* generate ratio and fraction vectors */
+
   ratioVec = calloc( num_source, sizeof( REAL8 ) );
   fracVec  = calloc( num_source, sizeof( REAL8  ) );
   if ( !ratioVec || !fracVec )
@@ -829,6 +899,69 @@ read_source_data( char* filename )
   fracVec[0] = ratioVec[0] / norm;
   for ( k = 1; k < num_source; ++k )
     fracVec[k] = fracVec[k-1] + ratioVec[k] / norm;
+}
+
+/*
+ Function to read IPN sky simulations from text file given file - read(file,ra,dec)
+*/
+void read_IPN_grid_from_file( char *fname )
+
+{
+
+  UINT4              j;                      /* counters */
+  char               line[256];              /* string holders */
+  FILE               *data;                  /* file object */
+
+  /* read file */
+  data = fopen(fname, "r");
+
+  /* check file */
+  if ( ! data )
+  {
+    fprintf( stderr, "Could not find file %s\n", fname );
+    exit( 1 );
+  }
+
+
+  /* find number of lines */
+  numSkyPoints = 0;
+  while ( fgets( line, sizeof( line ), data ) )
+    ++numSkyPoints;
+
+
+  /* seek to start of file again */
+  fseek(data, 0, SEEK_SET);  
+
+  /* assign memory for sky points */
+  skyPoints = LALCalloc(numSkyPoints, sizeof(*skyPoints));
+  if ( ! skyPoints )
+  {
+    fprintf( stderr, "Allocation error for skyPoints\n" );
+    exit( 1 );
+  }
+
+  j = 0;
+  while ( fgets( line, sizeof( line ), data ) )
+    {
+      REAL8 ra, dec;
+      int c;
+
+      c = sscanf( line, "%le %le", &ra, &dec );
+      if ( c != 2 )
+      {
+        fprintf( stderr, "error parsing IPN sky points datafile %s\n", IPNSkyPositionsFile );
+        exit( 1 );
+      }
+
+      /* convert to radians */
+      skyPoints[j].ra  = ra * ( LAL_PI / 180.0 );  /* from degrees (IPN file) to radians */
+      skyPoints[j].dec = dec * ( LAL_PI / 180.0 );
+      ++j;
+    }
+
+
+  /* close file */
+  fclose( data );
 }
 
 /*
@@ -1047,6 +1180,7 @@ for (j=0; j<galaxynum; j++) {
         myFakeGalaxy = saved_next;
 }
 LALFree(old_source_data);
+LALFree( skyPoints );
 LALDestroyRandomParams( &status, &randPositions);
 
 XLALDestroyREAL8Vector(phibins);
@@ -1130,9 +1264,11 @@ void drawMassSpinFromNRNinja2( SimInspiralTable* inj )
   for ( j = 0; j < num_nr; j++ )
   {
     k           = indicies[j];
-    startFreq   = start_freq_from_frame_url(nrSimArray[k]->numrel_data);
+    if (nrSimArray[k]->f_lower > 0.0000001)
+      startFreq = nrSimArray[k]->f_lower;
+    else
+      startFreq   = start_freq_from_frame_url(nrSimArray[k]->numrel_data);
     startFreqHz = startFreq / (LAL_TWOPI * massTotal * LAL_MTSUN_SI);
-
     /* if this startFreqHz makes us happy, inject it */
     if (startFreqHz <= inj->f_lower)
     {
@@ -1210,6 +1346,32 @@ void drawFromSource( REAL8 *rightAscension,
 
 /*
  *
+ * functions to draw IPN sky location from IPN simulation points
+ *
+ */
+void drawFromIPNsim( REAL8 *rightAscension,
+    REAL8 *declination )
+{
+  REAL4 u;
+  INT4 j;
+  
+  u=XLALUniformDeviate( randParams );
+  j=( int ) (u*numSkyPoints);  
+ 
+
+  /* draw from the IPN source table */
+    if ( j < numSkyPoints )
+    {
+      /* put the parameters */
+      *rightAscension = skyPoints[j].ra;
+      *declination    = skyPoints[j].dec;
+      return;
+    }
+}
+
+
+/*
+ *
  * functions to draw sky location from exttrig source file
  *
  */
@@ -1245,6 +1407,7 @@ int main( int argc, char *argv[] )
 {
   LIGOTimeGPS gpsStartTime = {-1,0};
   LIGOTimeGPS gpsEndTime = {-1,0};
+  LIGOTimeGPS IPNgpsTime = {-1,0};
   LIGOTimeGPS currentGpsTime;
   long gpsDuration;
 
@@ -1276,9 +1439,17 @@ int main( int argc, char *argv[] )
   REAL8 drawnRightAscension = 0.0;
   REAL8 drawnDeclination = 0.0;
   CHAR  drawnSourceName[LIGOMETA_SOURCE_MAX];
+  REAL8 IPNgmst1 = 0.0;
+  REAL8 IPNgmst2 = 0.0;
 
   REAL8 targetSNR;
 
+  CHAR  *ligoPsdFileName  = NULL;
+  REAL8 ligoStartFreq     = -1;
+  CHAR *virgoPsdFileName  = NULL;
+  REAL8 virgoStartFreq    = -1;
+  REAL8FrequencySeries *ligoPsd  = NULL;
+  REAL8FrequencySeries *virgoPsd = NULL;
 
   status=blank_status;
 
@@ -1294,6 +1465,7 @@ int main( int argc, char *argv[] )
     {"f-lower",                 required_argument, 0,                'F'},
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-end-time",            required_argument, 0,                'b'},
+    {"ipn-gps-time",            required_argument, 0,                '"'},
     {"t-distr",                 required_argument, 0,                '('},
     {"time-step",               required_argument, 0,                't'},
     {"time-interval",           required_argument, 0,                'i'},
@@ -1314,6 +1486,7 @@ int main( int argc, char *argv[] )
     {"mean-mass1",              required_argument, 0,                'n'},
     {"mean-mass2",              required_argument, 0,                'N'},
     {"ninja2-mass",             no_argument,       &ninjaMass,         1},
+    {"real8-ninja2",            no_argument,       &real8Ninja2,       1},
     {"mass1-points",            required_argument, 0,                ':'},
     {"mass2-points",            required_argument, 0,                ';'},    
     {"stdev-mass1",             required_argument, 0,                'o'},
@@ -1326,6 +1499,10 @@ int main( int argc, char *argv[] )
     {"min-snr",                 required_argument, 0,                '1'},
     {"max-snr",                 required_argument, 0,                '2'},
     {"log-snr",                 no_argument,       &logSNR,            1},
+    {"ligo-psd",                required_argument, 0,                500},
+    {"ligo-start-freq",         required_argument, 0,                501},
+    {"virgo-psd",               required_argument, 0,                600},
+    {"virgo-start-freq",        required_argument, 0,                601},
     {"ifos",                    required_argument, 0,                '3'},
     {"d-distr",                 required_argument, 0,                'e'},
     {"local-rate",              required_argument, 0,                ')'},
@@ -1358,6 +1535,7 @@ int main( int argc, char *argv[] )
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
+    {"ipn-file",                required_argument, 0,                '^'},
     {0, 0, 0, 0}
   };
   int c;
@@ -1486,6 +1664,23 @@ int main( int argc, char *argv[] )
         }
         gpsEndTime.gpsSeconds = gpsinput;
         gpsEndTime.gpsNanoSeconds = 0;
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "int",
+              "%ld", gpsinput );
+        break;
+
+      case '"':
+        gpsinput = atol( optarg );
+        if ( gpsinput < 441417609 )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "GPS start time is prior to "
+              "Jan 01, 1994  00:00:00 UTC:\n"
+              "(%ld specified)\n",
+              long_options[option_index].name, gpsinput );
+          exit( 1 );
+        }
+        IPNgpsTime.gpsSeconds = gpsinput;
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name, "int",
               "%ld", gpsinput );
@@ -1843,6 +2038,10 @@ int main( int argc, char *argv[] )
         {
           dDistr=uniformDistance;
         }
+        else if (!strcmp(dummy, "distancesquared"))
+        {
+          dDistr=uniformDistanceSquared;
+        }
         else if (!strcmp(dummy, "log10"))
         {
           dDistr=uniformLogDistance;
@@ -1859,7 +2058,7 @@ int main( int argc, char *argv[] )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown source distribution: "
-              "%s, must be one of (uniform, log10, volume, source)\n",
+              "%s, must be one of (uniform, distancesquared, log10, volume, source, sfr)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -1894,7 +2093,11 @@ int main( int argc, char *argv[] )
         {
           lDistr=fixedSkyLocation;
         }
-        else
+        else if(!strcmp(dummy, "ipn"))
+        {
+          lDistr=locationFromIPNFile;
+        }
+	else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown location distribution: "
@@ -2053,6 +2256,26 @@ int main( int argc, char *argv[] )
               "%s", optarg );
         break;
 
+      case 500:  /* LIGO psd file */
+        optarg_len      = strlen( optarg ) + 1;
+        ligoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
+        memcpy( ligoPsdFileName, optarg, optarg_len * sizeof(char) );
+        break;
+
+      case 501:  /* LIGO start frequency */
+        ligoStartFreq = (REAL8) atof( optarg );
+        break;
+
+      case 600:  /* Virgo psd file */
+        optarg_len       = strlen( optarg ) + 1;
+        virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
+        memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
+        break;
+      
+      case 601:  /* LIGO start frequency */
+        virgoStartFreq = (REAL8) atof( optarg );
+        break;
+
       case 'g':
         minSpin1 = atof( optarg );
         this_proc_param = this_proc_param->next =
@@ -2160,15 +2383,15 @@ int main( int argc, char *argv[] )
         /* Set injection tapering */
         if ( ! strcmp( "start", optarg ) )
         {
-            taperInj = INSPIRAL_TAPER_START;
+            taperInj = LAL_SIM_INSPIRAL_TAPER_START;
         }
         else if ( ! strcmp( "end", optarg ) )
         {
-            taperInj = INSPIRAL_TAPER_END;
+            taperInj = LAL_SIM_INSPIRAL_TAPER_END;
         }
         else if ( ! strcmp( "startend", optarg ) )
         {
-            taperInj = INSPIRAL_TAPER_STARTEND;
+            taperInj = LAL_SIM_INSPIRAL_TAPER_STARTEND;
         }
         else
         {
@@ -2231,6 +2454,16 @@ int main( int argc, char *argv[] )
         print_usage(argv[0]);
         exit( 1 );
         break;
+
+      case '^':
+        optarg_len = strlen( optarg ) + 1;
+        IPNSkyPositionsFile = calloc( 1, optarg_len * sizeof(char) );
+        memcpy( IPNSkyPositionsFile, optarg, optarg_len * sizeof(char) );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "%s", optarg );
+        break;
+
 
       default:
         fprintf( stderr, "unknown error while parsing options\n" );
@@ -2317,7 +2550,19 @@ int main( int argc, char *argv[] )
     }
   }
 
+  /* if using IPN sky points file, check that file exists and read it */
+  if ( lDistr==locationFromIPNFile )
+  {
+    if ( ! IPNSkyPositionsFile )
+    {
+      fprintf( stderr,
+          "Must specify --ipn-file when using IPN sky points distribution \n" );
+      exit( 1 );
+    }
 
+    /* read the source distribution here */
+   read_IPN_grid_from_file( IPNSkyPositionsFile );
+  }
   /* If we're distributing over snr make sure we have everything */
   if ( minSNR > -1 || maxSNR > -1 || logSNR || ifos )
   {
@@ -2376,6 +2621,43 @@ int main( int argc, char *argv[] )
         "Must specify either a file contining the masses (--nr-file) "
         "or choose another mass-distribution (--m-distr).\n" );
     exit( 1 );
+  }
+
+  /* Check custom PSDs */
+  if (ligoPsdFileName || ligoStartFreq > 0) {
+    if (!ligoPsdFileName || ligoStartFreq < 0) {
+      fprintf( stderr,
+        "Must specify both --ligo-psd and --ligo-start-freq "
+        "if either is specified.\n");
+      exit( 1 );
+    }
+
+    if (XLALPsdFromFile(&ligoPsd, ligoPsdFileName) != XLAL_SUCCESS)
+    {
+      fprintf(stderr, "Unable to load PSD file %s.\n", ligoPsdFileName);
+      exit( 1 );
+    }
+
+    /* We're done with the filename */
+    free(ligoPsdFileName);
+  }
+
+  if (virgoPsdFileName || virgoStartFreq > 0) {
+    if (!virgoPsdFileName || virgoStartFreq < 0) {
+      fprintf( stderr,
+        "Must specify both --virgo-psd and --virgo-start-freq "
+        "if either is specified.\n");
+      exit( 1 );
+    }
+
+    if (XLALPsdFromFile(&virgoPsd, virgoPsdFileName) != XLAL_SUCCESS)
+    {
+      fprintf(stderr, "Unable to load PSD file %s.\n", virgoPsdFileName);
+      exit( 1 );
+    }
+
+    /* We're done with the filename */
+    free(virgoPsdFileName);
   }
 
 
@@ -2811,6 +3093,7 @@ int main( int argc, char *argv[] )
     /* draw location and distances */
     drawFromSource( &drawnRightAscension, &drawnDeclination, &drawnDistance,
         drawnSourceName );
+    drawFromIPNsim( &drawnRightAscension, &drawnDeclination );
 
     /* populate distances */
     if ( dDistr == distFromSourceFile )
@@ -2863,6 +3146,13 @@ int main( int argc, char *argv[] )
     else if (lDistr == uniformSkyLocation)
     {
       simTable=XLALRandomInspiralSkyLocation(simTable, randParams);
+    }
+    else if ( lDistr == locationFromIPNFile )
+    {
+      IPNgmst1 = XLALGreenwichMeanSiderealTime(&IPNgpsTime);
+      IPNgmst2 = XLALGreenwichMeanSiderealTime(&simTable->geocent_end_time);
+      simTable->longitude = drawnRightAscension - IPNgmst1 + IPNgmst2;
+      simTable->latitude  = drawnDeclination;
     }
     else
     {
@@ -2922,11 +3212,57 @@ int main( int argc, char *argv[] )
         if ( logSNR )
           targetSNR = exp(targetSNR);
 
-        adjust_snr(simTable, targetSNR, ifos);
+        if (! real8Ninja2)
+        {
+            adjust_snr(simTable, targetSNR, ifos);
+        } else {
+            REAL8 *start_freqs;
+            const char  **ifo_list;
+            REAL8FrequencySeries **psds;
+            int count, num_ifos = 0;
+            char *tmp, *ifo;
 
-        /* TODO: for NINJA2, decide whether to call the above or
-        adjust_snr_real8(simTable, targetSNR, ifos);
-        */
+            tmp = LALCalloc(1, strlen(ifos) + 1);
+            strcpy(tmp, ifos);
+            ifo = strtok (tmp,",");
+
+            while (ifo != NULL)
+            {
+              num_ifos += 1;
+              ifo       = strtok (NULL, ",");
+            }
+
+            start_freqs = (REAL8 *) LALCalloc(num_ifos, sizeof(REAL8));
+            ifo_list    = (const char **) LALCalloc(num_ifos, sizeof(char *));
+            psds        = (REAL8FrequencySeries **) LALCalloc(num_ifos, sizeof(REAL8FrequencySeries *));
+
+            strcpy(tmp, ifos);
+            ifo   = strtok (tmp,",");
+            count = 0;
+
+            while (ifo != NULL)
+            {
+                ifo_list[count] = ifo; 
+
+                if (ifo_list[count][0] == 'V')
+                {
+                    start_freqs[count] = virgoStartFreq;
+                    psds[count]        = virgoPsd;
+                } else {
+                    start_freqs[count] = ligoStartFreq;
+                    psds[count]        = ligoPsd;
+                }
+                count++;
+                ifo = strtok (NULL, ",");
+            }
+
+            adjust_snr_with_psds_real8(simTable, targetSNR, num_ifos, ifo_list, psds, start_freqs);
+        
+            LALFree(start_freqs);
+            LALFree(ifo_list);
+            LALFree(psds);
+            LALFree(tmp);
+        }
     }
 
     /* populate the site specific information */
@@ -2936,20 +3272,20 @@ int main( int argc, char *argv[] )
     {
         switch (taperInj)
         {
-            case INSPIRAL_TAPER_NONE:
-                 snprintf( simTable->taper, LIGOMETA_WAVEFORM_MAX,
+            case LAL_SIM_INSPIRAL_TAPER_NONE:
+                 snprintf( simTable->taper, LIGOMETA_INSPIRALTAPER_MAX,
                          "%s", "TAPER_NONE");
                  break;
-            case INSPIRAL_TAPER_START:
-                 snprintf( simTable->taper, LIGOMETA_WAVEFORM_MAX,
+            case LAL_SIM_INSPIRAL_TAPER_START:
+                 snprintf( simTable->taper, LIGOMETA_INSPIRALTAPER_MAX,
                          "%s", "TAPER_START");
                  break;
-            case INSPIRAL_TAPER_END:
-                 snprintf( simTable->taper, LIGOMETA_WAVEFORM_MAX,
+            case LAL_SIM_INSPIRAL_TAPER_END:
+                 snprintf( simTable->taper, LIGOMETA_INSPIRALTAPER_MAX,
                          "%s", "TAPER_END");
                  break;
-            case INSPIRAL_TAPER_STARTEND:
-                 snprintf( simTable->taper, LIGOMETA_WAVEFORM_MAX,
+            case LAL_SIM_INSPIRAL_TAPER_STARTEND:
+                 snprintf( simTable->taper, LIGOMETA_INSPIRALTAPER_MAX,
                          "%s", "TAPER_STARTEND");
                  break;
             default: /* Never reach here */
@@ -2964,12 +3300,12 @@ int main( int argc, char *argv[] )
 
 
     /* populate the sim_ringdown table */
-   if ( writeSimRing )
-   {
+    if ( writeSimRing )
+    {
        memcpy( simRingTable->waveform, "Ringdown",
           sizeof(CHAR) * LIGOMETA_WAVEFORM_MAX );
        memcpy( simRingTable->coordinates, "EQUATORIAL",
-          sizeof(CHAR) * LIGOMETA_WAVEFORM_MAX );
+          sizeof(CHAR) * LIGOMETA_COORDINATES_MAX );
        simRingTable->geocent_start_time = simTable->geocent_end_time;
        simRingTable->h_start_time = simTable->h_end_time;
        simRingTable->l_start_time = simTable->l_end_time;
@@ -3089,8 +3425,15 @@ int main( int argc, char *argv[] )
     LALFree(source_data);
   if (mass_data)
     LALFree(mass_data);
+  if (skyPoints)
+    LALFree(skyPoints);
 
+  if ( ligoPsd )
+      XLALDestroyREAL8FrequencySeries( ligoPsd );
 
+  if ( virgoPsd )
+      XLALDestroyREAL8FrequencySeries( virgoPsd );
+     
   LALCheckMemoryLeaks();
   return 0;
 }

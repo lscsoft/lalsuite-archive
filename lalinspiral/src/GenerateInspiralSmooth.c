@@ -17,10 +17,29 @@
 *  MA  02111-1307  USA
 */
 
+/*********************************************************************
+ * PREAMBLE                                                          *
+ *********************************************************************/
+
+#include <math.h>
+#include <lal/LALStdio.h>
+#include <lal/LALStdlib.h>
+#include <lal/LALConstants.h>
+#include <lal/Units.h>
+#include <lal/FindRoot.h>
+#include <lal/AVFactories.h>
+#include <lal/SeqFactories.h>
+#include <lal/SimulateCoherentGW.h>
+#include <lal/GeneratePPNInspiral.h>
+
+#define BUFFSIZE 16384     /* Number of timesteps buffered */
+
+/*********************************************************************
+ * MAIN FUNCTION                                                     *
+ *********************************************************************/
+
 /**
 \author Fairhurst, S.
-\file
-\ingroup GeneratePPNInspiral_h
 
 \brief Smooths the end of an inspiral waveform by adding an exponential
 ringdown at the end.
@@ -57,42 +76,7 @@ entries by:
 \f}
 Here, \f$t\f$ is the elapsed time after the end of the inspiral.  The waveform
 ends when its amplitude has been suppressed by a factor of \f$\exp(-10)\f$.
-
-\heading{Uses}
-\code
-LALRealloc()                  LALFree()
-LALSResizeVector()            LALDResizeVector()
-LALSDestroyVectorSequence()   LALSDestroyVector()
-\endcode
-
-\heading{Notes}
-
 */
-
-/*********************************************************************
- * PREAMBLE                                                          *
- *********************************************************************/
-
-#include <math.h>
-#include <lal/LALStdio.h>
-#include <lal/LALStdlib.h>
-#include <lal/LALConstants.h>
-#include <lal/Units.h>
-#include <lal/FindRoot.h>
-#include <lal/AVFactories.h>
-#include <lal/SeqFactories.h>
-#include <lal/SimulateCoherentGW.h>
-#include <lal/GeneratePPNInspiral.h>
-
-NRCSID( GENERATEINSPIRALSMOOTHC, "$Id$" );
-
-#define BUFFSIZE 16384     /* Number of timesteps buffered */
-
-/*********************************************************************
- * MAIN FUNCTION                                                     *
- *********************************************************************/
-
-
 void
 LALGenerateInspiralSmooth(  LALStatus     *stat,
 			    CoherentGW    **output,
@@ -116,7 +100,7 @@ LALGenerateInspiralSmooth(  LALStatus     *stat,
   INT4 nSmooth,n;
   CoherentGW *waveform;
 
-  INITSTATUS( stat, "LALGenerateInspiralSmooth", GENERATEINSPIRALSMOOTHC );
+  INITSTATUS(stat);
   ATTATCHSTATUSPTR( stat );
 
   /* Make sure parameter, qfactor and output structures exist. */

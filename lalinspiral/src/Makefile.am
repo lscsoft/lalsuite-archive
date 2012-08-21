@@ -4,6 +4,8 @@ lalinspiralincludedir = $(includedir)/lal
 lalinspiralinclude_HEADERS = \
 	BBHPhenomCoeffs.h \
 	BlackHoleMode.h \
+	Chisq_CPU.h \
+	Chisq_GPU.h \
 	CoherentInspiral.h \
 	CoincInspiralEllipsoid.h \
 	FindChirp.h \
@@ -27,6 +29,7 @@ lalinspiralinclude_HEADERS = \
 	LALInspiralBank.h \
 	LALInspiralConfig.h \
 	LALInspiralRandomBank.h \
+	LALInspiralLibVCSInfo.h \
 	LALInspiralVCSInfo.h \
 	LALNoiseModelsInspiral.h \
 	LALPSpinInspiralRD.h \
@@ -53,6 +56,7 @@ lib_LTLIBRARIES = liblalinspiral.la
 liblalinspiral_la_SOURCES = \
 	BandPassInspiralTemplate.c \
 	BlackHoleMode.c \
+	Chisq_CPU.c \
 	CoherentInspiralFilter.c \
 	CoherentInspiralInput.c \
 	CoincInspiralEllipsoid.c \
@@ -62,7 +66,6 @@ liblalinspiral_la_SOURCES = \
 	FindChirpBCVChisq.c \
 	FindChirpBCVData.c \
 	FindChirpBCVFilter.c \
-	FindChirpBCVSpinChisq.c \
 	FindChirpBCVSpinData.c \
 	FindChirpBCVSpinFilter.c \
 	FindChirpBCVSpinTemplate.c \
@@ -142,6 +145,7 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralMoments.c \
 	LALInspiralMomentsIntegrand.c \
 	LALInspiralNextTemplate.c \
+	LALInspiralNinjaInject.c \
 	LALInspiralParameterCalc.c \
 	LALInspiralParseParameters.c \
 	LALInspiralPhasing1.c \
@@ -176,7 +180,6 @@ liblalinspiral_la_SOURCES = \
 	LALInspiralWaveNormalise.c \
 	LALInspiralWaveNormaliseLSO.c \
 	LALInspiralWaveOverlap.c \
-	LALInspiralWaveTaper.c \
 	LALInverse3.c \
 	LALNewtonianMultipole.c \
 	LALMatrixTransform.c \
@@ -208,12 +211,27 @@ liblalinspiral_la_SOURCES = \
 	SimulateInspiral.c \
 	SnglInspiralUtils.c \
 	SnglRingdownUtils.c \
-	TrigScanEThincaCommon.c \
-	check_series_macros.h
+	TrigScanEThincaCommon.c
+
+if CUDA
+INSPCXXSRC =
+INSPCXXGENSRC = Chisq_GPU.cpp
+INSPLIBCXX = liblalinspiralcxx.la
+else
+INSPCXXSRC =
+INSPCXXGENSRC =
+INSPLIBCXX =
+endif
+
+noinst_LTLIBRARIES = $(INSPLIBCXX)
+liblalinspiralcxx_la_SOURCES = $(INSPCXXSRC)
+nodist_liblalinspiralcxx_la_SOURCES = $(INSPCXXGENSRC)
+liblalinspiral_la_LIBADD = $(INSPLIBCXX)
 
 liblalinspiral_la_LDFLAGS = -version-info $(LIBVERSION)
 
 CLEANFILES = \
+	Chisq_GPU.cpp \
 	lalinspiral-user-env.shell \
 	lalinspiral-user-env.sh \
 	lalinspiral-user-env.csh
@@ -238,10 +256,10 @@ lalinspiral-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
 
 lalinspiral-user-env.csh lalinspiral-user-env.sh: lalinspiral-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
+	Chisq_GPU.cu \
 	LALInspiralConfig.h.in \
 	LALInspiralVCSInfo.h.in \
 	generate_user_env.awk \
@@ -250,7 +268,9 @@ EXTRA_DIST = \
 LALInspiralVCSInfo.h: ._vcsinfo
 
 ._vcsinfo: $(srcdir)/generate_vcs_info.py LALInspiralConfig.h
-	@echo "creating LALInspiralVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALInspiral $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALInspiral $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@
+
+# cuda build rules
+include $(top_srcdir)/gnuscripts/cuda.common

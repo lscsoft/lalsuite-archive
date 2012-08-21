@@ -1,4 +1,5 @@
-AC_INIT([lalsuite],[6.5.0.5],[lal-discuss@gravity.phys.uwm.edu])
+AC_PREREQ([2.63])
+AC_INIT([lalsuite],[6.11.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -8,8 +9,9 @@ AC_CONFIG_FILES([
   doxygen/Makefile \
   doxygen/src/Makefile
 ])
-AM_INIT_AUTOMAKE([foreign])
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalsuite])
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
+
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # for building doxygen
 AC_PROG_LN_S
@@ -25,6 +27,7 @@ LALSUITE_ENABLE_LALINSPIRAL
 LALSUITE_ENABLE_LALSTOCHASTIC
 LALSUITE_ENABLE_LALPULSAR
 LALSUITE_ENABLE_LALINFERENCE
+LALSUITE_ENABLE_LALAPPS
 
 lalsuite_top_builddir='$(top_builddir)/..'
 lalsuite_top_srcdir='$(top_srcdir)/..'
@@ -129,6 +132,8 @@ if test "$lalinference" = "true"; then
   AC_CONFIG_SUBDIRS([lalinference])
 fi
 
-AC_CONFIG_SUBDIRS([lalapps])
+if test "$lalapps" = "true"; then
+  AC_CONFIG_SUBDIRS([lalapps])
+fi
 
 AC_OUTPUT

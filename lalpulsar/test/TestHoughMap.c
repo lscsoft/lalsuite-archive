@@ -23,10 +23,9 @@
  *
  * Authors: Sintes, A.M., Krishnan, B.
  *
- * Revision: $Id$
  *
  * History:   Created by Sintes June 25, 2001
- *            Modified  "   August 6, 2001
+ *            Modified     August 6, 2001
  *            Modified by Badri Krishnan Feb 2003
  *-----------------------------------------------------------------------
  */
@@ -83,7 +82,7 @@ The <b>-p</b> option sets the velocity orientation of the detector
 
 \heading{Uses}
 \code
-LALHOUGHParamPLUT()
+LALHOUGHCalcParamPLUT()
 LALHOUGHConstructPLUT()
 LALHOUGHPeak2PHMD()
 LALHOUGHInitializeHT()
@@ -116,7 +115,6 @@ LALCheckMemoryLeaks()
 
 
 /** \cond DONT_DOXYGEN */
-NRCSID (TESTHOUGHMAPC, "$Id$");
 
 /* Default parameters. */
 
@@ -143,7 +141,7 @@ do {                                                                 \
   if ( lalDebugLevel & LALERROR )                                    \
     XLALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n" \
                    "        %s %s\n", (code), *argv, __FILE__,       \
-              __LINE__, TESTHOUGHMAPC, statement ? statement :  \
+              __LINE__, "$Id$", statement ? statement :  \
                    "", (msg) );                                      \
 } while (0)
 
@@ -152,7 +150,7 @@ do {                                                                 \
   if ( lalDebugLevel & LALINFO )                                     \
     XLALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"     \
                    "        %s\n", *argv, __FILE__, __LINE__,        \
-              TESTHOUGHMAPC, (statement) );                     \
+              "$Id$", (statement) );                     \
 } while (0)
 
 #define SUB( func, statusptr )                                       \
@@ -410,7 +408,7 @@ int main(int argc, char *argv[]){
   /******************************************************************/
   /* calculate parameters needed for buiding the LUT */
   /******************************************************************/
-  SUB( LALHOUGHParamPLUT( &status, &parLut, &parSize, &parDem ),  &status );
+  SUB( LALHOUGHCalcParamPLUT( &status, &parLut, &parSize, &parDem ),  &status );
 
   /******************************************************************/
   /* build the LUT */

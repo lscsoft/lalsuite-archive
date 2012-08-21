@@ -1,4 +1,5 @@
 from pylal.date import *
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import unittest
 
 

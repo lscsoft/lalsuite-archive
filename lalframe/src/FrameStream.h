@@ -43,18 +43,11 @@
 #ifndef _FRAMESTREAM_H
 #define _FRAMESTREAM_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #if defined(__cplusplus)
 extern "C" {
 #elif 0
 } /* so that editors will match preceding brace */
 #endif
-
-NRCSID( FRAMESTREAMH, "$Id$" );
 
 /**\name Error Codes */ /*@{*/
 #define FRAMESTREAMH_ENULL 00001
@@ -113,7 +106,6 @@ FrMode;
 struct FrFile;
 typedef struct tagFrFileInfo
 {
-  SWIGLAL_STRUCT_LALALLOC();
   INT4  ind;
   CHAR *url;
   INT4  t0;
@@ -122,7 +114,6 @@ typedef struct tagFrFileInfo
 FrFileInfo;
 typedef struct tagFrStream
 {
-  SWIGLAL_STRUCT_LALALLOC();
   FrState        state;
   INT4           mode;
   LIGOTimeGPS    epoch;
@@ -144,7 +135,6 @@ FrStream;
 typedef struct
 tagFrPos
 {
-  SWIGLAL_STRUCT_LALALLOC();
   LIGOTimeGPS epoch;
   UINT4       fnum;
   INT4        pos;
@@ -187,7 +177,6 @@ FrChanType;
 typedef struct
 tagFrChanIn
 {
-  SWIGLAL_STRUCT_LALALLOC();
   const CHAR *name;
   ChannelType type;
 }
@@ -211,7 +200,6 @@ FrChanIn;
 typedef struct
 tagFrOutPar
 {
-  SWIGLAL_STRUCT_LALALLOC();
   const CHAR *source;
   const CHAR *description;
   ChannelType type;
@@ -244,7 +232,7 @@ FrStream * XLALFrCacheOpen( FrCache *cache );
 FrStream * XLALFrOpen( const char *dirname, const char *pattern );
 int XLALFrClose( FrStream *stream );
 int XLALFrSetMode( FrStream *stream, int mode );
-int XLALFrState( FrStream *stream );
+int XLALFrGetState( FrStream *stream );
 int XLALFrClearErr( FrStream *stream );
 int XLALFrRewind( FrStream *stream );
 int XLALFrNext( FrStream *stream );
@@ -252,7 +240,7 @@ int XLALFrSeek( FrStream *stream, const LIGOTimeGPS *epoch );
 int XLALFrTell( LIGOTimeGPS *epoch, FrStream *stream );
 int XLALFrGetpos( FrPos *position, FrStream *stream );
 int XLALFrSetpos( FrStream *stream, FrPos *position );
-LALTYPECODE XLALFrGetTimeSeriesType( const char *channel, FrStream *stream );
+int XLALFrGetTimeSeriesType( const char *channel, FrStream *stream );
 int XLALFrGetINT2TimeSeries( INT2TimeSeries *series, FrStream *stream );
 int XLALFrGetINT4TimeSeries( INT4TimeSeries *series, FrStream *stream );
 int XLALFrGetINT8TimeSeries( INT8TimeSeries *series, FrStream *stream );
@@ -562,13 +550,6 @@ LALFrWriteINT2TimeSeries(
     );
 
 void
-LALFrWriteINT2TimeSeries(
-    LALStatus       *status,
-    INT2TimeSeries  *series,
-    FrOutPar        *params
-    );
-
-void
 LALFrWriteINT4TimeSeries(
     LALStatus       *status,
     INT4TimeSeries  *series,
@@ -610,14 +591,6 @@ LALFrWriteCOMPLEX16TimeSeries(
     FrOutPar            *params
     );
 
-
-void
-LALFrWriteINT2FrequencySeries(
-    LALStatus       *status,
-    INT2FrequencySeries  *series,
-    FrOutPar        *params,
-    INT4             subtype
-    );
 
 void
 LALFrWriteINT2FrequencySeries(

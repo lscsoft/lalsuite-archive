@@ -172,8 +172,6 @@ h_{100}^2\Omega_{\mathrm{GW}}
 
 #include "CheckStatus.h"
 
-NRCSID(STOCHASTICOMEGAGWTESTC, "$Id$");
-
 #define STOCHASTICOMEGAGWTESTC_OMEGAREF  1e-6
 #define STOCHASTICOMEGAGWTESTC_FREF      100.0
 #define STOCHASTICOMEGAGWTESTC_ALPHA     2.5
@@ -212,8 +210,6 @@ int main( int argc, char *argv[] )
   StochasticOmegaGWParameters   parameters;
   REAL4FrequencySeries     omegaGW;
 
-  REAL4FrequencySeries     dummyOutput;
-
   UINT4 i;
   REAL4 omega, f;
   INT4 code;
@@ -231,7 +227,11 @@ int main( int argc, char *argv[] )
 
   omegaGW.data = NULL;
 
+#ifndef LAL_NDEBUG
+  REAL4FrequencySeries     dummyOutput;
   dummyOutput.data = NULL;
+#endif
+
 
   ParseOptions( argc, argv );
 
@@ -588,6 +588,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -637,8 +639,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

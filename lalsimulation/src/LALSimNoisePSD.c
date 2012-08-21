@@ -17,7 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-#include <complex.h>
 #include <math.h>
 
 #include <lal/LALConstants.h>
@@ -176,7 +175,7 @@ double XLALSimNoisePSDShot(
 	double tau_s   = L*finesse/(LAL_PI*LAL_C_SI); // cavity storage time
 	double f_pole  = 1.0 / (4.0*LAL_PI*tau_s);
 	double S_DC    = ((LAL_PI*LAL_HBAR_SI*lambda*f_pole*f_pole)/(LAL_C_SI*eta*P_BS)); // DC limit of shot noise
-	complex C_FAC; // normalized sensing function
+	COMPLEX16 C_FAC; // normalized sensing function
 	C_FAC  = cexp(2.0*LAL_PI*I*f*L/LAL_C_SI) * sinh(2.0*LAL_PI*f_pole*L/LAL_C_SI) / csinh((2.0*LAL_PI*f_pole*L/LAL_C_SI)*(1.0 + I*(f/f_pole)));
 	return S_DC / pow(cabs(C_FAC), 2);
 }
@@ -232,28 +231,28 @@ double XLALSimNoisePSDQuantum(
 	double h_SQL   = sqrt(8.0*LAL_HBAR_SI/(M*pow(Omega*L,2.0)));	// [BnC, 2.12] SQL Strain
 
 	// Coefficients [BC, Equations 5.8 to 5.12]
-	complex C11_L  = sqrt(1.0-lambda_PD) * ( (1.0+rho*rho) * ( cos(2.0*phi) + Kappa/2.0 * sin(2.0*phi) ) - 2.0*rho*cos(2.0*beta) - 1.0/4.0*epsilon * ( -2.0 * (1.0+cexp(2.0*I*beta))*(1.0+cexp(2.0*I*beta)) * rho + 4.0 * (1.0+rho*rho) * pow(cos(beta),2.0)*cos(2.0*phi) + ( 3.0+cexp(I*2.0*beta) ) * Kappa * (1.0+rho*rho) * sin(2.0*phi) ) + lambda_SR * ( cexp(2.0*I*beta)*rho-1.0/2.0 * (1.0+rho*rho) * ( cos(2.0*phi)+Kappa/2.0 * sin(2.0*phi) ) ) );
-	complex C22_L  = C11_L;
-	complex C12_L  = sqrt(1.0-lambda_PD) * tau*tau * ( - ( sin(2.0*phi) + Kappa*pow(sin(phi),2.0) )+ 1.0/2.0*epsilon*sin(phi) * ( (3.0+cexp(2.0*I*beta)) * Kappa * sin(phi) + 4.0*pow(cos(beta),2.0) * cos(phi)) + 1.0/2.0*lambda_SR * ( sin(2.0*phi)+Kappa*pow(sin(phi),2.0)) );
-	complex C21_L  = sqrt(1.0-lambda_PD) * tau*tau * ( (sin(2.0*phi)-Kappa*pow(cos(phi),2.0) ) + 1.0/2.0*epsilon*cos(phi) * ( (3.0+cexp(2.0*I*beta) )*Kappa*sin(phi) - 4.0*pow(cos(beta),2.0)*sin(phi) ) + 1.0/2.0*lambda_SR * ( -sin(2.0*phi) + Kappa*pow(cos(phi),2.0)) );
+	COMPLEX16 C11_L  = sqrt(1.0-lambda_PD) * ( (1.0+rho*rho) * ( cos(2.0*phi) + Kappa/2.0 * sin(2.0*phi) ) - 2.0*rho*cos(2.0*beta) - 1.0/4.0*epsilon * ( -2.0 * (1.0+cexp(2.0*I*beta))*(1.0+cexp(2.0*I*beta)) * rho + 4.0 * (1.0+rho*rho) * pow(cos(beta),2.0)*cos(2.0*phi) + ( 3.0+cexp(I*2.0*beta) ) * Kappa * (1.0+rho*rho) * sin(2.0*phi) ) + lambda_SR * ( cexp(2.0*I*beta)*rho-1.0/2.0 * (1.0+rho*rho) * ( cos(2.0*phi)+Kappa/2.0 * sin(2.0*phi) ) ) );
+	COMPLEX16 C22_L  = C11_L;
+	COMPLEX16 C12_L  = sqrt(1.0-lambda_PD) * tau*tau * ( - ( sin(2.0*phi) + Kappa*pow(sin(phi),2.0) )+ 1.0/2.0*epsilon*sin(phi) * ( (3.0+cexp(2.0*I*beta)) * Kappa * sin(phi) + 4.0*pow(cos(beta),2.0) * cos(phi)) + 1.0/2.0*lambda_SR * ( sin(2.0*phi)+Kappa*pow(sin(phi),2.0)) );
+	COMPLEX16 C21_L  = sqrt(1.0-lambda_PD) * tau*tau * ( (sin(2.0*phi)-Kappa*pow(cos(phi),2.0) ) + 1.0/2.0*epsilon*cos(phi) * ( (3.0+cexp(2.0*I*beta) )*Kappa*sin(phi) - 4.0*pow(cos(beta),2.0)*sin(phi) ) + 1.0/2.0*lambda_SR * ( -sin(2.0*phi) + Kappa*pow(cos(phi),2.0)) );
 
-	complex D1_L   = sqrt(1.0-lambda_PD) * ( - (1.0+rho*cexp(2.0*I*beta) ) * sin(phi) + 1.0/4.0*epsilon * ( 3.0+rho+2.0*rho*cexp(4.0*I*beta) + cexp(2.0*I*beta)*(1.0+5.0*rho) ) * sin(phi)+ 1.0/2.0*lambda_SR * cexp(2.0*I*beta) * rho * sin(phi) );
-	complex D2_L   = sqrt(1.0-lambda_PD) * ( - (-1.0+rho*cexp(2.0*I*beta) ) * cos(phi) + 1.0/4.0*epsilon * ( -3.0+rho+2.0*rho*cexp(4.0*I*beta) + cexp(2.0*I*beta) * (-1.0+5.0*rho) ) * cos(phi)+ 1.0/2.0*lambda_SR * cexp(2.0*I*beta) * rho * cos(phi) );
+	COMPLEX16 D1_L   = sqrt(1.0-lambda_PD) * ( - (1.0+rho*cexp(2.0*I*beta) ) * sin(phi) + 1.0/4.0*epsilon * ( 3.0+rho+2.0*rho*cexp(4.0*I*beta) + cexp(2.0*I*beta)*(1.0+5.0*rho) ) * sin(phi)+ 1.0/2.0*lambda_SR * cexp(2.0*I*beta) * rho * sin(phi) );
+	COMPLEX16 D2_L   = sqrt(1.0-lambda_PD) * ( - (-1.0+rho*cexp(2.0*I*beta) ) * cos(phi) + 1.0/4.0*epsilon * ( -3.0+rho+2.0*rho*cexp(4.0*I*beta) + cexp(2.0*I*beta) * (-1.0+5.0*rho) ) * cos(phi)+ 1.0/2.0*lambda_SR * cexp(2.0*I*beta) * rho * cos(phi) );
 
-	complex P11    = 1.0/2.0*sqrt(1-lambda_PD) * sqrt(lambda_SR) * tau * ( -2.0*rho*cexp(2.0*I*beta)+2.0*cos(2.0*phi)+Kappa*sin(2.0*phi) );
-	complex P22    = P11;
-	complex P12    = -sqrt(1.0-lambda_PD) * sqrt(lambda_SR)*tau*sin(phi)*(2.0*cos(phi)+Kappa*sin(phi) );
-	complex P21    =  sqrt(1.0-lambda_PD) * sqrt(lambda_SR)*tau*cos(phi)*(2.0*sin(phi)-Kappa*cos(phi) );
+	COMPLEX16 P11    = 1.0/2.0*sqrt(1-lambda_PD) * sqrt(lambda_SR) * tau * ( -2.0*rho*cexp(2.0*I*beta)+2.0*cos(2.0*phi)+Kappa*sin(2.0*phi) );
+	COMPLEX16 P22    = P11;
+	COMPLEX16 P12    = -sqrt(1.0-lambda_PD) * sqrt(lambda_SR)*tau*sin(phi)*(2.0*cos(phi)+Kappa*sin(phi) );
+	COMPLEX16 P21    =  sqrt(1.0-lambda_PD) * sqrt(lambda_SR)*tau*cos(phi)*(2.0*sin(phi)-Kappa*cos(phi) );
 
-	complex Q11    = sqrt(lambda_PD) * ( cexp(-2.0*I*beta)+rho*rho*cexp(2.0*I*beta)-rho*(2.0*cos(2.0*phi)+Kappa*sin(2.0*phi)) + 1.0/2.0*epsilon*rho * (cexp(-2.0*I*beta)*cos(2.0*phi)+cexp(2.0*I*beta)* ( -2.0*rho-2.0*rho*cos(2.0*beta)+cos(2.0*phi)+Kappa*sin(2.0*phi) ) + 2.0*cos(2.0*phi)+3.0*Kappa*sin(2.0*phi))-1.0/2.0*lambda_SR*rho * ( 2.0*rho*cexp(2.0*I*beta)-2.0*cos(2.0*phi)-Kappa*sin(2.0*phi) ) );
-	complex Q22    = Q11;
-	complex Q12    = 0.0;
-	complex Q21    = 0.0;
+	COMPLEX16 Q11    = sqrt(lambda_PD) * ( cexp(-2.0*I*beta)+rho*rho*cexp(2.0*I*beta)-rho*(2.0*cos(2.0*phi)+Kappa*sin(2.0*phi)) + 1.0/2.0*epsilon*rho * (cexp(-2.0*I*beta)*cos(2.0*phi)+cexp(2.0*I*beta)* ( -2.0*rho-2.0*rho*cos(2.0*beta)+cos(2.0*phi)+Kappa*sin(2.0*phi) ) + 2.0*cos(2.0*phi)+3.0*Kappa*sin(2.0*phi))-1.0/2.0*lambda_SR*rho * ( 2.0*rho*cexp(2.0*I*beta)-2.0*cos(2.0*phi)-Kappa*sin(2.0*phi) ) );
+	COMPLEX16 Q22    = Q11;
+	COMPLEX16 Q12    = 0.0;
+	COMPLEX16 Q21    = 0.0;
 
-	complex N11    = sqrt(1.0-lambda_PD) * sqrt(epsilon/2.0)*tau *(Kappa*(1.0+rho*cexp(2.0*I*beta))*sin(phi)+2.0*cos(beta)*(cexp(-I*beta)*cos(phi)-rho*cexp(I*beta)*(cos(phi)+Kappa*sin(phi))));
-	complex N22    = -sqrt(1.0-lambda_PD)*sqrt(2.0*epsilon)*tau*(-cexp(-I*beta)+rho*cexp(I*beta))*cos(beta)*cos(phi);
-	complex N12    = -sqrt(1.0-lambda_PD)*sqrt(2.0*epsilon)*tau*(cexp(-I*beta)+rho*cexp(I*beta))*cos(beta)*sin(phi);
-	complex N21    = sqrt(1.0-lambda_PD)*sqrt(2.0*epsilon)*tau*(-Kappa*(1.0+rho)*cos(phi)+2.0*cos(beta)*(cexp(-I*beta)+rho*cexp(I*beta))*cos(beta)*sin(phi));
+	COMPLEX16 N11    = sqrt(1.0-lambda_PD) * sqrt(epsilon/2.0)*tau *(Kappa*(1.0+rho*cexp(2.0*I*beta))*sin(phi)+2.0*cos(beta)*(cexp(-I*beta)*cos(phi)-rho*cexp(I*beta)*(cos(phi)+Kappa*sin(phi))));
+	COMPLEX16 N22    = -sqrt(1.0-lambda_PD)*sqrt(2.0*epsilon)*tau*(-cexp(-I*beta)+rho*cexp(I*beta))*cos(beta)*cos(phi);
+	COMPLEX16 N12    = -sqrt(1.0-lambda_PD)*sqrt(2.0*epsilon)*tau*(cexp(-I*beta)+rho*cexp(I*beta))*cos(beta)*sin(phi);
+	COMPLEX16 N21    = sqrt(1.0-lambda_PD)*sqrt(2.0*epsilon)*tau*(-Kappa*(1.0+rho)*cos(phi)+2.0*cos(beta)*(cexp(-I*beta)+rho*cexp(I*beta))*cos(beta)*sin(phi));
 
 
 	//>>>>>>>>    QUANTUM NOISE POWER SPECTRAL DENSITY [BC, 5.13]   <<<<<<<<<<<<<<<<<
@@ -429,6 +428,67 @@ double XLALSimNoisePSDeLIGOModel(double f /**< frequency (Hz) */)
 	return shot + seismic + thermal;
 }
 
+/**
+ * Provides the design noise power spectrum for Virgo based on a
+ * phenomenological fit (from the Virgo webiste) that can be approximated by the
+ * following:
+ * \f{equation}{
+ *  S_h(f) =
+ *  s_0 \left ( \frac {7.87f}{f_0} \right )^{-4.8} + \frac{6}{17} \frac{f_0}{f}
+ *  + \left [1 + \left (\frac {f}{f_0} \right)^2 \right ],
+ * \f}
+ * where \f$s_0=10.2e-46\f$.
+ *
+ * Warning: This comes from the deprecated function LALVIRGOPsd in the lal
+ * noisemodels package, which comes with no reference to the curve. An updated
+ * version of this model, with a reference would be welcomed.
+ */
+double XLALSimNoisePSDVirgo(double f /**< frequency (Hz) */)
+{
+  REAL8 s0, x;
+
+  x = f/500.;
+
+  s0 = 10.2e-46;
+
+  return s0*( pow(7.87*x,-4.8) + 6./17./x + 1. + x*x);
+}
+
+/** Provides a GEO noise power spectrum based on that from Table IV of
+ * \ref dis2001.
+ *
+ * The comes from the deprecated function LALGEOPsd in the lal noisemodels
+ * package.
+ */
+double XLALSimNoisePSDGEO(double f /**< frequency (Hz) */)
+{
+  REAL8 x, seismic, thermal, shot;
+
+  x = f/150.;
+  seismic = pow(10.,-16.) *  pow(x,-30.);
+  thermal = 34. / x;
+  shot = 20. * (1 - pow(x,2.) + 0.5 * pow(x,4.)) / (1. + 0.5 * pow(x,2.));
+
+  return 1e-46*(seismic + thermal + shot);
+}
+
+/** Provides a TAMA300 noise power spectrum based on that from Table IV of
+ * \ref dis2001.
+ *
+ * The comes from the deprecated function LALTAMAPsd in the lal noisemodels
+ * package.
+ */
+double XLALSimNoisePSDTAMA(double f /**< frequency (Hz) */)
+{
+  REAL8 seismic, thermal, shot, x;
+
+  x = f/400.;
+  seismic = pow(x,-5);
+  thermal = 13. / x;
+  shot = 9. * (1. + x*x);
+
+  return 75.e-46*(seismic + thermal + shot);
+}
 
 /*
  *
@@ -827,6 +887,48 @@ double XLALSimNoisePSDaLIGOHighFrequency(double f /**< frequency (Hz) */)
 	thermal = XLALSimNoisePSDaLIGOThermal(f);
 
 	return quantum + thermal;
+}
+
+
+/** Provides the noise power spectrum for KAGRA based on that from Eqn 5 of
+ * \ref md2012. This is a phenomenological fit to the KAGRA spectrum from
+ * http://gwcenter.icrr.u-tokyo.ac.jp/en/researcher/parameter
+ */
+double XLALSimNoisePSDKAGRA(double f /**< frequency (Hz) */)
+{
+  REAL8 x = log(f / 100.);
+  REAL8 x2 = x*x;
+  REAL8 asd = 0.;
+
+  /* calculate ASD from reference */
+  asd = 6.499e-25 * ( 9.72e-9*exp(-1.43 - 9.88*x - 0.23*x2)
+                     + 1.17*exp(0.14 - 3.10*x - 0.26*x2)
+                     + 1.70*exp(0.14 + 1.09*x - 0.013*x2)
+                     + 1.25*exp(0.071 + 2.83*x - 4.91*x2) );
+
+  /* return PSD */
+  return asd*asd;
+}
+
+
+/** Provides the noise power spectrum for AdvVirgo based on that from Eqn 6 of
+ * \ref md2012. This is a phenomenological fit to the AdvVirgo spectrum from
+ * http://wwwcascina.virgo.infin.it/advirgo.
+ */
+double XLALSimNoisePSDAdvVirgo(double f /**< frequency (Hz) */)
+{
+  REAL8 x = log(f / 300.);
+  REAL8 x2 = x*x;
+  REAL8 asd = 0.;
+
+  /* calculate ASD from reference */
+  asd = 1.259e-24 * ( 0.07*exp(-0.142 - 1.437*x + 0.407*x2)
+                     + 3.1*exp(-0.466 - 1.043*x - 0.548*x2)
+                     + 0.4*exp(-0.304 + 2.896*x - 0.293*x2)
+                     + 0.09*exp(1.466 + 3.722*x - 0.984*x2) );
+
+  /* return PSD */
+  return asd*asd;
 }
 
 

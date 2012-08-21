@@ -54,26 +54,21 @@ snprintf
 
 #include <lal/LALInspiral.h>
 
-NRCSID (LALINSPIRALGETAPPROXIMANTSTRINGC, "$Id$");
-
 int XLALInspiralGetApproximantString( CHAR        *output,
                                       UINT4       length,
                                       Approximant approx,
                                       LALPNOrder  order
                                     )
 {
-
-  static const char *func = "XLALInspiralGetApproximantString";
-
   CHAR approxString[LIGOMETA_SEARCH_MAX];
   CHAR orderString[LIGOMETA_SEARCH_MAX];
 
 #ifndef LAL_NDEBUG
   if (!output)
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
 
   if (length < 1)
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 #endif
 
   /* Set the approximant string */
@@ -179,10 +174,17 @@ int XLALInspiralGetApproximantString( CHAR        *output,
       snprintf( approxString, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
           "EOBNR" );
       break;
+
+    case EOBNRv2:
+      snprintf( approxString, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "EOBNRv2" );
+      break;
+
     case TaylorEt:
       snprintf( approxString, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
           "TaylorEt" );
       break;
+
     case TaylorT4:
       snprintf( approxString, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
           "TaylorT4" );
@@ -205,7 +207,7 @@ int XLALInspiralGetApproximantString( CHAR        *output,
 
     default:
       XLALPrintError("Unknown or unsupported approximant.\n");
-      XLAL_ERROR( func, XLAL_EINVAL );
+      XLAL_ERROR( XLAL_EINVAL );
       break;
   }
 
@@ -260,7 +262,7 @@ int XLALInspiralGetApproximantString( CHAR        *output,
 
     default:
       XLALPrintError( "Unknown or unsupported order.\n" );
-      XLAL_ERROR( func, XLAL_EINVAL );
+      XLAL_ERROR( XLAL_EINVAL );
       break;
   }
 

@@ -176,8 +176,6 @@ LALCheckMemoryLeaks()
 
 #include "CheckStatus.h"
 
-NRCSID(OVERLAPREDUCTIONFUNCTIONTESTC, "$Id$");
-
 #define OVERLAPREDUCTIONFUNCTIONTESTC_LENGTH    8
 #define OVERLAPREDUCTIONFUNCTIONTESTC_F0        0.0
 #define OVERLAPREDUCTIONFUNCTIONTESTC_DELTAF    80.0
@@ -212,8 +210,6 @@ int main( int argc, char *argv[] )
 
   OverlapReductionFunctionParameters   parameters;
   REAL4FrequencySeries     overlap;
-
-  REAL4FrequencySeries     dummyOutput;
 
   const REAL4 expectedOutputDataData[8] = {1.0, .2113956922,
 					   -.1372693019, .9606085997e-2,
@@ -262,8 +258,11 @@ int main( int argc, char *argv[] )
   parameters.deltaF   = OVERLAPREDUCTIONFUNCTIONTESTC_DELTAF;
 
   overlap.data = NULL;
-
+#ifndef LAL_NDEBUG
+  REAL4FrequencySeries     dummyOutput;
   dummyOutput.data = NULL;
+#endif
+
 
   detectors.detectorOne = detectors.detectorTwo = plusAtOrigin;
 
@@ -650,6 +649,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -695,8 +696,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

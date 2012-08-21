@@ -20,7 +20,6 @@
 /** \defgroup ExtrapolatePulsarSpins Extrapolate Pulsar Spins and Phase
  *  \ingroup pulsarTODO
  *  \author Reinhard Prix
- *  \date $Date$
  *  \brief  Extrapolate the Pulsar spin-paramters
  *  \f$\{f^{(k)}\}\equiv\{f, \stackrel{.}{f},\ddot{f},...\}\f$, and "spin-ranges"
  * \f$\{ f^{(k)}, \Delta f^{(k)} \}\f$ from one SSB epoch to another.
@@ -32,25 +31,25 @@
  *
  *
  * The extrapolation is defined by the pulsar spindown-model:
- * \f[ f(\tau_1) = f(\tau_0) + {\stackrel{.}{f}(\tau_0) \over 1!} \,\Delta\tau
- *     + {\ddot{f}(\tau_0) \over 2!} \,\Delta\tau^2 + ...
- *  = \sum_{k=0}^s {f^{(k)}(\tau_0) \over k!}\, \Delta\tau^k\,,
+ * \f[ f(\tau_1) = f(\tau_0) + \frac{\stackrel{.}{f}(\tau_0)}{1!} \,\Delta\tau
+ *     + \frac{\ddot{f}(\tau_0)}{2!} \,\Delta\tau^2 + ...
+ *  = \sum_{k=0}^s \frac{f^{(k)}(\tau_0)}{k!}\, \Delta\tau^k\,,
  * \f]
  * where \f[\Delta\tau \equiv \tau_1 - \tau_0\f]
  * and therefore generally
  *
  * \f[
- * f^{(l)}(\tau_1) = \sum_{k=0}^{s - l} { f^{(k+l)}(\tau_0) \over k! }\, \Delta\tau^k\,.
+ * f^{(l)}(\tau_1) = \sum_{k=0}^{s - l} \frac{ f^{(k+l)}(\tau_0)}{k! }\, \Delta\tau^k\,.
  * \f]
  *
  * This expression is used to extrapolate a whole "spin-range", namely at each spindown-order \f$(l)\f$
  * the extrapolated range is given by
  * \f[
- * \min\left[ f^{(l)}(\tau_1) \right] = \sum_{k=0}^{s - l} {1\over k!} \min\left[ f^{(k+l)}(\tau_0) \, \Delta\tau^k \right]\,.
+ * \min\left[ f^{(l)}(\tau_1) \right] = \sum_{k=0}^{s - l} \frac{1}{k!} \min\left[ f^{(k+l)}(\tau_0) \, \Delta\tau^k \right]\,.
  * \f]
  *
  * \f[
- * \max\left[ f^{(l)}(\tau_1) \right] = \sum_{k=0}^{s - l} {1\over k!} \max\left[ f^{(k+l)}(\tau_0) \, \Delta\tau^k \right]\,.
+ * \max\left[ f^{(l)}(\tau_1) \right] = \sum_{k=0}^{s - l} \frac{1}{k!} \max\left[ f^{(k+l)}(\tau_0) \, \Delta\tau^k \right]\,.
  * \f]
  *
  * This ensures that the range will be correctly extrapolated even if \f$\tau_1 < \tau_0\f$, i.e. \f$\Delta\tau < 0\f$.
@@ -75,7 +74,6 @@
 /** \file
  * \ingroup ExtrapolatePulsarSpins
  * \author Reinhard Prix
- * \date $Date$
  * \brief Contains prototype for XLALExtrapolatePulsarSpins().
  */
 
@@ -88,8 +86,6 @@
 #ifdef  __cplusplus   /* C++ protection. */
 extern "C" {
 #endif
-
-NRCSID( EXTRAPOLATEPULSARSPINSH, "$Id$");
 
 /*---------- exported INCLUDES ----------*/
 
@@ -120,11 +116,11 @@ NRCSID( EXTRAPOLATEPULSARSPINSH, "$Id$");
 /*---------- exported prototypes [API] ----------*/
 void LALExtrapolatePulsarSpinRange( LALStatus *, PulsarSpinRange *range1, LIGOTimeGPS epoch1,  const PulsarSpinRange *range0 );
 
-void LALExtrapolatePulsarSpins (LALStatus *, PulsarSpins fkdot1, LIGOTimeGPS epoch1, constPulsarSpins fkdot0, LIGOTimeGPS epoch0 );
+void LALExtrapolatePulsarSpins (LALStatus *, PulsarSpins fkdot1, LIGOTimeGPS epoch1, const PulsarSpins fkdot0, LIGOTimeGPS epoch0 );
 
 void LALExtrapolatePulsarPhase (LALStatus *, REAL8 *phi1, PulsarSpins fkdot1, LIGOTimeGPS epoch1, REAL8 phi0, LIGOTimeGPS epoch0 );
 
-int XLALExtrapolatePulsarSpins ( PulsarSpins fkdotOut, constPulsarSpins fkdotIn, REAL8 DeltaTau );
+int XLALExtrapolatePulsarSpins ( PulsarSpins fkdotOut, const PulsarSpins fkdotIn, REAL8 DeltaTau );
 
 #ifdef  __cplusplus
 }

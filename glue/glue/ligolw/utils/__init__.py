@@ -74,7 +74,7 @@ __all__ = []
 
 
 # FIXME:  remove, use parameter passed to load_*() functions instead
-ContentHandler = ligolw.LIGOLWContentHandler
+ContentHandler = ligolw.DefaultLIGOLWContentHandler
 __orig_ContentHandler = ContentHandler	# to detect when ContentHandler symbol has been modified
 
 
@@ -189,17 +189,17 @@ class RewindableInputFile(object):
 			if offset >= 0 and pos - len(self.buf) <= offset <= pos:
 				self.reuse = pos - offset
 			else:
-				raise IOError, "seek out of range"
+				raise IOError("seek out of range")
 		elif whence == os.SEEK_CUR:
 			if self.reuse - len(self.buf) <= offset:
 				self.reuse -= offset
 			else:
-				raise IOError, "seek out of range"
+				raise IOError("seek out of range")
 		elif whence == os.SEEK_END:
 			if offset == 0:
 				self.gzip_hack_pretend_to_be_at_eof = True
 			else:
-				raise IOError, "seek out of range"
+				raise IOError("seek out of range")
 
 	def tell(self):
 		if self.gzip_hack_pretend_to_be_at_eof:
@@ -227,6 +227,7 @@ class MD5File(object):
 			self.md5obj = md5()
 		else:
 			self.md5obj = md5obj
+		self.pos = 0
 
 	def __iter__(self):
 		return self
@@ -234,19 +235,29 @@ class MD5File(object):
 	def next(self):
 		buf = self.fileobj.next()
 		self.md5obj.update(buf)
+		self.pos += len(buf)
 		return buf
 
 	def read(self, size = None):
 		buf = self.fileobj.read(size)
 		self.md5obj.update(buf)
+		self.pos += len(buf)
 		return buf
 
 	def write(self, buf):
+		self.pos += len(buf)
 		self.md5obj.update(buf)
 		return self.fileobj.write(buf)
 
 	def tell(self):
-		return self.fileobj.tell()
+		try:
+			return self.fileobj.tell()
+		except (IOError, AttributeError):
+			# some streams that don't support seeking, like
+			# stdin, report IOError.  the things returned by
+			# urllib don't have a .tell() method at all.  fake
+			# it without our own count of bytes
+			return self.pos
 
 	def flush(self):
 		return self.fileobj.flush()
@@ -284,9 +295,8 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	The optional contenthandler argument allows the SAX content handler
 	to be customized.  Previously, customization of the content handler
 	was accomplished by replacing the ContentHandler symbol in this
-	module with the custom handler, and although that technique is
-	still supported a warning will be emitted if modification of that
-	symbol is detected.  See
+	module with the custom handler.  That technique is now explictly
+	forbidden;  an assertion error is raised if this is detected.  See
 	glue.ligolw.ligolw.PartialLIGOLWContentHandler and
 	glue.ligolw.ligolw.FilteringLIGOLWContentHandler for examples of
 	custom content handlers used to load subsets of documents into
@@ -303,8 +313,7 @@ def load_fileobj(fileobj, gz = None, xmldoc = None, contenthandler = None):
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	if contenthandler is None:
-		if ContentHandler is not __orig_ContentHandler:
-			warnings.warn("modification of glue.ligolw.utils.ContentHandler global variable for input customization is deprecated.  Use contenthandler keyword argument of glue.ligolw.utils.load_*() functions instead", DeprecationWarning)
+		assert ContentHandler is __orig_ContentHandler
 		contenthandler = ContentHandler
 	ligolw.make_parser(contenthandler(xmldoc)).parse(fileobj)
 	return xmldoc, md5obj.hexdigest()
@@ -361,7 +370,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 	return xmldoc
 
 
-def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
+def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	given file object.  The file object need not be seekable.  The
@@ -369,14 +378,17 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	return value is a string containing the hex digits of the MD5
 	digest of the output bytestream.
 
-	This function traps SIGTERM and SIGTSTP during the write process,
-	and it does this by temporarily installing its own signal handlers
-	in place of the current handlers.  This is done to prevent Condor
-	eviction during the write process.  When the file write is
-	concluded the original signal handlers are restored.  Then, if
-	signals were trapped during the write process, the signals are then
-	resent to the current process in the order in which they were
-	received.
+	This function traps the signals in the trap_signals iterable during
+	the write process (the default is signal.SIGTERM and
+	signal.SIGTSTP), and it does this by temporarily installing its own
+	signal handlers in place of the current handlers.  This is done to
+	prevent Condor eviction during the write process.  When the file
+	write is concluded the original signal handlers are restored.
+	Then, if signals were trapped during the write process, the signals
+	are then resent to the current process in the order in which they
+	were received.  The signal.signal() system call cannot be invoked
+	from threads, and trap_signals must be set to None or an empty
+	sequence if this function is used from a thread.
 
 	Example:
 
@@ -388,9 +400,10 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	def newsigterm(signum, frame):
 		deferred_signals.append(signum)
 	oldhandlers = {}
-	for sig in (signal.SIGTERM, signal.SIGTSTP):
-		oldhandlers[sig] = signal.getsignal(sig)
-		signal.signal(sig, newsigterm)
+	if trap_signals is not None:
+		for sig in trap_signals:
+			oldhandlers[sig] = signal.getsignal(sig)
+			signal.signal(sig, newsigterm)
 
 	# write the document
 	fileobj = MD5File(fileobj)
@@ -413,7 +426,7 @@ def write_fileobj(xmldoc, fileobj, gz = False, xsl_file = None):
 	return md5obj.hexdigest()
 
 
-def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = None):
+def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	file name filename.  Friendly verbosity messages are printed while
@@ -435,13 +448,13 @@ def write_filename(xmldoc, filename, verbose = False, gz = False, xsl_file = Non
 		fileobj = open(filename, "w")
 	else:
 		fileobj = sys.stdout
-	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file)
+	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
 	fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 
 
-def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None):
+def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_signals = (signal.SIGTERM, signal.SIGTSTP)):
 	"""
 	Writes the LIGO Light Weight document tree rooted at xmldoc to the
 	URL name url.  Friendly verbosity messages are printed while doing
@@ -463,5 +476,5 @@ def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None):
 	else:
 		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
-		raise ValueError, "%s is not a local file" % repr(url)
-	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file)
+		raise ValueError("%s is not a local file" % repr(url))
+	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)

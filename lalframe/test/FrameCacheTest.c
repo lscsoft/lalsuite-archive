@@ -20,9 +20,6 @@
 #include <lal/LALStdlib.h>
 #include <lal/FrameCache.h>
 
-#include <lal/LALRCSID.h>
-NRCSID (FRAMECACHETESTC,"$Id$");
-
 #define TESTSTATUS( pstat ) \
   if ( (pstat)->statusCode ) { REPORTSTATUS(pstat); return 1; } else ((void)0)
 
@@ -41,7 +38,7 @@ int main( void )
   TESTSTATUS( &status );
 
   sieve.srcRegEx = "[F]";
-  LALFrCacheSieve( &status, &cache, input, &sieve );
+  LALFrSieveCache( &status, &cache, input, &sieve );
   TESTSTATUS( &status );
 
   LALFrCacheExport( &status, cache, "catalog.out" );

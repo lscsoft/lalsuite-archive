@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 
 #include <lal/LALConfig.h>
@@ -59,7 +60,6 @@
 #include "inspiral.h"
 
 /* cvs information */
-RCSID(LALAPPS_VCS_IDENT_ID);
 #define PROGRAM_NAME "lalapp_mdc_ninja"
 
 /* defines */
@@ -90,10 +90,11 @@ static void add_colored_noise(LALStatus *status, REAL4TimeSeries *chan, INT4 ifo
 
 /* getopt flags */
 extern int vrbflg;
-INT4 ifosFlag  = 0;
-INT4 frameFlag = 0;
-INT4 mdcFlag   = 0;
-INT4 addNoise  = 0;
+INT4 ifosFlag   = 0;
+INT4 frameFlag  = 0;
+INT4 mdcFlag    = 0;
+INT4 addNoise   = 0;
+INT4 doingREAL8 = 0;
 
 /* main program entry */
 INT4 main( INT4 argc, CHAR *argv[] )
@@ -138,7 +139,8 @@ INT4 main( INT4 argc, CHAR *argv[] )
 
   /* injection waveforms time series */
   INT4 sampleRate = -1;
-  REAL4TimeSeries *injData[LAL_NUM_IFO];
+  REAL4TimeSeries *injDataREAL4[LAL_NUM_IFO];
+  REAL8TimeSeries *injDataREAL8[LAL_NUM_IFO];
 
   /* random seed for producing gaussian noise if required */
   RandomParams  *randParams = NULL;
@@ -152,6 +154,14 @@ INT4 main( INT4 argc, CHAR *argv[] )
    * using as standalone code */
   REAL4 dynRange = 1.0;
 
+  /* PSDs and low-frequency cutoffs for SNR calculations */
+  CHAR *ligoPsdFile     = NULL;
+  CHAR *virgoPsdFile    = NULL;
+  REAL8FrequencySeries *ligoPsd  = NULL;
+  REAL8FrequencySeries *virgoPsd = NULL;
+  REAL8 ligoSnrLowFreq  = 0;
+  REAL8 virgoSnrLowFreq = 0;
+        
   /* getopt arguments */
   struct option long_options[] =
   {
@@ -161,6 +171,7 @@ INT4 main( INT4 argc, CHAR *argv[] )
     {"write-frame",             no_argument,       &frameFlag,        1 },
     {"write-mdc-log",           no_argument,       &mdcFlag,          1 },
     {"simulate-noise",          no_argument,       &addNoise,         1 },
+    {"double-precision",        no_argument,       &doingREAL8,       1 },
     /* these options don't set a flag */
     {"debug-level",             required_argument, 0,                'D'},
     {"injection-type",          required_argument, 0,                'T'},
@@ -176,6 +187,10 @@ INT4 main( INT4 argc, CHAR *argv[] )
     {"strain-lowpass-freq",     required_argument, 0,                'L'},
     {"snr-low",                 required_argument, 0,                's'},
     {"snr-high",                required_argument, 0,                'S'},
+    {"ligo-psd-file",           required_argument, 0,                'c'},
+    {"ligo-low-freq-cutoff",    required_argument, 0,                'e'},
+    {"virgo-psd-file",          required_argument, 0,                'g'},
+    {"virgo-low-freq-cutoff",   required_argument, 0,                'j'},
     {"out-xml-file",            required_argument, 0,                'O'},
     {"fr-out-dir",              required_argument, 0,                'd'},
     {"help",                    no_argument,       0,                'h'},
@@ -197,7 +212,7 @@ INT4 main( INT4 argc, CHAR *argv[] )
     size_t optarg_len;
 
     /* parse command line arguments */
-    c = getopt_long_only( argc, argv, "D:T:a:b:f:r:i:t:n:o:l:L:s:S:O:d:hV",
+    c = getopt_long_only( argc, argv, "D:T:a:b:f:r:i:t:n:o:l:L:s:S:c:e:f:g:O:d:hV",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -360,6 +375,44 @@ INT4 main( INT4 argc, CHAR *argv[] )
       case 'S':
         /* set low-pass cutoff frequency for producing noise */
         snrHigh = atof(optarg);
+        break;
+
+      case 'c':
+        /* Specify a file to use as the LIGO psd */
+        optarg_len = strlen( optarg ) + 1;
+        ligoPsdFile = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( ligoPsdFile, optarg, optarg_len );
+        break;
+      case 'e':
+        /* Specify the low-frequency cutoff for LIGO SNR integrals */
+        ligoSnrLowFreq = atof(optarg);
+        if (ligoSnrLowFreq < 0 )
+        {
+          fprintf(stderr, "invalid argument to --%s:\n"
+              "LIGO low frequency must be positive: "
+              "(%f specified) \n",
+              long_options[option_index].name, ligoSnrLowFreq);
+          exit(1);
+        }
+        break;
+      case 'g':
+        /* Specify a file to use as the Virgo psd */
+        optarg_len = strlen( optarg ) + 1;
+        virgoPsdFile = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+        memcpy( virgoPsdFile, optarg, optarg_len );
+        break;
+      case 'j':
+        /* Specify the low-frequency cutoff for Virgo SNR integrals */
+        virgoSnrLowFreq = atof(optarg);
+        if (virgoSnrLowFreq < 0 )
+        {
+          fprintf(stderr, "invalid argument to --%s:\n"
+              "Virgo low frequency must be positive: "
+              "(%f specified) \n",
+              long_options[option_index].name, virgoSnrLowFreq);
+          exit(1);
+        }
+        break;
         break;
 
       case 'O':
@@ -542,6 +595,28 @@ INT4 main( INT4 argc, CHAR *argv[] )
     }
   }
 
+  /* PSD options */
+  if ( ligoPsdFile != NULL || ligoSnrLowFreq != 0.0 )
+  {
+      if ( ligoPsdFile == NULL || ligoSnrLowFreq == 0.0 )
+      {
+        fprintf( stderr, "ERROR: both --ligo-psd-file and --ligo-low-freq-cutoff must be specified if either is\n" );
+        exit( 1 );
+      }
+
+      XLALPsdFromFile(&ligoPsd, ligoPsdFile);
+  }
+
+  if ( virgoPsdFile != NULL || virgoSnrLowFreq != 0.0 )
+  {
+      if ( virgoPsdFile == NULL || virgoSnrLowFreq == 0.0 )
+      {
+        fprintf( stderr, "ERROR: both --virgo-psd-file and --virgo-low-freq-cutoff must be specified if either is\n" );
+        exit( 1 );
+      }
+      XLALPsdFromFile(&virgoPsd, virgoPsdFile);
+  }
+
   /* mdc log options */
   if ( mdcFlag )
   {
@@ -603,21 +678,43 @@ INT4 main( INT4 argc, CHAR *argv[] )
       num_ifos = 1;
 
     /* setup the injection time series to be zeros of the correct length */
-    for ( i = 0; i < num_ifos; i++ )
+    if (doingREAL8)
     {
-      injData[i] = XLALCreateREAL4TimeSeries( "", &gpsStartTime, 0, 1./sampleRate,
-          &lalADCCountUnit, sampleRate * (gpsEndSec - gpsStartSec) );
-      memset( injData[i]->data->data, 0.0, injData[i]->data->length * sizeof(REAL4) );
-
       if (addNoise)  {
+        fprintf( stderr, "ERROR: --simulate-noise is only available for single-precision" );
+        exit( 1 );
+      }
 
-        LAL_CALL( add_colored_noise( &status, injData[i], i, randParams, dynRange, strainLowPassFreq), &status);
+      for ( i = 0; i < num_ifos; i++ )
+      {
+        injDataREAL8[i] = XLALCreateREAL8TimeSeries( "", &gpsStartTime, 0, 1./sampleRate,
+            &lalADCCountUnit, sampleRate * (gpsEndSec - gpsStartSec) );
+        memset( injDataREAL8[i]->data->data, 0.0, injDataREAL8[i]->data->length * sizeof(REAL8) );
+      }
+    }
+    else
+    {
+      for ( i = 0; i < num_ifos; i++ )
+      {
+        injDataREAL4[i] = XLALCreateREAL4TimeSeries( "", &gpsStartTime, 0, 1./sampleRate,
+            &lalADCCountUnit, sampleRate * (gpsEndSec - gpsStartSec) );
+        memset( injDataREAL4[i]->data->data, 0.0, injDataREAL4[i]->data->length * sizeof(REAL4) );
+
+        if (addNoise) {
+          LAL_CALL( add_colored_noise( &status, injDataREAL4[i], i, randParams, dynRange, strainLowPassFreq), &status);
+        }
       }
     }
 
     /* setup a unity response frequency series */
     if (strncmp(injectionType, "approximant", strlen(injectionType) + 1) == 0)
     {
+      if (doingREAL8)
+      {
+        fprintf( stderr, "ERROR: approximant injections are only available for single-precision" );
+        exit( 1 );
+      }
+
       if (vrbflg)
         fprintf(stdout, "generating unity response...\n");
 
@@ -651,58 +748,69 @@ INT4 main( INT4 argc, CHAR *argv[] )
 
       /* set the channel name */
       snprintf(channel, LALNameLength, "%s:STRAIN", ifo);
-      strncpy(injData[i]->name, channel, LALNameLength);
+      if (doingREAL8)
+        strncpy(injDataREAL8[i]->name, channel, LALNameLength);
+      else
+        strncpy(injDataREAL4[i]->name, channel, LALNameLength);
 
       if (strncmp(injectionType, "approximant", strlen(injectionType) + 1) == 0)
       {
+        if (doingREAL8)
+        {
+          fprintf( stderr, "ERROR: approximant injections are only available for single-precision" );
+          exit( 1 );
+        }
+        
         /* inject the specified waveforms */
-        LAL_CALL( LALFindChirpInjectSignals( &status, injData[i], injections, response), &status);
+        LAL_CALL( LALFindChirpInjectSignals( &status, injDataREAL4[i], injections, response), &status);
 
         /* reset the channel name to IFO:STRAIN as LALFindChirpInjectSignals()
          * messes with it */
-        strncpy(injData[i]->name, channel, LALNameLength);
+        strncpy(injDataREAL4[i]->name, channel, LALNameLength);
       }
       else
       {
         /* inject the numerical waveforms */
-        LAL_CALL( InjectNumRelWaveforms ( &status, injData[i], injections, ifo,
-              dynRange, freqLowCutoff, snrLow, snrHigh,
-              fnameOutXML), &status);
+        if (doingREAL8)
+        {
+          LAL_CALL( InjectNumRelWaveformsUsingPSDREAL8 ( &status, injDataREAL8[i], injections, ifo,
+                freqLowCutoff, snrLow, snrHigh,
+                ligoPsd, ligoSnrLowFreq,
+                virgoPsd, virgoSnrLowFreq,
+                fnameOutXML), &status);
+        }
+        else
+        {
+          LAL_CALL( InjectNumRelWaveforms ( &status, injDataREAL4[i], injections, ifo,
+                dynRange, freqLowCutoff, snrLow, snrHigh,
+                fnameOutXML), &status);
+        }
       }
 
       /* set strain as unit */
-      injData[i]->sampleUnits = lalStrainUnit;
+      if (doingREAL8)
+        injDataREAL8[i]->sampleUnits = lalStrainUnit;
+      else
+        injDataREAL4[i]->sampleUnits = lalStrainUnit;
 
     } /* loop over ifos */
 
     if (vrbflg)
       fprintf(stdout, "\n");
 
-    int writing_real_8 = 0;
-
     /* output frame */
     if ( ifosFlag )
     {
-      if ( writing_real_8 )
-      {
-        /* Stub call to surpress compiler warning until we're ready with the real
-           REAL8 call
-         */
-         output_multi_channel_frame_real8( num_ifos, gpsStartSec, gpsEndSec, NULL, frameType, outDir );
-      }
+      if ( doingREAL8 )
+         output_multi_channel_frame_real8( num_ifos, gpsStartSec, gpsEndSec, injDataREAL8, frameType, outDir );
       else
-         output_multi_channel_frame( num_ifos, gpsStartSec, gpsEndSec, injData, frameType, outDir );
+         output_multi_channel_frame( num_ifos, gpsStartSec, gpsEndSec, injDataREAL4, frameType, outDir );
     }
     else {
-      if ( writing_real_8 )
-      { 
-        /* Stub call to surpress compiler warning until we're ready with the real
-           REAL8 call
-        */
-        output_frame_real8( ifo, gpsStartSec, gpsEndSec, NULL, frameType, outDir );
-      }
+      if ( doingREAL8 )
+        output_frame_real8( ifo, gpsStartSec, gpsEndSec, injDataREAL8[0], frameType, outDir );
       else
-        output_frame( ifo, gpsStartSec, gpsEndSec, injData[0], frameType, outDir );
+        output_frame( ifo, gpsStartSec, gpsEndSec, injDataREAL4[0], frameType, outDir );
     }
   }
 
@@ -721,7 +829,10 @@ INT4 main( INT4 argc, CHAR *argv[] )
     free( ifo );
 
   for ( i = 0; i < num_ifos; i++ )
-    XLALDestroyREAL4TimeSeries(injData[i]);
+    if (doingREAL8)
+      XLALDestroyREAL8TimeSeries(injDataREAL8[i]);
+    else
+      XLALDestroyREAL4TimeSeries(injDataREAL4[i]);
 
   if (response != NULL)
     XLALDestroyCOMPLEX8FrequencySeries(response);
@@ -736,6 +847,14 @@ INT4 main( INT4 argc, CHAR *argv[] )
 
   if (fnameOutXML) {
     free(fnameOutXML);
+  }
+
+  if (ligoPsd) {
+    XLALDestroyREAL8FrequencySeries( ligoPsd );
+  }
+
+  if (virgoPsd) {
+    XLALDestroyREAL8FrequencySeries( virgoPsd );
   }
 
   LALCheckMemoryLeaks();
@@ -774,6 +893,7 @@ static void print_usage( CHAR *program )
       "  --snr-high            snr_hi      upper cutoff on snr\n"\
       "  --out-xml-file        output xml  output file with list of injections performed\n"\
       "  --fr-out-dir          dir         directory to output frames to\n"\
+      "  --double-precision                read REAL8 NR files, produce REAL8 injections\n"\
       "\n", program );
 }
 
@@ -828,6 +948,8 @@ static void output_frame(CHAR *ifo,
       detectorFlags );
 
   /* set creator metadata */
+  /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
+   *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
   XLALFrHistoryAdd(frame, "creator", creator);
 
@@ -901,6 +1023,8 @@ static void output_frame_real8(CHAR *ifo,
       detectorFlags );
 
   /* set creator metadata */
+  /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
+   *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
   XLALFrHistoryAdd(frame, "creator", creator);
 
@@ -956,6 +1080,8 @@ static void output_multi_channel_frame(INT4 num_ifos,
       detectorFlags );
 
   /* set creator metadata */
+  /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
+   *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
   XLALFrHistoryAdd(frame, "creator", creator);
 
@@ -1018,6 +1144,8 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
       detectorFlags );
 
   /* set creator metadata */
+  /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
+   *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
   XLALFrHistoryAdd(frame, "creator", creator);
 
@@ -1168,7 +1296,7 @@ static void add_colored_noise(LALStatus *status,
   REAL8             deltaF         = 1.0 / (deltaT * (REAL8) length);
   REAL8             tObs           = length * deltaT;
 
-  INITSTATUS( status, "add_colored_noise", rcsid);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* Generate white Gaussian noise with unit variance */

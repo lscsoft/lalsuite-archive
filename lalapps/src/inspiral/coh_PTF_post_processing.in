@@ -3,14 +3,12 @@ from __future__ import division
 """
 coh_PTF_post_processing.in - post processing driver script for coh_PTF externally triggered pipeline
 
-$Id$
-
 This script generated the condor DAG necessary to run the post processing for the coh_PTF GRB pipeline.
 """
 
 __author__ = 'Duncan Macleod <duncan.macleod@ligo.org>'
 __date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
+__version__ = '$Revision$'
 
 # =============================================================================
 # import standard modules and append the lalapps prefix to the python path
@@ -574,6 +572,8 @@ def main(rundir, outdir, ifotag, grb, inifile, injfile, verbose=False,\
     fmcache.tofile(open(fmcachefile, 'w'))
 
     for injpattern in injpatterns:
+      if injpattern =='NONE':
+        continue
       for inc in inclinations:
         node = injcombiner_setup(job, tag, outdir, fmcachefile, injpattern, inc)
         dag.add_node(node)
@@ -604,6 +604,8 @@ def main(rundir, outdir, ifotag, grb, inifile, injfile, verbose=False,\
 
     # and append the runs that have been split
     for injpattern in injpatterns:
+      if injpattern == 'NONE':
+        continue
       distRun = None
       for run in injruns:
         if injpattern in run:

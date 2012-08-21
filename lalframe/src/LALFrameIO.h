@@ -25,11 +25,12 @@
 #include <lal/FrameCache.h>
 #include <lal/LALFrameL.h>
 
-#include <lal/LALRCSID.h>
-NRCSID (LALFRAMEIOH,"$Id$");
-
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(EXTERNAL_STRUCT(FrameH, XLALFrameFree));
 #endif
 
 struct FrFile * XLALFrOpenURL( const char *url );

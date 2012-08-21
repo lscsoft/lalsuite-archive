@@ -20,24 +20,19 @@
 #ifndef _LALCALIBRATION_H
 #define _LALCALIBRATION_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALDatatypes.h>
-
-NRCSID( LALCALIBRATIONH, "$Id$" );
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/** \addtogroup Calibration_h */
+/*@{*/
+
 /** Structure containing calibration information (reference spectra and
  * factors for updating calibraiton to a particular time). */
 typedef struct tagLALCalData
 {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL4TimeSeries         *cavityFactors;
   REAL4TimeSeries         *openLoopFactors;
   COMPLEX8FrequencySeries *responseReference;
@@ -95,6 +90,8 @@ int XLALUpdateResponse(
     REAL8 duration,                     /**< duration for averaging factors */
     LALCalData *caldata                 /**< calibration reference data */
     );
+
+/*@}*/
 
 #ifdef __cplusplus
 }

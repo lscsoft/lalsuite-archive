@@ -26,7 +26,9 @@
  */
 
 #include <lal/LALComplex.h>
-#include "LALSimIMREOBNRv2.h"
+
+#ifndef _LALSIMIMRFACTORIZEDFLUX_C
+#define _LALSIMIMRFACTORIZEDFLUX_C
 
 /**
  * This function calculates the factorized flux in the EOB dynamics for
@@ -54,13 +56,13 @@ static REAL8 XLALSimIMREOBFactorizedFlux(
 #ifndef LAL_NDEBUG
   if ( !values || !ak )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFAULT );
+    XLAL_ERROR_REAL8( XLAL_EFAULT );
   }
 #endif
 
   if ( lMax < 2 )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
   }
 
   nqcCoeffs = ak->nqcCoeffs;
@@ -79,13 +81,13 @@ static REAL8 XLALSimIMREOBFactorizedFlux(
 
   if ( XLALSimIMREOBNonQCCorrection( &hNQC, values, omega, nqcCoeffs ) == XLAL_FAILURE )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
 
   if ( XLALSimIMREOBGetFactorizedWaveform( &hLM, values, v, l, m, ak )
            == XLAL_FAILURE )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
   /* For the 2,2 mode, we apply NQC correction to the flux */
   hLM = XLALCOMPLEX16Mul( hNQC, hLM );
@@ -99,7 +101,7 @@ static REAL8 XLALSimIMREOBFactorizedFlux(
   if ( XLALSimIMREOBGetFactorizedWaveform( &hLM, values, v, l, m, ak )
            == XLAL_FAILURE )
   {
-    XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+    XLAL_ERROR_REAL8( XLAL_EFUNC );
   }
 
   flux += (REAL8)(m * m) * omegaSq * XLALCOMPLEX16Abs2( hLM );
@@ -117,7 +119,7 @@ static REAL8 XLALSimIMREOBFactorizedFlux(
       if ( XLALSimIMREOBGetFactorizedWaveform( &hLM, values, v, l, m, ak )
              == XLAL_FAILURE )
       {
-        XLAL_ERROR_REAL8( __func__, XLAL_EFUNC );
+        XLAL_ERROR_REAL8( XLAL_EFUNC );
       }
 
       flux += (REAL8)(m * m) * omegaSq * XLALCOMPLEX16Abs2( hLM );
@@ -126,3 +128,5 @@ static REAL8 XLALSimIMREOBFactorizedFlux(
 
   return flux * LAL_1_PI / 8.0;
 }
+
+#endif /*_LALSIMIMRFACTORIZEDFLUX_C*/

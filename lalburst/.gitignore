@@ -1,5 +1,6 @@
 *.la
 *.lo
+*.log
 *.o
 .deps
 .libs
@@ -14,6 +15,7 @@ configure
 include/config.h
 include/config.h.in
 include/lal/*.h
+include/lal/*.i
 include/stamp-h1
 lalburst-*.tar.gz
 lalburst.pc

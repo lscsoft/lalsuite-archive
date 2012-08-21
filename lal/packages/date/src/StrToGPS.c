@@ -90,8 +90,6 @@ static int isbinaryexp(const char *s)
 /**
  * Parse an ASCII string into a LIGOTimeGPS structure.
  */
-
-
 int XLALStrToGPS(LIGOTimeGPS *t, const char *nptr, char **endptr)
 {
 	union { char *s; const char *cs; } pconv; /* this is bad */
@@ -258,7 +256,7 @@ int XLALStrToGPS(LIGOTimeGPS *t, const char *nptr, char **endptr)
 
 	/* check for failures and restore errno if there weren't any */
 	if(errno == ERANGE)
-		XLAL_ERROR(__func__, XLAL_ERANGE);
+		XLAL_ERROR(XLAL_ERANGE);
 	errno = olderrno;
 
 	/* success */
@@ -266,16 +264,14 @@ int XLALStrToGPS(LIGOTimeGPS *t, const char *nptr, char **endptr)
 }
 
 
-/**
- * Return a string containing the ASCII base 10 representation of a
+/** \ingroup Date_h
+ * \brief Return a string containing the ASCII base 10 representation of a
  * LIGOTimeGPS.  If s is not NULL, then the string is written to that
  * location which must be large enough to hold the string plus a 0
  * terminator.  If s is NULL then a new buffer is allocated, and the string
  * written to it.  The return value is the address of the string or NULL on
  * failure.
  */
-
-
 char *XLALGPSToStr(char *s, const LIGOTimeGPS *t)
 {
 	/* so we can play with it */
@@ -289,7 +285,7 @@ char *XLALGPSToStr(char *s, const LIGOTimeGPS *t)
 		 * decimal point plus an optional sign + a null */
 		s = XLALMalloc(21 * sizeof(*s));
 		if(!s)
-			XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+			XLAL_ERROR_NULL(XLAL_EFUNC);
 	}
 
 	/* normalize the fractional part */

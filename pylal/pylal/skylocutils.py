@@ -550,11 +550,25 @@ class Coincidences(list):
       sngltab = tab.get_table(xmldoc,lsctables.SnglInspiralTable.tableName)
       coinc.set_snr(dict((row.ifo, row.snr) for row in sngltab))
       coinc.set_gps(dict((row.ifo, LIGOTimeGPS(row.get_end())) for row in sngltab))
-      coinc.set_effDs(dict((row.ifo,row.eff_distance) for row in sngltab))
+      #FIXME: this is put in place to deal with eff_distance = 0
+      # needs to be fixed upstream in the pipeline
+      effDs = list((row.ifo,row.eff_distance) for row in sngltab)
+      for eD in effDs:
+        if eD[1] == 0.:
+          effDs.append((eD[0],1.))
+          effDs.remove(eD)
+      coinc.set_effDs(dict(effDs))
+#      coinc.set_effDs(dict((row.ifo,row.eff_distance) for row in sngltab))
       coinc.set_masses(dict((row.ifo, row.mass1) for row in sngltab), \
                        dict((row.ifo, row.mass2) for row in sngltab))
       ctab = tab.get_table(xmldoc,lsctables.CoincInspiralTable.tableName)
-      coinc.set_ifos(list(ctab[0].get_ifos()))
+      #FIXME: ignoring H2 for now, but should be dealt in a better way
+      allifos = list(ctab[0].get_ifos())
+      try:
+        allifos.remove('H2')
+      except ValueError:
+        pass
+      coinc.set_ifos(allifos)
       if ctab[0].false_alarm_rate is not None:
         coinc.set_FAR(ctab[0].false_alarm_rate)
 

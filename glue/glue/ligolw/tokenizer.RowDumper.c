@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2007  Kipp C. Cannon
  *
@@ -33,6 +32,13 @@
 #include <stdlib.h>
 #include <tokenizer.h>
 
+/* Gain access to 64-bit addressing where possible
+ * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
+#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
+typedef int Py_ssize_t;
+#define PY_SSIZE_T_MAX INT_MAX
+#define PY_SSIZE_T_MIN INT_MIN
+#endif
 
 /*
  * ============================================================================
@@ -59,7 +65,7 @@ typedef struct {
 	/* the source of row objects to be turned to unicode strings */
 	PyObject *iter;
 	/* number of rows converted so far */
-	long rows_converted;
+	Py_ssize_t rows_converted;
 	/* tuple of unicode tokens from most recently converted row */
 	PyObject *tokens;
 } ligolw_RowDumper;
@@ -165,10 +171,10 @@ static PyObject *__iter__(PyObject *self)
 static PyObject *next(PyObject *self)
 {
 	ligolw_RowDumper *rowdumper = (ligolw_RowDumper *) self;
-	const int n = PyTuple_GET_SIZE(rowdumper->attributes);
+	const Py_ssize_t n = PyTuple_GET_SIZE(rowdumper->attributes);
 	PyObject *row;
 	PyObject *result;
-	int i;
+	Py_ssize_t i;
 
 	if(!PyIter_Check(rowdumper->iter)) {
 		PyErr_SetObject(PyExc_TypeError, rowdumper->iter);

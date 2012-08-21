@@ -17,6 +17,16 @@
 *  MA  02111-1307  USA
 */
 
+#include <config.h>
+
+#include <fftw3.h>
+
+#include <lal/LALStdlib.h>
+#include <lal/AVFactories.h>
+#include <lal/ComplexFFT.h>
+
+#include "FFTWMutex.h"
+
 /**
  * \addtogroup ComplexFFT_h
  *
@@ -104,39 +114,26 @@
  *
  *
 */
-
-#include <config.h>
-
-#include <fftw3.h>
-
-#include <lal/LALStdlib.h>
-#include <lal/AVFactories.h>
-#include <lal/ComplexFFT.h>
-#include <lal/FFTWMutex.h>
-
-NRCSID( COMPLEXFFTC, "$Id$" );
-
+/*@{*/
 
 /** Plan to perform an FFT of COMPLEX8 data
- * \ingroup ComplexFFT_h
  */
 struct
 tagCOMPLEX8FFTPlan
 {
-  INT4       sign; /*< sign in transform exponential, -1 for forward, +1 for reverse */
-  UINT4      size; /*< length of the complex data vector for this plan */
-  fftwf_plan plan; /*< the FFTW plan */
+  INT4       sign; /**< sign in transform exponential, -1 for forward, +1 for reverse */
+  UINT4      size; /**< length of the complex data vector for this plan */
+  fftwf_plan plan; /**< the FFTW plan */
 };
 
 /** Plan to perform an FFT of COMPLEX16 data
- * \ingroup ComplexFFT_h
  */
 struct
 tagCOMPLEX16FFTPlan
 {
-  INT4       sign; /*< sign in transform exponential, -1 for forward, +1 for reverse */
-  UINT4      size; /*< length of the complex data vector for this plan */
-  fftw_plan  plan; /*< the FFTW plan */
+  INT4       sign; /**< sign in transform exponential, -1 for forward, +1 for reverse */
+  UINT4      size; /**< length of the complex data vector for this plan */
+  fftw_plan  plan; /**< the FFTW plan */
 };
 
 
@@ -149,14 +146,13 @@ tagCOMPLEX16FFTPlan
 
 COMPLEX8FFTPlan * XLALCreateCOMPLEX8FFTPlan( UINT4 size, int fwdflg, int measurelvl )
 {
-  static const char *func = "XLALCreateCOMPLEX8FFTPlan";
   COMPLEX8FFTPlan *plan;
   COMPLEX8 *tmp1;
   COMPLEX8 *tmp2;
   int flags = FFTW_UNALIGNED;
 
   if ( ! size )
-    XLAL_ERROR_NULL( func, XLAL_EBADLEN );
+    XLAL_ERROR_NULL( XLAL_EBADLEN );
 
   /* based on measurement level, set fftw3 flags to perform
    * requested degree of measurement */
@@ -185,7 +181,7 @@ COMPLEX8FFTPlan * XLALCreateCOMPLEX8FFTPlan( UINT4 size, int fwdflg, int measure
     XLALFree( plan );
     XLALFree( tmp1 );
     XLALFree( tmp2 );
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   /* create the plan */
@@ -203,7 +199,7 @@ COMPLEX8FFTPlan * XLALCreateCOMPLEX8FFTPlan( UINT4 size, int fwdflg, int measure
   if ( ! plan->plan )
   {
     XLALFree( plan );
-    XLAL_ERROR_NULL( func, XLAL_EFAILED );
+    XLAL_ERROR_NULL( XLAL_EFAILED );
   }
 
   /* now set remaining plan fields */
@@ -216,22 +212,20 @@ COMPLEX8FFTPlan * XLALCreateCOMPLEX8FFTPlan( UINT4 size, int fwdflg, int measure
 
 COMPLEX8FFTPlan * XLALCreateForwardCOMPLEX8FFTPlan( UINT4 size, int measurelvl )
 {
-  static const char *func = "XLALCreateForwardCOMPLEX8FFTPlan";
   COMPLEX8FFTPlan *plan;
   plan = XLALCreateCOMPLEX8FFTPlan( size, 1, measurelvl );
   if ( ! plan )
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   return plan;
 }
 
 
 COMPLEX8FFTPlan * XLALCreateReverseCOMPLEX8FFTPlan( UINT4 size, int measurelvl )
 {
-  static const char *func = "XLALCreateReverseCOMPLEX8FFTPlan";
   COMPLEX8FFTPlan *plan;
   plan = XLALCreateCOMPLEX8FFTPlan( size, 0, measurelvl );
   if ( ! plan )
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   return plan;
 }
 
@@ -256,15 +250,14 @@ void XLALDestroyCOMPLEX8FFTPlan( COMPLEX8FFTPlan *plan )
 int XLALCOMPLEX8VectorFFT( COMPLEX8Vector *output, COMPLEX8Vector *input,
     const COMPLEX8FFTPlan *plan )
 {
-  static const char *func = "XLALCOMPLEX8VectorFFT";
   if ( ! output || ! input || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( ! plan->plan || ! plan->size )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( ! output->data || ! input->data || output->data == input->data )
-    XLAL_ERROR( func, XLAL_EINVAL ); /* note: must be out-of-place */
+    XLAL_ERROR( XLAL_EINVAL ); /* note: must be out-of-place */
   if ( output->length != plan->size || input->length != plan->size )
-    XLAL_ERROR( func, XLAL_EBADLEN );
+    XLAL_ERROR( XLAL_EBADLEN );
 
   /* do the fft */
   fftwf_execute_dft(
@@ -286,14 +279,13 @@ int XLALCOMPLEX8VectorFFT( COMPLEX8Vector *output, COMPLEX8Vector *input,
 
 COMPLEX16FFTPlan * XLALCreateCOMPLEX16FFTPlan( UINT4 size, int fwdflg, int measurelvl )
 {
-  static const char *func = "XLALCreateCOMPLEX16FFTPlan";
   COMPLEX16FFTPlan *plan;
   COMPLEX16 *tmp1;
   COMPLEX16 *tmp2;
   int flags = FFTW_UNALIGNED;
 
   if ( ! size )
-    XLAL_ERROR_NULL( func, XLAL_EBADLEN );
+    XLAL_ERROR_NULL( XLAL_EBADLEN );
 
   /* based on measurement level, set fftw3 flags to perform
    * requested degree of measurement */
@@ -322,7 +314,7 @@ COMPLEX16FFTPlan * XLALCreateCOMPLEX16FFTPlan( UINT4 size, int fwdflg, int measu
     XLALFree( plan );
     XLALFree( tmp1 );
     XLALFree( tmp2 );
-    XLAL_ERROR_NULL( func, XLAL_ENOMEM );
+    XLAL_ERROR_NULL( XLAL_ENOMEM );
   }
 
   /* create the plan */
@@ -340,7 +332,7 @@ COMPLEX16FFTPlan * XLALCreateCOMPLEX16FFTPlan( UINT4 size, int fwdflg, int measu
   if ( ! plan->plan )
   {
     XLALFree( plan );
-    XLAL_ERROR_NULL( func, XLAL_EFAILED );
+    XLAL_ERROR_NULL( XLAL_EFAILED );
   }
 
   /* now set remaining plan fields */
@@ -353,22 +345,20 @@ COMPLEX16FFTPlan * XLALCreateCOMPLEX16FFTPlan( UINT4 size, int fwdflg, int measu
 
 COMPLEX16FFTPlan * XLALCreateForwardCOMPLEX16FFTPlan( UINT4 size, int measurelvl )
 {
-  static const char *func = "XLALCreateForwardCOMPLEX16FFTPlan";
   COMPLEX16FFTPlan *plan;
   plan = XLALCreateCOMPLEX16FFTPlan( size, 1, measurelvl );
   if ( ! plan )
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   return plan;
 }
 
 
 COMPLEX16FFTPlan * XLALCreateReverseCOMPLEX16FFTPlan( UINT4 size, int measurelvl )
 {
-  static const char *func = "XLALCreateReverseCOMPLEX16FFTPlan";
   COMPLEX16FFTPlan *plan;
   plan = XLALCreateCOMPLEX16FFTPlan( size, 0, measurelvl );
   if ( ! plan )
-    XLAL_ERROR_NULL( func, XLAL_EFUNC );
+    XLAL_ERROR_NULL( XLAL_EFUNC );
   return plan;
 }
 
@@ -393,15 +383,14 @@ void XLALDestroyCOMPLEX16FFTPlan( COMPLEX16FFTPlan *plan )
 int XLALCOMPLEX16VectorFFT( COMPLEX16Vector *output, COMPLEX16Vector *input,
     const COMPLEX16FFTPlan *plan )
 {
-  static const char *func = "XLALCOMPLEX16VectorFFT";
   if ( ! output || ! input || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( ! plan->plan || ! plan->size )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( ! output->data || ! input->data || output->data == input->data )
-    XLAL_ERROR( func, XLAL_EINVAL ); /* note: must be out-of-place */
+    XLAL_ERROR( XLAL_EINVAL ); /* note: must be out-of-place */
   if ( output->length != plan->size || input->length != plan->size )
-    XLAL_ERROR( func, XLAL_EBADLEN );
+    XLAL_ERROR( XLAL_EBADLEN );
 
   /* do the fft */
   fftw_execute_dft(
@@ -430,7 +419,7 @@ LALCreateForwardCOMPLEX8FFTPlan(
     INT4             measure
     )
 {
-  INITSTATUS( status, "LALCreateForwardCOMPLEX8FFTPlan", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCreateForwardCOMPLEX8FFTPlan", "XLALCreateForwardCOMPLEX8FFTPlan");
 
   ASSERT( plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -468,7 +457,7 @@ LALCreateReverseCOMPLEX8FFTPlan(
     INT4             measure
     )
 {
-  INITSTATUS( status, "LALCreateReverseCOMPLEX8FFTPlan", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCreateReverseCOMPLEX8FFTPlan", "XLALCreateReverseCOMPLEX8FFTPlan");
 
   ASSERT( plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -504,7 +493,7 @@ LALDestroyCOMPLEX8FFTPlan (
     COMPLEX8FFTPlan **plan
     )
 {
-  INITSTATUS( status, "LALDestroyCOMPLEX8FFTPlan", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALDestroyCOMPLEX8FFTPlan", "XLALDestroyCOMPLEX8FFTPlan");
   ASSERT( plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
   ASSERT( *plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -535,7 +524,7 @@ LALCOMPLEX8VectorFFT (
     )
 {
   int code;
-  INITSTATUS( status, "LALCOMPLEX8VectorFFT", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCOMPLEX8VectorFFT", "XLALCOMPLEX8VectorFFT");
 
   ASSERT( output, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -603,7 +592,7 @@ LALCreateForwardCOMPLEX16FFTPlan(
     INT4             measure
     )
 {
-  INITSTATUS( status, "LALCreateForwardCOMPLEX16FFTPlan", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCreateForwardCOMPLEX16FFTPlan", "XLALCreateForwardCOMPLEX16FFTPlan");
 
   ASSERT( plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -641,7 +630,7 @@ LALCreateReverseCOMPLEX16FFTPlan(
     INT4             measure
     )
 {
-  INITSTATUS( status, "LALCreateReverseCOMPLEX16FFTPlan", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCreateReverseCOMPLEX16FFTPlan", "XLALCreateReverseCOMPLEX16FFTPlan");
 
   ASSERT( plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -677,7 +666,7 @@ LALDestroyCOMPLEX16FFTPlan (
     COMPLEX16FFTPlan **plan
     )
 {
-  INITSTATUS( status, "LALDestroyCOMPLEX16FFTPlan", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALDestroyCOMPLEX16FFTPlan", "XLALDestroyCOMPLEX16FFTPlan");
   ASSERT( plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
   ASSERT( *plan, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -708,7 +697,7 @@ LALCOMPLEX16VectorFFT (
     )
 {
   int code;
-  INITSTATUS( status, "LALCOMPLEX16VectorFFT", COMPLEXFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCOMPLEX16VectorFFT", "XLALCOMPLEX16VectorFFT");
 
   ASSERT( output, status, COMPLEXFFTH_ENULL, COMPLEXFFTH_MSGENULL );
@@ -758,3 +747,4 @@ LALCOMPLEX16VectorFFT (
 
   RETURN( status );
 }
+/*@}*/

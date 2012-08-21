@@ -32,7 +32,6 @@
  *
  * The function calc_crc64() here is based on crc64() in SFTReferenceLibrary.c.
  *
- * $Id$
  *
  */
 
@@ -48,6 +47,7 @@
 #include <io.h>
 #endif
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/FileIO.h>
 #include <lal/SFTfileIO.h>
@@ -56,7 +56,6 @@
 #include <lal/ConfigFile.h>
 #include <lal/LogPrintf.h>
 
-NRCSID (SFTFILEIOC, "$Id$");
 /*---------- DEFINES ----------*/
 
 #define MIN_SFT_VERSION 1
@@ -192,7 +191,7 @@ LALSFTdataFind (LALStatus *status,			/**< pointer to LALStatus structure */
   SFTCatalog *ret = NULL;
   SFTtype first_header = empty_SFTtype;
 
-  INITSTATUS (status, "LALSFTdataFind", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* ----- check input */
@@ -507,7 +506,7 @@ LALSFTtimestampsFromCatalog (LALStatus *status,			/**< pointer to LALStatus stru
   LIGOTimeGPSVector *ret = NULL;
   REAL8 Tsft;
 
-  INITSTATUS (status, "LALSFTtimestampsFromCatalog", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( timestamps, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -755,7 +754,7 @@ XLALLoadSFTs (const SFTCatalog *catalog,   /**< The 'catalogue' of SFTs to load 
       XLALDestroySFT(thisSFT);			\
     if(sftVector)				\
       XLALDestroySFTVector(sftVector);		\
-    XLAL_ERROR_NULL("XLALLoadSFTs",eno);	\
+    XLAL_ERROR_NULL(eno);	\
   }
 
   /* initialize locatalog.data so it doesn't get free()d on early error */
@@ -1048,12 +1047,12 @@ XLALLoadMultiSFTs (const SFTCatalog *inputCatalog,   /**< The 'catalogue' of SFT
   MultiSFTVector *multSFTVec=NULL;
 
   if(!inputCatalog || !(inputCatalog->length)) {
-    XLAL_ERROR_NULL(__func__,XLAL_EINVAL);
+    XLAL_ERROR_NULL(XLAL_EINVAL);
   }
 
   length = inputCatalog->length;
   if ( (name = (CHAR *)XLALCalloc(3, sizeof(CHAR))) == NULL ) {
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
 
   /* the number of ifos can be at most equal to length */
@@ -1062,21 +1061,21 @@ XLALLoadMultiSFTs (const SFTCatalog *inputCatalog,   /**< The 'catalogue' of SFT
   numifoMax = 3; /* should be sufficient -- realloc used later in case required */
 
   if ( (ifolist = (CHAR **)XLALCalloc( 1, numifoMax * sizeof(CHAR *))) == NULL) {
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
   if ( (sftLocationInCatalog = (UINT4 **)XLALCalloc( 1, numifoMax * sizeof(UINT4 *))) == NULL) {
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
   if ( (numsfts = (UINT4 *)XLALCalloc( 1, numifoMax * sizeof(UINT4))) == NULL) {
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
 
   for ( k = 0; k < numifoMax; k++) {
     if ( (ifolist[k] = (CHAR *)XLALCalloc( 1, 3*sizeof(CHAR))) == NULL) {
-      XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+      XLAL_ERROR_NULL(XLAL_ENOMEM);
     }
     if ( (sftLocationInCatalog[k] = (UINT4 *)XLALCalloc( 1, length*sizeof(UINT4))) == NULL) {
-      XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+      XLAL_ERROR_NULL(XLAL_ENOMEM);
     }
   }
 
@@ -1107,21 +1106,21 @@ XLALLoadMultiSFTs (const SFTCatalog *inputCatalog,   /**< The 'catalogue' of SFT
 	    {
 	      numifoMaxNew = numifoMax + 3;
 	      if ( (ifolist = (CHAR **)XLALRealloc( ifolist, numifoMaxNew * sizeof(CHAR *))) == NULL) {
-		XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+		XLAL_ERROR_NULL(XLAL_ENOMEM);
 	      }
 	      if ( (sftLocationInCatalog = (UINT4 **)XLALRealloc( sftLocationInCatalog, numifoMaxNew * sizeof(UINT4 *))) == NULL) {
-		XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+		XLAL_ERROR_NULL(XLAL_ENOMEM);
 	      }
 	      if ( (numsfts = (UINT4 *)XLALRealloc( numsfts, numifoMaxNew * sizeof(UINT4))) == NULL) {
-		XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+		XLAL_ERROR_NULL(XLAL_ENOMEM);
 	      }
 
 	      for ( i = numifoMax; i < numifoMaxNew; i++) {
 		if ( (ifolist[i] = (CHAR *)XLALCalloc( 1, 3*sizeof(CHAR))) == NULL) {
-		  XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+		  XLAL_ERROR_NULL(XLAL_ENOMEM);
 		}
 		if ( (sftLocationInCatalog[i] = (UINT4 *)XLALCalloc( 1, length*sizeof(UINT4))) == NULL) {
-		  XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+		  XLAL_ERROR_NULL(XLAL_ENOMEM);
 		}
 	      } /* loop from numifoMax to numifoMaxNew */
 
@@ -1139,17 +1138,17 @@ XLALLoadMultiSFTs (const SFTCatalog *inputCatalog,   /**< The 'catalogue' of SFT
 
   /* now we can create the catalogs */
   if ( (catalog = (SFTCatalog **)XLALCalloc( numifo, sizeof(SFTCatalog *))) == NULL) {
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
 
   for ( j = 0; j < numifo; j++)
     {
       if ( (catalog[j] = (SFTCatalog *)XLALCalloc(1, sizeof(SFTCatalog))) == NULL) {
-	XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+	XLAL_ERROR_NULL(XLAL_ENOMEM);
       }
       catalog[j]->length = numsfts[j];
       if ( (catalog[j]->data = (SFTDescriptor *)XLALCalloc( numsfts[j], sizeof(SFTDescriptor))) == NULL) {
-	XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+	XLAL_ERROR_NULL(XLAL_ENOMEM);
       }
 
       for ( k = 0; k < numsfts[j]; k++)
@@ -1161,12 +1160,12 @@ XLALLoadMultiSFTs (const SFTCatalog *inputCatalog,   /**< The 'catalogue' of SFT
 
   /* create multi sft vector */
   if ( (multSFTVec = (MultiSFTVector *)XLALCalloc(1, sizeof(MultiSFTVector))) == NULL){
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
   multSFTVec->length = numifo;
 
   if ( (multSFTVec->data = (SFTVector **)XLALCalloc(numifo, sizeof(SFTVector *))) == NULL) {
-    XLAL_ERROR_NULL(__func__,XLAL_ENOMEM);
+    XLAL_ERROR_NULL(XLAL_ENOMEM);
   }
   for ( j = 0; j < numifo; j++) {
     if( ! ( multSFTVec->data[j] = XLALLoadSFTs ( catalog[j], fMin, fMax ) ) )
@@ -1194,7 +1193,7 @@ XLALLoadMultiSFTs (const SFTCatalog *inputCatalog,   /**< The 'catalogue' of SFT
       XLALFree(numsfts);
       XLALFree(name);
 
-      XLAL_ERROR_NULL ( __func__, XLAL_EFUNC );
+      XLAL_ERROR_NULL ( XLAL_EFUNC );
 
     }
   }
@@ -1259,7 +1258,7 @@ LALLoadSFTs ( LALStatus *status,	/**< pointer to LALStatus structure */
   UINT4 i;                     /* loop counter */
   UINT4 firstInSFT, lastInSFT=0; /* first and last bin in current SFT */
 
-  INITSTATUS (status, "LALLoadSegmentedSFTs", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( outsfts, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -1516,7 +1515,7 @@ void LALLoadMultiSFTs ( LALStatus *status,		/**< pointer to LALStatus structure 
   SFTCatalog **catalog=NULL;
   MultiSFTVector *multSFTVec=NULL;
 
-  INITSTATUS (status, "LALLoadMultiSFTs", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( out, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -1672,9 +1671,12 @@ void LALLoadMultiSFTs ( LALStatus *status,		/**< pointer to LALStatus structure 
       LALFree(numsfts);
       LALFree(name);
 
+#ifdef USEXLALLOADSFTS
+      ABORT ( status, SFTFILEIO_EFILE, SFTFILEIO_MSGEFILE );
+#endif
     }
 #ifndef USEXLALLOADSFTS
-      ENDFAIL(status);
+    ENDFAIL ( status );
 #endif
   }
 
@@ -1730,7 +1732,7 @@ LALCheckSFTs ( LALStatus *status,			/**< pointer to LALStatus structure */
   LALStatus sft_status = empty_status;
   SFTCatalog *catalog = NULL;
 
-  INITSTATUS (status, "LALCheckSFTs", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT ( check_result, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -1771,7 +1773,7 @@ LALCheckSFTCatalog ( LALStatus *status,			/**< pointer to LALStatus structure */
 {
   UINT4 i;
 
-  INITSTATUS (status, "LALCheckSFTCatalog", SFTFILEIOC);
+  INITSTATUS(status);
 
   ASSERT ( check_result, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
   ASSERT ( catalog,      status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -1830,42 +1832,41 @@ LALCheckSFTCatalog ( LALStatus *status,			/**< pointer to LALStatus structure */
 LIGOTimeGPSVector *
 XLALReadTimestampsFile ( const CHAR *fname )
 {
-  const char *fn = __func__;
   LIGOTimeGPSVector *timestamps = NULL;
 
   /** check input consistency */
   if ( !fname ) {
-    XLALPrintError ( "%s: NULL input 'fname'", fn );
-    XLAL_ERROR_NULL ( fn, XLAL_EINVAL );
+    XLALPrintError ( "%s: NULL input 'fname'", __func__ );
+    XLAL_ERROR_NULL ( XLAL_EINVAL );
   }
 
   /* read and parse timestamps-list file contents*/
   LALParsedDataFile *flines = NULL;
   if ( XLALParseDataFile ( &flines, fname ) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
 
   UINT4 numTS = flines->lines->nTokens;
   /* allocate and initialized segment list */
   if ( ( timestamps = XLALCreateTimestampVector ( numTS )) == NULL )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+    XLAL_ERROR_NULL ( XLAL_EFUNC );
 
   UINT4 iTS;
   for ( iTS = 0; iTS < numTS; iTS ++ )
     {
       INT4 secs, ns;
       if ( sscanf ( flines->lines->tokens[iTS], "%d %d\n", &secs, &ns ) != 2 ) {
-        XLALPrintError ("%s: failed to parse data-line %d in timestamps-file %s\n", fn, iTS + 1, fname );
+        XLALPrintError ("%s: failed to parse data-line %d: '%s' in timestamps-file '%s' (needs to be in format 'sec ns')\n", __func__, iTS + 1, flines->lines->tokens[iTS], fname );
         XLALDestroyTimestampVector ( timestamps );
-        XLALDestroyParsedDataFile ( &flines );
-        XLAL_ERROR_NULL ( fn, XLAL_ESYS );
+        XLALDestroyParsedDataFile ( flines );
+        XLAL_ERROR_NULL ( XLAL_ESYS );
       }
       if ( ( secs < 0 ) || ( ns < 0 ) ) {
-	XLALPrintError ("%s: timestamps-file contains negative time-entry in line %d : s = %d, ns = %d\n", fn, iTS, secs, ns );
-	XLAL_ERROR_NULL ( fn, XLAL_EDOM );
+	XLALPrintError ("%s: timestamps-file contains negative time-entry in line %d : s = %d, ns = %d\n", __func__, iTS, secs, ns );
+	XLAL_ERROR_NULL ( XLAL_EDOM );
       }
       if ( ns > 999999999 ) {
-        XLALPrintError ("%s: timestamps-file contains nano-seconds entry >= 1 billion ns in line %d: s = %d, ns = %d\n", fn, iTS, secs, ns );
-	XLAL_ERROR_NULL ( fn, XLAL_EDOM );
+        XLALPrintError ("%s: timestamps-file contains nano-seconds entry >= 1 billion ns in line %d: s = %d, ns = %d\n", __func__, iTS, secs, ns );
+	XLAL_ERROR_NULL ( XLAL_EDOM );
       }
 
       timestamps->data[iTS].gpsSeconds = secs;
@@ -1874,8 +1875,7 @@ XLALReadTimestampsFile ( const CHAR *fname )
     } /* for iTS < numTS */
 
   /* free parsed segment file contents */
-  if ( XLALDestroyParsedDataFile ( &flines ) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( fn, XLAL_EFUNC );
+  XLALDestroyParsedDataFile ( flines );
 
   return timestamps;
 
@@ -1893,7 +1893,7 @@ LALReadTimestampsFile (LALStatus* status, LIGOTimeGPSVector **timestamps, const 
   FILE *fp;
   LIGOTimeGPSVector *ts = NULL;
 
-  INITSTATUS( status, "LALReadTimestampsFile", SFTFILEIOC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (fname, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -1960,7 +1960,6 @@ XLALWriteSFT2fp ( const SFTtype *sft,	/**< SFT to write to disk */
                   FILE *fp,		/**< pointer to open file */
                   const CHAR *comment)	/**< optional comment (for v2 only) */
 {
-  const CHAR *fn = __func__;
   UINT4 comment_len = 0;
   CHAR *SFTcomment;
   UINT4 pad_len = 0;
@@ -1969,18 +1968,18 @@ XLALWriteSFT2fp ( const SFTtype *sft,	/**< SFT to write to disk */
 
   /* check input consistency */
   if (!sft || !sft->data || sft->deltaF <= 0 || sft->f0 < 0 || sft->data->length ==0 )
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   if (!( (sft->epoch.gpsSeconds >= 0) && (sft->epoch.gpsNanoSeconds >= 0) ))
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   if (!( sft->epoch.gpsNanoSeconds < 1000000000 ))
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   if ( !is_valid_detector(sft->name) ) {
     XLALPrintError ("\nInvalid detector prefix '%c%c'\n\n", sft->name[0], sft->name[1] );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   if ( !fp )
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
 
 
   /* concat sft->name + comment for SFT-file comment-field */
@@ -1989,7 +1988,7 @@ XLALWriteSFT2fp ( const SFTtype *sft,	/**< SFT to write to disk */
     comment_len += strlen(comment) + 2;	/* separate by "; " */
 
   if ( (SFTcomment = XLALCalloc( comment_len, sizeof(CHAR) )) == NULL ) {
-    XLAL_ERROR( fn, XLAL_ENOMEM );
+    XLAL_ERROR( XLAL_ENOMEM );
   }
   strcpy ( SFTcomment, sft->name );
   if ( comment ) {
@@ -2026,22 +2025,22 @@ XLALWriteSFT2fp ( const SFTtype *sft,	/**< SFT to write to disk */
 
   /* ----- write the header to file */
   if (1 != fwrite( &rawheader, sizeof(rawheader), 1, fp) ) {
-    XLAL_ERROR ( fn, XLAL_EIO );
+    XLAL_ERROR ( XLAL_EIO );
   }
 
   /* ----- write the comment to file */
   if ( comment_len != fwrite( SFTcomment, 1, comment_len, fp) ) {
-    XLAL_ERROR ( fn, XLAL_EIO );
+    XLAL_ERROR ( XLAL_EIO );
   }
   if (pad_len != fwrite( pad, 1, pad_len, fp) ) {
-    XLAL_ERROR ( fn, XLAL_EIO );
+    XLAL_ERROR ( XLAL_EIO );
   }
 
   XLALFree ( SFTcomment );
 
   /* write the data to the file.  Data must be packed REAL,IMAG,REAL,IMAG,... */
   if ( sft->data->length != fwrite( sft->data->data, sizeof(*sft->data->data), sft->data->length, fp) ) {
-    XLAL_ERROR ( fn, XLAL_EIO );
+    XLAL_ERROR ( XLAL_EIO );
   }
 
   return XLAL_SUCCESS;
@@ -2064,32 +2063,31 @@ XLALWriteSFT2file(
 		  const CHAR *fname,		/**< filename */
 		  const CHAR *comment)		/**< optional comment (for v2 only) */
 {
-  const CHAR *fn = __func__;
   FILE  *fp = NULL;
 
   /*   Make sure the arguments are not NULL */
   if (!( sft ))
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   if (!( sft->data ))
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   if (!( fname ))
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
  
   if ( !is_valid_detector(sft->name) ) {
     XLALPrintError ("\nInvalid detector prefix '%c%c'\n\n", sft->name[0], sft->name[1] );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   /* open SFT-file for writing */
   if ( (fp = LALFopen ( fname, "wb" )) == NULL )
     {
       XLALPrintError ("\nFailed to open file '%s' for writing: %s\n\n", fname, strerror(errno));
-      XLAL_ERROR ( fn, XLAL_EIO );
+      XLAL_ERROR ( XLAL_EIO );
     }
 
   /* write SFT to file */
   if ( XLALWriteSFT2fp (sft, fp, comment) != XLAL_SUCCESS ) {
-    XLAL_ERROR ( fn, XLAL_EIO );
+    XLAL_ERROR ( XLAL_EIO );
   }
 
   fclose(fp);
@@ -2105,7 +2103,7 @@ LALWriteSFT2file (LALStatus *status,			/**< pointer to LALStatus structure */
 		  const CHAR *comment)		/**< optional comment (for v2 only) */
 {
   XLALPrintDeprecationWarning("LALWriteSFT2file", "XLALWriteSFT2file");
-  INITSTATUS (status, "LALWriteSFTfile", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   if ( XLALWriteSFT2file( sft, fname, comment ) != XLAL_SUCCESS ) {
     ABORT ( status, LAL_EXLAL, LAL_MSGEXLAL );
@@ -2131,7 +2129,6 @@ XLALWriteSFTVector2Dir(
 		       const CHAR *comment,		/**< optional comment (for v2 only) */
 		       const CHAR *description)         /**< optional sft description to go in the filename */
 {
-  const CHAR *fn = __func__;
   UINT4 length, k;
   CHAR *filename = NULL;
   CHAR filenumber[16];
@@ -2140,10 +2137,10 @@ XLALWriteSFTVector2Dir(
   UINT4 filenamelen;
   LIGOTimeGPS time0;
 
-  if (! (sftVect) ) XLAL_ERROR ( fn, XLAL_EINVAL );
-  if (! (sftVect->data) ) XLAL_ERROR ( fn, XLAL_EINVAL );
-  if (! (sftVect->length > 0) ) XLAL_ERROR ( fn, XLAL_EINVAL );
-  if (! (dirname) ) XLAL_ERROR ( fn, XLAL_EINVAL );
+  if (! (sftVect) ) XLAL_ERROR ( XLAL_EINVAL );
+  if (! (sftVect->data) ) XLAL_ERROR ( XLAL_EINVAL );
+  if (! (sftVect->length > 0) ) XLAL_ERROR ( XLAL_EINVAL );
+  if (! (dirname) ) XLAL_ERROR ( XLAL_EINVAL );
 
   length = sftVect->length;
 
@@ -2152,7 +2149,7 @@ XLALWriteSFTVector2Dir(
     filenamelen += strlen ( description );
 
   if ( (filename = (CHAR *)XLALCalloc(1, filenamelen )) == NULL) {
-    XLAL_ERROR ( fn, XLAL_ENOMEM );
+    XLAL_ERROR ( XLAL_ENOMEM );
   }
 
   /* will not be same as actual sft timebase if it is not
@@ -2163,11 +2160,11 @@ XLALWriteSFTVector2Dir(
 
     sft = sftVect->data + k;
     if ( sft == NULL ) {
-      XLAL_ERROR ( fn, XLAL_EFAULT );
+      XLAL_ERROR ( XLAL_EFAULT );
     }
 
     if ( sft->name == NULL ) {
-      XLAL_ERROR ( fn, XLAL_EFAULT );
+      XLAL_ERROR ( XLAL_EFAULT );
     }
 
 
@@ -2205,7 +2202,7 @@ XLALWriteSFTVector2Dir(
 
     /* write the k^th sft */
     if ( XLALWriteSFT2file( sft, filename, comment ) != XLAL_SUCCESS ) {
-      XLAL_ERROR ( fn, xlalErrno );
+      XLAL_ERROR ( xlalErrno );
     }
   }
 
@@ -2223,7 +2220,7 @@ LALWriteSFTVector2Dir (LALStatus *status,			/**< pointer to LALStatus structure 
 		       const CHAR *description)         /**< optional sft description to go in the filename */
 {
   XLALPrintDeprecationWarning("LALWriteSFTVector2Dir", "XLALWriteSFTVector2Dir");
-  INITSTATUS (status, "LALWriteSFTVector2Dir", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
   if ( XLALWriteSFTVector2Dir( sftVect, dirname, comment, description ) != XLAL_SUCCESS ) {
     ABORT ( status, LAL_EXLAL, LAL_MSGEXLAL );
@@ -2246,15 +2243,14 @@ XLALWriteSFTVector2File(
 		       const CHAR *filename,		/**< filename of concatenated SFT */
 		       const CHAR *comment)		/**< optional comment (for v2 only) */
 {
-  const CHAR *fn = __func__;
   UINT4 length, k;
   FILE *fp = NULL;
   SFTtype *sft;
 
-  if (! (sftVect) ) XLAL_ERROR ( fn, XLAL_EINVAL );
-  if (! (sftVect->data) ) XLAL_ERROR ( fn, XLAL_EINVAL );
-  if (! (sftVect->length > 0) ) XLAL_ERROR ( fn, XLAL_EINVAL );
-  if (! (filename) ) XLAL_ERROR ( fn, XLAL_EINVAL );
+  if (! (sftVect) ) XLAL_ERROR ( XLAL_EINVAL );
+  if (! (sftVect->data) ) XLAL_ERROR ( XLAL_EINVAL );
+  if (! (sftVect->length > 0) ) XLAL_ERROR ( XLAL_EINVAL );
+  if (! (filename) ) XLAL_ERROR ( XLAL_EINVAL );
 
   length = sftVect->length;
 
@@ -2262,23 +2258,23 @@ XLALWriteSFTVector2File(
   if ( (fp = LALFopen ( filename, "wb" )) == NULL )
     {
       XLALPrintError ("\nFailed to open file '%s' for writing: %s\n\n", filename, strerror(errno));
-      XLAL_ERROR ( fn, XLAL_EIO );
+      XLAL_ERROR ( XLAL_EIO );
     }
 
   for ( k = 0; k < length; k++) {
 
     sft = sftVect->data + k;
     if ( sft == NULL ) {
-      XLAL_ERROR ( fn, XLAL_EFAULT );
+      XLAL_ERROR ( XLAL_EFAULT );
     }
 
     if ( sft->name == NULL ) {
-      XLAL_ERROR ( fn, XLAL_EFAULT );
+      XLAL_ERROR ( XLAL_EFAULT );
     }
 
     /* write the k^th sft */
     if ( XLALWriteSFT2fp ( sft, fp, comment ) != XLAL_SUCCESS ) {
-      XLAL_ERROR ( fn, xlalErrno );
+      XLAL_ERROR ( xlalErrno );
     }
   }
 
@@ -2306,7 +2302,7 @@ LALWrite_v2SFT_to_v1file (LALStatus *status,			/**< pointer to LALStatus structu
   REAL8 Band, dt;
   SFTtype v1SFT;
 
-  INITSTATUS (status, "LALWriteSFTfile", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL and perform basic checks*/
@@ -2368,7 +2364,7 @@ LALWriteSFTfile (LALStatus  *status,			/**< pointer to LALStatus structure */
   CHAR *rawheader, *ptr;
   SFTHeader header;
 
-  INITSTATUS (status, "LALWriteSFTfile", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL and perform basic checks*/
@@ -2391,17 +2387,17 @@ LALWriteSFTfile (LALStatus  *status,			/**< pointer to LALStatus structure */
     ABORT (status, SFTFILEIO_EMEM, SFTFILEIO_MSGEMEM);
   }
   ptr = rawheader;
-  *(REAL8*) ptr = header.version;
+  memcpy( ptr, &header.version, sizeof(REAL8) );
   ptr += sizeof (REAL8);
-  *(INT4*) ptr = header.gpsSeconds;
+  memcpy( ptr, &header.gpsSeconds, sizeof(INT4) );
   ptr += sizeof (INT4);
-  *(INT4*) ptr = header.gpsNanoSeconds;
+  memcpy( ptr, &header.gpsNanoSeconds, sizeof(INT4) );
   ptr += sizeof (INT4);
-  *(REAL8*) ptr = header.timeBase;
+  memcpy( ptr, &header.timeBase, sizeof(REAL8) );
   ptr += sizeof (REAL8);
-  *(INT4*) ptr = header.fminBinIndex;
+  memcpy( ptr, &header.fminBinIndex, sizeof(INT4) );
   ptr += sizeof (INT4);
-  *(INT4*) ptr = header.length;
+  memcpy( ptr, &header.length, sizeof(INT4) );
 
   /* write data into a contiguous REAL4-array */
   datalen = 2 * header.length * sizeof(REAL4);	/* amount of bytes for SFT-data */
@@ -2463,7 +2459,7 @@ void
 LALDestroySFTCatalog ( LALStatus *status,			/**< pointer to LALStatus structure */
 		       SFTCatalog **catalog )	/**< the 'catalogue' to free */
 {
-  INITSTATUS (status, "LALDestroySFTcatalog", SFTFILEIOC);
+  INITSTATUS(status);
 
   ASSERT ( catalog, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
 
@@ -2507,44 +2503,39 @@ LALDestroySFTCatalog ( LALStatus *status,			/**< pointer to LALStatus structure 
 
 /** Free an 'SFT-catalogue' */
 void
-XLALDestroySFTCatalog ( SFTCatalog **catalog )	/**< the 'catalogue' to free */
+XLALDestroySFTCatalog ( SFTCatalog *catalog  /**< the 'catalogue' to free */ )
 {
   if ( catalog ) {
 
-    if ( *catalog ) {
+    if ( catalog -> data )
+      {
+        UINT4 i;
+        for ( i=0; i < catalog->length; i ++ )
+          {
+            SFTDescriptor *ptr = &( catalog->data[i] );
+            if ( ptr->locator )
+              {
+                if ( ptr->locator->fname )
+                  XLALFree ( ptr->locator->fname );
+                XLALFree ( ptr->locator );
+              }
+            if ( ptr->comment )
+              XLALFree ( ptr->comment );
 
-      if ( (*catalog) -> data )
-	{
-	  UINT4 i;
-	  for ( i=0; i < (*catalog)->length; i ++ )
-	    {
-	      SFTDescriptor *ptr = &( (*catalog)->data[i] );
-	      if ( ptr->locator )
-		{
-		  if ( ptr->locator->fname )
-		    XLALFree ( ptr->locator->fname );
-		  XLALFree ( ptr->locator );
-		}
-	      if ( ptr->comment )
-		XLALFree ( ptr->comment );
+            /* this should not happen, but just in case: free data-entry in SFT-header */
+            if ( ptr->header.data )
+              XLALDestroyCOMPLEX8Sequence (ptr->header.data);
+          } /* for i < length */
 
-	      /* this should not happen, but just in case: free data-entry in SFT-header */
-	      if ( ptr->header.data )
-		XLALDestroyCOMPLEX8Sequence (ptr->header.data);
-	    } /* for i < length */
+        catalog->length = 0;
 
-	  (*catalog)->length = 0;
+        XLALFree ( catalog->data );
 
-	  XLALFree ( (*catalog)->data );
+      } /* if catalog->data */
 
-	} /* if *catalog->data */
+    XLALFree ( catalog );
 
-      XLALFree ( *catalog );
-
-    } /* if *catalog */
-
-    (*catalog) = NULL;
-  }
+  } /* if catalog */
 
 } /* XLALDestroySFTCatalog() */
 
@@ -2639,7 +2630,7 @@ LALGetSFTheaders (LALStatus *status,			/**< pointer to LALStatus structure */
   REAL8 t0, t1;		/* start- and end-times as reals */
   UINT4 numHeaders;
 
-  INITSTATUS (status, "LALGetSFTheaders", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /* check input */
@@ -2750,7 +2741,7 @@ LALReadSFTfile (LALStatus *status,			/**< pointer to LALStatus structure */
   UINT4 i;
   REAL4 renorm;
 
-  INITSTATUS (status, "LALReadSFTfile", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (sft, status, SFTFILEIO_ENULL,  SFTFILEIO_MSGENULL);
@@ -2853,7 +2844,7 @@ LALReadSFTfiles (LALStatus *status,			/**< pointer to LALStatus structure */
   LALStringVector *fnames;
   UINT4 firstlen = 0;
 
-  INITSTATUS (status, "LALReadSFTfiles", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (sftvect, status, SFTFILEIO_ENULL,  SFTFILEIO_MSGENULL);
@@ -3059,7 +3050,7 @@ LALReadSFTheader (LALStatus  *status,			/**< pointer to LALStatus structure */
   REAL8 version;
   BOOLEAN swapEndian = 0;
 
-  INITSTATUS (status, "LALReadSFTHeader", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -3117,22 +3108,22 @@ LALReadSFTheader (LALStatus  *status,			/**< pointer to LALStatus structure */
    */
   ptr = rawheader;
   if (swapEndian) endian_swap((CHAR*)ptr,sizeof(REAL8),1);
-  header1.version	= *(REAL8*) ptr;
+  memcpy( &header1.version, ptr, sizeof(REAL8) );
   ptr += sizeof(REAL8);
   if (swapEndian) endian_swap((CHAR*)ptr,sizeof(INT4),1);
-  header1.gpsSeconds 	= *(INT4*) ptr;
+  memcpy( &header1.gpsSeconds, ptr, sizeof(INT4) );
   ptr += sizeof(INT4);
   if (swapEndian) endian_swap((CHAR*)ptr,sizeof(INT4),1);
-  header1.gpsNanoSeconds= *(INT4*) ptr;
+  memcpy( &header1.gpsNanoSeconds, ptr, sizeof(INT4) );
   ptr += sizeof(INT4);
   if (swapEndian) endian_swap((CHAR*)ptr,sizeof(REAL8),1);
-  header1.timeBase      = *(REAL8*) ptr;
+  memcpy( &header1.timeBase, ptr, sizeof(REAL8) );
   ptr += sizeof(REAL8);
   if (swapEndian) endian_swap((CHAR*)ptr,sizeof(INT4),1);
-  header1.fminBinIndex  = *(INT4*) ptr;
+  memcpy( &header1.fminBinIndex, ptr, sizeof(INT4) );
   ptr += sizeof(INT4);
   if (swapEndian) endian_swap((CHAR*)ptr,sizeof(INT4),1);
-  header1.length     	= *(INT4*) ptr;
+  memcpy( &header1.length, ptr, sizeof(INT4) );
 
   LALFree (rawheader);
 
@@ -3195,7 +3186,7 @@ LALReadSFTdata(LALStatus *status,			/**< pointer to LALStatus structure */
   BOOLEAN swapEndian = 0;
   UINT4 i;
 
-  INITSTATUS (status, "LALReadSFTdata", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -3424,7 +3415,7 @@ lal_read_sft_bins_from_fp ( LALStatus *status, SFTtype **sft, UINT4 *binsread, U
   long offsetBytes;
   volatile REAL8 tmp;	/* intermediate results: try to force IEEE-arithmetic */
 
-  INITSTATUS (status, "lal_read_sft_bins_from_fp", SFTFILEIOC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR ( status );
 
   ASSERT ( sft, status, SFTFILEIO_ENULL, SFTFILEIO_MSGENULL );
@@ -4032,7 +4023,6 @@ endian_swap(CHAR * pdata, size_t dsize, size_t nelements)
 static LALStringVector *
 find_files (const CHAR *globdir)
 {
-  const CHAR *fn = __func__;
 #ifndef _MSC_VER
   DIR *dir;
   struct dirent *entry;
@@ -4146,21 +4136,21 @@ find_files (const CHAR *globdir)
 
     /* read list of file names from file */
     if (XLALParseDataFile(&list, listfname) != XLAL_SUCCESS) {
-      XLALPrintError("\n%s: Could not parse list file '%s'\n", fn, listfname);
+      XLALPrintError("\n%s: Could not parse list file '%s'\n", __func__, listfname);
       return NULL;
     }
 
     /* allocate "filelist" */
     numFiles = list->lines->nTokens;
     if (numFiles == 0) {
-      XLALPrintWarning("\n%s: List file '%s' contains no file names\n", fn, listfname);
+      XLALPrintWarning("\n%s: List file '%s' contains no file names\n", __func__, listfname);
       LALFree(listfname);
-      XLALDestroyParsedDataFile(&list);
+      XLALDestroyParsedDataFile(list);
       return NULL;
     }
     if ((filelist = LALRealloc (filelist, numFiles * sizeof(CHAR*))) == NULL) {
       LALFree(listfname);
-      XLALDestroyParsedDataFile(&list);
+      XLALDestroyParsedDataFile(list);
       return NULL;
     }
 
@@ -4187,7 +4177,7 @@ find_files (const CHAR *globdir)
 	  LALFree(filelist[j]);
 	LALFree(filelist);
 	LALFree(listfname);
-	XLALDestroyParsedDataFile(&list);
+	XLALDestroyParsedDataFile(list);
 	return NULL;
       }
 
@@ -4198,7 +4188,7 @@ find_files (const CHAR *globdir)
 
     /* cleanup */
     LALFree(listfname);
-    XLALDestroyParsedDataFile(&list);
+    XLALDestroyParsedDataFile(list);
 
   } /* if list file */
 

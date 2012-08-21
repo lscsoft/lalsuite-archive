@@ -30,6 +30,7 @@ lalpulsarinclude_HEADERS = \
 	LALDemod.h \
 	LALHough.h \
 	LALPulsarConfig.h \
+	LALPulsarLibVCSInfo.h \
 	LALPulsarVCSInfo.h \
 	LALXMGRInterface.h \
 	LISAspecifics.h \
@@ -154,11 +155,10 @@ lalpulsar-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "$(SWIG_USER_ENV)" | $(SED) 's|~E~O~L~|\n|g' >>$@
+	@printf "$(SWIG_USER_ENV)" >>$@
 
 lalpulsar-user-env.csh lalpulsar-user-env.sh: lalpulsar-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALPulsarConfig.h.in \
@@ -169,11 +169,9 @@ EXTRA_DIST = \
 LALPulsarVCSInfo.h: ._vcsinfo
 
 ._vcsinfo: $(srcdir)/generate_vcs_info.py LALPulsarConfig.h
-	@echo "creating LALPulsarVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALPulsar $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALPulsar $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@
 
 swig_headers = $(lalpulsarinclude_HEADERS)
-CLEANFILES += $(swig_clean)
-@SWIG_HEADER_MK@
+include $(top_srcdir)/swig/swiglal_header.am

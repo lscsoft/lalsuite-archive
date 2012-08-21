@@ -97,9 +97,6 @@ LALCalloc, LALMalloc, LALFree.
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/Date.h>
 
-NRCSID( LIGOMETADATAUTILSC, "$Id$" );
-
-
 int XLALCountProcessTable(ProcessTable *head)
 
 {
@@ -360,7 +357,7 @@ LALPlaygroundInSearchSummary (
 
 {
   INT4 playCheck = 0;
-  INITSTATUS( status, "LALPlaygroundInSearchSummary", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   playCheck = XLALPlaygroundInSearchSummary ( ssTable, inPlayTime,
@@ -384,7 +381,6 @@ XLALPlaygroundInSearchSummary (
     )
 
 {
-  static const char *func = "PlaygroundInSearchSummary";
   INT8 startNS, endNS, lengthNS, playNS;
 
   startNS = XLALGPSToINT8NS( &(ssTable->in_start_time) );
@@ -393,7 +389,7 @@ XLALPlaygroundInSearchSummary (
   playNS = PlaygroundOverlap( endNS, lengthNS );
   if ( playNS < 0 )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
   inPlayTime = XLALINT8NSToGPS( inPlayTime, playNS );
 
@@ -404,7 +400,7 @@ XLALPlaygroundInSearchSummary (
   playNS = PlaygroundOverlap( endNS, lengthNS );
   if ( playNS < 0 )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
   outPlayTime = XLALINT8NSToGPS( outPlayTime, playNS );
 
@@ -523,7 +519,6 @@ XLALTimeSortSearchSummary(
     )
 
 {
-  static const char *func = "TimeSortSearchSummary";
   INT4                  i;
   INT4                  numSumms = 0;
   SearchSummaryTable    *thisSearchSumm = NULL;
@@ -531,7 +526,7 @@ XLALTimeSortSearchSummary(
 
   if ( !summHead )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
 
@@ -583,7 +578,7 @@ LALTimeSortSearchSummary (
     )
 
 {
-  INITSTATUS( status, "LALTimeSortSearchSummary", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( summHead, status,
@@ -604,7 +599,6 @@ XLALIfoScanSearchSummary(
     )
 
 {
-  static const char *func = "IfoScanSearchSummary";
   SearchSummaryTable    *output = NULL;
   SearchSummaryTable    *thisSearchSumm = NULL;
   SearchSummaryTable    *keptSumm = NULL;
@@ -612,7 +606,7 @@ XLALIfoScanSearchSummary(
 
   if ( !input )
   {
-    XLAL_ERROR_NULL(func,XLAL_EIO);
+    XLAL_ERROR_NULL(XLAL_EIO);
   }
 
   /* Scan through a linked list of search_summary tables and return a
@@ -643,7 +637,7 @@ XLALIfoScanSearchSummary(
           output = (output)->next;
           LALFree( thisSearchSumm );
         }
-        XLAL_ERROR_NULL(func,XLAL_ENOMEM);
+        XLAL_ERROR_NULL(XLAL_ENOMEM);
       }
       memcpy(keptSumm, thisSearchSumm, sizeof(SearchSummaryTable));
       keptSumm->next = NULL;
@@ -664,7 +658,7 @@ LALIfoScanSearchSummary(
     )
 
 {
-  INITSTATUS( status, "LALIfoScanSearchSummary", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   *output = XLALIfoScanSearchSummary( input, ifos );
@@ -688,7 +682,7 @@ LALDistanceScanSummValueTable (
   /*INT4 test=0;*/
   INT8 ta=0, tb=0, tc=0;
 
-  INITSTATUS( status, "LALDistanceScanSummValueTable", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* initialize diatnce to zero */
@@ -752,7 +746,7 @@ LALCheckOutTimeFromSearchSummary (
   INT8  outEndNS = 0;
 
 
-  INITSTATUS( status, "LALCheckOutTimeSearchSummary", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check that the data has been searched once
@@ -846,7 +840,7 @@ LALIfoScanSummValue(
   SummValueTable    *thisSummValue = NULL;
   SummValueTable    *keptSumm = NULL;
 
-  INITSTATUS( status, "LALIfoScanSummValue", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check that output is null and input non-null */
@@ -942,7 +936,6 @@ XLALTimeSortSummValue(
     )
 
 {
-  static const char *func = "TimeSortSummValue";
   INT4                  i;
   INT4                  numSumms = 0;
   SummValueTable    *thisSummValue = NULL;
@@ -950,7 +943,7 @@ XLALTimeSortSummValue(
 
   if ( !summHead )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
   /* count the number of summs in the linked list */
@@ -969,7 +962,7 @@ XLALTimeSortSummValue(
     LALCalloc( numSumms, sizeof(SummValueTable *) );
   if ( !summHandle )
   {
-    XLAL_ERROR(func,XLAL_ENOMEM);
+    XLAL_ERROR(XLAL_ENOMEM);
   }
 
   for ( i = 0, thisSummValue = *summHead; i < numSumms;
@@ -1005,7 +998,7 @@ LALTimeSortSummValue (
     )
 
 {
-  INITSTATUS( status, "LALTimeSortSummValue", LIGOMETADATAUTILSC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   ASSERT( summHead, status,
@@ -1029,7 +1022,7 @@ ProcessTable *XLALCreateProcessTableRow(void)
   ProcessTable *new = XLALMalloc(sizeof(*new));
 
   if(!new)
-    XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+    XLAL_ERROR_NULL(XLAL_EFUNC);
 
   new->next = NULL;
   memset(new->program, 0, sizeof(new->program));
@@ -1104,7 +1097,7 @@ ProcessParamsTable *XLALCreateProcessParamsTableRow(const ProcessTable *process)
   ProcessParamsTable *new = XLALMalloc(sizeof(*new));
 
   if(!new)
-    XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+    XLAL_ERROR_NULL(XLAL_EFUNC);
 
   new->next = NULL;
   memset(new->program, 0, sizeof(new->program));
@@ -1157,7 +1150,7 @@ TimeSlide *XLALCreateTimeSlide(void)
   TimeSlide *new = XLALMalloc(sizeof(*new));
 
   if(!new)
-    XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+    XLAL_ERROR_NULL(XLAL_EFUNC);
 
   new->next = NULL;
   new->process_id = -1;
@@ -1231,7 +1224,7 @@ SearchSummaryTable *XLALCreateSearchSummaryTableRow(const ProcessTable *process)
   SearchSummaryTable *new = XLALMalloc(sizeof(*new));
 
   if(!new)
-    XLAL_ERROR_NULL(__func__, XLAL_EFUNC);
+    XLAL_ERROR_NULL(XLAL_EFUNC);
 
   new->next = NULL;
   if(process)

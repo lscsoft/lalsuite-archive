@@ -2,6 +2,7 @@
 *.la
 *.lo
 *.loT
+*.log
 *.o
 *.pc
 .adoc
@@ -37,6 +38,7 @@ doc/lsd.toc
 include/config.h
 include/config.h.in
 include/lal/*.h
+include/lal/*.i
 include/lal/stamp-h2
 include/stamp-h1
 lal-*.tar.gz
@@ -84,14 +86,12 @@ packages/date/test/TestLMST2
 packages/date/test/TestLeapSecs
 packages/date/test/TestStrToGPS
 packages/date/test/TestUTCtoGPS
-packages/factories/include/AVFactories.h
-packages/factories/include/SeqFactories.h
 packages/factories/test/ArrayFactoriesTest
 packages/factories/test/ArraySequenceFactoriesTest
 packages/factories/test/VectorFactoriesTest
 packages/factories/test/VectorSequenceFactoriesTest
-packages/fft/src/CudaFFT.c
-packages/fft/src/CudaFFT.linkinfo
+packages/factories/test/StringVectorTest
+packages/fft/src/CudaFFT.cpp
 packages/fft/test/*.dat
 packages/fft/test/AverageSpectrumTest
 packages/fft/test/AvgSpecTest
@@ -118,6 +118,7 @@ packages/noisemodels/test/RandomInspiralSignalTest
 packages/slopefilters/test/SlopeDetectorFilterTest
 packages/stats/test/LALCorrelationTest
 packages/stats/test/LALMomentTest
+packages/std/test/LALConstantsTest
 packages/std/test/LALGSLTest
 packages/std/test/LALMallocTest
 packages/std/test/LALVersionTest
@@ -144,9 +145,6 @@ packages/support/test/UserInputTest
 packages/tdfilter/test/BandPassTest
 packages/tdfilter/test/IIRFilterTest
 packages/tdfilter/test/LPCTest
-packages/tools/include/FrequencySeries.h
-packages/tools/include/Sequence.h
-packages/tools/include/TimeSeries.h
 packages/tools/test/CoherentEstimationTest
 packages/tools/test/ComputeTransferTest
 packages/tools/test/DetectorSiteTest
@@ -159,6 +157,10 @@ packages/tools/test/SegmentsTest
 packages/tools/test/SequenceTest
 packages/tools/test/SkymapTest
 packages/tools/test/TimeSeriesTest
+packages/tools/test/CubicSplineTriggerInterpolantTest
+packages/tools/test/LanczosTriggerInterpolantTest
+packages/tools/test/NearestNeighborTriggerInterpolantTest
+packages/tools/test/QuadraticFitTriggerInterpolantTest
 packages/tools/test/UnitsTest
 packages/utilities/test/CCoarseGrainFrequencySeriesTest
 packages/utilities/test/DCoarseGrainFrequencySeriesTest
@@ -179,7 +181,6 @@ packages/utilities/test/SCoarseGrainFrequencySeriesTest
 packages/utilities/test/SFTCleanTest
 packages/utilities/test/SortTest
 packages/utilities/test/ZCoarseGrainFrequencySeriesTest
-packages/vectorops/include/VectorIndexRange.h
 packages/vectorops/test/VectorIndexRangeTest
 packages/vectorops/test/VectorOpsTest
 packages/window/test/WindowTest

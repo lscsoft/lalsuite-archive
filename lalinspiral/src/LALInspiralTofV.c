@@ -26,7 +26,7 @@
 
 This module outputs
 \f{equation}{
-\c tofv = t - t_0 + m \int_{v_0}^{v} \frac{E'(v)}{{\cal F}(v)} \, dv\,.
+tofv = t - t_0 + m \int_{v_0}^{v} \frac{E'(v)}{{\cal F}(v)} \, dv\,.
 \f}
 where the constants \f$t,\f$ \f$t_0,\f$ \f$v_0,\f$ and functions in the integrand
 \f$E'(v)\f$ and \f${\cal F}(v)\f$ are defined in the \c void structure <tt>params.</tt>
@@ -42,9 +42,6 @@ LALDRombergIntegrate()
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
 #include <lal/Integrate.h>
-
-NRCSID (LALINSPIRALTOFVC, "$Id$");
-
 
 void
 LALInspiralTofV (
@@ -63,7 +60,7 @@ LALInspiralTofV (
    REAL8 sign;
 
 
-   INITSTATUS (status, "LALInspiralTofV", LALINSPIRALTOFVC);
+   INITSTATUS(status);
    ATTATCHSTATUSPTR(status);
 
    ASSERT (tofv, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
@@ -130,11 +127,11 @@ XLALInspiralTofV (
 
 
    if (params == NULL)
-      XLAL_ERROR_REAL8(__func__, XLAL_EFAULT);
+      XLAL_ERROR_REAL8(XLAL_EFAULT);
    if (v <= 0.)
-      XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+      XLAL_ERROR_REAL8(XLAL_EDOM);
    if (v >= 1.)
-      XLAL_ERROR_REAL8(__func__, XLAL_EDOM);
+      XLAL_ERROR_REAL8(XLAL_EDOM);
 
    sign = 1.0;
 
@@ -167,7 +164,7 @@ XLALInspiralTofV (
 
    answer = XLALREAL8RombergIntegrate (funcToIntegrate, funcParams, xmin, xmax, type);
    if (XLAL_IS_REAL8_FAIL_NAN(answer))
-      XLAL_ERROR_REAL8(__func__, XLAL_EFUNC);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
 
    return in1->t - in1->t0 + in1->totalmass*answer*sign;
 }

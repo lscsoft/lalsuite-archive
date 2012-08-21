@@ -9,9 +9,10 @@ import sys
 import copy
 import math
 
-from glue.ligolw import utils
+from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from glue.iterutils import any
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
@@ -695,21 +696,19 @@ def GenerateCache(fileList):
   return(cache)
 
 
-def ContentHandler(PartialLIGOLWContentHandler):
+class SummValueContentHandler(ligolw.PartialLIGOLWContentHandler):
   """
-  
+  Content handler that only reads in the SummValue table
   """
   def __init__(self, xmldoc):
-    """
-    New content handler that only reads in the SummValue table
-    """
-    def element_filter(name, attrs):
-      """
-      Return True if name and attrs describe a SummValueTable
-      """
-      return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs) 
-    PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
+    ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs))
 
+try:
+  lsctables.use_in(SummValueContentHandler)
+except AttributeError:
+  # old glue did not allow .use_in().
+  # FIXME:  remove when we can require the latest version of glue
+  pass
 
 
 def initialise(opts, name, version = None):
@@ -810,7 +809,7 @@ def init_markup_page( opts):
   return page, extra_oneliner
 
 
-def readHorizonDistanceFromSummValueTable(fList, verbose=False):
+def readHorizonDistanceFromSummValueTable(fList, verbose=False, contenthandler = SummValueContentHandler):
   """
   read in the SummValueTables from a list of files and return the
   horizon distance versus total mass
@@ -832,7 +831,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
     count = count+1
     massNum = 0
 
-    doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
+    doc = utils.load_filename(thisFile, contenthandler = contenthandler)
     try:
       summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
     except ValueError:

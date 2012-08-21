@@ -48,8 +48,6 @@
 #include <processtable.h>
 #include <LALAppsVCSInfo.h>
 
-RCSID("$Id$");
-
 #define PROGRAM_NAME "coincringread"
 #define CVS_ID_STRING "$Id$"
 #define CVS_REVISION "$Revision$"
@@ -528,7 +526,7 @@ int main( int argc, char *argv[] )
               long_options[option_index].name, injectWindowNS );
           exit( 1 );
         }
-        ADD_PROCESS_PARAM( "int", "%lld", injectWindowNS );
+        ADD_PROCESS_PARAM( "int", "%" LAL_INT8_FORMAT, injectWindowNS );
         /* convert inject time from ms to ns */
         injectWindowNS *= LAL_INT8_C(1000000);
         break;

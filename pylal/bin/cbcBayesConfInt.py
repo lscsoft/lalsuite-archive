@@ -93,13 +93,17 @@ def makeInjObjs(injfile,event,posfiles):
         i=i+1
     return resObjs
 
-def makeSummaryFile(obj, params, outpath, confidencelevels):
+def makeSummaryFile(obj, params, outpath, confidencelevels,skyres=0.5):
     """
     Make a summary page with table of results and plots for each param in params
     """
     #Bin size/resolution for binning. Need to match (converted) column names.
-    GreedyRes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.01,'time':1e-3,'distance':1.0,'dist':1.0,'mchirp':0.025,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05}
+    GreedyRes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'iota':0.05,'time':5e-4,'distance':3.0,'dist':3.0,'mchirp':0.0001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.01,'dec':0.01,'psi':0.01,'polarization':0.01}
 
+    if 'distance' in obj.names:
+        dist_name = 'distance'
+    elif 'dist' in obj.names:
+        dist_name = 'dist'
 
     for par in params:
         par=par.lower()
@@ -117,7 +121,8 @@ def makeSummaryFile(obj, params, outpath, confidencelevels):
             continue
         binParams={par: GreedyRes[par]}
 
-        toppoints,injectionconfidence,reses,injection_area=bppu.greedy_bin_one_param(obj,binParams, confidencelevels)
+        toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(obj,binParams, confidencelevels)
+        
         statfile=open(os.path.join(outpath,par+'_int.txt'),'w')
         for level in confidencelevels:
             print >>statfile,'%lf %lf'%(level, reses[level])
@@ -125,8 +130,37 @@ def makeSummaryFile(obj, params, outpath, confidencelevels):
             print >>statfile,'%lf %lf'%(injectionconfidence,injection_area)
         else:
             print >>statfile,'0 0\n'
+        print >>statfile,'12345 %lf'%(obj[par].stdev)
+        print >>statfile,'67890 %lf'%(obj[par].stacc) 
         statfile.close()
     
+    # Sky position
+    top_ranked_pixels,sky_inj_cl,skyreses,injection_area=bppu.greedy_bin_sky(obj,skyres,confidencelevels)
+    print "BCI for sky area:"
+    print skyreses
+    statfile=open(os.path.join(outpath,'sky_int.txt'),'w')
+    fracs=sorted(skyreses.keys())
+    skysizes=[skyreses[frac] for frac in fracs]
+    for frac in fracs:
+        print >>statfile,'%lf %lf'%(frac,skyreses[frac])
+    if sky_inj_cl is not None and injection_area is not None:
+        print >>statfile,'%lf %lf'%(sky_inj_cl,injection_area)
+    else:
+        print >>statfile,'0 0'
+    statfile.close()
+
+    # distance-iota
+    greedy2params={dist_name:GreedyRes[dist_name], 'iota':GreedyRes['iota']}
+    statfile=open(os.path.join(outpath,'dist_iota_int.txt'),'w')
+    toppoints,injection_cl,reses,injection_area=bppu.greedy_bin_two_param(obj,greedy2params,confidencelevels)
+    for frac in sorted(reses.keys()):
+        print >>statfile,'%lf %lf'%(frac,reses[frac])
+    if injection_cl is not None and injection_area is not None:
+        print >>statfile,'%lf %lf'%(injection_cl,injection_area)
+    else:
+        print >>statfile,'0 0'
+
+
 if __name__=='__main__':
     from optparse import OptionParser
     parser=OptionParser()

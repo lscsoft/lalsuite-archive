@@ -17,138 +17,8 @@
 *  MA  02111-1307  USA
 */
 
-/**
- * \addtogroup TimeFreqFFT_h
- *
- * \heading{Description}
- *
- * The routines LALTimeFreqRealFFT() and LALTimeFreqComplexFFT()
- * transform time series \f$h_j\f$, \f$0\le j<n\f$, into a frequency series
- * \f$\tilde{h}_k\f$.  For LALTimeFreqRealFFT(),
- * \f[
- *    \tilde{h}_k = \Delta t \times H_k \;
- *    \mbox{for \f$0\le k\le\lfloor n/2\rfloor\f$.}
- * \f]
- * The packing covers the range from dc (inclusive) to Nyquist (inclusive if
- * \f$n\f$ is even).
- * For LALTimeFreqComplexFFT(),
- * \f[
- *    \tilde{h}_k = \Delta t \left\{
- *    \begin{array}{ll}
- *      H_{k+\lfloor(n+1)/2\rfloor} &
- *        \mbox{for \f$0\le k<\lfloor n/2\rfloor\f$}, \\
- *      H_{k-\lfloor n/2\rfloor} &
- *        \mbox{for \f$\lfloor n/2\rfloor\le k<n\f$}. \\
- *    \end{array}
- *    \right.
- * \f]
- * The packing covers the range from negative Nyquist (inclusive if \f$n\f$ is
- * even) up to (but not including) positive Nyquist.
- * Here \f$H_k\f$ is the DFT of \f$h_j\f$:
- * \f[
- *   H_k = \sum_{j=0}^{n-1} h_j e^{-2\pi ijk/n}.
- * \f]
- * The units of \f$\tilde{h}_k\f$ are equal to the units of \f$h_j\f$ times seconds.
- *
- * The routines LALFreqTimeRealFFT() and LALFreqTimeComplexFFT()
- * perform the inverse transforms from \f$\tilde{h}_k\f$ back to \f$h_j\f$.  This is
- * done by shuffling the data, performing the reverse DFT, and multiplying by
- * \f$\Delta f\f$.
- *
- * The routine LALREAL4AverageSpectrum() uses Welch's method to compute
- * the average power spectrum of the time series stored in the input structure
- * \c tSeries and return it in the output structure \c fSeries.  A
- * Welch PSD estimate is defined by an FFT length, overlap length, choice of
- * window function and averaging method. These are specified in the
- * parameter structure; the FFT length is obtained from the length of the
- * \c REAL4Window in the parameters.
- *
- * On entry the parameter structure \c params must contain a valid
- * \c REAL4Window, an integer that determines the overlap as described
- * below and a forward FFT plan for transforming data of the specified
- * window length into the time domain. The method used to compute the
- * average must also be set.
- *
- * If the length of the window is \f$N\f$, then the FFT length is defined to be
- * \f$N/2-1\f$. The input data of length \f$M\f$ is divided into \f$i\f$ segments which
- * overlap by \f$o\f$, where
- * \f{equation}{
- * i = \frac{M-o}{N-o}.
- * \f}
- *
- * The PSD of each segment is obtained. The Welch PSD estimate is the average
- * of these \f$i\f$ sub-estimates.  The average is computed using the mean or
- * median method, as specified in the parameter structure.
- *
- * Note: the return PSD estimate is a one-sided power spectral density
- * normalized as defined in the conventions document. When the averaging
- * method is choosen to be mean and the window type Hann, the result is the
- * same as returned by the LDAS datacondAPI <tt>psd()</tt> action for a real
- * sequence without detrending.
- *
- * \heading{Operating Instructions}
- *
- * \code
- * const UINT4 n  = 65536;
- * const REAL4 dt = 1.0 / 16384.0;
- * static LALStatus status; compute average power spectrum
- * static REAL4TimeSeries         x;
- * static COMPLEX8FrequencySeries X;
- * static COMPLEX8TimeSeries      z;
- * static COMPLEX8FrequencySeries Z;
- * RealFFTPlan    *fwdRealPlan    = NULL;
- * RealFFTPlan    *revRealPlan    = NULL;
- * ComplexFFTPlan *fwdComplexPlan = NULL;
- * ComplexFFTPlan *revComplexPlan = NULL;
- *
- * LALSCreateVector( &status, &x.data, n );
- * LALCCreateVector( &status, &X.data, n / 2 + 1 );
- * LALCCreateVector( &status, &z.data, n );
- * LALCCreateVector( &status, &Z.data, n );
- * LALCreateForwardRealFFTPlan( &status, &fwdRealPlan, n, 0 );
- * LALCreateReverseRealFFTPlan( &status, &revRealPlan, n, 0 );
- * LALCreateForwardComplexFFTPlan( &status, &fwdComplexPlan, n, 0 );
- * LALCreateReverseComplexFFTPlan( &status, &revComplexPlan, n, 0 );
- *
- * x.f0 = 0;
- * x.deltaT = dt;
- * x.sampleUnits = lalMeterUnit;
- * strncpy( x.name, "x", sizeof( x.name ) );
- *
- * z.f0 = 0;
- * z.deltaT = dt;
- * z.sampleUnits = lalVoltUnit;
- * strncpy( z.name, "z", sizeof( z.name ) );
- *
- * <assign data>
- *
- * LALTimeFreqRealFFT( &status, &X, &x, fwdRealPlan );
- * LALFreqTimeRealFFT( &status, &x, &X, revRealPlan );
- * LALTimeFreqComplexFFT( &status, &Z, &z, fwdComplexPlan );
- * LALFreqTimeComplexFFT( &status, &z, &Z, revComplexPlan );
- *
- * LALDestroyRealFFTPlan( &status, &fwdRealPlan );
- * LALDestroyRealFFTPlan( &status, &revRealPlan );
- * LALDestroyComplexFFTPlan( &status, &fwdComplexPlan );
- * LALDestroyComplexFFTPlan( &status, &revComplexPlan );
- * LALCDestroyVector( &status, &Z.data );
- * LALCDestroyVector( &status, &z.data );
- * LALCDestroyVector( &status, &X.data );
- * LALSDestroyVector( &status, &x.data );
- * \endcode
- *
- * \heading{Notes}
- *
- * <ol>
- * <li> The routines do not presently work properly with heterodyned data,
- * i.e., the original time series data should have \c f0 equal to zero.
- * </li></ol>
- *
- *
- *
-*/
 
-
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <lal/LALStdlib.h>
 #include <lal/Units.h>
@@ -157,8 +27,7 @@
 #include <lal/LALConstants.h>
 #include <lal/RngMedBias.h>
 
-NRCSID( TIMEFREQFFTC, "$Id$" );
-
+/* ---------- see TimeFreqFFT.h for doxygen documentation */
 
 /*
  *
@@ -173,21 +42,20 @@ int XLALREAL4TimeFreqFFT(
     const REAL4FFTPlan      *plan
     )
 {
-  static const char *func = "XLALREAL4TimeFreqFFT";
   UINT4 k;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( time->deltaT <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* perform the transform */
   if ( XLALREAL4ForwardFFT( freq->data, time->data, plan ) == XLAL_FAILURE )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &freq->sampleUnits, &time->sampleUnits, &lalSecondUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   if ( time->f0 )  /* TODO: need to figure out what to do here */
@@ -213,21 +81,20 @@ int XLALREAL4FreqTimeFFT(
     const REAL4FFTPlan            *plan
     )
 {
-  static const char *func = "XLALREAL4FreqTimeFFT";
   UINT4 j;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( freq->deltaF <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* perform the transform */
   if ( XLALREAL4ReverseFFT( time->data, freq->data, plan ) == XLAL_FAILURE )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &time->sampleUnits, &freq->sampleUnits, &lalHertzUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   if ( freq->f0 )  /* TODO: need to figure out what to do here */
@@ -257,21 +124,20 @@ int XLALREAL8TimeFreqFFT(
     const REAL8FFTPlan       *plan
     )
 {
-  static const char *func = "XLALREAL8TimeFreqFFT";
   UINT4 k;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( time->deltaT <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* perform the transform */
   if ( XLALREAL8ForwardFFT( freq->data, time->data, plan ) == XLAL_FAILURE )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &freq->sampleUnits, &time->sampleUnits, &lalSecondUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   if ( time->f0 )  /* TODO: need to figure out what to do here */
@@ -297,21 +163,20 @@ int XLALREAL8FreqTimeFFT(
     const REAL8FFTPlan             *plan
     )
 {
-  static const char *func = "XLALREAL8FreqTimeFFT";
   UINT4 j;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( freq->deltaF <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* perform the transform */
   if ( XLALREAL8ReverseFFT( time->data, freq->data, plan ) == XLAL_FAILURE )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &time->sampleUnits, &freq->sampleUnits, &lalHertzUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   if ( freq->f0 )  /* TODO: need to figure out what to do here */
@@ -351,21 +216,20 @@ int XLALCOMPLEX8TimeFreqFFT(
     const COMPLEX8FFTPlan    *plan
     )
 {
-  static const char *func = "XLALCOMPLEX8TimeFreqFFT";
   COMPLEX8Vector *tmp;
   UINT4 k;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( time->deltaT <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( plan->sign != -1 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* create temporary workspace */
   tmp = XLALCreateCOMPLEX8Vector( time->data->length );
   if ( ! tmp )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* perform transform */
   if ( XLALCOMPLEX8VectorFFT( tmp, time->data, plan ) == XLAL_FAILURE )
@@ -374,7 +238,7 @@ int XLALCOMPLEX8TimeFreqFFT(
     xlalErrno = 0;
     XLALDestroyCOMPLEX8Vector( tmp );
     xlalErrno = saveErrno;
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* unpack the frequency series and multiply by deltaT */
@@ -394,11 +258,11 @@ int XLALCOMPLEX8TimeFreqFFT(
   /* destroy temporary workspace */
   XLALDestroyCOMPLEX8Vector( tmp );
   if ( xlalErrno )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &freq->sampleUnits, &time->sampleUnits, &lalSecondUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   freq->epoch  = time->epoch;
@@ -415,21 +279,20 @@ int XLALCOMPLEX8FreqTimeFFT(
     const COMPLEX8FFTPlan         *plan
     )
 {
-  static const char *func = "XLALCOMPLEX8FreqTimeFFT";
   COMPLEX8Vector *tmp;
   UINT4 k;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( freq->deltaF <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( plan->sign != 1 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* create temporary workspace */
   tmp = XLALCreateCOMPLEX8Vector( freq->data->length );
   if ( ! tmp )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* pack the frequency series and multiply by deltaF */
   for ( k = 0; k < freq->data->length / 2; ++k )
@@ -452,17 +315,17 @@ int XLALCOMPLEX8FreqTimeFFT(
     xlalErrno = 0;
     XLALDestroyCOMPLEX8Vector( tmp );
     xlalErrno = saveErrno;
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* destroy temporary workspace */
   XLALDestroyCOMPLEX8Vector( tmp );
   if ( xlalErrno )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &time->sampleUnits, &freq->sampleUnits, &lalHertzUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   time->f0     = freq->f0 + freq->deltaF * floor( freq->data->length / 2 );
@@ -496,21 +359,20 @@ int XLALCOMPLEX16TimeFreqFFT(
     const COMPLEX16FFTPlan    *plan
     )
 {
-  static const char *func = "XLALCOMPLEX16TimeFreqFFT";
   COMPLEX16Vector *tmp;
   UINT4 k;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( time->deltaT <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( plan->sign != -1 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* create temporary workspace */
   tmp = XLALCreateCOMPLEX16Vector( time->data->length );
   if ( ! tmp )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* perform transform */
   if ( XLALCOMPLEX16VectorFFT( tmp, time->data, plan ) == XLAL_FAILURE )
@@ -519,7 +381,7 @@ int XLALCOMPLEX16TimeFreqFFT(
     xlalErrno = 0;
     XLALDestroyCOMPLEX16Vector( tmp );
     xlalErrno = saveErrno;
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* unpack the frequency series and multiply by deltaT */
@@ -539,11 +401,11 @@ int XLALCOMPLEX16TimeFreqFFT(
   /* destroy temporary workspace */
   XLALDestroyCOMPLEX16Vector( tmp );
   if ( xlalErrno )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &freq->sampleUnits, &time->sampleUnits, &lalSecondUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   freq->epoch  = time->epoch;
@@ -560,21 +422,20 @@ int XLALCOMPLEX16FreqTimeFFT(
     const COMPLEX16FFTPlan         *plan
     )
 {
-  static const char *func = "XLALCOMPLEX16FreqTimeFFT";
   COMPLEX16Vector *tmp;
   UINT4 k;
 
   if ( ! freq || ! time || ! plan )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
   if ( freq->deltaF <= 0.0 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
   if ( plan->sign != 1 )
-    XLAL_ERROR( func, XLAL_EINVAL );
+    XLAL_ERROR( XLAL_EINVAL );
 
   /* create temporary workspace */
   tmp = XLALCreateCOMPLEX16Vector( freq->data->length );
   if ( ! tmp )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* pack the frequency series and multiply by deltaF */
   for ( k = 0; k < freq->data->length / 2; ++k )
@@ -597,17 +458,17 @@ int XLALCOMPLEX16FreqTimeFFT(
     xlalErrno = 0;
     XLALDestroyCOMPLEX16Vector( tmp );
     xlalErrno = saveErrno;
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
   }
 
   /* destroy temporary workspace */
   XLALDestroyCOMPLEX16Vector( tmp );
   if ( xlalErrno )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* adjust the units */
   if ( ! XLALUnitMultiply( &time->sampleUnits, &freq->sampleUnits, &lalHertzUnit ) )
-    XLAL_ERROR( func, XLAL_EFUNC );
+    XLAL_ERROR( XLAL_EFUNC );
 
   /* remaining fields */
   time->f0     = freq->f0 + freq->deltaF * floor( freq->data->length / 2 );
@@ -635,7 +496,7 @@ LALTimeFreqRealFFT(
     RealFFTPlan             *plan
     )
 {
-  INITSTATUS( status, "LALTimeFreqRealFFT", TIMEFREQFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALTimeFreqRealFFT", "XLALREAL4TimeFreqFFT");
 
   ASSERT( plan, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
@@ -666,7 +527,7 @@ LALFreqTimeRealFFT(
     RealFFTPlan             *plan
     )
 {
-  INITSTATUS( status, "LALFreqTimeRealFFT", TIMEFREQFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALFreqTimeRealFFT", "XLALREAL4FreqTimeFFT");
   ATTATCHSTATUSPTR( status );
 
@@ -789,7 +650,7 @@ LALREAL4AverageSpectrum (
   LALUnitPair           pair;
   /* RAT4                  negRootTwo = { -1, 1 }; */
 
-  INITSTATUS (status, "LALREAL4AverageSpectrum", TIMEFREQFFTC);
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALREAL4AverageSpectrum", "XLALREAL4AverageSpectrumWelch");
   ATTATCHSTATUSPTR (status);
 
@@ -1014,7 +875,7 @@ LALCOMPLEX8AverageSpectrum (
   LALUnitPair           pair;
   /* RAT4                  negRootTwo = { -1, 1 }; */
 
-  INITSTATUS (status, "LALCOMPLEX8AverageSpectrum", TIMEFREQFFTC);
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALCOMPLEX8AverageSpectrum", "XLALREAL8AverageSpectrumWelch");
   ATTATCHSTATUSPTR (status);
 
@@ -1177,17 +1038,14 @@ LALTimeFreqComplexFFT(
     ComplexFFTPlan          *plan
     )
 {
-  UINT4 n;
-
-  INITSTATUS( status, "LALTimeFreqComplexFFT", TIMEFREQFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALTimeFreqComplexFFT", "XLALCOMPLEX8TimeFreqFFT");
 
   ASSERT( plan, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
   ASSERT( freq, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
   ASSERT( time, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
   ASSERT( time->data, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
-  n = time->data->length;
-  ASSERT( n, status, TIMEFREQFFTH_ESIZE, TIMEFREQFFTH_MSGESIZE );
+  ASSERT( time->data->length, status, TIMEFREQFFTH_ESIZE, TIMEFREQFFTH_MSGESIZE );
   ASSERT( time->deltaT > 0, status, TIMEFREQFFTH_ERATE, TIMEFREQFFTH_MSGERATE );
   ASSERT( plan->sign == -1, status, TIMEFREQFFTH_ESIGN, TIMEFREQFFTH_MSGESIGN );
 
@@ -1210,17 +1068,14 @@ LALFreqTimeComplexFFT(
     ComplexFFTPlan          *plan
     )
 {
-  UINT4 n;
-
-  INITSTATUS( status, "LALFreqTimeComplexFFT", TIMEFREQFFTC );
+  INITSTATUS(status);
   XLALPrintDeprecationWarning("LALFreqTimeComplexFFT", "XLALCOMPLEX8FreqTimeFFT");
 
   ASSERT( plan, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
   ASSERT( time, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
   ASSERT( freq, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
   ASSERT( freq->data, status, TIMEFREQFFTH_ENULL, TIMEFREQFFTH_MSGENULL );
-  n = freq->data->length;
-  ASSERT( n, status, TIMEFREQFFTH_ESIZE, TIMEFREQFFTH_MSGESIZE );
+  ASSERT( freq->data->length, status, TIMEFREQFFTH_ESIZE, TIMEFREQFFTH_MSGESIZE );
   ASSERT( freq->deltaF > 0, status, TIMEFREQFFTH_ERATE, TIMEFREQFFTH_MSGERATE );
   ASSERT( plan->sign == 1, status, TIMEFREQFFTH_ESIGN, TIMEFREQFFTH_MSGESIGN );
 

@@ -191,6 +191,83 @@ class LinearBins(Bins):
 		return self.min + self.delta * (numpy.arange(len(self)) + 1)
 
 
+class LinearPlusOverflowBins(Bins):
+	"""
+	Linearly-spaced bins with overflow at the edges.  There are n-2 bins of
+	equal size. The n+1 bin starts on the lower bound and the n-1 bin ends
+	on the upper bound inclusively.  The 0 and n bins are overflow going
+	from -infinity to the n+1 boundary and the n-1 boundary to +infinity
+	respectively.
+
+	Example:
+
+	>>> X = LinearPlusOverflowBins(1.0, 25.0, 5)
+
+	>>> X.centres()
+	array([-Inf,   5.,  13.,  21.,  Inf])
+
+	>>> X.lower()
+	array([-Inf,   1.,   9.,  17.,  25.])
+
+	>>> X.upper()
+	array([  1.,   9.,  17.,  25.,  Inf])
+
+	>>> X[float("-inf")]
+	0
+	>>> X[0]
+	0
+	>>> X[1]
+	1
+	>>> X[10]
+	2
+	>>> X[24.99999999]
+	3
+	>>> X[25]
+	4
+	>>> X[100]
+	4
+	>>> X[float("inf")]
+	4
+	"""
+	def __init__(self, min, max, n):
+		if n < 3:
+			raise ValueError, "n must be >= 3"
+		Bins.__init__(self, min, max, n)
+		self.delta = float(max - min) / (n-2)
+
+	def __getitem__(self, x):
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError, x
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = len(self)
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
+		if self.min <= x < self.max:
+			return int(math.floor((x - self.min) / self.delta)) + 1
+		if x >= self.max:
+			# +infinity overflow bin
+			return len(self) - 1
+		if x < self.min:
+			# -infinity overflow bin
+			return 0
+		raise IndexError, x
+
+	def lower(self):
+		return numpy.concatenate((numpy.array([float("-inf")]), self.min + self.delta * numpy.arange(len(self) - 2), numpy.array([self.max])))
+
+	def centres(self):
+		return numpy.concatenate((numpy.array([float("-inf")]), self.min + self.delta * (numpy.arange(len(self) - 2) + 0.5), numpy.array([float("inf")])))
+
+	def upper(self):
+		return numpy.concatenate((numpy.array([self.min]), self.min + self.delta * (numpy.arange(len(self) - 2) + 1), numpy.array([float("inf")])))
+
+
 class LogarithmicBins(Bins):
 	"""
 	Logarithmically-spaced bins.  There are n bins, each of whose upper
@@ -210,7 +287,7 @@ class LogarithmicBins(Bins):
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
-		self.delta = math.log(float(max / min)) / n
+		self.delta = (math.log(max) - math.log(min)) / n
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -226,7 +303,7 @@ class LogarithmicBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return int(math.floor(math.log(x / self.min) / self.delta))
+			return int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
 			return len(self) - 1
@@ -253,14 +330,16 @@ class LogarithmicPlusOverflowBins(Bins):
 	Example:
 
 	>>> x = rate.LogarithmicPlusOverflowBins(1.0, 25.0, 5)
-	>>> x[0] 
+	>>> x[0]
 	0
 	>>> x[1]
 	1
 	>>> x[5]
 	2
-	>>> x[25]
+	>>> x[24.999]
 	3
+	>>> x[25]
+	4
 	>>> x[100]
 	4
 	>>> x.lower()
@@ -274,7 +353,7 @@ class LogarithmicPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError, "n must be >= 3"
 		Bins.__init__(self, min, max, n)
-		self.delta = math.log(float(max / min)) / (n-2)
+		self.delta = (math.log(max) - math.log(min)) / (n-2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -290,11 +369,8 @@ class LogarithmicPlusOverflowBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return 1 + int(math.floor(math.log(x / self.min) / self.delta))
-		if x == self.max:
-			# special "measure zero" corner case
-			return len(self) - 2
-		if x > self.max:
+			return 1 + int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
+		if x >= self.max:
 			# infinity overflow bin
 			return len(self) - 1
 		if x < self.min:
@@ -1245,6 +1321,7 @@ def bins_to_xml(bins):
 		row.order = order
 		row.type = {
 			LinearBins: "lin",
+			LinearPlusOverflowBins: "linplusoverflow",
 			LogarithmicBins: "log",
 			ATanBins: "atan",
 			ATanLogarithmicBins: "atanlog",
@@ -1270,6 +1347,7 @@ def bins_from_xml(xml):
 			raise ValueError, "duplicate binning for dimension %d" % row.order
 		binnings[row.order] = {
 			"lin": LinearBins,
+			"linplusoverflow": LinearPlusOverflowBins,
 			"log": LogarithmicBins,
 			"atan": ATanBins,
 			"atanlog": ATanLogarithmicBins,

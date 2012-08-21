@@ -17,12 +17,12 @@
 void XFUNC ( ATYPE *array )
 {
   if ( ! array )
-    XLAL_ERROR_VOID( STRING(XFUNC), XLAL_EFAULT );
+    XLAL_ERROR_VOID( XLAL_EFAULT );
   if ( ! array->dimLength
       || ! array->dimLength->length
       || ! array->dimLength->data
       || ! array->data )
-    XLAL_ERROR_VOID( STRING(XFUNC), XLAL_EINVAL );
+    XLAL_ERROR_VOID( XLAL_EINVAL );
   XLALDestroyUINT4Vector( array->dimLength );
   LALFree( array->data );
   LALFree( array );
@@ -32,7 +32,7 @@ void XFUNC ( ATYPE *array )
 
 void FUNC ( LALStatus *status, ATYPE **array )
 {
-  INITSTATUS (status, STRING(FUNC), ARRAYFACTORIESC);
+  INITSTATUS(status);
 
   ASSERT (array,          status, AVFACTORIESH_EVPTR, AVFACTORIESH_MSGEVPTR);
   ASSERT (*array,         status, AVFACTORIESH_EUPTR, AVFACTORIESH_MSGEUPTR);

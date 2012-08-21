@@ -21,7 +21,6 @@
 #include <lal/LALBarycenter.h>
 
 /** \author Curt Cutler
- * \ingroup LALBarycenter_h
  * \brief Computes the position and orientation of the Earth, at some arrival time
  * \f$t_a\f$, specified <tt>LIGOTimeGPS</tt> input structure.
  *
@@ -39,8 +38,6 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
                       const LIGOTimeGPS *tGPS, 		/**< [in] GPS time tgps */
                       const EphemerisData *edat) 	/**< [in] ephemeris-files */
 {
-  const char *fn = __func__;
-
   REAL8 tgps[2];   /*I convert from two-integer representation to
                       two REAL8s (just because I initially wrote my code for
                       REAL8s). GPS time(sec) = tgps[0] + 1.e-9*tgps[1] */
@@ -67,8 +64,8 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
 
   /* check input */
   if ( !earth || !tGPS || !edat || !edat->ephemE || !edat->ephemS ) {
-    XLALPrintError ("%s: invalid NULL input 'earth', 'tGPS', 'edat', 'edat->ephemE' or 'edat->ephemS'\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input 'earth', 'tGPS', 'edat', 'edat->ephemE' or 'edat->ephemS'\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
     tgps[0] = (REAL8)tGPS->gpsSeconds; /*convert from INT4 to REAL8 */
@@ -87,12 +84,12 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
     /*Making sure tgps is within earth and sun ephemeris arrays*/
 
     if ( ( ientryE < 0 ) || ( ientryE >=  edat->nentriesE )) {
-      XLALPrintError ("%s: input GPS time %f outside of Earth ephem range [%f, %f]\n", fn, tgps[0], tinitE, tinitE + edat->nentriesE * edat->dtEtable );
-      XLAL_ERROR ( fn, XLAL_EDOM );
+      XLALPrintError ("%s: input GPS time %f outside of Earth ephem range [%f, %f]\n", __func__, tgps[0], tinitE, tinitE + edat->nentriesE * edat->dtEtable );
+      XLAL_ERROR ( XLAL_EDOM );
     }
     if ( ( ientryS < 0 ) || ( ientryS >=  edat->nentriesS ) ){
-      XLALPrintError ("%s: input GPS time %f outside of Sun ephem range [%f, %f]\n", fn, tgps[0], tinitS, tinitS + edat->nentriesS * edat->dtStable );
-      XLAL_ERROR ( fn, XLAL_EDOM );
+      XLALPrintError ("%s: input GPS time %f outside of Sun ephem range [%f, %f]\n", __func__, tgps[0], tinitS, tinitS + edat->nentriesS * edat->dtStable );
+      XLAL_ERROR ( XLAL_EDOM );
     }
 
     tdiffE = t0e -edat->dtEtable*ientryE + tgps[1]*1.e-9; /*tdiff is arrival
@@ -155,8 +152,8 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
    {
      INT4 err = xlalErrno;
      if ( err != XLAL_SUCCESS ) {
-       XLALPrintError ("%s: XLALGPSLeapSeconds (%d) failed.\n", fn, tGPS->gpsSeconds );
-       XLAL_ERROR ( fn, XLAL_EINVAL );
+       XLALPrintError ("%s: XLALGPSLeapSeconds (%d) failed.\n", __func__, tGPS->gpsSeconds );
+       XLAL_ERROR ( XLAL_EINVAL );
      }
    }
 
@@ -428,7 +425,6 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
 
 
 /** \author Curt Cutler
- * \ingroup LALBarycenter_h
  * \brief Transforms from detector arrival time \f$t_a\f$ in GPS (as specified in the
  * LIGOTimeGPS structure) to pulse emission time \f$t_e\f$, in TDB.
  *
@@ -448,8 +444,6 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
                  const BarycenterInput *baryinput, 	/**< [in] info about detector and source-location */
                  const EarthState *earth) 		/**< [in] earth-state (from LALBarycenterEarth()) */
 {
-  const char *fn = __func__;
-
   REAL8 longitude,latitude,rd;  /*geocentric (not geodetic!!) longitude
                                   and latitude of detector vertex, and
                                   dist. rd from center of Earth (sec). */
@@ -477,8 +471,8 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
 
   /* check input */
   if ( !emit || !baryinput || !earth ) {
-    XLALPrintError ("%s: invalid NULL input 'baryinput, 'emit' or 'earth'\n", fn );
-    XLAL_ERROR ( fn, XLAL_EINVAL );
+    XLALPrintError ("%s: invalid NULL input 'baryinput, 'emit' or 'earth'\n", __func__ );
+    XLAL_ERROR ( XLAL_EINVAL );
   }
 
   tgps[0] = (REAL8)baryinput->tgps.gpsSeconds; /*convert from INT4 to REAL8 */
@@ -489,8 +483,8 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
 
 /* check that alpha and delta are in reasonable range */
     if ( ( fabs(alpha) > LAL_TWOPI) || ( fabs(delta) > LAL_PI_2 ) ){
-      XLALPrintError ("%s: alpha = %f outside of [-2pi,2pi] or delta = %f outside of [-pi/2,pi/2]\n", fn, alpha, delta );
-      XLAL_ERROR ( fn, XLAL_EDOM );
+      XLALPrintError ("%s: alpha = %f outside of [-2pi,2pi] or delta = %f outside of [-pi/2,pi/2]\n", __func__, alpha, delta );
+      XLAL_ERROR ( XLAL_EDOM );
     }
 
     sinTheta=sin(LAL_PI/2.0-delta);
@@ -501,7 +495,10 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
     rd = sqrt( baryinput->site.location[0]*baryinput->site.location[0]
 	      +baryinput->site.location[1]*baryinput->site.location[1]
 	      +baryinput->site.location[2]*baryinput->site.location[2]);
-    latitude = LAL_PI/2.e0 - acos(baryinput->site.location[2]/rd);
+    if ( rd == 0.0 )
+      latitude = LAL_PI_2;
+    else
+      latitude = LAL_PI_2 - acos(baryinput->site.location[2]/rd);
     longitude= atan2(baryinput->site.location[1],baryinput->site.location[0]);
 
     /********************************************************************
@@ -722,10 +719,6 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
 
 /* ==================== deprecated LAL interface (only wrappers to XLAL-fcts now) ==================== */
 
-/** \cond DONT_DOXYGEN */
-NRCSID(LALBARYCENTERC, "$Id$");
-/** \endcond */
-
 /** Deprecated LAL wrapper to XLALBarycenterEarth()
  * \deprecated use XLALBarycenterEarth() instead.
  */
@@ -735,11 +728,10 @@ LALBarycenterEarth(LALStatus *status,		/**< [in/out] LAL status structure pointe
 		   const LIGOTimeGPS *tGPS, 	/**< [in] GPS time tgps */
 		   const EphemerisData *edat) 	/**< [in] ephemeris-files */
 {
-  const char *fn = __func__;
-  INITSTATUS ( status, fn, LALBARYCENTERC);
+  INITSTATUS(status);
 
   if ( XLALBarycenterEarth ( earth, tGPS, edat) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: XLALBarycenterEarth() failed with xlalErrno = %d\n", fn, xlalErrno );
+    XLALPrintError ("%s: XLALBarycenterEarth() failed with xlalErrno = %d\n", __func__, xlalErrno );
     ABORT ( status, LALBARYCENTERH_EXLAL, LALBARYCENTERH_MSGEXLAL);
   }
 
@@ -756,11 +748,10 @@ LALBarycenter(LALStatus *status,		/**< [in/out] LAL status structure pointer */
 	      const BarycenterInput *baryinput, /**< [in] info about detector and source-location */
 	      const EarthState *earth) 		/**< [in] earth-state (from LALBarycenterEarth()) */
 {
-  const char *fn = __func__;
-  INITSTATUS ( status, fn, LALBARYCENTERC);
+  INITSTATUS(status);
 
   if ( XLALBarycenter ( emit, baryinput, earth ) != XLAL_SUCCESS ) {
-    XLALPrintError ("%s: XLALBarycenter() failed with xlalErrno = %d\n", fn, xlalErrno );
+    XLALPrintError ("%s: XLALBarycenter() failed with xlalErrno = %d\n", __func__, xlalErrno );
     ABORT ( status, LALBARYCENTERH_EXLAL, LALBARYCENTERH_MSGEXLAL);
   }
 

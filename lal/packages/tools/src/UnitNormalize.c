@@ -23,28 +23,20 @@
 #include <lal/LALStdlib.h>
 #include <lal/Units.h>
 
-NRCSID( UNITNORMALIZEC, "$Id$" );
+/** \addtogroup UnitNormalize_c
+    \author J. T. Whelan <john.whelan@ligo.org>
 
-/**
-\author J. T. Whelan <john.whelan@ligo.org>
-\addtogroup UnitNormalize_c
-
-\brief Brings an \c LALUnit structure into standard form by reducing
-all of the rational exponents into LCD form.
+    \brief Brings an \c LALUnit structure into standard form by reducing all of the rational exponents into LCD form.
 
 Since the \c LALUnit structure stores the rational powers of the
 fundamental units as numerator and denominator, it is possible to
-represent the same units in different ways, <em>e.g.</em>, \f$\textrm{m}^2\f$
-versus \f$\textrm{m}^{4/2}\f$.  This function reduces all of those fractions to
+represent the same units in different ways, <em>e.g.</em>, \f$\mathrm{m}^2\f$
+versus \f$\mathrm{m}^{4/2}\f$.  This function reduces all of those fractions to
 convert the structure to its simplest form.
 
 \heading{Algorithm}
 
 The rational powers are reduced using Euclid's algorithm [\ref Geddes_1992].
-
-\heading{Uses}
-
-None.
 
 \heading{Notes}
 
@@ -54,6 +46,7 @@ Note that the functions <tt>LALUnitRaise()</tt>,
 call it explicitly.
 
 */
+/*@{*/
 
 /* this is an implementation of the Euclidean Algorithm */
 static UINT2
@@ -76,12 +69,11 @@ gcd(INT2 numer, UINT2 denom)
  */
 int XLALUnitNormalize( LALUnit *unit )
 {
-  static const char func[] = "XLALUnitNormalize";
   UINT2 commonFactor;
   UINT2 i;
 
   if ( ! unit )
-    XLAL_ERROR( func, XLAL_EFAULT );
+    XLAL_ERROR( XLAL_EFAULT );
 
   for (i=0; i<LALNumUnits; ++i)
   {
@@ -94,15 +86,14 @@ int XLALUnitNormalize( LALUnit *unit )
 }
 
 
-/** \ingroup UnitNormalize_c
- * Reduce all the rational powers in an LALUnit structure
+/** Reduce all the rational powers in an LALUnit structure
  * \deprecated Use XLALUnitNormalize() instead.
  */
 void
 LALUnitNormalize (LALStatus *status, LALUnit *output, const LALUnit *input)
 {
 
-  INITSTATUS( status, "LALUnitNormalize", UNITNORMALIZEC );
+  INITSTATUS(status);
 
   ASSERT( input != NULL, status, UNITSH_ENULLPIN, UNITSH_MSGENULLPIN );
 
@@ -116,3 +107,4 @@ LALUnitNormalize (LALStatus *status, LALUnit *output, const LALUnit *input)
 
   RETURN( status );
 }
+/*@}*/

@@ -40,9 +40,6 @@
 #include <lal/DetResponse.h>
 #include <lal/TimeDelay.h>
 
-NRCSID (SIMRINGDOWNUTILSC,"$Id$");
-
-
   /* a few useful static functions */
 static INT8 geocent_start_time(const SimRingdownTable *x)
 {
@@ -294,7 +291,6 @@ XLALReturnSimRingdownStartTime (
                 )
 
 {
-    static const char *func = "ReturnSimRingdownStartTime";
       if ( ! strcmp( "L1", ifo ) )
       {
         return( XLALGPSToINT8NS(&(event->l_start_time) ) );
@@ -310,7 +306,7 @@ XLALReturnSimRingdownStartTime (
       }
       else
       {
-        XLAL_ERROR(func,XLAL_EIO);
+        XLAL_ERROR(XLAL_EIO);
       }
 
 }
@@ -581,7 +577,7 @@ XLALCoincSimRingdownTest (
      thisSim = NULL;
      /* loop over the interferometers to get the event_id*/
 
-     for ( ifoInCoinc = 0; ifoInCoinc < LAL_NUM_IFO; ifoInCoinc++)
+     for ( ifoInCoinc = (InterferometerNumber) 0; ifoInCoinc < LAL_NUM_IFO; ifoInCoinc++)
      {
        if ( (thisSngl = thisCoinc->snglRingdown[ifoInCoinc]) )
        {

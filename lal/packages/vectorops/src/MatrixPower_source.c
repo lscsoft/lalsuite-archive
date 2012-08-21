@@ -29,7 +29,7 @@ void F1 (
         UINT4    iterator;
         UINT4   length;
 
-        INITSTATUS( status, STRING(F1) , MATLABMATRIXPOWC);
+        INITSTATUS(status);
         ATTATCHSTATUSPTR( status );
 
         /*  Check input for existence.  */
@@ -67,7 +67,7 @@ void F2 (
         UINT4    iterator;
         UINT4   length;
 
-        INITSTATUS( status, STRING(F2) , MATLABMATRIXPOWC);
+        INITSTATUS(status);
         ATTATCHSTATUSPTR( status );
 
         /*  Check input for existence.  */
@@ -105,7 +105,7 @@ void F3 (
         UINT4    iterator;
         UINT4   length;
 
-        INITSTATUS( status, STRING(F3) , MATLABMATRIXPOWC);
+        INITSTATUS(status);
         ATTATCHSTATUSPTR( status );
 
         /*  Check input for existence.  */
@@ -150,7 +150,7 @@ void F4 (
         UINT4		iterator, myindex;
 	UINT4		row, column;
 
-        INITSTATUS( status, STRING(F4) , MATLABMATRIXPOWC);
+        INITSTATUS(status);
         ATTATCHSTATUSPTR( status );
 
         /*  Check input for existence.  */
@@ -215,7 +215,7 @@ void F5 (
         UINT4            iterator, myindex;
         UINT4            row, column;
 
-        INITSTATUS( status, STRING(F5) , MATLABMATRIXPOWC);
+        INITSTATUS(status);
         ATTATCHSTATUSPTR( status );
 
         /*  Check input for existence.  */
@@ -278,11 +278,10 @@ void F6 (
         /*  Variable Declarations  */
         UINT4Vector     *length;
         UINT4           ndims;
-        UINT4           ndims2;
         UINT4            iterator, myindex;
         UINT4            row, column;
 
-        INITSTATUS( status, STRING(F6) , MATLABMATRIXPOWC);
+        INITSTATUS(status);
         ATTATCHSTATUSPTR( status );
 
         /*  Check input for existence.  */
@@ -311,9 +310,11 @@ void F6 (
 
         ASSERT ( A->dimLength, status, MATLABMATRIXH_ENULL, MATLABMATRIXH_MSGENULL);
 
+#ifndef LAL_NDEBUG
+        UINT4           ndims2;
         ndims2 = ((ATYPE2*)(A))->dimLength->length;
-
 	ASSERT ( ndims == ndims2, status, MATLABMATRIXH_ELNTH, MATLABMATRIXH_MSGELNTH);
+#endif
 
 	for ( iterator = 0; iterator < ndims; iterator++)
 	{

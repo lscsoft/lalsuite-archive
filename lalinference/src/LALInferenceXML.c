@@ -40,10 +40,11 @@
  * \c RESOURCE %node identified by the given name. The returned \c xmlNode can then be
  * embedded into an existing %node hierarchy or turned into a full VOTable document.
  * A VOTable Table element is returned, with fixed variables as PARAMs and the varying ones as FIELDs.
- * 
+ *
  * \param varsArray [in] Pointer to an array of \c LALInferenceVariables structures to be serialized
  * \param N [in] Number of items in the array
- * 
+ * \param tablename UNDOCUMENTED
+ *
  * \return A pointer to a \c xmlNode that holds the VOTable fragment that represents
  * the \c LALInferenceVariables array.
  * In case of an error, a null-pointer is returned.\n
@@ -54,8 +55,8 @@
  * \sa XLALCreateVOTParamNode
  * \sa XLALCreateVOTResourceNode
  *
- * \author John Veitch\n
- * 
+ * \author John Veitch
+ *
  */
 
 
@@ -70,14 +71,13 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
   LALInferenceVariableItem *varitem=NULL;
   void **valuearrays=NULL;
   UINT4 Nfields=0,i,j;
-  const char *fn = __func__;
   int err;
 
   
 	/* Sanity check input */
 	if(!varsArray) {
 		XLALPrintError("Received null varsArray pointer");
-		XLAL_ERROR_NULL(__func__,XLAL_EFAULT);
+		XLAL_ERROR_NULL(XLAL_EFAULT);
 	}
 	if(N==0) return(NULL);
 	
@@ -97,8 +97,8 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
 				if(field_ptr) field_ptr=xmlAddNextSibling(field_ptr,tmpNode);
 				else {field_ptr=tmpNode; fieldNodeList=field_ptr;}
 				if(!field_ptr) {
-					XLALPrintError ("%s: xmlAddNextSibling() failed to add next field node.\n", fn );
-					XLAL_ERROR_NULL(fn, XLAL_EFAILED);
+					XLALPrintError ("%s: xmlAddNextSibling() failed to add next field node.\n", __func__ );
+					XLAL_ERROR_NULL(XLAL_EFAILED);
 				}
 				Nfields++;
 				break;
@@ -109,8 +109,8 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
 				if(param_ptr) param_ptr=xmlAddNextSibling(param_ptr,tmpNode);
 				else {param_ptr=tmpNode; paramNodeList=param_ptr;}
 				if(!param_ptr) {
-					XLALPrintError ("%s: xmlAddNextSibling() failed to add next param node.\n", fn );
-					XLAL_ERROR_NULL(fn, XLAL_EFAILED);
+					XLALPrintError ("%s: xmlAddNextSibling() failed to add next param node.\n", __func__ );
+					XLAL_ERROR_NULL(XLAL_EFAILED);
 				}
 				break;
 			}
@@ -146,7 +146,7 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
   UINT4 row,col;
      /* create TABLEDATA node */
     if ( ( xmlTABLEDATAnode = xmlNewNode ( NULL, CAST_CONST_XMLCHAR("TABLEDATA") ))== NULL ) {
-      XLALPrintError ("%s: xmlNewNode() failed to create 'TABLEDATA' node.\n", fn );
+      XLALPrintError ("%s: xmlNewNode() failed to create 'TABLEDATA' node.\n", __func__ );
       err = XLAL_ENOMEM;
       goto failed;
     }
@@ -156,12 +156,12 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
         /* create TR node */
         xmlNodePtr xmlThisRowNode = NULL;
         if ( (xmlThisRowNode = xmlNewNode ( NULL, CAST_CONST_XMLCHAR("TR") )) == NULL ) {
-          XLALPrintError ("%s: xmlNewNode() failed to create new 'TR' node.\n", fn );
+          XLALPrintError ("%s: xmlNewNode() failed to create new 'TR' node.\n", __func__ );
           err = XLAL_EFAILED;
           goto failed;
         }
         if ( xmlAddChild(xmlTABLEDATAnode, xmlThisRowNode ) == NULL ) {
-          XLALPrintError ("%s: failed to insert 'TR' node into 'TABLEDATA' node.\n", fn );
+          XLALPrintError ("%s: failed to insert 'TR' node into 'TABLEDATA' node.\n", __func__ );
           err = XLAL_EFAILED;
           goto failed;
         }
@@ -172,31 +172,31 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
             /* create TD node */
             xmlNodePtr xmlThisEntryNode = NULL;
             if ( (xmlThisEntryNode = xmlNewNode ( NULL, CAST_CONST_XMLCHAR("TD") )) == NULL ) {
-              XLALPrintError ("%s: xmlNewNode() failed to create new 'TD' node.\n", fn );
+              XLALPrintError ("%s: xmlNewNode() failed to create new 'TD' node.\n", __func__ );
               err = XLAL_EFAILED;
               goto failed;
             }
             if ( xmlAddChild(xmlThisRowNode, xmlThisEntryNode ) == NULL ) {
-              XLALPrintError ("%s: failed to insert 'TD' node into 'TR' node.\n", fn );
+              XLALPrintError ("%s: failed to insert 'TD' node into 'TR' node.\n", __func__ );
               err = XLAL_EFAILED;
               goto failed;
             }
 
             const char* tmptxt;
             if ( (tmptxt = XLALVOTprintfFromArray ( dataTypes[col], NULL, valuearrays[col], row )) == NULL ){
-              XLALPrintError ("%s: XLALVOTprintfFromArray() failed for row = %d, col = %d. errno = %d.\n", fn, row, col, xlalErrno );
+              XLALPrintError ("%s: XLALVOTprintfFromArray() failed for row = %d, col = %d. errno = %d.\n", __func__, row, col, xlalErrno );
               err = XLAL_EFUNC;
               goto failed;
             }
 
             xmlNodePtr xmlTextNode;
             if ( (xmlTextNode = xmlNewText (CAST_CONST_XMLCHAR(tmptxt) )) == NULL ) {
-              XLALPrintError("%s: xmlNewText() failed to turn text '%s' into node\n", fn, tmptxt );
+              XLALPrintError("%s: xmlNewText() failed to turn text '%s' into node\n", __func__, tmptxt );
               err = XLAL_EFAILED;
               goto failed;
             }
             if ( xmlAddChild(xmlThisEntryNode, xmlTextNode ) == NULL ) {
-              XLALPrintError ("%s: failed to insert text-node node into 'TD' node.\n", fn );
+              XLALPrintError ("%s: failed to insert text-node node into 'TD' node.\n", __func__ );
               err = XLAL_EFAILED;
               goto failed;
             }
@@ -210,7 +210,7 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
   VOTtableNode= XLALCreateVOTTableNode (tablename, fieldNodeList, xmlTABLEDATAnode );
   /* Attach PARAMs to TABLE node */
   if(!(xmlAddChildList(VOTtableNode,paramNodeList))){
-    XLALPrintError("%s: xmlAddChild failed\n",fn);
+    XLALPrintError("%s: xmlAddChild failed\n",__func__);
     err=XLAL_EFAILED;
     goto failed;
   }
@@ -218,7 +218,7 @@ xmlNodePtr XLALInferenceVariablesArray2VOTTable(const LALInferenceVariables *var
   return(VOTtableNode);
   
   failed:
-      XLAL_ERROR_NULL ( fn, err );
+      XLAL_ERROR_NULL ( err );
 
   return(NULL);
   
@@ -231,13 +231,16 @@ xmlNodePtr XLALInferenceStateVariables2VOTResource(const LALInferenceRunState *s
 	xmlNodePtr propNode=NULL;
 	xmlNodePtr resNode=NULL;
 	/* Serialise various params to VOT Table nodes */
-	resNode=XLALCreateVOTResourceNode("LALInferenceRunState Settings",name,NULL);
+	resNode=XLALCreateVOTResourceNode("lalinference:state",name,NULL);
 	
 	algNode=XLALCreateVOTTableNode("Algorithm Params",XLALInferenceVariables2VOTParamNode(state->algorithmParams),NULL);
+	xmlNewProp(algNode, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:state:algorithmparams"));
 	if(algNode) xmlAddChild(resNode,algNode);
 	priorNode=XLALCreateVOTTableNode("Prior Arguments",XLALInferenceVariables2VOTParamNode(state->priorArgs),NULL);
+	xmlNewProp(priorNode, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:state:priorparams"));
 	if(priorNode) xmlAddChild(resNode,priorNode);
 	propNode=XLALCreateVOTTableNode("Proposal Arguments",XLALInferenceVariables2VOTParamNode(state->proposalArgs),NULL);
+	xmlNewProp(propNode, CAST_CONST_XMLCHAR("utype"), CAST_CONST_XMLCHAR("lalinference:state:proposalparams"));
 	if(propNode) xmlAddChild(resNode,propNode);
 	return(resNode);
 
@@ -251,7 +254,6 @@ xmlNodePtr XLALInferenceStateVariables2VOTResource(const LALInferenceRunState *s
  * embedded into an existing %node hierarchy or turned into a full VOTable document.
  *
  * \param vars [in] Pointer to the \c LALInferenceVariables structure to be serialized
- * \param name [in] Unique identifier of this particular \c LALInferenceVariables structure instance
  *
  * \return A pointer to a \c xmlNode that holds the VOTable fragment that represents
  * the \c LALInferenceVariables structure.
@@ -262,7 +264,7 @@ xmlNodePtr XLALInferenceStateVariables2VOTResource(const LALInferenceRunState *s
  *
  * \sa LALInferenceVariableItem2VOTParamNode
  *
- * \author John Veitch\n
+ * \author John Veitch
  * 
  */
 xmlNodePtr XLALInferenceVariables2VOTParamNode (const LALInferenceVariables *const vars)
@@ -329,7 +331,10 @@ xmlNodePtr LALInferenceVariableItem2VOTFieldNode(LALInferenceVariableItem *varit
 	
   /* Check the type of the item */
   vo_type=LALInferenceVariableType2VOT(varitem->type);
-	
+  if(vo_type>=VOT_DATATYPE_LAST){
+    XLALPrintError("%s: Unsupported LALInferenceType %i\n",__func__,(int)varitem->type);
+    return NULL;
+  }
   return(XLALCreateVOTFieldNode(varitem->name,unitName,vo_type,NULL));
 }
 
@@ -349,7 +354,10 @@ xmlNodePtr LALInferenceVariableItem2VOTParamNode(LALInferenceVariableItem *varit
 	
   /* Check the type of the item */
   vo_type=LALInferenceVariableType2VOT(varitem->type);
-  
+  if(vo_type>=VOT_DATATYPE_LAST){
+    XLALPrintError("%s: Unsupported LALInferenceVariableType %i\n",__func__,(int)varitem->type);
+    return NULL;
+  }
   LALInferencePrintVariableItem(valString, varitem);
   
   return(XLALCreateVOTParamNode(varitem->name,unitName,vo_type,NULL,valString));
@@ -363,14 +371,15 @@ VOTABLE_DATATYPE LALInferenceVariableType2VOT(const LALInferenceVariableType lit
   switch(litype){
     case LALINFERENCE_INT4_t: 		return VOT_INT4;
     case LALINFERENCE_INT8_t: 		return VOT_INT8;
-    case LALINFERENCE_UINT4_t: 		return VOT_INT8; /* Need a signed INT8 to store an unsigned UINT4 */
+    case LALINFERENCE_UINT4_t: 		return VOT_INT4; /* Need a signed INT8 to store an unsigned UINT4 */
     case LALINFERENCE_REAL4_t:		return VOT_REAL4;
     case LALINFERENCE_REAL8_t:		return VOT_REAL8;
     case LALINFERENCE_COMPLEX8_t: 	return VOT_COMPLEX8;
     case LALINFERENCE_COMPLEX16_t:	return VOT_COMPLEX16;
     case LALINFERENCE_string_t:		return VOT_CHAR;
-    default: {XLALPrintError("Unsupported LALInferenceVarableType"); return VOT_DATATYPE_LAST;}
+    case LALINFERENCE_void_ptr_t:	return sizeof(void *)==4?VOT_INT4:VOT_INT8;
+    default: {XLALPrintError("%s: Unsupported LALInferenceVarableType %i\n",__func__,(int)litype); return VOT_DATATYPE_LAST;}
   }
 }
 
-  
+

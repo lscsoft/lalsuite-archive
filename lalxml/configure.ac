@@ -1,4 +1,5 @@
-AC_INIT([lalxml],[1.1.0.3],[lal-discuss@gravity.phys.uwm.edu])
+AC_PREREQ([2.63])
+AC_INIT([lalxml],[1.1.4.1],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALXMLConfig.h])
 AC_CONFIG_SRCDIR([src/LALXML.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -17,11 +18,12 @@ AC_CONFIG_FILES([ \
   swig/python/Makefile \
   test/Makefile
 ])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info
 # 1. start with version information of "0:0:0" for each libtool library
@@ -38,18 +40,18 @@ LALSUITE_ARG_VAR
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
 AC_SUBST([LIBCURRENT],[1])
-AC_SUBST([LIBREVISION],[0])
+AC_SUBST([LIBREVISION],[3])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
-
-# default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalxml])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
 
 # debug
 LALSUITE_ENABLE_DEBUG
+
+# enable SWIG wrapping modules
+LALSUITE_ENABLE_SWIG
 
 # put version/configure info in config header
 lalxml_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -76,23 +78,21 @@ AC_DEFINE_UNQUOTED([LALXML_CONFIGURE_DATE],["$lalxml_configure_date"],
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
 
-# check for c compiler
-m4_pattern_allow([AC_PROG_CC_C99])
-m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
-# use silent build rules if available
-m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
+# use silent build rules
+AM_SILENT_RULES([yes])
 
-# SWIG wrapping requires a c++ compiler
-AC_PROG_CXX
+# check for C/C++ compilers
+LALSUITE_PROG_CC_CXX
 
 # checks for programs
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
-LT_INIT
-AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
+AC_PROG_SED
+AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -127,11 +127,12 @@ LALSUITE_ENABLE_FAST_GSL
 AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.5.0.3],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
 
-# check for SWIG wrapping
-LALSUITE_ENABLE_SWIG
+# configure SWIG wrapping modules
+LALSUITE_USE_SWIG([XLAL LAL])
+LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
@@ -149,16 +150,16 @@ AC_SUBST_FILE([LAL_HEADER_LINK])
 AC_PROG_MAKE_SET
 AC_OUTPUT
 echo "
-================================================================
+=================================================================
 
         LALXML has now been successfully configured:
 
-                SWIG wrappings for Octave are $SWIG_OCTAVE_ENABLE_VAL
-                SWIG wrappings for Python are $SWIG_PYTHON_ENABLE_VAL
+            SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
+            SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
 
         and will be installed under the directory:
 
-          ${prefix}
+            ${prefix}
 
         Now run 'make' to build LALXML
         and run 'make install' to install LALXML

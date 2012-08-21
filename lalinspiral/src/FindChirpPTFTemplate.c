@@ -29,8 +29,8 @@
 /**
 
 \author Brown, D. A., and Fazi, D.
-\file
 \ingroup FindChirpPTF_h
+\file
 
 \brief Provides functions to create physical template family templates in a
 form that can be used by the <tt>FindChirpPTFFilter()</tt> function.
@@ -44,27 +44,15 @@ family template as described by the algorithm below.
 
 Blah.
 
-\heading{Uses}
-\code
-LALCalloc()
-LALFree()
-LALCreateVector()
-LALDestroyVector()
-\endcode
-
-\heading{Notes}
-
 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
 #include <lal/LALInspiral.h>
 #include <lal/FindChirp.h>
 #include <lal/FindChirpPTF.h>
 #include <lal/MatrixUtils.h>
-
-NRCSID(FINDCHIRPPTFTEMPLATEC, "$Id$");
-
 
 void
 LALFindChirpPTFTemplate (
@@ -88,7 +76,7 @@ LALFindChirpPTFTemplate (
   onebysqrtofsix = 1.0 / sqrt(6.0);
   N = params->PTFphi->length;
 
-  INITSTATUS( status, "LALFindChirpPTFTemplate", FINDCHIRPPTFTEMPLATEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
 
@@ -107,16 +95,16 @@ LALFindChirpPTFTemplate (
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   ASSERT( fcTmplt->PTFQtilde->data, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-
-  /* check that the parameter structure exists */
   ASSERT( params, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->PTFQ, status,
+  ASSERT( fcTmplt->PTFQ, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->PTFQ->length == 5, status,
+  ASSERT( fcTmplt->PTFQ->length == 5, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-  ASSERT( params->PTFQ->data, status,
+  ASSERT( fcTmplt->PTFQ->data, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+
+  /* check that the parameter structure exists */
 
   ASSERT( params->fwdPlan, status,
       FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
@@ -146,7 +134,7 @@ LALFindChirpPTFTemplate (
   InspTmplt->fLower = fcTmplt->tmplt.fLower = params->fLow;
 
   /* Zero out the Q and Qtilde vectors */
-  memset( params->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
+  memset( fcTmplt->PTFQ->data, 0, 5 * N * sizeof(REAL4) );
   memset( fcTmplt->PTFQtilde->data, 0, 5 * (N /2 + 1) * sizeof(COMPLEX8) );
 
  /* Point the dummy variables Q and Qtilde to the actual output structures */
@@ -154,7 +142,7 @@ LALFindChirpPTFTemplate (
   {
     Q[i].length      = N;
     Qtilde[i].length = N / 2 + 1;
-    Q[i].data        = params->PTFQ->data + (i * N);
+    Q[i].data        = fcTmplt->PTFQ->data + (i * N);
     Qtilde[i].data   = fcTmplt->PTFQtilde->data + (i * (N / 2 + 1)) ;
   }
 
@@ -244,7 +232,7 @@ LALFindChirpPTFNormalize(
   fFinal    = (REAL4) fcTmplt->tmplt.fFinal;
   kmax      = fFinal / deltaF < (len - 1) ? fFinal / deltaF : (len - 1);
 
-  INITSTATUS( status, "LALFindChirpPTFNormalize", FINDCHIRPPTFTEMPLATEC );
+  INITSTATUS(status);
   ATTATCHSTATUSPTR( status );
 
   /* check the required input exists */

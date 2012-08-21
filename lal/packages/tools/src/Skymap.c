@@ -1,5 +1,4 @@
 /*
- * $Id$
  *
  * Copyright (C) 2008  Antony Searle
  *
@@ -238,7 +237,7 @@ void XLALSkymapPlanConstruct(int sampleFrequency, int n, int* detectors, XLALSky
 
 void XLALSkymapDirectionPropertiesConstruct(
         XLALSkymapPlanType* plan,
-        double* directions,
+        double directions[2],
         XLALSkymapDirectionPropertiesType* properties
         )
 {

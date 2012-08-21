@@ -23,7 +23,6 @@
  * Tania Regimbau <regimbau@obs-nice.fr>  
  *
  *
- * $Id$
  */
 
 
@@ -49,7 +48,6 @@
 #include <lal/IIRFilter.h>
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
-#include <lal/LALRCSID.h>
 #include <lal/LALStatusMacros.h>
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
@@ -69,8 +67,6 @@
 
 #include "stochastic_virgo.h"
 
-NRCSID (STOCHASTICC, "$Id$");
-RCSID ("$Id$");
 
 /* cvs info */
 #define CVS_ID "$Id$"
@@ -1334,7 +1330,7 @@ INT4 main(INT4 argc, CHAR *argv[])
         if (verbose_flag)
          fprintf(stdout, "sum PSDs...\n");
        
-        if((lSeg==midSegment))
+        if(lSeg==midSegment)
 	 { 
           if (verbose_flag)
 	    fprintf(stdout, "skip middle segment...\n");}

@@ -100,8 +100,6 @@ ParseOptions (int argc, char *argv[]);
 static void
 TestStatus (LALStatus *status, const char *expectedCodes, int exitCode);
 
-NRCSID( DETECTORSITETESTC, "$Id$" );
-
 #define DETECTORSITETESTC_LOCTOL 3e-2
 #define DETECTORSITETESTC_RESTOL 1e-06
 
@@ -495,8 +493,10 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        if ( freopen ("/dev/null", "w", stderr) == NULL )
+          printf ("Failed call: freopen(/dev/null, 'w', stderr)\n");
+        if ( freopen ("/dev/null", "w", stdout) == NULL )
+          printf ("Failed call: freopen(/dev/null, 'w', stdout)\n");
         break;
 
       case 'h':

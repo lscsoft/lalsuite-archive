@@ -34,6 +34,9 @@
       GPS:<input type="text" size=10 maxlength=10 name="gps">
   </p>
 
+  <p>Setting for --in-segments-only flag: <input type="radio" checked="checked" name="isi" value="1">ON
+     <input type="radio" name="isi" value="0">OFF
+  </p>
 
 <hr/>
 

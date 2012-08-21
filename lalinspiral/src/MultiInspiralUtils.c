@@ -21,8 +21,6 @@
 #include <lal/DetResponse.h>
 #include <lal/TimeDelay.h>
 
-NRCSID( SNGLINSPIRALUTILSC, "$Id$");
-
 /**
 \author Bose, S.
 \file
@@ -67,7 +65,7 @@ LALFreeMultiInspiral (
     )
 
 {
-  INITSTATUS( status, "LALFreeMultiInspiral", SNGLINSPIRALUTILSC );
+  INITSTATUS(status);
   XLALFreeMultiInspiral( eventHead );
   RETURN( status );
 }
@@ -221,7 +219,6 @@ XLALClusterMultiInspiralTable (
     )
 
 {
-  static const char *func = "XLALClusterMultiInspiralTable";
   MultiInspiralTable     *thisEvent=NULL;
   MultiInspiralTable     *prevEvent=NULL;
   MultiInspiralTable     *nextEvent=NULL;
@@ -229,7 +226,7 @@ XLALClusterMultiInspiralTable (
 
   if ( !inspiralList )
   {
-    XLAL_ERROR(func,XLAL_EIO);
+    XLAL_ERROR(XLAL_EIO);
   }
 
   if ( ! *inspiralList )

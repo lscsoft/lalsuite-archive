@@ -1,4 +1,10 @@
 INCLUDES = -I$(top_builddir)/include
+LDADD = liblalframe.la
+
+bin_PROGRAMS = \
+	lalframe_lld
+
+lalframe_lld_SOURCES = lld.c
 
 lalframeincludedir = $(includedir)/lal
 lalframeinclude_HEADERS = \
@@ -10,7 +16,9 @@ lalframeinclude_HEADERS = \
 	LALFrameConfig.h \
 	LALFrameIO.h \
 	LALFrameL.h \
-	LALFrameVCSInfo.h
+	LALFrameLibVCSInfo.h \
+	LALFrameVCSInfo.h \
+	LowLatencyData.h
 
 lib_LTLIBRARIES = liblalframe.la
 liblalframe_la_SOURCES = \
@@ -21,7 +29,8 @@ liblalframe_la_SOURCES = \
 	FrameSeries.c \
 	FrameStream.c \
 	LALFrameIO.c \
-	LALFrameVCSInfo.c
+	LALFrameVCSInfo.c \
+	LowLatencyData.c
 
 noinst_HEADERS = \
 	FrameSeriesRead_source.c \
@@ -52,11 +61,10 @@ lalframe-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "$(SWIG_USER_ENV)" | $(SED) 's|~E~O~L~|\n|g' >>$@
+	@printf "$(SWIG_USER_ENV)" >>$@
 
 lalframe-user-env.csh lalframe-user-env.sh: lalframe-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v package=$(PACKAGE_NAME) -v output=$@ $<
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	generate_user_env.awk \
@@ -67,11 +75,9 @@ EXTRA_DIST = \
 LALFrameVCSInfo.h: ._vcsinfo
 
 ._vcsinfo: $(srcdir)/generate_vcs_info.py LALFrameConfig.h
-	@echo "creating LALFrameVCSInfo.h"
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py --sed LALFrame $(srcdir) $$PWD
+	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALFrame $(srcdir) $$PWD
 
 @LAL_HEADER_LINK@
 
 swig_headers = $(lalframeinclude_HEADERS)
-CLEANFILES += $(swig_clean)
-@SWIG_HEADER_MK@
+include $(top_srcdir)/swig/swiglal_header.am

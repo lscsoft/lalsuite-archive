@@ -1,25 +1,40 @@
-%define _prefix /opt/lscsoft/glue
-%define _sysconfdir %{_prefix}/etc
+%define _glue_prefix /usr
+%define _sysconfdir %{_glue_prefix}/etc
 %define _docdir %{_datadir}/doc
-%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_prefix}')")}
+%{!?glue_python_sitearch: %define glue_python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_glue_prefix}')")}
+%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1)")}
+
 
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.34
+Version:	1.41
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python python-cjson m2crypto pyxmpp
+Requires:	python python-cjson m2crypto pyxmpp glue-common glue-segments
 BuildRequires:  python-devel
-Prefix:         %{_prefix}
-
+Prefix:         %{_glue_prefix}
 %description
 Glue (Grid LSC User Environment) is a suite of python modules and programs to
 allow users to run LSC codes on the grid.
+
+%package common
+Summary:	The common files needed for all sub-packages
+Group: 		Development/Libraries
+Requires: 	python 
+%description common
+This is for the files that are common across the glue subpackages, namely git_version, iterutils and __init__.py
+
+%package segments
+Summary:        The segments subpackage
+Group:          Development/Libraries
+Requires:       python glue-common
+%description segments
+This is for the segments subpackage, written by Kipp.
 
 %prep
 %setup 
@@ -32,27 +47,81 @@ rm -rf %{buildroot}
 %{__python} setup.py install -O1 \
         --skip-build \
         --root=%{buildroot} \
-        --prefix=%{_prefix}
-
+        --prefix=%{_glue_prefix}
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.41-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{python_sitearch}/glue/
-%{_prefix}/bin/
-%{_prefix}/etc/
-%{_prefix}/var/
+%{glue_python_sitearch}/glue/
+%{_glue_prefix}/bin/
+%exclude %{_glue_prefix}/etc/
+%exclude %{_glue_prefix}/var/
+%exclude %{_glue_prefix}/share/nmi/lalsuite-build*
+%exclude %{glue_python_sitearch}/glue/cbcwebpage.pyc
+%exclude %{glue_python_sitearch}/glue/cbcwebpage.py
+%exclude %{glue_python_sitearch}/glue/__init__.py
+%exclude %{glue_python_sitearch}/glue/__init__.pyc
+%exclude %{glue_python_sitearch}/glue/segments.py
+%exclude %{glue_python_sitearch}/glue/iterutils.py
+%exclude %{glue_python_sitearch}/glue/git_version.py
+%exclude %{glue_python_sitearch}/glue/segments.pyc
+%exclude %{glue_python_sitearch}/glue/iterutils.pyc
+%exclude %{glue_python_sitearch}/glue/git_version.pyc
+%exclude %{glue_python_sitearch}/glue/__segments.so
+#%exclude %{_glue_prefix}/src/segments/
+#%exclude %{_glue_prefix}/test/segment_verify.py
+#%exclude %{_glue_prefix}/test/segmentsUtils_verify.py
+#%exclude %{_glue_prefix}/test/verifyutils.py
+
+%files segments
+%{glue_python_sitearch}/glue/segments.py
+%{glue_python_sitearch}/glue/segments.pyc
+%{glue_python_sitearch}/glue/__segments.so
+#%{glue_python_sitearch}/src/segments/
+#%{glue_python_sitearch}/test/segment_verify.py
+#%{glue_python_sitearch}/test/segmentsUtils_verify.py
+#%{glue_python_sitearch}/test/verifyutils.py
+
+%files common
+%{glue_python_sitearch}/glue/__init__.py
+%{glue_python_sitearch}/glue/__init__.pyc
+%{glue_python_sitearch}/glue/iterutils.pyc
+%{glue_python_sitearch}/glue/iterutils.py
+%{glue_python_sitearch}/glue/git_version.py
+%{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Fri May 18 2012 Ryan Fisher <rpfisher@syr.edu>
+- Bugfix release of 1.39 labelled 1.39.2.  Includes fix to ligolw for URL reading, and packaging fixes. 
+
+* Fri May 11 2012 Ryan Fisher <rpfisher@syr.edu>
+- Bugfix release of 1.39 labelled 1.39.1 
+
+* Thu May 10 2012 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue to replace Apr 12 near-release.  This includes ligolw changes and updates for job submission over remote pools.
+
+* Thu Apr 12 2012 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with updates to ligolw library, including some bug fixes for ligowl_sqlite and ligolw_print.  
+
+* Wed Nov 16 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with glue-segments and glue-common split from glue, lvalerts, lars and gracedb removed.
+
+* Mon Oct 10 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue to fix build issues called 1.36. 
+
+* Fri Oct 7 2011 Ryan Fisher <rpfisher@syr.edu>
+- New release of glue with Kipp's fixes to ligolw_sqlite bugs, Kipp's checksums added, and Peter and my change to the coalescing script for segment databases.
+
 * Thu Sep 29 2011 Ryan Fisher <rpfisher@syr.edu>
 - New release of glue with speedup to string to xml conversion and 10 digit gps fixes.
 
 * Wed Sep 15 2010 Peter Couvares <pfcouvar@syr.edu>
 - New release of glue with GEO publishing
 
-* Thu Apr 22 2009 Duncan Brown <dabrown@physics.syr.edu>
+* Thu Apr 22 2010 Duncan Brown <dabrown@physics.syr.edu>
 - Third S6 release of glue
 
 * Wed Nov 11 2009 Duncan Brown <dabrown@physics.syr.edu>

@@ -17,27 +17,6 @@
 *  MA  02111-1307  USA
 */
 
-/**
- * \defgroup LALInspiral_h LALInspiral_h
- * \ingroup CBC_inspiral
- */
-
-/**
-\author Churches, D. K ,  B. S. Sathyaprakash,  T. Cokelaer.
-\file
-\ingroup LALInspiral_h
-
-\brief %Header file for the template generation codes.
-
-\heading{Synopsis}
-\code
-#include <lal/LALInspiral.h>
-\endcode
-
-This header file covers routines that are used in template generation.
-
-*/
-
 #ifndef _LALINSPIRAL_H
 #define _LALINSPIRAL_H
 
@@ -62,9 +41,23 @@ This header file covers routines that are used in template generation.
 extern "C" {
 #endif
 
-/** \cond DONT_DOXYGEN */
-NRCSID( LALINSPIRALH, "$Id$" );
+/**
+   \addtogroup LALInspiral_h
+   \author Churches, D. K ,  B. S. Sathyaprakash,  T. Cokelaer.
 
+\brief %Header file for the template generation codes.
+
+\heading{Synopsis}
+\code
+#include <lal/LALInspiral.h>
+\endcode
+
+This header file covers routines that are used in template generation.
+
+*/
+/*@{*/
+
+/** \cond DONT_DOXYGEN */
 # define oneby3    0.333333333333333333333333333
 # define twoby3    0.666666666666666666666666667
 # define fourby3   1.333333333333333333333333333
@@ -82,7 +75,8 @@ NRCSID( LALINSPIRALH, "$Id$" );
 # define LALINRPIAL_PNLAMBDA -1987.L/3080.L
 /** \endcond */
 
-/**\name Error Codes */ /**@{*/
+/**\name Error Codes */
+/*@{*/
 #define LALINSPIRALH_ENULL           1	/**< Arguments contained an unexpected null pointer */
 #define LALINSPIRALH_EMEM            2	/**< Memory allocation error */
 #define LALINSPIRALH_EDIV0           3	/**< Division by zero */
@@ -104,7 +98,7 @@ NRCSID( LALINSPIRALH, "$Id$" );
 #define LALINSPIRALH_EBPERR         19	/**< Error in band passing signal */
 #define LALINSPIRALH_ESWITCH        20	/**< Unknown case in switch */
 #define LALINSPIRALH_EMASSCHOICE    21	/**< Improper choice for massChoice */
-/**@}*/
+/*@}*/
 
 /** \cond DONT_DOXYGEN */
 #define LALINSPIRALH_MSGENULL         "Arguments contained an unexpected null pointer"
@@ -163,29 +157,6 @@ tagEtaTau04In
    REAL8 C4;
 } EtaTau04In;
 /** @} */
-
-
-/** Enum that tells which post-Newtonian order is being used.
- * In all cases, the gravitational wave phase (also frequency and time)
- * as an expansion of the gauge invariant parameter \f$v\f$ is given up to
- * the order specified by flux.  Note that there are certain undetermined
- * parameters at \c LAL_PNORDER_THREE and
- * \c LAL_PNORDER_THREE_POINT_FIVE. The waveform generation codes use
- * a specific value of those parameters while generating the wave.
- */
-typedef enum {
-  LAL_PNORDER_NEWTONIAN,	/**< Newtonain order, flux and enrgy both to the lowest order */
-  LAL_PNORDER_HALF,		/**< same as befor */
-  LAL_PNORDER_ONE,		/**< Both energy and flux to order \f$O(v^2)\f$ beyond the Newtonian order */
-  LAL_PNORDER_ONE_POINT_FIVE,	/**< Energy to order \f$O(v^2)\f$ and flux to order \f$O(v^3)\f$ */
-  LAL_PNORDER_TWO,		/**< Both energy and flux to order \f$O(v^4)\f$ */
-  LAL_PNORDER_TWO_POINT_FIVE,	/**< Energy to order \f$O(v^4)\f$ and flux to order \f$O(v^5)\f$ */
-  LAL_PNORDER_THREE,		/**< Both energy and flux to order \f$O(v^6)\f$ */
-  LAL_PNORDER_THREE_POINT_FIVE,	/**< Energy to order \f$O(v^6)\f$ and flux to order \f$O(v^7)\f$ */
-  LAL_PNORDER_PSEUDO_FOUR,	/**< Need to describe */
-  LAL_PNORDER_NUM_ORDER		/**< MISSING DOCUMENTATION */
- } LALPNOrder;
-
 
 
 /** This structure is one of the members of the \c InspiralTemplate structure.
@@ -248,7 +219,7 @@ typedef enum {
   </li><li> <tt> distance:</tt> Distance to the binary in seconds
   </li><li> <tt> psi0:</tt> BCV parameter \f$\psi_0.\f$
   </li><li> <tt> psi3:</tt> BCV parameter \f$\psi_3.\f$
-  </li><li> <tt> alpha:</tt> BCV amplitude correction factor \f$\alpha f_\textrm{cut}^{2/3}\f$
+  </li><li> <tt> alpha:</tt> BCV amplitude correction factor \f$\alpha f_\mathrm{cut}^{2/3}\f$
   </li><li> <tt> eccentricity:</tt> initial eccentricity of the orbit  (currently not in use)
   </li><li> <tt> totalMass:</tt> total mass of the binary \f$m=m_1+m_2\f$ in solar mass (input/output).
   </li><li> <tt> eta:</tt> symmetric mass ratio \f$\eta=m_1m_2/m^2.\f$ (input/output).
@@ -400,9 +371,9 @@ tagInspiralTemplate
    */
   REAL4  Gamma[10];
   REAL4  qmParameter[2];
-  LALSpinInteraction	spinInteraction;
+  LALSimInspiralInteraction	interaction;
 
-  InputAxis axisChoice;
+  LALSimInspiralFrameAxis axisChoice;
   UINT4 fixedStep;
   UINT4 inspiralOnly;
 
@@ -701,17 +672,10 @@ tagInspiralInit
 
 }  InspiralInit;
 
-/** UNDOCUMENTED */
-typedef enum
-{
-  INSPIRAL_TAPER_NONE,		/**< UNDOCUMENTED */
-  INSPIRAL_TAPER_START,		/**< UNDOCUMENTED */
-  INSPIRAL_TAPER_END,		/**< UNDOCUMENTED */
-  INSPIRAL_TAPER_STARTEND,	/**< UNDOCUMENTED */
-  INSPIRAL_TAPER_NUM_OPTS	/**< UNDOCUMENTED */
-}  InspiralApplyTaper;
+/*@}*/
 
-/* Function prototypes */
+
+/* ---------- Function prototypes ---------- */
 
 /* --- HERE ARE SOME USEFUL PROTOTYPE FOR LENGTH, PARAMETER CALCULATION... --- */
 
@@ -722,11 +686,6 @@ void LALInspiralParameterCalc (
 int XLALInspiralParameterCalc (
      InspiralTemplate *params);
 
-
-
-
-
-
 void LALInspiralRestrictedAmplitude(
      LALStatus *status,
      InspiralTemplate  *params);
@@ -734,20 +693,10 @@ void LALInspiralRestrictedAmplitude(
 int XLALInspiralRestrictedAmplitude(
      InspiralTemplate  *params);
 
-
-
-
-
-
 void LALInspiralWaveLength (
      LALStatus *status,
      UINT4 *n,
      InspiralTemplate params);
-
-
-
-
-
 
 void LALInspiralChooseModel(
      LALStatus *status,
@@ -760,11 +709,6 @@ int  XLALInspiralChooseModel(
      expnCoeffs *ak,
      InspiralTemplate *params);
 
-
-
-
-
-
 void LALInspiralSetup (
      LALStatus *status,
      expnCoeffs *ak,
@@ -773,11 +717,6 @@ void LALInspiralSetup (
 int XLALInspiralSetup (
      expnCoeffs *ak,
      InspiralTemplate *params);
-
-
-
-
-
 
 void
 LALInspiralInit(
@@ -790,26 +729,37 @@ XLALInspiralInit(
 	InspiralTemplate *params,
 	InspiralInit     *paramsInit);
 
+/**
+ * Generate the plus and cross polarizations for a waveform
+ * form a row of the sim_inspiral table.
+ *
+ * Parses a row from the sim_inspiral table and passes the appropriate members
+ * to XLALSimInspiralChooseWaveform().
+ *
+ * FIXME: this should eventually be moved to lalsimulation
+ * along with the appropriate string parsing functions
+ */
+int XLALSimInspiralChooseWaveformFromSimInspiral(
+    REAL8TimeSeries **hplus,	/**< +-polarization waveform */
+    REAL8TimeSeries **hcross,	/**< x-polarization waveform */
+    SimInspiralTable *thisRow,	/**< row from the sim_inspiral table containing waveform parameters */
+    REAL8 deltaT		/**< sampling interval */
+    );
 
-
-
-
-
-void LALInspiralWaveTaper(
-     LALStatus    *status,
-     REAL4Vector  *signalvec,
-     UINT4       bookends
-     );
-
-int XLALInspiralWaveTaper(
-                   REAL4Vector         *signalvec,
-                   InspiralApplyTaper  bookends);
+/**
+ * Generate the plus and cross polarizations for a waveform
+ * form a row of the InspiralTemplate structure.
+ *
+ * Parses the InspiralTemplate stucture and passes the appropriate members
+ * to XLALSimInspiralChooseWaveform().
+ */
+int XLALSimInspiralChooseWaveformFromInspiralTemplate(
+   REAL8TimeSeries **hplus,	/**< +-polarization waveform */
+   REAL8TimeSeries **hcross,	/**< x-polarization waveform */
+   InspiralTemplate *params	/**< stucture containing waveform parameters */
+   );
 
 /* --- HERE ARE THE WAVEFORMS/MODELS PROTOTYPES --- */
-
-
-
-
 void LALInspiralAmplitudeCorrectedWave(
      LALStatus *status,
      REAL4Vector *signalvec,
@@ -829,9 +779,6 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
    PPNParamStruc  *ppnParams);
 
 
-
-
-
 void LALInspiralWave(
      LALStatus *status,
      REAL4Vector *signalvec,
@@ -848,9 +795,6 @@ void LALInspiralWaveForInjection(
      CoherentGW       *waveform,
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams);
-
-
-
 
 void LALInspiralWave1 (
      LALStatus *status,
@@ -883,8 +827,6 @@ int  XLALInspiralWave1ForInjection(
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams);
 
-
-
 void LALInspiralEccentricity(
      LALStatus *status,
      REAL4Vector *signalvec,
@@ -902,7 +844,6 @@ void LALInspiralEccentricityForInjection(
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams
      );
-
 
 
 void LALInspiralWave2 (
@@ -935,9 +876,6 @@ int  XLALInspiralWave2ForInjection(
      CoherentGW *waveform,
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams);
-
-
-
 
 
 void LALInspiralWave3 (
@@ -979,14 +917,10 @@ void LALInspiralStationaryPhaseApprox1 (
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
-
 int
 XLALInspiralStationaryPhaseApprox1 (
    REAL4Vector      *signalvec,
    InspiralTemplate *params);
- 
-
-
 
 void LALInspiralStationaryPhaseApprox2 (
      LALStatus *status,
@@ -997,10 +931,6 @@ int
 XLALInspiralStationaryPhaseApprox2 (
    REAL4Vector      *signalvec,
    InspiralTemplate *params);
- 
-
-
-
 
 void LALEOBWaveform(
      LALStatus *status,
@@ -1078,6 +1008,11 @@ void LALTaylorEtWaveform(
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
+int XLALTaylorEtWaveformTemplates(
+     REAL4Vector *signalvec1,
+     REAL4Vector *signalvec2,
+     InspiralTemplate *params);
+
 void LALTaylorT4Waveform(
      LALStatus *status,
      REAL4Vector *signalvec,
@@ -1101,10 +1036,6 @@ void LALBCVSpinWaveform(
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
-
-
-
-
 void LALTaylorNWaveform (
      LALStatus        *status,
      REAL4Vector      *signalvec,
@@ -1113,9 +1044,6 @@ void LALTaylorNWaveform (
 int  XLALTaylorNWaveform (
      REAL4Vector      *signalvec,
      InspiralTemplate *params);
-
-
-
 
 void LALInspiralSpinModulatedWave(
      LALStatus        *status,
@@ -1129,9 +1057,6 @@ void LALInspiralSpinModulatedWaveForInjection(
      InspiralTemplate *params,
      PPNParamStruc  *ppnParams
      );
-
-
-
 
 
 void
@@ -1362,11 +1287,6 @@ REAL8 XLALChirpTimeReducedSpin(REAL8 v, REAL8 m1, REAL8 m2, REAL8 spin1,
         REAL8 spin2, UINT4 pnOrder);
 
 /* --- OTHER PROTOTYPES --- */
-
-
-
-
-
 void LALEtaTau02(
      LALStatus *status,
      REAL8 *x,
@@ -1376,11 +1296,6 @@ void LALEtaTau02(
 REAL8 XLALEtaTau02(
       REAL8 eta,
       void  *in);
-
-
-
-
-
 
 void LALEtaTau04(
      LALStatus *status,
@@ -1392,19 +1307,10 @@ REAL8 XLALEtaTau04(
       REAL8 eta,
       void  *in);
 
-
-
-
-
-
 void LALInspiralDerivatives (
      REAL8Vector *vec1,
      REAL8Vector *vec2,
      void *params);
-
-
-
-
 
 void LALInspiralVelocity (
      LALStatus *status,
@@ -1413,11 +1319,6 @@ void LALInspiralVelocity (
 
 REAL8 XLALInspiralVelocity (
       TofVIn *params);
-
-
-
-
-
 
 void LALInspiralPhasing1 (
      LALStatus *status,
@@ -1429,11 +1330,6 @@ REAL8 XLALInspiralPhasing1 (
       REAL8 v,
       void *params);
 
-
-
-
-
-
 void LALInspiralPhiofVIntegrand (
      LALStatus *status,
      REAL8 *,
@@ -1443,10 +1339,6 @@ void LALInspiralPhiofVIntegrand (
 REAL8 XLALInspiralPhiofVIntegrand (
       REAL8,
       void *);
-
-
-
-
 
 void LALInspiralPhasing2_0PN (
      LALStatus *status,
@@ -1529,8 +1421,6 @@ void LALInspiralPhasing2_7PN (
 REAL8 XLALInspiralPhasing2_7PN (
       REAL8 v,
       expnCoeffs *ak);
-
-
 
 
 
@@ -1618,10 +1508,6 @@ REAL8 XLALInspiralPhasing3_7PN (
       expnCoeffs *ak);
 
 
-
-
-
-
 void LALInspiralTofV (
      LALStatus *,
      REAL8 *,
@@ -1631,10 +1517,6 @@ void LALInspiralTofV (
 REAL8 XLALInspiralTofV (
       REAL8,
       void *);
-
-
-
-
 
 void LALInspiralTofVIntegrand (
      LALStatus *status,
@@ -1729,9 +1611,6 @@ REAL8 XLALInspiralTiming2_7PN (
       REAL8 f,
       void *params);
 
-
-
-
 void LALInspiralFrequency3_0PN (
      LALStatus *status,
      REAL8 *frequency,
@@ -1824,10 +1703,6 @@ REAL4 LALInspiralHCrossPolarization(
      REAL8 v,
      InspiralTemplate *params );
 
-
-
-
-
 rk4GSLIntegrator * XLALRungeKutta4Init(
 		   INT4 n,
                    rk4In *input);
@@ -1849,9 +1724,6 @@ void XLALRungeKutta4Free(
      rk4GSLIntegrator *integrator);
 
 /* --- PARSING PROTOTYPE FOR INSPIRALTEMPLATE STRCUTURE --- */
-
-
-
 
 void
 LALInspiralITStructureParseParameters(
@@ -2041,6 +1913,21 @@ int XLALInspiralCalculateIIRSetInnerProduct(
 	REAL8Vector        *psd,
 	double             *ip
 	);
+
+int
+XLALNRInjectionFromSimInspiral(
+    REAL8TimeSeries **hplus,
+    REAL8TimeSeries **hcross,
+    SimInspiralTable *thisRow,
+    REAL8 deltaT
+);
+
+void XLALSimInjectNinjaSignals(
+        REAL4TimeSeries* chan,
+        const char *ifo,
+        REAL8 dynRange,
+        SimInspiralTable* events
+);
 
 /*---------------------------------------------------------------- */
 

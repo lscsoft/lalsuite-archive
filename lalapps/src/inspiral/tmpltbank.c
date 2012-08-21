@@ -23,7 +23,6 @@
  *
  * Author: Brown, D. A.
  *
- * Revision: $Id$
  *
  *-----------------------------------------------------------------------
  */
@@ -40,10 +39,15 @@
 #include <regex.h>
 #include <time.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
 #include <series.h>
 #include <processtable.h>
 #include <lalappsfrutils.h>
+
+#ifdef LALAPPS_CUDA_ENABLED
+#include <cuda_runtime_api.h>
+#endif
 
 #include <lal/LALConfig.h>
 #include <lal/LALStdio.h>
@@ -74,7 +78,6 @@
 
 #include "inspiral.h"
 
-RCSID( "$Id$" );
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
 #define CVS_REVISION "$Revision$"
@@ -444,7 +447,7 @@ int main ( int argc, char *argv[] )
         fqChanName[0] );
     sieve.srcRegEx = ifoRegExPattern;
     sieve.dscRegEx = frInType;
-    LAL_CALL( LALFrCacheSieve( &status, &frInCache, frGlobCache, &sieve ),
+    LAL_CALL( LALFrSieveCache( &status, &frInCache, frGlobCache, &sieve ),
         &status );
 
     /* check we got at least one frame file back after the sieve */
@@ -694,7 +697,7 @@ int main ( int argc, char *argv[] )
   /* remove pad from requested data from start and end of time series */
   memmove( chan.data->data, chan.data->data + padData * sampleRate,
       (chan.data->length - 2 * padData * sampleRate) * sizeof(REAL4) );
-  LALRealloc( chan.data->data,
+  XLALRealloc( chan.data->data,
       (chan.data->length - 2 * padData * sampleRate) * sizeof(REAL4) );
   chan.data->length -= 2 * padData * sampleRate;
   chan.epoch.gpsSeconds += padData;
@@ -947,18 +950,24 @@ int main ( int argc, char *argv[] )
     CHAR  candleComment[LIGOMETA_SUMMVALUE_COMM_MAX];
     REAL8 distance = 0;
 
-    while ( candleMass1 < 50.0 )
+    while ( candleMass1 <= 50.0 )
     {
-      /* experimental code to ease the computation of the standard candle */
-      distance = compute_candle_distance(candleMass1, candleMass2,
-          candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+      if ( approximant == EOB || approximant == EOBNR || approximant == EOBNRv2 || approximant == IMRPhenomA || approximant == IMRPhenomB )
+      {
+        distance = XLALCandleDistanceTD(approximant, candleMass1, candleMass2,
+            candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+      }
+      else
+      {
+        distance = compute_candle_distance(candleMass1, candleMass2,
+            candleSnr, chan.deltaT, numPoints, &(bankIn.shf), cut);
+      }
+     
+      snprintf( candleComment, LIGOMETA_SUMMVALUE_COMM_MAX,
+          "%3.2f_%3.2f_%3.2f", candleMass1, candleMass2, candleSnr );
 
       if ( vrbflg ) fprintf( stdout, "maximum distance for (%3.2f,%3.2f) "
           "at signal-to-noise %3.2f = ", candleMass1, candleMass2, candleSnr );
-
-      /* experimental code to populate the summValue table */
-      snprintf( candleComment, LIGOMETA_SUMMVALUE_COMM_MAX,
-          "%3.2f_%3.2f_%3.2f", candleMass1, candleMass2, candleSnr );
 
       this_summvalue =
         add_summvalue_table(this_summvalue, gpsStartTime, gpsEndTime,
@@ -1267,8 +1276,10 @@ cleanExit:
   if ( fqChanName ) free( fqChanName );
   LALCheckMemoryLeaks();
 
-  /* print a success message to stdout for parsing by exitcode */
-  fprintf( stdout, "%s: EXITCODE0\n", argv[0] );
+#ifdef LALAPPS_CUDA_ENABLED
+  cudaThreadExit();
+#endif
+
   exit( 0 );
 }
 
@@ -1328,17 +1339,17 @@ fprintf(a, "  --td-follow-up FILE          follow up BCV events contained in FIL
 fprintf(a, "\n");\
 fprintf(a, "  --standard-candle            compute a standard candle from the PSD\n");\
 fprintf(a, "  --candle-snr SNR             signal-to-noise ratio of standard candle\n");\
-fprintf(a, "  --candle-mass1 M             mass of first component in candle binary\n");\
-fprintf(a, "  --candle-mass2 M             mass of second component in candle binary\n");\
+fprintf(a, "  --candle-mass1 M             lowest mass for first component in candle binary\n");\
+fprintf(a, "  --candle-mass2 M             lowest mass for second component in candle binary - usually equals mass1\n");\
 fprintf(a, "\n");\
 fprintf(a, "  --low-frequency-cutoff F     do not filter below F Hz\n");\
 fprintf(a, "  --high-frequency-cutoff F    upper frequency cutoff in Hz\n");\
 fprintf(a, "  --disable-compute-moments    do not recompute the moments stored in the template bank. \n");\
 fprintf(a, "\n");\
-fprintf(a, "  --minimum-mass MASS          set minimum component mass of bank to MASS\n");\
+fprintf(a, "  --minimum-mass MASS          set minimum component mass of bank to MASS: required\n");\
 fprintf(a, "  --maximum-mass MASS          set maximum component mass of bank to MASS\n");\
-fprintf(a, "  --max-total-mass MASS        set maximum total mass of the bank to MASS\n");\
-fprintf(a, "  --min-total-mass MASS        set minimum total mass of the bank to MASS\n");\
+fprintf(a, "  --max-total-mass MASS        set maximum total mass of the bank to MASS. Will override --maximum-mass option\n");\
+fprintf(a, "  --min-total-mass MASS        set minimum total mass of the bank to MASS: --max-total-mass must also be given\n");\
 fprintf(a, "  --chirp-mass-cutoff MASS     set chirp mass cutoff to MASS\n");\
 fprintf(a, "  --max-eta ETA                set maximum symmetric mass ratio of the bank to ETA\n");\
 fprintf(a, "  --min-eta ETA                set minimum symmetric mass ratio of the bank to ETA\n");\
@@ -1404,6 +1415,9 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"segment-length",          required_argument, 0,                'd'},
     {"number-of-segments",      required_argument, 0,                'e'},
     {"sample-rate",             required_argument, 0,                'g'},
+#ifdef LALAPPS_CUDA_ENABLED
+    {"gpu-device-id",           required_argument, 0,                '+'},
+#endif
     {"calibrated-data",         required_argument, 0,                'M'},
     {"strain-high-pass-freq",   required_argument, 0,                'J'},
     {"strain-high-pass-order",  required_argument, 0,                'K'},
@@ -1473,6 +1487,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   };
 
   int c;
+#ifdef LALAPPS_CUDA_ENABLED
+  INT4 gpuDeviceID = 0;
+  cudaError_t cudaError = cudaSuccess;
+#endif
   ProcessParamsTable *this_proc_param = procparams.processParamsTable;
   UINT4   haveOrder       = 0;
   UINT4   haveApprox      = 0;
@@ -1499,8 +1517,13 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     size_t optarg_len;
 
     c = getopt_long_only( argc, argv,
+#ifdef LALAPPS_CUDA_ENABLED
+        "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:r:s:t:u:v:x:yz:X:0:"
+        "A:B:C:D:E:F:G:H:I:J:K:L:M:O:P:Q:R:S:T:U:VZ:1:2:3:4:5:6:7:8:9:+:",
+#else
         "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:r:s:t:u:v:x:yz:X:0:"
         "A:B:C:D:E:F:G:H:I:J:K:L:M:O:P:Q:R:S:T:U:VZ:1:2:3:4:5:6:7:8:9:",
+#endif
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -1627,6 +1650,23 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         }
         ADD_PROCESS_PARAM( "int", "%d", sampleRate );
         break;
+
+#ifdef LALAPPS_CUDA_ENABLED
+      case '+':
+        gpuDeviceID = (INT4) atoi( optarg );
+        cudaError = cudaSetDevice( gpuDeviceID );
+        if ( cudaError != cudaSuccess )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+                   "could not associate thread to GPU %d\n"
+                   "CudaError: %s\n",
+                   long_options[option_index].name, gpuDeviceID,
+                   cudaGetErrorString(cudaError));
+          exit( 1 );
+        }
+        ADD_PROCESS_PARAM( "int", "%d", gpuDeviceID );
+        break;
+#endif
 
       case 'M':
         /* specify which type of calibrated data */
@@ -2107,6 +2147,18 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         {
           approximant = EOBNR;
         }
+        else if ( ! strcmp( "EOBNRv2", optarg ) )
+        {
+          approximant = EOBNRv2;
+        }
+        else if ( ! strcmp( "IMRPhenomA", optarg ) )
+        {
+          approximant = IMRPhenomA;
+        }
+        else if ( ! strcmp( "IMRPhenomB", optarg ) )
+        {
+          approximant = IMRPhenomB;
+        }
         else if ( ! strcmp( "BCV", optarg ) )
         {
           approximant = BCV;
@@ -2128,7 +2180,8 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
           fprintf( stderr, "invalid argument to --%s:\n"
               "unknown order specified: "
               "%s (must be one of: TaylorT1, TaylorT2, TaylorT3, TaylorF1,\n"
-              "TaylorF2, PadeT1, PadeF1, EOB, EOBNR, BCV, SpinTaylorT3, BCVSpin)\n"
+              "TaylorF2, PadeT1, PadeF1, EOB, EOBNR, EOBNRv2, IMRPhenomA,\n"
+              "IMRPhenomB, BCV, SpinTaylorT3, BCVSpin\n"
               "or FindChirpPTF)\n", long_options[option_index].name, optarg );
           exit( 1 );
         }

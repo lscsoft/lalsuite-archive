@@ -74,19 +74,12 @@ typedef struct tagFoldAmplitudesParams
 #ifndef _FOLDAMPLITUDES_H
 #define _FOLDAMPLITUDES_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 /******* INCLUDE ANY OTHER LAL HEADERS needed for header (NOT module) ****/
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-NRCSID (FOLDAMPLITUDESH, "$Id$");
 
 /**\name Error Codes */ /*@{*/
 
@@ -110,7 +103,6 @@ NRCSID (FOLDAMPLITUDESH, "$Id$");
 
 typedef struct tagFoldAmplitudesInput
 {
-  SWIGLAL_STRUCT_LALALLOC();
 
   REAL4Vector 	*amplitudeVec;  /* input vector of amplitudes */
   REAL4Vector  	*phaseVec;      /* input vector of phases */
@@ -119,7 +111,6 @@ typedef struct tagFoldAmplitudesInput
 
 typedef struct tagFoldAmplitudesParams
 {
-  SWIGLAL_STRUCT_LALALLOC();
 
   INT4		numBins;       /* number of bins */
   REAL4		binMin;        /* minimum phase to bin */

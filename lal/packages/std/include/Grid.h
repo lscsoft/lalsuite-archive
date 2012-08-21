@@ -17,32 +17,8 @@
 *  MA  02111-1307  USA
 */
 
-/**
-\author Creighton, T. D.
-\file
-
-\brief Provides a structured datatype for a multidimensional rectilinear grid.
-
-\heading{Synopsis}
-\code
-#include <lal/Grid.h>
-\endcode
-
-This header provides a new structured datatype storing data
-on a multidimensional rectilinear grid.  It is in some sense a
-generalization of the series datatypes (frequency series, time series,
-etc.), representing evenly-sampled data over some physical parameter
-space.
-
-*/
-
 #ifndef _GRID_H
 #define _GRID_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 #include <lal/LALStdlib.h>
 
@@ -50,30 +26,31 @@ space.
 extern "C" {
 #endif
 
-NRCSID( GRIDH, "$Id$" );
-
 /**
-\heading{Error conditions}
- \name Error Codes */ /*@{*/
-#define GRIDH_ENUL 1
-#define GRIDH_EOUT 2
-#define GRIDH_EMEM 3
+   \addtogroup Grid_h
+   \author Creighton, T. D.
 
-#define GRIDH_MSGENUL "Unexpected null pointer in arguments"
-#define GRIDH_MSGEOUT "Output handle points to a non-null pointer"
-#define GRIDH_MSGEMEM "Memory allocation error"
-/*@}*//**
+   \brief Provides a structured datatype for a multidimensional rectilinear grid.
 
-\heading{Types}
+   \heading{Synopsis}
+   \code
+   #include <lal/Grid.h>
+   \endcode
+
+This header provides a new structured datatype storing data
+on a multidimensional rectilinear grid.  It is in some sense a
+generalization of the series datatypes (frequency series, time series,
+etc.), representing evenly-sampled data over some physical parameter
+space.
 
 \heading{Structure <tt>\<datatype\>Grid</tt>}
 
 This structure is a generalization of the LAL series types,
 storing data on an \f$m\f$-dimensional rectangular grid on a physical
 parameter space.  The values on the grid are of type <tt>\<datatype\></tt>
-which can be any LAL primitive \e numerical datatype (\c INT2,
-\c INT4, \c INT8, \c UINT2, \c UINT4, \c UINT8,
-\c REAL4, \c REAL8, \c COMPLEX8, \c COMPLEX16).  The
+which can be any LAL primitive \e numerical datatype (#INT2,
+#INT4, #INT8, #UINT2, #UINT4, #UINT8,
+#REAL4, #REAL8, #COMPLEX8, #COMPLEX16).  The
 data are stored in an array of dimension \f$M\geq m\f$: if \f$M=m\f$, then the
 structure stores a single value for each grid point; if \f$M>m\f$, then
 the structure stores a vector or array of values on the ``tangent
@@ -112,10 +89,69 @@ i_{M-1}}\f$ at that grid point if \f$M>m\f$.  The values in
 element at each grid point), arranged in the manner discussed in
 \ref LALDatatypes.h.</dd>
 </dl>
+
+
+\heading{Prototypes}
+
+\code
+void
+LAL<typecode>CreateGrid( LALStatus      *stat,
+                         <datatype>Grid **grid,
+                         UINT4Vector    *dimLength,
+                         UINT4          dimension )
+
+void
+LAL<typecode>DestroyGrid( LALStatus      *stat,
+                          <datatype>Grid **grid )
+\endcode
+
+\heading{Description}
+
+These routines create or destroy a <tt>\<datatype\>Grid</tt> structure.
+The input vector \c dimLength stores the lengths of each dimension
+of the grid \e and of the array at each grid point: in the
+notation defined in \ref Grid.h, <tt>dimLength->length</tt>\f$=M\f$.  The
+parameter \c dimension gives the dimension \f$m\f$ of the physical
+grid space; if \f$M>m\f$, then the remaining dimensions refer to a tangent
+space at each grid point.  When creating a grid, the routines allocate
+space for all the internal vectors and arrays, but no data are filled
+in, with the exception of the <tt>(*grid)->data->dimLength</tt> vector
+(which will contain exactly the same data as the \c dimLength
+input parameter).  When calling the <tt>LAL\<typecode\>CreateGrid()</tt>
+routines, or on returning from the <tt>LAL\<typecode\>DestroyGrid()</tt>
+routines, \c grid should be a non-\c NULL handle to a
+\c NULL-valued pointer.
+
+For each of these prototype templates there are in fact 10 separate
+routines corresponding to all the numerical atomic datatypes
+<tt>\<datatype\></tt> referred to by <tt>\<typecode\></tt>:
+
+<table>
+<tr><th>\<typecode\></th><th>\<datatype\></th><th>\<typecode\></th><th>\<datatype\></th></tr>
+<tr><td>I2</td><td>  INT2</td><td> U2</td><td>    UINT2</td></tr>
+<tr><td>I4</td><td>  INT4</td><td> U4</td><td>    UINT4</td></tr>
+<tr><td>I8</td><td>  INT8</td><td> U8</td><td>    UINT8</td></tr>
+<tr><td> S</td><td> REAL4</td><td>  C</td><td> COMPLEX8</td></tr>
+<tr><td> D</td><td> REAL8</td><td>  Z</td><td> COMPLEX16</td></tr>
+</table>
+
 */
+/*@{*/
+
+/** \name Error Codes */ /*@{*/
+#define GRIDH_ENUL 1	/**< Unexpected null pointer in arguments */
+#define GRIDH_EOUT 2	/**< Output handle points to a non-null pointer */
+#define GRIDH_EMEM 3	/**< Memory allocation error */
+/*@}*/
+/*@}*/
+
+/** \cond DONT_DOXYGEN */
+#define GRIDH_MSGENUL "Unexpected null pointer in arguments"
+#define GRIDH_MSGEOUT "Output handle points to a non-null pointer"
+#define GRIDH_MSGEMEM "Memory allocation error"
+/** \endcond */
 
 typedef struct tagINT2Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -125,7 +161,6 @@ typedef struct tagINT2Grid {
 } INT2Grid;
 
 typedef struct tagINT4Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -135,7 +170,6 @@ typedef struct tagINT4Grid {
 } INT4Grid;
 
 typedef struct tagINT8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -145,7 +179,6 @@ typedef struct tagINT8Grid {
 } INT8Grid;
 
 typedef struct tagUINT2Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -155,7 +188,6 @@ typedef struct tagUINT2Grid {
 } UINT2Grid;
 
 typedef struct tagUINT4Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -165,7 +197,6 @@ typedef struct tagUINT4Grid {
 } UINT4Grid;
 
 typedef struct tagUINT8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -175,7 +206,6 @@ typedef struct tagUINT8Grid {
 } UINT8Grid;
 
 typedef struct tagREAL4Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -185,7 +215,6 @@ typedef struct tagREAL4Grid {
 } REAL4Grid;
 
 typedef struct tagREAL8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -195,7 +224,6 @@ typedef struct tagREAL8Grid {
 } REAL8Grid;
 
 typedef struct tagCOMPLEX8Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -205,7 +233,6 @@ typedef struct tagCOMPLEX8Grid {
 } COMPLEX8Grid;
 
 typedef struct tagCOMPLEX16Grid {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR name[LALNameLength];
   LALUnit sampleUnits;
   LALUnit *dimUnits;
@@ -220,9 +247,6 @@ typedef struct tagCOMPLEX16Grid {
 
 
 /* Function prototypes. */
-
-
-
 
 void
 LALI2CreateGrid( LALStatus *status, INT2Grid **grid, UINT4Vector *dimLength, UINT4 dimension );
@@ -284,10 +308,6 @@ LALCDestroyGrid( LALStatus *status, COMPLEX8Grid **grid );
 
 void
 LALZDestroyGrid( LALStatus *status, COMPLEX16Grid **grid );
-
-/**
-%
-*/
 
 #ifdef __cplusplus
 }

@@ -173,7 +173,7 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
     self.set_sub_file(tag_base+'.sub')
     self.set_stdout_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).out')
     self.set_stderr_file('logs/'+tag_base+run_tag+'-$(macroid)-$(process).err')
-    
+
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
@@ -247,27 +247,31 @@ for comb in ifo_combinations:
     evaluation_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_set'+str(i)+'_'+'evaluation.pat')
     evaluation_info_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_set'+str(i)+'_'+'evaluation_info.pat')
   zerolag_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_zerolag.pat')
-  zerolag_info_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_zerolag.pat')
+  zerolag_info_files[comb].append(combstr+'_'+cp.get("mvsc_get_doubles","output-tag")+'_zerolag_info.pat')
   if opts.skip_file_generation:
     get_node[comb] = None
   else:
     get_node[comb] = mvsc_get_doubles_node(get_job, dag, cp.items("mvsc_get_doubles"), comb, databases, training_files[comb]+evaluation_files[comb]+evaluation_info_files[comb]+zerolag_files[comb]+zerolag_info_files[comb])
   train_node[comb] = {}
   rank_node[comb] = {}
+  zl_rank_node[comb] = {}
   for i,file in enumerate(training_files[comb]):
     update_files.append(evaluation_info_files[comb][i])
     if opts.skip_file_generation: train_node[comb][i] = train_forest_node(train_job, dag, file, p_node = [])
     else: train_node[comb][i] = train_forest_node(train_job, dag, file, p_node = [get_node[comb]])
     try: rank_node[comb]
     except: rank_node[comb]={}
-    rank_node[comb][i] = use_forest_node(rank_job, dag, train_node[comb][i].trainedforest, str(evaluation_files[comb][i]), p_node=[train_node[comb][i]]) 
+    rank_node[comb][i] = use_forest_node(rank_job, dag, train_node[comb][i].trainedforest, str(evaluation_files[comb][i]), p_node=[train_node[comb][i]])
     update_files.append(rank_node[comb][i].ranked_file)
   for i,file in enumerate(zerolag_files[comb]):
-    zl_rank_node[comb] = use_forest_node(zl_rank_job, dag, train_node[comb][0].trainedforest, str(zerolag_files[comb][i]), p_node=[train_node[comb][0]])
+    update_files.append(zerolag_info_files[comb][i])
+    zl_rank_node[comb][i] = use_forest_node(zl_rank_job, dag, train_node[comb][0].trainedforest, str(zerolag_files[comb][i]), p_node=[train_node[comb][0]])
+    update_files.append(zl_rank_node[comb][i].ranked_file)
 finished_rank_nodes=[]
 for key in rank_node:
   finished_rank_nodes.extend(rank_node[key].values())
-update_node['all'] = mvsc_update_sql_node(update_job, dag, databases+update_files, p_node=finished_rank_nodes+zl_rank_node.values())
+  finished_rank_nodes.extend(zl_rank_node[key].values())
+update_node['all'] = mvsc_update_sql_node(update_job, dag, databases+update_files, p_node=finished_rank_nodes)
 print update_files
 dag.write_sub_files()
 dag.write_dag()

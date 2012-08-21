@@ -323,32 +323,32 @@ class segment(tuple):
 		return 0
 
 	def __lt__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__lt__(self, other)
 		return self[0] < other
 
 	def __le__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__le__(self, other)
 		return self[0] <= other
 
 	def __eq__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__eq__(self, other)
 		return self[0] == other
 
 	def __ne__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__ne__(self, other)
 		return self[0] != other
 
 	def __gt__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__gt__(self, other)
 		return self[0] > other
 
 	def __ge__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__ge__(self, other)
 		return self[0] >= other
 

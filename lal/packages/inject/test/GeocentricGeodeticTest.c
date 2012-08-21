@@ -27,8 +27,6 @@
 #include <lal/Date.h>
 #include <lal/SkyCoordinates.h>
 
-NRCSID( GEOCENTRICGEODETICTESTC, "$Id$" );
-
 /**
 \author Creighton, T. D.
 \file
@@ -100,19 +98,10 @@ expression for \f$v\f$ with a power series, as described in
 equatorial plane.  The point of transition has been tuned by hand, so
 that the errors due to series truncation just within the wedge are
 about the same as the numerical loss of precision just outside of it.
+*/
 
-\heading{Uses}
-\code
-lalDebugLevel
-LALPrintError()                 LALCheckMemoryLeaks()
-LALGeocentricToGeodetic()       LALGeodeticToGeocentric()
-LALCreateRandomParams()         LALDestroyRandomParams()
-LALUniformDeviate()
-\endcode
-
-\heading{Notes}
-
-\name Error Codes */ /**@{*/
+/** \name Error Codes */
+/*@{*/
 #define GEOCENTRICGEODETICTESTC_ENORM 0	/**< Normal exit */
 #define GEOCENTRICGEODETICTESTC_ESUB  1	/**< Subroutine failed */
 #define GEOCENTRICGEODETICTESTC_EARG  2	/**< Error parsing arguments */
@@ -142,7 +131,7 @@ if ( lalDebugLevel & LALERROR )                                      \
 {                                                                    \
   LALPrintError( "Error[0] %d: program %s, file %s, line %d, %s\n"   \
 		 "        %s %s\n", (code), *argv, __FILE__,         \
-		 __LINE__, GEOCENTRICGEODETICTESTC, statement ?      \
+		 __LINE__, "$Id$", statement ?      \
                  statement : "", (msg) );                            \
 }                                                                    \
 while (0)
@@ -153,7 +142,7 @@ if ( lalDebugLevel & LALINFO )                                       \
 {                                                                    \
   LALPrintError( "Info[0]: program %s, file %s, line %d, %s\n"       \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 GEOCENTRICGEODETICTESTC, (statement) );             \
+		 "$Id$", (statement) );             \
 }                                                                    \
 while (0)
 
@@ -163,7 +152,7 @@ if ( lalDebugLevel & LALWARNING )                                    \
 {                                                                    \
   LALPrintError( "Warning[0]: program %s, file %s, line %d, %s\n"    \
 		 "        %s\n", *argv, __FILE__, __LINE__,          \
-		 GEOCENTRICGEODETICTESTC, (statement) );             \
+		 "$Id$", (statement) );             \
 }                                                                    \
 while (0)
 

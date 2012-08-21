@@ -134,7 +134,7 @@ def get_unique_filename(name):
 gridfile = open(opts.grids,'r')
 griddata = cPickle.load(gridfile)
 grid = griddata['grids']
-fbins = griddata['skybins']
+#fbins = griddata['skybins']
 coarse_res = griddata['coarse_res']
 fine_res = griddata['fine_res']
 gridfile.close()

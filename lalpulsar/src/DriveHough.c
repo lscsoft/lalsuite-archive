@@ -20,7 +20,6 @@
 #include <lal/LALHough.h>
 
 /** \cond DONT_DOXYGEN */
-NRCSID (DRIVEHOUGHC, "$Id$");
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -58,11 +57,10 @@ void LALHOUGHConstructSpacePHMD  (LALStatus            *status,	/**< pointer to 
   UINT4    length;    /* number of elements for each frequency */
   UINT8    fBinMin;   /* present minimum frequency bin */
   UINT8    fBin;      /* present frequency bin */
-  REAL8    deltaF;    /* frequency resolution */
 
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHConstructSpacePHMD", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -95,8 +93,9 @@ void LALHOUGHConstructSpacePHMD  (LALStatus            *status,	/**< pointer to 
   length = phmdVS->length;
   nfSize = phmdVS->nfSize;
   fBinMin = phmdVS->fBinMin;
-  deltaF =  phmdVS->deltaF = lutV->lut[0].deltaF;
-
+#ifndef LAL_NDEBUG
+  REAL8 deltaF =  phmdVS->deltaF = lutV->lut[0].deltaF;   /* frequency resolution */
+#endif
 
   for ( k=0; k<length; ++k ){
 
@@ -134,11 +133,10 @@ void LALHOUGHupdateSpacePHMDup  (LALStatus            *status,
   UINT4    length;    /* number of elements for each frequency */
   UINT8    fBinMin;   /* minimum frequency bin */
   UINT8    fBin;      /* present frequency bin */
-  REAL8    deltaF;    /* frequency resolution */
 
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHupdateSpacePHMDup", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -168,7 +166,9 @@ void LALHOUGHupdateSpacePHMDup  (LALStatus            *status,
 
   length = phmdVS->length;
   nfSize = phmdVS->nfSize;
-  deltaF =  phmdVS->deltaF;
+#ifndef LAL_NDEBUG
+  REAL8 deltaF =  phmdVS->deltaF;
+#endif
 
   breakLine = phmdVS->breakLine; /* old Break Line */
   fBinMin = phmdVS->fBinMin; /* initial frequency value  */
@@ -219,11 +219,9 @@ void LALHOUGHupdateSpacePHMDdn  (LALStatus            *status,
   UINT4    length;    /* number of elements for each frequency */
 
   UINT8    fBin;      /* present frequency bin */
-  REAL8    deltaF;    /* frequency resolution */
-
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHupdateSpacePHMDdn", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -252,7 +250,9 @@ void LALHOUGHupdateSpacePHMDdn  (LALStatus            *status,
 
   length = phmdVS->length;
   nfSize = phmdVS->nfSize;
-  deltaF =  phmdVS->deltaF;
+#ifndef LAL_NDEBUG
+  REAL8 deltaF =  phmdVS->deltaF;
+#endif
 
   breakLine = phmdVS->breakLine; /* old Break Line */
 
@@ -315,7 +315,7 @@ void LALHOUGHConstructHMT  (LALStatus                  *status,	/**< pointer to 
   HOUGHMapDeriv hd; /* the Hough map derivative */
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHConstructHMT", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -419,7 +419,7 @@ void LALHOUGHComputeFBinMap (LALStatus             *status,
   REAL8   timeDiffProd;
   REAL8   deltaF;  /*  df=1/TCOH  */
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHComputeFBinMap", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -485,7 +485,7 @@ void LALHOUGHConstructHMT_W (LALStatus                  *status,	/**< pointer to
   HOUGHMapDeriv hd; /* the Hough map derivative */
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHConstructHMT_W", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -581,7 +581,7 @@ void LALHOUGHWeighSpacePHMD  (LALStatus            *status,	/**< pointer to LALS
   UINT4    length;    /* number of elements for each frequency */
   /* --------------------------------------------- */
 
-  INITSTATUS (status, "LALHOUGHWeighSpacePHMD", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -631,7 +631,7 @@ void LALHOUGHInitializeWeights  (LALStatus  *status,	/**< pointer to LALStatus s
   UINT4 j, length;
 
    /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHInitializeWeights", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -667,7 +667,7 @@ void LALHOUGHNormalizeWeights  (LALStatus  *status,	/**< pointer to LALStatus st
   REAL8 sum;
 
    /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHNormalizeWeights", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -721,7 +721,7 @@ void LALHOUGHComputeAMWeights  (LALStatus          *status,
   BarycenterInput baryinput;
 
    /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHComputeAMWeights", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
 
@@ -861,7 +861,7 @@ void LALHOUGHComputeMultiIFOAMWeights  (LALStatus          *status,
 {
 
   /* --------------------------------------------- */
-  INITSTATUS (status, "LALHOUGHComputeAMWeights", DRIVEHOUGHC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   ASSERT (weightV, status, LALHOUGHH_ENULL, LALHOUGHH_MSGENULL);

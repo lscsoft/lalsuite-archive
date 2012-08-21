@@ -292,31 +292,67 @@ class LikelihoodRatio(Likelihood):
 
 
 #
-# Main routine
+# Core routine
 #
 
 
-def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, params_func_extra_args = ()):
+def assign_likelihood_ratios(connection, coinc_def_id, offset_vectors, vetoseglists, events_func, veto_func, likelihood_ratio_func, likelihood_params_func, verbose = False, params_func_extra_args = ()):
 	"""
-	Assigns likelihood ratio values to excess power coincidences.
-	database is pylal.SnglBurstUtils.CoincDatabase instance, and
-	likelihood_ratio is a LikelihoodRatio class instance.
+	Assigns likelihood ratio values to coincidences.
 	"""
 	#
-	# Get offset vectors.  Convert keys to strings so that we can use
-	# the dictionary inside an SQL query
+	# Convert offset vector keys to strings so that we can use the
+	# dictionary inside an SQL query
 	#
 
-	offset_vectors = database.time_slide_table.as_dict()
 	offset_vectors = dict((unicode(time_slide_id), offset_vector) for time_slide_id, offset_vector in offset_vectors.items())
 
 	#
-	# Construct the in-SQL likelihood ratio function
+	# Construct the in-SQL likelihood ratio function.  Rely on Python's
+	# closure mechanism to retain all local variables at the time of
+	# this function's creation for use inside the function.
 	#
 
-	def get_likelihood_ratio(coinc_event_id, time_slide_id, row_from_cols = database.sngl_burst_table.row_from_cols, cursor = database.connection.cursor(), vetoseglists = database.vetoseglists, offset_vectors = offset_vectors, params_func = params_func, params_func_extra_args = params_func_extra_args):
+	def likelihood_ratio(coinc_event_id, time_slide_id, cursor = connection.cursor()):
 		try:
-			events = map(row_from_cols, cursor.execute("""
+			return likelihood_ratio_func(likelihood_params_func([event for event in events_func(cursor, coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[time_slide_id], *params_func_extra_args))
+		except:
+			traceback.print_exc()
+			raise
+
+	connection.create_function("likelihood_ratio", 2, likelihood_ratio)
+
+	#
+	# Iterate over all coincs, assigning likelihood ratios to
+	# burst+burst coincs if the document contains them.
+	#
+
+	if verbose:
+		print >>sys.stderr, "computing likelihood ratios ..."
+
+	connection.cursor().execute("""
+UPDATE
+	coinc_event
+SET
+	likelihood = likelihood_ratio(coinc_event_id, time_slide_id)
+WHERE
+	coinc_def_id == ?
+	""", (coinc_def_id,))
+
+	#
+	# Done
+	#
+
+	connection.commit()
+
+
+#
+# Burst-specific interface
+#
+
+
+def sngl_burst_events_func(cursor, coinc_event_id, row_from_cols):
+	return map(row_from_cols, cursor.execute("""
 SELECT
 	sngl_burst.*
 FROM
@@ -327,32 +363,36 @@ FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-			""", (coinc_event_id,)))
-			return likelihood_ratio(params_func([event for event in events if event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]], offset_vectors[time_slide_id], *params_func_extra_args))
-		except:
-			traceback.print_exc()
-			raise
+	""", (coinc_event_id,)))
 
-	database.connection.create_function("likelihood_ratio", 2, get_likelihood_ratio)
 
+def sngl_burst_veto_func(event, vetoseglists):
+	# return True if event should be *retained*
+	return event.ifo not in vetoseglists or event.get_peak() not in vetoseglists[event.ifo]
+
+
+def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, params_func_extra_args = ()):
+	"""
+	Assigns likelihood ratio values to excess power coincidences.
+	database is pylal.SnglBurstUtils.CoincDatabase instance, and
+	likelihood_ratio is a LikelihoodRatio class instance.
+	"""
 	#
-	# Iterate over all coincs, assigning likelihood ratios to
-	# burst+burst coincs if the document contains them.
+	# Run core function
 	#
 
-	if verbose:
-		print >>sys.stderr, "computing likelihood ratios ..."
-		n_coincs = len(database.coinc_table)
-
-	database.connection.cursor().execute("""
-UPDATE
-	coinc_event
-SET
-	likelihood = likelihood_ratio(coinc_event_id, time_slide_id)
-WHERE
-	coinc_def_id == ?
-	""", (database.bb_definer_id,))
-	database.connection.commit()
+	assign_likelihood_ratios(
+		connection = database.connection,
+		coinc_def_id = database.bb_definer_id,
+		offset_vectors = database.time_slide_table.as_dict(),
+		vetoseglists = database.vetoseglists,
+		events_func = lambda cursor, coinc_event_id: sngl_burst_events_func(cursor, conic_event_id, database.sngl_burst_table.row_from_cols),
+		veto_func = sngl_burst_veto_func,
+		likelihood_ratio_func = likelihood_ratio,
+		likelihood_params_func = params_func,
+		verbose = verbose,
+		params_func_extra_args = params_func_extra_args
+	)
 
 	#
 	# Done

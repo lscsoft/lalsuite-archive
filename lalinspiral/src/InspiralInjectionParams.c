@@ -23,10 +23,10 @@
  *  \brief Functions for generating random distributions of inspiral parameters
  *  for injection purposes
  *
- * $Id$
  *
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,8 +42,6 @@
 #include <lal/TimeDelay.h>
 #include <lal/InspiralInjectionParams.h>
 #include <lal/VectorOps.h>
-
-NRCSID (INSPIRALINJECTIONPARAMSC,"$Id$");
 
 /** Generates the geocent_end_time for an inspiral injection, based on the
  * given startTime and timeWindow */
@@ -92,6 +90,16 @@ SimInspiralTable* XLALRandomInspiralDistance(
   else if (dDist == uniformVolume )
   {
     /* uniform volume distribution */
+    REAL4 d3min = distMin * distMin * distMin;
+    REAL4 d3max = distMax * distMax * distMax;
+    REAL4 deltad3 = d3max - d3min ;
+    REAL4 d3;
+    d3 = d3min + deltad3 * XLALUniformDeviate( randParams );
+    inj->distance = cbrt( d3 );
+  }
+  else if (dDist == uniformDistanceSquared)
+  {
+    /* uniform distance^2 distribution */
     REAL4 d2min = distMin * distMin ;
     REAL4 d2max = distMax * distMax ;
     REAL4 deltad2 = d2max - d2min ;
@@ -368,7 +376,7 @@ SimInspiralTable* XLALRandomInspiralTotalMassRatio(
   else
   {
     /* unsupported distribution type */
-    XLAL_ERROR_NULL("XLALRandomInspiralTotalMassRatio", XLAL_EINVAL);
+    XLAL_ERROR_NULL(XLAL_EINVAL);
   }
   inj->mass1 = (ratio * mtotal) / (ratio + 1);
   inj->mass2 = mtotal / (ratio + 1);
@@ -405,7 +413,7 @@ SimInspiralTable* XLALRandomInspiralTotalMassFraction(
   else
   {
     /* unsupported distribution type */
-    XLAL_ERROR_NULL("XLALRandomInspiralTotalMassFraction", XLAL_EINVAL);
+    XLAL_ERROR_NULL(XLAL_EINVAL);
   }
   inj->mass1 = fraction * mtotal;
   inj->mass2 = mtotal - inj->mass1;
@@ -733,4 +741,3 @@ COMPLEX8FrequencySeries *generateActuation(
   return( resp );
 
 }
-

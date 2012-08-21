@@ -66,21 +66,19 @@ lalDebugLevel
 #include <lal/Grid.h>
 #include <lal/TwoDMesh.h>
 
-/** \cond DONT_DOXYGEN */
-NRCSID( TWODMESHRANGESC, "$Id$" );
-/** \endcond */
-
 void
 LALInterpolateRangePolygon( LALStatus *stat, REAL4 range[2], REAL4 x, void *params )
 {
-  REAL4VectorSequence *p; /* params cast to a REAL4VectorSequence */
+  INITSTATUS(stat);
 
-  INITSTATUS( stat, "LALGetNearestRange", TWODMESHRANGESC );
+  if ( !params )
+    ABORT ( stat, TWODMESHH_ENUL, TWODMESHH_MSGENUL );
 
-  p = (REAL4VectorSequence *)params;
   /* This function may be called a lot.  Do error checking only in
      debug mode. */
-#ifndef NDEBUG
+#ifndef LAL_NDEBUG
+  REAL4VectorSequence *p; /* params cast to a REAL4VectorSequence */
+  p = (REAL4VectorSequence *)params;
   if ( lalDebugLevel ) {
     ASSERT( p, stat, TWODMESHH_ENUL, TWODMESHH_MSGENUL );
     ASSERT( p->data, stat, TWODMESHH_ENUL, TWODMESHH_MSGENUL );
@@ -107,7 +105,7 @@ LALInterpolateRangeGrid( LALStatus *stat, REAL4 range[2], REAL4 x, void *params 
   INT4 iInt;    /* integral part of i */
   REAL4 iFrac;  /* fractional parts of i */
 
-  INITSTATUS( stat, "LALGetNearestRange", TWODMESHRANGESC );
+  INITSTATUS(stat);
 
   p = (REAL4Grid *)params;
   /* This function may be called a lot.  Do error checking only in

@@ -91,12 +91,13 @@ lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
 
 InspiralSICoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 1, description = u"sim_inspiral<-->sngl_inspiral coincidences")
 InspiralSCNearCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 2, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
+InspiralSCExactCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 3, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
 
 class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, bbdef, sbdef, scndef, process):
+	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process):
 		#
 		# store the process row
 		#
@@ -111,6 +112,14 @@ class DocContents(object):
 		self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
 
 		#
+		# get out segment lists for programs that generated
+		# triggers (currently only used for time_slide vector
+		# construction)
+		#
+
+		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
+
+		#
 		# construct the zero-lag time slide needed to cover the
 		# instruments listed in all the triggers, then determine
 		# its ID (or create it if needed)
@@ -119,7 +128,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglinspiraltable.getColumnByName("ifo"), 0.0), create_new = process)
+		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_inspiral <--> sngl_inspiral
@@ -131,17 +140,19 @@ class DocContents(object):
 
 		#
 		# get coinc_def_id's for sngl_inspiral <--> sngl_inspiral, and
-		# the sim_inspiral <--> coinc_event coincs.  set all
+		# both kinds of sim_inspiral <--> coinc_event coincs.  set all
 		# to None if this document does not contain any sngl_inspiral
 		# <--> sngl_inspiral coincs.
 		#
 
 		try:
-			bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			ii_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
-			bb_coinc_def_id = None
+			ii_coinc_def_id = None
+			self.sce_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
+			self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
 			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
@@ -180,7 +191,7 @@ class DocContents(object):
 		# find IDs of inspiral<-->inspiral coincs
 		self.coincs = {}
 		for coinc in self.coinctable:
-			if coinc.coinc_def_id == bb_coinc_def_id:
+			if coinc.coinc_def_id == ii_coinc_def_id:
 				self.coincs[coinc.coinc_event_id] = []
 		# construct event list for each inspiral<-->inspiral coinc
 		for row in self.coincmaptable:
@@ -241,7 +252,7 @@ class DocContents(object):
 
 	def sort_triggers_by_id(self):
 		"""
-		Sort the sngl_burst table's rows by ID (tidy-up document
+		Sort the sngl_inspiral table's rows by ID (tidy-up document
 		for output).
 		"""
 		self.snglinspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
@@ -326,7 +337,7 @@ class CompareFunctions:
 #
 # =============================================================================
 #
-#                 Build sim_burst <--> sngl_burst Coincidences
+#                 Build sim_inspiral <--> sngl_inspiral Coincidences
 #
 # =============================================================================
 #
@@ -366,13 +377,13 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 #
 # =============================================================================
 #
-#                   Build sim_burst <--> coinc Coincidences
+#                   Build sim_inspiral <--> coinc Coincidences
 #
 # =============================================================================
 #
 
 
-def find_coinc_matches(coincs, sim, comparefunc):
+def find_exact_coinc_matches(coincs, sim, comparefunc):
 	"""
 	Return a list of the coinc_event_ids of the inspiral<-->inspiral coincs
 	in which all inspiral events match sim.
@@ -436,9 +447,10 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 
 	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef}[search]
 	sbdef = {"inspiral": InspiralSICoincDef}[search]
+	scedef = {"inspiral": InspiralSCExactCoincDef}[search]
 	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
 
-	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scndef = scndef, process = process)
+	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process)
 	N = len(contents.siminspiraltable)
 
 	#
@@ -467,9 +479,13 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			coincs = contents.coincs_near_endtime(sim.get_end())
-			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
-			if coinc_event_ids:
-				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
+			exact_coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
+			near_coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
+			assert set(exact_coinc_event_ids).issubset(set(near_coinc_event_ids))
+			if exact_coinc_event_ids:
+				add_sim_coinc_coinc(contents, sim, exact_coinc_event_ids, contents.sce_coinc_def_id)
+			if near_coinc_event_ids:
+				add_sim_coinc_coinc(contents, sim, near_coinc_event_ids, contents.scn_coinc_def_id)
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 

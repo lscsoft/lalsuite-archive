@@ -21,14 +21,6 @@
  *  MA  02111-1307  USA
  */
 
-/**
- * \author Reinhard Prix
- * \date 2005
- * \file
- * \brief General-purpose log-message handling, controlled by logLevel independent of lalDebugLevel
- * 	  mostly modelled after the MSG_LOG class in BOINC.
- */
-
 /* Windows version fixed by Bernd Machenschalk */
 
 /*---------- INCLUDES ----------*/
@@ -52,16 +44,6 @@
 #include <time.h>
 
 #include "LogPrintf.h"
-
-NRCSID (LOGPRINTFC,"$Id$");
-
-/*---------- DEFINES ----------*/
-#  ifndef __GNUC__
-static volatile const char *name  = "$Id$";
-#  else
-static volatile const char __attribute__ ((unused)) *name  = "$Id$";
-#  endif /* !__GNUC__ */
-
 
 /* output file for log messages, default to standard error */
 #define LogOutputDefault stderr
@@ -87,14 +69,14 @@ static const char *LogFormatLevel( LogLevel_t level );
 
 /*==================== FUNCTION DEFINITIONS ====================*/
 
-/* set the output file for log messages */
+/** Set the output file for log messages */
 void LogSetFile(FILE *file)
 {
   LogOutput = file;
   return;
 }
 
-/* set the log-level to be used in this module.
+/* Set the log-level to be used in this module.
  * (allow independence of lalDebugLevel!)
  */
 void
@@ -194,8 +176,6 @@ LogTimeToString ( double t )
 REAL8
 XLALGetTimeOfDay ( void )
 {
-  const char *fn = __func__;
-
 #ifdef _MSC_VER
   /* Windows version of dtime() from BOINC.
      Compile switch is MS compiler macro,
@@ -217,8 +197,8 @@ XLALGetTimeOfDay ( void )
 
   struct timeval tv;
   if ( gettimeofday ( &tv, NULL ) != 0 ) {
-    XLALPrintError ("%s: call to gettimeofday() failed with errno = %d\n", fn, errno );
-    XLAL_ERROR_REAL8 ( fn, XLAL_ESYS );
+    XLALPrintError ("%s: call to gettimeofday() failed with errno = %d\n", __func__, errno );
+    XLAL_ERROR_REAL8 ( XLAL_ESYS );
   }
 
   return tv.tv_sec + (tv.tv_usec/1.e6);
@@ -387,4 +367,3 @@ XLALClearLinebreaks ( const char *str )
   return ret;
 
 } /* XLALClearLinebreaks() */
-

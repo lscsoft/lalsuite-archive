@@ -27,7 +27,6 @@
 #include <lal/TimeSeries.h>
 #include <lal/FrequencySeries.h>
 #include <lal/LALSimInspiral.h>
-#include <lal/LALSimInspiralSpinTaylorT4.h>
 #include <lal/XLALError.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 
@@ -36,7 +35,7 @@
 int main (int argc , char **argv) 
 {
     FILE *f;
-    int status, i, len;
+    int i, len;
     REAL8 lnhatx, lnhaty, lnhatz, e1x, e1y, e1z;
     REAL8TimeSeries *V = NULL;
     REAL8TimeSeries *Phi = NULL;
@@ -61,12 +60,17 @@ int main (int argc , char **argv)
     REAL8 s2y = 0.8;
     REAL8 s2z = 0.1;
     REAL8 inclination = 1.;
+    REAL8 lambda1 = 500.;
+    REAL8 lambda2 = 500.;
+    LALSimInspiralInteraction interactionFlags = 
+            LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN 
+            | LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN 
+            | LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN 
+            | LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
     REAL8 deltaT = 1. / 16384.;
     REAL8 fStart = 40.;
-    REAL8 phiStart = 0.;
+    REAL8 fEnd = 0.;
     INT4 phaseO = 7;
-    LIGOTimeGPS tStart = {0.,0.};
-    LALSpinInteraction spinFlags = LAL_SOInter | LAL_SSInter;
 
     lnhatx = sin(inclination);
     lnhaty = 0.;
@@ -78,10 +82,11 @@ int main (int argc , char **argv)
     UNUSED(argc);
     UNUSED(argv);
 
-    status = XLALSimInspiralPNEvolveOrbitSpinTaylorT4(&V, &Phi, &S1x, &S1y, 
+    XLALSimInspiralPNEvolveOrbitSpinTaylorT4(&V, &Phi, &S1x, &S1y, 
             &S1z, &S2x, &S2y, &S2z, &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
-            m1, m2, &tStart, phiStart, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, 
-            lnhaty, lnhatz, e1x, e1y, e1z, deltaT, fStart, spinFlags, phaseO);
+            deltaT, m1, m2, fStart, fEnd, s1x, s1y, s1z, s2x, s2y,
+            s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
+            lambda1, lambda2, interactionFlags, phaseO);
 
     len = V->data->length;
 

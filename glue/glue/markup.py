@@ -1,4 +1,3 @@
-# $Id$
 #
 # This module is part of glue; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the

@@ -112,19 +112,12 @@
 #ifndef _STACKMETRIC_H
 #define _STACKMETRIC_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
-
 #include <lal/LALStdlib.h>
 #include <lal/PulsarTimes.h>
 
 #ifdef  __cplusplus
 extern "C" {
 #endif
-
-NRCSID(STACKMETRICH,"$Id$");
 
 /** \name Error conditions */
 /*@{*/
@@ -145,7 +138,6 @@ NRCSID(STACKMETRICH,"$Id$");
     coherent or divided into stacks which are summed in power.
 */
 typedef struct tagMetricParamStruc{
-  SWIGLAL_STRUCT_LALALLOC();
   void (*dtCanon)(LALStatus *, REAL8Vector *, REAL8Vector *, PulsarTimesParamStruc * ); /**< The function to compute the canonical
 											  * time coordinate and its derivatives. */
   PulsarTimesParamStruc *constants; 	/**< The constant parameters used by *dt(). */

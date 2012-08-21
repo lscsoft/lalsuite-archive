@@ -153,6 +153,7 @@ fabs()
 
 
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdlib.h>
 
 #include <math.h>
@@ -174,8 +175,6 @@ fabs()
 #include <lal/Units.h>
 
 #include "CheckStatus.h"
-
-NRCSID (STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC, "$Id$");
 
 #define STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_LENGTH    9
 #define STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_F0        80.0
@@ -220,10 +219,6 @@ int main( int argc, char *argv[] )
   COMPLEX8FrequencySeries  goodData2;
   COMPLEX8FrequencySeries  goodFilter;
 
-  COMPLEX8FrequencySeries  badData1;
-  COMPLEX8FrequencySeries  badData2;
-  COMPLEX8FrequencySeries  badFilter;
-
   LIGOTimeGPS              epoch0 = {0,0};
   LIGOTimeGPS              epoch1 = {630720000,123456789};
   LIGOTimeGPS              epoch2 = {630720000,987654321};
@@ -249,12 +244,18 @@ int main( int argc, char *argv[] )
   goodFilter.epoch  = epoch0;
   goodFilter.data   = NULL;
 
-  badFilter = goodFilter;
+#ifndef LAL_NDEBUG
+  COMPLEX8FrequencySeries  badFilter = goodFilter;
+#endif
 
   goodData1 = goodFilter;
 
   goodData1.epoch = epoch1;
-  badData2 = badData1 = goodData2 = goodData1;
+  goodData2 = goodData1;
+#ifndef LAL_NDEBUG
+  COMPLEX8FrequencySeries  badData1 = goodData2;
+  COMPLEX8FrequencySeries  badData2 = badData1;
+#endif
 
   LALCCreateVector(&status, &(goodData1.data),
                           STOCHASTICHETERODYNEDCROSSCORRELATIONSTATISTICTESTC_LENGTH);
@@ -1106,6 +1107,8 @@ Usage (const char *program, int exitcode)
 static void
 ParseOptions (int argc, char *argv[])
 {
+  FILE *fp;
+
   while (1)
   {
     int c = -1;
@@ -1147,8 +1150,18 @@ ParseOptions (int argc, char *argv[])
         break;
 
       case 'q': /* quiet: run silently (ignore error messages) */
-        freopen ("/dev/null", "w", stderr);
-        freopen ("/dev/null", "w", stdout);
+        fp = freopen ("/dev/null", "w", stderr);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
+        fp = freopen ("/dev/null", "w", stdout);
+        if (fp == NULL)
+        {
+          fprintf(stderr, "Error: Unable to open /dev/null\n");
+          exit(1);
+        }
         break;
 
       case 'h':

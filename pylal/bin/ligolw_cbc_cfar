@@ -91,7 +91,7 @@ def parse_command_line():
     parser.add_option( "-P", "--param-name", action = "store", default = None,
         metavar = "PARAMETER", 
         help = 
-            "Can be any parameter in the coinc_inspiral table. " + 
+            "Can be any parameter in the param table (see --param-table). " + 
             "Specifying this and param-ranges defines the categories " +
             "which the uncombined_fars are calculated in and are " +
             "combined over in the combined far calculation. " +
@@ -155,10 +155,7 @@ def parse_command_line():
     parser.add_option( "-s", "--ranking-stat", action = "store", type = "string", default = None,
         help =
             "Required. The stat to use to rank triggers for calculating " +
-            "the false alarm rate. If you just type a variable name, e.g., 'combined_far', the " +
-            "the default action is to look in the coinc_inspiral table. " +
-            "To specify another table, add the table name followed by a '.', e.g., " +
-            "'coinc_event.likelihood'. Any table with a coinc_event_id can be used. "
+            "the false alarm rate. It can be any column in the specified ranking-table. "
             )
     parser.add_option( "-b", "--rank-by", action = "store", type = "string", default = None, 
         metavar = "MAX or MIN",
@@ -169,12 +166,33 @@ def parse_command_line():
             )
     parser.add_option( "-c", "--output-column", action = "store", type = "string", default = None, 
         help = 
-            "Required. Column in the to store output to. If it doesn't exist, " +
-            "it will be created. Column name must be all lower-case. " +
-            "As with --ranking-stat, default action is to save to a column in the coinc_inspiral table. " +
-            "To save to another table, add the table name followed by a '.', e.g., 'coinc_event.test_far'. " +
-            "Any table with a coinc_event_id may be used."
+            "Required. Column in the output-table to store output to. If the column doesn't exist, " +
+            "it will be created. Column name must be all lower-case. "
             )
+    parser.add_option("", "--ranking-table", action="store", type="string",
+        default=None,
+        help =
+          "Required. What table to get the ranking-statsitic from. Can be any table with a coinc_event_id. Ex. coinc_inspiral."
+        )
+    parser.add_option("", "--ifos-table", action="store", type="string",
+        default=None,
+        help =
+          "What table to look in for the coincident ifos. Can be any table with a coinc_event_id and an ifos column. " +
+          "Default is to use whatever ranking-table is set to. If, however, the specified ranking-table does not have an " +
+          "ifos column (e.g., coinc_event), then this must be specified."
+        )
+    parser.add_option("", "--param-table", action="store", type="string",
+        default=None,
+        help =
+          "If specifying a param-name and ranges, what table to look in for the param values. Can be any table with a coinc_event_id. " +
+          "Default is to use whatever ranking-table is set to."
+        )
+    parser.add_option("", "--output-table", action="store", type="string",
+        default=None,
+        help =
+          "What table to write the output-column to. Can be any table with a coinc_event_id column. Default is write to " +
+          "whatever ranking-table is set to."
+        )
     parser.add_option( "-G", "--group-by-ifos", action = "store_true", default = False, 
         help = 
             "Turning on will cause triggers to be grouped by coincident ifos when " +
@@ -204,6 +222,8 @@ def parse_command_line():
         raise ValueError, "--tmp-space is a requred argument."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
+    if not options.ranking_table:
+        raise ValueError, "--ranking-table is a required argument."
     if not (options.rank_by.strip().upper() == 'MAX' or options.rank_by.strip().upper() == 'MIN'):
         raise ValueError, "--rank-by must be specified and set to either MAX or MIN."
     if options.param_name and not options.param_ranges:
@@ -249,6 +269,20 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
+ranking_table = sqlutils.validate_option( opts.ranking_table )
+if opts.ifos_table is None:
+    ifos_table = ranking_table
+else:
+    ifos_table = sqlutils.validate_option( opts.ifos_table )
+if opts.param_table is None:
+    param_table = ranking_table
+else:
+    param_table = sqlutils.validate_option( opts.param_table )
+if opts.output_table is None:
+    output_table = ranking_table
+else:
+    output_table = sqlutils.validate_option( opts.output_table )
+
 # Add program to process and process params table
 
 # FIXME: remove the following two lines once boolean type
@@ -264,32 +298,30 @@ proc_id = process.register_to_xmldoc(xmldoc, __prog__, opts.__dict__, version = 
 
 # Get param and param-ranges if specified
 if opts.param_name:
-    param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name, 
+    param_parser = sqlutils.parse_param_ranges( param_table, opts.param_name, 
       opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.get_param_name()
-    param_table = param_name.split('.')[0]
     param_filters = param_parser.get_param_filters()
 else:
     param_filters = None
-    param_table = None
 
 # Get exclude_coincs list if specified
 if opts.exclude_coincs:
     exclude_coinc_filters = sqlutils.parse_coinc_options( opts.exclude_coincs, 
-        verbose = opts.verbose ).get_coinc_filters()
+        verbose = opts.verbose ).get_coinc_filters( ifos_table )
 else:
     exclude_coinc_filters = None
 
 # Get include_coincs list if specified
 if opts.include_only_coincs:
     include_coinc_filters = sqlutils.parse_coinc_options( opts.include_only_coincs, 
-        verbose = opts.verbose ).get_coinc_filters()
+        verbose = opts.verbose ).get_coinc_filters( ifos_table )
 else:
     include_coinc_filters = None
 
-# Clear coinc_inspiral table of triggers outside of interested ranges
+# Clear ranking_table of triggers outside of interested ranges
 if param_filters or exclude_coinc_filters or include_coinc_filters:
-    sqlutils.apply_inclusion_rules_to_coinc_inspiral( connection, 
+    sqlutils.apply_inclusion_rules_to_coinc_table( connection, ranking_table, 
         exclude_coincs = exclude_coinc_filters,
         include_coincs = include_coinc_filters, 
         param_filters = param_filters, verbose = opts.verbose )
@@ -299,23 +331,11 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 # 
 
 # validate ranking stats
-if len( opts.ranking_stat.split('.')) == 2:
-    ranking_table, ranking_stat = opts.ranking_stat.split('.')
-    ranking_table = sqlutils.validate_option( ranking_table )
-    ranking_stat = sqlutils.validate_option( ranking_stat )
-else:
-    ranking_table = 'coinc_inspiral'
-    ranking_stat = sqlutils.validate_option( opts.ranking_stat )
+ranking_stat = sqlutils.validate_option( opts.ranking_stat )
 rank_by = sqlutils.validate_option( opts.rank_by, lower = False ).upper()
 
 # create column to store output to if it doesn't already exist
-if len(opts.output_column.split('.')) == 2:
-    output_table, output_column = opts.output_column.split('.')
-else:
-    output_table = 'coinc_inspiral'
-    output_column = opts.output_column
-
-output_table, output_column = sqlutils.create_column( connection, output_table, output_column )
+output_table, output_column = sqlutils.create_column( connection, output_table, opts.output_column )
 
 # sqlitize desired conversion function
 
@@ -365,25 +385,22 @@ background.calc_bkg_durs()
 
 # get desired ifo grouping
 if opts.group_by_ifos:
-    ifo_grouping_table = 'coinc_inspiral'
-    ifo_grouping = '.'.join([ ifo_grouping_table, 'ifos' ])
+    ifo_grouping = '.'.join([ ifos_table, 'ifos' ])
 elif opts.group_by_multiplicity:
-    ifo_grouping_table = 'coinc_inspiral'
-    ifo_grouping = ''.join(['get_ifo_multiplicity(', ifo_grouping_table, '.ifos)'])
+    ifo_grouping = ''.join(['get_ifo_multiplicity(', ifos_table, '.ifos)'])
     connection.create_function('get_ifo_multiplicity', 1, get_ifo_multiplicity)
 else:
-    ifo_grouping_table = None
     ifo_grouping = '"ALL_IFOS"'
+# add any extra tables to the join statement
+add_join = ''
+add_tables = set([table_name for table_name in [ifos_table, param_table] if table_name != ranking_table])
+for table_name in add_tables:
+    add_join = ''.join([ add_join, '\n', """
+    JOIN
+        """, table_name, """ ON
+        experiment_map.coinc_event_id == """, table_name, '.coinc_event_id' ])
 
 # get all the triggers
-if ranking_table != 'coinc_inspiral':
-    add_join = ''.join([ """
-    JOIN
-        """, ranking_table, """ ON
-        experiment_map.coinc_event_id == """, ranking_table, '.coinc_event_id' ])
-else:
-    add_join = ''
-
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
@@ -394,11 +411,11 @@ sqlquery = ''.join([ """
         param_grouping, """,
         """, ranking_table, '.', ranking_stat,"""
     FROM 
-        coinc_inspiral
+        """, ranking_table, """
     JOIN 
         experiment_summary, experiment_map ON (
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-            AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
+            AND experiment_map.coinc_event_id == """, ranking_table, """.coinc_event_id)
     """, add_join ])
 
 if opts.debug:
@@ -427,12 +444,12 @@ else:
 
 if opts.verbose:
     print >> sys.stderr, "Calculating FAR..."
-# calculate the uncombined far for each trigger and store in coinc_inspiral table
+# calculate the far for each trigger and store in the output table
 add_from = ''
 add_join = ''
-all_tables = [table for table in [ranking_table, param_table, ifo_grouping_table] if table is not None and table != output_table]
+add_tables = [table for table in [ranking_table, param_table, ifos_table] if table is not None and table != output_table]
 
-for needed_table in set(all_tables):
+for needed_table in set(add_tables):
     add_from = ', '.join([ add_from, needed_table ])
     add_join = ''.join([ add_join, """
                 AND experiment_map.coinc_event_id == """, needed_table, '.coinc_event_id' ])

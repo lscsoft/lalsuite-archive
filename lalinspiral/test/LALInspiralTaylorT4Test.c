@@ -45,8 +45,6 @@ LALInspiralWave4Templates routine.
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
 
-NRCSID(LALINSPIRALTAYLORT4TESTC, "$Id$");
-
 int main(void) {
 	static LALStatus    mystatus;
 
@@ -89,7 +87,7 @@ int main(void) {
 	dt = 1. / params.tSampling;
 
 	start = clock();
-	length = XLALSimInspiralTaylorT4PNRestricted(&hplus, &hcross, &tc, 0., dt, params.mass1*LAL_MSUN_SI, params.mass2*LAL_MSUN_SI, params.fLower, params.distance, 0, 7);
+	length = XLALSimInspiralTaylorT4PNRestricted(&hplus, &hcross, 0., dt, params.mass1*LAL_MSUN_SI, params.mass2*LAL_MSUN_SI, params.fLower, params.distance, 0, 7);
 	diff = clock() - start;
 	msec = diff * 1000 / CLOCKS_PER_SEC;
 	printf("Time taken %d seconds %d milliseconds\n", msec/1000, msec%1000);

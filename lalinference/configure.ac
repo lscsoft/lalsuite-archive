@@ -1,4 +1,5 @@
-AC_INIT([lalinference],[0.0.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_PREREQ([2.63])
+AC_INIT([lalinference],[0.4.0.1],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -14,11 +15,12 @@ AC_CONFIG_FILES([ \
   src/Makefile \
   test/Makefile
 ])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 # set library api info
 # 1. start with version information of "0:0:0" for each libtool library
@@ -34,19 +36,26 @@ LALSUITE_ARG_VAR
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[0])
+AC_SUBST([LIBCURRENT],[3])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
-
-# default install path
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalinference])
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
 
 # debug
 LALSUITE_ENABLE_DEBUG
+
+# enable strict gcc flags
+LALSUITE_ENABLE_GCC_FLAGS
+
+# optional lal libraries
+LALSUITE_ENABLE_LALFRAME
+LALSUITE_ENABLE_LALMETAIO
+LALSUITE_ENABLE_LALINSPIRAL
+LALSUITE_ENABLE_LALPULSAR
+LALSUITE_ENABLE_LALXML
 
 # put version/configure info in config header
 lalinference_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -70,30 +79,21 @@ AC_DEFINE_UNQUOTED([LALINFERENCE_CONFIGURE_ARGS],["$ac_configure_args"],
 AC_DEFINE_UNQUOTED([LALINFERENCE_CONFIGURE_DATE],["$lalinspiral_configure_date"],
                    [LALInference Configure Date])
 
-# enable strict gcc flags
-LALSUITE_ENABLE_GCC_FLAGS
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
-# optional lal libraries
-LALSUITE_ENABLE_LALFRAME
-LALSUITE_ENABLE_LALMETAIO
-LALSUITE_ENABLE_LALINSPIRAL
-LALSUITE_ENABLE_LALPULSAR
-LALSUITE_ENABLE_LALXML
+# use silent build rules
+AM_SILENT_RULES([yes])
 
-# check for c compiler
-m4_pattern_allow([AC_PROG_CC_C99])
-m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
-
-# use silent build rules if available
-m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
+# check for C/C++ compilers
+LALSUITE_PROG_CC_CXX
 
 # checks for programs
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
-LT_INIT
-AM_PATH_PYTHON([2.4],,[AC_MSG_ERROR([Python-2.4, or higher, is required])])
+AC_PROG_SED
+AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -136,16 +136,16 @@ if test "$lalxml" = "true"; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.5.0.2],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_LIB([LALMetaIO],[1.0.1.2],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_LIB([LALFrame],[1.0.2.1],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_LIB([LALInspiral],[1.1.0.2],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_LIB([LALPulsar],[1.1.0.2],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[1.0.4],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALFrame],[1.0.5],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LALSimulation],[0.3.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_LIB([LALInspiral],[1.3.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_LIB([LALPulsar],[1.4.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
 
 # check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.0.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
@@ -163,15 +163,15 @@ AC_SUBST_FILE([LAL_HEADER_LINK])
 AC_PROG_MAKE_SET
 AC_OUTPUT
 echo "
-================================================================
+=================================================================
 
         LALInference has now been successfully configured:
 
-                LAL XML library support is $LALXML_ENABLE_VAL
+            LALXML library support is $LALXML_ENABLE_VAL
 
         and will be installed under the directory:
 
-          ${prefix}
+            ${prefix}
 
         Now run 'make' to build LALInference
         and run 'make install' to install LALInference

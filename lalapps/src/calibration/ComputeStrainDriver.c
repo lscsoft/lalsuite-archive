@@ -51,6 +51,7 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #include <pwd.h>
 #include <time.h>
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALDatatypes.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALStdio.h>
@@ -87,8 +88,6 @@ extern int optind, opterr, optopt;
   if ( (pstat)->statusCode ) { REPORTSTATUS(pstat); return 100; } else ((void)0)
 
 
-RCSID("$Id$");
-NRCSID(COMPUTESTRAINDRIVERC, "$Id$");
 
 #define CVS_ID "$Id$"
 #define CVS_HEADER "$Header$"
@@ -224,7 +223,6 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   /* This is mostly ripped off some code Jolien sent me a while back,
      and calibration frame writing code */
 
-  static const char func[] = "WriteFrame";
   FrFile *frfile;
   FrameH *frame;
   char fname[FILENAME_MAX];
@@ -252,7 +250,6 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   char gammaimName[] = "Xn:CAL-OLOOP_FAC_Im";
   char dqName[] = "Xn:LSC-DATA_QUALITY_VECTOR";
   char freqInfo[] = "Frequency validity range: 40Hz-5kHz.";
-  int c;
 
   char *cnames[] = { alphareName, gammareName, alphaimName, gammaimName, dqName };
 
@@ -262,39 +259,39 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   /*re-size h(t) and data time series*/
   if(!XLALResizeREAL8TimeSeries(&(OutputData.h), (int)(InputData.wings/OutputData.h.deltaT),
 			   OutputData.h.data->length-2*(UINT4)(InputData.wings/OutputData.h.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   strncpy( OutputData.h.name,  CLA.strainchannel, sizeof( OutputData.h.name  ) );
 
   /* resize alpha and gamma time series */
   if(!XLALResizeCOMPLEX16TimeSeries(&(OutputData.alpha), (int)(InputData.wings/OutputData.alpha.deltaT),
 			   OutputData.alpha.data->length-2*(UINT4)(InputData.wings/OutputData.alpha.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   if(!XLALResizeCOMPLEX16TimeSeries(&(OutputData.alphabeta), (int)(InputData.wings/OutputData.alphabeta.deltaT),
 			   OutputData.alphabeta.data->length-2*(UINT4)(InputData.wings/OutputData.alphabeta.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
 
   /* Resize State Vector and Data Quality time series */
   if(!XLALResizeREAL4TimeSeries(&(InputData.StateVector), (int)(InputData.wings/InputData.StateVector.deltaT),
                InputData.StateVector.data->length-2*(UINT4)(InputData.wings/InputData.StateVector.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   if(!XLALResizeINT4TimeSeries(&(OutputDQ), (int)(InputData.wings/OutputDQ.deltaT),
 			   OutputDQ.data->length-2*(UINT4)(InputData.wings/OutputDQ.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   strncpy(OutputDQ.name, dqName, sizeof(OutputDQ.name));   /* also set the name of the channel */
 
   /* Resize DARM_CTRL, DARM_ERR, EXC and AS_Q*/
   if(!XLALResizeREAL4TimeSeries(&(InputData.DARM), (int)(InputData.wings/InputData.DARM.deltaT),
 			   InputData.DARM.data->length-2*(UINT4)(InputData.wings/InputData.DARM.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   if(!XLALResizeREAL4TimeSeries(&(InputData.DARM_ERR), (int)(InputData.wings/InputData.DARM_ERR.deltaT),
 			   InputData.DARM_ERR.data->length-2*(UINT4)(InputData.wings/InputData.DARM_ERR.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   if(!XLALResizeREAL4TimeSeries(&(InputData.EXC), (int)(InputData.wings/InputData.EXC.deltaT),
 			   InputData.EXC.data->length-2*(UINT4)(InputData.wings/InputData.EXC.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
   if(!XLALResizeREAL4TimeSeries(&(InputData.AS_Q), (int)(InputData.wings/InputData.AS_Q.deltaT),
 			   InputData.AS_Q.data->length-2*(UINT4)(InputData.wings/InputData.AS_Q.deltaT)))
-    XLAL_ERROR(func, XLAL_EFUNC);
+    XLAL_ERROR(XLAL_EFUNC);
 
   /* based on IFO name, choose the correct detector */
   if ( 0 == strcmp(CLA.ifo, "H2") )
@@ -349,8 +346,9 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   FrHistoryAdd( frame, allargs);
 
   /* hostname and user */
-  c = gethostname(hostname,sizeof(hostname));
-  c = getdomainname(domainname,sizeof(domainname));
+  gethostname(hostname,sizeof(hostname));
+  if ( getdomainname(domainname,sizeof(domainname)) == -1 )
+    XLALPrintError ("\ngetdomainname() failed!\n");
   snprintf( hostnameanduser, sizeof( hostnameanduser), "Made by user: %s. Made on machine: %s.%s",getlogin(),hostname,domainname);
   FrHistoryAdd( frame, hostnameanduser);
 

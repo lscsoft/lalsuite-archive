@@ -5,13 +5,12 @@
 fscanDriver.py - Driver script for calling other code to generates SFTs and turns these into plots showing spectra.
 
 
-$Id: fscanDriver.py,v 1.25 2009/03/13 01:51:46 collingill Exp $
 
 """
 
 __author__ = 'Rejean Dupuis <rejean@caltech.edu> & Greg Mendell<gmendell@ligo-wa.caltech.edu> & Colin Gill <c.gill@astro.gla.ac.uk>'
-__date__ = '$Date: 2009/03/13 01:51:46 $'
-__version__ = '$Revision: 1.25 $'[11:-2]
+__date__ = '$Date$'
+__version__ = '$Revision$'
 
 # REVISIONS:
 # 03/02/2009 gam; implement -g --segment-file option; if not given run on Science,Injections times, if -g ALL given then use start and end times as segment.
@@ -468,7 +467,7 @@ if (createSFTs):
     segmentFile = 'tmpSegs%stmp.txt' % tagString
     if not segmentType:
        # set default segment type
-       segmentType = "%s:DMT-SCIENCE:1" % segIFO
+       segmentType = "%s:DMT-SCIENCE:4" % segIFO
     #segCommand = 'LSCsegFind --type Science,Injection --interferometer %s --gps-start-time %d --gps-end-time %d > %s' % (segIFO,analysisStartTime, analysisEndTime,segmentFile)
     segCommand = "ligolw_segment_query --database --query-segments --include-segments %s --gps-start-time %d --gps-end-time %d | grep -v \"0, 0\" | ligolw_print -t segment:table -c start_time -c end_time -d \" \" > %s" % (segmentType,analysisStartTime,analysisEndTime,segmentFile)
     print >> sys.stdout,"Trying: ",segCommand,"\n"

@@ -17,56 +17,7 @@
 *  MA  02111-1307  USA
 */
 
-/************************************ <lalVerbatim file="LALRunningMedianCV">
-Author: Somya D. Mohanty, B. Machenschalk
-$Id$
-************************************* </lalVerbatim> */
-
-/* <lalLaTeX>
-
-\subsection{Module \texttt{LALRunningMedian.c}}
-\label{ss:LALRunningMedian.c}
-
-Functions to efficiently calculate running medians
-
-\subsubsection*{Prototypes}
-\vspace{0.1in}
-\idx[Function]{LALSRunningMedian}
-\idx[Function]{LALDRunningMedian}
-\input{LALRunningMedianCP}
-
-\idx{LALRunningMedian()}
-
-\subsubsection*{Description}
-
-The routine \verb+LALDRunningMedian()+ calculates the running medians of a
-REAL8Sequence. The routine \verb+LALSRunningMedian()+ does the same for a REAL4Sequence.
-\verb+input+ ist a REAL4/REAL8Sequence containing the input array, \verb+blocksize+
-is the length of the block the medians are calculated of.
-With n being the lenght of the input array and b being the blocksize,
-the medians array must be a REAL4/REAL8 sequence of length (n-b+1).
-\verb+LALDRunningMedian2()+ and \verb+LALSRunningMedian2()+ are a
-different implentation of the same algorithm. It should behave exactly like
-\verb+LALDRunningMedian()+, but has proven to be a
-little faster and more stable. Check if it works for you.
-\subsubsection*{Algorithm}
-
-For a detailed description of the algorithm see the
-LIGO document T-030168-00-D, Somya D. Mohanty:
-Efficient Algorithm for computing a Running Median
-
-\subsubsection*{Uses}
-\begin{verbatim}
-LALCalloc()
-LALFree()
-\end{verbatim}
-
-\subsubsection*{Notes}
-
-\vfill{\footnotesize\input{LALRunningMedianCV}}
-
-</lalLaTeX> */
-
+/* ---------- see LALRunningMedian.h for doxygen documentation ---------- */
 
 #include <stdio.h>
 #include <math.h>
@@ -74,11 +25,6 @@ LALFree()
 #include <lal/AVFactories.h>
 #include <lal/LALRunningMedian.h>
 /* #include "LALRunningMedian.h" */
-
-/* <lalVerbatim file="LALRunningMedianNRCSID"> */
-NRCSID( LALRUNNINGMEDIANC, "$Id$" );
-/* </lalVerbatim> */
-
 
 /*----------------------------------
   A structure to store values and indices
@@ -169,12 +115,12 @@ static int rngmed_qsortindex4(const void *elem1, const void *elem2){
     return 1;
 }
 
-/* <lalVerbatim file="LALRunningMedianCP"> */
+
 void LALDRunningMedian( LALStatus *status,
 			REAL8Sequence *medians,
 			const REAL8Sequence *input,
 			LALRunningMedianPar param)
-/* </lalVerbatim> */
+
 {
   /*----------------------------------
     Two types of pointers:
@@ -215,7 +161,7 @@ void LALDRunningMedian( LALStatus *status,
   REAL8 *sorted_indices;
   struct rngmed_val_index8 *index_block;
 
-  INITSTATUS( status, "LALDRunningMedian", LALRUNNINGMEDIANC );
+  INITSTATUS(status);
 
   /* check input parameters */
   /* input must not be NULL */
@@ -577,12 +523,12 @@ void LALDRunningMedian( LALStatus *status,
   RETURN( status );
 }
 
-/* <lalVerbatim file="LALRunningMedianCP"> */
+
 void LALSRunningMedian( LALStatus *status,
 			REAL4Sequence *medians,
 			const REAL4Sequence *input,
 			LALRunningMedianPar param)
-/* </lalVerbatim> */
+
 {
   /*----------------------------------
     Two types of pointers:
@@ -624,7 +570,7 @@ void LALSRunningMedian( LALStatus *status,
   struct rngmed_val_index4 *index_block;
 
 
-  INITSTATUS( status, "LALSRunningMedian", LALRUNNINGMEDIANC );
+  INITSTATUS(status);
 
   /* check input parameters */
   /* input must not be NULL */
@@ -987,12 +933,12 @@ void LALSRunningMedian( LALStatus *status,
 }
 
 
-/* <lalVerbatim file="LALRunningMedianCP"> */
+
 void LALDRunningMedian2( LALStatus *status,
 			 REAL8Sequence *medians,
 			 const REAL8Sequence *input,
 			 LALRunningMedianPar param)
-/* </lalVerbatim> */
+
 {
   /* a single "node"
    lesser  points to the next node with less or equal value
@@ -1032,7 +978,7 @@ void LALDRunningMedian2( LALStatus *status,
   REAL8 oldvalue,newvalue;      /* old + new value of the node being replaced */
   UINT4 oldlesser,oldgreater;   /* remember the pointers of the replaced node */
 
-  INITSTATUS( status, "LALDRunningMedian", LALRUNNINGMEDIANC );
+  INITSTATUS(status);
 
   /* check input parameters */
   /* input must not be NULL */
@@ -1271,12 +1217,12 @@ void LALDRunningMedian2( LALStatus *status,
   RETURN( status );
 }
 
-/* <lalVerbatim file="LALRunningMedianCP"> */
+
 void LALSRunningMedian2( LALStatus *status,
 			 REAL4Sequence *medians,
 			 const REAL4Sequence *input,
 			 LALRunningMedianPar param)
-/* </lalVerbatim> */
+
 {
   /* a single "node"
    lesser  points to the next node with less or equal value
@@ -1316,7 +1262,7 @@ void LALSRunningMedian2( LALStatus *status,
   REAL4 oldvalue,newvalue;      /* old + new value of the node being replaced */
   UINT4 oldlesser,oldgreater;   /* remember the pointers of the replaced node */
 
-  INITSTATUS( status, "LALDRunningMedian", LALRUNNINGMEDIANC );
+  INITSTATUS(status);
 
   /* check input parameters */
   /* input must not be NULL */
@@ -1554,4 +1500,3 @@ void LALSRunningMedian2( LALStatus *status,
   DETATCHSTATUSPTR( status );
   RETURN( status );
 }
-

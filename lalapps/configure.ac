@@ -1,4 +1,5 @@
-AC_INIT([lalapps],[6.5.0.5],[lal-discuss@gravity.phys.uwm.edu])
+AC_PREREQ([2.63])
+AC_INIT([lalapps],[6.9.1.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([misc])
@@ -11,7 +12,6 @@ AC_CONFIG_FILES([\
   man/Makefile \
   misc/Makefile \
   src/Makefile \
-  src/lalapps/defaults.py \
   src/lalapps/Makefile \
   src/calibration/Makefile \
   src/frametools/Makefile \
@@ -48,7 +48,7 @@ AC_CONFIG_FILES([\
   src/online/Makefile \
   src/hwinjection/Makefile \
 ])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
 AH_TOP([
 #ifndef CONFIG_H
 #define CONFIG_H])
@@ -59,6 +59,7 @@ AH_BOTTOM([
 AC_CANONICAL_HOST
 
 LALSUITE_ARG_VAR
+LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 
 LALAPPS_WITH_CC
 LALAPPS_WITH_LAL_PREFIX
@@ -68,6 +69,9 @@ LALAPPS_WITH_EXTRA_LDFLAGS
 LALAPPS_WITH_EXTRA_LIBS
 
 LALSUITE_ENABLE_DEBUG
+
+LALSUITE_WITH_CUDA
+
 LALSUITE_ENABLE_GCC_FLAGS
 LALSUITE_ENABLE_NIGHTLY
 LALAPPS_ENABLE_CONDOR
@@ -92,8 +96,6 @@ LALSUITE_ENABLE_LALINSPIRAL
 LALSUITE_ENABLE_LALPULSAR
 LALSUITE_ENABLE_LALINFERENCE
 LALSUITE_ENABLE_LALSTOCHASTIC
-
-AC_PREFIX_DEFAULT([/opt/lscsoft/lalapps])
 
 # put version/configure info in config header
 lalapps_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -126,12 +128,14 @@ else
   allstatic="true"
 fi
 
-# check for c compiler
-m4_pattern_allow([AC_PROG_CC_C99])
-m4_ifdef([AC_PROG_CC_C99],[AC_PROG_CC_C99],[LALSUITE_AC_PROG_CC_C99])
+# workaround broken libtool multilib support on sl6
+LALSUITE_MULTILIB_LIBTOOL_HACK
 
-# boinc requires a c++ compiler
-AC_PROG_CXX
+# use silent build rules
+AM_SILENT_RULES([yes])
+
+# check for C/C++ compilers
+LALSUITE_PROG_CC_CXX
 
 # check for MPI compiler
 if test "x$mpi" = "xtrue"; then
@@ -139,14 +143,11 @@ if test "x$mpi" = "xtrue"; then
 fi
 LALSUITE_ENABLE_MODULE([MPI],[mpi])
 
-# use silent build rules if appropriate
-m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])],)
-
 # checks for programs
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_AWK
+AC_PROG_SED
 
 # check for condor_compile
 AC_ENABLE_SHARED
@@ -174,7 +175,7 @@ AC_CHECK_PROGS([LATEX],[pdflatex latex],[echo])
 AC_CHECK_PROGS([MKIND],[makeindex],[echo])
 AC_CHECK_PROGS([DVIPS],[dvips],[echo])
 AC_CHECK_PROGS([BIBTEX],[bibtex],[echo])
-AM_PATH_PYTHON([2.4],,[:])
+AM_PATH_PYTHON([2.6],,[:])
 AM_CONDITIONAL([HAVE_PYTHON],[test "$PYTHON" != :])
 
 # check for supported mac os x version
@@ -301,6 +302,27 @@ if test "${metaio}" = "true"; then
 fi
 LALSUITE_ENABLE_MODULE([METAIO],[metaio])
 
+# check for libxml2
+if test "$lalxml" = "true"; then
+  PKG_CHECK_MODULES([LIBXML2],[libxml-2.0 >= 2.6],[true],[false])
+  lal_pre_libxml2_LIBS="$LIBS"
+  LIBS="$LIBS $LIBXML2_LIBS"
+  AC_SEARCH_LIBS([xmlInitParser],[xml2],,
+                 [AC_MSG_WARN([cannot find the xml2 library])]
+                 [lalxml="false"]
+                 [LIBS="$lal_pre_libxml2_LIBS"])
+fi
+
+# check for libxml2 headers
+if test "$lalxml" = "true"; then
+  lal_pre_libxml2_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$CPPFLAGS $LIBXML2_CFLAGS"
+  AC_CHECK_HEADERS([libxml/tree.h],,
+                   [AC_MSG_WARN([could not the libxml/tree.h header])]
+                   [lalxml="false"]
+                   [CPPFLAGS="$lal_pre_libxml2_CPPFLAGS"])
+fi
+
 # check for libcfitsio
 if test "${cfitsio}" = "true"; then
   PKG_CHECK_MODULES([CFITSIO],[cfitsio],[true],[false])
@@ -366,17 +388,17 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.5.0.4],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.5.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.2],[LALFrOpen],[lal/LALFrameL.h])
-LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.0.1],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.0.1],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALSimulation],[0.0.0.1],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
-LALSUITE_CHECK_OPT_LIB([LALBurst],[1.0.1.3],[XLALEPSearch],[lal/EPSearch.h])
-LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.1.0.4],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALInference],[0.0.0.1],[LALInferenceAddVariable],[lal/LALInference.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.1.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.1],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
+LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.5],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.0.4],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[0.4.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALBurst],[1.1.2],[XLALEPSearch],[lal/EPSearch.h])
+LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.3.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.4.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALInference],[0.4.0],[LALInferenceAddVariable],[lal/LALInference.h])
+LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.4],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
 # back to c mode
 if test "${boinc}" = "true" ; then
@@ -400,12 +422,22 @@ AC_DEFINE_UNQUOTED([PREFIX],["$prefix"],[Install prefix])
 
 # add gcc specific flags
 if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
+  # don't use gcc flags when cuda is enabled
+  if test "${cuda}" != "true"; then
+    CFLAGS="$CFLAGS $lal_gcc_flags"
+  else
+    AC_MSG_NOTICE([CUDA support is enabled, disabling GCC flags])
+  fi
 
   # add mac os x specific flags
   if test "x$MACOSX_VERSION" != "x"; then
     CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
   fi
+fi
+
+# define if CUDA is enabled
+if test "${cuda}" = "true"; then
+  AC_DEFINE([LALAPPS_CUDA_ENABLED],[1],[Define if using cuda library])
 fi
 
 # enable condor compile
@@ -432,33 +464,35 @@ fi
 AC_OUTPUT
 
 echo "
-================================================================
+=================================================================
 
         LALApps has now been successfully configured:
 
-                FFTW library support is $FFTW_ENABLE_VAL
-                Frame library support is $FRAME_ENABLE_VAL
-                MetaIO library support is $METAIO_ENABLE_VAL
-                LAL Frame library support is $LALFRAME_ENABLE_VAL
-                LAL MetaIO library support is $LALMETAIO_ENABLE_VAL
-                LAL XML library support is $LALXML_ENABLE_VAL
-                LAL Simulation library support is $LALSIMULATION_ENABLE_VAL
-                LAL Burst library support is $LALBURST_ENABLE_VAL
-                LAL Inspiral library support is $LALINSPIRAL_ENABLE_VAL
-                LAL Stochastic library support is $LALSTOCHASTIC_ENABLE_VAL
-                LAL Pulsar library support is $LALPULSAR_ENABLE_VAL
-                LAL Inference library support is $LALINFERENCE_ENABLE_VAL
-                FITS library support is $CFITSIO_ENABLE_VAL
-                PSS library support is $PSS_ENABLE_VAL
-                Condor support is $CONDOR_ENABLE_VAL
-                BOINC support is $BOINC_ENABLE_VAL
-                MPI support is $MPI_ENABLE_VAL
-                GDS support is $GDS_ENABLE_VAL
+            FFTW library support is $FFTW_ENABLE_VAL
+            Frame library support is $FRAME_ENABLE_VAL
+            MetaIO library support is $METAIO_ENABLE_VAL
+            LALFrame library support is $LALFRAME_ENABLE_VAL
+            LALMetaIO library support is $LALMETAIO_ENABLE_VAL
+            LALXML library support is $LALXML_ENABLE_VAL
+            LALSimulation library support is $LALSIMULATION_ENABLE_VAL
+            LALBurst library support is $LALBURST_ENABLE_VAL
+            LALInspiral library support is $LALINSPIRAL_ENABLE_VAL
+            LALStochastic library support is $LALSTOCHASTIC_ENABLE_VAL
+            LALPulsar library support is $LALPULSAR_ENABLE_VAL
+            LALInference library support is $LALINFERENCE_ENABLE_VAL
+            FITS library support is $CFITSIO_ENABLE_VAL
+            PSS library support is $PSS_ENABLE_VAL
+            Condor support is $CONDOR_ENABLE_VAL
+            BOINC support is $BOINC_ENABLE_VAL
+            MPI support is $MPI_ENABLE_VAL
+            GDS support is $GDS_ENABLE_VAL
+            CUDA support is $CUDA_ENABLE_VAL
+
+        and will be installed under the directory:
+
+            ${prefix}
 
         Now run 'make' to build LALApps
         and run 'make install' to install LALApps
-        LALApps will be installed under the directory:
-
-                $prefix
 
 ================================================================="

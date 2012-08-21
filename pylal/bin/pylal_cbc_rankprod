@@ -1,0 +1,651 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2011 Thomas Dent
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+##############################################################################
+# What this program does or should do:
+# 
+# reads in clustered single-ifo trigger files; 
+# vetoes them;
+# histograms them over a chosen detection statistic;
+# ranks by their statistic values; 
+# for each ifo, stores this ranking in a dictionary keyed on the gps ns time;
+# reads in clustered coincidence files;
+# calculates the appropriate coincident FAP for each coinc;
+# counts the number of coincidences and converts this into a total FAN;
+# finds the appropriate livetime and converts FAN into FAR;
+# makes an IFAR-like graph;
+# outputs details of coincident events in order of significance
+
+
+from __future__ import division
+
+__prog__ = "pylal_cbc_rankprod"
+__title__ = "Ranks CBC events according to a chosen statistic (for single-ifo triggers) or product of single-ifo ranks (for coincs)."
+
+from glue import lal
+from glue import segmentsUtils
+from glue.ligolw import lsctables
+from pylal import InspiralUtils
+from pylal import SnglInspiralUtils as sniuls
+from pylal import CoincInspiralUtils as coiuls
+from pylal import git_version
+
+from optparse import OptionParser
+from matplotlib import use
+use('Agg')
+from pylab import *
+import numpy
+
+
+##############################################################################
+# redefine the SnglInspiral columns of interest
+##############################################################################
+lsctables.SnglInspiralTable.loadcolumns = [
+    "ifo",
+    "end_time",
+    "end_time_ns",
+#    "eff_distance",
+    "mass1",
+    "mass2",
+    "mtotal",
+    "mchirp",
+    "eta",
+    "snr",
+    "chisq",
+    "chisq_dof",
+#    "bank_chisq",
+#    "bank_chisq_dof",
+#    "cont_chisq",
+#    "cont_chisq_dof",
+#    "rsqveto_duration",
+#    "sigmasq",
+    "template_duration",
+#    "ttotal",
+    "event_id",
+    "process_id"]
+
+
+##############################################################################
+# Functions #
+
+def getstat(trig, statname, fac=50., index=6.):
+  if statname == "snr":
+    return trig.snr
+  elif statname == "new_snr":
+    return trig.get_new_snr(index=index)
+  elif statname == "effective_snr":
+    return trig.get_effective_snr(fac=fac)
+  elif statname == "snr_over_chi":
+    return trig.snr/trig.chisq**(1./2)
+  else:
+    raise ValueError, "The statistic name should be snr, new_snr, effective_snr or snr_over_chi!"
+
+
+def get_combined_stat(coinc, statname, combined_stat):
+  if combined_stat == "sum-square":
+    return sum([getstat(trig, statname)**2 for trig in coinc])
+  elif combined_stat == "sum":
+    return sum([getstat(trig, statname) for trig in coinc])
+  else:
+    raise ValueError, "Combined statistic must be either 'sum_square' or 'sum'!"
+
+
+def rank_statistics(sngls, statname, fac=50., index=6.):
+  statistics = {}
+  ranks = {}
+  for trig in sngls:
+    gpsns = 10**9*trig.end_time + trig.end_time_ns
+    try: 
+      statistics[gpsns] = [getstat(trig,statname), trig.mchirp, trig.eta, None]
+    except:
+      raise ValueError, "Trigger with end time "+str(gpsns/10**9)+"could not be assigned a statistic!"
+
+  statvals = [ statistics[gpsns][0] for gpsns in statistics.keys() ]
+  print >> sys.stdout, "Sorting "+str(len(statvals))+" statistic values..."
+  statvals = list( numpy.sort(array(statvals), kind="mergesort") )
+  statvals.reverse()
+  print >> sys.stdout, "Assigning ranks to statistic values..."
+  for i,stat in enumerate(statvals):
+    # the rank of a stat is the place it occurs in the sorted list: 
+    # note that a given value may appear more than once, in which 
+    # case the original (arbitrary) ordering of the sngls is preserved
+    ranks[stat] = 1+i
+  # assign the statistic ranks to their gps ns times
+  print "length of ranks:", len(ranks) 
+  print >> sys.stdout, "Assigning ranks to gps times..."
+  for gpsns in statistics.keys():
+    statistics[gpsns][3] = ranks[statistics[gpsns][0]]
+ 
+  return statistics, ranks, statvals
+
+
+def FAP_via_rankprod(ranklist, lenlist):
+  if len(ranklist) == 2:
+    # http://oeis.org/A006218: number of ordered pairs of integers whose product
+    # is less than n, valid if the rank product is not greater than the number
+    # of triggers in either ifo
+    integerseq = (-1,1,3,5,8,10,14,16,20,23,27)
+    # NB rankprod value is never equal to 0
+    rankprod = ranklist[0]*ranklist[1]
+    if rankprod <= 10 and min(lenlist) > 9:
+      louderprods = integerseq[rankprod]
+      jointfap = louderprods/lenlist[0]/lenlist[1]
+    elif rankprod < min(lenlist):
+    # asymptotic formula for the above
+      louderprods = rankprod*(log(rankprod)+2*0.57721-1)
+      jointfap = louderprods/lenlist[0]/lenlist[1]
+    else:
+    # Drew's approximate continuous integral
+      fapproduct = ranklist[0]*ranklist[1]/lenlist[0]/lenlist[1]
+      jointfap = fapproduct*(1 - log(fapproduct))
+  else:
+    raise ValueError, "I can't deal with a product of more than 2 ranks, sorry"
+
+  return jointfap
+
+
+def FAP_via_combined_stat(statval, combinedStatlist, lenlist):
+  if len(lenlist) == 2:
+    num_pairs = lenlist[0]*lenlist[1]
+    # significance is given by number of pairs *at least as loud as* candidate
+    number_louder = sum(combinedStatlist >= statval)
+  else:
+    raise ValueError, "I can't deal with more than 2 ifos, sorry"
+
+  return number_louder/num_pairs
+
+
+def plot_one_thing( fig_num, xvals, yvals, plotcommand="plot", gridval=True, \
+  marker='+', size=12, plotcolor="b", edgecolor=None, expandxlim=None, expandylim=None, \
+  legtext=None, legloc="upper right", plotxlab=None, plotylab=None, plottit=None, \
+  figname=None, figtag=None, ):
+  
+  xvals = array(xvals)
+  yvals = array(yvals)
+  fig_num +=1
+  figure(fig_num)
+  plot(xvals, yvals, marker, markersize=size, color=plotcolor, markeredgecolor=edgecolor, label=legtext)
+  if plotcommand == "semilogx":
+    semilogx()
+  elif plotcommand == "semilogy":
+    semilogy()
+  elif plotcommand == "loglog":
+    loglog()
+  grid(gridval)
+  
+  if expandxlim:
+    xlim(min(xvals)/expandxlim,max(xvals)*expandxlim)
+  if expandylim:
+    ylim(min(yvals)/expandylim,max(yvals)*expandylim)
+  
+  xlabel(plotxlab, size="x-large")
+  ylabel(plotylab, size="x-large")
+  title(plottit, size="large")
+  if legtext:
+    legend(loc=legloc)
+  
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, figname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(figtag)
+  close(fig_num)
+
+
+#############################################################################
+# Help, options and suchlike #
+##############################
+
+usage = """
+
+Ranks single-ifo triggers by the chosen statistic and coincs by the product of 
+single-ifo ranks. Finally, estimates coincident FAP, FAN and FAR. 
+
+Best results should be obtained by using clustered triggers to mitigate the 
+effect of correlations on short time scales.
+"""
+
+def parse_command_line():
+
+  parser = OptionParser(usage=usage, version=git_version.verbose_msg)
+
+  # options relating to input
+  parser.add_option("-C","--cache-file",action="store",type="string",
+    help="Analysis cache file")
+  parser.add_option("-t","--trig-pattern",action="store",type="string",
+    help="Sieve for files containing single-ifo triggers")
+  parser.add_option("-c","--coinc-pattern",action="store",type="string",
+    help="Sieve for files containing coincs")
+  parser.add_option("-i","--inj-pattern",action="store",type="string",
+    help="Sieve for files containing injections (not implemented yet)")
+  parser.add_option("-f","--coinc-file",action="store",type="string",
+    help="Coinc file to be ranked")
+
+  # options relating to the analysis
+  parser.add_option("-I","--ifo-list",action="store",type="string",
+    help="Comma-separated list of ifos for which events are to be ranked: at present only 2 ifos may be used.")
+  parser.add_option("-s","--gps-start-time",action="store",type="int",
+    help="When to start considering triggers")
+  parser.add_option("-e","--gps-end-time",action="store",type="int",
+    help="And when to stop")
+  parser.add_option("-V","--veto-files",action="store",type="string",
+    help="Comma-separated list of veto files (segwizard format) to be applied to single-ifo triggers")
+  parser.add_option("-D","--datatype",action="store",type="string",
+    help="What type of data we are ranking. Required")
+  parser.add_option("-S","--statistic",action="store",type="string",
+    help="Single-ifo ranking statistic: must be snr, snrchi, effective_snr or new_snr")
+  parser.add_option("-x","--statistic-cut",action="store",type="string",
+    help="Cut(s) to be applied to single-ifo statistic values. If one value is given, that \
+value is used for all ifos. If a comma-separated list of the same length as 'ifo-list', \
+cuts are assigned to ifos in order")
+  parser.add_option("-m","--combined-statistic",action="store",type="string",
+    help="This option replaces the FAP-product ranking with either combined statsq ('sum-square') or \
+sum of stat values ('sum'). Do not use with very large trigger lists!")
+
+  # options relating to the output and plots
+  parser.add_option("-d","--display-coincs",action="store_true",default=False,
+    help="display the estimated FANs of coincident events (zerolag) and details \
+of 20 loudest events: use for playground or open-box")
+  parser.add_option("-b","--fake-coincs",action="store_true",default=True,
+    help="display FANs and statistic values for a standard sample of hypothetical \
+coinc events: use for closed-box")
+
+  parser.add_option("-Z","--user-tag",action="store",type="string",default=None,
+    help="a user tag for the output filenames")
+  parser.add_option("-G", "--ifo-tag",action="store",type="string",default=None,
+    help="sets the IFO tag for plots")
+  parser.add_option("-O","--enable-output",action="store_true",default=True,
+    help="enable the generation of the html and cache documents")
+  parser.add_option("-o","--output-path",action="store",type="string",default="./",
+    help="path for figures to be output to")
+  parser.add_option("", "--figure-resolution",action="store",type="int",default=50,
+    help="resolution of the figure thumbnails (50 dpi by default)")
+  parser.add_option("-v","--verbose",action="store_true",default=False,
+    help="print extra information")
+
+  (opts,args) = parser.parse_args()
+
+  if not (opts.cache_file and opts.trig_pattern):
+    raise ValueError, "A cache and single-ifo trigger pattern must be given!"
+  if opts.inj_pattern: 
+    raise ValueError, "Sorry, injections are not handled yet."
+  if opts.coinc_pattern and opts.coinc_file:
+    raise ValueError, "Cannot have both a coinc-pattern and a coinc file!"
+  if len(opts.ifo_list.split(","))<1 or len(opts.ifo_list.split(","))>2:
+    raise ValueError, "The ifo list must contain either 1 or 2 ifos; 3 or more is not handled yet."
+  if not (opts.datatype and opts.datatype in ["full_data","playground","injection"]) :
+    raise ValueError, "Please specify a data type (full data, playground or injection)."
+  if not (opts.gps_start_time and opts.gps_end_time):
+    raise ValueError, "A gps start and end time are required."
+  if not ( opts.statistic and (opts.statistic in ["snr","snrchi","effective_snr","new_snr"]) ):
+    raise ValueError, "A statistic type is required: choose from snr, snrchi, effective_snr, new_snr."  
+  if opts.combined_statistic and not opts.combined_statistic in ["sum-square","sum"]:
+    raise ValueError, "Combined statistic must be either 'sum-square' or 'sum'!"
+  if len(opts.statistic_cut.split(",")) > 1 and not ( len(opts.statistic_cut.split(","))\
+      == len(opts.ifo_list.split(",")) ):
+    raise ValueError, "If assigning different cuts to different ifos, there must be \
+exactly one cut value per ifo!"
+
+  return opts, sys.argv[1:]
+
+
+##############################################################################
+# MAIN #
+
+opts, args = parse_command_line()
+opts = InspiralUtils.initialise(opts,__prog__,git_version.verbose_msg)
+
+ifocolors = InspiralUtils.colors
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+comments = ""  # for the html output if needed
+
+ifos = tuple(opts.ifo_list.split(","))
+
+if opts.veto_files:
+  comments += InspiralUtils.message(opts, "Veto files are "+opts.veto_files)
+
+comments += InspiralUtils.message(opts, "Statistic is "+opts.statistic+"\n")
+
+# assign statistic cut values to ifos
+if opts.statistic_cut:
+  ifocut = {}
+  if len(opts.statistic_cut.split(",")) == 1:
+    for ifo in ifos:
+      ifocut[ifo] = float(opts.statistic_cut)
+      print ifo, ifocut[ifo]
+    comments += InspiralUtils.message(opts, "A statistic cut of "+opts.statistic_cut\
++" will be applied to all ifos")
+  else:
+
+      cuts = opts.statistic_cut.split(",")
+      for i,ifo in enumerate(ifos):
+        ifocut[ifo] = float(cuts[i])
+        print ifo, ifocut[ifo]
+        comments += InspiralUtils.message(opts, "A statistic cut of "+\
+str(ifocut[ifo])+" will be applied to "+ifo)
+    #except:
+    #  raise ValueError, "I could not assign cuts to ifos: please check the \
+#ifo-list and statistic-cut options"
+
+allCache = lal.Cache.fromfile(open(opts.cache_file))
+
+coincFiles = []
+if opts.coinc_pattern:
+  # Specify exact match because otherwise THINCA_SECOND_H1L1_FULL_DATA would pick up
+  # *FULL_DATA_CAT_*_VETO as well
+  coinc_cache = allCache.sieve(description=opts.coinc_pattern, exact_match=True)
+  found, missed = coinc_cache.checkfilesexist()
+  coincFiles = found.pfnlist()
+  if not len(coincFiles):
+    print >>sys.stderr, "WARNING: No file in %s matches the coinc_pattern '%s'." \
+% (opts.cache_file, opts.coinc_pattern)
+  # filter coinc files such that the start time is before the selected gps end time
+  # and the end time is after the selected gps start time
+  coincFiles = [ file for file in coincFiles if int(file.split("-")[-2]) <= opts.gps_end_time \
+    and int(file.split("-")[-2])+int(file.split("-")[-1].split(".")[0]) >= opts.gps_start_time ]
+if opts.coinc_file:
+  coincFiles = [opts.coinc_file]
+
+trigFiles = {}
+vetofiles = {}
+statistics = {}
+ranks = {}
+statlist = {}
+fig_num = 0
+haveTrigs = False
+
+# Read in single inspiral files
+
+for ifo in ifos:
+  # each entry in the statistics dictionary is a dictionary keyed on the trigger gps time in ns
+  statistics[ifo] = {}
+  ranks[ifo] = {}
+  statlist[ifo] = []
+  if opts.veto_files:
+    # this is a way to assign veto files to ifos, somewhat kludgey, relying on the ifo name
+    # being in the path to the file
+    vetofiles[ifo] = [file for file in opts.veto_files.split(",") if file.find(ifo+"-")>-1]
+  else:
+    vetofiles[ifo] = []
+  trig_cache = allCache.sieve(description=opts.trig_pattern, ifos=ifo)
+  found, missed = trig_cache.checkfilesexist()
+  trigFiles[ifo] = found.pfnlist()
+  # filter the files such that the start time is before the selected gps end time
+  # and the end time is after the selected gps start time
+  trigFiles[ifo] = [ file for file in trigFiles[ifo] if \
+    int(file.split("-")[-2]) <= opts.gps_end_time and int(file.split("-")[-2])+\
+    int(file.split("-")[-1].split(".")[0]) >= opts.gps_start_time ]
+
+  # Read triggers
+  if not len(trigFiles[ifo]):
+    print >>sys.stderr, "WARNING: No file in %s for ifo %s matches the trig_pattern \
+'%s' and lies within the specified start and end times" % (opts.cache_file, ifo, opts.trig_pattern)
+    trigFiles[ifo] = None
+  else:
+    print >>sys.stdout, "Reading "+str(len(trigFiles[ifo]))+" files for ifo "+ifo+" \
+with the pattern "+opts.trig_pattern
+    comments += InspiralUtils.message(opts, "Reading "+str(len(trigFiles[ifo]))+" files \
+for ifo "+ifo+" with the pattern "+opts.trig_pattern)
+    snglTrigs = sniuls.ReadSnglInspiralFromFiles(trigFiles[ifo], verbose=opts.verbose)
+    if len(snglTrigs):
+      snglTrigs.ifocut(ifo, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
+      comments += InspiralUtils.message(opts, "Read %d triggers from %s" % (len(snglTrigs), ifo) )
+      snglTrigsinTime = lsctables.New(lsctables.SnglInspiralTable)
+      for trig in snglTrigs:
+        if trig.end_time >= opts.gps_start_time and trig.end_time < opts.gps_end_time:
+          snglTrigsinTime.append(trig) 
+      del snglTrigs
+      comments += InspiralUtils.message(opts, "%d triggers lie within GPS %d to %d" % \
+(len(snglTrigsinTime), opts.gps_start_time, opts.gps_end_time) )
+      # apply the vetoes
+      if vetofiles[ifo]:
+        for vfile in vetofiles[ifo]:
+          comments += InspiralUtils.message(opts, "Applying vetos from "+vfile)
+          seglist = segmentsUtils.fromsegwizard(open(vfile))
+          snglTrigsinTime = snglTrigsinTime.veto(seglist)
+          comments += InspiralUtils.message(opts, "%d remain in %s after vetoing" % \
+(len(snglTrigsinTime), ifo))
+      # cut on the statistic value
+      if opts.statistic_cut:
+        cutTrigs = lsctables.New(lsctables.SnglInspiralTable)
+        for trig in snglTrigsinTime:
+          if getstat(trig,opts.statistic) >= ifocut[ifo]:
+            cutTrigs.append(trig)
+        snglTrigsinTime = cutTrigs
+        del cutTrigs
+        comments += InspiralUtils.message(opts, "%d remain in %s after applying statistic cut" \
+% (len(snglTrigsinTime), ifo))
+      # get the trigger ranks and associated products
+      # statistics: a dictionary keyed on the trigger gps time in ns in ifo
+      # ranks: a dictionary keyed on the statistic value in ifo
+      # statlist: list of statistic values in ifo in descending order
+      statistics[ifo],ranks[ifo],statlist[ifo] = rank_statistics(snglTrigsinTime, statname=opts.statistic)
+      del snglTrigsinTime
+    else:
+      comments += InspiralUtils.message(opts, "No triggers were found in the files for "+ifo+"!")
+      statistics[ifo] = {}
+      ranks[ifo] = {}
+
+  if len(statistics[ifo]):
+    haveTrigs = True
+    gpsns = statistics[ifo].keys()
+    statvalues = [statistics[ifo][time][0] for time in gpsns]
+    times = [time/10**9-opts.gps_start_time for time in gpsns]
+
+    # make a plot of statistic vs. time
+    color = ifocolors[ifo]
+    plottit = ifo+" "+opts.trig_pattern+" triggers"
+    xlab = r"Time after start of experiment (s)"
+    ylab = r"Statistic value "+opts.statistic
+    name = ifo+"_"+opts.statistic+"_vs_time"
+    tag = ifo+"_statistic_vs_time"
+    if opts.statistic == "snr":
+      command = "semilogy"
+    else:
+      command = "plot"
+    plot_one_thing(fig_num, times, statvalues, plotcommand=command, marker='+', size=10, \
+      plotcolor=color, plotxlab=xlab, plotylab=ylab, plottit=plottit, figname=name, \
+      figtag = tag, expandylim=1.1)
+
+    # and a plot of rank vs. statistic
+    xlab = opts.statistic+r" value"        
+    ylab = r"Trigger rank"
+    name = ifo+"_"+opts.statistic+"_rank"
+    tag = ifo+"_statistic_rank"
+    # color and title remain the same
+    plot_one_thing(fig_num, statvalues, [ranks[ifo][stat] for stat in statvalues], \
+      plotcommand="semilogy", marker=".", plotcolor=color, plotxlab=xlab, \
+      plotylab=ylab, plottit=plottit, figname=name, figtag=tag, expandylim=2.)
+
+if not haveTrigs:
+  raise ValueError, "No triggers were found; I cannot continue"
+
+if opts.combined_statistic:
+  print >>sys.stdout, "Calculating all possible combined statistic values..."
+  if opts.combined_statistic == "sum-square":
+    combinedStatvals = array([ stat1**2+stat2**2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
+  elif opts.combined_statistic == "sum":
+    combinedStatvals = array([ stat1+stat2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
+  # make a plot of the cumulative distribution of combined stat values
+  combinedStathist, bin_edges = numpy.histogram(combinedStatvals, bins=30)
+  cumStathist = combinedStathist[::-1].cumsum()[::-1]
+  name = opts.ifo_tag+"_combined_"+opts.combined_statistic+"_"+opts.statistic
+  tag = opts.ifo_tag+"_combined_stat_hist"
+  plot_one_thing(fig_num, bin_edges[1:], cumStathist/len(combinedStatvals), plotcommand="semilogy", marker="^", \
+    plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
+    "Fraction of louder trigger pairs", plottit="", figname=name, figtag=tag)
+
+# read coinc files: these should already be vetoed by thinca to the desired level
+
+if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
+  if opts.coinc_pattern:
+    print >>sys.stdout, "Reading "+str(len(coincFiles))+" files with the pattern "+opts.coinc_pattern
+    comments += InspiralUtils.message(opts, "")
+    comments += InspiralUtils.message(opts, "Reading "+str(len(coincFiles))+" files with the pattern "+opts.coinc_pattern)
+  else:
+    comments += InspiralUtils.message(opts, "Reading coincs from "+opts.coinc_file)
+  # we don't use the coinc statistic calculated by the coiuls module .. for much .. except the plot of FAN vs statsq
+  coincEvents = coiuls.readCoincInspiralFromFiles(coincFiles, coiuls.coincStatistic(opts.statistic))
+  if len(coincEvents) == 0:
+    numCoincs = 0
+  coincEvents = coincEvents[0]
+  comments += InspiralUtils.message(opts, str(len(coincEvents))+" coincident events were found")
+
+  numCoincs = 0 # use as a flag to display zerolag coincs later
+
+  # get the single-ifo ranks and calculate the joint FAPs and FANs
+  if len(coincEvents):
+    coincFAPs = []
+    statlengths = [len(statistics[ifo]) for ifo in ifos]
+    coincEventsinTime = []
+    for coinc in coincEvents:
+      ranklist = []
+      inTime = True
+      unCut = True
+      for ifo in ifos:
+        endTime = getattr(coinc,ifo).end_time
+        if endTime >= opts.gps_start_time and endTime < opts.gps_end_time:
+          gpsns = 10**9*endTime + getattr(coinc,ifo).end_time_ns
+        # If you try to get the rank of a coinc at least one of whose sngls
+        # falls below the statistic cut, it will fail. We ignore these coincs 'gracefully'.
+          try: 
+            ranklist.append(statistics[ifo][gpsns][3])
+          except:
+            unCut = False
+        else:
+          inTime = False
+      if len(ranklist) and inTime and unCut:
+        if opts.combined_statistic:
+          combinedVal = get_combined_stat(coinc, opts.statistic, opts.combined_statistic)
+          coincFAPs.append( FAP_via_combined_stat(combinedVal, combinedStatvals, statlengths) )
+        else:
+          coincFAPs.append( FAP_via_rankprod(ranklist,statlengths) )
+        coincEventsinTime.append(coinc)
+    numCoincs = len(coincEventsinTime)
+    coincProbability = float(numCoincs/statlengths[0]/statlengths[1])
+    if numCoincs:
+      comments += InspiralUtils.message(opts, str(numCoincs)+" events lie within the specified\
+        GPS start and end times and were not subject to any statistic cut")
+      comments += InspiralUtils.message( opts, "Average probability of coincidence per pair of\
+        triggers is estimated to be %.2G" % (coincProbability) )
+      coincFANs = [FAP*numCoincs for FAP in coincFAPs]
+    else:
+      comments += InspiralUtils.message(opts, "No coincident events fell within the specified\
+        GPS start and end times -- IFAN and statistic vs FAN graphs may be absent!")
+      coincFANs = []
+      sortedFANs = []
+
+  # order the coincs by FAN
+  if numCoincs: 
+    sortedCoincEvents = coiuls.coincInspiralTable()
+    fan_coinc_list = zip(coincFANs,[coinc for coinc in coincEventsinTime])
+    fan_coinc_list.sort()
+    sortedCoincEvents = [coinc for (coincFAN,coinc) in fan_coinc_list]
+    sortedFANs = [coincFAN for (coincFAN,coinc) in fan_coinc_list]
+
+  # make an IFAN graph
+  if opts.display_coincs and numCoincs:
+    xlab = r"Inverse FAN"
+    ylab = "Cumulative number"
+    points = "Coincident events"
+    plot_one_thing(fig_num, array(sortedFANs)**-1, arange(1,len(sortedFANs)+1), plotcommand="loglog", \
+      marker="bv", size=10, plotcolor="b", expandylim=1.4, legtext=points, plotxlab=xlab, plotylab=ylab, \
+      plottit=opts.ifo_tag, figname="coinc_IFAN", figtag="coinc_ifan")
+
+    # and make a FAN vs combined statistic-squared graph
+      #   for coinc in sortedCoincEvents:
+      #     sngls = [getattr(coinc,ifo) for ifo in ifos]
+      #     if opts.statistic in ["effective_snr","new_snr"]:
+      #       statsq.append( sum([getattr(sngl,"get_"+opts.statistic)**2 for sngl in sngls]) )
+      #     elif opts.statistic == "snr":
+      #       statsq.append( sum([getattr(sngl,"snr")**2 for sngl in sngls]) )
+    sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincEvents]
+    xlab = r"Combined "+opts.statistic+" squared"
+    ylab = r"Estimated FAN"
+    plot_one_thing(fig_num, sortedStatsq, sortedFANs, plotcommand="semilogy", marker="bo", size=8, \
+      plotcolor="b", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
+      figname="coinc_statsq_vs_FAN", figtag="statsq_vs_FAN")
+
+    # cross fingers and make plot of FAN combined sum-statistic
+    sortedSumstat = [sum(trig.get_new_snr() for trig in coinc) for coinc in sortedCoincEvents]
+    xlab = r"Combined sum of "+opts.statistic
+    ylab = r"Estimated FAN"
+    plot_one_thing(fig_num, sortedSumstat, sortedFANs, plotcommand="semilogy", marker="go", size=8, \
+      plotcolor="g", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
+      figname="coinc_sumstat_vs_FAN", figtag="sumstat_vs_FAN")
+
+    # and write details of the loudest 20 events
+    for i,coinc in enumerate(sortedCoincEvents):
+      if i < 20:
+        coincgps = []
+        ranklist = []
+        for ifo in ifos:
+          gpsns = 10**9*getattr(coinc,ifo).end_time + getattr(coinc,ifo).end_time_ns
+          coincgps.append(gpsns)
+          ranklist.append(statistics[ifo][gpsns][3])
+        gps = sum(coincgps)/coinc.numifos /10**9
+        mchirp = sum([getattr(coinc,ifo).mchirp for ifo in ifos])/coinc.numifos
+        snrs = [getattr(coinc,ifo).snr for ifo in ifos]
+        chisqs = [getattr(coinc,ifo).chisq for ifo in ifos]
+        comments += InspiralUtils.message(opts, "")
+        # FIXME how to get the string formatting to work for a variable number of ifos, three would be nice
+        comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, combined statsq %.1f, triggers\
+          ranked (%d,%d) in (%s,%s)" % (i+1, sortedFANs[i], sortedStatsq[i], ranklist[0], ranklist[1], ifos[0], ifos[1]) )
+        comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f),\
+          chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
+
+# generate background samples by pretending that n'th-ranked triggers are coincident. 
+# can do this even if there are no zerolag coincs (setting numCoincs=1)
+if opts.fake_coincs and not opts.combined_statistic:
+  fake_ranks = [1,2,4,8,16,32,64,128,256,512,1000,2000,4000,8000,16000,32000,64000,128000,256000,512000,1000000]
+  fakeFAPs = []
+  fakeStatsq = []
+  for rank in fake_ranks:
+    if rank <= min(statlengths):    
+      stat1 = statlist[ifos[0]][rank-1]
+      stat2 = statlist[ifos[1]][rank-1]
+      fakeFAPs.append(FAP_via_rankprod([rank,rank],statlengths))
+      fakeStatsq.append(stat1**2+stat2**2)
+  #    print calculate_FAP([rank,rank],statlengths)
+  #    print stat1**2+stat2**2
+  if len(fakeFAPs):
+    fig_num +=1
+    figure(fig_num)
+    fakeFANs = [FAP*max(1,numCoincs) for FAP in fakeFAPs]
+    print "Sample trigger pair snrsq:", fakeStatsq
+    print "Sample trigger pair FAN", fakeFANs
+    semilogy(array(fakeStatsq),array(fakeFANs),'kx',markersize=8,label="Sample trigger pairs")
+    grid(True)
+    legend(loc="upper right")
+    xlabel("Combined "+opts.statistic+" squared",size="x-large")
+    ylabel("Estimated FAN",size="x-large")
+    title(opts.ifo_tag+" sample coinc distribution",size="x-large")
+    if opts.enable_output:
+      fname = InspiralUtils.set_figure_name(opts, "fake_statsq_vs_FAN")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append("fake_statsq_vs_FAN")
+    close(fig_num)
+
+# finalize
+
+html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+      tagList, comment=comments)
+InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+print >> sys.stdout, "Finished!"

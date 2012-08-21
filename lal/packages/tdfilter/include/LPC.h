@@ -27,37 +27,34 @@
 #include <math.h>
 #include <lal/LALMalloc.h>
 
-/*<lalLaTeX file="LPCH">
-\section{Header \texttt{LPC.h}}
-\label{s:LPC.h}
-
-Functions for linear predictor filters.
-
-\subsection*{Synopsis}
-\begin{verbatim}
-#include <lal/LPC.h>
-\end{verbatim}
-
-\subsection*{Error Conditions}
-\input{LPCHErrTab}
-</lalLaTeX>*/
-
 #ifdef  __cplusplus   /* C++ protection. */
 extern "C" {
 #endif
 
+/**
+  \addtogroup LPC_h
 
-NRCSID (LPCH, "$Id$");
+  \brief Functions for linear predictor filters.
 
-  /******************************** <lalErrTable file="LPCHErrTab"> */
-#define LPCH_EIN 1
-#define LPCH_EMEM 2
-#define LPCH_ENUM 3
+  \heading{Synopsis}
+  \code
+  #include <lal/LPC.h>
+  \endcode
+*/
+/*@{*/
 
+/**\name Error Codes */
+/*@{*/
+#define LPCH_EIN 1	/**< invalid input */
+#define LPCH_EMEM 2	/**< memory error */
+#define LPCH_ENUM 3	/**< numerical error */
+/*@}*/
+
+/** \cond DONT_DOXYGEN */
 #define LPCH_MSGEIN "invalid input"
 #define LPCH_MSGEMEM "memory error"
 #define LPCH_MSGENUM "numerical error"
-/*************************************************** </lalErrTable> */
+/** \endcond */
 
 void LALPolystab(LALStatus *status,
 		 REAL4Vector *a);
@@ -67,6 +64,8 @@ void LALLPC(LALStatus *status,
 	    REAL4Vector *x,    /* training data */
 	    UINT4 p            /* filter order */
 	    );
+
+/*@}*/
 
 #ifdef  __cplusplus
 }

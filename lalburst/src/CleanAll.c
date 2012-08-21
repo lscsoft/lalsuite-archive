@@ -44,22 +44,13 @@
  *-----------------------------------------------------------------------
  */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
+#include <lal/CLR.h>
 
 /**
 \author Sintes, A. M.
-\file
-\ingroup clremoval
 
-\heading{Module \ref CleanAll.c}
-\latexonly\label{ss_CleanAll_c}\endlatexonly
-Gets data cleaned from line harmonic interference given  a time domain
-reference signal.
-
-
-\heading{Prototypes}
-
-
-
+\brief Gets data cleaned from line harmonic interference given  a time domain reference signal.
 
 \heading{Description}
 This routine cleans data in the time domain from line harmonic interference
@@ -100,32 +91,11 @@ constructs \f$M(t)^j\f$,  performs a least-squares fit, i.e.,
 minimizes the power \f$\vert x(t) -\rho_j M(t)^j\vert^2\f$ with
 respect to \f$\rho_j\f$, and  subtracts \f$\rho_j M(t)^j\f$ from the
 original data, \f$x(t)\f$.
-
-\heading{Uses}
-\code
-LALDCreateVector()
-LALZCreateVector()
-LALDDestroyVector()
-LALZDestroyVector()
-\endcode
-
-\heading{Notes}
-
-
-
 */
-
-
-
-#include <lal/CLR.h>
-
-NRCSID (CLEANALLC, "$Id$");
-
-
-void LALCleanAll (LALStatus     *status,
-               REAL4Vector      *out,  /* clean data */
-               COMPLEX8Vector   *in2,  /* M(t), ref. interference */
-               REAL4TVectorCLR  *in1)  /* x(t), data + information */
+void LALCleanAll (LALStatus     *status,/**< LAL status pointer */
+               REAL4Vector      *out,  /**< clean data */
+               COMPLEX8Vector   *in2,  /**< M(t), ref. interference */
+               REAL4TVectorCLR  *in1)  /**< x(t), data + information */
 {
 
   INT4    n;
@@ -148,7 +118,7 @@ void LALCleanAll (LALStatus     *status,
 
 /* --------------------------------------------- */
 
-  INITSTATUS (status, "LALCleanAll", CLEANALLC);
+  INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
   /*   Make sure the arguments are not NULL: */
@@ -280,4 +250,3 @@ void LALCleanAll (LALStatus     *status,
   /* normal exit */
   RETURN (status);
 }
-

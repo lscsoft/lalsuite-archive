@@ -24,16 +24,10 @@
  * \file
  * \brief Header file defining the API for DopplerScan.
  *
- * $Id$
  */
 
 #ifndef _DOPPLERSCAN_H  /* Double-include protection. */
 #define _DOPPLERSCAN_H
-
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT_LALALLOC)
-#define SWIGLAL_STRUCT_LALALLOC(...)
-#endif
 
 /* C++ protection. */
 #ifdef  __cplusplus
@@ -48,8 +42,6 @@ extern "C" {
 #include <lal/LALBarycenter.h>
 #include <lal/PulsarDataTypes.h>
 #include <lal/ComputeFstat.h>
-
-NRCSID( DOPPLERSCANH, "$Id$" );
 
 /*---------- DEFINES ----------*/
 
@@ -115,18 +107,16 @@ typedef enum
 } DopplerGridType;
 
 /** structure describing a polygon-region in the sky */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagSkyRegion {
   UINT4 numVertices;		/**< number of polygon-vertices */
   SkyPosition *vertices;	/**< array of vertices */
   SkyPosition lowerLeft;	/**< lower-left point of bounding square */
   SkyPosition upperRight;	/**< upper-right point of bounding square */
 } SkyRegion;
 
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagDopplerRegion {
   CHAR *skyRegionString;	/**< sky-region string '(a1,d1), (a2,d2), ..' */
-  LIGOTimeGPS refTime;
+  LIGOTimeGPS refTime;		/** reference time of definition of Doppler parameters */
   PulsarSpins fkdot;		/**< first points of spin-intervals */
   PulsarSpins fkdotBand;	/**< spin-intervals */
 } DopplerRegion;
@@ -134,7 +124,6 @@ typedef struct {
 /* ==================== SKYGRID-ONLY types ==================== */
 /** sky grid */
 typedef struct tagDopplerSkyGrid {
-  SWIGLAL_STRUCT_LALALLOC();
   REAL8 Alpha;
   REAL8 Delta;
   struct tagDopplerSkyGrid *next;
@@ -145,7 +134,6 @@ typedef struct tagDopplerSkyGrid {
 %warnfilter(SWIGWARN_TYPEMAP_CHARLEAK) tagDopplerSkyScanInit::skyGridFile;
 #endif /* SWIG */
 typedef struct tagDopplerSkyScanInit {
-  SWIGLAL_STRUCT_LALALLOC();
   CHAR *skyRegionString;	/**< sky-region to search: format polygon '(a1,d1), (a2,d2), ..' */
   REAL8 Freq;			/**< Frequency for which to build the skyGrid */
   DopplerGridType gridType;	/**< which type of skygrid to generate */
@@ -163,8 +151,7 @@ typedef struct tagDopplerSkyScanInit {
 } DopplerSkyScanInit;
 
 /** this structure reflects the current state of a DopplerSkyScan */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagDopplerSkyScanState {
   scan_state_t state;  			/**< idle, ready or finished */
   SkyRegion skyRegion; 		/**< polygon (and bounding square) defining sky-region  */
   UINT4 numSkyGridPoints;	/**< how many skygrid-points */
@@ -174,8 +161,7 @@ typedef struct {
 } DopplerSkyScanState;
 
 /** a "sky-ellipse", described by the two major axes and it's angle wrt x-axis */
-typedef struct {
-  SWIGLAL_STRUCT_LALALLOC();
+typedef struct tagMetricEllipse {
   REAL8 smajor;
   REAL8 sminor;
   REAL8 angle;
@@ -186,7 +172,6 @@ typedef struct {
 extern const DopplerSkyGrid empty_DopplerSkyGrid;
 extern const DopplerSkyScanState empty_DopplerSkyScanState;
 extern const DopplerSkyScanInit empty_DopplerSkyScanInit;
-extern const PulsarDopplerParams empty_PulsarDopplerParams;
 extern const DopplerRegion empty_DopplerRegion;
 extern const SkyRegion empty_SkyRegion;
 

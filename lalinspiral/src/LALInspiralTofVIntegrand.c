@@ -57,9 +57,6 @@ of these functions is set by a call to the function \c LALInspiralChooseModel().
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
 
-NRCSID (LALINSPIRALTOFVINTEGRANDC, "$Id$");
-
-
 void
 LALInspiralTofVIntegrand (
    LALStatus *status,
@@ -69,7 +66,7 @@ LALInspiralTofVIntegrand (
    )
 {
 
-   INITSTATUS (status, "LALInspiralTofVIntegrand", LALINSPIRALTOFVINTEGRANDC);
+   INITSTATUS(status);
 
    *integrand = XLALInspiralTofVIntegrand( v, params );
 
@@ -92,10 +89,10 @@ XLALInspiralTofVIntegrand(
 
 #ifndef LAL_NDEBUG
   if ( !params )
-    XLAL_ERROR_REAL8( __func__, XLAL_EFAULT );
+    XLAL_ERROR_REAL8( XLAL_EFAULT );
 
   if ( v <= 0.0 || v >= 1.0 )
-    XLAL_ERROR_REAL8( __func__, XLAL_EINVAL );
+    XLAL_ERROR_REAL8( XLAL_EINVAL );
 #endif
 
   ak = (TofVIntegrandIn *) params;
