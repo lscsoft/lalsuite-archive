@@ -1795,8 +1795,8 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the coherent Null SNR for each row in the table.
 		"""
-		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
-                             .sum() - self.get_column('snr')**2)**(1/2)
+		return (self.get_coinc_snr()**2\
+		            - self.get_column('snr')**2)**(1/2)
 
 	def get_sigmasq(self, instrument):
 		"""
