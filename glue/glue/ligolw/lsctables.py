@@ -32,6 +32,8 @@ Maintenance of the table definitions is left to the conscience of
 interested users.
 """
 
+from __future__ import division
+
 import numpy
 from xml import sax
 
