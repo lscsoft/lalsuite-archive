@@ -3745,9 +3745,9 @@ def vo_nest2pos(nsresource,Nlive=None):
     try:
         register_namespace=ET.register_namespace
     except AttributeError:
-    def register_namespace(prefix,uri):
-        ET._namespace_map[uri]=prefix
-        register_namespace('vot',xmlns)
+        def register_namespace(prefix,uri):
+            ET._namespace_map[uri]=prefix
+    register_namespace('vot',xmlns)
     
     postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
     i=0
