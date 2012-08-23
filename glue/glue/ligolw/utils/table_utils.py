@@ -273,28 +273,20 @@ def get_experiment_type(xmldoc, time_slide_dict):
 	# get the param column of the process_params table
 	process_params_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
 	pp_value = set(process_params_tbl.getColumnByName("value"))
-
-	process_tbl = lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	program = set(process_tbl.getColumnByName("program"))
+	pp_param = set(process_params_tbl.getColumnByName("param"))
 
 	# determine experiment type(s)
 	if len(time_slide_dict) == 1:
-		if 'inspinj' in program:
+		if '--injection-file' in pp_param:
 			datatypes = ['simulation']
-			sim_proc_id = str(process_tbl.get_ids_by_program("inspinj").pop())
-		elif 'rinj' in program:
-			datatypes = ['simulation']
-			sim_proc_id = str(process_tbl.get_ids_by_program("rinj").pop())
 		else:
 			datatypes = ['playground']
-			sim_proc_id = None
 			if 'PLAYGROUND' not in pp_value:
 				datatypes += ['all_data', 'exclude_play']
 	elif len(time_slide_dict) > 1:
 		datatypes = ['slide']
-		sim_proc_id = None
 
-	return datatypes, sim_proc_id
+	return datatypes
 
 
 def populate_experiment_summ_table(
@@ -328,7 +320,7 @@ def populate_experiment_summ_table(
 		expr_summ_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
 
 	# populate the experiment_summary table
-	datatypes, sim_proc_id = get_experiment_type(xmldoc, time_slide_dict)
+	datatypes = get_experiment_type(xmldoc, time_slide_dict)
 
 	for type in datatypes:
 		for slide_id in time_slide_dict:
@@ -337,7 +329,7 @@ def populate_experiment_summ_table(
 				slide_id,
 				veto_def_name,
 				type,
-				sim_proc_id = sim_proc_id
+				sim_proc_id = None
 			)
 
 
@@ -433,7 +425,7 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 	# determine what experiment datatypes are in this file
 	#
 
-	datatypes, sim_proc_id = get_experiment_type(xmldoc, time_slide_dict)
+	datatypes = get_experiment_type(xmldoc, time_slide_dict)
 
 	#
 	# cycle through the coincs in the coinc_inspiral table
@@ -466,7 +458,7 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 					coinc.time_slide_id,
 					veto_def_name,
 					type,
-					sim_proc_id = sim_proc_id
+					sim_proc_id = None
 				)
 				if not expr_map.experiment_summ_id:
 					raise ValueError, "%s experiment_summ_id could not be found with %s" \
