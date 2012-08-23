@@ -1099,11 +1099,6 @@ if opts.coincidence:
       inspiral_cache.append(output_cache_entry)
       single_data_analyzed[output_cache_entry] = insp.get_dag_node()
 
-  # add th injection file to the ligolw_add jobs
-  if inj_file:
-    lladd_job.add_input_file(inj_file)
-    lladd_job.add_file_arg(inj_file)
-
   # get the ligolw_thinca command line arguments
   thinca_job.add_ini_opts(cp, 'thinca')
 
