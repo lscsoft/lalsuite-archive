@@ -302,6 +302,9 @@ if __name__ == '__main__':
             doc = ligolw.Document()
             doc.appendChild(ligolw.LIGO_LW())
 
+            # Copy veto definer's process table
+            doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['process']).childNodes[0])
+
             # Register ourselves
             proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__, version=git_version.id).process_id
 
