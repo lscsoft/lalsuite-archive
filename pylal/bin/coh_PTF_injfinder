@@ -188,8 +188,8 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
       sys.stdout.write("WARNING: cannot find any files matching "+\
                        "injection %d.\n" % num)
 
-    trigFiles = [e.path() for e in numtrigcache]
-
+    trigFiles = numtrigcache.pfnlist()
+  
     if os.path.isfile(injFile) and trigFiles:
 
       if not exampleFile:  exampleFile = numtrigcache[0]
@@ -203,6 +203,11 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
       currTrigs  = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
       currTrigs.extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles))
+      if len(currTrigs):
+        currTrigs.sort(key=lambda t: t.snr, reverse=True)
+      if verbose:
+        sys.stdout.write("t ") 
+        sys.stdout.flush()
 
       for trig in currTrigs:
         # Temporary hack to allow the code to work with tables that dont have
@@ -224,11 +229,11 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
         currObject['found'] = False
         injTime  = currInj.get_time_geocent()
 
-        injTrigs = [t for t in currTrigs\
-                    if numpy.abs(t.get_end()-injTime) < timeWindow]
-        if len(injTrigs) >=1:
-          injTrigs.sort(key=lambda t: t.snr, reverse=True)
-          currObject['trig'] = injTrigs[0]
+        for t in currTrigs:
+          if abs(t.get_end()-injTime) < timeWindow:
+            currObject['trig'] = t
+            currObject['found'] = True
+            break
         objectList.append(currObject)
 
     if verbose: sys.stdout.write("Injection %d processed at %d.\n"\
@@ -301,7 +306,7 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   # write found injections
   xmldoc.childNodes[-1].appendChild(foundTrigs)
   xmldoc.childNodes[-1].appendChild(foundInjs)
-  #utils.write_filename(xmldoc, xmlFile, gz=xmlFile.endswith('gz'))
+  utils.write_filename(xmldoc, xmlFile, gz=xmlFile.endswith('gz'))
   if verbose: sys.stdout.write("%s written at %d\n" % (xmlFile, elapsed_time()))
 
   xmldoc.childNodes[0].removeChild(foundTrigs)
@@ -310,7 +315,7 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   # write missed injections
   xmldoc.childNodes[0].appendChild(missedInjs)
   xmlFile = xmlFile.replace('FOUND', 'MISSED')
-  #utils.write_filename(xmldoc, xmlFile)
+  utils.write_filename(xmldoc, xmlFile)
   if verbose: sys.stdout.write("%s written at %d\n" % (xmlFile, elapsed_time()))
 
 if __name__=='__main__':

@@ -98,7 +98,7 @@ def cbcBayesPostProc(
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=None,
                         #nested sampling options
-                        ns_flag=False,ns_xflag=False,ns_Nlive=None,
+                        ns_flag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
                         ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
@@ -150,7 +150,7 @@ def cbcBayesPostProc(
 
     elif ns_flag and not ss_flag:
         peparser=bppu.PEOutputParser('ns')
-        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive,xflag=ns_xflag)
+        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive)
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
@@ -324,7 +324,7 @@ def cbcBayesPostProc(
                 inj_time=float(injection.get_end(ifo[0]))
             location=tools.cached_detector[detMap[ifo]].location
             ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
-            loc_end_time=bppu.OneDPosterior(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+            loc_end_time=bppu.PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
             pos.append(loc_end_time)
         for ifo1 in my_ifos:
             for ifo2 in my_ifos:
@@ -334,7 +334,7 @@ def cbcBayesPostProc(
                     inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
                 else:
                     inj_delay=None
-                time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+                time_delay=bppu.PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
 
     #Calculate new spin angles
@@ -356,14 +356,14 @@ def cbcBayesPostProc(
 
         try:
             a1_samps = abs(pos['spin1'].samples)
-            a1_pos = bppu.OneDPosterior('a1',a1_samps,injected_value=inj_a1)
+            a1_pos = bppu.PosteriorOneDPDF('a1',a1_samps,injected_value=inj_a1)
             pos.append(a1_pos)
         except KeyError:
             print "Warning: problem accessing spin1 values."
 
         try:
             a2_samps = abs(pos['spin2'].samples)
-            a2_pos = bppu.OneDPosterior('a2',a2_samps,injected_value=inj_a2)
+            a2_pos = bppu.PosteriorOneDPDF('a2',a2_samps,injected_value=inj_a2)
             pos.append(a2_pos)
         except KeyError:
             print "Warning: no spin2 values found."
@@ -1207,7 +1207,7 @@ if __name__=='__main__':
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=opts.snr,
                         #nested sampling options
-                        ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
+                        ns_flag=opts.ns,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options

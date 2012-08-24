@@ -1763,7 +1763,18 @@ class MultiInspiralTable(table.Table):
 	interncolumns = ("process_id", "ifos", "search")
 
 	def get_column(self,column):
-		return self.getColumnByName(column).asarray()
+		if column == 'new_snr':
+			return self.get_new_snr()
+		if column == "null_snr":
+			return self.get_null_snr()
+		elif column == 'coinc_snr':
+			return self.get_coinc_snr()
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_coinc_snr(self):
+		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
+			   .sum(axis=0)**(1/2)
 
 	def get_end(self):
 		return [row.get_end() for row in self]
@@ -1831,6 +1842,27 @@ class MultiInspiralTable(table.Table):
 			return dict((ifo, self.get_sngl_snr(ifo))\
 				    for ifo in instruments)
 
+	def get_sngl_chisq(self, instrument):
+		"""
+		Get the single-detector \chi^2 of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('chisq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sngl_chisqs(self, instruments=None):
+		"""
+		Get the single-detector \chi^2 for each row in the table.
+		"""
+		if len(self):
+			if not instruments:
+				instruments = map(str, \
+					instrument_set_from_ifos(self[0].ifos))
+			return dict((ifo, self.get_sngl_chisq(ifo))\
+				    for ifo in instruments)
+
+
 
 	def getstat(self):
 		return self.get_column('snr')
@@ -1881,6 +1913,13 @@ class MultiInspiral(object):
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+	def get_coinc_snr(self):
+		"""
+		Get the coincident SNR for this row.
+		"""
+		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
+		            .sum()**(1/2)
 
         def get_new_snr(self,index=4.0, column='chisq'):
                 rchisq = getattr(self, column) /\
