@@ -33,7 +33,8 @@ import pylab
 from math import sqrt
 import scipy.stats
 from optparse import OptionParser
-from glue import segments,git_version
+from glue import segments
+from pylal import git_version
 from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
@@ -57,7 +58,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 --grb-name
 """
 
-  parser = OptionParser(usage)
+  parser = OptionParser(usage, version=__version__)
 
   parser.add_option("-v", "--verbose", action="store_true", default=False,\
                     help="verbose output, default: %default")
