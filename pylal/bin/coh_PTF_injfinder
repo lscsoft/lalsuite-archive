@@ -205,9 +205,6 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
       currTrigs.extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles))
       if len(currTrigs):
         currTrigs.sort(key=lambda t: t.snr, reverse=True)
-      if verbose:
-        sys.stdout.write("t ") 
-        sys.stdout.flush()
 
       for trig in currTrigs:
         # Temporary hack to allow the code to work with tables that dont have
@@ -215,7 +212,7 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
         try:
           tmp = trig.time_slide_id
         except AttributeError:
-          trig.time_slide_id=ilwd.get_ilwdchar("multi_inspiral:time_slide_id:0")
+          trig.time_slide_id=ilwd.ilwdchar("multi_inspiral:time_slide_id:0")
 
       if opts.log_dir:
         currInjs = remove_bad_injections(currInjs,badInjs)
@@ -253,13 +250,13 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
   
   for object in objectList:
     object['inj'].simulation_id =\
-        ilwd.get_ilwdchar("sim_inspiral:simulation_id:%d" % eventCount)
+        ilwd.ilwdchar("sim_inspiral:simulation_id:%d" % eventCount)
 
     if not object['found']:
       missedInjs.append(object['inj'])
     else:
       object['trig'].event_id =\
-          ilwd.get_ilwdchar("multi_inspiral:event_id:%s" % eventCount)
+          ilwd.ilwdchar("multi_inspiral:event_id:%s" % eventCount)
       foundInjs.append(object['inj'])
       foundTrigs.append(object['trig'])
 
