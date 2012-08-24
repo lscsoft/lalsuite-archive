@@ -137,54 +137,13 @@ if sqlscript != '':
         print >> sys.stdout, "Creating needed indices..."
     connection.cursor().executescript(sqlscript)
 
-if opts.verbose:
-   print >> sys.stdout, "Collect useful information from process"
-
-sqlscript = """
-CREATE TEMP TABLE proc_params AS
-    SELECT
-        process.process_id AS proc_id,
-        process.program AS program,
-        group_concat(pp_table.value) AS value,
-        group_concat(pp_table.param) AS params,
-        concat_5cols(process.start_time, process.end_time, process.username,
-            process.node, process.version) AS process_info
-    FROM
-        process_params AS pp_table
-        JOIN process ON (
-            pp_table.process_id == process.process_id)
-    GROUP BY proc_id;
-
-CREATE TEMP TABLE _pidmap_ AS
-    SELECT
-        old_pp_table.proc_id AS old_pid,
-        MIN(new_pp_table.proc_id) AS new_pid,
-        old_pp_table.program AS program
-    FROM
-        proc_params AS old_pp_table
-        JOIN proc_params AS new_pp_table ON (
-            old_pp_table.value == new_pp_table.value
-            AND old_pp_table.process_info == new_pp_table.process_info
-            AND old_pp_table.params == new_pp_table.params
-            AND old_pp_table.program == new_pp_table.program)
-    GROUP BY old_pid;
-
-CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
-
-"""
-if opts.debug:
-    print >> sys.stderr, sqlscript
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-connection.cursor().executescript( sqlscript )
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 if opts.verbose:
-   print >> sys.stdout, "Cleaning up the veto_definer and segments tables..."
+   print >> sys.stdout, "Cleaning up the segments tables..."
 
 sqlscript = """
 --
--- Cleaning up the veto_definer and segments tables as well as the associated
+-- Cleaning up the segments tables as well as the associated
 -- entries in the process & process_params tables
 -- 
 
@@ -231,11 +190,97 @@ DELETE FROM segment_definer
 DELETE FROM segment_summary
     WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
 
--- Remove duplicate entries in the veto_definer table
-DELETE FROM veto_definer
-    WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
-
 DROP TABLE segments_tbl;
+"""
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+connection.cursor().executescript( sqlscript )
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+if opts.verbose:
+    print >> sys.stdout, "Cleaning up the veto_definer table..."
+
+sqlscript = """
+CREATE TEMP TABLE veto_procinfo AS
+    SELECT
+        process.process_id,
+        concat_7cols(process.program, process.version, process.username,
+            process.ifos, process.cvs_entry_time, process.cvs_repository, 
+            process.comment) AS process_info
+    FROM process
+    WHERE
+        process.process_id IN (
+            SELECT veto_definer.process_id
+            FROM veto_definer
+            GROUP BY veto_definer.process_id);
+
+CREATE TEMP TABLE _veto_pidmap_ AS
+    SELECT
+        old_procinfo.process_id AS old_pid,
+        MIN(new_procinfo.process_id) AS new_pid
+    FROM
+        veto_procinfo AS old_procinfo
+        JOIN veto_procinfo AS new_procinfo ON (
+            new_procinfo.process_info == old_procinfo.process_info)
+    GROUP BY old_pid;
+
+DELETE FROM process
+    WHERE process_id IN (
+        SELECT old_pid
+        FROM _veto_pidmap_
+        WHERE old_pid != new_pid);
+DELETE FROM veto_definer
+    WHERE process_id IN (
+        SELECT old_pid
+        FROM _veto_pidmap_
+        WHERE old_pid != new_pid);
+
+DROP TABLE veto_procinfo;
+DROP TABLE _veto_pidmap_;
+"""
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+connection.cursor().executescript( sqlscript )
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+if opts.verbose:
+   print >> sys.stdout, "Collect useful information from process and process_params tables"
+
+sqlscript = """
+CREATE TEMP TABLE proc_params AS
+    SELECT
+        process.process_id AS proc_id,
+        process.program AS program,
+        group_concat(pp_table.value) AS value,
+        group_concat(pp_table.param) AS params,
+        concat_5cols(process.start_time, process.end_time, process.username,
+            process.node, process.version) AS process_info
+    FROM
+        process_params AS pp_table
+        JOIN process ON (
+            pp_table.process_id == process.process_id)
+    GROUP BY proc_id;
+
+CREATE TEMP TABLE _pidmap_ AS
+    SELECT
+        old_pp_table.proc_id AS old_pid,
+        MIN(new_pp_table.proc_id) AS new_pid,
+        old_pp_table.program AS program
+    FROM
+        proc_params AS old_pp_table
+        JOIN proc_params AS new_pp_table ON (
+            old_pp_table.value == new_pp_table.value
+            AND old_pp_table.process_info == new_pp_table.process_info
+            AND old_pp_table.params == new_pp_table.params
+            AND old_pp_table.program == new_pp_table.program)
+    GROUP BY old_pid;
+
+CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
+
 """
 if opts.debug:
     print >> sys.stderr, sqlscript
