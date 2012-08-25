@@ -40,7 +40,7 @@ reduced if the small number of unique string prefixes are stored separately
 and reused.  This module provides the machinery used to do this.
 
 The ilwdchar class in this module converts a string or unicode object
-containing an ilwd:char ID into an more memory efficient representation.
+containing an ilwd:char ID into a more memory efficient representation.
 
 Example:
 
@@ -154,7 +154,7 @@ __date__ = git_version.date
 #
 
 
-def get_ilwdchar_class(tbl_name, col_name):
+def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	"""
 	Searches this module's namespace for a subclass of __ilwd.ilwdchar
 	whose table_name and column_name attributes match those provided.
@@ -197,7 +197,7 @@ def get_ilwdchar_class(tbl_name, col_name):
 	cls_name = "%s_%s_class" % key
 	assert cls_name != "get_ilwdchar_class"
 	try:
-		return globals()[cls_name]
+		return namespace[cls_name]
 	except KeyError:
 		pass
 
@@ -212,7 +212,7 @@ def get_ilwdchar_class(tbl_name, col_name):
 
 	new_class.__name__ = cls_name
 
-	globals()[cls_name] = new_class
+	namespace[cls_name] = new_class
 
 	#
 	# pickle support

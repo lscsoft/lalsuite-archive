@@ -33,6 +33,7 @@ class PkgConfig(object):
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
+gsl_pkg_config = PkgConfig("gsl")
 lal_pkg_config = PkgConfig("lal")
 lalsupport_pkg_config = PkgConfig("lalsupport")
 lalburst_pkg_config = PkgConfig("lalburst")
@@ -486,6 +487,16 @@ setup(
 			extra_compile_args = ["-std=c99"]
 		),
 		Extension(
+			"pylal.cbc_network_efficiency",
+			["src/cbc_network_efficiency.c"],
+			include_dirs = [numpy_get_include()] + gsl_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lal_pkg_config.incdirs,
+			library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
+			runtime_library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
+			libraries = gsl_pkg_config.libs + lalsimulation_pkg_config.libs + lal_pkg_config.libs,
+			extra_compile_args = ["-std=c99", "-ffast-math", "-mfpmath=387", "-O3", "-Wno-unknown-pragmas"] + gsl_pkg_config.extra_cflags + lalsimulation_pkg_config.extra_cflags + lal_pkg_config.extra_cflags,  # , "-fopenmp"
+			#extra_link_args=['-fopenmp']
+		),
+		Extension(
 			"pylal.inspiral_metric",
 			["src/inspiral_metric.c", "src/xlal/misc.c"],
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + ["src/xlal/", "src/xlal/datatypes/"],
@@ -607,7 +618,6 @@ setup(
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_cafe"),
-		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_inspinjfind"),
 		os.path.join("bin", "lalapps_cbc_injfind"),
 		os.path.join("bin", "ligolw_rinca"),
@@ -714,9 +724,10 @@ setup(
 		os.path.join("bin", "auxmvc_comparison_plots.py"),
 		os.path.join("bin", "pylal_imr_search_volume"),
 		os.path.join("bin", "pylal_imr_plot_search_volume"),
-		os.path.join("bin", "pylal_imr_plot_search_volume"),
+		os.path.join("bin", "pylal_imr_plot_ifar"),
 		os.path.join("bin", "pylal_cbc_rankprod"),
 		os.path.join("bin", "pylal_cbc_ulmc"),
+		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget")
 		],
 	data_files = [ ("etc", [
