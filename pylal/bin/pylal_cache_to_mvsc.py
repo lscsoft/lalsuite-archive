@@ -29,7 +29,6 @@ from glue import iterutils
 from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from pylal import CoincInspiralUtils
