@@ -1406,54 +1406,9 @@ void coh_PTF_statistic(
 
   if ( params->injectFile )
   {
-    REAL8 injDiff;
-    UINT4 injSamplePoint,injWindow;
-    INT8  startDiff,endDiff;
-    SimInspiralTable *thisInject = NULL;
-    LIGOTimeGPS injTime;
-    LIGOTimeGPS segmentStart,segmentEnd;
-    segmentStart = cohSNR->epoch;
-    segmentEnd = cohSNR->epoch;
-    XLALGPSAdd(&segmentEnd,params->segmentDuration/2.0);
-    thisInject = params->injectList;
-    while ( thisInject )
-    {
-      injTime = thisInject->geocent_end_time;
-      /* Is injection within segment? */
-      startDiff = XLALGPSToINT8NS( &injTime )-XLALGPSToINT8NS( &segmentStart );
-      endDiff = XLALGPSToINT8NS( &injTime ) - XLALGPSToINT8NS( &segmentEnd );
-      if (startDiff > 0)
-      {
-        if (endDiff < 0)
-        {
-          if (segStartPoint)
-          {
-            /* More than one injection is in the segment. This should not happen
-             * and this case is not dealt with well. For now analyse the whole
-             * segment if this happens */
-            segStartPoint = numPoints/4;
-            segEndPoint = 3*numPoints/4;
-          }
-          else
-          {
-            injDiff = (REAL8) ((XLALGPSToINT8NS( &injTime ) - \
-                       XLALGPSToINT8NS( &segmentStart ) ) / 1E9);
-            injSamplePoint = floor(injDiff * params->sampleRate + 0.5);
-            injSamplePoint += numPoints/4;
-            injWindow = floor(params->injSearchWindow * params->sampleRate+1);
-            segStartPoint = injSamplePoint - injWindow;
-            if ( segStartPoint < numPoints/4)
-              segStartPoint = numPoints/4;
-            segEndPoint = injSamplePoint + injWindow + 1;
-            if ( segEndPoint > 3*numPoints/4)
-              segEndPoint = 3*numPoints/4;
-          }
-        }
-      }
-      thisInject = thisInject->next;
-    }
+    findInjectionSegment(&segStartPoint, &segEndPoint, &cohSNR->epoch, params);
   }
-  
+
   if (! segStartPoint)
   {
     segStartPoint = numPoints/4;

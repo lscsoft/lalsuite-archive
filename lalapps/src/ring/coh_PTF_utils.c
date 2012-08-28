@@ -1647,3 +1647,62 @@ void REALToGSLVector(
     gsl_vector_set(output, i, input[i]);
   }
 }
+
+void findInjectionSegment(
+    UINT4 *start,
+    UINT4 *end,
+    LIGOTimeGPS *epoch,
+    struct coh_PTF_params *params
+    )
+{
+    /* define variables */
+    LIGOTimeGPS injTime, segmentStart, segmentEnd;
+    UINT4 injSamplePoint, injWindow, numPoints;
+    REAL8 injDiff;
+    INT8 startDiff, endDiff;
+    SimInspiralTable *thisInject = NULL;
+
+    /* set variables */
+    segmentStart = *epoch;
+    segmentEnd   = *epoch;
+    XLALGPSAdd(&segmentEnd, params->segmentDuration/2.0);
+    thisInject = params->injectList;
+    numPoints = floor(params->segmentDuration * params->sampleRate + 0.5);
+
+    /* loop over injections */
+    while (thisInject)
+    {
+        injTime = thisInject->geocent_end_time;
+        startDiff = XLALGPSToINT8NS(&injTime) - XLALGPSToINT8NS(&segmentStart);
+        endDiff = XLALGPSToINT8NS(&injTime) - XLALGPSToINT8NS(&segmentEnd);
+
+        if ((startDiff > 0) && (endDiff < 0))
+        {
+            verbose("Generating analysis segment for injection at %d.\n",
+                    injTime.gpsSeconds);
+            if (*start)
+            {
+                verbose("warning: multiple injections in this segment.\n");
+                *start = numPoints/4;
+                *end = 3 * numPoints/4;
+            }
+            else
+            {
+                injDiff = (REAL8) ((XLALGPSToINT8NS(&injTime) - \
+                                    XLALGPSToINT8NS(&segmentStart)) / 1E9);
+                injSamplePoint = floor(injDiff * params->sampleRate + 0.5);
+                injSamplePoint += numPoints/4;
+                injWindow = floor(params->injSearchWindow * params->sampleRate
+                                  + 1);
+                *start = injSamplePoint - injWindow;
+                if (*start < numPoints/4)
+                    *start = numPoints/4;
+                *end = injSamplePoint + injWindow + 1;
+                if (*end > 3*numPoints/4)
+                    *end = 3*numPoints/4;
+                verbose("Found analysis segment at [%d,%d).\n", *start, *end);
+            }
+        }
+        thisInject = thisInject->next;
+    }
+}

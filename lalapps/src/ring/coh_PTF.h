@@ -776,3 +776,10 @@ void REALToGSLVector(
     gsl_vector  *output,
     size_t      size
 );
+    
+void findInjectionSegment(
+    UINT4 *start,
+    UINT4 *end,
+    LIGOTimeGPS *epoch,
+    struct coh_PTF_params *params
+);
