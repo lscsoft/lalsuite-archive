@@ -1464,8 +1464,9 @@ void coh_PTF_statistic(
                                           PTFM[ifoNumber]->dimLength->data[1]);
         /* calculate eigenvectors and eigenvalues of (h|h)*/
         gsl_eigen_symmv_workspace *matTemp = gsl_eigen_symmv_alloc(5);
-        gsl_eigen_symmv(&PTFmatrix.matrix, eigenvalsSngl, eigenvecsSngl,
+        gsl_eigen_symmv(&(PTFmatrix.matrix), eigenvalsSngl, eigenvecsSngl,
                         matTemp);
+        gsl_eigen_symmv_free(matTemp);
         for (i = segStartPoint-5000; i < segEndPoint+5000; ++i)
         {  /* loop over time */ 
           // This function combines the various (Q_i | s) and rotates them into
