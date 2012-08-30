@@ -391,8 +391,7 @@ void coh_PTF_calculate_bmatrix(
   REAL8Array              *PTFM[LAL_NUM_IFO+1],
   UINT4 vecLength,
   UINT4 vecLengthTwo,
-  UINT4 PTFMlen,
-  UINT4 detectorNum
+  UINT4 PTFMlen
   )
 {
   // This function calculates the eigenvectors and eigenvalues of the
@@ -416,21 +415,14 @@ void coh_PTF_calculate_bmatrix(
       zh[i*vecLength+j] = 0;
       sh[i*vecLength+j] = 0;
       yu[i*vecLength+j] = 0;
-      if (detectorNum == LAL_NUM_IFO)
+      for( k = 0; k < LAL_NUM_IFO; k++)
       {
-        for( k = 0; k < LAL_NUM_IFO; k++)
+        if ( params->haveTrig[k] )
         {
-          if ( params->haveTrig[k] )
-          {
-            zh[i*vecLength+j] += a[k]*a[k] * PTFM[k]->data[i*PTFMlen+j];
-            sh[i*vecLength+j] += b[k]*b[k] * PTFM[k]->data[i*PTFMlen+j];
-            yu[i*vecLength+j] += a[k]*b[k] * PTFM[k]->data[i*PTFMlen+j];
-          }
+          zh[i*vecLength+j] += a[k]*a[k] * PTFM[k]->data[i*PTFMlen+j];
+          sh[i*vecLength+j] += b[k]*b[k] * PTFM[k]->data[i*PTFMlen+j];
+          yu[i*vecLength+j] += a[k]*b[k] * PTFM[k]->data[i*PTFMlen+j];
         }
-      }
-      else
-      {
-        zh[i*vecLength+j] += PTFM[detectorNum]->data[i*PTFMlen+j];
       }
     }
   }
@@ -458,9 +450,7 @@ void coh_PTF_calculate_bmatrix(
       }
       else
         fprintf(stderr,"BUGGER! Something went wrong.");
-      /*fprintf(stdout,"%f ",gsl_matrix_get(B2,i,j));*/
     }
-    /*fprintf(stdout,"\n");*/
   }
 
   /* Here we compute the eigenvalues and eigenvectors of B2 */

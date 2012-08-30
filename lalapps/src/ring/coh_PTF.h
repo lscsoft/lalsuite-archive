@@ -391,8 +391,7 @@ void coh_PTF_calculate_bmatrix(
   REAL8Array              *PTFM[LAL_NUM_IFO+1],
   UINT4 vecLength,
   UINT4 vecLengthTwo,
-  UINT4 PTFMlen,
-  UINT4 detectorNum
+  UINT4 PTFMlen
 );
 
 void coh_PTF_calculate_rotated_vectors(
@@ -776,7 +775,7 @@ void REALToGSLVector(
     gsl_vector  *output,
     size_t      size
 );
-    
+
 void findInjectionSegment(
     UINT4 *start,
     UINT4 *end,

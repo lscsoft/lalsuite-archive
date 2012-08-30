@@ -1359,7 +1359,7 @@ void coh_PTF_statistic(
   // We later rotate and rescale the (Q_i|s) values such that in the new basis
   // this matrix will be the identity matrix.
   // For non-spin this describes the rotation into the dominant polarization
-  coh_PTF_calculate_bmatrix(params,eigenvecs,eigenvals,a,b,PTFM,vecLength,vecLengthTwo,vecLength,LAL_NUM_IFO);
+  coh_PTF_calculate_bmatrix(params,eigenvecs,eigenvals,a,b,PTFM,vecLength,vecLengthTwo,vecLength);
 
   // If required also calculate these eigenvalues/vectors for the null stream 
   if (params->doNullStream)
@@ -1454,10 +1454,18 @@ void coh_PTF_statistic(
                                                       &lalDimensionlessUnit,
                                                       3*numPoints/4
                                                           -numPoints/4+10000);
+
       if (spinTemplate)
       {
-        coh_PTF_calculate_bmatrix(params,eigenvecsSngl,eigenvalsSngl,a,b,PTFM,
-            vecLength,vecLength,vecLength,ifoNumber);
+        /* convert PTFM to gsl_matrix */
+        gsl_matrix_view PTFmatrix;
+        PTFmatrix = gsl_matrix_view_array(PTFM[ifoNumber]->data,\
+                                          PTFM[ifoNumber]->dimLength->data[0],
+                                          PTFM[ifoNumber]->dimLength->data[1]);
+        /* calculate eigenvectors and eigenvalues of (h|h)*/
+        gsl_eigen_symmv_workspace *matTemp = gsl_eigen_symmv_alloc(5);
+        gsl_eigen_symmv(&PTFmatrix.matrix, eigenvalsSngl, eigenvecsSngl,
+                        matTemp);
         for (i = segStartPoint-5000; i < segEndPoint+5000; ++i)
         {  /* loop over time */ 
           // This function combines the various (Q_i | s) and rotates them into
@@ -1872,13 +1880,13 @@ void coh_PTF_statistic(
                 {
                   coh_PTF_calculate_bmatrix(params,Bankeigenvecs[j],
                       Bankeigenvals[j],a,b,PTFM,csVecLength,csVecLengthTwo,
-                      vecLength,LAL_NUM_IFO);
+                      vecLength);
                 }
                 else
                 {
                   coh_PTF_calculate_bmatrix(params,Bankeigenvecs[j],
                       Bankeigenvals[j],a,b,bankNormOverlaps[j].PTFM,csVecLength,
-                      csVecLengthTwo,vecLength,LAL_NUM_IFO);
+                      csVecLengthTwo,vecLength);
                 }
               }
             }
@@ -1928,7 +1936,7 @@ void coh_PTF_statistic(
               Autoeigenvals = gsl_vector_alloc(csVecLengthTwo);
               // Again the eigenvectors/values are calculated
               coh_PTF_calculate_bmatrix(params,Autoeigenvecs,Autoeigenvals,
-                  a,b,PTFM,csVecLength,csVecLengthTwo,vecLength,LAL_NUM_IFO);
+                  a,b,PTFM,csVecLength,csVecLengthTwo,vecLength);
             }
 
             if (! autoCohOverlaps)
@@ -2097,7 +2105,7 @@ void coh_PTF_statistic(
               Autoeigenvals = gsl_vector_alloc(csVecLengthTwo);
               // Again the eigenvectors/values are calculated
               coh_PTF_calculate_bmatrix(params,Autoeigenvecs,Autoeigenvals,
-                  a,b,PTFM,csVecLength,csVecLengthTwo,vecLength,LAL_NUM_IFO);
+                  a,b,PTFM,csVecLength,csVecLengthTwo,vecLength);
             }
             if (! frequencyRangesPlus[LAL_NUM_IFO])
             {
