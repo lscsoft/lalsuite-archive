@@ -1264,7 +1264,7 @@ void coh_PTF_statistic(
 
   UINT4 csVecLength = 1;
   UINT4 csVecLengthTwo = 2;
-  if (params->numIFO == 1 || params->singlePolFlag)
+  if (params->numIFO == 1 || params->singlePolFlag || params->faceOnStatistic)
     csVecLengthTwo = 1;
 
   /* These arrays are used to store the maximized quantities
@@ -2312,6 +2312,9 @@ void coh_PTF_statistic(
   *chisqSnglOverlapsP = chisqSnglOverlaps;
 
   write_REAL4TimeSeries( cohSNR );
+  write_REAL4TimeSeries( bankVeto[LAL_NUM_IFO] );
+  write_REAL4TimeSeries( autoVeto[LAL_NUM_IFO] );
+  write_REAL4TimeSeries( chiSquare[LAL_NUM_IFO] );
 
 }
 
