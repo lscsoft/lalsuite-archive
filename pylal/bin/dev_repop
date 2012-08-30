@@ -1,0 +1,521 @@
+#!/usr/bin/python
+from __future__ import division
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+usage = \
+'''
+Computes detection statistic and stores to the specified column in the coinc_inspiral table.
+'''
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
+import numpy
+
+from glue.ligolw import dbtables
+from glue.ligolw import lsctables
+from glue.ligolw.utils import process
+
+from pylal import ligolw_sqlutils as sqlutils
+
+# =============================================================================
+#
+#                                   Set Options
+#
+# =============================================================================
+
+
+def parse_command_line():
+    """
+    Parse the command line, return options and check for consistency among the
+    options.
+    """
+    parser = OptionParser( version = "", usage = usage )
+
+    # following are related to file input and output naming
+    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+        help = "Input database to read. Can only input one at a time."
+        )
+    parser.add_option( "-o", "--output", action = "store", type = "string", default = None,
+        help = "Name of output database to save to."
+        )
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
+        help =
+            "Required. Location of local disk on which to do work. " +
+            "This is used to enhance performance in a networked " +
+            "environment, and to protect against accidentally " +
+            "overwriting the input database."
+        )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help = "Print progress information"
+        )
+    # following are standard options for database-based programs
+    parser.add_option( "", "--output-column", action = "store", type = "string", default = None,
+        help = "Required. Column in the coinc_inspiral table to store output to."
+        )
+    # following are specific to this program
+    parser.add_option("", "--statistic-type", action = "store", type="string",
+        default=None, metavar="STATTYPE",
+        help =
+            "type of statistic to be computed: " +
+            "allowed values are snr, snrchi, effective_snr, effsnrlike, newsnr, newsnrlike, " +
+            "highstat, focused_highstat"
+        )
+    parser.add_option("", "--nlow", action = "store", type = "float", default = 4.,
+        help =
+            "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
+            "contours of constant statistic at small snr"
+        )
+    parser.add_option("", "--nhigh", action = "store", type = "float", default = 2.,
+        help =
+            "option for effsnrlike and newsnrlike statistics: power of snr followed by " +
+            "contours of constant statistic at large snr"
+        )
+    parser.add_option("", "--chisq-index", action="store", type="float", default = 6.,
+        help = "chisq index q for newsnr; default is 6."
+        )
+    parser.add_option("", "--crossover-snr", action="store", type="float", default = 15.81,
+        help = 
+          "crossover snr value for effective snr and " +
+          "effsnrlike, equivalent to sqrt of magic number; default is sqrt(250)=15.81."
+        )
+    parser.add_option("", "--duration-threshold", action="store", type="float", default = 0.2,
+        help = "threshold for dividing bins in highstat statistic" 
+        )
+    parser.add_option("", "--snr-power", action="store", type="float", default = 2.,
+        help =
+          "What powers of single ifo statistics to add together. " +
+          "To add the logs choose snr-power=0. Default is 2."
+        )
+    parser.add_option("", "--statistic-cut", action="store", type="float", 
+        help = 
+          "Effectively veto coincs if one or more triggers falls below the specified " + 
+          "value of the chosen statistic by multiplying the combined stat value by " +
+          "0.2; at present only works for effsnr, newsnr and (focused_)highstat." 
+        )
+    parser.add_option("", "--asymm-penalty", action="store", type="float", default = 25.,
+        help = 
+          "for focused highstat, specify a penalty to be subtracted from the combined " +
+          "effsnrsq for asymmetrical (snr ratio > 2:1) short-duration H1L1 events."
+        )
+    parser.add_option("", "--bank-chisq-rolloff", action="store", type="float", default = 100.,
+        help = 
+          "for focused highstat, specify a total mass above which bank chisq " +
+          "weighting is tapered to zero."
+        )
+    parser.add_option("", "--hanford-factor", action="store", type="float", default = 1.,
+        help = "prefactor for power of H1 or H2 statistic in combined statistic; default is 1."
+        )
+    parser.add_option("", "--livingston-factor", action="store", type="float", default = 1.,
+        help = "prefactor for power of L1 statistic in combined statistic; default is 1."
+        )
+    parser.add_option("", "--virgo-factor", action="store", type="float",  default = 1.,
+        help = "prefactor for power of V1 statistic in combined statistic; default is 1."
+        )
+    parser.add_option("", "--virgo-run", action="store", type="int", default = 2,
+        help = "which Virgo science run to tune highstat for; default is 2"
+        )
+    (options, args) = parser.parse_args()
+
+    # check for required options and for self-consistency
+    if not options.input:
+        raise ValueError, "No input specified."
+    if not options.output:
+        raise ValueError, "No output specified."
+    if not options.tmp_space:
+        raise ValueError, "--tmp-space is a required argument."
+    if not options.output_column:
+        raise ValueError, "--output-column is a required argument."
+    if options.statistic_type in ['highstat','focused_highstat'] and not options.virgo_run:
+        raise ValueError, "please specify --virgo-run to get correct highstat tuning, \
+        if not analyzing Virgo triggers set to your favourite integer"
+
+    return options, sys.argv[1:]
+
+# =============================================================================
+#
+#                       Function Definitions
+#
+# =============================================================================
+
+def create_column( connection, table_name, column_name ):
+    """
+    Creates a column in the given table if it doesn't exist.
+    """
+    table_name = sqlutils.validate_option( table_name )
+    column_name = sqlutils.validate_option( column_name )
+    if column_name not in sqlutils.get_column_names_from_table( connection, table_name ):
+        sqlquery = ''.join([ """
+            ALTER TABLE
+                """, table_name, """
+            ADD COLUMN
+                """, column_name ])
+        connection.cursor().execute( sqlquery )
+
+
+class CombiningFunctions:
+    """
+    Class that stores different functions that can be later used to calculate stats in sqlite.
+    The functions are grouped together in this class because some of them require extra outside
+    arguments not in the database, e.g., ifo prefactors. By storing things in a class, these extra
+    variables can be set when the class is called, thus allowing them to automatically be used by sqlite
+    when computing the results in the UPDATE SET command.
+    """
+    def __init__( self, q = None, nlow = None, nhigh = None, rhoc = None, \
+      durthresh = None, statcut = None, asymmpenalty = None, power = 2., rolloff = 100., \
+      hfac = 1., lfac = 1., vfac = 1., vsr = 2 ):
+        """
+        Sets outside variables.
+        """
+        self.q = q
+        self.nlow = nlow
+        self.nhigh = nhigh
+        self.rhoc = rhoc
+        self.durthresh = durthresh
+        self.statcut = statcut
+        self.power = power
+        self.asymmpenalty = asymmpenalty
+        self.rolloff = rolloff
+        self.hfac = hfac
+        self.lfac = lfac
+        self.vfac = vfac
+        self.vsr = vsr
+    
+    def compute_combined_snr( self, coinc_sngls ):
+        """
+        Computes a combined snr using the given coinc and whatever the powers and prefactors are set to.
+        
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        cutfac = 1.
+        if self.statcut and min(sngl.snr for sngl in coinc_sngls) < self.statcut:
+            cutfac = 0.01
+        if self.power == 0:
+            return cutfac*numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log(sngl.snr) for sngl in coinc_sngls ))
+        else:
+            return cutfac* ( sum(getattr(self, sngl.ifo[0].lower()+'fac') * sngl.snr**self.power for sngl in coinc_sngls) )**(1./self.power)
+
+    def compute_combined_snrchi( self, coinc_sngls ):
+        """
+        Computes a combined snrchi using the given coinc and whatever the prefactors are set to.
+
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        cutfac = 1.
+        if self.statcut and min(sngl.snr/(sngl.chisq/(2*sngl.chisq_dof-2))**0.5 for sngl in coinc_sngls) < self.statcut:
+            cutfac = 0.01
+        if self.power == 0:
+            return cutfac* numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log(sngl.snr/(sngl.chisq/(2*sngl.chisq_dof-2))**0.5) \
+              for sngl in coinc_sngls ))
+        else:
+            return cutfac* ( sum(getattr(self, sngl.ifo[0].lower()+'fac') * (sngl.snr/(sngl.chisq/(2*sngl.chisq_dof-2))**0.5) \
+              **self.power for sngl in coinc_sngls) )**(1./self.power)
+
+    def compute_combined_effsnr( self, coinc_sngls ):
+        """
+        Computes a combined effective snr (magic number = rhoc^2) using the given coinc and 
+        whatever the powers and prefactors are set to.
+        
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        cutfac = 1.
+        if self.statcut and min(sngl.get_effective_snr(fac=self.rhoc**2) for sngl in coinc_sngls) < self.statcut:
+            cutfac = 0.2
+        if self.power == 0:
+            return cutfac* numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_effective_snr(fac=self.rhoc**2) ) \
+              for sngl in coinc_sngls ))
+        else:
+            return cutfac* ( sum(getattr(self, sngl.ifo[0].lower()+'fac') * sngl.get_effective_snr(fac=self.rhoc**2)**self.power \
+              for sngl in coinc_sngls) )**(1./self.power)
+
+    def compute_combined_effsnrlike( self, coinc_sngls ):
+        """
+        Computes a combined effsnr-like statistic (crossover at rho=rhoc) using the given coinc and 
+        whatever the powers and prefactors are set to.
+        
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        if self.power == 0:
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * \
+              numpy.log( sngl.snr/((sngl.chisq/(2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) \
+              for sngl in coinc_sngls ))
+        else:
+            return ( sum( getattr(self, sngl.ifo[0].lower()+'fac') * \
+              ( sngl.snr/((sngl.chisq/(2*sngl.chisq_dof-2))*(1+(sngl.snr/self.rhoc)**(self.nlow-self.nhigh)))**(1./self.nlow) ) \
+              **self.power for sngl in coinc_sngls) )**(1./self.power)
+
+    def compute_combined_newsnrlike( self, coinc_sngls ):
+        """
+        Computes a combined newsnr-like statistic (crossover at rchisq=1) using the given coinc and 
+        whatever the powers and prefactors are set to.
+        
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        if self.power == 0:
+            return numpy.exp(sum( getattr(self, sngl.ifo[0].lower()+'fac') * \
+              numpy.log( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + \
+              (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) ) \
+              for sngl in coinc_sngls ))
+        else:
+            return ( sum( getattr(self, sngl.ifo[0].lower()+'fac') * \
+              ( sngl.snr/(0.5*( (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nlow) + \
+              (sngl.chisq/(2*sngl.chisq_dof-2))**(self.q/self.nhigh) ))**(1./self.q) )**self.power \
+              for sngl in coinc_sngls) )**(1./self.power)
+
+    def compute_combined_newsnr( self, coinc_sngls ):
+        """
+        Computes a combined newsnr using the given coinc and whatever the powers and prefactors are set to.
+        
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        cutfac = 1.
+        if self.statcut and min(sngl.get_new_snr(index=self.q) for sngl in coinc_sngls) < self.statcut:
+            cutfac = 0.2
+        if self.power == 0:
+            return cutfac* numpy.exp( sum(getattr(self, sngl.ifo[0].lower()+'fac') * numpy.log( sngl.get_new_snr(index=self.q) ) \
+            for sngl in coinc_sngls) )
+        else:
+            return cutfac* ( sum(getattr(self, sngl.ifo[0].lower()+'fac') * \
+              sngl.get_new_snr(index=self.q)**self.power for sngl in coinc_sngls) )**(1./self.power)
+
+    def compute_highstat( self, coinc_sngls ):
+        """
+        Computes 'highstat' combining newsnrs if minimum template duration is above durthresh, else combining
+        newsnr in VSR2 with effsnr in H1,H2,L1,VSR3
+
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        min_duration = min(sngl.template_duration for sngl in coinc_sngls)
+        n = len(coinc_sngls)
+        snglstat = numpy.zeros(n)
+        snglfac = numpy.zeros(n)
+        cutfac = 1.
+        for i, sngl in zip(numpy.arange(n), coinc_sngls):
+            snglfac[i] = getattr(self, sngl.ifo[0].lower()+'fac')
+            if min_duration < self.durthresh and (sngl.ifo in ('H1', 'H2', 'L1') or self.vsr != 2):
+                snglstat[i] = sngl.get_effective_snr(fac = self.rhoc**2)
+            # apply effsnr to LIGO triggers and VSR3 triggers if the minimum duration is below threshold
+            # but not to VSR2 triggers
+            else:
+                snglstat[i] = sngl.get_new_snr(index = self.q)
+            if self.statcut and snglstat[i] < self.statcut:
+                cutfac = 0.2
+        if self.power == 0:
+            return cutfac* numpy.exp( sum(snglfac[i] * numpy.log( snglstat[i] ) for i in numpy.arange(n)) )
+        else:
+            return cutfac* ( sum(snglfac[i] * snglstat[i]**self.power for i in numpy.arange(n)) )**(1./self.power)
+
+    def compute_focused_highstat( self, coinc_sngls ):
+        """
+        Uses a weighted mean of the three computed reduced chisq values. For H1,H2,L1 in events 
+        below the minimum duration threshold, uses effsnr-like stat; otherwise newsnr-like stat. 
+        For events below duration threshold with H1 and L1 triggers, applies an SNR penalty if 
+        the ratio of H1 to L1 snrs exceeds 2. Also 'cuts' events (multiplies combined SNR by a 
+        small number) if any single-ifo stat falls below given value.
+
+        @coinc_sngls: a list of sngl_inspiral rows associated with *one* coincident event
+        """
+        min_duration = min(sngl.template_duration for sngl in coinc_sngls)
+        n = len(coinc_sngls)
+        snglstat = numpy.zeros(n)
+        snglfac = numpy.zeros(n)
+        bank_weight = 1.
+        cutfac = 1.
+        snrpenalty = 0.
+        H1L1snrs = {}
+        for i, sngl in zip(numpy.arange(n), coinc_sngls):
+            snglfac[i] = getattr(self, sngl.ifo[0].lower()+'fac')
+            # taper the bank chisq weight from 1 at mtotal=rolloff to 0 at mtotal=100
+            if sngl.mtotal > self.rolloff:
+                bank_weight = (100.-sngl.mtotal)/(100.-self.rolloff)
+            # make a weighted sum
+            mean_rchisq = (sngl.get_reduced_chisq() + bank_weight*sngl.get_reduced_bank_chisq()\
+              + sngl.get_reduced_cont_chisq()) /(2+bank_weight)
+            newsnr = sngl.snr/( (1 + max(1,mean_rchisq)**(self.q/2))/2 )**(1./self.q)
+            # apply effsnr to LIGO triggers if the minimum duration is below threshold but not to VSR2 triggers
+            # take min(newsnr, effsnr) to avoid unduly up-ranking trigs with very low mean chisq
+            # nb effsnr(fac=50) < newsnr for most snr and chisq values, except low snr and very low chisq
+            if min_duration <= self.durthresh and (sngl.ifo in ('H1', 'H2', 'L1')):
+                snglstat[i] = min(newsnr, sngl.snr/(1 + sngl.snr**2/self.rhoc**2)**(0.25) /mean_rchisq**(0.25))
+            else:
+                snglstat[i] = newsnr
+            # cut the coinc stat depending on sngl statistic value
+            if self.statcut and snglstat[i] < self.statcut:
+                cutfac = 0.2
+            if sngl.ifo == 'H1' or sngl.ifo == 'L1':
+                H1L1snrs[sngl.ifo] = sngl.snr
+        # penalize short-duration events asymmetrical between H1/L1; the value of snrpenalty should come from a likelihood study
+        if min_duration <= self.durthresh and cutfac == 1. and self.power == 2 and len(H1L1snrs) == 2 \
+              and abs(numpy.log(H1L1snrs['H1']/H1L1snrs['L1'])) > numpy.log(2):
+            snrpenalty = self.asymmpenalty
+        return cutfac*( sum(snglfac[i] * snglstat[i]**self.power for i in numpy.arange(n)) - snrpenalty )**(1./self.power)
+
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+#       Generic Initialization
+#
+
+opts, args = parse_command_line()
+
+# get input database filename
+filename = opts.input
+if not os.path.isfile( filename ):
+    raise ValueError, "The input file, %s, cannot be found." % filename
+
+# Setup working databases and connections
+if opts.verbose: 
+    print >> sys.stdout, "Setting up temp. database..."
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+connection = sqlite3.connect( working_filename )
+if opts.tmp_space:
+    dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
+dbtables.DBTable_set_connection( connection )
+
+#    
+# Create the output column if it doesn't exist
+#
+output_column = sqlutils.validate_option( opts.output_column )
+create_column( connection, 'coinc_inspiral', output_column )
+
+#
+#   Initialize needed functions
+#
+
+# 1. initialize the combining function class
+function_class = CombiningFunctions( q = opts.chisq_index, nlow = opts.nlow, nhigh = opts.nhigh, rhoc = opts.crossover_snr,
+    durthresh = opts.duration_threshold, statcut = opts.statistic_cut, power = opts.snr_power, 
+    asymmpenalty = opts.asymm_penalty, rolloff = opts.bank_chisq_rolloff, 
+    hfac = opts.hanford_factor, lfac = opts.livingston_factor, vfac = opts.virgo_factor, vsr = opts.virgo_run )
+opts.statistic_type = sqlutils.validate_option( opts.statistic_type )
+if opts.statistic_type == 'snr':
+    function = 'compute_combined_snr'
+elif opts.statistic_type == 'snrchi':
+    function = 'compute_combined_snrchi'
+elif opts.statistic_type == 'effective_snr':
+    function = 'compute_combined_effsnr'
+elif opts.statistic_type == 'effsnrlike':
+    function = 'compute_combined_effsnrlike'
+elif opts.statistic_type == 'newsnrlike':
+    function = 'compute_combined_newsnrlike'
+elif opts.statistic_type == 'newsnr':
+    function = 'compute_combined_newsnr'
+elif opts.statistic_type == 'highstat':
+    function = 'compute_highstat'
+elif opts.statistic_type == 'focused_highstat':
+    function = 'compute_focused_highstat'
+
+# 2. initialize the apply_function class in sqlite
+
+# get the columns in the sngl_inspiral table as they're stored in the database
+sngl_columns = sqlutils.get_column_names_from_table( connection, 'sngl_inspiral' ) 
+
+class ApplyCombiningFunction:
+    """
+    This class allows the combining stats to computed on the fly in sqlite instead of having to read all sngls
+    into memory first.
+    
+    It works by first initializing a list to store all the single information about a coincident event.
+    The step method is then used by sqlite to populate this list. Once all the singles in a group have
+    been retrieved (a 'group' is determined by the GROUP BY command in the sqlite statement below, which in this
+    case, things are grouped by coinc_event_ids) the finalize method is called. This is where the relevant
+    function is applied and the resulting value returned. When sqlite goes onto the next group, the class
+    is re-initialized and the process repeats.
+
+    This all works in pysqlite by creating this class as an aggregate function. The step, finalize methods
+    are standard ways for aggregate functions to work. For more information, see "Connection.create_aggregate"
+    in the pysqlite documentation: http://docs.python.org/library/sqlite3.html
+    """
+    def __init__(self):
+        """
+        Initializes variables needed for the step process.
+        """
+        self.this_coinc = []
+
+    def step(self, *args):
+        """
+        Populates self.this_coinc
+        """
+        this_sngl = lsctables.SnglInspiral()
+        [ setattr( this_sngl, column, data) for column, data in zip(sngl_columns, args) if column in this_sngl.__slots__ ]
+        self.this_coinc.append( this_sngl )
+
+    def finalize(self):
+        """
+        Once all the singles for the coinc have been gathered, applies
+        the desired function to them and returns the result.
+        """
+        return getattr(function_class, function)( self.this_coinc )
+
+# now create a sqlite aggregate function from the ApplyCombiningFunction class so that it can be applied
+# on the fly; this requires knowing how many input arguments go into the step method, which is just the number
+# of columns in the sngl_inspiral table
+nargs = len( sngl_columns )
+connection.create_aggregate( 'apply_function', nargs, ApplyCombiningFunction )
+
+
+#
+#   Compute the desired statistic and update the coinc_inspiral table with it
+#
+
+# for some reason sqlite doesn't like "table_name.*" in an aggregate function's arguments,
+# so I'm sticking in all the columns by name into the query.
+sngl_cols = str(','.join(['sngl_inspiral.'+col for col in sngl_columns]))
+
+sqlite3.enable_callback_tracebacks(True)
+sqlquery = ''.join([ """
+    UPDATE
+        coinc_inspiral
+    SET
+        """, output_column, """ = (
+        SELECT
+            apply_function(""", sngl_cols, """)
+        FROM
+            sngl_inspiral
+        JOIN
+            coinc_event_map ON (
+                sngl_inspiral.event_id == coinc_event_map.event_id )
+        WHERE
+            coinc_event_map.coinc_event_id == coinc_inspiral.coinc_event_id
+        GROUP BY
+            coinc_event_map.coinc_event_id
+        )""" ])
+
+if opts.verbose:
+    print >> sys.stdout, "Sqlite query used is:\n%s" % sqlquery
+
+connection.cursor().execute(sqlquery)
+
+#
+#       Save and Exit
+#
+
+connection.commit()
+connection.close()
+
+# write output database
+dbtables.put_connection_filename(opts.output, working_filename, verbose = opts.verbose)
+
+if opts.verbose: 
+    print >> sys.stdout, "Finished!"
+
+sys.exit(0)
+
