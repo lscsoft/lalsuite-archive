@@ -189,11 +189,11 @@ def parse_command_line():
 		categories = {(None, None): [(options.zero_lag_file, options.time_slide_file)]}
 	else:
 		raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
-	if options.veto_segments and not options.veto_segments_name:
+	if options.veto_segments and options.veto_segments_name is None:
 		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 	if options.instruments:
 		options.instruments = set(options.instruments.split(","))
-	if not options.experiment_start_time or not options.experiment_end_time:
+	if None in (options.experiment_start_time, options.experiment_end_time):
 		raise ValueError, "must specify --experiment-start-time and --experiment-end-time"
 
 	if args:
