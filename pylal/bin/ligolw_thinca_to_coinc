@@ -195,6 +195,8 @@ def parse_command_line():
 		options.instruments = set(options.instruments.split(","))
 	if None in (options.experiment_start_time, options.experiment_end_time):
 		raise ValueError, "must specify --experiment-start-time and --experiment-end-time"
+	if options.statistic not in ("new_snr", "effective_snr"):
+		raise ValueError, "--statistic must be one of \"new_snr\", \"effective_snr\""
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
@@ -1094,8 +1096,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		elif options.statistic == "effective_snr":
 			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		else:
-			print >>sys.stderr, "Error: no recognized statistic given in --statistic (should be new_snr or effective_snr)"
-			sys.exit(1)
+			raise AssertionError
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 
@@ -1656,12 +1657,13 @@ for (tag, veto_category), url_pairs in url_categories.items():
 
 		llwapp.set_process_end_time(process)
 
-		# construct the output filename from the zero lag file being processed
 		if output_template:
 			output = output_template % n
 		else:
-			zero_lag_filename = os.path.basename(url_pair[0])
-			output = re.sub('THINCA','THINCA_TO_COINC',zero_lag_filename)
+			# construct the output filename from one of the
+			# files being processed
+			output = re.sub("THINCA", "THINCA_TO_COINC", os.path.basename(url_pair[0] or url_pair[1]))
+
 		utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
 		xmldoc.unlink()
 		lsctables.table.reset_next_ids(lsctables.TableByName.values())
