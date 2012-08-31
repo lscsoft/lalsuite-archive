@@ -100,7 +100,7 @@ def organize_found_injs(summTable,sims,new_coincs,coinc_map,sngls):
         snglEventIds.append(map.event_id)
     for coinc in new_coincs:
       if coinc_id == coinc.coinc_event_id:
-        injList[i].append(coinc)  
+        injList[i].append(coinc)
     snglList = []
     for sngl in sngls:
        if sngl.event_id in snglEventIds:
@@ -143,7 +143,7 @@ def run_omega_scan(opts,omegaTimes):
     omegaCommand[6] = str(omegaTimes[ifo])
     if not os.path.isdir(outDir):
       if opts.verbose:
-        print 'Making an omega scan for ' + ifo + ' at time ' + str(omegaTimes[ifo].seconds) 
+        print 'Making an omega scan for ' + ifo + ' at time ' + str(omegaTimes[ifo].seconds)
       make_external_call(' '.join(omegaCommand))
     omegaDirs[ifo] = outDir
     omegaLinks+= '<a href="pipedown/'+omegaDirs[ifo]+'" rel="external">'
