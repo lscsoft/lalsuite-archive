@@ -633,8 +633,11 @@ class FollowupTrigger:
           loudest_details[ifo]["mchirp"] = loudest.mchirp
           loudest_details[ifo]["eta"] = loudest.eta
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
+          loudest_details[ifo]["rchisq"] = 0
+          loudest_details[ifo]["bank_rchisq"] = 0
+          loudest_details[ifo]["auto_rchisq"] = 0
           if loudest.chisq_dof:
-            loudest_details[ifo]["rchisq"] = loudest.chisq/(2*loudest.chisq_dof-2)
+            loudest_details[ifo]["rchisq"] = loudest.chisq/(2*loudest.chisq_dof-2) 
           if loudest.bank_chisq_dof:
             loudest_details[ifo]["bank_rchisq"] = loudest.bank_chisq/loudest.bank_chisq_dof
           if loudest.cont_chisq_dof:
@@ -642,7 +645,7 @@ class FollowupTrigger:
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
           loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
           loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest)
-          loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
+          loudest_details[ifo]["end_time"] = loudest.end_time+loudest.end_time_ns*1E-9
           loudest_details[ifo]["trig"] = loudest
 
         # plot the triggers
@@ -714,7 +717,7 @@ class FollowupTrigger:
   def fill_table(self, page, contents,header=False,no_wrapping=False):
     """
     Fills contents in a html table
-    @param page: the pagfe object describing a html page
+    @param page: the page object describing a html page
     @contents: the contents of the next table item
     """
 
@@ -874,12 +877,12 @@ class FollowupTrigger:
         self.fill_table( page, ['SNR', '%.3f' % trig.snr] )
         self.fill_table( page, ['Effective SNR (fac=50)', '%.3f' % self.get_effective_snr(trig,fac=50.)] )
         self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig,index=6.)] )
-        self.fill_table( page, ['Chisq', '%.2f' % (trig.chisq)] )
-        self.fill_table( page, ['Chisq/dof', '%.3f' % (trig.chisq/(2*trig.chisq_dof-2))] )
-        self.fill_table( page, ['Bank chisq', '%.2f' % (trig.bank_chisq)] )
-        self.fill_table( page, ['Bank chisq/dof', '%.3f' % (trig.bank_chisq/trig.bank_chisq_dof)] )
-        self.fill_table( page, ['Auto chisq', '%.2f' % (trig.cont_chisq)] )
-        self.fill_table( page, ['Auto chisq/dof', '%.3f' % (trig.cont_chisq/trig.cont_chisq_dof)] )
+        if trig.chisq_dof:
+          self.fill_table( page, ['Chisq/dof', '%.3f' % (trig.chisq/(2*trig.chisq_dof-2))] )
+        if trig.bank_chisq_dof:
+          self.fill_table( page, ['Bank chisq/dof', '%.3f' % (trig.bank_chisq/trig.bank_chisq_dof)] )
+        if trig.cont_chisq_dof:
+          self.fill_table( page, ['Auto chisq/dof', '%.3f' % (trig.cont_chisq/trig.cont_chisq_dof)] )
         self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )
         self.fill_table( page, ['''Mass1 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass1] )
         self.fill_table( page, ['''Mass2 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass2] )

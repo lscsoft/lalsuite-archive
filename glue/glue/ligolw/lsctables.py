@@ -1277,9 +1277,6 @@ class SnglInspiralTable(table.Table):
 
 	def get_new_snr(self, index=6.0):
 		import numpy
-		# kwarg 'index' is assigned to the parameter chisq_index
-		# nhigh gives the asymptotic large  rho behaviour of d (ln chisq) / d (ln rho) 
-		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
 		nhigh = 2.
