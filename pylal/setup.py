@@ -717,7 +717,8 @@ setup(
 		os.path.join("bin", "pylal_imr_plot_search_volume"),
 		os.path.join("bin", "pylal_cbc_rankprod"),
 		os.path.join("bin", "pylal_cbc_ulmc"),
-		os.path.join("bin", "pylal_noise_budget")
+		os.path.join("bin", "pylal_noise_budget"),
+		os.path.join("bin", "pylal_summary_page")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
