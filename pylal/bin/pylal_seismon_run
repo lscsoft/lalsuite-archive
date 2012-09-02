@@ -23,7 +23,7 @@ def parse_commandline():
     """
     parser = optparse.OptionParser(usage=__doc__,version=__version__)
 
-    parser.add_option("-p", "--paramsFile", help="Seismon params file.", default ="/home/mcoughlin/matapps/packages/seismic/trunk/seismon/python/input/seismon_params_H1PEM.txt")
+    parser.add_option("-p", "--paramsFile", help="Seismon params file.", default ="/home/mcoughlin/Seismon/seismon/python/input/seismon_params_H1PEM.txt")
 
     parser.add_option("-g", "--gps", help="GPS Time.", default="1030044950")
 
@@ -120,7 +120,7 @@ params = readParamsFromFile(opts.paramsFile)
 params["gps"] = float(opts.gps)
 params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gps"]))
 
-channelList = params["matappsPath"] + "/seismon/python/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
+channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 channels = channel_struct(channelList)
 
 params = frame_struct(params)
