@@ -5,7 +5,7 @@ from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import seismon_psd, seismon_html
+import pylal.pylal_seismon_psd, pylal.pylal_seismon_html
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -135,10 +135,10 @@ params["fmax"] = 10
 params["doPlots"] = 1
 
 for channel in channels:
-    seismon_psd.mat(params,channel);
-    seismon_psd.analysis(params,channel);
+    pylal.pylal_seismon_psd.mat(params,channel);
+    pylal.pylal_seismon_psd.analysis(params,channel);
 
-htmlPage = seismon_html.summary_page(params,channels)
+htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
 if htmlPage is not None:
     f = open(os.path.join(params["path"],"summary.html"),"w")
     f.write(htmlPage)

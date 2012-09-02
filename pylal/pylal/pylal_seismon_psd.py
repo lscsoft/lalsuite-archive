@@ -8,7 +8,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 from pylal import Fr
 from pylal.dq import dqDataUtils
-import seismon_NLNM, seismon_html
+import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -80,7 +80,7 @@ def mat(params, channel):
         if not os.path.isdir(plotLocation):
             os.makedirs(plotLocation)        
 
-        fl, low, fh, high = seismon_NLNM.NLNM(2)
+        fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
         semilogx(freq,spectra, 'k')
         loglog(fl,low,'k-.',fh,high,'k-.')
@@ -244,7 +244,7 @@ def analysis(params, channel):
         if not os.path.isdir(plotLocation):
             os.makedirs(plotLocation)
 
-        fl, low, fh, high = seismon_NLNM.NLNM(2)
+        fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
         semilogx(freqNow,spectraNow, 'k', label='Current')
         semilogx(freq,spectral_variation_norm_10per,'b',label='10')
@@ -304,7 +304,7 @@ def analysis(params, channel):
         savefig(os.path.join(plotLocation,"tf.eps"),dpi=200)
         close('all')
 
-    htmlPage = seismon_html.seismon_page(channel,textLocation)
+    htmlPage = pylal.pylal_seismon_html.seismon_page(channel,textLocation)
     if htmlPage is not None:
         f = open(os.path.join(textLocation,"psd.html"),"w")
         f.write(htmlPage)
