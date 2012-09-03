@@ -1332,8 +1332,7 @@ void coh_PTF_statistic(
     Bankeigenvecs[i] = NULL;
     Bankeigenvals[i] = NULL;  
   }
-  gsl_permutation           *p           = gsl_permutation_alloc(vecLengthTwo);
-  gsl_permutation           *pNull       = gsl_permutation_alloc(vecLength);
+
   gsl_eigen_symmv_workspace *matTempNull = gsl_eigen_symmv_alloc(vecLength);
   gsl_matrix                *eigenvecs   = gsl_matrix_alloc(vecLengthTwo,
                                                              vecLengthTwo);
@@ -2306,8 +2305,6 @@ void coh_PTF_statistic(
 
   gsl_matrix_free(BNull);
   gsl_matrix_free(B2Null);
-  gsl_permutation_free(p);
-  gsl_permutation_free(pNull);
   gsl_eigen_symmv_free(matTempNull);
   gsl_matrix_free(eigenvecs);
   gsl_vector_free(eigenvals);
