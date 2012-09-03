@@ -1318,7 +1318,6 @@ void coh_PTF_statistic(
   REAL4 betaGammaTemp[2];
   REAL4 a[LAL_NUM_IFO], b[LAL_NUM_IFO];
 
-  gsl_matrix *BNull  = gsl_matrix_alloc(vecLength, vecLength);
   gsl_matrix *B2Null = gsl_matrix_alloc(vecLength, vecLength);
   /* FIXME: the 50s below seem to hardcode a limit on the number of templates
      this should not be hardcoded. Note that this value is hardcoded in some
@@ -1367,7 +1366,6 @@ void coh_PTF_statistic(
     {
       for (j = 0; j < vecLength; j++)
       {
-        gsl_matrix_set(BNull, i, j, PTFM[LAL_NUM_IFO]->data[i*5+j]);
         gsl_matrix_set(B2Null, i, j, PTFM[LAL_NUM_IFO]->data[i*5+j]);
       }
     }
@@ -2303,7 +2301,6 @@ void coh_PTF_statistic(
       XLALDestroyCOMPLEX8VectorSequence(tempqVec);
   }
 
-  gsl_matrix_free(BNull);
   gsl_matrix_free(B2Null);
   gsl_eigen_symmv_free(matTempNull);
   gsl_matrix_free(eigenvecs);
