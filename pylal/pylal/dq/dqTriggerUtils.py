@@ -2363,7 +2363,7 @@ def loadtxt(fh, usecols=None):
   _comment = re.compile('[#%]')
   _delim   = re.compile('[\t\,\s]+')
   output = []
-  nVals
+  nVals = 0
   for i,line in enumerate(fh):
     if _comment.match(line): continue
     vals = _delim.split(line.rstrip())
