@@ -15,7 +15,6 @@ import sys
 import glob
 import copy
 import bisect
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw import table
 from glue.ligolw import array
 from glue.ligolw import lsctables

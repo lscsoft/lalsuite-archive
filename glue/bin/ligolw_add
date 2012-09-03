@@ -73,7 +73,6 @@ def parse_command_line():
 	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "Set lfn start_time (optional).")
 	parser.add_option("--lfn-end-time", metavar = "GPS seconds", help = "Set lfn end_time (optional).")
 	parser.add_option("--lfn-comment", metavar = "string", help = "Set lfn comment (optional).")
-	parser.add_option("--mangle-sngl-inspiral-ids", metavar = "type", default = None, help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  The type parameter indicates the reassignment style and must be either \"int_8s\" indicating an old-style document with time-slide information encoded in the ID, or \"ilwd:char\" indicating a new-style document using coinc tables for time slide information (the actual IDs themselves must be ilwd:char in both cases).  CAUTION:  enabling ID reassignment messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
 	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables.")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to filename (default = stdout).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -90,9 +89,6 @@ def parse_command_line():
 
 	if len(urls) < 1:
 		raise ValueError, "no input files!"
-
-	if options.mangle_sngl_inspiral_ids not in (None, "int_8s", "ilwd:char"):
-		raise ValueError, "unrecognized --mangle-sngl-inspiral-ids %s" % options.mangle_sngl_inspiral_ids
 
 	return options, urls
 
@@ -169,26 +165,6 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 
 
 options, urls = parse_command_line()
-
-
-#
-# sngl_inspiral event_id re-assignment
-#
-# FIXME: remove this when the sngl_inspiral event_id column no longer
-# encodes time slide information
-#
-# FIXME: in the meantime, LAL uses ID 0 to indicate "no valid ID has been
-# set", so for safety we start at 1.  If that gets fixed in LAL before this
-# code is simply removed, then set the initial value back to 0 for
-# cleanliness.
-#
-
-
-if options.mangle_sngl_inspiral_ids == "int_8s":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(1)
-elif options.mangle_sngl_inspiral_ids == "ilwd:char":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(1)
-	lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
 
 
 #
