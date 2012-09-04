@@ -23,7 +23,8 @@ def parse_commandline():
     """
     parser = optparse.OptionParser(usage=__doc__,version=__version__)
 
-    parser.add_option("-p", "--paramsFile", help="Seismon params file.", default ="/home/mcoughlin/Seismon/seismon/python/input/seismon_params_H1PEM.txt")
+    parser.add_option("-p", "--paramsFile", help="Seismon params file.", 
+                      default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_H1PEM.txt")
 
     parser.add_option("-g", "--gps", help="GPS Time.", default="1030044950")
 
@@ -131,11 +132,13 @@ if not os.path.isdir(params["path"]):
     os.makedirs(params["path"])
 
 params["fmin"] = 1/float(64)
-params["fmax"] = 10
-params["doPlots"] = 1
+params["fmax"] = 64
+params["doPlots"] = 0
 
 for channel in channels:
+    print "Generating PSD for %s"%channel.station
     pylal.pylal_seismon_psd.mat(params,channel);
+    print "Analyzing PSD significance for %s"%channel.station
     pylal.pylal_seismon_psd.analysis(params,channel);
 
 htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
