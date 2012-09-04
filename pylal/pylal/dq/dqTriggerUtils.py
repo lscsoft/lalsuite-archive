@@ -2363,9 +2363,14 @@ def loadtxt(fh, usecols=None):
   _comment = re.compile('[#%]')
   _delim   = re.compile('[\t\,\s]+')
   output = []
+  nVals = 0
   for i,line in enumerate(fh):
     if _comment.match(line): continue
     vals = _delim.split(line.rstrip())
+    if nVals>0 and len(vals) != nVals: 
+      print "Warning, line %d of file %s was skipped, uncorrect column number" % (i, fh)
+      continue
+    nVals = len(vals)
     if usecols is not None:
       output.append(tuple(map(float, [vals[j] for j in usecols])))
     else:
