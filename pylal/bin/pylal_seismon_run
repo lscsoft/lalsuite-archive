@@ -133,7 +133,7 @@ if not os.path.isdir(params["path"]):
 
 params["fmin"] = 1/float(64)
 params["fmax"] = 64
-params["doPlots"] = 0
+params["doPlots"] = 1
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station
