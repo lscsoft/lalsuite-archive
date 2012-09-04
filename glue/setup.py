@@ -205,7 +205,7 @@ setup(
       include_dirs = [ "glue/ligolw" ]
     ),
     Extension(
-      "glue.ligolw.__ilwd",
+      "glue.ligolw._ilwd",
       [
         "glue/ligolw/ilwd.c"
       ],
