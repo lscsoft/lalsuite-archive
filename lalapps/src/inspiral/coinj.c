@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
   INT4                detectorFlags;
   LIGOTimeGPS inj_epoch;
   REAL8                deltaT= 1.0/srate;
-  REAL8                injLength=210.0; /* Ten seconds at end */
+  REAL8                injLength=60.0; /* Ten seconds at end */
     REAL8 deltaF=1.0/injLength;
 
   REAL8                LeadupTime=95.0;
@@ -680,7 +680,7 @@ void InjectFD_singleIFO(LALStatus status, COMPLEX16FrequencySeries *injFD_out,LA
     //REAL8 * SNRs=NULL;
     //SNRs=calloc(nIFO+1 ,sizeof(REAL8));
     REAL8 fLow=(REAL8) inj_table->f_lower;
-    REAL8 injLength=210.0;
+    REAL8 injLength=60.0;
     REAL8 deltaT= 1.0/srate;
     REAL8 deltaF=1.0/injLength; 
     UINT4 Nsamples = (UINT4)injLength/deltaT;
