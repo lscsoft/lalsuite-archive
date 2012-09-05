@@ -138,9 +138,9 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		double like = runState->likelihood(runState->currentParams,runState->data,runState->template);
 		like -= (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
 		fprintf(stdout,"LOG-LIKELIHOOD VALUE RETURNED = %g\n",like);
-		/*double prior = LALInferenceInspiralSkyLocPrior(runState,runState->currentParams);
+		double prior = LALInferenceInspiralSkyLocPrior(runState,runState->currentParams);
 		fprintf(stdout,"LOG-PRIOR VALUE RETURNED = %g\n",prior);
-		fprintf(stdout,"LOG-POSTERIOR VALUE RETURNED = %g\n",like+prior);*/
+		fprintf(stdout,"LOG-POSTERIOR VALUE RETURNED = %g\n",like+prior);
 		exit(0);
 	}
 	
