@@ -1,3 +1,19 @@
+# Copyright (C) 2012  Chad Hanna
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 import sys
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -123,7 +139,12 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 	segs = segments.segmentlistdict()
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
-		segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		if live_time_program == "gstlal_inspiral":
+			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		elif live_time_program == "thinca":
+			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		else:
+			raise ValueError("for burst tables livetime program must be one of gstlal_inspiral, thinca")
 		if veto_segments_name is not None:
 			veto_segs = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
 			segs -= veto_segs
@@ -147,12 +168,10 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
 
 
-def get_loudest_event_far_thresholds(connection, table_name, segments = None):
+def get_event_fars(connection, table_name, segments = None):
 	"""
 	return the false alarm rate of the most rare zero-lag coinc by instruments
 	"""
-	query = 'CREATE TEMPORARY TABLE distinct_instruments AS SELECT DISTINCT(instruments) as instruments FROM coinc_event;'
-	connection.cursor().execute(query)
 
 	def event_in_requested_segments(end_time, end_time_ns, segments = segments):
 		return time_within_segments(end_time, end_time_ns, segments)
@@ -160,25 +179,20 @@ def get_loudest_event_far_thresholds(connection, table_name, segments = None):
 	connection.create_function("event_in_requested_segments", 2, event_in_requested_segments)
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
-		query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND event_in_requested_segments(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
+		query = 'SELECT coinc_event.instruments, coinc_inspiral.combined_far AS combined_far, EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE event_in_requested_segments(coinc_inspiral.end_time, coinc_inspiral.end_time_ns);'
 
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
-		query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND event_in_requested_segments(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
+		query = 'SELECT coinc_event.instruments, multi_burst.false_alarm_rate AS combined_far, EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE event_in_requested_segments(multi_burst.peak_time, multi_burst.peak_time_ns);'
 
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-		query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_ringdown.false_alarm_rate) AS combined_far FROM coinc_ringdown JOIN coinc_event ON (coinc_ringdown.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND event_in_requested_segments(coinc_ringdown.start_time, coinc_ringdown.start_time_ns) ) FROM distinct_instruments;'
+		query = 'SELECT coinc_event.instruments, coinc_ringdown.false_alarm_rate AS combined_far, EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) FROM coinc_ringdown JOIN coinc_event ON (coinc_ringdown.coinc_event_id == coinc_event.coinc_event_id) WHERE event_in_requested_segments(coinc_ringdown.start_time, coinc_ringdown.start_time_ns);'
 
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
 
-	output = []
-	for inst, far in connection.cursor().execute(query):
+	for inst, far, ts in connection.cursor().execute(query):
 		inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-		output.append((inst, far))
-
-	query = 'DROP TABLE distinct_instruments'
-	connection.cursor().execute(query)
-	return output
+		yield (inst, far, ts)
 
 
 def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
@@ -281,11 +295,13 @@ class DataBaseSummary(object):
 	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", tmp_path = None, verbose = False):
 
 		self.segments = segments.segmentlistdict()
-		self.instruments = []
+		self.instruments = set()
 		self.table_name = None
 		self.found_injections_by_instrument_set = {}
 		self.total_injections_by_instrument_set = {}
-		self.far_thresholds_by_instrument_set = {}
+		self.zerolag_fars_by_instrument_set = {}
+		self.ts_fars_by_instrument_set = {}
+		self.numslides = set()
 
 		for f in filelist:
 			if verbose:
@@ -317,7 +333,8 @@ class DataBaseSummary(object):
 
 			# the non simulation databases are where we get information about segments
 			if not sim:
-				self.instruments += get_instruments_from_coinc_event_table(connection)
+				self.numslides.add(connection.cursor().execute('SELECT count(DISTINCT(time_slide_id)) FROM time_slide').fetchone()[0])
+				[self.instruments.add(ifos) for ifos in get_instruments_from_coinc_event_table(connection)]
 				# save a reference to the segments for this file, needed to figure out the missed and found injections
 				self.this_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name)
 				# FIXME we don't really have any reason to use playground segments, but I put this here as a reminder
@@ -325,8 +342,11 @@ class DataBaseSummary(object):
 				self.segments += self.this_segments
 
 				# get the far thresholds for the loudest events in these databases
-				for instruments_set, far in get_loudest_event_far_thresholds(connection, self.table_name):
-					self.far_thresholds_by_instrument_set.setdefault(instruments_set, []).append(far)
+				for (instruments_set, far, ts) in get_event_fars(connection, self.table_name):
+					if not ts:
+						self.zerolag_fars_by_instrument_set.setdefault(instruments_set, []).append(far)
+					else:
+						self.ts_fars_by_instrument_set.setdefault(instruments_set, []).append(far)
 			# get the injections
 			else:
 				# We need to know the segments in this file to determine which injections are found
@@ -353,7 +373,11 @@ class DataBaseSummary(object):
 			# All done
 			dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
 			dbtables.DBTable_set_connection(None)
-
-			# FIXME
-			# Things left to do
-			# 1) summarize the far threshold over the entire dataset
+		if len(self.numslides) > 1:
+			raise ValueError('number of slides differs between input files')
+		else:
+			self.numslides = min(self.numslides)
+		
+		# FIXME
+		# Things left to do
+		# 1) summarize the far threshold over the entire dataset

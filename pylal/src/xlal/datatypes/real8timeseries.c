@@ -226,7 +226,7 @@ PyTypeObject pylal_real8timeseries_type = {
  */
 
 
-void initreal8timeseries(void)
+PyMODINIT_FUNC initreal8timeseries(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8TimeSeries type.");
 

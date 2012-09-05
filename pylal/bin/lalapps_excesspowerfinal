@@ -274,7 +274,6 @@ def dump_confidence_likelihood_scatter_data(globs, live_time_program = "lalapps_
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		connection.create_function("coinc_detection_statistic", 2, coinc_detection_statistic)
-		dbtables.DBTable_set_connection(connection)
 		database = SnglBurstUtils.CoincDatabase(connection, live_time_program)
 		if verbose:
 			SnglBurstUtils.summarize_coinc_database(database)
@@ -317,7 +316,7 @@ WHERE
 		# Done with this file.
 		#
 
-		connection.close()
+		database.connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 	#
@@ -612,9 +611,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
-		connection = sqlite3.connect(working_filename)
-		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(connection, live_time_program)
+		database = SnglBurstUtils.CoincDatabase(sqlite3.connect(working_filename), live_time_program)
 		if verbose:
 			SnglBurstUtils.summarize_coinc_database(database)
 
@@ -628,7 +625,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 		# Done with this file.
 		#
 
-		connection.close()
+		database.connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 	#
@@ -998,7 +995,6 @@ def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power"
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		connection.create_function("coinc_detection_statistic", 2, coinc_detection_statistic)
-		dbtables.DBTable_set_connection(connection)
 		database = SnglBurstUtils.CoincDatabase(connection, live_time_program)
 		if verbose:
 			SnglBurstUtils.summarize_coinc_database(database)
@@ -1013,7 +1009,7 @@ def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power"
 		# Done with this file.
 		#
 
-		connection.close()
+		database.connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 	#

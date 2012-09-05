@@ -369,6 +369,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     plt.grid()
     plt.xlim(min_pos,max_pos)
+    plt.ylim(0,1)
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
@@ -587,7 +588,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            my_cm=mpl_cm.gist_ncar
+            my_cm=mpl_cm.spectral
             cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)

@@ -10,9 +10,6 @@ AC_CONFIG_FILES([ \
   lalsupport.pc \
   Makefile \
   debian/Makefile \
-  doc/Makefile \
-  doc/laldoc/Makefile \
-  doc/autodoc/Makefile \
   include/Makefile \
   include/lal/Makefile \
   lib/Makefile \
@@ -160,7 +157,8 @@ LAL_ENABLE_MACROS
 LAL_ENABLE_PTHREAD_LOCK
 LALSUITE_ENABLE_NIGHTLY
 
-LALSUITE_SWIG_REQUIRE_CXX
+# enable SWIG wrapping modules
+LALSUITE_ENABLE_SWIG
 
 # get version
 lal_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -209,36 +207,12 @@ AC_PROG_AWK
 AC_PROG_SED
 AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
 AC_CHECK_PROGS([M4],[gm4 m4], m4)
-AC_CHECK_PROGS([LATEX],[pdflatex latex],[echo])
-AC_CHECK_PROGS([MKIND],[makeindex],[echo])
-AC_CHECK_PROGS([DVIPS],[dvips],[echo])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
 
 # link tests using libtool
 LALSUITE_USE_LIBTOOL
-
-# check for support tex flags
-if test -z "$TEXFLAGS"
-then
-AC_MSG_CHECKING([if $LATEX accepts --interaction=batchmode])
-cat > conflatextest.tex <<\CEOF
-\documentclass{article}
-\begin{document}
-\end{document}
-CEOF
-if $LATEX conflatextest.tex --interaction=batchmode >/dev/null 2>&1
-then
-TEXFLAGS="--interaction=batchmode"
-AC_MSG_RESULT([yes])
-else
-TEXFLAGS=""
-AC_MSG_RESULT([no])
-fi
-rm -f conflatextest.*
-fi
-AC_SUBST([TEXFLAGS])
 
 # set additional compiler flags
 AC_MSG_CHECKING([for additional compiler flags])
@@ -363,8 +337,8 @@ if test "${boinc}" = "true"; then
   AC_SUBST(BOINC_LIBS)
 fi
 
-# check for SWIG wrapping
-LALSUITE_ENABLE_SWIG
+# configure SWIG wrapping modules
+LALSUITE_USE_SWIG([XLAL LAL])
 
 # record the libraries needed for linking lal
 LAL_LIBADD="$LIBS"
@@ -407,11 +381,7 @@ if test "$GCC" = yes; then
 fi
 
 INCLUDEMKFILE=$srcdir/misc/include.mk
-DOCMKFILE=$srcdir/misc/doc.mk
-DVIMKFILE=$srcdir/misc/dvi.mk
 AC_SUBST_FILE([INCLUDEMKFILE])
-AC_SUBST_FILE([DOCMKFILE])
-AC_SUBST_FILE([DVIMKFILE])
 AC_OUTPUT
 echo "
 =================================================================
@@ -420,8 +390,8 @@ echo "
 
             CUDA support is $CUDA_ENABLE_VAL
             BOINC support is $BOINC_ENABLE_VAL
-            SWIG wrappings for Octave are $SWIG_OCTAVE_ENABLE_VAL
-            SWIG wrappings for Python are $SWIG_PYTHON_ENABLE_VAL
+            SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
+            SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
 
         and will be installed under the directory:
 

@@ -98,7 +98,7 @@ def cbcBayesPostProc(
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=None,
                         #nested sampling options
-                        ns_flag=False,ns_xflag=False,ns_Nlive=None,
+                        ns_flag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
                         ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
@@ -150,7 +150,7 @@ def cbcBayesPostProc(
 
     elif ns_flag and not ss_flag:
         peparser=bppu.PEOutputParser('ns')
-        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive,xflag=ns_xflag)
+        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive)
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
@@ -269,11 +269,19 @@ def cbcBayesPostProc(
     else:
         q_name = 'q'
 
-    if (mchirp_name in pos.names and 'eta' in pos.names) and \
+    if 'sym_massratio' in pos.names:
+        eta_name= 'sym_massratio'
+    else:
+	if 'massratio' in pos.names:
+        	eta_name= 'massratio'
+    	else:
+        	eta_name='eta'
+
+    if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
+        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,eta_name))
 
     if (mchirp_name in pos.names and q_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -316,7 +324,7 @@ def cbcBayesPostProc(
                 inj_time=float(injection.get_end(ifo[0]))
             location=tools.cached_detector[detMap[ifo]].location
             ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
-            loc_end_time=bppu.OneDPosterior(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+            loc_end_time=bppu.PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
             pos.append(loc_end_time)
         for ifo1 in my_ifos:
             for ifo2 in my_ifos:
@@ -326,7 +334,7 @@ def cbcBayesPostProc(
                     inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
                 else:
                     inj_delay=None
-                time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+                time_delay=bppu.PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
 
     #Calculate new spin angles
@@ -348,14 +356,14 @@ def cbcBayesPostProc(
 
         try:
             a1_samps = abs(pos['spin1'].samples)
-            a1_pos = bppu.OneDPosterior('a1',a1_samps,injected_value=inj_a1)
+            a1_pos = bppu.PosteriorOneDPDF('a1',a1_samps,injected_value=inj_a1)
             pos.append(a1_pos)
         except KeyError:
             print "Warning: problem accessing spin1 values."
 
         try:
             a2_samps = abs(pos['spin2'].samples)
-            a2_pos = bppu.OneDPosterior('a2',a2_samps,injected_value=inj_a2)
+            a2_pos = bppu.PosteriorOneDPDF('a2',a2_samps,injected_value=inj_a2)
             pos.append(a2_pos)
         except KeyError:
             print "Warning: no spin2 values found."
@@ -703,13 +711,13 @@ def cbcBayesPostProc(
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
-
+        acfail=0
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
-                (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                 try:
+		    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                     lines=plt.plot(acf, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
@@ -720,6 +728,7 @@ def cbcBayesPostProc(
                         plt.title('ACL = %i   N = %i'%(acl,Neff))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
             else:
                 try:
@@ -740,13 +749,18 @@ def cbcBayesPostProc(
                         plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
 
         if not noacf:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+	  if not acfail:
+	    acfhtml='<td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
+	  else:
+	    acfhtml='<td>ACF generation failed!</td>'
+          html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
         else:
             html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
 
@@ -1084,7 +1098,7 @@ if __name__=='__main__':
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
-    polParams=['psi']
+    polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
@@ -1130,6 +1144,10 @@ if __name__=='__main__':
         for ip in incParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([ip,sp])
+            for phip in phaseParams:
+                twoDGreedyMenu.append([ip,phip])
+            for psip in polParams:
+                twoDGreedyMenu.append([ip,psip])
         for sp1 in skyParams:
             for sp2 in skyParams:
                 if not (sp1 == sp2):
@@ -1142,13 +1160,28 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
-
+        for psip in polParams:
+            for phip in phaseParams:
+                twoDGreedyMenu.append([psip,phip])
+            for sp in skyParams:
+                twoDGreedyMenu.append([psip,sp])
+            for sp in spinParams:
+                twoDGreedyMenu.append([psip,sp])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
+    if not opts.no2D:
+        for dt1 in ['h1_end_time','l1_end_time','v1_end_time']:
+            for dt2 in ['h1_end_time','l1_end_time','v1_end_time']:
+                if dt1!=dt2:
+                    twoDGreedyMenu.append([dt1,dt2])
+        for dt1 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
+            for dt2 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
+                if dt1!=dt2:
+                    twoDGreedyMenu.append([dt1,dt2])
     for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
         greedyBinSizes[param]=0.01
     #Confidence levels
@@ -1174,7 +1207,7 @@ if __name__=='__main__':
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=opts.snr,
                         #nested sampling options
-                        ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
+                        ns_flag=opts.ns,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options

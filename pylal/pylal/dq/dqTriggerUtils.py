@@ -690,7 +690,7 @@ def fromtrigfile(file,etg,start=None,end=None,ifo=None,channel=None,\
 # =============================================================================
 
 def fromLALCache(cache, etg, start=None, end=None, columns=None,\
-                 virgo=False, verbose=False):
+                 virgo=False, verbose=False, snr=False):
 
   """
     Extract triggers froa given ETG from all files in a glue.lal.Cache object.
@@ -710,11 +710,17 @@ def fromLALCache(cache, etg, start=None, end=None, columns=None,\
   # load files
   for i,e in enumerate(cache):
     if re.search('(xml|xml.gz)\Z', e.path()):
-      trigs.extend(fromtrigxml(open(e.path()), tablename=trigs.tableName,\
-                               start=start, end=end, columns=columns))
+      trigsTmp = fromtrigxml(open(e.path()), tablename=trigs.tableName,\
+                               start=start, end=end, columns=columns)
     else:
-      trigs.extend(fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
-                                columns=columns, virgo=virgo))
+      trigsTmp = fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
+                                columns=columns, virgo=virgo)
+    # keep only triggers above SNR threshold if requested
+    if snr:
+      trigs.extend(t for t in trigsTmp if t.snr > snr)
+    else:
+      trigs.extend(trigsTmp)
+
     # print verbose message
     if verbose and len(cache)>1:
       progress = int((i+1)/num)
@@ -798,7 +804,7 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
 # Function to generate an omega online cache
 # =============================================================================
 
-def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
+def omega_online_cache(start, end, channel, mask='DOWNSELECT',\
                        check_files_exist=False, **kwargs):
 
   """
@@ -812,9 +818,16 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
         GPS start time of requested period
       end : [ float | int | LIGOTimeGPS ]
         GPS end time of requested period
-      ifo : [ "H1" | "L1" | "V1" ]
+      channel name or ifo : [ "H1" | "L1" | "V1" | "G1:SEI_TCC_STS2x" | ... ]
         IFO
   """
+
+  # format channel
+  if re.match('\w\d:', channel):
+    ifo, channel = channel.split(':', 1)
+  else:
+    ifo = channel
+    channel = None
 
   cache = LALCache()
 
@@ -828,8 +841,11 @@ def omega_online_cache(start, end, ifo, mask='DOWNSELECT',\
 
   span = segments.segment(start,end)
   if ifo == 'G1':
-    kwargs.setdefault('directory', '/home/omega/online/G1/segments')
-    kwargs.setdefault('epoch', 983669456)
+    if channel:
+      kwargs.setdefault('directory', '/home/omega/online/%s_%s/segments' % (ifo, channel))
+    else:
+      kwargs.setdefault('directory', '/home/omega/online/%s/segments' % ifo)
+    kwargs.setdefault('epoch', 0)
   else:
     kwargs.setdefault('directory',\
                       '/home/omega/online/%s/archive/S6/segments' % ifo)
@@ -1323,7 +1339,7 @@ def get_coincs(table1, table2, dt=1, returnsegs=False, timeshift=0):
 # Get number of coincidences between two tables
 # =============================================================================
 
-def get_number_coincs(table1, table2, dt=1, timeshift=0):
+def get_number_coincs(table1, table2, dt=1, timeshift=0, tabletype='trigger'):
 
   """
     Returns the numbers of entries in table1 whose time is within +-dt of
@@ -1341,8 +1357,14 @@ def get_number_coincs(table1, table2, dt=1, timeshift=0):
 
   # return len(coinctrigs)
 
-  time1 = get_column(table1, 'time')
-  time2 = get_column(table2, 'time')
+  if tabletype == 'trigger':
+    time1 = get_column(table1, 'time')
+    time2 = get_column(table2, 'time')
+  elif tabletype == 'time':
+    time1 = table1
+    time2 = table2
+  else:
+    raise ValueError("Unrecognized table type for coincidence number: %s" % tabletype)
 
   time1.sort()
   time2.sort()
@@ -1360,7 +1382,46 @@ def get_number_coincs(table1, table2, dt=1, timeshift=0):
   return ncoinc
 
 # ==============================================================================
-# Calculate poisson significance of coincidences
+# Calculate poisson significance of time coincidences
+# ==============================================================================
+
+def coinc_significance_times(gwtrigtime, auxtrigtime, window=1, livetime=None):
+
+
+  # get livetime
+  if not livetime:
+    start    = min(gwtrigtime)
+    end      = max(gwtrigtime)
+    livetime = end-start
+
+  # calculate probability of a GW trigger falling within the window
+  gwprob = len(gwtrigtime) * 2.0 * float(window) / float(livetime)
+
+  # calculate mean of Poisson distribution
+  mu = gwprob * len(auxtrigtime)
+
+  # get coincidences
+  ncoinc = get_number_coincs(gwtrigtime, auxtrigtime, dt=window, tabletype='time')
+
+  g = special.gammainc(ncoinc, mu)
+
+  # if no coincidences, set significance to zero
+  if ncoinc<1:
+    significance = 0
+  # if significance would blow up, use other formula (ref. hveto_significance.m)
+  elif g == 0:
+    significance = -ncoinc * math.log10(mu) + \
+                   mu * math.log10(math.exp(1)) +\
+                   special.gammaln(ncoinc + 1) / math.log(10)
+  # otherwise use the standard formula
+  else:
+    significance = -math.log(g, 10)
+  
+  return significance
+
+
+# ==============================================================================
+# Calculate poisson significance of trigger coincidences
 # ==============================================================================
 
 def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
@@ -2302,9 +2363,14 @@ def loadtxt(fh, usecols=None):
   _comment = re.compile('[#%]')
   _delim   = re.compile('[\t\,\s]+')
   output = []
+  nVals = 0
   for i,line in enumerate(fh):
     if _comment.match(line): continue
     vals = _delim.split(line.rstrip())
+    if nVals>0 and len(vals) != nVals: 
+      print "Warning, line %d of file %s was skipped, uncorrect column number" % (i, fh)
+      continue
+    nVals = len(vals)
     if usecols is not None:
       output.append(tuple(map(float, [vals[j] for j in usecols])))
     else:

@@ -115,7 +115,7 @@ class Element(object):
 		"""
 		for key in attrs.keys():
 			if key not in self.validattributes:
-				raise ElementError, "%s does not have attribute %s" % (self.tagName, key)
+				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
 		self.parentNode = None
 		self.attributes = attrs
 		self.childNodes = []
@@ -157,7 +157,7 @@ class Element(object):
 			if childNode is refchild:
 				break
 		else:
-			raise ValueError, refchild
+			raise ValueError(refchild)
 		self.childNodes.insert(i, newchild)
 		newchild.parentNode = self
 		self._verifyChildren(i)
@@ -200,7 +200,7 @@ class Element(object):
 			if childNode is oldchild:
 				break
 		else:
-			raise ValueError, oldchild
+			raise ValueError(oldchild)
 		self.childNodes[i].parentNode = None
 		self.childNodes[i] = newchild
 		newchild.parentNode = self
@@ -278,7 +278,7 @@ class Element(object):
 		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(file, indent + Indent)
 		if self.pcdata:
 			file.write(xmlescape(self.pcdata))
@@ -389,17 +389,17 @@ class Table(Element):
 		for child in self.childNodes:
 			if child.tagName == Comment.tagName:
 				if ncomment:
-					raise ElementError, "only one Comment allowed in Table"
+					raise ElementError("only one Comment allowed in Table")
 				if ncolumn or nstream:
-					raise ElementError, "Comment must come before Column(s) and Stream in Table"
+					raise ElementError("Comment must come before Column(s) and Stream in Table")
 				ncomment += 1
 			elif child.tagName == Column.tagName:
 				if nstream:
-					raise ElementError, "Column(s) must come before Stream in Table"
+					raise ElementError("Column(s) must come before Stream in Table")
 				ncolumn += 1
 			else:
 				if nstream:
-					raise ElementError, "only one Stream allowed in Table"
+					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
 
@@ -446,10 +446,10 @@ class Array(Element):
 		for child in self.childNodes:
 			if child.tagName == Dim.tagName:
 				if nstream:
-					raise ElementError, "Dim(s) must come before Stream in Array"
+					raise ElementError("Dim(s) must come before Stream in Array")
 			else:
 				if nstream:
-					raise ElementError, "only one Stream allowed in Array"
+					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
 
@@ -482,7 +482,7 @@ class Stream(Element):
 		if not attrs.has_key(u"Delimiter"):
 			attrs._attrs[u"Delimiter"] = u","
 		if attrs[u"Type"] not in [u"Remote", u"Local"]:
-			raise ElementError, "invalid Type for Stream: %s" % attrs[u"Type"]
+			raise ElementError("invalid Type for Stream: '%s'" % attrs[u"Type"])
 		Element.__init__(self, attrs)
 
 
@@ -533,7 +533,7 @@ class Time(Element):
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"ISO-8601"
 		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
-			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
+			raise ElementError("invalid Type for Time: '%s'" % attrs[u"Type"])
 		Element.__init__(self, attrs)
 
 	def write(self, file = sys.stdout, indent = u""):
@@ -561,7 +561,7 @@ class Document(Element):
 			file.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(file)
 
 
@@ -707,7 +707,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		elif name == Time.tagName:
 			child = self.startTime(attrs)
 		else:
-			raise ElementError, "unknown element %s" % name
+			raise ElementError("unknown element %s" % name)
 		self.current.appendChild(child)
 		self.current = child
 
@@ -739,7 +739,7 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 		elif name == Time.tagName:
 			self.endTime()
 		else:
-			raise ElementError, "unknown element %s" % name
+			raise ElementError("unknown element %s" % name)
 		self.current = self.current.parentNode
 
 	def characters(self, content):
