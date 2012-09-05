@@ -151,9 +151,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	double tol = 0.5;
 	int ndims = ND;
 	int nPar = ndims + 3;
-	int nClsPar;
-	if (ndims>1) nClsPar = 2;
-	else nClsPar = 1;
+	int nClsPar = 2;
 	int updInt = 50;
 	double Ztol = -1.e90;
 	int maxModes = 1;
@@ -358,10 +356,6 @@ MultiNest arguments:\n\
 		runState->likelihood=&LALInferenceZeroLogLikelihood;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
 		runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
-	} else if (LALInferenceGetProcParamVal(commandLine, "--correlatedBimodalGaussianLikelihood")) {
-		runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
-	} else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
-		runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
 	/*} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
 		fprintf(stderr, "Using Student's T Likelihood.\n");
 		initStudentt(runState);*/
@@ -380,12 +374,6 @@ MultiNest arguments:\n\
 	} else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticGaussPrior")) {
 		runState->prior = &LALInferenceNullPrior;
 		runState->CubeToPrior = &LALInferenceAnalyticGaussianCubeToPrior;
-	} else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticBimodalGaussPrior")) {
-		runState->prior = &LALInferenceNullPrior;
-		runState->CubeToPrior = &LALInferenceAnalyticBimodalGaussianCubeToPrior;
-	} else if (LALInferenceGetProcParamVal(commandLine, "--RosenbrockPrior")) {
-		runState->prior = &LALInferenceNullPrior;
-		runState->CubeToPrior = &LALInferenceRosenbrockCubeToPrior;
 	} else {
 		runState->prior = &LALInferenceInspiralPrior;
 		runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
