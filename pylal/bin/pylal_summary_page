@@ -3797,7 +3797,7 @@ def parse_command_line():
     parser.add_option_group(sopts)
 
     # get args and begin sanity check
-    opts, args = sanity_check_command_line(*parser.parse_args())
+    opts, args = parser.parse_args()
     
     #
     # Sanity check the arguments returned from the command line parser. Also
