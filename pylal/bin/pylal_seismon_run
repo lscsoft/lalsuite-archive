@@ -152,13 +152,6 @@ params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
 if not os.path.isdir(params["outputPath"]):
     os.makedirs(params["outputPath"])
 
-if os.path.isdir(os.path.join(params["outputPath"],params["runName"])):
-    p = Popen("rm -r %s/%s"%(params["outputPath"],params["runName"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-
-# Softlink HTML to output path
-p = Popen("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-#f = open(os.path.join(params["path"],"softlink.sh"),"w")
-#f.write("#! /usr/bin/env bash\n")
-#f.close()
-#p = Popen("source %s"%(os.path.join(params["path"],"softlink.sh")),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+os.system("mv %s/%s %s/%s-old"%(params["outputPath"],params["runName"],params["outputPath"],params["runName"]))
+os.system("mv %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
 
