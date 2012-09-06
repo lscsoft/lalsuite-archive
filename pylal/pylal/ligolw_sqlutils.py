@@ -17,6 +17,7 @@ import re
 import os
 import bisect
 import copy
+import time
 
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
@@ -1008,6 +1009,111 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     # execute the script
     connection.cursor().executescript(sqlscript)
 
+
+def get_process_info(connection, opts)
+    """
+    Collect up needed information from the process table to clean up the 
+    time_slide and simulation tables in dbsimplify.
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Collect useful information from process and process_params tables"
+
+    # create function to concatenate 5 columns together per row
+    connection.create_function("concat_5cols", 5, concatenate)
+
+    #FIXME: the SQL query should not have hard-coded program names!
+    sqlscript = """
+    CREATE TEMP TABLE proc_params AS
+        SELECT
+            process.process_id AS proc_id,
+            process.program AS program,
+            group_concat(pp_table.value) AS value,
+            group_concat(pp_table.param) AS params,
+            concat_5cols(process.start_time, process.end_time, process.username,
+                process.node, process.version) AS process_info
+        FROM
+            process_params AS pp_table
+            JOIN process ON (
+                pp_table.process_id == process.process_id)
+        WHERE
+            process.program == "inspinj"
+            OR process.program == "rinj"
+            OR process.program == "ligolw_tisi"
+        GROUP BY proc_id;
+    
+    CREATE TEMP TABLE _pidmap_ AS
+        SELECT
+            old_pp_table.proc_id AS old_pid,
+            MIN(new_pp_table.proc_id) AS new_pid,
+            old_pp_table.program AS program
+        FROM
+            proc_params AS old_pp_table
+            JOIN proc_params AS new_pp_table ON (
+                old_pp_table.value == new_pp_table.value
+                AND old_pp_table.process_info == new_pp_table.process_info
+                AND old_pp_table.params == new_pp_table.params
+                AND old_pp_table.program == new_pp_table.program)
+        GROUP BY old_pid;
+    
+    CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
+    
+    DROP TABLE proc_params;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+def simplify_proc_tbls(connection, opts)
+    """
+    Cleaning up the process & process_params tables of duplicate info related
+    to the time-slide and simulation tables.
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
+
+    #FIXME: the SQL query should not have hard-coded program names!
+    sqlscript = """
+    -- Remove redundant process rows
+    DELETE FROM process 
+        WHERE process_id IN (
+            SELECT old_pid 
+            FROM _pidmap_ 
+            WHERE old_pid != new_pid
+                AND (program = "inspinj"
+                    OR program = "rinj"
+                    OR program = "ligolw_tisi") );
+    DELETE FROM process_params 
+            WHERE process_id IN (
+            SELECT old_pid 
+            FROM _pidmap_ 
+            WHERE old_pid != new_pid
+                AND (program = "inspinj"
+                    OR program = "rinj"
+                    OR program = "ligolw_tisi") );
+    
+    DROP INDEX pidmap_index;
+    DROP TABLE _pidmap_;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
+
 # =============================================================================
 #
 #                          Experiment Utilities
@@ -1088,6 +1194,85 @@ def clean_experiment_tables(connection, verbose = False):
                 );
         """
     connection.cursor().executescript(sqlscript)
+
+def simplify_expr_tbls(connection, opts)
+    """
+    Cleaning up the experiment, experiment_summary, and experiment_map tables
+    by removing duplicate rows and remapping events to the appropriate
+    experiment.
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Cleaning experiment tables..."
+
+    # create function to concatenate 7 columns together per row
+    connection.create_function("concat_7cols", 7, concatenate)
+
+    sqlscript = """
+    -- create map table to map experiment_ids that are to be kept
+    -- to experiment ids that are to be discarded, in the same manner
+    -- as done above
+    
+    CREATE TEMP TABLE expr_info AS
+        SELECT
+            expr.experiment_id AS eid,
+            concat_7cols(expr.search, expr.search_group, expr.instruments,
+                expr.gps_start_time, expr.gps_end_time, expr.lars_id, expr.comments) AS info
+        FROM experiment AS expr;
+    
+    CREATE TEMP TABLE _eidmap_ AS
+        SELECT
+            old_exp.eid AS old_eid,
+            MIN(new_exp.eid) AS new_eid
+        FROM
+            expr_info AS old_exp
+            JOIN expr_info AS new_exp ON (
+                old_exp.info == new_exp.info)
+        GROUP BY old_eid;
+    
+    DROP INDEX e_sgitlc_index;
+    
+    -- delete the old ids from the experiment table
+    DELETE FROM experiment 
+        WHERE experiment_id IN (
+            SELECT old_eid 
+            FROM _eidmap_
+            WHERE old_eid != new_eid);
+    
+    -- update the durations and the nevents
+    UPDATE experiment_summary
+        SET duration = (
+            SELECT sum_dur
+            FROM sum_dur_nevents
+            WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id),
+        nevents = (
+            SELECT sum_nevents
+            FROM sum_dur_nevents
+            WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id);
+    
+    DROP INDEX sdn_esid_index;
+    
+    -- update the experiment_map table
+    UPDATE experiment_map
+        SET experiment_summ_id = (
+            SELECT new_esid 
+            FROM _esidmap_
+            WHERE experiment_map.experiment_summ_id == old_esid);
+    
+    DROP INDEX esidmap_index;
+    DROP TABLE _esidmap_;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
 
 # =============================================================================
 #
@@ -1296,6 +1481,61 @@ def apply_inclusion_rules_to_coinc_table( connection, coinc_table, exclude_coinc
             clean_experiment_map = True, clean_coinc_event_table = True, clean_coinc_definer = True,
             clean_coinc_event_map = True, clean_mapped_tables = True )
 
+
+def simplify_coincdef_tbl(connection, opts)
+    """
+    Cleaning up the coinc_definer table  
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Cleaning up the coinc_definer table..."
+
+    sqlscript = """
+    -- Create a table that maps the coinc_definer_ids of redundant entries
+    -- to those entries one is going to keep.
+    CREATE TEMP TABLE _cdidmap_ AS
+        SELECT
+            old_cd_table.coinc_def_id AS old_cdid,
+            MIN(new_cd_table.coinc_def_id) AS new_cdid
+        FROM
+            coinc_definer AS old_cd_table
+            JOIN coinc_definer AS new_cd_table ON (
+                new_cd_table.search == old_cd_table.search
+                AND new_cd_table.search_coinc_type == old_cd_table.search_coinc_type
+            )
+        GROUP BY old_cdid;
+    
+    CREATE INDEX cdidmap_index ON _cdidmap_ (old_cdid);
+    
+    -- Update the coinc_event table with new coinc_def_ids
+    UPDATE coinc_event 
+        SET coinc_def_id = (
+            SELECT new_cdid 
+            FROM _cdidmap_ 
+            WHERE old_cdid == coinc_def_id);
+    
+    DROP INDEX cdidmap_index;
+    
+    -- Remove redundant entries in the coinc_definer table
+    DELETE FROM coinc_definer
+         WHERE coinc_def_id IN (
+         SELECT old_cdid 
+         FROM _cdidmap_
+         WHERE old_cdid != new_cdid);
+    
+    DROP TABLE _cdidmap_;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
 # =============================================================================
 #
 #                             CoincEventMap Utilities
@@ -1501,6 +1741,47 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
     connection.cursor().executescript(sqlscript)
 
 
+def simplify_sim_tbls(connection, opts, programs)
+    """
+    Cleaning up the simulation tables as well as the associated
+    entries in the process & process_params tables
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    @programs:   set of programs run so far on this data
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Cleaning simulation tables..."
+
+    sqlscript = """
+    -- Update sim_proc_ids in the experiment_summary table
+    UPDATE experiment_summary 
+        SET sim_proc_id = (
+            SELECT new_pid 
+            FROM _pidmap_ 
+            WHERE old_pid == sim_proc_id);
+    """
+    for program in [('inspinj',),('rinj',)]:
+        if program in programs:
+            sqlscript += ''.join([ """
+                DELETE FROM sim_inspiral 
+                    WHERE process_id IN (
+                        SELECT old_pid 
+                        FROM _pidmap_ 
+                        WHERE 
+                            old_pid != new_pid
+                            AND program == \"""", str(program[0]), """\");
+            """ ])
+
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
 # =============================================================================
 #
 #                             Segment Utilities
@@ -1549,6 +1830,72 @@ class segdict_from_segment:
         """
         return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
+
+def simplify_segments_tbls(connection, opts, programs)
+    """
+    Cleaning up the segments tables as well as the associated
+    entries in the process & process_params tables
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    @programs:   set of programs run so far on this data
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Cleaning up the segments tables..."
+
+    # create function to concatenate 2 columns together per row
+    connection.create_function("concat_2cols", 2, concatenate)
+
+    # find the program used to populate the segment table
+    dqsegs_program = [prog for prog in programs if "ligolw_segments_from_cats" in prog[0]][0]
+
+    sqlscript = """
+    CREATE TEMP TABLE segments_tbl AS
+        SELECT
+            segment_definer.process_id AS proc_id,
+            segment_definer.segment_def_id AS segdef_id,
+            segment_definer.ifos AS ifo,
+            concat_2cols(segment_definer.name, segment_definer.version) AS cat_vers,
+            concat_2cols(segment_summary.start_time, segment_summary.end_time) AS times
+        FROM
+            segment_definer
+            JOIN segment_summary ON (
+                segment_definer.process_id == segment_summary.process_id
+                AND segment_definer.segment_def_id == segment_summary.segment_def_id)
+        GROUP BY proc_id;
+    
+    DELETE FROM segments_tbl
+        WHERE proc_id NOT IN (
+            SELECT MIN(proc_id)
+            FROM segments_tbl
+            GROUP BY ifo, cat_vers, times);
+    
+    DELETE FROM process
+        WHERE
+            process_id NOT IN (SELECT proc_id FROM segments_tbl)
+            AND program == :1 ;
+    DELETE FROM process_params
+        WHERE
+            process_id NOT IN (SELECT proc_id FROM segments_tbl)
+            AND program == :1 ;
+    
+    DELETE FROM segment 
+        WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
+    DELETE FROM segment_definer 
+        WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
+    DELETE FROM segment_summary
+        WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
+    
+    DROP TABLE segments_tbl;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript , dqsegs_program )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
 
 # =============================================================================
 #
@@ -1619,4 +1966,153 @@ def get_instrument_sets_and_time_slide_ids( connection ):
         connection.cursor().execute(sqlquery) ]
 
     return instrument_set_time_slide_ids
+
+
+def simplify_timeslide_tbl(connection, opts)
+    """
+    Cleaning up the veto_definer table as well as the associated
+    entries in the process & process_params tables  
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Clean up the time_slide table ..."
+
+    sqlscript = """
+    -- Update the process_ids in the time_slide table with the new ids from _pidmap_
+    UPDATE time_slide 
+        SET process_id = (
+            SELECT new_pid 
+            FROM _pidmap_ 
+            WHERE process_id == old_pid);
+    
+    -- Create a table that combines the information about a single time_slide into 
+    -- a single row.  This makes comparison between time_slides easier.
+    CREATE TEMP TABLE compact_time_slide AS
+        SELECT
+            time_slide_id AS tsid,
+            process_id AS pid,
+            group_concat(instrument) AS ifos,
+            group_concat(offset) AS offset
+        FROM time_slide
+        GROUP BY time_slide_id;
+    
+    -- Create a table that maps the time_slide_ids of redundant time_slide entries
+    -- to those entries one is going to keep.
+    CREATE TEMP TABLE _tsidmap_ AS
+        SELECT
+            old_ts_table.tsid AS old_tsid,
+            MIN(new_ts_table.tsid) AS new_tsid
+        FROM
+            compact_time_slide AS old_ts_table
+            JOIN compact_time_slide AS new_ts_table ON (
+                new_ts_table.pid == old_ts_table.pid
+                AND new_ts_table.ifos == old_ts_table.ifos
+                AND new_ts_table.offset == old_ts_table.offset)
+        GROUP BY old_tsid;
+    
+    DROP TABLE compact_time_slide;
+    
+    CREATE INDEX tsidmap_index ON _tsidmap_ (old_tsid);
+    
+    -- Update the coinc_event and experiment_summary tables with new time_slide_ids
+    UPDATE coinc_event 
+        SET time_slide_id = (
+            SELECT new_tsid 
+            FROM _tsidmap_ 
+            WHERE old_tsid == time_slide_id);
+    UPDATE experiment_summary
+        SET time_slide_id = (
+            SELECT new_tsid 
+            FROM _tsidmap_ 
+            WHERE old_tsid == time_slide_id);
+    
+    DROP INDEX tsidmap_index;
+    
+    -- Delete the redundant entries in the time_slide table
+    DELETE FROM time_slide 
+        WHERE time_slide_id IN (
+            SELECT old_tsid 
+            FROM _tsidmap_ 
+            WHERE old_tsid != new_tsid);
+    
+    DROP TABLE _tsidmap_;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+# =============================================================================
+#
+#                             VetoDefiner Utilities
+#
+# =============================================================================
+
+# Following utilities are specific to the veto_definer table
+
+def simplify_vetodef_tbl(connection, opts)
+    """
+    Cleaning up the veto_definer table as well as the associated
+    entries in the process & process_params tables  
+
+    @connection: sqlite connection object for given database
+    @opts:       command line options for ligolw_cbc_dbsimplify
+    """
+    if opts.verbose:
+        print >> sys.stdout, "Cleaning up the veto_definer table..."
+
+    # create function to concatenate 7 columns together per row
+    connection.create_function("concat_7cols", 7, concatenate)
+
+    sqlscript = """
+    CREATE TEMP TABLE veto_procinfo AS
+        SELECT
+            process.process_id,
+            concat_7cols(process.program, process.version, process.username,
+                process.ifos, process.cvs_entry_time, process.cvs_repository, 
+                process.comment) AS process_info
+        FROM process
+        WHERE
+            process.process_id IN (
+                SELECT veto_definer.process_id
+                FROM veto_definer
+                GROUP BY veto_definer.process_id);
+    
+    CREATE TEMP TABLE _veto_pidmap_ AS
+        SELECT
+            old_procinfo.process_id AS old_pid,
+            MIN(new_procinfo.process_id) AS new_pid
+        FROM
+            veto_procinfo AS old_procinfo
+            JOIN veto_procinfo AS new_procinfo ON (
+                new_procinfo.process_info == old_procinfo.process_info)
+        GROUP BY old_pid;
+    
+    DELETE FROM process
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _veto_pidmap_
+            WHERE old_pid != new_pid);
+    DELETE FROM veto_definer
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _veto_pidmap_
+            WHERE old_pid != new_pid);
+    
+    DROP TABLE veto_procinfo;
+    DROP TABLE _veto_pidmap_;
+    """
+    if opts.debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if opts.debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
 
