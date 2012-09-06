@@ -75,6 +75,7 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew)
 	/* Make a copy of the parameters passed through currentParams */
 	LALInferenceCopyVariables(runStateGlobal->currentParams,newParams);
 	int i = runStateGlobal->CubeToPrior(runStateGlobal, newParams, Cube);
+	//printf("i = %d\n",i);
 
 	// if the parameters violate the prior then set likelihood to log(0);
 	if( i == 0 )
@@ -105,7 +106,9 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	REAL8 logZnoise;
 	UINT4 verbose=0;
 	
-	if (LALInferenceGetProcParamVal(runState->commandLine, "--correlatedGaussianLikelihood")) {
+	if (LALInferenceGetProcParamVal(runState->commandLine, "--correlatedGaussianLikelihood") 
+         || LALInferenceGetProcParamVal(runState->commandLine, "--bimodalGaussianLikelihood")
+         || LALInferenceGetProcParamVal(runState->commandLine, "--rosenbrockLikelihood")) {
 		logZnoise=0.0;
 	} else {
 		logZnoise=LALInferenceNullLogLikelihood(runState->data);
@@ -357,10 +360,10 @@ MultiNest arguments:\n\
 		runState->likelihood=&LALInferenceZeroLogLikelihood;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
 		runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
-	/*} else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
+	} else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
 		runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
-		runState->likelihood=&LALInferenceRosenbrockLogLikelihood;*/
+		runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
 		fprintf(stderr, "Using Student's T Likelihood.\n");
 		runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
@@ -379,12 +382,12 @@ MultiNest arguments:\n\
 	} else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticGaussPrior")) {
 		runState->prior = &LALInferenceNullPrior;
 		runState->CubeToPrior = &LALInferenceAnalyticGaussianCubeToPrior;
-	/*} else if (LALInferenceGetProcParamVal(commandLine, "--BimodalGaussPrior")) {
+	} else if (LALInferenceGetProcParamVal(commandLine, "--BimodalGaussPrior")) {
 		runState->prior = &LALInferenceNullPrior;
 		runState->CubeToPrior = &LALInferenceBimodalGaussianCubeToPrior;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--RosenbrockPrior")) {
 		runState->prior = &LALInferenceNullPrior;
-		runState->CubeToPrior = &LALInferenceRosenbrockCubeToPrior;*/
+		runState->CubeToPrior = &LALInferenceRosenbrockCubeToPrior;
 	} else {
 		runState->prior = &LALInferenceInspiralPriorNormalised;
 		runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
