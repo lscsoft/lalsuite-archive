@@ -348,17 +348,22 @@ MultiNest arguments:\n\
 	
 	
 	/* Set up the loglike function */
-	if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
+	/*if (LALInferenceGetProcParamVal(commandLine,"--tdlike")) {
 		fprintf(stderr, "Computing likelihood in the time domain.\n");
 		runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
-	} else if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
+	} else */
+    if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
 		/* Use zero log(L) */
 		runState->likelihood=&LALInferenceZeroLogLikelihood;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
 		runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
-	/*} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
+	/*} else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
+		runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
+	} else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
+		runState->likelihood=&LALInferenceRosenbrockLogLikelihood;*/
+	} else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
 		fprintf(stderr, "Using Student's T Likelihood.\n");
-		initStudentt(runState);*/
+		runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
 	} else {
 		runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
 	}
@@ -374,9 +379,15 @@ MultiNest arguments:\n\
 	} else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticGaussPrior")) {
 		runState->prior = &LALInferenceNullPrior;
 		runState->CubeToPrior = &LALInferenceAnalyticGaussianCubeToPrior;
+	/*} else if (LALInferenceGetProcParamVal(commandLine, "--BimodalGaussPrior")) {
+		runState->prior = &LALInferenceNullPrior;
+		runState->CubeToPrior = &LALInferenceBimodalGaussianCubeToPrior;
+	} else if (LALInferenceGetProcParamVal(commandLine, "--RosenbrockPrior")) {
+		runState->prior = &LALInferenceNullPrior;
+		runState->CubeToPrior = &LALInferenceRosenbrockCubeToPrior;*/
 	} else {
-		runState->prior = &LALInferenceInspiralPrior;
-		runState->CubeToPrior = &LALInferenceInspiralCubeToPrior;
+		runState->prior = &LALInferenceInspiralPriorNormalised;
+		runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
 	}
 	
 	
@@ -578,11 +589,14 @@ void initVariables(LALInferenceRunState *state)
       fprintf(stderr,"Reading event %d from file\n",event);
       i=0;
       while(i<event) {i++; injTable=injTable->next;} /* select event */
-
       endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
       AmpOrder=injTable->amp_order;
-      XLALGetOrderFromString(injTable->waveform,&PhaseOrder);
-      XLALGetApproximantFromString(injTable->waveform,&approx);
+      PhaseOrder = XLALGetOrderFromString(injTable->waveform);
+	  if( (int) PhaseOrder == XLAL_FAILURE)
+	    ABORTXLAL(&status);
+	  approx = XLALGetApproximantFromString(injTable->waveform);
+	  if( (int) approx == XLAL_FAILURE)
+	    ABORTXLAL(&status);
     }
   }
 
