@@ -316,7 +316,7 @@ class SummaryTab(object):
                 class_ = i==0 and "open" or "closed"
                 id_    = "li_%s" % s2
                 href   = "#%s"   % s2
-                self.menu.li(s, class_=class_, id_=id_, href=href,\
+                self.menu.li(s.name, class_=class_, id_=id_, href=href,\
                              onclick=";".join(onclick))
             self.menu.ul.close()
             self.menu.div.close()
@@ -1458,6 +1458,8 @@ class TriggerSummaryTab(SummaryTab):
             plottriggers.plothistogram
         """
         desc = kwargs.pop("description", None)
+        if kwargs.get("cumulative", True) and not kwargs.has_key("normalize"):
+            kwargs["normalize"] = float(abs(self.span))
         if channels is not None:
             trigs = dict((key,val) for key in self.triggers.keys() if key\
                          in channels)
@@ -2224,6 +2226,7 @@ class OnlineSummaryTab(SummaryTab):
                 self.plots[state] = dict()
 
     def add_plots(self, state, plotlist):
+        state = SummaryState(str(state))
         if not state in self.states:
             self.states.append(state)
             self.plots[state] = dict()
@@ -2310,7 +2313,7 @@ class SummaryState(object):
         self.set = False
 
         # define the tag and match
-        self.tag = _r_cchar.sub("_", name.lower())
+        self.tag = _r_cchar.sub("_", name.lower()).upper()
         self.match = re.compile("%s\Z" % self.tag, re.I).match
 
     @property

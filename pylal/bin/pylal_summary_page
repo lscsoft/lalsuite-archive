@@ -1625,8 +1625,6 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.plots.append((outfile, plotparams.pop("description", None)))
         else:
             if re.search("hist", plot, re.I):
-                if len(tab.segments):
-                    plotparams.setdefault("normalize", tab.segments.extent())
                 tab.plothistogram(outfile, **plotparams)
             elif re.search("rate", plot, re.I):
                 tab.plotrate(outfile, **plotparams)
@@ -4175,8 +4173,8 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
-                process_triggers(tab, cp, cpsec, ifo, filetag=state.tag,\
-                                 verbose=verbose, write=opts.write_triggers,\
+                process_triggers(tab, cp, cpsec,\
+                                 verbose=verbose,\
                                  htmlonly=opts.html_only,\
                                  doplots=opts.run_plots,\
                                  dosubplots=opts.run_sub_plots)
@@ -4363,11 +4361,11 @@ if __name__=="__main__":
             name = _r_cchar.sub("_", flag.upper())
             if re.match("\w\d:", flag):
                 name = name[3:]
-            filename = os.path.join(segdir, "%s-%d-%d.txt"\
+            filename = os.path.join(segdir, "%s-%s-%d-%d.txt"\
                                              % (ifo, name, start_time,\
                                                 end_time-start_time))
             with open(filename, "w") as segf:
-                segmentsUtils.tosegwizard(segf, G_SEGMENTS[channel].coalesce())
+                segmentsUtils.tosegwizard(segf, G_SEGMENTS[flag].coalesce())
 
     #
     # setup HTML
