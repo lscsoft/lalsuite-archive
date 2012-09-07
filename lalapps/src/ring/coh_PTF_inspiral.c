@@ -90,10 +90,12 @@ int main(int argc, char **argv)
   struct timeval           startTime;
   LALDetector              *detectors[LAL_NUM_IFO+1];
   REAL8                    *timeOffsets;
-  REAL8                    *Fplus;
-  REAL8                    *Fcross;
-  REAL8                    *Fplustrig;
-  REAL8                    *Fcrosstrig;
+  REAL4                    *Fplus;
+  REAL4                    *Fcross;
+  REAL4                    *Fplustrig;
+  REAL4                    *Fcrosstrig;
+  REAL8                    FplusTmp;
+  REAL8                    FcrossTmp;
   REAL8                    detLoc[3];
   REAL4                    *timeSlideVectors;
 
@@ -329,10 +331,10 @@ int main(int argc, char **argv)
 
   /* allocate memory */ 
   timeOffsets = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL8));
-  Fplus       = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL8));
-  Fcross      = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL8));
-  Fplustrig   = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL8));
-  Fcrosstrig  = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL8));
+  Fplus       = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
+  Fcross      = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
+  Fplustrig   = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
+  Fcrosstrig  = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
 
   /* loop over ifos if doing triggered search */
   if ((params->skyLooping != ALL_SKY) &&
@@ -355,11 +357,13 @@ int main(int argc, char **argv)
                                        skyPoints->data[0].latitude,
                                        &segStartTime);
       /* calculate response functions for trigger */
-      XLALComputeDetAMResponse(&Fplustrig[ifoNumber], &Fcrosstrig[ifoNumber],
+      XLALComputeDetAMResponse(&FplusTmp, &FcrossTmp,
                                detectors[ifoNumber]->response,
                                skyPoints->data[0].longitude,
                                skyPoints->data[0].latitude, 0.,
                                XLALGreenwichMeanSiderealTime(&segStartTime));
+      Fplustrig[ifoNumber] = (REAL4) FplusTmp;
+      Fcrosstrig[ifoNumber] = (REAL4) FcrossTmp;
     }
   }
 
@@ -962,13 +966,14 @@ int main(int argc, char **argv)
                                                skyPoints->data[sp].latitude,
                                                &segStartTime);
               /* calculate response functions */
-              XLALComputeDetAMResponse(&Fplus[ifoNumber],
-                                       &Fcross[ifoNumber],
+              XLALComputeDetAMResponse(&FplusTmp, &FcrossTmp,
                                        detectors[ifoNumber]->response,
                                        skyPoints->data[sp].longitude,
                                        skyPoints->data[sp].latitude,0.,
                                        XLALGreenwichMeanSiderealTime(
                                            &segStartTime));
+              Fplus[ifoNumber] = (REAL4) FplusTmp;
+              Fcross[ifoNumber] = (REAL4) FcrossTmp;
             }
 
             // This function calculates the cohSNR time series and all of the
@@ -1198,8 +1203,8 @@ void coh_PTF_statistic(
     struct coh_PTF_params   *params,
     UINT4                   spinTemplate,
     REAL8                   *timeOffsets,
-    REAL8                   *Fplus,
-    REAL8                   *Fcross,
+    REAL4                   *Fplus,
+    REAL4                   *Fcross,
     INT4                    segmentNumber,
     REAL4TimeSeries         *pValues[10],
     REAL4TimeSeries         *gammaBeta[2],
@@ -1341,7 +1346,6 @@ void coh_PTF_statistic(
   gsl_matrix                *eigenvecsSngl = gsl_matrix_alloc(vecLength,
                                                               vecLength);
   gsl_vector                *eigenvalsSngl = gsl_vector_alloc(vecLength);
-
 
   // This function takes the (Q_i|Q_j) matrices, combines it across the ifos
   // and returns the eigenvalues and eigenvectors of this new matrix.

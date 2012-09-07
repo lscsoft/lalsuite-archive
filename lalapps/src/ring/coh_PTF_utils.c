@@ -94,8 +94,8 @@ REAL4TimeSeries *coh_PTF_get_data(
 int coh_PTF_get_null_stream(
     struct coh_PTF_params *params,
     REAL4TimeSeries *channel[LAL_NUM_IFO + 1],
-    REAL8 *Fplus,
-    REAL8 *Fcross,
+    REAL4 *Fplus,
+    REAL4 *Fcross,
     REAL8 *timeOffsets )
 {
   UINT4 j,n[3],ifoNumber;
@@ -386,8 +386,8 @@ void coh_PTF_calculate_bmatrix(
   struct coh_PTF_params   *params,
   gsl_matrix *eigenvecs,
   gsl_vector *eigenvals,
-  REAL8 Fplus[LAL_NUM_IFO],
-  REAL8 Fcross[LAL_NUM_IFO],
+  REAL4 Fplus[LAL_NUM_IFO],
+  REAL4 Fcross[LAL_NUM_IFO],
   REAL8Array              *PTFM[LAL_NUM_IFO+1],
   UINT4 vecLength,
   UINT4 vecLengthTwo,
@@ -465,8 +465,8 @@ void coh_PTF_calculate_rotated_vectors(
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     REAL4 *u1,
     REAL4 *u2,
-    REAL8 Fplus[LAL_NUM_IFO],
-    REAL8 Fcross[LAL_NUM_IFO],
+    REAL4 Fplus[LAL_NUM_IFO],
+    REAL4 Fcross[LAL_NUM_IFO],
     INT4  timeOffsetPoints[LAL_NUM_IFO],
     gsl_matrix *eigenvecs,
     gsl_vector *eigenvals,
@@ -550,10 +550,10 @@ void coh_PTF_cleanup(
     REAL8Array              *PTFN[LAL_NUM_IFO+1],
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     REAL8                   *timeOffsets,
-    REAL8                   *Fplus,
-    REAL8                   *Fcross,
-    REAL8                   *Fplustrig,
-    REAL8                   *Fcrosstrig
+    REAL4                   *Fplus,
+    REAL4                   *Fcross,
+    REAL4                   *Fplustrig,
+    REAL4                   *Fcrosstrig
     )
 {
   if ( params->injectList )
