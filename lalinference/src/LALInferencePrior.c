@@ -2109,155 +2109,195 @@ REAL8 LALInferenceNullPrior(LALInferenceRunState UNUSED *runState, LALInferenceV
 }
 
 REAL8 LALInferenceAnalyticGaussianCubeToPrior(LALInferenceRunState UNUSED *runState, LALInferenceVariables *params, double *Cube) {
-	//printf("In analytic Gaussian prior function.\n");
-    
-    int i = 0;
+	int i = 0;
 	double V=1.,mc,eta;
 	LALInferenceVariableItem *item;
 	
-	if(LALInferenceGetItem(params,"chirpmass")->vary != LALINFERENCE_PARAM_FIXED
-        || LALInferenceGetItem(params,"massratio")->vary != LALINFERENCE_PARAM_FIXED)
+	if(LALInferenceCheckVariable(params,"chirpmass") && LALInferenceCheckVariable(params,"massratio"))
     {
-        double m1 = flatPrior(Cube[i], 14.927715, 17.072285);
-	    Cube[i] = m1; i++;
-	    double m2 = flatPrior(Cube[i], 5.829675, 8.170325);
-	    Cube[i] = m2; i++;
-	    V *= (17.072285-14.927715) * (8.170325-5.829675);
-	    
-	    m2mc(m1, m2, &mc);
-     	m2eta(m1, m2, &eta);
-	    LALInferenceSetVariable(params, "chirpmass", &mc);
-	    LALInferenceSetVariable(params, "massratio", &eta);
+        if(LALInferenceGetItem(params,"chirpmass")->vary != LALINFERENCE_PARAM_FIXED
+            || LALInferenceGetItem(params,"massratio")->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double m1 = flatPrior(Cube[i], 14.927715, 17.072285);
+	        Cube[i] = m1; i++;
+	        double m2 = flatPrior(Cube[i], 5.829675, 8.170325);
+	        Cube[i] = m2; i++;
+	        V *= (17.072285-14.927715) * (8.170325-5.829675);
+	        
+	        m2mc(m1, m2, &mc);
+     	    m2eta(m1, m2, &eta);
+	        LALInferenceSetVariable(params, "chirpmass", &mc);
+	        LALInferenceSetVariable(params, "massratio", &eta);
+        }
     }
     	
-	item = LALInferenceGetItem(params,"inclination");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+	if(LALInferenceCheckVariable(params,"inclination"))
     {
-        double inclination = flatPrior(Cube[i], 1.4054428267948966, 1.7361498267948965);
-	    LALInferenceSetVariable(params, "inclination", &inclination);
-	    Cube[i] = inclination;
-	    i++;
-	    V *= 1.7361498267948965-1.4054428267948966;
+        item = LALInferenceGetItem(params,"inclination");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double inclination = flatPrior(Cube[i], 1.4054428267948966, 1.7361498267948965);
+	        LALInferenceSetVariable(params, "inclination", &inclination);
+	        Cube[i] = inclination;
+	        i++;
+	        V *= 1.7361498267948965-1.4054428267948966;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"phase");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"phase"))
     {
-        double phase = flatPrior(Cube[i], 2.8701521535897934, 3.413033153589793);
-	    LALInferenceSetVariable(params, "phase", &phase);
-	    Cube[i] = phase;
-	    i++;
-        V *= 3.413033153589793-2.8701521535897934;
+	    item = LALInferenceGetItem(params,"phase");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double phase = flatPrior(Cube[i], 2.8701521535897934, 3.413033153589793);
+	        LALInferenceSetVariable(params, "phase", &phase);
+	        Cube[i] = phase;
+	        i++;
+            V *= 3.413033153589793-2.8701521535897934;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"polarisation");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"polarisation"))
     {
-        double polarisation = flatPrior(Cube[i], 1.3885563267948966, 1.7530363267948965);
-	    LALInferenceSetVariable(params, "polarisation", &polarisation);
-	    Cube[i] = polarisation;
-	    i++;
-	    V *= 1.7530363267948965-1.3885563267948966;
+	    item = LALInferenceGetItem(params,"polarisation");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double polarisation = flatPrior(Cube[i], 1.3885563267948966, 1.7530363267948965);
+	        LALInferenceSetVariable(params, "polarisation", &polarisation);
+	        Cube[i] = polarisation;
+	        i++;
+	        V *= 1.7530363267948965-1.3885563267948966;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"rightascension");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"rightascension"))
     {
-        double rightascension = flatPrior(Cube[i], 2.813050153589793, 3.4701351535897933);
-	    LALInferenceSetVariable(params, "rightascension", &rightascension);
-	    Cube[i] = rightascension;
-	    i++;
-	    V *= 3.4701351535897933-2.813050153589793;
+	    item = LALInferenceGetItem(params,"rightascension");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double rightascension = flatPrior(Cube[i], 2.813050153589793, 3.4701351535897933);
+	        LALInferenceSetVariable(params, "rightascension", &rightascension);
+	        Cube[i] = rightascension;
+	        i++;
+	        V *= 3.4701351535897933-2.813050153589793;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"declination");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"declination"))
     {
-        double declination = flatPrior(Cube[i], -0.300699, 0.300699);
-	    LALInferenceSetVariable(params, "declination", &declination);
-	    Cube[i] = declination;
-	    i++;
-	    V *= 0.300699+0.300699;
+	    item = LALInferenceGetItem(params,"declination");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double declination = flatPrior(Cube[i], -0.300699, 0.300699);
+	        LALInferenceSetVariable(params, "declination", &declination);
+	        Cube[i] = declination;
+	        i++;
+	        V *= 0.300699+0.300699;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"distance");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"distance"))
     {
-        double distance = flatPrior(Cube[i], 37.986000000000004, 62.013999999999996);
-	    LALInferenceSetVariable(params, "distance", &distance);
-	    Cube[i] = distance;
-	    i++;
-	    V *= 62.013999999999996-37.986000000000004;
+	    item = LALInferenceGetItem(params,"distance");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double distance = flatPrior(Cube[i], 37.986000000000004, 62.013999999999996);
+	        LALInferenceSetVariable(params, "distance", &distance);
+	        Cube[i] = distance;
+	        i++;
+	        V *= 62.013999999999996-37.986000000000004;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"time");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"time"))
     {
-        double tc = flatPrior(Cube[i], -0.1073625, 0.1073625);
-	    LALInferenceSetVariable(params, "time", &tc);
-        Cube[i] = tc;
-	    i++;
-	    V *= 0.1073625+0.1073625;
+	    item = LALInferenceGetItem(params,"time");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double tc = flatPrior(Cube[i], -0.1073625, 0.1073625);
+	        LALInferenceSetVariable(params, "time", &tc);
+            Cube[i] = tc;
+	        i++;
+	        V *= 0.1073625+0.1073625;
+        }
     }
-    
-	item = LALInferenceGetItem(params,"a_spin1");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+    	
+	if(LALInferenceCheckVariable(params,"a_spin1"))
     {
-        double a_spin1 = flatPrior(Cube[i], 0.3784565, 0.6215435);
-	    LALInferenceSetVariable(params, "a_spin1", &a_spin1);
-        Cube[i] = a_spin1;
-	    i++;
-	    V *= 0.6215435-0.3784565;
+	    item = LALInferenceGetItem(params,"a_spin1");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double a_spin1 = flatPrior(Cube[i], 0.3784565, 0.6215435);
+	        LALInferenceSetVariable(params, "a_spin1", &a_spin1);
+            Cube[i] = a_spin1;
+	        i++;
+	        V *= 0.6215435-0.3784565;
+        }
     }
-	
-	item = LALInferenceGetItem(params,"a_spin2");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+		
+	if(LALInferenceCheckVariable(params,"a_spin2"))
     {
-        double a_spin2 = flatPrior(Cube[i], 0.421869, 0.578131);
-	    LALInferenceSetVariable(params, "a_spin2", &a_spin2);
-        Cube[i] = a_spin2;
-	    i++;
-	    V *= 0.578131-0.421869;
+	    item = LALInferenceGetItem(params,"a_spin2");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double a_spin2 = flatPrior(Cube[i], 0.421869, 0.578131);
+	        LALInferenceSetVariable(params, "a_spin2", &a_spin2);
+            Cube[i] = a_spin2;
+	        i++;
+	        V *= 0.578131-0.421869;
+        }
     }
-	
-	item = LALInferenceGetItem(params,"theta_spin1");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+		
+	if(LALInferenceCheckVariable(params,"theta_spin1"))
     {
-        double theta_spin1 = flatPrior(Cube[i], 1.3993998267948966, 1.7421928267948965);
-	    LALInferenceSetVariable(params, "theta_spin1", &theta_spin1);
-	    Cube[i] = theta_spin1;
-	    i++;
-	    V *= 1.7421928267948965-1.3993998267948966;
+	    item = LALInferenceGetItem(params,"theta_spin1");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double theta_spin1 = flatPrior(Cube[i], 1.3993998267948966, 1.7421928267948965);
+	        LALInferenceSetVariable(params, "theta_spin1", &theta_spin1);
+	        Cube[i] = theta_spin1;
+	        i++;
+	        V *= 1.7421928267948965-1.3993998267948966;
+        }
     }
-	
-	item = LALInferenceGetItem(params,"theta_spin2");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+		
+	if(LALInferenceCheckVariable(params,"theta_spin2"))
     {
-        double theta_spin2 = flatPrior(Cube[i], 1.4086158267948965, 1.7329768267948966);
-	    LALInferenceSetVariable(params, "theta_spin2", &theta_spin2);
-	    Cube[i] = theta_spin2;
-      	i++;
-      	V *= 1.7329768267948966-1.4086158267948965;
-    } 
-	
-	item = LALInferenceGetItem(params,"phi_spin1");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
-    {
-        double phi_spin1 = flatPrior(Cube[i], 2.781852653589793, 3.501332653589793);
-	    LALInferenceSetVariable(params, "phi_spin1", &phi_spin1);
-	    Cube[i] = phi_spin1;
-	    i++;
-	    V *= 3.501332653589793-2.781852653589793;
+	    item = LALInferenceGetItem(params,"theta_spin2");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double theta_spin2 = flatPrior(Cube[i], 1.4086158267948965, 1.7329768267948966);
+	        LALInferenceSetVariable(params, "theta_spin2", &theta_spin2);
+	        Cube[i] = theta_spin2;
+      	    i++;
+      	    V *= 1.7329768267948966-1.4086158267948965;
+        }
     }
-	
-	item = LALInferenceGetItem(params,"phi_spin2");
-    if(item->vary != LALINFERENCE_PARAM_FIXED)
+		
+	if(LALInferenceCheckVariable(params,"phi_spin1"))
     {
-        double phi_spin2 = flatPrior(Cube[i], 2.777215653589793, 3.5059696535897933);
-	    LALInferenceSetVariable(params, "phi_spin2", &phi_spin2);
-	    Cube[i] = phi_spin2;
-	    i++;
-	    V *= 3.5059696535897933-2.777215653589793;
+	    item = LALInferenceGetItem(params,"phi_spin1");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double phi_spin1 = flatPrior(Cube[i], 2.781852653589793, 3.501332653589793);
+	        LALInferenceSetVariable(params, "phi_spin1", &phi_spin1);
+	        Cube[i] = phi_spin1;
+	        i++;
+	        V *= 3.501332653589793-2.781852653589793;
+        }
+    }
+		
+	if(LALInferenceCheckVariable(params,"phi_spin2"))
+    {
+	    item = LALInferenceGetItem(params,"phi_spin2");
+        if(item->vary != LALINFERENCE_PARAM_FIXED)
+        {
+            double phi_spin2 = flatPrior(Cube[i], 2.777215653589793, 3.5059696535897933);
+	        LALInferenceSetVariable(params, "phi_spin2", &phi_spin2);
+	        Cube[i] = phi_spin2;
+	        i++;
+	        V *= 3.5059696535897933-2.777215653589793;
+        }
     }
 	
 	/*double V=0.0014830560661446735;*/
@@ -2266,7 +2306,8 @@ REAL8 LALInferenceAnalyticGaussianCubeToPrior(LALInferenceRunState UNUSED *runSt
 	Cube[i] = eta; i++;
 	Cube[i] = -log(V); i++;
 	
-	//printf("V = %e\n",V);
+	char dummy[20];
+	sprintf(dummy,"V = %e\n",V);
 	
 	return 1;
 }
@@ -2469,6 +2510,9 @@ REAL8 LALInferenceBimodalGaussianCubeToPrior(LALInferenceRunState UNUSED *runSta
 	Cube[i] = eta; i++;
 	Cube[i] = -log(V); i++;
 	
+	char dummy[20];
+	sprintf(dummy,"V = %e\n",V);
+	
 	return 1;
 }
 
@@ -2669,6 +2713,9 @@ REAL8 LALInferenceRosenbrockCubeToPrior(LALInferenceRunState UNUSED *runState, L
 	Cube[i] = mc; i++;
 	Cube[i] = eta; i++;
 	Cube[i] = -log(V); i++;
+	
+	char dummy[20];
+	sprintf(dummy,"V = %e\n",V);
 	
 	return 1;
 }

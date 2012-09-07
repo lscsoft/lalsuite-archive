@@ -89,7 +89,8 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew)
 	// calculate the loglike
 	*lnew=runStateGlobal->likelihood(newParams, runStateGlobal->data, runStateGlobal->template);
 	*lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
-	LALInferenceDestroyVariables(newParams);
+	//printf("logL = %e\n",*lnew);
+    LALInferenceDestroyVariables(newParams);
 	free(newParams);
 }
 
@@ -104,7 +105,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	UINT4 Nlive=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nlive");
 	REAL8 eff=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"eff");
 	REAL8 logZnoise;
-	UINT4 verbose=0;
+	UINT4 verbose=0,resval=1;
 	
 	if (LALInferenceGetProcParamVal(runState->commandLine, "--correlatedGaussianLikelihood") 
          || LALInferenceGetProcParamVal(runState->commandLine, "--bimodalGaussianLikelihood")
@@ -116,8 +117,13 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&logZnoise,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	//logLikelihoods=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->algorithmParams,"logLikelihoods"))->data;
 
-	verbose=LALInferenceCheckVariable(runState->algorithmParams,"verbose");
-	
+	//verbose=LALInferenceCheckVariable(runState->algorithmParams,"verbose");
+	if (LALInferenceGetProcParamVal(runState->commandLine, "--progress"))
+	    verbose=1;
+    
+    if (LALInferenceGetProcParamVal(runState->commandLine, "--noresume"))
+	    resval=0;
+    
 	/* output file root */
 	ProcessParamsTable *ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
 	if(!ppt){
@@ -176,7 +182,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	for( int j = 0; j < 100; j++ ) root[j] = outfilestr[j];
 	int rseed = -1;
 	int fb = verbose;
-	int resume = 1;
+	int resume = resval;
 	int outfile = 1;
 	int initMPI = 0;
 	double logZero = -1E90;
