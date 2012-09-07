@@ -89,7 +89,7 @@ int main(int argc, char **argv)
   LIGOTimeGPS              segStartTime;
   struct timeval           startTime;
   LALDetector              *detectors[LAL_NUM_IFO+1];
-  REAL8                    *timeOffsets;
+  REAL4                    *timeOffsets;
   REAL4                    *Fplus;
   REAL4                    *Fcross;
   REAL4                    *Fplustrig;
@@ -330,7 +330,7 @@ int main(int argc, char **argv)
   }
 
   /* allocate memory */ 
-  timeOffsets = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL8));
+  timeOffsets = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
   Fplus       = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
   Fcross      = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
   Fplustrig   = LALCalloc(1, LAL_NUM_IFO*sizeof(REAL4));
@@ -352,7 +352,7 @@ int main(int argc, char **argv)
       /* set 'segStartTime' to trigger time */
       segStartTime = params->trigTime;
       /* calculate time offsets */
-      timeOffsets[ifoNumber] =
+      timeOffsets[ifoNumber] = (REAL4)
           XLALTimeDelayFromEarthCenter(detLoc, skyPoints->data[0].longitude,
                                        skyPoints->data[0].latitude,
                                        &segStartTime);
@@ -960,7 +960,7 @@ int main(int argc, char **argv)
                  detLoc[ui] = (double) detectors[ifoNumber]->location[ui];
               }
               /* calculate time offsets */
-              timeOffsets[ifoNumber] =
+              timeOffsets[ifoNumber] = (REAL4)
                   XLALTimeDelayFromEarthCenter(detLoc,
                                                skyPoints->data[sp].longitude,
                                                skyPoints->data[sp].latitude,
@@ -1202,7 +1202,7 @@ void coh_PTF_statistic(
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     struct coh_PTF_params   *params,
     UINT4                   spinTemplate,
-    REAL8                   *timeOffsets,
+    REAL4                   *timeOffsets,
     REAL4                   *Fplus,
     REAL4                   *Fcross,
     INT4                    segmentNumber,
@@ -2330,7 +2330,7 @@ UINT8 coh_PTF_add_triggers(
     REAL4                   rightAscension,
     REAL4                   declination,
     INT8                    slideId,
-    REAL8                   *timeOffsets
+    REAL4                   *timeOffsets
 )
 {
   // This function adds a trigger to the event list

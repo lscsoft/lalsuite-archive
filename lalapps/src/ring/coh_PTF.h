@@ -270,7 +270,7 @@ void coh_PTF_statistic(
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     struct coh_PTF_params   *params,
     UINT4                   spinTemplate,
-    REAL8                   *timeOffsets,
+    REAL4                   *timeOffsets,
     REAL4                   *Fplus,
     REAL4                   *Fcross,
     INT4                    segmentNumber,
@@ -318,7 +318,7 @@ UINT8 coh_PTF_add_triggers(
     REAL4                   rightAscension,
     REAL4                   declination,
     INT8                    slideId,
-    REAL8                   *timeOffsets
+    REAL4                   *timeOffsets
 );
 void coh_PTF_cluster_triggers(
   struct coh_PTF_params   *params,
@@ -358,7 +358,7 @@ int coh_PTF_get_null_stream(
     REAL4TimeSeries *channel[LAL_NUM_IFO + 1],
     REAL4 *Fplus,
     REAL4 *Fcross,
-    REAL8 *timeOffsets
+    REAL4 *timeOffsets
 );
 
 REAL4FrequencySeries *coh_PTF_get_invspec(
@@ -428,7 +428,7 @@ void coh_PTF_cleanup(
     REAL8Array              *PTFM[LAL_NUM_IFO+1],
     REAL8Array              *PTFN[LAL_NUM_IFO+1],
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
-    REAL8                   *timeOffsets,
+    REAL4                   *timeOffsets,
     REAL4                   *Fplus,
     REAL4                   *Fcross,
     REAL4                   *Fplustrig,

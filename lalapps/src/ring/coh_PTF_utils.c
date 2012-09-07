@@ -96,7 +96,7 @@ int coh_PTF_get_null_stream(
     REAL4TimeSeries *channel[LAL_NUM_IFO + 1],
     REAL4 *Fplus,
     REAL4 *Fcross,
-    REAL8 *timeOffsets )
+    REAL4 *timeOffsets )
 {
   UINT4 j,n[3],ifoNumber;
   INT4 i,t[3];
@@ -549,7 +549,7 @@ void coh_PTF_cleanup(
     REAL8Array              *PTFM[LAL_NUM_IFO+1],
     REAL8Array              *PTFN[LAL_NUM_IFO+1],
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
-    REAL8                   *timeOffsets,
+    REAL4                   *timeOffsets,
     REAL4                   *Fplus,
     REAL4                   *Fcross,
     REAL4                   *Fplustrig,
