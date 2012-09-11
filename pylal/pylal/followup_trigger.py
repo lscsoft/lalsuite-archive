@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+from __future__ import division
 
 __prog__ = "followup_trigger.py"
 
@@ -70,9 +71,9 @@ class FollowupTrigger:
   htmlname5 = followup.from_new_coinc(new_coinc,[sngls])
   htmlname6 = followup.from_new_slide_coinc(new_coinc,[sngls],slideDict,segs)
 
-  # In each case the path to the created html file is returned. 
-  # In the first call a CoincInspirals table is expected, a SngleInspiral
-  # table in the second case and a SimInspiral table in the two last. 
+  # In each case the path to the created html file is returned.
+  # In the first call a CoincInspirals table is expected, a SnglInspiral
+  # table in the second case and a SimInspiral table in the two last.
   """
 
 
@@ -142,7 +143,7 @@ class FollowupTrigger:
 
     # Set argument "old_document" to true if the option is specified.
     # Do not crash if "opts.old_document" is not defined in the script
-    # calling this method. 
+    # calling this method.
     if not hasattr(opts, "old_document"):
       self.old_document = False
     else:
@@ -150,7 +151,7 @@ class FollowupTrigger:
 
     # Choose the cache-file
     if opts.followup_tag is None:
-      if opts.verbose: 
+      if opts.verbose:
         print "WARNING: All injection files are considered. Is that desired?"
         print "         Or do you want to select an injection run with --followup-tag INJRUN ?"
       self.cache = cache
@@ -160,7 +161,7 @@ class FollowupTrigger:
         print "         Is that the desired behaviour? You might reconsider removing --followup-tag INJRUN "
       self.cache = cache.sieve(description = opts.followup_tag)
     
-    # Value for the injection window. This value might be taken from 
+    # Value for the injection window. This value might be taken from
     # a processParams table (see function get_injection_window)
     self.get_injection_window()
 
@@ -184,7 +185,7 @@ class FollowupTrigger:
     if self.verbose:
       print "\nStarting initializing the Followup class..."
       
-    # splitting up the cache for the different stages 
+    # splitting up the cache for the different stages
     self.trigger_cache = {}
     for stage in self.stageLabels:
       pattern = stage
@@ -308,11 +309,11 @@ class FollowupTrigger:
                                                    [lsctables.ProcessParamsTable])
       process_params = table.get_table(doc, lsctables.ProcessParamsTable.\
                                        tableName)
-    except IOError: 	    
+    except IOError:
       sys.stderr.write("ERROR (IOError) while reading process_params table from"\
                        " file %s. Does this file exist and does it contain"\
                        " a search_summary table?\n" %(coire_file))
-      raise 	 
+      raise
     except:
       raise "Error while reading process_params table from file: ", coire_file
 
@@ -322,7 +323,7 @@ class FollowupTrigger:
       if tab.param=='--injection-window':
         found_flag = True
         self.injection_window = float(tab.value)/1000.0
-    if not found_flag: 	 
+    if not found_flag:
       sys.stderr.write("WARNING: No entry '--injection-window' found in file %s"\
                        "Value used is %.1f ms. If incorrect, please change file at %s\n" %\
                        (coire_file, 1000.0*self.injection_window, __file__))
@@ -331,7 +332,7 @@ class FollowupTrigger:
     if self.verbose:
       print "Injection-window set to %.0f ms" % (1000*self.injection_window)
 
-  
+
   # -----------------------------------------------------
   def get_injection_id(self, filename=None, url=None, cache_entry=None):
     """
@@ -345,7 +346,7 @@ class FollowupTrigger:
     The number of the injection run is extracted (INJRUN) as well as the following
     number (INJNUMBER). The injection ID is then calculated as:
        INJID = 100000*INJRUN + INJNUMBER
-    so for this example the injectionj ID is 3200077. 
+    so for this example the injectionj ID is 3200077.
     
     @param filename: filename from which the injection ID is extracted
     @param url:  url from which the injection ID is extracted
@@ -384,12 +385,12 @@ class FollowupTrigger:
       index = 0
       for ind, piece in enumerate(pieces):
         if 'CAT' in piece:
-          index = ind          
-      injection_id = pieces[index-1] 
+          index = ind
+      injection_id = pieces[index-1]
         
     return injection_id
   
-  # -----------------------------------------------------  
+  # -----------------------------------------------------
   def find_injection_id(self, injection):
     """
     Find the injection-ID corresponding to this particular injection.
@@ -471,7 +472,7 @@ class FollowupTrigger:
       print "\nInjection details for injection %d with injID %s: " %\
             (self.number, injID)
     else:
-      print "\nInjection details for injection %d:" % (self.number)    
+      print "\nInjection details for injection %d:" % (self.number)
       
     print "m1: %.2f  m2:%.2f  | end_time: %d.%d | "\
           "distance: %.2f  eff_dist_h: %.2f eff_dist_l: %.2f" % \
@@ -488,15 +489,15 @@ class FollowupTrigger:
             stage+"-"+str(self.number) +self.opts.suffix+'.png'
     fname_thumb = InspiralUtils.\
                   savefig_pylal( filename = self.output_path+fname,\
-                                 doThumb = True, 
+                                 doThumb = True,
                                  dpi_thumb = self.opts.figure_resolution)
     
-    self.fname_list.append( fname ) 
+    self.fname_list.append( fname )
     return fname
  
 
-  # -----------------------------------------------------  
-  def get_time_trigger( self, trig ):
+  # -----------------------------------------------------
+  def get_time_trigger(self, trig):
     """
     This is a helper function to return a GPS time as one float number
     @param trig: a sngl_inspiral table entry
@@ -505,15 +506,15 @@ class FollowupTrigger:
 
 
   # -----------------------------------------------------
-  def get_effective_snr(self, trig):
+  def get_effective_snr(self, trig, fac=50):
     if trig.chisq>0:
-      return trig.get_effective_snr()
+      return trig.get_effective_snr(fac=fac)
     else:
       return 0.0
 
   # -----------------------------------------------------
-  def get_new_snr(self, trig):
-    return trig.get_new_snr(index=6.0)
+  def get_new_snr(self, trig, index=6.):
+    return trig.get_new_snr(index=index)
 
   # -----------------------------------------------------
   def get_sim_time(self, sim, ifo = None):
@@ -533,7 +534,7 @@ class FollowupTrigger:
       nano = sim.geocent_end_time_ns
     if ifo:
       time = getattr(sim, ifo[0].lower()+'_end_time' )
-      nano = getattr(sim, ifo[0].lower()+'_end_time_ns' )    
+      nano = getattr(sim, ifo[0].lower()+'_end_time_ns' )
 
     return  float(time) + float(nano) * 1.0e-9
 
@@ -623,7 +624,7 @@ class FollowupTrigger:
 
         # add IFO to this set; the injection is found for this IFO-stage
         if len(time_small)>0:
-          foundSet.add(ifo)                  
+          foundSet.add(ifo)
 
           # record details of the loudest trigger
           loudest = selected_small[selected_small.get_column('snr').argmax()]
@@ -632,11 +633,19 @@ class FollowupTrigger:
           loudest_details[ifo]["mchirp"] = loudest.mchirp
           loudest_details[ifo]["eta"] = loudest.eta
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
-          loudest_details[ifo]["chisq"] = loudest.chisq
+          loudest_details[ifo]["rchisq"] = 0
+          loudest_details[ifo]["bank_rchisq"] = 0
+          loudest_details[ifo]["auto_rchisq"] = 0
+          if loudest.chisq_dof:
+            loudest_details[ifo]["rchisq"] = loudest.chisq/(2*loudest.chisq_dof-2) 
+          if loudest.bank_chisq_dof:
+            loudest_details[ifo]["bank_rchisq"] = loudest.bank_chisq/loudest.bank_chisq_dof
+          if loudest.cont_chisq_dof:
+            loudest_details[ifo]["auto_rchisq"] = loudest.cont_chisq/loudest.cont_chisq_dof
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
           loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
-          loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest) 
-          loudest_details[ifo]["end_time"] =loudest.end_time+loudest.end_time_ns*1E-9
+          loudest_details[ifo]["new_snr"] = self.get_new_snr(loudest)
+          loudest_details[ifo]["end_time"] = loudest.end_time+loudest.end_time_ns*1E-9
           loudest_details[ifo]["trig"] = loudest
 
         # plot the triggers
@@ -647,7 +656,7 @@ class FollowupTrigger:
 
         # highlight any veto
         # FIXME: FOR NOW: COMMENTED OUT...
-        ## self.highlight_veto(self.followup_time, seg_large, ifo, ylims)  
+        ## self.highlight_veto(self.followup_time, seg_large, ifo, ylims)
 
       # draw the injection times and other stuff
       if no_triggers_found:
@@ -668,7 +677,7 @@ class FollowupTrigger:
     pylab.axis([-self.time_window, +self.time_window, ylims[0], ylims[1]])
     pylab.xlabel('time [s]')
     pylab.ylabel('SNR')
-    pylab.title(stage+'_'+str(self.number))    
+    pylab.title(stage+'_'+str(self.number))
     fname = self.save_plot( stage )
     pylab.close(fig)
 
@@ -676,7 +685,7 @@ class FollowupTrigger:
     return result
 
 
-  # -----------------------------------------------------    
+  # -----------------------------------------------------
   def select_category(self, trigger_files, category):
     """
     Return a trigger list that contains only files for the choosen category.
@@ -700,15 +709,15 @@ class FollowupTrigger:
     else:
       cat = 'CAT_'+str(category)
       new_list = [file for file in trigger_files if cat1 in file\
-                  or cat2 in file]      
+                  or cat2 in file]
           
     return new_list
 
-  # -----------------------------------------------------  
+  # -----------------------------------------------------
   def fill_table(self, page, contents,header=False,no_wrapping=False):
-    """ 
+    """
     Fills contents in a html table
-    @param page: the pagfe object describing a html page
+    @param page: the page object describing a html page
     @contents: the contents of the next table item
     """
 
@@ -745,18 +754,20 @@ class FollowupTrigger:
     # create the web-page and add a table
     page = markup.page()
     page.h1("Followup injection #"+str(self.number))
-    page.add('<table border="2" >')          
+    page.add('<table border="2" >')
     page.add('<caption><b> Injection parameters </b> </caption>')
     self.fill_table( page, ['<b>parameter','<b>value'] )
     self.fill_table( page, ['Number', self.number] )
     self.fill_table( page, ['inj ID', self.injection_id] )
-    self.fill_table( page, ['mass1', '%.2f'% inj.mass1] )
-    self.fill_table( page, ['mass2', '%.2f'% inj.mass2] )
+    self.fill_table( page, ['mass1', '%.2f' % inj.mass1] )
+    self.fill_table( page, ['mass2', '%.2f' % inj.mass2] )
     self.fill_table( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
     self.fill_table( page, ['mchirp', '%.2f' % (inj.mchirp)] )
     self.fill_table( page, ['eta', '%.2f' % (inj.eta)] )
+    self.fill_table( page, ['spin1z', '%2f' % (inj.spin1z) ] )
+    self.fill_table( page, ['spin2z', '%2f' % (inj.spin2z) ] )
     self.fill_table( page, ['end_time', '%010d' % inj.geocent_end_time] )
-    self.fill_table( page, ['end_time_ns', '%09d' %inj.geocent_end_time_ns] )    
+    self.fill_table( page, ['end_time_ns', '%09d' % inj.geocent_end_time_ns] )
     self.fill_table( page, ['distance', '%.1f' % inj.distance] )
     for ifo_id in ['h','l','v','g']:
       if self.sned:
@@ -764,7 +775,7 @@ class FollowupTrigger:
 	           (eval("inj.eff_dist_%s" % ifo_id), eval("inj_sned.eff_dist_%s" % ifo_id))] )
       else:
         self.fill_table( page, ['eff_dist_%s' % ifo_id, '%5.1f' % eval("inj.eff_dist_%s" % ifo_id)] )
-    self.fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )    
+    self.fill_table( page, ['playground','%s' %  pipeline.s2play(inj.geocent_end_time)] )
     page.add('</table></td>')
     
     return page
@@ -780,7 +791,7 @@ class FollowupTrigger:
     # create the web-page and add a table
     page = markup.page()
     page.h1("Followup trigger #"+str(self.number))
-    page.add('<table border="2" >')          
+    page.add('<table border="2" >')
     self.fill_table(page, ['<b>parameter','<b>value'] )
     self.fill_table(page, ['Number', self.number] )
     self.fill_table(page, ['inj ID', self.injection_id] )
@@ -789,10 +800,15 @@ class FollowupTrigger:
     self.fill_table(page, ['mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
     self.fill_table(page, ['mchirp', '%.2f' % (trig.mchirp)] )
     self.fill_table(page, ['end_time', '%010d' % trig.end_time] )
-    self.fill_table(page, ['end_time_ns', '%09d' % trig.end_time_ns] )    
+    self.fill_table(page, ['end_time_ns', '%09d' % trig.end_time_ns] )
     self.fill_table(page, ['snr', trig.snr])
-    self.fill_table(page, ['chisq', trig.chisq])
-    self.fill_table(page, ['eff_snr', self.get_effective_snr(trig)])
+    if trig.chisq_dof:
+      self.fill_table(page, ['rchisq', trig.chisq/(2*trig.chisq_dof-2)])
+    if trig.bank_chisq_dof:
+      self.fill_table(page, ['bank_rchisq', trig.bank_chisq/trig.bank_chisq_dof])
+    if trig.cont_chisq_dof:
+      self.fill_table(page, ['auto_rchisq', trig.cont_chisq/trig.cont_chisq_dof])
+    self.fill_table(page, ['eff_snr (fac=50)', self.get_effective_snr(trig)])
     self.fill_table(page, ['new_snr', self.get_new_snr(trig)])
     self.fill_table(page, ['eff_distance', '%.1f' % trig.eff_distance] )
     page.add('</table></td><br>')
@@ -831,7 +847,7 @@ class FollowupTrigger:
           sngl1 = snglInspirals[i]
           sngl2 = snglInspirals[j]
           ifo1 = sngl1.ifo
-          ifo2 = sngl2.ifo 
+          ifo2 = sngl2.ifo
           ethinca = tools.XLALCalculateEThincaParameter(sngl1,sngl2)
           Name = 'Ethinca distance between ' + ifo1 + ' and ' + ifo2
           self.fill_table( page, [Name + ': ', ethinca])
@@ -853,16 +869,21 @@ class FollowupTrigger:
         trig = getattr(coinc,ifo)
 
       if trig:
-        page.add('<td><table border="2" >')        
+        page.add('<td><table border="2" >')
     
         self.fill_table( page, ['parameter', ifo], header=True )
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
-        self.fill_table( page, ['Effective SNR', '%.3f' % self.get_effective_snr(trig)] )
-        self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig)] )
         self.fill_table( page, ['SNR', '%.3f' % trig.snr] )
-        self.fill_table( page, ['Chisq', '%.2f' % trig.chisq] )
-        self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )            
+        self.fill_table( page, ['Effective SNR (fac=50)', '%.3f' % self.get_effective_snr(trig,fac=50.)] )
+        self.fill_table( page, ['New SNR', '%.3f' % self.get_new_snr(trig,index=6.)] )
+        if trig.chisq_dof:
+          self.fill_table( page, ['Chisq/dof', '%.3f' % (trig.chisq/(2*trig.chisq_dof-2))] )
+        if trig.bank_chisq_dof:
+          self.fill_table( page, ['Bank chisq/dof', '%.3f' % (trig.bank_chisq/trig.bank_chisq_dof)] )
+        if trig.cont_chisq_dof:
+          self.fill_table( page, ['Auto chisq/dof', '%.3f' % (trig.cont_chisq/trig.cont_chisq_dof)] )
+        self.fill_table( page, ['Rsq duration (s)', '%.4f' % trig.rsqveto_duration] )
         self.fill_table( page, ['''Mass1 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass1] )
         self.fill_table( page, ['''Mass2 (M<sub>&#x2A00;</sub>)''', '%.2f' % trig.mass2] )
         self.fill_table( page, ['''Mtotal (M<sub>&#x2A00;</sub>)''', '%.2f' % (trig.mass1+trig.mass2)] )
@@ -872,12 +893,12 @@ class FollowupTrigger:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
           self.fill_table( page, ['Slid GPS end time', '%.4f' % endTime] )
           slidEndTime = trig2.end_time + 1E-9*trig2.end_time_ns
-          self.fill_table( page, ['Unslid end time', '%.4f' % slidEndTime] ) 
+          self.fill_table( page, ['Unslid end time', '%.4f' % slidEndTime] )
         else:
           endTime = trig.end_time + 1E-9*trig.end_time_ns
-          self.fill_table( page, ['GPS end time', '%.4f' % endTime] )
+          self.fill_table( page, ['GPS end time', '%.3f' % endTime] )
         self.fill_table( page, ['Effective distance (Mpc)', '%.1f' % trig.eff_distance] )
-        page.add('</table></td>')                
+        page.add('</table></td>')
 
     page.add('</table><br>')
     page.hr()
@@ -895,9 +916,9 @@ class FollowupTrigger:
     ## create the web-page and add a table
     page = markup.page()
     page.h1("Followup time around GPS "+str(trigger_time) )
-    page.add('<table border="2" >')          
+    page.add('<table border="2" >')
     self.fill_table( page, ['Number', self.number] )
-    self.fill_table( page, ['Time', trigger_time] )    
+    self.fill_table( page, ['Time', trigger_time] )
     page.add('</table></td><br>')
     page.hr()
 
@@ -916,10 +937,10 @@ class FollowupTrigger:
     ## print out the result for this particular injection
     page.add('<table border="2" >')
     page.add('<caption><b> Parameters of the loudest (by SNR) recovered single ifo triggers at each stage of the pipeline </b> </caption>')
-    self.fill_table( page, ['step','F/M', 'SNR', \
-                            'Mchirp', 'eta','eff_dist', \
-                            'chisq', 'eff_snr',\
-                            'new_snr','end_time','ethinca', 'Veto ON/OFF'],header=True )
+    self.fill_table( page, ['step', 'F/M', 'SNR', \
+                            'Mchirp', 'eta', 'eff_dist', \
+                            'rchisq', 'bank_rchisq', 'auto_rchisq', 'eff_snr',\
+                            'new_snr', 'end_time', 'ethinca', 'Veto ON/OFF'], header=True )
 
     # loop over the stages and create the table with
     # the various data in it (when available)
@@ -933,7 +954,9 @@ class FollowupTrigger:
         loudest_mchirp = ''
         loudest_eta = ''
         loudest_eff_dist = ''
-        loudest_chisq = ''
+        loudest_rchisq = ''
+        loudest_bank_rchisq = ''
+        loudest_auto_rchisq = ''
 	loudest_effsnr = ''
         loudest_newsnr = ''
         loudest_ethinca = ' '
@@ -956,12 +979,16 @@ class FollowupTrigger:
                          (ifo, result['loudest_details'][ifo]['eta'])
 	  loudest_eff_dist += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['eff_dist'])
-	  loudest_chisq += "%s : %.3f <br>" % \
-                         (ifo, result['loudest_details'][ifo]['chisq'])
+	  loudest_rchisq += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['rchisq'])
+          loudest_bank_rchisq += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['bank_rchisq'])
+          loudest_auto_rchisq += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['auto_rchisq'])
 	  loudest_effsnr += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['eff_snr'])
 	  loudest_newsnr += "%s : %.3f <br>" % \
-                         (ifo, result['loudest_details'][ifo]['new_snr'])   
+                         (ifo, result['loudest_details'][ifo]['new_snr'])
           loudest_time += "%s : %.3f <br>" % \
                          (ifo, result['loudest_details'][ifo]['end_time'])
           for j in range(i+1,len(result['foundlist'])):
@@ -982,9 +1009,9 @@ class FollowupTrigger:
             veto = self.is_veto(time_trigger, ifo)
             veto_txt = 'OFF'
             if veto:
-              veto_txt = 'ON'              
+              veto_txt = 'ON'
             veto_onoff+=ifo+': '+veto_txt+'<br>'
-          else: 
+          else:
             veto_onoff+=ifo+': No info<br>'
 
         # Fill the table whether something is found or not
@@ -994,8 +1021,10 @@ class FollowupTrigger:
                                    loudest_mchirp, \
                                    loudest_eta, \
                                    loudest_eff_dist,\
-                                   loudest_chisq, \
-                                   loudest_effsnr, 
+                                   loudest_rchisq, \
+                                   loudest_bank_rchisq, \
+                                   loudest_auto_rchisq, \
+                                   loudest_effsnr, \
                                    loudest_newsnr, \
                                    loudest_time, \
                                    loudest_ethinca, \
@@ -1009,7 +1038,7 @@ class FollowupTrigger:
     return page
 
 
-  # -----------------------------------------------------  
+  # -----------------------------------------------------
   def from_coinc(self, coinc, ifo = None, more_infos = False, \
                  injection_id = None,slideDict=None):
     """
@@ -1041,7 +1070,7 @@ class FollowupTrigger:
     # do the followup
     return self.followup(page,slideDict=slideDict)
 
-  # -----------------------------------------------------  
+  # -----------------------------------------------------
   def from_new_coinc(self, coinc, sngls,\
                  more_infos = False, injection_id = None):
     """
@@ -1066,7 +1095,7 @@ class FollowupTrigger:
     # do the followup
     return self.followup(page)
 
-  # -----------------------------------------------------  
+  # -----------------------------------------------------
   def from_new_slide_coinc(self, coinc, sngls,slideDict,\
                  more_infos = False, injection_id = None):
     """
@@ -1130,7 +1159,7 @@ class FollowupTrigger:
     """
 
     return self.from_injection(missed, ifo = ifo, more_infos = more_infos,\
-                               injection_id = injection_id )    
+                               injection_id = injection_id )
     
   # -----------------------------------------------------
   def from_found(self, found, ifo = None, more_infos = False, \
@@ -1180,10 +1209,10 @@ class FollowupTrigger:
     # do the followup
     return self.followup(page)
 
-  
+
   # -----------------------------------------------------
   def from_time(self, trigger_time, ifo = None, more_infos = False, \
-                injection_id = None): 
+                injection_id = None):
     """
     Creates a followup page from a given time.
     @param trigger_time: the time to be followed up
@@ -1200,7 +1229,7 @@ class FollowupTrigger:
     # set the time
     self.followup_time = trigger_time
     self.injection_id = injection_id
-    self.flag_followup = False    
+    self.flag_followup = False
 
     # do the followup
     return self.followup(page)
@@ -1221,7 +1250,7 @@ class FollowupTrigger:
     page.add('<br>')
 
     # loop over each stage
-    invest_dict = {}    
+    invest_dict = {}
     for stage, cache in self.trigger_cache.iteritems():
 
       # loop over each file in a stage
@@ -1242,13 +1271,13 @@ class FollowupTrigger:
         print >>sys.stderr, "ERROR: No files found for stage %s in the "\
               "cache for ID %s and time %d; probably mismatch of a "\
               "pattern in the options. " % \
-              ( stage, self.injection_id, self.followup_time)        
+              ( stage, self.injection_id, self.followup_time)
         continue
 
       # call the function to create the timeseries
       if stage in ('THINCA_0','THINCA_1'):
         # ... need to loop over the four categories
-        for cat in [1,2,3,4,5]:          
+        for cat in [1,2,3,4,5]:
           select_list=self.select_category(file_list, cat)
           if len(select_list)==0:
             print "WARNING (not that bad): "\
@@ -1284,7 +1313,7 @@ class FollowupTrigger:
     # and write the html file
     htmlfilename = self.opts.prefix + "_followup_"+str(self.number) +\
                          self.opts.suffix+'.html'
-    file = open(self.opts.output_path+htmlfilename,'w')      
+    file = open(self.opts.output_path+htmlfilename,'w')
     file.write(page(False))
     file.close()
 
@@ -1362,7 +1391,7 @@ class FollowupTrigger:
                                  ylog = 'log'):
     """
     This function will do the complete followup on each relevant
-    missed injection. 
+    missed injection.
     """
 
 
@@ -1411,7 +1440,7 @@ class FollowupTrigger:
       # create a list of IFO's from the one-word-list
       sub_ifo_list = get_ifo_list(type)
       
-      # Color the markers blue iff this inj is found in all 
+      # Color the markers blue iff this inj is found in all
       # possible detectors
       col = 'm'
       if len(sub_ifo_list) == len(ifo_list):
@@ -1460,8 +1489,8 @@ class FollowupTrigger:
     boundFigY = [540.0, 60.0]
 
     # choose lin/log for the axes
-    pylab.gca().set_xscale(xlog)   
-    pylab.gca().set_yscale(ylog)   
+    pylab.gca().set_xscale(xlog)
+    pylab.gca().set_yscale(ylog)
 
     # limits on the axes for the image
     axes=pylab.gcf().axes[0]
@@ -1542,7 +1571,7 @@ def getData( table, xname, yname, ifo  ):
     xp= [ t-opts.time_offset \
           for t in viz.timeindays(viz.readcol( table,"end_time", ifo)) ]
     legx = "End time (in days)"
-  elif xname == 'mtotal':    
+  elif xname == 'mtotal':
     xp = viz.readcol( table,"mass1")+viz.readcol( table,"mass2")
     legx = "Total mass"
   else:

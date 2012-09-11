@@ -222,6 +222,7 @@ class InspiralJob(InspiralAnalysisJob):
     extension = 'xml'
     InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
+    self.add_condor_cmd('RequestMemory','1000')
 
 
 class InspiralCkptJob(InspiralAnalysisJob):
