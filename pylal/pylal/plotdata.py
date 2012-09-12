@@ -115,6 +115,8 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
     #
 
     color = kwargs.pop("color", None)
+    if isinstance(color, str):
+        color = [color]*len(serieslist)
     kwargs2 = dict()
     kwargs2.update(kwargs)
     if kwargs.has_key("marker"):
@@ -135,11 +137,12 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
     plot = plotutils.SimplePlot(xlabel, ylabel, title, subtitle)
     for i,(series,c) in enumerate(itertools.izip(namedseries,\
                                                  plotutils.default_colors())):
+        if color:
+            c = color[serieslist.index(series)]
         x = numpy.arange(series.data.length) * series.deltaT +\
             float(series.epoch) - float(t0)
         x = x.astype(float)
         x /= unit
-        if color: c = color
         d = series.data.data
         if logy and ylim:
             numpy.putmask(d, d==0, ylim[0]-abs(ylim[0])*0.01)
@@ -149,6 +152,8 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
         for i,name in enumerate(allnames):
             for ext in ["min", "max"]:
                 if re.match("%s[- _]%s" % (re.escape(series.name), ext), name):
+                    if color:
+                        c = color[i]
                     series2 = serieslist[i]
                     x2 = numpy.arange(series2.data.length) * series2.deltaT\
                          + float(series2.epoch) - float(t0)
@@ -242,6 +247,8 @@ def plotfrequencyseries(series, outfile, **kwargs):
     #
 
     color = kwargs.pop("color", None)
+    if isinstance(color, str):
+        color = [color]*len(serieslist)
     kwargs2 = dict()
     kwargs2.update(kwargs)
     if kwargs.has_key("marker"):
@@ -262,15 +269,18 @@ def plotfrequencyseries(series, outfile, **kwargs):
     plot = plotutils.SimplePlot(xlabel, ylabel, title, subtitle)
     for i,(series,c) in enumerate(itertools.izip(namedseries,\
                                                  plotutils.default_colors())):
+        if color:
+            c = color[serieslist.index(series)]
         x = numpy.arange(series.data.length) * series.deltaF + series.f0 
         x = x.astype(float)
-        if color: c = color
         plot.add_content(x, series.data.data, color=c,
                          label=plotutils.display_name(series.name), **kwargs)
         # find min/max and plot
         for i,name in enumerate(allnames):
             for ext in ["min", "max"]:
                 if re.match("%s[- _]%s" % (re.escape(series.name), ext), name):
+                    if color:
+                        c = color[i]
                     series2 = serieslist[i]
                     x2 = numpy.arange(series2.data.length) * series2.deltaF\
                          + series2.f0 
