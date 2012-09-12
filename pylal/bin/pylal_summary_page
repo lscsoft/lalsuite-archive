@@ -3398,7 +3398,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                     if s["type"] == "inspiral":
                         data[s["name"]][j] =\
                             rangeutils.inspiralrange(f, spectrum,\
-                                                     rho=s["snr"], m1=s["m1"],\
+                                                     snr=s["snr"], m1=s["m1"],\
                                                      m2=s["m2"])
                     # calculate burst range
                     elif s["type"] == burst:

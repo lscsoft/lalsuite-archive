@@ -33,15 +33,38 @@ __date__    = git_version.date
 # Inspiral range
 # =============================================================================
 
-def inspiralrange(f, S, rho=8, m1=1.4, m2=1.4, fmin=10, fmax=None,\
+def inspiralrange(f, S, snr=8, m1=1.4, m2=1.4, fmin=10, fmax=None,\
                   horizon=False):
     """
-    Calculate the sensitivity distance to an inspiral with the given masses,
-    for the given signal-to-noise ratio.
-
-    See the following reference for information on the integral performed:
+    Calculate the sensitivity distance to an inspiral with the given
+    masses, for the given signal-to-noise ratio. See the following
+    reference for information on the integral performed:
 
     https://dcc.ligo.org/cgi-bin/private/DocDB/ShowDocument?docid=27267
+
+    @param f: frequency array
+    @type  f: C{numpy.array}
+    @param S: power spectral density array
+    @type  S: C{numpy.array}
+    @param snr: signal-to-noise ratio at which to calculate range
+    @type  snr: C{float}
+    @param m1: mass (in solar masses) of first binary component,
+        default: 1.4
+    @type  m1: C{float}
+    @param m2: mass (in solar masses) of second binary component,
+        default: 1.4
+    @type  m2: C{float}
+    @param fmin: minimum frequency limit of integral, default: 10 Hz
+    @type  fmin: C{float}
+    @param fmax: maximum frequency limit of integral, default: ISCO
+    @type  fmax: C{float}
+    @param horizon: return horizon distance in stead of angle-averaged,
+        default: False
+    @type  horizon: C{bool}
+
+    @return: sensitive distance to an inspiral (in solar masses) for the
+        given PSD and parameters
+    @rtype: C{float}
     """
     # compute chirp mass and symmetric mass ratio
     mtot   = m1+m2
@@ -51,7 +74,7 @@ def inspiralrange(f, S, rho=8, m1=1.4, m2=1.4, fmin=10, fmax=None,\
     mchirp *= lal.LAL_MSUN_SI
     pre = (5 * lal.LAL_C_SI**(1/3) *\
            (mchirp * lal.LAL_G_SI / lal.LAL_C_SI**2)**(5/3) * 1.77**2) /\
-          (96 * lal.LAL_PI ** (4/3) * rho**2)
+          (96 * lal.LAL_PI ** (4/3) * snr**2)
 
 
     # compute ISCO
@@ -76,19 +99,51 @@ def inspiralrange(f, S, rho=8, m1=1.4, m2=1.4, fmin=10, fmax=None,\
 # Burst range
 # =============================================================================
 
-def fdependent_burstrange(f, S, rh0=8, E=1e-2):
+def fdependent_burstrange(f, S, snr=8, E=1e-2):
     """
     Calculate the sensitive distance to a GW burst with the given intrinsic
-    energy for the given signal-to-noise ratio rho, as a function of f.
+    energy for the given signal-to-noise ratio snr, as a function of f.
+
+    @param f: frequency of interest
+    @type  f: C{float} or C{numpy.array}
+    @param S: power spectral density
+    @type  S: C{numpy.array}
+    @param snr: signal-to-noise ratio of burst
+    @type  snr: C{float}
+    @param E: instrinsic energy of burst, default: grb-like 0.01
+    @type  E: C{float}
+
+    @return: sensitive distance at which a GW burst with the given
+        energy would be detected with the given SNR, as a function of
+        it's frequency
+    @rtype: C{float}
     """
     A = ((lal.LAL_G_SI * E * lal.LAL_MSUN_SI * 0.4)\
          / (lal.LAL_PI**2 * lal.LAL_C_SI))**(1/2) / lal.LAL_PC_SI * 1e6
-    return A / (rho * S**(1/2) * frequency)
+    return A / (snr * S**(1/2) * f)
 
-def burstrange(f, S, rho=8, E=1e-2, fmin=0, fmax=None):
+def burstrange(f, S, snr=8, E=1e-2, fmin=0, fmax=None):
     """
     Calculate the sensitive distance to a GW burst with the given intrinsic
-    energy for the given signal-to-noise ratio rho, integrated over frequency.
+    energy for the given signal-to-noise ratio snr, integrated over frequency.
+
+    @param f: frequency of interest
+    @type  f: C{float} or C{numpy.array}
+    @param S: power spectral density
+    @type  S: C{numpy.array}
+    @param snr: signal-to-noise ratio of burst, default: 8
+    @type  snr: C{float}
+    @param E: instrinsic energy of burst, default: grb-like 0.01
+    @type  E: C{float}
+    @param fmin: minimum frequency limit of integral, default: 10 Hz
+    @type  fmin: C{float}
+    @param fmax: maximum frequency limit of integral, default: ISCO
+    @type  fmax: C{float}
+
+    @return: sensitive distance at which a GW burst with the given
+        energy would be detected with the given SNR, integrated over
+        frequency.
+    @rtype: C{float}
     """
     if not fmin: 
         fmin = f.min()
@@ -99,7 +154,7 @@ def burstrange(f, S, rho=8, E=1e-2, fmin=0, fmax=None):
     condition = (f >= fmin) & (f < fmax)
 
     # integrate
-    integrand = fdependent_burstrange(f[condition], S[condition], rho, E)**3
+    integrand = fdependent_burstrange(f[condition], S[condition], snr, E)**3
     result = spectrum.deltaF*integrand.sum()
     result = integrate.trapz(integrand, f[condition])
     
