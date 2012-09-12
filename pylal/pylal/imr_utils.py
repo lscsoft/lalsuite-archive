@@ -71,13 +71,13 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
 		found_query = 'SELECT sim_inspiral.*, coinc_ringdown.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_ringdown ON coinc_ringdown.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_ringdown.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
-	
+
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
 		found_query = 'SELECT sim_inspiral.*, multi_burst.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN multi_burst ON multi_burst.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == multi_burst.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
-	
+
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
-	
+
 	def injection_was_made(end_time, end_time_ns, segments = segments):
 		return time_within_segments(end_time, end_time_ns, segments)
 
@@ -140,7 +140,8 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
 		if live_time_program == "gstlal_inspiral":
-			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, "datasegments").coalesce()
+			#segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		elif live_time_program == "thinca":
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
 		else:
@@ -195,7 +196,7 @@ def get_event_fars(connection, table_name, segments = None):
 		yield (inst, far, ts)
 
 
-def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function = lambda sim: sim.distance):
+def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function = lambda sim: (sim.distance,)):
 	"""
 	This program creates the search efficiency in the provided ndbins.  The
 	first dimension of ndbins must be the distance.  You also must provide a
@@ -212,7 +213,7 @@ def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function
 
 	# regularize by setting denoms to 1 to avoid nans
 	input.regularize()
-	
+
 	# pull out the efficiency array, it is the ratio
 	return input.ratio()
 
@@ -232,7 +233,7 @@ def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 
 	# we have one less dimension on the output
 	output = rate.BinnedArray(rate.NDBins(ndbins[1:]))
-	
+
 	output.array = (efficiency_array.T * 4. * numpy.pi * r**2 * dx).sum(-1)
 
 	return output
@@ -242,8 +243,8 @@ def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LogarithmicBins)}):
 	Given a dictionary of bin counts and bin objects keyed by sim
 	attribute, come up with a sensible NDBins scheme
 	"""
-	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]), bintup[0]), for attr, bintup in bin_dict.items()])
-	
+	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]), bintup[0]) for attr, bintup in bin_dict.items()])
+
 
 def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 11, distbins = 200):
 	"""
@@ -379,7 +380,7 @@ class DataBaseSummary(object):
 			raise ValueError('number of slides differs between input files')
 		else:
 			self.numslides = min(self.numslides)
-		
+
 		# FIXME
 		# Things left to do
 		# 1) summarize the far threshold over the entire dataset
