@@ -231,6 +231,9 @@ LALInspiralWave(
            LALSTPNWaveform(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);
 	   break;
+      case SpinTaylorT4:
+           LALInspiralInterfaceSpinTaylorT4(status->statusPtr, signalvec, params, phaseParams, 0);
+           CHECKSTATUSPTR(status);
       case PhenSpinTaylorRD:
            LALPSpinInspiralRD(status->statusPtr, signalvec, params);
            CHECKSTATUSPTR(status);

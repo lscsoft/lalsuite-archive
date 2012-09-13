@@ -1146,6 +1146,23 @@ int main( int argc, char *argv[])
             dphis[8]=this_injection.dphi6l;
             dphis[9]=this_injection.dphi7;
             for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+
+			/* INJECTING NON-GR SPIN TAYLOR T4 */
+            if (template.approximant==SpinTaylorT4Test) {
+				printf("Using approximant SpinTaylorT4Test (from lalsimulation)");
+			if (XLALGetSpinInteractionFromString(&inspiralParams.spinInteraction, thisEvent->waveform) == XLAL_FAILURE) {
+				ABORTXLAL(status);
+			}
+				if (dphis[6]!=0.) {
+					fprintf(stderr,"Coefficient 5l is not available in SpinTaylorT4. Value is set to 0.");
+					dphis[6]=0.;
+				}
+				printf("THIS APPROXIMANT IS NOT READY FOR INJECTION YET");
+				ABORTXLAL(status);
+
+//				LALInspiralInterfaceSpinTaylorT4(&status, injWaveTD, &template, dphis, 0.0);
+			}
+
 			this_injection.next=NULL;
 			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
             /*char InjTestName1[50];
@@ -2677,7 +2694,6 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 	LALInspiralRestrictedAmplitude(&status,&template);
     
     printf("Injection Approx: %i\n",template.approximant);
-    printf("IMRPhenomFBTest = %i\n",IMRPhenomFBTest);
     if (template.approximant==IMRPhenomFBTest) {
         dphis[0]=inj_table->dphi0;
         dphis[1]=inj_table->dphi1;

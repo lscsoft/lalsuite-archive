@@ -459,6 +459,7 @@ typedef enum {
    EOB,
    BCV,
    BCVSpin,
+   SpinTaylorT4,
    SpinTaylorT3,
    SpinTaylorFrameless,
    SpinTaylor,
@@ -524,6 +525,26 @@ typedef enum {
 	LAL_QMInter = LAL_SSselfInter << 1, ///< quadrupole-monopole interaction
 	LAL_AllInter = LAL_SOInter | LAL_SSInter | LAL_SSselfInter | LAL_QMInter	///< all interactions
 } LALSpinInteraction;
+
+/**
+ * THE SAME BUT LALSIMULATION STYLE (FOR SPINTAYLORT4)
+ * Enumeration to specify which interaction will be used in the waveform
+ * generation. Their combination also can be used by the bitwise or.
+ */
+typedef enum {
+    LAL_SIM_INSPIRAL_INTERACTION_NONE = 0, /**< No spin, tidal or other interactions */
+    LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN = 1, /**< Leading order spin-orbit interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN = 1 << 1,  /**< Spin-spin interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN = 1 << 2,     /**<  Spin-spin-self interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN = 1 << 3,     /**< Quadrupole-monopole interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN = 1 << 4,     /**<  Next-to-leading-order spin-orbit interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN = 1 << 5,  /**< Spin-spin interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN = 1 << 6, /**< Leading-order tidal interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN = 1 << 7, /**< Next-to-leading-order tidal interaction */
+    LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN = (1 << 6) - 1, /**< all spin interactions, no tidal interactions */
+    LAL_SIM_INSPIRAL_INTERACTION_ALL = (1 << 8) - 1 /**< all spin and tidal interactions */
+} LALSimInspiralInteraction;
+
 
 /* <lalLaTeX>
 \idx[Type]{InputMasses}
@@ -1323,6 +1344,86 @@ void LALSTPNWaveform(
      REAL4Vector *signalvec,
      InspiralTemplate *params);
 
+/* Prototypes for the SpinTaylorT4 functions */
+
+int LALInspiralInterfaceSpinTaylorT4(
+	LALStatus *status, 
+	REAL4TimeSeries *signalvec, 
+	InspiralTemplate *params, 
+	REAL8 *dxis, 
+	REAL8 cutoff
+	);
+
+int XLALSimInspiralSpinTaylorT4(
+	REAL8TimeSeries **hplus,        /**< +-polarization waveform */
+	REAL8TimeSeries **hcross,       /**< x-polarization waveform */
+	REAL8 phiRef,                   /**< orbital phase at reference pt. */
+	REAL8 v0,                       /**< tail gauge term (default = 1) */
+	REAL8 deltaT,                   /**< sampling interval (s) */
+	REAL8 m1,                       /**< mass of companion 1 (kg) */
+	REAL8 m2,                       /**< mass of companion 2 (kg) */
+	REAL8 fStart,                   /**< start GW frequency (Hz) */
+	REAL8 fRef,                     /**< reference GW frequency (Hz) */
+	REAL8 r,                        /**< distance of source (m) */
+	REAL8 s1x,                      /**< initial value of S1x */
+	REAL8 s1y,                      /**< initial value of S1y */
+	REAL8 s1z,                      /**< initial value of S1z */
+	REAL8 s2x,                      /**< initial value of S2x */
+	REAL8 s2y,                      /**< initial value of S2y */
+	REAL8 s2z,                      /**< initial value of S2z */
+	REAL8 lnhatx,                   /**< initial value of LNhatx */
+	REAL8 lnhaty,                   /**< initial value of LNhaty */
+	REAL8 lnhatz,                   /**< initial value of LNhatz */
+	REAL8 e1x,                      /**< initial value of E1x */
+	REAL8 e1y,                      /**< initial value of E1y */
+	REAL8 e1z,                      /**< initial value of E1z */
+	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+	int phaseO,                     /**< twice PN phase order */
+	int amplitudeO,                 /**< twice PN amplitude order */
+    REAL8 *dxis                     /**< testing GR parameters */
+	);
+
+int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
+	REAL8TimeSeries **V,          /**< post-Newtonian parameter [returned]*/
+	REAL8TimeSeries **Phi,        /**< orbital phase            [returned]*/
+	REAL8TimeSeries **S1x,	      /**< Spin1 vector x component [returned]*/
+	REAL8TimeSeries **S1y,	      /**< "    "    "  y component [returned]*/
+	REAL8TimeSeries **S1z,	      /**< "    "    "  z component [returned]*/
+	REAL8TimeSeries **S2x,	      /**< Spin2 vector x component [returned]*/
+	REAL8TimeSeries **S2y,	      /**< "    "    "  y component [returned]*/
+	REAL8TimeSeries **S2z,	      /**< "    "    "  z component [returned]*/
+	REAL8TimeSeries **LNhatx,     /**< unit orbital ang. mom. x [returned]*/
+	REAL8TimeSeries **LNhaty,     /**< "    "    "  y component [returned]*/
+	REAL8TimeSeries **LNhatz,     /**< "    "    "  z component [returned]*/
+	REAL8TimeSeries **E1x,	      /**< orb. plane basis vector x[returned]*/
+	REAL8TimeSeries **E1y,	      /**< "    "    "  y component [returned]*/
+	REAL8TimeSeries **E1z,	      /**< "    "    "  z component [returned]*/
+	REAL8 deltaT,          	      /**< sampling interval (s) */
+	REAL8 m1,              	      /**< mass of companion 1 (kg) */
+	REAL8 m2,              	      /**< mass of companion 2 (kg) */
+	REAL8 fStart,                 /**< starting GW frequency */
+	REAL8 fEnd,                   /**< ending GW frequency, fEnd=0 means integrate as far forward as possible */
+	REAL8 s1x,                    /**< initial value of S1x */
+	REAL8 s1y,                    /**< initial value of S1y */
+	REAL8 s1z,                    /**< initial value of S1z */
+	REAL8 s2x,                    /**< initial value of S2x */
+	REAL8 s2y,                    /**< initial value of S2y */
+	REAL8 s2z,                    /**< initial value of S2z */
+	REAL8 lnhatx,                 /**< initial value of LNhatx */
+	REAL8 lnhaty,                 /**< initial value of LNhaty */
+	REAL8 lnhatz,                 /**< initial value of LNhatz */
+	REAL8 e1x,                    /**< initial value of E1x */
+	REAL8 e1y,                    /**< initial value of E1y */
+	REAL8 e1z,                    /**< initial value of E1z */
+	REAL8 lambda1,                /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+	REAL8 lambda2,                /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+	INT4 phaseO,                  /**< twice post-Newtonian order */
+    REAL8 *dxis                   /**< testing GR parameters */
+	);
+
 /* Phenomenological Spin Taylor with RingDown*/
 
 /*  <lalLaTeX>
@@ -1743,6 +1844,15 @@ void LALRungeKutta4(
 
 void XLALRungeKutta4Free(
      rk4GSLIntegrator *integrator);
+
+int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	
+                                    void *params,	
+                                    REAL8 *yinit,	
+                                    REAL8 tinit,	
+                                    REAL8 tend_in,	
+                                    REAL8 deltat,	
+                                    REAL8Array **yout	
+                                    );
 
 /* --- PARSING PROTOTYPE FOR INSPIRALTEMPLATE STRCUTURE --- */
 

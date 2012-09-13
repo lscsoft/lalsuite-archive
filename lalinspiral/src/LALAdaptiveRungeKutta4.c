@@ -190,13 +190,16 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 	XLAL_BEGINGSL;
 	
   while(1) {
+
+     if (!integrator->stopontestonly && t >= tend) {
+                        break;
+     }
+
 		if (integrator->stop) {
       if ((status = integrator->stop(t,y,dydt_in,params)) != GSL_SUCCESS) {
 				integrator->returncode = status;
 				break;
 			}
-    } else if (!integrator->stopontestonly && t >= tend) {
-			break;
 		}
 		
 		/* ready to try stepping! */
@@ -256,7 +259,7 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
         status = XLAL_ENOMEM;	/* ouch, that hurt */
         goto bail_out;
       } else {
-				for(unsigned int i=0;i<=dim;i++) memcpy(&rebuffers->data[i*2*bufferlength],&buffers->data[i*bufferlength],(cnt-1)*sizeof(REAL8));
+				for(unsigned int i=0;i<=dim;i++) memcpy(&rebuffers->data[i*2*bufferlength],&buffers->data[i*bufferlength],cnt*sizeof(REAL8));
 				XLALDestroyREAL8Array(buffers); buffers = rebuffers;
 				bufferlength *= 2;
 			}
@@ -275,7 +278,7 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   /* if we have completed at least one step, allocate the GSL interpolation object and the output array */
   if (cnt == 0) goto bail_out;
 
-  XLAL_CALLGSL( interp = gsl_spline_alloc(gsl_interp_cspline,cnt) );
+  XLAL_CALLGSL( interp = gsl_spline_alloc(gsl_interp_cspline,cnt+1) );
   XLAL_CALLGSL( accel  = gsl_interp_accel_alloc() );
   
   outputlen = (int)(t / deltat) + 1;
@@ -295,11 +298,12 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   /* interpolate! */
 	XLAL_BEGINGSL;
   for(unsigned int i=1;i<=dim;i++) {
-    gsl_spline_init(interp,&buffers->data[0],&buffers->data[bufferlength*i],cnt);
+    gsl_spline_init(interp,&buffers->data[0],&buffers->data[bufferlength*i],cnt+1);
 
     vector = output->data + outputlen*i;
     for(int j=0;j<outputlen;j++) {
       vector[j] = gsl_spline_eval(interp,times[j],accel);
+  // new implementation:      gsl_spline_eval_e(interp,times[j],accel, &(vector[j]));
     }
   }
 	XLAL_ENDGSL;
@@ -319,3 +323,177 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   return outputlen; /* TO DO: check XLAL error reporting conventions */
 }
 
+int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	/**< struct holding dydt, stopping test, stepper, etc. */
+                                    void *params,			/**< params struct used to compute dydt and stopping test */
+                                    REAL8 *yinit,			/**< pass in initial values of all variables - overwritten to final values */
+                                    REAL8 tinit,			/**< integration start time */
+                                    REAL8 tend_in,			/**< maximum integration time */
+                                    REAL8 deltat,			/**< step size for evenly sampled output */
+                                    REAL8Array **yout			/**< array holding the evenly sampled output */
+                                    )
+{
+  static const char *func = "XLALAdaptiveRungeKutta4"; /* TO DO: is this correct XLAL etiquette? */
+
+  int status;
+  size_t dim, retries, i;
+  int outputlen = 0, count = 0;
+
+  REAL8Array *output = NULL;
+
+  REAL8 t, tintp, h;
+
+  REAL8 *ytemp = NULL;
+
+  REAL8 tend = tend_in;
+
+  /* If want to stop only on test, then tend = +/-infinity; otherwise
+     tend_in */
+  if (integrator->stopontestonly) {
+    if (tend < tinit) tend = -1.0/0.0;
+    else tend = 1.0/0.0;
+  }
+
+  dim = integrator->sys->dimension;
+
+  outputlen = ((int)(tend_in - tinit)/deltat);
+  //if (outputlen < 0) outputlen = -outputlen;
+  if (outputlen < 0) {
+    XLALPrintError("XLAL Error - %s: (tend_in - tinit) and deltat must have the same sign\ntend_in: %f, tinit: %f, deltat: %f\n", __func__, tend_in, tinit, deltat);
+    status = XLAL_EINVAL;
+    goto bail_out;
+  }
+  outputlen += 2;
+  
+  output = XLALCreateREAL8ArrayL(2, (dim+1), outputlen);
+
+  if (!output) {
+    status = XLAL_ENOMEM;
+    goto bail_out;
+  }
+
+  ytemp = XLALCalloc(dim, sizeof(REAL8));
+
+  if (!ytemp) {
+    status = XLAL_ENOMEM;
+    goto bail_out;
+  }
+
+  /* Setup. */
+  integrator->sys->params = params;
+  integrator->returncode = 0;
+  retries = integrator->retries;
+  t = tinit;
+  tintp = tinit;
+  h = deltat;
+
+  /* Copy over first step. */
+  output->data[0] = tinit;
+  for (i = 1; i <= dim; i++) output->data[i*outputlen] = yinit[i-1];
+  count = 1;
+
+  XLAL_BEGINGSL;
+
+  /* We are starting a fresh integration; clear GSL step and evolve
+     objects. */
+  gsl_odeiv_step_reset(integrator->step);
+  gsl_odeiv_evolve_reset(integrator->evolve);
+
+  /* Enter evolution loop.  NOTE: we *always* take at least one
+     step. */
+  while (1) {
+    REAL8 told = t;
+
+    status = gsl_odeiv_evolve_apply(integrator->evolve, integrator->control, integrator->step, integrator->sys, &t, tend, &h, yinit);
+
+    /* Check for failure, retry if haven't retried too many times
+       already. */
+    if (status != GSL_SUCCESS) {
+      if (retries--) {
+        /* Retries to spare; reduce h, try again.*/
+        h /= 10.0;
+        continue;
+      } else {
+        /* Out of retries, bail with status code. */
+        integrator->returncode = status;
+        break;
+      }
+    } else {
+      /* Successful step, reset retry counter. */
+      retries = integrator->retries;
+    }
+
+    /* Now interpolate until we would go past the current integrator time, t.
+     * Note we square to get an absolute value, because we may be 
+     * integrating t in the positive or negative direction */
+    while ( (tintp + deltat)*(tintp + deltat) < t*t) {
+      tintp += deltat;
+
+      /* tintp = told + (t-told)*theta, 0 <= theta <= 1.  We have to
+         compute h = (t-told) because the integrator returns a
+         suggested next h, not the actual stepsize taken. */
+      REAL8 hUsed = t - told;
+      REAL8 theta = (tintp - told)/hUsed;
+
+      /* These are the interpolating coefficients for y(t + h*theta) =
+         ynew + i1*h*k1 + i5*h*k5 + i6*h*k6 + O(h^4). */
+      REAL8 i0 = 1.0 + theta*theta*(3.0-4.0*theta);
+      REAL8 i1 = -theta*(theta-1.0);
+      REAL8 i6 = -4.0*theta*theta*(theta-1.0);
+      REAL8 iend = theta*theta*(4.0*theta - 3.0);
+
+      /* Grab the k's from the integrator state. */
+      rkf45_state_t *rkfState = integrator->step->state;
+      REAL8 *k1 = rkfState->k1;
+      REAL8 *k6 = rkfState->k6;
+      REAL8 *y0 = rkfState->y0;
+
+      for (i = 0; i < dim; i++) {
+        ytemp[i] = i0*y0[i] + iend*yinit[i] + hUsed*i1*k1[i] + hUsed*i6*k6[i];
+      }
+
+      /* Store the interpolated value in the output array. */
+      count++;
+      if ((status = storeStateInOutput(&output, tintp, ytemp, dim, &outputlen, count)) == XLAL_ENOMEM) goto bail_out;
+    }
+
+    /* Now that we have recorded the last interpolated step that we
+       could, check for termination criteria. */
+    if (!integrator->stopontestonly && t >= tend) break;
+
+    /* If there is a stopping function in integrator, call it with the
+       last value of y and dydt from the integrator. */
+    if (integrator->stop) {
+      if ((status = integrator->stop(t, yinit, integrator->evolve->dydt_out, params)) != GSL_SUCCESS) {
+        integrator->returncode = status;
+        break;
+      }
+    }
+  }
+
+  XLAL_ENDGSL;
+
+  /* Now that the interpolation is done, shrink the output array down
+     to exactly count samples. */
+  shrinkOutput(&output, &outputlen, count, dim);
+
+  /* Store the final *interpolated* sample in yinit. */
+  for (i = 0; i < dim; i++) {
+    yinit[i] = output->data[(i+2)*outputlen - 1];
+  }
+
+
+ bail_out:
+  /* If we have an error, then we should free allocated memory, and
+     then return.  Currently, the only errors we encounter in this
+     function are XLAL_ENOMEM, so we just test for that. */
+  XLALFree(ytemp);
+
+  if (status == XLAL_ENOMEM || status == XLAL_EINVAL) {
+    if (output) XLALDestroyREAL8Array(output);
+    *yout = NULL;
+    XLAL_ERROR(func, status);
+  }
+
+  *yout = output;
+  return outputlen;
+}

@@ -238,7 +238,7 @@ LALGenerateInspiral(
   {
     inspiralParams.approximant = approximant;
     inspiralParams.order       = order;
-	if (approximant == SpinQuadTaylor) {
+	if (approximant == SpinQuadTaylor || approximant == SpinTaylorT4) {
 		xlalErrno = 0;
 		if (XLALGetSpinInteractionFromString(&inspiralParams.spinInteraction, thisEvent->waveform) == XLAL_FAILURE) {
 			ABORTXLAL(status);
@@ -490,7 +490,11 @@ LALGetApproximantFromString(
   {
 	  *approximant = SpinTaylorFrameless;
   }
-  else if ( strstr(thisEvent, "SpinTaylorT3" ) )
+  else if ( strstr(thisEvent, "SpinTaylorT4" ) )
+  {
+    *approximant = SpinTaylorT4;
+  }
+  else if ( strstr(thisEvent, "SpinTaylorT3" ) )  //  CAUTION!!! Shouldn't TaylorT3 be below this one?
   {
     *approximant = SpinTaylorT3;
   }
