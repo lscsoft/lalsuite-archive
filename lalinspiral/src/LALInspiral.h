@@ -1348,7 +1348,7 @@ void LALSTPNWaveform(
 
 int LALInspiralInterfaceSpinTaylorT4(
 	LALStatus *status, 
-	REAL4TimeSeries *signalvec, 
+	CoherentGW *signalvec, 
 	InspiralTemplate *params, 
 	REAL8 *dxis, 
 	REAL8 cutoff
@@ -1833,8 +1833,8 @@ REAL4 LALInspiralHCrossPolarization(
 </lalLaTeX>  */
 
 rk4GSLIntegrator * XLALRungeKutta4Init(
-		   INT4 n,
-                   rk4In *input);
+    INT4 n, 
+    rk4In *input);
 
 void LALRungeKutta4(
      LALStatus *,
@@ -1844,15 +1844,6 @@ void LALRungeKutta4(
 
 void XLALRungeKutta4Free(
      rk4GSLIntegrator *integrator);
-
-int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	
-                                    void *params,	
-                                    REAL8 *yinit,	
-                                    REAL8 tinit,	
-                                    REAL8 tend_in,	
-                                    REAL8 deltat,	
-                                    REAL8Array **yout	
-                                    );
 
 /* --- PARSING PROTOTYPE FOR INSPIRALTEMPLATE STRCUTURE --- */
 

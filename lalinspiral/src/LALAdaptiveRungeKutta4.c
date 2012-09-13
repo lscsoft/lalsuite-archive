@@ -61,6 +61,20 @@ None so far...
 
 NRCSID (LALADAPTIVERUNGEKUTTA4C, "$Id$");
 
+/* Copied from GSL rkf45.c */
+typedef struct
+{
+  double *k1;
+  double *k2;
+  double *k3;
+  double *k4;
+  double *k5;
+  double *k6;
+  double *y0;
+  double *ytmp;
+}
+rkf45_state_t;
+
 /* <lalVerbatim file="XLALAdaptiveRungeKutta4CP"> */
 ark4GSLIntegrator *
 XLALAdaptiveRungeKutta4Init( int dim,
@@ -323,6 +337,64 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
   return outputlen; /* TO DO: check XLAL error reporting conventions */
 }
 
+/* Local function to store interpolated step in output array */
+static int storeStateInOutput(REAL8Array **output, REAL8 t, REAL8 *y, size_t dim, int *outputlen, int count) {
+  REAL8Array *out = *output;
+  int len = *outputlen;
+  size_t i;
+
+  if (count > len) {
+    /* Resize array! Have to make a new array, and copy over. */
+    REAL8Array *new = XLALCreateREAL8ArrayL(2, dim+1, 2*len);
+
+    if (!new) {
+      return XLAL_ENOMEM;
+    }
+
+    for (i = 0; i < dim+1; i++) {
+      memcpy(&(new->data[2*i*len]), &(out->data[i*len]), len*sizeof(REAL8));
+    }
+
+    XLALDestroyREAL8Array(out);
+    out = new;
+    len *= 2;
+  }
+
+  /* Store the current step. */
+  out->data[count-1] = t;
+  for (i = 1; i < dim+1; i++) {
+    out->data[i*len + count - 1] = y[i-1];
+  }
+
+  *output = out;
+  *outputlen = len;
+  return GSL_SUCCESS;
+}
+
+/* Local function to shrink output array to proper size before it's returned */
+static int shrinkOutput(REAL8Array **output, int *outputlen, int count, size_t dim) {
+  REAL8Array *out = *output;
+  int len = *outputlen;
+
+  REAL8Array *new = XLALCreateREAL8ArrayL(2, dim+1, count);
+
+  if (!new) {
+    return XLAL_ENOMEM;
+  }
+
+  size_t i;
+  for (i = 0; i < dim+1; i++) {
+    memcpy(&(new->data[i*count]), &(out->data[i*len]), count*sizeof(REAL8));
+  }
+
+  *output = new;
+  *outputlen = count;
+
+  XLALDestroyREAL8Array(out);
+
+  return GSL_SUCCESS;
+}
+
 int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	/**< struct holding dydt, stopping test, stepper, etc. */
                                     void *params,			/**< params struct used to compute dydt and stopping test */
                                     REAL8 *yinit,			/**< pass in initial values of all variables - overwritten to final values */
@@ -497,3 +569,4 @@ int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	/**< struct h
   *yout = output;
   return outputlen;
 }
+

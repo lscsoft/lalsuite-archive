@@ -106,14 +106,15 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(double t,
  * This function serves as an interface for porting the SpinTaylorT4
  * waveform generator into the lalinspiral package. This waveform is originally
  * coded for use within lalsimulation.
- * The output signal is of the form REAL4TimeSeries instead of the 
+ * The output signal is of the form CoherentGW instead of the 
  * REAL8TimeSeries that is originally output by the waveform generator.
- * This is in line with other time-domain waveforms previously used
- * in lalnest.
+ * This is in line with other time-domain injected waveforms previously 
+ * used in lalnest.
  */
 int LALInspiralInterfaceSpinTaylorT4(
 	LALStatus *status, 
-	REAL4TimeSeries *signalvec, 
+	// REAL4TimeSeries *signalvec, 
+	CoherentGW *signalvec, 
 	InspiralTemplate *params, 
 	REAL8 *dxis, 
 	REAL8 cutoff

@@ -65,6 +65,16 @@ XLALAdaptiveRungeKutta4( ark4GSLIntegrator *integrator,
 						 						 REAL8Array **yout
 											 );
 
+int XLALAdaptiveRungeKutta4Hermite( ark4GSLIntegrator *integrator,	
+                                    void *params,	
+                                    REAL8 *yinit,	
+                                    REAL8 tinit,	
+                                    REAL8 tend_in,	
+                                    REAL8 deltat,	
+                                    REAL8Array **yout	
+                                    );
+
+
 #ifdef  __cplusplus
 #pragma {
 }
