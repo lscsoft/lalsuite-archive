@@ -421,13 +421,13 @@ void coh_PTF_calculate_bmatrix(
         {
           if ( params->faceOnStatistic )
           {
-            zh[i*vecLength+j] += (a[k]*a[k] + b[k] * b[k])* PTFM[k]->data[i*PTFMlen+j];
+            zh[i*vecLength+j] += (Fplus[k]*Fplus[k] + Fcross[k] * Fcross[k])* PTFM[k]->data[i*PTFMlen+j];
           }
           else
           {
-            zh[i*vecLength+j] += a[k]*a[k] * PTFM[k]->data[i*PTFMlen+j];
-            sh[i*vecLength+j] += b[k]*b[k] * PTFM[k]->data[i*PTFMlen+j];
-            yu[i*vecLength+j] += a[k]*b[k] * PTFM[k]->data[i*PTFMlen+j];
+            zh[i*vecLength+j] += Fplus[k]*Fplus[k] * PTFM[k]->data[i*PTFMlen+j];
+            sh[i*vecLength+j] += Fcross[k]*Fcross[k] * PTFM[k]->data[i*PTFMlen+j];
+            yu[i*vecLength+j] += Fcross[k]*Fcross[k] * PTFM[k]->data[i*PTFMlen+j];
           }
         }
       }
@@ -503,17 +503,17 @@ void coh_PTF_calculate_rotated_vectors(
           if ( params->faceOnStatistic)
           {
             /* Currently non-spin only! */
-            v1[j] += a[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-            v1[j] += b[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
+            v1[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
+            v1[j] += Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
             if (params->faceOnStatistic == 1)
             {
-              v2[j] += b[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-              v2[j] -= a[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
+              v2[j] += Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
+              v2[j] -= Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
             }
             else if (params->faceOnStatistic == 2)
             {
-              v2[j] -= b[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
-              v2[j] += a[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
+              v2[j] -= Fcross[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].re;
+              v2[j] += Fplus[k] * PTFqVec[k]->data[j*numPoints+position+timeOffsetPoints[k]].im;
             }
             else
             {

@@ -645,7 +645,7 @@ void coh_PTF_calculate_standard_chisq_freq_ranges(
       {
         if ( params->haveTrig[k] )
         {
-          a2[k] = pow(a[k]*a[k] + b[k] * b[k],0.5);
+          a2[k] = pow(Fplus[k]*Fplus[k] + Fcross[k] * Fcross[k],0.5);
           b2[k] = a2[k];
         }
       }
@@ -813,7 +813,7 @@ void coh_PTF_calculate_standard_chisq_power_bins(
       {
         if ( params->haveTrig[k] )
         {
-          a2[k] = pow(a[k]*a[k] + b[k] * b[k],0.5);
+          a2[k] = pow(Fplus[k]*Fplus[k] + Fcross[k] * Fcross[k],0.5);
           b2[k] = a2[k];
         }
       }
