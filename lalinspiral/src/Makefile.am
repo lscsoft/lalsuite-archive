@@ -201,6 +201,7 @@ liblalinspiral_la_SOURCES = \
 	LALSQTPNIntegrator.c \
 	LALSQTPNWaveform.c \
 	LALSQTPNWaveformInterface.c \
+	LALInspiralSpinTaylorT4.c \
 	LALSimInspiral.c \
 	LALSimInspiralPNMode.c \
 	LALTrigScanCluster.c \

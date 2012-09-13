@@ -61,6 +61,17 @@ NRCSID (LALINSPIRALSPINTAYLORT4C, "$Id$");
 /** Default values for enumerated flag */
 #define LAL_SIM_INSPIRAL_INTERACTION_DEFAULT LAL_SIM_INSPIRAL_INTERACTION_ALL
 
+/**
+ * (Twice) the highest known PN order of amplitude correction for
+ * non-precessing binaries.
+ */
+#define MAX_NONPRECESSING_AMP_PN_ORDER 5
+
+/**
+ * (Twice) the highest known PN order of amplitude correction for
+ * precessing binaries.
+ */
+#define MAX_PRECESSING_AMP_PN_ORDER 3
 
 /**
  * Struct containing all of the non-dynamical coefficients needed
@@ -110,8 +121,9 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(double t,
  * REAL8TimeSeries that is originally output by the waveform generator.
  * This is in line with other time-domain injected waveforms previously 
  * used in lalnest.
- */
-int LALInspiralInterfaceSpinTaylorT4(
+ **/
+ 
+void LALInspiralInterfaceSpinTaylorT4(
 	LALStatus *status, 
 	// REAL4TimeSeries *signalvec, 
 	CoherentGW *signalvec, 
@@ -120,21 +132,25 @@ int LALInspiralInterfaceSpinTaylorT4(
 	REAL8 cutoff
 	)
 {
-	INITSTATUS (status, "LALInspiralInterfaceSpinTaylorT4", LALINSPIRALSTATIONARYPHASEAPPROX2TESTC);
+	INITSTATUS (status, "LALInspiralInterfaceSpinTaylorT4", LALINSPIRALSPINTAYLORT4C);
 	ATTATCHSTATUSPTR(status);
 	ASSERT (signalvec,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-	ASSERT (signalvec->data,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+	ASSERT (signalvec->h->data,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	ASSERT (params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-	ASSERT (signalvec->length>2,  status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
+	ASSERT (signalvec->h->data->length>2,  status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
 	
+	REAL8TimeSeries **hplusptr = NULL;
+	REAL8TimeSeries **hcrossptr = NULL;
 	REAL8 deltaT, m1, m2, r;
-	REAL8 fStart, fRef, phiRef, phaseOrder, amplitudeOrder, v0;
+	REAL8 fStart, fRef, fEnd, phiRef, v0;
+	LALPNOrder phaseOrder, amplitudeOrder;
 	REAL8 s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z;
-	REAL8 lambda1 = lambda2 = 0.0; 
-	REAL8 dxis[10] = {0.0};
+	REAL8 lambda1, lambda2; 
+	//REAL8 phaseparams[10] = {0.0};
 	LALSpinInteraction spinInteraction;
 	LALSimInspiralInteraction simInteraction = LAL_SIM_INSPIRAL_INTERACTION_DEFAULT;
 	
+	lambda1 = lambda2 = 0.0;
 	lnhatx = 0.0;
 	lnhaty = 0.0;
 	lnhatz = 0.0;
@@ -147,16 +163,17 @@ int LALInspiralInterfaceSpinTaylorT4(
 	m2 = params->mass2 * LAL_MSUN_SI;    /** has to be in kg **/
 	fStart = params->fLower;
 	fRef = 0.0;
+	fEnd = cutoff;
 	phiRef = params->startPhase;
 	deltaT = params->tSampling;
 	r = params->distance;  /** has to be in m **/
 	v0 = 1.0;
-	s1x = params.spin1[0];
-	s1y = params.spin1[1];
-	s1z = params.spin1[2];
-	s2x = params.spin2[0];
-	s2y = params.spin2[1];
-	s2z = params.spin2[2];
+	s1x = params->spin1[0];
+	s1y = params->spin1[1];
+	s1z = params->spin1[2];
+	s2x = params->spin2[0];
+	s2y = params->spin2[1];
+	s2z = params->spin2[2];
 	spinInteraction = params->spinInteraction;
 	
 	/* Translate LALSpinInteraction to LALSimInspiralInteraction */
@@ -165,7 +182,7 @@ int LALInspiralInterfaceSpinTaylorT4(
 	int SSinter = 1 << 1 ;  /** Spin-Spin interaction 2PN **/
 	int SSselfinter = 1 << 2 ;  /** Spin-Spin self-interaction 2PN **/
 	int Allinter = (1 << 6) - 1 ;  /** this includes all spin interactions (no tidal) **/
-	int QMInter = 1 << 3 ; /** quadrupole-monopole interaction **/
+	int QMinter = 1 << 3 ; /** quadrupole-monopole interaction **/
 	
 	if( (spinInteraction & LAL_SOInter) == LAL_SOInter ) simInteraction |= SOinter ;	
 	if( (spinInteraction & LAL_SSInter) == LAL_SSInter ) simInteraction |= SSinter ;	
@@ -174,17 +191,23 @@ int LALInspiralInterfaceSpinTaylorT4(
 	if( spinInteraction == LAL_NOInter ) simInteraction = NOinter ;
 	if( spinInteraction == LAL_AllInter ) simInteraction = Allinter ;	
 	
+	/* DEBUGGING PRINT */
+	printf(	"XLALSimInspiralSpinTaylorT4( %ld , %ld , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %e , %i , %i , %i, %e)\n", (long int) hplusptr, (long int) hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, amplitudeOrder, dxis[0]);
+	XLALPrintError("XLAL Error - %s: I'm not ready to run the generator yet!!!\n", __func__);
+    ABORT( status, LALINSPIRALH_EAPPROXIMANT, LALINSPIRALH_MSGEAPPROXIMANT );
+
 	/* Call the SpinTaylorT4 generator */
-	XLALSimInspiralSpinTaylorT4(hplusptr, hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, apmlitudeOrder, dxis);
+	XLALSimInspiralSpinTaylorT4(hplusptr, hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, amplitudeOrder, dxis);
 	
 
 	// print the REAL8TimeSeries to file
-	FILE tsoutfile;
+	//FILE tsoutfile;
 	
 	// print the REAL4Vector to file
-	FILE vecoutfile;
+	//FILE vecoutfile;
 	
-
+    DETATCHSTATUSPTR( status );
+    RETURN( status );
 }
 
 
@@ -250,6 +273,7 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     REAL8 *dxis                   /**< testing GR parameters */
 	)
 {
+	static const char *func = "XLALSimInspiralPNEvolveOrbitSpinTaylorT4";
     INT4 intreturn;
     XLALSimInspiralSpinTaylorT4Coeffs params;/* Frequently used coefficients */
     ark4GSLIntegrator *integrator = NULL;     /* GSL integrator object */
@@ -267,13 +291,13 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     {
         XLALPrintError("XLAL Error - %s: fStart = %f must be > 0.\n", 
                 __func__, fStart );
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
     if( fEnd < 0. ) /* fEnd = 0 allowed as special case */
     {
         XLALPrintError("XLAL Error - %s: fEnd = %f must be >= 0.\n", 
                 __func__, fEnd );
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
 
     /* Set sign of time step according to direction of integration */
@@ -287,13 +311,13 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     {
         XLALPrintError("XLAL Error - %s: fStart = %f must be > 0.\n", 
                 __func__, fStart );
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
     if( fEnd < 0. ) /* fEnd = 0 allowed as special case */
     {
         XLALPrintError("XLAL Error - %s: fEnd = %f must be >= 0.\n", 
                 __func__, fEnd );
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
 
     /* Zero the coefficients */
@@ -302,8 +326,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     /* Define mass variables and other coefficients */
     m1m2 = m1 / m2;
     m2m1 = m2 / m1;
-    m1 *= LAL_G_SI / (LAL_C_SI*LAL_C_SI*LAL_C_SI); /* convert m1 from kg to seconds */
-    m2 *= LAL_G_SI / (LAL_C_SI*LAL_C_SI*LAL_C_SI); /* convert m2 from kg to seconds */
+    m1 *= LAL_G_SI / LAL_C_SI / LAL_C_SI / LAL_C_SI; /* convert m1 from kg to seconds */
+    m2 *= LAL_G_SI / LAL_C_SI / LAL_C_SI / LAL_C_SI; /* convert m2 from kg to seconds */
     M = m1 + m2;
     m1M = m1 / M;
     m2M = m2 / M;
@@ -380,7 +404,7 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
         default: 
             XLALPrintError("XLAL Error - %s: Invalid phase. PN order %s\n", 
                     __func__, phaseO );
-            XLAL_ERROR(XLAL_EINVAL);
+            XLAL_ERROR(func, XLAL_EINVAL);
             break;
     }
 
@@ -390,7 +414,7 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
   /*if (extraParams != NULL)
   {*/
     params.wdotcoeff[0]*=1.0+dxis[0];
-    params.wdotcoeff[1]=dxi[1];
+    params.wdotcoeff[1]=dxis[1];
     params.wdotcoeff[2]*=1.0+dxis[2];
     params.wdotcoeff[3]*=1.0+dxis[3];
     params.wdotcoeff[4]*=1.0+dxis[4];
@@ -530,7 +554,7 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     {
         XLALPrintError("XLAL Error - %s: Cannot allocate integrator\n", 
                 __func__);
-        XLAL_ERROR(XLAL_EFUNC);
+        XLAL_ERROR(func, XLAL_EFUNC);
     }
 
     /* stop the integration only when the test is true */
@@ -546,7 +570,7 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     if (!len) 
     {
         XLALPrintError("XLAL Error - %s: integration failed with errorcode %d.\n", __func__, intreturn);
-        XLAL_ERROR(XLAL_EFUNC);
+        XLAL_ERROR(func, XLAL_EFUNC);
     }
 
     /* Print warning about abnormal termination */
@@ -623,7 +647,7 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
             || !LNhatx || !LNhaty || !LNhatz || !E1x || !E1y || !E1z )
     {
         XLALDestroyREAL8Array(yout);
-        XLAL_ERROR(XLAL_EFUNC);
+        XLAL_ERROR(func, XLAL_EFUNC);
     }
 
     /* If we integrated backwards, offset & sgn will reverse order of samples */
@@ -676,6 +700,7 @@ static int XLALSimInspiralSpinTaylorT4StoppingTest(
 	void *mparams
 	)
 {
+//	static const char *func = "XLALSimInspiralSpinTaylorT4StoppingTest";
     REAL8 omega, v, test, omegaStart, omegaEnd;
     XLALSimInspiralSpinTaylorT4Coeffs *params 
             = (XLALSimInspiralSpinTaylorT4Coeffs*) mparams;
@@ -775,6 +800,7 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
 	void *mparams
 	) 
 {
+//	static const char *func = "XLALSimInspiralSpinTaylorT4Derivatives";
     /* coordinates and derivatives */
     REAL8 LNhx, LNhy, LNhz, S1x, S1y, S1z, S2x, S2y, S2z, E1x, E1y, E1z;
     REAL8 omega, ds, domega, dLNhx, dLNhy, dLNhz;
@@ -1027,6 +1053,7 @@ int XLALSimInspiralSpinTaylorT4(
     REAL8 *dxis                   /**< testing GR parameters */
 	)
 {
+	static const char *func = "XLALSimInspiralSpinTaylorT4";
     REAL8TimeSeries *V, *Phi, *S1x, *S1y, *S1z, *S2x, *S2y, *S2z;
     REAL8TimeSeries *LNhatx, *LNhaty, *LNhatz, *E1x, *E1y, *E1z;
     int status, n;
@@ -1040,19 +1067,19 @@ int XLALSimInspiralSpinTaylorT4(
     {
         XLALPrintError("XLAL Error - %s: fRef = %f must be >= 0\n", 
                 __func__, fRef);
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
     if( fRef != 0. && fRef < fStart )
     {
         XLALPrintError("XLAL Error - %s: fRef = %f must be > fStart = %f\n", 
                 __func__, fRef, fStart);
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
     if( fRef >= fISCO )
     {
         XLALPrintError("XLAL Error - %s: fRef = %f must be < Schwar. ISCO=%f\n",
                 __func__, fRef, fISCO);
-        XLAL_ERROR(XLAL_EINVAL);
+        XLAL_ERROR(func, XLAL_EINVAL);
     }
 
     /* if fRef=0, just integrate from start to end. Let phiRef=phiC */
@@ -1068,7 +1095,7 @@ int XLALSimInspiralSpinTaylorT4(
                 lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
                 lambda1, lambda2, interactionFlags, phaseO, dxis);
         if( n < 0 )
-            XLAL_ERROR(XLAL_EFUNC);
+            XLAL_ERROR(func, XLAL_EFUNC);
 
         /* Apply phase shift so orbital phase ends with desired value */
         phiShift = phiRef - Phi->data->data[Phi->data->length-1];
@@ -1090,7 +1117,7 @@ int XLALSimInspiralSpinTaylorT4(
                 lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
                 lambda1, lambda2, interactionFlags, phaseO, dxis);
         if( n < 0 )
-            XLAL_ERROR(XLAL_EFUNC);
+            XLAL_ERROR(func, XLAL_EFUNC);
 
         /* Apply phase shift so orbital phase starts with desired value */
         phiShift = phiRef - Phi->data->data[0];
@@ -1179,7 +1206,7 @@ int XLALSimInspiralSpinTaylorT4(
     XLALDestroyREAL8TimeSeries(E1y);
     XLALDestroyREAL8TimeSeries(E1z);
     if( status < 0 )
-        XLAL_ERROR(XLAL_EFUNC);
+        XLAL_ERROR(func, XLAL_EFUNC);
 
     return n;
 }
@@ -1210,6 +1237,7 @@ int XLALSimInspiralSpinTaylorT4PTFQVecs(
         REAL8 *dxis                   /**< testing GR parameters */
         )
 {
+	static const char *func = "XLALSimInspiralSpinTaylorT4PTFQVecs";
     /* To generate the QVecs we need to choose a specific frame 
      * This frame is set so that inclination, and most other extrinsic
      * angles are 0. This does not lead to loss in generality as PTF maximizes
@@ -1234,7 +1262,7 @@ int XLALSimInspiralSpinTaylorT4PTFQVecs(
             s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
             lambda1, lambda2, interactionFlags, phaseO, dxis);
     if( n < 0 )
-        XLAL_ERROR(XLAL_EFUNC);
+        XLAL_ERROR(func, XLAL_EFUNC);
 
     /* Use the dynamical variables to build the polarizations */
     status = XLALSimInspiralPrecessingPTFQWaveforms(Q1, Q2, Q3, Q4, Q5,
@@ -1257,9 +1285,445 @@ int XLALSimInspiralSpinTaylorT4PTFQVecs(
     XLALDestroyREAL8TimeSeries(E1y);
     XLALDestroyREAL8TimeSeries(E1z);
     if( status < 0 )
-        XLAL_ERROR(XLAL_EFUNC);
+        XLAL_ERROR(func, XLAL_EFUNC);
 
     return n;
 }
 
+/**
+ * Computes polarizations h+ and hx for a spinning, precessing binary
+ * when provided time series of all the dynamical quantities.
+ * Amplitude can be chosen between 1.5PN and Newtonian orders (inclusive).
+ *
+ * Based on K.G. Arun, Alesssandra Buonanno, Guillaume Faye and Evan Ochsner
+ * \"Higher-order spin effects in the amplitude and phase of gravitational
+ * waveforms emitted by inspiraling compact binaries: Ready-to-use
+ * gravitational waveforms\", Phys Rev. D 79, 104023 (2009), arXiv:0810.5336
+ *
+ * HOWEVER, the formulae have been adapted to use the output of the so-called
+ * \"Frameless\" convention for evolving precessing binary dynamics,
+ * which is not susceptible to hitting coordinate singularities.
+ *
+ * FIXME: Clean up and commit Mathematica NB Showing correctness. Cite here.
+ *
+ * NOTE: The vectors MUST be given in the so-called radiation frame where
+ * Z is the direction of propagation, X is the principal '+' axis and Y = Z x X
+ */
+int XLALSimInspiralPrecessingPolarizationWaveforms(
+	REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+	REAL8TimeSeries *V,       /**< post-Newtonian parameter */
+	REAL8TimeSeries *Phi,     /**< orbital phase */
+	REAL8TimeSeries *S1x,	  /**< Spin1 vector x component */
+	REAL8TimeSeries *S1y,	  /**< Spin1 vector y component */
+	REAL8TimeSeries *S1z,	  /**< Spin1 vector z component */
+	REAL8TimeSeries *S2x,	  /**< Spin2 vector x component */
+	REAL8TimeSeries *S2y,	  /**< Spin2 vector y component */
+	REAL8TimeSeries *S2z,	  /**< Spin2 vector z component */
+	REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
+	REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
+	REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
+	REAL8TimeSeries *E1x,	  /**< orbital plane basis vector x comp. */
+	REAL8TimeSeries *E1y,	  /**< orbital plane basis vector y comp. */
+	REAL8TimeSeries *E1z,	  /**< orbital plane basis vector z comp. */
+	REAL8 m1,                 /**< mass of companion 1 (kg) */
+	REAL8 m2,                 /**< mass of companion 2 (kg) */
+	REAL8 r,                  /**< distance of source (m) */
+	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
+	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
+	)
+{
+	static const char *func = "XLALSimInspiralPrecessingPolarizationWaveforms";
+    REAL8 s1x, s1y, s1z, s2x, s2y, s2z, lnhx, lnhy, lnhz;
+    REAL8 e1x, e1y, e1z, e2x, e2y, e2z, nx, ny, nz, lx, ly, lz;
+    REAL8 nx2, ny2, nz2, nz3, lx2, ly2, lz2, lz3;
+    REAL8 hplus0, hcross0, hplus05, hcross05, hplus1, hcross1;
+    REAL8 hplus15, hcross15, hplusSpin1, hcrossSpin1;
+    REAL8 hplusSpin15, hcrossSpin15, hplusTail15, hcrossTail15; 
+    REAL8 M, eta, dm, phi, v, v2, dist, ampfac, logfac = 0.;
+    INT4 idx, len;
+
+    /* Macros to check time series vectors */
+    LAL_CHECK_VALID_SERIES(V, 			XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(Phi, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1x, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1y, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1z, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2x, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2y, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2z, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhatx, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhaty, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhatz, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1x, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1y, 		XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1z, 		XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, Phi, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1x, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1y, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1z, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2x, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2y, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2z, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatx, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhaty, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatz, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1x, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1y, 	XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1z, 	XLAL_FAILURE);
+
+    /* Allocate polarization vectors and set to 0 */
+    *hplus = XLALCreateREAL8TimeSeries( "H_PLUS", &V->epoch, 
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+    *hcross = XLALCreateREAL8TimeSeries( "H_CROSS", &V->epoch, 
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+    if ( ! hplus || ! hcross )
+        XLAL_ERROR(func, XLAL_EFUNC);
+    memset((*hplus)->data->data, 0, 
+            (*hplus)->data->length*sizeof(*(*hplus)->data->data));
+    memset((*hcross)->data->data, 0, 
+            (*hcross)->data->length*sizeof(*(*hcross)->data->data));
+
+    M = m1 + m2;
+    eta = m1 * m2 / M / M; // symmetric mass ratio - '\nu' in the paper
+    dm = (m1 - m2) / M;    // frac. mass difference - \delta m/m in the paper
+    dist = r / LAL_C_SI;   // r (m) / c (m/s) --> dist in units of seconds
+    /* convert mass from kg to s, so ampfac ~ M/dist is dimensionless */
+    ampfac = 2. * M * LAL_G_SI * pow(LAL_C_SI, -3) * eta / dist;
+    
+    /* loop over time steps and compute polarizations h+ and hx */
+    len = V->data->length;
+    for(idx = 0; idx < len; idx++)
+    {
+        /* Abbreviated names in lower case for time series at this sample */
+        phi  = Phi->data->data[idx]; 	v = V->data->data[idx];     v2 = v * v;
+        lnhx = LNhatx->data->data[idx]; e1x = E1x->data->data[idx];
+        lnhy = LNhaty->data->data[idx];	e1y = E1y->data->data[idx];
+        lnhz = LNhatz->data->data[idx];	e1z = E1z->data->data[idx];
+        s1x  = S1x->data->data[idx];	s2x = S2x->data->data[idx];
+        s1y  = S1y->data->data[idx];	s2y = S2y->data->data[idx];
+        s1z  = S1z->data->data[idx];	s2z = S2z->data->data[idx];
+
+        /* E2 = LNhat x E1 */
+        e2x = lnhy*e1z - lnhz*e1y;
+        e2y = lnhz*e1x - lnhx*e1z;
+        e2z = lnhx*e1y - lnhy*e1x;
+
+        /* Unit orbital separation vector */
+        nx = e1x*cos(phi) + e2x*sin(phi);
+        ny = e1y*cos(phi) + e2y*sin(phi);
+        nz = e1z*cos(phi) + e2z*sin(phi);
+
+        /* Unit inst. orbital velocity vector */
+        lx = e2x*cos(phi) - e1x*sin(phi);
+        ly = e2y*cos(phi) - e1y*sin(phi);
+        lz = e2z*cos(phi) - e1z*sin(phi);
+
+        /* Powers of vector components */
+        nx2 = nx*nx;	ny2 = ny*ny;	nz2 = nz*nz;	nz3 = nz*nz2;
+        lx2 = lx*lx;	ly2 = ly*ly;	lz2 = lz*lz;	lz3 = lz*lz2;
+
+        /* 
+         * First set all h+/x coefficients to 0. Then use a switch to
+         * set proper non-zero values up to order ampO. Note we
+         * fall through the PN orders and break only after Newt. order
+         */
+        hplus0 = hplus05 = hplus1 = hplus15 = hplusTail15 = 0.;
+        hcross0 = hcross05 = hcross1 = hcross15 = hcrossTail15 = 0.;
+        hplusSpin1 = hplusSpin15 = hcrossSpin1 = hcrossSpin15 = 0.;
+
+        switch( ampO )
+        {
+            /*
+             * case LAL_PNORDER_THREE_POINT_FIVE:
+             * case LAL_PNORDER_THREE:
+             * case LAL_PNORDER_TWO_POINT_FIVE:
+             * case LAL_PNORDER_TWO:
+             */
+            case 7:
+            case 6:
+            case 5:
+            case 4:
+                XLALPrintError("XLAL Error - %s: Amp. corrections not known "
+                        "to PN order %d, highest is %d\n", __func__, ampO,
+                        MAX_PRECESSING_AMP_PN_ORDER );
+                XLAL_ERROR(func, XLAL_EINVAL);
+                break;
+            case -1: /* Use highest known PN order - move if new orders added */
+            /*case LAL_PNORDER_ONE_POINT_FIVE:*/
+            case 3:
+                /* 1.5PN non-spinning amp. corrections */
+                hplus15 = (dm*(2*lx*nx*nz*(-95 + 90*lz2 - 65*nz2 
+                        - 2*eta*(-9 + 90*lz2 - 65*nz2)) - 2*ly*ny*nz
+                        * (-95 + 90*lz2 - 65*nz2 - 2*eta*(-9 + 90*lz2 - 65*nz2))
+                        + 6*lx2*lz*(13 - 4*lz2 + 29*nz2 + eta*(-2 + 8*lz2 
+                        - 58*nz2)) - 6*ly2*lz*(13 - 4*lz2 + 29*nz2 + eta
+                        * (-2 + 8*lz2 - 58*nz2)) - lz*(nx2 - ny2)*(83 - 6*lz2 
+                        + 111*nz2 + 6*eta*(-1 + 2*lz2 - 37*nz2))))/24.;
+                hcross15 = (dm*(lz*(6*(19 - 4*eta)*lx*ly + (-101 + 12*eta)
+                        * nx*ny) + (-149 + 36*eta) * (ly*nx + lx*ny)*nz 
+                        + 6*(-3 + eta) * (2*lx*ly*lz - lz*nx*ny - 3*ly*nx*nz 
+                        - 3*lx*ny*nz) + (1 - 2*eta) * (6*lz3*(-4*lx*ly + nx*ny) 
+                        + 90*lz2*(ly*nx + lx*ny)*nz + 3*lz*(58*lx*ly 
+                        - 37*nx*ny)*nz2 - 65*(ly*nx + lx*ny)*nz3)))/12.;
+                /* 1.5PN spinning amp. corrections */
+                hplusSpin15 = (6*lz*ny*s1x + 6*dm*lz*ny*s1x - 3*eta*lz*ny*s1x 
+                        + 2*ly2*lnhy*s1y + 2*dm*ly2*lnhy*s1y 
+                        + 2*eta*ly2*lnhy*s1y + 6*lz*nx*s1y + 6*dm*lz*nx*s1y 
+                        - 3*eta*lz*nx*s1y + 8*lnhy*nx2*s1y + 8*dm*lnhy*nx2*s1y 
+                        - eta*lnhy*nx2*s1y - 8*lnhy*ny2*s1y - 8*dm*lnhy*ny2*s1y
+                        + eta*lnhy*ny2*s1y + 2*ly2*lnhz*s1z + 2*dm*ly2*lnhz*s1z
+                        + 2*eta*ly2*lnhz*s1z - 6*ly*nx*s1z - 6*dm*ly*nx*s1z 
+                        - 9*eta*ly*nx*s1z + 8*lnhz*nx2*s1z + 8*dm*lnhz*nx2*s1z 
+                        - eta*lnhz*nx2*s1z - 8*lnhz*ny2*s1z - 8*dm*lnhz*ny2*s1z
+                        + eta*lnhz*ny2*s1z + 6*lz*ny*s2x - 6*dm*lz*ny*s2x 
+                        - 3*eta*lz*ny*s2x + lnhx*(2*ly2*((1 + dm + eta)*s1x 
+                        + (1 - dm + eta)*s2x) + (nx2 - ny2)*((8 + 8*dm - eta)
+                        * s1x - (-8 + 8*dm + eta)*s2x)) + 2*ly2*lnhy*s2y 
+                        - 2*dm*ly2*lnhy*s2y + 2*eta*ly2*lnhy*s2y + 6*lz*nx*s2y 
+                        - 6*dm*lz*nx*s2y - 3*eta*lz*nx*s2y + 8*lnhy*nx2*s2y 
+                        - 8*dm*lnhy*nx2*s2y - eta*lnhy*nx2*s2y - 8*lnhy*ny2*s2y 
+                        + 8*dm*lnhy*ny2*s2y + eta*lnhy*ny2*s2y + 2*ly2*lnhz*s2z 
+                        - 2*dm*ly2*lnhz*s2z + 2*eta*ly2*lnhz*s2z - 6*ly*nx*s2z 
+                        + 6*dm*ly*nx*s2z - 9*eta*ly*nx*s2z + 8*lnhz*nx2*s2z 
+                        - 8*dm*lnhz*nx2*s2z - eta*lnhz*nx2*s2z - 8*lnhz*ny2*s2z 
+                        + 8*dm*lnhz*ny2*s2z + eta*lnhz*ny2*s2z - 3*lx*ny 
+                        * ((2 + 2*dm + 3*eta)*s1z + (2 - 2*dm + 3*eta)*s2z)
+                        - 2*lx2*(lnhx*((1 + dm + eta)*s1x + (1 - dm + eta)*s2x) 
+                        + lnhy*((1 + dm + eta)*s1y + (1 - dm + eta)*s2y) 
+                        + lnhz*((1 + dm + eta)*s1z + (1 - dm + eta)*s2z)))/3.;
+                hcrossSpin15 = (-3*lz*(nx*((2 + 2*dm - eta)*s1x 
+                        - (-2 + 2*dm + eta)*s2x) + ny*((-2 - 2*dm + eta)*s1y 
+                        + (-2 + 2*dm + eta)*s2y)) + ny*(-6*ly*s1z - 6*dm*ly*s1z 
+                        - 9*eta*ly*s1z + 16*lnhz*nx*s1z + 16*dm*lnhz*nx*s1z 
+                        - 2*eta*lnhz*nx*s1z + 2*lnhx*nx*((8 + 8*dm - eta)*s1x 
+                        - (-8 + 8*dm + eta)*s2x) + 2*lnhy*nx*((8 + 8*dm - eta)
+                        * s1y - (-8 + 8*dm + eta)*s2y) - 6*ly*s2z + 6*dm*ly*s2z 
+                        - 9*eta*ly*s2z + 16*lnhz*nx*s2z - 16*dm*lnhz*nx*s2z 
+                        - 2*eta*lnhz*nx*s2z) - lx*(4*lnhx*ly*((1 + dm + eta)*s1x
+                        + (1 - dm + eta)*s2x) - 3*nx*((2 + 2*dm + 3*eta)*s1z 
+                        + (2 - 2*dm + 3*eta)*s2z) + 4*ly*(lnhy*((1 + dm + eta)
+                        * s1y + (1 - dm + eta)*s2y) + lnhz*((1 + dm + eta)*s1z 
+                        + (1 - dm + eta)*s2z))))/3.;
+                /* 1.5PN tail amp. corrections */
+                logfac = log(v/v0);
+                hplusTail15 = 2*((lx2 - ly2 - nx2 + ny2)*LAL_PI 
+                        + 12*(lx*nx - ly*ny)*logfac);
+                hcrossTail15 = 4*((lx*ly - nx*ny)*LAL_PI 
+                        + 6*(ly*nx + lx*ny)*logfac);
+
+            /*case LAL_PNORDER_ONE:*/
+            case 2:
+                /* 1PN non-spinning amp. corrections */
+                hplus1 = (-13*lx2 + 13*ly2 + 6*lx2*lz2 - 6*ly2*lz2 
+                        + 13*(nx2 - ny2) - 2*lz2*(nx2 - ny2) - 32*lx*lz*nx*nz 
+                        + 32*ly*lz*ny*nz - 14*lx2*nz2 + 14*ly2*nz2 
+                        + 10*(nx2 - ny2)*nz2)/6. + (eta*(lx2 - 18*lx2*lz2 
+                        + 96*lx*lz*nx*nz - 96*ly*lz*ny*nz + 42*lx2*nz2 
+                        + ly2*(-1 + 18*lz2 - 42*nz2) + (nx2 - ny2) 
+                        * (-1 + 6*lz2 - 30*nz2)))/6.;
+                hcross1 = (eta*(lx*ly - nx*ny - 6*(lz2*(3*lx*ly - nx*ny) 
+                        - 8*lz*(ly*nx + lx*ny)*nz + (-7*lx*ly 
+                        + 5*nx*ny)*nz2)))/3. + (-13*(lx*ly - nx*ny) 
+                        + 2*(lz2*(3*lx*ly - nx*ny) - 8*lz*(ly*nx + lx*ny)*nz 
+                        + (-7*lx*ly + 5*nx*ny)*nz2))/3.;
+                /* 1PN spinning amp. corrections */
+                hplusSpin1 = (-(ny*((1 + dm)*s1x + (-1 + dm)*s2x)) 
+                        - nx*((1 + dm)*s1y + (-1 + dm)*s2y))/2.;
+                hcrossSpin1 = (nx*((1 + dm)*s1x + (-1 + dm)*s2x) 
+                        - ny*((1 + dm)*s1y + (-1 + dm)*s2y))/2.;
+
+            /*case LAL_PNORDER_HALF:*/
+            case 1:
+                /* 0.5PN non-spinning amp. corrections */
+                hplus05 = (dm*(-2*lx2*lz + 2*ly2*lz + lz*(nx2 - ny2) 
+                        + 6*lx*nx*nz - 6*ly*ny*nz))/2.;
+                hcross05 = dm*(-2*lx*ly*lz + lz*nx*ny 
+					+ 3*ly*nx*nz + 3*lx*ny*nz);
+
+            /*case LAL_PNORDER_NEWTONIAN:*/
+            case 0:
+                /* Newtonian order polarizations */
+                hplus0 = lx2 - ly2 - nx2 + ny2;
+                hcross0 = 2*lx*ly - 2*nx*ny;
+                break;
+            default: 
+                XLALPrintError("XLAL Error - %s: Invalid amp. PN order %s\n", 
+                        __func__, ampO );
+                XLAL_ERROR(func, XLAL_EINVAL);
+                break;
+        } /* End switch on ampO */
+
+        /* Fill the output polarization arrays */
+        (*hplus)->data->data[idx] = ampfac * v2 * ( hplus0 
+                + v * ( hplus05 + v * ( hplus1 + hplusSpin1 
+                + v * ( hplus15 + hplusSpin15 + hplusTail15 ) ) ) );
+        (*hcross)->data->data[idx] = ampfac * v2 * ( hcross0 
+                + v * ( hcross05 + v * ( hcross1 + hcrossSpin1 
+                + v * ( hcross15 + hcrossSpin15 + hcrossTail15 ) ) ) );
+    } /* end of loop over time samples, idx */
+    return XLAL_SUCCESS;
+}
+
+/**
+ * Compute the physical template family "Q" vectors for a spinning, precessing
+ * binary when provided time series of all the dynamical quantities.
+ * These vectors always supplied to dominant order.
+ *
+ * Based on Pan, Buonanno, Chan and Vallisneri PRD69 104017, (see also theses
+ * of Diego Fazi and Ian Harry)
+ *
+ * NOTE: The vectors MUST be given in the so-called radiation frame where
+ * Z is the direction of propagation, X is the principal '+' axis and Y = Z x X
+ */
+
+
+int XLALSimInspiralPrecessingPTFQWaveforms(
+        REAL8TimeSeries **Q1,     /**< PTF-Q1 waveform [returned] */
+        REAL8TimeSeries **Q2,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries **Q3,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries **Q4,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries **Q5,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries *V,       /**< post-Newtonian parameter */
+        REAL8TimeSeries *Phi,     /**< orbital phase */
+        REAL8TimeSeries *S1x,     /**< Spin1 vector x component */
+        REAL8TimeSeries *S1y,     /**< Spin1 vector y component */
+        REAL8TimeSeries *S1z,     /**< Spin1 vector z component */
+        REAL8TimeSeries *S2x,     /**< Spin2 vector x component */
+        REAL8TimeSeries *S2y,     /**< Spin2 vector y component */
+        REAL8TimeSeries *S2z,     /**< Spin2 vector z component */
+        REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
+        REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
+        REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
+        REAL8TimeSeries *E1x,     /**< orbital plane basis vector x comp. */
+        REAL8TimeSeries *E1y,     /**< orbital plane basis vector y comp. */
+        REAL8TimeSeries *E1z,     /**< orbital plane basis vector z comp. */
+        REAL8 m1,                 /**< mass of companion 1 (kg) */
+        REAL8 m2,                 /**< mass of companion 2 (kg) */
+        REAL8 r                  /**< distance of source (m) */
+        )
+{
+	static const char *func = "XLALSimInspiralPrecessingPTFQWaveforms";
+    REAL8 lnhx, lnhy, lnhz;
+    REAL8 e1x, e1y, e1z, e2x, e2y, e2z, nx, ny, nz, lx, ly, lz;
+    REAL8 nx2, ny2, nz2, lx2, ly2, lz2;
+    REAL8 q1tmp, q2tmp, q3tmp, q4tmp, q5tmp;
+    REAL8 M, eta, phi, v, v2, dist, ampfac;
+    INT4 idx, len;
+    REAL8 sqrt_three = pow(3,0.5);
+
+    /* Macros to check time series vectors */
+    LAL_CHECK_VALID_SERIES(V,                   XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(Phi,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1x,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1y,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S1z,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2x,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2y,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(S2z,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhatx,              XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhaty,              XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(LNhatz,              XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1x,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1y,                 XLAL_FAILURE);
+    LAL_CHECK_VALID_SERIES(E1z,                 XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, Phi,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1x,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1y,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S1z,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2x,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2y,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, S2z,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatx, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhaty, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, LNhatz, XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1x,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1y,    XLAL_FAILURE);
+    LAL_CHECK_CONSISTENT_TIME_SERIES(V, E1z,    XLAL_FAILURE);
+
+
+    /* Allocate polarization vectors and set to 0 */
+    *Q1 = XLALCreateREAL8TimeSeries( "PTF_Q_1", &V->epoch,
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+    *Q2 = XLALCreateREAL8TimeSeries( "PTF_Q_2", &V->epoch,
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+    *Q3 = XLALCreateREAL8TimeSeries( "PTF_Q_3", &V->epoch,
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+    *Q4 = XLALCreateREAL8TimeSeries( "PTF_Q_4", &V->epoch,
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+    *Q5 = XLALCreateREAL8TimeSeries( "PTF_Q_5", &V->epoch,
+            0.0, V->deltaT, &lalStrainUnit, V->data->length );
+
+    if ( ! Q1 || ! Q2 || !Q3 || !Q4 || !Q5 )
+        XLAL_ERROR(func, XLAL_EFUNC);
+    memset((*Q1)->data->data, 0,
+            (*Q1)->data->length*sizeof(*(*Q1)->data->data));
+    memset((*Q2)->data->data, 0,
+            (*Q2)->data->length*sizeof(*(*Q2)->data->data));
+    memset((*Q3)->data->data, 0,
+            (*Q3)->data->length*sizeof(*(*Q3)->data->data));
+    memset((*Q4)->data->data, 0,
+            (*Q4)->data->length*sizeof(*(*Q4)->data->data));
+    memset((*Q5)->data->data, 0,
+            (*Q5)->data->length*sizeof(*(*Q5)->data->data));
+
+    M = m1 + m2;
+    eta = m1 * m2 / M / M; // symmetric mass ratio - '\nu' in the paper
+    dist = r / LAL_C_SI;   // r (m) / c (m/s) --> dist in units of seconds
+    /* convert mass from kg to s, so ampfac ~ M/dist is dimensionless */
+    ampfac = 2. * M * LAL_G_SI * pow(LAL_C_SI, -3) * eta / dist;
+
+    /* loop over time steps and compute the Qi */
+    len = V->data->length;
+    for(idx = 0; idx < len; idx++)
+    {
+        /* Abbreviated names in lower case for time series at this sample */
+        phi  = Phi->data->data[idx];    v = V->data->data[idx];     v2 = v * v;
+        lnhx = LNhatx->data->data[idx]; e1x = E1x->data->data[idx];
+        lnhy = LNhaty->data->data[idx]; e1y = E1y->data->data[idx];
+        lnhz = LNhatz->data->data[idx]; e1z = E1z->data->data[idx];
+
+        /* E2 = LNhat x E1 */
+        e2x = lnhy*e1z - lnhz*e1y;
+        e2y = lnhz*e1x - lnhx*e1z;
+        e2z = lnhx*e1y - lnhy*e1x;
+
+        /* Unit orbital separation vector */
+        nx = e1x*cos(phi) + e2x*sin(phi);
+        ny = e1y*cos(phi) + e2y*sin(phi);
+        nz = e1z*cos(phi) + e2z*sin(phi);
+
+        /* Unit inst. orbital velocity vector */
+        lx = e2x*cos(phi) - e1x*sin(phi);
+        ly = e2y*cos(phi) - e1y*sin(phi);
+        lz = e2z*cos(phi) - e1z*sin(phi);
+
+        /* Powers of vector components */
+        nx2 = nx*nx;    ny2 = ny*ny;    nz2 = nz*nz;
+        lx2 = lx*lx;    ly2 = ly*ly;    lz2 = lz*lz;
+
+        /* 
+         * NOTE: For PTF waveforms, we must use only the dominant amplitude
+         * The Q values are computed from equations 13,14,17, 46 + 47 in PBCV or
+         * more simply from equations (3.10) in Diego Fazi's thesis.
+         * Note that Q5 is simplified from that shown in Fazi's thsis
+         * by using traceless condition. As demonstrated in (6.29)
+         * in Ian Harry's thesis.
+         */
+
+        q1tmp = lx2 - ly2 - nx2 + ny2;
+        q2tmp = 2*lx*ly - 2*nx*ny;
+        q3tmp = 2*lx*lz - 2*nx*nz;
+        q4tmp = 2*ly*lz - 2*ny*nz;
+        q5tmp = sqrt_three * (nz2 - lz2);
+
+        /* Fill the output vectors */
+        (*Q1)->data->data[idx] = ampfac * v2 * q1tmp;
+        (*Q2)->data->data[idx] = ampfac * v2 * q2tmp;
+        (*Q3)->data->data[idx] = ampfac * v2 * q3tmp;
+        (*Q4)->data->data[idx] = ampfac * v2 * q4tmp;
+        (*Q5)->data->data[idx] = ampfac * v2 * q5tmp;
+    }
+    return XLAL_SUCCESS;
+}
 

@@ -1346,7 +1346,7 @@ void LALSTPNWaveform(
 
 /* Prototypes for the SpinTaylorT4 functions */
 
-int LALInspiralInterfaceSpinTaylorT4(
+void LALInspiralInterfaceSpinTaylorT4(
 	LALStatus *status, 
 	CoherentGW *signalvec, 
 	InspiralTemplate *params, 
@@ -1422,6 +1422,74 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	INT4 phaseO,                  /**< twice post-Newtonian order */
     REAL8 *dxis                   /**< testing GR parameters */
+	);
+
+int XLALSimInspiralSpinTaylorT4PTFQVecs(
+        REAL8TimeSeries **Q1,            /**< Q1 output vector */
+        REAL8TimeSeries **Q2,            /**< Q2 output vector */
+        REAL8TimeSeries **Q3,            /**< Q3 output vector */
+        REAL8TimeSeries **Q4,            /**< Q4 output vector */
+        REAL8TimeSeries **Q5,            /**< Q5 output vector */
+        REAL8 deltaT,                   /**< sampling interval (s) */
+        REAL8 m1,                       /**< mass of companion 1 (kg) */
+        REAL8 m2,                       /**< mass of companion 2 (kg) */
+        REAL8 chi1,                     /**< spin magnitude (|S1|) */
+        REAL8 kappa1,                    /**< L . S1 (1 if they are aligned) */
+        REAL8 fStart,                   /**< start GW frequency (Hz) */
+        REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
+        REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+        LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
+        int phaseO,                      /**< twice PN phase order */
+        REAL8 *dxis                   /**< testing GR parameters */
+        );
+
+int XLALSimInspiralPrecessingPTFQWaveforms(
+        REAL8TimeSeries **Q1,     /**< PTF-Q1 waveform [returned] */
+        REAL8TimeSeries **Q2,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries **Q3,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries **Q4,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries **Q5,     /**< PTF-Q2 waveform [returned] */
+        REAL8TimeSeries *V,       /**< post-Newtonian parameter */
+        REAL8TimeSeries *Phi,     /**< orbital phase */
+        REAL8TimeSeries *S1x,     /**< Spin1 vector x component */
+        REAL8TimeSeries *S1y,     /**< Spin1 vector y component */
+        REAL8TimeSeries *S1z,     /**< Spin1 vector z component */
+        REAL8TimeSeries *S2x,     /**< Spin2 vector x component */
+        REAL8TimeSeries *S2y,     /**< Spin2 vector y component */
+        REAL8TimeSeries *S2z,     /**< Spin2 vector z component */
+        REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
+        REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
+        REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
+        REAL8TimeSeries *E1x,     /**< orbital plane basis vector x comp. */
+        REAL8TimeSeries *E1y,     /**< orbital plane basis vector y comp. */
+        REAL8TimeSeries *E1z,     /**< orbital plane basis vector z comp. */
+        REAL8 m1,                 /**< mass of companion 1 (kg) */
+        REAL8 m2,                 /**< mass of companion 2 (kg) */
+        REAL8 r                  /**< distance of source (m) */
+        );
+
+int XLALSimInspiralPrecessingPolarizationWaveforms(
+	REAL8TimeSeries **hplus,  /**< +-polarization waveform [returned] */
+	REAL8TimeSeries **hcross, /**< x-polarization waveform [returned] */
+	REAL8TimeSeries *V,       /**< post-Newtonian parameter */
+	REAL8TimeSeries *Phi,     /**< orbital phase */
+	REAL8TimeSeries *S1x,	  /**< Spin1 vector x component */
+	REAL8TimeSeries *S1y,	  /**< Spin1 vector y component */
+	REAL8TimeSeries *S1z,	  /**< Spin1 vector z component */
+	REAL8TimeSeries *S2x,	  /**< Spin2 vector x component */
+	REAL8TimeSeries *S2y,	  /**< Spin2 vector y component */
+	REAL8TimeSeries *S2z,	  /**< Spin2 vector z component */
+	REAL8TimeSeries *LNhatx,  /**< unit orbital ang. mom. x comp. */
+	REAL8TimeSeries *LNhaty,  /**< unit orbital ang. mom. y comp. */
+	REAL8TimeSeries *LNhatz,  /**< unit orbital ang. mom. z comp. */
+	REAL8TimeSeries *E1x,	  /**< orbital plane basis vector x comp. */
+	REAL8TimeSeries *E1y,	  /**< orbital plane basis vector y comp. */
+	REAL8TimeSeries *E1z,	  /**< orbital plane basis vector z comp. */
+	REAL8 m1,                 /**< mass of companion 1 (kg) */
+	REAL8 m2,                 /**< mass of companion 2 (kg) */
+	REAL8 r,                  /**< distance of source (m) */
+	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
+	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
 	);
 
 /* Phenomenological Spin Taylor with RingDown*/

@@ -1148,7 +1148,7 @@ int main( int argc, char *argv[])
             for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
 
 			/* INJECTING NON-GR SPIN TAYLOR T4 */
-            if (template.approximant==SpinTaylorT4Test) {
+/*            if (template.approximant==SpinTaylorT4Test) {
 				printf("Using approximant SpinTaylorT4Test (from lalsimulation)");
 			if (XLALGetSpinInteractionFromString(&inspiralParams.spinInteraction, thisEvent->waveform) == XLAL_FAILURE) {
 				ABORTXLAL(status);
@@ -1162,7 +1162,7 @@ int main( int argc, char *argv[])
 
 //				LALInspiralInterfaceSpinTaylorT4(&status, injWaveTD, &template, dphis, 0.0);
 			}
-
+*/
 			this_injection.next=NULL;
 			LALFindChirpInjectSignals(&status,injWave,&this_injection,resp);
             /*char InjTestName1[50];
