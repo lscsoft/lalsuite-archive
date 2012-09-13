@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 J. Creighton, S. Fairhurst, B. Krishnan, L. Santamaria, E. Ochsner
+ * Copyright (C) 2008 J. Creighton, S. Fairhurst, B. Krishnan, L. Santamaria, E. Ochsner, W. Del Pozzo
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ typedef enum {
                          * the waveform given by \c TaylorT1 approximant (see [\ref dis2000] for details);
                          * Outputs a frequency-domain wave. */
    TaylorF2,		/**< The standard stationary phase approximation; Outputs a frequency-domain wave. */
+   TaylorF2Test,        /**< The standard stationary phase approximation plus the additional testing parameters; Outputs a frequency-domain wave. */
    TaylorF2RedSpin,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec]*/
    TaylorF2RedSpinTidal,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec] plus tidal terms (http://arxiv.org/abs/1101.1673) */
    PadeT1,		/**< Time-domain P-approximant; Outputs a time-domain wave. */
@@ -1016,7 +1017,27 @@ int XLALSimInspiralTaylorF2(
 		const INT4 amplitudeO            /**< twice PN amplitude order */
 		);
 
-
+/**
+ * Computes the stationary phase approximation to the Fourier transform of
+ * a chirp waveform with phase given by Eq.\eqref{eq_InspiralFourierPhase_f2}
+ * and amplitude given by expanding \f$1/\sqrt{\dot{F}}\f$. If the PN order is
+ * set to -1, then the highest implemented order is used.
+ * The phasing is then modified for the testing parameters if present. See Li et al, 2011
+ * \author B.S. Sathyaprakash
+ */
+int XLALSimInspiralTaylorF2Test(
+        COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
+        const REAL8 phic,                /**< coalescence GW phase (rad) */
+        const REAL8 deltaF,              /**< frequency resolution */
+        const REAL8 m1_SI,               /**< mass of companion 1 (kg) */
+        const REAL8 m2_SI,               /**< mass of companion 2 (kg) */
+        const REAL8 fStart,              /**< start GW frequency (Hz) */
+        const REAL8 r,                   /**< distance of source (m) */
+        const INT4 phaseO,               /**< twice PN phase order */
+        const INT4 amplitudeO,            /**< twice PN amplitude order */
+        const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
+        );
+        
 /**
  * Functions for generic spinning waveforms. 
  * Reproduce and extend old SpinTaylor(Frameless) and SQTPN waveforms 

@@ -58,6 +58,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralSpinTaylorT4.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \
+	LALSimInspiralTaylorF2Test.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
 	LALSimInspiralTaylorF2ReducedSpinMetric.c \
 	LALSimInspiralTaylorF2ReducedSpinTidal.c \
