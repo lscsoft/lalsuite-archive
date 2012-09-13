@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Walter Del pozzo, Evan Ochsner
+/* Copyright (C) 2012 Walter Del Pozzo, Evan Ochsner
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
