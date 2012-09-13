@@ -1663,6 +1663,19 @@ int XLALSimInspiralChooseFDWaveform(
             ret = XLALSimInspiralTaylorF2(htilde, phi0, deltaF, m1, m2, f_min,
                     r, phaseO, amplitudeO);
             break;
+        /* non-spinning inspiral-only models plus GR testing parameters */
+        case TaylorF2Test:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+                ABORT_NONZERO_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralTaylorF2Test(htilde, phi0, deltaF, m1, m2, f_min,
+                    r, phaseO, amplitudeO,nonGRparams);
+            break;
 
         /* non-spinning inspiral-merger-ringdown models */
         case IMRPhenomA:
