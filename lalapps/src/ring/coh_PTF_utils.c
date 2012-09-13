@@ -427,7 +427,7 @@ void coh_PTF_calculate_bmatrix(
           {
             zh[i*vecLength+j] += Fplus[k]*Fplus[k] * PTFM[k]->data[i*PTFMlen+j];
             sh[i*vecLength+j] += Fcross[k]*Fcross[k] * PTFM[k]->data[i*PTFMlen+j];
-            yu[i*vecLength+j] += Fcross[k]*Fcross[k] * PTFM[k]->data[i*PTFMlen+j];
+            yu[i*vecLength+j] += Fplus[k]*Fcross[k] * PTFM[k]->data[i*PTFMlen+j];
           }
         }
       }
