@@ -921,8 +921,6 @@ Parameter arguments:\n\
                 LALInferenceAddMinMaxPrior(priorArgs, "dchi7",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
             }
         }
-        }
-	
 	return;
 }
 
