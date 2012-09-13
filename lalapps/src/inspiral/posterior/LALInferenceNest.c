@@ -524,7 +524,8 @@ Parameter arguments:\n\
 (--mcq)\tUse chirp mass and asymmetric mass ratio (m1/m2) as variables\n\
 (--crazyinjectionhlsign)\tFlip the sign of HL signal in likelihood function\n\
 (--pinparams [mchirp,asym_massratio,etc])\n\tList of parameters to set to injected values\n\
-(--no-logdistance)\tUse distance, not logdistance, as the sampling variable\n";
+(--no-logdistance)\tUse distance, not logdistance, as the sampling variable\n\
+(--GRtestingparameters)\t set of testing parameters for the GR PN-based test\n";
 
 	/* Print command line arguments if help requested */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
@@ -615,6 +616,7 @@ Parameter arguments:\n\
 			break;
 		case TaylorF1:
 		case TaylorF2:
+                  case TaylorF2Test:
 		case TaylorF2RedSpin:
 		case TaylorF2RedSpinTidal:
 		case IMRPhenomA:
@@ -861,6 +863,15 @@ Parameter arguments:\n\
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin2",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t);
 		}
 	}
+        
+        ppt=LALInferenceGetProcParamVal(commandLine,"--GRtestparameters");
+        if (ppt) 
+        {
+            REAL8 testParameter_min = -0.5;
+            REAL8 testParameter_max = 0.5;
+            LALInferenceAddVariable(currentParams,"dchi0",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddMinMaxPrior(priorArgs, "dchi0",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t);
+        }
 	
 	return;
 }
