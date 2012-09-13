@@ -1827,14 +1827,14 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 /********************************************************************************************/
 {
 	
-	Approximant			approximant= (Approximant) 0;
-	int			order=-1;
-  int amporder=-1;
+	Approximant	approximant= (Approximant) 0;
+    int	order=-1;
+    int amporder=-1;
 
-	unsigned long				i;
-	static int sizeWarning = 0;
-  int ret=0;
-  REAL8 instant;
+    unsigned long i;
+    static int sizeWarning = 0;
+    int ret=0;
+    REAL8 instant;
   
   
   REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
@@ -1940,6 +1940,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
   if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) XLALSimInspiralSetInteraction(waveFlags, *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags"));
   LALSimInspiralTestGRParam *nonGRparams = NULL;
+  
+  
+  
   
   REAL8 fRef = 0.0;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
