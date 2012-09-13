@@ -1939,10 +1939,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
   if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) XLALSimInspiralSetInteraction(waveFlags, *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags"));
-  LALSimInspiralTestGRParam *nonGRparams = NULL;
-  
-  
-  
   
   REAL8 fRef = 0.0;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
@@ -1952,8 +1948,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     XLAL_ERROR_VOID(XLAL_EFAULT);
   }
   deltaT = IFOdata->timeData->deltaT;
-  
-  
+    
   if(IFOdata->modelDomain == LALINFERENCE_DOMAIN_FREQUENCY) {
     if (IFOdata->freqData==NULL) {
 		  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'freqData'.\n");
@@ -1965,11 +1960,24 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     double plusCoef  = -0.5 * (1.0 + cosi*cosi);
     double crossCoef = cosi;
     
+    LALSimGRTestParam *nonGRparams=NULL;
+    
+    const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
+    
+    for (UINT4 k=0; k<10; k++) 
+    {
+        if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
+            extraFields = XLALSimAddGRParam(extraFields,
+                                    list_extra_parameters[k],
+                                    *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
+    }
+    
     if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
                                                  amporder, order, approximant), errnum);
+     
       XLALSimInspiralDestroyWaveformFlags(waveFlags);
       XLALSimInspiralDestroyTestGRParam(nonGRparams);
       
