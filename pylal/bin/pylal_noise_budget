@@ -17,9 +17,9 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA    02110-1301, USA.
 
 """
-noise_budget.in - interferometer (system) frequency noise projection generator
-
-Display the noise projection for an interferometer or interferometer system using a configuration file at the given GPS time.
+Interferometer (system) frequency noise projection generator.
+Display the noise projection for an interferometer or interferometer
+system using a configuration file at the given GPS time.
 """
 
 # =============================================================================
@@ -28,12 +28,27 @@ Display the noise projection for an interferometer or interferometer system usin
 
 from __future__ import division
 
-import numpy,ConfigParser,optparse,os,sys,re,datetime
+import numpy
+import ConfigParser
+import optparse
+import os
+import sys
+import re
+import datetime
+import lal
+
 from scipy import signal
-from swiglal import LIGOTimeGPS
-from pylal import date,seriesutils,datatypes,htmlutils,git_version
-from pylal.dq import dqPlotUtils,noisebudget
-from pylal.xlal.tools import cached_detector as _detectors
+
+# set plotting backed
+from matplotlib import use
+use("Agg")
+
+from pylal import seriesutils
+from pylal import htmlutils
+from pylal import git_version
+from pylal import plotutils
+from pylal.dq import noisebudget
+
 from glue import segments
 from glue.lal import Cache
 
@@ -44,22 +59,21 @@ __date__    = git_version.date
 
 # userful regex, lambdas, and global variables
 _cchar = re.compile('[\W_]+')
-_ifos  = sorted([t.prefix for t in _detectors.values()] + ['C1'])
+_ifos = [d.frDetector.prefix for d in lal.lalCachedDetectors]+["C1"]
 
-dqPlotUtils.set_rcParams()
+plotutils.set_rcParams()
 
 # =============================================================================
 # Verbose
 # =============================================================================
 
-def print_verbose(message, verbose=False, stream=sys.stdout):
+def print_verbose(message, verbose=False, stream=sys.stdout, profile=True):
     """
-    Print verbose messages to the given stream
+    Print verbose messages to stdout
     """
     if verbose:
-      stream.write(str(message))
-      stream.flush()
-
+        stream.write(message)
+        stream.flush()
 
 # =============================================================================
 # Construct ZPK filter
@@ -76,7 +90,6 @@ def freqresp(zeros, poles, gain, f0=0, deltaF=1, length=100):
                           numpy.polyval(lti.den, w*1j), f)
     fresp = numpy.asarray(fresp)
     mag   = abs(fresp)
-    #numpy.putmask(y, numpy.isinf(y), 1e3)
     return mag
 
 # =============================================================================
@@ -87,16 +100,24 @@ def parse_command_line():
     """
     Take arguments from the command line and format them appropriately.
     """
-
-    usage  = """usage: %prog [OPTIONS]"""
-    _desc  = __doc__[1:]
-
-    parser = optparse.OptionParser(usage=usage, version=__version__,\
-                                  description=_desc)
-
-    # add standard options
-    parser.add_option("--verbose", action="store_true", default=False,\
-                      help="verbose output")
+    prog   = os.path.basename(sys.argv[0])
+    usage  = "%s --config-file ${CONFIG_FILE} --gps-start-time ${GPSSTART} "\
+             "--gps-end-time ${GPSEND} --ifo ${IFO} [OPTIONS]" % prog
+    epilog = "If you're having trouble, e-mail detchar+code@ligo.org. "+\
+             "To report a bug, please visit "+\
+             "https://bugs.ligo.org/redmine/projects/detchar and submit "+\
+             "an Issue."
+    parser = optparse.OptionParser(usage=usage, description=__doc__[1:],\
+                                   formatter=optparse.IndentedHelpFormatter(4),\
+                                   epilog=epilog)
+    parser.add_option("-p", "--profile", action="store_true", default=False,\
+                      help="show second timer with verbose statements, "+\
+                           "default: %default")
+    parser.add_option("-v", "--verbose", action="store_true", default=False,\
+                      help="show verbose output, default: %default")
+    parser.add_option("-V", "--version", action="version",\
+                      help="show program's version number and exit")
+    parser.version = __version__
 
     # add interferometer options
     nbopts = optparse.OptionGroup(parser, "Noise projection options")
@@ -132,9 +153,9 @@ def parse_command_line():
     return options, args
 
 def sanity_check_command_line((opts, args)):
-
-    """Sanity check the command line arguments given."""
-
+    """
+    Sanity check the command line arguments given.
+    """
     # assert all required options
     req_opts = ['ifo', 'config_file', 'gps_start_time', 'gps_end_time']
     for opt in req_opts:
@@ -161,16 +182,12 @@ def sanity_check_command_line((opts, args)):
 
     # verify GPS start time
     if opts.online and (not opts.gps_start_time or not opts.gps_end_time):
-        opts.gps_end_time = date.XLALGPSTimeNow()
+        opts.gps_end_time = int(lal.GPSTimeNow())
         opts.gps_start_time = opts.gps_end_time - 60
-
-    opts.gps_start_time = LIGOTimeGPS(opts.gps_start_time)
 
     # verify GPS end time or set to 60 seconds after start
     if not opts.gps_end_time:
         opts.gps_end_time = opts.gps_start_time + 60
-    else:
-        opts.gps_end_time = LIGOTimeGPS(opts.gps_end_time)
 
     return opts,args
 
@@ -352,7 +369,7 @@ def build_noise_budget(cp, start, end, ifo, outdir, cache=None, online=False,\
             continue
 
         # get data params
-        noise_term.channel    = cp.get(noise_term.name, 'channel')
+        noise_term.channel = cp.get(noise_term.name, 'channel')
         if not usends:
             noise_term.frame_type = cp.get(noise_term.name, 'frame-type')
         slope     = cp.has_option(noise_term.name, 'slope') and\
@@ -432,13 +449,12 @@ def build_noise_budget(cp, start, end, ifo, outdir, cache=None, online=False,\
     name = budget.name
     if re.match("%s[-_\s]" % ifo, name): name = name[3:]
     if cp.has_section('plot noise-budget'):
-        _,params = dqPlotUtils.parse_plot_config(cp, 'plot noise-budget')
+        _,params = plotutils.parse_plot_config(cp, 'plot noise-budget')
         if online:
             outfile = '%s/%s-%s_NOISE_BUDGET-0-0.png'\
                                 % (outdir, ifo, _cchar.sub('_', name.upper()))
             params.setdefault("subtitle",\
-                              datetime.datetime(*date.XLALGPSToUTC(\
-                                  datatypes.LIGOTimeGPS(float(end)))[:6])\
+                              datetime.datetime(*lal.GPSToUTC(int(end))[:6])\
                                   .strftime("%B %d %Y, %H:%M:%S %ZUTC"))
         else:
             outfile = '%s/%s-%s_NOISE_BUDGET-%d-%d.png'\
@@ -453,13 +469,12 @@ def build_noise_budget(cp, start, end, ifo, outdir, cache=None, online=False,\
     #
     
     if cp.has_section('plot ratio-deficit'):
-        _,params = dqPlotUtils.parse_plot_config(cp, 'plot ratio-deficit')
+        _,params = plotutils.parse_plot_config(cp, 'plot ratio-deficit')
         if online:
             outfile = '%s/%s-%s_NOISE_BUDGET_RATIO_DEFICIT-0-0.png'\
                       % (outdir, ifo, _cchar.sub('_', name.upper()))
             params.setdefault("subtitle",\
-                              datetime.datetime(*date.XLALGPSToUTC(\
-                                  datatypes.LIGOTimeGPS(float(end)))[:6])\
+                              datetime.datetime(*lal.GPSToUTC(int(end))[:6])\
                                   .strftime("%B %d %Y, %H:%M:%S %ZUTC"))
         else:
             outfile = '%s/%s-%s_NOISE_BUDGET_RATIO_DEFICIT-%d-%d.png'\
@@ -470,13 +485,12 @@ def build_noise_budget(cp, start, end, ifo, outdir, cache=None, online=False,\
         plotlist.append(os.path.basename(outfile))
     
     if cp.has_section('plot deficit'):
-        _,params = dqPlotUtils.parse_plot_config(cp, 'plot deficit')
+        _,params = plotutils.parse_plot_config(cp, 'plot deficit')
         if online:
             outfile = '%s/%s-%s_NOISE_BUDGET_DEFICIT-0-0.png'\
                                 % (outdir, ifo, _cchar.sub('_', name.upper()))
             params.setdefault("subtitle",\
-                              datetime.datetime(*date.XLALGPSToUTC(\
-                                  datatypes.LIGOTimeGPS(float(end)))[:6])\
+                              datetime.datetime(*lal.GPSToUTC(int(end))[:6])\
                                  .strftime("%B %d %Y, %H:%M:%S %ZUTC"))
         else:
             outfile = '%s/%s-%s_NOISE_BUDGET_DEFICIT-%d-%d.png'\
@@ -489,11 +503,10 @@ def build_noise_budget(cp, start, end, ifo, outdir, cache=None, online=False,\
     # Plot noise components
     subplotlist = []
     if cp.has_section('plot noise-terms'):
-        _,params = dqPlotUtils.parse_plot_config(cp, 'plot noise-terms')
+        _,params = plotutils.parse_plot_config(cp, 'plot noise-terms')
         if online:
             params.setdefault("subtitle",\
-                              datetime.datetime(*date.XLALGPSToUTC(\
-                                  datatypes.LIGOTimeGPS(float(end)))[:6])\
+                              datetime.datetime(*lal.GPSToUTC(int(end))[:6])\
                                  .strftime("%B %d %Y, %H:%M:%S %ZUTC"))
         for term in budget:
             if not term.plot_noise_curve: continue

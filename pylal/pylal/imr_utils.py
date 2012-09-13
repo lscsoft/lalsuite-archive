@@ -71,13 +71,13 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
 		found_query = 'SELECT sim_inspiral.*, coinc_ringdown.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_ringdown ON coinc_ringdown.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_ringdown.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
-	
+
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
 		found_query = 'SELECT sim_inspiral.*, multi_burst.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN multi_burst ON multi_burst.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == multi_burst.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
-	
+
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
-	
+
 	def injection_was_made(end_time, end_time_ns, segments = segments):
 		return time_within_segments(end_time, end_time_ns, segments)
 
@@ -140,7 +140,8 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
 		if live_time_program == "gstlal_inspiral":
-			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, "datasegments").coalesce()
+			#segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		elif live_time_program == "thinca":
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
 		else:
@@ -195,6 +196,29 @@ def get_event_fars(connection, table_name, segments = None):
 		yield (inst, far, ts)
 
 
+def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function = lambda sim: (sim.distance,)):
+	"""
+	This program creates the search efficiency in the provided ndbins.  The
+	first dimension of ndbins must be the distance.  You also must provide a
+	function that maps a sim inspiral row to the correct tuple to index the ndbins.
+	"""
+
+	input = rate.BinnedRatios(ndbins)
+
+	# increment the numerator with the missed injections
+	[input.incnumerator(sim_to_bins_function(sim)) for sim in found]
+
+	# increment the denominator with the total injections
+	[input.incdenominator(sim_to_bins_function(sim)) for sim in total]
+
+	# regularize by setting denoms to 1 to avoid nans
+	input.regularize()
+
+	# pull out the efficiency array, it is the ratio
+	return input.ratio()
+
+
+
 def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 	"""
 	This program creates the search volume in the provided ndbins.  The
@@ -203,59 +227,39 @@ def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 	to index the ndbins.
 	"""
 
-	input = rate.BinnedRatios(ndbins)
+	efficiency_array = compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function)
+	dx = ndbins[0].upper() - ndbins[0].lower()
+	r = input.bins()[0].centres()
 
 	# we have one less dimension on the output
 	output = rate.BinnedArray(rate.NDBins(ndbins[1:]))
 
-	# increment the numerator with the missed injections
-	[input.incnumerator(sim_to_bins_function(sim)) for sim in found]
-
-	# increment the denominator with the total injections
-	[input.incdenominator(sim_to_bins_function(sim)) for sim in total]
-
-	# compute the dx in the distance bins REMEMBER it is the first dimension by requirement :)
-	dx = input.bins()[0].upper() - input.bins()[0].lower()
-	r = input.bins()[0].centres()
-	# regularize by setting denoms to 1 to avoid nans
-	input.regularize()
-	# pull out the efficiency array, it is the ratio
-	efficiency_array = input.ratio()
 	output.array = (efficiency_array.T * 4. * numpy.pi * r**2 * dx).sum(-1)
 
 	return output
+
+def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LogarithmicBins)}):
+	"""
+	Given a dictionary of bin counts and bin objects keyed by sim
+	attribute, come up with a sensible NDBins scheme
+	"""
+	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]), bintup[0]) for attr, bintup in bin_dict.items()])
 
 
 def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 11, distbins = 200):
 	"""
 	Given a list of the injections, guess at the mass1, mass2 and distance
-	bins. Floor and ceil will be used to round down to the nearest integers.
+	bins.
 	"""
-
-	minmass1 = numpy.floor(min([sim.mass1 for sim in sims]))
-	maxmass1 = numpy.ceil(max([sim.mass1 for sim in sims]))
-	minmass2 = numpy.floor(min([sim.mass2 for sim in sims]))
-	maxmass2 = numpy.ceil(max([sim.mass2 for sim in sims]))
-	mindist = numpy.floor(min([sim.distance for sim in sims]))
-	maxdist = numpy.ceil(max([sim.distance for sim in sims]))
-
-	return rate.NDBins((rate.LogarithmicBins(mindist, maxdist, distbins), rate.LinearBins(minmass1, maxmass1, mass1bins), rate.LinearBins(minmass2, maxmass2, mass2bins)))
+	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "mass1": (mass1bins, rate.LinearBins), "mass2": (mass2bins, rate.LinearBins)})
 
 
 def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins = 11, distbins = 200):
 	"""
 	Given a list of the injections, guess at the spin1, spin2 and distance
-	bins. Floor and ceil will be used to round down to the nearest integers.
+	bins.
 	"""
-
-	minspin1 = numpy.floor(min([sim.spin1z for sim in sims]))
-	maxspin1 = numpy.ceil(max([sim.spin1z for sim in sims]))
-	minspin2 = numpy.floor(min([sim.spin2z for sim in sims]))
-	maxspin2 = numpy.ceil(max([sim.spin2z for sim in sims]))
-	mindist = numpy.floor(min([sim.distance for sim in sims]))
-	maxdist = numpy.ceil(max([sim.distance for sim in sims]))
-
-	return rate.NDBins((rate.LogarithmicBins(mindist, maxdist, distbins), rate.LinearBins(minspin1, maxspin1, spin1bins), rate.LinearBins(minspin2, maxspin2, spin2bins)))
+	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
 
 
 def sim_to_distance_mass1_mass2_bins_function(sim):
@@ -276,16 +280,15 @@ def sim_to_distance_spin1z_spin2z_bins_function(sim):
 
 def symmetrize_sims(sims, col1, col2):
 	"""
-	duplicate the sims to symmetrize by two columns that should be symmetric.  For example mass1 and mass2
+	symmetrize by two columns that should be symmetric.  For example mass1 and mass2
 	"""
-	out = []
 	for sim in sims:
-		out.append(sim)
-		newsim = copy.deepcopy(sim)
-		setattr(newsim, col1, getattr(sim, col2))
-		setattr(newsim, col2, getattr(sim, col1))
-		out.append(newsim)
-	return out
+		c1 = getattr(sim, col1)
+		c2 = getattr(sim, col2)
+		if c1 > c2:
+			setattr(sim, col1, c2)
+			setattr(sim, col2, c1)
+	return sims
 
 class DataBaseSummary(object):
 	"""
@@ -377,7 +380,7 @@ class DataBaseSummary(object):
 			raise ValueError('number of slides differs between input files')
 		else:
 			self.numslides = min(self.numslides)
-		
+
 		# FIXME
 		# Things left to do
 		# 1) summarize the far threshold over the entire dataset
