@@ -214,12 +214,7 @@ static PyObject *max(PyObject *a, PyObject *b)
 
 static PyObject *make_segment(PyObject *lo, PyObject *hi)
 {
-	PyObject *seg = segments_Segment_New(&segments_Segment_Type, lo, hi);
-	if(!seg) {
-		Py_DECREF(lo);
-		Py_DECREF(hi);
-	}
-	return seg;
+	return segments_Segment_New(&segments_Segment_Type, lo, hi);
 }
 
 

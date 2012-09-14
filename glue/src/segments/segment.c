@@ -62,8 +62,13 @@ static int segments_Segment_Check(PyObject *obj)
 PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 {
 	PyObject *new = type->tp_alloc(type, 2);
-	PyTuple_SET_ITEM(new, 0, a);
-	PyTuple_SET_ITEM(new, 1, b);
+	if(new) {
+		PyTuple_SET_ITEM(new, 0, a);
+		PyTuple_SET_ITEM(new, 1, b);
+	} else {
+		Py_DECREF(a);
+		Py_DECREF(b);
+	}
 	return new;
 }
 
