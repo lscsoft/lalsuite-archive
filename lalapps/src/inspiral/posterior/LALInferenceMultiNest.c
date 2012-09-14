@@ -43,31 +43,31 @@ void initStudentt(LALInferenceRunState *state);
 void initVariables(LALInferenceRunState *state);
 void initializeTemplate(LALInferenceRunState *runState);
 static void mc2masses(double mc, double eta, double *m1, double *m2);
-void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes,
-	int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, int initMPI, double logZero, 
-	void (*LogLike)(double *, int *, int *, double *), void (*dumper)(int *, int *, int *, double **, double **, double *, 
-	double *, double *, double *), int context);
-void getLogLike(double *Cube, int *ndim, int *npars, double *lnew);
+void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar, 
+	int maxModes, int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, 
+	int initMPI, double logZero, int maxiter, void (*getLogLike)(double *, int *, int *, double *, void *), 
+	void (*dumper)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *), 
+	void *context);
+void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context);
+void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context);
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState);
-void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr,
-	double *maxLogLike, double *logZ, double *logZerr);
 
 LALInferenceRunState *runStateGlobal;
 
-
-void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar,  int maxModes,
-int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, int initMPI, double logZero, 
-void (*getLogLike)(double *, int *, int *, double *), void (*dumper)(int *, int *, int *, double **, double **, double *, 
-double *, double *, double *), int context)
+void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar, 
+int maxModes, int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, 
+int initMPI, double logZero, int maxiter, void (*getLogLike)(double *, int *, int *, double *, void *), 
+void (*dumper)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *), 
+void *context)
 {
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
 
         __nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
-        root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, getLogLike, dumper, &context);
+        root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, &maxiter, getLogLike, dumper, context);
 }
 
-void getLogLike(double *Cube, int *ndim, int *npars, double *lnew)
+void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context)
 {
 	// transform the parameter in the unit hypercube to their physical counterparts according to the prior
 	LALInferenceVariables *newParams=NULL;
@@ -94,10 +94,9 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew)
 	free(newParams);
 }
 
-void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double *paramConstr, double *maxLogLike, double *logZ, double *logZerr)
+void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context)
 {
 }
-
 
 /* MultiNestAlgorithm implements the MultiNest algorithm*/
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
@@ -150,7 +149,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		double prior = LALInferenceInspiralSkyLocPrior(runState,runState->currentParams);
 		fprintf(stdout,"LOG-PRIOR VALUE RETURNED = %g\n",prior);
 		fprintf(stdout,"LOG-POSTERIOR VALUE RETURNED = %g\n",like+prior);
-		exit(0);
+		return;
 	}
 	
 	int mmodal = 0;
@@ -185,14 +184,14 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int resume = resval;
 	int outfile = 1;
 	int initMPI = 0;
-	double logZero = -1E90;
-	int context = 0;
+	double logZero = -DBL_MAX;
+	int maxiter = 0;
+	void *context = 0;
 
 
 	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
-	resume, outfile, initMPI, logZero, getLogLike, dumper, context);
+	resume, outfile, initMPI, logZero, maxiter, getLogLike, dumper, context);
 	
-
 	/* Write out the evidence */
 	/*fclose(fpout);
 	char bayesfile[100];

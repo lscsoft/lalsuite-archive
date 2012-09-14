@@ -1,6 +1,6 @@
 SUBDIRS = SPINspiral mpi
 
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/MultiNest_v2.12 -lnest3 -llapack -lblas -lgfortranbegin -lgfortran -lm
+LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/MultiNest_v2.18 -lnest3 -llapack -lblas -lgfortranbegin -lgfortran -lm
 
 if LALINSPIRAL
 if LALFRAME
