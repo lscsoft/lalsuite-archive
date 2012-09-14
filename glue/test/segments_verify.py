@@ -313,6 +313,9 @@ class test_segmentlist(unittest.TestCase):
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
+	def testextent(self):
+		self.assertEqual(segments.segmentlist([(1, 0)]).extent(), segments.segment(0, 1))
+
 	def testcoalesce(self):
 		# check that mixed-type coalescing works
 		x = segments.segmentlist([segments.segment(1, 2), segments.segment(3, 4), (2, 3)])
