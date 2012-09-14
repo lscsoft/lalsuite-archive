@@ -1031,7 +1031,7 @@ Arguments for each section follow:\n\n";
 	state->algorithm(state);
 
 	/* write injection with noise evidence information from algorithm */
-    LALInferencePrintInjectionSample(state);
+        LALInferencePrintInjectionSample(state);
 
 	/* end */
 	return(0);

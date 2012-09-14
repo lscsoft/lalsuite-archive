@@ -1960,18 +1960,18 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     double plusCoef  = -0.5 * (1.0 + cosi*cosi);
     double crossCoef = cosi;
     
-    LALSimGRTestParam *nonGRparams=NULL;
+    LALSimInspiralTestGRParam *nonGRparams=NULL;
     
     const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
     
     for (UINT4 k=0; k<10; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
-            extraFields = XLALSimAddGRParam(extraFields,
+            XLALSimInspiralAddTestGRParam(nonGRparams,
                                     list_extra_parameters[k],
                                     *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
     }
-    
+    //printf("dchi1:%lf\n",XLALSimInspiralGetGRParam);
     if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
@@ -2047,7 +2047,18 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       fprintf(stderr, "ERROR: Desired start time %f is before start of segment %f (in %s, line %d)\n",start_time,(IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds), __FILE__, __LINE__);
       exit(1);
     }
+
+    LALSimInspiralTestGRParam *nonGRparams=NULL;
     
+    const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
+    
+    for (UINT4 k=0; k<10; k++) 
+    {
+        if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
+            XLALSimInspiralAddTestGRParam(nonGRparams,
+                                    list_extra_parameters[k],
+                                    *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
+    }
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, fRef, distance, 
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
