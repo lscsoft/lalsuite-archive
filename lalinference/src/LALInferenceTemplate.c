@@ -1967,7 +1967,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     for (UINT4 k=0; k<10; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
-            XLALSimInspiralAddTestGRParam(nonGRparams,
+            XLALSimInspiralAddTestGRParam(&nonGRparams,
                                     list_extra_parameters[k],
                                     *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
     }
@@ -2055,7 +2055,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     for (UINT4 k=0; k<10; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
-            XLALSimInspiralAddTestGRParam(nonGRparams,
+            XLALSimInspiralAddTestGRParam(&nonGRparams,
                                     list_extra_parameters[k],
                                     *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
     }
