@@ -143,7 +143,11 @@ static int unpack(PyObject *seg, PyObject **lo, PyObject **hi)
 {
 	if(!seg)
 		return -1;
-		
+	if(!PyTuple_Check(seg)) {
+		PyErr_SetObject(PyExc_TypeError, seg);
+		return -1;
+	}
+
 	if(lo) {
 		*lo = PyTuple_GetItem(seg, 0);
 		if(!*lo) {
