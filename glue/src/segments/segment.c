@@ -73,6 +73,7 @@ PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 		}
 	} else {
 		Py_XDECREF(new);
+		new = NULL;
 		Py_DECREF(a);
 		Py_DECREF(b);
 	}
