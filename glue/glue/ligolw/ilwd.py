@@ -27,7 +27,7 @@
 """
 The ilwd:char type is used to store ID strings for objects within LIGO
 Light-Weight XML files.  This module and its associated C extention module
-__ilwd provide a class for memory-efficient storage of ilwd:char strings.
+_ilwd provide a class for memory-efficient storage of ilwd:char strings.
 
 LIGO Light Weight XML "ilwd:char" IDs are strings of the form
 "table:column:integer", for example "process:process_id:10".  Large complex
@@ -103,7 +103,7 @@ values as class attributes, so only one copy is present in memory and is
 shared across all instances of the class.  This means that each unique
 table_name and column_name pair requires its own class.  These classes are
 created on the fly as new IDs are processed, and get added to this module's
-name space.  They are all subclasses of __ilwd.ilwdchar, which implements
+name space.  They are all subclasses of _ilwd.ilwdchar, which implements
 the low-level machinery.  After a new class is created it can be accessed
 as a symbol in this module, but each of those symbols does not exist until
 at least one corresponding ID string has been processed.
@@ -123,7 +123,7 @@ foo:bar:10
 
 The ilwdchar class itself it never instantiated, its .__new__() method
 parses the ID string parameter and creates an instance of the appropriate
-subclass of __ilwd.ilwdchar, creating a new subclass before doing so if
+subclass of _ilwd.ilwdchar, creating a new subclass before doing so if
 neccessary.
 """
 
@@ -132,7 +132,7 @@ import copy_reg
 
 
 from glue import git_version
-from glue.ligolw import __ilwd
+from glue.ligolw import _ilwd
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -156,7 +156,7 @@ __date__ = git_version.date
 
 def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	"""
-	Searches this module's namespace for a subclass of __ilwd.ilwdchar
+	Searches this module's namespace for a subclass of _ilwd.ilwdchar
 	whose table_name and column_name attributes match those provided.
 	If a matching subclass is found it is returned; otherwise a new
 	class is defined, added to this module's namespace, and returned.
@@ -205,7 +205,7 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 	# otherwise define a new class, and add it to the cache
 	#
 
-	class new_class(__ilwd.ilwdchar):
+	class new_class(_ilwd.ilwdchar):
 		__slots__ = ()
 		table_name, column_name = key
 		index_offset = len("%s:%s:" % key)
@@ -229,20 +229,20 @@ def get_ilwdchar_class(tbl_name, col_name, namespace = globals()):
 
 #
 # Metaclass to redirect instantiation to the correct subclass for
-# __ilwd.ilwdchar
+# _ilwd.ilwdchar
 #
 
 
 class ilwdchar(object):
 	"""
-	Metaclass wrapper of glue.ligolw.__ilwd.ilwdchar class.
+	Metaclass wrapper of glue.ligolw._ilwd.ilwdchar class.
 	Instantiating this class constructs and returns an instance of a
-	subclass of glue.ligolw.__ilwd.ilwdchar.
+	subclass of glue.ligolw._ilwd.ilwdchar.
 	"""
 	def __new__(cls, s):
 		"""
 		Convert an ilwd:char-formated string into an instance of
-		the matching subclass of __ilwd.ilwdchar.  If the input is
+		the matching subclass of _ilwd.ilwdchar.  If the input is
 		None then the return value is None.
 
 		Example:

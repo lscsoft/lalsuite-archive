@@ -103,8 +103,8 @@ class Element(object):
 	"""
 	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
-	validattributes = []
-	validchildren = []
+	validattributes = frozenset()
+	validchildren = frozenset()
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		"""
@@ -113,6 +113,9 @@ class Element(object):
 		documentation, but it's basically a dictionary-like thing)
 		used to set the element attributes.
 		"""
+		# must use .keys(), cannot iterate over AttributesImpl
+		# objects like you can with dictionaries.  you get a
+		# KeyError if you try
 		for key in attrs.keys():
 			if key not in self.validattributes:
 				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
@@ -185,7 +188,7 @@ class Element(object):
 		self.parentNode = None
 		for child in self.childNodes:
 			child.unlink()
-		self.childNodes = []
+		del self.childNodes[:]
 
 	def replaceChild(self, newchild, oldchild):
 		"""
@@ -310,8 +313,8 @@ class LIGO_LW(Element):
 	LIGO_LW element.
 	"""
 	tagName = u"LIGO_LW"
-	validchildren = [u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"]
-	validattributes = [u"Name", u"Type"]
+	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
+	validattributes = frozenset([u"Name", u"Type"])
 
 
 class Comment(Element):
@@ -334,8 +337,8 @@ class Param(Element):
 	Param element.
 	"""
 	tagName = u"Param"
-	validchildren = [u"Comment"]
-	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
+	validchildren = frozenset([u"Comment"])
+	validattributes = frozenset([u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"])
 
 	def get_unit(self):
 		"""
@@ -379,8 +382,8 @@ class Table(Element):
 	Table element.
 	"""
 	tagName = u"Table"
-	validchildren = [u"Comment", u"Column", u"Stream"]
-	validattributes = [u"Name", u"Type"]
+	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
+	validattributes = frozenset([u"Name", u"Type"])
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -408,7 +411,7 @@ class Column(Element):
 	Column element.
 	"""
 	tagName = u"Column"
-	validattributes = [u"Name", u"Type", u"Unit"]
+	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
 	def start_tag(self, indent):
 		"""
@@ -438,8 +441,8 @@ class Array(Element):
 	Array element.
 	"""
 	tagName = u"Array"
-	validchildren = [u"Dim", u"Stream"]
-	validattributes = [u"Name", u"Type", u"Unit"]
+	validchildren = frozenset([u"Dim", u"Stream"])
+	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
 	def _verifyChildren(self, i):
 		nstream = 0
@@ -458,7 +461,7 @@ class Dim(Element):
 	Dim element.
 	"""
 	tagName = u"Dim"
-	validattributes = [u"Name", u"Unit", u"Start", u"Scale"]
+	validattributes = frozenset([u"Name", u"Unit", u"Start", u"Scale"])
 
 	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
@@ -474,7 +477,7 @@ class Stream(Element):
 	Stream element.
 	"""
 	tagName = u"Stream"
-	validattributes = [u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"]
+	validattributes = frozenset([u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		if not attrs.has_key(u"Type"):
@@ -491,8 +494,8 @@ class IGWDFrame(Element):
 	IGWDFrame element.
 	"""
 	tagName = u"IGWDFrame"
-	validchildren = [u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"]
-	validattributes = [u"Name"]
+	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
+	validattributes = frozenset([u"Name"])
 
 
 class Detector(Element):
@@ -500,8 +503,8 @@ class Detector(Element):
 	Detector element.
 	"""
 	tagName = u"Detector"
-	validchildren = [u"Comment", u"Param", u"LIGO_LW"]
-	validattributes = [u"Name"]
+	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
+	validattributes = frozenset([u"Name"])
 
 
 class AdcData(Element):
@@ -509,8 +512,8 @@ class AdcData(Element):
 	AdcData element.
 	"""
 	tagName = u"AdcData"
-	validchildren = [u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"]
-	validattributes = [u"Name"]
+	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
+	validattributes = frozenset([u"Name"])
 
 
 class AdcInterval(Element):
@@ -518,8 +521,8 @@ class AdcInterval(Element):
 	AdcInterval element.
 	"""
 	tagName = u"AdcInterval"
-	validchildren = [u"AdcData", u"Comment", u"Time"]
-	validattributes = [u"Name", u"StartTime", u"DeltaT"]
+	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
+	validattributes = frozenset([u"Name", u"StartTime", u"DeltaT"])
 
 
 class Time(Element):
@@ -527,7 +530,7 @@ class Time(Element):
 	Time element.
 	"""
 	tagName = u"Time"
-	validattributes = [u"Name", u"Type"]
+	validattributes = frozenset([u"Name", u"Type"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		if not attrs.has_key(u"Type"):
@@ -550,7 +553,7 @@ class Document(Element):
 	Description of a LIGO LW file.
 	"""
 	tagName = u"Document"
-	validchildren = [u"LIGO_LW"]
+	validchildren = frozenset([u"LIGO_LW"])
 
 	def write(self, file = sys.stdout, xsl_file = None ):
 		"""

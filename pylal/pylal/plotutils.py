@@ -1685,7 +1685,8 @@ class PlotSegmentsPlot(BasicPlot):
             else:
                 self.keys.append(key)
                 self.segdict[key] = segdict[key]
-            self.kwarg_sets.append(kwargs)
+            self.kwarg_sets.append(dict())
+            self.kwarg_sets[-1].update(kwargs)
                 
     def highlight_segment(self, seg, **plot_args):
         """

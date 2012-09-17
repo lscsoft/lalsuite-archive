@@ -1,3 +1,16 @@
+glue (1.42-1) unstable; urgency=low
+
+  * Converted to source format 3.0 (quilt)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 5 Sep 2012 09:20:00 +0200
+
+glue (1.42) unstable; urgency=low
+
+  * New Release of glue with upgrades and bugfixes to segment database
+    infrastructure. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, 4 Sep 2012 11:36:00 -0500
+
 glue (1.41-3) unstable; urgency=low
 
   * Move to simplified rules file

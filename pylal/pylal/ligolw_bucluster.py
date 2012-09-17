@@ -290,7 +290,7 @@ def ligolw_bucluster(
 		if verbose:
 			print >>sys.stderr, "document does not contain a sngl_burst table, skipping ..."
 		return xmldoc, False
-	seg = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce().extent_all()
+	seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 
 	#
 	# Remove all H2 triggers intersecting the frequency band
@@ -328,10 +328,12 @@ def ligolw_bucluster(
 	postfunc(sngl_burst_table, preprocess_output)
 
 	#
-	# Add search summary information
+	# Update instrument list in process table and add search summary
+	# information
 	#
 
-	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(sngl_burst_table))
+	process.set_ifos(seglists.keys())
+	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seglists.extent_all(), outseg = seglists.extent_all(), nevents = len(sngl_burst_table))
 
 	#
 	# Done

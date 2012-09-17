@@ -47,8 +47,22 @@ except NameError:
 # =============================================================================
 #
 
-# Initialize the mangler exactly once
-_mangled_next_id = lsctables.SnglInspiralID_old(0)
+
+class SnglInspiralID_old(object):
+  """
+  Custom row ID thing for sngl_inspiral tables with int_8s event IDs.
+  """
+  column_name = "event_id"
+
+  def __init__(self, n = 0):
+    self.n = n
+
+  def new(self, row):
+    self.n += 1
+    a = self.n // 100000
+    b = self.n % 100000
+    return lsctables.SnglInspiralID(a * 1000000000 + row.get_id_parts()[1] * 100000 + b)
+
 
 def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, non_lsc_tables_ok=False, old_document=False):
   """
@@ -59,13 +73,14 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, no
     files might have event_id collisions (ex: exttrig injections)
   @param verbose: print ligolw_add progress
   """
-  # turn on ID remapping if necessary
-  if mangle_event_id or old_document:
-    next_id_orig = lsctables.SnglInspiralTable.next_id
-    lsctables.SnglInspiralTable.next_id = _mangled_next_id
-  if old_document:
-    event_id_orig = lsctables.SnglInspiralTable.validcolumns["event_id"]
-    lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+  # ligolw_add() no longer supports lalapps_thinca.  files in
+  # lalapps_thinca's native format must be converted to coincs-tables
+  # format using ligolw_thinca_to_coinc before being processed by this
+  # function.  ligolw_add() only allows the mangle_event_id=True and
+  # old_document=False variant of this function to work properly.  this
+  # exception is here to detect calling codes that don't know this yet.
+  if old_document or not mangle_event_id:
+    raise ValueError("obsolete code error:  ReadSnglInspiralFromFiles() has been invoked with mangle_event_id=False and/or old_document=True.  The ligolw_add() library no longer supports lalapps_thinca, a.k.a. old document, format files.  Please convert your documents to coinc-tables format using ligolw_thinca_to_coinc, and re-run this program with the command line option(s) that put it in coinc-tables mode.  Also, please report this error to the CBC group so the program's author can update their code.")
 
   # ligolw_add will merge all tables, which is overkill, but merge time is
   # much less than I/O time.
@@ -75,14 +90,8 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, no
   try:
     snglInspiralTriggers = table.get_table(xmldoc, \
       lsctables.SnglInspiralTable.tableName)
-  except:
+  except ValueError:
     snglInspiralTriggers = None
-
-  # return ID remapping to its normal state (off)
-  if mangle_event_id or old_document:
-    lsctables.SnglInspiralTable.next_id = next_id_orig
-  if old_document:
-    lsctables.SnglInspiralTable.validcolumns["event_id"] = event_id_orig
 
   return snglInspiralTriggers
 

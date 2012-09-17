@@ -1339,7 +1339,7 @@ def get_coincs(table1, table2, dt=1, returnsegs=False, timeshift=0):
 # Get number of coincidences between two tables
 # =============================================================================
 
-def get_number_coincs(table1, table2, dt=1, timeshift=0):
+def get_number_coincs(table1, table2, dt=1, timeshift=0, tabletype='trigger'):
 
   """
     Returns the numbers of entries in table1 whose time is within +-dt of
@@ -1357,8 +1357,14 @@ def get_number_coincs(table1, table2, dt=1, timeshift=0):
 
   # return len(coinctrigs)
 
-  time1 = get_column(table1, 'time')
-  time2 = get_column(table2, 'time')
+  if tabletype == 'trigger':
+    time1 = get_column(table1, 'time')
+    time2 = get_column(table2, 'time')
+  elif tabletype == 'time':
+    time1 = table1
+    time2 = table2
+  else:
+    raise ValueError("Unrecognized table type for coincidence number: %s" % tabletype)
 
   time1.sort()
   time2.sort()
@@ -1376,7 +1382,46 @@ def get_number_coincs(table1, table2, dt=1, timeshift=0):
   return ncoinc
 
 # ==============================================================================
-# Calculate poisson significance of coincidences
+# Calculate poisson significance of time coincidences
+# ==============================================================================
+
+def coinc_significance_times(gwtrigtime, auxtrigtime, window=1, livetime=None):
+
+
+  # get livetime
+  if not livetime:
+    start    = min(gwtrigtime)
+    end      = max(gwtrigtime)
+    livetime = end-start
+
+  # calculate probability of a GW trigger falling within the window
+  gwprob = len(gwtrigtime) * 2.0 * float(window) / float(livetime)
+
+  # calculate mean of Poisson distribution
+  mu = gwprob * len(auxtrigtime)
+
+  # get coincidences
+  ncoinc = get_number_coincs(gwtrigtime, auxtrigtime, dt=window, tabletype='time')
+
+  g = special.gammainc(ncoinc, mu)
+
+  # if no coincidences, set significance to zero
+  if ncoinc<1:
+    significance = 0
+  # if significance would blow up, use other formula (ref. hveto_significance.m)
+  elif g == 0:
+    significance = -ncoinc * math.log10(mu) + \
+                   mu * math.log10(math.exp(1)) +\
+                   special.gammaln(ncoinc + 1) / math.log(10)
+  # otherwise use the standard formula
+  else:
+    significance = -math.log(g, 10)
+  
+  return significance
+
+
+# ==============================================================================
+# Calculate poisson significance of trigger coincidences
 # ==============================================================================
 
 def coinc_significance(gwtriggers, auxtriggers, window=1, livetime=None,\
@@ -2318,9 +2363,14 @@ def loadtxt(fh, usecols=None):
   _comment = re.compile('[#%]')
   _delim   = re.compile('[\t\,\s]+')
   output = []
+  nVals = 0
   for i,line in enumerate(fh):
     if _comment.match(line): continue
     vals = _delim.split(line.rstrip())
+    if nVals>0 and len(vals) != nVals: 
+      print "Warning, line %d of file %s was skipped, uncorrect column number" % (i, fh)
+      continue
+    nVals = len(vals)
     if usecols is not None:
       output.append(tuple(map(float, [vals[j] for j in usecols])))
     else:

@@ -21,7 +21,7 @@
 /*
  * ============================================================================
  *
- *                   glue.ligolw.__ilwd Extension Module
+ *                   glue.ligolw._ilwd Extension Module
  *
  * ============================================================================
  */
@@ -32,7 +32,7 @@
 #include <ilwd.h>
 
 
-#define MODULE_NAME "glue.ligolw.__ilwd"
+#define MODULE_NAME "glue.ligolw._ilwd"
 
 /* Gain access to 64-bit addressing where possible
  * http://www.python.org/dev/peps/pep-0353/#conversion-guidelines */
@@ -454,7 +454,7 @@ PyTypeObject ligolw_ilwdchar_Type = {
  */
 
 
-void init__ilwd(void)
+void init_ilwd(void)
 {
 	/*
 	 * Create the module.
