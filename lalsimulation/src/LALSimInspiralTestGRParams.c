@@ -43,7 +43,7 @@ LALSimInspiralTestGRParam *XLALSimInspiralCreateTestGRParam(
  * parameter already exists, it throws an error.
  */
 int XLALSimInspiralAddTestGRParam(
-        LALSimInspiralTestGRParam **parameter, /**< Linked list of parameters */
+        LALSimInspiralTestGRParam **parameter, /**< Pointer to the head node of the linked list of parameters */
         const char *name, 		/**< Parameter name */
         double value 			/**< Parameter value */
         )

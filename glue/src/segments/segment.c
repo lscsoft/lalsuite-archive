@@ -62,8 +62,20 @@ static int segments_Segment_Check(PyObject *obj)
 PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 {
 	PyObject *new = type->tp_alloc(type, 2);
-	PyTuple_SET_ITEM(new, 0, a);
-	PyTuple_SET_ITEM(new, 1, b);
+	int delta;
+	if(new && PyObject_Cmp(a, b, &delta) >= 0) {
+		if(delta <= 0) {
+			PyTuple_SET_ITEM(new, 0, a);
+			PyTuple_SET_ITEM(new, 1, b);
+		} else {
+			PyTuple_SET_ITEM(new, 0, b);
+			PyTuple_SET_ITEM(new, 1, a);
+		}
+	} else {
+		Py_XDECREF(new);
+		Py_DECREF(a);
+		Py_DECREF(b);
+	}
 	return new;
 }
 
@@ -71,7 +83,6 @@ PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	PyObject *a, *b;
-	int delta;
 
 	if(!PyArg_ParseTuple(args, "OO", &a, &b))
 		if(!PyArg_ParseTuple(args, "(OO)", &a, &b)) {
@@ -82,17 +93,7 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 	Py_INCREF(a);
 	Py_INCREF(b);
 
-	PyErr_Clear();
-	delta = PyObject_Compare(a, b);
-	if(PyErr_Occurred()) {
-		Py_DECREF(a);
-		Py_DECREF(b);
-		return NULL;
-	}
-
-	if(delta <= 0)
-		return segments_Segment_New(type, a, b);
-	return segments_Segment_New(type, b, a);
+	return segments_Segment_New(type, a, b);
 }
 
 
@@ -336,9 +337,7 @@ static PyObject *protract(PyObject *self, PyObject *delta)
 		Py_XDECREF(b);
 		return NULL;
 	}
-	if(PyObject_Compare(a, b) <= 0)
-		return segments_Segment_New(self->ob_type, a, b);
-	return segments_Segment_New(self->ob_type, b, a);
+	return segments_Segment_New(self->ob_type, a, b);
 }
 
 
@@ -351,9 +350,7 @@ static PyObject *contract(PyObject *self, PyObject *delta)
 		Py_XDECREF(b);
 		return NULL;
 	}
-	if(PyObject_Compare(a, b) <= 0)
-		return segments_Segment_New(self->ob_type, a, b);
-	return segments_Segment_New(self->ob_type, b, a);
+	return segments_Segment_New(self->ob_type, a, b);
 }
 
 
