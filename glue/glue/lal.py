@@ -36,6 +36,7 @@ import os
 import re
 import sys
 import urlparse
+import warnings
 
 
 from glue import git_version
@@ -447,7 +448,7 @@ class CacheEntry(object):
 	>>> from glue import segments
 	>>> seglists = segments.segmentlistdict()
 	>>> for cacheentry in cache:
-	...	seglists |= cachenetry.to_segmentlistdict()
+	...	seglists |= cachenetry.segmentlistdict
 	...
 
 	See also:
@@ -603,14 +604,24 @@ class CacheEntry(object):
 		return self._path
 
 	def to_segmentlistdict(self):
+		warnings.warn("glue.lal.CacheEntry.to_segmentlistdict() method is deprecated;  use glue.lal.CacheEntry.segmentlistdict attribute instead", DeprecationWarning)
+		return self.segmentlistdict
+
+	@property
+	def segmentlistdict(self):
 		"""
-		Return a segmentlistdict object describing the instruments
-		and time spanned by this CacheEntry.
+		A segmentlistdict object describing the instruments and
+		time spanned by this CacheEntry.  A new object is
+		constructed each time this attribute is accessed (segments
+		are immutable so there is no reason to try to share a
+		reference to the CacheEntry's internal segment;
+		modifications of one would not be reflected in the other
+		anyway).
 
 		Example:
 
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.to_segmentlistdict()
+		>>> c.segmentlistdict
 		{'H1': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
 		"""
 		# FIXME:  the instrument_set_from_ifos() function in
@@ -625,8 +636,9 @@ class CacheEntry(object):
 			instruments = self.observatory.split("+")
 		else:
 			instruments = [self.observatory]
-		return segments.segmentlistdict([(instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments])
+		return segments.segmentlistdict((instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments)
 
+	@classmethod
 	def from_T050017(cls, url, coltype = LIGOTimeGPS):
 		"""
 		Parse a URL in the style of T050017-00 into a CacheEntry.
@@ -657,7 +669,6 @@ class CacheEntry(object):
 		else:
 			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 		return cls(observatory, description, segment, url)
-	from_T050017 = classmethod(from_T050017)
 
 
 #
@@ -793,7 +804,7 @@ class Cache(list):
 		"""
 		d = segments.segmentlistdict()
 		for entry in self:
-			d |= entry.to_segmentlistdict()
+			d |= entry.segmentlistdict
 		return d
 
 	def sieve(self, ifos=None, description=None, segment=None,
