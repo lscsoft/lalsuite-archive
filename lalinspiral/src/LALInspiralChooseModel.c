@@ -534,6 +534,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
@@ -586,6 +587,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
@@ -638,6 +640,7 @@ LALInspiralChooseModel(
          case EOB:
          case EOBNR:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
@@ -689,6 +692,7 @@ LALInspiralChooseModel(
          case IMRPhenomFB:
          case IMRPhenomFBTest:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ak->vn = ak->vlso = vlso = ak->vlsoP4;
@@ -745,6 +749,7 @@ LALInspiralChooseModel(
          case IMRPhenomFB:
          case IMRPhenomFBTest:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ak->vn = ak->vlso = vlso = ak->vlsoP4;
@@ -802,6 +807,7 @@ LALInspiralChooseModel(
          case IMRPhenomFB:
          case IMRPhenomFBTest:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ak->vn = ak->vlso = vlso = ak->vlsoP6;
@@ -855,6 +861,7 @@ LALInspiralChooseModel(
          case IMRPhenomFB:
          case IMRPhenomFBTest:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ak->vn = ak->vlso = vlso = ak->vlsoP6;
@@ -904,6 +911,7 @@ LALInspiralChooseModel(
          case PadeT1:
          case PadeF1:
          case TaylorEt:
+         case SpinTaylorT4:
          case TaylorT4:
          case TaylorN:
             ABORT(status, LALINSPIRALH_ECHOICE, LALINSPIRALH_MSGECHOICE);
@@ -938,6 +946,7 @@ LALInspiralChooseModel(
    case PhenSpinTaylorRDF:
    case SpinQuadTaylor:
    case TaylorEt:
+   case SpinTaylorT4:
    case TaylorT4:
    case TaylorN:
      ak->flso = pow(ak->vlso,3.)/(LAL_PI * ak->totalmass);

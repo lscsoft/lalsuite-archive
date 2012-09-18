@@ -1146,7 +1146,7 @@ int main( int argc, char *argv[])
             dphis[8]=this_injection.dphi6l;
             dphis[9]=this_injection.dphi7;
             for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
-
+//			lalDebugLevel = 32543;
 			/* INJECTING NON-GR SPIN TAYLOR T4 */
 /*            if (template.approximant==SpinTaylorT4Test) {
 				printf("Using approximant SpinTaylorT4Test (from lalsimulation)");
@@ -2710,7 +2710,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
 			fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
 		}
 		if (dphis[9]!=0.) {
-			fprintf(stderr,"Coefficient psi_9 is not available in IMRPhenomB. Value is set to 0.");
+			fprintf(stderr,"Coefficient psi_9 is not available in IMRPhenomB. Value is set to 0.\n");
 			dphis[9]=0.;
 		}
         LALBBHPhenWaveFreqDomTest(&status, injWaveFD, &template, dphis, 0.0);
