@@ -239,10 +239,16 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   startTimeBefore     = (segs['off'][0]+paddingTime)
   numSegsBeforeBuffer = (segs['buffer'][0] - startTimeBefore)\
                         //trialTime
+  if (segs['buffer'][0] - startTimeBefore) < 0:
+    print "Buffer zone at start is not fully analysed"
+    numSegsBeforeBuffer = 0
   endTimeBefore       = (segs['off'][0]+paddingTime) +\
                         numSegsBeforeBuffer*trialTime
   numSegsAfterBuffer  = ((segs['off'][1]-paddingTime) - segs['buffer'][1])\
                         //trialTime
+  if (( segs['off'][1]-paddingTime ) - segs['buffer'][1] ) < 0:
+    print "Buffer zone at end is not fully analysed"
+    numSegsAfterBuffer = 0
   startTimeAfter      = segs['buffer'][1]
   endTimeAfter        = startTimeAfter + numSegsAfterBuffer*trialTime
   numSegs             = numSegsBeforeBuffer + numSegsAfterBuffer
@@ -264,16 +270,33 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   #
   # construct trials
   #
-
-  # Construct trials before buffer
+  
   trials = segments.segmentlist()
-  for i in range(numSegsBeforeBuffer):
-    trials.append(segments.segment(startTimeBefore + trialTime*i,\
-                                   startTimeBefore + trialTime*(i+1)))
+
+  # Construct trials before buffer this also sanity checks the above
+  breakLoop = False
+  iterInt = 0
+  while 1:
+    # Check if this trial will overlap buffer
+    if (iterInt + 1)*trialTime + startTimeBefore > segs['buffer'][0]:
+      break
+    # Append trial
+    trials.append( segments.segment(startTimeBefore + trialTime*iterInt,\
+                                    startTimeBefore + trialTime*(iterInt+1)))
+    iterInt += 1
+
   # Construct trials after buffer
-  for i in range(numSegsAfterBuffer):
-    trials.append(segments.segment(startTimeAfter + trialTime*i,\
-                                   startTimeAfter + trialTime*(i+1)))
+
+  breakLoop = False
+  iterInt = 0
+  while 1:
+    # Check if this trial will overlap end time
+    if (iterInt + 1)*trialTime + startTimeAfter > endTimeAfter:
+      break
+    # Append trial
+    trials.append( segments.segment(startTimeAfter + trialTime*iterInt,\
+                                    startTimeAfter + trialTime*(iterInt+1)))
+    iterInt += 1
 
   assert (len(trials) == numSegs)
 
@@ -380,9 +403,11 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       if timeBinVetoMaxBestNR[binNum,trial] > 0:
         numEvents += 1
     quietestFap.append(numEvents/numTrials)
-  open('%s/quiet_fap_vals.txt' % outdir,'w').write('%s\n'\
-                                                   %'\n'.join(map(str,\
-                                                                  quietestFap)))
+
+  quietestFile=open('%s/quiet_fap_vals.txt' % outdir,'w')
+  for val in quietestFap:
+    print >> quietestFile, val
+  quietestFile.close()
 
   #
   # print details of loudest 10 offsouce triggers
@@ -567,6 +592,11 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         loudOnBestNRTrigs[bin[0]] = binTrigs[0]
         loudOnBestNR[bin[0]] = get_bestnr(binTrigs[0], q=chisq_index,\
                                           n=chisq_nhigh,null_thresh=null_thresh) 
+        # If the loudest event has bestNR = 0, there is no event at all!
+        if loudOnBestNR[bin[0]] == 0:
+          loudOnBestNRTrigs[bin[0]] = None
+          loudOnBestNR[bin[0]] = 0 
+
     if verbose: sys.stdout.write("Onsource analysed at %d.\n" % elapsed_time())
   
     file2 = open('%s/loud_numbers.txt' % outdir, 'w')
@@ -610,12 +640,23 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     sites = [ifo[0] for ifo in ifos]
 
-    foundInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])\
-                     .veto(vetoes)
+#    foundInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])\
+#                     .veto(vetoes)
     missedInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missedFile])\
-                     .vetoed(trials)
-    foundTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])\
                      .veto(vetoes)
+#    foundTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])\
+#                     .veto(vetoes)
+  
+    foundInjsNoVeto  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])
+    foundTrigsNVeto = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])
+
+    foundInjs = lsctables.New(lsctables.SimInspiralTable)
+    foundTrigs = lsctables.New(lsctables.MultiInspiralTable)
+
+    for trig,sim in zip(foundTrigsNVeto,foundInjsNoVeto):
+      if sim.get_end() not in vetoes:
+        foundInjs.append(sim)
+        foundTrigs.append(trig)
   
 
     if verbose: sys.stdout.write("Missed/found injections/triggers loaded at "+\
@@ -854,7 +895,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     foundOnBestNRNoMC  = np.zeros([len(massBins), len(distBins)+1])
     
     #
-    # Construct FAP list for all foiund injections
+    # Construct FAP list for all found injections
     #
 
     injFAP = np.zeros(len(foundInjs))
@@ -872,7 +913,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     maxDCCalError = max(calDCErrs.values())
 
-    # Calibration phase uncertainties is neglected
+    # Calibration phase uncertainties are neglected
 
     if verbose: sys.stdout.write("Calibration amplitude uncertainty "+\
                                  "calculated at %d.\n" % elapsed_time())
@@ -932,7 +973,6 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
             numpy.asarray([loudOnBestNR[massBins[massBin(mc)][0]]\
                            for mc in foundTrigMchirp])
         onBestNRCut  = foundTrigBestNR > foundTrigLoudOnBestNR
-        offBestNRCut = foundTrigBestNR > (foundTrigMaxBestNR * glitchCheckFac)
 
         #
         # check whether injection is found for the purposes of exclusion
@@ -940,7 +980,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         #
         # found if more louder than all on source, or louder than
         # missed if not louder than on loudest on source,
-        foundExcl = onBestNRCut & (offBestNRCut | moreSigThanOnSource)
+        foundExcl = onBestNRCut & (moreSigThanOnSource) & \
+                    (foundTrigBestNR != 0)
         # if not missed, doublecheck bestNR against nearby triggers
         nearTest = numpy.zeros((foundExcl).sum()).astype(bool)
         for j,(t,bestNR) in enumerate(zip(foundInjTime[foundExcl],\
@@ -1172,7 +1213,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.legend(['No marginalisation','Marginalised'])
     ax.grid()
     ax.set_ylim([0,1])
-    ax.set_xlim(0, upperDist)
+    ax.set_xlim(0, 2.*upperDist - lowerDist)
     ax.set_title("Efficiency of injection finding using "+\
                   "BestNR as detection statistic")
     ax.set_ylabel("Fraction of injections found louder than loudest background")
@@ -1233,6 +1274,12 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.plot(distPlotVals, (finjs/totalinjs),'r-')
     ax.plot(distPlotVals, redEfficiency, 'm-')
 
+    # Print efficiency curve to file
+    file = open( "%s/efficiency_curve.txt" % outdir, "w" )
+    for i in range(len(distPlotVals)):
+      print >>file, distPlotVals[i],redEfficiency[i]
+    file.close()
+
     ax.errorbar(distPlotVals, (finjsNoMC/totalinjsNoMC),\
                  yerr=[yerr_lowNoMC,yerr_highNoMC], c = 'g')
     ax.errorbar(distPlotVals, (finjs/totalinjs),\
@@ -1243,7 +1290,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     ax.get_legend().get_frame().set_alpha(0.5)
     ax.grid()
     ax.set_ylim([0,1])
-    ax.set_xlim(0, upperDist)
+    ax.set_xlim(0, 2.*upperDist - lowerDist)
     ax.set_title("Efficiency of injection finding using "+\
                  "BestNR as detection statistic")
     ax.set_ylabel("Fraction of injections found louder than "+\
@@ -1268,7 +1315,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     ax.plot([excl_dist],[0.9],'gx')
     ax.set_ylim([0,1])
-    ax.set_xlim(0, upperDist)
+    ax.set_xlim(0, 2.*upperDist - lowerDist)
     fig.savefig('%s/BestNR_on_efficiency.png' % (outdir))
       
     # plot found missed injections
