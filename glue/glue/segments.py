@@ -523,10 +523,7 @@ class segmentlist(list):
 		Return the sum of the durations of all segments in self.
 		Does not require the segmentlist to be coalesced.
 		"""
-		d = 0
-		for seg in self:
-			d += abs(seg)
-		return d
+		return sum(abs(seg) for seg in self)
 
 	def extent(self):
 		"""

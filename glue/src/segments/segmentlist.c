@@ -214,12 +214,7 @@ static PyObject *max(PyObject *a, PyObject *b)
 
 static PyObject *make_segment(PyObject *lo, PyObject *hi)
 {
-	PyObject *seg = segments_Segment_New(&segments_Segment_Type, lo, hi);
-	if(!seg) {
-		Py_DECREF(lo);
-		Py_DECREF(hi);
-	}
-	return seg;
+	return segments_Segment_New(&segments_Segment_Type, lo, hi);
 }
 
 
@@ -256,18 +251,14 @@ static PyListObject *segments_SegmentList_New(PyTypeObject *type, PyObject *sequ
 
 static PyObject *__abs__(PyObject *self)
 {
-	Py_ssize_t n = PyList_GET_SIZE(self);
 	Py_ssize_t i;
 	PyObject *abs;
-
-	if(n < 0)
-		return NULL;
 
 	abs = PyInt_FromLong(0);
 	if(!abs)
 		return NULL;
 
-	for(i = 0; i < n; i++) {
+	for(i = 0; i < PyList_GET_SIZE(self); i++) {
 		PyObject *seg, *segsize, *newabs;
 		seg = PyList_GET_ITEM(self, i);
 		if(!seg) {
