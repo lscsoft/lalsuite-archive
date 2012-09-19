@@ -354,6 +354,18 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   timeBinVetoMaxBestNR   = np.zeros([len(massBins)+1, numTrials])
   timeBinVetoMaxSNRUncut = np.zeros([len(massBins)+1, numTrials])
 
+  # Check for triggers outside of mass bins if verbose
+  if verbose:
+    inMassBins = np.zeros(len(trigs)).astype(np.bool) 
+    for i,bin in enumerate(massBins):
+      massCut = (bin[0] <= trigAllMchirp) & (trigAllMchirp < bin[1])
+      inMassBins = inMassBins | massCut
+    inMassBins = ~inMassBins
+    if inMassBins.any():
+      sys.stderr.write("Triggers outside of the given mass bins are present.\n")
+      sys.stderr.write("These %d triggers will be vetoed.\n" \
+                       %(len(inMassBins[inMassBins])))
+
   # separate triggers by mass bin and record maxima for each trial
   for i,bin in enumerate(massBins):
     # construct massCut
@@ -440,8 +452,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
           sys.stderr.write("ERROR: Mass bins appear to overlap.\n")
       binNum += 1
     if not trigBin:
-      sys.stderr.write("ERROR: No mass bins match trigger with mchirp %s\n"\
-                       % chirpMass)
+      continue
 
     # Get trial of trigger, triggers with 'No trial' should have been removed!
     chunkNum = numSegs
@@ -752,11 +763,17 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     gIFARTrig         = np.asarray(foundTrigs)[nonzeroFAP]
     gIFARInj          = np.asarray(foundInjs)[nonzeroFAP]
-    gIFARStat = np.array([(timeBinVetoMaxBestNR[massBin(mc)] > bestNR).sum()\
-                          for mc,bestNR in\
-                          zip(foundTrigMchirp[nonzeroFAP], gIFARDetStat)]) /\
-                numTrials
 
+    gIFARStat         = np.zeros([len(gIFARDetStat)])
+    for ix, ( mc, bestNR ) in \
+                enumerate(zip(foundTrigMchirp[nonzeroFAP], gIFARDetStat)):
+      try:
+        gIFARStat[ix] = (timeBinVetoMaxBestNR[massBin(mc)] > bestNR).sum()
+      except IndexError:
+        # Trigger is outside of mass bin
+        gIFARStat[ix] = numTrials
+    gIFARStat = gIFARStat / numTrials
+          
     gIFARm1           = foundInjm1[nonzeroFAP]
     gIFARm2           = foundInjm2[nonzeroFAP]
     gIFARRecm1        = foundTrigm1[nonzeroFAP]
@@ -963,15 +980,29 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       foundInjMassCut  = (bin[0] <= foundInjMchirp)  &(foundInjMchirp < bin[1])
       foundTrigMassCut = (bin[0] <= foundTrigMchirp) &(foundTrigMchirp < bin[1])
       missedInjMassCut = (bin[0] <= missedInjMchirp) &(missedInjMchirp < bin[1])
-      foundTrigMaxBestNR = numpy.asarray([maxBestNR[massBins[massBin(mc)][0]]\
-                                          for mc in foundTrigMchirp])
+
+      foundTrigMaxBestNR = np.zeros([len(foundTrigMchirp)])
+      for ix, mc in \
+                  enumerate(foundTrigMchirp):
+        try:
+          foundTrigMaxBestNR[ix] = maxBestNR[massBins[massBin(mc)][0]]
+        except IndexError:
+          # Trigger is outside of mass bin
+          foundTrigMaxBestNR[ix] = 0
+
       maxBestNRCut = (foundTrigBestNR > foundTrigMaxBestNR)
 
       # check louder than on source in this bin
       if onsourceFile:
-        foundTrigLoudOnBestNR =\
-            numpy.asarray([loudOnBestNR[massBins[massBin(mc)][0]]\
-                           for mc in foundTrigMchirp])
+        foundTrigLoudOnBestNR = np.zeros([len(foundTrigMchirp)])
+        for ix, mc in \
+                    enumerate(foundTrigMchirp):
+          try:
+            foundTrigLoudOnBestNR[ix] = loudOnBestNR[massBins[massBin(mc)][0]]
+          except IndexError:
+            # Trigger is outside of mass bin
+            foundTrigLoudOnBestNR[ix] = 0
+
         onBestNRCut  = foundTrigBestNR > foundTrigLoudOnBestNR
 
         #
