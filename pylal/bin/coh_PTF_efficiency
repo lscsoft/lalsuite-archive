@@ -85,7 +85,9 @@ def parse_command_line():
   fopts.add_option("-o", "--output-path", action="store", type="string",\
                    default=os.getcwd(), help="Output path for plots")
   fopts.add_option("-l", "--veto-directory",action="store",type="string",\
-                   default=None, help="The location of the CAT2/3 veto files")
+                   default=None, help="The location of the CATX veto files")
+  fopts.add_option("-b", "--veto-category",action="store",type="int",\
+                   default=None, help="Apply vetoes up to this level inclusive")
 
   # add signal based veto options
   sigopts = optparse.OptionGroup(parser, "Signal options",\
@@ -202,6 +204,9 @@ def parse_command_line():
   else:
     parser.error("must provide both found and missed file if running "+\
                   "injections")
+
+  if opts.veto_directory and not opts.veto_category:
+    parser.error("Must supply veto category if applying vetoes")
   
   return opts, args
 
@@ -226,6 +231,22 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   # set output directory
   if not os.path.isdir(outdir):
     os.makedirs(outdir)
+
+  #
+  # load triggers 
+  #
+
+  xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
+  trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+  searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+
+
+  ifos = sorted(map(str,searchSumm[0].get_ifos()))
+  ifoAtt = {'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t'}
+
+  if verbose: sys.stdout.write("%d triggers loaded at %d.\n"\
+                               % (len(trigs), elapsed_time()))
+
 
   #
   # get segments
@@ -261,10 +282,11 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   vetoes = segments.segmentlist()
   if vetoFiles:
     for file in vetoFiles:
-      # This returns a coalesced list of the vetoes
-      tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
-      for entry in tmpVetoSegs:
-        vetoes.append(entry)
+      if os.path.basename(file)[:2] in ifos:
+        # This returns a coalesced list of the vetoes
+        tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
+        for entry in tmpVetoSegs:
+          vetoes.append(entry)
   vetoes.coalesce()
 
   #
@@ -308,27 +330,12 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   if verbose: sys.stdout.write("Segments loaded and %d trials generated at %d."\
                                "\n" % (numTrials, elapsed_time()))
 
-  #
-  # load triggers 
-  #
-
-  xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
-  trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
-  searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-
-  if verbose: sys.stdout.write("%d triggers loaded at %d.\n"\
-                               % (len(trigs), elapsed_time()))
-
-  
   # remove vetoed trials
   trigs = trigs.vetoed(goodtrials)
 
   #
   # extract variables
   #
-
-  ifos = sorted(map(str,searchSumm[0].get_ifos()))
-  ifoAtt = {'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t'}
 
   # get basics
   trigAllTime   = np.asarray(trigs.get_end()).astype(float)
@@ -1583,7 +1590,9 @@ if __name__=='__main__':
   numBins = opts.num_bins
   vetoFiles = []
   if opts.veto_directory:
-    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
+     vetoString = ','.join([str(i) for i in range(2,opts.veto_category+1)])
+     vetoFiles = glob.glob(opts.veto_directory +'/*CAT[%s]*.xml' %(vetoString))
+
  
   massBins = map(lambda p: map(float, p.split(',')), opts.mass_bins.split(';'))
   numMCInjs = opts.num_mc_injections
