@@ -181,7 +181,10 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     if verbose:
       sys.stdout.write("\nLoading injections...\n")
     xmldoc = utils.load_filename(injFile, gz=injFile.endswith("gz"))
-    injs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    tmp = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    injs = lsctables.New(lsctables.MultiInspiralTable,\
+                        columns=lsctables.MultiInspiralTable.loadcolumns)
+    injs.extend(t for t in tmp if t.get_end() not in vetoes)
     if verbose:
       sys.stdout.write("%d injections found at %d.\n"\
                        % (len(injs), elapsed_time()))
