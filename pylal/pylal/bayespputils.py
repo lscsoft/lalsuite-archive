@@ -2634,12 +2634,15 @@ def histogram2D(posterior,greedy2Params,confidence_levels):
     confidence_levels.sort()
     Hsum=0
     Hlasts=[]
+    idxes=np.argsort(temp)
+    j=len(idxes)-1
     for cl in confidence_levels:
         while float(Hsum/np.sum(H))<cl:
-            ind = np.argsort(temp)
-            max_i=ind[-1:]
+            #ind = np.argsort(temp)
+            max_i=idxes[j]
+            j-=1
             val = temp[max_i]
-            Hlast=val[0]
+            Hlast=val
             Hsum+=val
             temp[max_i]=0
         Hlasts.append(Hlast)
@@ -2787,12 +2790,15 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         confidence_levels.sort()
         Hsum=0
         Hlasts=[]
+        idxes=np.argsort(temp)
+        j=len(idxes)-1
         for cl in confidence_levels:
             while float(Hsum/np.sum(H))<cl:
-                ind = np.argsort(temp)
-                max_i=ind[-1:]
+                #ind = np.argsort(temp)
+                max_i=idxes[j]
+                j-=1
                 val = temp[max_i]
-                Hlast=val[0]
+                Hlast=val
                 Hsum+=val
                 temp[max_i]=0
             Hlasts.append(Hlast)
@@ -2930,10 +2936,13 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     Hsum=0
     Hsum_actual=np.sum(H)
-
+    
+    idxes=np.argsort(temp)
+    j=len(idxes)-1
     while Hsum<Hsum_actual:
-        ind = np.argsort(temp)
-        max_i=ind[-1:]
+        #ind = np.argsort(temp)
+        max_i=idxes[j]
+        j-=1
         val = temp[max_i]
         Hsum+=int(val)
         temp[max_i]=0
