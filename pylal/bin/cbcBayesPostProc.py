@@ -614,11 +614,10 @@ def cbcBayesPostProc(
 
     for par_name in oneDMenu:
         par_name=par_name.lower()
-        print "Binning %s to determine confidence levels ..."%par_name
         try:
             pos[par_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par_name
+            #print "No input chain for %s, skipping binning."%par_name
             continue
         try:
             par_bin=GreedyRes[par_name]
@@ -626,6 +625,7 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping binning."%par_name
             continue
 
+        #print "Binning %s to determine confidence levels ..."%par_name
         binParams={par_name:par_bin}
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
@@ -823,16 +823,15 @@ def cbcBayesPostProc(
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
-        print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         try:
             pos[par1_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par1_name
+            #print "No input chain for %s, skipping binning."%par1_name
             continue
         try:
             pos[par2_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par2_name
+            #print "No input chain for %s, skipping binning."%par2_name
             continue
         #Bin sizes
         try:
@@ -846,6 +845,7 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping %s/%s binning."%(par2_name,par1_name,par2_name)
             continue
 
+        #print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         #Form greedy binning input structure
         greedy2Params={par1_name:par1_bin,par2_name:par2_bin}
 
