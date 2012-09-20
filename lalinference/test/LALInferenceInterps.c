@@ -1365,8 +1365,14 @@ static int compute_overlap_dewhitened_waveform(struct twod_waveform_interpolant_
                         eta = gsl_vector_get(etas_interps, j);
                         mc = gsl_vector_get(mchirps_interps, i);						
 			patch_index = index_into_patch(manifold, mc, eta);
-			interpolate_waveform_from_mchirp_and_eta(&manifold->interp_arrays[patch_index], h_t, mc, eta);
- 
+			clock_t begin, end;
+                        double time_spent;
+                        begin = clock();
+                        interpolate_waveform_from_mchirp_and_eta(&manifold->interp_arrays[patch_index], h_t, mc, eta);
+                        end = clock();
+                        time_spent = (double)(end - begin) / CLOCKS_PER_SEC; 
+			fprintf(stderr, "av time t = %f", time_spent);
+			exit(0);
 			m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
