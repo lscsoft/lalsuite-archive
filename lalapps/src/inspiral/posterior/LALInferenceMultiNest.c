@@ -96,6 +96,13 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context
 
 void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context)
 {
+	/* Write evidence to file for use by post-processing */
+	char outfile[100];
+	strcpy(outfile,(char *)context);
+	strcat(outfile,"evidence.dat");
+	FILE *fileout=fopen(outfile,"w");
+	fprintf(fileout,"%g\n",*logZ);
+	fclose(fileout);
 }
 
 /* MultiNestAlgorithm implements the MultiNest algorithm*/
@@ -186,7 +193,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int initMPI = 0;
 	double logZero = -DBL_MAX;
 	int maxiter = 0;
-	void *context = 0;
+	void *context = (void *)outfilestr;
 
 
 	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
