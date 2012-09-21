@@ -3641,14 +3641,22 @@ class PEOutputParser(object):
         return header,flines
 
 
-    def _common_to_pos(self,infile,delimiter=None):
+    def _common_to_pos(self,infile,info=[None,None]):
         """
         Parse a file in the 'common format' and return an array of posterior
         samples and list of parameter names. Will apply inverse functions to
         columns with names containing sin,cos,log.
         """
+        
+        [headerfile,delimiter]=info
 
-        formatstr=infile.readline().lstrip()
+        if headerfile==None:
+        	formatstr=infile.readline().lstrip()
+        else:
+        	hf=open(headerfile,'r')
+        	formatstr=hf.readline().lstrip()
+        	hf.close()
+        
         formatstr=formatstr.replace('#','')
         formatstr=formatstr.replace('"','')
 
