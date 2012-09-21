@@ -1010,7 +1010,7 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     connection.cursor().executescript(sqlscript)
 
 
-def get_process_info(connection, opts)
+def get_process_info(connection, opts):
     """
     Collect up needed information from the process table to clean up the 
     time_slide and simulation tables in dbsimplify.
@@ -1070,7 +1070,7 @@ def get_process_info(connection, opts)
     if opts.debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-def simplify_proc_tbls(connection, opts)
+def simplify_proc_tbls(connection, opts):
     """
     Cleaning up the process & process_params tables of duplicate info related
     to the time-slide and simulation tables.
@@ -1195,7 +1195,7 @@ def clean_experiment_tables(connection, verbose = False):
         """
     connection.cursor().executescript(sqlscript)
 
-def simplify_expr_tbls(connection, opts)
+def simplify_expr_tbls(connection, opts):
     """
     Cleaning up the experiment, experiment_summary, and experiment_map tables
     by removing duplicate rows and remapping events to the appropriate
@@ -1241,6 +1241,59 @@ def simplify_expr_tbls(connection, opts)
             FROM _eidmap_
             WHERE old_eid != new_eid);
     
+    -- update the experiment_ids in the experiment summary table
+    CREATE INDEX em_old_index ON _eidmap_ (old_eid);
+    UPDATE experiment_summary
+        SET experiment_id = (
+            SELECT new_eid 
+            FROM _eidmap_
+            WHERE experiment_summary.experiment_id == old_eid);
+    
+    DROP INDEX em_old_index;
+
+    -- experiment summary clean up
+    
+    -- create a table to map esids to be deleted to esids to be saved
+    CREATE TEMP TABLE expr_summ_info AS
+        SELECT
+            expr_summ.experiment_summ_id AS esid,
+            concat_5cols(expr_summ.experiment_id, expr_summ.time_slide_id, 
+                expr_summ.veto_def_name, expr_summ.datatype, expr_summ.sim_proc_id) AS info
+        FROM experiment_summary AS expr_summ;
+    
+    CREATE TEMP TABLE _esidmap_ AS
+        SELECT
+            old_expsumm.esid AS old_esid,
+            MIN(new_expsumm.esid) AS new_esid
+        FROM
+            expr_summ_info AS old_expsumm
+            JOIN expr_summ_info AS new_expsumm ON (
+                old_expsumm.info == new_expsumm.info)
+        GROUP BY old_esid;
+
+    DROP INDEX es_etvds_index;
+    CREATE INDEX esidmap_index on _esidmap_ (old_esid, new_esid);
+    
+    -- sum durations and nevents
+    CREATE TEMP TABLE sum_dur_nevents AS
+        SELECT
+            _esidmap_.new_esid AS esid, 
+            SUM(experiment_summary.duration) AS sum_dur, 
+            SUM(experiment_summary.nevents) AS sum_nevents
+        FROM _esidmap_
+            JOIN experiment_summary ON (
+                _esidmap_.old_esid == experiment_summary.experiment_summ_id)
+        GROUP BY esid;
+
+    CREATE INDEX sdn_esid_index ON sum_dur_nevents (esid);
+    
+    -- delete the old ids from the experiment_summary table
+    DELETE FROM experiment_summary
+        WHERE experiment_summ_id IN (
+            SELECT old_esid
+            FROM _esidmap_
+            WHERE old_esid != new_esid);
+    
     -- update the durations and the nevents
     UPDATE experiment_summary
         SET duration = (
@@ -1253,7 +1306,7 @@ def simplify_expr_tbls(connection, opts)
             WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id);
     
     DROP INDEX sdn_esid_index;
-    
+
     -- update the experiment_map table
     UPDATE experiment_map
         SET experiment_summ_id = (
@@ -1482,7 +1535,7 @@ def apply_inclusion_rules_to_coinc_table( connection, coinc_table, exclude_coinc
             clean_coinc_event_map = True, clean_mapped_tables = True )
 
 
-def simplify_coincdef_tbl(connection, opts)
+def simplify_coincdef_tbl(connection, opts):
     """
     Cleaning up the coinc_definer table  
 
@@ -1741,7 +1794,7 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
     connection.cursor().executescript(sqlscript)
 
 
-def simplify_sim_tbls(connection, opts, programs)
+def simplify_sim_tbls(connection, opts, programs):
     """
     Cleaning up the simulation tables as well as the associated
     entries in the process & process_params tables
@@ -1831,7 +1884,7 @@ class segdict_from_segment:
         return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
 
-def simplify_segments_tbls(connection, opts, programs)
+def simplify_segments_tbls(connection, opts, programs):
     """
     Cleaning up the segments tables as well as the associated
     entries in the process & process_params tables
@@ -1870,15 +1923,6 @@ def simplify_segments_tbls(connection, opts, programs)
             FROM segments_tbl
             GROUP BY ifo, cat_vers, times);
     
-    DELETE FROM process
-        WHERE
-            process_id NOT IN (SELECT proc_id FROM segments_tbl)
-            AND program == :1 ;
-    DELETE FROM process_params
-        WHERE
-            process_id NOT IN (SELECT proc_id FROM segments_tbl)
-            AND program == :1 ;
-    
     DELETE FROM segment 
         WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
     DELETE FROM segment_definer 
@@ -1886,13 +1930,21 @@ def simplify_segments_tbls(connection, opts, programs)
     DELETE FROM segment_summary
         WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
     
-    DROP TABLE segments_tbl;
     """
+    # add the queries to remove duplicate rows in the process tables
+    for table in ['process', 'process_params']:
+        sqlscript += ''.join([ """
+            DELETE FROM """, table, """
+            WHERE
+                process_id NOT IN (SELECT proc_id FROM segments_tbl)
+                AND program == \"""", str(dqsegs_program[0]), """\";"""])
+    sqlscript += "DROP TABLE segments_tbl;"
+
     if opts.debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript , dqsegs_program )
+    connection.cursor().executescript( sqlscript )
     if opts.debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -1968,7 +2020,7 @@ def get_instrument_sets_and_time_slide_ids( connection ):
     return instrument_set_time_slide_ids
 
 
-def simplify_timeslide_tbl(connection, opts)
+def simplify_timeslide_tbl(connection, opts):
     """
     Cleaning up the veto_definer table as well as the associated
     entries in the process & process_params tables  
@@ -2055,7 +2107,7 @@ def simplify_timeslide_tbl(connection, opts)
 
 # Following utilities are specific to the veto_definer table
 
-def simplify_vetodef_tbl(connection, opts)
+def simplify_vetodef_tbl(connection, opts):
     """
     Cleaning up the veto_definer table as well as the associated
     entries in the process & process_params tables  
