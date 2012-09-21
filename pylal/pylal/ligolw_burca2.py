@@ -117,7 +117,7 @@ class interp2d(interpolate.interp2d):
 	# FIXME:  my use of scipy's 2D interpolator is busted.  remove this
 	# when it's fixed.  we have problems with bin centres at +/- inf
 	def __call__(self, x, y):
-		return (self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)],)
+		return self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)]
 
 
 # starting from Bayes' theorem:
