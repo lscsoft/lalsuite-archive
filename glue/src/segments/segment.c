@@ -73,6 +73,7 @@ PyObject *segments_Segment_New(PyTypeObject *type, PyObject *a, PyObject *b)
 		}
 	} else {
 		Py_XDECREF(new);
+		new = NULL;
 		Py_DECREF(a);
 		Py_DECREF(b);
 	}
@@ -84,11 +85,13 @@ static PyObject *__new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	PyObject *a, *b;
 
-	if(!PyArg_ParseTuple(args, "OO", &a, &b))
+	if(!PyArg_ParseTuple(args, "OO", &a, &b)) {
+		PyErr_Clear();
 		if(!PyArg_ParseTuple(args, "(OO)", &a, &b)) {
 			PyErr_SetString(PyExc_TypeError, "__new__() takes 2 arguments, or 1 arguments when it is a sequence of length 2");
 			return NULL;
 		}
+	}
 
 	Py_INCREF(a);
 	Py_INCREF(b);

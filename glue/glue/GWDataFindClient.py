@@ -183,7 +183,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         # verify urltype is what we want
         cache = lal.Cache(e for e in\
                           map(lal.CacheEntry.from_T050017, urllist)\
-                          if not urltype or e.scheme() == urltype)
+                          if not urltype or e.scheme == urltype)
         return cache
 
     def find_latest(self, site, frametype, urltype=None, on_missing="warn"):

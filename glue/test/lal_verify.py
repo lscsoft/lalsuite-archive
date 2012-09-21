@@ -1,7 +1,10 @@
+import doctest
+import filecmp
+import os
 import random
 import sys
-from glue.lal import *
 import unittest
+from glue import lal
 
 
 #
@@ -9,15 +12,24 @@ import unittest
 #
 
 def maxLIGOTimeGPS():
-	return LIGOTimeGPS(2**32 - 1, 999999999)
+	return lal.LIGOTimeGPS(2**32 - 1, 999999999)
 
 def randomLIGOTimeGPS():
-	return LIGOTimeGPS(random.randint(-100000000, +100000000), random.randint(0, 999999999))
+	return lal.LIGOTimeGPS(random.randint(-100000000, +100000000), random.randint(0, 999999999))
+
+
+class test_docstrings(unittest.TestCase):
+	def test(self):
+		doctest.testmod(lal)
+		cache_rw_is_identity = filecmp.cmp("874000000-20000.cache", "874000000-20000.cache.new")
+		if cache_rw_is_identity:
+			os.remove("874000000-20000.cache.new")
+		self.assertEqual(True, cache_rw_is_identity)
 
 
 class test_LIGOTimeGPS(unittest.TestCase):
 	def test__init__(self):
-		correct = LIGOTimeGPS(100, 500000000)
+		correct = lal.LIGOTimeGPS(100, 500000000)
 		tests = [
 			(100.5,),
 			(100.500000000,),
@@ -46,38 +58,38 @@ class test_LIGOTimeGPS(unittest.TestCase):
 		]
 		for num, test in enumerate(tests):
 			try:
-				self.assertEqual(correct, LIGOTimeGPS(*test))
+				self.assertEqual(correct, lal.LIGOTimeGPS(*test))
 			except AssertionError, e:
 				raise AssertionError, "Test %d failed: " % (num) + str(e)
 
 	def test__float__(self):
-		self.assertEqual(100.5, float(LIGOTimeGPS(100.5)))
+		self.assertEqual(100.5, float(lal.LIGOTimeGPS(100.5)))
 
 	def test__int__(self):
-		self.assertEqual(100, int(LIGOTimeGPS(100.1)))
-		self.assertEqual(100, int(LIGOTimeGPS(100.9)))
+		self.assertEqual(100, int(lal.LIGOTimeGPS(100.1)))
+		self.assertEqual(100, int(lal.LIGOTimeGPS(100.9)))
 
 	def testns(self):
-		self.assertEqual(100500000000, LIGOTimeGPS(100.5).ns())
+		self.assertEqual(100500000000, lal.LIGOTimeGPS(100.5).ns())
 
 	def test__nonzero__(self):
-		self.assertEqual(True, bool(LIGOTimeGPS(100.5)))
-		self.assertEqual(False, bool(LIGOTimeGPS(0)))
+		self.assertEqual(True, bool(lal.LIGOTimeGPS(100.5)))
+		self.assertEqual(False, bool(lal.LIGOTimeGPS(0)))
 
 	def test__add__(self):
-		self.assertEqual(LIGOTimeGPS(110.5), LIGOTimeGPS(100.5) + 10)
-		self.assertEqual(LIGOTimeGPS(110.5), LIGOTimeGPS(100.5) + LIGOTimeGPS(10))
+		self.assertEqual(lal.LIGOTimeGPS(110.5), lal.LIGOTimeGPS(100.5) + 10)
+		self.assertEqual(lal.LIGOTimeGPS(110.5), lal.LIGOTimeGPS(100.5) + lal.LIGOTimeGPS(10))
 
 	def test__mul__(self):
-		self.assertEqual(LIGOTimeGPS(10), LIGOTimeGPS(5) * 2)
-		self.assertEqual(LIGOTimeGPS(10), LIGOTimeGPS(20) * 0.5)
+		self.assertEqual(lal.LIGOTimeGPS(10), lal.LIGOTimeGPS(5) * 2)
+		self.assertEqual(lal.LIGOTimeGPS(10), lal.LIGOTimeGPS(20) * 0.5)
 
 	def test__div__(self):
-		self.assertEqual(LIGOTimeGPS(10), LIGOTimeGPS(20) / 2)
-		self.assertEqual(LIGOTimeGPS(10), LIGOTimeGPS(5) / .5)
+		self.assertEqual(lal.LIGOTimeGPS(10), lal.LIGOTimeGPS(20) / 2)
+		self.assertEqual(lal.LIGOTimeGPS(10), lal.LIGOTimeGPS(5) / .5)
 
 	def test__mod__(self):
-		self.assertEqual(LIGOTimeGPS(3), LIGOTimeGPS(13) % 5.0)
+		self.assertEqual(lal.LIGOTimeGPS(3), lal.LIGOTimeGPS(13) % 5.0)
 
 	def test_pylal_comparison(self):
 		try:
@@ -87,8 +99,8 @@ class test_LIGOTimeGPS(unittest.TestCase):
 			return
 
 		operators = {
-			"add": (LIGOTimeGPS.__add__, pylalLIGOTimeGPS.__add__),
-			"sub": (LIGOTimeGPS.__sub__, pylalLIGOTimeGPS.__sub__)
+			"add": (lal.LIGOTimeGPS.__add__, pylalLIGOTimeGPS.__add__),
+			"sub": (lal.LIGOTimeGPS.__sub__, pylalLIGOTimeGPS.__sub__)
 		}
 
 		for i in xrange(1000000):
@@ -103,9 +115,9 @@ class test_LIGOTimeGPS(unittest.TestCase):
 
 		# FIXME:  div and mod tests fail, fix then enable
 		operators = {
-			"mul": (LIGOTimeGPS.__mul__, pylalLIGOTimeGPS.__mul__),
-			#"div": (LIGOTimeGPS.__div__, pylalLIGOTimeGPS.__div__)#,
-			#"mod": (LIGOTimeGPS.__mod__, pylalLIGOTimeGPS.__mod__)
+			"mul": (lal.LIGOTimeGPS.__mul__, pylalLIGOTimeGPS.__mul__),
+			#"div": (lal.LIGOTimeGPS.__div__, pylalLIGOTimeGPS.__div__)#,
+			#"mod": (lal.LIGOTimeGPS.__mod__, pylalLIGOTimeGPS.__mod__)
 		}
 
 		for i in xrange(10000):
@@ -125,7 +137,9 @@ class test_LIGOTimeGPS(unittest.TestCase):
 # Construct and run the test suite.
 #
 
+
 suite = unittest.TestSuite()
+suite.addTest(unittest.makeSuite(test_docstrings))
 suite.addTest(unittest.makeSuite(test_LIGOTimeGPS))
 
 sys.exit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())
