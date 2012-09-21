@@ -73,7 +73,7 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 	m1m2_found_below_far = imr_utils.symmetrize_sims(found_below_far, "mass1", "mass2")
 	m1m2_total_injections = imr_utils.symmetrize_sims(total_injections, "mass1", "mass2")
 	dist_m1_m2_bins = imr_utils.guess_distance_mass1_mass2_bins_from_sims(m1m2_total_injections)
-	mass_volume = imr_utils.compute_search_volume_in_bins(m1m2_found_below_far, m1m2_total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function)
+	mass_volume, _unused_errors = imr_utils.compute_search_volume_in_bins(m1m2_found_below_far, m1m2_total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function) #FIXME use errors?
 	# write the volume to disk
 	lw = xmldoc.appendChild(ligolw.LIGO_LW())
 	lw.appendChild(rate.binned_array_to_xml(mass_volume, "mass1_mass2_volume"))
@@ -84,7 +84,7 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 	# Then do spins - this can fail since many runs have spin set to 0.  Trap the error, print the traceback, but move on
 	try:
 		dist_s1_s2_bins = imr_utils.guess_distance_spin1z_spin2z_bins_from_sims(total_injections)
-		spin_volume = imr_utils.compute_search_volume_in_bins(found_below_far, total_injections, dist_s1_s2_bins, imr_utils.sim_to_distance_spin1z_spin2z_bins_function)
+		spin_volume, _unused_errors = imr_utils.compute_search_volume_in_bins(found_below_far, total_injections, dist_s1_s2_bins, imr_utils.sim_to_distance_spin1z_spin2z_bins_function) #FIXME use errors?
 		# write the volume to disk
 		lw = xmldoc.appendChild(ligolw.LIGO_LW())
 		lw.appendChild(rate.binned_array_to_xml(spin_volume, "spin1z_spin2z_volume"))

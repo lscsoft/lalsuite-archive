@@ -78,7 +78,10 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 
   parser.add_option("-l", "--veto-directory",action="store",type="string",\
                     default=None,\
-                    help="The location of the CAT2/3 veto files")
+                    help="The location of the CATX veto files")
+
+  parser.add_option("-b", "--veto-category",action="store",type="int",\
+                   default=None, help="Apply vetoes up to this level inclusive")
 
   parser.add_option( "-M", "--max-chirp-mass", action="store", type="float",\
                      default=8.0,\
@@ -94,6 +97,9 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 
   if not opts.segment_dir:
     parser.error("must provide --segment-dir")
+
+  if opts.veto_directory and not opts.veto_category:
+    parser.error("Must supply veto category if applying vetoes")
 
   return opts, args
 
@@ -122,16 +128,6 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if verbose:
     sys.stdout.write("Loading triggers...\n")
 
-  # Construct veto list
-  vetoes = segments.segmentlist()
-  if vetoFiles:
-    for file in vetoFiles:
-      # This returns a coalesced list of the vetoes
-      tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
-      for entry in tmpVetoSegs:
-        vetoes.append(entry)
-  vetoes.coalesce()
-
   # load file
   xmldoc = utils.load_filename(trigFile, gz=trigFile.endswith("gz"))
   searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
@@ -139,6 +135,17 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # extract IFOS
   ifos = sorted(map(str, searchSumm[0].get_ifos()))
   ifoAtt = { 'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t' } 
+
+  # Construct veto list
+  vetoes = segments.segmentlist()
+  if vetoFiles:
+    for file in vetoFiles:
+      if os.path.basename(file)[:2] in ifos:
+        # This returns a coalesced list of the vetoes
+        tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
+        for entry in tmpVetoSegs:
+          vetoes.append(entry)
+  vetoes.coalesce()
 
   # load triggers
   tmp   = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
@@ -164,7 +171,10 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     if verbose:
       sys.stdout.write("\nLoading injections...\n")
     xmldoc = utils.load_filename(injFile, gz=injFile.endswith("gz"))
-    injs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    tmp = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    injs = lsctables.New(lsctables.MultiInspiralTable,\
+                        columns=lsctables.MultiInspiralTable.loadcolumns)
+    injs.extend(t for t in tmp if t.get_end() not in vetoes)
     if verbose:
       sys.stdout.write("%d injections found at %d.\n"\
                        % (len(injs), elapsed_time()))
@@ -1050,7 +1060,8 @@ if __name__=='__main__':
   nullt     = map(float, opts.null_snr_threshold.split(','))
   vetoFiles = []
   if opts.veto_directory:
-    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[2,3]*.xml')
+    vetoString = ','.join([str(i) for i in range(2,opts.veto_category+1)])
+    vetoFiles = glob.glob(opts.veto_directory +'/*CAT[%s]*.xml' %(vetoString))
 
 
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\

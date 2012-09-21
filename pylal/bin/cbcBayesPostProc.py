@@ -614,11 +614,10 @@ def cbcBayesPostProc(
 
     for par_name in oneDMenu:
         par_name=par_name.lower()
-        print "Binning %s to determine confidence levels ..."%par_name
         try:
             pos[par_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par_name
+            #print "No input chain for %s, skipping binning."%par_name
             continue
         try:
             par_bin=GreedyRes[par_name]
@@ -626,6 +625,7 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping binning."%par_name
             continue
 
+        #print "Binning %s to determine confidence levels ..."%par_name
         binParams={par_name:par_bin}
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
@@ -823,16 +823,15 @@ def cbcBayesPostProc(
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
-        print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         try:
             pos[par1_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par1_name
+            #print "No input chain for %s, skipping binning."%par1_name
             continue
         try:
             pos[par2_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par2_name
+            #print "No input chain for %s, skipping binning."%par2_name
             continue
         #Bin sizes
         try:
@@ -846,6 +845,7 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping %s/%s binning."%(par2_name,par1_name,par2_name)
             continue
 
+        #print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         #Form greedy binning input structure
         greedy2Params={par1_name:par1_bin,par2_name:par2_bin}
 
@@ -884,7 +884,7 @@ def cbcBayesPostProc(
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
-        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png',',pdf'))
+        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
@@ -1109,20 +1109,18 @@ if __name__=='__main__':
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
     tidalParams=['lambda1','lambda2']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams
+    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
-    for ifo1 in ifos_menu:
-        for ifo2 in ifos_menu:
-            if ifo1==ifo2: continue
-            oneDMenu.append(ifo1+ifo2+'_delay')
+    from itertools import combinations
+    for ifo1,ifo2 in combinations(ifos_menu,2):
+      oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
     if not opts.no2D:
-        for mp1 in massParams:
-            for mp2 in massParams:
-                if not (mp1 == mp2):
-                    twoDGreedyMenu.append([mp1, mp2])
+        for mp1,mp2 in combinations(massParams,2):
+          twoDGreedyMenu.append([mp1, mp2])
         for mp in massParams:
             for d in distParams:
                 twoDGreedyMenu.append([mp,d])
@@ -1152,10 +1150,8 @@ if __name__=='__main__':
             for sp2 in skyParams:
                 if not (sp1 == sp2):
                     twoDGreedyMenu.append([sp1, sp2])
-        for sp1 in spinParams:
-            for sp2 in spinParams:
-                if not (sp1 == sp2):
-                    twoDGreedyMenu.append([sp1, sp2])
+        for sp1,sp2 in combinations(spinParams,2):
+          twoDGreedyMenu.append([sp1, sp2])
         for mp in massParams:
              for tp in tidalParams:
                  if not (mp == tp):
@@ -1174,14 +1170,10 @@ if __name__=='__main__':
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
-        for dt1 in ['h1_end_time','l1_end_time','v1_end_time']:
-            for dt2 in ['h1_end_time','l1_end_time','v1_end_time']:
-                if dt1!=dt2:
-                    twoDGreedyMenu.append([dt1,dt2])
-        for dt1 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
-            for dt2 in ['h1l1_delay','l1v1_delay','h1v1_delay']:
-                if dt1!=dt2:
-                    twoDGreedyMenu.append([dt1,dt2])
+        for dt1,dt2 in combinations(['h1_end_time','l1_end_time','v1_end_time'],2):
+          twoDGreedyMenu.append([dt1,dt2])
+        for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
+          twoDGreedyMenu.append([dt1,dt2])
     for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
         greedyBinSizes[param]=0.01
     #Confidence levels
