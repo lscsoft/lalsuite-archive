@@ -116,7 +116,9 @@ def cbcBayesPostProc(
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=None,
                         #List of meanVector csv files used, one csv file for each covariance matrix
-                        meanVectors=None
+                        meanVectors=None,
+                        #header file
+                        header=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -170,8 +172,8 @@ def cbcBayesPostProc(
         votfile=thefile.read()
     else:
         peparser=bppu.PEOutputParser('common')
-        commonResultsObj=peparser.parse(open(data[0],'r'))
-
+        commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
+    
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
     if injfile:
@@ -1061,6 +1063,7 @@ if __name__=='__main__':
     parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
 
     parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
+    parser.add_option("--header",action="store",default=None,help="Optional file containing the header line for posterior samples",type="string")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
     parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
@@ -1217,6 +1220,8 @@ if __name__=='__main__':
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=opts.covarianceMatrices,
                         #List of meanVector csv files used, one csv file for each covariance matrix
-                        meanVectors=opts.meanVectors
+                        meanVectors=opts.meanVectors,
+                        #header file for parameter names in posterior samples
+                        header=opts.header
                     )
 #

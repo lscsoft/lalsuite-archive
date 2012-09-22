@@ -117,7 +117,7 @@ class interp2d(interpolate.interp2d):
 	# FIXME:  my use of scipy's 2D interpolator is busted.  remove this
 	# when it's fixed.  we have problems with bin centres at +/- inf
 	def __call__(self, x, y):
-		return (self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)],)
+		return self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)]
 
 
 # starting from Bayes' theorem:
@@ -204,8 +204,8 @@ class Likelihood(object):
 		P_bak = 1.0
 		P_inj = 1.0
 		for name, value in sorted(params.items()):
-			P_bak *= self.background_rates[name](*value)[0]
-			P_inj *= self.injection_rates[name](*value)[0]
+			P_bak *= float(self.background_rates[name](*value))
+			P_inj *= float(self.injection_rates[name](*value))
 		return P_bak, P_inj
 
 	def __call__(self, params):
