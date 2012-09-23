@@ -51,7 +51,7 @@ from matplotlib import use
 use('Agg')
 from matplotlib import pyplot
 import numpy
-
+from math import floor
 
 ##############################################################################
 # redefine the SnglInspiral columns of interest
@@ -179,12 +179,12 @@ def combined_snr_hists(histlist, snrslist, power, combinedBins):
   minval = min(combinedBins)
   binWidth = combinedBins[1]-combinedBins[0]
   # nb the bins *must* be linear in the snr statistic value!
-  combinedCounts = zeros(len(combinedBins)-1)
+  combinedCounts = numpy.zeros(len(combinedBins)-1)
   # loop over the two histograms
   for count0, snr0 in zip(histlist[0],snrslist[0]):
     for count1, snr1 in zip(histlist[1],snrslist[1]):
-      combinedsnr = (snr0**power+snr1**power)**(1./power)
-      combinedindex = int(math.floor((combinedsnr-minval)/binWidth))
+      combinedsnr = snr0**power+snr1**power
+      combinedindex = int(floor((combinedsnr-minval)/binWidth))
       # the index of the bin such that the rhoc value lies 
       # between combinedBins[i] and combinedBins[i+1]
       combinedCounts[combinedindex] = combinedCounts[combinedindex] + count0*count1
@@ -571,30 +571,29 @@ if opts.combined_statistic:
   power = powers[opts.combined_statistic]
   # bin the single-ifo statistics up
   snrWidth = 0.02 #has been tested against exact computation
-  rhocWidth = 0.05
+  rhocsqWidth = 0.5
   snrbins = {}
   midbins = {}
   snrhist = {}
   for ifo in ifos:
-    snrbins[ifo] = numpy.array(ifocut[ifo], max(statlist[ifo])+snrWidth, snrWidth)
+    snrbins[ifo] = numpy.arange(min(statlist[ifo]), max(statlist[ifo])+snrWidth, snrWidth)
     midbins[ifo] = 0.5*(snrbins[ifo][1:]+snrbins[ifo][:-1])
-    snrhist[ifo], junk = numpy.histogram(statlist[ifo], bins=snrbins[ifo])
-  minrhoc = sum([ifocut[ifo]**power for ifo in ifos])**(1./power)
-  maxrhoc = sum([max[snrbins[ifo]]**power for ifo in ifos])**(1./power)
-  combinedBins = numpy.arange(minrhoc, maxrhoc+rhocWidth, rhocWidth)
+    snrhist[ifo], junk = numpy.histogram(statlist[ifo], bins=snrbins[ifo], new=True)
+  minrhocsq = sum([min(snrbins[ifo])**power for ifo in ifos])
+  maxrhocsq = sum([max(snrbins[ifo])**power for ifo in ifos])
+  combinedBins = numpy.arange(minrhocsq, maxrhocsq+rhocsqWidth, rhocsqWidth)
   combinedCounts, junk = combined_snr_hists([snrhist[ifo] for ifo in ifos], \
     [midbins[ifo] for ifo in ifos], power, combinedBins)
 #OLD  if opts.combined_statistic == "sum-square":
 #    combinedStatvals = numpy.array([ stat1**2+stat2**2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
 #  elif opts.combined_statistic == "sum":
-#    combinedStatvals = numpy.array([ stat1+stat2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
+#OLD    combinedStatvals = numpy.array([ stat1+stat2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
   # make a plot of the cumulative distribution of combined stat values
-#OLD  combinedStathist, bin_edges = numpy.histogram(combinedStatvals, bins=30)
   cumCounts = combinedCounts[::-1].cumsum()[::-1]
   name = opts.ifo_tag+"_combined_"+opts.combined_statistic+"_"+opts.statistic
   tag = opts.ifo_tag+"_combined_stat_hist"
   plot_one_thing(fig_num, combinedBins[:-1], cumCounts, plotcommand="semilogy", marker="^", \
-    plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
+    size=8, plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
     "Number of louder trigger pairs", plottit="", figname=name, figtag=tag)
 
 # read coinc files: these should already be vetoed by thinca to the desired level
@@ -650,7 +649,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
       if inTime:
         coincEventsinTime.append(coinc)
       if len(ranklist) and inTime and unCut:
-        # use trigger counts before applying computational cut to find number of possible pairs
+        # use trigger counts from before applying computational cut to find number of possible pairs
         if opts.combined_statistic:
           combinedVal = get_combined_stat(coinc, opts.statistic, opts.combined_statistic)
           n_louder = cumulate_histogram(combinedCounts, combinedBins, combinedVal)
@@ -694,12 +693,10 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
     ylab = "Cumulative number"
     points = "Coincident events"
     plot_one_thing(fig_num, numpy.array(sortedFANs)**-1, numpy.arange(1,len(sortedFANs)+1), plotcommand="loglog", \
-      marker="bv", size=10, plotcolor="b", expandylim=1.4, legtext=points, plotxlab=xlab, plotylab=ylab, \
+      marker="bv", size=8, plotcolor="b", expandylim=1.4, legtext=points, plotxlab=xlab, plotylab=ylab, \
       plottit=opts.ifo_tag, figname="coinc_IFAN", figtag="coinc_ifan")
 
     # and make a FAN vs combined statistic-squared graph
-      #   for coinc in sortedCoincs:
-      #     sngls = [getattr(coinc,ifo) for ifo in ifos]
     sortedStatsq = [(coinc.stat)**2 for coinc in sortedCoincs]
     xlab = r"Combined "+opts.statistic+" squared"
     ylab = r"Estimated FAN"
@@ -709,7 +706,7 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
 
     # make plot of FAN combined sum-statistic
     sortedSumstat = [sum(getstat(trig,opts.statistic) for trig in coinc) for coinc in sortedCoincs]
-    xlab = r"Combined sum of "+opts.statistic
+    xlab = r"Combined sum "+opts.statistic
     ylab = r"Estimated FAN"
     plot_one_thing(fig_num, sortedSumstat, sortedFANs, plotcommand="semilogy", marker="go", size=8, \
       plotcolor="g", legtext=points, plotxlab=xlab, plotylab=ylab, plottit=opts.ifo_tag, \
@@ -743,7 +740,7 @@ if opts.combined_statistic:
   plotFANs = plotFAPs*numCoincs
   name = opts.ifo_tag+"_combined_"+opts.combined_statistic+"_"+opts.statistic
   tag = opts.ifo_tag+"_combined_stat_hist"
-  plot_one_thing(fig_num, combinedBins[:-1], plotFANs, plotcommand="semilogy", marker="^", \
+  plot_one_thing(fig_num, combinedBins[:-1], plotFANs, plotcommand="semilogy", marker="^", size=8, \
     plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
     "Estimated FAN", plottit="", figname=name, figtag=tag)
 
