@@ -74,9 +74,8 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context
 	newParams=calloc(1,sizeof(LALInferenceVariables));
 	/* Make a copy of the parameters passed through currentParams */
 	LALInferenceCopyVariables(runStateGlobal->currentParams,newParams);
-	int i = runStateGlobal->CubeToPrior(runStateGlobal, newParams, Cube);
-	//printf("return = %d\t",i);
-
+	int i = runStateGlobal->CubeToPrior(runStateGlobal, newParams, Cube, context);
+	
 	// if the parameters violate the prior then set likelihood to log(0);
 	if( i == 0 )
 	{
@@ -88,20 +87,32 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context
 	
 	// calculate the loglike
 	*lnew=runStateGlobal->likelihood(newParams, runStateGlobal->data, runStateGlobal->template);
-	*lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
-	//printf("logL = %e\n",*lnew);
-    LALInferenceDestroyVariables(newParams);
+	if(isnan(*lnew)) *lnew=0.;
+    *lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
+	LALInferenceDestroyVariables(newParams);
 	free(newParams);
 }
 
 void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context)
 {
-	/* Write evidence to file for use by post-processing */
+	char **info = (char **)context;
+	char *root=&info[0][0];
+	char *header=&info[1][0];
 	char outfile[100];
-	strcpy(outfile,(char *)context);
+	FILE *fileout;
+	
+	/* Write evidence to file for use by post-processing */
+	strcpy(outfile,root);
 	strcat(outfile,"evidence.dat");
-	FILE *fileout=fopen(outfile,"w");
+	fileout=fopen(outfile,"w");
 	fprintf(fileout,"%g\n",*logZ);
+	fclose(fileout);
+	
+	/* Write header line to file for use by post-processing */
+	strcpy(outfile,root);
+	strcat(outfile,"params.txt");
+	fileout=fopen(outfile,"w");
+	fprintf(fileout,"%s\n",header);
 	fclose(fileout);
 }
 
@@ -193,11 +204,19 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int initMPI = 0;
 	double logZero = -DBL_MAX;
 	int maxiter = 0;
-	void *context = (void *)outfilestr;
+	char **info;
+	info=(char **)malloc(2*sizeof(char *));
+	info[0]=(char *)malloc(100*sizeof(char));
+	info[1]=(char *)malloc(150*sizeof(char));
+	strcpy(&info[0][0],outfilestr);
+	strcpy(&info[1][0],"");
+	void *context = (void *)info;
 
 
 	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
 	resume, outfile, initMPI, logZero, maxiter, getLogLike, dumper, context);
+	
+	free(info[1]);free(info[0]);free(info);
 	
 	/* Write out the evidence */
 	/*fclose(fpout);

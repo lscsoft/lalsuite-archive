@@ -298,8 +298,8 @@ typedef REAL8 (LALInferencePriorFunction) (struct tagLALInferenceRunState *runSt
   * to their corresponding physical values according to the prior.
   * Can depend on \param runState ->priorArgs
   */
-typedef int (LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
-	LALInferenceVariables *params, double *cube);
+typedef UINT4 (LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
+	LALInferenceVariables *params, double *cube, void *context);
 
 //Likelihood calculator 
 //Should take care to perform expensive evaluation of h+ and hx 

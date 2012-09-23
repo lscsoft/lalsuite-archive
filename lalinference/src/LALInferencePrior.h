@@ -37,13 +37,14 @@
 
 #include <lal/LALInference.h>
 #include <lal/LALInferenceNestedSampler.h>
+
 /** Return the logarithmic prior density of the variables specified, for the non-spinning/spinning inspiral signal case.
  */
 REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVariables *variables);
 
 /** Convert the hypercube parameter to physical parameters, for the non-spinning/spinning inspiral signal case.
  */
-int LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
 
 /** Apply cyclic and reflective boundaries to \c parameter to bring it
  *  back within the allowed prior ranges that are specified in \c
@@ -83,7 +84,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
  *  (see: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/SkyLocComparison#priors ), 
  *  for the non-spinning/spinning inspiral signal case.
  */
-int LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
 
 /** Return the logarithmic prior density of the variables specified, 
  *  for the non-spinning/spinning inspiral signal case.
@@ -95,7 +96,7 @@ REAL8 LALInferenceInspiralPriorNormalised(LALInferenceRunState *runState, LALInf
  *  (see: https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/BayesS6PEpaper#Priors ), 
  *  for the non-spinning/spinning inspiral signal case.
  */
-int LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
 
 /** Function to add the minimum and maximum values for the uniform prior onto the \c priorArgs. 
  */
@@ -186,7 +187,7 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
                     const double massRatioMin, const double massRatioMax, const char *massRatioName);
 
 /** Uniform prior for analytic likelihoods */
-REAL8 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube);
+UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
 
 /** Prior that checks for minimum and maximum prior range specified in runState->priorArgs
     and returns 0.0 if sample lies inside the boundaries, -DBL_MAX otherwise.
