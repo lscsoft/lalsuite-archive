@@ -192,16 +192,15 @@ def combined_snr_hists(histlist, snrslist, power, combinedBins):
   return combinedCounts, combinedBins
 
 
-
 def cumulate_histogram(bincounts, binedges, testval):
   cumcount = 0
-  for left, right, count in zip(binedges[1:],binedges[:-1],bincounts):
+  for left, right, count in zip(binedges[:-1],binedges[1:],bincounts):
     if testval >= right: # nothing in the bin is louder
       continue
-    if testval <= left:  # everything in the bin is louder
+    elif testval <= left:  # everything in the bin is louder
       cumcount += count
-    if testval > left and testval < right: # some fraction of the bin is louder...
-      cumcount += count*(testval-left)/(right-left) 
+    elif testval > left and testval < right: # some fraction of the bin is louder...
+      cumcount += count*(right-testval)/(right-left) 
 
   return cumcount
 
