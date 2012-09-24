@@ -39,6 +39,7 @@
 #include <lal/LALSimInspiral.h>
 
 #include <lal/LALInferenceTemplate.h>
+#include <lal/LALSimBurst.h>
 
 #define PROGRAM_NAME "LALInferenceTemplate.c"
 #define CVS_ID_STRING "$Id$"
@@ -1330,14 +1331,33 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
 /*   - "amplitude"  (amplitude, REAL8)                                                  */
 /****************************************************************************************/
 {
-  double endtime  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");       /* time parameter ("mu"), GPS sec.  */
-  double sigma = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "sigma");      /* width parameter, seconds         */
-  double f     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  /* frequency, Hz                    */
-  double phi   = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");      /* phase, rad                       */
-  double a     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "amplitude");  /* amplitude                        */
-  double t, tsigma, twopif = LAL_TWOPI*f;
-  double epochGPS = XLALGPSGetREAL8(&(IFOdata->timeData->epoch));
-  unsigned long i;
+  //double endtime  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time");       /* time parameter ("mu"), GPS sec.  */
+  //double sigma=-1, Q=-1;
+  //double f     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  /* frequency, Hz                    */
+  //double phi=-1;
+  //double a=-1,hrss=-1 ;
+  //double t, tsigma, twopif = LAL_TWOPI*f;
+  //double epochGPS = XLALGPSGetREAL8(&(IFOdata->timeData->epoch));
+  //unsigned long i;
+    /*
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"sigma"))
+        sigma = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "sigma");      
+    else if (LALInferenceCheckVariable(IFOdata->modelParams,"Q")){
+        Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
+        sigma=sqrt(2.0*Q*Q/(LAL_TWOPI*LAL_TWOPI*f*f));
+    }
+    
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"phase"))
+        phi = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");      
+    else
+        phi=LAL_TWOPI*f*endtime;
+
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"amplitude"))
+        a=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "amplitude");
+    else if (LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
+        hrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss"); 
+        a=hrss/(Q/(4.0*sqrt(LAL_PI)*f)*(1.0-exp(-Q*Q)));
+    
   if (sigma <= 0.0) {
     fprintf(stderr, " ERROR in templateSineGaussian(): zero or negative \"sigma\" parameter (sigma=%e).\n", sigma);
     exit(1);
@@ -1347,15 +1367,115 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
   if (a < 0.0)
     fprintf(stderr, " WARNING in templateSineGaussian(): negative \"amplitude\" parameter (a=%e).\n", a);
   for (i=0; i<IFOdata->timeData->data->length; ++i){
-    t = ((double)i)*IFOdata->timeData->deltaT + (epochGPS-endtime);  /* t-mu         */
-    tsigma = t/sigma;                                             /* (t-mu)/sigma */
-    if (fabs(tsigma) < 5.0)   /*  (only do computations within a 10 sigma range)  */
+    t = (((double)i)*IFOdata->timeData->deltaT + epochGPS) -endtime;  // t-mu         
+    tsigma = t/sigma;                                             // (t-mu)/sigma //
+    if (fabs(tsigma) < 15.0)   //  (only do computations within a 30 sigma range)  
       IFOdata->timeModelhPlus->data->data[i] = a * exp(-0.5*tsigma*tsigma) * sin(twopif*t+phi);
     else 
       IFOdata->timeModelhPlus->data->data[i] = 0.0;
     IFOdata->timeModelhCross->data->data[i] = 0.0;
   }
   IFOdata->modelDomain = LALINFERENCE_DOMAIN_TIME;
+  */
+ // REAL8 instant= epochGPS -hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
+	
+    /* write template (time axis) location in "->modelParams" so that     */
+    /* template corresponds to stored parameter values                    */
+    /* and other functions may time-shift template to where they want it: */
+    
+   //    instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
+   
+   
+   	static int sizeWarning = 0;
+
+      REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
+      REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
+      //    REAL8TimeSeries       *signalvecREAL8=NULL;
+      REAL8 Q, centre_frequency,hrss,loghrss,eccentricity,polar_angle,delta_t;
+      REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
+  UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
+  UINT4 i=0;
+  
+      Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
+      centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
+      if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
+      hrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss"); 
+     else if(LALInferenceCheckVariable(IFOdata->modelParams,"loghrss"))
+     {
+      loghrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "loghrss"); 
+      hrss=exp(loghrss);
+        }
+    else {fprintf(stderr,"ERROR (In LALInferenceTemplate): modelParams does not contain hrss or loghrss. Exiting...\n"); exit(1);}
+    
+      polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
+      eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
+      delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
+      
+      XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->timeData->deltaT);
+   
+   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds-hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
+	
+    /* write template (time axis) location in "->modelParams" so that     */
+    /* template corresponds to stored parameter values                    */
+    /* and other functions may time-shift template to where they want it: */
+    
+    instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+    
+    
+    if(hplus->data && hcross->data){
+      if(hplus->data->length+2*windowshift<=IFOdata->timeData->data->length){ //check whether the IFOdata->timeData->data vector is long enough to store the waveform produced
+        for (i=0; i<IFOdata->timeData->data->length; i++){
+          if(i>=((unsigned long int)(hplus->data->length) + windowshift)  || i<windowshift || isnan(hplus->data->data[i-(INT8)windowshift]) || isnan(hcross->data->data[i-(INT8)windowshift])){
+            IFOdata->timeModelhPlus->data->data[i] = 0;
+            IFOdata->timeModelhCross->data->data[i] = 0;		
+          }else{
+            IFOdata->timeModelhPlus->data->data[i] = hplus->data->data[i-(INT8)windowshift];
+            IFOdata->timeModelhCross->data->data[i] = hcross->data->data[i-(INT8)windowshift];
+          }
+        }
+      }else{
+if (!sizeWarning) {
+          sizeWarning = 1;
+          fprintf(stderr, "WARNING: hplus->data->length = %d is longer than IFOdata->timeData->data->length = %d minus windowshift = %d.\n", hplus->data->length, IFOdata->timeData->data->length, (int) windowshift);
+          if(hplus->data->length + (int) windowshift > IFOdata->timeData->data->length)
+            fprintf(stderr, "The waveform template used will be missing its first %d points. Consider increasing the segment length (--seglen). (in %s, line %d)\n",hplus->data->length - IFOdata->timeData->data->length + (int) windowshift , __FILE__, __LINE__);
+          else
+            fprintf(stderr, "The waveform template used will have its first %d points tapered. Consider increasing the segment length (--seglen). (in %s, line %d)\n",hplus->data->length - IFOdata->timeData->data->length + 2*(int)windowshift , __FILE__, __LINE__);
+        }
+        for (i=0; i<IFOdata->timeData->data->length; i++){
+          if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0 || isnan(hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) || isnan(hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) ){
+            IFOdata->timeModelhPlus->data->data[i] = 0.0;
+            IFOdata->timeModelhCross->data->data[i] = 0.0;
+          }else{
+      //        printf("Im here i=%d",(INT4) i);         
+            IFOdata->timeModelhPlus->data->data[i] = hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
+            IFOdata->timeModelhCross->data->data[i] = hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
+          }
+        }
+        instant-= ((INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+2*(INT8)windowshift)*IFOdata->timeData->deltaT;
+        LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+      }
+    }else{
+      for (i=0; i<IFOdata->timeData->data->length; i++){
+        IFOdata->timeModelhPlus->data->data[i] = 0;
+        IFOdata->timeModelhCross->data->data[i] = 0;
+      }
+      fprintf( stderr, " ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): no generated waveform.\n");
+    }
+
+REAL8 max=0.0;
+ for (i=0; i<IFOdata->timeData->data->length; i++){
+        max=max>IFOdata->timeModelhPlus->data->data[i] ?max:IFOdata->timeModelhPlus->data->data[i];
+        max=max>IFOdata->timeModelhCross->data->data[i] ?max:IFOdata->timeModelhCross->data->data[i];
+      }
+      if (max==0.0)
+      printf("zeromax\n");
+
+		if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
+		if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
+ 
+ IFOdata->modelDomain = LALINFERENCE_DOMAIN_TIME;
   return;
 }
 
@@ -1937,9 +2057,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda1")) lambda1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda1");
   REAL8 lambda2 = 0.;
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
-  LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) XLALSimInspiralSetInteraction(waveFlags, *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags"));
-  LALSimInspiralTestGRParam *nonGRparams = NULL;
+  LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) interactionFlags = *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags");
   
   REAL8 fRef = 0.0;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
@@ -1965,10 +2084,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
-                                                 inclination, lambda1, lambda2, waveFlags, nonGRparams,
+                                                 inclination, lambda1, lambda2, interactionFlags, 
                                                  amporder, order, approximant), errnum);
-      XLALSimInspiralDestroyWaveformFlags(waveFlags);
-      XLALSimInspiralDestroyTestGRParam(nonGRparams);
       
       previous_m1 = m1;
       previous_m2 = m2;
@@ -2039,10 +2156,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, fRef, distance, 
-                                                 inclination, lambda1, lambda2, waveFlags, nonGRparams,
+                                                 inclination, lambda1, lambda2, interactionFlags, 
                                                  amporder, order, approximant), errnum);
-  XLALSimInspiralDestroyWaveformFlags(waveFlags);
-  XLALSimInspiralDestroyTestGRParam(nonGRparams);
+    
   if (ret == XLAL_FAILURE)
   {
 		XLALPrintError(" ERROR in XLALSimInspiralChooseWaveform(): error generating waveform. errnum=%d\n",errnum );
@@ -2091,7 +2207,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
           if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0 || isnan(hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) || isnan(hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) ){
             IFOdata->timeModelhPlus->data->data[i] = 0.0;
             IFOdata->timeModelhCross->data->data[i] = 0.0;
-          }else{                
+          }else{
+            //  printf("Im here i=%d",(INT4) i);         
             IFOdata->timeModelhPlus->data->data[i] = hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
             IFOdata->timeModelhCross->data->data[i] = hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
           }

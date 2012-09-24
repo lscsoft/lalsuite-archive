@@ -245,6 +245,7 @@ void LALInferenceExtrinsicParamProposal(LALInferenceRunState *runState, LALInfer
 void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accepted, REAL8 targetAcceptance);
 /** Helper function to setup the adaptive step proposals before the run */
 void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state);
+void LALInferenceTimeFrequencySinGaussian(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 #endif
 

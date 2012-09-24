@@ -1,7 +1,7 @@
 /* 
  *  LALInferenceLikelihood.c:  Bayesian Followup likelihood functions
  *
- *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys and John Veitch, Will M. Farr
+ *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys and John Veitch
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -97,24 +97,6 @@
 //  }
 //}
 
-/* Scaling used for the analytic likelihood parameters */
-  static const REAL8 scaling[15] = {
-    1.0,
-    1.0,
-    20.0/M_PI,
-    10.0/M_PI,
-    20.0/M_PI,
-    10.0/M_PI,
-    10.0/M_PI,
-    0.1,
-    10.0,
-    10.0,
-    10.0,
-    20.0/M_PI,
-    20.0/M_PI,
-    10.0/M_PI,
-    10.0/M_PI};
-
 /* Covariance matrix for use in analytic likelihoods */
   static const REAL8 CM[15][15] = {{0.045991865933182365, -0.005489748382557155, -0.01025067223674548, 0.0020087713726603213, -0.0032648855847982987, -0.0034218261781145264, -0.0037173401838545774, -0.007694897715679858, 0.005260905282822458, 0.0013607957548231718, 0.001970785895702776, 0.006708452591621081, -0.005107684668720825, 0.004402554308030673, -0.00334987648531921},
                               {-0.005489748382557152, 0.05478640427684032, -0.004786202916836846, -0.007930397407501268, -0.0005945107515129139, 0.004858466255616657, -0.011667819871670204, 0.003169780190169035, 0.006761345004654851, -0.0037599761532668475, 0.005571796842520162, -0.0071098291510566895, -0.004477773540640284, -0.011250694688474672, 0.007465228985669282},
@@ -173,7 +155,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   double chisquared;
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
   double timeshift;  /* time shift (not necessarily same as above)                   */
-  double deltaT, TwoDeltaToverN, deltaF, twopit, re, im, dre, dim, newRe, newIm;
+  double deltaT, TwoDeltaToverN, deltaF, twopit, f, re, im;
   double timeTmp;
 	double mc;
   int different;
@@ -246,6 +228,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* wasn't allocated yet (as in the very 1st iteration).      */
 
     if (different) { /* template needs to be re-computed: */
+    //printf("IM RECALCULATING THE TEMPLATE!\n");
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
       template(dataPtr);
@@ -280,6 +263,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
     timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))) + timedelay;
     twopit    = LAL_TWOPI * timeshift;
+//printf("Template's time %10.2lf time %10.2lf epoch=%10.2lf\n", GPSdouble,(*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time")),XLALGPSGetREAL8(&(dataPtr->freqData->epoch))    );
 
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  / distMpc;
@@ -306,22 +290,6 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
     TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
-
-    /* Employ a trick here for avoiding cos(...) and sin(...) in time
-       shifting.  We need to multiply each template frequency bin by
-       exp(-J*twopit*deltaF*i) = exp(-J*twopit*deltaF*(i-1)) +
-       exp(-J*twopit*deltaF*(i-1))*(exp(-J*twopit*deltaF) - 1) .  This
-       recurrance relation has the advantage that the error growth is
-       O(sqrt(N)) for N repetitions. */
-    
-    /* Values for the first iteration: */
-    re = cos(twopit*deltaF*lower);
-    im = -sin(twopit*deltaF*lower);
-
-    /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
-    dim = -sin(twopit*deltaF);
-    dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
-
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re  
@@ -331,6 +299,10 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
+      f = ((double) i) * deltaF;
+      /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+      re = cos(twopit * f);
+      im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT;
       templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT;
       dataReal     = dataPtr->freqData->data->data[i].re / deltaT;
@@ -346,13 +318,6 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
  //        f, dataPtr->oneSidedNoisePowerSpectrum->data->data[i], 
  //        dataPtr->freqData->data->data[i].re, dataPtr->freqData->data->data[i].im,
  //        templateReal, templateImag);
-
-      /* Now update re and im for the next iteration. */
-      newRe = re + re*dre - im*dim;
-      newIm = im + re*dim + im*dre;
-
-      re = newRe;
-      im = newIm;
     }
     dataPtr = dataPtr->next;
  //fclose(testout);
@@ -412,7 +377,7 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
   double chisquared;
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
   double timeshift;  /* time shift (not necessarily same as above)                   */
-  double deltaT, FourDeltaToverN, deltaF, twopit, re, im, singleFreqBinTerm, dre, dim, newRe, newIm;
+  double deltaT, FourDeltaToverN, deltaF, twopit, f, re, im, singleFreqBinTerm;
   double degreesOfFreedom, nu;
   double timeTmp;
   int different;
@@ -550,22 +515,6 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
     FourDeltaToverN = 4.0 * deltaT / ((double) dataPtr->timeData->data->length);
-
-    /* Employ a trick here for avoiding cos(...) and sin(...) in time
-       shifting.  We need to multiply each template frequency bin by
-       exp(-J*twopit*deltaF*i) = exp(-J*twopit*deltaF*(i-1)) +
-       exp(-J*twopit*deltaF*(i-1))*(exp(-J*twopit*deltaF) - 1) .  This
-       recurrance relation has the advantage that the error growth is
-       O(sqrt(N)) for N repetitions. */
-    
-    /* Values for the first iteration: */
-    re = cos(twopit*deltaF*lower);
-    im = -sin(twopit*deltaF*lower);
-
-    /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
-    dim = -sin(twopit*deltaF);
-    dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
-
     for (i=lower; i<=upper; ++i){
       /* degrees-of-freedom parameter (nu_j) for this particular frequency bin: */
       nu = degreesOfFreedom;
@@ -578,6 +527,10 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
 
       /* do time-shifting...            */
       /* (also un-do 1/deltaT scaling): */
+      f = ((double) i) * deltaF;
+      /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+      re = cos(twopit * f);
+      im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT;
       templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT;
       dataReal     = dataPtr->freqData->data->data[i].re / deltaT;
@@ -589,13 +542,6 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
       singleFreqBinTerm = ((nu+2.0)/2.0) * log(1.0 + (FourDeltaToverN * diffSquared) / (nu * dataPtr->oneSidedNoisePowerSpectrum->data->data[i]));
       chisquared  += singleFreqBinTerm;   /* (This is a sum-of-squares, or chi^2, term in the Gaussian case, not so much in the Student-t case...)  */
       dataPtr->loglikelihood -= singleFreqBinTerm;
-
-      /* Now update re and im for the next iteration. */
-      newRe = re + re*dre - im*dim;
-      newIm = im + re*dim + im*dre;
-
-      re = newRe;
-      im = newIm;
     }
     dataPtr = dataPtr->next;
   }
@@ -862,7 +808,7 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
 	LIGOTimeGPS GPSlal;
 	double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
 	double timeshift;  /* time shift (not necessarily same as above)                   */
-	double deltaT, deltaF, twopit, re, im, dre, dim, newRe, newIm;
+	double deltaT, deltaF, twopit, f, re, im;
 
 	int different;
 	LALInferenceVariables intrinsicParams;
@@ -991,21 +937,6 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
 #ifdef DEBUG
 FILE* file=fopen("TempSignal.dat", "w");	
 #endif
-/* Employ a trick here for avoiding cos(...) and sin(...) in time
-   shifting.  We need to multiply each template frequency bin by
-   exp(-J*twopit*deltaF*i) = exp(-J*twopit*deltaF*(i-1)) +
-   exp(-J*twopit*deltaF*(i-1))*(exp(-J*twopit*deltaF) - 1) .  This
-   recurrance relation has the advantage that the error growth is
-   O(sqrt(N)) for N repetitions. */
-    
-/* Values for the first iteration: */
- re = 1.0;
- im = 0.0;
-
- /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
- dim = -sin(twopit*deltaF);
- dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
-
 	for(i=0; i<freqWaveform->length; i++){
 		/* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
 		plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re  
@@ -1014,17 +945,17 @@ FILE* file=fopen("TempSignal.dat", "w");
                           +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im;
 
 		/* do time-shifting...             */
+		/* (also un-do 1/deltaT scaling): */
+		f = ((double) i) * deltaF;
+		/* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+		re = cos(twopit * f);
+		im = - sin(twopit * f);
+
 		freqWaveform->data[i].re= (plainTemplateReal*re - plainTemplateImag*im);
 		freqWaveform->data[i].im= (plainTemplateReal*im + plainTemplateImag*re);		
 #ifdef DEBUG
 		fprintf(file, "%lg %lg \t %lg\n", f, freqWaveform->data[i].re, freqWaveform->data[i].im);
 #endif
-		/* Now update re and im for the next iteration. */
-		newRe = re + re*dre - im*dim;
-		newIm = im + re*dim + im*dre;
-
-		re = newRe;
-		im = newIm;
 	}
 #ifdef DEBUG
 fclose(file);
@@ -1528,21 +1459,36 @@ static void extractDimensionlessVariableVector(LALInferenceVariables *currentPar
     mean[14]=1.0*M_PI/2.0;
   } else if (mode==2) {
     /* set means of second mode to be 8 sigma from first mode */
-    mean[0] = 16.0 + 8./scaling[0]*sqrt(CM[0][0]);
-    mean[1] = 7.0 + 8./scaling[1]*sqrt(CM[1][1]);
-    mean[2] = 1.0*M_PI/4.0 + 8./scaling[2]*sqrt(CM[2][2]);
-    mean[3] = 1.0*M_PI/2.0 + 8./scaling[3]*sqrt(CM[3][3]);
-    mean[4] = 1.0*M_PI/4.0 + 8./scaling[4]*sqrt(CM[4][4]);
-    mean[5] = 1.0*M_PI/2.0 + 8./scaling[5]*sqrt(CM[5][5]);
-    mean[6] = -M_PI/4.0 + 8./scaling[6]*sqrt(CM[6][6]);
-    mean[7] = 25.0 + 8./scaling[7]*sqrt(CM[7][7]);
-    mean[8] = -0.03 + 8./scaling[8]*sqrt(CM[8][8]);
-    mean[9] =0.2 + 8./scaling[9]*sqrt(CM[9][9]);
-    mean[10]=0.2 + 8./scaling[10]*sqrt(CM[10][10]);
-    mean[11]=1.0*M_PI/4.0 + 8./scaling[11]*sqrt(CM[11][11]);
-    mean[12]=1.0*M_PI/4.0 + 8./scaling[12]*sqrt(CM[12][12]);
-    mean[13]=1.0*M_PI/2.0 + 8./scaling[13]*sqrt(CM[13][13]);
-    mean[14]=1.0*M_PI/2.0 + 8./scaling[14]*sqrt(CM[14][14]);
+    mean[0] = 16.0 + 8.*sqrt(CM[0][0]);
+    mean[1] = 7.0 + 8.*sqrt(CM[1][1]);
+    mean[2] = 1.0*M_PI/4.0 + 8.*sqrt(CM[2][2]);
+    mean[3] = 1.0*M_PI/2.0 + 8.*sqrt(CM[3][3]);
+    mean[4] = 1.0*M_PI/4.0 + 8.*sqrt(CM[4][4]);
+    mean[5] = 1.0*M_PI/2.0 + 8.*sqrt(CM[5][5]);
+    mean[6] = -M_PI/4.0 + 8.*sqrt(CM[6][6]);
+    mean[7] = 25.0 + 8.*sqrt(CM[7][7]);
+    mean[8] = -0.03 + 8.*sqrt(CM[8][8]);
+    mean[9] =0.2 + 8.*sqrt(CM[9][9]);
+    mean[10]=0.2 + 8.*sqrt(CM[10][10]);
+    mean[11]=1.0*M_PI/4.0 + 8.*sqrt(CM[11][11]);
+    mean[12]=1.0*M_PI/4.0 + 8.*sqrt(CM[12][12]);
+    mean[13]=1.0*M_PI/2.0 + 8.*sqrt(CM[13][13]);
+    mean[14]=1.0*M_PI/2.0 + 8.*sqrt(CM[14][14]);
+    /* mean[0] = 16.0;
+    mean[1] = 7.0;
+    mean[2] = 3.0*M_PI/4.0;
+    mean[3] = 3.0*M_PI/2.0;
+    mean[4] = 3.0*M_PI/4.0;
+    mean[5] = 3.0*M_PI/2.0;
+    mean[6] = M_PI/4.0;
+    mean[7] = 75.0;
+    mean[8] = 0.03;
+    mean[9] =0.8;
+    mean[10]=0.8;
+    mean[11]=3.0*M_PI/4.0;
+    mean[12]=3.0*M_PI/4.0;
+    mean[13]=3.0*M_PI/2.0;
+    mean[14]=3.0*M_PI/2.0; */
   } else {
     printf("Error!  Unrecognized mode in analytic likelihood!\n");
     exit(1);
@@ -1632,21 +1578,21 @@ static void extractDimensionlessVariableVector(LALInferenceVariables *currentPar
     theta2 = 0.0;
   }
 
-  x[0] = scaling[0] * (m1    - mean[0]);
-  x[1] = scaling[1] * (m2    - mean[1]);
-  x[2] = scaling[2] * (iota  - mean[2]);
-  x[3] = scaling[3] * (phi   - mean[3]);
-  x[4] = scaling[4] * (psi   - mean[4]);
-  x[5] = scaling[5] * (ra    - mean[5]);
-  x[6] = scaling[6] * (dec   - mean[6]);
-  x[7] = scaling[7] * (d     - mean[7]);
-  x[8] = scaling[8] * (t     - mean[8]);
-  x[9] = scaling[9] * (a1     - mean[9]);
-  x[10]= scaling[10] * (a2     - mean[10]);
-  x[11]= scaling[11] * (theta1 - mean[11]);
-  x[12]= scaling[12] * (theta2 - mean[12]);
-  x[13]= scaling[13] * (phi1   - mean[13]);
-  x[14]= scaling[14] * (phi2   - mean[14]);
+  x[0] = (m1    - mean[0]);
+  x[1] = (m2    - mean[1]);
+  x[2] = (iota  - mean[2])/(M_PI/20.0);
+  x[3] = (phi   - mean[3])/(M_PI/10.0);
+  x[4] = (psi   - mean[4])/(M_PI/20.0);
+  x[5] = (ra    - mean[5])/(M_PI/10.0);
+  x[6] = (dec   - mean[6])/(M_PI/10.0);
+  x[7] = (d     - mean[7])/10.0;
+  x[8] = (t     - mean[8])/0.1;
+  x[9] =(a1     - mean[9])/0.1;
+  x[10]=(a2     - mean[10])/0.1;
+  x[11]=(theta1 - mean[11])/(M_PI/20.0);
+  x[12]=(theta2 - mean[12])/(M_PI/20.0);
+  x[13]=(phi1   - mean[13])/(M_PI/10.0);
+  x[14]=(phi2   - mean[14])/(M_PI/10.0);
 }
 
 REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *currentParams, 
@@ -1812,3 +1758,218 @@ REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams,
 //  /* } */
 //  /* fclose(TDWf); */
 //}
+
+REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
+                              LALInferenceTemplateFunction *template)
+/***************************************************************/
+/* (log-) likelihood function.                                 */
+/* Returns the non-normalised logarithmic likelihood.          */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Required (`currentParams') parameters are:                  */
+/*   - "rightascension"  (REAL8, radian, 0 <= RA <= 2pi)       */
+/*   - "declination"     (REAL8, radian, -pi/2 <= dec <=pi/2)  */
+/*   - "polarisation"    (REAL8, radian, 0 <= psi <= ?)        */
+/*   - "q"        (REAL8, q, >0)                      */
+/*   - "time"            (REAL8, GPS sec.)                     */
+/*   - "f0"            (REAL8, Hz.)                     */
+/*   - "hrss"            (REAL8, strain.)                     */
+/*   - "time"            (REAL8, GPS sec.)                     */
+
+/***************************************************************/
+{
+  //static int timeDomainWarning = 0;
+  double Fplus, Fcross;
+  double FplusScaled, FcrossScaled;
+  double diffRe, diffIm, diffSquared;
+  double dataReal, dataImag;
+  REAL8 loglikeli;
+  REAL8 plainTemplateReal, plainTemplateImag;
+  REAL8 templateReal, templateImag;
+  int i, lower, upper;
+  LALInferenceIFOData *dataPtr;
+  double ra, dec, psi;
+  //,q,hrss,f0,delta_t,eccentricity,polar_angle;
+  double GPSdouble,gmst;
+  LIGOTimeGPS GPSlal;
+  double chisquared;
+  double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
+  double timeshift;  /* time shift (not necessarily same as above)                   */
+  double deltaT, TwoDeltaToverN, deltaF, twopit, f, re, im;
+  double timeTmp;
+  int different;
+  LALStatus status;
+  memset(&status,0,sizeof(status));
+  LALInferenceVariables intrinsicParams;
+ // double norm=0;
+  /* determine source's sky location & orientation parameters: */
+  ra        = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension"); // radian      
+  dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    // radian      
+  psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   // radian      
+  GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           // GPS seconds 
+  /*printf("Time entering likelihood %10.6lf \n",GPSdouble);
+  q         = *(REAL8*) LALInferenceGetVariable(currentParams, "Q"); //dimensionless???      
+  hrss      = *(REAL8*) LALInferenceGetVariable(currentParams, "hrss"); // strain      
+  f0 = *(REAL8*) LALInferenceGetVariable(currentParams, "frequency"); // Hz     
+  delta_t=*(REAL8*) LALInferenceGetVariable(currentParams, "delta_t"); // secs      
+  eccentricity=*(REAL8*) LALInferenceGetVariable(currentParams, "eccentricity"); // dimensionless      
+  polar_angle       = *(REAL8*) LALInferenceGetVariable(currentParams, "polar_angle");   // radian     
+*/
+  /* figure out GMST: */
+  //XLALINT8NSToGPS(&GPSlal, floor(1e9 * GPSdouble + 0.5));
+  XLALGPSSetREAL8(&GPSlal, GPSdouble);
+  //UandA.units    = MST_RAD;
+  //UandA.accuracy = LALLEAPSEC_LOOSE;
+  //LALGPStoGMST1(&status, &gmst, &GPSlal, &UandA);
+  gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
+  intrinsicParams.head      = NULL;
+  intrinsicParams.dimension = 0;
+  LALInferenceCopyVariables(currentParams, &intrinsicParams);
+  LALInferenceRemoveVariable(&intrinsicParams, "rightascension");
+  LALInferenceRemoveVariable(&intrinsicParams, "declination");
+  LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
+  LALInferenceRemoveVariable(&intrinsicParams, "time");
+
+  // TODO: add pointer to template function here.
+  // (otherwise same parameters but different template will lead to no re-computation!!)
+
+  chisquared = 0.0;
+  /* loop over data (different interferometers): */
+  dataPtr = data;
+REAL8 net_snr=0.0,ifo_snr=0.0;
+
+  while (dataPtr != NULL) {
+    ifo_snr=0.0;
+    /* The parameters the Likelihood function can handle by itself   */
+    /* (and which shouldn't affect the template function) are        */
+    /* sky location (ra, dec), polarisation and signal arrival time. */
+    /* Note that the template function shifts the waveform to so that*/
+	/* t_c corresponds to the "time" parameter in                    */
+	/* IFOdata->modelParams (set, e.g., from the trigger value).     */
+    
+    /* Reset log-likelihood */
+    dataPtr->loglikelihood = 0.0;
+
+    /* Compare parameter values with parameter values corresponding  */
+    /* to currently stored template; ignore "time" variable:         */
+    if (LALInferenceCheckVariable(dataPtr->modelParams, "time")) {
+      timeTmp = *(REAL8 *) LALInferenceGetVariable(dataPtr->modelParams, "time");
+      LALInferenceRemoveVariable(dataPtr->modelParams, "time");
+    }
+    else timeTmp = GPSdouble;
+    different = LALInferenceCompareVariables(dataPtr->modelParams, &intrinsicParams);
+    /* "different" now may also mean that "dataPtr->modelParams" */
+    /* wasn't allocated yet (as in the very 1st iteration).      */
+
+    if (different) { /* template needs to be re-computed: */
+      //  printf("IM RECALCULATING THE TEMPLATE!\n");
+
+      LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
+      LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      //LALInferenceAddVariable(dataPtr->modelParams, "polarisation", &psi, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+
+      template(dataPtr);
+      if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
+          return(-DBL_MAX);
+
+          if (dataPtr->modelDomain == LALINFERENCE_DOMAIN_TIME) {
+    //	if (!timeDomainWarning) {
+//	  timeDomainWarning = 1;
+//	  fprintf(stderr, "WARNING: using time domain template with frequency domain likelihood (in %s, line %d)\n", __FILE__, __LINE__);
+//	}
+        LALInferenceExecuteFT(dataPtr);
+       // norm=sqrt(dataPtr->window->data->length/dataPtr->window->sumofsquares);
+        /* note that the dataPtr->modelParams "time" element may have changed here!! */
+        /* (during "template()" computation)  */
+      }
+    }
+    else { /* no re-computation necessary. Return back "time" value, do nothing else: */
+      LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    }
+
+    /*-- Template is now in dataPtr->freqModelhPlus and dataPtr->freqModelhCross. --*/
+    /*-- (Either freshly computed or inherited.)                            --*/
+
+    /* determine beam pattern response (F_plus and F_cross) for given Ifo: */
+    XLALComputeDetAMResponse(&Fplus, &Fcross,
+                             dataPtr->detector->response,
+			     ra, dec, psi, gmst);
+    /* signal arrival time (relative to geocenter); */
+    timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
+                                             ra, dec, &GPSlal);
+    /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
+    /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
+    timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))) + timedelay;
+  //timeshift = timedelay;
+    twopit    = LAL_TWOPI * timeshift;
+//printf("Template's time %10.5lf time %10.5lf epoch=%10.5lf\n", GPSdouble,(*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time")),XLALGPSGetREAL8(&(dataPtr->freqData->epoch))    );
+    /* include distance (overall amplitude) effect in Fplus/Fcross: */
+    FplusScaled  = Fplus  ;
+    FcrossScaled = Fcross ;
+    dataPtr->fPlus = FplusScaled;
+    dataPtr->fCross = FcrossScaled;
+    dataPtr->timeshift = timeshift;
+
+      /*  char *fname=NULL;
+ fname = XLALCalloc(255*sizeof(char),1);
+ sprintf(fname,"%s_template.dat",dataPtr->name);
+ FILE *testout=fopen(fname,"w");
+ for(i=0;i<(INT4) dataPtr->timeModelhPlus->data->length;i++){
+     fprintf(testout,"%10.10e %10.10e %5.5f\n",(REAL8) i*dataPtr->timeData->deltaT, Fplus*dataPtr->timeModelhPlus->data->data[i]+Fcross*dataPtr->timeModelhCross->data->data[i],timeshift);
+ }
+ fclose(testout);*/
+ //fprintf(testout, "f PSD dataRe dataIm signalRe signalIm\n");
+    /* determine frequency range & loop over frequency bins: */
+    deltaT = dataPtr->timeData->deltaT;
+    deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
+    // printf("deltaF %g, Nt %d, deltaT %g\n", deltaF, dataPtr->timeData->data->length, dataPtr->timeData->deltaT);
+    lower = (UINT4)ceil(dataPtr->fLow / deltaF);
+    upper = (UINT4)floor(dataPtr->fHigh / deltaF);
+    TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
+    for (i=lower; i<=upper; ++i){
+      /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
+      plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re  
+                          +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].re;
+      plainTemplateImag = FplusScaled * dataPtr->freqModelhPlus->data->data[i].im  
+                          +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im;
+
+      /* do time-shifting...             */
+      /* (also un-do 1/deltaT scaling): */
+      f = ((double) i) * deltaF;
+      /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
+      re = cos(twopit * f);
+      im = - sin(twopit * f);
+      templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT; //salvo remove norm?
+      templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT; //salvo remove norm?
+      dataReal     = dataPtr->freqData->data->data[i].re / deltaT;
+      dataImag     = dataPtr->freqData->data->data[i].im / deltaT;
+      /* compute squared difference & 'chi-squared': */
+      diffRe       = dataReal - templateReal;         // Difference in real parts...
+      diffIm       = dataImag - templateImag;         // ...and imaginary parts, and...
+      diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
+      REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      ifo_snr+=TwoDeltaToverN*(templateReal*templateReal+templateImag*templateImag)/ dataPtr->oneSidedNoisePowerSpectrum->data->data[i];
+      chisquared  += temp;
+      dataPtr->loglikelihood -= temp;
+ //fprintf(testout, "%e %e %e %e %e %e\n",
+ //        f, dataPtr->oneSidedNoisePowerSpectrum->data->data[i], 
+ //        dataPtr->freqData->data->data[i].re, dataPtr->freqData->data->data[i].im,
+ //        templateReal, templateImag);
+    }
+    dataPtr = dataPtr->next;
+    net_snr+=4.0*ifo_snr;
+   // if(sqrt(ifo_snr)>1000.0)
+    //printf("too large single IFOSNR %lf \n",sqrt(ifo_snr));
+ //fclose(testout);
+  }
+  net_snr=sqrt(net_snr);
+ // if (net_snr>=99991)
+  {
+ //     printf("net_snr %10.10e \n",net_snr);
+ // printf("Q %10.2e f %10.2e hrss %10.2e time %10.10f eccentricity %10.10e polangle %10.10e norm %f \n",q,f0,hrss,GPSdouble,eccentricity,polar_angle,norm);
+}
+  
+  loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
+  LALInferenceDestroyVariables(&intrinsicParams);
+  return(loglikeli);
+}
+

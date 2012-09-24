@@ -59,5 +59,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   */
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
 
+void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
+void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 
 #endif
