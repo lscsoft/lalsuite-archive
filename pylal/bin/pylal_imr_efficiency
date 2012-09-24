@@ -79,12 +79,15 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 
 	dist_bins = imr_utils.guess_nd_bins(total_injections, {"distance": (15, rate.LinearBins)})
 
-	eff = imr_utils.compute_search_efficiency_in_bins(found_below_far, total_injections, dist_bins)
-	eff_horizon = imr_utils.compute_search_efficiency_in_bins(found_below_horizon, total_injections, dist_bins)
+	eff, x = imr_utils.compute_search_efficiency_in_bins(found_below_far, total_injections, dist_bins)
+	eff_horizon, x = imr_utils.compute_search_efficiency_in_bins(found_below_horizon, total_injections, dist_bins)
+
+	eff = eff.array
+	eff_horizon = eff_horizon.array
 
 	pyplot.figure()
 	pyplot.plot(dist_bins.centres()[0], eff, label = "actual efficiency @ %.1e FAR" % options.far)
-	pyplot.plot(dist_bins.centres()[0], eff_horizon, label = "efficiency assuming \n H1 SNR %.1f @ %.0f L1 SNR %.1f @ %.0f" % (options.h_snr, options.h_horizon, options.l_snr, options.l_horizon))
+	pyplot.plot(dist_bins.centres()[0], eff_horizon, label = "efficiency assuming \n H1 SNR %.1f @ %.0f Mpc \n L1 SNR %.1f @ %.0f Mpc" % (options.h_snr, options.h_horizon, options.l_snr, options.l_horizon))
 	pyplot.grid()
 	pyplot.legend()
 	pyplot.xlabel('Distance (Mpc)')
