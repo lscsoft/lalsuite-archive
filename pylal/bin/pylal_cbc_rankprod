@@ -241,6 +241,43 @@ def plot_one_thing( fig_num, xvals, yvals, plotcommand="plot", gridval=True, \
     tagList.append(figtag)
   pyplot.close(fig_num)
 
+  
+def plot_rainbow_hists(fig_num,statvals,paramvals,statname="new_snr",paramname="mchirp",splitup="log",num_bins=8):
+
+  paramMin = min(paramvals)
+  paramMax = max(paramvals)
+  if splitup == "log":
+    paramBins = rate.LogarithmicBins(0.99*paramMin, 1.01*paramMax, num_bins)
+  elif splitup == "lin":
+    paramBins = rate.LinearBins(0.99*paramMin, 1.01*paramMax, num_bins)
+  paramIndices = numpy.array([paramBins[par] for par in paramvals])
+
+  histcolours = ['r',(1.0,0.6,0),'y','g','c','b','m','k',(0.8,0.25,0),(0.25,0.8,0)]
+  fig_num +=1
+  pyplot.figure(fig_num)
+  labels = [r"%.2f - %.2f" % pair for pair in zip(paramBins.lower(), paramBins.upper())]
+  for i in range(num_bins):
+    counts, edges = numpy.histogram(numpy.array(statvalues)[paramIndices == i], bins=20, new=True)
+    cum_counts = counts[::-1].cumsum()[::-1]
+    pyplot.semilogy(edges[:-1], cum_counts, linewidth=2, color=histcolours[i], label=labels[i])
+  pyplot.legend()
+
+  maxcount = max(len(numpy.array(statvalues)[paramIndices == i]) for i in range(num_bins))
+  pyplot.ylim(0.8,1.5*maxcount)
+  pyplot.xlim(min(statvalues),1.05*max(statvalues))
+  pyplot.title(ifo+" "+statname.replace("_"," ")+" distribution split by "+paramname, size="x-large")
+  pyplot.xlabel(statname.replace("_"," "), size="x-large")
+  pyplot.ylabel("Cumulative number", size="x-large")
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, ifo+"_"+statname+"_cdf_by_"+paramname[0:2])
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+      dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(ifo+"_"+statname+"_cdf_by_"+paramname[0:2])
+    pyplot.close(fig_num)
+
+
 
 #############################################################################
 # Help, options and suchlike #
@@ -533,34 +570,8 @@ for ifo "+ifo+" with the pattern "+opts.trig_pattern)
       plotylab=ylab, plottit=plottit, figname=name, figtag=tag, expandylim=2.)
 
     # and histograms of statistic split over chirp mass
-    num_bins = 6
-    Mcmax = max(mchirps)
-    Mcmin = min(mchirps)
-    Mcbins = rate.LogarithmicBins(0.99*Mcmin, 1.01*Mcmax, num_bins)
-    Mcindices = numpy.array([Mcbins[mc] for mc in mchirps])
-    fig_num +=1
-    pyplot.figure(fig_num)
-    histcolours = ['r', (1.0,0.6,0), 'y', 'g', 'c', 'b', 'm', 'k', (0.8,0.25,0), (0.25,0.8,0)]
-    labels = [r"%.2f - %.2f" % pair for pair in zip(Mcbins.lower(), Mcbins.upper())]
-    for i in range(num_bins):
-      counts, edges = numpy.histogram(numpy.array(statvalues)[Mcindices == i], bins=20, new=True)
-      cum_counts = counts[::-1].cumsum()[::-1]
-      pyplot.semilogy(edges[:-1], cum_counts, linewidth=2, color=histcolours[i], label=labels[i])
-    if num_bins < 11:
-      pyplot.legend()
-    maxcount = max(len(numpy.array(statvalues)[Mcindices == i]) for i in range(num_bins))
-    pyplot.ylim(0.8,1.5*maxcount)
-    pyplot.xlim(min(statvalues),1.05*max(statvalues))
-    pyplot.title(ifo+" "+opts.statistic+" distribution split by mchirp", size="x-large")
-    pyplot.xlabel(opts.statistic, size="x-large")
-    pyplot.ylabel("Cumulative number", size="x-large")
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, ifo+"_stat_cdf_by_mc")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-        dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(ifo+"_stat_cdf_by_mc")
-    pyplot.close(fig_num)
+    plot_rainbow_hists(fig_num, statvalues, mchirps, statname="new_snr", paramname="mchirp",\
+      splitup="log", num_bins=6)
 
 if not haveTrigs:
   raise ValueError, "No triggers were found; I cannot continue"
@@ -583,10 +594,6 @@ if opts.combined_statistic:
   combinedBins = numpy.arange(minrhocsq, maxrhocsq+rhocsqWidth, rhocsqWidth)
   combinedCounts, junk = combined_snr_hists([snrhist[ifo] for ifo in ifos], \
     [midbins[ifo] for ifo in ifos], power, combinedBins)
-#OLD  if opts.combined_statistic == "sum-square":
-#    combinedStatvals = numpy.array([ stat1**2+stat2**2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
-#  elif opts.combined_statistic == "sum":
-#OLD    combinedStatvals = numpy.array([ stat1+stat2 for stat1 in statlist[ifos[0]] for stat2 in statlist[ifos[1]] ])
   # make a plot of the cumulative distribution of combined stat values
   cumCounts = combinedCounts[::-1].cumsum()[::-1]
   name = opts.ifo_tag+"_combined_"+opts.combined_statistic+"_"+opts.statistic
