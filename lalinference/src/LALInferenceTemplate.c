@@ -1391,7 +1391,7 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
       REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       //    REAL8TimeSeries       *signalvecREAL8=NULL;
-      REAL8 Q, centre_frequency,hrss,loghrss,eccentricity,polar_angle,delta_t;
+      REAL8 Q, centre_frequency,hrss,loghrss,eccentricity,polar_angle;
       REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
   UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
   UINT4 i=0;
@@ -1409,7 +1409,7 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
     
       polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
       eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
-      delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
+      //delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
       
       XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->timeData->deltaT);
    
@@ -2057,8 +2057,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda1")) lambda1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda1");
   REAL8 lambda2 = 0.;
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
-  LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) interactionFlags = *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags");
+    LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) XLALSimInspiralSetInteraction(waveFlags, *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags"));
+  LALSimInspiralTestGRParam *nonGRparams = NULL;
   
   REAL8 fRef = 0.0;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
@@ -2084,7 +2085,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
-                                                 inclination, lambda1, lambda2, interactionFlags, 
+                                                 inclination, lambda1, lambda2, waveFlags, nonGRparams,
                                                  amporder, order, approximant), errnum);
       
       previous_m1 = m1;
@@ -2156,7 +2157,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, fRef, distance, 
-                                                 inclination, lambda1, lambda2, interactionFlags, 
+                                                 inclination, lambda1, lambda2, waveFlags, nonGRparams,
                                                  amporder, order, approximant), errnum);
     
   if (ret == XLAL_FAILURE)

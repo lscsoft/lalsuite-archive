@@ -255,7 +255,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	UINT4 Ntimeslides=0;
 	LIGOTimeGPS GPSstart,GPStrig,segStart;
 	REAL8 PSDdatalength=0;
-                printf("THERE1!\n");
   REAL8 AIGOang=0.0; //orientation angle for the proposed Australian detector.
   procparam=LALInferenceGetProcParamVal(commandLine,"--aigoang");
   if(!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--AIGOang");
@@ -337,7 +336,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	  
 	if(Nifo!=Ncache) {fprintf(stderr,"ERROR: Must specify equal number of IFOs and Cache files\n"); exit(1);}
 	if(Nchannel!=0 && Nchannel!=Nifo) {fprintf(stderr,"ERROR: Please specify a channel for all caches, or omit to use the defaults\n"); exit(1);}
-	            printf("THERE2!\n");
 	IFOdata=headIFO=calloc(sizeof(LALInferenceIFOData),Nifo);
 	if(!IFOdata) XLAL_ERROR_NULL(XLAL_ENOMEM);
 	
@@ -350,13 +348,13 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
 	if(procparam){
         if(LALInferenceGetProcParamVal(commandLine,"--burst_inj")){
-        printf("Injecting Burst Table!\n");
+        printf("Injecting from burst Table!\n");
 
         BInjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);       
         } 
         else
         {
-                    printf("Injecting Inspiral Table!\n");
+                    printf("Injecting from inspiral Table!\n");
 
 		SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
     }
@@ -1118,27 +1116,29 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
       }
-      LALSimInspiralInteraction interactionFlags = LAL_SIM_INSPIRAL_INTERACTION_ALL;
+     LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
       ppt=LALInferenceGetProcParamVal(commandLine,"--inj-interactionFlags");
       if(ppt){
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_NONE")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_NONE;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN;
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL")) interactionFlags=LAL_SIM_INSPIRAL_INTERACTION_ALL;
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_NONE")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_NONE);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN);
+        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_ALL);
       }
+      LALSimInspiralTestGRParam *nonGRparams = NULL;
+
 
         XLALSimInspiralChooseTDWaveform(&hplus, &hcross, injEvent->coa_phase, 1.0/InjSampleRate,
                                                 injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
                                                 injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
                                                 injEvent->spin2z, injEvent->f_lower, 0., injEvent->distance*LAL_PC_SI * 1.0e6,
-                                                injEvent->inclination, lambda1, lambda2, interactionFlags, None,
+                                                injEvent->inclination, lambda1, lambda2, waveFlags, nonGRparams ,
                                                 amporder, order, approximant);
       
       XLALResampleREAL8TimeSeries(hplus,thisData->timeData->deltaT);
@@ -2360,10 +2360,10 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
       Q=injEvent->q;
       centre_frequency=injEvent->frequency;
       hrss=injEvent->hrss;
-      psi=injEvent->psi;
+     // psi=injEvent->psi;
       polar_angle=injEvent->pol_ellipse_angle;
       eccentricity=injEvent->pol_ellipse_e; // salvo
-      delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
+      //delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
       printf("READ polar angle %lf\n",polar_angle); 
             printf("READ ecc %lf\n",injEvent->pol_ellipse_e); 
 

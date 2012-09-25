@@ -625,7 +625,7 @@ int XLALSimBurstSineGaussian(
 	const double h0plus  = hplusrss / cgrss;
 	const double h0cross = hcrossrss / sgrss;
 	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
-    //printf("pol %lf ecc %lf combination %lf combination %lf\n",polarization,eccentricity,(a * cos(polarization) - b * sin(polarization)),(b * cos(polarization) + a * sin(polarization)));
+   // printf("pol %lf ecc %lf combination %lf combination %lf\n",polarization,eccentricity,(a * cos(polarization) - b * sin(polarization)),(b * cos(polarization) + a * sin(polarization)));
 	int length;
 	unsigned i;
   //  printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
@@ -662,6 +662,7 @@ printf("Im here\n");
 		const double fac = exp(-0.5 * phi * phi / (Q * Q));
 		(*hplus)->data->data[i]  = h0plus * fac * cos(phi);
 		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  //salvo remove zero here
+		//fprintf(stdout,"%10.10e %10.10e\n",h0plus * fac * cos(phi), h0cross * fac * sin(phi));
 	}
 
 	/* apply a Tukey window for continuity at the start and end of the

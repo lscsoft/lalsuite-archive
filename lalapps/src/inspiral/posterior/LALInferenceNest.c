@@ -37,8 +37,8 @@
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceProposal.h>
-#include "/Users/svitale/lalsuites/bayesian_devel/src/lalburst/src/LIGOLwXMLBurstRead.h"
-#include "/Users/svitale/lalsuites/bayesian_devel/src/lalburst/src/GenerateBurst.h"
+#include "lal/LIGOLwXMLBurstRead.h"
+#include "lal/GenerateBurst.h"
 #include <lal/LALSimBurst.h>
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
@@ -204,7 +204,7 @@ Initialisation arguments:\n\
 void initializeTemplate(LALInferenceRunState *runState)
 {
 	char help[]="\
-(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
+(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim,SinGauss]\tSpecify template (default LAL)\n";
 	ProcessParamsTable *ppt=NULL;
 	ProcessParamsTable *commandLine=runState->commandLine;
 	/* Print command line arguments if help requested */
@@ -530,8 +530,8 @@ Parameter arguments:\n\
 (--mcq)\tUse chirp mass and asymmetric mass ratio (m1/m2) as variables\n\
 (--crazyinjectionhlsign)\tFlip the sign of HL signal in likelihood function\n\
 (--pinparams [mchirp,asym_massratio,etc])\n\tList of parameters to set to injected values\n\
-(--no-logdistance)\tUse distance, not logdistance, as the sampling variable\n";
-
+(--no-logdistance)\tUse distance, not logdistance, as the sampling variable\n\
+(--burst_inj)\t Assume burst signals are injected (for the moment singaussian only)\n";
 	/* Print command line arguments if help requested */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
 	if(ppt)
