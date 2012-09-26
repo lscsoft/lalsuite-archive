@@ -25,7 +25,7 @@
 //NRCSID( LALETNULLSTREAMTESTC, "$Id$" );
 
 #define USAGE "Usage: LALETNullStreamTest [--duration REAL8] [--GPSstart INT] [--Nsegs INT] [--o output] \n \
-	[OPTIONAL] [--Srate REAL8 [DEFAULT:4096]]\n"
+	[OPTIONAL] [--Srate REAL8 [DEFAULT:4096]] -v \n"
 
 extern int lalDebugLevel;
 
@@ -45,8 +45,9 @@ CHAR channel_freq[LALNameLength]="NS:INV_SPEC";
 CHAR outfile[FILENAME_MAX];
 REAL8 duration_global=100.0;
 LIGOTimeGPS GPSStart_global; // NB: NO INFRASTRUCTURE FOR NANOSECOND INPUT!
-UINT4 SampleRate_global=4096; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
+REAL8 SampleRate_global=4096; // JUSTIFY CHOICE WDP: the data have been generated with this Srate
 UINT4 Nsegs_global=10; 
+UINT4 verbose = 0;
 /*******************************************************************************
  *
  *  FUNCTION PROTOTYPES
@@ -86,25 +87,59 @@ int main( int argc, char *argv[] )
 
 	initialise(argc,argv); 
 
+
 	/***************************************************************************
 	 *
-	 *  DECLARE TEMPORARY VARIABLES
-	 *		- EXCERP FROM ComputeSingleDetectorInvPSDfromNullStream
+	 *  GET NULLSTREAM
 	 * 
-	 **************************************************************************/		
+	 **************************************************************************/ 
 
 	UINT4 i=0; 
-	UINT4 j;
-	//INT4 check=0; 
+	UINT4 j=0;
 
-	REAL8 segDur = duration_global/(REAL8)Nsegs_global;
-	UINT4 seglen = (UINT4)(segDur*SampleRate_global); // GET THE LENGTH OF A SEGMENT
-	segDur = seglen/SampleRate_global; // UPDATE WITH THE TRUNCATED SEGLEN
-	UINT4 nSegs = (INT4)floor(duration_global/segDur); // UPDATE NSEGS TO ACCOMODATE SAMPLERATE
-	//UINT4 stride = seglen; /* Overlap the padding */
-	//REAL8 strideDur = stride / SampleRate;
-	REAL8 deltaF=(REAL8)SampleRate_global/seglen;
-	//REAL8 end_freq=10.0; /* cutoff frequency */   
+	// GET CACHE FILES AND CHANNEL NAMES
+	if(verbose==1)fprintf(stdout, "Calculating nullstream\n");
+	//if(verbose==1)fprintf(stdout, "segdur = %e | seglen = %d | nsegs = %d | deltaF = %e \n", segDur,seglen,nSegs,deltaF); 
+	CHAR *achChannelNames[3];
+	CHAR *achCacheFileNames[3]; 
+	const CHAR achFolder[128] = "/home/tania/cache/";
+	for(i=0; i<3; i++){
+		achChannelNames[i] = malloc(128*sizeof(CHAR));
+		achCacheFileNames[i] = malloc(128*sizeof(CHAR));
+		sprintf(achChannelNames[i], "%s%d%s","E", i+1,":STRAIN");
+		sprintf(achCacheFileNames[i], "%s%s%d%s",achFolder,"E", i+1,".cache");
+	}
+
+	// GET NULLSTREAM
+	REAL8TimeSeries *NullStream=LALETNullStream(achChannelNames, achCacheFileNames,&GPSStart_global,
+		duration_global, SampleRate_global);
+
+	// PRINT NULL STREAM TO FILE
+	/*
+	FILE * ofNullStream = fopen("nullstream.dat","w");
+	for(i=0;i<NullStream->data->length;i++){
+		fprintf(ofNullStream,"%e\t%e\n", ((REAL8)i)*NullStream->deltaT, NullStream->data->data[i]);
+	}
+	fclose(ofNullStream);
+	*/
+
+	if(verbose==1)fprintf(stdout, "Calculating nullstream - done\n");
+
+	/***************************************************************************
+	 *
+	 *  COMPUTE PSD (PUT IN FUNCTION INSTEAD OF IN THE TEST FUNCTION)
+	 *      + OUTPUT TO FILE
+	 * 
+	 **************************************************************************/
+
+	if(verbose==1)fprintf(stdout, "Computing single detector PSD from Null stream \n");
+
+	// COMPUTE THE SINGLE DETECTOR PSD FROM THE NULLSTREAM
+	REAL8FrequencySeries *inverse_spectrum = ComputeSingleDetectorInvPSDfromNullStream(NullStream, 
+		duration_global, SampleRate_global, Nsegs_global);
+
+
+	if(verbose==1)fprintf(stdout, "Computing single detector PSD from Null stream - done \n");
 
 
 	/***************************************************************************
@@ -113,21 +148,46 @@ int main( int argc, char *argv[] )
 	 *		- EXCERPT FROM THE FUNCTION "ComputeSingleDetectorInvPSDfromNullStream"
 	 * 
 	 **************************************************************************/    
-	/*
-	fprintf(stdout, "Calculating invPSD for individual detectors \n");
+
+	int check = 0;
+	REAL8TimeSeries *RawData[3]; // INDIVIDUAL DETECTOR STRAINS
+
+	// READ THE DATA FROM DISK INTO A VECTOR (RAWDATA)
+	for (i=0; i<3; i++) {
+		RawData[i] = ReadTimeSerieFromCache(achCacheFileNames[i], 
+			achChannelNames[i],&GPSStart_global,duration_global);
+		if(&RawData[i]==NULL){fprintf(stderr,"Error opening %s in %s\n",
+			achChannelNames[i],achCacheFileNames[i]); exit(-1);}
+	}
+
+	// RESAMPLE DATA STREAMS - OPTIONAL
+	for(i=0;i<3;i++){
+		if ((SampleRate_global)!=1.0/(RawData[i]->deltaT)) {
+			XLALResampleREAL8TimeSeries(RawData[i],1.0/SampleRate_global);
+		}
+	}    
+
+	REAL8 segDur = duration_global/(REAL8)Nsegs_global;
+	UINT4 seglen = (UINT4)(segDur*SampleRate_global); // GET THE LENGTH OF A SEGMENT
+	segDur = seglen/SampleRate_global; // UPDATE WITH THE TRUNCATED SEGLEN
+	UINT4 nSegs = (INT4)floor(duration_global/segDur); // UPDATE NSEGS TO ACCOMODATE SAMPLERATE
+	UINT4 stride = seglen; /* Overlap the padding */
+	//REAL8 strideDur = stride / SampleRate_global;
+	REAL8 deltaF=(REAL8)SampleRate_global/seglen;
+	REAL8 end_freq=5.0; /* cutoff frequency */   
+
+	if(verbose==1) fprintf(stdout, "Calculating invPSD for individual detectors \n");
 	REAL8FrequencySeries *invPSD_individual[3];
 
 	for(i=0; i<3; i++){
 
 		// CREATE PLANS FOR PSD CALCULATIONS
-		REAL8Window  *windowplan = XLALCreateTukeyREAL8Window(seglen,0.1*(REAL8)8.0*SampleRate_global/(REAL8)seglen);;
+		REAL8Window  *windowplan = XLALCreateTukeyREAL8Window(seglen,0.1*8.0*SampleRate_global/(REAL8)seglen);;
 		REAL8FFTPlan *fwdplan = XLALCreateForwardREAL8FFTPlan( seglen, 1 );
 		REAL8FFTPlan *revplan = XLALCreateReverseREAL8FFTPlan( seglen, 1 );
 
 		// SHRINKING STRAIN STREAMS INTO INTEGER SEGMENTS
-		fprintf(stdout,"... Shrinking - (lost %d samples from end)\n",RawData[i]->data->length-(seglen*nSegs));
 		RawData[i]=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(RawData[i],(size_t) 0, (size_t) seglen*nSegs);
-		fprintf(stdout,"... Computing power spectrum, seglen %i stride %i\n",seglen,stride);
 
 		// CALCULATE THE INVERSE SPECTRUM
 		invPSD_individual[i] = XLALCreateREAL8FrequencySeries("inverse spectrum",&GPSStart_global,0.0,deltaF,&lalDimensionlessUnit,seglen/2+1); 
@@ -144,81 +204,24 @@ int main( int argc, char *argv[] )
 		XLALDestroyREAL8FFTPlan(revplan);
 	}
 
-	// PRINT TO FILE
-	FILE *invpsd_individual_stream;
-	char InvPSDIndividual_name[124];
-
-	for(i=0;i<3;i++){
-		sprintf(InvPSDIndividual_name,"%s%d%s%d%s","invpsd_E",i+1,"_",GPSStart_global.gpsSeconds,".dat");
-		invpsd_individual_stream = fopen(InvPSDIndividual_name, "w");
-		fprintf(stdout, "Calculating invPSD for individual detectors - print to %s \n", InvPSDIndividual_name);
-		for(j=0;j<invPSD_individual[i]->data->length;j++) {
-			fprintf(invpsd_individual_stream,"%10.10lf %10.10e\n",j*invPSD_individual[i]->deltaF,invPSD_individual[i]->data->data[j]); 
-		}
-	}	
-
-	fclose(invpsd_individual_stream);
-*/
-
-	//	exit(0);
-
 	/***************************************************************************
 	 *
-	 *  GET NULLSTREAM
-	 * 
-	 **************************************************************************/ 
-
-	// GET CACHE FILES AND CHANNEL NAMES
-	fprintf(stdout, "Calculating nullstream\n");
-	fprintf(stdout, "segdur = %e | seglen = %d | nsegs = %d | deltaF = %e \n", segDur, seglen, nSegs, deltaF); 
-	CHAR *achChannelNames[3];
-	CHAR *achCacheFileNames[3]; 
-	const CHAR achFolder[128] = "/home/tania/cache/";
-	for(i=0; i<3; i++){
-		achChannelNames[i] = malloc(128*sizeof(CHAR));
-		achCacheFileNames[i] = malloc(128*sizeof(CHAR));
-		sprintf(achChannelNames[i], "%s%d%s","E", i+1,":STRAIN");
-		sprintf(achCacheFileNames[i], "%s%s%d%s",achFolder,"E", i+1,".cache");
-	}
-
-	// GET NULLSTREAM
-	REAL8TimeSeries *NullStream=LALETNullStream(achChannelNames, achCacheFileNames,&GPSStart_global,duration_global, (REAL8)SampleRate_global);
-
-	// PRINT NULL STREAM TO FILE
-	/*
-	FILE * ofNullStream = fopen("nullstream.dat","w");
-	for(i=0;i<NullStream->data->length;i++){
-		fprintf(ofNullStream,"%e\t%e\n", ((REAL8)i)*NullStream->deltaT, NullStream->data->data[i]);
-	}
-	fclose(ofNullStream);
-	*/
-
-	fprintf(stdout, "Calculating nullstream - done\n");
-
-	/***************************************************************************
-	 *
-	 *  COMPUTE PSD (PUT IN FUNCTION INSTEAD OF IN THE TEST FUNCTION)
-	 *      + OUTPUT TO FILE
+	 *  PRINT NULL STREAM PSD AND STREAM PSD FOR COMPARISION
 	 * 
 	 **************************************************************************/
 
-	fprintf(stdout, "Computing single detector PSD from Null stream \n");
-
-	// COMPUTE THE SINGLE DETECTOR PSD FROM THE NULLSTREAM
-	REAL8FrequencySeries *inverse_spectrum = ComputeSingleDetectorInvPSDfromNullStream(NullStream, duration_global, (REAL8)SampleRate_global, Nsegs_global);
-
-	fprintf(stdout, "Computing single detector PSD from Null stream - print to %s \n", outfile);
+	if(verbose==1)fprintf(stdout, "Print to file - %s \n", outfile);
 	// PRINT TO FILE
 	FILE *psdout;
 	psdout=fopen(outfile,"w");
 
 	// PRINT FILE
 	for(j=0;j<inverse_spectrum->data->length;j++) {
-		fprintf(psdout,"%10.10lf %10.10e\n",j*inverse_spectrum->deltaF,inverse_spectrum->data->data[j]); 
+		fprintf(psdout,"%.10e\t%.10e\t%.10e\t%.10e\t%.10e\n",
+			j*inverse_spectrum->deltaF,invPSD_individual[0]->data->data[j],invPSD_individual[1]->data->data[j],
+			invPSD_individual[2]->data->data[j], inverse_spectrum->data->data[j]); 
 	}
 	fclose(psdout);
-
-	fprintf(stdout, "Computing single detector PSD from Null stream - done \n");
 
 	/***************************************************************************
 	 *
@@ -257,7 +260,7 @@ void initialise(int argc, char *argv[])
 
 	if(argc<=1) {fprintf(stderr,USAGE); exit(-1);}
 
-	while((i=getopt_long(argc,argv,"a:b:c:d:e",long_options,&i))!=-1)
+	while((i=getopt_long(argc,argv,"a:b:c:d:evh",long_options,&i))!=-1)
 	{ 
 		switch(i) {
 			case 'a':
@@ -272,11 +275,18 @@ void initialise(int argc, char *argv[])
 				break;
 			case 'd':
 				SampleRate_global=atof(optarg);
-				fprintf(stderr,"Setting the sample rate to %i. This might not be what you want!\n",SampleRate_global);
+				fprintf(stderr,"Setting the sample rate to %f. This might not be what you want!\n",
+					SampleRate_global);
 				break;
 			case 'e':
 				strcpy(outfile,optarg);
 				break;  
+			case 'v':
+				verbose = 1;
+				break;
+			case 'h':
+				fprintf(stdout,USAGE); exit(0);
+				break;
 			default:
 				fprintf(stdout,USAGE); exit(0);
 				break;

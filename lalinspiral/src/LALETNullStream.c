@@ -24,7 +24,6 @@
 * FUNCTION PROTOTYPES FOR LOCAL FUNCTIONS
 *
 *******************************************************************************/
-REAL8TimeSeries *ReadTimeSerieFromCache(const CHAR *cachefile, const CHAR *channel, LIGOTimeGPS *start, REAL8 duration);
 
 /*******************************************************************************
 *
@@ -66,8 +65,8 @@ REAL8TimeSeries * LALETNullStream (CHAR *ChannelNames[], CHAR *CacheFileNames[],
 	// RESAMPLE DATA STREAMS - OPTIONAL
 	for(i=0;i<3;i++){
 		if ((SampleRate)!=1.0/(RawData[i]->deltaT)) {
-			fprintf(stdout, "Resampling time series to from %f to %f Hz \n", 
-				1.0/RawData[0]->deltaT, SampleRate);
+			//fprintf(stdout, "Resampling time series to from %f to %f Hz \n", 
+				//1.0/RawData[i]->deltaT, SampleRate);
 			XLALResampleREAL8TimeSeries(RawData[i],1.0/SampleRate);
 		}
 	}    
@@ -183,7 +182,7 @@ REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(REAL8TimeSeries
 	UINT4 stride = seglen; /* Overlap the padding */
 	//REAL8 strideDur = stride / SampleRate;
 	REAL8 deltaF=(REAL8)SampleRate/seglen;
-	REAL8 end_freq=10.0; /* cutoff frequency */ 
+	REAL8 end_freq=5.0; /* cutoff frequency */ 
 
 	REAL8Window  *windowplan = XLALCreateTukeyREAL8Window(seglen,0.1*(REAL8)8.0*SampleRate/(REAL8)seglen);;
 	REAL8FFTPlan *fwdplan = XLALCreateForwardREAL8FFTPlan( seglen, 1 );
@@ -209,9 +208,9 @@ REAL8FrequencySeries * ComputeSingleDetectorInvPSDfromNullStream(REAL8TimeSeries
 	 **************************************************************************/
 
 	// SHRINKING NULLSTREAM INTO INTEGER SEGMENTS
-	fprintf(stdout,"... Shrinking - (lost %d samples from end)\n",NullStream->data->length-(seglen*nSegs));
+	//fprintf(stdout,"... Shrinking - (lost %d samples from end)\n",NullStream->data->length-(seglen*nSegs));
 	NullStream=(REAL8TimeSeries *)XLALShrinkREAL8TimeSeries(NullStream,(size_t) 0, (size_t) seglen*nSegs);
-	fprintf(stdout,"... Computing power spectrum, seglen %i stride %i\n",seglen,stride);
+	//fprintf(stdout,"... Computing power spectrum, seglen %i stride %i\n",seglen,stride);
 
 	// CALCULATE THE INVERSE SPECTRUM 
 	check = XLALREAL8AverageSpectrumMedian(inverse_spectrum,NullStream,(UINT4)seglen,(UINT4)stride,windowplan,fwdplan);
