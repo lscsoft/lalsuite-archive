@@ -43,12 +43,21 @@ from operator import itemgetter
 
 #related third party imports
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 from scipy import special
 from numpy import linspace
-
 import random
+
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter
+
+# Default font properties
+font = {'family':'serif',
+        'weight':'normal',
+        'size':11}
+matplotlib.rc('font',**font)
+
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -2326,7 +2335,9 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     @param analyticCDF: an analytic cumulative distribution function describing the distribution.
 
     """
-
+    
+    # matplotlib.rcParams['text.usetex']=True
+    
     param=plot1DParams.keys()[0].lower()
     histbins=plot1DParams.values()[0]
 
@@ -2337,8 +2348,18 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
     axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
     myfig.add_axes(axes)
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
+    locatorX=matplotlib.ticker.MaxNLocator(steps=[1,2,4,5,10],prune='both' )
+    locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
+
     if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
