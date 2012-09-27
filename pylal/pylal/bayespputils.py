@@ -50,13 +50,32 @@ from scipy import special
 from numpy import linspace
 import random
 
-from matplotlib.ticker import FormatStrFormatter,ScalarFormatter
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 # Default font properties
 font = {'family':'serif',
         'weight':'normal',
         'size':11}
 matplotlib.rc('font',**font)
+
+fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+matplotlib.rcParams.update(
+        {'axes.labelsize': 11,
+        'text.fontsize':   11,
+        'legend.fontsize': 11,
+        'xtick.labelsize': 11,
+        'ytick.labelsize': 11,
+        'text.usetex': False,
+        'figure.figsize': fig_size,
+        'font.family': "Serif",
+        #'font.serif': ["Times"],
+        'savefig.dpi': 120 
+        })
 
 
 try:
@@ -2349,17 +2368,28 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
     myfig.add_axes(axes)
     majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.6g'%(data)
     majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
     axes.xaxis.set_major_formatter(majorFormatterX)
     axes.yaxis.set_major_formatter(majorFormatterY)
 
-    (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
-    locatorX=matplotlib.ticker.MaxNLocator(steps=[1,2,4,5,10],prune='both' )
+    (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    print Nchars
+    if Nchars>8:
+        Nticks=3
+    elif Nchars>5:
+        Nticks=4
+    elif Nchars>4:
+        Nticks=6
+    else:
+        Nticks=8
+    locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks)
     locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
-
     if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
@@ -2504,6 +2534,15 @@ def getRAString(radians,accuracy='auto'):
         else: return(getRAString(radians,accuracy='hour'))
         
 def getDecString(radians,accuracy='auto'):
+    # LaTeX doesn't like unicode degree symbols etc
+    if matplotlib.rcParams['text.usetex']:
+        degsymb='^\circ'
+        minsymb="'"
+        secsymb="''"
+    else:
+        degsymb=u'\u00B0'
+        minsymb=u'\u0027'
+        secsymb=u'\u2033'
     if(radians<0):
         radians=-radians
         sign=-1
@@ -2517,9 +2556,9 @@ def getDecString(radians,accuracy='auto'):
     if mins>=59.5:
         mins=mins-60.0
         deg=deg+1
-    if accuracy=='deg': return ur'%i\u00B0'%(sign*deg)
-    if accuracy=='arcmin': return ur'%i\u00B0%i\u0027'%(sign*deg,mins)
-    if accuracy=='arcsec': return ur'%i\u00B0%i\u0027%2.0f\u2033'%(sign*deg,mins,secs)
+    if accuracy=='deg': return ur'%i'%(sign*deg)+degsymb
+    if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
+    if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
         if secs>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
         if mins>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
@@ -2553,7 +2592,7 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     sp_seterr(under='ignore')
 
     myfig=plt.figure(1,figsize=(6,4),dpi=200)
-    myfig.add_axes(plt.Axes(myfig,[0.2,0.25,0.75,0.7]))
+    myfig.add_axes(plt.Axes(myfig,[0.20,0.20,0.75,0.7]))
     plt.clf()
 
     xax=np.linspace(min(xdat),max(xdat),Nx)
@@ -2941,8 +2980,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par1_trigvalues=posterior[par1_name.lower()].trigvals
     par2_trigvalues=posterior[par2_name.lower()].trigvals
 
-    myfig=plt.figure(1,figsize=(10,8),dpi=300)
-    myfig.add_axes([0.2,0.2,0.8,0.8])
+    myfig=plt.figure(1,figsize=(10,8),dpi=200)
+    myfig.add_axes([0.2,0.2,0.7,0.7])
     plt.clf()
     plt.xlabel(par2_name)
     plt.ylabel(par1_name)
