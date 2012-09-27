@@ -30,6 +30,8 @@ import random
 import numpy as np
 from numpy import floor
 
+import scipy.stats as ss
+
 import matplotlib as mpl
 mpl.use("AGG")
 from matplotlib import pyplot as plt
@@ -303,6 +305,29 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     return myfig,top_cl_intervals_list#,rkde
 
 #
+def compute_ks_pvalue_matrix(list_of_pos_by_name, param):
+    """Returns a matrix of ks p-value tests between pairs of
+    posteriors on the 1D marginalized distributions for param."""
+
+    poss=list_of_pos_by_name.values()
+
+    N=len(poss)
+
+    matrix=np.zeros((N,N))
+    matrix[:,:]=float('nan')
+
+    for i in range(N):
+        pi=poss[i]
+        for j in range(i+1, N):
+            pj=poss[j]
+
+            d,pvalue=ss.ks_2samp(pi[param].samples.flatten(), pj[param].samples.flatten())
+
+            matrix[i,j]=pvalue
+            matrix[j,i]=pvalue
+
+    return matrix
+        
 def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
 
     """
@@ -680,8 +705,38 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 cl_table_str+=row_contents+'</tr>'
             cl_table_str+=cl_table_min_max_str+'</tr>'
             cl_table_str+='</table>'
-            oned_data[param]=(save_paths,cl_table_str)
 
+            ks_matrix=compute_ks_pvalue_matrix(pos_list, param)
+
+            N=ks_matrix.shape[0]+1
+
+            # Make up KS-test table
+            ks_table_str='<table><th colspan="%d"> K-S test p-value matrix </th>'%N
+
+            # Column headers
+            ks_table_str+='<tr> <td> -- </td> '
+            for name,pos in pos_list.items():
+                ks_table_str+='<td> %s </td>'%name
+            ks_table_str+='</tr>'
+
+            # Now plot rows of matrix
+            for i in range(len(pos_list)):
+                ks_table_str+='<tr> <td> %s </td>'%(pos_list.keys()[i])
+                for j in range(len(pos_list)):
+                    if i == j:
+                        ks_table_str+='<td> -- </td>'
+                    elif ks_matrix[i,j] < 0.05:
+                        # Failing at suspiciously low p-value
+                        ks_table_str+='<td> <b> %g </b> </td>'%ks_matrix[i,j]
+                    else:
+                        ks_table_str+='<td> %g </td>'%ks_matrix[i,j]
+
+                ks_table_str+='</tr>'
+
+            ks_table_str+='</table>'
+
+            oned_data[param]=(save_paths,cl_table_str, ks_table_str)
+            
 
 
     return greedy2savepaths,oned_data,confidence_levels
@@ -789,7 +844,7 @@ if __name__ == '__main__':
 
         for param_name,data in oned_data.items():
             param_section.h3(param_name)
-            save_paths,cl_table_str=data
+            save_paths,cl_table_str,ks_table_str=data
             clf_toggle=False
             for save_path in save_paths:
                 head,plotfile=os.path.split(save_path)
@@ -798,6 +853,7 @@ if __name__ == '__main__':
                 param_section.write('<img src="%s"/>'%str(plotfile))
 
             param_section.write(cl_table_str)
+            param_section.write(ks_table_str)
 
     if greedy2savepaths:
 
