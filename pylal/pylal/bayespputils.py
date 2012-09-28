@@ -2344,7 +2344,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='b', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
@@ -2634,12 +2634,15 @@ def histogram2D(posterior,greedy2Params,confidence_levels):
     confidence_levels.sort()
     Hsum=0
     Hlasts=[]
+    idxes=np.argsort(temp)
+    j=len(idxes)-1
     for cl in confidence_levels:
         while float(Hsum/np.sum(H))<cl:
-            ind = np.argsort(temp)
-            max_i=ind[-1:]
+            #ind = np.argsort(temp)
+            max_i=idxes[j]
+            j-=1
             val = temp[max_i]
-            Hlast=val[0]
+            Hlast=val
             Hsum+=val
             temp[max_i]=0
         Hlasts.append(Hlast)
@@ -2787,12 +2790,15 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         confidence_levels.sort()
         Hsum=0
         Hlasts=[]
+        idxes=np.argsort(temp)
+        j=len(idxes)-1
         for cl in confidence_levels:
             while float(Hsum/np.sum(H))<cl:
-                ind = np.argsort(temp)
-                max_i=ind[-1:]
+                #ind = np.argsort(temp)
+                max_i=idxes[j]
+                j-=1
                 val = temp[max_i]
-                Hlast=val[0]
+                Hlast=val
                 Hsum+=val
                 temp[max_i]=0
             Hlasts.append(Hlast)
@@ -2930,10 +2936,13 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
 
     Hsum=0
     Hsum_actual=np.sum(H)
-
+    
+    idxes=np.argsort(temp)
+    j=len(idxes)-1
     while Hsum<Hsum_actual:
-        ind = np.argsort(temp)
-        max_i=ind[-1:]
+        #ind = np.argsort(temp)
+        max_i=idxes[j]
+        j-=1
         val = temp[max_i]
         Hsum+=int(val)
         temp[max_i]=0
@@ -3632,14 +3641,22 @@ class PEOutputParser(object):
         return header,flines
 
 
-    def _common_to_pos(self,infile,delimiter=None):
+    def _common_to_pos(self,infile,info=[None,None]):
         """
         Parse a file in the 'common format' and return an array of posterior
         samples and list of parameter names. Will apply inverse functions to
         columns with names containing sin,cos,log.
         """
+        
+        [headerfile,delimiter]=info
 
-        formatstr=infile.readline().lstrip()
+        if headerfile==None:
+        	formatstr=infile.readline().lstrip()
+        else:
+        	hf=open(headerfile,'r')
+        	formatstr=hf.readline().lstrip()
+        	hf.close()
+        
         formatstr=formatstr.replace('#','')
         formatstr=formatstr.replace('"','')
 

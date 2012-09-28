@@ -203,7 +203,9 @@ def main(trigCacheFile, injCacheFile, timeWindow, outdir,\
                       if i.get_time_geocent() not in excludes)
       currTrigs  = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
-      currTrigs.extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles))
+      tmp = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+      if tmp is not None:
+        currTrigs.extend(tmp)
       if len(currTrigs):
         currTrigs.sort(key=lambda t: t.snr, reverse=True)
       if verbose:

@@ -915,10 +915,13 @@ int main(int argc, char *argv[])
                fprintf(stderr,"%s: calculateR() failed.\n", __func__);
                XLAL_ERROR(XLAL_EFUNC);
             }
-            REAL8 prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, inputParams, &proberrcode);
-            if (XLAL_IS_REAL8_FAIL_NAN(prob)) {
-               fprintf(stderr,"%s: probR() failed.\n", __func__);
-               XLAL_ERROR(XLAL_EFUNC);
+            REAL8 prob = 0.0;
+            if ( R > 0.0 ) {
+               prob = probR(template, aveNoise, aveTFnoisePerFbinRatio, R, inputParams, &proberrcode);
+               if (XLAL_IS_REAL8_FAIL_NAN(prob)) {
+                  fprintf(stderr,"%s: probR() failed.\n", __func__);
+                  XLAL_ERROR(XLAL_EFUNC);
+               }
             }
             REAL8 h0 = 2.7426*pow(R/(inputParams->Tcoh*inputParams->Tobs),0.25);
             if ((!inputParams->calcRthreshold && prob<log10(templatefarthresh)) || (inputParams->calcRthreshold && R>farval->far)) {
@@ -1224,12 +1227,12 @@ REAL4Vector * readInSFTs(inputParamsStruct *input, REAL8 *normalization)
    //If an SFT doesn't exit, fill the TF pixels of the SFT with zeros
    INT4 numffts = (INT4)floor(input->Tobs/(input->Tcoh-input->SFToverlap)-1);
    INT4 sftlength;
-   if (sfts->length == 0) sftlength = (INT4)(maxfbin*input->Tcoh - minfbin*input->Tcoh + 1);
+   if (sfts->length == 0) sftlength = (INT4)round(maxfbin*input->Tcoh - minfbin*input->Tcoh + 1);
    else {
       sftlength = sfts->data->data->length;
       //Check the length is what we expect
-      if (sftlength!=(INT4)(maxfbin*input->Tcoh - minfbin*input->Tcoh + 1)) {
-         fprintf(stderr, "%s: sftlength (%d) is not matching expected length (%d).\n", __func__, sftlength, (INT4)(maxfbin*input->Tcoh - minfbin*input->Tcoh + 1));
+      if (sftlength!=(INT4)round(maxfbin*input->Tcoh - minfbin*input->Tcoh + 1)) {
+         fprintf(stderr, "%s: sftlength (%d) is not matching expected length (%d).\n", __func__, sftlength, (INT4)round(maxfbin*input->Tcoh - minfbin*input->Tcoh + 1));
          XLAL_ERROR_NULL(XLAL_EFPINEXCT);
       }
    }
@@ -2514,6 +2517,7 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
    params->validateSSE = args_info.validateSSE_given;                            //Validate SSE functions (default = 0)
    params->noNotchHarmonics = args_info.noNotchHarmonics_given;                  //Do not notch the daily/sidereal harmonics (default = 0)
    params->harmonicNumToSearch = args_info.harmonicNumToSearch_arg;              //Search the number of harmonics specified by the Pmin-->Pmax range (default = 1 meaning search only the range of Pmin-->Pmax)
+   params->ULsolver = args_info.ULsolver_arg;                                    //Solver function for UL calculation (default = 0)
    
    //Non-default arguments
    if (args_info.Tcoh_given) params->Tcoh = args_info.Tcoh_arg;                  //SFT coherence time (s)

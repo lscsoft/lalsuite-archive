@@ -174,7 +174,7 @@ for instruments in IMR.instruments:
 		ax.set_xlim(min(bg_ifars), max(bg_ifars))
 		leg = pylab.legend(loc = 'upper right', scatterpoints = 1, numpoints = 4)
 		ax.grid()
-		pylab.savefig('%s-%s_IFAR-%d-%d.pdf' % ("".join(sorted(list(instruments))), options.output_name_tag+"_"+label, min(segs)[0], T))
+		pylab.savefig('%s-%s_IFAR-%d-%d.png' % ("".join(sorted(list(instruments))), options.output_name_tag+"_"+label, min(segs)[0], T))
 
 		#
 		# Population statement plot
@@ -192,4 +192,4 @@ for instruments in IMR.instruments:
 		ax.grid()
 		ax.set_xlim(1, stop_N)
 		ax.set_ylim(min(min(faps1), min(cfaps1)), 1)
-		pylab.savefig('%s-%s_POP_STATEMENT-%d-%d.pdf' % ("".join(sorted(list(instruments))), options.output_name_tag+"_"+label, min(segs)[0], T))
+		pylab.savefig('%s-%s_POP_STATEMENT-%d-%d.png' % ("".join(sorted(list(instruments))), options.output_name_tag+"_"+label, min(segs)[0], T))

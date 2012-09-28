@@ -1,2 +1,2 @@
-pkgpython_DATA = \
+pkgpython_PYTHON = \
 	__init__.py

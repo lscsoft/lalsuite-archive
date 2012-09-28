@@ -1,7 +1,7 @@
 # SWIG configuration
 # Author: Karl Wette, 2011, 2012
 #
-# serial 20
+# serial 22
 
 # enable SWIG wrapping modules
 AC_DEFUN([LALSUITE_ENABLE_SWIG],[
@@ -142,7 +142,7 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     # flags for generating SWIG wrapping module sources
     AC_SUBST(SWIG_SWIGFLAGS,["-Wextra -Werror"])
 
-    # directories SWIG should look in for interfaces and LAL headers
+    # look here for interfaces and LAL headers
     SWIG_SWIGFLAGS="${SWIG_SWIGFLAGS} -I\$(abs_top_builddir)/include"
 
     # send language-specific SWIG output files to libtool directory
@@ -157,6 +157,9 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
       SWIG_SWIGFLAGS="${SWIG_SWIGFLAGS} -DNDEBUG"
       SWIG_CPPFLAGS="${SWIG_CPPFLAGS} -DNDEBUG"
     ])
+
+    # look here for interfaces and LAL headers (but not for preprocessing)
+    SWIG_CPPFLAGS="${SWIG_CPPFLAGS} -I/usr/include"
 
     # flags for compiling SWIG wrapping module sources
     AC_SUBST(SWIG_CFLAGS,["${swig_save_CFLAGS}"])
@@ -180,7 +183,7 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     # libraries SWIG wrapping module should be linked against
     AC_SUBST(SWIG_LIBS,["${swig_save_LIBS}"])
     AS_IF([test ${lalswig} = true],[
-      SWIG_LIBS="${SWIG_LIBS} \$(abs_top_builddir)/packages/support/src/liblalsupport.la \$(abs_top_builddir)/lib/liblal.la"
+      SWIG_LIBS="${SWIG_LIBS} \$(abs_top_builddir)/lib/lalsupport/src/liblalsupport.la \$(abs_top_builddir)/lib/lal/liblal.la"
     ],[
       SWIG_LIBS="${SWIG_LIBS} \$(abs_top_builddir)/src/lib${PACKAGE_NAME}.la"
     ])

@@ -245,6 +245,7 @@ static const LALStatus swiglal_empty_LALStatus = {0, NULL, NULL, NULL, NULL, 0, 
 %typemap(out, noblock=1) SWIGTYPE SWIGLAL_RETURN_VOID {
   %set_output(VOID_Object);
 }
+%typemap(newfree, noblock=1) SWIGTYPE SWIGLAL_RETURN_VOID "";
 %define %swiglal_process_function(NAME, RENAME, TYPE)
 %rename(#RENAME) NAME;
 #if #RENAME != "$ignore"
@@ -391,7 +392,7 @@ if (swiglal_release_parent(PTR)) {
 %swiglal_array_type(LALCHAR, CHAR*);
 %swiglal_array_type(int8_t, char, signed char, int8_t);
 %swiglal_array_type(uint8_t, unsigned char, uint8_t);
-%swiglal_array_type(int16_t, short, int64_t);
+%swiglal_array_type(int16_t, short, int16_t);
 %swiglal_array_type(uint16_t, unsigned short, uint16_t);
 %swiglal_array_type(int32_t, int, int32_t, enum SWIGTYPE);
 %swiglal_array_type(uint32_t, unsigned int, uint32_t);

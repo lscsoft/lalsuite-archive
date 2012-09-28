@@ -14,6 +14,7 @@ AC_CONFIG_FILES([ \
   include/lal/Makefile \
   src/Makefile \
   python/Makefile \
+  python/__init__.py \
   test/Makefile
 ])
 AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
@@ -127,20 +128,13 @@ LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
 LALSUITE_CHECK_LIB([LALMetaIO],[1.0.4],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 LALSUITE_CHECK_LIB([LALSimulation],[0.3.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 
+# add gcc specific flags
+LALSUITE_ADD_GCC_FLAGS
+
 # force all python modules into the exec dir to prevent mixed C and
 # pure-python library code from being split across lib and lib64 on
 # RedHat-derived systems.
 AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
-
-# add gcc specific flags
-if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
-
-  # add mac os x specific flags
-  if test "x$MACOSX_VERSION" != "x"; then
-    CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
-  fi
-fi
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk

@@ -14,6 +14,7 @@ AC_CONFIG_FILES([ \
   include/lal/Makefile \
   src/Makefile \
   python/Makefile \
+  python/__init__.py \
   swig/Makefile \
   swig/octave/Makefile \
   swig/python/Makefile \
@@ -60,11 +61,6 @@ LALSUITE_ENABLE_GCC_FLAGS
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
 
-# force all python modules into the exec dir to prevent mixed C and
-# pure-python library code from being split across lib and lib64 on
-# RedHat-derived systems.
-AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
-
 # put version/configure info in config header
 lalframe_version_major=`echo "$VERSION" | cut -d. -f1`
 lalframe_version_minor=`echo "$VERSION" | cut -d. -f2`
@@ -99,9 +95,6 @@ LALSUITE_PROG_CC_CXX
 # check for pythread, needed for low latency data test codes
 AX_PTHREAD([lalframe_pthread=true],[lalframe_pthread=false])
 AM_CONDITIONAL([PTHREAD],[test x$lalframe_pthread = xtrue])
-
-# ignore unused flags with clang/clang++
-AS_IF([test -n "$CLANG_CC"],[CFLAGS="-Qunused-arguments ${CFLAGS}"])
 
 # checks for programs
 AC_PROG_INSTALL
@@ -156,14 +149,12 @@ LALSUITE_USE_SWIG([XLAL LAL])
 LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
-if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
+LALSUITE_ADD_GCC_FLAGS
 
-  # add mac os x specific flags
-  if test "x$MACOSX_VERSION" != "x"; then
-    CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
-  fi
-fi
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk

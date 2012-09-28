@@ -14,6 +14,7 @@ AC_CONFIG_FILES([ \
   include/lal/Makefile \
   src/Makefile \
   python/Makefile \
+  python/__init__.py \
   swig/Makefile \
   swig/octave/Makefile \
   swig/python/Makefile \
@@ -59,11 +60,6 @@ LALSUITE_ENABLE_GCC_FLAGS
 
 # enable SWIG wrapping modules
 LALSUITE_ENABLE_SWIG
-
-# force all python modules into the exec dir to prevent mixed C and
-# pure-python library code from being split across lib and lib64 on
-# RedHat-derived systems.
-AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # optional lal libraries
 LALSUITE_ENABLE_LALFRAME
@@ -159,24 +155,17 @@ LALSUITE_USE_SWIG([XLAL LAL])
 LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
-if test "$GCC" = yes; then
-  # don't use gcc flags when cuda is enabled
-  if test "${cuda}" != "true"; then
-    CFLAGS="$CFLAGS $lal_gcc_flags"
-  else
-    AC_MSG_NOTICE([CUDA support is enabled, disabling GCC flags])
-  fi
-
-  # add mac os x specific flags
-  if test "x$MACOSX_VERSION" != "x"; then
-    CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
-  fi
-fi
+LALSUITE_ADD_GCC_FLAGS
 
 # define if CUDA is enabled
 if test "${cuda}" = "true"; then
   AC_DEFINE([LALINSPIRAL_CUDA_ENABLED],[1],[Define if using cuda library])
 fi
+
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk

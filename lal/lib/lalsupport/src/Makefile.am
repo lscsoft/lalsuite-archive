@@ -1,4 +1,4 @@
-INCLUDES = -I$(top_builddir)/include -I$(srcdir)/../include
+AM_CPPFLAGS = -I$(top_builddir)/include -I$(srcdir)/../include
 
 lib_LTLIBRARIES = liblalsupport.la
 
@@ -31,7 +31,7 @@ liblalsupport_la_SOURCES = \
 	getopt.h \
 	getopt1.c
 
-liblalsupport_la_LIBADD = @LALSUPPORT_LIBADD@
+liblalsupport_la_LIBADD = $(top_builddir)/lib/lal/liblal.la @LALSUPPORT_LIBADD@
 liblalsupport_la_LDFLAGS = -version-info $(LIBVERSION_SUPPORT)
 
 noinst_HEADERS = \

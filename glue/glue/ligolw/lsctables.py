@@ -169,10 +169,12 @@ def instrument_set_from_ifos(ifos):
 	input is None --> output is None
 
 	input contains "," --> output is set of strings split on "," with
-	leading and trailing whitespace stripped from each piece
+	leading and trailing whitespace stripped from each piece and empty
+	strings removed from the set
 
 	input contains "+" --> output is set of strings split on "+" with
-	leading and trailing whitespace stripped from each piece
+	leading and trailing whitespace stripped from each piece and empty
+	strings removed from the set
 
 	else, after stripping input of leading and trailing whitespace,
 
@@ -191,13 +193,21 @@ def instrument_set_from_ifos(ifos):
 	encodings recognized by this function, and for this reason the
 	inverse function, ifos_from_instrument_set(), implements that
 	encoding only.
+
+	NOTE:  to force a string containing a single instrument name not to
+	be split into two-character pieces, add a "," or "+" character to
+	the end to force the comma- or plus-delimited decoding to be used.
 	"""
 	if ifos is None:
 		return None
 	if u"," in ifos:
-		return set(ifo.strip() for ifo in ifos.split(u","))
+		result = set(ifo.strip() for ifo in ifos.split(u","))
+		result.discard(u"")
+		return result
 	if u"+" in ifos:
-		return set(ifo.strip() for ifo in ifos.split(u"+"))
+		result = set(ifo.strip() for ifo in ifos.split(u"+"))
+		result.discard(u"")
+		return result
 	ifos = ifos.strip()
 	if len(ifos) > 2 and not len(ifos) % 2:
 		# if ifos is a string with an even number of characters
@@ -222,12 +232,26 @@ def ifos_from_instrument_set(instruments):
 	instruments will only be iterated over once and so can be a
 	generator expression.  Whitespace is allowed in instrument names
 	but may not be preserved.
+
+	NOTE:  in the special case that there is 1 instrument name in the
+	iterable and it has an even number of characters > 2 in it, the
+	output will have a "," appended in order to force
+	instrument_set_from_ifos() to parse the string back into a single
+	instrument name.  This is a special case included temporarily to
+	disambiguate the encoding until all codes have been ported to the
+	comma-delimited encoding.  This behaviour will be discontinued at
+	that time.  DO NOT WRITE CODE THAT RELIES ON THIS!  You have been
+	warned.
 	"""
 	if instruments is None:
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
 	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
 		raise ValueError(instruments)
+	if len(instruments) == 1 and len(instruments[0]) > 2 and not len(instruments[0]) % 2:
+		# special case disambiguation.  FIXME:  remove when
+		# everything uses the comma-delimited encoding
+		return u"%s," % instruments[0]
 	return u",".join(instruments)
 
 

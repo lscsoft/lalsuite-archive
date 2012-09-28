@@ -1,5 +1,5 @@
-INCLUDES = -I$(top_builddir)/include -I$(srcdir)/../include
-LDADD = $(top_builddir)/lib/liblal.la -lm
+AM_CPPFLAGS = -I$(top_builddir)/include -I$(srcdir)/../include
+LDADD = $(top_builddir)/lib/lal/liblal.la -lm
 
 check_PROGRAMS = WindowTest
 

@@ -21,6 +21,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 import datetime, re
 import numpy
 
+from warnings import warn
 from glue import segments
 from pylal import plotutils
 from pylal import date
@@ -48,6 +49,8 @@ class PlotSegmentsPlot(object):
     Create a fresh plot.  Provide t0 to provide a reference time to use as
     zero.
     """
+    warn("This class is now deprecated by pylal.plotutils.SegmentPlot",\
+         DeprecationWarning)
     self.fig = pylab.figure()
     self.ax = self.fig.add_subplot(111)
     self.savefig = self.fig.savefig
