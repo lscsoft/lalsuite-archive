@@ -2378,7 +2378,6 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
 
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
-    print Nchars
     if Nchars>8:
         Nticks=3
     elif Nchars>5:
@@ -2980,16 +2979,28 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par1_trigvalues=posterior[par1_name.lower()].trigvals
     par2_trigvalues=posterior[par2_name.lower()].trigvals
 
-    myfig=plt.figure(1,figsize=(10,8),dpi=200)
-    myfig.add_axes([0.2,0.2,0.7,0.7])
-    plt.clf()
+    myfig=plt.figure()
+    axes=plt.Axes(myfig,[0.3,0.3,0.95-0.3,0.95-0.3])
+    myfig.add_axes(axes)
+    
+    #plt.clf()
     plt.xlabel(par2_name)
     plt.ylabel(par1_name)
 
-    bins=(100,100)
-
+    #bins=(par1pos_Nbins,par2pos_Nbins)
+    bins=(50,50) # Matches plot_one_param_pdf
+    
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.4g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.4g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
     H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
 
+      
     #Replace H with greedy bin confidence levels at each pixel...
     temp=np.copy(H)
     temp=temp.flatten()
@@ -3011,9 +3022,24 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
 
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-    plt.imshow(np.flipud(H), aspect='auto', extent=extent, interpolation='nearest')
-    plt.gca().autoscale_view()
-    plt.colorbar()
+    #plt.imshow(np.flipud(H), axes=axes, aspect='auto', extent=extent, interpolation='nearest',cmap='gray_r')
+    #plt.gca().autoscale_view()
+    #plt.colorbar()
+    
+    plt.hexbin(a,b,cmap='gray_r',axes=axes )
+    
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+      Nticks=3
+    elif Nchars>5:
+      Nticks=3
+    elif Nchars>4:
+      Nticks=5
+    else:
+      Nticks=6
+    locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+    #locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
 
     if par1_injvalue is not None and par2_injvalue is not None:
         plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
@@ -3609,7 +3635,7 @@ class PEOutputParser(object):
         
             for row in pos:
                 for i in row:
-                    posfile.write('%.12e\t' %(i))
+                    posfile.write('%.12g\t' %(i))
                 posfile.write('\n')
         
         with open(posfilename,'r') as posfile:
