@@ -13,14 +13,13 @@ die "mkdir failed: $?" if $?;
 my $Tsft = 1800.0;
 my $dur = 40551300.0;
 for(my $ii=0; $ii<10; $ii++) {
-   my $cosi = sprintf("%.6f", 2.0*rand()-1.0);
-   my $h0 = sprintf("%.6e",10**(rand()-24.0));
+   my $h0 = sprintf("%.6e",10**(rand()-24.5));
    my $psi = sprintf("%.6f",0.5*pi*rand()-0.25*pi);
    my $phi0 = sprintf("%.6f",2.0*pi*rand());
    my $alpha = sprintf("%.6f",2.0*pi*rand());
    my $delta = sprintf("%.6f",acos(2.0*rand()-1.0)-0.5*pi);
    my $f0 = 401.25 + 0.24*rand();
-   my $df = rand()*0.1;
+   my $df = rand()*(1.0/$Tsft);
    while ($df-0.5/$Tsft<1.0e-6) {
       $df = rand()*0.1;
    }
@@ -41,7 +40,7 @@ outSingleSFT TRUE
 IFO H1
 ephemDir /home/egoetz/TwoSpect/S6
 ephemYear 08-11-DE405
-timestampsFile /home/egoetz/TwoSpect/UL_randPolarizations/timestamps.dat
+timestampsFile /home/egoetz/TwoSpect/UL_smallDeltaF/timestamps.dat
 generationMode 0
 fmin 401.0
 Band 2.9992
@@ -50,7 +49,7 @@ window Hann
 Alpha $alpha
 Delta $delta
 h0 $h0
-cosi $cosi
+cosi 1.0
 psi $psi
 phi0 $phi0
 Freq $f0
@@ -67,8 +66,8 @@ randSeed $mfdrandseed
 EOF
    close(MFDCONFIG);
    
-   open(INJECTION, ">>/home/egoetz/TwoSpect/UL_randPolarizations/$jobnum/injections.dat") or die "Cannot write to /home/egoetz/TwoSpect/UL_randPolarizations/$jobnum/injections.dat $!";
-   print INJECTION "$alpha $delta $h0 $psi $phi0 $cosi $f0 $P $df\n";
+   open(INJECTION, ">>/home/egoetz/TwoSpect/UL_smallDeltaF/$jobnum/injections.dat") or die "Cannot write to /home/egoetz/TwoSpect/UL_smallDeltaF/$jobnum/injections.dat $!";
+   print INJECTION "$alpha $delta $h0 $psi $phi0 $f0 $P $df\n";
    close(INJECTION);
    
    open(TWOSPECTCONFIG, ">/local/user/egoetz/$$/twospectconfig") or die "Cannot write to /local/user/egoetz/$$/twospectconfig $!";
@@ -84,7 +83,7 @@ tmplfar 1.0
 Pmin 7200
 Pmax 8110260
 dfmin 0.0002
-dfmax 0.1
+dfmax 1.0e-3
 skyRegion ($alpha,$delta)
 t0 931081500
 blksize 101
@@ -94,7 +93,7 @@ maxTemplateLength 500
 sftDir /local/user/egoetz/$$
 ephemDir /home/egoetz/TwoSpect/S6
 ephemYear 08-11-DE405
-outdirectory /home/egoetz/TwoSpect/UL_randPolarizations/$jobnum
+outdirectory /home/egoetz/TwoSpect/UL_smallDeltaF/$jobnum
 sftType MFD
 IFO H1
 FFTplanFlag 1
