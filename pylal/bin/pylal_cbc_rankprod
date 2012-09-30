@@ -596,7 +596,7 @@ if opts.combined_statistic:
     [midbins[ifo] for ifo in ifos], power, combinedBins)
   # make a plot of the cumulative distribution of combined stat values
   cumCounts = combinedCounts[::-1].cumsum()[::-1]
-  name = opts.ifo_tag+"_combined_"+opts.combined_statistic+"_"+opts.statistic
+  name = opts.ifo_tag+"_"+opts.combined_statistic+"_"+opts.statistic+"_hist"
   tag = opts.ifo_tag+"_combined_stat_hist"
   plot_one_thing(fig_num, combinedBins[:-1], cumCounts, plotcommand="semilogy", marker="^", \
     size=8, plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
@@ -740,12 +740,12 @@ if (opts.coinc_pattern or opts.coinc_file) and len(coincFiles):
           chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
 
 # plot estimated FAN vs combined statistic without zerolag
-if opts.combined_statistic:
+if opts.combined_statistic and numCoincs:
   cumCounts = combinedCounts[::-1].cumsum()[::-1]
   plotFAPs = cumCounts/trigpairs
   plotFANs = plotFAPs*numCoincs
-  name = opts.ifo_tag+"_combined_"+opts.combined_statistic+"_"+opts.statistic
-  tag = opts.ifo_tag+"_combined_stat_hist"
+  name = opts.ifo_tag+"_"+opts.combined_statistic+"_"+opts.statistic+"_FAN"
+  tag = opts.ifo_tag+"_combined_stat_vs_FAN"
   plot_one_thing(fig_num, combinedBins[:-1], plotFANs, plotcommand="semilogy", marker="^", size=8, \
     plotcolor="g", plotxlab="Combined "+opts.combined_statistic+" statistic value", plotylab=\
     "Estimated FAN", plottit="", figname=name, figtag=tag)
