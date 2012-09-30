@@ -227,7 +227,7 @@ if options.verbose:
     print >> sys.stderr, "Getting all veto categories in the experiment_summary table..."
 
 # get veto_segments
-veto_segments = compute_dur.get_vetosegs_allcats(connection, options.verbose)
+veto_segments = compute_dur.get_veto_segments(xmldoc, options.verbose)
 
 # Apply DQ vetoes to single-ifo segments
 post_vetoes_ifosegs = {}
