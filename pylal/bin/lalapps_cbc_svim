@@ -192,7 +192,7 @@ class upper_limit(object):
         print "\t%s was on for %d seconds" % (ifo,abs(self.segments[ifo]))
 
     # getting vetoes
-    veto_segments = compute_dur.get_vetosegs_allcats(self.connection, self.opts.verbose)
+    veto_segments = compute_dur.get_veto_segments(xmldoc, self.opts.verbose)
     veto_segments = veto_segments[self.opts.veto_segments_name]
 
     # applying vetoes
