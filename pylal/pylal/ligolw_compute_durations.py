@@ -33,6 +33,7 @@ from operator import itemgetter
 
 from glue import iterutils
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
