@@ -33,6 +33,7 @@ from operator import itemgetter
 
 from glue import iterutils
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
@@ -109,60 +110,48 @@ def get_allifo_combos(ifo_keys, min_num_ifos):
 	return on_ifos, excluded_ifos
 
 
-def get_veto_segments(connection, name):
-	"""
-	Return a coalesced glue.segments.segmentlistdict object containing the
-	segments of the given name extracted from the database at the given
-	connection.
-	"""
-	xmldoc = dbtables.get_xml(connection)
-	seglists = ligolw_segments.segmenttable_get_by_name(xmldoc, name).coalesce()
-	xmldoc.unlink()
-	return seglists
-
-def get_vetosegs_allcats(connection, verbose):
+def get_veto_segments(xmldoc, verbose):
 	"""
 	Return a dictionary of glue.segments.segmentlistdict objects containing 
-	veto segments and the keys being the associated veto-definer name.
-	"""
-
-	sqlquery = """
-	SELECT DISTINCT veto_def_name
-	FROM experiment_summary
+	veto segments dictionaries for each ifo and the top-level keys being the
+	associated veto-definer names.
 	"""
 	veto_segments = {}
-	for veto_def_name in connection.cursor().execute(sqlquery).fetchall():
-		veto_def_name = veto_def_name[0]
+
+	# get the set of unique veto_definer names in this xmldoc
+	veto_def_names = set( table.get_table(xmldoc, lsctables.SegmentDefTable.tableName).getColumnByName('name') )
+
+	for name in veto_def_names:
 		if verbose:
-			print >>sys.stderr, "Retrieving veto segments for %s..." % veto_def_name
+			print >>sys.stderr, "Retrieving veto segments for %s..." % name
 		try:
-			veto_segments[veto_def_name] = get_veto_segments(connection, veto_def_name)
+			veto_segments[name] = ligolw_segments.segmenttable_get_by_name(xmldoc, name).coalesce()
 		except AttributeError:
 			# will get an AttributeError if using newer format veto segment file because
 			# the new format does not include _ns; if so, remove the _ns columns from the
 			# segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
 			from glue.lal import LIGOTimeGPS
-		
+
 			del lsctables.SegmentTable.validcolumns['start_time_ns']
 			del lsctables.SegmentTable.validcolumns['end_time_ns']
-		
+
 			def get_segment(self):
 				"""
 				Return the segment described by this row.
 				"""
 				return segments.segment(LIGOTimeGPS(self.start_time, 0), LIGOTimeGPS(self.end_time, 0))
-		
+
 			def set_segment(self, segment):
 				"""
 				Set the segment described by this row.
 				"""
 				self.start_time = segment[0].seconds
 				self.end_time = segment[1].seconds
-		
+
 			lsctables.Segment.get = get_segment
 			lsctables.Segment.set = set_segment
-		
-			veto_segments[veto_def_name] = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+
+			veto_segments[name] = ligolw_segments.segmenttable_get_by_name(xmldoc, name).coalesce()
 
 	return veto_segments
 
