@@ -480,10 +480,14 @@ LALFindChirpInjectSignals (
 
       /* set the start times for injection */
       XLALINT8NSToGPS( &(waveform.h->epoch), waveformStartTime );
-      memcpy( &(waveform.f->epoch), &(waveform.h->epoch),
+      if ( waveform.f ) {
+		  memcpy( &(waveform.f->epoch), &(waveform.h->epoch),
           sizeof(LIGOTimeGPS) );
-      memcpy( &(waveform.phi->epoch), &(waveform.h->epoch),
+	  }
+      if ( waveform.phi ) {
+		  memcpy( &(waveform.phi->epoch), &(waveform.h->epoch),
           sizeof(LIGOTimeGPS) );
+	  }
 
       wfmLength = waveform.h->data->length;
       dataLength = 2*wfmLength;
@@ -497,6 +501,8 @@ LALFindChirpInjectSignals (
        * with NRWaveInject.
        *
        */
+      if (waveform.h->data->vectorLength != 2)
+          LALAbort("expected alternating h+ and hx");
       for( i = 0; i < dataLength; i++)
       {
         x1[i] = waveform.h->data->data[i]*thisEvent->distance;
@@ -510,6 +516,7 @@ LALFindChirpInjectSignals (
       LALFree(x1);
 
       waveform.h->data->vectorLength = wfmLength;
+      waveform.h->data->length = 2;
 
       LALInjectStrainGW( status->statusPtr ,
                                       chan ,

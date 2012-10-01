@@ -1119,7 +1119,7 @@ int main( int argc, char *argv[])
 				fprintf(stdout,"Offset injection by %lf s\n",((REAL8) i+1)*offset);
 			}
 			/* Create a buffer long enough to hold the signal */
-			UINT4 bufferlength = (UINT4)(100.0/inputMCMC.deltaT);
+			UINT4 bufferlength = (UINT4)(400.0/inputMCMC.deltaT);
 			if(bufferlength<seglen) bufferlength=seglen;
 			LIGOTimeGPS bufferstart;
 			memcpy(&bufferstart,&segmentStart,sizeof(LIGOTimeGPS));
@@ -1146,7 +1146,6 @@ int main( int argc, char *argv[])
             dphis[8]=this_injection.dphi6l;
             dphis[9]=this_injection.dphi7;
             for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
-//			lalDebugLevel = 32543;
 			/* INJECTING NON-GR SPIN TAYLOR T4 */
 /*            if (template.approximant==SpinTaylorT4Test) {
 				printf("Using approximant SpinTaylorT4Test (from lalsimulation)");

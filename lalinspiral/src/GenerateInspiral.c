@@ -630,6 +630,7 @@ LALGenerateInspiralPopulateInspiral(
   inspiralParams->fLower  =  ppnParams->fStartIn; /* lower cutoff frequency */
   inspiralParams->fFinal  =  thisEvent->f_final;
   inspiralParams->fCutoff = 1./ (ppnParams->deltaT)/2.-1;
+  inspiralParams->ampOrder = thisEvent->amp_order;
 
   /* -1 to be  in agreement with the inspiral assert. */
   inspiralParams->tSampling	  = 1./ (ppnParams->deltaT); /* sampling*/

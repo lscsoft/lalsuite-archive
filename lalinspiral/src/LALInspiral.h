@@ -1350,6 +1350,7 @@ void LALInspiralInterfaceSpinTaylorT4(
 	LALStatus *status, 
 	CoherentGW *signalvec, 
 	InspiralTemplate *params, 
+	PPNParamStruc *ppnParams,
 	REAL8 *dxis, 
 	REAL8 cutoff
 	);
