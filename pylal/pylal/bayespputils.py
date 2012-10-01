@@ -2376,6 +2376,12 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     axes.xaxis.set_major_formatter(majorFormatterX)
     axes.yaxis.set_major_formatter(majorFormatterY)
 
+    if param.find('time')!=-1:
+      offset=floor(min(pos_samps))
+      pos_samps=pos_samps-offset
+      ax1_name=param+' + %i'%(int(offset))
+    else: ax1_name=param
+
     (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
     if Nchars>8:
@@ -2385,7 +2391,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     elif Nchars>4:
         Nticks=6
     else:
-        Nticks=8
+        Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks)
     locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
@@ -2427,7 +2433,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
                 plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
-    plt.xlabel(param)
+    plt.xlabel(ax1_name)
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
@@ -2707,7 +2713,7 @@ def histogram2D(posterior,greedy2Params,confidence_levels):
         Hlasts.append(Hlast)
     return (H,xedges,yedges,Hlasts)
 
-def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=120,figposition=[0.3,0.3,0.5,0.5],legend='right',hatches_by_name=None):
     """
     @param posteriors_by_name A dictionary of posterior objects indexed by name
     @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
@@ -2802,7 +2808,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig=plt.figure(1,figsize=figsize,dpi=dpi)
     plt.clf()
 
-    fig.add_axes(figposition)
+    axes=fig.add_axes(figposition)
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
@@ -2840,6 +2846,28 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
         par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
 
+        if par1_name.find('time')!=-1:
+          offset=floor(min(a))
+          a=a-offset
+          ax1_name=par1_name+' + %i'%(int(offset))
+        else: ax1_name=par1_name
+
+        if par2_name.find('time')!=-1:
+          offset=floor(min(b))
+          b=b-offset
+          ax2_name=par2_name+' + %i'%(int(offset))
+        else: ax2_name=par2_name
+
+
+        majorFormatterX=ScalarFormatter(useMathText=True)
+        majorFormatterX.format_data=lambda data:'%.4g'%(data)
+        majorFormatterY=ScalarFormatter(useMathText=True)
+        majorFormatterY.format_data=lambda data:'%.4g'%(data)
+        majorFormatterX.set_scientific(True)
+        majorFormatterY.set_scientific(True)
+        axes.xaxis.set_major_formatter(majorFormatterX)
+        axes.yaxis.set_major_formatter(majorFormatterY)
+        
         H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
 
         extent = [xedges[0], yedges[-1], xedges[-1], xedges[0]]
@@ -2877,10 +2905,22 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
             plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='*',scalex=False,scaley=False)
         CSlst.append(CS)
 
+    	Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    	if Nchars>8:
+      		Nticks=3
+    	elif Nchars>5:
+      		Nticks=4
+    	elif Nchars>4:
+      		Nticks=5
+    	else:
+      		Nticks=6
+    	locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+    	#locatorX.view_limits(bins[0],bins[-1])
+    	axes.xaxis.set_major_locator(locatorX)
 
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+    plt.xlabel(ax2_name)
+    plt.ylabel(ax1_name)
 
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
@@ -2971,6 +3011,19 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
     par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
 
+    # Adjust for time parameter
+    if par1_name.find('time')!=-1:
+      offset=floor(min(a))
+      a=a-offset
+      ax1_name=par1_name+' + %i'%(int(offset))
+    else: ax1_name=par1_name
+
+    if par2_name.find('time')!=-1:
+      offset=floor(min(b))
+      b=b-offset
+      ax2_name=par2_name+' + %i'%(int(offset))
+    else: ax2_name=par2_name
+
     #Extract injection information
     par1_injvalue=posterior[par1_name.lower()].injval
     par2_injvalue=posterior[par2_name.lower()].injval
@@ -2980,12 +3033,12 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par2_trigvalues=posterior[par2_name.lower()].trigvals
 
     myfig=plt.figure()
-    axes=plt.Axes(myfig,[0.3,0.3,0.95-0.3,0.95-0.3])
+    axes=plt.Axes(myfig,[0.3,0.3,0.95-0.3,0.90-0.3])
     myfig.add_axes(axes)
     
     #plt.clf()
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+    plt.xlabel(ax2_name)
+    plt.ylabel(ax1_name)
 
     #bins=(par1pos_Nbins,par2pos_Nbins)
     bins=(50,50) # Matches plot_one_param_pdf
@@ -3022,17 +3075,17 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
 
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-    #plt.imshow(np.flipud(H), axes=axes, aspect='auto', extent=extent, interpolation='nearest',cmap='gray_r')
-    #plt.gca().autoscale_view()
-    #plt.colorbar()
+    plt.imshow(np.flipud(H), axes=axes, aspect='auto', extent=extent, interpolation='nearest',cmap='gray_r')
+    plt.gca().autoscale_view()
+    plt.colorbar()
     
-    plt.hexbin(a,b,cmap='gray_r',axes=axes )
+    #plt.hexbin(a,b,cmap='gray_r',axes=axes )
     
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
     if Nchars>8:
       Nticks=3
     elif Nchars>5:
-      Nticks=3
+      Nticks=4
     elif Nchars>4:
       Nticks=5
     else:
