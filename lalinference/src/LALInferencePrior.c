@@ -358,6 +358,19 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 			strcat(header,"a1 ");
 		}
 	}
+	else if(LALInferenceCheckVariable(params,"spin1"))
+	{
+		item = LALInferenceGetItem(params, "spin1");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin1", (void *)&min, (void *)&max);
+			double a_spin1 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin1", &a_spin1);
+			Cube[i] = a_spin1;
+			i++;
+			strcat(header,"a1 ");
+		}
+	}
 
 	// theta_spin1
 	if(LALInferenceCheckVariable(params,"theta_spin1"))
@@ -399,6 +412,19 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 			LALInferenceGetMinMaxPrior(runState->priorArgs, "a_spin2", (void *)&min, (void *)&max);
 			double a_spin2 = flatPrior(Cube[i], min, max);
 			LALInferenceSetVariable(params, "a_spin2", &a_spin2);
+			Cube[i] = a_spin2;
+			i++;
+			strcat(header,"a2 ");
+		}
+	}
+	else if(LALInferenceCheckVariable(params,"spin2"))
+	{
+		item = LALInferenceGetItem(params, "spin2");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin2", (void *)&min, (void *)&max);
+			double a_spin2 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin2", &a_spin2);
 			Cube[i] = a_spin2;
 			i++;
 			strcat(header,"a2 ");
@@ -911,6 +937,19 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 			strcat(header,"a1 ");
 		}
 	}
+	else if(LALInferenceCheckVariable(params,"spin1"))
+	{
+		item = LALInferenceGetItem(params, "spin1");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin1", (void *)&min, (void *)&max);
+			double a_spin1 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin1", &a_spin1);
+			Cube[i] = a_spin1;
+			i++;
+			strcat(header,"a1 ");
+		}
+	}
 
 	// theta_spin1
 	if(LALInferenceCheckVariable(params,"theta_spin1"))
@@ -952,6 +991,19 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 			LALInferenceGetMinMaxPrior(runState->priorArgs, "a_spin2", (void *)&min, (void *)&max);
 			double a_spin2 = flatPrior(Cube[i], min, max);
 			LALInferenceSetVariable(params, "a_spin2", &a_spin2);
+			Cube[i] = a_spin2;
+			i++;
+			strcat(header,"a2 ");
+		}
+	}
+	else if(LALInferenceCheckVariable(params,"spin2"))
+	{
+		item = LALInferenceGetItem(params, "spin2");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin2", (void *)&min, (void *)&max);
+			double a_spin2 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin2", &a_spin2);
 			Cube[i] = a_spin2;
 			i++;
 			strcat(header,"a2 ");
@@ -1553,6 +1605,19 @@ UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runSt
 			strcat(header,"a1 ");
 		}
 	}
+	else if(LALInferenceCheckVariable(params,"spin1"))
+	{
+		item = LALInferenceGetItem(params, "spin1");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin1", (void *)&min, (void *)&max);
+			double a_spin1 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin1", &a_spin1);
+			Cube[i] = a_spin1;
+			i++;
+			strcat(header,"a1 ");
+		}
+	}
 
 	// theta_spin1
 	if(LALInferenceCheckVariable(params,"theta_spin1"))
@@ -1594,6 +1659,19 @@ UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runSt
 			LALInferenceGetMinMaxPrior(runState->priorArgs, "a_spin2", (void *)&min, (void *)&max);
 			double a_spin2 = flatPrior(Cube[i], min, max);
 			LALInferenceSetVariable(params, "a_spin2", &a_spin2);
+			Cube[i] = a_spin2;
+			i++;
+			strcat(header,"a2 ");
+		}
+	}
+	else if(LALInferenceCheckVariable(params,"spin2"))
+	{
+		item = LALInferenceGetItem(params, "spin2");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin2", (void *)&min, (void *)&max);
+			double a_spin2 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin2", &a_spin2);
 			Cube[i] = a_spin2;
 			i++;
 			strcat(header,"a2 ");
@@ -2360,6 +2438,20 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
 	        strcat(header,"a1 ");
         }
     }
+	else if(LALInferenceCheckVariable(params,"spin1"))
+	{
+		item = LALInferenceGetItem(params, "spin1");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin1", (void *)&min, (void *)&max);
+			double a_spin1 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin1", &a_spin1);
+			Cube[i] = a_spin1;
+			i++;
+			logPrior -= log(max-min);
+			strcat(header,"a1 ");
+		}
+	}
 		
 	if(LALInferenceCheckVariable(params,"a_spin2"))
     {
@@ -2375,6 +2467,20 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
 	        strcat(header,"a2 ");
         }
     }
+	else if(LALInferenceCheckVariable(params,"spin2"))
+	{
+		item = LALInferenceGetItem(params, "spin2");
+		if(item->vary != LALINFERENCE_PARAM_FIXED)
+		{
+			LALInferenceGetMinMaxPrior(runState->priorArgs, "spin2", (void *)&min, (void *)&max);
+			double a_spin2 = flatPrior(Cube[i], min, max);
+			LALInferenceSetVariable(params, "spin2", &a_spin2);
+			Cube[i] = a_spin2;
+			i++;
+			logPrior -= log(max-min);
+			strcat(header,"a2 ");
+		}
+	}
 		
 	if(LALInferenceCheckVariable(params,"theta_spin1"))
     {
