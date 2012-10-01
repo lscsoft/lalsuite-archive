@@ -63,7 +63,7 @@ void *context)
 	int i;
 	for (i = strlen(root); i < 100; i++) root[i] = ' ';
 
-        __nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
+        __nested__nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
         root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, &maxiter, getLogLike, dumper, context);
 }
 
@@ -1596,24 +1596,24 @@ void initVariables(LALInferenceRunState *state)
     if(!LALInferenceCheckVariable(currentParams,"a_spin1")) {
     	ppt=LALInferenceGetProcParamVal(commandLine,"--fixA1");
     	if(ppt){
-    	  LALInferenceAddVariable(currentParams, "spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    	  LALInferenceAddVariable(currentParams, "a_spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     	  fprintf(stdout,"spin 1 fixed and set to %f\n",start_a_spin1);
     	}else{
-    	  LALInferenceAddVariable(currentParams, "spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    	  LALInferenceAddVariable(currentParams, "a_spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     	}
-    	LALInferenceAddMinMaxPrior(priorArgs, "spin1",     &a1min, &a1max,   LALINFERENCE_REAL8_t);
+    	LALInferenceAddMinMaxPrior(priorArgs, "a_spin1",     &a1min, &a1max,   LALINFERENCE_REAL8_t);
     }
 
     a2min=-1.0;
     if(!LALInferenceCheckVariable(currentParams,"a_spin2")) {
     	ppt=LALInferenceGetProcParamVal(commandLine,"--fixA2");
     	if(ppt){
-    	  LALInferenceAddVariable(currentParams, "spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    	  LALInferenceAddVariable(currentParams, "a_spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     	  fprintf(stdout,"spin 2 fixed and set to %f\n",start_a_spin2);
     	}else{
-    	  LALInferenceAddVariable(currentParams, "spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    	  LALInferenceAddVariable(currentParams, "a_spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     	}
-    	LALInferenceAddMinMaxPrior(priorArgs, "spin2",     &a2min, &a2max,   LALINFERENCE_REAL8_t);
+    	LALInferenceAddMinMaxPrior(priorArgs, "a_spin2",     &a2min, &a2max,   LALINFERENCE_REAL8_t);
     }
 
   }
