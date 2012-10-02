@@ -53,11 +53,6 @@ import random
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 # Default font properties
-font = {'family':'serif',
-        'weight':'normal',
-        'size':11}
-matplotlib.rc('font',**font)
-
 fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
 inches_per_pt = 1.0/72.27               # Convert pt to inch
 golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
@@ -72,9 +67,11 @@ matplotlib.rcParams.update(
         'ytick.labelsize': 11,
         'text.usetex': False,
         'figure.figsize': fig_size,
-        'font.family': "Serif",
-        #'font.serif': ["Times"],
-        'savefig.dpi': 120 
+        'font.family': "serif",
+        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+        'font.weight':'normal',
+        'font.size':11,
+        'savefig.dpi': 120
         })
 
 
