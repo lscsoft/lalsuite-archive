@@ -245,6 +245,21 @@ LALGenerateInspiral(
 		}
 	}
 
+    REAL8 dxis[10]={0.0};
+    if (approximant == SpinTaylorT4) 
+    {
+        dxis[0]=thisEvent->dphi0;
+        dxis[1]=thisEvent->dphi1;
+        dxis[2]=thisEvent->dphi2;
+        dxis[3]=thisEvent->dphi3;
+        dxis[4]=thisEvent->dphi4;
+        dxis[5]=thisEvent->dphi5;
+        dxis[6]=thisEvent->dphi6;
+        dxis[7]=thisEvent->dphi6l;
+        dxis[8]=thisEvent->dphi7;
+        dxis[9]=thisEvent->dphi8;
+	}
+
     /* We fill ppnParams */
     LALGenerateInspiralPopulatePPN(status->statusPtr, ppnParams, thisEvent);
     CHECKSTATUSPTR(status);
@@ -256,7 +271,7 @@ LALGenerateInspiral(
 
     /* the waveform generation itself */
     LALInspiralWaveForInjection(status->statusPtr, waveform, &inspiralParams,
-        ppnParams);
+	        ppnParams, dxis);
     /* we populate the simInspiral table with the fFinal needed for
        template normalisation. */
     thisEvent->f_final = inspiralParams.fFinal;

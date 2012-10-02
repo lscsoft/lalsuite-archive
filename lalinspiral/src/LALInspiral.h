@@ -1120,7 +1120,8 @@ LALInspiralWaveForInjection(
    LALStatus        *status,
    CoherentGW       *waveform,
    InspiralTemplate *params,
-   PPNParamStruc  *ppnParams);
+   PPNParamStruc  *ppnParams,
+   REAL8 *phaseParams);
 
 /*  <lalLaTeX>
 \newpage\input{LALInspiralWave1C}

@@ -1146,6 +1146,8 @@ int main( int argc, char *argv[])
             dphis[8]=this_injection.dphi6l;
             dphis[9]=this_injection.dphi7;
             for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+            fprintf(stderr, "Injecting spin1: ( %e , %e , %e )\n", this_injection.spin1x, this_injection.spin1y, this_injection.spin1z);
+            fprintf(stderr, "Injecting spin2: ( %e , %e , %e )\n", this_injection.spin2x, this_injection.spin2y, this_injection.spin2z);
 			/* INJECTING NON-GR SPIN TAYLOR T4 */
 /*            if (template.approximant==SpinTaylorT4Test) {
 				printf("Using approximant SpinTaylorT4Test (from lalsimulation)");

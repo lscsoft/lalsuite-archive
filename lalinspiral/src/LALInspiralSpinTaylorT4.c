@@ -26,6 +26,8 @@
 #include <lal/TimeSeries.h>
 #include "check_series_macros.h"
 
+#define DEBUG 0
+
 #define UNUSED(expr) do { (void)(expr); } while (0)
 /*
 #ifdef __GNUC__
@@ -220,11 +222,12 @@ void LALInspiralInterfaceSpinTaylorT4(
 	
 
 	/* DEBUGGING PRINT */
-	/* printf(	"XLALSimInspiralSpinTaylorT4( hplus pointer = %ld , \nhcrossptr = %ld , \nphiRef = %e , \nv0 = %e ,\ndeltaT = %e ,\nm1 = %e ,\nm2 = %e ,\nfStart = %e ,\nfRef = %e , \
+#if DEBUG
+	printf(	"XLALSimInspiralSpinTaylorT4( hplus pointer = %ld , \nhcrossptr = %ld , \nphiRef = %e , \nv0 = %e ,\ndeltaT = %e ,\nm1 = %e ,\nm2 = %e ,\nfStart = %e ,\nfRef = %e , \
 	\nr = %e ,\ns1x = %e ,\ns1y = %e ,\ns1z = %e ,\ns2x = %e ,\ns2y = %e ,\ns2z = %e ,\nlnhatx = %e ,\nlnhaty = %e ,\nlnhatz = %e ,\ne1x = %e ,\ne1y = %e ,\ne1z = %e ,\nlambda1 = %e , \
-	\nlambda2 = %e ,\nsimInteraction = %i ,\nphaseOrder = %d ,\namplitudeOrder = %d,\ndxi[0] = %e)\n", (long int) &hplusptr, (long int) &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, 
-	fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, params->ampOrder, dxis[0]);
-	*/
+	\nlambda2 = %e ,\nsimInteraction = %i ,\nphaseOrder = %d ,\namplitudeOrder = %d,\ndxi[0] = %e,\ndxi[1] = %e,\ndxi[2] = %e,\ndxi[3] = %e)\n", (long int) &hplusptr, (long int) &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, 
+	fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, params->ampOrder, dxis[0], dxis[1], dxis[2], dxis[3]);
+#endif
 
 	/* Call the SpinTaylorT4 generator */
 	XLALSimInspiralSpinTaylorT4(&hplusptr, &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, amplitudeOrder, dxis);
@@ -272,7 +275,7 @@ void LALInspiralInterfaceSpinTaylorT4(
 #if DEBUG
     FILE *outInj4=fopen("SpinTaylorT4_preInj4.dat","w");
     for (j=0; j<hplusptr->data->length; j++) {
-            fprintf(outInj4, "%lf %e %e\n", j*deltaT, waveform->h->data->data[j], waveform->h->data->data[j + bins]);
+            fprintf(outInj4, "%lf %e %e\n", j*deltaT, waveform->h->data->data[2*j], waveform->h->data->data[2*j + 1]);
     }
     fclose(outInj4);
 #endif
@@ -508,9 +511,9 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     params.wdotcoeff[3]*=1.0+dxis[3];
     params.wdotcoeff[4]*=1.0+dxis[4];
     params.wdotcoeff[5]*=1.0+dxis[5];
-    params.wdotcoeff[6]*=1.0+dxis[6];
-    params.wdotlogcoeff*=1.0+dxis[7];
-    params.wdotcoeff[7]*=1.0+dxis[8];
+    params.wdotcoeff[6]*=1.0+dxis[7];
+    params.wdotlogcoeff*=1.0+dxis[8];
+    params.wdotcoeff[7]*=1.0+dxis[9];
 
     
   /*}

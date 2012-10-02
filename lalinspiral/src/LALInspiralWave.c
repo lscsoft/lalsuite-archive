@@ -385,7 +385,8 @@ LALInspiralWaveForInjection(
    LALStatus        *status,
    CoherentGW       *waveform,
    InspiralTemplate *inspiralParams,
-   PPNParamStruc  *ppnParams)
+   PPNParamStruc  *ppnParams,
+   REAL8 *phaseParams)
 { /* </lalVerbatim>  */
 
    INITSTATUS(status, "LALInspiralWaveForInjection", LALINSPIRALWAVEFORINJECTIONC);
@@ -393,8 +394,6 @@ LALInspiralWaveForInjection(
 
    ASSERT (inspiralParams,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT (ppnParams,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-
-   REAL8 phaseParams[10] = {0.0};
 
    switch (inspiralParams->approximant)
      {

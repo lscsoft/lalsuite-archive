@@ -894,6 +894,7 @@ void GenerateTimeDomainWaveformForInjection (
     ppnParams.psi                  = param->polarisationAngle;
     ppnParams.epoch.gpsSeconds     = 0;
     ppnParams.epoch.gpsNanoSeconds = 0;
+    REAL8 phaseParams[10] = {0.0};
 
 
     /* the waveform generation itself */
@@ -906,7 +907,7 @@ void GenerateTimeDomainWaveformForInjection (
      */
     nStartPad = param->nStartPad;
 
-    LALInspiralWaveForInjection(status->statusPtr, &waveform, param, &ppnParams);
+    LALInspiralWaveForInjection(status->statusPtr, &waveform, param, &ppnParams, phaseParams);
     CHECKSTATUSPTR(status);
 
     /* Now reinstate nStartPad from saved value */
