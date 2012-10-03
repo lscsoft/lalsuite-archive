@@ -137,7 +137,7 @@ if sqlscript != '':
 
 
 # Cleaning up the veto_definer and segments tables...
-sqlutils.simplify_segments_tbls(connection, verbose=opts.verbose, debug=opts.debug, programs)
+sqlutils.simplify_segments_tbls(connection, programs, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_vetodef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 
 # Make process_id map for programs: inspinj, rinj, ligolw_tisi
@@ -145,7 +145,7 @@ sqlutils.get_process_info(connection, verbose=opts.verbose, debug=opts.debug)
 
 sqlutils.simplify_timeslide_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 if set([('inspinj',),('rinj',)]) & programs:
-    sqlutils.simplify_sim_tbls(connection, verbose=opts.verbose, debug=opts.debug, programs)
+    sqlutils.simplify_sim_tbls(connection, programs, verbose=opts.verbose, debug=opts.debug)
 
 # Cleaning up the coinc_definer & experiment tables...
 sqlutils.simplify_coincdef_tbl(connection, verbose=opts.verbose, debug=opts.debug)

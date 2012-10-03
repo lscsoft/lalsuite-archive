@@ -1782,7 +1782,7 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
     connection.cursor().executescript(sqlscript)
 
 
-def simplify_sim_tbls(connection, verbose=False, debug=False, programs):
+def simplify_sim_tbls(connection, programs, verbose=False, debug=False):
     """
     Cleaning up the simulation tables as well as the associated
     entries in the process & process_params tables
@@ -1871,7 +1871,7 @@ class segdict_from_segment:
         return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
 
-def simplify_segments_tbls(connection, verbose=False, debug=False, programs):
+def simplify_segments_tbls(connection, programs, verbose=False, debug=False):
     """
     Cleaning up the segments tables as well as the associated
     entries in the process & process_params tables
