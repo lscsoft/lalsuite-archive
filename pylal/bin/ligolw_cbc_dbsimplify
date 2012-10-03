@@ -137,22 +137,22 @@ if sqlscript != '':
 
 
 # Cleaning up the veto_definer and segments tables...
-sqlutils.simplify_segments_tbls(connection, opts, programs)
-sqlutils.simplify_vetodef_tbl(connection, opts)
+sqlutils.simplify_segments_tbls(connection, verbose=opts.verbose, debug=opts.debug, programs)
+sqlutils.simplify_vetodef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 
 # Make process_id map for programs: inspinj, rinj, ligolw_tisi
-sqlutils.get_process_info(connection, opts)
+sqlutils.get_process_info(connection, verbose=opts.verbose, debug=opts.debug)
 
-sqlutils.simplify_timeslide_tbl(connection, opts)
+sqlutils.simplify_timeslide_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 if set([('inspinj',),('rinj',)]) & programs:
-    sqlutils.simplify_sim_tbls(connection, opts, programs)
+    sqlutils.simplify_sim_tbls(connection, verbose=opts.verbose, debug=opts.debug, programs)
 
 # Cleaning up the coinc_definer & experiment tables...
-sqlutils.simplify_coincdef_tbl(connection, opts)
-sqlutils.simplify_expr_tbls(connection, opts)
+sqlutils.simplify_coincdef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
+sqlutils.simplify_expr_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 
 # Cleaning up the process & process_params tables...
-sqlutils.simplify_proc_tbls(connection, opts)
+sqlutils.simplify_proc_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 
 # Vacuum database if desired
 if opts.vacuum:

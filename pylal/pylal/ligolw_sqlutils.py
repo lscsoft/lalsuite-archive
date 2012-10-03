@@ -1010,15 +1010,12 @@ def clean_metadata_using_end_time(connection, key_table, key_column, verbose = F
     connection.cursor().executescript(sqlscript)
 
 
-def get_process_info(connection, opts):
+def get_process_info(connection, verbose=False, debug=False):
     """
     Collect up needed information from the process table to clean up the 
     time_slide and simulation tables in dbsimplify.
-
-    @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Collect useful information from process and process_params tables"
 
     # create function to concatenate 5 columns together per row
@@ -1062,23 +1059,20 @@ def get_process_info(connection, opts):
     
     DROP TABLE proc_params;
     """
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-def simplify_proc_tbls(connection, opts):
+def simplify_proc_tbls(connection, verbose=False, debug=False):
     """
     Cleaning up the process & process_params tables of duplicate info related
     to the time-slide and simulation tables.
-
-    @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
 
     #FIXME: the SQL query should not have hard-coded program names!
@@ -1104,12 +1098,12 @@ def simplify_proc_tbls(connection, opts):
     DROP INDEX pidmap_index;
     DROP TABLE _pidmap_;
     """
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
@@ -1195,16 +1189,13 @@ def clean_experiment_tables(connection, verbose = False):
         """
     connection.cursor().executescript(sqlscript)
 
-def simplify_expr_tbls(connection, opts):
+def simplify_expr_tbls(connection, verbose=False, debug=False):
     """
     Cleaning up the experiment, experiment_summary, and experiment_map tables
     by removing duplicate rows and remapping events to the appropriate
     experiment.
-
-    @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Cleaning experiment tables..."
 
     # create function to concatenate 7 columns together per row
@@ -1317,12 +1308,12 @@ def simplify_expr_tbls(connection, opts):
     DROP INDEX esidmap_index;
     DROP TABLE _esidmap_;
     """
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
@@ -1535,14 +1526,11 @@ def apply_inclusion_rules_to_coinc_table( connection, coinc_table, exclude_coinc
             clean_coinc_event_map = True, clean_mapped_tables = True )
 
 
-def simplify_coincdef_tbl(connection, opts):
+def simplify_coincdef_tbl(connection, verbose=False, debug=False):
     """
     Cleaning up the coinc_definer table  
-
-    @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Cleaning up the coinc_definer table..."
 
     sqlscript = """
@@ -1580,12 +1568,12 @@ def simplify_coincdef_tbl(connection, opts):
     
     DROP TABLE _cdidmap_;
     """
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
@@ -1794,16 +1782,15 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
     connection.cursor().executescript(sqlscript)
 
 
-def simplify_sim_tbls(connection, opts, programs):
+def simplify_sim_tbls(connection, verbose=False, debug=False, programs):
     """
     Cleaning up the simulation tables as well as the associated
     entries in the process & process_params tables
 
     @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     @programs:   set of programs run so far on this data
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Cleaning simulation tables..."
 
     sqlscript = """
@@ -1826,12 +1813,12 @@ def simplify_sim_tbls(connection, opts, programs):
                             AND program == \"""", str(program[0]), """\");
             """ ])
 
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
@@ -1884,16 +1871,15 @@ class segdict_from_segment:
         return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
 
-def simplify_segments_tbls(connection, opts, programs):
+def simplify_segments_tbls(connection, verbose=False, debug=False, programs):
     """
     Cleaning up the segments tables as well as the associated
     entries in the process & process_params tables
 
     @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     @programs:   set of programs run so far on this data
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Cleaning up the segments tables..."
 
     # create function to concatenate 2 columns together per row
@@ -1940,12 +1926,12 @@ def simplify_segments_tbls(connection, opts, programs):
                 AND program == \"""", str(dqsegs_program[0]), """\";"""])
     sqlscript += "DROP TABLE segments_tbl;"
 
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
@@ -2020,15 +2006,12 @@ def get_instrument_sets_and_time_slide_ids( connection ):
     return instrument_set_time_slide_ids
 
 
-def simplify_timeslide_tbl(connection, opts):
+def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     """
     Cleaning up the veto_definer table as well as the associated
     entries in the process & process_params tables  
-
-    @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Clean up the time_slide table ..."
 
     sqlscript = """
@@ -2091,12 +2074,12 @@ def simplify_timeslide_tbl(connection, opts):
     
     DROP TABLE _tsidmap_;
     """
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # =============================================================================
@@ -2107,15 +2090,12 @@ def simplify_timeslide_tbl(connection, opts):
 
 # Following utilities are specific to the veto_definer table
 
-def simplify_vetodef_tbl(connection, opts):
+def simplify_vetodef_tbl(connection, verbose=False, debug=False):
     """
     Cleaning up the veto_definer table as well as the associated
     entries in the process & process_params tables  
-
-    @connection: sqlite connection object for given database
-    @opts:       command line options for ligolw_cbc_dbsimplify
     """
-    if opts.verbose:
+    if verbose:
         print >> sys.stdout, "Cleaning up the veto_definer table..."
 
     # create function to concatenate 7 columns together per row
@@ -2159,12 +2139,12 @@ def simplify_vetodef_tbl(connection, opts):
     DROP TABLE veto_procinfo;
     DROP TABLE _veto_pidmap_;
     """
-    if opts.debug:
+    if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
     connection.cursor().executescript( sqlscript )
-    if opts.debug:
+    if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
