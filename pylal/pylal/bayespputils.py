@@ -47,6 +47,7 @@ import matplotlib
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 from scipy import special
+from scipy import signal
 from numpy import linspace
 import random
 
@@ -3319,19 +3320,85 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
     return pos,bayesfactor
 
 
+class ACLError(StandardError):
+    def __init__(self, *args):
+        super(ACLError, self).__init__(*args)
+
+
+def autocorrelation(series):
+    """Returns an estimate of the autocorrelation function of a given
+    series.  Returns only the positive-lag portion of the ACF,
+    normalized so that the zero-th element is 1."""
+    x=series-np.mean(series) 
+    y=np.conj(x[::-1])
+
+    acf=np.fft.ifftshift(signal.fftconvolve(y,x,mode='full'))
+
+    N=series.shape[0]
+
+    acf = acf[0:N]
+
+    return acf/acf[0]
+
+
+def autocorrelation_length_estimate(series, acf=None, M=5, K=2):
+    """Attempts to find a self-consistent estimate of the
+    autocorrelation length of a given series.  
+
+    If C(tau) is the autocorrelation function (normalized so C(0) = 1,
+    for example from the autocorrelation procedure in this module),
+    then the autocorrelation length is the smallest s such that
+
+    1 + 2*C(1) + 2*C(2) + ... + 2*C(M*s) < s
+
+    In words: the autocorrelation length is the shortest length so
+    that the sum of the autocorrelation function is smaller than that
+    length over a window of M times that length.
+
+    The maximum window length is restricted to be len(series)/K as a
+    safety precaution against relying on data near the extreme of the
+    lags in the ACF, where there is a lot of noise.  Note that this
+    implies that the series must be at least M*K*s samples long in
+    order to get a reliable estimate of the ACL.
+
+    If no such s can be found, raises ACLError; in this case it is
+    likely that the series is too short relative to its true
+    autocorrelation length to obtain a consistent ACL estimate."""
+
+    if acf is None:
+      acf=autocorrelation(series)
+    acf[1:] *= 2.0
+
+    imax=int(acf.shape[0]/K)
+    
+    # Cumulative sum and ACL length associated with each window
+    cacf=np.cumsum(acf)
+    s=np.arange(1, cacf.shape[0]+1)/float(M)
+
+    # Find all places where cumulative sum over window is smaller than
+    # associated ACL.
+    estimates=np.flatnonzero(cacf[:imax] < s[:imax])
+
+    if estimates.shape[0] > 0:
+        # Return the first index where cumulative sum is smaller than
+        # ACL associated with that index's window
+        return s[estimates[0]]
+    else:
+        # Cannot find self-consistent ACL estimate.
+        raise ACLError('autocorrelation length too short for consistent estimate')
+
+
 def effectiveSampleSize(samples, Nskip=1):
-    mu = np.mean(samples)
+    """
+    Compute the effective sample size, calculating the ACL using only
+    the second half of the samples to avoid ACL overestimation due to
+    chains equilibrating after adaptation.
+    """
     N = len(samples)
-    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
-    acf = corr[N-1:]/corr[N-1]
-    acl = 1
-    i = 1
+    acf = autocorrelation(samples[N/2:])
     try:
-      while (acf[i] > 0.0005):
-          acl += 2.0*acf[i]
-          i+=1
-    except IndexError:
-      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = autocorrelation_length_estimate(samples[N/2:], acf=acf)
+    except ACLError:
       acl = N
     Neffective = floor(N/acl)
     acl *= Nskip
