@@ -3701,7 +3701,7 @@ class PEOutputParser(object):
         Npost : Desired number of posterior samples
         """
         try:
-            from lalapps.nest2pos import draw_N_posterior_many
+            from lalapps.nest2pos import draw_N_posterior_many,draw_posterior_many
         except ImportError:
             print "Need lalapps.nest2pos to convert nested sampling output!"
             raise
@@ -3744,7 +3744,10 @@ class PEOutputParser(object):
             raise RuntimeError
 
         inarrays=map(np.loadtxt,files)
-        pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+        if Npost is None:
+            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
+        else:
+            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
 
         with open(posfilename,'w') as posfile:
             
