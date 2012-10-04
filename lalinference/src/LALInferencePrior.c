@@ -496,6 +496,10 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 		   || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m2)
 			return 0;
   
+	if(LALInferenceCheckVariable(priorParams,"MTotMin"))
+		if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
+			return 0;
+	
 	if(LALInferenceCheckVariable(priorParams,"MTotMax"))
 		if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
 			return 0;
@@ -1078,6 +1082,10 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 		   || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m2)
 			return 0;
   
+	if(LALInferenceCheckVariable(priorParams,"MTotMin"))
+		if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
+			return 0;
+	
 	if(LALInferenceCheckVariable(priorParams,"MTotMax"))
 		if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
 			return 0;
@@ -1746,6 +1754,10 @@ UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runSt
 		   || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m2)
 			return 0;
   
+	if(LALInferenceCheckVariable(priorParams,"MTotMin"))
+		if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
+			return 0;
+	
 	if(LALInferenceCheckVariable(priorParams,"MTotMax"))
 		if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
 			return 0;

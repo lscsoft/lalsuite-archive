@@ -164,7 +164,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		double like = runState->likelihood(runState->currentParams,runState->data,runState->template);
 		like -= (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
 		fprintf(stdout,"LOG-LIKELIHOOD VALUE RETURNED = %g\n",like);
-		double prior = LALInferenceInspiralSkyLocPrior(runState,runState->currentParams);
+		double prior = runState->prior(runState,runState->currentParams);
 		fprintf(stdout,"LOG-PRIOR VALUE RETURNED = %g\n",prior);
 		fprintf(stdout,"LOG-POSTERIOR VALUE RETURNED = %g\n",like+prior);
 		return;
@@ -527,6 +527,7 @@ void initVariables(LALInferenceRunState *state)
                (--q-max qMax)                  Maximum q.\n\
                (--comp-min min)                Minimum component mass (1.0).\n\
                (--comp-max max)                Maximum component mass (30.0).\n\
+               (--MTotMin min)                 Minimum total mass (2.0).\n\
                (--MTotMax max)                 Maximum total mass (35.0).\n\
                (--iota-max max)                Maximum inclination angle (pi).\n\
                (--Dmin dist)                   Minimum distance in Mpc (1).\n\
@@ -631,7 +632,7 @@ void initVariables(LALInferenceRunState *state)
   REAL8 mcMin=1.0;
   REAL8 mcMax=15.3;
   REAL8 mMin=1.0,mMax=30.0;
-  REAL8 MTotMax=35.0;
+  REAL8 MTotMin=2.0,MTotMax=35.0;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
   REAL8 qMin=mMin/mMax;
@@ -774,6 +775,7 @@ void initVariables(LALInferenceRunState *state)
   }
   
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
+    MTotMin=2.0;
     MTotMax=20.0;
     mMin=1.0;
     mMax=15.0;
@@ -1303,6 +1305,10 @@ void initVariables(LALInferenceRunState *state)
   ppt=LALInferenceGetProcParamVal(commandLine,"--comp-max");
   if(ppt)	mMax=atof(ppt->value);
   LALInferenceAddVariable(priorArgs,"component_max",&mMax,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--MTotMin");
+  if(ppt)	MTotMin=atof(ppt->value);
+  LALInferenceAddVariable(priorArgs,"MTotMin",&MTotMin,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--MTotMax");
   if(ppt)	MTotMax=atof(ppt->value);
