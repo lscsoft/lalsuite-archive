@@ -841,54 +841,54 @@ def parse_command_line():
     pipeopts.add_option("-S", "--skip-generate-segments", action="store_false",\
                         default=True, dest="run_generate_segments", \
                         help="skip generating segments for analysis, "+\
-                             "default: %default")
+                             "default: False")
     pipeopts.add_option("-D", "--skip-generate-veto-segments",\
                         action="store_false", default=True,\
                         dest="run_generate_veto_segments", \
                         help="skip generating segments for analysis, "+\
-                                 "default: %default")
+                                 "default: False")
     pipeopts.add_option("-G", "--skip-generate-sky-grids", default=True,\
                         action="store_false", dest="run_generate_sky_grids",\
-                        help="skip generating sky grids, default: %default")
+                        help="skip generating sky grids, default: False")
     pipeopts.add_option("-B", "--skip-datafind", action="store_false",\
                         default=True, dest="run_datafind",\
-                        help="skip the datafind step, default: %default")
+                        help="skip the datafind step, default: False")
     pipeopts.add_option("-T", "--skip-tmpltbank", action="store_false",\
                         default=True, dest="run_tmpltbank",\
                         help="skip the template bank generation, "+\
-                             "default: %default")
+                             "default: False")
     pipeopts.add_option("-X", "--skip-splitbank", action="store_false",\
                         default=True, dest="run_splitbank",\
                         help="skip the template bank splitting, "+\
-                             "default: %default")
+                             "default: False")
     pipeopts.add_option("-F", "--skip-full-data", action="store_false",\
                         default=True, dest="run_full_data",\
-                        help="skip the full data search, default: %default")
+                        help="skip the full data search, default: False")
     pipeopts.add_option("-P", "--skip-playground", action="store_false",\
                         default=True, dest="run_playground",\
-                        help="skip the playground analysis, default: %default")
+                        help="skip the playground analysis, default: False")
     pipeopts.add_option("-I", "--skip-injections", action="store_false",\
                         default=True, dest="run_injections", \
                         help="skip the inspiral analysis with software "+\
-                             "injections, default: %default")
+                             "injections, default: False")
     pipeopts.add_option("-A", "--skip-search", action="store_false",\
                         default=True, dest="run_search",
-                        help="skip the search of the data, default: %default")
+                        help="skip the search of the data, default: False")
     pipeopts.add_option("-H", "--skip-time-slides", action="store_false",\
                         default=True, dest="run_time_slides",
-                        help="skip the time slides, default: %default")
+                        help="skip the time slides, default: False")
     pipeopts.add_option("-C", "--skip-clustering", action="store_false",\
                         default=True, dest="run_clustering",
-                        help="skip trigger clustering, default: %default")
+                        help="skip trigger clustering, default: False")
     pipeopts.add_option("-E", "--skip-injection-finding", action="store_false",\
                         default=True, dest="run_injfind",
-                        help="skip injection finding, default: %default")
+                        help="skip injection finding, default: False")
     pipeopts.add_option("-Z", "--skip-plots", action="store_false",\
                         default=True, dest="run_plots",\
-                        help="skip the plotting step: False: %default")
+                        help="skip the plotting step, default: False")
     pipeopts.add_option("-U", "--skip-followup", action="store_false",\
                         default=True, dest="run_followup",\
-                        help="skip the event followup, default: %default")
+                        help="skip the event followup, default: False")
 
     # collect groups
     parser.add_option_group(basicopts)
