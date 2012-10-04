@@ -717,7 +717,8 @@ setup(
 		os.path.join("bin", "pylal_cbc_rankprod"),
 		os.path.join("bin", "pylal_cbc_ulmc"),
 		os.path.join("bin","cbcBayesConvergence.py"),
-		os.path.join("bin", "pylal_noise_budget")
+		os.path.join("bin", "pylal_noise_budget"),
+		os.path.join("bin", "pylal_coherent_ihope")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
