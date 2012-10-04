@@ -343,7 +343,8 @@ SimInspiralTable* XLALRandomInspiralSpins(
     REAL4  kappa1Max,		/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Min,	/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Max,	/**< FIXME: !TO BE DOCUMENTED! */
-    int aligned			/**< FIXME: !TO BE DOCUMENTED! */
+    int aligned,			/**< FIXME: !TO BE DOCUMENTED! */
+    int distribution
     )
 {
   REAL4 spin1Mag;
@@ -367,8 +368,20 @@ SimInspiralTable* XLALRandomInspiralSpins(
   kappa    = -2.0;
   
   /* spin1Mag */
-  spin1Mag =  spin1Min + XLALUniformDeviate( randParams ) *
-    (spin1Max - spin1Min);
+  switch (distribution)
+  {
+	case 0:  spin1Mag =  spin1Min + XLALUniformDeviate( randParams ) *(spin1Max - spin1Min);
+	break;
+	case 1:  
+	  do spin1Mag = spin1Min + 0.05*XLALNormalDeviate(randParams);
+      while ( spin1Mag > spin1Max || spin1Mag < spin1Min );
+    break;
+    default: {
+      fprintf( stderr,"Spin magnitude distribution not known.\n" );
+      XLAL_ERROR_NULL( __func__ , XLAL_EDOM);
+    }
+
+  }
 
   /* Check if initial spin orientation is specified by user */
   if ( (kappa1Min > -1.0) || (kappa1Max < 1.0) )
@@ -424,8 +437,20 @@ SimInspiralTable* XLALRandomInspiralSpins(
   }
 
   /* spin2Mag */
-  spin2Mag =  spin2Min + XLALUniformDeviate( randParams ) *
-	  (spin2Max - spin2Min);
+  switch (distribution)
+  {
+	case 0:  spin2Mag =  spin2Min + XLALUniformDeviate( randParams ) *(spin2Max - spin2Min);
+	break;
+	case 1:  
+	  do spin2Mag = spin2Min + 0.05*XLALNormalDeviate(randParams);
+      while ( spin2Mag > spin2Max || spin2Mag < spin2Min );
+    break;
+    default: {
+      fprintf( stderr,"Spin magnitude distribution not known.\n" );
+      XLAL_ERROR_NULL( __func__ , XLAL_EDOM);
+    }
+
+  }
 
   /* aligned case */
 

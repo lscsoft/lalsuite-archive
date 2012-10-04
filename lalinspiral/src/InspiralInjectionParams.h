@@ -163,7 +163,8 @@ SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     REAL4  kappa1Max,
     REAL4  abskappa1Min,
     REAL4  abskappa1Max,
-    int aligned);
+    int aligned,
+    int distribution);
 
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,

@@ -180,7 +180,7 @@ REAL8 redshift;
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
 INT4 dphiUniform=0;
-INT4 spinGaussian=0;
+INT4 spinDistr=0;
 INT4 MGInjections = 0;
 INT4 BDinjections = 0;
 INT4 PPEinjections = 0;
@@ -650,6 +650,7 @@ static void print_usage(char *program)
       "  [--max-spin1] spin1max   Set the maximum spin1 to spin1max (0.0)\n"\
       "  [--min-spin2] spin2min   Set the minimum spin2 to spin2min (0.0)\n"\
       "  [--max-spin2] spin2max   Set the maximum spin2 to spin2max (0.0)\n"\
+      "  --spin-gaussian           enable gaussian spin distribution\n"\
       "  [--min-kappa1] kappa1min Set the minimum cos(S1.L_N) to kappa1min (-1.0)\n"\
       "  [--max-kappa1] kappa1max Set the maximum cos(S1.L_N) to kappa1max (1.0)\n"\
       "  [--min-abskappa1] abskappa1min \n"\
@@ -685,8 +686,7 @@ static void print_usage(char *program)
       " --dphi8 value             value of the dphi8 parameter\n"\
       " --sdphi8 value            value of the dphi8 standard deviation\n"\
       " --dphi9 value             value of the dphi9 parameter\n"\
-      " --sdphi9 value            value of the dphi9 standard deviation\n"\
-      " --spin-gaussian           enable gaussian spin distribution\n");
+      " --sdphi9 value            value of the dphi9 standard deviation\n");
   fprintf(stderr,
 	  "Massive Graviton Information:\n"\
 	  " --enable-mg				  enable Massive Graviton injections\n"\
@@ -2453,11 +2453,11 @@ int main( int argc, char *argv[] )
               "float", "%le", sdphi9 );
           break;
       case 1046:
-              /* gaussian distribution for spins from -1 to +1 */
+              /* gaussian distribution for spin magnitude from 0 to 1 */
         this_proc_param = this_proc_param->next = 
         next_process_param( long_options[option_index].name, "string", 
               "" );
-        spinGaussian = 1;
+        spinDistr = 1;
         break;
       case 1020:
               /* enable massive graviton injections */
@@ -3140,14 +3140,14 @@ int main( int argc, char *argv[] )
     {
       /* FIXME Temporary measure until we figure out how to better handle
          spin distributions for waveforms under development */
-      if ( ! strcmp(waveform, "IMRPhenomBpseudoFourPN"))
+      if ( (! strcmp(waveform, "IMRPhenomBpseudoFourPN")) || strstr(waveform, "TaylorF2Test"))
         aligned = 1;
       simTable = XLALRandomInspiralSpins( simTable, randParams,
           minSpin1, maxSpin1,
           minSpin2, maxSpin2,
           minKappa1, maxKappa1,
           minabsKappa1, maxabsKappa1,
-          aligned);
+          aligned, spinDistr);
     }
 
     if ( ifos != NULL )
@@ -3227,24 +3227,7 @@ int main( int argc, char *argv[] )
       simTable->dphi8 = dphi8*(2.*XLALUniformDeviate(randPhaseShifts)-1.);
       simTable->dphi9 = dphi9*(2.*XLALUniformDeviate(randPhaseShifts)-1.);	
 	}
-	
-	// Pick (anti-)aligned spins from a Gaussian between -1 and 1
-	if ( spinGaussian ) {
-        simTable->spin1x = -2.0;
-        simTable->spin2x = -2.0;
-        while ( simTable->spin1x > 1 || simTable->spin1x < -1.0 ) {
-        simTable->spin1x = 0.05*XLALNormalDeviate(randPhaseShifts);
-        }
-        simTable->spin1y = 0.0;
-        simTable->spin1z = 0.0;
-        while ( simTable->spin2x > 1 || simTable->spin2x < -1.0 ) {
-        simTable->spin2x = 0.05*XLALNormalDeviate(randPhaseShifts);
-        }
-        simTable->spin2y = 0.0;
-        simTable->spin2z = 0.0;
-    }
 		
-	
     /* populate the massive graviton parameter */
     
     simTable->loglambdaG=loglambdaG;
