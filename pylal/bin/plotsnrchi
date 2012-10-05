@@ -525,12 +525,6 @@ if opts.found_pattern:
 else:
   injFiles = None
 
-if not opts.show_plot:
-  import matplotlib
-  matplotlib.use('Agg')
-from pylab import *
-from pylal import viz
-   
 ###################################
 # Input triggers
 
