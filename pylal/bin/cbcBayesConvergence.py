@@ -112,7 +112,8 @@ def cbcBayesConvergence(
     posfilename=os.path.join(outdir,'posterior_samples.dat')
     
     for i in range(len(data)):
-        commonResultsObj=peparser.parse(new_data[i],Nlive=ns_Nlive)
+        # Create a posterior object (Npost=None avoids repeated samples which ruin the KS test)
+        commonResultsObj=peparser.parse(new_data[i],Nlive=ns_Nlive,Npost=None)
         pos = bppu.Posterior(commonResultsObj)
         pos.write_to_file(posfilename)
     

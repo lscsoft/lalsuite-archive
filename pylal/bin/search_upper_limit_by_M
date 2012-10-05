@@ -17,7 +17,7 @@ from glue import lal
 from scipy import interpolate
 
 from pylal import git_version
-__author__ = "Satya Mohapatra <satya@physics.umass.edu>"
+__author__ = "Satya Mohapatra <satyanarayan.raypitambarmohapatra@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
