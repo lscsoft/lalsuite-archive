@@ -16,8 +16,6 @@ or with a glob option
 
 """
 
-
-
 __prog__ = "plotinspiral"
 __title__ = "Inspiral Plots"
 
@@ -30,8 +28,6 @@ import glob
 from types import *
 
 from pylal import SnglInspiralUtils
-from pylal import SimInspiralUtils
-from pylal import SearchSummaryUtils
 from glue import lal
 from glue import segments
 from glue import segmentsUtils
@@ -275,7 +271,7 @@ if opts.verbose:
       " files in your glob and/or lal cache"
 
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
-    verbose=opts.verbose)
+    mangle_event_id=True, verbose=opts.verbose)
 if inspTriggers is None or len(inspTriggers)==0:
   err_msg = "There were no inspiral triggers in the files read in," + \
       " no plots generated"
@@ -294,7 +290,8 @@ if opts.bank_pattern is not None:
   bank_files = bank_cache.checkfilesexist()[0].pfnlist()
 if opts.template_bank is not None:
   bank_files.append(opts.template_bank)
-tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, verbose=opts.verbose)
+tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, \
+    mangle_event_id=True, verbose=opts.verbose)
 
 # apply veto if there is one
 if opts.veto_file:
