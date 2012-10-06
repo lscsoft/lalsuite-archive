@@ -71,9 +71,8 @@ def get_sngl_inspirals(files, verbose=False):
       sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
     except:
       if verbose: print "No sngl_inspiral table found!"
-      else: continue
-    for row in sngl_inspiral_table:
-      sngls.append(row)
+      continue
+    sngls.extend(sngl_inspiral_table)
     xmldoc.unlink()
   return sngls
 
