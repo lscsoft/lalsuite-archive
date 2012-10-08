@@ -1455,9 +1455,167 @@ class KDTree(object):
         else:
             
             return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
-            
-    
-    
+
+
+class KDTreeVolume(object):
+    """
+    A kD-tree suitable for splitting parameter spaces and counting hypervolumes.
+    Is modified from the KDTree class so that bounding boxes are stored. This means that
+    there are no longer gaps in the hypervolume once the samples have been split into groups.
+    """
+    def __init__(self, objects,boundingbox,dims=0):
+        """
+        Construct a kD-tree from a sequence of objects.  Each object
+        should return its coordinates using obj.coord().
+        the obj should also store the bounds of the hypervolume its found in.
+        for non-leaf objects we need the name of the dimension split and value at split.
+        """
+        self._dimension = dims
+        self._bounds = boundingbox
+        self._weight = 1
+        if len(objects) == 0: #for no objects - something is wrong, i think it can only happen in first call
+            raise RuntimeError("cannot construct kD-tree out of zero objects---you may have a repeated sample in your list")
+        elif len(objects) == 1: #1 object, have reached leaf of tree
+            self._objects = objects[:]
+        elif self._same_coords(objects): # When ALL samples have the same coordinates in all dimensions
+            self._weight = len(objects)
+            self._objects = [ objects[0] ] #need to modify kdtree_bin functions to use _weight to get correct number of samples
+            coord=self._objects[0].coord()
+        else: #construct next level of tree with multiple samples
+            self._objects = objects[:]
+                split_dim = self._dimension
+            sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[split_dim])
+            N = len(sorted_objects)
+            self._split_value = 0.5*(sorted_objects[N/2].coord()[split_dim] + sorted_objects[N/2-1].coord()[split_dim])
+            bound = self._split_value
+            low = [obj for obj in self._objects if obj.coord()[split_dim] < bound]
+            high = [obj for obj in self._objects if obj.coord()[split_dim] >= bound]
+            if len(low)==0:
+                # Then there must be multiple values with the same
+                # coordinate as the minimum element of 'high'
+                low = [obj for obj in self._objects if obj.coord()[split_dim] == bound]
+                high = [obj for obj in self._objects if obj.coord()[split_dim] > bound]
+            leftBoundingbox = []
+            rightBoundingbox = []
+            for i in self._bounds:
+                leftBoundingbox.append(list(i))
+                rightBoundingbox.append(list(i))
+            leftBoundingbox[1][split_dim] = bound
+            rightBoundingbox[0][split_dim] = bound
+            # designate the next dimension to use for split for sub-trees
+            # if has got to the end of the list of dimensions then starts
+            # again at dimension = 0
+            if (split_dim < (len(self._objects[0].coord()) - 1)):
+                child_dim = split_dim + 1
+            else:
+                child_dim = 0
+            self._left = KDTreeVolume(low,leftBoundingbox,dims = child_dim)
+            # added in a load of messing about incase there are repeated values in the currently checked dimension
+            if (len(high) != 0):
+                self._right = KDTreeVolume(high,rightBoundingbox,dims = child_dim)
+            else:
+                self._right = None
+
+    def _same_coords(self, objects):
+        """
+        True if and only if all the given objects have the same
+        coordinates.
+        """
+        if len(objects) <= 1:
+            return True
+        coords = [obj.coord() for obj in objects]
+        c0 = coords[0]
+        for ci in coords[1:]:
+            if not np.all(ci == c0):
+                return False
+        return True
+
+    def objects(self):
+        """
+        Returns the objects in the tree.
+        """
+        return self._objects[:]
+
+    def __iter__(self):
+        """
+        Iterator over all the objects contained in the tree.
+        """
+        return self._objects.__iter__()
+
+    def left(self):
+        """
+        Returns the left tree.
+        """
+        return self._left
+
+    def right(self):
+        """
+        Returns the right tree.
+        """
+        return self._right
+
+    def split_dim(self):
+        """
+        Returns the dimension along which this level of the kD-tree
+        splits.
+        """
+        return self._split_dim
+
+    def bounds(self):
+        """
+        Returns the coordinates of the lower-left and upper-right
+        corners of the bounding box for this tree: low_left, up_right
+        """
+        return self._bounds
+
+    def volume(self):
+        """
+        Returns the volume of the bounding box of the tree.
+        """
+        v = 1.0
+        low,high=self._bounds
+        for l,h in zip(low,high):
+            v = v*(h - l)
+        return v
+
+    def integrate(self,f,boxing=64):
+        """
+        Returns the integral of f(objects) over the tree.  The
+        optional boxing parameter determines how deep to descend into
+        the tree before computing f.
+        """
+        def x(tree):
+            return tree.volume()*f(tree._objects)
+
+        def y(a,b):
+            return a+b
+
+        return self.operate(x,y,boxing=boxing)
+
+    def operate(self,f,g,boxing=64):
+        """
+        Operates on tree nodes exceeding boxing parameter depth.
+        """
+        if len(self._objects) <= boxing:
+            return f(self)
+        else:
+            return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
+
+    def search(self,coordinates,boxing = 64):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if len(self._objects) <= boxing:
+            return self._bounds,len(self._objects),self._weight
+        elif coordinates[self._dimension] < self._split_value:
+            return self._left.search(coordinates,boxing)
+        else:
+            return self._right.search(coordinates,boxing)
+
+
+
 class PosteriorSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
@@ -1495,6 +1653,9 @@ class PosteriorSample(object):
         Return the coordinates for the parameter sample.
         """
         return self._samples[self._coord_indexes]
+
+
+
 
 
 class AnalyticLikelihood(object):
@@ -1889,6 +2050,237 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
                 break
     
     return confidence_intervals
+
+
+def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
+    """
+    takes samples and applies a KDTree to them to return confidence levels
+    returns confidence_intervals - dictionary of user_provided_CL:calculated_area
+            b - ordered list of KD leaves
+            injInfo - if injection values provided then returns
+                      [Bounds_of_inj_kd_leaf ,number_samples_in_box, weight_of_box,injection_CL ,injection_CL_area]
+    Not quite sure that the repeated samples case is fixed, posibility of infinite loop.
+    """
+    confidence_levels.sort()
+    from math import cos, pi
+    class Harvester(list):
+        """
+        when called by kdtree.operate will be used to calculate the density of each bin (sky area)
+        """
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+
+        def __call__(self,tree):
+            #area = (cos(tree.bounds()[0][1])-cos(tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            area = - (cos(pi/2. - tree.bounds()[0][1])-cos(pi/2. - tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            number_density=float(len(tree.objects()))/float(area)
+            self.append([number_density,len(tree.objects()),area,tree.bounds()])
+            self.unrho+=number_density
+
+        def close_ranks(self):
+
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+
+            return sorted(self,key=itemgetter(0))
+
+    def h(a,b):
+        pass
+
+    peparser=PEOutputParser('common')
+
+    samples,header=posterior.samples()
+    header=header.split()
+    coord_names=["ra","dec"]
+    initial_dimensions = [[0.,-pi/2.],[2.*pi, pi/2.]]
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    tree=KDTreeVolume(coordinatized_samples,initial_dimensions)
+
+    a=Harvester()
+    tree.operate(a,h,boxing=samples_per_bin)
+    totalSamples = len(tree.objects())
+    b=a.close_ranks()
+    b.reverse()
+    samplecounter=0.0
+    for entry in b:
+        samplecounter += entry[1]
+        entry[1] = float(samplecounter)/float(totalSamples)
+
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+
+    #checks for injection and extract details of the node in the tree that the injection is found
+    if posterior['ra'].injval is not None and posterior['dec'].injval is not None:
+        injBound,injNum,injWeight = tree.search([posterior['ra'].injval,posterior['dec'].injval],boxing = samples_per_bin)
+        injInfo = [injBound,injNum,injWeight]
+        inj_area = - (cos(pi/2. - injBound[0][1])-cos(pi/2. - injBound[1][1]))*(injBound[1][0] - injBound[0][0])
+        inj_number_density=float(injNum)/float(inj_area)
+        inj_rho = inj_number_density / a.unrho
+    else:
+        injInfo = None
+        inj_area = None
+        inj_number_density=None
+        inj_rho = None
+
+    #finds the volume contained within the confidence levels requested by user
+    confidence_intervals={}
+    for rho,confidence_level,vol,bounds in b:
+        acc_vol+=vol
+
+        if confidence_level>confidence_levels[cl_idx]:
+            print str(confidence_level)
+            print acc_vol
+            confidence_intervals[confidence_levels[cl_idx]]=acc_vol
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+
+    acc_vol = 0.
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+    print 'total area: ' + str(acc_vol)
+
+    #finds the confidence level of the injection and the volume of the associated contained region
+    inj_confidence = None
+    inj_confidence_area = None
+    if inj_rho is not None:
+        acc_vol=0.
+        for rho,confidence_level,vol,bounds in b:
+            acc_vol+=vol
+            if rho <= inj_rho:
+                inj_confidence = confidence_level
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                print 'inj ' +str(vol)
+                break
+    return confidence_intervals, b, injInfo
+
+def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10):
+    """
+    takes samples and applies a KDTree to them to return confidence levels
+    returns confidence_intervals - dictionary of user_provided_CL:calculated_volume
+            b - ordered list of KD leaves
+            initial_boundingbox - list of lists [upperleft_coords,lowerright_coords]
+            injInfo - if injection values provided then returns
+                      [Bounds_of_inj_kd_leaf ,number_samples_in_box, weight_of_box,injection_CL ,injection_CL_volume]
+    Not quite sure that the repeated samples case is fixed, posibility of infinite loop.
+    """
+    confidence_levels.sort()
+    print confidence_levels
+    class Harvester(list):
+        """
+        when called by kdtree.operate will be used to calculate the density of each bin
+        """
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+
+        def __call__(self,tree):
+            number_density=float(len(tree.objects()))/float(tree.volume())
+            self.append([number_density,len(tree.objects()),tree.volume(),tree.bounds()])
+            self.unrho+=number_density
+
+        def close_ranks(self):
+
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+
+            return sorted(self,key=itemgetter(0))
+
+    def h(a,b):
+        pass
+
+    peparser=PEOutputParser('common')
+
+    samples,header=posterior.samples()
+    header=header.split()
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+
+    a=Harvester()
+    tree.operate(a,h,boxing=samples_per_bin)
+
+    b=a.close_ranks()
+    b.reverse()
+    totalSamples = len(tree.objects())
+    samplecounter=0.0
+    for entry in b:
+        samplecounter += entry[1]
+        entry[1] = float(samplecounter)/float(totalSamples)
+
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
+
+    #checks for injection and extract details of the lnode in the tree that the injection is found
+    if checkNone(coord_names):
+        injBound,injNum,injWeight = tree.search([posterior[x].injval for x in coord_names],boxing = samples_per_bin)
+        injInfo = [injBound,injNum,injWeight]
+        #calculate volume of injections bin
+        inj_volume = 1.
+        low = injBound[1]
+        high = injBound[0]
+        for aCoord,bCoord in zip(low,high):
+            inj_volume = inj_volume*(bCoord - aCoord)
+        inj_number_density=float(injNum)/float(inj_volume)
+        inj_rho = inj_number_density / a.unrho
+    else:
+        injInfo = None
+        inj_area = None
+        inj_number_density=None
+        inj_rho = None
+
+    #finds the volume contained within the confidence levels requested by user
+    confidence_intervals={}
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+
+        if sample_number>confidence_levels[cl_idx]:
+            confidence_intervals[confidence_levels[cl_idx]]=(acc_vol,sample_number)
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+
+    acc_vol = 0.
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+
+    #finds the confidence level of the injection and the volume of the associated contained region
+    inj_confidence = None
+    inj_confidence_area = None
+    if inj_rho is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        for rho,confidence_level,vol,bounds in b:
+            acc_vol+=vol
+            if rho <= inj_rho:
+                inj_confidence = confidence_level
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return confidence_intervals, b, initial_boundingbox,injInfo
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
