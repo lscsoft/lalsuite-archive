@@ -968,20 +968,24 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   p+=1
 
   # plot SNR versus rel amp
-  fig = pylab.figure()
-  ax  = fig.gca()
-  ax.loglog(trigSNR, trigRelAmp1, 'bx')
-  ax.grid()
-  if injFile:
-    ax.loglog(injSNR, injRelAmp1, 'r+')
-  ax.set_xlabel("Coherent SNR")
-  ax.set_ylabel("Relative amplitude")
-  fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
-               bbox_inches='tight')
-  ax.set_xlim([6, 30])
-  fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
-               bbox_inches='tight')
-  p+=1
+  try:
+    fig = pylab.figure()
+    ax  = fig.gca()
+    ax.loglog(trigSNR, trigRelAmp1, 'bx')
+    ax.grid()
+    if injFile:
+      ax.loglog(injSNR, injRelAmp1, 'r+')
+    ax.set_xlabel("Coherent SNR")
+    ax.set_ylabel("Relative amplitude")
+    fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
+                 bbox_inches='tight')
+    ax.set_xlim([6, 30])
+    fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
+                 bbox_inches='tight')
+    p+=1
+  except OverflowError:
+    sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
+                     "failed.\n")
   
   # plot SNR versus rel amp 2
   try:
@@ -1001,7 +1005,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     p+=1
   except OverflowError:
     sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
 
   # plot SNR versus norm 3
   try:
@@ -1021,7 +1025,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     p+=1
   except OverflowError:
     sys.stderr.write("WARNING: Amplitude factor versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
   
   # plot SNR versus inclination
   try:
@@ -1042,7 +1046,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     p+=1
   except OverflowError:
     sys.stderr.write("WARNING: cos(inclination) versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
 
   # plot sky grid
   pylab.rcParams.update({"font.size": 12})
