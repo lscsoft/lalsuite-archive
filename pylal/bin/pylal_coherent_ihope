@@ -132,70 +132,70 @@ def normjoin(*args):
 # Addons for ScienceSegment
 # =============================================================================
 
-def set_df_node(self, df_node, ifo=None):
+def set_df_file(self, df_node, ifo=None):
     """
-    Set the DataFind node asociated with this ScienceSegment to df_node.
+    Set the DataFind cache asociated with this ScienceSegment to df_file.
     If ifo is given (not None), an interferometer-specific
-    __$ifo_df_node attribute will be set.
+    __$ifo_df_file attribute will be set.
 
-    @param df_node
-        the pipeline.LSCDataFindNode for this ScienceSegment
+    @param df_file
+        the pipeline.LSCDataFindNode output file for this ScienceSegment
     @param ifo
         interferometer prefix for this ScienceSegment
     """
     if ifo:
-        setattr(self, "__%s_df_node" % ifo.lower(), df_node)
+        setattr(self, "__%s_df_file" % ifo.lower(), df_node)
     else:
-        setattr(self, "__df_node", df_node)
+        setattr(self, "__df_file", df_node)
 
-def get_df_node(self, ifo=None):
+def get_df_file(self, ifo=None):
     """
-    @returns the LSCDataFindNode for this ScienceSegment.
+    @returns the LSCDataFindNode output file for this ScienceSegment.
 
     @param ifo
         interferometer prefix for this ScienceSegment
     """
     if ifo:
-        return getattr(self, "__%s_df_node" % ifo.lower())
+        return getattr(self, "__%s_df_file" % ifo.lower())
     else:
-        return self.__df_node
+        return self.__df_file
 
-pipeline.ScienceSegment.set_df_node = set_df_node
-pipeline.ScienceSegment.get_df_node = get_df_node
+pipeline.ScienceSegment.set_df_file = set_df_file
+pipeline.ScienceSegment.get_df_file = get_df_file
 
 # =============================================================================
 # Addons for AnalysisChunk
 # =============================================================================
 
-def set_tb_node(self, tb_node):
+def set_tb_file(self, tb_file):
     """
-    Set the TmpltBank node associated with this AnalysisChunk to tb_node.
+    Set the TmpltBank file associated with this AnalysisChunk to tb_file.
 
-    @param tb_node
-        the TmpltBank node for this AnalysisChunk.
+    @param tb_file
+        the TmpltBank file for this AnalysisChunk.
     """
-    self.__tb_node = tb_node
+    self.__tb_file = tb_file
 
-def get_tb_node(self):
+def get_tb_file(self):
     """
     @returns the TmpltBank node for this AnalysisChunk.
     """
-    return self.__tb_node
+    return self.__tb_file
 
-def set_sb_node(self, sb_node):
+def set_sb_files(self, sb_files):
     """
-    Set the SplitBank node associated with this AnalysisChunk to sb_node.
+    Set the SplitBank file associated with this AnalysisChunk to sb_file.
 
-    @param sb_node
-        the SplitBank node for this AnalysisChunk.
+    @param sb_file
+        the SplitBank file for this AnalysisChunk.
     """
-    self.__sb_node = sb_node
+    self.__sb_files = sb_files
 
-def get_sb_node(self):
+def get_sb_files(self):
     """
-    @returns the SplitBank node for this AnalysisChunk.
+    @returns the SplitBank output files for this AnalysisChunk.
     """
-    return self.__sb_node
+    return self.__sb_files
 
 def set_sky_grid_file(self, f):
     """
@@ -212,10 +212,10 @@ def get_sky_grid_file(self):
     """
     return self.__sky_grid_file
 
-pipeline.AnalysisChunk.set_tb_node = set_tb_node
-pipeline.AnalysisChunk.get_tb_node = get_tb_node
-pipeline.AnalysisChunk.set_sb_node = set_sb_node
-pipeline.AnalysisChunk.get_sb_node = get_sb_node
+pipeline.AnalysisChunk.set_tb_file = set_tb_file
+pipeline.AnalysisChunk.get_tb_file = get_tb_file
+pipeline.AnalysisChunk.set_sb_files = set_sb_files
+pipeline.AnalysisChunk.get_sb_files = get_sb_files
 pipeline.AnalysisChunk.set_sky_grid_file = set_sky_grid_file
 pipeline.AnalysisChunk.get_sky_grid_file = get_sky_grid_file
 
@@ -290,7 +290,7 @@ def setup_datafind(cp, data, logdir, run_datafind=True):
                 dfcache.append(cache.CacheEntry.from_T050017(\
                                    os.path.abspath(node.get_output())))
                 # add to DAG and record
-                seg.set_df_node(node, ifo=ifo)
+                seg.set_df_file(node.get_output(), ifo=ifo)
                 dag.add_node(node)
 
     return dag, dfcache
@@ -359,7 +359,7 @@ def setup_sky(cp, data, usertag="COH_PTF_INSPIRAL_SKY_GRID",\
 # =============================================================================
 
 def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
-                    run_tmpltbank=True, run_splitbank=True):
+                    run_tmpltbank=True, run_splitbank=True, verbose=False):
     """
     Setup a TmpltBankNode for this analysis, including all tmpltbank and
     splitbank jobs.
@@ -406,6 +406,10 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
 
     # set splitbank job
     sbjob = inspiral.SplitBankJob(cp)
+    num_split = cp.getint("splitbank-meta", "num-banks")
+    if num_split == 1:
+        print_verbose("SplitBank: num-split = 1, disabling SplitBank...\n",\
+                      verbose=verbose, stream=sys.stdout)
 
     # generate TmpltBankNode and SplitbankNode for each time chunk in
     # each segment for each network
@@ -413,7 +417,7 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
         for seg in data[network]:
             # get relevant datafind cache
             datafind_cache = normjoin(os.pardir, DATAFIND,\
-                                      seg.get_df_node(ifo=ifo).get_output())
+                                      seg.get_df_file(ifo=ifo))
             for chunk in seg:
                 # make a template bank job for the master chunk
                 node = inspiral.TmpltBankNode(job)
@@ -423,7 +427,7 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
                 node.set_ifo(ifo)
                 node.set_cache(datafind_cache)
                 # add to DAG and record
-                chunk.set_tb_node(node)
+                chunk.set_tb_node(node.get_output())
                 if run_tmpltbank:
                     dag.add_node(node)
 
@@ -431,20 +435,88 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
                                os.path.abspath(node.get_output())))
 
                 # make a splitbank node for the maseter chunk
-                sbnode = inspiral.SplitBankNode(sbjob)
-                sbnode.set_category("splitbank")
-                sbnode.set_bank(node.get_output())
-                sbnode.set_num_banks(cp.get("splitbank-meta", "num-banks"))
-                sbnode.add_parent(node)
-                sbcache.extend(map(lambda f: cache.CacheEntry.from_T050017(\
-                                                 os.path.abspath(f)),\
-                                   sbnode.get_output()))
-                # add to DAG and record
-                chunk.set_sb_node(sbnode)
-                if run_splitbank:
-                    dag.add_node(sbnode)
+                if num_split == 1:
+                    chunk.set_sb_files([chunk.get_tb_file()])
+                else:
+                    sbnode = inspiral.SplitBankNode(sbjob)
+                    sbnode.set_category("splitbank")
+                    sbnode.set_bank(node.get_output())
+                    sbnode.set_num_banks(cp.get("splitbank-meta", "num-banks"))
+                    sbnode.add_parent(node)
+                    sbcache.extend(map(lambda f: cache.CacheEntry.from_T050017(\
+                                                     os.path.abspath(f)),\
+                                       sbnode.get_output()))
+                    chunk.set_sb_files(sbnode.get_output())
+                    if run_splitbank:
+                        dag.add_node(sbnode)
 
     return dag, tbcache, sbcache
+
+def setup_fixedbank(cp, fixed_bank_file, data, logdir, run_splitbank=True,\
+                    verbose=False):
+    """
+    Setup the analysis to use the fixed template bank given on the
+    command line.
+    """
+    tag = os.path.basename(os.getcwd())
+    logdir = os.path.join(logdir, tag)
+    if run_splitbank:
+        mkdir_p(logdir)
+
+    # get networks
+    networks = data.keys()
+
+    # set dag
+    dag = pipeline.CondorDAG(os.path.join(logdir, "%s.log" % tag))
+    dag.set_dag_file(tag)
+
+    # set splitbank job
+    sbjob = inspiral.SplitBankJob(cp)
+
+    # copy the fixed bank to the tmpltbank folder
+    if not os.path.isfile(os.path.basename(fixed_bank_file)) or\
+    not os.path.samefile(fixed_bank_file, os.path.basename(fixed_bank_file)):
+        shutil.copy(fixed_bank_file, os.path.basename(fixed_bank_file))
+    fixed_bank_file = os.path.basename(fixed_bank_file)
+
+    # generate SplitBankNode for each time chunk in
+    # each segment for each network
+    sbcache = cache.Cache()
+    num_split = cp.getint("splitbank-meta", "num-banks")
+    if num_split == 1:
+        print_verbose("SplitBank: num-split = 1, disabling SplitBank...\n",\
+                      verbose=verbose, stream=sys.stdout)
+    for network in networks:
+        for seg in data[network]:
+            # get relevant datafind cache
+            datafind_cache = normjoin(os.pardir, DATAFIND,\
+                                      seg.get_df_file(ifo=ifo))
+            for chunk in seg:
+                # record the template bank for the chunk
+                chunk.set_tb_file(fixed_bank_file)
+                if num_split == 1:
+                   chunk.set_sb_files([chunk.get_tb_file()])
+                else:
+                    # make a splitbank node for the maseter chunk
+                    sbnode = inspiral.SplitBankNode(sbjob)
+                    sbnode.set_category("splitbank")
+                    sbnode.set_bank(fixed_bank_file)
+                    sbnode.set_num_banks(cp.get("splitbank-meta", "num-banks"))
+                    try:
+                       sbcache.extend(map(lambda f:\
+                                          cache.CacheEntry.from_T050017(\
+                                              os.path.abspath(f)),\
+                                       sbnode.get_output()))
+                    except IndexError:
+                        raise RuntimeError("--fixed-bank-file argument "+\
+                                           "malformed. Must conform to "+\
+                                           "T050017 file naming convention.")
+                    # add to DAG and record
+                    chunk.set_sb_files(sbnode.get_output())
+                    if run_splitbank:
+                        dag.add_node(sbnode)
+
+    return dag, sbcache
 
 # =============================================================================
 # Set up search
@@ -505,6 +577,16 @@ def setup_search(cp, network, data, logdir, usertag=None,\
         else:
             usertag = injection.upper()
 
+    # copy bank veto file to output directory
+    bank_veto_file = cp.get("coh_PTF_inspiral", "bank-veto-templates")
+    if not os.path.isfile(bank_veto_file):
+        raise RuntimeError("Bank veto file %s not found." % bank_veto_file)
+    if not os.path.isfile(os.path.basename(bank_veto_file)) or\
+    not os.path.samefile(bank_veto_file, os.path.basename(bank_veto_file)):
+        shutil.copy(bank_veto_file, os.path.basename(bank_veto_file))
+    cp.set("coh_PTF_inspiral", "bank-veto-templates",\
+           os.path.basename(bank_veto_file))
+
     # set job
     job = inspiral.PTFInspiralJob(cp)
     set_job_files(job, tag, os.curdir, logdir)
@@ -526,12 +608,11 @@ def setup_search(cp, network, data, logdir, usertag=None,\
     inspcache = cache.Cache()
     for seg in data:
         datafind_cache = dict((ifo, normjoin(os.pardir, DATAFIND,\
-                                        seg.get_df_node(ifo=ifo).get_output()))\
+                                        seg.get_df_file(ifo=ifo)))\
                               for ifo in ifos)
         for chunk in seg:
-            banks = chunk.get_sb_node().get_output()
             banks = map(lambda f: normjoin(os.pardir, TMPLTBANK, f),\
-                        chunk.get_sb_node().get_output())
+                        chunk.get_sb_files())
             for bank,slide in [(bank, slide) for slide in slides\
                                for bank in enumerate(banks)]:
                 i,bank = bank
@@ -821,7 +902,7 @@ def parse_command_line():
                        metavar="PATH", default=os.getcwd(),\
                        help="output directory, default: %default")
     diropts.add_option("-p", "--log-dir", action="store", type="string",\
-                       metavar="PATH", default=os.getenv("LOGPATH", None), \
+                       metavar="LOGPATH", default=os.getenv("LOGPATH", None),\
                        help="directory to write condor log file, "+\
                             "should be a local directory: default: %default")
 
@@ -832,6 +913,14 @@ def parse_command_line():
     sourceopts.add_option("-t", "--triggered", action="store_true",\
                           default=False,\
                           help="run a triggered search, default: %default")
+
+    # add template options
+    desc = "Choose options for the template bank"
+    tmpltopts = optparse.OptionGroup(parser, "Template options",\
+                                     description=desc)
+    tmpltopts.add_option("-b", "--fixed-bank-file", action="store",\
+                         type="string", metavar="FILE",\
+                         help="use fixed template bank from FILE")
 
     # add pipeline options
     desc = "Skip sections of the pipeline (useful for rerunning parts). "+\
@@ -894,6 +983,7 @@ def parse_command_line():
     parser.add_option_group(basicopts)
     parser.add_option_group(diropts)
     parser.add_option_group(sourceopts)
+    parser.add_option_group(tmpltopts)
     parser.add_option_group(pipeopts)
 
     # parse options and arguments
@@ -911,10 +1001,22 @@ def parse_command_line():
     if opts.log_dir is None:
         opts.log_dir = opts.output_dir
 
+    # check template bank file
+    if opts.fixed_bank_file and opts.run_tmpltbank:
+        print_verbose("--template-bank-file was given, "+\
+                      "applying --skip-tmpltbank.\n", verbose=True,\
+                      stream=sys.stderr)
+        opts.run_tmpltbank = False
+
     # format options
     #opts.config_file = os.path.abspath(opts.config_file)
     #opts.output_dir = os.path.abspath(opts.output_dir)
     #opts.log_dir = os.path.abspath(opts.log_dir)
+    if not os.path.isfile(opts.fixed_bank_file):
+        raise optparse.OptionValueError("Fixed-bank-file argument \'%s\' "\
+                                        "not found." % opts.fixed_bank_file)
+    if opts.fixed_bank_file:
+        opts.fixed_bank_file = os.path.abspath(opts.fixed_bank_file)
 
     return opts, args
 
@@ -1335,10 +1437,18 @@ if __name__ == "__main__":
 
     tag = TMPLTBANK
     mkdir_p(tag, chdir=True)
-    _dag, cachedict[tag], cachedict["splitbank"] =\
+
+    if opts.fixed_bank_file:
+        _dag, cachedict["splitbank"] =\
+            setup_fixedbank(cp, opts.fixed_bank_file, data, logdir,\
+                            run_splitbank=run["splitbank"], verbose=verbose)
+        cachedict[tag] = cache.Cache()
+    else:
+        _dag, cachedict[tag], cachedict["splitbank"] =\
             setup_tmpltbank(cp, data, logdir, run_tmpltbank=run["tmpltbank"],\
-                            run_splitbank=run["splitbank"])
-    if run["tmpltbank"] or run["splitbank"]:
+                            run_splitbank=run["splitbank"], verbose=verbose)
+    if run["tmpltbank"]\
+    or (run["splitbank"] and cp.getint("splitbank-meta", "num-banks") != 1):
         dagnode[tag] = finalise_DAG(_dag, [])
         dag.add_node(dagnode[tag])
         print_verbose("tmpltbank setup complete.\n", verbose=verbose)
