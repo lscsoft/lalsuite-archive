@@ -97,7 +97,7 @@ def main(trigFile, timeWindow, outdir, verbose=False):
         [slot for slot in tmp[0].__slots__ if hasattr(tmp[0], slot)]
   else:
     lsctables.MultiInspiralTable.loadcolumns =\
-        lsctables.MultiInspiralTable.valid.keys()
+        lsctables.MultiInspiralTable.validcolumns.keys()
   currTrigs = lsctables.New(lsctables.MultiInspiralTable,\
                             columns=lsctables.MultiInspiralTable.loadcolumns)
   currTrigs.extend(tmp)
