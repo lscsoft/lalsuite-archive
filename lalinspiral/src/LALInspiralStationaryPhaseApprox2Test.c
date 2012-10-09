@@ -263,9 +263,15 @@ void TaylorF2fillPhaseParams(
     // SYSTEM DEPENDENT PARAMETER - DUMMIES, NEED TO GET FROM PARAMETER STRUCTURES
     REAL8 mtot = params->totalMass;
     REAL8 eta = params->eta;
-    // We only need spin magnitudes and signs and we use the 1st component of each spin vector for that.
-    REAL8 spin1 = params->spin1[0];
-    REAL8 spin2 = params->spin2[0];
+    // We only need spin magnitudes and signs. Here we assume that the (anti-)alignment is encoded in the sign of spin[0]
+    REAL8 spin1 = pow(params->spin1[0]*params->spin1[0] + params->spin1[1]*params->spin1[1] + params->spin1[2]*params->spin1[2], 0.5);
+    REAL8 spin2 = pow(params->spin2[0]*params->spin2[0] + params->spin2[1]*params->spin2[1] + params->spin2[2]*params->spin2[2], 0.5);
+    
+    spin1 = cos(params->inclination)*params->spin1[0] < 0.0 ? -spin1 : spin1;
+    spin2 = cos(params->inclination)*params->spin2[0] < 0.0 ? -spin2 : spin2;
+    
+    // printf("inclination: %e\n", params->inclination);
+    // printf("spin1 = %e %e %e  alignedSpin1 = %e\nspin2 = %e %e %e  alignedSpin2 = %e\n", params->spin1[0], params->spin1[1], params->spin1[2], spin1, params->spin2[0], params->spin2[1], params->spin2[2], spin2);
     
     UINT4 i;
     REAL8 pimtot = LAL_PI*mtot*LAL_MTSUN_SI;

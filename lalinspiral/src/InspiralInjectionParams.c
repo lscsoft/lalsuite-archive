@@ -360,7 +360,7 @@ SimInspiralTable* XLALRandomInspiralSpins(
   REAL4 inc;
   REAL4 cosinc;
   REAL4 sininc;
-  REAL4 sgn;
+  REAL4 sgn=1.0;
 
   inc      = inj->inclination;
   cosinc   = cos( inc );
@@ -408,7 +408,9 @@ SimInspiralTable* XLALRandomInspiralSpins(
   }
   else if (aligned) 
   {
-	  inj->spin1z = spin1Mag * cosinc;
+	  sgn = XLALUniformDeviate( randParams ) - 0.5;
+	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
+	  inj->spin1z = sgn * spin1Mag * cosinc;
   }
   else 
   { 
@@ -423,7 +425,7 @@ SimInspiralTable* XLALRandomInspiralSpins(
   }
   else if (aligned)
   {
-	  inj->spin1x = spin1Mag * sininc;
+	  inj->spin1x = sgn * spin1Mag * sininc;
 	  inj->spin1y = 0.0;
   }
   else
@@ -456,8 +458,10 @@ SimInspiralTable* XLALRandomInspiralSpins(
 
   if (aligned) 
   {
-	  inj->spin2z = spin2Mag * cosinc;
-	  inj->spin2x = spin2Mag * sininc;
+	  sgn = XLALUniformDeviate( randParams ) - 0.5;
+	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
+	  inj->spin2z = sgn * spin2Mag * cosinc;
+	  inj->spin2x = sgn * spin2Mag * sininc;
 	  inj->spin2y = 0.0;
   }
   else

@@ -2679,6 +2679,7 @@ void InjectFD(LALStatus status, LALMCMCInput *inputMCMC, SimInspiralTable *inj_t
     template.startPhase = inj_table->coa_phase;
 	template.startTime = 0.0;
 	template.ieta = 1;
+	template.inclination = inj_table->inclination;
 	template.next = NULL;
 	template.fine = NULL;
 	Nmodel = (inputMCMC->stilde[0]->data->length-1)*2; /* *2 for real/imag packing format */
