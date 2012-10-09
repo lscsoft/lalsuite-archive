@@ -1854,12 +1854,13 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the single-detector SNRs for each row in the table.
 		"""
-		if len(self):
-			if not instruments:
-				instruments = map(str, \
-					instrument_set_from_ifos(self[0].ifos))
-			return dict((ifo, self.get_sngl_snr(ifo))\
-				    for ifo in instruments)
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_snr(ifo))\
+		            for ifo in instruments)
 
 	def get_sngl_chisq(self, instrument):
 		"""
@@ -1874,12 +1875,13 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the single-detector \chi^2 for each row in the table.
 		"""
-		if len(self):
-			if not instruments:
-				instruments = map(str, \
-					instrument_set_from_ifos(self[0].ifos))
-			return dict((ifo, self.get_sngl_chisq(ifo))\
-				    for ifo in instruments)
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_chisq(ifo))\
+		            for ifo in instruments)
 
 
 
