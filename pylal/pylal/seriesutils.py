@@ -381,7 +381,7 @@ def duplicate(series):
         series : [ TimeSeries | FrequencySeries ]
             input series to duplicate
     """
-    seriestype = (type(series)).rstrip("'>").split('.')[-1]
+    seriestype = str(type(series)).split("'")[1]
     datatype = typecode(seriestype)
     TYPESTR  = _typestr[datatype]
     func     = getattr(lal, 'Create%s' % seriestype)
@@ -484,8 +484,6 @@ def compute_average_spectrum(series, seglen, stride, window=None, plan=None,\
     if destroywindow:
        del window
     if destroyplan:
-       func = getattr(lal, "Destroy%sFFTPlan" % TYPESTR)
-       func(plan)
        del plan
 
     # return

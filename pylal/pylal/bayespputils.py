@@ -1483,7 +1483,7 @@ class KDTreeVolume(object):
             coord=self._objects[0].coord()
         else: #construct next level of tree with multiple samples
             self._objects = objects[:]
-                split_dim = self._dimension
+            split_dim = self._dimension
             sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[split_dim])
             N = len(sorted_objects)
             self._split_value = 0.5*(sorted_objects[N/2].coord()[split_dim] + sorted_objects[N/2-1].coord()[split_dim])
