@@ -786,6 +786,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
            || (params.approximant == PadeT1)
            || (params.approximant == TaylorF1)
            || (params.approximant == TaylorF2)
+           || (params.approximant == TaylorF2Test)
            || (params.approximant == PadeF1)
            || (params.approximant == BCV))
     params.distance  = 1.0;                                          /* distance in Mpc */
@@ -822,7 +823,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
     LALInspiralParameterCalc(&status, &params); /* (re-calculation necessary? probably not...) */
   }
 
-  if (params.approximant == TaylorF2 || params.approximant == TaylorF2RedSpin) {	
+  if (params.approximant == TaylorF2 || params.approximant == TaylorF2Test || params.approximant == TaylorF2RedSpin) {	
 	expnCoeffs ak;
 	expnFunc expnFunction;
 	memset(&ak,0,sizeof(expnCoeffs));
@@ -842,6 +843,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   /* domain of LAL template as returned by LAL function: */
   FDomain = ((params.approximant == TaylorF1)
              || (params.approximant == TaylorF2)
+             || (params.approximant == TaylorF2Test)
              || (params.approximant == TaylorF2RedSpin)
              || (params.approximant == PadeF1)
              || (params.approximant == BCV));
@@ -999,6 +1001,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   /* for approximately "chirptime" seconds:                   */
   if ((params.approximant == TaylorT2) 
       || (params.approximant == TaylorF2)
+      || (params.approximant == TaylorF2Test)
       || (params.approximant == TaylorF2RedSpin))
     instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
 

@@ -1012,7 +1012,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
-	if(strstr(injTable->waveform,"TaylorF2"))
+	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"TaylorF2"))
 	{ printf("Injecting TaylorF2 in the frequency domain...\n");
 	 InjectTaylorF2(IFOdata, injTable, commandLine);
 	 return;
