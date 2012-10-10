@@ -202,8 +202,10 @@ int XLALSimInspiralTaylorF2Test(
                 phasing += pfa3 * v3;
             case 2:
                 phasing += pfa2 * v2;
+			case 1:
+				phasing += pfa1 * v;
             case 0:
-                phasing += 1.;
+                phasing += pfa0;
                 break;
             default:
                 XLALDestroyCOMPLEX16FrequencySeries(htilde);
