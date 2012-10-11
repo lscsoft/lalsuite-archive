@@ -109,11 +109,13 @@ void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **po
 	fclose(fileout);
 	
 	/* Write header line to file for use by post-processing */
-	strcpy(outfile,root);
-	strcat(outfile,"params.txt");
-	fileout=fopen(outfile,"w");
-	fprintf(fileout,"%s\n",header);
-	fclose(fileout);
+	if (strcmp(header,"DONOTWRITE")!=0) {
+		strcpy(outfile,root);
+		strcat(outfile,"params.txt");
+		fileout=fopen(outfile,"w");
+		fprintf(fileout,"%s\n",header);
+		fclose(fileout);
+	}
 }
 
 /* MultiNestAlgorithm implements the MultiNest algorithm*/
@@ -164,7 +166,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 		double like = runState->likelihood(runState->currentParams,runState->data,runState->template);
 		like -= (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
 		fprintf(stdout,"LOG-LIKELIHOOD VALUE RETURNED = %g\n",like);
-		double prior = runState->prior(runState,runState->currentParams);
+		double prior = runState->CubeToPriorDensity(runState,runState->currentParams);
 		fprintf(stdout,"LOG-PRIOR VALUE RETURNED = %g\n",prior);
 		fprintf(stdout,"LOG-POSTERIOR VALUE RETURNED = %g\n",like+prior);
 		return;
@@ -209,7 +211,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	info[0]=(char *)malloc(100*sizeof(char));
 	info[1]=(char *)malloc(150*sizeof(char));
 	strcpy(&info[0][0],outfilestr);
-	strcpy(&info[1][0],"");
+	strcpy(&info[1][0],"DONOTWRITE");
 	void *context = (void *)info;
 
 
@@ -432,15 +434,19 @@ void initializeMN(LALInferenceRunState *runState)
 	if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
 		runState->prior=&LALInferenceInspiralSkyLocPrior;
 		runState->CubeToPrior = &LALInferenceInspiralSkyLocCubeToPrior;
+		runState->CubeToPriorDensity = &LALInferenceInspiralSkyLocCubeToPriorDensity;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--S6Prior")) {
 		runState->prior=&LALInferenceInspiralPriorNormalised;
 		runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
+		runState->CubeToPriorDensity = &LALInferenceInspiralPriorNormalisedCubeToPriorDensity;
 	} else if (LALInferenceGetProcParamVal(commandLine, "--AnalyticPrior")) {
 		runState->prior = &LALInferenceNullPrior;
 		runState->CubeToPrior = &LALInferenceAnalyticCubeToPrior;
+		runState->CubeToPriorDensity = &LALInferenceAnalyticCubeToPriorDensity;
 	} else {
 		runState->prior = &LALInferenceInspiralPriorNormalised;
 		runState->CubeToPrior = &LALInferenceInspiralPriorNormalisedCubeToPrior;
+		runState->CubeToPriorDensity = &LALInferenceInspiralPriorNormalisedCubeToPriorDensity;
 	}
 	
 	
@@ -519,12 +525,12 @@ void initVariables(LALInferenceRunState *state)
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Prior Arguments ----------------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
-               (--mc-min mchirp)               Minimum chirp mass.\n\
-               (--mc-max mchirp)               Maximum chirp mass.\n\
-               (--eta-min etaMin)              Minimum eta.\n\
-               (--eta-max etaMax)              Maximum eta.\n\
-               (--q-min qMin)                  Minimum q.\n\
-               (--q-max qMax)                  Maximum q.\n\
+               (--mc-min mchirp)               Minimum chirp mass (1.0).\n\
+               (--mc-max mchirp)               Maximum chirp mass (15.3).\n\
+               (--eta-min etaMin)              Minimum eta (0.0312).\n\
+               (--eta-max etaMax)              Maximum eta (0.25).\n\
+               (--q-min qMin)                  Minimum q=m2/m1 (1./30.).\n\
+               (--q-max qMax)                  Maximum q=m2/m1 (1.0).\n\
                (--comp-min min)                Minimum component mass (1.0).\n\
                (--comp-max max)                Maximum component mass (30.0).\n\
                (--MTotMin min)                 Minimum total mass (2.0).\n\

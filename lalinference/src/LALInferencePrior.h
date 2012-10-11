@@ -45,6 +45,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
 /** Convert the hypercube parameter to physical parameters, for the non-spinning/spinning inspiral signal case.
  */
 UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
+REAL8 LALInferenceInspiralCubeToPriorDensity(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /** Apply cyclic and reflective boundaries to \c parameter to bring it
  *  back within the allowed prior ranges that are specified in \c
@@ -85,6 +86,7 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
  *  for the non-spinning/spinning inspiral signal case.
  */
 UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
+REAL8 LALInferenceInspiralSkyLocCubeToPriorDensity(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /** Return the logarithmic prior density of the variables specified, 
  *  for the non-spinning/spinning inspiral signal case.
@@ -97,6 +99,7 @@ REAL8 LALInferenceInspiralPriorNormalised(LALInferenceRunState *runState, LALInf
  *  for the non-spinning/spinning inspiral signal case.
  */
 UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
+REAL8 LALInferenceInspiralPriorNormalisedCubeToPriorDensity(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /** Function to add the minimum and maximum values for the uniform prior onto the \c priorArgs. 
  */
@@ -188,6 +191,7 @@ REAL8 LALInferenceComputePriorMassNorm(const double MMin, const double MMax, con
 
 /** Uniform prior for analytic likelihoods */
 UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferenceVariables *params, double *Cube, void *context);
+REAL8 LALInferenceAnalyticCubeToPriorDensity(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /** Prior that checks for minimum and maximum prior range specified in runState->priorArgs
     and returns 0.0 if sample lies inside the boundaries, -DBL_MAX otherwise.

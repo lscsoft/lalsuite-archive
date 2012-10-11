@@ -301,6 +301,13 @@ typedef REAL8 (LALInferencePriorFunction) (struct tagLALInferenceRunState *runSt
 typedef UINT4 (LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
 	LALInferenceVariables *params, double *cube, void *context);
 
+/** Type declaration for CubeToPriorDensity function which calculates the prior density of
+  * physical parameters according to the appropriate prior.
+  * Can depend on \param runState ->priorArgs
+  */
+typedef REAL8 (LALInferenceCubeToPriorDensityFunction) (struct tagLALInferenceRunState *runState, 
+	LALInferenceVariables *params);
+
 //Likelihood calculator 
 //Should take care to perform expensive evaluation of h+ and hx 
 //only once if possible, unless necessary because different IFOs 
@@ -335,6 +342,7 @@ tagLALInferenceRunState
   LALInferenceEvolveOneStepFunction  *evolve; /** The algorithm's single iteration function */
   LALInferencePriorFunction          *prior; /** The prior for the parameters */
   LALInferenceCubeToPriorFunction    *CubeToPrior; /** MultiNest prior for the parameters */
+  LALInferenceCubeToPriorDensityFunction    *CubeToPriorDensity; /** MultiNest prior density for the parameters */
   LALInferenceLikelihoodFunction     *likelihood; /** The likelihood function */
   LALInferenceProposalFunction       *proposal; /** The proposal function */
   LALInferenceTemplateFunction       *template; /** The template generation function */
