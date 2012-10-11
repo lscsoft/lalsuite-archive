@@ -2077,10 +2077,9 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     
     REAL8 m1=theEventTable->mass1;
     REAL8 m2=theEventTable->mass2;
+    REAL8 chirpmass = theEventTable->mchirp;
     LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    REAL8 chirpmass=theEventTable->mchirp;
-    REAL8 eta=(m1*m2)/((m1+m2)*(m1+m2));
     LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "massratio", &eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
