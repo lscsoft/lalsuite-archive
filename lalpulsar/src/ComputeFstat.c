@@ -1423,6 +1423,146 @@ LALGetMultiBinarytimes (LALStatus *status,				/**< pointer to LALStatus structur
  *  and have the same length as the input time-series \a DetStates.
  *
  */
+int
+XLALGetSSBtimes (SSBtimes *tSSB,			/**< [out] DeltaT_alpha = T(t_alpha) - T_0; and Tdot(t_alpha) */
+		 const DetectorStateSeries *DetectorStates,/**< [in] detector-states at timestamps t_i */
+		 SkyPosition pos,		/**< source sky-location */
+		 LIGOTimeGPS refTime,		/**< SSB reference-time T_0 of pulsar-parameters */
+		 SSBprecision precision		/**< relativistic or Newtonian SSB transformation? */
+		 )
+{
+  UINT4 numSteps, i;
+  REAL8 vn[3];		/* unit-vector pointing to source in Cart. coord. */
+  REAL8 alpha, delta;	/* source position */
+  REAL8 refTimeREAL8;
+
+  numSteps = DetectorStates->length;		/* number of timestamps */
+
+  if ( tSSB->DeltaT->length != numSteps
+       || tSSB->Tdot->length == numSteps ) {
+    XLALPrintError("Lengths of lists don't match!");
+    XLAL_ERROR(XLAL_EBADLEN );
+  }
+
+  if ( precision >= SSBPREC_LAST ) {
+    XLALPrintError("Precision index %d unknown!", precision);
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+
+  if ( pos.system != COORDINATESYSTEM_EQUATORIAL ) {
+    XLALPrintError("Sky coordinate system must be equatorial!");
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+
+  /* convenience variables */
+  alpha = pos.longitude;
+  delta = pos.latitude;
+  refTimeREAL8 = GPS2REAL8(refTime);
+
+  BarycenterInput baryinput = empty_BarycenterInput;
+  BarycenterBuffer bBuffer = empty_BarycenterBuffer;
+
+  /*----- now calculate the SSB transformation in the precision required */
+  switch (precision)
+    {
+    case SSBPREC_NEWTONIAN:	/* use simple vr.vn to calculate time-delay */
+
+      /*----- get the cartesian source unit-vector */
+      vn[0] = cos(alpha) * cos(delta);
+      vn[1] = sin(alpha) * cos(delta);
+      vn[2] = sin(delta);
+
+      for (i=0; i < numSteps; i++ )
+	{
+	  LIGOTimeGPS *ti = &(DetectorStates->data[i].tGPS);
+	  /* DeltaT_alpha */
+	  tSSB->DeltaT->data[i]  = GPS2REAL8 ( (*ti) );
+	  tSSB->DeltaT->data[i] += SCALAR(vn, DetectorStates->data[i].rDetector);
+	  tSSB->DeltaT->data[i] -= refTimeREAL8;
+
+	  /* Tdot_alpha */
+	  tSSB->Tdot->data[i] = 1.0 + SCALAR(vn, DetectorStates->data[i].vDetector);
+
+	} /* for i < numSteps */
+
+      break;
+
+    case SSBPREC_RELATIVISTIC:	/* use LALBarycenter() to get SSB-times and derivative */
+
+      baryinput.site = DetectorStates->detector;
+      baryinput.site.location[0] /= LAL_C_SI;
+      baryinput.site.location[1] /= LAL_C_SI;
+      baryinput.site.location[2] /= LAL_C_SI;
+
+      baryinput.alpha = alpha;
+      baryinput.delta = delta;
+      baryinput.dInv = 0;
+
+      for (i=0; i < numSteps; i++ )
+	{
+	  EmissionTime emit;
+	  DetectorState *state = &(DetectorStates->data[i]);
+
+	  baryinput.tgps = state->tGPS;
+
+	  if ( XLALBarycenter ( &emit, &baryinput, &(state->earthState) ) != XLAL_SUCCESS ) {
+	    XLAL_ERROR( XLAL_EFUNC );
+          }
+
+	  tSSB->DeltaT->data[i] = GPS2REAL8 ( emit.te ) - refTimeREAL8;
+	  tSSB->Tdot->data[i] = emit.tDot;
+
+	} /* for i < numSteps */
+
+    case SSBPREC_RELATIVISTICOPT:	/* use optimized version XLALBarycenterOpt() */
+
+      baryinput.site = DetectorStates->detector;
+      baryinput.site.location[0] /= LAL_C_SI;
+      baryinput.site.location[1] /= LAL_C_SI;
+      baryinput.site.location[2] /= LAL_C_SI;
+
+      baryinput.alpha = alpha;
+      baryinput.delta = delta;
+      baryinput.dInv = 0;
+
+      for ( i=0; i < numSteps; i++ )
+        {
+          EmissionTime emit;
+          DetectorState *state = &(DetectorStates->data[i]);
+          baryinput.tgps = state->tGPS;
+
+          if ( XLALBarycenterOpt ( &emit, &baryinput, &(state->earthState), &bBuffer ) != XLAL_SUCCESS ) {
+	    XLAL_ERROR( XLAL_EFUNC );
+          }
+
+          tSSB->DeltaT->data[i] = GPS2REAL8 ( emit.te ) - refTimeREAL8;
+          tSSB->Tdot->data[i] = emit.tDot;
+
+        } /* for i < numSteps */
+      break;
+
+    default:
+      XLALPrintError ("\n?? Something went wrong.. this should never be called!\n\n");
+      XLAL_ERROR(XLAL_EINVAL);
+      break;
+    } /* switch precision */
+
+  /* finally: store the reference-time used into the output-structure */
+  tSSB->refTime = refTime;
+
+  return XLAL_SUCCESS;
+
+} /* XLALGetSSBtimes() */
+
+
+/** For a given DetectorStateSeries, calculate the time-differences
+ *  \f$\Delta T_\alpha\equiv T(t_\alpha) - T_0\f$, and their
+ *  derivatives \f$\dot{T}_\alpha \equiv d T / d t (t_\alpha)\f$.
+ *
+ *  \note The return-vectors \a DeltaT and \a Tdot must be allocated already
+ *  and have the same length as the input time-series \a DetStates.
+ *
+ */
 void
 LALGetSSBtimes (LALStatus *status,		/**< pointer to LALStatus structure */
 		SSBtimes *tSSB,			/**< [out] DeltaT_alpha = T(t_alpha) - T_0; and Tdot(t_alpha) */
