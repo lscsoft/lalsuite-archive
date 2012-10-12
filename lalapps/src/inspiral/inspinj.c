@@ -1588,8 +1588,7 @@ int main( int argc, char *argv[] )
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
-    {"ipn-file",                required_argument, 0,                '^'},
-	{"enable-dchi",             no_argument,       0,                 '1009'},
+	{"enable-dchi",             no_argument,       0,                 1009},
     {"dchi0",                   required_argument, 0,                 1010},
     {"dchi1",                   required_argument, 0,                 1011},
     {"dchi2",                   required_argument, 0,                 1012},
@@ -1611,6 +1610,7 @@ int main( int argc, char *argv[] )
     {"alphaPPE",                required_argument, 0,                 1028},
     {"bPPE",                    required_argument, 0,                 1029},
     {"betaPPE",                 required_argument, 0,                 1030},
+    {"ipn-file",                required_argument, 0,                '^'},
     {0, 0, 0, 0}
   };
   int c;

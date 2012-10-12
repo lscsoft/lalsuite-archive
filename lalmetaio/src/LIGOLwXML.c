@@ -848,6 +848,31 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->eff_dist_g,
               tablePtr.simInspiralTable->eff_dist_t,
               tablePtr.simInspiralTable->eff_dist_v,
+                        tablePtr.simInspiralTable->dchi0,
+              tablePtr.simInspiralTable->dchi1,
+              tablePtr.simInspiralTable->dchi2,
+              tablePtr.simInspiralTable->dchi3,
+              tablePtr.simInspiralTable->dchi4,
+              tablePtr.simInspiralTable->dchi5,
+              tablePtr.simInspiralTable->dchi5l,
+              tablePtr.simInspiralTable->dchi6,
+              tablePtr.simInspiralTable->dchi6l,
+              tablePtr.simInspiralTable->dchi7,
+
+            /* Parameters for the massive graviton waveform */
+              tablePtr.simInspiralTable->loglambdaG,
+
+            /* Parameters for the Brans-Dicke waveform */
+              tablePtr.simInspiralTable->ScalarCharge1,
+              tablePtr.simInspiralTable->ScalarCharge2,
+              tablePtr.simInspiralTable->omegaBD,
+
+            /* Parameters for the PPE waveform */
+             
+              tablePtr.simInspiralTable->aPPE,
+              tablePtr.simInspiralTable->alphaPPE,
+              tablePtr.simInspiralTable->bPPE,
+              tablePtr.simInspiralTable->betaPPE,
 	      tablePtr.simInspiralTable->numrel_mode_min,
 	      tablePtr.simInspiralTable->numrel_mode_max,
 	      tablePtr.simInspiralTable->numrel_data,
