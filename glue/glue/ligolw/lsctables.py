@@ -1790,8 +1790,11 @@ class MultiInspiralTable(table.Table):
 			return self.getColumnByName(column).asarray()
 
 	def get_coinc_snr(self):
-		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
-			   .sum(axis=0)**(1./2.)
+		if len(self):
+			return (numpy.asarray(self.get_sngl_snrs().values())\
+                                   **2).sum(axis=0)**(1/2)
+		else:
+			return numpy.array([])
 
 	def get_end(self):
 		return [row.get_end() for row in self]
