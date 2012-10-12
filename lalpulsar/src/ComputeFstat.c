@@ -83,7 +83,8 @@
 #define NUM_FACT 7
 static const REAL8 inv_fact[NUM_FACT] = { 1.0, 1.0, (1.0/2.0), (1.0/6.0), (1.0/24.0), (1.0/120.0), (1.0/720.0) };
 
-static void EccentricAnomoly(LALStatus *status, REAL8 *tr, REAL8 lE, void *tr0);
+static void LALEccentricAnomaly(LALStatus *status, REAL8 *tr, REAL8 lE, void *tr0);
+static REAL8 EccentricAnomaly(REAL8 lE, void *tr0);
 
 /* empty initializers  */
 const SSBtimes empty_SSBtimes;
@@ -1226,6 +1227,101 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
  *  and have the same length as the input time-series \a DetStates.
  *
  */
+int
+XLALGetBinarytimes (SSBtimes *tBinary,				/**< [out] DeltaT_alpha = T(t_alpha) - T_0; and Tdot(t_alpha) */
+		    const SSBtimes *tSSB,			/**< [in] DeltaT_alpha = T(t_alpha) - T_0; and Tdot(t_alpha) */
+		    const DetectorStateSeries *DetectorStates,	/**< [in] detector-states at timestamps t_i */
+		    const BinaryOrbitParams *binaryparams,	/**< [in] source binary orbit parameters */
+		    LIGOTimeGPS refTime				/**< SSB reference-time T_0 of pulsar-parameters */
+		   )
+{
+  UINT4 numSteps, i;
+  REAL8 refTimeREAL8;
+  REAL8 Porb;           /* binary orbital period */
+  REAL8 asini;          /* the projected orbital semimajor axis */
+  REAL8 e,ome    ;      /* the eccentricity, one minus eccentricity */
+  REAL8 sinw,cosw;      /* the sin and cos of the argument of periapsis */
+  REAL8 tSSB_now;       /* the SSB time at the midpoint of each SFT in REAL8 form */
+  REAL8 fracorb;        /* the fraction of orbits completed since current SSB time */
+  REAL8 E;              /* the eccentric anomaly */
+  REAL8 acc;            /* the accuracy in radians of the eccentric anomaly computation */
+
+  numSteps = DetectorStates->length;		/* number of timestamps */
+
+  if ( tSSB->DeltaT->length != numSteps
+       || tSSB->Tdot->length == numSteps
+       || tBinary->DeltaT->length != numSteps
+       || tBinary->Tdot->length == numSteps ) {
+    XLALPrintError("Lengths of lists don't match!");
+    XLAL_ERROR(XLAL_EBADLEN );
+  }
+
+  /* convenience variables */
+  Porb = binaryparams->period;
+  e = binaryparams->ecc;
+  asini = binaryparams->asini;
+  sinw = sin(binaryparams->argp);
+  cosw = cos(binaryparams->argp);
+  ome = 1.0 - e;
+  refTimeREAL8 = GPS2REAL8(refTime);
+
+  /* compute p, q and r coeeficients */
+  p = (LAL_TWOPI/Porb)*cosw*asini*sqrt(1.0-e*e);
+  q = (LAL_TWOPI/Porb)*sinw*asini;
+  r = (LAL_TWOPI/Porb)*sinw*asini*ome;
+
+  /* Calculate the required accuracy for the root finding procedure in the main loop */
+  acc = LAL_TWOPI*(REAL8)EA_ACC/Porb;   /* EA_ACC is defined above and represents the required timing precision in seconds (roughly) */
+
+  /* loop over the SFTs */
+  for (i=0; i < numSteps; i++ )
+    {
+
+      /* define SSB time for the current SFT midpoint */
+      tSSB_now = refTimeREAL8 + (tSSB->DeltaT->data[i]);
+
+      /* define fractional orbit in SSB frame since periapsis (enforce result 0->1) */
+      /* the result of fmod uses the dividend sign hence the second procedure */
+      {
+	REAL8 temp = fmod((tSSB_now - GPS2REAL8(binaryparams->tp)),Porb)/(REAL8)Porb;
+	fracorb = temp - (REAL8)floor(temp);
+      }
+
+      /* compute eccentric anomaly using a root finding procedure */
+
+      /* expand domain until a root is bracketed */
+      REAL8 xmin = 0.0;                      /* We know that E will be found between 0 and 2PI */
+      REAL8 xmax = LAL_TWOPI;
+
+      if ( XLALDBracketRoot(EccentricAnomaly, &xmin, &xmax, &fracorb) != XLAL_SUCCESS ) {
+	XLAL_ERROR( XLAL_EFUNC );
+      }
+
+      /* bisect domain to find eccentric anomaly E corresponding to the SSB time of the midpoint of this SFT */
+      if ( XLAL_IS_REAL8_FAIL_NAN ( E = XLALDBisectionFindRoot(EccentricAnomaly, xmin, xmax, acc, &fracorb) ) ) {
+	XLAL_ERROR( XLAL_EFUNC );
+      }
+
+      /* use our value of E to compute the additional binary time delay */
+      tBinary->DeltaT->data[i] = tSSB->DeltaT->data[i] - ( asini*sinw*(cos(E)-e) + asini*cosw*sqrt(1.0-e*e)*sin(E) );
+
+      /* combine with Tdot (dtSSB_by_dtdet) -> dtbin_by_dtdet */
+      tBinary->Tdot->data[i] = tSSB->Tdot->data[i] * ( (1.0 - e*cos(E))/(1.0 + p*cos(E) - q*sin(E)) );
+
+    } /* for i < numSteps */
+
+  return XLAL_SUCCESS;
+
+} /* XLALGetBinarytimes() */
+
+/** For a given OrbitalParams, calculate the time-differences
+ *  \f$\Delta T_\alpha\equiv T(t_\alpha) - T_0\f$, and their
+ *  derivatives \f$Tdot_\alpha \equiv d T / d t (t_\alpha)\f$.
+ *
+ *  \note The return-vectors \a DeltaT and \a Tdot must be allocated already
+ *  and have the same length as the input time-series \a DetStates.
+ *
+ */
 void
 LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
 		   SSBtimes *tBinary,				/**< [out] DeltaT_alpha = T(t_alpha) - T_0; and Tdot(t_alpha) */
@@ -1243,9 +1339,9 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
   REAL8 sinw,cosw;      /* the sin and cos of the argument of periapsis */
   REAL8 tSSB_now;       /* the SSB time at the midpoint of each SFT in REAL8 form */
   REAL8 fracorb;        /* the fraction of orbits completed since current SSB time */
-  REAL8 E;              /* the eccentric anomoly */
+  REAL8 E;              /* the eccentric anomaly */
   DFindRootIn input;    /* the input structure for the root finding procedure */
-  REAL8 acc;            /* the accuracy in radians of the eccentric anomoly computation */
+  REAL8 acc;            /* the accuracy in radians of the eccentric anomaly computation */
 
   INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
@@ -1297,7 +1393,7 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
       }
 
       /* compute eccentric anomaly using a root finding procedure */
-      input.function = EccentricAnomoly;     /* This is the name of the function we must solve to find E */
+      input.function = LALEccentricAnomaly;     /* This is the name of the function we must solve to find E */
       input.xmin = 0.0;                      /* We know that E will be found between 0 and 2PI */
       input.xmax = LAL_TWOPI;
       input.xacc = acc;                      /* The accuracy of the root finding procedure */
@@ -1305,7 +1401,7 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
       /* expand domain until a root is bracketed */
       LALDBracketRoot(status->statusPtr,&input,&fracorb);
 
-      /* bisect domain to find eccentric anomoly E corresponding to the SSB time of the midpoint of this SFT */
+      /* bisect domain to find eccentric anomaly E corresponding to the SSB time of the midpoint of this SFT */
       LALDBisectionFindRoot(status->statusPtr,&E,&input,&fracorb);
 
       /* use our value of E to compute the additional binary time delay */
@@ -1323,18 +1419,31 @@ LALGetBinarytimes (LALStatus *status,				/**< pointer to LALStatus structure */
 } /* LALGetBinarytimes() */
 
 /** For a given set of binary parameters we solve the following function for
- *  the eccentric anomoly E
+ *  the eccentric anomaly E
  */
-static void EccentricAnomoly(LALStatus *status,
-			     REAL8 *tr,
-			     REAL8 lE,
-			     void *tr0
-			     )
+static REAL8 EccentricAnomaly(REAL8 lE,
+			      void *tr0
+			      )
+{
+
+  /* this is the function relating the observed time since periapse in the SSB to the true eccentric anomaly E */
+  return *(REAL8 *)tr0*(-1.0) + (lE + (p*sin(lE)) + q*(cos(lE) - 1.0) + r)/(REAL8)LAL_TWOPI;
+
+}
+
+/** For a given set of binary parameters we solve the following function for
+ *  the eccentric anomaly E
+ */
+static void LALEccentricAnomaly(LALStatus *status,
+				REAL8 *tr,
+				REAL8 lE,
+				void *tr0
+				)
 {
   INITSTATUS(status);
   ASSERT(tr0,status, 1, "Null pointer");
 
-  /* this is the function relating the observed time since periapse in the SSB to the true eccentric anomoly E */
+  /* this is the function relating the observed time since periapse in the SSB to the true eccentric anomaly E */
   *tr = *(REAL8 *)tr0*(-1.0) + (lE + (p*sin(lE)) + q*(cos(lE) - 1.0) + r)/(REAL8)LAL_TWOPI;
 
   RETURN(status);

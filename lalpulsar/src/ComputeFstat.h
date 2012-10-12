@@ -201,6 +201,13 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,
 		       const CmplxAMCoeffs *amcoe,
 		       const ComputeFParams *params);
 
+int
+XLALGetBinarytimes (SSBtimes *tBinary,
+		    const SSBtimes *tSSB,
+		    const DetectorStateSeries *DetectorStates,
+		    const BinaryOrbitParams *binaryparams,
+		    LIGOTimeGPS refTime);
+
 void
 LALGetBinarytimes (LALStatus *,
 		   SSBtimes *tBinary,
