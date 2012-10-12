@@ -243,17 +243,17 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   if len(ifos) > 2:
     trigThirdSNR  = tmp[-3,:]
   if sngl_bank_chisq:
-    trigIfobankCS = trigs.get_sngl_bank_chisqs()
+    trigIfobankCS = trigs.get_sngl_bank_chisqs(ifos)
     for ifo in ifos:
       trigIfobankCS[ifo] = numpy.asarray(trigIfobankCS[ifo])
       numpy.putmask(trigIfobankCS[ifo], trigIfobankCS[ifo]==0, 0.005)
   if sngl_cont_chisq:
-    trigIfoautoCS = trigs.get_sngl_cont_chisqs()
+    trigIfoautoCS = trigs.get_sngl_cont_chisqs(ifos)
     for ifo in ifos:
       trigIfoautoCS[ifo] = numpy.asarray(trigIfoautoCS[ifo])
       numpy.putmask(trigIfoautoCS[ifo], trigIfoautoCS[ifo]==0, 0.005)
   if sngl_chisq:
-    trigIfostanCS = trigs.get_sngl_chisqs()
+    trigIfostanCS = trigs.get_sngl_chisqs(ifos)
     for ifo in ifos:
       trigIfostanCS[ifo] = numpy.asarray(trigIfostanCS[ifo])
       numpy.putmask(trigIfostanCS[ifo], trigIfostanCS[ifo]==0, 0.005)
@@ -349,11 +349,11 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     if len(ifos) > 2:
       injThirdSNR  = tmp[-3,:]
     if sngl_bank_chisq:
-      injIfobankCS = injs.get_sngl_bank_chisqs()
+      injIfobankCS = injs.get_sngl_bank_chisqs(ifos)
     if sngl_cont_chisq:
-      injIfoautoCS = injs.get_sngl_cont_chisqs()
+      injIfoautoCS = injs.get_sngl_cont_chisqs(ifos)
     if sngl_chisq:
-      injIfostanCS = injs.get_sngl_chisqs()
+      injIfostanCS = injs.get_sngl_chisqs(ifos)
     injSigma  = injs.get_sigmasqs()
   
     # get amplitude terms
