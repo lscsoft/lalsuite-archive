@@ -1449,6 +1449,60 @@ static void LALEccentricAnomaly(LALStatus *status,
   RETURN(status);
 }
 
+/** Multi-IFO version of XLALGetBinarytimes().
+ * Get all binary-timings for all input detector-series.
+ *
+ */
+int
+XLALGetMultiBinarytimes (MultiSSBtimes **multiBinary,			/**< [out] SSB-timings for all input detector-state series */
+			 const MultiSSBtimes *multiSSB,			/**< [in] SSB-timings for all input detector-state series */
+			 const MultiDetectorStateSeries *multiDetStates, /**< [in] detector-states at timestamps t_i */
+			 const BinaryOrbitParams *binaryparams,		/**< [in] source binary orbit parameters */
+			 LIGOTimeGPS refTime				/**< SSB reference-time T_0 for SSB-timing */
+			 )
+{
+  UINT4 X, numDetectors;
+  MultiSSBtimes *ret = NULL;
+
+  numDetectors = multiDetStates->length;
+
+  if ( ( ret = XLALCalloc( 1, sizeof( *ret ) )) == NULL ) {
+    XLAL_ERROR ( XLAL_ENOMEM );
+  }
+  ret->length = numDetectors;
+  if ( ( ret->data = XLALCalloc ( numDetectors, sizeof ( *ret->data ) )) == NULL ) {
+    XLALFree ( ret );
+    XLAL_ERROR ( XLAL_ENOMEM );
+  }
+
+  for ( X=0; X < numDetectors; X ++ )
+    {
+      SSBtimes *BinarytimesX = NULL;
+      UINT4 numStepsX = multiDetStates->data[X]->length;
+
+      if ( (ret->data[X] = XLALCalloc ( 1, sizeof ( *(ret->data[X]) ) ) ) == NULL ) {
+	XLALFree ( ret );
+	XLAL_ERROR ( XLAL_ENOMEM );
+      }
+      BinarytimesX = ret->data[X];
+      BinarytimesX->DeltaT = XLALCreateREAL8Vector ( numStepsX );
+      if ( (BinarytimesX->Tdot = XLALCreateREAL8Vector ( numStepsX )) == NULL ) {
+	XLALPrintError ("\nOut of memory!\n\n");
+	XLALDestroyMultiSSBtimes ( ret );
+	XLAL_ERROR ( XLAL_ENOMEM );
+      }
+      /* printf("calling  LALGetBinarytimes\n"); */
+      if ( XLALGetBinarytimes (BinarytimesX, multiSSB->data[X], multiDetStates->data[X], binaryparams, refTime ) != XLAL_SUCCESS ) {
+	XLALDestroyMultiSSBtimes ( ret );
+	XLAL_ERROR( XLAL_EFUNC );
+      }
+    } /* for X < numDet */
+
+  (*multiBinary)  = ret;
+  return XLAL_SUCCESS;
+
+} /* XLALGetMultiBinarytimes() */
+
 /** Multi-IFO version of LALGetBinarytimes().
  * Get all binary-timings for all input detector-series.
  *
@@ -1849,7 +1903,10 @@ XLALGetMultiSSBtimes (MultiSSBtimes **multiSSB,		/**< [out] SSB-timings for all 
       SSBtimes *SSBtimesX = NULL;
       UINT4 numStepsX = multiDetStates->data[X]->length;
 
-      ret->data[X] = XLALCalloc ( 1, sizeof ( *(ret->data[X]) ) );
+      if ( (ret->data[X] = XLALCalloc ( 1, sizeof ( *(ret->data[X]) ) ) ) == NULL ) {
+	XLALFree ( ret );
+	XLAL_ERROR ( XLAL_ENOMEM );
+      }
       SSBtimesX = ret->data[X];
       SSBtimesX->DeltaT = XLALCreateREAL8Vector ( numStepsX );
       if ( (SSBtimesX->Tdot = XLALCreateREAL8Vector ( numStepsX )) == NULL ) {

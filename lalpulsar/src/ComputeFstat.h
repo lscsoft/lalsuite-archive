@@ -225,6 +225,13 @@ LALGetMultiBinarytimes (LALStatus *status,
 			LIGOTimeGPS refTime);
 
 int
+XLALGetMultiBinarytimes (MultiSSBtimes **multiBinary,
+			 const MultiSSBtimes *multiSSB,
+			 const MultiDetectorStateSeries *multiDetStates,
+			 const BinaryOrbitParams *binaryparams,
+			 LIGOTimeGPS refTime);
+
+int
 XLALGetSSBtimes (SSBtimes *tSSB,
 		 const DetectorStateSeries *DetectorStates,
 		 SkyPosition pos,
