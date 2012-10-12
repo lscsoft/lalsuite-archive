@@ -1775,8 +1775,11 @@ class MultiInspiralTable(table.Table):
 			return self.getColumnByName(column).asarray()
 
 	def get_coinc_snr(self):
-		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
-			   .sum(axis=0)**(1/2)
+		if len(self):
+			return (numpy.asarray(self.get_sngl_snrs().values())\
+                                   **2).sum(axis=0)**(1/2)
+		else:
+			return numpy.array([])
 
 	def get_end(self):
 		return [row.get_end() for row in self]
@@ -1784,8 +1787,8 @@ class MultiInspiralTable(table.Table):
 	def get_new_snr(self, index=6.0, column='chisq'):
 		# kwarg 'index' is assigned to the parameter chisq_index
 		# nhigh gives the asymptotic large rho behaviour of
-    # d (ln chisq) / d (ln rho) 
-    # for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
+		# d (ln chisq) / d (ln rho) 
+		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_%s' % column)
 		nhigh = index/3.
