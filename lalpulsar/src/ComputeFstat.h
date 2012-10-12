@@ -240,6 +240,13 @@ LALGetMultiSSBtimes (LALStatus *,
 		     LIGOTimeGPS refTime,
 		     SSBprecision precision );
 
+int
+XLALGetMultiSSBtimes (MultiSSBtimes **multiSSB,
+		      const MultiDetectorStateSeries *multiDetStates,
+		      SkyPosition pos,
+		      LIGOTimeGPS refTime,
+		      SSBprecision precision );
+
 void ComputeFStat ( LALStatus *, Fcomponents *Fstat,
 		    const PulsarDopplerParams *doppler,
 		    const MultiSFTVector *multiSFTs,

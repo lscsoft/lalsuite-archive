@@ -1701,6 +1701,67 @@ LALGetSSBtimes (LALStatus *status,		/**< pointer to LALStatus structure */
 
 } /* LALGetSSBtimes() */
 
+/** Multi-IFO version of XLALGetSSBtimes().
+ * Get all SSB-timings for all input detector-series.
+ *
+ * NOTE: contrary to XLALGetSSBtimes(), this functions *allocates* the output-vector,
+ * use XLALDestroyMultiSSBtimes() to free this.
+ */
+int
+XLALGetMultiSSBtimes (MultiSSBtimes **multiSSB,		/**< [out] SSB-timings for all input detector-state series */
+		     const MultiDetectorStateSeries *multiDetStates, /**< [in] detector-states at timestamps t_i */
+		     SkyPosition skypos,		/**< source sky-position [in equatorial coords!] */
+		     LIGOTimeGPS refTime,		/**< SSB reference-time T_0 for SSB-timing */
+		     SSBprecision precision		/**< use relativistic or Newtonian SSB timing?  */
+		     )
+{
+  UINT4 X, numDetectors;
+  MultiSSBtimes *ret = NULL;
+
+  /* check input */
+  if ( skypos.system != COORDINATESYSTEM_EQUATORIAL ) {
+    XLALPrintError("Sky coordinate system must be equatorial!");
+    XLAL_ERROR(XLAL_EINVAL);
+  }
+
+  numDetectors = multiDetStates->length;
+
+  if ( ( ret = XLALCalloc( 1, sizeof( *ret ) )) == NULL ) {
+    XLAL_ERROR ( XLAL_ENOMEM );
+  }
+  ret->length = numDetectors;
+  if ( ( ret->data = XLALCalloc ( numDetectors, sizeof ( *ret->data ) )) == NULL ) {
+    XLALFree ( ret );
+    XLAL_ERROR ( XLAL_ENOMEM );
+  }
+
+  for ( X=0; X < numDetectors; X ++ )
+    {
+      SSBtimes *SSBtimesX = NULL;
+      UINT4 numStepsX = multiDetStates->data[X]->length;
+
+      ret->data[X] = XLALCalloc ( 1, sizeof ( *(ret->data[X]) ) );
+      SSBtimesX = ret->data[X];
+      SSBtimesX->DeltaT = XLALCreateREAL8Vector ( numStepsX );
+      if ( (SSBtimesX->Tdot = XLALCreateREAL8Vector ( numStepsX )) == NULL ) {
+	XLALPrintError ("\nOut of memory!\n\n");
+	XLALDestroyMultiSSBtimes ( ret );
+	XLAL_ERROR ( XLAL_ENOMEM );
+      }
+
+      if ( XLALGetSSBtimes (SSBtimesX, multiDetStates->data[X], skypos, refTime, precision ) != XLAL_SUCCESS ) {
+	XLALDestroyMultiSSBtimes ( ret );
+	XLAL_ERROR( XLAL_EFUNC );
+      }
+
+    } /* for X < numDet */
+
+  (*multiSSB) = ret;
+  return XLAL_SUCCESS;
+
+} /* XLALGetMultiSSBtimes() */
+
+
 /** Multi-IFO version of LALGetSSBtimes().
  * Get all SSB-timings for all input detector-series.
  *
