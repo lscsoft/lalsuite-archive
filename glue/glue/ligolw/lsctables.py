@@ -1555,6 +1555,7 @@ class CoincRingdownTable(table.Table):
 		"frequency": "real_8",
 		"quality": "real_8",
 		"snr": "real_8",
+		"snr_ratio": "real_8",
 		"false_alarm_rate": "real_8"
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
