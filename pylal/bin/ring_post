@@ -95,7 +95,7 @@ def cafe(cachenames, options, time_slide_file, base="cafe_"):
 	cache = []
 	for filename in cachenames:
 		cache.extend(ligolw_cafe.load_cache(filename, options.verbose))
-	seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(time_slide_file, verbose = options.verbose, gz = time_slide_file.endswith(".gz")).values(), options.verbose, extentlimit=8000)
+	seglists, outputcaches = ligolw_cafe.ligolw_cafe(cache, ligolw_tisi.load_time_slides(time_slide_file, verbose = options.verbose, gz = time_slide_file.endswith(".gz")).values(), options.verbose, options.extentlimit)
 	instruments = set(seglists.keys())
 	return outputcaches, ligolw_cafe.write_caches(base, outputcaches, instruments, options.verbose)
 
@@ -480,6 +480,7 @@ def parse_command_line():
 	parser.add_option("-g", "--cache", help="cache of RING_FIRST files")
 	parser.add_option("--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("--log-path", help = "set dagman log path")
+	parser.add_option("--extentlimit", help = "set quantity to determine how many cafe files will be created")
 	options, filenames = parser.parse_args()
 	return options, filenames
 
