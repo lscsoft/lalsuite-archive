@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*
  *  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer
  *  Copyright (C) 2012 Leo Singer
@@ -74,8 +73,8 @@ int XLALSimInspiralTaylorF2Test(
         const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
         )
 {
-    const REAL8 lambda = -1987./3080.;
-    const REAL8 theta = -11831./9240.;
+    //const REAL8 lambda = -1987./3080.;
+    //const REAL8 theta = -11831./9240.;
     const int beta = 0., sigma = 0.;
 
     /* external: SI; internal: solar masses */
