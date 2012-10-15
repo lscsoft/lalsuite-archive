@@ -93,22 +93,33 @@ int XLALSimInspiralTaylorF2Test(
     LIGOTimeGPS tC = {0, 0};
     
     /* phasing coefficients */
-    REAL8 pfaN = 3.L/(128.L * eta);
-    REAL8 pfa0 = 1.0;
-    REAL8 pfa1 = 0.0;
-    REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
-    REAL8 pfa3 = -16.L*LAL_PI + 4.L*beta;
-    REAL8 pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
-                     + 617.L * eta*eta)/72.L - 10.L*sigma;
-    REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
-    REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
-    REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
-                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
-                     + eta*eta * 76055.L/1728.L
-                     - eta*eta*eta*  127825.L/1296.L ;
-    REAL8 pfl6 = -6848.L/21.L;
-    REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
-    
+//    REAL8 pfaN = 3.L/(128.L * eta);
+//    REAL8 pfa0 = 1.0;
+//    REAL8 pfa1 = 0.0;
+//    REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
+//    REAL8 pfa3 = -16.L*LAL_PI + 4.L*beta;
+//    REAL8 pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
+//                     + 617.L * eta*eta)/72.L - 10.L*sigma;
+//    REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+//    REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+//    REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
+//                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
+//                     + eta*eta * 76055.L/1728.L
+//                     - eta*eta*eta*  127825.L/1296.L ;
+//    REAL8 pfl6 = -6848.L/21.L;
+//    REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
+
+    REAL8 pfaN = XLALSimInspiralTaylorF2_NewtCoeff(eta);
+    REAL8 pfa0 = XLALSimInspiralTaylorF2_0PNCoeff();
+    REAL8 pfa1 = XLALSimInspiralTaylorF2_05PNCoeff();
+    REAL8 pfa2 = XLALSimInspiralTaylorF2_1PNCoeff(eta);
+    REAL8 pfa3 = XLALSimInspiralTaylorF2_15PNCoeff(eta,beta);
+    REAL8 pfa4 = XLALSimInspiralTaylorF2_2PNCoeff(eta,sigma);
+    REAL8 pfa5 = XLALSimInspiralTaylorF2_25PNCoeff(eta);
+    REAL8 pfl5 = XLALSimInspiralTaylorF2_25PNLogCoeff(eta);
+    REAL8 pfa6 = XLALSimInspiralTaylorF2_3PNCoeff(eta);
+    REAL8 pfl6 = XLALSimInspiralTaylorF2_3PNLogCoeff();
+    REAL8 pfa7 = XLALSimInspiralTaylorF2_35PNCoeff(eta);
     /* modify for the GR testing coefficients */
     
     if (extraParams!=NULL) 
