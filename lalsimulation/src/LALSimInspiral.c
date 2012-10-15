@@ -1789,6 +1789,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomA:
         case IMRPhenomB:
         case TaylorF2:
+        case TaylorF2Test:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
             return 1;
@@ -1816,6 +1817,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "TaylorF2RedSpin" ) )
   {
     return TaylorF2RedSpin;
+  }
+  else if ( strstr(inString, "TaylorF2Test" ) )
+  {
+    return TaylorF2Test;
   }
   else if ( strstr(inString, "TaylorF2" ) )
   {
