@@ -571,6 +571,35 @@ tagSimInspiralTable
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
+  
+  /* Parameters for the GR test waveforms */
+
+  REAL4 dchi0;
+  REAL4 dchi1;
+  REAL4 dchi2;
+  REAL4 dchi3;
+  REAL4 dchi4;
+  REAL4 dchi5;
+  REAL4 dchi5l;
+  REAL4 dchi6;
+  REAL4 dchi6l;
+  REAL4 dchi7;
+
+/* Parameters for the massive graviton waveform */
+  REAL4 loglambdaG;
+
+/* Parameters for the Brans-Dicke waveform */
+  REAL4 ScalarCharge1;
+  REAL4 ScalarCharge2;
+  REAL4 omegaBD;
+
+/* Parameters for the PPE waveform */
+ 
+  REAL4 aPPE;
+  REAL4 alphaPPE;
+  REAL4 bPPE;
+  REAL4 betaPPE;
+  
 }
 SimInspiralTable;
 
