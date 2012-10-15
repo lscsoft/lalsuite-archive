@@ -621,39 +621,53 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 
 /** < TaylorF2 family */
 
-REAL8 XLALSimInspiralTaylorF2_NewtCoeff(REAL8 eta)
+static REAL8 UNUSED 
+XLALSimInspiralTaylorF2_NewtCoeff(REAL8 eta)
 {
     return  3.L/(128.L * eta);
 }
 
-REAL8 XLALSimInspiralTaylorF2_05PNCoeff(void)
-{
-    return 0.0;
-}
-REAL8 XLALSimInspiralTaylorF2_1PNCoeff(void)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_0PNCoeff(void)
 {
     return 1.0;
 }
-REAL8 XLALSimInspiralTaylorF2_15PNCoeff(REAL8 eta, REAL8 beta)
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_05PNCoeff(void)
+{
+    return 0.0;
+}
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_1PNCoeff(void)
+{
+    return 1.0;
+}
+static REAL8 UNUSED 
+XLALSimInspiralTaylorF2_15PNCoeff(REAL8 beta)
 {
     return -16.L*LAL_PI + 4.L*beta;
 }
-REAL8 XLALSimInspiralTaylorF2_2PNCoeff(REAL8 eta, REAL8 sigma)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_2PNCoeff(REAL8 eta, REAL8 sigma)
 {
     return 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
                      + 617.L * eta*eta)/72.L - 10.L*sigma;
 }
-REAL8 XLALSimInspiralTaylorF2_25PNCoeff(REAL8 eta)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_25PNCoeff(REAL8 eta)
 {
     return 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
 }
 
-REAL8 XLALSimInspiralTaylorF2_25PNLogCoeff(REAL8 eta)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_25PNLogCoeff(REAL8 eta)
 {
     return 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
 }
 
-REAL8 XLALSimInspiralTaylorF2_3PNCoeff(REAL8 eta)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_3PNCoeff(REAL8 eta)
 {
     const REAL8 lambda = -1987./3080.;
     const REAL8 theta = -11831./9240.;
@@ -663,12 +677,14 @@ REAL8 XLALSimInspiralTaylorF2_3PNCoeff(REAL8 eta)
                      - eta*eta*eta*  127825.L/1296.L ;
 }
 
-REAL8 XLALSimInspiralTaylorF2_3PNLogCoeff(void)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_3PNLogCoeff(void)
 {
     return -6848.L/21.L;
 }
 
-REAL8 XLALSimInspiralTaylorF2_35PNCoeff(REAL8 eta)
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_35PNCoeff(REAL8 eta)
 {
     return LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
 }

@@ -73,8 +73,8 @@ int XLALSimInspiralTaylorF2Test(
         const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
         )
 {
-    const REAL8 lambda = -1987./3080.;
-    const REAL8 theta = -11831./9240.;
+//    const REAL8 lambda = -1987./3080.;
+//    const REAL8 theta = -11831./9240.;
     const int beta = 0., sigma = 0.;
 
     /* external: SI; internal: solar masses */
@@ -112,8 +112,8 @@ int XLALSimInspiralTaylorF2Test(
     REAL8 pfaN = XLALSimInspiralTaylorF2_NewtCoeff(eta);
     REAL8 pfa0 = XLALSimInspiralTaylorF2_0PNCoeff();
     REAL8 pfa1 = XLALSimInspiralTaylorF2_05PNCoeff();
-    REAL8 pfa2 = XLALSimInspiralTaylorF2_1PNCoeff(eta);
-    REAL8 pfa3 = XLALSimInspiralTaylorF2_15PNCoeff(eta,beta);
+    REAL8 pfa2 = XLALSimInspiralTaylorF2_1PNCoeff();
+    REAL8 pfa3 = XLALSimInspiralTaylorF2_15PNCoeff(beta);
     REAL8 pfa4 = XLALSimInspiralTaylorF2_2PNCoeff(eta,sigma);
     REAL8 pfa5 = XLALSimInspiralTaylorF2_25PNCoeff(eta);
     REAL8 pfl5 = XLALSimInspiralTaylorF2_25PNLogCoeff(eta);
