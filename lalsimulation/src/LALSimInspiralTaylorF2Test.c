@@ -110,9 +110,10 @@ int XLALSimInspiralTaylorF2Test(
     REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
     
     /* modify for the GR testing coefficients */
-    
+// Salvo: extra params needs to be null or TOTALLY filled!    
     if (extraParams!=NULL) 
     {
+//printf("Adding test params shifts %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi0"),XLALSimInspiralGetTestGRParam(extraParams,"dchi1"),XLALSimInspiralGetTestGRParam(extraParams,"dchi2"),XLALSimInspiralGetTestGRParam(extraParams,"dchi3"),XLALSimInspiralGetTestGRParam(extraParams,"dchi4"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0")) pfa0*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0");
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) pfa2*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2");
