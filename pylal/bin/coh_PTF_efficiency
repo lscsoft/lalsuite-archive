@@ -798,7 +798,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     gIFARBank         = foundTrigBank[nonzeroFAP]
     gIFARAuto         = foundTrigAuto[nonzeroFAP]
     gIFARNull         = foundTrigNullSNR[nonzeroFAP]
-    gIFARSnglSNR      = dict((ifo, foundTrigSnglSNR[ifo]) for ifo in ifos)
+    gIFARSnglSNR      = dict((ifo, foundTrigSnglSNR[ifo][nonzeroFAP])\
+                        for ifo in ifos)
 
     gIFARSpin1x       = foundInjSpin1x[nonzeroFAP]
     gIFARSpin1y       = foundInjSpin1y[nonzeroFAP]
@@ -835,7 +836,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     gMissed2Bank      = foundTrigBank[missed]
     gMissed2Auto      = foundTrigAuto[missed]
     gMissed2Null      = foundTrigNullSNR[missed]
-    gMissed2SnglSNR   = dict((ifo, foundTrigSnglSNR[ifo]) for ifo in ifos)
+    gMissed2SnglSNR   = dict((ifo, foundTrigSnglSNR[ifo][missed])\
+                        for ifo in ifos)
 
     gMissed2Spin1x    = foundInjSpin1x[missed]
     gMissed2Spin1y    = foundInjSpin1y[missed]
@@ -1126,7 +1128,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
                                   missedInjEffSiteDist[ifo]))\
                for ifo in sites] +\
               [np.concatenate((gIFARm1,     gMissed2m1,     missedInjm1)),\
-               np.concatenate((gIFARm2,     gMissed2m1,     missedInjm1)),\
+               np.concatenate((gIFARm2,     gMissed2m2,     missedInjm2)),\
                np.concatenate((gIFARMchirp, gMissed2Mchirp,\
                                   missedInjMchirp)),\
                np.concatenate((gIFARRecm1,  gMissed2Recm1,  missedNA)),\
