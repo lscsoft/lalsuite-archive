@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
  *  Copyright (C) 2007 Jolien Creighton, B.S. Sathyaprakash, Thomas Cokelaer
  *  Copyright (C) 2012 Leo Singer
@@ -93,7 +94,7 @@ int XLALSimInspiralTaylorF2Test(
     LIGOTimeGPS tC = {0, 0};
     
     /* phasing coefficients */
-    REAL8 pfaN = 3.L/(128.L * eta);
+    /*REAL8 pfaN = 3.L/(128.L * eta);
     REAL8 pfa0 = 1.0;
     REAL8 pfa1 = 0.0;
     REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
@@ -107,8 +108,18 @@ int XLALSimInspiralTaylorF2Test(
                      + eta*eta * 76055.L/1728.L
                      - eta*eta*eta*  127825.L/1296.L ;
     REAL8 pfl6 = -6848.L/21.L;
-    REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
-    
+    REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);*/
+    REAL8 pfaN = XLALSimInspiralTaylorF2_NewtCoeff(eta);
+    REAL8 pfa0 = XLALSimInspiralTaylorF2_0PNCoeff();
+    REAL8 pfa1 = XLALSimInspiralTaylorF2_05PNCoeff();
+    REAL8 pfa2 = XLALSimInspiralTaylorF2_1PNCoeff();
+    REAL8 pfa3 = XLALSimInspiralTaylorF2_15PNCoeff(beta);
+    REAL8 pfa4 = XLALSimInspiralTaylorF2_2PNCoeff(eta,sigma);
+    REAL8 pfa5 = XLALSimInspiralTaylorF2_25PNCoeff(eta);
+    REAL8 pfl5 = XLALSimInspiralTaylorF2_25PNLogCoeff(eta);
+    REAL8 pfa6 = XLALSimInspiralTaylorF2_3PNCoeff(eta);
+    REAL8 pfl6 = XLALSimInspiralTaylorF2_3PNLogCoeff();
+    REAL8 pfa7 = XLALSimInspiralTaylorF2_35PNCoeff(eta);
     /* modify for the GR testing coefficients */
 // Salvo: extra params needs to be null or TOTALLY filled!    
     if (extraParams!=NULL) 

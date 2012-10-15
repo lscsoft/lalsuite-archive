@@ -619,3 +619,72 @@ XLALSimInspiralTaylorEtZeta_7PNCoeff(
 	return (129.817/2.304 - 320.7739/4.8384 * eta + 61.3373/1.2096 * eta*eta) * LAL_PI;
 }
 
+/** < TaylorF2 family */
+
+static REAL8 UNUSED 
+XLALSimInspiralTaylorF2_NewtCoeff(REAL8 eta)
+{
+    return  3.L/(128.L * eta);
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_0PNCoeff(void)
+{
+    return 1.0;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_05PNCoeff(void)
+{
+    return 0.0;
+}
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_1PNCoeff(void)
+{
+    return 1.0;
+}
+static REAL8 UNUSED 
+XLALSimInspiralTaylorF2_15PNCoeff(REAL8 beta)
+{
+    return -16.L*LAL_PI + 4.L*beta;
+}
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_2PNCoeff(REAL8 eta, REAL8 sigma)
+{
+    return 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
+                     + 617.L * eta*eta)/72.L - 10.L*sigma;
+}
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_25PNCoeff(REAL8 eta)
+{
+    return 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_25PNLogCoeff(REAL8 eta)
+{
+    return 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_3PNCoeff(REAL8 eta)
+{
+    const REAL8 lambda = -1987./3080.;
+    const REAL8 theta = -11831./9240.;
+    return (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
+                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
+                     + eta*eta * 76055.L/1728.L
+                     - eta*eta*eta*  127825.L/1296.L ;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_3PNLogCoeff(void)
+{
+    return -6848.L/21.L;
+}
+
+static REAL8 UNUSED
+XLALSimInspiralTaylorF2_35PNCoeff(REAL8 eta)
+{
+    return LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
+}
