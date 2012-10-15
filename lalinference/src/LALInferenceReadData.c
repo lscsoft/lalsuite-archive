@@ -1788,6 +1788,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
         ABORTXLAL(&status);
     LALInferenceVariables *modelParams=NULL;
     LALInferenceIFOData * tmpdata=IFOdata;
+	ProcessParamsTable *ppt=NULL;
+
     REAL8 eta =0.0;
     REAL8 startPhase = 0.0;
     REAL8 inclination = 0.0;
@@ -1796,8 +1798,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     REAL8 latitude=0.0;
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
-   
-    
+        
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	modelParams=tmpdata->modelParams;
     memset(modelParams,0,sizeof(LALInferenceVariables));
@@ -1823,7 +1824,31 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-      
+    ppt= LALInferenceGetProcParamVal(commandLine,"--GRtestparameters");
+    if (ppt){ printf("adding dchi3 in injection=%lf\n",inj_table->dchi3);
+		REAL8 dchi0=inj_table->dchi0;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi0",&dchi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi1=inj_table->dchi1;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi1",&dchi1,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi2=inj_table->dchi2;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi2",&dchi2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi3=inj_table->dchi3;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi3",&dchi3,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi4=inj_table->dchi4;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi4",&dchi4,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi5=inj_table->dchi5;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi5",&dchi5,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi5l=inj_table->dchi5l;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi5l",&dchi5l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi6=inj_table->dchi6;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi6",&dchi6,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi6l=inj_table->dchi6l;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi6l",&dchi6l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 dchi7=inj_table->dchi7;
+		LALInferenceAddVariable(tmpdata->modelParams, "dchi7",&dchi7,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		}
+	
+    
       REAL8 lambda1 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
         lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);

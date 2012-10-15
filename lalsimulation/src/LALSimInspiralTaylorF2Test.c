@@ -73,8 +73,8 @@ int XLALSimInspiralTaylorF2Test(
         const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
         )
 {
-//    const REAL8 lambda = -1987./3080.;
-//    const REAL8 theta = -11831./9240.;
+    //const REAL8 lambda = -1987./3080.;
+    //const REAL8 theta = -11831./9240.;
     const int beta = 0., sigma = 0.;
 
     /* external: SI; internal: solar masses */
@@ -93,22 +93,21 @@ int XLALSimInspiralTaylorF2Test(
     LIGOTimeGPS tC = {0, 0};
     
     /* phasing coefficients */
-//    REAL8 pfaN = 3.L/(128.L * eta);
-//    REAL8 pfa0 = 1.0;
-//    REAL8 pfa1 = 0.0;
-//    REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
-//    REAL8 pfa3 = -16.L*LAL_PI + 4.L*beta;
-//    REAL8 pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
-//                     + 617.L * eta*eta)/72.L - 10.L*sigma;
-//    REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
-//    REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
-//    REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
-//                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
-//                     + eta*eta * 76055.L/1728.L
-//                     - eta*eta*eta*  127825.L/1296.L ;
-//    REAL8 pfl6 = -6848.L/21.L;
-//    REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
-
+    /*REAL8 pfaN = 3.L/(128.L * eta);
+    REAL8 pfa0 = 1.0;
+    REAL8 pfa1 = 0.0;
+    REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
+    REAL8 pfa3 = -16.L*LAL_PI + 4.L*beta;
+    REAL8 pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
+                     + 617.L * eta*eta)/72.L - 10.L*sigma;
+    REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+    REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+    REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
+                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
+                     + eta*eta * 76055.L/1728.L
+                     - eta*eta*eta*  127825.L/1296.L ;
+    REAL8 pfl6 = -6848.L/21.L;
+    REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);*/
     REAL8 pfaN = XLALSimInspiralTaylorF2_NewtCoeff(eta);
     REAL8 pfa0 = XLALSimInspiralTaylorF2_0PNCoeff();
     REAL8 pfa1 = XLALSimInspiralTaylorF2_05PNCoeff();
@@ -121,9 +120,10 @@ int XLALSimInspiralTaylorF2Test(
     REAL8 pfl6 = XLALSimInspiralTaylorF2_3PNLogCoeff();
     REAL8 pfa7 = XLALSimInspiralTaylorF2_35PNCoeff(eta);
     /* modify for the GR testing coefficients */
-    
+// Salvo: extra params needs to be null or TOTALLY filled!    
     if (extraParams!=NULL) 
     {
+//printf("Adding test params shifts %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",XLALSimInspiralGetTestGRParam(extraParams,"dchi0"),XLALSimInspiralGetTestGRParam(extraParams,"dchi1"),XLALSimInspiralGetTestGRParam(extraParams,"dchi2"),XLALSimInspiralGetTestGRParam(extraParams,"dchi3"),XLALSimInspiralGetTestGRParam(extraParams,"dchi4"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5"),XLALSimInspiralGetTestGRParam(extraParams,"dchi5l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6"),XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"),XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi0")) pfa0*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi0");
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi1")) pfa1 = XLALSimInspiralGetTestGRParam(extraParams,"dchi1");
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi2")) pfa2*=1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi2");
@@ -213,8 +213,10 @@ int XLALSimInspiralTaylorF2Test(
                 phasing += pfa3 * v3;
             case 2:
                 phasing += pfa2 * v2;
+			case 1:
+				phasing += pfa1 * v;
             case 0:
-                phasing += 1.;
+                phasing += pfa0;
                 break;
             default:
                 XLALDestroyCOMPLEX16FrequencySeries(htilde);
@@ -258,3 +260,4 @@ int XLALSimInspiralTaylorF2Test(
     *htilde_out = htilde;
     return XLAL_SUCCESS;
 }
+

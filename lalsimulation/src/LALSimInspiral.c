@@ -1622,11 +1622,11 @@ int XLALSimInspiralChooseFDWaveform(
      * If non-GR approximants are added, change the below to
      * if( nonGRparams && approximant != nonGR1 && approximant != nonGR2 )
      */
-    if( nonGRparams )
+    /*if( nonGRparams )
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
-    }
+    }*/
 
     /* General sanity check the input parameters - only give warnings! */
     if( deltaF > 1. )
@@ -1792,6 +1792,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case TaylorF2Test:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
+        case TaylorF2Test:
             return 1;
 
         default:
@@ -1995,6 +1996,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("TaylorF2RedSpin");
     case TaylorF2:
       return strdup("TaylorF2");
+    case TaylorF2Test:
+      return strdup("TaylorF2Test");
     case PhenSpinTaylorRDF:
       return strdup("PhenSpinTaylorRDF");
     case PhenSpinTaylorRD:

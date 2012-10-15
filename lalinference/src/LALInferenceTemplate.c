@@ -1970,9 +1970,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     for (UINT4 k=0; k<10; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
+        {//printf("adding testGR params %d=%lf\n",k,*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
             XLALSimInspiralAddTestGRParam(&nonGRparams,
                                     list_extra_parameters[k],
                                     *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
+								}
     }
     //printf("dchi1:%lf\n",XLALSimInspiralGetGRParam);
     if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
