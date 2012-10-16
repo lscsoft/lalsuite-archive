@@ -151,7 +151,7 @@ for filename in filenames:
 		# loop over columns to remove
 		#
 
-		for column_name in values[table_name]:
+		for column_name in remove[table_name]:
 			try:
 				table.removeChild(table.getColumnByName(column_name))
 			except KeyError:
