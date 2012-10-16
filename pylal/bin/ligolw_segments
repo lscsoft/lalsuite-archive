@@ -177,7 +177,7 @@ for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "reading \"%s\" for instrument \"%s\" (name %s) ..." % (filename, instrument, repr(options.name))
 
-		segments_tables.insert_from_segwizard(file(filename), set([instrument]), options.name, version = options.version, comment = options.comment)
+		segments_tables.insert_from_segwizard(file(filename), set([instrument]), options.name, version = options.segments_version, comment = options.comment)
 
 
 	#
@@ -195,7 +195,7 @@ for url in urls:
 					seglistdicts[cacheentry.description] = segments.segmentlistdict()
 				seglistdicts[cacheentry.description] |= cacheentry.to_segmentlistdict()
 		for name, seglists in seglistdicts.items():
-			segments_tables.insert_from_segmentlistdict(seglists, name, version = options.version, comment = options.comment)
+			segments_tables.insert_from_segmentlistdict(seglists, name, version = options.segments_version, comment = options.comment)
 		del seglistdicts
 
 
