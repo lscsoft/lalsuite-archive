@@ -101,6 +101,14 @@ for filename in filenames:
 	values["segment"]["end_time_ns"] = 0
 
 	#
+	# columns to remove
+	#
+
+	remove = {}
+	remove["process"] = []
+	remove["segment"] = ["segement_def_cdb", "creator_db"]
+
+	#
 	# loop over tables
 	#
 
@@ -138,6 +146,20 @@ for filename in filenames:
 
 			for i in range(len(table)):
 				column[i] = values[table_name][column_name]
+
+		#
+		# loop over columns to remove
+		#
+
+		for column_name in values[table_name]:
+			try:
+				table.removeChild(table.getColumnByName(column_name))
+			except KeyError:
+				#
+				# column is already missing
+				#
+
+				pass
 
 	#
 	# write file
