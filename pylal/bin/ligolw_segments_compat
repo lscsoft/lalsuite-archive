@@ -106,7 +106,7 @@ for filename in filenames:
 
 	remove = {}
 	remove["process"] = []
-	remove["segment"] = ["segement_def_cdb", "creator_db"]
+	remove["segment"] = ["segment_def_cdb", "creator_db"]
 
 	#
 	# loop over tables
