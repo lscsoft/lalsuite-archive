@@ -216,6 +216,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.coinc_event_id = coinc.coinc_event_id
 		coinc_ringdown.snr = sum(event.snr**2. for event in events)**.5
 		coinc_ringdown.false_alarm_rate = None
+		coinc_ringdown.snr_ratio = None
 		# use the time of event[0] as an epoch
 		tstart = coinc_ringdown_start(events, node.offset_vector)
 		coinc_ringdown.set_start(tstart)
