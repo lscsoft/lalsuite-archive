@@ -68,7 +68,7 @@ paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchi
 # Only these parameters, in this order appear in confidence level table.
 clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
 
-greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'chirpmass':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2}
+greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2}
 
 #Confidence levels
 OneDconfidenceLevels=[0.9]
@@ -247,6 +247,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     patch_list=[]
     max_y=0
 
+    posbins=np.linspace(min_pos,max_pos,50)
+
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
@@ -254,9 +256,9 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
             injvals.append(posterior[param].injval)
 
         try:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True,new=True)
         except:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True)
 
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
@@ -357,6 +359,8 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     patch_list=[]
     max_y=1.
 
+    posbins=np.linspace(min_pos,max_pos,50)
+
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
@@ -364,9 +368,9 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
             injvals.append(posterior[param].injval)
 
         try:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True,new=True)
         except:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True)
 
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name],cumulative='True')#range=(min_pos,max_pos)
 
@@ -613,13 +617,14 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            my_cm=mpl_cm.spectral
+            my_cm=mpl_cm.Dark2
             cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
             cmap_array=my_cm(np.array(range(cmap_size)))
+            #cmap_array=['r','g','b','c','m','k','0.5','#ffff00']
             for name,infolder in names_and_pos_folders:
-
+                #color_by_name=cmap_array[color_idx]
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
                 color_idx+=1
 
