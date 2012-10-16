@@ -86,6 +86,7 @@ for filename in filenames:
 	tables = {}
 	tables["process"] = lsctables.ProcessTable.tableName
 	tables["segment"] = lsctables.SegmentTable.tableName
+	tables["segment_definer"] = lsctables.SegmentDefTable.tableName
 
 	#
 	# default values for new columns
@@ -99,6 +100,7 @@ for filename in filenames:
 	values["segment"] = {}
 	values["segment"]["start_time_ns"] = 0
 	values["segment"]["end_time_ns"] = 0
+	values["segment_definer"] = {}
 
 	#
 	# columns to remove
@@ -106,13 +108,14 @@ for filename in filenames:
 
 	remove = {}
 	remove["process"] = []
-	remove["segment"] = ["segment_def_cdb", "creator_db"]
+	remove["segment"] = ["creator_db", "segment_def_cdb"]
+	remove["segment_definer"] = ["creator_db", "insertion_time"]
 
 	#
 	# loop over tables
 	#
 
-	for table_name in tables.keys():
+	for table_name in tables:
 		#
 		# retrieve table
 		#
@@ -130,7 +133,7 @@ for filename in filenames:
 		# loop over columns to add
 		#
 
-		for column_name in values[table_name].keys():
+		for column_name in values[table_name]:
 			try:
 				column = table.appendColumn(column_name)
 			except ValueError:

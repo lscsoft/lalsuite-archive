@@ -56,11 +56,12 @@ class LigolwSegmentList(object):
 	"""
 	A description of a class of segments.
 	"""
-	def __init__(self, active = (), valid = (), instruments = set(), name = None, comment = None):
+	def __init__(self, active = (), valid = (), instruments = set(), name = None, version = None, comment = None):
 		self.valid = segments.segmentlist(valid)
 		self.active = segments.segmentlist(active)
 		self.instruments = instruments
 		self.name = name
+		self.version = version
 		self.comment = comment
 
 	def sort(self, *args):
@@ -105,7 +106,7 @@ class LigolwSegments(object):
 		try:
 			self.segment_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 		except ValueError:
-			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, ("process_id", "segment_def_id", "ifos", "name", "comment")))
+			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, ("process_id", "segment_def_id", "ifos", "name", "version", "comment")))
 
 		try:
 			self.segment_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
@@ -126,7 +127,7 @@ class LigolwSegments(object):
 		# construct empty LigolwSegmentList objects, one for each
 		# entry in the segment_definer table, indexed by
 		# segment_definer id
-		self.segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, comment = row.comment)) for row in self.segment_def_table)
+		self.segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, version = row.version, comment = row.comment)) for row in self.segment_def_table)
 		if len(self.segment_lists) != len(self.segment_def_table):
 			raise ValueError("duplicate segment_definer IDs detected in segment_definer table")
 		del self.segment_def_table[:]
@@ -161,7 +162,7 @@ class LigolwSegments(object):
 		#
 
 
-	def insert_from_segwizard(self, fileobj, instruments, name, comment):
+	def insert_from_segwizard(self, fileobj, instruments, name, version = None, comment = None):
 		"""
 		Parse the contents of the file object fileobj as a
 		segwizard-format segment list, and insert the result as a
@@ -170,10 +171,10 @@ class LigolwSegments(object):
 		table for the segment list, and instruments, name and
 		comment are used to populate the entry's metadata.
 		"""
-		self.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
+		self.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, version = version, comment = comment))
 
 
-	def insert_from_segmentlistdict(self, seglists, name, comment):
+	def insert_from_segmentlistdict(self, seglists, name, version = None, comment = None):
 		"""
 		Insert the segments from the segmentlistdict object
 		seglists as a new list of "active" segments into this
@@ -184,7 +185,7 @@ class LigolwSegments(object):
 		comment will be used to populate the entry's metadata.
 		"""
 		for instrument, segments in seglists.items():
-			self.segment_lists.append(LigolwSegmentList(active = segments, instruments = set([instrument]), name = name, comment = comment))
+			self.segment_lists.append(LigolwSegmentList(active = segments, instruments = set([instrument]), name = name, version = version, comment = comment))
 
 
 	def coalesce(self):
@@ -212,13 +213,13 @@ class LigolwSegments(object):
 		"""
 		Identifies segment lists that differ only in their
 		instruments --- they have the same valid and active
-		segments, the same name and the same comment --- and then
-		deletes all but one of them, leaving just a single list
-		having the union of the instruments.
+		segments, the same name, version and the same comment ---
+		and then deletes all but one of them, leaving just a single
+		list having the union of the instruments.
 		"""
 		self.sort()
 		segment_lists = dict(enumerate(self.segment_lists))
-		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in iterutils.choices(segment_lists.items(), 2) if seglist_a.valid == seglist_b.valid and seglist_a.active == seglist_b.active and seglist_a.name == seglist_b.name and seglist_a.comment == seglist_b.comment]:
+		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in iterutils.choices(segment_lists.items(), 2) if seglist_a.valid == seglist_b.valid and seglist_a.active == seglist_b.active and seglist_a.name == seglist_b.name and seglist_a.version == seglist_b.version and seglist_a.comment == seglist_b.comment]:
 			try:
 				segment_lists[target].instruments |= segment_lists.pop(source).instruments
 			except KeyError:
@@ -276,6 +277,7 @@ class LigolwSegments(object):
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
 			segment_def_row.set_ifos(ligolw_segment_list.instruments)
 			segment_def_row.name = ligolw_segment_list.name
+			segment_def_row.version = ligolw_segment_list.version
 			segment_def_row.comment = ligolw_segment_list.comment
 			self.segment_def_table.append(segment_def_row)
 
