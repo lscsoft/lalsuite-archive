@@ -56,6 +56,15 @@ class LigolwSegmentList(object):
 	"""
 	A description of a class of segments.
 	"""
+	#
+	# the columns the segment_definer, segment_summary and segment
+	# tables need to have
+	#
+
+	segment_def_columns = (u"process_id", u"segment_def_id", u"ifos", u"name", u"version", u"comment")
+	segment_sum_columns = (u"process_id", u"segment_sum_id", u"start_time", u"start_time_ns", u"end_time", u"end_time_ns", u"segment_def_id", u"comment")
+	segment_columns = (u"process_id", u"segment_id", u"start_time", u"start_time_ns", u"end_time", u"end_time_ns", u"segment_def_id")
+
 	def __init__(self, active = (), valid = (), instruments = set(), name = None, version = None, comment = None):
 		self.valid = segments.segmentlist(valid)
 		self.active = segments.segmentlist(active)
@@ -106,17 +115,17 @@ class LigolwSegments(object):
 		try:
 			self.segment_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 		except ValueError:
-			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, ("process_id", "segment_def_id", "ifos", "name", "version", "comment")))
+			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, LigolwSegmentList.segment_def_columns))
 
 		try:
 			self.segment_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
 		except ValueError:
-			self.segment_sum_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentSumTable, ("process_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "segment_def_id", "comment")))
+			self.segment_sum_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentSumTable, LigolwSegmentList.segment_sum_columns))
 
 		try:
 			self.segment_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 		except ValueError:
-			self.segment_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, ("process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "segment_def_id")))
+			self.segment_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, LigolwSegmentList.segment_columns))
 
 		#
 		# Transform segment tables into a collection of
