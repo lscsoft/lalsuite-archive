@@ -1261,7 +1261,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-            
+
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
@@ -1677,30 +1677,30 @@ class MultiInspiralTable(table.Table):
 		"tau5": "real_4",
 		"ttotal": "real_4",
 		"snr": "real_4",
-                "snr_dof": "int_4s",
+		"snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
-                "trace_snr": "real_4",
-                "snr_h1": "real_4",
-                "snr_h2": "real_4",
-                "snr_l": "real_4",
-                "snr_g": "real_4",
-                "snr_t": "real_4",
-                "snr_v": "real_4",
-                "amp_term_1": "real_4",
-                "amp_term_2": "real_4",
-                "amp_term_3": "real_4",
-                "amp_term_4": "real_4",
-                "amp_term_5": "real_4",
-                "amp_term_6": "real_4",
-                "amp_term_7": "real_4",
-                "amp_term_8": "real_4",
-                "amp_term_9": "real_4",
-                "amp_term_10": "real_4",
+		"trace_snr": "real_4",
+		"snr_h1": "real_4",
+		"snr_h2": "real_4",
+		"snr_l": "real_4",
+		"snr_g": "real_4",
+		"snr_t": "real_4",
+		"snr_v": "real_4",
+		"amp_term_1": "real_4",
+		"amp_term_2": "real_4",
+		"amp_term_3": "real_4",
+		"amp_term_4": "real_4",
+		"amp_term_5": "real_4",
+		"amp_term_6": "real_4",
+		"amp_term_7": "real_4",
+		"amp_term_8": "real_4",
+		"amp_term_9": "real_4",
+		"amp_term_10": "real_4",
 		"sigmasq_h1": "real_8",
 		"sigmasq_h2": "real_8",
 		"sigmasq_l": "real_8",
@@ -1713,21 +1713,21 @@ class MultiInspiralTable(table.Table):
 		"chisq_g": "real_4",
 		"chisq_t": "real_4",
 		"chisq_v": "real_4",
-                "sngl_chisq_dof": "int_4s",
-                "bank_chisq_h1": "real_4",
-                "bank_chisq_h2": "real_4",
-                "bank_chisq_l": "real_4",
-                "bank_chisq_g": "real_4",
-                "bank_chisq_t": "real_4",
-                "bank_chisq_v": "real_4",
-                "sngl_bank_chisq_dof": "int_4s",
-                "cont_chisq_h1": "real_4",
-                "cont_chisq_h2": "real_4",
-                "cont_chisq_l": "real_4",
-                "cont_chisq_g": "real_4",
-                "cont_chisq_t": "real_4",
-                "cont_chisq_v": "real_4",
-                "sngl_cont_chisq_dof": "int_4s",
+		"sngl_chisq_dof": "int_4s",
+		"bank_chisq_h1": "real_4",
+		"bank_chisq_h2": "real_4",
+		"bank_chisq_l": "real_4",
+		"bank_chisq_g": "real_4",
+		"bank_chisq_t": "real_4",
+		"bank_chisq_v": "real_4",
+		"sngl_bank_chisq_dof": "int_4s",
+		"cont_chisq_h1": "real_4",
+		"cont_chisq_h2": "real_4",
+		"cont_chisq_l": "real_4",
+		"cont_chisq_g": "real_4",
+		"cont_chisq_t": "real_4",
+		"cont_chisq_v": "real_4",
+		"sngl_cont_chisq_dof": "int_4s",
 		"ra": "real_4",
 		"dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1750,7 +1750,7 @@ class MultiInspiralTable(table.Table):
 		"t1quad_im": "real_4",
 		"v1quad_re": "real_4",
 		"v1quad_im": "real_4",
-                "coh_snr_h1h2": "real_4",
+		"coh_snr_h1h2": "real_4",
 		"cohSnrSqLocal": "real_4",
 		"autoCorrCohSq": "real_4",
 		"crossCorrCohSq": "real_4",
@@ -1800,10 +1800,10 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the coherent Null SNR for each row in the table.
 		"""
-                null_snr_sq = self.get_coinc_snr()**2\
-                            - self.get_column('snr')**2
-                null_snr_sq[null_snr_sq < 0] = 0.
-                return null_snr_sq**(1./2.)
+		null_snr_sq = self.get_coinc_snr()**2\
+		              - self.get_column('snr')**2
+		null_snr_sq[null_snr_sq < 0] = 0.
+		return null_snr_sq**(1./2.)
 
 	def get_sigmasq(self, instrument):
 		"""
@@ -1970,26 +1970,26 @@ class MultiInspiral(object):
 		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
 		            .sum()**(1./2.)
 
-        def get_new_snr(self,index=4.0, column='chisq'):
-                rchisq = getattr(self, column) /\
+	def get_new_snr(self,index=4.0, column='chisq'):
+		rchisq = getattr(self, column) /\
                          (getattr(self, '%s_dof' % column))
-                nhigh = 3.0
-                if rchisq > 1.:
-                        return self.snr /\
+		nhigh = 3.0
+		if rchisq > 1.:
+			return self.snr /\
                                ((1+rchisq**(index/nhigh))/2)**(1./index)
-                else:
-                        return self.snr
+		else:
+			return self.snr
 
 	def get_null_snr(self):
 		"""
 		Get the coherent Null SNR for this row.
 		"""
-                null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
+		null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
                              .sum() - self.snr**2
-                if null_snr_sq < 0:
-                        return 0
-                else:
-                        return null_snr_sq**(1./2.)
+		if null_snr_sq < 0:
+			return 0
+		else:
+			return null_snr_sq**(1./2.)
 
 	def get_sngl_snr(self, instrument):
 		"""
@@ -2147,31 +2147,31 @@ class SimInspiralTable(table.Table):
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
-        def veto(self,seglist):
-                vetoed = table.new_from_template(self)
-                keep = table.new_from_template(self)
-                for row in self:
-                        time = row.get_end()
-                        if time in seglist:
-                                vetoed.append(row)
-                        else:
-                                keep.append(row)
-                return keep
+	def veto(self,seglist):
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return keep
 
-        def vetoed(self, seglist):
+	def vetoed(self, seglist):
                 """
-                Return the inverse of what veto returns, i.e., return the triggers
-                that lie within a given seglist.
-                """
-                vetoed = table.new_from_template(self)
-                keep = table.new_from_template(self)
-                for row in self:
-                        time = row.get_end()
-                        if time in seglist:
-                                vetoed.append(row)
-                        else:
-                                keep.append(row)
-                return vetoed
+		Return the inverse of what veto returns, i.e., return the triggers
+		that lie within a given seglist.
+		"""
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
