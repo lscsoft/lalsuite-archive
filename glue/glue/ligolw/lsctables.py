@@ -1800,9 +1800,10 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the coherent Null SNR for each row in the table.
 		"""
-		# Factor of 0.01 is added to prevent code failing when nullsnr=0
-		return (self.get_coinc_snr()**2\
-		            - self.get_column('snr')**2 + 0.01)**(1./2.)
+                null_snr_sq = self.get_coinc_snr()**2\
+                            - self.get_column('snr')**2
+                null_snr_sq[null_snr_sq < 0] = 0.
+                return null_snr_sq**(1./2.)
 
 	def get_sigmasq(self, instrument):
 		"""
@@ -1943,8 +1944,12 @@ class MultiInspiral(object):
 		"""
 		Get the coherent Null SNR for this row.
 		"""
-		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
-                             .sum() - self.snr**2)**(1./2.)
+                null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.snr**2
+                if null_snr_sq < 0:
+                        return 0
+                else:
+                        return null_snr_sq**(1./2.)
 
 	def get_sngl_snr(self, instrument):
 		"""
