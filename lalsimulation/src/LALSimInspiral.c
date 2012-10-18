@@ -1792,7 +1792,6 @@ int XLALSimInspiralImplementedFDApproximants(
         case TaylorF2Test:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
-        case TaylorF2Test:
             return 1;
 
         default:
