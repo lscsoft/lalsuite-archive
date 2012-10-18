@@ -1,4 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
+# Copyright (C) 2011 Ian W. Harry
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 # =============================================================================
 # Preamble
@@ -17,7 +33,8 @@ import pylab
 from math import sqrt
 import scipy.stats
 from optparse import OptionParser
-from glue import segments,git_version
+from glue import segments
+from pylal import git_version
 from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
@@ -41,7 +58,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 --grb-name
 """
 
-  parser = OptionParser(usage)
+  parser = OptionParser(usage, version=__version__)
 
   parser.add_option("-v", "--verbose", action="store_true", default=False,\
                     help="verbose output, default: %default")
@@ -951,20 +968,24 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   p+=1
 
   # plot SNR versus rel amp
-  fig = pylab.figure()
-  ax  = fig.gca()
-  ax.loglog(trigSNR, trigRelAmp1, 'bx')
-  ax.grid()
-  if injFile:
-    ax.loglog(injSNR, injRelAmp1, 'r+')
-  ax.set_xlabel("Coherent SNR")
-  ax.set_ylabel("Relative amplitude")
-  fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
-               bbox_inches='tight')
-  ax.set_xlim([6, 30])
-  fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
-               bbox_inches='tight')
-  p+=1
+  try:
+    fig = pylab.figure()
+    ax  = fig.gca()
+    ax.loglog(trigSNR, trigRelAmp1, 'bx')
+    ax.grid()
+    if injFile:
+      ax.loglog(injSNR, injRelAmp1, 'r+')
+    ax.set_xlabel("Coherent SNR")
+    ax.set_ylabel("Relative amplitude")
+    fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
+                 bbox_inches='tight')
+    ax.set_xlim([6, 30])
+    fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
+                 bbox_inches='tight')
+    p+=1
+  except OverflowError:
+    sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
+                     "failed.\n")
   
   # plot SNR versus rel amp 2
   try:
@@ -984,7 +1005,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     p+=1
   except OverflowError:
     sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
 
   # plot SNR versus norm 3
   try:
@@ -1004,7 +1025,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     p+=1
   except OverflowError:
     sys.stderr.write("WARNING: Amplitude factor versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
   
   # plot SNR versus inclination
   try:
@@ -1025,7 +1046,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     p+=1
   except OverflowError:
     sys.stderr.write("WARNING: cos(inclination) versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
 
   # plot sky grid
   pylab.rcParams.update({"font.size": 12})
