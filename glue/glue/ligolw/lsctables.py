@@ -1886,7 +1886,47 @@ class MultiInspiralTable(table.Table):
 		return dict((ifo, self.get_sngl_chisq(ifo))\
 		            for ifo in instruments)
 
+	def get_sngl_bank_chisq(self, instrument):
+		"""
+		Get the single-detector \chi^2 of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('bank_chisq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
 
+	def get_sngl_bank_chisqs(self, instruments=None):
+		"""
+		Get the single-detector \chi^2 for each row in the table.
+		"""
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_bank_chisq(ifo))\
+		            for ifo in instruments)
+
+	def get_sngl_cont_chisq(self, instrument):
+		"""
+		Get the single-detector \chi^2 of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('cont_chisq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sngl_cont_chisqs(self, instruments=None):
+		"""
+		Get the single-detector \chi^2 for each row in the table.
+		"""
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_cont_chisq(ifo))\
+		            for ifo in instruments)
 
 	def getstat(self):
 		return self.get_column('snr')
