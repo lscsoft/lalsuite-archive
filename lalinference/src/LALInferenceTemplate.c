@@ -1853,6 +1853,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   static REAL8 previous_spin2z;
   static REAL8 previous_phi0;
   static REAL8 previous_inclination;
+  static REAL8 previous_dchi3;
   REAL8 *m1_p,*m2_p;
 	REAL8 deltaF, f_max;
   
@@ -1970,19 +1971,18 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     for (UINT4 k=0; k<10; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
-        {//printf("adding testGR params %d=%lf\n",k,*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
-            XLALSimInspiralAddTestGRParam(&nonGRparams,
-                                    list_extra_parameters[k],
-                                    *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
-								}
+        {
+			XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
+		}
     }
-    //printf("dchi1:%lf\n",XLALSimInspiralGetGRParam);
-    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
+    REAL8 dchi3= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
+    
+    // Salvo remember to add all the dchis here below
+    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0 || previous_dchi3!=dchi3){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
                                                  amporder, order, approximant), errnum);
-     
       XLALSimInspiralDestroyWaveformFlags(waveFlags);
       XLALSimInspiralDestroyTestGRParam(nonGRparams);
       
@@ -1992,6 +1992,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       previous_spin2z = spin2z;
       previous_phi0 = phi0;
       previous_inclination = inclination;
+      previous_dchi3=dchi3;
     
       if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");

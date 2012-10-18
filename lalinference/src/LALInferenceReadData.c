@@ -1013,7 +1013,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
 	/* Check for frequency domain injection (TF2 only at present) */
 	if(strstr(injTable->waveform,"TaylorF2")||strstr(injTable->waveform,"TaylorF2"))
-	{ printf("Injecting TaylorF2 in the frequency domain...\n");
+	{ fprintf(stdout,"Injecting TaylorF2 or TaylorF2Test in the frequency domain...\n");
 	 InjectTaylorF2(IFOdata, injTable, commandLine);
 	 return;
 	}
@@ -1788,7 +1788,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
         ABORTXLAL(&status);
     LALInferenceVariables *modelParams=NULL;
     LALInferenceIFOData * tmpdata=IFOdata;
-	ProcessParamsTable *ppt=NULL;
+	//ProcessParamsTable *ppt=NULL;
 
     REAL8 eta =0.0;
     REAL8 startPhase = 0.0;
@@ -1824,8 +1824,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-    ppt= LALInferenceGetProcParamVal(commandLine,"--GRtestparameters");
-    if (ppt){ printf("adding dchi3 in injection=%lf\n",inj_table->dchi3);
+    if (strstr(inj_table->waveform,"TaylorF2Test")){ 
 		REAL8 dchi0=inj_table->dchi0;
 		LALInferenceAddVariable(tmpdata->modelParams, "dchi0",&dchi0,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 		REAL8 dchi1=inj_table->dchi1;
@@ -1846,6 +1845,18 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
 		LALInferenceAddVariable(tmpdata->modelParams, "dchi6l",&dchi6l,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 		REAL8 dchi7=inj_table->dchi7;
 		LALInferenceAddVariable(tmpdata->modelParams, "dchi7",&dchi7,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+		fprintf(stdout,"adding dchi0=%1.3f in the injection\n",inj_table->dchi0);
+		fprintf(stdout,"adding dchi1=%1.3f in the injection\n",inj_table->dchi1);
+		fprintf(stdout,"adding dchi2=%1.3f in the injection\n",inj_table->dchi2);
+		fprintf(stdout,"adding dchi3=%1.3f in the injection\n",inj_table->dchi3);
+		fprintf(stdout,"adding dchi4=%1.3f in the injection\n",inj_table->dchi4);
+		fprintf(stdout,"adding dchi5=%1.3f in the injection\n",inj_table->dchi5);
+		fprintf(stdout,"adding dchi5l=%1.3f in the injection\n",inj_table->dchi5l);
+		fprintf(stdout,"adding dchi6=%1.3f in the injection\n",inj_table->dchi6);
+		fprintf(stdout,"adding dchi6l=%1.3f in the injection\n",inj_table->dchi6l);
+		fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
+		
 		}
 	
     
@@ -2051,11 +2062,11 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
    	XLAL_ERROR_VOID(XLAL_EINVAL);
 	}
     UINT4 spinCheck=LALInferenceCheckVariableNonFixed(vars,"a_spin1");
+    UINT4 dchisCheck=1;
     /* Destroy existing parameters */
     if(vars->head!=NULL) LALInferenceDestroyVariables(vars);
     REAL8 q = theEventTable->mass2 / theEventTable->mass1;
     if (q > 1.0) q = 1.0/q;
-
     REAL8 sx = theEventTable->spin1x;
     REAL8 sy = theEventTable->spin1y;
     REAL8 sz = theEventTable->spin1z;
@@ -2102,10 +2113,14 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     
     REAL8 m1=theEventTable->mass1;
     REAL8 m2=theEventTable->mass2;
+    REAL8 eta=(m1*m2)/(m1+m2)/(m1+m2);
+
     REAL8 chirpmass = theEventTable->mchirp;
     LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "massratio", &eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
     LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -2125,7 +2140,12 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
         LALInferenceAddVariable(vars, "phi_spin1", &phi_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     }
+    // Add all the dchis and test params here below
+    if(dchisCheck){
+    	REAL8 dchi3=theEventTable->dchi3;
+        LALInferenceAddVariable(vars, "dchi3", &dchi3, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
+	}
 }
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
