@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2012  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -120,7 +120,7 @@ class Element(object):
 			if key not in self.validattributes:
 				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
 		self.parentNode = None
-		self.attributes = attrs
+		self.attributes = attrs.copy()
 		self.childNodes = []
 		self.pcdata = None
 
@@ -480,6 +480,7 @@ class Stream(Element):
 	validattributes = frozenset([u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+		attrs = attrs.copy()
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"Local"
 		if not attrs.has_key(u"Delimiter"):
@@ -533,6 +534,7 @@ class Time(Element):
 	validattributes = frozenset([u"Name", u"Type"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+		attrs = attrs.copy()
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"ISO-8601"
 		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
