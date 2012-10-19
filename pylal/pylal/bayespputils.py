@@ -2978,8 +2978,8 @@ def getRAString(radians,accuracy='auto'):
     if accuracy=='min': return ur'%ih%im'%(hours,mins)
     if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
     else:
-        if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs-60.0,60.0))>0.5: return(getRAString(radians,accuracy='sec'))
-        if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins-60.0,60.0))>0.5: return(getRAString(radians,accuracy='min'))
+        if abs(fmod(secs,60.0))>=0.5: return(getRAString(radians,accuracy='sec'))
+        if abs(fmod(mins,60.0))>=0.5: return(getRAString(radians,accuracy='min'))
         else: return(getRAString(radians,accuracy='hour'))
         
 def getDecString(radians,accuracy='auto'):
@@ -3009,8 +3009,8 @@ def getDecString(radians,accuracy='auto'):
     if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
     if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
-        if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs-60.0,60.0))>0.5: return(getDecString(sign*radians,accuracy='arcsec'))
-        if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins-60.0,60.0))>0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+        if abs(fmod(secs,60.0))>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
+        if abs(fmod(mins,60.0))>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
         else: return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
