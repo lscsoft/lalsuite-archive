@@ -2865,9 +2865,9 @@ class RALocator(matplotlib.ticker.MultipleLocator):
       elif (max-min)>3.0*pi_constant/12.0:
         base=hour
       elif (max-min)>hour:
-        base=hour/4.0
+        base=hour/2.0
       else:
-        base=hour/12.0
+        base=hour/4.0
          
       matplotlib.ticker.MultipleLocator.__init__(self,base=base)
 
