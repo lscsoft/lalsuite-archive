@@ -2999,19 +2999,22 @@ def getDecString(radians,accuracy='auto'):
     deg,rem=divmod(radians,pi_constant/180.0)
     mins, rem = divmod(rem, pi_constant/(180.0*60.0))
     secs = rem * (180.0*3600.0)/pi_constant
-    if secs>=59.5:
-        secs=secs-60.0
-        mins=mins+1
-    if mins>=59.5:
-        mins=mins-60.0
-        deg=deg+1
+    #if secs>=59.5:
+    #    secs=secs-60.0
+    #    mins=mins+1
+    #if mins>=59.5:
+    #    mins=mins-60.0
+    #    deg=deg+1
+    if (accuracy=='arcmin' or accuracy=='deg') and secs>30: mins=mins+1
+    if accuracy=='deg' and mins>30: deg=deg+1
     if accuracy=='deg': return ur'%i'%(sign*deg)+degsymb
     if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
     if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
-        if abs(fmod(secs,60.0))>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
-        if abs(fmod(mins,60.0))>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
-        else: return(getDecString(sign*radians,accuracy='deg'))
+    #    if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs,60)-60)>=0.5 : return(getDecString(sign*radians,accuracy='arcsec'))
+    #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+    #    else: return(getDecString(sign*radians,accuracy='deg'))
+      return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
