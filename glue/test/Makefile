@@ -36,6 +36,11 @@ ligolw_test03 :
 	{ cat inspiral_event_id_test_in2.xml | ligolw_print >/dev/null ; } && $(printpassfail)
 	@echo "<=== end ligo_lw_test_03 ==="
 
+ligolw_test04 :
+	@echo "=== start test04 ===>"
+	sh ligo_lw_test_04.sh && $(printpassfail)
+	@echo "<=== end test04 ==="
+
 ligolw_sqlite_test :
 	@echo "=== start ligolw_sqlite_test ===>"
 	sh ligolw_sqlite_test.sh && $(printpassfail)
