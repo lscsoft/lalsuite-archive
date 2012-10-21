@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2012  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -120,7 +120,7 @@ class Element(object):
 			if key not in self.validattributes:
 				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
 		self.parentNode = None
-		self.attributes = attrs
+		self.attributes = attrs.copy()
 		self.childNodes = []
 		self.pcdata = None
 
@@ -480,6 +480,7 @@ class Stream(Element):
 	validattributes = frozenset([u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+		attrs = attrs.copy()
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"Local"
 		if not attrs.has_key(u"Delimiter"):
@@ -533,6 +534,7 @@ class Time(Element):
 	validattributes = frozenset([u"Name", u"Type"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+		attrs = attrs.copy()
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"ISO-8601"
 		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
@@ -745,6 +747,25 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 			raise ElementError("unknown element %s" % name)
 		self.current = self.current.parentNode
 
+	def startElementNS(self, (uri, localname), qname, attrs):
+		if uri is None:
+			#
+			# uri = None --> default (LIGO_LW) namespace.
+			# convert AttributesNS object to Attributes.  chain
+			# to non-namespace-aware startElement
+			#
+
+			self.startElement(localname, sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items())))
+
+	def endElementNS(self, (uri, localname), qname):
+		if uri is None:
+			#
+			# uri = None --> default (LIGO_LW) namespace.
+			# chain to non-namespace-aware endElement
+			#
+
+			self.endElement(localname)
+
 	def characters(self, content):
 		# Discard character data for all elements except those for
 		# which it is meaningful.
@@ -845,16 +866,17 @@ class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 
 def make_parser(handler):
 	"""
-	Convenience function to construct a document parser with validation
-	disabled.  Document validation is a nice feature, but enabling
-	validation can require the LIGO LW DTD to be downloaded from the
-	LDAS document server if the DTD is not included inline in the XML.
-	This requires a working connection to the internet, which would
-	preclude the use of this library on slave nodes in LSC computer
-	clusters.
+	Convenience function to construct a document parser with namespaces
+	enabled and validation disabled.  Document validation is a nice
+	feature, but enabling validation can require the LIGO LW DTD to be
+	downloaded from the LDAS document server if the DTD is not included
+	inline in the XML.  This requires a working connection to the
+	internet, which would preclude the use of this library on slave
+	nodes in LSC computer clusters.
 	"""
 	parser = sax.make_parser()
 	parser.setContentHandler(handler)
+	parser.setFeature(sax.handler.feature_namespaces, True)
 	parser.setFeature(sax.handler.feature_validation, False)
 	parser.setFeature(sax.handler.feature_external_ges, False)
 	return parser
