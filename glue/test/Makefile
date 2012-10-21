@@ -1,4 +1,4 @@
-all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligo_lw_test01 ligo_lw_test02 ligo_lw_test_03 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
+all : glue_ligolw_ilwd_verify iterutils_verify lal_verify ligolw_test01 ligolw_test02 ligolw_test03 ligolw_sqlite_test offsetvector_verify segmentsUtils_verify segments_verify
 
 define printpassfail
 	{ echo "Pass" ; true ; } || { echo "Fail" ; false ; }
@@ -19,17 +19,17 @@ lal_verify :
 	python lal_verify.py && $(printpassfail)
 	@echo "<=== end lal_verify ==="
 
-ligo_lw_test01 :
+ligolw_test01 :
 	@echo "=== start test01 ===>"
 	python ligo_lw_test_01.py && $(printpassfail)
 	@echo "<=== end test01 ==="
 
-ligo_lw_test02 :
+ligolw_test02 :
 	@echo "=== start test02 ===>"
 	sh ligo_lw_test_02.sh && $(printpassfail)
 	@echo "<=== end test02 ==="
 
-ligo_lw_test_03 :
+ligolw_test03 :
 	# test reading compressed and non-compressed files from stdin
 	@echo "=== start ligo_lw_test_03 ===>"
 	{ cat inspiral_event_id_test_in1.xml.gz | ligolw_print >/dev/null ; } && $(printpassfail)
