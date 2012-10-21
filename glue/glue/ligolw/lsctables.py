@@ -3229,11 +3229,11 @@ def use_in(ContentHandler):
 	"""
 	table.use_in(ContentHandler)
 
-	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
 		name = table.StripTableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs)
-		return __parent_startTable(self, attrs)
+		return __orig_startTable(self, parent, attrs)
 
 	ContentHandler.startTable = startTable
 

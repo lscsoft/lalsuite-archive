@@ -58,8 +58,11 @@ __date__ = git_version.date
 #
 
 
+NameSpace = u"http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"
+
+
 Header = u"""<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">"""
+<!DOCTYPE LIGO_LW SYSTEM "%s">""" % NameSpace
 
 
 Indent = u"\t"
@@ -212,8 +215,8 @@ class Element(object):
 
 	def getElements(self, filter):
 		"""
-		Return a list of elements below elem for which filter(element)
-		returns True.
+		Return a list of elements below and including this element
+		for which filter(element) returns True.
 		"""
 		l = reduce(lambda l, e: l + e.getElements(filter), self.childNodes, [])
 		if filter(self):
@@ -271,6 +274,13 @@ class Element(object):
 		their children are from the allowed set and in the correct
 		order following modifications to their child list.  i is
 		the index of the child that has just changed.
+		"""
+		pass
+
+	def endElement(self):
+		"""
+		Method invoked by document parser when it encounters the
+		end-of-element event.
 		"""
 		pass
 
@@ -598,173 +608,81 @@ class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	gzip'ed documents, MD5 hash computation, and Condor eviction
 	trapping to avoid writing broken documents to disk.
 	"""
-	def __init__(self, document):
+
+	def __init__(self, document, start_handlers = {}):
 		"""
 		Initialize the handler by pointing it to the Document object
 		into which the parsed file will be loaded.
 		"""
-		self.document = document
-		self.current = self.document
+		self.current = self.document = document
 
-	def startAdcData(self, attrs):
+		self._startElementHandlers = {
+			(None, AdcData.tagName): self.startAdcData,
+			(None, AdcInterval.tagName): self.startAdcInterval,
+			(None, Array.tagName): self.startArray,
+			(None, Column.tagName): self.startColumn,
+			(None, Comment.tagName): self.startComment,
+			(None, Detector.tagName): self.startDetector,
+			(None, Dim.tagName): self.startDim,
+			(None, IGWDFrame.tagName): self.startIGWDFrame,
+			(None, LIGO_LW.tagName): self.startLIGO_LW,
+			(None, Param.tagName): self.startParam,
+			(None, Stream.tagName): self.startStream,
+			(None, Table.tagName): self.startTable,
+			(None, Time.tagName): self.startTime,
+		}
+		self._startElementHandlers.update(start_handlers)
+
+	def startAdcData(self, parent, attrs):
 		return AdcData(attrs)
 
-	def endAdcData(self):
-		pass
-
-	def startAdcInterval(self, attrs):
+	def startAdcInterval(self, parent, attrs):
 		return AdcInterval(attrs)
 
-	def endAdcInterval(self):
-		pass
-
-	def startArray(self, attrs):
+	def startArray(self, parent, attrs):
 		return Array(attrs)
 
-	def endArray(self):
-		pass
-
-	def startColumn(self, attrs):
+	def startColumn(self, parent, attrs):
 		return Column(attrs)
 
-	def endColumn(self):
-		pass
-
-	def startComment(self, attrs):
+	def startComment(self, parent, attrs):
 		return Comment(attrs)
 
-	def endComment(self):
-		pass
-
-	def startDetector(self, attrs):
+	def startDetector(self, parent, attrs):
 		return Detector(attrs)
 
-	def endDetector(self):
-		pass
-
-	def startDim(self, attrs):
+	def startDim(self, parent, attrs):
 		return Dim(attrs)
 
-	def endDim(self):
-		pass
-
-	def startIGWDFrame(self, attrs):
+	def startIGWDFrame(self, parent, attrs):
 		return IGWDFrame(attrs)
 
-	def endIGWDFrame(self):
-		pass
-
-	def startLIGO_LW(self, attrs):
+	def startLIGO_LW(self, parent, attrs):
 		return LIGO_LW(attrs)
 
-	def endLIGO_LW(self):
-		pass
-
-	def startParam(self, attrs):
+	def startParam(self, parent, attrs):
 		return Param(attrs)
 
-	def endParam(self):
-		pass
-
-	def startStream(self, attrs):
+	def startStream(self, parent, attrs):
 		return Stream(attrs)
 
-	def endStream(self):
-		pass
-
-	def startTable(self, attrs):
+	def startTable(self, parent, attrs):
 		return Table(attrs)
 
-	def endTable(self):
-		pass
-
-	def startTime(self, attrs):
+	def startTime(self, parent, attrs):
 		return Time(attrs)
 
-	def endTime(self):
-		pass
-
-	def startElement(self, name, attrs):
-		if name == AdcData.tagName:
-			child = self.startAdcData(attrs)
-		elif name == AdcInterval.tagName:
-			child = self.startAdcInterval(attrs)
-		elif name == Array.tagName:
-			child = self.startArray(attrs)
-		elif name == Column.tagName:
-			child = self.startColumn(attrs)
-		elif name == Comment.tagName:
-			child = self.startComment(attrs)
-		elif name == Detector.tagName:
-			child = self.startDetector(attrs)
-		elif name == Dim.tagName:
-			child = self.startDim(attrs)
-		elif name == IGWDFrame.tagName:
-			child = self.startIGWDFrame(attrs)
-		elif name == LIGO_LW.tagName:
-			child = self.startLIGO_LW(attrs)
-		elif name == Param.tagName:
-			child = self.startParam(attrs)
-		elif name == Stream.tagName:
-			child = self.startStream(attrs)
-		elif name == Table.tagName:
-			child = self.startTable(attrs)
-		elif name == Time.tagName:
-			child = self.startTime(attrs)
-		else:
-			raise ElementError("unknown element %s" % name)
-		self.current.appendChild(child)
-		self.current = child
-
-	def endElement(self, name):
-		if name == AdcData.tagName:
-			self.endAdcData()
-		elif name == AdcInterval.tagName:
-			self.endAdcInterval()
-		elif name == Array.tagName:
-			self.endArray()
-		elif name == Column.tagName:
-			self.endColumn()
-		elif name == Comment.tagName:
-			self.endComment()
-		elif name == Detector.tagName:
-			self.endDetector()
-		elif name == Dim.tagName:
-			self.endDim()
-		elif name == IGWDFrame.tagName:
-			self.endIGWDFrame()
-		elif name == LIGO_LW.tagName:
-			self.endLIGO_LW()
-		elif name == Param.tagName:
-			self.endParam()
-		elif name == Stream.tagName:
-			self.endStream()
-		elif name == Table.tagName:
-			self.endTable()
-		elif name == Time.tagName:
-			self.endTime()
-		else:
-			raise ElementError("unknown element %s" % name)
-		self.current = self.current.parentNode
-
 	def startElementNS(self, (uri, localname), qname, attrs):
-		if uri is None:
-			#
-			# uri = None --> default (LIGO_LW) namespace.
-			# convert AttributesNS object to Attributes.  chain
-			# to non-namespace-aware startElement
-			#
-
-			self.startElement(localname, sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items())))
+		try:
+			start_handler = self._startElementHandlers[(uri, localname)]
+		except KeyError:
+			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
+		attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		self.current = self.current.appendChild(start_handler(self.current, attrs))
 
 	def endElementNS(self, (uri, localname), qname):
-		if uri is None:
-			#
-			# uri = None --> default (LIGO_LW) namespace.
-			# chain to non-namespace-aware endElement
-			#
-
-			self.endElement(localname)
+		self.current.endElement()
+		self.current = self.current.parentNode
 
 	def characters(self, content):
 		# Discard character data for all elements except those for
@@ -804,15 +722,16 @@ class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElement(self, name, attrs):
-		if self.depth > 0 or self.element_filter(name, attrs):
-			super(PartialLIGOLWContentHandler, self).startElement(name, attrs)
+	def startElementNS(self, (uri, localname), qname, attrs):
+		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		if self.depth > 0 or self.element_filter(localname, filter_attrs):
+			super(PartialLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
 			self.depth += 1
 
-	def endElement(self, name):
+	def endElementNS(self, *args):
 		if self.depth > 0:
 			self.depth -= 1
-			super(PartialLIGOLWContentHandler, self).endElement(name)
+			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
 
 class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
@@ -842,17 +761,18 @@ class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElement(self, name, attrs):
-		if self.depth > 0 or not self.element_filter(name, attrs):
+	def startElementNS(self, (uri, localname), qname, attrs):
+		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
 			self.depth += 1
 		else:
-			super(FilteringLIGOLWContentHandler, self).startElement(name, attrs)
+			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
 
-	def endElement(self, name):
+	def endElementNS(self, *args):
 		if self.depth > 0:
 			self.depth -= 1
 		else:
-			super(FilteringLIGOLWContentHandler, self).endElement(name)
+			super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
 
 
 #
