@@ -830,11 +830,12 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     
     if verbose:
         print >> sys.stderr, "Getting all veto category names from the experiment_summary table..."
+
+    xmldoc = dbtables.get_xml(connection)
     # get veto_segments
-    veto_segments = compute_dur.get_vetosegs_allcats(connection, verbose)
+    veto_segments = compute_dur.get_veto_segments(xmldoc, verbose)
 
     # make a single-element dictionary for the zerolag entry in the time-slide table
-    xmldoc = dbtables.get_xml(connection)
     time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
     time_slide_dict = time_slide_table.as_dict()
     zero_lag_dict = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
