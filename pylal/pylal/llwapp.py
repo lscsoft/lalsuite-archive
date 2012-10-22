@@ -81,7 +81,7 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 	time_slide table.  If the document does not contain exactly one
 	time_slide table then ValueError is raised, unless the optional
 	create_new argument is not None.  In that case a new table is
-	created.  This affect of the create_new argument is in addition to
+	created.  This effect of the create_new argument is in addition to
 	the affects described by the TimeSlideTable class.
 	"""
 	try:
