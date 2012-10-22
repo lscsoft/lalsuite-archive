@@ -86,10 +86,10 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False
 	"""
 	try:
 		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	except ValueError, e:
+	except ValueError:
 		# table not found
 		if create_new is None:
-			raise e
+			raise
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
 	# make sure the next_id attribute is correct
@@ -107,10 +107,10 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	"""
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-	except ValueError, e:
+	except ValueError:
 		# table not found
 		if not create_new:
-			raise e
+			raise
 		# FIXME:  doesn't work if the document is stored in a
 		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
