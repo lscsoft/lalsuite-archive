@@ -74,20 +74,19 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 	coinc_map_tbl = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 
 	if len(coinc_map_tbl) == 0:
-		del sngls_tbl[:]
 		if verbose:
 			 print >> sys.stderr, "This file lacks any coincident events. All %i single-ifo inspiral triggers have been removed." %( len(sngls_tbl_eid) )
+		del sngls_tbl[:]
 	else:
 		coinc_map_tbl_eid = set(coinc_map_tbl.getColumnByName("event_id"))
 		non_coincs = set(sngls_tbl_eid) - coinc_map_tbl_eid
+		if verbose:
+			print >> sys.stderr, "%i single-ifo inspiral triggers not associated with a coincident event have been removed." %( len(non_coincs) )
 
 		coinc_sngls_tbl = xmldoc.childNodes[0].insertBefore( lsctables.New(lsctables.SnglInspiralTable), sngls_tbl)
 		for idx, event_id in enumerate(coinc_map_tbl_eid):
 			coinc_sngls_tbl.insert( idx, sngls_tbl[sngls_tbl_eid.index(event_id)] )
 		xmldoc.childNodes[0].removeChild(sngls_tbl)
-
-		if verbose:
-			print >> sys.stderr, "%i single-ifo inspiral triggers not associated with a coincident event have been removed." %( len(non_coincs) )
 
 	return xmldoc
 
