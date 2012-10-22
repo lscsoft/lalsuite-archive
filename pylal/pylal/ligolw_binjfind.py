@@ -54,13 +54,6 @@ from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
-try:
-	any, all
-except NameError:
-	# compatibility for Python < 2.5
-	from glue.iterutils import any, all
-
-
 #
 # Use a memory-efficient row class written in C for the coinc_event_map
 # table
