@@ -498,9 +498,6 @@ if opts.run_datafind or opts.run_tmpltbank:
       cachelist.append("datafind/" + cacheFile)
   dag.add_node(hipeDfNode)
 
-##############################################################################
-# Set up the directories for each run and run lalapps_inspiral_hipe
-
 if opts.complete_cache:
   # We need to get the names of the template bank files that are generated in
   # the datafind step, so we can link them into all the search directories
@@ -508,166 +505,63 @@ if opts.complete_cache:
       None, opts.gps_start_time, opts.gps_end_time)
   tmpltbank_cache = inspiralutils.tmpltbank_cache(datafind_cache_filename)
 
-  if opts.run_playground:
-    playDir = "playground"
-    if opts.run_search:
-      print "Running inspiral hipe for playground run"
-      hipePlayNode = inspiralutils.hipe_setup(playDir, cp, ifos, \
-           opts.log_path, playOnly = True, dax=opts.dax, \
-           tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
-      for cacheFile in hipePlayNode.get_output_files():
-        cachelist.append(playDir + "/" + cacheFile)
-      dag.add_node(hipePlayNode)
-      if opts.run_datafind or opts.run_tmpltbank:
-        hipePlayNode.add_parent(hipeDfNode)
-    else:
-      if cp.get("pipeline","user-tag"):
-        usertag = ecp.get("pipeline", "user-tag") + "_" + playDir.upper()
-      else:
-        usertag = playDir.upper()
-      cacheFile = inspiralutils.hipe_cache( ifos,usertag, \
-          cp.getint("input", "gps-start-time"), \
-          cp.getint("input", "gps-end-time")) 
-      if os.path.isfile(playDir + "/" + cacheFile):
-        cachelist.append(playDir + "/" + cacheFile)
-      else:
-        print>>sys.stderr, "WARNING: Cache file " + playDir + "/" + cacheFile
-        print>>sys.stderr, "does not exist! This might cause later failures."
-
-
-  if opts.run_full_data:
-    fullDir = "full_data"
-    if opts.run_search:
-      print "Running inspiral hipe for analysis run"
-      hipeAnalysisNode = inspiralutils.hipe_setup(fullDir, cp, ifos, \
-          opts.log_path,dax=opts.dax, \
-          tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir,
-          data_checkpoint = opts.data_checkpoint)
-      for cacheFile in hipeAnalysisNode.get_output_files():
-        cachelist.append(fullDir + "/" + cacheFile)
-      dag.add_node(hipeAnalysisNode)
-      if opts.run_datafind or opts.run_tmpltbank:
-        hipeAnalysisNode.add_parent(hipeDfNode)
-    else:
-      if cp.get("pipeline","user-tag"):
-        usertag = cp.get("pipeline", "user-tag") + "_" + fullDir.upper()
-      else:
-        usertag = fullDir.upper()
-      cacheFile = inspiralutils.hipe_cache( ifos,usertag, \
-          cp.getint("input", "gps-start-time"), \
-          cp.getint("input", "gps-end-time")) 
-      if os.path.isfile(fullDir + "/" + cacheFile):
-        cachelist.append(fullDir + "/" + cacheFile)
-      else:
-        print>>sys.stderr, "WARNING: Cache file " + fullDir + "/" + cacheFile
-        print>>sys.stderr, "does not exist! This might cause later failures."
-
-  
-  if opts.run_injections:
-    hipeInjNode = {} 
-    print "Running inspiral hipe for injection runs"
-    for (injDir, injSeed) in cp.items("injections"):
-      if opts.run_search:
-        hipeInjNode[injDir] = inspiralutils.hipe_setup(injDir, cp, ifos, \
-             opts.log_path, injSeed, dax=opts.dax, \
-             tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir,
-             data_checkpoint = opts.data_checkpoint)
-        for cacheFile in hipeInjNode[injDir].get_output_files():
-          cachelist.append(injDir + "/" + cacheFile)
-        dag.add_node(hipeInjNode[injDir])
-        if opts.run_datafind or opts.run_tmpltbank:
-          hipeInjNode[injDir].add_parent(hipeDfNode)
-      else:
-        if cp.get("pipeline","user-tag"):
-          usertag = cp.get("pipeline", "user-tag") + "_" + injDir.upper()
-        else:
-          usertag = injDir.upper()
-        cacheFile = inspiralutils.hipe_cache( ifos,usertag, \
-            cp.getint("input", "gps-start-time"), \
-            cp.getint("input", "gps-end-time")) 
-        if os.path.isfile(injDir + "/" + cacheFile):
-          cachelist.append(injDir + "/" + cacheFile)
-        else:
-          print>>sys.stderr, "WARNING: Cache file " + injDir + "/" + cacheFile
-          print>>sys.stderr, "does not exist! This might cause later failures."
-
-
-################################################################################
-# Setting up directories for reverse analysis
-
-if opts.reverse_analysis:
-
-  if opts.run_play_analysis:
-    cp.set ("inspiral","reverse-chirp-bank","")
-    print "Running inspiral hipe for reverse playground run"
-    hipePlayNode = inspiralutils.hipe_setup("playground_reverse", cp, ifos, \
-         opts.log_path, playOnly = True, dax = opts.dax, vetoFiles = dqVetoes, \
-         tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
-    for cacheFile in hipePlayNode.get_output_files():
-      cachelist.append("playground_reverse/" + cacheFile)
-    dag.add_node(hipePlayNode)
-    if opts.run_datafind or opts.run_tmpltbank:
-      hipePlayNode.add_parent(hipeDfNode)
-
-  if opts.run_full_data:
-    cp.set ("inspiral","reverse-chirp-bank","")
-    print "Running inspiral hipe for reverse analysis run"
-    hipeAnalysisNode = inspiralutils.hipe_setup("full_data_reverse", cp, ifos, \
-        opts.log_path, dax=opts.dax, vetoFiles = dqVetoes, \
-        tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir)
-    for cacheFile in hipeAnalysisNode.get_output_files():
-      cachelist.append("full_data_reverse/" + cacheFile)
-    dag.add_node(hipeAnalysisNode)
-    if opts.run_datafind or opts.run_tmpltbank:
-      hipeAnalysisNode.add_parent(hipeDfNode)
-
-  if opts.run_injections:
-    hipeInjNode = {}
-    cp.set ("inspiral","reverse-chirp-bank","")
-    print "Running inspiral hipe for reverse injection runs"
-    for (injDir, injSeed) in cp.items("injections_reverse"):
-      hipeInjNode[injDir] = inspiralutils.hipe_setup(injDir, cp, ifos, \
-           opts.log_path, injSeed, dax=opts.dax, vetoFiles = dqVetoes, \
-           tmpltbankCache = tmpltbank_cache, local_exec_dir=tmp_exec_dir )
-      for cacheFile in hipeInjNode[injDir].get_output_files():
-        cachelist.append(injDir + "/" + cacheFile)
-      dag.add_node(hipeInjNode[injDir])
-      if opts.run_datafind or opts.run_tmpltbank:
-        hipeInjNode[injDir].add_parent(hipeDfNode)
-
 ##############################################################################
-# Run the data quality vetoes
+# Set up the directories for each run and run lalapps_inspiral_hipe
+
 if opts.complete_cache:
+  # dictionaries for the each type of run; keys will be the veto categories
   hipePlayVetoNode = {}
   hipeAnalysisVetoNode = {}
   hipeInjVetoNode = {}
 
+  # define directories for hipe to run
+  playDir = "playground"
+  fullDir = "full_data"
+  injSection = "injections"
+
+  if opts.reverse_analysis:
+    print "Setting up dags for a reverse chirp analysis"
+    cp.set ("inspiral","reverse-chirp-bank","")
+    # Add reverse to directories to specify that a reverse chirp search is being done
+    playDir += "_reverse"
+    fullDir += "_reverse"
+    injSection += "-reverse"
+
+  # loop over the veto categories
   for category in veto_categories:
-    hipeInjVetoNode[category] = {}
-    if opts.run_data_quality:
+    if not opts.run_data_quality and category > 1:
+      break
+
+    if opts.run_search:
       print "Setting up the category " + str(category) + " veto dags"
 
     if opts.run_playground:
-      playDir = "playground"
-      if opts.run_data_quality:
-        print "Running inspiral hipe for play with vetoes"
-        hipePlayVetoNode[category] = inspiralutils.hipe_setup(playDir, cp, \
-            ifos, opts.log_path, playOnly = True, vetoCat = category, \
-            vetoFiles = dqVetoes, dax=opts.dax, local_exec_dir=tmp_exec_dir)
+      if opts.run_search:
+        print "Running inspiral hipe for playground with vetoes."
+        hipePlayVetoNode[category] = inspiralutils.hipe_setup(
+            playDir, cp, ifos, opts.log_path, \
+            playOnly = True, vetoCat = category, vetoFiles = dqVetoes, \
+            dax=opts.dax, tmpltbankCache = tmpltbank_cache, \
+            local_exec_dir=tmp_exec_dir)
         for cacheFile in hipePlayVetoNode[category].get_output_files():
           cachelist.append(playDir + "/" + cacheFile)
         dag.add_node(hipePlayVetoNode[category])
-        if category >= 2 and opts.run_search:
-          hipePlayVetoNode[category].add_parent(hipePlayNode)
-      elif not opts.run_search:
+        if opts.run_datafind or opts.run_tmpltbank:
+          hipePlayVetoNode[category].add_parent(hipeDfNode)
+        if category > 1:
+          hipePlayVetoNode[category].add_parent(hipePlayVetoNode[1])
+
+      # make cache of necessary files if not running search
+      else:
         if cp.get("pipeline","user-tag"):
           usertag = cp.get("pipeline", "user-tag") + "_" + playDir.upper()
         else:
-          usertag = playDir.upper() 
-        usertag += "_CAT_" + str(category) + "_VETO"
+          usertag = playDir.upper()
+        if category > 1:
+          usertag += "_CAT_" + str(category) + "_VETO"
         cacheFile = inspiralutils.hipe_cache( ifos,usertag, \
             cp.getint("input", "gps-start-time"), \
-            cp.getint("input", "gps-end-time"))  
+            cp.getint("input", "gps-end-time"))
         if os.path.isfile(playDir + "/" + cacheFile):
           cachelist.append(playDir + "/" + cacheFile)
         else:
@@ -675,29 +569,34 @@ if opts.complete_cache:
           print>>sys.stderr, "does not exist! This might cause later failures."
 
 
-
     if opts.run_full_data:
-      fullDir = "full_data"
-      if opts.run_data_quality:
+      if opts.run_search:
         print "Running inspiral hipe for full data with vetoes"
-        hipeAnalysisVetoNode[category] = inspiralutils.hipe_setup(fullDir, \
-            cp, ifos, opts.log_path, vetoCat = category, vetoFiles = dqVetoes, \
-            dax = opts.dax, local_exec_dir=tmp_exec_dir,
+        hipeAnalysisVetoNode[category] = inspiralutils.hipe_setup(
+            fullDir, cp, ifos, opts.log_path, \
+            vetoCat = category, vetoFiles = dqVetoes, \
+            dax = opts.dax, tmpltbankCache = tmpltbank_cache, \
+            local_exec_dir=tmp_exec_dir, \
             data_checkpoint = opts.data_checkpoint)
         for cacheFile in hipeAnalysisVetoNode[category].get_output_files():
           cachelist.append(fullDir + "/" + cacheFile)
         dag.add_node(hipeAnalysisVetoNode[category])
-        if category >= 2 and opts.run_search:
-          hipeAnalysisVetoNode[category].add_parent(hipeAnalysisNode)
-      elif not opts.run_search:
+        if opts.run_datafind or opts.run_tmpltbank:
+          hipeAnalysisVetoNode[category].add_parent(hipeDfNode)
+        if category > 1:
+          hipeAnalysisVetoNode[category].add_parent(hipeAnalysisVetoNode[1])
+
+      # make cache of necessary files if not running search  
+      else:
         if cp.get("pipeline","user-tag"):
           usertag = cp.get("pipeline", "user-tag") + "_" + fullDir.upper()
         else:
           usertag = fullDir.upper()
-        usertag += "_CAT_" + str(category) + "_VETO"
+        if category > 1:
+          usertag += "_CAT_" + str(category) + "_VETO"
         cacheFile = inspiralutils.hipe_cache( ifos,usertag, \
             cp.getint("input", "gps-start-time"), \
-            cp.getint("input", "gps-end-time")) 
+            cp.getint("input", "gps-end-time"))
         if os.path.isfile(fullDir + "/" + cacheFile):
           cachelist.append(fullDir + "/" + cacheFile)
         else:
@@ -705,31 +604,38 @@ if opts.complete_cache:
           print>>sys.stderr, "does not exist! This might cause later failures."
 
 
-			      
     if opts.run_injections:
-      if opts.run_data_quality:
-        print "Running inspiral hipe for injections with vetoes"
-      for (injDir, injSeed) in cp.items("injections"):
-        if opts.run_data_quality:
-          hipeInjVetoNode[category][injDir] = inspiralutils.hipe_setup(injDir, \
-              cp, ifos, opts.log_path, \
-              injSeed= injSeed, vetoCat = category, vetoFiles = dqVetoes, \
-              dax=opts.dax, local_exec_dir=tmp_exec_dir,
+      # dictionary for individual injection runs
+      hipeInjVetoNode[category] = {}
+
+      for (injDir, injSeed) in cp.items( injSection ):
+        if opts.run_search:
+          print "Running inspiral hipe for " + injDir + " with vetoes"
+          hipeInjVetoNode[category][injDir] = inspiralutils.hipe_setup(
+              injDir, cp, ifos, opts.log_path, \
+              injSeed = injSeed, vetoCat = category, vetoFiles = dqVetoes, \
+              dax=opts.dax, tmpltbankCache = tmpltbank_cache, \
+              local_exec_dir = tmp_exec_dir, \
               data_checkpoint = opts.data_checkpoint)
           for cacheFile in hipeInjVetoNode[category][injDir].get_output_files():
             cachelist.append(injDir + "/" + cacheFile)
           dag.add_node(hipeInjVetoNode[category][injDir])
-          if category >= 2 and opts.run_search:
-            hipeInjVetoNode[category][injDir].add_parent(hipeInjNode[injDir])
-        elif not opts.run_search:
+          if opts.run_datafind or opts.run_tmpltbank:
+            hipeInjVetoNode[category][injDir].add_parent(hipeDfNode)
+          if category > 1:
+            hipeInjVetoNode[category][injDir].add_parent(hipeInjVetoNode[1][injDir])
+
+        # make cache of necessary files if not running search
+        else:
           if cp.get("pipeline","user-tag"):
             usertag = cp.get("pipeline", "user-tag") + "_" + injDir.upper()
           else:
             usertag = injDir.upper()
-          usertag += "_CAT_" + str(category) + "_VETO"
+          if category > 1:
+            usertag += "_CAT_" + str(category) + "_VETO"
           cacheFile = inspiralutils.hipe_cache( ifos,usertag, \
               cp.getint("input", "gps-start-time"), \
-              cp.getint("input", "gps-end-time")) 
+              cp.getint("input", "gps-end-time"))
           if os.path.isfile(injDir + "/" + cacheFile):
             cachelist.append(injDir + "/" + cacheFile)
           else:
@@ -737,71 +643,14 @@ if opts.complete_cache:
             print>>sys.stderr, "does not exist! This might cause later failures."
 
 
-#############################################################################
-# run the data quality vetoes for reverse chirp analysis
-
-if opts.reverse_analysis:
-  if opts.run_data_quality:
-    hipePlayVetoNode = {}
-    hipeAnalysisVetoNode = {}
-    hipeInjVetoNode = {}
-
-    for category in veto_categories:
-      print "Setting up the category " + str(category) + " veto dags" + " for reverse chirp analysis"
-      cp.set ("inspiral","reverse-chirp-bank","")
-      if opts.run_play_analysis:
-        print "Running inspiral hipe for playground  with vetoes for reverse analysis"
-
-        hipePlayVetoNode[category] = inspiralutils.hipe_setup("playground_reverse", cp, \
-            ifos, opts.log_path, playOnly = True, vetoCat = category, \
-            vetoFiles = dqVetoes, local_exec_dir=tmp_exec_dir)
-        for cacheFile in hipePlayVetoNode[category].get_output_files():
-          cachelist.append("playground-reverse/" + cacheFile)
-        dag.add_node(hipePlayVetoNode[category])
-        if category==2 and opts.run_search:
-          hipePlayVetoNode[category].add_parent(hipePlayNode)
-        elif category>2:
-          hipePlayVetoNode[category].add_parent(hipePlayVetoNode[category-1])
-
-      if opts.run_full_data:
-        print "Running inspiral hipe for full data with vetoes for reverse analysis"
-        hipeAnalysisVetoNode[category] = inspiralutils.hipe_setup("full_data_reverse", \
-            cp, ifos, opts.log_path, vetoCat = category, vetoFiles = dqVetoes, \
-            local_exec_dir=tmp_exec_dir)
-        for cacheFile in hipeAnalysisVetoNode[category].get_output_files():
-          cachelist.append("full_data_reverse/" + cacheFile)
-        dag.add_node(hipeAnalysisVetoNode[category])
-        if category==2 and opts.run_search:
-          hipeAnalysisVetoNode[category].add_parent(hipeAnalysisNode)
-        elif category>2:
-          hipeAnalysisVetoNode[category].add_parent( \
-              hipeAnalysisVetoNode[category-1])
-
-      if opts.run_injections:
-        print "Running inspiral hipe for injections with vetoes for reverse analysis"
-        for (injDir, injSeed) in cp.items("injections-reverse"):
-          if category == 2: hipeInjVetoNode[injDir] = {}
-          hipeInjVetoNode[injDir][category] = inspiralutils.hipe_setup(injDir, \
-              cp, ifos, opts.log_path, \
-              injSeed= injSeed, vetoCat = category, vetoFiles = dqVetoes, \
-              local_exec_dir=tmp_exec_dir)
-          for cacheFile in hipeInjVetoNode[injDir][category].get_output_files():
-            cachelist.append(injDir + "/" + cacheFile)
-          dag.add_node(hipeInjVetoNode[injDir][category])
-          if category==2 and opts.run_search:
-            hipeInjVetoNode[injDir][category].add_parent(hipeInjNode[injDir])
-          elif category>2:
-            hipeInjVetoNode[injDir][category].add_parent(\
-                hipeInjVetoNode[injDir][category-1])
-
 ##############################################################################
 # cat the cache files together
   
-
 if len(cachelist):
   command = "cat " + " ".join(cachelist) + " > " + cachefilename
   os.popen(command)
-  
+
+
 ##############################################################################
 # Run lalapps_pipedown
 
@@ -809,25 +658,13 @@ if opts.run_pipedown:
   # Set up parents correctly
   parentNodes = []
   if opts.run_search:
-    if opts.run_full_data:
-      parentNodes.append(hipeAnalysisNode)
-    if opts.run_playground:
-      parentNodes.append(hipePlayNode)
-
-  if opts.run_data_quality:
-    if opts.run_playground:
-      for category in veto_categories:
+    for category in veto_categories:
+      if opts.run_playground:
         parentNodes.append(hipePlayVetoNode[category])
-    if opts.run_full_data:
-      for category in veto_categories:
+      if opts.run_full_data:
         parentNodes.append(hipeAnalysisVetoNode[category])
-
-  if opts.run_injections:
-    for (injDir, injSeed) in cp.items("injections"):
-      if opts.run_search:
-        parentNodes.append(hipeInjNode[injDir])
-      if opts.run_data_quality:
-        for category in veto_categories:
+      if opts.run_injections:
+        for (injDir, injSeed) in cp.items( injSection ):
           parentNodes.append(hipeInjVetoNode[category][injDir])
 
   if len(parentNodes) == 0:
@@ -838,6 +675,7 @@ if opts.run_pipedown:
   print "Running lalapps_pipedown"
   dag = inspiralutils.pipedownSetup(dag,cp,opts.log_path,"pipedown",\
                             "../" + cachefilename,parentNodes,playgroundOnly)
+
 
 ##############################################################################
 # Set up the directories for plotting and run lalapps_plot
