@@ -489,8 +489,7 @@ else:
   injFiles = args
 
 lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'mtotal', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
-trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose,\
-          mangle_event_id = True, old_document=opts.old_document)
+trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose)
 
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
 

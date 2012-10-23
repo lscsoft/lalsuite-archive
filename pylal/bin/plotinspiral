@@ -156,7 +156,7 @@ def parse_command_line():
   parser.add_option("", "--user-tag", help="usertag for naming output")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="FIGURERESOLUTION", \
-      help="set the resoultion of the thumbnail (50 dpi by default)" )
+      help="set the resolution of the thumbnail (50 dpi by default)" )
 
   #input
   parser.add_option("-i", "--ifo-times",
@@ -270,8 +270,7 @@ if opts.verbose:
   print >>sys.stdout, "There are " + str(len(trigFiles))+ \
       " files in your glob and/or lal cache"
 
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
-    mangle_event_id=True, verbose=opts.verbose)
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
 if inspTriggers is None or len(inspTriggers)==0:
   err_msg = "There were no inspiral triggers in the files read in," + \
       " no plots generated"
@@ -290,8 +289,7 @@ if opts.bank_pattern is not None:
   bank_files = bank_cache.checkfilesexist()[0].pfnlist()
 if opts.template_bank is not None:
   bank_files.append(opts.template_bank)
-tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, \
-    mangle_event_id=True, verbose=opts.verbose)
+tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, verbose=opts.verbose)
 
 # apply veto if there is one
 if opts.veto_file:
