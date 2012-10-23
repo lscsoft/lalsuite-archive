@@ -673,6 +673,7 @@ def cbcBayesPostProc(
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
         if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
+        plt.close(plotFig)
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -713,6 +714,7 @@ def cbcBayesPostProc(
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
+        plt.close(myfig)
         acfail=0
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
@@ -756,6 +758,7 @@ def cbcBayesPostProc(
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
+            plt.close(acffig)
 
         if not noacf:
 	  if not acfail:
@@ -887,11 +890,13 @@ def cbcBayesPostProc(
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
         if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
+        plt.close(greedy2ContourPlot)
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
         if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
+        plt.close(greedy2HistFig)
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -946,6 +951,7 @@ def cbcBayesPostProc(
 
                 myfig.savefig(twoDKdePath)
                 if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
+                plt.close(myfig)
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
