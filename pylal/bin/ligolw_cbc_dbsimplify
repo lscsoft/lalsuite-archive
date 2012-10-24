@@ -149,7 +149,8 @@ if set([('inspinj',),('rinj',)]) & programs:
 
 # Cleaning up the coinc_definer & experiment tables...
 sqlutils.simplify_coincdef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
-sqlutils.simplify_expr_tbls(connection, verbose=opts.verbose, debug=opts.debug)
+sqlutils.simplify_expr_tbl(connection, verbose=opts.verbose, debug=opts.debug)
+sqlutils.simplify_exprsumm_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 
 # Cleaning up the process & process_params tables...
 sqlutils.simplify_proc_tbls(connection, verbose=opts.verbose, debug=opts.debug)

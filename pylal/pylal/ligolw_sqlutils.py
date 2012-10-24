@@ -1189,18 +1189,16 @@ def clean_experiment_tables(connection, verbose = False):
         """
     connection.cursor().executescript(sqlscript)
 
-def simplify_expr_tbls(connection, verbose=False, debug=False):
+def simplify_expr_tbl(connection, verbose=False, debug=False):
     """
-    Cleaning up the experiment, experiment_summary, and experiment_map tables
-    by removing duplicate rows and remapping events to the appropriate
-    experiment.
+    Cleaning up the experiment table by removing duplicate rows and remapping
+    events to the appropriate experiment.
     """
     if verbose:
-        print >> sys.stdout, "Cleaning experiment tables..."
+        print >> sys.stdout, "Cleaning experiment table..."
 
     # create function to concatenate columns together per row
     connection.create_function("concat_7cols", 7, concatenate)
-    connection.create_function("concat_5cols", 5, concatenate)
 
     sqlscript = """
     -- create map table to map experiment_ids that are to be kept
@@ -1244,7 +1242,29 @@ def simplify_expr_tbls(connection, verbose=False, debug=False):
     
     DROP INDEX em_old_index;
     DROP TABLE _eidmap_;
+    """
+    if debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
+    """
+    Cleaning up the experiment_summary and the experiment_map tables
+    by removing duplicate rows and remapping events to the appropriate
+    experiment.
+    """
+    if verbose:
+        print >> sys.stdout, "Cleaning experiment_summary & experiment_map tables..."
+
+    # create function to concatenate columns together per row
+    connection.create_function("concat_5cols", 5, concatenate)
+
+    sqlscript = """
     -- experiment summary clean up
     
     -- create a table to map esids to be deleted to esids to be saved
