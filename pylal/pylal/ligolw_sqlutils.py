@@ -1198,8 +1198,9 @@ def simplify_expr_tbls(connection, verbose=False, debug=False):
     if verbose:
         print >> sys.stdout, "Cleaning experiment tables..."
 
-    # create function to concatenate 7 columns together per row
+    # create function to concatenate columns together per row
     connection.create_function("concat_7cols", 7, concatenate)
+    connection.create_function("concat_5cols", 5, concatenate)
 
     sqlscript = """
     -- create map table to map experiment_ids that are to be kept
