@@ -203,52 +203,20 @@ if opts.debug:
 
 
 # ==================================== VETO DEFINER TABLES ====================== #
+# == NB - THESE ARE NOT USED FOR ANYTHING IN PIPEDOWN SO GET RID OF EM ========== #
 
 if opts.verbose:
-    print >> sys.stdout, "Cleaning up the veto_definer table..."
+    print >> sys.stdout, "Removing the veto_definer table..."
 
-sqlscript = """
-CREATE TEMP TABLE veto_procinfo AS
-    SELECT
-        process.process_id,
-        concat_7cols(process.program, process.version, process.username,
-            process.ifos, process.cvs_entry_time, process.cvs_repository, 
-            process.comment) AS process_info
-    FROM process
-    WHERE
-        process.process_id IN (
-            SELECT veto_definer.process_id
-            FROM veto_definer
-            GROUP BY veto_definer.process_id);
+sqlscript = 'DROP TABLE veto_definer;'
 
-CREATE TEMP TABLE _veto_pidmap_ AS
-    SELECT
-        old_procinfo.process_id AS old_pid,
-        MIN(new_procinfo.process_id) AS new_pid
-    FROM
-        veto_procinfo AS old_procinfo
-        JOIN veto_procinfo AS new_procinfo ON (
-            new_procinfo.process_info == old_procinfo.process_info)
-    GROUP BY old_pid;
-
-DELETE FROM process
-    WHERE process_id IN (
-        SELECT old_pid
-        FROM _veto_pidmap_
-        WHERE old_pid != new_pid);
-DELETE FROM veto_definer
-    WHERE process_id IN (
-        SELECT old_pid
-        FROM _veto_pidmap_
-        WHERE old_pid != new_pid);
-
-DROP TABLE veto_procinfo;
-DROP TABLE _veto_pidmap_;
-"""
 if opts.debug:
     print >> sys.stderr, sqlscript
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-connection.cursor().executescript( sqlscript )
+
+try: connection.cursor().executescript( sqlscript )
+except: print "Warning (not serious): there was no veto definer table" 
+
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
