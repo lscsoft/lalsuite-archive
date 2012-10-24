@@ -138,6 +138,8 @@ if sqlscript != '':
     connection.cursor().executescript(sqlscript)
 
 
+# =============================== SEGMENTS TABLES ===================== #
+
 if opts.verbose:
    print >> sys.stdout, "Cleaning up the segments tables..."
 
@@ -199,6 +201,9 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+# ==================================== VETO DEFINER TABLES ====================== #
+
 if opts.verbose:
     print >> sys.stdout, "Cleaning up the veto_definer table..."
 
@@ -247,6 +252,9 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+# ================================= PROCESS / PROCESS PARAMS TABLES ================ #
+
 if opts.verbose:
    print >> sys.stdout, "Collect useful information from process and process_params tables"
 
@@ -289,14 +297,16 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+# =================================== TIME SLIDE TABLE ======================= #
+
 if opts.verbose:
-    print >> sys.stdout, "Clean up the time_slide table ..."
+    print >> sys.stdout, "Cleaning up the time_slide table ..."
 
 sqlscript = """
 --
 -- Cleaning up the time_slide table
 --
-
 -- Update the process_ids in the time_slide table with the new ids from _pidmap_
 UPDATE time_slide 
     SET process_id = (
@@ -364,6 +374,9 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+# ==================================== COINC DEFINER TABLE ================= #
+
 if opts.verbose:
     print >> sys.stdout, "Cleaning up the coinc_definer table..."
 
@@ -413,6 +426,8 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+# =================================== SIMULATION TABLES ===================== #
 
 if opts.verbose:
     print >> sys.stdout, "Checking whether this database has simulation tables..."
@@ -467,6 +482,11 @@ if len(set(['inspinj','rinj']) & set(programs)) != 0:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
+# =================== EXPERIMENT / EXPERIMENT SUMMARY TABLES ========================= #
+# ============== NB DIFFERENT FROM SNGLSTAGE BRANCH ================================== #
+# ============== INSTEAD REVERT TO HOW THE FUNCTION LOOKS ON MASTER ================== #
+# ============== REMOVE LARS_ID CONDITION AS LARS IS NOT USED ======================== #
+
 if opts.verbose:
     print >> sys.stdout, "Cleaning experiment tables..."
 
@@ -479,108 +499,125 @@ sqlscript = """
 -- create map table to map experiment_ids that are to be kept
 -- to experiment ids that are to be discarded, in the same manner
 -- as done above
-
-CREATE TEMP TABLE expr_info AS
+CREATE TEMP TABLE eidmap AS
     SELECT
-        expr.experiment_id AS eid,
-        concat_7cols(expr.search, expr.search_group, expr.instruments,
-            expr.gps_start_time, expr.gps_end_time, expr.lars_id, expr.comments) AS info
-    FROM experiment AS expr;
-
-CREATE TEMP TABLE _eidmap_ AS
-    SELECT
-        old_exp.eid AS old_eid,
-        MIN(new_exp.eid) AS new_eid
+        old_exp.experiment_id AS old_eid,
+        MIN(new_exp.experiment_id) AS new_eid
     FROM
-        expr_info AS old_exp
-        JOIN expr_info AS new_exp ON (
-            old_exp.info == new_exp.info)
-    GROUP BY old_eid;
-
+        experiment AS old_exp
+        JOIN experiment AS new_exp ON (
+            (new_exp.search == old_exp.search
+              OR new_exp.search IS NULL AND old_exp.search IS NULL)
+            AND new_exp.search_group == old_exp.search_group
+            AND new_exp.instruments == old_exp.instruments
+            AND new_exp.gps_start_time == old_exp.gps_start_time
+            AND new_exp.gps_end_time == old_exp.gps_end_time
+                AND ( new_exp.comments == old_exp.comments
+                OR (new_exp.comments IS NULL AND old_exp.comments IS NULL) )
+        )
+    GROUP BY
+        old_exp.experiment_id;
 DROP INDEX e_sgitlc_index;
-
 -- delete the old ids from the experiment table
-DELETE FROM experiment 
-    WHERE experiment_id IN (
-        SELECT old_eid 
-        FROM _eidmap_
-        WHERE old_eid != new_eid);
+DELETE FROM experiment WHERE experiment_id IN (SELECT old_eid FROM eidmap WHERE old_eid != new_eid);
 
 -- update the experiment_ids in the experiment summary table
-CREATE INDEX em_old_index ON _eidmap_ (old_eid);
+CREATE INDEX em_old_index ON eidmap (old_eid);
 UPDATE experiment_summary
     SET experiment_id = (
         SELECT new_eid 
-        FROM _eidmap_
-        WHERE experiment_summary.experiment_id == old_eid);
-
-DROP INDEX em_old_index;
+        FROM eidmap
+        WHERE experiment_summary.experiment_id == old_eid );
 
 -- experiment summary clean up
 
--- create a table to map esids to be deleted to esids to be saved
-CREATE TEMP TABLE expr_summ_info AS
-    SELECT
-        expr_summ.experiment_summ_id AS esid,
-        concat_5cols(expr_summ.experiment_id, expr_summ.time_slide_id, 
-            expr_summ.veto_def_name, expr_summ.datatype, expr_summ.sim_proc_id) AS info
-    FROM experiment_summary AS expr_summ;
+-- create a table to store the distinct experiment_summaries
+CREATE TEMP TABLE distinct_experiments (experiment_summ_id, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
+INSERT INTO distinct_experiments (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id) 
+    SELECT DISTINCT
+            experiment_summary.experiment_id,
+            experiment_summary.time_slide_id,
+            experiment_summary.veto_def_name,
+            experiment_summary.datatype,
+            experiment_summary.sim_proc_id
+    FROM    
+        experiment_summary;
+CREATE INDEX de_etvds_index ON distinct_experiments (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
 
-CREATE TEMP TABLE _esidmap_ AS
+-- get one unique experiment_summ_id for each row in distinct_experiments
+UPDATE
+    distinct_experiments
+SET
+    experiment_summ_id = (
+        SELECT
+            experiment_summ_id
+        FROM
+            experiment_summary
+        WHERE 
+            experiment_summary.experiment_id == distinct_experiments.experiment_id
+            AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
+            AND (
+	      experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+		OR (
+	          experiment_summary.veto_def_name IS NULL AND distinct_experiments.veto_def_name IS NULL))	
+            AND experiment_summary.datatype == distinct_experiments.datatype
+            AND (
+              experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
+              OR (
+                experiment_summary.sim_proc_id IS NULL AND distinct_experiments.sim_proc_id IS NULL )));
+
+-- create an table to map esids to be deleted to esids to be saved
+CREATE TEMP TABLE esidmap AS
     SELECT
-        old_expsumm.esid AS old_esid,
-        MIN(new_expsumm.esid) AS new_esid
+        experiment_summary.experiment_summ_id AS old_esid,
+        distinct_experiments.experiment_summ_id AS new_esid
     FROM
-        expr_summ_info AS old_expsumm
-        JOIN expr_summ_info AS new_expsumm ON (
-            old_expsumm.info == new_expsumm.info)
-    GROUP BY old_esid;
-
+        experiment_summary
+    JOIN distinct_experiments ON (
+        experiment_summary.experiment_id == distinct_experiments.experiment_id
+        AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
+        AND (
+          experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+	OR (
+	  experiment_summary.veto_def_name IS NULL AND distinct_experiments.veto_def_name IS NULL))	
+        AND experiment_summary.datatype == distinct_experiments.datatype
+        AND (
+          experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
+          OR (
+            experiment_summary.sim_proc_id IS NULL AND distinct_experiments.sim_proc_id IS NULL )));
 DROP INDEX es_etvds_index;
-CREATE INDEX esidmap_index on _esidmap_ (old_esid, new_esid);
+CREATE INDEX esm_new_index ON esidmap (new_esid);
+CREATE INDEX esm_old_index ON esidmap (old_esid);
 
 -- sum durations and nevents
 CREATE TEMP TABLE sum_dur_nevents AS
-    SELECT
-        _esidmap_.new_esid AS esid, 
-        SUM(experiment_summary.duration) AS sum_dur, 
-        SUM(experiment_summary.nevents) AS sum_nevents
-    FROM _esidmap_
-        JOIN experiment_summary ON (
-            _esidmap_.old_esid == experiment_summary.experiment_summ_id)
+    SELECT esidmap.new_esid AS esid, 
+    SUM(experiment_summary.duration) AS sum_dur, 
+    SUM(experiment_summary.nevents) AS sum_nevents
+    FROM esidmap
+    JOIN experiment_summary ON (esidmap.old_esid == experiment_summary.experiment_summ_id)
     GROUP BY esid;
-
 CREATE INDEX sdn_esid_index ON sum_dur_nevents (esid);
 
 -- delete the old ids from the experiment_summary table
-DELETE FROM experiment_summary
-    WHERE experiment_summ_id IN (
-        SELECT old_esid
-        FROM _esidmap_
-        WHERE old_esid != new_esid);
+DELETE FROM experiment_summary WHERE experiment_summ_id IN (SELECT old_esid FROM esidmap WHERE old_esid != new_esid);
 
 -- update the durations and the nevents
 UPDATE experiment_summary
-    SET duration = (
+SET duration = (
         SELECT sum_dur
         FROM sum_dur_nevents
-        WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id),
+        WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id ),
     nevents = (
         SELECT sum_nevents
         FROM sum_dur_nevents
-        WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id);
-
-DROP INDEX sdn_esid_index;
+        WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id );
 
 -- update the experiment_map table
 UPDATE experiment_map
-    SET experiment_summ_id = (
-        SELECT new_esid 
-        FROM _esidmap_
-        WHERE experiment_map.experiment_summ_id == old_esid);
-
-DROP INDEX esidmap_index;
-DROP TABLE _esidmap_;
+SET experiment_summ_id = (
+    SELECT new_esid FROM esidmap
+    WHERE experiment_map.experiment_summ_id == old_esid );
 """
 if opts.debug:
     print >> sys.stderr, sqlscript
@@ -589,6 +626,8 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+# ======================== DELETE STUFF FROM PROCESS / PROCESS PARAMS TABLES ======= #
 
 if opts.verbose:
     print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
