@@ -1453,9 +1453,8 @@ static void LALEccentricAnomaly(LALStatus *status,
  * Get all binary-timings for all input detector-series.
  *
  */
-int
-XLALGetMultiBinarytimes (MultiSSBtimes **multiBinary,			/**< [out] SSB-timings for all input detector-state series */
-			 const MultiSSBtimes *multiSSB,			/**< [in] SSB-timings for all input detector-state series */
+MultiSSBtimes *
+XLALGetMultiBinarytimes (const MultiSSBtimes *multiSSB,			/**< [in] SSB-timings for all input detector-state series */
 			 const MultiDetectorStateSeries *multiDetStates, /**< [in] detector-states at timestamps t_i */
 			 const BinaryOrbitParams *binaryparams,		/**< [in] source binary orbit parameters */
 			 LIGOTimeGPS refTime				/**< SSB reference-time T_0 for SSB-timing */
@@ -1467,12 +1466,14 @@ XLALGetMultiBinarytimes (MultiSSBtimes **multiBinary,			/**< [out] SSB-timings f
   numDetectors = multiDetStates->length;
 
   if ( ( ret = XLALCalloc( 1, sizeof( *ret ) )) == NULL ) {
-    XLAL_ERROR ( XLAL_ENOMEM );
+    XLALPrintError ("%s: failed to XLALCalloc( 1, %d)\n", __func__, sizeof( *ret ) );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
   ret->length = numDetectors;
   if ( ( ret->data = XLALCalloc ( numDetectors, sizeof ( *ret->data ) )) == NULL ) {
+    XLALPrintError ("%s: failed to XLALCalloc(%d, %d)\n", __func__, numDetectors, sizeof ( *ret->data ) );
     XLALFree ( ret );
-    XLAL_ERROR ( XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   for ( X=0; X < numDetectors; X ++ )
@@ -1481,25 +1482,28 @@ XLALGetMultiBinarytimes (MultiSSBtimes **multiBinary,			/**< [out] SSB-timings f
       UINT4 numStepsX = multiDetStates->data[X]->length;
 
       if ( (ret->data[X] = XLALCalloc ( 1, sizeof ( *(ret->data[X]) ) ) ) == NULL ) {
+	XLALPrintError ("%s: failed to XLALCalloc(%d, %d)\n", __func__, numDetectors, sizeof ( *ret->data ) );
 	XLALFree ( ret );
-	XLAL_ERROR ( XLAL_ENOMEM );
+	XLAL_ERROR_NULL ( XLAL_ENOMEM );
       }
       BinarytimesX = ret->data[X];
       BinarytimesX->DeltaT = XLALCreateREAL8Vector ( numStepsX );
       if ( (BinarytimesX->Tdot = XLALCreateREAL8Vector ( numStepsX )) == NULL ) {
+	XLALPrintError ("%s: failed to XLALCreateREAL8Vector(%d)\n", __func__, numStepsX );
 	XLALPrintError ("\nOut of memory!\n\n");
 	XLALDestroyMultiSSBtimes ( ret );
-	XLAL_ERROR ( XLAL_ENOMEM );
+	XLAL_ERROR_NULL ( XLAL_ENOMEM );
       }
       /* printf("calling  LALGetBinarytimes\n"); */
       if ( XLALGetBinarytimes (BinarytimesX, multiSSB->data[X], multiDetStates->data[X], binaryparams, refTime ) != XLAL_SUCCESS ) {
+        XLALPrintError ("%s: call to XLALGetBinarytimes() failed with xlalErrno = %d\n", __func__, xlalErrno );
 	XLALDestroyMultiSSBtimes ( ret );
-	XLAL_ERROR( XLAL_EFUNC );
+	XLAL_ERROR_NULL( XLAL_EFUNC );
       }
     } /* for X < numDet */
 
-  (*multiBinary)  = ret;
-  return XLAL_SUCCESS;
+  /* return result */
+  return ret;
 
 } /* XLALGetMultiBinarytimes() */
 
@@ -1870,12 +1874,11 @@ LALGetSSBtimes (LALStatus *status,		/**< pointer to LALStatus structure */
  * NOTE: contrary to XLALGetSSBtimes(), this functions *allocates* the output-vector,
  * use XLALDestroyMultiSSBtimes() to free this.
  */
-int
-XLALGetMultiSSBtimes (MultiSSBtimes **multiSSB,		/**< [out] SSB-timings for all input detector-state series */
-		     const MultiDetectorStateSeries *multiDetStates, /**< [in] detector-states at timestamps t_i */
-		     SkyPosition skypos,		/**< source sky-position [in equatorial coords!] */
-		     LIGOTimeGPS refTime,		/**< SSB reference-time T_0 for SSB-timing */
-		     SSBprecision precision		/**< use relativistic or Newtonian SSB timing?  */
+MultiSSBtimes *
+XLALGetMultiSSBtimes (const MultiDetectorStateSeries *multiDetStates, /**< [in] detector-states at timestamps t_i */
+		      SkyPosition skypos,		/**< source sky-position [in equatorial coords!] */
+		      LIGOTimeGPS refTime,		/**< SSB reference-time T_0 for SSB-timing */
+		      SSBprecision precision		/**< use relativistic or Newtonian SSB timing?  */
 		     )
 {
   UINT4 X, numDetectors;
@@ -1884,18 +1887,20 @@ XLALGetMultiSSBtimes (MultiSSBtimes **multiSSB,		/**< [out] SSB-timings for all 
   /* check input */
   if ( skypos.system != COORDINATESYSTEM_EQUATORIAL ) {
     XLALPrintError("Sky coordinate system must be equatorial!");
-    XLAL_ERROR(XLAL_EINVAL);
+    XLAL_ERROR_NULL(XLAL_EINVAL);
   }
 
   numDetectors = multiDetStates->length;
 
   if ( ( ret = XLALCalloc( 1, sizeof( *ret ) )) == NULL ) {
-    XLAL_ERROR ( XLAL_ENOMEM );
+    XLALPrintError ("%s: failed to XLALCalloc( 1, %d)\n", __func__, sizeof( *ret ) );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
   ret->length = numDetectors;
   if ( ( ret->data = XLALCalloc ( numDetectors, sizeof ( *ret->data ) )) == NULL ) {
+    XLALPrintError ("%s: failed to XLALCalloc(%d, %d)\n", __func__, numDetectors, sizeof ( *ret->data ) );
     XLALFree ( ret );
-    XLAL_ERROR ( XLAL_ENOMEM );
+    XLAL_ERROR_NULL ( XLAL_ENOMEM );
   }
 
   for ( X=0; X < numDetectors; X ++ )
@@ -1904,26 +1909,29 @@ XLALGetMultiSSBtimes (MultiSSBtimes **multiSSB,		/**< [out] SSB-timings for all 
       UINT4 numStepsX = multiDetStates->data[X]->length;
 
       if ( (ret->data[X] = XLALCalloc ( 1, sizeof ( *(ret->data[X]) ) ) ) == NULL ) {
+	XLALPrintError ("%s: failed to XLALCalloc(1, %d)\n", __func__, sizeof ( *ret->data ) );
 	XLALFree ( ret );
-	XLAL_ERROR ( XLAL_ENOMEM );
+	XLAL_ERROR_NULL ( XLAL_ENOMEM );
       }
       SSBtimesX = ret->data[X];
       SSBtimesX->DeltaT = XLALCreateREAL8Vector ( numStepsX );
       if ( (SSBtimesX->Tdot = XLALCreateREAL8Vector ( numStepsX )) == NULL ) {
+	XLALPrintError ("%s: failed to XLALCreateREAL8Vector(%d)\n", __func__, numStepsX );
 	XLALPrintError ("\nOut of memory!\n\n");
 	XLALDestroyMultiSSBtimes ( ret );
-	XLAL_ERROR ( XLAL_ENOMEM );
+	XLAL_ERROR_NULL ( XLAL_ENOMEM );
       }
 
       if ( XLALGetSSBtimes (SSBtimesX, multiDetStates->data[X], skypos, refTime, precision ) != XLAL_SUCCESS ) {
+        XLALPrintError ("%s: call to XLALGetSSBtimes() failed with xlalErrno = %d\n", __func__, xlalErrno );
 	XLALDestroyMultiSSBtimes ( ret );
-	XLAL_ERROR( XLAL_EFUNC );
+	XLAL_ERROR_NULL( XLAL_EFUNC );
       }
 
     } /* for X < numDet */
 
-  (*multiSSB) = ret;
-  return XLAL_SUCCESS;
+  /* return result */
+  return ret;
 
 } /* XLALGetMultiSSBtimes() */
 
