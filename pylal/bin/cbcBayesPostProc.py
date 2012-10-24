@@ -52,9 +52,36 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
+from glue.ligolw import table
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
+
+
+class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
+    def __init__(self,document):
+      ligolw.LIGOLWContentHandler.__init__(self,document)
+      self.tabname=lsctables.SimInspiralTable.tableName
+      self.intable=False
+      self.tableElementName=''
+    def startElement(self,name,attrs):
+      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+        self.tableElementName=name
+        # Got the right table, let's see if it's the right event
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+        self.intable=True
+      elif self.intable: # We are in the correct table
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+    def endElement(self,name):
+      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
+      if self.intable and name==self.tableElementName: self.intable=False
+
+lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
+
 
 def pickle_to_file(obj,fname):
     """
@@ -176,14 +203,14 @@ def cbcBayesPostProc(
     
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
-    if injfile:
-        import itertools
-        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-        if eventnum is not None:
-            if(len(injections)<eventnum):
-                raise RuntimeError("Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections)))
-            else:
-                injection=injections[eventnum]
+    if injfile and eventnum:
+        print 'Looking for event %i in %s\n'%(eventnum,injfile)
+        xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
+        siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+        injection=siminspiraltable[eventnum]
+	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
+	#if(len(injections)!=1): raise RuntimeError('Error: something unexpected happened while loading the injection file!\n')
+        #injection=injections[0]
 
     #Get trigger
     triggers = None
