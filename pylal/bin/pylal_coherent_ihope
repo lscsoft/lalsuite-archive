@@ -427,7 +427,7 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
                 node.set_ifo(ifo)
                 node.set_cache(datafind_cache)
                 # add to DAG and record
-                chunk.set_tb_node(node.get_output())
+                chunk.set_tb_file(node.get_output())
                 if run_tmpltbank:
                     dag.add_node(node)
 
@@ -579,13 +579,15 @@ def setup_search(cp, network, data, logdir, usertag=None,\
 
     # copy bank veto file to output directory
     bank_veto_file = cp.get("coh_PTF_inspiral", "bank-veto-templates")
+    bank_veto_copy = os.path.join(os.pardir, TMPLTBANK,\
+                                  os.path.basename(bank_veto_file))
     if not os.path.isfile(bank_veto_file):
+        print os.getcwd(), bank_veto_file
         raise RuntimeError("Bank veto file %s not found." % bank_veto_file)
-    if not os.path.isfile(os.path.basename(bank_veto_file)) or\
-    not os.path.samefile(bank_veto_file, os.path.basename(bank_veto_file)):
-        shutil.copy(bank_veto_file, os.path.basename(bank_veto_file))
-    cp.set("coh_PTF_inspiral", "bank-veto-templates",\
-           os.path.basename(bank_veto_file))
+    if not os.path.isfile(bank_veto_copy) or\
+    not os.path.samefile(bank_veto_file, bank_veto_copy):
+        shutil.copy(bank_veto_file, bank_veto_copy)
+    cp.set("coh_PTF_inspiral", "bank-veto-templates", bank_veto_copy)
 
     # set job
     job = inspiral.PTFInspiralJob(cp)
@@ -1012,7 +1014,7 @@ def parse_command_line():
     #opts.config_file = os.path.abspath(opts.config_file)
     #opts.output_dir = os.path.abspath(opts.output_dir)
     #opts.log_dir = os.path.abspath(opts.log_dir)
-    if not os.path.isfile(opts.fixed_bank_file):
+    if opts.fixed_bank_file and not os.path.isfile(opts.fixed_bank_file):
         raise optparse.OptionValueError("Fixed-bank-file argument \'%s\' "\
                                         "not found." % opts.fixed_bank_file)
     if opts.fixed_bank_file:
