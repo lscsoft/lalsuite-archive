@@ -1224,6 +1224,7 @@ def simplify_expr_tbls(connection, verbose=False, debug=False):
         GROUP BY old_eid;
     
     DROP INDEX e_sgitlc_index;
+    DROP TABLE expr_info;
     
     -- delete the old ids from the experiment table
     DELETE FROM experiment 
@@ -1241,6 +1242,7 @@ def simplify_expr_tbls(connection, verbose=False, debug=False):
             WHERE experiment_summary.experiment_id == old_eid);
     
     DROP INDEX em_old_index;
+    DROP TABLE _eidmap_;
 
     -- experiment summary clean up
     
@@ -1263,6 +1265,7 @@ def simplify_expr_tbls(connection, verbose=False, debug=False):
         GROUP BY old_esid;
 
     DROP INDEX es_etvds_index;
+    DROP TABLE expr_summ_info;
     CREATE INDEX esidmap_index on _esidmap_ (old_esid, new_esid);
     
     -- sum durations and nevents
@@ -1297,6 +1300,7 @@ def simplify_expr_tbls(connection, verbose=False, debug=False):
             WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id);
     
     DROP INDEX sdn_esid_index;
+    DROP TABLE sum_dur_nevents;
 
     -- update the experiment_map table
     UPDATE experiment_map
