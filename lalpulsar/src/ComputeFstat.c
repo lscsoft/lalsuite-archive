@@ -1249,9 +1249,9 @@ XLALGetBinarytimes (SSBtimes *tBinary,				/**< [out] DeltaT_alpha = T(t_alpha) -
   numSteps = DetectorStates->length;		/* number of timestamps */
 
   if ( tSSB->DeltaT->length != numSteps
-       || tSSB->Tdot->length == numSteps
+       || tSSB->Tdot->length != numSteps
        || tBinary->DeltaT->length != numSteps
-       || tBinary->Tdot->length == numSteps ) {
+       || tBinary->Tdot->length != numSteps ) {
     XLALPrintError("Lengths of lists don't match!");
     XLAL_ERROR(XLAL_EBADLEN );
   }
@@ -1606,7 +1606,7 @@ XLALGetSSBtimes (SSBtimes *tSSB,			/**< [out] DeltaT_alpha = T(t_alpha) - T_0; a
   numSteps = DetectorStates->length;		/* number of timestamps */
 
   if ( tSSB->DeltaT->length != numSteps
-       || tSSB->Tdot->length == numSteps ) {
+       || tSSB->Tdot->length != numSteps ) {
     XLALPrintError("Lengths of lists don't match!");
     XLAL_ERROR(XLAL_EBADLEN );
   }
