@@ -184,10 +184,8 @@ proc_id = process.register_to_xmldoc(xmldoc, __prog__, options.__dict__, version
 #
 
 # turn the time slide table into a dictionary
-time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-time_slide_dict = time_slide_table.as_dict()
-
-zero_lag_dict = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
+time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+zero_lag_dict = dict([dict_entry for dict_entry in time_slide_dict.items() if not any( dict_entry[1].values() )])
 del time_slide_dict[ zero_lag_dict.keys()[0] ]
 
 # initialize duration bank

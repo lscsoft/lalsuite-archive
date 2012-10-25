@@ -835,17 +835,22 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     # get veto_segments
     veto_segments = compute_dur.get_veto_segments(xmldoc, verbose)
 
-    # make a single-element dictionary for the zerolag entry in the time-slide table
-    time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-    time_slide_dict = time_slide_table.as_dict()
-    zero_lag_dict = dict([[slide_id, offset_vector] for slide_id, offset_vector in time_slide_dict.items() if not any(time_slide_dict[slide_id].values())])
+    # make a dictionary of zerolag "shifts" needed for the get_coinc_segments function
+    zerolag_dict = {}
+    sqlquery = """
+        SELECT DISTINCT ifos
+        FROM process
+        WHERE program == "inspiral"
+    """
+    for ifo in connection.cursor().execute( sqlquery ):
+        zerolag_dict[ifo] = 0.0
 
     # Cycle over available veto categories
     for veto_def_name, veto_seg_dict in veto_segments.items():
         post_vetoes_ifosegs = ifo_segments - veto_seg_dict
     
         # make a dictionary of coincident segments by exclusive on-ifos
-        coinc_segs = compute_dur.get_coinc_segments(post_vetoes_ifosegs, zero_lag_dict)
+        coinc_segs = compute_dur.get_coinc_segments(post_vetoes_ifosegs, zerolag_dict)
         # key only the on-instruments 'key[1]' as the dictionary key
         coinc_segs = dict( (key[1], segmentlist) for key, segmentlist in coinc_segs.items() ) 
     

@@ -155,38 +155,36 @@ def get_veto_segments(xmldoc, verbose):
 
 	return veto_segments
 
-def get_coinc_segments(segments_dict, time_slide_dict):
+def get_coinc_segments(segments_dict, offset_vect):
 	"""
 	Return the exclusive coinc segments for each (time-slide,on instruments) pair for
 	time-slides done along a line (as opposed to rings).
 
 	@param segments_dict: the glue.segments.segmentlistdict object which contains the 
 		single-ifo segments used to compute experiment durations
-	@param time_slide_dict: dictionary object where the time_slide_id is the key for
-		the corresponding offsetvector
+	@param offset_vect: the glue.offsetvector object that contains the time shifts
+		for a given time-slide. The keys are the set of ifos being shifted. 
 	"""
 	segments_dict.coalesce()
 	on_ifos_dict, excluded_ifos_dict = get_allifo_combos(segments_dict, 2)
 	# the keys for the coinc-segs dictionaries are the TS-ids & ifo-combos
-	coinc_segs = {}
+	coinc_segs = segments.segmentlistdict()
 
-	for time_slide_id, offset_vec in time_slide_dict.items():
-		# shift the segment times according to the values in the offset vector
-		tsid = str(time_slide_id)
-		for ifo, shift in offset_vec.items():
-			segments_dict.offsets[ifo] = shift
+	# shift the segment times according to the values in the offset vector
+	for ifo, shift in offset_vec.items():
+		segments_dict.offsets[ifo] = shift
 
-		for on_ifos_key, combo in on_ifos_dict.items():
-			# determine inclusive coincident segments for each time_slide
-			coinc_segs[tsid, on_ifos_key] = segments_dict.intersection( combo )
-			
-			# get lists of excluded ifos and associated keys for this coinc-time type
-			excluded_ifos = excluded_ifos_dict[on_ifos_key]
-			if len(excluded_ifos) > 0:
-				# Make exclusive segments
-				coinc_segs[tsid, on_ifos_key] -= segments_dict.union( excluded_ifos )
+	for on_ifos_key, combo in on_ifos_dict.items():
+		# determine inclusive coincident segments for each time_slide
+		coinc_segs[tsid, on_ifos_key] = segments_dict.intersection( combo )
+		
+		# get lists of excluded ifos and associated keys for this coinc-time type
+		excluded_ifos = excluded_ifos_dict[on_ifos_key]
+		if excluded_ifos:
+			# Make exclusive segments
+			coinc_segs[on_ifos_key] -= segments_dict.union( excluded_ifos )
 
-			coinc_segs[tsid, on_ifos_key].coalesce()
+		coinc_segs[on_ifos_key].coalesce()
 
 	return coinc_segs
 
@@ -196,11 +194,13 @@ def get_livetimes(segments_dict, time_slide_dict, verbose = False):
 	time_slide_id and on-ifos.
 	"""
 	livetimes = {}
-	# determine coincident segments by (time-slide, on-ifos) pair
-	coinc_segs = get_coinc_segments(segments_dict, time_slide_dict)
 
-	# calculate the livetime for each pair
-	for key, segments_list in coinc_segs.items():
-		livetimes[key] = float( abs(segments_list) )
+	for time_slide_id, offset_vect in time_slide_dict.items():
+		# determine coincident segments by (time-slide, on-ifos) pair
+		coinc_segs = get_coinc_segments(segments_dict, offset_vect)
+
+		# calculate the livetime for each pair
+		for exclusive_ifos, segments_list in coinc_segs.items():
+			livetimes[time_slide_id, exclusive_ifos] = float( abs(segments_list) )
 
 	return livetimes
