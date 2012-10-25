@@ -171,12 +171,12 @@ def get_coinc_segments(segments_dict, offset_vect):
 	coinc_segs = segments.segmentlistdict()
 
 	# shift the segment times according to the values in the offset vector
-	for ifo, shift in offset_vec.items():
+	for ifo, shift in offset_vect.items():
 		segments_dict.offsets[ifo] = shift
 
 	for on_ifos_key, combo in on_ifos_dict.items():
 		# determine inclusive coincident segments for each time_slide
-		coinc_segs[tsid, on_ifos_key] = segments_dict.intersection( combo )
+		coinc_segs[on_ifos_key] = segments_dict.intersection( combo )
 		
 		# get lists of excluded ifos and associated keys for this coinc-time type
 		excluded_ifos = excluded_ifos_dict[on_ifos_key]

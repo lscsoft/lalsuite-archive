@@ -128,7 +128,7 @@ class Durations:
     def map_slides_to_durations( self, veto_def_name, datatype, livetime_dict ):
         for key, duration in livetime_dict.items():
             # the dictionary key is of the form (time_slide_id, on_instruments)
-            self.durations[(key[1], veto_def_name, datatype, key[0])] = duration
+            self.durations[( key[1], veto_def_name, datatype, str(key[0]) )] = duration
 
     def retrieve_duration( self, on_instruments, veto_def_name, datatype, time_slide_id ):
         # when both simulations & full_data are in the same database, use full_data livetime
