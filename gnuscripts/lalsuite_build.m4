@@ -1,6 +1,6 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 42
+# serial 45
 
 AC_DEFUN([LALSUITE_REQUIRE_CXX],[
   # require a C++ compiler
@@ -204,7 +204,7 @@ AC_DEFUN([LALSUITE_ENABLE_NIGHTLY],
   [nightly],
   AC_HELP_STRING([--enable-nightly],[nightly build [default=no]]),
   [ case "${enableval}" in
-      yes) NIGHTLY_VERSION=`date +"%Y%m%d"`
+      yes) NIGHTLY_VERSION=`date -u +"%Y%m%d"`
            VERSION="${VERSION}.${NIGHTLY_VERSION}" ;;
       no) NIGHTLY_VERSION="";;
       *) NIGHTLY_VERSION="${enableval}"
@@ -294,6 +294,19 @@ AC_ARG_ENABLE(
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalsimulation) ;;
     esac
   ], [ lalsimulation=${all_lal:-true} ] )
+])
+
+AC_DEFUN([LALSUITE_ENABLE_LALDETCHAR],
+[AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
+AC_ARG_ENABLE(
+  [laldetchar],
+  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=no]]),
+  [ case "${enableval}" in
+      yes) laldetchar=true;;
+      no) laldetchar=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-laldetchar) ;;
+    esac
+  ], [ laldetchar=${all_lal:-false} ] )
 ])
 
 AC_DEFUN([LALSUITE_ENABLE_LALBURST],

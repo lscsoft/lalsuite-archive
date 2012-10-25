@@ -47,13 +47,6 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
 
 
-try:
-	any
-except NameError:
-	# compatibility for Python < 2.5
-	from glue.iterutils import any
-
-
 #
 # =============================================================================
 #

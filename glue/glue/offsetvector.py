@@ -137,6 +137,7 @@ class offsetvector(dict):
 	def __repr__(self):
 		"""
 		Return a string representation of the offset vector.
+		Running eval() on the result reconstructs the offsetvector.
 
 		Example:
 
@@ -244,6 +245,8 @@ class offsetvector(dict):
 		>>> y = offsetvector.fromdeltas(x.deltas)
 		>>> y
 		offsetvector({'V1': 20, 'H1': 0, 'L1': 10})
+		>>> y == x
+		True
 
 		See also .deltas, .fromkeys()
 		"""

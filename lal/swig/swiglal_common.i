@@ -147,8 +147,13 @@ MACRO(A, B, X);
 #include <lal/Date.h>
 %}
 
+// Print LAL debugging errors by default.
+%init %{
+  lalDebugLevel |= LALERROR;
+%}
+
 // Version of SWIG used to generate wrapping code.
-%inline %{const int swig_version = SWIGVERSION;%}
+%inline %{const int swig_version = SWIG_VERSION;%}
 
 // Whether wrapping code was generated in debug mode.
 #ifdef NDEBUG
@@ -599,6 +604,11 @@ if (swiglal_release_parent(PTR)) {
 %swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
 %enddef
 
+// Get the correct descriptor for a dynamic array element:
+// always return a pointer-description, even for non-pointer types
+%typemap(swiglal_dynarr_pdesc) SWIGTYPE  "$&descriptor";
+%typemap(swiglal_dynarr_pdesc) SWIGTYPE* "$descriptor";
+
 // The %swiglal_array_dynamic_<n>D() macros create typemaps which convert
 // <n>-D dynamically-allocated arrays in structs. The macros must be
 // added inside the definition of the struct, before the struct members
@@ -626,7 +636,7 @@ if (swiglal_release_parent(PTR)) {
       // swiglal_array_typeid input type: $1_type
       int ecode = %swiglal_array_copyin($1_type)(swiglal_self(), $input, %as_voidptr($1),
                                                  sizeof(TYPE), 1, dims, strides,
-                                                 $*descriptor,
+                                                 $typemap(swiglal_dynarr_pdesc, TYPE),
                                                  $disown | %convertptr_flags);
       if (!SWIG_IsOK(ecode)) {
         %argument_fail(ecode, "$type", $symname, $argnum);
@@ -641,7 +651,7 @@ if (swiglal_release_parent(PTR)) {
       // swiglal_array_typeid input type: $1_type
       %set_output(%swiglal_array_viewout($1_type)(swiglal_self(), %as_voidptr($1),
                                                   sizeof(TYPE), 1, dims, strides,
-                                                  $*descriptor,
+                                                  $typemap(swiglal_dynarr_pdesc, TYPE),
                                                   $owner | %newpointer_flags));
     }
   }
@@ -686,7 +696,7 @@ if (swiglal_release_parent(PTR)) {
       // swiglal_array_typeid input type: $1_type
       int ecode = %swiglal_array_copyin($1_type)(swiglal_self(), $input, %as_voidptr($1),
                                                  sizeof(TYPE), 2, dims, strides,
-                                                 $*descriptor,
+                                                 $typemap(swiglal_dynarr_pdesc, TYPE),
                                                  $disown | %convertptr_flags);
       if (!SWIG_IsOK(ecode)) {
         %argument_fail(ecode, "$type", $symname, $argnum);
@@ -701,7 +711,7 @@ if (swiglal_release_parent(PTR)) {
       // swiglal_array_typeid input type: $1_type
       %set_output(%swiglal_array_viewout($1_type)(swiglal_self(), %as_voidptr($1),
                                                   sizeof(TYPE), 2, dims, strides,
-                                                  $*descriptor,
+                                                  $typemap(swiglal_dynarr_pdesc, TYPE),
                                                   $owner | %newpointer_flags));
     }
   }
@@ -928,6 +938,9 @@ if (swiglal_release_parent(PTR)) {
                        SWIG_AsLALCHARPtrAndSize, SWIG_FromLALCHARPtrAndSize,
                        strlen, %swiglal_new_copy_array, XLALFree,
                        "<limits.h>", CHAR_MIN, CHAR_MAX);
+
+// Do not try to free const CHAR* return arguments.
+%typemap(newfree,noblock=1) const CHAR* "";
 
 // Typemap for output SWIGTYPEs. This typemaps will match either the SWIG-wrapped
 // return argument from functions (which will have the SWIG_POINTER_OWN bit set

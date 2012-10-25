@@ -26,6 +26,7 @@ from matplotlib.ticker import FormatStrFormatter
 from glue import segments
 from glue import segmentsUtils
 from glue import lal
+from glue.ligolw import utils
 from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
@@ -56,7 +57,6 @@ def getData( table, xname, yname, ifo  ):
   else:
     xp = viz.readcol( table,xname)
     legx = xname
-  
 
   if yname == 'eff_dist':
     yp = viz.readcol( table,"eff_dist", ifo )
@@ -85,9 +85,7 @@ def savePlot(opts, filename, tag, keep=False):
     close()
   return fname
 
-#################################################################
-
-##############################################################################
+#######################################################################
 # parse options and arguments
 usage = """Usage: %prog [options] [trigs1 missed1 trigs2 missed2]
 
@@ -95,7 +93,6 @@ Generate found and missed trig plots
 
 plotinspmissed --mtotal-dist-linear --verbose  --output-path plots/ --mchirp-dist-log  --time-dist  --gps-start-time 866088014 --mchirp-dist-linear --gps-end-time 866109614 --cache-file ihope.cache --enable-output  --mtotal-dist-log  --ifo H1 --legend --found-pattern COIRE_INJECTIONS_*_FOUND_SECOND_*_INJ* --missed-pattern COIRE_INJECTIONS_*_MISSED_SECOND_*_INJ*
 """
-
 
 def parse_command_line():
   """
@@ -251,7 +248,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 comments = ""
 
-# Initialise: add prefix and suffix to the opts strucutre. To be used for filenames
+# Initialise: add prefix and suffix to the opts structure. To be used for filenames
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 # -- set the proper color code
@@ -380,13 +377,15 @@ for entry, injfile in zip(injcache,injFiles):
 
   # read the found injections and get the coincidences
   sims =  SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-  snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile])
+  snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile], verbose=opts.verbose)
 
   # mange event_id's by hand for sire triggers 	 
   if snglInspiralTable and opts.sire: 	 
     for i in range(len(snglInspiralTable)): 	 
       snglInspiralTable[i].event_id=i
 
+  # this is OK because we only treat one file at a time
+  # so event ID collisions will not occur
   triggers = CoincInspiralUtils.coincInspiralTable(
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 

@@ -2782,11 +2782,12 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     else:
         Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks)
+    xmin,xmax=plt.xlim()
     if param=='rightascension' or param=='ra':
-        locatorX=RALocator()
+        locatorX=RALocator(min=xmin,max=xmax)
         majorFormatterX=RAFormatter()
     if param=='declination' or param=='dec':
-        locatorX=DecLocator()
+        locatorX=DecLocator(min=xmin,max=xmax)
         majorFormatterX=DecFormatter()
     axes.xaxis.set_major_formatter(majorFormatterX)
     axes.yaxis.set_major_formatter(majorFormatterY)
@@ -2835,9 +2836,9 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
-    #if(param.lower()=='ra' or param.lower()=='rightascension'):
-    #    xmin,xmax=plt.xlim()
-    #    plt.xlim(xmax,xmin)
+    if(param.lower()=='ra' or param.lower()=='rightascension'):
+        xmin,xmax=plt.xlim()
+        plt.xlim(xmax,xmin)
     #if(param.lower()=='ra' or param.lower()=='rightascension'):
     #    locs, ticks = plt.xticks()
     #    newlocs, newticks = formatRATicks(locs)
@@ -2852,16 +2853,38 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
 
 class RALocator(matplotlib.ticker.MultipleLocator):
     """
-    Format RA to nearest hour
+    RA tick locations with some intelligence
     """
-    def __init__(self,base=pi_constant/12.0):
+    def __init__(self,min=0.0,max=2.0*pi_constant):
+      hour=pi_constant/12.0
+      if(max-min)>12.0*hour:
+        base=3.0*hour
+      elif(max-min)>6.0*hour:
+        base=2.0*hour
+      # Put hour ticks if there are more than 3 hours displayed
+      elif (max-min)>3.0*pi_constant/12.0:
+        base=hour
+      elif (max-min)>hour:
+        base=hour/2.0
+      else:
+        base=hour/4.0
+         
       matplotlib.ticker.MultipleLocator.__init__(self,base=base)
 
 class DecLocator(matplotlib.ticker.MultipleLocator):
     """
-    Format dec to nearest 5 deg
+    Dec tick locations with some intelligence
     """
-    def __init__(self, base=30.0*pi_constant/180.0):
+    def __init__(self, min=-pi_constant/2.0,max=pi_constant/2.0):
+      deg=pi_constant/180.0
+      if (max-min)>60*deg:
+        base=30.0*deg
+      elif (max-min)>20*deg:
+        base=10*deg
+      elif (max-min)>10*deg:
+        base=5*deg
+      else:
+        base=deg
       matplotlib.ticker.MultipleLocator.__init__(self,base=base)
 
 class RAFormatter(matplotlib.ticker.FuncFormatter):
@@ -2955,8 +2978,8 @@ def getRAString(radians,accuracy='auto'):
     if accuracy=='min': return ur'%ih%im'%(hours,mins)
     if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
     else:
-        if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs-60.0,60.0))>0.5: return(getRAString(radians,accuracy='sec'))
-        if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins-60.0,60.0))>0.5: return(getRAString(radians,accuracy='min'))
+        if abs(fmod(secs,60.0))>=0.5: return(getRAString(radians,accuracy='sec'))
+        if abs(fmod(mins,60.0))>=0.5: return(getRAString(radians,accuracy='min'))
         else: return(getRAString(radians,accuracy='hour'))
         
 def getDecString(radians,accuracy='auto'):
@@ -2976,19 +2999,22 @@ def getDecString(radians,accuracy='auto'):
     deg,rem=divmod(radians,pi_constant/180.0)
     mins, rem = divmod(rem, pi_constant/(180.0*60.0))
     secs = rem * (180.0*3600.0)/pi_constant
-    if secs>=59.5:
-        secs=secs-60.0
-        mins=mins+1
-    if mins>=59.5:
-        mins=mins-60.0
-        deg=deg+1
+    #if secs>=59.5:
+    #    secs=secs-60.0
+    #    mins=mins+1
+    #if mins>=59.5:
+    #    mins=mins-60.0
+    #    deg=deg+1
+    if (accuracy=='arcmin' or accuracy=='deg') and secs>30: mins=mins+1
+    if accuracy=='deg' and mins>30: deg=deg+1
     if accuracy=='deg': return ur'%i'%(sign*deg)+degsymb
     if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
     if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
-        if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs-60.0,60.0))>0.5: return(getDecString(sign*radians,accuracy='arcsec'))
-        if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins-60.0,60.0))>0.5: return(getDecString(sign*radians,accuracy='arcmin'))
-        else: return(getDecString(sign*radians,accuracy='deg'))
+    #    if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs,60)-60)>=0.5 : return(getDecString(sign*radians,accuracy='arcsec'))
+    #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+    #    else: return(getDecString(sign*radians,accuracy='deg'))
+      return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -3056,9 +3082,9 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     plt.grid()
 
     # For RA and dec set custom labels and for RA reverse
-    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-    #        xmin,xmax=plt.xlim()
-    #        plt.xlim(xmax,xmin)
+    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+            xmin,xmax=plt.xlim()
+            plt.xlim(xmax,xmin)
     #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
     #        locs, ticks = plt.xticks()
     #        (newlocs, newticks)=formatRATicks(locs, ticks)
@@ -3339,18 +3365,22 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
       		Nticks=6
     	locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
         if par2_name=='rightascension' or par2_name=='ra':
-            locatorX=RALocator()
+            (ramin,ramax)=plt.xlim()
+            locatorX=RALocator(min=ramin,max=ramax)
             majorFormatterX=RAFormatter()
         if par2_name=='declination' or par2_name=='dec':
-            locatorX=DecLocator()
+            (decmin,decmax)=plt.xlim()
+            locatorX=DecLocator(min=decmin,max=decmax)
             majorFormatterX=DecFormatter()
         axes.xaxis.set_major_formatter(majorFormatterX)
         if par1_name=='rightascension' or par1_name=='ra':
-            locatorY=RALocator()
+            (ramin,ramax)=plt.ylim()
+            locatorY=RALocator(ramin,ramax)
             axes.yaxis.set_major_locator(locatorY)
             majorFormatterY=RAFormatter()
         if par1_name=='declination' or par1_name=='dec':
-            locatorY=DecLocator()
+            (decmin,decmax)=plt.ylim()
+            locatorY=DecLocator(min=decmin,max=decmax)
             majorFormatterY=DecFormatter()
             axes.yaxis.set_major_locator(locatorY)
 
@@ -3398,11 +3428,11 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     #        newlocs,newticks=formatDecTicks(locs)
     #        plt.yticks(newlocs,newticks)
 
-    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-    #    xmin,xmax=plt.xlim()
-    #    if(xmin<0.0): xmin=0.0
-    #    if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
-    #    plt.xlim(xmax,xmin)
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        xmin,xmax=plt.xlim()
+        if(xmin<0.0): xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
     #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
     #    locs, ticks = plt.xticks()
     #    newlocs, newticks = formatRATicks(locs)
@@ -3531,18 +3561,20 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     else:
       Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+    (xmin,xmax)=plt.xlim()
+    (ymin,ymax)=plt.ylim()
     if par2_name=='rightascension' or par2_name=='ra':
-        locatorX=RALocator()
+        locatorX=RALocator(min=xmin,max=xmax)
         majorFormatterX=RAFormatter()
     if par2_name=='declination' or par2_name=='dec':
-        locatorX=DecLocator()
+        locatorX=DecLocator(min=xmin,max=xmax)
         majorFormatterX=DecFormatter()
     if par1_name=='rightascension' or par1_name=='ra':
-        locatorY=RALocator()
+        locatorY=RALocator(min=ymin,max=ymax)
         axes.yaxis.set_major_locator(locatorY)
         majorFormatterY=RAFormatter()
     if par1_name=='declination' or par1_name=='dec':
-        locatorY=DecLocator()
+        locatorY=DecLocator(min=ymin,max=ymax)
         axes.yaxis.set_major_locator(locatorY)
         majorFormatterY=DecFormatter()
 
@@ -3577,11 +3609,11 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     #        newlocs, newticks = formatDecTicks(locs)
     #        plt.yticks(newlocs,newticks)
 
-    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-    #    xmin,xmax=plt.xlim()
-    #    if(xmin)<0.0: xmin=0.0
-    #    if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
-    #    plt.xlim(xmax,xmin)
+    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+        xmin,xmax=plt.xlim()
+        if(xmin)<0.0: xmin=0.0
+        if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+        plt.xlim(xmax,xmin)
     #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
     #    locs, ticks = plt.xticks()
     #    newlocs, newticks = formatRATicks(locs)
