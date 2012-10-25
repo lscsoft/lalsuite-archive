@@ -17,6 +17,7 @@ check_PROGRAMS = \
 	GetAMCoeffsTest \
 	NewGetAMCoeffsTest \
 	XLALComputeAMTest \
+	XLALGetSSBtimesTest \
 	PtoleMeshTest \
 	PtoleMetricTest \
 	PulsarCatTest \
