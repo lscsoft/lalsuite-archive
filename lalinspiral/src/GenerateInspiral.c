@@ -278,7 +278,7 @@ LALGenerateInspiral(
     CHECKSTATUSPTR(status);
   }
 
-  /* If no waveform has been generated. (AmpCorPPN and PhenSpinTaylorRD and SpinTaylorFrameless fill waveform.h) */
+  /* If no waveform has been generated. (AmpCorPPN and PhenSpinTaylorRD, SpinTaylorFrameless and SpinTaylorT4 fill waveform.h) */
   if ( waveform->a == NULL && approximant != AmpCorPPN && approximant != PhenSpinTaylorRD && approximant != SpinTaylorFrameless && approximant != SpinTaylorT4 )
   {
     snprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg),

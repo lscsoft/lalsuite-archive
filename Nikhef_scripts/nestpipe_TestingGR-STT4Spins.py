@@ -221,7 +221,7 @@ for run in allcombinations:
 	parser_text += \
 	"""
 padding=1
-psd-chunk-length=210.0
+psd-chunk-length=288.0
 nlive=1000
 nmcmc=100
 nparallel=1
@@ -230,7 +230,7 @@ ifos=['H1','L1','V1']
 events=[0:"""+str(number_of_injs-1)+"]"+"""
 seed=1
 data_seed="""+str(inspnest_dataseed)+"""
-analysis-chunk-length=210.0
+analysis-chunk-length=288.0
 
 [condor]
 inspnest=PATH_TO_OPT/lalapps/bin/lalapps_inspnest

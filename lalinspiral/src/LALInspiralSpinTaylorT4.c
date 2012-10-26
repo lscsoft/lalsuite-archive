@@ -138,7 +138,6 @@ void LALInspiralInterfaceSpinTaylorT4(
 	/* check inputs */
 	ASSERT (waveform,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 	ASSERT (params, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-    ASSERT (params,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
     ASSERT (params->nStartPad >= 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
     ASSERT (params->nEndPad >= 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
     ASSERT (params->fLower > 0.0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
@@ -160,7 +159,7 @@ void LALInspiralInterfaceSpinTaylorT4(
 	LALSpinInteraction spinInteraction;
 	LALSimInspiralInteraction simInteraction = LAL_SIM_INSPIRAL_INTERACTION_DEFAULT;
 	
-	lambda1 = lambda2 = 0.0;
+	lambda1 = lambda2 = 0.0; /** Tidal effects switched off **/
 	i = params->inclination;
 	lnhatx = sin(i);
 	lnhaty = 0.0;
@@ -207,20 +206,7 @@ void LALInspiralInterfaceSpinTaylorT4(
 		if( (spinInteraction & LAL_SSselfInter) == LAL_SSselfInter ) simInteraction |= SSselfinter ;	
 		if( (spinInteraction & LAL_QMInter) == LAL_QMInter ) simInteraction |= QMinter ;	
 	}
-	
-	InspiralInit *paramsInit = NULL;
-	paramsInit = (InspiralInit*) LALCalloc( 1, sizeof(InspiralInit));
-	LALInspiralInit( status->statusPtr, params, paramsInit);
-	CHECKSTATUSPTR(status); 
-	if (paramsInit->nbins==0)
-	{
-        LALFree(paramsInit);
-
-		DETATCHSTATUSPTR(status);
-		RETURN (status);
-	}
-	
-
+		
 	/* DEBUGGING PRINT */
 #if DEBUG
 	printf(	"XLALSimInspiralSpinTaylorT4( hplus pointer = %ld , \nhcrossptr = %ld , \nphiRef = %e , \nv0 = %e ,\ndeltaT = %e ,\nm1 = %e ,\nm2 = %e ,\nfStart = %e ,\nfRef = %e , \
@@ -236,39 +222,38 @@ void LALInspiralInterfaceSpinTaylorT4(
 
 	/* Fill in the CoherentGW structure */
 
-      /* Allocate the waveform structures. */
-      
-      if ( ( waveform->h = (REAL4TimeVectorSeries *)
-                  LALMalloc( sizeof(REAL4TimeVectorSeries) ) ) == NULL ) {
-          ABORT( status, LALINSPIRALH_EMEM,
-                  LALINSPIRALH_MSGEMEM );
-      }
-      memset( waveform->h, 0, sizeof(REAL4TimeVectorSeries) );
-      
+    /* Allocate the waveform structures. */
+    
+    if ( ( waveform->h = (REAL4TimeVectorSeries *)
+                LALMalloc( sizeof(REAL4TimeVectorSeries) ) ) == NULL ) {
+        ABORT( status, LALINSPIRALH_EMEM,
+                LALINSPIRALH_MSGEMEM );
+    }
+    memset( waveform->h, 0, sizeof(REAL4TimeVectorSeries) );
+    
+    waveform->h->deltaT = hplusptr->deltaT;
+    waveform->h->f0 = hplusptr->f0;
+    waveform->h->sampleUnits = hplusptr->sampleUnits;
+    waveform->h->epoch.gpsSeconds = hplusptr->epoch.gpsSeconds; 
+    waveform->h->epoch.gpsNanoSeconds = hplusptr->epoch.gpsNanoSeconds;
+    waveform->position = ppnParams->position;
+    waveform->psi = ppnParams->psi;
+    snprintf( waveform->h->name, LALNameLength, "SpinTaylorT4 polarizations");
 
-      waveform->h->deltaT = hplusptr->deltaT;
-      waveform->h->f0 = hplusptr->f0;
-      waveform->h->sampleUnits = hplusptr->sampleUnits;
-      waveform->h->epoch.gpsSeconds = hplusptr->epoch.gpsSeconds; 
-      waveform->h->epoch.gpsNanoSeconds = hplusptr->epoch.gpsNanoSeconds;
-      waveform->position = ppnParams->position;
-      waveform->psi = ppnParams->psi;
-      snprintf( waveform->h->name, LALNameLength, "SpinTaylorT4 polarizations");
+    waveform->h->data = XLALCreateREAL4VectorSequence(bins, 2);
 
-      waveform->h->data = XLALCreateREAL4VectorSequence(bins, 2);
+    /* Copy the data from REAL8TimeSeries to a REAL4TimeVectorSeries */
 
-      /* Copy the data from REAL8TimeSeries to a REAL4TimeVectorSeries */
+    REAL4Vector *hplus4 = (REAL4Vector *)XLALCreateREAL4Vector(bins);
+    REAL4Vector *hcross4 = (REAL4Vector *)XLALCreateREAL4Vector(bins);
 
-      REAL4Vector *hplus4 = (REAL4Vector *)XLALCreateREAL4Vector(bins);
-      REAL4Vector *hcross4 = (REAL4Vector *)XLALCreateREAL4Vector(bins);
-
-      UINT4 j;
-      for (j=0;j<bins;j++) {
-		  hplus4->data[j]=(REAL4)hplusptr->data->data[j];  /* Move into a REAL4 vector */
-		  hcross4->data[j]=(REAL4)hcrossptr->data->data[j];
-		  waveform->h->data->data[2*j] = (REAL4)hplusptr->data->data[j];  /* the convention is writing hp and hc in alternating sequence */
-		  waveform->h->data->data[2*j+1] = (REAL4)hcrossptr->data->data[j];
-	  }
+    UINT4 j;
+    for (j=0;j<bins;j++) {
+        hplus4->data[j]=(REAL4)hplusptr->data->data[j];  /* Move into a REAL4 vector */
+        hcross4->data[j]=(REAL4)hcrossptr->data->data[j];
+        waveform->h->data->data[2*j] = (REAL4)hplusptr->data->data[j];  /* the convention is writing hp and hc in alternating sequence */
+        waveform->h->data->data[2*j+1] = (REAL4)hcrossptr->data->data[j];
+	}
 
 	/* print the REAL4Vector to file */
 	
@@ -283,7 +268,7 @@ void LALInspiralInterfaceSpinTaylorT4(
     /* fill some output */
     ppnParams->tc     = (double)(bins-1) * deltaT ;
     ppnParams->length = bins;
-    ppnParams->dfdt   = ((REAL4)(waveform->h->data->data[bins-1] - waveform->h->data->data[bins-2]))* deltaT;
+    ppnParams->dfdt = 0.0;  // NOT USED ???
     ppnParams->fStop  = params->fFinal;
     ppnParams->fStart   = ppnParams->fStartIn;
     // ppnParams->termCode        = GENERATEPPNINSPIRALH_EFSTOP;
@@ -295,7 +280,6 @@ void LALInspiralInterfaceSpinTaylorT4(
 	XLALDestroyREAL4Vector(hcross4);
 	XLALDestroyREAL8TimeSeries(hplusptr);
 	XLALDestroyREAL8TimeSeries(hcrossptr);
-	LALFree(paramsInit);
 	LALFree(endTime);
 	
     DETATCHSTATUSPTR( status );
@@ -511,9 +495,9 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     params.wdotcoeff[3]*=1.0+dxis[3];
     params.wdotcoeff[4]*=1.0+dxis[4];
     params.wdotcoeff[5]*=1.0+dxis[5];
-    params.wdotcoeff[6]*=1.0+dxis[7];
-    params.wdotlogcoeff*=1.0+dxis[8];
-    params.wdotcoeff[7]*=1.0+dxis[9];
+    params.wdotcoeff[6]*=1.0+dxis[6];
+    params.wdotlogcoeff*=1.0+dxis[7];
+    params.wdotcoeff[7]*=1.0+dxis[8];
 
     
   /*}

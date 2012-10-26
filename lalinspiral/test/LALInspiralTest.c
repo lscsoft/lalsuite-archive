@@ -118,15 +118,15 @@ int main (void) {
    params.OmegaS = 0.;
    params.Theta = 0.;
    params.ieta=1;
-   params.mass1=5.1;
-   params.mass2=5.;
+   params.mass1=1.;
+   params.mass2=1.;
    params.startTime=0.0;
    params.startPhase=0.0;
-   params.fLower=40.0;
+   params.fLower=20.0;
    params.fCutoff=2048.00;
    params.tSampling=8192.0;
-   params.order=6;
-   params.approximant=IMRPhenomB;
+   params.order=7;
+   params.approximant=TaylorT4;
 /* SpinTaylorT3 */
    params.signalAmplitude=1.0;
    params.nStartPad=0;

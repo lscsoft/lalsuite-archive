@@ -78,6 +78,16 @@ typedef enum
 }
 InclDistribution;
 
+/** enum containing the different ways in which the spin magnitudes of
+    injections can be distributed */
+typedef enum
+{
+  unknownSpinDist,
+  uniformSpinDist,
+  gaussianSpinDist
+}
+SpinDistribution;
+
 /* includes */
 #include <stdlib.h>
 #include <math.h>
@@ -164,7 +174,9 @@ SimInspiralTable* XLALRandomInspiralSpins( SimInspiralTable *inj,
     REAL4  abskappa1Min,
     REAL4  abskappa1Max,
     int aligned,
-    int distribution);
+    SpinDistribution distribution,
+    REAL4  spin1Std,
+    REAL4  spin2Std);
 
 SimInspiralTable* XLALRandomNRInjectTotalMass(
     SimInspiralTable *inj,

@@ -120,6 +120,7 @@ DistanceDistribution          dDistr;
 SkyLocationDistribution       lDistr;
 MassDistribution              mDistr;
 InclDistribution              iDistr;
+SpinDistribution              spinDistr = uniformSpinDist;
 
 SimInspiralTable *simTable;
 SimRingdownTable *simRingTable;
@@ -165,8 +166,10 @@ REAL4 epsAngle=1e-7;
 int spinInjections=-1;
 REAL4 minSpin1=-1.0;
 REAL4 maxSpin1=-1.0;
+REAL4 Spin1Std=0.05;
 REAL4 minSpin2=-1.0;
 REAL4 maxSpin2=-1.0;
+REAL4 Spin2Std=0.05;
 REAL4 minKappa1=-1.0;
 REAL4 maxKappa1=1.0;
 REAL4 minabsKappa1=0.0;
@@ -180,7 +183,6 @@ REAL8 redshift;
 /* default: they are NOT used! */
 INT4 phiTestInjections=0;
 INT4 dphiUniform=0;
-INT4 spinDistr=0;
 INT4 MGInjections = 0;
 INT4 BDinjections = 0;
 INT4 PPEinjections = 0;
@@ -646,11 +648,13 @@ static void print_usage(char *program)
       "  --disable-spin           disables spinning injections\n"\
       "  --enable-spin            enables spinning injections\n"\
       "                           One of these is required.\n"\
+      "  [--spin-gaussian]           enable gaussian spin distribution\n"\
       "  [--min-spin1] spin1min   Set the minimum spin1 to spin1min (0.0)\n"\
       "  [--max-spin1] spin1max   Set the maximum spin1 to spin1max (0.0)\n"\
+      "  [--stdev-spin1] spin1std Set the standard deviation for |spin1|\n"\
       "  [--min-spin2] spin2min   Set the minimum spin2 to spin2min (0.0)\n"\
       "  [--max-spin2] spin2max   Set the maximum spin2 to spin2max (0.0)\n"\
-      "  --spin-gaussian           enable gaussian spin distribution\n"\
+      "  [--stdev-spin2] spin1std Set the standard deviation for |spin2|\n"\
       "  [--min-kappa1] kappa1min Set the minimum cos(S1.L_N) to kappa1min (-1.0)\n"\
       "  [--max-kappa1] kappa1max Set the maximum cos(S1.L_N) to kappa1max (1.0)\n"\
       "  [--min-abskappa1] abskappa1min \n"\
@@ -1453,6 +1457,8 @@ int main( int argc, char *argv[] )
     {"sdphi8",                  required_argument, 0,                 1043},
     {"sdphi9",                  required_argument, 0,                 1044},
     {"spin-gaussian",           no_argument,       0,                 1046},
+    {"stdev-spin1",             required_argument, 0,                 1047},
+    {"stdev-spin2",             required_argument, 0,                 1048},
     {"enable-mg",               no_argument,       0,                 1020},   
     {"loglambdaG",              required_argument, 0,                 1021},
     {"enable-bd",               no_argument,       0,                 1022},
@@ -2454,11 +2460,25 @@ int main( int argc, char *argv[] )
           break;
       case 1046:
               /* gaussian distribution for spin magnitude from 0 to 1 */
-        this_proc_param = this_proc_param->next = 
-        next_process_param( long_options[option_index].name, "string", 
+            this_proc_param = this_proc_param->next = 
+            next_process_param( long_options[option_index].name, "string", 
               "" );
-        spinDistr = 1;
+            spinDistr = gaussianSpinDist;
         break;
+      case 1047:
+            Spin1Std = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", Spin1Std );
+        break;
+
+      case 1048:
+            Spin2Std = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", Spin2Std );
+        break;
+
       case 1020:
               /* enable massive graviton injections */
         this_proc_param = this_proc_param->next = 
@@ -2836,6 +2856,21 @@ int main( int argc, char *argv[] )
 
   if ( spinInjections==1 )
   {
+    if ( spinDistr == unknownSpinDist )  /* Not currently used */
+    {
+      fprintf(stderr,"Must specify a spin magnitude distribution (--spin-distr).\n");
+      exit( 1 );
+    }
+
+    /* check that spin stddev is positive */
+    if ( spinDistr==gaussianSpinDist && (Spin1Std <= 0.0 || Spin2Std <= 0.0))
+    {
+        fprintf( stderr,
+            "Must specify positive |spin| standard deviations if choosing"
+            " --spin-gaussian\n" );
+        exit( 1 );
+    }
+
     /* check that spins are in range 0 - 1 */
     if (minSpin1 < 0. || minSpin2 < 0. || maxSpin1 > 1. || maxSpin2 >1.)
     {
@@ -3147,7 +3182,7 @@ int main( int argc, char *argv[] )
           minSpin2, maxSpin2,
           minKappa1, maxKappa1,
           minabsKappa1, maxabsKappa1,
-          aligned, spinDistr);
+          aligned, spinDistr, Spin1Std, Spin2Std);
     }
 
     if ( ifos != NULL )

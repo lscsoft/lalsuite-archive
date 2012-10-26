@@ -344,7 +344,9 @@ SimInspiralTable* XLALRandomInspiralSpins(
     REAL4  abskappa1Min,	/**< FIXME: !TO BE DOCUMENTED! */
     REAL4  abskappa1Max,	/**< FIXME: !TO BE DOCUMENTED! */
     int aligned,			/**< FIXME: !TO BE DOCUMENTED! */
-    int distribution
+    SpinDistribution distribution,	/**< the spin magnitude distribution to use */
+    REAL4  spin1Std,		/**< standard deviation for |spin1| */
+    REAL4  spin2Std			/**< standard deviation for |spin2| */
     )
 {
   REAL4 spin1Mag;
@@ -370,10 +372,10 @@ SimInspiralTable* XLALRandomInspiralSpins(
   /* spin1Mag */
   switch (distribution)
   {
-	case 0:  spin1Mag =  spin1Min + XLALUniformDeviate( randParams ) *(spin1Max - spin1Min);
+	case uniformSpinDist:  spin1Mag =  spin1Min + XLALUniformDeviate( randParams ) *(spin1Max - spin1Min);
 	break;
-	case 1:  
-	  do spin1Mag = spin1Min + 0.05*XLALNormalDeviate(randParams);
+	case gaussianSpinDist:  
+	  do spin1Mag = spin1Min + spin1Std*XLALNormalDeviate(randParams);
       while ( spin1Mag > spin1Max || spin1Mag < spin1Min );
     break;
     default: {
@@ -441,10 +443,10 @@ SimInspiralTable* XLALRandomInspiralSpins(
   /* spin2Mag */
   switch (distribution)
   {
-	case 0:  spin2Mag =  spin2Min + XLALUniformDeviate( randParams ) *(spin2Max - spin2Min);
+	case uniformSpinDist:  spin2Mag =  spin2Min + XLALUniformDeviate( randParams ) *(spin2Max - spin2Min);
 	break;
-	case 1:  
-	  do spin2Mag = spin2Min + 0.05*XLALNormalDeviate(randParams);
+	case gaussianSpinDist:  
+	  do spin2Mag = spin2Min + spin2Std*XLALNormalDeviate(randParams);
       while ( spin2Mag > spin2Max || spin2Mag < spin2Min );
     break;
     default: {

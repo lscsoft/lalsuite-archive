@@ -1135,22 +1135,23 @@ int main( int argc, char *argv[])
 			SimInspiralTable this_injection;
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
             REAL8 dphis[10]={0.0};
-            dphis[0]=this_injection.dphi0;
-            dphis[1]=this_injection.dphi1;
-            dphis[2]=this_injection.dphi2;
-            dphis[3]=this_injection.dphi3;
-            dphis[4]=this_injection.dphi4;
-            dphis[5]=this_injection.dphi5;
-            dphis[6]=this_injection.dphi5l;
-            dphis[7]=this_injection.dphi6;
-            dphis[8]=this_injection.dphi6l;
-            dphis[9]=this_injection.dphi7;
-            for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+            if (template.approximant==SpinTaylorT4) {
+              dphis[0]=this_injection.dphi0;
+              dphis[1]=this_injection.dphi1;
+              dphis[2]=this_injection.dphi2;
+              dphis[3]=this_injection.dphi3;
+              dphis[4]=this_injection.dphi4;
+              dphis[5]=this_injection.dphi5;
+              dphis[6]=this_injection.dphi6;
+              dphis[7]=this_injection.dphi6l;
+              dphis[8]=this_injection.dphi7;
+              for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi%i = %e\n",k,dphis[k]);
+            }
             fprintf(stderr, "Injecting spin1: ( %e , %e , %e )\n", this_injection.spin1x, this_injection.spin1y, this_injection.spin1z);
             fprintf(stderr, "Injecting spin2: ( %e , %e , %e )\n", this_injection.spin2x, this_injection.spin2y, this_injection.spin2z);
 			/* INJECTING NON-GR SPIN TAYLOR T4 */
-/*            if (template.approximant==SpinTaylorT4Test) {
-				printf("Using approximant SpinTaylorT4Test (from lalsimulation)");
+/*            if (template.approximant==SpinTaylorT4) {
+				printf("Using approximant SpinTaylorT4 (from lalsimulation)");
 			if (XLALGetSpinInteractionFromString(&inspiralParams.spinInteraction, thisEvent->waveform) == XLAL_FAILURE) {
 				ABORTXLAL(status);
 			}
