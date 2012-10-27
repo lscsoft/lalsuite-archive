@@ -468,5 +468,3 @@ def make_experiment_tables(xmldoc, **cmdline_opts):
 
 	populate_experiment_map(xmldoc, cmdline_opts["vetoes_name"], verbose = cmdline_opts["verbose"])
 
-	depopulate_experiment_tables(xmldoc, verbose = cmdline_opts["verbose"])
-
