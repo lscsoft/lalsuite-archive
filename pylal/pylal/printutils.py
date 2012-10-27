@@ -837,12 +837,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
 
     # make a dictionary of zerolag "shifts" needed for the get_coinc_segments function
     zerolag_dict = {}
-    sqlquery = """
-        SELECT DISTINCT ifos
-        FROM process
-        WHERE program == "inspiral"
-    """
-    for ifo in connection.cursor().execute( sqlquery ):
+    for ifo in ifo_segemnts:
         zerolag_dict[ifo] = 0.0
 
     # Cycle over available veto categories
