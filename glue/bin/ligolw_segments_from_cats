@@ -103,7 +103,7 @@ def parse_command_line():
     parser.add_option("-v", "--veto-file",    metavar = "veto_file",    help = "veto XML file (required).")
     parser.add_option("-o", "--output-dir",   metavar = "output_dir",   default = '.',          help = "Directory to write output (default=cwd).")
     parser.add_option("-k", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
-    parser.add_option("-r", "--remove-definer-table",    action = "store_true", help = "If set the veto definer table will not be included in the output.")
+    parser.add_option("-a", "--add-definer-table",    action = "store_true",  default = False, help = "If set, the veto definer table will be included in the output; otherwise, not.")
 
     parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
@@ -304,13 +304,14 @@ if __name__ == '__main__':
             doc.appendChild(ligolw.LIGO_LW())
 
             # Copy veto definer's process table
-            doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['process']).childNodes[0])
+            if options.add_definer_table:
+                doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['process']).childNodes[0])
 
             # Register ourselves
             proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__, version=git_version.id).process_id
 
-            # Keep the veto_definer for tracking purposes
-            if not options.remove_definer_table:
+            # Add the veto_definer for tracking purposes
+            if options.add_definer_table:
                 doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['veto_definer']).childNodes[0])
 
             # loop over select of name, version where ifo=current ifo and category <= current category
