@@ -191,7 +191,6 @@ del time_slide_dict[ zero_lag_dict.keys()[0] ]
 # initialize duration bank
 dur_bank = Durations()
 
-# get single-ifo segments after CAT-1 vetoes
 sqlquery = """
     SELECT value
     FROM process_params
@@ -227,17 +226,10 @@ if options.verbose:
 # get veto_segments
 veto_segments = compute_dur.get_veto_segments(xmldoc, options.verbose)
 
-# Apply DQ vetoes to single-ifo segments
-post_vetoes_ifosegs = {}
-for category, veto_seg_dict in veto_segments.items():
-    post_vetoes_ifosegs[category] = {}
-    for usertag, ifo_seg_dict in ifo_segments.items():
-        post_vetoes_ifosegs[category][usertag] = ifo_seg_dict - veto_seg_dict
-
-for veto_def_name in veto_segments.keys():
+for veto_def_name, veto_seg_dict in veto_segments.items():
     if options.verbose:
         print >> sys.stderr, "\n\tThe DQ vetoes applied to the single-ifo segments are %s" % veto_def_name
-    for usertag in ifo_segments.keys():
+    for usertag, ifo_seg_dict in ifo_segments.items():
         # compute the durations (or livetimes) for every possible instrument combo for every
         # slide in the time-slide table; the resulting durations dictionary has the following form:
         # durations[(on_instruments, veto_def_name, datatype, time_slide_id)] = livetime (in seconds)
@@ -246,7 +238,7 @@ for veto_def_name in veto_segments.keys():
             print >> sys.stderr, "\n\t\tCalculating live-time for %s zerolag time" % usertag
         # determine the durations for the zerolag time
         livetime_dict = compute_dur.get_livetimes(
-            post_vetoes_ifosegs[veto_def_name][usertag],
+            ifo_seg_dict - veto_seg_dict,
             zero_lag_dict,
             verbose = options.verbose)
         dur_bank.map_slides_to_durations(
@@ -259,7 +251,7 @@ for veto_def_name in veto_segments.keys():
             if options.verbose:
                 print >> sys.stderr, "\n\t\tCalculating live-time for each %s time slide" % usertag
             livetime_dict = compute_dur.get_livetimes(
-                post_vetoes_ifosegs[veto_def_name][usertag],
+                ifo_seg_dict - veto_seg_dict,
                 time_slide_dict,
                 verbose = options.verbose)
             dur_bank.map_slides_to_durations(
