@@ -118,7 +118,7 @@ int XLALSimInspiralTaylorF2Test(
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi6l")) pfl6*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi6l"));
         if (XLALSimInspiralTestGRParamExists(extraParams,"dchi7")) pfa7*=(1.0+XLALSimInspiralGetTestGRParam(extraParams,"dchi7"));
     }
-
+    
     /* flux coefficients */
     const REAL8 FTaN = XLALSimInspiralTaylorT1Flux_0PNCoeff(eta);
     const REAL8 FTa2 = XLALSimInspiralTaylorT1Flux_2PNCoeff(eta);
