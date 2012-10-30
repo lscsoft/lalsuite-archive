@@ -2046,11 +2046,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
   } else {
 
-    if(start_time < (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds)){
-      fprintf(stderr, "ERROR: Desired start time %f is before start of segment %f (in %s, line %d)\n",start_time,(IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds), __FILE__, __LINE__);
-      exit(1);
-    }
-
     LALSimInspiralTestGRParam *nonGRparams=NULL;
     
     const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
