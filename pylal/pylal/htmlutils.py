@@ -1,21 +1,47 @@
 #!/usr/bin/env python
 
+# Copyright (C) 2012 Duncan M. Macleod
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""Utilities for HTML generation on the LIGO Data Grid.
+
+This module provides some useful functions for buildling HTML content
+on the LIGO Data Grid, and a few extensions to glue.markup to streamline
+GEO/LIGO tools that use very similar web interfaces.
+"""
+
 # =============================================================================
 # Preamble
 # =============================================================================
 
 from __future__ import division
-import re,socket
+
+import re
+import socket
+
 from glue import markup
+
 from pylal import git_version
 
-__author__  = "Duncan Macleod <duncan.macleod@ligo.org>"
+__author__ = "Duncan M. Macleod <duncan.macleod@ligo.org>"
 __version__ = "git id %s" % git_version.id
-__date__    = git_version.date
+__date__ = git_version.date
 
-"""
-This module provides a few extensions to glue.markup to streamline GEO/LIGO detector characterisation tools that use very similar web interfaces
-"""
+__all__ = ["about_page", "build_page", "get_web_server", "simple_page",\
+           "summary_page", "write_glossary", "write_menu", "write_table"]
 
 # =============================================================================
 # Write table
@@ -189,17 +215,16 @@ def write_glossary(entries, htag="h1",\
 # Construct HTML base
 # =============================================================================
 
-def get_ldas_url():
-    """
-    Returns the url for http access to this host, based on its domain name
-    Returns None-type if you"re not on a recognised LIGO-Virgo cluster.
-    Should not be used when not on an LDAS cluster, can"t tell the difference 
-    between nodes on CDS network at a site, and those on LDAS, for example...
+def get_web_server():
+    """Find the web server for this host on the LIGO Data Grid.
+
+    @returns the fully-qualified domain name of the web server
+    associated with this host.
 
     Example:
     >>> socket.getfqdn()
     ldas-pcdev1.ligo-la.caltech.edu
-    >>> dqHTMLUtils.get_ldas_url()
+    >>> htmlutils.get_web_server()
     "https://ldas-jobs.ligo-la.caltech.edu"
     """
 
@@ -208,28 +233,28 @@ def get_ldas_url():
 
     # work out web root
     if re.search("ligo.caltech", fqdn):
-        root = "https://ldas-jobs.ligo.caltech.edu"
+        url = "https://ldas-jobs.ligo.caltech.edu"
     elif re.search("ligo-wa", fqdn):
-        root = "https://ldas-jobs.ligo-wa.caltech.edu"
+        url = "https://ldas-jobs.ligo-wa.caltech.edu"
     elif re.search("ligo-la", fqdn):
-        root = "https://ldas-jobs.ligo-la.caltech.edu"
+        url = "https://ldas-jobs.ligo-la.caltech.edu"
     elif re.search("atlas", fqdn):
         match = re.search("atlas[13]", fqdn)
         if match:
             host = match.group()
-            root = "https://%s.atlas.aei.uni-hannover.de" % host
+            url = "https://%s.atlas.aei.uni-hannover.de" % host
         else:
-            root = "https://atlas1.atlas.aei.uni-hannover.de"
+            url = "https://atlas1.atlas.aei.uni-hannover.de"
     elif re.search("phy.syr", fqdn):
-        root = "https://sugar-jobs.phy.syr.edu"
+        url = "https://sugar-jobs.phy.syr.edu"
     elif re.search("astro.cf", fqdn):
-        root = "https://gravity.astro.cf.ac.uk"
+        url = "https://gravity.astro.cf.ac.uk"
     elif re.search("phys.uwm", fqdn):
-        root = "https://ldas-jobs.phys.uwm.edu"
+        url = "https://ldas-jobs.phys.uwm.edu"
     else:
-        root = None
+        raise socket.herror("No web domain known for host %s." % fqdn)
 
-    return root
+    return url
 
 # =============================================================================
 # Write simple page with plots and run information
