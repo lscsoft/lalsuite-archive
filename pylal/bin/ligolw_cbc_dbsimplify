@@ -215,7 +215,7 @@ if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 try: connection.cursor().executescript( sqlscript )
-except: print "Warning (not serious): there was no veto definer table" 
+except: print "Warning (not serious): there was no veto definer table"
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
@@ -272,68 +272,43 @@ if opts.verbose:
     print >> sys.stdout, "Cleaning up the time_slide table ..."
 
 sqlscript = """
---
--- Cleaning up the time_slide table
---
--- Update the process_ids in the time_slide table with the new ids from _pidmap_
-UPDATE time_slide 
-    SET process_id = (
-        SELECT new_pid 
-        FROM _pidmap_ 
-        WHERE process_id == old_pid);
+CREATE TEMP TABLE all_slides AS
+SELECT
+    time_slide_id AS id,
+	concat_2cols(instrument, offset) AS slide 
+FROM
+    time_slide
+GROUP BY
+    time_slide_id;
 
--- Create a table that combines the information about a single time_slide into 
--- a single row.  This makes comparison between time_slides easier.
-CREATE TEMP TABLE compact_time_slide AS
+CREATE TEMP TABLE distinct_slides AS
     SELECT
-        time_slide_id AS tsid,
-        process_id AS pid,
-        group_concat(instrument) AS ifos,
-        group_concat(offset) AS offset
-    FROM time_slide
-    GROUP BY time_slide_id;
-
--- Create a table that maps the time_slide_ids of redundant time_slide entries
--- to those entries one is going to keep.
-CREATE TEMP TABLE _tsidmap_ AS
-    SELECT
-        old_ts_table.tsid AS old_tsid,
-        MIN(new_ts_table.tsid) AS new_tsid
+        MIN(id) AS id,
+        slide
     FROM
-        compact_time_slide AS old_ts_table
-        JOIN compact_time_slide AS new_ts_table ON (
-            new_ts_table.pid == old_ts_table.pid
-            AND new_ts_table.ifos == old_ts_table.ifos
-            AND new_ts_table.offset == old_ts_table.offset)
-    GROUP BY old_tsid;
+        all_slides
+    GROUP BY
+        slide;
 
-DROP TABLE compact_time_slide;
+CREATE TEMP TABLE _idmap_ AS
+    SELECT 
+        distinct_slides.id AS new,
+        all_slides.id AS old
+    FROM
+        all_slides
+    JOIN
+        distinct_slides ON (
+            distinct_slides.slide == all_slides.slide
+        );
 
-CREATE INDEX tsidmap_index ON _tsidmap_ (old_tsid);
+CREATE INDEX idm_o_index ON _idmap_ (old);
+UPDATE coinc_event SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
+UPDATE experiment_summary SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
 
--- Update the coinc_event and experiment_summary tables with new time_slide_ids
-UPDATE coinc_event 
-    SET time_slide_id = (
-        SELECT new_tsid 
-        FROM _tsidmap_ 
-        WHERE old_tsid == time_slide_id);
-UPDATE experiment_summary
-    SET time_slide_id = (
-        SELECT new_tsid 
-        FROM _tsidmap_ 
-        WHERE old_tsid == time_slide_id);
+DELETE FROM time_slide WHERE time_slide_id IN (SELECT old FROM _idmap_ WHERE old != new);
 
-DROP INDEX tsidmap_index;
-
--- Delete the redundant entries in the time_slide table
-DELETE FROM time_slide 
-    WHERE time_slide_id IN (
-        SELECT old_tsid 
-        FROM _tsidmap_ 
-        WHERE old_tsid != new_tsid);
-
-DROP TABLE _tsidmap_;
-
+DROP TABLE all_slides;
+DROP TABLE _idmap_;
 """
 if opts.debug:
     print >> sys.stderr, sqlscript
