@@ -16,7 +16,7 @@ import os
 
 inspinj_seed=8000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="GR"   ## This has to be either GR or the name of the test param (e.g. dphi7)
-shift=-10            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+shift=0            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
 sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=500 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
@@ -44,7 +44,7 @@ logdir = "/people/magathos/STT4Spins/%s/%s"%(type_name,inspinj_seed)            
  ## NOTE: You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code w#ill add the seed and the type of run (GR or tested param +value of the shift)
 
 hypotheses =["dphi1","dphi2","dphi3","dphi4"]
-allPNparams = ["dphi0","dphi1", "dphi2", "dphi3", "dphi4", "dphi5", "dphi5l", "dphi6", "dphi6l", "dphi7", "spin1", "spin2"]
+allPNparams = ["dphi0","dphi1", "dphi2", "dphi3", "dphi4", "dphi5", "dphi5l", "dphi6", "dphi6l", "dphi7"]
 
 ################################################################################
 #
@@ -74,12 +74,12 @@ inspinj_command="""%s/lalapps/bin/lalapps_inspinj \
 --d-distr volume \
 --l-distr random \
 --i-distr uniform \
---min-mass1 1.0 \
+--min-mass1 1.2 \
 --max-mass1 2.0 \
---min-mass2 1.0 \
+--min-mass2 1.2 \
 --max-mass2 2.0 \
 --m-distr componentMass \
---min-mtotal 2.0 \
+--min-mtotal 2.4 \
 --max-mtotal 4.0 \
 --enable-spin \
 --min-spin1 0.0 \
@@ -221,7 +221,7 @@ for run in allcombinations:
 	parser_text += \
 	"""
 padding=1
-psd-chunk-length=288.0
+psd-chunk-length=215.0
 nlive=1000
 nmcmc=100
 nparallel=1
@@ -230,7 +230,7 @@ ifos=['H1','L1','V1']
 events=[0:"""+str(number_of_injs-1)+"]"+"""
 seed=1
 data_seed="""+str(inspnest_dataseed)+"""
-analysis-chunk-length=288.0
+analysis-chunk-length=215.0
 
 [condor]
 inspnest=PATH_TO_OPT/lalapps/bin/lalapps_inspnest
