@@ -1972,10 +1972,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 			XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
 		}
     }
-    REAL8 dchi3= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
+    //REAL8 dchi3= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
     
-    // Salvo remember to add all the dchis here below
-    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0 || previous_dchi3!=dchi3){
+    // Salvo remember to add all the dchis here below Walter: they are unnecessary unless we want to lose backward compatibility
+    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
 						   spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
 						   inclination, lambda1, lambda2, waveFlags, nonGRparams,
