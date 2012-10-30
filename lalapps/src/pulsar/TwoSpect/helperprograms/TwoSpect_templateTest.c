@@ -51,15 +51,14 @@
 //Global variables
 FILE *LOG = NULL, *ULFILE = NULL, *NORMRMSOUT = NULL;
 CHAR *earth_ephemeris = NULL, *sun_ephemeris = NULL, *sft_dir = NULL;
-
+static const LALStatus empty_status;
 
 //Main program
 int main(int argc, char *argv[])
 {
    
    INT4 ii, jj;               //counter variables
-   LALStatus status;          //LALStatus structure
-   status.statusPtr = NULL;   //Set statuspointer to NULL
+   LALStatus status = empty_status;          //LALStatus structure
    char s[1000], t[1000], u[1000];   //Path and file name to LOG, ULFILE, and NORMRMSOUT
    time_t programstarttime, programendtime;
    struct tm *ptm;
@@ -73,18 +72,22 @@ int main(int argc, char *argv[])
    //Initiate command line interpreter and config file loader
    struct gengetopt_args_info args_info;
    struct cmdline_parser_params *configparams;
-   configparams = cmdline_parser_params_create();
-   configparams->initialize = 0;
-   configparams->override = 1;
-   if ( cmdline_parser(argc, argv, &args_info) ) {
-      fprintf(stderr, "%s: cmdline_parser() failed.\n", __func__);
+   configparams = cmdline_parser_params_create();  //initialize parameters structure
+   configparams->check_required = 0;  //don't check for required values at the step
+   if ( cmdline_parser_ext(argc, argv, &args_info, configparams) ) {
+       fprintf(stderr, "%s: cmdline_parser() failed.\n", __func__);
+       XLAL_ERROR(XLAL_FAILURE);
+   }
+   configparams->initialize = 0;  //don't reinitialize the parameters structure
+   if ( args_info.config_given && cmdline_parser_config_file(args_info.config_arg, &args_info, configparams) ) {
+      fprintf(stderr, "%s: cmdline_parser_config_file() failed.\n", __func__);
       XLAL_ERROR(XLAL_FAILURE);
    }
-   if ( args_info.config_given ) {
-      if ( cmdline_parser_config_file(args_info.config_arg, &args_info, configparams) ) {
-         fprintf(stderr, "%s: cmdline_parser_config_file() failed.\n", __func__);
-         XLAL_ERROR(XLAL_FAILURE);
-      }
+   configparams->override = 1;  //override values in the configuration file
+   configparams->check_required = 1;  //check for required values now
+   if ( cmdline_parser_ext(argc, argv, &args_info, configparams) ) {
+      fprintf(stderr, "%s: cmdline_parser_ext() failed.\n", __func__);
+      XLAL_ERROR(XLAL_FAILURE);
    }
    
    
@@ -294,8 +297,8 @@ int main(int argc, char *argv[])
    fprintf(LOG, "Loading in SFTs... ");
    fprintf(stderr, "Loading in SFTs... ");
    ffdata->tfnormalization = 2.0/inputParams->Tcoh/(args_info.avesqrtSh_arg*args_info.avesqrtSh_arg);
-   //REAL4Vector *tfdata = readInSFTs(inputParams, &(ffdata->tfnormalization));
-   REAL4Vector *tfdata = simpleTFdata(inputParams->ULfmin, inputParams->Pmin, inputParams->dfmin, inputParams->Tcoh, inputParams->Tobs, inputParams->SFToverlap, round(inputParams->fmin*inputParams->Tcoh - inputParams->dfmax*inputParams->Tcoh - 0.5*(inputParams->blksize-1) - (REAL8)(inputParams->maxbinshift) - 6.0)/inputParams->Tcoh, round((inputParams->fmin + inputParams->fspan)*inputParams->Tcoh + inputParams->dfmax*inputParams->Tcoh + 0.5*(inputParams->blksize-1) + (REAL8)(inputParams->maxbinshift) + 6.0)/inputParams->Tcoh, 1.0);
+   REAL4Vector *tfdata = readInSFTs(inputParams, &(ffdata->tfnormalization));
+   //REAL4Vector *tfdata = simpleTFdata(inputParams->ULfmin, inputParams->Pmin, inputParams->dfmin, inputParams->Tcoh, inputParams->Tobs, inputParams->SFToverlap, round(inputParams->fmin*inputParams->Tcoh - inputParams->dfmax*inputParams->Tcoh - 0.5*(inputParams->blksize-1) - (REAL8)(inputParams->maxbinshift) - 6.0)/inputParams->Tcoh, round((inputParams->fmin + inputParams->fspan)*inputParams->Tcoh + inputParams->dfmax*inputParams->Tcoh + 0.5*(inputParams->blksize-1) + (REAL8)(inputParams->maxbinshift) + 6.0)/inputParams->Tcoh, 1.0);
    if (tfdata==NULL) {
       fprintf(stderr, "\n%s: readInSFTs() failed.\n", __func__);
       XLAL_ERROR(XLAL_EFUNC);
@@ -674,6 +677,10 @@ int main(int argc, char *argv[])
       TFdata_weighted = NULL;
       
       fprintf(stderr, "2nd FFT ave = %g, 2nd FFT stddev = %g, expected ave = %g\n", secFFTmean, secFFTsigma, 1.0);
+      //comment this out
+      /* FILE *FFDATA = fopen("./ffdata.dat","w");
+      for (jj=0; jj<(INT4)ffdata->ffdata->length; jj++) fprintf(FFDATA,"%g\n",ffdata->ffdata->data[jj]);
+      fclose(FFDATA); */
       
       //Exit with failure if there are no SFTs (probably this doesn't get hit)
       if (secFFTmean==0.0) {
@@ -685,7 +692,7 @@ int main(int argc, char *argv[])
       loadCandidateData(&(exactCandidates1->data[0]), inputParams->ULfmin, inputParams->Pmin, inputParams->dfmin, dopplerpos.Alpha, dopplerpos.Delta, 0.0, 0.0, 0.0, 0, 0.0);
       
       //bruteForceTemplateSearch(&(exactCandidates2->data[exactCandidates2->numofcandidates]), exactCandidates1->data[0], exactCandidates1->data[0].fsig-1.0/inputParams->Tcoh, exactCandidates1->data[0].fsig+1.0/inputParams->Tcoh, 25, 31, exactCandidates1->data[0].moddepth-1.0/inputParams->Tcoh, exactCandidates1->data[0].moddepth+1.0/inputParams->Tcoh, 25, inputParams, ffdata->ffdata, sftexist, aveNoise, aveTFnoisePerFbinRatio, secondFFTplan, 1);
-      bruteForceTemplateSearch(&(exactCandidates2->data[exactCandidates2->numofcandidates]), exactCandidates1->data[0], exactCandidates1->data[0].fsig, exactCandidates1->data[0].fsig, 1, 31, exactCandidates1->data[0].moddepth, exactCandidates1->data[0].moddepth, 1, inputParams, ffdata->ffdata, sftexist, aveNoise, aveTFnoisePerFbinRatio, secondFFTplan, 1);
+      //bruteForceTemplateSearch(&(exactCandidates2->data[exactCandidates2->numofcandidates]), exactCandidates1->data[0], exactCandidates1->data[0].fsig, exactCandidates1->data[0].fsig, 1, 31, exactCandidates1->data[0].moddepth, exactCandidates1->data[0].moddepth, 1, inputParams, ffdata->ffdata, sftexist, aveNoise, aveTFnoisePerFbinRatio, secondFFTplan, 1);
       templateStruct *template = new_templateStruct(inputParams->maxtemplatelength);
       if (template==NULL) {
          fprintf(stderr,"%s: new_templateStruct(%d) failed.\n", __func__, inputParams->maxtemplatelength);
@@ -878,8 +885,7 @@ REAL4Vector * readInSFTs(inputParamsStruct *input, REAL8 *normalization)
 {
    
    INT4 ii, jj;
-   LALStatus status;
-   status.statusPtr = NULL;
+   LALStatus status = empty_status;
    SFTCatalog *catalog = NULL;
    
    //Set the start and end times in the LIGO GPS format
@@ -1015,8 +1021,7 @@ void slideTFdata(REAL4Vector *output, inputParamsStruct *input, REAL4Vector *tfd
 void tfRngMeans(REAL4Vector *output, REAL4Vector *tfdata, INT4 numffts, INT4 numfbins, INT4 blksize)
 {
    
-   LALStatus status;
-   status.statusPtr = NULL;
+   LALStatus status = empty_status;
    REAL8 bias;
    INT4 ii, jj;
    INT4 totalfbins = numfbins + blksize - 1;
@@ -1026,14 +1031,12 @@ void tfRngMeans(REAL4Vector *output, REAL4Vector *tfdata, INT4 numffts, INT4 num
    
    //Running median bias calculation
    if (blksize<1000) {
-      LALRngMedBias(&status, &bias, blksize);
-      if (status.statusCode != 0) {
-         fprintf(stderr,"%s: LALRngMedBias() failed.\n", __func__);
+      bias = XLALRngMedBias(blksize);
+      if (xlalErrno != 0) {
+	 fprintf(stderr,"%s: XLALRngMedBias(%d) failed.\n", __func__, blksize);
          XLAL_ERROR_VOID(XLAL_EFUNC);
       }
-   } else {
-      bias = LAL_LN2;
-   }
+   } else bias = LAL_LN2;
    REAL8 invbias = 1.0/(bias*1.0099993480677538);  //StackSlide normalization for 101 bins
    
    //Allocate for a single SFT data and the medians out of each SFT
@@ -1194,8 +1197,7 @@ void removeBadSFTs(REAL4Vector *tfdata, INT4Vector *badsfts)
 INT4Vector * detectLines_simple(REAL4Vector *TFdata, ffdataStruct *ffdata, inputParamsStruct *params)
 {
    
-   LALStatus status;
-   status.statusPtr = NULL;
+   LALStatus status = empty_status;
    
    INT4 blksize = 11, ii, jj;
    
@@ -2003,21 +2005,21 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
       fprintf(stderr,"Using Brent's method for root finding.\n");
    }
    
-   //SFT type MFD or vladimir (Vladimir's SFT generation program has a different normalization factor than Makefakedata)
+   //SFT type standard or vladimir (Vladimir's SFT generation program has a different normalization factor than standard v2)
    params->sftType = XLALCalloc(strlen(args_info.sftType_arg)+1, sizeof(*(params->sftType)));
    if (params->sftType==NULL) {
       fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", __func__, sizeof(*(params->sftType)));
       XLAL_ERROR(XLAL_ENOMEM);
    }
    sprintf(params->sftType, "%s", args_info.sftType_arg);
-   if (strcmp(params->sftType, "MFD")==0) {
+   if (strcmp(params->sftType, "standard")==0) {
       fprintf(LOG,"sftType = %s\n", params->sftType);
       fprintf(stderr,"sftType = %s\n", params->sftType);
    } else if (strcmp(params->sftType, "vladimir")==0) {
       fprintf(LOG,"sftType = %s\n", params->sftType);
       fprintf(stderr,"sftType = %s\n", params->sftType);
    } else {
-      fprintf(stderr, "%s: Not using valid type of SFT! Expected 'MFD' or 'vladimir' not %s.\n", __func__, params->sftType);
+      fprintf(stderr, "%s: Not using valid type of SFT! Expected 'standard' or 'vladimir' not %s.\n", __func__, params->sftType);
       XLAL_ERROR(XLAL_EINVAL);
    }
    
@@ -2060,7 +2062,7 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
    }
    
    
-   //Allocate memory for files and directory
+   //Read in file names for ephemeris files
    if (!args_info.ephemDir_given) {
       fprintf(stderr, "%s: An ephemeris directory path must be specified.\n", __func__);
       XLAL_ERROR(XLAL_FAILURE);
@@ -2071,22 +2073,32 @@ INT4 readTwoSpectInputParams(inputParamsStruct *params, struct gengetopt_args_in
    }
    earth_ephemeris = XLALCalloc(strlen(args_info.ephemDir_arg)+25, sizeof(*earth_ephemeris));
    sun_ephemeris = XLALCalloc(strlen(args_info.ephemDir_arg)+25, sizeof(*sun_ephemeris));
-   sft_dir = XLALCalloc(strlen(args_info.sftDir_arg)+20, sizeof(*sft_dir));
    if (earth_ephemeris==NULL) {
       fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", __func__, sizeof(*earth_ephemeris));
       XLAL_ERROR(XLAL_ENOMEM);
    } else if (sun_ephemeris==NULL) {
       fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", __func__, sizeof(*sun_ephemeris));
       XLAL_ERROR(XLAL_ENOMEM);
-   } else if (sft_dir==NULL) {
-      fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", __func__, sizeof(*sft_dir));
-      XLAL_ERROR(XLAL_ENOMEM);
    }
    sprintf(earth_ephemeris, "%s/earth%s.dat", args_info.ephemDir_arg, args_info.ephemYear_arg);
    sprintf(sun_ephemeris, "%s/sun%s.dat", args_info.ephemDir_arg, args_info.ephemYear_arg);
-   if (args_info.sftDir_given && !args_info.sftFile_given) sprintf(sft_dir, "%s/*.sft", args_info.sftDir_arg);
-   else if (!args_info.sftDir_given && args_info.sftFile_given) sprintf(sft_dir, "%s", args_info.sftFile_arg);
-   else if ((args_info.sftDir_given && args_info.sftFile_given) || !(args_info.sftDir_given && args_info.sftFile_given)) {
+
+   //SFT input
+   if (args_info.sftDir_given && !args_info.sftFile_given) {
+      sft_dir = XLALCalloc(strlen(args_info.sftDir_arg)+20, sizeof(*sft_dir));
+      if (sft_dir==NULL) {
+	 fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", __func__, sizeof(*sft_dir));
+	 XLAL_ERROR(XLAL_ENOMEM);
+      }
+      sprintf(sft_dir, "%s/*.sft", args_info.sftDir_arg);
+   } else if (!args_info.sftDir_given && args_info.sftFile_given) {
+      sft_dir = XLALCalloc(strlen(args_info.sftFile_arg)+2, sizeof(*sft_dir));
+      if (sft_dir==NULL) {
+	 fprintf(stderr, "%s: XLALCalloc(%zu) failed.\n", __func__, sizeof(*sft_dir));
+	 XLAL_ERROR(XLAL_ENOMEM);
+      }
+      sprintf(sft_dir, "%s", args_info.sftFile_arg);
+   } else if ((args_info.sftDir_given && args_info.sftFile_given) || !(args_info.sftDir_given && args_info.sftFile_given)) {
       fprintf(stderr, "%s: One of either sftDir or sftFile must be given but not both or neither.\n", __func__);
       XLAL_ERROR(XLAL_FAILURE);
    }

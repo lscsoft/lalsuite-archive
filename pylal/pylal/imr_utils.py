@@ -135,13 +135,13 @@ def get_instruments_from_coinc_event_table(connection):
 	return instruments
 
 
-def get_segments(connection, xmldoc, table_name, live_time_program, veto_segments_name = None):
+def get_segments(connection, xmldoc, table_name, live_time_program, veto_segments_name = None, data_segments_name = "datasegments"):
 	segs = segments.segmentlistdict()
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
 		if live_time_program == "gstlal_inspiral":
-			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, "datasegments").coalesce()
-			#segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, data_segments_name).coalesce()
+			segs &= llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		elif live_time_program == "thinca":
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
 		else:
@@ -327,7 +327,7 @@ class DataBaseSummary(object):
 	This class stores summary information gathered across the databases
 	"""
 
-	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", tmp_path = None, verbose = False):
+	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", data_segments_name = "datasegments", tmp_path = None, verbose = False):
 
 		self.segments = segments.segmentlistdict()
 		self.instruments = set()
@@ -371,7 +371,7 @@ class DataBaseSummary(object):
 				self.numslides.add(connection.cursor().execute('SELECT count(DISTINCT(time_slide_id)) FROM time_slide').fetchone()[0])
 				[self.instruments.add(ifos) for ifos in get_instruments_from_coinc_event_table(connection)]
 				# save a reference to the segments for this file, needed to figure out the missed and found injections
-				self.this_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name)
+				self.this_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name, data_segments_name = data_segments_name)
 				# FIXME we don't really have any reason to use playground segments, but I put this here as a reminder
 				# self.this_playground_segments = segmentsUtils.S2playground(self.this_segments.extent_all())
 				self.segments += self.this_segments
@@ -385,7 +385,7 @@ class DataBaseSummary(object):
 			# get the injections
 			else:
 				# We need to know the segments in this file to determine which injections are found
-				self.this_injection_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name)
+				self.this_injection_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name, data_segments_name = data_segments_name)
 				self.this_injection_instruments = []
 				distinct_instruments = connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""').fetchall()
 				for instruments, in distinct_instruments:
