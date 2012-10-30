@@ -1040,7 +1040,9 @@ def get_process_info(connection, verbose=False, debug=False):
             OR process.program == "rinj"
             OR process.program == "ligolw_tisi"
         GROUP BY proc_id;
-    
+
+    CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_ifo);
+ 
     CREATE TEMP TABLE _pidmap_ AS
         SELECT
             old_pp_table.proc_id AS old_pid,
@@ -1055,8 +1057,9 @@ def get_process_info(connection, verbose=False, debug=False):
                 AND old_pp_table.program == new_pp_table.program)
         GROUP BY old_pid;
     
-    CREATE INDEX pidmap_index ON _pidmap_ (old_pid);
-    
+    CREATE INDEX _pidmap_idx ON _pidmap_ (old_pid, new_pid);
+
+    DROP INDEX proc_params_idx;
     DROP TABLE proc_params;
     """
     if debug:
@@ -1075,27 +1078,20 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     if verbose:
         print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
 
-    #FIXME: the SQL query should not have hard-coded program names!
     sqlscript = """
     -- Remove redundant process rows
     DELETE FROM process 
         WHERE process_id IN (
             SELECT old_pid 
             FROM _pidmap_ 
-            WHERE old_pid != new_pid
-                AND (program = "inspinj"
-                    OR program = "rinj"
-                    OR program = "ligolw_tisi") );
+            WHERE old_pid != new_pid);
     DELETE FROM process_params 
-            WHERE process_id IN (
+        WHERE process_id IN (
             SELECT old_pid 
             FROM _pidmap_ 
-            WHERE old_pid != new_pid
-                AND (program = "inspinj"
-                    OR program = "rinj"
-                    OR program = "ligolw_tisi") );
+            WHERE old_pid != new_pid);
     
-    DROP INDEX pidmap_index;
+    DROP INDEX _pidmap_idx;
     DROP TABLE _pidmap_;
     """
     if debug:
@@ -1224,6 +1220,7 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
     
     DROP INDEX e_sgitlc_index;
     DROP TABLE expr_info;
+    CREATE INDEX _eidmap_idx ON _eidmap_ (old_eid);
     
     -- delete the old ids from the experiment table
     DELETE FROM experiment 
@@ -1233,14 +1230,13 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
             WHERE old_eid != new_eid);
     
     -- update the experiment_ids in the experiment summary table
-    CREATE INDEX em_old_index ON _eidmap_ (old_eid);
     UPDATE experiment_summary
         SET experiment_id = (
             SELECT new_eid 
             FROM _eidmap_
             WHERE experiment_summary.experiment_id == old_eid);
     
-    DROP INDEX em_old_index;
+    DROP INDEX _eidmap_idx;
     DROP TABLE _eidmap_;
     """
     if debug:
@@ -1275,7 +1271,7 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
                 expr_summ.veto_def_name, expr_summ.datatype, expr_summ.sim_proc_id) AS info
         FROM experiment_summary AS expr_summ;
 
-    CREATE INDEX expr_summ_info_index ON expr_summ_info (esid, info);
+    CREATE INDEX expr_summ_info_idx ON expr_summ_info (info);
     
     CREATE TEMP TABLE _esidmap_ AS
         SELECT
@@ -1288,10 +1284,10 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
         GROUP BY old_esid;
 
     DROP INDEX es_etvds_index;
-    DROP INDEX expr_summ_info_index ON expr_summ_info (esid, info);
+    DROP INDEX expr_summ_info_idx;
     DROP TABLE expr_summ_info;
 
-    CREATE INDEX esidmap_index on _esidmap_ (old_esid, new_esid);
+    CREATE INDEX _esidmap_idx on _esidmap_ (old_esid, new_esid);
     
     -- sum durations and nevents
     CREATE TEMP TABLE sum_dur_nevents AS
@@ -1334,7 +1330,7 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
             FROM _esidmap_
             WHERE experiment_map.experiment_summ_id == old_esid);
     
-    DROP INDEX esidmap_index;
+    DROP INDEX _esidmap_idx;
     DROP TABLE _esidmap_;
     """
     if debug:
@@ -2073,6 +2069,8 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
             FROM time_slide
             GROUP BY time_slide_id;
         
+        CREATE INDEX compact_time_slide_idx ON compact_time_slide (pid, ifos, offset);
+
         -- Create a table that maps the time_slide_ids of redundant time_slide entries
         -- to those entries one is going to keep.
         CREATE TEMP TABLE _tsidmap_ AS
@@ -2086,10 +2084,11 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                     AND new_ts_table.ifos == old_ts_table.ifos
                     AND new_ts_table.offset == old_ts_table.offset)
             GROUP BY old_tsid;
-        
+
+        DROP INDEX compact_time_slide_idx;
         DROP TABLE compact_time_slide;
         
-        CREATE INDEX tsidmap_index ON _tsidmap_ (old_tsid);
+        CREATE INDEX _tsidmap_idx ON _tsidmap_ (old_tsid);
         
         -- Update the coinc_event and experiment_summary tables with new time_slide_ids
         UPDATE coinc_event 
@@ -2103,8 +2102,6 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                 FROM _tsidmap_ 
                 WHERE old_tsid == time_slide_id);
         
-        DROP INDEX tsidmap_index;
-        
         -- Delete the redundant entries in the time_slide table
         DELETE FROM time_slide 
             WHERE time_slide_id IN (
@@ -2112,6 +2109,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                 FROM _tsidmap_ 
                 WHERE old_tsid != new_tsid);
         
+        DROP INDEX _tsidmap_idx;
         DROP TABLE _tsidmap_;
         """
         if debug:
@@ -2154,7 +2152,9 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
                 SELECT veto_definer.process_id
                 FROM veto_definer
                 GROUP BY veto_definer.process_id);
-    
+
+    CREATE INDEX veto_procinfo_idx ON veto_procinfo (process_info);
+
     CREATE TEMP TABLE _veto_pidmap_ AS
         SELECT
             old_procinfo.process_id AS old_pid,
@@ -2164,6 +2164,9 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
             JOIN veto_procinfo AS new_procinfo ON (
                 new_procinfo.process_info == old_procinfo.process_info)
         GROUP BY old_pid;
+
+    DROP INDEX veto_procinfo_idx;
+    DROP TABLE veto_procinfo;
     
     DELETE FROM process
         WHERE process_id IN (
@@ -2176,8 +2179,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
             FROM _veto_pidmap_
             WHERE old_pid != new_pid);
     
-    DROP TABLE veto_procinfo;
     DROP TABLE _veto_pidmap_;
+    DROP INDEX _veto_pidmap_idx;
     """
     if debug:
         print >> sys.stderr, sqlscript
