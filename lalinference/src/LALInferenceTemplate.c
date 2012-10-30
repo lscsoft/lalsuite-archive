@@ -1856,7 +1856,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   static REAL8 previous_spin2z;
   static REAL8 previous_phi0;
   static REAL8 previous_inclination;
-  static REAL8 previous_dchi3;
+  //static REAL8 previous_dchi3;
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
   
@@ -1989,7 +1989,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       previous_spin2z = spin2z;
       previous_phi0 = phi0;
       previous_inclination = inclination;
-      previous_dchi3=dchi3;
+      //previous_dchi3=dchi3;
     
       if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");
