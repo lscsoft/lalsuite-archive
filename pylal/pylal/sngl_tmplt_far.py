@@ -29,7 +29,6 @@ triggers of a single template without the need for doing time-slides.
 """
 
 import sqlite3
-from pylab import *
 import numpy
 import math
 
@@ -98,7 +97,7 @@ def get_sngl_snrs(
 	sngls_bins = None):
 
 	# create function for the desired snr statistic
-	set_getsnr_function(connection, statistic = snr_stat):
+	set_getsnr_function(connection, snr_stat)
 
 	connection.create_function('end_time_w_ns', 2, end_time_w_ns)
 
@@ -108,7 +107,7 @@ def get_sngl_snrs(
 
 	# SQLite query to get a list of (snr, gps-time) tuples for inspiral triggers
 	sqlquery = """
-	SELECT
+	SELECT DISTINCT
 		get_snr(snr, chisq, chisq_dof) as snr_stat,
 		end_time_w_ns(end_time, end_time_ns)
 	FROM sngl_inspiral
@@ -163,12 +162,12 @@ def get_coinc_snrs(
 	sngls_threshold,
 	tmplt,
 	datatype = None,
-	little_dog = True
+	little_dog = True,
 	combined_bins = None,
 	snr_stat = "newsnr"):
 
 	# create function for the desired snr statistic
-	set_getsnr_function(connection, statistic = snr_stat):
+	set_getsnr_function(connection, snr_stat)
 
 	# split tmplt tuple into its component parameters
 	mchirp = tmplt[0]
@@ -196,7 +195,7 @@ def get_coinc_snrs(
 				JOIN experiment_map, experiment_summary ON (
 					coinc_event_map.coinc_event_id == experiment_map.coinc_event_id
 					AND experiment_map.experiment_summ_id == experiment_summary.experiment_summ_id)
-			WHERE experiment_summary.datatype != "all_data")
+			WHERE experiment_summary.datatype == "all_data")
 		"""
 
 	# execute query
@@ -214,7 +213,7 @@ def combined_snr_hist(counts, snrs, combined_bins):
 
 	combined_counts = zeros(len(combined_bins)-1)
 	ifos = counts.keys()
-	if ifos != snrs.keys():
+	if set(ifos) != set(snrs.keys()):
 		raise ValueError, "The histogram and snr-bin dictionary have different sets of keys (ifos)"
 
 	for n0, snr0 in zip(counts[ifos[0]], snrs[ifos[0]]):
@@ -246,7 +245,7 @@ def all_possible_coincs(
 
 	for ifo in ifos:
 		# get all single ifo triggers for the given tmplt & ifo
-		snr_sngls, sngls_bins = get_sngl_snrs(
+		sngls_hist[ifo], sngls_bins = get_sngl_snrs(
 			sngls_connection,
 			min_snr,
 			sngls_width,
@@ -271,7 +270,7 @@ def all_possible_coincs(
 	max_comb_snr = numpy.sum([max(snr_bins)**2.0 for snr_bins in mid_bins.values()])**(1./2)
 	combined_bins = numpy.arange(2**(1./2)*min_snr, max_comb_snr + 2*coinc_width, coinc_width)
 
-	coinc_hist = combined_snr_hist(sngls_hist, sngls_bins, combined_bins)
+	coinc_hist = combined_snr_hist(sngls_hist, mid_bins, combined_bins)
 
 	# remove only zerolag coincs from the coinc_hist
 	if little_dog:
