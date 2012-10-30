@@ -1274,6 +1274,8 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
             concat_5cols(expr_summ.experiment_id, expr_summ.time_slide_id, 
                 expr_summ.veto_def_name, expr_summ.datatype, expr_summ.sim_proc_id) AS info
         FROM experiment_summary AS expr_summ;
+
+    CREATE INDEX expr_summ_info_index ON expr_summ_info (esid, info);
     
     CREATE TEMP TABLE _esidmap_ AS
         SELECT
@@ -1286,7 +1288,9 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
         GROUP BY old_esid;
 
     DROP INDEX es_etvds_index;
+    DROP INDEX expr_summ_info_index ON expr_summ_info (esid, info);
     DROP TABLE expr_summ_info;
+
     CREATE INDEX esidmap_index on _esidmap_ (old_esid, new_esid);
     
     -- sum durations and nevents
