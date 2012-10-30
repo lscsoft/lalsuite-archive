@@ -5,7 +5,12 @@
 # =============================================================================
 
 from __future__ import division
-import re,socket
+
+import re
+import os
+import sys
+import socket
+
 from glue import markup
 from pylal import git_version
 
@@ -202,7 +207,6 @@ def get_ldas_url():
     >>> dqHTMLUtils.get_ldas_url()
     "https://ldas-jobs.ligo-la.caltech.edu"
     """
-
     # get fully qualified domain name (FQDN)
     fqdn = socket.getfqdn()
 
@@ -560,3 +564,37 @@ def about_page(executable, cmdargs, version=False, filedict={},\
         i += 1
 
     return page
+
+# =============================================================================
+# Find user's public directory
+# =============================================================================
+
+def get_public_html():
+    """Find the web readable directory for the user on thie host.
+
+    @returns the absolute path of the "public_html" equivalent
+    directory on this host.
+
+    Example:
+    >>> socket.getfqdn()
+    ldas-pcdev1.ligo-la.caltech.edu
+    >>> htmlutils.get_html_directory()
+    "/home/duncan.macleod/public_html"
+    """
+    # get fully qualified domain name (FQDN)
+    fqdn = socket.getfqdn()
+
+    if sys.platform == "darwin":
+        public_html = "Sites"
+    elif re.search("atlas", fqdn):
+        public_html = "WWW/LSC"
+    else:
+        public_html = "public_html"
+
+    # verify public_html
+    home = os.path.expanduser("~")
+    userdir = os.path.join(home, public_html)
+    if not os.path.isdir(userdir):
+        raise OSError("Web UserDir %s not found." % userdir)
+
+    return userdir
