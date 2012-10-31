@@ -26,6 +26,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 import itertools
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.axes_grid import make_axes_locatable
+from mpl_toolkits.basemap import Basemap
 
 import numpy
 import pylab
@@ -1920,6 +1921,128 @@ class LineHistogram(BasicPlot):
         del self.data_sets
         del self.normalize_values
         del self.kwarg_sets
+
+class SkyPositionsPlot(ScatterPlot):
+    """
+    A spherical projection plot.
+    """
+    @method_callable_once
+    def finalize(self, loc='lower right', projection='moll', centre=(0,0),\
+                 frame=[(0, 0), (1, 1)]):
+        """
+        Finalize and draw plot. Can only be called once.
+
+        Keyword arguments:
+
+            toc : [ str | int ]
+                compatible value for legend loc, default: 'lower right'
+            projection : str
+                valid projection name for mpl_toolkits.basemap.Basemap
+            centre : list
+                (ra, dec) in degrees for point to centre on plot, only works
+                for some projections
+            frame : list
+                [(xmin, ymin), (xmax, ymax)] pair of tuples for lower left
+                and upper right corners of plot area. Full arei (entire
+                sphere) is [(0,0), (1,1)]. Narrower range is span in,
+                wider range zoomed out.
+        """
+        # set up projection
+        projection = projection.lower()
+        centre = [(-(centre[0]-180)+180) % 360, centre[1]]
+        m1 = Basemap(projection=projection, lon_0=centre[0], lat_0=centre[1],\
+                       resolution=None, ax=self.ax)
+
+        # set up range
+        width  = m1.urcrnrx
+        height = m1.urcrnry
+        frame = [list(frame[0]), list(frame[1])]
+        mapframe = [[-width/2, -height/2], [width/2, height/2]]
+        if frame[0][0] != None:
+            mapframe[0][0] = width/2*(frame[0][0]-1)
+        if frame[0][1] != None:
+            mapframe[0][1] = height/2*(frame[0][1]-1)
+        if frame[1][0] != None:
+            mapframe[1][0] = width/2*(frame[1][0])
+        if frame[1][1] != None:
+            mapframe[1][1] = height/2*(frame[1][1])
+
+        # set projection
+        m = Basemap(projection=projection, lon_0=centre[0], lat_0=centre[1],\
+                    llcrnrx=mapframe[0][0], llcrnry=mapframe[0][1],\
+                    urcrnrx=mapframe[1][0], urcrnry=mapframe[1][1],\
+                    resolution=None, ax=self.ax)
+
+        # turn on 'fulldisk' property when using full disk
+        if mapframe == [[-width/2, -height/2], [width/2, height/2]]:
+             m._fulldisk = True
+
+        xrange_ = (m.llcrnrx, m.urcrnrx)
+        yrange = (m.llcrnry, m.urcrnry)
+
+        # make plot
+        for x_vals, y_vals, plot_kwargs, c in\
+            itertools.izip(self.x_data_sets, self.y_data_sets,\
+                           self.kwarg_sets, default_colors()):
+
+            plot_kwargs.setdefault("marker", "o")
+            plot_kwargs.setdefault("edgecolor", "k")
+            plot_kwargs.setdefault("facecolor", c)
+
+            # project data
+            convert = lambda x: (x>=180 and x-360) or (x<180 and x)
+            x_vals  = [-convert(x) for x in x_vals]
+            if projection in ['moll', 'hammer', 'orth']:
+                convert = lambda x: (x>=0 and x) or (x<0 and x+360)
+            x_vals, y_vals = m(x_vals, y_vals)
+            m.scatter(x_vals, y_vals, **plot_kwargs)
+
+        # finish projection
+        m.drawmapboundary()
+
+        # set labels
+        if projection in ['ortho']:
+            plabels = [0, 0, 0, 0]
+            mlabels = [0, 0, 0, 0]
+        else:
+            plabels = [1, 0, 0, 0]
+            mlabels = [0, 0, 0, 0]
+
+        # draw parallels
+        parallels = numpy.arange(-90., 120., 30.)
+        m.drawparallels(parallels, labels=plabels,\
+                        labelstyle='+/-', latmax=90)
+
+        # draw meridians
+        if projection in ['moll', 'hammer', 'ortho']:
+            meridians = numpy.arange(0., 360., 45.)
+        else:
+            meridians = numpy.arange(-180, 181, 45)
+        m.drawmeridians(meridians, labels=mlabels,\
+                        latmax=90, labelstyle='+/-')
+
+        # label parallels for certain projections
+        if projection in ['ortho']:
+            for lon,lat in zip([0.]*len(parallels), parallels):
+                x, y = m(lon, lat)
+                lon, lat = m1(x, y, inverse=True)
+                if x<=10**20 and y<=10**20\
+                and xrange_[0]<x<xrange_[1] and yrange[0]<=y<=yrange[1]:
+                    m.ax.text(x, y, r"$%0.0f^\circ$" % lat)
+
+        # label meridians for all projections
+        for lon,lat in zip(meridians, [0.]*len(meridians)):
+            tlon = (-(lon-180)+180) % 360
+            x, y = m(lon, lat)
+            lon, lat = m1(x, y, inverse=True)
+
+            if x<=10**20 and y<=10**20\
+            and xrange_[0]<x<xrange_[1] and yrange[0]<=y<=yrange[1]:
+                m.ax.text(x, y, r"$%0.0f^\circ$" % tlon)
+
+        # set legend
+        self.add_legend_if_labels_exist(loc=loc, scatterpoints=1)
+
 
 ###################################################
 ## unittest section
