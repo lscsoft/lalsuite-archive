@@ -472,17 +472,18 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 		/* Generate a new live point */
 		do{ /* This loop is here in case it is necessary to find a different sample */
 			/* Clone an old live point and evolve it */
-                        while((j=gsl_rng_uniform_int(runState->GSLrandom,Nlive))==minpos){};
+			while((j=gsl_rng_uniform_int(runState->GSLrandom,Nlive))==minpos){}; 
 			LALInferenceCopyVariables(runState->livePoints[j],runState->currentParams);
 			runState->currentLikelihood = logLikelihoods[j];
 			LALInferenceSetVariable(runState->algorithmParams,"logLmin",(void *)&logLmin);
-                        runState->evolve(runState);
-                        itercounter++;
+		    runState->evolve(runState);
+            itercounter++;
 		}while( runState->currentLikelihood<=logLmin ||  *(REAL8*)LALInferenceGetVariable(runState->algorithmParams,"accept_rate")==0.0);
 
                 LALInferenceCopyVariables(runState->currentParams,runState->livePoints[minpos]);
+
                 logLikelihoods[minpos]=runState->currentLikelihood;
-     
+
     //            for(param_ptr=runState->livePoints[minpos]->head;param_ptr;param_ptr=param_ptr->next)
    // {
       //  fprintf(fpout,"%s\t",param_ptr->name);
@@ -930,7 +931,7 @@ void LALInferenceNestedSamplingSloppySample(LALInferenceRunState *runState)
         subchain_length=0;
         /* Draw an independent sample from the prior */
         do{
-            sub_accepted+=LALInferenceMCMCSamplePrior(runState);
+			sub_accepted+=LALInferenceMCMCSamplePrior(runState);
             subchain_length++;
             counter+=(1.-sloppyfraction);
         }while(counter<1);
@@ -946,6 +947,7 @@ void LALInferenceNestedSamplingSloppySample(LALInferenceRunState *runState)
         tries=0;
         mcmc_iter++;
     	sub_iter+=subchain_length;
+    	
         if(logLmin!=-DBL_MAX) logLnew=runState->likelihood(runState->currentParams,runState->data,runState->template);
         if(logLnew>logLmin || logLmin==-DBL_MAX) /* Accept */
         {
