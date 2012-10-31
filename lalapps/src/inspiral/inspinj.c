@@ -744,9 +744,9 @@ static void print_usage(char *program)
       " --dchi6l value            value of the dchi6l parameter\n"\
       " --dchi7 value             value of the dchi7 parameter\n");
   fprintf(stderr,
-	  "Massive Graviton Information:\n"\
-	  " --enable-mg				  enable Massive Graviton injections\n"\
-	  " --loglambdaG value			  log Compton wavelength value\n"); 
+        "Massive Graviton Information:\n"\
+        " --enable-mg				  enable Massive Graviton injections\n"\
+        " --loglambdaG value			  log Compton wavelength value\n"); 
   fprintf(stderr,
       "Brans-Dicke Information:\n"\
       " --enable-bd               enable Brans-Dicke injections\n"\
@@ -1588,7 +1588,7 @@ int main( int argc, char *argv[] )
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
-	{"enable-dchi",             no_argument,       0,                 1009},
+    {"enable-dchi",             no_argument,       0,                 1009},
     {"dchi0",                   required_argument, 0,                 1010},
     {"dchi1",                   required_argument, 0,                 1011},
     {"dchi2",                   required_argument, 0,                 1012},
@@ -2519,17 +2519,6 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name, "string",
               "%s", optarg );
         break;
-
-      case 'h':
-        print_usage(argv[0]);
-        exit( 0 );
-        break;
-
-      case '?':
-        print_usage(argv[0]);
-        exit( 1 );
-        break;
-
       case '^':
         optarg_len = strlen( optarg ) + 1;
         IPNSkyPositionsFile = calloc( 1, optarg_len * sizeof(char) );
@@ -2668,12 +2657,23 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", bPPE );
           break;
+          
        case 1030:
             betaPPE = atof( optarg );
             this_proc_param = this_proc_param->next =
             next_process_param( long_options[option_index].name,
               "float", "%le", betaPPE );
 	  break;
+      
+      case 'h':
+        print_usage(argv[0]);
+        exit( 0 );
+        break;
+
+      case '?':
+        print_usage(argv[0]);
+        exit( 1 );
+        break;
 
       default:
         fprintf( stderr, "unknown error while parsing options\n" );

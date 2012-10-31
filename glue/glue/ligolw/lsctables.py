@@ -2074,7 +2074,25 @@ class SimInspiralTable(table.Table):
 		"eff_dist_g": "real_4",
 		"eff_dist_t": "real_4",
 		"eff_dist_v": "real_4",
-		"numrel_mode_min": "int_4s",
+                 "dchi0": "real_4",
+                 "dchi1": "real_4",
+                 "dchi2": "real_4",
+                 "dchi3": "real_4",
+                 "dchi4": "real_4",
+                 "dchi5": "real_4",
+                 "dchi5l": "real_4",
+                 "dchi6": "real_4",
+                 "dchi6l": "real_4",
+                 "dchi7": "real_4",
+                 "loglambdaG": "real_4",
+                 "ScalarCharge1": "real_4",
+                 "ScalarCharge2": "real_4",
+                 "omegaBD": "real_4",
+                 "aPPE": "real_4",
+                 "alphaPPE": "real_4",
+                 "bPPE": "real_4",
+                "betaPPE": "real_4",
+    		"numrel_mode_min": "int_4s",
 		"numrel_mode_max": "int_4s",
 		"numrel_data": "lstring",
 		"amp_order": "int_4s",
@@ -2791,14 +2809,14 @@ class TimeSlideTable(table.Table):
 				# and that's OK
 				return ids[0]
 			# and that's not OK
-			raise KeyError(offsetdict)
+			raise KeyError("%s not unique" % repr(offsetdict))
 		if len(ids) == 1:
 			# found one
 			return ids[0]
 		# offset vector not found in table
 		if create_new is None:
 			# and that's not OK
-			raise KeyError(offsetdict)
+			raise KeyError("%s not found" % repr(offsetdict))
 		# that's OK, create new vector
 		id = self.get_next_id()
 		for instrument, offset in offsetdict.items():
@@ -3229,11 +3247,11 @@ def use_in(ContentHandler):
 	"""
 	table.use_in(ContentHandler)
 
-	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
 		name = table.StripTableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs)
-		return __parent_startTable(self, attrs)
+		return __orig_startTable(self, parent, attrs)
 
 	ContentHandler.startTable = startTable
 

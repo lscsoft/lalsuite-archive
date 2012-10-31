@@ -19,14 +19,13 @@ import exceptions
 import glob
 from types import *
 
-from pylal import InspiralUtils
+from pylal import InspiralUtils, SnglInspiralUtils
 from glue import segmentsUtils
 from pylal import git_version
+from pylal import rate
 from glue import lal
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
-import pylal
+
 import numpy as np
 
 ##############################################################################
@@ -56,25 +55,6 @@ lsctables.SnglInspiralTable.loadcolumns = [
     "ttotal",
     "event_id",
     "process_id"]
-
-##############################################################################
-def get_sngl_inspirals(files, verbose=False):
-  """
-  convenience function to extract single inspiral rows from xml inputs
-  """
-  sngls = lsctables.New(lsctables.SnglInspiralTable, \
-      columns=lsctables.SnglInspiralTable.loadcolumns)
-  for i, file in enumerate(files):
-    if verbose: print str(i+1)+"/"+str(len(files))+": "
-    xmldoc = utils.load_filename(file, verbose=verbose)
-    try:
-      sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-    except:
-      if verbose: print "No sngl_inspiral table found!"
-      continue
-    sngls.extend(sngl_inspiral_table)
-    xmldoc.unlink()
-  return sngls
 
 ##############################################################################
 def solve_for_rchisq(snr, eff_snr, denominator_constant):
@@ -173,9 +153,9 @@ def plot_rainbow_hists(fig_num, statvals, paramvals, statname="new_snr", \
   paramMin = min(paramvals)
   paramMax = max(paramvals)
   if splitup == "log":
-    paramBins = pylal.rate.LogarithmicBins(0.99*paramMin, 1.01*paramMax, num_bins)
+    paramBins = rate.LogarithmicBins(0.99*paramMin, 1.01*paramMax, num_bins)
   elif splitup == "lin":
-    paramBins = pylal.rate.LinearBins(0.99*paramMin, 1.01*paramMax, num_bins)
+    paramBins = rate.LinearBins(0.99*paramMin, 1.01*paramMax, num_bins)
   paramIndices = np.array([paramBins[par] for par in paramvals])
 
   histcolours = ['r',(1.0,0.6,0),'y','g','c','b','m','k',(0.8,0.25,0),(0.25,0.8,0)]
@@ -558,7 +538,7 @@ rsq = np.array([])
 nevents = 0
 
 if trigFiles:
-  inspTriggers = get_sngl_inspirals(trigFiles, verbose=opts.verbose)
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
   if inspTriggers:
     if opts.ifo_times:
       inspTriggers.ifocut(opts.ifo_times, inplace=True) # do this in case single-ifo triggers are being read in from COIREs
@@ -601,7 +581,7 @@ slide_events = 0
 if slideFiles:
   if opts.veto_file is not None:
     raise NotImplementedError, "Cannot use veto files with timeslides."
-  slideTriggers = get_sngl_inspirals(slideFiles, verbose=opts.verbose)
+  slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles, verbose=opts.verbose)
   if slideTriggers:
     if opts.ifo_times:
       slideTriggers.ifocut(opts.ifo_times, inplace=True)
@@ -632,7 +612,7 @@ inj_rsq = np.array([])
 ninj_events = 0
 
 if injFiles:
-  injTriggers = get_sngl_inspirals(injFiles, verbose=opts.verbose)
+  injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose)
   if injTriggers:
     if opts.ifo_times:
       injTriggers.ifocut(opts.ifo_times, inplace=True)
