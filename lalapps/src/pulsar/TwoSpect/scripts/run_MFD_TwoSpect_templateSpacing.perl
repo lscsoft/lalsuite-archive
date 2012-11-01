@@ -10,6 +10,8 @@ srand(42+$jobnum);
 system("mkdir /local/user/egoetz/$$");
 die "mkdir failed: $?" if $?;
 
+chdir("/local/user/egoetz/$$") or die "Cannot change to directory /local/user/egoetz/$$ $!";
+
 my $h0ul = 4.5709e-24;
 my $Tsft = 1800.0;
 my $dur = 40551300.0;
@@ -23,6 +25,7 @@ for(my $ii=0; $ii<10; $ii++) {
    my $delta = sprintf("%.6f",acos(2.0*rand()-1.0)-0.5*pi);
    my $f0 = 401.25 + 0.24*rand();
    my $df = rand()*0.1;
+   $df = 0.01;
    while ($df-0.5/$Tsft<1.0e-6) {
       $df = rand()*0.1;
    }
@@ -35,6 +38,7 @@ for(my $ii=0; $ii<10; $ii++) {
    $P = sprintf("%.6f", $P);
    my $asini = sprintf("%.6f",$df*$P/2.0/pi/$f0);
    my $randseedval = int(rand(1000000));
+   $f0 = 401.3;
    
    open(MFDCONFIG,">/local/user/egoetz/$$/mfdconfig") or die "Cannot write to /local/user/egoetz/$$/mfdconfig $!";
    print MFDCONFIG<<EOF;
@@ -118,7 +122,7 @@ EOF
    system("/home/egoetz/TwoSpect/templateSpacing/TwoSpect_templateTest --config=/local/user/egoetz/$$/twospectconfig");
    die "TwoSpect_templateTest failed: $?" if $?;
 
-   system("mv /local/user/egoetz/$$/templatespacingout.dat /home/egoetz/TwoSpect/templateSpacing/$jobnum/templatespacingout_$jobnum.dat");
+   system("mv /local/user/egoetz/$$/templatespacingout.dat /home/egoetz/TwoSpect/templateSpacing/$jobnum/templatespacingout_$ii.dat");
    die "mv failed: $?" if $?;
 
    system("rm /local/user/egoetz/$$/*.sft");

@@ -143,15 +143,16 @@ def parse_command_line():
 
   parser.add_option("-X", "--log-x", action="store_true",
       help="for ethinca vs ... make x axis log")
+
   parser.add_option("-Y", "--log-y", action="store_true",
       help="for ethinca vs ... make y axis log")
 
   parser.add_option("-H","--hist",action="store_true",default=False,\
       help="make a histogram of the e-thinca values" )
 
-  parser.add_option("","--hist-stat",action="store_true",default=False,\
-      help="make a histogram of the combined statistics" )
-
+ # parser.add_option("","--hist-stat",action="store_true",default=False,\
+ #     help="make a histogram of the combined statistics" )
+ # NO LONGER SUPPORTED
   parser.add_option("-n","--num-bins",action="store",type='int',\
       default=20, metavar=" NUM",\
       help="number of bins used in histogram" )
@@ -178,7 +179,6 @@ def parse_command_line():
   parser.add_option("","--max-ethinca",action="store",type="float",\
       default=0.5,metavar="SEC",\
       help="Max Ethinca value for the plotting range (default is 0.5) " )
-
 
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="FIGURERESOLUTION", \
@@ -226,9 +226,7 @@ if not opts.show_plot:
 from pylab import *
 from pylal import viz
 
-# this scaling is equivalent to setting the font.size to the keyword 'x-large',
-# which is not supported (yet?) by matplotlib 0.91
-rc('font', size=rcParams['font.size'] * 1.440)
+matplotlib.rcParams.update({'legend.fontsize': 16})
 
 if not opts.show_plot:
   rc('text', usetex=True)
@@ -320,51 +318,53 @@ if opts.cache_file  is not None:
 if opts.cache_file is None:
   if opts.injection_glob:
     filelists = [glob.glob(g) for g in opts.injection_glob]
-  
+
   if opts.slide_glob:
     slidefilelists = [glob.glob(g) for g in opts.slide_glob]
-  
+
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic, None, None, opts.eff_snr_denom_fac, opts.chisq_index)
 
-coincTriggersList = []
+coincEvents = None
 if filelists:
   for filegroup in filelists:
-    # read raw triggers
-    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose, mangle_event_id=True,old_document=opts.old_document) 
-    if not (inspTriggers):
-      print >> sys.stderr, "No triggers found, exiting gracefully."
-      sys.exit(0)
+    # treat each file separately since coinc reconstruction based on lalapps_thinca
+    # event IDs fails when operating on different files with the same GPS start time
+    # and we no longer mangle the IDs to prevent this
+    for file in filegroup:
+      # read raw triggers
+      inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], verbose=opts.verbose)
 
-    populate_mtotal(inspTriggers)
+      if len(inspTriggers):
+        populate_mtotal(inspTriggers)
 
-    # perform the veto
-    if opts.veto_file is not None:
-      for veto_file in opts.veto_file.split(','):
-        seglist = segmentsUtils.fromsegwizard(open(veto_file))
-        inspTriggers = inspTriggers.veto(seglist)
-  
-    # reconstruct the coincs
-    newCoincs = CoincInspiralUtils.coincInspiralTable(inspTriggers, statistic)
-    # cluster them
-    if opts.cluster_window:
-      newCoincs = newCoincs.cluster(opts.cluster_window)
+        # perform the veto
+        if opts.veto_file is not None:
+          for veto_file in opts.veto_file.split(','):
+            seglist = segmentsUtils.fromsegwizard(open(veto_file))
+            inspTriggers = inspTriggers.veto(seglist)
 
-    # append them to our list
-    coincTriggersList.append(newCoincs)
+        # reconstruct the coincs
+        newCoincs = CoincInspiralUtils.coincInspiralTable(inspTriggers, statistic)
 
-slideTriggersList = []
+        # cluster them
+        if opts.cluster_window:
+          newCoincs = newCoincs.cluster(opts.cluster_window)
+
+        # add them to a cumulative table
+        if coincEvents:
+          coincEvents.extend(newCoincs)
+        else:
+          coincEvents = newCoincs
+
+if not len(coincEvents):
+  print >> sys.stderr, "No injection triggers found, exiting gracefully."
+  sys.exit(0)
+
+slideEvents = None
 if slidefilelists:
   shift_vector = {"H1": opts.h1_slide_time, "H2": opts.h2_slide_time,
                   "L1": opts.l1_slide_time, "V1": opts.v1_slide_time}
   for filegroup in slidefilelists:
-    # read raw triggers and time-shift them appropriately
-    slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
-      shift_vector, mangleEventId=True, verbose=opts.verbose)
-
-    if slideTriggers == None:
-      slideTriggers = []
-
-    populate_mtotal(slideTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
 
@@ -378,29 +378,36 @@ if slidefilelists:
 
     slideTimeAnalyzed = float(abs(segs.intersection(segs.iterkeys())))
 
-    # perform the veto
-    if opts.veto_file is not None:
-      for veto_file in opts.veto_file.split(','):
-        seglist = segmentsUtils.fromsegwizard(open(veto_file))
-        slideTriggers = slideTriggers.veto(seglist)
+    # read raw triggers and time-shift them appropriately
+    slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup, \
+      shift_vector, verbose=opts.verbose)
 
-    slide_num = range(1 , opts.num_slides + 1)
-    slide_num.extend(range(-opts.num_slides, 0))
+    if len(slideTriggers):
+      populate_mtotal(slideTriggers)
 
-    # make coincs
-    newSlides = CoincInspiralUtils.coincInspiralTable(slideTriggers, statistic)
+      # perform the veto
+      if opts.veto_file is not None:
+        for veto_file in opts.veto_file.split(','):
+          seglist = segmentsUtils.fromsegwizard(open(veto_file))
+          slideTriggers = slideTriggers.veto(seglist)
 
-    # cluster triggers
-    if opts.cluster_window:
-      newSlides = newSlides.cluster(opts.cluster_window)
+      # make coincs
+      newSlides = CoincInspiralUtils.coincInspiralTable(slideTriggers, statistic)
 
-    slideTriggersList.append(newSlides)
+      # cluster triggers
+      if opts.cluster_window:
+        newSlides = newSlides.cluster(opts.cluster_window)
+
+      if slideEvents:
+        slideEvents.extend(newSlides)
+      else:
+        slideEvents = newSlides
 
 if offsourcefilelists:
   haveOffsource = False
   for filegroup in offsourcefilelists:
-       # read raw triggers and time-shift them appropriately
-    offsourceTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup,
+       # read raw triggers
+    offsourceTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, \
       verbose=opts.verbose)
     populate_mtotal(offsourceTriggers)
 
@@ -415,8 +422,8 @@ if offsourcefilelists:
 
     slideTimeAnalyzed = float(abs(segs.intersection(segs.iterkeys())))
 
-    # set a formal number of 'slides' to one, otherewise 
-    # a div-by-zero error will occor
+    # set a formal number of 'slides' to one, otherwise 
+    # a div-by-zero error will occur
     opts.num_slides = 1
 
     # perform the veto
@@ -432,7 +439,10 @@ if offsourcefilelists:
     if opts.cluster_window:
       newOffsource = newOffsource.cluster(opts.cluster_window)
 
-    slideTriggersList.append(newOffsource)
+    if slideEvents:
+      slideEvents.extend(newOffsource)
+    else:
+      slideEvents = newOffsource
 
     if len(newOffsource) > 0:
       haveOffsource = True
@@ -441,399 +451,268 @@ if offsourcefilelists:
   if haveOffsource:
     opts.num_slides += 0.5
 
-##################################### plotting here below.
-# first some symbol definitions.
-symbol_list = ('ro', 'b+', 'k^', 'gv')
-color_list = ('r', 'b', 'k', 'g')
-symbol_slide_list = ('kx', 'c+', '0.5^', 'yv')
-color_slide_list = ('m', 'c', '0.5', 'y')
-if len(filelists) > min(len(symbol_list), len(color_list)):
-  print >>sys.stderr, "Warning: Only the first %d globs being used.  Extend "\
-    "symbol_list or color_list to handle more of them."
-
 
 ########################################## compute the ethinca parameter once for all
+
+# a list cycling over pairs of ifos ('combis')
+combis = list(iterutils.choices(opts.ifo_list, 2))
+nCombi = len(combis)
+
 InspiralUtils.message(opts, "Creating the coincidences")
+
+# events and ethinca values are dictionaries keyed on the combi
+coincs = {}
+coinc_ethinca = {}
+slides = {}
+slide_ethinca = {}
 numInjections = 0
-numSlides = 0
-#concatenate all different concidences together 
-coincs_list = None
-for ifos in list(iterutils.choices(opts.ifo_list, 2)):
-  comments+=InspiralUtils.message(opts, "...processing  :"+str(ifos))
+numSlides = 0 # will be used as a flag to control plots later
 
-  # create the list of ethinca parameters for the injections
-  try:
-    this = [x.coincinclude(ifos) for x in coincTriggersList]
-    coincs_list.extend(this)
-    ethinca_list.extend([x.getEThincaValues(ifos) for x in this])
-  except:
-    coincs_list = [x.coincinclude(ifos) for x in coincTriggersList]
-    ethinca_list = [x.getEThincaValues(ifos) for x in coincs_list]
-  
-  # used later in this code
-  for coincs in coincs_list:
-    numInjections += len(coincs)
-  comments += InspiralUtils.message(opts, '---Total number of injections found='+str(numInjections))
+for ifos in combis:
+  comments+=InspiralUtils.message(opts, "... processing: "+str(ifos))
 
-  # create the list of ethinca parameters for the slides
-  if slideTriggersList:
-    try:
-      this = [x.coincinclude(ifos) for x in slideTriggersList]
-      slides_list.extend([x.coincinclude(ifos) for x in this])
-      ethinca_slides_list.extend([x.getEThincaValues(ifos) for x in this])
-    except:
-      slides_list = [x.coincinclude(ifos) for x in slideTriggersList]
-      ethinca_slides_list =[x.getEThincaValues(ifos) for x in slides_list]
-    for slides in slides_list:
-      numSlides += len(slides)
-    comments+=InspiralUtils.message(opts, '---Total number of slide triggers is '+str(numSlides))
+  # find the injection coincs for the ifo combi and
+  # calculate the ethinca values 
+  coincs[ifos] = coincEvents.coincinclude(ifos)
+  coinc_ethinca[ifos] = coincs[ifos].getEThincaValues(ifos)
+  numInjections += len(coincs[ifos])
+  comments += InspiralUtils.message(opts, '--- Number of injection triggers found: '+str(len(coincs[ifos])))
+
+  # calculate ethinca values for the slides
+  if slideEvents:
+    slides[ifos] = slideEvents.coincinclude(ifos)
+    slide_ethinca[ifos] = slides[ifos].getEThincaValues(ifos)
   else:
-    try:
-      slides_list.extend([])
-      ethinca_slides_list.extend([])
-    except:
-      slides_list = [[]]
-      ethinca_slides_list = [[]]
-    comments+=InspiralUtils.message(opts, '---Total number of slide triggers is '+str(numSlides))
-  
+    slides[ifos] = []
+    slide_ethinca[ifos] = []
+  numSlides += len(slides[ifos])
+  comments += InspiralUtils.message(opts, '--- Number of slide triggers found: '+str(len(slides[ifos])))
 
-########################################## injections only first
-nCombi = len(list(iterutils.choices(opts.ifo_list,2)))
+comments += InspiralUtils.message(opts, 'Total number of injection triggers: '+str(numInjections))
+comments += InspiralUtils.message(opts, 'Total number of slide triggers: '+str(numSlides))
 
-for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nCombi)):
-  # now we can start to plots the results
-  col = 'snr'
-  InspiralUtils.message(opts, "Plotting e-thinca versus total mass")
+################################################
+# function to save lines of plotting boilerplate
+def finalize_ethinca_scatter(fig_num, col, ifo, titletext, tagtext, \
+    name, legtext=None, slide=False, colorBar=False):
+
+  if legtext: legend([legtext])
+  else: legend()
+
+  ax = axes()
+  if opts.log_x: ax.set_xscale('log')
+  if opts.log_y: ax.set_yscale('log')
+  xlim(5.5, 200)  # arbitrary cutoff
+  ylim(0, maxEThinca)
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if colorBar: colorbar()
+  grid(True)
+
+  if col=='snr': xlabel(r"$\rho_{%s}$" % (ifo), size='x-large')
+  elif 'Combined' in col: xlabel(col, size='x-large')
+  else: xlabel("%s %s" % (ifo, col.replace('_', r'\_')), size='x-large')
+  ylab = "E-thinca parameter"
+  if slide: ylab = ylab+", background only"
+  ylabel(ylab, size='x-large')
+  title(titletext, size='x-large')
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(tagtext)
+
+  if not opts.show_plot:
+    close(fig_num)
+
+########################################## plot injections only first
+# colored scatter plot with color=mtotal
+
+col = 'snr'
+
+for ifos in combis:
   for ifo in ifos:
-    text = "Ethinca versus total mass ("+ifo+")"
-    InspiralUtils.message(opts,"        "+ text)
-    fig_num+=1
-    figure(fig_num)
-    for coincs, ethincaVals, symbol in \
-        zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
-      xValsSNR = coincs.getsngls(ifo).get_column('snr')
-      totMass = coincs.getsngls(ifo).get_column('mass1')+ coincs.getsngls(ifo).get_column('mass2')
-      label=ifo+' (inj): ' + str(len(xValsSNR))+' coincidences'
-      InspiralUtils.message(opts, '         '+label)
-      if len(coincs) > 0:
-        scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False,
-          alpha=0.8)
-    legend([label])
-    ax = axes()
-    if opts.log_x: ax.set_xscale('log')
-    if opts.log_y: ax.set_yscale('log')
-    colorbar()
-    grid(True)
-    if coincTriggersList:
-      if len(ethincaVals) == 0 or max(ethincaVals) < maxEThinca:
-        ylim((1e-5,maxEThinca))
-    if col=='snr': xlabel(r"$\rho_{%s}$" % (ifo))
-    else:xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
-    ylabel("E-thinca parameter ")
-    title("E-thinca parameter vs %s for %s and %s triggers" % \
-      (col.replace('_', r'\_'), ifos[0], ifos[1]))
-    xlim(xmin=5.5, xmax=1000)
-    ylim(ymin=1e-5, ymax=maxEThinca)
-    if opts.enable_output:
-      name = "%s_%s_ethinca_vs_%s_%s_andtotMass" % \
-        ( ifos[0], ifos[1], ifo, col)
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
-    if not opts.show_plot:
-      close()
 
-###################################### same as above but for the slide only
-if numSlides>0:
-  for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nCombi)):
-    # now we can start to plots the results
-    InspiralUtils.message(opts, "Plotting e-thinca (slide case) versus total mass")
-    col = 'snr'
+    fig_num +=1
+    figure(fig_num)
+
+    sngls = coincs[ifos].getsngls(ifo)
+    xValsSNR = sngls.get_column(col)
+    totMass = sngls.get_column('mtotal')
+    ethincaVals = coinc_ethinca[ifos]
+
+    if len(sngls):
+      scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False, alpha=0.8)
+
+    legtext = ifo+' (inj): '+str(len(xValsSNR))+' coincidences'
+    titletext = "E-thinca parameter vs %s for %s and %s triggers" % \
+      (col.replace('_', r'\_'), ifos[0], ifos[1])
+    tagtext = "Ethinca versus total mass ("+ifo+")"
+    name = "%s_%s_ethinca_vs_%s_%s_andtotMass" % (ifos[0], ifos[1], ifo, col)
+    
+    finalize_ethinca_scatter(fig_num, col, ifo, titletext, tagtext, \
+        name, legtext=legtext, slide=False, colorBar=True)
+
+###################################### same as above but for slide only
+
+col = 'snr'
+
+if numSlides:
+  for ifos in combis:
     for ifo in ifos:
-      text = "Ethinca (slide case) versus total mass ("+ifo+")"
-      InspiralUtils.message(opts,"        "+ text)
-      fig_num+=1
+
+      fig_num += 1
       figure(fig_num)
-      for slides, ethincaSlideVals, symbolSlide in \
-          zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
-        xSlideVals = slides.getsngls(ifo).get_column(col)
-        totMass = slides.getsngls(ifo).get_column('mass1')+ slides.getsngls(ifo).get_column('mass2')
-        label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
-        InspiralUtils.message(opts, '          '+label)
-        try:
-          scatter(xSlideVals, ethincaSlideVals, s=40, c=totMass,
-            faceted=False, alpha=0.8)
-        except: pass
-      legend([label])
-      ax = axes()
-      if opts.log_x: ax.set_xscale('log')
-      if opts.log_y: ax.set_yscale('log')
-      colorbar()
-      grid(True)
-      if coincTriggersList:
-        if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < maxEThinca:
-          ylim((1e-5,maxEThinca))
-      if col=='snr': xlabel(r"$\rho_{%s}$" % (ifo))
-      else:xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
-      ylabel("E-thinca parameter (slide only)")
-      title("E-thinca parameter vs %s for %s and %s triggers" % \
-        (col.replace('_', r'\_'), ifos[0], ifos[1]))
-      xlim(xmin=5.5, xmax=1000)
-      ylim(ymin=1e-5, ymax=maxEThinca)
-      if opts.enable_output:
-        name = "%s_%s_ethinca_slide_only_vs_%s_%s_andtotMass" % \
-          ( ifos[0], ifos[1], ifo, col)
-        fname = InspiralUtils.set_figure_name(opts, name)
-        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-        fnameList.append(fname)
-        tagList.append(text)
-      if not opts.show_plot:
-        close()
+
+      sngls = slides[ifos].getsngls(ifo)
+      xValsSNR = sngls.get_column(col)
+      totMass = sngls.get_column('mtotal')
+      ethincaVals = slide_ethinca[ifos]
+
+      if len(sngls):
+         scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False, alpha=0.8)
+
+      legtext = ifo+' (slide): '+str(len(xValsSNR))+' coincidences'
+      titletext = "E-thinca parameter vs %s for %s and %s triggers" % \
+        (col.replace('_', r'\_'), ifos[0], ifos[1])
+      tagtext = "Ethinca (slide case) versus total mass ("+ifo+")"
+      name = "%s_%s_ethinca_slide_only_vs_%s_%s_andtotMass" % (ifos[0], ifos[1], ifo, col)
+
+      finalize_ethinca_scatter(fig_num, col, ifo, titletext, tagtext, \
+          name, legtext=legtext, slide=True, colorBar=True)
 
 #####################################  now we combine the slide and injections        
-for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nCombi)):
-  # Pick out relevant double coincs and calculate ethinca parameters
 
-  for col in opts.columns:  # ethinca-param vs col
+symbolSlide = 'kx'
+symbol = 'ro'
+
+for ifos in combis:
+
+  for col in opts.columns:  # ethinca-param vs sngl column
     for ifo in ifos:
-      text = "E-thinca parameter vs %s for %s and %s triggers" % \
-            (col.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
-      InspiralUtils.message(opts, "      "+text)
-      fig_num+=1
+      tagtext = "E-thinca parameter vs %s for %s and %s triggers" % \
+            (col.replace('_', r'\_'), ifos[0], ifos[1]) +" in "+opts.ifo_times+" times"
+      fig_num += 1
       figure(fig_num)
-       
-      if slideTriggersList:
-        for slides, ethincaSlideVals, symbolSlide in \
-            zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
-          xSlideVals = slides.getsngls(ifo).get_column(col)
-          label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
-          InspiralUtils.message(opts, "....(slide)"+label)
-          try:
-            if opts.log_x:
-              semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
-                markeredgewidth=1, markersize=6, label=label, alpha=0.5)
-            else:
-              plot(xSlideVals, ethincaSlideVals, symbolSlide,
-                markeredgewidth=1, markersize=6,label=label, alpha=0.5)
-          except:pass
 
+      slide_sngls = slides[ifos].getsngls(ifo)
+      xSlideVals = slide_sngls.get_column(col)
+      ethincaSlideVals = slide_ethinca[ifos]
+
+      if len(slide_sngls):
+        label = ifo+' (slide): '+str(len(xSlideVals))+' coincidences'
+        plot(xSlideVals, ethincaSlideVals, symbolSlide, \
+            markeredgewidth=1, markersize=6, label=label, alpha=0.5)
       hold(True)
-      for coincs, ethincaVals, symbol in \
-          zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
-        xVals = coincs.getsngls(ifo).get_column(col)
-        label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
-        InspiralUtils.message(opts, "...."+label)
-        if opts.log_x:
-          try:
-            semilogx(xVals, ethincaVals, symbol, markeredgewidth=1,
-              markersize=6, label=label, alpha=0.5)
-          except:pass
-        else:
-          try:
-            plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
-              label=label, alpha=0.5)
-          except:pass
-        
-      grid(True)
-      if coincTriggersList:
-        if len(ethincaVals) == 0 or max(ethincaVals) < maxEThinca:
-          ylim((0,maxEThinca))
-      elif slideTriggersList:
-        if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < maxEThinca:
-          ylim((0,maxEThinca))
-      if col=='snr': xlabel(r"$\rho_{%s}$" % (ifo))
-      else:xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
-      ylabel("E-thinca parameter ")
-      title("E-thinca parameter vs %s for %s and %s triggers" % \
-        (col.replace('_', r'\_'), ifos[0], ifos[1]))
-      
-      xlim(xmin=5.5, xmax=1000)
-      ylim(ymin=0, ymax=maxEThinca)
-      legend()
 
-      if opts.enable_output:
-        name = "%s_%s_ethinca_vs_%s_%s" % (ifos[0], ifos[1], ifo, col)  
-        fname = InspiralUtils.set_figure_name(opts, name)
-        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-        fnameList.append(fname)
-        tagList.append(text)
-      if not opts.show_plot:
-        close()
+      sngls = coincs[ifos].getsngls(ifo)
+      xVals = sngls.get_column(col)
+      ethincaVals = coinc_ethinca[ifos]
+
+      if len(sngls):
+        label=ifo+' (inj): '+str(len(xVals))+' coincidences'
+        plot(xVals, ethincaVals, symbol, markeredgewidth=1, \
+            markersize=6, label=label, alpha=0.5)
+
+      titletext = "E-thinca parameter vs %s for %s and %s triggers" % \
+          (col.replace('_', r'\_'), ifos[0], ifos[1])
+      tagtext = "E-thinca parameter vs %s for %s and %s triggers" % \
+          (col.replace('_', r'\_'), ifos[0], ifos[1]) +" in "+opts.ifo_times+" times"
+      name = "%s_%s_ethinca_vs_%s_%s" % (ifos[0], ifos[1], ifo, col)  
+
+      finalize_ethinca_scatter(fig_num, col, ifo, titletext, tagtext, \
+          name, legtext=None, slide=False, colorBar=False)
 
   if opts.ethinca_vs_stat:  # ethinca-param vs combined statistic
-    text = "E-thinca parameter vs combined %s for %s and %s triggers" % \
-        (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
-    InspiralUtils.message(opts, "plotting..."+text)
-    fig_num+=1
+
+    fig_num += 1
     figure(fig_num)
 
-    for coincs, ethincaVals, symbol in \
-        zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
-      xVals = [x.stat for x in coincs]
-      label='injections: ' + str(len(xVals))+' coincidences'
-      if opts.log_x:
-        try:
-          semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
-            label=label, alpha=0.5)
-        except:pass
-      else:
-        try:
-          plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
-            label=label, alpha=0.5)
-        except:pass
+    xVals = coincs[ifos].getstat()
+    ethincaVals = coinc_ethinca[ifos]
+
+    label='injections: ' + str(len(xVals))+' coincidences'
+    plot(xVals, ethincaVals, symbol, markeredgewidth=1, \
+        markersize=6, label=label, alpha=0.5)
     hold(True)
-    if slideTriggersList:
-      for slides, ethincaSlideVals, symbolSlide in \
-          zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
-        xSlideVals = [x.stat for x in slides]
-        label='slides: ' + str(len(xSlideVals))+' coincidences'
-        if opts.log_x:
-          try:
-            semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
-              markeredgewidth=1, markersize=6, label=label, alpha=0.5)
-          except:pass
-        else:
-          try:
-            plot(xSlideVals, ethincaSlideVals, symbolSlide,
-              markeredgewidth=1, markersize=6, label=label, alpha=0.5)
-          except:pass
 
-    grid(True)
-    if coincTriggersList:
-      if len(ethincaVals) == 0 or max(ethincaVals) < maxEThinca:
-        ylim((0, maxEThinca))
-    elif slideTriggersList:
-      if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < maxEThinca:
-        ylim((0, maxEThinca))
-    xlabel("Combined %s" % opts.statistic.replace('_', r'\_'))
-    ylabel("E-thinca parameter")
-    title("E-thinca parameter vs combined %s for %s and %s triggers" % \
-      (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
-    grid(True)
-    xlim(xmin=5.5, xmax=200)
-    ylim(ymin=0, ymax=maxEThinca)
-    legend()
-    if opts.enable_output:
-      name = "%s_%s_ethinca_vs_combined_%s" % (ifos[0], ifos[1], opts.statistic)  
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
-    if not opts.show_plot:
-      close()
+    if len(slides[ifos]):
+      xSlideVals = slides[ifos].getstat()
+      ethincaSlideVals = slide_ethinca[ifos]
+      label='slides: ' + str(len(xSlideVals))+' coincidences'
+      plot(xSlideVals, ethincaSlideVals, symbolSlide, markeredgewidth=1, \
+          markersize=6, label=label, alpha=0.5)
 
-  if opts.hist_stat:  # hist combined statistic
-    text = "Histogram of combined %s for %s and %s triggers" % \
-          (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
-    InspiralUtils.message(opts, "plotting..."+text)
-    fig_num+=1
-    figure(fig_num)
-    leg=[]
+    tagtext = "E-thinca parameter vs combined %s for %s and %s triggers" % \
+        (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
+    xlabeltext = ("Combined %s" % opts.statistic.replace('_', r'\_'))
+    titletext = "E-thinca parameter vs combined %s for %s and %s triggers" % \
+        (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1])
+    name = "%s_%s_ethinca_vs_combined_%s" % (ifos[0], ifos[1], opts.statistic)  
 
-    stat_max = max([max([y.stat for y in x]) for x in coincs_list+slides_list \
-        if len(x)] + [0.1])
-    
-    if coincTriggersList:
-      xVals = [[x.stat for x in coincs] for coincs in [coincs_list[ifos_index]]]
-      y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,range=[0, stat_max], new=True) for xVal in xVals])
-      n = len(x_list)
-      for i, x, y, color in zip(range(n), x_list, y_list, color_list):
-        x = x[0:-1] + stat_max/(2.*opts.num_bins)
-        x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
-        y[len(y)-1] = 0
-        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
-        setp(handle, alpha=0.6)
-        handle[0].set_label('injections ')
+    finalize_ethinca_scatter(fig_num, xlabeltext, ifo, titletext, tagtext, \
+        name, legtext=None, slide=False, colorBar=False)  
 
-    if slideTriggersList:
-      hold(True)
-      xSlideVals = [[x.stat for x in slides] for slides in [slides_list[ifos_index]]]
-      y_list, x_list = zip(*[histogram(xSlideVal, bins=opts.num_bins,
-          range=[0, stat_max], new=True) for xSlideVal in xSlideVals])
-      if not coincTriggersList:
-        n = len(x_list)
-      for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
-        x = x[0:-1] + stat_max/(2.*opts.num_bins)
-        x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
-        y[len(y)-1] = 0
-        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
-        setp(handle, alpha=0.6)
-        handle[0].set_label('slides ')
-
-    grid(True)
-    xlabel("Combined %s" % opts.statistic.replace('_', r'\_'))
-    ylabel("\#")
-    legend()
-    title("Histogram of combined %s for %s and %s triggers" % \
-      (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
-
-    if opts.enable_output:
-      name = "%s_%s_hist_combined_%s" % (ifos[0], ifos[1], opts.statistic) 
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
-    if not opts.show_plot:
-      close()
- 
+  ############################### histograms of ethinca for slides and injections
   if opts.hist:
-    text = "E-thinca parameter Histogram for " + ifos[0] + \
+    tagtext = "E-thinca parameter Histogram for " + ifos[0] + \
         " and " + ifos[1] + " triggers in " + opts.ifo_times + " times"
-    InspiralUtils.message(opts, "plotting..."+text)
+
+    slide_color = 'b'
+    inj_color = 'r' 
+
     fig_num+=1
     figure(fig_num)
     
     # Histogram all datasets with the same bins
-    ep_max = max([max(eps) for eps in ethinca_list+ethinca_slides_list \
-        if len(eps)] + [0.1])
+    ep_max = max([maxEThinca, 0.1])
+    width = ep_max/opts.num_bins
 
-    if slideTriggersList:
-      y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
-          range=[0, ep_max], new=True) for eps in \
-          [ethinca_slides_list[ifos_index]]])
-      if coincTriggersList:
-        thisNumInjections = len(ethinca_list[ifos_index])
+    if len(slide_ethinca[ifos]):
+      eps = slide_ethinca[ifos]
+      slide_counts, bin_edges = histogram(eps, bins=opts.num_bins, range=[0, ep_max], new=True)
+
+      if len(coinc_ethinca[ifos]):  
+      # do some normalization of the slide counts 
+      # to the length of injection window 
+        thisNumInjections = len(coinc_ethinca[ifos])
         normalization = opts.injection_window*thisNumInjections/ \
                (2.0*opts.num_slides*slideTimeAnalyzed)
       else:
         normalization = 1.0
-      n = len(x_list)
-      for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
-        x = x[0:-1] + ep_max/(2.*opts.num_bins)
-        x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
-        y_norm = zeros(len(y),float64)
-        for j in range(len(y)):
-          y_norm[j] = normalization*y[j]
-        handle = bar(x, y_norm, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
-        setp(handle, alpha=0.6)
-        handle[0].set_label( 'slides')
 
-    if coincTriggersList:
-      hold(True)
-      y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,\
-          range=[0, ep_max], new=True) for eps in [ethinca_list[ifos_index]]])
-      n = len(x_list)
-      for i, x, y, color in zip(range(n), x_list, y_list, color_list):
-        x = x[0:-1] + ep_max/(2.*opts.num_bins)
-        x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
-        handle = bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
-        setp(handle, alpha=0.6)
-        handle[0].set_label('injections')
+      slide_counts_norm = normalization*array(slide_counts)
+      left = bin_edges[:-1] + 0.05*width
+      bar(left, slide_counts_norm, color=slide_color, width=0.9*width, label='background', alpha=0.6)
 
-    ylabel("\#")
-    xlabel("E-thinca parameter")
-    title("E-thinca parameter Histogram for " + ifos[0] + \
-          " and " + ifos[1] + " triggers")
+    hold(True)
+
+    if len(coinc_ethinca[ifos]):
+      eps = coinc_ethinca[ifos]
+      inj_counts, bin_edges = histogram(eps, bins=opts.num_bins, range=[0, ep_max], new=True)
+
+      left = bin_edges[0:-1] + 0.05*width
+      bar(left, inj_counts, color=inj_color, width=0.9*width, label='injections', alpha=0.6)
+
+    ylabel("\#", size='x-large')
+    xlabel("E-thinca parameter", size='x-large')
+    xticks(fontsize='x-large')
+    yticks(fontsize='x-large')
+    title("E-thinca parameter histogram for " + ifos[0] + \
+          " and " + ifos[1] + " triggers", size='x-large')
     grid(True)
     legend() 
-    
+
+    tagtext = "E-thinca parameter Histogram for " + ifos[0] + \
+        " and " + ifos[1] + " triggers in " + opts.ifo_times + " times"
     if opts.enable_output:
       name = ifos[0] + "_" + ifos[1] + "_ethinca_hist" 
       fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append(text)
+      tagList.append(tagtext)
     if not opts.show_plot:
       close()
 

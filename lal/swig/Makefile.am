@@ -18,7 +18,7 @@ swig_iface_preproc_xml = @PACKAGE_NAME@swig_preproc.xml
 swig_iface_preproc_deps = ./$(DEPDIR)/@PACKAGE_NAME@swig_preproc.deps
 
 # SWIG preprocessing interface flags
-swig_preprocflags = -xml -xmllite -includeall -ignoremissing -w201
+swig_preprocflags = -xml -xmllite -includeall -ignoremissing -w201,302
 
 # script which builds SWIG interface header
 swig_generate_iface = $(srcdir)/generate_swiglal_iface.py
@@ -46,6 +46,8 @@ CLEANFILES = \
 	$(swig_iface_preproc) \
 	$(swig_iface_preproc_xml) \
 	$(swig_iface)
+clean-local :
+	@echo '#dummy' > $(swig_iface_preproc_deps)
 DISTCLEANFILES = \
 	$(swig_iface_preproc_deps)
 

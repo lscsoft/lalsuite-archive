@@ -37,12 +37,7 @@ from optparse import OptionParser
 import re
 import sys
 import os
-try:
-	any
-	all
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any, all
+
 
 from glue import iterutils
 from glue import lal

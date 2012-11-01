@@ -43,6 +43,7 @@ from operator import itemgetter
 
 #related third party imports
 import numpy as np
+from numpy import fmod
 import matplotlib
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
@@ -2763,9 +2764,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
-    axes.xaxis.set_major_formatter(majorFormatterX)
-    axes.yaxis.set_major_formatter(majorFormatterY)
-
+    
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
@@ -2783,6 +2782,16 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     else:
         Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks)
+    xmin,xmax=plt.xlim()
+    if param=='rightascension' or param=='ra':
+        locatorX=RALocator(min=xmin,max=xmax)
+        majorFormatterX=RAFormatter()
+    if param=='declination' or param=='dec':
+        locatorX=DecLocator(min=xmin,max=xmax)
+        majorFormatterX=DecFormatter()
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
+
     locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
     if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
@@ -2830,17 +2839,61 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if(param.lower()=='ra' or param.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         plt.xlim(xmax,xmin)
-    if(param.lower()=='ra' or param.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(param.lower()=='dec' or param.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(param.lower()=='ra' or param.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(param.lower()=='dec' or param.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return rbins,myfig#,rkde
 #
+
+class RALocator(matplotlib.ticker.MultipleLocator):
+    """
+    RA tick locations with some intelligence
+    """
+    def __init__(self,min=0.0,max=2.0*pi_constant):
+      hour=pi_constant/12.0
+      if(max-min)>12.0*hour:
+        base=3.0*hour
+      elif(max-min)>6.0*hour:
+        base=2.0*hour
+      # Put hour ticks if there are more than 3 hours displayed
+      elif (max-min)>3.0*pi_constant/12.0:
+        base=hour
+      elif (max-min)>hour:
+        base=hour/2.0
+      else:
+        base=hour/4.0
+         
+      matplotlib.ticker.MultipleLocator.__init__(self,base=base)
+
+class DecLocator(matplotlib.ticker.MultipleLocator):
+    """
+    Dec tick locations with some intelligence
+    """
+    def __init__(self, min=-pi_constant/2.0,max=pi_constant/2.0):
+      deg=pi_constant/180.0
+      if (max-min)>60*deg:
+        base=30.0*deg
+      elif (max-min)>20*deg:
+        base=10*deg
+      elif (max-min)>10*deg:
+        base=5*deg
+      else:
+        base=deg
+      matplotlib.ticker.MultipleLocator.__init__(self,base=base)
+
+class RAFormatter(matplotlib.ticker.FuncFormatter):
+    def __init__(self,accuracy='auto'):
+      matplotlib.ticker.FuncFormatter.__init__(self,getRAString)
+
+class DecFormatter(matplotlib.ticker.FuncFormatter):
+    def __init__(self,accuracy='auto'):
+      matplotlib.ticker.FuncFormatter.__init__(self,getDecString)
 
 def formatRATicks(locs, accuracy='auto'):
     """
@@ -2911,9 +2964,10 @@ def roundRadAngle(rads,accuracy='all'):
     return round(rads*mult)/mult
 
 def getRAString(radians,accuracy='auto'):
-    hours, rem = divmod(radians, pi_constant/12.0)
-    mins,rem = divmod(rem, pi_constant/(12.0*60.0))
-    secs = rem*12.0*3600.0/pi_constant
+    secs=radians*12.0*3600/pi_constant
+    hours, rem = divmod(secs, 3600 )
+    mins,rem = divmod(rem, 60 )
+    secs = rem
     if secs>=59.5:
         secs=secs-60
         mins=mins+1
@@ -2924,8 +2978,8 @@ def getRAString(radians,accuracy='auto'):
     if accuracy=='min': return ur'%ih%im'%(hours,mins)
     if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
     else:
-        if secs>=0.5: return(getRAString(radians,accuracy='sec'))
-        if mins>=0.5: return(getRAString(radians,accuracy='min'))
+        if abs(fmod(secs,60.0))>=0.5: return(getRAString(radians,accuracy='sec'))
+        if abs(fmod(mins,60.0))>=0.5: return(getRAString(radians,accuracy='min'))
         else: return(getRAString(radians,accuracy='hour'))
         
 def getDecString(radians,accuracy='auto'):
@@ -2945,19 +2999,22 @@ def getDecString(radians,accuracy='auto'):
     deg,rem=divmod(radians,pi_constant/180.0)
     mins, rem = divmod(rem, pi_constant/(180.0*60.0))
     secs = rem * (180.0*3600.0)/pi_constant
-    if secs>=59.5:
-        secs=secs-60.0
-        mins=mins+1
-    if mins>=59.5:
-        mins=mins-60.0
-        deg=deg+1
+    #if secs>=59.5:
+    #    secs=secs-60.0
+    #    mins=mins+1
+    #if mins>=59.5:
+    #    mins=mins-60.0
+    #    deg=deg+1
+    if (accuracy=='arcmin' or accuracy=='deg') and secs>30: mins=mins+1
+    if accuracy=='deg' and mins>30: deg=deg+1
     if accuracy=='deg': return ur'%i'%(sign*deg)+degsymb
     if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
     if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
-        if secs>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
-        if mins>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
-        else: return(getDecString(sign*radians,accuracy='deg'))
+    #    if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs,60)-60)>=0.5 : return(getDecString(sign*radians,accuracy='arcsec'))
+    #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+    #    else: return(getDecString(sign*radians,accuracy='deg'))
+      return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -3028,26 +3085,26 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             xmin,xmax=plt.xlim()
             plt.xlim(xmax,xmin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
-            (newlocs, newticks)=formatRATicks(locs, ticks)
-            plt.xticks(newlocs,newticks,rotation=45)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
-            newlocs, newticks = formatDecTicks(locs)
-            plt.xticks(newlocs,newticks,rotation=45)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.xticks()
+    #        (newlocs, newticks)=formatRATicks(locs, ticks)
+    #        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.xticks()
+    #        newlocs, newticks = formatDecTicks(locs)
+    #        plt.xticks(newlocs,newticks,rotation=45)
 
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        newlocs,newticks=formatRATicks(locs)
-        plt.yticks(newlocs,newticks)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        newlocs,newticks=formatDecTicks(locs)
-        plt.yticks(newlocs,newticks)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    ymin,ymax=plt.ylim()
+    #    plt.ylim(ymax,ymin)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.yticks()
+    #    newlocs,newticks=formatRATicks(locs)
+    #    plt.yticks(newlocs,newticks)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.yticks()
+    #    newlocs,newticks=formatDecTicks(locs)
+    #    plt.yticks(newlocs,newticks)
 
     return myfig
 #
@@ -3148,6 +3205,8 @@ def fix_axis_names(plt,par1_name,par2_name):
     """
     Fixes names of axes
     """
+    return
+
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             ymin,ymax=plt.ylim()
@@ -3305,6 +3364,27 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	else:
       		Nticks=6
     	locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+        if par2_name=='rightascension' or par2_name=='ra':
+            (ramin,ramax)=plt.xlim()
+            locatorX=RALocator(min=ramin,max=ramax)
+            majorFormatterX=RAFormatter()
+        if par2_name=='declination' or par2_name=='dec':
+            (decmin,decmax)=plt.xlim()
+            locatorX=DecLocator(min=decmin,max=decmax)
+            majorFormatterX=DecFormatter()
+        axes.xaxis.set_major_formatter(majorFormatterX)
+        if par1_name=='rightascension' or par1_name=='ra':
+            (ramin,ramax)=plt.ylim()
+            locatorY=RALocator(ramin,ramax)
+            axes.yaxis.set_major_locator(locatorY)
+            majorFormatterY=RAFormatter()
+        if par1_name=='declination' or par1_name=='dec':
+            (decmin,decmax)=plt.ylim()
+            locatorY=DecLocator(min=decmin,max=decmax)
+            majorFormatterY=DecFormatter()
+            axes.yaxis.set_major_locator(locatorY)
+
+        axes.yaxis.set_major_formatter(majorFormatterY)
     	#locatorX.view_limits(bins[0],bins[-1])
     	axes.xaxis.set_major_locator(locatorX)
 
@@ -3334,33 +3414,33 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
 
     # For ra and dec set custom labels and for RA reverse
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            ymin,ymax=plt.ylim()
-            if(ymin<0.0): ylim=0.0
-            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
-            plt.ylim(ymax,ymin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatRATicks(locs)
-            plt.yticks(newlocs,newticks)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.yticks()
-            newlocs,newticks=formatDecTicks(locs)
-            plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        ymin,ymax=plt.ylim()
+    #        if(ymin<0.0): ylim=0.0
+    #        if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+    #        plt.ylim(ymax,ymin)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatRATicks(locs)
+    #        plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs,newticks=formatDecTicks(locs)
+    #        plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         if(xmin<0.0): xmin=0.0
         if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return fig
 #
@@ -3481,6 +3561,25 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     else:
       Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+    (xmin,xmax)=plt.xlim()
+    (ymin,ymax)=plt.ylim()
+    if par2_name=='rightascension' or par2_name=='ra':
+        locatorX=RALocator(min=xmin,max=xmax)
+        majorFormatterX=RAFormatter()
+    if par2_name=='declination' or par2_name=='dec':
+        locatorX=DecLocator(min=xmin,max=xmax)
+        majorFormatterX=DecFormatter()
+    if par1_name=='rightascension' or par1_name=='ra':
+        locatorY=RALocator(min=ymin,max=ymax)
+        axes.yaxis.set_major_locator(locatorY)
+        majorFormatterY=RAFormatter()
+    if par1_name=='declination' or par1_name=='dec':
+        locatorY=DecLocator(min=ymin,max=ymax)
+        axes.yaxis.set_major_locator(locatorY)
+        majorFormatterY=DecFormatter()
+
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
     #locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
 
@@ -3498,31 +3597,31 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            ymin,ymax=plt.ylim()
-            plt.ylim(ymax,ymin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatRATicks(locs)
-            plt.yticks(newlocs,newticks)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatDecTicks(locs)
-            plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        ymin,ymax=plt.ylim()
+    #        plt.ylim(ymax,ymin)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatRATicks(locs)
+    #        plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatDecTicks(locs)
+    #        plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         if(xmin)<0.0: xmin=0.0
         if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return myfig
 
