@@ -204,21 +204,21 @@ def get_coinc_snrs(
 	# make histogram of coinc snr
 	binned_snr, junk = numpy.histogram(snrlist, bins=combined_bins)
 
-	return binned_snr
+	return map(float, binned_snr)
 
 
 def combined_snr_hist(counts, snrs, combined_bins):
 	minval = min(combined_bins)
 	binWidth = combined_bins[1] - combined_bins[0]
 
-	combined_counts = zeros(len(combined_bins)-1)
+	combined_counts = numpy.zeros(len(combined_bins)-1)
 	ifos = counts.keys()
 	if set(ifos) != set(snrs.keys()):
 		raise ValueError, "The histogram and snr-bin dictionary have different sets of keys (ifos)"
 
 	for n0, snr0 in zip(counts[ifos[0]], snrs[ifos[0]]):
 		for n1, snr1 in zip(counts[ifos[1]], snrs[ifos[1]]):
-			combined_snr = hypot(snr0, snr1)
+			combined_snr = math.hypot(snr0, snr1)
 			index =  int( math.floor((combined_snr - minval)/binWidth) )
 			combined_counts[index] += n0 * n1
 
