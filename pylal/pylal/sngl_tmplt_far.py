@@ -52,7 +52,7 @@ def get_newsnr(snr, chisq, chisq_dof):
 	fac = 6.0
 	rchisq = chisq/(2*chisq_dof-2)
 	newsnr = snr/(0.5*(1+rchisq**(fac/2.0)))**(1.0/fac)
-	if rchisq < 1:
+	if rchisq < 1.0:
 		newsnr = snr
 	return newsnr
 
@@ -69,7 +69,11 @@ def get_snr_over_chi(snr, chisq, chisq_dof):
 	return snr/chisq**(1./2)
 
 def set_getsnr_function(connection, statistic):
-	if statistic == "snr":
+	"""
+	Set the get_snr SQL function. Available options are:
+	-- "rawsnr", "newsnr", "effsnr", "snroverchi"
+	"""
+	if statistic == "rawsnr":
 		connection.create_function('get_snr', 3, get_snr)
 	elif statistic == "newsnr":
 		connection.create_function('get_snr', 3, get_newsnr)
@@ -77,7 +81,8 @@ def set_getsnr_function(connection, statistic):
 		connection.create_function('get_snr', 3, get_effsnr)
 	elif statistic == "snroverchi":
 		connection.create_function('get_snr', 3, get_snr_over_chi)
-
+	else:
+		raise ValueError, "%s is not a valid snr statistic" % statistic
 
 def end_time_w_ns(end_time, end_time_ns):
 	time = end_time + 1e-9*end_time_ns
@@ -96,6 +101,21 @@ def get_sngl_snrs(
 	datatype = None,
 	sngls_bins = None):
 
+	"""
+	Creates a histogram of sngl_inspiral triggers and returns a list of counts
+	and the associated snr bins.
+
+	@connection: connection to a SQLite database with lsctables
+	@min_snr: a lower threshold on the value of the snr_stat
+	@sngls_width: the bin width for the histogram
+	@ifo: the instrument one desires triggers from
+	@tmplt: a tuple consisting of the mchirp & eta from the desired template
+	@snr_stat: the desired chisq weighted snr statistic. The default is "newsnr".
+	@usertag: the usertag for the triggers. The default is "FULL_DATA".
+	@datatype: the datatype (all_data, slide, ...) if single-ifo triggers from
+		coincident events is desired. The default is to collect all triggers.
+	@sngls_bins: a list of bin edges for the snr-histogram
+	"""
 	# create function for the desired snr statistic
 	set_getsnr_function(connection, snr_stat)
 
@@ -166,6 +186,21 @@ def get_coinc_snrs(
 	combined_bins = None,
 	snr_stat = "newsnr"):
 
+	"""
+	Creates a histogram of coinc_inspiral triggers and returns a list of counts
+	in each of the snr bins.
+
+	@connection: connection to a SQLite database with lsctables
+	@sngls_threshold: a lower threshold on the value of the snr_stat
+	@tmplt: a tuple consisting of the mchirp & eta from the desired template
+	@datatype: the datatype (all_data, slide, ...) if single-ifo triggers from
+		coincident events is desired. The default is to collect all triggers.
+	@little_dog: if argument is False, all coincs with a single-ifo trigger that 
+		also constitutes part of a zerolag coinc are NOT included. The 
+		default value is True.
+	@combined_bins: a list of bin edges for the snr-histogram
+	@snr_stat: the desired chisq weighted snr statistic. The default is "newsnr".
+	"""
 	# create function for the desired snr statistic
 	set_getsnr_function(connection, snr_stat)
 
@@ -173,6 +208,7 @@ def get_coinc_snrs(
 	mchirp = tmplt[0]
 	eta = tmplt[1]
 
+	# get a list of the combined snrs from the coinc_inspiral table
 	sqlquery = ''.join(["""
 	SELECT coinc_inspiral.snr
 	FROM coinc_inspiral
@@ -197,7 +233,6 @@ def get_coinc_snrs(
 					AND experiment_map.experiment_summ_id == experiment_summary.experiment_summ_id)
 			WHERE experiment_summary.datatype == "all_data")
 		"""
-
 	# execute query
 	snrlist = connection.cursor().execute( sqlquery ).fetchall()
 
@@ -235,6 +270,21 @@ def all_possible_coincs(
 	tmplt,
 	little_dog = True):
 
+	"""
+	Creates a histogram of all possible coincident events and returns a list of counts
+	in each of the snr bins. This is made using the single-ifo snr histograms.
+
+	@sngls_connection: connection to a SQLite database that contains all inspiral triggers
+	@sngls_width: the bin width for the single-ifo event histograms
+	@min_snr: a lower threshold on the value of the single-ifo snr_stat
+	@coinc_connection: connection to a SQLite database that contains zerolag coincs
+	@coinc_width: the bin width for the coinc-event histograms
+	@ifos: a list of the two instruments one desires triggers from
+	@tmplt: a tuple consisting of the mchirp & eta from the desired template
+	@little_dog: if argument is False, all coincs with a single-ifo trigger that 
+		also constitutes part of a zerolag coinc are NOT included. The 
+		default value is True.
+	"""
 	# current code can only handle FAR estimation for doubles
 	if len(ifos) > 2:
 		raise ValueError, "Can only estimate FARs for doubles"
