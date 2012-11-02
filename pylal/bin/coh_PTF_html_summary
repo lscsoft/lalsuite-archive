@@ -203,11 +203,11 @@ def write_summary( page, ExtTrigger, ifos, skyError=None, ipn=False, ipnError=Fa
           ifo_pairs = "".join(pairs)
           timedelay[ifo_pairs]   = antenna.timeDelay(int(gps),float(j[0]),float(j[1]), 'degree',ifo_list[p],ifo_list[q])
           timedelay[ifo_pairs]="%.4f" % timedelay[ifo_pairs]
-      if ifos == 'H1H2L1':
+      if ifos == "H1L1" or ifos == 'H1H2L1':
         td3.append(['H1L1: %f' % float(timedelay['H1L1'])])
-      if ifos == 'H1H2L1V1':
+      elif ifos == 'H1H2L1V1':
         td3.append(['H1L1: %f' % float(timedelay['H1L1']), 'H1V1: %f' % float(timedelay['H1V1']), 'L1V1: %f' % float(timedelay['L1V1'])])
-      if ifos == 'L1V1':
+      elif ifos == 'L1V1':
         td3.append(['L1V1: %f' % float(timedelay['L1V1'])])
     page = write_table( page, th1, td1 )
     page = write_table( page, th2, td2 )
@@ -740,6 +740,11 @@ coh_PTF_injfinder will find and record found and missed injections for the given
   parser.add_option( "", "--ipn-error", action="store", type="float",\
                      default=None, help="size of the IPN error box" )
 
+  parser.add_option( "-M", "--mass-bins", action="store", type="string",\
+                     default="0-3.48,3.48-6,6-20",\
+                     help="comma separated list of dash-separated pairs "\
+                          "of m_low-m_high mass bins, default: %default" )
+
   (opts,args) = parser.parse_args()
 
   if not opts.grb_xml:
@@ -760,7 +765,8 @@ coh_PTF_injfinder will find and record found and missed injections for the given
 # =============================================================================
 
 def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
-        tuningInjList=[], open_box=False, grid=False, ipn=False ):
+          tuningInjList=[], open_box=False, grid=False, ipn=False,\
+          massbins=[[0,3.48],[3.48,6],[6,20]] ):
 
   # get entry information  
   ifos     = [ ifoTag[i*2:(i*2)+2] for i in range(int(len(ifoTag)/2)) ]
@@ -969,7 +975,6 @@ def main( grbxml, inifile, outdir, ifoTag, detectionInjList=[],\
                  onclick="toggleVisible('%s');" % i, value=secname )
   webpage.div( id="div_%s" % i, style="display: none;" )
 
-  massbins = [('0','8.0')]
   webpage = write_loudest_events( webpage, massbins )
 
   webpage.div.close()
@@ -1041,7 +1046,9 @@ if __name__=='__main__':
   if opts.tuning_injections:
     tunInjsList = opts.tuning_injections.split(",")
   
+  mass_bins = map(lambda p: map(float, p.split('-')), opts.mass_bins.split(','))
   
   main( grbxml, inifile, outdir, ifoTag, detectionInjList=detInjsList,\
-        tuningInjList=tunInjsList, open_box=opts.open_box, grid=grid, ipn=ipn )
+        tuningInjList=tunInjsList, open_box=opts.open_box, grid=grid, ipn=ipn,\
+        massbins=mass_bins )
 
