@@ -52,13 +52,11 @@ from pylal import git_version
 #except:
   #sys.exit("ERROR: Unable to import modules from cwb_table.")
 
-"""
 try:
   from ROOT import TFile, TChain, TTree
   from ROOT import gDirectory
 except ImportError:
-  sys.exit("ERROR: Unable to import modules from ROOT.")
-"""
+  print >>sys.stderr, "WARNING: Unable to import modules from ROOT. ROOT file processing will not be possible."
 
 #CONVERT_ROOT_VERSION = "0.0.8"
 __author__ = "Chris Pankow <chris.pankow@ligo.org>"
