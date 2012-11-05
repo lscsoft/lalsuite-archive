@@ -195,6 +195,10 @@ class Param(ligolw.Param):
 			t = u"lstring"
 		self.pytype = ligolwtypes.ToPyType[t]
 
+	def endElement(self):
+		# convert pcdata from string to native Python type
+		self.pcdata = self.pytype(self.pcdata.strip())
+
 	def write(self, file = sys.stdout, indent = u""):
 		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
@@ -239,14 +243,10 @@ def use_in(ContentHandler):
 	>>> from glue.ligolw import param
 	>>> param.use_in(MyContentHandler)
 	"""
-	def startParam(self, attrs):
+	def startParam(self, parent, attrs):
 		return Param(attrs)
 
-	def endParam(self):
-		self.current.pcdata = self.current.pytype(self.current.pcdata.strip())
-
 	ContentHandler.startParam = startParam
-	ContentHandler.endParam = endParam
 
 
 use_in(ligolw.DefaultLIGOLWContentHandler)

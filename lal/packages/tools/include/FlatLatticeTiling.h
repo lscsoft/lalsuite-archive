@@ -45,6 +45,7 @@ extern "C" {
 /// Flat lattice tiling bound function
 ///
 typedef void (*FlatLatticeBound)(
+  const size_t dimension,	///< [in] Dimension on which bound applies
   const gsl_vector_uint* bound,	///< [in] Indices of current bounds
   const gsl_vector* point,	///< [in] Point on which to find bounds
   const void* data,		///< [in] Arbitrary data describing parameter space
@@ -65,12 +66,6 @@ typedef int (*FlatLatticeGenerator)(
 /// Flat lattice tiling state structure
 ///
 typedef struct tagFlatLatticeTiling FlatLatticeTiling;
-
-#ifdef SWIG // SWIG interface directives
-SWIGLAL(NO_NEW_OBJECT(XLALNextFlatLatticePoint));
-SWIGLAL(FUNCTION_POINTER(XLALCubicLatticeGenerator));
-SWIGLAL(FUNCTION_POINTER(XLALAnstarLatticeGenerator));
-#endif
 
 ///
 /// Create a new flat lattice tiling state structure
@@ -96,7 +91,7 @@ size_t XLALGetFlatLatticeDimensions(
 ///
 /// Return the current number of flat lattice tiling parameter space points
 ///
-uint64_t XLALGetFlatLatticePointCount(
+unsigned long XLALGetFlatLatticePointCount(
   FlatLatticeTiling* tiling	///< [in] Tiling state
   );
 
@@ -128,20 +123,14 @@ int XLALSetFlatLatticeMetric(
   const double max_mismatch		///< [in] Maximum prescribed mismatch
   );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(NO_NEW_OBJECT(XLALNextFlatLatticePoint));
+#endif
 ///
 /// Return the next point in the flat lattice tiling parameter space
 ///
 gsl_vector* XLALNextFlatLatticePoint(
   FlatLatticeTiling* tiling		///< [in] Tiling state
-  );
-
-///
-/// Return a set of points in the flat lattice tiling parameter space
-///
-size_t XLALNextFlatLatticePoints(
-  FlatLatticeTiling* tiling,		///< [in] Tiling state
-  gsl_matrix* points,			///< [in] Flat lattice tiling points
-  const bool fill_last			///< [in] If not enought points to fill 'points', whether to fill in using the last tiling point
   );
 
 ///
@@ -154,19 +143,13 @@ int XLALRestartFlatLatticeTiling(
 ///
 /// Calculate the total number of flat lattice tiling parameter space points
 ///
-uint64_t XLALCountTotalFlatLatticePoints(
+unsigned long XLALCountTotalFlatLatticePoints(
   FlatLatticeTiling* tiling		///< [in] Tiling state
   );
 
-///
-/// Generate random points within the flat lattice tiling parameter space
-///
-int XLALGenerateRandomFlatLatticePoints(
-  FlatLatticeTiling* tiling,		///< [in] Tiling state
-  RandomParams* randpar,		///< [in] Random number generator state
-  gsl_matrix* randpoints		///< [in] Random points (column-wise)
-  );
-
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(FUNCTION_POINTER(XLALCubicLatticeGenerator));
+#endif
 ///
 /// Calculate the generator matrix for a cubic (\f$Z_n\f$) lattice
 ///
@@ -176,6 +159,9 @@ int XLALCubicLatticeGenerator(
   double* norm_thickness	///< [out] Normalised thickness
   );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(FUNCTION_POINTER(XLALAnstarLatticeGenerator));
+#endif
 ///
 /// Calculate the generator matrix for a \f$A_n^*\f$ lattice
 ///
@@ -186,13 +172,14 @@ int XLALAnstarLatticeGenerator(
   );
 
 ///
-/// Add a constant parameter space bound to the flat lattice tiling
+/// Add a constant parameter space bound, given by the minimum and
+/// maximum of the two supplied bounds, to the flat lattice tiling
 ///
 int XLALSetFlatLatticeConstantBound(
   FlatLatticeTiling* tiling,	///< [in] Tiling state
   const size_t dimension,	///< [in] Dimension on which bound applies
-  const double lower,		///< [in] Lower bound on dimension
-  const double upper		///< [in] Upper bound on dimension
+  const double bound1,		///< [in] First bound on dimension
+  const double bound2		///< [in] Second bound on dimension
   );
 
 ///
@@ -227,49 +214,24 @@ int XLALNormaliseLatticeGenerator(
   const double covering_radius	///< [in] Desired covering radius
   );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(INOUT_STRUCTS(gsl_matrix**, random_points, nearest_points, workspace));
+SWIGLAL(INOUT_STRUCTS(gsl_vector**, nearest_distances));
+SWIGLAL(INOUT_STRUCTS(gsl_vector_ulong**, nearest_indices));
+#endif
 ///
-/// Workspace for computing the nearest template to a set of injections
+/// Generate random points within the flat lattice tiling parameter space,
+/// then calculate the nearest flat lattice point to each random point
 ///
-typedef struct tagNearestTemplateWorkspace NearestTemplateWorkspace;
-
-///
-/// Create a new workspace for computing the nearest template to a set of injections
-///
-NearestTemplateWorkspace* XLALCreateNearestTemplateWorkspace(
-  const gsl_matrix* metric,		///< [in] Parameter space metric
-  const size_t num_templates,		///< [in] Number of templates to compare at once
-  const size_t num_injections		///< [in] Nunber of injections to compare at once
-  );
-
-///
-/// Destroy a nearest template workspace
-///
-void XLALDestroyNearestTemplateWorkspace(
-  NearestTemplateWorkspace* wksp	///< [in] Nearest template workspace
-  );
-
-///
-/// Update the templates used to compute distances from, and reset nearest template index
-///
-int XLALUpdateWorkspaceTemplates(
-  NearestTemplateWorkspace* wksp,	///< [in] Nearest template workspace
-  const gsl_matrix* templates,		///< [in] Template bank
-  gsl_vector_uint* nearest_template	///< [in] Index of nearest template
-  );
-
-///
-/// Update the injections used to compute distances to, and reset minimum distances
-///
-int XLALUpdateWorkspaceInjections(
-  NearestTemplateWorkspace* wksp,	///< [in] Nearest template workspace
-  const gsl_matrix* injections,		///< [in] Injection set
-  gsl_vector* min_distance		///< [in] Distance from injection to nearest template
-  );
-
-int XLALUpdateNearestTemplateToInjections(
-  NearestTemplateWorkspace* wksp,	///< [in] Nearest template workspace
-  gsl_vector* min_distance,		///< [in] Distance from injection to nearest template
-  gsl_vector_uint* nearest_template	///< [in] Index of nearest template
+int XLALNearestFlatLatticePointToRandomPoints(
+  FlatLatticeTiling* tiling,		///< [in] Tiling state
+  RandomParams* rng,			///< [in] Random number generator
+  const size_t num_random_points,	///< [in] Number of random points to generate
+  gsl_matrix** random_points,		///< [in/out] Pointer to matrix of random points
+  gsl_matrix** nearest_points,		///< [in/out] Pointer to matrix of nearest lattice points to each random point
+  gsl_vector_ulong** nearest_indices,	///< [in/out] Pointer to vector of indices of nearest lattice point
+  gsl_vector** nearest_distances,	///< [in/out] Pointer to vector of distances to nearest lattice point
+  gsl_matrix** workspace		///< [in/out] Pointer to workspace matrix for computing distances
   );
 
 #ifdef __cplusplus

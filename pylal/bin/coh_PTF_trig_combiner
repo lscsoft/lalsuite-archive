@@ -202,7 +202,7 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
     trigs['ALL_TIMES'].appendColumn('time_slide_id')
   for trig in trigs['ALL_TIMES']:
     if not hasattr(trig, 'time_slide_id'):
-      trig.time_slide_id = ilwd.get_ilwdchar("multi_inspiral:time_slide_id:0")
+      trig.time_slide_id = ilwd.ilwdchar("multi_inspiral:time_slide_id:0")
 
   if verbose: sys.stdout.write("%d triggers found at %d.\n"\
                                % (len(trigs['ALL_TIMES']), elapsed_time()))

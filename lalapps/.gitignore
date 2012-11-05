@@ -72,6 +72,7 @@ src/inspiral/lalapps_cbc_sbank_merge_sims
 src/inspiral/lalapps_cbc_sbank_pipe
 src/inspiral/lalapps_cbc_sbank_plot_sim
 src/inspiral/lalapps_cbc_sbank_sim
+src/inspiral/lalapps_cbc_sbank_splitter
 src/inspiral/lalapps_cbc_stochasticbank
 src/inspiral/lalapps_check_flag
 src/inspiral/lalapps_check_hipe_times
@@ -257,6 +258,7 @@ src/pulsar/lalapps_FreqAverager_v2
 src/pulsar/lalapps_GetSFTVelocities
 src/pulsar/lalapps_PrintDetectorState
 src/pulsar/lalapps_create_solar_system_ephemeris
+src/pulsar/lalapps_create_time_correction_ephemeris
 src/pulsar/lalapps_make_job_input_data
 src/pulsar/lalapps_make_sfts
 src/pulsar/lalapps_psd

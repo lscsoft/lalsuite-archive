@@ -40,14 +40,6 @@ from pylal import ligolw_tisi
 from pylal import llwapp
 
 
-# test that any is in the name space
-try:
-	any
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any
-
-
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date

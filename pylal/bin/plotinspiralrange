@@ -240,7 +240,6 @@ def plotinspiralrange_range_versus_total_mass(opts):
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
   
-  
   fname = []
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "range_mass")
@@ -382,35 +381,33 @@ OR the cachefile options (--cache-file), not both at the same time.
 
   return options, sys.argv[1:]
 
-
-
 # ============================================================================
 # -- get command line arguments
+
 opts, args = parse_command_line()
+
 # -- Initialise
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
+
 # -- set the proper color code
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
 
-# to avoid  display problem when show plot is not used
+# to avoid display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
 
-
-
-
-
 # ============================================================================
 # -- identify the inspiral and template bank files
+
 InspiralUtils.message(opts, "Parsing the cache file...wait...")
 inspiralFiles = get_filelist(opts)
  
-# -- Read in the summ values from the inspiral/tmpltbank  files
+# -- Read in the summ values from the inspiral/tmpltbank files
 inspiralSumm, massInspiralSumm = InspiralUtils.readHorizonDistanceFromSummValueTable(inspiralFiles, opts.verbose)
 
 # ============================================================================
@@ -426,9 +423,9 @@ if opts.range_vs_time is True:
   fnameList.append(fname)
   tagList.append("Horizon distance versus time")
 
-
 # ============================================================================
 # Make histogram of range values
+
 if opts.range_hist is True:
   # create a text for the alt and title of html document
   text = "Histogram of inspiral horizon distance for a (1.4,1.4) solar "+\
@@ -438,8 +435,6 @@ if opts.range_hist is True:
   # -- save results in output files --
   fnameList.append(fname)
   tagList.append("Histogram of horizon distance")
-  
-
 
 # ============================================================================
 # Make plot of mean range vs total mass
@@ -454,10 +449,9 @@ if opts.range_mass is True:
   fnameList.append(fname)
   tagList.append("Horizon distance versus mass")
 
-    
-
 # ============================================================================
 # final step: html, cache file generation
+
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
