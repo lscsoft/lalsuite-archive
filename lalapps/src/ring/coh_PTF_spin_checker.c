@@ -58,7 +58,7 @@ int main( int argc, char **argv )
   COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1];
   time_t                  startTime;
   LALDetector             *detectors[LAL_NUM_IFO+1];
-  REAL8                   *timeOffsets;
+  REAL4                   *timeOffsets;
   REAL4                   *Fplus;
   REAL8                   FplusTmp;
   REAL4                   *Fcross;
@@ -150,11 +150,6 @@ int main( int argc, char **argv )
     if ( params->haveTrig[ifoNumber] )
     {
       /* Read in data from the various ifos */
-      params->doubleData = 1;
-      if ( params->simData )
-          params->doubleData = 0;
-      else if ( ifoNumber == LAL_IFO_V1 )
-          params->doubleData = 0;
       channel[ifoNumber] = coh_PTF_get_data(params,params->channel[ifoNumber],\
                                params->dataCache[ifoNumber],ifoNumber );
       coh_PTF_rescale_data (channel[ifoNumber],1E20);
@@ -175,7 +170,7 @@ int main( int argc, char **argv )
 
   /* Determine time delays and response functions */ 
 
-  timeOffsets = LALCalloc(1, numSegments*LAL_NUM_IFO*sizeof( REAL8 ));
+  timeOffsets = LALCalloc(1, numSegments*LAL_NUM_IFO*sizeof( REAL4 ));
   Fplus = LALCalloc(1, numSegments*LAL_NUM_IFO*sizeof( REAL4 ));
   Fcross = LALCalloc(1, numSegments*LAL_NUM_IFO*sizeof( REAL4 ));
   for( ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
