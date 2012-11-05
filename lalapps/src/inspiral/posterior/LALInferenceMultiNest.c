@@ -87,8 +87,7 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context
 	
 	// calculate the loglike
 	*lnew=runStateGlobal->likelihood(newParams, runStateGlobal->data, runStateGlobal->template);
-	if(isnan(*lnew)) *lnew=0.;
-    *lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
+	*lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
 	LALInferenceDestroyVariables(newParams);
 	free(newParams);
 }

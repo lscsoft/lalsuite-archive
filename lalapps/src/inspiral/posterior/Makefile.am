@@ -1,6 +1,6 @@
 SUBDIRS = SPINspiral mpi
 
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/MultiNest_v2.18 -lnest3 -llapack -lblas -lgfortranbegin -lgfortran -lm
+LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/BAMBI -lnest3 -lskynet -lbambi -llapack -lblas -lgfortranbegin -lgfortran -lm -latlas -lstdc++
 
 if LALINSPIRAL
 if LALFRAME
@@ -27,7 +27,8 @@ if LALINFERENCE
 pulsar_progs = lalinference_nest ChiSquare_test #lalinference_mcmcmpi
 ChiSquare_test_SOURCES = ChiSquare_test.c
 #lalinference_nest_SOURCES = LALInferenceNest.c
-lalinference_nest_SOURCES = LALInferenceMultiNest.c
+#lalinference_nest_SOURCES = LALInferenceMultiNest.c
+lalinference_nest_SOURCES = LALInferenceBAMBI.c
 
 endif
 
@@ -46,7 +47,7 @@ bin_PROGRAMS = $(metaio_progs) $(frame_progs) $(pulsar_progs) $(mpi_progs)
 
 noinst_PROGRAMS = $(td_test_progs)
 
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -I$(top_builddir)/src/inspiral/posterior/BAMBI/src
 
 if HAVE_PYTHON
 bin_SCRIPTS = \
