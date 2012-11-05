@@ -3965,11 +3965,15 @@ class PEOutputParser(object):
         nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
             print "Downsampling to take only uncorrelated posterior samples from each file."
-            for i in range(len(nskips)):
-                if nskips[i] is None:
-                    print "%s eliminated since all samples are correlated."
-        else:
-            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
+            if len(nskips) == 1 and np.isnan(nskips[0]):
+                print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, 10000)
+            else:
+                for i in range(len(nskips)):
+                    if np.isnan(nskips[i]):
+                        print "%s eliminated since all samples are correlated."
+                    else:
+                        print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -4122,7 +4126,7 @@ class PEOutputParser(object):
 
             finally:
                 infile.close()
-        nskips = np.ones(nfiles,'int')
+        nskips = np.ones(nfiles)
         ntot = sum(ntots)
         if nDownsample is not None:
             if ntot > nDownsample:
