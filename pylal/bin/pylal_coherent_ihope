@@ -327,7 +327,7 @@ def setup_sky(cp, data, usertag="COH_PTF_INSPIRAL_SKY_GRID",\
     # generate a grid for each networks
     skycache = cache.Cache()
     for network in networks:
-        ifos = lsctables.instrument_set_from_ifos(network)
+        ifos = sorted(lsctables.instrument_set_from_ifos(network))
         sites = sky.parse_sites(ifos)
         # one for each segment: this accounts for celestial rotations
         for seg in data[network]:
