@@ -72,7 +72,7 @@ def parse_command_line():
 
 	if options.match_algorithm is None:
 		raise ValueError, "missing required --match-algorithm option"
-	if options.match_algorithm not in ("inspiral"):
+	if options.match_algorithm not in ("inspiral", "multi_inspiral"):
 		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
 
 	return options, (filenames or [None])
@@ -112,11 +112,11 @@ ligolw_inspinjfind.table.RowBuilder = ligolw_inspinjfind.table.InterningRowBuild
 options, filenames = parse_command_line()
 
 # must match columns in sngl_inspiral table
-search = {"inspiral": "inspiral"}[options.match_algorithm]
+search = {"inspiral": "inspiral", "multi_inspiral":"multi_inspiral"}[options.match_algorithm]
 # create the compare functions class with desired input variables
 cf = ligolw_inspinjfind.CompareFunctions( twindow = options.time_window )
-snglcomparefunc = {"inspiral": cf.InspiralSnglCompare}[options.match_algorithm]
-nearcoinccomparefunc = {"inspiral": cf.NearCoincCompare}[options.match_algorithm]
+snglcomparefunc = {"inspiral": cf.InspiralSnglCompare, "multi_inspiral": cf.InspiralMultiCompare}[options.match_algorithm]
+nearcoinccomparefunc = {"inspiral": cf.NearCoincCompare, "multi_inspiral": cf.NearCoincCompare}[options.match_algorithm]
 
 
 #
