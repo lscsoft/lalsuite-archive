@@ -170,12 +170,11 @@ void XLALSimInspiralDestroyTestGRParam(
         LALSimInspiralTestGRParam *parameter 	/**< Linked list to destroy */
         )
 {
-	LALSimInspiralTestGRParam *tmp;
+    LALSimInspiralTestGRParam *tmp;
     while(parameter){
 		tmp=parameter->next;
 		XLALFree(parameter->data);
 		XLALFree(parameter);
 		parameter=tmp;
 	}
-    
 }

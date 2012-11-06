@@ -2018,7 +2018,9 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
 	PrintSNRsToFile(IFOdata , inj_table);
-    }
+	}
+	XLALDestroyCOMPLEX16FrequencySeries(freqModelhCross);
+    XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
 }
 
 

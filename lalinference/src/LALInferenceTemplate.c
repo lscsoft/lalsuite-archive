@@ -1980,7 +1980,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
                                                  amporder, order, approximant), errnum);
-
       previous_m1 = m1;
       previous_m2 = m2;
       previous_spin1z = spin1z;
