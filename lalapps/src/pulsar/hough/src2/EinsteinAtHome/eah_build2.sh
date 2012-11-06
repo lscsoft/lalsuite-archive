@@ -390,7 +390,7 @@ else
     else
         log_and_do cd "$SOURCE"
         log_and_do rm -rf boinc
-        log_and_do git clone git://git.aei.uni-hannover.de/shared/einsteinathome/boinc.git
+        log_and_do git clone git://gitmaster.atlas.aei.uni-hannover.de/einsteinathome/boinc.git
         log_and_do cd boinc
         log_and_do git checkout "$boinc_rev"
     fi
