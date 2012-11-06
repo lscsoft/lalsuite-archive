@@ -170,9 +170,7 @@ struct twod_waveform_interpolant {
 	 * interpolant object for each mu 
 	 */
 
-	gsl_matrix_complex *C_KL;
-
-		
+	gsl_matrix_complex *C_KL;		
 };
 	
 struct twod_waveform_interpolant_array {
@@ -186,6 +184,7 @@ struct twod_waveform_interpolant_array {
 	double inner_param2_min;
 	double inner_param1_max;
 	double inner_param2_max;
+	gsl_matrix_complex *T_KL; //time-shift interpolants
 };
 
 struct twod_waveform_interpolant_manifold {
