@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Copyright (C) 2012 Duncan M. Macleod
 #
@@ -48,6 +48,7 @@ import lal
 import random
 import string
 import errno
+import numpy
 
 # glue imports
 from glue import segments
@@ -300,7 +301,7 @@ def setup_datafind(cp, data, logdir, run_datafind=True):
 # =============================================================================
 
 def setup_sky(cp, data, usertag="COH_PTF_INSPIRAL_SKY_GRID",\
-              write_grid=True):
+              write_grid=True, plot=True):
     """
     Generate the sky grids for each network in the dict of (network,
     segments) pairs, one per segment per network. The sky grids are
@@ -325,6 +326,7 @@ def setup_sky(cp, data, usertag="COH_PTF_INSPIRAL_SKY_GRID",\
     cov = cp.get("sky", "coverage")
 
     # generate a grid for each networks
+    skyfile = None
     skycache = cache.Cache()
     for network in networks:
         ifos = sorted(lsctables.instrument_set_from_ifos(network))
@@ -335,6 +337,7 @@ def setup_sky(cp, data, usertag="COH_PTF_INSPIRAL_SKY_GRID",\
                 outfile = os.path.join("%s-%s-%d-%d.txt"\
                                        % (network, usertag, chunk.start(),\
                                           chunk.end()-chunk.start()))
+                skyfile = outfile
                 chunk.set_sky_grid_file(outfile)
                 skycache.append(cache.CacheEntry.from_T050017(\
                                 os.path.abspath(outfile)))
@@ -351,6 +354,27 @@ def setup_sky(cp, data, usertag="COH_PTF_INSPIRAL_SKY_GRID",\
                     if write_grid:
                         with open(outfile, "w") as f:
                             sky.tofile(f, grid, degrees=True)
+
+    if plot and skyfile:
+        ra,dec = numpy.loadtxt(skyfile, unpack=True)
+        # plot ortho projection   
+        plotutils.pylab.rcParams.update({"figure.figsize":[8,6]})
+        skyplot = "%s-%s_ORTHO-0-0.png" % (network, usertag)
+        centre = (ra.mean(), dec.mean())
+        plot = plotutils.SkyPositionsPlot(title="%s sky grid" % network)
+        plot.add_content(ra, dec)
+        plot.finalize(projection="ortho", centre=centre)
+        plot.savefig(skyplot)
+        # plot mollewiede projection
+        plotutils.pylab.rcParams.update({"figure.figsize":[12,6]})
+        plotutils.set_rcParams()
+        skyplot = skyplot.replace("ORTHO", "MOLL")
+        plot = plotutils.SkyPositionsPlot(title="%s sky grid" % network)
+        plot.add_content(ra, dec)
+        plot.finalize(projection="moll")
+        plot.savefig(skyplot)
+        plot.close()
+        plot.close()
 
     return skycache
 
@@ -411,14 +435,22 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
         print_verbose("SplitBank: num-split = 1, disabling SplitBank...\n",\
                       verbose=verbose, stream=sys.stdout)
 
+    # set plotting job
+    plotjob = inspiral.InspiralPlottingJob(cp, ["trigger_plot",\
+                                                "plot-tmpltbank-meta"],\
+                                           "trigger_plot", "png")
+    plots = cp.options("plot-tmpltbank")
+    if run_tmpltbank:
+       set_job_files(job, "trig_plot", os.curdir, logdir)
+
     # generate TmpltBankNode and SplitbankNode for each time chunk in
     # each segment for each network
     for network in networks:
-        for seg in data[network]:
+        for i,seg in enumerate(data[network]):
             # get relevant datafind cache
             datafind_cache = normjoin(os.pardir, DATAFIND,\
                                       seg.get_df_file(ifo=ifo))
-            for chunk in seg:
+            for j,chunk in enumerate(seg):
                 # make a template bank job for the master chunk
                 node = inspiral.TmpltBankNode(job)
                 node.set_category("tmpltbank")
@@ -449,6 +481,21 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
                     chunk.set_sb_files(sbnode.get_output())
                     if run_splitbank:
                         dag.add_node(sbnode)
+
+                # make plots
+                if i == 0 and j == 0:
+                    tmpltbank_file = node.get_output()
+                    for plot in plots:
+                        plotnode = inspiral.InspiralPlottingNode(plotjob)
+                        plotnode.add_var_opt("trigger-file", tmpltbank_file)
+                        for key,val in cp.items(plot):
+                            plotnode.add_var_opt(key, val)
+                        plottag = "TMPLTBANK_%s" % plot.replace("-","_").upper()
+                        outfile = tmpltbank_file.replace("TMPLTBANK", plottag)\
+                                                .replace("xml.gz", "png")
+                        plotnode.add_var_opt("output-file", outfile)
+                        plotnode.add_parent(node)
+                        dag.add_node(plotnode)
 
     return dag, tbcache, sbcache
 
