@@ -560,7 +560,7 @@ def build_html_base(cp, ifo, directory, gpspair=None):
     """
 
     # get domain URL for this host
-    root = htmlutils.get_ldas_url()
+    root = htmlutils.get_web_server()
 
     # if the base is given
     if cp.has_option('html', '%s-base' % ifo.lower()):
