@@ -120,7 +120,7 @@ def generate_segments(ifo1_data, ifo2_data, ifo3_data, ifo4_data):
     
 ##############################################################################
 # function to set up datafind, template bank and inspiral jobs for an ifo  
-def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
+def analyze_ifo(ifo_name,ifo_data,ifo_to_do,psd_job,tmplt_job,insp_job,df_job,\
   prev_df,dag, exttrigInjections, usertag=None, inspinjNode = None,
   insp_ckpt_job = None):
   """
@@ -166,10 +166,8 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
   if cp.has_section('tmpltbank-1'):
     tmplt_job.add_ini_opts(cp, 'tmpltbank-1')
   if cp.has_section(data_opts):
-    tmplt_job.add_ini_opts(cp,data_opts)
     insp_job.add_ini_opts(cp,data_opts)
 
-  tmplt_job.set_channel(channel)
   insp_job.set_channel(channel)
 
   # see if we are using calibrated data
@@ -233,8 +231,19 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
           else:
             prev_df = None  
 
-          # make a template bank job for the master chunk
-          bank = inspiral.TmpltBankNode(tmplt_job)
+          # compute psd
+	  if opts.datafind:
+	    psd = inspiral.ReferencePSDNode(psd_job)
+	    psd.set_channel("%s=%s" % (ifo,channel))
+	    psd.set_output("%s-REFERENCE_PSD-%d-%d.xml.gz" % (ifo, chunk.start(), chunk.end()-chunk.start()))
+	    psd.set_cache(df.get_output())
+            psd.set_start(chunk.start())
+            psd.set_end(chunk.end())
+	    psd.add_parent(df)
+	    dag.add_node(psd)
+
+	  # make a template bank job for the master chunk	
+	  bank = inspiral.SBankNode(tmplt_job)
           if not opts.disable_dag_categories:
             bank.set_category('tmpltbank')
           if not opts.disable_dag_priorities:
@@ -242,11 +251,12 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
           bank.set_start(chunk.start())
           bank.set_end(chunk.end())
           bank.set_ifo(ifo_name)
+          bank.set_instrument(ifo_name)
           bank.set_vds_group(ifo_name[0] + str(chunk.start()))
-          if not opts.read_cache: bank.set_cache(df.get_output())
-          else: bank.set_cache(cp.get('datafind',ifo_name+"-cache"))
           if not calibrated: bank.calibration()
-          if opts.datafind: bank.add_parent(df)
+          if opts.datafind:
+	    bank.set_reference_psd(psd.get_output())
+	    bank.add_parent(psd)
           if (opts.template_bank and not GeoBank): dag.add_node(bank)
                   
           # loop over the ext-trig injections
@@ -1768,16 +1778,18 @@ df_job = pipeline.LSCDataFindJob(
   'cache','logs',cp,opts.dax,lsync_file,'|'.join(frame_types))
 df_job.set_sub_file( basename + '.datafind'+ subsuffix )
 
+# psd
+psd_jobs = {}
+for ifo in ifo_list:
+  psd_jobs[ifo] = inspiral.ReferencePSDJob(cp,opts.dax)
+  psd_jobs[ifo].set_sub_file( basename + '.reference_psd_' + ifo + subsuffix )
+
 # tmpltbank:
 tmplt_jobs = {}
 
 for ifo in ifo_list:
-  if opts.ringdown:
-    tmplt_jobs[ifo] = inspiral.TmpltBankJob(cp,opts.dax)
-    tmplt_jobs[ifo].set_exec_name('ringbank')
-  else:
-    tmplt_jobs[ifo] = inspiral.TmpltBankJob(cp,opts.dax)
-  tmplt_jobs[ifo].set_sub_file( basename + '.tmpltbank_' + ifo + subsuffix )
+  tmplt_jobs[ifo] = inspiral.SBankJob(cp,opts.dax)
+  tmplt_jobs[ifo].set_sub_file( basename + '.sbank_' + ifo + subsuffix )
 
 # inspinj:
 inspinj_job = inspiral.InspInjJob(cp) 
@@ -1974,6 +1986,7 @@ all_jobs = [inspinj_job, single_inca_job, trig_job, cb_job, sire_job,
   sire_summary_job, coire_job, coire_slide_job, coire_summary_job,
   coire_slide_summary_job, coire2_job, coire2_slide_job, coire2_summary_job, 
   coire2_slide_summary_job, cohinspbank_job, cohire_job, cohire_summary_job ]
+all_jobs.extend(psd_jobs.values())
 all_jobs.extend(tmplt_jobs.values())
 all_jobs.extend(insp_jobs.values())
 all_jobs.extend(thinca_jobs.values())
@@ -2306,8 +2319,8 @@ for ifo in ifo_list:
   print "setting up jobs to filter " + ifo + " data...",
   sys.stdout.flush()
 
-  (prev_df,chunks_analyzed[ifo]) = analyze_ifo(ifo,data[ifo],data_to_do[ifo],  
-      tmplt_jobs[ifo],insp_jobs[ifo],df_job,prev_df,dag,exttrigInjections,
+  (prev_df,chunks_analyzed[ifo]) = analyze_ifo(ifo,data[ifo],data_to_do[ifo],
+      psd_jobs[ifo],tmplt_jobs[ifo],insp_jobs[ifo],df_job,prev_df,dag,exttrigInjections,
       usertag,inspinj,insp_ckpt_job)
 
   # Step 4S: Run sire on the single ifo triggers

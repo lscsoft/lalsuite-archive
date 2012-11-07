@@ -119,7 +119,7 @@ def tmpltbank_cache(datafind_filename):
   result_cache = lal.Cache.fromfile(cache_file)
   cache_file.close()
 
-  return result_cache.sieve(description="TMPLTBANK")
+  return result_cache.sieve(description="SBANK")
 
 ##############################################################################
 def symlink_tmpltbank(tmpltbank_cache, user_tag):
@@ -575,6 +575,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dataFind = False, \
   hipecp = copy.deepcopy(config)
   if dataFind or tmpltBank: # Template generation and datafind share a number of options
     hipeSections = ["condor", "pipeline", "input", "datafind","data", \
+        "reference-psd", "sbank", \
         "ligo-data","inspiral","virgo-data", "condor-max-jobs", \
         "ligolw_add", "calibration"]
     if tmpltBank: # Template generation needs some extra options that datafind doesn't

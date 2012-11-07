@@ -127,6 +127,42 @@ class TmpltBankJob(InspiralAnalysisJob):
     InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
 
 
+class SBankJob(InspiralAnalysisJob):
+  """
+  A lalapps_cbc_sbank job used by the inspiral pipeline. The static
+  options are read from the sections [sbank] in the ini file. The
+  stdout and stderr from the job are directed to the logs
+  directory. The job runs in the universe specfied in the ini
+  file. The path to the executable is determined from the ini file.
+  """
+  def __init__(self,cp,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    exec_name = 'sbank'
+    extension = 'xml'
+    sections = ['tmpltbank']
+    InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
+    self.set_universe("vanilla")
+    self.add_condor_cmd('getenv','True')
+
+
+class ReferencePSDJob(InspiralAnalysisJob):
+  """
+  A gstlal_reference_psd job.
+  """
+  def __init__(self,cp,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    exec_name = "reference_psd"
+    extension = 'xml.gz'
+    sections = ['reference-psd']
+    InspiralAnalysisJob.__init__(self,cp,sections,exec_name,extension,dax)
+    self.set_universe("vanilla")
+    self.add_condor_cmd('getenv','True')
+
+
 class InspInjJob(InspiralAnalysisJob):
   """
   A lalapps_inspinj job used by the grb inspiral pipeline. The static options
@@ -889,6 +925,62 @@ class TmpltBankNode(InspiralAnalysisNode):
     job = A CondorDAGJob that can run an instance of lalapps_tmpltbank.
     """
     InspiralAnalysisNode.__init__(self,job)
+
+
+class SBankNode(InspiralAnalysisNode):
+  """
+  A SBankNode runs an instance of the sbank job in a Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    job = A CondorDAGJob that can run an instance of gstlal_reference_psd.
+    """
+    InspiralAnalysisNode.__init__(self,job)
+
+  def set_reference_psd(self,psd):
+    """
+    set input PSD to SBank
+    """
+    self.add_var_opt('reference-psd', psd)
+
+  def set_instrument(self,ifo):
+    """
+    set instrument to SBank
+    """
+    self.add_var_opt('instrument', ifo)
+
+
+class ReferencePSDNode(InspiralAnalysisNode):
+  """
+  A ReferencePSDNode runs an instance of the reference-psd generation job in a
+  Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    job = A CondorDAGJob that can run an instance of gstlal_reference_psd.
+    """
+    InspiralAnalysisNode.__init__(self,job)
+
+  def set_channel(self,channel):
+    """
+    override pipeline.py method for gstlal specific quirks
+    """
+    self.__channel = channel
+    self.add_var_opt('channel-name', channel)
+
+  def set_output(self,filename,pass_to_command_line=True):
+    """
+    override pipeline.py method for gstlal specific quirks
+    """
+    self.__outputName = filename
+    self.add_var_opt('write-psd', filename)
+    self.add_output_file(filename)
+
+  def get_output(self):
+    """
+    override pipeline.py method for gstlal specific quirks
+    """
+    return self.__outputName
 
 
 class RandomBankNode(InspiralAnalysisNode):
