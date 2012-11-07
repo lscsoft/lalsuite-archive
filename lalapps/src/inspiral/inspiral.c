@@ -227,6 +227,7 @@ CHAR  *calCacheName     = NULL;         /* location of calibration data */
 INT4   globCalData      = 0;            /* glob for calibration frames  */
 INT4   pointCal         = 0;            /* don't average cal over chunk */
 CHAR  *injectionFile    = NULL;         /* name of file containing injs */
+CHAR  *glitchInjectionFile = NULL;      /* name of glitch inj file      */
 CHAR **tdFollowUpFiles  = NULL;         /* name of file containing td f */
 INT4   numTDFiles       = 0;            /* Number of files to follow up */
 int    injectOverhead   = 0;            /* inject h+ into detector      */
@@ -3769,6 +3770,8 @@ fprintf( a, "  --write-chisq                write the r^2 time series for each d
 fprintf( a, "  --write-coh-trigs            write the trigger xml file when running in coherent stage\n");\
 fprintf( a, "  --write-cdata                write the complex filter output\n");\
 fprintf( a, "  --write-template                write the template time series\n");\
+fprintf( a, "\n");\
+fprintf( a, "  --glitches-from-file FILE      inject glitches according to FILE\n");\
 fprintf( a, "\n");
 
 int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
@@ -3884,6 +3887,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"cdata-length",            required_argument, 0,                '|'},
     {"username",                required_argument, 0,                '~'},
     {"compute-node-dir",        required_argument, 0,                '$'},
+    {"glitches-from-file",      required_argument, 0,                 0 },
     /* frame writing options */
     {"write-raw-data",          no_argument,       &writeRawData,     1 },
     {"write-filter-data",       no_argument,       &writeFilterData,  1 },
@@ -3942,7 +3946,18 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
 
     switch ( c )
     {
-      case 0:
+      case 0: /* We've run out of shortcuts, so overload several options here */
+        /* check for glitch file option */
+        if ( !strcmp( long_options[option_index].name, "glitches-from-file") )
+        {
+            /* create storage for the glitch injection file name */
+            optarg_len = strlen( optarg ) + 1;
+            glitchInjectionFile = (CHAR *) calloc( optarg_len, sizeof(CHAR));
+            memcpy( injectionFile, optarg, optarg_len );
+            ADD_PROCESS_PARAM( "string", "%s", optarg );
+            if ( vrbflg ) fprintf(stdout, "Glitch file %s\n", glitchInjectionFile);
+            break;
+        }
 
         /* check for autochisq long options */
         if ( !strcmp( long_options[option_index].name, "autochisq-length") )
