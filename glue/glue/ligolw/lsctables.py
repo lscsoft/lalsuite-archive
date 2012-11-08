@@ -1771,6 +1771,12 @@ class MultiInspiralTable(table.Table):
 			return self.get_null_snr()
 		elif column == 'coinc_snr':
 			return self.get_coinc_snr()
+		elif column == 'reduced_chisq':
+			return self.get_reduced_chisq()
+		elif column == 'reduced_bank_chisq':
+			return self.get_reduced_bank_chisq()
+		elif column == 'reduced_cont_chisq':
+			return self.get_reduced_cont_chisq()
 		else:
 			return self.getColumnByName(column).asarray()
 
@@ -1951,8 +1957,27 @@ class MultiInspiralTable(table.Table):
 		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
+	def get_reduced_chisq(self):
+		return self.get_column('chisq') / (2*self.get_column('chisq_dof') - 2)
+
+	def get_reduced_bank_chisq(self):
+		return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
+
+	def get_reduced_cont_chisq(self):
+		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
+
+
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+	def get_reduced_chisq(self):
+		return self.chisq / self.chisq_dof
+
+	def get_reduced_bank_chisq(self):
+		return self.bank_chisq / self.bank_chisq_dof
+
+	def get_reduced_cont_chisq(self):
+		return self.cont_chisq / self.cont_chisq_dof
 
 	def get_end(self):
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
