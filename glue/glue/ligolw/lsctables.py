@@ -1790,14 +1790,14 @@ class MultiInspiralTable(table.Table):
 	def get_end(self):
 		return [row.get_end() for row in self]
 
-	def get_new_snr(self, index=6.0, column='chisq'):
+	def get_new_snr(self, index=4.0, column='chisq'):
 		# kwarg 'index' is assigned to the parameter chisq_index
 		# nhigh gives the asymptotic large rho behaviour of
 		# d (ln chisq) / d (ln rho) 
 		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_%s' % column)
-		nhigh = index/3.
+		nhigh = 3.0
 		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
