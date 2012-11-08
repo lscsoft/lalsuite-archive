@@ -1919,6 +1919,14 @@ class MultiInspiralTable(table.Table):
 		return dict((ifo, self.get_sngl_cont_chisq(ifo))\
 		            for ifo in instruments)
 
+	def get_bestnr(self, index=4.0, null_snr_threshold=4.25):
+		"""
+		Get the BestNR statistic for each row in the table
+		"""
+		return [row.get_bestnr(index=index,\
+		                       null_snr_threshold=null_snr_threshold)\
+		        for row in self]
+
 	def getstat(self):
 		return self.get_column('snr')
 
@@ -2059,6 +2067,23 @@ class MultiInspiral(object):
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
+
+	def get_bestnr(self, index=4.0, null_snr_threshold=4.25):
+		"""
+		Return the BestNR statistic for this row.
+		"""
+		# weight SNR by chisq
+		bestnr = self.get_new_snr(index=index, column="chisq")
+		if len(self.get_ifos()) < 3:
+			return bestnr
+		# recontour null SNR threshold for higher SNRs
+		if self.snr > 20:
+			null_snr_threshold += (self.snr - 20)/5.
+		# weight SNR by null SNR
+		if self.get_null_snr() > null_snr_threshold:
+			bestnr /= 1 + self.get_null_snr() - null_snr_threshold
+		return bestnr
+
 
 MultiInspiralTable.RowType = MultiInspiral
 
