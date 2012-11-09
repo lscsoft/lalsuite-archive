@@ -300,9 +300,12 @@ def trigger(data, etg, ifo=None, channel=None, loadcolumns=None):
 
     trig.amplitude           = float(data[2])
 
-
     # SNR
     trig.snr                 = math.sqrt(trig.amplitude)
+
+    # use chisq to stor PSD variance, 
+    if len(data)>3:
+      trig.chisq               = math.sqrt(math.sqrt(float(data[3])))/trig.snr
 
   # ==============
   # omegadq
@@ -489,7 +492,7 @@ def totrigfile(file,table,etg,header=True,columns=None):
                  'ms_fhigh','cluster_size','amplitude','amplitude']
 
     elif re.match('omegaspectrum',etg):
-      columns = ['peak_time','peak_frequency','amplitude']
+      columns = ['peak_time','peak_frequency','amplitude','chisq']
 
     elif re.match('omega',etg) or re.match('wpipe',etg):
       if len(table) and hasattr(table[0], 'param_one_value'):
@@ -872,7 +875,7 @@ def omega_online_cache(start, end, channel, mask='DOWNSELECT',\
   # loop over time segments constructing file paths and appending to the cache
   while t<end:
     if ifo == 'G1':
-      trigfile = '%s/%.5d/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
+      trigfile = '%s/%d/%d-%d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
           % (basedir, t/100000, t, t+triglength, ifo, mask, t, triglength)
     else:
       trigfile = '%s/%.10d-%10.d/%s-OMEGA_TRIGGERS_%s-%.10d-%d.txt'\
@@ -1919,6 +1922,8 @@ def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
 
   if len(dat)==3:
     peak, freq, amplitude = dat
+  elif len(dat)==4:
+    peak, freq, amplitude, chisq = dat
   else:
     raise ValueError("Wrong number of columns in omega spectrum format file. "\
                      "Cannot read.")
@@ -1935,6 +1940,7 @@ def fromomegaspectrumfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'peak_frequency' in columns: attr_map['peak_frequency'] = freq
   if 'amplitude' in columns:      attr_map['amplitude'] = amplitude
   if 'snr' in columns:            attr_map['snr'] = amplitude**(1/2)
+  if 'chisq' in columns:          attr_map['chisq'] = chisq**(0.25)/attr_map['snr'] 
 
   cols   = attr_map.keys()
   append = out.append
