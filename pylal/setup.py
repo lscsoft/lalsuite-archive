@@ -617,7 +617,6 @@ setup(
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_inspinjfind"),
-		os.path.join("bin", "lalapps_cbc_injfind"),
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
