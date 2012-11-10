@@ -40,8 +40,8 @@ def compute_mchirp(m1, m2):
 
 def project_hplus_hcross(hplus, hcross, theta, phi, psi):
     # compute antenna factors Fplus and Fcross
-    Fp = (1 + np.cos(theta)**2)*np.cos(2*phi)*np.cos(2*psi) - np.cos(theta)*np.sin(2*phi)*np.sin(2*psi)
-    Fc = (1 + np.cos(theta)**2)*np.cos(2*phi)*np.sin(2*psi) + np.cos(theta)*np.sin(2*phi)*np.cos(2*psi)
+    Fp = 0.5*(1 + np.cos(theta)**2)*np.cos(2*phi)*np.cos(2*psi) - np.cos(theta)*np.sin(2*phi)*np.sin(2*psi)
+    Fc = 0.5*(1 + np.cos(theta)**2)*np.cos(2*phi)*np.sin(2*psi) + np.cos(theta)*np.sin(2*phi)*np.cos(2*psi)
 
     # form strain signal in detector
     hoft = lal.CreateREAL8TimeSeries("h(t)", hplus.epoch, hplus.f0, hplus.deltaT, lal.lalSecondUnit, hplus.data.length)
@@ -55,7 +55,7 @@ def compute_sigmasq(htilde, deltaF):
     Find norm of whitened h(f) array.
     """
     # vdot is dot with complex conjugation
-    return float(np.vdot(htilde, htilde).real * (4 * deltaF / (2 * len(htilde) - 2)))
+    return float(np.vdot(htilde, htilde).real * 4 * deltaF)
 
 
 def FrequencySeries_to_COMPLEX8FrequencySeries(fs):
@@ -185,8 +185,8 @@ class Template(object):
         self._metric = None
 
 class TaylorF2RedSpinTemplate(Template):
-    param_names = ("m1", "m2", "chi")
-    param_formats = ("%.5f", "%.5f", "%+.4f")
+    param_names = ("m1", "m2", "chi", "sigmasq")
+    param_formats = ("%.5f", "%.5f", "%+.4f", "%3.2e")
 
     __slots__ = ("m1", "m2", "chi", "bank", "_f_final", "_dur", "_mchirp", "_eta", "_theta0", "_theta3", "_theta3s")
 
@@ -227,12 +227,12 @@ class TaylorF2RedSpinTemplate(Template):
 
     @property
     def params(self):
-        return self.m1, self.m2, self.chi
+        return self.m1, self.m2, self.chi, self.sigmasq 
 
     def _compute_waveform(self, df, f_final):
         return lalsim.SimInspiralTaylorF2ReducedSpin(
             0, df, self.m1 * LAL_MSUN_SI, self.m2 * LAL_MSUN_SI, self.chi,
-            self.bank.flow, 1000000 * LAL_PC_SI, 7, 3)
+            self.bank.flow, 1000000 * LAL_PC_SI, 7, 7)
 
     def metric_match(self, other, df, **kwargs):
         g00, g01, g02, g11, g12, g22 = self._metric
@@ -512,8 +512,8 @@ class EOBNRv2Template(Template):
         return row
 
 class SpinTaylorT4Template(Template):
-    param_names = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi")
-    param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f")
+    param_names = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","sigmasq")
+    param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%3.2e")
 
     __slots__ = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","bank","_f_final","_dur","_mchirp")
 
@@ -540,7 +540,7 @@ class SpinTaylorT4Template(Template):
 
     @property
     def params(self):
-        return self.m1, self.m2, self.s1x, self.s1y, self.s1z, self.s2x, self.s2y, self.s2z, self.inclination, self.theta, self.phi, self.psi
+        return self.m1, self.m2, self.s1x, self.s1y, self.s1z, self.s2x, self.s2y, self.s2z, self.inclination, self.theta, self.phi, self.psi, self.sigmasq 
 
     def _compute_waveform(self, df, f_final):
         # Time domain, so compute then FFT
@@ -604,8 +604,8 @@ class SpinTaylorT4Template(Template):
 
 
 class SpinTaylorT5Template(Template):
-    param_names = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi")
-    param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f")
+    param_names = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","sigmasq")
+    param_formats = ("%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%.2f","%3.2e")
 
     __slots__ = ("m1","m2","s1x","s1y","s1z","s2x","s2y","s2z","inclination","theta","phi","psi","bank","_f_final","_dur","_mchirp")
 
@@ -632,7 +632,7 @@ class SpinTaylorT5Template(Template):
 
     @property
     def params(self):
-        return self.m1, self.m2, self.s1x, self.s1y, self.s1z, self.s2x, self.s2y, self.s2z, self.inclination, self.theta, self.phi, self.psi
+        return self.m1, self.m2, self.s1x, self.s1y, self.s1z, self.s2x, self.s2y, self.s2z, self.inclination, self.theta, self.phi, self.psi, self.sigmasq
 
     def _compute_waveform(self, df, f_final):
         # Time domain, so compute then FFT

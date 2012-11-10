@@ -169,12 +169,12 @@ for inj_ind, inj_wf in enumerate(inj_wfs):
 
     if verbose:
         print "injection %d/%d" % (inj_ind+1, len(inj_wfs))
-        print inj_format % inj_wf.params
 
     # NB: sigmasq set during argmax_match
     match_tup = bank.argmax_match(inj_wf)
 
     if verbose:
+        print inj_format % inj_wf.params
         print "\tbest matching template:  ",
         print tmplt_format % bank._templates[match_tup[1]].params
         print "\tbest match:  %f\n" % match_tup[0]
