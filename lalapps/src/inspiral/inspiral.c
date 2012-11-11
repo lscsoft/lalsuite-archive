@@ -74,6 +74,7 @@
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/LIGOLwXML.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
+#include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/Date.h>
 #include <lal/Units.h>
 #include <lal/FindChirp.h>
@@ -461,6 +462,7 @@ int main( int argc, char *argv[] )
   FindChirpBankSimParams *bankSimParamsPtr = NULL;
 
   /* injection information */
+  SimBurst            *glitchInjections = NULL;
   int                  numInjections = 0;
   SimInspiralTable    *injections = NULL;
   SimInspiralTable    *thisInj = NULL;
@@ -1259,6 +1261,15 @@ int main( int argc, char *argv[] )
    *
    */
 
+  if ( glitchInjectionFile)
+  {
+    INT4 glitchInjSafety = 10;
+    glitchInjections = XLALSimBurstTableFromLIGOLw(
+        glitchInjectionFile,
+        gpsStartTime.gpsSeconds - glitchInjSafety,
+        gpsEndTime.gpsSeconds + glitchInjSafety );
+
+  }
 
   if ( injectionFile )
   {
