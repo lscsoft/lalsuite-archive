@@ -212,29 +212,45 @@ def get_coinc_snrs(
 	sqlquery = ''.join(["""
 	SELECT coinc_inspiral.snr
 	FROM coinc_inspiral
-		JOIN sngl_inspiral, coinc_event_map, experiment_map, experiment_summary ON (
-			coinc_inspiral.coinc_event_id == coinc_event_map.coinc_event_id
-			AND coinc_event_map.event_id == sngl_inspiral.event_id
-			AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
+		JOIN sngl_inspiral AS si_h1, coinc_event_map AS cem_h1 ON (
+			coinc_inspiral.coinc_event_id == cem_h1.coinc_event_id
+			AND cem_h1.event_id == si_h1.event_id
+			AND si_h1.ifo = 'H1')
+		JOIN sngl_inspiral AS si_l1, coinc_event_map AS cem_l1 ON (
+			coinc_inspiral.coinc_event_id == cem_l1.coinc_event_id
+			AND cem_l1.event_id == si_l1.event_id
+			AND si_l1.ifo = 'L1')
+		JOIN experiment_map, experiment_summary ON (
+			experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
 			AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
 	WHERE
 		experiment_summary.datatype = \"""", datatype, """\"
-		AND get_snr(sngl_inspiral.snr, chisq, chisq_dof) >= """, str(sngls_threshold), """
-		AND sngl_inspiral.mchirp = """, str(mchirp), """ 
-		AND sngl_inspiral.eta = """, str(eta)])
+		AND get_snr(si_h1.snr, si_h1.chisq, si_h1.chisq_dof) >= """, str(sngls_threshold), """
+		AND get_snr(si_l1.snr, si_l1.chisq, si_l1.chisq_dof) >= """, str(sngls_threshold), """
+		AND si_h1.mchirp = """, str(mchirp), """ 
+		AND si_h1.eta = """, str(eta)])
 
 	if not little_dog:
-		sqlquery += """
-		AND sngl_inspiral.event_id NOT IN (
+		zerolag_eids_script = """
+		CREATE TEMP TABLE zerolag_eids AS
 			SELECT event_id
 			FROM coinc_event_map
 				JOIN experiment_map, experiment_summary ON (
 					coinc_event_map.coinc_event_id == experiment_map.coinc_event_id
 					AND experiment_map.experiment_summ_id == experiment_summary.experiment_summ_id)
-			WHERE experiment_summary.datatype == "all_data")
+			WHERE experiment_summary.datatype == "all_data"
+		"""
+		connection.cursor().execute( zerolag_eids_script )
+
+		sqlquery += """
+		AND si_h1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
+		AND si_l1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
 		"""
 	# execute query
 	snrlist = connection.cursor().execute( sqlquery ).fetchall()
+
+	if not little_dog:
+		connection.cursor().execute('DROP TABLE zerolag_eids')
 
 	# make histogram of coinc snr
 	binned_snr, junk = numpy.histogram(snrlist, bins=combined_bins)
