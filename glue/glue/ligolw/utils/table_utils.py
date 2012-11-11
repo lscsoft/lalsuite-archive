@@ -264,16 +264,19 @@ def get_experiment_type(xmldoc, time_slide_dict):
 	pp_value = set(process_params_tbl.getColumnByName("value"))
 	pp_param = set(process_params_tbl.getColumnByName("param"))
 
+	zero_lag_dict = dict([dict_entry for dict_entry in time_slide_dict.items() if not any( dict_entry[1].values() )])
+
 	# determine experiment type(s)
-	if len(time_slide_dict) == 1:
+	datatypes = []
+	if len(zero_lag_dict):
 		if '--injection-file' in pp_param:
-			datatypes = ['simulation']
+			datatypes += ['simulation']
 		else:
-			datatypes = ['playground']
+			datatypes += ['playground']
 			if 'PLAYGROUND' not in pp_value:
 				datatypes += ['all_data', 'exclude_play']
-	elif len(time_slide_dict) > 1:
-		datatypes = ['slide']
+	elif len(time_slide_dict) > len(zero_lag_dict):
+		datatypes += ['slide']
 
 	return datatypes
 
@@ -313,6 +316,10 @@ def populate_experiment_summ_table(
 
 	for type in datatypes:
 		for slide_id in time_slide_dict:
+			if type == "slide" and not any( time_slide_dict[slide_id].values() ):
+				continue
+			if type != "slide" and any( time_slide_dict[slide_id].values() ):
+				continue
 			expr_summ_table.write_experiment_summ(
 				experiment_id,
 				slide_id,
@@ -436,6 +443,11 @@ def populate_experiment_map(xmldoc, veto_def_name, verbose = False):
 			if in_playground & (type == "exclude_play"):
 				continue
 			elif (not in_playground) & (type == "playground"):
+				continue
+			# if doing zerolag and slides together, make sure the triggers are mapped correctly
+			elif type == "slide" and not any( time_slide_dict[coinc.time_slide_id].values() ):
+				continue
+			elif type != "slide" and any( time_slide_dict[coinc.time_slide_id].values() ):
 				continue
 			else:
 				# map the coinc to an experiment
