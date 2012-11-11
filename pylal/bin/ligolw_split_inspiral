@@ -27,12 +27,16 @@
 
 import math
 import sys
+from optparse import OptionParser
+
 from glue import lal
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+
+from pylal import git_version
 
 __author__ = "Matthew West <matthew.west@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -74,24 +78,21 @@ def parse_command_line():
 		help = "Start time, in gps seconds, of the experiment being performed. Required."
 		)
 	parser.add_option("-e","--gps-end-time", metavar = "int", type="int",
-		help = "End time, in gps seconds, of the experiment being performed. Required.")
-
+		help = "End time, in gps seconds, of the experiment being performed. Required."
+		)
 	parser.add_option("-v", "--verbose", action = "store_true", default=False, \
 		help = "Be verbose."
 		)
+	options, arguments =  parser.parse_args()
 
-	file_sieve = 'INSPIRAL_FIRST_' + options.tag
-	ihope_cache = lal.Cache([CacheEntry(line) for line in file(options.inspiral_cache)])
-	inspiral_cache = ihope_cache.sieve(description = file_sieve, exact_match = True)
-
-	if not options.experiment_start_time or not options.experiment_end_time:
-		raise ValueError, "must specify --experiment-start-time and --experiment-end-time" 
+	if not options.gps_start_time or not options.gps_end_time:
+		raise ValueError, "must specify --gps-start-time and --gps-end-time" 
 	if not options.inspiral_cache:
 		raise ValueError, "must specify --inspiral-cache"
-	if not options.tmplt_file or not options.tmplt_num:
+	if not options.tmplt_file or not (options.tmplt_num >= 0):
 		raise ValueError, "must specify both --tmplt-file and --tmplt-num" 
 
-	return options, inspiral_cache
+	return options
 
 #
 # =============================================================================
@@ -106,7 +107,12 @@ def parse_command_line():
 # Command line
 #
 
-opts, inspiral_cache = parse_command_line()
+opts = parse_command_line()
+
+# create cache of desired inspiral files
+file_sieve = 'INSPIRAL_FIRST_' + opts.usertag
+ihope_cache = lal.Cache([lal.CacheEntry(line) for line in file(opts.inspiral_cache)])
+inspiral_cache = ihope_cache.sieve(description = file_sieve, exact_match = True)
 
 # optimize table for speed and memory usage
 lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(1)
@@ -146,7 +152,7 @@ ifos = ''.join( set(file.observatory for file in inspiral_cache) )
 tmplt_id = 'TMPLT_%%0%dd' % int(math.log10(len(tmplt_tbl))+1)
 tmplt_id = tmplt_id % opts.tmplt_num
 duration = opts.gps_end_time - opts.gps_start_time
-output_filename = '-'.join([ifos, file_sieve, tmplt_id, opts.gps_start_time, duration]) + '.xml.gz'
+output_filename = '-'.join([ifos, file_sieve, tmplt_id, str(opts.gps_start_time), str(duration)]) + '.xml.gz'
 
 #
 # Write back to disk, and clean up.
