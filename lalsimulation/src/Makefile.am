@@ -13,6 +13,7 @@ lalsimulationincludedir = $(includedir)/lal
 lalsimulationinclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
 	LALSimBurst.h \
+	LALSimGlitch.h \
 	LALSimInspiralPrecess.h \
 	LALSimInspiralWaveformFlags.h \
 	LALSimInspiralTestGRParams.h \
@@ -48,6 +49,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimBlackHoleRingdown.c \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
+	LALSimGlitch.c \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRSpinAlignedEOB.c \
 	LALSimIMRPhenom.c \
