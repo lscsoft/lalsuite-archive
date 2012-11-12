@@ -2764,7 +2764,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
-    
+    offset=0.0
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
@@ -2799,7 +2799,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='r', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
