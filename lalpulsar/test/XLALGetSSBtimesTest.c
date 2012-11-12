@@ -54,11 +54,38 @@
 #include <lal/LALBarycenter.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/AVFactories.h>
+#include <lal/UserInput.h>
 extern char *optarg;
 
 static const LALStatus empty_status;
 
 extern int lalDebugLevel;
+
+/** user input variables */
+typedef struct
+{
+  BOOLEAN help;
+
+  UINT4 startTime;
+  UINT4 refTime;
+
+  REAL8 tolDt;
+  REAL8 tolTdot;
+
+  CHAR *earthEphem;
+  CHAR *sunEphem;
+
+  UINT4 numChecks;
+  UINT4 randomSeed;
+
+  REAL8 raRad;
+  REAL8 decRad;
+
+  SSBprecision precision;
+  BOOLEAN verbose;
+
+  CHAR *outputFile;
+} UserVariables_t;
 
 /* ----- internal prototypes ---------- */
 int XLALCompareMultiSSBtimes ( MultiSSBtimes *multiSSB1, MultiSSBtimes *multiSSB2, REAL8 tol_dt, REAL8 tol_td );
