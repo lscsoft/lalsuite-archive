@@ -115,7 +115,6 @@ ihope_cache = lal.Cache([lal.CacheEntry(line) for line in file(opts.inspiral_cac
 inspiral_cache = ihope_cache.sieve(description = file_sieve, exact_match = True)
 
 # optimize table for speed and memory usage
-lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(1)
 lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
 lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
@@ -133,11 +132,15 @@ for n, file in enumerate(inspiral_cache):
 	if opts.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(inspiral_cache)),
 	utils.load_url(file.url, verbose = opts.verbose, xmldoc = xmldoc, contenthandler = None)
+
+	ligolw_add.reassign_ids(xmldoc, verbose = opts.verbose)
+
 	# Document merge
 	if opts.verbose:
 		print >>sys.stderr, "merging elements ..."
 	ligolw_add.merge_ligolws(xmldoc)
 	ligolw_add.merge_compatible_tables(xmldoc)
+
 	# Remove triggers not matching template parameters
 	sngl_insp_tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	max_idx = len(sngl_insp_tbl) - 1
@@ -145,7 +148,16 @@ for n, file in enumerate(inspiral_cache):
 		if abs(row.mchirp/mchirp - 1) > 1e-6 or abs(row.eta/eta - 1) > 1e-6:
 			del sngl_insp_tbl[max_idx - idx]
 
+
+# Reassign process_ids from process_id:0
+lsctables.ProcessTable.next_id = lsctables.ProcessID(0)
 ligolw_add.reassign_ids(xmldoc, verbose = opts.verbose)
+
+# Reassign event_ids
+sngl_insp_tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+sngl_insp_tbl.set_next_id(lsctables.SnglInspiralID(0))
+for row in sngl_insp_tbl:
+        row.event_id = sngl_insp_tbl.get_next_id()
 
 # Define the output filename
 ifos = ''.join( set(file.observatory for file in inspiral_cache) )
