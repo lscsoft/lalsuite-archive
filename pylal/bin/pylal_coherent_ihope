@@ -570,7 +570,8 @@ def setup_fixedbank(cp, fixed_bank_file, data, logdir, run_splitbank=True,\
 # =============================================================================
 
 def setup_search(cp, network, data, logdir, usertag=None,\
-                 injection=None, time_slides=None, run_search=True):
+                 injection=None, time_slides=None, run_search=True,\
+                 run_injfind=True):
     """
     Setup a PTFInspiral DAG for this analysis, and the relevant
     InspInjJob if required.
@@ -652,6 +653,11 @@ def setup_search(cp, network, data, logdir, usertag=None,\
     else:
         slides = [[0]*len(ifos)]
 
+    # set injfinder job
+    if run_injfind:
+        injfindjob = inspiral.InjFindJob(cp)
+        set_job_files(job, tag, os.curdir, logdir)
+
     # build analysis job for each time slide and template bank in each chunk
     # in each segment
     inspcache = cache.Cache()
@@ -710,6 +716,13 @@ def setup_search(cp, network, data, logdir, usertag=None,\
                 dag.add_node(node)
                 inspcache.append(cache.CacheEntry.from_T050017(\
                                      os.path.abspath(node.get_output())))
+
+                # add injfind job
+                if run_injfind:
+                    injfind_node = inspiral.InspInjFindNode(job)
+                    injfind_node.add_arg(node.get_output())
+                    injfind_node.add_parent(node)
+                    dag.add_node(injfind_node)
 
     return dag, inspcache
 
@@ -1498,7 +1511,7 @@ if __name__ == "__main__":
                             run_splitbank=run["splitbank"], verbose=verbose)
     if run["tmpltbank"]\
     or (run["splitbank"] and cp.getint("splitbank-meta", "num-banks") != 1):
-        dagnode[tag] = finalise_DAG(_dag, [])
+        dagnode[tag] = finalise_DAG(_dag, parents)
         dag.add_node(dagnode[tag])
         print_verbose("tmpltbank setup complete.\n", verbose=verbose)
     os.chdir(os.pardir)
@@ -1531,7 +1544,8 @@ if __name__ == "__main__":
             tag = "%s_%s" % (injrun.lower(), network.lower())
             mkdir_p(tag, chdir=True)
             _dag, cachedict[tag] = setup_search(cp, network, data[network],\
-                                                logdir, injection=injrun)
+                                                logdir, injection=injrun,\
+                                                run_injfind=run["injfind"])
             if run["injections"]:
                 dagnode[tag] = finalise_DAG(_dag, parents)
                 dag.add_node(dagnode[tag])
@@ -1584,9 +1598,6 @@ if __name__ == "__main__":
 
         print_verbose("%s clustering setup complete.\n" % searchtag,\
                       verbose=verbose and run["clustering"])
-
-    # ============================
-    # set up injection finding
 
     # ============================
     # set up plotting
