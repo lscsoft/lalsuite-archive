@@ -74,6 +74,9 @@ def parse_command_line():
 	parser.add_option("--constrain-lsc-tables", action = "store_true", help = "Impose additional constraints on official LSC tables.  Provides format validation and allows RAM requirements to be reduced.")
 	options, urls = parser.parse_args()
 
+	# Ensure the delimiter is unicode compliant as well
+	options.delimiter = unicode(options.delimiter)
+
 	# add urls from cache files
 	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
 
@@ -130,7 +133,7 @@ def print_table(table_elem, columns, rows):
 		columns = table_elem.columnnames
 	for n, row in enumerate(table_elem):
 		if n in rows:
-			print options.delimiter.join(map(lambda key: str(getattr(row, key)), columns))
+			print options.delimiter.join(map(lambda key: unicode(getattr(row, key)), columns))
 
 
 #

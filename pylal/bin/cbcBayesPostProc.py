@@ -748,8 +748,8 @@ def cbcBayesPostProc(
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
                 try:
-		    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
-		    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
+                    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
+                    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
                         plt.title('Autocorrelation Function')

@@ -1,7 +1,7 @@
 /* 
- *  InferenceNest.c:  MultiNest with LALInference
+ *  InferenceBAMBI.c:  BAMBI with LALInference
  *
- *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys, John Veitch and Farhan Feroz
+ *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys, John Veitch, Farhan Feroz, and Philip Graff
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -36,6 +36,16 @@
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceProposal.h>
+#include "bambi.h"
+
+extern float *omicron,tol,thL[3],logLRange;
+extern double *maxsigma,logZero;
+extern int nNN,nNNerr,totpar,loglcalls,ncheck,myid,nproc;
+extern char root[100],networkinputs[100];
+extern bool likenetinit,converged,lastconverged,netres,firstrun,discardpts;
+extern int ignoredbambicalls,counter;
+extern size_t nlayers,nnodes[10];
+extern int doBAMBI,useNN,whitenin,whitenout,resume;
 
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeMN(LALInferenceRunState *runState);
@@ -43,28 +53,53 @@ void initStudentt(LALInferenceRunState *state);
 void initVariables(LALInferenceRunState *state);
 void initializeTemplate(LALInferenceRunState *runState);
 static void mc2masses(double mc, double eta, double *m1, double *m2);
-void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar, 
+void BAMBIRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar, 
 	int maxModes, int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, 
-	int initMPI, double logZero, int maxiter, void (*getLogLike)(double *, int *, int *, double *, void *), 
+	int initMPI, double logZero, int maxiter, void (*LogLike)(double *, int *, int *, double *, void *), 
 	void (*dumper)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *), 
-	void *context);
-void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context);
+	void (*bambi)(int *, int *, double **, double *), void *context);
+void BAMBIfctn(int *ndata, int *ndim, double **BAMBIData, double *lowlike);
+void LogLikeFctn(double *Cube, int *ndim, int *npars, double *lnew, void *context);
 void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context);
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState);
+//char root[100],networkinputs[100];
 
 LALInferenceRunState *runStateGlobal;
 
-void MultiNestRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar, 
+void BAMBIRun(int mmodal, int ceff, int nlive, double tol, double efr, int ndims, int nPar, int nClsPar, 
 int maxModes, int updInt, double Ztol, char root[], int seed, int *pWrap, int fb, int resume, int outfile, 
-int initMPI, double logZero, int maxiter, void (*getLogLike)(double *, int *, int *, double *, void *), 
+int initMPI, double logZero, int maxiter, void (*LogLike)(double *, int *, int *, double *, void *), 
 void (*dumper)(int *, int *, int *, double **, double **, double **, double *, double *, double *, void *), 
-void *context)
+void (*bambi)(int *, int *, double **, double *), void *context)
 {
 	int i;
-	for (i = strlen(root); i < 100; i++) root[i] = ' ';
+	char rootformn[100];
+	strcpy(rootformn, root);
+	for (i = strlen(rootformn); i < 100; i++) rootformn[i] = ' ';
 
-        __nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
-        root, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, &maxiter, getLogLike, dumper, context);
+    // Do "nm libnest3.a | grep nestrun" to find the name of the function to put here.
+    // Remove one leading underscore for the name.
+    
+    __nested_MOD_nestrun(&mmodal, &ceff, &nlive, &tol, &efr, &ndims, &nPar, &nClsPar, &maxModes, &updInt, &Ztol,
+        rootformn, &seed, pWrap, &fb, &resume, &outfile, &initMPI, &logZero, &maxiter, LogLike, dumper, bambi, context);
+}
+
+void BAMBIfctn(int *ndata, int *ndim, double **BAMBIData, double *lowlike)
+{
+	// Do "nm libbambi.a | grep bambi" to find the name of the function to put here.
+	// "c++filt <fctn name>" should return "bambi(...)"
+	// Remove one leading underscore for the name.
+	
+	_Z5bambiPiS_PPdS0_(ndata, ndim, BAMBIData, lowlike);
+}
+
+void LogLikeFctn(double *Cube, int *ndim, int *npars, double *lnew, void *context)
+{
+	// Do "nm libbambi.a | grep LogLike" to find the name of the function to put here.
+	// "c++filt <fctn name>" should return "LogLike(...)"
+	// Remove one leading underscore for the name here.
+	
+	_Z7LogLikePdPiS0_S_Pv(Cube, ndim, npars, lnew, context);
 }
 
 void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context)
@@ -117,11 +152,32 @@ void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **po
 	}
 }
 
+void getphysparams(double *Cube, int *ndim, int *nPar, void *context)
+{
+	// CubeToPrior function does this and physical params are in first ndim already
+	LALInferenceVariables *newParams=NULL;
+	newParams=calloc(1,sizeof(LALInferenceVariables));
+	LALInferenceCopyVariables(runStateGlobal->currentParams,newParams);
+	runStateGlobal->CubeToPrior(runStateGlobal, newParams, Cube, context);
+	free(newParams);
+}
+
+void getallparams(double *Cube, int *ndim, int *nPar, void *context)
+{
+	// CubeToPrior function does this
+	LALInferenceVariables *newParams=NULL;
+	newParams=calloc(1,sizeof(LALInferenceVariables));
+	LALInferenceCopyVariables(runStateGlobal->currentParams,newParams);
+	runStateGlobal->CubeToPrior(runStateGlobal, newParams, Cube, context);
+	free(newParams);
+}
+
 /* MultiNestAlgorithm implements the MultiNest algorithm*/
 void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 {
 	UINT4 Nlive=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nlive");
 	REAL8 eff=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"eff");
+	UINT4 Ntrain;
 	REAL8 logZnoise;
 	UINT4 verbose=0,resval=1;
 	
@@ -132,9 +188,10 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	} else {
 		logZnoise=LALInferenceNullLogLikelihood(runState->data);
 	}
+	
 	LALInferenceAddVariable(runState->algorithmParams,"logZnoise",&logZnoise,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	//logLikelihoods=(REAL8 *)(*(REAL8Vector **)LALInferenceGetVariable(runState->algorithmParams,"logLikelihoods"))->data;
-
+	
 	//verbose=LALInferenceCheckVariable(runState->algorithmParams,"verbose");
 	if (LALInferenceGetProcParamVal(runState->commandLine, "--progress"))
 	    verbose=1;
@@ -145,10 +202,41 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	/* output file root */
 	ProcessParamsTable *ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
 	if(!ppt){
-		fprintf(stderr,"Must specify --outfile <filename.dat>\n");
+		fprintf(stderr,"Must specify --outfile <fileroot>\n");
 		exit(1);
 	}
 	char *outfilestr=ppt->value;
+	
+	// Do BAMBI?
+	doBAMBI = 0;
+	if (LALInferenceGetProcParamVal(runState->commandLine, "--BAMBI"))
+		doBAMBI=1;
+	
+	// Use saved NN?
+	useNN = 0;
+	if (LALInferenceGetProcParamVal(runState->commandLine, "--useNNslow"))
+		useNN = 1;
+	else if (LALInferenceGetProcParamVal(runState->commandLine, "--useNNfast"))
+		useNN = 2;
+	
+	/* NN settings file */
+	char *netfilestr=NULL;
+	ppt=LALInferenceGetProcParamVal(runState->commandLine,"--NNfile");
+	if(doBAMBI || useNN) {
+		if (!ppt){
+			fprintf(stderr,"Must specify --NNfile <filename.inp>\n");
+			exit(1);
+		} else
+			netfilestr=ppt->value;
+	}
+	
+	if (LALInferenceCheckVariable(runState->algorithmParams,"Ntrain"))
+		Ntrain=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Ntrain");
+	else if (doBAMBI) {
+		fprintf(stderr,"Must specify --Ntrain <# points> when running BAMBI\n");
+		exit(1);
+	} else
+		Ntrain=50;
 	
 	runStateGlobal = runState;
 	
@@ -179,7 +267,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	int ndims = ND;
 	int nPar = ndims + 3;
 	int nClsPar = fmin(2,ND);
-	int updInt = 50;
+	int updInt = Ntrain;
 	double Ztol = -1.e90;
 	int maxModes = 1;
 	int pWrap[ndims];
@@ -196,14 +284,17 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 				pWrap[k] = 0;
 		}
 	}
-	char root[100];
-	for( int j = 0; j < 100; j++ ) root[j] = outfilestr[j];
+	for( int j = 0; j < 100; j++ )
+		root[j] = outfilestr[j];
+	if (netfilestr!=NULL)
+		for( int j = 0; j < 100; j++ )
+			networkinputs[j] = netfilestr[j];
 	int rseed = -1;
 	int fb = verbose;
 	int resume = resval;
 	int outfile = 1;
 	int initMPI = 0;
-	double logZero = -DBL_MAX;
+	logZero = -DBL_MAX;
 	int maxiter = 0;
 	char **info;
 	info=(char **)malloc(2*sizeof(char *));
@@ -212,10 +303,9 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	strcpy(&info[0][0],outfilestr);
 	strcpy(&info[1][0],"DONOTWRITE");
 	void *context = (void *)info;
-
-
-	MultiNestRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
-	resume, outfile, initMPI, logZero, maxiter, getLogLike, dumper, context);
+	
+	BAMBIRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
+	resume, outfile, initMPI, logZero, maxiter, LogLikeFctn, dumper, BAMBIfctn, context);
 	
 	free(info[1]);free(info[0]);free(info);
 	
@@ -334,9 +424,13 @@ void initializeMN(LALInferenceRunState *runState)
                --- General Algorithm Parameters ------------------------------------------------------------------\n\
                ---------------------------------------------------------------------------------------------------\n\
                --Nlive N                        Number of live points to use.\n\
+               --Ntrain N                       Number of training points to use for NN.\n\
                (--eff e)                        Target efficiency (0.5)\n\
                (--progress)                     Produce progress information.\n\
                (--noresume)                     Do not resume on previous run.\n\
+               (--BAMBI)						Use BAMBI instead of just MultiNest\n\
+               (--useNNslow)					Use previously saved NN - slow method\n\
+               (--useNNfast)					Use previously saved NN - fast method\n\
                \n\
                ---------------------------------------------------------------------------------------------------\n\
                --- Likelihood Functions --------------------------------------------------------------------------\n\
@@ -460,7 +554,7 @@ void initializeMN(LALInferenceRunState *runState)
 	
 	
 	/* Number of live points */
-	printf("set number of live points.\n");
+	//printf("set number of live points.\n");
 	ppt=LALInferenceGetProcParamVal(commandLine,"--Nlive");
 	if(ppt)
 		tmpi=atoi(ppt->value);
@@ -479,6 +573,13 @@ void initializeMN(LALInferenceRunState *runState)
 		tmpd=0.5;
 	}
 	LALInferenceAddVariable(runState->algorithmParams,"eff",&tmpd, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
+	
+	/* Number of training points */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--Ntrain");
+	if(ppt) {
+		tmpi=atoi(ppt->value);
+		LALInferenceAddVariable(runState->algorithmParams,"Ntrain",&tmpi, LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+	}
 	
 	return;
 	
