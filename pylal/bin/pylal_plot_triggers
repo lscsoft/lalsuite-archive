@@ -136,6 +136,11 @@ def read_triggers(fp, format_, columns=None):
     if isxml:
         # get table class
         Table = lsctables.TableByName[format_]
+        # verify columns are actually in the table. If not, load all of them
+        for c in columns:
+            if c.lower() not in Table.validcolumns.keys():
+                columns = None
+                break
         # set columns
         if columns is not None:
             Table.loadcolumns = columns
