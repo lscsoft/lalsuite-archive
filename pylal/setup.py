@@ -719,7 +719,8 @@ setup(
 		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_coherent_ihope"),
-		os.path.join("bin", "pylal_plot_triggers")
+		os.path.join("bin", "pylal_plot_triggers"),
+		os.path.join("bin", "ligolw_miinjfind")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
