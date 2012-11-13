@@ -53,63 +53,6 @@ def chirp_mass(m1,m2):
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
 
-#
-# Functions for reading from results DB
-#
-def get_on_instruments(connection):
-  '''
-  Retrieve the sets of instruments which were on during the search.
-  '''
-  # FIXME bad to hardcode search_coinc_type
-  sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
-  instruments_query = """ SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?; """
-
-  instruments = []
-  for inst in connection.cursor().execute(instruments_query, (sngl_sngl_coinc_def_id,) ):
-    inst =  frozenset(lsctables.instrument_set_from_ifos(inst[0]))
-    instruments.append(inst)
-
-  return instruments
-
-
-def get_livetime(connection, include_play=False):
-  '''
-  Query the database for the livetime for the input instruments set.
-  '''
-  if include_play:
-    datatype = "all_data"
-  else:
-    datatype = "exclude_play"
-
-  livetime_query = """
-  SELECT instruments,duration
-  FROM experiment_summary
-  JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-  WHERE experiment_summary.datatype == "%s";
-  """ % (datatype,)
-  livetime = {}
-  for inst,lt in connection.cursor().execute(livetime_query):
-    inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
-    livetime[inst] = lt/float(constants.LAL_YRJUL_SI) #prefer to have livetime in yrs
-
-  return livetime
-
-
-def get_injected_mass_ranges(connection):
-  '''
-  Find the component and total mass ranges for the search.
-  '''
-  mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-  maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
-  minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-  minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-  maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-  maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
-
-  minmass = min(minmass1,minmass2)
-  maxmass = max(maxmass1,maxmass2)
-
-  return (minmass,maxmass,mintotal,maxtotal)
 
 
 class upper_limit(object):
@@ -137,14 +80,11 @@ class upper_limit(object):
     dbtables.DBTable_set_connection(self.connection)
     xmldoc = dbtables.get_xml(self.connection)
 
-    # read in goodies from DB
-    self.instruments = get_on_instruments(self.connection)  #find out which instruments were on during search
-    self.set_instruments()                                  #figure out which instrument sets the user wants us to use
-    self.livetime = get_livetime(self.connection,opts.include_play)           #get the livetime for the chosen set of instruments
-    (self.minmass,
-     self.maxmass,
-     self.mintotal,
-     self.maxtotal) =  get_injected_mass_ranges(self.connection) #find the range of injection parameters
+    # find out which instruments were on and when during search
+    self.get_on_instruments(self.connection)
+    self.set_instruments()
+    self.get_livetime(self.connection, opts.include_play)
+    self.get_injected_mass_ranges(self.connection)
 
     # Set up mass bins
     self.mass_bins = {}
@@ -171,6 +111,66 @@ class upper_limit(object):
     self.connection.commit()
     dbtables.discard_connection_filename(self.fname, self.working_filename, verbose = self.opts.verbose)
     dbtables.DBTable_set_connection(None)
+
+
+  def get_on_instruments(self, connection):
+      '''
+      Retrieve the sets of instruments which were on during the search.
+      '''
+      # FIXME bad to hardcode search_coinc_type
+      sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
+      instruments_query = """ SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?; """
+
+      instruments = []
+      for inst in connection.cursor().execute(instruments_query, (sngl_sngl_coinc_def_id,) ):
+          inst =  frozenset(lsctables.instrument_set_from_ifos(inst[0]))
+          instruments.append(inst)
+
+      self.instruments = instruments
+
+      return self.instruments
+
+
+  def get_livetime(self, connection, include_play=False):
+      '''
+      Query the database for the livetime for the input instruments set.
+      '''
+      if include_play:
+          datatype = "all_data"
+      else:
+          datatype = "exclude_play"
+
+      livetime_query = """
+  SELECT instruments,duration
+  FROM experiment_summary
+  JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
+  WHERE experiment_summary.datatype == "%s";
+  """ % (datatype,)
+      livetime = {}
+      for inst,lt in connection.cursor().execute(livetime_query):
+          inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
+          livetime[inst] = lt/float(constants.LAL_YRJUL_SI) #prefer to have livetime in yrs
+
+      self.livetime = livetime
+
+      return livetime
+
+
+  def get_injected_mass_ranges(self, connection):
+      '''
+      Find the component and total mass ranges for the search.
+      '''
+      self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+      self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+      minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+      minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+      maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+      maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+
+      self.minmass = min(minmass1,minmass2)
+      self.maxmass = max(maxmass1,maxmass2)
+
+      return True
 
 
   def get_segments(self):
