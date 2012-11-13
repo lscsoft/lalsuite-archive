@@ -730,7 +730,8 @@ setup(
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
 		os.path.join("bin", "pylal_summary_page"),
-		os.path.join("bin", "pylal_plot_triggers")
+		os.path.join("bin", "pylal_plot_triggers"),
+		os.path.join("bin", "ligolw_miinjfind"),
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
