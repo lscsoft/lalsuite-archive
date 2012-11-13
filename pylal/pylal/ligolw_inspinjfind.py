@@ -48,7 +48,6 @@ from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
-from pylal import MultiInspiralUtils
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
@@ -77,8 +76,9 @@ def sngl_inspiral___cmp__(self, other):
 	# compare self's end time to the LIGOTimeGPS instance other
 	return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
 
+
 lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
-lsctables.MultiInspiral.__cmp__ = sngl_inspiral___cmp__
+
 
 #
 # =============================================================================
@@ -90,7 +90,6 @@ lsctables.MultiInspiral.__cmp__ = sngl_inspiral___cmp__
 
 
 InspiralSICoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 1, description = u"sim_inspiral<-->sngl_inspiral coincidences")
-MultiInspiralSICoincDef = lsctables.CoincDef(search = u"multi_inspiral", search_coinc_type = 1, description = u"sim_inspiral<-->multi_inspiral coincidences")
 InspiralSCNearCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 2, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 InspiralSCExactCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 3, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
 
@@ -98,7 +97,7 @@ class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process, search):
+	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process):
 		#
 		# store the process row
 		#
@@ -109,12 +108,7 @@ class DocContents(object):
 		# locate the sngl_inspiral and sim_inspiral tables
 		#
 
-		if search == "inspiral":
-			self.inspiraltable = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-		elif search == "multi_inspiral":
-			self.inspiraltable = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
-		else:
-			raise ValueError("unrecognized match algorithm \"%s\"" % search)
+		self.snglinspiraltable = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 		self.siminspiraltable = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
 
 		#
@@ -123,7 +117,7 @@ class DocContents(object):
 		# construction)
 		#
 
-		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set(self.inspiraltable.getColumnByName("process_id"))).coalesce()
+		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(set(self.snglinspiraltable.getColumnByName("process_id"))).coalesce()
 
 		#
 		# construct the zero-lag time slide needed to cover the
@@ -151,19 +145,15 @@ class DocContents(object):
 		# <--> sngl_inspiral coincs.
 		#
 
-		if isinstance(self.inspiraltable, lsctables.SnglInspiralTable):
-			try:
-				ii_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
-			except KeyError:
-				ii_coinc_def_id = None
-				self.sce_coinc_def_id = None
-				self.scn_coinc_def_id = None
-			else:
-				self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
-				self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
-		else:
+		try:
+			ii_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+		except KeyError:
+			ii_coinc_def_id = None
 			self.sce_coinc_def_id = None
 			self.scn_coinc_def_id = None
+		else:
+			self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
+			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
 		# get coinc table, create one if needed
@@ -196,7 +186,7 @@ class DocContents(object):
 
 		# index sngl_inspiral table
 		index = {}
-		for row in self.inspiraltable:
+		for row in self.snglinspiraltable:
 			index[row.event_id] = row
 		# find IDs of inspiral<-->inspiral coincs
 		self.coincs = {}
@@ -225,7 +215,7 @@ class DocContents(object):
 		# has been time-ordered)
 		#
 
-		self.inspiraltable.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
+		self.snglinspiraltable.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
 		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].end_time, b[0].end_time) or cmp(a[0].end_time_ns, b[0].end_time_ns))
 
 		#
@@ -246,7 +236,7 @@ class DocContents(object):
 		Return a list of the inspiral events whose peak times are
 		within self.inspiral_end_time_window of t.
 		"""
-		return self.inspiraltable[bisect.bisect_left(self.inspiraltable, t - self.inspiral_end_time_window):bisect.bisect_right(self.inspiraltable, t + self.inspiral_end_time_window)]
+		return self.snglinspiraltable[bisect.bisect_left(self.snglinspiraltable, t - self.inspiral_end_time_window):bisect.bisect_right(self.snglinspiraltable, t + self.inspiral_end_time_window)]
 
 	def coincs_near_endtime(self, t):
 		"""
@@ -265,7 +255,7 @@ class DocContents(object):
 		Sort the sngl_inspiral table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.inspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
+		self.snglinspiraltable.sort(lambda a, b: cmp(a.event_id, b.event_id))
 
 	def new_coinc(self, coinc_def_id):
 		"""
@@ -336,12 +326,6 @@ class CompareFunctions:
 		"""
 		return SnglInspiralUtils.CompareSnglInspiral(sim, inspiral, twindow = self.twindow)
 
-	def InspiralMultiCompare(self, sim, inspiral):
-		"""
-		Return False if the peak time of the sim is within self.twindow seconds of the inspiral event.
-		"""
-		return MultiInspiralUtils.CompareMultiInspiral(sim, inspiral, twindow = self.twindow)
-	
 
 	def NearCoincCompare(self, sim, inspiral):
 		"""
@@ -373,10 +357,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 	sngl_inspiral rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(contents.sb_coinc_def_id)
-	if inspirals and isinstance(inspirals[0], lsctables.MultiInspiral):
-		coinc.set_instruments(lsctables.instrument_set_from_ifos(inspirals[0].ifos))
-	else:
-		coinc.set_instruments(set(event.ifo for event in inspirals))
+	coinc.set_instruments(set(event.ifo for event in inspirals))
 	coinc.nevents = len(inspirals)
 
 	coincmap = lsctables.CoincMap()
@@ -391,6 +372,7 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 		coincmap.table_name = event.event_id.table_name
 		coincmap.event_id = event.event_id
 		contents.coincmaptable.append(coincmap)
+
 
 #
 # =============================================================================
@@ -463,16 +445,12 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef,\
-             "multi_inspiral": None}[search]
-	sbdef = {"inspiral": InspiralSICoincDef,\
-	         "multi_inspiral": MultiInspiralSICoincDef}[search]
-	scedef = {"inspiral": InspiralSCExactCoincDef,\
-              "multi_inspiral": InspiralSCExactCoincDef}[search]
-	scndef = {"inspiral": InspiralSCNearCoincDef,\
-              "multi_inspiral": InspiralSCNearCoincDef}[search]
+	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef}[search]
+	sbdef = {"inspiral": InspiralSICoincDef}[search]
+	scedef = {"inspiral": InspiralSCExactCoincDef}[search]
+	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
 
-	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process, search = search)
+	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process)
 	N = len(contents.siminspiraltable)
 
 	#
