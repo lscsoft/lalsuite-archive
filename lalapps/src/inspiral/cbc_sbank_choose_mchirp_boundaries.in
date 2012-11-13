@@ -79,15 +79,13 @@ if options.mchirp_min or options.mchirp_max:
 
 # define boundaries based on templates in coarse bank
 stride = len(templates) // (options.nbanks + 1)
-boundaries = [templates[i * stride].mchirp for i in xrange(options.nbanks)]
-
-# Any remainder will get lumped into the highest mchirp bin, which can
-# then contain up to (stride + nbins - 1) templates.
-boundaries.append(options.mchirp_max or templates[-1].mchirp)
+boundaries = [templates[(i+1) * stride].mchirp for i in xrange(options.nbanks-1)]
 
 # adjust based on user preferences
 if options.mchirp_min:
     boundaries[0] = options.mchirp_min
+if options.mchirp_min:
+    boundaries[-1] = options.mchirp_max
 
 # output
 with open(options.output_file, "w") as outfile:

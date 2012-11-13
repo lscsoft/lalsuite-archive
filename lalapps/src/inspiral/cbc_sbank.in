@@ -101,10 +101,14 @@ def parse_command_line():
 
     if opts.mchirp_boundaries_file:
         boundaries = [float(line) for line in open(opts.mchirp_boundaries_file)]
-        if opts.mchirp_boundaries_index + 1 >= len(boundaries):
+        if opts.mchirp_boundaries_index > len(boundaries):
             raise ValueError("mchirp boundaries file not long enough for requested index")
-        opts.mchirp_min = float(boundaries[opts.mchirp_boundaries_index])
-        opts.mchirp_max = float(boundaries[opts.mchirp_boundaries_index + 1])
+
+	if opts.mchirp_boundaries_index > 0:
+	    opts.mchirp_min = float(boundaries[opts.mchirp_boundaries_index-1])
+
+	if opts.mchirp_boundaries_index < len(boundaries):
+	    opts.mchirp_max = float(boundaries[opts.mchirp_boundaries_index])
 
     return opts, args
 
@@ -211,15 +215,17 @@ if opts.compute_horizon:
 # get the correct generator
 proposal = proposals[opts.approximant](opts.flow, **params)
 
-# To be 99.99% sure that an injection won't fall between the cracks,
-# require 10000 consecutive covered simulations.
-kmax = 10000
-ks = deque(10*[0], maxlen=10)
+# convergence condition:
+#   stop bank generation when < 0.2% of recent
+#   proposals are accepted into the bank
+kmax = 50000
+kd = deque([0],maxlen = 10)
 
 k = 0 # k is nprop per iteration
 nprop = 1  # count total number of proposed templates
 status_format = "bank size: %d\tproposed: %d\t" + "\t".join("%s: %s" % name_format for name_format in zip(waveform.param_names, waveform.param_formats))
-while float(sum(ks))/len(ks) < kmax:
+
+while sum(kd) + k < kmax:
     tmplt = waveform(*proposal.next(), bank=bank)
     k += 1
     nprop += 1
@@ -227,7 +233,7 @@ while float(sum(ks))/len(ks) < kmax:
         bank.insort(tmplt)
         if opts.verbose:
             print >>sys.stdout, status_format % ((len(bank), k) + tmplt.params)
-	ks.append(k)
+	kd.append(k)
         k = 0
 
 
@@ -258,9 +264,10 @@ for template in bank:
 ligolw_process.set_process_end_time(process)
 
 # FIXME output naming conventions to match IHOPE/tmpltbank break sbank_pipe
-if opts.user_tag:
-    fout = "%s-SBANK_%s-%d-%d.xml" % (opts.instrument, opts.user_tag, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
-else:
-    fout = "%s-SBANK-%d-%d.xml" % (opts.instrument, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
+#if opts.user_tag:
+#    fout = "%s-SBANK_%s-%d-%d.xml" % (opts.instrument, opts.user_tag, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
+#else:
+#    fout = "%s-SBANK-%d-%d.xml" % (opts.instrument, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
 
+fout = "%s.xml" % opts.user_tag
 utils.write_filename(xmldoc, fout)
