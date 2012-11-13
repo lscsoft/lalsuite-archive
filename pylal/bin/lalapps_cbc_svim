@@ -64,15 +64,9 @@ class upper_limit(object):
     ## Instance variables ######################################
     self.fname = database
     self.opts = opts
-    self.gw = None
-    self.wnfunc = None
     ############################################################
 
     if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
-
-    # seed the RNG to make output predictably random
-    if opts.seed is not None:
-      scipy.random.seed(seed=opts.seed)
 
     # open a connection to the input database
     self.working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
