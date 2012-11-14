@@ -275,7 +275,8 @@ def get_experiment_type(xmldoc, time_slide_dict):
 			datatypes += ['playground']
 			if 'PLAYGROUND' not in pp_value:
 				datatypes += ['all_data', 'exclude_play']
-	elif len(time_slide_dict) > len(zero_lag_dict):
+
+	if len(time_slide_dict) > len(zero_lag_dict):
 		datatypes += ['slide']
 
 	return datatypes
