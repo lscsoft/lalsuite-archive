@@ -379,7 +379,12 @@ else
     else
         log_and_do cd "$SOURCE"
         log_and_do rm -rf boinc
-        log_and_do git clone "$boinc_repo"
+        retries=3
+        while ! log_and_dont_fail git clone "$boinc_repo"; do
+            retries=`expr $retries - 1`
+            test $retries -le 0 && fail
+            sleep 20
+        done
         log_and_do cd boinc
     fi
     # if "$boinc_rev" is a tag that already exists locally,
