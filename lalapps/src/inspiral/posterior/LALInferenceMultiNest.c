@@ -806,13 +806,15 @@ void initVariables(LALInferenceRunState *state)
       i=0;
       while(i<event) {i++; injTable=injTable->next;} /* select event */
       endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
+      fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
       AmpOrder=injTable->amp_order;
-      PhaseOrder = XLALGetOrderFromString(injTable->waveform);
+      /*PhaseOrder = XLALGetOrderFromString(injTable->waveform);
 	  if( (int) PhaseOrder == XLAL_FAILURE)
 	    ABORTXLAL(&status);
 	  approx = XLALGetApproximantFromString(injTable->waveform);
 	  if( (int) approx == XLAL_FAILURE)
-	    ABORTXLAL(&status);
+	    ABORTXLAL(&status);*/
+      printf("Event %d read in.\n",event);
     }
     /* See if there are any parameters pinned to injection values */
 	if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
