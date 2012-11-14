@@ -42,6 +42,7 @@ eah_build2_loc="`echo $PWD/$0 | sed 's%/[^/]*$%%'`"
 
 test ".$appname" = "." && appname=einstein_S6Bucket
 test ".$appversion" = "." && appversion=0.00
+boinc_repo="git://gitmaster.atlas.aei.uni-hannover.de/einsteinathome/boinc.git"
 boinc_rev=current_gw_apps
 #previous:-r22844 -r22825 -r22804 -r22794 -r22784 -r22561 -r22503 -r22363 -r21777 -r'{2008-12-01}'
 
@@ -158,8 +159,6 @@ for i; do
 	    boinc_rev="`echo $i | sed 's/^.*=//'`";;
 	--boinc-commit=*)
 	    boinc_rev="`echo $i | sed 's/^.*=//'`";;
-        --gitweb)
-            gitweb=true ;;
 	--help)
 	    echo "$0 builds Einstein@home Applications of LALApps HierarchicalSearch codes"
 	    echo "  --win32           cros-compile a Win32 App (requires MinGW, target i586-mingw32msvc-gcc)"
@@ -177,7 +176,6 @@ for i; do
 	    echo "  --altivec         build an App that uses AltiVec"
 	    echo "  --gc-opt          build an App that uses SSE2 GC optimization (doesn't work with current LineVeto code)"
 	    echo "  --boinc-tag=<tag>|--boinc-commit=<sha1> specify a BOINC commit to use (defaults to 'current_gw_apps'"
-	    echo "  --gitweb          get boinc from a gitweb tarball instead of cloning the full repo"
 	    echo "  --with-ssl=<path> gets paased to BOINC configure"
 	    echo "  --check           test the newly built HierarchSearchGC App"
 	    echo "  --check-only      only test the already built HierarchSearchGC App"
@@ -376,28 +374,21 @@ if test -n "$noupdate" -o -z "$rebuild_boinc" -a -d "$SOURCE/boinc"; then
     log_and_show "using existing boinc source"
 else
     log_and_show "retrieving boinc"
-    log_and_do cd "$SOURCE"
-    if test ".$gitweb" = ".true" ; then
-        echo "curl -k 'https://git.aei.uni-hannover.de/cgi-bin/gitweb.cgi?p=shared/einsteinathome/boinc.git;a=snapshot;h=$boinc_rev;sf=tgz' > 'boinc-$boinc_rev.tar.gz'" >> "$LOGFILE"
-        curl -k "https://git.aei.uni-hannover.de/cgi-bin/gitweb.cgi?p=shared/einsteinathome/boinc.git;a=snapshot;h=$boinc_rev;sf=tgz" > "boinc-$boinc_rev.tar.gz" 2>> "$LOGFILE" || fail
-        log_and_do rm -rf boinc
-        log_and_do tar -xzvf "boinc-$boinc_rev.tar.gz"
-    elif test -d "boinc" -a -d "boinc/.git"; then
-        log_and_do cd "boinc"
-        # if "$boinc_rev" is a tag that already exists locally,
-        # delete it locally first in order to get it updated from remote. Praise git !!
-        if git tag | fgrep -x "$boinc_rev" >/dev/null ; then
-            log_and_dont_fail git tag -d "$boinc_rev"
-        fi
-        log_and_do git fetch --tags
-        log_and_do git checkout "$boinc_rev"
+    if test -d "$SOURCE/boinc" -a -d "$SOURCE/boinc/.git" ; then
+        log_and_do cd "$SOURCE/boinc"
     else
         log_and_do cd "$SOURCE"
         log_and_do rm -rf boinc
-        log_and_do git clone git://gitmaster.atlas.aei.uni-hannover.de/einsteinathome/boinc.git
+        log_and_do git clone "$boinc_repo"
         log_and_do cd boinc
-        log_and_do git checkout "$boinc_rev"
     fi
+    # if "$boinc_rev" is a tag that already exists locally,
+    # delete it locally first in order to get updated from remote. Praise git !!
+    if git tag | fgrep -x "$boinc_rev" >/dev/null ; then
+        log_and_dont_fail git tag -d "$boinc_rev"
+    fi
+    log_and_do git fetch --tags
+    log_and_do git checkout "$boinc_rev"
     log_and_do cd "$SOURCE"
 fi
 
