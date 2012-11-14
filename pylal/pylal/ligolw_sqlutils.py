@@ -2167,7 +2167,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
 
     DROP INDEX veto_procinfo_idx;
     DROP TABLE veto_procinfo;
-    
+    CREATE INDEX _veto_pidmap_idx ON _veto_pidmap_ (old_pid);
+ 
     DELETE FROM process
         WHERE process_id IN (
             SELECT old_pid
