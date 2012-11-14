@@ -1041,7 +1041,7 @@ def get_process_info(connection, verbose=False, debug=False):
             OR process.program == "ligolw_tisi"
         GROUP BY proc_id;
 
-    CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_ifo);
+    CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_info);
  
     CREATE TEMP TABLE _pidmap_ AS
         SELECT
@@ -2180,8 +2180,8 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
             FROM _veto_pidmap_
             WHERE old_pid != new_pid);
     
-    DROP TABLE _veto_pidmap_;
     DROP INDEX _veto_pidmap_idx;
+    DROP TABLE _veto_pidmap_;
     """
     if debug:
         print >> sys.stderr, sqlscript
