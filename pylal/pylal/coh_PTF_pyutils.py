@@ -190,28 +190,6 @@ def makePaperPlots():
     })
 
 
-def get_ra_dec(grbFile):
-    """DEPRECATED
-    """
-    ext_trigs = grbsummary.load_external_trigs(grbFile)
-    ra = ext_trigs[0].event_ra
-    dec = ext_trigs[0].event_dec
-    return ra,dec
-
-
-def read_sigma_vals( sigmaFile ):
-    """DEPRECATED
-    """
-    sigmaVals = {}
-    file = open(sigmaFile,'r')
-    for line in file:
-        line = line.replace('\n','')
-        ifo,min,max = line.split(' ')
-        sigmaVals[ifo + 'min'] = float(min)
-        sigmaVals[ifo + 'max'] = float(max)
-    return sigmaVals
-
-
 def get_det_response(ra, dec, trigTime):
     """Return detector response for complete set of IFOs for given sky
     location and time. Inclination and polarization are unused so are
@@ -356,19 +334,3 @@ def sim_inspiral_get_theta(self):
         raise Error("Theta is too big or too small")
 
     return theta
-
-
-def minimum(itera):
-    # An extension of the builtin min which will return very large number if list is empty
-    try:
-        return min(itera)
-    except ValueError:
-        return 10000000000000000
-
-
-def maximum(itera):
-    # An extension of the builtin max which will return 0 if list is empty
-    try:
-        return max(itera)
-    except ValueError:
-        return 0
