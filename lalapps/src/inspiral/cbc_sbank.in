@@ -34,6 +34,7 @@ from pylal.xlal.datatypes.snglinspiraltable import SnglInspiralTable
 from optparse import OptionParser
 
 #from sbank import git_version FIXME
+from lalinspiral import CreateSBankWorkspaceCache
 from lalinspiral.sbank.bank import Bank
 from lalinspiral.sbank.tau0tau3 import proposals
 from lalinspiral.sbank.psds import noise_models, read_psd, get_PSD
@@ -75,6 +76,7 @@ def parse_command_line():
     parser.add_option("--aligned-spin", action="store_true", default=False, help="Only generate templates whose spins are parallel to the orbital angular momentum.")
     parser.add_option("--user-tag", default=None, help="base for output filename")
     parser.add_option("--verbose", default=False,action="store_true", help="Be verbose and write diagnostic information out to file.")
+    parser.add_option("--compute-horizon", help="Set ", default=False, action="store_true")
 
     opts, args = parser.parse_args()
 
@@ -174,6 +176,37 @@ params = {'mass1': (opts.mass1_min, opts.mass1_max),
 # update with waveform dependent parameters
 if opts.spin_min is not None or opts.spin_max is not None:
     params.update({'chi': (opts.spin_min, opts.spin_max)})
+
+#
+# compute the equal-mass SNR=8 horizon distance for the given
+# approximant in the given PSD if candle-mass specified
+#
+if opts.compute_horizon:
+    tbl = lsctables.New(lsctables.SummValueTable, columns = ["value","comment","name","start_time","end_time","process_id","ifo","summ_value_id"])
+    xmldoc.childNodes[-1].appendChild(tbl)
+    nparams = len(waveform.param_names)
+    for cm in np.linspace(opts.mtotal_min/2.0, opts.mtotal_max/2.0, 50):
+
+        p = (cm, cm) + (0,)*(nparams-2)
+        wf = waveform(*p, bank=bank)
+	tmpbank = Bank.from_sngls([wf.to_sngl()], waveform, noise_model, opts.flow, opts.use_metric)
+        tmpbank.covers(wf, opts.match_min) # computes SNR at D=1Mpc
+
+        row = lsctables.SummValue()
+	row.summ_value_id = tbl.get_next_id()
+        row.value = np.sqrt( wf.sigmasq )/8
+        row.start_time = opts.gps_start_time
+        row.end_time = opts.gps_end_time
+        row.ifo = opts.instrument
+	row.name = "inspiral_effective_distance"
+        row.comment = "%.1f-%.1f horizon in Mpc at SNR=8" % (cm,cm)
+	row.process_id = process.process_id
+	row.program = "lalapps_cbc_sbank"
+
+	tbl.append(row)
+
+	if opts.verbose:
+	    print "Horizon distance at SNR=8 for %.1f-%.1f binary:\t%f Mpc" % (cm,cm,row.value)
 
 # get the correct generator
 proposal = proposals[opts.approximant](opts.flow, **params)
