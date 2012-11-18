@@ -76,8 +76,17 @@ def ligolw_copy_process(xmldoc_src, xmldoc_dest):
 def parse_command_line():
     parser = OptionParser()
     parser.add_option("--user-tag",default="banksim")
+
+    #
+    # read in injection parameters from sim_inspiral
+    #
     parser.add_option("--injection-file",default = None)
     parser.add_option("--injection-approx",default = None)
+
+    #
+    # ignore parameters in sim_inspiral table and instead
+    # populate the injections with the given distribution
+    #
     parser.add_option("--template-bank",default = None)
     parser.add_option("--template-approx",default = None)
     parser.add_option("--noise-model", choices=noise_models.keys(), default="aLIGOZeroDetHighPower", help="Choose a noise model for the PSD from a set of available analytical model")
@@ -88,6 +97,7 @@ def parse_command_line():
     parser.add_option("--use-gpu-match", default=False, action="store_true",
         help="Perform match calculations using the first available GPU")
     parser.add_option("--disable-cache",default = False, action="store_true")
+    parser.add_option("--nonprecessing-spin",default = False, action="store_true", help="Enforce injections to be non-precessing spins")
 
     opts, args = parser.parse_args()
 
@@ -115,6 +125,7 @@ tmplt_approx = waveforms[opts.template_approx]
 flow = opts.flow
 cache = not opts.disable_cache
 verbose = opts.verbose
+
 if opts.use_gpu_match:
     from lalinspiral.sbank.overlap_cuda import compute_match, create_workspace_cache
     import sbank.waveforms
@@ -154,6 +165,19 @@ sims = table.get_table(xmldoc2, lsctables.SimInspiralTable.tableName)
 # FIXME inspinj is a terrible person
 for s in sims:
     s.polarization = np.random.uniform(0, 2*np.pi)
+
+if opts.nonprecessing_spin: 
+	for s in sims: 
+		spin1_mag = np.sqrt(s.spin1x**2 + s.spin1y**2 + s.spin1z**2)
+		spin2_mag = np.sqrt(s.spin2x**2 + s.spin2y**2 + s.spin2z**2)
+		spin1_sign = s.spin1z/np.abs(s.spin1z)
+		spin2_sign = s.spin2z/np.abs(s.spin2z)
+		s.spin1x = 0
+		s.spin1y = 0
+		s.spin1z = spin1_sign*spin1_mag
+		s.spin2x = 0
+		s.spin2y = 0
+		s.spin2z = spin2_sign*spin2_mag
 
 h5file.create_dataset("/sim_inspiral", data=ligolw_table_to_array(sims), compression='gzip', compression_opts=1)
 h5file.flush()
