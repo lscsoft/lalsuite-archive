@@ -49,8 +49,11 @@ typedef void (*FlatLatticeBound)(
   const gsl_vector_uint* bound,	///< [in] Indices of current bounds
   const gsl_vector* point,	///< [in] Point on which to find bounds
   const void* data,		///< [in] Arbitrary data describing parameter space
+  const gsl_vector* incr,	///< [in] Increments of the lattice tiling generator
+  const gsl_vector* bbox,	///< [in] Metric ellipse bounding box extents
   gsl_vector* lower,		///< [out] Lower bounds on point in dimension
-  gsl_vector* upper		///< [out] Upper bounds on point in dimension
+  gsl_vector* upper,		///< [out] Upper bounds on point in dimension
+  double* padding		///< [out] Padding of parameter space bounds
   );
 
 ///
@@ -96,7 +99,7 @@ unsigned long XLALGetFlatLatticePointCount(
   );
 
 ///
-/// Add a parameter space bound to the flat lattice tiling
+/// Set a parameter space bound on the flat lattice tiling
 ///
 int XLALSetFlatLatticeBound(
   FlatLatticeTiling* tiling,		///< [in] Tiling state
@@ -172,14 +175,24 @@ int XLALAnstarLatticeGenerator(
   );
 
 ///
-/// Add a constant parameter space bound, given by the minimum and
-/// maximum of the two supplied bounds, to the flat lattice tiling
+/// Set a constant parameter space bound, given by the minimum and
+/// maximum of the two supplied bounds, on the flat lattice tiling
 ///
 int XLALSetFlatLatticeConstantBound(
   FlatLatticeTiling* tiling,	///< [in] Tiling state
   const size_t dimension,	///< [in] Dimension on which bound applies
   const double bound1,		///< [in] First bound on dimension
   const double bound2		///< [in] Second bound on dimension
+  );
+
+///
+/// Set elliptical bounds in two dimensions on the flat lattice tiling
+///
+int XLALSetFlatLatticeEllipticalBounds(
+  FlatLatticeTiling* tiling,	///< [in] Tiling state
+  const size_t dimension,	///< [in] Dimension of X bound (Y bound is one higher)
+  const double x_semi,		///< [in] Length of X semi-diameter
+  const double y_semi		///< [in] Length of Y semi-diameter
   );
 
 ///

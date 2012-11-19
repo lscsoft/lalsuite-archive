@@ -617,7 +617,6 @@ setup(
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_inspinjfind"),
-		os.path.join("bin", "lalapps_cbc_injfind"),
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
@@ -728,7 +727,8 @@ setup(
 		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
-		os.path.join("bin", "pylal_summary_page")
+		os.path.join("bin", "pylal_summary_page"),
+		os.path.join("bin", "pylal_plot_triggers")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
