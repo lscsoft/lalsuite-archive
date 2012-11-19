@@ -511,13 +511,18 @@ parser.add_option("-D", "--two-ifo",action="store_true",default=False,\
 parser.add_option("-T", "--three-ifo",action="store_true",default=False,\
     help="analyze three interferometer data")
 parser.add_option("-Q", "--four-ifo",action="store_true",default=False,\
-    help="analyze four intereferometer data")
-  
+    help="analyze four interferometer data")
+
+parser.add_option("", "--h1l1-only",action="store_true",default=False,\
+    help="if h1-data and h2-data and l1-data are chosen, find all the double"\
+    "and triple coincidence times but only analyse H1L1 time"\
+    "(option intended for focused highmass search, as H2L1 is not analysed"\
+    "and H1H2L1 may be analyzed with a different code")
+
 parser.add_option("-A", "--analyze-all",action="store_true",default=False,\
     help="analyze all ifos and all data (over-rides above)" \
     "(option not available since there are 5 instruments and the code " \
     "only supports quadruple coincidence)")
-
 
 parser.add_option("-d", "--datafind",action="store_true",default=False,\
     help="run LSCdataFind to create frame cache files")
@@ -594,6 +599,11 @@ if not opts.g1_data and not opts.h1_data and not opts.h2_data and \
   print >> sys.stderr, "No ifos specified.  Please specify at least one of"
   print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data, --v1-data"
   print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
+  sys.exit(1)
+elif opts.h1l1_only and not (opts.h1_data and opts.h2_data and opts.l1_data and \
+    opts.two_ifo and opts.three_ifo):
+  print >> sys.stderr, "The --h1l1-only option can only be used in a H1H2L1 analysis"
+  print >> sys.stderr, "with the two-ifo and three-ifo flags!"
   sys.exit(1)
 elif opts.analyze_all:
   print >> sys.stderr, "The --analyze-all flag is currently not available."
@@ -690,7 +700,9 @@ for ifo1 in ifo_list:
   for ifo2 in ifo_list:
     if ifo1 < ifo2:
       ifo_coincs.append(ifo1 + ifo2)
-      if opts.two_ifo and do[ifo1] and do[ifo2]:
+      if opts.two_ifo and not opts.h1l1_only and do[ifo1] and do[ifo2]:
+        analyze.append(ifo1 + ifo2)
+      if opts.two_ifo and opts.h1l1_only and "H1" in ifo1+ifo2 and "L1" in ifo1+ifo2 and do[ifo1] and do[ifo2]:
         analyze.append(ifo1 + ifo2)
 
 # three ifo
@@ -699,7 +711,7 @@ for ifo1 in ifo_list:
     for ifo3 in ifo_list:
       if ifo1 < ifo2 and ifo2 < ifo3:
         ifo_coincs.append(ifo1 + ifo2 + ifo3)
-        if opts.three_ifo and do[ifo1] and do[ifo2] and do[ifo3]:
+        if opts.three_ifo and not opts.h1l1_only and do[ifo1] and do[ifo2] and do[ifo3]:
           analyze.append(ifo1 + ifo2 + ifo3)
 
 # four ifo

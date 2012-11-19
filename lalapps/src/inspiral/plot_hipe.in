@@ -80,7 +80,7 @@ parser = OptionParser( usage )
 
 parser.add_option("-v", "--version",action="store_true",default=False,\
     help="print version information and exit")
-    
+
 parser.add_option("-u", "--user-tag",action="store",type="string",\
     default=None,metavar=" USERTAG",\
     help="tag the jobs with USERTAG (overrides value in ini file)")
@@ -110,13 +110,16 @@ parser.add_option("-T", "--three-ifo",action="store_true",default=False,\
     help="analyze three interferometer data")
 
 parser.add_option("-Q", "--four-ifo",action="store_true",default=False,\
-    help="analyze four intereferometer data")
-  
+    help="analyze four interferometer data")
+
 parser.add_option("-R", "--five-ifo",action="store_true",default=False,\
-    help="analyze five intereferometer data")
+    help="analyze five interferometer data")
 
 parser.add_option("-a", "--analyze-all",action="store_true",default=False,\
     help="analyze all combinations of IFOs (overrides --n-ifo options)")
+
+parser.add_option("", "--h1l1-only",action="store_true",default=False,\
+    help="if running an H1H2L1 analysis, only plot H1L1 times")
 
 parser.add_option("-i", "--plotinspiral" ,action="store_true",default=False,\
     help="run plotinspiral to summarize filtering output")
@@ -260,12 +263,14 @@ if num_slides:
 ###############################
 # Construct list based on ifos supplied at command line
 
-ifolist = [ifo for ifo in ('G1','H1', 'H2', 'L1', 'V1') \
+ifolist = [ifo for ifo in ('G1', 'H1', 'H2', 'L1', 'V1') \
             if getattr(opts, "%s_data" % ifo.lower())]
 
-if opts.two_ifo:
+if opts.two_ifo and not opts.h1l1_only:
    ifo_combo=list(iterutils.choices(ifolist,2))
-if opts.three_ifo:
+if opts.two_ifo and opts.h1l1_only:
+   ifo_combo=list(iterutils.choices(['H1', 'L1'],2))
+if opts.three_ifo and not opts.h1l1_only:
    ifo_combo=list(iterutils.choices(ifolist,2)) + list(iterutils.choices(ifolist,3))
 if opts.four_ifo:
    ifo_combo=list(iterutils.choices(ifolist,2)) + list(iterutils.choices(ifolist,3)) + \
