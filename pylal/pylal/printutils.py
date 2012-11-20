@@ -837,7 +837,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
 
     # make a dictionary of zerolag "shifts" needed for the get_coinc_segments function
     zerolag_dict = {}
-    for ifo in ifo_segemnts:
+    for ifo in ifo_segments:
         zerolag_dict[ifo] = 0.0
 
     # Cycle over available veto categories
