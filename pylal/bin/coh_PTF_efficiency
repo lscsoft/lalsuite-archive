@@ -1,4 +1,4 @@
-#!/usr/bin/env /usr/bin/python
+#!/usr/bin/env python
 
 # Copyright (C) 2011 Ian W. Harry
 #
@@ -36,8 +36,8 @@ elapsed_time = lambda: int(time.time()*10**6-start)
 import os,sys,matplotlib,numpy as np,re,copy,optparse
 matplotlib.use('Agg')
 import pylab
-from pylal import SimInspiralUtils,MultiInspiralUtils,plotutils
-from glue import segments,markup,git_version
+from pylal import SimInspiralUtils,MultiInspiralUtils,plotutils,git_version
+from glue import segments,markup
 from pylal.dq import dqSegmentUtils,dqHTMLUtils,dqPlotUtils
 from glue.ligolw import table,lsctables,utils
 from pylal.coh_PTF_pyutils import *
@@ -798,7 +798,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     gIFARBank         = foundTrigBank[nonzeroFAP]
     gIFARAuto         = foundTrigAuto[nonzeroFAP]
     gIFARNull         = foundTrigNullSNR[nonzeroFAP]
-    gIFARSnglSNR      = dict((ifo, foundTrigSnglSNR[ifo]) for ifo in ifos)
+    gIFARSnglSNR      = dict((ifo, foundTrigSnglSNR[ifo][nonzeroFAP])\
+                        for ifo in ifos)
 
     gIFARSpin1x       = foundInjSpin1x[nonzeroFAP]
     gIFARSpin1y       = foundInjSpin1y[nonzeroFAP]
@@ -835,7 +836,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     gMissed2Bank      = foundTrigBank[missed]
     gMissed2Auto      = foundTrigAuto[missed]
     gMissed2Null      = foundTrigNullSNR[missed]
-    gMissed2SnglSNR   = dict((ifo, foundTrigSnglSNR[ifo]) for ifo in ifos)
+    gMissed2SnglSNR   = dict((ifo, foundTrigSnglSNR[ifo][missed])\
+                        for ifo in ifos)
 
     gMissed2Spin1x    = foundInjSpin1x[missed]
     gMissed2Spin1y    = foundInjSpin1y[missed]
@@ -846,13 +848,19 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     # set the sigma values
     injSigma     = foundTrigs.get_sigmasqs()
-    fResp        = dict((ifo, [get_f_resp(inj)[ifo] for inj in foundInjs])\
-                        for ifo in ifos)
-    injSigmaTot  = (np.asarray(injSigma.values()) *\
-                    np.asarray(fResp.values())).sum()
+    fResp        = dict((ifo, np.asarray([get_f_resp(inj)[ifo] \
+                        for inj in foundInjs]))  for ifo in ifos)
+
+    injSigmaMult  = (np.asarray(injSigma.values()) *\
+                    np.asarray(fResp.values()))
+
+    injSigmaTot = injSigmaMult[0,:]
+    for i in range(1,len(ifos)):
+      injSigmaTot += injSigmaMult[i,:]
+
     injSigmaMean = {}
     for ifo in ifos:
-      injSigmaMean[ifo] = (injSigma[ifo]/injSigmaTot).mean()
+      injSigmaMean[ifo] = ((injSigma[ifo]*fResp[ifo])/injSigmaTot).mean()
 
     if verbose: sys.stdout.write("%d found injections analysed at %d.\n"\
                                  % (len(foundInjs), elapsed_time()))
@@ -1120,7 +1128,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
                                   missedInjEffSiteDist[ifo]))\
                for ifo in sites] +\
               [np.concatenate((gIFARm1,     gMissed2m1,     missedInjm1)),\
-               np.concatenate((gIFARm2,     gMissed2m1,     missedInjm1)),\
+               np.concatenate((gIFARm2,     gMissed2m2,     missedInjm2)),\
                np.concatenate((gIFARMchirp, gMissed2Mchirp,\
                                   missedInjMchirp)),\
                np.concatenate((gIFARRecm1,  gMissed2Recm1,  missedNA)),\

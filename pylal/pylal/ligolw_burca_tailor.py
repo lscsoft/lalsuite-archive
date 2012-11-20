@@ -33,11 +33,6 @@ import threading
 
 
 from glue import iterutils
-try:
-	any, all
-except NameError:
-	# Python <2.5
-	from glue.iterutils import any, all
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
 from glue.ligolw import param

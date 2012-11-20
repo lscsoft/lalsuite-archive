@@ -26,8 +26,8 @@ from __future__ import division
 import os, sys, time, calendar, httplib, M2Crypto, cjson, re, unittest
 from glue import lal, git_version, segments
  
-__author__  = "Scott Koranda <scott.koranda@ligo.org>, "+\
-              "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__author__ = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__credits__ = "Scott Koranda <scott.koranda@ligo.org>"
 __version__ = git_version.id
 __date__    = git_version.date
 

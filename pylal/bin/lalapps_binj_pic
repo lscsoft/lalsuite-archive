@@ -118,7 +118,7 @@ if options.verbose:
 	print >>sys.stderr, "time-frequency tiles have %g degrees of freedom" % (2 * options.delta_t * options.delta_f)
 
 
-process_id = ilwd.get_ilwdchar("process:process_id:0")
+process_id = ilwd.ilwdchar("process:process_id:0")
 
 time_slide_table = lsctables.getTablesByType( utils.load_filename(options.time_slide_xml), lsctables.TimeSlideTable )[0]
 time_slide_id = time_slide_table[0].time_slide_id

@@ -43,21 +43,18 @@ from operator import itemgetter
 
 #related third party imports
 import numpy as np
+from numpy import fmod
 import matplotlib
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 from scipy import special
+from scipy import signal
 from numpy import linspace
 import random
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 # Default font properties
-font = {'family':'serif',
-        'weight':'normal',
-        'size':11}
-matplotlib.rc('font',**font)
-
 fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
 inches_per_pt = 1.0/72.27               # Convert pt to inch
 golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
@@ -72,9 +69,11 @@ matplotlib.rcParams.update(
         'ytick.labelsize': 11,
         'text.usetex': False,
         'figure.figsize': fig_size,
-        'font.family': "Serif",
-        #'font.serif': ["Times"],
-        'savefig.dpi': 120 
+        'font.family': "serif",
+        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+        'font.weight':'normal',
+        'font.size':11,
+        'savefig.dpi': 120
         })
 
 
@@ -1457,9 +1456,167 @@ class KDTree(object):
         else:
             
             return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
-            
-    
-    
+
+
+class KDTreeVolume(object):
+    """
+    A kD-tree suitable for splitting parameter spaces and counting hypervolumes.
+    Is modified from the KDTree class so that bounding boxes are stored. This means that
+    there are no longer gaps in the hypervolume once the samples have been split into groups.
+    """
+    def __init__(self, objects,boundingbox,dims=0):
+        """
+        Construct a kD-tree from a sequence of objects.  Each object
+        should return its coordinates using obj.coord().
+        the obj should also store the bounds of the hypervolume its found in.
+        for non-leaf objects we need the name of the dimension split and value at split.
+        """
+        self._dimension = dims
+        self._bounds = boundingbox
+        self._weight = 1
+        if len(objects) == 0: #for no objects - something is wrong, i think it can only happen in first call
+            raise RuntimeError("cannot construct kD-tree out of zero objects---you may have a repeated sample in your list")
+        elif len(objects) == 1: #1 object, have reached leaf of tree
+            self._objects = objects[:]
+        elif self._same_coords(objects): # When ALL samples have the same coordinates in all dimensions
+            self._weight = len(objects)
+            self._objects = [ objects[0] ] #need to modify kdtree_bin functions to use _weight to get correct number of samples
+            coord=self._objects[0].coord()
+        else: #construct next level of tree with multiple samples
+            self._objects = objects[:]
+            split_dim = self._dimension
+            sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[split_dim])
+            N = len(sorted_objects)
+            self._split_value = 0.5*(sorted_objects[N/2].coord()[split_dim] + sorted_objects[N/2-1].coord()[split_dim])
+            bound = self._split_value
+            low = [obj for obj in self._objects if obj.coord()[split_dim] < bound]
+            high = [obj for obj in self._objects if obj.coord()[split_dim] >= bound]
+            if len(low)==0:
+                # Then there must be multiple values with the same
+                # coordinate as the minimum element of 'high'
+                low = [obj for obj in self._objects if obj.coord()[split_dim] == bound]
+                high = [obj for obj in self._objects if obj.coord()[split_dim] > bound]
+            leftBoundingbox = []
+            rightBoundingbox = []
+            for i in self._bounds:
+                leftBoundingbox.append(list(i))
+                rightBoundingbox.append(list(i))
+            leftBoundingbox[1][split_dim] = bound
+            rightBoundingbox[0][split_dim] = bound
+            # designate the next dimension to use for split for sub-trees
+            # if has got to the end of the list of dimensions then starts
+            # again at dimension = 0
+            if (split_dim < (len(self._objects[0].coord()) - 1)):
+                child_dim = split_dim + 1
+            else:
+                child_dim = 0
+            self._left = KDTreeVolume(low,leftBoundingbox,dims = child_dim)
+            # added in a load of messing about incase there are repeated values in the currently checked dimension
+            if (len(high) != 0):
+                self._right = KDTreeVolume(high,rightBoundingbox,dims = child_dim)
+            else:
+                self._right = None
+
+    def _same_coords(self, objects):
+        """
+        True if and only if all the given objects have the same
+        coordinates.
+        """
+        if len(objects) <= 1:
+            return True
+        coords = [obj.coord() for obj in objects]
+        c0 = coords[0]
+        for ci in coords[1:]:
+            if not np.all(ci == c0):
+                return False
+        return True
+
+    def objects(self):
+        """
+        Returns the objects in the tree.
+        """
+        return self._objects[:]
+
+    def __iter__(self):
+        """
+        Iterator over all the objects contained in the tree.
+        """
+        return self._objects.__iter__()
+
+    def left(self):
+        """
+        Returns the left tree.
+        """
+        return self._left
+
+    def right(self):
+        """
+        Returns the right tree.
+        """
+        return self._right
+
+    def split_dim(self):
+        """
+        Returns the dimension along which this level of the kD-tree
+        splits.
+        """
+        return self._split_dim
+
+    def bounds(self):
+        """
+        Returns the coordinates of the lower-left and upper-right
+        corners of the bounding box for this tree: low_left, up_right
+        """
+        return self._bounds
+
+    def volume(self):
+        """
+        Returns the volume of the bounding box of the tree.
+        """
+        v = 1.0
+        low,high=self._bounds
+        for l,h in zip(low,high):
+            v = v*(h - l)
+        return v
+
+    def integrate(self,f,boxing=64):
+        """
+        Returns the integral of f(objects) over the tree.  The
+        optional boxing parameter determines how deep to descend into
+        the tree before computing f.
+        """
+        def x(tree):
+            return tree.volume()*f(tree._objects)
+
+        def y(a,b):
+            return a+b
+
+        return self.operate(x,y,boxing=boxing)
+
+    def operate(self,f,g,boxing=64):
+        """
+        Operates on tree nodes exceeding boxing parameter depth.
+        """
+        if len(self._objects) <= boxing:
+            return f(self)
+        else:
+            return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
+
+    def search(self,coordinates,boxing = 64):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if len(self._objects) <= boxing:
+            return self._bounds,len(self._objects),self._weight
+        elif coordinates[self._dimension] < self._split_value:
+            return self._left.search(coordinates,boxing)
+        else:
+            return self._right.search(coordinates,boxing)
+
+
+
 class PosteriorSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
@@ -1497,6 +1654,9 @@ class PosteriorSample(object):
         Return the coordinates for the parameter sample.
         """
         return self._samples[self._coord_indexes]
+
+
+
 
 
 class AnalyticLikelihood(object):
@@ -1891,6 +2051,237 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
                 break
     
     return confidence_intervals
+
+
+def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
+    """
+    takes samples and applies a KDTree to them to return confidence levels
+    returns confidence_intervals - dictionary of user_provided_CL:calculated_area
+            b - ordered list of KD leaves
+            injInfo - if injection values provided then returns
+                      [Bounds_of_inj_kd_leaf ,number_samples_in_box, weight_of_box,injection_CL ,injection_CL_area]
+    Not quite sure that the repeated samples case is fixed, posibility of infinite loop.
+    """
+    confidence_levels.sort()
+    from math import cos, pi
+    class Harvester(list):
+        """
+        when called by kdtree.operate will be used to calculate the density of each bin (sky area)
+        """
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+
+        def __call__(self,tree):
+            #area = (cos(tree.bounds()[0][1])-cos(tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            area = - (cos(pi/2. - tree.bounds()[0][1])-cos(pi/2. - tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            number_density=float(len(tree.objects()))/float(area)
+            self.append([number_density,len(tree.objects()),area,tree.bounds()])
+            self.unrho+=number_density
+
+        def close_ranks(self):
+
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+
+            return sorted(self,key=itemgetter(0))
+
+    def h(a,b):
+        pass
+
+    peparser=PEOutputParser('common')
+
+    samples,header=posterior.samples()
+    header=header.split()
+    coord_names=["ra","dec"]
+    initial_dimensions = [[0.,-pi/2.],[2.*pi, pi/2.]]
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    tree=KDTreeVolume(coordinatized_samples,initial_dimensions)
+
+    a=Harvester()
+    tree.operate(a,h,boxing=samples_per_bin)
+    totalSamples = len(tree.objects())
+    b=a.close_ranks()
+    b.reverse()
+    samplecounter=0.0
+    for entry in b:
+        samplecounter += entry[1]
+        entry[1] = float(samplecounter)/float(totalSamples)
+
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+
+    #checks for injection and extract details of the node in the tree that the injection is found
+    if posterior['ra'].injval is not None and posterior['dec'].injval is not None:
+        injBound,injNum,injWeight = tree.search([posterior['ra'].injval,posterior['dec'].injval],boxing = samples_per_bin)
+        injInfo = [injBound,injNum,injWeight]
+        inj_area = - (cos(pi/2. - injBound[0][1])-cos(pi/2. - injBound[1][1]))*(injBound[1][0] - injBound[0][0])
+        inj_number_density=float(injNum)/float(inj_area)
+        inj_rho = inj_number_density / a.unrho
+    else:
+        injInfo = None
+        inj_area = None
+        inj_number_density=None
+        inj_rho = None
+
+    #finds the volume contained within the confidence levels requested by user
+    confidence_intervals={}
+    for rho,confidence_level,vol,bounds in b:
+        acc_vol+=vol
+
+        if confidence_level>confidence_levels[cl_idx]:
+            print str(confidence_level)
+            print acc_vol
+            confidence_intervals[confidence_levels[cl_idx]]=acc_vol
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+
+    acc_vol = 0.
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+    print 'total area: ' + str(acc_vol)
+
+    #finds the confidence level of the injection and the volume of the associated contained region
+    inj_confidence = None
+    inj_confidence_area = None
+    if inj_rho is not None:
+        acc_vol=0.
+        for rho,confidence_level,vol,bounds in b:
+            acc_vol+=vol
+            if rho <= inj_rho:
+                inj_confidence = confidence_level
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                print 'inj ' +str(vol)
+                break
+    return confidence_intervals, b, injInfo
+
+def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10):
+    """
+    takes samples and applies a KDTree to them to return confidence levels
+    returns confidence_intervals - dictionary of user_provided_CL:calculated_volume
+            b - ordered list of KD leaves
+            initial_boundingbox - list of lists [upperleft_coords,lowerright_coords]
+            injInfo - if injection values provided then returns
+                      [Bounds_of_inj_kd_leaf ,number_samples_in_box, weight_of_box,injection_CL ,injection_CL_volume]
+    Not quite sure that the repeated samples case is fixed, posibility of infinite loop.
+    """
+    confidence_levels.sort()
+    print confidence_levels
+    class Harvester(list):
+        """
+        when called by kdtree.operate will be used to calculate the density of each bin
+        """
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+
+        def __call__(self,tree):
+            number_density=float(len(tree.objects()))/float(tree.volume())
+            self.append([number_density,len(tree.objects()),tree.volume(),tree.bounds()])
+            self.unrho+=number_density
+
+        def close_ranks(self):
+
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+
+            return sorted(self,key=itemgetter(0))
+
+    def h(a,b):
+        pass
+
+    peparser=PEOutputParser('common')
+
+    samples,header=posterior.samples()
+    header=header.split()
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+
+    a=Harvester()
+    tree.operate(a,h,boxing=samples_per_bin)
+
+    b=a.close_ranks()
+    b.reverse()
+    totalSamples = len(tree.objects())
+    samplecounter=0.0
+    for entry in b:
+        samplecounter += entry[1]
+        entry[1] = float(samplecounter)/float(totalSamples)
+
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
+
+    #checks for injection and extract details of the lnode in the tree that the injection is found
+    if checkNone(coord_names):
+        injBound,injNum,injWeight = tree.search([posterior[x].injval for x in coord_names],boxing = samples_per_bin)
+        injInfo = [injBound,injNum,injWeight]
+        #calculate volume of injections bin
+        inj_volume = 1.
+        low = injBound[1]
+        high = injBound[0]
+        for aCoord,bCoord in zip(low,high):
+            inj_volume = inj_volume*(bCoord - aCoord)
+        inj_number_density=float(injNum)/float(inj_volume)
+        inj_rho = inj_number_density / a.unrho
+    else:
+        injInfo = None
+        inj_area = None
+        inj_number_density=None
+        inj_rho = None
+
+    #finds the volume contained within the confidence levels requested by user
+    confidence_intervals={}
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+
+        if sample_number>confidence_levels[cl_idx]:
+            confidence_intervals[confidence_levels[cl_idx]]=(acc_vol,sample_number)
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+
+    acc_vol = 0.
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+
+    #finds the confidence level of the injection and the volume of the associated contained region
+    inj_confidence = None
+    inj_confidence_area = None
+    if inj_rho is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        for rho,confidence_level,vol,bounds in b:
+            acc_vol+=vol
+            if rho <= inj_rho:
+                inj_confidence = confidence_level
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return confidence_intervals, b, initial_boundingbox,injInfo
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -2373,9 +2764,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
-    axes.xaxis.set_major_formatter(majorFormatterX)
-    axes.yaxis.set_major_formatter(majorFormatterY)
-
+    offset=0.0
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
@@ -2393,6 +2782,16 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     else:
         Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks)
+    xmin,xmax=plt.xlim()
+    if param=='rightascension' or param=='ra':
+        locatorX=RALocator(min=xmin,max=xmax)
+        majorFormatterX=RAFormatter()
+    if param=='declination' or param=='dec':
+        locatorX=DecLocator(min=xmin,max=xmax)
+        majorFormatterX=DecFormatter()
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
+
     locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
     if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
@@ -2400,7 +2799,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='r', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
@@ -2440,17 +2839,61 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if(param.lower()=='ra' or param.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         plt.xlim(xmax,xmin)
-    if(param.lower()=='ra' or param.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(param.lower()=='dec' or param.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(param.lower()=='ra' or param.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(param.lower()=='dec' or param.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return rbins,myfig#,rkde
 #
+
+class RALocator(matplotlib.ticker.MultipleLocator):
+    """
+    RA tick locations with some intelligence
+    """
+    def __init__(self,min=0.0,max=2.0*pi_constant):
+      hour=pi_constant/12.0
+      if(max-min)>12.0*hour:
+        base=3.0*hour
+      elif(max-min)>6.0*hour:
+        base=2.0*hour
+      # Put hour ticks if there are more than 3 hours displayed
+      elif (max-min)>3.0*pi_constant/12.0:
+        base=hour
+      elif (max-min)>hour:
+        base=hour/2.0
+      else:
+        base=hour/4.0
+         
+      matplotlib.ticker.MultipleLocator.__init__(self,base=base)
+
+class DecLocator(matplotlib.ticker.MultipleLocator):
+    """
+    Dec tick locations with some intelligence
+    """
+    def __init__(self, min=-pi_constant/2.0,max=pi_constant/2.0):
+      deg=pi_constant/180.0
+      if (max-min)>60*deg:
+        base=30.0*deg
+      elif (max-min)>20*deg:
+        base=10*deg
+      elif (max-min)>10*deg:
+        base=5*deg
+      else:
+        base=deg
+      matplotlib.ticker.MultipleLocator.__init__(self,base=base)
+
+class RAFormatter(matplotlib.ticker.FuncFormatter):
+    def __init__(self,accuracy='auto'):
+      matplotlib.ticker.FuncFormatter.__init__(self,getRAString)
+
+class DecFormatter(matplotlib.ticker.FuncFormatter):
+    def __init__(self,accuracy='auto'):
+      matplotlib.ticker.FuncFormatter.__init__(self,getDecString)
 
 def formatRATicks(locs, accuracy='auto'):
     """
@@ -2521,9 +2964,10 @@ def roundRadAngle(rads,accuracy='all'):
     return round(rads*mult)/mult
 
 def getRAString(radians,accuracy='auto'):
-    hours, rem = divmod(radians, pi_constant/12.0)
-    mins,rem = divmod(rem, pi_constant/(12.0*60.0))
-    secs = rem*12.0*3600.0/pi_constant
+    secs=radians*12.0*3600/pi_constant
+    hours, rem = divmod(secs, 3600 )
+    mins,rem = divmod(rem, 60 )
+    secs = rem
     if secs>=59.5:
         secs=secs-60
         mins=mins+1
@@ -2534,8 +2978,8 @@ def getRAString(radians,accuracy='auto'):
     if accuracy=='min': return ur'%ih%im'%(hours,mins)
     if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
     else:
-        if secs>=0.5: return(getRAString(radians,accuracy='sec'))
-        if mins>=0.5: return(getRAString(radians,accuracy='min'))
+        if abs(fmod(secs,60.0))>=0.5: return(getRAString(radians,accuracy='sec'))
+        if abs(fmod(mins,60.0))>=0.5: return(getRAString(radians,accuracy='min'))
         else: return(getRAString(radians,accuracy='hour'))
         
 def getDecString(radians,accuracy='auto'):
@@ -2555,19 +2999,22 @@ def getDecString(radians,accuracy='auto'):
     deg,rem=divmod(radians,pi_constant/180.0)
     mins, rem = divmod(rem, pi_constant/(180.0*60.0))
     secs = rem * (180.0*3600.0)/pi_constant
-    if secs>=59.5:
-        secs=secs-60.0
-        mins=mins+1
-    if mins>=59.5:
-        mins=mins-60.0
-        deg=deg+1
+    #if secs>=59.5:
+    #    secs=secs-60.0
+    #    mins=mins+1
+    #if mins>=59.5:
+    #    mins=mins-60.0
+    #    deg=deg+1
+    if (accuracy=='arcmin' or accuracy=='deg') and secs>30: mins=mins+1
+    if accuracy=='deg' and mins>30: deg=deg+1
     if accuracy=='deg': return ur'%i'%(sign*deg)+degsymb
     if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
     if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
-        if secs>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
-        if mins>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
-        else: return(getDecString(sign*radians,accuracy='deg'))
+    #    if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs,60)-60)>=0.5 : return(getDecString(sign*radians,accuracy='arcsec'))
+    #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+    #    else: return(getDecString(sign*radians,accuracy='deg'))
+      return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -2638,26 +3085,26 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             xmin,xmax=plt.xlim()
             plt.xlim(xmax,xmin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
-            (newlocs, newticks)=formatRATicks(locs, ticks)
-            plt.xticks(newlocs,newticks,rotation=45)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
-            newlocs, newticks = formatDecTicks(locs)
-            plt.xticks(newlocs,newticks,rotation=45)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.xticks()
+    #        (newlocs, newticks)=formatRATicks(locs, ticks)
+    #        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.xticks()
+    #        newlocs, newticks = formatDecTicks(locs)
+    #        plt.xticks(newlocs,newticks,rotation=45)
 
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        newlocs,newticks=formatRATicks(locs)
-        plt.yticks(newlocs,newticks)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        newlocs,newticks=formatDecTicks(locs)
-        plt.yticks(newlocs,newticks)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    ymin,ymax=plt.ylim()
+    #    plt.ylim(ymax,ymin)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.yticks()
+    #    newlocs,newticks=formatRATicks(locs)
+    #    plt.yticks(newlocs,newticks)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.yticks()
+    #    newlocs,newticks=formatDecTicks(locs)
+    #    plt.yticks(newlocs,newticks)
 
     return myfig
 #
@@ -2758,6 +3205,8 @@ def fix_axis_names(plt,par1_name,par2_name):
     """
     Fixes names of axes
     """
+    return
+
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             ymin,ymax=plt.ylim()
@@ -2788,7 +3237,7 @@ def fix_axis_names(plt,par1_name,par2_name):
         plt.xticks(newlocs,newticks,rotation=45)
     return plt
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -2915,10 +3364,31 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	else:
       		Nticks=6
     	locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+        if par2_name=='rightascension' or par2_name=='ra':
+            (ramin,ramax)=plt.xlim()
+            locatorX=RALocator(min=ramin,max=ramax)
+            majorFormatterX=RAFormatter()
+        if par2_name=='declination' or par2_name=='dec':
+            (decmin,decmax)=plt.xlim()
+            locatorX=DecLocator(min=decmin,max=decmax)
+            majorFormatterX=DecFormatter()
+        axes.xaxis.set_major_formatter(majorFormatterX)
+        if par1_name=='rightascension' or par1_name=='ra':
+            (ramin,ramax)=plt.ylim()
+            locatorY=RALocator(ramin,ramax)
+            axes.yaxis.set_major_locator(locatorY)
+            majorFormatterY=RAFormatter()
+        if par1_name=='declination' or par1_name=='dec':
+            (decmin,decmax)=plt.ylim()
+            locatorY=DecLocator(min=decmin,max=decmax)
+            majorFormatterY=DecFormatter()
+            axes.yaxis.set_major_locator(locatorY)
+
+        axes.yaxis.set_major_formatter(majorFormatterY)
     	#locatorX.view_limits(bins[0],bins[-1])
     	axes.xaxis.set_major_locator(locatorX)
 
-    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
     plt.xlabel(ax2_name)
     plt.ylabel(ax1_name)
 
@@ -2944,33 +3414,33 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
 
     # For ra and dec set custom labels and for RA reverse
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            ymin,ymax=plt.ylim()
-            if(ymin<0.0): ylim=0.0
-            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
-            plt.ylim(ymax,ymin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatRATicks(locs)
-            plt.yticks(newlocs,newticks)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.yticks()
-            newlocs,newticks=formatDecTicks(locs)
-            plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        ymin,ymax=plt.ylim()
+    #        if(ymin<0.0): ylim=0.0
+    #        if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+    #        plt.ylim(ymax,ymin)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatRATicks(locs)
+    #        plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs,newticks=formatDecTicks(locs)
+    #        plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         if(xmin<0.0): xmin=0.0
         if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return fig
 #
@@ -3091,6 +3561,25 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     else:
       Nticks=6
     locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+    (xmin,xmax)=plt.xlim()
+    (ymin,ymax)=plt.ylim()
+    if par2_name=='rightascension' or par2_name=='ra':
+        locatorX=RALocator(min=xmin,max=xmax)
+        majorFormatterX=RAFormatter()
+    if par2_name=='declination' or par2_name=='dec':
+        locatorX=DecLocator(min=xmin,max=xmax)
+        majorFormatterX=DecFormatter()
+    if par1_name=='rightascension' or par1_name=='ra':
+        locatorY=RALocator(min=ymin,max=ymax)
+        axes.yaxis.set_major_locator(locatorY)
+        majorFormatterY=RAFormatter()
+    if par1_name=='declination' or par1_name=='dec':
+        locatorY=DecLocator(min=ymin,max=ymax)
+        axes.yaxis.set_major_locator(locatorY)
+        majorFormatterY=DecFormatter()
+
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
     #locatorX.view_limits(bins[0],bins[-1])
     axes.xaxis.set_major_locator(locatorX)
 
@@ -3108,31 +3597,31 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            ymin,ymax=plt.ylim()
-            plt.ylim(ymax,ymin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatRATicks(locs)
-            plt.yticks(newlocs,newticks)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatDecTicks(locs)
-            plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        ymin,ymax=plt.ylim()
+    #        plt.ylim(ymax,ymin)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatRATicks(locs)
+    #        plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatDecTicks(locs)
+    #        plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         if(xmin)<0.0: xmin=0.0
         if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return myfig
 
@@ -3322,19 +3811,85 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
     return pos,bayesfactor
 
 
+class ACLError(StandardError):
+    def __init__(self, *args):
+        super(ACLError, self).__init__(*args)
+
+
+def autocorrelation(series):
+    """Returns an estimate of the autocorrelation function of a given
+    series.  Returns only the positive-lag portion of the ACF,
+    normalized so that the zero-th element is 1."""
+    x=series-np.mean(series) 
+    y=np.conj(x[::-1])
+
+    acf=np.fft.ifftshift(signal.fftconvolve(y,x,mode='full'))
+
+    N=series.shape[0]
+
+    acf = acf[0:N]
+
+    return acf/acf[0]
+
+
+def autocorrelation_length_estimate(series, acf=None, M=5, K=2):
+    """Attempts to find a self-consistent estimate of the
+    autocorrelation length of a given series.  
+
+    If C(tau) is the autocorrelation function (normalized so C(0) = 1,
+    for example from the autocorrelation procedure in this module),
+    then the autocorrelation length is the smallest s such that
+
+    1 + 2*C(1) + 2*C(2) + ... + 2*C(M*s) < s
+
+    In words: the autocorrelation length is the shortest length so
+    that the sum of the autocorrelation function is smaller than that
+    length over a window of M times that length.
+
+    The maximum window length is restricted to be len(series)/K as a
+    safety precaution against relying on data near the extreme of the
+    lags in the ACF, where there is a lot of noise.  Note that this
+    implies that the series must be at least M*K*s samples long in
+    order to get a reliable estimate of the ACL.
+
+    If no such s can be found, raises ACLError; in this case it is
+    likely that the series is too short relative to its true
+    autocorrelation length to obtain a consistent ACL estimate."""
+
+    if acf is None:
+      acf=autocorrelation(series)
+    acf[1:] *= 2.0
+
+    imax=int(acf.shape[0]/K)
+    
+    # Cumulative sum and ACL length associated with each window
+    cacf=np.cumsum(acf)
+    s=np.arange(1, cacf.shape[0]+1)/float(M)
+
+    # Find all places where cumulative sum over window is smaller than
+    # associated ACL.
+    estimates=np.flatnonzero(cacf[:imax] < s[:imax])
+
+    if estimates.shape[0] > 0:
+        # Return the first index where cumulative sum is smaller than
+        # ACL associated with that index's window
+        return s[estimates[0]]
+    else:
+        # Cannot find self-consistent ACL estimate.
+        raise ACLError('autocorrelation length too short for consistent estimate')
+
+
 def effectiveSampleSize(samples, Nskip=1):
-    mu = np.mean(samples)
+    """
+    Compute the effective sample size, calculating the ACL using only
+    the second half of the samples to avoid ACL overestimation due to
+    chains equilibrating after adaptation.
+    """
     N = len(samples)
-    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
-    acf = corr[N-1:]/corr[N-1]
-    acl = 1
-    i = 1
+    acf = autocorrelation(samples[N/2:])
     try:
-      while (acf[i] > 0.0005):
-          acl += 2.0*acf[i]
-          i+=1
-    except IndexError:
-      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = autocorrelation_length_estimate(samples[N/2:], acf=acf)
+    except ACLError:
       acl = N
     Neffective = floor(N/acl)
     acl *= Nskip
@@ -3410,11 +3965,15 @@ class PEOutputParser(object):
         nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
             print "Downsampling to take only uncorrelated posterior samples from each file."
-            for i in range(len(nskips)):
-                if nskips[i] is None:
-                    print "%s eliminated since all samples are correlated."
-        else:
-            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
+            if len(nskips) == 1 and np.isnan(nskips[0]):
+                print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, 10000)
+            else:
+                for i in range(len(nskips)):
+                    if np.isnan(nskips[i]):
+                        print "%s eliminated since all samples are correlated."
+                    else:
+                        print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -3567,7 +4126,7 @@ class PEOutputParser(object):
 
             finally:
                 infile.close()
-        nskips = np.ones(nfiles,'int')
+        nskips = np.ones(nfiles)
         ntot = sum(ntots)
         if nDownsample is not None:
             if ntot > nDownsample:
@@ -3637,7 +4196,7 @@ class PEOutputParser(object):
         Npost : Desired number of posterior samples
         """
         try:
-            from lalapps.nest2pos import draw_N_posterior_many
+            from lalapps.nest2pos import draw_N_posterior_many,draw_posterior_many
         except ImportError:
             print "Need lalapps.nest2pos to convert nested sampling output!"
             raise
@@ -3680,7 +4239,10 @@ class PEOutputParser(object):
             raise RuntimeError
 
         inarrays=map(np.loadtxt,files)
-        pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+        if Npost is None:
+            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
+        else:
+            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
 
         with open(posfilename,'w') as posfile:
             

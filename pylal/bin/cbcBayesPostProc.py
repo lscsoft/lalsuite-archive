@@ -52,9 +52,36 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
+from glue.ligolw import table
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
+
+
+class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
+    def __init__(self,document):
+      ligolw.LIGOLWContentHandler.__init__(self,document)
+      self.tabname=lsctables.SimInspiralTable.tableName
+      self.intable=False
+      self.tableElementName=''
+    def startElement(self,name,attrs):
+      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+        self.tableElementName=name
+        # Got the right table, let's see if it's the right event
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+        self.intable=True
+      elif self.intable: # We are in the correct table
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+    def endElement(self,name):
+      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
+      if self.intable and name==self.tableElementName: self.intable=False
+
+lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
+
 
 def pickle_to_file(obj,fname):
     """
@@ -71,15 +98,29 @@ def oneD_dict_to_file(dict,fname):
 
 def multipleFileCB(opt, opt_str, value, parser):
     args=[]
+
+    def floatable(str):
+      try:
+        float(str)
+        return True
+      except ValueError:
+        return False
+
     for arg in parser.rargs:
-        if arg[0] != "-":
-            args.append(arg)
-        else:
-            del parser.rargs[:len(args)]
-            break
+      # stop on --foo like options
+      if arg[:2] == "--" and len(arg) > 2:
+        break
+      # stop on -a, but not on -3 or -3.0
+      if arg[:1] == "-" and len(arg) > 1 and not floatable(arg):
+        break
+      args.append(arg)
+
+    del parser.rargs[:len(args)]
     #Append new files to list if some already specified
     if getattr(parser.values, opt.dest):
-        args.extend(getattr(parser.values, opt.dest))
+        oldargs = getattr(parser.values, opt.dest)
+        oldargs.extend(args)
+        args = oldargs
     setattr(parser.values, opt.dest, args)
 
 def cbcBayesPostProc(
@@ -176,14 +217,14 @@ def cbcBayesPostProc(
     
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
-    if injfile:
-        import itertools
-        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-        if eventnum is not None:
-            if(len(injections)<eventnum):
-                raise RuntimeError("Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections)))
-            else:
-                injection=injections[eventnum]
+    if injfile and eventnum:
+        print 'Looking for event %i in %s\n'%(eventnum,injfile)
+        xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
+        siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+        injection=siminspiraltable[eventnum]
+	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
+	#if(len(injections)!=1): raise RuntimeError('Error: something unexpected happened while loading the injection file!\n')
+        #injection=injections[0]
 
     #Get trigger
     triggers = None
@@ -673,6 +714,7 @@ def cbcBayesPostProc(
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
         if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
+        plt.close(plotFig)
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -713,14 +755,15 @@ def cbcBayesPostProc(
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
+        plt.close(myfig)
         acfail=0
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
                 try:
-		    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
-		    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
+                    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
+                    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
                         plt.title('Autocorrelation Function')
@@ -756,6 +799,7 @@ def cbcBayesPostProc(
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
+            plt.close(acffig)
 
         if not noacf:
 	  if not acfail:
@@ -887,11 +931,13 @@ def cbcBayesPostProc(
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
         if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
+        plt.close(greedy2ContourPlot)
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
         if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
+        plt.close(greedy2HistFig)
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -946,6 +992,7 @@ def cbcBayesPostProc(
 
                 myfig.savefig(twoDKdePath)
                 if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
+                plt.close(myfig)
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
@@ -1075,7 +1122,7 @@ if __name__=='__main__':
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
-    parser.add_option("--fixedBurnin",action="append",default=None,help="(LALInferenceMCMC) Fixed number of iteration for burnin.",type="int")
+    parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
@@ -1096,6 +1143,10 @@ if __name__=='__main__':
     if opts.data:
       datafiles=datafiles + opts.data
     
+    if opts.fixedBurnin:
+      fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
+    else:
+      fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
@@ -1206,7 +1257,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=opts.fixedBurnin,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?
