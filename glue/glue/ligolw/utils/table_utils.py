@@ -172,13 +172,17 @@ def depopulate_experiment_tables(xmldoc, verbose = False):
 
 def get_experiment_times(xmldoc):
 	"""
-        Use the start & end-times stored in the segment_summary table to define 
-        the experiment times.  This presumes that the vetoes file has been added
-        to the file being analyzed.
-        """
-        segment_summary_tbl = lsctables.table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
-        expr_start_time = min(segment_summary_tbl.getColumnByName("start_time"))
-        expr_end_time = max(segment_summary_tbl.getColumnByName("end_time"))
+	Use the start & end-times stored in the segment_summary table to define 
+	the experiment times.  This presumes that the vetoes file has been added
+	to the file being analyzed.
+	"""
+	try:
+		segment_summary_tbl = lsctables.table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+		expr_start_time = min(segment_summary_tbl.getColumnByName("start_time"))
+		expr_end_time = max(segment_summary_tbl.getColumnByName("end_time"))
+	except ValueError:
+		expr_start_time = None
+		expr_end_time = None
 
 	return expr_start_time, expr_end_time
 
