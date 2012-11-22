@@ -323,6 +323,10 @@ def parse_command_line():
         default=None,help="The omega config file for H1.")
   parser.add_option("-f","--h1-omega-frame-file",action="store",\
         default=None,help="The omega frame file for H1.")
+  parser.add_option("-I","--h2-omega-config-file",action="store",\
+        default=None,help="The omega config file for H2.")
+  parser.add_option("-i","--h2-omega-frame-file",action="store",\
+        default=None,help="The omega frame file for H2.")
   parser.add_option("-L","--l1-omega-config-file",action="store",\
         default=None,help="The omega config file for L1.")
   parser.add_option("-l","--l1-omega-frame-file",action="store",\
@@ -362,6 +366,8 @@ def parse_command_line():
   
   if opts.h1_omega_config_file:
     opts.omega_ifos.append('H1')
+  if opts.h2_omega_config_file:
+    opts.omega_ifos.append('H2')
   if opts.l1_omega_config_file:
     opts.omega_ifos.append('L1')
   if opts.v1_omega_config_file:
