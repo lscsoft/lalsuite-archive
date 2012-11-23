@@ -43,6 +43,39 @@ static double logadd(double a,double b){
 	else return(b+log(1.0+exp(a-b)));
 }
 
+static void printAdaptiveJumpSizes(FILE *file, LALInferenceRunState *runState);
+static void printAdaptiveJumpSizes(FILE *file, LALInferenceRunState *runState)
+{
+    LALInferenceVariableItem *this=runState->currentParams->head;
+    REAL8 *val=NULL;
+    char tmpname[1000]="";
+    fprintf(file,"Adaptive proposal step size:\n");
+    while(this)
+    {
+        sprintf(tmpname,"%s_%s",this->name,ADAPTSUFFIX);
+        if(LALInferenceCheckVariable(runState->proposalArgs,tmpname))
+        {
+            val=(REAL8 *)LALInferenceGetVariable(runState->proposalArgs,tmpname);
+            fprintf(file,"%s: %lf\n",this->name,*val);
+        }
+        this=this->next;
+    }
+
+}
+
+static void resetProposalStats(LALInferenceRunState *runState);
+static void resetProposalStats(LALInferenceRunState *runState)
+{
+    LALInferenceProposalStatistics *propStat;
+    LALInferenceVariableItem *this;
+    this = runState->proposalStats->head;
+    while(this){
+        propStat = (LALInferenceProposalStatistics *)this->value;
+        propStat->accepted = 0;
+        propStat->proposed = 0;
+        this = this->next;
+    } 
+}
 
 static REAL8 mean(REAL8 *array,int N){
 	REAL8 sum=0.0;
@@ -79,30 +112,33 @@ REAL8 LALInferenceNSSample_logt(int Nlive,gsl_rng *RNG){
 
 static UINT4 UpdateNMCMC(LALInferenceRunState *runState){
 	INT4 max = 0;
+	INT4 maxMCMC = MAX_MCMC;
 	/* Measure Autocorrelations if the Nmcmc is not over-ridden */
 	if(!LALInferenceGetProcParamVal(runState->commandLine,"--Nmcmc") && !LALInferenceGetProcParamVal(runState->commandLine,"--nmcmc")){
-		  if(LALInferenceCheckVariable(runState->algorithmParams,"Nmcmc")) /* if already estimated the length */
-			  max=4 * *(INT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nmcmc"); /* We will use this to go out 4x last ACL */
-		  else max=4*MAX_MCMC; /* otherwise use the MAX_MCMC */
-          if(max>4*MAX_MCMC) max=4*MAX_MCMC;
-          LALInferenceVariables *acls=LALInferenceComputeAutoCorrelation(runState, max, runState->evolve) ;
-          max=0;
-          for(LALInferenceVariableItem *this=acls->head;this;this=this->next) {
-              if(LALInferenceCheckVariable(runState->algorithmParams,"verbose"))
-                  fprintf(stdout,"Autocorrelation length of %s: %i\n",this->name,(INT4) *(REAL8 *)this->value);
-              if(*(REAL8 *)this->value>max) {
-                  max=(INT4) *(REAL8 *)this->value;
-              }
-          }
-          LALInferenceDestroyVariables(acls);
-          free(acls);
-          if(max>MAX_MCMC){
-              fprintf(stderr,"Warning: Estimated chain length %i exceeds maximum %i!\n",max,MAX_MCMC);
-              max=MAX_MCMC;
-          }
-          LALInferenceSetVariable(runState->algorithmParams,"Nmcmc",&max);
-	}
-        return(max);
+        if(LALInferenceCheckVariable(runState->algorithmParams,"maxmcmc"))
+            maxMCMC = *(INT4 *)LALInferenceGetVariable(runState->algorithmParams,"maxmcmc");
+        if(LALInferenceCheckVariable(runState->algorithmParams,"Nmcmc")) /* if already estimated the length */
+            max=4 * *(INT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nmcmc"); /* We will use this to go out 4x last ACL */
+        else max=4*maxMCMC; /* otherwise use the MAX_MCMC */
+        if(max>4*maxMCMC) max=4*maxMCMC;
+        LALInferenceVariables *acls=LALInferenceComputeAutoCorrelation(runState, max, runState->evolve) ;
+        max=0;
+        for(LALInferenceVariableItem *this=acls->head;this;this=this->next) {
+            if(LALInferenceCheckVariable(runState->algorithmParams,"verbose"))
+                fprintf(stdout,"Autocorrelation length of %s: %i\n",this->name,(INT4) *(REAL8 *)this->value);
+            if(*(REAL8 *)this->value>max) {
+                max=(INT4) *(REAL8 *)this->value;
+            }
+        }
+        LALInferenceDestroyVariables(acls);
+        free(acls);
+        if(max>maxMCMC){
+            fprintf(stderr,"Warning: Estimated chain length %i exceeds maximum %i!\n",max,maxMCMC);
+            max=maxMCMC;
+        }
+        LALInferenceSetVariable(runState->algorithmParams,"Nmcmc",&max);
+    }
+    return(max);
 }
 
 /* estimateCovarianceMatrix reads the list of live points,
@@ -445,10 +481,17 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
           }else
             kdupdate = 4.;
         }
-          
+    
 	/* Set the number of MCMC points */
 	UpdateNMCMC(runState);
-	
+    /* Output some information */
+    if(verbose){
+        LALInferencePrintProposalStatsHeader(stdout,runState->proposalStats);
+        LALInferencePrintProposalStats(stdout,runState->proposalStats);
+        resetProposalStats(runState);
+        printAdaptiveJumpSizes(stdout, runState);
+    }
+
 	runState->currentParams=currentVars;
 	fprintf(stdout,"Starting nested sampling loop!\n");
 	/* Iterate until termination condition is met */
@@ -548,6 +591,13 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	    /* Update NMCMC from ACF */
 	    UpdateNMCMC(runState);
 	
+    /* Output some information */
+    if(verbose){
+        LALInferencePrintProposalStatsHeader(stdout,runState->proposalStats);
+        LALInferencePrintProposalStats(stdout,runState->proposalStats);
+        resetProposalStats(runState);
+        printAdaptiveJumpSizes(stdout, runState);
+    }
 	      }
 	    
 	    if ( LALInferenceCheckVariable( runState->proposalArgs,"kDTree" )){

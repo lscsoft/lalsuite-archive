@@ -90,9 +90,9 @@ int main(int argc, char *argv[]){
   CHAR *pos=NULL;
 
   /* set error handler */
-  //lalDebugLevel = 7;
+  // lalDebugLevel = 7;
   XLALSetErrorHandler(XLALAbortErrorHandler);
-  
+
   #if TRACKMEMUSE
     fprintf(stderr, "Memory use at start of the code:\n"); printmemuse();
   #endif
@@ -142,17 +142,12 @@ int main(int argc, char *argv[]){
 pulsars spin frequency.\n", inputParams.freqfactor);
   }
 
-  if(inputParams.heterodyneflag == 1){ /*if performing fine heterdoyne using
-                                         same params as coarse */
+  /*if performing fine heterdoyne using same params as coarse */
+  if(inputParams.heterodyneflag == 1 || inputParams.heterodyneflag == 3)
     hetParams.hetUpdate = hetParams.het;
-  }
 
   hetParams.samplerate = inputParams.samplerate;
-  snprintf(hetParams.earthfile, sizeof(hetParams.earthfile), "%s",
-    inputParams.earthfile);
-  snprintf(hetParams.sunfile, sizeof(hetParams.sunfile), "%s",
-    inputParams.sunfile);
-
+  
   /* set detector */
   hetParams.detector = *XLALGetSiteInfo( inputParams.ifo );
 
@@ -177,6 +172,30 @@ pulsars spin frequency.\n", inputParams.freqfactor);
       fprintf(stderr, "f0 = %.1lf Hz, f1 = %.1e Hz/s, epoch = %.1lf.\n",
         hetParams.hetUpdate.f0, hetParams.hetUpdate.f1,
         hetParams.hetUpdate.pepoch); 
+    }
+  }
+
+  if( inputParams.heterodyneflag > 0 ){   
+    snprintf(hetParams.earthfile, sizeof(hetParams.earthfile), "%s",
+      inputParams.earthfile);
+    snprintf(hetParams.sunfile, sizeof(hetParams.sunfile), "%s",
+      inputParams.sunfile);
+
+    if( inputParams.timeCorrFile != NULL ){
+      hetParams.timeCorrFile = XLALStringDuplicate( inputParams.timeCorrFile );
+
+      if( hetParams.hetUpdate.units != NULL ){
+        if ( !strcmp(hetParams.hetUpdate.units, "TDB") )
+          hetParams.ttype = TYPE_TDB; /* use TDB units i.e. TEMPO standard */
+        else
+          hetParams.ttype = TYPE_TCB; /* default to TCB i.e. TEMPO2 standard */
+      }
+      else /* don't recognise units type, so default to the original code */
+        hetParams.ttype = TYPE_ORIGINAL;
+    }
+    else{
+      hetParams.timeCorrFile = NULL;
+      hetParams.ttype = TYPE_ORIGINAL;
     }
   }
 
@@ -694,6 +713,7 @@ void get_input_args(InputParams *inputParams, int argc, char *argv[]){
     { "output-dir",               required_argument,  0, 'o' },
     { "ephem-earth-file",         required_argument,  0, 'e' },
     { "ephem-sun-file",           required_argument,  0, 'S' },
+    { "ephem-time-file",          required_argument,  0, 't' },
     { "seg-file",                 required_argument,  0, 'l' },
     { "calibrate",                no_argument,     NULL, 'A' },
     { "response-file",            required_argument,  0, 'R' },
@@ -711,7 +731,7 @@ void get_input_args(InputParams *inputParams, int argc, char *argv[]){
     { 0, 0, 0, 0 }
   };
 
-  char args[] = "hi:p:z:f:g:k:s:r:d:c:o:e:S:l:R:C:F:O:T:m:G:H:M:ABbv";
+  char args[] = "hi:p:z:f:g:k:s:r:d:c:o:e:S:t:l:R:C:F:O:T:m:G:H:M:ABbv";
   char *program = argv[0];
 
   /* set defaults */
@@ -741,6 +761,8 @@ the pulsar parameter file */
   /* channel defaults to DARM_ERR */
   snprintf(inputParams->channel, sizeof(inputParams->channel), "DARM_ERR");
 
+  inputParams->timeCorrFile = NULL;
+  
   /* get input arguments */
   while(1){
     int option_index = 0;
@@ -866,6 +888,9 @@ the pulsar parameter file */
         snprintf(inputParams->sunfile, sizeof(inputParams->sunfile), "%s",
           optarg);
         break;
+      case 't': /* Einstein delay time correction file */
+        inputParams->timeCorrFile = XLALStringDuplicate(optarg);
+        break;
       case 'l':
         snprintf(inputParams->segfile, sizeof(inputParams->segfile), "%s",
           optarg);
@@ -967,6 +992,7 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
   INT4 i=0;
 
   EphemerisData *edat=NULL;
+  TimeCorrectionData *tdat=NULL;
   BarycenterInput baryinput, baryinput2;
   EarthState earth, earth2;
   EmissionTime  emit, emit2;
@@ -1014,6 +1040,12 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
     XLAL_CHECK_VOID( (edat = XLALInitBarycenter( hetParams.earthfile,
                 hetParams.sunfile )) != NULL, XLAL_EFUNC );
 
+    /* get files containing Einstein delay correction look-up table */
+    if ( hetParams.ttype != TYPE_ORIGINAL ){
+      XLAL_CHECK_VOID( (tdat = XLALInitTimeCorrections( 
+        hetParams.timeCorrFile ) ) != NULL, XLAL_EFUNC );
+    }
+    
     /* set up location of detector */
     baryinput.site.location[0] = hetParams.detector.location[0]/LAL_C_SI;
     baryinput.site.location[1] = hetParams.detector.location[1]/LAL_C_SI;
@@ -1075,8 +1107,8 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
 
       XLALGPSSetREAL8(&baryinput.tgps, t);	
 
-      XLAL_CHECK_VOID( XLALBarycenterEarth( &earth, &baryinput.tgps, edat ) ==
-                       XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_VOID( XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, 
+        tdat, hetParams.ttype ) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK_VOID( XLALBarycenter( &emit, &baryinput, &earth ) ==
                        XLAL_SUCCESS, XLAL_EFUNC );
 
@@ -1118,18 +1150,30 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
       0.5*hetParams.het.f1*tdt2 + (1./6.)*hetParams.het.f2*tdt2*tdt +
       (1./24.)*hetParams.het.f3*tdt2*tdt2 + 
       (1./120.)*hetParams.het.f4*tdt2*tdt2*tdt + 
-      (1./720.)*hetParams.het.f5*tdt2*tdt2*tdt2);
+      (1./720.)*hetParams.het.f5*tdt2*tdt2*tdt2 + 
+      (1./5040.)*hetParams.het.f6*tdt2*tdt2*tdt2*tdt + 
+      (1./40320.)*hetParams.het.f7*tdt2*tdt2*tdt2*tdt2 + 
+      (1./362880.)*hetParams.het.f8*tdt2*tdt2*tdt2*tdt2*tdt + 
+      (1./3628800.)*hetParams.het.f9*tdt2*tdt2*tdt2*tdt2*tdt2);
     phaseCoarse += phaseWave;
     
     fcoarse = freqfactor*(hetParams.het.f0 + hetParams.het.f1*tdt +
       0.5*hetParams.het.f2*tdt2 + (1./6.)*hetParams.het.f3*tdt2*tdt +
       (1./24.)*hetParams.het.f4*tdt2*tdt2 + 
-      (1./120.)*hetParams.het.f5*tdt2*tdt2*tdt);
+      (1./120.)*hetParams.het.f5*tdt2*tdt2*tdt +
+      (1./720.)*hetParams.het.f6*tdt2*tdt2*tdt2 + 
+      (1./5040.)*hetParams.het.f7*tdt2*tdt2*tdt2*tdt + 
+      (1./40320.)*hetParams.het.f8*tdt2*tdt2*tdt2*tdt2 + 
+      (1./362880.)*hetParams.het.f9*tdt2*tdt2*tdt2*tdt2*tdt);
       
     ffine = freqfactor*(hetParams.hetUpdate.f0 + hetParams.hetUpdate.f1*tdt +
       0.5*hetParams.hetUpdate.f2*tdt2 + (1./6.)*hetParams.hetUpdate.f3*tdt2*tdt
       + (1./24.)*hetParams.hetUpdate.f4*tdt2*tdt2 + 
-      (1./120.)*hetParams.hetUpdate.f5*tdt2*tdt2*tdt);
+      (1./120.)*hetParams.hetUpdate.f5*tdt2*tdt2*tdt +
+      (1./720.)*hetParams.hetUpdate.f6*tdt2*tdt2*tdt2 + 
+      (1./5040.)*hetParams.hetUpdate.f7*tdt2*tdt2*tdt2*tdt + 
+      (1./40320.)*hetParams.hetUpdate.f8*tdt2*tdt2*tdt2*tdt2 + 
+      (1./362880.)*hetParams.hetUpdate.f9*tdt2*tdt2*tdt2*tdt2*tdt);
 
 /******************************************************************************/
     /* produce second phase for fine heterodyne */
@@ -1157,13 +1201,13 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
       
       XLALGPSSetREAL8(&baryinput2.tgps, t2);
       
-      XLAL_CHECK_VOID( XLALBarycenterEarth( &earth, &baryinput.tgps, edat ) ==
-                       XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_VOID( XLALBarycenterEarthNew( &earth, &baryinput.tgps, edat, 
+        tdat, hetParams.ttype ) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK_VOID( XLALBarycenter( &emit, &baryinput, &earth ) ==
                        XLAL_SUCCESS, XLAL_EFUNC );
 
-      XLAL_CHECK_VOID( XLALBarycenterEarth( &earth2, &baryinput2.tgps, edat ) ==
-                       XLAL_SUCCESS, XLAL_EFUNC );
+      XLAL_CHECK_VOID( XLALBarycenterEarthNew( &earth2, &baryinput2.tgps, edat, 
+        tdat, hetParams.ttype ) == XLAL_SUCCESS, XLAL_EFUNC );
       XLAL_CHECK_VOID( XLALBarycenter( &emit2, &baryinput2, &earth2 ) ==
                        XLAL_SUCCESS, XLAL_EFUNC );
 
@@ -1222,7 +1266,11 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
         (1./6.)*hetParams.hetUpdate.f2*tdt2*tdt +
         (1./24.)*hetParams.hetUpdate.f3*tdt2*tdt2 + 
         (1./120.)*hetParams.hetUpdate.f4*tdt2*tdt2*tdt + 
-        (1./720.)*hetParams.hetUpdate.f5*tdt2*tdt2*tdt2);
+        (1./720.)*hetParams.hetUpdate.f5*tdt2*tdt2*tdt2 + 
+        (1./5040.)*hetParams.hetUpdate.f6*tdt2*tdt2*tdt2*tdt + 
+        (1./40320.)*hetParams.hetUpdate.f7*tdt2*tdt2*tdt2*tdt2 + 
+        (1./362880.)*hetParams.hetUpdate.f8*tdt2*tdt2*tdt2*tdt2*tdt + 
+        (1./3628800.)*hetParams.hetUpdate.f9*tdt2*tdt2*tdt2*tdt2*tdt2);
       phaseUpdate += phaseWave;
     }
 
@@ -1269,7 +1317,12 @@ void heterodyne_data(COMPLEX16TimeSeries *data, REAL8Vector *times,
       dataTemp.im*cos(-deltaphase);
   }
 
-  if(hetParams.heterodyneflag > 0) XLALDestroyEphemerisData( edat );
+  if(hetParams.heterodyneflag > 0){
+    XLALDestroyEphemerisData( edat );
+
+    if ( hetParams.ttype != TYPE_ORIGINAL )
+      XLALDestroyTimeCorrectionData( tdat );
+  }
 
 }
 

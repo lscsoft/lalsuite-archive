@@ -76,6 +76,17 @@ typedef enum{
   TYPE_ORIGINAL
 } TimeCorrectionType;
 
+
+typedef enum {
+  EPHEM_NONE = 0,
+  EPHEM_DE200,
+  EPHEM_DE405,
+  EPHEM_DE414,
+  EPHEM_DE421,
+  EPHEM_LAST
+} EphemerisType;
+
+
 /* Constants from Irwin and Fukashima used in TEMPO2 */
 #define IFTE_JD0  2443144.5003725    /* Epoch of TCB, TCG and TT */
 #define IFTE_MJD0 43144.0003725
@@ -92,7 +103,7 @@ typedef enum{
 #define IFTE_KM1 1.55051979176e-8
 #define IFTE_K (((long double)1.0) + ((long double)IFTE_KM1))
 
-/** \brief [DEPRECATED] Used as input for LALInitBarycenter(), this structure contains
+/** \brief This structure contains
  * two pointers to the ephemeris data files containing arrays
  * of center-of-mass positions for the Earth and Sun, respectively.
  *
@@ -107,7 +118,6 @@ typedef enum{
  * at that instant.  All in units of seconds; e.g. positions have
  * units of seconds, and accelerations have units 1/sec.
  *
- * \deprecated Use XLALInitBarycenter() instead.
  */
 typedef struct tagEphemerisFilenames
 {
@@ -116,8 +126,7 @@ typedef struct tagEphemerisFilenames
 }
 EphemerisFilenames;
 
-/** Structure holding a REAL8 time, and a position, velocity and
- * acceleration vector. */
+/** Structure holding a REAL8 time, and a position, velocity and acceleration vector. */
 typedef struct tagPosVelAcc
 {
   REAL8 gps;            /**< REAL8 timestamp */
@@ -141,22 +150,24 @@ typedef struct tagEphemerisData
 #endif /* SWIG */
   INT4  nentriesE;      /**< The number of entries in Earth ephemeris table. */
   INT4  nentriesS;      /**< The number of entries in Sun ephemeris table. */
-  
+
   REAL8 dtEtable;       /**< The spacing in sec between consecutive instants in Earth ephemeris table.*/
   REAL8 dtStable;       /**< The spacing in sec between consecutive instants in Sun ephemeris table.*/
-  
+
   PosVelAcc *ephemE;    /**< Array containing pos,vel,acc of earth, as extracted from earth
                          * ephem file. Units are sec, 1, 1/sec respectively */
   PosVelAcc *ephemS;    /**< Array with pos, vel and acc for the sun (see ephemE) */
+
+  EphemerisType etype;  /**< The ephemeris type e.g. DE405 */
 }
 EphemerisData;
 
 
-/** This structure will contain a vector of time corrections 
+/** This structure will contain a vector of time corrections
  * used during conversion from TT to TDB/TCB/Teph */
 typedef struct tagTimeCorrectionData{
   CHAR *timeEphemeris;   /**< File containing the time ephemeris */
-  
+
   UINT4  nentriesT;      /**< The number of entries in Time ephemeris table. */
   REAL8 dtTtable;        /**< The spacing in sec between consecutive instants in Time ephemeris table.*/
   REAL8 *timeCorrs;      /**< Array of time delays for converting TT to TDB/TCB from the Time table (seconds).*/

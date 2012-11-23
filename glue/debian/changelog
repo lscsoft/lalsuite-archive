@@ -1,3 +1,9 @@
+glue (1.43) unstable; urgency=low
+
+  * New Release of glue for ER3 with updates to ligolw and lal codes. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Mon, 19 Nov 2012 04:59:00 -0500
+
 glue (1.42-1) unstable; urgency=low
 
   * Converted to source format 3.0 (quilt)
