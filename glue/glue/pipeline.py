@@ -51,6 +51,254 @@ try:
 except:
   pass
 
+# Some scripts that are used to set up a pegasus DAX
+PEGASUS_SCRIPT="""
+#!/bin/bash
+TMP_EXEC_DIR=%s
+IHOPE_RUN_DIR=%s
+UEBER_CONCRETE_DAG=%s
+usage()
+{
+  echo "Usage: pegasus_submit_dag [-f] [-h]"
+  echo
+  echo "  -f, --force           Force re-plan and resubmit of DAX"
+  echo "  -h, --help            Print this message"
+  echo
+}
+
+if [ $# -gt 1 ] ; then
+  usage
+  exit 1
+fi
+
+if [ $# -eq 1 ] ; then
+ if [ $1 = "-h" ] || [ $1 = "--help" ] ; then
+   usage
+   exit 0
+ fi
+ if [ $1 = "-f" ] || [ $1 = "--force" ] ; then
+   echo "WARNING: removing any existing workflow files!"
+   pegasus-remove ${TMP_EXEC_DIR}/.
+   echo "Sleeping for 60 seconds to give running DAGs chance to exit..."
+   sleep 60
+   rm -rf ${TMP_EXEC_DIR}
+   mkdir ${TMP_EXEC_DIR}
+   chmod 755 ${TMP_EXEC_DIR}
+ else
+   usage
+   exit 1
+ fi
+fi
+if [ -f ${TMP_EXEC_DIR}/${UEBER_CONCRETE_DAG}.lock ] ; then
+  echo
+  echo "ERROR: A dagman lock file already exists which may indicate that your"
+  echo "workflow is already running. Please check the status of your DAX with"
+  echo
+  echo "    pegasus-status ${TMP_EXEC_DIR}/."
+  echo
+  echo "If necessary, you can remove the workflow with"
+  echo
+  echo "    pegasus-remove ${TMP_EXEC_DIR}/."
+  echo
+  echo "You can also run"
+  echo
+  echo "    pegasus_submit_dax -f"
+  echo
+  echo "to force the workflow to re-run. This will remove any existing"
+  echo "workflow log and error files. If these need to be preserved,"
+  echo "you must back them up first before running with -f."
+  echo
+  exit 1
+fi
+
+# The theory here is to find the longest living
+# proxy certificate and copy it into the default
+# location so that workflows can find it even after
+# the user has logged out. This is necessary because
+# Condor and condor_dagman do not yet properly cache
+# and manage credentials to make them available to all
+# jobs in the workflow, and other tools make assumptions
+# about where a proxy, service, or user certificate is located 
+# on the file system and do not properly find valid 
+# existing credentials using the proper GSI search algorithm.
+#
+# This is not a great solution because there can be quite
+# valid reasons to have multiple credentials with different
+# lifetimes, and it presents a security risk to circumvent
+# the state and move files around without knowing why the
+# state is the way it is.
+#
+# But to support LIGO users we are doing it at this time
+# until better tooling is available.
+
+#
+# Assumes grid-proxy-info is in PATH
+
+if ! `/usr/bin/which grid-proxy-info > /dev/null 2>&1` ; then
+    echo "ERROR: cannot find grid-proxy-info in PATH";
+        exit 1
+        fi
+
+        # default location for proxy certificates based on uid
+       x509_default="/tmp/x509up_u`id -u`"
+
+
+
+# if X509_USER_PROXY is defined and has a lifetime of > 1 hour
+# compare to any existing default and copy it into place if 
+# and only if its lifetime is greater than the default
+
+if [ -n "$X509_USER_PROXY" ] ; then
+    echo "X509_USER_PROXY=${X509_USER_PROXY}"
+    if `grid-proxy-info -file ${X509_USER_PROXY} -exists -valid 1:0` ; then
+        nsec=`grid-proxy-info -file ${X509_USER_PROXY} -timeleft`
+        echo "Lifetime of ${X509_USER_PROXY} ${nsec} seconds"
+        if [ -e ${x509_default} ] ; then
+            echo "Proxy exists at default location"
+            if `grid-proxy-info -file ${x509_default} -exists -valid 1:0` ; then
+                nsec=`grid-proxy-info -file ${X509_USER_PROXY} -timeleft`
+                echo "Lifetime of default ${nsec} seconds"
+                env_life=`grid-proxy-info -file ${X509_USER_PROXY} -timeleft`
+                def_life=`grid-proxy-info -file ${x509_default} -timeleft`
+                if [ ${env_life} -gt ${def_life} ] ; then
+                    cp ${X509_USER_PROXY} ${x509_default}
+                    echo "Lifetime of ${X509_USER_PROXY} > default"
+                    echo "Copied ${X509_USER_PROXY} into default location"
+                else
+                    echo "Lifetime of default > ${X509_USER_PROXY}"
+                    echo "Leaving default in place"
+                fi
+            else
+                echo "Lifetime of default < 1 hour"
+                cp ${X509_USER_PROXY} ${x509_default}
+                echo "Lifetime of ${X509_USER_PROXY} > default"
+                echo "Copied ${X509_USER_PROXY} into default location"
+            fi
+        else
+            echo "No proxy at default location"
+            cp ${X509_USER_PROXY} $x509_default
+            echo "Copied ${X509_USER_PROXY} into default location"
+        fi
+    else
+        echo "Lifetime of ${X509_USER_PROXY} < 1 hour"
+        echo "Ignoring ${X509_USER_PROXY}"
+        echo "Assuming default location for proxy"
+    fi
+else
+    echo "X509_USER_PROXY not set"
+    echo "Assuming default location for proxy"
+fi
+
+# when we get here we can assume that if a valid proxy with lifetime > 1 exists
+# then it is in the default location, so test for it now
+
+valid=`grid-proxy-info -file ${x509_default} -exists -valid 1:0 > /dev/null 2>&1`
+if ! ${valid} ; then
+    echo "ERROR: could not find proxy with lifetime > 1 hour"
+    exit 1
+fi
+
+# if we get here valid proxy with lifetime > 1 hour was 
+# found so print out details for the record
+grid-proxy-info -file ${x509_default} -all
+
+# set X509_USER_PROXY to the default now
+X509_USER_PROXY=${x509_default}
+export X509_USER_PROXY
+
+# set specific condor variables needed by pegasus
+
+export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE
+export _CONDOR_DAGMAN_COPY_TO_SPOOL=False
+
+if [ -f ${TMP_EXEC_DIR}/${UEBER_CONCRETE_DAG} ] ; then
+  pegasus-run --conf ${IHOPE_RUN_DIR}/pegasus.properties --nodatabase ${TMP_EXEC_DIR}/.
+else
+  pegasus-plan --conf ${IHOPE_RUN_DIR}/pegasus.properties \\
+               --dax %s \\
+               --dir ${TMP_EXEC_DIR} \\
+               %s -s %s --nocleanup -f --submit
+
+  ln -sf ${TMP_EXEC_DIR}/${UEBER_CONCRETE_DAG}.dagman.out ${UEBER_CONCRETE_DAG}.dagman.out
+fi
+"""
+
+PEGASUS_BASEDIR_SCRIPT="""
+#!/bin/bash
+
+TMP_EXEC_DIR=%s
+UEBER_CONCRETE_DAG=%s
+
+usage()
+{
+  echo "Usage: pegasus_basedir [-d]"
+  echo
+  echo "Prints the name of the Pegasus basedir where the condor files can be found"
+  echo
+  echo "  -d, --dag             Append the name of the concrete DAG to the basedir"
+  echo "  -h, --help            Print this message"
+  echo
+}
+
+if [ $# -gt 1 ] ; then
+  usage
+  exit 1
+fi
+
+
+if [ $# -eq 1 ] ; then
+ if [ $1 = "-h" ] || [ $1 = "--help" ] ; then
+   usage
+   exit 0
+ fi
+ if [ $1 = "-d" ] || [ $1 = "--dag" ] ; then
+   echo ${TMP_EXEC_DIR}/${UEBER_CONCRETE_DAG}
+   exit 0
+ else
+   usage
+   exit 1
+ fi
+fi
+
+echo ${TMP_EXEC_DIR}
+exit 0
+"""
+
+PEGASUS_PROPERTIES= """
+
+  ###############################################################################
+  # pegasus properties file generated by pipeline
+
+  pegasus.catalog.replica=File
+  pegasus.catalog.replica.file=%s
+
+  pegasus.transfer.force=true
+  pegasus.transfer.links=true
+
+  dagman.retry=3
+  dagman.maxpre=1
+  pegasus.condor.arguments.quote=true
+
+  pegasus.selector.site=RoundRobin
+  pegasus.selector.replica=Default
+
+  pegasus.clusterer.job.aggregator.seqexec.firstjobfail=true
+
+  pegasus.dir.submit.subwf.labelbased=true
+  pegasus.dir.submit.logs=%s
+
+  pegasus.catalog.site.file=%s/sites.xml
+
+  # For jobs submission to remote sites
+  pegasus.data.configuration=nonsharedfs
+  pegasus.dir.useTimestamp=true
+  pegasus.catalog.transformation=File
+  pegasus.catalog.transformation.file=tc.data
+
+"""
+
+
+
 def s2play(t):
   """
   Return True if t is in the S2 playground, False otherwise
@@ -82,6 +330,8 @@ class CondorJobError(CondorError):
 class CondorSubmitError(CondorError):
   pass
 class CondorDAGError(CondorError):
+  pass
+class CondorDAGJobError(CondorError):
   pass
 class CondorDAGNodeError(CondorError):
   pass
@@ -506,7 +756,8 @@ class CondorDAGJob(CondorJob):
     CondorJob.__init__(self, universe, executable, 1)
     CondorJob.set_notification(self, 'never')
     self.__var_opts = []
-    self.__have_var_args = 0
+    self.__arg_index = 0
+    self.__var_args = []
     self.__bad_macro_chars = re.compile(r'[_-]')
 
   def add_var_opt(self, opt, short=False):
@@ -524,14 +775,19 @@ class CondorDAGJob(CondorJob):
       else:
         self.add_opt(opt,'$(macro' + macro + ')')
 
-  def add_var_arg(self):
+  def add_var_arg(self,arg_index):
     """
     Add a command to the submit file to allow variable (macro) arguments
     to be passed to the executable.
     """
-    if not self.__have_var_args:
-      self.add_arg('$(macroarguments)')
-      self.__have_var_args = 1
+    try:
+      self.__var_args[arg_index]
+    except IndexError:
+      if arg_index != self.__arg_index:
+        raise CondorDAGJobError, "mismatch between job and node var_arg index"
+      self.__var_args.append('$(macroargument%s)' % str(arg_index))
+      self.add_arg(self.__var_args[self.__arg_index])
+      self.__arg_index += 1
 
 
 class CondorDAGManJob:
@@ -648,6 +904,7 @@ class CondorDAGNode:
     self.__macros = {}
     self.__opts = {}
     self.__args = []
+    self.__arg_index = 0
     self.__retry = 0
     self.__parents = []
     self.__bad_macro_chars = re.compile(r'[_-]')
@@ -939,7 +1196,8 @@ class CondorDAGNode:
     @param arg: name of option to add.
     """
     self.__args.append(arg)
-    self.__job.add_var_arg()
+    self.__job.add_var_arg(self.__arg_index)
+    self.__arg_index += 1
 
   def add_file_arg(self, filename):
     """
@@ -949,9 +1207,8 @@ class CondorDAGNode:
     added to the list of input files for the DAX.
     @param filename: name of option to add.
     """
-    self.__args.append(filename)
-    self.__job.add_var_arg()
     self.add_input_file(filename)
+    self.add_var_arg(filename)
 
   def get_args(self):
     """
@@ -1020,7 +1277,8 @@ class CondorDAGNode:
     for k in self.__opts.keys():
       fh.write( ' ' + str(k) + '="' + str(self.__opts[k]) + '"' )
     if self.__args:
-      fh.write( ' macroarguments="' + ' '.join(self.__args) + '"' )
+      for i in range(self.__arg_index):
+        fh.write( ' macroargument' + str(i) + '="' + self.__args[i] + '"' )
     fh.write( '\n' )
 
   def write_parents(self,fh):
@@ -1057,7 +1315,7 @@ class CondorDAGNode:
     @param fh: descriptor of open DAG file.
     """
     for f in self.__input_files:
-       print >>fh, "## Job %s requires input file %s" % (self.__name, f)
+        print >>fh, "## Job %s requires input file %s" % (self.__name, f)
 
   def write_output_files(self, fh):
     """
@@ -1067,7 +1325,7 @@ class CondorDAGNode:
     @param fh: descriptor of open DAG file.
     """
     for f in self.__output_files:
-       print >>fh, "## Job %s generates output file %s" % (self.__name, f)
+        print >>fh, "## Job %s generates output file %s" % (self.__name, f)
 
   def set_log_file(self,log):
     """
@@ -1093,6 +1351,7 @@ class CondorDAGNode:
 
     # pattern to find DAGman macros
     pat = re.compile(r'\$\((.+)\)')
+    argpat = re.compile(r'\d+')
 
     # first parse the options and replace macros with values
     options = self.job().get_opts()
@@ -1132,9 +1391,8 @@ class CondorDAGNode:
     for a in args:
       m = pat.match(a)
       if m:
-        value = ' '.join(macros)
-
-        cmd_list.append(("%s" % value, ""))
+        arg_index = int(argpat.findall(a)[0])
+        cmd_list.append(("%s" % macros[arg_index], ""))
       else:
         cmd_list.append(("%s" % a, ""))
 
@@ -1241,6 +1499,7 @@ class CondorDAG:
     self.__node_count = 0
     self.__nodes_finalized = 0
     self.__pegasus_worker = None
+    self.__pfn_cache=[]
 
   def get_nodes(self):
     """
@@ -1363,6 +1622,19 @@ class CondorDAG:
     if not self.is_dax():
       for job in self.__jobs:
         job.write_sub_file()
+  
+  def add_pfn_cache(self,pfn_list):
+    """
+    Add an lfn pfn and pool tuple to the pfn cache
+    Note: input looks like ('/path/to/file','file:///path/to/file','local')
+    """
+    self.__pfn_cache += pfn_list
+
+  def get_pfn_cache(self):
+    """
+    Return the pfn cache
+    """
+    return self.__pfn_cache
 
   def write_concrete_dag(self):
     """
@@ -1415,6 +1687,10 @@ class CondorDAG:
     # Pegasus should take care of this so we don't have to
     workflow_executable_dict = {}
     workflow_pfn_dict = {}
+
+    # Add PFN caches for this workflow
+    for pfn_tuple in self.get_pfn_cache():
+        workflow_pfn_dict[pfn_tuple[0]] = pfn_tuple
 
     if self.get_pegasus_worker():
       # write the executable into the dax
@@ -1548,6 +1824,14 @@ class CondorDAG:
             workflow_job.addArguments(job_arg[0], Pegasus.DAX3.File(os.path.basename(job_arg[1])))
           else:
             workflow_job.addArguments(job_arg[0], job_arg[1])
+        
+        # Check for hints
+        try:
+            hints=node.job().hints
+            for hint,value in hints:
+                workflow_job.addProfile(Pegasus.DAX3.Profile('hints',hint,value))
+        except AttributeError:
+            pass
             
         # write the executable into the dax
         job_executable = Pegasus.DAX3.Executable(
@@ -1562,7 +1846,8 @@ class CondorDAG:
         workflow_executable_dict[executable_namespace + executable_base] = job_executable
 
         # write the grid start parameter for this node (default is none)
-        workflow_job.addProfile(Pegasus.DAX3.Profile("pegasus","gridstart",node.get_grid_start()))
+        # Commented out as it was distracting pegasus - test!
+        #workflow_job.addProfile(Pegasus.DAX3.Profile("pegasus","gridstart",node.get_grid_start()))
 
         # write the bundle parameter if this node has one
         if node.get_dax_collapse():
@@ -1639,7 +1924,7 @@ class CondorDAG:
 
     # write the site catalog file which is needed by the DAG
     try:
-      sitefile = open( 'site-local.xml', 'w' )
+      sitefile = open( 'sites.xml', 'w' )
       hostname = socket.gethostbyaddr(socket.gethostname())[0]
       pwd = os.getcwd()
       print >> sitefile, """\
@@ -1692,6 +1977,37 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
     <profile namespace="condor" key="should_transfer_files">YES</profile>
     <profile namespace="condor" key="when_to_transfer_output">ON_EXIT_OR_EVICT</profile>
   </site>
+  <!-- Bologna cluster -->
+  <site handle="bologna" arch="x86_64" os="LINUX">
+    <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="compute" />
+    <grid type="cream" contact="https://ce01-lcg.cr.cnaf.infn.it:8443/ce-cream/services/CREAM2" scheduler="LSF" jobtype="auxillary" />
+    <directory type="shared-scratch" path="/storage/gpfs_virgo4/virgo4/"> 
+        <file-server operation="all" url="srm://storm-fe-archive.cr.cnaf.infn.it:8444/srm/managerv2?SFN=/virgo4/"/> 
+    </directory> 
+
+
+    <profile namespace="pegasus" key="style">cream</profile>
+    <profile namespace="globus" key="queue">virgo</profile>
+    <!-- uncomment this and update to the pegasus install on the shared fs
+    If not set , jobs will pull the pegasus worker package 
+    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
+    -->
+  </site>
+  <!-- Nikhef Big Grid -->
+  <site handle="nikhef" arch="x86_64" os="LINUX">
+    <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="compute" />
+    <grid type="cream" contact="https://klomp.nikhef.nl:8443/ce-cream/services/CREAM2" scheduler="PBS" jobtype="auxillary" />
+    <directory type="shared-scratch" path="/">
+      <file-server operation="all" url="srm://tbn18.nikhef.nl:8446/srm/managerv2?SFN=/dpm/nikhef.nl/home/virgo/" />
+    </directory>
+    <!-- uncomment this and update to the pegasus install on the shared fs
+    If not set , jobs will pull the pegasus worker package 
+    <profile namespace="env" key="PEGASUS_HOME">/storage/gpfs_virgo3/virgo/pegasus-4.2.0-cvs</profile>
+    -->
+    <profile namespace="pegasus" key="style">cream</profile>
+    <profile namespace="globus" key="queue">medium</profile>
+  </site>
+
 </sitecatalog>""" 
       sitefile.close()
     except:
@@ -1735,22 +2051,94 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
 
     os.chmod(outfilename, os.stat(outfilename)[0] | stat.S_IEXEC)
 
+  def prepare_dax(self,grid_site=None,tmp_exec_dir='.',peg_frame_cache=None):
+    """
+    Sets up a pegasus script for the given dag
+    """
+    dag=self
+    log_path=self.__log_file_path
+    peg_fh = open("pegasus_submit_dax", "w")
+    #set up site and dir options
+    if grid_site:
+      exec_site=grid_site
+      dirs_entry='--relative-dir ' + os.path.basename(tmp_exec_dir) + ' --relative-submit-dir . --output-site local --staging-site bologna=bologna --staging-site nikhef=nikhef'
+    else:
+      exec_site='local'
+      dirs_entry='--relative-dir .'
+    print >> peg_fh,PEGASUS_SCRIPT % ( tmp_exec_dir, os.getcwd(),
+          dag.get_dax_file().replace('.dax','') + '-0.dag',
+          dag.get_dax_file(), dirs_entry, exec_site )
+    peg_fh.close()
+    os.chmod("pegasus_submit_dax",0755)
+
+    ##############################################################################
+    # write a shell script that can return the basedir and uber-concrete-dag
+
+    basedir_fh = open("pegasus_basedir", "w")
+
+    print >> basedir_fh, PEGASUS_BASEDIR_SCRIPT % ( tmp_exec_dir, dag.get_dax_file().replace('.dax','') + '-0.dag' )
+    basedir_fh.close()
+    os.chmod("pegasus_basedir",0755)
+
+    pegprop_fh = open("pegasus.properties", "w")
+    print >> pegprop_fh,PEGASUS_PROPERTIES % (os.path.join(os.getcwd(),peg_frame_cache),log_path,os.getcwd())
+
+    # Disabled - they seem to be removed from ihope
+    #if self.is_dax():
+    #  print >> pegprop_fh, """\
+    #  # pegasus 4.x variables
+    #  pegasus.data.configuration=condorio
+    #  """
+    #else:
+    #  print >> pegprop_fh, """\
+    # pegasus 3.x variables
+    #pegasus.gridstart.kickstart.stat=false
+    #pegasus.transfer.symlink.impl=Symlink"""
+
+    pegprop_fh.close()
+    print
+    print "Created a workflow file which can be submitted by executing"
+    print """
+
+      ./pegasus_submit_dax
+
+    in the analysis directory on a condor submit machine.
+
+    From the analysis directory on the condor submit machine, you can run the
+    command
+
+      pegasus-status --long -t -i `./pegasus_basedir`
+
+    to check the status of your workflow. Once the workflow has finished you
+    can run the command
+
+      pegasus-analyzer -t -i `./pegasus_basedir`
+
+    to debug any failed jobs.
+    """
+    # Finished creating the DAX
+
 
 class AnalysisJob:
   """
   Describes a generic analysis job that filters LIGO data as configured by
   an ini file.
   """
-  def __init__(self,cp,dax=False):
+  def __init__(self,cp,dax=False,site='local'):
     """
     @param cp: ConfigParser object that contains the configuration for this job.
     """
     self.__cp = cp
     self.__dax = dax
+    self.hints=[]
     try:
       self.__channel = string.strip(self.__cp.get('input','channel'))
     except:
       self.__channel = None
+    if site=='bologna':
+        self.hints.append(('executionPool',site))
+    if site=='nikhef':
+        self.hints.append(('executionPool',site))
 
   def is_dax(self):
     """
