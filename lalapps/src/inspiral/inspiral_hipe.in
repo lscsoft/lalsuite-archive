@@ -234,7 +234,8 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,psd_job,tmplt_job,insp_job,df_job,\
           # compute psd
 	  if opts.datafind:
 	    psd = inspiral.ReferencePSDNode(psd_job)
-	    psd.set_channel("%s=%s" % (ifo,channel))
+	    psd.set_channel("%s" % (channel,))
+	    psd.set_instrument("%s" % (ifo,))
 	    psd.set_output("%s-REFERENCE_PSD-%d-%d.xml.gz" % (ifo, chunk.start(), chunk.end()-chunk.start()))
 	    psd.set_cache(df.get_output())
             psd.set_start(chunk.start())

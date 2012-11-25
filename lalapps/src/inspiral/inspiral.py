@@ -968,6 +968,12 @@ class ReferencePSDNode(InspiralAnalysisNode):
     self.__channel = channel
     self.add_var_opt('channel-name', channel)
 
+  def set_instrument(self,ifo):
+    """
+    set instrument to SBank
+    """
+    self.add_var_opt('instrument', ifo)
+
   def set_output(self,filename,pass_to_command_line=True):
     """
     override pipeline.py method for gstlal specific quirks
