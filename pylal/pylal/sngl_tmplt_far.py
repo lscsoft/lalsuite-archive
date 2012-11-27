@@ -96,7 +96,6 @@ def get_sngl_snrs(
 	sngls_width,
 	ifo,
 	tmplt,
-	snr_stat = "newsnr",
 	usertag = "FULL_DATA",
 	datatype = None,
 	sngls_bins = None):
@@ -110,13 +109,20 @@ def get_sngl_snrs(
 	@sngls_width: the bin width for the histogram
 	@ifo: the instrument one desires triggers from
 	@tmplt: a tuple consisting of the mchirp & eta from the desired template
-	@snr_stat: the desired chisq weighted snr statistic. The default is "newsnr".
 	@usertag: the usertag for the triggers. The default is "FULL_DATA".
 	@datatype: the datatype (all_data, slide, ...) if single-ifo triggers from
 		coincident events is desired. The default is to collect all triggers.
 	@sngls_bins: a list of bin edges for the snr-histogram
 	"""
 	# create function for the desired snr statistic
+	sqlquery = """
+	SELECT value
+	FROM process_params
+	WHERE
+		program == 'ligolw_thinca'
+		AND param == '--weighted-snr'
+	"""
+	snr_stat = connection.cursor().execute( sqlquery ).fetchone()[0]
 	set_getsnr_function(connection, snr_stat)
 
 	connection.create_function('end_time_w_ns', 2, end_time_w_ns)
@@ -183,8 +189,7 @@ def get_coinc_snrs(
 	tmplt,
 	datatype = None,
 	little_dog = True,
-	combined_bins = None,
-	snr_stat = "newsnr"):
+	combined_bins = None):
 
 	"""
 	Creates a histogram of coinc_inspiral triggers and returns a list of counts
@@ -199,9 +204,16 @@ def get_coinc_snrs(
 		also constitutes part of a zerolag coinc are NOT included. The 
 		default value is True.
 	@combined_bins: a list of bin edges for the snr-histogram
-	@snr_stat: the desired chisq weighted snr statistic. The default is "newsnr".
 	"""
 	# create function for the desired snr statistic
+	sqlquery = """
+	SELECT value
+	FROM process_params
+	WHERE
+		program == 'ligolw_thinca'
+		AND param == '--weighted-snr'
+	"""
+	snr_stat = connection.cursor().execute( sqlquery ).fetchone()[0]
 	set_getsnr_function(connection, snr_stat)
 
 	# split tmplt tuple into its component parameters
