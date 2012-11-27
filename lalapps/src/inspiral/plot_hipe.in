@@ -443,7 +443,7 @@ if opts.plotnumtemplates:
   pattern_dict = determine_sieve_patterns(cp, this_section, "", input_user_tag)
   for opt, val in pattern_dict.iteritems():
     print >> sys.stderr, opt, val
-    if opt=="bank-pattern": val = "TMPLTBANK"
+    if opt=="bank-pattern": val = "SBANK"
     plotnumtemplates_jobs.add_opt(opt, val)
   
 
@@ -752,7 +752,7 @@ if opts.plotinspiralrange:
   plotinspiralrange_jobs["FIRST"].set_sub_file( basename + '.plotinspiralrange_' + subsuffix)
   for opt, val in pattern_dict.iteritems():
     if opt=="bank-pattern":
-      val = "TMPLTBANK"
+      val = "SBANK"
     else:
       val = val.replace("_*_","_")
     plotinspiralrange_jobs["FIRST"].add_opt(opt, val)
