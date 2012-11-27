@@ -1363,12 +1363,17 @@ SimInspiralTableFromLIGOLw (
     {"eff_dist_g",          -1, 47},
     {"eff_dist_t",          -1, 48},
     {"eff_dist_v",          -1, 49},
-    {"numrel_mode_min",     -1, 50},
-    {"numrel_mode_max",     -1, 51},
-    {"numrel_data",         -1, 52},
-    {"amp_order",           -1, 53},
-    {"taper",               -1, 54},
-    {"bandpass",            -1, 55},
+    {"lambda1",                 -1,50},
+    {"lambda2",                 -1,51},
+    {"qmparameter1",      -1,52},
+    {"qmparameter2",      -1,53},
+    {"redshift",               -1,54},
+    {"numrel_mode_min",     -1, 55},
+    {"numrel_mode_max",     -1, 56},
+    {"numrel_data",         -1, 57},
+    {"amp_order",           -1, 58},
+    {"taper",               -1, 59},
+    {"bandpass",            -1, 60},
     {NULL,                   0, 0}
   };
 
@@ -1641,37 +1646,51 @@ SimInspiralTableFromLIGOLw (
         {
           thisSim->eff_dist_v = r4colData;
         }
-	else if ( tableDir[j].idx == 50 )
+         else if ( tableDir[j].idx == 50 )
+        {
+          thisSim->lambda1 = r4colData;
+        }       
+                else if ( tableDir[j].idx == 51 )
+        {
+          thisSim->lambda2 = r4colData;
+        }
+                else if ( tableDir[j].idx == 52 )
+        {
+          thisSim->qmparameter1 = r4colData;
+        }
+                else if ( tableDir[j].idx == 53 )
+        {
+          thisSim->qmparameter2 = r4colData;
+        }
+                else if ( tableDir[j].idx == 54 )
+        {
+          thisSim->redshift = r4colData;
+        }        
+	else if ( tableDir[j].idx == 55 )
 	{
 	  thisSim->numrel_mode_min = i4colData;
 	}
-	else if ( tableDir[j].idx == 51 )
+	else if ( tableDir[j].idx == 56 )
 	{
 	  thisSim->numrel_mode_max = i4colData;
 	}
-	else if ( tableDir[j].idx == 52 )
+	else if ( tableDir[j].idx == 57 )
 	{
           snprintf(thisSim->numrel_data, LIGOMETA_STRING_MAX * sizeof(CHAR),
               "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
 	}
-        else if ( tableDir[j].idx == 53 )
+        else if ( tableDir[j].idx == 58 )
         {
             thisSim->amp_order = i4colData;
         }
-        else if ( tableDir[j].idx == 54 )
+        else if ( tableDir[j].idx == 59 )
         {
             snprintf(thisSim->taper, LIGOMETA_INSPIRALTAPER_MAX * sizeof(CHAR),
                     "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
         }
-        else if ( tableDir[j].idx == 55 )
+        else if ( tableDir[j].idx == 60 )
         {
             thisSim->bandpass = i4colData;
-        }
-        else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
-        }
-        else if ( tableDir[j].idx == 57 ) {
-        	thisSim->qmParameter2 = r4colData;
         }
         else
         {

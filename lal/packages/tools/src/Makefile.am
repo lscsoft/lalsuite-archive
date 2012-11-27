@@ -16,6 +16,7 @@ libtools_la_SOURCES = \
 	FrequencySeries.c \
 	LALBarycenter.c \
 	LALCalibration.c \
+	LALCosmologyCalculator.c \
 	ResampleTimeSeries.c \
 	Segments.c \
 	Sequence.c \

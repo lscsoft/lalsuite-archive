@@ -1540,8 +1540,8 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
   snprintf(injParams.waveform,LIGOMETA_WAVEFORM_MAX*sizeof(CHAR),"%s",approximant_order);
 
   if (approximant == SpinQuadTaylor){
-    injParams.qmParameter1 = 1.;
-    injParams.qmParameter2 = 1.;
+    injParams.qmparameter1 = 1.;
+    injParams.qmparameter2 = 1.;
   }
   //	if (approximant == SpinTaylorT3){
   //    snprintf(injParams.waveform,LIGOMETA_WAVEFORM_MAX*sizeof(CHAR),"SpinTaylorFramelessthreePointFivePN");

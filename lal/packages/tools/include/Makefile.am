@@ -9,6 +9,7 @@ pkginclude_HEADERS = \
 	FrequencySeries.h \
 	LALBarycenter.h \
 	LALCalibration.h \
+	LALCosmologyCalculator.h \
 	LALDetectors.h \
 	ResampleTimeSeries.h \
 	Segments.h \

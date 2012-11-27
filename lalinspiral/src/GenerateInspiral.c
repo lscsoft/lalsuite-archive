@@ -330,8 +330,8 @@ XLALGenerateInspiralPopulateInspiral(
 
   inspiralParams->orbitTheta0 = thisEvent->theta0;
   inspiralParams->orbitPhi0   = thisEvent->phi0;
-  inspiralParams->qmParameter[0] = thisEvent->qmParameter1;
-  inspiralParams->qmParameter[1] = thisEvent->qmParameter2;
+  inspiralParams->qmParameter[0] = thisEvent->qmparameter1;
+  inspiralParams->qmParameter[1] = thisEvent->qmparameter2;
 
   return XLAL_SUCCESS;
 }
