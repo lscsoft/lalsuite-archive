@@ -24,7 +24,7 @@
  * File Name: inspinj.c
  *
  * Author: Brown, D. A., Creighton, J. D. E. and Dietz A. IPN contributions from Predoi, V.
- *
+ *         Cosmology and tidal parts by Del Pozzo, W.
  *
  *-----------------------------------------------------------------------
  */
@@ -45,6 +45,8 @@
 #include <processtable.h>
 #include <lal/RingUtils.h>
 #include <LALAppsVCSInfo.h>
+#include <lal/LALSimInspiralEOS.h>
+#include <lal/LALCosmologyCalculator.h>
 
 #include "inspiral.h"
 
@@ -109,7 +111,7 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax);
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 
 /*
@@ -133,6 +135,8 @@ char *sourceFileName = NULL;
 char *outputFileName = NULL;
 char *exttrigFileName = NULL;
 char *IPNSkyPositionsFile = NULL;
+char eos_name[128]="";
+char cosmological_model[128]="";
 
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
@@ -182,17 +186,22 @@ INT4  pntMass1=1;
 INT4  pntMass2=1;
 REAL4 deltaMass1=-1;
 REAL4 deltaMass2=-1;
+LALEquationOfState equation_of_state = EOS_NONE;
+REAL8 injected_lambda1=0.0;
+REAL8 injected_lambda2=0.0;
 INT4 bandPassInj = 0;
 INT4 writeSimRing = 0;
 LALSimInspiralApplyTaper taperInj = LAL_SIM_INSPIRAL_TAPER_NONE;
 AlignmentType alignInj = notAligned;
 REAL8 redshift;
-
+REAL8 OnePlusZ;
+REAL8 mass1Intr,mass2Intr;
 static LALStatus status;
 static RandomParams* randParams=NULL;
 INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
-
+LALCosmologicalParameters *omega = NULL;
+REAL4 zmaximal = 1.0;
 int num_source;
 int numSkyPoints;
 int galaxynum;
@@ -271,17 +280,30 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
   return step;
 }
 
-REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
+//REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
+//{
+//  REAL8 test,z,p;
+//    do
+//        {
+//      test = pzmax * XLALUniformDeviate(randParams);
+//      z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
+//          p= probability_redshift(z);
+//        }
+//        while (test>p);
+//        
+//  return z;
+//}
+
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax)
 {
   REAL8 test,z,p;
     do
         {
-      test = pzmax * XLALUniformDeviate(randParams);
-      z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
-          p= probability_redshift(z);
+      test = XLALUniformDeviate(randParams);
+      z = zmax * XLALUniformDeviate(randParams);
+          p= XLALUniformComovingVolumeDistribution(params, z, zmax);
         }
         while (test>p);
-        
   return z;
 }
 
@@ -702,6 +724,14 @@ static void print_usage(char *program)
       "  [--max-abskappa1] abskappa1max \n"\
       "                           Set the maximum absolute value of cos(S1.L_N) \n"\
       "                           to abskappa1max (1.0)\n\n");
+  fprintf(stderr,
+      "Equation of state for injection waveform:\n"\
+      "  [--eos] MS1,H4,SQM3,MPA1,GHN3 Use one of the discrete EOSes for injection. Default EOS_NONE\n\n");
+  fprintf(stderr,
+      "Cosmological model:\n"\
+      "  [--cosmology] LambdaCDM Use the corresponding values of the cosmological parameters for the definitions\n"\
+      "                of luminosity distance and comoving volume. Default LambdaCDM\n"\
+      "  [--zmax] zmax     Maximal redshift\n\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1420,7 +1450,6 @@ int main( int argc, char *argv[] )
   INT4 ncount;
   size_t ninj;
   int rand_seed = 1;
-
   /* waveform */
   CHAR waveform[LIGOMETA_WAVEFORM_MAX];
   CHAR dummy[256];
@@ -1450,7 +1479,6 @@ int main( int argc, char *argv[] )
   REAL8 virgoStartFreq    = -1;
   REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
-
   status=blank_status;
 
   /* getopt arguments */
@@ -1526,6 +1554,9 @@ int main( int argc, char *argv[] )
     {"max-spin1",               required_argument, 0,                'G'},
     {"min-spin2",               required_argument, 0,                'u'},
     {"max-spin2",               required_argument, 0,                'U'},
+    {"eos",                            required_argument, 0,                666},
+    {"cosmology",                            required_argument, 0,                667},
+    {"zmax",                            required_argument, 0,                668},
     {"output",                  required_argument, 0,                'P'},
     {"version",                 no_argument,       0,                'V'},
     {"enable-spin",             no_argument,       0,                'T'},
@@ -2331,6 +2362,27 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name,
               "float", "%le", maxSpin2 );
         break;
+      case 666:
+        sprintf(eos_name, "%s",optarg);
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "%s", optarg );
+        equation_of_state = XLALSimEOSfromString(eos_name);
+        break;
+      case 667:
+        sprintf(cosmological_model, "%s",optarg);
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "%s", optarg );
+         if (!strcmp(cosmological_model,"LambdaCDM")) omega = XLALFillCosmologicalParameters(0.7,0.3,0.0,0.7,-1.0,0.0,0.0); /*hard-codeed LambdaCDM */
+         else {fprintf(stderr,"ERROR! Model %s not implemented!",cosmological_model);exit(-1);}
+        break;
+      case 668:
+          zmaximal = atof(optarg);
+            this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", zmaximal);
+          break;
 
       case 'V':
         /* print version information and exit */
@@ -2790,12 +2842,12 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  if ( dDistr==sfr && (dmax<0.2 || dmax>1.0) )
-  {
-    fprintf( stderr,
-        "Maximal redshift can only take values between 0.2 and 1.\n" );
-    exit( 1 );
-  }
+//  if ( dDistr==sfr && (dmax<0.0 || dmax>6.0) )
+//  {
+//    fprintf( stderr,
+//        "Redshift can only take values between 0.0 and 1.\n" );
+//    exit( 1 );
+//  }
 
   /* check if number of grid points is specified */
   if ( mDistr==m1m2SquareGrid )
@@ -3024,7 +3076,7 @@ int main( int argc, char *argv[] )
     /* draw redshift */
     if (dDistr==sfr)
     {
-          redshift= drawRedshift(dmin,dmax,pzmax);        
+          redshift= drawRedshift(omega,zmaximal);        
 
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
@@ -3037,7 +3089,20 @@ int main( int argc, char *argv[] )
       minMtotal = redshift_mass(minMtotal0, redshift);
       maxMtotal = redshift_mass(maxMtotal0, redshift);
     }
-
+    if (dDistr==uniformVolume) 
+    {
+        redshift= drawRedshift(omega,zmaximal); 
+        minMass1 = redshift_mass(minMass10, redshift);
+        maxMass1 = redshift_mass(maxMass10, redshift);
+        meanMass1 = redshift_mass(meanMass10, redshift);
+        massStdev1 = redshift_mass(massStdev10, redshift);
+        minMass2 = redshift_mass(minMass20, redshift);
+        maxMass2 = redshift_mass(maxMass20, redshift);
+        meanMass2 = redshift_mass(meanMass20, redshift);
+        massStdev2 = redshift_mass(massStdev20, redshift);
+        minMtotal = redshift_mass(minMtotal0, redshift);
+        maxMtotal = redshift_mass(maxMtotal0, redshift);
+    }
     /* populate masses */
     if ( mDistr==massFromSourceFile )
     {
@@ -3108,10 +3173,11 @@ int main( int argc, char *argv[] )
       }
       simTable->distance = drawnDistance;
     }
-    else if (dDistr == sfr )
+    else if ((dDistr == sfr )||(dDistr==uniformVolume))
     {
        /* fit of luminosity distance  between z=0-1, in Mpc for h0=0.7, omega_m=0.3, omega_v=0.7*/
-       simTable->distance = luminosity_distance(redshift);
+       simTable->distance = XLALLuminosityDistance(omega,redshift);
+       simTable->redshift = redshift;
     }
     else
     {
@@ -3169,6 +3235,23 @@ int main( int argc, char *argv[] )
                                              iDistr, inclStd);
     } while ( (fabs(cos(simTable->inclination))<cos(max_inc)) );
 
+    if(equation_of_state !=EOS_NONE)
+    {
+        OnePlusZ=(1.0 + simTable->redshift); 
+        mass1Intr=(simTable->mass1)/OnePlusZ;
+        mass2Intr=(simTable->mass2)/OnePlusZ;
+        /* if the intrinsic masses are greater than the maximum NS mass, set the tidal term to 0 */
+        injected_lambda1=LambdaOfM_EOS(equation_of_state, mass1Intr);
+        injected_lambda2=LambdaOfM_EOS(equation_of_state, mass2Intr);
+        //printf("%e\t%e\t%e\t%e\n",mass1Intr,mass2Intr,injected_lambda0,injected_lambda1);
+    }
+    
+    simTable->lambda1 = injected_lambda1;
+    simTable->lambda2 = injected_lambda2;
+    /* defaulted to 1 as long as we do not know how to compute these */
+    simTable->qmParameter1 = 1.0;
+    simTable->qmParameter2 = 1.0;
+    
     /* override inclination */
     if ( iDistr == fixedInclDist )
     {
