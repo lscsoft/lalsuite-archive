@@ -906,8 +906,8 @@ def write_upperlimit(page, opts, thisSearch='playground', pipedown='pipedown'):
   sections.append(section)
   htmlAndPlot.append(section)
   titles[section] = "Sensitive Distance as a Function of Component Masses."
-  tags[section] = '*sink_by_component_mass_'+ifartag[0]+'_CAT_4_VETO*'
-  htmltags[section] = '*sink_by_component_mass_combined_upper_limit_'+ifartag[0]+'_CAT_4_VETO*'
+  tags[section] = '*sink_by_mass1_mass2_'+ifartag[0]+'_CAT_4_VETO*'
+  htmltags[section] = '*sink_by_mass1_mass2_combined_upper_limit_'+ifartag[0]+'_CAT_4_VETO*'
   imagetags[section] = ['distance']
   captions[section] = """Mean sensitive distance for the CBC search pipeline as a function of the component masses. The sensitive distance is determined by computing the cube root of the mean distance^3 for injections found with a FAR below """+FARtext+""" (CAT2 and CAT3 vetoes applied and CBC hardware injections removed)."""
   comments[section] = None
@@ -943,8 +943,8 @@ def write_upperlimit(page, opts, thisSearch='playground', pipedown='pipedown'):
   sections.append(section)
   htmlAndPlot.append(section)
   titles[section] = "Combined Upper Limits as a Function of Component Masses."
-  tags[section] = '*combined_sink_by_component_mass_'+ifartag[0]+'_CAT_4_VETO*'
-  htmltags[section] = '*combined_sink_by_component_mass_combined_upper_limit_'+ifartag[0]+'_CAT_4_VETO*'
+  tags[section] = '*combined_sink_by_mass1_mass2_'+ifartag[0]+'_CAT_4_VETO*'
+  htmltags[section] = '*combined_sink_by_mass1_mass2_combined_upper_limit_'+ifartag[0]+'_CAT_4_VETO*'
   imagetags[section] = ['upper_limit_plot']
   captions[section] = """Combined upper limits on the CBC rate (in mergers/Mpc^3/yr) as a function of the component masses. The plot shows the 90&#37; upper limits arising both from the prior and the posterior (CAT2 and CAT3 vetoes applied and CBC hardware injections removed)."""
   comments[section] = None
