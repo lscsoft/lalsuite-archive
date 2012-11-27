@@ -9,7 +9,7 @@ from scipy import interpolate
 import numpy
 import matplotlib
 matplotlib.use('Agg')
-import pylab
+from matplotlib import pyplot
 from math import *
 import sys
 import glob
@@ -34,8 +34,19 @@ __prog__ = "lalapps_cbc_sink"
 
 
 # FIXME:  the latex rendering sucks :(
-pylab.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
-matplotlib.rcParams.update({"text.usetex": True})
+matplotlib.rcParams.update({
+        "font.size": 8.0,
+        "axes.titlesize": 10.0,
+        "axes.labelsize": 10.0,
+        "xtick.labelsize": 8.0,
+        "ytick.labelsize": 8.0,
+        "legend.fontsize": 8.0,
+        "figure.dpi": 200,
+        "savefig.dpi": 200,
+        "text.usetex": True,
+        "path.simplify": True
+})
+
 
 def edges(bins):
   """Get the boundary points of a rate.NDBins object."""
@@ -292,37 +303,37 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      junk, norm_prior = upper_limit_utils.normalize_pdf(mu, prior)
      junk, norm_uncombined_post = upper_limit_utils.normalize_pdf(mu, uncombined_post)
      junk, norm_combined_post = upper_limit_utils.normalize_pdf(mu, combined_post)
-     pylab.semilogx(mu, norm_prior, label=label+" prior")
-     pylab.semilogx(mu, norm_uncombined_post, label=label+" uncombined")
-     pylab.semilogx(mu, norm_combined_post, label=label+" combined")
+     pyplot.semilogx(mu, norm_prior, label=label+" prior")
+     pyplot.semilogx(mu, norm_uncombined_post, label=label+" uncombined")
+     pyplot.semilogx(mu, norm_combined_post, label=label+" combined")
      axis_font_size = 16
-     #pylab.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
-     pylab.legend(loc="lower center")
-     pylab.ylabel("Probability Density (Mpc$^{3}\,$yr)", fontsize=axis_font_size)
-     pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
-     pylab.grid()
-     pylab.xlim([mu.min(), mu.max()])
+     #pyplot.title(combined_ifos+ " Combined Posterior Rate PDF",fontsize=18)
+     pyplot.legend(loc="lower center")
+     pyplot.ylabel("Probability Density (Mpc$^{3}\,$yr)", fontsize=axis_font_size)
+     pyplot.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
+     pyplot.grid()
+     pyplot.xlim([mu.min(), mu.max()])
      savefig_pylal('combined_posterior_density_'+str(j), opts.open_box, InspiralUtilsOpts,postnameList,posttagList)
-     pylab.clf()
+     pyplot.clf()
 
      muplot = (mu[1:] + mu[:-1]) /2
      dmu = mu[1:] - mu[:-1]
      normpri_bin = (norm_prior[1:] + norm_prior[:-1]) /2
      normuncpost_bin = (norm_uncombined_post[1:] + norm_uncombined_post[:-1]) /2
      normpost_bin = (norm_combined_post[1:] + norm_combined_post[:-1]) /2
-     pylab.semilogx(muplot, (dmu*normpri_bin).cumsum(), label=label+" prior")
-     pylab.semilogx(muplot, (dmu*normuncpost_bin).cumsum(), label=label+" uncombined")
-     pylab.semilogx(muplot, (dmu*normpost_bin).cumsum(), label=label+" combined")
-     pylab.semilogx(muplot, 0.9*numpy.ones(len(muplot)), 'k--')
-     #pylab.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=18)
-     pylab.legend(loc="upper left")
-     pylab.ylabel("Cumulative Probability", fontsize=axis_font_size)
-     pylab.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
-     pylab.ylim([1e-2, 1])
-     pylab.grid()
-     pylab.xlim([mu.min(), mu.max()])
+     pyplot.semilogx(muplot, (dmu*normpri_bin).cumsum(), label=label+" prior")
+     pyplot.semilogx(muplot, (dmu*normuncpost_bin).cumsum(), label=label+" uncombined")
+     pyplot.semilogx(muplot, (dmu*normpost_bin).cumsum(), label=label+" combined")
+     pyplot.semilogx(muplot, 0.9*numpy.ones(len(muplot)), 'k--')
+     #pyplot.title(combined_ifos+ " Combined Cumulative Posterior Rate Distributions",fontsize=18)
+     pyplot.legend(loc="upper left")
+     pyplot.ylabel("Cumulative Probability", fontsize=axis_font_size)
+     pyplot.xlabel("Merger Rate (Mpc$^{-3}\,$yr$^{-1}$)", fontsize=axis_font_size)
+     pyplot.ylim([1e-2, 1])
+     pyplot.grid()
+     pyplot.xlim([mu.min(), mu.max()])
      savefig_pylal('combined_posterior_cumulative_'+str(j), opts.open_box, InspiralUtilsOpts,cpnameList,cptagList)
-     pylab.clf()
+     pyplot.clf()
 
 
    if bin_type == "Mass1_Mass2":
@@ -339,56 +350,56 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      # log distance plot
      #
      distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
-     pylab.pcolor(xtick_locs,ytick_locs, pylab.log10(distance.T) , vmin=0, vmax=3)
-     pylab.colorbar().set_label("log$_{10}$ Mpc")
-     pylab.xlim(m1range)
-     pylab.ylim(m2range)
-     pylab.xticks(xtick_locs,xtick_strings)
-     pylab.yticks(ytick_locs,ytick_strings)
-     pylab.grid()
-     pylab.title("Search Range (%.1f days livetime)"%(livetime),fontsize=14)
-     pylab.xlabel("Mass 1",fontsize=18)
-     pylab.ylabel("Mass 2",fontsize=18)
-     pylab.gca().set_aspect(1)
+     pyplot.pcolor(xtick_locs,ytick_locs, pyplot.log10(distance.T) , vmin=0, vmax=3)
+     pyplot.colorbar().set_label("log$_{10}$ Mpc")
+     pyplot.xlim(m1range)
+     pyplot.ylim(m2range)
+     pyplot.xticks(xtick_locs,xtick_strings)
+     pyplot.yticks(ytick_locs,ytick_strings)
+     pyplot.grid()
+     pyplot.title("Search Range (%.1f days livetime)"%(livetime),fontsize=14)
+     pyplot.xlabel("Mass 1",fontsize=18)
+     pyplot.ylabel("Mass 2",fontsize=18)
+     pyplot.gca().set_aspect(1)
      savefig_pylal('distance', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-     pylab.clf()
+     pyplot.clf()
 
      #
      # upper limit plot
      #
      #fudge = 0.01 * min (upper_limit_werrs.array[upper_limit_werrs.array !=0])
-     log_ul = pylab.log10(combined_upper_limit.array)
-     pylab.pcolor(xtick_locs,ytick_locs, log_ul.T, vmin=numpy.log10(opts.rate_min), vmax=numpy.log10(opts.rate_max))
-     pylab.colorbar().set_label("log$_{10}$ mergers/Mpc$^3$/yr")
-     pylab.xlim(m1range)
-     pylab.ylim(m2range)
-     pylab.xticks(xtick_locs,xtick_strings)
-     pylab.yticks(ytick_locs,ytick_strings)
-     pylab.grid()
-     pylab.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
-     pylab.xlabel("Mass 1",fontsize=18)
-     pylab.ylabel("Mass 2",fontsize=18)
-     pylab.gca().set_aspect(1)
+     log_ul = pyplot.log10(combined_upper_limit.array)
+     pyplot.pcolor(xtick_locs,ytick_locs, log_ul.T, vmin=numpy.log10(opts.rate_min), vmax=numpy.log10(opts.rate_max))
+     pyplot.colorbar().set_label("log$_{10}$ mergers/Mpc$^3$/yr")
+     pyplot.xlim(m1range)
+     pyplot.ylim(m2range)
+     pyplot.xticks(xtick_locs,xtick_strings)
+     pyplot.yticks(ytick_locs,ytick_strings)
+     pyplot.grid()
+     pyplot.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
+     pyplot.xlabel("Mass 1",fontsize=18)
+     pyplot.ylabel("Mass 2",fontsize=18)
+     pyplot.gca().set_aspect(1)
      savefig_pylal('upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-     pylab.clf()
+     pyplot.clf()
 
 
      #
      # upper limit comparison plot
      #
-     pylab.pcolor(xtick_locs,ytick_locs, prior_upper_limit.array.T/combined_upper_limit.array.T,vmin=1,vmax=10)
-     pylab.colorbar().set_label("prior/combined upper limit")
-     pylab.xlim(m1range)
-     pylab.ylim(m2range)
-     pylab.xticks(xtick_locs,xtick_strings)
-     pylab.yticks(ytick_locs,ytick_strings)
-     pylab.grid()
-     pylab.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
-     pylab.xlabel("Mass 1",fontsize=18)
-     pylab.ylabel("Mass 2",fontsize=18)
-     pylab.gca().set_aspect(1)
+     pyplot.pcolor(xtick_locs,ytick_locs, prior_upper_limit.array.T/combined_upper_limit.array.T,vmin=1,vmax=10)
+     pyplot.colorbar().set_label("prior/combined upper limit")
+     pyplot.xlim(m1range)
+     pyplot.ylim(m2range)
+     pyplot.xticks(xtick_locs,xtick_strings)
+     pyplot.yticks(ytick_locs,ytick_strings)
+     pyplot.grid()
+     pyplot.title("%s 90%s Upper Limit (%.1f days livetime)"%(entry.observatory,'%',livetime),fontsize=18)
+     pyplot.xlabel("Mass 1",fontsize=18)
+     pyplot.ylabel("Mass 2",fontsize=18)
+     pyplot.gca().set_aspect(1)
      savefig_pylal('upper_limit_compare_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-     pylab.clf()
+     pyplot.clf()
 
 
    # for bar plots, treat bns/bbh special
@@ -409,36 +420,36 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      #
      bottom = combined_upper_limit.array
      top = numpy.ones(len(bottom))
-     pylab.bar(left, top, width, bottom = bottom, color='black', alpha=0.8)
+     pyplot.bar(left, top, width, bottom = bottom, color='black', alpha=0.8)
      bottom_prior = prior_upper_limit.array
-     pylab.bar(left, top, width, bottom = bottom_prior, color='gray')
-     pylab.gca().semilogy()
-     pylab.gca().set_ylim([opts.rate_min,opts.rate_max])
-     #pylab.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
-     pylab.xticks(tick_locs,tick_strings)
-     pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
+     pyplot.bar(left, top, width, bottom = bottom_prior, color='gray')
+     pyplot.gca().semilogy()
+     pyplot.gca().set_ylim([opts.rate_min,opts.rate_max])
+     #pyplot.title("Combined 90%s Upper Limit (%.1f days livetime)"%('%',total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     pyplot.xticks(tick_locs,tick_strings)
+     pyplot.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
      if bin_type != "BNS_BBH":
-       pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",size=axis_font_size)
-       pylab.grid()
-     pylab.ylabel('Rate (Mpc$^{-3}$ yr$^{-1}$)', size=axis_font_size)
+       pyplot.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",size=axis_font_size)
+       pyplot.grid()
+     pyplot.ylabel('Rate (Mpc$^{-3}$ yr$^{-1}$)', size=axis_font_size)
      savefig_pylal('combined_upper_limit_plot', opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-     pylab.clf()
+     pyplot.clf()
 
      #
      # distance plot in 1d
      #
      distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
      derr = (distance /3) *( total_err.array / total_vol.array ) # fractional error in distance is 1/3 fractional error in volume
-     pylab.bar(left,distance,width,yerr=derr)
-     pylab.grid()
-     pylab.xticks(tick_locs,tick_strings)
-     pylab.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
-     #pylab.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
+     pyplot.bar(left,distance,width,yerr=derr)
+     pyplot.grid()
+     pyplot.xticks(tick_locs,tick_strings)
+     pyplot.xlim([numpy.min(left - width/2),numpy.max(left+width+width/2)])
+     #pyplot.title("%s Search Range (%.1f days livetime)"%(combined_ifos,total_lt.array[0]*constants.LAL_YRJUL_SI/(3600*24)),fontsize=18)
      if bin_type != "BNS_BBH":
-       pylab.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=axis_font_size)
-     pylab.ylabel('Range (Mpc)',fontsize=axis_font_size)
+       pyplot.xlabel(bin_type.replace('_',' ') + " (M$_{\odot}$)",fontsize=axis_font_size)
+     pyplot.ylabel('Range (Mpc)',fontsize=axis_font_size)
      savefig_pylal("combined_distance", opts.open_box, InspiralUtilsOpts,fnameList,tagList)
-     pylab.clf()
+     pyplot.clf()
 
    fnameList.extend(postnameList) # these plots are nice, but too many!
    fnameList.extend(cpnameList)
