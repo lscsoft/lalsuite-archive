@@ -381,3 +381,27 @@ def get_singles_times( connection, verbose = False ):
 	return sngls_durations
 
 
+def get_coinc_window(connection, ifos)
+	sqlquery = """
+	SELECT DISTINCT si_1.end_time, si_2.end_time, si_1.end_time_ns, si_2.end_time_ns
+	FROM coinc_inspiral
+		JOIN sngl_inspiral AS si_1, coinc_event_map AS cem_1 ON (
+			coinc_inspiral.coinc_event_id == cem_1.coinc_event_id 
+			AND cem_1.event_id == si_1.event_id
+			AND si_1.ifo == ?)
+		JOIN sngl_inspiral AS si_2, coinc_event_map AS cem_2 ON (
+			coinc_inspiral.coinc_event_id == cem_2.coinc_event_id 
+			AND cem_2.event_id == si_2.event_id
+			AND si_2.ifo == ?)
+	
+	"""
+	coincs = connection.cursor().execute( sqlquery, tuple(ifos) ).fetchall()
+	
+	shift = connection.cursor().execute('SELECT MIN(ABS(offset)) FROM time_slide WHERE offset != 0.0 ').fetchone()[0]
+	toa_diff = []
+	for coinc in coincs:
+		dT_sec = (coinc[0]-coinc[1]) + (coinc[2]-coinc[3])*1e-9
+		num_shifts = round(dT_sec/shift)
+		toa_diff.append( dT_sec - num_shifts*shift )
+
+	return max(toa_diff) - min(toa_diff)
