@@ -131,6 +131,11 @@ def get_sngl_snrs(
 	mchirp = tmplt[0]
 	eta = tmplt[1]
 
+	sql_params_dict = {
+		"mchirp": tmplt[0], "eta": tmplt[1],
+		"min_snr": min_snr, "ifo": ifo,
+		"type": datatype}
+
 	# SQLite query to get a list of (snr, gps-time) tuples for inspiral triggers
 	sqlquery = """
 	SELECT DISTINCT
@@ -148,19 +153,22 @@ def get_sngl_snrs(
 			AND experiment_map.coinc_event_id == coinc_event_map.coinc_event_id
 			AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
 		"""
-	sqlquery += ''.join(["""
+	sqlquery += """
 	WHERE
-		sngl_inspiral.ifo = \"""", ifo, """\" 
-		AND snr_stat >= """, str(min_snr), """
-		AND sngl_inspiral.mchirp = """, str(mchirp), """ 
-		AND sngl_inspiral.eta = """, str(eta), """
-		AND process_params.value = \"""", usertag, """\" """])
+		sngl_inspiral.ifo == :ifo 
+		AND snr_stat >= :min_snr
+		AND sngl_inspiral.mchirp == :mchirp
+		AND sngl_inspiral.eta == :eta
+		AND process_params.value == :usertag
+	"""
 	if datatype:
-		sqlquery += ''.join(["""
-		AND experiment_summary.datatype = \"""", datatype, """\" """])
+		sqlquery += """
+		AND experiment_summary.datatype == :type
+		"""
+		sql_params_dict["type"] = datatype
 
 	# execute query
-	trig_list = connection.cursor().execute( sqlquery ).fetchall()
+	trig_list = connection.cursor().execute( sqlquery, sql_params_dict ).fetchall()
 
 	# get dq-veto segments
 	xmldoc = dbtables.get_xml(connection)
