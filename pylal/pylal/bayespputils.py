@@ -2764,7 +2764,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
-    
+    offset=0.0
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
@@ -2799,7 +2799,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='r', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
@@ -3237,7 +3237,7 @@ def fix_axis_names(plt,par1_name,par2_name):
         plt.xticks(newlocs,newticks,rotation=45)
     return plt
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -3388,7 +3388,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	#locatorX.view_limits(bins[0],bins[-1])
     	axes.xaxis.set_major_locator(locatorX)
 
-    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
     plt.xlabel(ax2_name)
     plt.ylabel(ax1_name)
 

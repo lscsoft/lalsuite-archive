@@ -91,7 +91,7 @@ def parse_command_line():
 		options.amplitude_func = lambda sim, instrument, offsetvector: sim.egw_over_rsquared
 		options.amplitude_lbl = r"$M_{\odot} / \mathrm{pc}^{2}$"
 	else:
-		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
+		raise ValueError("unrecognized --amplitude-func %s" % options.amplitude_func)
 
 	if options.plot is None:
 		options.plot = range(10)
@@ -126,7 +126,7 @@ def parse_command_line():
 
 class FreqVsTime(object):
 	def __init__(self, instrument):
-		self.fig, self.axes = SnglBurstUtils.make_burst_plot.("GPS Time (s)", "Frequency (Hz)")
+		self.fig, self.axes = SnglBurstUtils.make_burst_plot("GPS Time (s)", "Frequency (Hz)")
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.num_injections = 0
@@ -894,7 +894,7 @@ def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
 		if (xcoords != other_xcoords).any() or (ycoords != other_ycoords).any():
 			# binnings don't match, can't compute product of
 			# efficiencies
-			raise ValueError, "binning mismatch"
+			raise ValueError("binning mismatch")
 		zvals *= e.efficiency.ratio()
 	error /= len(efficiencies)
 

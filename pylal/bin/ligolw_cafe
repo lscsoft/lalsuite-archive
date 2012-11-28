@@ -79,7 +79,7 @@ def parse_command_line():
 	options, cachenames = parser.parse_args()
 
 	if not options.time_slides:
-		raise ValueError, "--time-slides required"
+		raise ValueError("--time-slides required")
 
 	return options, (cachenames or [None])
 
