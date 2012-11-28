@@ -68,7 +68,7 @@ def parse_command_line():
     required_options = ["efficiency_file", "frequency", "Gmustart", "Gmuend", "nGmu", "epsilonstart", "epsilonend", "nepsilon", "index"]
     missing_options = [option for option in required_options if getattr(options, option) is None]
     if missing_options:
-        raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
+        raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
     assert options.nGmu >= 2
     assert options.nepsilon >= 2
 
