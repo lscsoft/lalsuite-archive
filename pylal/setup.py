@@ -619,7 +619,6 @@ setup(
 		os.path.join("bin", "ligolw_inspinjfind"),
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
-		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_sicluster"),
 		os.path.join("bin", "ligolw_tisi"),
 		os.path.join("bin", "ligolw_thinca"),
