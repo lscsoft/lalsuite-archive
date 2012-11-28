@@ -217,31 +217,35 @@ def get_coinc_snrs(
 	snr_stat = connection.cursor().execute( sqlquery ).fetchone()[0]
 	set_getsnr_function(connection, snr_stat)
 
-	# split tmplt tuple into its component parameters
-	mchirp = tmplt[0]
-	eta = tmplt[1]
+	# set SQL statement parameters
+	query_params_dict = {
+		"ifo1": ifos[0], "ifo2": ifos[1],
+		"type": datatype,
+		"min_snr": sngls_threshold,
+		"mchirp": tmplt[0], "eta": tmplt[1] }
 
 	# get a list of the combined snrs from the coinc_inspiral table
-	sqlquery = ''.join(["""
+	sqlquery = """
 	SELECT coinc_inspiral.snr
 	FROM coinc_inspiral
 		JOIN sngl_inspiral AS si_ifo1, coinc_event_map AS cem_ifo1 ON (
 			coinc_inspiral.coinc_event_id == cem_ifo1.coinc_event_id
 			AND cem_ifo1.event_id == si_ifo1.event_id
-			AND si_ifo1.ifo = ?)
+			AND si_ifo1.ifo == :ifo1)
 		JOIN sngl_inspiral AS si_ifo2, coinc_event_map AS cem_ifo2 ON (
 			coinc_inspiral.coinc_event_id == cem_ifo2.coinc_event_id
 			AND cem_ifo2.event_id == si_ifo2.event_id
-			AND si_ifo2.ifo = ?)
+			AND si_ifo2.ifo == :ifo2)
 		JOIN experiment_map, experiment_summary ON (
 			experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
 			AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
 	WHERE
-		experiment_summary.datatype = \"""", datatype, """\"
-		AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= """, str(sngls_threshold), """
-		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= """, str(sngls_threshold), """
-		AND si_ifo1.mchirp = """, str(mchirp), """ 
-		AND si_ifo1.eta = """, str(eta)])
+		experiment_summary.datatype == :type
+		AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= :min_snr
+		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= :min_snr
+		AND si_ifo1.mchirp == :mchirp
+		AND si_ifo1.eta == :eta
+	"""
 
 	if not little_dog:
 		zerolag_eids_script = """
@@ -260,7 +264,7 @@ def get_coinc_snrs(
 		AND si_ifo2.event_id NOT IN (SELECT event_id FROM zerolag_eids)
 		"""
 	# execute query
-	snrlist = connection.cursor().execute( sqlquery, tuple(ifos) ).fetchall()
+	snrlist = connection.cursor().execute( sqlquery, query_params_dict ).fetchall()
 
 	if not little_dog:
 		connection.cursor().execute('DROP TABLE zerolag_eids')
