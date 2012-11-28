@@ -393,7 +393,7 @@ def get_singles_times( connection, verbose = False ):
 	return sngls_durations
 
 
-def get_coinc_window(connection, ifos)
+def get_coinc_window(connection, ifos):
 	sqlquery = """
 	SELECT DISTINCT si_1.end_time, si_2.end_time, si_1.end_time_ns, si_2.end_time_ns
 	FROM coinc_inspiral
@@ -405,7 +405,6 @@ def get_coinc_window(connection, ifos)
 			coinc_inspiral.coinc_event_id == cem_2.coinc_event_id 
 			AND cem_2.event_id == si_2.event_id
 			AND si_2.ifo == ?)
-	
 	"""
 	coincs = connection.cursor().execute( sqlquery, tuple(ifos) ).fetchall()
 	
