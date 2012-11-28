@@ -186,6 +186,7 @@ def get_sngl_snrs(
 def get_coinc_snrs(
 	connection,
 	sngls_threshold,
+	ifos,
 	tmplt,
 	datatype = None,
 	little_dog = True,
@@ -224,23 +225,23 @@ def get_coinc_snrs(
 	sqlquery = ''.join(["""
 	SELECT coinc_inspiral.snr
 	FROM coinc_inspiral
-		JOIN sngl_inspiral AS si_h1, coinc_event_map AS cem_h1 ON (
-			coinc_inspiral.coinc_event_id == cem_h1.coinc_event_id
-			AND cem_h1.event_id == si_h1.event_id
-			AND si_h1.ifo = 'H1')
-		JOIN sngl_inspiral AS si_l1, coinc_event_map AS cem_l1 ON (
-			coinc_inspiral.coinc_event_id == cem_l1.coinc_event_id
-			AND cem_l1.event_id == si_l1.event_id
-			AND si_l1.ifo = 'L1')
+		JOIN sngl_inspiral AS si_ifo1, coinc_event_map AS cem_ifo1 ON (
+			coinc_inspiral.coinc_event_id == cem_ifo1.coinc_event_id
+			AND cem_ifo1.event_id == si_ifo1.event_id
+			AND si_ifo1.ifo = ?)
+		JOIN sngl_inspiral AS si_ifo2, coinc_event_map AS cem_ifo2 ON (
+			coinc_inspiral.coinc_event_id == cem_ifo2.coinc_event_id
+			AND cem_ifo2.event_id == si_ifo2.event_id
+			AND si_ifo2.ifo = ?)
 		JOIN experiment_map, experiment_summary ON (
 			experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
 			AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
 	WHERE
 		experiment_summary.datatype = \"""", datatype, """\"
-		AND get_snr(si_h1.snr, si_h1.chisq, si_h1.chisq_dof) >= """, str(sngls_threshold), """
-		AND get_snr(si_l1.snr, si_l1.chisq, si_l1.chisq_dof) >= """, str(sngls_threshold), """
-		AND si_h1.mchirp = """, str(mchirp), """ 
-		AND si_h1.eta = """, str(eta)])
+		AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= """, str(sngls_threshold), """
+		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= """, str(sngls_threshold), """
+		AND si_ifo1.mchirp = """, str(mchirp), """ 
+		AND si_ifo1.eta = """, str(eta)])
 
 	if not little_dog:
 		zerolag_eids_script = """
@@ -255,11 +256,11 @@ def get_coinc_snrs(
 		connection.cursor().execute( zerolag_eids_script )
 
 		sqlquery += """
-		AND si_h1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
-		AND si_l1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
+		AND si_ifo1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
+		AND si_ifo2.event_id NOT IN (SELECT event_id FROM zerolag_eids)
 		"""
 	# execute query
-	snrlist = connection.cursor().execute( sqlquery ).fetchall()
+	snrlist = connection.cursor().execute( sqlquery, tuple(ifos) ).fetchall()
 
 	if not little_dog:
 		connection.cursor().execute('DROP TABLE zerolag_eids')
@@ -355,6 +356,7 @@ def all_possible_coincs(
 		zerolag_coincs = get_coinc_snrs(
 			coinc_connection,
 			min_snr,
+			ifos,
 			tmplt,
 			datatype = 'all_data',
 			combined_bins = combined_bins,
@@ -364,13 +366,18 @@ def all_possible_coincs(
 
 	return coinc_hist, combined_bins
 
-def get_coinc_time(connection, type):
+def get_coinc_time(connection, type, ifo_list):
 	sqlquery = """
 	SELECT duration
 	FROM experiment_summary
-	WHERE datatype = ?
+		JOIN experiment ON (
+			experiment.experiment_id == experiment_summary.experiment_id)
+	WHERE
+		datatype = ?
+		AND instruments = ?
 	"""
-	livetime = numpy.sum( connection.cursor().execute( sqlquery, (type,) ).fetchall() )
+	ifos = ','.join( sorted(ifo_list) )
+	livetime = numpy.sum( connection.cursor().execute( sqlquery, (type,ifos) ).fetchall() )
 
 	return livetime
 
@@ -395,16 +402,16 @@ def get_singles_times( connection, verbose = False ):
 
 def get_coinc_window(connection, ifos):
 	sqlquery = """
-	SELECT DISTINCT si_1.end_time, si_2.end_time, si_1.end_time_ns, si_2.end_time_ns
+	SELECT DISTINCT si_ifo1.end_time, si_ifo2.end_time, si_ifo1.end_time_ns, si_ifo2.end_time_ns
 	FROM coinc_inspiral
-		JOIN sngl_inspiral AS si_1, coinc_event_map AS cem_1 ON (
-			coinc_inspiral.coinc_event_id == cem_1.coinc_event_id 
-			AND cem_1.event_id == si_1.event_id
-			AND si_1.ifo == ?)
-		JOIN sngl_inspiral AS si_2, coinc_event_map AS cem_2 ON (
-			coinc_inspiral.coinc_event_id == cem_2.coinc_event_id 
-			AND cem_2.event_id == si_2.event_id
-			AND si_2.ifo == ?)
+		JOIN sngl_inspiral AS si_ifo1, coinc_event_map AS cem_ifo1 ON (
+			coinc_inspiral.coinc_event_id == cem_ifo1.coinc_event_id 
+			AND cem_ifo1.event_id == si_ifo1.event_id
+			AND si_ifo1.ifo == ?)
+		JOIN sngl_inspiral AS si_ifo2, coinc_event_map AS cem_ifo2 ON (
+			coinc_inspiral.coinc_event_id == cem_ifo2.coinc_event_id 
+			AND cem_ifo2.event_id == si_ifo2.event_id
+			AND si_ifo2.ifo == ?)
 	"""
 	coincs = connection.cursor().execute( sqlquery, tuple(ifos) ).fetchall()
 	
