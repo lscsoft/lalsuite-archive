@@ -38,10 +38,11 @@ import sys
 from glue.lal import CacheEntry
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -70,7 +71,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.write_cache and not (options.cache_comment and options.cache_instrument):
-		raise Exception, "must set both --cache-comment and --cache-instrument when writing a cache file"
+		raise ValueError("must set both --cache-comment and --cache-instrument when writing a cache file")
 
 	return options, (filenames or [None])
 
@@ -93,7 +94,7 @@ def build_id_seglist_pairs(doc):
 	if options.verbose:
 		print >>sys.stderr, "extracting and indexing search summary table..."
 	seglists = segments.segmentlistdict()
-	for row in table.get_table(doc, lsctables.SearchSummaryTable.tableName):
+	for row in lsctables.table.get_table(doc, lsctables.SearchSummaryTable.tableName):
 		if row.process_id not in seglists:
 			seglists[row.process_id] = segments.segmentlist()
 		seglists[row.process_id].append(row.get_out())
@@ -118,9 +119,9 @@ class Chunk(object):
 
 	def addtable(self, template):
 		try:
-			table_elem = table.get_table(self.doc, template.tableName)
+			table_elem = lsctables.table.get_table(self.doc, template.tableName)
 		except:
-			table_elem = self.doc.childNodes[0].appendChild(table.new_from_template(template))
+			table_elem = self.doc.childNodes[0].appendChild(lsctables.table.new_from_template(template))
 		return table_elem
 
 
@@ -166,7 +167,7 @@ def write_sschunks(doc, **kwargs):
 		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(abs(segment)))
 		utils.write_filename(chunk, chunkname, gz = (chunkname or "stdout").endswith(".gz"), verbose = kwargs["verbose"])
 		if kwargs["write_cache"]:
-			cache += "%s\n" % str(CacheEntry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, "file://localhost%s" % os.path.abspath(chunkname))
+			cache += "%s\n" % str(CacheEntry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, "file://localhost%s" % os.path.abspath(chunkname)))
 	return cache
 
 
@@ -180,7 +181,7 @@ def write_sschunks(doc, **kwargs):
 
 cache = ""
 for filename in filenames:
-	doc = utils.load_filename(filename, options.verbose)
+	doc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	cache += write_sschunks(doc, **options.__dict__)
 	doc.unlink()
 	if filename and options.remove_input:
