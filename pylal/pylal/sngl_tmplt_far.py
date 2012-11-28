@@ -88,7 +88,10 @@ def end_time_w_ns(end_time, end_time_ns):
 	time = end_time + 1e-9*end_time_ns
 	return time
 
-
+def quadrature_sum(tuple):
+	snrsq_array = numpy.array(tuple)**2.
+	comb_snr = numpy.sum( snrsq_array )**(1/2.)
+	return comb_snr
 
 def get_sngl_snrs(
 	connection,
@@ -234,7 +237,9 @@ def get_coinc_snrs(
 
 	# get a list of the combined snrs from the coinc_inspiral table
 	sqlquery = """
-	SELECT coinc_inspiral.snr
+	SELECT
+		get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof),
+		get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof)
 	FROM coinc_inspiral
 		JOIN sngl_inspiral AS si_ifo1, coinc_event_map AS cem_ifo1 ON (
 			coinc_inspiral.coinc_event_id == cem_ifo1.coinc_event_id
@@ -271,8 +276,9 @@ def get_coinc_snrs(
 		AND si_ifo1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
 		AND si_ifo2.event_id NOT IN (SELECT event_id FROM zerolag_eids)
 		"""
+
 	# execute query
-	snrlist = connection.cursor().execute( sqlquery, query_params_dict ).fetchall()
+	snrlist = [quadrature_sum(snrs) for snrs in connection.execute( sqlquery, query_params_dict )]
 
 	if not little_dog:
 		connection.cursor().execute('DROP TABLE zerolag_eids')
