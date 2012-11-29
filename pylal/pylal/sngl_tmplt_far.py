@@ -513,3 +513,13 @@ def get_coinc_window(connection, ifos):
 		toa_diff.append( dT_sec - num_shifts*shift )
 
 	return max(toa_diff) - min(toa_diff)
+
+def compute_cumrate(hist, T_bkgd):
+	cum_hist = numpy.cumsum( hist )[::-1]
+	rate = {}
+	# moments of rate pdf based on the assumption that bkgd coincs are a Poisson process
+	rate["mode"] = cum_hist * secINyr/T_bkgd
+	rate["mean"] = (cum_hist +`1) * secINyr/T_bkgd
+	rate["stdev"] = (cum_hist +`1)**(1/2.) * secINyr/T_bkgd
+
+	return rate
