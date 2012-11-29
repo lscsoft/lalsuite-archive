@@ -380,81 +380,57 @@ def combined_snr_hist(counts, snrs, combined_bins):
 
 
 def all_possible_coincs(
-	sngls_connection,
-	sngls_width,
-	min_snr,
-	coinc_connection,
-	coinc_width,
-	ifos,
-	tmplt,
+	sngl_ifo_hist,
+	sngl_ifo_midbins,
+	combined_bins,
+	zerolag_coinc_hist,
+	ifos
 	little_dog = True):
-
 	"""
 	Creates a histogram of all possible coincident events and returns a list of counts
 	in each of the snr bins. This is made using the single-ifo snr histograms.
 
-	@sngls_connection: connection to a SQLite database that contains all inspiral triggers
-	@sngls_width: the bin width for the single-ifo event histograms
-	@min_snr: a lower threshold on the value of the single-ifo snr_stat
-	@coinc_connection: connection to a SQLite database that contains zerolag coincs
-	@coinc_width: the bin width for the coinc-event histograms
-	@ifos: a list of the two instruments one desires triggers from
-	@tmplt: a tuple consisting of the mchirp & eta from the desired template
+	@sngl_ifo_hist: a dictionary containing an snr histogram for each IFO
+	@sngl_ifo_midbins: a dictionary the snr mid-bin values for sngl_ifo_hist
+	@combined_bins: a list of bin edges for the combined-snr histogram
+	@zerolag_coinc_hist: the snr histogram for zerolag coincident events
+	@ifos: a list of analyzed instruments to generate a coinc
 	@little_dog: if argument is False, all coincs with a single-ifo trigger that 
 		also constitutes part of a zerolag coinc are NOT included. The 
 		default value is True.
 	"""
-	# current code can only handle FAR estimation for doubles
-	if len(ifos) > 2:
-		raise ValueError, "Can only estimate FARs for doubles"
 
-	# set up needed dictionaries
-	mid_bins = {}
-	sngls_hist = {}
+	if len(ifos) > 3:
+		raise ValueError, "Can only estimate FARs for doubles & triples"
 
-	for ifo in ifos:
-		# get all single ifo triggers for the given tmplt & ifo
-		sngls_hist[ifo], sngls_bins = get_sngl_snrs(
-			sngls_connection,
-			min_snr,
-			sngls_width,
-			ifo,
-			tmplt)
-		mid_bins[ifo] = 0.5*( sngls_bins[1:] + sngls_bins[:-1] )
+	binWidth = combined_bins[1] - combined_bins[0]
+	combined_counts = numpy.zeros(len(combined_bins)-1)
 
-		# to avoid "little dogs", remove all sngls that make up a zerolag coinc
-		if not little_dog:
-			zerolag_sngls, junk = get_sngl_snrs(
-				coinc_connection,
-				min_snr,
-				sngls_width,
-				ifo,
-				tmplt,
-				datatype='all_data',
-				sngls_bins = sngls_bins)
-			for idx, N in enumerate(zerolag_sngls):
-				sngls_hist[ifo][idx] -= N
+	# for computing doubles rate: N01_ij = n0_i*n1_j
+	N01 = numpy.outer(sngl_ifo_hist[ifo[0]], sngl_ifo_hist[ifo[1]])
+	len0, len1 = N_01.shape
+	for idx0, snr0 in enumerate(sngl_ifo_midbins[ifos[0]]:
+		for idx1, snr1 in enumerate(sngl_ifo_midbins[ifos[1]]:
+			if len(ifos) == 2:
+				combined_snr = quadrature_sum( (snr0, snr1) )
+				index =  int( numpy.floor((combined_snr - min(combined_bins))/binWidth) )
+				combined_counts[index] += N01[idx0,idx1]
+			else:
+				# for computing triples rate: N012_ijk = n0_i*n1_j*n2_k
+				N012 = numpy.outer(N01, sngl_ifo_hist[ifo[2]])
+				N012 = N_012.reshape(len0, len1, N012.size/(len0*len1))
+				for idx2, snr2 in enumerate(sngl_ifo_midbins[ifos[2]]:
+					combined_snr = quadrature_sum( (snr0, snr1, snr2) )
+					index =  int( numpy.floor((combined_snr - min(combined_bins))/binWidth) )
+					combined_counts[index] += N012[idx0,idx1,idx2]
 
-	# define bins for combined-snr
-	max_comb_snr = numpy.sum([max(snr_bins)**2.0 for snr_bins in mid_bins.values()])**(1./2)
-	combined_bins = numpy.arange(2**(1./2)*min_snr, max_comb_snr + 2*coinc_width, coinc_width)
-
-	coinc_hist = combined_snr_hist(sngls_hist, mid_bins, combined_bins)
-
-	# remove only zerolag coincs from the coinc_hist
+	# if keeping "little-dogs", remove only zerolag coincs from the coinc_hist
 	if little_dog:
-		zerolag_coincs = get_coinc_snrs(
-			coinc_connection,
-			min_snr,
-			ifos,
-			tmplt,
-			datatype = 'all_data',
-			combined_bins = combined_bins,
-			little_dog = True)
-		for idx, N in enumerate( zerolag_coincs ):
-			coinc_hist[idx] -= N
+		for idx, N in enumerate( zerolag_coinc_hist ):
+			combined_counts[idx] -= N
 
-	return coinc_hist, combined_bins
+	return combined_counts
+
 
 def get_coinc_time(connection, type, ifo_list):
 	sqlquery = """
