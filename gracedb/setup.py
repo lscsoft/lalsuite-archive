@@ -23,6 +23,7 @@ setup(
 
   scripts = [
     os.path.join('bin','gracedb'),
+    os.path.join('bin','gracedb_digest'),
   ],
 
 )
