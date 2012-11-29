@@ -386,12 +386,12 @@ class Client:
         # Check that we *could* write the file before we
         # go to the trouble of getting it.  Also, try not
         # to open a file until we know we have data.
-        if not isinstance(destfile, file) and destfile != "-":
+        if not hasattr(destfile, "read") and destfile != "-":
             if not os.access(os.path.dirname(os.path.abspath(destfile)), os.W_OK):
                 raise IOError("%s: Permission denied" % destfile)
         response = self.rest('/event/%s/files/%s' % (graceid, filename))
         if response.status == 200:
-            if not isinstance(destfile, file):
+            if not hasattr(destfile, "read"):
                 if destfile == '-':
                     destfile = sys.stdout
                 else:
