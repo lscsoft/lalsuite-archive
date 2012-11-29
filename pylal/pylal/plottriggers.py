@@ -171,7 +171,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     for i,name in enumerate(tablenames):
         data.append(list())
         for c in columns:
-            if c.lower() not in tables[i].columnnames and c.lower() != "time":
+            c = c.lower()
+            if ((c not in tables[i].columnnames and c != "time") and not
+                    hasattr(tables[i], "get_%s" % c.lower())):
                 raise RuntimeError("Column '%s' not found in table '%s'."\
                                    % (c,name))
             data[-1].append(get_column(tables[i], c.lower()).astype(float))

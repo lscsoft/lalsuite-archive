@@ -118,7 +118,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.cal_uncertainty is None:
-		raise ValueError, "must set --cal-uncertainty (use 0 to ignore calibration uncertainty)"
+		raise ValueError("must set --cal-uncertainty (use 0 to ignore calibration uncertainty)")
 
 	options.image_formats = options.image_formats.split(",")
 
@@ -126,7 +126,7 @@ def parse_command_line():
 		filenames += [CacheEntry(line).path() for input_cache in options.input_cache for line in file(input_cache)]
 
 	if options.threads < 1:
-		raise ValueError, "--threads must be >= 1"
+		raise ValueError("--threads must be >= 1")
 
 	return options, filenames
 
@@ -771,7 +771,7 @@ def import_dumps(filenames, verbose = False):
 			else:
 				efficiency += dump
 		else:
-			raise ValueError, "cannot determine contents of %s" % filename
+			raise ValueError("cannot determine contents of %s" % filename)
 	return rate_vs_threshold, efficiency
 
 
@@ -895,7 +895,7 @@ if options.import_dump:
 	if rate_vs_threshold is not None:
 		rate_vs_threshold.open_box = options.open_box
 	if efficiency is not None and options.open_box and not efficiency.open_box:
-		raise ValueError, "Box is open but one or more imjported efficiency dump file was generated in closed-box mode.  Efficiency must be re-measured in open-box mode to use correct detection threshold."
+		raise ValueError("Box is open but one or more imjported efficiency dump file was generated in closed-box mode.  Efficiency must be re-measured in open-box mode to use correct detection threshold.")
 else:
 	rate_vs_threshold, efficiency = None, None
 
@@ -956,7 +956,7 @@ if options.detection_threshold is None:
 			if exit_status:
 				sys.exit(exit_status)
 	if rate_vs_threshold is None:
-		raise ValueError, "no non-injection data available:  cannot determine detection threshold.  provide non-injection data or set an explicit detection treshold.  Consult --help for more information."
+		raise ValueError("no non-injection data available:  cannot determine detection threshold.  provide non-injection data or set an explicit detection treshold.  Consult --help for more information.")
 
 	# write data products
 	write_products([rate_vs_threshold], "string_rate_", options.image_formats, verbose = options.verbose)

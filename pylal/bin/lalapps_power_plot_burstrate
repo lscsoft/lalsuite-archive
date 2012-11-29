@@ -90,7 +90,7 @@ cache files."""
 
 	# parse trigger cache files
 	if not cache_names:
-		raise ValueError, "no cache files named on command line"
+		raise ValueError("no cache files named on command line")
 	cache = [CacheEntry(l, coltype = LIGOTimeGPS) for name in cache_names for l in file(name)]
 
 	# set segment
