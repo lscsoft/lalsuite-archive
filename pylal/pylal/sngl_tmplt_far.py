@@ -472,10 +472,8 @@ def get_singles_times( connection, verbose = False ):
 def get_coinc_window(connection, ifos):
 	# determine the minimum time shift
 	shift = connection.execute('SELECT MIN(ABS(offset)) FROM time_slide WHERE offset != 0.0 ').fetchone()[0]
-	# create empty ndarray
-	toa_diff = numpy.array([])
 
-	# get the gps end-times for a given type of double
+	# SQL query to get gps end-times for a given type of double
 	sqlquery = """
 	SELECT DISTINCT si_ifo1.end_time, si_ifo2.end_time, si_ifo1.end_time_ns, si_ifo2.end_time_ns
 	FROM coinc_inspiral
@@ -488,12 +486,19 @@ def get_coinc_window(connection, ifos):
 			AND cem_ifo2.event_id == si_ifo2.event_id
 			AND si_ifo2.ifo == ?)
 	"""	
-	for coinc in connection.execute( sqlquery, tuple(ifos) ):
-		dT_sec = (coinc[0]-coinc[1]) + (coinc[2]-coinc[3])*1e-9
-		num_shifts = numpy.round(dT_sec/shift)
-		numpy.append( toa_diff, dT_sec - num_shifts*shift )
+	for ifo_pair in iterutils.choices( ifos, 2 ):
+		# create empty ndarray
+		toa_diff = numpy.array([])
 
-	return numpy.max(toa_diff) - numpy.min(toa_diff)
+		# determine the difference in trigger end-times after sliding the times
+		for coinc in connection.execute( sqlquery, tuple(ifos) ):
+			dT_sec = (coinc[0]-coinc[1]) + (coinc[2]-coinc[3])*1e-9
+			num_shifts = numpy.round(dT_sec/shift)
+			numpy.append( toa_diff, dT_sec - num_shifts*shift )
+
+		tau[','.join(ifos)] = numpy.max(toa_diff) - numpy.min(toa_diff)
+
+	return tau
 
 def compute_cumrate(hist, T_bkgd):
 	cum_hist = numpy.cumsum( hist )[::-1]
