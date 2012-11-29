@@ -432,18 +432,21 @@ def all_possible_coincs(
 	return combined_counts
 
 
-def get_coinc_time(connection, type, ifo_list):
+def inclusive_coinc_time(connection, type, inc_ifo_list):
 	sqlquery = """
-	SELECT duration
+	SELECT duration, instruments
 	FROM experiment_summary
 		JOIN experiment ON (
 			experiment.experiment_id == experiment_summary.experiment_id)
-	WHERE
-		datatype = ?
-		AND instruments = ?
+	WHERE datatype = ?
 	"""
-	ifos = ','.join( sorted(ifo_list) )
-	livetime = numpy.sum( connection.cursor().execute( sqlquery, (type,ifos) ).fetchall() )
+	def is_ifosubset(inclusive_list, list):
+		if len(set(inclusive_list) & set(list)) == len(inclusive_list):
+			return True
+		else:
+			return False
+
+	livetime = numpy.sum([T for T,ifos in connection.execute(sqlquery, (type,)) if is_ifosubset(inc_ifo_list,ifos)])
 
 	return livetime
 
