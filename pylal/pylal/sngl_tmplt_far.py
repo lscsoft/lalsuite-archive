@@ -42,7 +42,7 @@ from pylal import ligolw_compute_durations as compute_dur
 #
 # =============================================================================
 #
-#			       Library API 
+#				   Library API 
 #
 # =============================================================================
 #
@@ -102,7 +102,6 @@ def get_sngl_snrs(
 	usertag = "FULL_DATA",
 	datatype = None,
 	sngls_bins = None):
-
 	"""
 	Creates a histogram of sngl_inspiral triggers and returns a list of counts
 	and the associated snr bins.
@@ -118,6 +117,7 @@ def get_sngl_snrs(
 		coincident events is desired. The default is to collect all triggers.
 	@sngls_bins: a list of bin edges for the snr-histogram
 	"""
+
 	# create function for the desired snr statistic
 	sqlquery = """
 	SELECT value
@@ -191,6 +191,57 @@ def get_sngl_snrs(
 
 	return sngls_hist, sngls_bins
 
+def all_sngls_hist(
+	connection,
+	min_snr,
+	sngls_width,
+	mchirp,
+	eta,
+	all_ifos
+	little_dog = True):
+	"""
+	Creates a pair of dictionaries containing single-ifo snr histograms and
+	their associated snr bins. The keys are the instruments filtered in the
+	analysis.
+
+	@connection: connection to a SQLite database with lsctables
+	@min_snr: a lower threshold on the value of the snr_stat
+	@sngls_width: the bin width for the histogram
+	@mchirp: the chirp mass from the desired template
+	@eta: the symmetric mass ratio from the desired template
+	@all_ifos: a list containing the instruments used in the analysis 
+	@little_dog: if argument is False, all coincs with a single-ifo trigger that 
+		also constitutes part of a zerolag coinc are NOT included. The 
+		default value is True.
+	"""
+
+	sngl_ifo_hist = {}
+	sngl_ifo_midbins = {}
+	# loop over the analyzed ifos
+	for ifo in all_ifos:
+		sngl_ifo_hist[ifo], bins = sngl_tmpltget_sngl_snrs(
+			connection,
+			ifo,
+			mchirp, eta
+			min_snr,
+			sngls_width = sngls_width)
+		# define the midpoint of each snr bin
+		sngl_ifo_midbins[ifo] = 0.5*( bins[1:] + bins[:-1] )
+
+		if not little_dog:
+			# if one does not want "little dogs"
+			zerolag_hist, junk = get_sngl_snrs(
+				connection,
+				ifo,
+				mchirp, eta,
+				min_snr
+				datatype = "all_data",
+				sngls_bins = bins)
+			# remove zerolag-coinc constituents from singles histogram
+			for idx, N in enumerate(zerolag_hist):
+				sngl_ifo_hist[ifo][idx] -= N
+	
+	return sngl_ifo_hist, sngl_ifo_midbins
 
 def get_coinc_snrs(
 	connection,
@@ -240,7 +291,14 @@ def get_coinc_snrs(
 	sqlquery = """
 	SELECT
 		get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof),
-		get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof)
+		get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof)"""
+	if len(ifos) > 2:
+		sqlquery += """,
+		get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof),
+		"""
+		query_params_dict["ifo3"] = ifos[2]
+
+	sqlquery += """
 	FROM coinc_inspiral
 		JOIN sngl_inspiral AS si_ifo1, coinc_event_map AS cem_ifo1 ON (
 			coinc_inspiral.coinc_event_id == cem_ifo1.coinc_event_id
@@ -249,7 +307,15 @@ def get_coinc_snrs(
 		JOIN sngl_inspiral AS si_ifo2, coinc_event_map AS cem_ifo2 ON (
 			coinc_inspiral.coinc_event_id == cem_ifo2.coinc_event_id
 			AND cem_ifo2.event_id == si_ifo2.event_id
-			AND si_ifo2.ifo == :ifo2)
+			AND si_ifo2.ifo == :ifo2)"""
+	if len(ifos) > 2:
+		sqlquery += """
+		JOIN sngl_inspiral AS si_ifo3, coinc_event_map AS cem_ifo3 ON (
+			coinc_inspiral.coinc_event_id == cem_ifo3.coinc_event_id
+			AND cem_ifo3.event_id == si_ifo3.event_id
+			AND si_ifo3.ifo == :ifo3)"""
+
+	sqlquery += """
 		JOIN experiment_map, experiment_summary ON (
 			experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
 			AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
@@ -258,8 +324,10 @@ def get_coinc_snrs(
 		AND si_ifo1.mchirp == :mchirp
 		AND si_ifo1.eta == :eta
 		AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= :min_snr
-		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= :min_snr
-	"""
+		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= :min_snr"""
+	if len(ifos) > 2:
+		sqlquery += """
+		AND get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof) >= :min_snr"""
 
 	if not little_dog:
 		zerolag_eids_script = """
@@ -275,8 +343,11 @@ def get_coinc_snrs(
 
 		sqlquery += """
 		AND si_ifo1.event_id NOT IN (SELECT event_id FROM zerolag_eids)
-		AND si_ifo2.event_id NOT IN (SELECT event_id FROM zerolag_eids)
-		"""
+		AND si_ifo2.event_id NOT IN (SELECT event_id FROM zerolag_eids)"""
+		if len(ifos) > 2:
+			sqlquery += """
+			AND si_ifo3.event_id NOT IN (SELECT event_id FROM zerolag_eids)
+			"""
 
 	# execute query
 	snr_array = numpy.array([quadrature_sum(snrs) for snrs in connection.execute( sqlquery, query_params_dict )])
