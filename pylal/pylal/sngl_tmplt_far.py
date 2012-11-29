@@ -30,7 +30,6 @@ triggers of a single template without the need for doing time-slides.
 
 import sqlite3
 import numpy
-import math
 
 from glue.ligolw import dbtables
 from glue import segments
@@ -95,10 +94,11 @@ def quadrature_sum(tuple):
 
 def get_sngl_snrs(
 	connection,
-	min_snr,
-	sngls_width,
 	ifo,
-	tmplt,
+	mchirp,
+	eta,
+	min_snr,
+	sngls_width = None,
 	usertag = "FULL_DATA",
 	datatype = None,
 	sngls_bins = None):
@@ -108,10 +108,11 @@ def get_sngl_snrs(
 	and the associated snr bins.
 
 	@connection: connection to a SQLite database with lsctables
+	@ifo: the instrument one desires triggers from
+	@mchirp: the chirp mass from the desired template
+	@eta: the symmetric mass ratio from the desired template
 	@min_snr: a lower threshold on the value of the snr_stat
 	@sngls_width: the bin width for the histogram
-	@ifo: the instrument one desires triggers from
-	@tmplt: a tuple consisting of the mchirp & eta from the desired template
 	@usertag: the usertag for the triggers. The default is "FULL_DATA".
 	@datatype: the datatype (all_data, slide, ...) if single-ifo triggers from
 		coincident events is desired. The default is to collect all triggers.
@@ -130,12 +131,9 @@ def get_sngl_snrs(
 
 	connection.create_function('end_time_w_ns', 2, end_time_w_ns)
 
-	# split tmplt tuple into its component parameters
-	mchirp = tmplt[0]
-	eta = tmplt[1]
-
+	# set SQL statement parameters
 	sql_params_dict = {
-		"mchirp": tmplt[0], "eta": tmplt[1],
+		"mchirp": mchirp, "eta": eta,
 		"min_snr": min_snr, "ifo": ifo,
 		"type": datatype}
 
@@ -178,18 +176,18 @@ def get_sngl_snrs(
 	veto_segments = compute_dur.get_veto_segments(xmldoc, False)
 	veto_segments = veto_segments[ veto_segments.keys()[0] ]
 
-	snrlist = []
-	# apple vetoes to the list of trigger times
+	snr_array = array([])
+	# apply vetoes to the list of trigger times
 	for snr, trig_time in trig_list:
 		trig_segment = segments.segment(trig_time, trig_time)
 		if not veto_segments[ifo].intersects_segment( trig_segment ):
-			snrlist.append( snr )
+			numpy.append( snr_array, snr )
 
 	if not sngls_bins:
 		sngls_bins = numpy.arange(min_snr, max(snrlist) + sngls_width, sngls_width)
 	
 	# make the binned snr histogram
-	sngls_hist, junk = numpy.histogram(snrlist, bins=sngls_bins)
+	sngls_hist, junk = numpy.histogram(snr_array, bins=sngls_bins)
 
 	return sngls_hist, sngls_bins
 
@@ -198,7 +196,8 @@ def get_coinc_snrs(
 	connection,
 	sngls_threshold,
 	ifos,
-	tmplt,
+	mchirp,
+	eta,
 	datatype = None,
 	little_dog = True,
 	combined_bins = None):
@@ -209,7 +208,9 @@ def get_coinc_snrs(
 
 	@connection: connection to a SQLite database with lsctables
 	@sngls_threshold: a lower threshold on the value of the snr_stat
-	@tmplt: a tuple consisting of the mchirp & eta from the desired template
+	@ifos: a tuple containing the ifos a coinc must come from 
+	@mchirp: the chirp mass from the desired template
+	@eta: the symmetric mass ratio from the desired template
 	@datatype: the datatype (all_data, slide, ...) if single-ifo triggers from
 		coincident events is desired. The default is to collect all triggers.
 	@little_dog: if argument is False, all coincs with a single-ifo trigger that 
@@ -233,7 +234,7 @@ def get_coinc_snrs(
 		"ifo1": ifos[0], "ifo2": ifos[1],
 		"type": datatype,
 		"min_snr": sngls_threshold,
-		"mchirp": tmplt[0], "eta": tmplt[1] }
+		"mchirp": mchirp, "eta": eta }
 
 	# get a list of the combined snrs from the coinc_inspiral table
 	sqlquery = """
@@ -254,10 +255,10 @@ def get_coinc_snrs(
 			AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
 	WHERE
 		experiment_summary.datatype == :type
-		AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= :min_snr
-		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= :min_snr
 		AND si_ifo1.mchirp == :mchirp
 		AND si_ifo1.eta == :eta
+		AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= :min_snr
+		AND get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof) >= :min_snr
 	"""
 
 	if not little_dog:
@@ -278,13 +279,13 @@ def get_coinc_snrs(
 		"""
 
 	# execute query
-	snrlist = [quadrature_sum(snrs) for snrs in connection.execute( sqlquery, query_params_dict )]
+	snr_array = numpy.array([quadrature_sum(snrs) for snrs in connection.execute( sqlquery, query_params_dict )])
 
 	if not little_dog:
 		connection.cursor().execute('DROP TABLE zerolag_eids')
 
 	# make histogram of coinc snr
-	binned_snr, junk = numpy.histogram(snrlist, bins=combined_bins)
+	binned_snr, junk = numpy.histogram(snr_array, bins=combined_bins)
 
 	return map(float, binned_snr)
 
@@ -300,8 +301,8 @@ def combined_snr_hist(counts, snrs, combined_bins):
 
 	for n0, snr0 in zip(counts[ifos[0]], snrs[ifos[0]]):
 		for n1, snr1 in zip(counts[ifos[1]], snrs[ifos[1]]):
-			combined_snr = math.hypot(snr0, snr1)
-			index =  int( math.floor((combined_snr - minval)/binWidth) )
+			combined_snr = quadrature_sum( (snr0, snr1) )
+			index =  int( numpy.floor((combined_snr - minval)/binWidth) )
 			combined_counts[index] += n0 * n1
 
 	return combined_counts
