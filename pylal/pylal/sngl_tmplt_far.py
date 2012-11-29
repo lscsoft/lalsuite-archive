@@ -470,6 +470,12 @@ def get_singles_times( connection, verbose = False ):
 
 
 def get_coinc_window(connection, ifos):
+	# determine the minimum time shift
+	shift = connection.execute('SELECT MIN(ABS(offset)) FROM time_slide WHERE offset != 0.0 ').fetchone()[0]
+	# create empty ndarray
+	toa_diff = numpy.array([])
+
+	# get the gps end-times for a given type of double
 	sqlquery = """
 	SELECT DISTINCT si_ifo1.end_time, si_ifo2.end_time, si_ifo1.end_time_ns, si_ifo2.end_time_ns
 	FROM coinc_inspiral
@@ -481,17 +487,13 @@ def get_coinc_window(connection, ifos):
 			coinc_inspiral.coinc_event_id == cem_ifo2.coinc_event_id 
 			AND cem_ifo2.event_id == si_ifo2.event_id
 			AND si_ifo2.ifo == ?)
-	"""
-	coincs = connection.cursor().execute( sqlquery, tuple(ifos) ).fetchall()
-	
-	shift = connection.cursor().execute('SELECT MIN(ABS(offset)) FROM time_slide WHERE offset != 0.0 ').fetchone()[0]
-	toa_diff = []
-	for coinc in coincs:
+	"""	
+	for coinc in connection.execute( sqlquery, tuple(ifos) ):
 		dT_sec = (coinc[0]-coinc[1]) + (coinc[2]-coinc[3])*1e-9
-		num_shifts = round(dT_sec/shift)
-		toa_diff.append( dT_sec - num_shifts*shift )
+		num_shifts = numpy.round(dT_sec/shift)
+		numpy.append( toa_diff, dT_sec - num_shifts*shift )
 
-	return max(toa_diff) - min(toa_diff)
+	return numpy.max(toa_diff) - numpy.min(toa_diff)
 
 def compute_cumrate(hist, T_bkgd):
 	cum_hist = numpy.cumsum( hist )[::-1]
