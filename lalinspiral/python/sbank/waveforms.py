@@ -279,8 +279,8 @@ class TaylorF2RedSpinTemplate(Template):
 
 
 class IMRPhenomBTemplate(Template):
-    param_names = ("m1", "m2", "chi")
-    param_formats = ("%.2f", "%.2f", "%+.2f")
+    param_names = ("m1", "m2", "chi", "sigmasq")
+    param_formats = ("%.2f", "%.2f", "%+.2f", "%.4e")
 
     __slots__ = ("m1", "m2", "chi", "bank", "_f_final", "_dur", "_mchirp")
 
@@ -298,7 +298,7 @@ class IMRPhenomBTemplate(Template):
 
     @property
     def params(self):
-        return self.m1, self.m2, self.chi
+        return self.m1, self.m2, self.chi, self.sigmasq
 
     def _compute_waveform(self, df, f_final):
         return lalsim.SimIMRPhenomBGenerateFD(0, df,

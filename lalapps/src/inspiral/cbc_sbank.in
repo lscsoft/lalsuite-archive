@@ -184,7 +184,7 @@ if opts.spin_min is not None or opts.spin_max is not None:
 if opts.compute_horizon:
     tbl = lsctables.New(lsctables.SummValueTable, columns = ["value","comment","name","start_time","end_time","process_id","ifo","summ_value_id"])
     xmldoc.childNodes[-1].appendChild(tbl)
-    nparams = len(waveform.param_names)
+    nparams = len(waveform.param_names) - 1 #FIXME: sigmasq should not be treated as template parameter
     for cm in np.linspace(opts.mtotal_min/2.0, opts.mtotal_max/2.0, 50):
 
         p = (cm, cm) + (0,)*(nparams-2)
