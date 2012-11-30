@@ -14,9 +14,13 @@ from optparse import OptionParser
 import sys
 
 
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -72,7 +76,7 @@ for filename in filenames:
 	# load file
 	#
 
-	xmldoc = utils.load_filename(filename, verbose = options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 
 	#
 	# add domain, jobid, and is_online columns to process table

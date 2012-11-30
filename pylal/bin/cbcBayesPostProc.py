@@ -98,15 +98,29 @@ def oneD_dict_to_file(dict,fname):
 
 def multipleFileCB(opt, opt_str, value, parser):
     args=[]
+
+    def floatable(str):
+      try:
+        float(str)
+        return True
+      except ValueError:
+        return False
+
     for arg in parser.rargs:
-        if arg[0] != "-":
-            args.append(arg)
-        else:
-            del parser.rargs[:len(args)]
-            break
+      # stop on --foo like options
+      if arg[:2] == "--" and len(arg) > 2:
+        break
+      # stop on -a, but not on -3 or -3.0
+      if arg[:1] == "-" and len(arg) > 1 and not floatable(arg):
+        break
+      args.append(arg)
+
+    del parser.rargs[:len(args)]
     #Append new files to list if some already specified
     if getattr(parser.values, opt.dest):
-        args.extend(getattr(parser.values, opt.dest))
+        oldargs = getattr(parser.values, opt.dest)
+        oldargs.extend(args)
+        args = oldargs
     setattr(parser.values, opt.dest, args)
 
 def cbcBayesPostProc(
@@ -748,8 +762,8 @@ def cbcBayesPostProc(
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
                 try:
-		    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
-		    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
+                    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
+                    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
                     # Give ACL info if not already downsampled according to it
                     if nDownsample is None:
                         plt.title('Autocorrelation Function')
@@ -1108,7 +1122,7 @@ if __name__=='__main__':
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
-    parser.add_option("--fixedBurnin",action="append",default=None,help="(LALInferenceMCMC) Fixed number of iteration for burnin.",type="int")
+    parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
@@ -1129,6 +1143,10 @@ if __name__=='__main__':
     if opts.data:
       datafiles=datafiles + opts.data
     
+    if opts.fixedBurnin:
+      fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
+    else:
+      fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
@@ -1239,7 +1257,7 @@ if __name__=='__main__':
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=opts.fixedBurnin,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?

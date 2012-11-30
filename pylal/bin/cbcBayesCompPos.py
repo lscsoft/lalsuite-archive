@@ -68,7 +68,7 @@ paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchi
 # Only these parameters, in this order appear in confidence level table.
 clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
 
-greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2}
+greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2,'inclination':0.05}
 
 #Confidence levels
 OneDconfidenceLevels=[0.9]
@@ -76,8 +76,8 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
-twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb']
+twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination']]
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl']
 
 def open_url(url,username,password):
 
@@ -661,7 +661,6 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         for param in common_params:
             print "Plotting comparison for '%s'"%param
 
-
             cl_table_header='<table><th>Run</th>'
             cl_table={}
             save_paths=[]
@@ -742,9 +741,10 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             oned_data[param]=(save_paths,cl_table_str, ks_table_str)
             
+    # Watch out---using private variable _logL
+    max_logls = [max(pos._logL) for pos in pos_list.values()]
 
-
-    return greedy2savepaths,oned_data,confidence_levels
+    return greedy2savepaths,oned_data,confidence_levels,max_logls
 
 def output_confidence_levels_tex(clevels,outpath):
     """Outputs a LaTeX table of parameter and run medians and confidence levels."""
@@ -825,7 +825,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_levels=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
@@ -836,10 +836,12 @@ if __name__ == '__main__':
 
     param_section=compare_page.add_section('Meta')
 
-    param_section_write='<div><p>This comparison was created from the following analyses</p><ul>'
-    for name,input_file in zip(names,opts.pos_list):
-        param_section_write+='<li><a href="%s">%s</a></li>'%(input_file,name)
-    param_section_write+='</ul></div>'
+    param_section_write='<div><p>This comparison was created from the following analyses</p>'
+    param_section_write+='<table border="1">'
+    param_section_write+='<th>Analysis</th> <th> max(log(L)) </th>'
+    for name,input_file,logl_max in zip(names,opts.pos_list,max_logls):
+        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(input_file,name,logl_max)
+    param_section_write+='</table></div>'
 
     param_section.write(param_section_write)
     param_section.write('<div><p><a href="confidence_table.tex">LaTeX table</a> of medians and confidence levels.</p></div>')
@@ -853,8 +855,6 @@ if __name__ == '__main__':
             clf_toggle=False
             for save_path in save_paths:
                 head,plotfile=os.path.split(save_path)
-#                if not clf_toggle:
- #                   clf_toggle=(not opts.clf)
                 param_section.write('<img src="%s"/>'%str(plotfile))
 
             param_section.write(cl_table_str)

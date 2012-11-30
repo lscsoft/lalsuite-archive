@@ -70,7 +70,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if not filenames:
-		raise ValueError, "no input files!"
+		raise ValueError("no input files!")
 
 	return options, filenames
 

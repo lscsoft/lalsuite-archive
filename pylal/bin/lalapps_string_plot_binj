@@ -86,7 +86,7 @@ def parse_command_line():
 		options.amplitude_func = SimBurstUtils.string_amplitude_in_instrument
 		options.amplitude_lbl = r"$A^{\mathrm{det}}$"
 	else:
-		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
+		raise ValueError("unrecognized --amplitude-func %s" % options.amplitude_func)
 
 	if not options.format:
 		options.format = ["png"]
@@ -102,7 +102,7 @@ def parse_command_line():
 			print >>sys.stderr, "reading '%s' ..." % cache
 		filenames += [lal.CacheEntry(line).path() for line in file(cache)]
 	if not filenames:
-		raise ValueError, "Nothing to do!"
+		raise ValueError("Nothing to do!")
 
 	return options, filenames
 

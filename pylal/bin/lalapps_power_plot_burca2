@@ -101,7 +101,7 @@ def add_to_plot(axes, red, black, blue, gmst, plottype = "LR"):
 		y2 = black[:,gmst]
 		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), black.centres()[0]), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
-		raise ValueError, plottype
+		raise ValueError(plottype)
 
 	ymin, ymax = axes.get_ylim()
 	if ymin < 1e-5 * ymax:
@@ -126,7 +126,7 @@ def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
 		y2 = black[:,gmst]
 		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), x), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
-		raise ValueError, plottype
+		raise ValueError(plottype)
 
 	ymin, ymax = axes.get_ylim()
 	if ymin < 1e-5 * ymax:
