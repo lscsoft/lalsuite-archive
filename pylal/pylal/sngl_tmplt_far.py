@@ -213,12 +213,12 @@ def sngl_snr_hist(
 
 def all_sngl_snr_hist(
     connection,
-    min_snr,
-    sngls_width,
     mchirp,
     eta,
     all_ifos
-    little_dog = True):
+    min_snr = 5.5,
+    sngls_width = 0.01,
+    no_little_dog = False):
     """
     Creates a pair of dictionaries containing single-ifo snr histograms and
     their associated snr bins. The keys are the instruments filtered in the
@@ -230,9 +230,9 @@ def all_sngl_snr_hist(
     @mchirp: the chirp mass from the desired template
     @eta: the symmetric mass ratio from the desired template
     @all_ifos: a list containing the instruments used in the analysis 
-    @little_dog: if argument is False, all coincs with a single-ifo trigger that 
-        also constitutes part of a zerolag coinc are NOT included. The 
-        default value is True.
+    @no_little_dog: if argument is True, all coincs with a single-ifo trigger
+        that also constitutes part of a zerolag coinc are NOT included. The 
+        default value is False.
     """
 
     sngl_ifo_hist = {}
@@ -248,7 +248,7 @@ def all_sngl_snr_hist(
         # define the midpoint of each snr bin
         sngl_ifo_midbins[ifo] = 0.5*( bins[1:] + bins[:-1] )
 
-        if not little_dog:
+        if no_little_dog:
             # if one does not want "little dogs"
             zerolag_hist, junk = sngl_snr_hist(
                 connection,
@@ -266,12 +266,12 @@ def all_sngl_snr_hist(
 
 def coinc_snr_hist(
     connection,
-    sngls_threshold,
     ifos,
     mchirp,
     eta,
+    min_snr = 5.5,
     datatype = None,
-    little_dog = True,
+    no_little_dog = False,
     combined_bins = None):
     """
     Creates a histogram of coinc_inspiral triggers and returns a list of counts
@@ -284,9 +284,9 @@ def coinc_snr_hist(
     @eta: the symmetric mass ratio from the desired template
     @datatype: the datatype (all_data, slide, ...) if single-ifo triggers from
         coincident events is desired. The default is to collect all triggers.
-    @little_dog: if argument is False, all coincs with a single-ifo trigger that 
-        also constitutes part of a zerolag coinc are NOT included. The 
-        default value is True.
+    @no_little_dog: if argument is True, all coincs with a single-ifo trigger
+        that also constitutes part of a zerolag coinc are NOT included. The 
+        default value is False.
     @combined_bins: a list of bin edges for the snr-histogram
     """
 
@@ -351,7 +351,7 @@ def coinc_snr_hist(
         AND get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof) >= :min_snr"""
 
     # If one does not want "little-dogs" in the slide background
-    if not little_dog:
+    if no_little_dog:
         zerolag_eids_script = """
         CREATE TEMP TABLE zerolag_eids AS
             SELECT event_id
@@ -375,7 +375,7 @@ def coinc_snr_hist(
     snr_array = numpy.array([ quadrature_sum(snrs) 
         for snrs in connection.execute(sqlquery, query_params_dict) ])
 
-    if not little_dog:
+    if no_little_dog:
         connection.cursor().execute('DROP TABLE zerolag_eids')
 
     # make histogram of coinc snr
@@ -390,7 +390,7 @@ def all_possible_coincs(
     combined_bins,
     zerolag_coinc_hist,
     ifos
-    little_dog = True):
+    no_little_dog = False):
     """
     Creates a histogram of all possible coincident events and returns a list of counts
     in each of the snr bins. This is made using the single-ifo snr histograms.
@@ -400,9 +400,9 @@ def all_possible_coincs(
     @combined_bins: a list of bin edges for the combined-snr histogram
     @zerolag_coinc_hist: the snr histogram for zerolag coincident events
     @ifos: a list of analyzed instruments to generate a coinc
-    @little_dog: if argument is False, all coincs with a single-ifo trigger that 
-        also constitutes part of a zerolag coinc are NOT included. The 
-        default value is True.
+    @no_little_dog: if argument is True, all coincs with a single-ifo trigger
+        that also constitutes part of a zerolag coinc are NOT included. The 
+        default value is False.
     """
 
     if len(ifos) > 3:
@@ -430,7 +430,7 @@ def all_possible_coincs(
                     combined_counts[index] += N012[idx0,idx1,idx2]
 
     # if keeping "little-dogs", remove only zerolag coincs from the coinc_hist
-    if little_dog:
+    if not no_little_dog:
         for idx, N in enumerate( zerolag_coinc_hist ):
             combined_counts[idx] -= N
 
@@ -503,7 +503,7 @@ def get_coinc_window(connection, ifos):
             AND si_ifo2.ifo == ?)
     """
     # loop over pairs of instruments from the ifos list
-    for ifo_pair in iterutils.choices( ifos, 2 ):
+    for ifo_pair in iterutils.choices(ifos, 2):
 
         toa_diff = numpy.array([])
         # determine the difference in trigger end-times after sliding the times
