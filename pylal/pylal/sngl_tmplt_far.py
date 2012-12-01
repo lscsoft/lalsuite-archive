@@ -517,3 +517,21 @@ def get_coinc_window(connection, ifos):
 
     return tau
 
+
+def eff_bkgd_time(T_i, tau_ij, ifos):
+    # numerator is the product of the relevant single-ifo analyzed times
+    numerator = numpy.prod([T for (ifo, T) in T_i.items() if ifo in ifos])
+
+    # sorted list of the coincidence windows from smallest to largest
+    taus = sorted(tau_ij.values())
+    # denominator is a non-trivial combination of the coincident windows
+    if len(ifos) == 2:
+        denominator = taus[0]
+    elif len(ifos) == 3:
+        denominator = 0.5*tau[0]*(tau[2] + tau[1]) -
+                      0.25*( (tau[2]-tau[1])**2. + tau[0]**2. )
+    else:
+        raise ValueError, "Can only estimate background times for double & triples"
+
+    return = numerator/denominator
+
