@@ -350,7 +350,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      # log distance plot
      #
      distance = (total_vol.array/total_lt.array /(4*numpy.pi/3) )**(1./3)
-     pyplot.pcolor(xtick_locs,ytick_locs, pyplot.log10(distance.T) , vmin=0, vmax=3)
+     pyplot.pcolor(xtick_locs,ytick_locs, numpy.log10(distance.T) , vmin=0, vmax=3)
      pyplot.colorbar().set_label("log$_{10}$ Mpc")
      pyplot.xlim(m1range)
      pyplot.ylim(m2range)
@@ -368,7 +368,7 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      # upper limit plot
      #
      #fudge = 0.01 * min (upper_limit_werrs.array[upper_limit_werrs.array !=0])
-     log_ul = pyplot.log10(combined_upper_limit.array)
+     log_ul = numpy.log10(combined_upper_limit.array)
      pyplot.pcolor(xtick_locs,ytick_locs, log_ul.T, vmin=numpy.log10(opts.rate_min), vmax=numpy.log10(opts.rate_max))
      pyplot.colorbar().set_label("log$_{10}$ mergers/Mpc$^3$/yr")
      pyplot.xlim(m1range)
