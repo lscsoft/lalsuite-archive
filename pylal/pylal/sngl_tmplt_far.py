@@ -141,14 +141,6 @@ def sngl_snr_hist(
     """
 
     # create function for the desired snr statistic
-    sqlquery = """
-    SELECT value
-    FROM process_params
-    WHERE
-        program == 'ligolw_thinca'
-        AND param == '--weighted-snr'
-    """
-    snr_stat = connection.execute( sqlquery ).fetchone()[0]
     set_getsnr_function(connection, snr_stat)
 
     connection.create_function('end_time_w_ns', 2, end_time_w_ns)
@@ -218,7 +210,8 @@ def all_sngl_snr_hist(
     all_ifos
     min_snr = 5.5,
     sngls_width = 0.01,
-    no_little_dog = False):
+    no_little_dog = False,
+    snr_stat = None):
     """
     Creates a pair of dictionaries containing single-ifo snr histograms and
     their associated snr bins. The keys are the instruments filtered in the
@@ -244,7 +237,8 @@ def all_sngl_snr_hist(
             ifo,
             mchirp, eta
             min_snr,
-            sngls_width = sngls_width)
+            sngls_width = sngls_width,
+            snr_stat = snr_stat)
         # define the midpoint of each snr bin
         sngl_ifo_midbins[ifo] = 0.5*( bins[1:] + bins[:-1] )
 
@@ -254,7 +248,8 @@ def all_sngl_snr_hist(
                 connection,
                 ifo,
                 mchirp, eta,
-                min_snr
+                min_snri,
+                snr_stat = snr_stat,
                 datatype = "all_data",
                 sngls_bins = bins)
             # remove zerolag-coinc constituents from singles histogram
@@ -272,7 +267,8 @@ def coinc_snr_hist(
     min_snr = 5.5,
     datatype = None,
     no_little_dog = False,
-    combined_bins = None):
+    combined_bins = None,
+    snr_stat = None):
     """
     Creates a histogram of coinc_inspiral triggers and returns a list of counts
     in each of the snr bins.
@@ -291,14 +287,6 @@ def coinc_snr_hist(
     """
 
     # create function for the desired snr statistic
-    sqlquery = """
-    SELECT value
-    FROM process_params
-    WHERE
-        program == 'ligolw_thinca'
-        AND param == '--weighted-snr'
-    """
-    snr_stat = connection.execute( sqlquery ).fetchone()[0]
     set_getsnr_function(connection, snr_stat)
 
     # set SQL statement parameters
