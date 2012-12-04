@@ -1056,7 +1056,132 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   return;
 }
 
-void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata)
+void LALInferenceTemplateLALChebyshevInterp_TT4(LALInferenceIFOData *IFOdata)
+/*************************************************************************************************/
+/* Wrapper to Chebyshev waveform interpolation function for TaylorT4 waveforms.                                         */
+/* Returns frequency-domain templates numerically FT'ed and whitened with PSD*deltaF/2                            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Required (`IFOdata->modelParams') parameters are:                                             */
+/*   - "chirpmass"        (REAL8,units of solar masses)                                          */
+/*   - "massratio"        (symmetric mass ratio:  0 < eta <= 0.25, REAL8) <or asym_massratio>    */
+/*   - "asym_massratio"   (asymmetric mass ratio:  0 < q <= 1.0, REAL8)   <or massratio>         */
+/*   - "time"             (coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)      */
+/*   - "inclination"      (inclination angle, REAL8, radians)                                    */
+/*************************************************************************************************/
+{
+  static LALStatus status;
+  memset(&status,0,sizeof(status));
+
+  unsigned long i;
+  unsigned int patch_index;
+	
+  double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
+  double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
+  double eta;	
+  double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
+  if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
+    double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+    q2eta(q, &eta);
+  }
+  else
+    eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+
+  double m1, m2, deltaT;
+  double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
+  double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
+  double instant;
+  double f_max, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
+ 
+  //int Nfft = IFOdata->timeData->data->length;
+
+  REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
+  UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
+	
+
+  gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
+
+  deltaT = IFOdata->timeData->deltaT;
+  deltaF = IFOdata->freqData->deltaF;
+  f_max = IFOdata->fHigh;
+ 
+
+  mc2masses(mc, eta, &m1, &m2);
+  
+  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY; 
+ 
+
+  /* find correct patch and interpolate a waveform*/
+  patch_index = index_into_patch(IFOdata->manifold, mc, eta);
+
+  if(patch_index < IFOdata->manifold->patches_in_eta*IFOdata->manifold->patches_in_mc ){
+ 	 interpolate_waveform_from_mchirp_and_eta(&IFOdata->manifold->interp_arrays[patch_index], h_t, mc, eta);
+  }
+  /*********************************************************/
+
+  instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
+
+  instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
+  LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+fprintf(stderr, "instant: %f\n", instant); 
+  for (i=0; i<IFOdata->timeData->data->length; i++){
+	if(i>=((unsigned long int)(h_t->size) + windowshift -1 )  || i<windowshift  ){
+                IFOdata->timeModelhPlus->data->data[i] = 0;
+               // IFOdata->timeModelhCross->data->data[i] = 0;		
+        }
+        else{
+  	IFOdata->timeModelhPlus->data->data[i] = GSL_REAL( gsl_vector_complex_get(h_t, i-(INT8)windowshift ) );
+        IFOdata->timeModelhCross->data->data[i] = GSL_IMAG( gsl_vector_complex_get(h_t, i-(INT8)windowshift ) );
+ 	}
+  }
+ 
+  LALInferenceExecuteFT(IFOdata);
+
+  t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
+
+  for (i=0; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
+      templateReal = IFOdata->freqModelhPlus->data->data[i].re;  
+
+      templateImag = IFOdata->freqModelhPlus->data->data[i].im; 
+      twopit = LAL_TWOPI * (t_shift);
+      f = ((double) i) * deltaF;
+      re = cos(twopit * f + phi);
+      im =  -sin(twopit * f + phi);
+      IFOdata->freqModelhPlus->data->data[i].re = -templateReal*re + templateImag*im;
+      IFOdata->freqModelhPlus->data->data[i].im = -templateImag*re - templateReal*im;
+  
+      templateReal = IFOdata->freqModelhCross->data->data[i].re;
+
+      templateImag = IFOdata->freqModelhCross->data->data[i].im;
+      twopit = LAL_TWOPI * (t_shift);
+      f = ((double) i) * deltaF;
+      re = cos(twopit * f + phi);
+      im =  -sin(twopit * f + phi);
+      IFOdata->freqModelhPlus->data->data[i].re = -templateReal*re + templateImag*im;
+      IFOdata->freqModelhPlus->data->data[i].im = -templateImag*re - templateReal*im;
+ 
+  }
+ 
+
+  for (i=0; i<IFOdata->freqModelhCross->data->length-1; ++i) {
+    // consider inclination angle's effect:
+    IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
+    IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
+    IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
+    IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
+  }
+
+
+  /* Now...template is not (necessarily) located at specified coalescence time  */
+  /* and/or we don't know even where it actually is located...                  */
+  /* Figure out time locatin corresponding to template just computed:          */
+
+
+  gsl_vector_complex_free(h_t);
+  return;
+}
+
+
+void LALInferenceTemplateLALChebyshevInterp_RedSpin(LALInferenceIFOData *IFOdata)
 /*************************************************************************************************/
 /* Wrapper to Chebyshev waveform interpolation function.                                         */
 /* Will always return frequency-domain templates numerically FT'ed                               */
@@ -2194,7 +2319,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
     instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-    
     
     if(hplus->data && hcross->data){
       if(hplus->data->length+2*windowshift<=IFOdata->timeData->data->length){ //check whether the IFOdata->timeData->data vector is long enough to store the waveform produced

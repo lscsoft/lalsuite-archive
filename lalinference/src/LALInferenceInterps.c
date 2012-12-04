@@ -312,192 +312,89 @@ static double mc2mass2(double mc, double eta)
  return mc * (pow(1+inversefraction,0.2) / pow(inversefraction,0.6));
 }
 
-static int generate_template_TaylorF2ReducedSpin(double m1, double m2, double f_low, double f_high, double f_ref, double deltaF, int order, int numPoints, COMPLEX16 *hOfF) {
+static int generate_template(double m1, double m2, double f_low, double order, COMPLEX16FrequencySeries *hOfF, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan, int shift_flag){
 
-    
-    double t_shift = - compute_chirp_time(m1, m2, f_ref, 4, 0);
+	double templateReal, templateImag, twopit, f, re, im, t_shift, f_ref;
+	
+	REAL8TimeSeries *hplus = NULL;
+	REAL8TimeSeries *hcross = NULL;
 
-    REAL8 df, shft, phi0, amp0, amp, f, m, eta, delta, chi_s, chi_a, chi, Psi;
-    REAL8 psiNewt, psi2, psi3, psi4, psi5, psi6, psi6L, psi7, psi3S, psi4S, psi5S;
-    REAL8 alpha2, alpha3, alpha4, alpha5, alpha6, alpha6L, alpha7, alpha3S, alpha4S, alpha5S; 
-    REAL8 v, v2, v3, v4, v5, v6, v7, v0, mSevenBySix, piM, oneByThree; 
-    INT4 i, n, nBy2;
+	LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
-    /* check inputs */
-    
+	COMPLEX16FrequencySeries *tmp_fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, hOfF->deltaF, &lalDimensionlessUnit, tmp_tseries->data->length);
+        memset (tmp_fseries->data->data, 0, tmp_fseries->data->length * sizeof (COMPLEX16));
 
-    /* compute total mass (secs), mass ratio and the reduced spin parameter */
-    m = (m1 + m2)*LAL_MTSUN_SI;
-    eta = m1*m2/pow(m1 + m2,2.);
-    delta = (m1 - m2)/(m1 + m2);
-    chi_s = 0.;
-    chi_a = 0.;
-    chi = chi_s*(1. - 76.*eta/113.) + delta*chi_a;
+	memset(tmp_tseries->data->data, 0, tmp_tseries->data->length * sizeof (COMPLEX16));
 
-    /* freq resolution and the low-freq bin */
-    df = deltaF;
-    n = numPoints;
+        unsigned int n = tmp_fseries->data->length;
 
-    /* extrinsic parameters */
-    phi0  = 0.;
-    amp0 = pow(m,5./6.)*sqrt(5.*eta/24.)/(pow(LAL_PI,2./3.)*LAL_PC_SI * 1.0e6/LAL_C_SI);
 
-    shft = 2.*LAL_PI*(t_shift);
+	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
 
-    /* spin terms in the amplitude and phase (in terms of the reduced
-     * spin parameter */
-    psi3S = 113.*chi/3.;
-    psi4S = 63845.*(-81. + 4.*eta)*chi*chi/(8.*pow(-113. + 76.*eta, 2.)); 
-    psi5S = -565.*(-146597. + 135856.*eta + 17136.*eta*eta)*chi/(2268.*(-113. + 76.*eta)); 
+	double m1SI = m1*LAL_MSUN_SI;
+	double m2SI = m2*LAL_MSUN_SI;
 
-    alpha3S = (113.*chi)/24.; 
-    alpha4S = (12769.*pow(chi,2)*(-81. + 4.*eta))/(32.*pow(-113. + 76.*eta,2)); 
-    alpha5S = (-113.*chi*(502429. - 591368.*eta + 1680*eta*eta))/(16128.*(-113 + 76*eta)); 
+	double d = 1e6 * LAL_PC_SI;
 
-    /* coefficients of the phase at PN orders from 0 to 3.5PN */
-    psiNewt = 3./(128.*eta);
-    psi2 = 3715./756. + 55.*eta/9.;
-    psi3 = psi3S - 16.*LAL_PI;
-    psi4 = 15293365./508032. + 27145.*eta/504. + 3085.*eta*eta/72. + psi4S;
-    psi5 = (38645.*LAL_PI/756. - 65.*LAL_PI*eta/9. + psi5S);
-    psi6 = 11583231236531./4694215680. - (640.*LAL_PI*LAL_PI)/3. - (6848.*LAL_GAMMA)/21. 
-             + (-5162.983708047263 + 2255.*LAL_PI*LAL_PI/12.)*eta 
-             + (76055.*eta*eta)/1728. - (127825.*eta*eta*eta)/1296.;
-    psi6L = -6848./21.;
-    psi7 = (77096675.*LAL_PI)/254016. + (378515.*LAL_PI*eta)/1512.  
-             - (74045.*LAL_PI*eta*eta)/756.;
+	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, 0, order);
+	//XLALSimIMREOBNRv2DominantMode(&hplus, &hcross, 0, tmp_tseries->deltaT, m1SI, m2SI, f_low - 15, d, 0);
 
-    /* amplitude coefficients */
-    alpha2 = 1.1056547619047619 + (11*eta)/8.; 
-    alpha3 = -2*LAL_PI + alpha3S; 
-    alpha4 = 0.8939214212884228 + (18913*eta)/16128. + (1379*eta*eta)/1152. + alpha4S; 
-    alpha5 = (-4757*LAL_PI)/1344. + (57*eta*LAL_PI)/16. + alpha5S; 
-    alpha6 = -58.601030974347324 + (3526813753*eta)/2.7869184e7 - 
-                (1041557*eta*eta)/258048. + (67999*eta*eta*eta)/82944. + 
-                (10*pow(LAL_PI,2))/3. - (451*eta*pow(LAL_PI,2))/96.; 
-    alpha6L = 856/105.; 
-    alpha7 = (-5111593*LAL_PI)/2.709504e6 - (72221*eta*LAL_PI)/24192. - 
-                (1349*eta*eta*LAL_PI)/24192.; 
+	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
 
-    /* select the terms according to the PN order chosen */
-    switch (order) {
-        case 6:
-            psi7 = 0.;
-            alpha7 = 0.;
-            break;
-        case 5:
-            psi6 = 0.;
-            psi6L = 0.;
-            psi7 = 0.;
-            alpha6 = 0.;
-            alpha6L = 0.;
-            alpha7 = 0.;
-            break;
-        case 4:
-            psi5 = 0.;
-            psi6 = 0.;
-            psi6L = 0.;
-            psi7 = 0.;
-            alpha5 = 0.;
-            alpha6 = 0.;
-            alpha6L = 0.;
-            alpha7 = 0.;
-            break;
-        case 3:
-            psi4 = 0.;
-            psi5 = 0.;
-            psi6 = 0.;
-            psi6L = 0.;
-            psi7 = 0.;
-            alpha4 = 0.;
-            alpha5 = 0.;
-            alpha6 = 0.;
-            alpha6L = 0.;
-            alpha7 = 0.;
-            break;
-        case 2:
-            psi3 = 0.;
-            psi4 = 0.;
-            psi5 = 0.;
-            psi6 = 0.;
-            psi6L = 0.;
-            psi7 = 0.;
-            alpha3 = 0.;
-            alpha4 = 0.;
-            alpha5 = 0.;
-            alpha6 = 0.;
-            alpha6L = 0.;
-            alpha7 = 0.;
-            break;
-        case 1:
-            psi2 = 0.;
-            psi3 = 0.;
-            psi4 = 0.;
-            psi5 = 0.;
-            psi6 = 0.;
-            psi6L = 0.;
-            psi7 = 0.;
-            alpha2 = 0.;
-            alpha3 = 0.;
-            alpha4 = 0.;
-            alpha5 = 0.;
-            alpha6 = 0.;
-            alpha6L = 0.;
-            alpha7 = 0.;
-            break;
-        default:
-            break;
-    }
-    
-    /* fill the zero and Nyquist */
-    mSevenBySix = -7./6.;
-    piM = LAL_PI*m;
-    oneByThree = 1./3.;
-    nBy2 = n/2;
 
-    v0 = pow(LAL_PI*m*f_low, 1./3.);
+	if (shift_flag){
 
-    COMPLEX16 H;
+		f_ref = 157.;//152.84375;
+        	t_shift = -compute_chirp_time(m1, m2, f_ref, order, 0);
+	        //int number_of_bins_to_shift = ceil(t_shift/tmp_tseries->deltaT);
+		for( unsigned int i =0; i < hplus->data->length; i++){
 
-    memset (hOfF, 0, numPoints * sizeof (complex double));
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].re = hplus->data->data[hplus->data->length - 1 - i]; 
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].im = hcross->data->data[hplus->data->length - 1 - i];
+		}
+		/*unsigned int i_max_minus_one = 99;
+		for ( unsigned int i =0; i < i_max_minus_one + 1 ; i++){
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i_max_minus_one - number_of_bins_to_shift + i].re *= (1 - tanh(i));
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i_max_minus_one - number_of_bins_to_shift + i].im *= (1 - tanh(i));
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - number_of_bins_to_shift - hplus->data->length - 1 + i].re *= tanh(i);
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - number_of_bins_to_shift - hplus->data->length - 1 + i].im *= tanh(i);	
+		
+		}*/
 
-    for (i=1; i<n; i++) {
+	}
+	else{
+		f_ref = 0;
+		t_shift = 0;
+		for( unsigned int i =0; i < hplus->data->length; i++){
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].re = hplus->data->data[hplus->data->length - 1 - i];
+			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].im = hcross->data->data[hplus->data->length - 1 - i];
+		}
+	}
 
-        /* fourier frequency corresponding to this bin */
-      	f = i * df;
-    
-        /* PN expansion parameter */
-        v = pow(piM*f, oneByThree);
+	XLALCOMPLEX16TimeFreqFFT (tmp_fseries, tmp_tseries, fwdplan);	
 
-        v2 = v*v;   v3 = v2*v;  v4 = v3*v;  v5 = v4*v;  v6 = v5*v;  v7 = v6*v;
+	for (unsigned int l = 0; l < hOfF->data->length; l++){
+		templateReal = tmp_fseries->data->data[tmp_fseries->data->length - 1 - (n/2 - 1) + l].re;
 
-        if ((f < f_low) || (f > f_high)) {
-            amp = 0.;
-            Psi = 0.;
-        }
-        else {
+      		templateImag = tmp_fseries->data->data[tmp_fseries->data->length - 1 - (n/2 - 1) + l].im;
+      		twopit = LAL_TWOPI * (t_shift);
+      		f = ((double) l) * tmp_fseries->deltaF;
+      		re = cos(twopit * f );
+      		im =  -sin(twopit * f );
+      		hOfF->data->data[l].re = -templateReal*re + templateImag*im;
+     	 	hOfF->data->data[l].im = -templateImag*re - templateReal*im;
 
-            /* compute the phase and amplitude */
-            Psi = psiNewt*pow(v, -5.)*(1. 
-                    + psi2*v2 + psi3*v3 + psi4*v4 
-                    + psi5*v5*(1.+3.*log(v/v0)) 
-                    + (psi6 + psi6L*log(4.*v))*v6 + psi7*v7); 
+                if(l < ceil(f_low/hOfF->deltaF)){
+                        hOfF->data->data[l].re = 0;
+                        hOfF->data->data[l].im = 0;
 
-            amp = amp0*pow(f, mSevenBySix)*(1. 
-                    + alpha2*v2 + alpha3*v3 + alpha4*v4 
-                    + alpha5*v5 + (alpha6 + alpha6L*(LAL_GAMMA+log(4.*v)) )*v6 
-                    + alpha7*v7); 
-
-        }
-
-        H.re = (REAL4) (amp * cos(Psi+shft*f + phi0 + LAL_PI/4.));   /* real */
-        H.im = (REAL4) -(amp * sin(Psi+shft*f + phi0 + LAL_PI/4.));  /* imag */
-
-	hOfF[i] = H;    
-   }    
+                }
+	}
+	XLALDestroyREAL8TimeSeries(hplus);
+	XLALDestroyREAL8TimeSeries(hcross);		
+	XLALDestroyCOMPLEX16FrequencySeries(tmp_fseries);
 
 	return 0;
-
 }
 
 
@@ -567,13 +464,6 @@ double ffinal(double m_total){
 }
 
 
-static int generate_template(double m1, double m2, double duration, double f_low, double f_high, double f_ref, double order, COMPLEX16FrequencySeries *hOfF){
-
-	generate_template_TaylorF2ReducedSpin(m1, m2, f_low, f_high, f_ref, 1./duration, order, hOfF->data->length, hOfF->data->data);
-	
-	return 0;
-}
-
 static int interpolate_psd_from_REAL8FrequencySeries(REAL8FrequencySeries *psd_for_template_bank, REAL8FrequencySeries *psd_to_interpolate){
 
 	unsigned int i=0;
@@ -635,7 +525,6 @@ static int compute_length_max(double chirp_time, double sample_rate, unsigned in
 	
 	//*sample_rate = pow(2., ceil(log(2.* f_max) / log(2.)));
 	*length_max =  round(sample_rate * duration);
-
 	return 0;
 }
 
@@ -654,7 +543,6 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	COMPLEX16FFTPlan *revplan = NULL;
 	
 	compute_max_chirp_time(mc_min, eta_min, f_min, &t_max);
-	t_max*=2;
 	fprintf(stderr, "f_max %e t_max %e\n", sample_rate/2., t_max);
 
 	compute_length_max(t_max, sample_rate, length_max);
@@ -700,8 +588,8 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re;
-                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im;
+			fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re / sqrt(2.*fseries->deltaF);
+                        fseries_for_ifft->data->data[fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im / sqrt(2.*fseries->deltaF);
 		}
 	}
 	return 0;
@@ -738,29 +626,26 @@ static gsl_vector *raw_nodes(int count) {
 	return out;
 }
 
-static int generate_whitened_template(	double m1, double m2, double duration, double f_min, unsigned int length_max, double f_ref, double f_max, int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
+static int generate_whitened_template(	double m1, double m2, 
+					double f_min, unsigned int length_max,
+					int order, REAL8FrequencySeries* psd, gsl_vector* template_real,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
-					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan) {
-	double tmp;
-	tmp = psd->data->data[0];	
-	generate_template(m1, m2, duration, f_min, f_max, f_ref, order, fseries);
+					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan_for_tdom_wave, int shift_flag) {
+
+	generate_template(m1, m2, f_min, order, fseries, tmp_tseries, fwdplan_for_tdom_wave, shift_flag);
 	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
-
-	/* add quadrature-phase to waveform */
 	add_quadrature_phase(fseries, fseries_for_ifft);
-
 	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
-
         for(unsigned int l = 0 ; l < length_max; l++){
-		
-		gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
-		gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max- 1) + l].im);
+
+                gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
+                gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max- 1) + l].im);		
 	}
 
 	return 0;
-} 
+}
 
-static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vector *etavec, double f_min, int length_max, double f_ref, REAL8FrequencySeries* psd, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan){
+static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vector *etavec, double f_min, int length_max, REAL8FrequencySeries* psd, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan *revplan){
        /*
  	* N_mc is number of points on M_c grid
  	* viceversa for M_eta
@@ -771,12 +656,21 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
 	double working_duration;
         int working_length;
 	double eta, mc, m1, m2;
+	LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
+
 	working_length = fseries_for_ifft->data->length;
 	working_duration = working_length*tseries->deltaT;
 	sample_rate = round(working_length / working_duration);
 
 	gsl_vector *template_real = gsl_vector_calloc(length_max);
 	gsl_vector *template_imag = gsl_vector_calloc(length_max);
+
+	COMPLEX16TimeSeries *tmp_tseries; 
+	COMPLEX16FFTPlan *fwdplan_for_tseries;
+
+	tmp_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, 1/sample_rate, &lalDimensionlessUnit, tseries->data->length);
+        memset (tmp_tseries->data->data, 0, tmp_tseries->data->length * sizeof (COMPLEX16));
+        fwdplan_for_tseries = XLALCreateForwardCOMPLEX16FFTPlan(tmp_tseries->data->length, 1);
 
 	/* gsl_matrix *A will contain template bank */
 	gsl_matrix *A = gsl_matrix_calloc(length_max, 2 * mcvec->size * etavec->size);
@@ -790,7 +684,7 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
                         m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
 
-			generate_whitened_template(m1, m2, 1. / fseries->deltaF, f_min, length_max, f_ref, sample_rate / (2.*1.0), 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan);
+			generate_whitened_template(m1, m2, f_min, length_max, 4, psd, template_real, template_imag, tseries, fseries, fseries_for_ifft, revplan, tmp_tseries, fwdplan_for_tseries, 1);
 	
 			gsl_matrix_set_col(A, 2*k,  template_real);
 			gsl_matrix_set_col(A, 2*k+1, template_imag);
@@ -802,8 +696,12 @@ static gsl_matrix *create_templates_from_mc_and_eta(gsl_vector *mcvec, gsl_vecto
 	gsl_vector_free(template_real);
 	gsl_vector_free(template_imag);
 
+	XLALDestroyCOMPLEX16TimeSeries(tmp_tseries);
+	XLALDestroyCOMPLEX16FFTPlan(fwdplan_for_tseries);
+
 	return A;
 }
+
 
 static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank){
 	
@@ -835,7 +733,7 @@ static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank
 	fprintf(stderr, "SVD completed.\n");
 
 
-	tolerance = 0.9999999;
+	tolerance = 0.999999;
 	norm_s = pow(gsl_blas_dnrm2(S), 2.);
 	//norm_s = gsl_blas_dasum(S);
 	fprintf(stderr, "norm = %e\n", norm_s);
@@ -963,7 +861,7 @@ static int make_patch_from_manifold(struct twod_waveform_interpolant_manifold *m
 
 		if ( 0. <= manifold->inner_param1_min + j*mc_width - pad_mc){
 
-			mc_min = manifold->inner_param1_min + j*mc_width - pad_mc;	
+			mc_min = manifold->inner_param1_min + j*mc_width - pad_mc;			
 			manifold->interp_arrays[i].param1_min = mc_min;		
 			manifold->interp_arrays[i].inner_param1_min = mc_min + pad_mc;
 		}
@@ -1081,8 +979,9 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		mchirps_even = even_param_spacing(mc_min, mc_max, N_mc);
 		etas_even = even_param_spacing(eta_min, eta_max, M_eta);
 
-		templates = create_templates_from_mc_and_eta(mchirps_even, etas_even, f_min, length_max, manifold->f_ref, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
+		templates = create_templates_from_mc_and_eta(mchirps_even, etas_even, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
 
+			
 		gsl_vector_free(etas_even);
 		gsl_vector_free(mchirps_even);
 	
@@ -1100,8 +999,7 @@ static int populate_interpolants_on_patches(struct twod_waveform_interpolant_man
 		mchirps_nodes = node_param_spacing(mc_min, mc_max, x_nodes);
 		etas_nodes = node_param_spacing(eta_min, eta_max, y_nodes);
 
-		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, length_max, manifold->f_ref, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
-
+		templates_at_nodes = create_templates_from_mc_and_eta(mchirps_nodes, etas_nodes, f_min, length_max, manifold->psd, tseries, fseries, fseries_for_ifft, revplan);
 
 		phase_M0_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
 		M_xy = gsl_matrix_complex_calloc(mchirps_nodes->size, etas_nodes->size);
@@ -1179,6 +1077,7 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(REA
 
 
 	initialize_time_and_freq_series(&psd_for_template_bank, &fseries, &fseries_for_ifft, &tseries, &revplan, psd_to_interpolate, outer_mc_min, outer_eta_min, f_min, &length_max, sample_rate, deltaF);
+
 	manifold = interpolants_manifold_init(psd_for_template_bank, patches_in_eta, patches_in_mc, number_templates_along_mc, number_templates_along_eta, mc_min, mc_max, eta_min, eta_max, outer_mc_min, outer_mc_max, outer_eta_min, outer_eta_max, mc_padding, eta_padding, length_max, f_ref);
 
 

@@ -805,7 +805,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
       }
       fclose(in);
     }
-		
+		IFOdata[i].oneSidedNoisePowerSpectrum->data->data[0] = IFOdata[i].oneSidedNoisePowerSpectrum->data->data[1];	
 		if (LALInferenceGetProcParamVal(commandLine, "--data-dump")) {
 			const UINT4 nameLength=256;
 			char filename[nameLength];
@@ -1080,7 +1080,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       order = XLALGetOrderFromString(injEvent->waveform);
       if ( (int) order == XLAL_FAILURE)
         ABORTXLAL(&status);
-      amporder = injEvent->amp_order;
+      //amporder = injEvent->amp_order;
       //if(amporder<0) amporder=0;
       /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
        * They should be added to injEvent and set to appropriate values 

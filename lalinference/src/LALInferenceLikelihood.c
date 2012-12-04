@@ -263,7 +263,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
     timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))) + timedelay;
     twopit    = LAL_TWOPI * timeshift;
-
+	fprintf(stderr, "timeshift: %f\n", timeshift);
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  / distMpc;
     FcrossScaled = Fcross / distMpc;
@@ -291,10 +291,10 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re  
-                          +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].re;
-      plainTemplateImag = FplusScaled * dataPtr->freqModelhPlus->data->data[i].im  
-                          +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im;
+      plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re   /* divide by  sqrt(2.*deltaF) to undo norm from XLALWhitenCOMPLEX16FrequencySeries */
+                          +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].re ;
+      plainTemplateImag = FplusScaled * dataPtr->freqModelhPlus->data->data[i].im 
+                          +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im ;
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
       f = ((double) i) * deltaF;
@@ -309,7 +309,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       diffRe       = dataReal - templateReal;         // Difference in real parts...
       diffIm       = dataImag - templateImag;         // ...and imaginary parts, and...
       diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
-      REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      REAL8 temp = ((TwoDeltaToverN * diffSquared) / sqrt( dataPtr->oneSidedNoisePowerSpectrum->data->data[i]) );
       chisquared  += temp;
       dataPtr->loglikelihood -= temp;
  //fprintf(testout, "%e %e %e %e %e %e\n",

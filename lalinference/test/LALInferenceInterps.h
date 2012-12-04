@@ -22,3 +22,4 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 int index_into_patch(struct twod_waveform_interpolant_manifold*, double, double);
 
+

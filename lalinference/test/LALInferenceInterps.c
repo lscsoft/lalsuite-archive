@@ -439,24 +439,19 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 	REAL8TimeSeries *hplus = NULL;
 	REAL8TimeSeries *hcross = NULL;
 
-	LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
-
-	COMPLEX16FrequencySeries *tmp_fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, hOfF->deltaF, &lalDimensionlessUnit, tmp_tseries->data->length);
-        memset (tmp_fseries->data->data, 0, tmp_fseries->data->length * sizeof (COMPLEX16));
+	//LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
 	memset(tmp_tseries->data->data, 0, tmp_tseries->data->length * sizeof (COMPLEX16));
 
-        unsigned int n = tmp_fseries->data->length;
+        unsigned int n = hOfF->data->length;
 
-
-	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
 
 	double m1SI = m1*LAL_MSUN_SI;
 	double m2SI = m2*LAL_MSUN_SI;
 
 	double d = 1e6 * LAL_PC_SI;
 
-	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, 0, order);
+	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, order, order);
 	//XLALSimIMREOBNRv2DominantMode(&hplus, &hcross, 0, tmp_tseries->deltaT, m1SI, m2SI, f_low - 15, d, 0);
 
 	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
@@ -491,28 +486,31 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 		}
 	}
 
-	XLALCOMPLEX16TimeFreqFFT (tmp_fseries, tmp_tseries, fwdplan);	
+	XLALCOMPLEX16TimeFreqFFT (hOfF, tmp_tseries, fwdplan);	
 
-	for (unsigned int l = 0; l < hOfF->data->length; l++){
-		templateReal = tmp_fseries->data->data[tmp_fseries->data->length - 1 - (n/2 - 1) + l].re;
+	for (unsigned int l = 0; l < hOfF->data->length/2 + 1; l++){
+		templateReal = hOfF->data->data[hOfF->data->length - 1 - (n/2 - 1) + l].re;
 
-      		templateImag = tmp_fseries->data->data[tmp_fseries->data->length - 1 - (n/2 - 1) + l].im;
+      		templateImag = hOfF->data->data[hOfF->data->length - 1 - (n/2 - 1) + l].im;
       		twopit = LAL_TWOPI * (t_shift);
-      		f = ((double) l) * tmp_fseries->deltaF;
+      		f = ((double) l) * hOfF->deltaF;
       		re = cos(twopit * f );
       		im =  -sin(twopit * f );
-      		hOfF->data->data[l].re = -templateReal*re + templateImag*im;
-     	 	hOfF->data->data[l].im = -templateImag*re - templateReal*im;
-
+      		hOfF->data->data[hOfF->data->length - 1 - (n/2 - 1) + l].re = -templateReal*re + templateImag*im;
+     	 	hOfF->data->data[hOfF->data->length - 1 - (n/2 - 1) + l].im = -templateImag*re - templateReal*im;
+		if (l < hOfF->data->length/2){
+			hOfF->data->data[l].re = 0;
+			hOfF->data->data[l].im = 0;
+		}
+		/*
                 if(l < ceil(f_low/hOfF->deltaF)){
                         hOfF->data->data[l].re = 0;
                         hOfF->data->data[l].im = 0;
 
-                }
+                }*/
 	}
 	XLALDestroyREAL8TimeSeries(hplus);
 	XLALDestroyREAL8TimeSeries(hcross);		
-	XLALDestroyCOMPLEX16FrequencySeries(tmp_fseries);
 
 	return 0;
 }
@@ -524,19 +522,19 @@ static int get_psd_from_file(REAL8FrequencySeries *series,  const char *fname){
 	double f0 = series->f0;
 	double f;
 	const gsl_interp_type *t = gsl_interp_linear;
-	gsl_interp *g_interp = gsl_interp_alloc (t, 16384);
+	gsl_interp *g_interp = gsl_interp_alloc (t, 65537);
 	gsl_interp_accel *acc = gsl_interp_accel_alloc();
-	double freq[16384];
-	double psd[16384];
+	double freq[65537];
+	double psd[65537];
 	
 	unsigned int i = 0;
 	while (!feof(fp)) {
-		if (i >= 16384) break;
+		if (i >= 65537) break;
 		fscanf(fp, "%lf %le\n", &freq[i], &psd[i]);
 		i++;
 	}
 
-	gsl_interp_init(g_interp, freq, psd, 16384);
+	gsl_interp_init(g_interp, freq, psd, 65537);
 	for (i = 0; i < series->data->length; i++) {
 		f = f0 + i * deltaF;
 		series->data->data[i] = gsl_interp_eval(g_interp, freq, psd, f, acc);
@@ -563,7 +561,7 @@ static int compute_working_length_and_sample_rate(double chirp_time, double f_ma
 	
 	*sample_rate = pow(2., ceil(log(2.* f_max) / log(2.)));
 	*length_max =  round(*sample_rate * duration);
-	*working_length = (unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * *(sample_rate))) / log(2.))));
+	*working_length = 32.0*(*sample_rate);//(unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * *(sample_rate))) / log(2.))));
 	return 0;
 }
 
@@ -605,13 +603,13 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	memset (tseries->data->data, 0, tseries->data->length * sizeof (COMPLEX16));
 	
 	// 0 and positive frequencies only 
-	fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length / 2 + 1);
+	fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length);
 	memset (fseries->data->data, 0, fseries->data->length * sizeof (COMPLEX16));	
 	psd = XLALCreateREAL8FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length / 2 + 1);
 	memset (psd->data->data, 0, psd->data->length * sizeof (REAL8));
 	
 	/* FIXME: get_psd_from_file needs to change so that it takes in a real8freqseries and returns a new real8freqseries interpolated from the input */
-	get_psd_from_file(psd, "psd.txt");
+	get_psd_from_file(psd, "H1-32sPSD.dat");
 	//interpolate_psd_from_REAL8FrequencySeries(psd, psd_to_interpolate);
 
 	if (tukey_flag == 1){
@@ -718,7 +716,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 
 }
 
-static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
+/*static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
 	
 	unsigned int n = fseries_for_ifft->data->length;	
 
@@ -727,14 +725,14 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 	
 	if( ! (n % 2) ){
 		for (unsigned int i=1; i < (n/2); i++){		
-			fseries_for_ifft->data->data[ fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re;
-			fseries_for_ifft->data->data[ fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im;
+			fseries_for_ifft->data->data[ fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].re = fseries->data->data[i].re / sqrt(2.*fseries->deltaF);
+			fseries_for_ifft->data->data[ fseries_for_ifft->data->length - 1 - (n/2 - 1) + i ].im = fseries->data->data[i].im / sqrt(2.*fseries->deltaF);
 		}
 	}
 
 	return 0;
 
-}
+}*/
 
 static gsl_vector *even_param_spacing(double min, double max, int count) {
 	gsl_vector *out = gsl_vector_calloc(count);
@@ -789,31 +787,39 @@ static int generate_whitened_template(	double m1, double m2,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan_for_tdom_wave, int shift_flag) {
 
-	gsl_vector_complex *z_t = gsl_vector_complex_calloc(length_max);
-	gsl_complex complex_norm, z_tmp_element;
-	double norm;
+	//gsl_vector_complex *z_t = gsl_vector_complex_calloc(length_max);
+	//gsl_complex complex_norm, z_tmp_element;
+	//double norm;
 
 	generate_template(m1, m2, f_min, order, fseries, tmp_tseries, fwdplan_for_tdom_wave, shift_flag);
-	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
-	add_quadrature_phase(fseries, fseries_for_ifft);
-	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
+	//XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
+	//add_quadrature_phase(fseries, fseries_for_ifft);
+
+	int n = fseries->data->length;
+
+	for ( unsigned int l = 0; l < psd->data->length; l++){
+
+		fseries->data->data[fseries->data->length - 1 - (n/2 - 1) + l].re /= sqrt(psd->data->data[l]);
+		fseries->data->data[fseries->data->length - 1 - (n/2 - 1) + l].im /= sqrt(psd->data->data[l]);
+
+	}
+	freq_to_time_fft(fseries, tseries, revplan);
         for(unsigned int l = 0 ; l < length_max; l++){
 
                 gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
                 gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max- 1) + l].im);		
-		gsl_vector_complex_set(z_t, l, z_tmp_element);
+		//gsl_vector_complex_set(z_t, l, z_tmp_element);
 	}
+	//gsl_blas_zdotc(z_t, z_t, &complex_norm);
 
-	gsl_blas_zdotc(z_t, z_t, &complex_norm);
+        //norm = 1./sqrt( gsl_complex_abs( complex_norm ) );
 
-        norm = 1./sqrt( gsl_complex_abs( complex_norm ) );
-
-        gsl_vector_scale (template_real, norm);
+  	//gsl_vector_scale (template_real, norm);
         
-	gsl_vector_scale (template_imag, norm);
+  	//gsl_vector_scale (template_imag, norm);
         
-        gsl_vector_complex_free(z_t);
-
+        //gsl_vector_complex_free(z_t);
+	fseries_for_ifft->data->data[0].re = 0;
 	return 0;
 } 
 
@@ -926,7 +932,7 @@ static gsl_matrix *create_svd_basis_from_template_bank(gsl_matrix* template_bank
 
 
 	fprintf(stderr,"SVD: using %d basis templates\n:", n);
-	
+	fprintf(stderr, "norm: %f", norm_s);	
 	template_view = gsl_matrix_submatrix(template_bank, 0, 0, template_bank->size1, n);
 	output = gsl_matrix_calloc(template_bank->size1, n);
 	gsl_matrix_memcpy(output, &template_view.matrix);
@@ -1195,10 +1201,10 @@ struct twod_waveform_interpolant_manifold *XLALInferenceCreateInterpManifold(dou
 
 	/* Hard code for now. FIXME: figure out way to optimize and automate patching, given parameter bounds */
 
-        unsigned int patches_in_eta = 1;
-        unsigned int patches_in_mc = 1;
-        unsigned int number_templates_along_eta = 17;
-        unsigned int number_templates_along_mc = 17;
+        unsigned int patches_in_eta = 2;
+        unsigned int patches_in_mc = 2;
+        unsigned int number_templates_along_eta = 15;
+        unsigned int number_templates_along_mc = 15;
 	unsigned int number_of_templates_to_pad = 1;
         unsigned int number_of_patches;
 
@@ -1325,7 +1331,7 @@ static int compute_overlap_whitened_waveform(struct twod_waveform_interpolant_ma
 	COMPLEX16FrequencySeries *htilde;
 	COMPLEX16FFTPlan *revplan;
 
-	htilde = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, fseries_for_ifft->deltaF, &lalDimensionlessUnit, working_length/2 + 1);
+	htilde = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, fseries_for_ifft->deltaF, &lalDimensionlessUnit, working_length);
         memset (htilde->data->data, 0, htilde->data->length * sizeof (COMPLEX16));	
 
         tmp_tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0, 1/sample_rate, &lalDimensionlessUnit, tseries->data->length);
@@ -1348,9 +1354,7 @@ static int compute_overlap_whitened_waveform(struct twod_waveform_interpolant_ma
                         interpolate_waveform_from_mchirp_and_eta(&manifold->interp_arrays[patch_index], h_t, mc, eta);
 			m1 = mc2mass1(mc, eta);
                         m2 = mc2mass2(mc, eta);
-
 			generate_whitened_template(m1, m2, f_min, length_max, 4, manifold->psd, template_real, template_imag, tseries, htilde, fseries_for_ifft, revplan, tmp_tseries, fwdplan_for_tseries, 1);
-
 			for(unsigned int l = 0; l < length_max; l++){
 				GSL_SET_COMPLEX(&z_tmp_element, gsl_vector_get(template_real, l), gsl_vector_get(template_imag, l) );
 				gsl_vector_complex_set(z_tmp, l, z_tmp_element);
@@ -1399,8 +1403,8 @@ int main(void){
 	unsigned int New_N_mc = 50, New_M_eta = 50;
 	double mc_min = 7.2;
 	double eta_min = 0.175;
-	double mc_max = 7.4;
-	double eta_max = 0.2125;
+	double mc_max = 7.6;
+	double eta_max = 0.25;
 	double f_min = 40.0;
 
 	struct twod_waveform_interpolant_manifold *manifold = NULL;

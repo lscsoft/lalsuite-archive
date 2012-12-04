@@ -257,7 +257,9 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata);
  *
  */
 
-void LALInferenceTemplateLALChebyshevInterp(LALInferenceIFOData *IFOdata);
+void LALInferenceTemplateLALChebyshevInterp_RedSpin(LALInferenceIFOData *IFOdata);
+
+void LALInferenceTemplateLALChebyshevInterp_TT4(LALInferenceIFOData *IFOdata);
 
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOdata);
 
