@@ -703,6 +703,7 @@ setup(
 		os.path.join("bin", "pylal_cbc_rankprod"),
 		os.path.join("bin", "pylal_cbc_ulmc"),
 		os.path.join("bin", "ligolw_split_inspiral")
+		os.path.join("bin", "ligolw_far_compare")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

@@ -247,7 +247,7 @@ def all_sngl_snr_hist(
                 connection,
                 ifo,
                 mchirp, eta,
-                min_snri,
+                min_snr,
                 snr_stat = snr_stat,
                 datatype = "all_data",
                 sngls_bins = bins)
