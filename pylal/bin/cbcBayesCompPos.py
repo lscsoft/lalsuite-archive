@@ -752,7 +752,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             oned_data[param]=(save_paths,cl_table_str, ks_table_str)
             
     # Watch out---using private variable _logL
-    max_logls = [max(pos._logL) for pos in pos_list.values()]
+    max_logls = [[name,max(pos._logL)] for name,pos in pos_list.items()]
 
     return greedy2savepaths,oned_data,confidence_levels,max_logls
 
@@ -849,8 +849,8 @@ if __name__ == '__main__':
     param_section_write='<div><p>This comparison was created from the following analyses</p>'
     param_section_write+='<table border="1">'
     param_section_write+='<th>Analysis</th> <th> max(log(L)) </th>'
-    for name,input_file,logl_max in zip(names,opts.pos_list,max_logls):
-        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(input_file,name,logl_max)
+    for name,logl_max in max_logls:
+        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(dict(zip(names,opts.pos_list))[name],name,logl_max)
     param_section_write+='</table></div>'
 
     param_section.write(param_section_write)
