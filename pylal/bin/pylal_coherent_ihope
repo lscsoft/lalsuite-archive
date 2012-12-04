@@ -259,7 +259,7 @@ def setup_datafind(cp, data, logdir, run_datafind=True):
     @param logdir
         path to log directory
     """
-    tag = os.path.basename(os.getcwd())
+    tag = "datafind"
     logdir = os.path.join(logdir, tag)
     if run_datafind and not os.path.isdir(logdir):
         os.makedirs(logdir)
@@ -401,7 +401,7 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
     @param run_splitbank
         add SplitBankJobs to TmpltBankNode, default: True
     """
-    tag = os.path.basename(os.getcwd())
+    tag = "tmpltbank"
     logdir = os.path.join(logdir, tag)
     if (run_tmpltbank or run_splitbank):
         mkdir_p(logdir)
@@ -505,8 +505,8 @@ def setup_fixedbank(cp, fixed_bank_file, data, logdir, run_splitbank=True,\
     Setup the analysis to use the fixed template bank given on the
     command line.
     """
-    tag = os.path.basename(os.getcwd())
-    logdir = os.path.join(logdir, tag)
+    tag = "fixedbank"
+    logdir = os.path.join(logdir, os.path.basename(os.getcwd()))
     if run_splitbank:
         mkdir_p(logdir)
 
@@ -570,8 +570,7 @@ def setup_fixedbank(cp, fixed_bank_file, data, logdir, run_splitbank=True,\
 # =============================================================================
 
 def setup_search(cp, network, data, logdir, usertag=None,\
-                 injection=None, time_slides=None, run_search=True,\
-                 run_injfind=True):
+                 injection=None, time_slides=None, run_search=True):
     """
     Setup a PTFInspiral DAG for this analysis, and the relevant
     InspInjJob if required.
@@ -589,16 +588,13 @@ def setup_search(cp, network, data, logdir, usertag=None,\
 
     @returns (pipeline.CondorDAG, cache.Cache) for this core PTFInspiral run
     """
-    tag = os.path.basename(os.getcwd())
+    tag = "coh_PTF_inspiral"
+    logdir = os.path.join(logdir, os.path.basename(os.getcwd()))
+    if run_search:
+        mkdir_p(logdir)
 
     run_inspinj = injection is not None
     run_time_slides = time_slides is not None
-
-    # set directories
-    if run_search:
-        logdir = os.path.join(logdir, tag)
-        if run_search:
-            mkdir_p(logdir)
 
     # get ifos
     ifos = sorted(lsctables.instrument_set_from_ifos(network))
@@ -652,11 +648,6 @@ def setup_search(cp, network, data, logdir, usertag=None,\
         slides = time_slides
     else:
         slides = [[0]*len(ifos)]
-
-    # set injfinder job
-    if run_injfind:
-        injfindjob = inspiral.InjFindJob(cp)
-        set_job_files(job, tag, os.curdir, logdir)
 
     # build analysis job for each time slide and template bank in each chunk
     # in each segment
@@ -717,13 +708,6 @@ def setup_search(cp, network, data, logdir, usertag=None,\
                 inspcache.append(cache.CacheEntry.from_T050017(\
                                      os.path.abspath(node.get_output())))
 
-                # add injfind job
-                if run_injfind:
-                    injfind_node = inspiral.InspInjFindNode(job)
-                    injfind_node.add_arg(node.get_output())
-                    injfind_node.add_parent(node)
-                    dag.add_node(injfind_node)
-
     return dag, inspcache
 
 # =============================================================================
@@ -767,7 +751,8 @@ def build_time_slides(cp, network):
 # =============================================================================
 
 def setup_clustering(cp, network, data, inspcache, logdir,\
-                     time_slides=None, run_clustering=True):
+                     time_slides=None, injection_run=None,
+                     run_clustering=True):
     """
     Setup a clustering DAG for this analysis.
 
@@ -788,18 +773,16 @@ def setup_clustering(cp, network, data, inspcache, logdir,\
     @returns a pipeline.CondorDAG for the clustering stage, and a cache
     containing the clustered output trigger files.
     """
-    tag = os.path.basename(os.getcwd())
-    logdir = os.path.join(logdir, tag)
+    tag = "coh_PTF_cluster"
+    logdir = os.path.join(logdir, os.path.basename(os.getcwd()))
     if run_clustering and not os.path.isdir(logdir):
         os.makedirs(logdir)
 
     # set tag dependent on time slides
     if time_slides is not None:
-        tag += "_slide_%s" % network.lower()
         ifos = sorted(lsctables.instrument_set_from_ifos(network))
     else:
         time_slides = [None]
-        tag += "_%s" % network.lower()
 
     # set dag
     dag = pipeline.CondorDAG(os.path.join(logdir, "%s.log" % tag))
@@ -807,39 +790,89 @@ def setup_clustering(cp, network, data, inspcache, logdir,\
 
     # set job
     uni = cp.get("condor", "universe")
-    exe = cp.get("condor", "trig_cluster")
+    if uni == "standard":
+        uni = "vanilla"
+    exe = cp.get("condor", tag)
     job = pipeline.CondorDAGJob(uni,exe)
     set_job_files(job, tag, os.curdir, logdir)
-    job.add_ini_opts(cp, "trig_cluster")
+    job.add_ini_opts(cp, tag)
+    if not injection_run:
+        job._CondorJob__options.pop("preserve-sim-inspiral", None)
     clcache = cache.Cache()
 
     for seg in data:
         segment = segments.segment(seg.start(), seg.end())
         for slide in time_slides:
             if slide:
-                slidetag = "_SLIDE_%s" \
+                usertag = "_SLIDE_%s" \
                            % "_".join(["%s%d" % (ifo.upper(), s)\
                                        for s,ifo in zip(slide, ifos)])
                 segcache = inspcache.sieve(segment=segment,\
-                                           description=slidetag)
+                                           description=usertag)
+            elif injection_run:
+                usertag = "_%s" % injection_run.upper()
+                segcache = inspcache.sieve(segment=segment)
             else:
                 segcache = inspcache.sieve(segment=segment)
-                slidetag = ""
+                usertag = ""
             d = abs(segment)
             cachefile = "%s-COH_PTF_INSPIRAL%s-%d-%d.lcf"\
-                        % (network, slidetag, segment[0], d)
+                        % (network, usertag, segment[0], d)
             outfile = "%s-COH_PTF_INSPIRAL%s_CLUSTERED-%d-%d.xml.gz"\
-                       % (network, slidetag, segment[0], d)
+                       % (network, usertag, segment[0], d)
             if run_clustering:
                 with open(cachefile, "w") as f:
                     segcache.tofile(f)
             node = pipeline.CondorDAGNode(job)
             node.add_var_opt("cache-file", cachefile)
             node.add_var_opt("output-file", outfile)
-            clcache.append(cache.CacheEntry.from_T050017(outfile))
+            clcache.append(
+                cache.CacheEntry.from_T050017(os.path.abspath(outfile)))
             dag.add_node(node)
 
     return dag, clcache
+
+
+# =============================================================================
+# Set up injfinder
+# =============================================================================
+
+def setup_injfind(cp, injcache, logdir, run_injfind=True):
+    """
+    Setup a clustering DAG for this analysis.
+
+    @param cp
+        ConfigParser representation of INI file
+    @param injcache
+        glue.lal.Cache of injection mulit_inspiral files to test
+    @param logdir
+        path to log directory
+    @param run_injfind
+        boolean switch to write injfind DAG, rather than just
+        generate the filenames.
+
+    @returns a pipeline.CondorDAG for the injfind stage
+    """
+    tag = "injfind"
+    logdir = os.path.join(logdir, os.path.basename(os.getcwd()))
+    if run_injfind and not os.path.isdir(logdir):
+        os.makedirs(logdir)
+
+    # set dag
+    dag = pipeline.CondorDAG(os.path.join(logdir, "%s.log" % tag))
+    dag.set_dag_file(tag)
+
+    # set injfinder job
+    job = inspiral.InjFindJob(cp)
+    set_job_files(job, tag, os.curdir, logdir)
+
+    # set up injfinder nodes
+    for injfile in injcache.pfnlist():
+        node = inspiral.InspInjFindNode(job)
+        node.add_var_arg(injfile)
+        dag.add_node(node)
+
+    return dag
 
 # =============================================================================
 # Set files for Condor job
@@ -1405,7 +1438,6 @@ if __name__ == "__main__":
     # create the DAG writing the log to the specified directory
     dag = pipeline.CondorDAG(logfile)
     dag.set_dag_file(basename)
-    dag.set_dax_file(basename)
     dagnode = dict()
 
     cachedict = dict()
@@ -1544,8 +1576,7 @@ if __name__ == "__main__":
             tag = "%s_%s" % (injrun.lower(), network.lower())
             mkdir_p(tag, chdir=True)
             _dag, cachedict[tag] = setup_search(cp, network, data[network],\
-                                                logdir, injection=injrun,\
-                                                run_injfind=run["injfind"])
+                                                logdir, injection=injrun)
             if run["injections"]:
                 dagnode[tag] = finalise_DAG(_dag, parents)
                 dag.add_node(dagnode[tag])
@@ -1577,27 +1608,52 @@ if __name__ == "__main__":
     # ============================
     # set up clustering
 
-    for searchtag in ["full_data", "full_data_slide"]:
+    for search in ["full_data", "full_data_slide"]+injruns:
         for network in networks:
-            parents = run["search"]\
-                      and [dagnode["%s_%s" % (searchtag, network.lower())]]\
-                      or []
-            tag = "%s_clustered_%s" % (searchtag, network.lower())
-            mkdir_p(tag, chdir=True)
-            slide = "slide" in searchtag and slides[network] or None
+            searchtag = "%s_%s" % (search, network.lower())
+            os.chdir(searchtag)
+            tag = "%s_clustered_%s" % (search, network.lower())
+            slide = "slide" in search and slides[network] or None
             _dag, cachedict[tag] =\
                 setup_clustering(cp, network, data[network],\
-                                 cachedict["%s_%s" % (searchtag,\
+                                 cachedict["%s_%s" % (search,\
                                                       network.lower())],\
                                  logdir, time_slides=slide,\
+                                 injection_run=(search in injruns and search or
+                                                None),
                                  run_clustering=run["clustering"])
             if run["clustering"]:
+                if run["search"]:
+                    parents = [dagnode[searchtag]]
+                else:
+                    parents = []
                 dagnode[tag] = finalise_DAG(_dag, parents)
                 dag.add_node(dagnode[tag])
             os.chdir(os.pardir)
 
-        print_verbose("%s clustering setup complete.\n" % searchtag,\
+        print_verbose("%s clustering setup complete.\n" % search,\
                       verbose=verbose and run["clustering"])
+
+    # ============================
+    # set up injection finding
+
+    for injrun in injruns:
+        for network in networks:
+            os.chdir("%s_%s" % (injrun.lower(), network.lower()))
+            injtag = "%s_clustered_%s" % (injrun.lower(), network.lower())
+            tag = "%s_injfind" % injtag
+            _dag = setup_injfind(cp, cachedict[injtag], logdir,
+                                 run_injfind=run["injfind"])
+            if run["injfind"]:
+                if run["clustering"]:
+                    parents = [dagnode[injtag]]
+                else:
+                    parents = []
+                dagnode[tag] = finalise_DAG(_dag, parents)
+                dag.add_node(dagnode[tag])
+            os.chdir(os.pardir)
+        print_verbose("%s injection finding setup complete.\n"\
+                      % injrun, verbose=verbose and run["injections"])
 
     # ============================
     # set up plotting
