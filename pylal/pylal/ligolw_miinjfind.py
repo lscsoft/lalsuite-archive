@@ -219,7 +219,7 @@ class DocContents(object):
 
 process_program_name = "ligolw_inspinjfind"
 
-def append_process(xmldoc, match_algorithm, time_window, comment):
+def append_process(xmldoc, match_algorithm, time_window, loudest_by, comment):
     """Convenience wrapper for adding process metadata to the document.
     """
     process = llwapp.append_process(xmldoc, program=process_program_name,
@@ -228,6 +228,8 @@ def append_process(xmldoc, match_algorithm, time_window, comment):
                                     cvs_entry_time=__date__, comment=comment)
     params = [(u"--match-algorithm", u"lstring", match_algorithm),
               (u"--time-window", u"lstring", time_window)]
+    if loudest_by:
+        params.append((u"--loudest-by", u"lstring", loudest_by))
     ligolw_process.append_process_params(xmldoc, process, params)
     return process
 
@@ -241,11 +243,19 @@ def append_process(xmldoc, match_algorithm, time_window, comment):
 #
 
 
-def find_multi_inspiral_matches(contents, sim, time_window):
+def find_multi_inspiral_matches(contents, sim, time_window, loudest_by=None):
     """Scan the inspiral table for triggers matching sim.
     """
-    return [inspiral for inspiral in
-            contents.inspirals_near_endtime(sim.get_end(), time_window)]
+    events = [inspiral for inspiral in
+              contents.inspirals_near_endtime(sim.get_end(), time_window)]
+    if loudest_by and len(events):
+        if hasattr(lsctables.MultiInspiral, "get_%s" % loudest_by):
+            rank = getattr(lsctables.MultiInspiral, "get_%s" % loudest_by)
+        else:
+            rank = lambda x: getattr(x, loudest_by)
+        return sorted(events, key=lambda mi: rank(mi))[-1:]
+    else:
+        return events
 
 
 def add_sim_inspiral_coinc(contents, sim, inspirals):
@@ -280,7 +290,8 @@ def add_sim_inspiral_coinc(contents, sim, inspirals):
 #
 
 
-def ligolw_miinjfind(xmldoc, process, search, time_window, verbose=False):
+def ligolw_miinjfind(xmldoc, process, search, time_window, loudest_by=None,
+                     verbose=False):
     """Parse an XML document and find coincidences between entries
     in sim_inspiral and multi_inspiral tables.
     """
@@ -302,8 +313,8 @@ def ligolw_miinjfind(xmldoc, process, search, time_window, verbose=False):
         if verbose:
             sys.stderr.write("\t%.1f%%\r" % (100.0 * n / N))
             sys.stderr.flush()
-        inspirals = find_multi_inspiral_matches(contents, sim,
-                                                time_window)
+        inspirals = find_multi_inspiral_matches(contents, sim, time_window,
+                                                loudest_by=loudest_by)
         if inspirals:
             add_sim_inspiral_coinc(contents, sim, inspirals)
     if verbose:

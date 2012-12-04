@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Copyright (C) 2012 Duncan M. Macleod, Kipp Cannon
 #
@@ -45,7 +45,7 @@ from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_miinjfind
 
-__author__ = "Dunca M. Macleod <duncan.macleod@ligo.org>"
+__author__ = "Duncan M. Macleod <duncan.macleod@ligo.org>"
 __credits__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = git_version.id
 __date__ = git_version.date
@@ -74,6 +74,10 @@ def parse_command_line():
     parser.add_option("-w", "--time-window", type='float', default=9.,
                       help=("set the time window, in seconds, used by "
                             "the inspiral match-algorithm. Default is 9.0s."))
+    parser.add_option("-l", "--loudest-by", type="string", default=None,
+                      metavar="COLUMN",
+                      help=("return only the loudest MultiInspiral event "
+                            "for each injection, as ranked by COLUMN."))
     parser.add_option("-v", "--verbose", action="store_true",
                       help="be verbose.")
     parser.add_option("-V", "--version", action="version",
@@ -144,12 +148,13 @@ if __name__ == "__main__":
 
         # add process metadata to document
         process = ligolw_miinjfind.append_process(
-                      xmldoc, match_algorithm="inspiral",
-                      time_window=options.time_window, comment=options.comment)
+                      xmldoc, "inspiral", options.time_window,
+                      options.loudest_by, comment=options.comment)
 
         # run miinjfind algorithm
         ligolw_miinjfind.ligolw_miinjfind(xmldoc, process, search,
                                           options.time_window,
+                                          options.loudest_by,
                                           verbose=options.verbose)
 
         # close out the process metadata
