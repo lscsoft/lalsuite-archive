@@ -121,6 +121,10 @@ def parse_command_line():
     clusteropts.add_option("-W", "--time-window", action="store",
                            type="float", default=None,
                            help="The cluster time window")
+    clusteropts.add_option("-l", "--loudest-by", type="string", default="snr",
+                           metavar="COLUMN",
+                           help=("return only the loudest MultiInspiral event "
+                                 "for each injection, as ranked by COLUMN."))
     parser.add_option_group(clusteropts)
 
     (opts,args) = parser.parse_args()
@@ -138,7 +142,7 @@ def parse_command_line():
 # Cluster MultiInspiralTable
 # =============================================================================
 
-def cluster_multi_inspiral(mi_table, timeWindow):
+def cluster_multi_inspiral(mi_table, timeWindow, loudest_by="snr"):
     """Cluster a LIGOLw MultiInspiralTable by SNR according to a given
     clustering timeWindow.
     """
@@ -148,7 +152,10 @@ def cluster_multi_inspiral(mi_table, timeWindow):
 
     # get data
     end_time = numpy.asarray(mi_table.get_end()).astype(float)
-    snr = numpy.asarray(mi_table.get_column("snr"))
+    if hasattr(mi_table, "get_%s" % loudest_by):
+        snr = numpy.asarray(getattr(mi_table, "get_%s" % loudest_by)())
+    else:
+        snr = numpy.asarray(mi_table.get_column(loudest_by))
 
     # get times
     start = round(end_time.min())
@@ -267,7 +274,8 @@ if __name__=='__main__':
     # append our process
     process = ligolw_process.append_process(outxml, program=__file__,
                                             version=__version__)
-    options = [("--time-window", opts.time_window), ("--output-file", outfile)] 
+    options = [("--time-window", opts.time_window), ("--output-file", outfile),
+               ("--loudest-by", opts.loudest_by)] 
     if opts.cache_file:
         options.append(("--cache-file", opts.cache_file))
     for fp in opts.trig_file:
@@ -357,7 +365,8 @@ if __name__=='__main__':
     # cluster the triggers
     #
 
-    cluster_table = cluster_multi_inspiral(trig_table, opts.time_window)
+    cluster_table = cluster_multi_inspiral(trig_table, opts.time_window,
+                                           loudest_by=opts.loudest_by)
     print_verbose("Clustering complete.\n")
     print_verbose("%d triggers remaining.\n" % (len(cluster_table)),
                   profile=False)
