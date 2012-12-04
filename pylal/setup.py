@@ -720,6 +720,7 @@ setup(
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_coherent_ihope"),
 		os.path.join("bin", "pylal_plot_triggers"),
+		os.path.join("bin", "pylal_coh_PTF_cluster"),
 		os.path.join("bin", "ligolw_miinjfind")
 		],
 	data_files = [ ("etc", [
