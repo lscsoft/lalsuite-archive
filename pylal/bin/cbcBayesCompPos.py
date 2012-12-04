@@ -483,7 +483,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
         try:
             common_output_table_header,common_output_table_raw=peparser.parse(open(pos_file,'r'))
-        except IOError:
+        except:
             print 'Unable to read file '+pos_file
             continue
 
