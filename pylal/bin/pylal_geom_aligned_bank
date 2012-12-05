@@ -117,7 +117,7 @@ if opts.verbose:
   print >>sys.stdout, "Calculating covariance matrix at %d." %(elapsed_time())
 
 vals = geom_aligned_bank_utils.estimate_mass_range_slimline(1000000,\
-       opts.pn_order,evals,evecs,opts.max_mass1,\
+       opts.pn_order,evals['fixed'],evecs['fixed'],opts.max_mass1,\
        opts.min_mass1,opts.max_mass2,opts.min_mass2,\
        opts.max_ns_spin_mag,opts.f0,\
        covary=False,maxBHspin=opts.max_bh_spin_mag)
@@ -128,7 +128,7 @@ if opts.verbose:
   print>> sys.stdout, "Covariance matrix calculated at %d." %(elapsed_time())
 
 vals = geom_aligned_bank_utils.estimate_mass_range_slimline(1000000,\
-       opts.pn_order,evals,evecs,opts.max_mass1,\
+       opts.pn_order,evals['fixed'],evecs['fixed'],opts.max_mass1,\
        opts.min_mass1,opts.max_mass2,opts.min_mass2,\
        opts.max_ns_spin_mag,opts.f0,\
        covary=True,evecsCV=evecsCV,maxBHspin=opts.max_bh_spin_mag)
@@ -152,8 +152,8 @@ pylab.xlabel('chi 1')
 pylab.ylabel('chi 2')
 pylab.savefig('plots/bank.png')
 
-numpy.savetxt('metric_evecs.dat',evecs)
-numpy.savetxt('metric_evals.dat',evals)
+numpy.savetxt('metric_evecs.dat',evecs['fixed'])
+numpy.savetxt('metric_evals.dat',evals['fixed'])
 numpy.savetxt('covariance_evecs.dat',evecsCV)
 
 bankFile = open('bank_chis.dat','w')
