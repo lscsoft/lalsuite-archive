@@ -31,6 +31,8 @@ import sys
 import os
 
 import numpy
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot
 from matplotlib import rcParams
 
@@ -168,6 +170,7 @@ dbtables.DBTable_set_connection( connection )
 # create needed indices on tables if they don't already exist
 current_indices = [index[0] for index in
     connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()]
+
 sqlscript = ''
 if 'si_idx' not in current_indices:
     sqlscript += 'CREATE INDEX si_idx ON sngl_inspiral (event_id, snr, chisq, chisq_dof, mchirp, eta);\n'
@@ -236,8 +239,6 @@ for num_ifos in range(2, len(all_ifos)+1):
         # use slides to determine the coincidence window
         tau = sngl_tmplt_far.get_coinc_window(connection, ifos)
 
-        #import pdb; pdb.set_trace()
-
         # make combined snr bins
         max_comb_snr = sngl_tmplt_far.quadrature_sum([max(sngl_ifo_midbins[ifo]) for ifo in ifos])
         combined_bins = numpy.arange(
@@ -262,8 +263,6 @@ for num_ifos in range(2, len(all_ifos)+1):
         T_z = sngl_tmplt_far.inclusive_coinc_time(connection, "all_data", ifos)
         # create rates dict for zerolag coincs
         rate_zerolag = sngl_tmplt_far.compute_cumrate(zerolag_coinc_hist, T_z)
-
-        #import pdb; pdb.set_trace()
 
         # ----------------------- All Possible Coincs ----------------------- #
         if opts.verbose:
@@ -347,9 +346,16 @@ for num_ifos in range(2, len(all_ifos)+1):
 
 	# make plot labels, title, & legend
         ifos_str = ','.join(sorted(ifos))
-        ax.set_xlabel(
-            r'Combined NewSNR: $\sqrt{%s}$' % '+'.join(["\\rho^2_{%s}" % ifo for ifo in ifos])
-            )
+        stat_name = "SNR"
+        if opts.snr_stat == "newsnr":
+            stat_name = ''.join(["New", stat_name])
+        elif opts.snr_stat == "effsnr":
+            stat_name = ''.join(["Eff", stat_name])
+        elif opts.snr_stat == "snroverchi":
+            stat_name = ''.join([stat_name, "overCHI"])
+        quad_sum_string = '+'.join(["\\rho^2_{%s}" % ifo for ifo in ifos])
+
+        ax.set_xlabel(r'Combined %s: $\sqrt{%s}$' % (stat_name, quad_sum_string))
         ax.set_ylabel(r'Most Likely FAR $(yr^{-1})$ for $\rho_c \geq X$')
         ax.set_title(
             r'Rate of %s Events $(%s M_{\odot}-%s M_{\odot})$' %(ifos_str, m1, m2)
