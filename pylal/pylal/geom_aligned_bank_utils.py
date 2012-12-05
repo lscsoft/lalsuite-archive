@@ -28,8 +28,12 @@ def which(program):
     return None
 
 def determine_eigen_directions(psd,order,f0,f_low,f_upper,delta_f,\
-                               return_gs=False,verbose=False,elapsed_time=None):
+                               return_gs=False,verbose=False,elapsed_time=None,\
+                               vary_fmax=False,vary_density=25):
 
+  evals = {}
+  evecs = {}
+  metric = {}
   if verbose:
     print >>sys.stdout,"Beginning to calculate moments at %d." %(elapsed_time())
   
@@ -39,134 +43,137 @@ def determine_eigen_directions(psd,order,f0,f_low,f_upper,delta_f,\
     print >>sys.stdout,"Moments calculated, transforming to metric at %d." \
                        %(elapsed_time())
 
-  Js = []
-  for i in range(18):
-    Js.append(moments['J%d'%(i)])
-  Js.append(moments['J%d'%(-1)])
+  list = ['fixed']
+  if vary_fmax:
+    for t_fmax in numpy.arange(f_low,f_upper,vary_density):
+      list.append(t_fmax)
 
-  logJs = []
-  for i in range(18):
-    logJs.append(moments['log%d'%(i)])
-  logJs.append(moments['log%d'%(-1)])
+  for item in list:
+    Js = []
+    for i in range(18):
+      Js.append(moments['J%d'%(i)][item])
+    Js.append(moments['J%d'%(-1)][item])
 
+    logJs = []
+    for i in range(18):
+      logJs.append(moments['log%d'%(i)][item])
+    logJs.append(moments['log%d'%(-1)][item])
 
-  loglogJs = []
-  for i in range(18):
-    loglogJs.append(moments['loglog%d'%(i)])
-  loglogJs.append(moments['loglog%d'%(-1)])
+    loglogJs = []
+    for i in range(18):
+      loglogJs.append(moments['loglog%d'%(i)][item])
+    loglogJs.append(moments['loglog%d'%(-1)][item])
 
+    logloglogJs = []
+    for i in range(18):
+      logloglogJs.append(moments['logloglog%d'%(i)][item])
+    logloglogJs.append(moments['logloglog%d'%(-1)][item])
 
-  logloglogJs = []
-  for i in range(18):
-    logloglogJs.append(moments['logloglog%d'%(i)])
-  logloglogJs.append(moments['logloglog%d'%(-1)])
+    loglogloglogJs = []
+    for i in range(18):
+      loglogloglogJs.append(moments['loglogloglog%d'%(i)][item])
+    loglogloglogJs.append(moments['loglogloglog%d'%(-1)][item])
 
+    mapping = {}
 
-  loglogloglogJs = []
-  for i in range(18):
-    loglogloglogJs.append(moments['loglogloglog%d'%(i)])
-  loglogloglogJs.append(moments['loglogloglog%d'%(-1)])
-
-  mapping = {}
-
-  if order == 'twoPN':
-    maxLen = 4
-    gs = numpy.matrix(numpy.zeros(shape=(maxLen,maxLen),dtype=float))
-    mapping['Lambda0'] = 0
-    mapping['Lambda2'] = 1
-    mapping['Lambda3'] = 2
-    mapping['Lambda4'] = 3
-  elif order == 'threePointFivePN':
-    maxLen = 8
-    gs = numpy.matrix(numpy.zeros(shape=(maxLen,maxLen),dtype=float))
-    mapping['Lambda0'] = 0
-    mapping['Lambda2'] = 1
-    mapping['Lambda3'] = 2
-    mapping['Lambda4'] = 3
-    mapping['LogLambda5'] = 4
-    mapping['Lambda6'] = 5
-    mapping['Lambda7'] = 6
-    mapping['LogLambda6'] = 7
-  elif order == 'taylorF4_45PN':
-    maxLen = 12
-    gs = numpy.matrix(numpy.zeros(shape=(maxLen,maxLen),dtype=float))
-    mapping['Lambda0'] = 0
-    mapping['Lambda2'] = 1
-    mapping['Lambda3'] = 2
-    mapping['Lambda4'] = 3
-    mapping['LogLambda5'] = 4
-    mapping['Lambda6'] = 5
-    mapping['Lambda7'] = 6
-    mapping['LogLambda6'] = 7
-#    mapping['Lambda8'] = 8
-    mapping['LogLambda8'] = 8
-    mapping['LogLogLambda8'] = 9
-    mapping['Lambda9'] = 10
-    mapping['LogLambda9'] = 11
-  else:
-    raise BrokenError
+    if order == 'twoPN':
+      maxLen = 4
+      gs = numpy.matrix(numpy.zeros(shape=(maxLen,maxLen),dtype=float))
+      mapping['Lambda0'] = 0
+      mapping['Lambda2'] = 1
+      mapping['Lambda3'] = 2
+      mapping['Lambda4'] = 3
+    elif order == 'threePointFivePN':
+      maxLen = 8
+      gs = numpy.matrix(numpy.zeros(shape=(maxLen,maxLen),dtype=float))
+      mapping['Lambda0'] = 0
+      mapping['Lambda2'] = 1
+      mapping['Lambda3'] = 2
+      mapping['Lambda4'] = 3
+      mapping['LogLambda5'] = 4
+      mapping['Lambda6'] = 5
+      mapping['Lambda7'] = 6
+      mapping['LogLambda6'] = 7
+    elif order == 'taylorF4_45PN':
+      maxLen = 12
+      gs = numpy.matrix(numpy.zeros(shape=(maxLen,maxLen),dtype=float))
+      mapping['Lambda0'] = 0
+      mapping['Lambda2'] = 1
+      mapping['Lambda3'] = 2
+      mapping['Lambda4'] = 3
+      mapping['LogLambda5'] = 4
+      mapping['Lambda6'] = 5
+      mapping['Lambda7'] = 6
+      mapping['LogLambda6'] = 7
+      mapping['LogLambda8'] = 8
+      mapping['LogLogLambda8'] = 9
+      mapping['Lambda9'] = 10
+      mapping['LogLambda9'] = 11
+    else:
+      raise BrokenError
  
-  for i in range(16):
-    for j in range(16):
-      # Normal terms
-      if mapping.has_key('Lambda%d'%i) and mapping.has_key('Lambda%d'%j):
-        gs[mapping['Lambda%d'%i],mapping['Lambda%d'%j]] = 0.5 * (Js[17-i-j] - Js[12-i]*Js[12-j] - (Js[9-i] - Js[4]*Js[12-i]) * (Js[9-j] - Js[4] * Js[12-j])/(Js[1] - Js[4]*Js[4]))
-      # Normal,log cross terms
-      if mapping.has_key('Lambda%d'%i) and mapping.has_key('LogLambda%d'%j):
-        gammaij = logJs[17-i-j] - logJs[12-j] * Js[12-i]
-        gamma0i = (Js[9-i] - Js[4] * Js[12-i])
-        gamma0j = logJs[9-j] - logJs[12-j] * Js[4]
-        gs[mapping['Lambda%d'%i],mapping['LogLambda%d'%j]] = \
-            gs[mapping['LogLambda%d'%j],mapping['Lambda%d'%i]] = \
-            0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
-      # Log,log terms
-      if mapping.has_key('LogLambda%d'%i) and mapping.has_key('LogLambda%d'%j):
-        gammaij = loglogJs[17-i-j] - logJs[12-j] * logJs[12-i]
-        gamma0i = (logJs[9-i] - Js[4] * logJs[12-i])
-        gamma0j = logJs[9-j] - logJs[12-j] * Js[4]
-        gs[mapping['LogLambda%d'%i],mapping['LogLambda%d'%j]] = \
-            0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
-      # Normal,loglog cross terms
-      if mapping.has_key('Lambda%d'%i) and mapping.has_key('LogLogLambda%d'%j):
-        gammaij = loglogJs[17-i-j] - loglogJs[12-j] * Js[12-i]
-        gamma0i = (Js[9-i] - Js[4] * Js[12-i])
-        gamma0j = loglogJs[9-j] - loglogJs[12-j] * Js[4]
-        gs[mapping['Lambda%d'%i],mapping['LogLogLambda%d'%j]] = \
-            gs[mapping['LogLogLambda%d'%j],mapping['Lambda%d'%i]] = \
-            0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
-      # log,loglog cross terms
-      if mapping.has_key('LogLambda%d'%i) and mapping.has_key('LogLogLambda%d'%j):
-        gammaij = logloglogJs[17-i-j] - loglogJs[12-j] * logJs[12-i]
-        gamma0i = (logJs[9-i] - Js[4] * logJs[12-i])
-        gamma0j = loglogJs[9-j] - loglogJs[12-j] * Js[4]
-        gs[mapping['LogLambda%d'%i],mapping['LogLogLambda%d'%j]] = \
-            gs[mapping['LogLogLambda%d'%j],mapping['LogLambda%d'%i]] = \
-            0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
-      # Loglog,loglog terms
-      if mapping.has_key('LogLogLambda%d'%i) and mapping.has_key('LogLogLambda%d'%j):
-        gammaij = loglogloglogJs[17-i-j] - loglogJs[12-j] * loglogJs[12-i]
-        gamma0i = (loglogJs[9-i] - Js[4] * loglogJs[12-i])
-        gamma0j = loglogJs[9-j] - loglogJs[12-j] * Js[4]
-        gs[mapping['LogLogLambda%d'%i],mapping['LogLogLambda%d'%j]] = \
-            0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
+    for i in range(16):
+      for j in range(16):
+        # Normal terms
+        if mapping.has_key('Lambda%d'%i) and mapping.has_key('Lambda%d'%j):
+          gs[mapping['Lambda%d'%i],mapping['Lambda%d'%j]] = 0.5 * (Js[17-i-j] - Js[12-i]*Js[12-j] - (Js[9-i] - Js[4]*Js[12-i]) * (Js[9-j] - Js[4] * Js[12-j])/(Js[1] - Js[4]*Js[4]))
+        # Normal,log cross terms
+        if mapping.has_key('Lambda%d'%i) and mapping.has_key('LogLambda%d'%j):
+          gammaij = logJs[17-i-j] - logJs[12-j] * Js[12-i]
+          gamma0i = (Js[9-i] - Js[4] * Js[12-i])
+          gamma0j = logJs[9-j] - logJs[12-j] * Js[4]
+          gs[mapping['Lambda%d'%i],mapping['LogLambda%d'%j]] = \
+              gs[mapping['LogLambda%d'%j],mapping['Lambda%d'%i]] = \
+              0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
+        # Log,log terms
+        if mapping.has_key('LogLambda%d'%i) and mapping.has_key('LogLambda%d'%j):
+          gammaij = loglogJs[17-i-j] - logJs[12-j] * logJs[12-i]
+          gamma0i = (logJs[9-i] - Js[4] * logJs[12-i])
+          gamma0j = logJs[9-j] - logJs[12-j] * Js[4]
+          gs[mapping['LogLambda%d'%i],mapping['LogLambda%d'%j]] = \
+              0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
+        # Normal,loglog cross terms
+        if mapping.has_key('Lambda%d'%i) and mapping.has_key('LogLogLambda%d'%j):
+          gammaij = loglogJs[17-i-j] - loglogJs[12-j] * Js[12-i]
+          gamma0i = (Js[9-i] - Js[4] * Js[12-i])
+          gamma0j = loglogJs[9-j] - loglogJs[12-j] * Js[4]
+          gs[mapping['Lambda%d'%i],mapping['LogLogLambda%d'%j]] = \
+              gs[mapping['LogLogLambda%d'%j],mapping['Lambda%d'%i]] = \
+              0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
+        # log,loglog cross terms
+        if mapping.has_key('LogLambda%d'%i) and mapping.has_key('LogLogLambda%d'%j):
+          gammaij = logloglogJs[17-i-j] - loglogJs[12-j] * logJs[12-i]
+          gamma0i = (logJs[9-i] - Js[4] * logJs[12-i])
+          gamma0j = loglogJs[9-j] - loglogJs[12-j] * Js[4]
+          gs[mapping['LogLambda%d'%i],mapping['LogLogLambda%d'%j]] = \
+              gs[mapping['LogLogLambda%d'%j],mapping['LogLambda%d'%i]] = \
+              0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
+        # Loglog,loglog terms
+        if mapping.has_key('LogLogLambda%d'%i) and mapping.has_key('LogLogLambda%d'%j):
+          gammaij = loglogloglogJs[17-i-j] - loglogJs[12-j] * loglogJs[12-i]
+          gamma0i = (loglogJs[9-i] - Js[4] * loglogJs[12-i])
+          gamma0j = loglogJs[9-j] - loglogJs[12-j] * Js[4]
+          gs[mapping['LogLogLambda%d'%i],mapping['LogLogLambda%d'%j]] = \
+              0.5 * (gammaij - gamma0i*gamma0j/(Js[1] - Js[4]*Js[4]))
 
-  evals,evecs = numpy.linalg.eig(gs)
-  gs = numpy.matrix(gs)
+    evals[item],evecs[item] = numpy.linalg.eig(gs)
+    metric[item] = numpy.matrix(gs)
+
+    for i in range(len(evals[item])):
+      if evals[item][i] < 0:
+        print "WARNING: Negative eigenvalue %e. Setting as positive." %(evals[item][i])
+        evals[item][i] = -evals[item][i]
 
   if verbose:
     print >>sys.stdout,"Metric and eigenvalues calculated at %d." \
                        %(elapsed_time())
 
-  for i in range(len(evals)):
-    if evals[i] < 0:
-      print "WARNING: Negative eigenvalue %e. Setting as positive." %(evals[i])
-      evals[i] = -evals[i]
   if return_gs:
     return evals,evecs,gs
 
   return evals,evecs
 
-def get_moments(psd_file,f0,f_low,f_high,deltaF):
+def get_moments(psd_file,f0,f_low,f_high,deltaF,vary_fmax=False,vary_density=25):
   psd = numpy.loadtxt(psd_file)
   psd_f = psd[:,0]
   psd_amp = psd[:,1]
@@ -175,33 +182,33 @@ def get_moments(psd_file,f0,f_low,f_high,deltaF):
 
   # Need I7
   funct = lambda x: 1
-  I7 = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct)
+  I7 = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct,vary_fmax=vary_fmax,vary_density=vary_density)
 
   # Do all the J moments
   moments = {}
   for i in range(-1,18):
     funct = lambda x: x**((-i+7)/3.)
-    moments['J%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct)/I7
+    moments['J%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct,norm=I7,vary_fmax=vary_fmax,vary_density=vary_density)
 
   # Do the logx multiplied by some power terms
   for i in range(-1,18):
     funct = lambda x: (numpy.log(x**(1./3.))) * x**((-i+7)/3.)
-    moments['log%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct)/I7
+    moments['log%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct,norm=I7,vary_fmax=vary_fmax,vary_density=vary_density)
 
   # Do the loglog term
   for i in range(-1,18):
     funct = lambda x: (numpy.log(x**(1./3.))) * (numpy.log(x**(1./3.))) * x**((-i+7)/3.)
-    moments['loglog%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct)/I7
+    moments['loglog%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct,norm=I7,vary_fmax=vary_fmax,vary_density=vary_density)
 
   # Do the logloglog term
   for i in range(-1,18):
     funct = lambda x: (numpy.log(x**(1./3.))) * (numpy.log(x**(1./3.))) * (numpy.log(x**(1./3.))) * x**((-i+7)/3.)
-    moments['logloglog%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct)/I7
+    moments['logloglog%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct,norm=I7,vary_fmax=vary_fmax,vary_density=vary_density)
 
   # Do the logloglog term
   for i in range(-1,18):
     funct = lambda x: (numpy.log(x**(1./3.))) * (numpy.log(x**(1./3.))) * (numpy.log(x**(1./3.))) * (numpy.log(x**(1./3.))) * x**((-i+7)/3.)
-    moments['loglogloglog%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct)/I7
+    moments['loglogloglog%d' %(i)] = calculate_moment(new_f,new_amp,f_low,f_high,f0,funct,norm=I7,vary_fmax=vary_fmax,vary_density=vary_density)
 
   return moments
 
@@ -226,14 +233,26 @@ def interpolate_psd(psd_f,psd_amp,deltaF):
   return numpy.asarray(new_psd_f),numpy.asarray(new_psd_amp)
 
 
-def calculate_moment(psd_f,psd_amp,fmin,fmax,f0,funct):
+def calculate_moment(psd_f,psd_amp,fmin,fmax,f0,funct,norm=None,vary_fmax=False,vary_density=25):
   # Must ensure deltaF in psd_f is constant
   psd_x = psd_f / f0
   deltax = psd_x[1] - psd_x[0]
 
   comps = (psd_x)**(-7./3.) * funct(psd_x) * deltax/ psd_amp
-  comps_red = comps[numpy.logical_and(psd_f > fmin, psd_f < fmax)]
-  return comps_red.sum()
+  moment = {}
+  logica = numpy.logical_and(psd_f > fmin, psd_f < fmax)
+  comps_red = comps[logica]
+  psdf_red = psd_f[logica]
+  moment['fixed'] = comps_red.sum()
+  if norm:
+    moment['fixed'] = moment['fixed']/norm['fixed']
+  if vary_fmax:
+    for t_fmax in numpy.arange(fmin,fmax,vary_density):
+      comps_red2 = comps[psdf_red < t_fmax]
+      moment[t_fmax] = comps_red2.sum()
+      if norm:
+        moment[t_fmax] = moment[t_fmax]/norm[t_fmax]
+  return moment
 
 def estimate_mass_range_slimline(numiters,order,evals,evecs,maxmass1,minmass1,maxmass2,minmass2,maxspin,f0,covary=True,maxBHspin=None,evecsCV=None):
   out = []
@@ -290,9 +309,9 @@ def get_random_mass_slimline(N,minmass1,maxmass1,minmass2,maxmass2,maxspin,maxBH
 
     spinspin = spin1z*spin2z
   else:
-    spinspin = 0
-    spin1z = 0
-    spin2z = 0
+    spinspin = numpy.zeros(N,dtype=float)
+    spin1z = numpy.zeros(N,dtype=float)
+    spin2z = numpy.zeros(N,dtype=float)
 
   chiS = 0.5 * (spin1z + spin2z)
   chiA = 0.5 * (spin1z - spin2z)
@@ -302,8 +321,11 @@ def get_random_mass_slimline(N,minmass1,maxmass1,minmass2,maxmass2,maxspin,maxBH
   beta += 113. / 12. * delta * chiA
   sigma = eta / 48. * (474 * spinspin)
   gamma = numpy.zeros(len(sigma))
-  sigma += (1 - 2*eta) * (81./16. * (chiS*chiS + chiA*chiA))
-  sigma += delta * (81. / 8. * (chiS*chiA))
+  for spinA,massA in zip([spin1z,spin2z],[mass1,mass2]):
+    sigmaFac = 1. / 96. * (massA / mass)**2
+    sigmaFac2 = (720 * qm_scalar_fac -1) * spinA * spinA
+    sigmaFac3 = (240 * qm_scalar_fac - 7) * spinA * spinA
+    sigma += sigmaFac * (sigmaFac2 - sigmaFac3)
   gamma = (732985./2268. - 24260./81.*eta - 340./9.*eta*eta)*chiS
   gamma += (732985. / 2268. + 140./9. * eta) * delta * chiA
 
