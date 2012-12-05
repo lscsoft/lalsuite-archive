@@ -146,7 +146,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
                   % (_url_prefix, site, frametype, gpsstart, gpsend)
         else:
             url = "%s/gwf/%s/%s/segments.json"\
-                  % (_url_prefx, site, frametype)
+                  % (_url_prefix, site, frametype)
 
         response = self._requestresponse("GET", url)
         segmentlist = self.decode(response.read())
