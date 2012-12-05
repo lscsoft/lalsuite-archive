@@ -1,0 +1,193 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2012 Matthew West
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                 Preamble
+#
+# =============================================================================
+#
+
+import sqlite3
+import copy
+import numpy
+import matplotlib
+from matplotlib import pyplot
+
+from glue.ligolw import dbtables
+import efficiency
+
+__author__ = "Matthew West <matthew.west@ligo.org>"
+__version__ = "git id %s" % git_version.id
+__date__ = git_version.date
+
+description = """
+    """
+
+
+#
+# =============================================================================
+#
+#                                Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+    """
+    Parse the command line.
+    """
+    parser = OptionParser(
+        version = "Name: %%prog\n%s" % git_version.verbose_msg,
+        usage = "%prog [options]",
+        description = description
+        )
+    parser.add_option("-c", "--database-cache", metavar = "name", type="string", default=None, \
+        help = "Get database files from the LAL cache named filename. Required."
+        )
+    parser.add_option( "-t", "--tmp-space", action="store", type="string", default=None,
+        metavar = "PATH",
+        help =
+            "Location of local disk on which to do work. This is optional; " +
+            "it is only used to enhance performance in a networked " +
+            "environment. "
+        )
+    parser.add_option("--num-dist-bins", type="int", default=10,
+        metavar = "INT",
+        help = "The number of distance bins for the efficiency histogram"
+        )
+    parser.add_option("--scale-dist-bin", type="string", default="linear",
+        metavar = "{linear|log}",
+        help = "How the distance bins are broken up."
+        )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help = "Be verbose."
+        )
+
+
+#
+# =============================================================================
+#
+#                                    Main
+#
+# =============================================================================
+#
+
+
+#
+# Command line
+#
+
+opts = parse_command_line()
+
+# get database url paths from cache
+database_list = [CacheEntry(line).path() for line in file(opts.database_cache)]
+# make list of database tags
+db_tags = opts.database_tags.split(',')
+
+VT_dict = {}
+eff_dict = {}
+bin_width = 4.0
+r = numpy.arange(start=0, stop=32, step=bin_width)
+
+for db_idx, db_path in enumerate(database_list):
+    # make VT and efficiency dictionaries for each database tag
+    db_tag = db_tags[db_idx]
+    VT_dict[db_tag] = {}
+    eff_dict[db_tag] = {}
+
+    # Setup working databases and connections
+    working_filename = dbtables.get_connection_filename(
+        db_path,
+        tmp_path=opts.tmp_space,
+        verbose=opts.verbose)
+    connection = sqlite3.connect( working_filename )
+    if opts.tmp_space:
+        dbtables.set_temp_store_directory(
+            connection,
+            opts.tmp_space,
+            verbose=opts.verbose)
+    dbtables.DBTable_set_connection( connection )
+    
+    # create indices to aid database queries
+    sqlscript = """
+    CREATE INDEX ci_idx ON coinc_inspiral (coinc_event_id);
+    CREATE INDEX cem_idx ON coinc_event_map (coinc_event_id, event_id);
+    CREATE INDEX si_idx ON sngl_inspiral (event_id, snr, chisq, chisq_dof, mchirp, eta);
+    CREATE INDEX em_idx ON experiment_map (coinc_event_id, experiment_summ_id);
+    CREATE INDEX es_idx ON experiment_summary (experiment_summ_id, datatype);
+    """
+    connection.executescript( sqlscript )
+    
+    found_inj, found_fars = efficiency.found_injections(connection, 'ALL_INJ', verbose = True)
+    all_inj = efficiency.successful_injections(connection, 'ALL_INJ', verbose = True)
+    
+    for veto_cat in all_inj:
+        for on_ifos in all_inj[veto_cat]:
+            eff_dict[db_tag][], VT_dict[db_tag][] = efficiency.get_four_volume(
+                all_inj[veto_cat][on_ifos],
+                found_inj[veto_cat][on_ifos],
+                found_fars[veto_cat][on_ifos],
+                r,
+                connection,
+                on_ifos,
+                veto_cat)
+    
+
+plotting_params = {
+    'font.size': 16,
+    'text.usetex': True,
+    'xtick.labelsize': 'medium',
+    'ytick.labelsize': 'medium',
+    'axes.grid': False,
+    'axes.titlesize': 'medium',
+    'axes.labelsize': 'medium',
+    'grid.color': 'k',
+    'grid.linestyle': '-',
+    'legend.fontsize': 'medium',
+    'legend.loc': 'lower right'
+}
+rcParams.update(plotting_params)
+
+fig = pyplot.figure()
+ax = fig.add_subplot(111)
+
+# making the plots
+ax.semilogx(numpy.array(runs['2LowMc'].keys()), numpy.array(runs['2LowMc'].values()),
+    color='r', label='2-stage Ethinca Low-Mchirp',
+    linestyle='None', marker='.', markersize=10)
+ax.semilogx(numpy.array(runs['2BNS'].keys()), numpy.array(runs['2BNS'].values()),
+    color='b', label='2-stage Ethinca BNS',
+    linestyle='None', marker='.', markersize=10)
+ax.semilogx(numpy.array(runs['1BNS'].keys()), numpy.array(runs['1BNS'].values()),
+    color='g', label='1-stage Exact Match BNS',
+    linestyle='None', marker='.', markersize=10)
+
+#ax.set_xlim(1e-2, 1e2)
+#ax.set_ylim(1700, 2700)
+ax.yaxis.set_minor_locator(pyplot.MultipleLocator(25))
+ax.grid(which='major', linewidth=0.75)
+ax.grid(which='minor', linewidth=0.25)
+
+ax.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
+ax.set_ylabel( r'Effective 4-Volume $(Mpc^{3}yr)$' )
+ax.set_title( r'Pipeline Efficiency Comparison: S5 month 12' )
+ax.legend(numpoints=1)
