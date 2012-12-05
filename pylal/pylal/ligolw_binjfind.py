@@ -436,13 +436,13 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
 	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
-def CWBSnglCompare(sim, burst, delta_t = 10.0):
+def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
 	Return False (injection matches event) if the time of the sim and
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -472,12 +472,12 @@ def OmegaNearCoincCompare(sim, burst, offsetvector):
 	"""
 	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
 
-def CWBNearCoincCompare(sim, burst):
+def CWBNearCoincCompare(sim, burst, offsetvector):
 	"""
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	return OmegaSnglCompare(sim, burst, delta_t = 20.0 + burst.duration / 2)
+	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
 
 
 #

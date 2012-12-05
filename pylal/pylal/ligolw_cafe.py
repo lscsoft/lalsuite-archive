@@ -269,11 +269,11 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 	"""
 
 	#
-	# loop over all bins in cafepacker.bins
+	# loop over all bins in cafepacker.bins.  loop is backwards because
+	# list grows in size as bins are split
 	#
 
-	idx = 0
-	while idx < len(cafepacker.bins):
+	for idx in range(len(cafepacker.bins) - 1, -1, -1):
 		#
 		# retrieve bin
 		#
@@ -287,7 +287,6 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 
 		n = int(math.ceil(float(abs(origbin.extent)) / extentlimit))
 		if n <= 1:
-			idx += 1
 			continue
 
 		#
@@ -353,12 +352,10 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 			newbins[-1].extent = extent
 
 		#
-		# replace original bin with split bins.  increment idx to
-		# skip over all new bins
+		# replace original bin with split bins.
 		#
 
 		cafepacker.bins[idx:idx+1] = newbins
-		idx += len(newbins)
 
 	#
 	# done

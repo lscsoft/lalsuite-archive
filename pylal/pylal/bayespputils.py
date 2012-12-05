@@ -574,7 +574,7 @@ class Posterior(object):
         self._posterior={}
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
-        self._loglaliases=['posterior', 'logl','logL','likelihood']
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -2764,7 +2764,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     majorFormatterY.format_data=lambda data:'%.6g'%(data)
     majorFormatterX.set_scientific(True)
     majorFormatterY.set_scientific(True)
-    
+    offset=0.0
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
@@ -2799,7 +2799,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='r', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
@@ -3237,7 +3237,7 @@ def fix_axis_names(plt,par1_name,par2_name):
         plt.xticks(newlocs,newticks,rotation=45)
     return plt
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -3388,7 +3388,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	#locatorX.view_limits(bins[0],bins[-1])
     	axes.xaxis.set_major_locator(locatorX)
 
-    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
     plt.xlabel(ax2_name)
     plt.ylabel(ax1_name)
 
@@ -3965,11 +3965,15 @@ class PEOutputParser(object):
         nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
             print "Downsampling to take only uncorrelated posterior samples from each file."
-            for i in range(len(nskips)):
-                if nskips[i] is None:
-                    print "%s eliminated since all samples are correlated."
-        else:
-            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
+            if len(nskips) == 1 and np.isnan(nskips[0]):
+                print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, 10000)
+            else:
+                for i in range(len(nskips)):
+                    if np.isnan(nskips[i]):
+                        print "%s eliminated since all samples are correlated."
+                    else:
+                        print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -4122,7 +4126,7 @@ class PEOutputParser(object):
 
             finally:
                 infile.close()
-        nskips = np.ones(nfiles,'int')
+        nskips = np.ones(nfiles)
         ntot = sum(ntots)
         if nDownsample is not None:
             if ntot > nDownsample:

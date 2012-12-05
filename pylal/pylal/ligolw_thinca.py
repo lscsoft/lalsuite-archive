@@ -1,4 +1,4 @@
-# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2012  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
