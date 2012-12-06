@@ -36,7 +36,13 @@ smoothing contour plots.
 
 
 import bisect
-import fpconst
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not
+	# be available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import math
 import numpy
 from scipy.signal import signaltools
@@ -213,8 +219,7 @@ class LinearPlusOverflowBins(Bins):
 	>>> X.upper()
 	array([  1.,   9.,  17.,  25.,  Inf])
 
-	>>> import fpconst
-	>>> X[fpconst.NegInf]
+	>>> X[float("-inf")]
 	0
 	>>> X[0]
 	0
@@ -228,7 +233,7 @@ class LinearPlusOverflowBins(Bins):
 	4
 	>>> X[100]
 	4
-	>>> X[fpconst.PosInf]
+	>>> X[float("+inf")]
 	4
 	"""
 	def __init__(self, min, max, n):
@@ -261,13 +266,13 @@ class LinearPlusOverflowBins(Bins):
 		raise IndexError, x
 
 	def lower(self):
-		return numpy.concatenate((numpy.array([fpconst.NegInf]), self.min + self.delta * numpy.arange(len(self) - 2), numpy.array([self.max])))
+		return numpy.concatenate((numpy.array([NegInf]), self.min + self.delta * numpy.arange(len(self) - 2), numpy.array([self.max])))
 
 	def centres(self):
-		return numpy.concatenate((numpy.array([fpconst.NegInf]), self.min + self.delta * (numpy.arange(len(self) - 2) + 0.5), numpy.array([fpconst.PosInf])))
+		return numpy.concatenate((numpy.array([NegInf]), self.min + self.delta * (numpy.arange(len(self) - 2) + 0.5), numpy.array([PosInf])))
 
 	def upper(self):
-		return numpy.concatenate((numpy.array([self.min]), self.min + self.delta * (numpy.arange(len(self) - 2) + 1), numpy.array([fpconst.PosInf])))
+		return numpy.concatenate((numpy.array([self.min]), self.min + self.delta * (numpy.arange(len(self) - 2) + 1), numpy.array([PosInf])))
 
 
 class LogarithmicBins(Bins):
@@ -384,10 +389,10 @@ class LogarithmicPlusOverflowBins(Bins):
 		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1))))
 
 	def centres(self):
-		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([fpconst.PosInf])))
+		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([PosInf])))
 
 	def upper(self):
-		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([fpconst.PosInf])))
+		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([PosInf])))
 
 
 class ATanBins(Bins):
@@ -402,13 +407,12 @@ class ATanBins(Bins):
 
 	Example:
 
-	>>> import fpconst
 	>>> x = ATanBins(-1.0, +1.0, 11)
-	>>> x[fpconst.NegInf]
+	>>> x[float("-inf")]
 	0
 	>>> x[0]
 	5
-	>>> x[fpconst.PosInf]
+	>>> x[float("+inf")]
 	10
 	>>> x.centres()
 	array([-4.42778777, -1.39400285, -0.73469838, -0.40913068, -0.18692843,
@@ -443,7 +447,7 @@ class ATanBins(Bins):
 
 	def lower(self):
 		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid
-		x[0] = fpconst.NegInf
+		x[0] = NegInf
 		return x
 
 	def centres(self):
@@ -451,7 +455,7 @@ class ATanBins(Bins):
 
 	def upper(self):
 		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid
-		x[-1] = fpconst.PosInf
+		x[-1] = PosInf
 		return x
 
 
@@ -466,13 +470,12 @@ class ATanLogarithmicBins(Bins):
 
 	Example:
 
-	>>> import fpconst
 	>>> x = ATanLogarithmicBins(+1.0, +1000.0, 11)
 	>>> x[0]
 	0
 	>>> x[30]
 	5
-	>>> x[fpconst.PosInf]
+	>>> x[float("+inf")]
 	10
 	>>> x.centres()
 	array([  7.21636246e-06,   2.56445876e-01,   2.50007148e+00,

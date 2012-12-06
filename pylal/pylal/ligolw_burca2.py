@@ -25,7 +25,13 @@
 
 
 import bisect
-import fpconst
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not be
+	# available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import math
 import numpy
 from scipy import interpolate
@@ -75,7 +81,7 @@ class interp1d(interpolate.interp1d):
 		# only reason the y array could have negative numbers in it
 		# is the extrapolation that has just been done.
 
-		y = numpy.clip(y, 0.0, fpconst.PosInf)
+		y = numpy.clip(y, 0.0, PosInf)
 
 		# Build the interpolator.  Note the use of fill_value as
 		# the return value for x co-ordinates outside the domain of
@@ -101,7 +107,7 @@ class interp2d(interpolate.interp2d):
 
 		# Clip the z array to 0.  See interp1d for an explanation.
 
-		z = numpy.clip(z, 0.0, fpconst.PosInf)
+		z = numpy.clip(z, 0.0, PosInf)
 
 		# Build the interpolator.  Note the use of fill_value as
 		# the return value for co-ordinates outside the domain of
@@ -283,7 +289,7 @@ class LikelihoodRatio(Likelihood):
 		try:
 			return  P_inj / P_bak
 		except ZeroDivisionError:
-			return fpconst.PosInf
+			return PosInf
 
 
 #
