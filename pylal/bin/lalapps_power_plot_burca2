@@ -26,6 +26,7 @@
 #
 
 
+import fpconst
 import math
 import numpy
 from optparse import OptionParser
@@ -135,9 +136,9 @@ def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
 	axes.set_xlim((0, len(x) - 1))
 
 	if black.bins[0].scale > 150:
-		xticks = (float("-inf"), -0.02, -0.01, -0.005, -0.002, 0, 0.002, 0.005, 0.01, 0.02, float("inf"))
+		xticks = (fpconst.NegInf, -0.02, -0.01, -0.005, -0.002, 0, 0.002, 0.005, 0.01, 0.02, fpconst.PosInf)
 	else:
-		xticks = (float("-inf"), -0.05, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.05, float("inf"))
+		xticks = (fpconst.NegInf, -0.05, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.05, fpconst.PosInf)
 	xticklabels = [r"$-\infty$"] + [r"$%.3g$" % (1000 * x) for x in xticks[1:-1]] + [r"$\infty$"]
 	axes.set_xticks([black.bins[x,:][0] for x in xticks])
 	axes.set_xticklabels(xticklabels)

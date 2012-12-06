@@ -63,6 +63,7 @@
 
 
 import bisect
+import fpconst
 import glob
 import math
 from matplotlib import patches
@@ -1254,13 +1255,13 @@ def coinc_detection_statistic(likelihood, confidence, m = options.confidence_con
 
 	if likelihood <= 0:
 		# log() doesn't like 0, so we handle this case separately.
-		return float("-inf")
+		return fpconst.NegInf
 
 	if 1.0 / likelihood <= 0:
 		# this time likelihood == +inf, which can happen when there
 		# are regions of parameter space where no noise is ever,
 		# *ever*, seen.
-		return float("+inf")
+		return fpconst.PosInf
 
 	return math.log(likelihood) - m * math.log(confidence)
 
