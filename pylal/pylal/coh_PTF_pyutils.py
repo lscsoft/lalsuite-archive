@@ -506,7 +506,7 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
     grade = mi_snr > snr
     null_thresh[grade] += (mi_snr[grade] - snr)/5.0
     # apply veto
-    keep = mi_null_snr >= null_thresh
+    keep = mi_null_snr < null_thresh
     if return_index:
         return keep
     else:
