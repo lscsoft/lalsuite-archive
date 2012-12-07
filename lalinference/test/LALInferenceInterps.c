@@ -433,8 +433,6 @@ static int compute_max_chirp_time_and_max_frequency(double mc_min, double mc_max
 
 static int generate_fdom_template(double m1, double m2, double f_low, double order, COMPLEX16FrequencySeries *hOfF, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan, REAL8FrequencySeries *psd){
 
-	double templateReal, templateImag, twopit, f, re, im, t_shift, f_ref;
-	
 	REAL8TimeSeries *hplus = NULL;
 	REAL8TimeSeries *hcross = NULL;
 
@@ -450,14 +448,11 @@ static int generate_fdom_template(double m1, double m2, double f_low, double ord
 
 	double d = 1e6 * LAL_PC_SI;
 
-	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, order, order);
+	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 2.3, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, 0, order);
 	//XLALSimIMREOBNRv2DominantMode(&hplus, &hcross, 0, tmp_tseries->deltaT, m1SI, m2SI, f_low - 15, d, 0);
 
 	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
 
-	f_ref = 152.84375;
-        t_shift = -compute_chirp_time(m1, m2, f_ref, order, 0);
-	//int number_of_bins_to_shift = ceil(t_shift/tmp_tseries->deltaT);
 	for( unsigned int i =0; i < hplus->data->length; i++){
 		tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].re = hplus->data->data[hplus->data->length - 1 - i]; 
 		tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].im = hcross->data->data[hplus->data->length - 1 - i];
@@ -465,23 +460,12 @@ static int generate_fdom_template(double m1, double m2, double f_low, double ord
 
 	XLALCOMPLEX16TimeFreqFFT (hOfF, tmp_tseries, fwdplan);	
 	for (unsigned int l = 0; l < hOfF->data->length/2 + 1; l++){
-		templateReal = hOfF->data->data[hOfF->data->length - 1 - (n/2 - 1) + l].re;
-
-      		templateImag = hOfF->data->data[hOfF->data->length - 1 - (n/2 - 1) + l].im;
-      		twopit = LAL_TWOPI * (t_shift);
-      		f = ((double) l) * hOfF->deltaF;
-      		re = cos(twopit * f );
-      		im =  -sin(twopit * f );
-      		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re = -templateReal*re + templateImag*im;
-     	 	hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im = -templateImag*re - templateReal*im;
-
 		if (l < hOfF->data->length/2){
                         hOfF->data->data[l].re = 0;
                         hOfF->data->data[l].im = 0;
                 }	
 	
-                }
-
+	}
 	/* zero DC and nyquist */
 	hOfF->data->data[hOfF->data->length - 1 - (n/2)].re = 0;
         hOfF->data->data[hOfF->data->length - 1 - (n/2)].im = 0;
@@ -489,13 +473,12 @@ static int generate_fdom_template(double m1, double m2, double f_low, double ord
 	hOfF->data->data[hOfF->data->length - 1].re = 0;
 	hOfF->data->data[hOfF->data->length - 1].im = 0;
 
-
 	for ( unsigned int l = 0; l < psd->data->length; l++){
 
 		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re /= sqrt(psd->data->data[l]);
 		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im /= sqrt(psd->data->data[l]);
-
 	}
+
 	XLALDestroyREAL8TimeSeries(hplus);
 	XLALDestroyREAL8TimeSeries(hcross);		
 
@@ -521,7 +504,7 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 
 	double d = 1e6 * LAL_PC_SI;
 
-	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, order, order);
+	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, 0, order);
 	//XLALSimIMREOBNRv2DominantMode(&hplus, &hcross, 0, tmp_tseries->deltaT, m1SI, m2SI, f_low - 15, d, 0);
 
 	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
@@ -531,20 +514,12 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 
 		f_ref = 152.84375;
         	t_shift = -compute_chirp_time(m1, m2, f_ref, order, 0);
-	        //int number_of_bins_to_shift = ceil(t_shift/tmp_tseries->deltaT);
+	        //int number_of_bins_to_shift = floor(t_shift/tmp_tseries->deltaT);
 		for( unsigned int i =0; i < hplus->data->length; i++){
 
 			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].re = hplus->data->data[hplus->data->length - 1 - i]; 
 			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].im = hcross->data->data[hplus->data->length - 1 - i];
 		}
-		/*unsigned int i_max_minus_one = 99;
-		for ( unsigned int i =0; i < i_max_minus_one + 1 ; i++){
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i_max_minus_one - number_of_bins_to_shift + i].re *= (1 - tanh(i));
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i_max_minus_one - number_of_bins_to_shift + i].im *= (1 - tanh(i));
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - number_of_bins_to_shift - hplus->data->length - 1 + i].re *= tanh(i);
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - number_of_bins_to_shift - hplus->data->length - 1 + i].im *= tanh(i);	
-		
-		}*/
 
 	}
 	else{
@@ -556,9 +531,9 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 		}
 	}
 
-	XLALCOMPLEX16TimeFreqFFT (hOfF, tmp_tseries, fwdplan);	
+	XLALCOMPLEX16TimeFreqFFT (hOfF, tmp_tseries, fwdplan);
 
-	for (unsigned int l = 0; l < hOfF->data->length/2 + 1; l++){
+	for (unsigned int l = 0; l < n/2 + 1; l++){
 		templateReal = hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re;
 
       		templateImag = hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im;
@@ -566,9 +541,9 @@ static int generate_template(double m1, double m2, double f_low, double order, C
       		f = ((double) l) * hOfF->deltaF;
       		re = cos(twopit * f );
       		im =  -sin(twopit * f );
-      		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re = -templateReal*re + templateImag*im;
-     	 	hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im = -templateImag*re - templateReal*im;
-		if (l < hOfF->data->length/2){
+      		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re = templateReal*re - templateImag*im;
+     	 	hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im = +templateImag*re + templateReal*im;
+		if (l < n/2){
 			hOfF->data->data[l].re = 0;
 			hOfF->data->data[l].im = 0;
 		}
@@ -593,7 +568,7 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 	return 0;
 }
 
-static int ft_interpwave(gsl_vector_complex *hOfT, COMPLEX16FrequencySeries *hOfF, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan){
+static int ft_interpwave(double m1, double m2, gsl_vector_complex *hOfT, COMPLEX16FrequencySeries *hOfF, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan){
 
 	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
 	
@@ -605,6 +580,27 @@ static int ft_interpwave(gsl_vector_complex *hOfT, COMPLEX16FrequencySeries *hOf
 	}
 
 	XLALCOMPLEX16TimeFreqFFT (hOfF, tmp_tseries, fwdplan);	
+
+	double f_ref = 152.84375;
+        double t_shift = compute_chirp_time(m1, m2, f_ref, 4, 0);
+	int n = hOfF->data->length; 
+	for (unsigned int l = 0; l < hOfF->data->length/2 + 1; l++){
+
+		double templateReal = hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re;
+		double templateImag = hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im;
+		double twopit = LAL_TWOPI * (t_shift);
+		double f = ((double) l) * hOfF->deltaF;
+		double re = cos(twopit * f + 2.3);
+		double im =  -sin(twopit * f +2.3);
+		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re = templateReal*re - templateImag*im;
+		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im = templateImag*re + templateReal*im;
+		if (l < hOfF->data->length/2){
+			hOfF->data->data[l].re = 0;
+			hOfF->data->data[l].im = 0;
+		}
+	
+	}
+
 
 	return 0;
 }
@@ -655,7 +651,7 @@ static int compute_working_length_and_sample_rate(double chirp_time, double f_ma
 	
 	*sample_rate = pow(2., ceil(log(2.* f_max) / log(2.)));
 	*length_max =  round(*sample_rate * duration);
-	*working_length = 32.0*(*sample_rate);//(unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * *(sample_rate))) / log(2.))));
+	*working_length = 32.0 * *(sample_rate);//(unsigned int) round(pow(2., ceil(log(*length_max + round(32.0 * *(sample_rate))) / log(2.))));
 	return 0;
 }
 
@@ -878,38 +874,27 @@ static int generate_whitened_template(	double m1, double m2,
 					gsl_vector* template_imag, COMPLEX16TimeSeries* tseries, COMPLEX16FrequencySeries* fseries,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan_for_tdom_wave, int shift_flag) {
 
-	//gsl_vector_complex *z_t = gsl_vector_complex_calloc(length_max);
-	//gsl_complex complex_norm, z_tmp_element;
-	//double norm;
-
 	generate_template(m1, m2, f_min, order, fseries, tmp_tseries, fwdplan_for_tdom_wave, shift_flag);
 	//XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
 	//add_quadrature_phase(fseries, fseries_for_ifft);
 
-	int n = psd->data->length;
+	unsigned int n = psd->data->length;
 
-	for ( unsigned int l = 0; l < psd->data->length; l++){
+	for ( unsigned int l = 0; l < n; l++){
 
 		fseries->data->data[fseries->data->length - 1 - (n - 1) + l].re /= sqrt(psd->data->data[l]);
 		fseries->data->data[fseries->data->length - 1 - (n - 1) + l].im /= sqrt(psd->data->data[l]);
 
 	}
+
+
 	freq_to_time_fft(fseries, tseries, revplan);
         for(unsigned int l = 0 ; l < length_max; l++){
 
                 gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
                 gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max- 1) + l].im);		
-		//gsl_vector_complex_set(z_t, l, z_tmp_element);
 	}
-	//gsl_blas_zdotc(z_t, z_t, &complex_norm);
 
-        //norm = 1./sqrt( gsl_complex_abs( complex_norm ) );
-
-  	//gsl_vector_scale (template_real, norm);
-        
-  	//gsl_vector_scale (template_imag, norm);
-        
-        //gsl_vector_complex_free(z_t);
 	fseries_for_ifft->data->data[0].re = 0;
 	return 0;
 } 
@@ -1424,7 +1409,9 @@ static int compute_overlap_whitened_waveform(struct twod_waveform_interpolant_ma
 
 			generate_fdom_template(m1, m2, f_min, 4, htilde_standard, tmp_tseries, fwdplan_for_tseries, manifold->psd);
 			
-			ft_interpwave(h_t, htilde_interp, tmp_tseries, fwdplan_for_tseries);
+			ft_interpwave(m1, m2, h_t, htilde_interp, tmp_tseries, fwdplan_for_tseries);
+		
+			FILE *fwave = fopen("fwave.txt", "w");
 
 			for(int l = lower; l < upper; l++){
 
@@ -1433,13 +1420,16 @@ static int compute_overlap_whitened_waveform(struct twod_waveform_interpolant_ma
 
 				GSL_SET_COMPLEX(&z_tmp_element, (double)htilde_interp->data->data[htilde_standard->data->length - 1 - (n/2) + l].re, (double)htilde_interp->data->data[htilde_standard->data->length - 1 - (n/2) + l].im);
 				gsl_vector_complex_set(z_tmp_interp, l, z_tmp_element);
-			}
 
+				fprintf(fwave, "%e %e\n", htilde_standard->data->data[htilde_standard->data->length - 1 - (n/2) + l].re, htilde_interp->data->data[htilde_standard->data->length - 1 - (n/2) + l].im);
+			}
+			fclose(fwave);
+			exit(0);
 			gsl_blas_zdotc(z_tmp_standard, z_tmp_interp, &dotc1);
 			gsl_blas_zdotc(z_tmp_interp, z_tmp_interp, &dotc2);
 			gsl_blas_zdotc(z_tmp_standard, z_tmp_standard, &dotc3);	
 			
-		 	Overlap = ( gsl_complex_abs( dotc1 ) / sqrt( gsl_complex_abs( dotc2 ) ) / sqrt( gsl_complex_abs( dotc3 ) ) );
+		 	Overlap = ( gsl_complex_abs( dotc1 )) / sqrt( gsl_complex_abs( dotc2 ) ) / sqrt( gsl_complex_abs( dotc3 ) ) ;
 	
 			fprintf(list_of_overlaps,"mc = %f, eta=%f, overlap=%e\n", mc, eta, Overlap);
 			fprintf(stderr, "mc = %f, eta=%f, overlap=%e\n", mc, eta, Overlap);	

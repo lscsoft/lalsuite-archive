@@ -1076,7 +1076,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8TimeSeries       *signalvecREAL8=NULL;
       LALPNOrder        order;              /* Order of the model             */
       INT4              amporder=0;         /* Amplitude order of the model   */
-
       order = XLALGetOrderFromString(injEvent->waveform);
       if ( (int) order == XLAL_FAILURE)
         ABORTXLAL(&status);
@@ -1115,7 +1114,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       XLALSimInspiralChooseTDWaveform(&hplus, &hcross, injEvent->coa_phase, 1.0/InjSampleRate,
                                                 injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
                                                 injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
-                                                injEvent->spin2z, injEvent->f_lower, 0., injEvent->distance*LAL_PC_SI * 1.0e6,
+                                                injEvent->spin2z, injEvent->f_lower - 10., 0., injEvent->distance*LAL_PC_SI * 1.0e6,
                                                 injEvent->inclination, lambda1, lambda2, waveFlags,
                                                 nonGRparams, amporder, order, approximant);
       XLALSimInspiralDestroyWaveformFlags(waveFlags);
@@ -1134,7 +1133,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       XLALGPSAddGPS(&(hcross->epoch), &(injEvent->geocent_end_time));
       //XLALGPSAdd(&(hplus->epoch), -(REAL8)hplus->data->length*hplus->deltaT);
       //XLALGPSAdd(&(hcross->epoch), -(REAL8)hcross->data->length*hplus->deltaT);
-      
       signalvecREAL8=XLALSimDetectorStrainREAL8TimeSeries(hplus, hcross, injEvent->longitude, injEvent->latitude, injEvent->polarization, det.site);
       if (!signalvecREAL8) XLAL_ERROR_VOID(XLAL_EFUNC);
       

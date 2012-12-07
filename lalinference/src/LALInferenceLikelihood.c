@@ -31,7 +31,6 @@
 #include <lal/FrequencySeries.h>
 #include <lal/TimeFreqFFT.h>
 
-
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
 #else
@@ -121,6 +120,8 @@
 
 /** For testing purposes (for instance sampling the prior), likelihood that returns 0.0 = log(1) every
  time.  Activated with the --zeroLogLike command flag. */
+
+
 REAL8 LALInferenceZeroLogLikelihood(LALInferenceVariables UNUSED *currentParams, LALInferenceIFOData UNUSED *data, LALInferenceTemplateFunction UNUSED *template) {
   return 0.0;
 }
@@ -154,8 +155,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LIGOTimeGPS GPSlal;
   double chisquared;
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
-  double timeshift;  /* time shift (not necessarily same as above)                   */
-  double deltaT, TwoDeltaToverN, deltaF, twopit, f, re, im;
+  double deltaT, TwoDeltaToverN, deltaF, twopit, f, re, im, timeshift;
   double timeTmp;
 	double mc;
   int different;
@@ -170,7 +170,6 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     mc=exp(*(REAL8 *)LALInferenceGetVariable(currentParams,"logmc"));
     LALInferenceAddVariable(currentParams,"chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
   }
-
   /* determine source's sky location & orientation parameters: */
   ra        = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension"); /* radian      */
   dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    /* radian      */
@@ -180,7 +179,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 		 distMpc = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"logdistance"));
 	else
 		 distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
-
+  double phi      = *(REAL8*) LALInferenceGetVariable(currentParams, "phase");
   /* figure out GMST: */
   //XLALINT8NSToGPS(&GPSlal, floor(1e9 * GPSdouble + 0.5));
   XLALGPSSetREAL8(&GPSlal, GPSdouble);
@@ -263,7 +262,6 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
     timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))) + timedelay;
     twopit    = LAL_TWOPI * timeshift;
-	fprintf(stderr, "timeshift: %f\n", timeshift);
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  / distMpc;
     FcrossScaled = Fcross / distMpc;
@@ -291,7 +289,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re   /* divide by  sqrt(2.*deltaF) to undo norm from XLALWhitenCOMPLEX16FrequencySeries */
+      plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re   
                           +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].re ;
       plainTemplateImag = FplusScaled * dataPtr->freqModelhPlus->data->data[i].im 
                           +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im ;
@@ -299,17 +297,17 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       /* (also un-do 1/deltaT scaling): */
       f = ((double) i) * deltaF;
       /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
-      re = cos(twopit * f);
-      im = - sin(twopit * f);
+      re = cos(twopit * f + phi);
+      im = - sin(twopit * f + phi);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT;
       templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT;
-      dataReal     = dataPtr->freqData->data->data[i].re / deltaT;
-      dataImag     = dataPtr->freqData->data->data[i].im / deltaT;
+      dataReal     = dataPtr->freqData->data->data[i].re / (sqrt( dataPtr->oneSidedNoisePowerSpectrum->data->data[i]) *deltaT);
+      dataImag     = dataPtr->freqData->data->data[i].im / (sqrt( dataPtr->oneSidedNoisePowerSpectrum->data->data[i]) *deltaT);
       /* compute squared difference & 'chi-squared': */
       diffRe       = dataReal - templateReal;         // Difference in real parts...
       diffIm       = dataImag - templateImag;         // ...and imaginary parts, and...
       diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
-      REAL8 temp = ((TwoDeltaToverN * diffSquared) / sqrt( dataPtr->oneSidedNoisePowerSpectrum->data->data[i]) );
+      REAL8 temp = (TwoDeltaToverN * diffSquared) ;
       chisquared  += temp;
       dataPtr->loglikelihood -= temp;
  //fprintf(testout, "%e %e %e %e %e %e\n",

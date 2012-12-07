@@ -319,23 +319,17 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 	REAL8TimeSeries *hplus = NULL;
 	REAL8TimeSeries *hcross = NULL;
 
-	LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
-
-	COMPLEX16FrequencySeries *tmp_fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, hOfF->deltaF, &lalDimensionlessUnit, tmp_tseries->data->length);
-        memset (tmp_fseries->data->data, 0, tmp_fseries->data->length * sizeof (COMPLEX16));
+	//LIGOTimeGPS epoch = LIGOTIMEGPSZERO;
 
 	memset(tmp_tseries->data->data, 0, tmp_tseries->data->length * sizeof (COMPLEX16));
 
-        unsigned int n = tmp_fseries->data->length;
+        unsigned int n = hOfF->data->length;
 
-
-	memset (hOfF->data->data, 0, hOfF->data->length * sizeof (COMPLEX16));
 
 	double m1SI = m1*LAL_MSUN_SI;
 	double m2SI = m2*LAL_MSUN_SI;
 
 	double d = 1e6 * LAL_PC_SI;
-
 	XLALSimInspiralTaylorT4PNGenerator( &hplus, &hcross, 0, 1, tmp_tseries->deltaT, m1SI, m2SI, f_low - 10, d, 0, 0, order);
 	//XLALSimIMREOBNRv2DominantMode(&hplus, &hcross, 0, tmp_tseries->deltaT, m1SI, m2SI, f_low - 15, d, 0);
 
@@ -344,7 +338,7 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 
 	if (shift_flag){
 
-		f_ref = 157.;//152.84375;
+		f_ref = 152.84375;
         	t_shift = -compute_chirp_time(m1, m2, f_ref, order, 0);
 	        //int number_of_bins_to_shift = ceil(t_shift/tmp_tseries->deltaT);
 		for( unsigned int i =0; i < hplus->data->length; i++){
@@ -352,14 +346,6 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].re = hplus->data->data[hplus->data->length - 1 - i]; 
 			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i].im = hcross->data->data[hplus->data->length - 1 - i];
 		}
-		/*unsigned int i_max_minus_one = 99;
-		for ( unsigned int i =0; i < i_max_minus_one + 1 ; i++){
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i_max_minus_one - number_of_bins_to_shift + i].re *= (1 - tanh(i));
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - i_max_minus_one - number_of_bins_to_shift + i].im *= (1 - tanh(i));
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - number_of_bins_to_shift - hplus->data->length - 1 + i].re *= tanh(i);
-			tmp_tseries->data->data[tmp_tseries->data->length - 1 - number_of_bins_to_shift - hplus->data->length - 1 + i].im *= tanh(i);	
-		
-		}*/
 
 	}
 	else{
@@ -371,30 +357,42 @@ static int generate_template(double m1, double m2, double f_low, double order, C
 		}
 	}
 
-	XLALCOMPLEX16TimeFreqFFT (tmp_fseries, tmp_tseries, fwdplan);	
+	XLALCOMPLEX16TimeFreqFFT (hOfF, tmp_tseries, fwdplan);	
 
-	for (unsigned int l = 0; l < hOfF->data->length; l++){
-		templateReal = tmp_fseries->data->data[tmp_fseries->data->length - 1 - (n/2 - 1) + l].re;
+	for (unsigned int l = 0; l < n/2 + 1; l++){
+		templateReal = hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re;
 
-      		templateImag = tmp_fseries->data->data[tmp_fseries->data->length - 1 - (n/2 - 1) + l].im;
+      		templateImag = hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im;
       		twopit = LAL_TWOPI * (t_shift);
-      		f = ((double) l) * tmp_fseries->deltaF;
+      		f = ((double) l) * hOfF->deltaF;
       		re = cos(twopit * f );
       		im =  -sin(twopit * f );
-      		hOfF->data->data[l].re = -templateReal*re + templateImag*im;
-     	 	hOfF->data->data[l].im = -templateImag*re - templateReal*im;
-
-                if(l < ceil(f_low/hOfF->deltaF)){
+      		hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].re = templateReal*re - templateImag*im;
+     	 	hOfF->data->data[hOfF->data->length - 1 - (n/2) + l].im = templateImag*re + templateReal*im;
+		if (l < n/2){
+			hOfF->data->data[l].re = 0;
+			hOfF->data->data[l].im = 0;
+		}
+		
+                /*if(hOfF->data->length - 1 - (n/2) + l < ceil(f_low/hOfF->deltaF)){
                         hOfF->data->data[l].re = 0;
                         hOfF->data->data[l].im = 0;
 
-                }
+                }*/
 	}
+
+	/* zero DC and nyquist */
+	hOfF->data->data[hOfF->data->length - 1 - (n/2)].re = 0;
+	hOfF->data->data[hOfF->data->length - 1 - (n/2)].im = 0;
+
+	hOfF->data->data[hOfF->data->length - 1].re = 0;
+	hOfF->data->data[hOfF->data->length - 1].im = 0;
+
 	XLALDestroyREAL8TimeSeries(hplus);
 	XLALDestroyREAL8TimeSeries(hcross);		
-	XLALDestroyCOMPLEX16FrequencySeries(tmp_fseries);
 
 	return 0;
+	
 }
 
 
@@ -557,8 +555,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 	tseries = XLALCreateCOMPLEX16TimeSeries(NULL, &epoch, 0., deltaT, &lalDimensionlessUnit, working_length);
 	memset (tseries->data->data, 0, tseries->data->length * sizeof (COMPLEX16));
 	
-	// 0 and positive frequencies only 
-	fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length / 2 + 1);
+	fseries = XLALCreateCOMPLEX16FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length );
 	memset (fseries->data->data, 0, fseries->data->length * sizeof (COMPLEX16));	
 	psd = XLALCreateREAL8FrequencySeries(NULL, &epoch, 0, deltaF, &lalDimensionlessUnit, working_length / 2 + 1);
 	memset (psd->data->data, 0, psd->data->length * sizeof (REAL8));
@@ -580,7 +577,7 @@ static int initialize_time_and_freq_series(REAL8FrequencySeries **psd_ptr, COMPL
 
 }
 
-static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
+/*static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16FrequencySeries* fseries_for_ifft){
 	
 	unsigned int n = fseries_for_ifft->data->length;	
 	fseries->data->data[0].re = 0;
@@ -593,7 +590,7 @@ static int add_quadrature_phase(COMPLEX16FrequencySeries* fseries, COMPLEX16Freq
 		}
 	}
 	return 0;
-}
+}*/
 
 static gsl_vector *even_param_spacing(double min, double max, int count) {
 	gsl_vector *out = gsl_vector_calloc(count);
@@ -633,14 +630,27 @@ static int generate_whitened_template(	double m1, double m2,
 					COMPLEX16FrequencySeries* fseries_for_ifft, COMPLEX16FFTPlan* revplan, COMPLEX16TimeSeries *tmp_tseries, COMPLEX16FFTPlan *fwdplan_for_tdom_wave, int shift_flag) {
 
 	generate_template(m1, m2, f_min, order, fseries, tmp_tseries, fwdplan_for_tdom_wave, shift_flag);
-	XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
-	add_quadrature_phase(fseries, fseries_for_ifft);
-	freq_to_time_fft(fseries_for_ifft, tseries, revplan);
+	//XLALWhitenCOMPLEX16FrequencySeries(fseries, psd);
+	//add_quadrature_phase(fseries, fseries_for_ifft);
+
+	unsigned int n = psd->data->length;
+
+	for ( unsigned int l = 0; l < n; l++){
+
+		fseries->data->data[fseries->data->length - 1 - (n - 1) + l].re /= sqrt(psd->data->data[l]);
+		fseries->data->data[fseries->data->length - 1 - (n - 1) + l].im /= sqrt(psd->data->data[l]);
+
+	}
+
+
+	freq_to_time_fft(fseries, tseries, revplan);
         for(unsigned int l = 0 ; l < length_max; l++){
 
                 gsl_vector_set(template_real, l, tseries->data->data[tseries->data->length - 1 - (length_max - 1) + l].re);
                 gsl_vector_set(template_imag, l, tseries->data->data[tseries->data->length - 1 - (length_max- 1) + l].im);		
 	}
+
+	fseries_for_ifft->data->data[0].re = 0;
 
 	return 0;
 }

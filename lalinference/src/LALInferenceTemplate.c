@@ -1076,9 +1076,9 @@ void LALInferenceTemplateLALChebyshevInterp_TT4(LALInferenceIFOData *IFOdata)
   unsigned int patch_index;
 	
   double mc       = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
-  double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
+  //double iota     = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "inclination");
   double eta;	
-  double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
+  //double phi      = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "phase");
   if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) {
     double q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
     q2eta(q, &eta);
@@ -1087,11 +1087,11 @@ void LALInferenceTemplateLALChebyshevInterp_TT4(LALInferenceIFOData *IFOdata)
     eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
 
   double m1, m2, deltaT;
-  double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
-  double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
+  //double plusCoef  = -0.5 * (1.0 + pow(cos(iota),2.0));
+  //double crossCoef = cos(iota);//was   crossCoef = (-1.0*cos(iota));, change iota to -iota+Pi to match HW injection definitions.
   double instant;
-  double f_max, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
- 
+  //double f_max, twopit, f, deltaF, re, im, templateReal, templateImag, t_shift;
+  double t_shift; 
   //int Nfft = IFOdata->timeData->data->length;
 
   REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
@@ -1101,13 +1101,13 @@ void LALInferenceTemplateLALChebyshevInterp_TT4(LALInferenceIFOData *IFOdata)
   gsl_vector_complex *h_t = gsl_vector_complex_calloc(IFOdata->manifold->waveform_length);
 
   deltaT = IFOdata->timeData->deltaT;
-  deltaF = IFOdata->freqData->deltaF;
-  f_max = IFOdata->fHigh;
+  //deltaF = IFOdata->freqData->deltaF;
+  //f_max = IFOdata->fHigh;
  
 
   mc2masses(mc, eta, &m1, &m2);
   
-  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY; 
+  IFOdata->modelDomain = LALINFERENCE_DOMAIN_TIME; 
  
 
   /* find correct patch and interpolate a waveform*/
@@ -1118,57 +1118,62 @@ void LALInferenceTemplateLALChebyshevInterp_TT4(LALInferenceIFOData *IFOdata)
   }
   /*********************************************************/
 
-  instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
-
-  instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
-  LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-fprintf(stderr, "instant: %f\n", instant); 
   for (i=0; i<IFOdata->timeData->data->length; i++){
-	if(i>=((unsigned long int)(h_t->size) + windowshift -1 )  || i<windowshift  ){
+	if(i>=((unsigned long int)(h_t->size) + windowshift - 1)  ||  i < windowshift){
                 IFOdata->timeModelhPlus->data->data[i] = 0;
-               // IFOdata->timeModelhCross->data->data[i] = 0;		
+                IFOdata->timeModelhCross->data->data[i] = 0;		
         }
         else{
-  	IFOdata->timeModelhPlus->data->data[i] = GSL_REAL( gsl_vector_complex_get(h_t, i-(INT8)windowshift ) );
-        IFOdata->timeModelhCross->data->data[i] = GSL_IMAG( gsl_vector_complex_get(h_t, i-(INT8)windowshift ) );
+  	IFOdata->timeModelhPlus->data->data[i] = GSL_REAL( gsl_vector_complex_get(h_t, i-(INT8)windowshift) );
+        IFOdata->timeModelhCross->data->data[i] = GSL_IMAG( gsl_vector_complex_get(h_t, i-(INT8)windowshift) );
  	}
   }
- 
-  LALInferenceExecuteFT(IFOdata);
 
-  t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //this undoes the timeshift that's done in the SVD
+  t_shift = compute_chirp_time (m1, m2, IFOdata->manifold->f_ref, 4, 0); //This undoes the timeshift that's done in the SVD.
 
-  for (i=0; i<IFOdata->freqModelhPlus->data->length-1; ++i) {
+
+  instant = (IFOdata->timeData->epoch.gpsSeconds + 2. + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
+
+  instant = instant + ( (INT8)windowshift ) * IFOdata->timeData->deltaT - t_shift; //leave enough room for the tuckey windowing of the data.
+  LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+  
+  //LALInferenceExecuteFT(IFOdata);
+  /* 
+  for (i=0; i<IFOdata->freqModelhPlus->data->length-1; ++i){
+	IFOdata->freqModelhPlus->data->data[i].im*=-1;
+ 	IFOdata->freqModelhCross->data->data[i].im*=-1;
+  }*/
+  /* undo t_shift in interpolated waveforms */
+  /*
+  for (i=0; i<IFOdata->freqModelhPlus->data->length; i++) {
+      
       templateReal = IFOdata->freqModelhPlus->data->data[i].re;  
-
       templateImag = IFOdata->freqModelhPlus->data->data[i].im; 
       twopit = LAL_TWOPI * (t_shift);
       f = ((double) i) * deltaF;
       re = cos(twopit * f + phi);
       im =  -sin(twopit * f + phi);
-      IFOdata->freqModelhPlus->data->data[i].re = -templateReal*re + templateImag*im;
-      IFOdata->freqModelhPlus->data->data[i].im = -templateImag*re - templateReal*im;
-  
-      templateReal = IFOdata->freqModelhCross->data->data[i].re;
+      IFOdata->freqModelhPlus->data->data[i].re = templateReal*re - templateImag*im;
+      IFOdata->freqModelhPlus->data->data[i].im = templateImag*re + templateReal*im;
 
-      templateImag = IFOdata->freqModelhCross->data->data[i].im;
+      
+      templateReal = IFOdata->freqModelhCross->data->data[i].re;
+      templateImag = IFOdata->freqModelhCross->data->data[i].im; 
       twopit = LAL_TWOPI * (t_shift);
       f = ((double) i) * deltaF;
       re = cos(twopit * f + phi);
       im =  -sin(twopit * f + phi);
-      IFOdata->freqModelhPlus->data->data[i].re = -templateReal*re + templateImag*im;
-      IFOdata->freqModelhPlus->data->data[i].im = -templateImag*re - templateReal*im;
- 
-  }
- 
-
-  for (i=0; i<IFOdata->freqModelhCross->data->length-1; ++i) {
+      IFOdata->freqModelhCross->data->data[i].re = templateReal*re - templateImag*im;
+      IFOdata->freqModelhCross->data->data[i].im = templateImag*re + templateReal*im;
+         
+  }*/
+  /*for (i=0; i<IFOdata->freqModelhCross->data->length; i++) {
     // consider inclination angle's effect:
     IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
     IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
     IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
     IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
-  }
+  }*/
 
 
   /* Now...template is not (necessarily) located at specified coalescence time  */
@@ -1185,7 +1190,7 @@ void LALInferenceTemplateLALChebyshevInterp_RedSpin(LALInferenceIFOData *IFOdata
 /*************************************************************************************************/
 /* Wrapper to Chebyshev waveform interpolation function.                                         */
 /* Will always return frequency-domain templates numerically FT'ed                               */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* *  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* Required (`IFOdata->modelParams') parameters are:                                             */
 /*   - "chirpmass"        (REAL8,units of solar masses)                                          */
 /*   - "massratio"        (symmetric mass ratio:  0 < eta <= 0.25, REAL8) <or asym_massratio>    */
@@ -2089,7 +2094,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   int amporder=-1;
 
 	unsigned long				i;
-	static int sizeWarning = 0;
   int ret=0;
   REAL8 instant;
   
@@ -2101,14 +2105,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 	REAL8 mc;
         REAL8 phi0, deltaT, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, inclination;
   
-  static REAL8 previous_m1;
-  static REAL8 previous_m2;
-  static REAL8 previous_spin1z;
-  static REAL8 previous_spin2z;
-  static REAL8 previous_phi0;
-  static REAL8 previous_inclination;
   REAL8 *m1_p,*m2_p;
-	REAL8 deltaF, f_max;
+	REAL8 f_max;
   
   REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
   UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
@@ -2184,7 +2182,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   f_min = IFOdata->fLow /** 0.9 */;
   f_max = IFOdata->fHigh;
   
-	REAL8 start_time	= *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "time");   			/* START time as per lalsimulation conventions */
+	//REAL8 start_time	= *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "time");   			/* START time as per lalsimulation conventions */
   
 	
 	INT4 errnum=0;
@@ -2200,119 +2198,25 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   REAL8 fRef = 0.0;
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
 
-  if (IFOdata->timeData==NULL) {
-    XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'timeData'.\n");
-    XLAL_ERROR_VOID(XLAL_EFAULT);
-  }
+  
   deltaT = IFOdata->timeData->deltaT;
   
   
-  if(IFOdata->modelDomain == LALINFERENCE_DOMAIN_FREQUENCY) {
-    if (IFOdata->freqData==NULL) {
-		  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'freqData'.\n");
-		  XLAL_ERROR_VOID(XLAL_EFAULT);
-	  }
-    deltaF = IFOdata->freqData->deltaF;
-    
-    double cosi = cos(inclination);
-    double plusCoef  = -0.5 * (1.0 + cosi*cosi);
-    double crossCoef = cosi;
-    
-    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
-      XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
-                                                 spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
-                                                 inclination, lambda1, lambda2, waveFlags, nonGRparams,
-                                                 amporder, order, approximant), errnum);
-      XLALSimInspiralDestroyWaveformFlags(waveFlags);
-      XLALSimInspiralDestroyTestGRParam(nonGRparams);
-      
-      previous_m1 = m1;
-      previous_m2 = m2;
-      previous_spin1z = spin1z;
-      previous_spin2z = spin2z;
-      previous_phi0 = phi0;
-      previous_inclination = inclination;
-    
-      if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
-        XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");
-        XLAL_ERROR_VOID(XLAL_EFAULT);
-      }
-      COMPLEX16 *dataPtr = htilde->data->data;
-      for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-        dataPtr = htilde->data->data;
-        if(i < htilde->data->length){
-          IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
-        }else{
-          IFOdata->freqModelhPlus->data->data[i].re = 0.0; 
-          IFOdata->freqModelhPlus->data->data[i].im = 0.0;
-        }
-      }
-      /* nomalise (apply same scaling as in XLALREAL8TimeFreqFFT()") : */
-      //for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-        //IFOdata->reqModelhPlus->data->data[i].re *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
-        //IFOdata->freqModelhPlus->data->data[i].im *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
-      //}
 
-      /*  cross waveform is "i x plus" :  */
-      for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
-        IFOdata->freqModelhCross->data->data[i].re = -IFOdata->freqModelhPlus->data->data[i].im;
-        IFOdata->freqModelhCross->data->data[i].im = IFOdata->freqModelhPlus->data->data[i].re;
-        // consider inclination angle's effect:
-        IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
-        IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
-        IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
-        IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
-      }
-    }else{
-      /*do not recompute the waveform if only inclination has changed. The test assumes that deltaF, f_min and f_max did not change !*/
-      double previous_cosi = cos(previous_inclination);
-
-      plusCoef  /= (-0.5 * (1.0 + previous_cosi*previous_cosi));
-      crossCoef /= (previous_cosi);
-             
-      for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
-        IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
-        IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
-        IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
-        IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
-      }
-      
-    }
-    
-    previous_inclination = inclination;
-    
-    instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
-    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-    
-  }else{
-
-    if(start_time < (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds)){
-      fprintf(stderr, "ERROR: Desired start time %f is before start of segment %f (in %s, line %d)\n",start_time,(IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds), __FILE__, __LINE__);
-      exit(1);
-    }
     
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, fRef, distance, 
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
-                                                 amporder, order, approximant), errnum);
+                                                 0, 4, approximant), errnum);
   XLALSimInspiralDestroyWaveformFlags(waveFlags);
   XLALSimInspiralDestroyTestGRParam(nonGRparams);
-  if (ret == XLAL_FAILURE)
-  {
-		XLALPrintError(" ERROR in XLALSimInspiralChooseWaveform(): error generating waveform. errnum=%d\n",errnum );
-		for (i=0; i<IFOdata->timeData->data->length; i++){
-			IFOdata->timeModelhPlus->data->data[i] = 0.0;
-			IFOdata->timeModelhCross->data->data[i] = 0.0;
-		}
-		return;
-  }
+  
 
 	// FIXME: these waveform shifts need to be checked -> not needed, neither hplus->epoch nor hcross->epoch are used from then onward. 
 	//XLALGPSAdd(&(hplus->epoch), start_time);
 	//XLALGPSAdd(&(hcross->epoch), start_time);
 
 	instant= (IFOdata->timeData->epoch.gpsSeconds-hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
-	
     /* write template (time axis) location in "->modelParams" so that     */
     /* template corresponds to stored parameter values                    */
     /* and other functions may time-shift template to where they want it: */
@@ -2320,10 +2224,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
     
-    if(hplus->data && hcross->data){
-      if(hplus->data->length+2*windowshift<=IFOdata->timeData->data->length){ //check whether the IFOdata->timeData->data vector is long enough to store the waveform produced
-        for (i=0; i<IFOdata->timeData->data->length; i++){
-          if(i>=((unsigned long int)(hplus->data->length) + windowshift)  || i<windowshift || isnan(hplus->data->data[i-(INT8)windowshift]) || isnan(hcross->data->data[i-(INT8)windowshift])){
+    for (i=0; i<IFOdata->timeData->data->length; i++){
+    
+    	if(i>=((unsigned long int)(hplus->data->length) + windowshift)  || i<windowshift || isnan(hplus->data->data[i-(INT8)windowshift]) || isnan(hcross->data->data[i-(INT8)windowshift])){
             IFOdata->timeModelhPlus->data->data[i] = 0;
             IFOdata->timeModelhCross->data->data[i] = 0;		
           }else{
@@ -2331,40 +2234,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
             IFOdata->timeModelhCross->data->data[i] = hcross->data->data[i-(INT8)windowshift];
           }
         }
-      }else{
-        if (!sizeWarning) {
-          sizeWarning = 1;
-          fprintf(stderr, "WARNING: hplus->data->length = %d is longer than IFOdata->timeData->data->length = %d minus windowshift = %d.\n", hplus->data->length, IFOdata->timeData->data->length, (int) windowshift);
-          if(hplus->data->length + (int) windowshift > IFOdata->timeData->data->length)
-            fprintf(stderr, "The waveform template used will be missing its first %d points. Consider increasing the segment length (--seglen). (in %s, line %d)\n",hplus->data->length - IFOdata->timeData->data->length + (int) windowshift , __FILE__, __LINE__);
-          else
-            fprintf(stderr, "The waveform template used will have its first %d points tapered. Consider increasing the segment length (--seglen). (in %s, line %d)\n",hplus->data->length - IFOdata->timeData->data->length + 2*(int)windowshift , __FILE__, __LINE__);
-        }
-        for (i=0; i<IFOdata->timeData->data->length; i++){
-          if((INT8)i>=(INT8)IFOdata->timeData->data->length-(INT8)windowshift || (INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift < 0 || isnan(hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) || isnan(hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift]) ){
-            IFOdata->timeModelhPlus->data->data[i] = 0.0;
-            IFOdata->timeModelhCross->data->data[i] = 0.0;
-          }else{                
-            IFOdata->timeModelhPlus->data->data[i] = hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
-            IFOdata->timeModelhCross->data->data[i] = hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
-          }
-        }
-        instant-= ((INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+2*(INT8)windowshift)*IFOdata->timeData->deltaT;
-        LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
-      }
-    }else{
-      for (i=0; i<IFOdata->timeData->data->length; i++){
-        IFOdata->timeModelhPlus->data->data[i] = 0;
-        IFOdata->timeModelhCross->data->data[i] = 0;
-      }
-      fprintf( stderr, " ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): no generated waveform.\n");
-    }
-}
-		if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
-		if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
+      
+  if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
+  if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
   if ( htilde ) XLALDestroyCOMPLEX16FrequencySeries(htilde);
   
 	return;
+
 }
 
 
