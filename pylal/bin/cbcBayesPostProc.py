@@ -1332,6 +1332,8 @@ if __name__=='__main__':
     # Will only work if the local host runs a mail daemon
     # that can send mail to the internet
     if opts.email:
+        try:
             email_notify(opts.email,opts.outpath)
-
+        except:
+            print 'Unable to send notification email'
 #
