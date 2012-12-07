@@ -61,6 +61,53 @@ __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwester
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
+def email_notify(address,path):
+    import smtplib
+    import subprocess
+    address=address.split(',')
+    SERVER="localhost"
+    USER=os.environ['USER']
+    HOST=subprocess.check_output(["hostname","-f"]).strip()
+    FROM=USER+'@'+HOST
+    SUBJECT="LALInference result is ready at "+HOST+"!"
+    # Guess the web space path for the clusters
+    fslocation=os.path.abspath(path)
+    webpath='posplots.html'
+    if 'public_html' in fslocation:
+        k='public_html'
+    elif 'WWW' in fslocation:
+        k='WWW'
+    else:
+        k=None
+    if k is not None:
+        (a,b)=(fslocation,'')
+        while a!=k:
+            (a,b)=fslocation.split(a)
+            webpath=os.path.join(b,webpath)
+    else: webpath=os.path.join(fslocation,'posplots.html')
+
+    if 'atlas.aei.uni-hannover.de' in HOST:
+        url="https://atlas1.atlas.aei.uni-hannover.de/"
+    elif 'ligo.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo.caltech.edu/"
+    elif 'ligo-wa.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo-wa.caltech.edu/"
+    elif 'ligo-la.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo-la.caltech.edu/"
+    elif 'phys.uwm.edu' in HOST:
+        url="https://ldas-jobs.phys.uwm.edu/"
+    elif 'phy.syr.edu' in HOST:
+        url="https://sugar-jobs.phy.syr.edu/"
+    else:
+        url=HOST+':'
+    url=url+webpath
+
+    TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url
+    message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
+    server=smtplib.SMTP(SERVER)
+    server.sendmail(FROM,address,message)
+    server.quit()
+
 
 class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
     def __init__(self,document):
@@ -1139,6 +1186,7 @@ if __name__=='__main__':
     parser.add_option("--nopdfs",action="store_false",default=True,dest="nopdfs")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1279,4 +1327,11 @@ if __name__=='__main__':
                         #header file for parameter names in posterior samples
                         header=opts.header
                     )
+
+    # Send an email, useful for keeping track of dozens of jobs!
+    # Will only work if the local host runs a mail daemon
+    # that can send mail to the internet
+    if opts.email:
+            email_notify(opts.email,opts.outpath)
+
 #
