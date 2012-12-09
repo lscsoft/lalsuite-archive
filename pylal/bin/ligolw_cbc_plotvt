@@ -113,6 +113,12 @@ def parse_command_line():
             "A comma separated string of the instruments one wishes to " +
             "calculate the efficiency for. Example: 'H1,L1,V1' [Required]"
         )
+    parser.add_option("--database-tags", type="string",
+        metavar = "'tag-1,tag-2,...'",
+        help =
+            "The usertag for the injection run(s) used to compute an efficiency. " +
+            "The default is 'ALL_INJ'."
+        )
     parser.add_option("--inj-usertag", type="string", default="ALL_INJ",
         metavar = "usertag"
         help =
@@ -125,7 +131,7 @@ def parse_command_line():
 
     options, arguments =  parser.parse_args()
 
-    required_options = ["database_cache","veto_category","on_instruments"]
+    required_options = ["database_cache","database_tags","veto_category","on_instruments"]
     missing_options = [option for option in required_options if not getattr(options, option)]
 
     if missing_options:
