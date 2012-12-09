@@ -25,20 +25,29 @@
 # =============================================================================
 #
 
+from optparse import OptionParser
 import sqlite3
-import copy
+import sys
+import os
+
 import numpy
 import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot
+from matplotlib import rcParms
 
+from glue.lal import CacheEntry
 from glue.ligolw import dbtables
-import efficiency
+from pylal import efficiency
 
 __author__ = "Matthew West <matthew.west@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
 description = """
+    %prog calculates the detection efficiency as a function of distance. 
+    The produces plots for efficiency and cumulative VxT vs distance, as
+    well as total VxT vs FAR threshold.
     """
 
 
@@ -70,6 +79,11 @@ def parse_command_line():
             "Location of local disk on which to do work. This is optional; " +
             "it is only used to enhance performance in a networked " +
             "environment. "
+        )
+    parser.add_option( "-P", "--output-path", action = "store", type = "string",
+        default = os.getcwd(), metavar = "PATH",
+        help =
+            "Path where the figures should be stored. Default is current directory."
         )
     parser.add_option("--num-dist-bins", type="int", default=10,
         metavar = "INT",
@@ -208,6 +222,12 @@ for db_idx, db_path in enumerate(database_list):
         source_ref = opts.source_ref,
         num_bins = opts.num_dist_bins)
 
+    # close connection
+    connection.close()
+    dbtables.discard_connection_filename(
+        opts.database,
+        working_filename,
+        verbose=opts.verbose)
     # ------------------------- For Each FAR Threshold ------------------------- #
 
     # compute eff vs distance array
@@ -221,6 +241,9 @@ for db_idx, db_path in enumerate(database_list):
     sumVT_dict[dbtag] = dict([(FAR,numpy.sum(VT)) for FAR, VT VT ])
 
 # -------------------------------- Making Plots ------------------------------- #
+if opts.verbose:
+    print >> sys.stdout, "Making Efficient and 4-Volume Plots"
+
 # shared plotting parameters
 plotting_params = {
     'font.size': 16,
@@ -251,61 +274,76 @@ plot_basename = '-'.join([
     str(start_time), str(end_time - start_time) ])
 
 # making total VT vs FAR plot
-fig = pyplot.figure()
-ax = fig.add_subplot(111)
+if opts.verbose:
+    print >> sys.stdout, "\tTotal 4-Volume (VxT) vs FAR threshold"
+
+VT_FAR = pyplot.figure().add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    ax.semilogx(sumVT_dict[db_tag].keys(), sumVT_dict[db_tag].values(),
+    VT_FAR.semilogx(sumVT_dict[db_tag].keys(), sumVT_dict[db_tag].values(),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-ax.grid(which='major', linewidth=0.75)
-ax.grid(which='minor', linewidth=0.25)
+VT_FAR.grid(which='major', linewidth=0.75)
+VT_FAR.grid(which='minor', linewidth=0.25)
 
-ax.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
-ax.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-ax.set_title( r'Pipeline Efficiency Comparison - VT vs FAR' )
-ax.legend()
+VT_FAR.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
+VT_FAR.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
+VT_FAR.set_title( r'Pipeline Efficiency Comparison - VT vs FAR' )
+VT_FAR.legend()
 
 plot_name = plot_basename % ('VT_vs_FAR', opts.veto_category)
 pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+pyplot.close(VT_FAR)
 
 # Making cumulative VT vs distance plot for FAR=0 threshold
-fig = pyplot.figure()
-ax = fig.add_subplot(111)
+if opts.verbose:
+    print >> sys.stdout, "\tCumulative 4-Volume (VxT) vs %s" % opts.distance_type
+
+VT_Dist = pyplot.figure().add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    ax.semilogx(dist[1:], numpy.cumsum(VT_dict[db_tag][0.0]),
+    VT_Dist.semilogx(dist[1:], numpy.cumsum(VT_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-ax.grid(which='major', linewidth=0.75)
-ax.grid(which='minor', linewidth=0.25)
+VT_Dist.grid(which='major', linewidth=0.75)
+VT_Dist.grid(which='minor', linewidth=0.25)
 
-ax.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
-ax.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-ax.set_title( r'Pipeline Efficiency Comparison - VT vs Distance' )
-ax.legend()
+VT_Dist.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
+VT_Dist.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
+VT_Dist.set_title( r'Pipeline Efficiency Comparison - VT vs Distance' )
+VT_Dist.legend()
 
 plot_name = plot_basename % ('VT_vs_Dist', opts.veto_category)
 pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+pyplot.close(VT_Dist)
 
 # Making efficiency vs distance plot for FAR=0 threshold
-fig = pyplot.figure()
-ax = fig.add_subplot(111)
+if opts.verbose:
+    print >> sys.stdout, "\tDetection Efficiency vs %s" % opts.distance_type
+
+Eff_Dist = pyplot.figure().add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    ax.semilogx(dist[1:], eff_dict[db_tag][0.0]),
+    Eff_Dist.semilogx(dist[1:], eff_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-ax.grid(which='major', linewidth=0.75)
-ax.grid(which='minor', linewidth=0.25)
+Eff_Dist.grid(which='major', linewidth=0.75)
+Eff_Dist.grid(which='minor', linewidth=0.25)
 
-ax.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
-ax.set_ylabel( r'Fraction of Recovered Injections in Bin' )
-ax.set_title( r'Pipeline Efficiency Comparison - Efficiency vs Distance' )
-ax.legend()
+Eff_Dist.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
+Eff_Dist.set_ylabel( r'Fraction of Recovered Injections in Bin' )
+Eff_Dist.set_title( r'Pipeline Efficiency Comparison - Efficiency vs Distance' )
+Eff_Dist.legend()
 
 plot_name = plot_basename % ('Eff_vs_Dist', opts.veto_category)
 pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+pyplot.close(Eff_Dist)
+
+# When all plots are made, exit
+if opts.verbose:
+    print >> sys.stdout, "Finished!"
+sys.exit(0)
+
