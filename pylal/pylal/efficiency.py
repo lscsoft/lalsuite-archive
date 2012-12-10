@@ -50,17 +50,35 @@ from pylal import ligolw_compute_durations as compute_dur
 #
 
 
-def chirp_distance(distance, mchirp, source_ref):
-    if source_ref == "NSNS":
-        mchirp_ref = (1.4+1.4) * (1./4)**(3.0/5.0)
-    elif source_ref == "NSBH":
-        mchirp_ref = (1.4+10.0) * (14.0/11.4**2)**(3.0/5.0)
-    elif source_ref == "BHBH":
-        mchirp_ref = (10.0+10.0) * (1./4)**(3.0/5.0)
-    chirp_dist = distance * (mchirp_ref/mchirp)**(5.0/6.0)
+def chirp_dist(distance, mchirp, source_ref):
+    if not source_ref:
+       return distance
+    else:
+        if source_ref == "NSNS":
+            mchirp_ref = (1.4+1.4) * (1./4)**(3.0/5.0)
+        elif source_ref == "NSBH":
+            mchirp_ref = (1.4+10.0) * (14.0/11.4**2)**(3.0/5.0)
+        elif source_ref == "BHBH":
+            mchirp_ref = (10.0+10.0) * (1./4)**(3.0/5.0)
 
-    return chirp_dist
+       return distance * (mchirp_ref/mchirp)**(5.0/6.0)
 
+def decisive_dist(
+    h1_dist, l1_dist, v1_dist, 
+    mchirp, source_ref, ifos):
+    
+    dist_list = []
+    if 'H1' in ifos:
+        dist_list.append(h1_dist)
+    if 'L1' in ifos:
+        dist_list.append(l1_dist)
+    if 'V1' in ifos:
+        dist_list.append(v1_dist)
+
+    decisive_dist = sorted(dist_list)[-2]
+
+    return chirp_dist_func(decisive_dist, mchirp, source_ref) 
+ 
 
 def end_time_with_ns(end_time, end_time_ns):
     time = end_time + 1e-9*end_time_ns
@@ -93,24 +111,28 @@ def get_livetime(connection, veto_cat, on_ifos, datatype):
 def inj_dist_range(
     connection,
     tag,
+    on_ifos,
     dist_type = "distance",
     dist_scale = "linear",
     source_ref = None,
     num_bins = 10):
 
-    sql_params_dict = {}
+    sql_params_dict = {'source_ref': source_ref}
     # SQL query to get a list of the distances for desired injections
-    if dist_type == "chirp_dist":
-        connection.create_function('chirp_distance', 3, chirp_distance)
-        sqlquery += """
+    if dist_type == "distance":
+        connection.create_function('distance_func', 3, chirp_dist)
+        sqlquery = """
         SELECT DISTINCT
-            chirp_distance(distance, mchirp, :source_ref)
+            distance_func(distance, mchirp, :source_ref)
         FROM sim_inspiral """
-        sql_params_dict['source_ref'] = source_ref
-    elif dist_type == "distance":
-        sqlquery += """
+    elif dist_type == "decisive_distance":
+        connection.create_function('decisive_dist_func', 6, decisive_dist)
+        sql_params_dict['ifos'] = on_ifos
+        sqlquery = """
         SELECT DISTINCT
-            distance
+            decisive_dist_func(
+                eff_dist_h1, eff_dist_l1, eff_dist_v1,
+                mchirp, :source_ref, :ifos)
         FROM sim_inspiral """
 
     if tag != 'ALL_INJ':
@@ -158,21 +180,24 @@ def successful_injections(
     veto_segments = compute_dur.get_veto_segments(xmldoc, verbose)
 
     # ------------------------ Get List of Injections ------------------------ #
-    sql_params_dict = {}
+    sql_params_dict = {'source_ref': source_ref}
     sqlquery = """
-        SELECT
+        SELECT DISTINCT
             simulation_id,
             end_time_with_ns(geocent_end_time, geocent_end_time_ns),"""
     # add the desired distance measure to the SQL query
-    if distance_type == "chirp_dist":
-        connection.create_function('chirp_distance', 3, chirp_distance)
-        sql_params_dict['source_ref'] = source_ref
+    if dist_type == "distance":
+        connection.create_function('distance_func', 3, chirp_dist)
         sqlquery += """
-            chirp_distance(distance, mchirp, :source_ref)
+            distance_func(distance, mchirp, :source_ref)
         FROM sim_inspiral """
-    elif distance_type == "distance":
+    elif dist_type == "decisive_distance":
+        connection.create_function('decisive_dist_func', 6, decisive_dist)
+        sql_params_dict['ifos'] = on_ifos
         sqlquery += """
-            distance
+            decisive_dist_func(
+                eff_dist_h1, eff_dist_l1, eff_dist_v1,
+                mchirp, :source_ref, :ifos)
         FROM sim_inspiral """
 
     if tag != 'ALL_INJ':
@@ -197,7 +222,7 @@ def successful_injections(
     successful_inj = []
     # determine coincident segments for that veto category 
     coinc_segs = compute_dur.get_coinc_segments(
-        ifo_segments - veto_seg_dict,
+        ifo_segments - veto_segments[veto_cat],
         zero_lag_dict)
 
     # Apply vetoes to single-ifo filter segments
@@ -213,28 +238,34 @@ def found_injections(
     connection,
     tag,
     on_ifos,
-    veto_cat,
+    distance_type = "distance",
+    source_ref = None,
     verbose = False):
 
     connection.create_function('end_time_with_ns', 2, end_time_with_ns)
 
     ifos_str = ','.join(on_ifos)
 
-    sql_params_dict = {}
+    sql_params_dict = {'source_ref': source_ref}
     sqlquery = """
     SELECT DISTINCT
         sim_inspiral.simulation_id,
-        end_time_with_ns(geocent_end_time, geocent_end_time_ns),
-        false_alarm_rate,"""
+        end_time_with_ns(geocent_end_time, geocent_end_time_ns), """
     # add the desired distance measure to the SQL query
-    if distance_type == "chirp_dist":
-        connection.create_function('chirp_distance', 3, chirp_distance)
-        sqlquery += "chirp_distance(distance, mchirp, :source_ref)"
-        sql_params_dict['source_ref'] = source_ref
-    elif distance_type == "distance":
-        sqlquery += "distance"
+    if dist_type == "distance":
+        connection.create_function('distance_func', 3, chirp_dist)
+        sqlquery += """
+            distance_func(distance, mchirp, :source_ref), """
+    elif dist_type == "decisive_distance":
+        connection.create_function('decisive_dist_func', 6, decisive_dist)
+        sql_params_dict['ifos'] = on_ifos
+        sqlquery += """
+            decisive_dist_func(
+                eff_dist_h1, eff_dist_l1, eff_dist_v1,
+                mchirp, :source_ref, :ifos), """
 
     sqlquery += """
+        false_alarm_rate
     FROM
         coinc_event_map AS coincs
         JOIN coinc_event_map AS sims, coinc_inspiral, coinc_event, sim_inspiral ON (
@@ -269,10 +300,11 @@ def detection_efficiency(
     successful_inj,
     found_inj,
     found_fars,
-    far_list):
+    far_list,
+    r):
 
     # catching any edge cases were the injection end_time is nearly on a second boundary
-    successful_inj = set(successful_inj) & set(found_inj)
+    successful_inj = set(successful_inj) | set(found_inj)
     # histogram injections that went into Cat-N time
     successful_dist = [inj[2] for inj in successful_inj]
     N_success, junk = numpy.histogram(successful_dist, bins = r)
@@ -293,14 +325,11 @@ def detection_efficiency(
 
 def get_four_volume(eff, r, T_z):
     # calculate 3 volume in each shell
-    V = 4./3 * numpy.pi * (r[:-1]**3. - r[1:]**3.)
+    V = 4./3 * numpy.pi * (r[1:]**3. - r[:-1]**3.)
 
     VT = {}
-    for threshold in eff:
-        VT[threshold] = eff[threshold] * V * T_z
-        for index, vt in VT[threshold]:
-            if numpy.isnan(vt):
-                VT[threshold][index] = 0.0
+    for threshold, eff_array in eff.items():
+        VT[threshold] = numpy.nan_to_num(eff_array * V * T_z)
 
     return VT
 

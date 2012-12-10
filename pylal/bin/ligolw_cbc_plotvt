@@ -34,11 +34,12 @@ import numpy
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot
-from matplotlib import rcParms
+from matplotlib import rcParams
 
 from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from pylal import efficiency
+from pylal import git_version
 
 __author__ = "Matthew West <matthew.west@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -69,7 +70,7 @@ def parse_command_line():
         usage = "%prog [options]",
         description = description
         )
-    parser.add_option("-c", "--database-cache", type="string", default=None,
+    parser.add_option("-c", "--database-cache", type="string",
         metavar = "name",
         help = "Get database files from the LAL cache named filename. [Required]"
         )
@@ -99,16 +100,22 @@ def parse_command_line():
         metavar = "string",
         help =
             "The desired distance parameter the efficiency histogram will be " +
-            "broken up in. The default option is physical distance. The only " +
-            "alternative right now is physical distance weighted by the chirp " +
-            "mass: 'chirp_dist'."
+            "broken up in. The default option is 'distance'. The " +
+            "alternative is 'decisive_distance' ala the second largest effective " +
+            "distance from a found signal."
+        )
+    parser.add_option("--source-ref", type="string", default=None,
+        metavar = "{NSNS,NSBH,BHBH}",
+        help =
+            "The source type used to weight the distance values.  The default " +
+            "is None."
         )
     parser.add_option("--veto-category", type="int",
         metavar = "INT",
         help = "The highest DQ veto category the triggers survive. [Required]"
         )
     parser.add_option("--on-instruments", type="string",
-        metavar = "IFOS"
+        metavar = "IFOS",
         help = 
             "A comma separated string of the instruments one wishes to " +
             "calculate the efficiency for. Example: 'H1,L1,V1' [Required]"
@@ -120,7 +127,7 @@ def parse_command_line():
             "The default is 'ALL_INJ'."
         )
     parser.add_option("--inj-usertag", type="string", default="ALL_INJ",
-        metavar = "usertag"
+        metavar = "usertag",
         help =
             "The usertag for the injection run(s) used to compute an efficiency. " +
             "The default is 'ALL_INJ'."
@@ -140,6 +147,8 @@ def parse_command_line():
             for option in missing_options
         ])
         raise ValueError, "missing required option(s) %s" % missing_options
+
+    return options
 
 #
 # =============================================================================
@@ -164,8 +173,9 @@ db_tags = opts.database_tags.split(',')
 on_ifos = ','.join(sorted(opts.on_instruments.split(','))).upper()
 veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 
-VT_dict = {}
 eff_dict = {}
+VT_dict = {}
+sumVT_dict = {}
 
 for db_idx, db_path in enumerate(database_list):
 
@@ -198,7 +208,8 @@ for db_idx, db_path in enumerate(database_list):
         connection,
         opts.inj_usertag,
         on_ifos,
-        veto_cat,
+        distance_type = opts.distance_type,
+        source_ref = opts.source_ref,
         verbose = opts.verbose)
 
     # get list of tuples containing all injections that went in during desired coinc time
@@ -213,14 +224,14 @@ for db_idx, db_path in enumerate(database_list):
 
     secINyear = 60.*60.*24.*365.25
     # Determine the minimum false_alarm_rate one can estimate from slides
-    minFAR = secINyr / efficiency.get_livetime(connection, veto_cat, on_ifos, 'slide')
+    minFAR = secINyear / efficiency.get_livetime(connection, veto_cat, on_ifos, 'slide')
     far_list = minFAR * numpy.logspace(start=3.5, stop=1, num=1e4)
     far_list = numpy.append(far_list, 0.0)
     # Calculate the foreground search time in years
-    zerolag_time = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data')
+    T_fgd = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
 
     # make the distance bins for the efficiency histogram
-    dist = inj_dist_range(
+    dist = efficiency.inj_dist_range(
         connection,
         opts.inj_usertag,
         dist_type = opts.distance_type,
@@ -228,23 +239,29 @@ for db_idx, db_path in enumerate(database_list):
         source_ref = opts.source_ref,
         num_bins = opts.num_dist_bins)
 
-    # close connection
-    connection.close()
-    dbtables.discard_connection_filename(
-        opts.database,
-        working_filename,
-        verbose=opts.verbose)
     # ------------------------- For Each FAR Threshold ------------------------- #
 
     # compute eff vs distance array
     eff_dict[db_tag] = efficiency.detection_efficiency(
         all_inj,
         found_inj, found_fars,
-        far_list)
+        far_list,
+        dist)
     # compute Volume*Time vs distance array
-    VT_dict[db_tag] = efficiency.get_four_volume(eff_dict, dist, zerolag_time)
+    VT_dict[db_tag] = efficiency.get_four_volume(eff_dict, dist, T_fgd)
     # create a dictionary for the total VT as a function of FAR
-    sumVT_dict[dbtag] = dict([(FAR,numpy.sum(VT)) for FAR, VT VT ])
+    sumVT_dict[db_tag] = dict([(FAR,numpy.sum(VT)) for FAR, VT in VT_dict[db_tag].items() ])
+
+    start_time, end_time = connection.execute(
+        'SELECT DISTINCT gps_start_time, gps_end_time FROM experiment'
+        ).fetchone()
+
+    # close connection
+    connection.close()
+    dbtables.discard_connection_filename(
+        opts.database,
+        working_filename,
+        verbose=opts.verbose)
 
 # -------------------------------- Making Plots ------------------------------- #
 if opts.verbose:
@@ -260,16 +277,11 @@ plotting_params = {
     'axes.titlesize': 'medium',
     'axes.labelsize': 'medium',
     'grid.color': 'k',
-    'grid.linestyle': '-',
+    'grid.linestyle': ':',
     'legend.fontsize': 'medium',
-    'legend.loc': 'lower right',
     'legend.numpoints': 1
 }
 rcParams.update(plotting_params)
-
-start_time, end_time = connection.execute(
-    'SELECT DISTINCT gps_start_time, gps_end_time FROM experiment'
-    ).fetchone()
 
 # plot basename
 plot_basename = '-'.join([
@@ -283,70 +295,75 @@ plot_basename = '-'.join([
 if opts.verbose:
     print >> sys.stdout, "\tTotal 4-Volume (VxT) vs FAR threshold"
 
-VT_FAR = pyplot.figure().add_subplot(111)
+VT_FAR_fig = pyplot.figure()
+VT_FAR_plot = VT_FAR_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    VT_FAR.semilogx(sumVT_dict[db_tag].keys(), sumVT_dict[db_tag].values(),
+    VT_FAR_plot.semilogx(sumVT_dict[db_tag].keys(), sumVT_dict[db_tag].values(),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-VT_FAR.grid(which='major', linewidth=0.75)
-VT_FAR.grid(which='minor', linewidth=0.25)
+VT_FAR_plot.grid(which='major', linewidth=0.75)
+VT_FAR_plot.grid(which='minor', linewidth=0.25)
 
-VT_FAR.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
-VT_FAR.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_FAR.set_title( r'Pipeline Efficiency Comparison - VT vs FAR' )
-VT_FAR.legend()
+VT_FAR_plot.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
+VT_FAR_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
+VT_FAR_plot.set_title( r'Pipeline Efficiency Comparison - VT vs FAR' )
+VT_FAR_plot.legend(loc='lower right')
 
 plot_name = plot_basename % ('VT_vs_FAR', opts.veto_category)
 pyplot.savefig(plot_name + '.png', dpi=100, format='png')
-pyplot.close(VT_FAR)
+pyplot.close(VT_FAR_fig)
 
 # Making cumulative VT vs distance plot for FAR=0 threshold
 if opts.verbose:
     print >> sys.stdout, "\tCumulative 4-Volume (VxT) vs %s" % opts.distance_type
 
-VT_Dist = pyplot.figure().add_subplot(111)
+VT_Dist_fig = pyplot.figure()
+VT_Dist_plot = VT_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    VT_Dist.semilogx(dist[1:], numpy.cumsum(VT_dict[db_tag][0.0]),
+    VT_Dist_plot.semilogx(dist[1:], numpy.cumsum(VT_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-VT_Dist.grid(which='major', linewidth=0.75)
-VT_Dist.grid(which='minor', linewidth=0.25)
+VT_Dist_plot.grid(which='major', linewidth=0.75)
+VT_Dist_plot.grid(which='minor', linewidth=0.25)
 
-VT_Dist.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
-VT_Dist.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_Dist.set_title( r'Pipeline Efficiency Comparison - VT vs Distance' )
-VT_Dist.legend()
+VT_Dist_plot.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
+VT_Dist_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
+VT_Dist_plot.set_title( r'VxT vs %s' % opts.distance.replace('_',' ').title() )
+VT_Dist_plot.legend(loc='lower right')
 
 plot_name = plot_basename % ('VT_vs_Dist', opts.veto_category)
 pyplot.savefig(plot_name + '.png', dpi=100, format='png')
-pyplot.close(VT_Dist)
+pyplot.close(VT_Dist_fig)
 
 # Making efficiency vs distance plot for FAR=0 threshold
 if opts.verbose:
     print >> sys.stdout, "\tDetection Efficiency vs %s" % opts.distance_type
 
-Eff_Dist = pyplot.figure().add_subplot(111)
+Eff_Dist_fig = pyplot.figure()
+Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    Eff_Dist.semilogx(dist[1:], eff_dict[db_tag][0.0]),
+    Eff_Dist_plot.semilogx(dist[1:], eff_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-Eff_Dist.grid(which='major', linewidth=0.75)
-Eff_Dist.grid(which='minor', linewidth=0.25)
+Eff_Dist_plot.grid(which='major', linewidth=0.75)
+Eff_Dist_plot.grid(which='minor', linewidth=0.25)
 
-Eff_Dist.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
-Eff_Dist.set_ylabel( r'Fraction of Recovered Injections in Bin' )
-Eff_Dist.set_title( r'Pipeline Efficiency Comparison - Efficiency vs Distance' )
-Eff_Dist.legend()
+Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
+Eff_Dist_plot.set_ylabel( r'Fraction of Recovered Injections in Bin' )
+Eff_Dist_plot.set_title(
+    r'Detection Efficiency vs %s' % opts.distance_type.replace('_',' ').title()
+    )
+Eff_Dist_plot.legend(loc='upper right')
 
 plot_name = plot_basename % ('Eff_vs_Dist', opts.veto_category)
 pyplot.savefig(plot_name + '.png', dpi=100, format='png')
-pyplot.close(Eff_Dist)
+pyplot.close(Eff_Dist_fig)
 
 # When all plots are made, exit
 if opts.verbose:
