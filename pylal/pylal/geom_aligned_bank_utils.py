@@ -4,9 +4,10 @@ import numpy
 import matplotlib
 matplotlib.use('Agg')
 import pylab
+from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
 
 # FIXME: Use lal/pylals own variables here
-mtsun = 4.92529095E-6
+mtsun = LAL_MTSUN_SI
 LAL_GAMMA = 0.5772156649015328606065120900824024
 
 # This function is taken from Stackoverflow:
@@ -37,16 +38,19 @@ def determine_eigen_directions(psd,order,f0,f_low,f_upper,delta_f,\
   if verbose:
     print >>sys.stdout,"Beginning to calculate moments at %d." %(elapsed_time())
   
-  moments = get_moments(psd,f0,f_low,f_upper,delta_f)
+  moments = get_moments(psd,f0,f_low,f_upper,delta_f,vary_fmax=vary_fmax,\
+                        vary_density=vary_density)
 
   if verbose:
     print >>sys.stdout,"Moments calculated, transforming to metric at %d." \
                        %(elapsed_time())
 
-  list = ['fixed']
+  list = []
   if vary_fmax:
-    for t_fmax in numpy.arange(f_low,f_upper,vary_density):
+    for t_fmax in numpy.arange(f_low+vary_density,f_upper,vary_density):
       list.append(t_fmax)
+  else:
+    list.append('fixed')
 
   for item in list:
     Js = []
@@ -163,6 +167,10 @@ def determine_eigen_directions(psd,order,f0,f_low,f_upper,delta_f,\
       if evals[item][i] < 0:
         print "WARNING: Negative eigenvalue %e. Setting as positive." %(evals[item][i])
         evals[item][i] = -evals[item][i]
+      if evecs[item][i,i] < 0:
+        # We demand a convention that all diagonal terms in the matrix
+        # of eigenvalues are positive.
+        evecs[item][:,i] = - evecs[item][:,i]
 
   if verbose:
     print >>sys.stdout,"Metric and eigenvalues calculated at %d." \
@@ -247,16 +255,16 @@ def calculate_moment(psd_f,psd_amp,fmin,fmax,f0,funct,norm=None,vary_fmax=False,
   if norm:
     moment['fixed'] = moment['fixed']/norm['fixed']
   if vary_fmax:
-    for t_fmax in numpy.arange(fmin,fmax,vary_density):
-      comps_red2 = comps[psdf_red < t_fmax]
+    for t_fmax in numpy.arange(fmin+vary_density,fmax,vary_density):
+      comps_red2 = comps_red[psdf_red < t_fmax]
       moment[t_fmax] = comps_red2.sum()
       if norm:
         moment[t_fmax] = moment[t_fmax]/norm[t_fmax]
   return moment
 
-def estimate_mass_range_slimline(numiters,order,evals,evecs,maxmass1,minmass1,maxmass2,minmass2,maxspin,f0,covary=True,maxBHspin=None,evecsCV=None):
+def estimate_mass_range_slimline(numiters,order,evals,evecs,maxmass1,minmass1,maxmass2,minmass2,maxspin,f0,covary=True,maxBHspin=None,evecsCV=None,vary_fmax=False,maxmass=None):
   out = []
-  valsF = get_random_mass_slimline(numiters,minmass1,maxmass1,minmass2,maxmass2,maxspin,maxBHspin = maxBHspin,return_spins=True)
+  valsF = get_random_mass_slimline(numiters,minmass1,maxmass1,minmass2,maxmass2,maxspin,maxBHspin = maxBHspin,return_spins=True,maxmass=maxmass)
   valsF = numpy.array(valsF)
   mass = valsF[0]
   eta = valsF[1]
@@ -267,14 +275,15 @@ def estimate_mass_range_slimline(numiters,order,evals,evecs,maxmass1,minmass1,ma
   if covary:
     lambdas = get_cov_params(mass,eta,beta,sigma,gamma,chis,f0,evecs,evals,evecsCV,order)
   else:
-    lambdas = get_conv_params(mass,eta,beta,sigma,gamma,chis,f0,evecs,evals,order)
+    lambdas = get_conv_params(mass,eta,beta,sigma,gamma,chis,f0,evecs,evals,order,vary_fmax=vary_fmax)
 
   return numpy.array(lambdas)
 
-def get_random_mass_slimline(N,minmass1,maxmass1,minmass2,maxmass2,maxspin,maxBHspin = None,return_spins=False,qm_scalar_fac=1):
+def get_random_mass_slimline(N,minmass1,maxmass1,minmass2,maxmass2,maxspin,maxBHspin = None,return_spins=False,qm_scalar_fac=1,maxmass=None):
   # WARNING: We expect mass1 > mass2 ALWAYS
   minmass = minmass1 + minmass2
-  maxmass = maxmass1 + maxmass2
+  if not maxmass:
+    maxmass = maxmass1 + maxmass2
   mincompmass = minmass2
   maxcompmass = maxmass1
 
@@ -348,28 +357,51 @@ def rotate_vector_inv(evecs,old_vector,rescale_factor,index,length):
   temp *= rescale_factor
   return temp
 
-def get_conv_params(totmass,eta,beta,sigma,gamma,chis,f0,evecs,evals,order):
+def get_conv_params(totmass,eta,beta,sigma,gamma,chis,f0,evecs,evals,order,vary_fmax=False):
 
   lambdas = get_chirp_params(totmass,eta,beta,sigma,gamma,chis,f0,order)
 
-  if order == 'twoPN':
-    lam0 = rotate_vector(evecs,lambdas,math.sqrt(evals[0]),0,4)
-    lam2 = rotate_vector(evecs,lambdas,math.sqrt(evals[1]),1,4)
-    lam3 = rotate_vector(evecs,lambdas,math.sqrt(evals[2]),2,4)
-    lam4 = rotate_vector(evecs,lambdas,math.sqrt(evals[3]),3,4)
-    return lam0,lam2,lam3,lam4
-  elif order[0:16] == 'threePointFivePN' or order[0:13] == 'taylorF4_35PN':
-    lams = []
-    for i in range(8):
-      lams.append(rotate_vector(evecs,lambdas,math.sqrt(evals[i]),i,8))
-    return lams
-  elif order[0:13] == 'taylorF4_45PN':
-    lams = []
-    for i in range(12):
-      lams.append(rotate_vector(evecs,lambdas,math.sqrt(evals[i]),i,12))
+  lams = []
+  if not vary_fmax:
+    length = len(evals)
+    for i in range(length):
+      lams.append(rotate_vector(evecs,lambdas,math.sqrt(evals[i]),i,length))
     return lams
   else:
-    raise BrokenError
+    # Get the frequencies in the evecs/evals
+    fs = numpy.array(evals.keys(),dtype=float)
+    fs.sort()
+    # Get the frequencies of the input
+    fISCO = (1/6.)**(3./2.) / (LAL_PI * totmass * LAL_MTSUN_SI)
+
+    # INitialize output
+    length = len(evals[fs[0]])
+    output=numpy.zeros([length,len(totmass)])
+    lambdas = numpy.array(lambdas)
+    # We assume that the evecs are sampled at equal frequencies
+    for i in range(len(fs)):
+      if (i == 0):
+        logicArr = fISCO < ((fs[0] + fs[1])/2.)
+      if (i == (len(fs)-1)):
+        logicArr = fISCO > ((fs[-1] + fs[-1])/2.)
+      else:
+        logicArrA = fISCO > ((fs[i-1] + fs[i])/2.)
+        logicArrB = fISCO < ((fs[i] + fs[i+1])/2.)
+        logicArr = numpy.logical_and(logicArrA,logicArrB)
+      if logicArr.any():
+        for j in range(length):
+          output[j,logicArr] = rotate_vector(evecs[fs[i]],lambdas[:,logicArr],math.sqrt(evals[fs[i]][j]),j,length)
+    # For now a list of arrays is returned so we convert
+    for i in range(length):
+      lams.append(output[i])
+    return lams
+
+def get_chi_params(lambdas,f0,evecs,evals,order):
+  lams = []
+  length = len(evals)
+  for i in range(length):
+    lams.append(rotate_vector(evecs,lambdas,math.sqrt(evals[i]),i,length))
+  return lams
 
 def get_cov_params(totmass,eta,beta,sigma,gamma,chis,f0,evecs,evals,evecsCV,order):
   mus = get_conv_params(totmass,eta,beta,sigma,gamma,chis,f0,evecs,evals,order)
@@ -745,4 +777,64 @@ def get_beta_sigma_from_aligned_spins(mass,eta,spin1z,spin2z):
   gamma = (732985./2268. - 24260./81.*eta - 340./9.*eta*eta)*chiS
   gamma += (732985. / 2268. + 140./9. * eta) * delta * chiA
   return beta,sigma,gamma,chiS
+
+def test_point_distance(point1,point2,evals,evecs,evecsCV,order,f0,return_xis=False):
+  # Note: I think this will work if one of these inputs is an array, but not if both are
+  aMass1 = point1[0]
+  aMass2 = point1[1]
+  aSpin1 = point1[2]
+  aSpin2 = point1[3]
+  try:
+    leng = len(aMass1)
+    aArray = True
+  except:
+    aArray = False
+
+  bMass1 = point2[0]
+  bMass2 = point2[1]
+  bSpin1 = point2[2]
+  bSpin2 = point2[3]
+  try:
+    leng = len(bMass1)
+    bArray = True
+  except:
+    bArray = False
+
+  if aArray and bArray:
+    print "I cannot take point1 and point2 as arrays"
+
+  aTotMass = aMass1 + aMass2
+  aEta = (aMass1 * aMass2) / (aTotMass * aTotMass)
+  aCM = aTotMass * aEta**(3./5.)
+
+  bTotMass = bMass1 + bMass2
+  bEta = (bMass1 * bMass2) / (bTotMass * bTotMass)
+  bCM = bTotMass * bEta**(3./5.)
+  
+  abeta,asigma,agamma,achis = get_beta_sigma_from_aligned_spins(aTotMass,aEta,aSpin1,aSpin2)
+  bbeta,bsigma,bgamma,bchis = get_beta_sigma_from_aligned_spins(bTotMass,bEta,bSpin1,bSpin2)
+
+  aXis = get_cov_params(aTotMass,aEta,abeta,asigma,agamma,achis,f0,evecs,evals,evecsCV,order)
+  if return_xis and not aArray:
+    xis1 =  aXis
+
+  bXis = get_cov_params(bTotMass,bEta,bbeta,bsigma,bgamma,bchis,f0,evecs,evals,evecsCV,order)
+  if return_xis and not bArray:
+    xis2 =  bXis
+
+  dist = (aXis[0] - bXis[0])**2
+  for i in range(1,len(aXis)):
+    dist += (aXis[i] - bXis[i])**2
+
+  if aArray and return_xis:
+    aXis = numpy.array(aXis)
+    xis1 =  aXis[:,dist.argmin()]
+  if bArray and return_xis:
+    bXis = numpy.array(bXis)
+    xis2 = bXis[:,dist.argmin()]
+
+  if return_xis:
+    return xis1,xis2
+
+  return dist
 
