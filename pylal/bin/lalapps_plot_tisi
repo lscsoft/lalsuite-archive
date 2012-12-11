@@ -33,10 +33,13 @@ from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
 
-from glue.ligolw import table
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -66,10 +69,10 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if not options.output:
-		raise ValueError, "no output file specified"
+		raise ValueError("no output file specified")
 
 	if not options.x_instrument or not options.y_instrument:
-		raise ValueError, "must set instruments for x and y axes"
+		raise ValueError("must set instruments for x and y axes")
 
 	if options.require_instruments is not None:
 		options.require_instruments = set(map(str.strip, options.require_instruments.split(",")))
@@ -120,7 +123,7 @@ class Plot(object):
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
-		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		tisitable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 		# grab an offset from one of the diciontaries of offsets in
 		# the time slide table.
 		max_offset = min_offset = tisitable.dict.itervalues().next().itervalues().next()
@@ -156,7 +159,7 @@ options, filenames = parse_command_line()
 
 
 for n, filename in enumerate(filenames):
-	xmldoc = utils.load_filename(filename, verbose = options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 
 	if options.verbose:
 		print >>sys.stderr, "plotting ..."

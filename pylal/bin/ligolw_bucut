@@ -31,11 +31,12 @@ import sys
 
 
 from glue import segments
-from glue.ligolw import table
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import SimBurstUtils
@@ -99,7 +100,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.inj_made_only and not options.program:
-		raise ValueError, "must set --program when --inj-made-only is set"
+		raise ValueError("must set --program when --inj-made-only is set")
 	options.cut_instrument = set(options.cut_instrument)
 
 	if options.min_peak_time is not None:
@@ -128,6 +129,16 @@ def parse_command_line():
 
 
 #
+# Content handler
+#
+
+
+class ContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(ContentHandler)
+
+
+#
 # Use interning row builder to save memory.
 #
 
@@ -144,8 +155,8 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 #
 
 
-def load_veto_segments(filename, verbose = False):
-	return ligolw_segments.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose), "sngl_burst_veto").coalesce()
+def load_veto_segments(filename, verbose = False, contenthandler = None):
+	return ligolw_segments.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler), "sngl_burst_veto").coalesce()
 
 
 class DocContents(object):
@@ -154,13 +165,13 @@ class DocContents(object):
 		# Find the out segments
 		#
 
-		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).coalesce()
+		self.outsegs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program).coalesce()
 
 		#
 		# Find the sngl_burst table
 		#
 
-		self.snglbursttable = table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
+		self.snglbursttable = lsctables.table.get_table(xmldoc, lsctables.SnglBurstTable.tableName)
 
 		#
 		# Get the list of process IDs we care about
@@ -168,14 +179,14 @@ class DocContents(object):
 
 		self.process_ids = set(self.snglbursttable.getColumnByName("process_id"))
 		if program is not None:
-			self.process_ids &= table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+			self.process_ids &= lsctables.table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 
 		#
 		# Find the sim_burst table, or make a fake one
 		#
 
 		try:
-			self.simbursttable = table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
+			self.simbursttable = lsctables.table.get_table(xmldoc, lsctables.SimBurstTable.tableName)
 		except:
 			self.simbursttable = []
 
@@ -184,9 +195,9 @@ class DocContents(object):
 		#
 
 		try:
-			self.coinctable = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-			self.coincmaptable = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
-			self.multibursttable = table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
+			self.coinctable = lsctables.table.get_table(xmldoc, lsctables.CoincTable.tableName)
+			self.coincmaptable = lsctables.table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+			self.multibursttable = lsctables.table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
 		except:
 			self.coinctable = []
 			self.coincmaptable = []
@@ -389,7 +400,7 @@ def ligolw_bucut(xmldoc, options, burst_test_func, veto_segments = segments.segm
 	llwapp.set_process_end_time(process)
 
 	seg = contents.outsegs.extent_all()
-	llwapp.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(contents.snglbursttable))
+	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(contents.snglbursttable))
 
 	return xmldoc
 
@@ -486,7 +497,7 @@ keep_this_sngl_burst = make_keep_this_sngl_burst(options)
 
 
 if options.veto_file:
-	veto_segments = load_veto_segments(options.veto_file, verbose = options.verbose)
+	veto_segments = load_veto_segments(options.veto_file, verbose = options.verbose, contenthandler = ContentHandler)
 else:
 	veto_segments = segments.segmentlistdict()
 
@@ -497,7 +508,7 @@ else:
 
 
 for filename in filenames:
-	xmldoc = utils.load_filename(filename, options.verbose)
+	xmldoc = utils.load_filename(filename, options.verbose, contenthandler = ContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 	xmldoc = ligolw_bucut(xmldoc, options, keep_this_sngl_burst, veto_segments = veto_segments, del_non_coincs = options.coinc_only, del_skipped_injections = options.inj_made_only, program = options.program, verbose = options.verbose)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))

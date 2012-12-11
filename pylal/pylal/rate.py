@@ -36,6 +36,13 @@ smoothing contour plots.
 
 
 import bisect
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not
+	# be available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import math
 import numpy
 from scipy.signal import signaltools
@@ -226,7 +233,7 @@ class LinearPlusOverflowBins(Bins):
 	4
 	>>> X[100]
 	4
-	>>> X[float("inf")]
+	>>> X[float("+inf")]
 	4
 	"""
 	def __init__(self, min, max, n):
@@ -259,13 +266,13 @@ class LinearPlusOverflowBins(Bins):
 		raise IndexError, x
 
 	def lower(self):
-		return numpy.concatenate((numpy.array([float("-inf")]), self.min + self.delta * numpy.arange(len(self) - 2), numpy.array([self.max])))
+		return numpy.concatenate((numpy.array([NegInf]), self.min + self.delta * numpy.arange(len(self) - 2), numpy.array([self.max])))
 
 	def centres(self):
-		return numpy.concatenate((numpy.array([float("-inf")]), self.min + self.delta * (numpy.arange(len(self) - 2) + 0.5), numpy.array([float("inf")])))
+		return numpy.concatenate((numpy.array([NegInf]), self.min + self.delta * (numpy.arange(len(self) - 2) + 0.5), numpy.array([PosInf])))
 
 	def upper(self):
-		return numpy.concatenate((numpy.array([self.min]), self.min + self.delta * (numpy.arange(len(self) - 2) + 1), numpy.array([float("inf")])))
+		return numpy.concatenate((numpy.array([self.min]), self.min + self.delta * (numpy.arange(len(self) - 2) + 1), numpy.array([PosInf])))
 
 
 class LogarithmicBins(Bins):
@@ -287,7 +294,7 @@ class LogarithmicBins(Bins):
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
-		self.delta = math.log(float(max / min)) / n
+		self.delta = (math.log(max) - math.log(min)) / n
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -303,7 +310,7 @@ class LogarithmicBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return int(math.floor(math.log(x / self.min) / self.delta))
+			return int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
 			return len(self) - 1
@@ -353,7 +360,7 @@ class LogarithmicPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError, "n must be >= 3"
 		Bins.__init__(self, min, max, n)
-		self.delta = math.log(float(max / min)) / (n-2)
+		self.delta = (math.log(max) - math.log(min)) / (n-2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -369,7 +376,7 @@ class LogarithmicPlusOverflowBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return 1 + int(math.floor(math.log(x / self.min) / self.delta))
+			return 1 + int(math.floor((math.log(x) - math.log(self.min)) / self.delta))
 		if x >= self.max:
 			# infinity overflow bin
 			return len(self) - 1
@@ -382,10 +389,10 @@ class LogarithmicPlusOverflowBins(Bins):
 		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1))))
 
 	def centres(self):
-		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([float('inf')])))
+		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * (numpy.arange(len(self) - 2) + 0.5)), numpy.array([PosInf])))
 
 	def upper(self):
-		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([float('inf')])))
+		return numpy.concatenate((self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1)), numpy.array([PosInf])))
 
 
 class ATanBins(Bins):
@@ -440,7 +447,7 @@ class ATanBins(Bins):
 
 	def lower(self):
 		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid
-		x[0] = float("-inf")
+		x[0] = NegInf
 		return x
 
 	def centres(self):
@@ -448,7 +455,7 @@ class ATanBins(Bins):
 
 	def upper(self):
 		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid
-		x[-1] = float("+inf")
+		x[-1] = PosInf
 		return x
 
 

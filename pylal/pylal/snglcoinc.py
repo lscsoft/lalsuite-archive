@@ -51,11 +51,6 @@ from pylal import git_version
 from pylal import inject
 from pylal import llwapp
 from pylal import ligolw_tisi
-try:
-	all, any
-except NameError:
-	# python < 2.5 compatibility
-	from glue.iterutils import all, any
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -514,15 +509,21 @@ class TimeSlideGraphNode(object):
 
 class TimeSlideGraph(object):
 	def __init__(self, offset_vector_dict, verbose = False):
-		if verbose:
-			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
+		#
+		# validate input
+		#
+
+		if min(len(offset_vector) for offset_vector in offset_vector_dict.values()) < 2:
+			raise ValueError("offset vectors must have at least two instruments")
 
 		#
 		# populate the graph head nodes.  these represent the
 		# target offset vectors requested by the calling code.
 		#
 
-		self.head = tuple(TimeSlideGraphNode(offset_vector, id) for id, offset_vector in sorted(offset_vector_dict.items()))
+		if verbose:
+			print >>sys.stderr, "constructing coincidence assembly graph for %d target offset vectors ..." % len(offset_vector_dict)
+		self.head = tuple(TimeSlideGraphNode(offset_vector, time_slide_id) for time_slide_id, offset_vector in sorted(offset_vector_dict.items()))
 
 		#
 		# populate the graph generations.  generations[n] is a

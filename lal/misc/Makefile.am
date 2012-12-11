@@ -4,8 +4,6 @@ EXTRA_DIST = \
 	config.sub \
 	cuda.common \
 	depcomp \
-	doc.mk \
-	dvi.mk \
 	generate_user_env.awk \
 	include.mk \
 	install-sh \
@@ -18,7 +16,6 @@ EXTRA_DIST = \
 	ltsugar.m4 \
 	ltversion.m4 \
 	lt~obsolete.m4 \
-	main.tex.in \
 	missing \
 	mkinstalldirs \
 	test-driver
@@ -37,6 +34,7 @@ BUILT_SOURCES = \
 	lal-user-env.csh
 
 all-local: include-link
+@INCLUDEMKFILE@
 
 lal-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "# generic user environment script" >$@
@@ -44,12 +42,10 @@ lal-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend PATH $(bindir)" >>$@
 	@echo "prepend MANPATH $(mandir)" >>$@
 	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
+	@echo "prepend PYTHONPATH $(pyexecdir) $(pythondir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@echo "$(SWIG_USER_ENV)" | $(SED) 's|~E~O~L~|\n|g' >>$@
+	@printf "$(SWIG_USER_ENV)" >>$@
 
 lal-user-env.csh lal-user-env.sh: lal-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
-
-@INCLUDEMKFILE@
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }

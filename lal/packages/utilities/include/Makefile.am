@@ -2,6 +2,7 @@ pkginclude_HEADERS = \
 	BitField.h \
 	CoarseGrainFrequencySeries.h \
 	Dirichlet.h \
+	Factorial.h \
 	FindRoot.h \
 	GSLSupport.h \
 	Integrate.h \
@@ -15,13 +16,8 @@ pkginclude_HEADERS = \
 	Sort.h \
 	SphericalHarmonics.h
 
-CLEANFILES =
-MOSTLYCLEANFILES =
-DISTCLEANFILES =
-
 all-local: include-link
-
 @INCLUDEMKFILE@
 
 swig_headers = $(pkginclude_HEADERS)
-include $(top_srcdir)/swig/swig-header.am
+include $(top_srcdir)/swig/swiglal_header.am

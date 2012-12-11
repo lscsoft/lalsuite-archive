@@ -144,7 +144,7 @@ def get_array(xmldoc, name):
 	"""
 	arrays = getArraysByName(xmldoc, name)
 	if len(arrays) != 1:
-		raise ValueError, "document must contain exactly one %s array" % StripArrayName(name)
+		raise ValueError("document must contain exactly one %s array" % StripArrayName(name))
 	return arrays[0]
 
 
@@ -190,6 +190,12 @@ class ArrayStream(ligolw.Stream):
 		"""
 		self._index = None
 		ligolw.Stream.unlink(self)
+
+	def endElement(self):
+		# stream tokenizer uses delimiter to identify end of each
+		# token, so add a final delimiter to induce the last token
+		# to get parsed.
+		self.appendData(self.getAttribute(u"Delimiter"))
 
 	def write(self, file = sys.stdout, indent = u""):
 		# This is complicated because we need to not put a
@@ -263,33 +269,36 @@ class Array(ligolw.Array):
 
 
 #
-# Override portions of ligolw.LIGOLWContentHandler class
+# Override portions of ligolw.DefaultLIGOLWContentHandler class
 #
 
 
-__parent_startStream = ligolw.LIGOLWContentHandler.startStream
-__parent_endStream = ligolw.LIGOLWContentHandler.endStream
+def use_in(ContentHandler):
+	"""
+	Modify ContentHandler, a sub-class of
+	glue.ligolw.LIGOLWContentHandler, to cause it to use the Array and
+	ArrayStream classes defined in this module when parsing XML
+	documents.
+
+	Example:
+
+	>>> from glue.ligolw import ligolw
+	>>> def MyContentHandler(ligolw.LIGOLWContentHandler):
+	...	pass
+	...
+	>>> from glue.ligolw import array
+	>>> array.use_in(MyContentHandler)
+	"""
+	def startStream(self, parent, attrs, __orig_startStream = ContentHandler.startStream):
+		if parent.tagName == ligolw.Array.tagName:
+			return ArrayStream(attrs).config(parent)
+		return __orig_startStream(self, parent, attrs)
+
+	def startArray(self, parent, attrs):
+		return Array(attrs)
+
+	ContentHandler.startStream = startStream
+	ContentHandler.startArray = startArray
 
 
-def startStream(self, attrs):
-	if self.current.tagName == ligolw.Array.tagName:
-		return ArrayStream(attrs).config(self.current)
-	return __parent_startStream(self, attrs)
-
-
-def endStream(self):
-	# stream tokenizer uses delimiter to identify end of each token, so
-	# add a final delimiter to induce the last token to get parsed.
-	if self.current.parentNode.tagName == ligolw.Array.tagName:
-		self.current.appendData(self.current.getAttribute(u"Delimiter"))
-	else:
-		__parent_endStream(self)
-
-
-def startArray(self, attrs):
-	return Array(attrs)
-
-
-ligolw.LIGOLWContentHandler.startStream = startStream
-ligolw.LIGOLWContentHandler.endStream = endStream
-ligolw.LIGOLWContentHandler.startArray = startArray
+use_in(ligolw.DefaultLIGOLWContentHandler)

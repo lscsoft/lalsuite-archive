@@ -3,5 +3,8 @@ EXTRA_DIST = \
 	compat \
 	control \
 	copyright \
+	dirs.x \
 	docs \
-	rules
+	install.x \
+	rules \
+	source/format

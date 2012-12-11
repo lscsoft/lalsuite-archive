@@ -36,6 +36,8 @@ except ImportError:
 
 
 from glue.lal import CacheEntry
+from glue.ligolw import lsctables
+from glue.ligolw import array
 from glue.ligolw import dbtables
 from pylal import git_version
 from pylal import ligolw_burca_tailor
@@ -45,8 +47,11 @@ from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
-# so they aren't insterted into a database
-dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
+# content handler for distribution data
+class StatsContentHandler(lsctables.ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(StatsContentHandler)
+array.use_in(StatsContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -83,15 +88,15 @@ def parse_command_line():
 
 	options.likelihood_data = set(options.likelihood_data)
 	if (not options.likelihood_data) and (options.likelihood_data_cache is None):
-		raise ValueError, "must set one of --likelihood-data or --likelihood-data-cache"
+		raise ValueError("must set one of --likelihood-data or --likelihood-data-cache")
 	if options.likelihood_data and (options.likelihood_data_cache is not None):
-		raise ValueError, "cannot set both --likelihood-data and --likelihood-data-cache"
+		raise ValueError("cannot set both --likelihood-data and --likelihood-data-cache")
 	if options.likelihood_data_cache:
 		options.likelihood_data_cache = set([CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_data_cache)])
 	else:
 		options.likelihood_data_cache = set()
 	if options.program is None:
-		raise ValueError, "missing required argument --program"
+		raise ValueError("missing required argument --program")
 
 	#
 	# done
@@ -134,11 +139,8 @@ coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
 def load_likelihood_data(filenames, verbose = False):
 	coinc_params_distributions = ligolw_burca_tailor.CoincParamsDistributions()
 	for filename in filenames:
-		connection = sqlite3.connect(":memory:")
-		dbtables.DBTable_set_connection(connection)
-		c, ignored = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = verbose), u"ligolw_burca_tailor")
+		c, ignored = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = verbose, contenthandler = StatsContentHandler), u"ligolw_burca_tailor")
 		coinc_params_distributions += c
-		connection.close()
 	coinc_params_distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)
 	return ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
 
@@ -162,7 +164,6 @@ for n, filename in enumerate(filenames):
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
-	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase(connection, options.program)
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)

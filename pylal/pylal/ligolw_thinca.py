@@ -1,4 +1,4 @@
-# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2012  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -34,6 +34,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
@@ -231,7 +232,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# extract the coalesced out segment lists from the trigger generator
 		#
 
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 		if vetoes is not None:
 			self.seglists -= vetoes
 
@@ -615,10 +616,10 @@ class sngl_inspiral_coincs(object):
 	coinc_definer:coinc_def_id:0
 	>>> coincs.keys()
 	[<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x41a4328>]
-	>>> id = coincs.keys()[0]
-	>>> print id
+	>>> coinc_id = coincs.keys()[0]
+	>>> print coinc_id
 	coinc_event:coinc_event_id:83763
-	>>> coincs[id].write()
+	>>> coincs[coinc_id].write()
 	<?xml version='1.0' encoding='utf-8'?>
 	<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
 	<LIGO_LW>

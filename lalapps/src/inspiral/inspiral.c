@@ -517,7 +517,8 @@ int main( int argc, char *argv[] )
 
   /* wind to the end of the process params table */
   for ( this_proc_param = procparams.processParamsTable; this_proc_param->next;
-      this_proc_param = this_proc_param->next );
+      this_proc_param = this_proc_param->next )
+    ;
 
   /* Import system wide FFTW wisdom file, if it exists.  Only single precision used. */
 
@@ -710,7 +711,7 @@ int main( int argc, char *argv[] )
               fqChanName[0] );
     sieve.srcRegEx = ifoRegExPattern;
     sieve.dscRegEx = frInType;
-    LAL_CALL( LALFrCacheSieve( &status, &frInCache, frGlobCache, &sieve ),
+    LAL_CALL( LALFrSieveCache( &status, &frInCache, frGlobCache, &sieve ),
         &status );
 
     /* check we got at least one frame file back after the sieve */
@@ -1414,8 +1415,8 @@ int main( int argc, char *argv[] )
 
       /* read the event waveform approximant to see if we've been asked to
        perform NumRel injections */
-      if (XLALGetApproximantFromString( injections->waveform,
-                                  &injApproximant ) == XLAL_FAILURE)
+      injApproximant = XLALGetApproximantFromString(injections->waveform);
+      if ( (int) injApproximant == XLAL_FAILURE)
       {
         fprintf( stderr, "could not parse approximant from sim_inspiral.waveform\n" );
         exit( 1 );
@@ -1574,7 +1575,7 @@ int main( int argc, char *argv[] )
   /* remove pad from requested data from start and end of time series */
   memmove( chan.data->data, chan.data->data + padData * sampleRate,
       (chan.data->length - 2 * padData * sampleRate) * sizeof(REAL4) );
-  LALRealloc( chan.data->data,
+  XLALRealloc( chan.data->data,
       (chan.data->length - 2 * padData * sampleRate) * sizeof(REAL4) );
   chan.data->length -= 2 * padData * sampleRate;
   chan.epoch.gpsSeconds += padData;
@@ -4188,13 +4189,13 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
 #ifdef LALAPPS_CUDA_ENABLED
       case '+':
         gpuDeviceID = (INT4) atoi( optarg );
-	cudaError = cudaSetDevice( gpuDeviceID );
+        cudaError = cudaSetDevice( gpuDeviceID );
         if ( cudaError != cudaSuccess )
         {
           fprintf( stderr, "invalid argument to --%s:\n"
 		           "could not associate thread to GPU %d\n"
 		           "CudaError: %s\n",
-		   long_options[option_index].name, gpuDeviceID,
+                   long_options[option_index].name, gpuDeviceID,
                    cudaGetErrorString(cudaError));
           exit( 1 );
         }
@@ -5740,13 +5741,13 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
                         "AdvLIGO, mean or median\n");
       exit( 1 );
     }
-    if (specType == specType_LIGO && colorSpec == 4)
+    if (specType == specType_LIGO && colorSpec == colorSpec_AdvLIGO)
     {
       fprintf(stderr,"Error: if "
         "--colored-gaussian is AdvLIGO --spectrum-type cannot be LIGO\n");
       exit( 1 );
     }
-    if (specType == specType_AdvLIGO && colorSpec == 3)
+    if (specType == specType_AdvLIGO && colorSpec == colorSpec_LIGO)
     {
       fprintf(stderr,"Error: if "
         "--colored-gaussian is LIGO --spectrum-type cannot be AdvLIGO\n");

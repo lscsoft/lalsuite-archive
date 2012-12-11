@@ -97,7 +97,7 @@ static PyTypeObject pylal_real8fftplan_type = {
  */
 
 
-void initreal8fftplan(void)
+PyMODINIT_FUNC initreal8fftplan(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's REAL8FFTPlan type.");
 

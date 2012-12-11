@@ -201,6 +201,7 @@ PyDoc_STRVAR(pylal_XLALGPSToUTC__doc__,
 "(2010, 10, 1, 7, 38, 39, 4, 274, 0)\n"
 "\n"
 "The inverse operation is:\n"
+"\n"
 ">>> import time\n"
 ">>> tm = time.struct_time((2010, 10, 1, 7, 38, 39, 4, 274, 0))\n"
 ">>> XLALUTCToGPS(tm)\n"
@@ -236,6 +237,7 @@ PyDoc_STRVAR(pylal_XLALUTCToGPS__doc__,
 "LIGOTimeGPS(971226989,0)\n"
 "\n"
 "The inverse operation is:\n"
+"\n"
 ">>> from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS\n"
 ">>> gps = LIGOTimeGPS(971226989)\n"
 ">>> XLALGPSToUTC(gps)\n"
@@ -482,7 +484,7 @@ static struct PyMethodDef module_methods[] = {
 };
 
 
-void initdate(void)
+PyMODINIT_FUNC initdate(void)
 {
 	/* commented out to silence warning */
 	/*PyObject *module = */Py_InitModule3(MODULE_NAME, module_methods, "Wrapper for LAL's date package.");

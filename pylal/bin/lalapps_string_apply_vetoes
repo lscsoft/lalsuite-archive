@@ -70,7 +70,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if not filenames:
-		raise ValueError, "no input files!"
+		raise ValueError("no input files!")
 
 	return options, filenames
 
@@ -117,10 +117,11 @@ def create_string_sngl_is_vetoed_function(connection, veto_segments_name = None)
 		connection.create_function("string_sngl_is_vetoed", 3, lambda instrument, peak_time, peak_time_ns: False)
 		return
 	xmldoc = dbtables.get_xml(connection)
-	def is_vetoed(instrument, peak_time, peak_time_ns, seglists = ligolwsegments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()):
+	seglists = ligolwsegments.segmenttable_get_by_name(xmldoc, options.vetoes_name).coalesce()
+	xmldoc.unlink()
+	def is_vetoed(instrument, peak_time, peak_time_ns, seglists = seglists):
 		return instrument in seglists and dbtables.lsctables.LIGOTimeGPS(peak_time, peak_time_ns) in seglists[instrument]
 	connection.create_function("string_sngl_is_vetoed", 3, is_vetoed)
-	xmldoc.unlink()
 
 
 for n, filename in enumerate(filenames):
@@ -133,7 +134,6 @@ for n, filename in enumerate(filenames):
 
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
 
 	#
 	# Define the is_vetoed() SQL function.

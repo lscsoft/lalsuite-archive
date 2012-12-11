@@ -50,8 +50,6 @@ try:
 except:
   pass
 
-import Pegasus.DAX3
-
 def s2play(t):
   """
   Return True if t is in the S2 playground, False otherwise
@@ -1396,6 +1394,8 @@ class CondorDAG:
     """
     Write all the nodes in the workflow to the DAX file.
     """
+    import Pegasus.DAX3
+
     if not self.__dax_file_path:
       # this workflow is not dax-compatible, so don't write a dax
       return
@@ -1420,9 +1420,19 @@ class CondorDAG:
       worker_package = Pegasus.DAX3.Executable(
         namespace="pegasus", name="worker",
         os="linux", arch="x86_64", installed=False)
-
       worker_package.addPFN(Pegasus.DAX3.PFN(self.get_pegasus_worker(),"local"))
       workflow_executable_dict['pegasus-pegasus_worker'] = worker_package
+
+    # check for the pegasus-cluster package
+    for path in os.environ["PATH"].split(":"):
+      cluster_path = os.path.join(path,"pegasus-cluster")
+      if os.path.exists(cluster_path):
+        # and add to the dax if it exists
+        seqexec_package = Pegasus.DAX3.Executable(
+          namespace="pegasus", name="seqexec",
+          os="linux", arch="x86_64", installed=True)
+        seqexec_package.addPFN(Pegasus.DAX3.PFN(cluster_path,"local"))
+        workflow_executable_dict['pegasus-pegasus_seqexec'] = seqexec_package
 
     id = 0
     for node in self.__nodes:

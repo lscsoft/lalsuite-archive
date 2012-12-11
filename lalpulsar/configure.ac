@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalpulsar],[1.3.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalpulsar],[1.5.0.1],[lal-discuss@gravity.phys.uwm.edu])
 AM_CONFIG_HEADER([include/config.h src/LALPulsarConfig.h])
 AC_CONFIG_SRCDIR([src/ComputeFstat.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -13,6 +13,8 @@ AC_CONFIG_FILES([ \
   include/Makefile \
   include/lal/Makefile \
   src/Makefile \
+  python/Makefile \
+  python/__init__.py \
   swig/Makefile \
   swig/octave/Makefile \
   swig/python/Makefile \
@@ -39,10 +41,13 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[3])
+AC_SUBST([LIBCURRENT],[5])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
+
+# check for git repo
+LALSUITE_CHECK_GIT_REPO
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -59,7 +64,8 @@ LALSUITE_ENABLE_BOINC
 # enable strict gcc flags
 LALSUITE_ENABLE_GCC_FLAGS
 
-LALSUITE_SWIG_REQUIRE_CXX
+# enable SWIG wrapping modules
+LALSUITE_ENABLE_SWIG
 
 # put version/configure info in config header
 lalpulsar_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -136,7 +142,7 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LAL],[6.8.0],[LALVersion],[lal/LALStdio.h])
 
 # check that lal has been buil with boinc support, for boinc build
 if test "${boinc}" = "true" ; then
@@ -144,7 +150,7 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lalsupport, needed for test suite
-LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.8.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # back to c mode
 if test "${boinc}" = "true" ; then
@@ -152,23 +158,20 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lalxml
-LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
+LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h])
 
-# check for SWIG wrapping
-LALSUITE_ENABLE_SWIG
-if test "$lalxml" = "true"; then
-   LALSUITE_SWIG_USE([LALXML])
-fi
+# configure SWIG wrapping modules
+LALSUITE_USE_SWIG([XLAL LAL])
+LALSUITE_SWIG_DEPENDS([lal],[true])
+LALSUITE_SWIG_DEPENDS([lalxml],[$lalxml])
 
 # add gcc specific flags
-if test "$GCC" = yes; then
-  CFLAGS="$CFLAGS $lal_gcc_flags"
+LALSUITE_ADD_GCC_FLAGS
 
-  # add mac os x specific flags
-  if test "x$MACOSX_VERSION" != "x"; then
-    CFLAGS="$CFLAGS -mmacosx-version-min=10.4"
-  fi
-fi
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk
@@ -176,19 +179,18 @@ AC_SUBST_FILE([LAL_HEADER_LINK])
 AC_PROG_MAKE_SET
 AC_OUTPUT
 echo "
-=================================================================
+==================================================
+LALPulsar has now been successfully configured:
 
-        LALPulsar has now been successfully configured:
+* LALXML library support is $LALXML_ENABLE_VAL
+* SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
+* SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
 
-            LALXML library support is $LALXML_ENABLE_VAL
-            SWIG wrappings for Octave are $SWIG_OCTAVE_ENABLE_VAL
-            SWIG wrappings for Python are $SWIG_PYTHON_ENABLE_VAL
+and will be installed under the directory:
 
-        and will be installed under the directory:
+${prefix}
 
-            ${prefix}
-
-        Now run 'make' to build LALPulsar
-        and run 'make install' to install LALPulsar
-
-================================================================="
+Now run 'make' to build LALPulsar,
+and run 'make install' to install LALPulsar.
+==================================================
+"

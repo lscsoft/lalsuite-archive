@@ -71,9 +71,21 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
   if(LALInferenceCheckVariable(params,"theta_spin1"))
-    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin1"))));
+  {
+    LALInferenceParamVaryType vtype=LALInferenceGetVariableVaryType(params,"theta_spin1");
+    if(vtype!=LALINFERENCE_PARAM_FIXED && vtype!=LALINFERENCE_PARAM_OUTPUT)
+    {
+     logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin1"))));
+    }
+  }
   if(LALInferenceCheckVariable(params,"theta_spin2"))
-    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin2"))));
+  {
+    LALInferenceParamVaryType vtype=LALInferenceGetVariableVaryType(params,"theta_spin2");
+    if(vtype!=LALINFERENCE_PARAM_FIXED && vtype!=LALINFERENCE_PARAM_OUTPUT)
+    {
+      logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin2"))));
+    }
+  }
   /*if(LALInferenceCheckVariable(params,"a_spin1") && LALInferenceCheckVariable(params,"a_spin2")){
 
     if(*(REAL8 *)LALInferenceGetVariable(params,"a_spin2") > *(REAL8 *)LALInferenceGetVariable(params,"a_spin1")){
@@ -271,9 +283,21 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
   if(LALInferenceCheckVariable(params,"theta_spin1"))
-    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin1"))));
+  {
+    LALInferenceParamVaryType vtype=LALInferenceGetVariableVaryType(params,"theta_spin1");
+    if(vtype!=LALINFERENCE_PARAM_FIXED && vtype!=LALINFERENCE_PARAM_OUTPUT)
+    {
+      logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin1"))));
+    }
+  }
   if(LALInferenceCheckVariable(params,"theta_spin2"))
-    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin2"))));
+  { 
+    LALInferenceParamVaryType vtype=LALInferenceGetVariableVaryType(params,"theta_spin2");
+    if(vtype!=LALINFERENCE_PARAM_FIXED && vtype!=LALINFERENCE_PARAM_OUTPUT)
+    {
+      logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"theta_spin2"))));
+    }
+  }
   /*priors uniform in the individual masses. Not taking into account if mtot_max < m1_max+m2_max */
   if(LALInferenceCheckVariable(params,"massratio")||LALInferenceCheckVariable(params,"asym_massratio")) {
     if(LALInferenceCheckVariable(params,"logmc")) {
@@ -315,6 +339,10 @@ REAL8 LALInferenceInspiralSkyLocPrior(LALInferenceRunState *runState, LALInferen
 
   if(LALInferenceCheckVariable(priorParams,"MTotMax"))
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax") < m1+m2)
+      return -DBL_MAX;
+
+  if(LALInferenceCheckVariable(priorParams,"MTotMin"))
+    if(*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMin") > m1+m2)
       return -DBL_MAX;
 
   return(logPrior);
@@ -375,13 +403,15 @@ LALInferenceVariableItem *item=params->head;
 				            if(LALInferenceCheckVariable(priorParams,"mass_norm")) {
 				                norm = *(REAL8 *)LALInferenceGetVariable(priorParams,"mass_norm");
 				            }else{
-				              	if( MTotMax < component_max || MTotMax > 2.0*component_max - component_min ) {
-					                fprintf(stderr,"ERROR; MTotMax < component_max || MTotMax > 2.0*component_max - component_min\n");
-					                fprintf(stderr,"MTotMax = %lf, component_max=%lf, component_min=%lf\n",MTotMax,component_min,component_max);
-					                exit(1);
-              					}
-				             	norm = -log( (pow(MTotMax-component_min,2.0)/4.0) - (pow(MTotMax-component_max,2.0)/2.0) );
-				             	//printf("norm@%s=%f\n",item->name,norm);
+				              	if( MTotMax > component_max && MTotMax < 2.0*component_max - component_min ) {
+				             	    norm = -log( (pow(MTotMax-2.0*component_min,2)/4.0) - (pow(MTotMax-component_max-component_min,2)/2.0) );
+                        }else if(MTotMax >= component_max - component_min){
+                          norm = -log( pow(MTotMax-2.0*component_min,2)/4.0 );
+                        }else if(2.0*MTotMax < component_max){
+                          norm = -log( pow(component_max-component_min,2)/2.0 );
+                        }else{
+                          norm = 0.0; //no prior area for the masses !!
+                        }
 				    	     	LALInferenceAddVariable(priorParams, "mass_norm", &norm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
             				}
 				        logPrior+=norm;
@@ -946,14 +976,42 @@ void LALInferenceDrawFromPrior( LALInferenceVariables *output,
 
   LALInferenceVariableItem *item = output->head;
 
-  for(;item;item=item->next){
-    if(item->vary==LALINFERENCE_PARAM_CIRCULAR || item->vary==LALINFERENCE_PARAM_LINEAR)
-      LALInferenceDrawNameFromPrior( output, priorArgs, item->name, item->type, rdm );
-  }
+  /* check if using a k-D tree as the prior */
+  if( LALInferenceCheckVariable( priorArgs, "kDTreePrior" ) ){
+    LALInferenceKDTree *tree =
+      *(LALInferenceKDTree **)LALInferenceGetVariable(priorArgs, "kDTreePrior");
+    
+    /* get parameter template */
+    LALInferenceVariables *template = 
+      *(LALInferenceVariables **)LALInferenceGetVariable(priorArgs,
+                                                         "kDTreePriorTemplate");
+    
+    UINT4 Ncell = 8; /* number of points in a prior cell - i.e. controls
+                        how fine or coarse the prior looks (default to 8) */ 
+      
+    if( LALInferenceCheckVariable( priorArgs, "kDTreePriorNcell" ) )
+      Ncell = *(UINT4 *)LALInferenceGetVariable( priorArgs,"kDTreePriorNcell");
+    
+    /* draw all points from the prior distribution */
+    REAL8 *proposedPt = XLALCalloc(tree->dim, sizeof(REAL8));
 
-  /* remove multivariate deviates value if set */
-  if ( LALInferenceCheckVariable( priorArgs, "multivariate_deviates" ) )
-    LALInferenceRemoveVariable( priorArgs, "multivariate_deviates" );
+    /* A randomly-chosen point from those in the tree. */
+    //LALInferenceKDDrawFromBox(rdm, tree, proposedPt, Ncell);
+    LALInferenceKDDrawEigenFrame(rdm, tree, proposedPt, Ncell);
+    LALInferenceKDREAL8ToVariables(output, proposedPt, template);
+  }
+  else{
+    for(;item;item=item->next){
+      if(item->vary==LALINFERENCE_PARAM_CIRCULAR ||
+         item->vary==LALINFERENCE_PARAM_LINEAR)
+        LALInferenceDrawNameFromPrior( output, priorArgs, item->name,
+                                       item->type, rdm );
+    }
+
+    /* remove multivariate deviates value if set */
+    if ( LALInferenceCheckVariable( priorArgs, "multivariate_deviates" ) )
+      LALInferenceRemoveVariable( priorArgs, "multivariate_deviates" );
+  }
 }
 
 void LALInferenceDrawNameFromPrior( LALInferenceVariables *output,

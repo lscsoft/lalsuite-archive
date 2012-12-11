@@ -29,18 +29,18 @@ Pan et al, PRD84, 124052(2011).
 
 */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
+#include <complex.h>
 #include <lal/Units.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 #include <lal/FindRoot.h>
 #include <lal/SeqFactories.h>
-#include <lal/LALComplex.h>
 #include <lal/LALSimInspiral.h>
 #include <lal/LALSimIMR.h>
 #include <lal/Date.h>
 #include <lal/TimeSeries.h>
 #include <gsl/gsl_sf_gamma.h>
 #include "LALSimIMREOBNRv2.h"
+#include "LALSimBlackHoleRingdown.h"
 
 /* Include all the static function files we need */
 #include "LALSimIMREOBFactorizedWaveform.c"
@@ -113,7 +113,7 @@ static
 REAL8 XLALvrP4PN(const REAL8 r, const REAL8 omega, pr3In *params);
 
 static 
-size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start);
+size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start, const int fsign);
 
 /*-------------------------------------------------------------------*/
 /*                      pseudo-4PN functions                         */
@@ -702,7 +702,7 @@ XLALSimIMREOBNRv2SetupFlux(
 }
 
 /* return the index before the instantaneous frequency rises past target */
-static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start) {
+static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start, const int fsign) {
   size_t k = start + 1;
   const size_t n = hp->data->length - 1;
 
@@ -714,6 +714,7 @@ static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries
     REAL8 f = hcDot * hp->data->data[k] - hpDot * hc->data->data[k];
     f /= LAL_TWOPI;
     f /= hp->data->data[k] * hp->data->data[k] + hc->data->data[k] * hc->data->data[k];
+    if (fsign != 0) f = -f;
 //printf("this f: %f\n",f);
     if (f >= target) return k - 1;
   }
@@ -937,7 +938,7 @@ XLALSimIMREOBNRv2Generator(
      }
      /* If Nyquist freq. <  (l,m,0) QNM freq., exit */
      /* Note that we cancelled a factor of 2 occuring on both sides */
-     if ( LAL_PI / modefreqs->data[0].re < dt )
+     if ( LAL_PI / creal(modefreqs->data[0]) < dt )
      {
        XLALDestroyCOMPLEX16Vector( modefreqs );
        XLALDestroyREAL8Vector( values );
@@ -1002,7 +1003,7 @@ XLALSimIMREOBNRv2Generator(
 
    /* The length of the vectors at the higher sample rate will be */
    /* the step back time plus the ringdown */
-   lengthHiSR = ( nStepBack + (UINT4)(2. * EOB_RD_EFOLDS / modefreqs->data[0].im / dt) ) * resampFac;
+   lengthHiSR = ( nStepBack + (UINT4)(2. * EOB_RD_EFOLDS / cimag(modefreqs->data[0]) / dt) ) * resampFac;
 
    /* Double it for good measure */
    lengthHiSR *= 2;
@@ -1225,6 +1226,8 @@ XLALSimIMREOBNRv2Generator(
   }
 
   i = 0;
+  /* TODO: discrete search for lfCut generates discontinuity w.r.t change in physical parameter. 
+           Implement a continuous search. */
   while ( i < hiSRndx )
   {
     omega = XLALCalculateOmega( eta, rVec.data[i], prVec.data[i], pPhiVec.data[i], &aCoeffs );
@@ -1330,7 +1333,7 @@ XLALSimIMREOBNRv2Generator(
   t = m * (dynamics->data[hiSRndx] + timePeak - dynamics->data[startIdx]);
   gsl_spline_init( spline, dynamicsHi->data, phiVecHi.data, retLen );
   /* sSub = phiVecHi.data[peakIdx] - phiC/2.; */
-  sSub = gsl_spline_eval( spline, timePeak, acc ) - phiC/2.;
+  sSub = gsl_spline_eval( spline, timePeak, acc ) - phiC;
 
   gsl_spline_free( spline );
   gsl_interp_accel_free( acc );
@@ -1406,10 +1409,10 @@ XLALSimIMREOBNRv2Generator(
 
       xlalStatus = XLALSimIMREOBGetFactorizedWaveform( &hLM, values, v, modeL, modeM, &eobParams );
 
-      ampNQC->data[i] = XLALCOMPLEX16Abs( hLM );
-      sigReHi->data[i] = (REAL8) ampl0 * hLM.re;
-      sigImHi->data[i] = (REAL8) ampl0 * hLM.im;
-      phseHi->data[i] = XLALCOMPLEX16Arg( hLM ) + phaseCounter * LAL_TWOPI;
+      ampNQC->data[i] = cabs( hLM );
+      sigReHi->data[i] = (REAL8) ampl0 * creal(hLM);
+      sigImHi->data[i] = (REAL8) ampl0 * cimag(hLM);
+      phseHi->data[i] = carg( hLM ) + phaseCounter * LAL_TWOPI;
       if ( i && phseHi->data[i] > phseHi->data[i-1] )
       {
         phaseCounter--;
@@ -1441,9 +1444,9 @@ XLALSimIMREOBNRv2Generator(
        xlalStatus = XLALSimIMREOBGetFactorizedWaveform( &hLM, values, v, modeL, modeM, &eobParams );
 
        xlalStatus = XLALSimIMREOBNonQCCorrection( &hNQC, values, omega, &nqcCoeffs );
-       hLM = XLALCOMPLEX16Mul( hNQC, hLM );
+       hLM *= hNQC;
 
-       sigMode->data->data[count] = XLALCOMPLEX16MulReal( hLM, ampl0 );
+       sigMode->data->data[count] = hLM * ampl0;
 
        count++;
        i++;
@@ -1462,12 +1465,12 @@ XLALSimIMREOBNRv2Generator(
 
       xlalStatus = XLALSimIMREOBNonQCCorrection( &hNQC, values, omega, &nqcCoeffs );
 
-      hLM.re = sigReHi->data[i];
-      hLM.im = sigImHi->data[i];
+      hLM = sigReHi->data[i];
+      hLM += I * sigImHi->data[i];
 
-      hLM = XLALCOMPLEX16Mul( hNQC, hLM );
-      sigReHi->data[i] = hLM.re;
-      sigImHi->data[i] = hLM.im;
+      hLM *= hNQC;
+      sigReHi->data[i] = creal(hLM);
+      sigImHi->data[i] = cimag(hLM);
     }
 
      /*--------------------------------------------------------------
@@ -1555,8 +1558,8 @@ XLALSimIMREOBNRv2Generator(
 
      for(j=0; j<sigReHi->length; j+=resampFac)
      {
-       sigMode->data->data[count].re = sigReHi->data[j];
-       sigMode->data->data[count].im = sigImHi->data[j];
+       sigMode->data->data[count] = sigReHi->data[j];
+       sigMode->data->data[count] += I * sigImHi->data[j];
        count++;
      }
 
@@ -1569,7 +1572,14 @@ XLALSimIMREOBNRv2Generator(
   size_t cut_ind = 0.;
   if (flag_fLower_extend == 1)
   {
-    cut_ind = find_instant_freq(*hplus, *hcross, fLower, 1); 
+    if ( cos(inclination) < 0.0 )
+    {
+      cut_ind = find_instant_freq(*hplus, *hcross, fLower, 1, 1); 
+    }
+    else
+    {
+      cut_ind = find_instant_freq(*hplus, *hcross, fLower, 1, 0); 
+    }
     *hplus = XLALResizeREAL8TimeSeries(*hplus, cut_ind, (*hplus)->data->length - cut_ind);
     *hcross = XLALResizeREAL8TimeSeries(*hcross, cut_ind, (*hcross)->data->length - cut_ind);
     if (!(*hplus) || !(*hcross))

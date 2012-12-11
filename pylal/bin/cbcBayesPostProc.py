@@ -8,6 +8,7 @@
 #       Benjamin Farr <bfarr@u.northwestern.edu>,
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
+#       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -51,9 +52,83 @@ from pylal import SimInspiralUtils
 from pylal import bayespputils as bppu
 from pylal import git_version
 
+from glue.ligolw import table
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
+
+def email_notify(address,path):
+    import smtplib
+    import subprocess
+    address=address.split(',')
+    SERVER="localhost"
+    USER=os.environ['USER']
+    HOST=subprocess.check_output(["hostname","-f"]).strip()
+    FROM=USER+'@'+HOST
+    SUBJECT="LALInference result is ready at "+HOST+"!"
+    # Guess the web space path for the clusters
+    fslocation=os.path.abspath(path)
+    webpath='posplots.html'
+    if 'public_html' in fslocation:
+        k='public_html'
+    elif 'WWW' in fslocation:
+        k='WWW'
+    else:
+        k=None
+    if k is not None:
+        (a,b)=(fslocation,'')
+        while a!=k:
+            (a,b)=fslocation.split(a)
+            webpath=os.path.join(b,webpath)
+    else: webpath=os.path.join(fslocation,'posplots.html')
+
+    if 'atlas.aei.uni-hannover.de' in HOST:
+        url="https://atlas1.atlas.aei.uni-hannover.de/"
+    elif 'ligo.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo.caltech.edu/"
+    elif 'ligo-wa.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo-wa.caltech.edu/"
+    elif 'ligo-la.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo-la.caltech.edu/"
+    elif 'phys.uwm.edu' in HOST:
+        url="https://ldas-jobs.phys.uwm.edu/"
+    elif 'phy.syr.edu' in HOST:
+        url="https://sugar-jobs.phy.syr.edu/"
+    else:
+        url=HOST+':'
+    url=url+webpath
+
+    TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url
+    message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
+    server=smtplib.SMTP(SERVER)
+    server.sendmail(FROM,address,message)
+    server.quit()
+
+
+class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
+    def __init__(self,document):
+      ligolw.LIGOLWContentHandler.__init__(self,document)
+      self.tabname=lsctables.SimInspiralTable.tableName
+      self.intable=False
+      self.tableElementName=''
+    def startElement(self,name,attrs):
+      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+        self.tableElementName=name
+        # Got the right table, let's see if it's the right event
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+        self.intable=True
+      elif self.intable: # We are in the correct table
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+    def endElement(self,name):
+      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
+      if self.intable and name==self.tableElementName: self.intable=False
+
+lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
+
 
 def pickle_to_file(obj,fname):
     """
@@ -70,22 +145,38 @@ def oneD_dict_to_file(dict,fname):
 
 def multipleFileCB(opt, opt_str, value, parser):
     args=[]
+
+    def floatable(str):
+      try:
+        float(str)
+        return True
+      except ValueError:
+        return False
+
     for arg in parser.rargs:
-        if arg[0] != "-":
-            args.append(arg)
-        else:
-            del parser.rargs[:len(args)]
-            break
+      # stop on --foo like options
+      if arg[:2] == "--" and len(arg) > 2:
+        break
+      # stop on -a, but not on -3 or -3.0
+      if arg[:1] == "-" and len(arg) > 1 and not floatable(arg):
+        break
+      args.append(arg)
+
+    del parser.rargs[:len(args)]
     #Append new files to list if some already specified
     if getattr(parser.values, opt.dest):
-        args.extend(getattr(parser.values, opt.dest))
+        oldargs = getattr(parser.values, opt.dest)
+        oldargs.extend(args)
+        args = oldargs
     setattr(parser.values, opt.dest, args)
 
 def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
-                        injfile=None,eventnum=None,skyres=None,
+                        injfile=None,eventnum=None,
+                        trigfile=None,trignum=None,
+                        skyres=None,
                         #direct integration evidence
                         dievidence=False,boxing=64,difactor=1.0,
                         #elliptical evidence
@@ -95,11 +186,11 @@ def cbcBayesPostProc(
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=None,
                         #nested sampling options
-                        ns_flag=False,ns_xflag=False,ns_Nlive=None,
+                        ns_flag=False,ns_Nlive=None,
                         #spinspiral/mcmc options
                         ss_flag=False,ss_spin_flag=False,
                         #lalinferenceMCMC options
-                        li_flag=False,deltaLogL=None,fixedBurnin=None,nDownsample=1,oldMassConvention=False,
+                        li_flag=False,deltaLogL=None,fixedBurnins=None,nDownsample=None,oldMassConvention=False,
                         #followupMCMC options
                         fm_flag=False,
                         # on ACF?
@@ -113,7 +204,9 @@ def cbcBayesPostProc(
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=None,
                         #List of meanVector csv files used, one csv file for each covariance matrix
-                        meanVectors=None
+                        meanVectors=None,
+                        #header file
+                        header=None
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -124,6 +217,13 @@ def cbcBayesPostProc(
     votfile=None
     if eventnum is not None and injfile is None:
         print "You specified an event number but no injection file. Ignoring!"
+
+    if trignum is not None and trigfile is None:
+        print "You specified a trigger number but no trigger file. Ignoring!"
+
+    if trignum is None and trigfile is not None:
+        print "You specified a trigger file but no trigger number. Taking first entry (the case for GraceDB events)."
+        trignum=0
 
     if data is None:
         raise RuntimeError('You must specify an input data file')
@@ -140,7 +240,7 @@ def cbcBayesPostProc(
 
     elif ns_flag and not ss_flag:
         peparser=bppu.PEOutputParser('ns')
-        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive,xflag=ns_xflag)
+        commonResultsObj=peparser.parse(data,Nlive=ns_Nlive)
 
     elif ss_flag and not ns_flag:
         peparser=bppu.PEOutputParser('mcmc_burnin')
@@ -148,7 +248,7 @@ def cbcBayesPostProc(
 
     elif li_flag:
         peparser=bppu.PEOutputParser('inf_mcmc')
-        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogL=deltaLogL,fixedBurnin=fixedBurnin,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
+        commonResultsObj=peparser.parse(data,outdir=outdir,deltaLogL=deltaLogL,fixedBurnins=fixedBurnins,nDownsample=nDownsample,oldMassConvention=oldMassConvention)
 
     elif ss_flag and ns_flag:
         raise RuntimeError("Undefined input format. Choose only one of:")
@@ -160,19 +260,23 @@ def cbcBayesPostProc(
         votfile=thefile.read()
     else:
         peparser=bppu.PEOutputParser('common')
-        commonResultsObj=peparser.parse(open(data[0],'r'))
-
+        commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
+    
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
-    if injfile:
-        import itertools
-        injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-        if eventnum is not None:
-            if(len(injections)<eventnum):
-                raise RuntimeError("Error: You asked for event %d, but %s contains only %d injections" %(eventnum,injfile,len(injections)))
-            else:
-                injection=injections[eventnum]
+    if injfile and eventnum:
+        print 'Looking for event %i in %s\n'%(eventnum,injfile)
+        xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
+        siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+        injection=siminspiraltable[eventnum]
+	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
+	#if(len(injections)!=1): raise RuntimeError('Error: something unexpected happened while loading the injection file!\n')
+        #injection=injections[0]
 
+    #Get trigger
+    triggers = None
+    if trigfile is not None and trignum is not None:
+        triggers = bppu.readCoincXML(trigfile, trignum)
 
     ## Load Bayes factors ##
     # Add Bayes factor information to summary file #
@@ -180,6 +284,8 @@ def cbcBayesPostProc(
         bfile=open(bayesfactornoise,'r')
         BSN=bfile.read()
         bfile.close()
+        if(len(BSN.split())!=1):
+          BSN=BSN.split()[0]
         print 'BSN: %s'%BSN
     if bayesfactorcoherent is not None:
         bfile=open(bayesfactorcoherent,'r')
@@ -208,7 +314,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -253,11 +359,19 @@ def cbcBayesPostProc(
     else:
         q_name = 'q'
 
-    if (mchirp_name in pos.names and 'eta' in pos.names) and \
+    if 'sym_massratio' in pos.names:
+        eta_name= 'sym_massratio'
+    else:
+	if 'massratio' in pos.names:
+        	eta_name= 'massratio'
+    	else:
+        	eta_name='eta'
+
+    if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
     ('mass2' not in pos.names or 'm2' not in pos.names):
 
-        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,'eta'))
+        pos.append_mapping(('m1','m2'),bppu.mc2ms,(mchirp_name,eta_name))
 
     if (mchirp_name in pos.names and q_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -265,6 +379,10 @@ def cbcBayesPostProc(
 
         pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
         pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
+
+    if ('spin1' in pos.names and 'm1' in pos.names) and \
+     ('spin2' in pos.names and 'm2' in pos.names):
+       pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
 
     if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
     if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
@@ -300,7 +418,7 @@ def cbcBayesPostProc(
                 inj_time=float(injection.get_end(ifo[0]))
             location=tools.cached_detector[detMap[ifo]].location
             ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
-            loc_end_time=bppu.OneDPosterior(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
+            loc_end_time=bppu.PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
             pos.append(loc_end_time)
         for ifo1 in my_ifos:
             for ifo2 in my_ifos:
@@ -310,7 +428,7 @@ def cbcBayesPostProc(
                     inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
                 else:
                     inj_delay=None
-                time_delay=bppu.OneDPosterior(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
+                time_delay=bppu.PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
 
     #Calculate new spin angles
@@ -332,14 +450,14 @@ def cbcBayesPostProc(
 
         try:
             a1_samps = abs(pos['spin1'].samples)
-            a1_pos = bppu.OneDPosterior('a1',a1_samps,injected_value=inj_a1)
+            a1_pos = bppu.PosteriorOneDPDF('a1',a1_samps,injected_value=inj_a1)
             pos.append(a1_pos)
         except KeyError:
             print "Warning: problem accessing spin1 values."
 
         try:
             a2_samps = abs(pos['spin2'].samples)
-            a2_pos = bppu.OneDPosterior('a2',a2_samps,injected_value=inj_a2)
+            a2_pos = bppu.PosteriorOneDPDF('a2',a2_samps,injected_value=inj_a2)
             pos.append(a2_pos)
         except KeyError:
             print "Warning: no spin2 values found."
@@ -425,19 +543,22 @@ def cbcBayesPostProc(
             html_model.p('Compare to harmonic mean evidence of %g (log(Evidence) = %g).'%(exp(log_ev),log_ev))
 
     if ellevidence:
-        html_model=html.add_section('Elliptical Evidence')
-        log_ev = pos.elliptical_subregion_evidence()
-        ev = exp(log_ev)
-        evfilename=os.path.join(outdir, 'ellevidence.dat')
-        evout=open(evfilename, 'w')
-        evout.write(str(ev) + ' ' + str(log_ev))
-        evout.close()
-        print 'Computing elliptical region evidence = %g (log(ev) = %g)'%(ev, log_ev)
-        html_model.p('Elliptical region evidence is %g, or log(Evidence) = %g.'%(ev, log_ev))
+        try:
+            html_model=html.add_section('Elliptical Evidence')
+            log_ev = pos.elliptical_subregion_evidence()
+            ev = exp(log_ev)
+            evfilename=os.path.join(outdir, 'ellevidence.dat')
+            evout=open(evfilename, 'w')
+            evout.write(str(ev) + ' ' + str(log_ev))
+            evout.close()
+            print 'Computing elliptical region evidence = %g (log(ev) = %g)'%(ev, log_ev)
+            html_model.p('Elliptical region evidence is %g, or log(Evidence) = %g.'%(ev, log_ev))
 
-        if 'logl' in pos.names:
-            log_ev=pos.harmonic_mean_evidence()
-            html_model.p('Compare to harmonic mean evidence of %g (log(Evidence = %g))'%(exp(log_ev), log_ev))
+            if 'logl' in pos.names:
+                log_ev=pos.harmonic_mean_evidence()
+                html_model.p('Compare to harmonic mean evidence of %g (log(Evidence = %g))'%(exp(log_ev), log_ev))
+        except IndexError:
+            print 'Warning: Sample size too small to compute elliptical evidence!'
 
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
@@ -571,7 +692,7 @@ def cbcBayesPostProc(
     sampsdir=os.path.join(outdir,'1Dsamps')
     if not os.path.isdir(sampsdir):
         os.makedirs(sampsdir)
-
+    Nskip=0
     if 'chain' in pos.names:
         data,header=pos.samples()
         par_index=pos.names.index('cycle')
@@ -587,11 +708,10 @@ def cbcBayesPostProc(
 
     for par_name in oneDMenu:
         par_name=par_name.lower()
-        print "Binning %s to determine confidence levels ..."%par_name
         try:
             pos[par_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par_name
+            #print "No input chain for %s, skipping binning."%par_name
             continue
         try:
             par_bin=GreedyRes[par_name]
@@ -599,6 +719,7 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping binning."%par_name
             continue
 
+        #print "Binning %s to determine confidence levels ..."%par_name
         binParams={par_name:par_bin}
 
         toppoints,injectionconfidence,reses,injection_area,cl_intervals=bppu.greedy_bin_one_param(pos,binParams,confidence_levels)
@@ -644,6 +765,7 @@ def cbcBayesPostProc(
         oneDplotPath=os.path.join(onepdfdir,figname)
         plotFig.savefig(oneDplotPath)
         if(savepdfs): plotFig.savefig(os.path.join(onepdfdir,par_name+'.pdf'))
+        plt.close(plotFig)
 
         if rbins:
             print "r of injected value of %s (bins) = %f"%(par_name, rbins)
@@ -654,7 +776,7 @@ def cbcBayesPostProc(
         if not ("chain" in pos.names):
             # If there is not a parameter named "chain" in the
             # posterior, then just produce a plot of the samples.
-            plt.plot(pos_samps,'.',figure=myfig)
+            plt.plot(pos_samps,'k,',linewidth=0.0, markeredgewidth=0,figure=myfig)
             maxLen=len(pos_samps)
         else:
             # If there is a parameter named "chain", then produce a
@@ -684,52 +806,60 @@ def cbcBayesPostProc(
                 plt.axhline(injpar, color='r', linestyle='-.')
         myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.png')))
         if(savepdfs): myfig.savefig(os.path.join(sampsdir,figname.replace('.png','_samps.pdf')))
-
+        plt.close(myfig)
+        acfail=0
         if not (noacf):
             acffig=plt.figure(figsize=(4,3.5),dpi=200)
             if not ("chain" in pos.names):
                 data=pos_samps[:,0]
-                mu=mean(data)
-                N=len(data)
-                corr=correlate((data-mu),(data-mu),mode='full')
                 try:
-                    acf = corr[N-1:]/corr[N-1]
-                    lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-                    if 'cycle' in pos.names:
-                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                    (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
+                    lines=plt.plot(acf, 'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
+                    # Give ACL info if not already downsampled according to it
+                    if nDownsample is None:
+                        plt.title('Autocorrelation Function')
+                    elif 'cycle' in pos.names:
                         last_color = lines[-1].get_color()
                         plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                        plt.title('ACL = %i   N = %i'%(acl,Ncycles/acl))
+                        plt.title('ACL = %i   N = %i'%(acl,Neff))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
             else:
                 try:
                     acls = []
                     Nsamps = 0.0;
                     for rng, data, Nskip, Ncycles in zip(chainDataRanges, chainData, chainNskips, chainNcycles):
-                        mu=mean(data)
-                        N=len(data)
-                        corr=correlate(data-mu,data-mu,mode='full')
-                        acf = corr[N-1:]/corr[N-1]
-                        acl = sum(abs(acf[:N/4]))*Nskip    # over-estimates auto-correlation length to be safe
+                        (Neff, acl, acf) = bppu.effectiveSampleSize(data, Nskip)
                         acls.append(acl)
-                        Nsamps += Ncycles/acl
-                        lines=plt.plot(corr[N-1:]/corr[N-1], figure=acffig)
-                        last_color = lines[-1].get_color()
-                        plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
-                    plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
+                        Nsamps += Neff
+                        lines=plt.plot(acf,'k,', marker=',',linewidth=0.0, markeredgewidth=0, figure=acffig)
+                        # Give ACL info if not already downsampled according to it
+                        if nDownsample is not None:
+                            last_color = lines[-1].get_color()
+                            plt.axvline(acl/Nskip, linestyle='-.', color=last_color)
+                    if nDownsample is None:
+                        plt.title('Autocorrelation Function')
+                    else:
+                        plt.title('ACL = %i  N = %i'%(max(acls),Nsamps))
                 except FloatingPointError:
                     # Ignore
+                    acfail=1
                     pass
 
             acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.png')))
             if(savepdfs): acffig.savefig(os.path.join(sampsdir,figname.replace('.png','_acf.pdf')))
+            plt.close(acffig)
 
         if not noacf:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td><td><img src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td></tr>'
+	  if not acfail:
+	    acfhtml='<td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png', '_acf.png')+'"/></td>'
+	  else:
+	    acfhtml='<td>ACF generation failed!</td>'
+          html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td>'+acfhtml+'</tr>'
         else:
-            html_ompdf_write+='<tr><td><img src="1Dpdf/'+figname+'"/></td><td><img src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
+            html_ompdf_write+='<tr><td width="30%"><img width="100%" src="1Dpdf/'+figname+'"/></td><td width="30%"><img width="100%" src="1Dsamps/'+figname.replace('.png','_samps.png')+'"/></td></tr>'
 
 
     html_ompdf_write+='</table>'
@@ -790,16 +920,15 @@ def cbcBayesPostProc(
     for par1_name,par2_name in twoDGreedyMenu:
         par1_name=par1_name.lower()
         par2_name=par2_name.lower()
-        print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         try:
             pos[par1_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par1_name
+            #print "No input chain for %s, skipping binning."%par1_name
             continue
         try:
             pos[par2_name.lower()]
         except KeyError:
-            print "No input chain for %s, skipping binning."%par2_name
+            #print "No input chain for %s, skipping binning."%par2_name
             continue
         #Bin sizes
         try:
@@ -813,6 +942,7 @@ def cbcBayesPostProc(
             print "Bin size is not set for %s, skipping %s/%s binning."%(par2_name,par1_name,par2_name)
             continue
 
+        #print "Binning %s-%s to determine confidence levels ..."%(par1_name,par2_name)
         #Form greedy binning input structure
         greedy2Params={par1_name:par1_bin,par2_name:par2_bin}
 
@@ -851,12 +981,14 @@ def cbcBayesPostProc(
         greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
-        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png',',pdf'))
+        if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
+        plt.close(greedy2ContourPlot)
 
         greedy2HistFig=bppu.plot_two_param_greedy_bins_hist(pos,greedy2Params,confidence_levels)
         greedy2histpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2.png'%(par1_name,par2_name))
         greedy2HistFig.savefig(greedy2histpath)
         if(savepdfs): greedy2HistFig.savefig(greedy2histpath.replace('.png','.pdf'))
+        plt.close(greedy2HistFig)
 
         greedyFile = open(os.path.join(twobinsdir,'%s_%s_greedy_stats.txt'%(par1_name,par2_name)),'w')
 
@@ -911,6 +1043,7 @@ def cbcBayesPostProc(
 
                 myfig.savefig(twoDKdePath)
                 if(savepdfs): myfig.savefig(twoDKdePath.replace('.png','.pdf'))
+                plt.close(myfig)
 
     #Finish off the BCI table and write it into the etree
     html_tcig_write+='</table>'
@@ -1014,8 +1147,10 @@ if __name__=='__main__':
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
     parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
+    parser.add_option("-t","--trig",dest="trigfile",help="Coinc XML file",metavar="COINC.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
+    parser.add_option("--trignum",dest="trignum",action="store",default=None,help="trigger number in CoincTable",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
     parser.add_option("--snr",action="store",default=None,help="Optional file containing the SNRs of the signal in each IFO",type="string")
@@ -1026,6 +1161,7 @@ if __name__=='__main__':
     parser.add_option('--ellipticEvidence', action='store_true', default=False,help='Estimate the evidence by fitting ellipse to highest-posterior points.', dest='ellevidence')
 
     parser.add_option("--no2D",action="store_true",default=False,help="Skip 2-D plotting.")
+    parser.add_option("--header",action="store",default=None,help="Optional file containing the header line for posterior samples",type="string")
     #NS
     parser.add_option("--ns",action="store_true",default=False,help="(inspnest) Parse input as if it was output from parallel nested sampling runs.")
     parser.add_option("--Nlive",action="store",default=None,help="(inspnest) Number of live points used in each parallel nested sampling run.",type="int")
@@ -1037,7 +1173,7 @@ if __name__=='__main__':
     parser.add_option("--lalinfmcmc",action="store_true",default=False,help="(LALInferenceMCMC) Parse input from LALInferenceMCMC.")
     parser.add_option("--downsample",action="store",default=None,help="(LALInferenceMCMC) approximate number of samples to record in the posterior",type="int")
     parser.add_option("--deltaLogL",action="store",default=None,help="(LALInferenceMCMC) Difference in logL to use for convergence test.",type="float")
-    parser.add_option("--fixedBurnin",action="store",default=None,help="(LALInferenceMCMC) Fixed number of iteration for burnin.",type="int")
+    parser.add_option("--fixedBurnin",dest="fixedBurnin",action="callback",callback=multipleFileCB,help="(LALInferenceMCMC) Fixed number of iteration for burnin.")
     parser.add_option("--oldMassConvention",action="store_true",default=False,help="(LALInferenceMCMC) if activated, m2 > m1; otherwise m1 > m2 in PTMCMC.output.*.00")
     #FM
     parser.add_option("--fm",action="store_true",default=False,help="(followupMCMC) Parse input as if it was output from followupMCMC.")
@@ -1047,38 +1183,50 @@ if __name__=='__main__':
     parser.add_option("--twodkdeplots", action="store_true", default=False, dest="twodkdeplots")
     # Turn on R convergence tests
     parser.add_option("--RconvergenceTests", action="store_true", default=False, dest="RconvergenceTests")
-    parser.add_option("--savepdfs",action="store_false",default=True,dest="savepdfs")
+    parser.add_option("--nopdfs",action="store_false",default=True,dest="nopdfs")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     (opts,args)=parser.parse_args()
 
-    datafiles=opts.data+args
+    datafiles=[]
+    if args:
+      datafiles=datafiles+args
+    if opts.data:
+      datafiles=datafiles + opts.data
+    
+    if opts.fixedBurnin:
+      fixedBurnins = [int(fixedBurnin) for fixedBurnin in opts.fixedBurnin]
+    else:
+      fixedBurnins = None
 
     #List of parameters to plot/bin . Need to match (converted) column names.
     massParams=['mtotal','m1','m2','chirpmass','mchirp','mc','eta','q','massratio','asym_massratio']
     distParams=['distance','distMPC','dist']
     incParams=['iota','inclination','cosiota']
-    polParams=['psi']
+    polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
     spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
-    ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB']
-    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams
+    ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
+    tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
+    bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
+    massiveGravitonParams=['lambdaG']
+    tidalParams=['lambda1','lambda2']
+    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+    oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
     ifos_menu=['h1','l1','v1']
-    for ifo1 in ifos_menu:
-        for ifo2 in ifos_menu:
-            if ifo1==ifo2: continue
-            oneDMenu.append(ifo1+ifo2+'_delay')
+    from itertools import combinations
+    for ifo1,ifo2 in combinations(ifos_menu,2):
+      oneDMenu.append(ifo1+ifo2+'_delay')
     #oneDMenu=[]
     twoDGreedyMenu=[]
     if not opts.no2D:
-        for mp1 in massParams:
-            for mp2 in massParams:
-                if not (mp1 == mp2):
-                    twoDGreedyMenu.append([mp1, mp2])
+        for mp1,mp2 in combinations(massParams,2):
+          twoDGreedyMenu.append([mp1, mp2])
         for mp in massParams:
             for d in distParams:
                 twoDGreedyMenu.append([mp,d])
@@ -1100,20 +1248,40 @@ if __name__=='__main__':
         for ip in incParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([ip,sp])
+            for phip in phaseParams:
+                twoDGreedyMenu.append([ip,phip])
+            for psip in polParams:
+                twoDGreedyMenu.append([ip,psip])
         for sp1 in skyParams:
             for sp2 in skyParams:
                 if not (sp1 == sp2):
                     twoDGreedyMenu.append([sp1, sp2])
-        for sp1 in spinParams:
-            for sp2 in spinParams:
-                if not (sp1 == sp2):
-                    twoDGreedyMenu.append([sp1, sp2])
+        for sp1,sp2 in combinations(spinParams,2):
+          twoDGreedyMenu.append([sp1, sp2])
+        for mp in massParams:
+             for tp in tidalParams:
+                 if not (mp == tp):
+                     twoDGreedyMenu.append([mp, tp])
+        for psip in polParams:
+            for phip in phaseParams:
+                twoDGreedyMenu.append([psip,phip])
+            for sp in skyParams:
+                twoDGreedyMenu.append([psip,sp])
+            for sp in spinParams:
+                twoDGreedyMenu.append([psip,sp])
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
+    if not opts.no2D:
+        for dt1,dt2 in combinations(['h1_end_time','l1_end_time','v1_end_time'],2):
+          twoDGreedyMenu.append([dt1,dt2])
+        for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
+          twoDGreedyMenu.append([dt1,dt2])
+    for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
+        greedyBinSizes[param]=0.01
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
         greedyBinSizes[loglname]=0.1
@@ -1125,7 +1293,9 @@ if __name__=='__main__':
                         opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
-                        injfile=opts.injfile,eventnum=opts.eventnum,skyres=opts.skyres,
+                        injfile=opts.injfile,eventnum=opts.eventnum,
+                        trigfile=opts.trigfile,trignum=opts.trignum,
+                        skyres=opts.skyres,
                         # direct integration evidence
                         dievidence=opts.dievidence,boxing=opts.boxing,difactor=opts.difactor,
                         # Ellipitical evidence
@@ -1135,11 +1305,11 @@ if __name__=='__main__':
                         #manual input for SNR in the IFOs, optional.
                         snrfactor=opts.snr,
                         #nested sampling options
-                        ns_flag=opts.ns,ns_xflag=opts.xflag,ns_Nlive=opts.Nlive,
+                        ns_flag=opts.ns,ns_Nlive=opts.Nlive,
                         #spinspiral/mcmc options
                         ss_flag=opts.ss,ss_spin_flag=opts.spin,
                         #LALInferenceMCMC options
-                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnin=opts.fixedBurnin,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
+                        li_flag=opts.lalinfmcmc,deltaLogL=opts.deltaLogL,fixedBurnins=fixedBurnins,nDownsample=opts.downsample,oldMassConvention=opts.oldMassConvention,
                         #followupMCMC options
                         fm_flag=opts.fm,
                         # Turn of ACF?
@@ -1149,10 +1319,21 @@ if __name__=='__main__':
                         #Turn on R convergence tests
                         RconvergenceTests=opts.RconvergenceTests,
                         # Also save PDFs?
-                        savepdfs=opts.savepdfs,
+                        savepdfs=opts.nopdfs,
                         #List of covariance matrix csv files used as analytic likelihood
                         covarianceMatrices=opts.covarianceMatrices,
                         #List of meanVector csv files used, one csv file for each covariance matrix
-                        meanVectors=opts.meanVectors
+                        meanVectors=opts.meanVectors,
+                        #header file for parameter names in posterior samples
+                        header=opts.header
                     )
+
+    # Send an email, useful for keeping track of dozens of jobs!
+    # Will only work if the local host runs a mail daemon
+    # that can send mail to the internet
+    if opts.email:
+        try:
+            email_notify(opts.email,opts.outpath)
+        except:
+            print 'Unable to send notification email'
 #

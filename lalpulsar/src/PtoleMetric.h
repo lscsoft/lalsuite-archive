@@ -20,11 +20,6 @@
 #ifndef _PTOLEMETRIC_H
 #define _PTOLEMETRIC_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT)
-#define SWIGLAL_STRUCT(...)
-#endif
-
 #include <gsl/gsl_matrix.h>
 #include <lal/DetectorSite.h>
 #include <lal/LALConstants.h>
@@ -111,7 +106,6 @@ typedef enum
 typedef struct
 tagPtoleMetricIn
 {
-  SWIGLAL_STRUCT(PtoleMetricIn);
   SkyPosition    position;	/**< The equatorial coordinates at which the metric components are evaluated. */
   REAL4Vector   *spindown;	/**< The (dimensionless) spindown parameters for which the metric components are evaluated. */
   LIGOTimeGPS    epoch;		/**< When the coherent integration begins */
@@ -137,7 +131,14 @@ LALPulsarMetric( LALStatus      *status,
 
 int XLALFindMetricDim ( const REAL8Vector *metric );
 
-gsl_matrix *XLALSpindownMetric(UINT4, REAL8);
+/**
+ * Frequency and frequency derivative components of the metric, suitable for a directed
+ * search with only one fixed sky position. The units are those expected by ComputeFstat.
+ */
+int XLALSpindownMetric(
+  gsl_matrix* metric,	/**< [in] Matrix containing the metric */
+  double Tspan		/**< [in] Time span of the data set */
+  );
 
 /** \endcond */
 

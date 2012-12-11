@@ -21,11 +21,6 @@
 #ifndef _DATE_H
 #define _DATE_H
 
-/* remove SWIG interface directives */
-#if !defined(SWIG) && !defined(SWIGLAL_STRUCT)
-#define SWIGLAL_STRUCT(...)
-#endif
-
 /* the following two preprocessor defines are to include the prototypes for
  * gmtime_r() and asctime_r() from /usr/include/time.h
  * HOWEVER, they do no good if -ansi is used in gcc: warnings are generated
@@ -121,7 +116,6 @@ information.  The various time systems are discussed in [\ref esaa1992].
 typedef struct
 tagLALPlaceAndGPS
 {
-    SWIGLAL_STRUCT(LALPlaceAndGPS);
     LALDetector *p_detector;   /**< pointer to a detector */
     LIGOTimeGPS *p_gps;        /**< Pointer to a GPS time structure */
 }
@@ -145,6 +139,13 @@ LIGOTimeGPS * XLALGPSSetREAL8( LIGOTimeGPS *epoch, REAL8 t );
 
 /* Returns GPS time as a REAL8. */
 REAL8 XLALGPSGetREAL8( const LIGOTimeGPS *epoch );
+
+/** Breaks the GPS time into REAL8 integral and fractional parts,
+ * each of which has the same sign as the epoch.  Returns the
+ * fractional part, and stores the integral part (as a REAL8)
+ * in the object pointed to by iptr.  Like the standard C math
+ * library function modf(). */
+REAL8 XLALGPSModf( REAL8 *iptr, const LIGOTimeGPS *epoch );
 
 /* Adds dt to a GPS time. */
 LIGOTimeGPS * XLALGPSAdd( LIGOTimeGPS *epoch, REAL8 dt );
@@ -176,12 +177,21 @@ int XLALLeapSecondsUTC( const struct tm *utc );
 /* Returns the GPS seconds since the GPS epoch for a specified UTC time structure. */
   INT4 XLALUTCToGPS( const struct tm *utc );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(EMPTY_ARGUMENT(struct tm*, utc));
+SWIGLAL(RETURN_VALUE(struct tm*, XLALGPSToUTC));
+#endif
+
 /* Returns a pointer to a tm structure representing the time
  * specified in seconds since the GPS epoch.  */
 struct tm * XLALGPSToUTC(
     struct tm *utc,
     INT4 gpssec
     );
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL_CLEAR(EMPTY_ARGUMENT(struct tm*, utc));
+#endif
 
 /* Returns the Julian Day (JD) corresponding to the date given in a broken
  * down time structure. */
@@ -221,11 +231,20 @@ int XLALStrToGPS(LIGOTimeGPS *t, const char *nptr, char **endptr);
 char *XLALGPSToStr(char *, const LIGOTimeGPS *t);
 
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
+SWIGLAL(RETURN_VALUE(LIGOTimeGPS*, XLALGPSTimeNow));
+#endif
+
 /* This function returns the current GPS time according to the system clock */
 LIGOTimeGPS *
 XLALGPSTimeNow (
     LIGOTimeGPS *gpstime
     );
+
+#ifdef SWIG // SWIG interface directives
+SWIGLAL_CLEAR(NEW_EMPTY_ARGUMENT(LIGOTimeGPS*, gpstime));
+#endif
 
 int
 XLALINT8NanoSecIsPlayground (

@@ -579,6 +579,9 @@ class FollowupTrigger:
     # read the file(s) and get the desired sngl_inspiral rows
     if self.verbose:
       print "Processing INSPIRAL triggers from files ", trigger_files
+      
+    sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
+              trigger_files, verbose=False)
 
     xmldoc = ligolw_add.ligolw_add(ligolw.Document(), trigger_files,\
                non_lsc_tables_ok=False, verbose=False)

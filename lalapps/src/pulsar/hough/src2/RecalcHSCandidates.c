@@ -604,7 +604,7 @@ int MAIN( int argc, char *argv[]) {
   EphemerisData * edat;
   if ( (edat = XLALInitBarycenter ( uvar_ephemE, uvar_ephemS )) == NULL ) {
     XLALPrintError ("%s: XLALInitBarycenter() failed to load ephemeris files '%s' or '%s'\n", __func__, uvar_ephemE, uvar_ephemS );
-    return XLAL_EFUNC;
+    return HIERARCHICALSEARCH_ESUB;
   }
 
   XLALGPSSetREAL8(&minStartTimeGPS, uvar_minStartTime1);
@@ -1713,7 +1713,7 @@ RCComputeFstatHoughMap(LALStatus *status,		/**< pointer to LALStatus structure *
       parDem.timeDiff = timeDiffV->data[j];
 
       /* calculate parameters needed for buiding the LUT */
-      TRY( LALHOUGHParamPLUT( status->statusPtr, &parLut, &parSize, &parDem), status);
+      TRY( LALHOUGHCalcParamPLUT( status->statusPtr, &parLut, &parSize, &parDem), status);
 
       /* build the LUT */
       TRY( LALHOUGHConstructPLUT( status->statusPtr, &(lutV.lut[j]), &patch, &parLut ), status);
@@ -3201,7 +3201,7 @@ void ComputeNumExtraBins(LALStatus            *status,
     parDem.timeDiff = timeDiffV->data[j];
 
     /* calculate parameters needed for buiding the LUT */
-    TRY( LALHOUGHParamPLUT( status->statusPtr, &parLut, &parSize, &parDem),status );
+    TRY( LALHOUGHCalcParamPLUT( status->statusPtr, &parLut, &parSize, &parDem),status );
     /* build the LUT */
     TRY( LALHOUGHConstructPLUT( status->statusPtr, &lut, &patch, &parLut ),
 	 status );
@@ -3441,7 +3441,7 @@ XLALLoadHoughCandidateList ( const char *fname,	/**< input candidate-list file '
 
     } /* for i < nLines */
 
-  XLALDestroyParsedDataFile ( &data );
+  XLALDestroyParsedDataFile ( data );
 
   /* set frequency/f1dot search-space boundaries */
   out->FreqMin  = candMin.Freq;

@@ -1,4 +1,4 @@
-AMCFLAGS = $(LALSUPPORT_CFLAGS)
+AM_CFLAGS = $(LALSUPPORT_CFLAGS)
 LDADD = $(LALSUPPORT_LIBS) $(top_builddir)/src/liblalstochastic.la
 
 if LALSUPPORT
@@ -41,8 +41,6 @@ OverlapReductionFunctionTest_SOURCES = \
 StochasticInverseNoiseTest_SOURCES = \
   StochasticInverseNoiseTest.c CheckStatus.c
 SimulateSBTest_SOURCES = SimulateSBTest.c CheckStatus.c
-
-TESTS_ENVIRONMENT = 1>/dev/null
 
 EXTRA_DIST = \
 	pipeline \

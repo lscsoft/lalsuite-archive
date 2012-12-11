@@ -44,14 +44,7 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import llwapp
-
-
-try:
-	any
-except NameError:
-	# compatibility for Python < 2.5
-	from glue.iterutils import any
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 
 
 #
@@ -99,7 +92,7 @@ class CoincDatabase(object):
 			self.multi_burst_table = None
 
 		# get the segment lists
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program).coalesce()
 		self.instruments = set(self.seglists.keys())
 		if veto_segments_name is not None:
 			self.vetoseglists = ligolwsegments.segmenttable_get_by_name(self.xmldoc, veto_segments_name).coalesce()

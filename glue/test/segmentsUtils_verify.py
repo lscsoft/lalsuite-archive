@@ -1,5 +1,6 @@
 import random
 import StringIO
+import sys
 import unittest
 
 from glue import iterutils
@@ -74,4 +75,4 @@ suite = unittest.TestSuite()
 suite.addTest(unittest.makeSuite(test_segwizard))
 suite.addTest(unittest.makeSuite(test_vote))
 
-unittest.TextTestRunner(verbosity=2).run(suite)
+sys.exit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

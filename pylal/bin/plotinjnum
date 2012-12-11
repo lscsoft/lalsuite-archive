@@ -30,7 +30,7 @@ def found_missed(opts,foundFiles,missedFiles):
   for file in foundFiles:
     file = [file]
     simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
-    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True,old_document=opts.old_document)
+    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file)
 
     # Perform the veto
     if opts.veto_file is not None:
