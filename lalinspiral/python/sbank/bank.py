@@ -97,7 +97,7 @@ class Bank(object):
     def from_sims(cls, sims, tmplt_class, *args):
         bank = cls(*((tmplt_class,) + args))
         bank._templates.extend([tmplt_class.from_sim(s, bank=bank) for s in sims])
-        bank._templates.sort(key=attrgetter("_mchirp"))
+        #bank._templates.sort(key=attrgetter("_mchirp"))
         return bank
 
     def _metric_match(self, tmplt, proposal, f, **kwargs):
