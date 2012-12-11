@@ -837,12 +837,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
 
     # make a dictionary of zerolag "shifts" needed for the get_coinc_segments function
     zerolag_dict = {}
-    sqlquery = """
-        SELECT DISTINCT ifos
-        FROM process
-        WHERE program == "inspiral"
-    """
-    for ifo in connection.cursor().execute( sqlquery ):
+    for ifo in ifo_segments:
         zerolag_dict[ifo] = 0.0
 
     # Cycle over available veto categories
@@ -851,8 +846,9 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     
         # make a dictionary of coincident segments by exclusive on-ifos
         coinc_segs = compute_dur.get_coinc_segments(post_vetoes_ifosegs, zerolag_dict)
-        # key only the on-instruments 'key[1]' as the dictionary key
-        coinc_segs = dict( (key[1], segmentlist) for key, segmentlist in coinc_segs.items() ) 
+        # following line was a hack to deal with the sqlite output format, no longer needed : 
+        ## key only the on-instruments 'key[1]' as the dictionary key
+        #coinc_segs = dict( (key[1], segmentlist) for key, segmentlist in coinc_segs.items() ) 
     
         #
         #   Get all the on_instrument times and cycle over them
