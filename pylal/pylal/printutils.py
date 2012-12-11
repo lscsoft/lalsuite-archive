@@ -846,8 +846,6 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     
         # make a dictionary of coincident segments by exclusive on-ifos
         coinc_segs = compute_dur.get_coinc_segments(post_vetoes_ifosegs, zerolag_dict)
-        # key only the on-instruments 'key[1]' as the dictionary key
-        coinc_segs = dict( (key[1], segmentlist) for key, segmentlist in coinc_segs.items() ) 
     
         #
         #   Get all the on_instrument times and cycle over them
