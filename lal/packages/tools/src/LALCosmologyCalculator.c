@@ -130,15 +130,14 @@ double XLALUniformComovingVolumeDistribution(
             double z,
             double zmax)
 {
-
-    double x = 1.0+z;
-    
-    double norm = XLALIntegrateComovingVolumeDensity(omega, zmax);
-    double da = XLALAngularDistance(omega,z);
-    double E = XLALHubbleParameter(z,(void *)omega);
+    zmax+=1;
+//    double x = 1.0+z;
+    double norm = XLALIntegrateComovingVolumeDensity(omega, -1.0);
+//    double da = XLALAngularDistance(omega,z);
+//    double E = XLALHubbleParameter(z,(void *)omega);
           
-    double unnorm_density = da*da/(x*E);
-    
+    double unnorm_density = XLALUniformComovingVolumeDensity(z,(void *)omega);//da*da/(x*E);//XLALIntegrateComovingVolumeDensity(omega, z);//
+
     return unnorm_density/norm;
 }
 
@@ -150,9 +149,9 @@ double XLALUniformComovingVolumeDensity(
     LALCosmologicalParameters *p = (LALCosmologicalParameters *)omega;
 
     double x = 1.0+z;
-    double da = XLALAngularDistance(p,z);
+    double dc = XLALComovingLOSDistance(p,z);
     double E = XLALHubbleParameter(z,omega);
-    double unnorm_density = da*da/(x*E);
+    double unnorm_density = dc*dc*E/(x);
     
     return unnorm_density;
 }
@@ -173,7 +172,10 @@ double XLALIntegrateComovingVolumeDensity(LALCosmologicalParameters *omega, doub
     gsl_integration_workspace * w 
     = gsl_integration_workspace_alloc (512);
 
-    gsl_integration_qag (&F, 0.0, z, epsabs, epsrel, 
+    if (z<0.0) gsl_integration_qagiu (&F, 0.0, epsabs, epsrel, 
+                    limit, w, &result, &error);
+    
+    else gsl_integration_qag (&F, 0.0, z, epsabs, epsrel, 
                     limit, key, w, &result, &error);
 
     gsl_integration_workspace_free (w);

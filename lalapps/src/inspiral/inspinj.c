@@ -111,7 +111,7 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs);
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 
 /*
@@ -294,16 +294,29 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
 //  return z;
 //}
 
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax)
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs)
 {
-  REAL8 test,z,p;
+    REAL8 local_rate = 3.17e-14; /** in s/mpc^3 corresponding to 1 Myr/mpc^3 */
+  REAL8 test,z,p,pT,pt;
+  //tobs=5.0*3.15e7;
+//  do
+//  {
+//    pT = XLALUniformDeviate(randParams);
     do
-        {
-      test = XLALUniformDeviate(randParams);
-      z = zmax * XLALUniformDeviate(randParams);
-          p= XLALUniformComovingVolumeDistribution(params, z, zmax);
+        { 
+         test = XLALUniformDeviate(randParams);
+         z = zmax * XLALUniformDeviate(randParams);
+          //p= 1.0-exp(-1.0e9*tobs*local_rate*XLALUniformComovingVolumeDistribution(params, z, zmax));
+          p=XLALUniformComovingVolumeDistribution(params, z, zmax);
+        //printf("z:%f p:%30.30f test:%30.30f\n",z,p,test);
         }
         while (test>p);
+//        //printf("Vc:%30.30f\n",XLALUniformComovingVolumeDensity(z,params));
+//        pt = 1.0-exp(-tobs*local_rate*XLALIntegrateComovingVolumeDensity(params, z));
+//        printf("z:%lf pT:%30.30f pt:%30.30f\n",z,pT,pt);
+//    }
+//    while (pT>pt);
+    
   return z;
 }
 
@@ -3072,11 +3085,11 @@ int main( int argc, char *argv[] )
         sizeof(CHAR) * LIGOMETA_WAVEFORM_MAX );
     simTable->f_lower = fLower;
     simTable->amp_order = amp_order;
-
+    REAL8 tobs = gpsEndTime.gpsSeconds-gpsStartTime.gpsSeconds;
     /* draw redshift */
     if (dDistr==sfr)
     {
-          redshift= drawRedshift(omega,zmaximal);        
+          redshift= drawRedshift(omega,zmaximal,tobs);        
 
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
@@ -3091,7 +3104,7 @@ int main( int argc, char *argv[] )
     }
     if (dDistr==uniformVolume) 
     {
-        redshift= drawRedshift(omega,zmaximal); 
+        redshift= drawRedshift(omega,zmaximal,tobs); 
         minMass1 = redshift_mass(minMass10, redshift);
         maxMass1 = redshift_mass(maxMass10, redshift);
         meanMass1 = redshift_mass(meanMass10, redshift);
