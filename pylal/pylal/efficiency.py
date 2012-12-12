@@ -112,7 +112,7 @@ def inj_dist_range(dist_array, dist_scale = "linear", step = 4.0):
     d_max = numpy.max(dist_array)
 
     if dist_scale == "linear":
-        dist_bin_edges = numpy.arange(d_min, d_max, step)
+        dist_bin_edges = numpy.arange(d_min, d_max+2*step, step)
     elif dist_scale == "log":
         log_limits = numpy.log10([d_min, d_max])/numpy.log10(step)
         dist_bin_edges = numpy.power(

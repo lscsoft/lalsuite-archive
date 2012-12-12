@@ -308,7 +308,12 @@ plot_basename = '-'.join([
     str(start_time), str(end_time - start_time) ])
 
 # set xlim for X_vs_Distance plots
-max_dist = max([ dist[tag][list(eff[0.0]).index(0.0)+1] for tag, eff in eff_dict.items() ])
+max_dist = 0.0
+for tag, eff in eff_dict.items():
+    try:
+        max_dist = max(max_dist, dist[tag][list(eff[0.0]).index(0.0)+1])
+    except ValueError:
+        max_dist = max(max_dist, numpy.max(dist[tag]))
 min_dist = numpy.min(dist.values())
 
 # determine xlim_max for FAR_vs_VT plot
