@@ -81,10 +81,14 @@ def parse_command_line():
             "it is only used to enhance performance in a networked " +
             "environment. "
         )
-    parser.add_option( "-P", "--output-path", action = "store", type = "string",
+    parser.add_option("-P", "--output-path", action = "store", type = "string",
         default = os.getcwd(), metavar = "PATH",
         help =
             "Path where the figures should be stored. Default is current directory."
+        )
+    parser.add_option("-f", "--format", action = "store", default = "png",
+        metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}",
+        help = "Set the output image format. (default = 'png')"
         )
     parser.add_option("--distance-scale", type="string", default="linear",
         metavar = "string",
@@ -301,11 +305,12 @@ rcParams.update(plotting_params)
 
 # plot basename
 plot_basename = '-'.join([
-    on_ifos,
+    on_ifos.replace(',',''),
     '%s',
     opts.inj_usertag,
     'CAT_%i_VETO', 
-    str(start_time), str(end_time - start_time) ])
+    str(start_time), str(end_time - start_time)
+])
 
 # set xlim for X_vs_Distance plots
 max_dist = 0.0
@@ -345,8 +350,8 @@ Eff_Dist_plot.set_title(
     )
 Eff_Dist_plot.legend(loc='lower left')
 
-plot_name = plot_basename % ('Eff_vs_Dist', opts.veto_category)
-pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+plot_name = opts.output_path + plot_basename  % ('Eff_vs_Dist', opts.veto_category)
+pyplot.savefig(plot_name + '.' + opts.format, dpi=100, format=opts.format)
 pyplot.close(Eff_Dist_fig)
 
 # ------------------------- VxT vs Distance for FAR=0 ------------------------ #
@@ -374,8 +379,8 @@ VT_Dist_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
 VT_Dist_plot.set_title( r'VxT vs %s' % opts.distance_type.replace('_',' ').title() )
 VT_Dist_plot.legend(loc='lower right')
 
-plot_name = plot_basename % ('VT_vs_Dist', opts.veto_category)
-pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+plot_name = opts.output_path + plot_basename % ('VT_vs_Dist', opts.veto_category)
+pyplot.savefig(plot_name + '.' + opts.format, dpi=100, format=opts.format)
 pyplot.close(VT_Dist_fig)
 
 # -------------------------------- VxT vs FAR ------------------------------- #
@@ -409,8 +414,8 @@ VT_FAR_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
 VT_FAR_plot.set_title( r'Pipeline Efficiency Comparison - VT vs FAR' )
 VT_FAR_plot.legend(loc='lower right')
 
-plot_name = plot_basename % ('VT_vs_FAR', opts.veto_category)
-pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+plot_name = opts.output_path + plot_basename % ('VT_vs_FAR', opts.veto_category)
+pyplot.savefig(plot_name + '.' + opts.format, dpi=100, format=opts.format)
 pyplot.close(VT_FAR_fig)
 
 
