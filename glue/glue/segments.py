@@ -1001,7 +1001,9 @@ class segmentlistdict(dict):
 		Return the result of running .extent() on the union of all
 		lists in the dictionary.
 		"""
-		segs = self.extent().values()
+		segs = tuple(seglist.extent() for seglist in self.values() if seglist)
+		if not segs:
+			raise ValueError, "empty list"
 		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
 
 	def find(self, item):
