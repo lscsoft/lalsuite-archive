@@ -685,7 +685,7 @@ class CacheEntry(object):
 		Parse a URL in the style of T050017-00 into a CacheEntry.
 		The T050017-00 file name format is, essentially,
 
-		observatory-description-start-dur.ext
+		observatory-description-start-duration.extension
 
 		Example:
 
