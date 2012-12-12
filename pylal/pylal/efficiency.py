@@ -52,7 +52,7 @@ from pylal import ligolw_compute_durations as compute_dur
 
 def chirp_dist(distance, mchirp, source_ref):
     if not source_ref:
-       return distance
+        return distance
     else:
         if source_ref == "NSNS":
             mchirp_ref = (1.4+1.4) * (1./4)**(3.0/5.0)
@@ -61,23 +61,21 @@ def chirp_dist(distance, mchirp, source_ref):
         elif source_ref == "BHBH":
             mchirp_ref = (10.0+10.0) * (1./4)**(3.0/5.0)
 
-       return distance * (mchirp_ref/mchirp)**(5.0/6.0)
+        return distance * (mchirp_ref/mchirp)**(5.0/6.0)
 
 def decisive_dist(
-    h1_dist, l1_dist, v1_dist, 
+    h_dist, l_dist, v_dist, 
     mchirp, source_ref, ifos):
     
     dist_list = []
-    if 'H1' in ifos:
-        dist_list.append(h1_dist)
+    if 'H1' in ifos or 'H2' in ifos:
+        dist_list.append(h_dist)
     if 'L1' in ifos:
-        dist_list.append(l1_dist)
+        dist_list.append(l_dist)
     if 'V1' in ifos:
-        dist_list.append(v1_dist)
+        dist_list.append(v_dist) 
 
-    decisive_dist = sorted(dist_list)[-2]
-
-    return chirp_dist_func(decisive_dist, mchirp, source_ref) 
+    return chirp_dist(sorted(dist_list)[-2], mchirp, source_ref) 
  
 
 def end_time_with_ns(end_time, end_time_ns):
@@ -135,7 +133,7 @@ def successful_injections(
     tag,
     on_ifos,
     veto_cat,
-    distance_type = "distance",
+    dist_type = "distance",
     source_ref = None,
     verbose = False):
 
@@ -160,15 +158,15 @@ def successful_injections(
     if dist_type == "distance":
         connection.create_function('distance_func', 3, chirp_dist)
         sqlquery += """
-            distance_func(distance, mchirp, :source_ref)
+            distance_func(distance, sim_inspiral.mchirp, :source_ref)
         FROM sim_inspiral """
     elif dist_type == "decisive_distance":
         connection.create_function('decisive_dist_func', 6, decisive_dist)
         sql_params_dict['ifos'] = on_ifos
         sqlquery += """
             decisive_dist_func(
-                eff_dist_h1, eff_dist_l1, eff_dist_v1,
-                mchirp, :source_ref, :ifos)
+                eff_dist_h, eff_dist_l, eff_dist_v,
+                sim_inspiral.mchirp, :source_ref, :ifos)
         FROM sim_inspiral """
 
     if tag != 'ALL_INJ':
@@ -209,7 +207,7 @@ def found_injections(
     connection,
     tag,
     on_ifos,
-    distance_type = "distance",
+    dist_type = "distance",
     source_ref = None,
     verbose = False):
 
@@ -226,14 +224,14 @@ def found_injections(
     if dist_type == "distance":
         connection.create_function('distance_func', 3, chirp_dist)
         sqlquery += """
-            distance_func(distance, mchirp, :source_ref), """
+            distance_func(distance, sim_inspiral.mchirp, :source_ref), """
     elif dist_type == "decisive_distance":
         connection.create_function('decisive_dist_func', 6, decisive_dist)
         sql_params_dict['ifos'] = on_ifos
         sqlquery += """
             decisive_dist_func(
-                eff_dist_h1, eff_dist_l1, eff_dist_v1,
-                mchirp, :source_ref, :ifos), """
+                eff_dist_h, eff_dist_l, eff_dist_v,
+                sim_inspiral.mchirp, :source_ref, :ifos), """
 
     sqlquery += """
         false_alarm_rate

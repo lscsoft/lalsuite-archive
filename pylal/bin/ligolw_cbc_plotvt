@@ -166,7 +166,7 @@ def parse_command_line():
 opts = parse_command_line()
 
 # get database url paths from cache
-database_list = [CacheEntry(line).path() for line in file(opts.database_cache)]
+database_list = [CacheEntry(line).path for line in file(opts.database_cache)]
 # make list of database tags
 db_tags = opts.database_tags.split(',')
 
@@ -175,6 +175,7 @@ veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 
 eff_dict = {}
 eff_err_dict = {}
+dist = {}
 VT_dict = {}
 sumVT_dict = {}
 
@@ -209,7 +210,7 @@ for db_idx, db_path in enumerate(database_list):
         connection,
         opts.inj_usertag,
         on_ifos,
-        distance_type = opts.distance_type,
+        dist_type = opts.distance_type,
         source_ref = opts.source_ref,
         verbose = opts.verbose)
 
@@ -219,7 +220,7 @@ for db_idx, db_path in enumerate(database_list):
         opts.inj_usertag,
         on_ifos,
         veto_cat,
-        distance_type = opts.distance_type,
+        dist_type = opts.distance_type,
         source_ref = opts.source_ref,
         verbose = opts.verbose)
 
@@ -232,7 +233,7 @@ for db_idx, db_path in enumerate(database_list):
     T_fgd = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
 
     # make the distance bins for the efficiency histogram
-    dist = efficiency.inj_dist_range(
+    dist[db_tag] = efficiency.inj_dist_range(
         numpy.array([inj[2] for inj in found_inj]),
         dist_scale = opts.distance_scale,
         num_bins = opts.num_dist_bins)
@@ -244,9 +245,9 @@ for db_idx, db_path in enumerate(database_list):
         all_inj,
         found_inj, found_fars,
         far_list,
-        dist)
+        dist[db_tag])
     # compute Volume*Time vs distance array
-    VT_dict[db_tag] = efficiency.get_four_volume(eff_dict, dist, T_fgd)
+    VT_dict[db_tag] = efficiency.get_four_volume(eff_dict[db_tag], dist[db_tag], T_fgd)
     # create a dictionary for the total VT as a function of FAR
     sumVT_dict[db_tag] = dict([(FAR,numpy.sum(VT)) for FAR, VT in VT_dict[db_tag].items() ])
 
@@ -257,7 +258,7 @@ for db_idx, db_path in enumerate(database_list):
     # close connection
     connection.close()
     dbtables.discard_connection_filename(
-        opts.database,
+        db_path,
         working_filename,
         verbose=opts.verbose)
 
@@ -276,7 +277,7 @@ plotting_params = {
     'axes.labelsize': 'medium',
     'grid.color': 'k',
     'grid.linestyle': ':',
-    'legend.fontsize': 'medium',
+    'legend.fontsize': 'smaller',
     'legend.numpoints': 1
 }
 rcParams.update(plotting_params)
@@ -297,6 +298,9 @@ VT_FAR_fig = pyplot.figure()
 VT_FAR_plot = VT_FAR_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
+    zeroFAR_VT = sumVT_dict[db_tag].pop(0.0)
+    new_minFAR = 10**numpy.floor(numpy.log10(numpy.min(sumVT_dict[db_tag].keys())))
+    sumVT_dict[db_tag][new_minFAR] = zeroFAR_VT
     VT_FAR_plot.plot(
         sumVT_dict[db_tag].keys(), sumVT_dict[db_tag].values(),
         label=db_tag, linestyle='None',
@@ -325,7 +329,7 @@ VT_Dist_plot = VT_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
     VT_Dist_plot.plot(
-        dist[1:], numpy.cumsum(VT_dict[db_tag][0.0]),
+        dist[db_tag][1:], numpy.cumsum(VT_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
@@ -336,7 +340,7 @@ VT_Dist_plot.set_yscale(opts.distance_scale)
 
 VT_Dist_plot.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
 VT_Dist_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_Dist_plot.set_title( r'VxT vs %s' % opts.distance.replace('_',' ').title() )
+VT_Dist_plot.set_title( r'VxT vs %s' % opts.distance_type.replace('_',' ').title() )
 VT_Dist_plot.legend(loc='lower right')
 
 plot_name = plot_basename % ('VT_vs_Dist', opts.veto_category)
@@ -352,7 +356,7 @@ Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
     Eff_Dist_plot.errorbar(
-        dist[1:], eff_dict[db_tag][0.0], eff_err_dict[db_tag][0.0],
+        dist[db_tag][1:], eff_dict[db_tag][0.0], eff_err_dict[db_tag][0.0],
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
