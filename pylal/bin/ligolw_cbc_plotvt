@@ -111,11 +111,11 @@ def parse_command_line():
             "alternative is 'decisive_distance' ala the second largest effective " +
             "distance from a found signal."
         )
-    parser.add_option("--source-ref", type="string", default=None,
-        metavar = "{NSNS,NSBH,BHBH}",
+    parser.add_option("--weight-dist", type="store_true", default = False,
         help =
-            "The source type used to weight the distance values.  The default " +
-            "is None."
+            "Weight the distance parameter by chirp mass of a canonical DNS " +
+            "binary (1.4-1.4). The default value is False. The formula is " +
+            "chirp_dist = dist*(mchirp_DNS/mchirp)**(5.0/6.0)."
         )
     parser.add_option("--veto-category", type="int",
         metavar = "INT",
@@ -225,7 +225,7 @@ for db_idx, db_path in enumerate(database_list):
         opts.inj_usertag,
         on_ifos,
         dist_type = opts.distance_type,
-        source_ref = opts.source_ref,
+        chirp_dist = opts.weight_dist,
         verbose = opts.verbose)
 
     # get list of tuples containing all injections that went in during desired coinc time
@@ -235,7 +235,7 @@ for db_idx, db_path in enumerate(database_list):
         on_ifos,
         veto_cat,
         dist_type = opts.distance_type,
-        source_ref = opts.source_ref,
+        chirp_dist = opts.weight_dist,
         verbose = opts.verbose)
 
     secINyear = 60.*60.*24.*365.25
@@ -299,7 +299,8 @@ plotting_params = {
     'grid.color': 'k',
     'grid.linestyle': ':',
     'legend.fontsize': 'smaller',
-    'legend.numpoints': 1
+    'legend.numpoints': 1,
+    'savefig.dpi': 200
 }
 rcParams.update(plotting_params)
 

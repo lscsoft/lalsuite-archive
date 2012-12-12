@@ -50,22 +50,14 @@ from pylal import ligolw_compute_durations as compute_dur
 #
 
 
-def chirp_dist(distance, mchirp, source_ref):
-    if not source_ref:
-        return distance
-    else:
-        if source_ref == "NSNS":
-            mchirp_ref = (1.4+1.4) * (1./4)**(3.0/5.0)
-        elif source_ref == "NSBH":
-            mchirp_ref = (1.4+10.0) * (14.0/11.4**2)**(3.0/5.0)
-        elif source_ref == "BHBH":
-            mchirp_ref = (10.0+10.0) * (1./4)**(3.0/5.0)
+def chirp_dist(distance, mchirp):
+        mchirp_DNS = (1.4+1.4) * (1./4)**(3.0/5.0)
 
-        return distance * (mchirp_ref/mchirp)**(5.0/6.0)
+        return distance * (mchirp_DNS/mchirp)**(5.0/6.0)
 
 def decisive_dist(
     h_dist, l_dist, v_dist, 
-    mchirp, source_ref, ifos):
+    mchirp, weight_dist, ifos):
     
     dist_list = []
     if 'H1' in ifos or 'H2' in ifos:
@@ -75,8 +67,10 @@ def decisive_dist(
     if 'V1' in ifos:
         dist_list.append(v_dist) 
 
-    return chirp_dist(sorted(dist_list)[-2], mchirp, source_ref) 
- 
+    if weight_dist:
+        return chirp_dist(sorted(dist_list)[1], mchirp) 
+    else:
+        return sorted(dist_list)[1]
 
 def end_time_with_ns(end_time, end_time_ns):
     time = end_time + 1e-9*end_time_ns
@@ -129,7 +123,7 @@ def successful_injections(
     on_ifos,
     veto_cat,
     dist_type = "distance",
-    source_ref = None,
+    weight_dist = False,
     verbose = False):
 
     """
@@ -144,24 +138,25 @@ def successful_injections(
     veto_segments = compute_dur.get_veto_segments(xmldoc, verbose)
 
     # ------------------------ Get List of Injections ------------------------ #
-    sql_params_dict = {'source_ref': source_ref}
+    sql_params_dict = {}
     sqlquery = """
         SELECT DISTINCT
             simulation_id,
             end_time_with_ns(geocent_end_time, geocent_end_time_ns),"""
     # add the desired distance measure to the SQL query
     if dist_type == "distance":
-        connection.create_function('distance_func', 3, chirp_dist)
+        connection.create_function('distance_func', 2, chirp_dist)
         sqlquery += """
-            distance_func(distance, sim_inspiral.mchirp, :source_ref)
+            distance_func(distance, sim_inspiral.mchirp)
         FROM sim_inspiral """
     elif dist_type == "decisive_distance":
         connection.create_function('decisive_dist_func', 6, decisive_dist)
         sql_params_dict['ifos'] = on_ifos
+        sql_params_dict['weight_dist'] = weight_dist
         sqlquery += """
             decisive_dist_func(
                 eff_dist_h, eff_dist_l, eff_dist_v,
-                sim_inspiral.mchirp, :source_ref, :ifos)
+                sim_inspiral.mchirp, :weight_dist, :ifos)
         FROM sim_inspiral """
 
     if tag != 'ALL_INJ':
@@ -203,30 +198,31 @@ def found_injections(
     tag,
     on_ifos,
     dist_type = "distance",
-    source_ref = None,
+    weight_dist = False,
     verbose = False):
 
     connection.create_function('end_time_with_ns', 2, end_time_with_ns)
 
     ifos_str = ','.join(on_ifos)
 
-    sql_params_dict = {'source_ref': source_ref}
+    sql_params_dict = {}
     sqlquery = """
     SELECT DISTINCT
         sim_inspiral.simulation_id,
         end_time_with_ns(geocent_end_time, geocent_end_time_ns), """
     # add the desired distance measure to the SQL query
     if dist_type == "distance":
-        connection.create_function('distance_func', 3, chirp_dist)
+        connection.create_function('distance_func', 2, chirp_dist)
         sqlquery += """
-            distance_func(distance, sim_inspiral.mchirp, :source_ref), """
+            distance_func(distance, sim_inspiral.mchirp), """
     elif dist_type == "decisive_distance":
         connection.create_function('decisive_dist_func', 6, decisive_dist)
+        sql_params_dict['weight_dist'] = weight_dist
         sql_params_dict['ifos'] = on_ifos
         sqlquery += """
             decisive_dist_func(
                 eff_dist_h, eff_dist_l, eff_dist_v,
-                sim_inspiral.mchirp, :source_ref, :ifos), """
+                sim_inspiral.mchirp, :weight_dist, :ifos), """
 
     sqlquery += """
         false_alarm_rate
