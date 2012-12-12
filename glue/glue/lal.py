@@ -641,10 +641,6 @@ class CacheEntry(object):
 		# FIXME:  remove when calling code uses the attribute directly.
 		self._path = value
 
-	def to_segmentlistdict(self):
-		warnings.warn("glue.lal.CacheEntry.to_segmentlistdict() method is deprecated;  use glue.lal.CacheEntry.segmentlistdict attribute instead", DeprecationWarning)
-		return self.segmentlistdict
-
 	@property
 	def segmentlistdict(self):
 		"""
