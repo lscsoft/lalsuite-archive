@@ -113,7 +113,7 @@ class infinity(object):
 				return PosInfinity
 			if sign < 0:
 				return NegInfinity
-			raise ValueError, sign
+			raise ValueError(sign)
 		return PosInfinity
 
 	def __repr__(self):
@@ -277,7 +277,7 @@ class segment(tuple):
 		if len(args) == 1:
 			args = args[0]
 		if len(args) != 2:
-			raise TypeError, "__new__() takes 2 arguments, or 1 argument when it is a sequence of length 2"
+			raise TypeError("__new__() takes 2 arguments, or 1 argument when it is a sequence of length 2")
 		if args[0] <= args[1]:
 			return tuple.__new__(cls, args)
 		else:
@@ -362,7 +362,7 @@ class segment(tuple):
 		"""
 		if (self[1] <= other[0]) or (self[0] >= other[1]):
 			# self and other don't intersect
-			raise ValueError, other
+			raise ValueError(other)
 		return tuple.__new__(self.__class__, (max(self[0], other[0]), min(self[1], other[1])))
 
 	def __or__(self, other):
@@ -373,7 +373,7 @@ class segment(tuple):
 		"""
 		if (self[1] < other[0]) or (self[0] > other[1]):
 			# self and other are disjoint
-			raise ValueError, other
+			raise ValueError(other)
 		return tuple.__new__(self.__class__, (min(self[0], other[0]), max(self[1], other[1])))
 
 	# addition is union
@@ -390,7 +390,7 @@ class segment(tuple):
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
 			# result is not exactly 1 segment
-			raise ValueError, other
+			raise ValueError(other)
 		if self[0] < other[0]:
 			return tuple.__new__(self.__class__, (self[0], other[0]))
 		return tuple.__new__(self.__class__, (other[1], self[1]))
@@ -532,7 +532,7 @@ class segmentlist(list):
 		segmentlist to be coalesced.
 		"""
 		if not len(self):
-			raise ValueError, "empty list"
+			raise ValueError("empty list")
 		min, max = self[0]
 		for lo, hi in self:
 			if min > lo:
@@ -551,7 +551,7 @@ class segmentlist(list):
 		for i, seg in enumerate(self):
 			if item in seg:
 				return i
-		raise ValueError, item
+		raise ValueError(item)
 
 	# arithmetic operations that are sensible with segment lists
 
@@ -1003,7 +1003,7 @@ class segmentlistdict(dict):
 		"""
 		segs = tuple(seglist.extent() for seglist in self.values() if seglist)
 		if not segs:
-			raise ValueError, "empty list"
+			raise ValueError("empty list")
 		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
 
 	def find(self, item):
