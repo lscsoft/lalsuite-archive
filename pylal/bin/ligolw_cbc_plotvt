@@ -233,11 +233,8 @@ for db_idx, db_path in enumerate(database_list):
 
     # make the distance bins for the efficiency histogram
     dist = efficiency.inj_dist_range(
-        connection,
-        opts.inj_usertag,
-        dist_type = opts.distance_type,
+        numpy.array([inj[2] for inj in found_inj]),
         dist_scale = opts.distance_scale,
-        source_ref = opts.source_ref,
         num_bins = opts.num_dist_bins)
 
     # ------------------------- For Each FAR Threshold ------------------------- #

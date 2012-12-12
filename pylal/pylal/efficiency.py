@@ -109,54 +109,25 @@ def get_livetime(connection, veto_cat, on_ifos, datatype):
 #
 
 def inj_dist_range(
-    connection,
-    tag,
-    on_ifos,
-    dist_type = "distance",
+    found_inj_dist,
     dist_scale = "linear",
-    source_ref = None,
     num_bins = 10):
 
-    sql_params_dict = {'source_ref': source_ref}
-    # SQL query to get a list of the distances for desired injections
-    if dist_type == "distance":
-        connection.create_function('distance_func', 3, chirp_dist)
-        sqlquery = """
-        SELECT DISTINCT
-            distance_func(distance, mchirp, :source_ref)
-        FROM sim_inspiral """
-    elif dist_type == "decisive_distance":
-        connection.create_function('decisive_dist_func', 6, decisive_dist)
-        sql_params_dict['ifos'] = on_ifos
-        sqlquery = """
-        SELECT DISTINCT
-            decisive_dist_func(
-                eff_dist_h1, eff_dist_l1, eff_dist_v1,
-                mchirp, :source_ref, :ifos)
-        FROM sim_inspiral """
-
-    if tag != 'ALL_INJ':
-        # if a specific injection set is wanted
-        sqlquery += """
-        JOIN process_params ON (
-            process_params.process_id == sim_inspiral.process_id)
-        WHERE process_params.value = :usertag) """
-        sql_params_dict["usertag"] = tag
-
-    distances = numpy.array([ dist[0]
-        for dist in connection.execute(sqlquery, sql_params_dict) ])
-    min_dist = numpy.min(distances)
-    max_dist = numpy.max(distances)
+    min_dist = numpy.min(found_inj_dist)
+    max_dist = numpy.max(found_inj_dist)
 
     if dist_scale == "linear":
-       d = numpy.linspace(start=min_dist, stop=max_dist, num=num_bins)
+        dist_bin_edges = numpy.linspace(
+            start=min_dist,
+            stop=max_dist,
+            num=num_bins)
     elif dist_scale == "log":
-       d = numpy.logspace(
-           start=numpy.log10(min_dist),
-           stop=numpy.log10(max_dist),
-           num=num_bins)
+        dist_bin_edges = numpy.logspace(
+            start=numpy.log10(min_dist),
+            stop=numpy.log10(max_dist),
+            num=num_bins)
 
-    return d
+    return dist_bin_edges
 
 
 def successful_injections(
