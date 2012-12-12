@@ -106,24 +106,19 @@ def get_livetime(connection, veto_cat, on_ifos, datatype):
 # =============================================================================
 #
 
-def inj_dist_range(
-    found_inj_dist,
-    dist_scale = "linear",
-    num_bins = 10):
+def inj_dist_range(dist_array, dist_scale = "linear", step = 4.0):
 
-    min_dist = numpy.min(found_inj_dist)
-    max_dist = numpy.max(found_inj_dist)
+    d_min = numpy.min(dist_array)
+    d_max = numpy.max(dist_array)
 
     if dist_scale == "linear":
-        dist_bin_edges = numpy.linspace(
-            start=min_dist,
-            stop=max_dist,
-            num=num_bins)
+        dist_bin_edges = numpy.arange(d_min, d_max, step)
     elif dist_scale == "log":
-        dist_bin_edges = numpy.logspace(
-            start=numpy.log10(min_dist),
-            stop=numpy.log10(max_dist),
-            num=num_bins)
+        log_limits = numpy.log10([d_min, d_max])/numpy.log10(step)
+        dist_bin_edges = numpy.power(
+            step,
+            numpy.arange(log_limits[0]-1, log_limits[1]+1)
+        )
 
     return dist_bin_edges
 
@@ -281,7 +276,7 @@ def detection_efficiency(
     significant_dist = [inj[2] for inj in found_inj]
 
     eff = {}
-    eff_err = {}
+    eff_stdev = {}
     for threshold in far_list:
         for idx, far in enumerate(found_fars):
             if far <= threshold:
@@ -290,17 +285,24 @@ def detection_efficiency(
         # Histogram found injections with FAR < threshold
         N_significant, junk = numpy.histogram(significant_dist[new_start:], bins = r)
         eff[threshold] = numpy.float_(N_significant)/N_success
-        eff_err[threshold] = numpy.sqrt(eff[threshold]*(1-eff[threshold]) / N_success)
+        eff_stdev[threshold] = numpy.sqrt(eff[threshold]*(1-eff[threshold]) / N_success)
 
-    return eff, eff_err
+    return eff, eff_stdev
 
-def get_four_volume(eff, r, T_z):
+def get_four_volume(eff, eff_stdev, r, T_fgd):
     # calculate 3 volume in each shell
     V = 4./3 * numpy.pi * (r[1:]**3. - r[:-1]**3.)
 
     VT = {}
+    VT_var = {}
+    # for a given FAR threshold
     for threshold, eff_array in eff.items():
-        VT[threshold] = numpy.nan_to_num(eff_array * V * T_z)
+        # make the cumulative VxT
+        VT[threshold] = numpy.cumsum(numpy.nan_to_num(eff_array * V * T_fgd))
+        # compute the variance for the cumulative VxT
+        VT_var[threshold] = numpy.cumsum(
+            numpy.power(numpy.nan_to_num(eff_stdev[threshold] * V * T_fgd), 2.0)
+        )
 
-    return VT
+    return VT, VT_var
 
