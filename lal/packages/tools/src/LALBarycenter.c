@@ -23,6 +23,40 @@
 
 #define OBLQ 0.40909280422232891e0; /* obliquity of ecliptic at JD 245145.0* in radians */;
 
+/// ---------- internal buffer type for optimized Barycentering function ----------
+typedef struct tagfixed_sky
+{
+  REAL8 sinAlpha;	/// sin(alpha)
+  REAL8 cosAlpha;	/// cos(alpha)
+  REAL8 sinDelta;	/// sin(delta)
+  REAL8 cosDelta;	/// cos(delta)
+  REAL8 n[3];		/// unit vector pointing from SSB to the source, in J2000 Cartesian coords, 0=x,1=y,2=z
+} fixed_sky_t;
+
+typedef struct tagfixed_site
+{
+  REAL8 rd;		/// distance 'rd' from center of Earth, in light seconds
+  REAL8 longitude;	/// geocentric (not geodetic!!) longitude of detector vertex
+  REAL8 latitude;	/// geocentric latitude of detector vertex
+  REAL8 sinLat;		/// sin(latitude)
+  REAL8 cosLat;		/// cos(latitude);
+  REAL8 rd_sinLat;	/// rd * sin(latitude)
+  REAL8 rd_cosLat;	/// rd * cos(latitude)
+} fixed_site_t;
+
+struct tagBarycenterBuffer
+{
+  REAL8 alpha;			/// buffered sky-location: right-ascension in rad
+  REAL8 delta;			/// buffered sky-location: declination in rad
+  fixed_sky_t fixed_sky;	/// fixed-sky buffered quantities
+
+  LALDetector site;		/// buffered detector site
+  fixed_site_t fixed_site;	/// fixed-site buffered quantities
+
+  BOOLEAN active;		/// switch set on TRUE of buffer has been filled
+}; // struct tagBarycenterBuffer
+
+
 /** \author Curt Cutler
  * \brief Computes the position and orientation of the Earth, at some arrival time
  * \f$t_a\f$, specified <tt>LIGOTimeGPS</tt> input structure.
@@ -64,9 +98,9 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
   REAL8 tdiff2S;
 
   INT4 j; /*dummy index */
-  
-  earth->ttype = TYPE_ORIGINAL; /* using the original XLALBarycenterEarth function */
-  
+
+  earth->ttype = TIMECORRECTION_ORIGINAL; /* using the original XLALBarycenterEarth function */
+
   /* check input */
   if ( !earth || !tGPS || !edat || !edat->ephemE || !edat->ephemS ) {
     XLALPrintError ("%s: invalid NULL input 'earth', 'tGPS', 'edat', 'edat->ephemE' or 'edat->ephemS'\n", __func__ );
@@ -397,7 +431,7 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
 
 /*Note I don't bother adding 2nd-tier terms to deinstein_tempo either */
     }
-    
+
     /********************************************************************
      *Now calculating Earth-Sun separation vector, as needed
      *for Shapiro delay calculation.
@@ -430,6 +464,20 @@ XLALBarycenterEarth ( EarthState *earth, 		/**< [out] the earth's state at time 
 } /* XLALBarycenterEarth() */
 
 
+/** \brief Computes the position and orientation of the Earth, at some arrival
+ * time, but unlike \c XLALBarycenterEarth uses look-up tables for the Einstein
+ * delay calculation.
+ *
+ * The function replicates the functionality of \c XLALBarycenterEarth, but (as
+ * in the pulsar timing software TEMPO2) will use a look-up table to compute
+ * the Einstein delay term. This function will also allow the final solar
+ * system barycentre correction to be in either Barycentric Dynamical Time
+ * (TDB), as used previously in \c XLALBarycenterEarth, or in Coordinate
+ * Barycentric Time (TCB), as is the default for TEMPO2.
+ *
+ * The function can revert to using the original \c XLALBarycenterEarth code by
+ * supplying \c TIMECORRECTION_ORIGINAL as the \c ttype input.
+ */
 int
 XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth's state at time tGPS */
                          const LIGOTimeGPS *tGPS,          /**< [in] GPS time tgps */
@@ -438,17 +486,12 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
                          TimeCorrectionType ttype          /**< [in] time correction type */
                        ){
   earth->ttype = ttype; /* set TimeCorrectionType */
-  
+
   /* if wanted ORIGNAL version of the code just use XLALBarycenterEarth */
-  if ( ttype == TYPE_ORIGINAL ){
-    if( XLALBarycenterEarth( earth, tGPS, edat ) == XLAL_SUCCESS )
-      return XLAL_SUCCESS;
-    else{
-      XLALPrintError("%s: failed.\n", __func__ );
-      return XLAL_FAILURE;
-    }
-  }
-  else{ /* start off doing the same as XLALBarycenterEarth() */
+  if ( ttype == TIMECORRECTION_ORIGINAL )
+    return XLALBarycenterEarth( earth, tGPS, edat );
+
+  /* start off doing the same as XLALBarycenterEarth() */
     REAL8 tgps[2];   /*I convert from two-integer representation to
                       two REAL8s (just because I initially wrote my code for
                       REAL8s). GPS time(sec) = tgps[0] + 1.e-9*tgps[1] */
@@ -472,9 +515,9 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
     REAL8 tdiff2S;
 
     static REAL8 scorr; /* SI second/metre correction factor */
-    
+
     INT4 j; /*dummy index */
-  
+
     /* check input */
     if ( !earth || !tGPS || !edat || !edat->ephemE || !edat->ephemS || !tdat || !tdat->timeCorrs ) {
       XLALPrintError ("%s: invalid NULL input 'earth', 'tGPS', 'edat', 'edat->ephemE', 'edat->ephemS', 'tdat' or 'tdat->timeCorrs'\n", __func__ );
@@ -512,9 +555,8 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
     /* in the TCB system the gravitational potential well of the solar system is
      * removed, so clocks run slightly faster than the SI second by a small
      * correction factor */
-    if( ttype == TYPE_TEMPO2 || ttype == TYPE_TCB ) scorr = IFTE_K;
+    if( ttype == TIMECORRECTION_TEMPO2 || ttype == TIMECORRECTION_TCB ) scorr = IFTE_K;
     else scorr = 1.;
-
     /********************************************************************
      *Calculate position and vel. of center of Earth.
      *We extrapolate from a table produced using a JPL ephemeris.
@@ -525,10 +567,9 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
                                               from ephem, in sec. 0=x,1=y,2=z */
       REAL8* vel=edat->ephemE[ientryE].vel;
       REAL8* acc=edat->ephemE[ientryE].acc;
-      
+
       for (j=0;j<3;j++){
-        earth->posNow[j] = scorr * (pos[j] + vel[j]*tdiffE +
-          0.5*acc[j]*tdiff2E);
+        earth->posNow[j] = scorr * (pos[j] + vel[j]*tdiffE + 0.5*acc[j]*tdiff2E);
         earth->velNow[j] = scorr * (vel[j] + acc[j]*tdiffE);
       }
     }
@@ -666,20 +707,20 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
                              /* ``equation of the equinoxes''*/
     }
     /**********************************************************************
-     * Now calculating Einstein delay using the look-up table and linearly 
-     * interpolating between points. Depending on the ephemeris type this is 
-     * either the difference between TDB and TDT, or TCB and TDT. The 
+     * Now calculating Einstein delay using the look-up table and linearly
+     * interpolating between points. Depending on the ephemeris type this is
+     * either the difference between TDB and TDT, or TCB and TDT. The
      * TCB calculation includes a linear drift term correcting the SSB time
-     * to be outside the solar systems gravitational potential. These 
+     * to be outside the solar systems gravitational potential. These
      * calculations are taken from the TEMPO2 tt2tdb.C file.
-     * 
+     *
      * Note the 51.184 s difference between TDT and GPS
      *-----------------------------------------------------------------------
      */
     {
       /* get deltaT from the look-up table */
       INT4 cidx = floor( ((tgps[0] + tgps[1]*1.e-9) - tdat->timeCorrStart)/tdat->dtTtable );
-      
+
       if( cidx < 0 || cidx > (INT4)tdat->nentriesT-2 ){
         XLALPrintError ("%s: input GPS time %f outside of time ephem range\n", __func__, tgps[0]);
         XLAL_ERROR ( XLAL_EDOM );
@@ -687,31 +728,31 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
 
       REAL8 dtidx = (tgps[0] + tgps[1]*1.e-9) - (tdat->timeCorrStart + (REAL8)cidx*tdat->dtTtable);
       REAL8 grad = (tdat->timeCorrs[cidx+1] - tdat->timeCorrs[cidx]) / tdat->dtTtable;
-    
+
       REAL8 deltaT = tdat->timeCorrs[cidx] + grad*dtidx;
-      
-      REAL8 correctionTT_Teph; 
-      
+
+      REAL8 correctionTT_Teph;
+
       correctionTT_Teph = IFTE_TEPH0 + deltaT / (1.0-IFTE_LC);
       /* the observatory term (obsTerm) correction from TEMPO2's tt2tdb.C code
          is added in XLALBarycenter */
-      if( ttype == TYPE_TEMPO || ttype == TYPE_TDB ){ /* conversion for TDT to TDB using lookup table */
-        /* add correction offset as in TEMPO2 tt2tdb.C to 
+      if( ttype == TIMECORRECTION_TEMPO || ttype == TIMECORRECTION_TDB ){ /* conversion for TDT to TDB using lookup table */
+        /* add correction offset as in TEMPO2 tt2tdb.C to
          * account for its readdition in correctionTT_Teph */
         correctionTT_Teph -= IFTE_TEPH0 / ( 1.0 - IFTE_LC );
         earth->einstein = correctionTT_Teph;
         earth->deinstein = 0.;
       }
       /* conversion for TDT to TCB using lookup table */
-      else if( ttype == TYPE_TEMPO2 || ttype == TYPE_TCB ){
+      else if( ttype == TIMECORRECTION_TEMPO2 || ttype == TIMECORRECTION_TCB ){
         /* GPS time in MJD */
         REAL8 mjdtt = 44244. + ((tgps[0] + tgps[1]*1.e-9) + 51.184)/86400.;
-        
+
         earth->einstein = IFTE_KM1 * (mjdtt-IFTE_MJD0)*86400.0 /* linear drift term */
                 + IFTE_K * (correctionTT_Teph - (long double)IFTE_TEPH0);
         earth->deinstein = IFTE_KM1; /* account for the drift in the derivative */
       }
-      
+
       /* now get the time derivative using Curt's method: NOTE: this really should be
        checked as the differences may not be negligble */
       REAL8 jedtdt = -7300.5e0 + (tgps[0] + 51.184e0 + tgps[1]*1.e-9)/8.64e4;
@@ -729,7 +770,7 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
         1.554905e0*77713.771467920e0 * cos(77713.771467920e0*jt + 5.198467090e0 )
         )/(8.64e4*3.6525e5);
     }
-    
+
     /********************************************************************
      *Now calculating Earth-Sun separation vector, as needed
      *for Shapiro delay calculation.
@@ -756,8 +797,7 @@ XLALBarycenterEarthNew ( EarthState *earth,                /**< [out] the earth'
       earth->drse = earth->drse/earth->rse;
       /* Curt: make sure rse, b, (rse +seDotN) aren't zero */
     }
-  }
-  
+
   return XLAL_SUCCESS;
 
 } /* XLALBarycenterEarthNew() */
@@ -800,7 +840,6 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
   REAL8 roemer,droemer;  /*Roemer delay and its time derivative*/
   REAL8 erot,derot;      /*delay from center-of-Earth to detector (sec),
 			   and its time deriv */
-  REAL8 obsTerm = 0.;    /* observatory term correction from TEMPO2 tt2tb.C */
   REAL8 shapiro, dshapiro; /*Shapiro delay due to Sun, and its time deriv. */
   REAL8 finiteDistCorr, dfiniteDistCorr; /*correction to Roemer delay due
 		                           to finite dist D to source;
@@ -855,16 +894,17 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
        emit->droemer = droemer;
   }
 
-  /* get the observatory term (if in TDB) */
-  if ( earth->ttype != TYPE_ORIGINAL ){
-    REAL8 obsEarth[3];
-    observatoryEarth( obsEarth, baryinput->site, &baryinput->tgps, earth->gmstRad,
-                      earth->delpsi, earth->deleps );
-      
-    for ( j = 0; j<3; j++ ) obsTerm += obsEarth[j]*earth->velNow[j];
+  /* get the observatory term (if not using the original XLALBarycenterEarth function) */
+  REAL8 obsTerm = 0;    /* observatory term correction from TEMPO2 tt2tdb.C */
+  if ( earth->ttype != TIMECORRECTION_ORIGINAL )
+    {
+      REAL8 obsEarth[3];
+      observatoryEarth( obsEarth, baryinput->site, &baryinput->tgps, earth->gmstRad, earth->delpsi, earth->deleps );
 
-    obsTerm /= (1.0-IFTE_LC)*(REAL8)IFTE_K;
-  }
+      for ( j = 0; j<3; j++ ) obsTerm += obsEarth[j]*earth->velNow[j];
+
+      obsTerm /= (1.0-IFTE_LC)*(REAL8)IFTE_K;
+    }
 
        /********************************************************************
 	* Now including Earth's rotation
@@ -991,7 +1031,7 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
         shapiro  = 9.852e-6*log( (LAL_AU_SI/LAL_C_SI)/(earth->rse +seDotN));
         dshapiro = -9.852e-6*(earth->drse+ dseDotN)/(earth->rse +seDotN);
        }
-       
+
        emit->shapiro = shapiro;
        emit->dshapiro = dshapiro;
     }
@@ -1028,11 +1068,9 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
 
   INT4 deltaTint; /* floor of deltaT */
 
-  emit->deltaT = roemer + erot + obsTerm + earth->einstein - shapiro +
-    finiteDistCorr;
+  emit->deltaT = roemer + erot + obsTerm + earth->einstein - shapiro + finiteDistCorr;
 
-  emit->tDot = 1.e0 + droemer + derot + earth->deinstein
-             - dshapiro + dfiniteDistCorr;
+  emit->tDot = 1.e0 + droemer + derot + earth->deinstein - dshapiro + dfiniteDistCorr;
 
   deltaTint = (INT4)floor(emit->deltaT);
 
@@ -1077,21 +1115,24 @@ XLALBarycenter ( EmissionTime *emit, 			/**< [out] emission-time information */
 /** \author Curt Cutler, Miroslav Shaltev, R Prix
  * \brief Speed optimized version of XLALBarycenter(),
  * should be fully equivalent except for the additional buffer argument.
- * The buffer is allowed to be NULL (= no buffering), otherwise it will be
- * used to keep sky-specific and detector-specific values if they can be re-used.
+ * The 'buffer' is used to keep sky-specific and detector-specific values that can can potentially be re-used
+ * across subsequent calls to this function.
+ *
+ * NOTE: The 'buffer' argument is a pointer to a buffer-pointer, which is allowed to be buffer==NULL (=> no buffering),
+ * otherwise a given non-NULL (*buffer) is re-used, or if (*buffer==NULL) we create a new one and return in (*buffer).
+ *
  */
 int
 XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information */
                     const BarycenterInput *baryinput, 	/**< [in] info about detector and source-location */
                     const EarthState *earth, 		/**< [in] earth-state (from LALBarycenterEarth()) */
-                    BarycenterBuffer *buffer		/**< [in/out] internal buffer for speed optimization */
+                    BarycenterBuffer **buffer		/**< [in/out] internal buffer for speed optimization */
                     )
 {
   /* ---------- check input sanity ---------- */
   XLAL_CHECK ( emit != NULL, XLAL_EINVAL, "Invalid input: emit == NULL");
   XLAL_CHECK ( baryinput != NULL, XLAL_EINVAL, "Invalid input: baryinput == NULL");
   XLAL_CHECK ( earth != NULL, XLAL_EINVAL, "Invalid input: earth == NULL");
-  XLAL_CHECK ( buffer != NULL, XLAL_EINVAL, "Invalid input: buffer == NULL");
 
   // physical constants used by Curt (slightly different from LAL's Constants, but kept for binary-equivalence with XLALBarycenter()
   const REAL8 OMEGA = 7.29211510e-5;  /* ang. vel. of Earth (rad/sec)*/
@@ -1110,16 +1151,30 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
 
   REAL8 sinAlpha, cosAlpha, sinDelta, cosDelta;
   REAL8 n[3]; /*unit vector pointing from SSB to the source, in J2000 Cartesian coords, 0=x,1=y,2=z */
+
+  // ---------- handle buffering of recurring computed quantities
+  // 3 possible scenarios:
+  //   i)   caller gave as an initialized buffer: we use that one
+  //   ii)  caller gave as a pointer to a NULL-initialized buffer-pointer: allocate buffer, initialize and pass back to caller
+  //   iii) caller gave as a NULL pointer: use buffer internally, but destroy at the end of this function
+  BarycenterBuffer *myBuffer = NULL;
+  if ( (buffer) && (*buffer) ) // caller gave as an allocated buffer
+    myBuffer = (*buffer);
+  else	// we need to create a buffer
+    XLAL_CHECK ( (myBuffer = XLALCalloc(1,sizeof(*myBuffer))) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc(1,sizeof(*myBuffer))\n" );
+
+  // now we're (basically) guaranteed to have a valid buffer in 'myBuffer'
+
   // use buffered sky-quantities if same sky-position as stored in buffer
-  if ( (alpha == buffer->alpha) && (delta == buffer->delta ) )
+  if ( myBuffer->active && (alpha == myBuffer->alpha) && (delta == myBuffer->delta ) )
     {
-      sinDelta = buffer->fixed_sky.sinDelta;
-      cosDelta = buffer->fixed_sky.cosDelta;
-      sinAlpha = buffer->fixed_sky.sinAlpha;
-      cosAlpha = buffer->fixed_sky.cosAlpha;
-      n[0] = buffer->fixed_sky.n[0];
-      n[1] = buffer->fixed_sky.n[1];
-      n[2] = buffer->fixed_sky.n[2];
+      sinDelta = myBuffer->fixed_sky.sinDelta;
+      cosDelta = myBuffer->fixed_sky.cosDelta;
+      sinAlpha = myBuffer->fixed_sky.sinAlpha;
+      cosAlpha = myBuffer->fixed_sky.cosAlpha;
+      n[0] = myBuffer->fixed_sky.n[0];
+      n[1] = myBuffer->fixed_sky.n[1];
+      n[2] = myBuffer->fixed_sky.n[2];
     }
   else // not buffered, recompute sky-dependent quantities
     {
@@ -1136,17 +1191,17 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
       n[1] = cosDelta * sinAlpha;
       n[2] = sinDelta;
 
-      // ... and store them in the buffer
-      buffer->alpha 		 = alpha;
-      buffer->delta 		 = delta;
-      buffer->fixed_sky.sinDelta = sinDelta;
-      buffer->fixed_sky.cosDelta = cosDelta;
-      buffer->fixed_sky.sinAlpha = sinAlpha;
-      buffer->fixed_sky.cosAlpha = cosAlpha;
-      buffer->fixed_sky.n[0] 	 = n[0];
-      buffer->fixed_sky.n[1] 	 = n[1];
-      buffer->fixed_sky.n[2] 	 = n[2];
-
+      // ... and store them in the myBuffer
+      myBuffer->alpha 		 = alpha;
+      myBuffer->delta 		 = delta;
+      myBuffer->fixed_sky.sinDelta = sinDelta;
+      myBuffer->fixed_sky.cosDelta = cosDelta;
+      myBuffer->fixed_sky.sinAlpha = sinAlpha;
+      myBuffer->fixed_sky.cosAlpha = cosAlpha;
+      myBuffer->fixed_sky.n[0] 	 = n[0];
+      myBuffer->fixed_sky.n[1] 	 = n[1];
+      myBuffer->fixed_sky.n[2] 	 = n[2];
+      myBuffer->active = 1;
     } // if not re-using sky-buffered quantities
 
   // ---------- detector site-position dependent quantities: compute or re-use from buffer is applicable
@@ -1155,16 +1210,16 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
   REAL8 sinLat, cosLat;
   REAL8 rd_sinLat, rd_cosLat;	// shortcuts for 'rd * sin(latitude)' and 'rd * cos(latitude)' respectively
 
-  // use buffered site-quantities if same site as stored in buffer
-  if ( memcmp ( &baryinput->site, &buffer->site, sizeof(buffer->site) ) == 0 )
+  // use buffered site-quantities if same site as stored in myBuffer
+  if ( myBuffer->active && (memcmp ( &baryinput->site, &myBuffer->site, sizeof(myBuffer->site) ) == 0) )
     {
-      rd	= buffer->fixed_site.rd;
-      longitude	= buffer->fixed_site.longitude;
-      latitude	= buffer->fixed_site.latitude;
-      sinLat	= buffer->fixed_site.sinLat;
-      cosLat	= buffer->fixed_site.cosLat;
-      rd_sinLat	= buffer->fixed_site.rd_sinLat;
-      rd_cosLat	= buffer->fixed_site.rd_cosLat;
+      rd	= myBuffer->fixed_site.rd;
+      longitude	= myBuffer->fixed_site.longitude;
+      latitude	= myBuffer->fixed_site.latitude;
+      sinLat	= myBuffer->fixed_site.sinLat;
+      cosLat	= myBuffer->fixed_site.cosLat;
+      rd_sinLat	= myBuffer->fixed_site.rd_sinLat;
+      rd_cosLat	= myBuffer->fixed_site.rd_cosLat;
     }
   else
     {
@@ -1183,16 +1238,16 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
       rd_sinLat = rd * sinLat;
       rd_cosLat = rd * cosLat;
 
-      // ... and store them in the buffer
-      memcpy ( &buffer->site, &baryinput->site , sizeof(buffer->site) );
-      buffer->fixed_site.rd 		= rd;
-      buffer->fixed_site.longitude 	= longitude;
-      buffer->fixed_site.latitude 	= latitude;
-      buffer->fixed_site.sinLat 	= sinLat;
-      buffer->fixed_site.cosLat 	= cosLat;
-      buffer->fixed_site.rd_sinLat 	= rd_sinLat;
-      buffer->fixed_site.rd_cosLat 	= rd_cosLat;
-
+      // ... and store them in the myBuffer
+      memcpy ( &myBuffer->site, &baryinput->site , sizeof(myBuffer->site) );
+      myBuffer->fixed_site.rd 		= rd;
+      myBuffer->fixed_site.longitude 	= longitude;
+      myBuffer->fixed_site.latitude 	= latitude;
+      myBuffer->fixed_site.sinLat 	= sinLat;
+      myBuffer->fixed_site.cosLat 	= cosLat;
+      myBuffer->fixed_site.rd_sinLat 	= rd_sinLat;
+      myBuffer->fixed_site.rd_cosLat 	= rd_cosLat;
+      myBuffer->active = 1;
     } // if not re-using site-buffered quantities
 
   /*---------------------------------------------------------------------
@@ -1200,11 +1255,26 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
    * We extrapolate from a table produced using JPL DE405 ephemeris.
    *---------------------------------------------------------------------
    */
-  REAL8 roemer = 0, droemer = 0;  /*Roemer delay and its time derivative*/
+  /*Roemer delay and its time derivative*/
+  emit->roemer = 0;
+  emit->droemer = 0;
   for ( UINT4 j = 0; j < 3; j++ )
     {
-      roemer  += n[j] * earth->posNow[j];
-      droemer += n[j] * earth->velNow[j];
+      emit->roemer  += n[j] * earth->posNow[j];
+      emit->droemer += n[j] * earth->velNow[j];
+    }
+
+  /* get the observatory term (if in TDB) */
+  REAL8 obsTerm = 0;    /* observatory term correction from TEMPO2 tt2tb.C */
+  if ( earth->ttype != TIMECORRECTION_ORIGINAL )
+    {
+      REAL8 obsEarth[3];
+      observatoryEarth( obsEarth, baryinput->site, &baryinput->tgps, earth->gmstRad, earth->delpsi, earth->deleps );
+
+      for ( UINT4 j = 0; j < 3; j++ )
+        obsTerm += obsEarth[j] * earth->velNow[j];
+
+      obsTerm /= (1.0-IFTE_LC)*(REAL8)IFTE_K;
     }
 
   /*---------------------------------------------------------------------
@@ -1235,8 +1305,8 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
   REAL8 rd_NdotD = rd_sinLat * sinDeltaCurt + rd_cosLat * ( cosGastZA * cosDeltaCosAlphaMinusZA + sinGastZA * cosDeltaSinAlphaMinusZA );
 
   /* delay from center-of-Earth to detector (sec), and its time deriv */
-  REAL8 erot = rd_NdotD;
-  REAL8 derot = OMEGA * rd_cosLat * ( - sinGastZA * cosDeltaCosAlphaMinusZA + cosGastZA * cosDeltaSinAlphaMinusZA );
+  emit->erot = rd_NdotD;
+  emit->derot = OMEGA * rd_cosLat * ( - sinGastZA * cosDeltaCosAlphaMinusZA + cosGastZA * cosDeltaSinAlphaMinusZA );
 
   /*--------------------------------------------------------------------------
    * Now adding approx nutation (= short-period,forced motion, by definition).
@@ -1266,8 +1336,8 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
 
   REAL8 rd_NdotDNut = rd_sinLat * delZNut + rd_cosLat * cosGastLong * delXNut + rd_cosLat * sinGastLong * delYNut;
 
-  erot += rd_NdotDNut;
-  derot += OMEGA * ( - rd_cosLat * sinGastLong * delXNut + rd_cosLat * cosGastLong * delYNut );
+  emit->erot += rd_NdotDNut;
+  emit->derot += OMEGA * ( - rd_cosLat * sinGastLong * delXNut + rd_cosLat * cosGastLong * delYNut );
 
   /* Note erot has a periodic piece (P=one day) AND a constant piece,
      since z-component (parallel to North pole) of vector from
@@ -1284,7 +1354,6 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
    * Causes errors of order 10^{-4}sec * 4 * 10^{-5} = 4*10^{-9} sec
    *--------------------------------------------------------------------
    */
-  REAL8 shapiro, dshapiro; /* Shapiro delay due to Sun, and its time deriv. */
   REAL8 rsun = 2.322; /*radius of sun in sec */
   REAL8 seDotN  = earth->se[2] * sinDelta + ( earth->se[0]  * cosAlpha + earth->se[1] * sinAlpha ) * cosDelta;
   REAL8 dseDotN = earth->dse[2]* sinDelta + ( earth->dse[0] * cosAlpha + earth->dse[1] * sinAlpha ) * cosDelta;
@@ -1295,13 +1364,13 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
   /* if gw travels thru interior of Sun*/
   if ( ( b < rsun ) && ( seDotN < 0 ) )
     {
-      shapiro  = 9.852e-6 * log ( (LAL_AU_SI/LAL_C_SI) / ( seDotN + sqrt ( rsun*rsun + seDotN*seDotN ) ) ) + 19.704e-6 * ( 1.0 - b / rsun );
-      dshapiro = - 19.704e-6 * db / rsun;
+      emit->shapiro  = 9.852e-6 * log ( (LAL_AU_SI/LAL_C_SI) / ( seDotN + sqrt ( rsun*rsun + seDotN*seDotN ) ) ) + 19.704e-6 * ( 1.0 - b / rsun );
+      emit->dshapiro = - 19.704e-6 * db / rsun;
     }
   else /* else the usual expression*/
     {
-      shapiro  =  9.852e-6 * log( (LAL_AU_SI/LAL_C_SI) / ( earth->rse + seDotN ) );
-      dshapiro = -9.852e-6 * ( earth->drse + dseDotN ) / ( earth->rse + seDotN );
+      emit->shapiro  =  9.852e-6 * log( (LAL_AU_SI/LAL_C_SI) / ( earth->rse + seDotN ) );
+      emit->dshapiro = -9.852e-6 * ( earth->drse + dseDotN ) / ( earth->rse + seDotN );
     }
 
   /*--------------------------------------------------------------------
@@ -1321,8 +1390,8 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
           r2  += earth->posNow[j] * earth->posNow[j];
           dr2 += 2.0 * earth->posNow[j] * earth->velNow[j];
         }
-      finiteDistCorr  = - 0.5 * ( r2 - roemer * roemer ) * baryinput->dInv;
-      dfiniteDistCorr = - ( 0.5 * dr2 - roemer * droemer ) * baryinput->dInv;
+      finiteDistCorr  = - 0.5 * ( r2 - emit->roemer * emit->roemer ) * baryinput->dInv;
+      dfiniteDistCorr = - ( 0.5 * dr2 - emit->roemer * emit->droemer ) * baryinput->dInv;
     }
   else
     {
@@ -1337,9 +1406,8 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
    * emit->deltaT = emit.te - tgps.
    * -----------------------------------------------------------------------
    */
-  emit->deltaT = roemer + erot + earth->einstein - shapiro + finiteDistCorr;
-
-  emit->tDot = 1.0 + droemer + derot + earth->deinstein - dshapiro + dfiniteDistCorr;
+  emit->deltaT = emit->roemer + emit->erot + earth->einstein - emit->shapiro + finiteDistCorr + obsTerm;
+  emit->tDot = 1.0 + emit->droemer + emit->derot + earth->deinstein - emit->dshapiro + dfiniteDistCorr;
 
   INT4 deltaTint = floor ( emit->deltaT );
 
@@ -1372,6 +1440,14 @@ XLALBarycenterOpt ( EmissionTime *emit, 		/**< [out] emission-time information *
   emit->vDetector[1] += OMEGA * rd_cosLat * cosGastLong;
   emit->rDetector[2] += rd_sinLat;
   /*no change to emit->vDetector[2] = component along spin axis, if ignore prec. and nutation */
+
+  // finish buffer handling
+  // *) if user passed a pointer to NULL, return our internal buffer
+  if ( buffer && (*buffer == NULL ) )
+    (*buffer) = myBuffer;
+  // *) if passed NULL as 'buffer', then we destroy the internal buffer now
+  if ( buffer == NULL )
+    XLALFree ( myBuffer );
 
   return XLAL_SUCCESS;
 
@@ -1424,11 +1500,11 @@ LALBarycenter(LALStatus *status,		/**< [in/out] LAL status structure pointer */
 /** Function to calculate the precession matrix give Earth nutation values
   * depsilon and dpsi for a given MJD time.
   *
-  * This function is a slightly modified version of the TEMPO2 function 
-  * get_precessionMatrix in get_ObsCoord.C (itself translated from the 
+  * This function is a slightly modified version of the TEMPO2 function
+  * get_precessionMatrix in get_ObsCoord.C (itself translated from the
   * TEMPO FORTRAN functions for precession and nutation). */
 void precessionMatrix( REAL8 prn[3][3], /**< [out] The precession matrix */
-                       REAL8 mjd,       /**< [in] The UT1 local mean siderial time (in MJD format) */ 
+                       REAL8 mjd,       /**< [in] The UT1 local mean siderial time (in MJD format) */
                        REAL8 dpsi,      /**< [in] The dpsi value for the Earth nutation */
                        REAL8 deps )     /**< [in] The deps value for the Earth nutation */
 {
@@ -1440,7 +1516,7 @@ void precessionMatrix( REAL8 prn[3][3], /**< [out] The precession matrix */
   static const REAL8 par_z[3] = {2306.2181, 1.09468, 0.018203};
   static const REAL8 par_theta[3] = {2004.3109, -0.42665, -0.041833};
   static const REAL8 seconds_per_rad = 3600.0/LAL_PI_180;
-  
+
   REAL8 czeta, szeta, cz, sz, ctheta, stheta;
 
   REAL8 nut[3][3], prc[3][3];
@@ -1451,7 +1527,7 @@ void precessionMatrix( REAL8 prn[3][3], /**< [out] The precession matrix */
 
   t = (mjd - 51544.5)/36525.0;
   trad = t / seconds_per_rad;
-  
+
   zeta = trad * (par_zeta[0]+t*(par_zeta[1]+t*par_zeta[2]));
   z = trad * (par_z[0]+t*(par_z[1]+t*par_z[2]));
   theta = trad * (par_theta[0]+t*(par_theta[1]+t*par_theta[2]));
@@ -1490,28 +1566,28 @@ void precessionMatrix( REAL8 prn[3][3], /**< [out] The precession matrix */
 
 /** Function to get the observatory site location with respect to the
   * centre of the Earth, taking into account precession and nutation.
-  * This is based on the routines in the TEMPO2 get_ObsCoord.C code */ 
+  * This is based on the routines in the TEMPO2 get_ObsCoord.C code */
 void observatoryEarth( REAL8 obsEarth[3],     /**< [out] The x, y, z coordinates of the observatory from the centre of the Earth */
                        const LALDetector det, /**< [in] The LAL detector site */
                        const LIGOTimeGPS *tgps,     /**< [in] The GPS time at the detector */
                        REAL8 gmst,            /**< [in] The Greenwich Mean Sidereal Time */
                        REAL8 dpsi,            /**< [in] dpsi for Earth nutation */
                        REAL8 deps             /**< [in] deps for Earth nutation */
-                      ){        
+                      ){
   static REAL8 erad; /* observatory distance from Earth centre */
   static REAL8 hlt;  /* observatory latitude */
   static REAL8 alng; /* observatory longitude */
   REAL8 tmjd = 44244. + ( XLALGPSGetREAL8( tgps ) + 51.184 )/86400.;
-  
+
   INT4 j = 0;
-  
+
   /* note that det.location is in light-seconds */
   erad = sqrt( det.location[0]*det.location[0]
              + det.location[1]*det.location[1]
              + det.location[2]*det.location[2] );
   if ( erad == 0.0 ) hlt = LAL_PI_2;
   else hlt = asin(det.location[2] / erad);
-  
+
   alng = atan2(-det.location[1], det.location[0]);
 
   static REAL8 siteCoord[3];
@@ -1521,17 +1597,17 @@ void observatoryEarth( REAL8 obsEarth[3],     /**< [out] The x, y, z coordinates
   siteCoord[1] = siteCoord[0]*tan(hlt);
   siteCoord[2] = alng;
 
-  /* PC,PS equatorial and meridional components of nutations of longitude */      
+  /* PC,PS equatorial and meridional components of nutations of longitude */
   REAL8 toblq = (tmjd - 5.15445e4)/36525.0;
   REAL8 oblq = (((1.813e-3*toblq-5.9e-4)*toblq-4.6815e1)*toblq +84381.448)*LAL_PI_180/3600.0;
 
   REAL8 pc = cos(oblq+deps)*dpsi;
 
   /* Compute the local, true sidereal time */
-  REAL8 ph = gmst + pc - siteCoord[2];  
-  
+  REAL8 ph = gmst + pc - siteCoord[2];
+
   /* Get X-Y-Z coordinates taking out earth rotation */
-  eeq[0] = siteCoord[0]*cos(ph); 
+  eeq[0] = siteCoord[0]*cos(ph);
   eeq[1] = siteCoord[0]*sin(ph);
   eeq[2] = siteCoord[1];
 

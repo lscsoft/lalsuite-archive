@@ -377,9 +377,10 @@ def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
     out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
     extend = out.extend
 
-    for i,f in enumerate(filelist):
-        extend(fromfile(open(f, "r"), start=start, end=end, columns=columns,\
-                        virgo=virgo))
+    for i,fp in enumerate(filelist):
+        with open(fp, "r") as f:
+            extend(fromfile(f, start=start, end=end, columns=columns,\
+                            virgo=virgo))
         if verbose:
             progress = int((i+1)/num)
             sys.stdout.write('%s%.2d%%' % (delete, progress))
