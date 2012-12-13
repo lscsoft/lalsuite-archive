@@ -96,6 +96,14 @@ def parse_command_line():
             "How the distance bins are broken up. The default option is 'linear'." +
             "The alternative is 'log'."
         )
+    parser.add_option("--min-distance", type="float",
+        metavar = "float",
+        help = "The minimum distance for a bin edge"
+        )
+    parser.add_option("--max-distance", type="float",
+        metavar = "float",
+        help = "The maximum distance for a bin edge"
+        )
     parser.add_option("--distance-step", type="float", default=4.0,
         metavar = "float",
         help =
@@ -111,7 +119,7 @@ def parse_command_line():
             "alternative is 'decisive_distance' ala the second largest effective " +
             "distance from a found signal."
         )
-    parser.add_option("--weight-dist", type="store_true", default = False,
+    parser.add_option("--weight-dist", action = "store_true", default = False,
         help =
             "Weight the distance parameter by chirp mass of a canonical DNS " +
             "binary (1.4-1.4). The default value is False. The formula is " +
@@ -145,8 +153,12 @@ def parse_command_line():
 
     options, arguments =  parser.parse_args()
 
-    required_options = ["database_cache","database_tags","veto_category","on_instruments"]
-    missing_options = [option for option in required_options if not getattr(options, option)]
+    required_options = [
+        "database_cache", "database_tags",
+        "veto_category", "on_instruments",
+        "max_distance", "min_distance"
+    ]
+    missing_options = [option for option in required_options if getattr(options, option) == None]
 
     if missing_options:
         missing_options = ', '.join([
@@ -182,7 +194,13 @@ veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 
 eff_dict = {}; deff_dict = {}
 VT_dict = {}; dVT2_dict = {}
-dist = {}
+
+# make the distance bins for the efficiency histogram
+distbin_edges = efficiency.inj_dist_range(
+    opts.min_distance, opts.max_distance,
+    dist_scale = opts.distance_scale,
+    step = opts.distance_step
+)
 
 for db_idx, db_path in enumerate(database_list):
 
@@ -225,7 +243,7 @@ for db_idx, db_path in enumerate(database_list):
         opts.inj_usertag,
         on_ifos,
         dist_type = opts.distance_type,
-        chirp_dist = opts.weight_dist,
+        weight_dist = opts.weight_dist,
         verbose = opts.verbose)
 
     # get list of tuples containing all injections that went in during desired coinc time
@@ -235,22 +253,16 @@ for db_idx, db_path in enumerate(database_list):
         on_ifos,
         veto_cat,
         dist_type = opts.distance_type,
-        chirp_dist = opts.weight_dist,
+        weight_dist = opts.weight_dist,
         verbose = opts.verbose)
 
     secINyear = 60.*60.*24.*365.25
     # Determine the minimum false_alarm_rate one can estimate from slides
     minFAR = secINyear / efficiency.get_livetime(connection, veto_cat, on_ifos, 'slide')
-    far_list = minFAR * numpy.logspace(start=3.5, stop=1, num=1e4)
+    far_list = minFAR * numpy.logspace(start=4.0, stop=1, num=1e2)
     far_list = numpy.append(far_list, 0.0)
     # Calculate the foreground search time in years
     T_fgd = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
-
-    # make the distance bins for the efficiency histogram
-    dist[db_tag] = efficiency.inj_dist_range(
-        numpy.array([inj[2] for inj in all_inj]),
-        dist_scale = opts.distance_scale,
-        step = opts.distance_step)
 
     # ------------------------- For Each FAR Threshold ------------------------- #
 
@@ -261,14 +273,14 @@ for db_idx, db_path in enumerate(database_list):
         all_inj,
         found_inj, found_fars,
         far_list,
-        dist[db_tag])
+        distbin_edges)
 
     # compute Volume*Time vs distance array
     if opts.verbose:
         print >> sys.stdout, "\tCompute the VxT vs distance and associated variance"
     VT_dict[db_tag], dVT2_dict[db_tag] = efficiency.get_four_volume(
         eff_dict[db_tag], deff_dict[db_tag],
-        dist[db_tag], T_fgd)
+        distbin_edges, T_fgd)
 
     start_time, end_time = connection.execute(
         'SELECT DISTINCT gps_start_time, gps_end_time FROM experiment'
@@ -300,27 +312,27 @@ plotting_params = {
     'grid.linestyle': ':',
     'legend.fontsize': 'smaller',
     'legend.numpoints': 1,
-    'savefig.dpi': 200
+    'savefig.dpi': 200,
+    'savefig.format': opts.format
 }
 rcParams.update(plotting_params)
 
+# strings to designate distance type in title and plotname
+pname_dist = 'DIST'
+if opts.weight_dist:
+    opts.distance_type = opts.distance_type.replace('distance','chirp_distance')
+    pname_dist = 'CHIRP'+pname_dist
+if 'decisive' in opts.distance_type:
+    pname_dist = 'DEC'+pname_dist
+
 # plot basename
-plot_basename = '-'.join([
+plot_basename = '_'.join([
     on_ifos.replace(',',''),
-    '%s',
-    opts.inj_usertag,
-    'CAT_%i_VETO', 
+    '%s', pname_dist,
+    opts.inj_usertag.replace('_','-'),
+    'CAT-%i-VETO' % opts.veto_category, 
     str(start_time), str(end_time - start_time)
 ])
-
-# set xlim for X_vs_Distance plots
-max_dist = 0.0
-for tag, eff in eff_dict.items():
-    try:
-        max_dist = max(max_dist, dist[tag][list(eff[0.0]).index(0.0)+1])
-    except ValueError:
-        max_dist = max(max_dist, numpy.max(dist[tag]))
-min_dist = numpy.min(dist.values())
 
 # determine xlim_max for FAR_vs_VT plot
 maxFAR = max([numpy.max(eff.keys()) for eff in eff_dict.values()])
@@ -334,7 +346,7 @@ Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
     Eff_Dist_plot.errorbar(
-        dist[db_tag][1:], eff_dict[db_tag][0.0],
+        distbin_edges[1:], eff_dict[db_tag][0.0],
         deff_dict[db_tag][0.0],
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
@@ -342,17 +354,17 @@ for idx, db_tag in enumerate(db_tags):
 Eff_Dist_plot.grid(which='major', linewidth=0.75)
 Eff_Dist_plot.grid(which='minor', linewidth=0.25)
 Eff_Dist_plot.set_xscale(opts.distance_scale)
-Eff_Dist_plot.set_xlim(min_dist, max_dist)
+Eff_Dist_plot.set_xlim(min(distbin_edges), max(distbin_edges))
 
-Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
+Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
 Eff_Dist_plot.set_ylabel( r'Fraction of Recovered Injections in Bin' )
 Eff_Dist_plot.set_title(
-    r'Detection Efficiency vs %s' % opts.distance_type.replace('_',' ').title()
+    r'Detection Efficiency vs %s at FAR-0' % opts.distance_type.replace('_',' ').title()
     )
 Eff_Dist_plot.legend(loc='lower left')
 
-plot_name = opts.output_path + plot_basename  % ('Eff_vs_Dist', opts.veto_category)
-pyplot.savefig(plot_name + '.' + opts.format, dpi=100, format=opts.format)
+plot_name = opts.output_path + plot_basename  % 'EFF-FAR0'
+pyplot.savefig(plot_name + '.' + opts.format)
 pyplot.close(Eff_Dist_fig)
 
 # ------------------------- VxT vs Distance for FAR=0 ------------------------ #
@@ -364,7 +376,7 @@ VT_Dist_plot = VT_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
     VT_Dist_plot.errorbar(
-        dist[db_tag][1:], VT_dict[db_tag][0.0],
+        distbin_edges[1:], VT_dict[db_tag][0.0],
         numpy.sqrt(dVT2_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
@@ -373,15 +385,17 @@ VT_Dist_plot.grid(which='major', linewidth=0.75)
 VT_Dist_plot.grid(which='minor', linewidth=0.25)
 VT_Dist_plot.set_xscale(opts.distance_scale)
 VT_Dist_plot.set_yscale(opts.distance_scale)
-VT_Dist_plot.set_xlim(min_dist, max_dist)
+VT_Dist_plot.set_xlim(min(distbin_edges), max(distbin_edges))
 
-VT_Dist_plot.set_xlabel( r'Distance to Outer Edge of 3-Volume $(Mpc)$' )
-VT_Dist_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_Dist_plot.set_title( r'VxT vs %s' % opts.distance_type.replace('_',' ').title() )
+VT_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
+VT_Dist_plot.set_ylabel( r'Cumulative Effective 4-Volume $(Mpc^{3}yr)$' )
+VT_Dist_plot.set_title(
+    r'VxT vs %s at FAR=0' % opts.distance_type.replace('_',' ').title()
+    )
 VT_Dist_plot.legend(loc='lower right')
 
-plot_name = opts.output_path + plot_basename % ('VT_vs_Dist', opts.veto_category)
-pyplot.savefig(plot_name + '.' + opts.format, dpi=100, format=opts.format)
+plot_name = opts.output_path + plot_basename % 'VT-FAR0'
+pyplot.savefig(plot_name + '.' + opts.format)
 pyplot.close(VT_Dist_fig)
 
 # -------------------------------- VxT vs FAR ------------------------------- #
@@ -412,11 +426,13 @@ VT_FAR_plot.set_xlim(new_minFAR, 2.0*maxFAR)
 
 VT_FAR_plot.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
 VT_FAR_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_FAR_plot.set_title( r'Pipeline Efficiency Comparison - VT vs FAR' )
+VT_FAR_plot.set_title(
+    r'Asymptotic VxT vs FAR using %s' % opts.distance_type.replace('_',' ').title()
+    )
 VT_FAR_plot.legend(loc='lower right')
 
-plot_name = opts.output_path + plot_basename % ('VT_vs_FAR', opts.veto_category)
-pyplot.savefig(plot_name + '.' + opts.format, dpi=100, format=opts.format)
+plot_name = opts.output_path + plot_basename % 'VT-FAR'
+pyplot.savefig(plot_name + '.' + opts.format)
 pyplot.close(VT_FAR_fig)
 
 

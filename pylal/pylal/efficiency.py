@@ -100,13 +100,10 @@ def get_livetime(connection, veto_cat, on_ifos, datatype):
 # =============================================================================
 #
 
-def inj_dist_range(dist_array, dist_scale = "linear", step = 4.0):
-
-    d_min = numpy.min(dist_array)
-    d_max = numpy.max(dist_array)
+def inj_dist_range(d_min, d_max, dist_scale = "linear", step = 4.0):
 
     if dist_scale == "linear":
-        dist_bin_edges = numpy.arange(d_min, d_max+2*step, step)
+        dist_bin_edges = numpy.arange(d_min-step, d_max+step, step)
     elif dist_scale == "log":
         log_limits = numpy.log10([d_min, d_max])/numpy.log10(step)
         dist_bin_edges = numpy.power(
