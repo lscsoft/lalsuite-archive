@@ -1673,6 +1673,7 @@ UINT4 checkInjectionMchirp(
   segmentEnd   = *epoch;
   XLALGPSAdd(&segmentEnd, params->segmentDuration/2.0);
   passMchirpCheck = 2;
+  thisInject = params->injectList;
   
   /* loop over injections */
   while (thisInject)
@@ -1680,6 +1681,7 @@ UINT4 checkInjectionMchirp(
     injTime = thisInject->geocent_end_time;
     startDiff = XLALGPSToINT8NS(&injTime) - XLALGPSToINT8NS(&segmentStart);
     endDiff = XLALGPSToINT8NS(&injTime) - XLALGPSToINT8NS(&segmentEnd);
+    fprintf(stderr,"%ld %ld\n",startDiff,endDiff);
     if ((startDiff > 0) && (endDiff < 0))
     {
       verbose("Generating analysis segment for injection at %d.\n",
@@ -1694,11 +1696,12 @@ UINT4 checkInjectionMchirp(
       tmpltMchirp = tmplt->chirpMass;
       fprintf(stderr,"%e %e \n",injMchirp,tmpltMchirp);
       mchirpDiff = (injMchirp - tmpltMchirp)/tmpltMchirp;
-      if (mchirpDiff > params->injMchirpWindow)
+      if (fabs(mchirpDiff) > params->injMchirpWindow)
         passMchirpCheck = 0;
       else
         passMchirpCheck = 1;
     }
+    thisInject = thisInject->next;
   }
 
   if (passMchirpCheck == 2)
