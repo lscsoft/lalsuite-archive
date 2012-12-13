@@ -200,8 +200,6 @@ def found_injections(
 
     connection.create_function('end_time_with_ns', 2, end_time_with_ns)
 
-    ifos_str = ','.join(on_ifos)
-
     sql_params_dict = {}
     sqlquery = """
     SELECT DISTINCT
@@ -241,7 +239,7 @@ def found_injections(
         AND coinc_event.instruments = :ifos
         AND process_params.value = :usertag
         """
-        sql_params_dict["ifos"] = ifos_str
+        sql_params_dict["ifos"] = on_ifos
         sql_params_dict["tag"] = tag
 
     injections = connection.execute(sqlquery, sql_params_dict).fetchall()

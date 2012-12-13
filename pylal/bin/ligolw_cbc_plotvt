@@ -96,15 +96,15 @@ def parse_command_line():
             "How the distance bins are broken up. The default option is 'linear'." +
             "The alternative is 'log'."
         )
-    parser.add_option("--min-distance", type="float",
+    parser.add_option("--min-distance", action="store", type="float",
         metavar = "float",
         help = "The minimum distance for a bin edge"
         )
-    parser.add_option("--max-distance", type="float",
+    parser.add_option("--max-distance", action="store", type="float",
         metavar = "float",
         help = "The maximum distance for a bin edge"
         )
-    parser.add_option("--distance-step", type="float", default=4.0,
+    parser.add_option("--distance-step", action="store", type="float", default=4.0,
         metavar = "float",
         help =
             "The step size for distance bins used in the efficiency calculation." +
@@ -259,7 +259,7 @@ for db_idx, db_path in enumerate(database_list):
     secINyear = 60.*60.*24.*365.25
     # Determine the minimum false_alarm_rate one can estimate from slides
     minFAR = secINyear / efficiency.get_livetime(connection, veto_cat, on_ifos, 'slide')
-    far_list = minFAR * numpy.logspace(start=4.0, stop=1, num=1e2)
+    far_list = minFAR * numpy.logspace(start=4.0, stop=0.0, num=1e2)
     far_list = numpy.append(far_list, 0.0)
     # Calculate the foreground search time in years
     T_fgd = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
@@ -301,7 +301,7 @@ if opts.verbose:
 
 # shared plotting parameters
 plotting_params = {
-    'font.size': 16,
+    'font.size': 14,
     'text.usetex': True,
     'xtick.labelsize': 'medium',
     'ytick.labelsize': 'medium',
@@ -321,9 +321,9 @@ rcParams.update(plotting_params)
 pname_dist = 'DIST'
 if opts.weight_dist:
     opts.distance_type = opts.distance_type.replace('distance','chirp_distance')
-    pname_dist = 'CHIRP'+pname_dist
+    pname_dist = 'CHIRP-'+pname_dist
 if 'decisive' in opts.distance_type:
-    pname_dist = 'DEC'+pname_dist
+    pname_dist = 'DEC-'+pname_dist
 
 # plot basename
 plot_basename = '_'.join([
@@ -355,11 +355,12 @@ Eff_Dist_plot.grid(which='major', linewidth=0.75)
 Eff_Dist_plot.grid(which='minor', linewidth=0.25)
 Eff_Dist_plot.set_xscale(opts.distance_scale)
 Eff_Dist_plot.set_xlim(min(distbin_edges), max(distbin_edges))
+Eff_Dist_plot.set_ylim(0, 1)
 
 Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
 Eff_Dist_plot.set_ylabel( r'Fraction of Recovered Injections in Bin' )
 Eff_Dist_plot.set_title(
-    r'Detection Efficiency vs %s at FAR-0' % opts.distance_type.replace('_',' ').title()
+    r'Detection Efficiency vs %s at FAR=0' % opts.distance_type.replace('_',' ').title()
     )
 Eff_Dist_plot.legend(loc='lower left')
 
