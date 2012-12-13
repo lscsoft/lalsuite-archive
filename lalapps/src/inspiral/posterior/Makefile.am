@@ -1,6 +1,7 @@
 SUBDIRS = SPINspiral mpi
 
-LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/BAMBI -lnest3 -lskynet -lbambi -llapack -lblas -lgfortranbegin -lgfortran -lm -latlas -lstdc++
+LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/BAMBI -lfullbambi -llapack -lblas -lgfortranbegin -lgfortran -lm -lstdc++
+#LDADD = $(top_builddir)/src/lalapps/liblalapps.la -L$(top_builddir)/src/inspiral/posterior/MultiNest_v2.18/ -lnest3 -llapack -lblas -lgfortranbegin -lgfortran -lm -lstdc++
 
 if LALINSPIRAL
 if LALFRAME
@@ -48,6 +49,7 @@ bin_PROGRAMS = $(metaio_progs) $(frame_progs) $(pulsar_progs) $(mpi_progs)
 noinst_PROGRAMS = $(td_test_progs)
 
 AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -I$(top_builddir)/src/inspiral/posterior/BAMBI/src
+#AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
 
 if HAVE_PYTHON
 bin_SCRIPTS = \
