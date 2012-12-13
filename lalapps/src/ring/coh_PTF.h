@@ -181,6 +181,7 @@ struct coh_PTF_params {
   REAL4        clusterWindow;
   SimInspiralTable *injectList;
   REAL4        injSearchWindow;
+  REAL4        injMchirpWindow;
   /* flags */
   int          strainData;
   int          doubleData;
@@ -774,4 +775,10 @@ void REALToGSLVector(
     const REAL8 *input,
     gsl_vector  *output,
     size_t      size
+);
+
+UINT4 checkInjectionMchirp(
+    struct coh_PTF_params *params,
+    InspiralTemplate *tmplt,
+    LIGOTimeGPS *epoch
 );
