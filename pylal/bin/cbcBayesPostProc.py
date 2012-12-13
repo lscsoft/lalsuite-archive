@@ -333,6 +333,10 @@ def cbcBayesPostProc(
         pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
         pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
 
+    if ('spin1' in pos.names and 'm1' in pos.names) and \
+     ('spin2' in pos.names and 'm2' in pos.names):
+       pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
+
     if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
     if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
     if('phi_spin1' in pos.names): pos.append_mapping('phi1',lambda a:a,'phi_spin1')

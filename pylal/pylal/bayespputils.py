@@ -574,7 +574,7 @@ class Posterior(object):
         self._posterior={}
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
-        self._loglaliases=['posterior', 'logl','logL','likelihood']
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
