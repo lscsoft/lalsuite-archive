@@ -51,7 +51,7 @@ __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb']
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota']]
 #Bin size/resolution for binning. Need to match (converted) column names.
@@ -77,7 +77,7 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
 twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl']
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl']
 
 def open_url(url,username,password):
 
@@ -483,7 +483,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
         try:
             common_output_table_header,common_output_table_raw=peparser.parse(open(pos_file,'r'))
-        except IOError:
+        except:
             print 'Unable to read file '+pos_file
             continue
 
@@ -558,6 +558,16 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             pass
 
         pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
+
+        if 'a1' in pos_temp.names and min(pos_temp['a1'].samples)[0] < 0:
+          pos_temp.append_mapping('spin1', lambda a:a, 'a1')
+          pos_temp.pop('a1')
+          pos_temp.append_mapping('a1', lambda a:np.abs(a), 'spin1')
+        if 'a2' in pos_temp.names and min(pos_temp['a2'].samples)[0] < 0:
+          pos_temp.append_mapping('spin2', lambda a:a, 'a2')
+          pos_temp.pop('a2')
+          pos_temp.append_mapping('a2', lambda a:np.abs(a), 'spin2')
+
 
         try:
             idx=common_output_table_header.index('m1')
@@ -742,7 +752,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             oned_data[param]=(save_paths,cl_table_str, ks_table_str)
             
     # Watch out---using private variable _logL
-    max_logls = [max(pos._logL) for pos in pos_list.values()]
+    max_logls = [[name,max(pos._logL)] for name,pos in pos_list.items()]
 
     return greedy2savepaths,oned_data,confidence_levels,max_logls
 
@@ -839,8 +849,8 @@ if __name__ == '__main__':
     param_section_write='<div><p>This comparison was created from the following analyses</p>'
     param_section_write+='<table border="1">'
     param_section_write+='<th>Analysis</th> <th> max(log(L)) </th>'
-    for name,input_file,logl_max in zip(names,opts.pos_list,max_logls):
-        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(input_file,name,logl_max)
+    for name,logl_max in max_logls:
+        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(dict(zip(names,opts.pos_list))[name],name,logl_max)
     param_section_write+='</table></div>'
 
     param_section.write(param_section_write)

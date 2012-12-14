@@ -818,7 +818,7 @@ def process_file(filename, products, live_time_program, tmp_path = None, veto_se
 	# close
 	#
 
-	database.connection.close()
+	contents.connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 

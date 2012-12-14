@@ -328,8 +328,8 @@ def LoadOVL(filename):
   c_vact = 0.0
 
   # instantiate the storage device and the index counter
-  gwtrg_vtd_tcent = [0]*ngwtrg_vtd
-  tcentidx = 0
+  gwtrg_vtd_tcent = []
+#  tcentidx = 0
 
   # iterate over tfp and fill in gwtrg_vtd_tcent
   for lineidx in range(len(tfp)):
@@ -347,8 +347,8 @@ def LoadOVL(filename):
       # iterate through trg's and fill in gwtrg_vtd_tcent
       if gwtrg_vtd[0] != 'NONE':
         for trg in gwtrg_vtd:
-          gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
-          tcentidx += 1
+          gwtrg_vtd_tcent.append([trg[col_kw['tcent']], vconfig, vstats])
+#          tcentidx += 1
 
   # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
   return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])

@@ -80,7 +80,7 @@ def cache_to_seglistdict(cache):
 	"""
 	s = segments.segmentlistdict()
 	for c in cache:
-		s |= c.to_segmentlistdict()
+		s |= c.segmentlistdict
 	return s
 
 
@@ -140,7 +140,7 @@ class LALCacheBin(packing.Bin):
 		self.extent = None
 
 	def add(self, cache_entry):
-		packing.Bin.add(self, cache_entry, cache_entry.to_segmentlistdict())
+		packing.Bin.add(self, cache_entry, cache_entry.segmentlistdict)
 		self.extent = self.size.extent_all()
 		return self
 
@@ -328,7 +328,7 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 				# apply each offset vector
 				#
 
-				cache_entry_segs = cache_entry.to_segmentlistdict()
+				cache_entry_segs = cache_entry.segmentlistdict
 				for offset_vector in cafepacker.offset_vectors:
 					cache_entry_segs.offsets.update(offset_vector)
 
@@ -382,7 +382,7 @@ def write_caches(base, bins, instruments, verbose = False):
 			print >>sys.stderr, "writing %s ..." % filename
 		f = file(filename, "w")
 		for cacheentry in bin.objects:
-			if instruments & set(cacheentry.to_segmentlistdict().keys()):
+			if instruments & set(cacheentry.segmentlistdict.keys()):
 				print >>f, str(cacheentry)
 	return filenames
 
@@ -448,7 +448,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 
 	if verbose:
 		print >>sys.stderr, "filtering input cache ..."
-	cache = [c for c in cache if seglists.intersects_all(c.to_segmentlistdict())]
+	cache = [c for c in cache if seglists.intersects_all(c.segmentlistdict)]
 
 	#
 	# Optimization: adding files to bins in time order keeps the number

@@ -196,7 +196,7 @@ for url in urls:
 			for cacheentry in [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in file(filename)]:
 				if cacheentry.description not in seglistdicts:
 					seglistdicts[cacheentry.description] = segments.segmentlistdict()
-				seglistdicts[cacheentry.description] |= cacheentry.to_segmentlistdict()
+				seglistdicts[cacheentry.description] |= cacheentry.segmentlistdict
 		for name, seglists in seglistdicts.items():
 			segments_tables.insert_from_segmentlistdict(seglists, name, version = options.segments_version, comment = options.comment)
 		del seglistdicts
