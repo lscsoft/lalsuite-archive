@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 P. Ajith, Nickolas Fotopoulos
+ * Copyright (C) 2012 Prayush Kumar
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -705,7 +705,7 @@ static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f
   REAL8 wMinusf1 = wMinus( f, params->f1, params->d1, params );
   REAL8 wMinusf2 = wMinus( f, params->f2, params->d2, params );
     
-  REAL8 phPhenomC = phSPA * wMinusf1 + phPM * wPlusf1 * wMinusf2 + phRD * wPlusf2;   
+  *phasing = phSPA * wMinusf1 + phPM * wPlusf1 * wMinusf2 + phRD * wPlusf2;   
   
   /* Get the amplitude */
   REAL8 xdot = 1. + params->xdota2*v2 + params->xdota3*v3 + params->xdota4*v4 + 
@@ -750,10 +750,7 @@ static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f
   REAL8 wPlusf0 = wPlus( f, params->f0, params->d0, params );
   REAL8 wMinusf0 = wMinus( f, params->f0, params->d0, params );
    
-  REAL8 aPhenomC = aPM * wMinusf0 + aRD * wPlusf0;
-
-  *amplitude = aPhenomC;
-  *phasing = phPhenomC;
+  *amplitude = aPM * wMinusf0 + aRD * wPlusf0;
 
   return XLAL_SUCCESS;
 }
