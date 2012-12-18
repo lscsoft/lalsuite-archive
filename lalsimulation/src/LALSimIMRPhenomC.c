@@ -31,9 +31,6 @@
 #include <lal/Units.h>
 
 typedef struct tagBBHPhenomCParams{
-  REAL8 eta;
-  REAL8 Xi;
-  REAL8 M;
   REAL8 distance;
   
   REAL8 piM;
@@ -103,24 +100,27 @@ BBHPhenomCParams;
  *
  */
 
-static int ComputeIMRPhenomCParamsSPA( const REAL8 m1, const REAL8 m2, const REAL8 Xi );
-static int ComputeIMRPhenomCParams( const REAL8 m1, const REAL8 m2, const REAL8 Xi );
-static REAL8 wPlus( REAL8 f, REAL8 f0, REAL8 d, BBHPhenomCParams *params );
-static REAL8 wMinus( REAL8 f, REAL8 f0, REAL8 d, BBHPhenomCParams *params );
+static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA( const REAL8 m1, const REAL8 m2, const REAL8 Xi );
+static BBHPhenomCParams *ComputeIMRPhenomCParams( const REAL8 m1, const REAL8 m2, const REAL8 Xi );
+static REAL8 wPlus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params );
+static REAL8 wMinus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params );
 
 static size_t NextPow2(const size_t n);
-static REAL8 IMRPhenomCGeneratePhaseSPA( REAL8 f, BBHPhenomCParams *params );
-static REAL8 IMRPhenomCGeneratePhasePM( REAL8 f, BBHPhenomCParams *params );
-static REAL8 IMRPhenomCGeneratePhaseRD( REAL8 f, BBHPhenomCParams *params );
-static REAL8 IMRPhenomCGenerateAmplitdePM( REAL8 f, BBHPhenomCParams *params );
-static REAL8 IMRPhenomCGenerateAmplitdeRD( REAL8 f, BBHPhenomCParams *params );
+static REAL8 IMRPhenomCGeneratePhasePM( REAL8 f, REAL8 eta, const BBHPhenomCParams *params );
+/*
+static REAL8 IMRPhenomCGeneratePhaseSPA( REAL8 f, const BBHPhenomCParams *params );
+static REAL8 IMRPhenomCGeneratePhaseRD( REAL8 f, const BBHPhenomCParams *params );
+static REAL8 IMRPhenomCGenerateAmplitudePM( REAL8 f, const BBHPhenomCParams *params );
+static REAL8 IMRPhenomCGenerateAmplitudeRD( REAL8 f, const BBHPhenomCParams *params );
+*/
+static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f, REAL8 eta, const BBHPhenomCParams *params);
 
 static int IMRPhenomCGenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 phi0, const REAL8 deltaF, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomCParams *params);
 
-static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start);
-static size_t find_peak_amp(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc);
-static int apply_phase_shift(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 shift);
-static int apply_inclination(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 inclination);
+//static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 target, const size_t start);
+//static size_t find_peak_amp(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc);
+//static int apply_phase_shift(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 shift);
+//static int apply_inclination(const REAL8TimeSeries *hp, const REAL8TimeSeries *hc, const REAL8 inclination);
 
 /**
  *
@@ -153,14 +153,11 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(const REAL8 m1,
   const REAL8 Xiprod = Xi * Xi;
   const REAL8 Xi2 = Xi * Xi;
 
-  p->M = M;
-  p->Xi = Xi;
-  p->eta = eta;
   // Store the total Mass of the system in seconds
   p->m_sec = M * LAL_MTSUN_SI;
   p->piM = piM;
   /* Normalization to match Emma's code */
-  p->distance = 1.0 //1.0e6 * LAL_PC_SI / (M * LAL_MRSUN_SI * M * LAL_MTSUN_SI) ;
+  p->distance = 1.0; //1.0e6 * LAL_PC_SI / (M * LAL_MRSUN_SI * M * LAL_MTSUN_SI) ;
 
   /* Calculate the PN phasing terms */
   p->pfaN = 3.0/(128.0 * eta);
@@ -240,13 +237,13 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(const REAL8 m1,
     const REAL8 Xi) 
 {
 
-  BBHPhenomCParams *p;
-  p = (BBHPhenomCParams*) ComputeIMRPhenomCParamsSPA( m1, m2, Xi );
-  if (!p) XLAL_ERROR(XLAL_EFUNC);
+  BBHPhenomCParams *p = NULL;
+  p = ComputeIMRPhenomCParamsSPA( m1, m2, Xi );
+  if( !p )
+    XLAL_ERROR_NULL(XLAL_EFUNC);
 
-  const REAL8 M = p->M;
-  const REAL8 eta = p->eta;
-  const REAL8 Xi = p->Xi;
+  const REAL8 M = m1 + m2;
+  const REAL8 eta = m1 * m2 / (M * M);
 
   const REAL8 z101 = -2.417e-03;
   const REAL8 z102 = -1.093e-03;
@@ -329,7 +326,7 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(const REAL8 m1,
     t2*eta2 + t3*eta2*eta;
 
   if( finspin > 1.0 )
-    XLAL_ERROR( XLAL_EDOM );
+    XLAL_ERROR_NULL( XLAL_EDOM );
 
   p->afin = finspin;
   
@@ -363,7 +360,7 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(const REAL8 m1,
 
   //REAL8 psiPMrd = (p->a1 * pow(Mfrd,(-5./3.)) + p->a2/Mfrd + p->a3 * pow(Mfrd,(-1./3.)) + 
   //    p->a4 + p->a5 * pow(Mfrd,(2./3.)) + p->a6 * Mfrd)/eta;
-  REAL8 psiPMrd = IMRPhenomCGeneratePhasePM( p->fRingDown, p );
+  REAL8 psiPMrd = IMRPhenomCGeneratePhasePM( p->fRingDown, eta, p );
 
   p->b1 = psiPMrd - (p->b2 * Mfrd);
 
@@ -376,7 +373,7 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(const REAL8 m1,
 
 /* The following functions return the hyperbolic-Tan windows used in Eq.(5.9),
  * (5.13) of the Main paper */
-static REAL8 wPlus( REAL8 f, REAL8 f0, REAL8 d, BBHPhenomCParams *params )
+static REAL8 wPlus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params )
 {
 
   REAL8 Mf = params->m_sec * f;
@@ -386,7 +383,7 @@ static REAL8 wPlus( REAL8 f, REAL8 f0, REAL8 d, BBHPhenomCParams *params )
 
 }
 
-static REAL8 wMinus( REAL8 f, REAL8 f0, REAL8 d, BBHPhenomCParams *params )
+static REAL8 wMinus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params )
 {
  
   REAL8 Mf = params->m_sec * f;
@@ -396,6 +393,9 @@ static REAL8 wMinus( REAL8 f, REAL8 f0, REAL8 d, BBHPhenomCParams *params )
 
 }
 
+static size_t NextPow2(const size_t n) {
+  return 1 << (size_t) ceil(log2(n));
+}
 
 /**
  *
@@ -459,7 +459,7 @@ int XLALSimIMRPhenomCGenerateFD(
       XLAL_ERROR(XLAL_EDOM);
   }
 
-  status = IMRPhenomCGenerateFD(htilde, phi0, deltaF, m1, m2, chi, f_min, f_max_prime, distance, params);
+  status = IMRPhenomCGenerateFD(htilde, phi0, deltaF, m1, m2, f_min, f_max_prime, distance, params);
   LALFree(params);
   return status;
 }
@@ -468,7 +468,8 @@ int XLALSimIMRPhenomCGenerateFD(
  * Private function to generate IMRPhenomC frequency-domain waveforms given coefficients
  * f (frequency) to the static functions is always in Hz.
  */
-static REAL8 IMRPhenomCGeneratePhaseSPA( REAL8 f, BBHPhenomCParams *params )
+/*
+static REAL8 IMRPhenomCGeneratePhaseSPA( REAL8 f, const BBHPhenomCParams *params )
 {
   REAL8 v =  cbrt(params->piM * f);
 
@@ -488,12 +489,12 @@ static REAL8 IMRPhenomCGeneratePhaseSPA( REAL8 f, BBHPhenomCParams *params )
   phasing *= (params->pfaN / v5);
 
   // Taking t0 = phi0 = 0
-  phasing -= (QM_PI / 4.);
+  phasing -= (LAL_PI / 4.);
 
   return phasing;
 }
-
-static REAL8 IMRPhenomCGeneratePhasePM( REAL8 f, BBHPhenomCParams *params )
+*/
+static REAL8 IMRPhenomCGeneratePhasePM( REAL8 f, REAL8 eta, const BBHPhenomCParams *params )
 {
   REAL8 Mf = params->m_sec * f;
   REAL8 w = pow( Mf, (1./3.) );
@@ -503,17 +504,19 @@ static REAL8 IMRPhenomCGeneratePhasePM( REAL8 f, BBHPhenomCParams *params )
 
   REAL8 phasing = (params->a1/w5) + (params->a2/w3) + (params->a3/w) + params->a4 + 
     (params->a5*w2) +(params->a6*w3);
-  phasing /= params->eta;
+  phasing /= eta;
 
   return phasing;
 }
-
-static REAL8 IMRPhenomCGeneratePhaseRD( REAL8 f, BBHPhenomCParams *params )
+/*
+static REAL8 IMRPhenomCGeneratePhaseRD( REAL8 f, const BBHPhenomCParams *params )
 {
  return (params->b1 + params->b2 * params->m_sec * f);
 }
+*/
 
-static REAL8 IMRPhenomCGenerateAmplitdePM( REAL8 f, BBHPhenomCParams *params )
+#if 0
+static REAL8 IMRPhenomCGenerateAmplitudePM( REAL8 f, const BBHPhenomCParams *params )
 {
   REAL8 v =  cbrt(params->piM * f);
   REAL8 Mf = params->m_sec * f;
@@ -536,7 +539,7 @@ static REAL8 IMRPhenomCGenerateAmplitdePM( REAL8 f, BBHPhenomCParams *params )
 
   if( xdot < 0.0 )
   {
-    if( f < p->fCut )
+    if( f < params->fCut )
     {
       XLALPrintError("omegaDot < 0, while frequency is below Cutoff frequency");
       XLAL_ERROR( XLAL_EDOM );
@@ -561,11 +564,11 @@ static REAL8 IMRPhenomCGenerateAmplitdePM( REAL8 f, BBHPhenomCParams *params )
   return amplitude;
 }
 
-static REAL8 IMRPhenomCGenerateAmplitdeRD( REAL8 f, BBHPhenomCParams *params )
+static REAL8 IMRPhenomCGenerateAmplitudeRD( REAL8 f, const BBHPhenomCParams *params )
 {
 
   REAL8 Mf = params->m_sec * f;
-  REAL8 Mfrd = p->MfRingDown;
+  REAL8 Mfrd = params->MfRingDown;
 
   /* From Emma's code, use sigma = fRD * del2 / Qual */
   REAL8 sig = Mfrd * params->del2 / params->Qual;
@@ -577,7 +580,7 @@ static REAL8 IMRPhenomCGenerateAmplitdeRD( REAL8 f, BBHPhenomCParams *params )
   return amplitude;
  
 }
-
+#endif
 
 static int IMRPhenomCGenerateFD(
     COMPLEX16FrequencySeries **htilde, /**< FD waveform */
@@ -585,24 +588,26 @@ static int IMRPhenomCGenerateFD(
     const REAL8 deltaF,                /**< frequency resolution */
     const REAL8 m1,                    /**< mass of companion 1 [solar masses] */
     const REAL8 m2,                    /**< mass of companion 2 [solar masses] */
-    const REAL8 chi,                   /**< mass-weighted aligned-spin parameter */
+    //const REAL8 chi,                   /**< mass-weighted aligned-spin parameter */
     const REAL8 f_min,                 /**< start frequency */
     const REAL8 f_max,                 /**< end frequency */
     const REAL8 distance,              /**< distance of source */
-    const BBHPhenomParams *params      /**< from ComputeIMRPhenomCParams */
+    const BBHPhenomCParams *params      /**< from ComputeIMRPhenomCParams */
 ) {
   static LIGOTimeGPS ligotimegps_zero = {0, 0};
   size_t i;
+  INT4 errcode;
 
-  const REAL8 frd = params->fRingDown;
-  const REAL8 M = params->M;
-  const REAL8 eta = params->eta;
-  const REAL8 piM = params->piM;
+  const REAL8 M = m1 + m2;
+  const REAL8 eta = m1 * m2 / (M * M);
   
   /* Memory to temporarily store components of amplitude and phase */
+  /*
   REAL8 phSPA, phPM, phRD, aPM, aRD;
-  REAL8 phPhenomC, aPhenomC;
   REAL8 wPlusf1, wPlusf2, wMinusf1, wMinusf2, wPlusf0, wMinusf0;
+  */
+  REAL8 phPhenomC = 0.0;
+  REAL8 aPhenomC = 0.0;
 
   /* compute the amplitude pre-factor */
   REAL8 amp0 = M * LAL_MRSUN_SI * M * LAL_MTSUN_SI / (distance / LAL_PC_SI);
@@ -621,8 +626,9 @@ static int IMRPhenomCGenerateFD(
   {
     REAL8 f = i * deltaF;
     /* Get the phase */
+    /*
     phSPA = IMRPhenomCGeneratePhaseSPA( f, params );
-    phPM = IMRPhenomCGeneratePhasePM( f, params );
+    phPM = IMRPhenomCGeneratePhasePM( f, eta, params );
     phRD = IMRPhenomCGeneratePhaseRD( f, params );
     
     wPlusf1 = wPlus( f, params->f1, params->d1, params );
@@ -630,9 +636,10 @@ static int IMRPhenomCGenerateFD(
     wMinusf1 = wMinus( f, params->f1, params->d1, params );
     wMinusf2 = wMinus( f, params->f2, params->d2, params );
     
-    phPhenomC = phSPA * wMinusf1 + phPM * wPlusf1 * wMinusf2 + phRD * wPlusf2;   
-  
+    phPhenomC = phi0 + phSPA * wMinusf1 + phPM * wPlusf1 * wMinusf2 + phRD * wPlusf2;   
+    */
     /* Get the amplitude */
+    /*
     aPM = IMRPhenomCGenerateAmplitudePM( f, params );
     aRD = IMRPhenomCGenerateAmplitudeRD( f, params );
 
@@ -640,7 +647,12 @@ static int IMRPhenomCGenerateFD(
     wMinusf0 = wMinus( f, params->f0, params->d0, params );
     
     aPhenomC = aPM * wMinusf0 + aRD * wPlusf0;
-  
+    */
+    errcode = IMRPhenomCGenerateAmpPhase( &aPhenomC, &phPhenomC, f, eta, params );
+    if( errcode != XLAL_SUCCESS )
+      XLAL_ERROR(XLAL_EFUNC);
+    aPhenomC -= phi0;
+
     /* generate the waveform */
     ((*htilde)->data->data)[i] = amp0 * aPhenomC * cos(phPhenomC);
     ((*htilde)->data->data)[i] += -I * amp0 * aPhenomC * sin(phPhenomC);
@@ -649,4 +661,99 @@ static int IMRPhenomCGenerateFD(
   return XLAL_SUCCESS;
 }
 
+static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f, REAL8 eta, const BBHPhenomCParams *params)
+{
+  /* Get the phase */
+  REAL8 v =  cbrt(params->piM * f);
+  REAL8 Mf = params->m_sec * f;
 
+  if( v >= 1.0 )
+    XLAL_ERROR(XLAL_EDOM);
+  
+  REAL8 v2 = v*v;
+  REAL8 v3 = v*v2;
+  REAL8 v4 = v2*v2;
+  REAL8 v5 = v3*v2;
+  REAL8 v6 = v3*v3;
+  REAL8 v7 = v4*v3;
+  REAL8 v10 = v5*v5;
+
+  /* SPA part of the phase */
+  REAL8 phSPA = 1. + params->pfa2 * v2 + params->pfa3 * v3 + params->pfa4 * v4 + 
+    (1. + log(v3)) * params->pfa5 * v5 + (params->pfa6  + params->pfa6log * log(v3))*v6 + 
+    params->pfa7 * v7;
+  phSPA *= (params->pfaN / v5);
+
+  // Taking t0 = phi0 = 0
+  phSPA -= (LAL_PI / 4.);
+
+  REAL8 w = cbrt( Mf );
+  REAL8 w2 = w*w;
+  REAL8 w3 = w2*w;
+  REAL8 w5 = w3*w2;
+
+  /* The Pre-Merger (PM) phase */
+  REAL8 phPM = (params->a1/w5) + (params->a2/w3) + (params->a3/w) + params->a4 + 
+    (params->a5*w2) +(params->a6*w3);
+  phPM /= eta;
+
+  /* Ring-down phase */
+  REAL8 phRD = params->b1 + params->b2 * params->m_sec * f;
+    
+  REAL8 wPlusf1 = wPlus( f, params->f1, params->d1, params );
+  REAL8 wPlusf2 = wPlus( f, params->f2, params->d2, params );
+  REAL8 wMinusf1 = wMinus( f, params->f1, params->d1, params );
+  REAL8 wMinusf2 = wMinus( f, params->f2, params->d2, params );
+    
+  REAL8 phPhenomC = phSPA * wMinusf1 + phPM * wPlusf1 * wMinusf2 + phRD * wPlusf2;   
+  
+  /* Get the amplitude */
+  REAL8 xdot = 1. + params->xdota2*v2 + params->xdota3*v3 + params->xdota4*v4 + 
+    params->xdota5*v5 + (params->xdota6 + params->xdota6log*log(v2))*v6 + 
+    params->xdota7 * v7;
+  xdot *= (params->xdotaN * v10);
+
+  if( xdot < 0.0 )
+  {
+    if( f < params->fCut )
+    {
+      XLALPrintError("omegaDot < 0, while frequency is below Cutoff frequency");
+      XLAL_ERROR( XLAL_EDOM );
+    }
+    else
+      return 0.0;
+  }
+   
+  REAL8 omgdot = 1.5*v*xdot;
+  REAL8 ampfac = sqrt(LAL_PI/omgdot);
+
+  /* Get the real and imaginary part of the PM amplitude */
+  REAL8 AmpPMre = ampfac * params->AN * v2 * (1. + params->A2*v2 + params->A3*v3 + params->A4*v4 + 
+      params->A5*v5 + (params->A6 + params->A6log*log(v2))*v6);
+  REAL8 AmpPMim = ampfac * params->AN * v2 * (params->A5imag * v5 + params->A6imag * v6);
+   
+  /* Following Emma's code, we take the absolute part of the complex SPA
+   * amplitude, and keep that as the amplitude */
+  REAL8 aPM = sqrt( AmpPMre * AmpPMre + AmpPMim * AmpPMim );
+  aPM += (params->g1 * pow(Mf,(5./6.))) / params->distance;
+
+  /* The Ring-down aamplitude */
+  REAL8 Mfrd = params->MfRingDown;
+
+  /* From Emma's code, use sigma = fRD * del2 / Qual */
+  REAL8 sig = Mfrd * params->del2 / params->Qual;
+  REAL8 sig2 = sig*sig;
+  REAL8 L = sig2 / ((Mf - Mfrd)*(Mf - Mfrd) + sig2/4.);
+
+  REAL8 aRD = params->del1 * L * pow(Mf, (-7./6.)) / params->distance;
+
+  REAL8 wPlusf0 = wPlus( f, params->f0, params->d0, params );
+  REAL8 wMinusf0 = wMinus( f, params->f0, params->d0, params );
+   
+  REAL8 aPhenomC = aPM * wMinusf0 + aRD * wPlusf0;
+
+  *amplitude = aPhenomC;
+  *phasing = phPhenomC;
+
+  return XLAL_SUCCESS;
+}
