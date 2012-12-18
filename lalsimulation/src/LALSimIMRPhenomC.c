@@ -337,11 +337,11 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(const REAL8 m1,
   REAL8 k3 = 0.1292;
   //printf("fRD prefac = %12.18f\n", prefac);
 
-  p->fRingDown = (prefac * (k1 + k2 * pow(1. - finspin, k3)));
+  p->fRingDown = (prefac * (k1 + k2 * pow(1. - fabs(finspin), k3)));
   p->MfRingDown = p->m_sec * p->fRingDown;
 
   /* Get the quality factor of ring-fown, using Eq (5.6) of Main paper */
-  p->Qual = (0.7000 + (1.4187 * pow(1.0 - finspin, -0.4990)) );;
+  p->Qual = (0.7000 + (1.4187 * pow(1.0 - fabs(finspin), -0.4990)) );;
 
   /* Get the transition frequencies, at which the model switches phase and
    * amplitude prescriptions, as used in Eq.(5.9), (5.13) of the Main paper */
@@ -539,9 +539,11 @@ static REAL8 IMRPhenomCGenerateAmplitudePM( REAL8 f, const BBHPhenomCParams *par
 
   if( xdot < 0.0 )
   {
-    if( f < params->fCut )
+    if( f < params->fRingDown && f > params->f1 )
+      XLALPrintWarning("omegaDot < 0, while frequency is below RingDown frequency");
+    else if ( f <= params->f1 )
     {
-      XLALPrintError("omegaDot < 0, while frequency is below Cutoff frequency");
+      XLALPrintError("omegaDot < 0, while frequency is below SPA--PM attachment freq.");
       XLAL_ERROR( XLAL_EDOM );
     }
     else
@@ -715,9 +717,11 @@ static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f
 
   if( xdot < 0.0 )
   {
-    if( f < params->fCut )
+    if( f < params->fRingDown && f > params->f1 )
+      XLALPrintWarning("omegaDot < 0, while frequency is below RingDown frequency");
+    else if ( f <= params->f1 )
     {
-      XLALPrintError("omegaDot < 0, while frequency is below Cutoff frequency");
+      XLALPrintError("omegaDot < 0, while frequency is below SPA--PM attachment freq.");
       XLAL_ERROR( XLAL_EDOM );
     }
     else
