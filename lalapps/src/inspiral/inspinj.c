@@ -111,7 +111,7 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs, double local_rate);
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 
 /*
@@ -294,30 +294,26 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
 //  return z;
 //}
 
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs)
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs, double local_rate)
 {
-    REAL8 local_rate = 3.17e-14; /** in s/mpc^3 corresponding to 1 Myr/mpc^3 */
-  REAL8 test,z,p,pT,pt;
-  //tobs=5.0*3.15e7;
-//  do
-//  {
-//    pT = XLALUniformDeviate(randParams);
-    do
-        { 
-         test = XLALUniformDeviate(randParams);
-         z = zmax * XLALUniformDeviate(randParams);
-          //p= 1.0-exp(-1.0e9*tobs*local_rate*XLALUniformComovingVolumeDistribution(params, z, zmax));
-          p=XLALUniformComovingVolumeDistribution(params, z, zmax);
-        //printf("z:%f p:%30.30f test:%30.30f\n",z,p,test);
-        }
-        while (test>p);
-//        //printf("Vc:%30.30f\n",XLALUniformComovingVolumeDensity(z,params));
-//        pt = 1.0-exp(-tobs*local_rate*XLALIntegrateComovingVolumeDensity(params, z));
-//        printf("z:%lf pT:%30.30f pt:%30.30f\n",z,pT,pt);
-//    }
-//    while (pT>pt);
+    if (local_rate>0.0) local_rate /= 31536000000000.0; /** convert to s/mpc^3 from Myr/mpc^3 */
+    REAL8 test,z,p;
+//    REAL8 pT,pt;  
+//    do
+//    {
+//        pT = XLALUniformDeviate(randParams);
+        do
+        {   
+            test = XLALUniformDeviate(randParams);
+            z = zmax * XLALUniformDeviate(randParams);
+            p=XLALUniformComovingVolumeDistribution(params, z, zmax);
+        } while (test>p);
+        //printf("z:%lf V(z):%lf\n",z,XLALIntegrateComovingVolumeDensity(params, z));
+//        if (local_rate>0.0) pt = 1.0-exp(-tobs*local_rate*XLALIntegrateComovingVolumeDensity(params, z));
+//        else pt = 1.0;
+//    } while (pT>pt);
     
-  return z;
+    return z;
 }
 
 REAL8 redshift_mass(REAL8 mass, REAL8 z)
@@ -3075,7 +3071,7 @@ int main( int argc, char *argv[] )
   {
     /* increase counter */
     ninj++;
-
+    //printf("generating injection %d\n",(int) ninj);
     /* store time in table */
     simTable=XLALRandomInspiralTime( simTable, randParams,
         currentGpsTime, timeInterval );
@@ -3089,7 +3085,7 @@ int main( int argc, char *argv[] )
     /* draw redshift */
     if (dDistr==sfr)
     {
-          redshift= drawRedshift(omega,zmaximal,tobs);        
+          redshift= drawRedshift(omega,zmaximal,tobs,localRate);        
 
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
@@ -3104,7 +3100,7 @@ int main( int argc, char *argv[] )
     }
     if (dDistr==uniformVolume) 
     {
-        redshift= drawRedshift(omega,zmaximal,tobs); 
+        redshift= drawRedshift(omega,zmaximal,tobs,localRate); 
         minMass1 = redshift_mass(minMass10, redshift);
         maxMass1 = redshift_mass(maxMass10, redshift);
         meanMass1 = redshift_mass(meanMass10, redshift);
