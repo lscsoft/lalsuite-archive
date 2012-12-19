@@ -238,7 +238,7 @@ for db_idx, db_path in enumerate(database_list):
     if opts.verbose:
         print >> sys.stdout, "\tGet list of found injections"
 
-    found_inj, found_fars = efficiency.found_injections(
+    found_inj, found_fars, _ = efficiency.found_injections(
         connection,
         opts.inj_usertag,
         on_ifos,

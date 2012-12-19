@@ -220,7 +220,8 @@ def found_injections(
                 sim_inspiral.mchirp, :weight_dist, :ifos), """
 
     sqlquery += """
-        false_alarm_rate
+        false_alarm_rate,
+        coinc_inspiral.snr
     FROM
         coinc_event_map AS coincs
         JOIN coinc_event_map AS sims, coinc_inspiral, coinc_event, sim_inspiral ON (
@@ -247,8 +248,9 @@ def found_injections(
 
     found_inj = [inj[0:3] for inj in injections]
     inj_fars = [inj[3] for inj in injections]
+    inj_snrs = [inj[4] for inj in injections]
 
-    return found_inj, inj_fars
+    return found_inj, inj_fars, inj_snrs
 
 
 def detection_efficiency(
