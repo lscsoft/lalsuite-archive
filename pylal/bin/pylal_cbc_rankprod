@@ -55,9 +55,8 @@ use('Agg')
 from matplotlib import pyplot
 import numpy
 from math import floor
+from operator import attrgetter #speeding up the trigger sort
 
-import matplotlib
-print matplotlib.get_configdir()
 
 ##############################################################################
 # redefine the SnglInspiral columns of interest
@@ -142,35 +141,28 @@ def get_combined_stat(coinc, statname, combined_stat):
     raise ValueError, "Combined statistic must be either 'sum_square' or 'sum'!"
 
 
-def rank_statistics(sngls, statname, fac=50., index=6.):
+def rank_triggers(sngls, statname, fac=50., index=6.):
   triglist = []
   ranks = {}
   for sng in sngls:
     gpsns = 10**9*sng.end_time + sng.end_time_ns
-    #try:
     triglist.append(Trig(sng.ifo, gpsns, getstat(sng, statname, fac=fac, index=index), sng.mchirp))
-    #except:
-    #  raise ValueError, "Trigger with end time "+str(gpsns/10**9)+" could not be assigned a statistic!"
 
-  statvals = [trg.stat for trg in triglist]
-  print >> sys.stdout, "Sorting "+str(len(statvals))+" statistic values..."
-  sortedstats = list( numpy.sort(numpy.array(statvals), kind="mergesort") )
-  sortedstats.reverse()
-  del statvals
+  print >> sys.stdout, "Sorting "+str(len(triglist))+" triggers by "+statname+" value..."
+  # put highest value trig first in sort
+  sortedlist = sorted(triglist, key=attrgetter("stat"), reverse=True)
+  del triglist
+  sortedstats = [trg.stat for trg in sortedlist]
 
-  print >> sys.stdout, "Assigning ranks to statistic values..."
-  for i,stat in enumerate(sortedstats):
+  print >> sys.stdout, "Assigning ranks to triggers..."
+  for i,trg in enumerate(sortedlist):
     # the rank of a stat is the place it occurs in the sorted list: 
     # note that a given value may appear more than once, in which 
-    # case the original (arbitrary) ordering of the sngls is preserved
-    ranks[stat] = 1+i
-  print "length of ranks:", len(ranks)
+    # case the original (arbitrary) ordering of sngls is preserved
+    trg.rank = 1+i
 
-  print >> sys.stdout, "Assigning ranks to trigs..."
-  for trg in triglist:
-    trg.rank = ranks[trg.stat]
-
-  return Trigseries(triglist), sortedstats
+  print >> sys.stdout, "Creating trigger series..."
+  return Trigseries(sortedlist), sortedstats
 
 
 def num_louder_rankprod(ranklist, lenlist):
@@ -560,7 +552,7 @@ for ifo in ifos:
       # get the trigger ranks and associated products
       # trigseries: object returning Trigs and ranks via dictionary keyed on gps time
       # statlist: list of statistic values in ifo in descending order
-      trigseries[ifo], statlist[ifo] = rank_statistics(snglTrigsinTime, statname=opts.statistic)
+      trigseries[ifo], statlist[ifo] = rank_triggers(snglTrigsinTime, statname=opts.statistic)
       del snglTrigsinTime
     else:
       comments += InspiralUtils.message(opts, "No triggers were found in the files for "+ifo+"!")
@@ -609,10 +601,12 @@ if not haveTrigs:
 
 if opts.combined_statistic:
   print >>sys.stdout, "Calculating all possible combined statistic values after cuts..."
+  # use different width bins for different combined stats (sum vs sum-sq)
+  binwidths = {2:0.5, 1:0.1}
   power = powers[opts.combined_statistic]
   # bin the single-ifo statistics up
   snrWidth = 0.02 #has been tested against exact computation
-  rhocsqWidth = 0.5
+  combinedstatWidth = binwidths[power]
   snrbins = {}
   midbins = {}
   snrhist = {}
@@ -620,9 +614,9 @@ if opts.combined_statistic:
     snrbins[ifo] = numpy.arange(min(statlist[ifo]), max(statlist[ifo])+snrWidth, snrWidth)
     midbins[ifo] = 0.5*(snrbins[ifo][1:]+snrbins[ifo][:-1])
     snrhist[ifo], junk = numpy.histogram(statlist[ifo], bins=snrbins[ifo], new=True)
-  minrhocsq = sum([min(snrbins[ifo])**power for ifo in ifos])
-  maxrhocsq = sum([max(snrbins[ifo])**power for ifo in ifos])
-  combinedBins = numpy.arange(minrhocsq, maxrhocsq+rhocsqWidth, rhocsqWidth)
+  mincombstat = sum([min(snrbins[ifo])**power for ifo in ifos])
+  maxcombstat = sum([max(snrbins[ifo])**power for ifo in ifos])
+  combinedBins = numpy.arange(mincombstat, maxcombstat+combinedstatWidth, combinedstatWidth)
   combinedCounts, junk = combined_snr_hists([snrhist[ifo] for ifo in ifos], \
     [midbins[ifo] for ifo in ifos], power, combinedBins)
   # make a plot of the cumulative distribution of combined stat values
@@ -658,23 +652,23 @@ def gather_coincs(opts, comments, cfiles):
   comments = Message(opts, comments, str(len(coincs))+" coincs were found before statistic cut")
   coincs = cut_coincs(coincs, opts.statistic, opts.search_statistic_cut)
   comments = Message(opts, comments, str(len(coincs))+" coincs survived search statistic cut")
-  return coincs
+  return coincs, comments
 
 rawCoincs = None
 if opts.raw_coinc_pattern:
   comments = Message(opts, comments, "Reading "+str(len(rawcoincFiles))+" unclustered files \
 with the pattern "+opts.raw_coinc_pattern)
-  rawCoincs = gather_coincs(opts, comments, rawcoincFiles)
+  rawCoincs, comments = gather_coincs(opts, comments, rawcoincFiles)
 
 coincEvents = None
 if opts.coinc_pattern:
   comments = Message(opts, comments, "Reading "+str(len(coincFiles))+" files \
 with the pattern "+opts.coinc_pattern)
-  coincEvents = gather_coincs(opts, comments, coincFiles)
+  coincEvents, comments = gather_coincs(opts, comments, coincFiles)
 
 if opts.coinc_file:
   comments = Message(opts, comments, "Reading coincs from "+opts.coinc_file)
-  coincEvents = gather_coincs(opts, comments, coincFiles)
+  coincEvents, comments = gather_coincs(opts, comments, coincFiles)
 
 # if there are no clustered coincs, use raw coincs instead
 if opts.raw_coinc_pattern and not coincEvents:
@@ -745,7 +739,7 @@ if coincFlag:
       comments += InspiralUtils.message(opts, str(numCoincs)+" coincs were found within the specified \
 GPS times and survived the search statistic cut")
       comments += InspiralUtils.message(opts, str(coincsRanked)+" of these were ranked")
-      coincProbability = float(numCoincs)/trigpairs
+      coincProbability = float(coincCount)/trigpairs
       comments += InspiralUtils.message( opts, "Average probability of coincidence per pair of \
 triggers is estimated to be %.2G" % (coincProbability) )
      # 'trials factor' on FAN
@@ -805,11 +799,11 @@ GPS start and end times and could be ranked -- IFAN and statistic vs FAN graphs 
         chisqs = [getattr(coinc,ifo).chisq for ifo in ifos]
         comments += InspiralUtils.message(opts, "")
         # FIXME how to get the string formatting to work for a variable number of ifos, three would be nice
-        comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, combined statsq %.1f, triggers\
+        comments += InspiralUtils.message(opts, "Coinc with rank %d: FAN = %.3G, combined statsq %.1f, triggers \
 ranked (%d,%d) in (%s,%s)" % (i+1, sortedFANs[i], sortedStatsq[i], ranklist[0], ranklist[1], ifos[0], ifos[1]) )
         comments += InspiralUtils.message(opts, "Estimated number of louder trig pairs: %d" % (sortednLouder[i]) )
-        comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f),\
-          chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
+        comments += InspiralUtils.message(opts, "GPS time %.3f  chirp mass %.2f  SNR (%.2f,%.2f), \
+chisq (%.1f,%.1f) in (%s,%s)" % (gps, mchirp, snrs[0], snrs[1], chisqs[0], chisqs[1], ifos[0], ifos[1]) )
 
 # plot estimated FAN vs combined statistic without zerolag
 if opts.combined_statistic and numCoincs:
