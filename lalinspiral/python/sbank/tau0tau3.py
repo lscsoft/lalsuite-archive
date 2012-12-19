@@ -123,27 +123,6 @@ def set_default_constraints(constraints):
     constraints['mtotal'] = (mtotal_min, mtotal_max)
 
     # mratio can be given or inferred from component mass limits
-    if mass1_min is None or mass1_max is None:
-        raise ValueError("Must specify both minimum and maximum mass1.")
-
-    # component mass2 can be specified independently
-    # if not specified, symmetry will be assumed
-    mass2_min, mass2_max = constraints.setdefault('mass2', (None, None))
-    if mass2_min is None:
-        mass2_min = mass1_min
-    if mass2_max is None:
-        mass2_max = mass1_max
-    constraints['mass2'] = (mass2_min, mass2_max)
-
-    # mtotal can be given or inferred from component mass limits
-    mtotal_min, mtotal_max = constraints.setdefault('mtotal', (None, None))
-    if mtotal_min is None:
-        mtotal_min = mass1_min + mass2_min
-    if mtotal_max is None:
-        mtotal_max = mass1_max + mass2_max
-    constraints['mtotal'] = (mtotal_min, mtotal_max)
-
-    # mratio can be given or inferred from component mass limits
     qmin, qmax = constraints.setdefault('mratio', (None, None))
     if qmin is None:
         qmin = max(mass1_min, mtotal_min - mass2_max) / mass2_max
@@ -248,10 +227,8 @@ def tau0tau3_bound(flow, **constraints):
     # only need the corners here because these constraints
     # are also lines in tau0-tau3 space
     for val in constraints['mtotal']:
-        m1m2_points += [(m1min, val-m1min),
-                        (m1max, val-m1max),
-                        (val-m2min, m2min),
-                        (val-m2max, m2max)]
+        m1m2_points += [(m1, val-m1) for m1 in numpy.linspace(m1min, m1max, npts)]
+        m1m2_points += [(val-m2, m2) for m2 in numpy.linspace(m2min, m2max, npts)]
 
     # draw constant mratio lines
     for val in constraints['mratio']:
