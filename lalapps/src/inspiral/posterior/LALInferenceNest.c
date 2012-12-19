@@ -482,7 +482,7 @@ void initVariables(LALInferenceRunState *state)
 	INT4 AmpOrder=0;
 	Approximant approx=TaylorF2;
 	REAL8 logDmin=log(1.0);
-	REAL8 logDmax=log(100.0);
+	REAL8 logDmax=log(1000000.0);
 	REAL8 mcMin=1.0;
 	REAL8 mcMax=20.5;
 	REAL8 logmcMax,logmcMin,mMin=1.0,mMax=30.0;
@@ -508,6 +508,7 @@ void initVariables(LALInferenceRunState *state)
 	INT4 event=0;	
 	INT4 i=0;
 	INT4 enable_spin=0;
+         INT4 enable_cosmology=0;
 	INT4 aligned_spin=0;
 	char *pinned_params=NULL;
 	char help[]="\
@@ -785,20 +786,6 @@ Parameter arguments:\n\
 	tmpMin=0.0; tmpMax=LAL_TWOPI;
 	LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 	
-	if(LALInferenceGetProcParamVal(commandLine,"--no-logdistance"))
-	{
-		REAL8 Dmin=exp(logDmin);
-		REAL8 Dmax=exp(logDmax);
-		tmpVal=Dmin+(Dmax-Dmin)/2.;
-		LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-		LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);		
-	}
-	else 
-	{
-		tmpVal=logDmin+(logDmax-logDmin)/2.0;
-		if(!LALInferenceCheckVariable(currentParams,"logdistance")) LALInferenceAddVariable(currentParams,"logdistance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-		LALInferenceAddMinMaxPrior(priorArgs, "logdistance",     &logDmin, &logDmax,   LALINFERENCE_REAL8_t);
-	}
 	tmpVal=1.0;
 	if(!LALInferenceCheckVariable(currentParams,"rightascension")) LALInferenceAddVariable(currentParams, "rightascension",  &tmpVal,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
 	tmpMin=0.0; tmpMax=LAL_TWOPI;
@@ -877,7 +864,49 @@ Parameter arguments:\n\
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin2",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t);
 		}
 	}
-	
+        if(LALInferenceGetProcParamVal(commandLine,"--cosmology")) enable_cosmology=1;
+        if (enable_cosmology) 
+        {
+            tmpVal = 0.1;
+            REAL8 minz = 0.0, maxz = 6.0, maxh = 1.0, minh =0.5, minom =0.044, maxom = 1.0, minol= 0.0, maxol =1.0, minok =-1.0, maxok = 1.0;
+            LALInferenceAddVariable(currentParams, "redshift",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddMinMaxPrior(priorArgs, "redshift",     &minz, &maxz,   LALINFERENCE_REAL8_t);
+
+            tmpVal=0.5;
+            LALInferenceAddVariable(currentParams, "h0",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddMinMaxPrior(priorArgs, "h0",     &minh, &maxh,   LALINFERENCE_REAL8_t);
+            LALInferenceAddVariable(currentParams, "om",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddMinMaxPrior(priorArgs, "om",     &minom, &maxom,   LALINFERENCE_REAL8_t);
+            ppt=LALInferenceGetProcParamVal(commandLine,"--fix-omegak");
+            LALInferenceAddVariable(currentParams, "ok",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+            LALInferenceAddMinMaxPrior(priorArgs, "ok",     &minok, &maxok,   LALINFERENCE_REAL8_t);
+            tmpVal = 1.0- *(REAL8*) LALInferenceGetVariable(currentParams,"om")-*(REAL8*) LALInferenceGetVariable(currentParams,"ok");;
+            LALInferenceAddVariable(currentParams, "ol",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddMinMaxPrior(priorArgs, "ol",     &minol, &maxol,   LALINFERENCE_REAL8_t);
+            REAL8 Dmin=exp(logDmin);
+            REAL8 Dmax=exp(logDmax);
+            tmpVal=Dmin+(Dmax-Dmin)/2.;
+            LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+            LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);
+        }
+        else 
+        {
+            if(LALInferenceGetProcParamVal(commandLine,"--no-logdistance"))
+            {
+                REAL8 Dmin=exp(logDmin);
+                REAL8 Dmax=exp(logDmax);
+                tmpVal=Dmin+(Dmax-Dmin)/2.;
+                LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);		
+            }
+            else 
+            {
+		tmpVal=logDmin+(logDmax-logDmin)/2.0;
+		if(!LALInferenceCheckVariable(currentParams,"logdistance")) LALInferenceAddVariable(currentParams,"logdistance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+		LALInferenceAddMinMaxPrior(priorArgs, "logdistance",     &logDmin, &logDmax,   LALINFERENCE_REAL8_t);
+            }
+        }
+
 	return;
 }
 

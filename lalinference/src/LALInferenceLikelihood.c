@@ -31,7 +31,7 @@
 #include <lal/Sequence.h>
 #include <lal/FrequencySeries.h>
 #include <lal/TimeFreqFFT.h>
-
+#include <lal/LALCosmologyCalculator.h>
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -169,6 +169,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   int i, lower, upper;
   LALInferenceIFOData *dataPtr;
   double ra, dec, psi, distMpc, gmst;
+  double h0=0.7,om=0.3,ok=0.0,ol=0.7,redshift=0.0;
   double GPSdouble;
   LIGOTimeGPS GPSlal;
   double chisquared;
@@ -194,10 +195,44 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    /* radian      */
   psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
   GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-	if(logDistFlag)
+
+  if(LALInferenceCheckVariable(currentParams, "redshift")) 
+  {
+    redshift	= *(REAL8*) LALInferenceGetVariable(currentParams, "redshift");
+    if(LALInferenceCheckVariable(currentParams, "h0"))		h0		= *(REAL8*) LALInferenceGetVariable(currentParams, "h0"); 
+    if(LALInferenceCheckVariable(currentParams, "ok"))
+    {
+        LALInferenceParamVaryType type_ok;
+        ok = *(REAL8*) LALInferenceGetVariable(currentParams, "ok");
+        type_ok=LALInferenceGetVariableVaryType(currentParams,"ok");
+        if(type_ok==LALINFERENCE_PARAM_FIXED)
+        {
+            if(LALInferenceCheckVariable(currentParams, "om")) om	 = *(REAL8*) LALInferenceGetVariable(currentParams, "om");
+            ol = 1.0-ok-om;
+            LALInferenceSetVariable(currentParams,"ol",&ol);
+        }
+        else 
+        {
+            if(LALInferenceCheckVariable(currentParams, "om")) om	 = *(REAL8*) LALInferenceGetVariable(currentParams, "om");
+            if(LALInferenceCheckVariable(currentParams, "ol")) ol	 = *(REAL8*) LALInferenceGetVariable(currentParams, "ol");
+            ok=1.0-om-ol;
+            LALInferenceSetVariable(currentParams,"ok",&ok);
+        }
+    }
+     LALCosmologicalParameters *omega=XLALFillCosmologicalParameters(h0,om,ok,ol,-1.0,0.0,0.0);
+     distMpc = XLALLuminosityDistance(omega,redshift);
+     REAL8 logDistMpc = log(distMpc);
+     if(logDistFlag) LALInferenceSetVariable(currentParams,"logdistance",&logDistMpc);
+     else  LALInferenceSetVariable(currentParams,"distance",&distMpc);      /* Mpc         */
+     free(omega);
+  }
+  else 
+  {
+        if(logDistFlag)
 		 distMpc = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"logdistance"));
 	else
 		 distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
+  }
 
   /* figure out GMST: */
   //XLALINT8NSToGPS(&GPSlal, floor(1e9 * GPSdouble + 0.5));

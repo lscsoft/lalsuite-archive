@@ -31,6 +31,7 @@
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
 #include <lal/SphericalHarmonics.h>
+#include <lal/LALSimInspiralEOS.h>
 
 #include "check_series_macros.h"
 
@@ -1840,6 +1841,14 @@ int XLALSimInspiralChooseFDWaveform(
                 ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
             if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
                 ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+                        /* Call the waveform driver routine */
+            lambda1 = 0.0;
+            lambda2 = 0.0;
+            REAL8 mtot_ms = (m1+m2)/LAL_MSUN_SI;
+            REAL8 redshift = XLALSimInspiralGetTestGRParam(nonGRparams,"redshift");
+            if (m1/(1.0+redshift)<2.8*LAL_MSUN_SI) lambda1 = LambdaOfM_EOS(1, m1/(1.0+redshift)/LAL_MSUN_SI)/pow(mtot_ms*LAL_MTSUN_SI,5.0);//(1.0E23)*
+            if (m2/(1.0+redshift)<2.8*LAL_MSUN_SI) lambda2 = LambdaOfM_EOS(1, m2/(1.0+redshift)/LAL_MSUN_SI)/pow(mtot_ms*LAL_MTSUN_SI,5.0);
+
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2ReducedSpinTidal(htilde, phiRef, deltaF,
                     m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),

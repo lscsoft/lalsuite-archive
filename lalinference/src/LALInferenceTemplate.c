@@ -1852,8 +1852,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   static REAL8 previous_spin2z;
   static REAL8 previous_phi0;
   static REAL8 previous_inclination;
+  static REAL8 previous_redshift;
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
+  REAL8 redshift=0.0;
   
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
     approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
@@ -1921,7 +1923,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   
   if(LALInferenceCheckVariable(IFOdata->modelParams, "spin1"))		spin1z		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin1");
   if(LALInferenceCheckVariable(IFOdata->modelParams, "spin2"))		spin2z		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin2");
-  
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "redshift"))		redshift		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "redshift");
+
   distance	= LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
 	
   f_min = IFOdata->fLow /** 0.9 */;
@@ -1958,7 +1961,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     double plusCoef  = -0.5 * (1.0 + cosi*cosi);
     double crossCoef = cosi;
     
-    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
+    if(LALInferenceCheckVariable(IFOdata->modelParams, "redshift")) XLALSimInspiralAddTestGRParam(&nonGRparams,"redshift",redshift);
+    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0 || previous_redshift !=redshift){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
 						   spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
 						   inclination, lambda1, lambda2, waveFlags, nonGRparams,
@@ -1969,6 +1973,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       previous_spin2z = spin2z;
       previous_phi0 = phi0;
       previous_inclination = inclination;
+      previous_redshift = redshift;
     
       if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");

@@ -23,6 +23,7 @@
 #include <lal/LALInferencePrior.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
+#include <lal/LALCosmologyCalculator.h>
 
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -61,10 +62,6 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
       if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
     }
   }
-  if(LALInferenceCheckVariable(params,"logdistance"))
-    logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
-  else if(LALInferenceCheckVariable(params,"distance"))
-    logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
 
   if(LALInferenceCheckVariable(params,"inclination"))
     logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"inclination"))));
@@ -123,6 +120,24 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m1
        || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m2)
       return -DBL_MAX;
+    if(LALInferenceCheckVariable(params, "redshift"))
+    {
+        REAL8 redshift	= *(REAL8*) LALInferenceGetVariable(params, "redshift");
+        REAL8 h0		= *(REAL8*) LALInferenceGetVariable(priorParams, "h0");
+        REAL8 om	= *(REAL8*) LALInferenceGetVariable(priorParams, "om");
+        REAL8 ok		= *(REAL8*) LALInferenceGetVariable(priorParams, "ok");
+        REAL8 ol		= *(REAL8*) LALInferenceGetVariable(priorParams, "ol");
+        LALCosmologicalParameters *omega=XLALFillCosmologicalParameters(h0,om,ok,ol,-1.0,0.0,0.0);
+        logPrior+= log(XLALUniformComovingVolumeDistribution(omega,redshift,-1.0));
+        free(omega);
+  }
+  else 
+  {
+        if(LALInferenceCheckVariable(params,"logdistance"))
+        logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
+        else if(LALInferenceCheckVariable(params,"distance"))
+        logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+  }
 
   return(logPrior);
 }
