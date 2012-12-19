@@ -1844,10 +1844,12 @@ int XLALSimInspiralChooseFDWaveform(
                         /* Call the waveform driver routine */
             lambda1 = 0.0;
             lambda2 = 0.0;
-            REAL8 mtot_ms = (m1+m2)/LAL_MSUN_SI;
             REAL8 redshift = XLALSimInspiralGetTestGRParam(nonGRparams,"redshift");
-            if (m1/(1.0+redshift)<2.8*LAL_MSUN_SI) lambda1 = LambdaOfM_EOS(1, m1/(1.0+redshift)/LAL_MSUN_SI)/pow(mtot_ms*LAL_MTSUN_SI,5.0);//(1.0E23)*
-            if (m2/(1.0+redshift)<2.8*LAL_MSUN_SI) lambda2 = LambdaOfM_EOS(1, m2/(1.0+redshift)/LAL_MSUN_SI)/pow(mtot_ms*LAL_MTSUN_SI,5.0);
+            REAL8 m1Int = m1/(1.0+redshift)/LAL_MSUN_SI; /** in solar masses */
+            REAL8 m2Int = m2/(1.0+redshift)/LAL_MSUN_SI; /** in solar masses */
+            REAL8 mtotint_ms = (m1+m2)/LAL_MSUN_SI;
+            if (m1Int<2.8) lambda1 = LambdaOfM_EOS(1, m1Int)/pow(mtotint_ms*LAL_MTSUN_SI,5.0);//(1.0E23)*
+            if (m2Int<2.8) lambda2 = LambdaOfM_EOS(1, m2Int)/pow(mtotint_ms*LAL_MTSUN_SI,5.0);
 
             /* Call the waveform driver routine */
             ret = XLALSimInspiralTaylorF2ReducedSpinTidal(htilde, phiRef, deltaF,
