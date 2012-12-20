@@ -204,7 +204,7 @@ for entry in tempBank:
         if temmpvec3_max > vec3_max:
           vec3_max = temmpvec3_max
           vec3_depth = vec3_max - vec3_min
-      if vec3_max < xis_close[:,3].max():
+      if vec3_max < xis_close[:,2].max():
         print "WARNING: Numerical placement fails, trying again"
         temp_idx = xis_close[:,2].argmax()
         temmpBestMasses = physMasses[temp_idx]
@@ -266,11 +266,3 @@ for entry in tempBank:
           print >> outPointer, "%e %e %e %e %e" %(masses[0],masses[1],masses[2],masses[3],masses[5])
 
 outPointer.close()
-
-
-
-
-
-
-
-
