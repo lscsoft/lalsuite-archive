@@ -94,10 +94,18 @@ parser.add_option("-n", "--nsbh-flag", action="store_true", default=False,\
 parser.add_option("-s", "--stack-distance", action="store", type="float",\
                   default=0.2, help="Minimum metric spacing before we stack"+\
                                       "default: %default")
+parser.add_option("-3", "--threed-lattice", action="store_true", default=False,\
+                    help="Set this to use a 3D lattice, default: %default")
+parser.add_option("-a", "--skip-vec4-depth",action="store_true", default=False,\
+                    help="Set this if running with NSBH, default: %default")
+parser.add_option("-F", "--skip-vec5-depth",action="store_true", default=False,\
+                    help="Set this if running with NSBH, default: %default")
 
 
 
 (opts,args) = parser.parse_args()
+opts.eval_vec4_depth = not opts.skip_vec4_depth
+opts.eval_vec5_depth = not opts.skip_vec5_depth
 
 tempBank = numpy.loadtxt(opts.input_bank_file)
 
@@ -107,7 +115,7 @@ evecsCV = numpy.matrix(numpy.loadtxt(opts.cov_evecs_file))
 
 rTotmass,rEta,rBeta,rSigma,rGamma,rSpin1z,rSpin2z = \
     geom_aligned_bank_utils.get_random_mass_slimline(\
-    1000000,opts.min_mass1,opts.max_mass1,opts.min_mass2,opts.max_mass2,\
+    2000000,opts.min_mass1,opts.max_mass1,opts.min_mass2,opts.max_mass2,\
     opts.max_ns_spin_mag,maxBHspin = opts.max_bh_spin_mag,return_spins=True)
 diff = (rTotmass*rTotmass * (1-4*rEta))**0.5
 rMass1 = (rTotmass + diff)/2.
@@ -137,63 +145,101 @@ outPointer3 = open(outFile+'.depths','w')
 numtemps = len(tempBank)
 for entry in tempBank:
   temp_number += 1
+  if opts.verbose:
+    print "Analysing template %d" %(temp_number)
   xi1_des = entry[0]
   xi2_des = entry[1]
-  # FIXME: Add support for 3d banks
-  #    xi3_des = entry[2]
+  xis_des = [xi1_des,xi2_des]
+  if opts.threed_lattice:
+    xi3_des = entry[2]
+    xis_des.append(xi3_des)
   req_match = 0.0001
   dist = (xi1_des - xis[:,0])**2 + (xi2_des - xis[:,1])**2
+  if opts.threed_lattice:
+    dist += (xi3_des - xis[:,2])**2
   xis_close = xis[dist < 0.03]
   masses_close = physMasses[dist < 0.03]
   bestMasses = physMasses[dist.argmin()]
   bestXis = xis[dist.argmin()]
+  if opts.verbose:
+    print "Template %d has initial distance of %e" %(temp_number,dist.min())
   # First find a point within MM of the desired xi position
-  masses = geom_aligned_bank_utils.get_physical_covaried_masses([xi1_des,xi2_des],copy.deepcopy(bestMasses),copy.deepcopy(bestXis),f0,temp_number,req_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,return_smaller=True,nsbh_flag=opts.nsbh_flag)
+  if dist.min() > 2.:
+    # Reject point, it is too far away
+    if opts.verbose:
+      print "Template %d rejected as too far away" %(temp_number)
+    if opts.threed_lattice:
+      print >> outPointer2, "%e %e %e %e %e %e %e %e" %(xi1_des,xi2_des,xi3_des,0,0,0,0,dist.min())
+    else:
+      print >> outPointer2, "%e %e %e %e %e %e %e" %(xi1_des,xi2_des,0,0,0,0,dist.min())
+    continue
+  masses = geom_aligned_bank_utils.get_physical_covaried_masses(xis_des,copy.deepcopy(bestMasses),copy.deepcopy(bestXis),f0,temp_number,req_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,return_smaller=True,nsbh_flag=opts.nsbh_flag)
+  if opts.verbose:
+    print "Template %d has corrected distance of %e" %(temp_number,masses[5])
   if masses[5] > 0.05:
     # Reject point, it is too far away
-    print >> outPointer2, "%e %e %e %e %e %e %e" %(xi1_des,xi2_des,masses[0],masses[1],masses[2],masses[3],masses[5])
+    if opts.verbose:
+      print "Template %d rejected as too far away" %(temp_number)
+    if opts.threed_lattice:
+      print >> outPointer2, "%e %e %e %e %e %e %e %e" %(xi1_des,xi2_des,xi3_des,masses[0],masses[1],masses[2],masses[3],masses[5])
+    else:
+      print >> outPointer2, "%e %e %e %e %e %e %e" %(xi1_des,xi2_des,masses[0],masses[1],masses[2],masses[3],masses[5])
     continue
   tmpTotMass = masses[0] + masses[1]
   tmpEta = masses[0] * masses[1] / (tmpTotMass*tmpTotMass)
-  # If point is close enough, determine depth of xi3 direction 
-  vec3_min,vec3_max,vec3_depth=geom_aligned_bank_utils.stack_xi_direction_brute([masses[6],masses[7]],[tmpTotMass,tmpEta,masses[2],masses[3]],copy.deepcopy(bestXis),f0,temp_number,2,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
-  # Double check that there are no points with depth outside what was above
-  if len(xis_close):
-    if vec3_min > xis_close[:,2].min():
-      print "WARNING: Numerical placement fails, trying again"
-      temp_idx = xis_close[:,2].argmin()
-      temmpBestMasses = masses_close[temp_idx]
-      temmpBestXis = xis_close[temp_idx]
-      temmpvec3_min,temmpvec3_max,temmpvec3_depth=geom_aligned_bank_utils.stack_xi_direction_brute([xi1_des,xi2_des],copy.deepcopy(temmpBestMasses),copy.deepcopy(temmpBestXis),f0,temp_number,2,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
-      if temmpvec3_min < vec3_min:
-        vec3_min = temmpvec3_min
-        vec3_depth = vec3_max - vec3_min
-      if temmpvec3_max > vec3_max:
-        vec3_max = temmpvec3_max
-        vec3_depth = vec3_max - vec3_min
-    if vec3_max < xis_close[:,3].max():
-      print "WARNING: Numerical placement fails, trying again"
-      temp_idx = xis_close[:,2].argmax()
-      temmpBestMasses = physMasses[temp_idx]
-      temmpBestXis = xis[temp_idx]
-      temmpvec3_min,temmpvec3_max,temmpvec3_depth=geom_aligned_bank_utils.stack_xi_direction_brute([xi1_des,xi2_des],copy.deepcopy(temmpBestMasses),copy.deepcopy(temmpBestXis),f0,temp_number,2,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
-      if temmpvec3_max > vec3_max:
-        vec3_max = temmpvec3_max
-        vec3_depth = vec3_max - vec3_min
-      if temmpvec3_min < vec3_min:
-        vec3_min = temmpvec3_min
-        vec3_depth = vec3_max - vec3_min
+  if not opts.threed_lattice:
+    # If point is close enough, determine depth of xi3 direction
+    vec3_min,vec3_max,vec3_depth=geom_aligned_bank_utils.stack_xi_direction_brute([masses[6],masses[7]],[tmpTotMass,tmpEta,masses[2],masses[3]],copy.deepcopy(bestXis),f0,temp_number,2,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+    # Double check that there are no points with depth outside what was above
+    if len(xis_close):
+      if vec3_min > xis_close[:,2].min():
+        print "WARNING: Numerical placement fails, trying again"
+        temp_idx = xis_close[:,2].argmin()
+        temmpBestMasses = masses_close[temp_idx]
+        temmpBestXis = xis_close[temp_idx]
+        temmpvec3_min,temmpvec3_max,temmpvec3_depth=geom_aligned_bank_utils.stack_xi_direction_brute([xi1_des,xi2_des],copy.deepcopy(temmpBestMasses),copy.deepcopy(temmpBestXis),f0,temp_number,2,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+        if temmpvec3_min < vec3_min:
+          vec3_min = temmpvec3_min
+          vec3_depth = vec3_max - vec3_min
+        if temmpvec3_max > vec3_max:
+          vec3_max = temmpvec3_max
+          vec3_depth = vec3_max - vec3_min
+      if vec3_max < xis_close[:,3].max():
+        print "WARNING: Numerical placement fails, trying again"
+        temp_idx = xis_close[:,2].argmax()
+        temmpBestMasses = physMasses[temp_idx]
+        temmpBestXis = xis[temp_idx]
+        temmpvec3_min,temmpvec3_max,temmpvec3_depth=geom_aligned_bank_utils.stack_xi_direction_brute([xi1_des,xi2_des],copy.deepcopy(temmpBestMasses),copy.deepcopy(temmpBestXis),f0,temp_number,2,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+        if temmpvec3_max > vec3_max:
+          vec3_max = temmpvec3_max
+          vec3_depth = vec3_max - vec3_min
+        if temmpvec3_min < vec3_min:
+          vec3_min = temmpvec3_min
+          vec3_depth = vec3_max - vec3_min
   # Determine depth of xi4 direction 
-  vec4_min,vec4_max,vec4_depth=geom_aligned_bank_utils.stack_xi_direction_brute([masses[6],masses[7]],[tmpTotMass,tmpEta,masses[2],masses[3]],copy.deepcopy(bestXis),f0,temp_number,3,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+  if opts.eval_vec4_depth:
+    vec4_min,vec4_max,vec4_depth=geom_aligned_bank_utils.stack_xi_direction_brute([masses[6],masses[7]],[tmpTotMass,tmpEta,masses[2],masses[3]],copy.deepcopy(bestXis),f0,temp_number,3,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+  else:
+    vec4_min = vec4_max = vec4_depth = 0
   # Determine depth of xi5 direction 
-  vec5_min,vec5_max,vec5_depth=geom_aligned_bank_utils.stack_xi_direction_brute([masses[6],masses[7]],[tmpTotMass,tmpEta,masses[2],masses[3]],copy.deepcopy(bestXis),f0,temp_number,4,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+  if opts.eval_vec5_depth:
+    vec5_min,vec5_max,vec5_depth=geom_aligned_bank_utils.stack_xi_direction_brute([masses[6],masses[7]],[tmpTotMass,tmpEta,masses[2],masses[3]],copy.deepcopy(bestXis),f0,temp_number,4,opts.min_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,nsbh_flag=opts.nsbh_flag)
+  else:
+    vec5_min = vec5_max = vec5_depth = 0
   # Output depths
-  print >> outPointer3, "%e %e %e %e %e" %(xi1_des,xi2_des,vec3_depth,vec4_depth,vec5_depth)
+  if opts.threed_lattice:
+    print >> outPointer3, "%e %e %e %e %e" %(xi1_des,xi2_des,xi3_des,vec4_depth,vec5_depth)
+  else:
+    print >> outPointer3, "%e %e %e %e %e" %(xi1_des,xi2_des,vec3_depth,vec4_depth,vec5_depth)
   # Figure out how many templates we need to stack in 3rd direction
   vec3DepthVal = opts.stack_distance
-  numV3Temps = int(round(vec3_depth // vec3DepthVal)) + 1
+  if opts.threed_lattice:
+    numV3Temps = 1
+  else:
+    numV3Temps = int(round(vec3_depth // vec3DepthVal)) + 1
   for ite in range(numV3Temps):
-    xi3_des = vec3_min + (vec3_depth) * (2 * ite + 1) / (2. * (numV3Temps))
+    if not opts.threed_lattice:
+      xi3_des = vec3_min + (vec3_depth) * (2 * ite + 1) / (2. * (numV3Temps))
     dist = (xi1_des - xis[:,0])**2 + (xi2_des - xis[:,1])**2 + (xi3_des - xis[:,2])**2
     bestMasses = physMasses[dist.argmin()]
     bestXis = xis[dist.argmin()]

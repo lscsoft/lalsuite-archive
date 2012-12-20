@@ -590,6 +590,37 @@ def generate_hexagonal_lattice(maxv1,minv1,maxv2,minv2,mindist):
   v2s = numpy.array(v2s)
   return v1s,v2s
 
+def generate_anstar_3d_lattice(maxv1,minv1,maxv2,minv2,maxv3,minv3,mindist):
+  import lal
+  tiling = lal.CreateFlatLatticeTiling(3)
+  lal.SetFlatLatticeConstantBound(tiling,0,minv1,maxv1)
+  lal.SetFlatLatticeConstantBound(tiling,1,minv2,maxv2)
+  lal.SetFlatLatticeConstantBound(tiling,2,minv3,maxv3)
+  # THE FOLLOWING LINE DOESN'T WORK
+  # lal.SetFlatLatticeGenerator(tiling,lal.AnstarLatticeGenerator)
+  # Replaced with
+  lal.SetAnstarTiling(tiling)
+  # Make a 3x3 Euclidean lattice
+  a = lal.gsl_matrix(3,3)
+  a.data[0,0] = 1
+  a.data[1,1] = 1
+  a.data[2,2] = 1
+  lal.SetFlatLatticeMetric(tiling,a,0.03)
+
+  vs1 = []
+  vs2 = []
+  vs3 = []
+  count = 0
+  while (lal.NextFlatLatticePoint(tiling) >= 0):
+    count += 1
+    if not (count % 100000):
+      print "Now %d points" %(count)
+    p = lal.GetFlatLatticePoint(tiling)
+    vs1.append(p.data[0])
+    vs2.append(p.data[1])
+    vs3.append(p.data[2])
+  return vs1,vs2,vs3
+
 def get_physical_covaried_masses(xis,bestMasses,bestXis,f0,temp_number,req_match,order,evecs,evals,evecsCV,maxmass1,minmass1,maxmass2,minmass2,maxNSspin,maxBHspin,return_smaller=False,nsbh_flag=False):
   # TUNABLE PARAMETERS GO HERE!
   origScaleFactor = 1

@@ -99,6 +99,12 @@ parser.add_option("-n", "--nsbh-flag", action="store_true", default=False,\
 parser.add_option("-s", "--stack-distance", action="store", type="float",\
                   default=0.2, help="Minimum metric spacing before we stack"+\
                                       "default: %default")
+parser.add_option("-3", "--threed-lattice", action="store_true", default=False,\
+                    help="Set this to use a 3D lattice, default: %default")
+parser.add_option("-S", "--split-bank-num", action="store", type="int",\
+                    default=100,\
+                    help="Number of points per job in dag, default: %default")
+
 
 (opts,args) = parser.parse_args()
 
@@ -106,7 +112,6 @@ opts.min_total_mass = opts.min_mass1 + opts.min_mass2
 opts.max_total_mass = opts.max_mass1 + opts.max_mass2
 opts.min_comp_mass = opts.min_mass2
 opts.max_comp_mass = opts.max_mass2
-opts.split_bank_num = 100
 
 # Begin by calculating a metric
 evals,evecs = geom_aligned_bank_utils.determine_eigen_directions(opts.psd_file,\
@@ -140,7 +145,23 @@ chi2Max = vals[1].max()
 chi2Min = vals[1].min()
 chi2Diff = chi2Max - chi2Min
 
-v1s,v2s = geom_aligned_bank_utils.generate_hexagonal_lattice(chi1Max + 0.02*chi1Diff,chi1Min - 0.02*chi1Diff,chi2Max + 0.02*chi2Diff,chi2Min - 0.02*chi2Diff,opts.min_match)
+if opts.verbose:
+  print>> sys.stdout, "Calculating lattice at %d." %(elapsed_time())
+
+if not opts.threed_lattice:
+  v1s,v2s = geom_aligned_bank_utils.generate_hexagonal_lattice(chi1Max + 0.02*chi1Diff,chi1Min - 0.02*chi1Diff,chi2Max + 0.02*chi2Diff,chi2Min - 0.02*chi2Diff,opts.min_match)
+else:
+  chi3Max = vals[2].max()
+  chi3Min = vals[2].min()
+  chi3Diff = chi3Max - chi3Min
+  v1s,v2s,v3s = geom_aligned_bank_utils.generate_anstar_3d_lattice(chi1Max + 0.02*chi1Diff,chi1Min - 0.02*chi1Diff,chi2Max + 0.02*chi2Diff,chi2Min - 0.02*chi2Diff,chi3Max + 0.02*chi3Diff,chi3Min - 0.02*chi3Diff,opts.min_match)
+  chi3Max = vals[2].max()
+  chi3Min = vals[2].min()
+  chi3Diff = chi3Max - chi3Min
+
+if opts.verbose:
+  print>> sys.stdout, "Lattice calculated at %d." %(elapsed_time())
+  print>> sys.stdout, "Lattice contains %d points." %(len(v1s))
 
 # Dump necessary information and make a few plots
 geom_aligned_bank_utils.make_plots(vals[0],vals[1],vals[2],vals[3],'chi 1','chi 2','chi 3','chi 4')
@@ -157,8 +178,12 @@ numpy.savetxt('metric_evals.dat',evals['fixed'])
 numpy.savetxt('covariance_evecs.dat',evecsCV)
 
 bankFile = open('bank_chis.dat','w')
-for i in xrange(len(v1s)):
-  print >> bankFile, "%e %e" %(v1s[i],v2s[i])
+if opts.threed_lattice:
+  for i in xrange(len(v1s)):
+    print >> bankFile, "%e %e %e" %(v1s[i],v2s[i],v3s[i])
+else:
+  for i in xrange(len(v1s)):
+    print >> bankFile, "%e %e" %(v1s[i],v2s[i])
 bankFile.close()
 
 # Now begin to generate the dag
@@ -173,8 +198,14 @@ if not os.path.isdir('logs'):
 bankNum = 0
 bankFile = open('split_banks/split_bank_%05d.dat'%(bankNum),'w')
 
+if opts.verbose:
+  print>> sys.stdout, "Printing split banks at %d." %(elapsed_time())
+
 for i in xrange(len(v1s)):
-  print >> bankFile, "%e %e" %(v1s[i],v2s[i])
+  if opts.threed_lattice:
+    print >> bankFile, "%e %e %e" %(v1s[i],v2s[i],v3s[i])
+  else:
+    print >> bankFile, "%e %e" %(v1s[i],v2s[i])
   if not (i+1) % opts.split_bank_num:
     bankFile.close()
     bankNum = bankNum + 1
@@ -216,6 +247,8 @@ cp.set('bank','min-match',str(opts.min_match))
 cp.set('bank','stack-distance',str(opts.stack_distance))
 if opts.nsbh_flag:
   cp.set('bank','nsbh-flag','')
+if opts.threed_lattice:
+  cp.set('bank','threed-lattice','')
 job.add_ini_opts(cp,'bank')
 job.add_condor_cmd('Requirements', 'Memory >= 1390')
 job.add_condor_cmd('request_memory', '1400')
