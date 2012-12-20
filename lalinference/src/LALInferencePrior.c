@@ -123,11 +123,25 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     if(LALInferenceCheckVariable(params, "redshift"))
     {
         REAL8 redshift	= *(REAL8*) LALInferenceGetVariable(params, "redshift");
-        REAL8 h0		= *(REAL8*) LALInferenceGetVariable(priorParams, "h0");
-        REAL8 om	= *(REAL8*) LALInferenceGetVariable(priorParams, "om");
-        REAL8 ok		= *(REAL8*) LALInferenceGetVariable(priorParams, "ok");
-        REAL8 ol		= *(REAL8*) LALInferenceGetVariable(priorParams, "ol");
+        REAL8 h0		= *(REAL8*) LALInferenceGetVariable(params, "h0");
+        REAL8 om	= *(REAL8*) LALInferenceGetVariable(params, "om");
+        REAL8 ok		= *(REAL8*) LALInferenceGetVariable(params, "ok");
+        REAL8 ol		= *(REAL8*) LALInferenceGetVariable(params, "ol");
+        LALInferenceParamVaryType type_ok;
+        type_ok=LALInferenceGetVariableVaryType(params,"ok");
+        if(type_ok==LALINFERENCE_PARAM_FIXED)
+        {
+                ol = 1.0-ok-om;
+                LALInferenceSetVariable(params,"ol",&ol);
+        }
+        else 
+        {
+                ok=1.0-om-ol;
+                LALInferenceSetVariable(params,"ok",&ok);
+        }
+        
         LALCosmologicalParameters *omega=XLALFillCosmologicalParameters(h0,om,ok,ol,-1.0,0.0,0.0);
+        
         logPrior+= log(XLALUniformComovingVolumeDistribution(omega,redshift,-1.0));
         free(omega);
   }

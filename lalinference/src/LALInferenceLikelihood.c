@@ -199,25 +199,21 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   if(LALInferenceCheckVariable(currentParams, "redshift")) 
   {
     redshift	= *(REAL8*) LALInferenceGetVariable(currentParams, "redshift");
-    if(LALInferenceCheckVariable(currentParams, "h0"))		h0		= *(REAL8*) LALInferenceGetVariable(currentParams, "h0"); 
-    if(LALInferenceCheckVariable(currentParams, "ok"))
+    if(LALInferenceCheckVariable(currentParams, "h0"))	h0 = *(REAL8*) LALInferenceGetVariable(currentParams, "h0"); 
+    if(LALInferenceCheckVariable(currentParams, "ok"))  ok = *(REAL8*) LALInferenceGetVariable(currentParams, "ok");
+    if(LALInferenceCheckVariable(currentParams, "om")) om	 = *(REAL8*) LALInferenceGetVariable(currentParams, "om");
+    if(LALInferenceCheckVariable(currentParams, "ol")) ol	 = *(REAL8*) LALInferenceGetVariable(currentParams, "ol");
+    LALInferenceParamVaryType type_ok;
+    type_ok=LALInferenceGetVariableVaryType(currentParams,"ok");
+    if(type_ok==LALINFERENCE_PARAM_FIXED)
     {
-        LALInferenceParamVaryType type_ok;
-        ok = *(REAL8*) LALInferenceGetVariable(currentParams, "ok");
-        type_ok=LALInferenceGetVariableVaryType(currentParams,"ok");
-        if(type_ok==LALINFERENCE_PARAM_FIXED)
-        {
-            if(LALInferenceCheckVariable(currentParams, "om")) om	 = *(REAL8*) LALInferenceGetVariable(currentParams, "om");
             ol = 1.0-ok-om;
             LALInferenceSetVariable(currentParams,"ol",&ol);
-        }
-        else 
-        {
-            if(LALInferenceCheckVariable(currentParams, "om")) om	 = *(REAL8*) LALInferenceGetVariable(currentParams, "om");
-            if(LALInferenceCheckVariable(currentParams, "ol")) ol	 = *(REAL8*) LALInferenceGetVariable(currentParams, "ol");
+    }
+    else 
+    {
             ok=1.0-om-ol;
             LALInferenceSetVariable(currentParams,"ok",&ok);
-        }
     }
      LALCosmologicalParameters *omega=XLALFillCosmologicalParameters(h0,om,ok,ol,-1.0,0.0,0.0);
      distMpc = XLALLuminosityDistance(omega,redshift);
