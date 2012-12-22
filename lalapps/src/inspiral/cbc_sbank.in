@@ -32,6 +32,7 @@ from pylal.xlal.datatypes.real8frequencyseries import REAL8FrequencySeries
 from pylal.xlal.datatypes.snglinspiraltable import SnglInspiralTable
 
 from optparse import OptionParser
+from collections import deque
 
 #from sbank import git_version FIXME
 from lalinspiral import CreateSBankWorkspaceCache
@@ -69,7 +70,6 @@ def parse_command_line():
     parser.add_option("--mtotal-max", help="Set maximum total mass of the system",  type="float")
     parser.add_option("--mchirp-min", help="Set minimum chirp-mass of the system (in solar masses)", type="float")
     parser.add_option("--mchirp-max", help="Set maximum chirp-mass of the system (in solar masses)", type="float")
-    parser.add_option("--mratio-min", dest="qmin", help="Set minimum allowed mass ratio of the system (convention is that q=m1/m2)", metavar="MAXQ", type="float")
     parser.add_option("--mratio-max", dest="qmax", help="Set maximum allowed mass ratio of the system (convention is that q=m1/m2)", metavar="MAXQ", type="float")
     parser.add_option("--spin-min", help="Set minimum allowed value for the spin parameter chi", type="float")
     parser.add_option("--spin-max", help="Set maximum allowed value for the spin parameter chi", type="float")
@@ -170,7 +170,7 @@ else:
 params = {'mass1': (opts.mass1_min, opts.mass1_max),
           'mass2': (opts.mass2_min, opts.mass2_max),
           'mtotal': (opts.mtotal_min, opts.mtotal_max),
-          'mratio': (opts.qmin, opts.qmax),
+          'mratio': (1.0, opts.qmax),
           'mchirp': (opts.mchirp_min, opts.mchirp_max)
         }
 # update with waveform dependent parameters
@@ -214,11 +214,12 @@ proposal = proposals[opts.approximant](opts.flow, **params)
 # To be 99.99% sure that an injection won't fall between the cracks,
 # require 10000 consecutive covered simulations.
 kmax = 10000
+ks = deque(10*[0], maxlen=10)
 
 k = 0 # k is nprop per iteration
 nprop = 1  # count total number of proposed templates
 status_format = "bank size: %d\tproposed: %d\t" + "\t".join("%s: %s" % name_format for name_format in zip(waveform.param_names, waveform.param_formats))
-while k < kmax:
+while float(sum(ks))/len(ks) < kmax:
     tmplt = waveform(*proposal.next(), bank=bank)
     k += 1
     nprop += 1
@@ -226,7 +227,9 @@ while k < kmax:
         bank.insort(tmplt)
         if opts.verbose:
             print >>sys.stdout, status_format % ((len(bank), k) + tmplt.params)
+	ks.append(k)
         k = 0
+
 
 print "total number of proposed templates: %d" % nprop
 print "total number of match calculations: %d" % bank._nmatch
