@@ -264,7 +264,7 @@ def cbcBayesPostProc(
     
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
-    if injfile and eventnum:
+    if injfile and eventnum is not None:
         print 'Looking for event %i in %s\n'%(eventnum,injfile)
         xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
         siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)

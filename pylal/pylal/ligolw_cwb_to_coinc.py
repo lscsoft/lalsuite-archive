@@ -707,6 +707,7 @@ class CWB2Coinc(object):
         # out -- without waveoffset
         row.set_out(segments.segment(LIGOTimeGPS(0), LIGOTimeGPS(1)))
       else:
+
         seg_start_with_offset = sim_tree.gps - waveoffset
         seg_start_without_offset = sim_tree.gps
         seg_end_with_offset = sim_tree.gps + waveoffset + livetime
@@ -852,6 +853,7 @@ class CWBTextConverter(object):
 				continue
 			elif len(line.strip()) == 0:
 				# a blank line is assumed to be a new event entry
+				row["gps"] = row["segment"][0]
 				self.data.append( row )
 				row = {}
 				row["skymap"] = {}
