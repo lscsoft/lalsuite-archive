@@ -86,7 +86,7 @@ void (*bambi)(int *, int *, double **, double *), void *context)
 
 void BAMBIfctn(int *ndata, int *ndim, double **BAMBIData, double *lowlike)
 {
-	// Do "nm libbambi.a | grep bambi" to find the name of the function to put here.
+	// Do "nm libfullbambi.a | grep bambi" to find the name of the function to put here.
 	// "c++filt <fctn name>" should return "bambi(...)"
 	// Remove one leading underscore for the name.
 	
@@ -95,7 +95,7 @@ void BAMBIfctn(int *ndata, int *ndim, double **BAMBIData, double *lowlike)
 
 void LogLikeFctn(double *Cube, int *ndim, int *npars, double *lnew, void *context)
 {
-	// Do "nm libbambi.a | grep LogLike" to find the name of the function to put here.
+	// Do "nm libfullbambi.a | grep LogLike" to find the name of the function to put here.
 	// "c++filt <fctn name>" should return "LogLike(...)"
 	// Remove one leading underscore for the name here.
 	
@@ -160,6 +160,15 @@ void getphysparams(double *Cube, int *ndim, int *nPar, void *context)
 	LALInferenceCopyVariables(runStateGlobal->currentParams,newParams);
 	runStateGlobal->CubeToPrior(runStateGlobal, newParams, Cube, context);
 	free(newParams);
+
+	// Adjust time if necessary
+	char **info = (char **)context;
+	char *timeID = &info[2][0];
+	int id = atoi(timeID);
+	if (id >= 0) {
+		REAL8 trigtime = *(REAL8 *)LALInferenceGetVariable(runStateGlobal->priorArgs,"trigtime");
+		Cube[id] -= trigtime;
+	}
 }
 
 void getallparams(double *Cube, int *ndim, int *nPar, void *context)
@@ -297,12 +306,59 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	logZero = -DBL_MAX;
 	int maxiter = 0;
 	char **info;
-	info=(char **)malloc(2*sizeof(char *));
+	info=(char **)malloc(3*sizeof(char *));
 	info[0]=(char *)malloc(100*sizeof(char));
 	info[1]=(char *)malloc(150*sizeof(char));
+	info[2]=(char *)malloc(5*sizeof(char));
 	strcpy(&info[0][0],outfilestr);
 	strcpy(&info[1][0],"DONOTWRITE");
+	strcpy(&info[2][0],"-1");
 	void *context = (void *)info;
+	
+    /* Read injection XML file for parameters if specified */
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
+    if(ppt){
+      SimInspiralTable *injTable=NULL;
+      SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
+      if(!injTable){
+        fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
+        exit(1);
+      }
+      ppt=LALInferenceGetProcParamVal(runState->commandLine,"--event");
+      if(ppt){
+        int event= atoi(ppt->value);
+        int i=0;
+        while(i<event) {i++; injTable=injTable->next;} /* select event */
+   	LALInferenceVariables tempParams;
+	//memset(&tempParams,0,sizeof(tempParams));
+	LALInferenceInjectionToVariables(injTable,&tempParams);
+	LALInferenceVariableItem *node=NULL;
+	item=runState->currentParams->head;
+	for(;item;item=item->next) {
+	  node=LALInferenceGetItem(&tempParams,item->name);
+	  if(node) {
+	    LALInferenceSetVariable(runState->currentParams,node->name,node->value);
+	    if(strstr(node->name,"LAL")==NULL)
+		fprintf(stdout,"Injection variable %s = %g\n",node->name,*(double *)(node->value));
+	    else
+		fprintf(stdout,"Injection variable %s = %d\n",node->name,*(int *)(node->value));
+	  }
+	}
+	double linj,pinj,lz;
+    	char finjname[150];
+    	sprintf(finjname,"%sinjlike.txt",root);
+	linj=runState->likelihood(runState->currentParams, runState->data, runState->template);
+    	lz = (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
+	linj -= lz;
+	pinj = runState->CubeToPriorDensity(runState,runState->currentParams);
+	FILE *finj=fopen(finjname,"w");
+	fprintf(finj,"Log-likelihood value returned = %g\n",linj);
+	fprintf(finj,"Log-prior value returned = %g\n",pinj);
+	fprintf(finj,"Log-posterior value returned = %g\n",linj+pinj);
+	fprintf(finj,"Noise log-evidence value = %g\n",lz);
+	fclose(finj);
+      }
+    }
 	
 	BAMBIRun(mmodal, ceff, nlive, tol, efr, ndims, nPar, nClsPar, maxModes, updInt, Ztol, root, rseed, pWrap, fb, 
 	resume, outfile, initMPI, logZero, maxiter, LogLikeFctn, dumper, BAMBIfctn, context);
@@ -780,9 +836,11 @@ void initVariables(LALInferenceRunState *state)
     timeMin=endtime-dt;
     timeMax=endtime+dt;
   }
+  LALInferenceAddVariable(state->priorArgs,"trigtime",&endtime,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 
   /* Over-ride prior bounds if analytic test */
   if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
+    printf("SETTING ANALYTIC PRIOR BOUNDS\n");
     analytic  = 1;
     m1min     = 14.927715;
     m1max     = 17.072285;

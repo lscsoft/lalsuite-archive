@@ -154,6 +154,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 	char **info = (char **)context;
 	char *header = &info[1][0];
 	strcpy(header,"");
+	char *timeID = &info[2][0];
 	int i = 0;
 	
 	// latitude
@@ -225,6 +226,7 @@ UINT4 LALInferenceInspiralCubeToPrior(LALInferenceRunState *runState, LALInferen
 		double tc = flatPrior(Cube[i], min, max);
 		LALInferenceSetVariable(params, "time", &tc);
 		Cube[i] = tc;
+		sprintf(timeID,"%d",i);
 		i++;
 		strcat(header,"time ");
 	}
@@ -791,6 +793,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 	char **info = (char **)context;
 	char *header = &info[1][0];
 	strcpy(header,"");
+	char *timeID = &info[2][0];
 	REAL8 min, max, logPrior=0.;
 	int i = 0;
 	
@@ -863,6 +866,7 @@ UINT4 LALInferenceInspiralSkyLocCubeToPrior(LALInferenceRunState *runState, LALI
 		double tc = flatPrior(Cube[i], min, max);
 		LALInferenceSetVariable(params, "time", &tc);
 		Cube[i] = tc;
+		sprintf(timeID,"%d",i);
 		i++;
 		strcat(header,"time ");
 	}
@@ -1506,6 +1510,7 @@ UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runSt
 	char **info = (char **)context;
 	char *header = &info[1][0];
 	strcpy(header,"");
+	char *timeID = &info[2][0];
 	REAL8 min, max, logPrior=0.;
 	int i = 0;
 	
@@ -1578,6 +1583,7 @@ UINT4 LALInferenceInspiralPriorNormalisedCubeToPrior(LALInferenceRunState *runSt
 		double tc = flatPrior(Cube[i], min, max);
 		LALInferenceSetVariable(params, "time", &tc);
 		Cube[i] = tc;
+		sprintf(timeID,"%d",i);
 		i++;
 		strcat(header,"time ");
 	}
@@ -2439,6 +2445,7 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
 	char **info = (char **)context;
 	char *header = &info[1][0];
 	strcpy(header,"");
+	char *timeID = &info[2][0];
 	
 	if(LALInferenceCheckVariable(params,"m1"))
     {
@@ -2574,7 +2581,8 @@ UINT4 LALInferenceAnalyticCubeToPrior(LALInferenceRunState *runState, LALInferen
             double tc = flatPrior(Cube[i], min, max);
 	        LALInferenceSetVariable(params, "time", &tc);
             Cube[i] = tc;
-	        i++;
+	        sprintf(timeID,"%d",i);
+		i++;
 	        logPrior -= log(max-min);
 	        strcat(header,"time ");
         }
