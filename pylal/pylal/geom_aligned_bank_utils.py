@@ -596,10 +596,7 @@ def generate_anstar_3d_lattice(maxv1,minv1,maxv2,minv2,maxv3,minv3,mindist):
   lal.SetFlatLatticeConstantBound(tiling,0,minv1,maxv1)
   lal.SetFlatLatticeConstantBound(tiling,1,minv2,maxv2)
   lal.SetFlatLatticeConstantBound(tiling,2,minv3,maxv3)
-  # THE FOLLOWING LINE DOESN'T WORK
-  # lal.SetFlatLatticeGenerator(tiling,lal.AnstarLatticeGenerator)
-  # Replaced with
-  lal.SetAnstarTiling(tiling)
+  lal.SetFlatLatticeGenerator(tiling,lal.AnstarLatticeGeneratorPtr)
   # Make a 3x3 Euclidean lattice
   a = lal.gsl_matrix(3,3)
   a.data[0,0] = 1
