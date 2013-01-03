@@ -602,7 +602,7 @@ def generate_anstar_3d_lattice(maxv1,minv1,maxv2,minv2,maxv3,minv3,mindist):
   a.data[0,0] = 1
   a.data[1,1] = 1
   a.data[2,2] = 1
-  lal.SetFlatLatticeMetric(tiling,a,0.03)
+  lal.SetFlatLatticeMetric(tiling,a,mindist)
 
   vs1 = []
   vs2 = []
