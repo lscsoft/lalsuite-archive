@@ -555,8 +555,8 @@ def make_plots(a,b,c,d,aname,bname,cname,dname,paper_plots=False):
 
 def generate_hexagonal_lattice(maxv1,minv1,maxv2,minv2,mindist):
   # Place first point
-  v1s = []
-  v2s = []
+  v1s = [minv1]
+  v2s = [minv2]
   initPoint = [minv1,minv2]
   # Place first line
   initLine = [initPoint]
