@@ -1501,11 +1501,11 @@ int XLALSimInspiralChooseTDWaveform(
      * If non-GR approximants are added, change the below to
      * if( nonGRparams && approximant != nonGR1 && approximant != nonGR2 )
      */
-    if( nonGRparams )
+    if( nonGRparams && approximant != TaylorF2RedSpinTidal)
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
-    }
+    } 
 
     /* General sanity check the input parameters - only give warnings! */
     if( deltaT > 1. )
@@ -1764,7 +1764,7 @@ int XLALSimInspiralChooseFDWaveform(
      * If non-GR approximants are added, change the below to
      * if( nonGRparams && approximant != nonGR1 && approximant != nonGR2 )
      */
-    if( nonGRparams )
+    if( nonGRparams && approximant != TaylorF2RedSpinTidal)
     {
         XLALPrintError("XLAL Error - %s: Passed in non-NULL pointer to LALSimInspiralTestGRParam for an approximant that does not use LALSimInspiralTestGRParam\n", __func__);
         XLAL_ERROR(XLAL_EINVAL);
