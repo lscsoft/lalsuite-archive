@@ -169,10 +169,12 @@ def instrument_set_from_ifos(ifos):
 	input is None --> output is None
 
 	input contains "," --> output is set of strings split on "," with
-	leading and trailing whitespace stripped from each piece
+	leading and trailing whitespace stripped from each piece and empty
+	strings removed from the set
 
 	input contains "+" --> output is set of strings split on "+" with
-	leading and trailing whitespace stripped from each piece
+	leading and trailing whitespace stripped from each piece and empty
+	strings removed from the set
 
 	else, after stripping input of leading and trailing whitespace,
 
@@ -191,13 +193,21 @@ def instrument_set_from_ifos(ifos):
 	encodings recognized by this function, and for this reason the
 	inverse function, ifos_from_instrument_set(), implements that
 	encoding only.
+
+	NOTE:  to force a string containing a single instrument name not to
+	be split into two-character pieces, add a "," or "+" character to
+	the end to force the comma- or plus-delimited decoding to be used.
 	"""
 	if ifos is None:
 		return None
 	if u"," in ifos:
-		return set(ifo.strip() for ifo in ifos.split(u","))
+		result = set(ifo.strip() for ifo in ifos.split(u","))
+		result.discard(u"")
+		return result
 	if u"+" in ifos:
-		return set(ifo.strip() for ifo in ifos.split(u"+"))
+		result = set(ifo.strip() for ifo in ifos.split(u"+"))
+		result.discard(u"")
+		return result
 	ifos = ifos.strip()
 	if len(ifos) > 2 and not len(ifos) % 2:
 		# if ifos is a string with an even number of characters
@@ -222,12 +232,26 @@ def ifos_from_instrument_set(instruments):
 	instruments will only be iterated over once and so can be a
 	generator expression.  Whitespace is allowed in instrument names
 	but may not be preserved.
+
+	NOTE:  in the special case that there is 1 instrument name in the
+	iterable and it has an even number of characters > 2 in it, the
+	output will have a "," appended in order to force
+	instrument_set_from_ifos() to parse the string back into a single
+	instrument name.  This is a special case included temporarily to
+	disambiguate the encoding until all codes have been ported to the
+	comma-delimited encoding.  This behaviour will be discontinued at
+	that time.  DO NOT WRITE CODE THAT RELIES ON THIS!  You have been
+	warned.
 	"""
 	if instruments is None:
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
 	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
 		raise ValueError(instruments)
+	if len(instruments) == 1 and len(instruments[0]) > 2 and not len(instruments[0]) % 2:
+		# special case disambiguation.  FIXME:  remove when
+		# everything uses the comma-delimited encoding
+		return u"%s," % instruments[0]
 	return u",".join(instruments)
 
 
@@ -1252,7 +1276,7 @@ class SnglInspiralTable(table.Table):
 
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
-            
+
 	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
@@ -1668,30 +1692,30 @@ class MultiInspiralTable(table.Table):
 		"tau5": "real_4",
 		"ttotal": "real_4",
 		"snr": "real_4",
-                "snr_dof": "int_4s",
+		"snr_dof": "int_4s",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
 		"bank_chisq": "real_4",
 		"bank_chisq_dof": "int_4s",
 		"cont_chisq": "real_4",
 		"cont_chisq_dof": "int_4s",
-                "trace_snr": "real_4",
-                "snr_h1": "real_4",
-                "snr_h2": "real_4",
-                "snr_l": "real_4",
-                "snr_g": "real_4",
-                "snr_t": "real_4",
-                "snr_v": "real_4",
-                "amp_term_1": "real_4",
-                "amp_term_2": "real_4",
-                "amp_term_3": "real_4",
-                "amp_term_4": "real_4",
-                "amp_term_5": "real_4",
-                "amp_term_6": "real_4",
-                "amp_term_7": "real_4",
-                "amp_term_8": "real_4",
-                "amp_term_9": "real_4",
-                "amp_term_10": "real_4",
+		"trace_snr": "real_4",
+		"snr_h1": "real_4",
+		"snr_h2": "real_4",
+		"snr_l": "real_4",
+		"snr_g": "real_4",
+		"snr_t": "real_4",
+		"snr_v": "real_4",
+		"amp_term_1": "real_4",
+		"amp_term_2": "real_4",
+		"amp_term_3": "real_4",
+		"amp_term_4": "real_4",
+		"amp_term_5": "real_4",
+		"amp_term_6": "real_4",
+		"amp_term_7": "real_4",
+		"amp_term_8": "real_4",
+		"amp_term_9": "real_4",
+		"amp_term_10": "real_4",
 		"sigmasq_h1": "real_8",
 		"sigmasq_h2": "real_8",
 		"sigmasq_l": "real_8",
@@ -1704,21 +1728,21 @@ class MultiInspiralTable(table.Table):
 		"chisq_g": "real_4",
 		"chisq_t": "real_4",
 		"chisq_v": "real_4",
-                "sngl_chisq_dof": "int_4s",
-                "bank_chisq_h1": "real_4",
-                "bank_chisq_h2": "real_4",
-                "bank_chisq_l": "real_4",
-                "bank_chisq_g": "real_4",
-                "bank_chisq_t": "real_4",
-                "bank_chisq_v": "real_4",
-                "sngl_bank_chisq_dof": "int_4s",
-                "cont_chisq_h1": "real_4",
-                "cont_chisq_h2": "real_4",
-                "cont_chisq_l": "real_4",
-                "cont_chisq_g": "real_4",
-                "cont_chisq_t": "real_4",
-                "cont_chisq_v": "real_4",
-                "sngl_cont_chisq_dof": "int_4s",
+		"sngl_chisq_dof": "int_4s",
+		"bank_chisq_h1": "real_4",
+		"bank_chisq_h2": "real_4",
+		"bank_chisq_l": "real_4",
+		"bank_chisq_g": "real_4",
+		"bank_chisq_t": "real_4",
+		"bank_chisq_v": "real_4",
+		"sngl_bank_chisq_dof": "int_4s",
+		"cont_chisq_h1": "real_4",
+		"cont_chisq_h2": "real_4",
+		"cont_chisq_l": "real_4",
+		"cont_chisq_g": "real_4",
+		"cont_chisq_t": "real_4",
+		"cont_chisq_v": "real_4",
+		"sngl_cont_chisq_dof": "int_4s",
 		"ra": "real_4",
 		"dec": "real_4",
 		"ligo_angle": "real_4",
@@ -1741,7 +1765,7 @@ class MultiInspiralTable(table.Table):
 		"t1quad_im": "real_4",
 		"v1quad_re": "real_4",
 		"v1quad_im": "real_4",
-                "coh_snr_h1h2": "real_4",
+		"coh_snr_h1h2": "real_4",
 		"cohSnrSqLocal": "real_4",
 		"autoCorrCohSq": "real_4",
 		"crossCorrCohSq": "real_4",
@@ -1767,7 +1791,7 @@ class MultiInspiralTable(table.Table):
 
 	def get_coinc_snr(self):
 		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
-			   .sum(axis=0)**(1/2)
+			   .sum(axis=0)**(1./2.)
 
 	def get_end(self):
 		return [row.get_end() for row in self]
@@ -1775,8 +1799,8 @@ class MultiInspiralTable(table.Table):
 	def get_new_snr(self, index=6.0, column='chisq'):
 		# kwarg 'index' is assigned to the parameter chisq_index
 		# nhigh gives the asymptotic large rho behaviour of
-    # d (ln chisq) / d (ln rho) 
-    # for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
+		# d (ln chisq) / d (ln rho) 
+		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_%s' % column)
 		nhigh = index/3.
@@ -1788,8 +1812,10 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the coherent Null SNR for each row in the table.
 		"""
-		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
-                             .sum() - self.get_column('snr')**2)**(1/2)
+		null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
+                         .sum(axis=0) - self.get_column('snr')**2
+		null_snr_sq[null_snr_sq < 0] = 0.
+		return null_snr_sq**(1./2.)
 
 	def get_sigmasq(self, instrument):
 		"""
@@ -1912,24 +1938,28 @@ class MultiInspiral(object):
 		Get the coincident SNR for this row.
 		"""
 		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
-		            .sum()**(1/2)
+		            .sum()**(1./2.)
 
-        def get_new_snr(self,index=4.0, column='chisq'):
-                rchisq = getattr(self, column) /\
+	def get_new_snr(self,index=4.0, column='chisq'):
+		rchisq = getattr(self, column) /\
                          (getattr(self, '%s_dof' % column))
-                nhigh = 3.0
-                if rchisq > 1.:
-                        return self.snr /\
+		nhigh = 3.0
+		if rchisq > 1.:
+			return self.snr /\
                                ((1+rchisq**(index/nhigh))/2)**(1./index)
-                else:
-                        return self.snr
+		else:
+			return self.snr
 
 	def get_null_snr(self):
 		"""
 		Get the coherent Null SNR for this row.
 		"""
-		return ((numpy.asarray(self.get_sngl_snrs().values())**2)\
-                             .sum() - self.snr**2)**(1/2)
+		null_snr_sq = (numpy.asarray(self.get_sngl_snrs().values())**2)\
+                             .sum() - self.snr**2
+		if null_snr_sq < 0:
+			return 0
+		else:
+			return null_snr_sq**(1./2.)
 
 	def get_sngl_snr(self, instrument):
 		"""
@@ -2087,31 +2117,31 @@ class SimInspiralTable(table.Table):
 		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
-        def veto(self,seglist):
-                vetoed = table.new_from_template(self)
-                keep = table.new_from_template(self)
-                for row in self:
-                        time = row.get_end()
-                        if time in seglist:
-                                vetoed.append(row)
-                        else:
-                                keep.append(row)
-                return keep
+	def veto(self,seglist):
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return keep
 
-        def vetoed(self, seglist):
+	def vetoed(self, seglist):
                 """
-                Return the inverse of what veto returns, i.e., return the triggers
-                that lie within a given seglist.
-                """
-                vetoed = table.new_from_template(self)
-                keep = table.new_from_template(self)
-                for row in self:
-                        time = row.get_end()
-                        if time in seglist:
-                                vetoed.append(row)
-                        else:
-                                keep.append(row)
-                return vetoed
+		Return the inverse of what veto returns, i.e., return the triggers
+		that lie within a given seglist.
+		"""
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
@@ -2761,14 +2791,14 @@ class TimeSlideTable(table.Table):
 				# and that's OK
 				return ids[0]
 			# and that's not OK
-			raise KeyError(offsetdict)
+			raise KeyError("%s not unique" % repr(offsetdict))
 		if len(ids) == 1:
 			# found one
 			return ids[0]
 		# offset vector not found in table
 		if create_new is None:
 			# and that's not OK
-			raise KeyError(offsetdict)
+			raise KeyError("%s not found" % repr(offsetdict))
 		# that's OK, create new vector
 		id = self.get_next_id()
 		for instrument, offset in offsetdict.items():
@@ -3199,11 +3229,11 @@ def use_in(ContentHandler):
 	"""
 	table.use_in(ContentHandler)
 
-	def startTable(self, attrs, __parent_startTable = ContentHandler.startTable):
+	def startTable(self, parent, attrs, __orig_startTable = ContentHandler.startTable):
 		name = table.StripTableName(attrs[u"Name"])
 		if name in TableByName:
 			return TableByName[name](attrs)
-		return __parent_startTable(self, attrs)
+		return __orig_startTable(self, parent, attrs)
 
 	ContentHandler.startTable = startTable
 

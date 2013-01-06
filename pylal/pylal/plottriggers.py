@@ -151,11 +151,11 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     # get zero
     if "time" in columns and not t0:
         if xlim:
-            t0 = xlim[0]
+            t0 = float(xlim[0])
         else:
             t0 = numpy.infty
             for t in tables:
-                timedata = get_column(t, "time")
+                timedata = get_column(t, "time").astype(float)
                 if len(timedata):
                     t0 = min(t0, timedata.min())
             if numpy.isinf(t0):
@@ -169,9 +169,14 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     # extract columns
     data = list()
     for i,name in enumerate(tablenames):
-        data.append([])
+        data.append(list())
         for c in columns:
-            data[-1].append(get_column(tables[i], c.lower()))
+            c = c.lower()
+            if ((c not in tables[i].columnnames and c != "time") and not
+                    hasattr(tables[i], "get_%s" % c.lower())):
+                raise RuntimeError("Column '%s' not found in table '%s'."\
+                                   % (c,name))
+            data[-1].append(get_column(tables[i], c.lower()).astype(float))
             if not len(data[-1][-1].shape)\
             or data[-1][-1].shape[0] != len(tables[i]):
                 raise AttributeError("No data loaded for column \"%s\" and "\
@@ -412,9 +417,10 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
 
     # get extras
     rate = kwargs.pop("rate", False)
-    cumulative = kwargs.pop("cumulative", False)
     if normalize:
         rate = True
+        if not hasattr(normalize, "__iter__"):
+           normalize = [normalize]*len(tablenames)
     else:
         normalize = [1]*len(tablenames)
     loc        = kwargs.pop("loc", 0)
@@ -458,7 +464,7 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
     for i,lsctable in enumerate(tables):
         d = get_column(lsctable, column).astype(float)
         if i==0 and colorcolumn:
-            data.append(list)
+            data.append(list())
             for j in range(numcolorbins):
                 data[i].append(d[d>=colorbins[j]])
         else:
@@ -469,6 +475,8 @@ def plothistogram(lsctable, outfile, column="snr", numbins=100,\
     #
 
     if colorcolumn:
+        raise NotImplementedError("This has not been implemented in "+\
+                                  "plotutils yet, here's your chance!")
         plot = plotutils.ColorbarLineHistogram(xlabel, ylabel, colorlabel,\
                                                title, subtitle)
         for dataset,colorbin in zip(data[0], colorbins):

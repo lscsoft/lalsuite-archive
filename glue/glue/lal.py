@@ -36,6 +36,7 @@ import os
 import re
 import sys
 import urlparse
+import warnings
 
 
 from glue import git_version
@@ -398,6 +399,19 @@ class LIGOTimeGPS(object):
 #
 
 
+class deprecated_method_proxy(property):
+	# FIXME:  temporary nonsense until all code that uses CacheEntry is
+	# ported to access the scheme, host, path attributes directly
+	def __get__(self, instance, owner):
+		result = self.fget(instance)
+		class callable_wrapper(type(result)):
+			name = self.fget.__name__
+			def __call__(self):
+				warnings.warn("glue.lal.CacheEntry.%s() method is deprecated;  use glue.lal.CacheEntry.%s attribute instead" % (self.name, self.name), DeprecationWarning)
+				return self
+		return callable_wrapper(result)
+
+
 class CacheEntry(object):
 	"""
 	An object representing one line in a LAL cache file.
@@ -438,8 +452,9 @@ class CacheEntry(object):
 
 	Example (one-liners to read and write a cache file):
 
+	>>> filename = "874000000-20000.cache"
 	>>> cache = map(CacheEntry, open(filename))
-	>>> f = open(filename, "w")
+	>>> f = open(filename + ".new", "w")
 	>>> for cacheentry in cache: print >>f, str(cacheentry)
 
 	Example (extract segmentlist dictionary from LAL cache):
@@ -447,7 +462,7 @@ class CacheEntry(object):
 	>>> from glue import segments
 	>>> seglists = segments.segmentlistdict()
 	>>> for cacheentry in cache:
-	...	seglists |= cachenetry.to_segmentlistdict()
+	...	seglists |= cacheentry.segmentlistdict
 	...
 
 	See also:
@@ -477,12 +492,12 @@ class CacheEntry(object):
 		>>> print c.segment
 		[815901601 ... 815902177.5)
 		>>> print str(c)
-		'H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml'
+		H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
 		>>> print c.segment
 		[815901601 ... 815902177.5)
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = int)
-		ValueError: invalid literal for int(): 576.5
+		>>> print CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = float).segment
+		[815901601.0 ... 815902177.5)
 
 		See also the .from_T050017() class method for an
 		alternative initialization mechanism.
@@ -557,12 +572,19 @@ class CacheEntry(object):
 
 	@property
 	def url(self):
+		"""
+		The cache entry's URL.  The URL is constructed from the
+		values of the scheme, host, and path attributes.  Assigning
+		a value to the URL attribute causes the value to be parsed
+		and the scheme, host and path attributes updated.
+		"""
 		return urlparse.urlunparse((self._scheme, self._host, self._path, None, None, None))
 
 	@url.setter
 	def url(self, url):
 		self._scheme, self._host, self._path = urlparse.urlparse(url)[:3]
 
+	@deprecated_method_proxy
 	def scheme(self):
 		"""
 		The scheme part of the URL.
@@ -570,12 +592,18 @@ class CacheEntry(object):
 		Example:
 
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.scheme()
+		>>> c.scheme
 		'file'
 		"""
 		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
 		return self._scheme
 
+	@scheme.setter
+	def scheme(self, value):
+		# FIXME:  remove when calling code uses the attribute directly.
+		self._scheme = value
+
+	@deprecated_method_proxy
 	def host(self):
 		"""
 		The host part of the URL.
@@ -583,12 +611,18 @@ class CacheEntry(object):
 		Example:
 
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.host()
+		>>> c.host
 		'localhost'
 		"""
 		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
 		return self._host
 
+	@host.setter
+	def host(self, value):
+		# FIXME:  remove when calling code uses the attribute directly.
+		self._host = value
+
+	@deprecated_method_proxy
 	def path(self):
 		"""
 		The path part of the URL.
@@ -596,52 +630,67 @@ class CacheEntry(object):
 		Example:
 
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.path()
+		>>> c.path
 		'/home/kipp/tmp/1/H1-815901601-576.xml'
 		"""
 		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
 		return self._path
 
-	def to_segmentlistdict(self):
+	@path.setter
+	def path(self, value):
+		# FIXME:  remove when calling code uses the attribute directly.
+		self._path = value
+
+	@property
+	def segmentlistdict(self):
 		"""
-		Return a segmentlistdict object describing the instruments
-		and time spanned by this CacheEntry.
+		A segmentlistdict object describing the instruments and
+		time spanned by this CacheEntry.  A new object is
+		constructed each time this attribute is accessed (segments
+		are immutable so there is no reason to try to share a
+		reference to the CacheEntry's internal segment;
+		modifications of one would not be reflected in the other
+		anyway).
 
 		Example:
 
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.to_segmentlistdict()
-		{'H1': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
-		"""
-		# FIXME:  the instrument_set_from_ifos() function in
-		# lsctables.py should be used.  I think
-		# instruments = lsctables.instrument_set_from_ifos(self.observatory) or [None]
-		# is equivalent in the ways that matter.  is there an
-		# example of a cache file for which this would produce
-		# incorrect results?
-		if self.observatory and "," in self.observatory:
-			instruments = self.observatory.split(",")
-		elif self.observatory and "+" in self.observatory:
-			instruments = self.observatory.split("+")
-		else:
-			instruments = [self.observatory]
-		return segments.segmentlistdict([(instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments])
+		>>> c = CacheEntry(u"H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+		>>> c.segmentlistdict
+		{u'H1': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
 
+		The \"observatory\" column of the cache entry, which is
+		frequently used to store instrument names, is parsed into
+		instrument names for the dictionary keys using the same
+		rules as glue.ligolw.lsctables.instrument_set_from_ifos().
+
+		Example:
+
+		>>> c = CacheEntry(u"H1H2, S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1H2-815901601-576.xml")
+		>>> c.segmentlistdict
+		{u'H1H2': [segment(LIGOTimeGPS(815901601, 0), LIGOTimeGPS(815902177, 500000000))]}
+		"""
+		# the import has to be done here to break the cyclic
+		# dependancy
+		from glue.ligolw.lsctables import instrument_set_from_ifos
+		instruments = instrument_set_from_ifos(self.observatory) or (None,)
+		return segments.segmentlistdict((instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments)
+
+	@classmethod
 	def from_T050017(cls, url, coltype = LIGOTimeGPS):
 		"""
 		Parse a URL in the style of T050017-00 into a CacheEntry.
 		The T050017-00 file name format is, essentially,
 
-		observatory-description-start-dur.ext
+		observatory-description-start-duration.extension
 
 		Example:
 
 		>>> c = CacheEntry.from_T050017("file://localhost/data/node144/frames/S5/strain-L2/LLO/L-L1_RDS_C03_L2-8365/L-L1_RDS_C03_L2-836562330-83.gwf")
 		>>> c.observatory
 		'L'
-		>>> c.host()
+		>>> c.host
 		'localhost'
-		>>> os.path.basename(c.path())
+		>>> os.path.basename(c.path)
 		'L-L1_RDS_C03_L2-836562330-83.gwf'
 		"""
 		match = cls._url_regex.search(url)
@@ -657,7 +706,6 @@ class CacheEntry(object):
 		else:
 			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 		return cls(observatory, description, segment, url)
-	from_T050017 = classmethod(from_T050017)
 
 
 #
@@ -782,7 +830,7 @@ class Cache(list):
 		write a cache object to filename as a plain text pfn file
 		"""
 		for entry in self:
-			print >>fileobj, entry.path()
+			print >>fileobj, entry.path
 		fileobj.close()
 
 	def to_segmentlistdict(self):
@@ -793,7 +841,7 @@ class Cache(list):
 		"""
 		d = segments.segmentlistdict()
 		for entry in self:
-			d |= entry.to_segmentlistdict()
+			d |= entry.segmentlistdict
 		return d
 
 	def sieve(self, ifos=None, description=None, segment=None,
@@ -844,7 +892,7 @@ class Cache(list):
 		"""
 		Return a list of physical file names.
 		"""
-		return [entry.path() for entry in self]
+		return [entry.path for entry in self]
 
 	def checkfilesexist(self, on_missing="warn"):
 		'''
@@ -867,7 +915,7 @@ class Cache(list):
 		c_found = []
 		c_missed = []
 		for entry in self:
-			if os.path.isfile(entry.path()):
+			if os.path.isfile(entry.path):
 				c_found.append(entry)
 			else:
 				c_missed.append(entry)

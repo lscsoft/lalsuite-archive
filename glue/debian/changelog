@@ -1,3 +1,22 @@
+glue (1.43-1) unstable; urgency=low
+
+  * Converted to source format 3.0 (quilt)
+  * Versioned dependencies on -common and -segments
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Tue, 20 Nov 2012 10:35:00 +0100
+
+glue (1.43) unstable; urgency=low
+
+  * New Release of glue for ER3 with updates to ligolw and lal codes. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Mon, 19 Nov 2012 04:59:00 -0500
+
+glue (1.42-1) unstable; urgency=low
+
+  * Converted to source format 3.0 (quilt)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 5 Sep 2012 09:20:00 +0200
+
 glue (1.42) unstable; urgency=low
 
   * New Release of glue with upgrades and bugfixes to segment database

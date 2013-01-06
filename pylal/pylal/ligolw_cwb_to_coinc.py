@@ -27,25 +27,23 @@ Convert a ROOT file produced by cWB into a ligolw document.
 import sys
 import os
 import platform
+import re
 
-try:
-  # ligo_lw xml handling modules
-  import glue
+# ligo_lw xml handling modules
+import glue
 
-  from glue import segments
-  from glue.ligolw import ligolw
-  from glue.ligolw import lsctables
-  from glue.ligolw import table
-  from glue.ligolw import types
-  from glue.ligolw import utils
-  from glue.ligolw import ilwd
+from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import table
+from glue.ligolw import types
+from glue.ligolw import utils
+from glue.ligolw import ilwd
 
-  from glue.lal import LIGOTimeGPS
-  from glue.lal import CacheEntry
-  from pylal import llwapp
-  from pylal import git_version
-except:
-  sys.exit("ERROR: Unable to import modules from GLUE.")
+from glue.lal import LIGOTimeGPS
+from glue.lal import CacheEntry
+from pylal import llwapp
+from pylal import git_version
 
 # TODO: Reimplement this when the cwb_table module is included
 #try:
@@ -57,8 +55,8 @@ except:
 try:
   from ROOT import TFile, TChain, TTree
   from ROOT import gDirectory
-except:
-  sys.exit("ERROR: Unable to import modules from ROOT.")
+except ImportError:
+  print >>sys.stderr, "WARNING: Unable to import modules from ROOT. ROOT file processing will not be possible."
 
 #CONVERT_ROOT_VERSION = "0.0.8"
 __author__ = "Chris Pankow <chris.pankow@ligo.org>"
@@ -135,8 +133,12 @@ class CWB2Coinc(object):
     Sets up table structures and calls populating methods.
     """
 
-    sim_tree = TChain("waveburst")
-    for rootfile in rootfiles :
+    if os.path.splitext( rootfiles[0] ) == ".root":
+      sim_tree = TChain("waveburst")
+    else: # If the file is (for example) text, use a proxy class
+      sim_tree = CWBTextConverter()
+
+    for rootfile in rootfiles:
 	  sim_tree.Add(rootfile)
 
     # Define tables
@@ -252,7 +254,10 @@ class CWB2Coinc(object):
       multi_burst.coinc_event_id = coinc_event.coinc_event_id
       # NOTE: Until we have an embedded cwb table definition, this will be
       # copied here so official tools have a ranking statistic to use
-      multi_burst.snr = sim_tree.rho[1]
+      try:
+        multi_burst.snr = sim_tree.rho[1]
+      except TypeError: # difference in definition between ROOT and text
+        multi_burst.snr = sim_tree.rho
       # NOTE: To be filled in later by farburst
       multi_burst.false_alarm_rate = -1.0 
       multi_burst.ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
@@ -702,6 +707,7 @@ class CWB2Coinc(object):
         # out -- without waveoffset
         row.set_out(segments.segment(LIGOTimeGPS(0), LIGOTimeGPS(1)))
       else:
+
         seg_start_with_offset = sim_tree.gps - waveoffset
         seg_start_without_offset = sim_tree.gps
         seg_end_with_offset = sim_tree.gps + waveoffset + livetime
@@ -713,3 +719,167 @@ class CWB2Coinc(object):
   
       search_summary.append(row)
   
+class CWBTextConverter(object):
+	"""
+	Class to transparently emit data as if the input were a ROOT file. The input is an unstructured text file made by cWB at runtime.
+	"""
+
+	CWB_SEARCH_TYPES = { 'r': "unmodelled", 'i': "elliptical", 's': "linear", 'g': "circular" }
+
+	def __init__(self):
+		self.data = []
+		self.this_data = None
+		self.version = None
+		self.online_version = None
+		self.search_type = None
+		self._skymap_reg = re.compile( "^map_lenght" ) # NOT A TYPO, THIS IS ACTUALLY IN THE FILE.
+		self._far_info_reg = re.compile( "^##" )
+
+	def __getattr__(self, name):
+		"""
+		This overrides the attribute getter for this class so that when the proxy class is required to produce information based on an attribute (say 'rho') it responds just like a TBranch would. If no event is 'selected' via GetEntry, then None is returned, regardless of the attribute, because there's no way to know whether we're asking for a TBranch leaf or something else.
+		"""
+		if self.this_data is None:
+			return None
+		try:
+			return self.this_data[name]
+		except KeyError:
+			return getattr(self, name)
+
+	def GetEntry(self, i):
+		"""
+		Emulate a TTree GetEntry() call by switching internal pointer to a row in the table.
+		"""
+		self.this_data = self.data[i]
+
+	def GetEntries(self):
+		"""
+		Emulate a TTree GetEntries() call by returning the length of the internal data table.
+		"""
+		return len(self.data)
+
+	def Add(self, filen):
+		"""
+		Add a file which will be parsed by the class and added to the internal table.
+		"""
+		self.parse_transcript( open(filen) )
+
+	def get_far_segments( self ):
+		"""
+		Gets the segments for which various FARs have been defined.
+		"""
+		if self.this_data["far_data"] is None:
+			raise ValueError( "No FAR info for this event." )
+
+		return self.this_data["far_data"].keys()
+
+
+	def get_far_information( self, segment=None ):
+		"""
+		Returns the false alarm rate for a given segment, usually one of the segments retrieved from 'get_far_segments'. If segment is None (default), then the FAR from the biggest segment is returned.
+		"""
+
+		if self.this_data["far_data"] is None:
+			raise ValueError( "No FAR info for this event." )
+
+		# return FAR from largest segment of data
+		if segment is None:
+			segs = sorted( self.get_far_segments(), key=lambda s: abs(s) )
+			return self.this_data["far_data"][segs[-1]]
+
+		return self.this_data["far_data"][segment]
+
+
+	def get_skymap_coords( self ):
+		"""
+		Get a list of the skymap coordinates (R.A. and dec) which cWB has probability values for.
+		"""
+		if self.this_data["skymap"] is None:
+			raise ValueError( "No skymap set for this event." )
+
+		return self.this_data["skymap"].keys()
+
+	def get_skymap_prob( self, ra, dec ):
+		"""
+		Return the probability for a given R.A. and dec from the skymap data. If there is no entry for this, then 0 is returned. This is the implied value for no R.A. and dec entry in the skymap data.
+		"""
+		if self.this_data["skymap"] is None:
+			raise ValueError( "No skymap set for this event." )
+
+		try:
+			return self.this_data["skymap"][(ra, dec)]
+		except KeyError:
+			return 0
+
+	def parse_with_type(self, val):
+		"""
+		Attempt to coerce data to the proper type. Note that this depends on python's finickiness with int / float parsing. It won't do string -> float -> int truncation with one call to float(). So, this check whether or not int() works, then tries float(). Then it gives up and gives the value (presumed a string) back.
+		"""
+		try:
+			return int(val)
+		except ValueError:
+			pass
+		try:
+			return float(val)
+		except ValueError:
+			pass
+		return val
+
+	def parse_transcript(self, text):
+		"""
+		Parses a textual event transcript and adds the data to the internal table.
+		"""
+		row, mode = {}, "var"
+		row["skymap"] = {}
+		row["far_data"] = {}
+
+		for line in text.readlines():
+
+			# ALl the unstructured stuff is at the end...
+			if "wat version" in line:
+				self.version = line.split("=")[1].strip()
+				continue
+			elif "online version" in line:
+				self.online_version = line.split("=")[1].strip()
+				continue
+			elif "search" in line:
+				self.search_type = self.CWB_SEARCH_TYPES[line.split("=")[1].strip()]
+				continue
+			elif re.match( self._far_info_reg, line ) is not None:
+				mode = "far"
+				continue
+			elif re.match( self._skymap_reg, line ) is not None:
+				mode = "skymap"
+				continue
+			elif len(line.strip()) == 0:
+				# a blank line is assumed to be a new event entry
+				row["gps"] = row["segment"][0]
+				self.data.append( row )
+				row = {}
+				row["skymap"] = {}
+				row["far_data"] = {}
+				mode = "var"
+				continue
+
+			if line[0] == "#": continue
+
+			# Modal parsing logic
+			if mode == "var":
+
+				varn, val = line.split(":")
+				val = [ self.parse_with_type(v) for v in val.split() ]
+				if len(val) == 1: val = val[0]
+
+				row[varn] = val
+			elif mode == "skymap":
+				sid, theta, dec, step, phi, ra, step2, prob, cum = line.split()
+				row["skymap"][(float(ra), float(dec))] = float(prob)
+			elif mode == "far":
+				rank, rate, segstart, segend, segdur = line.split()
+				far_seg = segments.segment( float(segstart), float(segend) )
+				row["far_data"][far_seg] = float(rate)
+
+		# Not currently in the file, but an alias is needed for compatibility
+		row["gps"] = row["segment"][0]
+		self.data.append( row )
+		return row

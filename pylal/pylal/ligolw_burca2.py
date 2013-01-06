@@ -25,6 +25,13 @@
 
 
 import bisect
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not be
+	# available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import math
 import numpy
 from scipy import interpolate
@@ -74,7 +81,7 @@ class interp1d(interpolate.interp1d):
 		# only reason the y array could have negative numbers in it
 		# is the extrapolation that has just been done.
 
-		y = numpy.clip(y, 0.0, float("inf"))
+		y = numpy.clip(y, 0.0, PosInf)
 
 		# Build the interpolator.  Note the use of fill_value as
 		# the return value for x co-ordinates outside the domain of
@@ -100,7 +107,7 @@ class interp2d(interpolate.interp2d):
 
 		# Clip the z array to 0.  See interp1d for an explanation.
 
-		z = numpy.clip(z, 0.0, float("inf"))
+		z = numpy.clip(z, 0.0, PosInf)
 
 		# Build the interpolator.  Note the use of fill_value as
 		# the return value for co-ordinates outside the domain of
@@ -117,7 +124,7 @@ class interp2d(interpolate.interp2d):
 	# FIXME:  my use of scipy's 2D interpolator is busted.  remove this
 	# when it's fixed.  we have problems with bin centres at +/- inf
 	def __call__(self, x, y):
-		return (self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)],)
+		return self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)]
 
 
 # starting from Bayes' theorem:
@@ -204,8 +211,8 @@ class Likelihood(object):
 		P_bak = 1.0
 		P_inj = 1.0
 		for name, value in sorted(params.items()):
-			P_bak *= self.background_rates[name](*value)[0]
-			P_inj *= self.injection_rates[name](*value)[0]
+			P_bak *= float(self.background_rates[name](*value))
+			P_inj *= float(self.injection_rates[name](*value))
 		return P_bak, P_inj
 
 	def __call__(self, params):
@@ -279,7 +286,10 @@ class LikelihoodRatio(Likelihood):
 			# event tuple is a gravitational wave, which is 0
 			# in this part of the parameter space.
 			return 0.0
-		return  P_inj / P_bak
+		try:
+			return  P_inj / P_bak
+		except ZeroDivisionError:
+			return PosInf
 
 
 #
