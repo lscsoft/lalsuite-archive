@@ -1814,7 +1814,7 @@ int XLALSimInspiralChooseFDWaveform(
             if( !checkTidesZero(lambda1, lambda2) )
                 ABORT_NONZERO_TIDES(waveFlags);
             /* Call the waveform driver routine */
-            ret = XLALSimInspiralTaylorF2Test(htilde, phi0, deltaF, m1, m2, f_min,
+            ret = XLALSimInspiralTaylorF2Test(htilde, phiRef, deltaF, m1, m2, f_min,
                     r, phaseO, amplitudeO,nonGRparams);
             break;
 
