@@ -56,4 +56,35 @@ def ReadMultiInspiralFromFiles(fileList):
     except: multiInspiralTable = None
   return multis
 
+#
+# =============================================================================
+#
+#                                  Clustering
+#
+# =============================================================================
+#
+
+def CompareMultiInspiralByEndTime(a, b):
+  """
+  Orders a and b by peak time.
+  """
+  return cmp(a.get_end(), b.get_end())
+
+
+def CompareMultiInspiralBySnr(a, b):
+  """
+  Orders a and b by peak time.
+  """
+  return cmp(a.snr, b.snr)
+
+
+def CompareMultiInspiral(a, b, twindow = LIGOTimeGPS(0)):
+  """
+  Returns 0 if a and b are less than twindow appart.
+  """
+  tdiff = abs(a.get_end() - b.get_end())
+  if tdiff < twindow:
+    return 0
+  else:
+    return cmp(a.get_end(), b.get_end())
 
