@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Copyright (C) 2012 Ian W. Harry, Duncan M. Macleod
 #
@@ -35,7 +35,7 @@ from pylal import git_version, llwapp, MultiInspiralUtils, SimInspiralUtils
 from pylal.xlal.date import XLALGPSTimeNow
 
 from glue import lal as cache
-from glue.ligolw import ligolw, lsctables, table
+from glue.ligolw import ligolw, lsctables, table, ilwd
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
@@ -114,6 +114,10 @@ def parse_command_line():
     outputopts.add_option("-s", "--preserve-sim-inspiral", action="store_true",
                           help=("copy the unique sim_inspiral rows into "
                                 "output file, default: %default"))
+    outputopts.add_option("-x", "--preserve-time-slides",
+                          action="store_true",
+                          help=("build a new TimeSlideTable from those in the"
+                                "input files, default: %default"))
     parser.add_option_group(outputopts)
 
     # clustering options
@@ -304,6 +308,8 @@ if __name__=='__main__':
     if opts.preserve_sim_inspiral:
         inj_table = None
         inj_times = []
+    if opts.preserve_time_slides:
+        time_slides = list()
     for i,fp in enumerate(trig_cache.pfnlist()):
         # read XML from file (with more helpful error message)
         try:
@@ -312,6 +318,18 @@ if __name__=='__main__':
             print_verbose("\nERROR: failed to load XML from %s.\n" % fp,
                           stream=sys.stderr)
             raise
+        # read TimeSlideTable
+        if opts.preserve_time_slides:
+            time_slide_table = table.get_table(
+                                   xmldoc, lsctables.TimeSlideTable.tableName)
+            slide_dict = time_slide_table.as_dict()
+            for id_,vector in slide_dict.iteritems():
+                slide_dict[str(id_)] = vector
+                del slide_dict[id_]
+            time_slides.extend(td for td in slide_dict.values() if
+                               td not in time_slides)
+            slide_map = dict((str(id_), time_slides.index(vector)) for
+                             id_,vector in slide_dict.iteritems())
         # read MultiInspiralTable
         try:
             mi_table = table.get_table(xmldoc,
@@ -328,6 +346,12 @@ if __name__=='__main__':
                 trig_table = lsctables.New(lsctables.MultiInspiralTable,
                                           columns=columns)
             if trig_table is not None:
+                if opts.preserve_time_slides:
+                    for mi in mi_table:
+                        old_idx = str(mi.time_slide_id).split(":")[-1]
+                        idx = slide_map["time_slide:time_slide_id:%s" % old_idx]
+                        mi.time_slide_id = ilwd.ilwdchar(
+                                       "multi_inspiral:time_slide_id:%d" % idx)
                 trig_table.extend(mi_table)
         # read SimInspiralTable
         if opts.preserve_sim_inspiral:
@@ -375,11 +399,29 @@ if __name__=='__main__':
     # preserve tables
     #
 
+    # reset multi_inspiral event_id
+    for i,mi in cluster_table:
+        mi.event_id = ilwd.ilwdchar("multi_inspiral:event_id:%d" % i)
+
     # uniquify the SimInspiral IDs
     if opts.preserve_sim_inspiral:
-        for i,idx in enumerate(inj_table):
+        for i,sim in enumerate(inj_table):
             sim.simulation_id = "sim_inspiral:simulation_id:%d" % i
         outxml.childNodes[-1].appendChild(inj_table)
+
+    # rebase the time slides
+    if opts.preserve_time_slides:
+        new_time_slide_table = table.new_from_template(time_slide_table)
+        for i,slide in enumerate(time_slides):
+            for instrument,offset in slide.iteritems():
+                new_time_slide = lsctables.TimeSlide()
+                new_time_slide.process_id = process.process_id
+                new_time_slide.time_slide_id = ilwd.ilwdchar(
+                                              "time_slide:time_slide_id:%d" % i)
+                new_time_slide.instrument = instrument
+                new_time_slide.offset = offset
+                new_time_slide_table.append(new_time_slide)
+        outxml.childNodes[-1].appendChild(new_time_slide_table)
 
     #
     # write the clusters to file
