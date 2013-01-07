@@ -134,7 +134,7 @@ def fromframefile(framefile, chname, start=-1, duration=1,\
     # return
     series = fromFrStream(stream, chname, start=start, duration=duration,\
                           datatype=datatype, verbose=verbose)
-    #lalframe.FrClose(stream)
+    lalframe.FrClose(stream)
     return series
 
 def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
@@ -179,7 +179,7 @@ def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
     # return
     series = fromFrStream(stream, chname, start=start, duration=duration,\
                           datatype=datatype, verbose=verbose)
-    #lalframe.FrClose(stream)
+    lalframe.FrClose(stream)
     return series
 
 def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
