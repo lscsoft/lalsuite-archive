@@ -503,7 +503,7 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
     mi_null_snr = mi_table.get_null_snr()
     # apply gradient to threshold for high SNR
     null_thresh = numpy.ones(len(mi_table)) * null_snr
-    grade = mi_snr > snr
+    grade = mi_snr >= snr
     null_thresh[grade] += (mi_snr[grade] - snr)/5.0
     # apply veto
     keep = mi_null_snr < null_thresh
@@ -513,3 +513,69 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
         out = table.new_from_template(mi_table)
         out.extend(numpy.asarray(mi_table)[keep])
         return out
+
+def veto(self, seglist, time_slide_table=None):
+    """Return a MultiInspiralTable with those row from self not lying
+    inside (i.e. not vetoed by) any elements of seglist.
+
+    If time_slide_table is not None, any time shifts will be undone and each
+    detector checked individually
+    """
+    seglist = type(seglist)([map(float, seg) for seg in seglist])
+    keep = table.new_from_template(self)
+    if time_slide_table:
+        slides = time_slide_table.as_dict()
+        for id_,vector in slides.iteritems():
+            idx = str(id_).split(":")[-1]
+            slides["multi_inspiral:time_slide_id:%s" % idx] = vector
+            del slides[id_]
+        for row in self:
+            ifos = row.get_ifos()
+            for i,ifo in enumerate(ifos):
+                ifo_time = (float(row.get_end()) -
+                            slides[str(row.time_slide_id)][ifo])
+                if ifo_time in seglist:
+                    i = -1
+                    break
+            if i != -1:
+                keep.append(row)
+    else:
+        for row in self:
+            time = float(row.get_end())
+            if time in seglist:
+                continue
+            else:
+                keep.append(row)
+    return keep
+
+
+def vetoed(self, seglist, time_slide_table=None):
+    """Return a MultiInspiralTable with those row from self lying
+    inside (i.e. vetoed by) any elements of seglist.
+
+    If time_slide_table is not None, any time shifts will be undone and each
+    detector checked individually
+    """
+    seglist = type(seglist)(map(float, seglist))
+    vetoed = table.new_from_template(self)
+    if time_slide_table:
+        slides = time_slide_table.as_dict()
+        for id_,vector in slides.iteritems():
+            idx = str(id_).split(":")[-1]
+            slides["multi_inspiral:time_slide_id:%s" % idx] = vector
+            del slides[id_]
+        slides = get_slide_vectors(time_slide_table)
+        for row in self:
+            ifos = row.get_ifos()
+            for i,ifo in enumerate(ifos):
+                ifo_time = (float(row.get_end()) -
+                            slides[str(row.time_slide_id)][ifo])
+                if ifo_time in seglist:
+                    vetoed.append(row)
+                    break
+    else:
+        for row in self:
+            time = float(row.get_end())
+            if time in seglist:
+                vetoed.append(row)
+    return vetoed
