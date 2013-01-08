@@ -56,7 +56,7 @@ static void printAdaptiveJumpSizes(FILE *file, LALInferenceRunState *runState)
         if(LALInferenceCheckVariable(runState->proposalArgs,tmpname))
         {
             val=(REAL8 *)LALInferenceGetVariable(runState->proposalArgs,tmpname);
-            fprintf(file,"%s: %lf\n",this->name,*val);
+            fprintf(file,"%s: %20.20f\n",this->name,*val);
         }
         this=this->next;
     }
@@ -942,7 +942,7 @@ void LALInferenceNestedSamplingSloppySample(LALInferenceRunState *runState)
     LALInferenceVariables oldParams;
     LALInferenceIFOData *data=runState->data;
     REAL8 tmp;
-    REAL8 Target=0.3;
+    REAL8 Target=0.5;
     char tmpName[32];
     REAL8 logLold=*(REAL8 *)LALInferenceGetVariable(runState->currentParams,"logL");
     memset(&oldParams,0,sizeof(oldParams));

@@ -886,8 +886,8 @@ Parameter arguments:\n\
             REAL8 Dmin=exp(logDmin);
             REAL8 Dmax=exp(logDmax);
             tmpVal=Dmin+(Dmax-Dmin)/2.;
-            LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-            LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);
+            LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
+            //LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);
         }
         else 
         {
