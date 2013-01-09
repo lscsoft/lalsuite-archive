@@ -735,6 +735,7 @@ setup(
 		os.path.join("bin", "pylal_coh_PTF_cluster"),
 		os.path.join("bin", "pylal_coh_PTF_ihope"),
 		os.path.join("bin", "pylal_coh_PTF_dqv"),
+		os.path.join("bin", "pylal_coh_PTF_sbv"),
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
