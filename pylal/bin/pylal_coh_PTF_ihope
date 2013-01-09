@@ -428,6 +428,8 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
     plotjob = inspiral.InspiralPlottingJob(cp, ["plot_triggers",\
                                                 "plot-tmpltbank-meta"],\
                                            "plot_triggers", "png")
+    if plotjob._CondorJob__universe == "standard":
+        plotjob._CondorJob__universe = "vanilla"
     plots = cp.options("plot-tmpltbank")
     if run_tmpltbank:
        set_job_files(job, "trig_plot", os.curdir, logdir)
