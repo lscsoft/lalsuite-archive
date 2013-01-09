@@ -96,7 +96,7 @@ def parse_command_line():
 			raise ValueError("invalid characters in description \"%s\"" % options.T010150)
 
 	if options.add_from_cache:
-		options.add_from += [CacheEntry(line).path() for line in file(options.add_from_cache)]
+		options.add_from += [CacheEntry(line).path for line in file(options.add_from_cache)]
 
 	return options, filenames
 
