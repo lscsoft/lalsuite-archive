@@ -482,8 +482,8 @@ def setup_tmpltbank(cp, data, logdir, usertag="COH_PTF_TMPLTBANK",\
                         for key,val in cp.items(plot):
                             plotnode.add_var_opt(key, val)
                         plottag = "TMPLTBANK_%s" % plot.replace("-","_").upper()
-                        outfile = tmpltbank_file.replace("TMPLTBANK", plottag)\
-                                                .replace("xml.gz", "png")
+                        outfile = tmpltbank_file.replace("TMPLTBANK", plottag)
+                        outfile = re.sub("(xml.gz|xml)\Z", "png", outfile)
                         plotnode.add_var_opt("output-file", outfile)
                         plotnode.add_parent(node)
                         dag.add_node(plotnode)
