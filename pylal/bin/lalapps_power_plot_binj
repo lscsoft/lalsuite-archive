@@ -110,7 +110,7 @@ def parse_command_line():
 	for cache in options.input_cache:
 		if options.verbose:
 			print >>sys.stderr, "reading '%s' ..." % cache
-		filenames += [lal.CacheEntry(line).path() for line in file(cache)]
+		filenames += [lal.CacheEntry(line).path for line in file(cache)]
 
 	return options, filenames
 
