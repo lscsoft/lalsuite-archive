@@ -299,6 +299,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	REAL8 logZ,logZnew,logLmin,logLmax=-DBL_MAX,logLtmp,logw,H,logZnoise,dZ=0;//deltaZ - set but not used
 	LALInferenceVariables *temp;
 	FILE *fpout=NULL;
+    FILE *stat_out=NULL;
 	gsl_matrix **cvm=calloc(1,sizeof(gsl_matrix *));
 	REAL8 dblmax=-DBL_MAX;
 	REAL8 zero=0.0;
@@ -364,7 +365,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 		exit(1);
 	}
 	char *outfile=ppt->value;
-       
+    
     if(LALInferenceGetProcParamVal(runState->commandLine,"--progress"))
         displayprogress=1;
 
@@ -381,8 +382,12 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	}
 #endif	
 	fpout=fopen(outfile,"w");
-
-	if(fpout==NULL) {fprintf(stderr,"Unable to open output file %s!\n",outfile); exit(1);}
+    char stat_outfile[FILENAME_MAX];
+	
+    sprintf(stat_outfile,"%s_stats.txt",outfile);
+    stat_out=fopen(stat_outfile,"w");
+    if(stat_out==NULL) {fprintf(stderr,"Unable to open output file %s!\n",stat_outfile); exit(1);}
+    if(fpout==NULL) {fprintf(stderr,"Unable to open output file %s!\n",outfile); exit(1);}
 	else{
 		if(setvbuf(fpout,NULL,_IOFBF,0x100000)) /* Set buffer to 1MB so as to not thrash NFS */
 			fprintf(stderr,"Warning: Unable to set output file buffer!");
@@ -594,7 +599,8 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     /* Output some information */
     if(verbose){
         LALInferencePrintProposalStatsHeader(stdout,runState->proposalStats);
-        LALInferencePrintProposalStats(stdout,runState->proposalStats);
+        LALInferencePrintProposalStats(stat_out,runState->proposalStats);
+        fflush(stat_out);
         resetProposalStats(runState);
         printAdaptiveJumpSizes(stdout, runState);
     }
@@ -638,12 +644,14 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	}
 
 	/* Write out the evidence */
+    fclose(stat_out);
 	fclose(fpout);
 	char bayesfile[FILENAME_MAX];
 	sprintf(bayesfile,"%s_B.txt",outfile);
 	fpout=fopen(bayesfile,"w");
 	fprintf(fpout,"%lf %lf %lf %lf\n",logZ-logZnoise,logZ,logZnoise,logLmax);
 	fclose(fpout);
+    
 	double logB=logZ-logZnoise;
 	/* Pass output back through algorithmparams */
 	LALInferenceAddVariable(runState->algorithmParams,"logZ",(void *)&logZ,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);

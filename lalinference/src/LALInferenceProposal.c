@@ -2273,17 +2273,18 @@ void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accept
 
                         LALInferenceGetMinMaxPrior(runState->priorArgs, name, &priorMin, &priorMax);
                         dprior = priorMax - priorMin;
-
+                        //printf("Adapting step size for %s from %lf with dprior =%lf sgamma %lf target %lf ACCEPTED %d ", name, *sigma,dprior, s_gamma, targetAcceptance,accepted);
                         if(accepted == 1){
                                 *sigma=*sigma+s_gamma*(dprior/100.0)*(1.0-targetAcceptance);
                         }else{
                                 *sigma=*sigma-s_gamma*(dprior/100.0)*(targetAcceptance);
                         }
+                        //printf("to a temp %lf ", *sigma);
 
                         *sigma = (*sigma > dprior ? dprior : *sigma);
                         *sigma = (*sigma < DBL_MIN ? DBL_MIN : *sigma);
 
-                        //printf("Adapting step size for %s to %lf\n", name, *sigma);
+                        //printf("corrected: %lf\n", *sigma);
 
                         /* Make sure we don't do this again until we take another adaptable step.*/
                 }

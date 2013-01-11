@@ -286,7 +286,7 @@ Nested sampling arguments:\n\
 	
 	/* Set up the appropriate functions for the nested sampling algorithm */
 	runState->algorithm=&LALInferenceNestedSamplingAlgorithm;
-        runState->evolve=&LALInferenceNestedSamplingOneStep;
+    runState->evolve=&LALInferenceNestedSamplingOneStep;
 	
     /* use the ptmcmc proposal to sample prior */
     runState->proposal=&NSWrapMCMCLALProposal;
