@@ -268,8 +268,7 @@ def detection_efficiency(
 
     significant_dist = [inj[2] for inj in found_inj]
 
-    eff = {}
-    eff_stdev = {}
+    mean_eff = {}
     for threshold in far_list:
         for idx, far in enumerate(found_fars):
             if far <= threshold:
@@ -277,10 +276,9 @@ def detection_efficiency(
                 break
         # Histogram found injections with FAR < threshold
         N_significant, junk = numpy.histogram(significant_dist[new_start:], bins = r)
-        eff[threshold] = numpy.float_(N_significant)/N_success
-        eff_stdev[threshold] = numpy.sqrt(eff[threshold]*(1-eff[threshold]) / N_success)
+        mean_eff[threshold] = (N_significant+1.0)/(N_success+2.0)
 
-    return eff, eff_stdev
+    return mean_eff
 
 def get_four_volume(eff, eff_stdev, r, T_fgd):
     # calculate 3 volume in each shell
@@ -292,10 +290,6 @@ def get_four_volume(eff, eff_stdev, r, T_fgd):
     for threshold, eff_array in eff.items():
         # make the cumulative VxT
         VT[threshold] = numpy.cumsum(numpy.nan_to_num(eff_array * V * T_fgd))
-        # compute the variance for the cumulative VxT
-        VT_var[threshold] = numpy.cumsum(
-            numpy.power(numpy.nan_to_num(eff_stdev[threshold] * V * T_fgd), 2.0)
-        )
 
-    return VT, VT_var
+    return VT
 

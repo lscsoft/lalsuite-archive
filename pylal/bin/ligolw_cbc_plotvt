@@ -192,8 +192,8 @@ db_tags = opts.database_tags.split(',')
 on_ifos = ','.join(sorted(opts.on_instruments.split(','))).upper()
 veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 
-eff_dict = {}; deff_dict = {}
-VT_dict = {}; dVT2_dict = {}
+eff_dict = {}
+VT_dict = {}
 
 # make the distance bins for the efficiency histogram
 distbin_edges = efficiency.inj_dist_range(
@@ -268,8 +268,8 @@ for db_idx, db_path in enumerate(database_list):
 
     # compute eff vs distance array
     if opts.verbose:
-        print >> sys.stdout, "\tCompute the efficiency vs distance and associate errors"
-    eff_dict[db_tag], deff_dict[db_tag] = efficiency.detection_efficiency(
+        print >> sys.stdout, "\tCompute the efficiency vs distance"
+    eff_dict[db_tag] = efficiency.detection_efficiency(
         all_inj,
         found_inj, found_fars,
         far_list,
@@ -277,9 +277,9 @@ for db_idx, db_path in enumerate(database_list):
 
     # compute Volume*Time vs distance array
     if opts.verbose:
-        print >> sys.stdout, "\tCompute the VxT vs distance and associated variance"
-    VT_dict[db_tag], dVT2_dict[db_tag] = efficiency.get_four_volume(
-        eff_dict[db_tag], deff_dict[db_tag],
+        print >> sys.stdout, "\tCompute the mean VxT vs distance"
+    VT_dict[db_tag] = efficiency.get_four_volume(
+        eff_dict[db_tag],
         distbin_edges, T_fgd)
 
     start_time, end_time = connection.execute(
@@ -345,9 +345,8 @@ Eff_Dist_fig = pyplot.figure()
 Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    Eff_Dist_plot.errorbar(
+    Eff_Dist_plot.plot(
         distbin_edges[1:], eff_dict[db_tag][0.0],
-        deff_dict[db_tag][0.0],
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
@@ -376,9 +375,8 @@ VT_Dist_fig = pyplot.figure()
 VT_Dist_plot = VT_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    VT_Dist_plot.errorbar(
+    VT_Dist_plot.plot(
         distbin_edges[1:], VT_dict[db_tag][0.0],
-        numpy.sqrt(dVT2_dict[db_tag][0.0]),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
@@ -411,11 +409,9 @@ for idx, db_tag in enumerate(db_tags):
     zeroFAR_VT = VT_dict[db_tag].pop(0.0)
     new_minFAR = 10**numpy.floor(numpy.log10(numpy.min(VT_dict[db_tag].keys())))
     VT_dict[db_tag][new_minFAR] = zeroFAR_VT
-    dVT2_dict[db_tag][new_minFAR] = dVT2_dict[db_tag].pop(0.0)
 
     VT_FAR_plot.errorbar(
         VT_dict[db_tag].keys(), numpy.max(VT_dict[db_tag].values(), axis=1),
-        numpy.sqrt(numpy.max(dVT2_dict[db_tag].values(), axis=1)),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
