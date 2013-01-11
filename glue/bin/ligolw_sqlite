@@ -146,18 +146,9 @@ if __name__ == '__main__':
 
 
 	if will_write_to_file:
-		if options.preserve_ids:
-			# disable ID remapping
-			dbtables.DBTable.append = dbtables.DBTable._append
-		else:
-			# enable ID remapping
-			dbtables.idmap_create(ContentHandler.connection)
-			dbtables.DBTable.append = dbtables.DBTable._remapping_append
 		for n, url in enumerate(urls):
-			# load document
 			if options.verbose:
 				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-			dbtables.idmap_sync(ContentHandler.connection)
 			if url.endswith(".sqlite"):
 				source_filename = dbtables.get_connection_filename(url, tmp_path = options.tmp_space, verbose = options.verbose)
 				if options.verbose:
@@ -168,7 +159,6 @@ if __name__ == '__main__':
 				dbtables.discard_connection_filename(url, source_filename, verbose = options.verbose)
 			else:
 				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
-		ContentHandler.connection.commit()
 		dbtables.build_indexes(ContentHandler.connection, options.verbose)
 
 
