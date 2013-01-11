@@ -123,7 +123,7 @@ def parse_command_line():
 	options.image_formats = options.image_formats.split(",")
 
 	if options.input_cache:
-		filenames += [CacheEntry(line).path() for input_cache in options.input_cache for line in file(input_cache)]
+		filenames += [CacheEntry(line).path for input_cache in options.input_cache for line in file(input_cache)]
 
 	if options.threads < 1:
 		raise ValueError("--threads must be >= 1")

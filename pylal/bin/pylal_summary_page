@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Copyright (C) 2012 Duncan M. Macleod
 #
@@ -75,7 +75,8 @@ from pylal.dq import stateutils
 
 # import GLUE modules
 from glue.lal import Cache, CacheEntry
-from glue import segments
+from glue.segments import (segment as Segment, segmentlist as SegmentList,
+                           segmentlistdict as SegmentListDict)
 from glue import segmentsUtils
 from glue import markup
 from glue import GWDataFindClient
@@ -307,7 +308,7 @@ def fromsegfile(filename):
 def fromsegmentcache(cache):
     """
     Read segments from each entry in a glue.lal.Cache.
-    Returns the coalesced glue.segments.segmentlist.
+    Returns the coalesced glue.SegmentList.
 
     @param cache: Cache of XML or segwizard-format files from which to read
     @type  cache: C{glue.lal.Cache}
@@ -315,7 +316,7 @@ def fromsegmentcache(cache):
     @return: list of segments read from the cache
     @rtype: C{glue.segments.segmentlist}
     """
-    out = segments.segmentlist()
+    out = SegmentList()
     for entry in cache.pfnlist():
         out.extend(fromsegfile(entry))
 
@@ -472,7 +473,7 @@ def get_state_segments(cp, state, veto_def_table, verbose=False):
     print_verbose("\n----------\nLoading segments for the '%s' run state...\n"\
                   % state.name, verbose=verbose)
 
-    state.segments = segments.segmentlist([state.span])
+    state.segments = SegmentList([state.span])
     if state.definition:
         div = re.compile("[&!]")
         divs = div.findall(state.definition)
@@ -507,9 +508,20 @@ def get_state_segments(cp, state, veto_def_table, verbose=False):
         for flag in flags:
             state.segments &= get_segments(cp, flag, state.segments,\
                                            verbose=verbose)
-    state.segments.coalesce()
+    # set state-specific variables restrictions
+    cpsec = "state-%s" % (state.name)
+    if cp.has_section(cpsec):
+        for param in ["segment-buffer", "event-buffer",
+                      "minimum-segment-length"]:
+            if cp.has_option(cpsec, param):
+                setattr(state, param.replace("-", "_"),
+                        cp.getfloat(cpsec, param))
 
-    # set the bit
+    state.segments.contract(state.segment_buffer)
+    if state.minimum_segment_length:
+        state.segments = SegmentList([
+                             s for s in state.segments if
+                             abs(s) >= state.minimum_segment_length])
     state.set = True
     return
 
@@ -578,7 +590,8 @@ def build_html_base(cp, ifo, directory, gpspair=None):
                 public_folder = "public_html"
             if re.search(public_folder, directory):
                 base = os.path.join(root,'~%s' % user,\
-                                    directory.split(public_folder,1)[-1], '')
+                                    directory.split(public_folder,1)[-1][1:],
+                                    '')
             else:
                 base = "file://%s" % directory
 
@@ -681,8 +694,8 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
 
     # restrict archived data to NOW
     start,end = seglist.extent()
-    span = segments.segment(start, min(end, NOW))
-    seglist &= segments.segmentlist([span])
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
 
     # otherwise get start date
     start = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
@@ -714,9 +727,9 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
     # load segments into memory
     return get_segments(cp, flag, seglist, cache=cache, verbose=verbose)
 
-def get_segments(cp, flag, validsegs, cache=None, verbose=False):
+def get_segments(cp, flag, validsegs, cache=None, buffer_=0, verbose=False):
     """
-    Returns a glue.segments.segmentlist for the given flag from either the
+    Returns a glue.SegmentList for the given flag from either the
     segment database, or the provided segment cache file.
 
     @param cp: INI configuration file object
@@ -731,7 +744,7 @@ def get_segments(cp, flag, validsegs, cache=None, verbose=False):
     #
 
     # check what segments we already have for this flag
-    segdeflist = G_SEGMENT_DEFINER.get(flag, segments.segmentlist())
+    segdeflist = G_SEGMENT_DEFINER.get(flag, SegmentList())
 
     # get new segments
     newsegdefs = validsegs - segdeflist
@@ -782,7 +795,10 @@ def get_segments(cp, flag, validsegs, cache=None, verbose=False):
         print_verbose("Loaded %d segments from %s for %s.\n"\
                       % (len(new), segment_url, flag), verbose=verbose)
     else:
-        new = segments.segmentlist()
+        new = SegmentList()
+
+    if buffer_:
+        new = new.contract(buffer_)
 
     # record these segments
     if G_SEGMENTS.has_key(flag):
@@ -862,7 +878,7 @@ def process_segments(tab, cp, cpsec, verbose=False,\
     if cp.has_option(cpsec, "use-archive")\
     and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
         print_verbose("Loading segments from archive:\n", verbose=verbose)
-        archivesegs = segments.segmentlist()
+        archivesegs = SegmentList()
         for flag,label in zip(flags, labels):
             name = _r_cchar.sub("_", label.upper())
             if not name.startswith(tab.ifo):
@@ -870,9 +886,9 @@ def process_segments(tab, cp, cpsec, verbose=False,\
             segs = load_archive_segments(cp, name, tab.segments,\
                                          mode=tab.mode, verbose=verbose)
             if len(segs):
-                archivesegs.extend(segments.segmentlist([segs.extent()]))
+                archivesegs.extend(SegmentList([segs.extent()]))
         if len(archivesegs):
-            tab.segments -= segments.segmentlist([archivesegs.extent()])
+            tab.segments -= SegmentList([archivesegs.extent()])
 
     #
     # get new segments
@@ -886,11 +902,11 @@ def process_segments(tab, cp, cpsec, verbose=False,\
                 name = "%s-%s" % (tab.ifo, name)
             f = os.path.join(tab.datadirectory, "%s_%s-%d-%d.txt"\
                                              % (name, tab.state.tag,\
-                                                tab.start_time, abs(tag.span)))
+                                                tab.start_time, abs(tab.span)))
             if os.path.isfile(f):
                 comp_segs = fromsegfile(f)
             else:
-                comp_segs = segments.segmentlist()
+                comp_segs = SegmentList()
         else:
             divs = re.findall("[&!]", flag)
             comp_flags = re.split("[&!]", flag)
@@ -1073,7 +1089,7 @@ def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
     if cp.has_option(cpsec, "use-archive") \
     and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
         print_verbose("Load segments from archive:\n", verbose=verbose)
-        archivesegs = segments.segmentlist()
+        archivesegs = SegmentList()
         for bit,flag in allbits.iteritems():
             name = _r_cchar.sub("_", flag.upper())
             if not name.startswith(tab.ifo):
@@ -1081,9 +1097,9 @@ def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
             segs = load_archive_segments(cp, name, tab.segments, mode=tab.mode,\
                                          verbose=verbose)
             if len(segs):
-                archivesegs.extend(segments.segmentlist([segs.extent()]))
+                archivesegs.extend(SegmentList([segs.extent()]))
         if len(archivesegs):
-            tab.segments -= segments.segmentlist([archivesegs.extent()])
+            tab.segments -= SegmentList([archivesegs.extent()])
             
 
     #
@@ -1097,11 +1113,11 @@ def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
                 name = "%s-%s" % (tab.ifo, name)
             f = os.path.join(tab.datadirectory, "%s_%s-%d-%d.txt"\
                                              % (name, tab.state.tag,\
-                                                tab.start_time, abs(tag.span)))
+                                                tab.start_time, abs(tab.span)))
             if os.path.isfile(f):
                 segs = segmentsUtils.fromsegwizard(f)
             else:
-                segs = segments.segmentlist()
+                segs = SegmentList()
             tab.add_segments(flag, segs)
 
     elif usesegdb:
@@ -1113,7 +1129,7 @@ def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
         frametype = cp.get(cpsec, "frame-type")
         data = get_data(cp, channel, tab.segments, frametype=frametype,\
                         verbose=verbose)
-        segdict = segments.segmentlistdict((flag, segments.segmentlist([]))\
+        segdict = SegmentListDict((flag, SegmentList([]))\
                                            for bit,flag in tab.bitmask.items())
         if len(data):
             for series in data:
@@ -1126,11 +1142,11 @@ def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
             defstart = float(data[0].epoch)
             defend   = float(data[-1].epoch + data[-1].data.length\
                              * data[-1].deltaT)
-            tab.segments &= segments.segmentlist([segments.segment(defstart,\
+            tab.segments &= SegmentList([Segment(defstart,\
                                                                    defend)])
         else:
             for bit,flag in tab.bitmask.iteritems():
-                tab.add_segments(flag, segments.segmentlist([]))
+                tab.add_segments(flag, SegmentList([]))
             print_verbose("warning: no data recovered for %s state vector.\n"\
                           % channel, stream=sys.stderr, verbose=verbose)
 
@@ -1141,7 +1157,7 @@ def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
     if not htmlonly and len(tab.derived_bitmask.keys()):
         for bitset,flag in tab.derived_bitmask.iteritems():
             bitset = re.split(",", bitset)
-            seglist = segments.segmentlist(tab.segments)
+            seglist = SegmentList(tab.segments)
             for bit in bitset:
                 if bit.startswith("!"):
                     seglist -= tab.segdict[tab.bitmask[int(bit[1:])]]
@@ -1292,7 +1308,7 @@ def get_triggers(cp, channel, etg, seglist, cluster=False, minsnr=0,\
         G_TRIGGERS[etg][channel] = dict()
 
     # get old segments
-    segdeflist = segments.segmentlist(G_TRIGGERS[etg][channel].keys())
+    segdeflist = SegmentList(G_TRIGGERS[etg][channel].keys())
     segdeflist.coalesce()
 
     # get new segments
@@ -1301,7 +1317,7 @@ def get_triggers(cp, channel, etg, seglist, cluster=False, minsnr=0,\
         newsegdefs = seglist - segdeflist
         query &= abs(newsegdefs) != 0
     else:
-        newsegdefs = segments.segmentlist()
+        newsegdefs = SegmentList()
     newsegdefs.coalesce()
     if len(newsegdefs):
         span = newsegdefs.extent()
@@ -1361,15 +1377,15 @@ def get_triggers(cp, channel, etg, seglist, cluster=False, minsnr=0,\
     # load HACR triggers from database 
     if query and not trigcache and etg.lower() == "hacr":
         host = cp.get("hacr", "host")
-        for seg in newsegdefs:
-            trigtable = hacrutils.get_triggers(seg[0], seg[1], channel, host,\
-                                               columns=columns)
-            add_triggers(trigtable, channel, etg, seg)
-            n += len(trigtable)
-            if cluster:
-                trigtable = dqTriggerUtils.cluster()
-                add_clustered(trigtable, channel, seg)
-                nc += len(trigtable)
+        # query once for the span
+        trigtable = hacrutils.get_triggers(span[0], span[1], channel, host,
+                                           columns=columns)
+        add_triggers(trigtable, channel, etg, span)
+        n += len(trigtable)
+        if cluster:
+            trigtable = dqTriggerUtils.cluster()
+            add_clustered(trigtable, channel, span)
+            nc += len(trigtable)
 
     # load files segment by segment in an attempt to speed up loading
     elif query and trigcache:
@@ -1424,7 +1440,7 @@ def get_triggers(cp, channel, etg, seglist, cluster=False, minsnr=0,\
         get_time = lambda t: t.get_end()
 
     # convert segments to floats
-    seglist = segments.segmentlist([segments.segment(map(float, seg))\
+    seglist = SegmentList([Segment(map(float, seg))\
                                     for seg in seglist])
 
     if cluster:
@@ -1468,10 +1484,10 @@ def add_triggers(trigtable, channel, etg, seg):
         G_TRIGGERS[etg][channel] = dict()
 
     # cast segment
-    seg = segments.segment(seg[0], seg[1])
+    seg = Segment(seg[0], seg[1])
 
     # get segments for channel
-    seglist = segments.segmentlist(G_TRIGGERS[etg][channel].keys())
+    seglist = SegmentList(G_TRIGGERS[etg][channel].keys())
     seglist.coalesce()
 
     # if completely new, add it
@@ -1514,7 +1530,7 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
         G_CLUSTERED_TRIGGERS[etg][channel] = dict()
 
     # get segments for channel
-    seglist = segments.segmentlist(G_CLUSTERED_TRIGGERS[etg][channel].keys())
+    seglist = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys())
     seglist.coalesce()
 
     # if completely new, add it
@@ -1624,6 +1640,7 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
         if htmlonly or not doplots:
             tab.plots.append((outfile, plotparams.pop("description", None)))
         else:
+            # TODO: implement multi-threading plotting
             if re.search("hist", plot, re.I):
                 tab.plothistogram(outfile, **plotparams)
             elif re.search("rate", plot, re.I):
@@ -1732,10 +1749,6 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
 
     if not os.path.isdir(tab.directory):
         os.makedirs(tab.directory)
-    if not filetag:
-        filetag = _r_cchar.sub("_", name).upper()
-    else:
-        filetag = filetag.upper()
 
     tab.cluster = cp.has_option(cpsec, "cluster-triggers")\
                   and cp.get(cpsec, "cluster-triggers") or False
@@ -1899,8 +1912,8 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
 
     # restrict archived data to NOW
     start,end = seglist.extent()
-    span = segments.segment(start, min(end, NOW))
-    seglist &= segments.segmentlist([span])
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
 
     # otherwise get start date
     start_date = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
@@ -1938,7 +1951,7 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
 
     for e in cache:
         # open file
-        f = e.path()
+        f = e.path
         h5file = hdf5utils.h5py.File(f, "r")
 
         # get segment
@@ -1953,7 +1966,7 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
                                               group=HDF_DATA_GROUP,\
                                               start=start, duration=duration)
             add_timeseries(series)
-            seg = segments.segment(float(series.epoch),\
+            seg = Segment(float(series.epoch),\
                                    float(series.epoch + series.data.length\
                                                       * series.deltaT))
             print_verbose("Data recovered from archive for %s: [%d ... %d)\n"\
@@ -2003,20 +2016,18 @@ def get_data(cp, channel, seglist, frametype=None, calibration=None,\
     # check what segments we already have for this channel
     if not G_DATA.has_key(channel):
         G_DATA[channel] = {}
-    segdeflist = segments.segmentlist(G_DATA[channel].keys())
+    segdeflist = SegmentList(G_DATA[channel].keys())
 
     # get new segments
     if query:
         newsegdefs = seglist - segdeflist
         query = query and abs(newsegdefs) != 0
     else:
-        newsegdefs = segments.segmentlist()
+        newsegdefs = SegmentList()
     newsegdefs.coalesce()
 
     # get cache
-    if cache:
-        datacache = cache
-    elif cp.has_option("datafind", "data-cache"):
+    if cp.has_option("datafind", "data-cache"):
         datacache = cp.get("datafind", "data-cache", raw=True)
     else:
         datacache = None
@@ -2067,9 +2078,9 @@ def get_data(cp, channel, seglist, frametype=None, calibration=None,\
         connection.close()
 
     if datacache:
-        datasegs = segments.segmentlist()
+        datasegs = SegmentList()
         for i,e in enumerate(datacache):
-            datacache[i].segment = segments.segment(map(float, e.segment))
+            datacache[i].segment = Segment(map(float, e.segment))
             datasegs.append(datacache[i].segment)
         datasegs.coalesce()
         newsegdefs &= datasegs
@@ -2093,7 +2104,7 @@ def get_data(cp, channel, seglist, frametype=None, calibration=None,\
             dt = numpy.inf
         while s < seg[1]:
             e = s + dt
-            seg2 = segments.segment(float(s), float(min(seg[1], e)))
+            seg2 = Segment(float(s), float(min(seg[1], e)))
 
             # get data from NDS
             if usends:
@@ -2180,7 +2191,7 @@ def get_data(cp, channel, seglist, frametype=None, calibration=None,\
     #
 
     # grab the data we want
-    globsegs = segments.segmentlist(G_DATA[channel].keys())
+    globsegs = SegmentList(G_DATA[channel].keys())
     globsegs.sort()
     serieslist = []
 
@@ -2234,11 +2245,11 @@ def add_timeseries(series):
     TYPESTR  = seriesutils._typestr[datatype]
 
     # get segments for channel
-    seglist = segments.segmentlist(G_DATA[channel].keys())
+    seglist = SegmentList(G_DATA[channel].keys())
     seglist.coalesce()
 
     # get segment for this timeseries
-    seg = segments.segment(float(series.epoch),\
+    seg = Segment(float(series.epoch),\
                            float(series.epoch+series.data.length*series.deltaT))
 
     new = True
@@ -2295,8 +2306,8 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
 
     # restrict archived data to NOW
     start,end = seglist.extent()
-    span = segments.segment(start, min(end, NOW))
-    seglist &= segments.segmentlist([span])
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
 
     # otherwise get start date
     start_date = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
@@ -2334,7 +2345,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
 
     for e in cache:
         # open file
-        f = e.path()
+        f = e.path
         h5file =  hdf5utils.h5py.File(f, "r")
 
         # load list of all spectrograms for this channel
@@ -2344,7 +2355,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
         else:
             datasets = []
         datasegs = [map(float, s.split("-")) for s in datasets]
-        datasegs = segments.segmentlist(map(segments.segment, datasegs))
+        datasegs = SegmentList(map(Segment, datasegs))
 
         for dataseg,dataset in zip(datasegs, datasets):
             # get required segment
@@ -2354,7 +2365,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
             out = hdf5utils.readVectorSequence(h5file, dataset, group=group,\
                                                start=start, duration=duration)
             spectrogram, epoch, deltaT, f0, deltaF = out
-            seg = segments.segment(float(epoch),\
+            seg = Segment(float(epoch),\
                                    float(epoch + spectrogram.length*deltaT))
             add_spectrogram(spectrogram, seg, channel, epoch, deltaT, f0,\
                             deltaF)
@@ -2408,19 +2419,19 @@ def get_spectrogram(cp, channel, step, seglen, stride, seglist, frametype=None,\
     #
 
     # shorten segment list to the correct size for the given step
-    seglist2 = segments.segmentlist()
+    seglist2 = SegmentList()
     for seg in seglist:
         if abs(seg) < step:
             continue
-        seglist2.append(segments.segment(seg[0], seg[0] + abs(seg)//step*step))
+        seglist2.append(Segment(seg[0], seg[0] + abs(seg)//step*step))
     seglist = seglist2
 
     # check what segments we already have for this channel
     if not G_SPECTROGRAM.has_key(channel):
         G_SPECTROGRAM[channel] = {}
-        segdeflist = segments.segmentlist()
+        segdeflist = SegmentList()
     else:
-        segdeflist = segments.segmentlist(G_SPECTROGRAM[channel].keys())
+        segdeflist = SegmentList(G_SPECTROGRAM[channel].keys())
         segdeflist.coalesce()
 
     # get new segments
@@ -2474,8 +2485,8 @@ def get_spectrogram(cp, channel, step, seglen, stride, seglist, frametype=None,\
                                          deltaF=deltaF,\
                                          length=spectrogram.vectorLength)
                  spectrogram.data *= fresponse
-         seg = segments.segment(float(series.epoch),\
-                                float(series.epoch + series.data.length * dt))
+         seg = Segment(float(series.epoch),\
+                       float(series.epoch + series.data.length * dt))
          add_spectrogram(spectrogram, seg, series.name, series.epoch,\
                          step, f0, deltaF)
          print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"\
@@ -2486,11 +2497,18 @@ def get_spectrogram(cp, channel, step, seglen, stride, seglist, frametype=None,\
     #
 
     # grab the data we want
-    globsegs = segments.segmentlist(G_SPECTROGRAM[channel].keys())
+    globsegs = SegmentList(G_SPECTROGRAM[channel].keys())
     globsegs.sort()
-    return sorted([G_SPECTROGRAM[channel][s] for s in seglist&globsegs\
-                   if abs(s) >= step],\
-                  key=lambda spectrogram: float(spectrogram[1]))
+    spectrograms = []
+    for s in (seglist & globsegs):
+        try:
+            if abs(s) >= step:
+                spectrograms.append(G_SPECTROGRAM[channel][s])
+        except KeyError:
+            print_verbose("WARNING: Requested spectrogram segment %s not "
+                          "found in global list\n" % (str(s)),
+                          stream=sys.stderr)
+    return sorted(spectrograms, key=lambda s: float(s[1]))
 
 def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
     """
@@ -2501,7 +2519,7 @@ def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
         G_SPECTROGRAM[channel] = dict()
 
     # get segments for channel
-    seglist = segments.segmentlist(G_SPECTROGRAM[channel].keys())
+    seglist = SegmentList(G_SPECTROGRAM[channel].keys())
     seglist.coalesce()
 
     # add segment
@@ -2549,8 +2567,8 @@ def load_archive_spectrum(cp, channel, seglist, mode=0):
     # restrict archived data to NOW
     start,end = seglist.extent()
     now  = min(span[1], NOW)
-    span = segments.segment(start, min(end, NOW))
-    seglist &= segments.segmentlist([span])
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
 
     # otherwise get start date
     start = datetime.datetime(*lal.GPSToUTC(int(seglist[0][0]))[:6])
@@ -2586,7 +2604,7 @@ def load_archive_spectrum(cp, channel, seglist, mode=0):
     #        it should probably read only the data requested
 
     for e in cache:
-        f = e.path()
+        f = e.path
         series = hdf5utils.readFrequencySeries(f, channel,\
                                                group=HDF_DATA_GROUP)
         add_timeseries(series)
@@ -2840,7 +2858,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     else:
         raise ValueError("No channels configured in [%s]." % cpsec)
     print_verbose("\n----------\nProcessing data for %s for the %s state...\n"\
-                  % (" and ".join(channels), tab.state.name),\
+                  % (tab.name, tab.state.name),\
                   verbose=verbose, profile=False)
 
     #
@@ -2849,10 +2867,6 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
 
     if not os.path.isdir(tab.directory):
         os.makedirs(tab.directory)
-    if not filetag:
-        filetag = _r_cchar.sub("_", name).upper()
-    else:
-        filetag = filetag.upper()
 
     #
     # get plots
@@ -2964,10 +2978,11 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
 
     for plot,_ in plots:
         plottag = _r_cchar.sub("_", plot[5:].upper())
-        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
-                                     % (ifo, _r_cchar.sub("_", tab.name.upper()),\
-                                        filetag, plottag, tab.start_time,\
-                                        tab.end_time-tab.start_time))
+        outfile = os.path.join(tab.directory,
+                               "%s-%s_%s_%s-%d-%d.png"\
+                               % (ifo, _r_cchar.sub("_", tab.name.upper()),\
+                                  tab.state.tag, plottag, tab.start_time,\
+                                  tab.end_time-tab.start_time))
         plotparams = parse_plot_section(cp, cpsec,\
                                         plotutils.parse_plot_config(cp, plot))
         if htmlonly or not doplots:
@@ -3000,8 +3015,8 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
         for dt in deltas:
             plottag = _r_cchar.sub("_", subplot[5:].upper())
             basefile = "%s-%s_%s_%s-%d-%d.png"\
-                       % (ifo, _r_cchar.sub("_", tab.name.upper()), filetag,\
-                          plottag, substart, dt)
+                       % (ifo, _r_cchar.sub("_", tab.name.upper()),
+                          tab.state.tag, plottag, substart, dt)
             plotparams = plotutils.parse_plot_config(cp, subplot)
             plotparams = parse_plot_section(cp, cpsec, plotparams)
             d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
@@ -3255,13 +3270,17 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
                       spec.sampleUnits, f.size)
     if hasattr(lalsimulation, "SimNoisePSD%s" % descriptor):
         SimNoisePSD = getattr(lalsimulation, "SimNoisePSD%s" % descriptor)
-        psd = lambda f: SimNoisePSD(f)**(1/2)
+        psd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
         
     elif descriptor.startswith("lambda"):
         psd = eval(descriptor)
 
     for i,freq in enumerate(f):
-        spectrum.data.data[i] = float(psd(freq))
+        try:
+            spectrum.data.data[i] = float(psd(freq))
+        except OverflowError:
+            print freq
+            raise
 
     return spectrum
 
@@ -3310,10 +3329,6 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
 
     if not os.path.isdir(tab.directory):
         os.makedirs(tab.directory)
-    if not filetag:
-        filetag = _r_cchar.sub("_", name).upper()
-    else:
-        filetag = filetag.upper()
 
     #
     # load range directly from frames
@@ -3348,7 +3363,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             load_archive_data(cp, source["name"], tab.segments, mode=tab.mode,\
                              verbose=verbose)
             if source["name"] in G_DATA.keys():
-                runsegs2 -= segments.segmentlist(G_DATA[source["name"]].keys())
+                runsegs2 -= SegmentList(G_DATA[source["name"]].keys())
 
     #
     # calculate range from strain channel
@@ -3375,13 +3390,13 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             S,epoch,deltaT,f0,deltaF = spectrogram
             print_verbose("Calculating range from %d spectra...    "\
                           % S.length, verbose=verbose)
-            seg = segments.segment(epoch, epoch + deltaT * S.length)
+            seg = Segment(epoch, epoch + deltaT * S.length)
             data = dict((s["name"], numpy.zeros(S.length)) for s in sources)
 
             # get triggers for burst range
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
-                                     segments.segmentlist(seg),\
+                                     SegmentList(seg),\
                                      verbose=verbose, cluster=cluster, minsnr=0)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
@@ -3390,7 +3405,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             for j in range(S.length):
                 spectrum = S.data[j,:]**2
                 f = numpy.arange(spectrum.size) * deltaF + f0
-                span = segments.segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
+                span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
 
                 # loop over sources
                 for k,s in enumerate(sources):
@@ -3402,7 +3417,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                                                      m2=s["m2"])
                     # calculate burst range
                     elif s["type"] == burst:
-                        sspan = segments.segment(span[1]-s['dt'], span[1])
+                        sspan = Segment(span[1]-s['dt'], span[1])
                         snrs  = trigsnr[(sspan[0] <= trigtime)\
                                          & (trigtime < sspan[1])]
                         rho = get_limiting_snr(snrs, sspan, s["far"], s["dt"],\
@@ -3908,7 +3923,7 @@ def parse_command_line():
         opts.gps_end_time   = int(lal.UTCToGPS((opts.day +\
                                       datetime.timedelta(days=1)).timetuple()))
 
-    span  = segments.segment(opts.gps_start_time, opts.gps_end_time)
+    span  = Segment(opts.gps_start_time, opts.gps_end_time)
 
     print_verbose("Command line read.\n", opts.verbose)
 
@@ -3982,7 +3997,7 @@ if __name__=="__main__":
     ifo        = opts.ifo
     verbose    = opts.verbose
 
-    span = segments.segment(start_time, end_time)
+    span = Segment(start_time, end_time)
 
     print_verbose("-----------------------------------------\n"\
                   "Welcome to the IFO summary page generator\n"\
@@ -4017,8 +4032,8 @@ if __name__=="__main__":
   
     # shared segment resources
     global G_SEGMENTS, G_SEGMENT_DEFINER
-    G_SEGMENTS        = segments.segmentlistdict()
-    G_SEGMENT_DEFINER = segments.segmentlistdict()
+    G_SEGMENTS        = SegmentListDict()
+    G_SEGMENT_DEFINER = SegmentListDict()
     
     # shared trigger resources
     global G_TRIGGERS, G_CLUSTERED_TRIGGERS
@@ -4137,7 +4152,6 @@ if __name__=="__main__":
                 tab.datadirectory = segdir
                 tab.segments = state.segments
                 process_segments(tab, cp, cpsec, verbose=verbose,\
-                                 write=opts.write_segments,\
                                  htmlonly=opts.html_only,\
                                  doplots=opts.run_plots,\
                                  dosubplots=opts.run_sub_plots)
@@ -4173,6 +4187,7 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
+                tab.segments.contract(state.event_buffer)
                 process_triggers(tab, cp, cpsec,\
                                  verbose=verbose,\
                                  htmlonly=opts.html_only,\
@@ -4210,10 +4225,9 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
-                process_auxiliary_triggers(tab, cp, cpsec, ifo,\
-                                           filetag=state.tag,\
+                tab.segments.contract(state.event_buffer)
+                process_auxiliary_triggers(tab, cp, cpsec,\
                                            verbose=verbose,\
-                                           write=opts.write_triggers,\
                                            htmlonly=opts.html_only,\
                                            doplots=opts.run_plots)
                 metatab.add_child(tab)
@@ -4257,9 +4271,8 @@ if __name__=="__main__":
                 tab.state = state
                 tab.datadirectory = segdir
                 tab.segments = state.segments
-                process_statevector(tab, cp, cpsec, ifo, filetag=state.tag,\
+                process_statevector(tab, cp, cpsec,\
                                     verbose=verbose,\
-                                    write=opts.write_segments,\
                                     htmlonly=opts.html_only,\
                                     doplots=opts.run_plots,\
                                     dosubplots=opts.run_sub_plots)

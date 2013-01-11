@@ -138,7 +138,7 @@ def parse_command_line():
 			if options.verbose and not n % 1597:
 				print >>sys.stderr, "\t%d lines\r" % n,
 			if "INSPIRAL_SECOND" in c.url:
-				metadata_cache[os.path.basename(c.path())] = c.url
+				metadata_cache[os.path.basename(c.path)] = c.url
 			category = pattern.match(c.description)
 			if category is None:
 				continue

@@ -37,7 +37,6 @@ import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib import colors
 from matplotlib.mlab import specgram, find, psd
-from matplotlib import gridspec
 from scipy.integrate import cumtrapz
 from scipy.interpolate import interp1d
 
@@ -76,6 +75,20 @@ G           = float('6.673e-11')      # m^3/s^2/kg
 C           = SOL
 KPC         = float('3.0856776e19')   # kiloparsec in metres
 I38         = float('1e38')           # moment of inertia kg m^2 
+
+# some parameter names for special LaTeX treatment in figures
+paramdict = {'H0': '$h_0$', 'COSIOTA': '$\cos{\iota}$', \
+             'PSI': '$\psi$ (rad)', 'PHI0': '$\phi_0$ (rad)', \
+             'RA': '$\\alpha$ (rad)', 'DEC': '$\delta$ (rad)', \
+             'F0': '$f_0$ (Hz)', 'F1': '$\dot{f}$ (Hz/s)', 'F2':
+             '$\\ddot{f}$ (Hz/s$^2$)', 'LOGL': '$\log{L}$', \
+             'PMRA': 'proper motion $\\alpha$ (rad/s)', \
+             'PMDEC': 'proper motion $\delta$ (rad/s)', \
+             'PMDC': 'proper motion $\delta$ (rad/s)', \
+             'X': '$a \sin{i}$ (lt s)', 'PB': 'Period (days)', \
+             'T0': '$T_0$ (s)', 'TASC': '$T_{\\textrm{asc}}$ (s)', \
+             'OM': '$\omega_0$ (deg)', 'PBDT': '$\dot{P}$ (s/s)', \
+             'E': 'eccentricity'}
 
 # some angle conversion functions taken from psr_utils.py in PRESTO
 def rad_to_dms(rad):
@@ -503,15 +516,6 @@ def plot_posterior_hist(poslist, param, ifos,
   
   # ifos line colour specs
   coldict = {'H1': 'r', 'H2': 'c', 'L1': 'g', 'V1': 'b', 'G1': 'm', 'Joint':'k'}
-  
-  # some parameter names for special LaTeX treatment in figures
-  paramdict = {'H0': '$h_0$', 'COSIOTA': '$\cos{\iota}$', \
-               'PSI': '$\psi$ (rad)', 'PHI0': '$\phi_0$ (rad)', \
-               'RA': '$\\alpha$ (rad)', 'DEC': '$\delta$ (rad)', \
-               'F0': '$f_0$ (Hz)', 'F1': '$\dot{f}$ (Hz/s)', 'F2':
-               '$\\\\ddot{f}$ (Hz/s$^2$)', 'LOGL': '$\log{L}$', \
-               'PMRA': 'proper motion $\\alpha$ (rad/s)', \
-               'PMDEC': 'proper motion $\delta$ (rad/s)'}
                
   # param name for axis label
   try:
@@ -538,18 +542,13 @@ def plot_posterior_hist(poslist, param, ifos,
     
     pos = poslist[idx]
     
-    # check for cosiota
-    if 'cosiota' in param:
-      pos_samps = np.cos(pos['iota'].samples)
-    else:
-      pos_samps = pos[param].samples
+    pos_samps = pos[param].samples
  
     # get a normalised histogram for each
     n, bins = hist_norm_bounds( pos_samps, int(nbins), parambounds[0], \
                                 parambounds[1] )
     
     # plot histogram
-    #plt.plot(bins, n, color=coldict[ifo])
     plt.step(bins, n, color=coldict[ifo])
     
     if 'h0' not in param:
@@ -606,6 +605,11 @@ def plot_posterior_hist(poslist, param, ifos,
 # of bins
 def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
                          mplparams=False):
+  try:
+    from matplotlib import gridspec
+  except:
+    return None
+  
   if not mplparams:
     mplparams = { \
       'backend': 'Agg',
@@ -614,19 +618,10 @@ def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
       'axes.grid': True, # add a grid
       'grid.linwidth': 0.5,
       'font.family': 'serif',
-      'font.size': 12 }
+      'font.size': 14 }
   
   matplotlib.rcParams.update(mplparams)
-  
-  # some parameter names for special LaTeX treatment in figures
-  paramdict = {'H0': '$h_0$', 'COSIOTA': '$\cos{\iota}$', \
-               'PSI': '$\psi$ (rad)', 'PHI0': '$\phi_0$ (rad)', \
-               'RA': '$\\alpha$ (rad)', 'DEC': '$\delta$ (rad)', \
-               'F0': '$f_0$ (Hz)', 'F1': '$\dot{f}$ (Hz/s)', 'F2':
-               '$\\\\ddot{f}$ (Hz/s$^2$)', 'LOGL': '$\log{L}$', \
-               'PMRA': 'proper motion $\\alpha$ (rad/s)', \
-               'PMDC': 'proper motion $\delta$ (rad/s)'}
- 
+               
   coldict = {'H1': 'r', 'H2': 'c', 'L1': 'g', 'V1': 'b', 'G1': 'm', \
              'Joint': 'k'}
   
@@ -651,7 +646,7 @@ def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
   
   for idx, ifo in enumerate(ifos):
     if idx == 0:
-      myfig = plt.figure(figsize=(11,4),dpi=200)
+      myfig = plt.figure(figsize=(12,4),dpi=200)
       myfig.subplots_adjust(bottom=0.15)
       
       if withhist:
@@ -688,13 +683,8 @@ def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
       plt.hold(True)
 
     if grr:
-      if 'iota' == param:
-        p = 'cosiota'
-      else:
-        p = param
-      
       try:
-        legendvals.append(r'$R = %.2f$' % grr[idx][p])
+        legendvals.append(r'$R = %.2f$' % grr[idx][param])
       except:
         legendval = []
     
@@ -706,8 +696,8 @@ def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
   
   bounds = [minsamp, maxsamp]
   
-  ax1.set_ylabel(r''+paryaxis, fontsize=14, fontweight=100)
-  ax1.set_xlabel(r'Iterations', fontsize=14, fontweight=100)
+  ax1.set_ylabel(r''+paryaxis, fontsize=16, fontweight=100)
+  ax1.set_xlabel(r'Iterations', fontsize=16, fontweight=100)
   
   ax1.set_xlim(0, maxiter)
   ax1.set_ylim(bounds[0], bounds[1])
@@ -715,7 +705,7 @@ def plot_posterior_chain(poslist, param, ifos, grr=None, withhist=0, \
   if withhist:
     ax2.set_ylim(bounds[0], bounds[1])
     ax2.set_xlim(0, maxn+0.1*maxn)
-    ax2.set_xlabel(r'Count', fontsize=14, fontweight=100)
+    ax2.set_xlabel(r'Count', fontsize=16, fontweight=100)
     ax2.set_yticklabels([])
     ax2.set_axis_bgcolor("#F2F1F0")
   
@@ -744,16 +734,7 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
       'font.size': 12 }
   
   matplotlib.rcParams.update(mplparams)
-  
-  # some parameter names for special LaTeX treatment in figures
-  paramdict = {'H0': '$h_0$', 'COSIOTA': '$\cos{\iota}$', \
-               'PSI': '$\psi$ (rad)', 'PHI0': '$\phi_0$ (rad)', \
-               'RA': '$\\alpha$ (rad)', 'DEC': '$\delta$ (rad)', \
-               'F0': '$f_0$ (Hz)', 'F1': '$\dot{f}$ (Hz/s)', 'F2':
-               '$\\\\ddot{f}$ (Hz/s$^2$)', 'LOGL': '$\log{L}$', \
-               'PMRA': 'proper motion $\\alpha$ (rad/s)', \
-               'PMDC': 'proper motion $\delta$ (rad/s)'}
-  
+
   myfigs = []
   
   # param name for axis label
@@ -776,17 +757,8 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
   for idx, ifo in enumerate(ifos):
     posterior = poslist[idx]
     
-    if 'cosiota' in params[0]:
-      a = np.squeeze(posterior['iota'].samples)
-      a = np.cos(a)
-      b = np.squeeze(posterior[params[1]].samples)
-    elif 'cosiota' in params[1]:
-      b = np.squeeze(posterior['iota'].samples)
-      b = np.cos(b)
-      a = np.squeeze(posterior[params[0]].samples)
-    else:
-      a = np.squeeze(posterior[params[0]].samples)
-      b = np.squeeze(posterior[params[1]].samples)
+    a = np.squeeze(posterior[params[0]].samples)
+    b = np.squeeze(posterior[params[1]].samples)
     
     # Create 2D bin array
     par1pos_min = a.min()
@@ -802,7 +774,7 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
     
     H, xedges, yedges = np.histogram2d(a, b, nbins, normed=True)
 
-    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    extent = [xedges[0], xedges[-1], yedges[-1], yedges[0]]
     plt.imshow(np.transpose(H), aspect='auto', extent=extent, \
 interpolation='bicubic', cmap='gray_r')
     #plt.colorbar()

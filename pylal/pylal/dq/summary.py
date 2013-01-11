@@ -38,9 +38,9 @@ import StringIO
 import lal
 
 from dateutil.relativedelta import relativedelta
+from matplotlib import use
 
 # set display
-from matplotlib import use
 use("Agg")
 
 from pylal import git_version
@@ -77,6 +77,9 @@ MODE_NAME = {SUMMARY_MODE_GPS: "GPS",\
              SUMMARY_MODE_WEEK: "WEEK",\
              SUMMARY_MODE_MONTH: "MONTH",\
              SUMMARY_MODE_YEAR: "YEAR"}
+
+# set HTML globals
+TOGGLE = "toggleVisible();"
 
 # =============================================================================
 # Classes for tabs
@@ -597,10 +600,7 @@ class SectionSummaryTab(SummaryTab):
         Write the HTML frame for this SectionSummary.
         """
         self.frame = markup.page()
-
-        self.frame.h1(self.name, id_="h1_0")
-        self.frame.div(id_="div_0")
- 
+        div(self.frame, 0, self.name)
         if self.name == "Summary":
             order = ["Sensitivity", "Triggers", "Segments"]
             self.children.sort(key=lambda x: x.name in order\
@@ -625,7 +625,6 @@ class SectionSummaryTab(SummaryTab):
             if i % n == (n-1):
                 self.frame.tr.close()
         self.frame.table.close()
-
         self.frame.div.close()
 
     def frametohtml(self):
@@ -834,16 +833,12 @@ class SegmentSummaryTab(SummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s segments." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                      rel="full", class_="fancybox-button")
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
@@ -859,9 +854,7 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -871,13 +864,9 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # segment lists
-        self.frame.h2("Segment lists", id_="h2_0-3", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-3")
+        div(self.frame, (0, 3), "Segment lists")
         for i,flag in enumerate(self.flags):
-            self.frame.h3(flag, id_="h3_0-3-%d" % i, class_="closed",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3-%d" % i, style="display: none;")
+            div(self.frame, (0, 3, i), flag, display=False)
             segfile = self.segment_files.get(flag, None)
             if segfile is not None:
                 self.frame.p("The full segment list can be downloaded from %s."\
@@ -892,20 +881,17 @@ class SegmentSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1209,16 +1195,12 @@ class DataSummaryTab(SummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s data." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         if len(self.plots):
             self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                          rel="full", class_="fancybox-button")
@@ -1235,9 +1217,7 @@ class DataSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -1248,20 +1228,17 @@ class DataSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1294,16 +1271,12 @@ class RangeSummaryTab(DataSummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s range data." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         if len(self.plots):
             self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                          rel="full", class_="fancybox-button")
@@ -1327,9 +1300,7 @@ class RangeSummaryTab(DataSummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -1340,20 +1311,17 @@ class RangeSummaryTab(DataSummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1460,6 +1428,15 @@ class TriggerSummaryTab(SummaryTab):
         desc = kwargs.pop("description", None)
         if kwargs.get("cumulative", True) and not kwargs.has_key("normalize"):
             kwargs["normalize"] = float(abs(self.span))
+        if channels and len(channels) == 1:
+            kwargs.setdefault("title", "%s (%s)" % (latex(channels[0]),\
+                                                    latex(self.etg)))
+        elif not channels:
+            kwargs.setdefault("title", "%s (%s)"
+                                       % (latex(self.triggers.keys()[0]),\
+                                          latex(self.etg)))
+        kwargs.setdefault("subtitle",
+                          "%d-%d" % (int(self.start_time), int(self.end_time)))
         if channels is not None:
             trigs = dict((key,val) for key in self.triggers.keys() if key\
                          in channels)
@@ -1489,15 +1466,10 @@ class TriggerSummaryTab(SummaryTab):
         """
         desc = kwargs.pop("description", None)
         kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        if channels:
-            trigs = dict((key,val) for key in self.triggers.keys() if key\
-                         in channels)
-            plottriggers.plotrate(trigs, outfile, **kwargs)
-        elif len(self.triggers.keys()) == 1:
-            plottriggers.plotrate({"_":self.triggers.values()[0]}, outfile,\
-                                   **kwargs)
-        else:
-            plottriggers.plotrate(self.triggers, outfile, **kwargs)
+        kwargs.setdefault("title", "%s (%s) binned by %s"
+                                   % (latex(self.triggers.keys()[0]),
+                                      latex(self.etg), latex(kwargs["column"])))
+        plottriggers.plotrate(self.triggers.values()[0], outfile, **kwargs)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1542,16 +1514,12 @@ class TriggerSummaryTab(SummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s triggers." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                      rel="full", class_="fancybox-button")
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
@@ -1567,9 +1535,7 @@ class TriggerSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -1579,13 +1545,9 @@ class TriggerSummaryTab(SummaryTab):
         self.frame.div.close()
  
         # loudest triggers
-        self.frame.h2("Loudest triggers", id_="h2_0-3", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-3")
+        div(self.frame, (0, 3), "Loudest events")
         for i,chan in enumerate(self.channels):
-            self.frame.h3(chan, id_="h3_0-3-%d" % i, class_="closed",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3-%d" % i, style="display: none;")
+            div(self.frame, (0, 3, i), chan, display=False)
             trigfile = self.trigger_files.get(chan, None)
             if trigfile is not None:
                 self.frame.p("The full segment list can be downloaded from %s."\
@@ -1616,20 +1578,17 @@ class TriggerSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1881,16 +1840,12 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises auxiliary channel %s triggers."\
                      % self.name, class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         if len(self.plots):
             self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                          class_="fancybox-button", rel="full")
@@ -1922,16 +1877,12 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
         self.frame.div.close()
 
         # channel information
-        self.frame.h2("Auxiliary channels", id_="h2_0-2", class_="closed",\
-                      onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2", style="display: none;")
+        div(self.frame, (0, 2), "Auxiliary channels", display=False)
 
         for i,chan in enumerate(self.channels):
             if chan == self.mainchannel:
                 continue
-            self.frame.h3(chan, id_="h3_0-2-%d" % i, class_="closed",\
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-2-%d" % i, style="display: none;")
+            div(self.frame, (0, 2, i), chan, display=False)
             if (chan, self.mainchannel) in self.numcoincs:
                 th = ["Num. coinc with<br>%s" % (self.mainchannel),\
                       "Num %s<br>coinc with aux." % (self.mainchannel),\
@@ -1957,9 +1908,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-3", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3")
+            div(self.frame, (0, 3), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1995,16 +1944,12 @@ class StateVectorSummaryTab(SegmentSummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s state vector." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                      class_="fancybox-button", rel="full")
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
@@ -2024,9 +1969,7 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # other plots
         if len(self.plots) > 1:
-            self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-2")
+            div(self.frame, (0, 2), "Plots")
             for plot,desc in self.plots[1:]:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="half")
@@ -2035,14 +1978,10 @@ class StateVectorSummaryTab(SegmentSummaryTab):
             self.frame.div.close()
 
         # segment lists
-        self.frame.h2("Segment lists", id_="h2_0-3", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-3")
+        div(self.frame, (0, 3), "Segment lists")
         for i,bit in enumerate(self.bits):
             flag = self.bitmask[bit]
-            self.frame.h3(flag, id_="h3_0-3-%d" % i,\
-                          class_="closed", onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3-%d" % i, style="display: none;")
+            div(self.frame, (0, 3, i), flag, display=False)
             segfile = self.segment_files.get(flag, None)
             if segfile is not None:
                 self.frame.p("The full segment list can be downloaded from %s."\
@@ -2057,20 +1996,17 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -2311,6 +2247,9 @@ class SummaryState(object):
         self.definition = None
         self.segments = segments.segmentlist()
         self.set = False
+        self.segment_buffer = 0
+        self.event_buffer = 0
+        self.minimum_segment_length = None
 
         # define the tag and match
         self.tag = _r_cchar.sub("_", name.lower()).upper()
@@ -2543,3 +2482,25 @@ def plotclass(n):
         return "half"
     else:
         return "full"
+
+
+def div(page, id_, header, display=True):
+    """Write a new <div> tag to the give markup.page object
+    """
+    if isinstance(id_, int):
+        id_ = str(id_)
+    elif not isinstance(id_, str):
+        id_ = ".".join(list(map(str, id_)))
+    N = len(re.split("\.", id_))
+
+    if not display:
+        display = "display: none;"
+        class_ = "closed"
+    else:
+        display = "display: block;"
+        class_ = "open"
+
+    getattr(page, "h%d" % N)("%s %s" % (id_, header), onclick=TOGGLE,\
+                             id_="h%d_%s" % (N, id_.replace(".","-")),\
+                             class_=class_)
+    page.div(id_="div_%s" % id_.replace(".","-"), style=display)

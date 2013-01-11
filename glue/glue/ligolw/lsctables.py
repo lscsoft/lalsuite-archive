@@ -1786,24 +1786,33 @@ class MultiInspiralTable(table.Table):
 			return self.get_null_snr()
 		elif column == 'coinc_snr':
 			return self.get_coinc_snr()
+		elif column == 'reduced_chisq':
+			return self.get_reduced_chisq()
+		elif column == 'reduced_bank_chisq':
+			return self.get_reduced_bank_chisq()
+		elif column == 'reduced_cont_chisq':
+			return self.get_reduced_cont_chisq()
 		else:
 			return self.getColumnByName(column).asarray()
 
 	def get_coinc_snr(self):
-		return (numpy.asarray(self.get_sngl_snrs().values())**2)\
-			   .sum(axis=0)**(1./2.)
+		if len(self):
+			return (numpy.asarray(self.get_sngl_snrs().values())\
+                                   **2).sum(axis=0)**(1/2)
+		else:
+			return numpy.array([])
 
 	def get_end(self):
 		return [row.get_end() for row in self]
 
-	def get_new_snr(self, index=6.0, column='chisq'):
+	def get_new_snr(self, index=4.0, column='chisq'):
 		# kwarg 'index' is assigned to the parameter chisq_index
 		# nhigh gives the asymptotic large rho behaviour of
 		# d (ln chisq) / d (ln rho) 
 		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_%s' % column)
-		nhigh = index/3.
+		nhigh = 3.0
 		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
@@ -1854,12 +1863,13 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the single-detector SNRs for each row in the table.
 		"""
-		if len(self):
-			if not instruments:
-				instruments = map(str, \
-					instrument_set_from_ifos(self[0].ifos))
-			return dict((ifo, self.get_sngl_snr(ifo))\
-				    for ifo in instruments)
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_snr(ifo))\
+		            for ifo in instruments)
 
 	def get_sngl_chisq(self, instrument):
 		"""
@@ -1874,14 +1884,63 @@ class MultiInspiralTable(table.Table):
 		"""
 		Get the single-detector \chi^2 for each row in the table.
 		"""
-		if len(self):
-			if not instruments:
-				instruments = map(str, \
-					instrument_set_from_ifos(self[0].ifos))
-			return dict((ifo, self.get_sngl_chisq(ifo))\
-				    for ifo in instruments)
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_chisq(ifo))\
+		            for ifo in instruments)
 
+	def get_sngl_bank_chisq(self, instrument):
+		"""
+		Get the single-detector \chi^2 of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('bank_chisq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
 
+	def get_sngl_bank_chisqs(self, instruments=None):
+		"""
+		Get the single-detector \chi^2 for each row in the table.
+		"""
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_bank_chisq(ifo))\
+		            for ifo in instruments)
+
+	def get_sngl_cont_chisq(self, instrument):
+		"""
+		Get the single-detector \chi^2 of the given instrument for each
+		row in the table.
+		"""
+		return self.get_column('cont_chisq_%s'\
+		                       % (instrument.lower() in ['h1','h2'] and\
+                              instrument.lower() or instrument[0].lower()))
+
+	def get_sngl_cont_chisqs(self, instruments=None):
+		"""
+		Get the single-detector \chi^2 for each row in the table.
+		"""
+		if len(self) and instruments is None:
+			instruments = map(str, \
+			                instrument_set_from_ifos(self[0].ifos))
+		elif instruments is None:
+			instruments = []
+		return dict((ifo, self.get_sngl_cont_chisq(ifo))\
+		            for ifo in instruments)
+
+	def get_bestnr(self, index=4.0, null_snr_threshold=4.25):
+		"""
+		Get the BestNR statistic for each row in the table
+		"""
+		return [row.get_bestnr(index=index,\
+		                       null_snr_threshold=null_snr_threshold)\
+		        for row in self]
 
 	def getstat(self):
 		return self.get_column('snr')
@@ -1921,8 +1980,27 @@ class MultiInspiralTable(table.Table):
 		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
+	def get_reduced_chisq(self):
+		return self.get_column('chisq') / (2*self.get_column('chisq_dof') - 2)
+
+	def get_reduced_bank_chisq(self):
+		return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
+
+	def get_reduced_cont_chisq(self):
+		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
+
+
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+	def get_reduced_chisq(self):
+		return self.chisq / self.chisq_dof
+
+	def get_reduced_bank_chisq(self):
+		return self.bank_chisq / self.bank_chisq_dof
+
+	def get_reduced_cont_chisq(self):
+		return self.cont_chisq / self.cont_chisq_dof
 
 	def get_end(self):
 		return LIGOTimeGPS(self.end_time, self.end_time_ns)
@@ -2004,6 +2082,23 @@ class MultiInspiral(object):
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
+
+	def get_bestnr(self, index=4.0, null_snr_threshold=4.25):
+		"""
+		Return the BestNR statistic for this row.
+		"""
+		# weight SNR by chisq
+		bestnr = self.get_new_snr(index=index, column="chisq")
+		if len(self.get_ifos()) < 3:
+			return bestnr
+		# recontour null SNR threshold for higher SNRs
+		if self.snr > 20:
+			null_snr_threshold += (self.snr - 20)/5.
+		# weight SNR by null SNR
+		if self.get_null_snr() > null_snr_threshold:
+			bestnr /= 1 + self.get_null_snr() - null_snr_threshold
+		return bestnr
+
 
 MultiInspiralTable.RowType = MultiInspiral
 

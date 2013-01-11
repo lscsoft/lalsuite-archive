@@ -695,6 +695,9 @@ setup(
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
+		os.path.join("bin", "pylal_geom_aligned_bank"),
+		os.path.join("bin", "pylal_geom_aligned_2dstack"),
+		os.path.join("bin", "pylal_aligned_stoch_bank"),
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
@@ -727,7 +730,12 @@ setup(
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
 		os.path.join("bin", "pylal_summary_page"),
-		os.path.join("bin", "pylal_plot_triggers")
+		os.path.join("bin", "pylal_plot_triggers"),
+		os.path.join("bin", "ligolw_miinjfind"),
+		os.path.join("bin", "pylal_coh_PTF_cluster"),
+		os.path.join("bin", "pylal_coh_PTF_ihope"),
+		os.path.join("bin", "pylal_coh_PTF_dqv"),
+		os.path.join("bin", "pylal_coh_PTF_sbv"),
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
