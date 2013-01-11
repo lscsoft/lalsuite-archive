@@ -95,10 +95,9 @@ def parse_command_line():
                                              "options")
 
   sigopts.add_option("-M", "--mass-bins", action="store", type="string",\
-                     default="0,3.48;3.48,6;6,20",\
-                     help="semi-colon separated list of comma-separater pairs "\
-                          "of m_low,m_high mass bins, default: \"%default\". "\
-                          "Remember to surround this option in quotes.")
+                     default="0-3.48,3.48-6,6-20",\
+                     help="comma separated list of dash-separated pairs "\
+                          "of m_low-m_high mass bins, default: %default")
   sigopts.add_option("-Q", "--chisq-index", action="store", type="float",\
                      default=4.0, help="chisq_index for newSNR calculation, "+\
                                        "default: %default")
@@ -1603,7 +1602,7 @@ if __name__=='__main__':
      vetoFiles = glob.glob(opts.veto_directory +'/*CAT[%s]*.xml' %(vetoString))
 
  
-  massBins = map(lambda p: map(float, p.split(',')), opts.mass_bins.split(';'))
+  massBins = map(lambda p: map(float, p.split('-')), opts.mass_bins.split(','))
   numMCInjs = opts.num_mc_injections
 
   main(segdir, outdir, trigFile, foundFile, missedFile,\
