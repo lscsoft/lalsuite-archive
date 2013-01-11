@@ -434,7 +434,7 @@ class upper_limit(object):
       if self.opts.verbose:
         print >> sys.stdout, "mass bin %s" %str(mbin)
         print >> sys.stdout, "vols = ", vtmp
-        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[mbin],)
+        print >> sys.stdout, "\tLambda = d logV/d FAN = %f" % (volDeriv[mbin],)
 
       if vtmp.max() == 0: continue
       pyplot.errorbar(fans,vtmp,yerr=v2tmp,color='k')
