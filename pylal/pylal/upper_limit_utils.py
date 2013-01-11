@@ -306,7 +306,8 @@ def log_volume_derivative_fit(x, vols):
     Performs a linear least squares to log(vols) as a function of x.
     '''
     if numpy.min(vols) == 0:
-        print >> sys.stderr, "Warning: cannot fit log volume derivative as all volumes are zero!"
+        print >> sys.stderr, "Warning: cannot fit log volume derivative, one or more volumes are zero!"
+        print >> sys.stderr, vols
         return (0,0)
 
     coeffs, resids, rank, svs, rcond = numpy.polyfit(x, numpy.log(vols), 1, full=True)
