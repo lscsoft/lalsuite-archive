@@ -85,7 +85,7 @@ int XLALSimInspiralTaylorF2Test(
     const REAL8 vISCO = 1. / sqrt(6.);
     const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
     const REAL8 v0 = cbrt(piM * fStart);
-    REAL8 shft, phi0, amp0, f_max;
+    REAL8 shft, amp0, f_max;
     size_t i, n, iStart, iISCO;
     COMPLEX16 *data = NULL;
     LIGOTimeGPS tC = {0, 0};
@@ -94,7 +94,7 @@ int XLALSimInspiralTaylorF2Test(
     REAL8 pfaN = XLALSimInspiralTaylorF2_NewtCoeff(eta);
     REAL8 pfa0 = XLALSimInspiralTaylorF2_0PNCoeff();
     REAL8 pfa1 = XLALSimInspiralTaylorF2_05PNCoeff();
-    REAL8 pfa2 = XLALSimInspiralTaylorF2_1PNCoeff();
+    REAL8 pfa2 = XLALSimInspiralTaylorF2_1PNCoeff(eta);
     REAL8 pfa3 = XLALSimInspiralTaylorF2_15PNCoeff(beta);
     REAL8 pfa4 = XLALSimInspiralTaylorF2_2PNCoeff(eta,sigma);
     REAL8 pfa5 = XLALSimInspiralTaylorF2_25PNCoeff(eta);
@@ -156,7 +156,7 @@ int XLALSimInspiralTaylorF2Test(
     XLALUnitDivide(&htilde->sampleUnits, &htilde->sampleUnits, &lalSecondUnit);
 
     /* extrinsic parameters */
-    phi0 = phic;
+    //phi0 = phic;
     amp0 = 4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L); /* Why was there a factor of deltaF in the lalinspiral version? */
     shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
 
@@ -235,7 +235,7 @@ int XLALSimInspiralTaylorF2Test(
         flux *= FTaN * v10;
         dEnergy *= dETaN * v;
 
-        phasing += shft * f + phi0;
+        phasing += shft * f -2.0* phic;
         amp = amp0 * sqrt(-dEnergy/flux) * v;
         data[i] = amp * cos(phasing + LAL_PI_4) - amp * sin(phasing + LAL_PI_4) * 1.0j;
     }

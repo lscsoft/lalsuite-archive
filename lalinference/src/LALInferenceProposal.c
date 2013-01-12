@@ -281,7 +281,6 @@ LALInferenceCyclicProposal(LALInferenceRunState *runState, LALInferenceVariables
     XLALError(fname, __FILE__, __LINE__, XLAL_FAILURE);
     exit(1);
   }
-
   /* Call proposal. */
   (cycle[i])(runState, proposedParams);
 

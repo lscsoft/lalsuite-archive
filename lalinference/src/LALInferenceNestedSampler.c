@@ -564,7 +564,6 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 		    runState->evolve(runState);
             itercounter++;
 		}while( runState->currentLikelihood<=logLmin ||  *(REAL8*)LALInferenceGetVariable(runState->algorithmParams,"accept_rate")==0.0);
-
                 LALInferenceCopyVariables(runState->currentParams,runState->livePoints[minpos]);
 
                 logLikelihoods[minpos]=runState->currentLikelihood;
@@ -948,7 +947,7 @@ UINT4 LALInferenceMCMCSamplePrior(LALInferenceRunState *runState)
         /*LALInferenceCopyVariables(oldParams,runState->currentParams); */
     } 
     else {
-        accepted=1;
+       accepted=1;
 	LALInferenceCopyVariables(&proposedParams,runState->currentParams);
         LALInferenceSetVariable(runState->currentParams,"logPrior",&logPriorNew);
     }

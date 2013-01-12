@@ -2198,6 +2198,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     REAL8 injGPSTime = XLALGPSGetREAL8(&(theEventTable->geocent_end_time));
 
     REAL8 dist = theEventTable->distance;
+    REAL8 logdist=log(dist);
     REAL8 inclination = theEventTable->inclination;
     REAL8 phase = theEventTable->coa_phase;
     REAL8 dec = theEventTable->latitude;
@@ -2211,15 +2212,20 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     REAL8 eta=(m1*m2)/(m1+m2)/(m1+m2);
 
     REAL8 chirpmass = theEventTable->mchirp;
+    REAL8 logchirpmass=log(chirpmass);
     LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "logmc", &logchirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "massratio", &eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
+    LALInferenceAddVariable(vars, "massratio", &eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "inclination", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "logdistance", &logdist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
     LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);

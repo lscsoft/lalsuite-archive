@@ -884,8 +884,8 @@ Parameter arguments:\n\
         ppt=LALInferenceGetProcParamVal(commandLine,"--GRtestparameters");
         if (ppt) 
         {
-            REAL8 testParameter_max=0.5;
-            REAL8 testParameter_min=-0.5;
+            REAL8 testParameter_max=.5;
+            REAL8 testParameter_min=-.5;
             tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
             REAL8 zeroVal=0.0;
             if (checkParamInList(ppt->value,"dchi0")) 

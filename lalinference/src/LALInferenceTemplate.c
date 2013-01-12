@@ -1856,7 +1856,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   static REAL8 previous_spin2z;
   static REAL8 previous_phi0;
   static REAL8 previous_inclination;
-  //static REAL8 previous_dchi3;
+  static REAL8 previous_dchi3;
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
   
@@ -1972,10 +1972,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 			XLALSimInspiralAddTestGRParam(&nonGRparams,list_extra_parameters[k],*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,list_extra_parameters[k]));
 		}
     }
-    //REAL8 dchi3= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
     
-    // Salvo remember to add all the dchis here below Walter: they are unnecessary unless we want to lose backward compatibility
-    if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
+    REAL8 dchi3= 0.0;
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"dchi3")) dchi3=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
+        
+    // Salvo remember to add all the dchis here below
+    if(previous_dchi3!=dchi3||previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
@@ -1986,7 +1988,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
       previous_spin2z = spin2z;
       previous_phi0 = phi0;
       previous_inclination = inclination;
-      //previous_dchi3=dchi3;
+      previous_dchi3=dchi3;
     
       if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
         XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'htilde'.\n");
@@ -2021,7 +2023,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
         IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
       }
     }else{
-      /*do not recompute the waveform if only inclination has changed. The test assumes that deltaF, f_min and f_max did not change !*/
+       /*do not recompute the waveform if only inclination has changed. The test assumes that deltaF, f_min and f_max did not change !*/
       double previous_cosi = cos(previous_inclination);
 
       plusCoef  /= (-0.5 * (1.0 + previous_cosi*previous_cosi));

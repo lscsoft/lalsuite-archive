@@ -794,9 +794,9 @@ XLALSimInspiralTaylorF2_05PNCoeff(void)
     return 0.0;
 }
 static REAL8 UNUSED
-XLALSimInspiralTaylorF2_1PNCoeff(void)
+XLALSimInspiralTaylorF2_1PNCoeff(REAL8 eta)
 {
-    return 1.0;
+    return 5.L*(743.L/84.L + 11.L * eta)/9.L;
 }
 static REAL8 UNUSED 
 XLALSimInspiralTaylorF2_15PNCoeff(REAL8 beta)
