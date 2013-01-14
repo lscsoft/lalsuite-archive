@@ -56,3 +56,20 @@ void XLALSimGlitchNewTimeSeries(
     REAL8 deltaT,
     size_t length);
 
+void XLALSimGlitchNewSimBurst(
+    SimBurst **ret_sim,
+    SimBurst *next_sim,
+    INT4 gpsSeconds,
+    INT4 gpsNanoSeconds,
+    const char *waveform,
+    REAL8 duration,
+    REAL8 frequency,
+    REAL8 bandwidth,
+    REAL8 q,
+    REAL8 amplitude,
+    REAL8 hrss,
+    long process_id);
+
+void XLALSimGlitchPrintSimBurstTable(
+    SimBurst *head);
+
