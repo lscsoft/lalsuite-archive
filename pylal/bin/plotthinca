@@ -401,9 +401,7 @@ coincTriggers = CoincInspiralUtils.coincInspiralTable()
 
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
-                 ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id = True,
-                                           verbose=opts.verbose)
+           ReadSnglInspiralFromFiles(coincfiles, verbose=opts.verbose)
   
   # perform the veto
   if opts.veto_file:
@@ -469,9 +467,8 @@ if offsourcefiles:
 
   # read the off-source triggers
   inspTriggers = SnglInspiralUtils.\
-                 ReadSnglInspiralFromFiles(offsourcefiles,
-                                           mangle_event_id = True,
-                                           verbose=opts.verbose)
+           ReadSnglInspiralFromFiles(offsourcefiles, verbose=opts.verbose)
+
   # perform the veto
   if opts.offsource_veto_file:
     seglist = segmentsUtils.fromsegwizard(open(opts.offsource_veto_file, "r"))
@@ -525,9 +522,7 @@ if offsourcefiles:
 # read in slide triggers
 if slidefiles:
   inspSlide = SnglInspiralUtils.\
-              ReadSnglInspiralFromFiles(slidefiles,
-                                        mangle_event_id = True,
-                                        verbose=opts.verbose)
+           ReadSnglInspiralFromFiles(slidefiles, verbose=opts.verbose)
   
   # if there are no triggers, skip remaining slide stuff
 #  slidefiles = []

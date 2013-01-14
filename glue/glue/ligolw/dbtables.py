@@ -1100,7 +1100,7 @@ def use_in(ContentHandler):
 	"""
 	lsctables.use_in(ContentHandler)
 
-	def startTable(self, attrs):
+	def startTable(self, parent, attrs):
 		try:
 			connection = self.connection
 		except AttributeError:

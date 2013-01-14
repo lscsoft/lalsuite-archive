@@ -64,40 +64,43 @@ class SnglInspiralID_old(object):
     return lsctables.SnglInspiralID(a * 1000000000 + row.get_id_parts()[1] * 100000 + b)
 
 
-def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, non_lsc_tables_ok=False, old_document=False):
+def ReadSnglInspiralFromFiles(fileList, verbose=False):
   """
   Read the SnglInspiralTables from a list of files
 
   @param fileList: list of input files
-  @param mangle_event_id: ID remapping is necessary in cases where multiple
-    files might have event_id collisions (ex: exttrig injections)
-  @param verbose: print ligolw_add progress
+  @param verbose: print progress
   """
-  # ligolw_add() no longer supports lalapps_thinca.  files in
-  # lalapps_thinca's native format must be converted to coincs-tables
-  # format using ligolw_thinca_to_coinc before being processed by this
-  # function.  ligolw_add() only allows the mangle_event_id=True and
-  # old_document=False variant of this function to work properly.  this
-  # exception is here to detect calling codes that don't know this yet.
-  if old_document or not mangle_event_id:
-    raise ValueError("obsolete code error:  ReadSnglInspiralFromFiles() has been invoked with mangle_event_id=False and/or old_document=True.  The ligolw_add() library no longer supports lalapps_thinca, a.k.a. old document, format files.  Please convert your documents to coinc-tables format using ligolw_thinca_to_coinc, and re-run this program with the command line option(s) that put it in coinc-tables mode.  Also, please report this error to the CBC group so the program's author can update their code.")
+  # NOTE: this function no longer carries out event ID mangling (AKA
+  # reassignment). Please adjust calling codes accordingly!
+  # This means that identical event IDs produced by lalapps_thinca in
+  # non-slide files having the same GPS start time will stay identical,
+  # affecting zerolag and injection runs made over the same data.
+  #
+  # In consequence, if the calling code is going to reconstruct coincs
+  # from the sngl event IDs, and if these include multiple injection
+  # runs, coinc finding should be done one file at a time - see the
+  # readCoincInspiralFromFiles function in CoincInspiralUtils.py
 
-  # ligolw_add will merge all tables, which is overkill, but merge time is
-  # much less than I/O time.
-  xmldoc = ligolw_add.ligolw_add(ligolw.Document(), fileList, non_lsc_tables_ok=non_lsc_tables_ok,  verbose=verbose)
+  sngls = lsctables.New(lsctables.SnglInspiralTable, \
+      columns=lsctables.SnglInspiralTable.loadcolumns)
 
-  # extract the SnglInspiral table
-  try:
-    snglInspiralTriggers = table.get_table(xmldoc, \
-      lsctables.SnglInspiralTable.tableName)
-  except ValueError:
-    snglInspiralTriggers = None
+  for i,file in enumerate(fileList):
+    if verbose: print str(i+1)+"/"+str(len(fileList))+": "
+    xmldoc = utils.load_filename(file, verbose=verbose)
+    try:
+      sngl_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+    except ValueError: #some xml files have no sngl table, that's OK
+      sngl_table = None
+    if sngl_table: sngls.extend(sngl_table)
 
-  return snglInspiralTriggers
+    xmldoc.unlink()    #free memory
+
+  return sngls
 
 
 def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
-  mangleEventId=False, verbose=False, non_lsc_tables_ok=False):
+  verbose=False):
   """
   Function for reading time-slided single inspiral triggers
   with automatic resliding the times, given a list of input files.
@@ -105,16 +108,16 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
   @param fileList: List of files containing single inspiral time-slided
                    triggers
   @param shiftVector: Dictionary of time shifts to apply to triggers
-                      keyed by IFO  
+                      keyed by IFO
   @param vetoFile: segwizard formatted file used to veto all triggers
-  @param mangleEventId: ID remapping is necessary in cases where multiple
-    files might have event_id collisions (ex: exttrig injections)
-  @param verbose: print ligolw_add progress
+  @param verbose: print progress
   """
+  # NOTE: This function also will not mangle (reassign) lalapps_thinca
+  # style event IDs (see the previous function).
+  # Hence it will fail if fed event ID-related options.
 
   # read raw triggers
-  inspTriggers = ReadSnglInspiralFromFiles(\
-    fileList, verbose=verbose, mangle_event_id=mangleEventId, non_lsc_tables_ok=non_lsc_tables_ok )
+  inspTriggers = ReadSnglInspiralFromFiles(fileList, verbose=verbose)
   if inspTriggers:
     # get the rings
     segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(fileList)
@@ -240,7 +243,7 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
   """
   # don't do this in loops
   ring_duration = float(abs(ring))
-  
+ 
   # automate multi-list arithmetic
   ring = segments.segmentlistdict.fromkeys(seglistdict.keys(), segments.segmentlist([ring]))
 

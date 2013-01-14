@@ -1,4 +1,4 @@
-# Copyright (C) 2008  Kipp Cannon, Drew G. Keppel
+# Copyright (C) 2008--2012  Kipp Cannon, Drew G. Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -674,8 +674,8 @@ class sngl_inspiral_coincs(object):
 		coinc_event = self.coinc_event_index[coinc_event_id]
 		new_coinc_event_table.append(coinc_event)
 		new_coinc_inspiral_table.append(self.coinc_inspiral_index[coinc_event_id])
-		new_coinc_event_map_table.extend(self.coinc_event_map_index[coinc_event_id])
-		new_time_slide_table.extend(self.time_slide_index[coinc_event.time_slide_id])
+		map(new_coinc_event_map_table.append, self.coinc_event_map_index[coinc_event_id])
+		map(new_time_slide_table.append, self.time_slide_index[coinc_event.time_slide_id])
 		for row in new_coinc_event_map_table:
 			new_sngl_inspiral_table.append(self.sngl_inspiral_index[row.event_id])
 
@@ -683,7 +683,7 @@ class sngl_inspiral_coincs(object):
 			# process row is required
 			new_process_table.append(self.process_index[process_id])
 			try:
-				new_process_params_table.extend(self.process_params_index[process_id])
+				map(new_process_params_table.append, self.process_params_index[process_id])
 			except KeyError:
 				# process_params rows are optional
 				pass
