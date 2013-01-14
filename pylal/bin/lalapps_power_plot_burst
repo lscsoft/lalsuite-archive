@@ -34,9 +34,10 @@ import sys
 
 from glue import segments
 from glue.lal import CacheEntry
-from glue.ligolw import table
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import date
 from pylal import git_version
 from pylal import llwapp
@@ -44,6 +45,9 @@ from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import viz
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -74,7 +78,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.input_cache:
-		filenames.extend([c.path() for c in map(CacheEntry, file(options.input_cache))])
+		filenames.extend([c.path for c in map(CacheEntry, file(options.input_cache))])
 
 	if options.plot:
 		options.plot = map(int, options.plot)
@@ -212,7 +216,10 @@ class RateVsPeakFreq(object):
 	def add_contents(self, contents, seglists):
 		self.nevents += contents[self.ifo].nevents
 		for f in contents[self.ifo].peak_freq:
-			self.rate[f,] += 1.0
+			try:
+				self.rate[f,] += 1.0
+			except IndexError:
+				raise ValueError("trigger peak frequency %g Hz outside plot range [%g Hz, %g Hz]" % (f, self.rate.bins[0].min, self.rate.bins[0].max))
 
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Peak Frequency\n(%d Triggers)" % self.nevents)
@@ -399,8 +406,8 @@ seglists = segments.segmentlistdict()
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose)
-	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.livetime_program).coalesce()
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
+	seglists |= ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, options.livetime_program).coalesce()
 	xmldoc.unlink()
 
 

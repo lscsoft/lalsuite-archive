@@ -33,23 +33,20 @@ import sys
 
 
 from glue.lal import CacheEntry
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue import segmentsUtils
-# Don't use sngl_inspiral event_id derived from the long built-in.  this
-# must be done before importing pylal.xlal.tools or bad things happen.
-# FIXME:  remove when thinca no longer generates bazillion-digit long
-# event_ids and the custom screwy event ID mess is all gone away.  (or
-# people stop using Macs, which ever comes first).
-del lsctables.ilwd.ilwdchar_class_cache[("sngl_inspiral", "event_id")]
-lsctables.SnglInspiralID = lsctables.ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -107,13 +104,13 @@ def parse_command_line():
 	required_options = ["e_thinca_parameter", "effective_snr"]
 	missing_options = [option for option in required_options if getattr(options, option) is None]
 	if missing_options:
-		raise ValueError, "missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options)
+		raise ValueError("missing required option(s) %s" % ", ".join("--%s" % option.replace("_", "-") for option in missing_options))
 	if options.effective_snr not in ("inspiral", "gstlal"):
-		raise ValueError, "unrecognized --effective-snr %s" % options.effective_snr
+		raise ValueError("unrecognized --effective-snr %s" % options.effective_snr)
 
 	if options.coinc_end_time_segment is not None:
 		if ',' in options.coinc_end_time_segment:
-			raise ValueError, "--coinc-end-time-segment may only contain a single segment"
+			raise ValueError("--coinc-end-time-segment may only contain a single segment")
 		options.coinc_end_time_segs = segmentsUtils.from_range_strings([options.coinc_end_time_segment], boundtype = LIGOTimeGPS).coalesce()
 	else:
 		options.coinc_end_time_segs = None
@@ -192,7 +189,7 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#

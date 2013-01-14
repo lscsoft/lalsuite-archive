@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # Copyright (C) 2012  Scott Koranda
 #
@@ -64,8 +64,8 @@ __data__    = git_version.date
 def wcacheFromLALCache(cache):
     wcachedict={}
     for e in cache:
-        dir = os.path.split(e.path())[0]
-        lfn = os.path.basename(e.path())
+        dir = os.path.split(e.path)[0]
+        lfn = os.path.basename(e.path)
         if wcachedict.has_key(dir):
             l = wcachedict[dir]
             if l[2] > int(e.segment[0]):

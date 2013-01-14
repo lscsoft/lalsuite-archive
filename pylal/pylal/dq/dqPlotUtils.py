@@ -892,8 +892,13 @@ class LineHistogram(ColorbarScatterPlot, plotutils.BasicPlot):
 
       # convert to rate
       if rate:
-        y = y/livetime
-        ymin /= livetime
+        if livetime > 0:
+          y = y/livetime
+          ymin /= livetime
+        else:
+          y = numpy.empty(y.shape)
+          y.fill(numpy.nan)
+          ymin = numpy.nan
 
       # reset zeros on logscale, tried with numpy, unreliable
       if logy:
@@ -2595,6 +2600,9 @@ def plot_trigger_rate(triggers, outfile, average=600, start=None, end=None,\
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
 
+  # get averaging time
+  average = kwargs.pop('average',average)
+
   # get colorbar options
   hidden_colorbar = kwargs.pop('hidden_colorbar', False)
 
@@ -2778,6 +2786,9 @@ def plot_trigger_rms(triggers, outfile, average=600, start=None, end=None,\
   # get axis scales
   logx = kwargs.pop('logx', False)
   logy = kwargs.pop('logy', False)
+
+  # get averaging time
+  average = kwargs.pop('average',average)
 
   # get colorbar options
   hidden_colorbar = kwargs.pop('hidden_colorbar', False)
@@ -3046,7 +3057,7 @@ def parse_plot_config(cp, section):
   booleans = ['logx', 'logy', 'logz', 'cumulative', 'rate', 'detchar',\
               'greyscale', 'zeroindicator', 'normalized', 'include_downtime',\
               'calendar_time', 'fill', 'hidden_colorbar']
-  values   = ['dcthresh','amplitude','num_bins']
+  values   = ['dcthresh','amplitude','num_bins','linewidth','average','s']
 
   # extract plot params as a dict
   params = {}
@@ -3186,8 +3197,8 @@ def plot_color_map(data, outfile, data_limits=None, x_format='time',\
         limits[i] = (numpy.asarray(limits[i])-float(zero))/unit
       for i,data_limits in enumerate(data_limit_sets):
         if calendar_time:
-          data_limit_sets[i][0] = gps2datenum(data_limits[0])
-          data_limit_sets[i][1] = gps2datenum(data_limits[1])
+          data_limit_sets[i][0] = gps2datenum(float(data_limits[0]))
+          data_limit_sets[i][1] = gps2datenum(float(data_limits[1]))
         else:
           data_limit_sets[i][0] = float(data_limits[0]-zero)/unit
           data_limit_sets[i][1] = float(data_limits[1]-zero)/unit

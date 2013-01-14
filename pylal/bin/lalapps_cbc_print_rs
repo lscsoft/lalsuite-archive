@@ -19,7 +19,6 @@ from glue.ligolw import table
 from glue.ligolw import utils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils.print_tables import print_tables
 from glue import segments
 

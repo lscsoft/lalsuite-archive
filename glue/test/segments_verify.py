@@ -1,8 +1,9 @@
+import doctest
+import pickle
 import random
 import sys
 import unittest
 import verifyutils
-import doctest
 
 
 #
@@ -312,7 +313,18 @@ class test_segmentlist(unittest.TestCase):
 			except AssertionError, e:
 				raise AssertionError, str(e) + "\na = " + str(a) + "\nb = " + str(b)
 
+	def testextent(self):
+		self.assertEqual(segments.segmentlist([(1, 0)]).extent(), segments.segment(0, 1))
+
 	def testcoalesce(self):
+		# check that mixed-type coalescing works
+		x = segments.segmentlist([segments.segment(1, 2), segments.segment(3, 4), (2, 3)])
+		try:
+			self.assertEqual(x.coalesce(), segments.segmentlist([segments.segment(1, 4)]))
+		except AssertionError, e:
+			raise AssertionError, "mixed type coalesce failed:  got %s" % str(x)
+
+		# try a bunch of random segment lists
 		for i in xrange(algebra_repeats):
 			a = verifyutils.random_uncoalesced_list(random.randint(1, algebra_listlength))
 			b = segments.segmentlist(a[:]).coalesce()
@@ -328,6 +340,10 @@ class test_segmentlist(unittest.TestCase):
 
 
 class test_segmentlistdict(unittest.TestCase):
+	def testextent_all(self):
+		a = segments.segmentlistdict({"H1": segments.segmentlist(), "L1": segments.segmentlist([segments.segment(25, 35)])})
+		self.assertEqual(a.extent_all(), segments.segment(25, 35))
+
 	def testintersects(self):
 		a = segments.segmentlistdict({"H1": segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])})
 		b = segments.segmentlistdict({"H1": segments.segmentlist([segments.segment(5, 15)]), "L1": segments.segmentlist([segments.segment(25, 35)])})
@@ -347,6 +363,13 @@ class test_segmentlistdict(unittest.TestCase):
 		self.assertEqual(b.all_intersects(a), False)
 
 		self.assertEqual(a.all_intersects_all(b), False)
+
+	def testpickle(self):
+		a = segments.segmentlistdict({"H1": segments.segmentlist([segments.segment(0, 10), segments.segment(20, 30)])})
+		a.offsets["H1"] = 10.0
+		self.assertEqual(a, pickle.loads(pickle.dumps(a, protocol = 0)))
+		self.assertEqual(a, pickle.loads(pickle.dumps(a, protocol = 1)))
+		self.assertEqual(a, pickle.loads(pickle.dumps(a, protocol = 2)))
 
 
 #

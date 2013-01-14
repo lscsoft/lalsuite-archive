@@ -8,6 +8,7 @@
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #       Salvatore Vitale <salvatore.vitale@ligo.org>
+#       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -35,6 +36,7 @@ of the Bayesian parameter estimation codes.
 
 #standard library imports
 import os
+import sys
 from math import ceil,floor,sqrt,pi as pi_constant
 import xml
 from xml.dom import minidom
@@ -42,12 +44,39 @@ from operator import itemgetter
 
 #related third party imports
 import numpy as np
+from numpy import fmod
+import matplotlib
 from matplotlib import pyplot as plt,cm as mpl_cm,lines as mpl_lines
 from scipy import stats
 from scipy import special
+from scipy import signal
 from numpy import linspace
-
 import random
+
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
+
+# Default font properties
+fig_width_pt = 246  # Get this from LaTeX using \showthe\columnwidth
+inches_per_pt = 1.0/72.27               # Convert pt to inch
+golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
+fig_width = fig_width_pt*inches_per_pt  # width in inches
+fig_height = fig_width*golden_mean      # height in inches
+fig_size =  [fig_width,fig_height]
+matplotlib.rcParams.update(
+        {'axes.labelsize': 11,
+        'text.fontsize':   11,
+        'legend.fontsize': 11,
+        'xtick.labelsize': 11,
+        'ytick.labelsize': 11,
+        'text.usetex': False,
+        'figure.figsize': fig_size,
+        'font.family': "serif",
+        'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
+        'font.weight':'normal',
+        'font.size':11,
+        'savefig.dpi': 120
+        })
+
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
@@ -57,6 +86,7 @@ except ImportError:
 
 #local application/library specific imports
 import pylal
+from pylal import lalconstants
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
@@ -151,27 +181,45 @@ border-bottom-style:double;
 #===============================================================================
 def _inj_m1(inj):
     """
-    Function mapping (mchirp,eta)->m1; m1>m2 .
+    Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
+    components (m1) calculated from the chirp mass and the symmetric mass ratio.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+    @rtype: number
     """
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass1
 def _inj_m2(inj):
     """
-    Function mapping (mchirp,eta)->m2; m1>m2 .
+    Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
+    components (m2) calculated from the chirp mass and the symmetric mass ratio.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+    @rtype: number
     """
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2
 
 def _inj_q(inj):
     """
-    Function mapping (mchirp,eta)->q; m1>m2 .
+    Return the mapping of (mchirp,eta)->q; m1>m2 i.e. return the mass ratio q=m2/m1.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+    @rtype: number 
     """
     (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
     return mass2/mass1
 
 def _inj_longitude(inj):
     """
-    Map the value of the longitude found in inj to an interval [0,2*pi).
+    Return the mapping of longitude found in inj to the interval [0,2*pi).
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attribute 'longitude'.
+    @rtype: number
     """
     if inj.longitude>2*pi_constant or inj.longitude<0.0:
         maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
@@ -181,12 +229,28 @@ def _inj_longitude(inj):
         return inj.longitude
 
 def _inj_a1(inj):
+    """
+    Return the magnitude of the spin 1 vector. Calculates the spin magnitude
+    from it's components.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attribute 'spin1x','spin1y', and 'spin1z' (the spin components).
+    @rtype: number
+    """
     x = inj.spin1x
     y = inj.spin1y
     z = inj.spin1z
     return sqrt(x*x + y*y + z*z)
 
 def _inj_a2(inj):
+    """
+    Return the magnitude of the spin 2 vector. Calculates the spin magnitude
+    from it's components.
+    
+    @type inj: glue.ligolw.lsctables.SimInspiral
+    @param inj: a custom type with the attribute 'spin2x','spin2y', and 'spin2z' (the spin components).
+    @rtype: number
+    """
     x = inj.spin2x
     y = inj.spin2y
     z = inj.spin2z
@@ -237,93 +301,61 @@ def _inj_phi2(inj):
             return phi_mpi_to_pi
 
 def _inj_tilt1(inj):
-    Sx  = inj.spin1x
-    Sy  = inj.spin1y
-    Sz  = inj.spin1z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt1 = array_ang_sep(L,S1)
+    if np.max(S1) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt1
 
 def _inj_tilt2(inj):
-    Sx  = inj.spin2x
-    Sy  = inj.spin2y
-    Sz  = inj.spin2z
-    Lnx = np.arcsin(inj.inclination)
-    Lny = 0.0
-    Lnz = np.arccos(inj.inclination)
-    if Sx == 0.0 and Sy == 0.0 and Sz == 0.0:
+    S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    tilt2 = array_ang_sep(L,S2)
+    if np.max(S2) == 0.0:
         return None
     else:
-        return np.arccos(Sx*Lnx + Sy*Lny + Sz*Lnz)
+        return tilt2
 
 def _inj_thetas(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
 
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
-    
-    S1x  = inj.m1*inj.m1*inj.spin1x
-    S1y  = inj.m1*inj.m1*inj.spin1y
-    S1z  = inj.m1*inj.m1*inj.spin1z
-    
-    S2x  = inj.m2*inj.m2*inj.spin2x
-    S2y  = inj.m2*inj.m2*inj.spin2y
-    S2z  = inj.m2*inj.m2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos(Jz/Jmag)
+    thetas = array_polar_ang(J)
+    return thetas
     
 def _inj_beta(inj):
-    mtsun = 4.92549095e-06  #Msol in seconds
-    f_inj = 40.0            #Assume starting frequency is 40Hz TODO: not assume
-
-    Lmag = np.power(inj.mchirp,5.0/3.0) / np.power(pi_constant * mtsun * f_inj,1.0/3.0)
-    Lx = Lmag * np.arcsin(inj.inclination)
-    Ly = 0.0
-    Lz = Lmag * np.arccos(inj.inclination)
+    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
+    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+    J = L + S1 + S2
     
-    S1x  = inj.mass1*inj.mass1*inj.spin1x
-    S1y  = inj.mass1*inj.mass1*inj.spin1y
-    S1z  = inj.mass1*inj.mass1*inj.spin1z
-    
-    S2x  = inj.mass2*inj.mass2*inj.spin2x
-    S2y  = inj.mass2*inj.mass2*inj.spin2y
-    S2z  = inj.mass2*inj.mass2*inj.spin2z
-
-    Jx = Lx + S1x + S2x
-    Jy = Ly + S1y + S2y
-    Jz = Lz + S1z + S2z
-    Jmag = np.sqrt(Jx*Jx + Jy*Jy + Jz*Jz)
-
-    return np.arccos((Jx*Lx + Jy*Ly + Jz*Lz)/(Jmag*Lmag))
+    beta  = array_ang_sep(J,L)
+    return beta
 
 
 #===============================================================================
 # Class definitions
 #===============================================================================
 
-class OneDPosterior(object):
+class PosteriorOneDPDF(object):
     """
-    A data structure for a single chain of posterior samples.
+    A data structure representing one parameter in a chain of posterior samples. 
+    The Posterior class generates instances of this class for pivoting onto a given
+    parameter (the Posterior class is per-Sampler oriented whereas this class represents
+    the same one parameter in successive samples in the chain).
     """
     def __init__(self,name,posterior_samples,injected_value=None,trigger_values=None,prior=None):
         """
-        Constructor.
+        Create an instance of PosteriorOneDPDF based on a table of posterior_samples.
 
         @param name: A literal string name for the parameter.
         @param posterior_samples: A 1D array of the samples.
         @keyword injected_value: The injected or real value of the parameter.
+        @type injected_value: glue.ligolw.lsctables.SimInspiral
         @keyword trigger_values: The trigger values of the parameter (dictionary w/ IFOs as keys).
         @keyword prior: The prior value corresponding to each sample.
         """
@@ -346,33 +378,41 @@ class OneDPosterior(object):
         """
         Container method . Returns posterior containing sample idx (allows slicing).
         """
-        return OneDPosterior(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
+        return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
         
     @property
     def name(self):
         """
-        Return the literal name of the parameter.
+        Return the string literal name of the parameter.
+        
+        @rtype: string
         """
         return self.__name
 
     @property
     def mean(self):
         """
-        Calculate the arithmetic mean of the 1D samples.
+        Return the arithmetic mean for the marginal PDF on the parameter.
+        
+        @rtype: number
         """
         return np.mean(self.__posterior_samples)
 
     @property
     def median(self):
         """
-        Find the median value of the 1D samples.
+        Return the median value for the marginal PDF on the parameter.
+        
+        @rtype: number
         """
         return np.median(self.__posterior_samples)
 
     @property
     def stdev(self):
         """
-        Return the standard deviation of the 1D samples.
+        Return the standard deviation of the marginal PDF on the parameter.
+        
+        @rtype: number
         """
         try:
             stdev = sqrt(np.var(self.__posterior_samples))
@@ -386,13 +426,17 @@ class OneDPosterior(object):
     @property
     def stacc(self):
         """
-         The 'standard accuracy statistic' (stacc) - a standard deviant incorporating
-        information about the accuracy of the waveform recovery. Defined as
-        the mean of the sum of the squared differences between the points
-        in the PDF (x_i - sampled according to the posterior) and the
-        true value (x_{\rm true}).
-        So for a marginalized one-dimensional PDF:
+        Return the 'standard accuracy statistic' (stacc) of the marginal 
+        posterior of the parameter. 
+        
+        stacc is a standard deviant incorporating information about the 
+        accuracy of the waveform recovery. Defined as the mean of the sum 
+        of the squared differences between the points in the PDF 
+        (x_i - sampled according to the posterior) and the true value 
+        (x_{\rm true}).  So for a marginalized one-dimensional PDF:
         stacc = \sqrt{\frac{1}{N}\sum_{i=1}^N (x_i-x_{\rm true})2}
+        
+        @rtype: number
         """
         if self.__injval is None:
             return None
@@ -404,14 +448,18 @@ class OneDPosterior(object):
         """
         Return the injected value set at construction . If no value was set
         will return None .
+        
+        @rtype: undefined
         """
         return self.__injval
 
     @property
     def trigvals(self):
         """
-        Return the trigger values set at construction . If no value was set
+        Return the trigger values set at construction. If no value was set
         will return None .
+        
+        @rtype: undefined
         """
         return self.__trigvals
 
@@ -421,6 +469,7 @@ class OneDPosterior(object):
         Set the injected/real value of the parameter.
 
         @param new_injval: The injected/real value to set.
+        @type new_injval: glue.ligolw.lsctables.SimInspiral
         """
 
         self.__injval=new_injval
@@ -430,6 +479,7 @@ class OneDPosterior(object):
         Set the trigger values of the parameter.
 
         @param new_trigvals: Dictionary containing trigger values with IFO keys.
+        @type new_trigvals: glue.ligolw.lsctables.SnglInspiral
         """
 
         self.__trigvals=new_trigvals
@@ -438,6 +488,8 @@ class OneDPosterior(object):
     def samples(self):
         """
         Return a 1D numpy.array of the samples.
+        
+        @rtype: numpy.array
         """
         return self.__posterior_samples
 
@@ -445,14 +497,17 @@ class OneDPosterior(object):
         """
         Remove samples from posterior, analagous to numpy.delete but opperates in place.
 
-        @param samples: A list of the indexes of the samples to remove.
+        @param samples: A list containing the indexes of the samples to be removed.
+        @type samples: list
         """
         self.__posterior_samples=np.delete(self.__posterior_samples,samples).reshape(-1,1)
 
     @property
     def gaussian_kde(self):
         """
-        Return a gaussian kde of the samples.
+        Return a SciPy gaussian_kde (representing a Gaussian KDE) of the samples.
+        
+        @rtype: scipy.stats.kde.gaussian_kde
         """
         from numpy import seterr as np_seterr
         from scipy import seterr as sp_seterr
@@ -474,6 +529,7 @@ class OneDPosterior(object):
         Evaluate probability intervals.
 
         @param intervals: A list of the probability intervals [0-1]
+        @type intervals: list
         """
         list_of_ci=[]
         samples_temp=np.sort(np.squeeze(self.samples))
@@ -508,28 +564,33 @@ class Posterior(object):
 
         @param commonResultsFormatData: A 2D array containing the posterior
             samples and related data. The samples chains form the columns.
-
+        @type commonResultsFormatData: custom type
+        @param SimInspiralTableEntry: A SimInspiralTable row containing the injected values.
+        @type SimInspiralTableEntry: glue.ligolw.lsctables.SimInspiral
+        @param SnglInspiralList: A list of SnglInspiral objects containing the triggers.
+        @type SnglInspiralList: list
+        
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
-        self._loglaliases=['posterior', 'logl','logL','likelihood']
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
         
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             
-            self._posterior[param_name]=OneDPosterior(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
         and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
             try:
                 print 'Inferring m1 and m2 from mchirp and eta'
                 (m1,m2)=mc2ms(self._posterior['mchirp'].samples, self._posterior['eta'].samples)
-                self._posterior['m1']=OneDPosterior('m1',m1,injected_value=self._getinjpar('m1'),trigger_values=self._gettrigpar('m1'))
-                self._posterior['m2']=OneDPosterior('m2',m2,injected_value=self._getinjpar('m2'),trigger_values=self._gettrigpar('m2'))
+                self._posterior['m1']=PosteriorOneDPDF('m1',m1,injected_value=self._getinjpar('m1'),trigger_values=self._gettrigpar('m1'))
+                self._posterior['m2']=PosteriorOneDPDF('m2',m2,injected_value=self._getinjpar('m2'),trigger_values=self._gettrigpar('m2'))
             except KeyError:
                 print 'Unable to deduce m1 and m2 from input columns'
 
@@ -561,6 +622,8 @@ class Posterior(object):
         """
         Returns a new Posterior object that contains a bootstrap
         sample of self.
+        
+        @rtype: Posterior
         """
         names=[]
         samples=[]
@@ -584,7 +647,8 @@ class Posterior(object):
         """
         Remove samples from all OneDPosteriors.
 
-        @param samples: The indixes of the samples to remove.
+        @param samples: The indexes of the samples to be removed.
+        @type samples: list
         """
         for name,pos in self:
             pos.delete_samples_by_idx(samples)
@@ -595,6 +659,7 @@ class Posterior(object):
         Remove samples containing NaN in request params.
 
         @param param_list: The parameters to be checked for NaNs.
+        @type param_list: list
         """
         nan_idxs = np.array(())
         nan_dict = {}
@@ -616,7 +681,9 @@ class Posterior(object):
     @property
     def injection(self):
         """
-        Return the injected values .
+        Return the injected values.
+        
+        @rtype: glue.ligolw.lsctables.SimInspiral
         """
 
         return self._injection
@@ -625,6 +692,8 @@ class Posterior(object):
     def triggers(self):
         """
         Return the trigger values .
+        
+        @rtype: list
         """
 
         return self._triggers
@@ -642,6 +711,8 @@ class Posterior(object):
     def longest_chain_cycles(self):
         """
         Returns the number of cycles in the longest chain
+        
+        @rtype: number
         """
         samps,header=self.samples()
         header=header.split()
@@ -664,7 +735,8 @@ class Posterior(object):
         """
         Set the injected values of the parameters.
 
-        @param injection: A SimInspiralTable row object.
+        @param injection: A SimInspiralTable row object containing the injected parameters.
+        @type injection: glue.ligolw.lsctables.SimInspiral
         """
         if injection is not None:
             self._injection=injection
@@ -678,6 +750,7 @@ class Posterior(object):
         Set the trigger values of the parameters.
 
         @param triggers: A list of SnglInspiral objects.
+        @type triggers: list
         """
         if triggers is not None:
             self._triggers=triggers
@@ -691,13 +764,15 @@ class Posterior(object):
                         'mchirp':lambda inj:inj.mchirp,
                         'chirpmass':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
-                        'mass1':_inj_m1,
-                        'm1':_inj_m1,
-                        'mass2':_inj_m2,
-                        'm2':_inj_m2,
+                        'mass1':lambda inj:inj.mass1,
+                        'm1':lambda inj:inj.mass1,
+                        'mass2':lambda inj:inj.mass2,
+                        'm2':lambda inj:inj.mass2,
                         'eta':lambda inj:inj.eta,
                         'q':_inj_q,
                         'asym_massratio':_inj_q,
+                        'massratio':lambda inj:inj.eta,
+                        'sym_massratio':lambda inj:inj.eta,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
@@ -728,8 +803,14 @@ class Posterior(object):
                         'costilt1': lambda inj: np.cos(_inj_tilt1),
                         'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
-                        'theta_s':_inj_thetas,
-                        'beta':_inj_beta
+                        'thetas':_inj_thetas,
+                        'beta':_inj_beta,
+                        'polarisation':lambda inj:inj.polarization,
+                        'polarization':lambda inj:inj.polarization,
+                        'h1_end_time':lambda inj:float(inj.get_end('H')),
+                        'l1_end_time':lambda inj:float(inj.get_end('L')),
+                        'v1_end_time':lambda inj:float(inj.get_end('V')),
+                        'lal_amporder':lambda inj:inj.amp_order
                        }
 
     def _getinjpar(self,paramname):
@@ -797,7 +878,7 @@ class Posterior(object):
         pos_array,header=self.samples
         while current_item < len(self):
             sample_array=(np.squeeze(pos_array[current_item,:]))
-            yield ParameterSample(sample_array, header, header)
+            yield PosteriorSample(sample_array, header, header)
             current_item += 1
 
 
@@ -871,7 +952,7 @@ class Posterior(object):
 
     def pop(self,param_name):
         """
-        Container method.  Remove OneDPosterior from the Posterior instance.
+        Container method.  Remove PosteriorOneDPDF from the Posterior instance.
         """
         return self._posterior.pop(param_name)
 
@@ -896,7 +977,7 @@ class Posterior(object):
                 new_trigs = None
 
             samps = func(old_post.samples)
-            new_post = OneDPosterior(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
+            new_post = PosteriorOneDPDF(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
             if new_post.samples.ndim is 0:
                 print "WARNING: No posterior calculated for %s ..." % post.name
             else:
@@ -920,7 +1001,7 @@ class Posterior(object):
                         new_trigs[IFO] = func(*oldvals)
                 else:
                     new_trigs = None
-                new_post = OneDPosterior(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
+                new_post = PosteriorOneDPDF(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
                 self.append(new_post)
             #MultiD output
             else:
@@ -937,7 +1018,7 @@ class Posterior(object):
                             new_trigs[param][IFO] = newval
                 else:
                     new_trigs = [None for param in range(len(new_param_names))]
-                new_posts = [OneDPosterior(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
+                new_posts = [PosteriorOneDPDF(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
                 for post in new_posts: 
                     if post.samples.ndim is 0: 
                         print "WARNING: No posterior calculated for %s ..." % post.name
@@ -984,7 +1065,7 @@ class Posterior(object):
         samples,header=self.samples()
         header=header.split()
         coord_names=[name for name in allowed_coord_names if name in header]
-        coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+        coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
         tree=KDTree(coordinatized_samples)
 
         if "prior" in header and "logl" in header:
@@ -1020,7 +1101,7 @@ class Posterior(object):
         indexes=np.argsort(self._logL[:,0])
 
         my_samples=samples[indexes[-n:], :] # The highest posterior samples.
-        my_samples=np.array([ParameterSample(sample,header,coord_names).coord() for sample in my_samples])
+        my_samples=np.array([PosteriorSample(sample,header,coord_names).coord() for sample in my_samples])
 
         mu=np.mean(my_samples, axis=0)
         cov=np.cov(my_samples, rowvar=0)
@@ -1036,7 +1117,7 @@ class Posterior(object):
         ellipse_logl=[]
         ellipse_samples=[]
         for sample,logl in zip(samples, self._logL):
-            coord=ParameterSample(sample, header, coord_names).coord()
+            coord=PosteriorSample(sample, header, coord_names).coord()
             d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
 
             if d <= d0:
@@ -1384,10 +1465,168 @@ class KDTree(object):
         else:
             
             return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
-            
-    
-    
-class ParameterSample(object):
+
+
+class KDTreeVolume(object):
+    """
+    A kD-tree suitable for splitting parameter spaces and counting hypervolumes.
+    Is modified from the KDTree class so that bounding boxes are stored. This means that
+    there are no longer gaps in the hypervolume once the samples have been split into groups.
+    """
+    def __init__(self, objects,boundingbox,dims=0):
+        """
+        Construct a kD-tree from a sequence of objects.  Each object
+        should return its coordinates using obj.coord().
+        the obj should also store the bounds of the hypervolume its found in.
+        for non-leaf objects we need the name of the dimension split and value at split.
+        """
+        self._dimension = dims
+        self._bounds = boundingbox
+        self._weight = 1
+        if len(objects) == 0: #for no objects - something is wrong, i think it can only happen in first call
+            raise RuntimeError("cannot construct kD-tree out of zero objects---you may have a repeated sample in your list")
+        elif len(objects) == 1: #1 object, have reached leaf of tree
+            self._objects = objects[:]
+        elif self._same_coords(objects): # When ALL samples have the same coordinates in all dimensions
+            self._weight = len(objects)
+            self._objects = [ objects[0] ] #need to modify kdtree_bin functions to use _weight to get correct number of samples
+            coord=self._objects[0].coord()
+        else: #construct next level of tree with multiple samples
+            self._objects = objects[:]
+            split_dim = self._dimension
+            sorted_objects=sorted(self._objects, key=lambda obj: (obj.coord())[split_dim])
+            N = len(sorted_objects)
+            self._split_value = 0.5*(sorted_objects[N/2].coord()[split_dim] + sorted_objects[N/2-1].coord()[split_dim])
+            bound = self._split_value
+            low = [obj for obj in self._objects if obj.coord()[split_dim] < bound]
+            high = [obj for obj in self._objects if obj.coord()[split_dim] >= bound]
+            if len(low)==0:
+                # Then there must be multiple values with the same
+                # coordinate as the minimum element of 'high'
+                low = [obj for obj in self._objects if obj.coord()[split_dim] == bound]
+                high = [obj for obj in self._objects if obj.coord()[split_dim] > bound]
+            leftBoundingbox = []
+            rightBoundingbox = []
+            for i in self._bounds:
+                leftBoundingbox.append(list(i))
+                rightBoundingbox.append(list(i))
+            leftBoundingbox[1][split_dim] = bound
+            rightBoundingbox[0][split_dim] = bound
+            # designate the next dimension to use for split for sub-trees
+            # if has got to the end of the list of dimensions then starts
+            # again at dimension = 0
+            if (split_dim < (len(self._objects[0].coord()) - 1)):
+                child_dim = split_dim + 1
+            else:
+                child_dim = 0
+            self._left = KDTreeVolume(low,leftBoundingbox,dims = child_dim)
+            # added in a load of messing about incase there are repeated values in the currently checked dimension
+            if (len(high) != 0):
+                self._right = KDTreeVolume(high,rightBoundingbox,dims = child_dim)
+            else:
+                self._right = None
+
+    def _same_coords(self, objects):
+        """
+        True if and only if all the given objects have the same
+        coordinates.
+        """
+        if len(objects) <= 1:
+            return True
+        coords = [obj.coord() for obj in objects]
+        c0 = coords[0]
+        for ci in coords[1:]:
+            if not np.all(ci == c0):
+                return False
+        return True
+
+    def objects(self):
+        """
+        Returns the objects in the tree.
+        """
+        return self._objects[:]
+
+    def __iter__(self):
+        """
+        Iterator over all the objects contained in the tree.
+        """
+        return self._objects.__iter__()
+
+    def left(self):
+        """
+        Returns the left tree.
+        """
+        return self._left
+
+    def right(self):
+        """
+        Returns the right tree.
+        """
+        return self._right
+
+    def split_dim(self):
+        """
+        Returns the dimension along which this level of the kD-tree
+        splits.
+        """
+        return self._split_dim
+
+    def bounds(self):
+        """
+        Returns the coordinates of the lower-left and upper-right
+        corners of the bounding box for this tree: low_left, up_right
+        """
+        return self._bounds
+
+    def volume(self):
+        """
+        Returns the volume of the bounding box of the tree.
+        """
+        v = 1.0
+        low,high=self._bounds
+        for l,h in zip(low,high):
+            v = v*(h - l)
+        return v
+
+    def integrate(self,f,boxing=64):
+        """
+        Returns the integral of f(objects) over the tree.  The
+        optional boxing parameter determines how deep to descend into
+        the tree before computing f.
+        """
+        def x(tree):
+            return tree.volume()*f(tree._objects)
+
+        def y(a,b):
+            return a+b
+
+        return self.operate(x,y,boxing=boxing)
+
+    def operate(self,f,g,boxing=64):
+        """
+        Operates on tree nodes exceeding boxing parameter depth.
+        """
+        if len(self._objects) <= boxing:
+            return f(self)
+        else:
+            return g(self._left.operate(f,g,boxing),self._right.operate(f,g,boxing))
+
+    def search(self,coordinates,boxing = 64):
+        """
+        takes a set of coordinates and searches down through the tree untill it gets
+        to a box with less than 'boxing' objects in it and returns the box bounds,
+        number of objects in the box, and the weighting.
+        """
+        if len(self._objects) <= boxing:
+            return self._bounds,len(self._objects),self._weight
+        elif coordinates[self._dimension] < self._split_value:
+            return self._left.search(coordinates,boxing)
+        else:
+            return self._right.search(coordinates,boxing)
+
+
+
+class PosteriorSample(object):
     """
     A single parameter sample object, suitable for inclusion in a
     kD-tree.
@@ -1424,6 +1663,9 @@ class ParameterSample(object):
         Return the coordinates for the parameter sample.
         """
         return self._samples[self._coord_indexes]
+
+
+
 
 
 class AnalyticLikelihood(object):
@@ -1793,7 +2035,7 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
     samples,header=posterior.samples()
     header=header.split()
     coord_names=["ra","dec","dist"]
-    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
     tree=KDTree(coordinatized_samples)
     
     a=Harvester()
@@ -1818,6 +2060,237 @@ def kdtree_bin_sky_volume(posterior,confidence_levels):
                 break
     
     return confidence_intervals
+
+
+def kdtree_bin_sky_area(posterior,confidence_levels,samples_per_bin=10):
+    """
+    takes samples and applies a KDTree to them to return confidence levels
+    returns confidence_intervals - dictionary of user_provided_CL:calculated_area
+            b - ordered list of KD leaves
+            injInfo - if injection values provided then returns
+                      [Bounds_of_inj_kd_leaf ,number_samples_in_box, weight_of_box,injection_CL ,injection_CL_area]
+    Not quite sure that the repeated samples case is fixed, posibility of infinite loop.
+    """
+    confidence_levels.sort()
+    from math import cos, pi
+    class Harvester(list):
+        """
+        when called by kdtree.operate will be used to calculate the density of each bin (sky area)
+        """
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+
+        def __call__(self,tree):
+            #area = (cos(tree.bounds()[0][1])-cos(tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            area = - (cos(pi/2. - tree.bounds()[0][1])-cos(pi/2. - tree.bounds()[1][1]))*(tree.bounds()[1][0] - tree.bounds()[0][0])
+            number_density=float(len(tree.objects()))/float(area)
+            self.append([number_density,len(tree.objects()),area,tree.bounds()])
+            self.unrho+=number_density
+
+        def close_ranks(self):
+
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+
+            return sorted(self,key=itemgetter(0))
+
+    def h(a,b):
+        pass
+
+    peparser=PEOutputParser('common')
+
+    samples,header=posterior.samples()
+    header=header.split()
+    coord_names=["ra","dec"]
+    initial_dimensions = [[0.,-pi/2.],[2.*pi, pi/2.]]
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+    tree=KDTreeVolume(coordinatized_samples,initial_dimensions)
+
+    a=Harvester()
+    tree.operate(a,h,boxing=samples_per_bin)
+    totalSamples = len(tree.objects())
+    b=a.close_ranks()
+    b.reverse()
+    samplecounter=0.0
+    for entry in b:
+        samplecounter += entry[1]
+        entry[1] = float(samplecounter)/float(totalSamples)
+
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+
+    #checks for injection and extract details of the node in the tree that the injection is found
+    if posterior['ra'].injval is not None and posterior['dec'].injval is not None:
+        injBound,injNum,injWeight = tree.search([posterior['ra'].injval,posterior['dec'].injval],boxing = samples_per_bin)
+        injInfo = [injBound,injNum,injWeight]
+        inj_area = - (cos(pi/2. - injBound[0][1])-cos(pi/2. - injBound[1][1]))*(injBound[1][0] - injBound[0][0])
+        inj_number_density=float(injNum)/float(inj_area)
+        inj_rho = inj_number_density / a.unrho
+    else:
+        injInfo = None
+        inj_area = None
+        inj_number_density=None
+        inj_rho = None
+
+    #finds the volume contained within the confidence levels requested by user
+    confidence_intervals={}
+    for rho,confidence_level,vol,bounds in b:
+        acc_vol+=vol
+
+        if confidence_level>confidence_levels[cl_idx]:
+            print str(confidence_level)
+            print acc_vol
+            confidence_intervals[confidence_levels[cl_idx]]=acc_vol
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+
+    acc_vol = 0.
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+    print 'total area: ' + str(acc_vol)
+
+    #finds the confidence level of the injection and the volume of the associated contained region
+    inj_confidence = None
+    inj_confidence_area = None
+    if inj_rho is not None:
+        acc_vol=0.
+        for rho,confidence_level,vol,bounds in b:
+            acc_vol+=vol
+            if rho <= inj_rho:
+                inj_confidence = confidence_level
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                print 'inj ' +str(vol)
+                break
+    return confidence_intervals, b, injInfo
+
+def kdtree_bin(posterior,coord_names,confidence_levels,initial_boundingbox = None,samples_per_bin = 10):
+    """
+    takes samples and applies a KDTree to them to return confidence levels
+    returns confidence_intervals - dictionary of user_provided_CL:calculated_volume
+            b - ordered list of KD leaves
+            initial_boundingbox - list of lists [upperleft_coords,lowerright_coords]
+            injInfo - if injection values provided then returns
+                      [Bounds_of_inj_kd_leaf ,number_samples_in_box, weight_of_box,injection_CL ,injection_CL_volume]
+    Not quite sure that the repeated samples case is fixed, posibility of infinite loop.
+    """
+    confidence_levels.sort()
+    print confidence_levels
+    class Harvester(list):
+        """
+        when called by kdtree.operate will be used to calculate the density of each bin
+        """
+        def __init__(self):
+            list.__init__(self)
+            self.unrho=0.
+
+        def __call__(self,tree):
+            number_density=float(len(tree.objects()))/float(tree.volume())
+            self.append([number_density,len(tree.objects()),tree.volume(),tree.bounds()])
+            self.unrho+=number_density
+
+        def close_ranks(self):
+
+            for i in range(len(self)):
+                self[i][0]/=self.unrho
+
+            return sorted(self,key=itemgetter(0))
+
+    def h(a,b):
+        pass
+
+    peparser=PEOutputParser('common')
+
+    samples,header=posterior.samples()
+    header=header.split()
+    coordinatized_samples=[ParameterSample(row, header, coord_names) for row in samples]
+
+    #if initial bounding box is not provided, create it using max/min of sample coords.
+    if initial_boundingbox is None:
+        low=coordinatized_samples[0].coord()
+        high=coordinatized_samples[0].coord()
+        for obj in coordinatized_samples[1:]:
+            low=np.minimum(low,obj.coord())
+            high=np.maximum(high,obj.coord())
+        initial_boundingbox = [low,high]
+
+    tree=KDTreeVolume(coordinatized_samples,initial_boundingbox)
+
+    a=Harvester()
+    tree.operate(a,h,boxing=samples_per_bin)
+
+    b=a.close_ranks()
+    b.reverse()
+    totalSamples = len(tree.objects())
+    samplecounter=0.0
+    for entry in b:
+        samplecounter += entry[1]
+        entry[1] = float(samplecounter)/float(totalSamples)
+
+    acc_rho=0.
+    acc_vol=0.
+    cl_idx=0
+
+    #check that there is an injection value for all dimension names
+    def checkNone(listoParams):
+        for param in listoParams:
+            if posterior[param].injval is None:
+                return False
+        return True
+
+    #checks for injection and extract details of the lnode in the tree that the injection is found
+    if checkNone(coord_names):
+        injBound,injNum,injWeight = tree.search([posterior[x].injval for x in coord_names],boxing = samples_per_bin)
+        injInfo = [injBound,injNum,injWeight]
+        #calculate volume of injections bin
+        inj_volume = 1.
+        low = injBound[1]
+        high = injBound[0]
+        for aCoord,bCoord in zip(low,high):
+            inj_volume = inj_volume*(bCoord - aCoord)
+        inj_number_density=float(injNum)/float(inj_volume)
+        inj_rho = inj_number_density / a.unrho
+    else:
+        injInfo = None
+        inj_area = None
+        inj_number_density=None
+        inj_rho = None
+
+    #finds the volume contained within the confidence levels requested by user
+    confidence_intervals={}
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+
+        if sample_number>confidence_levels[cl_idx]:
+            confidence_intervals[confidence_levels[cl_idx]]=(acc_vol,sample_number)
+            cl_idx+=1
+            if cl_idx==len(confidence_levels):
+                break
+
+    acc_vol = 0.
+    for rho,sample_number,vol,bounds in b:
+        acc_vol+=vol
+
+    #finds the confidence level of the injection and the volume of the associated contained region
+    inj_confidence = None
+    inj_confidence_area = None
+    if inj_rho is not None:
+        print 'calculating cl'
+        acc_vol=0.
+        for rho,confidence_level,vol,bounds in b:
+            acc_vol+=vol
+            if rho <= inj_rho:
+                inj_confidence = confidence_level
+                inj_confidence_area = acc_vol
+                injInfo.append(inj_confidence)
+                injInfo.append(inj_confidence_area)
+                break
+
+    return confidence_intervals, b, initial_boundingbox,injInfo
 
 def greedy_bin_two_param(posterior,greedy2Params,confidence_levels):
     """
@@ -2207,8 +2680,7 @@ def orbital_momentum(f_lower, mc, inclination):
     """
     Calculate orbital angular momentum vector.
     """
-    mtsun = 4.92549095e-06          #Msol in seconds
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * mtsun * f_lower, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * f_lower, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -2282,7 +2754,9 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     @param analyticCDF: an analytic cumulative distribution function describing the distribution.
 
     """
-
+    
+    # matplotlib.rcParams['text.usetex']=True
+    
     param=plot1DParams.keys()[0].lower()
     histbins=plot1DParams.values()[0]
 
@@ -2293,14 +2767,50 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     myfig=plt.figure(figsize=(4,3.5),dpi=200)
     axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
     myfig.add_axes(axes)
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.6g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.6g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+    offset=0.0
+    if param.find('time')!=-1:
+      offset=floor(min(pos_samps))
+      pos_samps=pos_samps-offset
+      if injpar:
+        injpar=injpar-offset
+      ax1_name=param+' + %i'%(int(offset))
+    else: ax1_name=param
 
-    (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true')
+    (n, bins, patches)=plt.hist(pos_samps,histbins,normed='true',facecolor='grey')
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+        Nticks=3
+    elif Nchars>5:
+        Nticks=4
+    elif Nchars>4:
+        Nticks=6
+    else:
+        Nticks=6
+    locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks)
+    xmin,xmax=plt.xlim()
+    if param=='rightascension' or param=='ra':
+        locatorX=RALocator(min=xmin,max=xmax)
+        majorFormatterX=RAFormatter()
+    if param=='declination' or param=='dec':
+        locatorX=DecLocator(min=xmin,max=xmax)
+        majorFormatterX=DecFormatter()
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
+
+    locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
     if plotkde:  plot_one_param_pdf_kde(myfig,posterior[param])
     histbinSize=bins[1]-bins[0]
     if analyticPDF:
         (xmin,xmax)=plt.xlim()
         x = np.linspace(xmin,xmax,2*len(bins))
-        plt.plot(x, analyticPDF(x), color='b', linewidth=2, linestyle='dashed')
+        plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
             D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
@@ -2333,24 +2843,68 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
                 plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
-    plt.xlabel(param)
+    plt.xlabel(ax1_name)
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
     if(param.lower()=='ra' or param.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         plt.xlim(xmax,xmin)
-    if(param.lower()=='ra' or param.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(param.lower()=='dec' or param.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(param.lower()=='ra' or param.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(param.lower()=='dec' or param.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return rbins,myfig#,rkde
 #
+
+class RALocator(matplotlib.ticker.MultipleLocator):
+    """
+    RA tick locations with some intelligence
+    """
+    def __init__(self,min=0.0,max=2.0*pi_constant):
+      hour=pi_constant/12.0
+      if(max-min)>12.0*hour:
+        base=3.0*hour
+      elif(max-min)>6.0*hour:
+        base=2.0*hour
+      # Put hour ticks if there are more than 3 hours displayed
+      elif (max-min)>3.0*pi_constant/12.0:
+        base=hour
+      elif (max-min)>hour:
+        base=hour/2.0
+      else:
+        base=hour/4.0
+         
+      matplotlib.ticker.MultipleLocator.__init__(self,base=base)
+
+class DecLocator(matplotlib.ticker.MultipleLocator):
+    """
+    Dec tick locations with some intelligence
+    """
+    def __init__(self, min=-pi_constant/2.0,max=pi_constant/2.0):
+      deg=pi_constant/180.0
+      if (max-min)>60*deg:
+        base=30.0*deg
+      elif (max-min)>20*deg:
+        base=10*deg
+      elif (max-min)>10*deg:
+        base=5*deg
+      else:
+        base=deg
+      matplotlib.ticker.MultipleLocator.__init__(self,base=base)
+
+class RAFormatter(matplotlib.ticker.FuncFormatter):
+    def __init__(self,accuracy='auto'):
+      matplotlib.ticker.FuncFormatter.__init__(self,getRAString)
+
+class DecFormatter(matplotlib.ticker.FuncFormatter):
+    def __init__(self,accuracy='auto'):
+      matplotlib.ticker.FuncFormatter.__init__(self,getDecString)
 
 def formatRATicks(locs, accuracy='auto'):
     """
@@ -2421,9 +2975,10 @@ def roundRadAngle(rads,accuracy='all'):
     return round(rads*mult)/mult
 
 def getRAString(radians,accuracy='auto'):
-    hours, rem = divmod(radians, pi_constant/12.0)
-    mins,rem = divmod(rem, pi_constant/(12.0*60.0))
-    secs = rem*12.0*3600.0/pi_constant
+    secs=radians*12.0*3600/pi_constant
+    hours, rem = divmod(secs, 3600 )
+    mins,rem = divmod(rem, 60 )
+    secs = rem
     if secs>=59.5:
         secs=secs-60
         mins=mins+1
@@ -2434,11 +2989,20 @@ def getRAString(radians,accuracy='auto'):
     if accuracy=='min': return ur'%ih%im'%(hours,mins)
     if accuracy=='sec': return ur'%ih%im%2.0fs'%(hours,mins,secs)
     else:
-        if secs>=0.5: return(getRAString(radians,accuracy='sec'))
-        if mins>=0.5: return(getRAString(radians,accuracy='min'))
+        if abs(fmod(secs,60.0))>=0.5: return(getRAString(radians,accuracy='sec'))
+        if abs(fmod(mins,60.0))>=0.5: return(getRAString(radians,accuracy='min'))
         else: return(getRAString(radians,accuracy='hour'))
         
 def getDecString(radians,accuracy='auto'):
+    # LaTeX doesn't like unicode degree symbols etc
+    if matplotlib.rcParams['text.usetex']:
+        degsymb='^\circ'
+        minsymb="'"
+        secsymb="''"
+    else:
+        degsymb=u'\u00B0'
+        minsymb=u'\u0027'
+        secsymb=u'\u2033'
     if(radians<0):
         radians=-radians
         sign=-1
@@ -2446,19 +3010,22 @@ def getDecString(radians,accuracy='auto'):
     deg,rem=divmod(radians,pi_constant/180.0)
     mins, rem = divmod(rem, pi_constant/(180.0*60.0))
     secs = rem * (180.0*3600.0)/pi_constant
-    if secs>=59.5:
-        secs=secs-60.0
-        mins=mins+1
-    if mins>=59.5:
-        mins=mins-60.0
-        deg=deg+1
-    if accuracy=='deg': return ur'%i\u00B0'%(sign*deg)
-    if accuracy=='arcmin': return ur'%i\u00B0%i\u0027'%(sign*deg,mins)
-    if accuracy=='arcsec': return ur'%i\u00B0%i\u0027%2.0f\u2033'%(sign*deg,mins,secs)
+    #if secs>=59.5:
+    #    secs=secs-60.0
+    #    mins=mins+1
+    #if mins>=59.5:
+    #    mins=mins-60.0
+    #    deg=deg+1
+    if (accuracy=='arcmin' or accuracy=='deg') and secs>30: mins=mins+1
+    if accuracy=='deg' and mins>30: deg=deg+1
+    if accuracy=='deg': return ur'%i'%(sign*deg)+degsymb
+    if accuracy=='arcmin': return ur'%i%s%i%s'%(sign*deg,degsymb,mins,minsymb)
+    if accuracy=='arcsec': return ur'%i%s%i%s%2.0f%s'%(sign*deg,degsymb,mins,minsymb,secs,secsymb)
     else:
-        if secs>=0.5: return(getDecString(sign*radians,accuracy='arcsec'))
-        if mins>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
-        else: return(getDecString(sign*radians,accuracy='deg'))
+    #    if abs(fmod(secs,60.0))>=0.5 and abs(fmod(secs,60)-60)>=0.5 : return(getDecString(sign*radians,accuracy='arcsec'))
+    #    if abs(fmod(mins,60.0))>=0.5 and abs(fmod(mins,60)-60)>=0.5: return(getDecString(sign*radians,accuracy='arcmin'))
+    #    else: return(getDecString(sign*radians,accuracy='deg'))
+      return(getDecString(sign*radians,accuracy='deg'))
 
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
@@ -2488,7 +3055,7 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     sp_seterr(under='ignore')
 
     myfig=plt.figure(1,figsize=(6,4),dpi=200)
-    myfig.add_axes(plt.Axes(myfig,[0.2,0.25,0.75,0.7]))
+    myfig.add_axes(plt.Axes(myfig,[0.20,0.20,0.75,0.7]))
     plt.clf()
 
     xax=np.linspace(min(xdat),max(xdat),Nx)
@@ -2529,26 +3096,26 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             xmin,xmax=plt.xlim()
             plt.xlim(xmax,xmin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.xticks()
-            (newlocs, newticks)=formatRATicks(locs, ticks)
-            plt.xticks(newlocs,newticks,rotation=45)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.xticks()
-            newlocs, newticks = formatDecTicks(locs)
-            plt.xticks(newlocs,newticks,rotation=45)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.xticks()
+    #        (newlocs, newticks)=formatRATicks(locs, ticks)
+    #        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.xticks()
+    #        newlocs, newticks = formatDecTicks(locs)
+    #        plt.xticks(newlocs,newticks,rotation=45)
 
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        ymin,ymax=plt.ylim()
-        plt.ylim(ymax,ymin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.yticks()
-        newlocs,newticks=formatRATicks(locs)
-        plt.yticks(newlocs,newticks)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.yticks()
-        newlocs,newticks=formatDecTicks(locs)
-        plt.yticks(newlocs,newticks)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    ymin,ymax=plt.ylim()
+    #    plt.ylim(ymax,ymin)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.yticks()
+    #    newlocs,newticks=formatRATicks(locs)
+    #    plt.yticks(newlocs,newticks)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.yticks()
+    #    newlocs,newticks=formatDecTicks(locs)
+    #    plt.yticks(newlocs,newticks)
 
     return myfig
 #
@@ -2590,18 +3157,21 @@ def histogram2D(posterior,greedy2Params,confidence_levels):
     confidence_levels.sort()
     Hsum=0
     Hlasts=[]
+    idxes=np.argsort(temp)
+    j=len(idxes)-1
     for cl in confidence_levels:
         while float(Hsum/np.sum(H))<cl:
-            ind = np.argsort(temp)
-            max_i=ind[-1:]
+            #ind = np.argsort(temp)
+            max_i=idxes[j]
+            j-=1
             val = temp[max_i]
-            Hlast=val[0]
+            Hlast=val
             Hsum+=val
             temp[max_i]=0
         Hlasts.append(Hlast)
     return (H,xedges,yedges,Hlasts)
 
-def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,figsize=(7,6),dpi=120,figposition=[0.3,0.3,0.5,0.5],legend='right',hatches_by_name=None):
     """
     @param posteriors_by_name A dictionary of posterior objects indexed by name
     @param greedy2Params: a dict ;{param1Name:param1binSize,param2Name:param2binSize}
@@ -2646,6 +3216,8 @@ def fix_axis_names(plt,par1_name,par2_name):
     """
     Fixes names of axes
     """
+    return
+
     # For ra and dec set custom labels and for RA reverse
     if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
             ymin,ymax=plt.ylim()
@@ -2676,7 +3248,7 @@ def fix_axis_names(plt,par1_name,par2_name):
         plt.xticks(newlocs,newticks,rotation=45)
     return plt
 
-def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(7,6),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
+def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confidence_levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right'):
     """
     Plots the confidence level contours as determined by the 2-parameter
     greedy binning algorithm.
@@ -2696,7 +3268,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     fig=plt.figure(1,figsize=figsize,dpi=dpi)
     plt.clf()
 
-    fig.add_axes(figposition)
+    axes=fig.add_axes(figposition)
 
     #This fixes the precedence of line styles in the plot
     if len(line_styles)<len(confidence_levels):
@@ -2734,6 +3306,32 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
         par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
 
+        if par1_name.find('time')!=-1:
+          offset=floor(min(a))
+          a=a-offset
+          if par1_injvalue:
+            par1_injvalue=par1_injvalue-offset
+          ax1_name=par1_name+' + %i'%(int(offset))
+        else: ax1_name=par1_name
+
+        if par2_name.find('time')!=-1:
+          offset=floor(min(b))
+          b=b-offset
+          if par2_injvalue:
+            par2_injvalue=par2_injvalue-offset
+          ax2_name=par2_name+' + %i'%(int(offset))
+        else: ax2_name=par2_name
+
+
+        majorFormatterX=ScalarFormatter(useMathText=True)
+        majorFormatterX.format_data=lambda data:'%.4g'%(data)
+        majorFormatterY=ScalarFormatter(useMathText=True)
+        majorFormatterY.format_data=lambda data:'%.4g'%(data)
+        majorFormatterX.set_scientific(True)
+        majorFormatterY.set_scientific(True)
+        axes.xaxis.set_major_formatter(majorFormatterX)
+        axes.yaxis.set_major_formatter(majorFormatterY)
+        
         H, xedges, yedges = np.histogram2d(a,b, bins=(par1pos_Nbins, par2pos_Nbins),normed=True)
 
         extent = [xedges[0], yedges[-1], xedges[-1], xedges[0]]
@@ -2743,12 +3341,15 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         confidence_levels.sort()
         Hsum=0
         Hlasts=[]
+        idxes=np.argsort(temp)
+        j=len(idxes)-1
         for cl in confidence_levels:
             while float(Hsum/np.sum(H))<cl:
-                ind = np.argsort(temp)
-                max_i=ind[-1:]
+                #ind = np.argsort(temp)
+                max_i=idxes[j]
+                j-=1
                 val = temp[max_i]
-                Hlast=val[0]
+                Hlast=val
                 Hsum+=val
                 temp[max_i]=0
             Hlasts.append(Hlast)
@@ -2768,10 +3369,43 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
             plt.plot([par2_trigvalues[IFO]],[par1_trigvalues[IFO]],color=color,marker='*',scalex=False,scaley=False)
         CSlst.append(CS)
 
+    	Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    	if Nchars>8:
+      		Nticks=3
+    	elif Nchars>5:
+      		Nticks=4
+    	elif Nchars>4:
+      		Nticks=5
+    	else:
+      		Nticks=6
+    	locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+        if par2_name=='rightascension' or par2_name=='ra':
+            (ramin,ramax)=plt.xlim()
+            locatorX=RALocator(min=ramin,max=ramax)
+            majorFormatterX=RAFormatter()
+        if par2_name=='declination' or par2_name=='dec':
+            (decmin,decmax)=plt.xlim()
+            locatorX=DecLocator(min=decmin,max=decmax)
+            majorFormatterX=DecFormatter()
+        axes.xaxis.set_major_formatter(majorFormatterX)
+        if par1_name=='rightascension' or par1_name=='ra':
+            (ramin,ramax)=plt.ylim()
+            locatorY=RALocator(ramin,ramax)
+            axes.yaxis.set_major_locator(locatorY)
+            majorFormatterY=RAFormatter()
+        if par1_name=='declination' or par1_name=='dec':
+            (decmin,decmax)=plt.ylim()
+            locatorY=DecLocator(min=decmin,max=decmax)
+            majorFormatterY=DecFormatter()
+            axes.yaxis.set_major_locator(locatorY)
 
-    plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+        axes.yaxis.set_major_formatter(majorFormatterY)
+    	#locatorX.view_limits(bins[0],bins[-1])
+    	axes.xaxis.set_major_locator(locatorX)
+
+    #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
+    plt.xlabel(ax2_name)
+    plt.ylabel(ax1_name)
 
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
@@ -2795,33 +3429,33 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
 
     # For ra and dec set custom labels and for RA reverse
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            ymin,ymax=plt.ylim()
-            if(ymin<0.0): ylim=0.0
-            if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
-            plt.ylim(ymax,ymin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatRATicks(locs)
-            plt.yticks(newlocs,newticks)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.yticks()
-            newlocs,newticks=formatDecTicks(locs)
-            plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        ymin,ymax=plt.ylim()
+    #        if(ymin<0.0): ylim=0.0
+    #        if(ymax>2.0*pi_constant): ymax=2.0*pi_constant
+    #        plt.ylim(ymax,ymin)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatRATicks(locs)
+    #        plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs,newticks=formatDecTicks(locs)
+    #        plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         if(xmin<0.0): xmin=0.0
         if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return fig
 #
@@ -2852,6 +3486,10 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     a=np.squeeze(posterior[par1_name].samples)
     b=np.squeeze(posterior[par2_name].samples)
 
+    #Extract injection information
+    par1_injvalue=posterior[par1_name.lower()].injval
+    par2_injvalue=posterior[par2_name.lower()].injval
+    
     #Create 2D bin array
     par1pos_min=a.min()
     par2pos_min=b.min()
@@ -2862,34 +3500,63 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     par1pos_Nbins= int(ceil((par1pos_max - par1pos_min)/par1_bin))+1
     par2pos_Nbins= int(ceil((par2pos_max - par2pos_min)/par2_bin))+1
 
-    #Extract injection information
-    par1_injvalue=posterior[par1_name.lower()].injval
-    par2_injvalue=posterior[par2_name.lower()].injval
+    # Adjust for time parameter
+    if par1_name.find('time')!=-1:
+      offset=floor(min(a))
+      a=a-offset
+      if par1_injvalue:
+        par1_injvalue=par1_injvalue-offset
+      ax1_name=par1_name+' + %i'%(int(offset))
+    else: ax1_name=par1_name
+
+    if par2_name.find('time')!=-1:
+      offset=floor(min(b))
+      b=b-offset
+      if par2_injvalue:
+        par2_injvalue=par2_injvalue-offset
+      ax2_name=par2_name+' + %i'%(int(offset))
+    else: ax2_name=par2_name
+
 
     #Extract trigger information
     par1_trigvalues=posterior[par1_name.lower()].trigvals
     par2_trigvalues=posterior[par2_name.lower()].trigvals
 
-    myfig=plt.figure(1,figsize=(10,8),dpi=300)
-    myfig.add_axes([0.2,0.2,0.8,0.8])
-    plt.clf()
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+    myfig=plt.figure()
+    axes=plt.Axes(myfig,[0.3,0.3,0.95-0.3,0.90-0.3])
+    myfig.add_axes(axes)
+    
+    #plt.clf()
+    plt.xlabel(ax2_name)
+    plt.ylabel(ax1_name)
 
-    bins=(100,100)
-
+    #bins=(par1pos_Nbins,par2pos_Nbins)
+    bins=(50,50) # Matches plot_one_param_pdf
+    
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.4g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.4g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
     H, xedges, yedges = np.histogram2d(a,b, bins,normed=False)
 
+      
     #Replace H with greedy bin confidence levels at each pixel...
     temp=np.copy(H)
     temp=temp.flatten()
 
     Hsum=0
     Hsum_actual=np.sum(H)
-
+    
+    idxes=np.argsort(temp)
+    j=len(idxes)-1
     while Hsum<Hsum_actual:
-        ind = np.argsort(temp)
-        max_i=ind[-1:]
+        #ind = np.argsort(temp)
+        max_i=idxes[j]
+        j-=1
         val = temp[max_i]
         Hsum+=int(val)
         temp[max_i]=0
@@ -2898,9 +3565,43 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         H.flat[max_i]=1-float(Hsum)/float(Hsum_actual)
 
     extent = [yedges[0], yedges[-1], xedges[0], xedges[-1]]
-    plt.imshow(np.flipud(H), aspect='auto', extent=extent, interpolation='nearest')
+    plt.imshow(np.flipud(H), axes=axes, aspect='auto', extent=extent, interpolation='nearest',cmap='gray_r')
     plt.gca().autoscale_view()
     plt.colorbar()
+    
+    #plt.hexbin(a,b,cmap='gray_r',axes=axes )
+    
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+      Nticks=3
+    elif Nchars>5:
+      Nticks=4
+    elif Nchars>4:
+      Nticks=5
+    else:
+      Nticks=6
+    locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+    (xmin,xmax)=plt.xlim()
+    (ymin,ymax)=plt.ylim()
+    if par2_name=='rightascension' or par2_name=='ra':
+        locatorX=RALocator(min=xmin,max=xmax)
+        majorFormatterX=RAFormatter()
+    if par2_name=='declination' or par2_name=='dec':
+        locatorX=DecLocator(min=xmin,max=xmax)
+        majorFormatterX=DecFormatter()
+    if par1_name=='rightascension' or par1_name=='ra':
+        locatorY=RALocator(min=ymin,max=ymax)
+        axes.yaxis.set_major_locator(locatorY)
+        majorFormatterY=RAFormatter()
+    if par1_name=='declination' or par1_name=='dec':
+        locatorY=DecLocator(min=ymin,max=ymax)
+        axes.yaxis.set_major_locator(locatorY)
+        majorFormatterY=DecFormatter()
+
+    axes.xaxis.set_major_formatter(majorFormatterX)
+    axes.yaxis.set_major_formatter(majorFormatterY)
+    #locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
 
     if par1_injvalue is not None and par2_injvalue is not None:
         plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
@@ -2916,31 +3617,31 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
         plt.plot([par1_trigvalues[IFO]],[par2_trigvalues[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
     # For RA and dec set custom labels and for RA reverse
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            ymin,ymax=plt.ylim()
-            plt.ylim(ymax,ymin)
-    if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatRATicks(locs)
-            plt.yticks(newlocs,newticks)
-    if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
-            locs, ticks = plt.yticks()
-            newlocs, newticks = formatDecTicks(locs)
-            plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        ymin,ymax=plt.ylim()
+    #        plt.ylim(ymax,ymin)
+    #if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatRATicks(locs)
+    #        plt.yticks(newlocs,newticks)
+    #if(par1_name.lower()=='dec' or par1_name.lower()=='declination'):
+    #        locs, ticks = plt.yticks()
+    #        newlocs, newticks = formatDecTicks(locs)
+    #        plt.yticks(newlocs,newticks)
 
     if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
         xmin,xmax=plt.xlim()
         if(xmin)<0.0: xmin=0.0
         if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
         plt.xlim(xmax,xmin)
-    if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatRATicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
-    if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
-        locs, ticks = plt.xticks()
-        newlocs, newticks = formatDecTicks(locs)
-        plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='ra' or par2_name.lower()=='rightascension'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatRATicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
+    #if(par2_name.lower()=='dec' or par2_name.lower()=='declination'):
+    #    locs, ticks = plt.xticks()
+    #    newlocs, newticks = formatDecTicks(locs)
+    #    plt.xticks(newlocs,newticks,rotation=45)
 
     return myfig
 
@@ -3130,19 +3831,85 @@ def burnin(data,spin_flag,deltaLogL,outputfile):
     return pos,bayesfactor
 
 
+class ACLError(StandardError):
+    def __init__(self, *args):
+        super(ACLError, self).__init__(*args)
+
+
+def autocorrelation(series):
+    """Returns an estimate of the autocorrelation function of a given
+    series.  Returns only the positive-lag portion of the ACF,
+    normalized so that the zero-th element is 1."""
+    x=series-np.mean(series) 
+    y=np.conj(x[::-1])
+
+    acf=np.fft.ifftshift(signal.fftconvolve(y,x,mode='full'))
+
+    N=series.shape[0]
+
+    acf = acf[0:N]
+
+    return acf/acf[0]
+
+
+def autocorrelation_length_estimate(series, acf=None, M=5, K=2):
+    """Attempts to find a self-consistent estimate of the
+    autocorrelation length of a given series.  
+
+    If C(tau) is the autocorrelation function (normalized so C(0) = 1,
+    for example from the autocorrelation procedure in this module),
+    then the autocorrelation length is the smallest s such that
+
+    1 + 2*C(1) + 2*C(2) + ... + 2*C(M*s) < s
+
+    In words: the autocorrelation length is the shortest length so
+    that the sum of the autocorrelation function is smaller than that
+    length over a window of M times that length.
+
+    The maximum window length is restricted to be len(series)/K as a
+    safety precaution against relying on data near the extreme of the
+    lags in the ACF, where there is a lot of noise.  Note that this
+    implies that the series must be at least M*K*s samples long in
+    order to get a reliable estimate of the ACL.
+
+    If no such s can be found, raises ACLError; in this case it is
+    likely that the series is too short relative to its true
+    autocorrelation length to obtain a consistent ACL estimate."""
+
+    if acf is None:
+      acf=autocorrelation(series)
+    acf[1:] *= 2.0
+
+    imax=int(acf.shape[0]/K)
+    
+    # Cumulative sum and ACL length associated with each window
+    cacf=np.cumsum(acf)
+    s=np.arange(1, cacf.shape[0]+1)/float(M)
+
+    # Find all places where cumulative sum over window is smaller than
+    # associated ACL.
+    estimates=np.flatnonzero(cacf[:imax] < s[:imax])
+
+    if estimates.shape[0] > 0:
+        # Return the first index where cumulative sum is smaller than
+        # ACL associated with that index's window
+        return s[estimates[0]]
+    else:
+        # Cannot find self-consistent ACL estimate.
+        raise ACLError('autocorrelation length too short for consistent estimate')
+
+
 def effectiveSampleSize(samples, Nskip=1):
-    mu = np.mean(samples)
+    """
+    Compute the effective sample size, calculating the ACL using only
+    the second half of the samples to avoid ACL overestimation due to
+    chains equilibrating after adaptation.
+    """
     N = len(samples)
-    corr = np.correlate( (samples - mu), (samples - mu), mode='full')
-    acf = corr[N-1:]/corr[N-1]
-    acl = 1
-    i = 1
+    acf = autocorrelation(samples[N/2:])
     try:
-      while (acf[i] > 0.0005):
-          acl += 2.0*acf[i]
-          i+=1
-    except IndexError:
-      print "Autocorrelation Function has not reached 0.  Autocorrelation is inaccurate!"
+      acl = autocorrelation_length_estimate(samples[N/2:], acf=acf)
+    except ACLError:
       acl = N
     Neffective = floor(N/acl)
     acl *= Nskip
@@ -3218,11 +3985,15 @@ class PEOutputParser(object):
         nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, nDownsample)
         if nDownsample is None:
             print "Downsampling to take only uncorrelated posterior samples from each file."
-            for i in range(len(nskips)):
-                if nskips[i] is None:
-                    print "%s eliminated since all samples are correlated."
-        else:
-            print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
+            if len(nskips) == 1 and np.isnan(nskips[0]):
+                print "WARNING: All samples in chain are correlated.  Downsampling to 10000 samples for inspection!!!"
+                nskips=self._find_ndownsample(files, logLThreshold, fixedBurnins, 10000)
+            else:
+                for i in range(len(nskips)):
+                    if np.isnan(nskips[i]):
+                        print "%s eliminated since all samples are correlated."
+                    else:
+                        print "Downsampling by a factor of ", nskips[0], " to achieve approximately ", nDownsample, " posterior samples"
         if outdir is None:
             outdir=''
         runfileName=os.path.join(outdir,"lalinfmcmc_headers.dat")
@@ -3375,7 +4146,7 @@ class PEOutputParser(object):
 
             finally:
                 infile.close()
-        nskips = np.ones(nfiles,'int')
+        nskips = np.ones(nfiles)
         ntot = sum(ntots)
         if nDownsample is not None:
             if ntot > nDownsample:
@@ -3437,23 +4208,23 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,xflag=False):
+    def _ns_to_pos(self,files,Nlive=None,Npost=10000):
         """
         Parser for nested sampling output.
+        files : list of input NS files
+        Nlive : Number of live points
+        Npost : Desired number of posterior samples
         """
         try:
-            from lalapps.combine_evidence import combine_evidence
+            from lalapps.nest2pos import draw_N_posterior_many,draw_posterior_many
         except ImportError:
-            print "Need lalapps.combine_evidence to convert nested sampling output!"
+            print "Need lalapps.nest2pos to convert nested sampling output!"
             raise
 
         if Nlive is None:
             raise RuntimeError("Need to specify number of live points in positional arguments of parse!")
                        
-        pos,d_all,totalBayes,ZnoiseTotal=combine_evidence(files,False,Nlive)
-
         posfilename='posterior_samples.dat'
-        posfile=open(posfilename,'w')
        
         #posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t dec \t
         #psi \t iota \t likelihood \n')
@@ -3465,29 +4236,46 @@ class PEOutputParser(object):
         
         if os.path.isfile(parsfilename):
             print 'Looking for '+parsfilename
+
             if os.access(parsfilename,os.R_OK):
-                parsfile = open(parsfilename,'r')
-                outpars = parsfile.readline()
-                parsfile.close()
+
+                with open(parsfilename,'r') as parsfile: 
+                    outpars=parsfile.readline()+'\n'
             else:
-              print "Need files of parameters "+parsfilename
-              raise
-        
+                raise RuntimeError('Cannot open parameters file %s!'%(parsfilename))
+
+        else: # Use hardcoded CBC parameter names
+            outpars='mchirp \t eta \t time \t phi0 \t dist \t RA \t \
+            dec \t psi \t iota \t logl \n'
+
+        # Find the logL column
+        parsvec=outpars.split()
+        logLcol=-1
+        for i in range(len(parsvec)):
+            if parsvec[i].lower()=='logl':
+                logLcol=i
+        if logLcol==-1:
+            print 'Error! Could not find logL column in parameter list: %s'%(outpars)
+            raise RuntimeError
+
+        inarrays=map(np.loadtxt,files)
+        if Npost is None:
+            pos=draw_posterior_many(inarrays,[Nlive for f in files],logLcol=logLcol)
+        else:
+            pos=draw_N_posterior_many(inarrays,[Nlive for f in files],Npost,logLcol=logLcol)
+
+        with open(posfilename,'w') as posfile:
+            
             posfile.write(outpars)
-        else: # use hardcoded CBC parameter names 
-            posfile.write('mchirp \t eta \t time \t phi0 \t dist \t RA \t \
-dec \t psi \t iota \t likelihood \n')     
         
-        for row in pos:
-            for i in row:
-                posfile.write('%.12e\t' %(i))
-            posfile.write('\n')
-        posfile.close()
-
-        posfile=open(posfilename,'r')
-        return_val=self._common_to_pos(posfile)
-        posfile.close()
-
+            for row in pos:
+                for i in row:
+                    posfile.write('%.12g\t' %(i))
+                posfile.write('\n')
+        
+        with open(posfilename,'r') as posfile:
+            return_val=self._common_to_pos(posfile)
+        
         return return_val
 
     def _followupmcmc_to_pos(self,files):
@@ -3524,9 +4312,9 @@ dec \t psi \t iota \t likelihood \n')
             if table.get('utype')=='lalinference:results:posteriorsamples':
                 return(self._VOTTABLE2pos(table))
         for table in tables:
-	  if table.get('utype')=='lalinference:results:nestedsamples':
-	    nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
-	    return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
+          if table.get('utype')=='lalinference:results:nestedsamples':
+            nsresource=[node for node in tree.findall('{%s}RESOURCE'%(xmlns)) if node.get('utype')=='lalinference:results'][0]
+            return(self._VOTTABLE2pos(vo_nest2pos(nsresource)))
         raise RuntimeError('Cannot find "Posterior Samples" TABLE element in XML input file %s'%(infile))
         
     def _VOTTABLE2pos(self,table):
@@ -3536,18 +4324,19 @@ dec \t psi \t iota \t likelihood \n')
         from xml.etree import ElementTree as ET
         xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
         try:
-	  register_namespace=ET.register_namespace
-	except AttributeError:
-	  def register_namespace(prefix,uri):
-	    ET._namespace_map[uri]=prefix
-	register_namespace('vot',xmlns)
+            register_namespace=ET.register_namespace
+        except AttributeError:
+            def register_namespace(prefix,uri):
+                ET._namespace_map[uri]=prefix
+                register_namespace('vot',xmlns)
+
         header=[]
         for field in table.findall('./{%s}FIELD'%(xmlns)):
             header.append(field.attrib['name'])
         if(len(header)==0):
             raise RuntimeError('Unable to find FIELD nodes for table headers in XML table')
         data=table.findall('./{%s}DATA'%(xmlns))
-	tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
+        tabledata=data[0].find('./{%s}TABLEDATA'%(xmlns))
         llines=[]
         for row in tabledata:
             llines.append(np.array(map(lambda a:float(a.text),row)))
@@ -3573,25 +4362,33 @@ dec \t psi \t iota \t likelihood \n')
         return header,flines
 
 
-    def _common_to_pos(self,infile,delimiter=None):
+    def _common_to_pos(self,infile,info=[None,None]):
         """
         Parse a file in the 'common format' and return an array of posterior
         samples and list of parameter names. Will apply inverse functions to
         columns with names containing sin,cos,log.
         """
+        
+        [headerfile,delimiter]=info
 
-        formatstr=infile.readline().lstrip()
+        if headerfile==None:
+        	formatstr=infile.readline().lstrip()
+        else:
+        	hf=open(headerfile,'r')
+        	formatstr=hf.readline().lstrip()
+        	hf.close()
+        
         formatstr=formatstr.replace('#','')
         formatstr=formatstr.replace('"','')
 
         header=formatstr.split(delimiter)
         header[-1]=header[-1].rstrip('\n')
-
+        nparams=len(header)
         llines=[]
         import re
         dec=re.compile(r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$|^inf$')
-        line_count=0
-        for line in infile:
+        
+        for line_number,line in enumerate(infile):
             sline=line.split(delimiter)
             if sline[-1] == '\n':
                 del(sline[-1])
@@ -3599,19 +4396,27 @@ dec \t psi \t iota \t likelihood \n')
             if len(sline)<1:
                 print 'Ignoring empty line in input file: %s'%(sline)
                 proceed=False
+            elif len(sline)!=nparams:
+                sys.stderr.write('WARNING: Malformed row %i, read %i elements but there is meant to be %i\n'%(line_number,len(sline),nparams))
+                proceed=False
 
-            for st in sline:
+            for elemn,st in enumerate(sline):
                 s=st.replace('\n','')
                 if dec.search(s) is None:
-                    print 'Warning! Ignoring non-numeric data after the header: %s'%s
+                    print 'Warning! Ignoring non-numeric data after the header: %s. Row = %i,Element=%i'%(s,line_number,elemn)
                     proceed=False
-                if s is '\n':
+                elif s is '\n':
                     proceed=False
 
             if proceed:
-                llines.append(np.array(map(float,sline)))
+                llines.append(map(float,sline))	
 
         flines=np.array(llines)
+
+        if not flines.any():
+            raise RuntimeError("ERROR: no lines read in!")	
+           
+
         for i in range(0,len(header)):
             if header[i].lower().find('log')!=-1 and header[i].lower() not in logParams:
                 print 'exponentiating %s'%(header[i])
@@ -3662,57 +4467,6 @@ def parse_converge_output_section(fo):
                         pass
 
         return result
-
-def convergenceTests(posterior,gelman=True,geweke=True,geweke_frac1=0.1, geweke_frac2=0.5,heidelberger=True,effectiveSize=True,warnings=False):
-    """
-    This function spawns a process to run an R script to use the coda package
-    to calculate the following convergence diagnostics for the chains contained in the input
-    Posterior instance:
-    
-    Gelman-Rubin
-    Geweke
-    Heidelberger & Welch
-    Effective sample sizes
-
-    These can be turned on and off using the flags.
-    
-    Python scrapes the output produced by the R script and returns a (nested) dictionary:
-    {'test':{'chainN':[['param':'test_value'],...],...},...}
-
-    You will need R with the coda and lattice libraries for this to work . 
-    """
-    from subprocess import Popen,PIPE
-
-    print "Calculating convergence diagnostics using R coda library..."
-
-    posterior.write_to_file('tmp.dat')
-
-    R_process=Popen(["R","-q","--vanilla","--slave"],stdin=PIPE,stdout=PIPE)
-    script=convergenceTests_R%(str(gelman).upper(),str(geweke).upper(),geweke_frac1,geweke_frac2,str(heidelberger).upper(),str(effectiveSize).upper(),str(warnings).upper())
-    #print script
-    rp_stdout,rp_stderr=R_process.communicate(input=script)
-
-    outdict=parse_converge_output_section(rp_stdout)
-    
-    #Check outdict
-    if outdict is {}:
-        print "No results found! Check for any errors above. You can turn on the R warning messages with warnings=True ."
-        return None
-    else:
-        test_pass=False
-        for test,test_result in outdict.items():
-            
-            if not test_result:
-                print "Convergence test failed : %s ! Check for any errors above. You can turn on the R warning messages with warnings=True ."%test
-            else:
-                test_pass=True
-
-        if test_pass:
-            return outdict
-
-        else:
-            return None
-    
 #
 
 def vo_nest2pos(nsresource,Nlive=None):
@@ -3727,10 +4481,10 @@ def vo_nest2pos(nsresource,Nlive=None):
     from math import log, exp
     xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
     try:
-      register_namespace=ET.register_namespace
+        register_namespace=ET.register_namespace
     except AttributeError:
-	def register_namespace(prefix,uri):
-	  ET._namespace_map[uri]=prefix
+        def register_namespace(prefix,uri):
+            ET._namespace_map[uri]=prefix
     register_namespace('vot',xmlns)
     
     postable=ET.Element("{%s}TABLE"%(xmlns),attrib={'name':'Posterior Samples','utype':'lalinference:results:posteriorsamples'})
@@ -3776,190 +4530,50 @@ def vo_nest2pos(nsresource,Nlive=None):
 xmlns='http://www.ivoa.net/xml/VOTable/v1.1'
 
 class VOT2HTML:
-  def __init__(self):
-    self.html=htmlSection("VOTable information")
-    self.skiptable=0
-  def start(self,tag,attrib):
-    if tag=='{%s}TABLE'%(xmlns):
-	if attrib['utype']=='lalinference:results:nestedsamples'\
-	or attrib['utype']=='lalinference:results:posteriorsamples':
-	  self.skiptable=1
-	else:
-	  self.skiptable=0
-	self.tableouter=htmlChunk('div')
-	self.tableouter.h2(attrib['name'])
-	try:
-	  self.tableouter.p(attrib['utype'])
-	except KeyError:
-	    pass
-	self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
-	self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
-	self.tabheader=htmlChunk('tr',parent=self.table)
-    if tag=='{%s}FIELD'%(xmlns):
-	self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
-    if tag=='{%s}TR'%(xmlns):
-	self.tabrow=htmlChunk('tr',parent=self.table)
-    if tag=='{%s}TD'%(xmlns):
-	self.td=htmlChunk('td',parent=self.tabrow)
-    if tag=='{%s}PARAM'%(xmlns):
-	pnode=htmlChunk('tr',parent=self.fixedparams)
-	namenode=htmlChunk('td',parent=pnode)
-	namenode.p(attrib['name'])
-	valnode=htmlChunk('td',parent=pnode)
-	valnode.p(attrib['value'])
-  def end(self,tag):
-    if tag=='{%s}TABLE'%(xmlns):
-      if not self.skiptable:
-	self.html.append(self.tableouter._html)
-    if tag=='{%s}FIELD'%(xmlns):
-      self.field.p(self.data)
-    if tag=='{%s}TD'%(xmlns):
-      self.td.p(self.data)
+    def __init__(self):
+        self.html=htmlSection("VOTable information")
+        self.skiptable=0
+        
+    def start(self,tag,attrib):
+        if tag=='{%s}TABLE'%(xmlns):
+            if attrib['utype']=='lalinference:results:nestedsamples'\
+            or attrib['utype']=='lalinference:results:posteriorsamples':
+                self.skiptable=1
+            else:
+                self.skiptable=0
+            self.tableouter=htmlChunk('div')
+            self.tableouter.h2(attrib['name'])
+            try:
+                self.tableouter.p(attrib['utype'])
+            except KeyError:
+                pass
+            self.fixedparams=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+            self.table=htmlChunk('table',attrib={'class':'statstable'},parent=self.tableouter)
+            self.tabheader=htmlChunk('tr',parent=self.table)
+        if tag=='{%s}FIELD'%(xmlns):
+            self.field=htmlChunk('th',{'name':attrib['name']},parent=self.tabheader)
+        if tag=='{%s}TR'%(xmlns):
+            self.tabrow=htmlChunk('tr',parent=self.table)
+        if tag=='{%s}TD'%(xmlns):
+            self.td=htmlChunk('td',parent=self.tabrow)
+        if tag=='{%s}PARAM'%(xmlns):
+            pnode=htmlChunk('tr',parent=self.fixedparams)
+            namenode=htmlChunk('td',parent=pnode)
+            namenode.p(attrib['name'])
+            valnode=htmlChunk('td',parent=pnode)
+            valnode.p(attrib['value'])
+        
+    def end(self,tag):
+        if tag=='{%s}TABLE'%(xmlns):
+            if not self.skiptable:
+                self.html.append(self.tableouter._html)
+        if tag=='{%s}FIELD'%(xmlns):
+            self.field.p(self.data)
+        if tag=='{%s}TD'%(xmlns):
+            self.td.p(self.data)
 
-  def data(self,data):
-    self.data=data
+    def data(self,data):
+        self.data=data
   
-  def close(self):
-    return self.html.toprettyxml()
-
-
-
-#R convergenceTest script
-convergenceTests_R="""
-convergenceTests <- function(data,
-                             gelman=TRUE,
-                             geweke=TRUE, geweke.frac1=0.1, geweke.frac2=0.5,
-                             heidelberger=TRUE,
-                             effectiveSize=TRUE)
-# The argument `data' is a matrix (or data frame)
-# of (supposedly post burn-in) posterior samples.
-# Rows correspond to samples, columns correspond to variables.
-# If `data' contains a variable named "chain",
-# this is assumed to indicate chains from independent runs.
-# By default, Gelman's, Geweke's and Heidelberger & Welch's convergence
-# diagnostics, and effectice sample sizes are computed.
-# Geweke's diagnostic is directly converted to p-values,
-# and the effective sample size is divided by the number of MCMC samples
-# to give /relative/ sample sizes.
-# In order to suppress computation of any of the 3 figures, supply
-# an additional (e.g.)  `geweke=FALSE'  or  `geweke=F'  argument.
-{
-  # check whether "coda" library is installed:
-  codaInstalled <- require("coda")
-  if (codaInstalled) {
-    # check whether a "chain" variable indicates presence of multiple chains:
-    if (is.element("chain",colnames(data))) {
-      chainIndicator <- data[,"chain"]
-      # which chains present?:
-      chainLabels <- sort(unique(data[,"chain"]))
-      # how many samples of each chain?:
-      chainFrequencies <- table(data[,"chain"])
-      # drop "chain" column from data:
-      data <- data[,colnames(data)!="chain"]
-    }
-    else { # (no "chain" indicator means a single chain)
-      chainIndicator <- rep(1, nrow(data))
-      chainLabels <- 1
-      chainFrequencies <- c("1"=nrow(data))
-    }
-
-    
-    # Gelman diagnostic - need at least 2 chains with at least 2 samples:
-    if (gelman && (length(chainFrequencies>=2) >= 2)) {
-      codaList <- mcmc.list()
-      for (i in 1:sum(chainFrequencies>=2)){
-        # filter out i-th chain:
-        finalSamples <- which(chainIndicator==chainLabels[chainFrequencies>=2][i])
-        # filter out final samples:
-        finalSamples <- finalSamples[length(finalSamples)+((-(min(chainFrequencies[chainFrequencies>=2])-1)):0)]
-        # add to list:
-        codaList[[i]] <- mcmc(data=data[finalSamples,])
-      }
-      GD <- try(gelman.diag(codaList), silent=TRUE)
-      rm("codaList")
-      if (class(GD) != "try-error") RHatP <- c("RHatP"=Re(GD$mpsrf))
-      else RHatP <- c("RHatP"=NA)
-    }
-    else RHatP <- c("RHatP"=NA)
-
-    
-    # Geweke diagnostic:
-    if (geweke) {
-      geweke.p <- geweke.z <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
-                                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
-      # compute diagnostic for each variable and chain:
-      for (i in 1:length(chainLabels)) {
-        GD <- try(geweke.diag(mcmc(data[chainIndicator==chainLabels[i],]),
-                              frac1=geweke.frac1, frac2=geweke.frac2))
-        if (class(GD) != "try-error") zScores <- GD$z
-        else zScores <- rep(NA, ncol(data))
-        geweke.z[,i] <- zScores
-      }
-      # compute corresponding matrix of p-values:
-      geweke.p <- (1.0 - pnorm(abs(geweke.z))) / 2.0
-    }
-    else geweke.p <- NA
-
-    
-    # Heidelberger & Welch diagnostic:
-    if (heidelberger) {
-      heidelberger.p  <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
-                                    dimnames=list("variable"=colnames(data), "chain"=chainLabels))
-      # compute diagnostic for each variable and chain:
-      for (i in 1:length(chainLabels)) {
-        HWD <- try(heidel.diag(mcmc(data[chainIndicator==chainLabels[i],])))
-        if (class(HWD) != "try-error") pvalues <- HWD[,"pvalue"]
-        else pvalues <- rep(NA, ncol(data))
-        heidelberger.p[,i] <- pvalues
-      }
-    }
-    else heidelberger.p <- NA
-
-    
-    # effective sample size:
-    if (effectiveSize) {
-      Neff <- matrix(NA, nrow=ncol(data), ncol=length(chainLabels),
-                     dimnames=list("variable"=colnames(data), "chain"=chainLabels))
-      # compute N_eff for each variable and chain:
-      for (i in 1:length(chainLabels)) {
-        ES <- try(effectiveSize(mcmc(data[chainIndicator==chainLabels[i],])))
-        if (class(ES) != "try-error") sizes <- ES
-        else sizes <- rep(NA, ncol(data))
-        Neff[,i] <- sizes
-      }
-      # normalize (to /relative/ sample sizes):
-      Reff <- Neff / matrix(chainFrequencies, nrow=ncol(data), ncol=length(chainLabels), byrow=TRUE)
-    }
-    else Reff <- NA
-
-    
-    # assemble eventual results:
-    result <- list("gelman"       = RHatP,          # "multivariate scale reduction factor", $\hat{R}^p$
-                   "geweke"       = geweke.p,       # matrix of p-values
-                   "heidelberger" = heidelberger.p, # matrix of p-values
-                   "effectiveSize"     = Reff)           # matrix of /relative/ effective sample sizes
-  }
-  else {
-    warning("coda library not installed.")
-    result <- list("gelman"       = NA,
-                   "geweke"       = NA,
-                   "heidelberger" = NA,
-                   "effectiveSize"     = NA)
-  }
-  return(result)
-} 
-
-A <- read.table("tmp.dat",header=TRUE)
-result <- convergenceTests(A,gelman=%s,geweke=%s,geweke.frac1=%f, geweke.frac2=%f,heidelberger=%s,effectiveSize=%s)
-for (name in names(result)) {
-    print(name)
-    print(result[[name]])
-    
-}
-warnings_flag <- %s
-if (warnings_flag){
-    warnings()
-}
-
-"""
-#
+    def close(self):
+        return self.html.toprettyxml()

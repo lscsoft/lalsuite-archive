@@ -76,8 +76,8 @@ __date__ = git_version.date
 #
 
 
-def setup(target, check_same_thread=True):
-	connection = sqlite3.connect(target, check_same_thread=check_same_thread)
+def setup(target, check_same_thread = True):
+	connection = sqlite3.connect(target, check_same_thread = check_same_thread)
 	dbtables.DBTable_set_connection(connection)
 
 	dbtables.idmap_sync(connection)
@@ -128,32 +128,61 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 	printed to stderr.  contenthandler allows a custom XML SAX content
 	handler to be provided.
 	"""
-	#
-	# load document.  this process inserts the document's contents into
-	# the database.  the XML tree constructed by this process contains
-	# a table object for each table found in the newly-inserted
-	# document and those table objects' last_max_rowid values have been
-	# initialized prior to rows being inserted.  therefore, this is the
-	# XML tree that must be passed to update_ids in order to ensure (a)
-	# that all newly-inserted tables are processed and (b) all
-	# newly-inserted rows are processed.  NOTE:  it is assumed the
-	# content handler is creating DBTable instances in the XML tree,
-	# not regular Table instances
-	#
-
-	xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
+	# FIXME:  remove the connection parameter, replace it with a
+	# mandatory content handler.  or should this function create its
+	# own content handler if one isn't provided?
+	if contenthandler is not None:
+		assert contenthandler.connection is connection
 
 	#
-	# update references to row IDs
+	# enable/disable ID remapping
 	#
+
+	orig_DBTable_append = dbtables.DBTable.append
 
 	if not preserve_ids:
-		update_ids(connection, xmldoc, verbose = verbose)
+		try:
+			dbtables.idmap_create(connection)
+		except sqlite3.OperationalError:
+			# assume table already exists
+			pass
+		dbtables.idmap_sync(connection)
+		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+	else:
+		dbtables.DBTable.append = dbtables.DBTable._append
+
+	try:
+		#
+		# load document.  this process inserts the document's contents into
+		# the database.  the XML tree constructed by this process contains
+		# a table object for each table found in the newly-inserted
+		# document and those table objects' last_max_rowid values have been
+		# initialized prior to rows being inserted.  therefore, this is the
+		# XML tree that must be passed to update_ids in order to ensure (a)
+		# that all newly-inserted tables are processed and (b) all
+		# newly-inserted rows are processed.  NOTE:  it is assumed the
+		# content handler is creating DBTable instances in the XML tree,
+		# not regular Table instances, but this is not checked.
+		#
+
+		xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)
+
+		#
+		# update references to row IDs and cleanup ID remapping
+		#
+
+		if not preserve_ids:
+			update_ids(connection, xmldoc, verbose = verbose)
+
+	finally:
+		dbtables.DBTable.append = orig_DBTable_append
 
 	#
-	# unlink the document to delete database cursor objects it retains
+	# done.  unlink the document to delete database cursor objects it
+	# retains
 	#
 
+	connection.commit()
 	xmldoc.unlink()
 
 
@@ -170,59 +199,82 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 	True then progress reports will be printed to stderr.
 	"""
 	#
-	# create a place-holder XML representation of the target document
-	# so we can pass the correct tree to update_ids()
+	# enable/disable ID remapping
 	#
 
-	xmldoc = ligolw.Document()
-	xmldoc.appendChild(ligolw.LIGO_LW())
-
-	#
-	# iterate over tables in the XML tree, reconstructing each inside
-	# the database
-	#
-
-	for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
-		#
-		# instantiate the correct table class, connected to the
-		# target database, and save in XML tree
-		#
-
-		name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
-		try:
-			cls = dbtables.TableByName[name]
-		except KeyError:
-			cls = dbtables.DBTable
-		dbtbl = xmldoc.childNodes[-1].appendChild(cls(tbl.attributes, connection = connection))
-
-		#
-		# copy table element child nodes from source XML tree
-		#
-
-		for elem in tbl.childNodes:
-			if elem.tagName == ligolw.Stream.tagName:
-				dbtbl._end_of_columns()
-			dbtbl.appendChild(type(elem)(elem.attributes))
-
-		#
-		# copy table rows from source XML tree
-		#
-
-		for row in tbl:
-			dbtbl.append(row)
-		dbtbl._end_of_rows()
-
-	#
-	# update references to row IDs
-	#
+	orig_DBTable_append = dbtables.DBTable.append
 
 	if not preserve_ids:
-		update_ids(connection, xmldoc, verbose = verbose)
+		try:
+			dbtables.idmap_create(connection)
+		except sqlite3.OperationalError:
+			# assume table already exists
+			pass
+		dbtables.idmap_sync(connection)
+		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+	else:
+		dbtables.DBTable.append = dbtables.DBTable._append
+
+	try:
+		#
+		# create a place-holder XML representation of the target document
+		# so we can pass the correct tree to update_ids()
+		#
+
+		xmldoc = ligolw.Document()
+		xmldoc.appendChild(ligolw.LIGO_LW())
+
+		#
+		# iterate over tables in the XML tree, reconstructing each inside
+		# the database
+		#
+
+		for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):
+			#
+			# instantiate the correct table class, connected to the
+			# target database, and save in XML tree
+			#
+
+			name = dbtables.table.StripTableName(tbl.getAttribute("Name"))
+			try:
+				cls = dbtables.TableByName[name]
+			except KeyError:
+				cls = dbtables.DBTable
+			dbtbl = xmldoc.childNodes[-1].appendChild(cls(tbl.attributes, connection = connection))
+
+			#
+			# copy table element child nodes from source XML tree
+			#
+
+			for elem in tbl.childNodes:
+				if elem.tagName == ligolw.Stream.tagName:
+					dbtbl._end_of_columns()
+				dbtbl.appendChild(type(elem)(elem.attributes))
+
+			#
+			# copy table rows from source XML tree
+			#
+
+			for row in tbl:
+				dbtbl.append(row)
+			dbtbl._end_of_rows()
+
+		#
+		# update references to row IDs and clean up ID remapping
+		#
+
+		if not preserve_ids:
+			update_ids(connection, xmldoc, verbose = verbose)
+
+	finally:
+		dbtables.DBTable.append = orig_DBTable_append
 
 	#
-	# unlink the document to delete database cursor objects it retains
+	# done.  unlink the document to delete database cursor objects it
+	# retains
 	#
 
+	connection.commit()
 	xmldoc.unlink()
 
 
@@ -232,43 +284,19 @@ def insert_from_urls(connection, urls, preserve_ids = False, verbose = False):
 	then build the indexes indicated by the metadata in lsctables.py.
 	"""
 	#
-	# save the original .append() method
+	# load documents
 	#
 
-	orig_DBTable_append = dbtables.DBTable.append
+	for n, url in enumerate(urls):
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+		insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
 
-	try:
-		#
-		# enable/disable ID remapping
-		#
+	#
+	# done.  build indexes
+	#
 
-		if not preserve_ids:
-			dbtables.idmap_create(connection)
-			dbtables.DBTable.append = dbtables.DBTable._remapping_append
-		else:
-			dbtables.DBTable.append = dbtables.DBTable._append
-
-		#
-		# load documents
-		#
-
-		for n, url in enumerate(urls):
-			if verbose:
-				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-			insert_from_url(connection, url, preserve_ids = preserve_ids, verbose = verbose)
-		connection.commit()
-
-		#
-		# done.  build indexes
-		#
-
-		dbtables.build_indexes(connection, verbose)
-	finally:
-		#
-		# restore original .append() method
-		#
-
-		dbtables.DBTable.append = orig_DBTable_append
+	dbtables.build_indexes(connection, verbose)
 
 
 #

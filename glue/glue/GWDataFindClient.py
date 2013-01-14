@@ -26,8 +26,8 @@ from __future__ import division
 import os, sys, time, calendar, httplib, M2Crypto, cjson, re, unittest
 from glue import lal, git_version, segments
  
-__author__  = "Scott Koranda <scott.koranda@ligo.org>, "+\
-              "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__author__ = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__credits__ = "Scott Koranda <scott.koranda@ligo.org>"
 __version__ = git_version.id
 __date__    = git_version.date
 
@@ -146,7 +146,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
                   % (_url_prefix, site, frametype, gpsstart, gpsend)
         else:
             url = "%s/gwf/%s/%s/segments.json"\
-                  % (_url_prefx, site, frametype)
+                  % (_url_prefix, site, frametype)
 
         response = self._requestresponse("GET", url)
         segmentlist = self.decode(response.read())
@@ -183,7 +183,7 @@ class GWDataFindHTTPConnection(httplib.HTTPConnection):
         # verify urltype is what we want
         cache = lal.Cache(e for e in\
                           map(lal.CacheEntry.from_T050017, urllist)\
-                          if not urltype or e.scheme() == urltype)
+                          if not urltype or e.scheme == urltype)
         return cache
 
     def find_latest(self, site, frametype, urltype=None, on_missing="warn"):

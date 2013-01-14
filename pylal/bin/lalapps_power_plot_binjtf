@@ -301,9 +301,7 @@ WHERE
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
-	connection = sqlite3.connect(filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, "lalapps_power")
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(filename), "lalapps_power")
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)
 	for instrument in database.instruments:
@@ -312,4 +310,4 @@ for n, filename in enumerate(filenames):
 			if options.verbose:
 				print >>sys.stderr, "--> %s" % plotname
 			time_freq_plot(database, instrument, sim).savefig(plotname)
-	connection.close()
+	database.connection.close()

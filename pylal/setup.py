@@ -33,12 +33,14 @@ class PkgConfig(object):
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
+gsl_pkg_config = PkgConfig("gsl")
 lal_pkg_config = PkgConfig("lal")
 lalsupport_pkg_config = PkgConfig("lalsupport")
 lalburst_pkg_config = PkgConfig("lalburst")
 # FIXME:  works for GCC only!!!
 lal_pkg_config.extra_cflags += ["-std=c99"]
 lalframe_pkg_config = PkgConfig("lalframe")
+libframe_pkg_config = PkgConfig("libframe")
 lalmetaio_pkg_config = PkgConfig("lalmetaio")
 lalsimulation_pkg_config = PkgConfig("lalsimulation")
 lalinspiral_pkg_config = PkgConfig("lalinspiral")
@@ -210,7 +212,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.1.4",
+	version = "0.1.5",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
@@ -232,10 +234,11 @@ setup(
 		Extension(
 			"pylal.Fr",
 			["src/Fr.c"],
+			# Use lalframe headers to silence warnings but link against libframe
 			include_dirs = lalframe_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lalframe_pkg_config.libs,
-			library_dirs = lalframe_pkg_config.libdirs,
-			runtime_library_dirs = lalframe_pkg_config.libdirs,
+			libraries = libframe_pkg_config.libs,
+			library_dirs = libframe_pkg_config.libdirs,
+			runtime_library_dirs = libframe_pkg_config.libdirs,
 			extra_compile_args = lalframe_pkg_config.extra_cflags
 		),
 		Extension(
@@ -244,7 +247,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + lalmetaio_pkg_config.incdirs + lalinspiral_pkg_config.incdirs,
 			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.xlal.datatypes.complex16fftplan",
@@ -459,7 +463,8 @@ setup(
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lal_pkg_config.libs + lalinspiral_pkg_config.libs,
 			library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs
+			runtime_library_dirs = lal_pkg_config.libdirs + lalinspiral_pkg_config.libdirs,
+			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal._bayespputils",
@@ -480,6 +485,16 @@ setup(
 			["src/_stats.c"],
 			include_dirs = [numpy_get_include()],
 			extra_compile_args = ["-std=c99"]
+		),
+		Extension(
+			"pylal.cbc_network_efficiency",
+			["src/cbc_network_efficiency.c"],
+			include_dirs = [numpy_get_include()] + gsl_pkg_config.incdirs + lalsimulation_pkg_config.incdirs + lal_pkg_config.incdirs,
+			library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
+			runtime_library_dirs = gsl_pkg_config.libdirs + lalsimulation_pkg_config.libdirs + lal_pkg_config.libdirs,
+			libraries = gsl_pkg_config.libs + lalsimulation_pkg_config.libs + lal_pkg_config.libs,
+			extra_compile_args = ["-std=c99", "-ffast-math", "-mfpmath=387", "-O3", "-Wno-unknown-pragmas"] + gsl_pkg_config.extra_cflags + lalsimulation_pkg_config.extra_cflags + lal_pkg_config.extra_cflags,  # , "-fopenmp"
+			#extra_link_args=['-fopenmp']
 		),
 		Extension(
 			"pylal.inspiral_metric",
@@ -568,8 +583,6 @@ setup(
 		os.path.join("bin", "lalapps_cbc_plotroc_ring"),
 		os.path.join("bin", "lalapps_cbc_plotsummary"),
 		os.path.join("bin", "lalapps_cbc_plot_likelihood_arrays"),
-		os.path.join("bin", "lalapps_cbc_coinc"),
-		os.path.join("bin", "lalapps_cbc_dbinjfind"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_farburst"),
 		os.path.join("bin", "lalapps_followup_pipe"),
@@ -603,12 +616,9 @@ setup(
 		os.path.join("bin", "ligolw_bucut"),
 		os.path.join("bin", "ligolw_burca"),
 		os.path.join("bin", "ligolw_cafe"),
-		os.path.join("bin", "ligolw_conv_inspid"),
 		os.path.join("bin", "ligolw_inspinjfind"),
-		os.path.join("bin", "lalapps_cbc_injfind"),
 		os.path.join("bin", "ligolw_rinca"),
 		os.path.join("bin", "ligolw_segments"),
-		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_sicluster"),
 		os.path.join("bin", "ligolw_tisi"),
 		os.path.join("bin", "ligolw_thinca"),
@@ -685,6 +695,9 @@ setup(
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
+		os.path.join("bin", "pylal_geom_aligned_bank"),
+		os.path.join("bin", "pylal_geom_aligned_2dstack"),
+		os.path.join("bin", "pylal_aligned_stoch_bank"),
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
@@ -710,9 +723,19 @@ setup(
 		os.path.join("bin", "auxmvc_comparison_plots.py"),
 		os.path.join("bin", "pylal_imr_search_volume"),
 		os.path.join("bin", "pylal_imr_plot_search_volume"),
-		os.path.join("bin", "pylal_imr_plot_search_volume"),
+		os.path.join("bin", "pylal_imr_plot_ifar"),
 		os.path.join("bin", "pylal_cbc_rankprod"),
-		os.path.join("bin", "pylal_cbc_ulmc")
+		os.path.join("bin", "pylal_cbc_ulmc"),
+		os.path.join("bin","cbcBayesConvergence.py"),
+		os.path.join("bin", "pylal_noise_budget"),
+		os.path.join("bin", "pylal_seismon_run"),
+		os.path.join("bin", "pylal_summary_page"),
+		os.path.join("bin", "pylal_plot_triggers"),
+		os.path.join("bin", "ligolw_miinjfind"),
+		os.path.join("bin", "pylal_coh_PTF_cluster"),
+		os.path.join("bin", "pylal_coh_PTF_ihope"),
+		os.path.join("bin", "pylal_coh_PTF_dqv"),
+		os.path.join("bin", "pylal_coh_PTF_sbv"),
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

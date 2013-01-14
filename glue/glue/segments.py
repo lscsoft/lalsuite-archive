@@ -113,7 +113,7 @@ class infinity(object):
 				return PosInfinity
 			if sign < 0:
 				return NegInfinity
-			raise ValueError, sign
+			raise ValueError(sign)
 		return PosInfinity
 
 	def __repr__(self):
@@ -277,7 +277,7 @@ class segment(tuple):
 		if len(args) == 1:
 			args = args[0]
 		if len(args) != 2:
-			raise TypeError, "__new__() takes 2 arguments, or 1 argument when it is a sequence of length 2"
+			raise TypeError("__new__() takes 2 arguments, or 1 argument when it is a sequence of length 2")
 		if args[0] <= args[1]:
 			return tuple.__new__(cls, args)
 		else:
@@ -323,32 +323,32 @@ class segment(tuple):
 		return 0
 
 	def __lt__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__lt__(self, other)
 		return self[0] < other
 
 	def __le__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__le__(self, other)
 		return self[0] <= other
 
 	def __eq__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__eq__(self, other)
 		return self[0] == other
 
 	def __ne__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__ne__(self, other)
 		return self[0] != other
 
 	def __gt__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__gt__(self, other)
 		return self[0] > other
 
 	def __ge__(self, other):
-		if isinstance(other, self.__class__):
+		if isinstance(other, tuple):
 			return tuple.__ge__(self, other)
 		return self[0] >= other
 
@@ -362,7 +362,7 @@ class segment(tuple):
 		"""
 		if (self[1] <= other[0]) or (self[0] >= other[1]):
 			# self and other don't intersect
-			raise ValueError, other
+			raise ValueError(other)
 		return tuple.__new__(self.__class__, (max(self[0], other[0]), min(self[1], other[1])))
 
 	def __or__(self, other):
@@ -373,7 +373,7 @@ class segment(tuple):
 		"""
 		if (self[1] < other[0]) or (self[0] > other[1]):
 			# self and other are disjoint
-			raise ValueError, other
+			raise ValueError(other)
 		return tuple.__new__(self.__class__, (min(self[0], other[0]), max(self[1], other[1])))
 
 	# addition is union
@@ -390,7 +390,7 @@ class segment(tuple):
 			return self
 		if (self in other) or ((self[0] < other[0]) and (self[1] > other[1])):
 			# result is not exactly 1 segment
-			raise ValueError, other
+			raise ValueError(other)
 		if self[0] < other[0]:
 			return tuple.__new__(self.__class__, (self[0], other[0]))
 		return tuple.__new__(self.__class__, (other[1], self[1]))
@@ -523,10 +523,7 @@ class segmentlist(list):
 		Return the sum of the durations of all segments in self.
 		Does not require the segmentlist to be coalesced.
 		"""
-		d = 0
-		for seg in self:
-			d += abs(seg)
-		return d
+		return sum(abs(seg) for seg in self)
 
 	def extent(self):
 		"""
@@ -535,7 +532,7 @@ class segmentlist(list):
 		segmentlist to be coalesced.
 		"""
 		if not len(self):
-			raise ValueError, "empty list"
+			raise ValueError("empty list")
 		min, max = self[0]
 		for lo, hi in self:
 			if min > lo:
@@ -554,7 +551,7 @@ class segmentlist(list):
 		for i, seg in enumerate(self):
 			if item in seg:
 				return i
-		raise ValueError, item
+		raise ValueError(item)
 
 	# arithmetic operations that are sensible with segment lists
 
@@ -801,9 +798,11 @@ class _offsets(dict):
 		return dict.__new__(cls)
 
 	def __init__(self, parent):
+		dict.__init__(self)
 		self.__parent = parent
-		for key in self.__parent:
-			dict.__setitem__(self, key, 0.0)
+
+	def __reduce__(self):
+		return _offsets, (self.__parent,), None, None, iter(self.items())
 
 	def __setitem__(self, key, value):
 		"""
@@ -811,7 +810,11 @@ class _offsets(dict):
 		current offset this is a no-op, otherwise the corresponding
 		segmentlist object is shifted.
 		"""
-		delta = value - self[key]
+		try:
+			delta = value - self[key]
+		except KeyError:
+			dict.__setitem__(self, key, value)
+			return
 		if delta:
 			self.__parent[key].shift(delta)
 			dict.__setitem__(self, key, self[key] + delta)
@@ -891,9 +894,16 @@ class segmentlistdict(dict):
 	>>> c
 	{'H2': [segment(6.0, 15)], 'H1': [segment(0.0, 9.0)]}
 	"""
+	def __new__(cls, *args):
+		self = dict.__new__(cls, *args)
+		self.offsets = _offsets(self)
+		return self
+
 	def __init__(self, *args):
 		dict.__init__(self, *args)
-		self.offsets = _offsets(self)
+		dict.clear(self.offsets)
+		for key in self:
+			dict.__setitem__(self.offsets, key, 0.0)
 		if args and isinstance(args[0], self.__class__):
 			dict.update(self.offsets, args[0].offsets)
 
@@ -991,7 +1001,9 @@ class segmentlistdict(dict):
 		Return the result of running .extent() on the union of all
 		lists in the dictionary.
 		"""
-		segs = self.extent().values()
+		segs = tuple(seglist.extent() for seglist in self.values() if seglist)
+		if not segs:
+			raise ValueError("empty list")
 		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
 
 	def find(self, item):

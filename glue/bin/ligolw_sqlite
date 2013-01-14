@@ -43,6 +43,7 @@ import sys
 
 from glue import git_version
 from glue.lal import CacheEntry
+from glue.ligolw import ligolw
 from glue.ligolw import dbtables
 from glue.ligolw.utils import ligolw_sqlite
 
@@ -107,6 +108,17 @@ def parse_command_line():
 
 
 #
+# DB content handler
+#
+
+
+class ContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+
+dbtables.use_in(ContentHandler)
+
+
+#
 # Command line
 #
 
@@ -125,8 +137,7 @@ if __name__ == '__main__':
 
 
 	target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
-	connection = sqlite3.connect(target)
-	dbtables.DBTable_set_connection(connection)
+	ContentHandler.connection = sqlite3.connect(target)
 
 
 	#
@@ -135,30 +146,20 @@ if __name__ == '__main__':
 
 
 	if will_write_to_file:
-		if options.preserve_ids:
-			# disable ID remapping
-			dbtables.DBTable.append = dbtables.DBTable._append
-		else:
-			# enable ID remapping
-			dbtables.idmap_create(connection)
-			dbtables.DBTable.append = dbtables.DBTable._remapping_append
 		for n, url in enumerate(urls):
-			# load document
 			if options.verbose:
 				print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-			dbtables.idmap_sync(connection)
 			if url.endswith(".sqlite"):
 				source_filename = dbtables.get_connection_filename(url, tmp_path = options.tmp_space, verbose = options.verbose)
 				if options.verbose:
 					print >>sys.stderr, "reading '%s' ..." % source_filename
 				xmldoc = dbtables.get_xml(sqlite3.connect(source_filename))
-				ligolw_sqlite.insert_from_xmldoc(connection, xmldoc, preserve_ids = options.preserve_ids, verbose = options.verbose)
+				ligolw_sqlite.insert_from_xmldoc(ContentHandler.connection, xmldoc, preserve_ids = options.preserve_ids, verbose = options.verbose)
 				xmldoc.unlink()
 				dbtables.discard_connection_filename(url, source_filename, verbose = options.verbose)
 			else:
-				ligolw_sqlite.insert_from_url(connection, url, preserve_ids = options.preserve_ids, verbose = options.verbose)
-		connection.commit()
-		dbtables.build_indexes(connection, options.verbose)
+				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
+		dbtables.build_indexes(ContentHandler.connection, options.verbose)
 
 
 	#
@@ -169,9 +170,9 @@ if __name__ == '__main__':
 	if options.extract is not None:
 		if options.extract == "-":
 			# stdout
-			ligolw_sqlite.extract(connection, None, verbose = options.verbose)
+			ligolw_sqlite.extract(ContentHandler.connection, None, verbose = options.verbose)
 		else:
-			ligolw_sqlite.extract(connection, options.extract, verbose = options.verbose)
+			ligolw_sqlite.extract(ContentHandler.connection, options.extract, verbose = options.verbose)
 
 
 	#
@@ -179,7 +180,7 @@ if __name__ == '__main__':
 	#
 
 
-	connection.close()
+	ContentHandler.connection.close()
 
 
 	#

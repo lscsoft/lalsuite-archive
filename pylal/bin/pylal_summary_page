@@ -1,0 +1,4542 @@
+#!/usr/bin/python
+
+# Copyright (C) 2012 Duncan M. Macleod
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+Interferometer summary information generator. This script generates a
+nested web page and content for reviewing interferometer performance
+and status.
+Comments should be e-mailed to detchar@ligo.org.
+"""
+
+# =============================================================================
+# Preamble
+# =============================================================================
+
+from __future__ import division
+
+# import built-in modules
+import sys
+import os
+import re
+import optparse
+import time
+import ConfigParser
+import datetime
+import urlparse
+import shutil
+import urllib
+import calendar
+import getpass
+import numpy
+import inspect
+import glob
+
+from scipy import stats
+from scipy import signal
+from dateutil.relativedelta import relativedelta
+
+# set plotting backed
+from matplotlib import use
+use("Agg")
+
+# import SwigLAL modules
+import lal
+import lalframe
+import lalsimulation
+
+# import PyLAL modules
+from pylal import git_version
+from pylal import seriesutils
+from pylal import plotutils
+from pylal import htmlutils
+from pylal import omegautils
+from pylal import hacrutils
+from pylal import rangeutils
+from pylal import hdf5utils
+from pylal.dq import summary
+from pylal.dq import dqSegmentUtils
+from pylal.dq import dqTriggerUtils
+from pylal.dq import stateutils
+
+# import GLUE modules
+from glue.lal import Cache, CacheEntry
+from glue.segments import (segment as Segment, segmentlist as SegmentList,
+                           segmentlistdict as SegmentListDict)
+from glue import segmentsUtils
+from glue import markup
+from glue import GWDataFindClient
+from glue.ligolw import lsctables
+from glue.ligolw import table
+
+# set metadata
+__author__  = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__version__ = git_version.id
+__date__    = git_version.date
+
+# =============================================================================
+# global variables and constants
+# =============================================================================
+
+# set plot formatting
+plotutils.set_rcParams()
+
+# define control character regular expression
+_r_cchar = re.compile("[\W_]+")
+
+# define SummaryState regular expression
+_r_state = re.compile("run-\w+-time")
+
+# define group names for HDF5 file format
+HDF_DATA_GROUP = "data"
+HDF_SPECTRUM_GROUP = "spectrum"
+HDF_SPECTROGRAM_GROUP = "spectrogram"
+
+# =============================================================================
+# verbose
+# =============================================================================
+
+global START
+START = 0
+global PROFILE
+PROFILE = False
+
+def elapsed_time():
+    """
+    Return the time elapsed since the start of the timer (in seconds).
+    """
+    return time.time()-START
+
+def print_verbose(message, verbose=False, stream=sys.stdout, profile=True):
+    """
+    Print verbose messages to a file stream.
+
+    @param message: text to print
+    @type  message: C{str}
+    @param verbose: flag to print or not, default: False (don't print)
+    @type  verbose: C{bool}
+    @param stream: file object stream in which to print
+    @type  stream: C{file}
+    @param profile: flag to print timestamp, default: False
+    @type  profile: C{bool}
+    """
+    profile &= PROFILE
+    if profile and message.endswith("\n"):
+        message = "%s (%.2f)\n" % (message.rstrip("\n"), elapsed_time())
+    if verbose:
+        stream.write(message)
+        stream.flush()
+
+def start_job_timer():
+    """
+    Start job timer.
+    """
+    global START
+    START = int(time.time())
+
+# =============================================================================
+# Set directories
+# =============================================================================
+
+def setjobdirectory(outdir, mode, start, end):
+    """
+    Set the directories for this analysis in the base output directory.
+
+    @param outdir: output directory given on command line.
+    @type  outdir: C{str} path
+    @param mode: the run mode chosen on the command line.
+    @type  mode: C{int}
+    @param start: GPS start time for job
+    @type  start: C{lal.LIGOTimeGPS} or C{int}
+    @param end: GPS end time for job
+    @type  end: C{lal.LIGOTimeGPS} or C{int}
+
+    @return: named output directory for job
+    @rtype: C{str}
+    """
+    # move to output directory
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+    os.chdir(outdir)
+
+    # set HTML parent directory
+    startd = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
+    if mode == summary.SUMMARY_MODE_GPS:
+        # make and move into GPS directory
+        gpsdir = "%d-%d" % (start, end)
+        if not os.path.isdir(gpsdir):
+            os.mkdir(gpsdir)
+        os.chdir(gpsdir)
+        jobdir = "."
+    elif mode == summary.SUMMARY_MODE_DAY:
+        jobdir = os.path.join("archive_daily", "%d%.2d%.2d"\
+                                     % (startd.year, startd.month, startd.day))
+    elif mode == summary.SUMMARY_MODE_WEEK:
+        jobdir = os.path.join("archive_weekly", "%d%.2d%.2d"\
+                                     % (startd.year, startd.month, startd.day))
+    elif mode == summary.SUMMARY_MODE_MONTH:
+        jobdir = os.path.join("archive_monthly", "%d%.2d"\
+                                                 % (startd.year, startd.month))
+    elif mode == summary.SUMMARY_MODE_YEAR:
+        jobdir = os.path.join("archive_yearly", str(startd.year))
+    else:
+        raise ValueError("Invalid mode %d passed to setjobdirectory." % mode)
+
+    if not os.path.isdir(jobdir):
+        os.makedirs(jobdir)
+
+    return jobdir
+
+# =============================================================================
+# Download file from URL
+# =============================================================================
+
+def scp(remotefile, localfile):
+    """
+    Download a file from a HTTP URL to a local directory
+
+    @param remotefile: URL/path of file to copy
+    @type  remotefile: C{str}
+    @param localfile: local path (file or directory) to write
+    @type  localfile: C{str}
+
+    @return: path of file written to
+    @rtype: C{str}
+    """
+    if os.path.isdir(localfile):
+       localfile = os.path.join(localfile, os.path.basename(remotefile))
+    url = urlparse.urlparse(remotefile)
+    if url.path.startswith("/~"):
+        return remotefile
+    if not url.scheme or url.scheme == "file":
+        if os.path.isfile(url.path) and not os.path.isfile(localfile)\
+        or not os.path.samefile(url.path, localfile):
+            shutil.copy(url.path, localfile)
+        elif not os.path.isfile(url.path):
+            print_verbose("warning: cannot find %s\n" % url.path,\
+                          stream=sys.stderr)
+    else:
+        urllib.urlretrieve(remotefile, localfile)
+    return localfile
+
+# =============================================================================
+# Read segments from file
+# =============================================================================
+
+def subplotduration(start, end, mode=summary.SUMMARY_MODE_GPS):
+    """
+    Get the duration (in seconds) of subplots for this job.
+
+    @param start: GPS start time of job
+    @type  start: C{lal.LIGOTimeGPS} or C{int}
+    @param end: GPS end time of job
+    @type  end: C{lal.LIGOTimeGPS} or C{int}
+    @param mode: summary mode for this job
+    @type  mode: C{int}
+
+    @return: list of durations for the subplots 
+    @rtype: C{list}
+    """
+    # convert to datetimes
+    startd = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
+    endd   = datetime.datetime(*lal.GPSToUTC(int(end))[:6])
+
+    if mode == summary.SUMMARY_MODE_GPS:
+         d = int(end-start)
+         if d <= 601:
+             dt = datetime.timedelta(minutes=1)
+         elif d <= 7201:
+             dt = datetime.timedelta(minutes=10)
+         elif d <= 86401:
+             dt = datetime.timedelta(hours=1)
+         elif d <= 259201:
+             dt = datetime.timedelta(hours=6)
+         else:
+             dt = datetime.timedelta(days=1)
+    elif mode == summary.SUMMARY_MODE_DAY:
+        dt = datetime.timedelta(hours=1)
+    elif mode == summary.SUMMARY_MODE_WEEK\
+    or mode == summary.SUMMARY_MODE_MONTH:
+        dt = datetime.timedelta(days=1)
+    elif mode == summary.SUMMARY_MODE_YEAR:
+        dt = datetime.timedelta(months=1)
+    else:
+        raise ValueError("Invalid mode %d passed to subplotduration." % mode)
+
+    dlist = []
+    while startd < endd:
+        e = min(endd, startd+dt)
+        dlist.append(lal.UTCToGPS(e.timetuple())\
+                     - lal.UTCToGPS(startd.timetuple()))
+        startd += dt
+    return dlist
+
+# =============================================================================
+# Read segments from file
+# =============================================================================
+
+def fromsegfile(filename):
+    """
+    Read segments from a file, either in XML format (.xml or .xml.gz) or
+    SegWizard format (all other extensions).
+
+    @param filename: path of XML or segwizard-format file to read
+    @type  filename: C{str}
+
+    @return: list of segments from file
+    @rtype: C{glue.segments.segmentlist}
+    """
+    if re.search("(xml|xml.gz)\Z", filename):
+        return dqSegmentUtils.fromsegmentxml(open(filename, "r"))
+    else:
+        return segmentsUtils.fromsegwizard(open(filename, "r"))
+
+def fromsegmentcache(cache):
+    """
+    Read segments from each entry in a glue.lal.Cache.
+    Returns the coalesced glue.SegmentList.
+
+    @param cache: Cache of XML or segwizard-format files from which to read
+    @type  cache: C{glue.lal.Cache}
+
+    @return: list of segments read from the cache
+    @rtype: C{glue.segments.segmentlist}
+    """
+    out = SegmentList()
+    for entry in cache.pfnlist():
+        out.extend(fromsegfile(entry))
+
+    return out
+
+# =============================================================================
+# Parse command line
+# =============================================================================
+
+def HVetoDef(cp, ifo, category=3, start_time=0, end_time=0):
+    """
+    Build a VetoDef entry for HierarchichalVeto
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    """
+    hveto_flag = cp.get("hveto-segments", "flag").upper()
+
+    # remove ifo
+    if re.match("%s:" % ifo.upper(), flag):
+        flag = flag[3:]
+
+    # remove version
+    if flag.count(":")==0:
+        version = 1
+    else:
+        version = int(flag[::-1].split(":",1)[0])
+        flag = flag[:-len(str(version))-1]
+
+    # build VetoDef entry
+    hveto            = lsctables.VetoDef()
+    hveto.ifo        = ifo.upper()
+    hveto.name       = flag
+    hveto.version    = version
+    hveto.category   = category
+    hveto.start_time = start
+    hveto.end_time   = end
+    hveto.start_pad  = 0
+    hveto.end_pad    = 0
+    hveto.comment    = "Generated by summary_page.py"
+
+    return hveto
+
+# =============================================================================
+# Parse configuration sections
+# =============================================================================
+
+_state_order = ["all", "locked", "science"]
+
+def load_run_states(start_time, end_time, cp, sec="states"):
+    """
+    Load the defined run states from the configuration file.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param sec: name of section hosting state definitions, default: "states"
+    @type  sec: C{str}
+
+    @return: list of SummaryState object representing the states defined.
+    @rtype: C{list}
+    """
+    states = natsort(cp.items(sec), key=lambda x: x[0])
+    stateidx = list(range(len(states)))
+    statelist = []
+    for i,(name,definition) in enumerate(states):
+        s = summary.SummaryState(name)
+        s.span = start_time, end_time
+        s.definition = definition
+        statelist.append(s)
+        # work out where in the list it should go
+        for j,_state in enumerate(_state_order):
+           if s.match(_state):
+              stateidx[i] = -len(_state_order)+j
+
+    # sort the list
+    statelist,_ = zip(*sorted(zip(statelist, stateidx), key=lambda x: x[1]))
+
+    return statelist
+
+def parse_tab_states(statelist, cp, sec):
+    """
+    Get run states for a given tab from the global list.
+
+    @param statelist: list of SummaryState objects from which to parse
+    @type  statelist: C{list}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param sec: section name for this tab
+    @type  sec: C{str}
+
+    @return: list of SummaryState objects for this tab
+    @rtype: C{list}
+    """
+    options = cp.options(sec)
+    runstates = [state[4:-5] for state in options if _r_state.match(state)]
+    if len(runstates) == 0:
+        runstates = ["all"]
+
+    tabstatelist = list()
+    for state in statelist:
+        for i,runstate in enumerate(runstates):
+            if state.match(_r_cchar.sub("_", runstate).lower()):
+                tabstatelist.append(state)
+                runstates.pop(i)
+                break
+
+    return tabstatelist
+
+def get_parent(cp, sec, valid_parents, default=None):
+    """
+    Get and verify the parent of this tab.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param sec: section name for this tab
+    @type  sec: C{str}
+    @param valid_parents: list of valid parent names
+    @type  valid_parents: C{list}
+    @param default: default parent if none configured
+    @type  default: C{str}
+
+    @return: name of parent SectionSummaryTab for this Tab
+    @rtype: C{str}
+    """
+    if cp.has_option(sec, "parent"):
+        parent = cp.get(sec, "parent")
+    elif re.match("data-\w\w\w-", sec):
+        match = re.match("data-\w\w\w-", sec)
+        parent = match.group()[5:8]
+    else:
+        parent = default
+    if parent not in valid_parents:
+        raise ValueError("\"%s\" is an unrecognised parent name." % parent)
+    return parent
+
+def get_state_segments(cp, state, veto_def_table, verbose=False):
+    """
+    Get the segments that define this state.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param state: IFO state object to modify
+    @type  state: C{summary.SummaryState}
+    @param veto_def_table: LIGOLw table holding veto definitions
+    @type  veto_def_table: C{glue.ligolw.table.Table}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    """
+    # TODO: finish writing good docstrings
+    # test bit
+    if state.set:
+        return
+
+    print_verbose("\n----------\nLoading segments for the '%s' run state...\n"\
+                  % state.name, verbose=verbose)
+
+    state.segments = SegmentList([state.span])
+    if state.definition:
+        div = re.compile("[&!]")
+        divs = div.findall(state.definition)
+        keys = div.split(state.definition)
+        flags = []
+        vetoes = []
+        for i,key in enumerate(keys):
+            # get veto bit
+            append = key.startswith("-") and vetoes.append or flags.append
+            if key.lower() == "vetoes":
+                for v in veto_def_table:
+                    flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                    append(flag)
+            elif re.match("cat/d", key, re.I):
+                cat = int(key[4])
+                for v in veto_def_table:
+                    if v.category == cat:
+                        flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                        append(flag)
+            elif re.match("ccat\d", key, re.I):
+                cat = int(key[4])
+                for v in veto_def_table:
+                    if v.category <= cat:
+                        flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
+                        append(flag)
+            else:
+                append(key)
+
+        for flag in vetoes:
+            state.segments -= get_segments(cp, flag, state.segments,\
+                                           verbose=verbose)
+        for flag in flags:
+            state.segments &= get_segments(cp, flag, state.segments,\
+                                           verbose=verbose)
+    # set state-specific variables restrictions
+    cpsec = "state-%s" % (state.name)
+    if cp.has_section(cpsec):
+        for param in ["segment-buffer", "event-buffer",
+                      "minimum-segment-length"]:
+            if cp.has_option(cpsec, param):
+                setattr(state, param.replace("-", "_"),
+                        cp.getfloat(cpsec, param))
+
+    state.segments.contract(state.segment_buffer)
+    if state.minimum_segment_length:
+        state.segments = SegmentList([
+                             s for s in state.segments if
+                             abs(s) >= state.minimum_segment_length])
+    state.set = True
+    return
+
+# =============================================================================
+# Natural sorting
+# =============================================================================
+
+def natsort(l, key=None):
+    """
+    Returns a copy of the list l sorted the way that humans expect.
+
+    @param l: iterable to sort
+    @type  l: C{list}
+    @param key: sorting key
+    @type  key: C{function} (lambda)
+
+    @return: sorted version of the input list
+    @rtype: C{list}
+    """
+    if key:
+        k = map(key, l)
+    else:
+        k = l
+    convert = lambda text: int(text) if text.isdigit() else text
+    alphanum_key = lambda key: [convert(c) for c in\
+                                re.split('([0-9]+)', k[l.index(key)])]
+    return sorted(l, key=alphanum_key)
+
+# =============================================================================
+# Build base for HTML
+# =============================================================================
+
+def build_html_base(cp, ifo, directory, gpspair=None):
+    """
+    Builds the HTML <base> href attribute.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param ifo: prefix of interferometer
+    @type  ifo: C{str}
+    @param directory: path to output directory for job
+    @type: directory: C{str}
+    @param gpspair: "${GPSSTART}-${GSPEND}" segment for job
+    @type  gpspair: C{str}
+
+    @return: HTML <base> URL
+    @rtype:  C{str}
+    """
+
+    # get domain URL for this host
+    root = htmlutils.get_web_server()
+
+    # if the base is given
+    if cp.has_option('html', '%s-base' % ifo.lower()):
+        base = cp.get('html', '%s-base' % ifo.lower()).rstrip('/')
+    # otherwise work it out
+    else:
+        directory = os.path.abspath(directory)
+        user = getpass.getuser()
+        if not root:
+            base = 'file://%s' % directory
+        else:
+            if root and re.search('atlas', root):
+                public_folder = "WWW"
+            else:
+                public_folder = "public_html"
+            if re.search(public_folder, directory):
+                base = os.path.join(root,'~%s' % user,\
+                                    directory.split(public_folder,1)[-1][1:],
+                                    '')
+            else:
+                base = "file://%s" % directory
+
+    # strip the domain url from the base (makes pages more dynamic)
+    if base.startswith(root):
+        base = base[len(root):]
+    base = os.path.normpath(base)
+
+    # appent the GSP pair if relevant
+    if not gpspair or base.endswith(gpspair):
+        return os.path.join(base, "")
+    else:
+        return os.path.join(base, gpspair, "")
+
+# =============================================================================
+# Parse plotting options from a tab config section
+# =============================================================================
+
+def parse_plot_section(cp, section, params):
+    """
+    Parse the ConfigParser.ConfigParser object cp for entries in the
+    given 'section' relating to plotting with the given defaults.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param section: name of INI section to parse
+    @type  section: C{str}
+    @param params: dict of default plotting parameters to update
+    @type  params: C{dict}
+
+    @return: updated dict of plotting keyword arguments
+    @rtype: C{dict}
+    """
+    if re.search("trigger", section, re.I):
+        m = "column"
+    else:
+        m = "axis"
+    column  = params.get(m, "_").lower()
+    xcolumn = params.get("x%s" % m, "_").lower()
+    ycolumn = params.get("y%s" % m, "_").lower()
+    colorcolumn = params.get("color%s" % m, "_").lower()
+    colnames = [column, xcolumn, ycolumn, colorcolumn]
+    columns  = ["x", "x", "y", "color"]
+
+    # nonplot parameters
+    nonplot = ["segment-length", "overlap", "time-step", "response",\
+               "threshold"]
+    noncolumn = ["linewidth", "color", "linecolor"]
+
+    # add channel specific params
+    args = [(key.split('-',1),val) for key,val in cp.items(section)\
+                        if key.split('-')[0].lower() in colnames]
+    cp.add_section('tmp')
+    for key,val in args:
+        if key[1] in nonplot:
+            continue
+        if key[0].lower() in colnames:
+            idx = colnames.index(key[0].lower())
+            col = columns[idx]
+            if key[1] == 'log':
+                key[1] = '%s%s' % (key[1], col)
+            elif key[1] not in noncolumn:
+                key[1] = '%s%s' % (col, key[1])
+        cp.set('tmp', key[1], val)
+        if key == 'labels':
+            cp.set('tmp', key[1], '%s_%s' % (section, val))
+    params.update(plotutils.parse_plot_config(cp, 'tmp'))
+    cp.remove_section('tmp')
+
+    if not re.search("trigger", section, re.I):
+        params.pop("xaxis", None)
+        params.pop("yaxis", None)
+        params.pop("coloraxis", None)
+    
+    return params
+
+# =============================================================================
+# Acquire segments
+# =============================================================================
+
+def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
+    """
+    Load segments archived by a previous run of this code, e.g. daily state
+    vector to use in a monthly run.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param flag: name of flag to read
+    @type  flag: C{str}
+    @param seglist: list of valid segments to restrict return
+    @type  seglist: C{glue.segments.segmentlist}
+    @param mode: identifier of run mode
+    @type  mode: C{int}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    """
+    # return blank is no segments
+    if not len(seglist):
+        return []
+
+    # restrict archived data to NOW
+    start,end = seglist.extent()
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
+
+    # otherwise get start date
+    start = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
+
+    # get file for mode
+    datadir = "segments"
+    flagstr = _r_cchar.sub("-", _r_cchar.sub("_", str(flag).upper()), 1)
+    if mode == summary.SUMMARY_MODE_GPS:
+        globstr = os.path.join(datadir, "%s*.txt" % flagstr)
+    elif mode == summary.SUMMARY_MODE_DAY:
+        globstr = os.path.join("archive_daily",\
+                               "%d%.2d%.2d"\
+                                   % (start.year, start.month, start.day),\
+                               datadir, "%s*.txt" % flagstr)
+    elif mode == summary.SUMMARY_MODE_WEEK\
+    or mode == summary.SUMMAR_MODE_MONTH:
+        globstr = os.path.join("archive_daily",\
+                               "%d%.2d*" % (start.year, start.month),\
+                               datadir, "%s*.txt" % flagstr)
+    elif mode == summary.SUMMARY_MODE_YEAR:
+        globstr = os.path.join("archive_monthly", "%d*" % (start.year),\
+                               datadir, "%s*.txt" % flagstr)
+    else:
+        raise RuntimeError("Mode not recognised.")
+      
+    # make cache
+    cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
+
+    # load segments into memory
+    return get_segments(cp, flag, seglist, cache=cache, verbose=verbose)
+
+def get_segments(cp, flag, validsegs, cache=None, buffer_=0, verbose=False):
+    """
+    Returns a glue.SegmentList for the given flag from either the
+    segment database, or the provided segment cache file.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    """
+
+    #
+    # check segments: if we have a flag already, then we don't need to get it
+    # again
+    #
+
+    # check what segments we already have for this flag
+    segdeflist = G_SEGMENT_DEFINER.get(flag, SegmentList())
+
+    # get new segments
+    newsegdefs = validsegs - segdeflist
+    query = abs(newsegdefs) != 0
+
+    #
+    # parse configuration for segment parameters
+    #
+
+    segsec = "segfind"
+
+    # get cache
+    if cache is not None:
+        segcache = cache
+    elif cp.has_option("segfind", "segment-cache"):
+        segcache = cp.get("segfind", "segment-cache")
+    else:
+        segcache = None
+
+    # get database
+    if not segcache:
+        segment_url = cp.get("segfind", "segment-url")
+
+    #
+    # load segments for this flag
+    #
+
+    # from the cache
+    if segcache is not None and query:
+        # remove X1: prefix and add underscores
+        desc = _r_cchar.sub("_", flag.upper())
+        if re.match("\w\d[:-_]", desc):
+            desc = desc[3:]
+        # sieve cache
+        segcache = segcache.sieve(segmentlist=newsegdefs, description=desc)
+        # read segments
+        new = fromsegmentcache(segcache)
+        new &= newsegdefs
+        print_verbose("Loaded %d segments from cache for %s.\n"\
+                      % (len(new), flag), verbose=verbose)
+
+    # from the segment database
+    elif query:
+        new = dqSegmentUtils.grab_segments(validsegs[0][0], validsegs[-1][-1],\
+                                           flag, segment_url)
+        new &= newsegdefs
+        new.coalesce()
+        print_verbose("Loaded %d segments from %s for %s.\n"\
+                      % (len(new), segment_url, flag), verbose=verbose)
+    else:
+        new = SegmentList()
+
+    if buffer_:
+        new = new.contract(buffer_)
+
+    # record these segments
+    if G_SEGMENTS.has_key(flag):
+        G_SEGMENT_DEFINER[flag] += newsegdefs
+        G_SEGMENTS[flag] += new
+    else:
+        G_SEGMENT_DEFINER[flag] = newsegdefs
+        G_SEGMENTS[flag]  = new
+    G_SEGMENTS[flag].coalesce()
+
+    #
+    # return the required segments
+    #
+
+
+    out = validsegs & G_SEGMENTS[flag]
+
+    # apply a minimum length requirement
+    minlength = cp.has_option("segfind", "minimum-segment-length") and\
+                cp.getfloat("segfind", "minimum-segment-length") or 0
+    out = type(out)([seg for seg in out if abs(seg) >= minlength])
+
+    # return
+    return out
+
+# =============================================================================
+# Process segments
+# =============================================================================
+
+def process_segments(tab, cp, cpsec, verbose=False,\
+                     htmlonly=False, doplots=True, dosubplots=True):
+    """
+    Process and summarise segments. Modifies SegmentSummaryTab in place.
+
+    @param tab: SegmentSummaryTab object to process
+    @type  tab: C{summary.SegmentSummaryTab}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param doplots: generate plots, default: True
+    @type  doplots: C{bool}
+    @param dosubplots: generate subplots, default: True
+    @type  dosubplots: C{bool}
+    @param htmlonly: generate enough data for HTML only, default: False
+    @type  htmlonly: C{nool}
+    """
+    print_verbose("\n----------\nProcessing %s segments for the %s state...\n"\
+                  % (tab.name, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    #
+    # get flags
+    #
+
+    flags  = cp.get(cpsec, "data-quality-flags").split(',')
+    if cp.has_option(cpsec, "labels"):
+        labels = cp.get(cpsec, "labels").split(',')
+    elif cp.has_option(cpsec, "label"):
+        labels = cp.get(cpsec, "label").split(",")
+    else:
+        labels = flags
+
+    #
+    # get archived segments
+    # 
+
+    if cp.has_option(cpsec, "use-archive")\
+    and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
+        print_verbose("Loading segments from archive:\n", verbose=verbose)
+        archivesegs = SegmentList()
+        for flag,label in zip(flags, labels):
+            name = _r_cchar.sub("_", label.upper())
+            if not name.startswith(tab.ifo):
+                name = "%s-%s" % (tab.ifo, name)
+            segs = load_archive_segments(cp, name, tab.segments,\
+                                         mode=tab.mode, verbose=verbose)
+            if len(segs):
+                archivesegs.extend(SegmentList([segs.extent()]))
+        if len(archivesegs):
+            tab.segments -= SegmentList([archivesegs.extent()])
+
+    #
+    # get new segments
+    # 
+
+    for flag,label in zip(flags, labels):
+        # parse flag for composition
+        if htmlonly:
+            name = _r_cchar.sub("_", label.upper())
+            if not name.startswith(tab.ifo):
+                name = "%s-%s" % (tab.ifo, name)
+            f = os.path.join(tab.datadirectory, "%s_%s-%d-%d.txt"\
+                                             % (name, tab.state.tag,\
+                                                tab.start_time, abs(tab.span)))
+            if os.path.isfile(f):
+                comp_segs = fromsegfile(f)
+            else:
+                comp_segs = SegmentList()
+        else:
+            divs = re.findall("[&!]", flag)
+            comp_flags = re.split("[&!]", flag)
+            comp_segs  = tab.segments
+            for i,comp_flag in enumerate(comp_flags):
+                seglist = get_segments(cp, comp_flag, tab.segments,\
+                                       verbose=verbose)
+                if len(divs) == 0:
+                    comp_segs = seglist
+                elif i!=0 and divs[i-1] == "!":
+                    comp_segs -= seglist
+                else:
+                    comp_segs &= seglist
+        label = re.sub("&", " and ", label)
+        label = re.sub("!", " minus ", label)
+        tab.add_segments(label, comp_segs)
+
+    #
+    # make plots
+    #
+
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-segments", 0), ("plot-duty-cycle", 1)]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and int(o[1]) or 1000)
+
+    for plot,_ in plots:
+        plottag = _r_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                        _r_cchar.sub("_", tab.name.upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+        plotparams = parse_plot_section(cp, cpsec,\
+                                        plotutils.parse_plot_config(cp, plot))
+        if htmlonly or not doplots:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            if re.search("duration", plot, re.I):
+                tab.plotduration(outfile, **plotparams)
+            elif re.search("duty-cycle", plot, re.I):
+                tab.plotdutycycle(outfile, **plotparams)
+            elif re.search("histogram", plot, re.I):
+                tab.plothistogram(outfile, **plotparams)
+            else:
+                tab.plotsegments(outfile, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    #
+    # subplots
+    #
+
+    if cp.has_option(cpsec, "sub-plot"):
+        subplot = cp.get(cpsec, "sub-plot")
+        substart = tab.start_time
+        deltas = subplotduration(tab.start_time, tab.end_time, tab.mode)
+
+        for dt in deltas:
+            plottag = _r_cchar.sub("_", subplot[5:].upper())
+            basefile = "%s-%s_%s_%s-%d-%d.png"\
+                       % (tab.ifo, _r_cchar.sub("_", tab.name.upper()),\
+                          tab.state.tag, plottag, substart, dt)
+            plotparams = parse_plot_section(cp, cpsec,\
+                                       plotutils.parse_plot_config(cp,subplot))
+            d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
+            # test if plot exists somewhere else
+            if tab.mode == summary.SUMMARY_MODE_WEEK\
+            or tab.mode == summary.SUMMARY_MODE_MONTH:
+                outdir = os.path.join("archive_daily", d.strftime("%Y%m%d"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            elif tab.mode == summary.SUMMARY_MODE_YEAR:
+                outdir = os.path.join("archive_monthly", d.strftime("%Y%m"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            else:
+                outfile = os.path.join(tab.directory, basefile)
+ 
+            # otherwise make it as normal
+            if htmlonly or not dosubplots:
+                tab.subplots.append((outfile,\
+                                     plotparams.pop("description", None)))
+            else:
+                if re.search("duration", subplot, re.I):
+                    tab.plotduration(outfile, subplot=True, **plotparams)
+                elif re.search("duty-cycle", subplot, re.I):
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotdutycycle(outfile, subplot=True, **plotparams)
+                elif re.search("histogram", subplot, re.I):
+                    tab.plothistogram(outfile, subplot=True, **plotparams)
+                else:
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotsegments(outfile, subplot=True, **plotparams)
+            substart += dt
+        print_verbose("%d subplots saved.\n" % len(tab.subplots),\
+                      verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+# =============================================================================
+# Process state vector
+# =============================================================================
+
+def process_statevector(tab, cp, cpsec, verbose=False, htmlonly=False,\
+                        doplots=True, dosubplots=True):
+    """
+    Process and summarise state vector data.
+
+    @param tab: StateVectorSummaryTab object to process
+    @type  tab: C{summary.StateVectorSummaryTab}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param doplots: generate plots, default: True
+    @type  doplots: C{bool}
+    @param dosubplots: generate subplots, default: True
+    @type  dosubplots: C{bool}
+    @param htmlonly: generate enough data for HTML only, default: False
+    @type  htmlonly: C{nool}
+    """
+    print_verbose("\n----------\nProcessing %s state vector for the %s "\
+                  "state...\n" % (tab.name, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    #
+    # get bits
+    #
+
+    bitmask = [(int(bit), mask) for (bit,mask) in cp.items(cpsec)\
+               if bit.isdigit()] 
+    tab.add_bitmask(bitmask)
+    compobits = [(bit,mask) for (bit,mask) in cp.items(cpsec)\
+                 if not bit.isdigit()\
+                 and re.sub("[!,]", "", str(bit)).isdigit()]
+    tab.add_derived_bits(compobits)
+
+    usesegdb = cp.has_option(cpsec, "use-segment-database")\
+               and (cp.get(cpsec, "use-segment-database") is ""\
+                    or cp.getboolean(cpsec, "use-segment-database"))
+
+    allbits = dict()
+    allbits.update(tab.bitmask)
+    allbits.update(tab.derived_bitmask)
+
+    #
+    # get archived segments
+    # 
+
+    if cp.has_option(cpsec, "use-archive") \
+    and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
+        print_verbose("Load segments from archive:\n", verbose=verbose)
+        archivesegs = SegmentList()
+        for bit,flag in allbits.iteritems():
+            name = _r_cchar.sub("_", flag.upper())
+            if not name.startswith(tab.ifo):
+                name = "%s-%s" % (tab.ifo, name)
+            segs = load_archive_segments(cp, name, tab.segments, mode=tab.mode,\
+                                         verbose=verbose)
+            if len(segs):
+                archivesegs.extend(SegmentList([segs.extent()]))
+        if len(archivesegs):
+            tab.segments -= SegmentList([archivesegs.extent()])
+            
+
+    #
+    # get new segments
+    #
+
+    if htmlonly:
+        for bit,flag in allbits.iteritems():
+            name = _r_cchar.sub("_", flag.upper())
+            if not flag.startswith(tab.ifo):
+                name = "%s-%s" % (tab.ifo, name)
+            f = os.path.join(tab.datadirectory, "%s_%s-%d-%d.txt"\
+                                             % (name, tab.state.tag,\
+                                                tab.start_time, abs(tab.span)))
+            if os.path.isfile(f):
+                segs = segmentsUtils.fromsegwizard(f)
+            else:
+                segs = SegmentList()
+            tab.add_segments(flag, segs)
+
+    elif usesegdb:
+        for bit,flag in tab.bitmask.iteritems():
+            segs = get_segments(cp, flag, tab.segments, verbose=verbose)
+            tab.add_segments(flag, segs)
+    else:
+        channel = cp.get(cpsec, "channel")
+        frametype = cp.get(cpsec, "frame-type")
+        data = get_data(cp, channel, tab.segments, frametype=frametype,\
+                        verbose=verbose)
+        segdict = SegmentListDict((flag, SegmentList([]))\
+                                           for bit,flag in tab.bitmask.items())
+        if len(data):
+            for series in data:
+                seriessegs = stateutils.tosegmentlistdict(series,tab.bitmask)
+                for flag in tab.bitmask.values():
+                    segdict[flag] += seriessegs[flag]
+            for bit,flag in tab.bitmask.iteritems():
+                tab.add_segments(flag, segdict[flag])
+            # construct derived flags
+            defstart = float(data[0].epoch)
+            defend   = float(data[-1].epoch + data[-1].data.length\
+                             * data[-1].deltaT)
+            tab.segments &= SegmentList([Segment(defstart,\
+                                                                   defend)])
+        else:
+            for bit,flag in tab.bitmask.iteritems():
+                tab.add_segments(flag, SegmentList([]))
+            print_verbose("warning: no data recovered for %s state vector.\n"\
+                          % channel, stream=sys.stderr, verbose=verbose)
+
+    #
+    # get derived bits
+    #
+
+    if not htmlonly and len(tab.derived_bitmask.keys()):
+        for bitset,flag in tab.derived_bitmask.iteritems():
+            bitset = re.split(",", bitset)
+            seglist = SegmentList(tab.segments)
+            for bit in bitset:
+                if bit.startswith("!"):
+                    seglist -= tab.segdict[tab.bitmask[int(bit[1:])]]
+                else:
+                    seglist &= tab.segdict[tab.bitmask[bit]]
+            tab.add_segments(flag, seglist)
+
+    #
+    # make plots
+    #
+
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-segments", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and int() or 1000)
+
+    for plot,_ in plots:
+        plottag = _r_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                        _r_cchar.sub("_", tab.name.upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+        plotparams = parse_plot_section(cp, cpsec,\
+                                        plotutils.parse_plot_config(cp, plot))
+        if htmlonly:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            if plot == 'plot-segment-duration':
+                tab.plotduration(outfile, **plotparams)
+            elif plot == 'plot-duty-cycle':
+                tab.plotdutycycle(outfile, **plotparams)
+            else:
+                tab.plotsegments(outfile, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    #
+    # subplots
+    #
+
+    if cp.has_option(cpsec, "sub-plot"):
+        subplot = cp.get(cpsec, "sub-plot")
+        deltas = subplotduration(tab.start_time, tab.end_time, tab.mode)
+        substart = tab.start_time
+
+        for dt in deltas:
+            plottag = _r_cchar.sub("_", subplot[5:].upper())
+            basefile = "%s-%s_%s_%s-%d-%d.png"\
+                       % (tab.ifo, _r_cchar.sub("_", tab.name.upper()),\
+                          tab.state.tag, plottag, substart, dt)
+            plotparams = plotutils.parse_plot_config(cp, subplot)
+            plotparams = parse_plot_section(cp, cpsec, plotparams)
+            d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
+            # test if plot exists somewhere else
+            if tab.mode == summary.SUMMARY_MODE_WEEK\
+            or tab.mode == summary.SUMMARY_MODE_MONTH:
+                outdir = os.path.join("archive_daily", d.strftime("%Y%m%d"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            elif tab.mode == summary.SUMMARY_MODE_YEAR:
+                outdir = os.path.join("archive_monthly", d.strftime("%Y%m"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            else:
+                outfile = os.path.join(tab.directory, basefile)
+    
+            # otherwise make it as normal
+            if htmlonly or not dosubplots:
+                tab.subplots.append((outfile, plotparams.pop("description",\
+                                                             None)))
+            else:
+                if re.search("duration", subplot, re.I):
+                    tab.plotduration(outfile, subplot=True, **plotparams)
+                elif re.search("duty-cycle", subplot, re.I):
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotdutycycle(outfile, subplot=True, **plotparams)
+                elif re.search("histogram", subplot, re.I):
+                    tab.plothistogram(outfile, subplot=True, **plotparams)
+                else:
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotsegments(outfile, subplot=True, **plotparams)
+            substart += dt
+        print_verbose("%d subplots saved.\n" % len(tab.subplots),\
+                      verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+# =============================================================================
+# Acquire triggers
+# =============================================================================
+
+def get_triggers(cp, channel, etg, seglist, cluster=False, minsnr=0,\
+                 verbose=False, query=True):
+    """
+    Returns a glue.ligolw.Table for the given channel from either the
+    default location, or the provided trigger cache file.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param channel: name of channel to read
+    @type  channel: C{str}
+    @param etg: trigger generator to read
+    @type  etg: C{str}
+    @param seglist: list of segments to read
+    @type  seglist: C{glue.segments.segmentlist}
+    @param cluster: apply clustering to triggers after they are read
+    @type  cluster: C{bool}
+    @param minsnr: minimum SNR threshold
+    @type  minsnr: C{float}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param query: search for new triggers (True), or find in memory (False)
+    @type  query: C{bool}
+
+    @return: LIGOLw trigger table containing found triggers
+    @rtype: C{glue.ligolw.table.Table}
+    """
+    #
+    # check segments: if we have a flag already, then we don't need to get it
+    # again
+    #
+
+    # check what segments we already have for this channel
+    if not G_TRIGGERS.has_key(etg):
+        G_TRIGGERS[etg] = dict()
+    if not G_TRIGGERS[etg].has_key(channel):
+        G_TRIGGERS[etg][channel] = dict()
+
+    # get old segments
+    segdeflist = SegmentList(G_TRIGGERS[etg][channel].keys())
+    segdeflist.coalesce()
+
+    # get new segments
+    seglist.coalesce()
+    if query:
+        newsegdefs = seglist - segdeflist
+        query &= abs(newsegdefs) != 0
+    else:
+        newsegdefs = SegmentList()
+    newsegdefs.coalesce()
+    if len(newsegdefs):
+        span = newsegdefs.extent()
+
+    # get cache
+    if not cp.has_option(etg.lower(), "skip-cache-file")\
+    and cp.has_option("trigfind", "trigger-cache"):
+        trigcache = cp.get("trigfind", "trigger-cache", raw=True)
+    else:
+        trigcache = None
+
+    #
+    # get parameters
+    #
+ 
+    ifo = channel.split(":",1)[0]
+    etgsec = _r_cchar.sub("-", etg.lower())
+
+    # get columns
+    columns = cp.has_option(etgsec, "table-columns")\
+              and cp.get(etgsec, "table-columns").split(",") or None
+    
+    #
+    # find trigger files
+    #
+
+    if trigcache is not None and query:
+        if etg.lower() == 'excesspower':
+            desc  = '%s*%s' % (_r_cchar.sub("*", channel.split(':',1)[1].upper()),\
+                               etg)
+        else:
+            desc  = '%s*%s' % (_r_cchar.sub("*", channel.split(':',1)[1].upper()),\
+                               etg.upper())
+        trigcache = trigcache.sieve(description=desc)
+    elif query and not etg.lower() == "hacr":
+        if etg.lower() == "omega":
+            trigcache = omegautils.get_cache(span[0], span[1], ifo)
+            print_verbose("%s Omega trigger files auto-found.\n"\
+                          % len(trigcache), verbose=verbose)
+        elif etg.lower() == "omegaspectrum":
+            trigcache = omegautils.get_spectrum_cache(span[0], span[1], ifo)
+        elif etg.lower() == "kw":
+            trigcache = kwutils.get_cache(span[0], span[1], channel,\
+                                      cp.get("kw", "frequency"))
+        else:
+            raise NotImplementedError("A default file finder for %s has not"\
+                                      "been written yet." % etg)
+
+
+    #
+    # load triggers and append to the GLOBAL 
+    #
+
+    n = 0
+    nc = 0
+
+    # load HACR triggers from database 
+    if query and not trigcache and etg.lower() == "hacr":
+        host = cp.get("hacr", "host")
+        # query once for the span
+        trigtable = hacrutils.get_triggers(span[0], span[1], channel, host,
+                                           columns=columns)
+        add_triggers(trigtable, channel, etg, span)
+        n += len(trigtable)
+        if cluster:
+            trigtable = dqTriggerUtils.cluster()
+            add_clustered(trigtable, channel, span)
+            nc += len(trigtable)
+
+    # load files segment by segment in an attempt to speed up loading
+    elif query and trigcache:
+        trigcache,_ = trigcache.checkfilesexist(on_missing="warn")
+        for seg in newsegdefs:
+            segcache = trigcache.sieve(segment=seg)
+            if len(segcache) == 0:
+                continue
+            if etg.lower() == "omega":
+                trigtable = omegautils.fromlalcache(segcache, start=seg[0],\
+                                                    end=seg[1],\
+                                                    columns=columns,\
+                                                    verbose=verbose)
+            elif etg.lower() == "kw" or etg.lower() == "kleinewelle":
+                trigtable = kwutils.fromlalcache(segcache, start=seg[0],\
+                                                 end=seg[1],\
+                                                 columns=columns,\
+                                                 verbose=verbose)
+            else:
+                trigtable = dqTriggerUtils.fromLALCache(segcache, etg=etg,\
+                                                        start=seg[0],\
+                                                        end=seg[1],\
+                                                        columns=columns)
+            if etg.lower() == "excesspower":
+                for i,t in enumerate(trigtable):
+                    if t.snr > 0:
+                        trigtable[i].snr = t.snr**(1/2)
+            add_triggers(trigtable, channel, etg, seg)
+            n += len(trigtable)
+            if cluster:
+                trigtable = dqTriggerUtils.cluster()
+                add_clustered(trigtable, channel, seg)
+                nc += len(trigtable)
+    else:
+        trigtable = dqTriggerUtils.SnglTriggerTable(etg)
+
+    if query and cluster:
+        print_verbose("Loaded and clustered %d new triggers for %s.\n"\
+                      % (nc, channel), verbose=verbose)
+    elif query:
+        print_verbose("Loaded %d new triggers for %s.\n"\
+                      % (n, channel), verbose=verbose)    
+
+    #
+    # return the required trigger files
+    #
+
+    trigtable = table.new_from_template(trigtable)
+    if re.search("burst", trigtable.tableName):
+        get_time = lambda t: t.get_peak()
+    else:
+        get_time = lambda t: t.get_end()
+
+    # convert segments to floats
+    seglist = SegmentList([Segment(map(float, seg))\
+                                    for seg in seglist])
+
+    if cluster:
+        # loop over GLOBAL segments and append the triggers we want
+        for seg in sorted(G_CLUSTERED_TRIGGERS[etg][channel].keys()):
+            if not seglist.intersects_segment(seg):
+                continue
+            trigtable.extend(t for t in G_CLUSTERED_TRIGGERS[etg][channel][seg]\
+                             if float(t.snr)>=minsnr\
+                             and float(get_time(t) in seglist))
+    else:
+        # loop over GLOBAL segments and append the triggers we want
+        for seg in sorted(G_TRIGGERS[etg][channel].keys()):
+            if not seglist.intersects_segment(seg):
+                continue
+            trigtable.extend(t for t in G_TRIGGERS[etg][channel][seg]\
+                             if float(t.snr)>=minsnr\
+                             and float(get_time(t) in seglist))
+
+    return trigtable
+
+# add triggers to GLOBAL
+def add_triggers(trigtable, channel, etg, seg):
+    """
+    Append the given glue.ligolw.Table trigtable to the global trigger holder
+    for the given channel and segment.
+ 
+    @param trigtable: LIGOLw trigger table to store in memory
+    @type  trigtable: C{glue.ligolw.table.Table}
+    @param channel: name of channel to store
+    @type  channel: C{str}
+    @param etg: trigger generator
+    @type  etg: C{str}
+    @param seg: valid GPS [start,stop) interval for this trigger table
+    @type  seg: C{glue.segments.segment}
+    """
+    # add channel
+    if not G_TRIGGERS.has_key(etg):
+        G_TRIGGERS[etg] = dict()
+    if not G_TRIGGERS[etg].has_key(channel):
+        G_TRIGGERS[etg][channel] = dict()
+
+    # cast segment
+    seg = Segment(seg[0], seg[1])
+
+    # get segments for channel
+    seglist = SegmentList(G_TRIGGERS[etg][channel].keys())
+    seglist.coalesce()
+
+    # if completely new, add it
+    disjoint = all([seg.disjoint(gseg) for gseg in seglist])
+    if len(seglist) == 0 or disjoint:
+        G_TRIGGERS[etg][channel][seg] = trigtable
+        del trigtable
+
+    # otherwise it must exist inside the extent, which means it probably touches
+    # one of the existing segments
+    else:
+        for gseg in seglist:
+            if not gseg.disjoint(seg):
+                seg += gseg
+                G_TRIGGERS[etg][channel][seg] =\
+                    G_TRIGGERS[etg][channel][gseg] + trigtable
+                del G_TRIGGERS[etg][channel][gseg]
+                trigtable = G_TRIGGERS[etg][channel][seg]
+    return
+   
+# add clustered triggers to GLOBAL
+def add_clustered_triggers(trigtable, channel, etg, seg):
+    """
+    Append the given clustered glue.ligolw.Table trigtable to the
+    global trigger holder for the given channel, etg and segment.
+
+    @param trigtable: LIGOLw trigger table to store in memory
+    @type  trigtable: C{glue.ligolw.table.Table}
+    @param channel: name of channel to store
+    @type  channel: C{str}
+    @param etg: trigger generator
+    @type  etg: C{str}
+    @param seg: valid GPS [start,stop) interval for this trigger table
+    @type  seg: C{glue.segments.segment}
+    """
+    # add channel
+    if not G_CLUSTERED_TRIGGERS.has_key(etg):
+        G_CLUSTERED_TRIGGERS[etg] = dict()
+    if not G_CLUSTERED_TRIGGERS[etg].has_key(channel):
+        G_CLUSTERED_TRIGGERS[etg][channel] = dict()
+
+    # get segments for channel
+    seglist = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys())
+    seglist.coalesce()
+
+    # if completely new, add it
+    disjoint = all([seg.disjoint(gseg) for gseg in seglist])
+    if len(seglist)==0 or disjoint:
+        G_CLUSTERED_TRIGGERS[etg][channel][seg] = trigtable
+        del trigtable
+
+    # otherwise it must touch at least one of the segments
+    else:
+        for gseg in seglist:
+            if not gseg.disjoint(seg):
+                seg += gseg
+                G_CLUSTERED_TRIGGERS[etg][channel][seg] =\
+                    G_CLUSTERED_TRIGGERS[etg][channel][gseg] + trigtable
+                del G_CLUSTERED_TRIGGERS[etg][channel][gseg]
+                trigtable = G_CLUSTERED_TRIGGERS[etg][channel][seg]
+    return
+
+# =============================================================================
+# Process triggers
+# =============================================================================
+
+def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
+                     dosubplots=True, htmlonly=False):
+    """
+    Process some triggers.
+
+    @param tab: StateVectorSummaryTab object to process
+    @type  tab: C{summary.StateVectorSummaryTab}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param doplots: generate plots, default: True
+    @type  doplots: C{bool}
+    @param dosubplots: generate subplots, default: True
+    @type  dosubplots: C{bool}
+    @param htmlonly: generate enough data for HTML only, default: False
+    @type  htmlonly: C{nool}
+    """
+    if cp.has_option(cpsec, "channel"):
+        channels = cp.get(cpsec, "channel").split(',')
+    elif cp.has_option(cpsec, "channels"):
+        channels = cp.get(cpsec, "channels").split(',')
+    else:
+        raise ValueError("No channels configured in [%s]." % cpsec)
+    tab.etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator") or cpsec[9:]
+    print_verbose("\n----------\nProcessing %s %s triggers for the %s state"\
+                  "...\n" % (" and ".join(channels), tab.etg, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    tab.cluster = cp.has_option(cpsec, "cluster-triggers")\
+                  and cp.get(cpsec, "cluster-triggers") or False
+
+    #
+    # get triggers
+    #
+
+    # get SNR threshold
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+
+    # get triggers
+    if not htmlonly:
+        for chan in channels:
+            trigtable = get_triggers(cp, chan, tab.etg, tab.segments,\
+                                     verbose=verbose, cluster=tab.cluster,\
+                                     minsnr=snr)
+            tab.add_triggers(chan, trigtable)
+
+    print_verbose("All triggers loaded.\n", verbose=verbose)
+
+    #
+    # plot triggers
+    #
+    
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-time-frequency-snr", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and int(o[1]) or 1000)
+
+    for plot,_ in plots:
+        plottag = _r_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                        _r_cchar.sub("_", tab.name.upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+        plotparams = parse_plot_section(cp, cpsec,\
+                                        plotutils.parse_plot_config(cp, plot))
+        if htmlonly or not doplots:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            # TODO: implement multi-threading plotting
+            if re.search("hist", plot, re.I):
+                tab.plothistogram(outfile, **plotparams)
+            elif re.search("rate", plot, re.I):
+                tab.plotrate(outfile, **plotparams)
+            elif re.search("auto", plot, re.I):
+                tab.plotautocorrelation(outfile, **plotparams)
+            else:
+                tab.plottable(outfile, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    #
+    # subplots
+    #
+
+    if cp.has_option(cpsec, "sub-plot"):
+        subplot = cp.get(cpsec, "sub-plot")
+        substart = tab.start_time
+        deltas = subplotduration(tab.start_time, tab.end_time, tab.mode)
+
+        for dt in deltas:
+            plottag = _r_cchar.sub("_", subplot[5:].upper())
+            basefile = "%s-%s_%s_%s-%d-%d.png"\
+                       % (tab.ifo, _r_cchar.sub("_", tab.name.upper()),
+                          tab.state.tag, plottag, substart, dt)
+            plotparams = plotutils.parse_plot_config(cp, subplot)
+            plotparams = parse_plot_section(cp, cpsec, plotparams)
+            d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
+            # test if plot exists somewhere else
+            if tab.mode == summary.SUMMARY_MODE_WEEK\
+            or tab.mode == summary.SUMMARY_MODE_MONTH:
+                outdir = os.path.join("archive_daily", d.strftime("%Y%m%d"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            elif tab.mode == summary.SUMMARY_MODE_YEAR:
+                outdir = os.path.join("archive_monthly", d.strftime("%Y%m"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            else:
+                outfile = os.path.join(tab.directory, basefile)
+    
+            # otherwise make it as normal
+            if htmlonly or not dosubplots:
+                tab.subplots.append((outfile, plotparams.pop("description",\
+                                                             None)))
+            else:
+                if re.search("hist", subplot, re.I):
+                    tab.plothistogram(outfile, subplot=True, **plotparams)
+                elif re.search("rate", subplot, re.I):
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotrate(outfile, subplot=True, **plotparams)
+                elif re.search("auto", subplot, re.I):
+                    tab.plotautocorrelation(outfile, subplot=True, **plotparams)
+                else:
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plottable(outfile, subplot=True, **plotparams)
+            substart += dt
+        print_verbose("%d subplots saved.\n" % len(tab.subplots),\
+                      verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
+                               htmlonly=False):
+    """
+    Process some auxiliary channel triggers relative to an analysis channel.
+
+    @param tab: AuxTriggerSummaryTab object to process
+    @type  tab: C{summary.AuxTriggerSummaryTab}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param doplots: generate plots, default: True
+    @type  doplots: C{bool}
+    @param htmlonly: generate enough data for HTML only, default: False
+    @type  htmlonly: C{nool}
+    """
+    tab.etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator")\
+              or cpsec[12:].split()[0]
+    print_verbose("\n----------\nProcessing %s auxiliary channel triggers for "\
+                  "the %s state...\n" % (tab.etg, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    tab.cluster = cp.has_option(cpsec, "cluster-triggers")\
+                  and cp.get(cpsec, "cluster-triggers") or False
+
+    dt = cp.getfloat(cpsec, "coincidence-window")
+    shifts = map(float, cp.get(cpsec, "coincidence-time-slides").split(","))
+
+    #
+    # get triggers
+    #
+
+    # get SNR threshold
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+
+    # get channels
+    tab.mainchannel = mainchannel = cp.get(cpsec, "main-channel")
+    auxsec = cp.has_option(cpsec, "auxiliary-channels")\
+             and cp.get(cpsec, "auxiliary-channels")\
+             or "%s-channels" % tab.etg.lower()
+    channels = [c for i,c in cp.items("%s-channels" % tab.etg.lower())\
+                if c != mainchannel]
+    channels.sort()
+
+    # get triggers
+    if not htmlonly:
+        # get main channel triggers
+        trigtable = get_triggers(cp, mainchannel, tab.etg, tab.segments,\
+                                 verbose=verbose, cluster=tab.cluster,\
+                                 minsnr=snr)
+        tab.add_triggers(mainchannel, trigtable)
+        # get auxiliary channel triggers
+        for chan in channels:
+            trigtable = get_triggers(cp, chan, tab.etg, tab.segments,\
+                                     verbose=verbose, cluster=tab.cluster,\
+                                     minsnr=snr)
+            tab.add_triggers(chan, trigtable)
+
+    print_verbose("All triggers loaded.\n", verbose=verbose)
+
+    #
+    # get plots
+    #
+
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-time-frequency-snr", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and int() or 1000)
+
+    #
+    # process and plot auxiliary
+    #
+    
+    sigmaplot = None
+
+    for chan in channels:
+        tab.auxplots[chan] = list()
+        for plot,_ in plots:
+            # format plot
+            plottag = _r_cchar.sub("_", plot[5:].upper())
+            outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                         _r_cchar.sub("_", chan[3:].upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+            plotparams = parse_plot_section(cp, cpsec,\
+                                          plotutils.parse_plot_config(cp, plot))
+
+            # skip if htmlonly
+            if htmlonly or not doplots:
+                if re.search("slide", plot, re.I):
+                    sigmaplot = plot
+                tab.auxplots[chan].append((outfile,\
+                                           plotparams.pop("description", None)))
+                continue
+
+            # process data
+            if re.search("slide", plot, re.I):
+                # find significance of coincidences
+                tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
+                sigmaplot = plot
+            if re.search("coinc", plot, re.I):
+                # find coincs
+                tab.get_coincs(chan, mainchannel, dt=dt)
+                tab.get_coincs(mainchannel, chan, dt=dt)
+                print_verbose("(%d,%d) coincs in (%s,%s).\n"\
+                              % (tab.numcoincs[(chan, mainchannel)],\
+                                 tab.numcoincs[(mainchannel, chan)],\
+                                 chan, mainchannel), verbose=verbose)
+            elif re.search("slide", plot, re.I):
+                # find significance of coincidences
+                tab.compute_coinc_significance(chan, dt=dt, shifts=shifts)
+                tab.plotsigma(outfile, chan, **plotparams)
+            elif re.search("coinc", plot, re.I):
+                tab.plotcoincs(outfile, chan, **plotparams)
+            elif re.search("hist", plot, re.I):
+                if len(tab.segments):
+                    plotparams.setdefault("normalize", tab.segments.extent())
+                tab.plothistogram(outfile, channels=chan, **plotparams)
+            elif re.search("rate", plot, re.I):
+                tab.plotrate(outfile, channels=chan, **plotparams)
+            elif re.search("auto", plot, re.I):
+                tab.plotautocorrleation(outfile, channels=chan, **plotparams)
+            else:
+                tab.plottable(outfile, chan, **plotparams)
+        print_verbose("%d plots saved for %s.\n" % (len(plots), chan),\
+                      verbose=verbose)
+
+    #
+    # make summary plot
+    #
+
+    if sigmaplot:
+        plottag = _r_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                         % (tab.ifo,\
+                                            _r_cchar.sub("_", name.upper()),\
+                                            tab.state.tag, plottag,\
+                                            tab.start_time, abs(tab.span)))
+        if htmlonly:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            plotparams = parse_plot_section(cp, cpsec,\
+                                          plotutils.parse_plot_config(cp, plot))
+            plotparams.pop("channel", None)
+            tab.plotsigma(outfile, channel=None, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+# =============================================================================
+# Acquire data
+# =============================================================================
+
+def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
+    """
+    Load data archived by a previous run of this code, e.g. daily range
+    to use in a monthly run.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param channel: name of channel to read
+    @type  channel: C{str}
+    @param seglist: list of segments to read
+    @type  seglist: C{glue.segments.segmentlist}
+    @param mode: summary mode for this job
+    @type  mode: C{int}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    """
+    # return blank is no segments
+    if not len(seglist):
+        return []
+
+    # restrict archived data to NOW
+    start,end = seglist.extent()
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
+
+    # otherwise get start date
+    start_date = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
+
+    # get file for mode
+    datadir = "data"
+    if mode == summary.SUMMARY_MODE_GPS:
+        globstr = os.path.join(datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_DAY:
+        globstr = os.path.join("archive_daily",\
+                               "%d%.2d%.2d"\
+                                   % (start_date.year, start_date.month,\
+                                      start_date.day),\
+                               datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_WEEK\
+    or mode == summary.SUMMAR_MODE_MONTH:
+        globstr = os.path.join("archive_monthly",\
+                               "%d%.2d*" % (start_date.year, start_date.month),\
+                               datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_YEAR:
+        globstr = os.path.join("archive_monthly", "%d*" % (start_date.year),\
+                               datadir, "*.hdf")
+    else:
+        raise RuntimeError("Mode not recognised.")
+      
+    # make cache
+    cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
+
+    #
+    # read data from file
+    #
+
+    # TODO : this block reads all the DATA from the HDF5 file
+    #        it should probably read only the data requested
+
+    for e in cache:
+        # open file
+        f = e.path
+        h5file = hdf5utils.h5py.File(f, "r")
+
+        # get segment
+        seg = e.segment & span
+        start = seg[0]
+        duration = float(abs(seg))
+
+        # get data
+        if HDF_DATA_GROUP in list(h5file)\
+        and channel in list(h5file[HDF_DATA_GROUP]):
+            series = hdf5utils.readTimeSeries(f, channel,\
+                                              group=HDF_DATA_GROUP,\
+                                              start=start, duration=duration)
+            add_timeseries(series)
+            seg = Segment(float(series.epoch),\
+                                   float(series.epoch + series.data.length\
+                                                      * series.deltaT))
+            print_verbose("Data recovered from archive for %s: [%d ... %d)\n"\
+                          % (channel, seg[0], seg[1]), verbose=verbose)
+        h5file.close()
+
+    return
+
+def get_data(cp, channel, seglist, frametype=None, calibration=None,\
+             resample=False, usends=False, superchannel=None, verbose=False,\
+             query=True, store=True):
+    """
+    Acquire data from frames OR from NDS.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param channel: name of channel to read
+    @type  channel: C{str}
+    @param seglist: list of segments to read
+    @type  seglist: C{glue.segments.segmentlist}
+    @param frametype: type of frame set (as used by GWDataFind)
+    @type  frametype: C{str}
+    @param calibration: function to apply to data for calibration
+    @type  calibration: C{function}
+    @param resample: sampling frequency at which to downsample the raw data
+    @type  resample: C{float}
+    @param usends: read data from NDS, rather than frames, default: False
+    @type usends: C{bool}
+    @param superchannel: name of conglomerate data channel from which to parse
+        GEO control channel data
+    @type  superchannel: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param query: search for new triggers (True), or find in memory (False)
+    @type  query: C{bool}
+    @param store: store data in memory (True) or return without storing (False)
+    @type  store: C{bool}
+
+    @return: list of lal TimeSeries data holders spanning available
+    @rtype: C{list} of C{lal.XXXTimeSeries}
+    """
+    #
+    # check data: if we have some data already, then we don't need to get it
+    # again
+    #
+
+    # check what segments we already have for this channel
+    if not G_DATA.has_key(channel):
+        G_DATA[channel] = {}
+    segdeflist = SegmentList(G_DATA[channel].keys())
+
+    # get new segments
+    if query:
+        newsegdefs = seglist - segdeflist
+        query = query and abs(newsegdefs) != 0
+    else:
+        newsegdefs = SegmentList()
+    newsegdefs.coalesce()
+
+    # get cache
+    if cp.has_option("datafind", "data-cache"):
+        datacache = cp.get("datafind", "data-cache", raw=True)
+    else:
+        datacache = None
+ 
+    # get NDS info
+    if usends:
+        ndsserver = cp.get("datafind", "nds-server")
+        ndsport = cp.getint("datafind", "nds-port")
+
+    if len(seglist) == 0:
+        return []
+
+    span = seglist.extent()
+
+    # get data type
+    if inspect.stack()[1][3] == "process_statevector":
+        datatype = -1
+    else:
+        datatype = lal.LAL_D_TYPE_CODE
+
+    #
+    # find frames
+    #
+
+    # sieve for the relevant frame type
+    if not usends and datacache is not None and query:
+        datacache = datacache.sieve(ifos=channel[0], description=frametype,\
+                                    exact_match=True)
+        if len(datacache) == 0:
+            print_verbose("warning: no frames found for observatory %s and "\
+                          "frametype %s.\n" % (channel[0], frametype),\
+                          stream=sys.stderr, verbose=verbose)
+
+    # or query the GWDataFindServer
+    elif not usends and query:
+        # get the server if we have it
+        if cp.has_option("datafind", "gw-datafind-server"):
+            server,port = cp.get("datafind", "gw-datafind-server").split(":")
+            if not port:
+                port = None
+            connection = GWDataFindClient.GWDataFindHTTPConnection(host=server,\
+                                                                   port=port)
+        else:
+            connection = GWDataFindClient.GWDataFindHTTPConnection()
+        datacache = connection.find_frame_urls(channel[0], frametype, span[0],\
+                                               span[1], urltype="file",\
+                                               on_gaps="warn")       
+        connection.close()
+
+    if datacache:
+        datasegs = SegmentList()
+        for i,e in enumerate(datacache):
+            datacache[i].segment = Segment(map(float, e.segment))
+            datasegs.append(datacache[i].segment)
+        datasegs.coalesce()
+        newsegdefs &= datasegs
+
+    #
+    # read data
+    #
+
+    for seg in newsegdefs:
+
+        if not usends and frametype == "T" and abs(seg) < 1:
+            continue
+        elif not usends and frametype == "M" and abs(seg) < 60:
+            continue
+
+        # break data up into manageable chunks if using resampling.
+        s = seg[0]
+        if resample:
+            dt = 7200
+        else:
+            dt = numpy.inf
+        while s < seg[1]:
+            e = s + dt
+            seg2 = Segment(float(s), float(min(seg[1], e)))
+
+            # get data from NDS
+            if usends:
+                if superchannel:
+                    sseries = seriesutils.fromNDS(superchannel, seg2[0],\
+                                                  abs(seg), server=ndserver,\
+                                                  port=ndsport)
+                    series  = geoutils.fromsuperchannel(sdata, channel,\
+                                                        superchannel)
+                else:
+                    series  = seriesutils.fromNDS(channel, seg2[0], abs(seg),\
+                                                  server=ndserver, port=ndsport)
+                if resample:
+                    sampling = 1/series.deltaT
+                    seriesutils.resample(series, resample)
+                if calibration:
+                    series.data.data = calibration(series.data.data)
+                add_timeseries(series)
+    
+            # parse cache for this segment
+            if not usends:
+                segcache = datacache.sieve(segment=seg2)
+                cachelist = find_contiguous_frames(segcache)
+                if len(cachelist) == 0:
+                    s += dt
+                    continue
+                elif len(cachelist) > 1:
+                    print_verbose("warning: there are gaps in the frames, "+\
+                                  "%d contiguous data blocks found.\n"\
+                                  % len(cachelist), verbose=verbose)
+    
+                for cache in cachelist:
+                    frstart = min(e.segment[0] for e in cache)
+                    if frstart < seg2[0]:
+                        frstart = seg2[0]
+                    frend = max(e.segment[1] for e in cache)
+                    if frend > seg2[1]:
+                        frend = seg2[1]
+                    frdur = frend - frstart
+                    if superchannel:
+                        try:
+                            sseries =\
+                                seriesutils.fromlalcache(cache, superchannel,\
+                                                         frstart, frdur,\
+                                                         datatype=datatype)
+                        except RuntimeError,e:
+                            if str(e).lower() == "wrong or unknown type":
+                                print_verbose("warning: %s not found in frames"\
+                                              " of type %s. Skipping...\n"\
+                                              % (superchannel, frametype),\
+                                              verbose=True, stream=sys.stderr)
+                                continue
+                            else:
+                                raise
+                        series  = geoutils.fromsuperchannel(sdata, channel,\
+                                                            superchannel)
+                    else:
+                        try:
+                            series =\
+                                seriesutils.fromlalcache(cache, channel,\
+                                                         frstart, frdur,\
+                                                         datatype=datatype)
+                        except RuntimeError,e:
+                            if str(e).lower() == "wrong or unknown type":
+                                print_verbose("warning: %s not found in frames"\
+                                              " of type %s. Skipping...\n"\
+                                              % (channel, frametype),\
+                                              verbose=True, stream=sys.stderr)
+                                continue
+                            else:
+                                raise
+                    if resample:
+                        sampling = 1/series.deltaT
+                        seriesutils.resample(series, resample)
+                    if calibration:
+                        series.data.data = calibration(series.data.data)
+                    add_timeseries(series)
+            s += dt
+        print_verbose("Data recovered from frames for [%d ... %d)\n"\
+                      % (seg[0], seg[1]), verbose=verbose)
+    
+    #
+    # return the correct data
+    #
+
+    # grab the data we want
+    globsegs = SegmentList(G_DATA[channel].keys())
+    globsegs.sort()
+    serieslist = []
+
+    if len(globsegs):
+        datatype = seriesutils.typecode(type(G_DATA[channel][globsegs[0]]))
+        TYPESTR  = seriesutils._typestr[datatype]
+        cut = getattr(lal, "Cut%sTimeSeries" % TYPESTR)
+    else:
+        return []
+
+    for seg in (seglist&globsegs):
+        for gseg in globsegs:
+            # if global segment is exactly what we want
+            if gseg == seg:
+                serieslist.append(G_DATA[channel][gseg])
+                if not store:
+                    del G_DATA[channel][gseg]
+                break
+                break
+            # or if our segment is a subsegment of the global
+            elif gseg.intersects(seg):
+                gseries = G_DATA[channel][gseg]
+                t = numpy.arange(gseries.data.length) * gseries.deltaT\
+                    + float(gseries.epoch)
+                idx0 = int((t >= seg[0]).nonzero()[0][0])
+                n = int((min(seg[1], gseg[1]) - t[idx0]) / gseries.deltaT)
+                if n == gseries.data.length - 1:
+                    serieslist.append(gseries)
+                else:
+                    serieslist.append(cut(gseries, idx0, n))
+                if not store:
+                    del G_DATA[channel][gseg]
+                break
+
+    return serieslist
+
+def add_timeseries(series):
+    """
+    Add a REAL4TimeSeries object data to the global data holder G_DATA.
+
+    @param series: TimeSeries to store
+    @type  series: C{lal.XXXTimeSeries}
+    """
+    # add channel
+    channel = series.name
+    if not G_DATA.has_key(channel):
+        G_DATA[channel] = dict()
+
+    # get data type
+    datatype = seriesutils.typecode(type(series))
+    TYPESTR  = seriesutils._typestr[datatype]
+
+    # get segments for channel
+    seglist = SegmentList(G_DATA[channel].keys())
+    seglist.coalesce()
+
+    # get segment for this timeseries
+    seg = Segment(float(series.epoch),\
+                           float(series.epoch+series.data.length*series.deltaT))
+
+    new = True
+    resize = getattr(lal, "Resize%sTimeSeries" % TYPESTR)
+    for gseg in seglist:
+        # if it postpends an existing segment
+        if gseg[1] == seg[0]:
+            new = False
+            seg += gseg
+            G_DATA[channel][seg] = G_DATA[channel][gseg]
+            l1 = G_DATA[channel][seg].data.length
+            l2 = series.data.length
+            resize(G_DATA[channel][seg], 0, l1+l2)
+            G_DATA[channel][seg].data.data[l1:] = series.data.data
+            series = G_DATA[channel][seg]
+            del G_DATA[channel][gseg]
+        # if it prepends an existing segment
+        if gseg[0] == seg[1]:
+            new = False
+            seg += gseg
+            G_DATA[channel][seg] = series
+            l1 = G_DATA[channel][gseg].data.length
+            l2 = series.data.length
+            resize(G_DATA[channel][seg], 0, l1+l2)
+            G_DATA[channel][seg].data.data[l2:] =\
+                G_DATA[channel][gseg].data.data
+            series = G_DATA[channel][seg]
+            del G_DATA[channel][gseg]
+
+    if new:
+        G_DATA[channel][seg] = series
+
+    return
+
+def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
+    """
+    Load a spectrogram archived by a previous run of this code,
+    e.g. daily h(t) to use in a monthly run.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param channel: name of channel to read
+    @type  channel: C{str}
+    @param seglist: list of segments to read
+    @type  seglist: C{glue.segments.segmentlist}
+    @param mode: summary mode for this job
+    @type  mode: C{int}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    """
+    # return blank if no segments
+    if not len(seglist):
+        return []
+
+    # restrict archived data to NOW
+    start,end = seglist.extent()
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
+
+    # otherwise get start date
+    start_date = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
+    
+    # get file for mode
+    datadir = "data"
+    if mode == summary.SUMMARY_MODE_GPS:
+        globstr = os.path.join(datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_DAY:
+        globstr = os.path.join("archive_daily",\
+                               "%d%.2d%.2d"\
+                                   % (start_date.year, start_date.month,\
+                                      start_date.day),\
+                               datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_WEEK\
+    or mode == summary.SUMMAR_MODE_MONTH:
+        globstr = os.path.join("archive_monthly",\
+                               "%d%.2d*" % (start_date.year, start_date.month),\
+                               datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_YEAR:
+        globstr = os.path.join("archive_monthly", "%d*" % (start_date.year),\
+                               datadir, "*.hdf")
+    else:
+        raise RuntimeError("Mode not recognised.")
+      
+    # make cache
+    cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
+
+    #
+    # read data from file
+    #
+
+    # TODO : this block reads all the DATA from the HDF5 file
+    #        it should probably read only the data requested
+
+    for e in cache:
+        # open file
+        f = e.path
+        h5file =  hdf5utils.h5py.File(f, "r")
+
+        # load list of all spectrograms for this channel
+        group = "%s/%s" % (HDF_SPECTROGRAM_GROUP, channel)
+        if group in list(h5file):
+            datasets = list(h5file[group])
+        else:
+            datasets = []
+        datasegs = [map(float, s.split("-")) for s in datasets]
+        datasegs = SegmentList(map(Segment, datasegs))
+
+        for dataseg,dataset in zip(datasegs, datasets):
+            # get required segment
+            seg = dataseg & span
+            start = seg[0]
+            duration = float(abs(seg))
+            out = hdf5utils.readVectorSequence(h5file, dataset, group=group,\
+                                               start=start, duration=duration)
+            spectrogram, epoch, deltaT, f0, deltaF = out
+            seg = Segment(float(epoch),\
+                                   float(epoch + spectrogram.length*deltaT))
+            add_spectrogram(spectrogram, seg, channel, epoch, deltaT, f0,\
+                            deltaF)
+        h5file.close()
+        if len(datasegs):
+            seg = datasegs.extent()
+            print_verbose("Spectrogram recovered from archive for %s: "\
+                          "[%d ... %d)\n"\
+                          % (channel, seg[0], seg[1]), verbose=verbose)
+
+    return
+
+def get_spectrogram(cp, channel, step, seglen, stride, seglist, frametype=None,\
+                    calibration=None, fresponse=None, resample=None,\
+                    usends=False, superchannel=None, verbose=False, query=True):
+    """
+    Acquire data from frames OR from NDS.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param channel: name of channel to read
+    @type  channel: C{str}
+    @param step: length (seconds) of single average spectrum in spectrogram
+    @type  step: C{float}
+    @param seglen: length (seconds) of segment in average spectrum calculation
+    @type  seglen: C{float}
+    @param stride: length (seconds) of overlap in average spectrum calculation
+    @type  stride: C{float}
+    @param seglist: list of segments to read
+    @type  seglist: C{glue.segments.segmentlist}
+    @param frametype: type of frame set (as used by GWDataFind)
+    @type  frametype: C{str}
+    @param calibration: function to apply to data for calibration
+    @type  calibration: C{function}
+    @param fresponse: function to apply to spectrogram as sensor
+        frequency response
+    @type  fresponse: C{function}
+    @param resample: sampling frequency at which to downsample the raw data
+    @type  resample: C{float}
+    @param usends: read data from NDS, rather than frames, default: False
+    @type  usends: C{bool}
+    @type  superchannel: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param query: search for new spectrogram (True), or find in memory (False)
+    @type  query: C{bool}
+    """
+    #
+    # check data: if we have some data already, then we don't need to get it
+    # again
+    #
+
+    # shorten segment list to the correct size for the given step
+    seglist2 = SegmentList()
+    for seg in seglist:
+        if abs(seg) < step:
+            continue
+        seglist2.append(Segment(seg[0], seg[0] + abs(seg)//step*step))
+    seglist = seglist2
+
+    # check what segments we already have for this channel
+    if not G_SPECTROGRAM.has_key(channel):
+        G_SPECTROGRAM[channel] = {}
+        segdeflist = SegmentList()
+    else:
+        segdeflist = SegmentList(G_SPECTROGRAM[channel].keys())
+        segdeflist.coalesce()
+
+    # get new segments
+    newsegdefs = seglist - segdeflist
+    query = query and abs(newsegdefs) != 0
+
+    # get cache
+    if cp.has_option("datafind", "data-cache"):
+        datacache = cp.get("datafind", "data-cache", raw=True)
+    else:
+        datacache = None
+
+    # get NDS info
+    if usends:
+        ndsserver = cp.get("datafind", "nds-server")
+        ndsport = cp.getint("datafind", "nds-port")
+
+    #
+    # read data
+    #
+
+    # work out whether to store the timeseries
+    store = G_DATA.has_key(channel)
+
+    serieslist = get_data(cp, channel, newsegdefs, frametype=frametype,\
+                          calibration=calibration, usends=usends,\
+                          resample=resample, superchannel=superchannel,\
+                          verbose=verbose, query=query, store=store)
+
+    #
+    # make spectrogram
+    #
+
+    for series in serieslist:
+         dt = series.deltaT
+         if not series.data.length >= step//dt:
+             print_verbose("Data segment at %d too short for spectrogram, "\
+                           "skipping.\n" % (int(series.epoch)),\
+                           stream=sys.stderr, verbose=verbose)
+             continue
+         out = seriesutils.compute_average_spectrogram(series, step//dt,\
+                                                       seglen//dt, stride//dt)
+         spectrogram, deltaF, f0 = out
+         spectrogram.data = spectrogram.data**(1/2)
+         if fresponse:
+             if isinstance(fresponse, type(lambda:None)):
+                 spectrogram.data = fresponse(spectrogram.data)
+             elif hasattr(fresponse, "__contains__") and len(fresponse) == 3:
+                 zeros,poles,gain = fresponse
+                 fresponse = zpkresponse(zeros, poles, gain, f0=f0,\
+                                         deltaF=deltaF,\
+                                         length=spectrogram.vectorLength)
+                 spectrogram.data *= fresponse
+         seg = Segment(float(series.epoch),\
+                       float(series.epoch + series.data.length * dt))
+         add_spectrogram(spectrogram, seg, series.name, series.epoch,\
+                         step, f0, deltaF)
+         print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"\
+                        % (spectrogram.length, seg[0], seg[1]), verbose=verbose)
+
+    #
+    # return the correct data
+    #
+
+    # grab the data we want
+    globsegs = SegmentList(G_SPECTROGRAM[channel].keys())
+    globsegs.sort()
+    spectrograms = []
+    for s in (seglist & globsegs):
+        try:
+            if abs(s) >= step:
+                spectrograms.append(G_SPECTROGRAM[channel][s])
+        except KeyError:
+            print_verbose("WARNING: Requested spectrogram segment %s not "
+                          "found in global list\n" % (str(s)),
+                          stream=sys.stderr)
+    return sorted(spectrograms, key=lambda s: float(s[1]))
+
+def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
+    """
+    Add a REAL4VectorSequence to the global data holder G_SPECTROGRAM.
+    """
+    # add channel
+    if not G_SPECTROGRAM.has_key(channel):
+        G_SPECTROGRAM[channel] = dict()
+
+    # get segments for channel
+    seglist = SegmentList(G_SPECTROGRAM[channel].keys())
+    seglist.coalesce()
+
+    # add segment
+    new = True
+    for gseg in seglist:
+        # if it postpends an existing segment
+        if gseg[1] == seg[0]:
+            new = False
+            seg += gseg
+            G_SPECTROGRAM[channel][seg] = G_SPECTROGRAM[channel][gseg]
+            G_SPECTROGRAM[channel][seg][0] =\
+               PyLALAddVectorSequence(G_SPECTROGRAM[channel][gseg][0],\
+                                      sequence)
+            del G_SPECTROGRAM[channel][gseg]
+            sequence = G_SPECTROGRAM[channel][seg]
+        # if it prepends an existing segment
+        if gseg[0] == seg[1]:
+            new = False
+            seg += gseg
+            G_SPECTROGRAM[channel][seg]    = G_SPECTROGRAM[channel][gseg]
+            G_SPECTROGRAM[channel][seg][1] = epoch
+            G_SPECTROGRAM[channel][seg][0] =\
+                PyLALAddVectorSequence(sequence,\
+                                            G_SPECTROGRAM[channel][gseg][0])
+            del G_SPECTROGRAM[channel][gseg]
+            sequence = G_SPECTROGRAM[channel][seg]
+
+    if new:
+        G_SPECTROGRAM[channel][seg] = (sequence, epoch, deltaT, f0, deltaF)
+
+    return
+
+def load_archive_spectrum(cp, channel, seglist, mode=0):
+    """
+    Load spectrum archived by a previous run of this code, e.g. daily range
+    to use in a monthly run.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    """
+    # return blank is no segments
+    if not len(seglist):
+        return []
+
+    # restrict archived data to NOW
+    start,end = seglist.extent()
+    now  = min(span[1], NOW)
+    span = Segment(start, min(end, NOW))
+    seglist &= SegmentList([span])
+
+    # otherwise get start date
+    start = datetime.datetime(*lal.GPSToUTC(int(seglist[0][0]))[:6])
+
+    # get file for mode
+    datadir = "data"
+    if mode == summary.SUMMARY_MODE_GPS:
+        globstr = os.path.join(datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_DAY:
+        globstr = os.path.join("archive_daily",\
+                               "%d%.2d%.2d"\
+                                   % (start.year, start.month, start.day),\
+                               datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_WEEK\
+    or mode == summary.SUMMAR_MODE_MONTH:
+        globstr = os.path.join("archive_monthly",\
+                               "%d%.2d*" % (start.year, start.month),\
+                               datadir, "*.hdf")
+    elif mode == summary.SUMMARY_MODE_YEAR:
+        globstr = os.path.join("archive_monthly", "%d*" % (start.year),\
+                               datadir, "*.hdf")
+    else:
+        raise RuntimeError("Mode not recognised.")
+      
+    # make cache
+    cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=seglist)
+
+    #
+    # read data from file
+    #
+
+    # TODO : this block reads all the DATA from the HDF5 file
+    #        it should probably read only the data requested
+
+    for e in cache:
+        f = e.path
+        series = hdf5utils.readFrequencySeries(f, channel,\
+                                               group=HDF_DATA_GROUP)
+        add_timeseries(series)
+
+def get_spectrum(cp, channel, *args, **kwargs):
+    """
+    Acquire spectrum from frames OR from NDS. Returns median, 5th percentile,
+    and 95th percentile frequencyseries.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param channel: name of channel to read
+    @type  channel: C{str}
+    @param step: length (seconds) of single average spectrum in spectrogram
+    @type  step: C{float}
+    @param seglen: length (seconds) of segment in average spectrum calculation
+    @type  seglen: C{float}
+    @param stride: length (seconds) of overlap in average spectrum calculation
+    @type  stride: C{float}
+    @param seglist: list of segments to read
+    @type  seglist: C{glue.segments.segmentlist}
+    @param frametype: type of frame set (as used by GWDataFind)
+    @type  frametype: C{str}
+    @param calibration: function to apply to data for calibration
+    @type  calibration: C{function}
+    @param fresponse: function to apply to spectrogram as sensor
+        frequency response
+    @type  fresponse: C{function}
+    @param resample: sampling frequency at which to downsample the raw data
+    @type  resample: C{float}
+    @param usends: read data from NDS, rather than frames, default: False
+    @type  usends: C{bool}
+    @type  superchannel: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param query: search for new spectrogram (True), or find in memory (False)
+    @type  query: C{bool}
+    """
+    #
+    # check data: if we have the spectrum already, return it
+    #
+
+    if G_SPECTRUM.has_key(channel):
+        return G_SPECTRUM[channel]
+
+    #
+    # make spectrogram
+    #
+
+    sequencelist = get_spectrogram(cp, channel, *args, **kwargs)
+
+    #
+    # make spectrum
+    #
+
+    # take epoch from seglist
+    epoch  = lal.LIGOTimeGPS(len(sequencelist) and args[3][0][0] or NOW)
+    # take f0 and deltaF from first spectrogram
+    f0     = len(sequencelist) and sequencelist[0][3] or 0
+    deltaF = len(sequencelist) and sequencelist[0][4] or 1
+
+    # flatten spectrum
+    if len(sequencelist):
+        spectrogram = numpy.concatenate(([s[0].data for s in sequencelist\
+                                          if s[0].data.shape[0]]),axis=0)
+    else:
+        seglen = args[2]
+        spectrogram = numpy.zeros((1,seglen//2+1))
+
+    # take median
+    out = []
+    for p in [50, 5, 95]:
+        array = numpy.array([stats.scoreatpercentile(spectrogram[:,i], p)\
+                             for i in range(spectrogram.shape[1])])
+        out.append(seriesutils.fromarray(array, name=channel,\
+                                         epoch=epoch, deltaT=deltaF, f0=f0,\
+                                         frequencyseries=True))
+
+    G_SPECTRUM[channel] = out
+    return out
+
+def PyLALAddVectorSequence(*args):
+    """
+    Returns a new VectorSequence from the inputs
+
+    All arguments should be lal.XXXVectorSequence objects.
+    """
+    datatype = seriesutils.typecode(type(args[0]))
+    TYPESTR  = seriesutils._typestr[datatype]
+
+    data = numpy.concatenate(*(arg.data for arg in args), axis=0)
+    CreateVectorSequence = getattr(lal, "Create%sVectorSequence" % TYPESTR)
+    out = CreateVectorSequence(*data.shape)
+    out.data = data
+    return out
+
+def find_contiguous_frames(cache, on_missing="warn"):
+    """
+    Returns a list of glue.lal.Cache or lalframe.FrCache objects each
+    representing contiguous chunks of data. This allows for gaps in the frames.
+
+    @param cache: LAL cache of frames to check
+    @type  cache: C{glue.lal.Cache}
+    @param on_missing: what to do when we find missing segments
+    @type  on_missing: C{str}
+    """
+    # get data in contiguous blocks.
+    cachelist = []
+    cache.sort(key=lambda e: e.segment[0])
+    cache,m = cache.checkfilesexist(on_missing=on_missing)
+
+    tmp = type(cache)()
+    p = None
+    for e in cache:
+        if type(p) == type(None):
+            tmp.append(e)
+        elif e.segment[0] == p.segment[1]:
+            tmp.append(e)
+        elif len(tmp):
+            tmp.sort(key=lambda e: e.segment[0])
+            cachelist.append(tmp)
+            tmp = type(cache)()
+        p = e
+    if len(tmp):
+        cachelist.append(tmp)
+    return cachelist
+
+def zpkresponse(zeros, poles, gain, f0=0, deltaF=1, length=100):
+    """
+    Compute frequency response for ZPK filter for frequency array with the
+    given parameters.
+
+    @param zeros: list of zeros for filter
+    @type  zeros: C{list} of C{float}s
+    @param poles: list of poles for filter
+    @type  poles: C{list} of C{float}s
+    @param gain: single gain for filter
+    @type  gain: C{float}
+    @param f0: minimum frequency
+    @type  f0: C{float}
+    @param deltaF: frequency step 
+    @type  deltaF: C{float}
+    @param length: number of frequency points to return
+    @type  length: C{int}
+
+    @return: array of frequency response amplitudes
+    @rtype:  C{numpy.array}
+    """
+    lti   = signal.lti(numpy.asarray(zeros), numpy.asarray(poles), gain)
+    f     = (numpy.arange(length)*deltaF + f0)
+    fresp = map(lambda w: numpy.polyval(lti.num, w*1j)/\
+                          numpy.polyval(lti.den, w*1j), f)
+    fresp = numpy.asarray(fresp)
+    return abs(fresp)
+
+def get_output_datafile(ifo, start, duration, datadir="data", ext="hdf"):
+    """
+    Returns the data file that will store the data for this. 
+
+    @param ifo: name of interferometer being processed
+    @type  ifo: C{str}
+    @param start: GPS start time of job
+    @type  start: C{int}
+    @param duration: duration (seconds) of job
+    @type  duration: C{int}
+    @param datadir: output directory for datafile
+    @type  datadir: C{str}
+    @param ext: file extension, default: 'hdf'
+    @type  ext: C{str}
+
+    @return: filepath for job data storage
+    @rtype: C{str}
+    """
+    return os.path.join(datadir, "%s-SUMMARY_PAGE_DATA-%d-%d.%s"\
+                                 % (ifo, start_time, duration, ext))
+
+def archive_data(filename, **hdfargs):
+    """
+    Write all stored data to an HDF5 format file
+
+    @param filename: filepath in which to write
+    @type  filename: C{str}
+    @keyword hdfargs: keyword arguments for h5py module datasets
+    """
+    with hdf5utils.h5py.File(filename, "w") as h5file:
+        hdfargs.setdefault("compression", "gzip")
+        hdfargs.setdefault("compression_opts", 1)
+
+        # write timeseries data
+        for channel in G_DATA.keys():
+            series = PyLALConcatenateTimeSeries(*G_DATA[channel].values())
+            if series.data.length > 0:
+                hdf5utils.writeTimeSeries(h5file, series,\
+                                          group=HDF_DATA_GROUP, **hdfargs)
+
+        # write spectrum data
+        for speclist in G_SPECTRUM.values():
+            for spectrum in speclist:
+                if spectrum.data.length > 0:
+                    hdf5utils.writeFrequencySeries(h5file, spectrum,\
+                                                   group=HDF_SPECTRUM_GROUP,\
+                                                   **hdfargs)
+
+        # write spectrogram data
+        for channel in G_SPECTROGRAM.keys():
+            group = "%s/%s" % (HDF_SPECTROGRAM_GROUP, channel)
+            h5group = hdf5utils._create_groups(h5file, group)
+            for seg in G_SPECTROGRAM[channel].keys():
+                # format spectrogram data
+                sequence, epoch, deltaT, f0, deltaF =\
+                    G_SPECTROGRAM[channel][seg]
+                metadata = {"epoch":float(epoch), "dx":deltaT,\
+                            "f0":f0, "dy":deltaF}
+
+                if sequence.length > 0 and sequence.vectorLength > 0:
+                    hdf5utils.arrayToDataset(h5group, "-".join(map(str, seg)),\
+                                             sequence.data, metadata,\
+                                             **hdfargs)
+
+    return
+
+# =============================================================================
+# Process data
+# =============================================================================
+
+def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
+                 dosubplots=True, htmlonly=False):
+    """
+    Process data from a channel in the frames.
+
+    @param tab: DataSummaryTab object to process
+    @type  tab: C{summary.DataSummaryTab}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param doplots: generate plots, default: True
+    @type  doplots: C{bool}
+    @param dosubplots: generate subplots, default: True
+    @type  dosubplots: C{bool}
+    @param htmlonly: generate enough data for HTML only, default: False
+    @type  htmlonly: C{nool}
+    @type  verbose: C{bool}
+    """
+    if cp.has_option(cpsec, "channel"):
+        channels = cp.get(cpsec, "channel").split(',')
+    elif cp.has_option(cpsec, "channels"):
+        channels = cp.get(cpsec, "channels").split(',')
+    else:
+        raise ValueError("No channels configured in [%s]." % cpsec)
+    print_verbose("\n----------\nProcessing data for %s for the %s state...\n"\
+                  % (tab.name, tab.state.name),\
+                  verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    #
+    # get plots
+    #
+
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-timeseries", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and int() or 1000)
+    
+    dataplot        = any(re.search("timeseries", p[0], re.I) for p in plots)
+    spectrumplot    = any(re.search("spectrum", p[0], re.I) for p in plots)
+    spectrogramplot = any(re.search("spectrogram", p[0], re.I)\
+                          for p in plots)
+
+    #
+    # load archived data
+    #
+
+    if cp.has_option(cpsec, "use-archive") \
+    and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
+        for channel in channels:
+            if dataplot:
+                load_archive_data(cp, channel, tab.segments, mode=tab.mode,\
+                                  verbose=verbose)
+            if spectrogramplot or spectrumplot:
+                load_archive_spectrogram(cp, channel, tab.segments,\
+                                         mode=tab.mode, verbose=verbose)
+
+    #
+    # load data
+    #
+
+    if not htmlonly:
+
+        channelparams = parse_data_config(cp, cpsec, channels)
+        for channel, params in zip(channels, channelparams):
+            if dataplot:
+                serieslist = get_data(cp, channel, tab.segments,\
+                                      frametype=params["frametype"],\
+                                      calibration=params["calibration"],\
+                                      resample=params["resample"],\
+                                      verbose=verbose)
+                series = PyLALConcatenateTimeSeries(*serieslist)
+                tab.add_timeseries(params["label"], series)
+            if spectrogramplot:
+                sequencelist =\
+                    get_spectrogram(cp, channel, params["time-step"],\
+                                    params["segment-length"],\
+                                    params["segment-overlap"], tab.segments,\
+                                    frametype=params["frametype"],\
+                                    calibration=params["calibration"],\
+                                    resample=params["resample"],\
+                                    fresponse=params["frequency-response"],\
+                                    verbose=verbose)
+                tab.add_spectrogram(params["label"], *sequencelist)
+            if spectrumplot:
+                spectrumlist =\
+                    get_spectrum(cp, channel, params["time-step"],\
+                                 params["segment-length"],\
+                                 params["segment-overlap"], tab.segments,\
+                                 frametype=params["frametype"],\
+                                 calibration=params["calibration"],\
+                                 resample=params["resample"],\
+                                 fresponse=params["frequency-response"],\
+                                 verbose=verbose)
+                for spectrum in spectrumlist:
+                    spectrum.name = params["label"]
+                tab.add_median_spectrum(params["label"], spectrumlist[0])
+                tab.add_min_spectrum(params["label"], spectrumlist[1])
+                tab.add_max_spectrum(params["label"], spectrumlist[2])
+            if not dataplot and channel in G_DATA.keys():
+                if len(G_DATA[channel].keys()):
+                    sampling = 1 /\
+                               G_DATA[channel][G_DATA[channel].keys()[0]].deltaT
+                else:
+                    sampling = "N/A"
+                tab.sampling[params["label"]] = sampling
+
+    #
+    # load references
+    # 
+
+    if not htmlonly and (spectrumplot or spectrogramplot):
+        if cp.has_option(cpsec, "design-curve"):
+            series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
+                                            channels[0], name="Design")
+            tab.add_design_spectrum(tab.channels[0], series)
+        if cp.has_option(cpsec, "reference-curve"):
+            if cp.has_option(cpsec, "reference-epoch"):
+                gps = lal.LIGOTimeGPS(cp.getfloat(cp.get(cpsec,\
+                                                         "reference-epoch")))
+                name = "Reference (%.2g)" % float(gps)
+            else:
+                gps = lal.LIGOTimeGPS(0)
+                name = "Reference"
+            series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
+                                            channels[0], name=name, gps=gps)
+            tab.add_reference_spectrum(tab.channels[0], series)
+
+    #
+    # plot
+    #
+
+    for plot,_ in plots:
+        plottag = _r_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory,
+                               "%s-%s_%s_%s-%d-%d.png"\
+                               % (ifo, _r_cchar.sub("_", tab.name.upper()),\
+                                  tab.state.tag, plottag, tab.start_time,\
+                                  tab.end_time-tab.start_time))
+        plotparams = parse_plot_section(cp, cpsec,\
+                                        plotutils.parse_plot_config(cp, plot))
+        if htmlonly or not doplots:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            if re.search("hist", plot, re.I):
+                tab.plothistogram(outfile, **plotparams)
+            elif re.search("spectrum", plot, re.I):
+                psd = re.search("(power|psd)", plot, re.I)
+                tab.plotspectrum(outfile, psd=psd, **plotparams)
+            elif re.search("spectrogram", plot, re.I):
+                ratioregex = re.compile("\w+-ratio", re.I)
+                match = re.search(ratioregex, plot)
+                ratio = match and match.group()[:-6] or None
+                tab.plotspectrogram(outfile, ratio=ratio, **plotparams)
+            else:
+                tab.plottimeseries(outfile, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    #
+    # subplots
+    #
+
+    if cp.has_option(cpsec, "sub-plot"):
+        subplot = cp.get(cpsec, "sub-plot")
+        subs   = tab.start_time
+        substart = tab.start_time
+        deltas = subplotduration(tab.start_time, tab.end_time, tab.mode)
+
+        for dt in deltas:
+            plottag = _r_cchar.sub("_", subplot[5:].upper())
+            basefile = "%s-%s_%s_%s-%d-%d.png"\
+                       % (ifo, _r_cchar.sub("_", tab.name.upper()),
+                          tab.state.tag, plottag, substart, dt)
+            plotparams = plotutils.parse_plot_config(cp, subplot)
+            plotparams = parse_plot_section(cp, cpsec, plotparams)
+            d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
+            # test if plot exists somewhere else
+            if tab.mode == summary.SUMMARY_MODE_WEEK\
+            or tab.mode == summary.SUMMARY_MODE_MONTH:
+                outdir = os.path.join("archive_daily", d.strftime("%Y%m%d"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            elif tab.mode == summary.SUMMARY_MODE_YEAR:
+                outdir = os.path.join("archive_monthly", d.strftime("%Y%m"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            else:
+                outfile = os.path.join(tab.directory, basefile)
+    
+            # otherwise make it as normal
+            if htmlonly or not dosubplots:
+                tab.subplots.append((outfile, plotparams.pop("description",\
+                                     None)))
+            else:
+                if re.search("hist", subplot, re.I):
+                    tab.plothistogram(outfile, subplot=True, **plotparams)
+                elif re.search("spectrum", subplot, re.I):
+                    psd = re.search("(power|psd)", subplot, re.I)
+                    tab.plotspectrum(outfile, subplot=True, psd=psd,\
+                                     **plotparams)
+                elif re.search("spectrogram", subplot, re.I):
+                    ratioregex = re.compile("\w+-ratio", re.I)
+                    match = re.search(ratioregex, subplot)
+                    ratio = match and match.group()[:-6] or None
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotspectrogram(outfile, subplot=True, ratio=ratio,\
+                                        **plotparams)
+                else:
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plottimeseries(outfile, subplot=True, **plotparams)
+            substart += dt
+        print_verbose("%d subplots saved.\n" % len(tab.subplots),\
+                      verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+def PyLALConcatenateTimeSeries(*serieslist, **kwargs):
+    """
+    Build an new time series with the data from the given serieslist, with
+    zeros in the gaps.
+
+    @param serieslist: all TimeSeries objects to concatenate 
+    @param kwargs: all other arguments to pass to h5py.create_dataset
+    """
+    if len(serieslist) == 0:
+        name = kwargs.pop("name", None)
+        epoch = kwargs.pop("epoch", lal.GPSTimeNow())
+        return lal.CreateREAL4TimeSeries(name, epoch, 0, 1,\
+                                         lal.lalStrainUnit, 0)
+    if len(serieslist) == 1:
+        return serieslist[0]
+    fillwith = kwargs.pop("fillwith", 0.0)
+
+    # sort
+    serieslist = sorted(serieslist, key=lambda series: int(series.epoch))
+
+    # get attributes
+    epoch = serieslist[0].epoch
+    deltaT = serieslist[0].deltaT
+    f0 = serieslist[0].f0
+    name = serieslist[0].name
+    sampleUnits = serieslist[0].sampleUnits
+    # get end time
+    duration = float(serieslist[-1].epoch + serieslist[-1].data.length * deltaT\
+                     - epoch)
+
+    # make series
+    datatype = seriesutils.typecode(type(serieslist[0]))
+    TYPESTR = seriesutils._typestr[datatype]
+    CreateTimeSeries = getattr(lal, "Create%sTimeSeries" % TYPESTR)
+    series = CreateTimeSeries(name, epoch, f0, deltaT, sampleUnits,\
+                              int(duration/deltaT))
+    series.data.data = (numpy.ones(series.data.length)*fillwith)\
+                           .astype(series.data.data.dtype.type)
+
+    # loop over data appending in place
+    tarray = numpy.arange(series.data.length) * deltaT + float(epoch)
+    
+    idx = 0
+    idx2 = 0
+    for timeseries in serieslist:
+       tepoch = float(epoch) + (float(timeseries.epoch-epoch)//deltaT*deltaT)
+       idx  = numpy.nonzero(tarray==tepoch)[0][0]
+       idx2 = idx + timeseries.data.length
+       if idx2 > series.data.length:
+           series.data.data[idx:] = timeseries.data.data
+       else:
+           series.data.data[idx:idx+timeseries.data.length] =\
+               timeseries.data.data
+       idx = idx2
+
+    return series
+
+def parse_data_config(cp, cpsec, channels, prefix=""):
+    """
+    Parse the given configparser.configparser section cpsec for data
+    processing options relating to the given list of channels.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param channels: list of channel names read for the DataSummaryTab.
+    @type  channels: C{list} of C{str}
+    @param prefix: prefix string for data processing options
+    @type  prefix: C{str}
+
+    @return: list of parameter dicts for each channel
+    @rtype: C{list} of C{dict}s
+    """
+
+    if prefix:
+        prefix += "-"
+
+    numchannels = len(channels)
+    out = [dict() for i in range(numchannels)]
+
+    # load frametypes
+    if cp.has_option(cpsec, "%sframe-type" % prefix):
+        frametype = cp.get(cpsec, "%sframe-type" % prefix).split(',')
+    else:
+        frametype = [None]
+    if len(frametype) == 1:
+        frametype = [frametype[0]] * numchannels
+    if len(frametype) != numchannels:
+        raise ValueError("Wrong number of frame-types in [%s]." % cpsec)
+    for i in range(numchannels):
+        out[i]["frametype"] = frametype[i]
+
+    # load time calibration
+    if cp.has_option(cpsec, "%scalibration" % prefix):
+        calibration = map(eval,\
+                          cp.get(cpsec, "%scalibration" % prefix).split(','))
+    else:
+        calibration = [None]
+    if len(calibration) == 1:
+        calibration = [calibration[0]] * numchannels
+    if len(calibration) != numchannels:
+        raise ValueError("Wrong number of calibration functions in [%s]."\
+                         % cpsec)
+    for i in range(numchannels):
+        out[i]["calibration"] = calibration[i]
+
+    # load time freqresponse
+    if cp.has_option(cpsec, "%sfrequency-response" % prefix):
+        freqresponse = map(eval, cp.get(cpsec,\
+                                    "%sfrequency-response" % prefix).split(';'))
+    else:
+        freqresponse = [None]
+    if len(freqresponse) == 1:
+        freqresponse = [freqresponse[0]] * numchannels
+    if len(freqresponse) != numchannels:
+        raise ValueError("Wrong number of frequency response functions in"+\
+                         " [%s]." % cpsec)
+    for i in range(numchannels):
+        out[i]["frequency-response"] = freqresponse[i]
+
+    # load sampling
+    if cp.has_option(cpsec, "%sresample" % prefix):
+        resample = map(float, cp.get(cpsec, "%sresample" % prefix).split(','))
+    else:
+        resample = [0]
+    if len(resample) == 1:
+        resample = [resample[0]] * numchannels
+    if len(resample) != numchannels:
+        raise ValueError("Wrong number of frame-types in [%s]." % cpsec)
+    for i in range(numchannels):
+        out[i]["resample"] = resample[i]
+
+    # load labels
+    if cp.has_option(cpsec, "labels"):
+        labels = cp.get(cpsec, "labels").split(',')
+    elif cp.has_option(cpsec, "label"):
+        labels = cp.get(cpsec, "label").split(",")
+    else:
+        labels = channels
+    for i in range(numchannels):
+        out[i]["label"] = labels[i]
+
+    # load spectr(um/ogram) params
+    for p in ["time-step", "segment-length", "segment-overlap"]:
+        if cp.has_option(cpsec, "spectrum-%s" % p):
+            x = cp.getfloat(cpsec, "spectrum-%s" % p)
+        elif cp.has_option("spectrum", p):
+            x = cp.getfloat("spectrum", p)
+        else:
+            continue
+        for i in range(numchannels):
+            out[i][p] = x
+
+    return out
+
+def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
+    """
+    Load a design or reference spectrum from file or function.
+ 
+    @param descriptor: reference descriptor, either filename to read,
+        type of PSD recognised as a lalsimulation.SimNoisePSD... function,
+        or a string to be evaluated as a lambda function.
+    @type descriptor: C{str}
+    @param channel: name of channel whose reference is being loaded
+    @type  channel: C{str}
+    @param name: name to give to returned array
+    @type  name: C{str}
+    @param gps: GPS epoch for this reference
+    @type  gps: C{lal.LIGOTimeGPS}
+
+    @return: FrequencySeries containing reference/design spectrum
+    @rtype:  C{lal.XXXFrequencySeries}
+    """
+    descriptor = str(descriptor)
+    if os.path.isfile(descriptor):
+        # load file
+        f,S = numpy.loadtxt(descriptor, usecols=[0,1], unpack=True)
+        f0 = f[0]
+        deltaF = f[1]-f[0]
+        spectrum = seriesutils.fromarray(S, name, lal.LIGOTimeGPS(gps),\
+                                         f0, deltaF, lal.lalStrainUnit, True)
+        return spectrum
+
+    # otherwise we can try to use a function
+    spec     = G_SPECTRUM[channel][0]
+    f        = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
+    datatype = seriesutils.typecode(type(spec))
+    TYPESTR  = seriesutils._typestr[datatype]
+    Create   = getattr(lal, "Create%sFrequencySeries" % TYPESTR)
+    spectrum = Create(name, lal.LIGOTimeGPS(gps), spec.f0, spec.deltaF,\
+                      spec.sampleUnits, f.size)
+    if hasattr(lalsimulation, "SimNoisePSD%s" % descriptor):
+        SimNoisePSD = getattr(lalsimulation, "SimNoisePSD%s" % descriptor)
+        psd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
+        
+    elif descriptor.startswith("lambda"):
+        psd = eval(descriptor)
+
+    for i,freq in enumerate(f):
+        try:
+            spectrum.data.data[i] = float(psd(freq))
+        except OverflowError:
+            print freq
+            raise
+
+    return spectrum
+
+# =============================================================================
+# Process range
+# =============================================================================
+
+def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
+                  dosubplots=True, htmlonly=False):
+    """
+    Calculate the range information from a data channel in the frames
+
+    @param tab: RangeSummaryTab object to process
+    @type  tab: C{summary.RangeSummaryTab}
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this Tab
+    @type  cpsec: C{str}
+    @param verbose: print verbose output, default: False
+    @type  verbose: C{bool}
+    @param doplots: generate plots, default: True
+    @type  doplots: C{bool}
+    @param dosubplots: generate subplots, default: True
+    @type  dosubplots: C{bool}
+    @param htmlonly: generate enough data for HTML only, default: False
+    @type  htmlonly: C{nool}
+    """
+    if cp.has_option(cpsec, "channel"):
+        rangechannels = cp.get(cpsec, "channel").split(',')
+    elif cp.has_option(cpsec, "channels"):
+        rangechannels = cp.get(cpsec, "channels").split(',')
+    else:
+        rangechannels = []
+    if cp.has_option(cpsec, "strain-channel"):
+        strainchannel = cp.get(cpsec, "strain-channel")
+    else:
+        strainchannel = None
+    if len(rangechannels) + int(strainchannel!=None) == 0:
+        raise ValueError("No channels configured in [%s]." % cpsec)
+    print_verbose("\n----------\nProcessing range for %s for the %s state...\n"\
+                  % (tab.name, tab.state.name), verbose=verbose, profile=False)
+
+    #
+    # setup
+    #
+
+    if not os.path.isdir(tab.directory):
+        os.makedirs(tab.directory)
+
+    #
+    # load range directly from frames
+    #
+
+    if rangechannels and not htmlonly:
+
+        channelparams = parse_data_config(cp, cpsec, rangechannels)
+            
+        for channel,params in zip(rangechannels, channelparams):
+            serieslist = get_data(cp, channel, tab.segments,\
+                                  frametype=params["frametype"],\
+                                  calibration=params["calibration"],\
+                                  resample=params["resample"],\
+                                  verbose=verbose)
+            series = PyLALConcatenateTimeSeries(*serieslist)
+            tab.add_timeseries(params["label"], series)
+
+    #
+    # load archived data
+    #
+
+    params = parse_data_config(cp, cpsec, [strainchannel],\
+                               prefix="strain")[0]
+    sources = parse_range_config(cp, cpsec)
+    numburst = sum([True for s in sources if s["type"] == "burst"])
+
+    runsegs2 = tab.segments
+    if cp.has_option(cpsec, "use-archive") \
+    and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
+        for source in sources: 
+            load_archive_data(cp, source["name"], tab.segments, mode=tab.mode,\
+                             verbose=verbose)
+            if source["name"] in G_DATA.keys():
+                runsegs2 -= SegmentList(G_DATA[source["name"]].keys())
+
+    #
+    # calculate range from strain channel
+    #
+
+    if strainchannel and not htmlonly:
+        print_verbose("Loaded range parameters for %d source(s):\n"\
+                      % (len(sources)), verbose=verbose)
+        for s in sources:
+            print_verbose("%s (%s)\n" % (s["name"], s["type"]), verbose=verbose)
+            tab.add_source(s)
+
+        # get data
+        sequencelist = get_spectrogram(cp, strainchannel, params["time-step"],\
+                                       params["segment-length"],\
+                                       params["segment-overlap"], runsegs2,\
+                                       frametype=params["frametype"],\
+                                       calibration=params["calibration"],\
+                                       resample=params["resample"],\
+                                       fresponse=params["frequency-response"],\
+                                       verbose=verbose)
+
+        for i,spectrogram in enumerate(sequencelist):
+            S,epoch,deltaT,f0,deltaF = spectrogram
+            print_verbose("Calculating range from %d spectra...    "\
+                          % S.length, verbose=verbose)
+            seg = Segment(epoch, epoch + deltaT * S.length)
+            data = dict((s["name"], numpy.zeros(S.length)) for s in sources)
+
+            # get triggers for burst range
+            if numburst:
+                trigs = get_triggers(cp, strainchannel, etg,\
+                                     SegmentList(seg),\
+                                     verbose=verbose, cluster=cluster, minsnr=0)
+                trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
+                       numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
+                trigsnr  = trigs.getColumnByName("snr")
+
+            for j in range(S.length):
+                spectrum = S.data[j,:]**2
+                f = numpy.arange(spectrum.size) * deltaF + f0
+                span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
+
+                # loop over sources
+                for k,s in enumerate(sources):
+                    # calculate inspiral range
+                    if s["type"] == "inspiral":
+                        data[s["name"]][j] =\
+                            rangeutils.inspiralrange(f, spectrum,\
+                                                     snr=s["snr"], m1=s["m1"],\
+                                                     m2=s["m2"])
+                    # calculate burst range
+                    elif s["type"] == burst:
+                        sspan = Segment(span[1]-s['dt'], span[1])
+                        snrs  = trigsnr[(sspan[0] <= trigtime)\
+                                         & (trigtime < sspan[1])]
+                        rho = get_limiting_snr(snrs, sspan, s["far"], s["dt"],\
+                                               s["snr"])
+                        data[s["name"]][j] =\
+                            rangeutils.burstrange(f, spectrum, rho,\
+                                                  s["energy"], fmin=["fmin"],\
+                                                  fmax=s["fmax"])
+
+                print_verbose("\b\b\b%.2d%%" % int((j+1)/S.length*100),\
+                              verbose=verbose)
+            print_verbose("\n", verbose=verbose)
+
+            # store data
+            for s in sources:
+                series = seriesutils.fromarray(data[s["name"]], name=s["name"],\
+                                               epoch=epoch, deltaT=deltaT,\
+                                               f0=f0)
+                add_timeseries(series)
+
+        for s in sources:
+            serieslist = get_data(cp, s["name"], tab.segments, query=False)
+            series = PyLALConcatenateTimeSeries(*serieslist, name=s["name"],\
+                                          epoch=lal.LIGOTimeGPS(tab.start_time))
+            tab.add_timeseries(s["name"], series)
+
+        #
+        # calculate frequency dependent burst range
+        #
+
+        # FIXME
+
+    #
+    # plot
+    #
+
+    # get plot sections
+    plots = [p for p in cp.items(cpsec) if p[0].startswith("plot-")]
+
+    # if we got no plots, pick up the defaults
+    if len(plots) == 0:
+        plots = [("plot-timeseries", "0")]
+
+    # sort plots by their given order
+    plots.sort(key=lambda o: o[1].isdigit() and int(o[1]) or 1000)
+
+    # sort plots by their given order
+    for plot,_ in plots:
+        plottag = _r_cchar.sub("_", plot[5:].upper())
+        outfile = os.path.join(tab.directory, "%s-%s_%s_%s-%d-%d.png"\
+                                     % (tab.ifo,\
+                                         _r_cchar.sub("_", tab.name.upper()),\
+                                        tab.state.tag, plottag,\
+                                        tab.start_time, abs(tab.span)))
+        plotparams = parse_plot_section(cp, cpsec,\
+                                        plotutils.parse_plot_config(cp, plot))
+        if htmlonly or not doplots:
+            tab.plots.append((outfile, plotparams.pop("description", None)))
+        else:
+            if re.search("hist", plot, re.I):
+                tab.plothistogram(outfile, **plotparams)
+            elif re.search("spectrum", plot, re.I):
+                psd = re.search("(power|psd)", plot, re.I)
+                tab.plotspectrum(outfile, psd=psd, **plotparams)
+            elif re.search("spectrogram", plot, re.I):
+                ratioregex = re.compile("\w+-ratio", re.I)
+                match = re.search(ratioregex, plot)
+                ratio = match and match.group()[:-6] or None
+                tab.plotspectrogram(outfile, ratio=ratio, **plotparams)
+            else:
+                tab.plottimeseries(outfile, **plotparams)
+            print_verbose("%s saved.\n" % outfile, verbose=verbose)
+
+    #
+    # subplots
+    #
+
+    if cp.has_option(cpsec, "sub-plot"):
+        subplot = cp.get(cpsec, "sub-plot")
+        subs   = tab.start_time
+        substart = tab.start_time
+        deltas = subplotduration(tab.start_time, tab.end_time, tab.mode)
+
+        for dt in deltas:
+            plottag = _r_cchar.sub("_", subplot[5:].upper())
+            basefile = "%s-%s_%s_%s-%d-%d.png"\
+                       % (tab.ifo, _r_cchar.sub("_", tab.name.upper()),\
+                          tab.state.tag, plottag, substart, dt)
+            plotparams = plotutils.parse_plot_config(cp, subplot)
+            plotparams = parse_plot_section(cp, cpsec, plotparams)
+            d = datetime.datetime(*lal.GPSToUTC(int(substart))[:6])
+            # test if plot exists somewhere else
+            if tab.mode == summary.SUMMARY_MODE_WEEK\
+            or tab.mode == summary.SUMMARY_MODE_MONTH:
+                outdir = os.path.join("archive_daily", d.strftime("%Y%m%d"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            elif tab.mode == summary.SUMMARY_MODE_YEAR:
+                outdir = os.path.join("archive_monthly", d.strftime("%Y%m"),\
+                                      *tab.directory.split(os.path.sep)[2:])
+                outfile = os.path.join(outdir, basefile)
+                if os.path.isfile(outfile):
+                    substart += dt
+                    tab.subplots.append((outfile,\
+                                         plotparams.pop("description", None)))
+                    continue
+                else:
+                    outfile = os.path.join(tab.directory, basefile)
+            else:
+                outfile = os.path.join(tab.directory, basefile)
+    
+            # otherwise make it as normal
+            if htmlonly or not dosubplots:
+                tab.subplots.append((outfile, plotparams.pop("description", None)))
+            else:
+                if re.search("hist", subplot, re.I):
+                    tab.plothistogram(outfile, subplot=True, **plotparams)
+                elif re.search("spectrum", subplot, re.I):
+                    psd = re.search("(power|psd)", subplot, re.I)
+                    tab.plotspectrum(outfile, subplot=True, psd=psd, **plotparams)
+                elif re.search("spectrogram", subplot, re.I):
+                    ratioregex = re.compile("\w+-ratio", re.I)
+                    match = re.search(ratioregex, subplot)
+                    ratio = match and match.group()[:-6] or None
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plotspectrogram(outfile, subplot=True, ratio=ratio,\
+                                        **plotparams)
+                else:
+                    plotparams.setdefault("xlim", [substart, substart+dt])
+                    tab.plottimeseries(outfile, subplot=True, **plotparams)
+            substart += dt
+        print_verbose("%d subplots saved.\n" % len(tab.subplots), verbose=verbose)
+
+    if not htmlonly:
+        tab.finalize()
+        tab.frametohtml()
+
+def parse_range_config(cp, cpsec):
+    """
+    Parse the given configparser.configparser section cpsec for range
+    source definitions, and load their parameters.
+
+    @param cp: INI configuration file object
+    @type  cp: C{configparser.configparser}
+    @param cpsec: name of INI section configuring this RangeSummaryTab.
+    @type  cpsec: C{str}
+
+    @return: list of parameter dicts for each range source
+    @rtype: C{list} of C{dict}s.
+    """
+    if cp.has_option(cpsec, "sources"):
+        sections = ["source-%s"%s for s in cp.get(cpsec, "sources").split(',')]
+    else:
+        sections = [s for s in cp.sections() if s.startswith("source-")]
+
+    out = []
+
+    for cpsec in sections:
+        source = dict()
+        if cp.has_option(cpsec, "name"):
+            source["name"] = cp.get(cpsec, "name")
+        else:
+            source["name"] = cpsec[7:]
+        source["type"] = type = cp.get(cpsec, "type").lower()
+        if type == "inspiral":
+            options = ["m1", "m2", "snr"]
+        elif type == "burst":
+            options = ["fmin", "fmax", "snr", "dt", "energy"]
+        for opt in options:
+             source[opt] = cp.getfloat(cpsec, opt)
+        out.append(source)
+
+    return out
+
+def get_limiting_snr(snr, far, dt, threshold=6):
+    """
+    Calculate limiting SNR for the given false-alarm rate threshold.
+
+    @param snr: array of SNR values from Burst trigger table
+    @type  snr: C{numpy.array}
+    @param far: false-alarm rate threshold
+    @type  far: C{float}
+    @param dt: duration of search (seconds)
+    @type  dt: C{float}
+    @param threshold: minimum threshold on SNR
+    @type  threshold: C{float}
+
+    @return: limiting SNR giving required false-alarm rate
+    @rtype: C{float}
+    """
+    snr.sort()
+    snr = snr[::-1]
+    faridx = int(far*dt)-1
+    if snr.size <= faridx:
+        # if we don't have enough triggers use the trigger
+        # reading snr threshold, it will give us a lower limit
+        # on the range
+        rho = threshold
+    elif faridx >= 0:
+        rho = snr[faridx]
+    else:
+        rho = numpy.infty
+
+    return rho
+
+
+# =============================================================================
+# Parse command line
+# =============================================================================
+
+def parse_command_line():
+    """
+    Parser command line arguments, and perform sanity checks.
+    """
+
+    #
+    # set parser and add default options
+    #
+
+    prog   = os.path.basename(sys.argv[0])
+    usage  = "%s --config-file ${CONFIG_FILE} --day ${YYYYMMDD} --ifo ${IFO}"\
+             "[OPTIONS]" % prog
+    epilog = "If you're having trouble, e-mail detchar+code@ligo.org. "+\
+             "To report a bug, please visit "+\
+             "https://bugs.ligo.org/redmine/projects/detchar and submit "+\
+             "an Issue."
+    parser = optparse.OptionParser(usage=usage, description=__doc__[1:],\
+                                   formatter=optparse.IndentedHelpFormatter(4),\
+                                   epilog=epilog)
+    parser.add_option("-p", "--profile", action="store_true", default=False,\
+                      help="show second timer with verbose statements, "+\
+                           "default: %default")
+    parser.add_option("-v", "--verbose", action="store_true", default=False,\
+                      help="show verbose output, default: %default")
+    parser.add_option("-V", "--version", action="version",\
+                      help="show program's version number and exit")
+    parser.version = __version__
+
+    #
+    # set time options
+    #
+
+    topts = optparse.OptionGroup(parser, "Time mode options",\
+                                 description="Choose to run on a day, month"\
+                                             ", or GPS start/stop period.")
+    topts.add_option("--day", action="store", type="string",\
+                     metavar="YYYYMMDD", help="day to process.")
+    topts.add_option("--week", action="store", type="string",\
+                     metavar="YYYYMMDD",\
+                     help="week to process (by starting day).")
+    topts.add_option("--month", action="store", type="string",\
+                     metavar="YYYYMM", help="month to process.")
+    topts.add_option("--year", action="store", type="string",\
+                     metavar="YYYY", help="year to process.")
+    topts.add_option("-s", "--gps-start-time", action="store", type="int",\
+                     metavar="GPSSTART", help="GPS start time")
+    topts.add_option("-e", "--gps-end-time", action="store", type="int",\
+                     metavar="GPSEND", help="GPS end time")
+
+    #
+    # required options
+    #
+
+    ropts = optparse.OptionGroup(parser, "Required options",\
+                                  description="All options in this section "+\
+                                              "are required.")
+    ropts.add_option("-i", "--ifo", action="store", default=None,\
+                     metavar="IFO", help="interferometer")
+    ropts.add_option("-f", "--config-file", action="store", type="string",\
+                     metavar="FILE", 
+                     help="ini file for analysis, default: %default")
+
+    #
+    # data access options
+    #
+
+    dopts = optparse.OptionGroup(parser, "Data access options",\
+                                 description="Specify cache files and NDS "+\
+                                             "preferences.")
+    dopts.add_option("-c", "--trigger-cache", action="store", type="string",\
+                     help="LAL cache for trigger files. Files are matched "+\
+                          "by the description parameter in the cache "+\
+                          "file which must be of the form "+\
+                          "CHANNEL_NAME_ETG, e.g. DER_DATA_H_OMEGA")
+    dopts.add_option("-d", "--data-cache", action="store", type="string",\
+                     help="LAL cache for data frames. Files are matched "+\
+                          "by the description parameter in the cache file, "+\
+                          "which must include only the relevant frame "+\
+                          "type, e.g. G1_RDS_C01_L3")
+    dopts.add_option("-a", "--segment-cache", action="store", type="string",\
+                     help="LAL cache for segment files. Files are matched "+\
+                          "by the description parameter in the cache "+\
+                          "file, which must be underscore delimited of "+\
+                          "the form FLAG_NAME, e.g. GEO_SCIENCE")
+    dopts.add_option("--nds", action="store_true", default=False,\
+                     help="use NDS for frame data acquisition, "+\
+                          "default: %default")
+
+    #
+    # output options
+    #
+
+    oopts = optparse.OptionGroup(parser, "Output options",\
+                                 description="Specify output directory and "+\
+                                             "format preferences here.")
+    oopts.add_option("-o", "--output-dir", action="store", type="string",\
+                     default=os.getcwd(),\
+                     help="output directory, default: %default")
+    oopts.add_option("-x", "--write-triggers", action="store_true",\
+                     default=False,\
+                     help="write the triggers used to XML, default: %default")
+    oopts.add_option("-y", "--write-segments", action="store_true",\
+                     default=False,\
+                     help="write the segments used to segwizard files, "+\
+                          "default: %default")
+    oopts.add_option("-z", "--write-data", action="store_true",\
+                     default=False,\
+                     help="write the data generated to gwf files, "+\
+                          "default: %default")
+    oopts.add_option("-M", "--html-only", action="store_true", default=False,\
+                     help="rerun HTML generation only, default: %default")
+
+    
+    #
+    # section options
+    #
+
+    sopts = optparse.OptionGroup(parser, "Section options",\
+                                 description="Choose to skip various "\
+                                             "components of the summary "\
+                                             "output.")
+    # skip plots
+    sopts.add_option("--skip-all-plots", action="store_false",\
+                     default=True, dest="run_plots",\
+                     help="skip plotting, default: False")
+    sopts.add_option("--skip-sub-plots", action="store_false",\
+                     default=True, dest="run_sub_plots",\
+                     help="skip sub-interval plots, default: False")
+
+    # skip sections
+    sopts.add_option("-S", "--skip-segments", action="store_false",\
+                     default=True, dest="run_segments",\
+                     help="skip segment summary, default: False")
+    sopts.add_option("-R", "--skip-range", action="store_false",\
+                     default=True, dest="run_range",\
+                     help="skip range summary, default: False")
+    sopts.add_option("-Q", "--skip-spectrum", action="store_false",\
+                     default=True, dest="run_spectrum",\
+                     help="skip spectrum summary, default: False")
+    sopts.add_option("-D", "--skip-state-vector", action="store_false",\
+                     default=True, dest="run_state_vector",\
+                     help="skip state vector summary, default: False")
+    sopts.add_option("-U", "--skip-squeezing", action="store_false",\
+                     default=True, dest="run_squeezing",\
+                     help="skip squeezing summary, default: False")
+    sopts.add_option("-T", "--skip-triggers", action="store_false",\
+                     default=True, dest="run_analysis_triggers",\
+                     help="skip GW trigger summary, default: False")
+    sopts.add_option("-A", "--skip-auxiliary-triggers", action="store_false",\
+                     default=True, dest="run_auxiliary_triggers",\
+                     help="skip auxiliary channel trigger summary, "+\
+                          "default: False")
+    sopts.add_option("-Z", "--skip-daily-omega-scans", action="store_false",\
+                     default=True, dest="run_omega_scans",\
+                     help="skip daily omega scan summary: default: False")
+    sopts.add_option("-B", "--skip-veto-stats", action="store_false",\
+                     default=True, dest="run_vetoes",\
+                     help="skip all vetoes, default: False")
+    sopts.add_option("-H", "--skip-hveto", action="store_false", default=True,\
+                     dest="run_hveto", help="skip HVeto, default: False")
+    sopts.add_option("-E", "--skip-data", action="store_false", default=True,\
+                     dest="run_data", help="skip frame data, default: False")
+    
+
+    #
+    # collect groups, parse, and return
+    #
+
+    parser.add_option_group(topts)
+    parser.add_option_group(ropts)
+    parser.add_option_group(dopts)
+    parser.add_option_group(oopts)
+    parser.add_option_group(sopts)
+
+    # get args and begin sanity check
+    opts, args = parser.parse_args()
+    
+    #
+    # Sanity check the arguments returned from the command line parser. Also
+    # reformats some options for use later on.
+    #
+
+    # start profiling
+    global PROFILE
+    PROFILE = opts.profile
+
+    # assert all required options
+    _required_options = ["ifo", "config_file"]
+    for opt in _required_options:
+        if not getattr(opts, opt):
+            raise optparse.OptionValueError("--%s is a required option"\
+                                            % re.sub("_", "-", opt))
+
+    # check ifo
+    _prefixlist = [d.frDetector.prefix for d in lal.lalCachedDetectors]+["C1"]
+    if opts.ifo.upper() not in _prefixlist:
+        raise optparse.OptionValueError("--ifo=%s not recognised." % opts.ifo)
+    else:
+        opts.ifo = opts.ifo.upper()
+
+    # check config file
+    if not os.path.isfile(opts.config_file):
+        raise optparse.OptionValueError("Cannot find %s" % opts.config_file)
+    # read configuration file
+    config_file = opts.config_file
+    opts.config_file = ConfigParser.ConfigParser()
+    opts.config_file.optionxform = str
+    opts.config_file.read(config_file)
+    opts.config_file.filename = os.path.abspath(config_file)
+
+    # auto-disable based on configuration
+    if not opts.config_file.has_section("hveto"):
+        opts.run_hveto = False
+        sys.stderr.write("Auto-applying --skip-hveto based on configuration.\n")
+        sys.stderr.flush()
+    if not opts.config_file.has_section("daily-omega-scans"):
+        opts.run_omega_scans = False
+        sys.stderr.write("Auto-applying --skip-daily-omega-scans based on"+\
+                         " configuration.\n")
+        sys.stderr.flush()
+
+    # check time options
+    N = sum([opts.day != None, opts.month != None, opts.gps_start_time != None,\
+             opts.gps_end_time != None])
+    if N > 1 and not (opts.gps_start_time and opts.gps_end_time):
+        raise optparse.OptionValueError("Please give only one of --day, "+\
+                                        "--month, or --gps-start-time and "+\
+                                        "--gps-end-time.")
+    if opts.day:
+        if len(opts.day) == 8:
+            opts.day = datetime.datetime.strptime(opts.day, "%Y%m%d")
+            opts.gps_start_time = lal.UTCToGPS(opts.day.timetuple())
+            opts.gps_end_time   = lal.UTCToGPS((opts.day +\
+                                      datetime.timedelta(days=1)).timetuple())
+        else:
+            raise optparse.OptionValueError("--day malformed. Please format "+\
+                                            "as YYYYMMDD")
+    elif opts.week:
+        if len(opts.week) == 8:
+            week = opts.week
+            opts.week = datetime.datetime.strptime(opts.week, "%Y%m%d")
+            if opts.config_file.has_option("calendar", "start-of-week"):
+                weekday = getattr(calendar,\
+                                  opts.config_file.get("calendar",\
+                                                      "start-of-week").upper())
+                if weekday != opts.week.timetuple().tm_wday:
+                    msg = "Cannot process week starting on %s. The "\
+                          "'start-of-week' option in the [calendar] section "\
+                          "of the INI file specifies weeks start on %ss."\
+                          % (week,\
+                             opts.config_file.get("calendar", "start-of-week"))
+                    raise optparse.OptionValueError(msg)
+            opts.gps_start_time = lal.UTCToGPS(opts.week.timetuple())
+            opts.gps_end_time   = lal.UTCToGPS((opts.week +\
+                                        datetime.timedelta(days=7)).timetuple())
+        else:
+            raise optparse.OptionValueError("--week malformed. Please format"+\
+                                            " as YYYYMMDD")
+    elif opts.month:
+        if len(opts.month) == 6:
+            opts.month = datetime.datetime.strptime(opts.month, "%Y%m")
+            opts.gps_start_time = lal.UTCToGPS(opts.month.timetuple())
+            opts.gps_end_time   = lal.UTCToGPS((opts.month +\
+                                           relativedelta(months=1)).timetuple())
+        else:
+            raise optparse.OptionValueError("--month malformed. Please format"+\
+                                            " as YYYYMM")
+    elif opts.year:
+        if len(opts.year) == 4:
+            opts.year = datetime.datetime.strptime(opts.year, "%Y")
+            opts.gps_start_time = lal.UTCToGPS(opts.year.timetuple())
+            opts.gps_end_time = lal.UTCToGPS((opts.year +\
+                                              relativedelta(years=1))
+                                                  .timetuple())
+        else:
+            raise optparse.OptionValueError("--year malformed. Please format"+\
+                                            " as YYYY")
+        
+    elif opts.gps_start_time or opts.gps_end_time:
+        if not (opts.gps_start_time and opts.gps_end_time):
+            raise optparse.OptionValueError("Please give both --gps-start-"+\
+                                            "time and --gps-end-time.")
+    else:
+        opts.day = datetime.date(*datetime.datetime.utcnow().timetuple()[:3])
+        opts.gps_start_time = int(lal.UTCToGPS(opts.day.timetuple()))
+        opts.gps_end_time   = int(lal.UTCToGPS((opts.day +\
+                                      datetime.timedelta(days=1)).timetuple()))
+
+    span  = Segment(opts.gps_start_time, opts.gps_end_time)
+
+    print_verbose("Command line read.\n", opts.verbose)
+
+    # check data access options
+    if opts.data_cache and opts.nds:
+        raise optparse.OptionConflictError("--data-cache and --nds are "+\
+                                           "exclusive options.")
+    elif opts.data_cache and not opts.html_only:
+        if not os.path.isfile(opts.data_cache):
+            raise optparse.OptionValueError("Cannot find %s."\
+                                            % opts.data_cache)
+        opts.data_cache = os.path.abspath(opts.data_cache)
+        cache = Cache.fromfile(open(opts.data_cache, "r"))
+        cache = cache.sieve(segment=span)
+        if not opts.config_file.has_section("datafind"):
+            opts.config_file.add_section("datafind")
+        opts.config_file.set("datafind", "data-cache", cache)
+    if opts.trigger_cache and not opts.html_only:
+        if not os.path.isfile(opts.trigger_cache):
+            raise optparse.OptionValueError("Cannot find %s."\
+                                            % opts.trigger_cache)
+        opts.trigger_cache = os.path.abspath(opts.trigger_cache)
+        cache = Cache.fromfile(open(opts.trigger_cache, "r"))
+        cache = cache.sieve(segment=span)
+        if not opts.config_file.has_section("trigfind"):
+            opts.config_file.add_section("trigfind")
+        opts.config_file.set("trigfind", "trigger-cache", cache)
+    if opts.segment_cache and not opts.html_only:
+        if not os.path.isfile(opts.segment_cache):
+            raise optparse.OptionValueError("Cannot find %s."\
+                                            % opts.segment_cache)
+        opts.segment_cache = os.path.abspath(opts.segment_cache)
+        cache = Cache.fromfile(open(opts.segment_cache, "r"))
+        cache = cache.sieve(segment=span)
+        if not opts.config_file.has_section("trigfind"):
+            opts.config_file.add_section("trigfind")
+        opts.config_file.set("segfind", "segment-cache", cache)
+
+    if not opts.html_only\
+    and (opts.data_cache or opts.trigger_cache or opts.segment_cache):
+        print_verbose("All cache files read.\n", opts.verbose)
+
+    # check output options
+    opts.output_dir = os.path.abspath(opts.output_dir)
+
+    return opts,args
+
+# =============================================================================
+# Run main function if command line
+# ============================================================================= 
+
+if __name__=="__main__":
+
+    # start timer
+    jobtime = start_job_timer()
+
+    #
+    # parse command line and generate some helper variables
+    #
+
+    # get input options
+    opts, args = parse_command_line()
+
+    # extract to useful variable names
+    run_opts = dict((opt[4:], getattr(opts, opt)) for opt in opts.__dict__\
+                    if opt.startswith("run_"))
+    cp    = opts.config_file
+    outdir = opts.output_dir
+    start_time = opts.gps_start_time
+    end_time   = opts.gps_end_time
+    ifo        = opts.ifo
+    verbose    = opts.verbose
+
+    span = Segment(start_time, end_time)
+
+    print_verbose("-----------------------------------------\n"\
+                  "Welcome to the IFO summary page generator\n"\
+                  "-----------------------------------------\n",\
+                  verbose=opts.verbose, profile=False)
+
+    # get now time
+    global NOW
+    NOW = min(end_time, int(lal.GPSTimeNow()))
+
+    # set mode
+    if opts.day:
+        mode = summary.SUMMARY_MODE_DAY
+    elif opts.week:
+        mode = summary.SUMMARY_MODE_WEEK
+    elif opts.month:
+        mode = summary.SUMMARY_MODE_MONTH
+    elif opts.year:
+        mode = summary.SUMMARY_MODE_YEAR
+    else:
+        mode = summary.SUMMARY_MODE_GPS
+    print_verbose("You have chosen %s mode. The GPS interval is\n%d-%d\n"\
+                  % (summary.MODE_NAME[mode], int(start_time), int(end_time)),\
+                  verbose=opts.verbose, profile=False)
+    summary.SummaryTab.mode = mode
+
+    summary.SummaryTab.ifo = ifo
+
+    #
+    # setup shared resources
+    #
+  
+    # shared segment resources
+    global G_SEGMENTS, G_SEGMENT_DEFINER
+    G_SEGMENTS        = SegmentListDict()
+    G_SEGMENT_DEFINER = SegmentListDict()
+    
+    # shared trigger resources
+    global G_TRIGGERS, G_CLUSTERED_TRIGGERS
+    G_TRIGGERS                = dict()
+    G_CLUSTERED_TRIGGERS      = dict()
+
+    # shared data resoures
+    global G_DATA, G_SPECTRUM, G_SPECTROGRAM
+    G_DATA                 = dict()
+    G_SPECTRUM             = dict()
+    G_SPECTROGRAM          = dict()
+
+    #
+    # set directories
+    #
+
+    jobdir = setjobdirectory(outdir, mode, start_time, end_time)
+    
+    #
+    # load run states
+    #
+
+    statelist = load_run_states(start_time, end_time, cp, sec="states")
+
+    #
+    # load veto definer files and set run states
+    # 
+
+    # make segments directory
+    segdir = os.path.join(jobdir, "segments")
+    if not os.path.isdir(segdir):
+        os.mkdir(segdir)
+
+    # load veto definer table
+    veto_def_table = dict()
+    if opts.run_vetoes and not opts.html_only:
+        sections = [s for s in cp.sections() if s.startswith("vetoes")]
+        for sec in sections:
+            # load veto definer file
+            veto_def_file = scp(cp.get(sec, "veto-def-file"), segdir) 
+            _tmp          = VetoDefUtils.ReadVetoDefFromFiles([veto_def_file])
+            cats          = map(int, cp.get(sec, "veto-categories").split(","))
+            veto_def_table[sec] = VetoDefUtils.ParseVetoDef(_tmp, ifo=ifo,\
+                                                            start_time_time=start_time,\
+                                                            end_time=end,\
+                                                            category=cats)
+
+            # add HVeto to the veto definer files
+            if opts.run_hveto:
+                hveto_cat = cp.has_option(sec, "hveto-category") and\
+                            cp.getint(sec, "hveto-category") or 3
+                hveto_def = HVetoDef(cp, ifo, hveto_cat, start_time, end)
+                add = sum([re.search("HVETO", v.name)!=None\
+                           for v in veto_def_table[sec]])==0
+                if add:
+                    veto_def_table[sec].append(hveto_def)
+
+            print_verbose("Loaded %s with %d flags at %d.\n"\
+                          % (os.path.basename(veto_def_file),\
+                             len(veto_def_table[sec]), jobtime()))
+
+        if len(sections) == 0 and opts.run_hveto:
+            veto_def_table["_"] = lsctables.VetoDefTable()
+            veto_def_table["_"].append(HVetoDef(cp,ifo,3,start_time,end_time))
+
+    #
+    # get state defining segments
+    #
+
+
+    #
+    # generate summary tabs
+    #
+
+    valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
+                     "LSC", "OMC", "PEM", "PSL", "SUS", "SQZ"]
+    valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
+                     "Vetoes", "Misc."] + valid_systems
+    valid_parents = natsort(valid_parents)
+
+    # generate section summaries for each valid parent
+    section_summary = dict()
+    for parent in valid_parents:
+        tab = summary.SectionSummaryTab(parent)
+        tab.span = span
+        tab.directory = os.path.join(jobdir, _r_cchar.sub("_", parent.lower()))
+        section_summary[parent] = tab
+
+    #
+    # process segments
+    #
+
+    if opts.run_segments:
+        sections = natsort([s for s in cp.sections()\
+                            if s.startswith("segments-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = get_parent(cp, cpsec, valid_parents, default="Segments")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[9:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not state.set and not opts.html_only:
+                    get_state_segments(cp, state, vetotable, verbose=verbose)
+                tab = summary.SegmentSummaryTab(metatab.name)
+                tab.span = (start_time, end_time)
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.datadirectory = segdir
+                tab.segments = state.segments
+                process_segments(tab, cp, cpsec, verbose=verbose,\
+                                 htmlonly=opts.html_only,\
+                                 doplots=opts.run_plots,\
+                                 dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # process triggers
+    #
+
+    if opts.run_analysis_triggers:
+        sections = natsort([s for s in cp.sections()\
+                            if re.match("triggers[- ]", s)])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = get_parent(cp, cpsec, valid_parents, default="Triggers")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[9:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[run]
+                else:
+                    vetotable = None
+                if not state.set and not opts.html_only:
+                    get_state_segments(cp, state, vetotable, verbose=verbose)
+                tab = summary.TriggerSummaryTab(metatab.name,\
+                                                start_time=start_time,\
+                                                end_time=end_time,\
+                                                parent=metatab)
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.segments = state.segments
+                tab.segments.contract(state.event_buffer)
+                process_triggers(tab, cp, cpsec,\
+                                 verbose=verbose,\
+                                 htmlonly=opts.html_only,\
+                                 doplots=opts.run_plots,\
+                                 dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # process auxiliary channel triggers
+    #
+
+    if opts.run_auxiliary_triggers:
+        sections = natsort([s for s in cp.sections()\
+                            if re.match("auxtriggers[- ]", s)])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = get_parent(cp, cpsec, valid_parents, default="Triggers")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[12:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[run]
+                else:
+                    vetotable = None
+                if not state.set and not opts.html_only:
+                    get_state_segments(cp, state, vetotable, verbose=verbose)
+                tab = summary.AuxTriggerSummaryTab(metatab.name,\
+                                                   start_time=start_time,\
+                                                   end_time=end_time,\
+                                                   parent=metatab)
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.segments = state.segments
+                tab.segments.contract(state.event_buffer)
+                process_auxiliary_triggers(tab, cp, cpsec,\
+                                           verbose=verbose,\
+                                           htmlonly=opts.html_only,\
+                                           doplots=opts.run_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # free trigger memory
+    #
+
+    for key in G_TRIGGERS.keys():
+        del G_TRIGGERS[key]
+    for key in G_CLUSTERED_TRIGGERS.keys():
+        del G_CLUSTERED_TRIGGERS[key]
+
+    #
+    # process state vectors
+    #
+
+    if opts.run_state_vector:
+        sections = natsort([s for s in cp.sections()\
+                            if s.startswith("statevector-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = get_parent(cp, cpsec, valid_parents, default="Segments")
+            name = cp.has_option(cpsec, "name") and cp.get(cpsec, "name")\
+                   or cpsec[9:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not state.set and not opts.html_only:
+                    get_state_segments(cp, state, vetotable, verbose=verbose)
+                tab = summary.StateVectorSummaryTab(metatab.name)
+                tab.span = (start_time, end_time)
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.datadirectory = segdir
+                tab.segments = state.segments
+                process_statevector(tab, cp, cpsec,\
+                                    verbose=verbose,\
+                                    htmlonly=opts.html_only,\
+                                    doplots=opts.run_plots,\
+                                    dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # process data
+    #
+
+    if opts.run_data:
+        sections = natsort([s for s in cp.sections() if s.startswith("data-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = get_parent(cp, cpsec, valid_parents, default="Misc.")
+            if cp.has_option(cpsec, "name"):
+                name = cp.get(cpsec, "name")
+            elif re.match("data-\w\w\w-", cpsec):
+                name = cpsec[9:]
+            else:
+                name = cpsec[5:]
+            metatab = summary.MetaStateTab(name)
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not state.set and not opts.html_only:
+                    get_state_segments(cp, state, vetotable, verbose=verbose)
+                tab = summary.DataSummaryTab(metatab.name)
+                tab.span = (start_time, end_time)
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.segments = state.segments
+                process_data(tab, cp, cpsec, verbose=verbose,\
+                             htmlonly=opts.html_only,\
+                             doplots=opts.run_plots,\
+                             dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # process data
+    #
+
+    if opts.run_range:
+        sections = natsort([s for s in cp.sections() if s.startswith("range-")])
+        for cpsec in sections:
+            run_states = parse_tab_states(statelist, cp, cpsec)
+            parent = get_parent(cp, cpsec, valid_parents, default="Sensitivity")
+            metatab = summary.MetaStateTab(cpsec[6:])
+            metatab.span = (start_time, end_time)
+            metatab.parent = section_summary[parent]
+            for state in run_states:
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not state.set and not opts.html_only:
+                    get_state_segments(cp, state, vetotable, verbose=verbose)
+                tab = summary.RangeSummaryTab(metatab.name)
+                tab.span = (start_time, end_time)
+                tab.parent = metatab
+                tab.directory = metatab.directory
+                tab.state = state
+                tab.segments = state.segments
+                process_range(tab, cp, cpsec, verbose=verbose,\
+                              htmlonly=opts.html_only,\
+                              doplots=opts.run_plots,\
+                              dosubplots=opts.run_sub_plots)
+                metatab.add_child(tab)
+            section_summary[parent].add_child(metatab)
+
+    #
+    # write data to frame
+    #
+
+    if opts.write_data and not opts.html_only:
+        print_verbose("\n----------\nWriting data to file...\n",\
+                      verbose=verbose)
+
+        # generate output file
+        datadir = os.path.join(jobdir, "data")
+        if not os.path.isdir(datadir):
+            os.mkdir(datadir)
+        h5filename = get_output_datafile(ifo, start_time, abs(span),\
+                                         datadir=datadir, ext="hdf")
+        archive_data(h5filename)
+
+    #
+    # write segments to segwizard
+    #
+ 
+    if opts.write_segments and not opts.html_only:
+        for flag in G_SEGMENTS.keys():
+            name = _r_cchar.sub("_", flag.upper())
+            if re.match("\w\d:", flag):
+                name = name[3:]
+            filename = os.path.join(segdir, "%s-%s-%d-%d.txt"\
+                                             % (ifo, name, start_time,\
+                                                end_time-start_time))
+            with open(filename, "w") as segf:
+                segmentsUtils.tosegwizard(segf, G_SEGMENTS[flag].coalesce())
+
+    #
+    # setup HTML
+    #
+
+    print_verbose("\n----------\nGenerating HTML...\n", verbose=verbose,\
+                  profile=False)
+
+    # set html extension
+    ext = cp.has_option("html", "file-type") and cp.get("html", "file-type")\
+          or "html"
+
+    if not os.path.isdir("html"):
+        os.mkdir("html")
+ 
+    # get html files
+    css = cp.get("html", "style-sheet").split(",")
+    for i,stylesheet in enumerate(css):
+        css[i] = scp(stylesheet,\
+                     os.path.join("html", os.path.basename(stylesheet)))
+
+    jsfiles = cp.get("html", "javascript").split(",")
+    # hack JS for glue.markup.page.init
+    js = scp(jsfiles[0], os.path.join("html", os.path.basename(jsfiles[0])))
+    cont = []
+    for f in jsfiles[1:]:
+        f = scp(f, os.path.join("html", os.path.basename(f)))
+        cont.append(markup.oneliner.script("", src=f, type="text/javascript"))
+    cont = "\n".join(cont)
+
+    # get base and root
+    if mode == summary.SUMMARY_MODE_GPS:
+        base = build_html_base(cp,ifo,outdir,"%d-%d" % (start_time, end_time))
+    else:
+        base = build_html_base(cp, ifo, outdir)
+    root = urlparse.urlparse(base).path
+
+    if mode > summary.SUMMARY_MODE_GPS:
+        startdate = cp.has_option("calendar", "start-date")\
+                    and datetime.datetime.strptime(cp.get("calendar",\
+                                                       "start-date"), "%Y%m%d")\
+                    or datetime.datetime(*lal.GPSToUTC(int(start_time))[:6])
+        
+        weekday   = cp.has_option("calendar", "start-of-week")\
+                    and getattr(calendar,\
+                                cp.get("calendar","start-of-week").upper())
+    else:
+        startdate = None
+        weekday   = None
+
+    baselist = [(key[:2].upper(),val) for (key,val) in cp.items("html")\
+                if re.match("\w\d-base\Z", key)]
+
+
+    #
+    # write auxiliary HTML
+    #
+
+    auxiliary_tabs = dict()
+
+    # ABOUT
+    aboutdir = os.path.join(jobdir, "about")
+    if not os.path.isdir(aboutdir):
+        os.mkdir(aboutdir)
+    tab = summary.AboutTab("About", directory=aboutdir, span=span,\
+                           version=__version__, mode=mode)
+    tab.add_file("Configuration file", cp.filename)
+    tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
+    tab.finalize()
+    tab.write_ifo_links(baselist, ifo, tab.index)
+    tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+
+    # CALENDAR
+    if mode > summary.SUMMARY_MODE_GPS:
+        caldir = "calendar"
+        if not os.path.isdir(caldir):
+            os.mkdir(caldir)
+        tab = summary.CalendarTab("Calendar", directory=caldir, span=span,\
+                                  mode=mode, start_date=startdate,\
+                                  end_date=int(end_time-1))
+        tab.weekday = weekday
+        tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
+        tab.finalize()
+        tab.write_ifo_links(baselist, ifo, tab.index)
+        tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+        print_verbose("Calendar HTML written.\n", verbose=verbose)
+
+    # GLOSSARY
+    glosdir = "glossary"
+    if not os.path.isdir(glosdir):
+        os.mkdir(glosdir)
+    tab = summary.GlossaryTab("Glossary", span=span, directory=glosdir,\
+                              mode=mode)
+    if cp.has_section("glossary"):
+        tab.add_entries((key, val) for key,val in cp.items("glossary"))
+    tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
+    tab.finalize()
+    tab.write_ifo_links(baselist, ifo, tab.index)
+    tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+    print_verbose("Glossary HTML written.\n", verbose=verbose)
+
+    # ONLINE
+    if mode > summary.SUMMARY_MODE_GPS:
+        refresh  = cp.has_option("html", "online-refresh")\
+                   and cp.getfloat("html", "online-refresh") or None
+        ondir    = "online" 
+        if not os.path.isdir(ondir):
+            os.mkdir(ondir)
+        sections = [s for s in cp.sections() if re.match("online[-_ ]", s)]
+        plots    = dict((s, cp.items(s)) for s in sections)
+        if len(sections) > 1:
+            sections = ["online All times"] + sections
+            plots["online All times"] = []
+            for s in sections[1:][::-1]:
+                plots["online All times"].extend(cp.items(s))
+        tab = summary.OnlineSummaryTab("Online", span=span, directory=".")
+        for s in sections:
+            tab.add_plots(s[7:], plots[s])
+        tab.refresh = refresh
+        tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
+        tab.finalize()
+        tab.write_ifo_links(baselist, ifo, tab.index)
+        tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+        print_verbose("Online HTML written.\n", verbose=verbose)
+            
+    #
+    # collate tab pages
+    #
+
+    tabs = summary.SectionSummaryTab("Summary", span=(start_time, end_time))
+    tabs.directory = jobdir
+    tabs.mode    = mode
+    tabs.write_menu(jobdir, startdate=startdate, weekday=weekday)
+    for p in valid_parents:
+        if len(section_summary[p].children) != 0:
+            tabs.add_child(section_summary[p])
+
+    summaries = [tabs]+tabs.children
+
+    tabs.write_tabs(summaries)
+    tabs.finalize()
+    tabs.write_ifo_links(baselist, ifo, tabs.index)
+    tabs.build(base=base, css=css, header=cont, script={js:"javascript"})
+    print_verbose("Summary HTML written.\n", verbose=verbose)
+    for tab in tabs.children:
+        tab.mode    = mode
+        tab.write_tabs(summaries)
+        tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
+        tab.finalize()
+        tab.write_ifo_links(baselist, ifo, tab.index)
+        tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+        for subtab in tab.children:
+            subtab.mode = mode
+            subtab.write_tabs(summaries)
+            subtab.write_menu(jobdir, startdate=startdate, weekday=weekday)
+            subtab.finalize()
+            subtab.write_ifo_links(baselist, ifo, subtab.index)
+            subtab.build(base=base, css=css, header=cont, script={js:"javascript"})
+    print_verbose("All tabs HTML written.\n", verbose=verbose)
+    print_verbose("\n----------\nFinished\n----------\n", verbose=verbose,\
+                  profile=False)

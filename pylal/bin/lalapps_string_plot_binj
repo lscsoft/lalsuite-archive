@@ -86,7 +86,7 @@ def parse_command_line():
 		options.amplitude_func = SimBurstUtils.string_amplitude_in_instrument
 		options.amplitude_lbl = r"$A^{\mathrm{det}}$"
 	else:
-		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
+		raise ValueError("unrecognized --amplitude-func %s" % options.amplitude_func)
 
 	if not options.format:
 		options.format = ["png"]
@@ -100,9 +100,9 @@ def parse_command_line():
 	for cache in options.input_cache:
 		if options.verbose:
 			print >>sys.stderr, "reading '%s' ..." % cache
-		filenames += [lal.CacheEntry(line).path() for line in file(cache)]
+		filenames += [lal.CacheEntry(line).path for line in file(cache)]
 	if not filenames:
-		raise ValueError, "Nothing to do!"
+		raise ValueError("Nothing to do!")
 
 	return options, filenames
 
@@ -491,12 +491,10 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
-	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp")
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(working_filename), options.live_time_program, search = "StringCusp")
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)
-	is_injection_db = "sim_burst" in dbtables.get_table_names(connection)
+	is_injection_db = "sim_burst" in dbtables.get_table_names(database.connection)
 	if is_injection_db:
 		database.connection.cursor().execute("""
 CREATE TEMPORARY TABLE
@@ -525,7 +523,7 @@ AS
 		if options.verbose:
 			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(database)
-	connection.close()
+	database.connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 

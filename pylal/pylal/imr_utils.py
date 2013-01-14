@@ -1,3 +1,19 @@
+# Copyright (C) 2012  Chad Hanna
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 import sys
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -55,13 +71,13 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
 		found_query = 'SELECT sim_inspiral.*, coinc_ringdown.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_ringdown ON coinc_ringdown.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_ringdown.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
-	
+
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
 		found_query = 'SELECT sim_inspiral.*, multi_burst.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN multi_burst ON multi_burst.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == multi_burst.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
-	
+
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
-	
+
 	def injection_was_made(end_time, end_time_ns, segments = segments):
 		return time_within_segments(end_time, end_time_ns, segments)
 
@@ -119,11 +135,17 @@ def get_instruments_from_coinc_event_table(connection):
 	return instruments
 
 
-def get_segments(connection, xmldoc, table_name, live_time_program, veto_segments_name = None):
+def get_segments(connection, xmldoc, table_name, live_time_program, veto_segments_name = None, data_segments_name = "datasegments"):
 	segs = segments.segmentlistdict()
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
-		segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		if live_time_program == "gstlal_inspiral":
+			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, data_segments_name).coalesce()
+			segs &= llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		elif live_time_program == "thinca":
+			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		else:
+			raise ValueError("for burst tables livetime program must be one of gstlal_inspiral, thinca")
 		if veto_segments_name is not None:
 			veto_segs = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
 			segs -= veto_segs
@@ -147,12 +169,10 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
 
 
-def get_loudest_event_far_thresholds(connection, table_name, segments = None):
+def get_event_fars(connection, table_name, segments = None):
 	"""
 	return the false alarm rate of the most rare zero-lag coinc by instruments
 	"""
-	query = 'CREATE TEMPORARY TABLE distinct_instruments AS SELECT DISTINCT(instruments) as instruments FROM coinc_event;'
-	connection.cursor().execute(query)
 
 	def event_in_requested_segments(end_time, end_time_ns, segments = segments):
 		return time_within_segments(end_time, end_time_ns, segments)
@@ -160,25 +180,48 @@ def get_loudest_event_far_thresholds(connection, table_name, segments = None):
 	connection.create_function("event_in_requested_segments", 2, event_in_requested_segments)
 
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
-		query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_inspiral.combined_far) AS combined_far FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND event_in_requested_segments(coinc_inspiral.end_time, coinc_inspiral.end_time_ns) ) FROM distinct_instruments;'
+		query = 'SELECT coinc_event.instruments, coinc_inspiral.combined_far AS combined_far, EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) FROM coinc_inspiral JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id) WHERE event_in_requested_segments(coinc_inspiral.end_time, coinc_inspiral.end_time_ns);'
 
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
-		query = 'SELECT distinct_instruments.instruments, (SELECT MIN(multi_burst.false_alarm_rate) AS combined_far FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND event_in_requested_segments(multi_burst.peak_time, multi_burst.peak_time_ns) ) FROM distinct_instruments;'
+		query = 'SELECT coinc_event.instruments, multi_burst.false_alarm_rate AS combined_far, EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) FROM multi_burst JOIN coinc_event ON (multi_burst.coinc_event_id == coinc_event.coinc_event_id) WHERE event_in_requested_segments(multi_burst.peak_time, multi_burst.peak_time_ns);'
 
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-		query = 'SELECT distinct_instruments.instruments, (SELECT MIN(coinc_ringdown.false_alarm_rate) AS combined_far FROM coinc_ringdown JOIN coinc_event ON (coinc_ringdown.coinc_event_id == coinc_event.coinc_event_id) WHERE coinc_event.instruments == distinct_instruments.instruments AND NOT EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) AND event_in_requested_segments(coinc_ringdown.start_time, coinc_ringdown.start_time_ns) ) FROM distinct_instruments;'
+		query = 'SELECT coinc_event.instruments, coinc_ringdown.false_alarm_rate AS combined_far, EXISTS(SELECT * FROM time_slide WHERE time_slide.time_slide_id == coinc_event.time_slide_id AND time_slide.offset != 0) FROM coinc_ringdown JOIN coinc_event ON (coinc_ringdown.coinc_event_id == coinc_event.coinc_event_id) WHERE event_in_requested_segments(coinc_ringdown.start_time, coinc_ringdown.start_time_ns);'
 
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
 
-	output = []
-	for inst, far in connection.cursor().execute(query):
+	for inst, far, ts in connection.cursor().execute(query):
 		inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-		output.append((inst, far))
+		yield (inst, far, ts)
 
-	query = 'DROP TABLE distinct_instruments'
-	connection.cursor().execute(query)
-	return output
+
+def compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function = lambda sim: (sim.distance,)):
+	"""
+	This program creates the search efficiency in the provided ndbins.  The
+	first dimension of ndbins must be the distance.  You also must provide a
+	function that maps a sim inspiral row to the correct tuple to index the ndbins.
+	"""
+
+	input = rate.BinnedRatios(ndbins)
+
+	# increment the numerator with the missed injections
+	[input.incnumerator(sim_to_bins_function(sim)) for sim in found]
+
+	# increment the denominator with the total injections
+	[input.incdenominator(sim_to_bins_function(sim)) for sim in total]
+
+	# regularize by setting denoms to 1 to avoid nans
+	input.regularize()
+
+	# pull out the efficiency array, it is the ratio
+	eff = rate.BinnedArray(rate.NDBins(ndbins), array = input.ratio())
+
+        # compute binomial uncertainties in each bin
+        err_arr = numpy.sqrt(eff.array * (1-eff.array)/input.denominator.array)
+	err = rate.BinnedArray(rate.NDBins(ndbins), array = err_arr)
+
+	return eff, err
 
 
 def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
@@ -189,59 +232,59 @@ def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 	to index the ndbins.
 	"""
 
-	input = rate.BinnedRatios(ndbins)
+	eff, err = compute_search_efficiency_in_bins(found, total, ndbins, sim_to_bins_function)
+	dx = ndbins[0].upper() - ndbins[0].lower()
+	r = ndbins[0].centres()
 
 	# we have one less dimension on the output
-	output = rate.BinnedArray(rate.NDBins(ndbins[1:]))
+	vol = rate.BinnedArray(rate.NDBins(ndbins[1:]))
+	errors = rate.BinnedArray(rate.NDBins(ndbins[1:]))
 
-	# increment the numerator with the missed injections
-	[input.incnumerator(sim_to_bins_function(sim)) for sim in found]
+	# integrate efficiency to obtain volume
+	vol.array = (eff.array.T * 4. * numpy.pi * r**2 * dx).sum(-1)
 
-	# increment the denominator with the total injections
-	[input.incdenominator(sim_to_bins_function(sim)) for sim in total]
+	# propagate errors in eff to errors in V
+        errors.array = numpy.sqrt(( (4*numpy.pi *r**2 *err.array.T *dx)**2 ).sum(-1))
 
-	# compute the dx in the distance bins REMEMBER it is the first dimension by requirement :)
-	dx = input.bins()[0].upper() - input.bins()[0].lower()
-	r = input.bins()[0].centres()
-	# regularize by setting denoms to 1 to avoid nans
-	input.regularize()
-	# pull out the efficiency array, it is the ratio
-	efficiency_array = input.ratio()
-	output.array = (efficiency_array.T * 4. * numpy.pi * r**2 * dx).sum(-1)
+	return vol, errors
 
-	return output
+
+def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LogarithmicBins)}):
+	"""
+	Given a dictionary of bin counts and bin objects keyed by sim
+	attribute, come up with a sensible NDBins scheme
+	"""
+	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]), bintup[0]) for attr, bintup in bin_dict.items()])
 
 
 def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 11, distbins = 200):
 	"""
 	Given a list of the injections, guess at the mass1, mass2 and distance
-	bins. Floor and ceil will be used to round down to the nearest integers.
+	bins.
 	"""
-
-	minmass1 = numpy.floor(min([sim.mass1 for sim in sims]))
-	maxmass1 = numpy.ceil(max([sim.mass1 for sim in sims]))
-	minmass2 = numpy.floor(min([sim.mass2 for sim in sims]))
-	maxmass2 = numpy.ceil(max([sim.mass2 for sim in sims]))
-	mindist = numpy.floor(min([sim.distance for sim in sims]))
-	maxdist = numpy.ceil(max([sim.distance for sim in sims]))
-
-	return rate.NDBins((rate.LogarithmicBins(mindist, maxdist, distbins), rate.LinearBins(minmass1, maxmass1, mass1bins), rate.LinearBins(minmass2, maxmass2, mass2bins)))
+	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "mass1": (mass1bins, rate.LinearBins), "mass2": (mass2bins, rate.LinearBins)})
 
 
 def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins = 11, distbins = 200):
 	"""
 	Given a list of the injections, guess at the spin1, spin2 and distance
-	bins. Floor and ceil will be used to round down to the nearest integers.
+	bins.
 	"""
+	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
 
-	minspin1 = numpy.floor(min([sim.spin1z for sim in sims]))
-	maxspin1 = numpy.ceil(max([sim.spin1z for sim in sims]))
-	minspin2 = numpy.floor(min([sim.spin2z for sim in sims]))
-	maxspin2 = numpy.ceil(max([sim.spin2z for sim in sims]))
-	mindist = numpy.floor(min([sim.distance for sim in sims]))
-	maxdist = numpy.ceil(max([sim.distance for sim in sims]))
 
-	return rate.NDBins((rate.LogarithmicBins(mindist, maxdist, distbins), rate.LinearBins(minspin1, maxspin1, spin1bins), rate.LinearBins(minspin2, maxspin2, spin2bins)))
+def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
+       """
+       Given a list of the injections, guess at the mass1, mass2 and distance
+       bins. Floor and ceil will be used to round down to the nearest integers.
+       """
+
+       total_lo = numpy.floor(min([sim.mass1 + sim.mass2 for sim in sims]))
+       total_hi = numpy.ceil(max([sim.mass1 + sim.mass2 for sim in sims]))
+       mindist = numpy.floor(min([sim.distance for sim in sims]))
+       maxdist = numpy.ceil(max([sim.distance for sim in sims]))
+
+       return rate.NDBins((rate.LogarithmicBins(mindist, maxdist, distbins), rate.LinearBins(total_lo, total_hi, nbins)))
 
 
 def sim_to_distance_mass1_mass2_bins_function(sim):
@@ -250,6 +293,13 @@ def sim_to_distance_mass1_mass2_bins_function(sim):
 	"""
 
 	return (sim.distance, sim.mass1, sim.mass2)
+
+
+def sim_to_distance_total_mass_bins_function(sim):
+       """
+       create a function to map a sim to a distance, total mass NDBins based object
+       """
+       return (sim.distance, sim.mass1 + sim.mass2)
 
 
 def sim_to_distance_spin1z_spin2z_bins_function(sim):
@@ -262,30 +312,31 @@ def sim_to_distance_spin1z_spin2z_bins_function(sim):
 
 def symmetrize_sims(sims, col1, col2):
 	"""
-	duplicate the sims to symmetrize by two columns that should be symmetric.  For example mass1 and mass2
+	symmetrize by two columns that should be symmetric.  For example mass1 and mass2
 	"""
-	out = []
 	for sim in sims:
-		out.append(sim)
-		newsim = copy.deepcopy(sim)
-		setattr(newsim, col1, getattr(sim, col2))
-		setattr(newsim, col2, getattr(sim, col1))
-		out.append(newsim)
-	return out
+		c1 = getattr(sim, col1)
+		c2 = getattr(sim, col2)
+		if c1 > c2:
+			setattr(sim, col1, c2)
+			setattr(sim, col2, c1)
+	return sims
 
 class DataBaseSummary(object):
 	"""
 	This class stores summary information gathered across the databases
 	"""
 
-	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", tmp_path = None, verbose = False):
+	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", data_segments_name = "datasegments", tmp_path = None, verbose = False):
 
 		self.segments = segments.segmentlistdict()
-		self.instruments = []
+		self.instruments = set()
 		self.table_name = None
 		self.found_injections_by_instrument_set = {}
 		self.total_injections_by_instrument_set = {}
-		self.far_thresholds_by_instrument_set = {}
+		self.zerolag_fars_by_instrument_set = {}
+		self.ts_fars_by_instrument_set = {}
+		self.numslides = set()
 
 		for f in filelist:
 			if verbose:
@@ -317,20 +368,24 @@ class DataBaseSummary(object):
 
 			# the non simulation databases are where we get information about segments
 			if not sim:
-				self.instruments += get_instruments_from_coinc_event_table(connection)
+				self.numslides.add(connection.cursor().execute('SELECT count(DISTINCT(time_slide_id)) FROM time_slide').fetchone()[0])
+				[self.instruments.add(ifos) for ifos in get_instruments_from_coinc_event_table(connection)]
 				# save a reference to the segments for this file, needed to figure out the missed and found injections
-				self.this_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name)
+				self.this_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name, data_segments_name = data_segments_name)
 				# FIXME we don't really have any reason to use playground segments, but I put this here as a reminder
 				# self.this_playground_segments = segmentsUtils.S2playground(self.this_segments.extent_all())
 				self.segments += self.this_segments
 
 				# get the far thresholds for the loudest events in these databases
-				for instruments_set, far in get_loudest_event_far_thresholds(connection, self.table_name):
-					self.far_thresholds_by_instrument_set.setdefault(instruments_set, []).append(far)
+				for (instruments_set, far, ts) in get_event_fars(connection, self.table_name):
+					if not ts:
+						self.zerolag_fars_by_instrument_set.setdefault(instruments_set, []).append(far)
+					else:
+						self.ts_fars_by_instrument_set.setdefault(instruments_set, []).append(far)
 			# get the injections
 			else:
 				# We need to know the segments in this file to determine which injections are found
-				self.this_injection_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name)
+				self.this_injection_segments = get_segments(connection, xmldoc, self.table_name, live_time_program, veto_segments_name, data_segments_name = data_segments_name)
 				self.this_injection_instruments = []
 				distinct_instruments = connection.cursor().execute('SELECT DISTINCT(instruments) FROM coinc_event WHERE instruments!=""').fetchall()
 				for instruments, in distinct_instruments:
@@ -353,7 +408,11 @@ class DataBaseSummary(object):
 			# All done
 			dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
 			dbtables.DBTable_set_connection(None)
+		if len(self.numslides) > 1:
+			raise ValueError('number of slides differs between input files')
+		else:
+			self.numslides = min(self.numslides)
 
-			# FIXME
-			# Things left to do
-			# 1) summarize the far threshold over the entire dataset
+		# FIXME
+		# Things left to do
+		# 1) summarize the far threshold over the entire dataset
