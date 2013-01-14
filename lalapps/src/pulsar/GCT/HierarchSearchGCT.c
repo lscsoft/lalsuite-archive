@@ -60,11 +60,9 @@
 #ifdef EAH_BOINC
 #include "hs_boinc_extras.h"
 #define COMPUTEFSTATFREQBAND_RS ComputeFStatFreqBand_RS
-#define CLEAR_GCT_CHECKPOINT(fn)
 #else
 #define GET_GCT_CHECKPOINT read_gct_checkpoint // (cptname, semiCohToplist, NULL, &count)
 #define SET_GCT_CHECKPOINT write_gct_checkpoint
-#define CLEAR_GCT_CHECKPOINT clear_gct_checkpoint
 #define SHOW_PROGRESS(rac,dec,skyGridCounter,tpl_total,freq,fband)
 #define MAIN  main
 #ifdef HS_OPTIMIZATION
@@ -128,11 +126,11 @@ int global_argc;
 
 /**
  * Pre-factors for frequency and spindown spacings:
- * $\delta f^{(s)} = \text{COARSE_DFsDOT} \frac{\sqrt{\mu}}{T^{s+1}}$
+ * \f$\delta f^{(s)} = \text{COARSE_DFsDOT} \frac{\sqrt{\mu}}{T^{s+1}}\f$
  * Derived from diagonal elements of basic frequency/spindown metric:
- * $\delta f^{(s)} = 2 \sqrt{\frac{\mu}}{\gamma_{ii}}$
+ * \f$\delta f^{(s)} = 2 \sqrt{\frac{\mu}}{\gamma_{ii}}\f$
  * where
- * $\gamma_{ii} = \frac{4 (1+i)^2 \pi^2 T^{2+2i}}{(3+2i) ((2+i)!)^2}$
+ * \f$\gamma_{ii} = \frac{4 (1+i)^2 \pi^2 T^{2+2i}}{(3+2i) ((2+i)!)^2}\f$
  */
 #define COARSE_DF0DOT   1.10266
 #define COARSE_DF1DOT   2.13529
@@ -622,9 +620,15 @@ int MAIN( int argc, char *argv[]) {
     }
 
   /* checkpoint filename */
+  // in BOINC App don't derive the checkpoint name from the output filename,
+  // or else the checkpoint file will end up in the project- rather than the slot-directory
+#ifdef EAH_BOINC
+  fnameChkPoint="checkpoint.cpt";
+#else
   fnameChkPoint = LALCalloc( strlen(uvar_fnameout) + 1 + 4, sizeof(CHAR) );
   strcpy(fnameChkPoint, uvar_fnameout);
   strcat(fnameChkPoint, ".cpt");
+#endif
 
   /* write the log file */
   if ( uvar_log )
@@ -1878,7 +1882,11 @@ int MAIN( int argc, char *argv[]) {
 
   LogPrintfVerbatim ( LOG_DEBUG, "done.\n");
 
-  CLEAR_GCT_CHECKPOINT (fnameChkPoint);
+  // in BOINC App the checkpoint is left behind to be cleaned up by the Core Client
+#ifndef EAH_BOINC
+  clear_gct_checkpoint (fnameChkPoint);
+  LALFree (fnameChkPoint);
+#endif
 
   /*------------ free all remaining memory -----------*/
 
@@ -1995,8 +2003,9 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
                 MultiNoiseWeightsSequence *stackMultiNoiseWeights, /**< output multi noise weights for each stack */
                 MultiDetectorStateSeriesSequence *stackMultiDetStates, /**< output multi detector states for each stack */
                 UsefulStageVariables *in, /**< input params */
-                BOOLEAN useWholeSFTs,
-                REAL8 mismatch1)
+                BOOLEAN useWholeSFTs,	/**< special switch: load all given frequency bins from SFTs */
+                REAL8 mismatch1		/**< 'mismatch1' user-input needed here internally ... */
+                )
 {
   SFTCatalog *catalog = NULL;
   static SFTConstraints constraints;

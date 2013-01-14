@@ -555,8 +555,8 @@ def make_plots(a,b,c,d,aname,bname,cname,dname,paper_plots=False):
 
 def generate_hexagonal_lattice(maxv1,minv1,maxv2,minv2,mindist):
   # Place first point
-  v1s = []
-  v2s = []
+  v1s = [minv1]
+  v2s = [minv2]
   initPoint = [minv1,minv2]
   # Place first line
   initLine = [initPoint]
@@ -596,16 +596,13 @@ def generate_anstar_3d_lattice(maxv1,minv1,maxv2,minv2,maxv3,minv3,mindist):
   lal.SetFlatLatticeConstantBound(tiling,0,minv1,maxv1)
   lal.SetFlatLatticeConstantBound(tiling,1,minv2,maxv2)
   lal.SetFlatLatticeConstantBound(tiling,2,minv3,maxv3)
-  # THE FOLLOWING LINE DOESN'T WORK
-  # lal.SetFlatLatticeGenerator(tiling,lal.AnstarLatticeGenerator)
-  # Replaced with
-  lal.SetAnstarTiling(tiling)
+  lal.SetFlatLatticeGenerator(tiling,lal.AnstarLatticeGeneratorPtr)
   # Make a 3x3 Euclidean lattice
   a = lal.gsl_matrix(3,3)
   a.data[0,0] = 1
   a.data[1,1] = 1
   a.data[2,2] = 1
-  lal.SetFlatLatticeMetric(tiling,a,0.03)
+  lal.SetFlatLatticeMetric(tiling,a,mindist)
 
   vs1 = []
   vs2 = []

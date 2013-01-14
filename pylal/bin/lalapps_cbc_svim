@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
 import scipy
-from scipy import interpolate
 import numpy
-from math import *
 
 try:
   import sqlite3
@@ -17,7 +15,6 @@ from matplotlib import pyplot
 
 import os
 import sys
-import copy
 from optparse import OptionParser
 
 from glue import segments
@@ -32,14 +29,12 @@ from glue import lal
 from glue import iterutils
 
 from pylal import db_thinca_rings
-from pylal import llwapp
 from pylal import rate
 from pylal import InspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.xlal import constants
 from pylal import upper_limit_utils
-from pylal import InspiralUtils
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
@@ -442,7 +437,7 @@ class upper_limit(object):
       if self.opts.verbose:
         print >> sys.stdout, "mass bin %s" %str(mbin)
         print >> sys.stdout, "vols = ", vtmp
-        print >> sys.stdout, "\tlambda = (dlogv/dfart) = %f" % (volDeriv[mbin],)
+        print >> sys.stdout, "\tLambda = d logV/d FAN = %f" % (volDeriv[mbin],)
 
       if vtmp.max() == 0: continue
       pyplot.errorbar(fans,vtmp,yerr=v2tmp,color='k')
@@ -475,11 +470,12 @@ class upper_limit(object):
       # throw out injections having all zero spin components
       if max(abs(numpy.array([sim.spin1x, sim.spin1y, sim.spin1z, sim.spin2x, sim.spin2y, sim.spin2z]))) == 0: return True
 
-
     chi = sim.mass1/(sim.mass1+sim.mass2) *sim.spin1z + sim.mass2/(sim.mass1+sim.mass2) *sim.spin2z
     if not self.opts.min_aligned_spin < chi < self.opts.max_aligned_spin: return True
 
-    if not self.opts.min_mtotal < sim.mass1 + sim.mass2 < self.opts.max_mtotal:
+    if self.opts.min_mtotal is not None and sim.mass1+sim.mass2 < self.opts.min_mtotal:
+      return True
+    if self.opts.max_mtotal is not None and sim.mass1+sim.mass2 > self.opts.max_mtotal:
       return True
 
     if self.opts.max_mass_ratio and not (1.0/self.opts.max_mass_ratio <= sim.mass1/sim.mass2 <= self.opts.max_mass_ratio):
@@ -637,8 +633,8 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--max-bhmass", metavar = "m", type = 'float', default = 6.0, help = "Specify the maximum mass for a black hole (default is 6Msun)")
 
   # Specify which instrument set to look for
-  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = 2.0, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
-  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = 100.0, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--min-mtotal", metavar = "m", type = 'float', default = None, help = "Specify the minimum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
+  parser.add_option("--max-mtotal", metavar = "m", type = 'float', default = None, help = "Specify the maximum total mass to consider among the injections found in the DB. This filters all injections outside this total mass range, even if binning by another method.")
   parser.add_option("--instruments", default = None, metavar = "IFO[,IFO,...]", help = "Specify the on-instruments sets for computing the search volume.  Example \"H1,L1,V1\"")
 
   # Control the injection population used to measure the efficiency
@@ -667,14 +663,13 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
   parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
   parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
-  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
 
   # options for level of output
   parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
   parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
-  parser.add_option("--plot-derivative-fit", action = "store_true", help = "Plot the volume derivative fit for each mass bin.")
 
   opts, filenames = parser.parse_args()
 
@@ -771,7 +766,7 @@ for bin_type in UL.mass_bins:
         pyplot.close()
 
     #compute volume derivative at loudest event
-    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments],fnameList,tagList,InspiralUtilsOpts) #Grrr FIXME
+    dvA = UL.get_volume_derivative(instruments,bin_type,UL.far[instruments],fnameList,tagList,InspiralUtilsOpts)
 
     # make a live time table
     ltA = UL.live_time_array(instruments,UL.mass_bins[bin_type])
@@ -814,7 +809,6 @@ for bin_type in UL.mass_bins:
     plothtml = InspiralUtils.write_html_output( InspiralUtilsOpts, [database], fnameList,
                                                 tagList, add_box_flag = False )
     InspiralUtils.write_cache_output( InspiralUtilsOpts, plothtml, fnameList )
-
 
 
 # write a cache file describing the files generated during by this program

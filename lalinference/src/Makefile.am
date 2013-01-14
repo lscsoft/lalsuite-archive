@@ -16,6 +16,7 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceTemplate.h \
 	LALInferenceProposal.h \
 	LALInferenceLibVCSInfo.h \
+	LALInferenceInit.h \
 	LALInferenceVCSInfo.h \
 	priors.h \
 	$(XMLHDR)
@@ -29,6 +30,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceReadData.c \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
+	LALInferenceInitCBC.c \
 	LALInferenceVCSInfo.c \
 	priors.c \
 	$(XMLSRC)
@@ -63,6 +65,7 @@ EXTRA_DIST = \
 	LALInferenceConfig.h.in \
 	LALInferenceXML.c \
 	LALInferenceXML.h \
+	chapter_inference.dox \
 	generate_user_env.awk
 
 if HAVE_GIT_REPO

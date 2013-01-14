@@ -234,25 +234,26 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
    
   # get single detector data
   trigCoincSNR  = (trigs.get_column('coinc_snr'))
-  trigIfoSNR    = trigs.get_sngl_snrs()
+  trigIfoSNR    = dict((ifo, trigs.get_sngl_snr(ifo)) for ifo in ifos)
   tmp           = numpy.sort(trigIfoSNR.values(), 0)
-  trigFirstSNR  = tmp[-1,:]
-  if len(ifos)>1:
-    trigSecondSNR = tmp[-1,:]
-  if len(ifos)>2:
+  if len(ifos) > 0:
+    trigFirstSNR  = tmp[-1,:]
+  if len(ifos) > 1:
+    trigSecondSNR = tmp[-2,:]
+  if len(ifos) > 2:
     trigThirdSNR  = tmp[-3,:]
   if sngl_bank_chisq:
-    trigIfobankCS = trigs.get_sngl_bank_chisqs()
+    trigIfobankCS = trigs.get_sngl_bank_chisqs(ifos)
     for ifo in ifos:
       trigIfobankCS[ifo] = numpy.asarray(trigIfobankCS[ifo])
       numpy.putmask(trigIfobankCS[ifo], trigIfobankCS[ifo]==0, 0.005)
   if sngl_cont_chisq:
-    trigIfoautoCS = trigs.get_sngl_cont_chisqs()
+    trigIfoautoCS = trigs.get_sngl_cont_chisqs(ifos)
     for ifo in ifos:
       trigIfoautoCS[ifo] = numpy.asarray(trigIfoautoCS[ifo])
       numpy.putmask(trigIfoautoCS[ifo], trigIfoautoCS[ifo]==0, 0.005)
   if sngl_chisq:
-    trigIfostanCS = trigs.get_sngl_chisqs()
+    trigIfostanCS = trigs.get_sngl_chisqs(ifos)
     for ifo in ifos:
       trigIfostanCS[ifo] = numpy.asarray(trigIfostanCS[ifo])
       numpy.putmask(trigIfostanCS[ifo], trigIfostanCS[ifo]==0, 0.005)
@@ -339,19 +340,20 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   
     # get single detector data
     injCoincSNR  = numpy.asarray(injs.get_column('coinc_snr'))
-    injIfoSNR    = injs.get_sngl_snrs()
+    injIfoSNR    = dict((ifo, injs.get_sngl_snr(ifo)) for ifo in ifos)
     tmp          = numpy.sort(injIfoSNR.values(), 0)
-    injFirstSNR  = tmp[-1,:]
-    if len(ifos)>1:
-      injSecondSNR = tmp[-1,:]
-    if len(ifos)>2:
+    if len(ifos) > 0:
+      injFirstSNR  = tmp[-1,:]
+    if len(ifos) > 1:
+      injSecondSNR = tmp[-2,:]
+    if len(ifos) > 2:
       injThirdSNR  = tmp[-3,:]
     if sngl_bank_chisq:
-      injIfobankCS = injs.get_sngl_bank_chisqs()
+      injIfobankCS = injs.get_sngl_bank_chisqs(ifos)
     if sngl_cont_chisq:
-      injIfoautoCS = injs.get_sngl_cont_chisqs()
+      injIfoautoCS = injs.get_sngl_cont_chisqs(ifos)
     if sngl_chisq:
-      injIfostanCS = injs.get_sngl_chisqs()
+      injIfostanCS = injs.get_sngl_chisqs(ifos)
     injSigma  = injs.get_sigmasqs()
   
     # get amplitude terms
@@ -566,9 +568,8 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   bT = [6,27.5]
   
   maxSNR = trigSNR.max()
-  if injFile:
-    if injSNR.max() > maxSNR:
-      maxSNR = injSNR.max()
+  if injFile and injSNR.size and injSNR.max() > maxSNR:
+    maxSNR = injSNR.max()
   zoomSNR = pylab.arange(0.01,maxSNR,0.01)
  
   # plot SNR versus traceSNR 

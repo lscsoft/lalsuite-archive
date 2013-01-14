@@ -197,7 +197,7 @@ class TestGracedb(unittest.TestCase):
     def test_logger(self):
         import logging
         import ligo.gracedb.rest
-        import ligo.gracedb.logger
+        import ligo.gracedb.logging
      
         logging.basicConfig()
         log = logging.getLogger('testing')
@@ -206,7 +206,7 @@ class TestGracedb(unittest.TestCase):
         #gracedb = ligo.gracedb.rest.GraceDb()
         graceid = eventId
      
-        log.addHandler(ligo.gracedb.logger.GraceDbLogHandler(gracedb, graceid))
+        log.addHandler(ligo.gracedb.logging.GraceDbLogHandler(gracedb, graceid))
 
         message = "Message is {0}".format(random.random())
         log.warn(message)
@@ -228,7 +228,8 @@ if __name__ == "__main__":
     service = os.environ.get('TEST_SERVICE', TEST_SERVICE)
     testdatadir = os.environ.get('TEST_DATA_DIR', testdatadir)
 
-    gracedb = GraceDb(TEST_SERVICE)
+    gracedb = GraceDb(service)
+    print "Using service", service
 
     eventFile = os.path.join(testdatadir, "cbc-lm.xml")
     createdEvent = gracedb.createEvent(

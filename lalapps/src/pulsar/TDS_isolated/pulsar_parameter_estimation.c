@@ -1038,53 +1038,56 @@ W:y:g:G:K:N:X:O:J:M:{:(r:fFR><)[:" ;
     inputParams->priors.iotaPrior = inputParams->priors.priorFile;
     
     if( (fp = fopen(inputParams->priors.priorFile, "rb")) == NULL ){
-      fprintf(stderr, "Error... could not open prior file %s\n",
-              inputParams->priors.priorFile);
-      exit(0);
+      fprintf(stderr, "Error... could not open prior file %s\n\
+Just revert to uniform prior", inputParams->priors.priorFile);
+      inputParams->priors.priorFile = NULL;
+      inputParams->priors.h0Prior = uniform_string;
     }
-    
-    /* file should contain a header of six doubles with:
-     *  - h0 minimum
-     *  - dh0 - the step size in h0
-     *  - N - number of h0 values
-     *  - cos(iota) minimum
-     *  - dci - the step size in cos(iota)
-     *  - M - number of cos(iota) values
-     * followed by an NxM double array of posterior values. */
+    else{
+      /* file should contain a header of six doubles with:
+       *  - h0 minimum
+       *  - dh0 - the step size in h0
+       *  - N - number of h0 values
+       *  - cos(iota) minimum
+       *  - dci - the step size in cos(iota)
+       *  - M - number of cos(iota) values
+       * followed by an NxM double array of posterior values. */
    
-    double header[6];
+      double header[6];
     
-    /* read in header data */
-    if ( !fread(header, sizeof(double), 6, fp) ){
-      fprintf(stderr, "Error... could not read prior file header %s\n",
-              inputParams->priors.priorFile);
-      exit(0);
-    }
-    
-    /* allocate h0 and cos(iota) vectors */
-    inputParams->priors.h0vals = XLALCreateREAL8Vector( (UINT4)header[2] );
-    for( i = 0; i < (UINT4)header[2]; i++ )
-      inputParams->priors.h0vals->data[i] = header[0] + (REAL8)i*header[1];
-    
-    inputParams->priors.civals = XLALCreateREAL8Vector( (UINT4)header[5] );
-    for( i = 0; i < (UINT4)header[5]; i++ )
-      inputParams->priors.civals->data[i] = header[3] + (REAL8)i*header[4];
-    
-    /* read in prior NxM array */
-    inputParams->priors.h0cipdf = XLALMalloc((UINT4)header[2]*sizeof(double*));
-    for( i = 0; i < (UINT4)header[2]; i++ ){
-      inputParams->priors.h0cipdf[i] = XLALMalloc( (UINT4)header[5] *
-                                                   sizeof(double) );
-   
-      if ( !fread(inputParams->priors.h0cipdf[i], sizeof(double),
-                 (UINT4)(header[5]), fp ) ){
-        fprintf(stderr, "Error... could not read prior file array %s\n",
+      /* read in header data */
+      if ( !fread(header, sizeof(double), 6, fp) ){
+        fprintf(stderr, "Error... could not read prior file header %s\n",
                 inputParams->priors.priorFile);
         exit(0);
       }
-    }
     
-    fclose(fp);
+      /* allocate h0 and cos(iota) vectors */
+      inputParams->priors.h0vals = XLALCreateREAL8Vector( (UINT4)header[2] );
+      for( i = 0; i < (UINT4)header[2]; i++ )
+        inputParams->priors.h0vals->data[i] = header[0] + (REAL8)i*header[1];
+    
+      inputParams->priors.civals = XLALCreateREAL8Vector( (UINT4)header[5] );
+      for( i = 0; i < (UINT4)header[5]; i++ )
+        inputParams->priors.civals->data[i] = header[3] + (REAL8)i*header[4];
+    
+      /* read in prior NxM array */
+      inputParams->priors.h0cipdf =
+        XLALMalloc((UINT4)header[2]*sizeof(double*));
+      for( i = 0; i < (UINT4)header[2]; i++ ){
+        inputParams->priors.h0cipdf[i] = XLALMalloc( (UINT4)header[5] *
+                                                     sizeof(double) );
+   
+        if ( !fread(inputParams->priors.h0cipdf[i], sizeof(double),
+                  (UINT4)(header[5]), fp ) ){
+          fprintf(stderr, "Error... could not read prior file array %s\n",
+                  inputParams->priors.priorFile);
+          exit(0);
+        }
+      }
+    
+      fclose(fp);
+    }
   } 
 }
 
@@ -2395,7 +2398,13 @@ paramData ) ) == NULL ){
     fprintf(stderr, "Error... Can't open MCMC output chain file!\n");
     exit(0);
   }
-
+  else{
+    /* buffer the output, so that file system is not thrashed when outputing */
+    /* buffer will be 1Mb */
+    if( setvbuf(fp, NULL, _IOFBF, 0x100000) )
+      fprintf(stderr, "Warning: Unable to set output file buffer!");
+  }
+    
   /* write MCMC chain header info */
   fprintf(fp, "%% MCMC for %s with %s data using %d iterations\n",
     input.pulsar, det, input.mcmc.iterations);
@@ -3260,7 +3269,7 @@ ParamData *multivariate_normal_deviates( REAL8Array *cholmat, ParamData *data,
 
   INT4 dim=cholmat->dimLength->data[0]; /* covariance matrix dimensions */
 
-  INT4 i=0, j=0;
+  INT4 i=0, j=0, parcount=0;
   REAL8Vector *Z=NULL;
 
   /* check dimensions of covariance matrix and mean vector length are equal */
@@ -3285,13 +3294,21 @@ ParamData *multivariate_normal_deviates( REAL8Array *cholmat, ParamData *data,
     for(j=0;j<dim;j++)
       Z->data[i] += cholmat->data[i*dim + j]*randNum->data[j];
 
+  for(i=0;i<MAXPARAMS;i++)
+    if( data[i].matPos != 0 ) parcount++;
+  
   /* get the output random deviates by doing the mean plus Z */
   for(i=0;i<MAXPARAMS;i++){
     deviates[i].name = data[i].name;
     deviates[i].sigma = data[i].sigma;
     deviates[i].matPos = data[i].matPos;
-    if( data[i].matPos != 0 )
-      deviates[i].val = data[i].val + Z->data[data[i].matPos-1];
+    if( data[i].matPos != 0 ){
+      /* on average only change 3 of the parameters on each MCMC iteration */
+      if( XLALUniformDeviate( randomParams ) < (3./(REAL8)parcount) ) 
+        deviates[i].val = data[i].val + Z->data[data[i].matPos-1];
+      else
+        deviates[i].val = data[i].val;
+    }
     else
       deviates[i].val = data[i].val;
   }

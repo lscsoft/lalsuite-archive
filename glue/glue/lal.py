@@ -450,6 +450,14 @@ class CacheEntry(object):
 	simple Python list or set of CacheEntry objects is sufficient for
 	representing a LAL cache file.
 
+	Example (parse a string):
+
+	>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+	>>> c.scheme
+	'file'
+	>>> c.host
+	'localhost'
+
 	Example (one-liners to read and write a cache file):
 
 	>>> filename = "874000000-20000.cache"
@@ -578,49 +586,11 @@ class CacheEntry(object):
 		a value to the URL attribute causes the value to be parsed
 		and the scheme, host and path attributes updated.
 		"""
-		return urlparse.urlunparse((self._scheme, self._host, self._path, None, None, None))
+		return urlparse.urlunparse((self.scheme, self.host, self._path, None, None, None))
 
 	@url.setter
 	def url(self, url):
-		self._scheme, self._host, self._path = urlparse.urlparse(url)[:3]
-
-	@deprecated_method_proxy
-	def scheme(self):
-		"""
-		The scheme part of the URL.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.scheme
-		'file'
-		"""
-		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
-		return self._scheme
-
-	@scheme.setter
-	def scheme(self, value):
-		# FIXME:  remove when calling code uses the attribute directly.
-		self._scheme = value
-
-	@deprecated_method_proxy
-	def host(self):
-		"""
-		The host part of the URL.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.host
-		'localhost'
-		"""
-		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
-		return self._host
-
-	@host.setter
-	def host(self, value):
-		# FIXME:  remove when calling code uses the attribute directly.
-		self._host = value
+		self.scheme, self.host, self._path = urlparse.urlparse(url)[:3]
 
 	@deprecated_method_proxy
 	def path(self):
