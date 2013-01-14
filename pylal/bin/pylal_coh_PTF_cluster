@@ -300,6 +300,13 @@ if __name__=='__main__':
         trig_cache.extend(cache.Cache.fromfile(open(opts.cache_file, "r")))
     trig_cache.sort(key=lambda e: e.segment[0])
     trig_cache.checkfilesexist(on_missing="error")
+    if len(trig_cache):
+        ifos = lsctables.instrument_set_from_ifos(trig_cache[0].observatory)
+        process.set_ifos(ifos)
+        print ifos, process.get_ifos()
+        outseg = trig_cache.to_segmentlistdict().values()[0].extent()
+    else:
+        outseg = None
 
     # load triggers with only those columns the parent job actually wrote
     N = len(trig_cache)
@@ -400,7 +407,7 @@ if __name__=='__main__':
     #
 
     # reset multi_inspiral event_id
-    for i,mi in cluster_table:
+    for i,mi in enumerate(cluster_table):
         mi.event_id = ilwd.ilwdchar("multi_inspiral:event_id:%d" % i)
 
     # uniquify the SimInspiral IDs
@@ -430,7 +437,11 @@ if __name__=='__main__':
     outxml.childNodes[-1].appendChild(cluster_table)
     outxml.childNodes[-1].appendChild(
         lsctables.New(lsctables.SearchSummaryTable))
-    ligolw_search_summary.append_search_summary(outxml, process)
+    ligolw_search_summary.append_search_summary(outxml, process,
+                                                nevents=len(cluster_table),
+                                                comment=os.path.basename(
+                                                            __file__),
+                                                outseg=outseg)
     process.end_time = XLALGPSTimeNow().seconds
     ligolw_utils.write_filename(outxml, outfile, gz=outfile.endswith(".gz"),
                                 verbose=opts.verbose)
