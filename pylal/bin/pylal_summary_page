@@ -783,7 +783,7 @@ def get_segments(cp, flag, validsegs, cache=None, buffer_=0, verbose=False):
         # read segments
         new = fromsegmentcache(segcache)
         new &= newsegdefs
-        print_verbose("Loaded %d segments from cache for %s.\n"\
+        print_verbose("Loaded %d new segments from cache for %s.\n"\
                       % (len(new), flag), verbose=verbose)
 
     # from the segment database
@@ -792,7 +792,7 @@ def get_segments(cp, flag, validsegs, cache=None, buffer_=0, verbose=False):
                                            flag, segment_url)
         new &= newsegdefs
         new.coalesce()
-        print_verbose("Loaded %d segments from %s for %s.\n"\
+        print_verbose("Loaded %d new segments from %s for %s.\n"\
                       % (len(new), segment_url, flag), verbose=verbose)
     else:
         new = SegmentList()
@@ -4400,14 +4400,9 @@ if __name__=="__main__":
         css[i] = scp(stylesheet,\
                      os.path.join("html", os.path.basename(stylesheet)))
 
-    jsfiles = cp.get("html", "javascript").split(",")
-    # hack JS for glue.markup.page.init
-    js = scp(jsfiles[0], os.path.join("html", os.path.basename(jsfiles[0])))
-    cont = []
-    for f in jsfiles[1:]:
-        f = scp(f, os.path.join("html", os.path.basename(f)))
-        cont.append(markup.oneliner.script("", src=f, type="text/javascript"))
-    cont = "\n".join(cont)
+    javascript = cp.get("html", "javascript").split(",")
+    for i,fp in enumerate(javascript):
+        javascript[i] = scp(fp, os.path.join("html", os.path.basename(fp)))
 
     # get base and root
     if mode == summary.SUMMARY_MODE_GPS:
@@ -4449,7 +4444,7 @@ if __name__=="__main__":
     tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
     tab.finalize()
     tab.write_ifo_links(baselist, ifo, tab.index)
-    tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+    tab.build(base=base, css=css, script=javascript)
 
     # CALENDAR
     if mode > summary.SUMMARY_MODE_GPS:
@@ -4463,7 +4458,7 @@ if __name__=="__main__":
         tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
         tab.finalize()
         tab.write_ifo_links(baselist, ifo, tab.index)
-        tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+        tab.build(base=base, css=css, script=javascript)
         print_verbose("Calendar HTML written.\n", verbose=verbose)
 
     # GLOSSARY
@@ -4477,7 +4472,7 @@ if __name__=="__main__":
     tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
     tab.finalize()
     tab.write_ifo_links(baselist, ifo, tab.index)
-    tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+    tab.build(base=base, css=css, script=javascript)
     print_verbose("Glossary HTML written.\n", verbose=verbose)
 
     # ONLINE
@@ -4501,7 +4496,7 @@ if __name__=="__main__":
         tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
         tab.finalize()
         tab.write_ifo_links(baselist, ifo, tab.index)
-        tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+        tab.build(base=base, css=css, script=javascript)
         print_verbose("Online HTML written.\n", verbose=verbose)
             
     #
@@ -4521,7 +4516,7 @@ if __name__=="__main__":
     tabs.write_tabs(summaries)
     tabs.finalize()
     tabs.write_ifo_links(baselist, ifo, tabs.index)
-    tabs.build(base=base, css=css, header=cont, script={js:"javascript"})
+    tabs.build(base=base, css=css, script=javascript)
     print_verbose("Summary HTML written.\n", verbose=verbose)
     for tab in tabs.children:
         tab.mode    = mode
@@ -4529,14 +4524,14 @@ if __name__=="__main__":
         tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
         tab.finalize()
         tab.write_ifo_links(baselist, ifo, tab.index)
-        tab.build(base=base, css=css, header=cont, script={js:"javascript"})
+        tab.build(base=base, css=css, script=javascript)
         for subtab in tab.children:
             subtab.mode = mode
             subtab.write_tabs(summaries)
             subtab.write_menu(jobdir, startdate=startdate, weekday=weekday)
             subtab.finalize()
             subtab.write_ifo_links(baselist, ifo, subtab.index)
-            subtab.build(base=base, css=css, header=cont, script={js:"javascript"})
+            subtab.build(base=base, css=css, script=javascript)
     print_verbose("All tabs HTML written.\n", verbose=verbose)
     print_verbose("\n----------\nFinished\n----------\n", verbose=verbose,\
                   profile=False)
