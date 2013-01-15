@@ -521,7 +521,7 @@ def veto(self, seglist, time_slide_table=None):
     If time_slide_table is not None, any time shifts will be undone and each
     detector checked individually
     """
-    seglist = type(seglist)([map(float, seg) for seg in seglist])
+    seglist = type(seglist)([type(seg)(*map(float, seg)) for seg in seglist])
     keep = table.new_from_template(self)
     if time_slide_table:
         slides = time_slide_table.as_dict()
@@ -532,8 +532,8 @@ def veto(self, seglist, time_slide_table=None):
         for row in self:
             ifos = row.get_ifos()
             for i,ifo in enumerate(ifos):
-                ifo_time = (float(row.get_end()) -
-                            slides[str(row.time_slide_id)][ifo])
+                ifo_time = float(row.get_end() -
+                                 slides[str(row.time_slide_id)][ifo])
                 if ifo_time in seglist:
                     i = -1
                     break
