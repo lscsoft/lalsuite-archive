@@ -102,12 +102,20 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 
 	total_query = 'SELECT * FROM sim_inspiral WHERE injection_in_segments(geocent_end_time, geocent_end_time_ns)'
 
-	total_injections = []
+	total_injections = {}
+	# Missed injections start as a copy of the found injections
+	missed_injections = {}
 	for values in connection.cursor().execute(total_query):
 		sim = make_sim_inspiral(values)
-		total_injections.append(sim)
+		total_injections[sim.simulation_id] = sim
+		missed_injections[sim.simulation_id] = sim
 
-	return found_injections.values(), total_injections
+	# now actually remove the missed injections
+	for k in found_injections:
+		del missed_injections[k]
+		
+
+	return found_injections.values(), total_injections.values(), missed_injections.values()
 
 
 def found_injections_below_far(found, far_thresh = float("inf")):
@@ -333,6 +341,7 @@ class DataBaseSummary(object):
 		self.instruments = set()
 		self.table_name = None
 		self.found_injections_by_instrument_set = {}
+		self.missed_injections_by_instrument_set = {}
 		self.total_injections_by_instrument_set = {}
 		self.zerolag_fars_by_instrument_set = {}
 		self.ts_fars_by_instrument_set = {}
@@ -401,9 +410,10 @@ class DataBaseSummary(object):
 							# FIXME what would that mean if it is greater than one???
 							raise ValueError("len(coinc_end_time_seg_param) > 1")
 
-					found, total = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
+					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)
+					self.missed_injections_by_instrument_set.setdefault(instruments_set, []).extend(missed)
 
 			# All done
 			dbtables.discard_connection_filename(f, working_filename, verbose = verbose)
