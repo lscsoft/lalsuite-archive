@@ -126,26 +126,20 @@ def bin(Sims, bv):
   return out
 
 
-def get_missed(found, total):
-	found_dict = dict([(s.simulation_id, s) for s in found])
-	total_dict = dict([(s.simulation_id, s) for s in total])
-	for k in found_dict:
-		del(total_dict[k])
-	# total is now missed
-	return total_dict.values()
-
-
 fitfunc = lambda p, x: p[3]*(1.+(special.erf((p[0]-x*p[2])/(p[1]))))
 errfunc = lambda p, y, x: fitfunc(p,x) - y
   
 
 #Missed-Found plots
 for instruments in summ.instruments:
+	if opts.instruments != instruments:
+		print >> sys.stderr, "Instruments %s does not equal requested instruments %s, continuing" % (instruments, opts.instruments)
+		continue
 	found = imr_utils.found_injections_below_far(summ.found_injections_by_instrument_set[instruments], opts.far)
 	total = summ.total_injections_by_instrument_set[instruments]
+	missed = summ.missed_injections_by_instrument_set[instruments]
 	sims = total
-	missed = get_missed(found, total)
-	print len(found), len(total), len(missed)
+	
 	pylab.figure()
 	pylab.plot([s.mass1 for s in sims], [s.mass2 for s in sims],'.')
 	pylab.xlabel('Injected Mass One ($M_\odot$)')
