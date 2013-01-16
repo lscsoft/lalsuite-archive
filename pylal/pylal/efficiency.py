@@ -31,12 +31,14 @@ import sqlite3
 import math
 from operator import itemgetter
 import numpy
+from scipy import special
 
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 
+from pylal import antenna
 from pylal import ligolw_sqlutils as sqlutils
 from pylal import ligolw_compute_durations as compute_dur
 
@@ -253,43 +255,151 @@ def found_injections(
     return found_inj, inj_fars, inj_snrs
 
 
+def binomial_confidence(K, N, eff, confidence):
+    # Calculate pdf peak and credible interval for p(eff|k,n)
+    # posterior generated with binomial p(k|eff,n) and a uniform p(eff)
+
+    values = {
+        'peak': numpy.float_(K)/N,
+        'low': numpy.zeros(len(K)),
+        'high': numpy.zeros(len(K))
+        }
+    min_range = 1
+    for I in range(0,len(K)):
+        for a in eff:
+            B_a = special.betainc(K[I]+1, N[I]-K[I]+1, a)
+            if B_a > 1 - confidence:
+                break
+            b = special.betaincinv(K[I]+1, N[I]-K[I]+1, confidence + B_a)
+            if b - a < min_range:
+                min_range = b - a
+
+        values['low'][I] = a
+        values['high'][I] = b
+
+    return values
+
 def detection_efficiency(
     successful_inj,
     found_inj,
     found_fars,
     far_list,
-    r):
+    r,
+    confidence):
 
     # catching any edge cases were the injection end_time is nearly on a second boundary
     successful_inj = set(successful_inj) | set(found_inj)
-    # histogram injections that went into Cat-N time
+    # histogram of successful injections into coincidence time post vetoes
     successful_dist = [inj[2] for inj in successful_inj]
-    N_success, junk = numpy.histogram(successful_dist, bins = r)
+    N, _ = numpy.histogram(successful_dist, bins = r)
 
     significant_dist = [inj[2] for inj in found_inj]
 
-    mean_eff = {}
+    eff = {}
+    eff_min = numpy.linspace(0, 1, 1e3+1)
     for threshold in far_list:
         for idx, far in enumerate(found_fars):
             if far <= threshold:
                 new_start = idx
                 break
         # Histogram found injections with FAR < threshold
-        N_significant, junk = numpy.histogram(significant_dist[new_start:], bins = r)
-        mean_eff[threshold] = (N_significant+1.0)/(N_success+2.0)
+        K, _ = numpy.histogram(significant_dist[new_start:], bins = r)
 
-    return mean_eff
+        # binomial confidence returns an array where each element is (peak, eff_low, eff_high)
+        eff[threshold] = binomial_confidence(K, N, eff_min, confidence)
 
-def get_four_volume(eff, eff_stdev, r, T_fgd):
-    # calculate 3 volume in each shell
-    V = 4./3 * numpy.pi * (r[1:]**3. - r[:-1]**3.)
+    return eff
 
-    VT = {}
-    VT_var = {}
-    # for a given FAR threshold
-    for threshold, eff_array in eff.items():
-        # make the cumulative VxT
-        VT[threshold] = numpy.cumsum(numpy.nan_to_num(eff_array * V * T_fgd))
 
-    return VT
+def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
+    N_signals = int(1e6)
+    trigTime = 0.0
+
+    # if decisive distance is desired, get the antenna responses for each signal
+    if dist_type == 'decisive_distance':
+        # sky position (right ascension & declination)
+        ra = 360 * numpy.random.rand(N_signals)
+        dec = 180 * numpy.random.rand(N_signals) - 90
+        # additional angles
+        inclination = 180 * numpy.random.rand(N_signals)
+        polarization = 360 * numpy.random.rand(N_signals)
+   
+        f_q = {} 
+        for ifo in on_ifos:
+            f_q[ifo] = numpy.zeros(N_signals)
+            for index in range(N_signals):
+                _, _, _, f_q[ifo][index] = antenna.response(
+                   trigTime,
+                   ra[index], dec[index],
+                   inclination[index], polarization[index],
+                   'degree', ifo )
+    
+    prob_d_d = {}
+    for j in range(len(distbins)-1):
+        # for this physical distance range, create signals that are uniform in volume
+        volume = 4*numpy.pi/3 * numpy.random.uniform(
+            low = distbins[j]**3.0,
+            high = distbins[j+1]**3.0,
+            size = N_signals)
+        dist = numpy.power(volume*(3/(4*numpy.pi)), 1./3)
+
+        # create decisive distance (if desired)
+        if dist_type == 'decisive_distance':
+            dist_eff = {}
+            for ifo in on_ifos:
+                dist_eff[ifo] = dist / f_q[ifo]
+            dist_dec = numpy.sort(dist_eff.values(), 0)[1]
+
+        # weight distance measure by chirp mass (if desired)
+        if weight_dist:
+            # Component masses are Gaussian distributed around the Chandrasekar mass
+            mass1, mass2 = 0.13 * numpy.random.randn(2, N_signals) + 1.40
+            mchirp = numpy.power(mass1+mass2, -1./5) * numpy.power(mass1*mass2, 3./5)
+            if dist_type == 'decisive_distance':
+                dist_chirp = chirp_dist(dist_dec, mchirp)
+            if dist_type == 'distance':
+                dist_chirp = chirp_dist(dist, mchirp)
+            N_d, _ = numpy.histogram(dist_chirp, bins=old_distbins)
+        else:
+            N_d, _ = numpy.histogram(dist_dec, bins=old_distbins)
+    
+        prob_d_d[distbins[j+1]] = numpy.float_(N_d)/N_signals
+
+    return prob_d_d
+
+def eff_vs_dist(measured_eff, prob_d_d):
+    eff_dist = {}
+    for far, values in measured_eff.items():
+        eff_dist[far] = {
+            'peak': numpy.zeros(len(prob_d_d)),
+            'var_plus': numpy.zeros(len(prob_d_d)),
+            'var_minus': numpy.zeros(len(prob_d_d))
+            }
+        for idx, p in enumerate(prob_d_d.values()):
+            eff_dist[far]['peak'][idx] = numpy.sum(values['peak'] * p)
+            eff_dist[far]['var_plus'][idx] = numpy.sum( (values['high'] - values['peak'])**2 * p**2 )
+            eff_dist[far]['var_minus'][idx] = numpy.sum( (values['low'] - values['peak'])**2 * p**2 )
+
+
+def volume_efficiency(measured_eff, r, old_distbins, prob_d_d):
+
+    vol_shell = 4./3 * numpy.pi * (r[1:]**3 - r[:-1]**3)
+    
+    prob_d = [0]*len(old_distbins[1:])
+    for i in range( len(old_distbins[1:]) ):
+        B = numpy.zeros( len(prob_d_d) )
+        for j, p in enumerate(prob_d_d.values()):
+            B[j] = p[i]*vol_shell[j]
+        prob_d[i] = numpy.cumsum(B)/numpy.cumsum(vol_shell)
+    
+    vol_eff = {}
+    for far, values in measured_eff.items():
+        vol_eff[far] = {}
+        vol_eff[far]['peak'] = numpy.sum([ values['peak'][i] * prob_d[i] 
+            for i in range(len(prob_d))], 0 )
+        vol_eff[far]['var_plus'] = numpy.sum([ (values['high'][i]-values['peak'])**2 * prob_d[i]**2
+            for i in range(len(prob_d))], 0 )
+        vol_eff[far]['var_minus'] = numpy.sum([ (values['low'][i]-values['peak'])**2 * prob_d[i]**2
+            for i in range(len(prob_d))], 0 )
+
 

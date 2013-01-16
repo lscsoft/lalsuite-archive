@@ -111,19 +111,26 @@ def parse_command_line():
             "If the distance scale is 'linear', then step=d[j+1]-d[j]. If the " +
             "scale is 'log', then step=d[j+1]/d[j]. The default value is 4.0"
         )
-    parser.add_option("--distance-type", type="string", default="distance",
+    parser.add_option("--distance-type", type="string", default="decisive_distance",
         metavar = "string",
         help =
             "The desired distance parameter the efficiency histogram will be " +
-            "broken up in. The default option is 'distance'. The " +
-            "alternative is 'decisive_distance' ala the second largest effective " +
-            "distance from a found signal."
+            "broken up in. The default option is 'decisive_distance', which is " +
+            "the second largest effective distance from a found signal. The " +
+            "alternative is 'distance'."
         )
-    parser.add_option("--weight-dist", action = "store_true", default = False,
+    parser.add_option("--weight-dist", action = "store_true", default = True,
         help =
             "Weight the distance parameter by chirp mass of a canonical DNS " +
             "binary (1.4-1.4). The default value is False. The formula is " +
             "chirp_dist = dist*(mchirp_DNS/mchirp)**(5.0/6.0)."
+        )
+    parser.add_option("--confidence", type="float", default=0.682689492137,
+        metavar = "",
+        help =
+            "The maximum density credible interval used for errorbars in the " +
+            "measured efficiencies. The value should be between 0 and 1 and " +
+            "the default is 0.6827."
         )
     parser.add_option("--veto-category", type="int",
         metavar = "INT",
@@ -192,14 +199,25 @@ db_tags = opts.database_tags.split(',')
 on_ifos = ','.join(sorted(opts.on_instruments.split(','))).upper()
 veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 
-eff_dict = {}
-VT_dict = {}
+measured_eff = {}
+eff_vs_dist = {}
+volume_eff = {}
 
 # make the distance bins for the efficiency histogram
 distbin_edges = efficiency.inj_dist_range(
     opts.min_distance, opts.max_distance,
     dist_scale = opts.distance_scale,
     step = opts.distance_step
+)
+
+if opts.verbose:
+    print >> sys.stdout, "computing p(cd|d)"
+# determine the probability of a signal having chirp dist for a given distance 
+prob_cd_d = efficiency.rescale_dist(
+    on_ifos.split(','),
+    distbin_edges, distbin_edges,
+    opts.distance_type,
+    opts.weight_dist
 )
 
 for db_idx, db_path in enumerate(database_list):
@@ -266,21 +284,28 @@ for db_idx, db_path in enumerate(database_list):
 
     # ------------------------- For Each FAR Threshold ------------------------- #
 
-    # compute eff vs distance array
+    # determine the measured efficiency
     if opts.verbose:
-        print >> sys.stdout, "\tCompute the efficiency vs distance"
-    eff_dict[db_tag] = efficiency.detection_efficiency(
+        print >> sys.stdout, "\tDetermine the measured efficiency"
+    measured_eff[db_tag] = efficiency.detection_efficiency(
         all_inj,
         found_inj, found_fars,
         far_list,
-        distbin_edges)
+        distbin_edges,
+        opts.confidence)
 
-    # compute Volume*Time vs distance array
+    # compute the efficiency vs distance for a physical distribution of sources
+    eff_vs_dist[db_tag] = efficiency.eff_vs_dist(
+        measured_eff[db_tag],
+        prob_cd_d)
+
+    # compute the volume efficiency vs distance for a physical distribution of sources
     if opts.verbose:
-        print >> sys.stdout, "\tCompute the mean VxT vs distance"
-    VT_dict[db_tag] = efficiency.get_four_volume(
-        eff_dict[db_tag],
-        distbin_edges, T_fgd)
+        print >> sys.stdout, "\tCompute the volume efficiency vs distance"
+    volume_eff[db_tag] = efficiency.volume_efficiency(
+        measured_eff[db_tag],
+        distbin_edges, distbin_edges,
+        prob_cd_d)
 
     start_time, end_time = connection.execute(
         'SELECT DISTINCT gps_start_time, gps_end_time FROM experiment'
@@ -297,7 +322,7 @@ for db_idx, db_path in enumerate(database_list):
 # -------------------------------- Making Plots ------------------------------- #
 #										#
 if opts.verbose:
-    print >> sys.stdout, "Making Efficient and 4-Volume Plots"
+    print >> sys.stdout, "Making Plots"
 
 # shared plotting parameters
 plotting_params = {
