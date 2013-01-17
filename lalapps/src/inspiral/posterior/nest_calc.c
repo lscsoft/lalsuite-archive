@@ -2,7 +2,20 @@
 /* And support functions */
 /* (C) John Veitch 2009 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
+#include <lal/Units.h>
+#include <lal/LALStdlib.h>
+#include "LALInspiralMCMC.h"
+#include "LALInspiralMCMCUser.h"
+#include <lal/LALError.h>
+#include <lal/TimeDelay.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_linalg.h>
 #include "nest_calc.h"
+#include <float.h>
 
 #define TOLERANCE 0.1
 

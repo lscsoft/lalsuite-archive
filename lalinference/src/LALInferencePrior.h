@@ -27,7 +27,6 @@
 #include <lal/LALInference.h>
 #include <lal/LALInferenceNestedSampler.h>
 
-=======
 /**
  * \defgroup LALInferencePrior_h Header LALInferencePrior.h
  * \ingroup pkg_LALInference
@@ -197,7 +196,6 @@ REAL8 LALInferenceAnalyticCubeToPriorDensity(LALInferenceRunState *runState, LAL
 */
 REAL8 LALInferenceFlatBoundedPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
-=======
 /*@}*/
 
 #endif
