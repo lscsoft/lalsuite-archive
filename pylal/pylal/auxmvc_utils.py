@@ -269,7 +269,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   file.close()    
   
   
-def ReadMVSCTriggers(files):
+def ReadMVSCTriggers(files, Classified=True):
 
   """
   Reads in MVSC triggers from files. MVSC triggers are storead in the 2-D array.
@@ -280,6 +280,8 @@ def ReadMVSCTriggers(files):
   for (i,f) in enumerate(files):
     flines = open(f).readlines()
     variables = flines[0].split()
+    if Classified == False:
+      variables.append("i")
     formats = []
     for var in variables:
       if var in ['GPS_s', 'GPS_ms', 'i', 'index']:

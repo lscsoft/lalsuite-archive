@@ -514,7 +514,7 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
         out.extend(numpy.asarray(mi_table)[keep])
         return out
 
-def veto(self, seglist, time_slide_table=None, block=2048):
+def veto(self, seglist, time_slide_table=None):
     """Return a MultiInspiralTable with those row from self not lying
     inside (i.e. not vetoed by) any elements of seglist.
 
@@ -529,16 +529,10 @@ def veto(self, seglist, time_slide_table=None, block=2048):
             idx = str(id_).split(":")[-1]
             slides["multi_inspiral:time_slide_id:%s" % idx] = vector
             del slides[id_]
-        # remove duplicates
-        slide_list = slides.items()
-        for (id_, vector) in slides.iteritems():
-            for key,val in vector.iteritems():
-                vector[key] = val % block
-            slides[id_] = vector
         for row in self:
             ifos = row.get_ifos()
             for i,ifo in enumerate(ifos):
-                ifo_time = float(row.get_end() +
+                ifo_time = float(row.get_end() -
                                  slides[str(row.time_slide_id)][ifo])
                 if ifo_time in seglist:
                     i = -1

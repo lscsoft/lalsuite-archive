@@ -16,8 +16,8 @@ for(my $ii=0; $ii<10; $ii++) {
    my $h0 = sprintf("%.6e",10**(rand()-24.5));
    my $psi = sprintf("%.6f",0.5*pi*rand()-0.25*pi);
    my $phi0 = sprintf("%.6f",2.0*pi*rand());
-   my $alpha = 0.0;
-   my $delta = 0.0;
+   my $alpha = sprintf("%.6f",2.0*pi*rand());
+   my $delta = sprintf("%.6f",acos(2.0*rand()-1.0)-0.5*pi);
    my $f0 = 401.25 + 0.24*rand();
    my $df = rand()*0.1;
    while ($df-0.5/$Tsft<1.0e-6) {
@@ -40,7 +40,8 @@ outSingleSFT TRUE
 IFO H1
 ephemDir /home/egoetz/TwoSpect/S6
 ephemYear 08-11-DE405
-timestampsFile /home/egoetz/TwoSpect/ULfactor/timestamps.dat
+startTime 931081500
+duration 40551300
 generationMode 0
 fmin 401.0
 Band 2.9992
@@ -61,12 +62,12 @@ orbitPeriod $P
 orbitArgp 0.0
 f1dot 0.0
 refTime 900000000
-noiseSqrtSh 3.0e-23
+noiseSFTs /atlas/user/atlas3/egoetz/twospect/LHO/1800s_sfts/49-52Hz/converted
 randSeed $mfdrandseed
 EOF
    close(MFDCONFIG);
    
-   open(INJECTION, ">>/home/egoetz/TwoSpect/ULfactor/$jobnum/injections.dat") or die "Cannot write to /home/egoetz/TwoSpect/ULfactor/$jobnum/injections.dat $!";
+   open(INJECTION, ">>/home/egoetz/TwoSpect/confirmUL/$jobnum/injections.dat") or die "Cannot write to /home/egoetz/TwoSpect/confirmUL/$jobnum/injections.dat $!";
    print INJECTION "$alpha $delta $h0 $psi $phi0 $f0 $P $df\n";
    close(INJECTION);
    
@@ -93,7 +94,7 @@ maxTemplateLength 500
 sftDir /local/user/egoetz/$$
 ephemDir /home/egoetz/TwoSpect/S6
 ephemYear 08-11-DE405
-outdirectory /home/egoetz/TwoSpect/ULfactor/$jobnum
+outdirectory /home/egoetz/TwoSpect/confirmUL/$jobnum
 sftType standard
 IFO H1
 FFTplanFlag 1
@@ -109,7 +110,7 @@ EOF
    system("/home/egoetz/opt/lscsoft/bin/lalapps_Makefakedata_v4 @/local/user/egoetz/$$/mfdconfig");
    die "system lalapps_Makefakedata_v4 failed: $?" if $?;
    
-   system("/home/egoetz/TwoSpect/ULfactor/lalapps_TwoSpect --config=/local/user/egoetz/$$/twospectconfig");
+   system("/home/egoetz/opt/lscsoft/bin/lalapps_TwoSpect --config=/local/user/egoetz/$$/twospectconfig");
    die "system lalapps_TwoSpect failed: $?" if $?;
    
    system("rm /local/user/egoetz/$$/*.sft");
