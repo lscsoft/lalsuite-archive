@@ -93,6 +93,7 @@ def parse_command_line():
     parser.add_option("--reference-psd", help="Read PSD from xml instead of using analytical noise model.")
     parser.add_option("--instrument", metavar="IFO", help="Specify the instrument for which to generate a template bank.")
     parser.add_option("--flow",default = 40.0, type="float")
+    parser.add_option("--mratio-max",default = None, type="float")
     parser.add_option("--verbose",default = False, action="store_true")
     parser.add_option("--use-gpu-match", default=False, action="store_true",
         help="Perform match calculations using the first available GPU")
@@ -165,6 +166,14 @@ sims = table.get_table(xmldoc2, lsctables.SimInspiralTable.tableName)
 # FIXME inspinj is a terrible person
 for s in sims:
     s.polarization = np.random.uniform(0, 2*np.pi)
+
+# rid selves of unwanted injections
+if opts.mratio_max:
+    newsims = lsctables.SimInspiralTable()
+    for s in sims:
+        if 1./opts.mratio_max <= s.mass1/s.mass2 <= opts.mratio_max:
+	    newsims.append(s)
+    sims = newsims
 
 if opts.nonprecessing_spin: 
 	for s in sims: 
