@@ -258,7 +258,7 @@ for ifo in peu.basic_ifolist:
   if ifo in ifos:
     analysisFP = open('%s-analyse_%s.txt' %(ifo,grbtag),'w')
     analysisFP.write('# seg\t start    \t stop    \t duration\n')
-    analysisFP.write('0\t %d\t %d\t %d' %(offsource[0],offsource[1],offsource[1]-offsource[0]))
+    analysisFP.write('0\t %d\t %d\t %d\n' %(offsource[0],offsource[1],offsource[1]-offsource[0]))
 
 if opts.make_plots:
 
