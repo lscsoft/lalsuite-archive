@@ -2262,6 +2262,12 @@ class SimInspiral(object):
 	def get_chirp_dist(self,instrument,ref_mass = 1.40):
 		return self.get_eff_dist(instrument) * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
 
+	def get_spin_mag(self, objectnumber):
+		sx = getattr(self, "spin%dx" % objectnumber)
+		sy = getattr(self, "spin%dy" % objectnumber)
+		sz = getattr(self, "spin%dz" % objectnumber)
+		return (sx**2 + sy**2 + sz**2)**(0.5)
+
 
 SimInspiralTable.RowType = SimInspiral
 
