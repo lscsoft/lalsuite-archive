@@ -104,25 +104,27 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6)):
 
     return bestNR
 
-def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20):
+def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20,
+                       new_snr_thresh=6.0, new_snrs=[5.5,6,6.5,7,8,9,10,11]):
     """Generate the plot contours for chisq variable plots
     """
     # initialise chisq contour values and colours
-    cont_vals = [5.5,6,6.5,7,8,9,10,11]
-    num_vals  = len(cont_vals)
-    colors    = ['y-','k-','y-','y-','y-','y-','y-','y-']
+    num_vals  = len(new_snrs)
+    colors = ["k-" if snr == new_snr_thresh else
+              "y-" if snr == int(snr) else
+              "y--" for snr in new_snrs]
 
     # get SNR values for contours
-    snr_low_vals  = numpy.arange(6,30,0.1)
+    snr_low_vals  = numpy.arange(4,30,0.1)
     snr_high_vals = numpy.arange(30,500,1)
     snr_vals      = numpy.asarray(list(snr_low_vals) + list(snr_high_vals))
 
     # initialise contours
-    bank_conts = numpy.zeros([len(cont_vals),len(snr_vals)],
+    bank_conts = numpy.zeros([len(new_snrs),len(snr_vals)],
                              dtype=numpy.float64)
-    auto_conts = numpy.zeros([len(cont_vals),len(snr_vals)],
+    auto_conts = numpy.zeros([len(new_snrs),len(snr_vals)],
                              dtype=numpy.float64)
-    chi_conts = numpy.zeros([len(cont_vals),len(snr_vals)],
+    chi_conts = numpy.zeros([len(new_snrs),len(snr_vals)],
                             dtype=numpy.float64)
     null_cont  = []
 
@@ -134,7 +136,7 @@ def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20):
 
     # loop over each and calculate chisq variable needed for SNR contour
     for j,snr in enumerate(snr_vals):
-        for i,new_snr in enumerate(cont_vals):
+        for i,new_snr in enumerate(new_snrs):
             bank_conts[i][j] = new_snr_chisq(snr, new_snr, bank_chisq_dof, q, n)
             auto_conts[i][j] = new_snr_chisq(snr, new_snr, cont_chisq_dof, q, n)
             chi_conts[i][j]  = new_snr_chisq(snr, new_snr, chisq_dof, q, n)
@@ -155,7 +157,7 @@ def plot_contours( axis, snr_vals, contours, colors ):
             if contours[i][j] > 1E-15:
                 plot_vals_x.append(snr_vals[j])
                 plot_vals_y.append(contours[i][j])
-    axis.plot(plot_vals_x,plot_vals_y,colors[i])
+        axis.plot(plot_vals_x,plot_vals_y,colors[i])
 
 
 def readSegFiles(segdir):
@@ -532,7 +534,7 @@ def veto(self, seglist, time_slide_table=None):
         for row in self:
             ifos = row.get_ifos()
             for i,ifo in enumerate(ifos):
-                ifo_time = float(row.get_end() -
+                ifo_time = float(row.get_end() +
                                  slides[str(row.time_slide_id)][ifo])
                 if ifo_time in seglist:
                     i = -1
