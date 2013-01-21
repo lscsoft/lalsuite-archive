@@ -347,10 +347,10 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	  node=LALInferenceGetItem(&tempParams,item->name);
 	  if(node) {
 	    LALInferenceSetVariable(runState->currentParams,node->name,node->value);
-	    if(strstr(node->name,"LAL")==NULL)
+	    /*if(strstr(node->name,"LAL")==NULL)
 		fprintf(stdout,"Injection variable %s = %g\n",node->name,*(double *)(node->value));
 	    else
-		fprintf(stdout,"Injection variable %s = %d\n",node->name,*(int *)(node->value));
+		fprintf(stdout,"Injection variable %s = %d\n",node->name,*(int *)(node->value));*/
 	  }
 	}
 	double linj,pinj,lz;
