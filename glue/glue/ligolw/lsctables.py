@@ -919,6 +919,93 @@ class ExperimentMap(object):
 
 ExperimentMapTable.RowType = ExperimentMap
 
+#
+# =============================================================================
+#
+#                               gds_trigger:table
+#
+# =============================================================================
+#
+
+
+GDSTriggerID = ilwd.get_ilwdchar_class(u"gds_trigger", u"event_id")
+
+class GDSTriggerTable(table.Table):
+	tableName = "gds_trigger:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd:char_u",
+		"filter_id": "ilwd:char",
+		"name": "lstring",
+		"subtype": "lstring",
+		"ifo": "lstring",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"duration": "real_4",
+		"priority": "int_4s",
+		"disposition": "int_4s",
+		"size": "real_4",
+		"significance": "real_4",
+		"frequency": "real_4",
+		"bandwidth": "real_4",
+		"time_peak": "real_4",
+		"time_average": "real_4",
+		"time_sigma": "real_4",
+		"freq_peak": "real_4",
+		"freq_average": "real_4",
+		"freq_sigma": "real_4",
+		"noise_power": "real_4",
+		"signal_power": "real_4",
+		"pixel_count": "int_4s",
+		"confidence": "real_4",
+		"binarydata": "ilwd:char_u",
+		"binarydata_length": "int_4s",
+		"event_id": "ilwd:char"
+	}
+	constraints = "PRIMARY KEY (event_id)"
+	next_id = GDSTriggerID(0)
+	interncolumns = ("process_id", "ifo", "subtype")
+
+
+class GDSTrigger(object):
+	__slots__ = GDSTriggerTable.validcolumns.keys()
+
+	#
+	# Tile properties
+	#
+
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_stop(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns) + self.duration
+
+	def get_peak(self):
+		return LIGOTimeGPS(self.time_peak, self.time_peak)
+
+	def set_peak(self, gps):
+		self.time_peak, self.peak_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_period(self):
+		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return segments.segment(start, start + self.duration)
+
+	def set_period(self, period):
+		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
+		self.duration = float(abs(period))
+
+	def get_band(self):
+		low = self.frequency
+		return segments.segment(low, low + self.bandwidth)
+
+	def set_band(self, band):
+		self.frequency = band[0]
+		self.bandwidth = abs(band)
+
+GDSTriggerTable.RowType = GDSTrigger
 
 #
 # =============================================================================
@@ -3409,6 +3496,7 @@ TableByName = {
 	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
 	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
 	table.StripTableName(ExperimentMapTable.tableName): ExperimentMapTable,
+	table.StripTableName(GDSTriggerTable.tableName): GDSTriggerTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
