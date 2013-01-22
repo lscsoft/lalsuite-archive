@@ -537,7 +537,7 @@ class PosteriorOneDPDF(object):
         for interval in intervals:
             if interval<1.0:
                 samples_temp
-                N=np.size(np.squeeze(self.samples))
+                N=np.size(samples_temp)
                 #Find index of lower bound
                 lower_idx=int(floor((N/2.0)*(1-interval)))
                 if lower_idx<0:
@@ -4577,3 +4577,80 @@ class VOT2HTML:
   
     def close(self):
         return self.html.toprettyxml()
+
+def _cl_width(cl_bound):
+    """Returns (high - low), the width of the given confidence
+    bounds."""
+
+    return cl_bound[1] - cl_bound[0]
+
+def _cl_count(cl_bound, samples):
+    """Returns the number of samples within the given confidence
+    bounds."""
+    
+    return np.count_nonzero((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
+
+def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
+    """Returns a tuple (fractional_uncertainty,
+    percentile_uncertainty) giving the uncertainty in confidence
+    intervals from multiple posteriors.  
+
+    The uncertainty in the confidence intervals is the difference in
+    length between the widest interval, formed from the smallest to
+    largest values among all the cl_bounds, and the narrowest
+    interval, formed from the largest-small and smallest-large values
+    among all the cl_bounds.  Note that neither the smallest nor the
+    largest confidence intervals necessarily correspond to one of the
+    cl_bounds.
+
+    The fractional uncertainty relates this length to the length of
+    the confidence level from the combined posteriors; the percentile
+    uncertainty gives the change in percentile over the combined
+    posterior between the smallest and largest confidence intervals.
+
+    @param cl The confidence level (between 0 and 1).
+
+    @param cl_bounds A list of (low, high) pairs giving the confidence
+    interval associated with each posterior.
+
+    @param posteriors A list of PosteriorOneDPDF objects giving the
+    posteriors."""
+
+    Ns=[p.samples.shape[0] for p in posteriors]
+    Nsamplers=len(Ns)
+
+    # Weight each sample within a run equally, and each run equally
+    # with respect to the others
+    all_samples = np.squeeze(np.concatenate([p.samples for p in posteriors], axis=0))
+    weights = np.squeeze(np.concatenate([p.samples*0.0+1.0/(Nsamplers*N) for (N,p) in zip(Ns,posteriors)], axis=0))
+
+    isort=np.argsort(all_samples)
+
+    all_samples = all_samples[isort]
+    weights = weights[isort]
+
+    N=all_samples.shape[0]
+
+    alpha = (1.0 - cl)/2.0
+    
+    wttotal = np.cumsum(weights)
+    ilow = np.nonzero(wttotal >= alpha)[0][0]
+    ihigh = np.nonzero(wttotal >= 1.0-alpha)[0][0]
+
+    all_cl_bound = (all_samples[ilow], all_samples[ihigh])
+    
+    low_bounds = np.array([l for (l,h) in cl_bounds])
+    high_bounds = np.array([h for (l,h) in cl_bounds])
+
+    largest_cl_bound = (np.min(low_bounds), np.max(high_bounds))
+    smallest_cl_bound = (np.max(low_bounds), np.min(high_bounds))
+
+    if smallest_cl_bound[1] < smallest_cl_bound[0]:
+        # Then the smallest CL is NULL
+        smallest_cl_bound = (0.0, 0.0)
+
+    frac_uncertainty = (_cl_width(largest_cl_bound) - _cl_width(smallest_cl_bound))/_cl_width(all_cl_bound)
+
+    quant_uncertainty = float(_cl_count(largest_cl_bound, all_samples) - _cl_count(smallest_cl_bound, all_samples))/float(N)
+
+    return (frac_uncertainty, quant_uncertainty)

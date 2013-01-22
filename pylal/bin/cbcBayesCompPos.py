@@ -46,7 +46,7 @@ import pylal.bayespputils as bppu
 from pylal import SimInspiralUtils
 from pylal import git_version
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
@@ -668,6 +668,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             plt.clf()
         oned_data={}
         confidence_levels={}
+        confidence_uncertainty={}
         for param in common_params:
             print "Plotting comparison for '%s'"%param
 
@@ -681,12 +682,19 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
 
-                # Save confidence levels
+                # Save confidence levels and uncertainty
                 confidence_levels[param]=[]
                 for name,pos in pos_list.items():
                     median=pos[param].median
                     low,high=cl_intervals[name]
                     confidence_levels[param].append((name,low,median,high))
+                    
+                cl_bounds=[]
+                poses=[]
+                for name,pos in pos_list.items():
+                    cl_bounds.append(cl_intervals[name])
+                    poses.append(pos[param])
+                confidence_uncertainty[param]=bppu.confidence_interval_uncertainty(confidence_level, cl_bounds, poses)
 
                 save_path=''
                 if hist_fig is not None:
@@ -720,6 +728,9 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             cl_table_str+=cl_table_min_max_str+'</tr>'
             cl_table_str+='</table>'
 
+            cl_uncer_str='<table> <th>Confidence Fractional Uncertainty</th> <th>Confidence Percentile Uncertainty</th>\n'
+            cl_uncer_str+='<tr> <td> %g </td> <td> %g </td> </tr> </table>'%(confidence_uncertainty[param][0], confidence_uncertainty[param][1])
+
             ks_matrix=compute_ks_pvalue_matrix(pos_list, param)
 
             N=ks_matrix.shape[0]+1
@@ -749,12 +760,12 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             ks_table_str+='</table>'
 
-            oned_data[param]=(save_paths,cl_table_str, ks_table_str)
+            oned_data[param]=(save_paths,cl_table_str,ks_table_str,cl_uncer_str)
             
     # Watch out---using private variable _logL
     max_logls = [[name,max(pos._logL)] for name,pos in pos_list.items()]
 
-    return greedy2savepaths,oned_data,confidence_levels,max_logls
+    return greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls
 
 def output_confidence_levels_tex(clevels,outpath):
     """Outputs a LaTeX table of parameter and run medians and confidence levels."""
@@ -791,6 +802,28 @@ def output_confidence_levels_tex(clevels,outpath):
             outfile.write('\\\\ \n')
 
         outfile.write('\\hline \n \\end{tabular}')
+    finally:
+        outfile.close()
+
+def output_confidence_uncertainty(cluncertainty, outpath):
+    outfile=open(os.path.join(outpath, 'confidence_uncertainty.dat'), 'w')
+    try:
+        params=cluncertainty.keys()
+        uncer=cluncertainty.values()
+
+        outfile.write('# Uncertainty in confidence levels.\n')
+        outfile.write('# First row is fractional uncertainty.\n')
+        outfile.write('# Second row is percentile uncertainty.\n')
+        outfile.write('# ')
+        for param in params:
+            outfile.write(str(param) + ' ')
+        outfile.write('\n')
+
+        fracs = np.array([d[0] for d in uncer])
+        quants = np.array([d[1] for d in uncer])
+
+        np.savetxt(outfile, np.reshape(fracs, (1, -1)))
+        np.savetxt(outfile, np.reshape(quants, (1,-1)))
     finally:
         outfile.close()
             
@@ -835,11 +868,14 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
     
+    ####Save confidence uncertainty#####
+    output_confidence_uncertainty(confidence_uncertainty,outpath)
+
     ####Print HTML!#######
 
     compare_page=bppu.htmlPage('Compare PDFs (single event)',css=bppu.__default_css_string)
@@ -861,13 +897,14 @@ if __name__ == '__main__':
 
         for param_name,data in oned_data.items():
             param_section.h3(param_name)
-            save_paths,cl_table_str,ks_table_str=data
+            save_paths,cl_table_str,ks_table_str,cl_uncer_str=data
             clf_toggle=False
             for save_path in save_paths:
                 head,plotfile=os.path.split(save_path)
                 param_section.write('<img src="%s"/>'%str(plotfile))
 
             param_section.write(cl_table_str)
+            param_section.write(cl_uncer_str)
             param_section.write(ks_table_str)
 
     if greedy2savepaths:
