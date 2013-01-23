@@ -728,8 +728,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             cl_table_str+=cl_table_min_max_str+'</tr>'
             cl_table_str+='</table>'
 
-            cl_uncer_str='<table> <th>Confidence Fractional Uncertainty</th> <th>Confidence Percentile Uncertainty</th>\n'
-            cl_uncer_str+='<tr> <td> %g </td> <td> %g </td> </tr> </table>'%(confidence_uncertainty[param][0], confidence_uncertainty[param][1])
+            cl_uncer_str='<table> <th>Confidence Relative Uncertainty</th> <th>Confidence Fractional Uncertainty</th> <th>Confidence Percentile Uncertainty</th>\n'
+            cl_uncer_str+='<tr> <td> %g </td> <td> %g </td> <td> %g </td> </tr> </table>'%(confidence_uncertainty[param][0], confidence_uncertainty[param][1], confidence_uncertainty[param][2])
 
             ks_matrix=compute_ks_pvalue_matrix(pos_list, param)
 
@@ -812,16 +812,19 @@ def output_confidence_uncertainty(cluncertainty, outpath):
         uncer=cluncertainty.values()
 
         outfile.write('# Uncertainty in confidence levels.\n')
-        outfile.write('# First row is fractional uncertainty.\n')
-        outfile.write('# Second row is percentile uncertainty.\n')
+        outfile.write('# First row is relative uncertainty (wrt to parameter mean).\n')
+        outfile.write('# Second row is fractional uncertainty (wrt to combined conf interval).\n')
+        outfile.write('# Third row is percentile uncertainty (wrt combined samples).\n')
         outfile.write('# ')
         for param in params:
             outfile.write(str(param) + ' ')
         outfile.write('\n')
 
-        fracs = np.array([d[0] for d in uncer])
-        quants = np.array([d[1] for d in uncer])
+        rel = np.array([d[0] for d in uncer])
+        fracs = np.array([d[1] for d in uncer])
+        quants = np.array([d[2] for d in uncer])
 
+        np.savetxt(outfile, np.reshape(rel, (1, -1)))
         np.savetxt(outfile, np.reshape(fracs, (1, -1)))
         np.savetxt(outfile, np.reshape(quants, (1,-1)))
     finally:

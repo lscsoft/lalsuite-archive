@@ -4591,7 +4591,7 @@ def _cl_count(cl_bound, samples):
     return np.count_nonzero((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
 
 def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
-    """Returns a tuple (fractional_uncertainty,
+    """Returns a tuple (relative_change, fractional_uncertainty,
     percentile_uncertainty) giving the uncertainty in confidence
     intervals from multiple posteriors.  
 
@@ -4603,10 +4603,12 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     largest confidence intervals necessarily correspond to one of the
     cl_bounds.
 
-    The fractional uncertainty relates this length to the length of
-    the confidence level from the combined posteriors; the percentile
-    uncertainty gives the change in percentile over the combined
-    posterior between the smallest and largest confidence intervals.
+    The relative change relates the confidence interval uncertainty to
+    the expected value of the parameter, the fractional uncertainty
+    relates this length to the length of the confidence level from the
+    combined posteriors, and the percentile uncertainty gives the
+    change in percentile over the combined posterior between the
+    smallest and largest confidence intervals.
 
     @param cl The confidence level (between 0 and 1).
 
@@ -4629,6 +4631,8 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     all_samples = all_samples[isort]
     weights = weights[isort]
 
+    param_mean = np.average(all_samples, weights=weights)
+
     N=all_samples.shape[0]
 
     alpha = (1.0 - cl)/2.0
@@ -4649,8 +4653,12 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
         # Then the smallest CL is NULL
         smallest_cl_bound = (0.0, 0.0)
 
-    frac_uncertainty = (_cl_width(largest_cl_bound) - _cl_width(smallest_cl_bound))/_cl_width(all_cl_bound)
+    ci_uncertainty = _cl_width(largest_cl_bound) - _cl_width(smallest_cl_bound)
+
+    relative_change = ci_uncertainty/param_mean
+
+    frac_uncertainty = ci_uncertainty/_cl_width(all_cl_bound)
 
     quant_uncertainty = float(_cl_count(largest_cl_bound, all_samples) - _cl_count(smallest_cl_bound, all_samples))/float(N)
 
-    return (frac_uncertainty, quant_uncertainty)
+    return (relative_change, frac_uncertainty, quant_uncertainty)
