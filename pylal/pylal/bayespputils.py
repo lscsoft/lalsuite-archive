@@ -4110,6 +4110,7 @@ class PEOutputParser(object):
         nfiles = len(files)
         ntots=[]
         nEffectives = []
+        if nDownsample is None: print "Max ACL(s):"
         for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
@@ -4139,7 +4140,16 @@ class PEOutputParser(object):
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
-                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                        stride=samps[1,iterindex] - samps[0,iterindex]
+                        results = np.array([np.array(effectiveSampleSize(samps[:,i])[:2]) for i in paramIdxs])
+                        nEffs = results[:,0]
+                        nEffectives.append(min(nEffs))
+                        ACLs  = results[:,1]
+                        maxACLind = np.argmax(ACLs)
+                        maxACL = ACLs[maxACLind]
+                        # Get index in header, which includes "non-params"
+                        maxACLind = paramIdxs[maxACLind]
+                        print "%i (%s) for chain %s." %(stride*maxACL,header[maxACLind],inpname)
                     except:
                         nEffectives.append(None)
                         print "Error computing effective sample size of %s!"%inpname
