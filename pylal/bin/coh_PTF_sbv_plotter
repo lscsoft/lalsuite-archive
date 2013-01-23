@@ -427,6 +427,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
        
   bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
       calculate_contours(q=chisq_index, n=chisq_nhigh,\
+                         new_snr_thresh=newSnrThresh,\
                          null_thresh=null_thresh[-1],\
                          null_grad_snr=nullGradThresh,\
                          null_grad_val=nullGradVal,\
