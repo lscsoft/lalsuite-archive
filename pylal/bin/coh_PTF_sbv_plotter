@@ -1069,7 +1069,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_norm3_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except (OverflowError,ValeError):
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: Amplitude factor versus coherent SNR "+\
                      "failed with zeros in a loglog plot\n")
   
