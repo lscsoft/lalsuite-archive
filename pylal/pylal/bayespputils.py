@@ -4588,7 +4588,7 @@ def _cl_count(cl_bound, samples):
     """Returns the number of samples within the given confidence
     bounds."""
     
-    return np.count_nonzero((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
+    return np.sum((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
 
 def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     """Returns a tuple (relative_change, fractional_uncertainty,
