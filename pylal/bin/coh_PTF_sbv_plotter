@@ -88,10 +88,33 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                     help="directory holding buffer, on and off source "+\
                          "segment files.")
 
+  parser.add_option("-B", "--sngl-snr-threshold", action="store", type="float",\
+                    default=4.0, help="Single detector SNR threshold, the"+\
+                    "two most sensitive detectors should have SNR above this"+\
+                    " default: %default")
+
+  parser.add_option("-d", "--snr-threshold", action="store", type="float",\
+                    default=6.0, help="SNR threshold for recording triggers,"+\
+                                      " default: %default")
+
+  parser.add_option("-c", "--newsnr-threshold", action="store", type="float",\
+                    default=None, help="NewSNR threshold for calculating the "+\
+                    "chisq of triggers (based on value of auto and bank chisq"+\
+                    " values. By default will take the same value as "+\
+                    "snr-threshold")
+
   parser.add_option("-A", "--null-snr-threshold", action="store",\
                     type="string", default="4.25,6",\
                     help="comma separated lower,higher null SNR thresholds, "+\
                          " for null SNR cut, default: \"%default\"")
+
+  parser.add_option("-C", "--null-grad-thresh", action="store", type="float",\
+                    default=20., help="Threshold above which to increase the,"+\
+                    "values of the null SNR cut. default: %default")
+
+  parser.add_option("-D", "--null-grad-val", action="store", type="float",\
+                    default=0.2, help="Rate the null SNR cut will increase"+\
+                    "above the threshold. default: %default")
 
   parser.add_option("-l", "--veto-directory",action="store",type="string",\
                     default=None,\
@@ -118,6 +141,9 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
   if opts.veto_directory and not opts.veto_category:
     parser.error("Must supply veto category if applying vetoes")
 
+  if not opts.newsnr_threshold:
+    opts.newsnr_threshold = opts.snr_threshold
+
   return opts, args
 
 # =============================================================================
@@ -126,7 +152,8 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 
 def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
          chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=8.0,\
-         vetoFiles=[], verbose=False):
+         vetoFiles=[],snrThresh=6.0,snglSnrThresh=4.0,newSnrThresh=6.0,\
+         nullGradThresh=20.,nullGradVal=0.2, verbose=False):
  
   if verbose:
     sys.stdout.write("Imported and ready to go at %d.\n" % elapsed_time())
@@ -217,8 +244,13 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # set basic data
   trigTime      = numpy.asarray(trigs.get_end())
   trigSNR       = numpy.asarray(trigs.get_column('snr'))
-  trigBestNR    = numpy.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
-                               null_thresh=null_thresh) for t in trigs])
+  trigBestNR    = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in trigs]
+  trigBestNR    = numpy.array(trigBestNR)
   trigNullSNR   = numpy.asarray(trigs.get_null_snr())
   trigNullstat  = numpy.asarray(trigs.get_column('null_statistic'))
   trigTraceSNR  = numpy.asarray(trigs.get_column('null_stat_degen'))
@@ -326,8 +358,13 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     # get basics
     injTime      = numpy.asarray(injs.get_end())
     injSNR       = numpy.asarray(injs.get_column('snr'))
-    injBestNR    = numpy.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
-                                 null_thresh=null_thresh) for t in injs])
+    injBestNR    = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in injs]
+    injBestNR    = numpy.array(injBestNR)
     injNullSNR   = numpy.asarray(injs.get_null_snr())
     injNullstat  = numpy.asarray(injs.get_column('null_statistic'))
     injTraceSNR  = numpy.asarray(injs.get_column('null_stat_degen'))
@@ -390,8 +427,12 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
        
   bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
       calculate_contours(q=chisq_index, n=chisq_nhigh,\
-                          null_thresh=null_thresh[-1],\
-                          null_grad_snr=20)
+                         null_thresh=null_thresh[-1],\
+                         null_grad_snr=nullGradThresh,\
+                         null_grad_val=nullGradVal,\
+                         chisq_dof=trigs[0].chisq_dof,\
+                         bank_chisq_dof=trigs[0].bank_chisq_dof,\
+                         cont_chisq_dof=trigs[0].cont_chisq_dof)
 
   # reset times
   segs = readSegFiles(segdir)
@@ -616,6 +657,10 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.grid()
   if injFile:
     ax.loglog(injSNR, injBankVeto, 'r+')
+  print ax
+  print snr_vals
+  print bank_conts
+  print colors
   plot_contours(ax, snr_vals,bank_conts, colors)
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
@@ -984,7 +1029,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
                      "failed.\n")
   
@@ -1004,7 +1049,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_rel_amp2_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
                      "failed with zeros in a loglog plot\n")
 
@@ -1024,7 +1069,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_norm3_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValeError):
     sys.stderr.write("WARNING: Amplitude factor versus coherent SNR "+\
                      "failed with zeros in a loglog plot\n")
   
@@ -1045,7 +1090,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_inclination_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: cos(inclination) versus coherent SNR "+\
                      "failed with zeros in a loglog plot\n")
 
@@ -1080,6 +1125,11 @@ if __name__=='__main__':
   max_mchirp = opts.max_chirp_mass
   segdir    = opts.segment_dir
   nullt     = map(float, opts.null_snr_threshold.split(','))
+  snrThresh = opts.snr_threshold
+  snglSnrThresh = opts.sngl_snr_threshold
+  newSnrThresh = opts.newsnr_threshold
+  nullGradThresh = opts.null_grad_thresh
+  nullGradVal    = opts.null_grad_val
   vetoFiles = []
   if opts.veto_directory:
     vetoString = ','.join([str(i) for i in range(2,opts.veto_category+1)])
@@ -1088,5 +1138,7 @@ if __name__=='__main__':
 
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
        chisq_nhigh=n, null_thresh = nullt, max_mchirp=max_mchirp,\
-       vetoFiles=vetoFiles, verbose=verbose)
+       vetoFiles=vetoFiles,snrThresh=snrThresh,snglSnrThresh=snglSnrThresh,\
+       newSnrThresh=newSnrThresh,nullGradThresh=nullGradThresh,\
+       nullGradVal=nullGradVal, verbose=verbose)
   if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))
