@@ -360,18 +360,26 @@ plot_basename = '_'.join([
 ])
 
 # determine xlim_max for FAR_vs_VT plot
-maxFAR = max([numpy.max(eff.keys()) for eff in eff_dict.values()])
+maxFAR = max([numpy.max(eff.keys()) for eff in measured_eff.values()])
 
-# --------------------- Efficiency vs Distance for FAR=0 -------------------- #
+# --------------------- Measured Efficiency vs Distance for FAR=0 -------------------- #
 if opts.verbose:
-    print >> sys.stdout, "\tDetection Efficiency vs %s" % opts.distance_type
+    print >> sys.stdout, "\tMeasured Efficiency vs %s" % opts.distance_type
 
 Eff_Dist_fig = pyplot.figure()
 Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    Eff_Dist_plot.plot(
-        distbin_edges[1:], eff_dict[db_tag][0.0],
+    Eff_Dist_plot.errorbar(
+        distbin_edges[1:], measured_eff[db_tag][0.0]['peak'],
+        xerr=(
+            [opts.distance_step]*len(distbin_edges[1:]),
+            [0]*len(distbin_edges[1:])
+            ),
+        yerr=(
+            measured_eff[db_tag][0.0]['peak']-measured_eff[db_tag][0.0]['low'],
+            measured_eff[db_tag][0.0]['high']-measured_eff[db_tag][0.0]['peak']
+            ),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
@@ -384,78 +392,126 @@ Eff_Dist_plot.set_ylim(0, 1)
 Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
 Eff_Dist_plot.set_ylabel( r'Fraction of Recovered Injections in Bin' )
 Eff_Dist_plot.set_title(
-    r'Detection Efficiency vs %s at FAR=0' % opts.distance_type.replace('_',' ').title()
+    r'Measured Efficiency vs %s at FAR=0' % opts.distance_type.replace('_',' ').title()
     )
 Eff_Dist_plot.legend(loc='lower left')
 
-plot_name = opts.output_path + plot_basename  % 'EFF-FAR0'
+plot_name = opts.output_path + plot_basename  % 'MEFF-FAR0'
 pyplot.savefig(plot_name + '.' + opts.format)
 pyplot.close(Eff_Dist_fig)
 
-# ------------------------- VxT vs Distance for FAR=0 ------------------------ #
+# --------------------- Calculated Efficiency vs Distance for FAR=0 -------------------- #
 if opts.verbose:
-    print >> sys.stdout, "\tCumulative 4-Volume (VxT) vs %s" % opts.distance_type
+    print >> sys.stdout, "\tCalculated Efficiency vs Distance"
 
-VT_Dist_fig = pyplot.figure()
-VT_Dist_plot = VT_Dist_fig.add_subplot(111)
+Eff_Dist_fig = pyplot.figure()
+Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
-    VT_Dist_plot.plot(
-        distbin_edges[1:], VT_dict[db_tag][0.0],
+    Eff_Dist_plot.errorbar(
+        distbin_edges[1:], eff_vs_dist[db_tag]['peak'][0.0],
+        xerr=(
+            [opts.distance_step]*len(distbin_edges[1:]),
+            [0]*len(distbin_edges[1:])
+            ),
+        yerr=(
+            numpy.sqrt(eff_vs_dist[db_tag]['var_minus'][0.0]),
+            numpy.sqrt(eff_vs_dist[db_tag]['var_plus'][0.0])
+            ),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-VT_Dist_plot.grid(which='major', linewidth=0.75)
-VT_Dist_plot.grid(which='minor', linewidth=0.25)
-VT_Dist_plot.set_xscale(opts.distance_scale)
-VT_Dist_plot.set_yscale(opts.distance_scale)
-VT_Dist_plot.set_xlim(min(distbin_edges), max(distbin_edges))
+Eff_Dist_plot.grid(which='major', linewidth=0.75)
+Eff_Dist_plot.grid(which='minor', linewidth=0.25)
+Eff_Dist_plot.set_xscale(opts.distance_scale)
+Eff_Dist_plot.set_xlim(min(distbin_edges), max(distbin_edges))
+Eff_Dist_plot.set_ylim(0, 1)
 
-VT_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
-VT_Dist_plot.set_ylabel( r'Cumulative Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_Dist_plot.set_title(
-    r'VxT vs %s at FAR=0' % opts.distance_type.replace('_',' ').title()
-    )
-VT_Dist_plot.legend(loc='lower right')
+Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
+Eff_Dist_plot.set_ylabel( r'Fractional Effciency' )
+Eff_Dist_plot.set_title( r'Calculated Detection Efficiency vs Distance at FAR=0' )
+Eff_Dist_plot.legend(loc='upper right')
 
-plot_name = opts.output_path + plot_basename % 'VT-FAR0'
+plot_name = opts.output_path + plot_basename  % 'CEFF-FAR0'
 pyplot.savefig(plot_name + '.' + opts.format)
-pyplot.close(VT_Dist_fig)
+pyplot.close(Eff_Dist_fig)
+
+
+# ------------------------- VxT vs Distance for FAR=0 ------------------------ #
+if opts.verbose:
+    print >> sys.stdout, "\tVolume Efficiency vs Distance"
+
+vol_eff_fig = pyplot.figure()
+vol_eff_plot = vol_eff_fig.add_subplot(111)
+
+for idx, db_tag in enumerate(db_tags):
+    vol_eff_plot.errorbar(
+        distbin_edges[1:], volume_eff[db_tag]['peak'][0.0],
+        xerr=(
+            [opts.distance_step]*len(distbin_edges[1:]),
+            [0]*len(distbin_edges[1:])
+            ),
+        yerr=(
+            numpy.sqrt(volume_eff[db_tag]['var_minus'][0.0]),
+            numpy.sqrt(volume_eff[db_tag]['var_plus'][0.0])
+            ),
+        label=db_tag, linestyle='None',
+        marker='.', markersize=10)
+
+vol_eff_plot.grid(which='major', linewidth=0.75)
+vol_eff_plot.grid(which='minor', linewidth=0.25)
+vol_eff_plot.set_xscale(opts.distance_scale)
+vol_eff_plot.set_yscale(opts.distance_scale)
+vol_eff_plot.set_xlim(min(distbin_edges), max(distbin_edges))
+
+vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
+vol_eff_plot.set_ylabel( r'Fractional Efficiency' )
+vol_eff_plot.set_title( r'Cumulative Volume Efficiency vs Distance at FAR=0' )
+vol_eff_plot.legend(loc='upper right')
+
+plot_name = opts.output_path + plot_basename % 'VEFF-FAR0'
+pyplot.savefig(plot_name + '.' + opts.format)
+pyplot.close(vol_eff_fig)
 
 # -------------------------------- VxT vs FAR ------------------------------- #
 if opts.verbose:
     print >> sys.stdout, "\tTotal 4-Volume (VxT) vs FAR threshold"
 
-VT_FAR_fig = pyplot.figure()
-VT_FAR_plot = VT_FAR_fig.add_subplot(111)
+veff_far_fig = pyplot.figure()
+veff_far_plot = veff_far_fig.add_subplot(111)
 
 for idx, db_tag in enumerate(db_tags):
     # the way to plot FAR=0 point on a log plot
-    zeroFAR_VT = VT_dict[db_tag].pop(0.0)
-    new_minFAR = 10**numpy.floor(numpy.log10(numpy.min(VT_dict[db_tag].keys())))
-    VT_dict[db_tag][new_minFAR] = zeroFAR_VT
+    #zeroFAR_VT = VT_dict[db_tag].pop(0.0)
+    #new_minFAR = 10**numpy.floor(numpy.log10(numpy.min(VT_dict[db_tag].keys())))
+    #VT_dict[db_tag][new_minFAR] = zeroFAR_VT
 
-    VT_FAR_plot.errorbar(
-        VT_dict[db_tag].keys(), numpy.max(VT_dict[db_tag].values(), axis=1),
+    veff_far_plot.errorbar(
+        volume_eff[db_tag]['peak'].keys(), numpy.max(VT_dict[db_tag].values(), axis=1),
+        xerr=([opts.distance_step]*len(distbin_edges[1:]), [0]*len(distbin_edges[1:])),
+        yerr=(
+            numpy.sqrt(volume_eff[db_tag]['var_minus']),
+            numpy.sqrt(volume_eff[db_tag]['var_plus'])
+            ),
         label=db_tag, linestyle='None',
         marker='.', markersize=10)
 
-VT_FAR_plot.grid(which='major', linewidth=0.75)
-VT_FAR_plot.grid(which='minor', linewidth=0.25)
-VT_FAR_plot.set_xscale('log')
-VT_FAR_plot.set_yscale(opts.distance_scale)
-VT_FAR_plot.set_xlim(new_minFAR, 2.0*maxFAR)
+veff_far_plot.grid(which='major', linewidth=0.75)
+veff_far_plot.grid(which='minor', linewidth=0.25)
+veff_far_plot.set_xscale('log')
+veff_far_plot.set_yscale(opts.distance_scale)
+veff_far_plot.set_xlim(new_minFAR, 2.0*maxFAR)
 
-VT_FAR_plot.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
-VT_FAR_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
-VT_FAR_plot.set_title(
+veff_far_plot.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
+veff_far_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
+veff_far_plot.set_title(
     r'Asymptotic VxT vs FAR using %s' % opts.distance_type.replace('_',' ').title()
     )
-VT_FAR_plot.legend(loc='lower right')
+veff_far_plot.legend(loc='lower right')
 
 plot_name = opts.output_path + plot_basename % 'VT-FAR'
 pyplot.savefig(plot_name + '.' + opts.format)
-pyplot.close(VT_FAR_fig)
+pyplot.close(veff_far_fig)
 
 
 

@@ -260,22 +260,34 @@ def binomial_confidence(K, N, eff, confidence):
     # posterior generated with binomial p(k|eff,n) and a uniform p(eff)
 
     values = {
-        'peak': numpy.float_(K)/N,
+        'peak': numpy.nan_to_num(numpy.float_(K)/N),
         'low': numpy.zeros(len(K)),
         'high': numpy.zeros(len(K))
         }
-    min_range = 1
-    for I in range(0,len(K)):
-        for a in eff:
-            B_a = special.betainc(K[I]+1, N[I]-K[I]+1, a)
-            if B_a > 1 - confidence:
-                break
-            b = special.betaincinv(K[I]+1, N[I]-K[I]+1, confidence + B_a)
-            if b - a < min_range:
-                min_range = b - a
-
-        values['low'][I] = a
-        values['high'][I] = b
+    for I, n in enumerate(N):
+        interval = (0,1)
+        if n == 0:
+            values['low'][I] = 0.0
+            values['high'][I] = 0.0
+            continue
+        if values['peak'][I] < 0.5:
+            for a in eff:
+                B_a = special.betainc(K[I]+1, n-K[I]+1, a)
+                b = special.betaincinv(K[I]+1, n-K[I]+1, B_a + confidence)
+                if b - a < interval[1]-interval[0]:
+                    interval = (a,b)
+                else:
+                    break
+        else:
+            for b in eff[::-1]:
+                B_b = special.betainc(K[I]+1, n-K[I]+1, b)
+                a = special.betaincinv(K[I]+1, n-K[I]+1, B_b - confidence)
+                if b - a < interval[1]-interval[0]:
+                    interval = (a,b)
+                else:
+                    break
+        values['low'][I] = interval[0]
+        values['high'][I] = interval[1]
 
     return values
 
@@ -368,17 +380,27 @@ def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
     return prob_d_d
 
 def eff_vs_dist(measured_eff, prob_d_d):
-    eff_dist = {}
+    eff_dist = {
+        'peak': {},
+        'var_plus': {},
+        'var_minus': {}
+    }
     for far, values in measured_eff.items():
-        eff_dist[far] = {
-            'peak': numpy.zeros(len(prob_d_d)),
-            'var_plus': numpy.zeros(len(prob_d_d)),
-            'var_minus': numpy.zeros(len(prob_d_d))
-            }
+        eff_dist['peak'][far] = numpy.array([])
+        eff_dist['var_plus'][far] = numpy.array([])
+        eff_dist['var_minus'][far] = numpy.array([])
         for idx, p in enumerate(prob_d_d.values()):
-            eff_dist[far]['peak'][idx] = numpy.sum(values['peak'] * p)
-            eff_dist[far]['var_plus'][idx] = numpy.sum( (values['high'] - values['peak'])**2 * p**2 )
-            eff_dist[far]['var_minus'][idx] = numpy.sum( (values['low'] - values['peak'])**2 * p**2 )
+            eff_dist['peak'][far] = numpy.append(
+                eff_dist['peak'][far],
+                [numpy.sum(values['peak'] * p)] )
+            eff_dist['var_plus'][far] = numpy.append(
+                eff_dist['var_plus'][far],
+                [numpy.sum((values['high'] - values['peak'])**2 * p)] )
+            eff_dist['var_minus'][far] = numpy.append(
+                eff_dist['var_minus'][far],
+                [numpy.sum((values['peak'] - values['low'])**2 * p)] )
+
+    return eff_dist
 
 
 def volume_efficiency(measured_eff, r, old_distbins, prob_d_d):
@@ -392,14 +414,17 @@ def volume_efficiency(measured_eff, r, old_distbins, prob_d_d):
             B[j] = p[i]*vol_shell[j]
         prob_d[i] = numpy.cumsum(B)/numpy.cumsum(vol_shell)
     
-    vol_eff = {}
+    vol_eff = {
+        'peak': {},
+        'var_plus': {},
+        'var_minus': {}
+    }
     for far, values in measured_eff.items():
-        vol_eff[far] = {}
-        vol_eff[far]['peak'] = numpy.sum([ values['peak'][i] * prob_d[i] 
+        vol_eff['peak'][far] = numpy.sum([ values['peak'][i] * prob_d[i]
             for i in range(len(prob_d))], 0 )
-        vol_eff[far]['var_plus'] = numpy.sum([ (values['high'][i]-values['peak'])**2 * prob_d[i]**2
+        vol_eff['var_plus'][far] = numpy.sum([ (values['high'][i]-values['peak'])**2 * prob_d[i]
             for i in range(len(prob_d))], 0 )
-        vol_eff[far]['var_minus'] = numpy.sum([ (values['low'][i]-values['peak'])**2 * prob_d[i]**2
+        vol_eff['var_minus'][far] = numpy.sum([ (values['low'][i]-values['peak'])**2 * prob_d[i]
             for i in range(len(prob_d))], 0 )
 
-
+    return vol_eff
