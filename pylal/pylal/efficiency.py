@@ -379,15 +379,15 @@ def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
 
     return prob_d_d
 
-def eff_vs_dist(measured_eff, prob_d_d):
+def eff_vs_dist(measured_eff, prob_dc_d):
     """
     This function creates a weighted average efficiency as a function of distance
-    by computing eff_wavg(D) = \sum_d eff_mode(d)p(d|D). p(d|D) is the probability
-    an injection has a parameterized distance d if its physical distance is D.
+    by computing eff_wavg(D) = \sum_dc eff_mode(dc)p(dc|d). p(dc|d) is the probability
+    a signal has a parameterized distance dc if its physical distance is d.
 
-    The confidence interval for eff_wavg(D) is constructed from the quadrature sum
+    The confidence interval for eff_wavg(d) is constructed from the quadrature sum
     of the difference between the modes and the bounds, with each term again
-    weighted by p(d|D).
+    weighted by p(dc|d).
 
     This operation is done for each false-alarm-rate threshold.
     """
@@ -397,38 +397,51 @@ def eff_vs_dist(measured_eff, prob_d_d):
         'high': {}
     }
     for far, modes in measured_eff['mode'].items():
-        eff_dist['wavg'][far] = numpy.sum(modes * prob_d_d.values(), 1)
+        eff_dist['wavg'][far] = numpy.sum(modes * prob_dc_d.values(), 1)
         eff_dist['low'][far] = numpy.sqrt(numpy.sum(
-            (measured_eff['low'][far] - modes)**2 * prob_d_d.values(), 1)
+            (measured_eff['low'][far] - modes)**2 * prob_dc_d.values(), 1)
         )
         eff_dist['high'][far] = numpy.sqrt(numpy.sum(
-            (measured_eff['high'][far] - modes)**2 * prob_d_d.values(), 1)
+            (measured_eff['high'][far] - modes)**2 * prob_dc_d.values(), 1)
         )
     return eff_dist
 
 
-def volume_efficiency(measured_eff, r, old_distbins, prob_d_d):
+def volume_efficiency(measured_eff, r,  prob_dc_d):
+    """
+    This function creates a weighted average efficiency within a given volume
+    by computing eff_wavg(D) = \sum_dc eff_mode(dc)p(dc|D). p(dc|D) is the
+    probability a signal has a parameterized distance dc if it falls within
+    physical distance D.
 
-    vol_shell = 4./3 * numpy.pi * (r[1:]**3 - r[:-1]**3)
+    The confidence interval for eff_wavg(D) is constructed from the quadrature sum
+    of the difference between the modes and the bounds, with each term again
+    weighted by p(dc|D).
+
+    This operation is done for each false-alarm-rate threshold.
+    """
+
+    # calculate the volume in each distance shell
+    V_shell = 4./3*numpy.pi*(r[1:]**3 - r[:-1]**3)
     
-    prob_d = [0]*len(old_distbins[1:])
-    for i in range( len(old_distbins[1:]) ):
-        B = numpy.zeros( len(prob_d_d) )
-        for j, p in enumerate(prob_d_d.values()):
-            B[j] = p[i]*vol_shell[j]
-        prob_d[i] = numpy.cumsum(B)/numpy.cumsum(vol_shell)
-    
+    # the probability a signal falls within a given distance bin
+    p_d = V_shell/numpy.sum(V_shell)
+    p_dc_d = numpy.array(prob_dc_d.values())
+
+    p_dc_D = numpy.cumsum((p_d * p_dc_d.transpose()).transpose(), 0)
+
     vol_eff = {
-        'peak': {},
-        'var_plus': {},
-        'var_minus': {}
+        'wavg': {},
+        'low': {},
+        'high': {}
     }
-    for far, values in measured_eff.items():
-        vol_eff['peak'][far] = numpy.sum([ values['peak'][i] * prob_d[i]
-            for i in range(len(prob_d))], 0 )
-        vol_eff['var_plus'][far] = numpy.sum([ (values['high'][i]-values['peak'])**2 * prob_d[i]
-            for i in range(len(prob_d))], 0 )
-        vol_eff['var_minus'][far] = numpy.sum([ (values['low'][i]-values['peak'])**2 * prob_d[i]
-            for i in range(len(prob_d))], 0 )
+    for far, modes in measured_eff['mode'].items():
+        vol_eff['wavg'][far] = numpy.sum(modes * p_dc_D, 1)
+        vol_eff['low'][far] = numpy.sqrt(numpy.sum(
+            (measured_eff['low'][far] - modes)**2 * p_dc_D, 1)
+        )
+        vol_eff['high'][far] = numpy.sqrt(numpy.sum(
+            (measured_eff['high'][far] - modes)**2 * p_dc_D, 1)
+        )
 
     return vol_eff
