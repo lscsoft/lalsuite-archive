@@ -380,26 +380,30 @@ def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
     return prob_d_d
 
 def eff_vs_dist(measured_eff, prob_d_d):
-    eff_dist = {
-        'peak': {},
-        'var_plus': {},
-        'var_minus': {}
-    }
-    for far, values in measured_eff.items():
-        eff_dist['peak'][far] = numpy.array([])
-        eff_dist['var_plus'][far] = numpy.array([])
-        eff_dist['var_minus'][far] = numpy.array([])
-        for idx, p in enumerate(prob_d_d.values()):
-            eff_dist['peak'][far] = numpy.append(
-                eff_dist['peak'][far],
-                [numpy.sum(values['peak'] * p)] )
-            eff_dist['var_plus'][far] = numpy.append(
-                eff_dist['var_plus'][far],
-                [numpy.sum((values['high'] - values['peak'])**2 * p)] )
-            eff_dist['var_minus'][far] = numpy.append(
-                eff_dist['var_minus'][far],
-                [numpy.sum((values['peak'] - values['low'])**2 * p)] )
+    """
+    This function creates a weighted average efficiency as a function of distance
+    by computing eff_wavg(D) = \sum_d eff_mode(d)p(d|D). p(d|D) is the probability
+    an injection has a parameterized distance d if its physical distance is D.
 
+    The confidence interval for eff_wavg(D) is constructed from the quadrature sum
+    of the difference between the modes and the bounds, with each term again
+    weighted by p(d|D).
+
+    This operation is done for each false-alarm-rate threshold.
+    """
+    eff_dist = {
+        'wavg': {},
+        'low': {},
+        'high': {}
+    }
+    for far, modes in measured_eff['mode'].items():
+        eff_dist['wavg'][far] = numpy.sum(modes * prob_d_d.values(), 1)
+        eff_dist['low'][far] = numpy.sqrt(numpy.sum(
+            (measured_eff['low'][far] - modes)**2 * prob_d_d.values(), 1)
+        )
+        eff_dist['high'][far] = numpy.sqrt(numpy.sum(
+            (measured_eff['high'][far] - modes)**2 * prob_d_d.values(), 1)
+        )
     return eff_dist
 
 
