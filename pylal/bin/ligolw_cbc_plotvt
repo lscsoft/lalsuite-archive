@@ -202,6 +202,7 @@ veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 measured_eff = {}
 eff_vs_dist = {}
 volume_eff = {}
+T_fgd = {}
 
 # make the distance bins for the efficiency histogram
 distbin_edges = efficiency.inj_dist_range(
@@ -209,7 +210,7 @@ distbin_edges = efficiency.inj_dist_range(
     dist_scale = opts.distance_scale,
     step = opts.distance_step
 )
-V_shell = 4./3*numpy.pi*(r[1:]**3 - r[:-1]**3)
+V_shell = 4./3*numpy.pi*(distbin_edges[1:]**3 - distbin_edges[:-1]**3)
 
 if opts.verbose:
     print >> sys.stdout, "computing p(cd|d)"
@@ -296,6 +297,8 @@ for db_idx, db_path in enumerate(database_list):
         opts.confidence)
 
     # compute the efficiency vs distance for a physical distribution of sources
+    if opts.verbose:
+        print >> sys.stdout, "\tCompute the efficiency vs binned distance"
     eff_vs_dist[db_tag] = efficiency.eff_vs_dist(
         measured_eff[db_tag],
         prob_cd_d)
@@ -378,8 +381,8 @@ for tag in db_tags:
             [0]*len(distbin_edges[1:])
             ),
         yerr=(
-            measured_eff[tag][0.0]['mode']-measured_eff[tag][0.0]['low'],
-            measured_eff[tag][0.0]['high']-measured_eff[tag][0.0]['mode']
+            measured_eff[tag]['mode'][0.0]-measured_eff[tag]['low'][0.0],
+            measured_eff[tag]['high'][0.0]-measured_eff[tag]['mode'][0.0]
             ),
         label=tag, linestyle='None',
         marker='.', markersize=10)
@@ -495,7 +498,7 @@ for tag in db_tags:
     VT_high = maxVT * numpy.array(volume_eff[tag]['high'].values())[:,-1]
 
     veff_far_plot.errorbar(
-        volume_eff[tag]['median'].keys(), VT_peak,
+        volume_eff[tag]['wavg'].keys(), VT_wavg,
         yerr=(VT_low, VT_high),
         label=tag, linestyle='None',
         marker='.', markersize=10)

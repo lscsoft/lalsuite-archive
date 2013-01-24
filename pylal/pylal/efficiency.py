@@ -29,6 +29,7 @@ Collection of functions to compute the efficiency and effective 4-volume
 
 import sqlite3
 import math
+import pdb
 from operator import itemgetter
 import numpy
 from scipy import special
@@ -273,7 +274,7 @@ def binomial_confidence(K, N, eff_bin_edges, confidence):
              # determine the indices for the highest density interval
              a = numpy.argsort(pmf)[::-1]
              sorted_cdf = numpy.cumsum(numpy.sort(pmf)[::-1])
-             j = numpy.argmin( numpy.abs(sorted_cdf - C) )
+             j = numpy.argmin( numpy.abs(sorted_cdf - confidence) )
 
              eff_low[i] = eff_bin_edges[:-1][ numpy.min(a[:(j+1)]) ]
              eff_high[i] = eff_bin_edges[:-1][ numpy.max(a[:(j+1)]) ]
@@ -315,7 +316,7 @@ def detection_efficiency(
                 break
         # Histogram found injections with FAR < threshold
         K, _ = numpy.histogram(significant_dist[new_start:], bins = r)
-        eff['mode'][far] = numpy.float_(K)/N
+        eff['mode'][far] = numpy.nan_to_num(numpy.float_(K)/N)
 
         # computes the confidence interval for each distance bin
         eff['low'][far], eff['high'][far] = binomial_confidence(K, N, eff_bin_edges, confidence)
