@@ -569,6 +569,13 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
           pos_temp.append_mapping('a2', lambda a:np.abs(a), 'spin2')
 
 
+        if 'm1' in pos_temp.names and 'm2' in pos_temp.names:
+          print "Calculating total mass"
+          pos_temp.append_mapping('mtotal', lambda m1,m2: m1+m2, ['m1','m2'])
+        if 'mass1' in pos_temp.names and 'mass2' in pos_temp.names:
+          print "Calculating total mass"
+          pos_temp.append_mapping('mtotal', lambda m1,m2: m1+m2, ['mass1','mass2'])
+
         try:
             idx=common_output_table_header.index('m1')
 
