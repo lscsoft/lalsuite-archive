@@ -1904,14 +1904,13 @@ class MultiInspiralTable(table.Table):
 	def get_end(self):
 		return [row.get_end() for row in self]
 
-	def get_new_snr(self, index=4.0, column='chisq'):
+	def get_new_snr(self, index=4.0,nhigh = 3.0, column='chisq'):
 		# kwarg 'index' is assigned to the parameter chisq_index
 		# nhigh gives the asymptotic large rho behaviour of
 		# d (ln chisq) / d (ln rho) 
 		# for fixed new_snr eg nhigh = 2 -> chisq ~ rho^2 at large rho 
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_%s' % column)
-		nhigh = 3.0
 		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
@@ -2051,7 +2050,8 @@ class MultiInspiralTable(table.Table):
 		return dict((ifo, self.get_sngl_cont_chisq(ifo))\
 		            for ifo in instruments)
 
-	def get_bestnr(self, index=4.0, null_snr_threshold=4.25):
+	def get_bestnr(self, index=4.0, nhigh=3.0, null_snr_threshold=4.25,\
+		null_grad_thresh=20., null_grad_val = 1./5.):
 		"""
 		Get the BestNR statistic for each row in the table
 		"""
@@ -2123,7 +2123,7 @@ class MultiInspiralTable(table.Table):
 		                        % self.instrument_id[instrument.upper()]) /
 		        self.get_column("sngl_chisq_dof"))
 
-	def get_sngl_new_snr(self, ifo, column="chisq", index=4.0):
+	def get_sngl_new_snr(self, ifo, column="chisq", index=4.0, nhigh = 3.0):
 		column = column.lower()
 		if column == "chisq":
 			rchisq = self.get_reduced_sngl_chisq(ifo)
@@ -2134,7 +2134,6 @@ class MultiInspiralTable(table.Table):
 		else:
 			rchisq = getattr(self, column) / getattr(self, "%s_dof" % column)
 		snr = self.get_column('snr')
-		nhigh = 3.0
 		newsnr = snr/ (0.5*(1+rchisq**(index/nhigh)))**(1./index)
 		numpy.putmask(newsnr, rchisq < 1, snr)
 		return newsnr
@@ -2195,7 +2194,7 @@ class MultiInspiral(object):
 		"""
 		return self.get_coinc_chisq()/self.sngl_chisq_dof
 
-	def get_new_snr(self, index=4.0, column='chisq'):
+	def get_new_snr(self, index=4.0, nhigh = 3.0, column='chisq'):
 		column = column.lower()
 		if column == "chisq":
 			rchisq = self.get_reduced_chisq()
@@ -2205,14 +2204,13 @@ class MultiInspiral(object):
 			rchisq = self.get_reduced_cont_chisq()
 		else:
 			rchisq = getattr(self, column) / getattr(self, "%s_dof" % column)
-		nhigh = 3.0
 		if rchisq > 1.:
 			return self.snr /\
                                ((1+rchisq**(index/nhigh))/2)**(1./index)
 		else:
 			return self.snr
 
-	def get_sngl_new_snr(self, ifo, column="chisq", index=4.0):
+	def get_sngl_new_snr(self, ifo, column="chisq", index=4.0, nhigh = 3.0):
 		column = column.lower()
 		if column == "chisq":
 			rchisq = self.get_reduced_sngl_chisq(ifo)
@@ -2220,7 +2218,6 @@ class MultiInspiral(object):
 			rchisq = self.get_reduced_sngl_bank_chisq(ifo)
 		elif column == "cont_chisq":
 			rchisq = self.get_reduced_sngl_cont_chisq(ifo)
-		nhigh = 3.0
 		if rchisq > 1.:
 			return self.get_sngl_snr(ifo) /\
 							   ((1+rchisq**(index/nhigh))/2)**(1./index)
@@ -2228,11 +2225,11 @@ class MultiInspiral(object):
 			return self.snr
 
 
-	def get_sngl_new_snrs(self, column="chisq", index=4.0):
+	def get_sngl_new_snrs(self, column="chisq", index=4.0, nhigh = 3.0):
 		"""@returns a dictionary of single-detector newSNRs for this row.
 		"""
 		return dict((ifo,
-		             self.get_sngl_new_snr(ifo, column=column, index=index)) for
+		             self.get_sngl_new_snr(ifo, column=column, index=index, nhigh=nhigh)) for
 		            ifo in instrument_set_from_ifos(self.ifos))
 
 
@@ -2313,17 +2310,20 @@ class MultiInspiral(object):
 			slide_number = 5000 - slide_number
 		return slide_number
 
-	def get_bestnr(self, index=4.0, null_snr_threshold=4.25):
+	def get_bestnr(self, index=4.0, nhigh=3.0, null_snr_threshold=4.25,\
+		null_grad_thresh=20., null_grad_val = 1./5.):
 		"""
 		Return the BestNR statistic for this row.
 		"""
 		# weight SNR by chisq
-		bestnr = self.get_new_snr(index=index, column="chisq")
+		bestnr = self.get_new_snr(index=index, nhigh=nhigh,\
+			 column="chisq")
 		if len(self.get_ifos()) < 3:
 			return bestnr
 		# recontour null SNR threshold for higher SNRs
-		if self.snr > 20:
-			null_snr_threshold += (self.snr - 20)/5.
+		if self.snr > null_grad_thresh:
+			null_snr_threshold += (self.snr - null_grad_thresh)\
+				* null_grad_val
 		# weight SNR by null SNR
 		if self.get_null_snr() > null_snr_threshold:
 			bestnr /= 1 + self.get_null_snr() - null_snr_threshold
