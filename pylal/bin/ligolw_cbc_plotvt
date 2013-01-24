@@ -304,7 +304,7 @@ for db_idx, db_path in enumerate(database_list):
         print >> sys.stdout, "\tCompute the volume efficiency vs distance"
     volume_eff[db_tag] = efficiency.volume_efficiency(
         measured_eff[db_tag],
-        distbin_edges, distbin_edges,
+        distbin_edges,
         prob_cd_d)
 
     start_time, end_time = connection.execute(
@@ -360,7 +360,7 @@ plot_basename = '_'.join([
 ])
 
 # determine xlim_max for FAR_vs_VT plot
-maxFAR = max([numpy.max(eff.keys()) for eff in measured_eff.values()])
+maxFAR = max([numpy.max(eff['mode'].keys()) for eff in measured_eff.values()])
 
 # --------------------- Measured Efficiency vs Distance for FAR=0 -------------------- #
 if opts.verbose:
@@ -369,18 +369,18 @@ if opts.verbose:
 Eff_Dist_fig = pyplot.figure()
 Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
-for idx, db_tag in enumerate(db_tags):
+for tag in db_tags:
     Eff_Dist_plot.errorbar(
-        distbin_edges[1:], measured_eff[db_tag][0.0]['peak'],
+        distbin_edges[1:], measured_eff[tag]['mode'][0.0],
         xerr=(
             [opts.distance_step]*len(distbin_edges[1:]),
             [0]*len(distbin_edges[1:])
             ),
         yerr=(
-            measured_eff[db_tag][0.0]['peak']-measured_eff[db_tag][0.0]['low'],
-            measured_eff[db_tag][0.0]['high']-measured_eff[db_tag][0.0]['peak']
+            measured_eff[tag][0.0]['mode']-measured_eff[tag][0.0]['low'],
+            measured_eff[tag][0.0]['high']-measured_eff[tag][0.0]['mode']
             ),
-        label=db_tag, linestyle='None',
+        label=tag, linestyle='None',
         marker='.', markersize=10)
 
 Eff_Dist_plot.grid(which='major', linewidth=0.75)
@@ -407,18 +407,18 @@ if opts.verbose:
 Eff_Dist_fig = pyplot.figure()
 Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
-for idx, db_tag in enumerate(db_tags):
+for tag in db_tags:
     Eff_Dist_plot.errorbar(
-        distbin_edges[1:], eff_vs_dist[db_tag]['peak'][0.0],
+        distbin_edges[1:], eff_vs_dist[tag]['wavg'][0.0],
         xerr=(
             [opts.distance_step]*len(distbin_edges[1:]),
             [0]*len(distbin_edges[1:])
             ),
         yerr=(
-            numpy.sqrt(eff_vs_dist[db_tag]['var_minus'][0.0]),
-            numpy.sqrt(eff_vs_dist[db_tag]['var_plus'][0.0])
+            eff_vs_dist[tag]['low'][0.0],
+            eff_vs_dist[tag]['high'][0.0]
             ),
-        label=db_tag, linestyle='None',
+        label=tag, linestyle='None',
         marker='.', markersize=10)
 
 Eff_Dist_plot.grid(which='major', linewidth=0.75)
@@ -444,18 +444,18 @@ if opts.verbose:
 vol_eff_fig = pyplot.figure()
 vol_eff_plot = vol_eff_fig.add_subplot(111)
 
-for idx, db_tag in enumerate(db_tags):
+for tag in db_tags:
     vol_eff_plot.errorbar(
-        distbin_edges[1:], volume_eff[db_tag]['peak'][0.0],
+        distbin_edges[1:], volume_eff[tag]['wavg'][0.0],
         xerr=(
             [opts.distance_step]*len(distbin_edges[1:]),
             [0]*len(distbin_edges[1:])
             ),
         yerr=(
-            numpy.sqrt(volume_eff[db_tag]['var_minus'][0.0]),
-            numpy.sqrt(volume_eff[db_tag]['var_plus'][0.0])
+            volume_eff[tag]['low'][0.0],
+            volume_eff[tag]['high'][0.0]
             ),
-        label=db_tag, linestyle='None',
+        label=tag, linestyle='None',
         marker='.', markersize=10)
 
 vol_eff_plot.grid(which='major', linewidth=0.75)
