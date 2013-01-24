@@ -255,41 +255,30 @@ def found_injections(
     return found_inj, inj_fars, inj_snrs
 
 
-def binomial_confidence(K, N, eff, confidence):
-    # Calculate pdf peak and credible interval for p(eff|k,n)
-    # posterior generated with binomial p(k|eff,n) and a uniform p(eff)
+def binomial_confidence(K, N, eff_bin_edges, confidence):
+    """
+    Calculate the optimal Bayesian credible interval for p(eff|k,n)
+    Posterior generated with binomial p(k|eff,n) and a uniform p(eff)
+    is the beta function: Beta(eff|k+1,n-k+1) where n is the number
+    of injected signals and k is the number of found signals.
+    """
+    eff_low = numpy.zeros(len(N))
+    eff_high = numpy.zeros(len(N))
+    for i, n in enumerate(N):
+        if n!= 0:
+             # construct the point-mass-function
+             eff_cdf = special.betainc(K[i]+1, n-K[i]+1, eff_bin_edges)
+             pmf = ( eff_cdf[1:] - eff_cdf[:-1] )
 
-    values = {
-        'peak': numpy.nan_to_num(numpy.float_(K)/N),
-        'low': numpy.zeros(len(K)),
-        'high': numpy.zeros(len(K))
-        }
-    for I, n in enumerate(N):
-        interval = (0,1)
-        if n == 0:
-            values['low'][I] = 0.0
-            values['high'][I] = 0.0
-            continue
-        if values['peak'][I] < 0.5:
-            for a in eff:
-                B_a = special.betainc(K[I]+1, n-K[I]+1, a)
-                b = special.betaincinv(K[I]+1, n-K[I]+1, B_a + confidence)
-                if b - a < interval[1]-interval[0]:
-                    interval = (a,b)
-                else:
-                    break
-        else:
-            for b in eff[::-1]:
-                B_b = special.betainc(K[I]+1, n-K[I]+1, b)
-                a = special.betaincinv(K[I]+1, n-K[I]+1, B_b - confidence)
-                if b - a < interval[1]-interval[0]:
-                    interval = (a,b)
-                else:
-                    break
-        values['low'][I] = interval[0]
-        values['high'][I] = interval[1]
+             # determine the indices for the highest density interval
+             a = numpy.argsort(pmf)[::-1]
+             sorted_cdf = numpy.cumsum(numpy.sort(pmf)[::-1])
+             j = numpy.argmin( numpy.abs(sorted_cdf - C) )
 
-    return values
+             eff_low[i] = eff_bin_edges[:-1][ numpy.min(a[:(j+1)]) ]
+             eff_high[i] = eff_bin_edges[:-1][ numpy.max(a[:(j+1)]) ]
+
+    return eff_low, eff_high
 
 def detection_efficiency(
     successful_inj,
@@ -298,27 +287,38 @@ def detection_efficiency(
     far_list,
     r,
     confidence):
-
+    """
+    This function determines the peak efficiency for a given bin and associated
+    'highest density' confidence interval. The calculation is done for results
+    from each false-alarm-rate threshold
+    """
     # catching any edge cases were the injection end_time is nearly on a second boundary
     successful_inj = set(successful_inj) | set(found_inj)
     # histogram of successful injections into coincidence time post vetoes
     successful_dist = [inj[2] for inj in successful_inj]
     N, _ = numpy.histogram(successful_dist, bins = r)
 
+    # making sure there are no duplicates
+    found_inj, found_fars = zip(*set(zip(found_inj,found_fars)))
     significant_dist = [inj[2] for inj in found_inj]
 
-    eff = {}
-    eff_min = numpy.linspace(0, 1, 1e3+1)
-    for threshold in far_list:
-        for idx, far in enumerate(found_fars):
-            if far <= threshold:
+    eff_bin_edges = numpy.linspace(0, 1, 1e3+1)
+    eff = {
+        'mode': {},
+        'low': {},
+        'high': {}
+    }
+    for far in far_list:
+        for idx, coinc_far in enumerate(found_fars):
+            if coinc_far <= far:
                 new_start = idx
                 break
         # Histogram found injections with FAR < threshold
         K, _ = numpy.histogram(significant_dist[new_start:], bins = r)
+        eff['mode'][far] = numpy.float_(K)/N
 
-        # binomial confidence returns an array where each element is (peak, eff_low, eff_high)
-        eff[threshold] = binomial_confidence(K, N, eff_min, confidence)
+        # computes the confidence interval for each distance bin
+        eff['low'][far], eff['high'][far] = binomial_confidence(K, N, eff_bin_edges, confidence)
 
     return eff
 
