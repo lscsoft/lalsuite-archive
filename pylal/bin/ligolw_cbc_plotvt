@@ -209,6 +209,7 @@ distbin_edges = efficiency.inj_dist_range(
     dist_scale = opts.distance_scale,
     step = opts.distance_step
 )
+V_shell = 4./3*numpy.pi*(r[1:]**3 - r[:-1]**3)
 
 if opts.verbose:
     print >> sys.stdout, "computing p(cd|d)"
@@ -280,7 +281,7 @@ for db_idx, db_path in enumerate(database_list):
     far_list = minFAR * numpy.logspace(start=4.0, stop=0.0, num=1e2)
     far_list = numpy.append(far_list, 0.0)
     # Calculate the foreground search time in years
-    T_fgd = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
+    T_fgd[db_tag] = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
 
     # ------------------------- For Each FAR Threshold ------------------------- #
 
@@ -304,7 +305,7 @@ for db_idx, db_path in enumerate(database_list):
         print >> sys.stdout, "\tCompute the volume efficiency vs distance"
     volume_eff[db_tag] = efficiency.volume_efficiency(
         measured_eff[db_tag],
-        distbin_edges,
+        V_shell,
         prob_cd_d)
 
     start_time, end_time = connection.execute(
@@ -480,20 +481,23 @@ if opts.verbose:
 veff_far_fig = pyplot.figure()
 veff_far_plot = veff_far_fig.add_subplot(111)
 
-for idx, db_tag in enumerate(db_tags):
+for tag in db_tags:
     # the way to plot FAR=0 point on a log plot
-    #zeroFAR_VT = VT_dict[db_tag].pop(0.0)
-    #new_minFAR = 10**numpy.floor(numpy.log10(numpy.min(VT_dict[db_tag].keys())))
-    #VT_dict[db_tag][new_minFAR] = zeroFAR_VT
+    new_minFAR = 10**numpy.floor(numpy.log10( numpy.sort(volume_eff[tag]['wavg'].keys())[1] ))
+    # Replace FAR=0 with the new_minFAR
+    for key, eff_dict_far in volume_eff[tag].items():
+        volume_eff[tag][key][new_minFAR] = eff_dict_far.pop(0.0)
+
+    maxVT = numpy.sum(V_shell)*T_fgd[tag]
+    # Compute the total effective 4-Volume (VxT)
+    VT_wavg = maxVT * numpy.array(volume_eff[tag]['wavg'].values())[:,-1]
+    VT_low = maxVT * numpy.array(volume_eff[tag]['low'].values())[:,-1]
+    VT_high = maxVT * numpy.array(volume_eff[tag]['high'].values())[:,-1]
 
     veff_far_plot.errorbar(
-        volume_eff[db_tag]['peak'].keys(), numpy.max(VT_dict[db_tag].values(), axis=1),
-        xerr=([opts.distance_step]*len(distbin_edges[1:]), [0]*len(distbin_edges[1:])),
-        yerr=(
-            numpy.sqrt(volume_eff[db_tag]['var_minus']),
-            numpy.sqrt(volume_eff[db_tag]['var_plus'])
-            ),
-        label=db_tag, linestyle='None',
+        volume_eff[tag]['median'].keys(), VT_peak,
+        yerr=(VT_low, VT_high),
+        label=tag, linestyle='None',
         marker='.', markersize=10)
 
 veff_far_plot.grid(which='major', linewidth=0.75)

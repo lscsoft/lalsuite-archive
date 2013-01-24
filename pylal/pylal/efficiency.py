@@ -407,7 +407,7 @@ def eff_vs_dist(measured_eff, prob_dc_d):
     return eff_dist
 
 
-def volume_efficiency(measured_eff, r,  prob_dc_d):
+def volume_efficiency(measured_eff, V_shell,  prob_dc_d):
     """
     This function creates a weighted average efficiency within a given volume
     by computing eff_wavg(D) = \sum_dc eff_mode(dc)p(dc|D). p(dc|D) is the
@@ -420,14 +420,11 @@ def volume_efficiency(measured_eff, r,  prob_dc_d):
 
     This operation is done for each false-alarm-rate threshold.
     """
-
-    # calculate the volume in each distance shell
-    V_shell = 4./3*numpy.pi*(r[1:]**3 - r[:-1]**3)
     
     # the probability a signal falls within a given distance bin
     p_d = V_shell/numpy.sum(V_shell)
-    p_dc_d = numpy.array(prob_dc_d.values())
 
+    p_dc_d = numpy.array(prob_dc_d.values())
     p_dc_D = numpy.cumsum((p_d * p_dc_d.transpose()).transpose(), 0)
 
     vol_eff = {
