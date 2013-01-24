@@ -94,18 +94,16 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), snr_threshold=6.,\
     bestNR = trig.get_new_snr(q/n*3, 'chisq')
 
     # get null reduced SNR
-    if len(ifos)<3:
-        return bestNR
+    if len(ifos)>2:
+      null_snr = trig.get_null_snr()
 
-    null_snr = trig.get_null_snr()
-
-    if snr > null_grad_thresh:
-        null_thresh = numpy.array(null_thresh)
-        null_thresh += (snr - null_grad_thresh)*null_grad_val
-    if null_snr > null_thresh[-1]:
-        return 0
-    elif null_snr > null_thresh[0]:
-        bestNR *= 1 / (null_snr - null_thresh[0] + 1)
+      if snr > null_grad_thresh:
+          null_thresh = numpy.array(null_thresh)
+          null_thresh += (snr - null_grad_thresh)*null_grad_val
+      if null_snr > null_thresh[-1]:
+          return 0
+      elif null_snr > null_thresh[0]:
+          bestNR *= 1 / (null_snr - null_thresh[0] + 1)
 
     # If we got this far, the bestNR is non-zero. Verify that chisq actually
     # was calculated for the trigger
@@ -163,7 +161,6 @@ def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20,\
 
 def plot_contours( axis, snr_vals, contours, colors ):
     for i in range(len(contours)):
-        print i
         plot_vals_x = []
         plot_vals_y = []
         for j in range(len(snr_vals)):
