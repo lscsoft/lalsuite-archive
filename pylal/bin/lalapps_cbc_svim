@@ -39,7 +39,8 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.xlal import constants
 from pylal import upper_limit_utils
-from pylal import InspiralUtils
+from pylal import imr_utils
+
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
@@ -66,24 +67,33 @@ class upper_limit(object):
   for a search described by the input database.
   """
   def __init__(self, database, opts):
-    ## Instance variables ######################################
-    self.fname = database
-    self.opts = opts
-    ############################################################
 
-    if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
+    self.opts = opts
+
+    if opts.verbose:
+        print >> sys.stdout, "Gathering stats from: %s...." % (database,)
 
     # open a connection to the input database
-    self.working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
-    self.connection = sqlite3.connect(self.working_filename)
-    dbtables.DBTable_set_connection(self.connection)
-    xmldoc = dbtables.get_xml(self.connection)
+    working_filename = dbtables.get_connection_filename(database, tmp_path=opts.tmp_space, verbose = opts.verbose)
+    connection = sqlite3.connect(working_filename)
+    dbtables.DBTable_set_connection(connection)
 
     # find out which instruments were on and when during search
-    self.get_on_instruments(self.connection)
+    self.get_on_instruments(connection)
     self.set_instruments()
-    self.get_livetime(self.connection, opts.include_play)
-    self.get_injected_mass_ranges(self.connection)
+    self.get_livetime(connection, opts.include_play)
+    self.get_injected_mass_ranges(connection)
+    self.get_segments(connection)
+    self.get_zero_lag_segments()
+    self.get_far_thresholds(connection)
+    self.get_gps_times_duration(connection)
+    self.get_all_injections(connection)
+    self.get_distance_bins()
+      
+    # done with db, close connection
+    connection.commit()
+    dbtables.discard_connection_filename(database, working_filename, verbose = opts.verbose)
+    dbtables.DBTable_set_connection(None)
 
     # Set up mass bins
     self.mass_bins = {}
@@ -97,19 +107,6 @@ class upper_limit(object):
       self.mass_bins["BNS_BBH"] = self.set_bns_bbh_bins()
     if self.opts.bin_by_mass1_mass2:
       self.mass_bins["Mass1_Mass2"] = self.set_m1m2_bins()
-
-    # get the rest of the goodies
-    self.get_segments()                   #get single ifo segments with vetoes applied
-    self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
-    self.get_far_thresholds()             #determine FAR to use for computing search volume
-    self.get_gps_times_duration()
-    self.get_distance_bins()              #determine the distance bins to use for integration
-
-  def __del__(self):
-    # clean up after yourself
-    self.connection.commit()
-    dbtables.discard_connection_filename(self.fname, self.working_filename, verbose = self.opts.verbose)
-    dbtables.DBTable_set_connection(None)
 
 
   def get_on_instruments(self, connection):
@@ -172,10 +169,10 @@ class upper_limit(object):
       return True
 
 
-  def get_segments(self):
+  def get_segments(self, connection):
     '''Retrieve raw single IFO segments from the database and apply vetoes.'''
     if self.opts.verbose: print >>sys.stdout,"\nQuerying database for single IFO zero lag segments..."
-    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(self.connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
+    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
 
     if self.opts.verbose:
       for ifo in self.segments:
@@ -188,7 +185,7 @@ class upper_limit(object):
     else:
       #FIXME super hack to work around missing nanoseconds column in veto definer
       try:
-        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
       except AttributeError:
         # will get an AttributeError if using newer format veto segment file because
         # the new format does not include _ns; if so, remove the _ns columns from the
@@ -203,7 +200,7 @@ class upper_limit(object):
           self.end_time = segment[1].seconds
         lsctables.Segment.get = get_segment
         lsctables.Segment.set = set_segment
-        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
 
     self.segments -= veto_segments
 
@@ -318,7 +315,7 @@ class upper_limit(object):
     return self.m1m2_bins
 
 
-  def get_far_thresholds(self):
+  def get_far_thresholds(self, connection):
     """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
     be the FAR of the most rare zero-lag coinc)."""
     if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for finding injections..."
@@ -350,7 +347,7 @@ class upper_limit(object):
       GROUP BY coinc_event.instruments;
       """ %(datatype,)
 
-      for inst, far in self.connection.cursor().execute(far_threshold_query):
+      for inst, far in connection.cursor().execute(far_threshold_query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
         self.far[inst] = far # handle FAR = 0 case specially downstream
 
@@ -361,9 +358,9 @@ class upper_limit(object):
     return self.far
 
 
-  def get_gps_times_duration(self):
-    self.start_time = int( self.connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
-    self.end_time = int( self.connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
+  def get_gps_times_duration(self, connection):
+    self.start_time = int( connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
+    self.end_time = int( connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
     return True
 
 
@@ -496,8 +493,24 @@ class upper_limit(object):
 
     return False
 
+  def get_injections(self, instruments, FAR=None, bin_type=None):
+      if FAR is None: FAR = self.far[instruments]
 
-  def get_injections(self, instruments, FAR=None, bin_type = None):
+      found = []
+      missed = []
+
+      for far, sim in self.injections[instruments]:
+
+          if self.filter_injection(sim, bin_type): continue
+          if far < FAR:
+              found.append(sim)
+          else:
+              missed.append(sim)
+
+      return found, missed
+
+
+  def get_all_injections(self, connection):
     """
     This method separates injections into found and missed categories. An injection which
     is coincident with two or more single inspiral triggers (sngl1<-->sim and sngl2<-->sim)
@@ -505,49 +518,15 @@ class upper_limit(object):
     injection in triple time therefore is considered found if it matches any double-IFO
     coincident event. All other injections are considered "missed".
     """
-    if FAR is None: FAR = self.far[instruments]
 
-    found = []
-    missed = []
+    self.injections = {}
 
-    def injection_was_made(geocent_end_time, geocent_end_time_ns):
-        """
-        Returns True if injection end time lies within the instruments' coincident segments.
-        """
-        return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in self.zero_lag_segments[instruments]
+    for inst in self.instruments:
+        self.injections.setdefault(inst,[])
+        injs = imr_utils.get_all_min_far_inspiral_injections(connection, segments=self.zero_lag_segments[inst], table_name="coinc_inspiral:table")
+        self.injections[inst] += injs
 
-    self.connection.create_function("injection_was_made", 2, injection_was_made)
-    make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(self.connection), lsctables.SimInspiralTable.tableName).row_from_cols
-
-    injection_finding_query = """
-       SELECT sim_inspiral.*,
-       -- true if injection matched a coinc below the false alarm rate threshold
-       EXISTS (
-	     SELECT *
-	     FROM coinc_event_map AS mapa
-	     JOIN coinc_event_map AS mapb ON ( mapa.coinc_event_id == mapb.coinc_event_id )
-	     JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id )
-	     WHERE mapa.table_name == "sim_inspiral"
-	     AND mapa.event_id == sim_inspiral.simulation_id
-	     AND coinc_inspiral.combined_far < ?
-	     )
-       FROM sim_inspiral
-       WHERE
-       -- only interested in injections that were injected
-       injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
-	 """
-
-    for values in self.connection.cursor().execute(injection_finding_query,(FAR,)):
-      sim = make_sim_inspiral(values)
-
-      if self.filter_injection(sim, bin_type): continue
-
-      if values[-1]:
-        found.append(sim)
-      else:
-        missed.append(sim)
-
-    return found, missed
+    return True
 
 
   def live_time_array(self,instruments,mass_bins):
