@@ -246,8 +246,8 @@ def found_injections(
         sql_params_dict["ifos"] = on_ifos
         sql_params_dict["tag"] = tag
 
-    injections = connection.execute(sqlquery, sql_params_dict).fetchall()
-    injections.sort( key=itemgetter(3), reverse=True)
+    injections = set(connection.execute(sqlquery, sql_params_dict).fetchall())
+    injections = sorted(injections, key=itemgetter(3), reverse=True)
 
     found_inj = [inj[0:3] for inj in injections]
     inj_fars = [inj[3] for inj in injections]
@@ -299,8 +299,6 @@ def detection_efficiency(
     successful_dist = [inj[2] for inj in successful_inj]
     N, _ = numpy.histogram(successful_dist, bins = r)
 
-    # making sure there are no duplicates
-    found_inj, found_fars = zip(*set(zip(found_inj,found_fars)))
     significant_dist = [inj[2] for inj in found_inj]
 
     eff_bin_edges = numpy.linspace(0, 1, 1e3+1)
@@ -422,11 +420,10 @@ def volume_efficiency(measured_eff, V_shell,  prob_dc_d):
     This operation is done for each false-alarm-rate threshold.
     """
     
-    # the probability a signal falls within a given distance bin
-    p_d = V_shell/numpy.sum(V_shell)
-
+    cumVol = numpy.cumsum(V_shell)
     p_dc_d = numpy.array(prob_dc_d.values())
-    p_dc_D = numpy.cumsum((p_d * p_dc_d.transpose()).transpose(), 0)
+    V_dc_D = numpy.cumsum((V_shell * p_dc_d.transpose()).transpose(), 0)
+    p_dc_D = (V_dc_D.transpose()/cumVol).transpose()
 
     vol_eff = {
         'wavg': {},

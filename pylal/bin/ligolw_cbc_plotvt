@@ -29,6 +29,7 @@ from optparse import OptionParser
 import sqlite3
 import sys
 import os
+import pdb
 
 import numpy
 import matplotlib
@@ -467,6 +468,7 @@ vol_eff_plot.grid(which='minor', linewidth=0.25)
 vol_eff_plot.set_xscale(opts.distance_scale)
 vol_eff_plot.set_yscale(opts.distance_scale)
 vol_eff_plot.set_xlim(min(distbin_edges), max(distbin_edges))
+vol_eff_plot.set_ylim(0, 1)
 
 vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
 vol_eff_plot.set_ylabel( r'Fractional Efficiency' )
