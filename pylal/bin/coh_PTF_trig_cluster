@@ -92,7 +92,7 @@ def main(trigFile, timeWindow, outdir, verbose=False):
   oldxml   = utils.load_filename(trigFile,\
                                  gz = trigFile.endswith("gz"))
   tmp      = table.get_table(oldxml, "multi_inspiral")
-  if len(tmp)> 1:
+  if len(tmp) >= 1:
     lsctables.MultiInspiralTable.loadcolumns =\
         [slot for slot in tmp[0].__slots__ if hasattr(tmp[0], slot)]
   else:
