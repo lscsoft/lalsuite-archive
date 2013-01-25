@@ -1,3 +1,9 @@
+pylal (0.2.0) unstable; urgency=high
+
+  * Initial 0.2.0 release
+
+ -- Kipp Cannon <kipp.cannon@ligo.org>  Fri, 25 Jan 2013 12:08:00 -0500
+
 pylal (0.1.5) unstable; urgency=high
 
   [ Nickolas Fotopoulos ]

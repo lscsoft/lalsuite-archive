@@ -18,12 +18,12 @@ Standards-Version: 3.9.3
 
 Package: python-pylal
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
-Recommends:
- python-numpy,
- python-scipy,
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends},
+ python-glue,
+ python-glue-segments,
  python-matplotlib,
- python-glue
+ python-numpy,
+ python-scipy
 Description: Python LSC Algorithm Library
  The PyLAL package is best described as the Python LIGO Algorithm
  Library. It was originally a Python wrapping of parts of the LAL
