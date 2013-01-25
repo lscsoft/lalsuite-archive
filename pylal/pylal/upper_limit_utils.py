@@ -3,14 +3,16 @@ from scipy import random
 from scipy import interpolate
 import bisect
 import sys
+
 from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from pylal.xlal import constants
+from pylal.imr_utils import make_sim_inspiral_row_from_columns_in_db, time_within_segments
+from pylal import rate
 
 import matplotlib
 matplotlib.use("agg")
 from matplotlib import pyplot
-
-from pylal import rate
 
 
 def margLikelihoodMonteCarlo(VTs, lambs, mu, mcerrs=None):
@@ -346,3 +348,58 @@ def get_background_livetime(connection, verbose=False):
     return bglivetime
 
 
+#
+# FIXME: this function is only a slight variant on a function that
+# already exists in imr_utils.py. The difference here make the present
+# function integrate more smoothly into svim. In the future, however,
+# we would like to switch over to using the function in imr_utils.py
+# so that there is only one such function.
+#
+def get_all_min_far_inspiral_injections(connection, segments = None, table_name = "coinc_inspiral"):
+	"""
+	This function returns the found injections from a database and the
+	minimum far associated with them as tuple of the form (far, sim). It also tells
+	you all of the injections that should have been injected.  Subtracting the two
+	outputs	should tell you the missed injections
+	"""
+
+	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
+		found_query = 'SELECT sim_inspiral.*, coinc_inspiral.combined_far FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_inspiral ON coinc_inspiral.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+
+	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
+		found_query = 'SELECT sim_inspiral.*, coinc_ringdown.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_ringdown ON coinc_ringdown.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_ringdown.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+
+	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
+		found_query = 'SELECT sim_inspiral.*, multi_burst.false_alarm_rate FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN multi_burst ON multi_burst.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == multi_burst.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+
+	else:
+		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
+
+	def injection_was_made(end_time, end_time_ns, segments = segments):
+		return time_within_segments(end_time, end_time_ns, segments)
+
+	# restrict the found injections to only be within certain segments
+	connection.create_function("injection_in_segments", 2, injection_was_made)
+
+	# get the mapping of a record returned by the database to a sim
+	# inspiral row. Note that this is DB dependent potentially, so always
+	# do this!
+	make_sim_inspiral = make_sim_inspiral_row_from_columns_in_db(connection)
+
+	found_injections = {}
+
+	total_query = 'SELECT * FROM sim_inspiral WHERE injection_in_segments(geocent_end_time, geocent_end_time_ns)'
+	for values in connection.cursor().execute(total_query):
+		sim = make_sim_inspiral(values)
+		found_injections.setdefault(sim.simulation_id, (float('inf'),sim))
+
+	for values in connection.cursor().execute(found_query):
+		# all but the last column is used to build a sim inspiral object
+		sim = make_sim_inspiral(values[:-1])
+		far = values[-1]
+		# update with the minimum far seen until now
+		this_inj = found_injections[sim.simulation_id]
+		if far < this_inj[0]:
+			found_injections[sim.simulation_id] = (far, sim)
+
+	return found_injections.values()
