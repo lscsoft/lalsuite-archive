@@ -103,12 +103,12 @@ def get_livetime(connection, veto_cat, on_ifos, datatype):
 # =============================================================================
 #
 
-def inj_dist_range(d_min, d_max, dist_scale = "linear", step = 4.0):
+def inj_dist_range(dist_bounds, dist_scale = "linear", step = 4.0):
 
     if dist_scale == "linear":
-        dist_bin_edges = numpy.arange(d_min-step, d_max+step, step)
+        dist_bin_edges = numpy.arange(dist_bounds[0]-step, dist_bounds[1]+step, step)
     elif dist_scale == "log":
-        log_limits = numpy.log10([d_min, d_max])/numpy.log10(step)
+        log_limits = numpy.log10([dist_bounds[0], dist_bounds[1]])/numpy.log10(step)
         dist_bin_edges = numpy.power(
             step,
             numpy.arange(log_limits[0]-1, log_limits[1]+1)
@@ -322,7 +322,7 @@ def detection_efficiency(
     return eff
 
 
-def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
+def rescale_dist(on_ifos, phys_dist, param_dist, dist_type, weight_dist):
     N_signals = int(1e6)
     trigTime = 0.0
 
@@ -346,11 +346,11 @@ def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
                    'degree', ifo )
     
     prob_d_d = {}
-    for j in range(len(distbins)-1):
+    for j in range(len(phys_dist)-1):
         # for this physical distance range, create signals that are uniform in volume
         volume = 4*numpy.pi/3 * numpy.random.uniform(
-            low = distbins[j]**3.0,
-            high = distbins[j+1]**3.0,
+            low = phys_dist[j]**3.0,
+            high = phys_dist[j+1]**3.0,
             size = N_signals)
         dist = numpy.power(volume*(3/(4*numpy.pi)), 1./3)
 
@@ -370,11 +370,11 @@ def rescale_dist(on_ifos, distbins, old_distbins, dist_type, weight_dist):
                 dist_chirp = chirp_dist(dist_dec, mchirp)
             if dist_type == 'distance':
                 dist_chirp = chirp_dist(dist, mchirp)
-            N_d, _ = numpy.histogram(dist_chirp, bins=old_distbins)
+            N_d, _ = numpy.histogram(dist_chirp, bins=param_dist)
         else:
-            N_d, _ = numpy.histogram(dist_dec, bins=old_distbins)
+            N_d, _ = numpy.histogram(dist_dec, bins=param_dist)
     
-        prob_d_d[distbins[j+1]] = numpy.float_(N_d)/N_signals
+        prob_d_d[phys_dist[j+1]] = numpy.float_(N_d)/N_signals
 
     return prob_d_d
 
