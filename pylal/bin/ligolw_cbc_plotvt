@@ -203,7 +203,7 @@ veto_cat = 'VETO_CAT%i_CUMULATIVE' % opts.veto_category
 measured_eff = {}
 eff_vs_dist = {}
 volume_eff = {}
-T_fgd = {}
+cumVT_fgd = {}
 
 # make the distance bins for the efficiency histogram
 distbin_edges = efficiency.inj_dist_range(
@@ -283,7 +283,8 @@ for db_idx, db_path in enumerate(database_list):
     far_list = minFAR * numpy.logspace(start=4.0, stop=0.0, num=1e2)
     far_list = numpy.append(far_list, 0.0)
     # Calculate the foreground search time in years
-    T_fgd[db_tag] = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
+    T_fgd = efficiency.get_livetime(connection, veto_cat, on_ifos, 'all_data') / secINyear
+    cumVT_fgd[db_tag] = numpy.cumsum(V_shell)*T_fgd
 
     # ------------------------- For Each FAR Threshold ------------------------- #
 
@@ -442,7 +443,7 @@ pyplot.savefig(plot_name + '.' + opts.format)
 pyplot.close(Eff_Dist_fig)
 
 
-# ------------------------- VxT vs Distance for FAR=0 ------------------------ #
+# --------------- Volume Efficiency vs Distance for FAR=0 ------------------ #
 if opts.verbose:
     print >> sys.stdout, "\tVolume Efficiency vs Distance"
 
@@ -452,10 +453,6 @@ vol_eff_plot = vol_eff_fig.add_subplot(111)
 for tag in db_tags:
     vol_eff_plot.errorbar(
         distbin_edges[1:], volume_eff[tag]['wavg'][0.0],
-        xerr=(
-            [opts.distance_step]*len(distbin_edges[1:]),
-            [0]*len(distbin_edges[1:])
-            ),
         yerr=(
             volume_eff[tag]['low'][0.0],
             volume_eff[tag]['high'][0.0]
@@ -470,12 +467,45 @@ vol_eff_plot.set_yscale(opts.distance_scale)
 vol_eff_plot.set_xlim(min(distbin_edges), max(distbin_edges))
 vol_eff_plot.set_ylim(0, 1)
 
-vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
+vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Sphere $(Mpc)$' )
 vol_eff_plot.set_ylabel( r'Fractional Efficiency' )
-vol_eff_plot.set_title( r'Cumulative Volume Efficiency vs Distance at FAR=0' )
+vol_eff_plot.set_title( r'Efficiency within Volume vs Distance at FAR=0' )
 vol_eff_plot.legend(loc='upper right')
 
 plot_name = opts.output_path + plot_basename % 'VEFF-FAR0'
+pyplot.savefig(plot_name + '.' + opts.format)
+pyplot.close(vol_eff_fig)
+
+# --------------- Volume Efficiency vs Distance for FAR=0 ------------------ #
+if opts.verbose:
+    print >> sys.stdout, "\tAccumulated VxT vs Distance"
+
+vol_eff_fig = pyplot.figure()
+vol_eff_plot = vol_eff_fig.add_subplot(111)
+
+for tag in db_tags:
+    vol_eff_plot.errorbar(
+        distbin_edges[1:],
+        cumVT_fgd[tag]*volume_eff[tag]['wavg'][0.0],
+        yerr=(
+            cumVT_fgd[tag]*volume_eff[tag]['low'][0.0],
+            cumVT_fgd[tag]*volume_eff[tag]['high'][0.0]
+            ),
+        label=tag, linestyle='None',
+        marker='.', markersize=10)
+
+vol_eff_plot.grid(which='major', linewidth=0.75)
+vol_eff_plot.grid(which='minor', linewidth=0.25)
+vol_eff_plot.set_xscale(opts.distance_scale)
+vol_eff_plot.set_yscale(opts.distance_scale)
+vol_eff_plot.set_xlim(min(distbin_edges), max(distbin_edges))
+
+vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Sphere $(Mpc)$' )
+vol_eff_plot.set_ylabel( r'Cumulative Sensitive 4-Volume $(Mpc^{3}yr)$' )
+vol_eff_plot.set_title( r'$V_{eff}T_{fgd}$ vs Distance at FAR=0' )
+vol_eff_plot.legend(loc='lower right')
+
+plot_name = opts.output_path + plot_basename % 'VT-FAR0'
 pyplot.savefig(plot_name + '.' + opts.format)
 pyplot.close(vol_eff_fig)
 
@@ -493,11 +523,10 @@ for tag in db_tags:
     for key, eff_dict_far in volume_eff[tag].items():
         volume_eff[tag][key][new_minFAR] = eff_dict_far.pop(0.0)
 
-    maxVT = numpy.sum(V_shell)*T_fgd[tag]
     # Compute the total effective 4-Volume (VxT)
-    VT_wavg = maxVT * numpy.array(volume_eff[tag]['wavg'].values())[:,-1]
-    VT_low = maxVT * numpy.array(volume_eff[tag]['low'].values())[:,-1]
-    VT_high = maxVT * numpy.array(volume_eff[tag]['high'].values())[:,-1]
+    VT_wavg = cumVT_fgd[tag][-1] * numpy.array(volume_eff[tag]['wavg'].values())[:,-1]
+    VT_low = cumVT_fgd[tag][-1] * numpy.array(volume_eff[tag]['low'].values())[:,-1]
+    VT_high = cumVT_fgd[tag][-1] * numpy.array(volume_eff[tag]['high'].values())[:,-1]
 
     veff_far_plot.errorbar(
         volume_eff[tag]['wavg'].keys(), VT_wavg,
@@ -512,9 +541,9 @@ veff_far_plot.set_yscale(opts.distance_scale)
 veff_far_plot.set_xlim(new_minFAR, 2.0*maxFAR)
 
 veff_far_plot.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
-veff_far_plot.set_ylabel( r'Total Effective 4-Volume $(Mpc^{3}yr)$' )
+veff_far_plot.set_ylabel( r'Total Sensitive 4-Volume $(Mpc^{3}yr)$' )
 veff_far_plot.set_title(
-    r'Asymptotic VxT vs FAR using %s' % opts.distance_type.replace('_',' ').title()
+    r'Asymptotic $V_{eff}T_{fgd}$ vs FAR using %s' % opts.distance_type.replace('_',' ').title()
     )
 veff_far_plot.legend(loc='lower right')
 
