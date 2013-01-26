@@ -194,9 +194,11 @@ def instrument_set_from_ifos(ifos):
 	inverse function, ifos_from_instrument_set(), implements that
 	encoding only.
 
-	NOTE:  to force a string containing a single instrument name not to
-	be split into two-character pieces, add a "," or "+" character to
-	the end to force the comma- or plus-delimited decoding to be used.
+	NOTE:  to force a string containing an even number of characters to
+	be interpreted as a single instrument name and not to be be split
+	into two-character pieces, add a "," or "+" character to the end to
+	force the comma- or plus-delimited decoding to be used.
+	ifos_from_instrument_set() does this for you.
 	"""
 	if ifos is None:
 		return None
