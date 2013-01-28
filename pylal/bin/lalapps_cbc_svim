@@ -647,7 +647,7 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
   parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
-  parser.add_option("--plot-derivative-fit", action = "store_true", help = "Plot the volume derivative fit for each mass bin.")
+  parser.add_option("--volume-vs-far", action = "store_true", help = "Compute and plot the volume as a function of FAR.")
 
   opts, filenames = parser.parse_args()
 
@@ -707,6 +707,86 @@ UL = upper_limit(database, opts)#
 # Set up opts structure for use with InspiralUtils
 opts.gps_start_time = UL.start_time
 opts.gps_end_time = UL.end_time
+
+if opts.volume_vs_far:
+
+    # determine the range of FARs applicable to this search.
+    fars = []
+    for instr in UL.instruments:
+        fars.extend([f for f, sim in UL.injections[instr] if 0 < f < float('inf')])
+    fars = numpy.sort(fars)
+    far_min = min( fars )
+    far_max = max( fars )
+
+    # make an array of fars to loop over
+    nfars = 25
+    fars = numpy.logspace( numpy.log10(far_min), numpy.log10(far_max), nfars )
+
+    for instr in UL.instruments:
+
+        lt = UL.livetime[instr] #preferred unit is Mpc^3*yr
+
+        for bin_type in UL.mass_bins:
+            vAs, vA2s = [], []
+
+            for far in fars:
+
+                # compute volume for given far binned in mass
+                found, missed = UL.get_injections(instr, far, bin_type)
+                vA, vA2, _, _, _, _  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instr], logd=opts.log_dist_bins)
+                vAs.append(vA)
+                vA2s.append(vA2)
+
+            for j, mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
+
+                if bin_type == "BNS_BBH":
+                    label = ["NS-NS","NS-BH","BH-BH"][j]
+                elif bin_type == "Mass1_Mass2":
+                    label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
+                else:
+                    lo = UL.mass_bins[bin_type].lower()
+                    hi = UL.mass_bins[bin_type].upper()
+                    label = ','.join("%.1f-%.1f M$_\odot$"%(lo[k][j],hi[k][j]) for k in range(len(lo)))
+
+                vols = numpy.array([ v[mbin] for v in vAs ])
+                vols_errs = numpy.array([v2[mbin] for v2 in vA2s ])
+
+                pyplot.figure(1)
+                line, = pyplot.plot(fars, lt*vols, label=label)
+                pyplot.fill_between(fars, lt*vols - lt*vols_errs, lt*vols + lt*vols_errs, alpha=0.5, color=line.get_color())
+
+                dists = (3*vols/(4*numpy.pi))**(1./3)
+                dists_errs = dists*vols_errs/(3*vols)
+
+                pyplot.figure(2)
+                line, = pyplot.plot(fars, dists, label=label)
+                pyplot.fill_between(fars, dists - dists_errs, dists + dists_errs, alpha=0.5, color=line.get_color())
+
+            pyplot.figure(1)
+            pyplot.axvline(UL.far[instr],ls='--',c='k')
+            tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s" % ("".join(sorted(list(instr))),bin_type.upper())
+            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
+            pyplot.ylabel("Mean Sensitive 4-Volume ($Mpc^3 yr$)")
+            pyplot.semilogx()
+            pyplot.grid()
+            pyplot.xlim(min(fars), max(fars))
+            pyplot.ylim(ymin=0)
+            pyplot.legend(loc="lower right")
+            pyplot.savefig(tag)
+            pyplot.close()
+
+            pyplot.figure(2)
+            pyplot.axvline(UL.far[instr],ls='--',c='k')
+            tag = "%s-RANGE_VS_FAR_BINNED_BY_%s" % ("".join(sorted(list(instr))),bin_type.upper())
+            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
+            pyplot.ylabel("Mean Sensitive Distance ($Mpc$)")
+            pyplot.semilogx()
+            pyplot.grid()
+            pyplot.xlim(min(fars), max(fars))
+            pyplot.ylim(ymin=0)
+            pyplot.legend(loc="lower right")
+            pyplot.savefig(tag)
+            pyplot.close()
 
 # loop over the requested instruments and mass bin types,
 # compute the search volume and volume derivative at the specified
