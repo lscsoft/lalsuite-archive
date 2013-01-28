@@ -97,13 +97,13 @@ def parse_command_line():
             "How the distance bins are broken up. The default option is 'linear'." +
             "The alternative is 'log'."
         )
-    parser.add_option("--phys-dist-range", action="store", type="string",
+    parser.add_option("--calc-dist-range", action="store", type="string",
         metavar = "string",
-        help = "The physical distance range for figures"
+        help = "The range of distances used in calculations: 'd_min,d_max' (Required)"
         )
-    parser.add_option("--param-dist-range", action="store", type="string",
+    parser.add_option("--plot-dist-range", action="store", type="string",
         metavar = "string",
-        help = "The parameterized distance range for figures: 'd_min,d_max'"
+        help = "The distance range for figures: 'd_min,d_max' (Required)"
         )
     parser.add_option("--distance-step", action="store", type="float", default=4.0,
         metavar = "float",
@@ -164,7 +164,7 @@ def parse_command_line():
     required_options = [
         "database_cache", "database_tags",
         "veto_category", "on_instruments",
-        "phys_dist_range", "param_dist_range"
+        "calc_dist_range", "plot_dist_range"
     ]
     missing_options = [option for option in required_options if getattr(options, option) == None]
 
@@ -206,26 +206,22 @@ volume_eff = {}
 cumVT_fgd = {}
 
 # make the distance bins for the efficiency histogram
-phys_dist = efficiency.inj_dist_range(
-    map(int, (opts.phys_dist_range).split(',')),
-    dist_scale = opts.distance_scale
+dist_bins = efficiency.inj_dist_range(
+    map(int, (opts.calc_dist_range).split(',')),
+    dist_scale = opts.distance_scale,
+    step = opts.distance_step
 )
-V_shell = 4./3*numpy.pi*(phys_dist[1:]**3 - phys_dist[:-1]**3)
-
-param_dist = efficiency.inj_dist_range(
-    map(int, (opts.param_dist_range).split(',')),
-    dist_scale = opts.distance_scale
-)
+V_shell = 4./3*numpy.pi*(dist_bins[1:]**3 - dist_bins[:-1]**3)
 
 if opts.verbose:
     print >> sys.stdout, "computing p(cd|d)"
 # determine the probability of a signal having chirp dist for a given distance 
 prob_cd_d = efficiency.rescale_dist(
     on_ifos.split(','),
-    phys_dist,
-    param_dist,
     opts.distance_type,
-    opts.weight_dist
+    opts.weight_dist,
+    phys_dist = dist_bins,
+    param_dist = dist_bins
 )
 
 for db_idx, db_path in enumerate(database_list):
@@ -300,7 +296,7 @@ for db_idx, db_path in enumerate(database_list):
         all_inj,
         found_inj, found_fars,
         far_list,
-        param_dist,
+        dist_bins,
         opts.confidence)
 
     # compute the efficiency vs distance for a physical distribution of sources
@@ -372,6 +368,10 @@ plot_basename = '_'.join([
 
 # determine xlim_max for FAR_vs_VT plot
 maxFAR = max([numpy.max(eff['mode'].keys()) for eff in measured_eff.values()])
+# get min and max distances for plots
+plot_dist = map(float, opts.plot_dist_range.split(','))
+arg_minD = numpy.argmin(numpy.abs(dist_bins[1:] - plot_dist[0]))
+arg_maxD = numpy.argmin(numpy.abs(dist_bins[1:] - plot_dist[1]))
 
 # --------------------- Measured Efficiency vs Distance for FAR=0 -------------------- #
 if opts.verbose:
@@ -382,10 +382,10 @@ Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for tag in db_tags:
     Eff_Dist_plot.errorbar(
-        param_dist[1:], measured_eff[tag]['mode'][0.0],
+        dist_bins[1:], measured_eff[tag]['mode'][0.0],
         xerr=(
-            [opts.distance_step]*len(param_dist[1:]),
-            [0]*len(param_dist[1:])
+            [opts.distance_step]*len(dist_bins[1:]),
+            [0]*len(dist_bins[1:])
             ),
         yerr=(
             measured_eff[tag]['mode'][0.0]-measured_eff[tag]['low'][0.0],
@@ -397,7 +397,7 @@ for tag in db_tags:
 Eff_Dist_plot.grid(which='major', linewidth=0.75)
 Eff_Dist_plot.grid(which='minor', linewidth=0.25)
 Eff_Dist_plot.set_xscale(opts.distance_scale)
-Eff_Dist_plot.set_xlim(min(param_dist), max(param_dist))
+Eff_Dist_plot.set_xlim(dist_bins[arg_minD], dist_bins[arg_maxD+1])
 Eff_Dist_plot.set_ylim(0, 1)
 
 Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
@@ -420,10 +420,10 @@ Eff_Dist_plot = Eff_Dist_fig.add_subplot(111)
 
 for tag in db_tags:
     Eff_Dist_plot.errorbar(
-        phys_dist[1:], eff_vs_dist[tag]['wavg'][0.0],
+        dist_bins[1:], eff_vs_dist[tag]['wavg'][0.0],
         xerr=(
-            [opts.distance_step]*len(phys_dist[1:]),
-            [0]*len(phys_dist[1:])
+            [opts.distance_step]*len(dist_bins[1:]),
+            [0]*len(dist_bins[1:])
             ),
         yerr=(
             eff_vs_dist[tag]['low'][0.0],
@@ -435,7 +435,7 @@ for tag in db_tags:
 Eff_Dist_plot.grid(which='major', linewidth=0.75)
 Eff_Dist_plot.grid(which='minor', linewidth=0.25)
 Eff_Dist_plot.set_xscale(opts.distance_scale)
-Eff_Dist_plot.set_xlim(min(phys_dist), max(phys_dist))
+Eff_Dist_plot.set_xlim(dist_bins[arg_minD], dist_bins[arg_maxD+1])
 Eff_Dist_plot.set_ylim(0, 1)
 
 Eff_Dist_plot.set_xlabel( r'Distance to Outer Edge of Volume Shell $(Mpc)$' )
@@ -457,7 +457,7 @@ vol_eff_plot = vol_eff_fig.add_subplot(111)
 
 for tag in db_tags:
     vol_eff_plot.errorbar(
-        phys_dist[1:], volume_eff[tag]['wavg'][0.0],
+        dist_bins[1:], volume_eff[tag]['wavg'][0.0],
         yerr=(
             volume_eff[tag]['low'][0.0],
             volume_eff[tag]['high'][0.0]
@@ -469,7 +469,7 @@ vol_eff_plot.grid(which='major', linewidth=0.75)
 vol_eff_plot.grid(which='minor', linewidth=0.25)
 vol_eff_plot.set_xscale(opts.distance_scale)
 vol_eff_plot.set_yscale(opts.distance_scale)
-vol_eff_plot.set_xlim(min(phys_dist), max(phys_dist))
+vol_eff_plot.set_xlim(dist_bins[arg_minD], dist_bins[arg_maxD+1])
 vol_eff_plot.set_ylim(0, 1)
 
 vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Sphere $(Mpc)$' )
@@ -488,9 +488,11 @@ if opts.verbose:
 vol_eff_fig = pyplot.figure()
 vol_eff_plot = vol_eff_fig.add_subplot(111)
 
+maxVT = []
+
 for tag in db_tags:
     vol_eff_plot.errorbar(
-        phys_dist[1:],
+        dist_bins[1:],
         cumVT_fgd[tag]*volume_eff[tag]['wavg'][0.0],
         yerr=(
             cumVT_fgd[tag]*volume_eff[tag]['low'][0.0],
@@ -499,11 +501,16 @@ for tag in db_tags:
         label=tag, linestyle='None',
         marker='.', markersize=10)
 
+    maxVT.append( cumVT_fgd[tag][arg_maxD]*(
+        volume_eff[tag]['wavg'][0.0][arg_maxD] + volume_eff[tag]['high'][0.0][arg_maxD])
+    )
+
 vol_eff_plot.grid(which='major', linewidth=0.75)
 vol_eff_plot.grid(which='minor', linewidth=0.25)
 vol_eff_plot.set_xscale(opts.distance_scale)
 vol_eff_plot.set_yscale(opts.distance_scale)
-vol_eff_plot.set_xlim(min(phys_dist), max(phys_dist))
+vol_eff_plot.set_xlim(dist_bins[arg_minD], dist_bins[arg_maxD+1])
+vol_eff_plot.set_ylim(0, numpy.max(maxVT)*1.05)
 
 vol_eff_plot.set_xlabel( r'Distance to Outer Edge of Sphere $(Mpc)$' )
 vol_eff_plot.set_ylabel( r'Cumulative Sensitive 4-Volume $(Mpc^{3}yr)$' )
@@ -521,6 +528,9 @@ if opts.verbose:
 veff_far_fig = pyplot.figure()
 veff_far_plot = veff_far_fig.add_subplot(111)
 
+minVT = []
+maxVT = []
+
 for tag in db_tags:
     # the way to plot FAR=0 point on a log plot
     new_minFAR = 10**numpy.floor(numpy.log10( numpy.sort(volume_eff[tag]['wavg'].keys())[1] ))
@@ -529,26 +539,28 @@ for tag in db_tags:
         volume_eff[tag][key][new_minFAR] = eff_dict_far.pop(0.0)
 
     # Compute the total effective 4-Volume (VxT)
-    VT_wavg = cumVT_fgd[tag][-1] * numpy.array(volume_eff[tag]['wavg'].values())[:,-1]
-    VT_low = cumVT_fgd[tag][-1] * numpy.array(volume_eff[tag]['low'].values())[:,-1]
-    VT_high = cumVT_fgd[tag][-1] * numpy.array(volume_eff[tag]['high'].values())[:,-1]
+    VT_wavg = cumVT_fgd[tag][arg_maxD] * numpy.array(volume_eff[tag]['wavg'].values())[:,arg_maxD]
 
-    veff_far_plot.errorbar(
-        volume_eff[tag]['wavg'].keys(), VT_wavg,
-        yerr=(VT_low, VT_high),
+    veff_far_plot.plot(
+        volume_eff[tag]['wavg'].keys(),
+        VT_wavg,
         label=tag, linestyle='None',
         marker='.', markersize=10)
+
+    minVT.append(numpy.min(VT_wavg))
+    maxVT.append(numpy.max(VT_wavg))
 
 veff_far_plot.grid(which='major', linewidth=0.75)
 veff_far_plot.grid(which='minor', linewidth=0.25)
 veff_far_plot.set_xscale('log')
 veff_far_plot.set_yscale(opts.distance_scale)
 veff_far_plot.set_xlim(new_minFAR, 2.0*maxFAR)
+veff_far_plot.set_ylim(numpy.min(minVT)*0.90, numpy.max(maxVT)*1.10)
 
 veff_far_plot.set_xlabel( r'False Alarm Rate Threshold $(yr^{-1})$' )
 veff_far_plot.set_ylabel( r'Total Sensitive 4-Volume $(Mpc^{3}yr)$' )
-veff_far_plot.set_title( r'Asymptotic $V_{eff}T_{fgd}$ vs FAR @ Distance = %s$Mpc$' % phys_dist[-1] )
-veff_far_plot.legend(loc='lower right')
+veff_far_plot.set_title( r'Asymptotic $V_{eff}T_{fgd}$ vs FAR @ Distance = %s$Mpc$' % dist_bins[arg_maxD+1] )
+veff_far_plot.legend(loc='upper left')
 
 plot_name = opts.output_path + plot_basename % 'VT-FAR'
 pyplot.savefig(plot_name + '.' + opts.format)

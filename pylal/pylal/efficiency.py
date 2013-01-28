@@ -322,7 +322,11 @@ def detection_efficiency(
     return eff
 
 
-def rescale_dist(on_ifos, phys_dist, param_dist, dist_type, weight_dist):
+def rescale_dist(
+    on_ifos, dist_type, weight_dist,
+    phys_dist=None, param_dist=None
+    ):
+
     N_signals = int(1e6)
     trigTime = 0.0
 
@@ -374,7 +378,7 @@ def rescale_dist(on_ifos, phys_dist, param_dist, dist_type, weight_dist):
         else:
             N_d, _ = numpy.histogram(dist_dec, bins=param_dist)
     
-        prob_d_d[phys_dist[j+1]] = numpy.float_(N_d)/N_signals
+        prob_d_d[phys_dist[j+1]] = numpy.float_(N_d)/numpy.sum(N_d)
 
     return prob_d_d
 
