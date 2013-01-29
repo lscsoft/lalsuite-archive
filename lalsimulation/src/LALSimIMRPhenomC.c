@@ -471,7 +471,7 @@ int XLALSimIMRPhenomCGenerateFD(
       XLAL_ERROR(XLAL_EDOM);
   }
   else if (q > 4.0){
-      fprintf(stderr, "Warning: The model is only calibrated for m1/m2 <= 4.\n");
+      XLALPrintWarning("Warning: The model is only calibrated for m1/m2 <= 4.\n");
   }
 
   /* phenomenological parameters*/
