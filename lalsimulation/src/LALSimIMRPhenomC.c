@@ -454,11 +454,31 @@ int XLALSimIMRPhenomCGenerateFD(
   if (f_max < 0) XLAL_ERROR(XLAL_EDOM);
   if (distance <= 0) XLAL_ERROR(XLAL_EDOM);
 
+  /* If spins are above 0.9 or below -0.9, throw an error */
+  if (chi > 0.9 || chi < -0.9){
+      XLALPrintError("Spins outside the range [-0.9,0.9] are not supported\n");
+      XLAL_ERROR(XLAL_EDOM);
+  }
+
+  /* If mass ratio is above 4 and below 20, give a warning, and if it is above
+   * 20, throw an error */
+  REAL8 q = m1/m2;
+  if (q > 1.0)
+    q = 1./q;
+
+  if (q > 20.0){
+      XLALPrintError("Mass ratio is way outside the calibration range. m1/m2 should be < 20.\n");
+      XLAL_ERROR(XLAL_EDOM);
+  }
+  else if (q > 4.0){
+      fprintf(stderr, "Warning: The model is only calibrated for m1/m2 <= 4.\n");
+  }
+
   /* phenomenological parameters*/
   params = ComputeIMRPhenomCParams(m1, m2, chi);
   if (!params) XLAL_ERROR(XLAL_EFUNC);
   if (params->fCut <= f_min) {
-      XLALPrintError("fCut <= f_min");
+      XLALPrintError("(fCut = 0.15M) <= f_min\n");
       XLAL_ERROR(XLAL_EDOM);
   }
 
@@ -466,7 +486,7 @@ int XLALSimIMRPhenomCGenerateFD(
   f_max_prime = f_max ? f_max : params->fCut;
   f_max_prime = (f_max_prime > params->fCut) ? params->fCut : f_max_prime;
   if (f_max_prime <= f_min) {
-      XLALPrintError("f_max <= f_min");
+      XLALPrintError("f_max <= f_min\n");
       XLAL_ERROR(XLAL_EDOM);
   }
 
