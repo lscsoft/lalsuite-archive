@@ -110,8 +110,8 @@ BBHPhenomCParams;
  *
  */
 
-static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA( const REAL8 m1, const REAL8 m2, const REAL8 Xi );
-static BBHPhenomCParams *ComputeIMRPhenomCParams( const REAL8 m1, const REAL8 m2, const REAL8 Xi );
+static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA( const REAL8 m1, const REAL8 m2, const REAL8 chi );
+static BBHPhenomCParams *ComputeIMRPhenomCParams( const REAL8 m1, const REAL8 m2, const REAL8 chi );
 static REAL8 wPlus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params );
 static REAL8 wMinus( const REAL8 f, const REAL8 f0, const REAL8 d, const BBHPhenomCParams *params );
 
@@ -135,7 +135,7 @@ static int IMRPhenomCGenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 p
 static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
     const REAL8 m1, /**< mass of companion 1 (solar masses) */
     const REAL8 m2, /**< mass of companion 2 (solar masses) */
-    const REAL8 Xi) /**< Reduced spin of the binary, defined in the main paper */
+    const REAL8 chi) /**< Reduced spin of the binary, defined in the main paper */
 {
 
   BBHPhenomCParams *p = (BBHPhenomCParams *) XLALMalloc(sizeof(BBHPhenomCParams));
@@ -147,9 +147,9 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
   const REAL8 eta = m1 * m2 / (M * M);
   const REAL8 piM = M * LAL_PI * LAL_MTSUN_SI;
   const REAL8 eta2 = eta*eta;
-  const REAL8 Xisum = Xi + Xi;
-  const REAL8 Xiprod = Xi * Xi;
-  const REAL8 Xi2 = Xi * Xi;
+  const REAL8 chisum = chi + chi;
+  const REAL8 chiprod = chi * chi;
+  const REAL8 chi2 = chi * chi;
 
   // Store the total Mass of the system in seconds
   p->m_sec = M * LAL_MTSUN_SI;
@@ -158,58 +158,58 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
   /* Calculate the PN phasing terms */
   p->pfaN = 3.0/(128.0 * eta);
   p->pfa2 = (3715./756.) + (55.*eta/9.0);
-  p->pfa3 = -16.0*LAL_PI + (113./3.)*Xi - 38.*eta*Xisum/3.;
-  p->pfa4 = (152.93365/5.08032) - 50.*Xi2 + eta*(271.45/5.04 + 1.25*Xiprod) +
+  p->pfa3 = -16.0*LAL_PI + (113./3.)*chi - 38.*eta*chisum/3.;
+  p->pfa4 = (152.93365/5.08032) - 50.*chi2 + eta*(271.45/5.04 + 1.25*chiprod) +
         3085.*eta2/72.;
   p->pfa5 = LAL_PI*(386.45/7.56 - 65.*eta/9.) - 
-        Xi*(735.505/2.268 + 130.*eta/9.) + Xisum*(1285.0*eta/8.1 + 170.*eta2/9.) - 
-        10.*Xi2*Xi/3. + 10.*eta*Xi*Xiprod;
+        chi*(735.505/2.268 + 130.*eta/9.) + chisum*(1285.0*eta/8.1 + 170.*eta2/9.) - 
+        10.*chi2*chi/3. + 10.*eta*chi*chiprod;
   p->pfa6 = 11583.231236531/4.694215680 - 640.0*LAL_PI*LAL_PI/3. -
         6848.0*LAL_GAMMA/21. - 684.8*log(64.)/6.3 +
         eta*(2255.*LAL_PI*LAL_PI/12. - 15737.765635/3.048192) +
         76.055*eta2/1.728 - (127.825*eta2*eta/1.296) +
-        2920.*LAL_PI*Xi/3. - (175. - 1490.*eta)*Xi2/3. -
-        (1120.*LAL_PI/3. - 1085.*Xi/3.)*eta*Xisum +
-        (269.45*eta/3.36 - 2365.*eta2/6.)*Xiprod;
+        2920.*LAL_PI*chi/3. - (175. - 1490.*eta)*chi2/3. -
+        (1120.*LAL_PI/3. - 1085.*chi/3.)*eta*chisum +
+        (269.45*eta/3.36 - 2365.*eta2/6.)*chiprod;
 
   p->pfa6log = -6848./63.;
   
   p->pfa7 = LAL_PI*(770.96675/2.54016 + 378.515*eta/1.512 - 740.45*eta2/7.56) -
-        Xi*(20373.952415/3.048192 + 1509.35*eta/2.24 - 5786.95*eta2/4.32) +
-        Xisum*(4862.041225*eta/1.524096 + 1189.775*eta2/1.008 - 717.05*eta2*eta/2.16 - 830.*eta*Xi2/3. + 35.*eta2*Xiprod/3.) -
-        560.*LAL_PI*Xi2 + 20.*LAL_PI*eta*Xiprod +
-        Xi2*Xi*(945.55/1.68 - 85.*eta) + Xi*Xiprod*(396.65*eta/1.68 + 255.*eta2);
+        chi*(20373.952415/3.048192 + 1509.35*eta/2.24 - 5786.95*eta2/4.32) +
+        chisum*(4862.041225*eta/1.524096 + 1189.775*eta2/1.008 - 717.05*eta2*eta/2.16 - 830.*eta*chi2/3. + 35.*eta2*chiprod/3.) -
+        560.*LAL_PI*chi2 + 20.*LAL_PI*eta*chiprod +
+        chi2*chi*(945.55/1.68 - 85.*eta) + chi*chiprod*(396.65*eta/1.68 + 255.*eta2);
 
   /* Coefficients to calculate xdot, that comes in the fourier amplitude */
   p->xdotaN = 64.*eta/5.;
   p->xdota2 = -7.43/3.36 - 11.*eta/4.;
-  p->xdota3 = 4.*LAL_PI - 11.3*Xi/1.2 + 19.*eta*Xisum/6.;
-  p->xdota4 = 3.4103/1.8144 + 5*Xi2 + eta*(13.661/2.016 - Xiprod/8.) + 5.9*eta2/1.8;
-  p->xdota5 = -LAL_PI*(41.59/6.72 + 189.*eta/8.) - Xi*(31.571/1.008 - 116.5*eta/2.4) +
-          Xisum*(21.863*eta/1.008 - 79.*eta2/6.) - 3*Xi*Xi2/4. +
-          9.*eta*Xi*Xiprod/4.;
+  p->xdota3 = 4.*LAL_PI - 11.3*chi/1.2 + 19.*eta*chisum/6.;
+  p->xdota4 = 3.4103/1.8144 + 5*chi2 + eta*(13.661/2.016 - chiprod/8.) + 5.9*eta2/1.8;
+  p->xdota5 = -LAL_PI*(41.59/6.72 + 189.*eta/8.) - chi*(31.571/1.008 - 116.5*eta/2.4) +
+          chisum*(21.863*eta/1.008 - 79.*eta2/6.) - 3*chi*chi2/4. +
+          9.*eta*chi*chiprod/4.;
   p->xdota6 = 164.47322263/1.39708800 - 17.12*LAL_GAMMA/1.05 +
           16.*LAL_PI*LAL_PI/3 - 8.56*log(16.)/1.05 +
           eta*(45.1*LAL_PI*LAL_PI/4.8 - 561.98689/2.17728) +
-          5.41*eta2/8.96 - 5.605*eta*eta2/2.592 - 80.*LAL_PI*Xi/3. +
-          eta*Xisum*(20.*LAL_PI/3. - 113.5*Xi/3.6) +
-          Xi2*(64.153/1.008 - 45.7*eta/3.6) -
-          Xiprod*(7.87*eta/1.44 - 30.37*eta2/1.44);
+          5.41*eta2/8.96 - 5.605*eta*eta2/2.592 - 80.*LAL_PI*chi/3. +
+          eta*chisum*(20.*LAL_PI/3. - 113.5*chi/3.6) +
+          chi2*(64.153/1.008 - 45.7*eta/3.6) -
+          chiprod*(7.87*eta/1.44 - 30.37*eta2/1.44);
   
   p->xdota6log = -856./105.;
   
   p->xdota7 = -LAL_PI*(4.415/4.032 - 358.675*eta/6.048 - 91.495*eta2/1.512) -
-          Xi*(252.9407/2.7216 - 845.827*eta/6.048 + 415.51*eta2/8.64) +
-          Xisum*(158.0239*eta/5.4432 - 451.597*eta2/6.048 + 20.45*eta2*eta/4.32 + 107.*eta*Xi2/6. - 5.*eta2*Xiprod/24.) +
-          12.*LAL_PI*Xi2 - Xi2*Xi*(150.5/2.4 + eta/8.) +
-          Xi*Xiprod*(10.1*eta/2.4 + 3.*eta2/8.);
+          chi*(252.9407/2.7216 - 845.827*eta/6.048 + 415.51*eta2/8.64) +
+          chisum*(158.0239*eta/5.4432 - 451.597*eta2/6.048 + 20.45*eta2*eta/4.32 + 107.*eta*chi2/6. - 5.*eta2*chiprod/24.) +
+          12.*LAL_PI*chi2 - chi2*chi*(150.5/2.4 + eta/8.) +
+          chi*chiprod*(10.1*eta/2.4 + 3.*eta2/8.);
 
   /* Coefficients to compute the time-domain amplitude, which also enters the
    * fourier amplitude. */
   p->AN = 8.*eta*sqrt(LAL_PI/5.);
   p->A2 = (-107. + 55.*eta)/42.;
-  p->A3 = 2.*LAL_PI - 4.*Xi/3. + 2.*eta*Xisum/3.;
-  p->A4 = -2.173/1.512 - eta*(10.69/2.16 - 2.*Xiprod) + 2.047*eta2/1.512;
+  p->A3 = 2.*LAL_PI - 4.*chi/3. + 2.*eta*chisum/3.;
+  p->A4 = -2.173/1.512 - eta*(10.69/2.16 - 2.*chiprod) + 2.047*eta2/1.512;
   p->A5 = -10.7*LAL_PI/2.1 + eta*(3.4*LAL_PI/2.1);
   
   p->A5imag = -24.*eta;
@@ -237,11 +237,11 @@ static BBHPhenomCParams *ComputeIMRPhenomCParamsSPA(
 static BBHPhenomCParams *ComputeIMRPhenomCParams(
     const REAL8 m1, /**< mass of companion 1 (solar masses) */
     const REAL8 m2, /**< mass of companion 2 (solar masses) */
-    const REAL8 Xi) /**< Reduced spin of the binary, defined in the main paper */
+    const REAL8 chi) /**< Reduced spin of the binary, defined in the main paper */
 {
 
   BBHPhenomCParams *p = NULL;
-  p = ComputeIMRPhenomCParamsSPA( m1, m2, Xi );
+  p = ComputeIMRPhenomCParamsSPA( m1, m2, chi );
   if( !p )
     XLAL_ERROR_NULL(XLAL_EFUNC);
 
@@ -304,20 +304,20 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(
 
   /* Calculate alphas, gamma, deltas from Table II and Eq 5.14 of Main paper */
   REAL8 eta2 = eta*eta;
-  REAL8 Xi2 = Xi*Xi;
-  REAL8 etaXi = eta * Xi;
+  REAL8 chi2 = chi*chi;
+  REAL8 etachi = eta * chi;
 
-  p->a1 = z101 * Xi + z102 * Xi2 + z111 * eta * Xi + z110 * eta + z120 * eta2;
-  p->a2 = z201 * Xi + z202 * Xi2 + z211 * eta * Xi + z210 * eta + z220 * eta2;
-  p->a3 = z301 * Xi + z302 * Xi2 + z311 * eta * Xi + z310 * eta + z320 * eta2;
-  p->a4 = z401 * Xi + z402 * Xi2 + z411 * eta * Xi + z410 * eta + z420 * eta2;
-  p->a5 = z501 * Xi + z502 * Xi2 + z511 * eta * Xi + z510 * eta + z520 * eta2;
-  p->a6 = z601 * Xi + z602 * Xi2 + z611 * eta * Xi + z610 * eta + z620 * eta2;
+  p->a1 = z101 * chi + z102 * chi2 + z111 * eta * chi + z110 * eta + z120 * eta2;
+  p->a2 = z201 * chi + z202 * chi2 + z211 * eta * chi + z210 * eta + z220 * eta2;
+  p->a3 = z301 * chi + z302 * chi2 + z311 * eta * chi + z310 * eta + z320 * eta2;
+  p->a4 = z401 * chi + z402 * chi2 + z411 * eta * chi + z410 * eta + z420 * eta2;
+  p->a5 = z501 * chi + z502 * chi2 + z511 * eta * chi + z510 * eta + z520 * eta2;
+  p->a6 = z601 * chi + z602 * chi2 + z611 * eta * chi + z610 * eta + z620 * eta2;
 
-  p->g1 = z701 * Xi + z702 * Xi2 + z711 * eta * Xi + z710 * eta + z720 * eta2;
+  p->g1 = z701 * chi + z702 * chi2 + z711 * eta * chi + z710 * eta + z720 * eta2;
 
-  p->del1 = z801 * Xi + z802 * Xi2 + z811 * eta * Xi + z810 * eta + z820 * eta2;
-  p->del2 = z901 * Xi + z902 * Xi2 + z911 * eta * Xi + z910 * eta + z920 * eta2;
+  p->del1 = z801 * chi + z802 * chi2 + z811 * eta * chi + z810 * eta + z820 * eta2;
+  p->del2 = z901 * chi + z902 * chi2 + z911 * eta * chi + z910 * eta + z920 * eta2;
 
   /* Get the Spin of the final BH */
   REAL8 s4 = -0.129;
@@ -325,7 +325,7 @@ static BBHPhenomCParams *ComputeIMRPhenomCParams(
   REAL8 t0 = -2.686;
   REAL8 t2 = -3.454;
   REAL8 t3 = 2.353;
-  REAL8 finspin = Xi + s4*Xi*etaXi + s5*etaXi*eta + t0*etaXi + 2.*sqrt(3.)*eta + 
+  REAL8 finspin = chi + s4*chi*etachi + s5*etachi*eta + t0*etachi + 2.*sqrt(3.)*eta + 
     t2*eta2 + t3*eta2*eta;
 
   if( fabs(finspin) > 1.0 )
