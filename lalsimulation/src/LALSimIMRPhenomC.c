@@ -587,28 +587,28 @@ static int IMRPhenomCGenerateAmpPhase(
     params->xdota7 * v7;
   xdot *= (params->xdotaN * v10);
 
-  if( xdot < 0.0 && f < params->fRingDown )
+  if( xdot < 0.0 && f < params->f1 )
   {
-    XLALPrintError("omegaDot < 0, while frequency is below RingDown freq.");
+    XLALPrintError("omegaDot < 0, while frequency is below SPA-PM matching freq.");
     XLAL_ERROR( XLAL_EDOM );
   }
     
   REAL8 aPM = 0.0;
-  if( xdot > 0.0 )
-  {
-    REAL8 omgdot = 1.5*v*xdot;
-    REAL8 ampfac = sqrt(LAL_PI/omgdot);
+  
+  /* Following Emma's code, take only the absolute value of omegaDot, when
+   * computing the amplitude */
+  REAL8 omgdot = 1.5*v*xdot;
+  REAL8 ampfac = sqrt(fabs(LAL_PI/omgdot));
 
-    /* Get the real and imaginary part of the PM amplitude */
-    REAL8 AmpPMre = ampfac * params->AN * v2 * (1. + params->A2*v2 + params->A3*v3 + 
-        params->A4*v4 + params->A5*v5 + (params->A6 + params->A6log*log(v2))*v6);
-    REAL8 AmpPMim = ampfac * params->AN * v2 * (params->A5imag * v5 + params->A6imag * v6);
+  /* Get the real and imaginary part of the PM amplitude */
+  REAL8 AmpPMre = ampfac * params->AN * v2 * (1. + params->A2*v2 + params->A3*v3 + 
+      params->A4*v4 + params->A5*v5 + (params->A6 + params->A6log*log(v2))*v6);
+  REAL8 AmpPMim = ampfac * params->AN * v2 * (params->A5imag * v5 + params->A6imag * v6);
    
-    /* Following Emma's code, we take the absolute part of the complex SPA
-    * amplitude, and keep that as the amplitude */
-    aPM = sqrt( AmpPMre * AmpPMre + AmpPMim * AmpPMim );
-  }
-
+  /* Following Emma's code, we take the absolute part of the complex SPA
+   * amplitude, and keep that as the amplitude */
+  aPM = sqrt( AmpPMre * AmpPMre + AmpPMim * AmpPMim );
+  
   aPM += (params->g1 * pow(Mf,(5./6.)));
 
   /* The Ring-down aamplitude */
