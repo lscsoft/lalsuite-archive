@@ -686,7 +686,6 @@ void LALInferenceSingleAdaptProposal(LALInferenceRunState *runState, LALInferenc
     }
     
     *((REAL8 *)param->value) += gsl_ran_ugaussian(rng) * *sigma * sqrtT;
-
     LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
 
     /* Set the log of the proposal ratio to zero, since this is a
@@ -923,7 +922,7 @@ void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALIn
     if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT) {
       REAL8 tmp = *((REAL8 *)proposeIterator->value);
       REAL8 inc = jumpSize*gsl_matrix_get(eigenvectors, j, i);
-      
+      //printf("proposal eigen --> %s:%lf\n",proposeIterator->name,*((REAL8 *)proposeIterator->value));
       tmp += inc;
       
       memcpy(proposeIterator->value, &tmp, sizeof(REAL8));
@@ -1048,7 +1047,7 @@ void LALInferenceDifferentialEvolutionNames(LALInferenceRunState *runState,
 void LALInferenceDifferentialEvolutionMasses(LALInferenceRunState *runState, LALInferenceVariables *pp) {
   const char *propName = differentialEvolutionMassesName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"chirpmass", "asym_massratio", NULL};
+  const char *names[] = {"chirpmass", "asym_massratio", "redshift", NULL};
   if (LALInferenceCheckVariable(pp, "massratio")) {
     names[1] = "massratio";
   } else if (LALInferenceCheckVariable(pp, "m1")) {
@@ -1068,7 +1067,7 @@ void LALInferenceDifferentialEvolutionSpins(LALInferenceRunState *runState, LALI
 void LALInferenceDifferentialEvolutionExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) {
   const char *propName = differentialEvolutionExtrinsicName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  const char *names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "time", NULL};
+  const char *names[] = {"rightascension", "declination", "polarisation", "inclination", "distance", "phase", "time", "h0", "om", "ol", "ok", NULL};
   LALInferenceDifferentialEvolutionNames(runState, pp, names);
 }
 

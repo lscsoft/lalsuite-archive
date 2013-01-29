@@ -1962,6 +1962,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     double crossCoef = cosi;
     
     if(LALInferenceCheckVariable(IFOdata->modelParams, "redshift")) XLALSimInspiralAddTestGRParam(&nonGRparams,"redshift",redshift);
+
     if(previous_m1 != m1 || previous_m2 != m2 || previous_spin1z != spin1z || previous_spin2z != spin2z || previous_phi0 != phi0 || previous_redshift !=redshift){
       XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&htilde, phi0, deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI,
 						   spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, f_max, distance,

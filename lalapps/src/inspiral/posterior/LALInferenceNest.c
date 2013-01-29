@@ -301,7 +301,8 @@ Nested sampling arguments:\n\
             if (!strcmp(ppt->value,"SkyLoc")) runState->prior = &LALInferenceInspiralSkyLocPrior;
         }
         else{
-            runState->prior = &LALInferenceInspiralPriorNormalised;
+//            runState->prior = &LALInferenceInspiralPriorNormalised;
+            runState->prior = &LALInferenceInspiralPrior;
         }
 	
 
@@ -864,8 +865,7 @@ Parameter arguments:\n\
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin2",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t);
 		}
 	}
-        if(LALInferenceGetProcParamVal(commandLine,"--cosmology")) enable_cosmology=1;
-        if (enable_cosmology) 
+        if(LALInferenceGetProcParamVal(commandLine,"--cosmology")) 
         {
             tmpVal = 0.1;
             REAL8 minz = 0.0, maxz = 6.0, maxh = 1.0, minh =0.5, minom =0.044, maxom = 1.0, minol= 0.0, maxol =1.0, minok =-1.0, maxok = 1.0;
@@ -877,10 +877,9 @@ Parameter arguments:\n\
             LALInferenceAddMinMaxPrior(priorArgs, "h0",     &minh, &maxh,   LALINFERENCE_REAL8_t);
             LALInferenceAddVariable(currentParams, "om",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
             LALInferenceAddMinMaxPrior(priorArgs, "om",     &minom, &maxom,   LALINFERENCE_REAL8_t);
-            ppt=LALInferenceGetProcParamVal(commandLine,"--fix-omegak");
-            LALInferenceAddVariable(currentParams, "ok",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+            LALInferenceAddVariable(currentParams, "ok",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
             LALInferenceAddMinMaxPrior(priorArgs, "ok",     &minok, &maxok,   LALINFERENCE_REAL8_t);
-            tmpVal = 1.0- *(REAL8*) LALInferenceGetVariable(currentParams,"om")-*(REAL8*) LALInferenceGetVariable(currentParams,"ok");;
+            tmpVal = 1.0- *(REAL8*) LALInferenceGetVariable(currentParams,"om")-*(REAL8*) LALInferenceGetVariable(currentParams,"ok");
             LALInferenceAddVariable(currentParams, "ol",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
             LALInferenceAddMinMaxPrior(priorArgs, "ol",     &minol, &maxol,   LALINFERENCE_REAL8_t);
             REAL8 Dmin=exp(logDmin);
