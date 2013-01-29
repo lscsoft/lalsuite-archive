@@ -233,7 +233,7 @@ class upper_limit(object):
     '''Determine distance bins to use for the calculation.'''
     self.dbins = {}
     for instr in self.instruments[:]:
-      f,m = self.get_injections(instr)
+      f,m = self.get_injections(instr, float('inf'))
       found_dist = numpy.array([l.distance for l in f])
       if len(f) == 0:
         print >>sys.stderr,"No injections found in %s time... skipping."%(instr,)
@@ -764,7 +764,7 @@ if opts.volume_vs_far:
 
             pyplot.figure(1)
             pyplot.axvline(UL.far[instr],ls='--',c='k')
-            tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s" % ("".join(sorted(list(instr))),bin_type.upper())
+            tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
             pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
             pyplot.ylabel("Mean Sensitive 4-Volume ($Mpc^3 yr$)")
             pyplot.semilogx()
@@ -777,7 +777,7 @@ if opts.volume_vs_far:
 
             pyplot.figure(2)
             pyplot.axvline(UL.far[instr],ls='--',c='k')
-            tag = "%s-RANGE_VS_FAR_BINNED_BY_%s" % ("".join(sorted(list(instr))),bin_type.upper())
+            tag = "%s-RANGE_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
             pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
             pyplot.ylabel("Mean Sensitive Distance ($Mpc$)")
             pyplot.semilogx()
