@@ -1,3 +1,15 @@
+ligo-lars (1.1.0.1-1) unstable; urgency=low
+
+  * Source 3.0 format for 1.1.0-1
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 15 Aug 2012 09:30:00 +0200
+
+ligo-lars (1.1.0-3) unstable; urgency=low
+
+  * Source 3.0 format
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 26 Jul 2012 14:30:00 +0200
+
 ligo-lars (1.1.0-2) unstable; urgency=low
 
   * Bad dependency list.  glue-segments should've been python-glue-segments

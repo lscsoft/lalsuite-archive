@@ -261,10 +261,7 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
   xmldoc.childNodes[-1].appendChild(oldSearchSummTable)
 
   # construct new xml file names
-  allsegs = cache.to_segmentlistdict()[ifoTag].coalesce()
-  allsegs.sort(key=lambda seg: (seg[0],seg[1]))
-  start   = allsegs[0][0]
-  end     = allsegs[-1][-1]
+  start, end = cache.to_segmentlistdict().extent_all()
   if grbTag:
     userTag = '%s_GRB%s' % (userTag, grbTag)
 

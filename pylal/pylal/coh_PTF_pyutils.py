@@ -41,7 +41,9 @@ def new_snr_chisq(snr, new_snr, chisq_dof, q=4.0, n=3.0):
     return chisq_dof * (2*chisqnorm - 1)**(n/q)
 
 
-def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6)):
+def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), snr_threshold=6.,\
+                sngl_snr_threshold=4., chisq_threshold = None,\
+                null_grad_thresh=20., null_grad_val = 1./5.):
     """
     Calculate BestNR (coh_PTF detection statistic) through signal based vetoes:
 
@@ -55,10 +57,15 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6)):
     """
 
     snr = trig.snr
+    if not chisq_threshold:
+      chisq_threshold = snr_threshold
 
     # coherent SNR and null SNR cut
-    if (snr < 6.) or (trig.get_new_snr(q/n*3, 'bank_chisq') < 6.) or\
-         (trig.get_new_snr(q/n*3, 'cont_chisq') < 6.):
+    if (snr < snr_threshold) \
+         or (trig.get_new_snr(index=q, nhigh=n, column='bank_chisq')\
+                          < chisq_threshold) \
+         or (trig.get_new_snr(index=q, nhigh=n, column='cont_chisq')\
+                          < chisq_threshold):
         return 0
 
     # define IFOs for sngl cut
@@ -82,65 +89,60 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6)):
             i = ifos[i].lower()
         else:
             i = ifos[i][0].lower()
-        if getattr(trig, 'snr_%s' % i) <4:
+        if getattr(trig, 'snr_%s' % i) < sngl_snr_threshold:
             return 0
 
     # get chisq reduced (new) SNR
-    bestNR = trig.get_new_snr(q/n*3, 'chisq')
+    bestNR = trig.get_bestnr(index=1, nhigh=n, \
+             null_snr_threshold=null_thresh[0], \
+             null_grad_thresh=null_grad_thresh, null_grad_val = null_grad_val)
 
-    # get null reduced SNR
-    if len(ifos)<3:
-        return bestNR
-
-    null_snr = trig.get_null_snr()
-
-    if snr > 20:
-        null_thresh = numpy.array(null_thresh)
-        null_thresh += (snr - 20)*1./5.
-    if null_snr > null_thresh[-1]:
-        return 0
-    elif null_snr > null_thresh[0]:
-        bestNR *= 1 / (null_snr - null_thresh[0] + 1)
+    # If we got this far, the bestNR is non-zero. Verify that chisq actually
+    # was calculated for the trigger
+    if trig.chisq == 0:
+      # Some stuff for debugging
+      print >> sys.stderr,\
+          "Chisq not calculated for trigger with end time and snr:"
+      print >> sys.stderr,  trig.get_end(),trig.snr
+      raise ValueError("Chisq has not been calculated for trigger.")
 
     return bestNR
 
-def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20):
+def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20,\
+                       new_snr_thresh=6.0, new_snrs=[5.5,6,6.5,7,8,9,10,11],\
+                       null_grad_val = 0.2, chisq_dof = 60,\
+                       bank_chisq_dof = 40, cont_chisq_dof = 160):
     """Generate the plot contours for chisq variable plots
     """
     # initialise chisq contour values and colours
-    cont_vals = [5.5,6,6.5,7,8,9,10,11]
-    num_vals  = len(cont_vals)
-    colors    = ['y-','k-','y-','y-','y-','y-','y-','y-']
+    num_vals  = len(new_snrs)
+    colors = ["k-" if snr == new_snr_thresh else
+              "y-" if snr == int(snr) else
+              "y--" for snr in new_snrs]
 
     # get SNR values for contours
-    snr_low_vals  = numpy.arange(6,30,0.1)
+    snr_low_vals  = numpy.arange(4,30,0.1)
     snr_high_vals = numpy.arange(30,500,1)
     snr_vals      = numpy.asarray(list(snr_low_vals) + list(snr_high_vals))
 
     # initialise contours
-    bank_conts = numpy.zeros([len(cont_vals),len(snr_vals)],
+    bank_conts = numpy.zeros([len(new_snrs),len(snr_vals)],
                              dtype=numpy.float64)
-    auto_conts = numpy.zeros([len(cont_vals),len(snr_vals)],
+    auto_conts = numpy.zeros([len(new_snrs),len(snr_vals)],
                              dtype=numpy.float64)
-    chi_conts = numpy.zeros([len(cont_vals),len(snr_vals)],
+    chi_conts = numpy.zeros([len(new_snrs),len(snr_vals)],
                             dtype=numpy.float64)
     null_cont  = []
 
-    # set chisq dof
-    # FIXME should be done with variables
-    chisq_dof = 60
-    bank_chisq_dof = 40
-    cont_chisq_dof = 160
-
     # loop over each and calculate chisq variable needed for SNR contour
     for j,snr in enumerate(snr_vals):
-        for i,new_snr in enumerate(cont_vals):
+        for i,new_snr in enumerate(new_snrs):
             bank_conts[i][j] = new_snr_chisq(snr, new_snr, bank_chisq_dof, q, n)
             auto_conts[i][j] = new_snr_chisq(snr, new_snr, cont_chisq_dof, q, n)
             chi_conts[i][j]  = new_snr_chisq(snr, new_snr, chisq_dof, q, n)
 
         if snr > null_grad_snr:
-            null_cont.append(null_thresh + (snr-null_grad_snr)*1./5.)
+            null_cont.append(null_thresh + (snr-null_grad_snr)*null_grad_val)
         else:
             null_cont.append(null_thresh)
 
@@ -153,9 +155,14 @@ def plot_contours( axis, snr_vals, contours, colors ):
         plot_vals_y = []
         for j in range(len(snr_vals)):
             if contours[i][j] > 1E-15:
+                # THIS IS HACKY, but I couldn't think of a better way to
+                # ensure that the vertical spike is shown on the plots
+                if not plot_vals_x:
+                  plot_vals_x.append(snr_vals[j])
+                  plot_vals_y.append(0.1)
                 plot_vals_x.append(snr_vals[j])
                 plot_vals_y.append(contours[i][j])
-    axis.plot(plot_vals_x,plot_vals_y,colors[i])
+        axis.plot(plot_vals_x,plot_vals_y,colors[i])
 
 
 def readSegFiles(segdir):
@@ -481,7 +488,8 @@ def apply_sngl_snr_veto(mi_table, snrs=[4.0, 4.0], return_index=False):
         out.extend(numpy.asarray(mi_table)[keep])
         return out
 
-def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
+def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, grad=0.2,\
+                        return_index=False):
     """Veto events in a MultiInspiralTable based on their null SNR.
 
     @param mi_table
@@ -491,6 +499,8 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
     @param snr
         the value of coherent SNR on above which to grade the null SNR
         threshold
+    @param grad
+        the rate at which to increase the null SNR threshold above snr
     @param return_index
         boolean to return the index array of non-vetoed elements rather
         than a new table containing the elements themselves
@@ -504,7 +514,7 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
     # apply gradient to threshold for high SNR
     null_thresh = numpy.ones(len(mi_table)) * null_snr
     grade = mi_snr >= snr
-    null_thresh[grade] += (mi_snr[grade] - snr)/5.0
+    null_thresh[grade] += (mi_snr[grade] - snr)*5.0
     # apply veto
     keep = mi_null_snr < null_thresh
     if return_index:
@@ -514,7 +524,7 @@ def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, return_index=False):
         out.extend(numpy.asarray(mi_table)[keep])
         return out
 
-def veto(self, seglist, time_slide_table=None, block=2048):
+def veto(self, seglist, time_slide_table=None):
     """Return a MultiInspiralTable with those row from self not lying
     inside (i.e. not vetoed by) any elements of seglist.
 
@@ -529,12 +539,6 @@ def veto(self, seglist, time_slide_table=None, block=2048):
             idx = str(id_).split(":")[-1]
             slides["multi_inspiral:time_slide_id:%s" % idx] = vector
             del slides[id_]
-        # remove duplicates
-        slide_list = slides.items()
-        for (id_, vector) in slides.iteritems():
-            for key,val in vector.iteritems():
-                vector[key] = val % block
-            slides[id_] = vector
         for row in self:
             ifos = row.get_ifos()
             for i,ifo in enumerate(ifos):
