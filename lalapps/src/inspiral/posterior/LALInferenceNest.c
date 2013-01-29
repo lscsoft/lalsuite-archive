@@ -877,11 +877,26 @@ Parameter arguments:\n\
             LALInferenceAddMinMaxPrior(priorArgs, "h0",     &minh, &maxh,   LALINFERENCE_REAL8_t);
             LALInferenceAddVariable(currentParams, "om",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
             LALInferenceAddMinMaxPrior(priorArgs, "om",     &minom, &maxom,   LALINFERENCE_REAL8_t);
-            LALInferenceAddVariable(currentParams, "ok",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
-            LALInferenceAddMinMaxPrior(priorArgs, "ok",     &minok, &maxok,   LALINFERENCE_REAL8_t);
-            tmpVal = 1.0- *(REAL8*) LALInferenceGetVariable(currentParams,"om")-*(REAL8*) LALInferenceGetVariable(currentParams,"ok");
-            LALInferenceAddVariable(currentParams, "ol",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-            LALInferenceAddMinMaxPrior(priorArgs, "ol",     &minol, &maxol,   LALINFERENCE_REAL8_t);
+            if(LALInferenceGetProcParamVal(commandLine,"--fix-ok"))
+            { 
+                tmpVal = 0.0;
+                LALInferenceAddVariable(currentParams, "ok",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+                LALInferenceAddMinMaxPrior(priorArgs, "ok",     &minok, &maxok,   LALINFERENCE_REAL8_t);
+                tmpVal = 1.0- *(REAL8*) LALInferenceGetVariable(currentParams,"om")-*(REAL8*) LALInferenceGetVariable(currentParams,"ok");
+                LALInferenceAddVariable(currentParams, "ol",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
+                LALInferenceAddMinMaxPrior(priorArgs, "ol",     &minol, &maxol,   LALINFERENCE_REAL8_t);
+            }
+            else 
+            {
+                tmpVal = 0.5;
+                LALInferenceAddVariable(currentParams, "ol",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+                LALInferenceAddMinMaxPrior(priorArgs, "ol",     &minol, &maxol,   LALINFERENCE_REAL8_t);
+                tmpVal = 1.0- *(REAL8*) LALInferenceGetVariable(currentParams,"om")-*(REAL8*) LALInferenceGetVariable(currentParams,"ol");
+                LALInferenceAddVariable(currentParams, "ok",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_OUTPUT);
+                LALInferenceAddMinMaxPrior(priorArgs, "ok",     &minok, &maxok,   LALINFERENCE_REAL8_t);
+            }
+
+            
             REAL8 Dmin=exp(logDmin);
             REAL8 Dmax=exp(logDmax);
             tmpVal=Dmin+(Dmax-Dmin)/2.;

@@ -203,24 +203,12 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     if(LALInferenceCheckVariable(currentParams, "ok"))  ok = *(REAL8*) LALInferenceGetVariable(currentParams, "ok");
     if(LALInferenceCheckVariable(currentParams, "om")) om	 = *(REAL8*) LALInferenceGetVariable(currentParams, "om");
     if(LALInferenceCheckVariable(currentParams, "ol")) ol	 = *(REAL8*) LALInferenceGetVariable(currentParams, "ol");
-    LALInferenceParamVaryType type_ok;
-    type_ok=LALInferenceGetVariableVaryType(currentParams,"ok");
-    if(type_ok==LALINFERENCE_PARAM_FIXED)
-    {
-            ol = 1.0-ok-om;
-            LALInferenceSetVariable(currentParams,"ol",&ol);
-    }
-    else 
-    {
-            ok=1.0-om-ol;
-            LALInferenceSetVariable(currentParams,"ok",&ok);
-    }
-     LALCosmologicalParameters *omega=XLALFillCosmologicalParameters(h0,om,ok,ol,-1.0,0.0,0.0);
-     distMpc = XLALLuminosityDistance(omega,redshift);
-     REAL8 logDistMpc = log(distMpc);
-     if(logDistFlag) LALInferenceSetVariable(currentParams,"logdistance",&logDistMpc);
-     else  LALInferenceSetVariable(currentParams,"distance",&distMpc);      /* Mpc         */
-     free(omega);
+    LALCosmologicalParameters *omega=XLALFillCosmologicalParameters(h0,om,ok,ol,-1.0,0.0,0.0);
+    distMpc = XLALLuminosityDistance(omega,redshift);
+    REAL8 logDistMpc = log(distMpc);
+    if(logDistFlag) LALInferenceSetVariable(currentParams,"logdistance",&logDistMpc);
+    else  LALInferenceSetVariable(currentParams,"distance",&distMpc);      /* Mpc         */
+    free(omega);
   }
   else 
   {
