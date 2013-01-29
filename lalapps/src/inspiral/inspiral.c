@@ -1268,7 +1268,7 @@ int main( int argc, char *argv[] )
         glitchInjectionFile,
         gpsStartTime.gpsSeconds - glitchInjSafety,
         gpsEndTime.gpsSeconds + glitchInjSafety );
-
+    XLALSimGlitchInject(&strainChan, glitchInjections);
   }
 
   if ( injectionFile )
