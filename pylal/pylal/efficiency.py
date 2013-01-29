@@ -203,7 +203,7 @@ def found_injections(
 
     connection.create_function('end_time_with_ns', 2, end_time_with_ns)
 
-    sql_params_dict = {}
+    sql_params_dict = {'ifos': on_ifos}
     sqlquery = """
     SELECT DISTINCT
         sim_inspiral.simulation_id,
@@ -216,7 +216,6 @@ def found_injections(
     elif dist_type == "decisive_distance":
         connection.create_function('decisive_dist_func', 6, decisive_dist)
         sql_params_dict['weight_dist'] = weight_dist
-        sql_params_dict['ifos'] = on_ifos
         sqlquery += """
             decisive_dist_func(
                 eff_dist_h, eff_dist_l, eff_dist_v,
@@ -236,19 +235,45 @@ def found_injections(
             process_params.process_id == sim_inspiral.process_id)
     WHERE
         coincs.table_name = "coinc_event"
-        AND sims.table_name = "sim_inspiral" """
+        AND sims.table_name = "sim_inspiral"
+        AND coinc_event.instruments = :ifos """
 
     if tag != 'ALL_INJ':
         sqlquery += """
-        AND coinc_event.instruments = :ifos
         AND process_params.value = :usertag
         """
-        sql_params_dict["ifos"] = on_ifos
         sql_params_dict["tag"] = tag
 
     injections = set(connection.execute(sqlquery, sql_params_dict).fetchall())
-    injections = sorted(injections, key=itemgetter(3), reverse=True)
 
+    # Get foreground coinc events
+    sqlquery = """
+        SELECT 
+            end_time_with_ns(end_time, end_time_ns) AS trig_time,
+            snr AS trig_snr
+        FROM coinc_inspiral AS ci
+            JOIN experiment_map AS em, experiment_summary AS es ON (
+                ci.coinc_event_id == em.coinc_event_id
+                AND em.experiment_summ_id == es.experiment_summ_id )
+        WHERE es.datatype == 'all_data';
+    """
+    foreground = connection.executescript(sqlquery).fetchall()
+
+    # Remove injection coincs that correspond closely in time and snr to foreground coincs 
+    inj_snr = numpy.array([inj[3] for inj in injections])
+    inj_time = numpy.array([inj[1] for inj in injections])
+    idx2remove = []
+    for time, snr in foreground:
+        indices =  numpy.where(numpy.abs(inj_time - time) < 1.0)
+        if len(indices[0]):
+            idx = numpy.where(inj_snr[indices]/snr < 1.25)
+            if len(idx[0]):
+                idx2remove += list(indices[idx[0]])
+    for i in sorted(idx2remove, reverse=True):
+        del injections[i]
+    
+    # Sort found injections by FAR (largest to smallest)
+    injections = sorted(injections, key=itemgetter(3), reverse=True)
     found_inj = [inj[0:3] for inj in injections]
     inj_fars = [inj[3] for inj in injections]
     inj_snrs = [inj[4] for inj in injections]
