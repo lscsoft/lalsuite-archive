@@ -467,7 +467,7 @@ int XLALSimIMRPhenomCGenerateFD(
     q = 1./q;
 
   if (q > 20.0){
-      XLALPrintError("Mass ratio is way outside the calibration range. m1/m2 should be < 20.\n");
+      XLALPrintError("Mass ratio is way outside the calibration range. m1/m2 should be <= 20.\n");
       XLAL_ERROR(XLAL_EDOM);
   }
   else if (q > 4.0){
