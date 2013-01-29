@@ -70,6 +70,8 @@ def parse_command_line():
   #chisq  related
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
       help="make a plot of snr vs chisq" )
+  parser.add_option("-a","--snr-chi",action="store_true",default=False,\
+      help="make a plot of snr vs aligned spin chi" )
   parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
       help="make a log plot of snr vs chisq" )
   parser.add_option("-B","--chisq-threshold",action="store",type="float",\
@@ -93,6 +95,8 @@ def parse_command_line():
       help="cumulative histogram of the snr" )
   parser.add_option("-F","--hist-snr",action="store_true",default=False,\
       help="histogram of the snr" )
+  parser.add_option("-F","--hist-chi",action="store_true",default=False,\
+      help="histogram of the chi" )
   parser.add_option("-g","--norm-hist-snr",action="store_true",default=False,\
       help="normalized cumulative histogram of the snr" )
 
@@ -377,6 +381,30 @@ if opts.snr_chisq is True:
     if not opts.show_plot:
       close()
 
+# plot of snr vs chisq
+if opts.snr_chi is True:
+  ifo = inspTriggers[0].ifo
+  plot_sym=ifocolors[ifo]+'x'
+  col_a = viz.readcol(inspTriggers, 'chi', ifo )
+  if col_a[0]!=0:
+    text = "SNR versus chi (linear)"
+    InspiralUtils.message(opts, "plotting..."+text)
+    figure_number += 1
+    figure(figure_number)
+    if opts.chisq_threshold:
+      plot(snr_range, chisq_thresh)
+      hold(True)
+    viz.plot_a_v_b(inspTriggers,'snr','chi','linear',plot_sym)
+    xlabel('SNR') 
+    if opts.enable_output is True: 
+      fname = InspiralUtils.set_figure_name(opts, "snr_vs_chi_linear")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
+    if not opts.show_plot:
+      close()
+
+
 ###################################
 # plot of snr vs chisq
 try:
@@ -430,6 +458,34 @@ if opts.cum_hist_snr is True:
     fnameList.append(fname)
     tagList.append(text)
 
+
+
+###################################
+# histogram of chi
+if opts.hist_chi is True:
+
+  col = 'chi'
+
+  text = "%s histogram"%col.upper()
+  InspiralUtils.message(opts, "plotting..."+text)
+  ifo = inspTriggers[0].ifo
+  symcolor=ifocolors[ifo]
+  figure_number += 1
+  figure(figure_number)
+
+  xlimits = [-1,1]
+  ax = subplot(111)
+  ax.set_xscale('linear')
+
+  viz.histcol(inspTriggers,col,opts.nbins,None, xlimit=xlimits, color=symcolor, plot_type=plot_type)
+  xlabel(col.upper())
+
+  ylabel('Number')
+  if opts.enable_output is True: 
+    fname = InspiralUtils.set_figure_name(opts, "%s_histogram"%col)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
 
 
 ###################################
