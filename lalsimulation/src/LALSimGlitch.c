@@ -36,6 +36,7 @@
 #include <lal/LALComplex.h>
 #include <lal/LALConstants.h>
 #include <lal/LIGOLwXMLBurstRead.h>
+#include <lal/LIGOMetadataTables.h>
 #include <lal/FrequencySeries.h>
 #include <lal/Sequence.h>
 #include <lal/TimeFreqFFT.h>
@@ -46,6 +47,8 @@
 #include "check_series_macros.h"
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
+
+unsigned int i, j;
 
 /*
  * ============================================================================
@@ -60,10 +63,67 @@ int XLALSimGlitchInject(
     SimBurst *glitchInjections
 )
 {
-    fprintf(stdout, "Data length is %u\n", time_series->data->length);
-    fprintf(stdout, "First entry is %f\n", time_series->data->data[0]);
-
+  REAL8 timeInj, timeData, lag, duration_sampled;
+  SimBurst *Dummy;
+  REAL8TimeSeries *h_plus, *h_cross;
+  gsl_rng * rng;
+  /*    fprintf(stdout, "Data length is %u\n", time_series->data->length);
+      fprintf(stdout, "First entry is %e\n", time_series->data->data[0]);
     XLALSimGlitchPrintSimBurstTable(glitchInjections);
+  */  timeData = (REAL8)time_series->epoch.gpsSeconds + 1.0e-9 * ((REAL8)time_series->epoch.gpsNanoSeconds);
+    //  fprintf(stdout, "Data GPS time is %f\n", timeData);
+    for(Dummy = glitchInjections; Dummy; Dummy = Dummy->next)
+      {	
+	timeInj = Dummy->time_geocent_gmst;
+	lag = (timeInj - timeData) / time_series->deltaT;
+	duration_sampled = Dummy->duration / time_series->deltaT;
+	//	fprintf(stdout, "timeInj = %d\t", (int)timeInj);
+	if(!strcmp(Dummy->waveform, "SineGaussian"))
+	    {
+	      //    fprintf(stdout, "This is a Sine Gaussian injection\n");
+	      XLALSimBurstSineGaussian(
+					&h_plus,
+					&h_cross,
+					Dummy->q, // Q parameter
+					Dummy->frequency, // centre_frequency
+					Dummy->hrss, // hrss
+					1, // eccentricity
+					0, // polarization, not relevant when eccent = 0
+					time_series->deltaT // delta_t
+					);
+	      // fprintf(stdout, "Frequency = %f\t hrss = %e\n\n", Dummy->frequency, Dummy->hrss);
+	      for(i=0; i<h_plus->data->length; i++)
+		{
+		  j = lag - h_plus->data->length / 2 + i;
+		  if(j > time_series->data->length) continue;
+		  time_series->data->data[j] += h_plus->data->data[i];
+		  // fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);
+		} 
+	    }
+	else if(!strcmp(Dummy->waveform, "WhiteNoiseBurst"))
+	  {
+	    // fprintf(stdout, "This is a White Noise injection\n");
+	    rng = gsl_rng_alloc (gsl_rng_taus);
+	    XLALGenerateBandAndTimeLimitedWhiteNoiseBurst(
+							  &h_plus,
+							  &h_cross,
+							  Dummy->duration,
+							  Dummy->frequency,
+							  Dummy->bandwidth,
+							  Dummy->amplitude, // int_hdtot_squared
+							  time_series->deltaT,
+							  rng
+							  );
+	    // fprintf(stdout, "frequency = %f\t amplitude = %e\n\n", Dummy->frequency, Dummy->amplitude);
+	    for(i=0; i<h_plus->data->length; i++)
+	      {
+		j = lag - h_plus->data->length / 2 + i;
+		if(j > time_series->data->length) continue;
+		time_series->data->data[j] += h_plus->data->data[i];
+		// fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);                  
+	      }
+	  }
+      }
     return 0;
 }
 
