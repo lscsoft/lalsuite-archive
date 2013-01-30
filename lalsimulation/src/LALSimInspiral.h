@@ -965,7 +965,8 @@ int XLALSimInspiralChooseWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
+    LALSimInspiralWaveformCache *cache          /**< waveform cache structure; use NULL for no caching */
     );
 
 /**
@@ -998,7 +999,8 @@ int XLALSimInspiralChooseTDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
     int phaseO,                 /**< twice post-Newtonian phase order */
-    Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,    /**< post-Newtonian approximant to use for waveform production */
+    LALSimInspiralWaveformCache *cache  /**< waveform cache structure; use NULL for no caching */
     );
 
 /**
@@ -1069,7 +1071,8 @@ int XLALSimInspiralChooseFDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
+    LALSimInspiralWaveformCache *cache         /**< waveform cache structure; use NULL for no caching */
     );
 
 /**
