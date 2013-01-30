@@ -1302,6 +1302,12 @@ class SnglInspiralTable(table.Table):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
+		"spin1x": "real_4",
+		"spin1y": "real_4",
+		"spin1z": "real_4",
+		"spin2x": "real_4",
+		"spin2y": "real_4",
+		"spin2z": "real_4",
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
