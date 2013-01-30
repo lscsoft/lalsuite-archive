@@ -696,6 +696,7 @@ setup(
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
 		os.path.join("bin", "pylal_geom_aligned_bank"),
+		os.path.join("bin", "pylal_aligned_bank_cat"),
 		os.path.join("bin", "pylal_geom_aligned_2dstack"),
 		os.path.join("bin", "pylal_aligned_stoch_bank"),
 		os.path.join("bin", "ring_post"),
