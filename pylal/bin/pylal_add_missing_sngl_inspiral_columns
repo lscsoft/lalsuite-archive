@@ -15,7 +15,6 @@ cols = lsctables.SnglInspiralTable.validcolumns
 def fill_missing_columns(sngl):
   for entry in cols.keys():
     if not(hasattr(sngl,entry)):
-      print entry
       if cols[entry] in ['real_4','real_8']:
         setattr(sngl,entry,0.)
       elif cols[entry] == 'int_4s':
