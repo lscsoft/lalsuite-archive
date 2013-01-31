@@ -75,10 +75,10 @@ class upper_limit(object):
 
     # find out which instruments were on and when during search
     self.set_instruments(connection)
-    self.get_livetime(connection, opts.include_play)
     self.get_injected_mass_ranges(connection)
     self.get_segments(connection)
     self.get_zero_lag_segments()
+    self.get_livetime()
     self.get_far_thresholds(connection)
     self.get_gps_times_duration(connection)
     self.get_all_injections(connection)
@@ -103,29 +103,16 @@ class upper_limit(object):
       self.mass_bins["Mass1_Mass2"] = self.set_m1m2_bins()
 
 
-  def get_livetime(self, connection, include_play=False):
+  def get_livetime(self):
       '''
-      Query the database for the livetime for the input instruments set.
+      Compute live times from zero lag segments.
       '''
-      if include_play:
-          datatype = "all_data"
-      else:
-          datatype = "exclude_play"
+      self.livetime = {}
+      for inst in self.instruments:
+          # compute live time in years from zero lag segments
+          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.LAL_YRJUL_SI)
 
-      livetime_query = """
-  SELECT instruments,duration
-  FROM experiment_summary
-  JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-  WHERE experiment_summary.datatype == "%s";
-  """ % (datatype,)
-      livetime = {}
-      for inst,lt in connection.cursor().execute(livetime_query):
-          inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
-          livetime[inst] = lt/float(constants.LAL_YRJUL_SI) #prefer to have livetime in yrs
-
-      self.livetime = livetime
-
-      return livetime
+      return
 
 
   def get_injected_mass_ranges(self, connection):
@@ -394,7 +381,7 @@ class upper_limit(object):
     vA2 = []
     for far in fars:
       found, missed = self.get_injections(instruments,far,bin_type=bin_type)
-      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments])
       vA.append(vAt)
       vA2.append(vA2t)
 
@@ -705,7 +692,7 @@ for bin_type in UL.mass_bins:
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments])
 
     # plot efficiencies
     if opts.plot_efficiency:
