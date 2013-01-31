@@ -35,6 +35,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.xlal import constants
 from pylal import upper_limit_utils
+from pylal import imr_utils
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
@@ -73,8 +74,7 @@ class upper_limit(object):
     dbtables.DBTable_set_connection(connection)
 
     # find out which instruments were on and when during search
-    self.get_on_instruments(connection)
-    self.set_instruments()
+    self.set_instruments(connection)
     self.get_livetime(connection, opts.include_play)
     self.get_injected_mass_ranges(connection)
     self.get_segments(connection)
@@ -101,24 +101,6 @@ class upper_limit(object):
       self.mass_bins["BNS_BBH"] = self.set_bns_bbh_bins()
     if self.opts.bin_by_mass1_mass2:
       self.mass_bins["Mass1_Mass2"] = self.set_m1m2_bins()
-
-
-  def get_on_instruments(self, connection):
-      '''
-      Retrieve the sets of instruments which were on during the search.
-      '''
-      # FIXME bad to hardcode search_coinc_type
-      sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
-      instruments_query = """ SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?; """
-
-      instruments = []
-      for inst in connection.cursor().execute(instruments_query, (sngl_sngl_coinc_def_id,) ):
-          inst =  frozenset(lsctables.instrument_set_from_ifos(inst[0]))
-          instruments.append(inst)
-
-      self.instruments = instruments
-
-      return self.instruments
 
 
   def get_livetime(self, connection, include_play=False):
@@ -310,46 +292,48 @@ class upper_limit(object):
 
 
   def get_far_thresholds(self, connection):
-    """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
-    be the FAR of the most rare zero-lag coinc)."""
-    if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for finding injections..."
+      """
+      Returns the false alarm rate to use for computing the search volume (in the typical case, this will
+      be the FAR of the most rare zero-lag coinc).
+      """
+      if self.opts.verbose:
+          print >>sys.stdout, "\nGetting FAR thresholds for finding injections..."
 
-    self.far = dict( (inst,-1) for inst in self.instruments )
+      self.far = {}
 
-    # far option takes precedence for closed box
-    if self.opts.far and not self.opts.open_box:
-      for inst in self.instruments:
-        self.far[inst] = self.opts.far
-    # if no far specified, use expected-loudest-event for closed box
-    elif not self.opts.open_box:
-      for inst in self.instruments:
-        self.far[inst] = 1./self.livetime[inst]
-    # for open box use true loudest event
-    if self.opts.open_box:
-      if self.opts.include_play:
-        datatype = "all_data"
+      # far option takes precedence
+      if self.opts.far:
+          for inst in self.instruments:
+              self.far[inst] = self.opts.far
+
+      # use expected-loudest-event for closed box
+      elif not self.opts.open_box:
+          for inst in self.instruments:
+              self.far[inst] = 1./self.livetime[inst]
+
+      # use true loudest event for open box
       else:
-        datatype = "exclude_play"
 
-      far_threshold_query = """
-      SELECT coinc_event.instruments,MIN(combined_far)
-      FROM coinc_inspiral
-      JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
-      JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
-      JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-      WHERE experiment_summary.datatype == "%s"
-      GROUP BY coinc_event.instruments;
-      """ %(datatype,)
+          far_threshold_query = """
+          SELECT coinc_event.instruments,MIN(combined_far)
+          FROM coinc_inspiral
+          JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
+          JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
+          JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
+          WHERE experiment_summary.datatype == "exclude_play"
+          GROUP BY coinc_event.instruments;
+          """
 
-      for inst, far in connection.cursor().execute(far_threshold_query):
-        inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-        self.far[inst] = far # handle FAR = 0 case specially downstream
+          for inst, far in connection.cursor().execute(far_threshold_query):
+              inst = frozenset(lsctables.instrument_set_from_ifos(inst))
+              self.far[inst] = far # handle FAR = 0 case specially downstream
 
-    if self.opts.verbose:
-      for inst in self.instruments:
-        print >>sys.stdout,"\tFAR threshold used in %s time is %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
+      # report the far threshold being used
+      if self.opts.verbose:
+          for inst in self.instruments:
+              print >>sys.stdout,"\tFAR threshold used in %s time is %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
 
-    return self.far
+      return
 
 
   def get_gps_times_duration(self, connection):
@@ -358,15 +342,20 @@ class upper_limit(object):
     return True
 
 
-  def set_instruments(self):
-    if self.opts.instruments is None: return self.instruments
-    if self.opts.instruments in self.instruments:
-      self.instruments = [opts.instruments]
-    else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(self.opts.instruments))
-      self.instruments = []
+  def set_instruments(self, connection):
 
-    return self.instruments
+      self.instruments = imr_utils.get_instruments_from_coinc_event_table(connection)
+
+      if self.opts.instruments is None:
+          return
+
+      if self.opts.instruments in self.instruments:
+          self.instruments = [opts.instruments]
+      else:
+          print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(self.opts.instruments))
+          self.instruments = []
+
+      return
 
 
   def get_volume_derivative(self,instruments,bin_type,FAR,fnameList=None, tagList=None,InspiralUtilsOpts=None):
