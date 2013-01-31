@@ -52,7 +52,7 @@ parser = OptionParser(
 parser.add_option("-V", "--verbose", action="store_true", help="print extra debugging information", default=False )
 #parser.add_option("-p", "--parameter-names",help="list of parameters names")
 parser.add_option("-i", "--input-glob",  help="file glob the list of paramters")
-parser.add_option("-i", "--output-file",  help="Output file name")
+parser.add_option("-o", "--output-file",  help="Output file name")
 parser.add_option("--type")
 
 options, argv_frame_files = parser.parse_args()
