@@ -333,7 +333,7 @@ def followup_sim_inspirals(sim_table, network, outdir="missed"):
                   [event.mass1, event.mass2, event.mchirp, event.inclination,
                    event.get_spin_mag(1), event.get_spin_mag(2)])
         mifu_html = os.path.join(outdir, "%d.html" % int(params[0]))
-        td.append([str(i)] + map(form, params)])
+        td.append([str(i)] + map(form, params))
     page = markup.page()
     with open(loudest_html, "w") as f:
         f.write(str(htmlutils.write_table(th, td, {"table":"numeric"})))
