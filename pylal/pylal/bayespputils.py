@@ -2695,6 +2695,14 @@ def component_momentum(m, a, theta, phi):
 #
 #
 
+def symm_tidal_params(lambda1,lambda2,eta):
+    """
+    Calculate best tidal parameters
+    """
+    lam_tilde = (1./52.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
+    dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
+    return lam_tilde, dlam_tilde
+
 def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     Calculate physical spin angles.
@@ -4110,6 +4118,7 @@ class PEOutputParser(object):
         nfiles = len(files)
         ntots=[]
         nEffectives = []
+        if nDownsample is None: print "Max ACL(s):"
         for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
@@ -4139,7 +4148,16 @@ class PEOutputParser(object):
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
-                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                        stride=samps[1,iterindex] - samps[0,iterindex]
+                        results = np.array([np.array(effectiveSampleSize(samps[:,i])[:2]) for i in paramIdxs])
+                        nEffs = results[:,0]
+                        nEffectives.append(min(nEffs))
+                        ACLs  = results[:,1]
+                        maxACLind = np.argmax(ACLs)
+                        maxACL = ACLs[maxACLind]
+                        # Get index in header, which includes "non-params"
+                        maxACLind = paramIdxs[maxACLind]
+                        print "%i (%s) for chain %s." %(stride*maxACL,header[maxACLind],inpname)
                     except:
                         nEffectives.append(None)
                         print "Error computing effective sample size of %s!"%inpname
@@ -4588,7 +4606,7 @@ def _cl_count(cl_bound, samples):
     """Returns the number of samples within the given confidence
     bounds."""
     
-    return np.count_nonzero((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
+    return np.sum((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
 
 def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     """Returns a tuple (relative_change, fractional_uncertainty,

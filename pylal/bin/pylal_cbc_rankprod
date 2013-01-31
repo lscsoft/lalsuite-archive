@@ -388,7 +388,7 @@ coinc events: use for closed-box")
     raise ValueError, "A cache and single-ifo trigger pattern must be given!"
   if opts.inj_pattern:
     raise ValueError, "Sorry, injections are not handled yet."
-  if (opts.coinc_pattern or opts.raw_coinc_patter) and opts.coinc_file:
+  if (opts.coinc_pattern or opts.raw_coinc_pattern) and opts.coinc_file:
     raise ValueError, "Cannot have both a coinc-pattern and a coinc file!"
   if len(opts.ifo_list.split(","))<1 or len(opts.ifo_list.split(","))>2:
     raise ValueError, "The ifo list must contain either 1 or 2 ifos; 3 or more is not handled yet."
@@ -681,6 +681,14 @@ if rawCoincs:
   rawCount = len(rawCoincs)
   del rawCoincs
 
+# use trigger counts at given veto level after applying statistic cut used 
+# in search to calculate coinc probability
+trigcounts = [numinSearch[ifo] for ifo in ifos]
+trigpairs = 1
+for count in trigcounts:
+  trigpairs = trigpairs*count
+
+coincCount = 0
 if coincFlag:
   # if there are no raw coincs, use the clustered coincs to normalize the rate
   if rawCount:
@@ -832,7 +840,7 @@ if opts.fake_coincs and not opts.combined_statistic:
   if len(fakeFAPs):
     fig_num +=1
     pyplot.figure(fig_num)
-    fakeFANs = [FAP*max(1,numCoincs) for FAP in fakeFAPs]
+    fakeFANs = [FAP*max(1,coincCount) for FAP in fakeFAPs]
     print "Sample trigger pair snrsq:", fakeStatsq
     print "Sample trigger pair FAN", fakeFANs
     pyplot.semilogy(fakeStatsq,fakeFANs,'kx',markersize=8,label="Sample trigger pairs")
