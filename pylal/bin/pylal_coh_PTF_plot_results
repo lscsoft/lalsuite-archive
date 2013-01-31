@@ -326,10 +326,11 @@ def write_sim_inspiral_table(sim_table, outfile, search):
 # Plot triggers
 # =============================================================================
 
-contours = dict()
+contours = {"new_snr": [5.5, 6, 6.5, 7, 8, 9, 10, 11]}
 (contours["bank_chisq"], contours["cont_chisq"], contours["chisq"],
- contours["null"], contours["snr"], contours["color"],
- contours["new_snr"]) = coh_PTF_pyutils.calculate_contours()
+ contours["null"], contours["snr"],
+ contours["color"]) = coh_PTF_pyutils.calculate_contours(
+                          new_snrs=contours["new_snr"])
 
 def plot_xy(outfile, xdata, ydata, xlabel, ylabel, xlim=None, ylim=None,
            logx=False, logy=False, fill=None, plot_contours=False):
@@ -634,8 +635,6 @@ if __name__ == "__main__":
                    key, tab in mi_tables.iteritems())
     mi_bestnr = dict((key, asarray(tab.get_bestnr())) for
                      key, tab in mi_tables.iteritems())
-    mi_bestnr2 = dict((key, asarray(tab.get_bestnr2())) for
-                     key, tab in mi_tables.iteritems())
     mi_sngl_snr = dict((ifo, dict((key, asarray(tab.get_sngl_snr(ifo))) for
                                   key, tab in mi_tables.iteritems())) for
                        ifo in ifos)
@@ -732,14 +731,10 @@ if __name__ == "__main__":
                       % (num_loudest, key, loudest_xml))
 
     #
-    # write closeby missed injections
-    #
-
-    #
     # calculate injection efficiency
     #
 
-    if simulations and background:
+    if simulations:
         if opts.lower_inj_dist == 0:
             efficiency_bins = numpy.linspace(opts.lower_inj_dist,
                                              opts.upper_inj_dist,
@@ -752,8 +747,11 @@ if __name__ == "__main__":
                                              endpoint=True)
         deltaD = numpy.diff(efficiency_bins)
         efficiency_distance = efficiency_bins[:-1] + deltaD/2
-        fap = asarray([(bestnr <= mi_bestnr[background]).sum() for bestnr in
-                       mi_bestnr[found_inj]]) / mi_bestnr[background].size
+        if background:
+            fap = asarray([(bestnr <= mi_bestnr[background]).sum() for bestnr in
+                           mi_bestnr[found_inj]]) / mi_bestnr[background].size
+        else:
+            fap = numpy.zeros(mi_bestnr[found_inj].size)
         found_by_dist = numpy.histogram(sim_dist[found_inj][fap==0],
                                         bins=efficiency_bins)[0]
         missed_by_dist = numpy.histogram(list(sim_dist[found_inj][fap!=0]) +
@@ -873,16 +871,11 @@ if __name__ == "__main__":
     # plot versus snr
     # 
 
+    # plot BestNR
     outfile = plotname % ("SNR_BESTNR")
     plot_xy(outfile, mi_snr, mi_bestnr, latex("SNR"), latex("BestNR"),
             xlim=SNR_LIM, ylim=BESTNR_LIM, logx=True, logy=True)
     print_verbose("%s written.\n" % outfile)
-
-    outfile = plotname % ("SNR_BESTNR2")
-    plot_xy(outfile, mi_snr, mi_bestnr2, latex("SNR"), latex("BestNR2"),
-            xlim=SNR_LIM, ylim=BESTNR_LIM, logx=True, logy=True)
-    print_verbose("%s written.\n" % outfile)
-
 
     # plot sngl SNR
     for i,ifo in enumerate(ifos):
