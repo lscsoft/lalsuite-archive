@@ -204,11 +204,7 @@ class upper_limit(object):
       else:
         dmin = numpy.min(found_dist)
         dmax = numpy.max(found_dist)
-        #calibration errors can kick injections outside dmin,dmax
-        if self.opts.log_dist_bins:
-          self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
-        else:
-          self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
+        self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
 
     return self.dbins
 
@@ -598,7 +594,6 @@ will compute the search volume using all injections with at least one component 
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Space distance bins evenly and specify the number of distance bins to use.")
-  parser.add_option("--log-dist-bins", default = False, action="store_true", help = "Space distance bins evenly in log-distance and specify the number of bins to use for integration over distance.")
   parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set, you can specify here the number of mass bins to use along a single dimension. The number of bins is currently 1 fewer than the value you specify.")
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
