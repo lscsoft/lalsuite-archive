@@ -25,7 +25,7 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>, Paul T Baker <paul.baker@lig
 
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
-	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr choppedl snr_sq snr_ratio a_eff_D b_eff_D eff_D_ratio delta_eff_D" #null_stat eff_coh_snr"
+	parameters = "ds_sq delta_t df dQ gQQ gff gtt gQf gtf gtQ a_snr b_snr coinc_snr choppedl snr_sq snr_ratio a_eff_D b_eff_D eff_D_ratio delta_eff_D a_nct b_nct a_veto b_veto" #null_stat eff_coh_snr"
 	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
 	select_count="""
 		SELECT
@@ -54,7 +54,11 @@ class CandidateEventQuery:
 			snglA.eff_dist,
 			snglB.eff_dist,
 			max(snglA.eff_dist/snglB.eff_dist,snglB.eff_dist/snglA.eff_dist),
-			abs(snglA.eff_dist - snglB.eff_dist)"""
+			abs(snglA.eff_dist - snglB.eff_dist),
+			snglA.num_clust_trigs,
+			snglB.num_clust_trigs,
+			event_vetoed( snglA.start_time + 1.e-9*snglA.start_time_ns , snglA.ifo ),
+			event_vetoed( snglB.start_time + 1.e-9*snglB.start_time_ns , snglB.ifo )"""
 #			coinc_ringdown.null_stat,
 #			coinc_ringdown.eff_coh_snr"""
 	add_select_injections="""

@@ -9,6 +9,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import table
 from glue.ligolw import ilwd
 from glue import segments
+from glue import segmentsUtils
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes import snglringdowntable
 from pylal import SnglInspiralUtils
@@ -49,12 +50,36 @@ parser.add_option("", "--end-time", default=999999999, type="int", help="the gps
 parser.add_option("", "--check-weights", action="store_true", default=False,help="turn on if you want a plot of cumulative weights v. distance")
 parser.add_option("", "--exact-tag", default="ring_exact", help="this is the dbinjfind tag stored in the sqlite database for the exactly found injections - the ones you want to use for training")
 parser.add_option("", "--nearby-tag", default="ring_nearby", help="this is the dbinjfind tag stored in the sqlite for the nearby injections - we will still rank all of these")
+parser.add_option("", "--h-veto-seg", help="Add a set of veto segments to use for H1")
+parser.add_option("", "--l-veto-seg", help="Add a set of veto segments to use for L1")
+parser.add_option("", "--v-veto-seg", help="Add a set of veto segments to use for V1")
 
 (opts,databases)=parser.parse_args()
 ifos=opts.instruments.strip().split(',')
 ifos.sort()
 
 time1=time()
+
+useveto={}
+useveto['H1'] = opts.h_veto_seg is not None 
+useveto['L1'] = opts.l_veto_seg is not None 
+useveto['V1'] = opts.v_veto_seg is not None
+vfile={}
+if useveto['H1']: vfile['H1'] = opts.h_veto_seg
+if useveto['L1']: vfile['L1'] = opts.l_veto_seg
+if useveto['V1']: vfile['V1'] = opts.v_veto_seg
+
+vetodict = segments.segmentlistdict()
+for i in ifos:
+	if useveto[i]:
+		tmp = segments.segmentlistdict()
+		tmp[i] = segmentsUtils.fromsegwizard( open(vfile[i]), coltype=dbtables.lsctables.LIGOTimeGPS )
+		vetodict.extend( tmp ) 
+	else:	
+		tmp = segments.segmentlistdict()
+		tmp[i] = segments.segmentlistdict([])
+		vetodict.extend( tmp ) 
+
 
 class SnglRingdown(snglringdowntable.SnglRingdownTable):
 	"""
@@ -73,6 +98,8 @@ dbtables.lsctables.SnglRingdownTable.RowType = SnglRingdown
 
 parameters = mvsc_queries_ringdown.CandidateEventQuery.parameters
 print "your MVSC analysis will use the following dimensions: "+parameters
+if not useveto: 
+	print "no vetoes used, veto column left empty"
 
 exact_injections = []
 exact_injections_info = []
@@ -171,8 +198,13 @@ for database in databases:
 				out = 1.0 - out
 			print >> sys.stderr, "SO...delta t has been set to: ", out, "in accordance with the mod 1 hack"
 			return out
+
+	def event_vetoed( time, ifo, vetodict = vetodict ):
+		return int( vetodict[ifo].intersects_segment( segments.segment(time,time) ) )
+
+	connection.create_function("event_vetoed", 2, event_vetoed)
 	connection.create_function("calc_delta_t", 7, calc_delta_t)
-	connection.create_function("calc_ds_dq", 5, calc_ds_sq)
+	connection.create_function("calc_ds_sq", 5, calc_ds_sq)
         connection.create_function("gQQ", 2, gQQ)
         connection.create_function("gff", 4, gff)
         connection.create_function("gtt", 4, gtt)
