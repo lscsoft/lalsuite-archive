@@ -567,6 +567,12 @@ tagSimInspiralTable
   REAL4	      qmparameter1;
   REAL4	      qmparameter2;
   REAL4          redshift;
+  REAL4         fref;
+  INT4          spin_order;
+  INT4          tidal_order;
+  REAL4         deltat;
+  INT4          frame_axis;
+  INT4          modes_choice;
   EventIDColumn  *event_id;
   INT4           numrel_mode_min;
   INT4           numrel_mode_max;
