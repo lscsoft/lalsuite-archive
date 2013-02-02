@@ -1,10 +1,10 @@
 # Module to keep definitions of job and node classes for auxmvc pipeline. 
-
+import sys
 from glue import pipeline
 
 def construct_command(node):
   command_string = node.job().get_executable() + " " + node.get_cmd_line()
-  return command_string.split(" ")
+  return [opt for opt in command_string.split(" ") if opt.strip()]
   
   
 def build_auxmvc_vectors(triggger_dict, main_channel, time_window, signif_threshold, clean_samples_rate, output_file_name, channels=None, unsafe_channels=None):
@@ -78,7 +78,7 @@ class auxmvc_analysis_job(pipeline.AnalysisJob, pipeline.CondorDAGJob):
   A basic auxmvc job class. Sets common atributes needed for any auxmvc job. It uses config parser object to 
   set the options. 
   """
-  def __init__(self,cp,sections,exec_name,tag_base='', id ='',extension='',dax=False):
+  def __init__(self,cp,sections,exec_name,tag_base='', id ='',extension='',dax=False, short_opts=False):
     """
     cp = ConfigParser object from which options are read.
     sections = sections of the ConfigParser that get added to the opts
@@ -95,10 +95,12 @@ class auxmvc_analysis_job(pipeline.AnalysisJob, pipeline.CondorDAGJob):
     self.add_condor_cmd('getenv','True')
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
     self.__use_gpus = cp.has_option('condor', 'use-gpus')
-
     for sec in sections:
       if cp.has_section(sec):
-        self.add_ini_opts(cp, sec)
+        if short_opts:
+          self.add_short_ini_opts(cp,sec)
+        else:
+          self.add_ini_opts(cp, sec)
       else:
         print >>sys.stderr, "warning: config file is missing section [" + sec + "]"
 
@@ -142,7 +144,17 @@ class auxmvc_analysis_job(pipeline.AnalysisJob, pipeline.CondorDAGJob):
     """
     return self.__use_gpus
 	
-  
+  def add_short_ini_opts(self, cp, section):
+    """
+    Parse command line options from a given section in an ini file and
+    pass to the executable as short options.
+    @param cp: ConfigParser object pointing to the ini file.
+    @param section: section of the ini file to add to the options.
+    """
+    for opt in cp.options(section):
+      arg = cp.get(section,opt)
+      self.add_short_opt(opt,arg)
+ 
   
   
 class build_auxmvc_vectors_job(pipeline.CondorDAGJob):
@@ -155,7 +167,7 @@ class build_auxmvc_vectors_job(pipeline.CondorDAGJob):
 	sections = ['build-auxmvc-vectors']
 	exec_name = 'idq_build_auxmvc_vectors'
 	tag_base = 'build_vectors'
-	auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base)	
+	auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)	
 		
 
 class build_auxmvc_vectors_node(pipeline.CondorDAGNode):
@@ -184,10 +196,10 @@ class train_forest_job(pipeline.CondorDAGJob):
   def __init__(self, cp):
     """
     """
-    sections = ['train-forest']
+    sections = ['train_forest']
     exec_name = 'SprBaggerDecisionTreeApp'
     tag_base = 'train_forest'
-    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base)	
+    auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base, short_opts=True)	
 		
 
 class train_forest_node(pipeline.CondorDAGNode):
@@ -207,35 +219,68 @@ class train_forest_node(pipeline.CondorDAGNode):
     for p in p_node:
       self.add_parent(p)
 
-class use_forest_job(pipeline.CondorDAGJob):
+class use_forest_job(auxmvc_analysis_job):
   """
   Job using random forest to evaluate unclassified data.
   """
   def __init__(self, cp):
     """
     """
-    sections = ['evaluate-forest']
+    sections = ['forest_evaluate']
     exec_name = 'SprOutputWriterApp'
-    tag_base = 'evaluate_forest'
-    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base)
+    tag_base = 'forest_evaluate'
+    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base=tag_base, short_opts=True)
+    self.add_short_opt("A", "")
 
 class use_forest_node(pipeline.CondorDAGNode):
   """
   Node for radnom forest evaluation job. 
   """
   def __init__(self, job, trainedforest, file_to_rank, ranked_file,p_node=[]):
+    job.set_stdout_file('logs/' + ranked_file.replace('.dat', '.out'))
+    job.set_stderr_file('logs/' + ranked_file.replace('.dat', '.err'))
     pipeline.CondorDAGNode.__init__(self,job)
-    self.job.set_stdout_file('logs/' + ranked_file.replace('.dat', '.out'))
-    self.job.set_stderr_file('logs/' + ranked_file.replace('.dat', '.err'))
     self.add_input_file(trainedforest)
     self.add_input_file(file_to_rank)
-    self.add_output_file(self.ranked_file)
+    self.add_output_file(ranked_file)
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = ranked_file
     self.add_file_arg(" %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     for p in p_node:
       self.add_parent(p)
+
+
+class forest_add_excluded_vars_job(auxmvc_analysis_job):
+  """
+  A simple fix job that adds the variables excluded by forest (MVSC) from classification into the output file.
+  Need to be run right after use_forest job. 
+  """
+  def __init__(self, cp):
+    """
+    """
+    sections = ['forest_add_excluded_vars']
+    exec_name = 'forest_add_excluded_vars'
+    tag_base = 'forest_add_excluded_vars'
+    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base=tag_base)
+    self.add_opt('excluded-variables', cp.get('forest_evaluate', 'z'))
+class forest_add_excluded_vars_node(pipeline.CondorDAGNode):
+  """
+  Node for forest_add_excluded_vars_job.
+  """
+  def __init__(self, job, patfile, datfile, p_node=[]):
+    job.set_stdout_file('logs/' + datfile.replace('.dat', 'faev.out'))
+    job.set_stderr_file('logs/' + datfile.replace('.dat', 'faev.err'))
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_input_file(patfile)
+    self.add_input_file(datfile)
+    self.add_var_opt('pat-file',patfile)
+    self.add_var_opt('dat-file',datfile)
+    for p in p_node:
+      self.add_parent(p)
+
+
+
 
 class plot_channels_significance_job(pipeline.CondorDAGJob):
   """   
@@ -245,7 +290,7 @@ class plot_channels_significance_job(pipeline.CondorDAGJob):
     sections = ['plot-forest-channels-significance']
     exec_name = 'auxmvc_plot_mvsc_channels_significance'
     tag_base = 'plot_channels_signif'
-    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base)      
+    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base=tag_base)      
 				
 	
 class plot_channels_significance_node(pipeline.CondorDAGNode):
@@ -270,7 +315,7 @@ class result_plots_job(pipeline.CondorDAGJob):
     sections = ['result_plots']
     exec_name = 'auxmvc_result_plots'
     tag_base = 'auxmvc_result_plots'
-    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base)  
+    auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base=tag_base)  
 
 
 class result_plots_node(pipeline.CondorDAGNode):
