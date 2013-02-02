@@ -189,10 +189,7 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
 
   # construct output filename
   ifoTag = foundcache[0].observatory
-  allsegs = foundcache.to_segmentlistdict()[ifoTag].coalesce()
-  allsegs.sort(key=lambda seg: (seg[0],seg[1]) )
-  start   = allsegs[0][0]
-  end     = allsegs[-1][-1]
+  start, end = foundcache.to_segmentlistdict().extent_all()
 
   userTag = injcache[0].description.rsplit( '_', 2 )[0]
   xmlFile = '%s/%s-%s_injectionsAstro%s_FILTERED_%d_FOUND-%d-%d.xml'\

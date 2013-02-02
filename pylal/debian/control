@@ -2,18 +2,19 @@ Source: pylal
 Section: python
 Priority: optional
 Maintainer: Jameson Rollins <jameson.rollins@ligo.org>
+X-Python-Version: >= 2.6
 Build-Depends:
  pkg-config,
  python,
  python-all-dev,
  python-numpy,
- libframe-dev,
- lal-dev,
- lalburst-dev,
- lalframe-dev,
- lalinspiral-dev,
- lalmetaio-dev,
- debhelper (>= 5)
+ libframe-dev (>= 8.15),
+ lal-dev (>= 6.8.0),
+ lalburst-dev (>= 1.1.4),
+ lalframe-dev (>= 1.0.7),
+ lalinspiral-dev (>= 1.4.0),
+ lalmetaio-dev (>= 1.0.5),
+ debhelper (>= 7)
 Standards-Version: 3.9.3
 
 Package: python-pylal
