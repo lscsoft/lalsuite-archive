@@ -425,8 +425,14 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ptfcolormap = pylab.cm.spring
   ptfcolormap.set_over('g')
        
+  new_snrs = [5.5,6,6.5,7,8,9,10,11]
+  try:
+    cont_value = new_snrs.index(newSnrThresh)
+  except ValueError:
+    new_snrs.append(newSnrThresh)
+    cont_value = -1
   bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
-      calculate_contours(q=chisq_index, n=chisq_nhigh,\
+      calculate_contours(q=chisq_index, n=chisq_nhigh,new_snrs=new_snrs,\
                          new_snr_thresh=newSnrThresh,\
                          null_thresh=null_thresh[-1],\
                          null_grad_snr=nullGradThresh,\
@@ -548,8 +554,9 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   p+=1
   ax.plot(snr_vals, pylab.asarray(null_cont) - \
       (null_thresh[1] - null_thresh[0]), 'g-')
-  ax.plot(snr_vals, pylab.asarray(null_cont) - \
-      (null_thresh[1] - null_thresh[0])+1,'m-')
+  if (null_thresh[1] - null_thresh[0] > 1):
+    ax.plot(snr_vals, pylab.asarray(null_cont) - \
+        (null_thresh[1] - null_thresh[0])+1,'m-')
   ax.set_xlim([6,30])
   ax.set_ylim([0,30])
   fig.savefig("%s/%s_null_stat_vs_snr_zoom.png" % (outdir, tag),\
@@ -658,15 +665,11 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ax.grid()
   if injFile:
     ax.loglog(injSNR, injBankVeto, 'r+')
-  print ax
-  print snr_vals
-  print bank_conts
-  print colors
   plot_contours(ax, snr_vals,bank_conts, colors)
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
   polyx = copy.deepcopy(snr_vals)
-  polyy = copy.deepcopy(bank_conts[1])
+  polyy = copy.deepcopy(bank_conts[cont_value])
   polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
   polyy = pylab.append(polyy,[limy, limy])
   ax.fill(polyx, polyy, color = '#dddddd')
@@ -695,7 +698,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
   polyx = copy.deepcopy(snr_vals)
-  polyy = copy.deepcopy(chi_conts[1])
+  polyy = copy.deepcopy(chi_conts[cont_value])
   polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
   polyy = pylab.append(polyy,[limy, limy])
   ax.fill(polyx, polyy, color = '#dddddd')
@@ -965,7 +968,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
   polyx = copy.deepcopy(snr_vals)
-  polyy = copy.deepcopy(auto_conts[1])
+  polyy = copy.deepcopy(auto_conts[cont_value])
   polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
   polyy = pylab.append(polyy,[limy, limy])
   ax.fill(polyx, polyy, color = '#dddddd')

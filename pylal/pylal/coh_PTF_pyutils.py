@@ -61,9 +61,11 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), snr_threshold=6.,\
       chisq_threshold = snr_threshold
 
     # coherent SNR and null SNR cut
-    if (snr < snr_threshold) or\
-         (trig.get_new_snr(q/n*3, 'bank_chisq') < chisq_threshold) or\
-         (trig.get_new_snr(q/n*3, 'cont_chisq') < chisq_threshold):
+    if (snr < snr_threshold) \
+         or (trig.get_new_snr(index=q, nhigh=n, column='bank_chisq')\
+                          < chisq_threshold) \
+         or (trig.get_new_snr(index=q, nhigh=n, column='cont_chisq')\
+                          < chisq_threshold):
         return 0
 
     # define IFOs for sngl cut
@@ -91,19 +93,9 @@ def get_bestnr( trig, q=4.0, n=3.0, null_thresh=(4.25,6), snr_threshold=6.,\
             return 0
 
     # get chisq reduced (new) SNR
-    bestNR = trig.get_new_snr(q/n*3, 'chisq')
-
-    # get null reduced SNR
-    if len(ifos)>2:
-      null_snr = trig.get_null_snr()
-
-      if snr > null_grad_thresh:
-          null_thresh = numpy.array(null_thresh)
-          null_thresh += (snr - null_grad_thresh)*null_grad_val
-      if null_snr > null_thresh[-1]:
-          return 0
-      elif null_snr > null_thresh[0]:
-          bestNR *= 1 / (null_snr - null_thresh[0] + 1)
+    bestNR = trig.get_bestnr(index=1, nhigh=n, \
+             null_snr_threshold=null_thresh[0], \
+             null_grad_thresh=null_grad_thresh, null_grad_val = null_grad_val)
 
     # If we got this far, the bestNR is non-zero. Verify that chisq actually
     # was calculated for the trigger
@@ -124,8 +116,6 @@ def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20,\
     """
     # initialise chisq contour values and colours
     num_vals  = len(new_snrs)
-    if new_snr_thresh not in new_snrs:
-      new_snrs.append(new_snr_thresh)
     colors = ["k-" if snr == new_snr_thresh else
               "y-" if snr == int(snr) else
               "y--" for snr in new_snrs]
@@ -165,6 +155,11 @@ def plot_contours( axis, snr_vals, contours, colors ):
         plot_vals_y = []
         for j in range(len(snr_vals)):
             if contours[i][j] > 1E-15:
+                # THIS IS HACKY, but I couldn't think of a better way to
+                # ensure that the vertical spike is shown on the plots
+                if not plot_vals_x:
+                  plot_vals_x.append(snr_vals[j])
+                  plot_vals_y.append(0.1)
                 plot_vals_x.append(snr_vals[j])
                 plot_vals_y.append(contours[i][j])
         axis.plot(plot_vals_x,plot_vals_y,colors[i])
