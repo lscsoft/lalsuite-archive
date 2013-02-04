@@ -234,10 +234,7 @@ def write_antenna( page, ExtTrigger, ifos, grid=False, ipn=False ):
   """
 
   page.h3()
-  page.add( 'Antenna factors' )
-
-  if grid or ipn:
-    page.add(' and Sky Grid')
+  page.add( 'Antenna factors and sky locations' )
   page.h3.close()
 
   th = []
@@ -249,6 +246,7 @@ def write_antenna( page, ExtTrigger, ifos, grid=False, ipn=False ):
     antenna_ifo = {}
     ra = []
     dec = []
+    # FIXME: Remove hardcoding here and show this in all cases
     search_file = open('../../../S5IPN_GRB%s_search_180deg.txt' % ExtTrigger.event_number_grb)
     for line in search_file:
       ra.append(line.split()[0])
@@ -271,104 +269,71 @@ def write_antenna( page, ExtTrigger, ifos, grid=False, ipn=False ):
           th.append(key)
         td.append(newDict.values())        
     page = write_table( page, list(set(th)), td )
+  for ifo in ifos:
+    _, _, _, f_q = antenna.response( ExtTrigger.start_time,
+                                     ExtTrigger.event_ra, ExtTrigger.event_dec,\
+                                     0.0, 0.0, 'degree',ifo )
+    th.append( ifo )
+    td.append( round( f_q, 3 ) )
 
-    cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
-        % (ExtTrigger.start_time,float(ra[0]), float(dec[0]))
-    for ifo in ifos:
-      if ifo == 'H1':
-        cmmnd += ' --display-lho'
-      elif ifo == 'L1':
-        cmmnd += ' --display-llo'
-      elif ifo == 'V1':
-        cmmnd += ' --display-virgo'
-    output,status = make_external_call(cmmnd)
+  cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
+      % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
+  for ifo in ifos:
+    if ifo == 'H1':
+      cmmnd += ' --display-lho'
+    elif ifo == 'L1':
+      cmmnd += ' --display-llo'
+    elif ifo == 'V1':
+      cmmnd += ' --display-virgo'
+  output,status = make_external_call(cmmnd)
+  page = write_table( page, th, td )
 
-    plot = markup.page()
-    p = "projtens.png"
-    plot.a( href=p, title="Detector response and polarization" )
-    plot.img( src=p )
-    plot.a.close()
-    th2 = ['Response Diagram']
-    td2 = [plot() ]
+  plot = markup.page()
+  p = "projtens.png"
+  plot.a( href=p, title="Detector response and polarization" )
+  plot.img( src=p )
+  plot.a.close()
+  th2 = ['Response Diagram']
+  td2 = [plot() ]
 
-    plot = markup.page()
-    p = "ALL_TIMES/plots_clustered/GRB%s_search.png"\
-        % ExtTrigger.event_number_grb
-    plot.a(href=p, title="Error Box Search")
-    plot.img(src=p)
-    plot.a.close()
-    th2.append('Error Box Search')
-    td2.append(plot())
+    # FIXME: Add these in!!
+#    plot = markup.page()
+#    p = "ALL_TIMES/plots_clustered/GRB%s_search.png"\
+#        % ExtTrigger.event_number_grb
+#    plot.a(href=p, title="Error Box Search")
+#    plot.img(src=p)
+#    plot.a.close()
+#    th2.append('Error Box Search')
+#    td2.append(plot())
 
-    plot = markup.page()
-    p = "ALL_TIMES/plots_clustered/GRB%s_simulations.png"\
-        % ExtTrigger.event_number_grb
-    plot.a(href=p, title="Error Box Simulations")
-    plot.img(src=p)
-    plot.a.close()
-    th2.append('Error Box Simulations')
-    td2.append(plot())
+#    plot = markup.page()
+#    p = "ALL_TIMES/plots_clustered/GRB%s_simulations.png"\
+#        % ExtTrigger.event_number_grb
+#    plot.a(href=p, title="Error Box Simulations")
+#    plot.img(src=p)
+#    plot.a.close()
+#    th2.append('Error Box Simulations')
+#    td2.append(plot())
 
-    plot = markup.page()
-    p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
-        % ExtTrigger.event_number_grb
-    plot.a(href=p, title="Sky Grid")
-    plot.img(src=p)
-    plot.a.close()
-    th2.append('Sky Grid')
-    td2.append(plot())
+  plot = markup.page()
+  p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
+      % ExtTrigger.event_number_grb
+  plot.a(href=p, title="Sky Grid")
+  plot.img(src=p)
+  plot.a.close()
+  th2.append('Sky Grid')
+  td2.append(plot())
 
-    plot = markup.page()
-    p = "ALL_TIMES/plots_clustered/GRB%s_inspiral_horizon_distance.png"\
-        % ExtTrigger.event_number_grb
-    plot.a(href=p, title="Inspiral Horizon Distance")
-    plot.img(src=p)
-    plot.a.close()
-    th2.append('Inspiral Horizon Distance')
-    td2.append(plot())
+  plot = markup.page()
+  p = "GRB%s_inspiral_horizon_distance.png"\
+      % ExtTrigger.event_number_grb
+  plot.a(href=p, title="Inspiral Horizon Distance")
+  plot.img(src=p)
+  plot.a.close()
+  th2.append('Inspiral Horizon Distance')
+  td2.append(plot())
 
-
-    page = write_table( page, th2, td2 )
-
-  else:
-    for ifo in ifos:
-      _, _, _, f_q = antenna.response( ExtTrigger.start_time,
-                                       ExtTrigger.event_ra, ExtTrigger.event_dec,\
-                                       0.0, 0.0, 'degree',ifo )
-      th.append( ifo )
-      td.append( round( f_q, 3 ) )
-
-    cmmnd = 'projectedDetectorTensor --gps-sec %d --ra-deg %f --dec-deg %f' \
-        % (ExtTrigger.start_time,ExtTrigger.event_ra, ExtTrigger.event_dec)
-    for ifo in ifos:
-      if ifo == 'H1':
-        cmmnd += ' --display-lho'
-      elif ifo == 'L1':
-        cmmnd += ' --display-llo'
-      elif ifo == 'V1':
-        cmmnd += ' --display-virgo'
-    output,status = make_external_call(cmmnd)
-    page = write_table( page, th, td )
-
-    plot = markup.page()
-    p = "projtens.png"
-    plot.a( href=p, title="Detector response and polarization" )
-    plot.img( src=p )
-    plot.a.close()
-    th2 = ['Response Diagram']
-    td2 = [plot() ]
-
-    if grid:
-      plot = markup.page()
-      p = "ALL_TIMES/plots_clustered/GRB%s_sky_grid.png"\
-          % ExtTrigger.event_number_grb
-      plot.a(href=p, title="Sky Grid")
-      plot.img(src=p)
-      plot.a.close()
-      th2.append('Sky Grid')
-      td2.append(plot())
-
-    page = write_table( page, th2, td2 )
+  page = write_table( page, th2, td2 )
 
   return page
 
