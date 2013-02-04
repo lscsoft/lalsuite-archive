@@ -26,6 +26,8 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw import ilwd
+
 #
 # =============================================================================
 #
@@ -68,7 +70,6 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
   timeSlides = []
 
   for thisFile in fileList:
-    print thisFile
 
     doc = utils.load_filename(thisFile,
         gz=(thisFile or "stdin").endswith(".gz"))
@@ -78,11 +79,12 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
     slideMapping = {}
     currSlides = {}
     for slide in timeSlideTable:
-      if slide.time_slide_id not in currSlides.keys():
-        currSlides[slide.time_slide_id] = {}
-       currSlides[slide.time_slide_id][slide.instrument] = slide.offset
-
-    print currSlides
+      currID = int(slide.time_slide_id)
+      if currID not in currSlides.keys():
+        currSlides[currID] = {}
+        currSlides[currID][slide.instrument] = slide.offset
+      elif slide.instrument not in currSlides[currID].keys():
+        currSlides[currID][slide.instrument] = slide.offset
 
     for slideID,offsetDict in currSlides.items():
       try:
@@ -92,24 +94,37 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
       except ValueError:
         # If not then add it
         timeSlides.append(offsetDict)
-        slideMapping[slideID] = len(timeSlide) - 1
+        slideMapping[slideID] = len(timeSlides) - 1
     
-    print slideMapping
-    print timeSlides
-         
     # extract the multi inspiral table
     try:
       multiInspiralTable = table.get_table(doc,
           lsctables.MultiInspiralTable.tableName)
       # Remap the time slide IDs
       for multi in multiInspiralTable:
-        newID = slideMapping[multi.time_slide_id]
-        multi.time_slide_id = ilwd.ilwdchar("multi_inspiral:time_slide_id:%d"\
-                                            newID)
+        newID = slideMapping[int(multi.time_slide_id)]
+        multi.time_slide_id = ilwd.ilwdchar(\
+                              "multi_inspiral:time_slide_id:%d" % (newID))
       if multis: multis.extend(multiInspiralTable)
       else: multis = multiInspiralTable
-    except: multiInspiralTable = None
-  return multis,timeSlideTable
+#    except: multiInspiralTable = None
+    except: raise
+
+  # Make a new time slide table
+  timeSlideTab = lsctables.New(lsctables.TimeSlideTable)
+
+  for slideID,offsetDict in enumerate(timeSlides):
+    for instrument in offsetDict.keys():
+      currTimeSlide = lsctables.TimeSlide()
+      currTimeSlide.instrument = instrument
+      currTimeSlide.offset = offsetDict[instrument]
+      currTimeSlide.time_slide_id = ilwd.ilwdchar(\
+                              "time_slide:time_slide_id:%d" % (slideID))
+      currTimeSlide.process_id = ilwd.ilwdchar(\
+                              "time_slide:process_id:%d" % (0))
+      timeSlideTab.append(currTimeSlide)
+
+  return multis,timeSlides,timeSlideTab
 
 
 #
