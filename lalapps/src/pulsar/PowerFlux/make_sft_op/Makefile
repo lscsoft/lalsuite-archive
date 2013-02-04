@@ -70,8 +70,8 @@ make_sft_op_conf.c: make_sft_op_conf.l
 make_sft_stiched: make_sft.c make_sft_conf.c make_sft_global.h make_sft_calibration.c op_method.h op_method.c\
 	make_sft_utils.c make_sft_td_data.c lal_port.c
 	$(CC) $(CFLAGS) $(LDFLAGS) make_sft.c make_sft_conf.c make_sft_calibration.c \
-	op_method.c make_sft_utils.c make_sft_td_data.c \
-	-o make_sft_stiched -static -lFrame -llal -lm -lfftw3f -lfftw3
+	op_method.c make_sft_utils.c make_sft_td_data.c lal_port.c \
+	-o make_sft_stiched -static -lFrame -llal -lm -lfftw3f -lfftw3 -lgsl
 	ls -l make_sft_stiched
 
 make_sft_op: make_sft_op.c make_sft_op_conf.c make_sft_global.h make_sft_calibration.c op_method.h op_method.c\
