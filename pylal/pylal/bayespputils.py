@@ -1236,6 +1236,9 @@ class Posterior(object):
         posterior samples must have a column named 'chain' so that the
         different chains can be separated.
         """
+        from numpy import seterr as np_seterr
+        np_seterr(all='raise')
+
         if "chain" in self.names:
             chains=np.unique(self["chain"].samples)
             chain_index=self.names.index("chain")
@@ -1250,7 +1253,11 @@ class Posterior(object):
             sigmaHat2=W + BoverN
             m=len(chainData)
             VHat=sigmaHat2 + BoverN/m
-            R = VHat/W
+            try:
+              R = VHat/W
+            except:
+              print "Error when computer Gelman-Rubin R statistic for %s.  This may be a fixed parameter"%pname
+              R = np.nan
             return R
         else:
             raise RuntimeError('could not find necessary column header "chain" in posterior samples')
