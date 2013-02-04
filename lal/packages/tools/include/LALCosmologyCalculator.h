@@ -70,9 +70,10 @@ double XLALUniformComovingVolumeDensity(
 double XLALUniformComovingVolumeDistribution(
             LALCosmologicalParameters *omega, 
             double z,
+            double zmin,
             double zmax);
 
-double XLALIntegrateComovingVolumeDensity(LALCosmologicalParameters *omega, double z);
+double XLALIntegrateComovingVolumeDensity(LALCosmologicalParameters *omega, double zmin, double zmax);
             
 LALCosmologicalParameters *XLALCreateCosmologicalParameters(double h, double om, double ok, double ol, double w0, double w1, double w2);
 

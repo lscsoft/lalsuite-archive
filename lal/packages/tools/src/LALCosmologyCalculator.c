@@ -106,7 +106,7 @@ double XLALComovingTransverseDistance(
 }
 
 /**
-* Computes the Hubble distance, independent of the redshift. This is the distance with sets the untis for all others.
+* Computes the Hubble distance, independent of the redshift. This is the distance with sets the units for all others.
 * It returns the distance in Mpc. 
 * Eq. 4 in Hogg 1999 ( http://arxiv.org/abs/astro-ph/9905116 )
 **/
@@ -188,18 +188,18 @@ double XLALIntegrateHubbleParameter(
 double XLALUniformComovingVolumeDistribution(
             LALCosmologicalParameters *omega, /** structure holding the cosmological parameters **/
             double z, /** redshift **/
-            double zmax /** UNUSED maximal redshift **/
+            double zmin, /** minimum redshift **/
+            double zmax /** maximal redshift, if negative the integral is performed to infinity **/
             )
 {
-    zmax+=1;
-    double norm = XLALIntegrateComovingVolumeDensity(omega, -1.0);
+    double norm = XLALIntegrateComovingVolumeDensity(omega, zmin, zmax);
     double unnorm_density = XLALUniformComovingVolumeDensity(z,(void *)omega);
 
     return unnorm_density/norm;
 }
 
 /** 
-* This function computes the value of a uniform probability density distribution over the comoving volume.
+* This function computes the value of a uniform probability density distribution over the comoving volume at redshift z.
 **/
 
 double XLALUniformComovingVolumeDensity( 
@@ -220,13 +220,16 @@ double XLALUniformComovingVolumeDensity(
 
 /**
 * Function that integrates the uniform in comoving volume density to compute the normalisation factor. 
-* Consistently with Coward, Burman 2005 ( http://arxiv.org/abs/astro-ph/0505181 ) the integral is always performed up to infinity.
+* Consistently with Coward, Burman 2005 ( http://arxiv.org/abs/astro-ph/0505181 ) the integral should be always performed up to infinity.
+* However, if the user specifies a value for zmax, the probability density will be normalised by integrating up to that value. 
+* To let the upper limit of integration go to infinity, specify zmax < 0. 
 * The integration is performed using gsl_integration_qagiu from the gsl library (see http://www.gnu.org/software/gsl/manual/html_node/QAGI-adaptive-integration-on-infinite-intervals.html )
 **/
 
 double XLALIntegrateComovingVolumeDensity(
             LALCosmologicalParameters *omega, /** structure holding the cosmological parameters **/
-            double z /** redshift **/
+            double zmin, /** minimum redshift **/
+            double zmax /** maximum redshift **/
             )
 {
     double result = 0.0;
@@ -243,10 +246,10 @@ double XLALIntegrateComovingVolumeDensity(
     gsl_integration_workspace * w 
     = gsl_integration_workspace_alloc (512);
 
-    if (z<0.0) gsl_integration_qagiu (&F, 0.0, epsabs, epsrel, 
-                    limit, w, &result, &error);
+    if (zmax<0.0) gsl_integration_qagiu (&F, zmin, epsabs, epsrel, 
+                    limit, w, &result, &error); /** compute the normalisation constant up to infinity if zmax < 0 **/
     
-    else gsl_integration_qag (&F, 0.0, z, epsabs, epsrel, 
+    else gsl_integration_qag (&F, zmin, zmax, epsabs, epsrel, 
                     limit, key, w, &result, &error);
 
     gsl_integration_workspace_free (w);
@@ -258,7 +261,7 @@ double XLALIntegrateComovingVolumeDensity(
 * Creates a LALCosmologicalParameters structure from the values of the cosmological parameters.
 * Note that the boundary condition \Omega_m + \Omega_k + \Omega_\Lambda = 1 is NOT imposed here, 
 * but must be set prior to populating this structure and calling the required functions. 
-* Failure to impose the correct buondary condition will result in the Hubble parameter to be ill-defined 
+* Failure to impose the correct boundary condition will result in the Hubble parameter to be ill-defined 
 * and thus the code to crash.  
 **/
 

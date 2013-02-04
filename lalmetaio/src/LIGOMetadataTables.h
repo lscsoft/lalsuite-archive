@@ -568,6 +568,7 @@ tagSimInspiralTable
   REAL4	      qmparameter2;
   REAL4          redshift;
   REAL4         fref;
+  INT4          phase_order;
   INT4          spin_order;
   INT4          tidal_order;
   REAL4         deltat;

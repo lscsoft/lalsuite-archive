@@ -108,10 +108,10 @@ REAL8 snr_in_psd_real8(const char *ifo, REAL8FrequencySeries *psd, REAL8 start_f
 REAL8 network_snr_with_psds_real8(int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs, SimInspiralTable *inj);
 void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs);
 
-REAL8 probability_redshift(REAL8 rshift);
-REAL8 luminosity_distance(REAL8 rshift);
+REAL8 probability_redshift_sfr(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax);
+REAL8 drawRedshiftSFR(REAL8 zmin, REAL8 zmax, REAL8 pzmax);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax);
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 
 /*
@@ -137,6 +137,7 @@ char *exttrigFileName = NULL;
 char *IPNSkyPositionsFile = NULL;
 char eos_name[128]="";
 char cosmological_model[128]="";
+INT4 enable_cosmology =0;
 
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
@@ -202,6 +203,7 @@ INT4 numExtTriggers = 0;
 ExtTriggerTable   *exttrigHead = NULL;
 LALCosmologicalParameters *omega = NULL;
 REAL4 zmaximal = 1.0;
+REAL4 zminimal = 0.0;
 int num_source;
 int numSkyPoints;
 int galaxynum;
@@ -247,25 +249,15 @@ SimInspiralTable **nrSimArray = NULL;
  *  *********************************
  */
 
-REAL8 probability_redshift(REAL8 rshift)
+REAL8 probability_redshift_sfr(REAL8 rshift)
 {
   REAL8 pz;
-
+  
   pz = -0.000429072589677+(rshift*(-0.036349728568888+(rshift*(0.860892111762314
-     +(rshift*(-0.740935488674010+rshift*(0.265848831356864+rshift*(-0.050041573542298
-     +rshift*(0.005184554232421+rshift*(-0.000281450045300+rshift*0.000006400690921))))))))));
-
-  return pz;
-}
-
-REAL8 luminosity_distance(REAL8 rshift)
-{
-  REAL8 dL;
-        
-        dL = -2.89287707063171+(rshift*(4324.33492012756+(rshift*(3249.74193862773
-           +(rshift*(-1246.66339928289+rshift*(335.354613407693+rshift*(-56.1194965448065
-       +rshift*(5.20261234121263+rshift*(-0.203151569744028))))))))));
-  return dL;
+      +(rshift*(-0.740935488674010+rshift*(0.265848831356864+rshift*(-0.050041573542298
+      +rshift*(0.005184554232421+rshift*(-0.000281450045300+rshift*0.000006400690921))))))))));
+  
+ return pz;
 }
 
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
@@ -280,14 +272,28 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
   return step;
 }
 
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax)
+REAL8 drawRedshiftSFR(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
+{
+  REAL8 test,z,p;
+  do
+  {
+     test = pzmax * XLALUniformDeviate(randParams);
+     z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
+     p= probability_redshift_sfr(z);
+  }
+  while (test>p);        
+  return z;
+}
+
+
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax)
 {
     REAL8 test,z,p;
     do
     {   
         test = XLALUniformDeviate(randParams);
-        z = zmax * XLALUniformDeviate(randParams);
-        p=XLALUniformComovingVolumeDistribution(params, z, zmax);
+        z = zmin+(zmax-zmin) * XLALUniformDeviate(randParams);
+        p=XLALUniformComovingVolumeDistribution(params, z, zmin, -1.0); /** normalise the distribution to infinity */
     } while (test>p);
     
     return z;
@@ -617,8 +623,9 @@ static void print_usage(char *program)
       "                           uniform: uniform distribution in distance\n"\
       "                           distancesquared: uniform distribution in distance^2\n"\
       "                           log10: uniform distribution in log10(d) \n"\
-      "                           volume: uniform distribution in volume\n"\
-      "                           sfr: distribution derived from the SFR\n"\
+      "                           volume: uniform distribution in volume, requires the specification of a cosmology, a minimum and a maximum redshift\n"\
+      "                           sfr: distribution derived from the SFR, requires the specification of a minimum and a maximum redshift\n"\
+      "                           NB: when specifying a volume distribution the sources will always be generated in the redshift space\n"\
       " [--local-rate] rho        set the local coalescence rate when --d-dist sfr\n"\
       "                           (suggestion: 1 per Mpc^3 per Myr)\n"\
       "  --i-distr INCDIST        set the inclination distribution, must be either\n"\
@@ -639,8 +646,8 @@ static void print_usage(char *program)
       " [--enable-milkyway] lum   enables MW injections, set MW luminosity\n"\
       " [--disable-milkyway]      disables Milky Way injections\n"\
       " [--exttrig-file] exttrig  XML file containing external trigger\n"\
-      " [--min-distance] DMIN     set the minimum distance to DMIN kpc\n"\
-      " [--max-distance] DMAX     set the maximum distance to DMAX kpc\n"\
+      " [--min-distance] DMIN     set the minimum distance to DMIN kpc, unused when using a volume or sfr distance distribution\n"\
+      " [--max-distance] DMAX     set the maximum distance to DMAX kpc, unused when using a volume or sfr distance distribution\n"\
       "                           min/max distance required if d-distr not 'source'\n"\
       " [--use-chirp-distance]    Use this option to scale injections using \n"
       "                           chirp distance (relative to a 1.4,1.4)\n"\
@@ -716,8 +723,9 @@ static void print_usage(char *program)
   fprintf(stderr,
       "Cosmological model:\n"\
       "  [--cosmology] LambdaCDM Use the corresponding values of the cosmological parameters for the definitions\n"\
-      "                of luminosity distance and comoving volume. Default LambdaCDM\n"\
-      "  [--zmax] zmax     Maximal redshift\n\n");
+      "                of luminosity distance and comoving volume. Default LambdaCDM: h = 0.7, omega_m = 0.3, omega_lambda =0.7\n"\
+      "  [--zmin] zmin     Minimum redshift, DEFAULT 0\n"\
+      "  [--zmax] zmax     Maximum redshift, DEFAULT 1\n\n");
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
@@ -1542,7 +1550,8 @@ int main( int argc, char *argv[] )
     {"max-spin2",               required_argument, 0,                'U'},
     {"eos",                     required_argument, 0,                666},
     {"cosmology",               required_argument, 0,                667},
-    {"zmax",                    required_argument, 0,                668},
+    {"zmin",                    required_argument, 0,                668},
+    {"zmax",                    required_argument, 0,                669},
     {"output",                  required_argument, 0,                'P'},
     {"version",                 no_argument,       0,                'V'},
     {"enable-spin",             no_argument,       0,                'T'},
@@ -2356,6 +2365,7 @@ int main( int argc, char *argv[] )
         equation_of_state = XLALSimEOSfromString(eos_name);
         break;
       case 667:
+        enable_cosmology = 1;
         sprintf(cosmological_model, "%s",optarg);
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name, "string",
@@ -2369,12 +2379,27 @@ int main( int argc, char *argv[] )
          else {fprintf(stderr,"ERROR! Model %s not implemented!",cosmological_model);exit(-1);}
         break;
       case 668:
+          zminimal = atof(optarg);
+          if (zminimal<0.0) 
+          {
+              fprintf(stderr,"ERROR! The minimum redshift must be greater than 0!\n");
+              exit(1);
+          }
+            this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%le", zminimal);
+          break;
+      case 669:
           zmaximal = atof(optarg);
+          if (zmaximal<0.0) 
+          {
+              fprintf(stderr,"ERROR! The maximum redshift must be greater than 0!\n");
+              exit(1);
+          }
             this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name,
               "float", "%le", zmaximal);
           break;
-
       case 'V':
         /* print version information and exit */
         fprintf( stdout, "LIGO/LSC inspiral injection engine\n");
@@ -2602,7 +2627,40 @@ int main( int argc, char *argv[] )
           "Must specify --ipn-file when using IPN sky points distribution \n" );
       exit( 1 );
     }
-
+    /* sanity check on the input */
+  if ((dDistr==uniformVolume)||(dDistr==sfr)) 
+  {       
+    
+    if ((dDistr==uniformVolume)&&(enable_cosmology!=1)) 
+    {
+        fprintf(stderr, "You must specify a cosmological model [--cosmology] and at least maximum redshift [--zmax] when generating sources in comoving volume.\n");
+        exit(1);
+    }
+    else 
+    {
+        if (zminimal>zmaximal) 
+        {
+            fprintf(stderr, "zmin > zmax, please correct your input and try again\n");
+            exit(1);
+        }
+        /** compute the minimum and maximum distance corresponding to the minimum and maximum redshifts from the specified cosmological model (in kpc) **/
+        /** unnecessary, but pretty **/
+        dmin = 1E3*XLALLuminosityDistance(omega,zminimal);
+        dmax = 1E3*XLALLuminosityDistance(omega,zmaximal);
+    }       
+    if ((dDistr == sfr)&&((zminimal<0.2 || zmaximal>1.0) ))  
+    {
+        fprintf( stderr,"The redshift can only take values between 0.2 and 1 when using a sfr distribution.\n" );
+        exit( 1 );
+        
+    }
+    else pzmax = probability_redshift_sfr(zmaximal);  /* calculate the maximal value of the empirical probability distribution of the redshift */ 
+  }
+  if ((dDistr!=uniformVolume)&&(enable_cosmology==1)) 
+  {
+      fprintf(stderr, "Redshift distributions can be generated only when specifying --d-distr=volume.\n");
+      exit(1);
+  }  
     /* read the source distribution here */
    read_IPN_grid_from_file( IPNSkyPositionsFile );
   }
@@ -2825,12 +2883,15 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  if ( dDistr!=distFromSourceFile && (dmin<0.0 || dmax<0.0) )
+  if ( ((dDistr!=distFromSourceFile)&&(dDistr!=uniformVolume)&&(dDistr!=sfr)))
   {
-    fprintf( stderr,
-        "Must specify --min-distance and --max-distance if \n"
-        "--d-distr is not source.\n" );
-    exit( 1 );
+    if ((dmin<0.0 || dmax<0.0) ) 
+    {
+        fprintf( stderr,
+            "Must specify --min-distance and --max-distance if \n"
+            "--d-distr is not source, volume or sfr.\n" );
+        exit( 1 );
+    }
   }
 
   /* check if number of grid points is specified */
@@ -3032,12 +3093,6 @@ int main( int argc, char *argv[] )
   massStdev10 = massStdev1;
   massStdev20 = massStdev2;
 
-  /* calculate the maximal value of the probability distribution of the redshift */        
-  if (dDistr == sfr)
-  {
-    pzmax = probability_redshift(dmax);
-  }
-
   /* loop over parameter generation until end time is reached */
   ninj = 0;
   ncount = 0;
@@ -3059,7 +3114,7 @@ int main( int argc, char *argv[] )
     /* draw redshift */
     if (dDistr==sfr)
     {
-          redshift= drawRedshift(omega,zmaximal);        
+      redshift= drawRedshiftSFR(zminimal,zmaximal,pzmax);        
 
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
@@ -3074,7 +3129,7 @@ int main( int argc, char *argv[] )
     }
     if (dDistr==uniformVolume) 
     {
-        redshift= drawRedshift(omega,zmaximal); 
+        redshift= drawRedshift(omega,zminimal,zmaximal); 
         minMass1 = redshift_mass(minMass10, redshift);
         maxMass1 = redshift_mass(maxMass10, redshift);
         meanMass1 = redshift_mass(meanMass10, redshift);
@@ -3158,7 +3213,6 @@ int main( int argc, char *argv[] )
     }
     else if ((dDistr == sfr )||(dDistr==uniformVolume))
     {
-       /* fit of luminosity distance  between z=0-1, in Mpc for h0=0.7, omega_m=0.3, omega_v=0.7*/
        simTable->distance = XLALLuminosityDistance(omega,redshift);
        simTable->redshift = redshift;
     }
@@ -3330,6 +3384,14 @@ int main( int argc, char *argv[] )
             LALFree(tmp);
         }
     }
+    /* temporarily populate additional parameters */
+    simTable->fref = 0.0;
+    simTable->phase_order=XLALGetOrderFromString(waveform);
+    simTable->spin_order = 0; /** temporary value TODO: read in the correct value and order **/
+    simTable->tidal_order = 0; /** temporary value TODO: read in the correct value and order **/
+    simTable->deltat = 0.0; /** temporary value TODO: read in the correct value and order **/
+    simTable->frame_axis = 0; /** temporary value TODO: read in the correct value and order **/
+    simTable->modes_choice = 0; /** temporary value TODO: read in the correct value and order **/
 
     /* populate the site specific information */
     LALPopulateSimInspiralSiteInfo( &status, simTable );
