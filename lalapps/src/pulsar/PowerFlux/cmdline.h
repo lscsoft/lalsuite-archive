@@ -380,6 +380,9 @@ struct gengetopt_args_info
   double confidence_level_arg;	/**< @brief specify desired confidence level for universal upper limit function (default='0.95').  */
   char * confidence_level_orig;	/**< @brief specify desired confidence level for universal upper limit function original value given at command line.  */
   const char *confidence_level_help; /**< @brief specify desired confidence level for universal upper limit function help description.  */
+  double x_epsilon_arg;	/**< @brief specify x_epsilon for universal upper limit function (default='-1').  */
+  char * x_epsilon_orig;	/**< @brief specify x_epsilon for universal upper limit function original value given at command line.  */
+  const char *x_epsilon_help; /**< @brief specify x_epsilon for universal upper limit function help description.  */
   int dump_power_sums_arg;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels (default='0').  */
   char * dump_power_sums_orig;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels original value given at command line.  */
   const char *dump_power_sums_help; /**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels help description.  */
@@ -389,15 +392,18 @@ struct gengetopt_args_info
   int fine_grid_skymarks_arg;	/**< @brief use sky marks from the fine grid, this uses constant spindown (default='0').  */
   char * fine_grid_skymarks_orig;	/**< @brief use sky marks from the fine grid, this uses constant spindown original value given at command line.  */
   const char *fine_grid_skymarks_help; /**< @brief use sky marks from the fine grid, this uses constant spindown help description.  */
-  int half_window_arg;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics (default='20').  */
-  char * half_window_orig;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics original value given at command line.  */
-  const char *half_window_help; /**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics help description.  */
+  int half_window_arg;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or universal statistics (default='20').  */
+  char * half_window_orig;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or universal statistics original value given at command line.  */
+  const char *half_window_help; /**< @brief number of bins to exclude to the left and to the right of highest point when computing linear or universal statistics help description.  */
   int tail_veto_arg;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum (default='10').  */
   char * tail_veto_orig;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum original value given at command line.  */
   const char *tail_veto_help; /**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum help description.  */
   int cache_granularity_arg;	/**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin (default='-1').  */
   char * cache_granularity_orig;	/**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin original value given at command line.  */
   const char *cache_granularity_help; /**< @brief granularity of power cache frequency shift resolution, in fractions of a frequency bin help description.  */
+  int diff_shift_granularity_arg;	/**< @brief granularity of power cache differential frequency shift resolution (default='-1').  */
+  char * diff_shift_granularity_orig;	/**< @brief granularity of power cache differential frequency shift resolution original value given at command line.  */
+  const char *diff_shift_granularity_help; /**< @brief granularity of power cache differential frequency shift resolution help description.  */
   int sidereal_group_count_arg;	/**< @brief separate SFTs in that many groups by frequency shift.  */
   char * sidereal_group_count_orig;	/**< @brief separate SFTs in that many groups by frequency shift original value given at command line.  */
   const char *sidereal_group_count_help; /**< @brief separate SFTs in that many groups by frequency shift help description.  */
@@ -543,12 +549,14 @@ struct gengetopt_args_info
   unsigned int max_first_shift_given ;	/**< @brief Whether max-first-shift was given.  */
   unsigned int statistics_function_given ;	/**< @brief Whether statistics-function was given.  */
   unsigned int confidence_level_given ;	/**< @brief Whether confidence-level was given.  */
+  unsigned int x_epsilon_given ;	/**< @brief Whether x-epsilon was given.  */
   unsigned int dump_power_sums_given ;	/**< @brief Whether dump-power-sums was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
   unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */
   unsigned int half_window_given ;	/**< @brief Whether half-window was given.  */
   unsigned int tail_veto_given ;	/**< @brief Whether tail-veto was given.  */
   unsigned int cache_granularity_given ;	/**< @brief Whether cache-granularity was given.  */
+  unsigned int diff_shift_granularity_given ;	/**< @brief Whether diff-shift-granularity was given.  */
   unsigned int sidereal_group_count_given ;	/**< @brief Whether sidereal-group-count was given.  */
   unsigned int time_group_count_given ;	/**< @brief Whether time-group-count was given.  */
   unsigned int phase_mismatch_given ;	/**< @brief Whether phase-mismatch was given.  */

@@ -62,7 +62,7 @@ SKY_GRID_TYPE ecliptic_distance(SKY_GRID_TYPE ra0, SKY_GRID_TYPE dec0,
 {
 SKY_GRID_TYPE x, y, z, a, ds;
 
-fprintf(stderr, "ecliptic_pole=(%f, %f, %f)\n", ecliptic_pole[0], ecliptic_pole[1], ecliptic_pole[2]);
+//fprintf(stderr, "ecliptic_pole=(%f, %f, %f)\n", ecliptic_pole[0], ecliptic_pole[1], ecliptic_pole[2]);
 
 x=cos(ra1)*cos(dec1)-cos(ra0)*cos(dec0);
 y=sin(ra1)*cos(dec1)-sin(ra0)*cos(dec0);

@@ -148,12 +148,14 @@ const char *gengetopt_args_info_help[] = {
   "      --max-first-shift=INT     larger values accomodate bigger spindown ranges \n                                  but require more bins to be computed in \n                                  uncached function  (default=`10')",
   "      --statistics-function=STRING\n                                specify statistics postprocessing to apply. \n                                  Possible values: linear, universal, sorted  \n                                  (default=`universal')",
   "      --confidence-level=DOUBLE specify desired confidence level for universal \n                                  upper limit function  (default=`0.95')",
+  "      --x-epsilon=DOUBLE        specify x_epsilon for universal upper limit \n                                  function  (default=`-1')",
   "      --dump-power-sums=INT     Write out all power sum data into data.log \n                                  file. It is recommend to restrict the sky to \n                                  very few pixels  (default=`0')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
   "      --fine-grid-skymarks=INT  use sky marks from the fine grid, this uses \n                                  constant spindown  (default=`0')",
-  "      --half-window=INT         number of bins to exclude to the left and to \n                                  the right of highest point when computing \n                                  linear or robust statistics  (default=`20')",
+  "      --half-window=INT         number of bins to exclude to the left and to \n                                  the right of highest point when computing \n                                  linear or universal statistics  \n                                  (default=`20')",
   "      --tail-veto=INT           do not report outlier if its frequency is \n                                  within that many bins from the tail - happens \n                                  with steep spectrum  (default=`10')",
   "      --cache-granularity=INT   granularity of power cache frequency shift \n                                  resolution, in fractions of a frequency bin  \n                                  (default=`-1')",
+  "      --diff-shift-granularity=INT\n                                granularity of power cache differential \n                                  frequency shift resolution  (default=`-1')",
   "      --sidereal-group-count=INT\n                                separate SFTs in that many groups by frequency \n                                  shift",
   "      --time-group-count=INT    separate SFTs in that many groups by gps time",
   "      --phase-mismatch=DOUBLE   maximal phase mismatch over coherence length to \n                                  assume when using loosely coherent mode  \n                                  (default=`1.570796')",
@@ -329,12 +331,14 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->max_first_shift_given = 0 ;
   args_info->statistics_function_given = 0 ;
   args_info->confidence_level_given = 0 ;
+  args_info->x_epsilon_given = 0 ;
   args_info->dump_power_sums_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
   args_info->fine_grid_skymarks_given = 0 ;
   args_info->half_window_given = 0 ;
   args_info->tail_veto_given = 0 ;
   args_info->cache_granularity_given = 0 ;
+  args_info->diff_shift_granularity_given = 0 ;
   args_info->sidereal_group_count_given = 0 ;
   args_info->time_group_count_given = 0 ;
   args_info->phase_mismatch_given = 0 ;
@@ -561,6 +565,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->statistics_function_orig = NULL;
   args_info->confidence_level_arg = 0.95;
   args_info->confidence_level_orig = NULL;
+  args_info->x_epsilon_arg = -1;
+  args_info->x_epsilon_orig = NULL;
   args_info->dump_power_sums_arg = 0;
   args_info->dump_power_sums_orig = NULL;
   args_info->compute_skymaps_arg = 0;
@@ -573,6 +579,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->tail_veto_orig = NULL;
   args_info->cache_granularity_arg = -1;
   args_info->cache_granularity_orig = NULL;
+  args_info->diff_shift_granularity_arg = -1;
+  args_info->diff_shift_granularity_orig = NULL;
   args_info->sidereal_group_count_orig = NULL;
   args_info->time_group_count_orig = NULL;
   args_info->phase_mismatch_arg = 1.570796;
@@ -714,21 +722,23 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->max_first_shift_help = gengetopt_args_info_help[113] ;
   args_info->statistics_function_help = gengetopt_args_info_help[114] ;
   args_info->confidence_level_help = gengetopt_args_info_help[115] ;
-  args_info->dump_power_sums_help = gengetopt_args_info_help[116] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[117] ;
-  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[118] ;
-  args_info->half_window_help = gengetopt_args_info_help[119] ;
-  args_info->tail_veto_help = gengetopt_args_info_help[120] ;
-  args_info->cache_granularity_help = gengetopt_args_info_help[121] ;
-  args_info->sidereal_group_count_help = gengetopt_args_info_help[122] ;
-  args_info->time_group_count_help = gengetopt_args_info_help[123] ;
-  args_info->phase_mismatch_help = gengetopt_args_info_help[124] ;
-  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[125] ;
-  args_info->compute_cross_terms_help = gengetopt_args_info_help[126] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[127] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[128] ;
-  args_info->sse_help = gengetopt_args_info_help[129] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[130] ;
+  args_info->x_epsilon_help = gengetopt_args_info_help[116] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[117] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[118] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[119] ;
+  args_info->half_window_help = gengetopt_args_info_help[120] ;
+  args_info->tail_veto_help = gengetopt_args_info_help[121] ;
+  args_info->cache_granularity_help = gengetopt_args_info_help[122] ;
+  args_info->diff_shift_granularity_help = gengetopt_args_info_help[123] ;
+  args_info->sidereal_group_count_help = gengetopt_args_info_help[124] ;
+  args_info->time_group_count_help = gengetopt_args_info_help[125] ;
+  args_info->phase_mismatch_help = gengetopt_args_info_help[126] ;
+  args_info->bypass_powersum_cache_help = gengetopt_args_info_help[127] ;
+  args_info->compute_cross_terms_help = gengetopt_args_info_help[128] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[129] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[130] ;
+  args_info->sse_help = gengetopt_args_info_help[131] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[132] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -992,12 +1002,14 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->statistics_function_arg));
   free_string_field (&(args_info->statistics_function_orig));
   free_string_field (&(args_info->confidence_level_orig));
+  free_string_field (&(args_info->x_epsilon_orig));
   free_string_field (&(args_info->dump_power_sums_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
   free_string_field (&(args_info->fine_grid_skymarks_orig));
   free_string_field (&(args_info->half_window_orig));
   free_string_field (&(args_info->tail_veto_orig));
   free_string_field (&(args_info->cache_granularity_orig));
+  free_string_field (&(args_info->diff_shift_granularity_orig));
   free_string_field (&(args_info->sidereal_group_count_orig));
   free_string_field (&(args_info->time_group_count_orig));
   free_string_field (&(args_info->phase_mismatch_orig));
@@ -1274,6 +1286,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "statistics-function", args_info->statistics_function_orig, 0);
   if (args_info->confidence_level_given)
     write_into_file(outfile, "confidence-level", args_info->confidence_level_orig, 0);
+  if (args_info->x_epsilon_given)
+    write_into_file(outfile, "x-epsilon", args_info->x_epsilon_orig, 0);
   if (args_info->dump_power_sums_given)
     write_into_file(outfile, "dump-power-sums", args_info->dump_power_sums_orig, 0);
   if (args_info->compute_skymaps_given)
@@ -1286,6 +1300,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "tail-veto", args_info->tail_veto_orig, 0);
   if (args_info->cache_granularity_given)
     write_into_file(outfile, "cache-granularity", args_info->cache_granularity_orig, 0);
+  if (args_info->diff_shift_granularity_given)
+    write_into_file(outfile, "diff-shift-granularity", args_info->diff_shift_granularity_orig, 0);
   if (args_info->sidereal_group_count_given)
     write_into_file(outfile, "sidereal-group-count", args_info->sidereal_group_count_orig, 0);
   if (args_info->time_group_count_given)
@@ -1990,12 +2006,14 @@ cmdline_parser_internal (
         { "max-first-shift",	1, NULL, 0 },
         { "statistics-function",	1, NULL, 0 },
         { "confidence-level",	1, NULL, 0 },
+        { "x-epsilon",	1, NULL, 0 },
         { "dump-power-sums",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
         { "fine-grid-skymarks",	1, NULL, 0 },
         { "half-window",	1, NULL, 0 },
         { "tail-veto",	1, NULL, 0 },
         { "cache-granularity",	1, NULL, 0 },
+        { "diff-shift-granularity",	1, NULL, 0 },
         { "sidereal-group-count",	1, NULL, 0 },
         { "time-group-count",	1, NULL, 0 },
         { "phase-mismatch",	1, NULL, 0 },
@@ -3597,6 +3615,20 @@ cmdline_parser_internal (
               goto failure;
           
           }
+          /* specify x_epsilon for universal upper limit function.  */
+          else if (strcmp (long_options[option_index].name, "x-epsilon") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->x_epsilon_arg), 
+                 &(args_info->x_epsilon_orig), &(args_info->x_epsilon_given),
+                &(local_args_info.x_epsilon_given), optarg, 0, "-1", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "x-epsilon", '-',
+                additional_error))
+              goto failure;
+          
+          }
           /* Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels.  */
           else if (strcmp (long_options[option_index].name, "dump-power-sums") == 0)
           {
@@ -3639,7 +3671,7 @@ cmdline_parser_internal (
               goto failure;
           
           }
-          /* number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics.  */
+          /* number of bins to exclude to the left and to the right of highest point when computing linear or universal statistics.  */
           else if (strcmp (long_options[option_index].name, "half-window") == 0)
           {
           
@@ -3677,6 +3709,20 @@ cmdline_parser_internal (
                 &(local_args_info.cache_granularity_given), optarg, 0, "-1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "cache-granularity", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* granularity of power cache differential frequency shift resolution.  */
+          else if (strcmp (long_options[option_index].name, "diff-shift-granularity") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->diff_shift_granularity_arg), 
+                 &(args_info->diff_shift_granularity_orig), &(args_info->diff_shift_granularity_given),
+                &(local_args_info.diff_shift_granularity_given), optarg, 0, "-1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "diff-shift-granularity", '-',
                 additional_error))
               goto failure;
           

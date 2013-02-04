@@ -97,6 +97,15 @@ if(args_info.cache_granularity_given) {
 		}
 	}
 
+if(args_info.diff_shift_granularity_given) {
+	ctx->diff_shift_granularity=args_info.diff_shift_granularity_arg;
+	if(ctx->diff_shift_granularity<1) {
+		fprintf(stderr, "*** ERROR: diff shift granularity must be positive\n");
+		fprintf(LOG, "*** ERROR: diff shift granularity must be positive\n");
+		exit(-1);
+		}
+	}
+
 if(args_info.summing_step_given) {
 	ctx->summing_step=args_info.summing_step_arg;
 	}

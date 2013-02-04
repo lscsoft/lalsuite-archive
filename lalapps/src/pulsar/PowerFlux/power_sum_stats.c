@@ -536,6 +536,54 @@ TEST(dec, "%g", 1e-4)
 return 0;
 }
 
+/* Special version for testing universal statistics 
+ * 
+ * Ignore m1_neg field (used for diagnostics) as it can jump due to floating point errors.
+ * 
+ */
+int compare_point_stats_universal(char *prefix, POINT_STATS *ref, POINT_STATS *test)
+{
+
+#define TEST(field, format, tolerance) \
+	if( (ref->field!=test->field) && !(fabs(test->field-ref->field)<tolerance*(fabs(ref->field)+fabs(test->field)))) { \
+		fprintf(stderr, "%s" #field " fields do not match ref=" format " test=" format " test-ref=" format "\n", \
+			prefix, \
+			ref->field, test->field, test->field-ref->field); \
+		return -1; \
+		}
+
+TEST(iota, "%g", 1e-4)
+TEST(psi, "%g", 1e-4)
+
+TEST(ul, "%g", 1e-4)
+TEST(ll, "%g", 1e-4)
+TEST(centroid, "%g", 1e-4)
+TEST(snr, "%g", 1e-4)
+
+TEST(M, "%g", 1e-4)
+TEST(S, "%g", 1e-4)
+TEST(ks_value, "%g", 1e-4)
+TEST(m3_neg, "%g", 1e-4)
+TEST(m4, "%g", 1e-4)
+TEST(max_weight, "%g", 1e-4)
+TEST(weight_loss_fraction, "%g", 1e-4)
+
+TEST(ks_count, "%d", -1)
+
+TEST(bin, "%d", -1)
+
+/* the following fields are for convenience and are filled in by outside code based on value of bin */
+TEST(frequency, "%g", 1e-4)
+TEST(spindown, "%g", 1e-4)
+TEST(ra, "%g", 1e-4)
+TEST(dec, "%g", 1e-4)
+
+
+#undef TEST
+
+return 0;
+}
+
 
 void point_power_sum_stats_sorted(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
@@ -1920,24 +1968,25 @@ if(max_dx<=0 || !isfinite(max_dx)) {
 /* Third pass - compute delta */
 	
 sum_c=0.0;
+
 for(i=0;i<max_dx_bin-half_window;i++) {
-	a=(M-tmp[i])*inv_S-x_epsilon;
+	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
 	if(a>=0) {
-		sum_c+=a+UNIV_INV_B;
+		sum_c+=a+UNIV_INV_B*S;
 		}
 	}
 
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
-	a=(M-tmp[i])*inv_S-x_epsilon;
+	a=(M-x_epsilon*S)-tmp[i];
 	/* collect negative threshold statistics */
 	if(a>=0) {
-		sum_c+=a+UNIV_INV_B;
+		sum_c+=a+UNIV_INV_B*S;
 		}
 	}
-	
-//fprintf(stderr, "sum_c1: %g\n", sum_c*S);
-sum_c=sum_c/(UNIV_INV_B*count);
+
+// fprintf(stderr, "___ sum_c=%g inv_S=%g count=%d max_dx_bin=%d %f M=%g\n", sum_c*inv_S, inv_S, count, max_dx_bin, UNIV_INV_B, M);
+sum_c=sum_c*inv_S/(UNIV_INV_B*count*(1.0-args_info.confidence_level_arg));
 
 if(sum_c<=1)
 	s3=x_epsilon;
@@ -1984,7 +2033,7 @@ float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4, sum_c;
 int half_window=args_info.half_window_arg;
 float *tmp2=NULL;
-__m128 v4a,v4b, v4c, v4d, v4weight, v4tmp, v4sum, v4sum_sq, v4sum3, v4sum4, v4zero;
+__m128 v4a,v4b, v4c, v4d, v4weight, v4tmp, v4sum, v4sum_sq, v4sum3, v4sum4, v4zero, v4_max_weight, v4_min_weight;
 
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
@@ -2010,6 +2059,9 @@ if(pps->power_im_pc==NULL) {
 if(pps->weight_arrays_non_zero) {
 	max_weight=0;
 	min_weight=1e50;
+	
+	v4_max_weight=_mm_load1_ps(&max_weight);
+	v4_min_weight=_mm_load1_ps(&min_weight);
 
 	if(!pps->collapsed_weight_arrays) {
 		for(i=0;i<useful_bins;i++) {
@@ -2057,25 +2109,10 @@ if(pps->weight_arrays_non_zero) {
 
 		v4weight=_mm_add_ps(v4weight, v4c);
 
-		_mm_store_ps(tmp2, v4weight);
-
 		/* update max and min weight variables */
 
-		weight=tmp2[0];
-		if(weight>max_weight)max_weight=weight;
-		if(weight<min_weight)min_weight=weight;
-
-		weight=tmp2[1];
-		if(weight>max_weight)max_weight=weight;
-		if(weight<min_weight)min_weight=weight;
-
-		weight=tmp2[2];
-		if(weight>max_weight)max_weight=weight;
-		if(weight<min_weight)min_weight=weight;
-
-		weight=tmp2[3];
-		if(weight>max_weight)max_weight=weight;
-		if(weight<min_weight)min_weight=weight;
+		v4_max_weight=_mm_max_ps(v4_max_weight, v4weight);
+		v4_min_weight=_mm_min_ps(v4_min_weight, v4weight);
 
 		/* compute power sum */
 
@@ -2106,6 +2143,20 @@ if(pps->weight_arrays_non_zero) {
 		_mm_store_ps(&(tmp[i]), v4tmp);
 
 		}
+
+	_mm_store_ps(tmp2, v4_max_weight);
+	
+	for(i=0;i<4;i++) {
+		weight=tmp2[i];
+		if(weight>max_weight)max_weight=weight;
+		}	
+
+	_mm_store_ps(tmp2, v4_min_weight);
+	
+	for(i=0;i<4;i++) {
+		weight=tmp2[i];
+		if(weight<min_weight)min_weight=weight;
+		}	
 
 	for(;i<useful_bins;i++) {
 		weight=(pps->weight_pppp[i]*ag->pppp+
@@ -2440,7 +2491,9 @@ _mm_store_ps(tmp2, v4sum);
 //fprintf(stderr, "sum_c=%g tmp2 %g %g %g %g max_dx_bin=%d\n", sum_c, tmp2[0], tmp2[1], tmp2[2], tmp2[3], max_dx_bin);
 sum_c+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
-sum_c=sum_c*inv_S/(UNIV_INV_B*count);
+//fprintf(stderr, "sse sum_c=%g inv_S=%g count=%d max_dx_bin=%d %f M=%g\n", sum_c*inv_S, inv_S, count, max_dx_bin, UNIV_INV_B, M);
+
+sum_c=sum_c*inv_S/(UNIV_INV_B*count*(1.0-args_info.confidence_level_arg));
 
 if(sum_c<=1)
 	s3=x_epsilon;
@@ -2608,7 +2661,7 @@ for(k=0;k<alignment_grid_free;k++) {
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
-	result+=compare_point_stats("universal sse1:", &pst_ref, &pst_test);
+	result+=compare_point_stats_universal("universal sse1:", &pst_ref, &pst_test);
 	
 	}
 
@@ -2641,7 +2694,7 @@ for(k=0;k<alignment_grid_free;k++) {
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_universal_piecewise_linear(ps2, &(alignment_grid[k]), &(pst_test));
-	result+=compare_point_stats("universal sse1:", &pst_ref, &pst_test);
+	result+=compare_point_stats_universal("universal sse2:", &pst_ref, &pst_test);
 
 	fprintf(stderr, "%d %f %f %d\n", k, alignment_grid[k].iota, alignment_grid[k].psi, result);
 	}
@@ -2662,6 +2715,7 @@ free_partial_power_sum_F(ps2);
 
 void init_power_sum_stats(void)
 {
+double eta;
 
 if(!strcmp(args_info.statistics_function_arg , "linear")) {
 	point_power_sum_stats=MODE(point_power_sum_stats_linear);
@@ -2687,7 +2741,15 @@ init_fc_ll();
 verify_limits();
 
 /* Precompute x_epsilon for the universal upper limit function */
-x_epsilon=gsl_cdf_gaussian_Pinv(args_info.confidence_level_arg, 1.0)+5.0/sqrt(args_info.nbins_arg);
+eta=0.04*(sqrt(log(args_info.nbins_arg*args_info.nbins_arg/(2*M_PI)))+gsl_cdf_gaussian_Pinv(args_info.confidence_level_arg, 1.0));
+
+if(5.0/sqrt(args_info.nbins_arg)>eta)eta=5.0/sqrt(args_info.nbins_arg);
+
+x_epsilon=gsl_cdf_gaussian_Pinv(args_info.confidence_level_arg, 1.0)+eta;
+
+
+if(args_info.x_epsilon_given)x_epsilon=args_info.x_epsilon_arg;
+
 fprintf(LOG, "confidence_level: %g\n", args_info.confidence_level_arg);
 fprintf(LOG, "x_epsilon: %g\n", x_epsilon);
 

@@ -165,7 +165,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
 		si_local++;
@@ -191,7 +191,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=(center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start));
 		//a*=0.25;
 		k=floorf((a-floorf(a))*group_count);
 		if(k<0)k=0;
@@ -294,7 +294,7 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		a=center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
 						+patch_e[1]*si_local->detector_velocity[1]
 						+patch_e[2]*si_local->detector_velocity[2])
-			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
+			+si_local->coherence_time*(avg_spindown+0.5*args_info.fdotdot_arg*(float)(si_local->gps-spindown_start))*(float)(si_local->gps-spindown_start);
 		if(a<min_shift)min_shift=a;
 		if(a>max_shift)max_shift=a;
 		si_local++;

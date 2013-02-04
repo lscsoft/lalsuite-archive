@@ -139,13 +139,16 @@ option "max-first-shift" - "larger values accomodate bigger spindown ranges but 
 option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, universal, sorted" string default="universal" no
 option "confidence-level" - "specify desired confidence level for universal upper limit function" double default="0.95" no
 
+option "x-epsilon" - "specify x_epsilon for universal upper limit function" double default="-1" no
+
 option "dump-power-sums" - "Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels" int default="0" no
 
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no
 option "fine-grid-skymarks" - "use sky marks from the fine grid, this uses constant spindown" int default="0" no
-option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear or robust statistics" int default="20" no
+option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear or universal statistics" int default="20" no
 option "tail-veto" - "do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum" int default="10" no
 option "cache-granularity" - "granularity of power cache frequency shift resolution, in fractions of a frequency bin" int default="-1" no
+option "diff-shift-granularity" - "granularity of power cache differential frequency shift resolution" int default="-1" no
 option "sidereal-group-count" - "separate SFTs in that many groups by frequency shift" int no
 option "time-group-count" - "separate SFTs in that many groups by gps time" int no
 option "phase-mismatch" - "maximal phase mismatch over coherence length to assume when using loosely coherent mode" double default="1.570796" no
