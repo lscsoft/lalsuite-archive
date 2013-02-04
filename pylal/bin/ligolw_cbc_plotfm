@@ -285,7 +285,7 @@ def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank
                 or select_by == "MIN" and getattr(row, 'recovered_'+selection_stat) != min([getattr(x, 'recovered_'+selection_stat) for x in matchlist])
                 ])
             # check that only have one event left, if not, just keep the first non-deleted event in the list
-            unique_ceids = set([row.coinc_event_id for row in matchlist])
+            unique_ceids = list(set([row.coinc_event_id for row in matchlist]))
             ii = 0
             while len(unique_ceids) - len(delete_these) > 1:
                 delete_these.update([unique_ceids[ii]])
