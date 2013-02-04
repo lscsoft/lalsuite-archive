@@ -441,6 +441,15 @@ def cbcBayesPostProc(
         except KeyError:
             print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
 
+    #Calculate new tidal parameters
+    new_tidal_params = ['lam_tilde','dlam_tilde']
+    old_tidal_params = ['lambda1','lambda2','eta']
+    if 'lambda1' in pos.names or 'lambda2' in pos.names:
+        try:
+            pos.append_mapping(new_tidal_params, bppu.symm_tidal_params, old_tidal_params)
+        except KeyError:
+            print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
+
     #Calculate spin magnitudes for aligned runs
     if 'spin1' in pos.names:
         inj_a1 = inj_a2 = None
@@ -1214,7 +1223,7 @@ if __name__=='__main__':
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
-    tidalParams=['lambda1','lambda2']
+    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
@@ -1262,6 +1271,8 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        twoDGreedyMenu.append(['lambda1','lambda2'])
+        twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1280,8 +1291,10 @@ if __name__=='__main__':
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
           twoDGreedyMenu.append([dt1,dt2])
-    for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
+    for param in tigerParams + bransDickeParams + massiveGravitonParams:
         greedyBinSizes[param]=0.01
+    for param in tidalParams:
+        greedyBinSizes[param]=2.5
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
         greedyBinSizes[loglname]=0.1

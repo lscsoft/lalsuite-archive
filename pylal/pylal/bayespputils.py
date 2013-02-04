@@ -1236,6 +1236,9 @@ class Posterior(object):
         posterior samples must have a column named 'chain' so that the
         different chains can be separated.
         """
+        from numpy import seterr as np_seterr
+        np_seterr(all='raise')
+
         if "chain" in self.names:
             chains=np.unique(self["chain"].samples)
             chain_index=self.names.index("chain")
@@ -1250,7 +1253,11 @@ class Posterior(object):
             sigmaHat2=W + BoverN
             m=len(chainData)
             VHat=sigmaHat2 + BoverN/m
-            R = VHat/W
+            try:
+              R = VHat/W
+            except:
+              print "Error when computer Gelman-Rubin R statistic for %s.  This may be a fixed parameter"%pname
+              R = np.nan
             return R
         else:
             raise RuntimeError('could not find necessary column header "chain" in posterior samples')
@@ -2694,6 +2701,14 @@ def component_momentum(m, a, theta, phi):
     return np.hstack((Sx,Sy,Sz))
 #
 #
+
+def symm_tidal_params(lambda1,lambda2,eta):
+    """
+    Calculate best tidal parameters
+    """
+    lam_tilde = (1./52.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
+    dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
+    return lam_tilde, dlam_tilde
 
 def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
