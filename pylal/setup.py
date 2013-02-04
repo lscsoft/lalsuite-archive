@@ -657,6 +657,7 @@ setup(
 		os.path.join("bin", "mvsc_get_doubles"),
 		os.path.join("bin", "mvsc_get_doubles_ringdown"),
 		os.path.join("bin", "mvsc_dag"),
+		os.path.join("bin", "mvsc_dag_ringdown"),
 		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
 		os.path.join("bin", "qsub_wscan.sh"),
