@@ -194,10 +194,18 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
   if verbose: sys.stdout.write("\nLoading all triggers...\n")
 
   # load triggers
-  trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
+  if not timeSlides:
+    trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
-  trigs['ALL_TIMES'].extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(\
+    trigs['ALL_TIMES'].extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(\
                                                        e.path() for e in cache))
+  else:
+    trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
+                               columns=lsctables.MultiInspiralTable.loadcolumns)
+    tempTrigs,slideDictList,timeSlideTable = \
+        MultiInspiralUtils.ReadMultiInspiralTimeSlidesFromFiles(\
+                                                   [e.path() for e in cache])
+    trigs['ALL_TIMES'].extend(tempTrigs)
 
   # Temporary hack to allow the code to work with tables that dont have
   # the new time slide ID column.
@@ -250,24 +258,16 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
     if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))
 
   else:
-    timeSlides = MultiInspiralUtils.ReadTimeSlideTableFromFile(cache[0].path())
     trigs['OFFSOURCE'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
     for trig in trigs['ALL_TIMES']:
-      slideID = trig.time_slide_id
-      currSlide = []
-      for slide in timeSlides:
-        if slideID == slide.time_slide_id:
-          currSlide.append(slide.offset)
-      if len(currSlide) != len(ifos):
-        print >> sys.stderr, "Trigger does not match time slide table"
-        sys.exit(1)
-      for offset in currSlide:
-        if trig.get_end()+offset not in segs['buffer']:
+      slideID = int(trig.time_slide_id)
+      for ifo in ifos:
+        offset = slideDictList[slideID][ifo]
+        if trig.get_end()+offset in segs['buffer']:
           break
       else:
         trigs['OFFSOURCE'].append(trig)
-      
 
   #
   # write combined triggers to file
@@ -285,6 +285,10 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
  
   # get search summary table from old file
   xmldoc.childNodes[-1].appendChild(oldSearchSummTable)
+
+  if timeSlides:
+    # Add time slide table
+    xmldoc.childNodes[-1].appendChild(timeSlideTable)
 
   # construct new xml file names
   start, end = cache.to_segmentlistdict().extent_all()
