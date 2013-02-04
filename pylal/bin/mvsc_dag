@@ -23,7 +23,7 @@ from pylal import git_version
 from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import ligolw_cafe
-from pylal import mvsc_queries_ringdown
+from pylal import mvsc_queries
 from glue import pipeline
 import ConfigParser
 import tempfile
@@ -129,7 +129,7 @@ class train_forest_node(pipeline.CondorDAGNode):
     self.add_input_file(trainingfile)
     self.trainingfile = self.get_input_files()[0]
     self.trainedforest = self.trainingfile.replace('_training.pat','_'+run_tag+'.spr')
-    self.add_file_arg("-a 4 -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
+    self.add_file_arg("-a 4 -z sngl_gps_time_a,sngl_gps_time_b -n %s -l %s -s %s -c %s -g 1 -i -d 1 -f %s %s" % (opts.number_of_trees, opts.leaf_size, opts.sampled_parameters, opts.criterion_for_optimization, self.trainedforest, self.trainingfile))
     self.add_output_file(self.trainedforest)
     for p in p_node:
       self.add_parent(p)
@@ -164,7 +164,7 @@ class use_forest_node(pipeline.CondorDAGNode):
     self.trainedforest = self.get_input_files()[0]
     self.file_to_rank = self.get_input_files()[1]
     self.ranked_file = self.file_to_rank.replace('.pat','.dat')
-    self.add_file_arg("-A -a 4 %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
+    self.add_file_arg("-A -a 4 -z sngl_gps_time_a,sngl_gps_time_b %s %s %s" % (self.trainedforest, self.file_to_rank, self.ranked_file))
     self.add_output_file(self.ranked_file)
     for p in p_node:
       self.add_parent(p)
@@ -222,10 +222,7 @@ count_all_injections={}
 count_exact_injections={}
 count_timeslides={}
 count_zerolag={}
-nearby_tag = cp.get("mvsc_get_doubles","nearby-tag")
 exact_tag = cp.get("mvsc_get_doubles","exact-tag")
-start_time = cp.get("mvsc_get_doubles","start-time")
-end_time = cp.get("mvsc_get_doubles","end-time")
 for database in databases:
   local_disk = None #"/tmp"
   working_filename = dbtables.get_connection_filename(database, tmp_path = local_disk, verbose = True)
@@ -237,11 +234,11 @@ for database in databases:
     ifos = list(comb)
     combstr = ''.join(comb)
     comb = ','.join(comb)
-    #print ''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,])
-    count_all_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],start_time,end_time,nearby_tag,) )
-    count_exact_injections[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_injections,mvsc_queries_ringdown.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],start_time,end_time,exact_tag,) )
-    count_timeslides[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'slide'"]), (ifos[0],ifos[1],start_time,end_time,) )
-    count_zerolag[comb], = connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_count,mvsc_queries_ringdown.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'all_data'"]), (ifos[0],ifos[1],start_time,end_time,) )
+    #print ''.join([mvsc_queries.CandidateEventQuery.select_count,mvsc_queries.CandidateEventQuery.add_from_injections,mvsc_queries.CandidateEventQuery.add_where_all,])
+    count_all_injections[comb], = connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_count,mvsc_queries.CandidateEventQuery.add_from_injections,mvsc_queries.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],) )
+    count_exact_injections[comb], = connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_count,mvsc_queries.CandidateEventQuery.add_from_injections,mvsc_queries.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],exact_tag,) )
+    count_timeslides[comb], = connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_count,mvsc_queries.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'slide'"]), (ifos[0],ifos[1],) )
+    count_zerolag[comb], = connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_count,mvsc_queries.CandidateEventQuery.add_from_fulldata," AND experiment_summary.datatype == 'all_data'"]), (ifos[0],ifos[1],) )
 
 print count_all_injections
 for comb in ifo_combinations:
