@@ -465,6 +465,14 @@ def cbcBayesPostProc(
         except KeyError:
             print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
 
+    #If new spin params present, calculate old ones
+    old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2']
+    new_spin_params = ['theta_jn', 'phi_jl', 'tilt_spin1', 'tilt_spin2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_lower']
+    if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
+      print pos['m1'].samples
+      pos.append_mapping(old_spin_params, bppu.physical2radiationFrame, new_spin_params)
+      print pos['m1'].samples
+
     #Calculate spin magnitudes for aligned runs
     if 'spin1' in pos.names:
         inj_a1 = inj_a2 = None
