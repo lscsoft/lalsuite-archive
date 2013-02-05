@@ -985,7 +985,7 @@ class Posterior(object):
             else:
                 self.append(new_post)
         #MultiD input
-        else:)
+        else:
             old_posts = [copy.deepcopy(self[post_name]) for post_name in post_names]
             old_injs = [post.injval for post in old_posts]
             old_trigs = [post.trigvals for post in old_posts]
