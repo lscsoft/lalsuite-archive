@@ -2736,6 +2736,41 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
 #
 #
 
+def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
+    """
+    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Vectorizes function for use in append_mapping() methods of the posterior class.
+    """
+    import lalsimulation as lalsim
+    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+
+    # Convert component masses to SI units
+    m1 *= lalsim.lal.LAL_MSUN_SI
+    m2 *= lalsim.lal.LAL_MSUN_SI
+
+    # Flatten arrays
+    ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref]
+    try:
+      for p,param in enumerate(ins):
+        ins[p] = param.flatten()
+    except:
+      pass
+
+    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1, m2, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1, m2, f) in zip(*ins)])
+
+    iota = results[:,0].reshape(-1,1)
+    spin1x = results[:,1].reshape(-1,1)
+    spin1y = results[:,2].reshape(-1,1)
+    spin1z = results[:,3].reshape(-1,1)
+    spin2x = results[:,4].reshape(-1,1)
+    spin2y = results[:,5].reshape(-1,1)
+    spin2z = results[:,6].reshape(-1,1)
+    a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+    a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
+    return iota, theta1, phi1, theta2, phi2
+#
+#
+
 def plot_one_param_pdf_kde(fig,onedpos):
 
     from scipy import seterr as sp_seterr
