@@ -960,9 +960,11 @@ class Posterior(object):
         """
         Append posteriors pos1,pos2,...=func(post_names)
         """
+        # deepcopy 1D posteriors to ensure mapping function doesn't modify the originals
+        import copy
         #1D input
         if isinstance(post_names, str):
-            old_post = self[post_names]
+            old_post = copy.deepcopy(self[post_names])
             old_inj  = old_post.injval
             old_trigs  = old_post.trigvals
             if old_inj:
@@ -983,8 +985,8 @@ class Posterior(object):
             else:
                 self.append(new_post)
         #MultiD input
-        else:
-            old_posts = [self[post_name] for post_name in post_names]
+        else:)
+            old_posts = [copy.deepcopy(self[post_name]) for post_name in post_names]
             old_injs = [post.injval for post in old_posts]
             old_trigs = [post.trigvals for post in old_posts]
             samps = func(*[post.samples for post in old_posts])
