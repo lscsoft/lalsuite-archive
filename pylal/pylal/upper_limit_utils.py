@@ -245,7 +245,7 @@ def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
     return newinjs
 
 
-def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbins=None, ploteff=False,logd=False):
+def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, ploteff=False):
     """
     Compute the average luminosity an experiment was sensitive to given the sets
     of found and missed injections and assuming luminosity is unformly distributed
@@ -319,33 +319,6 @@ def log_volume_derivative_fit(x, vols):
         print >> sys.stderr, "The value Lambda = 0 was substituted"
 
     return coeffs
-
-
-def get_background_livetime(connection, verbose=False):
-    '''
-    Query the database for the background livetime for the input instruments set.
-    This is equal to the sum of the livetime of the time slide experiments.
-    '''
-    query = """
-    SELECT instruments, duration
-    FROM experiment_summary
-    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-    WHERE experiment_summary.datatype == "slide";
-    """
-
-    bglivetime = {}
-    for inst,lt in connection.cursor().execute(query):
-        inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
-        try:
-            bglivetime[inst] += lt
-        except KeyError:
-            bglivetime[inst] = lt
-
-    if verbose:
-        for inst in bglivetime.keys():
-            print >>sys.stdout,"The background livetime for time slide experiments on %s data: %d seconds (%.2f years)" % (','.join(sorted(list(inst))),bglivetime[inst],bglivetime[inst]/float(constants.LAL_YRJUL_SI))
-
-    return bglivetime
 
 
 #
