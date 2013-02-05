@@ -165,13 +165,18 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
-		if live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
-		elif live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		if live_time_program == "omega_to_coinc":
+			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			if veto_segments_name is not None:
+				veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
+				segs -= veto_segs
+		elif live_time_program == "waveburst":
+			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+			if veto_segments_name is not None:
+				veto_segs = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+				segs -= veto_segs
 		else:
 			raise ValueError("for burst tables livetime program must be one of omega_to_coinc, waveburst")
-		if veto_segments_name is not None:
-			# FIXME handle burst vetoes!!!
-			pass
 		return segs
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
@@ -335,7 +340,7 @@ class DataBaseSummary(object):
 	This class stores summary information gathered across the databases
 	"""
 
-	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", data_segments_name = "datasegments", tmp_path = None, verbose = False):
+	def __init__(self, filelist, live_time_program = None, veto_segments_name = None, data_segments_name = "datasegments", tmp_path = None, verbose = False):
 
 		self.segments = segments.segmentlistdict()
 		self.instruments = set()

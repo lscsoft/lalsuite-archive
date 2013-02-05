@@ -212,7 +212,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.1.5",
+	version = "0.2.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
@@ -657,6 +657,7 @@ setup(
 		os.path.join("bin", "mvsc_get_doubles"),
 		os.path.join("bin", "mvsc_get_doubles_ringdown"),
 		os.path.join("bin", "mvsc_dag"),
+		os.path.join("bin", "mvsc_dag_ringdown"),
 		os.path.join("bin", "post_process_pipe"),
 		os.path.join("bin", "prepare_sendback.py"),
 		os.path.join("bin", "qsub_wscan.sh"),
@@ -677,7 +678,7 @@ setup(
 		os.path.join("bin", "wscanlite_in2p3.sh"),
 		os.path.join("bin", "minifollowups"),
 		os.path.join("bin", "ligolw_cbc_plotcumhist"),
-		os.path.join("bin", "imr_missed_found"),
+		os.path.join("bin", "pylal_imr_missed_found"),
 		os.path.join("bin", "make_imr_summary_page"),
 		os.path.join("bin", "lalapps_cbc_compute_rs"),
 		os.path.join("bin", "lalapps_cbc_print_rs"),
@@ -695,7 +696,9 @@ setup(
 		os.path.join("bin", "coh_PTF_sbv_plotter"),
 		os.path.join("bin", "coh_PTF_trig_cluster"),
 		os.path.join("bin", "coh_PTF_trig_combiner"),
+		os.path.join("bin", "coh_PTF_inspiral_horizon"),
 		os.path.join("bin", "pylal_geom_aligned_bank"),
+		os.path.join("bin", "pylal_aligned_bank_cat"),
 		os.path.join("bin", "pylal_geom_aligned_2dstack"),
 		os.path.join("bin", "pylal_aligned_stoch_bank"),
 		os.path.join("bin", "ring_post"),
@@ -736,6 +739,9 @@ setup(
 		os.path.join("bin", "pylal_coh_PTF_ihope"),
 		os.path.join("bin", "pylal_coh_PTF_dqv"),
 		os.path.join("bin", "pylal_coh_PTF_sbv"),
+		os.path.join("bin", "pylal_coh_PTF_plot_results"),
+		os.path.join("bin", "pylal_write_coh_PTF_page"),
+		os.path.join("bin", "ligolw_dbinjfind")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

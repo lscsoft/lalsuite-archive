@@ -120,6 +120,10 @@ def parse_command_line():
             "Required. Table to look in to see if injections were missed. " +
             "Can be any lsctable with a coinc_event_id."
             )
+    parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
+        help = 
+            "Required. Name of the type of mapping that was used for finding injections."
+        )
     parser.add_option( "-l", "--livetime-program", action = "store", type = "string", default = None,
         help =
             "Requried. Name of program used to get the analysis segments. This is needed to figure out " + \
@@ -213,7 +217,7 @@ if opts.tmp_space:
     dbtables.set_temp_store_directory(connection, opts.tmp_space, verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
-cmtable = printutils.printmissed( connection, opts.simulation_table, opts.recovery_table, opts.livetime_program,
+cmtable = printutils.printmissed( connection, opts.simulation_table, opts.recovery_table, opts.map_label, opts.livetime_program,
     param_name = opts.param_name, param_ranges = opts.param_ranges, include_only_coincs = opts.include_only_coincs,
     exclude_coincs = opts.exclude_coincs, sim_tag = opts.sim_tag, limit = opts.limit, 
     daily_ihope_pages_location = opts.daily_ihope_pages_location, verbose = opts.verbose)

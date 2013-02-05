@@ -13,6 +13,7 @@ A collection of utilities to assist in printing out information from an xmldoc.
 import sys, re, math
 import time, datetime
 
+from glue import iterutils
 from glue.iterutils import any
 from glue.ligolw.utils import print_tables
 from glue.ligolw import ligolw
@@ -333,7 +334,7 @@ def create_filter( connection, tableName, param_name = None, param_ranges = None
 #
 # =============================================================================
 
-def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_by, comparison_datatype,
+def printsims(connection, simulation_table, recovery_table, map_label, ranking_stat, rank_by, comparison_datatype,
     sort_by = 'rank', param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None,
     sim_tag = 'ALLINJ', rank_range = None, convert_durations = 's',
     daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
@@ -362,7 +363,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
     #   Set up sim_rec_map table
     #
     if 'sim_rec_map' not in sqlutils.get_tables_in_database( connection ):
-        sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, ranking_stat)
+        sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, map_label, ranking_stat)
     
     #
     #   Initialize ranking. Statistics for ranking are collected from non-injections
@@ -718,7 +719,7 @@ def printsims(connection, simulation_table, recovery_table, ranking_stat, rank_b
 
 
 
-def printmissed(connection, simulation_table, recovery_table, livetime_program,
+def printmissed(connection, simulation_table, recovery_table, map_label, livetime_program,
     param_name = None, param_ranges = None, exclude_coincs = None, include_only_coincs = None, sim_tag = 'ALLINJ',
     limit = None, daily_ihope_pages_location = 'https://ldas-jobs.ligo.caltech.edu/~cbc/ihope_daily', verbose = False):
     
@@ -777,8 +778,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
     cmtable = lsctables.New(CloseMissedTable)
 
     # set up sim_rec_map table
-    if 'sim_rec_map' not in sqlutils.get_tables_in_database( connection ):
-        sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, None)
+    sqlutils.create_sim_rec_map_table(connection, simulation_table, recovery_table, map_label, None)
     
     #
     #   Set table filters
@@ -858,6 +858,13 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
             lsctables.Segment.set = set_segment
         
             veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
+
+        # update the ring-sets with the vetoes
+        for available_instruments, rings in ring_sets.items():
+            for on_instruments in (combo for m in range(2, len(available_instruments) + 1) for combo in iterutils.choices(sorted(available_instruments), m)):
+                on_instruments = frozenset(on_instruments)
+                ring_sets.setdefault(on_instruments, segments.segmentlist())
+                ring_sets[on_instruments] += ring_sets[available_instruments] & veto_segments.intersection(available_instruments - on_instruments)
         
         #
         #   Get all the on_instrument times and cycle over them
@@ -885,7 +892,7 @@ def printmissed(connection, simulation_table, recovery_table, livetime_program,
                 print >> sys.stderr, "Applying to %s time..." % ','.join(sorted(on_instruments))
 
             # get on_time segments
-            on_times = ring_sets[frozenset(on_instruments)]
+            on_times = ring_sets[frozenset(on_instruments)].coalesce()
             for instrument in on_instruments:
                 on_times = on_times - veto_segments[instrument]
             
