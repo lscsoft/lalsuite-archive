@@ -361,11 +361,10 @@ def cbcBayesPostProc(
 
     if 'sym_massratio' in pos.names:
         eta_name= 'sym_massratio'
+    elif 'massratio' in pos.names:
+        eta_name= 'massratio'
     else:
-	if 'massratio' in pos.names:
-        	eta_name= 'massratio'
-    	else:
-        	eta_name='eta'
+        eta_name='eta'
 
     if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
