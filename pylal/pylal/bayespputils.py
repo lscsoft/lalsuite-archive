@@ -177,6 +177,88 @@ border-bottom-style:double;
 """
 
 #===============================================================================
+# Function used to generate plot labels.
+#===============================================================================
+def plot_label(param):
+  """
+  A lookup table for plot labels.
+  """
+  m1_names = ['mass1', 'm1']
+  m2_names = ['mass2', 'm2']
+  mc_names = ['mc','mchirp','chirpmass']
+  eta_names = ['eta','massratio','sym_massratio']
+  q_names = ['q','asym_massratio']
+  iota_names = ['iota','incl','inclination']
+  dist_names = ['dist','distance']
+  ra_names = ['rightascension','ra']
+  dec_names = ['declination','dec']
+  phase_names = ['phi_orb', 'phi', 'phase']
+
+  labels={
+      'm1':r'$m_1$',
+      'm2':r'$m_2$',
+      'mc':r'$\mathcal{M}_c$',
+      'eta':r'$\eta$',
+      'q':r'$q$',
+      'mtotal':r'$M_\mathrm{total}$',
+      'spin1':r'$S_1$',
+      'spin2':r'$S_2$',
+      'a1':r'$a_1$',
+      'a2':r'$a_2$',
+      'theta1':r'$\theta_1$',
+      'theta2':r'$\theta_2$',
+      'phi1':r'$\phi_1$',
+      'phi2':r'$\phi_2$',
+      'chi':r'$\chi$',
+      'tilt1':r'$t_1$',
+      'tilt2':r'$t_2$',
+      'costilt1':r'$\mathrm{cos}(t_1)$',
+      'costilt2':r'$\mathrm{cos}(t_2)$',
+      'iota':r'$\iota$',
+      'cosiota':r'$\mathrm{cos}(\iota)$',
+      'time':r'$t_\mathrm{c}$',
+      'dist':r'$d_\mathrm{L}$',
+      'ra':r'$\alpha$',
+      'dec':r'$\delta$',
+      'phase':r'$\phi$',
+      'psi':r'$\psi$',
+      'thetas':r'$\theta_\mathrm{s}$',
+      'costhetas':r'$\mathrm{cos}(\theta_\mathrm{s})$',
+      'beta':r'$\beta$',
+      'cosbeta':r'$\mathrm{cos}(\beta)$',
+      'logl':r'$\mathrm{log}(\mathcal{L})$'}
+
+  # Handle cases where multiple names have been used
+  if param in m1_names:
+    param = 'm1'
+  elif param in m2_names:
+    param = 'm2'
+  elif param in mc_names:
+    param = 'mc'
+  elif param in eta_names:
+    param = 'eta'
+  elif param in q_names:
+    param = 'q'
+  elif param in iota_names:
+    param = 'iota'
+  elif param in dist_names:
+    param = 'dist'
+  elif param in ra_names:
+    param = 'ra'
+  elif param in dec_names:
+    param = 'dec'
+  elif param in phase_names:
+    param = 'phase'
+
+  try:
+    label = labels[param]
+  except KeyError:
+    # Use simple string if no formated label is available for param
+    label = param
+
+  return label
+
+#===============================================================================
 # Functions used to parse injection structure.
 #===============================================================================
 def _inj_m1(inj):
@@ -2895,7 +2977,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
                 plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
-    plt.xlabel(ax1_name)
+    plt.xlabel(plot_label(ax1_name))
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
@@ -3140,8 +3222,8 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
             else: color = 'c'
             plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
-    plt.xlabel(par1_name)
-    plt.ylabel(par2_name)
+    plt.xlabel(plot_label(par1_name))
+    plt.ylabel(plot_label(par2_name))
     plt.grid()
 
     # For RA and dec set custom labels and for RA reverse
@@ -3245,8 +3327,8 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         CSlst.append(CS)
     
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+    plt.xlabel(plot_label(par2_name))
+    plt.ylabel(plot_label(par1_name))
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
@@ -3456,8 +3538,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	axes.xaxis.set_major_locator(locatorX)
 
     #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(ax2_name)
-    plt.ylabel(ax1_name)
+    plt.xlabel(plot_label(ax2_name))
+    plt.ylabel(plot_label(ax1_name))
 
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
@@ -3579,8 +3661,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     myfig.add_axes(axes)
     
     #plt.clf()
-    plt.xlabel(ax2_name)
-    plt.ylabel(ax1_name)
+    plt.xlabel(plot_label(ax2_name))
+    plt.ylabel(plot_label(ax1_name))
 
     #bins=(par1pos_Nbins,par2pos_Nbins)
     bins=(50,50) # Matches plot_one_param_pdf
@@ -4724,3 +4806,6 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     quant_uncertainty = float(_cl_count(largest_cl_bound, all_samples) - _cl_count(smallest_cl_bound, all_samples))/float(N)
 
     return (relative_change, frac_uncertainty, quant_uncertainty)
+
+
+

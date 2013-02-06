@@ -203,7 +203,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
             plt.plot(ind,np.transpose(kdepdf),label=name)
         plt.grid()
         plt.legend()
-        plt.xlabel(param)
+        plt.xlabel(bppu.plot_label(param))
         plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
         #plt.tight_layout()
@@ -292,7 +292,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -402,7 +402,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
