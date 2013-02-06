@@ -2342,6 +2342,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
     else:
         path = os.path.normpath(path)
         path = os.path.join(*re.split(os.path.sep, path)[-2:])
+        if re.match("\d+/", path):
+            path = os.path.join(*os.path.split(path)[1:])
+    if path == "/":
+         path = ""
 
     # loop over months
     i = 0

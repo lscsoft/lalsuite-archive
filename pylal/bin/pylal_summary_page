@@ -69,7 +69,8 @@ from pylal.dq import (dqSegmentUtils, dqTriggerUtils, stateutils, summary)
 # import GLUE modules
 from glue import (segmentsUtils, markup, GWDataFindClient, gpstime)
 from glue.lal import Cache, CacheEntry
-from glue.ligolw import (ligolw, lsctables, table, utils as ligolw_utils)
+from glue.LDBDWClient import LDBDClientException
+from glue.ligolw import (ilwd, ligolw, lsctables, table, utils as ligolw_utils)
 from glue.segmentdb import segmentdb_utils
 from glue.segments import (segment as Segment, segmentlist as SegmentList,
                            segmentlistdict as SegmentListDict)
@@ -115,7 +116,7 @@ def elapsed_time():
     return time.time()-START
 
 
-def print_verbose(message, verbose=True, stream=sys.stdout, profile=True):
+def print_verbose(message, verbose=True, stream=sys.stdout, profile=False):
     """Prints the given message to the stream.
 
     @param message
@@ -448,8 +449,7 @@ def PyLALAddVectorSequence(*args):
     """
     datatype = seriesutils.typecode(type(args[0]))
     TYPESTR  = seriesutils._typestr[datatype]
-
-    data = numpy.concatenate(*(arg.data for arg in args), axis=0)
+    data = numpy.concatenate([arg.data for arg in args], axis=0)
     CreateVectorSequence = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out = CreateVectorSequence(*data.shape)
     out.data = data
@@ -687,6 +687,7 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
          load new segments from SegDB or cache (True) or load only
          from existing global memory (False), default: True
     """
+    global G_SEGMENTS, G_SEGMENT_SUMMARY
     query_summary = segment_summary - G_SEGMENT_SUMMARY.get(flag, SegmentList())
     # FIXME: remove when SegmentLists play with lal.LIGOTimeGPS
     query_summary = SegmentList([Segment(map(float, seg)) for
@@ -721,13 +722,21 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
         # load segments from the segment database
         else:
             qstart, qend = query_summary.extent()
-            new, new_summary = dqSegmentUtils.grab_segments(
-                                   qstart, qend, flag, segment_url,
-                                   segment_summary=True)
+            try: # FIXME: consider removing
+                new, new_summary = dqSegmentUtils.grab_segments(
+                                       qstart, qend, flag, segment_url,
+                                       segment_summary=True)
+            except LDBDClientException as e:
+                print_verbose("WARNING: Caught LDBDClientException: %s\n" % e,
+                              stream=sys.stderr)
+                print_verbose("No segments have been loaded, but processing "
+                              "will continue.\n", stream=sys.stderr)
+                new = SegmentList()
+                new_summary = SegmentList()
             query_summary = new_summary
             print_verbose("Loaded %d new segments from %s for %s.\n"
                           % (len(new), segment_url, flag),
-                          verbose=abs(new_summary))
+                          verbose=query or abs(new_summary))
     else:
         new = SegmentList()
 
@@ -809,7 +818,6 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
         for flag in flags:
             if not state.set:
                 load_archive_segments(cp, flag, seg_sum_list, mode=mode)
-            get_segments(cp, flag, seg_sum_list)
             newsegs &= get_segments(cp, flag, seg_sum_list)
         state.segments += newsegs
     else:
@@ -853,6 +861,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     @param query
         search for new triggers (True), or find in memory (False)
     """
+    global G_TRIGGERS, G_CLUSTERED_TRIGGERS
     # add keys to global memory holder
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -883,7 +892,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         columns = (cp.has_option(etgsec, "table-columns") and
                    cp.get(etgsec, "table-columns").split(",") or None)
         if columns:
-            required = ["search", "channel"]
+            required = ["process_id", "search", "channel"]
             for col in required:
                 if col not in columns:
                     columns.append(col)
@@ -916,12 +925,13 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
             # query once for the span
             trigtable = hacrutils.get_triggers(span[0], span[1], channel, host,
                                                columns=columns)
-            add_triggers(trigtable, channel, etg, span)
-            n += len(trigtable)
             if cluster:
                 trigtable = cluster_table(trigtable, cluster)
                 add_clustered_triggers(trigtable, channel, etg, span)
                 nc += len(trigtable)
+            else:
+                add_triggers(trigtable, channel, etg, span)
+                n += len(trigtable)
         # load files segment by segment in an attempt to speed up loading
         elif trigcache:
             trigcache,_ = trigcache.checkfilesexist(on_missing="warn")
@@ -1017,13 +1027,31 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
 
     """
     multi_enabled = ["kw", "kleinewelle"]
-    if query and etg.lower() in multi_enabled:
+    global_segments = SegmentList([])
+    for channel in channels:
+        try:
+            if cluster:
+                global_segments.extend(SegmentList(
+                                     G_CLUSTERED_TRIGGERS[etg][channel].keys()))
+            else:
+                global_segments += SegmentList(G_TRIGGERS[etg][channel].keys())
+        except KeyError:
+            pass
+    global_segments.coalesce()
+    query_segments = segment_list - global_segments
+
+    if query and abs(query_segments) > 0 and etg.lower() in multi_enabled:
         ifo = channels[0][:2]
-        span = segment_list.extent()
+        span = query_segments.extent()
         # get columns
         etgsec = re_cchar.sub("-", etg.lower())
         columns = (cp.has_option(etgsec, "table-columns") and
                    cp.get(etgsec, "table-columns").split(",") or None)
+        if columns:
+            required = ["process_id", "search", "channel"]
+            for col in required:
+                if col not in columns:
+                    columns.append(col)
         # get cache
         if (not cp.has_option(etg.lower(), "skip-cache-file") and
                cp.has_option("trigfind", "trigger-cache")):
@@ -1038,7 +1066,7 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
             if etg.lower() in ["kw", "kleinewelle"]:
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
                                               format=format, check_files=True)
-        for seg in segment_list:
+        for seg in query_segments:
             if etg.lower() in ["kw", "kleinewelle"]:
                 segcache = trigcache.sieve(segment=seg)
                 multi_trigs = kw.from_lal_cache(segcache, start=seg[0],
@@ -1049,12 +1077,13 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
             # catalogue new triggers for each channel
             for channel in channels:
                 trigtable = multi_trigs[channel]
-                add_triggers(trigtable, channel, etg, seg)
-                n[channel] += len(trigtable)
                 if cluster:
                     trigtable = cluster_table(trigtable, cluster)
                     add_clustered_triggers(trigtable, channel, etg, seg)
                     nc[channel] += len(trigtable)
+                else:
+                    add_triggers(trigtable, channel, etg, seg)
+                    n[channel] += len(trigtable)
         for channel in channels:
             if cluster:
                 print_verbose("Loaded and clustered %d new triggers for "
@@ -1101,6 +1130,7 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
     @param store
         store data in memory (True) or return without storing (False)
     """
+    global G_DATA
     if not G_DATA.has_key(channel):
         G_DATA[channel] = {}
     if len(segment_list) == 0:
@@ -1302,6 +1332,7 @@ def get_spectrum(cp, channel, *args, **kwargs):
     @param query
         search for new spectrogram (True), or find in memory (False)
     """
+    global G_SPECTRUM
     if G_SPECTRUM.has_key(channel):
         return G_SPECTRUM[channel]
 
@@ -1366,6 +1397,7 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
     @param query
         search for new spectrogram (True), or find in memory (False)
     """
+    global G_SPECTROGRAM
     # shorten segment list to the correct size for the given step
     segment_list.coalesce()
     tmp = SegmentList()
@@ -1469,6 +1501,7 @@ def add_triggers(trigtable, channel, etg, seg):
     @param seg
         valid GPS [start,stop) interval for this trigger table
     """
+    global G_TRIGGERS
     # add channel
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -1514,6 +1547,7 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
     @param seg
         valid GPS [start,stop) interval for this trigger table
     """
+    global G_CLUSTERED_TRIGGERS
     # add channel
     if not G_CLUSTERED_TRIGGERS.has_key(etg):
         G_CLUSTERED_TRIGGERS[etg] = dict()
@@ -1528,17 +1562,18 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
     disjoint = all([seg.disjoint(gseg) for gseg in seglist])
     if len(seglist)==0 or disjoint:
         G_CLUSTERED_TRIGGERS[etg][channel][seg] = trigtable
-        del trigtable
 
     # otherwise it must touch at least one of the segments
     else:
         for gseg in seglist:
             if not gseg.disjoint(seg):
                 seg += gseg
-                G_CLUSTERED_TRIGGERS[etg][channel][seg] =\
-                    G_CLUSTERED_TRIGGERS[etg][channel][gseg] + trigtable
-                del G_CLUSTERED_TRIGGERS[etg][channel][gseg]
+                G_CLUSTERED_TRIGGERS[etg][channel][seg] = (
+                    G_CLUSTERED_TRIGGERS[etg][channel][gseg])
+                G_CLUSTERED_TRIGGERS[etg][channel][seg].extend(trigtable)
                 trigtable = G_CLUSTERED_TRIGGERS[etg][channel][seg]
+                if seg != gseg:
+                    del G_CLUSTERED_TRIGGERS[etg][channel][gseg]
     return
 
 
@@ -1631,7 +1666,7 @@ def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
             sequence = G_SPECTROGRAM[channel][seg]
 
     if new:
-        G_SPECTROGRAM[channel][seg] = (sequence, epoch, deltaT, f0, deltaF)
+        G_SPECTROGRAM[channel][seg] = [sequence, epoch, deltaT, f0, deltaF]
 
 
 #
@@ -1679,7 +1714,6 @@ def archive_data(filename, **hdfargs):
                     G_SPECTROGRAM[channel][seg]
                 metadata = {"epoch":float(epoch), "dx":deltaT,
                             "f0":f0, "dy":deltaF}
-
                 if sequence.length > 0 and sequence.vectorLength > 0:
                     hdf5utils.arrayToDataset(h5group, "-".join(map(str, seg)),
                                              sequence.data, metadata,
@@ -1729,13 +1763,16 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                     channel in G_TRIGGERS[etg].keys()]
 
     for etg,channel in channels:
+        if ((clustered and not len(G_CLUSTERED_TRIGGERS[etg][channel].keys()))
+            or (not clustered and not len(G_TRIGGERS[etg][channel].keys()))):
+            continue
         retg = re_cchar.sub("_", etg).upper()
         if clustered:
             retg = "%s_CLUSTERED" % retg
         rchannel = channel
         if re.match("[A-Z]\d:", channel):
             rchannel = rchannel[3:]
-        rchannel = re_cchar.sub("_", channel).upper()
+        rchannel = re_cchar.sub("_", rchannel).upper()
         outfile = os.path.join(outdir, "%s-%s_%s-%d-%d.xml.gz"
                                        % (ifo, rchannel, retg, int(start),
                                           int(end-start)))
@@ -1746,23 +1783,37 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                                                           version=__version__,
                                                           ifos=ifo)
         seg_table = lsctables.New(lsctables.SegmentTable)
-        for seg,trig_table in G_TRIGGERS[etg][channel].iteritems():
+        xmldoc.childNodes[-1].appendChild(seg_table)
+        global_triggers = (clustered and
+                           G_CLUSTERED_TRIGGERS[etg][channel].iteritems() or
+                           G_TRIGGERS[etg][channel].iteritems())
+        for i,(seg,trig_table) in enumerate(global_triggers):
             try:
                 event_table = table.get_table(xmldoc, trig_table.tableName)
-            except:
+            except ValueError:
                 event_table = table.new_from_template(trig_table)
-            xmldoc.childNodes[-1].appendChild(event_table)
-            seg = map(LIGOTimeGPS, seg)
+                xmldoc.childNodes[-1].appendChild(event_table)
+            sid = ilwd.get_ilwdchar_class(table.StripTableName(
+                                              seg_table.tableName),
+                                          "process_id")
+            pid = ilwd.get_ilwdchar_class(table.StripTableName(
+                                              event_table.tableName),
+                                          "process_id")
+            seg = map(LIGOTimeGPS, map(float, seg))
             segment = lsctables.Segment()
             segment.start_time = seg[0].gpsSeconds
-            segment.start_time = seg[0].gpsNanoSeconds
+            segment.start_time_ns = seg[0].gpsNanoSeconds
             segment.end_time = seg[1].gpsSeconds
-            segment.end_time = seg[1].gpsNanoSeconds
-            segment.segment_id = seg_table.get_next_id()
+            segment.end_time_ns = seg[1].gpsNanoSeconds
+            segment.segment_id = sid(i)
+            segment.segment_def_id = None
+            segment.segment_def_cdb = None
+            segment.creator_db = None
             segment.process_id = process.process_id
             seg_table.append(segment)
+            # FIXME: store segment information in process_id
             for t in trig_table:
-                t.search = "%s [%s, %s)" % (etg, str(seg[0]), str(seg[1]))
+                t.process_id = pid(int(segment.segment_id))
             event_table.extend(trig_table)
         process.start_time = gpstime.GpsSecondsFromPyUTC(START)
         process.end_time = lal.GPSTimeNow().gpsSeconds
@@ -1919,7 +1970,7 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
 
         # load list of all spectrograms for this channel
         group = "%s/%s" % (HDF_SPECTROGRAM_GROUP, channel)
-        if group in list(h5file):
+        if group.split("/")[0] in list(h5file):
             datasets = list(h5file[group])
         else:
             datasets = []
@@ -2094,10 +2145,11 @@ def load_archive_segments(cp, flag, seglist, mode=0, verbose=False):
 
 
 def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
-                          clustered=False):
+                          clustered=False, columns=[]):
     """Read the archive for the given channel, and load its triggers
     into global memory
     """
+    global G_TRIGGERS, G_CLUSTERED_TRIGGERS
     # add keys to global memory holder
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -2115,10 +2167,10 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
     # restrict archived data to NOW
     start,end = segment_list.extent()
     span = Segment(start, min(end, NOW))
-    segment_list &= SegmentList([span])
+    query_segments = segment_list & SegmentList([span])
 
     # restrict archived data to new segments
-    segment_list &= SegmentList(G_TRIGGERS[etg][channel].keys())
+    query_segments -= SegmentList(G_TRIGGERS[etg][channel].keys())
 
     # otherwise get start date
     start = datetime.datetime(*lal.GPSToUTC(int(start))[:6])
@@ -2128,9 +2180,9 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
     if clustered:
         retg = "%s_CLUSTERED" % retg
     rchannel = channel
-    if re.match("[A-Z]\d:", channel):
+    if re.match("[A-Z]\d:", rchannel):
         rchannel = rchannel[3:]
-    rchannel = re_cchar.sub("_", channel).upper()
+    rchannel = re_cchar.sub("_", rchannel).upper()
     tag = "%s-%s_%s" % (ifo, rchannel, retg)
     datadir = "triggers"
     if mode == summary.SUMMARY_MODE_GPS:
@@ -2151,9 +2203,20 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
     else:
         raise RuntimeError("Mode not recognised.")
 
-    cache = Cache.from_urls(glob.glob(globstr)).sieve(segmentlist=segment_list)
+    # get columns
+    etgsec = re_cchar.sub("-", etg.lower())
+    columns = (cp.has_option(etgsec, "table-columns") and
+               cp.get(etgsec, "table-columns").split(",") or None)
+    if columns:
+        required = ["process_id", "search", "channel"]
+        for col in required:
+            if col not in columns:
+                columns.append(col)
+
+
+    cache = Cache.from_urls(glob.glob(globstr)).sieve(
+                segmentlist=query_segments)
     if cache:
-        ifo, name, version = parse_flag_name(flag)
         for fp in cache.pfnlist():
             with open(fp, "r") as f:
                 xmldoc, digest = ligolw_utils.load_fileobj(
@@ -2164,14 +2227,6 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                                     xmldoc, lsctables.SegmentTable.tableName)
                 except:
                     seg_table = []
-                archive_segments = SegmentList()
-                for row in seg_table:
-                    if hasattr(row, "start_time_ns"):
-                        seg = Segment(map(float, row.get()))
-                    else:
-                        seg = Segment(row.start_time, row.end_time)
-                    archive_segments.append(seg)
-                archive_segments.sort(key=lambda x: x[0])
                 # load trigger table
                 if etg.lower() in ["omega", "kw", "kleinewelle", "excesspower",
                                    "gstlal_excesspower"]:
@@ -2180,26 +2235,24 @@ def load_archive_triggers(cp, ifo, channel, etg, segment_list, mode=0,
                     events.extend(table.get_table(
                                       xmldoc,
                                       lsctables.SnglBurstTable.tableName))
-                    event_time = numpy.asarray([e.get_end() for e in events])
-                    events.sort(key=lambda x: float(x.get_peak()))
                 elif re.search("(inspiral|ihope)", etg, re.I):
                     events = lsctables.New(lsctables.SnglInspiralTable,
-                                            columns=columns)
+                                           columns=columns)
                     events.extend(table.get_table(
-                                      xmldoc,
-                                      lsctables.SnglInspiralTable.tableName))
-                    event_time = numpy.asarray([e.get_end() for e in events])
-                    events.sort(key=lambda x: float(x.get_end()))
+                                     xmldoc,
+                                     lsctables.SnglInspiralTable.tableName))
                 # map triggers to segments
-                for seg in (archive_segments & segment_list):
-                    in_seg = ((event_time >= seg[0]) &
-                              (event_time < seg[1])).nonzero()
-                    s, e = (in_seg[0], in_seg[-1])
+                for row in seg_table:
+                    segment_events = lsctables.New(type(events),
+                                                   columns=columns)
+                    segment_events.extend(
+                        t for t in events if
+                        int(t.process_id) == int(row.segment_id))
                     if clustered:
-                        add_clustered_triggers(events[s:e], channel, etg, seg)
+                        add_clustered_triggers(segment_events, channel,
+                                               etg, row.get())
                     else:
-                        add_triggers(events[s:e], channel, etg, span)
-
+                        add_triggers(segment_events, channel, etg, row.get())
 
 #
 # =============================================================================
@@ -2829,21 +2882,6 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     format = (cp.has_option(etgsec, "format") and cp.get(etgsec, "format") or
               "xml")
 
-    #
-    # get archived triggers
-    # 
-
-    if (cp.has_option(cpsec, "use-archive") and
-            (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
-        for channel in channels:
-            load_archive_triggers(cp, ifo, channel, etg, tab.segments,
-                                  mode=tab.mode, clustered=tab.cluster)
-        print_verbose("Archive triggers loaded.\n", verbose=verbose)
-
-    #
-    # get triggers
-    #
-
     # get SNR threshold
     snr = cp.has_option(cpsec, "snr-threshold")\
           and cp.getfloat(cpsec, "snr-threshold") or 0
@@ -2856,12 +2894,28 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
              or "%s-channels" % tab.etg.lower()
     channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel]
     channels.sort()
+    if tab.mainchannel:
+        allchannels = [tab.mainchannel] + channels
 
     # get coinc params
     if tab.mainchannel:
         dt = cp.getfloat(cpsec, "coincidence-window")
         shifts = map(float, cp.get(cpsec, "coincidence-time-slides").split(","))
-        allchannels = [tab.mainchannel] + channels
+
+    #
+    # get archived triggers
+    # 
+
+    if (cp.has_option(cpsec, "use-archive") and
+            (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
+        for channel in allchannels:
+            load_archive_triggers(cp, ifo, channel, tab.etg, tab.segments,
+                                  mode=tab.mode, clustered=tab.cluster)
+        print_verbose("Archive triggers loaded.\n", verbose=verbose)
+
+    #
+    # get triggers
+    #
 
     # get triggers
     if not htmlonly:
@@ -2957,7 +3011,7 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
                                             re_cchar.sub("_", name.upper()),\
                                             tab.state.tag, plottag,\
                                             tab.start_time, abs(tab.span)))
-        if htmlonly:
+        if htmlonly or not doplots:
             tab.plots.append((outfile, plotparams.pop("description", None)))
         else:
             plotparams = parse_plot_section(cp, cpsec,\
@@ -3347,14 +3401,15 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
     sources = parse_range_config(cp, cpsec)
     numburst = sum([True for s in sources if s["type"] == "burst"])
 
-    runsegs2 = tab.segments
-    if cp.has_option(cpsec, "use-archive") \
-    and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
-        for source in sources: 
-            load_archive_data(cp, source["name"], tab.segments, mode=tab.mode,\
-                             verbose=verbose)
-            if source["name"] in G_DATA.keys():
-                runsegs2 -= SegmentList(G_DATA[source["name"]].keys())
+    # FIXME: archive loading for range data is buggy
+    #runsegs2 = tab.segments
+    #if cp.has_option(cpsec, "use-archive") \
+    #and (cp.get(cpsec, "use-archive").lower() in ["", "true"]):
+    #    for source in sources: 
+    #        load_archive_data(cp, source["name"], tab.segments, mode=tab.mode,\
+    #                         verbose=verbose)
+    #        if source["name"] in G_DATA.keys():
+    #            runsegs2 -= SegmentList(G_DATA[source["name"]].keys())
 
     #
     # calculate range from strain channel
@@ -3368,12 +3423,12 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.add_source(s)
 
         # get data
-        sequencelist = get_spectrogram(cp, strainchannel, params["time-step"],\
-                                       params["segment-length"],\
-                                       params["segment-overlap"], runsegs2,\
-                                       frametype=params["frametype"],\
-                                       calibration=params["calibration"],\
-                                       resample=params["resample"],\
+        sequencelist = get_spectrogram(cp, strainchannel, params["time-step"],
+                                       params["segment-length"],
+                                       params["segment-overlap"], tab.segments,
+                                       frametype=params["frametype"],
+                                       calibration=params["calibration"],
+                                       resample=params["resample"],
                                        fresponse=params["frequency-response"])
 
         for i,spectrogram in enumerate(sequencelist):
@@ -3767,7 +3822,7 @@ def parse_command_line():
                      default=True, dest="run_squeezing",\
                      help="skip squeezing summary, default: False")
     sopts.add_option("-T", "--skip-triggers", action="store_false",\
-                     default=True, dest="run_analysis_triggers",\
+                     default=True, dest="run_triggers",\
                      help="skip GW trigger summary, default: False")
     sopts.add_option("-A", "--skip-auxiliary-triggers", action="store_false",\
                      default=True, dest="run_auxiliary_triggers",\
@@ -4181,7 +4236,7 @@ if __name__=="__main__":
     # process triggers
     #
 
-    if opts.run_analysis_triggers:
+    if opts.run_triggers:
         sections = natsort([s for s in cp.sections()\
                             if re.match("triggers[- ]", s)])
         for cpsec in sections:
@@ -4365,7 +4420,8 @@ if __name__=="__main__":
     #
 
     # archive frame data
-    if opts.write_data and not opts.html_only:
+    if ((opts.run_data or opts.run_range) and
+            opts.write_data and not opts.html_only):
         print_verbose("\n----------\nWriting data to file...\n",\
                       verbose=verbose)
 
@@ -4378,7 +4434,8 @@ if __name__=="__main__":
         archive_data(h5filename)
 
     # archive segments
-    if opts.write_segments and not opts.html_only:
+    if ((opts.run_segments or opts.run_state_vector) and
+            opts.write_segments and not opts.html_only):
         filename = os.path.join(segdir, "%s-SUMMARY_PAGE_SEGMENTS-%d-%d.xml.gz"\
                                          % (ifo, start_time,\
                                             end_time-start_time))
@@ -4389,7 +4446,8 @@ if __name__=="__main__":
     trigdir = os.path.join(jobdir, "triggers")
     if not os.path.isdir(trigdir):
         os.makedirs(trigdir)
-    if opts.write_triggers and not opts.html_only:
+    if ((opts.run_triggers or opts.run_auxiliary_triggers) and
+            opts.write_triggers and not opts.html_only):
         archive_triggers(trigdir, start_time, end_time, param_dict, False)
         archive_triggers(trigdir, start_time, end_time, param_dict, True)
         print_verbose("Triggers archived in %s/.\n" % trigdir, verbose=verbose)
