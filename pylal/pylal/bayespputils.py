@@ -3336,9 +3336,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
     dummy_lines=[]
     for plot_name in name_list:
         full_name_list.append(plot_name)
-        for cl in confidence_levels+[1]:
-            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
-            full_name_list.append('%s%%'%str(int(cl*100)))
+        if len(confidence_levels)>1:
+            for cl in confidence_levels+[1]:
+                dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
+                full_name_list.append('%s%%'%str(int(cl*100)))
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
     if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
@@ -3549,9 +3550,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     for plot_name in name_list:
         full_name_list.append(plot_name)
-    for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
-        dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
-        full_name_list.append('%s%%'%str(int(cl*100)))
+    if len(confidence_levels)>1:
+      for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+          dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+          full_name_list.append('%s%%'%str(int(cl*100)))
 
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
