@@ -25,8 +25,11 @@ __author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
 
 class CandidateEventQuery:
 	# this is the list of parameters that will describe each event in the training and testing sets:
-	parameters = "ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr"
-	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm)
+	parameters = "ethinca delta_t ab_dmchirp_rel ab_deta_rel a_snr b_snr a_chisq_red b_chisq_red a_effective_snr b_effective_snr a_rsq_veto_duration b_rsq_veto_duration a_cont_chisq_red b_cont_chisq_red coinc_inspiral_snr sngl_gps_time_a sngl_gps_time_b"
+	# these are the sqlite queries used to extract these parameters (the dimensions to be considered in the multivariate statitical classification algorithm) 
+	select_count="""
+		SELECT
+			COUNT(coinc_inspiral.coinc_event_id)"""
 	select_dimensions="""
 		SELECT
 			coinc_inspiral.coinc_event_id,
@@ -50,12 +53,16 @@ class CandidateEventQuery:
 			CASE snglB.cont_chisq_dof
 				WHEN 0.0 THEN 1.0
 				ELSE snglB.cont_chisq/snglB.cont_chisq_dof END,
-			coinc_inspiral.snr"""
-	add_join_injections="""
-		,	CASE (SELECT value FROM process_params WHERE program == "inspinj" AND param == "--d-distr" AND process_params.process_id == sim_inspiral.process_id)
-				WHEN "log10" THEN 3*sim_inspiral.distance*sim_inspiral.distance*sim_inspiral.distance
-				WHEN "uniform" THEN 3*sim_inspiral.distance*sim_inspiral.distance
-				ELSE 1.0 END
+			coinc_inspiral.snr,
+			snglA.end_time+snglA.end_time_ns*.000000001,
+			snglB.end_time+snglB.end_time_ns*.000000001"""
+	add_select_injections="""
+		, coinc_inspiral.end_time+coinc_inspiral.end_time_ns*.000000001,
+		process_params.value,
+		sim_inspiral.distance"""
+	add_select_fulldata="""
+		, experiment_summary.datatype"""
+	add_from_injections="""
 		FROM
 			coinc_inspiral
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
@@ -70,17 +77,20 @@ class CandidateEventQuery:
 			JOIN coinc_definer ON (coinc_definer.coinc_def_id == sim_coinc_event.coinc_def_id)
 			JOIN process_params ON (process_params.process_id == sim_inspiral.process_id)
 		WHERE
-			coinc_definer.search == 'inspiral'
-			AND coinc_definer.search_coinc_type == 2
-			AND mapA.table_name == 'sngl_inspiral'
+			mapA.table_name == 'sngl_inspiral'
 			AND mapB.table_name == 'sngl_inspiral'
 			AND mapC.table_name == 'coinc_event'
 			AND mapD.table_name == 'sim_inspiral'
 			AND snglA.ifo == ?
 			AND snglB.ifo == ?
-			AND process_params.program == 'inspinj' AND process_params.param == '--userTag' AND process_params.value == ?"""
-	add_join_fulldata="""
-		, experiment_summary.datatype
+			AND process_params.program == 'inspinj' AND process_params.param == '--d-distr'"""
+	add_where_all="""
+			AND coinc_definer.coinc_def_id == "coinc_definer:coinc_def_id:12"
+		ORDER BY coinc_inspiral.end_time+coinc_inspiral.end_time_ns*.000000001"""
+	add_where_exact="""
+			AND coinc_definer.description == ?
+		ORDER BY coinc_inspiral.end_time+coinc_inspiral.end_time_ns*.000000001"""
+	add_from_fulldata="""
 		FROM
 			coinc_inspiral
 			JOIN coinc_event_map AS mapA ON (mapA.coinc_event_id == coinc_inspiral.coinc_event_id)
@@ -97,4 +107,5 @@ class CandidateEventQuery:
 			AND mapA.table_name == 'sngl_inspiral'
 			AND mapB.table_name == 'sngl_inspiral'
 			AND snglA.ifo == ?
-			AND snglB.ifo == ?"""
+			AND snglB.ifo == ?
+			ORDER BY coinc_inspiral.end_time+coinc_inspiral.end_time_ns*.000000001"""

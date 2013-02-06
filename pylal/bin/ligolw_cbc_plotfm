@@ -193,6 +193,10 @@ def parse_command_line():
             "Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id. Default is coinc_inspiral."
         )
+    parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
+        help = 
+            "Required. Name of the type of mapping that was used for finding injections."
+        )
     parser.add_option( "-L", "--livetime-program", action = "store", type = "string", default = "thinca",
         help =
             "Name of program used to get the analysis segments. This is needed to figure out what instruments (if any) were on for missed injections. "
@@ -281,7 +285,7 @@ def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank
                 or select_by == "MIN" and getattr(row, 'recovered_'+selection_stat) != min([getattr(x, 'recovered_'+selection_stat) for x in matchlist])
                 ])
             # check that only have one event left, if not, just keep the first non-deleted event in the list
-            unique_ceids = set([row.coinc_event_id for row in matchlist])
+            unique_ceids = list(set([row.coinc_event_id for row in matchlist]))
             ii = 0
             while len(unique_ceids) - len(delete_these) > 1:
                 delete_these.update([unique_ceids[ii]])
@@ -411,7 +415,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             
         found_table += [ row for row in 
             printutils.printsims(connection, opts.simulation_table, opts.recovery_table,
-            cbstat.replace('recovered_', ''), opts.rank_by,
+            opts.map_label, cbstat.replace('recovered_', ''), opts.rank_by,
             "slide", param_name = None, param_ranges = None,
             include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, verbose = False)]
@@ -421,7 +425,7 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
         if opts.verbose:
             print >> sys.stderr, "\tgetting missed triggers from %s..." % filename
         missed_table += [ row for row in 
-            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table, opts.livetime_program,
+            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,  opts.map_label, opts.livetime_program,
             param_name = None, param_ranges = None,
             include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, limit = None, 
@@ -675,9 +679,6 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = xlabel 
             pylab.xlabel(lbl)
 
-            if opts.logx and not no_data and not x_is_string:
-                pylab.gca().semilogx()
-                
             # set y-axis parameters
             if is_time_y is not None:
                 lbl = '%s ($%i + %s$)' % (ystat.replace('_', ' ').title(), gps_start_time-1, is_time_y.group(1))
@@ -685,8 +686,15 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = ylabel
             pylab.ylabel(lbl)
 
+            # set log properties
+            if opts.logx and not no_data and not x_is_string:
+                pylab.gca().semilogx()
+                
             if opts.logy and not no_data and not y_is_string:
                 pylab.gca().semilogy()
+            
+            if opts.logy and opts.logx and not no_data and not x_is_string and not y_is_string:
+                pylab.gca().loglog()
 
             # set x/y limits
             if opts.logx and not no_data and not x_is_string:

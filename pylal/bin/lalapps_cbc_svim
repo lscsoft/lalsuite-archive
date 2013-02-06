@@ -35,6 +35,7 @@ from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 from pylal.xlal import constants
 from pylal import upper_limit_utils
+from pylal import imr_utils
 
 from pylal import git_version
 __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perimeterinstitute.ca>, Kipp Cannon <kipp.cannon@ligo.org>"
@@ -53,63 +54,6 @@ def chirp_mass(m1,m2):
   mtotal = m1+m2
   return mu**(3./5) *mtotal**(2./5)
 
-#
-# Functions for reading from results DB
-#
-def get_on_instruments(connection):
-  '''
-  Retrieve the sets of instruments which were on during the search.
-  '''
-  # FIXME bad to hardcode search_coinc_type
-  sngl_sngl_coinc_def_id, = connection.cursor().execute("SELECT coinc_def_id FROM coinc_definer WHERE search == 'inspiral' AND search_coinc_type == 0;").fetchone()
-  instruments_query = """ SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?; """
-
-  instruments = []
-  for inst in connection.cursor().execute(instruments_query, (sngl_sngl_coinc_def_id,) ):
-    inst =  frozenset(lsctables.instrument_set_from_ifos(inst[0]))
-    instruments.append(inst)
-
-  return instruments
-
-
-def get_livetime(connection, include_play=False):
-  '''
-  Query the database for the livetime for the input instruments set.
-  '''
-  if include_play:
-    datatype = "all_data"
-  else:
-    datatype = "exclude_play"
-
-  livetime_query = """
-  SELECT instruments,duration
-  FROM experiment_summary
-  JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-  WHERE experiment_summary.datatype == "%s";
-  """ % (datatype,)
-  livetime = {}
-  for inst,lt in connection.cursor().execute(livetime_query):
-    inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
-    livetime[inst] = lt/float(constants.LAL_YRJUL_SI) #prefer to have livetime in yrs
-
-  return livetime
-
-
-def get_injected_mass_ranges(connection):
-  '''
-  Find the component and total mass ranges for the search.
-  '''
-  mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
-  maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
-  minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
-  minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
-  maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
-  maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
-
-  minmass = min(minmass1,minmass2)
-  maxmass = max(maxmass1,maxmass2)
-
-  return (minmass,maxmass,mintotal,maxtotal)
 
 
 class upper_limit(object):
@@ -118,33 +62,32 @@ class upper_limit(object):
   for a search described by the input database.
   """
   def __init__(self, database, opts):
-    ## Instance variables ######################################
-    self.fname = database
+
     self.opts = opts
-    self.gw = None
-    self.wnfunc = None
-    ############################################################
 
-    if opts.verbose: print >> sys.stdout, "Gathering stats from: %s...." % (self.fname,)
-
-    # seed the RNG to make output predictably random
-    if opts.seed is not None:
-      scipy.random.seed(seed=opts.seed)
+    if opts.verbose:
+        print >> sys.stdout, "Gathering stats from: %s...." % (database,)
 
     # open a connection to the input database
-    self.working_filename = dbtables.get_connection_filename(self.fname, tmp_path=opts.tmp_space, verbose = opts.verbose)
-    self.connection = sqlite3.connect(self.working_filename)
-    dbtables.DBTable_set_connection(self.connection)
-    xmldoc = dbtables.get_xml(self.connection)
+    working_filename = dbtables.get_connection_filename(database, tmp_path=opts.tmp_space, verbose = opts.verbose)
+    connection = sqlite3.connect(working_filename)
+    dbtables.DBTable_set_connection(connection)
 
-    # read in goodies from DB
-    self.instruments = get_on_instruments(self.connection)  #find out which instruments were on during search
-    self.set_instruments()                                  #figure out which instrument sets the user wants us to use
-    self.livetime = get_livetime(self.connection,opts.include_play)           #get the livetime for the chosen set of instruments
-    (self.minmass,
-     self.maxmass,
-     self.mintotal,
-     self.maxtotal) =  get_injected_mass_ranges(self.connection) #find the range of injection parameters
+    # find out which instruments were on and when during search
+    self.set_instruments(connection)
+    self.get_injected_mass_ranges(connection)
+    self.get_segments(connection)
+    self.get_zero_lag_segments()
+    self.get_livetime()
+    self.get_far_thresholds(connection)
+    self.get_gps_times_duration(connection)
+    self.get_all_injections(connection)
+    self.get_distance_bins()
+
+    # done with db, close connection
+    connection.commit()
+    dbtables.discard_connection_filename(database, working_filename, verbose = opts.verbose)
+    dbtables.DBTable_set_connection(None)
 
     # Set up mass bins
     self.mass_bins = {}
@@ -159,24 +102,40 @@ class upper_limit(object):
     if self.opts.bin_by_mass1_mass2:
       self.mass_bins["Mass1_Mass2"] = self.set_m1m2_bins()
 
-    # get the rest of the goodies
-    self.get_segments()                   #get single ifo segments with vetoes applied
-    self.get_zero_lag_segments()          #make coincident ifo segments from single ifo segments
-    self.get_far_thresholds()             #determine FAR to use for computing search volume
-    self.get_gps_times_duration()
-    self.get_distance_bins()              #determine the distance bins to use for integration
 
-  def __del__(self):
-    # clean up after yourself
-    self.connection.commit()
-    dbtables.discard_connection_filename(self.fname, self.working_filename, verbose = self.opts.verbose)
-    dbtables.DBTable_set_connection(None)
+  def get_livetime(self):
+      '''
+      Compute live times from zero lag segments.
+      '''
+      self.livetime = {}
+      for inst in self.instruments:
+          # compute live time in years from zero lag segments
+          self.livetime[inst] = abs(self.zero_lag_segments[inst].coalesce()).seconds/float(constants.LAL_YRJUL_SI)
+
+      return
 
 
-  def get_segments(self):
+  def get_injected_mass_ranges(self, connection):
+      '''
+      Find the component and total mass ranges for the search.
+      '''
+      self.mintotal = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mtotal"').fetchone()[0])
+      self.maxtotal = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mtotal"').fetchone()[0])
+      minmass1 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass1"').fetchone()[0])
+      minmass2 = float(connection.cursor().execute('SELECT MIN(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--min-mass2"').fetchone()[0])
+      maxmass1 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass1"').fetchone()[0])
+      maxmass2 = float(connection.cursor().execute('SELECT MAX(CAST(value as REAL)) FROM process_params JOIN process on process_params.process_id = process.process_id WHERE process.program = "inspinj" AND param == "--max-mass2"').fetchone()[0])
+
+      self.minmass = min(minmass1,minmass2)
+      self.maxmass = max(maxmass1,maxmass2)
+
+      return True
+
+
+  def get_segments(self, connection):
     '''Retrieve raw single IFO segments from the database and apply vetoes.'''
     if self.opts.verbose: print >>sys.stdout,"\nQuerying database for single IFO zero lag segments..."
-    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(self.connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
+    self.segments = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)  #Get raw zero lag segments
 
     if self.opts.verbose:
       for ifo in self.segments:
@@ -189,7 +148,7 @@ class upper_limit(object):
     else:
       #FIXME super hack to work around missing nanoseconds column in veto definer
       try:
-        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
       except AttributeError:
         # will get an AttributeError if using newer format veto segment file because
         # the new format does not include _ns; if so, remove the _ns columns from the
@@ -204,7 +163,7 @@ class upper_limit(object):
           self.end_time = segment[1].seconds
         lsctables.Segment.get = get_segment
         lsctables.Segment.set = set_segment
-        veto_segments = db_thinca_rings.get_veto_segments(self.connection, self.opts.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(connection, self.opts.veto_segments_name)
 
     self.segments -= veto_segments
 
@@ -245,11 +204,7 @@ class upper_limit(object):
       else:
         dmin = numpy.min(found_dist)
         dmax = numpy.max(found_dist)
-        #calibration errors can kick injections outside dmin,dmax
-        if self.opts.log_dist_bins:
-          self.dbins[instr] = numpy.logspace(numpy.log10(0.5*dmin), numpy.log10(1.5*dmax),self.opts.dist_bins)
-        else:
-          self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
+        self.dbins[instr] = numpy.linspace(0, dmax,self.opts.dist_bins)
 
     return self.dbins
 
@@ -319,64 +274,71 @@ class upper_limit(object):
     return self.m1m2_bins
 
 
-  def get_far_thresholds(self):
-    """Returns the false alarm rate to use for computing the search volume (in the typical case, this will
-    be the FAR of the most rare zero-lag coinc)."""
-    if self.opts.verbose: print >>sys.stdout, "\nGetting FAR thresholds for finding injections..."
+  def get_far_thresholds(self, connection):
+      """
+      Returns the false alarm rate to use for computing the search volume (in the typical case, this will
+      be the FAR of the most rare zero-lag coinc).
+      """
+      if self.opts.verbose:
+          print >>sys.stdout, "\nGetting FAR thresholds for finding injections..."
 
-    self.far = dict( (inst,-1) for inst in self.instruments )
+      self.far = {}
 
-    # far option takes precedence for closed box
-    if self.opts.far and not self.opts.open_box:
-      for inst in self.instruments:
-        self.far[inst] = self.opts.far
-    # if no far specified, use expected-loudest-event for closed box
-    elif not self.opts.open_box:
-      for inst in self.instruments:
-        self.far[inst] = 1./self.livetime[inst]
-    # for open box use true loudest event
-    if self.opts.open_box:
-      if self.opts.include_play:
-        datatype = "all_data"
+      # far option takes precedence
+      if self.opts.far:
+          for inst in self.instruments:
+              self.far[inst] = self.opts.far
+
+      # use expected-loudest-event for closed box
+      elif not self.opts.open_box:
+          for inst in self.instruments:
+              self.far[inst] = 1./self.livetime[inst]
+
+      # use true loudest event for open box
       else:
-        datatype = "exclude_play"
 
-      far_threshold_query = """
-      SELECT coinc_event.instruments,MIN(combined_far)
-      FROM coinc_inspiral
-      JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
-      JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
-      JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-      WHERE experiment_summary.datatype == "%s"
-      GROUP BY coinc_event.instruments;
-      """ %(datatype,)
+          far_threshold_query = """
+          SELECT coinc_event.instruments,MIN(combined_far)
+          FROM coinc_inspiral
+          JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
+          JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
+          JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
+          WHERE experiment_summary.datatype == "exclude_play"
+          GROUP BY coinc_event.instruments;
+          """
 
-      for inst, far in self.connection.cursor().execute(far_threshold_query):
-        inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-        self.far[inst] = far # handle FAR = 0 case specially downstream
+          for inst, far in connection.cursor().execute(far_threshold_query):
+              inst = frozenset(lsctables.instrument_set_from_ifos(inst))
+              self.far[inst] = far # handle FAR = 0 case specially downstream
 
-    if self.opts.verbose:
-      for inst in self.instruments:
-        print >>sys.stdout,"\tFAR threshold used in %s time is %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
+      # report the far threshold being used
+      if self.opts.verbose:
+          for inst in self.instruments:
+              print >>sys.stdout,"\tFAR threshold used in %s time is %g/yr" % (','.join(sorted(list(inst))),self.far[inst])
 
-    return self.far
+      return
 
 
-  def get_gps_times_duration(self):
-    self.start_time = int( self.connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
-    self.end_time = int( self.connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
+  def get_gps_times_duration(self, connection):
+    self.start_time = int( connection.cursor().execute('SELECT MIN(gps_start_time) FROM experiment').fetchone()[0] )
+    self.end_time = int( connection.cursor().execute('SELECT MAX(gps_end_time) FROM experiment').fetchone()[0] )
     return True
 
 
-  def set_instruments(self):
-    if self.opts.instruments is None: return self.instruments
-    if self.opts.instruments in self.instruments:
-      self.instruments = [opts.instruments]
-    else:
-      print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(self.opts.instruments))
-      self.instruments = []
+  def set_instruments(self, connection):
 
-    return self.instruments
+      self.instruments = imr_utils.get_instruments_from_coinc_event_table(connection)
+
+      if self.opts.instruments is None:
+          return
+
+      if self.opts.instruments in self.instruments:
+          self.instruments = [opts.instruments]
+      else:
+          print >> sys.stderr, "Instruments %s do not exist in DB, nothing will be calculated" % (str(self.opts.instruments))
+          self.instruments = []
+
+      return
 
 
   def get_volume_derivative(self,instruments,bin_type,FAR,fnameList=None, tagList=None,InspiralUtilsOpts=None):
@@ -415,7 +377,7 @@ class upper_limit(object):
     vA2 = []
     for far in fars:
       found, missed = self.get_injections(instruments,far,bin_type=bin_type)
-      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments], logd=self.opts.log_dist_bins)
+      vAt, vA2t, f,m, junk, junk = upper_limit_utils.compute_volume_vs_mass(found, missed, self.mass_bins[bin_type], bin_type, dbins = self.dbins[instruments])
       vA.append(vAt)
       vA2.append(vA2t)
 
@@ -498,8 +460,24 @@ class upper_limit(object):
 
     return False
 
+  def get_injections(self, instruments, FAR=None, bin_type=None):
+      if FAR is None: FAR = self.far[instruments]
 
-  def get_injections(self, instruments, FAR=None, bin_type = None):
+      found = []
+      missed = []
+
+      for far, sim in self.injections[instruments]:
+
+          if self.filter_injection(sim, bin_type): continue
+          if far < FAR:
+              found.append(sim)
+          else:
+              missed.append(sim)
+
+      return found, missed
+
+
+  def get_all_injections(self, connection):
     """
     This method separates injections into found and missed categories. An injection which
     is coincident with two or more single inspiral triggers (sngl1<-->sim and sngl2<-->sim)
@@ -507,49 +485,15 @@ class upper_limit(object):
     injection in triple time therefore is considered found if it matches any double-IFO
     coincident event. All other injections are considered "missed".
     """
-    if FAR is None: FAR = self.far[instruments]
 
-    found = []
-    missed = []
+    self.injections = {}
 
-    def injection_was_made(geocent_end_time, geocent_end_time_ns):
-        """
-        Returns True if injection end time lies within the instruments' coincident segments.
-        """
-        return lsctables.LIGOTimeGPS(geocent_end_time, geocent_end_time_ns) in self.zero_lag_segments[instruments]
+    for inst in self.instruments:
+        self.injections.setdefault(inst,[])
+        injs = upper_limit_utils.get_all_min_far_inspiral_injections(connection, segments=self.zero_lag_segments[inst], table_name="coinc_inspiral:table")
+        self.injections[inst] += injs
 
-    self.connection.create_function("injection_was_made", 2, injection_was_made)
-    make_sim_inspiral = lsctables.table.get_table(dbtables.get_xml(self.connection), lsctables.SimInspiralTable.tableName).row_from_cols
-
-    injection_finding_query = """
-       SELECT sim_inspiral.*,
-       -- true if injection matched a coinc below the false alarm rate threshold
-       EXISTS (
-	     SELECT *
-	     FROM coinc_event_map AS mapa
-	     JOIN coinc_event_map AS mapb ON ( mapa.coinc_event_id == mapb.coinc_event_id )
-	     JOIN coinc_inspiral ON ( mapb.table_name == "coinc_event" AND mapb.event_id == coinc_inspiral.coinc_event_id )
-	     WHERE mapa.table_name == "sim_inspiral"
-	     AND mapa.event_id == sim_inspiral.simulation_id
-	     AND coinc_inspiral.combined_far < ?
-	     )
-       FROM sim_inspiral
-       WHERE
-       -- only interested in injections that were injected
-       injection_was_made(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)
-	 """
-
-    for values in self.connection.cursor().execute(injection_finding_query,(FAR,)):
-      sim = make_sim_inspiral(values)
-
-      if self.filter_injection(sim, bin_type): continue
-
-      if values[-1]:
-        found.append(sim)
-      else:
-        missed.append(sim)
-
-    return found, missed
+    return True
 
 
   def live_time_array(self,instruments,mass_bins):
@@ -650,7 +594,6 @@ will compute the search volume using all injections with at least one component 
 
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Space distance bins evenly and specify the number of distance bins to use.")
-  parser.add_option("--log-dist-bins", default = False, action="store_true", help = "Space distance bins evenly in log-distance and specify the number of bins to use for integration over distance.")
   parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set, you can specify here the number of mass bins to use along a single dimension. The number of bins is currently 1 fewer than the value you specify.")
 
   # Options to control the FAR used for computing the search volume. The default behavior is to use
@@ -744,7 +687,7 @@ for bin_type in UL.mass_bins:
 
     #compute volume first and second moments above the loudest event
     found, missed = UL.get_injections(instruments, UL.far[instruments],bin_type)
-    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments], logd=opts.log_dist_bins)
+    vA, vA2, f, m, eff, err  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instruments])
 
     # plot efficiencies
     if opts.plot_efficiency:

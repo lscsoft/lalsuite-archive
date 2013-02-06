@@ -23,6 +23,7 @@ import matplotlib
 matplotlib.use('Agg')
 import pylab
 from pylab import arange,pi,sin,cos,sqrt
+from pylal.xlal.constants import LAL_PI, LAL_MTSUN_SI
 from numpy import loadtxt
 
 def return_empty_sngl():
@@ -86,6 +87,8 @@ for values in params:
     tmplt.mtotal = tmplt.mass1 + tmplt.mass2
     tmplt.eta = tmplt.mass1 * tmplt.mass2 / (tmplt.mtotal * tmplt.mtotal)
     tmplt.mchirp = tmplt.mtotal * tmplt.eta**(3./5.)
+    # Currently using ISCO frequency for termination
+    tmplt.f_final = (1/6.)**(3./2.) / (LAL_PI * tmplt.mtotal * LAL_MTSUN_SI)
     tmplt.template_duration = 0 # FIXME
     # FIXME: Add gamma values
     sngl_inspiral_table.append(tmplt)
