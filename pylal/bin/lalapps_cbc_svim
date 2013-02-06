@@ -178,7 +178,7 @@ class upper_limit(object):
     '''Compute multi-ifo (coincident) segment list from single ifo segments.'''
     if self.opts.verbose: print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
 
-    self.zero_lag_segments = dict( (inst,0) for inst in self.instruments )
+    self.zero_lag_segments = segments.segmentlistdict()
     for inst in self.instruments:
       self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
       if self.opts.verbose:
@@ -489,9 +489,8 @@ class upper_limit(object):
     self.injections = {}
 
     for inst in self.instruments:
-        self.injections.setdefault(inst,[])
-        injs = upper_limit_utils.get_all_min_far_inspiral_injections(connection, segments=self.zero_lag_segments[inst], table_name="coinc_inspiral:table")
-        self.injections[inst] += injs
+        found, total, missed = imr_utils.get_min_far_inspiral_injections(connection, segments = self.zero_lag_segments[inst], table_name = "%s:table"%self.opts.coinc_table)
+        self.injections[inst] = found + [(float('inf'), sim) for sim in missed]
 
     return True
 
@@ -551,6 +550,13 @@ will compute the search volume using all injections with at least one component 
   parser = OptionParser(version = git_version.verbose_msg, usage = usage + description)
 
   #
+  # tell svim where to find injections, segments, and triggers
+  parser.add_option("--sim-table", default = "sim_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding the injected signal parameters.", choices = ["sim_inspiral", "sim_ringdown"])
+  parser.add_option("--coinc-table", default = "coinc_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding coincident triggers.", choices = ["coinc_inspiral", "coinc_ringdown"])
+  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
+  parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
+
+  #
   # The code supports five mass binning modes.
   #
   parser.add_option("--bin-by-mass1-mass2", default = False, action = "store_true", help = "Bin injections by component mass in two dimensions when estimating the search efficiency.")
@@ -602,17 +608,13 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--open-box", default = False, action = "store_true", help = "Use the observed cFAR for the loudest event: only appropriate when the full search result is known. If neither --far nor --open-box is given, default action is to use cFAR=1/livetime.")
   parser.add_option("--include-play", default = False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
 
-  # Techincal options which the general user won't care about
-  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-  parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
+  # options to control output
   parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
-  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
-
-  # options for level of output
   parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
   parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
+  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
 
   opts, filenames = parser.parse_args()
 
