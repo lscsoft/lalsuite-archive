@@ -35,6 +35,7 @@ parser=OptionParser(usage="%prog [options] [file ...]", description = descriptio
 parser.add_option("-a","--all-instruments", help = "the list of all instruments from which you want to study the double-coincident triggers. e.g. H1,H2,L1,V1")
 parser.add_option("-t","--output-tag", help = "tag to identify, for example, which category your zerolag average rank file is for")
 parser.add_option("-o","--dont-reset-likelihoods", default = False, action="store_false", help="provide this option if you want to reset all the likelihoods to 1 before updating this time")
+parser.add_option("-s","--tmp-space",help="necessary for sqlite calls, for example /usr1/khodge")
 (opts,inputfiles)=parser.parse_args()
 
 all_ifos = opts.all_instruments.strip().split(',')
@@ -147,7 +148,7 @@ if opts.dont_reset_likelihoods==False:
 	print "presetting likelihoods to 1"
 	for database in databases:
 		filename = database
-		local_disk = None #"/tmp"
+		local_disk = opts.tmp_space
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = local_disk, verbose = True)
 		connection = sqlite3.connect(working_filename)
 		xmldoc = dbtables.get_xml(connection)
@@ -165,7 +166,7 @@ for pair in file_map:
 
 for f in databases:
 	filename = f
-	local_disk = '/usr1/khodge' #"/tmp"
+	local_disk = opts.tmp_space
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = local_disk, verbose = True)
 	connection = sqlite3.connect(working_filename)
 	xmldoc = dbtables.get_xml(connection)
