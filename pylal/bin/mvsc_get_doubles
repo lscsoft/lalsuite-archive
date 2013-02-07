@@ -47,6 +47,7 @@ parser.add_option("", "--output-tag", default="CBC", help="a string added to all
 parser.add_option("", "--apply-weights", action="store_true", default=False, help="calculates weight for all found injections, saves in .pat file (all bkg events get weight=1), if this option is not supplied, all events get a weight of 1, so still use -a 4 in the Spr* executables")
 parser.add_option("", "--check-weights", action="store_true", default=False,help="turn on if you want a plot of cumulative weights v. distance")
 parser.add_option("", "--exact-tag", default="ring_exact", help="this is the dbinjfind tag stored in the sqlite database for the exactly found injections - the ones you want to use for training")
+parser.add_option("-s","--tmp-space",help="necessary for sqlite calls, for example /usr1/khodge")
 #parser.add_option("", "--nearby-tag", default="ring_nearby", help="this is the dbinjfind tag stored in the sqlite for the nearby injections - we will still rank all of these")
 
 (opts,databases)=parser.parse_args()
@@ -91,7 +92,7 @@ timeslides_info = []
 timeslides_sngl_gps_times = []
 
 for database in databases:
-	local_disk = None #"/tmp"
+	local_disk = opts.tmp_space
 	working_filename = dbtables.get_connection_filename(database, tmp_path = local_disk, verbose = True)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
