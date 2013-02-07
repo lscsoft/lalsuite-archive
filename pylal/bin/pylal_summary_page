@@ -44,6 +44,8 @@ import getpass
 import numpy
 import inspect
 import glob
+import warnings
+warnings.filterwarnings("ignore", message="is not lower case")
 
 from scipy import (stats, signal)
 from dateutil.relativedelta import relativedelta
@@ -58,7 +60,7 @@ import lalframe
 import lalsimulation
 
 # import laldetchar
-from laldetchar.triggers import (omega, kw)
+from laldetchar.triggers import (omega, kw, daily_ihope)
 
 # import PyLAL modules
 from pylal import (git_version, seriesutils, plotutils, htmlutils,
@@ -913,6 +915,15 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
             elif etg.lower() == "kw":
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
                                                format=format)
+            elif etg.lower() in ["daily_ihope", "dailyihope", "ihopedaily",
+                                 "ihope_daily"]:
+                dicluster = (cp.has_option("daily_ihope", "clustering") and
+                             cp.get("daily_ihope", "clustering") or None)
+                dipath = (cp.has_option("daily_ihope", "base-path") and
+                          cp.get("daily_ihope", "base-path") or None)
+                trigcache = daily_ihope.find_daily_cache(span[0], span[1], ifo,
+                                                         clustering=dicluster,
+                                                         directory=dipath)
             else:
                 raise NotImplementedError("A default file finder for %s has"
                                           "not been written yet." % etg)
@@ -4185,7 +4196,7 @@ if __name__=="__main__":
     valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
                      "LSC", "OMC", "PEM", "PSL", "SUS", "SQZ"]
     valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
-                     "Vetoes", "Misc."] + valid_systems
+                     "Vetoes", "Analysis", "Misc."] + valid_systems
     valid_parents = natsort(valid_parents)
 
     # generate section summaries for each valid parent
@@ -4225,6 +4236,7 @@ if __name__=="__main__":
                 tab.state = state
                 tab.datadirectory = segdir
                 tab.segments = state.segments
+                tab.add_information(cp, cpsec)
                 process_segments(tab, cp, cpsec, verbose=verbose,\
                                  htmlonly=opts.html_only,\
                                  doplots=opts.run_plots,\
@@ -4262,6 +4274,7 @@ if __name__=="__main__":
                 tab.state = state
                 tab.segments = state.segments
                 tab.segments.contract(state.event_buffer)
+                tab.add_information(cp, cpsec)
                 process_triggers(tab, cp, cpsec,\
                                  verbose=verbose,\
                                  htmlonly=opts.html_only,\
@@ -4300,6 +4313,7 @@ if __name__=="__main__":
                 tab.state = state
                 tab.segments = state.segments
                 tab.segments.contract(state.event_buffer)
+                tab.add_information(cp, cpsec)
                 process_auxiliary_triggers(tab, cp, cpsec,\
                                            verbose=verbose,\
                                            htmlonly=opts.html_only,\
@@ -4336,6 +4350,7 @@ if __name__=="__main__":
                 tab.state = state
                 tab.datadirectory = segdir
                 tab.segments = state.segments
+                tab.add_information(cp, cpsec)
                 process_state_vector(tab, cp, cpsec,\
                                     verbose=verbose,\
                                     htmlonly=opts.html_only,\
@@ -4375,6 +4390,7 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
+                tab.add_information(cp, cpsec)
                 process_data(tab, cp, cpsec, verbose=verbose,\
                              htmlonly=opts.html_only,\
                              doplots=opts.run_plots,\
@@ -4408,6 +4424,7 @@ if __name__=="__main__":
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
+                tab.add_information(cp, cpsec)
                 process_range(tab, cp, cpsec, verbose=verbose,\
                               htmlonly=opts.html_only,\
                               doplots=opts.run_plots,\
