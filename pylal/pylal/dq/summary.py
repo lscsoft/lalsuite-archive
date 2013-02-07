@@ -485,7 +485,7 @@ class SummaryTab(object):
         with open(os.path.join(self.index, "index.html"), "w") as indexf:
             indexf.write(re.sub(" class=\"\"", "", str(page)))
 
-    def add_information(cp, cpsec):
+    def add_information(self, cp, cpsec):
         """
         Add an "Information" section to this SummaryTab.
 
@@ -1562,9 +1562,13 @@ class TriggerSummaryTab(SummaryTab):
                 self.frame.p("The full segment list can be downloaded from %s."\
                              % markup.oneliner.a("this file", href=trigfile),\
                              class_="line")
-            # FIXME write list of loudest triggers
-            self.triggers[chan].sort(key=lambda t: t.snr, reverse=True)
             trigs = table.new_from_template(self.triggers[chan])
+            # FIXME write list of loudest triggers
+            if re.search("sngl_inspiral", trigs.tableName, re.I):
+                self.triggers[chan].sort(key=lambda t: t.get_new_snr(),
+                                         reverse=True)
+            else:
+                self.triggers[chan].sort(key=lambda t: t.snr, reverse=True)
             trigs.extend(self.triggers[chan][:20])
             data = []
             data.append(plottriggers.get_column(trigs, "time"))
@@ -1580,6 +1584,9 @@ class TriggerSummaryTab(SummaryTab):
                 head.extend(["Template duration", "Chirp mass"])
             data.append(plottriggers.get_column(trigs, "snr"))
             head.append("SNR")
+            if re.search("sngl_inspiral", trigs.tableName, re.I):
+                data.append(trigs.get_column("new_snr"))
+                head.append("newSNR")
             data = map(list, zip(*data))
             self.frame.add(htmlutils.write_table(head,data,{"table":"full"})())
             self.frame.div.close()
@@ -2342,6 +2349,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
     else:
         path = os.path.normpath(path)
         path = os.path.join(*re.split(os.path.sep, path)[-2:])
+        if re.match("\d+/", path):
+            path = os.path.join(*os.path.split(path)[1:])
+    if path == "/":
+         path = ""
 
     # loop over months
     i = 0
