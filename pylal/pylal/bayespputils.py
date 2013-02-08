@@ -3189,15 +3189,23 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   if len(line_styles)<len(levels):
     raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
   
-  rangex=0
-  rangey=0
+  XMAX=float('Inf')
+  YMAX=XMAX
+  XMIN=-XMAX
+  YMIN=-YMAX
   for name,posterior in posteriors_by_name.items():
     xdat=posterior[par1_name].samples
     ydat=posterior[par2_name].samples
-    rx=max(xdat)-min(xdat)
-    ry=max(ydat)-min(ydat)
-    if rx>rangex: rangex=rx
-    if ry>rangey: rangey=ry
+    xmax=max(xdat)
+    xmin=min(xdat)
+    ymax=max(ydat)
+    ymin=min(ydat)
+    if xmin<XMIN: XMIN=xmin
+    if ymin<YMIN: YMIN=ymin
+    if xmax>XMAX: XMAX=xmax
+    if ymax>YMAX: YMAX=ymax
+  rangex=XMAX-XMIN
+  rangey=YMAX-YMIN
   Nx=50
   Ny=50
   xax=np.linspace(min(xdat),max(xdat),Nx)
