@@ -3173,7 +3173,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   
   from scipy import seterr as sp_seterr
   confidence_levels=levels
-  par1_name,par2_name=plot2DkdeParams.keys()
+
+  # Reversed parameter order here for consistency with the other
+  # plotting functions
+  par2_name,par1_name=plot2DkdeParams.keys()
   xbin=plot2DkdeParams[par1_name]
   ybin=plot2DkdeParams[par2_name]
   levels= levels
