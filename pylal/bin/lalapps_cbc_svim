@@ -297,19 +297,23 @@ class upper_limit(object):
       # use true loudest event for open box
       else:
 
-          far_threshold_query = """
-          SELECT coinc_event.instruments,MIN(combined_far)
-          FROM coinc_inspiral
-          JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
-          JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
-          JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-          WHERE experiment_summary.datatype == "exclude_play"
-          GROUP BY coinc_event.instruments;
-          """
+          for inst in self.instruments:
 
-          for inst, far in connection.cursor().execute(far_threshold_query):
-              inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-              self.far[inst] = far # handle FAR = 0 case specially downstream
+              if self.opts.include_play:
+                  datatype = "all_data"
+              else:
+                  datatype = "exclude_play"
+
+              inst, far = upper_limit_utils.get_loudest_event(connection, opts.coinc_table, datatype)
+              # cannot determine efficiency above the loudest event
+              # when the loudest event has FAR=0
+              if far == 0:
+                  print >> sys.stderr, "Cannot determine efficiency above the loudest event when the loudest event has FAR=0. Skipping %s ..."%','.join(sorted(list(inst)))
+                  self.instruments.remove(inst)
+                  continue
+
+              else:
+                  self.far[inst[0]] = far[0]
 
       # report the far threshold being used
       if self.opts.verbose:
