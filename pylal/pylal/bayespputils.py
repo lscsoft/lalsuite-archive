@@ -3225,6 +3225,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     ydat=posterior[par2_name].samples
     a=np.squeeze(posterior[par1_name].samples)
     b=np.squeeze(posterior[par2_name].samples)
+    offset=0.0
     if par1_name.find('time')!=-1:
       offset=floor(min(a))
       a=a-offset
