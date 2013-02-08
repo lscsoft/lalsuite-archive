@@ -3162,6 +3162,149 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+  """
+  Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
+  
+  @param posterior: an instance of the Posterior class.
+  
+  @param plot2DkdeParams: a dict {param1Name:Nparam1Bins,param2Name:Nparam2Bins}
+  """
+  
+  from scipy import seterr as sp_seterr
+  confidence_levels=levels
+  par1_name,par2_name=plot2DkdeParams.keys()
+  xbin=plot2DkdeParams[par1_name]
+  ybin=plot2DkdeParams[par2_name]
+  levels= levels
+  np.seterr(under='ignore')
+  sp_seterr(under='ignore')
+  
+  fig=plt.figure(1,figsize=figsize,dpi=dpi)
+  plt.clf()
+  axes=fig.add_axes(figposition)
+  name_list=[]
+  
+  #This fixes the precedence of line styles in the plot
+  if len(line_styles)<len(levels):
+    raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
+  
+  rangex=0
+  rangey=0
+  for name,posterior in posteriors_by_name.items():
+    xdat=posterior[par1_name].samples
+    ydat=posterior[par2_name].samples
+    rx=max(xdat)-min(xdat)
+    ry=max(ydat)-min(ydat)
+    if rx>rangex: rangex=rx
+    if ry>rangey: rangey=ry
+  Nx=50
+  Ny=50
+  xax=np.linspace(min(xdat),max(xdat),Nx)
+  yax=np.linspace(min(ydat),max(ydat),Ny)
+  x,y=np.meshgrid(xax,yax)
+  
+  CSlst=[]
+  for name,posterior in posteriors_by_name.items():
+    print 'Plotting '+name
+    name_list.append(name)
+    par1_injvalue=posterior[par1_name].injval
+    par2_injvalue=posterior[par2_name].injval
+    
+    par_trigvalues1=posterior[par1_name].trigvals
+    par_trigvalues2=posterior[par2_name].trigvals
+    xdat=posterior[par1_name].samples
+    ydat=posterior[par2_name].samples
+    a=np.squeeze(posterior[par1_name].samples)
+    b=np.squeeze(posterior[par2_name].samples)
+    if par1_name.find('time')!=-1:
+      offset=floor(min(a))
+      a=a-offset
+    if par1_injvalue:
+      par1_injvalue=par1_injvalue-offset
+      ax1_name=par1_name+' + %i'%(int(offset))
+    else: ax1_name=par1_name
+
+    if par2_name.find('time')!=-1:
+      offset=floor(min(b))
+      b=b-offset
+    if par2_injvalue:
+      par2_injvalue=par2_injvalue-offset
+      ax2_name=par2_name+' + %i'%(int(offset))
+    else: ax2_name=par2_name
+    #Nx=rangex/xbin
+    #Ny=rangey/ybin
+
+    
+    samp=np.transpose(np.column_stack((xdat,ydat)))
+    
+    kde=stats.kde.gaussian_kde(samp)
+    den=kde(samp)
+    #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
+    z = kde(grid_coords)
+    z = z.reshape(Nx,Ny)
+    densort=np.sort(den)[::-1]
+    values=[]
+    Npts=xdat.shape[0]
+    zvalues=[]
+    for level in levels:
+      ilevel = int(Npts*level + 0.5)
+      if ilevel >= Npts:
+	ilevel = Npts-1
+      zvalues.append(densort[ilevel])
+    CS=plt.contour(x, y, z.T, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
+    CSlst.append(CS)
+    
+    if par1_injvalue is not None and par2_injvalue is not None:
+      plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
+      
+    if par_trigvalues1 is not None and par_trigvalues2 is not None:
+	par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
+	par2IFOs = set([IFO for IFO in par_trigvalues2.keys()])
+	IFOs = par1IFOs.intersection(par2IFOs)
+	for IFO in IFOs:
+	  if IFO=='H1': color = 'r'
+	  elif IFO=='L1': color = 'g'
+	  elif IFO=='V1': color = 'm'
+	  else: color = 'c'
+	plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
+	
+  plt.xlabel(par1_name)
+  plt.ylabel(par2_name)
+  plt.grid()
+  
+  if len(name_list)!=len(CSlst):
+    raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
+  
+  full_name_list=[]
+  dummy_lines=[]
+  for plot_name in name_list:
+    full_name_list.append(plot_name)
+  for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+    dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+    full_name_list.append('%s%%'%str(int(cl*100)))
+  
+  fig_actor_lst = [cs.collections[0] for cs in CSlst]
+  fig_actor_lst.extend(dummy_lines)
+  if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+  for text in twodcontour_legend.get_texts():
+    text.set_fontsize('small')
+
+  majorFormatterX=ScalarFormatter(useMathText=True)
+  majorFormatterX.format_data=lambda data:'%.4g'%(data)
+  majorFormatterY=ScalarFormatter(useMathText=True)
+  majorFormatterY.format_data=lambda data:'%.4g'%(data)
+  majorFormatterX.set_scientific(True)
+  majorFormatterY.set_scientific(True)
+  axes.xaxis.set_major_formatter(majorFormatterX)
+  axes.yaxis.set_major_formatter(majorFormatterY)
+      
+  fix_axis_names(plt,par1_name,par2_name)
+      
+  return fig
+
+
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
     Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
@@ -3200,10 +3343,21 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     samp=np.transpose(np.column_stack((xdat,ydat)))
 
     kde=stats.kde.gaussian_kde(samp)
+    
     grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
 
     z = kde(grid_coords.T)
     z = z.reshape(Nx,Ny)
+    
+    values=[]
+    for level in levels:
+      ilevel = int(Npts*level + 0.5)
+      if ilevel >= Npts:
+	ilevel = Npts-1
+	zvalues.append(densort[ilevel])
+	
+	pp.contour(XS, YS, ZS, zvalues)
+    
     asp=xax.ptp()/yax.ptp()
 #    if(asp<0.8 or asp > 1.6): asp=1.4
     plt.imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
@@ -3489,7 +3643,6 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
                 Hsum+=val
                 temp[max_i]=0
             Hlasts.append(Hlast)
-
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
