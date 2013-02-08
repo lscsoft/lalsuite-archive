@@ -3189,10 +3189,10 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   if len(line_styles)<len(levels):
     raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
   
-  XMAX=float('Inf')
+  XMIN=float('Inf')
+  YMIN=XMIN
+  XMAX=-XMIN
   YMAX=XMAX
-  XMIN=-XMAX
-  YMIN=-YMAX
   for name,posterior in posteriors_by_name.items():
     xdat=posterior[par1_name].samples
     ydat=posterior[par2_name].samples
@@ -3261,7 +3261,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
       if ilevel >= Npts:
 	ilevel = Npts-1
       zvalues.append(densort[ilevel])
-    CS=plt.contour(x, y, z.T, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
+    CS=plt.contour(x, y, z, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
     CSlst.append(CS)
     
     if par1_injvalue is not None and par2_injvalue is not None:
