@@ -104,101 +104,136 @@ def main(trigFile, timeWindow, outdir, verbose=False):
   clstTrigs = lsctables.New(lsctables.MultiInspiralTable,\
                             columns=lsctables.MultiInspiralTable.loadcolumns)
 
+  try:
+    timeSlideList = table.get_table(oldxml, "time_slide")
+  except:
+    timeSlideList = None
+    
+
   if verbose:
-    sys.stdout.write("%d triggers found at %d\n\nBinning triggers in time...\n"\
-                      % (len(currTrigs), elapsed_time()))
+    sys.stdout.write("%d total unclustered triggers read at %d.\n"\
+                     %(len(currTrigs),elapsed_time()))
 
-  # bin all triggers in time
-  numBins  = int((end-start)//timeWindow + 1) 
-  timeBins = []
-  loudestTrigSNR = []
-  loudestTrigTime = []
+  # How many time slides are there?
+  if timeSlideList:
+    maxID = 0
+    for slides in timeSlideList:
+      if int(slides.time_slide_id) > maxID:
+        maxID = int(slides.time_slide_id)
+    numSlides = maxID + 1
 
-  for n in range(numBins):
-    timeBins.append([])
-    loudestTrigSNR.append(None)
-    loudestTrigTime.append(None)
+    if verbose:
+      sys.stdout.write("Identified %d distinct time slides.\n" %(numSlides))
+  else:
+    numSlides = 1
 
-  for trig in currTrigs:
-    t = trig.get_end()
-    t = trig.end_time + trig.end_time_ns * 1E-9
-    bin = int(float(t-start)//timeWindow)
-    timeBins[bin].append(trig)
-    if not loudestTrigSNR[bin]:
-      loudestTrigSNR[bin] = trig.snr
-      loudestTrigTime[bin] = trig.end_time + trig.end_time_ns * 1E-9
-    else:
-      if loudestTrigSNR[bin] < trig.snr:
+  for slideID in range(numSlides):
+    # Create list of slides matching slideID
+    slideTrigs = lsctables.New(lsctables.MultiInspiralTable,\
+                            columns=lsctables.MultiInspiralTable.loadcolumns)
+    slideTrigs.extend(trig for trig in currTrigs if \
+                      int(trig.time_slide_id) == slideID)
+
+    if numSlides == 1 and (len(slideTrigs) != len(currTrigs)):
+      raise BrokenError
+
+    if verbose:
+      sys.stdout.write("%d triggers identified in slide %d at %d.\n"\
+                       % (len(slideTrigs),slideID,elapsed_time()))
+      sys.stdout.write("Binning triggers in time...\n")
+
+
+    # bin all triggers in time
+    numBins  = int((end-start)//timeWindow + 1) 
+    timeBins = []
+    loudestTrigSNR = []
+    loudestTrigTime = []
+
+    for n in range(numBins):
+      timeBins.append([])
+      loudestTrigSNR.append(None)
+      loudestTrigTime.append(None)
+
+    for trig in currTrigs:
+      t = trig.get_end()
+      t = trig.end_time + trig.end_time_ns * 1E-9
+      bin = int(float(t-start)//timeWindow)
+      timeBins[bin].append(trig)
+      if not loudestTrigSNR[bin]:
         loudestTrigSNR[bin] = trig.snr
         loudestTrigTime[bin] = trig.end_time + trig.end_time_ns * 1E-9
+      else:
+        if loudestTrigSNR[bin] < trig.snr:
+          loudestTrigSNR[bin] = trig.snr
+          loudestTrigTime[bin] = trig.end_time + trig.end_time_ns * 1E-9
 
-  if verbose:
-    sys.stdout.write("%d bins generated at %d\n\nClustering triggers...\n"\
-                     % (numBins, elapsed_time())) 
+    if verbose:
+      sys.stdout.write("%d bins generated at %d\n\nClustering triggers...\n"\
+                       % (numBins, elapsed_time())) 
 
-  # loop over all bins
-  for i,bin in enumerate(timeBins):
+    # loop over all bins
+    for i,bin in enumerate(timeBins):
 
-    if len(bin)<1:  continue
+      if len(bin)<1:  continue
 
-    first = False
-    last = False
-    p = i-1
-    n = i+1
+      first = False
+      last = False
+      p = i-1
+      n = i+1
 
-    if i==0:
-      first = True
-    elif i==numBins-1:
-      last = True
+      if i==0:
+        first = True
+      elif i==numBins-1:
+        last = True
  
-    # loop all triggers in bin
-    for trig in bin:
-      # search this trigger's own bin
-      if trig.snr < loudestTrigSNR[i]:
-        continue
+      # loop all triggers in bin
+      for trig in bin:
+        # search this trigger's own bin
+        if trig.snr < loudestTrigSNR[i]:
+          continue
 
-      t = trig.end_time + trig.end_time_ns * 1E-9
+        t = trig.end_time + trig.end_time_ns * 1E-9
   
-      # if trigger was loudest in it's bin, search loudest event in previous bin
-      if not first:
-        if loudestTrigTime[p]:
-          if (loudestTrigTime[p]-t).__abs__() < timeWindow:
-            if trig.snr < loudestTrigSNR[p]:
-              continue
+        # if trigger was loudest in its bin, check loudest event in previous bin
+        if not first:
+          if loudestTrigTime[p]:
+            if (loudestTrigTime[p]-t).__abs__() < timeWindow:
+              if trig.snr < loudestTrigSNR[p]:
+                continue
 
-      # Same for the next bin
-      if not last:
-        if loudestTrigTime[n]:
-          if (loudestTrigTime[n]-t).__abs__() < timeWindow:
-            if trig.snr < loudestTrigSNR[n]:
-              continue
+        # Same for the next bin
+        if not last:
+          if loudestTrigTime[n]:
+            if (loudestTrigTime[n]-t).__abs__() < timeWindow:
+              if trig.snr < loudestTrigSNR[n]:
+                continue
  
-      loudest=True
-      # if trigger was loudest in it's bin, search previous bin
-      if loudest and loudestTrigTime[p] and not first:
-        if not (loudestTrigTime[p]-t).__abs__() < timeWindow:
-          for trig2 in timeBins[p]:
-            t2 = trig2.end_time + trig2.end_time_ns * 1E-9
-            if (t2-t).__abs__() < timeWindow:
-              if trig.snr < trig2.snr:
-                loudest = False
-                break
+        loudest=True
+        # if trigger was loudest in it's bin, search previous bin
+        if loudest and loudestTrigTime[p] and not first:
+          if not (loudestTrigTime[p]-t).__abs__() < timeWindow:
+            for trig2 in timeBins[p]:
+              t2 = trig2.end_time + trig2.end_time_ns * 1E-9
+              if (t2-t).__abs__() < timeWindow:
+                if trig.snr < trig2.snr:
+                  loudest = False
+                  break
 
-      # if still loudest, check the next bin
-      if loudest and loudestTrigTime[n] and not last:
-        if not (loudestTrigTime[n]-t).__abs__() < timeWindow:
-          for trig2 in timeBins[n]:
-            t2 = trig2.end_time + trig2.end_time_ns * 1E-9
-            if (t2-t).__abs__() < timeWindow:
-              if trig.snr < trig2.snr:
-                loudest = False
-                break
+        # if still loudest, check the next bin
+        if loudest and loudestTrigTime[n] and not last:
+          if not (loudestTrigTime[n]-t).__abs__() < timeWindow:
+            for trig2 in timeBins[n]:
+              t2 = trig2.end_time + trig2.end_time_ns * 1E-9
+              if (t2-t).__abs__() < timeWindow:
+                if trig.snr < trig2.snr:
+                  loudest = False
+                  break
 
-      # if this was the loudest trigger in its vicinity, keep it and move to
-      # the next bin
-      if loudest:
-        clstTrigs.append(trig)
-        break
+        # if this was the loudest trigger in its vicinity, keep it and move to
+        # the next bin
+        if loudest:
+          clstTrigs.append(trig)
+          break
 
   #
   # write clustered xml file
@@ -220,6 +255,8 @@ def main(trigFile, timeWindow, outdir, verbose=False):
   oldSearchSummTable = table.get_table(oldxml, "search_summary")
   xmldoc.childNodes[-1].appendChild(oldSearchSummTable)
   xmldoc.childNodes[-1].appendChild(clstTrigs)
+  if timeSlideList:
+    xmldoc.childNodes[-1].appendChild(timeSlideList)
 
   # generate filename and write
   outdesc = '%s_%s' % (cacheFile.description, 'CLUSTERED')
