@@ -162,7 +162,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
 
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -232,7 +232,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -345,7 +345,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -415,7 +415,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
     injection=None
 
