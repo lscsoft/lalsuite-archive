@@ -37,7 +37,7 @@ mpl.use("AGG")
 from matplotlib import pyplot as plt
 from matplotlib import colors as mpl_colors
 from matplotlib import cm as mpl_cm
-
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 from scipy import stats
 
@@ -233,7 +233,17 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     #Create common figure
     myfig=plt.figure(figsize=(6,4.5),dpi=150)
-    myfig.add_axes([0.1,0.1,0.65,0.85])
+  #myfig.add_axes([0.1,0.1,0.65,0.85])
+  #myfig.add_axes([0.15,0.15,0.6,0.76])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
+    myfig.add_axes(axes)
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.6g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.6g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
@@ -266,6 +276,19 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
         patch_list.append(patches[0])
 
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+      Nticks=3
+    elif Nchars>5:
+      Nticks=4
+    elif Nchars>4:
+      Nticks=6
+    else:
+      Nticks=6
+    locatorX=mpl.ticker.MaxNLocator(nbins=Nticks)
+    locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
+
     plt.xlim(min_pos,max_pos)
     top_cl_intervals_list={}
     pos_names=list_of_pos_by_name.keys()
@@ -293,7 +316,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
     plt.xlabel(bppu.plot_label(param))
-    plt.ylabel('Probability density')
+    plt.ylabel('Probability density (arbitrary units)')
     plt.draw()
     #plt.tight_layout()
     if injvals:

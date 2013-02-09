@@ -2898,8 +2898,10 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     injpar=posterior[param].injval
     trigvals=posterior[param].trigvals
 
-    myfig=plt.figure(figsize=(4,3.5),dpi=200)
-    axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+  #myfig=plt.figure(figsize=(4,3.5),dpi=200)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
+  #axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
     myfig.add_axes(axes)
     majorFormatterX=ScalarFormatter(useMathText=True)
     majorFormatterX.format_data=lambda data:'%.6g'%(data)
@@ -2979,7 +2981,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     #
     plt.grid()
     plt.xlabel(plot_label(ax1_name))
-    plt.ylabel('Probability Density')
+    plt.ylabel('Probability Density (arbitrary units)')
 
     # For RA and dec set custom labels and for RA reverse
     if(param.lower()=='ra' or param.lower()=='rightascension'):
