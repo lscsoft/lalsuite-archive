@@ -63,17 +63,17 @@ fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
-        {'axes.labelsize': 11,
-        'text.fontsize':   11,
-        'legend.fontsize': 11,
-        'xtick.labelsize': 11,
-        'ytick.labelsize': 11,
+        {'axes.labelsize': 16,
+        'text.fontsize':   16,
+        'legend.fontsize': 16,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
         'text.usetex': False,
         'figure.figsize': fig_size,
         'font.family': "serif",
         'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
         'font.weight':'normal',
-        'font.size':11,
+        'font.size':16,
         'savefig.dpi': 120
         })
 
@@ -197,7 +197,7 @@ def plot_label(param):
   labels={
       'm1':r'$m_1$',
       'm2':r'$m_2$',
-      'mc':r'$\mathcal{M}_c$',
+      'mc':r'$\mathcal{M}$',
       'eta':r'$\eta$',
       'q':r'$q$',
       'mtotal':r'$M_\mathrm{total}$',
@@ -3269,7 +3269,7 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     CSlst.append(CS)
     
     if par1_injvalue is not None and par2_injvalue is not None:
-      plt.plot([par1_injvalue],[par2_injvalue],'bo',scalex=False,scaley=False)
+      plt.plot([par1_injvalue],[par2_injvalue],'b*',scalex=False,scaley=False,markersize=12)
       
     if par_trigvalues1 is not None and par_trigvalues2 is not None:
 	par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
@@ -3282,8 +3282,8 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
 	  else: color = 'c'
 	plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
 	
-  plt.xlabel(par1_name)
-  plt.ylabel(par2_name)
+  plt.xlabel(plot_label(par1_name))
+  plt.ylabel(plot_label(par2_name))
   plt.grid()
   
   if len(name_list)!=len(CSlst):
@@ -3293,15 +3293,17 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   dummy_lines=[]
   for plot_name in name_list:
     full_name_list.append(plot_name)
-  for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
-    dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
-    full_name_list.append('%s%%'%str(int(cl*100)))
-  
+  if len(confidence_levels)>1:
+    for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+      dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+      full_name_list.append('%s%%'%str(int(cl*100)))
+      
   fig_actor_lst = [cs.collections[0] for cs in CSlst]
   fig_actor_lst.extend(dummy_lines)
-  if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-  for text in twodcontour_legend.get_texts():
-    text.set_fontsize('small')
+  if legend is not None:
+    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+      text.set_fontsize('small')
 
   majorFormatterX=ScalarFormatter(useMathText=True)
   majorFormatterX.format_data=lambda data:'%.4g'%(data)
@@ -3508,9 +3510,10 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
                 full_name_list.append('%s%%'%str(int(cl*100)))
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-    for text in twodcontour_legend.get_texts():
-        text.set_fontsize('small')
+    if legend is not None:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      for text in twodcontour_legend.get_texts():
+          text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
     return fig
 
@@ -3658,7 +3661,7 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False)
+            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False,markersize=12)
         if(par1_trigvalues is not None and par2_trigvalues is not None):
             par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
             par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
@@ -3724,9 +3727,9 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     fig_actor_lst.extend(dummy_lines)
 
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-
-    for text in twodcontour_legend.get_texts():
+    if legend is not None:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
 
