@@ -3211,8 +3211,8 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   rangey=YMAX-YMIN
   Nx=50
   Ny=50
-  xax=np.linspace(min(xdat),max(xdat),Nx)
-  yax=np.linspace(min(ydat),max(ydat),Ny)
+  xax=np.linspace(XMIN,XMAX,Nx)
+  yax=np.linspace(YMIN,YMAX,Ny)
   x,y=np.meshgrid(xax,yax)
   
   CSlst=[]
@@ -3244,9 +3244,6 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
       par2_injvalue=par2_injvalue-offset
       ax2_name=par2_name+' + %i'%(int(offset))
     else: ax2_name=par2_name
-    #Nx=rangex/xbin
-    #Ny=rangey/ybin
-
     
     samp=np.transpose(np.column_stack((xdat,ydat)))
     
