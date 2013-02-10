@@ -88,6 +88,7 @@
 #include <lal/LALFrameL.h>
 #include <lal/FFTWMutex.h>
 #include <lal/LALSimulation.h>
+#include <lal/LALSimGlitch.h>
 
 #include <LALAppsVCSInfo.h>
 
@@ -1261,15 +1262,31 @@ int main( int argc, char *argv[] )
    * inject signals into the raw, unresampled data
    *
    */
-
   if ( glitchInjectionFile)
   {
+    if ( vrbflg ) fprintf( stdout, "Reading glitch injections from file.\n" );
+    fflush( stdout );
+
     INT4 glitchInjSafety = 10;
+    LIGOTimeGPS glitches_start, glitches_end;
+    
+    glitches_start = gpsStartTime;
+    glitches_start.gpsSeconds -= glitchInjSafety;
+    glitches_end = gpsEndTime;
+    glitches_end.gpsSeconds += glitchInjSafety;
+
     glitchInjections = XLALSimBurstTableFromLIGOLw(
         glitchInjectionFile,
-        gpsStartTime.gpsSeconds - glitchInjSafety,
-        gpsEndTime.gpsSeconds + glitchInjSafety );
+        &glitches_start,
+        &glitches_end );
+
+    if ( vrbflg ) fprintf( stdout, "Injecting glitches into data..." );
+    fflush( stdout );
+
     XLALSimGlitchInject(&strainChan, glitchInjections);
+
+    if ( vrbflg ) fprintf( stdout, "done.\n" );
+    fflush( stdout );
   }
 
   if ( injectionFile )
@@ -3973,7 +3990,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
             /* create storage for the glitch injection file name */
             optarg_len = strlen( optarg ) + 1;
             glitchInjectionFile = (CHAR *) calloc( optarg_len, sizeof(CHAR));
-            memcpy( injectionFile, optarg, optarg_len );
+            memcpy( glitchInjectionFile, optarg, optarg_len );
             ADD_PROCESS_PARAM( "string", "%s", optarg );
             if ( vrbflg ) fprintf(stdout, "Glitch file %s\n", glitchInjectionFile);
             break;
