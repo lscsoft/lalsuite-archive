@@ -3312,9 +3312,48 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   majorFormatterY.set_scientific(True)
   axes.xaxis.set_major_formatter(majorFormatterX)
   axes.yaxis.set_major_formatter(majorFormatterY)
+  Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+  if Nchars>8:
+    Nticks=3
+  elif Nchars>5:
+    Nticks=4
+  elif Nchars>4:
+    Nticks=5
+  else:
+    Nticks=6
+  locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+  if par1_name=='rightascension' or par1_name=='ra':
+    (ramin,ramax)=plt.xlim()
+    locatorX=RALocator(min=ramin,max=ramax)
+    majorFormatterX=RAFormatter()
+  if par1_name=='declination' or par1_name=='dec':
+    (decmin,decmax)=plt.xlim()
+    locatorX=DecLocator(min=decmin,max=decmax)
+    majorFormatterX=DecFormatter()
+  axes.xaxis.set_major_formatter(majorFormatterX)
+  if par2_name=='rightascension' or par2_name=='ra':
+    (ramin,ramax)=plt.ylim()
+    locatorY=RALocator(ramin,ramax)
+    axes.yaxis.set_major_locator(locatorY)
+    majorFormatterY=RAFormatter()
+  if par2_name=='declination' or par2_name=='dec':
+    (decmin,decmax)=plt.ylim()
+    locatorY=DecLocator(min=decmin,max=decmax)
+    majorFormatterY=DecFormatter()
+    axes.yaxis.set_major_locator(locatorY)
       
+  axes.yaxis.set_major_formatter(majorFormatterY)
+  #locatorX.view_limits(bins[0],bins[-1])
+  axes.xaxis.set_major_locator(locatorX)
+
   fix_axis_names(plt,par1_name,par2_name)
-      
+
+  if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    xmin,xmax=plt.xlim()
+    if(xmin<0.0): xmin=0.0
+    if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+    plt.xlim(xmax,xmin)
+
   return fig
 
 
