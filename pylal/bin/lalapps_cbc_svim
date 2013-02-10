@@ -490,11 +490,19 @@ class upper_limit(object):
     coincident event. All other injections are considered "missed".
     """
 
+    if self.opts.verbose:
+        print >>sys.stdout, "\nFinding parameters of the injections performed ..."
+
     self.injections = {}
 
     for inst in self.instruments:
         found, total, missed = imr_utils.get_min_far_inspiral_injections(connection, segments = self.zero_lag_segments[inst], table_name = "%s:table"%self.opts.coinc_table)
         self.injections[inst] = found + [(float('inf'), sim) for sim in missed]
+
+    # report how many injections were performs
+    if self.opts.verbose:
+        for inst in self.instruments:
+            print >>sys.stdout,"\tFound %d injections performed in %s time" % (len(self.injections[inst]),','.join(sorted(list(inst))))
 
     return True
 
