@@ -100,7 +100,7 @@ int XLALSimGlitchInject(
 		  // fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);
 		} 
 	    }
-	else if(!strcmp(Dummy->waveform, "WhiteNoiseBurst"))
+	else if(!strcmp(Dummy->waveform, "BTLWNB"))
 	  {
 	    // fprintf(stdout, "This is a White Noise injection\n");
 	    rng = gsl_rng_alloc (gsl_rng_taus);
@@ -110,7 +110,7 @@ int XLALSimGlitchInject(
 							  Dummy->duration,
 							  Dummy->frequency,
 							  Dummy->bandwidth,
-							  Dummy->amplitude, // int_hdtot_squared
+							  Dummy->egw_over_rsquared, // int_hdtot_squared
 							  time_series->deltaT,
 							  rng
 							  );
