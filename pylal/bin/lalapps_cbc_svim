@@ -42,8 +42,20 @@ __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perim
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
-pyplot.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
-matplotlib.rcParams.update({"text.usetex": True})
+matplotlib.rcParams.update({
+        "font.size": 14.0,
+        "font.family":"serif",
+        "font.serif":"Computer Modern Roman",
+        "axes.titlesize": 18.0,
+        "axes.labelsize": 16.0,
+        "xtick.labelsize": 14.0,
+        "ytick.labelsize": 14.0,
+        "legend.fontsize": 16.0,
+        "figure.dpi": 200,
+        "savefig.dpi": 200,
+        "text.usetex": True,
+        "path.simplify": True
+})
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
