@@ -3194,29 +3194,6 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
   if len(line_styles)<len(levels):
     raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
   
-  XMIN=float('Inf')
-  YMIN=XMIN
-  XMAX=-XMIN
-  YMAX=XMAX
-  for name,posterior in posteriors_by_name.items():
-    xdat=posterior[par1_name].samples
-    ydat=posterior[par2_name].samples
-    xmax=max(xdat)
-    xmin=min(xdat)
-    ymax=max(ydat)
-    ymin=min(ydat)
-    if xmin<XMIN: XMIN=xmin
-    if ymin<YMIN: YMIN=ymin
-    if xmax>XMAX: XMAX=xmax
-    if ymax>YMAX: YMAX=ymax
-  rangex=XMAX-XMIN
-  rangey=YMAX-YMIN
-  Nx=50
-  Ny=50
-  xax=np.linspace(XMIN,XMAX,Nx)
-  yax=np.linspace(YMIN,YMAX,Ny)
-  x,y=np.meshgrid(xax,yax)
-  
   CSlst=[]
   for name,posterior in posteriors_by_name.items():
     print 'Plotting '+name
@@ -3252,6 +3229,11 @@ def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,c
     kde=stats.kde.gaussian_kde(samp)
     den=kde(samp)
     #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    Nx=50
+    Ny=50
+    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    x,y = np.meshgrid(xax,yax)
     grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
     z = kde(grid_coords)
     z = z.reshape(Nx,Ny)
