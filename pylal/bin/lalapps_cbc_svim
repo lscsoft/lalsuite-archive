@@ -345,7 +345,8 @@ class upper_limit(object):
 
   def set_instruments(self, connection):
 
-      self.instruments = imr_utils.get_instruments_from_coinc_event_table(connection)
+      # looking for instrument sets of two or more detectors
+      self.instruments = [inst for inst in imr_utils.get_instruments_from_coinc_event_table(connection) if len(inst) > 1]
 
       if self.opts.instruments is None:
           return
