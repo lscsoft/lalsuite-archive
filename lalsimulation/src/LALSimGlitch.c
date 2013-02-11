@@ -95,7 +95,7 @@ int XLALSimGlitchInject(
 	      for(i=0; i<h_plus->data->length; i++)
 		{
 		  j = lag - h_plus->data->length / 2 + i;
-		  if(j > time_series->data->length) continue;
+		  if(j >= time_series->data->length) continue;
 		  time_series->data->data[j] += h_plus->data->data[i];
 		  // fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);
 		} 
@@ -118,7 +118,7 @@ int XLALSimGlitchInject(
 	    for(i=0; i<h_plus->data->length; i++)
 	      {
 		j = lag - h_plus->data->length / 2 + i;
-		if(j > time_series->data->length) continue;
+		if(j >= time_series->data->length) continue;
 		time_series->data->data[j] += h_plus->data->data[i];
 		// fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);                  
 	      }
