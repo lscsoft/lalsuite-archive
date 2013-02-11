@@ -216,7 +216,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     #
     return myfig#,rkde
 #
-def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,legend='right'):
 
 
     """
@@ -272,8 +272,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
-        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
-
+#(n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,facecolor='white',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
+        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])
         patch_list.append(patches[0])
 
     Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
@@ -312,11 +312,12 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     plt.grid()
     plt.xlim(min_pos,max_pos)
-    oned_legend=plt.figlegend(patch_list,pos_names,'right')
-    for text in oned_legend.get_texts():
+    if legend is not None:
+      oned_legend=plt.figlegend(patch_list,pos_names,'right')
+      for text in oned_legend.get_texts():
         text.set_fontsize('small')
     plt.xlabel(bppu.plot_label(param))
-    plt.ylabel('Probability density (arbitrary units)')
+    plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
     if injvals:
@@ -713,7 +714,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             for confidence_level in OneDconfidenceLevels:
 
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
-                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg)
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
 
                 # Save confidence levels and uncertainty

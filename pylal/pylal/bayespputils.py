@@ -2981,7 +2981,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     #
     plt.grid()
     plt.xlabel(plot_label(ax1_name))
-    plt.ylabel('Probability Density (arbitrary units)')
+    plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
     if(param.lower()=='ra' or param.lower()=='rightascension'):
