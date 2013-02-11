@@ -243,15 +243,24 @@ for db_idx, db_path in enumerate(database_list):
             verbose=opts.verbose)
     dbtables.DBTable_set_connection( connection )
     
-    # create indices to aid database queries
-    sqlscript = """
-    CREATE INDEX ci_idx ON coinc_inspiral (coinc_event_id);
-    CREATE INDEX cem_idx ON coinc_event_map (coinc_event_id, event_id);
-    CREATE INDEX si_idx ON sngl_inspiral (event_id, snr, chisq, chisq_dof, mchirp, eta);
-    CREATE INDEX em_idx ON experiment_map (coinc_event_id, experiment_summ_id);
-    CREATE INDEX es_idx ON experiment_summary (experiment_summ_id, datatype);
-    """
+    # create needed indices on tables if they don't already exist
+    current_indices = [index[0] for index in
+        connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()]
+    
+    sqlscript = ''
+    if 'si_idx' not in current_indices:
+        sqlscript += 'CREATE INDEX si_idx ON sngl_inspiral (event_id, snr, chisq, chisq_dof, mchirp, eta);\n'
+    if 'ci_idx' not in current_indices:
+        sqlscript += 'CREATE INDEX ci_idx ON coinc_inspiral (coinc_event_id);\n'
+    if 'cem_idx' not in current_indices:
+        sqlscript += 'CREATE INDEX cem_idx ON coinc_event_map (coinc_event_id, event_id);\n'
+    if 'es_idx' not in current_indices:
+        sqlscript += 'CREATE INDEX es_idx ON experiment_summary (experiment_id, time_slide_id, datatype);\n'
+    if 'em_idx' not in current_indices:
+        sqlscript += 'CREATE INDEX em_idx ON experiment_map (coinc_event_id, experiment_summ_id);\n'
+    
     connection.executescript( sqlscript )
+
 
     #
     # get lists of the found injections and their associated FAR values
