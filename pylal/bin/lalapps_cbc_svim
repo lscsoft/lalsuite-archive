@@ -607,9 +607,6 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--disable-spin", default = False, action = "store_true", help = "When computing the search volume, exclude injections with any nonzero spin components.")
   parser.add_option("--spin-only", default = False, action = "store_true", help = "When computing the search volume, exclude injections with all spin components equal to zero. --disable-spin takes precedence.")
 
-  # These options control the volume uncertainty estimation.
-  parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
-
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Space distance bins evenly and specify the number of distance bins to use.")
   parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set, you can specify here the number of mass bins to use along a single dimension. The number of bins is currently 1 fewer than the value you specify.")
