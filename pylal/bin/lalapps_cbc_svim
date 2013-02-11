@@ -309,14 +309,16 @@ class upper_limit(object):
       # use true loudest event for open box
       else:
 
-          for inst in self.instruments:
+          if self.opts.include_play:
+              datatype = "all_data"
+          else:
+              datatype = "exclude_play"
 
-              if self.opts.include_play:
-                  datatype = "all_data"
-              else:
-                  datatype = "exclude_play"
+          for inst, far in upper_limit_utils.get_loudest_event(connection, opts.coinc_table, datatype):
 
-              inst, far = upper_limit_utils.get_loudest_event(connection, opts.coinc_table, datatype)
+              if inst not in self.instruments:
+                  continue
+
               # cannot determine efficiency above the loudest event
               # when the loudest event has FAR=0
               if far == 0:
@@ -325,7 +327,7 @@ class upper_limit(object):
                   continue
 
               else:
-                  self.far[inst[0]] = far[0]
+                  self.far[inst] = far
 
       # report the far threshold being used
       if self.opts.verbose:

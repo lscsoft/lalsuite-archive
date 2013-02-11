@@ -326,9 +326,8 @@ def get_loudest_event(connection, coinc_table="coinc_inspiral", datatype="exclud
 SELECT coinc_event.instruments, MIN(combined_far) FROM %s JOIN coinc_event ON (%s.coinc_event_id == coinc_event.coinc_event_id) JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id) JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id) WHERE experiment_summary.datatype == "%s" GROUP BY coinc_event.instruments;
 """ % (coinc_table, coinc_table, datatype)
 
-    inst_l, far_l = [], []
     for inst, far in connection.cursor().execute(far_threshold_query):
         inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-        inst_l.append(inst), far_l.append(far)
+        yield inst, far
 
-    return inst_l, far_l
+    return
