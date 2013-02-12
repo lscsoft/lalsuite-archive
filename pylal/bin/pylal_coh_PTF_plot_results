@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # Copyright (C) 2012 Duncan M. Macleod
 #
@@ -333,7 +333,8 @@ contours = {"new_snr": [5.5, 6, 6.5, 7, 8, 9, 10, 11]}
                           new_snrs=contours["new_snr"])
 
 def plot_xy(outfile, xdata, ydata, xlabel, ylabel, xlim=None, ylim=None,
-           logx=False, logy=False, fill=None, plot_contours=False):
+           logx=False, logy=False, fill=None, plot_contours=False,
+           fill_vetoes=True):
     plot = plotutils.ScatterPlot(xlabel, ylabel)
     for key,marker,lc,lw in zip(SEARCHES, MARKERS, MARKER_EC, MARKER_LW):
         if not xdata.has_key(key):
@@ -347,12 +348,14 @@ def plot_xy(outfile, xdata, ydata, xlabel, ylabel, xlim=None, ylim=None,
                                       contours[plot_contours],
                                       contours["color"])
         # Add shading to vetoed area
-        ymax = ylim and ylim[1] or plot.ax.get_ylim()[1]
-        polyx = numpy.concatenate((contours["snr"], [max(contours["snr"]),
-                                                     min(contours["snr"])]))
-        yidx = contours["new_snr"].index(6)
-        polyy = numpy.concatenate((contours[plot_contours][yidx],[ymax, ymax]))
-        plot.ax.fill(polyx, polyy, color='#dddddd', alpha=0.8)
+        if fill_vetoes:
+            ymax = ylim and ylim[1] or plot.ax.get_ylim()[1]
+            polyx = numpy.concatenate((contours["snr"], [max(contours["snr"]),
+                                                         min(contours["snr"])]))
+            yidx = contours["new_snr"].index(6)
+            polyy = numpy.concatenate((contours[plot_contours][yidx],
+                                       [ymax, ymax]))
+            plot.ax.fill(polyx, polyy, color='#dddddd', alpha=0.8)
     plot.finalize()
     plotutils.add_colorbar(plot.ax, visible=False)
     if logx:
@@ -400,8 +403,12 @@ def plot_found_missed(outfile, found_xy, missed_xy, nonzerofap_xyz,
                                          "False alarm probability (FAP)")
     plot.ax.scatter(*missed_xy, edgecolor="r", marker="x", label="Missed")
     plot.ax.scatter(*found_xy, edgecolor="g", marker="x", label="Found")
-    plot.add_content(*nonzerofap_xyz,
-                     edgecolors='none', label="Non-zero FAP")
+    if len(nonzerofap_xyz[0]):
+        plot.add_content(*nonzerofap_xyz,
+                         edgecolors='none', label="Non-zero FAP")
+    else:
+        plot.add_content([1e-100], [1e-100], [0.5], edgecolors="none",
+                         label="Non-zero FAP", visible=True)
     plot.finalize(clim=[0,1])
     if logx:
         plot.ax.set_xscale("log")
@@ -862,10 +869,16 @@ if __name__ == "__main__":
     # plot SNR histograms
     #
 
-    outfile = plotname % "BESTNR_HISTOGRAM"
-    plot_hist(outfile, mi_slide_bestnr, latex("BestNR"),
-             "Cumulative number of events", xlim=[5, 20])
-    print_verbose("%s written.\n" % outfile)
+    try:
+        outfile = plotname % "BESTNR_HISTOGRAM"
+        plot_hist(outfile, mi_slide_bestnr, latex("BestNR"),
+                  "Cumulative number of events", xlim=[5, 20])
+        print_verbose("%s written.\n" % outfile)
+    except RuntimeError as e:
+        if re.search("maximum recursion", str(e)):
+            warnings.warn(str(e), RuntimeWarning)
+        else:
+            raise
 
     #
     # plot versus snr
@@ -894,21 +907,50 @@ if __name__ == "__main__":
 
     # plot chisqs
     outfile = plotname % "SNR_CHISQ"
-    plot_xy(outfile, mi_snr, mi_chisq, latex("SNR"), latex("chisq"),
-            xlim=SNR_LIM, ylim=CHISQ_LIM, logx=True, logy=True,
-            plot_contours="chisq")
+    try:
+        plot_xy(outfile, mi_snr, mi_chisq, latex("SNR"), latex("chisq"),
+                xlim=SNR_LIM, ylim=CHISQ_LIM, logx=True, logy=True,
+                plot_contours="chisq")
+    except RuntimeError as e:
+        if re.search("maximum recursion", str(e)):
+            plot_xy(outfile, mi_snr, mi_chisq, latex("SNR"), latex("chisq"),
+                    xlim=SNR_LIM, ylim=CHISQ_LIM, logx=True, logy=True,
+                    plot_contours="chisq", fill_vetoes=False)
+        
+        else:
+            raise
     print_verbose("%s written.\n" % outfile)
 
+
     outfile = plotname % "SNR_BANK_CHISQ"
-    plot_xy(outfile, mi_snr, mi_bank_chisq, latex("SNR"), latex("bank_chisq"),
-           xlim=SNR_LIM, ylim=BANK_CHISQ_LIM, logx=True, logy=True,
-           plot_contours="bank_chisq")
+    try:
+        plot_xy(outfile, mi_snr, mi_bank_chisq, latex("SNR"),
+                latex("bank_chisq"), xlim=SNR_LIM, ylim=BANK_CHISQ_LIM,
+                logx=True, logy=True, plot_contours="bank_chisq")
+    except RuntimeError as e:
+        if re.search("maximum recursion", str(e)):
+            plot_xy(outfile, mi_snr, mi_bank_chisq, latex("SNR"),
+                    latex("bank_chisq"), xlim=SNR_LIM, ylim=BANK_CHISQ_LIM,
+                    logx=True, logy=True, plot_contours="bank_chisq",
+                    fill_vetoes=False)
+        else:
+            raise
     print_verbose("%s written.\n" % outfile)
 
     outfile = plotname % "SNR_CONT_CHISQ"
-    plot_xy(outfile, mi_snr, mi_cont_chisq, latex("SNR"), latex("cont_chisq"),
-            xlim=SNR_LIM, ylim=CONT_CHISQ_LIM, logx=True, logy=True,
-            plot_contours="cont_chisq")
+    try:
+        plot_xy(outfile, mi_snr, mi_cont_chisq, latex("SNR"),
+                latex("cont_chisq"), xlim=SNR_LIM, ylim=CONT_CHISQ_LIM,
+                logx=True, logy=True, plot_contours="cont_chisq")
+    except RuntimeError as e:
+        if re.search("maximum recursion", str(e)):
+            plot_xy(outfile, mi_snr, mi_cont_chisq, latex("SNR"),
+                    latex("cont_chisq"), xlim=SNR_LIM, ylim=CONT_CHISQ_LIM,
+                    logx=True, logy=True, plot_contours="cont_chisq",
+                    fill_vetoes=False)
+        else:
+            raise
+
     print_verbose("%s written.\n" % outfile)
 
     #
