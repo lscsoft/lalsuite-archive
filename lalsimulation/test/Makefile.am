@@ -6,7 +6,10 @@ check_PROGRAMS = \
 	GenerateSimulation \
 	TestSpinTaylorT4Dynamics \
 	TestEOBNRv2 \
-	GRFlagsTest
+	GRFlagsTest \
+	WaveformFlagsTest \
+	TestSphHarmTS \
+	TestPrecessWaveform
 TESTS = $(check_PROGRAMS)
 endif
 
@@ -14,4 +17,6 @@ EXTRA_DIST =
 
 MOSTLYCLEANFILES =
 CLEANFILES = \
-	*.dat
+	*.dat \
+	h_ref.txt \
+	h_rot.txt

@@ -58,7 +58,6 @@ typedef struct
    REAL8 ULfspan;
    REAL8 ULmindf;
    REAL8 ULmaxdf;
-   REAL8 simpleSigmaExclusion;
    REAL8 lineDetection;
    INT4 ihsfactor;
    INT4 harmonicNumToSearch;
@@ -83,6 +82,8 @@ typedef struct
    INT4 followUpOutsideULrange;
    INT4 validateSSE;
    INT4 randSeed;
+   INT4 ULsolver;
+   INT4 signalOnly;
    gsl_rng *rng;
 } inputParamsStruct;
 

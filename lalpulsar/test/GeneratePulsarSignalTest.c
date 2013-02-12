@@ -188,8 +188,8 @@ void RunGeneratePulsarSignalTest(LALStatus *status)
   LALDetector cachedDetector;
   CHAR IFO[6] = "LHO";
   EphemerisData *edat = NULL;
-  CHAR sunFile[] = "sun00-04.dat";     /* 02/02/05 gam */
-  CHAR earthFile[] = "earth00-04.dat"; /* 02/02/05 gam */
+  CHAR sunFile[] = DATADIR "sun00-04.dat";     /* 02/02/05 gam */
+  CHAR earthFile[] = DATADIR "earth00-04.dat"; /* 02/02/05 gam */
 
   /* containers for sky position and spindown data */
   REAL8 **skyPosData;
@@ -346,6 +346,8 @@ void RunGeneratePulsarSignalTest(LALStatus *status)
   }
   pPulsarSignalParams->orbit = NULL;
   pPulsarSignalParams->transfer = NULL;
+  pPulsarSignalParams->dtDelayBy2 = 0;
+  pPulsarSignalParams->dtPolBy2 = 0;
   /* Set up pulsar site */
   if (strstr(IFO, "LHO")) {
        cachedDetector = lalCachedDetectors[LALDetectorIndexLHODIFF];
@@ -377,7 +379,6 @@ void RunGeneratePulsarSignalTest(LALStatus *status)
   pSFTParams->Tsft = tSFT;
   pSFTParams->timestamps = timeStamps;
   pSFTParams->noiseSFTs = NULL;
-  pSFTParams->make_v2SFTs = 1;
 
   #ifdef INCLUDE_RANDVAL_MISMATCH
     /* Initial seed and randPar to use LALUniformDeviate to generate random mismatch during Monte Carlo. */

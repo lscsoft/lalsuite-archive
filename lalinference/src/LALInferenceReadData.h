@@ -22,16 +22,17 @@
  *  MA  02111-1307  USA
  */
 
-/**
- * \file LALInferenceReadData.h
- * \brief Utility functions for handling IFO data
- */
-
 #ifndef LALInferenceReadData_h
 #define LALInferenceReadData_h
 
-
 #include <lal/LALInference.h>
+
+/**
+ * \defgroup LALInferenceReadData_h Header LALInferenceReadData.h
+ * \ingroup pkg_LALInference
+ * \brief Utility functions for handling IFO data
+ */
+/*@{*/
 
 /** \brief Read IFO data according to command line arguments.
  * This function reads command line arguments and returns a \c LALInferenceIFOData linked
@@ -61,5 +62,5 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
 
 void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
 void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
-
+/*@}*/
 #endif

@@ -1,4 +1,4 @@
-/* 
+/*
  *  LALInferenceProposal.h:  Bayesian Followup, jump proposals.
  *
  *  Copyright (C) 2011 Ilya Mandel, Vivien Raymond, Christian Roever,
@@ -20,12 +20,18 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
+#ifndef LALInferenceProposal_h
+#define LALInferenceProposal_h
+
+#include <lal/LALInference.h>
 
 /**
+ * \defgroup LALInferenceProposal_h Header LALInferenceProposal.h
+ * \ingroup pkg_LALInference
+ *
  * \author Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys, John Veitch, and Will M. Farr.
  * \date 2011
- * \file
- * \ingroup LALInference
+ *
  * \brief Jump proposals for exploring the GW signal parameter space. 
  *
  * For exploring the parameter space of GW signals, it is convenient
@@ -75,11 +81,12 @@
  * in order to ensure that the ordering of the sub-proposals is
  * random.
  */
+/*@{*/
 
-#ifndef LALInferenceProposal_h
-#define LALInferenceProposal_h
-
-#include <lal/LALInference.h>
+#define MAX_STRLEN 512
+#define ADAPTSUFFIX "adapt_sigma"
+#define ACCEPTSUFFIX "accepted"
+#define PROPOSEDSUFFIX "proposed"
 
 extern const char *cycleArrayName;
 extern const char *cycleArrayLengthName;
@@ -105,10 +112,6 @@ extern const char *distanceQuasiGibbsProposalName;
 extern const char *orbitalPhaseQuasiGibbsProposalName;
 extern const char *extrinsicParamProposalName;
 extern const char *KDNeighborhoodProposalName;
-
-/** The name of the variable that holds the vector of single-parameter
-    jump widths. */
-extern const char *LALInferenceSigmaJumpName;
 
 /** The name of the variable that will store the name of the current
     proposal function. */
@@ -169,6 +172,9 @@ void LALInferenceOrbitalPhaseJump(LALInferenceRunState *runState, LALInferenceVa
 /** Polarization-phase exact degeneracy. */
 void LALInferencePolarizationPhaseJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
+/** Polarization-phase correlation jump */
+void LALInferenceCorrPolarizationPhaseJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
 /** Choose a random covariance matrix eigenvector to jump along. */
 void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
@@ -208,9 +214,13 @@ void LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVar
     different locations for detectors. */
 void LALInferenceSkyReflectDetPlane(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
+void LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);;
+
 /* Nested sampling wrappers. */
 void NSFillMCMCVariables(LALInferenceVariables *proposedParams, LALInferenceVariables *priorArgs);
 void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+void LALInferencePSDFitJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /** Rotate each spin by random angles about L. */
 void LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
@@ -246,6 +256,10 @@ void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accept
 /** Helper function to setup the adaptive step proposals before the run */
 void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state);
 void LALInferenceTimeFrequencySinGaussian(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+/*@}*/
 
 #endif
 

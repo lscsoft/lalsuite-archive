@@ -51,11 +51,6 @@ from pylal import git_version
 from pylal import inject
 from pylal import llwapp
 from pylal import ligolw_tisi
-try:
-	all, any
-except NameError:
-	# python < 2.5 compatibility
-	from glue.iterutils import all, any
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

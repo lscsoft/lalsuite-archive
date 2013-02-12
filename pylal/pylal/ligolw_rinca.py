@@ -224,6 +224,14 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
+		coinc_ringdown.mass = None
+		coinc_ringdown.spin = None
+		coinc_ringdown.snr_sq = None
+		coinc_ringdown.choppedl_snr = None
+		coinc_ringdown.eff_coh_snr = None
+		coinc_ringdown.null_stat = None
+		coinc_ringdown.kappa = None
+		coinc_ringdown.snr_ratio = None
 		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		#

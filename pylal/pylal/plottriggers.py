@@ -134,7 +134,11 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     xlim = kwargs.pop('xlim', None)
     ylim = kwargs.pop('ylim', None)
     zlim = kwargs.pop('zlim', None)
-    colorlim = kwargs.pop('colorlim', zlim)
+    colorlim = kwargs.pop('colorlim', None)
+    if zlim and not colorlim:
+        colorlim = zlim
+    elif colorlim and not zlim:
+        zlim = colorlim
 
     # set up columns
     columns = list(map(str.lower, [xcolumn, ycolumn]))
@@ -171,7 +175,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     for i,name in enumerate(tablenames):
         data.append(list())
         for c in columns:
-            if c.lower() not in tables[i].columnnames and c.lower() != "time":
+            c = c.lower()
+            if ((c not in tables[i].columnnames and c != "time") and not
+                    hasattr(tables[i], "get_%s" % c.lower())):
                 raise RuntimeError("Column '%s' not found in table '%s'."\
                                    % (c,name))
             data[-1].append(get_column(tables[i], c.lower()).astype(float))
@@ -186,9 +192,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             mins = [data[j][i].min() for j in range(len(tablenames))\
                     if len(data[j][i].shape) and data[j][i].shape[0] != 0]
             if len(mins):
-                lmin = min(mins)
+                lmin = min(mins)*0.999
                 lmax = max(data[j][i].max() for j in range(len(tablenames))\
-                           if len(data[j][i]))
+                           if len(data[j][i]))*1.000001
                 limits[i] = [lmin, lmax]
 
     # get time unit

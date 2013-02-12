@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2011      Karl Wette.
+ *  Copyright (C) 2011 Karl Wette.
  *  Copyright (C) 2009-2010 Holger Pletsch.
  *
  *  Based on HierarchicalSearch.c by
@@ -23,7 +23,7 @@
  */
 
 /*********************************************************************************/
-/** \author Holger Pletsch, Karl Wette
+/** \author Holger Pletsch
  * \file
  * \ingroup pulsarApps
  * \brief Hierarchical semicoherent CW search code based on F-Statistic,
@@ -53,6 +53,12 @@
 #define TRUE (1==1)
 #define FALSE (1==0)
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 /* Hooks for Einstein@Home / BOINC
    These are defined to do nothing special in the standalone case
    and will be set in boinc_extras.h if EAH_BOINC is set
@@ -61,11 +67,10 @@
 #include "hs_boinc_extras.h"
 #define COMPUTEFSTATFREQBAND_RS ComputeFStatFreqBand_RS
 #else
-#define GET_CHECKPOINT(toplist,total,countp,outputname,cptname) if(read_hfs_checkpoint("checkpoint.cpt", semiCohToplist, &count)) count=0
-#define SET_CHECKPOINT write_hfs_checkpoint("checkpoint.cpt",semiCohToplist,skyGridCounter*nf1dot+ifdot,1)
+#define GET_GCT_CHECKPOINT read_gct_checkpoint // (cptname, semiCohToplist, NULL, &count)
+#define SET_GCT_CHECKPOINT write_gct_checkpoint
 #define SHOW_PROGRESS(rac,dec,skyGridCounter,tpl_total,freq,fband)
 #define MAIN  main
-#define FOPEN fopen
 #ifdef HS_OPTIMIZATION
 extern void
 LocalComputeFStatFreqBand ( LALStatus *status,
@@ -125,18 +130,6 @@ int global_argc;
 #define REARTH_GCT = 6.378140e06;
 #define C_GCT      = 299792458;
 
-/**
- * Pre-factors for frequency and spindown spacings:
- * $\delta f^{(s)} = \text{COARSE_DFsDOT} \frac{\sqrt{\mu}}{T^{s+1}}$
- * Derived from diagonal elements of basic frequency/spindown metric:
- * $\delta f^{(s)} = 2 \frac{\sqrt{\mu}}{\gamma_{ii}}$
- * where
- * $\gamma_{ii} = \frac{4 (1+i)^2 \pi^2 T^{2+2i}}{(3+2i) ((2+i)!)^2}$
- */
-#define COARSE_DF0DOT   1.10266
-#define COARSE_DF1DOT   2.13529
-#define COARSE_DF2DOT   6.73735
-
 /* ---------- Macros -------------------- */
 #define HSMAX(x,y) ( (x) > (y) ? (x) : (y) )
 #define HSMIN(x,y) ( (x) < (y) ? (x) : (y) )
@@ -186,7 +179,7 @@ void PrintFstatVec( LALStatus *status, REAL4FrequencySeries *in, FILE *fp, Pulsa
                     LIGOTimeGPS refTime, INT4 stackIndex);
 void PrintCatalogInfo( LALStatus *status, const SFTCatalog *catalog, FILE *fp );
 void PrintStackInfo( LALStatus *status, const SFTCatalogSequence *catalogSeq, FILE *fp );
-void UpdateSemiCohToplist( LALStatus *status, toplist_t *list, FineGrid *in, REAL8 f1dot_fg, REAL8 f2dot_fg, UsefulStageVariables *usefulparams, REAL4 NSegmentsInv, REAL4 *NSegmentsInvX );
+void UpdateSemiCohToplists ( LALStatus *status, toplist_t *list1, toplist_t *list2, FineGrid *in, REAL8 f1dot_fg, REAL8 f2dot_fg, UsefulStageVariables *usefulparams, REAL4 NSegmentsInv, REAL4 *NSegmentsInvX );
 void GetSegsPosVelAccEarthOrb( LALStatus *status, REAL8VectorSequence **posSeg,
                                REAL8VectorSequence **velSeg, REAL8VectorSequence **accSeg,
                                UsefulStageVariables *usefulparams );
@@ -197,7 +190,6 @@ int compareCoarseGridUindex( const void *a, const void *b );
 int compareFineGridNC( const void *a,const void *b );
 int compareFineGridsumTwoF( const void *a,const void *b );
 
-LALSegList * XLALReadSegmentsFromFile ( const char *fname );
 SFTCatalogSequence *XLALSetUpStacksFromSegmentList ( const SFTCatalog *SFTCatalog, const LALSegList *segList );
 
 int XLALComputeFStatFreqBand (  MultiFstatFrequencySeries **fstatSeries,
@@ -321,6 +313,7 @@ int MAIN( int argc, char *argv[]) {
 
   /* fstat candidate structure for candidate toplist*/
   toplist_t *semiCohToplist=NULL;
+  toplist_t *semiCohToplist2=NULL;	// only used for SORTBY_DUAL_F_LV: 1st toplist sorted by 'F', 2nd one by 'LV'
 
   /* template and grid variables */
   static DopplerSkyScanInit scanInit;   /* init-structure for DopperScanner */
@@ -342,10 +335,14 @@ int MAIN( int argc, char *argv[]) {
   CHAR *fnameFstatVec1=NULL;
   FILE *fpFstat1=NULL;
 
-  /* checkpoint filename and index of loop over skypoints */
-  /* const CHAR *fnameChkPoint="checkpoint.cpt"; */
-  /* FILE *fpChkPoint=NULL; */
-  /* UINT4 loopindex, loopcounter; */
+  /* checkpoint filename */
+  // BOINC Apps always checkpoint, so set a default here
+#ifdef EAH_BOINC
+  CHAR *uvar_fnameChkPoint="checkpoint.cpt";
+#else
+  CHAR *uvar_fnameChkPoint=NULL;
+#endif
+
 
   /* user variables */
   BOOLEAN uvar_help = FALSE;    /* true if -h option is given */
@@ -436,7 +433,7 @@ int MAIN( int argc, char *argv[]) {
 #ifdef EAH_LOGLEVEL
   uvar_loglevel = EAH_LOGLEVEL;
 #else
-  uvar_loglevel = lalDebugLevel;
+  uvar_loglevel = lalDebugLevel & LALALLDBG;
 #endif
 
   uvar_ephemE = LALCalloc( strlen( EARTHEPHEMERIS ) + 1, sizeof(CHAR) );
@@ -486,6 +483,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar (   &status, "gammaRefine", 'g', UVAR_OPTIONAL, "Refinement of fine grid (default: use segment times)", &uvar_gammaRefine), &status);
   LAL_CALL( LALRegisterINTUserVar (   &status, "gamma2Refine",'G', UVAR_OPTIONAL, "Refinement of f2dot fine grid (default: use segment times, -1=use gammaRefine)", &uvar_gamma2Refine), &status);
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "fnameout",    'o', UVAR_OPTIONAL, "Output filename", &uvar_fnameout), &status);
+  LAL_CALL( LALRegisterSTRINGUserVar( &status, "fnameChkPoint",0,  UVAR_OPTIONAL, "Checkpoint filename", &uvar_fnameChkPoint), &status);
   LAL_CALL( LALRegisterINTUserVar(    &status, "nCand1",      'n', UVAR_OPTIONAL, "No. of candidates to output", &uvar_nCand1), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "printCand1",   0,  UVAR_OPTIONAL, "Print 1st stage candidates", &uvar_printCand1), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "refTime",      0,  UVAR_OPTIONAL, "Ref. time for pulsar pars [Default: mid-time]", &uvar_refTime), &status);
@@ -512,7 +510,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar(    &status, "skyPointIndex",0, UVAR_DEVELOPER, "Only analyze this skypoint in grid", &uvar_skyPointIndex ), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "dopplerMax",   0, UVAR_DEVELOPER, "Max Doppler shift",  &uvar_dopplerMax), &status);
   LAL_CALL( LALRegisterINTUserVar(    &status, "sftUpsampling",0, UVAR_DEVELOPER, "Upsampling factor for fast LALDemod",  &uvar_sftUpsampling), &status);
-  LAL_CALL( LALRegisterINTUserVar(    &status, "SortToplist",  0, UVAR_DEVELOPER, "Sort toplist by: 0=average2F, 1=numbercount, 2=LV-stat",  &uvar_SortToplist), &status);
+  LAL_CALL( LALRegisterINTUserVar(    &status, "SortToplist",  0, UVAR_DEVELOPER, "Sort toplist by: 0=avg2F, 1=numbercount, 2=LV-stat, 3=dual-toplists 'avg2F+LV'",  &uvar_SortToplist), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "LVuseAllTerms",0, UVAR_DEVELOPER, "LineVeto: which terms to include - FALSE: only leading term, TRUE: all terms", &uvar_LVuseAllTerms), &status);
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "outputSingleSegStats", 0,  UVAR_DEVELOPER, "Base filename for single-segment Fstat output (1 file per final toplist candidate!)", &uvar_outputSingleSegStats),  &status);
 
@@ -585,11 +583,11 @@ int MAIN( int argc, char *argv[]) {
   REAL4 TwoFthreshold = 2.0 * uvar_ThrF;
 #endif
 
-  if ( (uvar_SortToplist != 0) && (uvar_SortToplist != 1) && (uvar_SortToplist != 2) ) {
-    fprintf(stderr, "Invalid value specified for toplist sorting\n");
+  if ( (uvar_SortToplist < 0) || (uvar_SortToplist >= SORTBY_LAST) ) {
+    XLALPrintError ( "Invalid value %d specified for toplist sorting, must be within [0, %d]\n", uvar_SortToplist, SORTBY_LAST - 1 );
     return( HIERARCHICALSEARCH_EBAD );
   }
-  if ( (uvar_SortToplist == 2) && !uvar_computeLV ) {
+  if ( (uvar_SortToplist == SORTBY_LV || uvar_SortToplist == SORTBY_DUAL_F_LV) && !uvar_computeLV ) {
     fprintf(stderr, "Toplist sorting by LV-stat only possible if --computeLV given.\n");
     return( HIERARCHICALSEARCH_EBAD );
   }
@@ -608,7 +606,18 @@ int MAIN( int argc, char *argv[]) {
 
   /* create toplist -- semiCohToplist has the same structure
      as a fstat candidate, so treat it as a fstat candidate */
-  create_gctFStat_toplist(&semiCohToplist, uvar_nCand1, uvar_SortToplist);
+  if ( uvar_SortToplist == SORTBY_DUAL_F_LV )	// special treatement of 'dual' toplists: 1st one sorted by 'F', 2nd one by 'LV'
+    {
+      XLAL_CHECK ( 0 == create_gctFStat_toplist ( &semiCohToplist, uvar_nCand1, SORTBY_F ),
+                   XLAL_EFUNC, "create_gctFStat_toplist() failed for nCand=%d and sortBy=%d\n", uvar_nCand1, SORTBY_F );
+      XLAL_CHECK ( 0 == create_gctFStat_toplist ( &semiCohToplist2, uvar_nCand1, SORTBY_LV ),
+                   XLAL_EFUNC, "create_gctFStat_toplist() failed for nCand=%d and sortBy=%d\n", uvar_nCand1, SORTBY_LV );
+    }
+  else	// 'normal' single-sorting toplist cases (sortby 'F', 'nc' or 'LV')
+    {
+      XLAL_CHECK ( 0 == create_gctFStat_toplist ( &semiCohToplist, uvar_nCand1, uvar_SortToplist),
+                   XLAL_EFUNC, "create_gctFStat_toplist() failed for nCand=%d and sortBy=%d\n", uvar_nCand1, uvar_SortToplist );
+    }
 
   /* write the log file */
   if ( uvar_log )
@@ -766,28 +775,37 @@ int MAIN( int argc, char *argv[]) {
   }
 
   /* set Fstat calculation frequency resolution (coarse grid) */
-  if ( LALUserVarWasSet(&uvar_dFreq) ) {
-    usefulParams.dFreqStack = uvar_dFreq;
-  }
-  else {
-    usefulParams.dFreqStack = -1;
-  }
-
-  /* set Fstat spindown resolution (coarse grid) */
-  if ( LALUserVarWasSet(&uvar_df1dot) ) {
-    usefulParams.df1dot = uvar_df1dot;
-  }
-  else {
-    usefulParams.df1dot = -1;
+  if ( LALUserVarWasSet(&uvar_FreqBand) ) {
+    if ( LALUserVarWasSet(&uvar_dFreq) ) {
+      usefulParams.dFreqStack = uvar_dFreq;
+    } else {
+      LALPrintError("--dFreq is required if --FreqBand is given\n");
+      return( HIERARCHICALSEARCH_EBAD );
+    }
+  } else {
+    usefulParams.dFreqStack = 0;
   }
 
   /* set Fstat spindown resolution (coarse grid) */
-  if ( LALUserVarWasSet(&uvar_f2dot) || LALUserVarWasSet(&uvar_f2dotBand) ) {
+  if ( LALUserVarWasSet(&uvar_f1dotBand) ) {
+    if ( LALUserVarWasSet(&uvar_df1dot) ) {
+      usefulParams.df1dot = uvar_df1dot;
+    } else {
+      LALPrintError("--df1dot is required if --f1dotBand is given\n");
+      return( HIERARCHICALSEARCH_EBAD );
+    }
+  } else {
+    usefulParams.df1dot = 0;
+  }
+
+  /* set Fstat 2nd spindown resolution (coarse grid) */
+  if ( LALUserVarWasSet(&uvar_f2dotBand) ) {
     if ( LALUserVarWasSet(&uvar_df2dot) ) {
       usefulParams.df2dot = uvar_df2dot;
     }
     else {
-      usefulParams.df2dot = -1;
+      LALPrintError("--df2dot is required if --f2dotBand is given\n");
+      return( HIERARCHICALSEARCH_EBAD );
     }
   }
   else {
@@ -859,9 +877,14 @@ int MAIN( int argc, char *argv[]) {
   dFreqStack = usefulParams.dFreqStack;
   df1dot = usefulParams.df1dot;
   df2dot = usefulParams.df2dot;
+  LogPrintf(LOG_NORMAL, "dFreqStack = %e, df1dot = %e, df2dot = %e\n", dFreqStack, df1dot, df2dot);
 
   /* number of coarse grid spindown values */
-  nf1dot = (UINT4) ceil( usefulParams.spinRange_midTime.fkdotBand[1] / df1dot) + 1;
+  if ( df1dot == 0 ) {
+    nf1dot = 1;
+  } else {
+    nf1dot = (UINT4) ceil( usefulParams.spinRange_midTime.fkdotBand[1] / df1dot) + 1;
+  }
 
   /* set number of fine-grid spindowns */
   if ( LALUserVarWasSet(&uvar_gammaRefine) ) {
@@ -1151,7 +1174,7 @@ int MAIN( int argc, char *argv[]) {
     UINT4 count = 0; /* The first checkpoint should have value 1 */
     UINT4 skycount = 0;
 
-    GET_CHECKPOINT(semiCohToplist, &count, thisScan.numSkyGridPoints * nf1dot, fnameSemiCohCand, NULL);
+    GET_GCT_CHECKPOINT (uvar_fnameChkPoint, semiCohToplist, semiCohToplist2, &count);
 
     if (count) {
       f1dotGridCounter = (UINT4) (count % nf1dot);  /* Checkpointing counter = i_sky * nf1dot + i_f1dot */
@@ -1213,7 +1236,11 @@ int MAIN( int argc, char *argv[]) {
         semiCohPar.extraBinsFstat = usefulParams.extraBinsFstat;
 
         /* calculate total number of bins for Fstat */
-        binsFstatSearch = (UINT4)(usefulParams.spinRange_midTime.fkdotBand[0]/dFreqStack + 1e-6) + 1;
+        if ( dFreqStack == 0 ) {
+          binsFstatSearch = 1;
+        } else {
+          binsFstatSearch = (UINT4)(usefulParams.spinRange_midTime.fkdotBand[0]/dFreqStack + 1e-6) + 1;
+        }
         binsFstat1 = binsFstatSearch + 2 * semiCohPar.extraBinsFstat;
 
         /* loop over segments for memory allocation */
@@ -1719,10 +1746,10 @@ int MAIN( int argc, char *argv[]) {
               /* ############################################################### */
 
               if( uvar_semiCohToplist ) {
-                /* this is necessary here, because UpdateSemiCohToplist() might set
+                /* this is necessary here, because UpdateSemiCohToplists() might set
                    a checkpoint that needs some information from here */
                 LogPrintf(LOG_DETAIL, "Updating toplist with semicoherent candidates\n");
-                LAL_CALL( UpdateSemiCohToplist(&status, semiCohToplist, &finegrid, f1dot_fg, f2dot_fg, &usefulParams, NSegmentsInv, NSegmentsInvX ), &status);
+                LAL_CALL( UpdateSemiCohToplists (&status, semiCohToplist, semiCohToplist2, &finegrid, f1dot_fg, f2dot_fg, &usefulParams, NSegmentsInv, NSegmentsInvX ), &status);
               }
 
             } /* for( if1dot_fg = 0; if1dot_fg < nf1dots_fg; if1dot_fg++ ) */
@@ -1732,14 +1759,13 @@ int MAIN( int argc, char *argv[]) {
           if2dot++;  /* Increment if2dot counter */
 
         } /* ########## End of loop over coarse-grid f2dot values (if2dot) ########## */
-        ifdot++;  /* Increment ifdot counter BEFORE SET_CHECKPOINT */
+        ifdot++;  /* Increment ifdot counter BEFORE SET_GCT_CHECKPOINT */
 
         SHOW_PROGRESS(dopplerpos.Alpha, dopplerpos.Delta,
                       skyGridCounter * nf1dot + ifdot,
                       thisScan.numSkyGridPoints * nf1dot, uvar_Freq, uvar_FreqBand);
-#ifdef EAH_BOINC
-        SET_CHECKPOINT;
-#endif
+
+        SET_GCT_CHECKPOINT (uvar_fnameChkPoint, semiCohToplist, semiCohToplist2, skyGridCounter*nf1dot+ifdot, TRUE);
 
       } /* ########## End of loop over coarse-grid f1dot values (ifdot) ########## */
 
@@ -1768,6 +1794,8 @@ int MAIN( int argc, char *argv[]) {
   /* now that we have the final toplist, translate all pulsar parameters to correct reftime */
   xlalErrno = 0;
   XLALExtrapolateToplistPulsarSpins ( semiCohToplist, usefulParams.spinRange_refTime.refTime, finegrid.refTime );
+  if ( semiCohToplist2 )	// handle (optional) second toplist
+    XLALExtrapolateToplistPulsarSpins ( semiCohToplist2, usefulParams.spinRange_refTime.refTime, finegrid.refTime );
   if ( xlalErrno != 0 ) {
     XLALPrintError ("%s line %d : XLALExtrapolateToplistPulsarSpins() failed with xlalErrno = %d.\n\n", __func__, __LINE__, xlalErrno );
     return(HIERARCHICALSEARCH_EXLAL);
@@ -1792,14 +1820,20 @@ int MAIN( int argc, char *argv[]) {
 
     /* need pre-sorted toplist to have right segment-Fstat file numbers (do not rely on this feature, could be messed up by precision issues in sorting!) */
     if ( uvar_outputSingleSegStats )
-      sort_gctFStat_toplist(semiCohToplist);
+      {
+        sort_gctFStat_toplist(semiCohToplist);
+        if ( semiCohToplist2 )
+          sort_gctFStat_toplist(semiCohToplist2);
+      }
 
-    xlalErrno = 0;
-    XLALComputeExtraStatsForToplist ( semiCohToplist, "GCTtop", &stackMultiSFT, &stackMultiNoiseWeights, &stackMultiDetStates, &CFparams, refTimeGPS, uvar_SignalOnly, uvar_outputSingleSegStats );
-    if ( xlalErrno != 0 ) {
-      XLALPrintError ("%s line %d : XLALComputeExtraStatsForToplist() failed with xlalErrno = %d.\n\n", __func__, __LINE__, xlalErrno );
-      return(HIERARCHICALSEARCH_EXLAL);
-    }
+    XLAL_CHECK ( XLAL_SUCCESS == XLALComputeExtraStatsForToplist ( semiCohToplist, "GCTtop", &stackMultiSFT, &stackMultiNoiseWeights, &stackMultiDetStates, &CFparams, refTimeGPS, uvar_SignalOnly, uvar_outputSingleSegStats ),
+                 HIERARCHICALSEARCH_EXLAL, "XLALComputeExtraStatsForToplist() failed with xlalErrno = %d.\n\n", xlalErrno
+                 );
+    // also recalc optional 2nd toplist if present
+    if ( semiCohToplist2 )
+      XLAL_CHECK ( XLAL_SUCCESS == XLALComputeExtraStatsForToplist ( semiCohToplist2, "GCTtop", &stackMultiSFT, &stackMultiNoiseWeights, &stackMultiDetStates, &CFparams, refTimeGPS, uvar_SignalOnly, uvar_outputSingleSegStats ),
+                   HIERARCHICALSEARCH_EXLAL, "XLALComputeExtraStatsForToplist() failed for 2nd toplist with xlalErrno = %d.\n\n", xlalErrno
+                   );
 
     /* timing */
     if ( uvar_outputTiming ) {
@@ -1839,8 +1873,25 @@ int MAIN( int argc, char *argv[]) {
     }
 
   LogPrintf ( LOG_DEBUG, "Writing output ... ");
-  write_hfs_oputput(uvar_fnameout, semiCohToplist);
+  XLAL_CHECK ( write_hfs_oputput(uvar_fnameout, semiCohToplist) != -1, XLAL_EFAILED, "write_hfs_oputput('%s', toplist) failed.!\n", uvar_fnameout );
+  // output optional second toplist, if it exists, into "<uvar_fnameout>-LV"
+  if ( semiCohToplist2 )
+    {
+      LogPrintf ( LOG_DEBUG, "toplist2 ... ");
+      UINT4 newlen = strlen(uvar_fnameout) + 10;
+      CHAR *fname2;
+      XLAL_CHECK ( (fname2 = XLALCalloc ( 1, newlen )) != NULL, XLAL_ENOMEM, "Failed to XLALCalloc(1, %d)\n\n", newlen );
+      sprintf ( fname2, "%s-LV", uvar_fnameout );
+      XLAL_CHECK ( write_hfs_oputput ( fname2, semiCohToplist2) != -1, XLAL_EFAILED, "write_hfs_oputput('%s', toplist2) failed for 2nd toplist!\n", fname2 );
+      XLALFree ( fname2 );
+    }
+
   LogPrintfVerbatim ( LOG_DEBUG, "done.\n");
+
+  // in BOINC App the checkpoint is left behind to be cleaned up by the Core Client
+#ifndef EAH_BOINC
+  clear_gct_checkpoint (uvar_fnameChkPoint);
+#endif
 
   /*------------ free all remaining memory -----------*/
 
@@ -1927,7 +1978,8 @@ int MAIN( int argc, char *argv[]) {
     LALFree(coarsegrid.Uindex);
   }
 
-  free_gctFStat_toplist(&semiCohToplist);
+  free_gctFStat_toplist ( &semiCohToplist );
+  if ( semiCohToplist2 ) free_gctFStat_toplist ( &semiCohToplist2 );
 
   XLALDestroyREAL4Vector ( usefulParams.LVloglX );
 
@@ -1956,8 +2008,9 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
                 MultiNoiseWeightsSequence *stackMultiNoiseWeights, /**< output multi noise weights for each stack */
                 MultiDetectorStateSeriesSequence *stackMultiDetStates, /**< output multi detector states for each stack */
                 UsefulStageVariables *in, /**< input params */
-                BOOLEAN useWholeSFTs,
-                REAL8 mismatch1)
+                BOOLEAN useWholeSFTs,	/**< special switch: load all given frequency bins from SFTs */
+                REAL8 UNUSED mismatch1		/**< 'mismatch1' user-input needed here internally ... */
+                )
 {
   SFTCatalog *catalog = NULL;
   static SFTConstraints constraints;
@@ -2101,30 +2154,20 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
     refTimeGPS = tMidGPS;
   }
 
-  /* set Fstat calculation frequency resolution (coarse grid) */
-  if ( in->dFreqStack < 0 ) {
-    in->dFreqStack = COARSE_DF0DOT * sqrt(mismatch1) / in->tStack;
-  }
-
-  /* set Fstat spindown resolution (coarse grid) */
-  if ( in->df1dot < 0 ) {
-    in->df1dot = COARSE_DF1DOT * sqrt(mismatch1) / ( in->tStack * in->tStack );
-  }
-
-  /* set Fstat 2nd spindown resolution (coarse grid) */
-  if ( in->df2dot < 0 ) {
-    in->df2dot = COARSE_DF2DOT * sqrt(mismatch1) / ( in->tStack * in->tStack * in->tStack );
-  }
-
-  /* calculate number of bins for Fstat overhead due to residual spin-down */
-  in->extraBinsFstat = (UINT4)( 0.25*(in->tObs*in->df1dot + in->tObs*in->tObs*in->df2dot)/in->dFreqStack + 1e-6) + 1;
-
   /* get frequency and fdot bands at start time of sfts by extrapolating from reftime */
   in->spinRange_refTime.refTime = refTimeGPS;
   TRY( LALExtrapolatePulsarSpinRange( status->statusPtr, &in->spinRange_startTime, tStartGPS, &in->spinRange_refTime), status);
   TRY( LALExtrapolatePulsarSpinRange( status->statusPtr, &in->spinRange_endTime, tEndGPS, &in->spinRange_refTime), status);
   TRY( LALExtrapolatePulsarSpinRange( status->statusPtr, &in->spinRange_midTime, tMidGPS, &in->spinRange_refTime), status);
 
+  /* set Fstat spindown resolution (coarse grid) */
+  in->df1dot = HSMIN(in->df1dot, in->spinRange_midTime.fkdotBand[1]);
+
+  /* set Fstat 2nd spindown resolution (coarse grid) */
+  in->df2dot = HSMIN(in->df2dot, in->spinRange_midTime.fkdotBand[2]);
+
+  /* calculate number of bins for Fstat overhead due to residual spin-down */
+  in->extraBinsFstat = (UINT4)( 0.25*(in->tObs*in->df1dot + in->tObs*in->tObs*in->df2dot)/in->dFreqStack + 1e-6) + 1;
 
   /* set wings of sfts to be read */
   /* the wings must be enough for the Doppler shift and extra bins
@@ -2182,8 +2225,10 @@ void SetUpSFTs( LALStatus *status,			/**< pointer to LALStatus structure */
   for (k = 0; k < in->nStacks; k++) {
 
     /* ----- load the multi-IFO SFT-vectors ----- */
-    TRY( LALLoadMultiSFTs ( status->statusPtr, stackMultiSFT->data + k,  catalogSeq.data + k,
-                            freqmin, freqmax ), status);
+    stackMultiSFT->data[k] = XLALLoadMultiSFTs( catalogSeq.data + k, freqmin, freqmax );
+    if ( stackMultiSFT->data[k] == NULL ) {
+      ABORT ( status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
+    }
 
     /* ----- obtain the (multi-IFO) 'detector-state series' for all SFTs ----- */
     TRY ( LALGetMultiDetectorStates ( status->statusPtr, stackMultiDetStates->data + k,
@@ -2420,74 +2465,19 @@ void PrintStackInfo( LALStatus  *status,
 
 
 
-/** Read checkpointing file
-    This does not (yet) check any consistency of
-    the existing results file */
-void GetChkPointIndex( LALStatus *status,
-                       INT4 *loopindex,
-                       const CHAR *fnameChkPoint)
-{
-
-  FILE  *fp=NULL;
-  UINT4 tmpIndex;
-  CHAR lastnewline='\0';
-
-  INITSTATUS(status);
-  ATTATCHSTATUSPTR (status);
-
-  /* if something goes wrong later then lopindex will be 0 */
-  *loopindex = 0;
-
-  /* try to open checkpoint file */
-  if (!(fp = fopen(fnameChkPoint, "rb")))
-    {
-      if ( lalDebugLevel )
-        fprintf (stdout, "Checkpoint-file '%s' not found.\n", fnameChkPoint);
-
-      DETATCHSTATUSPTR (status);
-      RETURN(status);
-    }
-
-  /* if we are here then checkpoint file has been found */
-  if ( lalDebugLevel )
-    fprintf ( stdout, "Found checkpoint-file '%s' \n", fnameChkPoint);
-
-  /* check the checkpointfile -- it should just have one integer
-     and a DONE on the next line */
-  if ( ( 2 != fscanf (fp, "%" LAL_UINT4_FORMAT "\nDONE%c", &tmpIndex, &lastnewline) ) || ( lastnewline!='\n' ) )
-    {
-      fprintf ( stdout, "Failed to read checkpoint index from '%s'!\n", fnameChkPoint);
-      fclose(fp);
-
-      DETATCHSTATUSPTR (status);
-      RETURN(status);
-    }
-
-  /* everything seems ok -- set loop index */
-  *loopindex = tmpIndex;
-
-  fclose( fp );
-
-  DETATCHSTATUSPTR (status);
-  RETURN(status);
-
-}
-
-
-
-
-
-
-
-/** Get SemiCoh candidates toplist */
-void UpdateSemiCohToplist(LALStatus *status,
-                          toplist_t *list,
-                          FineGrid *in,
-                          REAL8 f1dot_fg,
-                          REAL8 f2dot_fg,
-                          UsefulStageVariables *usefulparams,
-                          REAL4 NSegmentsInv,
-                          REAL4 *NSegmentsInvX)
+/** Get SemiCoh candidates into toplist(s)
+ * This function allows for inserting candidates into up to 2 toplists at once, which might be sorted differently!
+ */
+void UpdateSemiCohToplists ( LALStatus *status,
+                             toplist_t *list1,
+                             toplist_t *list2,	//< optional (can be NULL): insert candidate into this 2nd toplist as well
+                             FineGrid *in,
+                             REAL8 f1dot_fg,
+                             REAL8 f2dot_fg,
+                             UsefulStageVariables *usefulparams,
+                             REAL4 NSegmentsInv,
+                             REAL4 *NSegmentsInvX
+                             )
 {
 
   REAL8 freq_fg;
@@ -2497,7 +2487,7 @@ void UpdateSemiCohToplist(LALStatus *status,
   INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
-  ASSERT ( list != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
+  ASSERT ( list1 != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
   ASSERT ( in != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
   ASSERT ( usefulparams != NULL, status, HIERARCHICALSEARCH_ENULL, HIERARCHICALSEARCH_MSGENULL );
 
@@ -2550,14 +2540,16 @@ void UpdateSemiCohToplist(LALStatus *status,
       }
     }
 
-    insert_into_gctFStat_toplist( list, line);
+    insert_into_gctFStat_toplist( list1, line);
+    if ( list2 )	// also insert candidate into (optional) second toplist
+      insert_into_gctFStat_toplist( list2, line);
 
   }
 
   DETATCHSTATUSPTR (status);
   RETURN(status);
 
-} /* UpdateSemiCohToplist() */
+} /* UpdateSemiCohToplists() */
 
 
 
@@ -2732,89 +2724,6 @@ void ComputeU2idx( REAL8 freq_event,
   return;
 
 } /* ComputeU2idx */
-
-/** Function to read a segment list from given filename, returns a *sorted* SegmentList
- *
- * The segment-list format parse here is consistent with Xavie's segment lists used previously
- * and follows the format <repeated lines of form "startGPS endGPS duration[h] NumSFTs">,
- * allowed comment-characters are '%' and '#'
- *
- * \note we (ab)use the integer 'id' field in LALSeg to carry the total number of SFTs
- * contained in that segment. This will be used as a consistency check in
- * XLALSetUpStacksFromSegmentList().
- *
- */
-LALSegList *
-XLALReadSegmentsFromFile ( const char *fname	/**< name of file containing segment list */
-                           )
-{
-  LALSegList *segList = NULL;
-
-  /** check input consistency */
-  if ( !fname ) {
-    XLALPrintError ( "%s: NULL input 'fname'", __func__ );
-    XLAL_ERROR_NULL ( XLAL_EINVAL );
-  }
-
-  /* read and parse segment-list file contents*/
-  LALParsedDataFile *flines = NULL;
-  if ( XLALParseDataFile ( &flines, fname ) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( XLAL_EFUNC );
-
-  UINT4 numSegments = flines->lines->nTokens;
-  /* allocate and initialized segment list */
-  if ( (segList = XLALCalloc ( 1, sizeof(*segList) )) == NULL )
-    XLAL_ERROR_NULL ( XLAL_ENOMEM );
-  if ( XLALSegListInit ( segList ) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( XLAL_EFUNC );
-
-
-  UINT4 iSeg;
-  for ( iSeg = 0; iSeg < numSegments; iSeg ++ )
-    {
-      REAL8 t0, t1, TspanHours;
-      INT4 NSFT;
-      LALSeg thisSeg;
-      int ret;
-      ret = sscanf ( flines->lines->tokens[iSeg], "%lf %lf %lf %d", &t0, &t1, &TspanHours, &NSFT );
-      if ( ret != 4 ) {
-        XLALPrintError ("%s: failed to parse data-line %d (%d) in segment-list %s: '%s'\n", __func__, iSeg, ret, fname, flines->lines->tokens[iSeg] );
-        XLALSegListClear ( segList );
-        XLALFree ( segList );
-        XLALDestroyParsedDataFile ( flines );
-        XLAL_ERROR_NULL ( XLAL_ESYS );
-      }
-      /* check internal consistency of these numbers */
-      REAL8 hours = 3600.0;
-      if ( fabs ( t1 - t0 - TspanHours * hours ) >= 1.0 ) {
-        XLALPrintError ("%s: Inconsistent segment list, in line %d: t0 = %f, t1 = %f, Tspan = %f != t1 - t0 (to within 1s)\n", __func__, iSeg, t0, t1, TspanHours );
-        XLAL_ERROR_NULL ( XLAL_EDOM );
-      }
-
-      LIGOTimeGPS start, end;
-      XLALGPSSetREAL8( &start, t0 );
-      XLALGPSSetREAL8( &end,   t1 );
-
-      /* we set number of SFTs as 'id' field, as we have no other use for it */
-      if ( XLALSegSet ( &thisSeg, &start, &end, NSFT ) != XLAL_SUCCESS )
-        XLAL_ERROR_NULL ( XLAL_EFUNC );
-
-      if ( XLALSegListAppend ( segList, &thisSeg ) != XLAL_SUCCESS )
-        XLAL_ERROR_NULL ( XLAL_EFUNC );
-
-    } /* for iSeg < numSegments */
-
-  /* sort final segment list in increasing GPS start-times */
-  if ( XLALSegListSort( segList ) != XLAL_SUCCESS )
-    XLAL_ERROR_NULL ( XLAL_EFUNC );
-
-  /* free parsed segment file contents */
-  XLALDestroyParsedDataFile ( flines );
-
-  return segList;
-
-} /* XLALReadSegmentsFromFile() */
-
 
 /** Set up 'segmented' SFT-catalogs for given list of segments and a total SFT-catalog.
  *

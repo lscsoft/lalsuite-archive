@@ -30,12 +30,14 @@ import random
 import numpy as np
 from numpy import floor
 
+import scipy.stats as ss
+
 import matplotlib as mpl
 mpl.use("AGG")
 from matplotlib import pyplot as plt
 from matplotlib import colors as mpl_colors
 from matplotlib import cm as mpl_cm
-
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 from scipy import stats
 
@@ -44,12 +46,12 @@ import pylal.bayespputils as bppu
 from pylal import SimInspiralUtils
 from pylal import git_version
 
-__author__="Ben Aylott <benjamin.aylott@ligo.org>"
+__author__="Ben Aylott <benjamin.aylott@ligo.org>, Will M. Farr <will.farr@ligo.org>"
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
 #List of parameters to plot/bin . Need to match (converted) column names.
-oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb']
+oneDMenu=['mtotal','m1','m2','mchirp','mc','chirpmass','distance','distMPC','dist','iota','psi','eta','q','asym_massratio','spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','costhetas','cosbeta','phi_orb']
 #List of parameter pairs to bin . Need to match (converted) column names.
 twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['chirpmass','eta'],['mc','q'],['mchirp','q'],['chirpmass','q'],['mc','asym_massratio'],['mchirp','asym_massratio'],['chirpmass','asym_massratio'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec'],['dist','cos(iota)'],['phi_orb','iota']]
 #Bin size/resolution for binning. Need to match (converted) column names.
@@ -66,7 +68,7 @@ paramNameLatexMap = {'m1': 'm_1', 'm2' : 'm_2', 'mtotal' : r'M_{\rm tot}', 'mchi
 # Only these parameters, in this order appear in confidence level table.
 clTableParams = ['mchirp', 'mc', 'chirpmass', 'eta', 'm1', 'm2', 'distance', 'distMPC', 'dist', 'cos(iota)', 'a1', 'a2', 'costilt1', 'costilt2']
 
-greedyBinSizes={'mc':0.0001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.001,'chirpmass':0.001,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2}
+greedyBinSizes={'mc':0.001,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.001,'asym_massratio':0.001,'iota':0.05,'time':1e-4,'distance':5.0,'dist':1.0,'mchirp':0.01,'chirpmass':0.01,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.005,'psi':0.1,'cos(iota)':0.01, 'cos(tilt1)':0.01, 'cos(tilt2)':0.01, 'tilt1':0.05, 'tilt2':0.05, 'cos(thetas)':0.01, 'cos(beta)':0.01,'phi_orb':0.2,'inclination':0.05}
 
 #Confidence levels
 OneDconfidenceLevels=[0.9]
@@ -74,8 +76,8 @@ TwoDconfidenceLevels=OneDconfidenceLevels
 
 #2D plots list
 #twoDplots=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['RA','dec'],['ra','dec'],['m1','dist'],['m2','dist'],['psi','iota'],['psi','distance'],['psi','dist'],['psi','phi0'],['dist','cos(iota)']]
-twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota']]
-allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb']
+twoDplots=[['m1','m2'],['mass1','mass2'],['RA','dec'],['ra','dec'],['cos(thetas)','cos(beta)'],['distance','iota'],['dist','iota'],['dist','cosiota'],['distance','cosiota'],['psi','iota'],['psi','distance'],['psi','phi0'],['dist','cos(iota)'],['phi_orb','iota'],['distance','inclination'],['dist','inclination']]
+allowed_params=['mtotal','m1','m2','mchirp','mc','chirpmass','q','asym_massratio','distance','distMPC','dist','iota','psi','eta','ra','dec','a1','a2','spin1','spin2','phi1','theta1','phi2','theta2','cos(iota)','cos(tilt1)','cos(tilt2)','tilt1','tilt2','cos(thetas)','cos(beta)','phi_orb','inclination', 'logl']
 
 def open_url(url,username,password):
 
@@ -160,7 +162,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
 
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -201,7 +203,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
             plt.plot(ind,np.transpose(kdepdf),label=name)
         plt.grid()
         plt.legend()
-        plt.xlabel(param)
+        plt.xlabel(bppu.plot_label(param))
         plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
         #plt.tight_layout()
@@ -214,7 +216,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     #
     return myfig#,rkde
 #
-def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,legend='right'):
 
 
     """
@@ -230,8 +232,18 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
-    myfig.add_axes([0.1,0.1,0.65,0.85])
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
+  #myfig.add_axes([0.1,0.1,0.65,0.85])
+  #myfig.add_axes([0.15,0.15,0.6,0.76])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
+    myfig.add_axes(axes)
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.6g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.6g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
@@ -245,6 +257,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     patch_list=[]
     max_y=0
 
+    posbins=np.linspace(min_pos,max_pos,50)
+
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
@@ -252,15 +266,28 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
             injvals.append(posterior[param].injval)
 
         try:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True,new=True)
         except:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True)
 
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
-        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
-
+#(n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,facecolor='white',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
+        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])
         patch_list.append(patches[0])
+
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+      Nticks=3
+    elif Nchars>5:
+      Nticks=4
+    elif Nchars>4:
+      Nticks=6
+    else:
+      Nticks=6
+    locatorX=mpl.ticker.MaxNLocator(nbins=Nticks)
+    locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
 
     plt.xlim(min_pos,max_pos)
     top_cl_intervals_list={}
@@ -285,10 +312,11 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     plt.grid()
     plt.xlim(min_pos,max_pos)
-    oned_legend=plt.figlegend(patch_list,pos_names,'right')
-    for text in oned_legend.get_texts():
+    if legend is not None:
+      oned_legend=plt.figlegend(patch_list,pos_names,'right')
+      for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -303,6 +331,29 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     return myfig,top_cl_intervals_list#,rkde
 
 #
+def compute_ks_pvalue_matrix(list_of_pos_by_name, param):
+    """Returns a matrix of ks p-value tests between pairs of
+    posteriors on the 1D marginalized distributions for param."""
+
+    poss=list_of_pos_by_name.values()
+
+    N=len(poss)
+
+    matrix=np.zeros((N,N))
+    matrix[:,:]=float('nan')
+
+    for i in range(N):
+        pi=poss[i]
+        for j in range(i+1, N):
+            pj=poss[j]
+
+            d,pvalue=ss.ks_2samp(pi[param].samples.flatten(), pj[param].samples.flatten())
+
+            matrix[i,j]=pvalue
+            matrix[j,i]=pvalue
+
+    return matrix
+        
 def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
 
     """
@@ -318,7 +369,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -332,6 +383,8 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     patch_list=[]
     max_y=1.
 
+    posbins=np.linspace(min_pos,max_pos,50)
+
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
         myfig.gca(autoscale_on=True)
@@ -339,9 +392,9 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
             injvals.append(posterior[param].injval)
 
         try:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True,new=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True,new=True)
         except:
-            n,bins=np.histogram(posterior[param].samples,bins=100,normed=True)
+            n,bins=np.histogram(posterior[param].samples,bins=posbins,normed=True)
 
         (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name],cumulative='True')#range=(min_pos,max_pos)
 
@@ -373,7 +426,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -386,7 +439,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(6,4),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
     injection=None
 
@@ -454,7 +507,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
         try:
             common_output_table_header,common_output_table_raw=peparser.parse(open(pos_file,'r'))
-        except IOError:
+        except:
             print 'Unable to read file '+pos_file
             continue
 
@@ -462,6 +515,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         test_and_switch_param(common_output_table_header,'chirpmass','mchirp')
         test_and_switch_param(common_output_table_header,'mc','mchirp')
         test_and_switch_param(common_output_table_header,'asym_massratio','q')
+        test_and_switch_param(common_output_table_header,'massratio', 'eta')
         test_and_switch_param(common_output_table_header,'RA','ra')
         test_and_switch_param(common_output_table_header,'rightascension','ra')
         test_and_switch_param(common_output_table_header,'declination','dec')
@@ -530,6 +584,23 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
         pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
 
+        if 'a1' in pos_temp.names and min(pos_temp['a1'].samples)[0] < 0:
+          pos_temp.append_mapping('spin1', lambda a:a, 'a1')
+          pos_temp.pop('a1')
+          pos_temp.append_mapping('a1', lambda a:np.abs(a), 'spin1')
+        if 'a2' in pos_temp.names and min(pos_temp['a2'].samples)[0] < 0:
+          pos_temp.append_mapping('spin2', lambda a:a, 'a2')
+          pos_temp.pop('a2')
+          pos_temp.append_mapping('a2', lambda a:np.abs(a), 'spin2')
+
+
+        if 'm1' in pos_temp.names and 'm2' in pos_temp.names:
+          print "Calculating total mass"
+          pos_temp.append_mapping('mtotal', lambda m1,m2: m1+m2, ['m1','m2'])
+        if 'mass1' in pos_temp.names and 'mass2' in pos_temp.names:
+          print "Calculating total mass"
+          pos_temp.append_mapping('mtotal', lambda m1,m2: m1+m2, ['mass1','mass2'])
+
         try:
             idx=common_output_table_header.index('m1')
 
@@ -588,13 +659,14 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
 
             #Assign some colours to each different analysis result
             color_by_name={}
-            my_cm=mpl_cm.spectral
+            my_cm=mpl_cm.Dark2
             cmap_size=my_cm.N
             color_idx=0
             color_idx_max=len(names_and_pos_folders)
             cmap_array=my_cm(np.array(range(cmap_size)))
+            #cmap_array=['r','g','b','c','m','k','0.5','#ffff00']
             for name,infolder in names_and_pos_folders:
-
+                #color_by_name=cmap_array[color_idx]
                 color_by_name[name]=cmap_array[int(floor(color_idx*cmap_size/color_idx_max)),:]
                 color_idx+=1
 
@@ -617,9 +689,12 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cs_list=[]
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
+                    ldg='right'
+                    if not ldg_flag:
+                      ldg=None
 
-                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
-
+                    fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
+                    #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
                     fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
                     fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])))
@@ -628,9 +703,9 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             plt.clf()
         oned_data={}
         confidence_levels={}
+        confidence_uncertainty={}
         for param in common_params:
             print "Plotting comparison for '%s'"%param
-
 
             cl_table_header='<table><th>Run</th>'
             cl_table={}
@@ -639,15 +714,22 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             for confidence_level in OneDconfidenceLevels:
 
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
-                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg)
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
 
-                # Save confidence levels
+                # Save confidence levels and uncertainty
                 confidence_levels[param]=[]
                 for name,pos in pos_list.items():
                     median=pos[param].median
                     low,high=cl_intervals[name]
                     confidence_levels[param].append((name,low,median,high))
+                    
+                cl_bounds=[]
+                poses=[]
+                for name,pos in pos_list.items():
+                    cl_bounds.append(cl_intervals[name])
+                    poses.append(pos[param])
+                confidence_uncertainty[param]=bppu.confidence_interval_uncertainty(confidence_level, cl_bounds, poses)
 
                 save_path=''
                 if hist_fig is not None:
@@ -680,11 +762,45 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 cl_table_str+=row_contents+'</tr>'
             cl_table_str+=cl_table_min_max_str+'</tr>'
             cl_table_str+='</table>'
-            oned_data[param]=(save_paths,cl_table_str)
 
+            cl_uncer_str='<table> <th>Confidence Relative Uncertainty</th> <th>Confidence Fractional Uncertainty</th> <th>Confidence Percentile Uncertainty</th>\n'
+            cl_uncer_str+='<tr> <td> %g </td> <td> %g </td> <td> %g </td> </tr> </table>'%(confidence_uncertainty[param][0], confidence_uncertainty[param][1], confidence_uncertainty[param][2])
 
+            ks_matrix=compute_ks_pvalue_matrix(pos_list, param)
 
-    return greedy2savepaths,oned_data,confidence_levels
+            N=ks_matrix.shape[0]+1
+
+            # Make up KS-test table
+            ks_table_str='<table><th colspan="%d"> K-S test p-value matrix </th>'%N
+
+            # Column headers
+            ks_table_str+='<tr> <td> -- </td> '
+            for name,pos in pos_list.items():
+                ks_table_str+='<td> %s </td>'%name
+            ks_table_str+='</tr>'
+
+            # Now plot rows of matrix
+            for i in range(len(pos_list)):
+                ks_table_str+='<tr> <td> %s </td>'%(pos_list.keys()[i])
+                for j in range(len(pos_list)):
+                    if i == j:
+                        ks_table_str+='<td> -- </td>'
+                    elif ks_matrix[i,j] < 0.05:
+                        # Failing at suspiciously low p-value
+                        ks_table_str+='<td> <b> %g </b> </td>'%ks_matrix[i,j]
+                    else:
+                        ks_table_str+='<td> %g </td>'%ks_matrix[i,j]
+
+                ks_table_str+='</tr>'
+
+            ks_table_str+='</table>'
+
+            oned_data[param]=(save_paths,cl_table_str,ks_table_str,cl_uncer_str)
+            
+    # Watch out---using private variable _logL
+    max_logls = [[name,max(pos._logL)] for name,pos in pos_list.items()]
+
+    return greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls
 
 def output_confidence_levels_tex(clevels,outpath):
     """Outputs a LaTeX table of parameter and run medians and confidence levels."""
@@ -717,10 +833,35 @@ def output_confidence_levels_tex(clevels,outpath):
         for name,levels in clevels_by_name.items():
             outfile.write(name)
             for param,low,med,high in levels:
-                outfile.write(r' & $%.3g^{%.3g}_{%.3g}$ '%(med,high,low))
+                outfile.write(r' & $%0.3g^{%0.3g}_{%0.3g}$ '%(med,high,low))
             outfile.write('\\\\ \n')
 
         outfile.write('\\hline \n \\end{tabular}')
+    finally:
+        outfile.close()
+
+def output_confidence_uncertainty(cluncertainty, outpath):
+    outfile=open(os.path.join(outpath, 'confidence_uncertainty.dat'), 'w')
+    try:
+        params=cluncertainty.keys()
+        uncer=cluncertainty.values()
+
+        outfile.write('# Uncertainty in confidence levels.\n')
+        outfile.write('# First row is relative uncertainty (wrt to parameter mean).\n')
+        outfile.write('# Second row is fractional uncertainty (wrt to combined conf interval).\n')
+        outfile.write('# Third row is percentile uncertainty (wrt combined samples).\n')
+        outfile.write('# ')
+        for param in params:
+            outfile.write(str(param) + ' ')
+        outfile.write('\n')
+
+        rel = np.array([d[0] for d in uncer])
+        fracs = np.array([d[1] for d in uncer])
+        quants = np.array([d[2] for d in uncer])
+
+        np.savetxt(outfile, np.reshape(rel, (1, -1)))
+        np.savetxt(outfile, np.reshape(fracs, (1, -1)))
+        np.savetxt(outfile, np.reshape(quants, (1,-1)))
     finally:
         outfile.close()
             
@@ -741,6 +882,7 @@ if __name__ == '__main__':
     parser.add_option("--contour-height",dest="ch",default=6,help="Height (in inches) of contour plots (optional).")
     parser.add_option("--contour-plot-width",dest="cpw",default=0.5,help="Relative width of plot element 0.15<width<1 (optional).")
     parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
+    parser.add_option("--no-legend",dest="ldg_flag",action="store_false",default=True,help="Hide legend (optional).")
     parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
     (opts,args)=parser.parse_args()
 
@@ -765,21 +907,26 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_levels=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    
     
+    ####Save confidence uncertainty#####
+    output_confidence_uncertainty(confidence_uncertainty,outpath)
+
     ####Print HTML!#######
 
     compare_page=bppu.htmlPage('Compare PDFs (single event)',css=bppu.__default_css_string)
 
     param_section=compare_page.add_section('Meta')
 
-    param_section_write='<div><p>This comparison was created from the following analyses</p><ul>'
-    for name,input_file in zip(names,opts.pos_list):
-        param_section_write+='<li><a href="%s">%s</a></li>'%(input_file,name)
-    param_section_write+='</ul></div>'
+    param_section_write='<div><p>This comparison was created from the following analyses</p>'
+    param_section_write+='<table border="1">'
+    param_section_write+='<th>Analysis</th> <th> max(log(L)) </th>'
+    for name,logl_max in max_logls:
+        param_section_write+='<tr><td><a href="%s">%s</a></td> <td>%g</td></tr>'%(dict(zip(names,opts.pos_list))[name],name,logl_max)
+    param_section_write+='</table></div>'
 
     param_section.write(param_section_write)
     param_section.write('<div><p><a href="confidence_table.tex">LaTeX table</a> of medians and confidence levels.</p></div>')
@@ -789,15 +936,15 @@ if __name__ == '__main__':
 
         for param_name,data in oned_data.items():
             param_section.h3(param_name)
-            save_paths,cl_table_str=data
+            save_paths,cl_table_str,ks_table_str,cl_uncer_str=data
             clf_toggle=False
             for save_path in save_paths:
                 head,plotfile=os.path.split(save_path)
-#                if not clf_toggle:
- #                   clf_toggle=(not opts.clf)
                 param_section.write('<img src="%s"/>'%str(plotfile))
 
             param_section.write(cl_table_str)
+            param_section.write(cl_uncer_str)
+            param_section.write(ks_table_str)
 
     if greedy2savepaths:
 

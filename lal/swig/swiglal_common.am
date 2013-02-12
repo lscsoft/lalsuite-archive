@@ -1,6 +1,9 @@
 # Common SWIG build makefile.
 # Author: Karl Wette, 2011, 2012
 
+# regenerate dependency files when Makefile is regenerated
+am__depfiles_maybe = depfiles
+
 # SWIG interface file
 swig_iface = @PACKAGE_NAME@swig.i
 
@@ -16,8 +19,8 @@ swig_lt_sources =
 swig_lt_cppflags = $(AM_CPPFLAGS) -shared
 swig_lt_cflags = $(AM_CFLAGS)
 swig_lt_cxxflags = $(AM_CXXFLAGS)
-swig_lt_ldflags = $(AM_LDFLAGS) -module -version-info $(LIBVERSION)
 swig_lt_libadd =
+swig_lt_ldflags = $(AM_LDFLAGS) -module -avoid-version -version-info 0:0:0
 swig_lt_libtoolflags = --tag=disable-static
 
 # installation location for SWIG interfaces
@@ -58,11 +61,6 @@ swig-iface-links :
 			fi; \
 		fi; \
 	done
-
-# rebuild SWIG interface dependencies file
-$(swig_iface_deps) :
-	@echo '#dummy' > $@
-	@touch $(srcdir)/Makefile.in
 
 # generate SWIG interface file
 ../$(swig_iface) : Makefile

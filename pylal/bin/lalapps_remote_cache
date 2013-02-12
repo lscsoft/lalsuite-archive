@@ -108,8 +108,8 @@ class RemoteCache(object):
 			if self.verbose: print >>sys.stderr, "\tparsing cache for directory set %d\r" % (i,),
 			c = lal.CacheEntry(l)
 			self.remote_cache_parsed.append(c)
-			self.remote_dir_set.add(os.path.split(c.path())[0])
-			self.remote_cache_parsed_dict.setdefault(os.path.split(c.path())[0], []).append(c)
+			self.remote_dir_set.add(os.path.split(c.path)[0])
+			self.remote_cache_parsed_dict.setdefault(os.path.split(c.path)[0], []).append(c)
 		if self.verbose: print >>sys.stderr,"\n"
 		self.remote_cache_file_parsed = "%s/parsed-%s" % os.path.split(self.remote_cache_file_copy)
 		f = open(self.remote_cache_file_parsed,"w")
@@ -126,7 +126,7 @@ class RemoteCache(object):
 		for key, val in self.remote_cache_parsed_dict.items():
 			for i,c in enumerate(val):
 				if self.verbose: print >>sys.stderr, "\tgenerating local cache %d\r" % (i,),
-				newpath = os.path.join(self.dir_dict[os.path.split(c.path())[0]], os.path.split(c.path())[1])
+				newpath = os.path.join(self.dir_dict[os.path.split(c.path)[0]], os.path.split(c.path)[1])
 				cr = lal.CacheEntry(str(c))
 				cr.url = "file://localhost" + newpath
 				self.local_cache.append(cr)
@@ -139,10 +139,10 @@ class RemoteCache(object):
 			for key, rcp in self.remote_cache_parsed_dict.items():
 				if self.verbose: print >>sys.stderr, "\tcopying files for %s\n" % (key,)
 				for i,c in enumerate(chunk(rcp,n)):
-					filelist = [cf.path() for cf in c]
+					filelist = [cf.path for cf in c]
 					remotepath = os.path.split(filelist[0])[0]
 					# just the leading directory
-					localpath = os.path.split(self.local_cache_dict[key][i].path())[0]
+					localpath = os.path.split(self.local_cache_dict[key][i].path)[0]
 					self.retrieve_file(remotepath, localpath, filelist)
 		else: # try sshfs
 			for remote, local in self.dir_dict.items():

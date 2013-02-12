@@ -16,9 +16,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""
-This module defines the classes used to generate interferometer summary screens
-from data.
+"""This module defines the classes used to generate interferometer
+summary screens from data.
+
 """
 
 # =============================================================================
@@ -38,9 +38,9 @@ import StringIO
 import lal
 
 from dateutil.relativedelta import relativedelta
+from matplotlib import use
 
 # set display
-from matplotlib import use
 use("Agg")
 
 from pylal import git_version
@@ -56,6 +56,8 @@ from glue import markup
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import table
+
+LIGOTimeGPS = float
 
 # set metadata
 __author__  = "Duncan M. Macleod <duncan.macleod@ligo.org>"
@@ -77,6 +79,9 @@ MODE_NAME = {SUMMARY_MODE_GPS: "GPS",\
              SUMMARY_MODE_WEEK: "WEEK",\
              SUMMARY_MODE_MONTH: "MONTH",\
              SUMMARY_MODE_YEAR: "YEAR"}
+
+# set HTML globals
+TOGGLE = "toggleVisible();"
 
 # =============================================================================
 # Classes for tabs
@@ -150,7 +155,7 @@ class SummaryTab(object):
         return self._start_time
     @start_time.setter
     def start_time(self, gps):
-        self._start_time = lal.LIGOTimeGPS(gps)
+        self._start_time = LIGOTimeGPS(gps)
     @start_time.deleter
     def start_time(self):
         del self._start_time
@@ -161,7 +166,7 @@ class SummaryTab(object):
         return self._end_time
     @end_time.setter
     def end_time(self, gps):
-        self._end_time = lal.LIGOTimeGPS(gps)
+        self._end_time = LIGOTimeGPS(gps)
     @end_time.deleter
     def end_time(self):
         del self._end_time
@@ -172,8 +177,8 @@ class SummaryTab(object):
         return segments.segment(self.start_time, self.end_time)
     @span.setter
     def span(self, seg):
-        self.start_time = lal.LIGOTimeGPS(seg[0])
-        self.end_time = lal.LIGOTimeGPS(seg[1])
+        self.start_time = LIGOTimeGPS(seg[0])
+        self.end_time = LIGOTimeGPS(seg[1])
     @span.deleter
     def span(self):
         del self._span
@@ -239,7 +244,7 @@ class SummaryTab(object):
     @property
     def index(self):
         """URL to the index for this Tab."""
-        return os.path.normpath("%s%s" % (self.directory, os.path.sep))
+        return os.path.join(os.path.normpath(self.directory), "")
 
     #
     # class methods
@@ -349,7 +354,9 @@ class SummaryTab(object):
                                "%s%s%s" % (os.path.sep, marker, os.path.sep),\
                                self.index)
                 else:
-                    link = os.path.join(jobdir, os.pardir, marker)
+                    link = os.path.join(jobdir, os.pardir, marker, "")
+                if link.endswith("about%s" % os.path.sep):
+                    link = link[:-6]
             elif sec.startswith("Previous "):
                 previous = (cday-delta).strftime(strf)
                 if re.search(cstrf, self.index):
@@ -416,7 +423,6 @@ class SummaryTab(object):
             tablink = rindex.sub("", tablink)
         self.ifobar = markup.page()
         for ifo,base in baselist:
-            base = os.path.normpath(base)
             if ifo.upper() == thisifo.upper():
                 self.ifobar.h1(markup.oneliner.a(ifo, href=tablink))
             else:
@@ -479,7 +485,7 @@ class SummaryTab(object):
         with open(os.path.join(self.index, "index.html"), "w") as indexf:
             indexf.write(re.sub(" class=\"\"", "", str(page)))
 
-    def add_information(cp, cpsec):
+    def add_information(self, cp, cpsec):
         """
         Add an "Information" section to this SummaryTab.
 
@@ -597,10 +603,7 @@ class SectionSummaryTab(SummaryTab):
         Write the HTML frame for this SectionSummary.
         """
         self.frame = markup.page()
-
-        self.frame.h1(self.name, id_="h1_0")
-        self.frame.div(id_="div_0")
- 
+        div(self.frame, 0, self.name)
         if self.name == "Summary":
             order = ["Sensitivity", "Triggers", "Segments"]
             self.children.sort(key=lambda x: x.name in order\
@@ -617,7 +620,13 @@ class SectionSummaryTab(SummaryTab):
             if i % n == 0:
                 self.frame.tr()
             self.frame.td()
-            self.frame.h3(tab.name, class_="summary")
+            if (self.name == "Summary" and 
+                    re.match("[A-Z]{3}\Z", tab.parent.name) and
+                    not tab.name.startswith(tab.parent.name)):
+                self.frame.h3("%s: %s" % (tab.parent.name, tab.name),
+                              class_="summary")
+            else:
+                self.frame.h3(tab.name, class_="summary")
             self.frame.a(href=tab.index, title=tab.name)
             self.frame.img(src=tab.plots[0][0], alt=tab.name, class_="full")
             self.frame.a.close()
@@ -625,7 +634,6 @@ class SectionSummaryTab(SummaryTab):
             if i % n == (n-1):
                 self.frame.tr.close()
         self.frame.table.close()
-
         self.frame.div.close()
 
     def frametohtml(self):
@@ -834,16 +842,12 @@ class SegmentSummaryTab(SummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s segments." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                      rel="full", class_="fancybox-button")
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
@@ -859,9 +863,7 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -871,13 +873,9 @@ class SegmentSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # segment lists
-        self.frame.h2("Segment lists", id_="h2_0-3", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-3")
+        div(self.frame, (0, 3), "Segment lists")
         for i,flag in enumerate(self.flags):
-            self.frame.h3(flag, id_="h3_0-3-%d" % i, class_="closed",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3-%d" % i, style="display: none;")
+            div(self.frame, (0, 3, i), flag, display=False)
             segfile = self.segment_files.get(flag, None)
             if segfile is not None:
                 self.frame.p("The full segment list can be downloaded from %s."\
@@ -892,20 +890,17 @@ class SegmentSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1130,7 +1125,7 @@ class DataSummaryTab(SummaryTab):
                                               zip(*self.spectrogram[channel]))
         else:
             data = []
-            epoch = lal.LIGOTimeGPS(self.start_time)
+            epoch = LIGOTimeGPS(self.start_time)
             deltaT = 1
             f0 = 0
             deltaF = 1
@@ -1209,16 +1204,12 @@ class DataSummaryTab(SummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s data." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         if len(self.plots):
             self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                          rel="full", class_="fancybox-button")
@@ -1235,9 +1226,7 @@ class DataSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -1248,20 +1237,17 @@ class DataSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1294,16 +1280,12 @@ class RangeSummaryTab(DataSummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s range data." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         if len(self.plots):
             self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                          rel="full", class_="fancybox-button")
@@ -1327,9 +1309,7 @@ class RangeSummaryTab(DataSummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -1340,20 +1320,17 @@ class RangeSummaryTab(DataSummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1460,6 +1437,15 @@ class TriggerSummaryTab(SummaryTab):
         desc = kwargs.pop("description", None)
         if kwargs.get("cumulative", True) and not kwargs.has_key("normalize"):
             kwargs["normalize"] = float(abs(self.span))
+        if channels and len(channels) == 1:
+            kwargs.setdefault("title", "%s (%s)" % (latex(channels[0]),\
+                                                    latex(self.etg)))
+        elif not channels:
+            kwargs.setdefault("title", "%s (%s)"
+                                       % (latex(self.triggers.keys()[0]),\
+                                          latex(self.etg)))
+        kwargs.setdefault("subtitle",
+                          "%d-%d" % (int(self.start_time), int(self.end_time)))
         if channels is not None:
             trigs = dict((key,val) for key in self.triggers.keys() if key\
                          in channels)
@@ -1489,15 +1475,10 @@ class TriggerSummaryTab(SummaryTab):
         """
         desc = kwargs.pop("description", None)
         kwargs.setdefault("xlim", [self.start_time, self.end_time])
-        if channels:
-            trigs = dict((key,val) for key in self.triggers.keys() if key\
-                         in channels)
-            plottriggers.plotrate(trigs, outfile, **kwargs)
-        elif len(self.triggers.keys()) == 1:
-            plottriggers.plotrate({"_":self.triggers.values()[0]}, outfile,\
-                                   **kwargs)
-        else:
-            plottriggers.plotrate(self.triggers, outfile, **kwargs)
+        kwargs.setdefault("title", "%s (%s) binned by %s"
+                                   % (latex(self.triggers.keys()[0]),
+                                      latex(self.etg), latex(kwargs["column"])))
+        plottriggers.plotrate(self.triggers.values()[0], outfile, **kwargs)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1542,16 +1523,12 @@ class TriggerSummaryTab(SummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s triggers." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                      rel="full", class_="fancybox-button")
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],class_="full")
@@ -1567,9 +1544,7 @@ class TriggerSummaryTab(SummaryTab):
         self.frame.div.close()
 
         # other plots
-        self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2")
+        div(self.frame, (0, 2), "Plots")
         pclass = len(self.plots[1:]) == 1 and "full" or "half"
         for plot,desc in self.plots[1:]:
             self.frame.a(href=plot, title=desc, class_="fancybox-button",\
@@ -1579,21 +1554,21 @@ class TriggerSummaryTab(SummaryTab):
         self.frame.div.close()
  
         # loudest triggers
-        self.frame.h2("Loudest triggers", id_="h2_0-3", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-3")
+        div(self.frame, (0, 3), "Loudest events")
         for i,chan in enumerate(self.channels):
-            self.frame.h3(chan, id_="h3_0-3-%d" % i, class_="closed",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3-%d" % i, style="display: none;")
+            div(self.frame, (0, 3, i), chan, display=False)
             trigfile = self.trigger_files.get(chan, None)
             if trigfile is not None:
                 self.frame.p("The full segment list can be downloaded from %s."\
                              % markup.oneliner.a("this file", href=trigfile),\
                              class_="line")
-            # FIXME write list of loudest triggers
-            self.triggers[chan].sort(key=lambda t: t.snr, reverse=True)
             trigs = table.new_from_template(self.triggers[chan])
+            # FIXME write list of loudest triggers
+            if re.search("sngl_inspiral", trigs.tableName, re.I):
+                self.triggers[chan].sort(key=lambda t: t.get_new_snr(),
+                                         reverse=True)
+            else:
+                self.triggers[chan].sort(key=lambda t: t.snr, reverse=True)
             trigs.extend(self.triggers[chan][:20])
             data = []
             data.append(plottriggers.get_column(trigs, "time"))
@@ -1609,6 +1584,9 @@ class TriggerSummaryTab(SummaryTab):
                 head.extend(["Template duration", "Chirp mass"])
             data.append(plottriggers.get_column(trigs, "snr"))
             head.append("SNR")
+            if re.search("sngl_inspiral", trigs.tableName, re.I):
+                data.append(trigs.get_column("new_snr"))
+                head.append("newSNR")
             data = map(list, zip(*data))
             self.frame.add(htmlutils.write_table(head,data,{"table":"full"})())
             self.frame.div.close()
@@ -1616,20 +1594,17 @@ class TriggerSummaryTab(SummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1881,57 +1856,52 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises auxiliary channel %s triggers."\
                      % self.name, class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
-        if len(self.plots):
-            self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
-                         class_="fancybox-button", rel="full")
-            self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
-                           class_="full")
-            self.frame.a.close()
+        if self.mainchannel:
+            div(self.frame, (0, 1), "Summary")
+            if len(self.plots):
+                self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
+                             class_="fancybox-button", rel="full")
+                self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
+                               class_="full")
+                self.frame.a.close()
   
-        # trig stats
-        if len(self.numcoincs.keys()) != 0:
-            th = ["Channel", "Num. coinc. with<br>%s" % self.mainchannel,\
-                  "Num. %s<br>coinc. with aux." % self.mainchannel,\
-                  "Zero shift coinc. &sigma;"]
-            td = []
-            for chan in self.channels:
-                if chan == self.mainchannel:
-                    continue
-                td.append([chan])
-                if (chan, self.mainchannel) in self.numcoincs.keys():
-                    td[-1].extend([self.numcoincs[(chan, self.mainchannel)],\
-                                   self.numcoincs[(self.mainchannel, chan)]])
-                else:
-                    td[-1].extend(["-", "-"])
-                if self.sigma.has_key(chan) and self.sigma[chan].has_key(0.0):
-                    td[-1].append("%.2f" % self.sigma[chan][0.0])
-                else:
-                    td[-1].append("-")
-            self.frame.add(htmlutils.write_table(th, td, {"table":"full"})())
-         
-        self.frame.div.close()
+            # trig stats
+            if len(self.numcoincs.keys()) != 0:
+                th = ["Channel", "Num. coinc. with<br>%s" % self.mainchannel,\
+                      "Num. %s<br>coinc. with aux." % self.mainchannel,\
+                      "Zero shift coinc. &sigma;"]
+                td = []
+                for chan in self.channels:
+                    if chan == self.mainchannel:
+                        continue
+                    td.append([chan])
+                    if (chan, self.mainchannel) in self.numcoincs.keys():
+                        td[-1].extend([self.numcoincs[(chan, self.mainchannel)],
+                                       self.numcoincs[(self.mainchannel,chan)]])
+                    else:
+                        td[-1].extend(["-", "-"])
+                    if (self.sigma.has_key(chan) and
+                            self.sigma[chan].has_key(0.0)):
+                        td[-1].append("%.2f" % self.sigma[chan][0.0])
+                    else:
+                        td[-1].append("-")
+                self.frame.add(htmlutils.write_table(th, td,
+                                                     {"table":"full"})())
+
+            self.frame.div.close()
 
         # channel information
-        self.frame.h2("Auxiliary channels", id_="h2_0-2", class_="closed",\
-                      onclick="toggleVisible();")
-        self.frame.div(id_="div_0-2", style="display: none;")
+        div(self.frame, (0, 2), "Auxiliary channels", display=True)
 
         for i,chan in enumerate(self.channels):
             if chan == self.mainchannel:
                 continue
-            self.frame.h3(chan, id_="h3_0-2-%d" % i, class_="closed",\
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-2-%d" % i, style="display: none;")
+            div(self.frame, (0, 2, i), chan, display=True)
             if (chan, self.mainchannel) in self.numcoincs:
                 th = ["Num. coinc with<br>%s" % (self.mainchannel),\
                       "Num %s<br>coinc with aux." % (self.mainchannel),\
@@ -1957,9 +1927,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-3", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3")
+            div(self.frame, (0, 3), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -1995,16 +1963,12 @@ class StateVectorSummaryTab(SegmentSummaryTab):
         """
         # opening
         self.frame = markup.page()
-        self.frame.h1(self.name, id_="h1_0", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0")
+        div(self.frame, 0, self.name)
         self.frame.p("This page summarises %s state vector." % self.name,\
                      class_="line")
 
         # summary
-        self.frame.h2("Summary", id_="h2_0-1", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-1")
+        div(self.frame, (0, 1), "Summary")
         self.frame.a(href=self.plots[0][0], title=self.plots[0][1],\
                      class_="fancybox-button", rel="full")
         self.frame.img(src=self.plots[0][0], alt=self.plots[0][1],\
@@ -2024,9 +1988,7 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # other plots
         if len(self.plots) > 1:
-            self.frame.h2("Plots", id_="h2_0-2", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-2")
+            div(self.frame, (0, 2), "Plots")
             for plot,desc in self.plots[1:]:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="half")
@@ -2035,14 +1997,10 @@ class StateVectorSummaryTab(SegmentSummaryTab):
             self.frame.div.close()
 
         # segment lists
-        self.frame.h2("Segment lists", id_="h2_0-3", class_="open",\
-                     onclick="toggleVisible();")
-        self.frame.div(id_="div_0-3")
+        div(self.frame, (0, 3), "Segment lists")
         for i,bit in enumerate(self.bits):
             flag = self.bitmask[bit]
-            self.frame.h3(flag, id_="h3_0-3-%d" % i,\
-                          class_="closed", onclick="toggleVisible();")
-            self.frame.div(id_="div_0-3-%d" % i, style="display: none;")
+            div(self.frame, (0, 3, i), flag, display=False)
             segfile = self.segment_files.get(flag, None)
             if segfile is not None:
                 self.frame.p("The full segment list can be downloaded from %s."\
@@ -2057,20 +2015,17 @@ class StateVectorSummaryTab(SegmentSummaryTab):
 
         # subplots
         if len(self.subplots):
-            self.frame.h2("Subplots", id_="h2_0-4", class_="open",\
-                         onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 4), "Subplots", display=False)
             for plot,desc in self.subplots:
                 self.frame.a(href=plot, title=desc, class_="fancybox-button",\
                              rel="subplots")
                 self.frame.img(src=plot, alt=desc, class_="quarter")
+                self.frame.a.close()
             self.frame.div.close()
 
         # information
         if self.information:
-            self.frame.h2("Information", id_="h2_0-5", class_="open",
-                          onclick="toggleVisible();")
-            self.frame.div(id_="div_0-4")
+            div(self.frame, (0, 5), "Information", display=True)
             self.frame.add(self.information)
             self.frame.div.close()
 
@@ -2243,10 +2198,10 @@ class OnlineSummaryTab(SummaryTab):
         """
         self.tabs = markup.page()
         self.tabs.ul(class_="buttons")
-        for i,section in enumerate(sorted(self.sections)):
+        for i,section in enumerate(sorted(self.sections, key=str.lower)):
             self.tabs.li(section, class_="open", onclick="toggleVisible();",\
                          id_="button_%s" % _r_cchar.sub("-", section), \
-                         title="Hide online %s plots" % section)
+                         title="Hide/show %s" % section)
         self.tabs.ul.close()
 
     def finalize(self):
@@ -2270,7 +2225,8 @@ class OnlineSummaryTab(SummaryTab):
                 self.frame.div(id_="div_%s"\
                                % _r_cchar.sub("-", state.name.lower()),\
                                style="display: %s;" % style)
-                for j,section in enumerate(sorted(self.plots[state].keys())):
+                for j,section in enumerate(sorted(self.plots[state].keys(),
+                                                  key=str.lower)):
                     self.frame.div(class_="toggle_%s"% _r_cchar.sub("-", section),\
                                    style="display: block;")
                     self.frame.h2(section, id_="h2_%d" % i, class_="open",\
@@ -2311,6 +2267,9 @@ class SummaryState(object):
         self.definition = None
         self.segments = segments.segmentlist()
         self.set = False
+        self.segment_buffer = 0
+        self.event_buffer = 0
+        self.minimum_segment_length = None
 
         # define the tag and match
         self.tag = _r_cchar.sub("_", name.lower()).upper()
@@ -2322,7 +2281,7 @@ class SummaryState(object):
         return self._start_time
     @start_time.setter
     def start_time(self, gps):
-        self._start_time = lal.LIGOTimeGPS(gps)
+        self._start_time = LIGOTimeGPS(gps)
     @start_time.deleter
     def start_time(self):
         del self._start_time
@@ -2333,7 +2292,7 @@ class SummaryState(object):
         return self._end_time
     @end_time.setter
     def end_time(self, gps):
-        self._end_time = lal.LIGOTimeGPS(gps)
+        self._end_time = LIGOTimeGPS(gps)
     @end_time.deleter
     def end_time(self):
         del self._end_time
@@ -2344,8 +2303,8 @@ class SummaryState(object):
         return segments.segment(self.start_time, self.end_time)
     @span.setter
     def span(self, seg):
-        self.start_time = lal.LIGOTimeGPS(seg[0])
-        self.end_time = lal.LIGOTimeGPS(seg[1])
+        self.start_time = LIGOTimeGPS(seg[0])
+        self.end_time = LIGOTimeGPS(seg[1])
     @span.deleter
     def span(self):
         del self._span
@@ -2386,14 +2345,14 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
     page = markup.page()
 
     if not path:
-        dir1 = os.path.sep
-        dir2 = os.path.sep
+        path = os.path.sep
     else:
         path = os.path.normpath(path)
-        dir1 = os.path.join("", *re.split(os.path.sep, path)[-2:])
-        dir2 = os.path.join("", *re.split(os.path.sep, path)[-1:])
-        if re.match("%s\d\d\d\d\d\d" % os.path.sep, dir1):
-            dir1 = dir2
+        path = os.path.join(*re.split(os.path.sep, path)[-2:])
+        if re.match("\d+/", path):
+            path = os.path.join(*os.path.split(path)[1:])
+    if path == "/":
+         path = ""
 
     # loop over months
     i = 0
@@ -2407,14 +2366,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
                                         or (not reverse and m.month==1))):
             page.tr()
             Y = m.year
-            href = None
-            for e,t in zip(["html", "php"], [dir1, dir2]):
-                idx = os.path.join(jobdir, "archive_yearly",\
-                                   "%d%s" % (m.year, t), "index.%s" % e)
-                if os.path.isfile(os.path.expanduser(idx)):
-                    href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
-                    break
-            if href:
+            idx = os.path.join(jobdir, "archive_yearly", str(m.year),
+                               path,  "index.html")
+            if os.path.isfile(os.path.expanduser(idx)):
+                href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
                 page.th(markup.oneliner.a(Y, href=href),
                         class_="year", colspan="100%")
             else:
@@ -2459,14 +2414,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
             page.tr()
             H = "%s %s" % (calendar.month_name[m.month], m.year)
             href = None
-            for e,t in zip(["html", "php"], [dir1, dir2]):
-                idx = os.path.join(jobdir, "archive_monthly",\
-                                   "%s%s" % (m.strftime("%Y%m"), t),\
-                                   "index.%s" % e)
-                if os.path.isfile(os.path.expanduser(idx)):
-                    href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
-                    break
-            if href:
+            idx = os.path.join(jobdir, "archive_monthly", m.strftime("%Y%m"),
+                               path,  "index.html")
+            if os.path.isfile(os.path.expanduser(idx)):
+                href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
                 page.th(markup.oneliner.a(H, class_="day", href=href),
                         colspan="100%")
             else:
@@ -2482,14 +2433,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
                 w = (datetime.date(m.year, m.month, day)\
                      - datetime.timedelta(days=idx)).strftime("%Y%m%d")
                 href = None
-                for e,t in [(e,t) for e in ["html", "php"]\
-                                  for t in [dir1, dir2]]:
-                    idx = os.path.join(jobdir, "archive_weekly",\
-                                       "%s%s" % (w, t), "index.%s" % e)
-                    if os.path.isfile(os.path.expanduser(idx)):
-                        href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
-                        break
-                if href:
+                idx = os.path.join(jobdir, "archive_weekly", w,
+                                   path,  "index.html")
+                if os.path.isfile(os.path.expanduser(idx)):
+                    href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
                     page.td(markup.oneliner.a("w", class_="day", href=href))
                 else:
                     page.td("w")
@@ -2502,14 +2449,10 @@ def calendar_page(startdate, enddate, path=None, jobdir=".",\
                     # find day page and link
                     d = datetime.date(m.year, m.month, day).strftime("%Y%m%d")
                     href = None
-                    for e,t in [(e,t) for e in ["html", "php"]\
-                                      for t in [dir1, dir2]]:
-                        idx = os.path.join(jobdir, "archive_daily",\
-                                           "%s%s" % (d, t), "index.%s" % e)
-                        if os.path.isfile(os.path.expanduser(idx)):
-                            href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
-                            break
-                    if href:
+                    idx = os.path.join(jobdir, "archive_daily", d,
+                                       path,  "index.html")
+                    if os.path.isfile(os.path.expanduser(idx)):
+                        href = "%s%s" % (os.path.split(idx)[0], os.path.sep)
                         page.td(markup.oneliner.a(str(day), class_="day",\
                                                   href=href))
                     else:
@@ -2543,3 +2486,30 @@ def plotclass(n):
         return "half"
     else:
         return "full"
+
+
+def div(page, id_, header, display=True):
+    """Write a new <div> tag to the give markup.page object
+    """
+    if isinstance(id_, int):
+        id_ = str(id_)
+    elif not isinstance(id_, str):
+        id_ = ".".join(list(map(str, id_)))
+    N = len(re.split("\.", id_))
+
+    if N == 1:
+        title = header
+    else: 
+        title = "%s %s" % (id_.split(".", 1)[1], header)
+
+    if not display:
+        display = "display: none;"
+        class_ = "closed"
+    else:
+        display = "display: block;"
+        class_ = "open"
+
+    getattr(page, "h%d" % N)(title, onclick=TOGGLE,\
+                             id_="h%d_%s" % (N, id_.replace(".","-")),\
+                             class_=class_)
+    page.div(id_="div_%s" % id_.replace(".","-"), style=display)

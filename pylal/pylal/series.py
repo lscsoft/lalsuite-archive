@@ -232,3 +232,49 @@ def parse_REAL8TimeSeries(elem):
 		sampleUnits = LALUnit(a.getAttribute(u"Unit")),
 		data = a.array[1]
 	)
+
+
+#
+# =============================================================================
+#
+#                                 XML PSD I/O
+#
+# =============================================================================
+#
+
+
+def make_psd_xmldoc(psddict, xmldoc = None):
+	"""
+	Construct an XML document tree representation of a dictionary of
+	frequency series objects containing PSDs.  See also
+	read_psd_xmldoc() for a function to parse the resulting XML
+	documents.
+
+	If xmldoc is None (the default), then a new XML document is created
+	and the PSD dictionary added to it.  If xmldoc is not None then the
+	PSD dictionary is appended to the children of that element inside a
+	new LIGO_LW element.
+	"""
+	if xmldoc is None:
+		xmldoc = ligolw.Document()
+	lw = xmldoc.appendChild(ligolw.LIGO_LW())
+	for instrument, psd in psddict.items():
+		fs = lw.appendChild(build_REAL8FrequencySeries(psd))
+		if instrument is not None:
+			fs.appendChild(param.from_pyvalue(u"instrument", instrument))
+	return xmldoc
+
+
+def read_psd_xmldoc(xmldoc):
+	"""
+	Parse a dictionary of PSD frequency series objects from an XML
+	document.  See also make_psd_xmldoc() for the construction of XML documents
+	from a dictionary of PSDs.  Interprets an empty freuency series for an
+	instrument as None.
+	"""
+	result = dict((param.get_pyvalue(elem, u"instrument"), parse_REAL8FrequencySeries(elem)) for elem in xmldoc.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"REAL8FrequencySeries")
+	# Interpret empty frequency series as None
+	for instrument in result:
+		if len(result[instrument].data) == 0:
+			result[instrument] = None
+	return result

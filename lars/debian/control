@@ -2,14 +2,13 @@ Source: ligo-lars
 Maintainer: Brian Moe <brian.moe@ligo.org>
 Section: python
 Priority: optional
-Build-Depends: debhelper (>= 7), python-support (>= 0.8.4)
+Build-Depends: debhelper (>= 7), python-all-dev
 Standards-Version: 3.8.4
-XS-Python-Version: all
+X-Python-Version: >=2.6
 
 Package: python-ligo-lars
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python-m2crypto, python-glue-segments
-XB-Python-Version: ${python:Versions}
 Provides: ${python:Provides}
 Description: LIGO Archiving Service
  Lars is a protype for an archival service for LIGO

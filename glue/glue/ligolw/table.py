@@ -109,11 +109,8 @@ def StripColumnName(name):
 	>>> StripColumnName("program")
 	'program'
 	"""
-	# FIXME:  enable warning.  since this is merely annoying, it does
-	# not break any code, this should be done to encourage the
-	# correction of non-conforming code.
-	#if name.lower() != name:
-	#	warnings.warn("column name \"%s\" is not lower case" % name)
+	if name.lower() != name:
+		warnings.warn("column name \"%s\" is not lower case" % name)
 	try:
 		return ColumnPattern.search(name).group("Name")
 	except AttributeError:
@@ -507,6 +504,16 @@ class TableStream(ligolw.Stream):
 		self._rowbuilder = None
 		ligolw.Stream.unlink(self)
 
+	def endElement(self):
+		# stream tokenizer uses delimiter to identify end of each
+		# token, so add a final delimiter to induce the last token
+		# to get parsed but only if there's something other than
+		# whitespace left in the tokenizer's buffer.
+		if not self._tokenizer.data.isspace():
+			self.appendData(self.getAttribute("Delimiter"))
+		# call parent's _end_of_rows() hook.
+		self.parentNode._end_of_rows()
+
 	def write(self, file = sys.stdout, indent = u""):
 		# retrieve the .write() method of the file object to avoid
 		# doing the attribute lookup in loops
@@ -731,6 +738,13 @@ class Table(ligolw.Table, list):
 		ligolw.Table.unlink(self)
 		del self[:]
 
+	def endElement(self):
+		# Table elements are allowed to contain 0 Stream children,
+		# but _end_of_columns() and _end_of_rows() hooks must be
+		# called regardless, so we do that here if needed.
+		if self.childNodes[-1].tagName != ligolw.Stream.tagName:
+			self._end_of_columns()
+			self._end_of_rows()
 
 	#
 	# Row ID manipulation
@@ -861,44 +875,21 @@ def use_in(ContentHandler):
 	>>> from glue.ligolw import table
 	>>> table.use_in(MyContentHandler)
 	"""
-	def startColumn(self, attrs):
+	def startColumn(self, parent, attrs):
 		return Column(attrs)
 
-	def startStream(self, attrs, __parent_startStream = ContentHandler.startStream):
-		if self.current.tagName == ligolw.Table.tagName:
-			self.current._end_of_columns()
-			return TableStream(attrs).config(self.current)
-		return __parent_startStream(self, attrs)
+	def startStream(self, parent, attrs, __orig_startStream = ContentHandler.startStream):
+		if parent.tagName == ligolw.Table.tagName:
+			parent._end_of_columns()
+			return TableStream(attrs).config(parent)
+		return __orig_startStream(self, parent, attrs)
 
-	def endStream(self, __parent_endStream = ContentHandler.endStream):
-		# stream tokenizer uses delimiter to identify end of each
-		# token, so add a final delimiter to induce the last token
-		# to get parsed but only if there's something other than
-		# whitespace left in the tokenizer's buffer.  Also call
-		# _end_of_rows() hook.
-		if self.current.parentNode.tagName == ligolw.Table.tagName:
-			if not self.current._tokenizer.data.isspace():
-				self.current.appendData(self.current.getAttribute("Delimiter"))
-			self.current.parentNode._end_of_rows()
-		else:
-			__parent_endStream(self)
-
-	def startTable(self, attrs):
+	def startTable(self, parent, attrs):
 		return Table(attrs)
-
-	def endTable(self):
-		# Table elements are allowed to contain 0 Stream children,
-		# but _end_of_columns() and _end_of_rows() hooks must be
-		# called regardless, so we do that here if needed.
-		if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
-			self.current._end_of_columns()
-			self.current._end_of_rows()
 
 	ContentHandler.startColumn = startColumn
 	ContentHandler.startStream = startStream
-	ContentHandler.endStream = endStream
 	ContentHandler.startTable = startTable
-	ContentHandler.endTable = endTable
 
 
 use_in(ligolw.DefaultLIGOLWContentHandler)

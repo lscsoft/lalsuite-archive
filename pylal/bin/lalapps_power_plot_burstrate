@@ -90,7 +90,7 @@ cache files."""
 
 	# parse trigger cache files
 	if not cache_names:
-		raise ValueError, "no cache files named on command line"
+		raise ValueError("no cache files named on command line")
 	cache = [CacheEntry(l, coltype = LIGOTimeGPS) for name in cache_names for l in file(name)]
 
 	# set segment
@@ -100,7 +100,7 @@ cache files."""
 	options.read_segment = options.segment.protract(5.0 * options.window)
 
 	# filter cache entries and sort
-	return options, [c.path() for c in sorted(c for c in cache if options.read_segment.intersects(c.segment))]
+	return options, [c.path for c in sorted(c for c in cache if options.read_segment.intersects(c.segment))]
 
 
 options, filenames = parse_command_line()

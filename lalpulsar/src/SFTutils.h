@@ -16,12 +16,19 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
+#ifndef _SFTUTILS_H  /* Double-include protection. */
+#define _SFTUTILS_H
+
+/* C++ protection. */
+#ifdef  __cplusplus
+extern "C" {
+#endif
 
 /**
+ * \defgroup SFTutils_h Header SFTutils.h
+ * \ingroup pkg_SFTIO
  * \author Reinhard Prix, Badri Krishnan
  * \date 2005
- * \file
- * \ingroup SFTfileIO
  * \brief Utility functions for handling of SFTtype and SFTVectors
  *
  *
@@ -31,14 +38,7 @@
  * a bunch of GPS-timestamps.
  *
  */
-
-#ifndef _SFTUTILS_H  /* Double-include protection. */
-#define _SFTUTILS_H
-
-/* C++ protection. */
-#ifdef  __cplusplus
-extern "C" {
-#endif
+/*@{*/
 
 /*---------- INCLUDES ----------*/
 #include <stdarg.h>
@@ -49,14 +49,12 @@ extern "C" {
 #include <lal/SkyCoordinates.h>
 #include <lal/RngMedBias.h>
 #include <lal/LALRunningMedian.h>
-
-
-
+#include <lal/Segments.h>
 
 /*---------- DEFINES ----------*/
 
-/*----- Error-codes -----*/
-
+/** \name Error codes */
+/*@{*/
 #define SFTUTILS_ENULL 		1
 #define SFTUTILS_ENONULL	2
 #define SFTUTILS_EMEM		3
@@ -68,6 +66,7 @@ extern "C" {
 #define SFTUTILS_MSGEMEM	"Out of memory"
 #define SFTUTILS_MSGEINPUT	"Invald input parameter"
 #define SFTUTILS_MSGEFUNC	"Sub-routine failed"
+/*@}*/
 
 /*---------- exported types ----------*/
 
@@ -232,6 +231,7 @@ void LALComputeMultiNoiseWeights  (LALStatus *status, MultiNoiseWeights **weight
 				   UINT4 blocksRngMed, UINT4 excludePercentile);
 void LALDestroyMultiNoiseWeights  (LALStatus *status, MultiNoiseWeights **weights);
 
+LALSegList *XLALReadSegmentsFromFile ( const char *fname );
 
 /* ============================================================
  * ===== deprecated LAL interface API ==========
@@ -239,6 +239,8 @@ void LALDestroyMultiNoiseWeights  (LALStatus *status, MultiNoiseWeights **weight
  */
 
 void LALGetSFTtimestamps (LALStatus *, LIGOTimeGPSVector **timestamps, const SFTVector *sfts );
+
+/*@}*/
 
 #ifdef  __cplusplus
 }

@@ -42,6 +42,7 @@ from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
@@ -74,6 +75,7 @@ def parse_command_line():
 	)
 	parser.add_option("-p", "--live-time-program", default="omega_to_coinc", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
 	parser.add_option("--rank-by", metavar = "{\"snr\",\"likelihood\", \"snr_and_likelihood\"}", help = "Select the event ranking method.  Required.")
+	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -142,15 +144,18 @@ class Summaries(object):
 
 	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
 
-		if live_time_program == "omega_to_coinc": return self.add_livetime_nonring(connection, live_time_program, verbose = verbose)
+		if live_time_program == "omega_to_coinc": return self.add_livetime_nonring(connection, live_time_program, veto_segments_name, verbose = verbose)
 		if live_time_program == "waveburst": return self.add_livetime_ring(connection, live_time_program, veto_segments_name, verbose = verbose)
 
-	def add_livetime_nonring(self, connection, live_time_program, verbose = False):
+	def add_livetime_nonring(self, connection, live_time_program, veto_segments_name, verbose = False):
 
 		# get the segment lists and live time
 		xmldoc = dbtables.get_xml(connection)
 		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		if veto_segments_name is not None:
+			veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
+			seglists -= veto_segs
 		instruments = frozenset(seglists.keys())
 		self.zero_lag_live_time.setdefault(self.category_func(instruments), 0)
 		self.background_live_time.setdefault(self.category_func(instruments), 0)
@@ -300,7 +305,7 @@ for n, filename in enumerate(filenames):
 	# compute and record background livetime
 	#
 
-	background.add_livetime(connection, options.live_time_program, verbose = options.verbose)
+	background.add_livetime(connection, options.live_time_program, options.veto_segments_name, verbose = options.verbose)
 
 	#
 	# count background coincs

@@ -1,7 +1,8 @@
 /*
  *  LALInference.c:  Bayesian Followup functions
  *
- *  Copyright (C) 2009 Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys and John Veitch
+ *  Copyright (C) 2009, 2012 Ilya Mandel, Vivien Raymond, Christian
+ *  Roever, Marc van der Sluys, John Veitch, and Will M. Farr
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,9 +24,11 @@
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <lal/LALInference.h>
 #include <lal/Units.h>
 #include <lal/FrequencySeries.h>
+#include <lal/TimeSeries.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/VectorOps.h>
 #include <lal/Date.h>
@@ -124,13 +127,24 @@ INT4 LALInferenceGetVariableDimension(LALInferenceVariables *vars)
 INT4 LALInferenceGetVariableDimensionNonFixed(LALInferenceVariables *vars)
 {
   INT4 count=0;
+  gsl_matrix *m=NULL;
   LALInferenceVariableItem *ptr = vars->head;
   if (ptr==NULL) return count;
   else {
     /* loop over entries: */
     while (ptr != NULL) {
       /* print name: */
-      if (ptr->vary != LALINFERENCE_PARAM_FIXED) ++count;
+      //TBL: LALInferenceGetVariableDimensionNonFixed had to be modified for noise-parameters, which are stored in a gsl_matrix
+      if (ptr->vary != LALINFERENCE_PARAM_FIXED)
+      {
+        //if the current parameters are for psd fitting..
+        if(ptr->type == LALINFERENCE_gslMatrix_t)
+        {
+          m = *((gsl_matrix **)ptr->value);
+          count += (int)( (m->size1)*(m->size2) );
+        }
+        else count++;
+      }
       ptr = ptr->next;
     }
   }
@@ -381,6 +395,7 @@ void LALInferencePrintVariables(LALInferenceVariables *var)
 /** output contents of a 'LALInferenceVariables' structure * /
 / * (by now only prints names and types, but no values) */
 {
+  int i,j;
   LALInferenceVariableItem *ptr = var->head;
   fprintf(stdout, "LALInferenceVariables:\n");
   if (ptr==NULL) fprintf(stdout, "  <empty>\n");
@@ -446,7 +461,18 @@ void LALInferencePrintVariables(LALInferenceVariables *var)
                  (REAL8) ((COMPLEX16 *) ptr->value)->re, (REAL8) ((COMPLEX16 *) ptr->value)->im);
           break;
         case LALINFERENCE_gslMatrix_t:
-          fprintf(stdout, "<can't print matrix>");
+          fprintf(stdout,"[");
+          gsl_matrix *matrix = *((gsl_matrix **)ptr->value);
+          for(i=0; i<(int)( matrix->size1 ); i++)
+          {
+            for(j=0;j<(int)( matrix->size2 );j++)
+            {
+              fprintf(stdout,"%.2g",gsl_matrix_get(matrix, i, j));
+              if(j<(int)( matrix->size2 )-1)fprintf(stdout,",");
+            }
+            if(i<(int)( matrix->size1 )-1)fprintf(stdout,"; ");
+          }
+          fprintf(stdout,"]");
           break;
         default:
           fprintf(stdout, "<can't print>");
@@ -504,7 +530,8 @@ void LALInferencePrintSample(FILE *fp,LALInferenceVariables *sample){
 }
 
 void LALInferencePrintSampleNonFixed(FILE *fp,LALInferenceVariables *sample){
-
+  int i,j;
+  gsl_matrix *m=NULL;
 	if(sample==NULL) return;
 	LALInferenceVariableItem *ptr=sample->head;
 	if(fp==NULL) return;
@@ -535,7 +562,17 @@ void LALInferencePrintSampleNonFixed(FILE *fp,LALInferenceVariables *sample){
 							(REAL8) ((COMPLEX16 *) ptr->value)->re, (REAL8) ((COMPLEX16 *) ptr->value)->im);
 					break;
 				case LALINFERENCE_gslMatrix_t:
-					fprintf(stdout, "<can't print matrix>");
+          
+          m = *((gsl_matrix **)ptr->value);
+          for(i=0; i<(int)( m->size1 ); i++)
+          {
+            for(j=0; j<(int)( m->size2); j++)
+            {
+              fprintf(fp,"%11.7f",gsl_matrix_get(m, i, j));
+              if(i<(int)( m->size1 )-1 && j<(int)( m->size2)-1) fprintf(fp,"\t");
+            }
+          }
+           
 					break;
 				default:
 					fprintf(stdout, "<can't print>");
@@ -614,9 +651,30 @@ const char *LALInferenceTranslateInternalToExternalParamName(const char *inName)
 int LALInferenceFprintParameterNonFixedHeaders(FILE *out, LALInferenceVariables *params) {
   LALInferenceVariableItem *head = params->head;
 
+  int i,j;
+  gsl_matrix *matrix = NULL;
+
   while (head != NULL) {
     if (head->vary != LALINFERENCE_PARAM_FIXED) {
-      fprintf(out, "%s\t", LALInferenceTranslateInternalToExternalParamName(head->name));
+      if(!strcmp(head->name,"psdscale"))
+      {
+        /*
+        fprintf(stdout,"\n");
+        fprintf(stdout,"Skipping noise parameters in output files\n");
+        fprintf(stdout,"   edit LALInferenceFprintParameterNonFixedHeaders()\n");
+        fprintf(stdout,"   and LALInferencePrintSampleNonFixed() to modify\n");
+         */
+        
+        matrix = *((gsl_matrix **)head->value);
+        for(i=0; i<(int)matrix->size1; i++)
+        {
+          for(j=0; j<(int)matrix->size2; j++)
+          {
+            fprintf(out, "%s%i%i\t", LALInferenceTranslateInternalToExternalParamName(head->name),i,j);
+          }
+        }
+      }
+      else fprintf(out, "%s\t", LALInferenceTranslateInternalToExternalParamName(head->name));
     }
     head = head->next;
   }
@@ -852,114 +910,113 @@ char* LALInferencePrintCommandLine(ProcessParamsTable *procparams)
   return str;
 }
 
-
-
 void LALInferenceExecuteFT(LALInferenceIFOData *IFOdata)
-/* Execute (forward, time-to-freq) Fourier transform.         */
-/* Contents of IFOdata->timeModelh... are windowed and FT'ed, */
-/* results go into IFOdata->freqModelh...                     */
-/*  CHECK: keep or drop normalisation step here ?!?  */
+/* Execute (forward, time-to-freq) Fourier transform.  Contents of
+IFOdata->timeModelh... are windowed and FT'ed, results go into
+IFOdata->freqModelh...  
+
+NOTE: the windowing is performed *in-place*, so do not call more than
+once on a given timeModel!
+*/
 {
   UINT4 i;
   double norm;
   int errnum; 
   
   if (IFOdata==NULL) {
-   		fprintf(stderr," ERROR: IFOdata is a null pointer at LALInferenceExecuteFT, exiting!.\n");
-   		XLAL_ERROR_VOID(XLAL_EFAULT);
+    fprintf(stderr," ERROR: IFOdata is a null pointer at LALInferenceExecuteFT, exiting!.\n");
+    XLAL_ERROR_VOID(XLAL_EFAULT);
   }
 
   else if(!IFOdata->timeData && IFOdata->timeData){				
-		XLALPrintError("timeData is NULL at LALInferenceExecuteFT, exiting!");
-	 	XLAL_ERROR_VOID(XLAL_EFAULT);	
+    XLALPrintError("timeData is NULL at LALInferenceExecuteFT, exiting!");
+    XLAL_ERROR_VOID(XLAL_EFAULT);	
   }
 
   else if(!IFOdata->freqData && IFOdata->timeData){
-		XLALPrintError("freqData is NULL at LALInferenceExecuteFT, exiting!");
-		XLAL_ERROR_VOID(XLAL_EFAULT);	
+    XLALPrintError("freqData is NULL at LALInferenceExecuteFT, exiting!");
+    XLAL_ERROR_VOID(XLAL_EFAULT);	
   }
 
   else if(!IFOdata->freqData && !IFOdata->timeData){
-		XLALPrintError("timeData and freqData are NULL at LALInferenceExecuteFT, exiting!");
-		XLAL_ERROR_VOID(XLAL_EFAULT);
+    XLALPrintError("timeData and freqData are NULL at LALInferenceExecuteFT, exiting!");
+    XLAL_ERROR_VOID(XLAL_EFAULT);
   }
  
   else if(!IFOdata->freqData->data->length){
-		XLALPrintError("Frequency series length is not set, exiting!");
-		XLAL_ERROR_VOID(XLAL_EFAULT);
-  }	
-	
- 
+    XLALPrintError("Frequency series length is not set, exiting!");
+    XLAL_ERROR_VOID(XLAL_EFAULT);
+  }
+
   for(;IFOdata;IFOdata=IFOdata->next){
     /* h+ */
-  if(!IFOdata->freqModelhPlus){     
+    if(!IFOdata->freqModelhPlus){     
 	
-        XLAL_TRY(IFOdata->freqModelhPlus=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length),errnum);
+      XLAL_TRY(IFOdata->freqModelhPlus=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length),errnum);
 
-		if (errnum){
-		XLALPrintError("Could not create COMPLEX16FrequencySeries in LALInferenceExecuteFT");
-		XLAL_ERROR_VOID(errnum);
-		}
-  }
-	if (!IFOdata->window || !IFOdata->window->data){
-		XLALPrintError("IFOdata->window is NULL at LALInferenceExecuteFT: Exiting!");
-		XLAL_ERROR_VOID(XLAL_EFAULT);
-		}
+      if (errnum){
+	XLALPrintError("Could not create COMPLEX16FrequencySeries in LALInferenceExecuteFT");
+	XLAL_ERROR_VOID(errnum);
+      }
+    }
+    if (!IFOdata->window || !IFOdata->window->data){
+      XLALPrintError("IFOdata->window is NULL at LALInferenceExecuteFT: Exiting!");
+      XLAL_ERROR_VOID(XLAL_EFAULT);
+    }
 
-	XLAL_TRY(XLALDDVectorMultiply(IFOdata->timeModelhPlus->data,IFOdata->timeModelhPlus->data,IFOdata->window->data),errnum);
+    XLAL_TRY(XLALDDVectorMultiply(IFOdata->timeModelhPlus->data,IFOdata->timeModelhPlus->data,IFOdata->window->data),errnum);
 
-		if (errnum){
-			XLALPrintError("Could not window time-series in LALInferenceExecuteFT");
-			XLAL_ERROR_VOID(errnum);
-			}
+    if (errnum){
+      XLALPrintError("Could not window time-series in LALInferenceExecuteFT");
+      XLAL_ERROR_VOID(errnum);
+    }
    		
-	if (!IFOdata->timeToFreqFFTPlan){
-		XLALPrintError("IFOdata->timeToFreqFFTPlan is NULL at LALInferenceExecuteFT: Exiting!");
-		XLAL_ERROR_VOID(XLAL_EFAULT);
-		}
+    if (!IFOdata->timeToFreqFFTPlan){
+      XLALPrintError("IFOdata->timeToFreqFFTPlan is NULL at LALInferenceExecuteFT: Exiting!");
+      XLAL_ERROR_VOID(XLAL_EFAULT);
+    }
 
-	XLAL_TRY(XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus,IFOdata->timeModelhPlus,IFOdata->timeToFreqFFTPlan),errnum);
+    XLAL_TRY(XLALREAL8TimeFreqFFT(IFOdata->freqModelhPlus,IFOdata->timeModelhPlus,IFOdata->timeToFreqFFTPlan),errnum);
 	
-		if (errnum){
-			XLALPrintError("Could not h_plus FFT time-series");
-			XLAL_ERROR_VOID(errnum);
-			}
+    if (errnum){
+      XLALPrintError("Could not h_plus FFT time-series");
+      XLAL_ERROR_VOID(errnum);
+    }
     			    
- 
     /* hx */
-  if(!IFOdata->freqModelhCross){ 
+    if(!IFOdata->freqModelhCross){ 
 
-	XLAL_TRY(IFOdata->freqModelhCross=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length),errnum);
+      XLAL_TRY(IFOdata->freqModelhCross=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata->timeData->epoch),0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,IFOdata->freqData->data->length),errnum);
 	
-		if (errnum){	
-			XLALPrintError("Could not create COMPLEX16FrequencySeries in LALInferenceExecuteFT");
-		 	XLAL_ERROR_VOID(errnum);		
-			}
-  }
-	XLAL_TRY(XLALDDVectorMultiply(IFOdata->timeModelhCross->data,IFOdata->timeModelhCross->data,IFOdata->window->data),errnum);
+      if (errnum){	
+	XLALPrintError("Could not create COMPLEX16FrequencySeries in LALInferenceExecuteFT");
+	XLAL_ERROR_VOID(errnum);		
+      }
+    }
 
-		if (errnum){
-			XLALPrintError("Could not window time-series in LALInferenceExecuteFT");
-			XLAL_ERROR_VOID(errnum);
-			}
+    XLAL_TRY(XLALDDVectorMultiply(IFOdata->timeModelhCross->data,IFOdata->timeModelhCross->data,IFOdata->window->data),errnum);
+
+    if (errnum){
+      XLALPrintError("Could not window time-series in LALInferenceExecuteFT");
+      XLAL_ERROR_VOID(errnum);
+    }
 		 
-	XLAL_TRY(XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross,IFOdata->timeModelhCross,IFOdata->timeToFreqFFTPlan),errnum);
+    XLAL_TRY(XLALREAL8TimeFreqFFT(IFOdata->freqModelhCross,IFOdata->timeModelhCross,IFOdata->timeToFreqFFTPlan),errnum);
 	
-		if (errnum){
-			XLALPrintError("Could not FFT h_cross time-series");
-			XLAL_ERROR_VOID(errnum);
-			}   
-
+    if (errnum){
+      XLALPrintError("Could not FFT h_cross time-series");
+      XLAL_ERROR_VOID(errnum);
+    }   
 
     norm=sqrt(IFOdata->window->data->length/IFOdata->window->sumofsquares);
     
-     for(i=0;i<IFOdata->freqModelhPlus->data->length;i++){
+    for(i=0;i<IFOdata->freqModelhPlus->data->length;i++){
       IFOdata->freqModelhPlus->data->data[i].re*=norm;
       IFOdata->freqModelhPlus->data->data[i].im*=norm;
       IFOdata->freqModelhCross->data->data[i].re*=norm;
       IFOdata->freqModelhCross->data->data[i].im*=norm;
+    }
   }
- }
 }
 
 void LALInferenceExecuteInvFT(LALInferenceIFOData *IFOdata)
@@ -1188,6 +1245,7 @@ void LALInferenceLogSampleToArray(LALInferenceRunState *state, LALInferenceVaria
 {
   LALInferenceVariables *output_array=NULL;
   UINT4 N_output_array=0;
+  LALInferenceSortVariablesByName(vars);
   LALInferenceLogSampleToFile(state,vars);
 
   /* Set up the array if it is not already allocated */

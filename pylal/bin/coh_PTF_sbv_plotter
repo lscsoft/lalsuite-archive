@@ -1,4 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+
+# Copyright (C) 2011 Ian W. Harry
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 # =============================================================================
 # Preamble
@@ -17,7 +33,8 @@ import pylab
 from math import sqrt
 import scipy.stats
 from optparse import OptionParser
-from glue import segments,git_version
+from glue import segments
+from pylal import git_version
 from pylal.dq import dqSegmentUtils,dqPlotUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table,lsctables,utils
@@ -41,7 +58,7 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 --grb-name
 """
 
-  parser = OptionParser(usage)
+  parser = OptionParser(usage, version=__version__)
 
   parser.add_option("-v", "--verbose", action="store_true", default=False,\
                     help="verbose output, default: %default")
@@ -71,10 +88,33 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
                     help="directory holding buffer, on and off source "+\
                          "segment files.")
 
+  parser.add_option("-B", "--sngl-snr-threshold", action="store", type="float",\
+                    default=4.0, help="Single detector SNR threshold, the"+\
+                    "two most sensitive detectors should have SNR above this"+\
+                    " default: %default")
+
+  parser.add_option("-d", "--snr-threshold", action="store", type="float",\
+                    default=6.0, help="SNR threshold for recording triggers,"+\
+                                      " default: %default")
+
+  parser.add_option("-c", "--newsnr-threshold", action="store", type="float",\
+                    default=None, help="NewSNR threshold for calculating the "+\
+                    "chisq of triggers (based on value of auto and bank chisq"+\
+                    " values. By default will take the same value as "+\
+                    "snr-threshold")
+
   parser.add_option("-A", "--null-snr-threshold", action="store",\
                     type="string", default="4.25,6",\
                     help="comma separated lower,higher null SNR thresholds, "+\
                          " for null SNR cut, default: \"%default\"")
+
+  parser.add_option("-C", "--null-grad-thresh", action="store", type="float",\
+                    default=20., help="Threshold above which to increase the,"+\
+                    "values of the null SNR cut. default: %default")
+
+  parser.add_option("-D", "--null-grad-val", action="store", type="float",\
+                    default=0.2, help="Rate the null SNR cut will increase"+\
+                    "above the threshold. default: %default")
 
   parser.add_option("-l", "--veto-directory",action="store",type="string",\
                     default=None,\
@@ -101,6 +141,9 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
   if opts.veto_directory and not opts.veto_category:
     parser.error("Must supply veto category if applying vetoes")
 
+  if not opts.newsnr_threshold:
+    opts.newsnr_threshold = opts.snr_threshold
+
   return opts, args
 
 # =============================================================================
@@ -109,7 +152,8 @@ coh_PTF_sbv_plotter will calculate all signal based vetoes and the final detecti
 
 def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
          chisq_nhigh=3.0, null_thresh=[4.25,6], max_mchirp=8.0,\
-         vetoFiles=[], verbose=False):
+         vetoFiles=[],snrThresh=6.0,snglSnrThresh=4.0,newSnrThresh=6.0,\
+         nullGradThresh=20.,nullGradVal=0.2, verbose=False):
  
   if verbose:
     sys.stdout.write("Imported and ready to go at %d.\n" % elapsed_time())
@@ -200,8 +244,13 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # set basic data
   trigTime      = numpy.asarray(trigs.get_end())
   trigSNR       = numpy.asarray(trigs.get_column('snr'))
-  trigBestNR    = numpy.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
-                               null_thresh=null_thresh) for t in trigs])
+  trigBestNR    = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in trigs]
+  trigBestNR    = numpy.array(trigBestNR)
   trigNullSNR   = numpy.asarray(trigs.get_null_snr())
   trigNullstat  = numpy.asarray(trigs.get_column('null_statistic'))
   trigTraceSNR  = numpy.asarray(trigs.get_column('null_stat_degen'))
@@ -217,25 +266,26 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
    
   # get single detector data
   trigCoincSNR  = (trigs.get_column('coinc_snr'))
-  trigIfoSNR    = trigs.get_sngl_snrs()
+  trigIfoSNR    = dict((ifo, trigs.get_sngl_snr(ifo)) for ifo in ifos)
   tmp           = numpy.sort(trigIfoSNR.values(), 0)
-  trigFirstSNR  = tmp[-1,:]
-  if len(ifos)>1:
-    trigSecondSNR = tmp[-1,:]
-  if len(ifos)>2:
+  if len(ifos) > 0:
+    trigFirstSNR  = tmp[-1,:]
+  if len(ifos) > 1:
+    trigSecondSNR = tmp[-2,:]
+  if len(ifos) > 2:
     trigThirdSNR  = tmp[-3,:]
   if sngl_bank_chisq:
-    trigIfobankCS = trigs.get_sngl_bank_chisqs()
+    trigIfobankCS = trigs.get_sngl_bank_chisqs(ifos)
     for ifo in ifos:
       trigIfobankCS[ifo] = numpy.asarray(trigIfobankCS[ifo])
       numpy.putmask(trigIfobankCS[ifo], trigIfobankCS[ifo]==0, 0.005)
   if sngl_cont_chisq:
-    trigIfoautoCS = trigs.get_sngl_cont_chisqs()
+    trigIfoautoCS = trigs.get_sngl_cont_chisqs(ifos)
     for ifo in ifos:
       trigIfoautoCS[ifo] = numpy.asarray(trigIfoautoCS[ifo])
       numpy.putmask(trigIfoautoCS[ifo], trigIfoautoCS[ifo]==0, 0.005)
   if sngl_chisq:
-    trigIfostanCS = trigs.get_sngl_chisqs()
+    trigIfostanCS = trigs.get_sngl_chisqs(ifos)
     for ifo in ifos:
       trigIfostanCS[ifo] = numpy.asarray(trigIfostanCS[ifo])
       numpy.putmask(trigIfostanCS[ifo], trigIfostanCS[ifo]==0, 0.005)
@@ -308,8 +358,13 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     # get basics
     injTime      = numpy.asarray(injs.get_end())
     injSNR       = numpy.asarray(injs.get_column('snr'))
-    injBestNR    = numpy.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
-                                 null_thresh=null_thresh) for t in injs])
+    injBestNR    = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in injs]
+    injBestNR    = numpy.array(injBestNR)
     injNullSNR   = numpy.asarray(injs.get_null_snr())
     injNullstat  = numpy.asarray(injs.get_column('null_statistic'))
     injTraceSNR  = numpy.asarray(injs.get_column('null_stat_degen'))
@@ -322,19 +377,20 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   
     # get single detector data
     injCoincSNR  = numpy.asarray(injs.get_column('coinc_snr'))
-    injIfoSNR    = injs.get_sngl_snrs()
+    injIfoSNR    = dict((ifo, injs.get_sngl_snr(ifo)) for ifo in ifos)
     tmp          = numpy.sort(injIfoSNR.values(), 0)
-    injFirstSNR  = tmp[-1,:]
-    if len(ifos)>1:
-      injSecondSNR = tmp[-1,:]
-    if len(ifos)>2:
+    if len(ifos) > 0:
+      injFirstSNR  = tmp[-1,:]
+    if len(ifos) > 1:
+      injSecondSNR = tmp[-2,:]
+    if len(ifos) > 2:
       injThirdSNR  = tmp[-3,:]
     if sngl_bank_chisq:
-      injIfobankCS = injs.get_sngl_bank_chisqs()
+      injIfobankCS = injs.get_sngl_bank_chisqs(ifos)
     if sngl_cont_chisq:
-      injIfoautoCS = injs.get_sngl_cont_chisqs()
+      injIfoautoCS = injs.get_sngl_cont_chisqs(ifos)
     if sngl_chisq:
-      injIfostanCS = injs.get_sngl_chisqs()
+      injIfostanCS = injs.get_sngl_chisqs(ifos)
     injSigma  = injs.get_sigmasqs()
   
     # get amplitude terms
@@ -369,10 +425,21 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   ptfcolormap = pylab.cm.spring
   ptfcolormap.set_over('g')
        
+  new_snrs = [5.5,6,6.5,7,8,9,10,11]
+  try:
+    cont_value = new_snrs.index(newSnrThresh)
+  except ValueError:
+    new_snrs.append(newSnrThresh)
+    cont_value = -1
   bank_conts, auto_conts,chi_conts,null_cont,snr_vals, colors =\
-      calculate_contours(q=chisq_index, n=chisq_nhigh,\
-                          null_thresh=null_thresh[-1],\
-                          null_grad_snr=20)
+      calculate_contours(q=chisq_index, n=chisq_nhigh,new_snrs=new_snrs,\
+                         new_snr_thresh=newSnrThresh,\
+                         null_thresh=null_thresh[-1],\
+                         null_grad_snr=nullGradThresh,\
+                         null_grad_val=nullGradVal,\
+                         chisq_dof=trigs[0].chisq_dof,\
+                         bank_chisq_dof=trigs[0].bank_chisq_dof,\
+                         cont_chisq_dof=trigs[0].cont_chisq_dof)
 
   # reset times
   segs = readSegFiles(segdir)
@@ -487,8 +554,9 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   p+=1
   ax.plot(snr_vals, pylab.asarray(null_cont) - \
       (null_thresh[1] - null_thresh[0]), 'g-')
-  ax.plot(snr_vals, pylab.asarray(null_cont) - \
-      (null_thresh[1] - null_thresh[0])+1,'m-')
+  if (null_thresh[1] - null_thresh[0] > 1):
+    ax.plot(snr_vals, pylab.asarray(null_cont) - \
+        (null_thresh[1] - null_thresh[0])+1,'m-')
   ax.set_xlim([6,30])
   ax.set_ylim([0,30])
   fig.savefig("%s/%s_null_stat_vs_snr_zoom.png" % (outdir, tag),\
@@ -549,9 +617,8 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   bT = [6,27.5]
   
   maxSNR = trigSNR.max()
-  if injFile:
-    if injSNR.max() > maxSNR:
-      maxSNR = injSNR.max()
+  if injFile and injSNR.size and injSNR.max() > maxSNR:
+    maxSNR = injSNR.max()
   zoomSNR = pylab.arange(0.01,maxSNR,0.01)
  
   # plot SNR versus traceSNR 
@@ -602,7 +669,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
   polyx = copy.deepcopy(snr_vals)
-  polyy = copy.deepcopy(bank_conts[1])
+  polyy = copy.deepcopy(bank_conts[cont_value])
   polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
   polyy = pylab.append(polyy,[limy, limy])
   ax.fill(polyx, polyy, color = '#dddddd')
@@ -631,7 +698,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
   polyx = copy.deepcopy(snr_vals)
-  polyy = copy.deepcopy(chi_conts[1])
+  polyy = copy.deepcopy(chi_conts[cont_value])
   polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
   polyy = pylab.append(polyy,[limy, limy])
   ax.fill(polyx, polyy, color = '#dddddd')
@@ -901,7 +968,7 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   # Add shading to vetoed area
   limy = ax.get_ylim()[1]
   polyx = copy.deepcopy(snr_vals)
-  polyy = copy.deepcopy(auto_conts[1])
+  polyy = copy.deepcopy(auto_conts[cont_value])
   polyx = pylab.append(polyx,[max(snr_vals), min(snr_vals)])
   polyy = pylab.append(polyy,[limy, limy])
   ax.fill(polyx, polyy, color = '#dddddd')
@@ -951,20 +1018,24 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
   p+=1
 
   # plot SNR versus rel amp
-  fig = pylab.figure()
-  ax  = fig.gca()
-  ax.loglog(trigSNR, trigRelAmp1, 'bx')
-  ax.grid()
-  if injFile:
-    ax.loglog(injSNR, injRelAmp1, 'r+')
-  ax.set_xlabel("Coherent SNR")
-  ax.set_ylabel("Relative amplitude")
-  fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
-               bbox_inches='tight')
-  ax.set_xlim([6, 30])
-  fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
-               bbox_inches='tight')
-  p+=1
+  try:
+    fig = pylab.figure()
+    ax  = fig.gca()
+    ax.loglog(trigSNR, trigRelAmp1, 'bx')
+    ax.grid()
+    if injFile:
+      ax.loglog(injSNR, injRelAmp1, 'r+')
+    ax.set_xlabel("Coherent SNR")
+    ax.set_ylabel("Relative amplitude")
+    fig.savefig("%s/%s_rel_amp_vs_snr.png" % (outdir, tag),\
+                 bbox_inches='tight')
+    ax.set_xlim([6, 30])
+    fig.savefig("%s/%s_rel_amp_vs_snr_zoom.png" % (outdir, tag),\
+                 bbox_inches='tight')
+    p+=1
+  except (OverflowError,ValueError):
+    sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
+                     "failed.\n")
   
   # plot SNR versus rel amp 2
   try:
@@ -982,9 +1053,9 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_rel_amp2_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: Relative amplitude versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
 
   # plot SNR versus norm 3
   try:
@@ -1002,9 +1073,9 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_norm3_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: Amplitude factor versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
   
   # plot SNR versus inclination
   try:
@@ -1023,9 +1094,9 @@ def main(trigFile, injFile, tag, outdir, segdir, chisq_index=4.0,\
     fig.savefig("%s/%s_inclination_vs_snr_zoom.png" % (outdir, tag),\
                  bbox_inches='tight')
     p+=1
-  except OverflowError:
+  except (OverflowError,ValueError):
     sys.stderr.write("WARNING: cos(inclination) versus coherent SNR "+\
-                     "failed with zeros in a loglog plot")
+                     "failed with zeros in a loglog plot\n")
 
   # plot sky grid
   pylab.rcParams.update({"font.size": 12})
@@ -1058,6 +1129,11 @@ if __name__=='__main__':
   max_mchirp = opts.max_chirp_mass
   segdir    = opts.segment_dir
   nullt     = map(float, opts.null_snr_threshold.split(','))
+  snrThresh = opts.snr_threshold
+  snglSnrThresh = opts.sngl_snr_threshold
+  newSnrThresh = opts.newsnr_threshold
+  nullGradThresh = opts.null_grad_thresh
+  nullGradVal    = opts.null_grad_val
   vetoFiles = []
   if opts.veto_directory:
     vetoString = ','.join([str(i) for i in range(2,opts.veto_category+1)])
@@ -1066,5 +1142,7 @@ if __name__=='__main__':
 
   main(trigFile, injFile, GRBnum, outdir, segdir, chisq_index=q,\
        chisq_nhigh=n, null_thresh = nullt, max_mchirp=max_mchirp,\
-       vetoFiles=vetoFiles, verbose=verbose)
+       vetoFiles=vetoFiles,snrThresh=snrThresh,snglSnrThresh=snglSnrThresh,\
+       newSnrThresh=newSnrThresh,nullGradThresh=nullGradThresh,\
+       nullGradVal=nullGradVal, verbose=verbose)
   if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))
