@@ -1352,6 +1352,7 @@ InspiralTmpltBankFromLIGOLw (
 { \
   thisSim = *simHead; \
   *simHead = (*simHead)->next; \
+  LALFree( thisSim->event_id ); \
   LALFree( thisSim ); \
   thisSim = NULL; \
 }
@@ -1429,6 +1430,7 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
+    {"simulation_id",       -1, 56},
     {NULL,                   0, 0}
   };
 
@@ -1727,11 +1729,21 @@ SimInspiralTableFromLIGOLw (
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
-        }
-        else if ( tableDir[j].idx == 57 ) {
-        	thisSim->qmParameter2 = r4colData;
+        else if ( tableDir[j].idx == 56 )
+        {
+                /* populate event_id */
+                thisSim->event_id = LALCalloc(1,sizeof(EventIDColumn));
+                snprintf(thisSim->event_id->textId, LIGOMETA_UNIQUE_MAX * sizeof(CHAR),
+                        "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
+                thisSim->event_id->simInspiralTable = *simHead;
+                char delim[]=":";
+                char *result=NULL;
+                char *last=NULL;
+                char *saveptr=NULL;
+                result=strtok_r(thisSim->event_id->textId,delim, &saveptr);
+                do last = result;
+                while( (result = strtok_r(NULL,delim, &saveptr)) );
+                if(last) sscanf(last,"%"LAL_UINT8_FORMAT,&(thisSim->event_id->id));
         }
         else
         {
