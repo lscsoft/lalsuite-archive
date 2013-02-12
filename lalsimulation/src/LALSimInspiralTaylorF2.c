@@ -138,7 +138,6 @@ int XLALSimInspiralTaylorF2(
     if (!htilde) XLAL_ERROR(XLAL_EFUNC);
     memset(htilde->data->data, 0, n * sizeof(COMPLEX16));
     XLALUnitDivide(&htilde->sampleUnits, &htilde->sampleUnits, &lalSecondUnit);
-
     /* extrinsic parameters */
     phi0 = phic;
     amp0 = 4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L); /* Why was there a factor of deltaF in the lalinspiral version? */
@@ -148,6 +147,8 @@ int XLALSimInspiralTaylorF2(
     iISCO = (size_t) (fISCO / deltaF);
     iISCO = (iISCO < n) ? iISCO : n;  /* overflow protection; should we warn? */
     data = htilde->data->data;
+    //printf("dF %lf tC %d istart %d isco %d n %d \n",deltaF,tC.gpsSeconds,(int) iStart,(int)iISCO,(int)n);
+
     for (i = iStart; i < iISCO; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);

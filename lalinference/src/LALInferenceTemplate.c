@@ -2343,3 +2343,50 @@ void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams, LA
 }
 
 
+void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata)
+/*****************************************************/
+/* Sine-Gaussian (burst) template.                   */
+/* Signal is (by now?) linearly polarised,           */
+/* i.e., the cross-waveform remains zero.            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* The (plus-) waveform is:                          */
+/*   a * exp(-((t-mu)/sigma)^2) * sin(2*pi*f*t-phi)  */
+/* Note that by setting f=0, phi=pi/2 you also get   */
+/* a `pure' Gaussian template.                       */
+/*                                                   */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * ************************************/
+/* Required (`IFOdata->modelParams') parameters are:                                    */
+/*   - "time"       (the "mu" parameter of the Gaussian part; REAL8, GPS sec.)          */
+/*   - "sigma"      (width, the "sigma" parameter of the Gaussian part; REAL8, seconds) */
+/*   - "frequency"  (frequency of the sine part; REAL8, Hertz)                          */
+/*   - "phase"      (phase (at above "mu"); REAL8, radians)                             */
+/*   - "amplitude"  (amplitude, REAL8)                                                  */
+/****************************************************************************************/
+{
+  
+
+      REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
+      //    REAL8TimeSeries       *signalvecREAL8=NULL;
+    
+      REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
+  UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
+  UINT4 i;
+     
+   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds-hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
+	
+    /* write template (time axis) location in "->modelParams" so that     */
+    /* template corresponds to stored parameter values                    */
+    /* and other functions may time-shift template to where they want it: */
+    
+    instant=instant+(INT8)windowshift*IFOdata->timeData->deltaT; //leave enough room for the tuckey windowing of the data.
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+     for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i){
+    IFOdata->freqModelhPlus->data->data[i].re  = 0.0;
+    IFOdata->freqModelhPlus->data->data[i].im  = 0.0;
+    IFOdata->freqModelhCross->data->data[i].re = 0.0;
+    IFOdata->freqModelhCross->data->data[i].im = 0.0;
+  }
+ 
+ IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+  return;
+}

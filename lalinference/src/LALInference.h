@@ -347,6 +347,8 @@ tagLALInferenceRunState
   REAL8			currentLikelihood;  /** This should be removed, can be given as an algorithmParams or proposalParams entry */
   REAL8                 currentPrior;       /** This should be removed, can be given as an algorithmParams entry */
   gsl_rng               *GSLrandom;         /** A pointer to a GSL random number generator */
+  
+
 } LALInferenceRunState;
 
 
@@ -373,7 +375,8 @@ tagLALInferenceIFOData
   REAL8                      timeshift;     /** What is this? */
   COMPLEX16FrequencySeries  *freqData,      /** Buffer for frequency domain data */
                             *freqModelhPlus, *freqModelhCross, /** Buffers for frequency domain models */
-                            *whiteFreqData; /* Over-white. */
+                            *whiteFreqData, /* Over-white. */
+                            *noff;
   COMPLEX16TimeSeries       *compTimeData, *compModelData; /** Complex time series data buffers */
   LIGOTimeGPSVector         *dataTimes;                    /** Vector of time stamps for time domain data */
   LALInferenceVariables              *modelParams;         /** Parameters used when filling the buffers - template functions should copy to here */
@@ -390,9 +393,21 @@ tagLALInferenceIFOData
   LIGOTimeGPS		    epoch;              /** The epoch of this observation (the time of the first sample) */
   REAL8                     SNR;                /** IF INJECTION ONLY, E(SNR) of the injection in the detector.*/
   REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
-
+  struct tagLALInferenceBestIFO *BestIFO;
+  int skipIFO;
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
+
 } LALInferenceIFOData;
+
+typedef struct 
+tagLALInferenceBestIFO
+{
+ 
+  COMPLEX16FrequencySeries  *TemplateFromInjection;  /** This is the data of the best IFO, used as a template for the other IFOs */
+  LALDetector *detector;
+} LALInferenceBestIFO;
+
+
 
 /** Returns the element of the process params table with "name" */
 ProcessParamsTable *LALInferenceGetProcParamVal(ProcessParamsTable *procparams,const char *name);

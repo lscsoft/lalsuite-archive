@@ -1424,7 +1424,7 @@ void LALInferenceSkyReflectDetPlane(LALInferenceRunState *runState, LALInference
   static UINT4 warningDelivered = 0;
   if (numDetectorsUniquePositions(runState) != 3) {
     if (warningDelivered) {
-      /* Do nothing. */
+      // Do nothing. 
     } else {
       fprintf(stderr, "WARNING: trying to reflect through the decector plane with %d\n", numDetectorsUniquePositions(runState));
       fprintf(stderr, "WARNING: geometrically independent locations,\n");
@@ -1436,6 +1436,7 @@ void LALInferenceSkyReflectDetPlane(LALInferenceRunState *runState, LALInference
     return; 
   }
 
+//printf("reflecting plaen\n");
   REAL8 ra = *(REAL8 *)LALInferenceGetVariable(proposedParams, "rightascension");
   REAL8 dec = *(REAL8 *)LALInferenceGetVariable(proposedParams, "declination");
   REAL8 baryTime = *(REAL8 *)LALInferenceGetVariable(proposedParams, "time");

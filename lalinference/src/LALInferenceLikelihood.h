@@ -176,6 +176,7 @@ REAL8 LALInferenceComputeFrequencyDomainOverlap(LALInferenceIFOData * data,
  * Used for normalising.
  */
 REAL8 LALInferenceNullLogLikelihood(LALInferenceIFOData *data);
+REAL8 LALInferenceNullLogLikelihoodBestIFO(LALInferenceIFOData *data);
 
 /**
  * Identical to LALInferenceTimeDomainLogLikelihood, but returns the likelihood of a null template.
@@ -280,5 +281,5 @@ REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams,
 
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
                               LALInferenceTemplateFunction *template);
-
+REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction *template);
 #endif

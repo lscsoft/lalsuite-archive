@@ -660,7 +660,7 @@ printf("Im here\n");
 		const double t = ((int) i - (length - 1) / 2) * delta_t; // t in [-30 tau, ??]
 		const double phi = LAL_TWOPI * centre_frequency * t; // this is the actual time, not t0
 		const double fac = exp(-0.5 * phi * phi / (Q * Q));
-		(*hplus)->data->data[i]  = h0plus * fac * cos(phi);
+		(*hplus)->data->data[i]  = 0.0*h0plus * fac * cos(phi);
 		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  //salvo remove zero here
 		//fprintf(stdout,"%10.10e %10.10e\n",h0plus * fac * cos(phi), h0cross * fac * sin(phi));
 	}

@@ -264,5 +264,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
  *  (untested!)
  */
 void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata);
+void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata);
 
 #endif

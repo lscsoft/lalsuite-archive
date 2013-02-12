@@ -248,7 +248,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 	char *chartmp=NULL;
 	char **channels=NULL;
 	char **caches=NULL;
-  char **psds=NULL;
+	char **psds=NULL;
 	char **IFOnames=NULL;
 	char **fLows=NULL,**fHighs=NULL;
 	char **timeslides=NULL;
@@ -673,7 +673,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			}
 			IFOdata[i].freqData = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
 			if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
-
+            IFOdata[i].noff=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("noff",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
+			if(!IFOdata[i].noff) XLAL_ERROR_NULL(XLAL_EFUNC);
 			/* Create the fake data */
 			int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
 			if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
@@ -756,6 +757,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 			if(!IFOdata[i].timeData) {XLALPrintError("Error reading segment data for %s\n",IFOnames[i]); XLAL_ERROR_NULL(XLAL_EFUNC);}
 			IFOdata[i].freqData=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("freqData",&(IFOdata[i].timeData->epoch),0.0,1.0/SegmentLength,&lalDimensionlessUnit,seglen/2+1);
 			if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
+            IFOdata[i].noff=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("bareStream",&(IFOdata[i].timeData->epoch),0.0,1.0/SegmentLength,&lalDimensionlessUnit,seglen/2+1);
+			if(!IFOdata[i].noff) XLAL_ERROR_NULL(XLAL_EFUNC);
 			IFOdata[i].windowedTimeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("windowed time data",&(IFOdata[i].timeData->epoch),0.0,1.0/SampleRate,&lalDimensionlessUnit,seglen);
 			if(!IFOdata[i].windowedTimeData) XLAL_ERROR_NULL(XLAL_EFUNC);
 			XLALDDVectorMultiply(IFOdata[i].windowedTimeData->data,IFOdata[i].timeData->data,IFOdata[i].window->data);
@@ -974,7 +977,9 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
-	REAL8 SNR=0,NetworkSNR=0;
+	REAL8 SNR=0,NetworkSNR=0, previous_snr=0.0; 
+	UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
+	UINT4 highest_snr_index=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
@@ -1141,14 +1146,16 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
                                                 injEvent->inclination, lambda1, lambda2, waveFlags, nonGRparams ,
                                                 amporder, order, approximant);
       
-      XLALResampleREAL8TimeSeries(hplus,thisData->timeData->deltaT);
-      XLALResampleREAL8TimeSeries(hcross,thisData->timeData->deltaT);
+    
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);
         //XLALPrintError("XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         //XLAL_ERROR_VOID(XLAL_EFUNC);
       }
+       XLALResampleREAL8TimeSeries(hplus,thisData->timeData->deltaT);
+      XLALResampleREAL8TimeSeries(hcross,thisData->timeData->deltaT);
+      for (i=0;i<hplus->data->length;i++) hplus->data->data[i]=0.0;
       /* XLALSimInspiralChooseTDWaveform always ends the waveform at t=0 */
       /* So we can adjust the epoch so that the end time is as desired */
       XLALGPSAddGPS(&(hplus->epoch), &(injEvent->geocent_end_time));
@@ -1251,7 +1258,10 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     }
     thisData->SNR=sqrt(SNR);
     NetworkSNR+=SNR;
-
+    printf("this ifo snr %lf, previous %lf\n",thisData->SNR , previous_snr);
+    if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;previous_snr=thisData->SNR;}
+    highest_snr_index++;
+    
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
       PrintSNRsToFile(IFOdata , injTable);
     }
@@ -1303,6 +1313,58 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         fclose(rawWaveform);
         XLALDestroyREAL4TimeSeries(injectionBuffer);
     }
+    
+    thisData=IFOdata;
+    //LALInferenceIFOData *IFOdataRed=NULL;
+    UINT4 Nifo=3;
+    //IFOdataRed=calloc(sizeof(LALInferenceIFOData),Nifo-1);
+    highest_snr_index=0;
+    i=0;
+    
+    while(thisData){
+    thisData->BestIFO=LALMalloc (sizeof(LALInferenceBestIFO));
+    thisData->BestIFO->detector= LALMalloc (sizeof(LALDetector));
+    thisData->BestIFO->TemplateFromInjection=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injastempl",&thisData->timeData->epoch,
+										0.0,
+										thisData->freqData->deltaF,
+										&lalDimensionlessUnit,
+										thisData->freqData->data->length);
+    thisData=thisData->next;
+    }
+    thisData=IFOdata;
+    LALInferenceIFOData *thisData2=NULL;
+    thisData2=IFOdata;
+    
+   while(thisData){
+	    if (best_ifo_snr==highest_snr_index){
+            while(thisData2){
+                for(j=0;j<injF->data->length;j++){   
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re;
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im;
+                  }
+                memcpy(thisData2->BestIFO->detector,thisData->detector,sizeof(LALDetector));
+                thisData2=thisData2->next;
+            }
+            break;
+            }
+      else
+		highest_snr_index++;
+		thisData=thisData->next;
+		//Salvo: I have to remove the IFO which gave the best snr from the poll
+		
+		}
+    
+    printf("HSNR %d, nifo %d \n",highest_snr_index,Nifo);
+    
+    if (highest_snr_index==0)
+    IFOdata=&IFOdata[1];
+    else if (highest_snr_index==2)
+    IFOdata[highest_snr_index-1].next=NULL;
+    else{
+    IFOdata[highest_snr_index-1].next=&(IFOdata[highest_snr_index+1]);
+    }
+    
+    
     return;
 }
 
@@ -1816,8 +1878,10 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     REAL8 latitude=0.0;
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
-   
-    
+    REAL8 previous_max_snr=0.0,previous_min_snr=10E9; 
+	UINT4 best_ifo_snr=0, worst_ifo_snr=0;
+	UINT4 snr_index=0;
+    LALInferenceIFOData *thisData=NULL;
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	modelParams=tmpdata->modelParams;
     memset(modelParams,0,sizeof(LALInferenceVariables));
@@ -1942,6 +2006,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
                                              ra, dec, &GPSlal);
+printf("ra %lf dec %lf time %10.10e\n",ra,dec,injtime);
+    printf("timedelay for IFO %s : %lf\n",dataPtr->name,timedelay);
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
     timeshift =  (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))) + timedelay;
@@ -1949,15 +2015,23 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  / distMpc;
     FcrossScaled = Fcross / distMpc;
-
+printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")),(injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
     dataPtr->fPlus = FplusScaled;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
-
-  //char InjFileName[50];
-   //       sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
-   //       FILE *outInj=fopen(InjFileName,"w");
- 
+    
+   /* REAL8 ci=cos(*(REAL8*)LALInferenceGetVariable(currentParams,"inclination"));
+    double plusCoef  = -0.5 * (1.0 + ci*ci);
+   
+    REAL8 atan_phase=atan2(-Fcross*ci,Fplus*(ci*ci+1.0)/2.0);
+    REAL8 mu_i=sqrt(Fplus*Fplus*(0.5*(1.0+ci*ci))*(0.5*(1.0+ci*ci)) +Fcross* Fcross*ci*ci);
+    REAL8 true_amp,true_pha;
+    
+    REAL8 tmp_re ,tmp_im;
+  char InjFileName[50];
+          sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
+          FILE *outInj=fopen(InjFileName,"w");
+ */
      /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
@@ -1966,11 +2040,16 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
      chisquared = 0.0;
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      plainTemplateReal = FplusScaled * IFOdata->freqModelhPlus->data->data[i].re  
-                          +  FcrossScaled * IFOdata->freqModelhCross->data->data[i].re;
+      plainTemplateReal =FplusScaled * IFOdata->freqModelhPlus->data->data[i].re  
+                          + FcrossScaled * IFOdata->freqModelhCross->data->data[i].re; //SALVO
       plainTemplateImag = FplusScaled * IFOdata->freqModelhPlus->data->data[i].im  
-                          +  FcrossScaled * IFOdata->freqModelhCross->data->data[i].im;
-
+                          + FcrossScaled * IFOdata->freqModelhCross->data->data[i].im;
+                          
+   //  true_amp=sqrt(IFOdata->freqModelhPlus->data->data[i].re*IFOdata->freqModelhPlus->data->data[i].re/plusCoef/plusCoef+ IFOdata->freqModelhPlus->data->data[i].im*IFOdata->freqModelhPlus->data->data[i].im/plusCoef/plusCoef);
+     // true_pha=atan2(IFOdata->freqModelhPlus->data->data[i].im,IFOdata->freqModelhPlus->data->data[i].re);
+    //tmp_re=mu_i*true_amp*cos(true_pha+atan_phase)/distMpc;
+    //tmp_im=mu_i*true_amp*sin(true_pha+atan_phase)/distMpc;
+     // fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,plainTemplateReal,tmp_re,plainTemplateImag,tmp_im, sqrt(dataPtr->oneSidedNoisePowerSpectrum->data->data[i]));
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
       f = ((double) i) * deltaF;
@@ -1979,9 +2058,10 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
-  
-  
+//  fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,templateReal,tmp_re,templateImag,tmp_im, sqrt(dataPtr->oneSidedNoisePowerSpectrum->data->data[i]));
        //  fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,dataPtr->freqData->data->data[i].re,dataPtr->freqData->data->data[i].im,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+       dataPtr->noff->data->data[i].re= dataPtr->freqData->data->data[i].re;
+      dataPtr->noff->data->data[i].im= dataPtr->freqData->data->data[i].im;
       dataPtr->freqData->data->data[i].re+=templateReal;
       dataPtr->freqData->data->data[i].im+=templateImag;
    
@@ -1991,17 +2071,67 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
     NetSNR+=2.0*chisquared;
     dataPtr->SNR=sqrt(2.0*chisquared);
+     printf("this ifo snr %lf, previous min %lf previous max %lf \n",dataPtr->SNR , previous_min_snr,previous_max_snr);
+    if (dataPtr->SNR > previous_max_snr) {best_ifo_snr=snr_index;previous_max_snr=dataPtr->SNR;}
+    if (dataPtr->SNR < previous_min_snr) {worst_ifo_snr=snr_index;previous_min_snr=dataPtr->SNR;}
+    snr_index++;
     dataPtr = dataPtr->next;
     
-// fclose(outInj);
+ //fclose(outInj);
   }
-
+//exit(1);
     LALInferenceDestroyVariables(&intrinsicParams);
     printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
     
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
 	PrintSNRsToFile(IFOdata , inj_table);
     }
+    
+    
+    thisData=IFOdata;
+    //LALInferenceIFOData *IFOdataRed=NULL;
+    UINT4 Nifo=0,j=0;
+    //IFOdataRed=calloc(sizeof(LALInferenceIFOData),Nifo-1);
+    snr_index=0;
+    //int lowest_snr_index=0;
+    i=0;
+    
+    while(thisData){
+    thisData->BestIFO=LALMalloc (sizeof(LALInferenceBestIFO));
+    thisData->BestIFO->detector= LALMalloc (sizeof(LALDetector));
+    thisData->BestIFO->TemplateFromInjection=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injastempl",&thisData->timeData->epoch,
+										0.0,
+										thisData->freqData->deltaF,
+										&lalDimensionlessUnit,
+										thisData->freqData->data->length);
+    thisData=thisData->next;
+    Nifo++;
+    }
+    thisData=IFOdata;
+    LALInferenceIFOData *thisData2=NULL;
+    thisData2=IFOdata;
+    
+   while(thisData){
+       thisData->skipIFO=0;
+	    if (worst_ifo_snr==snr_index){ // SALVO: I put worst now for the moment
+            thisData->skipIFO=1;
+            while(thisData2){
+                for(j=0;j<thisData->freqData->data->length;j++){   
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re-thisData->noff->data->data[j].re;
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im-thisData->noff->data->data[j].im;
+                  }
+                memcpy(thisData2->BestIFO->detector,thisData->detector,sizeof(LALDetector));
+                thisData2=thisData2->next;
+            }
+            break;
+            }
+      else
+		snr_index++;
+		thisData=thisData->next;
+		}
+    
+    printf("best %d, worst %d nifo %d \n",best_ifo_snr,worst_ifo_snr,Nifo);
+    
 }
 
 
@@ -2235,7 +2365,7 @@ ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
     return;
 }
 
-void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine)
+void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable *commandLine)
 {
 	LALStatus status;
 	memset(&status,0,sizeof(status));
@@ -2248,7 +2378,9 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
-	REAL8 SNR=0,NetworkSNR=0;
+	REAL8 SNR=0.0,NetworkSNR=0.0, previous_snr=0.0; 
+	UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
+	UINT4 highest_snr_index=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
@@ -2259,7 +2391,7 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
 	UINT4 bufferN=0;
 	LIGOTimeGPS bufferStart;
 
-	
+	LALInferenceIFOData *IFOdata=irs->data;
 	LALInferenceIFOData *thisData=IFOdata->next;
 	REAL8 minFlow=IFOdata->fLow;
 	REAL8 MindeltaT=IFOdata->timeData->deltaT;
@@ -2365,7 +2497,7 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
       eccentricity=injEvent->pol_ellipse_e; // salvo
       //delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
       printf("READ polar angle %lf\n",polar_angle); 
-            printf("READ ecc %lf\n",injEvent->pol_ellipse_e); 
+      printf("READ ecc %lf\n",injEvent->pol_ellipse_e); 
 
       XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,thisData->timeData->deltaT);
 
@@ -2425,6 +2557,9 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
     }
     thisData->SNR=sqrt(SNR);
     NetworkSNR+=SNR;
+    
+    if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;    previous_snr=thisData->SNR;}
+    highest_snr_index++;
 
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
       //PrintSNRsToFile(IFOdata , &injTable);
@@ -2454,29 +2589,57 @@ void LALInferenceInjectBurstSignal(LALInferenceIFOData *IFOdata, ProcessParamsTa
     }
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
-    /* Output waveform raw h-plus mode 
-    if( (ppt=LALInferenceGetProcParamVal(commandLine,"--rawwaveform")) )
-    {
-        rawWaveform=fopen(ppt->value,"w");
-        bufferN = (UINT4) (bufferLength/IFOdata->timeData->deltaT);
-        memcpy(&bufferStart,&IFOdata->timeData->epoch,sizeof(LIGOTimeGPS));
-        XLALGPSAdd(&bufferStart,(REAL8) IFOdata->timeData->data->length * IFOdata->timeData->deltaT);
-        XLALGPSAdd(&bufferStart,-bufferLength);
-        COMPLEX8FrequencySeries *resp = XLALCreateCOMPLEX8FrequencySeries("response",&IFOdata->timeData->epoch,0.0,IFOdata->freqData->deltaF,&strainPerCount,IFOdata->freqData->data->length);
-        if(!resp) XLAL_ERROR_VOID(XLAL_EFUNC);
-        injectionBuffer=(REAL4TimeSeries *)XLALCreateREAL4TimeSeries("None",&bufferStart, 0.0, IFOdata->timeData->deltaT,&lalADCCountUnit, bufferN);
-        if(!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
-        // This marks the sample in which the real segment starts, within the buffer 
-        INT4 realStartSample=(INT4)((IFOdata->timeData->epoch.gpsSeconds - injectionBuffer->epoch.gpsSeconds)/IFOdata->timeData->deltaT);
-        realStartSample+=(INT4)((IFOdata->timeData->epoch.gpsNanoSeconds - injectionBuffer->epoch.gpsNanoSeconds)*1e-9/IFOdata->timeData->deltaT);
-        LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
-        if(status.statusCode) REPORTSTATUS(&status);
-        XLALDestroyCOMPLEX8FrequencySeries(resp);
-        injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,IFOdata->timeData->data->length);
-        for(j=0;j<injectionBuffer->data->length;j++) fprintf(rawWaveform,"%.6f\t%g\n", XLALGPSGetREAL8(&IFOdata->timeData->epoch) + IFOdata->timeData->deltaT*j, injectionBuffer->data->data[j]);
-        fclose(rawWaveform);
-        XLALDestroyREAL4TimeSeries(injectionBuffer);
-    }*/
+    
+    thisData=IFOdata;
+    //LALInferenceIFOData *IFOdataRed=NULL;
+    UINT4 Nifo=3;
+    //IFOdataRed=calloc(sizeof(LALInferenceIFOData),Nifo-1);
+    highest_snr_index=0;
+    i=0;
+    
+    while(thisData){
+    thisData->BestIFO=LALMalloc (sizeof(LALInferenceBestIFO));
+    thisData->BestIFO->detector= LALMalloc (sizeof(LALDetector));
+    thisData->BestIFO->TemplateFromInjection=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injastempl",&thisData->timeData->epoch,
+										0.0,
+										thisData->freqData->deltaF,
+										&lalDimensionlessUnit,
+										thisData->freqData->data->length);
+    thisData=thisData->next;
+    }
+    thisData=IFOdata;
+    LALInferenceIFOData *thisData2=NULL;
+    thisData2=IFOdata;
+    
+   while(thisData){
+	    if (best_ifo_snr==highest_snr_index){
+            while(thisData2){
+                for(j=0;j<injF->data->length;j++){   
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re;
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im;
+                  }
+                memcpy(thisData2->BestIFO->detector,thisData->detector,sizeof(LALDetector));
+                thisData2=thisData2->next;
+                printf("doing \n");
+            }
+            break;
+            }
+      else
+		highest_snr_index++;
+		thisData=thisData->next;
+		//Salvo: I have to remove the IFO which gave the best snr from the poll
+		
+		}
+    
+    printf("HSNR %d, nifo %d \n",highest_snr_index,Nifo);
+    
+    if (highest_snr_index==0)
+    irs->data=&(IFOdata[1]);
+    else if (highest_snr_index==2)
+    IFOdata[highest_snr_index-1].next=NULL;
+    else{
+    IFOdata[highest_snr_index-1].next=&(IFOdata[highest_snr_index+1]);
+    }
     return;
 }
 
