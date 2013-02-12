@@ -61,6 +61,53 @@ __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwester
 __version__= "git id %s"%git_version.id
 __date__= git_version.date
 
+def email_notify(address,path):
+    import smtplib
+    import subprocess
+    address=address.split(',')
+    SERVER="localhost"
+    USER=os.environ['USER']
+    HOST=subprocess.check_output(["hostname","-f"]).strip()
+    FROM=USER+'@'+HOST
+    SUBJECT="LALInference result is ready at "+HOST+"!"
+    # Guess the web space path for the clusters
+    fslocation=os.path.abspath(path)
+    webpath='posplots.html'
+    if 'public_html' in fslocation:
+        k='public_html'
+    elif 'WWW' in fslocation:
+        k='WWW'
+    else:
+        k=None
+    if k is not None:
+        (a,b)=(fslocation,'')
+        while a!=k:
+            (a,b)=fslocation.split(a)
+            webpath=os.path.join(b,webpath)
+    else: webpath=os.path.join(fslocation,'posplots.html')
+
+    if 'atlas.aei.uni-hannover.de' in HOST:
+        url="https://atlas1.atlas.aei.uni-hannover.de/"
+    elif 'ligo.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo.caltech.edu/"
+    elif 'ligo-wa.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo-wa.caltech.edu/"
+    elif 'ligo-la.caltech.edu' in HOST:
+        url="https://ldas-jobs.ligo-la.caltech.edu/"
+    elif 'phys.uwm.edu' in HOST:
+        url="https://ldas-jobs.phys.uwm.edu/"
+    elif 'phy.syr.edu' in HOST:
+        url="https://sugar-jobs.phy.syr.edu/"
+    else:
+        url=HOST+':'
+    url=url+webpath
+
+    TEXT="Hi "+USER+",\nYou have a new parameter estimation result on "+HOST+".\nYou can view the result at "+url
+    message="From: %s\nTo: %s\nSubject: %s\n\n%s"%(FROM,', '.join(address),SUBJECT,TEXT)
+    server=smtplib.SMTP(SERVER)
+    server.sendmail(FROM,address,message)
+    server.quit()
+
 
 class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
     def __init__(self,document):
@@ -217,7 +264,7 @@ def cbcBayesPostProc(
     
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
-    if injfile and eventnum:
+    if injfile and eventnum is not None:
         print 'Looking for event %i in %s\n'%(eventnum,injfile)
         xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
         siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
@@ -314,11 +361,10 @@ def cbcBayesPostProc(
 
     if 'sym_massratio' in pos.names:
         eta_name= 'sym_massratio'
+    elif 'massratio' in pos.names:
+        eta_name= 'massratio'
     else:
-	if 'massratio' in pos.names:
-        	eta_name= 'massratio'
-    	else:
-        	eta_name='eta'
+        eta_name='eta'
 
     if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -332,6 +378,10 @@ def cbcBayesPostProc(
 
         pos.append_mapping(('m1','m2'),bppu.q2ms,(mchirp_name,q_name))
         pos.append_mapping('eta',bppu.q2eta,(mchirp_name,q_name))
+
+    if ('spin1' in pos.names and 'm1' in pos.names) and \
+     ('spin2' in pos.names and 'm2' in pos.names):
+       pos.append_mapping('chi', lambda m1,s1z,m2,s2z: (m1*s1z + m2*s2z) / (m1 + m2), ('m1','spin1','m2','spin2'))
 
     if('a_spin1' in pos.names): pos.append_mapping('a1',lambda a:a,'a_spin1')
     if('a_spin2' in pos.names): pos.append_mapping('a2',lambda a:a,'a_spin2')
@@ -389,6 +439,15 @@ def cbcBayesPostProc(
             pos.append_mapping(new_spin_params, bppu.spin_angles, old_params)
         except KeyError:
             print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+
+    #Calculate new tidal parameters
+    new_tidal_params = ['lam_tilde','dlam_tilde']
+    old_tidal_params = ['lambda1','lambda2','eta']
+    if 'lambda1' in pos.names or 'lambda2' in pos.names:
+        try:
+            pos.append_mapping(new_tidal_params, bppu.symm_tidal_params, old_tidal_params)
+        except KeyError:
+            print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
 
     #Calculate spin magnitudes for aligned runs
     if 'spin1' in pos.names:
@@ -927,7 +986,8 @@ def cbcBayesPostProc(
 
         #= Plot 2D histograms of greedily binned points =#
 
-        greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+        #greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+        greedy2ContourPlot=bppu.plot_two_param_kde_greedy_levels({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
         if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
@@ -1135,6 +1195,7 @@ if __name__=='__main__':
     parser.add_option("--nopdfs",action="store_false",default=True,dest="nopdfs")
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1162,7 +1223,7 @@ if __name__=='__main__':
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
-    tidalParams=['lambda1','lambda2']
+    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
@@ -1210,6 +1271,8 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        twoDGreedyMenu.append(['lambda1','lambda2'])
+        twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1228,8 +1291,10 @@ if __name__=='__main__':
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
           twoDGreedyMenu.append([dt1,dt2])
-    for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
+    for param in tigerParams + bransDickeParams + massiveGravitonParams:
         greedyBinSizes[param]=0.01
+    for param in tidalParams:
+        greedyBinSizes[param]=2.5
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
         greedyBinSizes[loglname]=0.1
@@ -1275,4 +1340,13 @@ if __name__=='__main__':
                         #header file for parameter names in posterior samples
                         header=opts.header
                     )
+
+    # Send an email, useful for keeping track of dozens of jobs!
+    # Will only work if the local host runs a mail daemon
+    # that can send mail to the internet
+    if opts.email:
+        try:
+            email_notify(opts.email,opts.outpath)
+        except:
+            print 'Unable to send notification email'
 #

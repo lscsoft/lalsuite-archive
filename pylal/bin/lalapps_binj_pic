@@ -41,6 +41,9 @@ from pylal.datatypes import SimBurst
 from pylal import lalburst
 
 
+lsctables.use_in(ligolw.LIGOLWContentHandler)
+
+
 class SimBurst(SimBurst):
 	def set_time_geocent(self, gps):
 		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
@@ -77,18 +80,18 @@ def parse_command_line():
 	parser.add_option("--sample-rate", metavar = "Hz", type = "int", default = 16384, help = "Set the sample rate of the data into which the injections will be placed (default = 16384).  This information is required in order to normalize each pixel accurately.  If the wrong value is used, the result will be the addition of noise to the image.")
 	parser.add_option("-n", "--hrss-scale", metavar = "hrss", type = "float", default = 1e-20, help = "Set the hrss corresponding to \"white\" (default = 1e-20).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
-	parser.add_option("-T", "--time-slide-xml", metavar = "filename", help = "Associate injections with the first time_slide id in this XML table.")
+	parser.add_option("-T", "--time-slide-xml", metavar = "filename", help = "Associate injections with the first time slide ID in this XML file (required).")
 	options, filenames = parser.parse_args()
 
 	if options.gps_start_time is None:
-		raise ValueError, "missing required option --gps-start-time"
+		raise ValueError("missing required option --gps-start-time")
 	if not (0 <= options.overlap_fraction < 1.0):
-		raise ValueError, "--overlap-fraction must be in [0, 1)"
+		raise ValueError("--overlap-fraction must be in [0, 1)")
 	if options.delta_f * options.delta_t < 2 / math.pi:
-		raise ValueError, "the product of --delta-t and --delta-f must be >= 2/pi"
+		raise ValueError("the product of --delta-t and --delta-f must be >= 2/pi")
 	options.gps_start_time = lsctables.LIGOTimeGPS(options.gps_start_time)
 	if options.time_slide_xml is None:
-		raise ValueError, "missing required option time-slide-xml"
+		raise ValueError("missing required option time-slide-xml")
 
 	return options, filenames
 
@@ -120,9 +123,10 @@ if options.verbose:
 
 process_id = ilwd.ilwdchar("process:process_id:0")
 
-time_slide_table = lsctables.getTablesByType( utils.load_filename(options.time_slide_xml), lsctables.TimeSlideTable )[0]
+time_slide_table = lsctables.table.get_table(utils.load_filename(options.time_slide_xml, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler), lsctables.TimeSlideTable.tableName)
 time_slide_id = time_slide_table[0].time_slide_id
-print >>sys.stderr, "Associating injections with time slide ID %s" % time_slide_id
+if options.verbose:
+	print >>sys.stderr, "associating injections with time slide ID %s" % time_slide_id
 
 xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
@@ -148,8 +152,6 @@ for filename in filenames:
 			row.process_id = process_id
 			row.simulation_id = sim_burst_tbl.get_next_id()
 			row.time_slide_id = time_slide_id
-			if options.verbose:
-				print >>sys.stderr, "generating sim_burst table ...",
 
 			# source orientation
 			row.ra = row.dec = row.psi = 0
@@ -177,7 +179,7 @@ for filename in filenames:
 				row.egw_over_rsquared *= row.hrss / lalburst.XLALMeasureHrss(*lalburst.XLALGenerateSimBurst(row, 1.0 / 16384))
 				sim_burst_tbl.append(row)
 			if options.verbose:
-				print >>sys.stderr, "%d injections\r" % len(sim_burst_tbl),
+				print >>sys.stderr, "generating sim_burst table ... %d injections\r" % len(sim_burst_tbl),
 	if options.verbose:
 		print >>sys.stderr
 

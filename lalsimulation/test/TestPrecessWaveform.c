@@ -137,15 +137,15 @@ int main(void){
 		XLALSimInspiralDestroyWaveformFlags( waveFlags );
 
 		ret = XLALSimInspiralConstantPrecessionConeWaveform(
-				hp, hx,
+				&hp, &hx,
 				h_2_2, h_22, 
 				10, LAL_PI/4, 0,
 				0, LAL_PI/4 );
         if( ret != XLAL_SUCCESS )
             XLAL_ERROR( XLAL_EFUNC );
 
-		XLALDestroyCOMPLEX16TimeSeries( h_22 );
-		XLALDestroyCOMPLEX16TimeSeries( h_2_2 );
+		//XLALDestroyCOMPLEX16TimeSeries( h_22 );
+		//XLALDestroyCOMPLEX16TimeSeries( h_2_2 );
 
 		// Write out rotated waveform
 		for(i=0; i<hp->data->length; i++)

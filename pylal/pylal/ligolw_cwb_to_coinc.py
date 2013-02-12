@@ -133,7 +133,7 @@ class CWB2Coinc(object):
     Sets up table structures and calls populating methods.
     """
 
-    if os.path.splitext( rootfiles[0] ) == ".root":
+    if os.path.splitext(rootfiles[0])[1] == ".root":
       sim_tree = TChain("waveburst")
     else: # If the file is (for example) text, use a proxy class
       sim_tree = CWBTextConverter()
@@ -146,7 +146,7 @@ class CWB2Coinc(object):
 	  ["peak_time_ns", "start_time_ns", "stop_time_ns",
 	  "process_id", "ifo", "peak_time", "start_time", "stop_time", 
 	  "duration", "time_lag", "peak_frequency", "search",
-	  "flow", "fhigh", "bandwidth", "tfvolume", "hrss", "event_id"])
+	  "flow", "fhigh", "bandwidth", "tfvolume", "hrss", "event_id", "snr"])
     xmldoc.childNodes[0].appendChild(sngl_burst_table)
     sngl_burst_table.sync_next_id()
   
@@ -342,7 +342,7 @@ class CWB2Coinc(object):
     row.tfvolume = sim_tree.size[d]
     # Energy
     # energy / noise variance -> snr
-    row.snr = sim_tree.snr[d]
+    row.snr = sim_tree.snr[d]**(1./2.)
     # TODO: What to do with this? GW strain
     #row.strain = sim_tree.strain[d])
     # h _ root square sum
@@ -376,15 +376,17 @@ class CWB2Coinc(object):
       "username", "unix_procid", "domain"])
       xmldoc.childNodes[0].appendChild(process_table)
   
-    sim_tree.GetEntry(0)
-  
+    # get run IDs
     if(jobid < 0):
-      run = sim_tree.run
-    else: run = jobid
+      N = sim_tree.GetEntries()
+      runs = set()
+      for i in xrange(N):
+        sim_tree.GetEntry(i)
+        run = sim_tree.run
+        runs.add(int(run))
+    else:
+      run = jobid
     seg = segment
-  
-    row = process_table.RowType()
-    row.process_id = type(process_table.next_id)(run)
   
     # Imstruments involved in the search
     ifos = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
@@ -395,25 +397,25 @@ class CWB2Coinc(object):
         else: # Not enough information to completely fill out the table
             sys.exit("Found a job with no IFOs on, or not enough to determine IFOs. Try specifying instruments directly.")
 
-    row.ifos = ifos
-    row.comment = u"waveburst"
-    row.program = u"waveburst"
-  
-    row.start_time = None
-    row.end_time = None
-    row.jobid = run
-  
-    row.version = __version__
-    row.cvs_repository = u"lscsoft"
-    # TODO: Need a handle on where this comes from
-    row.cvs_entry_time = 0
-    row.is_online = 0
-    row.username = os.environ['USER']
-    row.node = platform.node()
-    row.unix_procid = os.getpid()
-    row.domain = u"pylal"
-  
-    process_table.append(row)
+    for run in runs:
+      row = process_table.RowType()
+      row.process_id = type(process_table.next_id)(run)
+      row.ifos = ifos
+      row.comment = u"waveburst"
+      row.program = u"waveburst"
+      row.start_time = None
+      row.end_time = None
+      row.jobid = run
+      row.version = __version__
+      row.cvs_repository = u"lscsoft"
+      # TODO: Need a handle on where this comes from
+      row.cvs_entry_time = 0
+      row.is_online = 0
+      row.username = os.environ['USER']
+      row.node = platform.node()
+      row.unix_procid = os.getpid()
+      row.domain = u"pylal"
+      process_table.append(row)
   
   def do_process_table(self, xmldoc, sim_tree):
     """
@@ -707,6 +709,7 @@ class CWB2Coinc(object):
         # out -- without waveoffset
         row.set_out(segments.segment(LIGOTimeGPS(0), LIGOTimeGPS(1)))
       else:
+
         seg_start_with_offset = sim_tree.gps - waveoffset
         seg_start_without_offset = sim_tree.gps
         seg_end_with_offset = sim_tree.gps + waveoffset + livetime
@@ -852,6 +855,7 @@ class CWBTextConverter(object):
 				continue
 			elif len(line.strip()) == 0:
 				# a blank line is assumed to be a new event entry
+				row["gps"] = row["segment"][0]
 				self.data.append( row )
 				row = {}
 				row["skymap"] = {}

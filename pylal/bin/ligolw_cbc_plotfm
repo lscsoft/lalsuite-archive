@@ -193,6 +193,10 @@ def parse_command_line():
             "Table to look in for recovered injections. " +
             "Can be any lsctable with a coinc_event_id. Default is coinc_inspiral."
         )
+    parser.add_option( "-M", "--map-label", action = "store", type = "string", default = None,
+        help = 
+            "Required. Name of the type of mapping that was used for finding injections."
+        )
     parser.add_option( "-L", "--livetime-program", action = "store", type = "string", default = "thinca",
         help =
             "Name of program used to get the analysis segments. This is needed to figure out what instruments (if any) were on for missed injections. "
@@ -275,19 +279,20 @@ def select_best_inj_match(found_table, selection_stat, select_by, use_match_rank
     for sim_id, matchlist in simid_index.items():
         if len(matchlist) > 1:
             # apply selection criteria
-            delete_these = [ row.coinc_event_id for row in matchlist
+            delete_these = set([ row.coinc_event_id for row in matchlist
                 if use_match_rank and row.recovered_match_rank != 1
                 or select_by == "MAX" and getattr(row, 'recovered_'+selection_stat) != max([getattr(x, 'recovered_'+selection_stat) for x in matchlist])
                 or select_by == "MIN" and getattr(row, 'recovered_'+selection_stat) != min([getattr(x, 'recovered_'+selection_stat) for x in matchlist])
-                ]
+                ])
             # check that only have one event left, if not, just keep the first non-deleted event in the list
-            if len(matchlist) - len(delete_these) > 1:
-                add_these = [ match.coinc_event_id for match in matchlist if match.coinc_event_id not in delete_these ]
-                add_these.pop(0)
-                delete_these.extend( add_these )
+            unique_ceids = list(set([row.coinc_event_id for row in matchlist]))
+            ii = 0
+            while len(unique_ceids) - len(delete_these) > 1:
+                delete_these.update([unique_ceids[ii]])
+                ii += 1
             # add to list to be deleted
-            delete_ceids.extend( delete_these )
-
+            delete_ceids.extend(list(delete_these))
+    
     # remove the deletes
     [ found_table.remove(row) for row in found_table[::-1] if row.coinc_event_id in delete_ceids ]
 
@@ -410,20 +415,17 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             
         found_table += [ row for row in 
             printutils.printsims(connection, opts.simulation_table, opts.recovery_table,
-            cbstat.replace('recovered_', ''), opts.rank_by,
+            opts.map_label, cbstat.replace('recovered_', ''), opts.rank_by,
             "slide", param_name = None, param_ranges = None,
             include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, verbose = False)]
 
 
-        # select best matches using snr
-        select_best_inj_match(found_table, 'snr', 'MAX', use_match_rank = True)
-
         # get missed table
         if opts.verbose:
             print >> sys.stderr, "\tgetting missed triggers from %s..." % filename
         missed_table += [ row for row in 
-            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table, opts.livetime_program,
+            printutils.printmissed( connection, opts.simulation_table, opts.recovery_table,  opts.map_label, opts.livetime_program,
             param_name = None, param_ranges = None,
             include_only_coincs = '[ALL in %s]' % on_instr,
             sim_tag = opts.sim_tag, limit = None, 
@@ -465,13 +467,18 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
             ymax = -numpy.inf
             ymin = numpy.inf
 
+            # select best matches using snr
+            this_group = [row for row in found_table if (param_name is not None and param_parser.group_by_param_range( get_sfrow_stat(row, param_name) ) == n) or param_name is None]
+            select_best_inj_match(this_group, 'snr', 'MAX', use_match_rank = True)
+
             # get desired plot values
+
             plotvals = [ (
                 get_sfrow_stat(row, xstat),
                 get_sfrow_stat(row, ystat),
                 get_sfrow_stat(row, 'recovered_' not in cbstat and 'recovered_' + cbstat or cbstat) )
-                for row in found_table
-                if (param_name is not None and param_parser.group_by_param_range( get_sfrow_stat(row, param_name) ) == n) or param_name is None ]
+                for row in this_group]
+
             # if logx, remove any 0 valued things
             if opts.logx:
                 popis = [ j for j, (statval, _, _ ) in enumerate(plotvals) if statval == 0 ]
@@ -526,7 +533,6 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                     if (param_name is not None and param_parser.group_by_param_range( get_cmrow_stat(row, param_name) ) == n) or param_name is None ]
 
                 if plotmissed != []:
-                    print "\tplotting missed"
                     if is_time_x is not None:
                         plotmissed = [ (sqlutils.convert_duration( x - gps_start_time, is_time_x.group(1) ), y) for (x,y) in plotmissed ]
                     if is_time_y is not None:
@@ -673,9 +679,6 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = xlabel 
             pylab.xlabel(lbl)
 
-            if opts.logx and not no_data and not x_is_string:
-                pylab.gca().semilogx()
-                
             # set y-axis parameters
             if is_time_y is not None:
                 lbl = '%s ($%i + %s$)' % (ystat.replace('_', ' ').title(), gps_start_time-1, is_time_y.group(1))
@@ -683,8 +686,15 @@ for on_instruments, (gps_start_time, gps_end_time) in experiments.items():
                 lbl = ylabel
             pylab.ylabel(lbl)
 
+            # set log properties
+            if opts.logx and not no_data and not x_is_string:
+                pylab.gca().semilogx()
+                
             if opts.logy and not no_data and not y_is_string:
                 pylab.gca().semilogy()
+            
+            if opts.logy and opts.logx and not no_data and not x_is_string and not y_is_string:
+                pylab.gca().loglog()
 
             # set x/y limits
             if opts.logx and not no_data and not x_is_string:

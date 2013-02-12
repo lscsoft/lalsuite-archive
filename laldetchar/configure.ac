@@ -1,6 +1,6 @@
 AC_PREREQ([2.63])
 AC_INIT([laldetchar],[0.0.0.1],[lal-discuss@gravity.phys.uwm.edu])
-AM_CONFIG_HEADER([include/config.h src/LALDetCharConfig.h])
+AC_CONFIG_HEADERS([include/config.h src/LALDetCharConfig.h])
 AC_CONFIG_SRCDIR([src/LALDetChar.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -15,6 +15,7 @@ AC_CONFIG_FILES([ \
   src/Makefile \
   python/Makefile \
   python/__init__.py \
+  python/triggers/Makefile \
   swig/Makefile \
   swig/octave/Makefile \
   swig/python/Makefile \
@@ -45,6 +46,9 @@ AC_SUBST([LIBCURRENT],[0])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
+
+# check for git repo
+LALSUITE_CHECK_GIT_REPO
 
 # nightly build
 LALSUITE_ENABLE_NIGHTLY
@@ -111,9 +115,29 @@ AC_HEADER_STDC
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
 
+# check for gsl
+PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
+CPPFLAGS="$CPPFLAGS $GSL_CFLAGS"
+LIBS="$GSL_LIBS $LIBS"
+AC_CHECK_LIB([gslcblas],[main],,[AC_MSG_ERROR([could not find the gsl library])])
+AC_CHECK_LIB([gsl],[gsl_version],,[AC_MSG_ERROR([could not find the gsl library])])
+LALSUITE_ENABLE_FAST_GSL
+
+# check for gsl headers
+AC_CHECK_HEADERS([gsl/gsl_errno.h],,[AC_MSG_ERROR([could not find the gsl/gsl_errno.h header])])
+
+# check for glib
+PKG_CHECK_MODULES([GLIB],[glib-2.0],[true],[false])
+CPPFLAGS="$CPPFLAGS $GLIB_CFLAGS"
+LIBS="$GLIB_LIBS $LIBS"
+AC_CHECK_LIB([glib-2.0],[g_sequence_new],,[AC_MSG_ERROR([could not find the glib library])])
+AC_CHECK_HEADERS([glib.h],,[AC_MSG_ERROR([could not find the glib.h header])])
+
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.7.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.7.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LAL],[6.9.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.9.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LALMetaIO],[1.0.4],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
+LALSUITE_CHECK_LIB([LALBurst],[1.1.2],[XLALEPSearch],[lal/EPSearch.h])
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLAL LAL])
@@ -133,18 +157,17 @@ AC_SUBST_FILE([LAL_HEADER_LINK])
 AC_PROG_MAKE_SET
 AC_OUTPUT
 echo "
-=================================================================
+==================================================
+LALDetChar has now been successfully configured:
 
-        LALDetChar has now been successfully configured:
+* SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
+* SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
 
-            SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
-            SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
+and will be installed under the directory:
 
-        and will be installed under the directory:
+${prefix}
 
-            ${prefix}
-
-        Now run 'make' to build LALDetChar
-        and run 'make install' to install LALDetChar
-
-================================================================="
+Now run 'make' to build LALDetChar,
+and run 'make install' to install LALDetChar.
+==================================================
+"

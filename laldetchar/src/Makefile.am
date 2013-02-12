@@ -1,21 +1,25 @@
 AM_CPPFLAGS = -I$(top_builddir)/include
+LDADD = liblaldetchar.la
 
 laldetcharincludedir = $(includedir)/lal
 laldetcharinclude_HEADERS = \
 	LALDetChar.h \
 	LALDetCharConfig.h \
+	LALDetCharGlib.h \
 	LALDetCharLibVCSInfo.h \
 	LALDetCharRange.h \
+	LALDetCharHveto.h \
 	LALDetCharVCSInfo.h
 
 lib_LTLIBRARIES = liblaldetchar.la
 liblaldetchar_la_SOURCES = \
 	LALDetCharInspiralRange.c \
+	LALDetCharHveto.c \
 	LALDetCharVCSInfo.c
 
 liblaldetchar_la_LDFLAGS = -version-info $(LIBVERSION)
 
-CLEANFILES = \
+MOSTLYCLEANFILES = \
 	laldetchar-user-env.shell \
 	laldetchar-user-env.sh \
 	laldetchar-user-env.csh
@@ -24,9 +28,12 @@ sysconf_DATA = \
 	laldetchar-user-env.sh \
 	laldetchar-user-env.csh
 
+bin_PROGRAMS = \
+	laldetchar-hveto
+
+laldetchar_hveto_SOURCES = hveto.c
+
 BUILT_SOURCES = \
-	._vcsinfo \
-	LALDetCharVCSInfo.h \
 	laldetchar-user-env.sh \
 	laldetchar-user-env.csh
 
@@ -35,8 +42,8 @@ laldetchar-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "set LALDETCHAR_PREFIX $(prefix)" >>$@
 	@echo "prepend PATH $(bindir)" >>$@
 	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
+	@echo "prepend PYTHONDIR $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
 
 laldetchar-user-env.csh laldetchar-user-env.sh: laldetchar-user-env.shell $(srcdir)/generate_user_env.awk
@@ -44,14 +51,15 @@ laldetchar-user-env.csh laldetchar-user-env.sh: laldetchar-user-env.shell $(srcd
 
 EXTRA_DIST = \
 	LALDetCharConfig.h.in \
-	LALDetCharVCSInfo.h.in \
-	generate_user_env.awk \
-	generate_vcs_info.py
+	generate_user_env.awk
 
-LALDetCharVCSInfo.h: ._vcsinfo
-
-._vcsinfo: $(srcdir)/generate_vcs_info.py LALDetCharConfig.h
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALDetChar $(srcdir) $$PWD
+if HAVE_GIT_REPO
+BUILT_SOURCES += LALDetCharVCSInfo.h
+MOSTLYCLEANFILES += LALDetCharVCSInfo.h
+LALDetCharVCSInfo.h .PHONY : gen-LALDetCharVCSInfo.h
+gen-LALDetCharVCSInfo.h :
+	$(GENERATE_VCS_INFO) LALDetCharVCSInfo.h $(srcdir)/LALDetCharVCSInfo.h.git
+endif
 
 @LAL_HEADER_LINK@
 

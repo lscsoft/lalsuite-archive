@@ -8,6 +8,7 @@
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #       Salvatore Vitale <salvatore.vitale@ligo.org>
+#       Vivien Raymond <vivien.raymond@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -62,17 +63,17 @@ fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_width*golden_mean      # height in inches
 fig_size =  [fig_width,fig_height]
 matplotlib.rcParams.update(
-        {'axes.labelsize': 11,
-        'text.fontsize':   11,
-        'legend.fontsize': 11,
-        'xtick.labelsize': 11,
-        'ytick.labelsize': 11,
+        {'axes.labelsize': 16,
+        'text.fontsize':   16,
+        'legend.fontsize': 16,
+        'xtick.labelsize': 16,
+        'ytick.labelsize': 16,
         'text.usetex': False,
         'figure.figsize': fig_size,
         'font.family': "serif",
         'font.serif': ['Times','Palatino','New Century Schoolbook','Bookman','Computer Modern Roman','Times New Roman','Liberation Serif'],
         'font.weight':'normal',
-        'font.size':11,
+        'font.size':16,
         'savefig.dpi': 120
         })
 
@@ -174,6 +175,88 @@ border-bottom-style:double;
 }
 
 """
+
+#===============================================================================
+# Function used to generate plot labels.
+#===============================================================================
+def plot_label(param):
+  """
+  A lookup table for plot labels.
+  """
+  m1_names = ['mass1', 'm1']
+  m2_names = ['mass2', 'm2']
+  mc_names = ['mc','mchirp','chirpmass']
+  eta_names = ['eta','massratio','sym_massratio']
+  q_names = ['q','asym_massratio']
+  iota_names = ['iota','incl','inclination']
+  dist_names = ['dist','distance']
+  ra_names = ['rightascension','ra']
+  dec_names = ['declination','dec']
+  phase_names = ['phi_orb', 'phi', 'phase']
+
+  labels={
+      'm1':r'$m_1$',
+      'm2':r'$m_2$',
+      'mc':r'$\mathcal{M}$',
+      'eta':r'$\eta$',
+      'q':r'$q$',
+      'mtotal':r'$M_\mathrm{total}$',
+      'spin1':r'$S_1$',
+      'spin2':r'$S_2$',
+      'a1':r'$a_1$',
+      'a2':r'$a_2$',
+      'theta1':r'$\theta_1$',
+      'theta2':r'$\theta_2$',
+      'phi1':r'$\phi_1$',
+      'phi2':r'$\phi_2$',
+      'chi':r'$\chi$',
+      'tilt1':r'$t_1$',
+      'tilt2':r'$t_2$',
+      'costilt1':r'$\mathrm{cos}(t_1)$',
+      'costilt2':r'$\mathrm{cos}(t_2)$',
+      'iota':r'$\iota$',
+      'cosiota':r'$\mathrm{cos}(\iota)$',
+      'time':r'$t_\mathrm{c}$',
+      'dist':r'$d_\mathrm{L}$',
+      'ra':r'$\alpha$',
+      'dec':r'$\delta$',
+      'phase':r'$\phi$',
+      'psi':r'$\psi$',
+      'thetas':r'$\theta_\mathrm{s}$',
+      'costhetas':r'$\mathrm{cos}(\theta_\mathrm{s})$',
+      'beta':r'$\beta$',
+      'cosbeta':r'$\mathrm{cos}(\beta)$',
+      'logl':r'$\mathrm{log}(\mathcal{L})$'}
+
+  # Handle cases where multiple names have been used
+  if param in m1_names:
+    param = 'm1'
+  elif param in m2_names:
+    param = 'm2'
+  elif param in mc_names:
+    param = 'mc'
+  elif param in eta_names:
+    param = 'eta'
+  elif param in q_names:
+    param = 'q'
+  elif param in iota_names:
+    param = 'iota'
+  elif param in dist_names:
+    param = 'dist'
+  elif param in ra_names:
+    param = 'ra'
+  elif param in dec_names:
+    param = 'dec'
+  elif param in phase_names:
+    param = 'phase'
+
+  try:
+    label = labels[param]
+  except KeyError:
+    # Use simple string if no formated label is available for param
+    label = param
+
+  return label
 
 #===============================================================================
 # Functions used to parse injection structure.
@@ -536,7 +619,7 @@ class PosteriorOneDPDF(object):
         for interval in intervals:
             if interval<1.0:
                 samples_temp
-                N=np.size(np.squeeze(self.samples))
+                N=np.size(samples_temp)
                 #Find index of lower bound
                 lower_idx=int(floor((N/2.0)*(1-interval)))
                 if lower_idx<0:
@@ -574,7 +657,7 @@ class Posterior(object):
         self._posterior={}
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
-        self._loglaliases=['posterior', 'logl','logL','likelihood']
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
         self._votfile=votfile
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
@@ -763,13 +846,15 @@ class Posterior(object):
                         'mchirp':lambda inj:inj.mchirp,
                         'chirpmass':lambda inj:inj.mchirp,
                         'mc':lambda inj:inj.mchirp,
-                        'mass1':_inj_m1,
-                        'm1':_inj_m1,
-                        'mass2':_inj_m2,
-                        'm2':_inj_m2,
+                        'mass1':lambda inj:inj.mass1,
+                        'm1':lambda inj:inj.mass1,
+                        'mass2':lambda inj:inj.mass2,
+                        'm2':lambda inj:inj.mass2,
                         'eta':lambda inj:inj.eta,
                         'q':_inj_q,
                         'asym_massratio':_inj_q,
+                        'massratio':lambda inj:inj.eta,
+                        'sym_massratio':lambda inj:inj.eta,
                         'time': lambda inj:float(inj.get_end()),
                         'end_time': lambda inj:float(inj.get_end()),
                         'phi0':lambda inj:inj.phi0,
@@ -801,7 +886,13 @@ class Posterior(object):
                         'costilt2': lambda inj: np.cos(_inj_tilt2),
                         'cos(iota)': lambda inj: np.cos(inj.inclination),
                         'thetas':_inj_thetas,
-                        'beta':_inj_beta
+                        'beta':_inj_beta,
+                        'polarisation':lambda inj:inj.polarization,
+                        'polarization':lambda inj:inj.polarization,
+                        'h1_end_time':lambda inj:float(inj.get_end('H')),
+                        'l1_end_time':lambda inj:float(inj.get_end('L')),
+                        'v1_end_time':lambda inj:float(inj.get_end('V')),
+                        'lal_amporder':lambda inj:inj.amp_order
                        }
 
     def _getinjpar(self,paramname):
@@ -951,9 +1042,11 @@ class Posterior(object):
         """
         Append posteriors pos1,pos2,...=func(post_names)
         """
+        # deepcopy 1D posteriors to ensure mapping function doesn't modify the originals
+        import copy
         #1D input
         if isinstance(post_names, str):
-            old_post = self[post_names]
+            old_post = copy.deepcopy(self[post_names])
             old_inj  = old_post.injval
             old_trigs  = old_post.trigvals
             if old_inj:
@@ -975,7 +1068,7 @@ class Posterior(object):
                 self.append(new_post)
         #MultiD input
         else:
-            old_posts = [self[post_name] for post_name in post_names]
+            old_posts = [copy.deepcopy(self[post_name]) for post_name in post_names]
             old_injs = [post.injval for post in old_posts]
             old_trigs = [post.trigvals for post in old_posts]
             samps = func(*[post.samples for post in old_posts])
@@ -1227,6 +1320,9 @@ class Posterior(object):
         posterior samples must have a column named 'chain' so that the
         different chains can be separated.
         """
+        from numpy import seterr as np_seterr
+        np_seterr(all='raise')
+
         if "chain" in self.names:
             chains=np.unique(self["chain"].samples)
             chain_index=self.names.index("chain")
@@ -1241,7 +1337,11 @@ class Posterior(object):
             sigmaHat2=W + BoverN
             m=len(chainData)
             VHat=sigmaHat2 + BoverN/m
-            R = VHat/W
+            try:
+              R = VHat/W
+            except:
+              print "Error when computer Gelman-Rubin R statistic for %s.  This may be a fixed parameter"%pname
+              R = np.nan
             return R
         else:
             raise RuntimeError('could not find necessary column header "chain" in posterior samples')
@@ -2686,6 +2786,14 @@ def component_momentum(m, a, theta, phi):
 #
 #
 
+def symm_tidal_params(lambda1,lambda2,eta):
+    """
+    Calculate best tidal parameters
+    """
+    lam_tilde = (1./52.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
+    dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
+    return lam_tilde, dlam_tilde
+
 def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     Calculate physical spin angles.
@@ -2707,6 +2815,41 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
     thetas = array_polar_ang(J)
     beta  = array_ang_sep(J,L)
     return tilt1, tilt2, thetas, beta
+#
+#
+
+def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref):
+    """
+    Wrapper function for SimInspiralTransformPrecessingInitialConditions().
+    Vectorizes function for use in append_mapping() methods of the posterior class.
+    """
+    import lalsimulation as lalsim
+    transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
+
+    # Convert component masses to SI units
+    m1 *= lalsim.lal.LAL_MSUN_SI
+    m2 *= lalsim.lal.LAL_MSUN_SI
+
+    # Flatten arrays
+    ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref]
+    try:
+      for p,param in enumerate(ins):
+        ins[p] = param.flatten()
+    except:
+      pass
+
+    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1, m2, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1, m2, f) in zip(*ins)])
+
+    iota = results[:,0].reshape(-1,1)
+    spin1x = results[:,1].reshape(-1,1)
+    spin1y = results[:,2].reshape(-1,1)
+    spin1z = results[:,3].reshape(-1,1)
+    spin2x = results[:,4].reshape(-1,1)
+    spin2y = results[:,5].reshape(-1,1)
+    spin2z = results[:,6].reshape(-1,1)
+    a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
+    a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
+    return iota, theta1, phi1, theta2, phi2
 #
 #
 
@@ -2755,8 +2898,10 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     injpar=posterior[param].injval
     trigvals=posterior[param].trigvals
 
-    myfig=plt.figure(figsize=(4,3.5),dpi=200)
-    axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+  #myfig=plt.figure(figsize=(4,3.5),dpi=200)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
+  #axes=plt.Axes(myfig,[0.2, 0.2, 0.7,0.7])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
     myfig.add_axes(axes)
     majorFormatterX=ScalarFormatter(useMathText=True)
     majorFormatterX.format_data=lambda data:'%.6g'%(data)
@@ -2768,6 +2913,8 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
     if param.find('time')!=-1:
       offset=floor(min(pos_samps))
       pos_samps=pos_samps-offset
+      if injpar:
+        injpar=injpar-offset
       ax1_name=param+' + %i'%(int(offset))
     else: ax1_name=param
 
@@ -2808,7 +2955,8 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
 
     if injpar is not None:
         if min(pos_samps)<injpar and max(pos_samps)>injpar:
-            plt.axvline(injpar, color='b', linestyle='-.')
+
+            plt.axvline(injpar, color='r', linestyle='-.', linewidth=4)
 
             #rkde=gkde.integrate_box_1d(min(pos[:,i]),getinjpar(injection,i))
             #print "r of injected value of %s (kde) = %f"%(param,rkde)
@@ -2832,7 +2980,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
                 plt.axvline(trigval, color=color, linestyle='-.')
     #
     plt.grid()
-    plt.xlabel(ax1_name)
+    plt.xlabel(plot_label(ax1_name))
     plt.ylabel('Probability Density')
 
     # For RA and dec set custom labels and for RA reverse
@@ -3016,6 +3164,181 @@ def getDecString(radians,accuracy='auto'):
     #    else: return(getDecString(sign*radians,accuracy='deg'))
       return(getDecString(sign*radians,accuracy='deg'))
 
+def plot_two_param_kde_greedy_levels(posteriors_by_name,plot2DkdeParams,levels,colors_by_name,line_styles=__default_line_styles,figsize=(4,3),dpi=250,figposition=[0.2,0.2,0.48,0.75],legend='right',hatches_by_name=None):
+  """
+  Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
+  
+  @param posterior: an instance of the Posterior class.
+  
+  @param plot2DkdeParams: a dict {param1Name:Nparam1Bins,param2Name:Nparam2Bins}
+  """
+  
+  from scipy import seterr as sp_seterr
+  confidence_levels=levels
+
+  # Reversed parameter order here for consistency with the other
+  # plotting functions
+  par2_name,par1_name=plot2DkdeParams.keys()
+  xbin=plot2DkdeParams[par1_name]
+  ybin=plot2DkdeParams[par2_name]
+  levels= levels
+  np.seterr(under='ignore')
+  sp_seterr(under='ignore')
+  
+  fig=plt.figure(1,figsize=figsize,dpi=dpi)
+  plt.clf()
+  axes=fig.add_axes(figposition)
+  name_list=[]
+  
+  #This fixes the precedence of line styles in the plot
+  if len(line_styles)<len(levels):
+    raise RuntimeError("Error: Need as many or more line styles to choose from as confidence levels to plot!")
+  
+  CSlst=[]
+  for name,posterior in posteriors_by_name.items():
+    print 'Plotting '+name
+    name_list.append(name)
+    par1_injvalue=posterior[par1_name].injval
+    par2_injvalue=posterior[par2_name].injval
+    
+    par_trigvalues1=posterior[par1_name].trigvals
+    par_trigvalues2=posterior[par2_name].trigvals
+    xdat=posterior[par1_name].samples
+    ydat=posterior[par2_name].samples
+    a=np.squeeze(posterior[par1_name].samples)
+    b=np.squeeze(posterior[par2_name].samples)
+    offset=0.0
+    if par1_name.find('time')!=-1:
+      offset=floor(min(a))
+      a=a-offset
+    if par1_injvalue:
+      par1_injvalue=par1_injvalue-offset
+      ax1_name=par1_name+' + %i'%(int(offset))
+    else: ax1_name=par1_name
+
+    if par2_name.find('time')!=-1:
+      offset=floor(min(b))
+      b=b-offset
+    if par2_injvalue:
+      par2_injvalue=par2_injvalue-offset
+      ax2_name=par2_name+' + %i'%(int(offset))
+    else: ax2_name=par2_name
+    
+    samp=np.transpose(np.column_stack((xdat,ydat)))
+    
+    kde=stats.kde.gaussian_kde(samp)
+    den=kde(samp)
+    #grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
+    Nx=50
+    Ny=50
+    xax = np.linspace(np.min(xdat),np.max(xdat),Nx)
+    yax = np.linspace(np.min(ydat),np.max(ydat),Ny)
+    x,y = np.meshgrid(xax,yax)
+    grid_coords = np.row_stack( (x.flatten(),y.flatten()) )
+    z = kde(grid_coords)
+    z = z.reshape(Nx,Ny)
+    densort=np.sort(den)[::-1]
+    values=[]
+    Npts=xdat.shape[0]
+    zvalues=[]
+    for level in levels:
+      ilevel = int(Npts*level + 0.5)
+      if ilevel >= Npts:
+	ilevel = Npts-1
+      zvalues.append(densort[ilevel])
+    CS=plt.contour(x, y, z, zvalues,colors=[colors_by_name[name]],linestyles=line_styles )
+    CSlst.append(CS)
+    
+    if par1_injvalue is not None and par2_injvalue is not None:
+      plt.plot([par1_injvalue],[par2_injvalue],'b*',scalex=False,scaley=False,markersize=12)
+      
+    if par_trigvalues1 is not None and par_trigvalues2 is not None:
+	par1IFOs = set([IFO for IFO in par_trigvalues1.keys()])
+	par2IFOs = set([IFO for IFO in par_trigvalues2.keys()])
+	IFOs = par1IFOs.intersection(par2IFOs)
+	for IFO in IFOs:
+	  if IFO=='H1': color = 'r'
+	  elif IFO=='L1': color = 'g'
+	  elif IFO=='V1': color = 'm'
+	  else: color = 'c'
+	plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
+	
+  plt.xlabel(plot_label(par1_name))
+  plt.ylabel(plot_label(par2_name))
+  plt.grid()
+  
+  if len(name_list)!=len(CSlst):
+    raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
+  
+  full_name_list=[]
+  dummy_lines=[]
+  for plot_name in name_list:
+    full_name_list.append(plot_name)
+  if len(confidence_levels)>1:
+    for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+      dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+      full_name_list.append('%s%%'%str(int(cl*100)))
+      
+  fig_actor_lst = [cs.collections[0] for cs in CSlst]
+  fig_actor_lst.extend(dummy_lines)
+  if legend is not None:
+    twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+    for text in twodcontour_legend.get_texts():
+      text.set_fontsize('small')
+
+  majorFormatterX=ScalarFormatter(useMathText=True)
+  majorFormatterX.format_data=lambda data:'%.4g'%(data)
+  majorFormatterY=ScalarFormatter(useMathText=True)
+  majorFormatterY.format_data=lambda data:'%.4g'%(data)
+  majorFormatterX.set_scientific(True)
+  majorFormatterY.set_scientific(True)
+  axes.xaxis.set_major_formatter(majorFormatterX)
+  axes.yaxis.set_major_formatter(majorFormatterY)
+  Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+  if Nchars>8:
+    Nticks=3
+  elif Nchars>5:
+    Nticks=4
+  elif Nchars>4:
+    Nticks=5
+  else:
+    Nticks=6
+  locatorX=matplotlib.ticker.MaxNLocator(nbins=Nticks-1)
+  if par1_name=='rightascension' or par1_name=='ra':
+    (ramin,ramax)=plt.xlim()
+    locatorX=RALocator(min=ramin,max=ramax)
+    majorFormatterX=RAFormatter()
+  if par1_name=='declination' or par1_name=='dec':
+    (decmin,decmax)=plt.xlim()
+    locatorX=DecLocator(min=decmin,max=decmax)
+    majorFormatterX=DecFormatter()
+  axes.xaxis.set_major_formatter(majorFormatterX)
+  if par2_name=='rightascension' or par2_name=='ra':
+    (ramin,ramax)=plt.ylim()
+    locatorY=RALocator(ramin,ramax)
+    axes.yaxis.set_major_locator(locatorY)
+    majorFormatterY=RAFormatter()
+  if par2_name=='declination' or par2_name=='dec':
+    (decmin,decmax)=plt.ylim()
+    locatorY=DecLocator(min=decmin,max=decmax)
+    majorFormatterY=DecFormatter()
+    axes.yaxis.set_major_locator(locatorY)
+      
+  axes.yaxis.set_major_formatter(majorFormatterY)
+  #locatorX.view_limits(bins[0],bins[-1])
+  axes.xaxis.set_major_locator(locatorX)
+
+  fix_axis_names(plt,par1_name,par2_name)
+
+  if(par1_name.lower()=='ra' or par1_name.lower()=='rightascension'):
+    xmin,xmax=plt.xlim()
+    if(xmin<0.0): xmin=0.0
+    if(xmax>2.0*pi_constant): xmax=2.0*pi_constant
+    plt.xlim(xmax,xmin)
+
+  return fig
+
+
 def plot_two_param_kde(posterior,plot2DkdeParams):
     """
     Plots a 2D kernel density estimate of the 2-parameter marginal posterior.
@@ -3054,10 +3377,21 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
     samp=np.transpose(np.column_stack((xdat,ydat)))
 
     kde=stats.kde.gaussian_kde(samp)
+    
     grid_coords = np.append(x.reshape(-1,1),y.reshape(-1,1),axis=1)
 
     z = kde(grid_coords.T)
     z = z.reshape(Nx,Ny)
+    
+    values=[]
+    for level in levels:
+      ilevel = int(Npts*level + 0.5)
+      if ilevel >= Npts:
+	ilevel = Npts-1
+	zvalues.append(densort[ilevel])
+	
+	pp.contour(XS, YS, ZS, zvalues)
+    
     asp=xax.ptp()/yax.ptp()
 #    if(asp<0.8 or asp > 1.6): asp=1.4
     plt.imshow(z,extent=(xax[0],xax[-1],yax[0],yax[-1]),aspect=asp,origin='lower')
@@ -3077,8 +3411,8 @@ def plot_two_param_kde(posterior,plot2DkdeParams):
             else: color = 'c'
             plt.plot([par_trigvalues1[IFO]],[par_trigvalues2[IFO]],color=color,marker='o',scalex=False,scaley=False)
 
-    plt.xlabel(par1_name)
-    plt.ylabel(par2_name)
+    plt.xlabel(plot_label(par1_name))
+    plt.ylabel(plot_label(par2_name))
     plt.grid()
 
     # For RA and dec set custom labels and for RA reverse
@@ -3182,22 +3516,24 @@ def plot_two_param_greedy_bins_contourf(posteriors_by_name,greedy2Params,confide
         CSlst.append(CS)
     
     plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(par2_name)
-    plt.ylabel(par1_name)
+    plt.xlabel(plot_label(par2_name))
+    plt.ylabel(plot_label(par1_name))
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
     full_name_list=[]
     dummy_lines=[]
     for plot_name in name_list:
         full_name_list.append(plot_name)
-        for cl in confidence_levels+[1]:
-            dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
-            full_name_list.append('%s%%'%str(int(cl*100)))
+        if len(confidence_levels)>1:
+            for cl in confidence_levels+[1]:
+                dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),color='k'))
+                full_name_list.append('%s%%'%str(int(cl*100)))
         fig_actor_lst = [cs.collections[0] for cs in CSlst]
         fig_actor_lst.extend(dummy_lines)
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-    for text in twodcontour_legend.get_texts():
-        text.set_fontsize('small')
+    if legend is not None:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      for text in twodcontour_legend.get_texts():
+          text.set_fontsize('small')
     fix_axis_names(plt,par1_name,par2_name)
     return fig
 
@@ -3298,12 +3634,16 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
         if par1_name.find('time')!=-1:
           offset=floor(min(a))
           a=a-offset
+          if par1_injvalue:
+            par1_injvalue=par1_injvalue-offset
           ax1_name=par1_name+' + %i'%(int(offset))
         else: ax1_name=par1_name
 
         if par2_name.find('time')!=-1:
           offset=floor(min(b))
           b=b-offset
+          if par2_injvalue:
+            par2_injvalue=par2_injvalue-offset
           ax2_name=par2_name+' + %i'%(int(offset))
         else: ax2_name=par2_name
 
@@ -3338,11 +3678,10 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
                 Hsum+=val
                 temp[max_i]=0
             Hlasts.append(Hlast)
-
         CS=plt.contour(yedges[:-1],xedges[:-1],H,Hlasts,colors=[colors_by_name[name]],linestyles=line_styles)
         plt.grid()
         if(par1_injvalue is not None and par2_injvalue is not None):
-            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False)
+            plt.plot([par2_injvalue],[par1_injvalue],'b*',scalex=False,scaley=False,markersize=12)
         if(par1_trigvalues is not None and par2_trigvalues is not None):
             par1IFOs = set([IFO for IFO in par1_trigvalues.keys()])
             par2IFOs = set([IFO for IFO in par2_trigvalues.keys()])
@@ -3389,8 +3728,8 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
     	axes.xaxis.set_major_locator(locatorX)
 
     #plt.title("%s-%s confidence contours (greedy binning)"%(par1_name,par2_name)) # add a title
-    plt.xlabel(ax2_name)
-    plt.ylabel(ax1_name)
+    plt.xlabel(plot_label(ax2_name))
+    plt.ylabel(plot_label(ax1_name))
 
     if len(name_list)!=len(CSlst):
         raise RuntimeError("Error number of contour objects does not equal number of names! Use only *one* contour from each set to associate a name.")
@@ -3399,17 +3738,18 @@ def plot_two_param_greedy_bins_contour(posteriors_by_name,greedy2Params,confiden
 
     for plot_name in name_list:
         full_name_list.append(plot_name)
-    for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
-        dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
-        full_name_list.append('%s%%'%str(int(cl*100)))
+    if len(confidence_levels)>1:
+      for ls_,cl in zip(line_styles[0:len(confidence_levels)],confidence_levels):
+          dummy_lines.append(mpl_lines.Line2D(np.array([0.,1.]),np.array([0.,1.]),ls=ls_,color='k'))
+          full_name_list.append('%s%%'%str(int(cl*100)))
 
     fig_actor_lst = [cs.collections[0] for cs in CSlst]
 
     fig_actor_lst.extend(dummy_lines)
 
-    if legend is not None: twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
-
-    for text in twodcontour_legend.get_texts():
+    if legend is not None:
+      twodcontour_legend=plt.figlegend(tuple(fig_actor_lst), tuple(full_name_list), loc='right')
+      for text in twodcontour_legend.get_texts():
         text.set_fontsize('small')
 
 
@@ -3471,6 +3811,10 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     a=np.squeeze(posterior[par1_name].samples)
     b=np.squeeze(posterior[par2_name].samples)
 
+    #Extract injection information
+    par1_injvalue=posterior[par1_name.lower()].injval
+    par2_injvalue=posterior[par2_name.lower()].injval
+    
     #Create 2D bin array
     par1pos_min=a.min()
     par2pos_min=b.min()
@@ -3485,18 +3829,19 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     if par1_name.find('time')!=-1:
       offset=floor(min(a))
       a=a-offset
+      if par1_injvalue:
+        par1_injvalue=par1_injvalue-offset
       ax1_name=par1_name+' + %i'%(int(offset))
     else: ax1_name=par1_name
 
     if par2_name.find('time')!=-1:
       offset=floor(min(b))
       b=b-offset
+      if par2_injvalue:
+        par2_injvalue=par2_injvalue-offset
       ax2_name=par2_name+' + %i'%(int(offset))
     else: ax2_name=par2_name
 
-    #Extract injection information
-    par1_injvalue=posterior[par1_name.lower()].injval
-    par2_injvalue=posterior[par2_name.lower()].injval
 
     #Extract trigger information
     par1_trigvalues=posterior[par1_name.lower()].trigvals
@@ -3507,8 +3852,8 @@ def plot_two_param_greedy_bins_hist(posterior,greedy2Params,confidence_levels):
     myfig.add_axes(axes)
     
     #plt.clf()
-    plt.xlabel(ax2_name)
-    plt.ylabel(ax1_name)
+    plt.xlabel(plot_label(ax2_name))
+    plt.ylabel(plot_label(ax1_name))
 
     #bins=(par1pos_Nbins,par2pos_Nbins)
     bins=(50,50) # Matches plot_one_param_pdf
@@ -4090,6 +4435,7 @@ class PEOutputParser(object):
         nfiles = len(files)
         ntots=[]
         nEffectives = []
+        if nDownsample is None: print "Max ACL(s):"
         for inpname,fixedBurnin in zip(files,fixedBurnins):
             infile = open(inpname, 'r')
             try:
@@ -4119,7 +4465,16 @@ class PEOutputParser(object):
                         nonParamsIdxs = [header.index(name) for name in nonParams if name in header]
                         paramIdxs = [i for i in range(len(header)) if i not in nonParamsIdxs]
                         samps = np.array(lines).astype(float)
-                        nEffectives.append(min([effectiveSampleSize(samps[:,i])[0] for i in paramIdxs]))
+                        stride=samps[1,iterindex] - samps[0,iterindex]
+                        results = np.array([np.array(effectiveSampleSize(samps[:,i])[:2]) for i in paramIdxs])
+                        nEffs = results[:,0]
+                        nEffectives.append(min(nEffs))
+                        ACLs  = results[:,1]
+                        maxACLind = np.argmax(ACLs)
+                        maxACL = ACLs[maxACLind]
+                        # Get index in header, which includes "non-params"
+                        maxACLind = paramIdxs[maxACLind]
+                        print "%i (%s) for chain %s." %(stride*maxACL,header[maxACLind],inpname)
                     except:
                         nEffectives.append(None)
                         print "Error computing effective sample size of %s!"%inpname
@@ -4557,3 +4912,91 @@ class VOT2HTML:
   
     def close(self):
         return self.html.toprettyxml()
+
+def _cl_width(cl_bound):
+    """Returns (high - low), the width of the given confidence
+    bounds."""
+
+    return cl_bound[1] - cl_bound[0]
+
+def _cl_count(cl_bound, samples):
+    """Returns the number of samples within the given confidence
+    bounds."""
+    
+    return np.sum((samples >= cl_bound[0]) & (samples <= cl_bound[1]))
+
+def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
+    """Returns a tuple (relative_change, fractional_uncertainty,
+    percentile_uncertainty) giving the uncertainty in confidence
+    intervals from multiple posteriors.  
+
+    The uncertainty in the confidence intervals is the difference in
+    length between the widest interval, formed from the smallest to
+    largest values among all the cl_bounds, and the narrowest
+    interval, formed from the largest-small and smallest-large values
+    among all the cl_bounds.  Note that neither the smallest nor the
+    largest confidence intervals necessarily correspond to one of the
+    cl_bounds.
+
+    The relative change relates the confidence interval uncertainty to
+    the expected value of the parameter, the fractional uncertainty
+    relates this length to the length of the confidence level from the
+    combined posteriors, and the percentile uncertainty gives the
+    change in percentile over the combined posterior between the
+    smallest and largest confidence intervals.
+
+    @param cl The confidence level (between 0 and 1).
+
+    @param cl_bounds A list of (low, high) pairs giving the confidence
+    interval associated with each posterior.
+
+    @param posteriors A list of PosteriorOneDPDF objects giving the
+    posteriors."""
+
+    Ns=[p.samples.shape[0] for p in posteriors]
+    Nsamplers=len(Ns)
+
+    # Weight each sample within a run equally, and each run equally
+    # with respect to the others
+    all_samples = np.squeeze(np.concatenate([p.samples for p in posteriors], axis=0))
+    weights = np.squeeze(np.concatenate([p.samples*0.0+1.0/(Nsamplers*N) for (N,p) in zip(Ns,posteriors)], axis=0))
+
+    isort=np.argsort(all_samples)
+
+    all_samples = all_samples[isort]
+    weights = weights[isort]
+
+    param_mean = np.average(all_samples, weights=weights)
+
+    N=all_samples.shape[0]
+
+    alpha = (1.0 - cl)/2.0
+    
+    wttotal = np.cumsum(weights)
+    ilow = np.nonzero(wttotal >= alpha)[0][0]
+    ihigh = np.nonzero(wttotal >= 1.0-alpha)[0][0]
+
+    all_cl_bound = (all_samples[ilow], all_samples[ihigh])
+    
+    low_bounds = np.array([l for (l,h) in cl_bounds])
+    high_bounds = np.array([h for (l,h) in cl_bounds])
+
+    largest_cl_bound = (np.min(low_bounds), np.max(high_bounds))
+    smallest_cl_bound = (np.max(low_bounds), np.min(high_bounds))
+
+    if smallest_cl_bound[1] < smallest_cl_bound[0]:
+        # Then the smallest CL is NULL
+        smallest_cl_bound = (0.0, 0.0)
+
+    ci_uncertainty = _cl_width(largest_cl_bound) - _cl_width(smallest_cl_bound)
+
+    relative_change = ci_uncertainty/param_mean
+
+    frac_uncertainty = ci_uncertainty/_cl_width(all_cl_bound)
+
+    quant_uncertainty = float(_cl_count(largest_cl_bound, all_samples) - _cl_count(smallest_cl_bound, all_samples))/float(N)
+
+    return (relative_change, frac_uncertainty, quant_uncertainty)
+
+
+

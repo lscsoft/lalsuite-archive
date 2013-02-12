@@ -18,9 +18,13 @@
 *  MA  02111-1307  USA
 */
 
+#define LAL_USE_OLD_COMPLEX_STRUCTS
+#include <lal/NormalizeSFTRngMed.h>
+
+static const LALStatus empty_LALStatus;
+
 /**
- * \file
- * \ingroup pulsarCommon
+ * \addtogroup NormalizeSFTRngMed_h
  * \author Badri Krishnan and Alicia Sintes
  * \brief Normalizes SFTs based on their noise floor calculated using the running median
  *
@@ -63,11 +67,6 @@ of SFT vectors and also returns a collection of power-estimates for these vector
 the Running median method.
 
 */
-
-#define LAL_USE_OLD_COMPLEX_STRUCTS
-#include <lal/NormalizeSFTRngMed.h>
-
-static const LALStatus empty_LALStatus;
 
 /** Normalize an sft based on RngMed estimated PSD, and returns running-median.
  */
@@ -226,13 +225,20 @@ XLALSFTtoRngmed ( REAL8FrequencySeries *rngmed,	/**< [out] running-median smooth
   if ( blockSize > 0 )
     {
       XLAL_CHECK ( XLALPeriodoToRngmed ( rngmed, &periodo, blockSize ) == XLAL_SUCCESS, XLAL_EFUNC, "Call to XLALPeriodoToRngmed() failed." );
-
-      /* free memory */
-      XLALFree ( periodo.data->data );
-      XLALFree ( periodo.data );
     }
-  else
-    (*rngmed) = periodo;	/* struct-copy : don't do any running-median */
+  else	// blockSize==0 means don't use any running-median, just *copy* the periodogram contents into the output
+    {
+      strcpy ( rngmed->name, periodo.name );
+      rngmed->epoch 	= periodo.epoch;
+      rngmed->f0 	= periodo.f0;
+      rngmed->deltaF 	= periodo.deltaF;
+      rngmed->sampleUnits=periodo.sampleUnits;
+      memcpy ( rngmed->data->data, periodo.data->data, periodo.data->length * sizeof(periodo.data->data[0]) );
+    }
+
+  /* free memory */
+  XLALFree ( periodo.data->data );
+  XLALFree ( periodo.data );
 
   return XLAL_SUCCESS;
 
@@ -306,7 +312,7 @@ XLALPeriodoToRngmed ( REAL8FrequencySeries  *rngmed,		/**< [out] resulting 'smoo
   rngmed->f0 = periodo->f0;
   rngmed->deltaF = periodo->deltaF;
 
-  UINT4 blocks2 = blockSize/2 - 1; /* integer division, round down */
+  UINT4 blocks2 = blockSize/2; /* integer division, round down */
 
   LALRunningMedianPar rngMedPar;
   rngMedPar.blocksize = blockSize;

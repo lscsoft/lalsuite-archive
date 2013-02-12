@@ -229,10 +229,10 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
- 		# FIXME I'll just make the windows 15 ms
+ 		# FIXME I'll just make the windows 1.0 s
 
-                self.search_time_window = .015
-                self.coinc_time_window = .015
+                self.search_time_window = 1.0
+                self.coinc_time_window = 1.0
 
 
 	def type_near_time(self, t):

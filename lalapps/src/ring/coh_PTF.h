@@ -130,7 +130,9 @@ struct coh_PTF_params {
   REAL8        sampleRate;
   REAL8        padData;
   REAL8        segmentDuration;
+  REAL8        psdSegmentDuration;
   REAL8        strideDuration;
+  REAL8        psdStrideDuration;
   REAL8        truncateDuration;
   UINT4        numOverlapSegments;
   REAL4        dynRangeFac;
@@ -181,6 +183,7 @@ struct coh_PTF_params {
   REAL4        clusterWindow;
   SimInspiralTable *injectList;
   REAL4        injSearchWindow;
+  REAL4        injMchirpWindow;
   /* flags */
   int          strainData;
   int          ligoDoubleData;
@@ -201,6 +204,9 @@ struct coh_PTF_params {
   int          doSnglChiSquared;
   int          singlePolFlag;
   int          clusterFlag;
+  int          faceOnAnalysis;
+  int          faceAwayAnalysis;
+  int          dynTempLength;
   /* write intermediate result flags */
   int          writeRawData;
   int          writeProcessedData;
@@ -367,6 +373,7 @@ REAL4FrequencySeries *coh_PTF_get_invspec(
     REAL4TimeSeries         *channel,
     REAL4FFTPlan            *fwdplan,
     REAL4FFTPlan            *revplan,
+    REAL4FFTPlan            *psdplan,
     struct coh_PTF_params   *params
 );
 
@@ -417,6 +424,7 @@ void coh_PTF_cleanup(
     struct coh_PTF_params   *params,
     ProcessParamsTable      *procpar,
     REAL4FFTPlan            *fwdplan,
+    REAL4FFTPlan            *psdplan,
     REAL4FFTPlan            *revplan,
     COMPLEX8FFTPlan         *invPlan,
     REAL4TimeSeries         *channel[LAL_NUM_IFO+1],
@@ -438,6 +446,8 @@ void coh_PTF_cleanup(
 );
 
 REAL4FFTPlan *coh_PTF_get_fft_fwdplan( struct coh_PTF_params *params );
+
+REAL4FFTPlan *coh_PTF_get_fft_psdplan( struct coh_PTF_params *params );
 
 REAL4FFTPlan *coh_PTF_get_fft_revplan( struct coh_PTF_params *params );
 
@@ -676,6 +686,7 @@ ProcessParamsTable * create_process_params(
 int coh_PTF_output_events_xml(
     char               *outputFile,
     MultiInspiralTable *events,
+    SimInspiralTable *injections,
     ProcessParamsTable *processParamsTable,
     TimeSlide          *time_slide_head,
     struct coh_PTF_params *params
@@ -783,4 +794,10 @@ void findInjectionSegment(
     UINT4 *end,
     LIGOTimeGPS *epoch,
     struct coh_PTF_params *params
+);
+
+UINT4 checkInjectionMchirp(
+    struct coh_PTF_params *params,
+    InspiralTemplate *tmplt,
+    LIGOTimeGPS *epoch
 );

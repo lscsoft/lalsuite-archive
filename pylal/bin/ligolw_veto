@@ -72,7 +72,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.veto_segments_db is None:
-		raise ValueError, "missing required --veto-segments-db option"
+		raise ValueError("missing required --veto-segments-db option")
 
 	return options, (filenames or [None])
 

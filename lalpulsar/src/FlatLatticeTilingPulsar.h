@@ -16,15 +16,6 @@
 // Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
 // MA  02111-1307  USA
 //
-
-///
-/// \addtogroup FlatLatticeTilingPulsar_h
-/// \author Karl Wette
-/// \brief Lattice-based template generation for continuous wave parameter spaces
-///
-
-/// @{
-
 #ifndef _FLATLATTICETILINGPULSAR_H
 #define _FLATLATTICETILINGPULSAR_H
 
@@ -34,6 +25,48 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+///
+/// \defgroup FlatLatticeTilingPulsar_h Header FlatLatticeTilingPulsar.h
+/// \ingroup pkg_pulsarCovering
+/// \author Karl Wette
+/// \brief Lattice-based template generation for continuous wave parameter spaces
+///
+
+/// @{
+
+///
+/// Types of tiling for XLALSetFlatLatticeSuperSkyNZBound()
+///
+typedef enum {
+  FLSSNZ_LOWER = 0,	///< Tile over the lower hemisphere
+  FLSSNZ_PLANE,		///< Tile over the azimuthal plane
+  FLSSNZ_UPPER,		///< Tile over the upper hemisphere
+  FLSSNZ_SPHERE,	///< Tile over the whole sphere
+  FLSSNZ_LAST
+} FLSSNZ;
+
+///
+/// Set a singular bound(s) on the Z dimension of the sky position in super-sky coordinates
+///
+int XLALSetFlatLatticeSuperSkyNZBound(
+  FlatLatticeTiling* tiling,		///< [in] Tiling state
+  const size_t nz_dimension,		///< [in] Sky position Z dimension
+  const FLSSNZ type			///< [in] Tiling type
+  );
+
+///
+/// Set a constant frequency/spindown parameter space bound, given by the
+/// minimum and maximum of the two supplied bounds, on the flat lattice tiling
+///
+int XLALSetFlatLatticeFnDotConstantBound(
+  FlatLatticeTiling* tiling,	///< [in] Tiling state
+  const size_t nx_dimension,	///< [in] Sky position X dimension
+  const double offset[3],	///< [in] Sky position offset vector
+  const size_t dimension,	///< [in] Dimension on which bound applies
+  const double bound1,		///< [in] First bound on dimension
+  const double bound2		///< [in] Second bound on dimension
+  );
 
 ///
 /// Set a first spindown bound derived from spindown age and braking indices
@@ -59,10 +92,11 @@ int XLALSetFlatLatticeF2DotBrakingBound(
   const double max_braking		///< [in] Maximum braking index
   );
 
+/// @}
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif
 
-/// @}

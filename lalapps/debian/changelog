@@ -1,3 +1,21 @@
+lalapps (6.11.2-1) unstable; urgency=low
+
+  * LALApps 6.11.2
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Wed, 06 Feb 2013 11:45:33 -0600
+
+lalapps (6.11.1-1) unstable; urgency=low
+
+  * LALApps 6.11.1
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Fri, 11 Jan 2013 16:40:46 -0600
+
+lalapps (6.11.0-1) unstable; urgency=low
+
+  * LALApps 6.11.0
+
+ -- Adam Mercer <adam.mercer@ligo.org>  Mon, 10 Dec 2012 14:41:45 -0600
+
 lalapps (6.10.0-1) unstable; urgency=low
 
   * LALApps 6.10.0

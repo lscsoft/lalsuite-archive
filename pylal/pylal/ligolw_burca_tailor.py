@@ -35,8 +35,8 @@ import threading
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
+from glue.ligolw import array
 from glue.ligolw import param
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import date
@@ -600,12 +600,19 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 #
 
 
-def load_likelihood_data(filenames, name, verbose = False):
+class DefaultContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+array.use_in(DefaultContentHandler)
+lsctables.use_in(DefaultContentHandler)
+param.use_in(DefaultContentHandler)
+
+
+def load_likelihood_data(filenames, name, verbose = False, contenthandler = DefaultContentHandler):
 	coincparamsdistributions = None
 	for n, filename in enumerate(filenames):
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		xmldoc = utils.load_filename(filename, verbose = verbose)
+		xmldoc = utils.load_filename(filename, verbose = verbose, contenthandler = contenthandler)
 		if coincparamsdistributions is None:
 			coincparamsdistributions, seglists = get_coincparamsdistributions(xmldoc, name)
 		else:
@@ -645,7 +652,7 @@ def append_process(xmldoc, **kwargs):
 ParamDistDefinerID = ilwd.get_ilwdchar_class(u"param_dist_definer", u"param_dist_def_id")
 
 
-class ParamDistDefinerTable(table.Table):
+class ParamDistDefinerTable(lsctables.table.Table):
 	tableName = "param_dist_definer:table"
 	validcolumns = {
 		"process_id": "ilwd:char",

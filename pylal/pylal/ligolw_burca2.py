@@ -25,6 +25,13 @@
 
 
 import bisect
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not be
+	# available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import math
 import numpy
 from scipy import interpolate
@@ -74,7 +81,7 @@ class interp1d(interpolate.interp1d):
 		# only reason the y array could have negative numbers in it
 		# is the extrapolation that has just been done.
 
-		y = numpy.clip(y, 0.0, float("inf"))
+		y = numpy.clip(y, 0.0, PosInf)
 
 		# Build the interpolator.  Note the use of fill_value as
 		# the return value for x co-ordinates outside the domain of
@@ -100,7 +107,7 @@ class interp2d(interpolate.interp2d):
 
 		# Clip the z array to 0.  See interp1d for an explanation.
 
-		z = numpy.clip(z, 0.0, float("inf"))
+		z = numpy.clip(z, 0.0, PosInf)
 
 		# Build the interpolator.  Note the use of fill_value as
 		# the return value for co-ordinates outside the domain of
@@ -279,7 +286,10 @@ class LikelihoodRatio(Likelihood):
 			# event tuple is a gravitational wave, which is 0
 			# in this part of the parameter space.
 			return 0.0
-		return  P_inj / P_bak
+		try:
+			return  P_inj / P_bak
+		except ZeroDivisionError:
+			return PosInf
 
 
 #
@@ -302,10 +312,17 @@ def assign_likelihood_ratios(connection, coinc_def_id, offset_vectors, vetosegli
 	"""
 	#
 	# Convert offset vector keys to strings so that we can use the
-	# dictionary inside an SQL query
+	# dictionary inside an SQL query (they might be
+	# glue.ligolw.ilwd_char objects)
 	#
 
 	offset_vectors = dict((unicode(time_slide_id), offset_vector) for time_slide_id, offset_vector in offset_vectors.items())
+
+	#
+	# Create a cursor object for events_func() to reuse
+	#
+
+	cursor = connection.cursor()
 
 	#
 	# Construct the in-SQL likelihood ratio function.  Rely on Python's
@@ -313,7 +330,7 @@ def assign_likelihood_ratios(connection, coinc_def_id, offset_vectors, vetosegli
 	# this function's creation for use inside the function.
 	#
 
-	def likelihood_ratio(coinc_event_id, time_slide_id, cursor = connection.cursor()):
+	def likelihood_ratio(coinc_event_id, time_slide_id):
 		try:
 			return likelihood_ratio_func(likelihood_params_func([event for event in events_func(cursor, coinc_event_id) if veto_func(event, vetoseglists)], offset_vectors[time_slide_id], *params_func_extra_args))
 		except:
@@ -323,8 +340,7 @@ def assign_likelihood_ratios(connection, coinc_def_id, offset_vectors, vetosegli
 	connection.create_function("likelihood_ratio", 2, likelihood_ratio)
 
 	#
-	# Iterate over all coincs, assigning likelihood ratios to
-	# burst+burst coincs if the document contains them.
+	# Iterate over all coincs, assigning likelihood ratios.
 	#
 
 	if verbose:
@@ -337,13 +353,14 @@ SET
 	likelihood = likelihood_ratio(coinc_event_id, time_slide_id)
 WHERE
 	coinc_def_id == ?
-	""", (coinc_def_id,))
+	""", (unicode(coinc_def_id),))
 
 	#
 	# Done
 	#
 
 	connection.commit()
+	cursor.close()
 
 
 #

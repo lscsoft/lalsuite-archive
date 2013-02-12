@@ -46,6 +46,7 @@ int main(int argc, char **argv)
 
   /* FFT structures */
   REAL4FFTPlan             *fwdplan                 = NULL;
+  REAL4FFTPlan             *psdplan                 = NULL;
   REAL4FFTPlan             *revplan                 = NULL;
   COMPLEX8FFTPlan          *invPlan                 = NULL;
 
@@ -140,6 +141,7 @@ int main(int argc, char **argv)
 
   /* create forward and reverse fft plans */
   fwdplan = coh_PTF_get_fft_fwdplan(params);
+  psdplan = coh_PTF_get_fft_psdplan(params);
   revplan = coh_PTF_get_fft_revplan(params);
 
   verbose("Made fft plans %ld \n", timeval_subtract(&startTime));
@@ -213,7 +215,7 @@ int main(int argc, char **argv)
 
       /* compute the spectrum */
       invspec[ifoNumber] = coh_PTF_get_invspec(channel[ifoNumber], fwdplan,
-                                               revplan, params);
+                                               revplan, psdplan, params);
 
       /* create the segments */
 
@@ -401,7 +403,7 @@ int main(int argc, char **argv)
 
     /* compute the spectrum */
     invspec[ifoNumber] = coh_PTF_get_invspec(channel[ifoNumber], fwdplan,\
-                                              revplan, params);
+                                              revplan, psdplan, params);
     /* If white spectrum need to scale this. FIX ME!!! */
     if (params->whiteSpectrum)
     {
@@ -506,7 +508,18 @@ int main(int argc, char **argv)
   fcTmpltParams->fwdPlan      = XLALCreateForwardREAL4FFTPlan(numPoints, 
                                     params->fftLevel);
   fcTmpltParams->deltaT       = 1.0/params->sampleRate;
-  fcTmpltParams->fLow = params->lowTemplateFrequency;
+  if (params->dynTempLength)
+  {
+    fcTmpltParams->dynamicTmpltFlow = 1;
+  }
+  else
+  {
+    fcTmpltParams->dynamicTmpltFlow = 0;
+    fcTmpltParams->fLow = params->lowTemplateFrequency;
+  }
+  // This option holds 2x the length of data that is junk in each segment
+  // because of conditioning and the PSD.
+  fcTmpltParams->invSpecTrunc = params->truncateDuration;
 
   for(ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
   {
@@ -720,6 +733,28 @@ int main(int argc, char **argv)
     /* Loop over templates in the bank */
     for (i = 0; (i < numTmplts); PTFtemplate = PTFtemplate->next, i++)
     {
+      for (ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
+      {
+        if (params->haveTrig[ifoNumber])
+        {
+          segStartTime = segments[ifoNumber]->sgmnt[j].epoch;
+          break;
+        }
+      }
+
+      /* We only analyse middle half so add duration/4 to epoch */
+      XLALGPSAdd(&segStartTime, params->segmentDuration/4.0);
+
+      /* If running injections, check whether to analyse */
+      if ( params->injectFile && params->injMchirpWindow )
+      {
+        if (! checkInjectionMchirp(params,PTFtemplate,&segStartTime))
+        {
+          verbose("Injection not within mchirp window for segment %d, template %d at %ld \n", j, i, timeval_subtract(&startTime));
+          continue;
+        }
+      }
+
       /* Determine if this template is non-spinning */
       if (i >= numNoSpinTmplts)
         spinTemplate = 1;
@@ -750,18 +785,6 @@ int main(int argc, char **argv)
       else
         verbose("Generated no spin template %d at %ld \n", i,
                 timeval_subtract(&startTime));
-
-      for (ifoNumber = 0; ifoNumber < LAL_NUM_IFO; ifoNumber++)
-      {
-        if (params->haveTrig[ifoNumber])
-        {
-          segStartTime = segments[ifoNumber]->sgmnt[j].epoch;
-          break;
-        }
-      }
-
-      /* We only analyse middle half so add duration/4 to epoch */
-      XLALGPSAdd(&segStartTime, params->segmentDuration/4.0);
 
       /* Generate the various time series as needed*/
       /* Need to zero these out */
@@ -970,6 +993,10 @@ int main(int argc, char **argv)
               Fplus[ifoNumber] = (REAL4) FplusTmp;
               Fcross[ifoNumber] = (REAL4) FcrossTmp;
             }
+            if (params->faceAwayAnalysis && params->faceOnAnalysis)
+            {
+              params->faceOnStatistic = 1;
+            }
 
             // This function calculates the cohSNR time series and all of the
             // signal based vetoes as appropriate
@@ -997,6 +1024,36 @@ int main(int argc, char **argv)
                                            skyPoints->data[sp].longitude,
                                            skyPoints->data[sp].latitude,
                                            slideIDList[j], timeOffsets);
+
+            if (params->faceAwayAnalysis && params->faceOnAnalysis)
+            {
+              params->faceOnStatistic = 2; 
+
+              coh_PTF_statistic(cohSNR, PTFM, PTFqVec, params, spinTemplate,
+                              timeOffsets, Fplus, Fcross,
+                              j, pValues, gammaBeta, snrComps, nullSNR,
+                              traceSNR, bankVeto, autoVeto,
+                              chiSquare, subBankSize, bankOverlaps,
+                              bankNormOverlaps, dataOverlaps, autoTempOverlaps,
+                              fcTmplt, invspec, segments, invPlan,
+                              &chisqOverlaps,&chisqSnglOverlaps, frequencyRangesPlus,
+                              frequencyRangesCross, startTime);
+
+              verbose("Made coherent statistic for segment %d, template %d, "
+                      "sky point %d at %ld \n", j, i, sp,
+                      timeval_subtract(&startTime));
+
+              eventId = coh_PTF_add_triggers(params, &eventList, &thisEvent,
+                                           cohSNR, *PTFtemplate, eventId,
+                                           spinTemplate,
+                                           pValues, gammaBeta, snrComps,
+                                           nullSNR, traceSNR, bankVeto,
+                                           autoVeto, chiSquare, PTFM,
+                                           skyPoints->data[sp].longitude,
+                                           skyPoints->data[sp].latitude,
+                                           slideIDList[j], timeOffsets);
+            }
+
             params->numEvents = XLALCountMultiInspiral(eventList);
             verbose("There are currently %d triggers.\n", params->numEvents);
             verbose("Generated triggers for segment %d, template %d, sky point %d at %ld \n", j, i, sp, timeval_subtract(&startTime));
@@ -1134,8 +1191,8 @@ int main(int argc, char **argv)
     fprintf(stderr,"There are %d total triggers after cluster.\n", params->numEvents);
   }
 
-  coh_PTF_output_events_xml(params->outputFile, eventList, procpar,\
-                            time_slide_head, params);
+  coh_PTF_output_events_xml(params->outputFile, eventList, params->injectList,\
+                            procpar, time_slide_head, params);
 
   if (skyPoints->data)
     LALFree(skyPoints->data);
@@ -1145,7 +1202,7 @@ int main(int argc, char **argv)
   // This function cleans up memory usage
   XLALDestroyTimeSlideTable(time_slide_head);
   LALFree(timeSlideVectors);
-  coh_PTF_cleanup(params,procpar,fwdplan,revplan,invPlan,channel,
+  coh_PTF_cleanup(params,procpar,fwdplan,psdplan,revplan,invPlan,channel,
       invspec,segments,eventList,PTFbankhead,fcTmplt,fcTmpltParams,
       fcInitParams,PTFM,PTFN,PTFqVec,timeOffsets,Fplus,Fcross,Fplustrig,Fcrosstrig);
   
@@ -2343,7 +2400,7 @@ UINT8 coh_PTF_add_triggers(
   MultiInspiralTable *lastEvent = *thisEvent;
   MultiInspiralTable *currEvent = NULL;
   UINT4 numDOF = 4;
-  if ( params->singlePolFlag)
+  if ( params->singlePolFlag || params->faceOnStatistic )
     numDOF = 2;
 
   REAL4 cohSNRThreshold = params->threshold;
@@ -2610,6 +2667,10 @@ UINT8 coh_PTF_add_triggers(
           snprintf(currEvent->ifos, LIGOMETA_IFOS_MAX, "%s%s%s%s",
                    params->ifoName[0], params->ifoName[1], params->ifoName[2],
                    params->ifoName[3]);
+        }
+        if (params->faceOnStatistic == 2)
+        {
+          currEvent->inclination = LAL_PI/2.;
         }
 
         /* And add the trigger to the lists. IF it passes clustering! */

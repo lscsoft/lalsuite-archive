@@ -67,6 +67,9 @@ static const char lower_chars[] = "abcdefghijklmnopqrstuvwxyz";
  *
  * The cleaning gets rid of comments ('\#', ';'), empty lines,
  * and performs line-continuation if '\\' is found at EOL
+ *
+ * NOTE: This function can transparently detect and read gzip-compressed
+ * data-files, independently of filename-extension
  */
 int
 XLALParseDataFile (LALParsedDataFile **cfgdata, /**< [out] pre-parsed data-file lines */
@@ -75,7 +78,6 @@ XLALParseDataFile (LALParsedDataFile **cfgdata, /**< [out] pre-parsed data-file 
   CHARSequence *rawdata = NULL;
   FILE *fp;
   int err = 0;  /* error code */
-  struct stat stat_out;
 
   if (*cfgdata != NULL) {
     XLALPrintError ("%s:" CONFIGFILEH_MSGENONULL, __func__ );
@@ -86,27 +88,13 @@ XLALParseDataFile (LALParsedDataFile **cfgdata, /**< [out] pre-parsed data-file 
     XLAL_ERROR ( XLAL_EINVAL );
   }
 
-  if (  stat ( fname, &stat_out ) )
-    {
-      XLALPrintError ( "%s: Could not stat data-file: `%s` : \n\n", __func__, fname, strerror(errno) );
-      XLALPrintError( CONFIGFILEH_MSGEFILE);
-      XLAL_ERROR ( XLAL_EINVAL );
-    }
-
-  if ( ! S_ISREG(stat_out.st_mode)  )
-    {
-      XLALPrintError ( "%s: '%s' does not seem to be a regular file!\n", __func__, fname );
-      XLALPrintError ( CONFIGFILEH_MSGEFILE );
-      XLAL_ERROR ( XLAL_EDOM );
-    }
-
   if ( (fp = LALOpenDataFile (fname)) == NULL) {
     XLALPrintError ( "%s: Could not open data-file: `%s`\n\n", __func__, fname);
     XLALPrintError (CONFIGFILEH_MSGEFILE);
     XLAL_ERROR ( XLAL_ESYS );
   }
 
-  err = XLALCHARReadSequence (&rawdata, fp);
+  err = XLALCHARReadSequence (&rawdata, fp);	// this function can read gzip-compressed files
   fclose (fp);
   if (err)
     return err;

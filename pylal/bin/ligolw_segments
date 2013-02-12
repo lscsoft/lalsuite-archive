@@ -47,6 +47,9 @@ from pylal import git_version
 from pylal import llwapp
 
 
+lsctables.use_in(ligolw.LIGOLWContentHandler)
+
+
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -78,7 +81,7 @@ def parse_command_line():
 	options, urls = parser.parse_args()
 
 	if urls and len(urls) > 1 and options.output:
-		raise ValueError, "setting --output with multiple input files causes data loss"
+		raise ValueError("setting --output with multiple input files causes data loss")
 
 	options.insert_from_segwizard = [tuple(argument.split("=")) for argument in options.insert_from_segwizard]
 
@@ -143,7 +146,7 @@ for url in urls:
 
 
 	if url is not None:
-		xmldoc = utils.load_url(url, verbose = options.verbose)
+		xmldoc = utils.load_url(url, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	else:
 		# create an empty one
 		xmldoc = ligolw.Document()
@@ -193,7 +196,7 @@ for url in urls:
 			for cacheentry in [CacheEntry(line, coltype = lsctables.LIGOTimeGPS) for line in file(filename)]:
 				if cacheentry.description not in seglistdicts:
 					seglistdicts[cacheentry.description] = segments.segmentlistdict()
-				seglistdicts[cacheentry.description] |= cacheentry.to_segmentlistdict()
+				seglistdicts[cacheentry.description] |= cacheentry.segmentlistdict
 		for name, seglists in seglistdicts.items():
 			segments_tables.insert_from_segmentlistdict(seglists, name, version = options.segments_version, comment = options.comment)
 		del seglistdicts

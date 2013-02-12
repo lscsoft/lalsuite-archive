@@ -40,10 +40,7 @@
 #include <regex.h>
 #include <time.h>
 #include <math.h>
-
-#if HAVE_FFTW3_H
 #include <fftw3.h>
-#endif
 
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lalapps.h>
@@ -89,6 +86,7 @@
 #include <lal/NRWaveIO.h>
 #include <lal/NRWaveInject.h>
 #include <lal/LALFrameL.h>
+#include <lal/FFTWMutex.h>
 #include <lal/LALSimulation.h>
 
 #include <LALAppsVCSInfo.h>
@@ -253,6 +251,7 @@ CHAR *orderName = NULL;                 /* pN order of the waveform     */
 INT4 bcvConstraint      = 0;            /* constraint BCV filter        */
 INT4 flagFilterInjOnly  = -1;           /* flag for filtering inj. only */
 REAL4  CDataLength      = 1;            /* set length of c-data snippet (sec) */
+INT4 dynamicTmpltFlow   = 0;            /* Allow dynamic template length */
 
 /* rsq veto params */
 INT4 enableRsqVeto      = -1;           /* enable the r^2 veto          */
@@ -528,7 +527,9 @@ int main( int argc, char *argv[] )
   /* Import system wide FFTW wisdom file, if it exists.  Only single precision used. */
 
 #ifdef LAL_FFTW3_ENABLED
+  LAL_FFTW_PTHREAD_MUTEX_LOCK;
   fftwf_import_system_wisdom();
+  LAL_FFTW_PTHREAD_MUTEX_UNLOCK;
 #endif
 
   /* can use LALMalloc() and LALCalloc() from here onwards */
@@ -1893,6 +1894,12 @@ int main( int argc, char *argv[] )
   fcDataParams->dynRange = fcTmpltParams->dynRange = dynRange;
   fcTmpltParams->deltaT = chan.deltaT;
   fcTmpltParams->fLow = fLow;
+  if ((approximant == FindChirpSP) && (dynamicTmpltFlow))
+  {
+    /* Allow dynamic template length, but only for SPA */
+    fcTmpltParams->dynamicTmpltFlow = dynamicTmpltFlow;
+    fcTmpltParams->invSpecTrunc = invSpecTrunc * sampleRate;
+  }
   fcTmpltParams->reverseChirpBank = reverseChirpBank;
   fcTmpltParams->order = order;
   fcTmpltParams->bandPassTmplt = bandPassTmplt;
@@ -3687,6 +3694,7 @@ fprintf( a, "  --number-of-segments N       set number of data segments to N\n")
 fprintf( a, "  --segment-overlap N          overlap data segments by N points\n");\
 fprintf( a, "\n");\
 fprintf( a, "  --low-frequency-cutoff F     do not filter below F Hz\n");\
+fprintf( a, " --enable-dynamic-tmplt-flow   Use longest template that will fit in pad length\n");\
 fprintf( a, "  --inverse-spec-length T      set length of inverse spectrum to T seconds\n");\
 fprintf( a, "  --dynamic-range-exponent X   set dynamic range scaling to 2^X\n");\
 fprintf( a, "\n");\
@@ -3808,6 +3816,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"hardware-injection",      no_argument,       &hardwareInjection,1 },
     {"reverse-chirp-bank",      no_argument,       &reverseChirpBank, 1 },
     {"do-rsq-veto",             no_argument,       &doRsqVeto,        1 },
+    {"enable-dynamic-tmplt-flow",no_argument,      &dynamicTmpltFlow, 1 },
     /* these options don't set a flag */
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-start-time-ns",       required_argument, 0,                'A'},
@@ -3937,16 +3946,16 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     size_t optarg_len;
 #ifdef LALAPPS_CUDA_ENABLED
     c = getopt_long_only( argc, argv,
-        "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:?:X:Y:Z:"
-        "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:+:",
+        "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:V:W:?:X:Y:Z:"
+        "a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
+        "0:1::2:3:4:5:6:7:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:+:,:",
         long_options, &option_index );
 #endif
 #ifndef LALAPPS_CUDA_ENABLED
     c = getopt_long_only( argc, argv,
-        "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:VW:?:X:Y:Z:"
-        "a:b:c:d:e:f:g:hi:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
-        "0:1::2:3:4:567:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:",
+        "-A:B:C:D:E:F:G:H:I:J:K:L:M:N:O:P:Q:R:S:T:U:V:W:?:X:Y:Z:"
+        "a:b:c:d:e:f:g:h:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:"
+        "0:1::2:3:4:5:6:7:8:9:*:>:<:(:):[:],:{:}:|:~:$:+:=:^:.:,:",
         long_options, &option_index );
 #endif
     /* detect the end of the options */
@@ -5715,6 +5724,13 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   {
     fprintf( stderr, "--bank-file must be specified\n" );
     exit( 1 );
+  }
+  /* Check FindChirpSP is used if variable f_lower is specified */
+  if ((approximant != FindChirpSP) && (dynamicTmpltFlow))
+  {
+    fprintf( stderr, "Approximant must be FindChirpSP if "
+        "--enable-dynamic-tmplt-flow is used\n" );
+    exit(1);
   }
 
   /* check FindChirpSP is used if reverse chirp bank is specified */

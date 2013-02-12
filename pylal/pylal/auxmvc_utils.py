@@ -65,6 +65,28 @@ def get_clean_samples(Triggers):
   
   return Triggers[numpy.nonzero(Triggers['unclean'] == 0.0)[0],:]
 
+def get_samples_in_segments(Triggers, segments):
+  """
+  Returns new recarray containing only those samples (triggers) that are in segments.
+  segments is a list of tuples of the form (t1,t2).
+  This function is not as efficient as it could be. It can be speed up if Triggers and segments are sorted.
+  But sorting would mix glitches and clean samples. We sacrifice performance for clarity ( but should keep in mind optional speed up).  
+  """
+	
+  out_of_segments_indices =  []
+	
+  for i in range(len(Triggers)):
+    time = Triggers[i]['GPS_s'] + Triggers[i]['GPS_ms']*10**(-3)
+    insegment = False
+    for seg in segments:
+      if (time >= seg[0]) and (time <= seg[1]):
+	insegment = True
+    if not insegment:
+      out_of_segments_indices.append(i)
+	
+  return numpy.delete(Triggers,out_of_segments_indices,0)
+
+
 def getKWAuxTriggerFromDQCAT(Triggers, DQ_category):
 
     if DQ_category == 'DQ2':
@@ -188,8 +210,8 @@ def ConvertKWAuxToMVSC(KWAuxGlitchTriggers, KWAuxCleanTriggers, ExcludeVariables
   KWAuxGlitchTriggers - KW triggers corresponding to glitches in DARM
   KWAuxCleanTriggers - KW triggers correspondingto clean DARM data. 
   """
+  KWvariables = list(KWAuxGlitchTriggers.dtype.names)
   if ExcludeVariables:
-    KWvariables = list(KWAuxGlitchTriggers.dtype.names)
     for variable in ExcludeVariables:
       KWvariables.remove(variable)
 
@@ -269,7 +291,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
   file.close()    
   
   
-def ReadMVSCTriggers(files):
+def ReadMVSCTriggers(files, Classified=True):
 
   """
   Reads in MVSC triggers from files. MVSC triggers are storead in the 2-D array.
@@ -277,9 +299,18 @@ def ReadMVSCTriggers(files):
   The columns are populated by the values of the corresponding variables. 
   Every line (except the first) of the input file(s) corresponds to a column (or a MVSC trigger) in the array. 
   """
+  if Classified == True:
+    varline = 0
+    nskiplines = 1
+  else: 
+    varline = 1
+    nskiplines = 2
+
   for (i,f) in enumerate(files):
     flines = open(f).readlines()
-    variables = flines[0].split()
+    variables = flines[varline].split()
+    if Classified == False:
+      variables.append("i")
     formats = []
     for var in variables:
       if var in ['GPS_s', 'GPS_ms', 'i', 'index']:
@@ -288,9 +319,9 @@ def ReadMVSCTriggers(files):
         formats.append('g8')
     #formats = ['i','i']+['g8' for a in range(len(variables)-2)]
     if i > 0:
-      MVSCTriggers  = numpy.concatenate((MVSCTriggers ,numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})),axis=0)
+      MVSCTriggers  = numpy.concatenate((MVSCTriggers ,numpy.loadtxt(f,skiprows=nskiplines, dtype={'names': variables,'formats':formats})),axis=0)
     else:
-      MVSCTriggers  = numpy.loadtxt(f,skiprows=1, dtype={'names': variables,'formats':formats})
+      MVSCTriggers  = numpy.loadtxt(f,skiprows=nskiplines, dtype={'names': variables,'formats':formats})
         
   return MVSCTriggers  
 
@@ -328,8 +359,8 @@ def LoadOVL(filename):
   c_vact = 0.0
 
   # instantiate the storage device and the index counter
-  gwtrg_vtd_tcent = [0]*ngwtrg_vtd
-  tcentidx = 0
+  gwtrg_vtd_tcent = []
+#  tcentidx = 0
 
   # iterate over tfp and fill in gwtrg_vtd_tcent
   for lineidx in range(len(tfp)):
@@ -347,8 +378,8 @@ def LoadOVL(filename):
       # iterate through trg's and fill in gwtrg_vtd_tcent
       if gwtrg_vtd[0] != 'NONE':
         for trg in gwtrg_vtd:
-          gwtrg_vtd_tcent[tcentidx] = [trg[col_kw['tcent']], vconfig, vstats]
-          tcentidx += 1
+          gwtrg_vtd_tcent.append([trg[col_kw['tcent']], vconfig, vstats])
+#          tcentidx += 1
 
   # sort gwtrg_vtd_tcent by tcent for ease of use by the caller
   return sorted(gwtrg_vtd_tcent, key=lambda gwtrg: gwtrg[0])

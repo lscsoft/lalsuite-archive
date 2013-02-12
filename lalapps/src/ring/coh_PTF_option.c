@@ -52,6 +52,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     {"l1-data",             no_argument, &(localparams.haveTrig[LAL_IFO_L1]),1},
 /*    {"t1-data",             no_argument, &(haveTrig[LAL_IFO_T1]), 1 },*/
     {"v1-data",             no_argument, &(localparams.haveTrig[LAL_IFO_V1]),1},
+    {"face-on-analysis",    no_argument, &(localparams.faceOnAnalysis),1},
+    {"face-away-analysis",    no_argument, &(localparams.faceAwayAnalysis),1},
+    {"dynamic-template-length",no_argument, &(localparams.dynTempLength),1},
     { "help",               no_argument, 0, 'h' },
     { "version",            no_argument, 0, 'V' },
     { "simulated-data",          required_argument, 0, '6' },
@@ -97,6 +100,7 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "dynamic-range-factor",    required_argument, 0, 'R' },
     { "sample-rate",             required_argument, 0, 's' },
     { "segment-duration",        required_argument, 0, 'S' },
+    { "psd-segment-duration",        required_argument, 0, '9' },
     { "bank-veto-templates",     required_argument, 0, 't' },
     { "inverse-spec-length",     required_argument, 0, 'T' },
     { "trig-start-time",         required_argument, 0, 'u' },
@@ -117,11 +121,12 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
     { "fft-level",               required_argument, 0, '|' },
     { "cluster-window",          required_argument, 0, '4' },
     { "inj-search-window",       required_argument, 0, '3' },
+    { "inj-mchirp-window",       required_argument, 0, '5' },
     { "ligo-calibrated-data",    required_argument, 0, '7' }, 
     { "virgo-calibrated-data",   required_argument, 0, '8' }, 
     { 0, 0, 0, 0 }
   };
-  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:g:G:h:H:i:I:j:J:k:K:l:L:m:M:n:N:o:O:p:P:q:Q:r:R:s:S:t:T:u:U:v:V:w:W:x:X:y:Y:z:Z:1:2:3:4:6:7:8:<:>:!:&:(:):#:|";
+  char args[] = "a:A:b:B:c:C:d:D:e:E:f:F:g:G:h:H:i:I:j:J:k:K:l:L:m:M:n:N:o:O:p:P:q:Q:r:R:s:S:t:T:u:U:v:V:w:W:x:X:y:Y:z:Z:1:2:3:4:5:6:7:8:<:>:!:&:(:):#:|";
   char *program = argv[0];
 
   /* set default values for parameters before parsing arguments */
@@ -392,6 +397,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
       case 'S': /* segment-duration */
         localparams.segmentDuration = atof( optarg );
         break;
+      case '9': /* PSD segment-duration */
+        localparams.psdSegmentDuration = atof( optarg );
+        break;
       case 't': /* bank veto template bank */
         localparams.bankVetoBankName = optarg;
         break;
@@ -436,6 +444,9 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
         break;
       case '3': /* Injection search window */
         localparams.injSearchWindow = atof( optarg );
+        break;
+      case '5': /* Injection search window */
+        localparams.injMchirpWindow = atof( optarg );
         break;
       case '7':
         if (!strcmp("real_4", optarg))
@@ -511,6 +522,16 @@ int coh_PTF_parse_options(struct coh_PTF_params *params,int argc,char **argv )
       }
     }
   }
+  /* Set the faceOn-faceAway flag */
+  if (localparams.faceOnAnalysis)
+  {
+    params->faceOnStatistic = 1;
+  }
+  else if (localparams.faceAwayAnalysis)
+  {
+    params->faceOnStatistic = 2;
+  }
+  // Otherwise it takes default value of 0
 
   *params = localparams;
 
@@ -637,7 +658,9 @@ int coh_PTF_params_sanity_check( struct coh_PTF_params *params )
     /* record length, segment length and stride need to be commensurate */
     sanity_check( !( (recordLength - segmentLength) % segmentStride ) );
     params->numOverlapSegments = 1 + (recordLength - segmentLength)/segmentStride;
-    sanity_check( ! (params->numOverlapSegments % 2) ); /* required to be even for median-mean method */
+//    sanity_check( ! (params->numOverlapSegments % 2) ); /* required to be even for median-mean method */
+    sanity_check( params->psdSegmentDuration > 0 );
+    params->psdStrideDuration = 0.5 * params->psdSegmentDuration;
 
     /* checks on data input information */
     /*sanity_check( params->channel );*/
@@ -690,12 +713,13 @@ int coh_PTF_params_sanity_check( struct coh_PTF_params *params )
 
   /* Check that filter frequencies have been given */
   sanity_check( params->highpassFrequency > 0);
-  sanity_check( params->lowTemplateFrequency > 0);
+  sanity_check( params->lowTemplateFrequency > 0 || params->dynTempLength != 0);
   sanity_check( params->lowFilterFrequency > 0 && params->lowFilterFrequency >= params->lowTemplateFrequency);
   sanity_check( params->highFilterFrequency > params->lowFilterFrequency);
 
   sanity_check( params->approximant != NumApproximants);
   sanity_check( params->order != LAL_PNORDER_NUM_ORDER);
+  sanity_check( params->dynTempLength == 0 || params->approximant == FindChirpSP);
 
 // This needs fixing. Need a check on whether segmentsToDoList and 
 // analyzeInjSegsOnly have been given.
@@ -812,7 +836,8 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "--fft-level=PLAN Set the fft plan to use level=PLAN\n" );
 
   fprintf( stderr, "\ndata segmentation options:\n" );
-  fprintf( stderr, "--segment-duration=duration  duration of a data segment (sec)\n" );
+  fprintf( stderr, "--segment-duration=duration  duration of a data segment for filtering (sec)\n" );
+  fprintf( stderr, "--psd-segment-duration=duration  duration of a data segment for PSD generation (sec)\n" );
   fprintf( stderr, "--block-duration=duration    duration of an analysis block (sec)\n" );
   fprintf( stderr, "--pad-data=duration          input data padding (sec)\n" );
   fprintf( stderr, "--h1-slide-segment=amount    amount to be slid H1\n" );
@@ -834,6 +859,9 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "--only-segment-numbers=seglist  list of segment numbers to compute\n" );
   fprintf( stderr, "--analyze-inj-segs-only  Only analyze times when injections have been made\n" );
   fprintf( stderr, "--only-template-numbers=tmpltlist  list of filter templates to use\n" );
+  fprintf( stderr, "--face-on-analysis  Run with templates demanding inclination=0\n" );
+  fprintf( stderr, "--face-away-analysis  Run with templates demanding inclination=pi/2\n" );
+  fprintf( stderr, "--dynamic-template-length Run with templates whose length is dynamically set to be close to the maximum possible.\n");
 
   fprintf( stderr, "\nsky location options:\n" );
   fprintf( stderr, "--right-ascension=ra       right ascension of external trigger in degrees\n" );
@@ -845,6 +873,7 @@ int coh_PTF_usage( const char *program )
   fprintf( stderr, "\ninjection options:\n" );
   fprintf( stderr, "--injection-file=file list of software injections to make into the data. If this option is not given injections are not made\n");
   fprintf( stderr, "--inj-search-window=arg    output injection triggers only within arg of the injections\n");
+  fprintf( stderr, "--inj-mchirp-window=arg    search for injections only with templates with fractional mchirp distance within arg\n");
 
   fprintf( stderr, "\nTrigger extraction options:\n" );
   fprintf( stderr, "--snr-threshold=threshold Only keep triggers with a snr above threshold\n" );
