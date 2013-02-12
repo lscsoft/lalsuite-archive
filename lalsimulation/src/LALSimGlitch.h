@@ -45,7 +45,7 @@ extern "C" {
  */
 
 int XLALSimGlitchInject(
-    REAL8TimeSeries *time_series,
+    REAL4TimeSeries *time_series,
     SimBurst *glitchInjections
 );
 

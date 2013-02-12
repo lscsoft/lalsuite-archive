@@ -1283,7 +1283,7 @@ int main( int argc, char *argv[] )
     if ( vrbflg ) fprintf( stdout, "Injecting glitches into data..." );
     fflush( stdout );
 
-    XLALSimGlitchInject(&strainChan, glitchInjections);
+    XLALSimGlitchInject(&chan, glitchInjections);
 
     if ( vrbflg ) fprintf( stdout, "done.\n" );
     fflush( stdout );

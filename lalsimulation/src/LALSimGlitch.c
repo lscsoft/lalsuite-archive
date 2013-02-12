@@ -59,7 +59,7 @@ unsigned int i, j;
  */
 
 int XLALSimGlitchInject(
-    REAL8TimeSeries *time_series,
+    REAL4TimeSeries *time_series,
     SimBurst *glitchInjections
 )
 {
@@ -96,7 +96,7 @@ int XLALSimGlitchInject(
 		{
 		  j = lag - h_plus->data->length / 2 + i;
 		  if(j >= time_series->data->length) continue;
-		  time_series->data->data[j] += h_plus->data->data[i];
+		  time_series->data->data[j] += (REAL4) h_plus->data->data[i];
 		  // fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);
 		} 
 	    }
@@ -119,7 +119,7 @@ int XLALSimGlitchInject(
 	      {
 		j = lag - h_plus->data->length / 2 + i;
 		if(j >= time_series->data->length) continue;
-		time_series->data->data[j] += h_plus->data->data[i];
+		time_series->data->data[j] += (REAL4) h_plus->data->data[i];
 		// fprintf(stdout, "%d\t%e\n", i, time_series->data->data[j]);                  
 	      }
 	  }
