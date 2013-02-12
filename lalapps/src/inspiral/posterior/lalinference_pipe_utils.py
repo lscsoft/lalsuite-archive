@@ -14,6 +14,31 @@ from math import floor,ceil,log,pow
 import sys
 import random
 
+from glue.ligolw import ligolw
+from glue.ligolw import utils
+from glue.ligolw import lsctables
+
+class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
+    def __init__(self,document):
+      ligolw.LIGOLWContentHandler.__init__(self,document)
+      self.tabname=lsctables.SimInspiralTable.tableName
+      self.intable=False
+      self.tableElementName=''
+    def startElement(self,name,attrs):
+      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+        self.tableElementName=name
+        # Got the right table, let's see if it's the right event
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+        self.intable=True
+      elif self.intable: # We are in the correct table
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+    def endElement(self,name):
+      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
+      if self.intable and name==self.tableElementName: self.intable=False
+
+lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
+
+
 # We use the GLUE pipeline utilities to construct classes for each
 # type of job. Each class has inputs and outputs, which are used to
 # join together types of jobs into a DAG.
@@ -118,6 +143,80 @@ def open_pipedown_database(database_filename,tmp_space):
 	dbtables.set_temp_store_directory(connection,tmp_space)
     dbtables.DBTable_set_connection(connection)
     return (connection,working_filename) 
+
+# return associations between sim_inspiral process_id (sim_proc_id) and injection run name
+def procmap(connection):
+    query = """
+        SELECT process_id, value
+        FROM process_params
+        WHERE process_id IN ( SELECT DISTINCT sim_proc_id FROM experiment_summary ) AND
+              (param == "--userTag" OR param=="-userTag")
+        """
+    result=[]
+    return connection.cursor().execute(query).fetchall()
+
+# grab (simulation_id, coinc_inspiral.coinc_event_id) for detected simulations
+# cem1 will only contain maps where one object is a simulation event
+# cem2 will only contain maps where one object is a coinc_inspiral
+# both requirements will filter out anything but detected injections
+def getsimids(connection, ifos = 'H1,L1'):
+    query = """
+    SELECT sim_inspiral.simulation_id, coinc_inspiral.coinc_event_id
+    FROM sim_inspiral JOIN coinc_inspiral, coinc_event_map as cem1, coinc_event_map as cem2
+    ON ( sim_inspiral.simulation_id == cem1.event_id AND
+         cem1.coinc_event_id == cem2.coinc_event_id AND
+         cem2.event_id == coinc_inspiral.coinc_event_id )
+    WHERE coinc_inspiral.ifos == '""" + ifos + """'
+    """
+    return connection.cursor().execute(query)
+
+def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['ALLINJ'], dumpfile=None, gpsstart=None, gpsend=None):
+	"""
+	Returns a list of event objects.
+	Must specify output_inj_file to tell the code where to save the
+	XML SimInspiralTable needed by lalinference to read the injection
+	parameters.
+	sim_tag can be given to select specific tables, e.g. BBHLOGINJ, BNSLININJ, ALLINJ (default)
+	"""
+	if gpsstart is not None: gpsstart=float(gpsstart)
+	if gpsend is not None: gpsend=float(gpsend)
+
+	# Get process map
+	proc_map = procmap(database_connection)
+	# proc_map is (process_id, INJNAME) tuple list
+	if sim_tag==['ALLINJ']:
+		procids=[ t[0] for t in proc_map]
+	else:
+		procids=[ t[0] for t in proc_map if t[1] in sim_tag]
+	
+	# Select simulation tables
+	from glue.ligolw import dbtables
+	allinj_xml=dbtables.get_xml(database_connection, table_names=['sim_inspiral'])
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(allinj_xml)
+	utils.write_filename(xmldoc,output_inj_file,gz=False)
+	xmldoc.unlink()
+
+	from glue.ligolw import lsctables,table
+	#injTable = lsctables.getTablesByType(allinj_xml,lsctables.SimInspiralTable)
+	#from pylal import SimInspiralUtils
+	xmldoc = utils.load_filename(output_inj_file,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
+	injTable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
+
+	# Filter by time
+	filtinj=[inj for inj in injTable if (str(inj.process_id) in procids) ]
+	finalinj=[]
+	for inj in filtinj:
+		t=inj.geocent_end_time+1.0e-9*inj.geocent_end_time_ns
+		if gpsstart is not None:
+			if t<gpsstart: continue
+		if gpsend is not None:
+			if t>gpsend: continue
+		finalinj.append(inj)
+	
+	events=[Event(SimInspiral=inj) for inj in finalinj]
+        print 'Found %i events from injection database'%(len(events))
+	return events
 
 
 def get_zerolag_pipedown(database_connection, dumpfile=None, gpsstart=None, gpsend=None, max_cfar=-1):
@@ -305,7 +404,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
 
     # Sanity checking
     if len(self.events)==0:
-      print 'No input events found, please check your config. Will generate an empty DAG'
+      print 'No input events found, please check your config. Cannot generate an empty DAG'
+      sys.exit(1)
     
     # Set up the segments
     (mintime,maxtime)=self.get_required_data(self.times)
@@ -404,8 +504,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       events=[Event(trig_time=time) for time in times]
     # Siminspiral Table
     if self.config.has_option('input','injection-file'):
-      from pylal import SimInspiralUtils
-      injTable=SimInspiralUtils.ReadSimInspiralFromFiles([self.config.get('input','injection-file')])
+      xmldoc = utils.load_filename(self.config.get('input','injection-file'),contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
+      injTable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
       events=[Event(SimInspiral=inj) for inj in injTable]
     # SnglInspiral Table
     if self.config.has_option('input','sngl-inspiral-file'):
@@ -435,6 +535,15 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
 	maxcfar=-1
       if self.config.get('input','timeslides').lower()=='true':
 	events=get_timeslides_pipedown(db_connection, gpsstart=gpsstart, gpsend=gpsend,dumpfile=timeslidedump,max_cfar=maxcfar)
+      elif self.config.has_option('input','pipedown-injections'):
+        injtypes=ast.literal_eval(self.config.get('input','pipedown-injections'))
+        if self.config.has_option('input','injection-file'):
+          print 'ERROR: Trying to overwrite existing injection file %s. please remove this file before trying again. Aborting.'
+          sys.exit(1)
+        else:
+          injfile=os.path.join(self.config.get('paths','basedir'),'filtered_injections.xml')
+          self.config.set('input','injection-file',injfile)
+        events=get_injections_pipedown(db_connection, injfile, sim_tag = injtypes, gpsstart=gpsstart, gpsend=gpsend)
       else:
 	events=get_zerolag_pipedown(db_connection, gpsstart=gpsstart, gpsend=gpsend, dumpfile=timeslidedump,max_cfar=maxcfar)
     if(selected_events is not None):
@@ -772,12 +881,20 @@ class EngineNode(pipeline.CondorDAGNode):
       self.__event=int(event)
       self.add_var_opt('event',str(event))
   
+  def set_event_id(self,event):
+    """
+    Set the event id to analyse
+    """
+    if event is not None:
+      self.__event=int(event)
+      self.add_var_opt('event-id',str(event))
+
   def set_injection(self,injfile,event):
     """
     Set a software injection to be performed.
     """
     self.add_file_opt('inj',injfile)
-    self.set_event_number(event)
+    self.set_event_id(event)
 
   def get_trig_time(self): return self.__trigtime
   
@@ -932,10 +1049,10 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         self.add_var_opt('outpath',path)
         mkdirs(path)
         self.posfile=os.path.join(path,'posterior_samples.dat')
-    def set_injection(self,injfile,eventnumber):
+    def set_injection(self,injfile,event_id):
         self.injfile=injfile
         self.add_var_arg('--inj '+injfile)
-        self.set_event_number(eventnumber)
+        self.set_injection_event_id(event_id)
     def set_event_number(self,event):
         """
         Set the event number in the injection XML.
@@ -943,6 +1060,15 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         if event is not None:
             self.__event=int(event)
             self.add_var_arg('--eventnum '+str(event))
+
+    def set_injection_event_id(self,event_id):
+      """
+      Set the event_id for the results
+      """
+      if event_id is not None:
+            self.__event_id=event_id
+            self.add_var_arg('--event-id '+str(event_id))
+
     def add_engine_parent(self,node):
       """
       Add a parent node which is one of the engine nodes

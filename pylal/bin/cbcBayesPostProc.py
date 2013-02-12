@@ -264,14 +264,16 @@ def cbcBayesPostProc(
     
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
-    if injfile and eventnum is not None:
-        print 'Looking for event %i in %s\n'%(eventnum,injfile)
+    if injfile and (eventnum is not None or event_id is not None):
         xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
         siminspiraltable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
-        injection=siminspiraltable[eventnum]
-	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-	#if(len(injections)!=1): raise RuntimeError('Error: something unexpected happened while loading the injection file!\n')
-        #injection=injections[0]
+        if eventnum is not None:
+          print 'Looking for event %i in %s\n'%(eventnum,injfile)
+
+          injection=siminspiraltable[eventnum]
+	elif event_id is not None:
+          print 'Looking for event_id %s in %s\n'%(str(event_id),injfile)
+          injection = filter(lambda x: x.event_id == event_id, siminspiraltable)[0]
 
     #Get trigger
     triggers = None
