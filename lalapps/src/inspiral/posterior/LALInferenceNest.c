@@ -35,15 +35,17 @@
 #include <lal/LALInferencePrior.h>
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceLikelihood.h>
+#include <lal/LALInferenceReadNonCBCData.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceProposal.h>
 #include "lal/LIGOLwXMLBurstRead.h"
 #include "lal/GenerateBurst.h"
 #include <lal/LALSimBurst.h>
+#include <lal/LALInferenceInit.h>
+
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
 void initVariables(LALInferenceRunState *state);
-#include <lal/LALInferenceInit.h>
 
 void initStudentt(LALInferenceRunState *state);
 // static void mc2masses(double mc, double eta, double *m1, double *m2);
@@ -441,7 +443,7 @@ Arguments for each section follow:\n\n";
 	/* Set template function */
     ppt=LALInferenceGetProcParamVal(procParams,"--template");
     if(!strcmp("SinGauss",ppt->value) || !strcmp("BestIFO",ppt->value))
-        LALInferenceInitNonCBCTemplate(state)
+        LALInferenceInitNonCBCTemplate(state);
     else     
         LALInferenceInitCBCTemplate(state);
 	

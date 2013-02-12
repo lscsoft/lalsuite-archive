@@ -34,8 +34,11 @@
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
+#include <lal/LALInferenceReadNonCBCData.h>
 #include <lal/LALInferenceInit.h>
-
+#include "lal/LIGOLwXMLBurstRead.h"
+#include "lal/GenerateBurst.h"
+#include <lal/LALSimBurst.h>
 void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState)
 {
   char help[]="(--template [SinGauss,BestIFO]\tSpecify template (default LAL)\n";
@@ -89,17 +92,8 @@ void LALInferenceInitBurstVariables(LALInferenceRunState *state)
 	ProcessParamsTable *commandLine=state->commandLine;
 	REAL8 endtime;
 	ProcessParamsTable *ppt=NULL;
-	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
-	INT4 AmpOrder=0;
-	Approximant approx=TaylorF2;
-	REAL8 logDmin=log(1.0);
-	REAL8 logDmax=log(100.0);
-    REAL8 phi_spin1_min=0.0;
-	REAL8 phi_spin1_max=2.0*LAL_PI;
-	REAL8 theta_spin1_min=0.0;
-	REAL8 theta_spin1_max=LAL_PI;
-	REAL8 fRef=0.; /* freq. at which precessing "initial" cond. specified */
-	REAL8 dt=0.1;            /* Width of time prior */
+    REAL8 dt=0.1;            /* Width of time prior */
+    REAL8 tmpMax, tmpVal,tmpMin;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
 	INT4 event=0;	
@@ -223,17 +217,8 @@ void LALInferenceInitBestIFOVariables(LALInferenceRunState *state)
 	ProcessParamsTable *commandLine=state->commandLine;
 	REAL8 endtime;
 	ProcessParamsTable *ppt=NULL;
-	LALPNOrder PhaseOrder=LAL_PNORDER_THREE_POINT_FIVE;
-	INT4 AmpOrder=0;
-	Approximant approx=TaylorF2;
-	REAL8 logDmin=log(1.0);
-	REAL8 logDmax=log(100.0);
-    REAL8 phi_spin1_min=0.0;
-	REAL8 phi_spin1_max=2.0*LAL_PI;
-	REAL8 theta_spin1_min=0.0;
-	REAL8 theta_spin1_max=LAL_PI;
-	REAL8 fRef=0.; /* freq. at which precessing "initial" cond. specified */
 	REAL8 dt=0.1;            /* Width of time prior */
+    REAL8 tmpMin,tmpMax,tmpVal;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
 	INT4 event=0;	

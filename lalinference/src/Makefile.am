@@ -32,6 +32,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
 	LALInferenceInitCBC.c \
+	LALInferenceInitNonCBC.c \
 	LALInferenceVCSInfo.c \
 	$(XMLSRC)
 

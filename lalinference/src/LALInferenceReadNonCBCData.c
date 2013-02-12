@@ -77,13 +77,201 @@
 #include "lal/LIGOLwXMLBurstRead.h"
 #include "lal/GenerateBurst.h"
 #include <lal/LALSimBurst.h>
-
-struct fvec {
-	REAL8 f;
-	REAL8 x;
-};
+#include <lal/LALInferenceReadNonCBCData.h>
 
 #define LALINFERENCE_DEFAULT_FLOW "40.0"
+typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
+
+static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
+
+/** Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 ...
+    It is necessary to use this method instead of the old method for the pipeline to work in DAX mode. Warning: do not mix options between
+    the old and new style.
+*/
+static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***ifos, char ***caches, char ***channels, char ***flows , char ***fhighs, char ***timeslides, UINT4 *N)
+{
+    /* Check that the input has no lists with [ifo,ifo] */
+    ProcessParamsTable *this=commandLine;
+    UINT4 i=0;
+    *caches=*ifos=*channels=*flows=*fhighs=*timeslides=NULL;
+    *N=0;
+    char tmp[128];
+    if(!this) {fprintf(stderr,"No command line arguments given!\n"); exit(1);}
+    while(this)
+    {
+        if(!strcmp(this->param,"--ifo") || !strcmp(this->param,"--IFO"))
+        for(i=0;this->value[i]!='\0';i++)
+            if(this->value[i]=='[' || this->value[i]==']')
+            {
+                fprintf(stderr,"Found old-style input arguments for %s\n",this->param);
+                return(0);
+            }
+        this=this->next;
+    }
+    /* Construct a list of IFOs */
+    for(this=commandLine;this;this=this->next)
+    {
+        if(!strcmp(this->param,"--ifo")||!strcmp(this->param,"--IFO"))
+        {
+            (*N)++;
+            *ifos=realloc(*ifos,*N*sizeof(char *));
+            (*ifos)[*N-1]=strdup(this->value);
+        }
+    }
+    *caches=calloc(*N,sizeof(char *));
+    *channels=calloc(*N,sizeof(char *));
+    *flows=calloc(*N,sizeof(REAL8));
+    *fhighs=calloc(*N,sizeof(REAL8));
+    *timeslides=calloc(*N,sizeof(REAL8));
+    /* For each IFO, fetch the other options if available */
+    for(i=0;i<*N;i++)
+    {
+        /* Cache */
+        sprintf(tmp,"--%s-cache",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        if(!this){fprintf(stderr,"ERROR: Must specify a cache file for %s with --%s-cache\n",(*ifos)[i],(*ifos)[i]); exit(1);}
+        (*caches)[i]=strdup(this->value);
+        
+        /* Channel */
+        sprintf(tmp,"--%s-channel",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*channels)[i]=strdup(this?this->value:"Unknown channel");
+
+        /* flow */
+        sprintf(tmp,"--%s-flow",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*flows)[i]=strdup(this?this->value:LALINFERENCE_DEFAULT_FLOW);
+        
+        /* fhigh */
+        sprintf(tmp,"--%s-fhigh",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*fhighs)[i]=this?strdup(this->value):NULL;
+
+        /* timeslides */
+        sprintf(tmp,"--%s-timeslide",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*timeslides)[i]=strdup(this?this->value:"0.0");
+    }
+    return(1);
+}
+
+static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
+{
+	LALStatus status;
+	memset(&status,0,sizeof(status));
+	FrCache *cache = NULL;
+	FrStream *stream = NULL;
+	REAL8TimeSeries *out = NULL;
+	
+	cache  = XLALFrImportCache( cachefile );
+        int err;
+        err = *XLALGetErrnoPtr();
+	if(cache==NULL) {fprintf(stderr,"ERROR: Unable to import cache file \"%s\",\n       XLALError: \"%s\".\n",cachefile, XLALErrorString(err)); exit(-1);}
+	stream = XLALFrCacheOpen( cache );
+	if(stream==NULL) {fprintf(stderr,"ERROR: Unable to open stream from frame cache file\n"); exit(-1);}
+	out = XLALFrInputREAL8TimeSeries( stream, channel, &start, length , 0 );
+	if(out==NULL) fprintf(stderr,"ERROR: unable to read channel %s from %s at time %i\nCheck the specified data duration is not too long\n",channel,cachefile,start.gpsSeconds);
+	LALDestroyFrCache(&status,&cache);
+	LALFrClose(&status,&stream);
+	return out;
+}
+
+static void makeWhiteData(LALInferenceIFOData *IFOdata) {
+  REAL8 deltaF = IFOdata->freqData->deltaF;
+  REAL8 deltaT = IFOdata->timeData->deltaT;
+
+  IFOdata->whiteFreqData = 
+    XLALCreateCOMPLEX16FrequencySeries("whitened frequency data", 
+                                       &(IFOdata->freqData->epoch),
+                                       0.0,
+                                       deltaF,
+                                       &lalDimensionlessUnit,
+                                       IFOdata->freqData->data->length);
+	if(!IFOdata->whiteFreqData) XLAL_ERROR_VOID(XLAL_EFUNC);
+  IFOdata->whiteTimeData = 
+    XLALCreateREAL8TimeSeries("whitened time data",
+                              &(IFOdata->timeData->epoch),
+                              0.0,
+                              deltaT,
+                              &lalDimensionlessUnit,
+                              IFOdata->timeData->data->length);
+	if(!IFOdata->whiteTimeData) XLAL_ERROR_VOID(XLAL_EFUNC);
+
+  REAL8 iLow = IFOdata->fLow / deltaF;
+  REAL8 iHighDefaultCut = 0.95 * IFOdata->freqData->data->length;
+  REAL8 iHighFromFHigh = IFOdata->fHigh / deltaF;
+  REAL8 iHigh = (iHighDefaultCut < iHighFromFHigh ? iHighDefaultCut : iHighFromFHigh);
+  REAL8 windowSquareSum = 0.0;
+
+  UINT4 i;
+
+  for (i = 0; i < IFOdata->freqData->data->length; i++) {
+    IFOdata->whiteFreqData->data->data[i].re = IFOdata->freqData->data->data[i].re / IFOdata->oneSidedNoisePowerSpectrum->data->data[i];
+    IFOdata->whiteFreqData->data->data[i].im = IFOdata->freqData->data->data[i].im / IFOdata->oneSidedNoisePowerSpectrum->data->data[i];
+		
+    if (i == 0) {
+      /* Cut off the average trend in the data. */
+      IFOdata->whiteFreqData->data->data[i].re = 0.0;
+      IFOdata->whiteFreqData->data->data[i].im = 0.0;
+    }
+    if (i <= iLow) {
+      /* Need to taper to implement the fLow cutoff.  Tukey window
+			 that starts at zero, and reaches 100% at fLow. */
+      REAL8 weight = 0.5*(1.0 + cos(M_PI*(i-iLow)/iLow)); /* Starts at -Pi, runs to zero at iLow. */
+			
+      IFOdata->whiteFreqData->data->data[i].re *= weight;
+      IFOdata->whiteFreqData->data->data[i].im *= weight;
+			
+      windowSquareSum += weight*weight;
+    } else if (i >= iHigh) {
+      /* Also taper at high freq end, Tukey window that starts at 100%
+			 at fHigh, then drops to zero at Nyquist.  Except that we
+			 always taper at least 5% of the data at high freq to avoid a
+			 sharp edge in freq space there. */
+      REAL8 NWind = IFOdata->whiteFreqData->data->length - iHigh;
+      REAL8 weight = 0.5*(1.0 + cos(M_PI*(i-iHigh)/NWind)); /* Starts at 0, runs to Pi at i = length */
+			
+      IFOdata->whiteFreqData->data->data[i].re *= weight;
+      IFOdata->whiteFreqData->data->data[i].im *= weight;
+			
+      windowSquareSum += weight*weight;
+    } else {
+      windowSquareSum += 1.0;
+    }
+  }
+	
+  REAL8 norm = sqrt(IFOdata->whiteFreqData->data->length / windowSquareSum);
+  for (i = 0; i < IFOdata->whiteFreqData->data->length; i++) {
+    IFOdata->whiteFreqData->data->data[i].re *= norm;
+    IFOdata->whiteFreqData->data->data[i].im *= norm;
+  }
+	
+  XLALREAL8FreqTimeFFT(IFOdata->whiteTimeData, IFOdata->whiteFreqData, IFOdata->freqToTimeFFTPlan);
+}
+
+
+
+
+#define USAGE "\
+ --ifo IFO1 [--ifo IFO2 ...]    IFOs can be H1,L1,V1\n\
+ --IFO1-cache cache1 [--IFO2-cache2 cache2 ...]    LAL cache files (LALLIGO, LALAdLIGO, LALVirgo to simulate these detectors)\n\
+ --psdstart GPStime             GPS start time of PSD estimation data\n\
+ --psdlength length             length of PSD estimation data in seconds\n\
+ --seglen length                length of segments for PSD estimation and analysis in seconds\n\
+ --trigtime GPStime             GPS time of the trigger to analyse\n\
+(--srate rate)                  Downsample data to rate in Hz (4096.0,)\n\
+(--injectionsrate rate)         Downsample injection signal to rate in Hz (--srate)\n\
+(--IFO1-flow freq1 [--IFO2-flow freq2 ...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
+(--IFO1-fhigh freq1 [--IFO2-fhigh freq2 ...])     Specify higher frequency cutoff for overlap integral (2048.0)\n\
+(--IFO1-channel chan1 [--IFO2-channel chan2 ...])   Specify channel names when reading cache files\n\
+(--dataseed number)             Specify random seed to use when generating data\n\
+(--lalinspiralinjection)      Enables injections via the LALInspiral package\n\
+(--inj-lambda1)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-lambda2)                 value of lambda1 to be injected, LALSimulation only (0)\n\
+(--inj-spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
+(--inj-tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
+(--snrpath) 			Set a folder where to write a file with the SNRs being injected\n\
+(--0noise)                      Sets the noise realisation to be identically zero (for the fake caches above only)\n"
 
 LALInferenceIFOData *LALInferenceReadBurstData(ProcessParamsTable *commandLine)
 /* Read in the data and store it in a LALInferenceIFOData structure */
@@ -242,20 +430,6 @@ LALInferenceIFOData *LALInferenceReadBurstData(ProcessParamsTable *commandLine)
             while(q<event) {q++; BInjTable=BInjTable->next;}
         }
     }
-    else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
-        {
-            while(BInjTable)
-            {
-                if(BInjTable->event_id->id == (UINT4)atoi(procparam->value)) break;
-                else BInjTable=BInjTable->next;
-            }
-            if(!BInjTable){
-                fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
-                exit(1);
-            }
-        }
-    
-
     procparam=LALInferenceGetProcParamVal(commandLine,"--psdstart");
     if (!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--PSDstart");
     LALStringToGPS(&status,&GPSstart,procparam->value,&chartmp);
@@ -266,7 +440,7 @@ LALInferenceIFOData *LALInferenceReadBurstData(ProcessParamsTable *commandLine)
         LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
     }
     else{
-        if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
+        if(BInjTable) memcpy(&GPStrig,&(BInjTable->time_geocent_gps),sizeof(GPStrig));
         else {
             XLALPrintError("Error: No trigger time specifed and no injection given \n");
             XLAL_ERROR_NULL(XLAL_EINVAL);
@@ -786,6 +960,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 	UINT4 Ninj=0;
 	UINT4 event=0;
 	UINT4 i=0,j=0;
+    char *SNRpath = NULL;
     //REAL8 responseScale=1.0;
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;

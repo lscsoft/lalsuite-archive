@@ -286,5 +286,4 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariable
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction *template);
 /*@}*/
 
->>>>>>> master
 #endif

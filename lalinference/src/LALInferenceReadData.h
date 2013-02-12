@@ -59,8 +59,11 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   * Requires --inj, --outfile and optionally --event (if not 0).
   */
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
+struct fvec *interpFromFile(char *filename);
+typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
+void MetaNoiseFunc(LALStatus *status, REAL8 *psd, REAL8 f, struct fvec *interp, NoiseFunc *noisefunc);
 
-void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
-void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
+//void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
+//void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 /*@}*/
 #endif

@@ -22,8 +22,8 @@
  *  MA  02111-1307  USA
  */
 
-#ifndef LALInferenceReadData_h
-#define LALInferenceReadData_h
+#ifndef LALInferenceReadNonCBCData_h
+#define LALInferenceReadNonCBCData_h
 
 #include <lal/LALInference.h>
 
@@ -41,7 +41,7 @@
  * \return Pointer to a new \c LALInferenceIFOData linked list containing the data, or NULL upon error.
  * \author John Veitch
  */
-struct tagLALInferenceIFOData * LALInferenceReadNonCBCData (ProcessParamsTable * commandLine);
+struct tagLALInferenceIFOData * LALInferenceReadBurstData (ProcessParamsTable * commandLine);
 void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
 void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 /*@}*/
