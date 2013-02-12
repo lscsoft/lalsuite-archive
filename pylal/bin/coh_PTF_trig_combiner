@@ -69,6 +69,14 @@ coh_PTF_trig_combiner is designed to coalesce the triggers made from each elemen
                      default=6,\
                      help="The number of off source trials, default: %default")
 
+  parser.add_option("-s", "--segment-length", action="store", type="float",\
+                     default=None,\
+                     help="The length of analysis segments.")
+
+  parser.add_option("-p", "--pad-data", action="store", type="float",\
+                     default=None,\
+                     help="The length of padding around analysis chunk.")
+
   parser.add_option("-a", "--segment-dir", action="store", type="string",\
                      help="directory holding buffer, on and off source "+\
                           "segment files.")
@@ -108,7 +116,7 @@ coh_PTF_trig_combiner is designed to coalesce the triggers made from each elemen
 # =============================================================================
 
 def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
-         timeSlides=None, verbose=False):
+         timeSlides=None, segLength=None, padData=None, verbose=False):
 
   if verbose: sys.stdout.write("Getting segments...\n")
 
@@ -120,7 +128,7 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
   #
 
   # get segments
-  lostTime       = 71
+  lostTime       = int(segLength//4 + padData) 
   segs           = coh_PTF_pyutils.readSegFiles(segdir)
   trialTime      = abs(segs['on'])
   
@@ -363,9 +371,11 @@ if __name__=='__main__':
   GRBname   = opts.grb_name
   numTrials = opts.num_trials
   timeSlides = opts.slide_cache
+  segLength = opts.segment_length
+  padData = opts.pad_data
   verbose   = opts.verbose
 
   main(cacheFile, ifoTag, userTag, segdir, outdir,\
        grbTag=GRBname, numTrials=numTrials, timeSlides=timeSlides,\
-       verbose=verbose)
+       segLength=segLength,padData=padData,verbose=verbose)
   if verbose: sys.stdout.write("Done at %d.\n" % (elapsed_time()))

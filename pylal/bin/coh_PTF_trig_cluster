@@ -154,7 +154,7 @@ def main(trigFile, timeWindow, outdir, verbose=False):
       loudestTrigSNR.append(None)
       loudestTrigTime.append(None)
 
-    for trig in currTrigs:
+    for trig in slideTrigs:
       t = trig.get_end()
       t = trig.end_time + trig.end_time_ns * 1E-9
       bin = int(float(t-start)//timeWindow)
@@ -168,10 +168,11 @@ def main(trigFile, timeWindow, outdir, verbose=False):
           loudestTrigTime[bin] = trig.end_time + trig.end_time_ns * 1E-9
 
     if verbose:
-      sys.stdout.write("%d bins generated at %d\n\nClustering triggers...\n"\
+      sys.stdout.write("%d bins generated at %d\nClustering triggers...\n"\
                        % (numBins, elapsed_time())) 
 
     # loop over all bins
+    numAdded = 0
     for i,bin in enumerate(timeBins):
 
       if len(bin)<1:  continue
@@ -233,7 +234,12 @@ def main(trigFile, timeWindow, outdir, verbose=False):
         # the next bin
         if loudest:
           clstTrigs.append(trig)
+          numAdded = numAdded + 1
           break
+
+    if verbose:
+      sys.stdout.write("%d Triggers added from slide %d at %d.\n\n"\
+                       % (numAdded, slideID, elapsed_time()))
 
   #
   # write clustered xml file
