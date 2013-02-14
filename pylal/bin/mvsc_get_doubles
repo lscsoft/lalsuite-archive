@@ -239,21 +239,21 @@ if opts.apply_weights:
 		injtmp = list(row)
 		injtmp[-3]=str(injtmp[-3])
 		if injtmp[-3] == 'uniform':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**2
-			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-3]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
+			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		if injtmp[-3] == 'log10':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
-			exact_injections_log.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-3]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
+			exact_injections_log.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		if injtmp[-3] == 'volume':
 			injtmp[-2]=1.0
-			exact_injections_vol.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-3]])
+			exact_injections_vol.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		newexact_injections.append(tuple(injtmp))
 	for row in all_injections:
 		injtmp = list(row)
 		injtmp[-3]=str(injtmp[-3])
-		injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**2
+		injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
 		if injtmp[-3] == 'log10':
-			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
+			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
 		if injtmp[-3] == 'volume':
 			injtmp[-2]=1.0
 		newall_injections.append(tuple(injtmp))
@@ -269,6 +269,23 @@ else:
 exact_injections=newexact_injections
 all_injections=newall_injections
 
+def open_file_write_pickle(filetype, datatype, ifos, object):
+	f=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(datatype) + '_' + str(filetype) +  '.pickle', 'w')
+	pickle.dump(object,f)
+	f.close()
+def open_file_write_text(filetype, datatype, ifos, object):
+	f=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(datatype) + '_' + str(filetype) +  '.txt', 'w')
+	f.write('distance snr_a snr_b weight \n')
+	for row in object:
+		f.write("%s\n" % " ".join(map(str,row)))
+	f.close()
+
+
+if opts.check_weights:
+	open_file_write_text('weights_vol','exact_injections',ifos,exact_injections_vol)
+	open_file_write_text('weights_lin','exact_injections',ifos,exact_injections_lin)
+	open_file_write_text('weights_log','exact_injections',ifos,exact_injections_log)
+
 #now let's get rid of the injection distribution tags so they're not in our table anymore
 tmp = zip(*exact_injections)
 del(tmp[-3]) # we have to remove the GPS times from the array before writing to file
@@ -279,11 +296,6 @@ all_injections = zip(*tmp)
 print all_injections[0]
 
 ##save all injections, timeslides, zerolag, gps files, and infofiles to pickles
-#def open_file_write_pickle(filetype, datatype, ifos, object):
-#	f=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(datatype) + '_' + str(filetype) +  '.pickle', 'w')
-#	pickle.dump(object,f)
-#	f.close()
-#
 #open_file_write_pickle('data','all_injections',ifos,all_injections)
 #open_file_write_pickle('data','exact_injections',ifos,exact_injections)
 #open_file_write_pickle('data','timeslides',ifos,timeslides)
