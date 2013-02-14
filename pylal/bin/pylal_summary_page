@@ -93,6 +93,10 @@ LIGOTimeGPS = lal.LIGOTimeGPS
 re_cchar = re.compile("[\W_]+")
 re_state = re.compile("run-\w+-time")
 re_xml = re.compile("(xml|xml.gz)\Z")
+re_etg_kw = re.compile("\A(kw|kleinewelle)\Z")
+re_etg_omega = re.compile("\Aomega\Z")
+re_etg_di = re.compile("\Adaily*ihope\Z")
+re_etg_ep = re.compile("\A(ep|excesspower|gstlal_excesspower)\Z")
 
 # set plot formatting
 plotutils.set_rcParams()
@@ -845,7 +849,7 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
 
 
 def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
-                 format="xml", query=True):
+                 format="xml", query=True, **trigfind_args):
     """@returns a LIGOLw Table of triggers for the given channel
 
     @param cp
@@ -874,11 +878,22 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     if not G_CLUSTERED_TRIGGERS[etg].has_key(channel):
         G_CLUSTERED_TRIGGERS[etg][channel] = dict()
 
+    # get job latency
+    etgsec = re_cchar.sub("-", etg.lower())
+    if cp.has_option(etgsec, "latency"):
+        latency = cp.getfloat(etgsec, "latency")
+    else:
+        latency = 0
+
     # construct query segments
-    query_segments = segment_list - SegmentList(G_TRIGGERS[etg][channel].keys())
+    span = SegmentList([Segment(0, NOW-latency)])
+    query_segments = ((segment_list & span) -
+                      SegmentList(G_TRIGGERS[etg][channel].keys()))
     query &= abs(query_segments) != 0
 
+    trigtable = dqTriggerUtils.SnglTriggerTable(etg)
     if query:
+        span = query_segments.extent()
         # get cache
         if (not cp.has_option(etg.lower(), "skip-cache-file") and
                 cp.has_option("trigfind", "trigger-cache")):
@@ -912,18 +927,16 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 trigcache = omegautils.get_cache(span[0], span[1], ifo)
             elif etg.lower() == "omegaspectrum":
                 trigcache = omegautils.get_spectrum_cache(span[0], span[1], ifo)
-            elif etg.lower() == "kw":
+            elif etg.lower() in ["kw", "kleinewelle"]:
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
-                                               format=format)
+                                              format=format, **trigfind_args)
             elif etg.lower() in ["daily_ihope", "dailyihope", "ihopedaily",
                                  "ihope_daily"]:
                 dicluster = (cp.has_option("daily_ihope", "clustering") and
                              cp.get("daily_ihope", "clustering") or None)
-                dipath = (cp.has_option("daily_ihope", "base-path") and
-                          cp.get("daily_ihope", "base-path") or None)
-                trigcache = daily_ihope.find_daily_cache(span[0], span[1], ifo,
-                                                         clustering=dicluster,
-                                                         directory=dipath)
+                trigcache = daily_ihope.find_daily_cache(
+                                span[0], span[1], ifo, clustering=dicluster,
+                                **trigfind_args)
             else:
                 raise NotImplementedError("A default file finder for %s has"
                                           "not been written yet." % etg)
@@ -970,12 +983,13 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                     for i,t in enumerate(trigtable):
                         if t.snr > 0:
                             trigtable[i].snr = t.snr**(1/2)
-                add_triggers(trigtable, channel, etg, seg)
-                n += len(trigtable)
                 if cluster:
                     trigtable = cluster_table(trigtable, cluster)
                     add_clustered_triggers(trigtable, channel, etg, seg)
                     nc += len(trigtable)
+                else:
+                    add_triggers(trigtable, channel, etg, seg)
+                    n += len(trigtable)
         else:
             trigtable = dqTriggerUtils.SnglTriggerTable(etg)
 
@@ -984,8 +998,6 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                           % (nc, channel))
         else:
             print_verbose("Loaded %d new triggers for %s.\n" % (n, channel))
-    else:
-        trigtable = dqTriggerUtils.SnglTriggerTable(etg)
  
 
     # FIXME: convert segments to floats
@@ -1045,17 +1057,26 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
                 global_segments.extend(SegmentList(
                                      G_CLUSTERED_TRIGGERS[etg][channel].keys()))
             else:
-                global_segments += SegmentList(G_TRIGGERS[etg][channel].keys())
+                global_segments.extend(SegmentList(
+                                           G_TRIGGERS[etg][channel].keys()))
         except KeyError:
             pass
+    global_segments.sort()
     global_segments.coalesce()
-    query_segments = segment_list - global_segments
+
+    # get job latency
+    etgsec = re_cchar.sub("-", etg.lower())
+    if cp.has_option(etgsec, "latency"):
+        latency = cp.getfloat(etgsec, "latency")
+    else:
+        latency = 0
+    span = SegmentList([Segment(0, NOW-latency)])
+    query_segments = ((segment_list & span) - global_segments).coalesce()
 
     if query and abs(query_segments) > 0 and etg.lower() in multi_enabled:
         ifo = channels[0][:2]
         span = query_segments.extent()
         # get columns
-        etgsec = re_cchar.sub("-", etg.lower())
         columns = (cp.has_option(etgsec, "table-columns") and
                    cp.get(etgsec, "table-columns").split(",") or None)
         if columns:
@@ -2740,10 +2761,16 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
 
     # get triggers
     if not htmlonly:
+        # get trigfind args
+        trigfind_args = dict()
+        etgsec = re_cchar.sub("-", tab.etg.lower())
+        for opt,val in cp.items(etgsec)+cp.items(cpsec):
+            if opt.startswith("trigfind-"):
+                trigfind_args[opt[9:]] = val
         for chan in channels:
             trigtable = get_triggers(cp, chan, tab.etg, tab.segments,\
-                                     cluster=tab.cluster,\
-                                     minsnr=snr)
+                                     cluster=tab.cluster, minsnr=snr,
+                                     **trigfind_args)
             tab.add_triggers(chan, trigtable)
 
     print_verbose("All triggers loaded.\n", verbose=verbose)
