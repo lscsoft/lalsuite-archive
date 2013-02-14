@@ -210,7 +210,9 @@ void LALInferenceInitBestIFOVariables(LALInferenceRunState *state)
 {
 
     LALStatus status;
-    SimBurst *BinjTable=NULL;
+    SimBurst *BInjTable=NULL;
+    SimInspiralTable *injTable=NULL;
+    int CBCTemplate=1;
 	LALInferenceVariables *priorArgs=state->priorArgs;
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	LALInferenceVariables *currentParams=state->currentParams;
@@ -241,20 +243,30 @@ Parameter arguments:\n\
 		return;
 	}
  
-    state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
     state->proposal=&NSWrapMCMCLALProposal;
-    BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-    if(!BinjTable){
-        fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
-        exit(1);
-    }
+    if(LALInferenceGetProcParamVal(commandLine,"--burst_inj")){
+            CBCTemplate=0;
+            printf("Injecting from burst Table!\n");
+            ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+            BInjTable=XLALSimBurstTableFromLIGOLw(ppt->value,0,0);       
+            } 
+        else
+        {   CBCTemplate=1;
+            printf("Injecting from inspiral Table!\n");
+            SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+    }   
+		if(!(injTable || BInjTable) ){
+			XLALPrintError("Unable to open injection file(LALInferenceReadData) %s\n",LALInferenceGetProcParamVal(commandLine,"--inj")->value);
+			//XLAL_ERROR_NULL(XLAL_EFUNC);
+		}
     
+    if (!CBCTemplate){
      ppt=LALInferenceGetProcParamVal(commandLine,"--event");
         if(ppt){
           event = atoi(ppt->value);
-          while(i<event) {i++; BinjTable = BinjTable->next;}
+          while(i<event) {i++; BInjTable = BInjTable->next;}
         }
-        endtime=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
+        endtime=XLALGPSGetREAL8(&(BInjTable->time_geocent_gps));
         fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
         state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
     
@@ -265,7 +277,7 @@ Parameter arguments:\n\
             char **strings=NULL;
             UINT4 N;
             LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-            LALInferenceBurstInjectionToVariables(BinjTable,&tempParams);
+            LALInferenceBurstInjectionToVariables(BInjTable,&tempParams);
 
             LALInferenceVariableItem *node=NULL;
             while(N>0){
@@ -276,8 +288,38 @@ Parameter arguments:\n\
                 else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
             }
         }
+    }
+    else{
+        
+        ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+        if(ppt){
+          event = atoi(ppt->value);
+          while(i<event) {i++; injTable = injTable->next;}
+        }
+        endtime=XLALGPSGetREAL8(&injTable->geocent_end_time);
+        fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
+        state->data->modelDomain=LALINFERENCE_DOMAIN_FREQUENCY; // salvo
+    
+    if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+            pinned_params=ppt->value;
+            LALInferenceVariables tempParams;
+            memset(&tempParams,0,sizeof(tempParams));
+            char **strings=NULL;
+            UINT4 N;
+            LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+            LALInferenceInjectionToVariables(injTable,&tempParams);
 
-
+            LALInferenceVariableItem *node=NULL;
+            while(N>0){
+                N--;
+                char *name=strings[N];
+                node=LALInferenceGetItem(&tempParams,name);
+                if(node) {LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary); printf("pinned %s \n",node->name);}
+                else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
+            }
+        }
+        
+        }
     /* Over-ride end time if specified */
     ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
     if(ppt){
@@ -306,6 +348,60 @@ Parameter arguments:\n\
      if(!LALInferenceCheckVariable(currentParams,"polarisation")) LALInferenceAddVariable(currentParams, "polarisation",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
         tmpMin=0.0; tmpMax=LAL_PI;
         LALInferenceAddMinMaxPrior(priorArgs, "polarisation",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+       
+   // Pin the other parameters 
+    if (CBCTemplate){
+        printf("Pinning CBC intrinsic params for BestIFO template\n");
+         REAL8 logDmin=log(1.0);
+  REAL8 logDmax=log(100.0);
+  REAL8 mcMin=1.0;
+  REAL8 mcMax=15.3;
+  //REAL8 mMin=1.0,mMax=30.0;
+  REAL8 logmcMin=0.0,logmcMax=0.0;
+  //REAL8 MTotMax=35.0;
+  //REAL8 MTotMin=2.0;
+  REAL8 etaMin=0.0312;
+  REAL8 etaMax=0.25;
+  /*REAL8 qMin=mMin/mMax;
+  REAL8 qMax=1.0;
+  REAL8 m1min=mMin,m1max=mMax;
+  REAL8 m2min=mMin,m2max=mMax;
+  REAL8 iotaMin=0.0,iotaMax=LAL_PI;
+  REAL8 psiMin=0.0,psiMax=LAL_PI;*/
+    tmpVal=injTable->mchirp;
+                LALInferenceAddVariable(currentParams,"logmc",&tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+                logmcMin=log(mcMin); logmcMax=log(mcMax);
+                LALInferenceAddMinMaxPrior(priorArgs,	"logmc",	&logmcMin,	&logmcMax,		LALINFERENCE_REAL8_t);
+                tmpVal=injTable->eta;
+                LALInferenceAddVariable(currentParams, "massratio",       &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+                LALInferenceAddMinMaxPrior(priorArgs,	"massratio",	&etaMin,	&etaMax,	LALINFERENCE_REAL8_t);
+                            tmpVal=injTable->coa_phase;
+                if(!LALInferenceCheckVariable(currentParams,"phase")) LALInferenceAddVariable(currentParams, "phase",           &tmpVal,             LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED); //SALVO
+            tmpMin=0.0; tmpMax=LAL_TWOPI;
+            LALInferenceAddMinMaxPrior(priorArgs, "phase",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+            
+            if(LALInferenceGetProcParamVal(commandLine,"--no-logdistance"))
+            {
+                REAL8 Dmin=exp(logDmin);
+                REAL8 Dmax=exp(logDmax);
+                tmpVal=injTable->distance;;
+                LALInferenceAddVariable(currentParams,"distance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+                LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);		
+            }
+            else 
+            {
+                tmpVal=log(injTable->distance);
+                if(!LALInferenceCheckVariable(currentParams,"logdistance")) LALInferenceAddVariable(currentParams,"logdistance", &tmpVal, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+                LALInferenceAddMinMaxPrior(priorArgs, "logdistance",     &logDmin, &logDmax,   LALINFERENCE_REAL8_t);
+            }
+            
+            tmpVal=injTable->inclination;
+          if(!LALInferenceCheckVariable(currentParams,"inclination")) LALInferenceAddVariable(currentParams, "inclination",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        tmpMin=0.0; tmpMax=LAL_PI;
+        LALInferenceAddMinMaxPrior(priorArgs, "inclination",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t); 
+            
+   }
+       
        
    fprintf(stdout,"WARNING: Using bestIFO template, only the extrinsic parameters are enabled!\n");
             state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
