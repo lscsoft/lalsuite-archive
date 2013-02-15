@@ -556,6 +556,7 @@ class Posterior(object):
                             'costilt2': lambda inj: np.cos(_inj_tilt2),
                             'cos(iota)': lambda inj: np.cos(inj.inclination),
                             'theta_jn':self._inj_theta_jn,
+                            'thetas':self._inj_thetas,
                             'beta':self._inj_beta,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
