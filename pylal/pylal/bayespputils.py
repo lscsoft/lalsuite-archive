@@ -1389,60 +1389,44 @@ class Posterior(object):
                 return phi_mpi_to_pi
 
     def _inj_tilt1(self,inj):
-        try:
-            f_ref = self._injFref
-            S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
-            tilt1 = array_ang_sep(L,S1)
-            if np.max(S1) == 0.0:
-                return 0.0
-            else:
-                return tilt1
-        except TypeError:
-            # Probably f_ref is None
+        f_ref = self._injFref
+        S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+        L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+        tilt1 = array_ang_sep(L,S1)
+        if np.max(S1) == 0.0:
             return None
+        else:
+            return tilt1
 
     def _inj_tilt2(self,inj):
-        try:
-            f_ref = self._injFref
-            S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
-            tilt2 = array_ang_sep(L,S2)
-            if np.max(S2) == 0.0:
-                return 0.0
-            else:
-                return tilt2
-        except TypeError:
-            # If we get here, probably because f_ref is None
+        f_ref = self._injFref
+        S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+        L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+        tilt2 = array_ang_sep(L,S2)
+        if np.max(S2) == 0.0:
             return None
+        else:
+            return tilt2
 
-    def _inj_theta_jn(self, inj):
-        try:
-            f_ref = self._injFref
-            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
-            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-            J = L + S1 + S2
+    def _inj_thetas(self, inj):
+        f_ref = self._injFref
+        L  = orbital_momentum(inj.f_ref, inj.mchirp, inj.inclination)
+        S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+        S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+        J = L + S1 + S2
 
-            theta_jn = array_polar_ang(J)
-            return theta_jn
-        except TypeError:
-            # f_ref is probably None
-            return None
+        thetas = array_polar_ang(J)
+        return thetas
         
     def _inj_beta(self, inj):
-        try:
-            f_ref = self._injFref
-            L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
-            S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-            S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-            J = L + S1 + S2
+        f_ref = self._injFref
+        L  = orbital_momentum(inj.f_ref, inj.mchirp, inj.inclination)
+        S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+        S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+        J = L + S1 + S2
         
-            beta  = array_ang_sep(J,L)
-            return beta
-        except TypeError:
-            # f_ref is probably None
-            return None
+        beta  = array_ang_sep(J,L)
+        return beta
 
 
 
