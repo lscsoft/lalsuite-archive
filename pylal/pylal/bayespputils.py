@@ -259,167 +259,6 @@ def plot_label(param):
   return label
 
 #===============================================================================
-# Functions used to parse injection structure.
-#===============================================================================
-def _inj_m1(inj):
-    """
-    Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
-    components (m1) calculated from the chirp mass and the symmetric mass ratio.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-    @rtype: number
-    """
-    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-    return mass1
-def _inj_m2(inj):
-    """
-    Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
-    components (m2) calculated from the chirp mass and the symmetric mass ratio.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-    @rtype: number
-    """
-    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-    return mass2
-
-def _inj_q(inj):
-    """
-    Return the mapping of (mchirp,eta)->q; m1>m2 i.e. return the mass ratio q=m2/m1.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attributes 'mchirp' and 'eta'.
-    @rtype: number 
-    """
-    (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
-    return mass2/mass1
-
-def _inj_longitude(inj):
-    """
-    Return the mapping of longitude found in inj to the interval [0,2*pi).
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attribute 'longitude'.
-    @rtype: number
-    """
-    if inj.longitude>2*pi_constant or inj.longitude<0.0:
-        maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
-        print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
-        return maplong
-    else:
-        return inj.longitude
-
-def _inj_a1(inj):
-    """
-    Return the magnitude of the spin 1 vector. Calculates the spin magnitude
-    from it's components.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attribute 'spin1x','spin1y', and 'spin1z' (the spin components).
-    @rtype: number
-    """
-    x = inj.spin1x
-    y = inj.spin1y
-    z = inj.spin1z
-    return sqrt(x*x + y*y + z*z)
-
-def _inj_a2(inj):
-    """
-    Return the magnitude of the spin 2 vector. Calculates the spin magnitude
-    from it's components.
-    
-    @type inj: glue.ligolw.lsctables.SimInspiral
-    @param inj: a custom type with the attribute 'spin2x','spin2y', and 'spin2z' (the spin components).
-    @rtype: number
-    """
-    x = inj.spin2x
-    y = inj.spin2y
-    z = inj.spin2z
-    return sqrt(x*x + y*y + z*z)
-
-def _inj_theta1(inj):
-    x = inj.spin1x
-    y = inj.spin1y
-    z = inj.spin1z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        return np.arccos( z / sqrt(x*x+y*y+z*z) )
-
-def _inj_theta2(inj):
-    x = inj.spin2x
-    y = inj.spin2y
-    z = inj.spin2z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        return np.arccos( z / sqrt(x*x+y*y+z*z) )
-
-def _inj_phi1(inj):
-    x = inj.spin1x
-    y = inj.spin1y
-    z = inj.spin1z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        phi_mpi_to_pi = np.arctan2(y, x)
-        if phi_mpi_to_pi < 0.0:
-            return phi_mpi_to_pi + 2*pi_constant
-        else:
-            return phi_mpi_to_pi
-
-def _inj_phi2(inj):
-    x = inj.spin2x
-    y = inj.spin2y
-    z = inj.spin2z
-    if x == 0.0 and y == 0.0 and z == 0.0:
-        return None
-    else:
-        phi_mpi_to_pi = np.arctan2(y, x)
-        if phi_mpi_to_pi < 0.0:
-            return phi_mpi_to_pi + 2*pi_constant
-        else:
-            return phi_mpi_to_pi
-
-def _inj_tilt1(inj):
-    S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    tilt1 = array_ang_sep(L,S1)
-    if np.max(S1) == 0.0:
-        return None
-    else:
-        return tilt1
-
-def _inj_tilt2(inj):
-    S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    tilt2 = array_ang_sep(L,S2)
-    if np.max(S2) == 0.0:
-        return None
-    else:
-        return tilt2
-
-def _inj_thetas(inj):
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-    J = L + S1 + S2
-
-    thetas = array_polar_ang(J)
-    return thetas
-    
-def _inj_beta(inj):
-    L  = orbital_momentum(inj.f_lower, inj.mchirp, inj.inclination)
-    S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
-    S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
-    J = L + S1 + S2
-    
-    beta  = array_ang_sep(J,L)
-    return beta
-
-
-#===============================================================================
 # Class definitions
 #===============================================================================
 
@@ -430,7 +269,7 @@ class PosteriorOneDPDF(object):
     parameter (the Posterior class is per-Sampler oriented whereas this class represents
     the same one parameter in successive samples in the chain).
     """
-    def __init__(self,name,posterior_samples,injected_value=None,trigger_values=None,prior=None):
+    def __init__(self,name,posterior_samples,injected_value=None,injFref=None,trigger_values=None,prior=None):
         """
         Create an instance of PosteriorOneDPDF based on a table of posterior_samples.
 
@@ -444,6 +283,7 @@ class PosteriorOneDPDF(object):
         self.__name=name
         self.__posterior_samples=np.array(posterior_samples)
 
+        self.__injFref=injFref
         self.__injval=injected_value
         self.__trigvals=trigger_values
         self.__prior=prior
@@ -460,7 +300,7 @@ class PosteriorOneDPDF(object):
         """
         Container method . Returns posterior containing sample idx (allows slicing).
         """
-        return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, trigger_values=self.__trigvals)
+        return PosteriorOneDPDF(self.__name, self.__posterior_samples[idx], injected_value=self.__injval, f_ref=self.__f_ref, trigger_values=self.__trigvals)
         
     @property
     def name(self):
@@ -640,7 +480,7 @@ class Posterior(object):
     """
     Data structure for a table of posterior samples .
     """
-    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,SnglInpiralList=None,name=None,description=None,votfile=None):
+    def __init__(self,commonResultsFormatData,SimInspiralTableEntry=None,injFref=None,SnglInpiralList=None,name=None,description=None,votfile=None):
         """
         Constructor.
 
@@ -655,6 +495,7 @@ class Posterior(object):
         """
         common_output_table_header,common_output_table_raw =commonResultsFormatData
         self._posterior={}
+        self._injFref=injFref
         self._injection=SimInspiralTableEntry
         self._triggers=SnglInpiralList
         self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
@@ -662,9 +503,63 @@ class Posterior(object):
         
         common_output_table_header=[i.lower() for i in common_output_table_header]
         
+        # Define XML mapping
+        self._injXMLFuncMap={
+                            'mchirp':lambda inj:inj.mchirp,
+                            'chirpmass':lambda inj:inj.mchirp,
+                            'mc':lambda inj:inj.mchirp,
+                            'mass1':lambda inj:inj.mass1,
+                            'm1':lambda inj:inj.mass1,
+                            'mass2':lambda inj:inj.mass2,
+                            'm2':lambda inj:inj.mass2,
+                            'eta':lambda inj:inj.eta,
+                            'q':self._inj_q,
+                            'asym_massratio':self._inj_q,
+                            'massratio':lambda inj:inj.eta,
+                            'sym_massratio':lambda inj:inj.eta,
+                            'time': lambda inj:float(inj.get_end()),
+                            'end_time': lambda inj:float(inj.get_end()),
+                            'phi0':lambda inj:inj.phi0,
+                            'phi_orb': lambda inj: inj.coa_phase,
+                            'dist':lambda inj:inj.distance,
+                            'distance':lambda inj:inj.distance,
+                            'ra':self._inj_longitude,
+                            'rightascension':self._inj_longitude,
+                            'long':self._inj_longitude,
+                            'longitude':self._inj_longitude,
+                            'dec':lambda inj:inj.latitude,
+                            'declination':lambda inj:inj.latitude,
+                            'lat':lambda inj:inj.latitude,
+                            'latitude':lambda inj:inj.latitude,
+                            'psi': lambda inj: np.mod(inj.polarization, np.pi),
+                            'iota':lambda inj: inj.inclination,
+                            'inclination': lambda inj: inj.inclination,
+                            'spinchi': self._inj_spinchi,
+                            'f_ref': lambda inj: self._injFref,
+                            'a1': self._inj_a1,
+                            'a2': self._inj_a2,
+                            'theta1':self._inj_theta1,
+                            'theta2':self._inj_theta2,
+                            'phi1':self._inj_phi1,
+                            'phi2':self._inj_phi2,
+                            'tilt1':self._inj_tilt1,
+                            'tilt2':self._inj_tilt2,
+                            'costilt1': lambda inj: np.cos(_inj_tilt1),
+                            'costilt2': lambda inj: np.cos(_inj_tilt2),
+                            'cos(iota)': lambda inj: np.cos(inj.inclination),
+                            'thetas':self._inj_thetas,
+                            'beta':self._inj_beta,
+                            'polarisation':lambda inj:inj.polarization,
+                            'polarization':lambda inj:inj.polarization,
+                            'h1_end_time':lambda inj:float(inj.get_end('H')),
+                            'l1_end_time':lambda inj:float(inj.get_end('L')),
+                            'v1_end_time':lambda inj:float(inj.get_end('V')),
+                            'lal_amporder':lambda inj:inj.amp_order
+                           }
+
         for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
             
-            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),trigger_values=self._gettrigpar(param_name))
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),injFref=self._injFref,trigger_values=self._gettrigpar(param_name))
 
         if 'mchirp' in common_output_table_header and 'eta' in common_output_table_header \
         and (not 'm1' in common_output_table_header) and (not 'm2' in common_output_table_header):
@@ -841,59 +736,6 @@ class Posterior(object):
                 if new_trigvals is not None:
                     self[name].set_trigvals(new_trigvals)
 
-
-    _injXMLFuncMap={
-                        'mchirp':lambda inj:inj.mchirp,
-                        'chirpmass':lambda inj:inj.mchirp,
-                        'mc':lambda inj:inj.mchirp,
-                        'mass1':lambda inj:inj.mass1,
-                        'm1':lambda inj:inj.mass1,
-                        'mass2':lambda inj:inj.mass2,
-                        'm2':lambda inj:inj.mass2,
-                        'eta':lambda inj:inj.eta,
-                        'q':_inj_q,
-                        'asym_massratio':_inj_q,
-                        'massratio':lambda inj:inj.eta,
-                        'sym_massratio':lambda inj:inj.eta,
-                        'time': lambda inj:float(inj.get_end()),
-                        'end_time': lambda inj:float(inj.get_end()),
-                        'phi0':lambda inj:inj.phi0,
-                        'phi_orb': lambda inj: inj.coa_phase,
-                        'dist':lambda inj:inj.distance,
-                        'distance':lambda inj:inj.distance,
-                        'ra':_inj_longitude,
-                        'rightascension':_inj_longitude,
-                        'long':_inj_longitude,
-                        'longitude':_inj_longitude,
-                        'dec':lambda inj:inj.latitude,
-                        'declination':lambda inj:inj.latitude,
-                        'lat':lambda inj:inj.latitude,
-                        'latitude':lambda inj:inj.latitude,
-                        'psi': lambda inj: np.mod(inj.polarization, np.pi),
-                        'iota':lambda inj: inj.inclination,
-                        'inclination': lambda inj: inj.inclination,
-                        'spinchi': lambda inj: (inj.spin1z + inj.spin2z) + sqrt(1-4*inj.eta)*(inj.spin1z - spin2z),
-                        'f_lower': lambda inj: inj.f_lower,
-                        'a1': lambda inj: np.sqrt(inj.spin1x**2+inj.spin1y**2+inj.spin1z**2) ,
-                        'a2': lambda inj: np.sqrt(inj.spin2x**2+inj.spin2y**2+inj.spin2z**2) ,
-                        'theta1':_inj_theta1,
-                        'theta2':_inj_theta2,
-                        'phi1':_inj_phi1,
-                        'phi2':_inj_phi2,
-                        'tilt1':_inj_tilt1,
-                        'tilt2':_inj_tilt2,
-                        'costilt1': lambda inj: np.cos(_inj_tilt1),
-                        'costilt2': lambda inj: np.cos(_inj_tilt2),
-                        'cos(iota)': lambda inj: np.cos(inj.inclination),
-                        'thetas':_inj_thetas,
-                        'beta':_inj_beta,
-                        'polarisation':lambda inj:inj.polarization,
-                        'polarization':lambda inj:inj.polarization,
-                        'h1_end_time':lambda inj:float(inj.get_end('H')),
-                        'l1_end_time':lambda inj:float(inj.get_end('L')),
-                        'v1_end_time':lambda inj:float(inj.get_end('V')),
-                        'lal_amporder':lambda inj:inj.amp_order
-                       }
 
     def _getinjpar(self,paramname):
         """
@@ -1406,6 +1248,177 @@ class Posterior(object):
       parser=XMLParser(target=target)
       parser.feed(self._votfile)
       return parser.close()
+
+    #===============================================================================
+    # Functions used to parse injection structure.
+    #===============================================================================
+    def _inj_m1(self,inj):
+        """
+        Return the mapping of (mchirp,eta)->m1; m1>m2 i.e. return the greater of the mass 
+        components (m1) calculated from the chirp mass and the symmetric mass ratio.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+        @rtype: number
+        """
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+        return mass1
+    def _inj_m2(self,inj):
+        """
+        Return the mapping of (mchirp,eta)->m2; m1>m2 i.e. return the lesser of the mass 
+        components (m2) calculated from the chirp mass and the symmetric mass ratio.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+        @rtype: number
+        """
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+        return mass2
+
+    def _inj_q(self,inj):
+        """
+        Return the mapping of (mchirp,eta)->q; m1>m2 i.e. return the mass ratio q=m2/m1.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attributes 'mchirp' and 'eta'.
+        @rtype: number 
+        """
+        (mass1,mass2)=mc2ms(inj.mchirp,inj.eta)
+        return mass2/mass1
+
+    def _inj_longitude(self,inj):
+        """
+        Return the mapping of longitude found in inj to the interval [0,2*pi).
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'longitude'.
+        @rtype: number
+        """
+        if inj.longitude>2*pi_constant or inj.longitude<0.0:
+            maplong=2*pi_constant*(((float(inj.longitude))/(2*pi_constant)) - floor(((float(inj.longitude))/(2*pi_constant))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.longitude),str(maplong))
+            return maplong
+        else:
+            return inj.longitude
+
+    def _inj_a1(self,inj):
+        """
+        Return the magnitude of the spin 1 vector. Calculates the spin magnitude
+        from it's components.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'spin1x','spin1y', and 'spin1z' (the spin components).
+        @rtype: number
+        """
+        x = inj.spin1x
+        y = inj.spin1y
+        z = inj.spin1z
+        return sqrt(x*x + y*y + z*z)
+
+    def _inj_a2(self,inj):
+        """
+        Return the magnitude of the spin 2 vector. Calculates the spin magnitude
+        from it's components.
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'spin2x','spin2y', and 'spin2z' (the spin components).
+        @rtype: number
+        """
+        x = inj.spin2x
+        y = inj.spin2y
+        z = inj.spin2z
+        return sqrt(x*x + y*y + z*z)
+
+    def _inj_spinchi(self,inj):
+        spin1z = inj.spin1z
+        spin2z = inj.spin2z
+        eta = inj.eta
+        return (spin1z + spin2z) + sqrt(1-4*eta)*(spin1z - spin2z)
+
+    def _inj_theta1(self,inj):
+        x = inj.spin1x
+        y = inj.spin1y
+        z = inj.spin1z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+    def _inj_theta2(self,inj):
+        x = inj.spin2x
+        y = inj.spin2y
+        z = inj.spin2z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            return np.arccos( z / sqrt(x*x+y*y+z*z) )
+
+    def _inj_phi1(self,inj):
+        x = inj.spin1x
+        y = inj.spin1y
+        z = inj.spin1z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            phi_mpi_to_pi = np.arctan2(y, x)
+            if phi_mpi_to_pi < 0.0:
+                return phi_mpi_to_pi + 2*pi_constant
+            else:
+                return phi_mpi_to_pi
+
+    def _inj_phi2(self,inj):
+        x = inj.spin2x
+        y = inj.spin2y
+        z = inj.spin2z
+        if x == 0.0 and y == 0.0 and z == 0.0:
+            return None
+        else:
+            phi_mpi_to_pi = np.arctan2(y, x)
+            if phi_mpi_to_pi < 0.0:
+                return phi_mpi_to_pi + 2*pi_constant
+            else:
+                return phi_mpi_to_pi
+
+    def _inj_tilt1(self,inj):
+        f_ref = self._injFref
+        S1  = np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+        L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+        tilt1 = array_ang_sep(L,S1)
+        if np.max(S1) == 0.0:
+            return None
+        else:
+            return tilt1
+
+    def _inj_tilt2(self,inj):
+        f_ref = self._injFref
+        S2  = np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+        L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
+        tilt2 = array_ang_sep(L,S2)
+        if np.max(S2) == 0.0:
+            return None
+        else:
+            return tilt2
+
+    def _inj_thetas(self, inj):
+        f_ref = self._injFref
+        L  = orbital_momentum(inj.f_ref, inj.mchirp, inj.inclination)
+        S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+        S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+        J = L + S1 + S2
+
+        thetas = array_polar_ang(J)
+        return thetas
+        
+    def _inj_beta(self, inj):
+        f_ref = self._injFref
+        L  = orbital_momentum(inj.f_ref, inj.mchirp, inj.inclination)
+        S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
+        S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
+        J = L + S1 + S2
+        
+        beta  = array_ang_sep(J,L)
+        return beta
+
 
 
 class KDTree(object):
@@ -4353,7 +4366,7 @@ class PEOutputParser(object):
                 runfile.write('Chain '+str(i)+':\n')
                 runfile.writelines(runInfo)
                 print "Processing file %s to %s"%(infilename,outfile.name)
-                f_lower=self._find_infmcmc_f_lower(runInfo)
+                f_ref=self._find_infmcmc_f_ref(runInfo)
                 if oldMassConvention:
                     # Swap #1 for #2 because our old mass convention
                     # has m2 > m1, while the common convention has m1
@@ -4363,7 +4376,7 @@ class PEOutputParser(object):
                     for label in header:
                         outfile.write(label)
                         outfile.write(" ")
-                    outfile.write("f_lower")
+                    outfile.write("f_ref")
                     outfile.write(" ")
                     outfile.write("chain")
                     outfile.write("\n")
@@ -4388,7 +4401,7 @@ class PEOutputParser(object):
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
                                 outfile.write(" ")
-                            outfile.write(f_lower)
+                            outfile.write(f_ref)
                             outfile.write(" ")
                             outfile.write(str(i))
                             outfile.write("\n")
@@ -4497,6 +4510,47 @@ class PEOutputParser(object):
                 else:
                     nskips[i] = None
         return nskips
+
+    def _find_infmcmc_f_ref(self, runInfo):
+        """
+        Searches through header to determine reference frequency of waveforms.
+        If no fRef given, calls _find_infmcmc_f_lower to get the lower frequency
+        bound, which is the default reference frequency for LALInference.
+        """
+        fRef = None
+        runInfoIter = iter(runInfo)
+        for line in runInfoIter:
+            headers=line.lstrip().lower().split()
+            try:
+                fRefColNum = headers.index('fLow')
+                info = runInfoIter.next().lstrip().lower().split()
+                fRef = info[fRefColNum]
+                break
+            except ValueError:
+                continue
+
+        # ***TEMPORARY*** If not in table, check command line.
+        #   ...This is messy, but the only option for dealing with old headers
+        if not fRef:
+          runInfoIter = iter(runInfo)
+          for line in runInfoIter:
+              headers=line.lstrip().lower().split()
+              try:
+                  if headers[0]=="command":
+                      try:
+                          fRefInd = headers.index('--fref')+1
+                          fRef = headers[fRefInd]
+                      except ValueError:
+                          pass
+                      break
+              except IndexError:
+                  continue
+
+        # If no fRef is found, use lower frequency bound
+        if not fRef:
+            fRef = self._find_infmcmc_f_lower(runInfo)
+
+        return fRef
 
     def _find_infmcmc_f_lower(self, runInfo):
         """

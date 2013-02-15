@@ -262,6 +262,22 @@ def cbcBayesPostProc(
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
     
+    #Extract f_ref from CRO if present.  This is needed to calculate orbital angular momentum
+    #  when converting spin parameters.  Ideally this info will be provided in the
+    #  SimInspiralTable in the near future.
+    ps,samps = commonResultsObj
+    try:
+        f_refIdx = ps.index('f_ref')
+        injFref = unique(samps[:,f_refIdx])
+        if len(injFref) > 1:
+            print "ERROR: Expected f_ref to be constant for all samples.  Can't tell which value was injected!"
+            print injFref
+            injFref = None
+        else:
+            injFref = injFref[0]
+    except ValueError:
+        injFref = None
+
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
     if injfile and (eventnum is not None or event_id is not None):
@@ -316,7 +332,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,SnglInpiralList=triggers,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
