@@ -139,7 +139,7 @@ class ligolw_add_job(pipeline.CondorDAGJob):
 		self.add_condor_cmd('getenv','True')
 		self.tag_base = tag_base
 		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
-		self.add_condor_cmd('request_memory', '999')
+		#self.add_condor_cmd('request_memory', '999')
 		self.set_sub_file(tag_base+'.sub')
 		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
 		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
@@ -252,6 +252,8 @@ class ligolw_add_node(pipeline.CondorDAGNode):
 		self.add_var_opt("input-cache", cache)
 		self.add_var_opt("output", output)
 		self.add_output_file(output)
+		self.set_post_script(os.getcwd() + '/testgz.sh')
+		self.add_post_script_arg(output)
 		for p in p_node:
 			self.add_parent(p)
 		dag.add_node(self)
@@ -325,7 +327,7 @@ class ligolw_rinca_node(pipeline.CondorDAGNode):
                 #self.add_var_opt("save-small-coincs", "")
                 if extent:
 			self.add_var_opt("coinc-end-time-segment",":".join([str(t) for t in extent]))
-		self.add_post_script('testgz.sh')
+		self.set_post_script(os.getcwd() + '/testgz.sh')
 		self.add_post_script_arg(xml)
                 for p in p_node:
                         self.add_parent(p)
@@ -505,13 +507,12 @@ opts, files = parse_command_line()
 # make a gzip test shell script to run as post to check ligolw_rinca failures
 #
 f = open('testgz.sh', 'w')
-f.write("""
-#!/bin/bash
+f.write("""#!/bin/bash
 sleep 30
 gzip --test $1
 exit $?""")
 f.close()
-os.chmod('testgz.sh', 755)
+os.chmod('testgz.sh', 777)
 
 #
 # SET UP THE DAG
