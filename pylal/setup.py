@@ -565,6 +565,7 @@ setup(
 		os.path.join("bin", "pylal_exttrig_llsummary"),
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_exttrig_llpage"),
+		os.path.join("bin", "pylal_recolor"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "pylal_version"),
 		os.path.join("bin", "plotethinca"),
