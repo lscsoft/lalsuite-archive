@@ -512,7 +512,7 @@ sleep 30
 gzip --test $1
 exit $?""")
 f.close()
-os.chmod('testgz.sh', 777)
+os.chmod('testgz.sh', 0777)
 
 #
 # SET UP THE DAG
