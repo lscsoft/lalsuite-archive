@@ -232,6 +232,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.null_stat = None
 		coinc_ringdown.kappa = None
 		coinc_ringdown.snr_ratio = None
+		coinc_ringdown.combined_far = None
 		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		#
