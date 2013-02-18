@@ -116,6 +116,8 @@ class ring_post_DAG(pipeline.CondorDAG):
 		self.sqlite_cache_name=os.path.dirname(os.path.abspath(self.get_dag_file()))+"/"+self.basename+".cache"
 	def add_node(self, node):
 		self.id+=1
+		node.add_macro("macroid", self.id)
+		node.add_macro("macronodename", node.get_name())
 		pipeline.CondorDAG.add_node(self, node)
 	def write_cache(self):
 		f = open(self.sqlite_cache_name,"w")
@@ -139,8 +141,8 @@ class ligolw_add_job(pipeline.CondorDAGJob):
 		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
 		self.add_condor_cmd('request_memory', '999')
 		self.set_sub_file(tag_base+'.sub')
-		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
 		self.add_file_arg(cp.get('input','veto_file'))
 
 
@@ -159,8 +161,8 @@ class ligolw_sqlite_job(pipeline.CondorDAGJob):
 		self.tag_base = tag_base
 		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
 		self.set_sub_file(tag_base+'.sub')
-		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
 		self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
 class ligolw_sqlitex_job(pipeline.CondorDAGJob):
@@ -178,8 +180,8 @@ class ligolw_sqlitex_job(pipeline.CondorDAGJob):
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(tag_base+'.sub')
-                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
                 self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
 class ligolw_cbc_repop_ratio_job(pipeline.CondorDAGJob):
@@ -197,8 +199,8 @@ class ligolw_cbc_repop_ratio_job(pipeline.CondorDAGJob):
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(tag_base+'.sub')
-                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
                 self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
 class ligolw_cbc_repop_stat_job(pipeline.CondorDAGJob):
@@ -216,8 +218,8 @@ class ligolw_cbc_repop_stat_job(pipeline.CondorDAGJob):
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(tag_base+'.sub')
-                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
                 self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
 class lalapps_run_sqlite_job(pipeline.CondorDAGJob):
@@ -235,8 +237,8 @@ class lalapps_run_sqlite_job(pipeline.CondorDAGJob):
 		self.tag_base = tag_base
 		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
 		self.set_sub_file(tag_base+'.sub')
-		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
 		self.add_opt("tmp-space",cp.get('input','tmp-space'))
 
 class ligolw_add_node(pipeline.CondorDAGNode):
@@ -270,8 +272,8 @@ class ligolw_rinca_job(pipeline.CondorDAGJob):
 		self.tag_base = tag_base
 		self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
 		self.set_sub_file(tag_base+'.sub')
-		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+		self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+		self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
 
 class lalapps_cbc_injfind_job(pipeline.CondorDAGJob):
         """
@@ -288,8 +290,8 @@ class lalapps_cbc_injfind_job(pipeline.CondorDAGJob):
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(tag_base+'.sub')
-                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
 
 class lalapps_ringcorse_job(pipeline.CondorDAGJob):
         """
@@ -306,8 +308,8 @@ class lalapps_ringcorse_job(pipeline.CondorDAGJob):
                 self.tag_base = tag_base
                 self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
                 self.set_sub_file(tag_base+'.sub')
-                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(process).out')
-                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(process).err')
+                self.set_stdout_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).out')
+                self.set_stderr_file('logs/'+tag_base+'-$(macroid)-$(macronodename)-$(process).err')
 
 class ligolw_rinca_node(pipeline.CondorDAGNode):
         """
@@ -321,7 +323,10 @@ class ligolw_rinca_node(pipeline.CondorDAGNode):
                 self.add_var_opt("ds-sq-threshold", ds_sq)
 		#FIXME Double coinc analysis currently disabled.
                 #self.add_var_opt("save-small-coincs", "")
-                if extent: self.add_var_opt("coinc-end-time-segment",":".join([str(t) for t in extent]))
+                if extent:
+			self.add_var_opt("coinc-end-time-segment",":".join([str(t) for t in extent]))
+		self.add_post_script('testgz.sh')
+		self.add_post_script_arg(xml)
                 for p in p_node:
                         self.add_parent(p)
                 dag.add_node(self)
@@ -495,6 +500,18 @@ def parse_command_line():
 #
 
 opts, files = parse_command_line()
+
+#
+# make a gzip test shell script to run as post to check ligolw_rinca failures
+#
+f = open('testgz.sh', 'w')
+f.write("""
+#!/bin/bash
+sleep 30
+gzip --test $1
+exit $?""")
+f.close()
+os.chmod('testgz.sh', 755)
 
 #
 # SET UP THE DAG
