@@ -28,7 +28,6 @@
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
-
 #include <lal/LALInspiral.h>
 #include <lal/FrameCache.h>
 #include <lal/FrameStream.h>
@@ -48,7 +47,6 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/LIGOLwXMLRead.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
-
 #include <lal/SeqFactories.h>
 #include <lal/DetectorSite.h>
 #include <lal/GenerateInspiral.h>
@@ -69,13 +67,12 @@
 #include <math.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALSimulation.h>
-
 #include <lal/LALInference.h>
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
-#include "lal/LIGOLwXMLBurstRead.h"
-#include "lal/GenerateBurst.h"
+#include <lal/LIGOLwXMLBurstRead.h>
+#include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 
 struct fvec {
@@ -2097,6 +2094,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
                                              ra, dec, &GPSlal);
 printf("ra %lf dec %lf time %10.10e\n",ra,dec,injtime);
     printf("timedelay for IFO %s : %lf\n",dataPtr->name,timedelay);
+    dataPtr->injtime=injtime;
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
     timeshift =  (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))) + timedelay;

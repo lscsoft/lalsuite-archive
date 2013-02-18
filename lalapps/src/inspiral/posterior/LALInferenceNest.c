@@ -38,8 +38,8 @@
 #include <lal/LALInferenceReadNonCBCData.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALInferenceProposal.h>
-#include "lal/LIGOLwXMLBurstRead.h"
-#include "lal/GenerateBurst.h"
+#include <lal/LIGOLwXMLBurstRead.h>
+#include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALInferenceInit.h>
 

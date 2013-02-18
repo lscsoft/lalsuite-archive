@@ -396,6 +396,7 @@ tagLALInferenceIFOData
   REAL8                     STDOF;              /** Degrees of freedom for IFO to be used in Student-T Likelihood. */
   struct tagLALInferenceBestIFO *BestIFO;
   int skipIFO;
+  REAL8  injtime;
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
 
 } LALInferenceIFOData;

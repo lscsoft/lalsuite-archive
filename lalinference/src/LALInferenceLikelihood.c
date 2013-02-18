@@ -2197,7 +2197,7 @@ UINT4 kappa=0;
    // SALVO
     //else 
     
-    timeTmp = 939936910.0;//939936812.000000;
+    timeTmp = dataPtr->injtime; //#939936910.0;//939936812.000000;
    // different = LALInferenceCompareVariables(dataPtr->modelParams, &intrinsicParams);
     /* "different" now may also mean that "dataPtr->modelParams" */
     /* wasn't allocated yet (as in the very 1st iteration).      */

@@ -36,9 +36,10 @@
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceReadNonCBCData.h>
 #include <lal/LALInferenceInit.h>
-#include "lal/LIGOLwXMLBurstRead.h"
-#include "lal/GenerateBurst.h"
+#include <lal/LIGOLwXMLBurstRead.h>
+#include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
+
 void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState)
 {
   char help[]="(--template [SinGauss,BestIFO]\tSpecify template (default LAL)\n";

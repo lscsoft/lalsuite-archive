@@ -28,7 +28,6 @@
 #define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
-
 #include <lal/LALInspiral.h>
 #include <lal/FrameCache.h>
 #include <lal/FrameStream.h>
@@ -48,7 +47,6 @@
 #include <lal/GenerateInspiral.h>
 #include <lal/LIGOLwXMLRead.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
-
 #include <lal/SeqFactories.h>
 #include <lal/DetectorSite.h>
 #include <lal/GenerateInspiral.h>
@@ -69,18 +67,16 @@
 #include <math.h>
 #include <lal/LALInspiral.h>
 #include <lal/LALSimulation.h>
-
 #include <lal/LALInference.h>
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
-#include "lal/LIGOLwXMLBurstRead.h"
-#include "lal/GenerateBurst.h"
+#include <lal/LIGOLwXMLBurstRead.h>
+#include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALInferenceReadNonCBCData.h>
-
 #define LALINFERENCE_DEFAULT_FLOW "40.0"
-typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
+//typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 
 static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
 
