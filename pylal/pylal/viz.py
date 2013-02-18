@@ -165,6 +165,8 @@ def timeindays(col_data ):
     start = e13times[0]
   elif col_data[0] > e14times[0] and col_data[0] < e14times[1]:
     start = e14times[0]
+  elif col_data[0] > 900000000:
+    start = 900000000
   else:
     raise ValueError, "events not from a known science run"
 
