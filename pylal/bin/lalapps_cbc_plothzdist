@@ -1,0 +1,338 @@
+#! /usr/bin/env python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+__prog__ = "lalapps_cbc_plothzdist"
+__author__ = "Collin Capano <collin.capano@ligo.org>"
+description = \
+''' 
+Plots horizon distance versus total mass for specified masses and SNR. Alternatively,
+SNR vs total mass can be plotted for specified distance. Multiple waveforms (with the
+same physical parameters) may be plotted.
+'''
+usage = "%s --mtotal-range RANGE --mass-ratio Q --waveform-fmin WFMIN --overlap-fmin OFMIN --output-file FILE [--psd-model MODEL | --asd-file FILE] [--snr SNR | --distance DIST] [additional options]"
+
+from optparse import OptionParser
+import os, sys
+import numpy
+from optparse import OptionParser
+
+import lal
+import lalsimulation as lalsim
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot
+pyplot.rcParams.update({
+    "text.usetex": True,
+    "text.verticalalignment": "center",
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman"],
+    "font.weight": "bold",
+    "font.size": 12,
+    "axes.titlesize": 18,
+    "axes.labelsize": 14,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
+    "legend.fontsize": 12,
+    })
+
+
+#
+# =============================================================================
+#
+#                             Useful Functions
+#
+# =============================================================================
+#
+def get_redshift(distance):
+    """
+    Gives the redshift corresponding
+    to the distance. Distance should be in Mpc.
+    """
+    return distance * lal.LAL_H0_SI * 1e6 * lal.LAL_PC_SI / lal.LAL_C_SI
+
+def get_redshifted_mass(mass, distance):
+    """
+    Distance should be in Mpc.
+    """
+    return (1 + get_redshift(distance))*mass
+
+def m1_m2_from_M_q(mtotal, q):
+    m2 = mtotal / float(1+q)
+    m1 = mtotal - m2
+    return m1, m2
+
+def get_psd(N, df, fmin, psd_model):
+    psd = lal.CreateREAL8FrequencySeries('psd', lal.LIGOTimeGPS(0,0), fmin, df, lal.lalHertzUnit, N)
+    lalsim.SimNoisePSD(psd, fmin, getattr(lalsim, 'SimNoisePSD'+psd_model))
+    return psd
+
+def get_psd_from_file(N, df, fmin, asd_file):
+    psd = lal.CreateREAL8FrequencySeries('psd', lal.LIGOTimeGPS(0,0), fmin, df, lal.lalHertzUnit, N)
+    lalsim.SimNoisePSDFromFile(psd, fmin, os.path.abspath(asd_file))
+    return psd
+
+def zero_pad_h(h, N, position, overwrite = False):
+    # check that desired position is in bounds
+    if position > N:
+        raise ValueError, "position must be <= N"
+    # create a copy so as not to overwrite original
+    if overwrite:
+        newh = h
+    else:
+        newh = lal.CreateREAL8TimeSeries(h.name, h.epoch, h.f0, h.deltaT, lal.lalSecondUnit, h.data.length)
+        newh.data.data[:] = h.data.data
+    lal.ResizeREAL8TimeSeries(newh, 0, N-position)
+    lal.ResizeREAL8TimeSeries(newh, -1*position, N)
+    return newh
+
+def get_htilde(h, N, df, fftplan = None):
+    # do the fft
+    htilde = lal.CreateCOMPLEX16FrequencySeries("htilde", h.epoch, h.f0, df, lal.lalHertzUnit, int(N/2 + 1))
+    if fftplan is None:
+        fftplan = lal.CreateForwardREAL8FFTPlan(N, 0)
+    lal.REAL8TimeFreqFFT(htilde, h, fftplan)
+    return htilde
+
+def get_overlap(htilde, stilde, psd, fmin, fmax = None):
+    df = htilde.deltaF
+    if not(df == stilde.deltaF == psd.deltaF):
+        raise ValueError, "df mismatch"
+    if not(htilde.data.length == stilde.data.length == psd.data.length):
+        raise ValueError, "vector length mismatch"
+    kstart = fmin/df < 1 and 1 or int(fmin/df)
+    if fmax is None or fmax/df > htilde.data.length - 1:
+        kstop = -1
+    else:
+        kstop = int(fmax/df)
+    # note: numpy always does the half-open interval, i.e.
+    # the sum will go from kstart to kstop-1
+    return 4*df*sum((htilde.data.data.conj() * stilde.data.data)[kstart:kstop]/psd.data.data[kstart:kstop])
+
+def get_sigmasq(htilde, psd, fmin, fmax = None):
+    return get_overlap(htilde, htilde, psd, fmin, fmax).real
+
+def get_psd_models():
+    psd_prefix = 'SimNoisePSD'
+    psd_models = [x.replace(psd_prefix, '') for x in dir(lalsim) if x.startswith(psd_prefix) and x != psd_prefix and x != psd_prefix+'FromFile']
+    return psd_models
+
+# =============================================================================
+#
+#                                   Parse Options
+#
+# =============================================================================
+
+parser = OptionParser(version = "", usage = usage % __prog__, description = description)
+
+parser.add_option("-o", "--output-file", help = "File to save plot to. The suffix on the file name will determine the plot type, e.g., '.png' or '.pdf'")
+parser.add_option("-p", "--psd-model", help = "PSD model to use. Options are %s. If not specified, must provide an asd file." % ', '.join(get_psd_models()))
+parser.add_option("-a", "--asd-file", help = "Get the PSD from the ASD specified in the given file. The file must be an ASCII file consisting of two columns: the first column should give the frequency, the second column the ASD. If not using an ASD file, must specify a psd-model.")
+parser.add_option("-m", "--mtotal-range", metavar = "min,max", help = "Required. Set the minimum and maximum total masses to plot (in solar masses).")
+parser.add_option("-q", "--mass-ratio", type = 'float', help = "Required. What mass ratio to use.")
+parser.add_option("-z", "--redshift-mass", action = "store_true", default = False, help = "Plot redshifted masses.")
+parser.add_option("-S", "--snr", type = "float", help = "If specified, will plot horizon distance vs total mass for the given SNR.")
+parser.add_option("-D", "--distance", type = "float", help = "If specified, will plot SNR vs total mass at the given horizon distance.")
+parser.add_option("-f", "--waveform-fmin", type = "float", help = "Frequency (Hz) at which to start waveform generation.")
+parser.add_option("-F", "--overlap-fmin", type = "float", help = "Frequency (Hz) at which to start overlap calculation.")
+parser.add_option("-w", "--waveform-model", action = "append", help = "What waveform model to plot. Can specify multiple times. At least one is required.")
+# waveform parameters
+parser.add_option("--sample-rate", type = "int", help = "Required for time-domain waveforms. What sample rate (in Hz) to use.")
+parser.add_option("--seg-length", type = "int", help = "Required for frequency-domain waveforms. The inverse of this gives the deltaF used for waveform generation.")
+parser.add_option("--f-max", type = "float", help = "Required for frequency-domain waveforms. Max frequency to generate waveform to. Also sets the cutoff frequency for overlap. If a sample rate is also specified, this must be <= the Nyquist frequency.")
+parser.add_option("--f-ref", type = "float", help = "Set reference frequency for time-domain waveforms. Default is 0.")
+parser.add_option("--spin1", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the larger mass. Default is 0,0,0.")
+parser.add_option("--spin2", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the smaller mass. Default is 0,0,0.")
+parser.add_option("--lambda1", type = "float", default = 0., help = "Specify tidal-deformation parameter of the larger mass. Default is 0.")
+parser.add_option("--lambda2", type = "float", default = 0., help = "Specify tidal-deformation parameter of the smaller mass. Default is 0.")
+parser.add_option("--amp-order", type = "int", default = 0, help = "Specify the amplitude order. Default is 0.")
+parser.add_option("--phase-order", type = "int", default = 7, help = "Specify the phase order. Default is 7.")
+parser.add_option("--inclination", type = "float", default = 0., help = "What inclination to use for all waveforms. Default is 0.")
+parser.add_option("--initial-phase", type = "float", default = 0., help = "What inital phase to use for all waveforms. Default is 0.")
+parser.add_option("--taper-waveform", help = "Taper time domain waveforms. Options are %s. Default is none." % ', '.join(['start', 'end', 'startend']) )
+# plot parameters
+parser.add_option("", "--x-min", type = "float", help = "Set minimum x value.")
+parser.add_option("", "--x-max", type = "float", help = "Set maximum x value.")
+parser.add_option("", "--y-min", type = "float", help = "Set minimum y value.")
+parser.add_option("", "--y-max", type = "float", help = "Set maximum y value.")
+parser.add_option("", "--no-title", action = "store_true", default = False, help = "Do not add a title to the plot. Default is to add a title. If an SNR is given, the title will print that SNR; if a distance is given, the title will print that distance.")
+parser.add_option("", "--num-points", type = "int", default = 40, help = "number of points to use to generate plot; default is 40")
+parser.add_option("", "--dpi", type = "int", default = 200, help = "dots-per-inch to use for plot; default is 200")
+parser.add_option("-v", "--verbose", action = "store_true", default = False, help = "Be verbose.")
+
+opts, args = parser.parse_args()
+
+# parse for errors
+required_args = ['output-file', 'mtotal-range', 'mass-ratio', 'waveform-fmin', 'overlap-fmin', 'waveform-model']
+forgotten_args = [arg for arg in required_args if not getattr(opts, arg.replace('-', '_'))]
+if any(forgotten_args):
+    parser.error("option(s) %s is/are required" % ', '.join(forgotten_args))
+output_file = opts.output_file
+psd_model = opts.psd_model
+asd_file = opts.asd_file
+snr = opts.snr
+distance = opts.distance
+q = opts.mass_ratio
+wFmin = opts.waveform_fmin
+oFmin = opts.overlap_fmin
+waveforms = opts.waveform_model
+sample_rate = opts.sample_rate
+seg_length = opts.seg_length
+f_ref = opts.f_ref
+f_max = opts.f_max
+lmbda1 = opts.lambda1
+lmbda2 = opts.lambda2
+ampO = opts.amp_order
+phaseO = opts.phase_order
+inc = opts.inclination
+phi0 = opts.initial_phase
+taper = opts.taper_waveform
+npoints = opts.num_points
+dpi = opts.dpi
+redshift_masses = opts.redshift_mass
+
+if not (psd_model or asd_file):
+    parser.error("psd-model or asd-file required")
+if psd_model is not None and asd_file is not None:
+    parser.error("please specify an asd-file or a psd-model (not both)")
+if not (opts.snr or opts.distance):
+    parser.error("snr or distance required")
+if snr is not None and distance is not None:
+    parser.error("please specify snr or distance (not both)")
+if f_max is None:
+    f_max = sample_rate / 2.
+elif sample_rate is not None and f_max > sample_rate /2.:
+    parser.error("f-max (%i) cannot be larger than sample-rate/2 (%i)" %(f_max, sample_rate/2.))
+
+# parse extra args
+min_mtotal, max_mtotal = map(float, opts.mtotal_range.split(','))
+if snr is not None:
+    plot_distance = True
+    plot_snr = False
+else:
+    plot_snr = True
+    plot_distance = False
+if f_ref is None:
+    f_ref = 0.
+s1x, s1y, s1z = map(float, opts.spin1.split(','))
+s2x, s2y, s2z = map(float, opts.spin2.split(','))
+
+# =============================================================================
+#
+#                                Main
+#
+# =============================================================================
+
+if sample_rate is not None:
+    dt = 1./sample_rate
+if seg_length is not None:
+    df = 1./seg_length
+if taper is not None:
+    taper = lalsim.GetTaperFromString('TAPER_%s' % taper.upper())
+else:
+    taper = lalsim.GetTaperFromString('TAPER_NONE')
+
+input_masses = numpy.linspace(min_mtotal, max_mtotal, num = npoints)
+xvals = {}
+yvals = {}
+if opts.verbose:
+    print >> sys.stdout, "Calculating sensitivity:"
+for waveform in waveforms:
+    xvals[waveform] = numpy.zeros(npoints)
+    yvals[waveform] = numpy.zeros(npoints)
+    for ii,M in enumerate(input_masses):
+        if opts.verbose:
+            print >> sys.stdout, "\t%s: %.2f%%\r" %(waveform, 100.*ii/float(npoints)),
+            sys.stdout.flush()
+        m1, m2 = m1_m2_from_M_q(M, q)
+
+        # generate the waveform
+        apprx = lalsim.GetApproximantFromString(waveform)
+        if lalsim.SimInspiralImplementedTDApproximants(apprx):
+            hplus, hcross = lalsim.SimInspiralChooseTDWaveform(phi0, dt, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_ref, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
+
+            # detrend
+            hplus.data.data -= hplus.data.data.mean()
+
+            lalsim.SimInspiralREAL8WaveTaper(hplus.data, taper)
+
+            # get length
+            N = int(2*2**numpy.ceil(numpy.log2(hplus.data.length)))
+            this_df = float(sample_rate)/N
+
+            h = zero_pad_h(hplus, N, 0, overwrite = True)
+            htilde = get_htilde(h, N, this_df)
+
+        elif lalsim.SimInspiralImplementedFDApproximants(apprx):
+            htilde, _ = lalsim.SimInspiralChooseFDWaveform(phi0, df, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_max, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
+            N = 2*(htilde.data.length-1)
+
+        else:
+            raise ValueError, "unrecognized waveform approximant %s" % waveform
+
+        # get psd
+        if asd_file is not None:
+            psd = get_psd_from_file(htilde.data.length, htilde.deltaF, wFmin, asd_file)
+        else:
+            psd = get_psd(htilde.data.length, htilde.deltaF, wFmin, psd_model)
+
+        # calculate sensitivity
+        sigmasq = get_sigmasq(htilde, psd, oFmin, f_max)
+        if plot_distance:
+            distance = numpy.sqrt(sigmasq) / snr
+            yvals[waveform][ii] = distance
+        else:
+            snr = numpy.sqrt(sigmasq) / distance
+            yvals[waveform][ii] = snr
+
+        if redshift_masses:
+            xvals[waveform][ii] = get_redshifted_mass(M, distance) 
+        else:
+            xvals[waveform][ii] = M
+        
+    if opts.verbose:
+        print >> sys.stdout, "\t%s: %.2f%%" %(waveform, 100.)
+
+if opts.verbose:
+    print >> sys.stdout, "Plotting..."
+fig = pyplot.figure()
+ax = fig.add_subplot(111)
+for waveform in waveforms:
+    ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+ax.set_xlabel('%stotal mass ($\mathrm{M}_\odot$)' %(redshift_masses and 'red-shifted ' or ''))
+if plot_distance:
+    ax.set_ylabel('horizon distance (Mpc)')
+    if not opts.no_title:
+        ax.set_title(r'$\rho = %.2f$' % snr)
+else:
+    ax.set_ylabel(r'$\rho$')
+    if not opts.no_title:
+        ax.set_title('Distance = %i Mpc' % int(distance))
+plt_xmin, plt_xmax = ax.get_xlim()
+plt_ymin, plt_ymax = ax.get_ylim()
+if opts.x_min is not None:
+    plt_xmin = opts.x_min
+if opts.x_max is not None:
+    plt_xmax = opts.x_max
+if opts.y_min is not None:
+    plt_ymin = opts.y_min
+if opts.y_max is not None:
+    plt_ymax = opts.y_max
+ax.set_xlim(plt_xmin, plt_xmax)
+ax.set_ylim(plt_ymin, plt_ymax)
+ax.legend(loc = 'lower right')
+ax.grid(which = 'both')
+
+fig.savefig(output_file, dpi = dpi)
+
+if opts.verbose:
+    print >> sys.stdout, "Finished!"
+
+sys.exit(0)
