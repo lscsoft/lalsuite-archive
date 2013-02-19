@@ -113,6 +113,12 @@ static struct PyMemberDef members[] = {
 	{"Gamma7", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.Gamma[7]), 0, "Gamma7"},
 	{"Gamma8", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.Gamma[8]), 0, "Gamma8"},
 	{"Gamma9", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.Gamma[9]), 0, "Gamma9"},
+        {"spin1x", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.spin1x), 0, "spin1x"},
+	{"spin1y", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.spin1y), 0, "spin1y"},
+	{"spin1z", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.spin1z), 0, "spin1z"},
+	{"spin2x", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.spin2x), 0, "spin2x"},
+	{"spin2y", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.spin2y), 0, "spin2y"},
+	{"spin2z", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.spin2z), 0, "spin2z"},
 	{NULL,}
 };
 

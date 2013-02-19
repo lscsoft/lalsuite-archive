@@ -146,6 +146,13 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     event->Gamma[8] = GetAttrFloat(row, "Gamma8");
     event->Gamma[9] = GetAttrFloat(row, "Gamma9");
 
+    event->spin1x = GetAttrFloat(row, "spin1x");
+    event->spin1y = GetAttrFloat(row, "spin1y");
+    event->spin1z = GetAttrFloat(row, "spin1z");
+    event->spin2x = GetAttrFloat(row, "spin2x");
+    event->spin2y = GetAttrFloat(row, "spin2y");
+    event->spin2z = GetAttrFloat(row, "spin2z");
+
     event->event_id->id = GetAttrLongLong(row, "event_id");
 
     if(PyErr_Occurred()) {
