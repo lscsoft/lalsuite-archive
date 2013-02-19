@@ -743,7 +743,8 @@ setup(
 		os.path.join("bin", "pylal_coh_PTF_sbv"),
 		os.path.join("bin", "pylal_coh_PTF_plot_results"),
 		os.path.join("bin", "pylal_write_coh_PTF_page"),
-		os.path.join("bin", "ligolw_dbinjfind")
+		os.path.join("bin", "ligolw_dbinjfind"),
+		os.path.join("bin", "lalapps_cbc_plothzdist")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
