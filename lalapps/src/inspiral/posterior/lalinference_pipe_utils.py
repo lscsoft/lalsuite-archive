@@ -159,16 +159,19 @@ def procmap(connection):
 # cem1 will only contain maps where one object is a simulation event
 # cem2 will only contain maps where one object is a coinc_inspiral
 # both requirements will filter out anything but detected injections
-def getsimids(connection, ifos = 'H1,L1'):
+def getcoincid(connection, sim_id, ifos = 'H1,L1'):
     query = """
-    SELECT sim_inspiral.simulation_id, coinc_inspiral.coinc_event_id
+    SELECT coinc_inspiral.coinc_event_id
     FROM sim_inspiral JOIN coinc_inspiral, coinc_event_map as cem1, coinc_event_map as cem2
     ON ( sim_inspiral.simulation_id == cem1.event_id AND
          cem1.coinc_event_id == cem2.coinc_event_id AND
          cem2.event_id == coinc_inspiral.coinc_event_id )
-    WHERE coinc_inspiral.ifos == '""" + ifos + """'
-    """
-    return connection.cursor().execute(query)
+    WHERE coinc_inspiral.ifos == '""" + ifos + "' and sim_inspiral.simulation_id=='"+sim_id+"'"
+    
+    #print 'Looking for sim_id with %s'%(query)
+    
+    result= connection.cursor().execute(query).fetchall()
+    return result
 
 def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['ALLINJ'], dumpfile=None, gpsstart=None, gpsend=None):
 	"""
@@ -203,21 +206,62 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	xmldoc = utils.load_filename(output_inj_file,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
 	injTable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
 
+	print 'Polling database for injections'
+	#alldetected=getsimids(database_connection)
+	#detected_sim_ids=[]
+	#coinc_id_map={}
+	#for i,c in alldetected:
+	#	detected_sim_ids.append(i)
+	#	coinc_id_map[i]=c
+
 	# Filter by time
+	print 'Filtering injections'
 	filtinj=[inj for inj in injTable if (str(inj.process_id) in procids) ]
-	finalinj=[]
+	filtinj2=[]
 	for inj in filtinj:
+		print 'Looking for %s in found events'%(inj.simulation_id)
+		coinc=getcoincid(database_connection,inj.simulation_id)
+		print 'Found '+str(coinc)
+		if len(coinc)>0:
+			filtinj2.append(inj)
+
+	#filtinj2=[inj for inj in filtinj if (str(inj.simulation_id) in detected_sim_ids)]
+	finalinj=[]
+	for inj in filtinj2:
 		t=inj.geocent_end_time+1.0e-9*inj.geocent_end_time_ns
 		if gpsstart is not None:
 			if t<gpsstart: continue
 		if gpsend is not None:
 			if t>gpsend: continue
 		finalinj.append(inj)
+	print 'Dumping trigger information for %i injections'%(len(finalinj))
+	if dumpfile is not None:
+		fh=open(dumpfile,'w')
+		for i in finalinj:
+			coinc_id=coinc_id_map[i]
+			info_tuples=get_coinc_info(database_connection,coinc_id)
+			for ifo in info_tuples.keys():
+				(sngl_time,snr,chisq,cfar,timeslide)=info_tuples[ifo]
+				fh.write('%s %s %s %s %s %s %s\n'%(str(coinc_id),ifo,str(sngl_time),str(timeslides),str(snr),str(chisq),str(cfar)))
+		fh.close()
+		
 	
 	events=[Event(SimInspiral=inj) for inj in finalinj]
         print 'Found %i events from injection database'%(len(events))
 	return events
 
+
+def get_coinc_info(connection, coinc_id):
+	sql="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset \
+	     FROM sngl_inspiral join coinc_event_map on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id==sngl_inspiral.event_id) join coinc_event on \
+		coinc_event_id==coinc_event_map.coinc_event_id) join coinc_inspiral on (coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id) join time_slide\
+                    on (time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id==%s"%(str(coinc_id))
+	db_out=connection.cursor.execute(sql)
+	output={}
+	for (sngl_time, ifo, snr, chisq, cfar, timeslide) in db_out:
+		print 'Found info for %s'%(ifo)
+		output[ifo]=(sngl_time,snr,chisq,cfar,timeslide)
+	return output
 
 def get_zerolag_pipedown(database_connection, dumpfile=None, gpsstart=None, gpsend=None, max_cfar=-1):
 	"""
@@ -543,7 +587,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         else:
           injfile=os.path.join(self.config.get('paths','basedir'),'filtered_injections.xml')
           self.config.set('input','injection-file',injfile)
-        events=get_injections_pipedown(db_connection, injfile, sim_tag = injtypes, gpsstart=gpsstart, gpsend=gpsend)
+        events=get_injections_pipedown(db_connection, injfile, sim_tag = injtypes, gpsstart=gpsstart, gpsend=gpsend, dumpfile=timeslidedump)
       else:
 	events=get_zerolag_pipedown(db_connection, gpsstart=gpsstart, gpsend=gpsend, dumpfile=timeslidedump,max_cfar=maxcfar)
     if(selected_events is not None):
