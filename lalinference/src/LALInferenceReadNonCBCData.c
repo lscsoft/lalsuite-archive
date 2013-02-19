@@ -68,7 +68,6 @@
 #include <lal/LALInspiral.h>
 #include <lal/LALSimulation.h>
 #include <lal/LALInference.h>
-#include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LIGOLwXMLBurstRead.h>
@@ -79,99 +78,82 @@
 //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 
 static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
+ struct fvec {
+	REAL8 f;
+	REAL8 x;
+};
 
-/** Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 ...
-    It is necessary to use this method instead of the old method for the pipeline to work in DAX mode. Warning: do not mix options between
-    the old and new style.
-*/
-static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***ifos, char ***caches, char ***channels, char ***flows , char ***fhighs, char ***timeslides, UINT4 *N)
-{
-    /* Check that the input has no lists with [ifo,ifo] */
-    ProcessParamsTable *this=commandLine;
-    UINT4 i=0;
-    *caches=*ifos=*channels=*flows=*fhighs=*timeslides=NULL;
-    *N=0;
-    char tmp[128];
-    if(!this) {fprintf(stderr,"No command line arguments given!\n"); exit(1);}
-    while(this)
-    {
-        if(!strcmp(this->param,"--ifo") || !strcmp(this->param,"--IFO"))
-        for(i=0;this->value[i]!='\0';i++)
-            if(this->value[i]=='[' || this->value[i]==']')
-            {
-                fprintf(stderr,"Found old-style input arguments for %s\n",this->param);
-                return(0);
-            }
-        this=this->next;
-    }
-    /* Construct a list of IFOs */
-    for(this=commandLine;this;this=this->next)
-    {
-        if(!strcmp(this->param,"--ifo")||!strcmp(this->param,"--IFO"))
-        {
-            (*N)++;
-            *ifos=realloc(*ifos,*N*sizeof(char *));
-            (*ifos)[*N-1]=strdup(this->value);
-        }
-    }
-    *caches=calloc(*N,sizeof(char *));
-    *channels=calloc(*N,sizeof(char *));
-    *flows=calloc(*N,sizeof(REAL8));
-    *fhighs=calloc(*N,sizeof(REAL8));
-    *timeslides=calloc(*N,sizeof(REAL8));
-    /* For each IFO, fetch the other options if available */
-    for(i=0;i<*N;i++)
-    {
-        /* Cache */
-        sprintf(tmp,"--%s-cache",(*ifos)[i]);
-        this=LALInferenceGetProcParamVal(commandLine,tmp);
-        if(!this){fprintf(stderr,"ERROR: Must specify a cache file for %s with --%s-cache\n",(*ifos)[i],(*ifos)[i]); exit(1);}
-        (*caches)[i]=strdup(this->value);
-        
-        /* Channel */
-        sprintf(tmp,"--%s-channel",(*ifos)[i]);
-        this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*channels)[i]=strdup(this?this->value:"Unknown channel");
-
-        /* flow */
-        sprintf(tmp,"--%s-flow",(*ifos)[i]);
-        this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*flows)[i]=strdup(this?this->value:LALINFERENCE_DEFAULT_FLOW);
-        
-        /* fhigh */
-        sprintf(tmp,"--%s-fhigh",(*ifos)[i]);
-        this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*fhighs)[i]=this?strdup(this->value):NULL;
-
-        /* timeslides */
-        sprintf(tmp,"--%s-timeslide",(*ifos)[i]);
-        this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*timeslides)[i]=strdup(this?this->value:"0.0");
-    }
-    return(1);
+typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
+static struct fvec *interpFromFile(char *filename){
+	UINT4 fileLength=0;
+	UINT4 i=0;
+	UINT4 minLength=100; /* size of initial file buffer, and also size of increment */
+	FILE *interpfile=NULL;
+	struct fvec *interp=NULL;
+	interp=calloc(minLength,sizeof(struct fvec)); /* Initialise array */
+	if(!interp) {printf("Unable to allocate memory buffer for reading interpolation file\n");}
+	fileLength=minLength;
+	REAL8 f=0.0,x=0.0;
+	interpfile = fopen(filename,"r");
+	if (interpfile==NULL){
+		printf("Unable to open file %s\n",filename);
+		exit(1);
+	}
+	while(2==fscanf(interpfile," %lf %lf ", &f, &x )){
+		interp[i].f=f; interp[i].x=x*x;
+		i++;
+		if(i>fileLength-1){ /* Grow the array */
+			interp=realloc(interp,(fileLength+minLength)*sizeof(struct fvec));
+			fileLength+=minLength;
+		}
+	}
+	interp[i].f=0; interp[i].x=0;
+	fileLength=i+1;
+	interp=realloc(interp,fileLength*sizeof(struct fvec)); /* Resize array */
+	fclose(interpfile);
+	printf("Read %i records from %s\n",fileLength-1,filename);
+	return interp;
 }
 
-static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
-{
-	LALStatus status;
-	memset(&status,0,sizeof(status));
-	FrCache *cache = NULL;
-	FrStream *stream = NULL;
-	REAL8TimeSeries *out = NULL;
-	
-	cache  = XLALFrImportCache( cachefile );
-        int err;
-        err = *XLALGetErrnoPtr();
-	if(cache==NULL) {fprintf(stderr,"ERROR: Unable to import cache file \"%s\",\n       XLALError: \"%s\".\n",cachefile, XLALErrorString(err)); exit(-1);}
-	stream = XLALFrCacheOpen( cache );
-	if(stream==NULL) {fprintf(stderr,"ERROR: Unable to open stream from frame cache file\n"); exit(-1);}
-	out = XLALFrInputREAL8TimeSeries( stream, channel, &start, length , 0 );
-	if(out==NULL) fprintf(stderr,"ERROR: unable to read channel %s from %s at time %i\nCheck the specified data duration is not too long\n",channel,cachefile,start.gpsSeconds);
-	LALDestroyFrCache(&status,&cache);
-	LALFrClose(&status,&stream);
-	return out;
+static REAL8 interpolate(struct fvec *fvec, REAL8 f);
+static REAL8 interpolate(struct fvec *fvec, REAL8 f){
+	int i=0;
+	REAL8 a=0.0; /* fractional distance between bins */
+	REAL8 delta=0.0;
+	if(f<fvec[0].f) return(0.0);
+	while(fvec[i].f<f && (fvec[i].x!=0.0 )){i++;}; //&& fvec[i].f!=0.0)){i++;};
+  //printf("%d\t%lg\t%lg\t%lg\n",i,fvec[i].f,f,fvec[i].x);
+	if (fvec[i].f==0.0 && fvec[i].x==0.0) /* Frequency above moximum */
+	{
+		return (fvec[i-1].x);
+	}
+  //if(i==0){return (fvec[0].x);}
+	a=(fvec[i].f-f)/(fvec[i].f-fvec[i-1].f);
+	delta=fvec[i].x-fvec[i-1].x;
+	return (fvec[i-1].x + delta*a);
 }
 
+static void MetaNoiseFunc(LALStatus *status, REAL8 *psd, REAL8 f, struct fvec *interp, NoiseFunc *noisefunc){
+	if(interp==NULL&&noisefunc==NULL){
+		printf("ERROR: Trying to calculate PSD with NULL inputs\n");
+		exit(1);
+	}
+	if(interp!=NULL && noisefunc!=NULL){
+		printf("ERROR: You have specified both an interpolation vector and a function to calculate the PSD\n");
+		exit(1);
+	}
+	if(noisefunc!=NULL){
+		noisefunc(status,psd,f);
+		return;
+	}
+	if(interp!=NULL){ /* Use linear interpolation of the interp vector */
+		*psd=interpolate(interp,f);
+		return;
+	}
+}
+
+static REAL8TimeSeries *readTseries (CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
+static void makeWhiteData(LALInferenceIFOData *IFOdata);
 static void makeWhiteData(LALInferenceIFOData *IFOdata) {
   REAL8 deltaF = IFOdata->freqData->deltaF;
   REAL8 deltaT = IFOdata->timeData->deltaT;
@@ -243,6 +225,100 @@ static void makeWhiteData(LALInferenceIFOData *IFOdata) {
   }
 	
   XLALREAL8FreqTimeFFT(IFOdata->whiteTimeData, IFOdata->whiteFreqData, IFOdata->freqToTimeFFTPlan);
+}
+
+
+
+static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
+{
+	LALStatus status;
+	memset(&status,0,sizeof(status));
+	FrCache *cache = NULL;
+	FrStream *stream = NULL;
+	REAL8TimeSeries *out = NULL;
+	
+	cache  = XLALFrImportCache( cachefile );
+        int err;
+        err = *XLALGetErrnoPtr();
+	if(cache==NULL) {fprintf(stderr,"ERROR: Unable to import cache file \"%s\",\n       XLALError: \"%s\".\n",cachefile, XLALErrorString(err)); exit(-1);}
+	stream = XLALFrCacheOpen( cache );
+	if(stream==NULL) {fprintf(stderr,"ERROR: Unable to open stream from frame cache file\n"); exit(-1);}
+	out = XLALFrInputREAL8TimeSeries( stream, channel, &start, length , 0 );
+	if(out==NULL) fprintf(stderr,"ERROR: unable to read channel %s from %s at time %i\nCheck the specified data duration is not too long\n",channel,cachefile,start.gpsSeconds);
+	LALDestroyFrCache(&status,&cache);
+	LALFrClose(&status,&stream);
+	return out;
+}
+
+/** Parse the command line looking for options of the kind --ifo H1 --H1-channel H1:LDAS_STRAIN --H1-cache H1.cache --H1-flow 40.0 --H1-fhigh 4096.0 --H1-timeslide 100.0 ...
+    It is necessary to use this method instead of the old method for the pipeline to work in DAX mode. Warning: do not mix options between
+    the old and new style.
+*/
+static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***ifos, char ***caches, char ***channels, char ***flows , char ***fhighs, char ***timeslides, UINT4 *N)
+{
+    /* Check that the input has no lists with [ifo,ifo] */
+    ProcessParamsTable *this=commandLine;
+    UINT4 i=0;
+    *caches=*ifos=*channels=*flows=*fhighs=*timeslides=NULL;
+    *N=0;
+    char tmp[128];
+    if(!this) {fprintf(stderr,"No command line arguments given!\n"); exit(1);}
+    while(this)
+    {
+        if(!strcmp(this->param,"--ifo") || !strcmp(this->param,"--IFO"))
+        for(i=0;this->value[i]!='\0';i++)
+            if(this->value[i]=='[' || this->value[i]==']')
+            {
+                fprintf(stderr,"Found old-style input arguments for %s\n",this->param);
+                return(0);
+            }
+        this=this->next;
+    }
+    /* Construct a list of IFOs */
+    for(this=commandLine;this;this=this->next)
+    {
+        if(!strcmp(this->param,"--ifo")||!strcmp(this->param,"--IFO"))
+        {
+            (*N)++;
+            *ifos=realloc(*ifos,*N*sizeof(char *));
+            (*ifos)[*N-1]=strdup(this->value);
+        }
+    }
+    *caches=calloc(*N,sizeof(char *));
+    *channels=calloc(*N,sizeof(char *));
+    *flows=calloc(*N,sizeof(REAL8));
+    *fhighs=calloc(*N,sizeof(REAL8));
+    *timeslides=calloc(*N,sizeof(REAL8));
+    /* For each IFO, fetch the other options if available */
+    for(i=0;i<*N;i++)
+    {
+        /* Cache */
+        sprintf(tmp,"--%s-cache",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        if(!this){fprintf(stderr,"ERROR: Must specify a cache file for %s with --%s-cache\n",(*ifos)[i],(*ifos)[i]); exit(1);}
+        (*caches)[i]=strdup(this->value);
+        
+        /* Channel */
+        sprintf(tmp,"--%s-channel",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*channels)[i]=strdup(this?this->value:"Unknown channel");
+
+        /* flow */
+        sprintf(tmp,"--%s-flow",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*flows)[i]=strdup(this?this->value:LALINFERENCE_DEFAULT_FLOW);
+        
+        /* fhigh */
+        sprintf(tmp,"--%s-fhigh",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*fhighs)[i]=this?strdup(this->value):NULL;
+
+        /* timeslides */
+        sprintf(tmp,"--%s-timeslide",(*ifos)[i]);
+        this=LALInferenceGetProcParamVal(commandLine,tmp);
+        (*timeslides)[i]=strdup(this?this->value:"0.0");
+    }
+    return(1);
 }
 
 

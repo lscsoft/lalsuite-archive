@@ -85,7 +85,10 @@ struct fvec {
 char *SNRpath = NULL;
 
 //struct fvec *interpFromFile(char *filename);
-
+void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
+struct fvec *interpFromFile(char *filename);
+typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
+void MetaNoiseFunc(LALStatus *status, REAL8 *psd, REAL8 f, struct fvec *interp, NoiseFunc *noisefunc);
 struct fvec *interpFromFile(char *filename){
 	UINT4 fileLength=0;
 	UINT4 i=0;
