@@ -167,7 +167,7 @@ COMPLEX16TimeSeries *XLALCreateSimInspiralPNModeCOMPLEX16TimeSeries(
 	if ( m < 0 ) {
 		REAL8 sign = l % 2 ? -1.0 : 1.0;
 		for ( j = 0; j < h->data->length; ++j )
-			h->data->data[j] = cmulr(conj(h->data->data[j]), sign);
+			h->data->data[j] = cmulr(LAL_CONJ(h->data->data[j]), sign);
 	}
 	return h;
 }
