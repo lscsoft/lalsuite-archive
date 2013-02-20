@@ -401,16 +401,16 @@ def all_possible_coincs(
 # =============================================================================
 #
 
-def inclusive_coinc_time(connection, type, inc_ifo_list):
+def coinc_time(connection, type, tsid, inc_ifo_list):
     sqlquery = """
     SELECT duration, instruments
     FROM experiment_summary
         JOIN experiment ON (
             experiment.experiment_id == experiment_summary.experiment_id)
-    WHERE datatype = ?
+    WHERE datatype = ? and time_slide_id = ?
     """
     # all elements of inclusive ifo_list must be found in ifos for T to be included
-    livetime = np.sum([ T for T,ifos in connection.execute(sqlquery, (type,))
+    livetime = np.sum([ T for T,ifos in connection.execute(sqlquery, (type,tsid))
         if set(ifos.split(',')).issuperset(set(inc_ifo_list)) ])
 
     return livetime
