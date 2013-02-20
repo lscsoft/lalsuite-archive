@@ -29,7 +29,7 @@ triggers of a single template without the need for doing time-slides.
 """
 
 import sqlite3
-import numpy
+import numpy as np
 
 from glue import iterutils
 from glue import segments
@@ -85,8 +85,8 @@ def set_getsnr_function(connection, statistic):
         raise ValueError, "%s is not a valid snr statistic" % statistic
 
 def quadrature_sum(tuple):
-    snrsq_array = numpy.array(tuple)**2.
-    comb_snr = numpy.sum( snrsq_array )**(1/2.)
+    snrsq_array = np.array(tuple)**2.
+    comb_snr = np.sum( snrsq_array )**(1/2.)
     return comb_snr
 
 def end_time_w_ns(end_time, end_time_ns):
@@ -97,7 +97,7 @@ def compute_cumrate(hist, T_bkgd):
     # number of seconds in a year
     secINyr = 60.0*60.0*24.0*365.25
     # create the survival function
-    cum_hist = numpy.cumsum( hist[::-1] )[::-1]
+    cum_hist = np.cumsum( hist[::-1] )[::-1]
 
     rate = {}
     # moments of rate pdf assuming that the bkgd coincs are a Poisson process
@@ -205,18 +205,18 @@ def sngl_snr_hist(
     veto_segments = compute_dur.get_veto_segments(xmldoc, False)
     veto_segments = veto_segments[ veto_segments.keys()[0] ]
 
-    snr_array = numpy.array([])
+    snr_array = np.array([])
     # apply vetoes to the list of trigger times
     for snr, trig_time in connection.execute( sqlquery, sql_params_dict ):
         trig_segment = segments.segment(trig_time, trig_time)
         if not veto_segments[ifo].intersects_segment( trig_segment ):
-            snr_array = numpy.append( snr_array, snr )
+            snr_array = np.append( snr_array, snr )
 
     if sngls_bins is None:
-        sngls_bins = numpy.arange(min_snr, numpy.max(snr_array) + sngls_width, sngls_width)
+        sngls_bins = np.arange(min_snr, np.max(snr_array) + sngls_width, sngls_width)
     
     # make the binned snr histogram
-    sngls_hist, junk = numpy.histogram(snr_array, bins=sngls_bins)
+    sngls_hist, _ = np.histogram(snr_array, bins=sngls_bins)
 
     return sngls_hist, sngls_bins
 
@@ -266,6 +266,7 @@ def coinc_snr_hist(
     eta,
     min_snr = 5.5,
     datatype = None,
+    slide_id = None,
     combined_bins = None,
     snr_stat = None):
     """
@@ -290,7 +291,8 @@ def coinc_snr_hist(
         "ifo1": ifos[0], "ifo2": ifos[1],
         "type": datatype,
         "min_snr": min_snr,
-        "mchirp": mchirp, "eta": eta }
+        "mchirp": mchirp, "eta": eta,
+        "tsid": slide_id }
 
     # get a list of the combined snrs from the coinc_inspiral table
     sqlquery = """
@@ -299,8 +301,7 @@ def coinc_snr_hist(
         get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof)"""
     if len(ifos) > 2:
         sqlquery += """,
-        get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof),
-        """
+        get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof)"""
         query_params_dict["ifo3"] = ifos[2]
 
     sqlquery += """
@@ -326,6 +327,7 @@ def coinc_snr_hist(
             AND expr_summ.experiment_summ_id == expr_map.experiment_summ_id)
     WHERE
         expr_summ.datatype == :type
+        AND expr_summ.time_slide_id == :tsid
         AND si_ifo1.mchirp == :mchirp
         AND si_ifo1.eta == :eta
         AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= :min_snr
@@ -335,11 +337,11 @@ def coinc_snr_hist(
         AND get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof) >= :min_snr"""
 
     # execute query
-    snr_array = numpy.array([ quadrature_sum(snrs) 
+    snr_array = np.array([ quadrature_sum(snrs) 
         for snrs in connection.execute(sqlquery, query_params_dict) ])
 
     # make histogram of coinc snr
-    binned_snr, junk = numpy.histogram(snr_array, bins=combined_bins)
+    binned_snr, _ = np.histogram(snr_array, bins=combined_bins)
 
     return map(float, binned_snr)
 
@@ -366,24 +368,24 @@ def all_possible_coincs(
         raise ValueError, "Can only estimate FARs for doubles & triples"
 
     binWidth = combined_bins[1] - combined_bins[0]
-    combined_counts = numpy.zeros(len(combined_bins)-1)
+    combined_counts = np.zeros(len(combined_bins)-1)
 
     # for computing doubles rate: N01_ij = n0_i*n1_j
-    N01 = numpy.outer(sngl_ifo_hist[ifos[0]], sngl_ifo_hist[ifos[1]])
+    N01 = np.outer(sngl_ifo_hist[ifos[0]], sngl_ifo_hist[ifos[1]])
     len0, len1 = N01.shape
     for idx0, snr0 in enumerate(sngl_ifo_midbins[ifos[0]]):
         for idx1, snr1 in enumerate(sngl_ifo_midbins[ifos[1]]):
             if len(ifos) == 2:
                 combined_snr = quadrature_sum( (snr0, snr1) )
-                index =  int( numpy.floor((combined_snr - min(combined_bins))/binWidth) )
+                index =  int( np.floor((combined_snr - min(combined_bins))/binWidth) )
                 combined_counts[index] += N01[idx0,idx1]
             else:
                 # for computing triples rate: N012_ijk = n0_i*n1_j*n2_k
-                N012 = numpy.outer(N01, sngl_ifo_hist[ifos[2]])
+                N012 = np.outer(N01, sngl_ifo_hist[ifos[2]])
                 N012 = N_012.reshape(len0, len1, N012.size/(len0*len1))
                 for idx2, snr2 in enumerate(sngl_ifo_midbins[ifos[2]]):
                     combined_snr = quadrature_sum( (snr0, snr1, snr2) )
-                    index =  int( numpy.floor((combined_snr - min(combined_bins))/binWidth) )
+                    index =  int( np.floor((combined_snr - min(combined_bins))/binWidth) )
                     combined_counts[index] += N012[idx0,idx1,idx2]
 
     for idx, N in enumerate( zerolag_coinc_hist ):
@@ -408,7 +410,7 @@ def inclusive_coinc_time(connection, type, inc_ifo_list):
     WHERE datatype = ?
     """
     # all elements of inclusive ifo_list must be found in ifos for T to be included
-    livetime = numpy.sum([ T for T,ifos in connection.execute(sqlquery, (type,))
+    livetime = np.sum([ T for T,ifos in connection.execute(sqlquery, (type,))
         if set(ifos.split(',')).issuperset(set(inc_ifo_list)) ])
 
     return livetime
@@ -461,22 +463,22 @@ def get_coinc_window(connection, ifos):
     tau = {}
     for ifo_pair in iterutils.choices(ifos, 2):
 
-        toa_diff = numpy.array([])
+        toa_diff = np.array([])
         # determine the difference in trigger end-times after sliding the times
         for coinc in connection.execute( sqlquery, tuple(ifos) ):
             dT_sec = (coinc[0]-coinc[1]) + (coinc[2]-coinc[3])*1e-9
-            num_shifts = numpy.round(dT_sec/shift)
-            toa_diff = numpy.append( toa_diff, dT_sec - num_shifts*shift )
+            num_shifts = np.round(dT_sec/shift)
+            toa_diff = np.append( toa_diff, dT_sec - num_shifts*shift )
 
         # the max-min of time differences defines the size of the coinc window
-        tau[','.join(ifos)] = numpy.max(toa_diff) - numpy.min(toa_diff)
+        tau[','.join(ifos)] = np.max(toa_diff) - np.min(toa_diff)
 
     return tau
 
 
 def eff_bkgd_time(T_i, tau_ij, ifos):
     # numerator is the product of the relevant single-ifo analyzed times
-    numerator = numpy.prod([T for (ifo, T) in T_i.items() if ifo in ifos])
+    numerator = np.prod([T for (ifo, T) in T_i.items() if ifo in ifos])
 
     # sorted list of the coincidence windows from smallest to largest
     taus = sorted(tau_ij.values())
