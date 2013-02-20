@@ -137,8 +137,6 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     colorlim = kwargs.pop('colorlim', None)
     if zlim and not colorlim:
         colorlim = zlim
-    elif colorlim and not zlim:
-        zlim = colorlim
 
     # set up columns
     columns = list(map(str.lower, [xcolumn, ycolumn]))
