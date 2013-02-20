@@ -270,6 +270,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             if c == "time":
                 lstr = lstr * unit + t0
             subtitle += " %s=%.2f" % (plotutils.display_name(c), lstr)
+    else:
+        loudest = None
 
     #
     # get parameters
@@ -355,6 +357,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     plotutils.set_minor_ticks(plot.ax)
 
     # save and close
+    if greyscale:
+        plot.ax.patch.set_facecolor("#E8E8E8")
     plot.savefig(outfile, bbox_inches=bbox_inches,\
                  bbox_extra_artists=plot.ax.texts)
     plot.close()
