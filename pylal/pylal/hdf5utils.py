@@ -59,7 +59,7 @@ _lal_numpy_typemap = dict((v,k) for k, v in _numpy_lal_typemap.items())
 # Data reading
 # =============================================================================
 
-def readTimeSeries(h5file, name, group=None, start=None, duration=None,\
+def readTimeSeries(h5file, name, group="", start=None, duration=None,\
                    datatype=None):
     """
     Read a 1-D array from an HDF5 file into a LAL TimeSeries.
@@ -457,10 +457,10 @@ def _create_groups(h5file, group):
             (e.g. "/data/spectra") the full tree will be generated
             as appropriate.
     """
-    group = group.lstrip("/")
     if group is None:
-        h5group = h5file
-    elif group in h5file.keys():
+        return h5file
+    group = group.lstrip("/")
+    if group in h5file.keys():
         h5group = h5file[group]
     else:
         groups = group.split("/")
