@@ -107,6 +107,25 @@ def compute_cumrate(hist, T_bkgd):
 
     return rate
 
+def calc_far( snr, cn_snr, snr_bins, far_column, t_fgd, t_bkgd )
+    # which bin the coinc event falls into
+    idx = bisect.bisect_right(snr_bins, snr) - 1
+    if idx == (len(snr_bins) - 1):
+        N = 0.0
+    else:
+        N = cn_snr[idx]
+
+    # number of seconds in a year
+    secINyr = 60.0*60.0*24.0*365.25
+    # compute desired statistic
+    if far_column == 'peak_tmplt_far':
+        return N/(t_bkgd*secINyr)
+    elif far_column == 'mean_tmplt_far':
+        return (N+1)/(t_bkgd*secINyr)
+    elif far_column == 'margin_tmplt_fap':
+        return 1-(1+t_fgd/t_bkgd)**(-N-1)
+
+
 #
 # =============================================================================
 #
