@@ -112,11 +112,6 @@ def parse_command_line():
         help = 
             "The width of bins in the coinc snr histograms"
         )
-    parser.add_option("--no-little-dog", action = "store_true", default = False,
-        help =
-            "Remove all zerolag triggers from the distributions used to " +
-            "estimate the rate of background events."
-        )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help =
             "Be verbose."
@@ -214,7 +209,6 @@ sngl_ifo_hist, sngl_ifo_midbins = sngl_tmplt_far.all_sngl_snr_hist(
     all_ifos,
     min_snr=opts.sngls_threshold,
     sngls_width=opts.sngls_bin_width,
-    no_little_dog=opts.no_little_dog,
     snr_stat=opts.snr_stat)
 
 # get single-ifo analyzed times 
@@ -273,8 +267,8 @@ for num_ifos in range(2, len(all_ifos)+1):
             sngl_ifo_midbins,
             combined_bins,
             zerolag_coinc_hist,
-            ifos,
-            no_little_dog=opts.no_little_dog)
+            ifos
+        )
         # compute effective background time 
         T_b = sngl_tmplt_far.eff_bkgd_time(T_i, tau, ifos)
         # create rates dict for all-possible-coincs
@@ -290,7 +284,6 @@ for num_ifos in range(2, len(all_ifos)+1):
             mchirp, eta,
             min_snr=opts.sngls_threshold,
             datatype="slide",
-            no_little_dog=opts.no_little_dog,
             combined_bins=combined_bins,
             snr_stat=opts.snr_stat)
         # total slide time
