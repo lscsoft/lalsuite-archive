@@ -261,7 +261,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -387,7 +387,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
