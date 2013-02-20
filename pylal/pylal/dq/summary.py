@@ -2044,10 +2044,10 @@ class GlossaryTab(SummaryTab):
         self.tabs = ""
         self.definitions = dict()
 
-    def add_entry(key, val):
+    def add_entry(self, key, val):
         self.definitions[key] = val
 
-    def add_entries(*args):
+    def add_entries(self, *args):
         for key,val in args:
             self.add_entry(key, val)
 
