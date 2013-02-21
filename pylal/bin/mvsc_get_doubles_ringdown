@@ -61,11 +61,13 @@ ifos.sort()
 time1=time()
 
 useveto={}
-useveto['H1'] = opts.h_veto_seg is not None 
-useveto['L1'] = opts.l_veto_seg is not None 
+useveto['H1'] = opts.h_veto_seg is not None
+useveto['H2'] = opts.h_veto_seg is not None
+useveto['L1'] = opts.l_veto_seg is not None
 useveto['V1'] = opts.v_veto_seg is not None
 vfile={}
 if useveto['H1']: vfile['H1'] = opts.h_veto_seg
+if useveto['H2']: vfile['H2'] = opts.h_veto_seg
 if useveto['L1']: vfile['L1'] = opts.l_veto_seg
 if useveto['V1']: vfile['V1'] = opts.v_veto_seg
 
