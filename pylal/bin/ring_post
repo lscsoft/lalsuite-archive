@@ -251,6 +251,7 @@ class ligolw_add_node(pipeline.CondorDAGNode):
 		self.add_file_arg(tisi_file)
 		self.add_var_opt("input-cache", cache)
 		self.add_var_opt("output", output)
+		self.add_var_opt("verbose", "")
 		self.add_output_file(output)
 		self.set_post_script(os.getcwd() + '/testgz.sh')
 		self.add_post_script_arg(output)
@@ -322,6 +323,7 @@ class ligolw_rinca_node(pipeline.CondorDAGNode):
                 self.add_macro("macroid", dag.id)
                 self.add_file_arg(xml)
                 self.add_output_file(xml)
+		self.add_var_opt("verbose", "")
                 self.add_var_opt("ds-sq-threshold", ds_sq)
 		#FIXME Double coinc analysis currently disabled.
                 #self.add_var_opt("save-small-coincs", "")
@@ -638,6 +640,7 @@ for (desc, cachefile) in cachenamestypes.items():
 		all_sqlite_node = ligolw_sqlite_node(sqlite_job, dag, db, [xml], p_node=[injfind_node])
 
 ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=runsql_node.values())
+[node.set_retry(10) for node in dag.get_nodes()]
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()
