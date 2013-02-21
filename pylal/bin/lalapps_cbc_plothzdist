@@ -58,11 +58,11 @@ def get_redshift(distance):
     """
     return distance * lal.LAL_H0_SI * 1e6 * lal.LAL_PC_SI / lal.LAL_C_SI
 
-def get_redshifted_mass(mass, distance):
+def get_source_mass(redshifted_mass, distance):
     """
     Distance should be in Mpc.
     """
-    return (1 + get_redshift(distance))*mass
+    return redshifted_mass/(1 + get_redshift(distance))
 
 def m1_m2_from_M_q(mtotal, q):
     m2 = mtotal / float(1+q)
@@ -137,16 +137,17 @@ parser.add_option("-p", "--psd-model", help = "PSD model to use. Options are %s.
 parser.add_option("-a", "--asd-file", help = "Get the PSD from the ASD specified in the given file. The file must be an ASCII file consisting of two columns: the first column should give the frequency, the second column the ASD. If not using an ASD file, must specify a psd-model.")
 parser.add_option("-m", "--mtotal-range", metavar = "min,max", help = "Required. Set the minimum and maximum total masses to plot (in solar masses).")
 parser.add_option("-q", "--mass-ratio", type = 'float', help = "Required. What mass ratio to use.")
-parser.add_option("-z", "--redshift-mass", action = "store_true", default = False, help = "Plot redshifted masses.")
+parser.add_option("-z", "--plot-source-mass", action = "store_true", default = False, help = "Plot de-redshifted source masses.")
 parser.add_option("-S", "--snr", type = "float", help = "If specified, will plot horizon distance vs total mass for the given SNR.")
 parser.add_option("-D", "--distance", type = "float", help = "If specified, will plot SNR vs total mass at the given horizon distance.")
 parser.add_option("-f", "--waveform-fmin", type = "float", help = "Frequency (Hz) at which to start waveform generation.")
 parser.add_option("-F", "--overlap-fmin", type = "float", help = "Frequency (Hz) at which to start overlap calculation.")
-parser.add_option("-w", "--waveform-model", action = "append", help = "What waveform model to plot. Can specify multiple times. At least one is required.")
+parser.add_option("--overlap-fmax", type = "float", help = "Set the maximum overlap frequency. If not specified, Nyquist will be used.")
+parser.add_option("-w", "--waveform-model", metavar = "WAVEFORM[:TAPER]", action = "append", help = "What waveform model to plot. Can specify multiple times. At least one is required. For time-domain waveforms you can additionally specify a taper by appending the taper type to the name. Taper options are: %s. Time-domain (TD) waveforms will be generated once at the lowest mass, then transformed to the frequency domain (FD). All higher mass waveforms are then rescaled from the initial mass. FD waveforms are regenerated for each total mass.  Note: if a waveform model has both a TD and FD implementation, the FD version is used. IMRPhenomB, for example, is treated as an FD waveform. This does not apply to Taylor(T|F) models; e.g, TaylorF2 is frequency domain, TaylorT2 is time domain." % ', '.join(['start', 'end', 'startend']))
 # waveform parameters
 parser.add_option("--sample-rate", type = "int", help = "Required for time-domain waveforms. What sample rate (in Hz) to use.")
 parser.add_option("--seg-length", type = "int", help = "Required for frequency-domain waveforms. The inverse of this gives the deltaF used for waveform generation.")
-parser.add_option("--f-max", type = "float", help = "Required for frequency-domain waveforms. Max frequency to generate waveform to. Also sets the cutoff frequency for overlap. If a sample rate is also specified, this must be <= the Nyquist frequency.")
+parser.add_option("--f-max", type = "float", help = "Required for frequency-domain waveforms. Max frequency to generate waveform to. If a not specified, but a sample rate is given, f-max will be set to the Nyquist frequency.")
 parser.add_option("--f-ref", type = "float", help = "Set reference frequency for time-domain waveforms. Default is 0.")
 parser.add_option("--spin1", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the larger mass. Default is 0,0,0.")
 parser.add_option("--spin2", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the smaller mass. Default is 0,0,0.")
@@ -156,15 +157,17 @@ parser.add_option("--amp-order", type = "int", default = 0, help = "Specify the 
 parser.add_option("--phase-order", type = "int", default = 7, help = "Specify the phase order. Default is 7.")
 parser.add_option("--inclination", type = "float", default = 0., help = "What inclination to use for all waveforms. Default is 0.")
 parser.add_option("--initial-phase", type = "float", default = 0., help = "What inital phase to use for all waveforms. Default is 0.")
-parser.add_option("--taper-waveform", help = "Taper time domain waveforms. Options are %s. Default is none." % ', '.join(['start', 'end', 'startend']) )
 # plot parameters
 parser.add_option("", "--x-min", type = "float", help = "Set minimum x value.")
 parser.add_option("", "--x-max", type = "float", help = "Set maximum x value.")
 parser.add_option("", "--y-min", type = "float", help = "Set minimum y value.")
 parser.add_option("", "--y-max", type = "float", help = "Set maximum y value.")
+parser.add_option("", "--linear-y", action = "store_true", default = False, help = "Make y-axis linear. Default is for y-axis to be log scale.")
 parser.add_option("", "--no-title", action = "store_true", default = False, help = "Do not add a title to the plot. Default is to add a title. If an SNR is given, the title will print that SNR; if a distance is given, the title will print that distance.")
+parser.add_option("", "--legend-loc", default = "lower right", help = "Where to put the legend. Options are 'upper right', 'upper left', 'lower right', 'lower right'. Default is lower right.")
 parser.add_option("", "--num-points", type = "int", default = 40, help = "number of points to use to generate plot; default is 40")
 parser.add_option("", "--dpi", type = "int", default = 200, help = "dots-per-inch to use for plot; default is 200")
+parser.add_option("", "--save-data", action = "store_true", default = False, help = "Save the plot data to a text file. There will be one file for each waveform generated, with filename data-$WAVEFORM.dat. The files will be saved in the same directory as the plots.")
 parser.add_option("-v", "--verbose", action = "store_true", default = False, help = "Be verbose.")
 
 opts, args = parser.parse_args()
@@ -182,21 +185,27 @@ distance = opts.distance
 q = opts.mass_ratio
 wFmin = opts.waveform_fmin
 oFmin = opts.overlap_fmin
-waveforms = opts.waveform_model
+waveforms = []
+tapers = {}
+for waveform in opts.waveform_model:
+    if len(waveform.split(':')) == 2:
+        waveform, taper = waveform.split(':')
+        tapers[waveform] = lalsim.GetTaperFromString('TAPER_'+taper.upper())
+    waveforms.append(waveform)
 sample_rate = opts.sample_rate
 seg_length = opts.seg_length
 f_ref = opts.f_ref
 f_max = opts.f_max
+oFmax = opts.overlap_fmax
 lmbda1 = opts.lambda1
 lmbda2 = opts.lambda2
 ampO = opts.amp_order
 phaseO = opts.phase_order
 inc = opts.inclination
 phi0 = opts.initial_phase
-taper = opts.taper_waveform
 npoints = opts.num_points
 dpi = opts.dpi
-redshift_masses = opts.redshift_mass
+deredshift_masses = opts.plot_source_mass
 
 if not (psd_model or asd_file):
     parser.error("psd-model or asd-file required")
@@ -206,10 +215,20 @@ if not (opts.snr or opts.distance):
     parser.error("snr or distance required")
 if snr is not None and distance is not None:
     parser.error("please specify snr or distance (not both)")
-if f_max is None:
+if f_max is None and sample_rate is not None:
     f_max = sample_rate / 2.
-elif sample_rate is not None and f_max > sample_rate /2.:
-    parser.error("f-max (%i) cannot be larger than sample-rate/2 (%i)" %(f_max, sample_rate/2.))
+if oFmax is None and sample_rate is not None:
+    oFmax = sample_rate / 2.
+elif sample_rate is not None and oFmax > sample_rate /2.:
+    parser.error("overlap-fmax (%i) cannot be larger than Nyquist (%i)" %(f_max, sample_rate/2.))
+fd_waveforms = [waveform for waveform in waveforms if lalsim.SimInspiralImplementedFDApproximants(lalsim.GetApproximantFromString(waveform))]
+td_waveforms = [waveform for waveform in waveforms if lalsim.SimInspiralImplementedTDApproximants(lalsim.GetApproximantFromString(waveform)) and waveform not in fd_waveforms]
+if any(fd_waveforms) and seg_length is None:
+    parser.error("one or more FD waveforms desired (%s), but no seg. length given" % ', '.join(fd_waveforms))
+if any(fd_waveforms) and f_max is None:
+    parser.error("one or more FD waveforms desired (%s), but no f-max given" % ', '.join(fd_waveforms))
+if any(td_waveforms) and sample_rate is None:
+    parser.error("one or more TD waveforms desired (%s), but no sample rate given" % ', '.join(td_waveforms))
 
 # parse extra args
 min_mtotal, max_mtotal = map(float, opts.mtotal_range.split(','))
@@ -253,30 +272,39 @@ for waveform in waveforms:
             sys.stdout.flush()
         m1, m2 = m1_m2_from_M_q(M, q)
 
-        # generate the waveform
+        # generate the waveform: we only do this once for the lowest mass
+        # the rest are rescaled
         apprx = lalsim.GetApproximantFromString(waveform)
-        if lalsim.SimInspiralImplementedTDApproximants(apprx):
-            hplus, hcross = lalsim.SimInspiralChooseTDWaveform(phi0, dt, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_ref, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
-
-            # detrend
-            hplus.data.data -= hplus.data.data.mean()
-
-            lalsim.SimInspiralREAL8WaveTaper(hplus.data, taper)
-
-            # get length
-            N = int(2*2**numpy.ceil(numpy.log2(hplus.data.length)))
-            this_df = float(sample_rate)/N
-
-            h = zero_pad_h(hplus, N, 0, overwrite = True)
-            htilde = get_htilde(h, N, this_df)
-
-        elif lalsim.SimInspiralImplementedFDApproximants(apprx):
+        if lalsim.SimInspiralImplementedFDApproximants(apprx):
             htilde, _ = lalsim.SimInspiralChooseFDWaveform(phi0, df, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_max, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
             N = 2*(htilde.data.length-1)
 
+        elif lalsim.SimInspiralImplementedTDApproximants(apprx):
+            if ii == 0:
+                hplus, hcross = lalsim.SimInspiralChooseTDWaveform(phi0, dt, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_ref, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
+                if waveform in tapers:
+                    lalsim.SimInspiralREAL8WaveTaper(hplus.data, tapers[waveform])
+
+                # get length
+                N = int(2*2**numpy.ceil(numpy.log2(hplus.data.length)))
+                this_df = float(sample_rate)/N
+
+                h = zero_pad_h(hplus, N, 0, overwrite = True)
+                htilde = get_htilde(h, N, this_df)
+                htilde_ref = htilde
+
+            else:
+                # the frequency is scaled by the mass of the ref waveform / this mass
+                # the amplitude is scaled by the inverse of that times a correction
+                # factor for the equivalent difference in dt due to the rescaling of 
+                # the frequency
+                scale_fac = M/input_masses[0]
+                htilde = lal.CreateCOMPLEX16FrequencySeries("htilde", htilde_ref.epoch, htilde_ref.f0, htilde_ref.deltaF/scale_fac, lal.lalHertzUnit, htilde_ref.data.length)
+                htilde.data.data[:] = htilde_ref.data.data * scale_fac / (2 * htilde.deltaF * (htilde.data.length - 1) * dt)
+
         else:
             raise ValueError, "unrecognized waveform approximant %s" % waveform
-
+            
         # get psd
         if asd_file is not None:
             psd = get_psd_from_file(htilde.data.length, htilde.deltaF, wFmin, asd_file)
@@ -284,7 +312,7 @@ for waveform in waveforms:
             psd = get_psd(htilde.data.length, htilde.deltaF, wFmin, psd_model)
 
         # calculate sensitivity
-        sigmasq = get_sigmasq(htilde, psd, oFmin, f_max)
+        sigmasq = get_sigmasq(htilde, psd, oFmin, oFmax)
         if plot_distance:
             distance = numpy.sqrt(sigmasq) / snr
             yvals[waveform][ii] = distance
@@ -292,10 +320,13 @@ for waveform in waveforms:
             snr = numpy.sqrt(sigmasq) / distance
             yvals[waveform][ii] = snr
 
-        if redshift_masses:
-            xvals[waveform][ii] = get_redshifted_mass(M, distance) 
+        if deredshift_masses:
+            xvals[waveform][ii] = get_source_mass(M, distance) 
         else:
             xvals[waveform][ii] = M
+
+    if opts.save_data:
+        numpy.savetxt('%s/%s_data-%s.dat' %(os.path.dirname(os.path.abspath(output_file)), waveform, os.path.basename(output_file)[:-4]), numpy.array([xvals[waveform], yvals[waveform]]).T)
         
     if opts.verbose:
         print >> sys.stdout, "\t%s: %.2f%%" %(waveform, 100.)
@@ -305,8 +336,11 @@ if opts.verbose:
 fig = pyplot.figure()
 ax = fig.add_subplot(111)
 for waveform in waveforms:
-    ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
-ax.set_xlabel('%stotal mass ($\mathrm{M}_\odot$)' %(redshift_masses and 'red-shifted ' or ''))
+    if opts.linear_y:
+        ax.plot(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+    else:
+        ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
+ax.set_xlabel('%stotal mass ($\mathrm{M}_\odot%s$)' %(deredshift_masses and 'source ' or '', deredshift_masses and '/(1+z)' or ''))
 if plot_distance:
     ax.set_ylabel('horizon distance (Mpc)')
     if not opts.no_title:
@@ -327,8 +361,11 @@ if opts.y_max is not None:
     plt_ymax = opts.y_max
 ax.set_xlim(plt_xmin, plt_xmax)
 ax.set_ylim(plt_ymin, plt_ymax)
-ax.legend(loc = 'lower right')
-ax.grid(which = 'both')
+ax.legend(loc = opts.legend_loc)
+if int(matplotlib.__version__.split('.')[0]) < 1:
+    ax.grid(which = 'majorminor')
+else:
+    ax.grid(which = 'both')
 
 fig.savefig(output_file, dpi = dpi)
 
