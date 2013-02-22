@@ -222,11 +222,19 @@ def plot_label(param):
       'dec':r'$\delta$',
       'phase':r'$\phi\,(\mathrm{rad})$',
       'psi':r'$\psi\,(\mathrm{rad})$',
-      'thetas':r'$\theta_\mathrm{s}\,(\mathrm{rad})$',
-      'costhetas':r'$\mathrm{cos}(\theta_\mathrm{s})$',
+      'theta_jn':r'$\theta_\mathrm{JN}\,(\mathrm{rad})$',
+      'costheta_jn':r'$\mathrm{cos}(\theta_\mathrm{JN})$',
       'beta':r'$\beta\,(\mathrm{rad})$',
       'cosbeta':r'$\mathrm{cos}(\beta)$',
-      'logl':r'$\mathrm{log}(\mathcal{L})$'}
+      'phi_jl':r'$\phi_\mathrm{JL}\,(\mathrm{rad})$',
+      'phi12':r'$\phi_\mathrm{12}\,(\mathrm{rad})$',
+      'logl':r'$\mathrm{log}(\mathcal{L})$',
+      'h1_end_time':r'$t_\mathrm{H}$',
+      'l1_end_time':r'$t_\mathrm{L}$',
+      'v1_end_time':r'$t_\mathrm{V}$',
+      'h1l1_delay':r'$\Delta t_\mathrm{HL}$',
+      'h1v1_delay':r'$\Delta t_\mathrm{HV}$',
+      'l1v1_delay':r'$\Delta t_\mathrm{LV}$'}
 
   # Handle cases where multiple names have been used
   if param in m1_names:
@@ -547,7 +555,7 @@ class Posterior(object):
                             'costilt1': lambda inj: np.cos(_inj_tilt1),
                             'costilt2': lambda inj: np.cos(_inj_tilt2),
                             'cos(iota)': lambda inj: np.cos(inj.inclination),
-                            'thetas':self._inj_thetas,
+                            'theta_jn':self._inj_theta_jn,
                             'beta':self._inj_beta,
                             'polarisation':lambda inj:inj.polarization,
                             'polarization':lambda inj:inj.polarization,
@@ -1399,19 +1407,19 @@ class Posterior(object):
         else:
             return tilt2
 
-    def _inj_thetas(self, inj):
+    def _inj_theta_jn(self, inj):
         f_ref = self._injFref
-        L  = orbital_momentum(inj.f_ref, inj.mchirp, inj.inclination)
+        L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
         S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
         S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
         J = L + S1 + S2
 
-        thetas = array_polar_ang(J)
-        return thetas
+        theta_jn = array_polar_ang(J)
+        return theta_jn
         
     def _inj_beta(self, inj):
         f_ref = self._injFref
-        L  = orbital_momentum(inj.f_ref, inj.mchirp, inj.inclination)
+        L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
         S1  = inj.mass1*inj.mass1*np.hstack((inj.spin1x,inj.spin1y,inj.spin1z))
         S2  = inj.mass2*inj.mass2*np.hstack((inj.spin2x,inj.spin2y,inj.spin2z))
         J = L + S1 + S2
@@ -2780,11 +2788,11 @@ def rotate_vector(R, vec):
 #
 #
 
-def orbital_momentum(f_lower, mc, inclination):
+def orbital_momentum(fref, mc, inclination):
     """
     Calculate orbital angular momentum vector.
     """
-    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * f_lower, 1.0/3.0)
+    Lmag = np.power(mc, 5.0/3.0) / np.power(pi_constant * lalconstants.LAL_MTSUN_SI * fref, 1.0/3.0)
     Lx, Ly, Lz = sph2cart(Lmag, inclination, 0.0)
     return np.hstack((Lx,Ly,Lz))
 #
@@ -2807,13 +2815,13 @@ def symm_tidal_params(lambda1,lambda2,eta):
     dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
     return lam_tilde, dlam_tilde
 
-def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
+def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
     """
     Calculate physical spin angles.
     """
     singleSpin = None in (a2,theta2,phi2)
     m1, m2 = mc2ms(mc,eta)
-    L  = orbital_momentum(f_lower, mc, incl)
+    L  = orbital_momentum(fref, mc, incl)
     S1 = component_momentum(m1, a1, theta1, phi1)
     if not singleSpin:
         S2 = component_momentum(m2, a2, theta2, phi2)
@@ -2825,9 +2833,9 @@ def spin_angles(f_lower,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None
         tilt2 = array_ang_sep(L,S2)
     else:
         tilt2 = None
-    thetas = array_polar_ang(J)
+    theta_jn = array_polar_ang(J)
     beta  = array_ang_sep(J,L)
-    return tilt1, tilt2, thetas, beta
+    return tilt1, tilt2, theta_jn, beta
 #
 #
 
@@ -2840,18 +2848,18 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     transformFunc = lalsim.SimInspiralTransformPrecessingInitialConditions
 
     # Convert component masses to SI units
-    m1 *= lalsim.lal.LAL_MSUN_SI
-    m2 *= lalsim.lal.LAL_MSUN_SI
+    m1_SI = m1*lalsim.lal.LAL_MSUN_SI
+    m2_SI = m2*lalsim.lal.LAL_MSUN_SI
 
     # Flatten arrays
-    ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m2, fref]
+    ins = [theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1_SI, m2_SI, fref]
     try:
       for p,param in enumerate(ins):
         ins[p] = param.flatten()
     except:
       pass
 
-    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1, m2, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1, m2, f) in zip(*ins)])
+    results = np.array([transformFunc(t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) for (t_jn, p_jl, t1, t2, p12, a1, a2, m1_SI, m2_SI, f) in zip(*ins)])
 
     iota = results[:,0].reshape(-1,1)
     spin1x = results[:,1].reshape(-1,1)
@@ -2862,7 +2870,15 @@ def physical2radiationFrame(theta_jn, phi_jl, tilt1, tilt2, phi12, a1, a2, m1, m
     spin2z = results[:,6].reshape(-1,1)
     a1,theta1,phi1 = cart2sph(spin1x,spin1y,spin1z)
     a2,theta2,phi2 = cart2sph(spin2x,spin2y,spin2z)
-    return iota, theta1, phi1, theta2, phi2
+
+    mc = np.power(m1*m2,3./5.)*np.power(m1+m2,-1./5.)
+    L  = orbital_momentum(fref, mc, iota)
+    S1 = m1*m1*np.hstack([spin1x,spin1y,spin1z])
+    S2 = m2*m2*np.hstack([spin2x,spin2y,spin2z])
+    J = L + S1 + S2
+    beta = array_ang_sep(J,L)
+
+    return iota, theta1, phi1, theta2, phi2, beta
 #
 #
 
