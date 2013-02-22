@@ -14,7 +14,7 @@ import os
 #
 ################################################################################
 
-inspinj_seed=3005  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
+inspinj_seed=3006  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="dphi3"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=10.0            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
@@ -26,11 +26,11 @@ add_cal_err=1
 
 approx_for_inj='TaylorF2TestthreePointFivePN' ## This is the WF to use for the inj file. Use the usual lalapps_inspinj sintax here.
 
-use_inj_file=1  ## Set to 1 if you want to use a previuosly generated inj file
-inj_file='/scratch2/salvatore.vitale/TestingGR_calibration_FG/injections_dchi3_10.0pc_7005.xml_adj.xml'   ## The full path of the inj file to use
+use_inj_file=0  ## Set to 1 if you want to use a previuosly generated inj file
+inj_file=''   ## e.g. '/path/to/file' .  The full path of the inj file to use
 
-minSNR=8 ## Set this the minimum desired value of the network SNR. Set to None to disable the rescaling (e.g. minSNR=8)$^
-maxSNR=30 ## Set this the minimum desired value of the network SNR. Set to None to disable the rescaling (e.g. maxSNR=30)
+minSNR=None ## Set this the minimum desired value of the network SNR. Set to None to disable the rescaling (e.g. minSNR=8)
+maxSNR=None  ## Set this the minimum desired value of the network SNR. Set to None to disable the rescaling (e.g. maxSNR=30)
 ## Note: rescaling to distance to obtain SNRs within the wanted range also ensure, when possible, that at least two IFOs have SNR above the single IFO threshold (of 5.5, set in coinj.c)
 if minSNR is not None and maxSNR is not None and use_inj_file==0:
     scale_dist=1
@@ -47,13 +47,13 @@ if type_inj!='GR':
 else:
     type_name=type_inj
 
-PATH_TO_OPT="/home/salvatore.vitale/lalsuites/master/opt"  ## Path to the opt folder of your installation
+PATH_TO_OPT="/home/salvatore.vitale/lalsuites/GRConsistency/opt"  ## Path to the opt folder of your installation
 CALIB_SEED="1234"
 
-basefolder = "/scratch2/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)                       ##
-postprocfolder = "home/salvatore.vitale/public_html/%s/%s"%(type_name,inspinj_seed)       ##
-logdir = "/localscratch/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)            ##
-scratchdir = "/scratch2/salvatore.vitale/TestingGR_calibration_FG/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
+basefolder = "/home/salvatore.vitale/GrTestCalibration/%s/%s"%(type_name,inspinj_seed)                       ##
+postprocfolder = "/home/salvatore.vitale/public_html/%s/%s"%(type_name,inspinj_seed)       ##
+logdir = "/home/salvatore.vitale/GrTestCalibration/log/%s/%s"%(type_name,inspinj_seed)            ##
+scratchdir = "/home/salvatore.vitale/GrTestCalibration/log/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
 
  ## NOTE: You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code w#ill add the seed and the type of run (GR or tested param +value of the shift)
 
@@ -75,15 +75,15 @@ time_step=1000
 gps_start=932170000
 gps_end=gps_start+time_step*(number_of_injs )
 #gps_end=gps_start+time_step*(number_of_injs +20)
-inspinj_command="""%s/lalapps/bin/lalapps_inspinj \
+inspinj_command="""%s/bin/lalapps_inspinj \
 --output %s \
 --f-lower 20.0 \
 --gps-start-time %s \
 --gps-end-time %s \
 --seed %s \
 --waveform %s \
---min-distance 1.00e+04 \
---max-distance 3.00e+05 \
+--min-distance 1.00e+05 \
+--max-distance 4.00e+05 \
 --d-distr volume \
 --l-distr random \
 --i-distr uniform \
@@ -261,7 +261,7 @@ for run in allcombinations:
 	parser_text += \
 	"""
 padding=1
-psd-chunk-length=210.0
+psd-chunk-length=60.0
 nlive=1000
 nmcmc=100
 nparallel=1
@@ -270,18 +270,18 @@ ifos=['H1','L1','V1']
 events=[0:"""+str(number_of_injs-1)+"]"+"""
 seed=1
 data_seed="""+str(inspnest_dataseed)+"""
-analysis-chunk-length=210.0
+analysis-chunk-length=60.0
 
 [condor]
-inspnest=PATH_TO_OPT/lalapps/bin/lalapps_inspnest
-combinez=PATH_TO_OPT/lalapps/bin/lalapps_combine_evidence
-datafind=PATH_TO_OPT/glue/bin/ligo_data_find
-mergescript=PATH_TO_OPT/lalapps/bin/lalapps_merge_nested_sampling_runs
-resultspage=PATH_TO_OPT/pylal/bin/cbcBayesPostProc.py
-segfind=PATH_TO_OPT/glue/bin/ligolw_segment_query
-ligolw_print=PATH_TO_OPT/glue/bin/ligolw_print
-coherencetest=PATH_TO_OPT/lalapps/bin/lalapps_coherence_test
-database=PATH_TO_OPT/pylal/bin/AppendToDatabase.py
+inspnest=PATH_TO_OPT/bin/lalapps_inspnest
+combinez=PATH_TO_OPT/bin/lalapps_combine_evidence
+datafind=PATH_TO_OPT/bin/ligo_data_find
+mergescript=PATH_TO_OPT/bin/lalapps_merge_nested_sampling_runs
+resultspage=PATH_TO_OPT/bin/cbcBayesPostProc.py
+segfind=PATH_TO_OPT/bin/ligolw_segment_query
+ligolw_print=PATH_TO_OPT/bin/ligolw_print
+coherencetest=PATH_TO_OPT/bin/lalapps_coherence_test
+database=PATH_TO_OPT/bin/AppendToDatabase.py
 
 [datafind]
 url-type=file
@@ -354,8 +354,8 @@ for i in os.uname():
         scrd=scratchdir
 #print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
 #os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
-print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
-os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
+print PATH_TO_OPT + "/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
+os.system(PATH_TO_OPT + "/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)
