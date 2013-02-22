@@ -147,7 +147,7 @@ parser.add_option("-w", "--waveform-model", metavar = "WAVEFORM[:TAPER]", action
 # waveform parameters
 parser.add_option("--sample-rate", type = "int", help = "Required for time-domain waveforms. What sample rate (in Hz) to use.")
 parser.add_option("--seg-length", type = "int", help = "Required for frequency-domain waveforms. The inverse of this gives the deltaF used for waveform generation.")
-parser.add_option("--f-max", type = "float", help = "Required for frequency-domain waveforms. Max frequency to generate waveform to. If a not specified, but a sample rate is given, f-max will be set to the Nyquist frequency.")
+parser.add_option("--f-max", type = "float", default = 0., help = "Max frequency to generate FD waveforms to. If not specified the default value for each waveform family will be used.")
 parser.add_option("--f-ref", type = "float", help = "Set reference frequency for time-domain waveforms. Default is 0.")
 parser.add_option("--spin1", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the larger mass. Default is 0,0,0.")
 parser.add_option("--spin2", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the smaller mass. Default is 0,0,0.")
@@ -215,8 +215,6 @@ if not (opts.snr or opts.distance):
     parser.error("snr or distance required")
 if snr is not None and distance is not None:
     parser.error("please specify snr or distance (not both)")
-if f_max is None and sample_rate is not None:
-    f_max = sample_rate / 2.
 if oFmax is None and sample_rate is not None:
     oFmax = sample_rate / 2.
 elif sample_rate is not None and oFmax > sample_rate /2.:
@@ -225,8 +223,6 @@ fd_waveforms = [waveform for waveform in waveforms if lalsim.SimInspiralImplemen
 td_waveforms = [waveform for waveform in waveforms if lalsim.SimInspiralImplementedTDApproximants(lalsim.GetApproximantFromString(waveform)) and waveform not in fd_waveforms]
 if any(fd_waveforms) and seg_length is None:
     parser.error("one or more FD waveforms desired (%s), but no seg. length given" % ', '.join(fd_waveforms))
-if any(fd_waveforms) and f_max is None:
-    parser.error("one or more FD waveforms desired (%s), but no f-max given" % ', '.join(fd_waveforms))
 if any(td_waveforms) and sample_rate is None:
     parser.error("one or more TD waveforms desired (%s), but no sample rate given" % ', '.join(td_waveforms))
 
