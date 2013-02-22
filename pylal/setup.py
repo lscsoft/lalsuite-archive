@@ -725,6 +725,7 @@ setup(
 		os.path.join("bin", "pylal_cbc_rankprod"),
 		os.path.join("bin", "pylal_cbc_ulmc"),
 		os.path.join("bin", "ligolw_split_inspiral"),
+		os.path.join("bin", "ligolw_cbc_stfar"),
 		os.path.join("bin", "ligolw_far_compare"),
 		os.path.join("bin", "cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),

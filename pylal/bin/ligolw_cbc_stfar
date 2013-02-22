@@ -30,17 +30,16 @@ import sqlite3
 import sys
 import os
 
-import numpy
-import matplotlib
-matplotlib.use('Agg')
-from matplotlib import pyplot
-from matplotlib import rcParams
+import numpy as np
 
-from glue import iterutils
-from glue.ligolw import dbtables
 from pylal import git_version
 from pylal import sngl_tmplt_far
 from pylal import InspiralUtils
+from pylal import ligolw_sqlutils as sqlutils
+
+from glue import iterutils
+from glue.ligolw import dbtables
+from glue.ligolw.utils import process
 
 __prog__ = "ligolw_sngl_tmplt_far"
 __author__ = "Matthew West <matthew.west@ligo.org>"
@@ -87,11 +86,6 @@ def parse_command_line():
             "it is only used to enhance performance in a networked " +
             "environment. "
         )
-    parser.add_option( "-P", "--output-path", action = "store", type = "string",
-        default = os.getcwd(), metavar = "PATH",
-        help =
-            "Optional. Path where the figures should be stored. Default is current directory."
-        )
     parser.add_option("--snr-stat", action="store", type="string", default=None,
         metavar = "{rawsnr|snroverchi|effsnr|newsnr}",
         help =
@@ -121,7 +115,13 @@ def parse_command_line():
         help =
             "Required. Column in the output-table to store output to. If the column doesn't exist, " +
             "it will be created. Column name must be all lower-case. "
-            )
+        )
+    parser.add_option( "-T", "--time-units", action = "store", default = 'yr',
+        metavar = "s, min, hr, days, OR yr",
+        help =
+            "Time units to use when calculating FARs (the units of the FARs will be the inverse of this). " +
+            "Options are s, min, hr, days, or yr. Default is yr."
+        )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help =
             "Be verbose."
@@ -159,18 +159,19 @@ def parse_command_line():
 
 opts = parse_command_line()
 
+sqlite3.enable_callback_tracebacks(opts.verbose)
 
 # Setup working databases and connections
 working_filename = dbtables.get_connection_filename(
     opts.input_db,
-    tmp_path=opts.tmp_space,
-    verbose=opts.verbose)
+    tmp_path = opts.tmp_space,
+    verbose = opts.verbose)
 connection = sqlite3.connect( working_filename )
 if opts.tmp_space:
     dbtables.set_temp_store_directory(
         connection,
         opts.tmp_space,
-        verbose=opts.verbose)
+        verbose = opts.verbose)
 dbtables.DBTable_set_connection( connection )
 
 # create an xmldoc representation of the database
@@ -219,16 +220,16 @@ FROM search_summary
 """
 all_ifos = [ifo[0] for ifo in connection.execute( sqlquery )]
 
-# get the single-ifo snr histograms
 if opts.verbose:
     print >> sys.stdout, 'Making single-ifo snr histograms'
 sngl_ifo_hist, sngl_ifo_midbins = sngl_tmplt_far.all_sngl_snr_hist(
     connection,
     mchirp, eta,
     all_ifos,
-    min_snr=opts.sngls_threshold,
-    sngls_width=opts.sngls_bin_width,
-    snr_stat=opts.snr_stat)
+    min_snr = opts.sngls_threshold,
+    sngls_width = opts.sngls_bin_width,
+    snr_stat = opts.snr_stat
+)
 
 # get single-ifo analyzed times 
 T_i = sngl_tmplt_far.get_singles_times(connection, verbose=opts.verbose)
@@ -240,7 +241,7 @@ FROM time_slide GROUP BY time_slide_id
 """
 time_shifts = connection.execute(sqlquery).fetchall()
 tsid_list = [slide[0] for slide in time_shifts]
-zerolag_tsid = [slide[0] for slide in time_shifts if any(map(float, slide[1].split(',')))]
+zerolag_tsid = [slide[0] for slide in time_shifts if not any(map(float, slide[1].split(',')))][0]
 
 for num_ifos in range(2, len(all_ifos)+1):
     for ifos in iterutils.choices(all_ifos, num_ifos):
@@ -249,7 +250,7 @@ for num_ifos in range(2, len(all_ifos)+1):
 
         # make combined snr bins
         max_comb_snr = sngl_tmplt_far.quadrature_sum([max(sngl_ifo_midbins[ifo]) for ifo in ifos])
-        combined_bins = numpy.arange(
+        combined_bins = np.arange(
             len(all_ifos)**(1./2)*opts.sngls_threshold,
             max_comb_snr + 2*opts.coinc_bin_width,
             opts.coinc_bin_width)
@@ -257,73 +258,75 @@ for num_ifos in range(2, len(all_ifos)+1):
         # ----------------------- All Possible Coincs ----------------------- #
         if opts.verbose:
             print >> sys.stdout, 'Creating rates distribution from all-possible-coincs'
-
         apc_hist = sngl_tmplt_far.all_possible_coincs(
             sngl_ifo_hist,
             sngl_ifo_midbins,
             combined_bins,
             ifos
         )
-        # compute effective background time 
-        T_b = sngl_tmplt_far.eff_bkgd_time(T_i, tau, ifos)
 
-        # ----------------------- Slide & Zerolag Coincs ------------------------ #
-        zerolag_hist = sngl_tmplt_far.coinc_snr_hist(
+        # ----------------------- Zerolag & Slide Coincs ------------------------ #
+        # compute effective background time 
+        t_bkgd = sngl_tmplt_far.eff_bkgd_time(T_i, tau, ifos, opts.time_units)
+
+        if opts.verbose:
+            print >> sys.stdout, 'Get zerolag coincs from %s' % zerolag_tsid
+        zerolag_coincs = sngl_tmplt_far.coinc_snr_hist(
             connection,
             ifos,
             mchirp, eta,
-            min_snr=opts.sngls_threshold,
-            datatype="all_data",
-            slide_id=zerolag_tsid[0],
-            combined_bins=combined_bins,
-            snr_stat=opts.snr_stat
+            min_snr = opts.sngls_threshold,
+            datatype = "all_data",
+            slide_id = zerolag_tsid,
+            combined_bins = combined_bins,
+            snr_stat = opts.snr_stat
         )
-        params = {
-            'far_column': output_column,
-            'snr_bins': combined_bins,
-            'ifos': ifos,
-            't_bkgd': T_b
-        }  
+        params = {}  
         for tsid in tsid_list: 
-            params['tsid'] = tsid
-            # get the amount of inclusive coinc time
-            if tsid != zerolag_tsid[0]
-                slide_hist = sngl_tmplt_far.coinc_snr_hist(
+            if tsid != zerolag_tsid:
+                type = 'slide'
+                if opts.verbose:
+                    print >> sys.stdout, 'Get slide coincs from %s' % tsid
+                coincs = sngl_tmplt_far.coinc_snr_hist(
                     connection,
                     ifos,
                     mchirp, eta,
-                    min_snr=opts.sngls_threshold,
-                    datatype="all_data",
-                    slide_id=zerolag_tsid[0],
-                    combined_bins=combined_bins,
-                    snr_stat=opts.snr_stat
+                    min_snr = opts.sngls_threshold,
+                    datatype = type,
+                    slide_id = tsid,
+                    combined_bins = combined_bins,
+                    snr_stat = opts.snr_stat
                 )
-                coincs2remove = slide_hist+zerolag_hist
-                type = 'slide'
+                coincs2remove = np.add(coincs['snr_hist'], zerolag_coincs['snr_hist'])
             else:
-                coincs2remove = zerolag_hist
                 type = 'all_data'
+                coincs = zerolag_coincs
+                coincs2remove = coincs['snr_hist']
 
-            params['cn_snr'] = np.cumsum((apc_hist - coincs2remove)[::-1])[::-1]
-            params['t_fgd'] = sngl_tmplt_far.coinc_time(connection, type, tsid, ifos)
+            # number of combinations with snr >= rho ["foreground" coincs are removed from combos]
+            snr_survival =  np.cumsum((apc_hist - coincs2remove)[::-1])[::-1]
+            # the amount of coinc time in this slide
+            t_fgd = sngl_tmplt_far.coinc_time(connection, type, tsid, ifos, opts.time_units)
 
-            connection.create_function('calc_far', 6, efficiency.calc_far)
-            query = """
-            UPDATE coinc_inspiral AS ci
-            SET :far_column = (
-                SELECT
-                    calc_far( snr, :cn_snr, :snr_bins, :far_column, :t_fgd, :t_bkgd )
-                FROM experiment_summary AS es, experiment_map AS em, coinc_event AS ce
-                WHERE
-                    ci.coinc_event_id == em.coinc_event_id
-                    AND ci.coinc_event_id = ce.coinc_event_id
-                    AND em.experiment_summ_id == es.experiment_summ_id
-                    AND ce.instruments = :ifos
-                    AND es.time_slide_id == :tsid
-                )
-            """
-            connection.execute( query, params )
+            if opts.verbose:
+                print >> sys.stdout, 'Compute desired significance statistic for coincs from %s' % tsid
+            coincs['fars'] = sngl_tmplt_far.calc_far(
+                coincs['snrs'],
+                snr_survival,
+                combined_bins,
+                output_column,
+                t_fgd,
+                t_bkgd
+            ) 
 
+            for i, ceid in enumerate(coincs['ids']):
+                params = {'ceid':  ceid, 'far': coincs['fars'][i]}
+                query = ''.join(["""
+                UPDATE coinc_inspiral
+                SET """, output_column,""" == :far
+                WHERE coinc_event_id == :ceid
+                """ ])
+                connection.execute( query, params)
 
 #
 #       Save and Exit
@@ -333,9 +336,9 @@ connection.close()
 
 # write output database
 dbtables.put_connection_filename(
-    opts.output,
+    opts.output_db,
     working_filename,
-    verbose=opts.verbose
+    verbose = opts.verbose
 )
 
 if opts.verbose:

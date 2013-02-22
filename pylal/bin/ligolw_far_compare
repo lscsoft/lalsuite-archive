@@ -112,6 +112,12 @@ def parse_command_line():
         help = 
             "The width of bins in the coinc snr histograms"
         )
+    parser.add_option( "-T", "--time-units", action = "store", default = 'yr',
+        metavar = "s, min, hr, days, OR yr",
+        help =
+            "Time units to use when calculating FARs (the units of the FARs will be the inverse of this). " +
+            "Options are s, min, hr, days, or yr. Default is yr."
+        )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help =
             "Be verbose."
@@ -221,7 +227,7 @@ FROM time_slide GROUP BY time_slide_id
 """
 time_shifts = connection.execute(sqlquery).fetchall()
 tsid_list = [slide[0] for slide in time_shifts]
-zerolag_tsid = [slide[0] for slide in time_shifts if any(map(float, slide[1].split(',')))]
+zerolag_tsid = [slide[0] for slide in time_shifts if any(map(float, slide[1].split(',')))][0]
 
 # create plot basename
 tmplt_id = [piece for piece in opts.database.split('-') if 'TMPLT' in piece][0]
@@ -254,19 +260,19 @@ for num_ifos in range(2, len(all_ifos)+1):
         if opts.verbose:
             print >> sys.stdout, 'Creating rates distribution for foreground coincs'
 
-        zerolag_coinc_hist = sngl_tmplt_far.coinc_snr_hist(
+        zerolag_coincs = sngl_tmplt_far.coinc_snr_hist(
             connection,
             ifos,
             mchirp, eta,
             min_snr=opts.sngls_threshold,
             datatype="all_data",
-            slide_id=zerolag_tsid[0]
+            slide_id=zerolag_tsid
             combined_bins=combined_bins,
             snr_stat=opts.snr_stat)
         # get the amount of inclusive coinc time
-        T_z = sngl_tmplt_far.coinc_time(connection, "all_data", zerolag_tsid[0], ifos)
+        T_z = sngl_tmplt_far.coinc_time(connection, "all_data", zerolag_tsid, ifos, opts.time_units)
         # create rates dict for zerolag coincs
-        rate_zerolag = sngl_tmplt_far.compute_cumrate(zerolag_coinc_hist, T_z)
+        rate_zerolag = sngl_tmplt_far.compute_cumrate(zerolag_coincs['snr_hist'], T_z)
 
         # ----------------------- All Possible Coincs ----------------------- #
         if opts.verbose:
@@ -276,13 +282,12 @@ for num_ifos in range(2, len(all_ifos)+1):
             sngl_ifo_hist,
             sngl_ifo_midbins,
             combined_bins,
-            zerolag_coinc_hist,
             ifos
         )
         # compute effective background time 
-        T_b = sngl_tmplt_far.eff_bkgd_time(T_i, tau, ifos)
+        T_b = sngl_tmplt_far.eff_bkgd_time(T_i, tau, ifos, opts.time_units)
         # create rates dict for all-possible-coincs
-        rate_apc = sngl_tmplt_far.compute_cumrate(apc_hist, T_b)
+        rate_apc = sngl_tmplt_far.compute_cumrate(apc_hist-zerolag_coincs['snr_hist'], T_b)
 
         # ----------------------- Lots of Time Slides ----------------------- #
         if opts.verbose:
@@ -291,11 +296,12 @@ for num_ifos in range(2, len(all_ifos)+1):
         slide_coinc_hist = np.sum(
             [ sngl_tmplt_far.coinc_snr_hist(
                 connection,ifos, mchirp, eta, min_snr=opts.sngls_threshold,
-                datatype="slide", combined_bins=combined_bins, snr_stat=opts.snr_stat)
-            for tsid in tsid_list if tsid != zerolag_tsid[0]
+                datatype="slide", combined_bins=combined_bins,
+                snr_stat=opts.snr_stat)['snr_hist']
+            for tsid in tsid_list if tsid != zerolag_tsid
             ], axis=1 )
         # total slide time
-        T_s = np.sum([ sngl_tmplt_far.coinc_time(connection, "slide", tsid, ifos)
+        T_s = np.sum([ sngl_tmplt_far.coinc_time(connection, "slide", tsid, ifos, opts.time_units)
             for tsid in tsid_list if tsid != zerolag_tsid[0] ]) 
         # create rates dict for time-slides
         rate_slides = sngl_tmplt_far.compute_cumrate(slide_coinc_hist, T_s)

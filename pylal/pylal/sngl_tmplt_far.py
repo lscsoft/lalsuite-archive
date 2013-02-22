@@ -30,12 +30,13 @@ triggers of a single template without the need for doing time-slides.
 
 import sqlite3
 import numpy as np
+import bisect
 
 from glue import iterutils
 from glue import segments
 from glue.ligolw import dbtables
 
-from pylal import ligolw_sqlutils
+from pylal import ligolw_sqlutils as sqlutils
 from pylal import ligolw_compute_durations as compute_dur
 
 
@@ -107,24 +108,26 @@ def compute_cumrate(hist, T_bkgd):
 
     return rate
 
-def calc_far( snr, cn_snr, snr_bins, far_column, t_fgd, t_bkgd )
-    # which bin the coinc event falls into
-    idx = bisect.bisect_right(snr_bins, snr) - 1
-    if idx == (len(snr_bins) - 1):
-        N = 0.0
-    else:
-        N = cn_snr[idx]
+def calc_far( snrs, cn_snr, snr_bins, far_column, t_fgd, t_bkgd ):
 
-    # number of seconds in a year
-    secINyr = 60.0*60.0*24.0*365.25
-    # compute desired statistic
-    if far_column == 'peak_tmplt_far':
-        return N/(t_bkgd*secINyr)
-    elif far_column == 'mean_tmplt_far':
-        return (N+1)/(t_bkgd*secINyr)
-    elif far_column == 'margin_tmplt_fap':
-        return 1-(1+t_fgd/t_bkgd)**(-N-1)
+    significance = []
+    for snr in snrs:
+        # which bin the coinc event falls into
+        idx = bisect.bisect_right(snr_bins, snr) - 1
+        if idx == (len(snr_bins) - 1):
+            N = 0.0
+        else:
+            N = cn_snr[idx]
 
+        # compute desired statistic
+        if far_column == 'peak_far':
+            significance.append( N/t_bkgd )
+        elif far_column == 'mean_far':
+            significance.append( (N+1)/t_bkgd )
+        elif far_column == 'marginalized_fap':
+            significance.append( 1-(1+t_fgd/t_bkgd)**(-N-1) )
+
+    return significance
 
 #
 # =============================================================================
@@ -297,6 +300,7 @@ def coinc_snr_hist(
     # get a list of the combined snrs from the coinc_inspiral table
     sqlquery = """
     SELECT
+        coinc_inspiral.coinc_event_id,
         get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof),
         get_snr(si_ifo2.snr, si_ifo2.chisq, si_ifo2.chisq_dof)"""
     if len(ifos) > 2:
@@ -337,20 +341,23 @@ def coinc_snr_hist(
         AND get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof) >= :min_snr"""
 
     # execute query
-    snr_array = np.array([ quadrature_sum(snrs) 
-        for snrs in connection.execute(sqlquery, query_params_dict) ])
+    events = connection.execute(sqlquery, query_params_dict).fetchall()
+
+    coincs = {}
+    coincs['snrs'] = np.array([ quadrature_sum(event[1:]) for event in events ])
+    coincs['ids'] = [event[0] for event in events]
 
     # make histogram of coinc snr
-    binned_snr, _ = np.histogram(snr_array, bins=combined_bins)
+    binned_snr, _ = np.histogram(coincs['snrs'], bins=combined_bins)
+    coincs['snr_hist'] = map(float, binned_snr)
 
-    return map(float, binned_snr)
+    return coincs
 
 
 def all_possible_coincs(
     sngl_ifo_hist,
     sngl_ifo_midbins,
     combined_bins,
-    zerolag_coinc_hist,
     ifos
 ):
     """
@@ -388,9 +395,6 @@ def all_possible_coincs(
                     index =  int( np.floor((combined_snr - min(combined_bins))/binWidth) )
                     combined_counts[index] += N012[idx0,idx1,idx2]
 
-    for idx, N in enumerate( zerolag_coinc_hist ):
-        combined_counts[idx] -= N
-
     return combined_counts
 
 #
@@ -401,7 +405,7 @@ def all_possible_coincs(
 # =============================================================================
 #
 
-def coinc_time(connection, type, tsid, inc_ifo_list):
+def coinc_time(connection, type, tsid, inc_ifo_list, unit):
     sqlquery = """
     SELECT duration, instruments
     FROM experiment_summary
@@ -413,7 +417,7 @@ def coinc_time(connection, type, tsid, inc_ifo_list):
     livetime = np.sum([ T for T,ifos in connection.execute(sqlquery, (type,tsid))
         if set(ifos.split(',')).issuperset(set(inc_ifo_list)) ])
 
-    return livetime
+    return sqlutils.convert_duration(livetime, unit)
 
 
 def get_singles_times( connection, verbose = False ):
@@ -476,7 +480,7 @@ def get_coinc_window(connection, ifos):
     return tau
 
 
-def eff_bkgd_time(T_i, tau_ij, ifos):
+def eff_bkgd_time(T_i, tau_ij, ifos, unit):
     # numerator is the product of the relevant single-ifo analyzed times
     numerator = np.prod([T for (ifo, T) in T_i.items() if ifo in ifos])
 
@@ -491,5 +495,5 @@ def eff_bkgd_time(T_i, tau_ij, ifos):
     else:
         raise ValueError, "Can only estimate background times for double & triples"
 
-    return numerator/denominator
+    return sqlutils.convert_duration(numerator/denominator, unit)
 
