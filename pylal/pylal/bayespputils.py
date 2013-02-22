@@ -1393,7 +1393,7 @@ class Posterior(object):
         L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
         tilt1 = array_ang_sep(L,S1)
         if np.max(S1) == 0.0:
-            return None
+            return 0.0
         else:
             return tilt1
 
@@ -1403,7 +1403,7 @@ class Posterior(object):
         L  = orbital_momentum(f_ref, inj.mchirp, inj.inclination)
         tilt2 = array_ang_sep(L,S2)
         if np.max(S2) == 0.0:
-            return None
+            return 0.0
         else:
             return tilt2
 
