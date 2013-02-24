@@ -1021,7 +1021,6 @@ def get_process_info(connection, verbose=False, debug=False):
     # create function to concatenate 5 columns together per row
     connection.create_function("concat_5cols", 5, concatenate)
 
-    #FIXME: the SQL query should not have hard-coded program names!
     sqlscript = """
     CREATE TEMP TABLE proc_params AS
         SELECT
@@ -1035,10 +1034,6 @@ def get_process_info(connection, verbose=False, debug=False):
             process_params AS pp_table
             JOIN process ON (
                 pp_table.process_id == process.process_id)
-        WHERE
-            process.program == "inspinj"
-            OR process.program == "rinj"
-            OR process.program == "ligolw_tisi"
         GROUP BY proc_id;
 
     CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_info);
@@ -1070,10 +1065,56 @@ def get_process_info(connection, verbose=False, debug=False):
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+
+def simplify_summ_tbls(connection, verbose=False, debug=False):
+    """
+    Delete duplicate information in summary tables according to the process_ids.
+    tbl_name: filter, summ_value, search_summary, search_summvars
+    """
+
+    query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
+    if (u'_pidmap_',) not in connection.execute( query ).fetchall()
+        print sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
+        print sys.stderr, '\tMust run function get_process_info first'
+        sys.exit(1)
+
+    if verbose:
+        print sys.stdout, "Delete redundant rows in summary tables"
+
+    sqlscript = """
+    DELETE FROM filter
+        WHERE process_id IN (
+            SELECT old_pid 
+            FROM _pidmap_ 
+            WHERE old_pid != new_pid);
+    DELETE FROM summ_value
+        WHERE process_id IN (
+            SELECT old_pid 
+            FROM _pidmap_ 
+            WHERE old_pid != new_pid);
+    DELETE FROM search_summary
+        WHERE process_id IN (
+            SELECT old_pid 
+            FROM _pidmap_ 
+            WHERE old_pid != new_pid);
+    DELETE FROM search_summvars
+        WHERE process_id IN (
+            SELECT old_pid 
+            FROM _pidmap_ 
+            WHERE old_pid != new_pid);
+    """
+    if debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
 def simplify_proc_tbls(connection, verbose=False, debug=False):
     """
-    Cleaning up the process & process_params tables of duplicate info related
-    to the time-slide and simulation tables.
+    Cleaning up the process & process_params tables of duplicate info.
     """
     if verbose:
         print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
@@ -1101,7 +1142,6 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     connection.cursor().executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
 
 
 # =============================================================================

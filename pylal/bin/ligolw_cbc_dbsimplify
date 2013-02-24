@@ -152,6 +152,8 @@ sqlutils.simplify_coincdef_tbl(connection, verbose=opts.verbose, debug=opts.debu
 sqlutils.simplify_expr_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_exprsumm_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 
+# Cleaning up the summary tables...
+sqlutils.simplify_summ_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 # Cleaning up the process & process_params tables...
 sqlutils.simplify_proc_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 
