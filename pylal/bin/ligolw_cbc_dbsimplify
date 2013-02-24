@@ -136,25 +136,27 @@ if sqlscript != '':
     connection.cursor().executescript(sqlscript)
 
 
-# Cleaning up the veto_definer and segments tables...
+# Cleaning up the veto_definer and segments tables
 sqlutils.simplify_segments_tbls(connection, programs, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_vetodef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 
-# Make process_id map for programs: inspinj, rinj, ligolw_tisi
+# Make process_id map from info in the process & process_params tables
 sqlutils.get_process_info(connection, verbose=opts.verbose, debug=opts.debug)
 
 sqlutils.simplify_timeslide_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 if set([('inspinj',),('rinj',)]) & programs:
     sqlutils.simplify_sim_tbls(connection, programs, verbose=opts.verbose, debug=opts.debug)
 
-# Cleaning up the coinc_definer & experiment tables...
+# Cleaning up the coinc_definer & experiment tables
 sqlutils.simplify_coincdef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_expr_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_exprsumm_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 
-# Cleaning up the summary tables...
+# Cleaning up the summary tables
 sqlutils.simplify_summ_tbls(connection, verbose=opts.verbose, debug=opts.debug)
-# Cleaning up the process & process_params tables...
+# Update process_ids in the sngl_inspiral table
+sqlutils.update_sngl_inspiral(connection, current_indices, verbose=opts.verbose, debug=opts.debug)
+# Cleaning up the process & process_params tables
 sqlutils.simplify_proc_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 
 # Vacuum database if desired

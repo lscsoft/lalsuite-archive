@@ -1074,12 +1074,12 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
 
     query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
     if (u'_pidmap_',) not in connection.execute( query ).fetchall()
-        print sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
-        print sys.stderr, '\tMust run function get_process_info first'
+        print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
+        print >> sys.stderr, '\tMust run function get_process_info first'
         sys.exit(1)
 
     if verbose:
-        print sys.stdout, "Delete redundant rows in summary tables"
+        print >> sys.stdout, "Delete redundant rows in summary tables"
 
     sqlscript = """
     DELETE FROM filter
@@ -1110,6 +1110,44 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
     connection.cursor().executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
+def update_sngl_inspiral(connection, current_idxs, verbose=False, debug=False):
+    """
+    Update process_ids for events in the sngl_inspiral table.
+    This function does *not* remove duplicate events that have different
+    event_ids.
+    """
+
+    query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
+    if (u'_pidmap_',) not in connection.execute( query ).fetchall()
+        print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
+        print >> sys.stderr, '\tMust run function get_process_info first'
+        sys.exit(1)
+
+    if 'si_idx' not in current_idxs:
+        query = "CREATE INDEX si_idx ON sngl_inspiral (process_id)"
+        connection.execute( query )
+
+    if verbose:
+        print >> sys.stdout, "Update process_ids in the sngl_inspiral table"
+
+    sqlscript = """
+    UPDATE sngl_inspiral
+        SET process_id = (
+            SELECT new_pid
+            FROM _pidmap_
+            WHERE process_id == old_pid);
+    """
+    if debug:
+        print >> sys.stderr, sqlscript
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    # execute SQL script
+    connection.cursor().executescript( sqlscript )
+    if debug:
+        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+    conection.execute('DROP INDEX si_idx')
 
 
 def simplify_proc_tbls(connection, verbose=False, debug=False):
