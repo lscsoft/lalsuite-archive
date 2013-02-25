@@ -582,7 +582,16 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
-        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
+        try:
+            idx=common_output_table_header.index('f_ref')
+            injFrefs=np.unique(common_output_table_raw[:,idx])
+            if len(injFrefs) == 1:
+              injFref = injFrefs[0]
+              print "Using f_ref in results as injected value"
+        except:
+            pass
+
+        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection, injFref=injFref)
 
         if 'a1' in pos_temp.names and min(pos_temp['a1'].samples)[0] < 0:
           pos_temp.append_mapping('spin1', lambda a:a, 'a1')
