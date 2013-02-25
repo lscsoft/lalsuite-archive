@@ -41,6 +41,7 @@ __date__ = git_version.date
 from pylal import imr_utils
 
 
+
 def parse_command_line():
 	parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] [file ...]", description = "%prog computes mass/mass upperlimit")
 	parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
@@ -73,13 +74,16 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 	m1m2_found_below_far = imr_utils.symmetrize_sims(found_below_far, "mass1", "mass2")
 	m1m2_total_injections = imr_utils.symmetrize_sims(total_injections, "mass1", "mass2")
 	dist_m1_m2_bins = imr_utils.guess_distance_mass1_mass2_bins_from_sims(m1m2_total_injections)
-	mass_volume, _unused_errors = imr_utils.compute_search_volume_in_bins(m1m2_found_below_far, m1m2_total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function) #FIXME use errors?
+	mass_volume, errors = imr_utils.compute_search_volume_in_bins(m1m2_found_below_far, m1m2_total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function) #FIXME use errors?
 	# write the volume to disk
 	lw = xmldoc.appendChild(ligolw.LIGO_LW())
 	lw.appendChild(rate.binned_array_to_xml(mass_volume, "mass1_mass2_volume"))
+	lw.appendChild(rate.binned_array_to_xml(errors, "mass1_mass2_volume_error"))
 	# we are done with the volume so we can overwrite the array with the range
 	mass_volume.array = (mass_volume.array / (4.0/3.0 * numpy.pi))**(1./3.)
+	errors.array = (errors.array / (4.0/3.0 * numpy.pi))**(1./3.)
 	lw.appendChild(rate.binned_array_to_xml(mass_volume, "mass1_mass2_range"))
+	lw.appendChild(rate.binned_array_to_xml(errors, "mass1_mass2_range_error"))
 
 	# Then do spins - this can fail since many runs have spin set to 0.  Trap the error, print the traceback, but move on
 	try:
