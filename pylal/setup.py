@@ -680,6 +680,7 @@ setup(
 		os.path.join("bin", "minifollowups"),
 		os.path.join("bin", "ligolw_cbc_plotcumhist"),
 		os.path.join("bin", "pylal_imr_missed_found"),
+		os.path.join("bin", "pylal_imr_livetime"),
 		os.path.join("bin", "make_imr_summary_page"),
 		os.path.join("bin", "lalapps_cbc_compute_rs"),
 		os.path.join("bin", "lalapps_cbc_print_rs"),
