@@ -36,8 +36,8 @@ pyplot.rcParams.update({
     "font.serif": ["Computer Modern Roman"],
     "font.weight": "bold",
     "font.size": 12,
-    "axes.titlesize": 18,
-    "axes.labelsize": 14,
+    "axes.titlesize": 16,
+    "axes.labelsize": 16,
     "xtick.labelsize": 12,
     "ytick.labelsize": 12,
     "legend.fontsize": 12,
@@ -51,18 +51,32 @@ pyplot.rcParams.update({
 #
 # =============================================================================
 #
-def get_redshift(distance):
+
+# default hubble constant comes from arXiv:1212.5225
+default_H0 = 69.32 # km/s/Mpc
+
+def get_redshift(distance, hubble_const = None):
     """
     Gives the redshift corresponding
     to the distance. Distance should be in Mpc.
+    The hubble_const should be in km/s/Mpc, if None
+    the default_H0 will be used.
     """
-    return distance * lal.LAL_H0_SI * 1e6 * lal.LAL_PC_SI / lal.LAL_C_SI
+    if hubble_const is None:
+        hubble_const = default_H0
+    return distance * hubble_const * 1e3 / lal.LAL_C_SI
 
-def get_source_mass(redshifted_mass, distance):
+def get_source_mass(redshifted_mass, distance, hubble_const = None):
     """
     Distance should be in Mpc.
     """
-    return redshifted_mass/(1 + get_redshift(distance))
+    return redshifted_mass/(1 + get_redshift(distance, hubble_const))
+
+def get_proper_distance(distance, hubble_const = None):
+    """
+    Distance should be in Mpc.
+    """
+    return distance / (1 + get_redshift(distance, hubble_const))
 
 def m1_m2_from_M_q(mtotal, q):
     m2 = mtotal / float(1+q)
@@ -137,9 +151,10 @@ parser.add_option("-p", "--psd-model", help = "PSD model to use. Options are %s.
 parser.add_option("-a", "--asd-file", help = "Get the PSD from the ASD specified in the given file. The file must be an ASCII file consisting of two columns: the first column should give the frequency, the second column the ASD. If not using an ASD file, must specify a psd-model.")
 parser.add_option("-m", "--mtotal-range", metavar = "min,max", help = "Required. Set the minimum and maximum total masses to plot (in solar masses).")
 parser.add_option("-q", "--mass-ratio", type = 'float', help = "Required. What mass ratio to use.")
-parser.add_option("-z", "--plot-source-mass", action = "store_true", default = False, help = "Plot de-redshifted source masses.")
-parser.add_option("-S", "--snr", type = "float", help = "If specified, will plot horizon distance vs total mass for the given SNR.")
-parser.add_option("-D", "--distance", type = "float", help = "If specified, will plot SNR vs total mass at the given horizon distance.")
+parser.add_option("-S", "--snr", type = "float", help = "If specified, will plot horizon distance vs total mass for the given SNR. If de-redshifting, proper distance will be plotted.")
+parser.add_option("-D", "--distance", type = "float", help = "If specified, will plot SNR vs total mass at the given horizon distance. If de-redshifting, the given distance is assumed to be the proper distance; otherwise, the given distance is assumed to be the luminosity distance.")
+parser.add_option("-z", "--de-redshift", action = "store_true", default = False, help = "Plot de-redshifted source masses and proper distance. Default is to plot red-shifted results. Note: redshift is approximated as z = H0*D/c. Values for z > 1 are therefore inaccurate.")
+parser.add_option("", "--hubble-constant", type = 'float', default = default_H0, help = "What Hubble constant to use for de-redshifting, in units of km/s/Mpc. Default is %.2f." %(default_H0))
 parser.add_option("-f", "--waveform-fmin", type = "float", help = "Frequency (Hz) at which to start waveform generation.")
 parser.add_option("-F", "--overlap-fmin", type = "float", help = "Frequency (Hz) at which to start overlap calculation.")
 parser.add_option("--overlap-fmax", type = "float", help = "Set the maximum overlap frequency. If not specified, Nyquist will be used.")
@@ -147,7 +162,7 @@ parser.add_option("-w", "--waveform-model", metavar = "WAVEFORM[:TAPER]", action
 # waveform parameters
 parser.add_option("--sample-rate", type = "int", help = "Required for time-domain waveforms. What sample rate (in Hz) to use.")
 parser.add_option("--seg-length", type = "int", help = "Required for frequency-domain waveforms. The inverse of this gives the deltaF used for waveform generation.")
-parser.add_option("--f-max", type = "float", help = "Required for frequency-domain waveforms. Max frequency to generate waveform to. If a not specified, but a sample rate is given, f-max will be set to the Nyquist frequency.")
+parser.add_option("--f-max", type = "float", default = 0., help = "Max frequency to generate FD waveforms to. If not specified the default value for each waveform family will be used.")
 parser.add_option("--f-ref", type = "float", help = "Set reference frequency for time-domain waveforms. Default is 0.")
 parser.add_option("--spin1", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the larger mass. Default is 0,0,0.")
 parser.add_option("--spin2", metavar = "x,y,z", default = "0,0,0", help = "Specify x, y, and z components of the smaller mass. Default is 0,0,0.")
@@ -205,7 +220,6 @@ inc = opts.inclination
 phi0 = opts.initial_phase
 npoints = opts.num_points
 dpi = opts.dpi
-deredshift_masses = opts.plot_source_mass
 
 if not (psd_model or asd_file):
     parser.error("psd-model or asd-file required")
@@ -215,8 +229,6 @@ if not (opts.snr or opts.distance):
     parser.error("snr or distance required")
 if snr is not None and distance is not None:
     parser.error("please specify snr or distance (not both)")
-if f_max is None and sample_rate is not None:
-    f_max = sample_rate / 2.
 if oFmax is None and sample_rate is not None:
     oFmax = sample_rate / 2.
 elif sample_rate is not None and oFmax > sample_rate /2.:
@@ -225,8 +237,6 @@ fd_waveforms = [waveform for waveform in waveforms if lalsim.SimInspiralImplemen
 td_waveforms = [waveform for waveform in waveforms if lalsim.SimInspiralImplementedTDApproximants(lalsim.GetApproximantFromString(waveform)) and waveform not in fd_waveforms]
 if any(fd_waveforms) and seg_length is None:
     parser.error("one or more FD waveforms desired (%s), but no seg. length given" % ', '.join(fd_waveforms))
-if any(fd_waveforms) and f_max is None:
-    parser.error("one or more FD waveforms desired (%s), but no f-max given" % ', '.join(fd_waveforms))
 if any(td_waveforms) and sample_rate is None:
     parser.error("one or more TD waveforms desired (%s), but no sample rate given" % ', '.join(td_waveforms))
 
@@ -315,13 +325,15 @@ for waveform in waveforms:
         sigmasq = get_sigmasq(htilde, psd, oFmin, oFmax)
         if plot_distance:
             distance = numpy.sqrt(sigmasq) / snr
+            if opts.de_redshift:
+                distance = get_proper_distance(distance, opts.hubble_constant)
             yvals[waveform][ii] = distance
         else:
             snr = numpy.sqrt(sigmasq) / distance
             yvals[waveform][ii] = snr
 
-        if deredshift_masses:
-            xvals[waveform][ii] = get_source_mass(M, distance) 
+        if opts.de_redshift:
+            xvals[waveform][ii] = get_source_mass(M, distance, opts.hubble_constant)
         else:
             xvals[waveform][ii] = M
 
@@ -340,15 +352,15 @@ for waveform in waveforms:
         ax.plot(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
     else:
         ax.semilogy(xvals[waveform], yvals[waveform], lw = 2, label = waveform)
-ax.set_xlabel('%stotal mass ($\mathrm{M}_\odot%s$)' %(deredshift_masses and 'source ' or '', deredshift_masses and '/(1+z)' or ''))
+ax.set_xlabel('%s total mass ($\mathrm{M}_\odot$)' %(opts.de_redshift and 'source rest-frame' or 'red-shifted'))
 if plot_distance:
-    ax.set_ylabel('horizon distance (Mpc)')
+    ax.set_ylabel('%s distance (Mpc)' %(opts.de_redshift and 'proper' or 'luminosity'))
     if not opts.no_title:
-        ax.set_title(r'$\rho = %.2f$' % snr)
+        ax.set_title(r'$\rho = %.2f,~ q = %.2f %s$' % (snr, q, opts.de_redshift and r',~H_0 = %.2f\,\mathrm{km/s/Mpc}' % opts.hubble_constant or ''))
 else:
     ax.set_ylabel(r'$\rho$')
     if not opts.no_title:
-        ax.set_title('Distance = %i Mpc' % int(distance))
+        ax.set_title('$D%s = %i\,\mathrm{Mpc},~ q = %.2f %s$' %(not opts.de_redshift and '_L' or '', distance, q, opts.de_redshift and r',~H_0 = %.2f\,\mathrm{km/s/Mpc}' % opts.hubble_constant or ''))
 plt_xmin, plt_xmax = ax.get_xlim()
 plt_ymin, plt_ymax = ax.get_ylim()
 if opts.x_min is not None:
