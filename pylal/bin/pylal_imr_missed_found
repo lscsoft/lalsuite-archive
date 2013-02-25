@@ -381,20 +381,29 @@ for instruments in IMR.instruments:
 	FoundBineffect = {}
 	TotalBineffect = {}
 	efficiencyeffdist = {}
+	eff_err = {}
 	for ifo in opts.instruments:
 		FoundBineffect[ifo] = bin(distance_found_dict[ifo], binVec)
 		TotalBineffect[ifo] = bin(distance_total_dict[ifo], binVec)
 		efficiencyeffdist[ifo] = numpy.empty(len(centerVec))
+		eff_err[ifo] = numpy.empty(len(centerVec))
+
 		for b in range(len(centerVec)):
 			try:
 				efficiencyeffdist[ifo][b]  = float(len(FoundBineffect[ifo][b]))/float(len(TotalBineffect[ifo][b]))
+				eff_err[ifo][b] = numpy.sqrt(efficiencyeffdist[ifo][b] * (1-efficiencyeffdist[ifo][b])/float(len(TotalBineffect[ifo][b])))
+
+
 			except ZeroDivisionError:
 				efficiencyeffdist[ifo][b] = numpy.nan
+				eff_err[ifo][b] = numpy.nan
 
 	FoundBindist = bin(distance_found, binVec1)
 	TotalBindist = bin(distance_total, binVec1)
 	efficiencydist = numpy.empty(len(centerVec1))
 	amp = numpy.copy(centerVec)
+
+	print eff_err
 
 	def func50(x):
 		return fitfunc(p1,x)-0.5
