@@ -64,7 +64,7 @@ def parse_command_line():
 
 opts, filenames = parse_command_line()
 
-summ = imr_utils.DataBaseSummary(filenames, opts.live_time_program, opts.veto_segments_name, tmp_path = opts.tmp_space, verbose = opts.verbose)
+IMR = imr_utils.DataBaseSummary(filenames, opts.live_time_program, opts.veto_segments_name, tmp_path = opts.tmp_space, verbose = opts.verbose)
 
 def inbin(x, y, xbottom, xtop, ybottom, ytop):
 	xmasked = numpy.ma.masked_outside(x, xbottom, xtop)
@@ -131,13 +131,13 @@ errfunc = lambda p, y, x: fitfunc(p,x) - y
   
 
 #Missed-Found plots
-for instruments in summ.instruments:
+for instruments in IMR.instruments:
 	if opts.instruments != instruments:
 		print >> sys.stderr, "Instruments %s does not equal requested instruments %s, continuing" % (instruments, opts.instruments)
 		continue
-	found = imr_utils.found_injections_below_far(summ.found_injections_by_instrument_set[instruments], opts.far)
-	total = summ.total_injections_by_instrument_set[instruments]
-	missed = summ.missed_injections_by_instrument_set[instruments]
+	found = imr_utils.found_injections_below_far(IMR.found_injections_by_instrument_set[instruments], opts.far)
+	total = IMR.total_injections_by_instrument_set[instruments]
+	missed = IMR.missed_injections_by_instrument_set[instruments]
 	sims = total
 	
 	pylab.figure()
