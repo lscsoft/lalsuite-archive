@@ -589,6 +589,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
               injFref = injFrefs[0]
               print "Using f_ref in results as injected value"
         except:
+            injFref = None
             pass
 
         pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection, injFref=injFref)
