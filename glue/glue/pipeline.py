@@ -1644,26 +1644,18 @@ class CondorDAG:
       print >> sitefile, """\
 <?xml version="1.0" encoding="UTF-8"?>
 <sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-3.0.xsd" version="3.0">
+xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-4.0.xsd" version="4.0">
   <site handle="local" arch="x86_64" os="LINUX">
     <grid type="gt2" contact="%s/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/> 
     <grid type="gt2" contact="%s/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
-    <head-fs>
-      <scratch>
-        <shared>
-          <file-server protocol="file" url="file://" mount-point="%s">
-          </file-server>
-          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
-        </shared>
-      </scratch>
-      <storage>
-        <shared>
-          <file-server protocol="file" url="file://" mount-point="%s">
-          </file-server>
-          <internal-mount-point mount-point="%s" free-size="null" total-size="null"/>
-        </shared>
-      </storage>
-    </head-fs>
+    <directory  path="%s" type="shared-scratch" free-size="null" total-size="null">
+        <file-server  operation="all" url="file://%s">
+        </file-server>
+    </directory>
+    <directory  path="%s" type="shared-storage" free-size="null" total-size="null">
+        <file-server  operation="all" url="file://%s">
+        </file-server>
+    </directory>
     <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
     </replica-catalog>
 """ % (hostname,hostname,pwd,pwd,pwd,pwd)
