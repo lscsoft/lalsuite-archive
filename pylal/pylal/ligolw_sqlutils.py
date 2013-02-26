@@ -1073,10 +1073,22 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
     """
 
     query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
-    if (u'_pidmap_',) not in connection.execute( query ).fetchall()
+    if (u'_pidmap_',) not in connection.execute( query ).fetchall():
         print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
         print >> sys.stderr, '\tMust run function get_process_info first'
         sys.exit(1)
+
+    current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+    sqlscript = ''
+    if ('f_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX f_idx ON filter (process_id);\n'
+    if ('sv_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX sv_idx ON summ_value (process_id);\n'
+    if ('ss_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX ss_idx ON search_summary (process_id);\n'
+    if ('ssv_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX ssv_idx ON search_summvars (process_id);\n'
+    connection.executescript( sqlscript )
 
     if verbose:
         print >> sys.stdout, "Delete redundant rows in summary tables"
@@ -1087,32 +1099,39 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
             SELECT old_pid 
             FROM _pidmap_ 
             WHERE old_pid != new_pid);
+    DROP INDEX f_idx;
+
     DELETE FROM summ_value
         WHERE process_id IN (
             SELECT old_pid 
             FROM _pidmap_ 
             WHERE old_pid != new_pid);
+    DROP INDEX sv_idx;
+
     DELETE FROM search_summary
         WHERE process_id IN (
             SELECT old_pid 
             FROM _pidmap_ 
             WHERE old_pid != new_pid);
+    DROP INDEX ss_idx;
+
     DELETE FROM search_summvars
         WHERE process_id IN (
             SELECT old_pid 
             FROM _pidmap_ 
             WHERE old_pid != new_pid);
+    DROP INDEX ssv_idx;
     """
     if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 
-def update_sngl_inspiral(connection, current_idxs, verbose=False, debug=False):
+def update_sngl_inspiral(connection, verbose=False, debug=False):
     """
     Update process_ids for events in the sngl_inspiral table.
     This function does *not* remove duplicate events that have different
@@ -1120,12 +1139,13 @@ def update_sngl_inspiral(connection, current_idxs, verbose=False, debug=False):
     """
 
     query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
-    if (u'_pidmap_',) not in connection.execute( query ).fetchall()
+    if (u'_pidmap_',) not in connection.execute( query ).fetchall():
         print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
         print >> sys.stderr, '\tMust run function get_process_info first'
         sys.exit(1)
 
-    if 'si_idx' not in current_idxs:
+    current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+    if ('si_idx',) not in current_indices:
         query = "CREATE INDEX si_idx ON sngl_inspiral (process_id)"
         connection.execute( query )
 
@@ -1138,6 +1158,8 @@ def update_sngl_inspiral(connection, current_idxs, verbose=False, debug=False):
             SELECT new_pid
             FROM _pidmap_
             WHERE process_id == old_pid);
+
+    DROP INDEX si_idx;
     """
     if debug:
         print >> sys.stderr, sqlscript
@@ -1147,8 +1169,6 @@ def update_sngl_inspiral(connection, current_idxs, verbose=False, debug=False):
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-    conection.execute('DROP INDEX si_idx')
-
 
 def simplify_proc_tbls(connection, verbose=False, debug=False):
     """
@@ -1156,6 +1176,12 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     """
     if verbose:
         print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
+
+    query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
+    if (u'_pidmap_',) not in connection.execute( query ).fetchall():
+        print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
+        print >> sys.stderr, '\tMust run function get_process_info first'
+        sys.exit(1)
 
     sqlscript = """
     -- Remove redundant process rows
@@ -1177,7 +1203,7 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -1263,6 +1289,7 @@ def clean_experiment_tables(connection, verbose = False):
         """
     connection.cursor().executescript(sqlscript)
 
+
 def simplify_expr_tbl(connection, verbose=False, debug=False):
     """
     Cleaning up the experiment table by removing duplicate rows and remapping
@@ -1273,6 +1300,11 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
 
     # create function to concatenate columns together per row
     connection.create_function("concat_7cols", 7, concatenate)
+
+    current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+    if ('es_idx',) not in current_indices:
+        query = 'CREATE INDEX es_idx ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id)'
+        connection.execute( query )
 
     sqlscript = """
     -- create map table to map experiment_ids that are to be kept
@@ -1296,7 +1328,6 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
                 old_exp.info == new_exp.info)
         GROUP BY old_eid;
     
-    DROP INDEX e_sgitlc_index;
     DROP TABLE expr_info;
     CREATE INDEX _eidmap_idx ON _eidmap_ (old_eid);
     
@@ -1321,7 +1352,7 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -1337,6 +1368,14 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
 
     # create function to concatenate columns together per row
     connection.create_function("concat_5cols", 5, concatenate)
+
+    current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+    sqlscript = ''
+    if ('em_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX em_idx ON experiment_map (experiment_summ_id);\n'
+    if ('es_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX es_idx ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);\n'
+    connection.executescript( sqlscript )
 
     sqlscript = """
     -- experiment summary clean up
@@ -1361,7 +1400,6 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
                 old_expsumm.info == new_expsumm.info)
         GROUP BY old_esid;
 
-    DROP INDEX es_etvds_index;
     DROP INDEX expr_summ_info_idx;
     DROP TABLE expr_summ_info;
 
@@ -1399,6 +1437,7 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
             WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id);
     
     DROP INDEX sdn_esid_index;
+    DROP INDEX es_idx;
     DROP TABLE sum_dur_nevents;
 
     -- update the experiment_map table
@@ -1410,12 +1449,13 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
     
     DROP INDEX _esidmap_idx;
     DROP TABLE _esidmap_;
+    DROP INDEX em_idx;
     """
     if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -1675,7 +1715,7 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -1885,44 +1925,77 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
     connection.cursor().executescript(sqlscript)
 
 
-def simplify_sim_tbls(connection, programs, verbose=False, debug=False):
+def simplify_sim_tbls(connection, verbose=False, debug=False):
     """
-    Cleaning up the simulation tables as well as the associated
-    entries in the process & process_params tables
+    Cleaning up the simulation tables
 
     @connection: sqlite connection object for given database
-    @programs:   set of programs run so far on this data
     """
-    if verbose:
-        print >> sys.stdout, "Cleaning simulation tables..."
+    # check whether there is a simulation table in the database
+    query = "SELECT tbl_name FROM sqlite_master WHERE type='table'"
+    sim_tables = [table for table in connection.execute( query ) if 'sim' in table[0]]
+    
+    if sim_tables:
+        if verbose:
+            print >> sys.stdout, "Cleaning simulation tables..."
+    
+        current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+        if ('es_idx',) not in current_indices:
+            sqlquery = 'CREATE INDEX es_idx ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id)'
+            connection.execute( sqlquery )
+    
+        query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
+        if (u'_pidmap_',) not in connection.execute( query ).fetchall():
+            print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
+            print >> sys.stderr, '\tMust run function get_process_info first'
+            sys.exit(1)
+    
+        sqlscript = """
+        -- Update sim_proc_ids in the experiment_summary table
+        UPDATE experiment_summary 
+            SET sim_proc_id = (
+                SELECT new_pid 
+                FROM _pidmap_ 
+                WHERE old_pid == sim_proc_id );
+        """
+    
+        if ('sim_inspiral',) in sim_tables:
+            if ('simi_idx',) not in current_indices:
+                sqlscript += "CREATE INDEX simi_idx ON sim_inspiral (process_id);"
+            sqlscript += """
+            DELETE FROM sim_inspiral 
+                WHERE process_id IN (
+                    SELECT old_pid 
+                    FROM _pidmap_ 
+                    WHERE old_pid != new_pid );
+    
+            DROP INDEX simi_idx;
+            """
+    
+        if ('sim_ringdown',) in sim_tables:
+            if ('simr_idx',) not in current_indices:
+                sqlscript += "CREATE INDEX simr_idx ON sim_ringdown (process_id);"
+            sqlscript += """
+            DELETE FROM sim_ringdown
+                WHERE process_id IN (
+                    SELECT old_pid 
+                    FROM _pidmap_ 
+                    WHERE old_pid != new_pid );
+    
+            DROP INDEX simr_idx;
+            """
+    
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+        # execute SQL script
+        connection.executescript( sqlscript )
+        if debug:
+            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-    sqlscript = """
-    -- Update sim_proc_ids in the experiment_summary table
-    UPDATE experiment_summary 
-        SET sim_proc_id = (
-            SELECT new_pid 
-            FROM _pidmap_ 
-            WHERE old_pid == sim_proc_id);
-    """
-    for program in [('inspinj',),('rinj',)]:
-        if program in programs:
-            sqlscript += ''.join([ """
-                DELETE FROM sim_inspiral 
-                    WHERE process_id IN (
-                        SELECT old_pid 
-                        FROM _pidmap_ 
-                        WHERE 
-                            old_pid != new_pid
-                            AND program == \"""", str(program[0]), """\");
-            """ ])
-
-    if debug:
-        print >> sys.stderr, sqlscript
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-    # execute SQL script
-    connection.cursor().executescript( sqlscript )
-    if debug:
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+    else:
+        if verbose:
+            print >> sys.stdout, "There are no simulation tables in this database"
 
 
 # =============================================================================
@@ -1974,13 +2047,12 @@ class segdict_from_segment:
         return LIGOTimeGPS(gpstime, gpstime_ns) in self.snglinst_segdict[instrument]
         
 
-def simplify_segments_tbls(connection, programs, verbose=False, debug=False):
+def simplify_segments_tbls(connection, verbose=False, debug=False):
     """
     Cleaning up the segments tables as well as the associated
     entries in the process & process_params tables
 
     @connection: sqlite connection object for given database
-    @programs:   set of programs run so far on this data
     """
     if verbose:
         print >> sys.stdout, "Cleaning up the segments tables..."
@@ -1988,14 +2060,18 @@ def simplify_segments_tbls(connection, programs, verbose=False, debug=False):
     # create function to concatenate 2 columns together per row
     connection.create_function("concat_2cols", 2, concatenate)
 
-    # find the program used to populate the segment table
-    dqsegs_program = [prog for prog in programs if "ligolw_segments_from_cats" in prog[0]][0]
+    current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+    sqlscript = ''
+    if ('segsumm_idx',) not in current_indices:
+        sqlscript += "CREATE INDEX segsumm_idx ON segment_summary (process_id, segment_def_id);"
+    if ('segdef_idx',) not in current_indices:
+        sqlscript += "CREATE INDEX segdef_idx ON segment_definer (process_id, segment_def_id);\n"
+    connection.executescript( sqlscript )
 
     sqlscript = """
-    CREATE TEMP TABLE segments_tbl AS
+    CREATE TEMP TABLE segdef_summary AS
         SELECT
             segment_definer.process_id AS proc_id,
-            segment_definer.segment_def_id AS segdef_id,
             segment_definer.ifos AS ifo,
             concat_2cols(segment_definer.name, segment_definer.version) AS cat_vers,
             concat_2cols(segment_summary.start_time, segment_summary.end_time) AS times
@@ -2006,34 +2082,58 @@ def simplify_segments_tbls(connection, programs, verbose=False, debug=False):
                 AND segment_definer.segment_def_id == segment_summary.segment_def_id)
         GROUP BY proc_id;
     
-    DELETE FROM segments_tbl
-        WHERE proc_id NOT IN (
-            SELECT MIN(proc_id)
-            FROM segments_tbl
-            GROUP BY ifo, cat_vers, times);
-    
+    CREATE TEMP TABLE _sdpid_map_ AS
+        SELECT
+            old_segs_tbl.proc_id AS old_pid,
+            MIN(new_segs_tbl.proc_id) AS new_pid
+        FROM
+            segdef_summary AS old_segs_tbl
+            JOIN segdef_summary AS new_segs_tbl ON (
+                new_segs_tbl.ifo == old_segs_tbl.ifo
+                AND new_segs_tbl.times == old_segs_tbl.times
+                AND new_segs_tbl.cat_vers == old_segs_tbl.cat_vers );
+
+    DROP TABLE segdef_summary;
+    CREATE INDEX sdpid_idx ON _sdpid_map_ (old_pid, new_pid);
+ 
     DELETE FROM segment 
-        WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid);
     DELETE FROM segment_definer 
-        WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid);
     DELETE FROM segment_summary
-        WHERE process_id NOT IN (SELECT proc_id FROM segments_tbl);
-    
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid);
+
+    DROP INDEX segsumm_idx;
+    DROP INDEX segdef_idx;
+
+    DELETE FROM process
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid);
+    DELETE FROM process_params
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid);
+ 
+    DROP INDEX sdpid_idx;
     """
-    # add the queries to remove duplicate rows in the process tables
-    for table in ['process', 'process_params']:
-        sqlscript += ''.join([ """
-            DELETE FROM """, table, """
-            WHERE
-                process_id NOT IN (SELECT proc_id FROM segments_tbl)
-                AND program == \"""", str(dqsegs_program[0]), """\";"""])
-    sqlscript += "DROP TABLE segments_tbl;"
 
     if debug:
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -2115,6 +2215,22 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     entries in the process & process_params tables  
     """
 
+    query = "SELECT tbl_name FROM sqlite_temp_master WHERE type='table'"
+    if (u'_pidmap_',) not in connection.execute( query ).fetchall():
+        print >> sys.stderr, 'ERROR: Needed TEMP TABLE _pidmap_ does not exist.'
+        print >> sys.stderr, '\tMust run function get_process_info first'
+        sys.exit(1)
+
+    current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
+    sqlscript = ''
+    if ('ts_idx',) not in current_indices:
+        sqlscript += "CREATE INDEX ts_idx ON time_slide (process_id, instrument, offset);\n"
+    if ('ce_idx',) not in current_indices:
+        sqlscript += "CREATE INDEX ce_idx ON coinc_event (time_slide_id);\n"
+    if ('es_idx',) not in current_indices:
+        sqlscript += 'CREATE INDEX es_idx ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);\n'
+    connection.executescript( sqlscript )
+
     sqlquery = """
     SELECT old_pid
     FROM _pidmap_
@@ -2122,7 +2238,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
        program = "ligolw_tisi"
        AND old_pid != new_pid
     """
-    old_pids = connection.cursor().execute( sqlquery ).fetchall()
+    old_pids = connection.execute( sqlquery ).fetchall()
 
     if old_pids:
         if verbose:
@@ -2136,6 +2252,8 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                 FROM _pidmap_ 
                 WHERE process_id == old_pid);
         
+        DROP INDEX ts_idx;
+
         -- Create a table that combines the information about a single time_slide into 
         -- a single row.  This makes comparison between time_slides easier.
         CREATE TEMP TABLE compact_time_slide AS
@@ -2194,9 +2312,10 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
             print >> sys.stderr, sqlscript
             print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
         # execute SQL script
-        connection.cursor().executescript( sqlscript )
+        connection.executescript( sqlscript )
         if debug:
             print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
 
 # =============================================================================
 #
@@ -2265,7 +2384,7 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
         print >> sys.stderr, sqlscript
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
     # execute SQL script
-    connection.cursor().executescript( sqlscript )
+    connection.executescript( sqlscript )
     if debug:
         print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
