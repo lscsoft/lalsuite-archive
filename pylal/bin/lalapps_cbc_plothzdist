@@ -263,10 +263,6 @@ if sample_rate is not None:
     dt = 1./sample_rate
 if seg_length is not None:
     df = 1./seg_length
-if taper is not None:
-    taper = lalsim.GetTaperFromString('TAPER_%s' % taper.upper())
-else:
-    taper = lalsim.GetTaperFromString('TAPER_NONE')
 
 input_masses = numpy.linspace(min_mtotal, max_mtotal, num = npoints)
 xvals = {}
