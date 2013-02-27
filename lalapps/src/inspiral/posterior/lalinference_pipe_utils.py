@@ -160,17 +160,11 @@ def procmap(connection):
 # cem2 will only contain maps where one object is a coinc_inspiral
 # both requirements will filter out anything but detected injections
 def getcoincid(connection, sim_id, ifos = 'H1,L1'):
-    query = """
-    SELECT coinc_inspiral.coinc_event_id
-    FROM sim_inspiral JOIN coinc_inspiral, coinc_event_map as cem1, coinc_event_map as cem2
-    ON ( sim_inspiral.simulation_id == cem1.event_id AND
-         cem1.coinc_event_id == cem2.coinc_event_id AND
-         cem2.event_id == coinc_inspiral.coinc_event_id )
-    WHERE coinc_inspiral.ifos == '""" + ifos + "' and sim_inspiral.simulation_id=='"+sim_id+"'"
+    squery = "SELECT cem2.event_id FROM coinc_event_map as cem1 JOIN coinc_event_map as cem2,coinc_inspiral ON ( '%s' == cem1.event_id AND cem1.coinc_event_id == cem2.coinc_event_id AND cem2.event_id == coinc_inspiral.coinc_event_id )"%(sim_id)
+	#AND  coinc_inspiral.ifos == '""" + ifos + "')"
     
-    #print 'Looking for sim_id with %s'%(query)
     
-    result= connection.cursor().execute(query).fetchall()
+    result= connection.cursor().execute(squery).fetchall()
     return result
 
 def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['ALLINJ'], dumpfile=None, gpsstart=None, gpsend=None):
@@ -219,9 +213,7 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	filtinj=[inj for inj in injTable if (str(inj.process_id) in procids) ]
 	filtinj2=[]
 	for inj in filtinj:
-		print 'Looking for %s in found events'%(inj.simulation_id)
 		coinc=getcoincid(database_connection,inj.simulation_id)
-		print 'Found '+str(coinc)
 		if len(coinc)>0:
 			filtinj2.append(inj)
 
