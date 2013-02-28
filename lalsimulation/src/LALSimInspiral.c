@@ -1941,8 +1941,21 @@ int XLALSimInspiralChooseFDWaveform(
             if( !checkTidesZero(lambda1, lambda2) )
                 ABORT_NONZERO_TIDES(waveFlags);
             /* Call the waveform driver routine */
-            ret = XLALSimInspiralTaylorF2Test(htilde, phiRef, deltaF, m1, m2, f_min,
-                    r, phaseO, amplitudeO,nonGRparams);
+            ret = XLALSimInspiralTaylorF2Test(hptilde, phiRef, deltaF, m1, m2, f_min,
+                    r, phaseO, amplitudeO, nonGRparams);
+	    /* The above returns h(f) for optimal orientation (i=0, Fp=1, Fc=0)
+	     * To get generic polarizations we multiply by incl. dependence
+	     * and note hc(f) \propto I * hp(f)
+	     */
+	    *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+							  &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+							  &((*hptilde)->sampleUnits), (*hptilde)->data->length);
+	    cfac = cos(i);
+	    pfac = 0.5 * (1. + cfac*cfac);
+	    for(j = 0; j < (*hptilde)->data->length; j++) {
+	      (*hctilde)->data->data[j] = I*cfac * (*hptilde)->data->data[j];
+	      (*hptilde)->data->data[j] *= pfac;
+	    }
             break;
 
         /* non-spinning inspiral-merger-ringdown models */
