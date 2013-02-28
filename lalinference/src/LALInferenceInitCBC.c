@@ -36,6 +36,30 @@
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceInit.h>
 
+int checkParamInList(const char *list, const char *param);
+int checkParamInList(const char *list, const char *param)
+{
+  /* Check for param in comma-seperated list */
+  char *post=NULL,*pos=NULL;
+  if (list==NULL) return 0;
+  if (param==NULL) return 0;
+  
+  if(!(pos=strstr(list,param))) return 0;
+  
+  /* The string is a substring. Check that it is a token */
+  /* Check the character before and after */
+  if(pos!=list)
+    if(*(pos-1)!=',')
+      return 0;
+    
+    post=&(pos[strlen(param)]);
+  if(*post!='\0')
+    if(*post!=',')
+      return 0;
+    return 1;
+}
+
+
 void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
 {
   char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
@@ -1511,7 +1535,104 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     LALInferenceAddVariable(currentParams, "tideO", &tideO,
         LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   }
- 
+  ppt=LALInferenceGetProcParamVal(commandLine,"--GRtestparameters");
+  if (ppt) 
+  {
+    REAL8 testParameter_max=.5;
+    REAL8 testParameter_min=-.5;
+    tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
+    REAL8 zeroVal=0.0;
+    if (checkParamInList(ppt->value,"dchi0")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi0",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi0",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   
+      LALInferenceAddVariable(currentParams,"dchi0",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi1")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi1",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi1",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi1",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi2")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi2",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi2",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi2",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi3")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi3",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi3",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi3",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi4")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi4",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi4",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi4",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi5")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi5",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi5",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi5",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi5l")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi5l",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi5l",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi5l",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi6")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi6",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi6",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi6",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi6l")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi6l",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi6l",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi6l",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+    if (checkParamInList(ppt->value,"dchi7")) 
+    {
+      LALInferenceAddVariable(currentParams,"dchi7",	&tmpVal,	LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+      LALInferenceAddMinMaxPrior(priorArgs, "dchi7",     &testParameter_min, &testParameter_max,   LALINFERENCE_REAL8_t); 
+    }
+    else
+    {   tmpVal=0.0;
+    LALInferenceAddVariable(currentParams,"dchi7",  &zeroVal,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    }
+  }
 }
 
 
