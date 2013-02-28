@@ -246,10 +246,7 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 
 
 def get_coinc_info(connection, coinc_id):
-	query="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset \
-	     FROM sngl_inspiral join coinc_event_map on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id==sngl_inspiral.event_id) join coinc_event on \
-		coinc_event_id==coinc_event_map.coinc_event_id join coinc_inspiral on (coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id) join time_slide\
-                    on (time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id=='%s'"%(str(coinc_id))
+	query="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset FROM sngl_inspiral join coinc_event_map,coinc_event,coinc_inspiral,time_slide on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id==sngl_inspiral.event_id AND coinc_event.coinc_event_id==coinc_event_map.coinc_event_id AND coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id AND time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id=='%s'"%(str(coinc_id))
 	db_out=connection.cursor().execute(query)
 	output={}
 	for (sngl_time, ifo, snr, chisq, cfar, timeslide) in db_out:
