@@ -520,6 +520,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     case TaylorF2:
     case TaylorF2RedSpin:
     case TaylorF2RedSpinTidal:
+    case TaylorF2Test:
     case IMRPhenomA:
     case IMRPhenomB:
       modelDomain=LALINFERENCE_DOMAIN_FREQUENCY;
