@@ -1540,7 +1540,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   {
     REAL8 testParameter_max=.5;
     REAL8 testParameter_min=-.5;
-    tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
+    REAL8 tmpVal=testParameter_min+(testParameter_max - testParameter_min)/2.0;
     REAL8 zeroVal=0.0;
     if (checkParamInList(ppt->value,"dchi0")) 
     {

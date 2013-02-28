@@ -1975,11 +1975,10 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda2")) lambda2 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda2");
   LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
 
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) XLALSimInspiralSetInteraction(waveFlags, *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags"));
+  //if(LALInferenceCheckVariable(IFOdata->modelParams, "interactionFlags")) XLALSimInspiralSetInteraction(waveFlags, *(LALSimInspiralInteraction*) LALInferenceGetVariable(IFOdata->modelParams, "interactionFlags"));
 
   if(LALInferenceCheckVariable(IFOdata->modelParams, "spinO")) XLALSimInspiralSetSpinOrder(waveFlags, *(LALSimInspiralSpinOrder*) LALInferenceGetVariable(IFOdata->modelParams, "spinO"));
   if(LALInferenceCheckVariable(IFOdata->modelParams, "tideO")) XLALSimInspiralSetTidalOrder(waveFlags, *(LALSimInspiralTidalOrder*) LALInferenceGetVariable(IFOdata->modelParams, "tideO"));
-  LALSimInspiralTestGRParam *nonGRparams = NULL;
 
   
   if (IFOdata->timeData==NULL) {
@@ -1997,10 +1996,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     deltaF = IFOdata->freqData->deltaF;
     
 
-    double cosi = cos(inclination);
-    double plusCoef  = -0.5 * (1.0 + cosi*cosi);
-    double crossCoef = cosi;
-    
     LALSimInspiralTestGRParam *nonGRparams=NULL;
     
     const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
@@ -2013,8 +2008,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 		}
     }
     
-    REAL8 dchi3= 0.0;
-    if (LALInferenceCheckVariable(IFOdata->modelParams,"dchi3")) dchi3=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
+    //REAL8 dchi3= 0.0;
+    //if (LALInferenceCheckVariable(IFOdata->modelParams,"dchi3")) dchi3=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
         
 
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
