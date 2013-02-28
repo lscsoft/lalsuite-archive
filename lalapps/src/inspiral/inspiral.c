@@ -831,6 +831,38 @@ int main( int argc, char *argv[] )
 
     if ( vrbflg ) fprintf( stdout, "done\n" );
 
+  /*
+   *
+   * inject signals into the raw, unresampled data
+   *
+   */
+  if ( glitchInjectionFile)
+  {
+    if ( vrbflg ) fprintf( stdout, "Reading glitch injections from file.\n" );
+    fflush( stdout );
+
+    INT4 glitchInjSafety = 10;
+    LIGOTimeGPS glitches_start, glitches_end;
+    
+    glitches_start = gpsStartTime;
+    glitches_start.gpsSeconds -= glitchInjSafety;
+    glitches_end = gpsEndTime;
+    glitches_end.gpsSeconds += glitchInjSafety;
+
+    glitchInjections = XLALSimBurstTableFromLIGOLw(
+        glitchInjectionFile,
+        &glitches_start,
+        &glitches_end );
+
+    if ( vrbflg ) fprintf( stdout, "Injecting glitches into data..." );
+    fflush( stdout );
+
+    XLALSimGlitchInject(&strainChan, glitchInjections);
+
+    if ( vrbflg ) fprintf( stdout, "done.\n" );
+    fflush( stdout );
+  }
+
     /* high pass the h(t) data using the parameters specified on the cmd line*/
     strainHighpassParam.nMax = strainHighPassOrder;
     strainHighpassParam.f1 = -1.0;
@@ -1255,38 +1287,6 @@ int main( int argc, char *argv[] )
 
     tdFollowUpEvents = XLALTimeCutSingleInspiral( tdFollowUpEvents,
         &startKeep, &endKeep);
-  }
-
-  /*
-   *
-   * inject signals into the raw, unresampled data
-   *
-   */
-  if ( glitchInjectionFile)
-  {
-    if ( vrbflg ) fprintf( stdout, "Reading glitch injections from file.\n" );
-    fflush( stdout );
-
-    INT4 glitchInjSafety = 10;
-    LIGOTimeGPS glitches_start, glitches_end;
-    
-    glitches_start = gpsStartTime;
-    glitches_start.gpsSeconds -= glitchInjSafety;
-    glitches_end = gpsEndTime;
-    glitches_end.gpsSeconds += glitchInjSafety;
-
-    glitchInjections = XLALSimBurstTableFromLIGOLw(
-        glitchInjectionFile,
-        &glitches_start,
-        &glitches_end );
-
-    if ( vrbflg ) fprintf( stdout, "Injecting glitches into data..." );
-    fflush( stdout );
-
-    XLALSimGlitchInject(&strainChan, glitchInjections);
-
-    if ( vrbflg ) fprintf( stdout, "done.\n" );
-    fflush( stdout );
   }
 
   if ( injectionFile )
