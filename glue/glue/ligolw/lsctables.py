@@ -1911,9 +1911,11 @@ class MultiInspiralTable(table.Table):
 	                 "V1":"v"}
 
 	def get_column(self,column):
-		if column == 'new_snr':
+		if column == 'bestnr':
+			return self.get_bestnr()
+		elif column == 'new_snr':
 			return self.get_new_snr()
-		if column == "null_snr":
+		elif column == "null_snr":
 			return self.get_null_snr()
 		elif column == 'coinc_snr':
 			return self.get_coinc_snr()
