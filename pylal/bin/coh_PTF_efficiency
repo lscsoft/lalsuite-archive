@@ -118,6 +118,30 @@ def parse_command_line():
                      type="float",default=0.1,help="The cluster window used "+\
                           "to cluster triggers in time. default: %default")
 
+  sigopts.add_option("-j","--sngl-snr-threshold", action="store", type="float",\
+                    default=4.0, help="Single detector SNR threshold, the"+\
+                    "two most sensitive detectors should have SNR above this"+\
+                    " default: %default")
+
+  sigopts.add_option("-J", "--snr-threshold", action="store", type="float",\
+                    default=6.0, help="SNR threshold for recording triggers,"+\
+                                      " default: %default")
+
+  sigopts.add_option("-k", "--newsnr-threshold", action="store", type="float",\
+                    default=None, help="NewSNR threshold for calculating the "+\
+                    "chisq of triggers (based on value of auto and bank chisq"+\
+                    " values. By default will take the same value as "+\
+                    "snr-threshold")
+
+  sigopts.add_option("-K", "--null-grad-thresh", action="store", type="float",\
+                    default=20., help="Threshold above which to increase the,"+\
+                    "values of the null SNR cut. default: %default")
+
+  sigopts.add_option("-T", "--null-grad-val", action="store", type="float",\
+                    default=0.2, help="Rate the null SNR cut will increase"+\
+                    "above the threshold. default: %default")
+
+
   # efficiency options
   effopts = optparse.OptionGroup(parser, "Efficiency options",\
                                  description="Tunable parameters for "\
@@ -206,6 +230,9 @@ def parse_command_line():
 
   if opts.veto_directory and not opts.veto_category:
     parser.error("Must supply veto category if applying vetoes")
+
+  if not opts.newsnr_threshold:
+    opts.newsnr_threshold = opts.snr_threshold
   
   return opts, args
 
@@ -215,7 +242,9 @@ def parse_command_line():
 
 def main(segdir, outdir, trigFile, foundFile, missedFile,\
          onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
-         chisq_nhigh=3.0, null_thresh=(4.25,6), glitchCheckFac=1.0,\
+         chisq_nhigh=3.0, null_thresh=(4.25,6),snrThresh=6.0,snglSnrThresh=4.0,\
+         newSnrThresh=6.0,nullGradThresh=20.,\
+         nullGradVal=0.2, glitchCheckFac=1.0,\
          clusterWindow=0.1, upperDist=100, lowerDist=0, numBins=20,\
          vetoFiles=[], wavErr=0, calErrs=None, calDCErrs=None,\
          massBins=[[0,3.48], [3.48,6.], [6.,20]], numMCInjs=100,\
@@ -339,8 +368,13 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   # get basics
   trigAllTime   = np.asarray(trigs.get_end()).astype(float)
   trigAllSNR    = np.asarray(trigs.get_column('snr'))
-  trigAllBestNR = np.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
-                               null_thresh=null_thresh) for t in trigs])
+  trigAllBestNR = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in trigs]
+  trigAllBestNR = np.array(trigAllBestNR)
   trigAllMchirp = np.asarray(trigs.get_column('mchirp'))
 
   if verbose: sys.stdout.write("Basic columns extracted at %d.\n"\
@@ -604,11 +638,18 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         loudOnSNRTrigs[bin[0]] = binTrigs[0]
         loudOnSNR[bin[0]]      = binTrigs[0].snr
         binTrigs.sort(key=lambda t: get_bestnr(t, q=chisq_index, n=chisq_nhigh,\
-                                               null_thresh=null_thresh),\
-                      reverse=True)
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal),   reverse=True)
         loudOnBestNRTrigs[bin[0]] = binTrigs[0]
         loudOnBestNR[bin[0]] = get_bestnr(binTrigs[0], q=chisq_index,\
-                                          n=chisq_nhigh,null_thresh=null_thresh) 
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,n=chisq_nhigh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal)
         # If the loudest event has bestNR = 0, there is no event at all!
         if loudOnBestNR[bin[0]] == 0:
           loudOnBestNRTrigs[bin[0]] = None
@@ -697,10 +738,13 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     foundInjDist     = np.asarray(foundInjs.get_column('distance'))
 
     foundTrigMchirp  = np.asarray(foundTrigs.get_column('mchirp'))
-    foundTrigBestNR  = np.asarray([get_bestnr(t, q=chisq_index,\
-                                                 n=chisq_nhigh,\
-                                                 null_thresh=null_thresh)\
-                                      for t in foundTrigs])
+    foundTrigBestNR  = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in foundTrigs]
+    foundTrigBestNR  = np.asarray(foundTrigBestNR)
     foundTrigRA      = np.asarray(foundTrigs.get_column('ra'))
     foundTrigDec     = np.asarray(foundTrigs.get_column('dec'))
 
@@ -1591,6 +1635,11 @@ if __name__=='__main__':
   oldCode      = opts.old_code
 
   nullt        = map(float, opts.null_snr_threshold.split(','))
+  snrThresh = opts.snr_threshold
+  snglSnrThresh = opts.sngl_snr_threshold
+  newSnrThresh = opts.newsnr_threshold
+  nullGradThresh = opts.null_grad_thresh
+  nullGradVal    = opts.null_grad_val
   glitchCheckFac = opts.glitch_check_factor
   clusterWindow = opts.cluster_window
   upperDist = opts.upper_inj_dist
@@ -1607,7 +1656,10 @@ if __name__=='__main__':
 
   main(segdir, outdir, trigFile, foundFile, missedFile,\
        onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
-       chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
+       chisq_nhigh=n, null_thresh = nullt , snrThresh=snrThresh,\
+       snglSnrThresh=snglSnrThresh,newSnrThresh=newSnrThresh,\
+       nullGradThresh=nullGradThresh,nullGradVal=nullGradVal,\
+       glitchCheckFac = glitchCheckFac,\
        clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
        numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs,\
        calDCErrs=calDCErrs, massBins=massBins, numMCInjs=numMCInjs,\

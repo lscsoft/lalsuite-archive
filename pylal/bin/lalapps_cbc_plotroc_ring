@@ -91,6 +91,7 @@ def parse_command_line():
 	parser.add_option("-O", "--output-path", action = "store", default = ".", help = "Redirect output to specified directory. Default is to save output " +
 			"to current directory."	)
 	parser.add_option("-c", "--add-cache", metavar = "file.cache[:label]", action = "append", default = [], help = "Cache file containing injection sqlite files for plotting ROC curves. All files in each cache file will be grouped together into a single curve. To specify a label for this curve, add a colon and the label name after cache. For example, file_name1.cache:week1. If no label given, the file will be labeled cacheN where N is the order that the file was specified on the command line.")
+	parser.add_option("-l", "--map-label", default = None, help = "Required. Name of the mapping that was used for finding injections.")
 	parser.add_option("", "--far-column", action = "append", default = [], help = "Column to get false alarm rates from. Can be any column in the coinc table. If specified multiple times, will create a separate curve for each column. Default is to plot combined_far only.")
 	parser.add_option("", "--sngl-table", action = "store", type="string", default = None, help = "Required. Should be set to sngl_inspiral or sngl_ringdown.")
 	parser.add_option("", "--sim_table", action = "store", type="string", default = None, help = "Required. Should be set to the injection table that has mappings to the coinc_event_map table; coinc_inspiral or coinc_ringdown.")
@@ -106,6 +107,8 @@ def parse_command_line():
 
 	options, filenames = parser.parse_args()
 
+	if options.map_label is None:
+		raise ValueError, "map-label is a required argument"
 	if options.far_column == []:
 		options.far_column = ['combined_far']
 
@@ -257,15 +260,17 @@ FROM
 	JOIN coinc_event_map AS mapA ON (mapA.event_id == """, contents.coinc_table, """.coinc_event_id AND mapA.table_name == "coinc_event")
 	JOIN coinc_event_map AS mapB ON (mapB.coinc_event_id == mapA.coinc_event_id AND mapB.table_name == "sim_ringdown")
 	JOIN sim_ringdown ON (mapB.event_id == sim_ringdown.simulation_id)
+    JOIN coinc_event, coinc_definer ON (coinc_event.coinc_event_id == mapB.coinc_event_id AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id)
 WHERE
-	experiment_summary.datatype != "slide"
+	experiment_summary.datatype != "slide" AND
+	coinc_definer.description == ?
 	""", filter is not '' and 'AND ' + filter or '', """
 GROUP BY
 	mapB.event_id """])
 				if debug:
 					print >> sys.stderr, "SQLite query used to retrieve triggers:"
 					print >> sys.stderr, sqlquery
-				for far, distance in contents.connection.cursor().execute( sqlquery ):
+				for far, distance in contents.connection.cursor().execute( sqlquery  (map_label,) ):
 					self.stats.setdefault(label,[]).append((far, distance))
 
 			if contents.sim_table=="sim_inspiral":

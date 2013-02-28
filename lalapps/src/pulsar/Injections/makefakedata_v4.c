@@ -48,6 +48,7 @@
 #include <lal/Random.h>
 #include <gsl/gsl_math.h>
 
+#include <lal/LALString.h>
 #include <lal/UserInput.h>
 #include <lal/SFTfileIO.h>
 #include <lal/GeneratePulsarSignal.h>
@@ -128,7 +129,7 @@ typedef struct
 void FreeMem (LALStatus *, ConfigVars_t *cfg);
 void InitUserVars (LALStatus *);
 void InitMakefakedata (LALStatus *, ConfigVars_t *cfg, int argc, char *argv[]);
-void AddGaussianNoise (LALStatus *, REAL4TimeSeries *outSeries, REAL4TimeSeries *inSeries, REAL4 sigma, INT4 seed);
+void AddGaussianNoise (LALStatus *, REAL4TimeSeries *inSeries, REAL4 sigma, INT4 seed);
 /* void GetOrbitalParams (LALStatus *, BinaryOrbitParams *orbit); */
 void WriteMFDlog (LALStatus *, const char *logfile, const ConfigVars_t *cfg);
 
@@ -408,7 +409,7 @@ main(int argc, char *argv[])
 
       /* add Gaussian noise if requested */
       if ( GV.noiseSigma > 0) {
-	LAL_CALL ( AddGaussianNoise(&status, Tseries, Tseries, (REAL4)(GV.noiseSigma), GV.randSeed + i_chunk ), &status);
+	LAL_CALL ( AddGaussianNoise(&status, Tseries, (REAL4)(GV.noiseSigma), GV.randSeed + i_chunk ), &status);
       }
 
       /* output ASCII time-series if requested */
@@ -1124,7 +1125,7 @@ InitMakefakedata (LALStatus *status, ConfigVars_t *cfg, int argc, char *argv[])
 
   if ( uvar_window )
     {
-      XLALLowerCaseString ( uvar_window );	// get rid of case
+      XLALStringToLowerCase ( uvar_window );	// get rid of case
 
       if ( LALUserVarWasSet( &uvar_tukeyBeta ) && strcmp ( uvar_window, "tukey" ) )
 	{
@@ -1649,29 +1650,22 @@ void FreeMem (LALStatus* status, ConfigVars_t *cfg)
 
 /**
  * Generate Gaussian noise with standard-deviation sigma, add it to inSeries.
- * returns outSeries
- *
- * NOTE: inSeries is allowed to be identical to outSeries!
  *
  * NOTE2: if seed==0, then time(NULL) is used as random-seed!
  *
  */
 void
-AddGaussianNoise (LALStatus* status, REAL4TimeSeries *outSeries, REAL4TimeSeries *inSeries, REAL4 sigma, INT4 seed)
+AddGaussianNoise (LALStatus* status, REAL4TimeSeries *inSeries, REAL4 sigma, INT4 seed)
 {
 
   REAL4Vector    *v1 = NULL;
   RandomParams   *randpar = NULL;
   UINT4          numPoints, i;
-  REAL4Vector *bak;
 
   INITSTATUS(status);
   ATTATCHSTATUSPTR (status);
 
-
-  ASSERT ( outSeries, status, MAKEFAKEDATAC_EBAD, MAKEFAKEDATAC_MSGEBAD);
   ASSERT ( inSeries, status, MAKEFAKEDATAC_EBAD, MAKEFAKEDATAC_MSGEBAD);
-  ASSERT ( outSeries->data->length == inSeries->data->length, status, MAKEFAKEDATAC_EBAD, MAKEFAKEDATAC_MSGEBAD);
 
   numPoints = inSeries->data->length;
 
@@ -1682,13 +1676,7 @@ AddGaussianNoise (LALStatus* status, REAL4TimeSeries *outSeries, REAL4TimeSeries
   TRY (LALNormalDeviates(status->statusPtr, v1, randpar), status);
 
   for (i = 0; i < numPoints; i++)
-    outSeries->data->data[i] = inSeries->data->data[i] + sigma * v1->data[i];
-
-  /* copy the rest of the time-series structure */
-  bak = outSeries->data;
-  outSeries = inSeries;		/* copy all struct-entries */
-  outSeries->data = bak;	/* restore data-pointer */
-
+    inSeries->data->data[i] += sigma * v1->data[i];
 
   /* destroy randpar*/
   TRY (LALDestroyRandomParams(status->statusPtr, &randpar), status);

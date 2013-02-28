@@ -112,7 +112,8 @@ for row in siminspiral:
 		-np.sin(row.inclination),   # initial value of E1z
 		0,                          # tidal deformability of mass 1
 		0,                          # tidal deformability of mass 2
-		lalsimulation.LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN, # flags to control spin effects
+		lalsimulation.LAL_SIM_INSPIRAL_SPIN_ORDER_ALL, # flags to control spin effects
+		lalsimulation.LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL, # flags to control tidal effects
 		7,                          # twice PN phase order
 		3
 	)

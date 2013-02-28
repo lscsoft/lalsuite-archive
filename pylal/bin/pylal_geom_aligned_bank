@@ -253,6 +253,17 @@ job.add_ini_opts(cp,'bank')
 job.add_condor_cmd('Requirements', 'Memory >= 1390')
 job.add_condor_cmd('request_memory', '1400')
 job.add_condor_cmd('getenv','True')
+# Make the output job
+cat_path = geom_aligned_bank_utils.which('pylal_aligned_bank_cat')
+job_cat = pipeline.CondorDAGJob('vanilla',cat_path)
+job_cat.set_stdout_file('logs/bank_cat-$(cluster)-$(process).out')
+job_cat.set_stderr_file('logs/bank_cat-$(cluster)-$(process).err')
+job_cat.set_sub_file('bank_cat.sub')
+
+# Make the output node
+cat_node = pipeline.CondorDAGNode(job_cat)
+cat_node.add_var_opt('input-glob','output_banks/output_bank_*.dat')
+cat_node.add_var_opt('output-file','aligned_bank.xml')
 
 # Make the nodes
 numBanks = int((len(v1s) - 0.5)//opts.split_bank_num) + 1
@@ -260,8 +271,10 @@ for i in xrange(numBanks):
   node = pipeline.CondorDAGNode(job)
   node.add_var_opt('input-bank-file','split_banks/split_bank_%05d.dat'%(i))
   node.add_var_opt('output-bank-file','output_banks/output_bank_%05d.dat'%(i))
+  cat_node.add_parent(node)
   dag.add_node(node)
 
+dag.add_node(cat_node)
 dag.write_sub_files()
 dag.write_dag()
 dag.write_script()

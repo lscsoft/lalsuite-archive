@@ -262,6 +262,22 @@ def cbcBayesPostProc(
         peparser=bppu.PEOutputParser('common')
         commonResultsObj=peparser.parse(open(data[0],'r'),info=[header,None])
     
+    #Extract f_ref from CRO if present.  This is needed to calculate orbital angular momentum
+    #  when converting spin parameters.  Ideally this info will be provided in the
+    #  SimInspiralTable in the near future.
+    ps,samps = commonResultsObj
+    try:
+        f_refIdx = ps.index('f_ref')
+        injFref = unique(samps[:,f_refIdx])
+        if len(injFref) > 1:
+            print "ERROR: Expected f_ref to be constant for all samples.  Can't tell which value was injected!"
+            print injFref
+            injFref = None
+        else:
+            injFref = injFref[0]
+    except ValueError:
+        injFref = None
+
     #Select injections using tc +/- 0.1s if it exists or eventnum from the injection file
     injection=None
     if injfile and eventnum is not None:
@@ -314,7 +330,7 @@ def cbcBayesPostProc(
 
     #Create an instance of the posterior class using the posterior values loaded
     #from the file and any injection information (if given).
-    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,SnglInpiralList=triggers,votfile=votfile)
+    pos = bppu.Posterior(commonResultsObj,SimInspiralTableEntry=injection,injFref=injFref,SnglInpiralList=triggers,votfile=votfile)
   
     #Create analytic likelihood functions if covariance matrices and mean vectors were given
     analyticLikelihood = None
@@ -361,11 +377,10 @@ def cbcBayesPostProc(
 
     if 'sym_massratio' in pos.names:
         eta_name= 'sym_massratio'
+    elif 'massratio' in pos.names:
+        eta_name= 'massratio'
     else:
-	if 'massratio' in pos.names:
-        	eta_name= 'massratio'
-    	else:
-        	eta_name='eta'
+        eta_name='eta'
 
     if (mchirp_name in pos.names and eta_name in pos.names) and \
     ('mass1' not in pos.names or 'm1' not in pos.names) and \
@@ -432,14 +447,29 @@ def cbcBayesPostProc(
                 pos.append(time_delay)
 
     #Calculate new spin angles
-    new_spin_params = ['tilt1','tilt2','thetas','beta']
+    new_spin_params = ['tilt1','tilt2','theta_jn','beta']
     if not set(new_spin_params).issubset(set(pos.names)):
-        old_params = ['f_lower',mchirp_name,'eta','iota','a1','theta1','phi1']
+        old_params = ['f_ref',mchirp_name,'eta','iota','a1','theta1','phi1']
         if 'a2' in pos.names: old_params += ['a2','theta2','phi2']
         try:
             pos.append_mapping(new_spin_params, bppu.spin_angles, old_params)
         except KeyError:
             print "Warning: Cannot find spin parameters.  Skipping spin angle calculations."
+
+    #Calculate new tidal parameters
+    new_tidal_params = ['lam_tilde','dlam_tilde']
+    old_tidal_params = ['lambda1','lambda2','eta']
+    if 'lambda1' in pos.names or 'lambda2' in pos.names:
+        try:
+            pos.append_mapping(new_tidal_params, bppu.symm_tidal_params, old_tidal_params)
+        except KeyError:
+            print "Warning: Cannot find tidal parameters.  Skipping tidal calculations."
+
+    #If new spin params present, calculate old ones
+    old_spin_params = ['iota', 'theta1', 'phi1', 'theta2', 'phi2', 'beta']
+    new_spin_params = ['theta_jn', 'phi_jl', 'tilt1', 'tilt2', 'phi12', 'a1', 'a2', 'm1', 'm2', 'f_ref']
+    if set(new_spin_params).issubset(set(pos.names)) and not set(old_spin_params).issubset(set(pos.names)):
+      pos.append_mapping(old_spin_params, bppu.physical2radiationFrame, new_spin_params)
 
     #Calculate spin magnitudes for aligned runs
     if 'spin1' in pos.names:
@@ -978,7 +1008,8 @@ def cbcBayesPostProc(
 
         #= Plot 2D histograms of greedily binned points =#
 
-        greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+        #greedy2ContourPlot=bppu.plot_two_param_greedy_bins_contour({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
+        greedy2ContourPlot=bppu.plot_two_param_kde_greedy_levels({'Result':pos},greedy2Params,[0.67,0.9,0.95],{'Result':'k'})
         greedy2contourpath=os.path.join(greedytwobinsdir,'%s-%s_greedy2contour.png'%(par1_name,par2_name))
         greedy2ContourPlot.savefig(greedy2contourpath)
         if(savepdfs): greedy2ContourPlot.savefig(greedy2contourpath.replace('.png','.pdf'))
@@ -1207,14 +1238,14 @@ if __name__=='__main__':
     polParams=['psi','polarisation','polarization']
     skyParams=['ra','rightascension','declination','dec']
     timeParams=['time']
-    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costhetas','cosbeta']
+    spinParams=['spin1','spin2','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','costheta_jn','cosbeta','tilt1','tilt2','phi_jl','theta_jn','phi12']
     phaseParams=['phase']
     endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     ppEParams=['ppEalpha','ppElowera','ppEupperA','ppEbeta','ppElowerb','ppEupperB','alphaPPE','aPPE','betaPPE','bPPE']
     tigerParams=['dchi%i'%(i) for i in range(7)] + ['dchi%il'%(i) for i in [5,6] ]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
-    tidalParams=['lambda1','lambda2']
+    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
@@ -1262,6 +1293,8 @@ if __name__=='__main__':
              for tp in tidalParams:
                  if not (mp == tp):
                      twoDGreedyMenu.append([mp, tp])
+        twoDGreedyMenu.append(['lambda1','lambda2'])
+        twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
@@ -1272,7 +1305,7 @@ if __name__=='__main__':
 
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
-    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costhetas':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05}
+    greedyBinSizes={'mc':0.025,'m1':0.1,'m2':0.1,'mass1':0.1,'mass2':0.1,'mtotal':0.1,'eta':0.001,'q':0.01,'asym_massratio':0.01,'iota':0.01,'cosiota':0.02,'time':1e-4,'distance':1.0,'dist':1.0,'mchirp':0.025,'chirpmass':0.025,'spin1':0.04,'spin2':0.04,'a1':0.02,'a2':0.02,'phi1':0.05,'phi2':0.05,'theta1':0.05,'theta2':0.05,'ra':0.05,'dec':0.05,'chi':0.05,'costilt1':0.02,'costilt2':0.02,'thatas':0.05,'costheta_jn':0.02,'beta':0.05,'omega':0.05,'cosbeta':0.02,'ppealpha':1.0,'ppebeta':1.0,'ppelowera':0.01,'ppelowerb':0.01,'ppeuppera':0.01,'ppeupperb':0.01,'polarisation':0.04,'rightascension':0.05,'declination':0.05,'massratio':0.001,'inclination':0.01,'phase':0.05,'tilt1':0.05,'tilt2':0.05,'phi_jl':0.05,'theta_jn':0.05,'phi12':0.05}
     for derived_time in ['h1_end_time','l1_end_time','v1_end_time','h1l1_delay','l1v1_delay','h1v1_delay']:
         greedyBinSizes[derived_time]=greedyBinSizes['time']
     if not opts.no2D:
@@ -1280,8 +1313,10 @@ if __name__=='__main__':
           twoDGreedyMenu.append([dt1,dt2])
         for dt1,dt2 in combinations( ['h1l1_delay','l1v1_delay','h1v1_delay'],2):
           twoDGreedyMenu.append([dt1,dt2])
-    for param in tigerParams + bransDickeParams + massiveGravitonParams + tidalParams:
+    for param in tigerParams + bransDickeParams + massiveGravitonParams:
         greedyBinSizes[param]=0.01
+    for param in tidalParams:
+        greedyBinSizes[param]=2.5
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
         greedyBinSizes[loglname]=0.1

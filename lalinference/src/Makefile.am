@@ -16,6 +16,7 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceTemplate.h \
 	LALInferenceProposal.h \
 	LALInferenceLibVCSInfo.h \
+	LALInferenceInit.h \
 	LALInferenceVCSInfo.h \
 	$(XMLHDR)
 
@@ -28,6 +29,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceReadData.c \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
+	LALInferenceInitCBC.c \
 	LALInferenceVCSInfo.c \
 	$(XMLSRC)
 
@@ -69,7 +71,7 @@ BUILT_SOURCES += LALInferenceVCSInfo.h
 MOSTLYCLEANFILES += LALInferenceVCSInfo.h
 LALInferenceVCSInfo.h .PHONY : gen-LALInferenceVCSInfo.h
 gen-LALInferenceVCSInfo.h :
-	$(GENERATE_VCS_INFO) LALInferenceVCSInfo.h $(srcdir)/LALInferenceVCSInfo.h.git
+	$(AM_V_at)$(GENERATE_VCS_INFO) LALInferenceVCSInfo.h $(srcdir)/LALInferenceVCSInfo.h.git
 endif
 
 @LAL_HEADER_LINK@

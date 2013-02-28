@@ -134,7 +134,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     xlim = kwargs.pop('xlim', None)
     ylim = kwargs.pop('ylim', None)
     zlim = kwargs.pop('zlim', None)
-    colorlim = kwargs.pop('colorlim', zlim)
+    colorlim = kwargs.pop('colorlim', None)
+    if zlim and not colorlim:
+        colorlim = zlim
 
     # set up columns
     columns = list(map(str.lower, [xcolumn, ycolumn]))
@@ -188,9 +190,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             mins = [data[j][i].min() for j in range(len(tablenames))\
                     if len(data[j][i].shape) and data[j][i].shape[0] != 0]
             if len(mins):
-                lmin = min(mins)
+                lmin = min(mins)*0.999
                 lmax = max(data[j][i].max() for j in range(len(tablenames))\
-                           if len(data[j][i]))
+                           if len(data[j][i]))*1.000001
                 limits[i] = [lmin, lmax]
 
     # get time unit
@@ -268,6 +270,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             if c == "time":
                 lstr = lstr * unit + t0
             subtitle += " %s=%.2f" % (plotutils.display_name(c), lstr)
+    else:
+        loudest = None
 
     #
     # get parameters
@@ -353,6 +357,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     plotutils.set_minor_ticks(plot.ax)
 
     # save and close
+    if greyscale:
+        plot.ax.patch.set_facecolor("#E8E8E8")
     plot.savefig(outfile, bbox_inches=bbox_inches,\
                  bbox_extra_artists=plot.ax.texts)
     plot.close()

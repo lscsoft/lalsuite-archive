@@ -65,6 +65,7 @@ typedef struct tagGSParams {
     int axisChoice;           /**< flag to choose reference frame for spin coordinates */
     int inspiralOnly;         /**< flag to choose if generating only the the inspiral 1 or also merger and ring-down*/
     char outname[256];        /**< file to which output should be written */
+    int ampPhase;
     int verbose;
 } GSParams;
 
@@ -73,6 +74,10 @@ const char * usage =
 "The following options can be given (will assume a default value if omitted):\n"
 "--domain DOM               'TD' for time domain (default) or 'FD' for frequency\n"
 "                           domain; not all approximants support all domains\n"
+"--amp-phase                If given, will output:\n"
+"                           |h+ - i hx|, Arg(h+ - i hx) (TD) or\n"
+"                           |h+(f)|, Arg(h+(f)), |hx(f)|, Arg(hx(f)) (FD)\n"
+"                           If not given, will output h+ and hx (TD and FD)\n"
 "--approximant APPROX       Supported TD approximants:\n"
 "                             TaylorT1 (default)\n"
 "                             TaylorT2\n"
@@ -85,24 +90,28 @@ const char * usage =
 "                             EOBNRv2HM\n"
 "                             SEOBNRv1\n"
 "                             SpinTaylorT4\n"
+"                             SpinTaylorT2\n"
 "                             PhenSpinTaylorRD\n"
 "                           Supported FD approximants:\n"
 "                             IMRPhenomA\n"
 "                             IMRPhenomB\n"
+"                             IMRPhenomC\n"
 "                             TaylorF2\n"
+"                             SpinTaylorF2\n"
+"                             TaylorR2F4\n"
 "                             TaylorF2RedSpin\n"
 "                             TaylorF2RedSpinTidal\n"
 "                           NOTE: Other approximants may be available if the\n"
 "                           developer forgot to edit this help message\n"
 "--phase-order ORD          Twice PN order of phase (default ORD=7 <==> 3.5PN)\n"
-"--amp-order ORD            Twice PN order of amplitude (default 0 <==> Newt./restricted)\n"
+"--amp-order ORD            Twice PN order of amplitude (default 0 <==> Newt.)\n"
 "--phiRef                   Phase at the reference frequency (default 0)\n"
 "--fRef FREF                Reference frequency in Hz\n"
 "                           (default: 0)\n"
 "--sample-rate SRATE        Sampling rate of TD approximants in Hz (default 4096)\n"
 "--deltaF DF                Frequency bin size for FD approximants in Hz (default 1/8)\n"
-"--m1 M1                    Mass of the first object in solar masses (default 10)\n"
-"--m2 M2                    Mass of the second object in solar masses (default 1.4)\n"
+"--m1 M1                    Mass of the 1st object in solar masses (default 10)\n"
+"--m2 M2                    Mass of the 2nd object in solar masses (default 1.4)\n"
 "--inclination IOTA         Angle in radians between line of sight (N) and \n"
 "                           orbital angular momentum (L) at the reference\n"
 "                           (default 0, face on)\n"
@@ -112,10 +121,15 @@ const char * usage =
 "--spin2x S2X               Vector components for spin of mass2 (default all 0)\n"
 "--spin2y S2Y               z-axis=line of sight, L in x-z plane at reference\n"
 "--spin2z S2Z               Kerr limit: s2x^2 + s2y^2 + s2z^2 <= 1\n"
-"--interaction FLAG         Common choices: 'ALL' (default), 'NO', 'ALL_SPIN', 'TIDAL' (6PN), 'TIDAL5PN'\n"
-"--tidal-lambda1 L1         (tidal deformability of mass 1) / (mass of body 1)^5 (~4-80 for NS, 0 for BH) (default 0)\n"
-"--tidal-lambda2 L2         (tidal deformability of mass 2) / (mass of body 2)^5 (~4-80 for NS, 0 for BH) (default 0)\n"
-"--f-min FMIN               Frequency at which to start waveform in Hz (default 40)\n"
+"--tidal-lambda1 L1         (tidal deformability of mass 1) / (mass of body 1)^5\n"
+"                           (~128-2560 for NS, 0 for BH) (default 0)\n"
+"--tidal-lambda2 L2         (tidal deformability of mass 2) / (mass of body 2)^5\n"
+"                           (~128-2560 for NS, 0 for BH) (default 0)\n"
+"--spin-order ORD           Twice PN order of spin effects\n"
+"                           (default ORD=-1 <==> All spin effects)\n"
+"--tidal-order ORD          Twice PN order of tidal effects\n"
+"                           (default ORD=-1 <==> All tidal effects)\n"
+"--f-min FMIN               Lower frequency to start waveform in Hz (default 40)\n"
 "--f-max FMAX               Frequency at which to stop waveform in Hz\n"
 "                           (default: generate as much as possible)\n"
 "--distance D               Distance in Mpc (default 100)\n"
@@ -158,6 +172,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->lambda1 = 0.;
     params->lambda2 = 0.;
     strncpy(params->outname, "simulation.dat", 256); /* output to this file */
+    params->ampPhase = 0; /* output h+ and hx */
     params->verbose = 0; /* No verbosity */
 
     /* consume command line */
@@ -210,18 +225,14 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             params->s2y = atof(argv[++i]);
         } else if (strcmp(argv[i], "--spin2z") == 0) {
             params->s2z = atof(argv[++i]);
-	} else if (strcmp(argv[i], "--interaction") == 0) {
-            XLALSimInspiralSetInteraction( params->waveFlags,
-                    XLALGetInteractionFromString(argv[++i]) );
-            if ( (int) XLALSimInspiralGetInteraction(params->waveFlags)
-                    == (int) XLAL_FAILURE) {
-                XLALPrintError("Error: invalid value %s for --interaction\n", argv[i]);
-                goto fail;
-            }
-	} else if (strcmp(argv[i], "--tidal-lambda1") == 0) {
+        } else if (strcmp(argv[i], "--tidal-lambda1") == 0) {
             params->lambda1 = atof(argv[++i]);
-	} else if (strcmp(argv[i], "--tidal-lambda2") == 0) {
+        } else if (strcmp(argv[i], "--tidal-lambda2") == 0) {
             params->lambda2 = atof(argv[++i]);
+        } else if (strcmp(argv[i], "--spin-order") == 0) {
+            XLALSimInspiralSetSpinOrder( params->waveFlags, atoi(argv[++i]) );
+        } else if (strcmp(argv[i], "--tidal-order") == 0) {
+            XLALSimInspiralSetTidalOrder( params->waveFlags, atoi(argv[++i]) );
         } else if (strcmp(argv[i], "--f-min") == 0) {
             params->f_min = atof(argv[++i]);
         } else if (strcmp(argv[i], "--f-max") == 0) {
@@ -233,7 +244,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
         } else if (strcmp(argv[i], "--axis") == 0) {
             XLALSimInspiralSetFrameAxis( params->waveFlags,
                     XLALGetFrameAxisFromString(argv[++i]) );
-            if ( (int) XLALSimInspiralGetInteraction(params->waveFlags)
+            if ( (int) XLALSimInspiralGetFrameAxis(params->waveFlags)
                     == (int) XLAL_FAILURE) {
                 XLALPrintError("Error: invalid value %s for --axis\n", argv[i]);
                 goto fail;
@@ -242,6 +253,8 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
             strncpy(params->outname, argv[++i], 256);
         } else if (strcmp(argv[i], "--verbose") == 0) {
             params->verbose = 1;
+        } else if (strcmp(argv[i], "--amp-phase") == 0) {
+            params->ampPhase = 1;
         } else {
             XLALPrintError("Error: invalid option: %s\n", argv[i]);
             goto fail;
@@ -256,15 +269,76 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     exit(1);
 }
 
-static int dump_FD(FILE *f, COMPLEX16FrequencySeries *htilde) {
+/* Function to "unwind" a phase variable with a branch cut */
+static int unwind_phase(REAL8 phiUW[], REAL8 phi[],
+        size_t len, REAL8 thresh) {
+    int cnt = 0; // # of times wrapped around branch cut
     size_t i;
-    COMPLEX16 *dataPtr = htilde->data->data;
+    phiUW[0] = phi[0];
+    for(i=1; i<len; i++) {
+        if(phi[i-1] - phi[i] > thresh) // phase wrapped forward
+            cnt += 1;
+        else if(phi[i] - phi[i-1] > thresh) // phase wrapped backwards
+            cnt -= 1;
+        phiUW[i] = phi[i] + cnt * LAL_TWOPI;
+    }
+    return 0;
+}
 
-    fprintf(f, "# f htilde.re htilde.im\n");
-    dataPtr = htilde->data->data;
-    for (i=0; i < htilde->data->length; i++)
-        fprintf(f, "%.16e %.16e %.16e\n", htilde->f0 + i * htilde->deltaF, 
-                dataPtr[i].re, dataPtr[i].im);
+static int dump_FD(FILE *f, COMPLEX16FrequencySeries *hptilde,
+        COMPLEX16FrequencySeries *hctilde) {
+    size_t i;
+    COMPLEX16 *dataPtr1 = hptilde->data->data;
+    COMPLEX16 *dataPtr2 = hctilde->data->data;
+    if (hptilde->data->length != hctilde->data->length) {
+        XLALPrintError("Error: hptilde and hctilde are not the same length\n");
+        return 1;
+    } else if (hptilde->deltaF != hctilde->deltaF) {
+        XLALPrintError("Error: hptilde and hctilde do not have the same freq. bin size\n");
+        return 1;
+    }
+
+    fprintf(f, "# f hptilde.re hptilde.im hctilde.re hctilde.im\n");
+    for (i=0; i < hptilde->data->length; i++)
+        fprintf(f, "%.16e %.16e %.16e %.16e %.16e\n",
+                hptilde->f0 + i * hptilde->deltaF,
+                dataPtr1[i].re, dataPtr1[i].im, dataPtr2[i].re, dataPtr2[i].im);
+    return 0;
+}
+
+static int dump_FD2(FILE *f, COMPLEX16FrequencySeries *hptilde,
+        COMPLEX16FrequencySeries *hctilde) {
+    size_t i;
+    REAL8 threshold=5.; // Threshold to determine phase wrap-around
+    COMPLEX16 *dataPtr1 = hptilde->data->data;
+    COMPLEX16 *dataPtr2 = hctilde->data->data;
+    if (hptilde->data->length != hctilde->data->length) {
+        XLALPrintError("Error: hptilde and hctilde are not the same length\n");
+        return 1;
+    } else if (hptilde->deltaF != hctilde->deltaF) {
+        XLALPrintError("Error: hptilde and hctilde do not have the same freq. bin size\n");
+        return 1;
+    }
+    REAL8 amp1[hptilde->data->length], amp2[hptilde->data->length];
+    REAL8 phase1[hptilde->data->length], phase2[hptilde->data->length];
+    REAL8 phaseUW1[hptilde->data->length], phaseUW2[hptilde->data->length];
+    for (i=0; i < hptilde->data->length; i++)
+    {
+        amp1[i] = sqrt(dataPtr1[i].re*dataPtr1[i].re
+                + dataPtr1[i].im*dataPtr1[i].im);
+        phase1[i] = atan2(dataPtr1[i].im, dataPtr1[i].re);
+        amp2[i] = sqrt(dataPtr2[i].re*dataPtr2[i].re
+                + dataPtr2[i].im*dataPtr2[i].im);
+        phase2[i] = atan2(dataPtr2[i].im, dataPtr2[i].re);
+    }
+    unwind_phase(phaseUW1, phase1, hptilde->data->length, threshold);
+    unwind_phase(phaseUW2, phase2, hptilde->data->length, threshold);
+
+    fprintf(f, "# f amp_+ phase_+ amp_x phase_x\n");
+    for (i=0; i < hptilde->data->length; i++)
+        fprintf(f, "%.16e %.16e %.16e %.16e %.16e\n",
+                hptilde->f0 + i * hptilde->deltaF,
+                amp1[i], phaseUW1[i], amp2[i], phaseUW2[i]);
     return 0;
 }
 
@@ -285,6 +359,37 @@ static int dump_TD(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
                 hplus->data->data[i], hcross->data->data[i]);
     return 0;
 }
+
+static int dump_TD2(FILE *f, REAL8TimeSeries *hplus, REAL8TimeSeries *hcross) {
+    size_t i;
+    REAL8 t0 = XLALGPSGetREAL8(&(hplus->epoch));
+    REAL8 threshold=5.; // Threshold to determine phase wrap-around
+    REAL8 *dataPtr1 = hplus->data->data;
+    REAL8 *dataPtr2 = hcross->data->data;
+    if (hplus->data->length != hcross->data->length) {
+        XLALPrintError("Error: hplus and hcross are not the same length\n");
+        return 1;
+    } else if (hplus->deltaT != hcross->deltaT) {
+        XLALPrintError("Error: hplus and hcross do not have the same sample rate\n");
+        return 1;
+    }
+    REAL8 amp[hplus->data->length];
+    REAL8 phase[hplus->data->length];
+    REAL8 phaseUW[hplus->data->length];
+    for (i=0; i < hplus->data->length; i++)
+    {
+        amp[i] = sqrt( dataPtr1[i]*dataPtr1[i] + dataPtr2[i]*dataPtr2[i]);
+        phase[i] = atan2(-dataPtr2[i], dataPtr1[i]);
+    }
+    unwind_phase(phaseUW, phase, hplus->data->length, threshold);
+
+    fprintf(f, "# t amp phase\n");
+    for (i=0; i < hplus->data->length; i++)
+        fprintf(f, "%.16e %.16e %.16e\n", t0 + i * hplus->deltaT,
+                amp[i], phaseUW[i]);
+    return 0;
+}
+
 /*
  * main
  */
@@ -292,7 +397,7 @@ int main (int argc , char **argv) {
     FILE *f;
     int status;
     int start_time;
-    COMPLEX16FrequencySeries *htilde = NULL;
+    COMPLEX16FrequencySeries *hptilde = NULL, *hctilde = NULL;
     REAL8TimeSeries *hplus = NULL;
     REAL8TimeSeries *hcross = NULL;
     GSParams *params;
@@ -308,7 +413,7 @@ int main (int argc , char **argv) {
     start_time = time(NULL);
     switch (params->domain) {
         case GSDomain_FD:
-            XLALSimInspiralChooseFDWaveform(&htilde, params->phiRef, 
+            XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef, 
                     params->deltaF, params->m1, params->m2, params->s1x, 
                     params->s1y, params->s1z, params->s2x, params->s2y, 
                     params->s2z, params->f_min, params->f_max, 
@@ -332,7 +437,7 @@ int main (int argc , char **argv) {
     if (params->verbose)
         XLALPrintInfo("Generation took %.0f seconds\n", 
                 difftime(time(NULL), start_time));
-    if (((params->domain == GSDomain_FD) && !htilde) ||
+    if (((params->domain == GSDomain_FD) && (!hptilde || !hctilde)) ||
         ((params->domain == GSDomain_TD) && (!hplus || !hcross))) {
         XLALPrintError("Error: waveform generation failed\n");
         goto fail;
@@ -341,9 +446,15 @@ int main (int argc , char **argv) {
     /* dump file */
     f = fopen(params->outname, "w");
     if (params->domain == GSDomain_FD)
-        status = dump_FD(f, htilde);
+        if (params->ampPhase == 1)
+            status = dump_FD2(f, hptilde, hctilde);
+        else
+            status = dump_FD(f, hptilde, hctilde);
     else
-        status = dump_TD(f, hplus, hcross);
+        if (params->ampPhase == 1)
+            status = dump_TD2(f, hplus, hcross);
+        else
+            status = dump_TD(f, hplus, hcross);
     fclose(f);
     if (status) goto fail;
 
@@ -351,13 +462,15 @@ int main (int argc , char **argv) {
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
     XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
     XLALFree(params);
-    XLALDestroyCOMPLEX16FrequencySeries(htilde);
+    XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+    XLALDestroyCOMPLEX16FrequencySeries(hctilde);
     return 0;
 
     fail:
     XLALSimInspiralDestroyWaveformFlags(params->waveFlags);
     XLALSimInspiralDestroyTestGRParam(params->nonGRparams);
     XLALFree(params);
-    XLALDestroyCOMPLEX16FrequencySeries(htilde);
+    XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+    XLALDestroyCOMPLEX16FrequencySeries(hctilde);
     return 1;
 }

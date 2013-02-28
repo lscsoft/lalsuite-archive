@@ -1834,13 +1834,16 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'ms_duration' in columns:    attr_map['ms_duration']    = stop-st
   if 'snr' in columns:         attr_map['snr']     = (amplitude-n_pix)**(1/2)
   if 'ms_snr' in columns:      attr_map['ms_snr']  = (amplitude-n_pix)**(1/2)
-
+  if 'confidence' in columns:      attr_map['confidence']  = sig
+  
   if 'n_pix' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['n_pix'] * numtrigs
     attr_map['param_one_value'] = n_pix
-  if 'signifiance' in columns or 'param_two_value' in columns:
-    attr_map['param_two_name'] = ['signifiance'] * numtrigs
+  """
+  if 'significance' in columns or 'param_two_value' in columns:
+    attr_map['param_two_name'] = ['significance'] * numtrigs
     attr_map['param_two_value'] = sig
+  """
 
   cols   = attr_map.keys()
   append = out.append

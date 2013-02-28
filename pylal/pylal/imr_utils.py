@@ -102,12 +102,20 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 
 	total_query = 'SELECT * FROM sim_inspiral WHERE injection_in_segments(geocent_end_time, geocent_end_time_ns)'
 
-	total_injections = []
+	total_injections = {}
+	# Missed injections start as a copy of the found injections
+	missed_injections = {}
 	for values in connection.cursor().execute(total_query):
 		sim = make_sim_inspiral(values)
-		total_injections.append(sim)
+		total_injections[sim.simulation_id] = sim
+		missed_injections[sim.simulation_id] = sim
 
-	return found_injections.values(), total_injections
+	# now actually remove the missed injections
+	for k in found_injections:
+		del missed_injections[k]
+		
+
+	return found_injections.values(), total_injections.values(), missed_injections.values()
 
 
 def found_injections_below_far(found, far_thresh = float("inf")):
@@ -157,13 +165,18 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
-		if live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
-		elif live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+		if live_time_program == "omega_to_coinc":
+			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			if veto_segments_name is not None:
+				veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
+				segs -= veto_segs
+		elif live_time_program == "waveburst":
+			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
+			if veto_segments_name is not None:
+				veto_segs = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+				segs -= veto_segs
 		else:
 			raise ValueError("for burst tables livetime program must be one of omega_to_coinc, waveburst")
-		if veto_segments_name is not None:
-			# FIXME handle burst vetoes!!!
-			pass
 		return segs
 	else:
 		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
@@ -327,12 +340,13 @@ class DataBaseSummary(object):
 	This class stores summary information gathered across the databases
 	"""
 
-	def __init__(self, filelist, live_time_program = None, veto_segments_name = "vetoes", data_segments_name = "datasegments", tmp_path = None, verbose = False):
+	def __init__(self, filelist, live_time_program = None, veto_segments_name = None, data_segments_name = "datasegments", tmp_path = None, verbose = False):
 
 		self.segments = segments.segmentlistdict()
 		self.instruments = set()
 		self.table_name = None
 		self.found_injections_by_instrument_set = {}
+		self.missed_injections_by_instrument_set = {}
 		self.total_injections_by_instrument_set = {}
 		self.zerolag_fars_by_instrument_set = {}
 		self.ts_fars_by_instrument_set = {}
@@ -401,9 +415,10 @@ class DataBaseSummary(object):
 							# FIXME what would that mean if it is greater than one???
 							raise ValueError("len(coinc_end_time_seg_param) > 1")
 
-					found, total = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
+					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)
+					self.missed_injections_by_instrument_set.setdefault(instruments_set, []).extend(missed)
 
 			# All done
 			dbtables.discard_connection_filename(f, working_filename, verbose = verbose)

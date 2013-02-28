@@ -555,13 +555,13 @@ def populate_rinca_time_slide_table(xmldoc, process, instruments = None, verbose
 		for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
 			if row.process_id in slides_process_ids:
 				if row.param == u"--num-slides":
-					num_slides = row.get_pyvalue()
+					num_slides = row.pyvalue
 					if num_slides < 0:
 						raise ValueError, "invalid --num-slides '%s' for process '%s'" % (row.value, row.process_id)
 				else:
 					match = re.search(slide_option_pattern, row.param)
 					if match is not None:
-						offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
+						offset_vector[match.groupdict()["ifo"].upper()] = row.pyvalue
 
 		#
 		# confirm that the offset vector contains offsets for all
@@ -1093,9 +1093,12 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		coinc_ringdown.mass = None
 		coinc_ringdown.spin = None
 		coinc_ringdown.snr = None
+		coinc_ringdown.snr_sq = None
+		coinc_ringdown.choppedl_snr = None
 		coinc_ringdown.eff_coh_snr = None
 		coinc_ringdown.null_stat = None
 		coinc_ringdown.kappa = None
+		coinc_ringdown.snr_ratio = None
 		coinc_ringdown.false_alarm_rate = None
 		coinc_ringdown.combined_far = None
 
