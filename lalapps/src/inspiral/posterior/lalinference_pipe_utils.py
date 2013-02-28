@@ -212,10 +212,12 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	print 'Filtering injections'
 	filtinj=[inj for inj in injTable if (str(inj.process_id) in procids) ]
 	filtinj2=[]
+	coinc_id_map={}
 	for inj in filtinj:
 		coinc=getcoincid(database_connection,inj.simulation_id)
 		if len(coinc)>0:
 			filtinj2.append(inj)
+			coinc_id_map[inj.simulation_id]=coinc[0]
 
 	#filtinj2=[inj for inj in filtinj if (str(inj.simulation_id) in detected_sim_ids)]
 	finalinj=[]
@@ -230,7 +232,7 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	if dumpfile is not None:
 		fh=open(dumpfile,'w')
 		for i in finalinj:
-			coinc_id=coinc_id_map[i]
+			coinc_id=coinc_id_map[i.simulation_id]
 			info_tuples=get_coinc_info(database_connection,coinc_id)
 			for ifo in info_tuples.keys():
 				(sngl_time,snr,chisq,cfar,timeslide)=info_tuples[ifo]
@@ -244,11 +246,11 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 
 
 def get_coinc_info(connection, coinc_id):
-	sql="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset \
+	query="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset \
 	     FROM sngl_inspiral join coinc_event_map on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id==sngl_inspiral.event_id) join coinc_event on \
-		coinc_event_id==coinc_event_map.coinc_event_id) join coinc_inspiral on (coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id) join time_slide\
-                    on (time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id==%s"%(str(coinc_id))
-	db_out=connection.cursor.execute(sql)
+		coinc_event_id==coinc_event_map.coinc_event_id join coinc_inspiral on (coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id) join time_slide\
+                    on (time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id=='%s'"%(str(coinc_id))
+	db_out=connection.cursor().execute(query)
 	output={}
 	for (sngl_time, ifo, snr, chisq, cfar, timeslide) in db_out:
 		print 'Found info for %s'%(ifo)
