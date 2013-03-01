@@ -20,6 +20,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import print_tables
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue import segments
 from glue import git_version
 import matplotlib
@@ -283,7 +284,7 @@ if FUPtype == 'LE':
     coincEvent = table.get_table(xmldoc, lsctables.CoincTable.tableName)
     timeSlide = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
     coincTable = organize_slides(coincTable,coincEvent,timeSlide)
-    segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc,program="thinca")
+    segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc,program="thinca")
     seg_lists = {}
     for key in segs:
       seg_lists[key] = segments.segmentlist(set(segs[key]))
