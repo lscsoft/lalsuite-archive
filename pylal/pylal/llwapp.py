@@ -30,7 +30,6 @@ data in LIGO Light-Weight XML format.
 """
 
 
-import pickle
 import time
 
 
@@ -77,49 +76,6 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	coincdeftable.sync_next_id()
 	# get the id
 	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
-
-
-#
-# =============================================================================
-#
-#                                    Params
-#
-# =============================================================================
-#
-
-
-def pickle_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	pickled serialization of a Python object.
-	"""
-	return param.from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
-
-
-def pickle_from_param(elem, name):
-	"""
-	Retrieve a pickled Python object from the document tree rooted at
-	elem.
-	"""
-	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
-
-
-def yaml_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	YAML serialization of a Python object.
-	"""
-	import yaml
-	return param.from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
-
-
-def yaml_from_param(elem, name):
-	"""
-	Retrieve a YAMLed Python object from the document tree rooted at
-	elem.
-	"""
-	import yaml
-	return yaml.load(param.get_pyvalue(elem, u"yaml:%s" % name))
 
 
 #
