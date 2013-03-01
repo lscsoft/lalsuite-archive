@@ -30,19 +30,14 @@ data in LIGO Light-Weight XML format.
 """
 
 
-import os
 import pickle
-import socket
 import time
-import warnings
 
 
 from glue import segments
-from glue.ligolw import ligolw
 from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
-from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal.date import XLALUTCToGPS
 
@@ -164,23 +159,6 @@ def set_process_end_time(process):
 	"""
 	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
-
-
-#
-# =============================================================================
-#
-#                               Search Metadata
-#
-# =============================================================================
-#
-
-
-def append_search_summary(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.search_summary.append_search_summary() instead.
-	"""
-	warnings.warn("function pylal.llwapp.append_search_summary is deprecated, use glue.ligolw.utils.search_summary.append_search_summary instead", DeprecationWarning, stacklevel = 2)
-	return ligolw_search_summary.append_search_summary(*args, **kwargs)
 
 
 #
