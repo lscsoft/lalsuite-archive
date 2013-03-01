@@ -110,6 +110,9 @@ def parse_command_line():
                         help=("path to SegWizard or XML file containing"
                               "data quality segments to apply. "
                               "Can be given multiple times."))
+    vetoopts.add_option("-i", "--veto-sim-inspirals", action="store_true",
+                        default=False, help=("remove sim_inspiral rows that "
+                                             "are vetoed, default: %default"))
     parser.add_option_group(vetoopts)
 
     outopts = optparse.OptionGroup(parser, "Input options")
@@ -176,10 +179,14 @@ if __name__ == "__main__":
         sim_table = table.get_table(xmldoc,
                                     lsctables.SimInspiralTable.tableName)
     except ValueError:
-        pass
+        if opts.veto_sim_inspirals:
+            raise
+        else:
+            pass
     else:
-        outxml.childNodes[-1].appendChild(sim_table)
-        print_verbose("SimInspiralTable read and copied.\n")
+        if not opts.veto_sim_inspirals:
+            outxml.childNodes[-1].appendChild(sim_table)
+            print_verbose("SimInspiralTable read and copied.\n")
     # read TimeSlideTable
     try:
         slide_table = table.get_table(xmldoc,
@@ -220,6 +227,15 @@ if __name__ == "__main__":
     print_verbose("Vetoes killed %d events.\n" % (nevents - len(mi_table)))
     nevents = len(mi_table)
     outxml.childNodes[-1].appendChild(mi_table)
+
+    # veto injections
+    if opts.veto_sim_inspirals:
+        nevents = len(sim_table)
+        sim_table = sim_table.veto(veto_segments)
+        print_verbose("Vetoes killed %d software injections.\n"
+                      % (nevents - len(sim_table)))
+        outxml.childNodes[-1].appendChild(sim_table)
+
 
     # finalize and close
     outxml.childNodes[-1].appendChild(
