@@ -27,6 +27,7 @@ import sys
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import SnglInspiralUtils
@@ -157,7 +158,7 @@ def ligolw_sicluster(doc, **kwargs):
 
   # Add search summary information
   if process and inseg and outseg:
-    llwapp.append_search_summary(doc, process, inseg = inseg, outseg = outseg, 
+    ligolw_search_summary.append_search_summary(doc, process, inseg = inseg, outseg = outseg, 
       nevents = len(snglinspiraltable))
   if process:
     llwapp.set_process_end_time(process)
