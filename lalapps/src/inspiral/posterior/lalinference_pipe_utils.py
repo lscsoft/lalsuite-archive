@@ -178,6 +178,7 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	if gpsstart is not None: gpsstart=float(gpsstart)
 	if gpsend is not None: gpsend=float(gpsend)
 
+	print 'Polling database for injections'
 	# Get process map
 	proc_map = procmap(database_connection)
 	# proc_map is (process_id, INJNAME) tuple list
@@ -200,7 +201,6 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	xmldoc = utils.load_filename(output_inj_file,contenthandler=LIGOLWContentHandlerExtractSimInspiralTable)
 	injTable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
 
-	print 'Polling database for injections'
 	#alldetected=getsimids(database_connection)
 	#detected_sim_ids=[]
 	#coinc_id_map={}
@@ -233,11 +233,10 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 		fh=open(dumpfile,'w')
 		for i in finalinj:
 			coinc_id=coinc_id_map[i.simulation_id]
-			print ' Looking for %s'%(coinc_id)
 			info_tuples=get_coinc_info(database_connection,coinc_id)
 			for ifo in info_tuples.keys():
 				(sngl_time,snr,chisq,cfar,timeslide)=info_tuples[ifo]
-				fh.write('%s %s %s %s %s %s %s\n'%(str(coinc_id),ifo,str(sngl_time),str(timeslide),str(snr),str(chisq),str(cfar)))
+				fh.write('%s %s %s %s %s %s %s %s\n'%(coinc_id,str(i.simulation_id),ifo,str(sngl_time),str(timeslide),str(snr),str(chisq),str(cfar)))
 		fh.close()
 		
 	
@@ -252,7 +251,6 @@ def get_coinc_info(connection, coinc_id):
 	db_out=connection.cursor().execute(query)
 	output={}
 	for (sngl_time, ifo, snr, chisq, cfar, timeslide) in db_out:
-		print 'Found info for %s'%(ifo)
 		output[ifo]=(sngl_time,snr,chisq,cfar,timeslide)
 	return output
 
