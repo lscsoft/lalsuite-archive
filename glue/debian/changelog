@@ -1,3 +1,9 @@
+glue (1.44) unstable; urgency=low
+
+  * Post ER3 release of glue for pegasus 4.2 transition. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, Mar 1 2013 12:30:00 -0500
+
 glue (1.43-1) unstable; urgency=low
 
   * Converted to source format 3.0 (quilt)

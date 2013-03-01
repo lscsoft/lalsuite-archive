@@ -8,7 +8,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.43
+Version:	1.44
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -48,7 +48,7 @@ rm -rf %{buildroot}
         --skip-build \
         --root=%{buildroot} \
         --prefix=%{_glue_prefix}
-rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.43-py2.6.egg-info
+rm -rf $RPM_BUILD_ROOT/usr/lib64/python2.6/site-packages/glue-1.44-py2.6.egg-info
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -94,6 +94,9 @@ rm -rf $RPM_BUILD_ROOT
 %{glue_python_sitearch}/glue/git_version.pyc
 
 %changelog
+* Fri Mar 1 2013 Ryan Fisher <rpfisher@syr.edu>
+- Post ER3 release of glue for pegasus 4.2 transition.
+
 * Mon Nov 19 2012 Ryan Fisher <rpfisher@syr.edu>
 - New Release of glue for ER3 with updates to ligolw and lal codes.
 
