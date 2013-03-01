@@ -797,11 +797,12 @@ def setup_clustering(cp, network, data, inspcache, logdir,\
         segment = segments.segment(seg.start(), seg.end())
         for slide in time_slides:
             if slide:
-                usertag = "_SLIDE_%s" \
+                usertag = "*_SLIDE_%s" \
                            % "_".join(["%s%d" % (ifo.upper(), s)\
                                        for s,ifo in zip(slide, ifos)])
-                segcache = inspcache.sieve(segment=segment,\
-                                           description=usertag)
+                segcache = inspcache.sieve(segment=segment)
+                segcache = segcache.sieve(description=usertag,
+                                          exact_match=True)
             elif injection_run:
                 usertag = "_%s" % injection_run.upper()
                 segcache = inspcache.sieve(segment=segment)
