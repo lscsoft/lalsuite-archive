@@ -212,31 +212,32 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 	print 'Filtering injections'
 	filtinj=[inj for inj in injTable if (str(inj.process_id) in procids) ]
 	filtinj2=[]
-	coinc_id_map={}
-	for inj in filtinj:
-		coinc=getcoincid(database_connection,inj.simulation_id)
-		if len(coinc)>0:
-			filtinj2.append(inj)
-			coinc_id_map[inj.simulation_id]=coinc[0]
 
 	#filtinj2=[inj for inj in filtinj if (str(inj.simulation_id) in detected_sim_ids)]
 	finalinj=[]
-	for inj in filtinj2:
+	for inj in filtinj:
 		t=inj.geocent_end_time+1.0e-9*inj.geocent_end_time_ns
 		if gpsstart is not None:
 			if t<gpsstart: continue
 		if gpsend is not None:
 			if t>gpsend: continue
-		finalinj.append(inj)
+		filtinj2.append(inj)
+	coinc_id_map={}
+	for inj in filtinj2:
+		coinc=getcoincid(database_connection,inj.simulation_id)
+		if len(coinc)>0:
+			finalinj.append(inj)
+			coinc_id_map[inj.simulation_id]=coinc[0]
 	print 'Dumping trigger information for %i injections'%(len(finalinj))
 	if dumpfile is not None:
 		fh=open(dumpfile,'w')
 		for i in finalinj:
 			coinc_id=coinc_id_map[i.simulation_id]
+			print ' Looking for %s'%(coinc_id)
 			info_tuples=get_coinc_info(database_connection,coinc_id)
 			for ifo in info_tuples.keys():
 				(sngl_time,snr,chisq,cfar,timeslide)=info_tuples[ifo]
-				fh.write('%s %s %s %s %s %s %s\n'%(str(coinc_id),ifo,str(sngl_time),str(timeslides),str(snr),str(chisq),str(cfar)))
+				fh.write('%s %s %s %s %s %s %s\n'%(str(coinc_id),ifo,str(sngl_time),str(timeslide),str(snr),str(chisq),str(cfar)))
 		fh.close()
 		
 	
@@ -246,7 +247,8 @@ def get_injections_pipedown(database_connection, output_inj_file, sim_tag = ['AL
 
 
 def get_coinc_info(connection, coinc_id):
-	query="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset FROM sngl_inspiral join coinc_event_map,coinc_event,coinc_inspiral,time_slide on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id==sngl_inspiral.event_id AND coinc_event.coinc_event_id==coinc_event_map.coinc_event_id AND coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id AND time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id=='%s'"%(str(coinc_id))
+	query="SELECT sngl_inspiral.end_time+1.0e-9*sngl_inspiral.end_time_ns, sngl_inspiral.ifo, sngl_inspiral.snr, sngl_inspiral.chisq, coinc_inspiral.combined_far, time_slide.offset FROM sngl_inspiral join coinc_event_map,coinc_event,coinc_inspiral,time_slide on (coinc_event_map.table_name=='sngl_inspiral' and coinc_event_map.event_id==sngl_inspiral.event_id AND coinc_event.coinc_event_id==coinc_event_map.coinc_event_id AND coinc_event.coinc_event_id==coinc_inspiral.coinc_event_id AND time_slide.time_slide_id == coinc_event.time_slide_id and time_slide.instrument==sngl_inspiral.ifo) where coinc_event.coinc_event_id=='%s'"%(coinc_id)
+	print 'Querying database with:\n',query
 	db_out=connection.cursor().execute(query)
 	output={}
 	for (sngl_time, ifo, snr, chisq, cfar, timeslide) in db_out:
