@@ -39,7 +39,6 @@ import warnings
 
 from glue import segments
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
@@ -70,7 +69,7 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	already exist.
 	"""
 	try:
-		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+		coincdeftable = lsctables.table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
 	except ValueError:
 		# table not found
 		if not create_new:
