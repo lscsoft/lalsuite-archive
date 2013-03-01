@@ -183,14 +183,6 @@ def append_search_summary(*args, **kwargs):
 	return ligolw_search_summary.append_search_summary(*args, **kwargs)
 
 
-def segmentlistdict_fromsearchsummary(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.search_summary.segmentlistdict_fromsearchsummary() instead.
-	"""
-	warnings.warn("function pylal.llwapp.segmentlistdict_fromsearchsummary is deprecated, use glue.ligolw.utils.search_summary.segmentlistdict_fromsearchsummary instead", DeprecationWarning, stacklevel = 2)
-	return ligolw_search_summary.segmentlistdict_fromsearchsummary(*args, **kwargs)
-
-
 #
 # =============================================================================
 #
