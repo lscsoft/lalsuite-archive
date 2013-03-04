@@ -201,11 +201,17 @@ def validateProxy(path):
         sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
+    # or is an end-entity X.509 certificate
     try:
         proxy.get_ext("proxyCertInfo")
     except LookupError:
-        RFCproxyUsage()
-        sys.exit(1)
+        # it is not an RFC 3820 proxy so check
+        # if it is an old globus legacy proxy
+        subject = proxy.get_subject().as_text()
+        if re.search(r'.+CN=proxy$', subject):
+            # it is so print warning and exit
+            RFCproxyUsage()
+            sys.exit(1)
 
     # attempt to make sure the proxy is still good for more than 15 minutes
     try:
@@ -242,6 +248,7 @@ try again.
 
     # return True to indicate validated proxy
     return True
+ 
 
 def RFCproxyUsage():
     """
