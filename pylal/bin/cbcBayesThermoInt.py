@@ -65,7 +65,7 @@ if __name__=='__main__':
     pp.plot(betas, integrands/evidence)
     pp.xscale('log')
     pp.xlabel(r'$\beta$')
-    pp.ylabel(r'$\left \langle \log \mathcal{L} \right\rangle d\beta$')
+    pp.ylabel(r'$\frac{1}{\ln Z} \left \langle \log \mathcal{L} \right\rangle d\beta$')
     pp.savefig(args.plotfile)
 
     with open(args.evfile, 'w') as out:
