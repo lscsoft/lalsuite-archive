@@ -105,6 +105,18 @@ def segmentlistdict_normalize(seglistdict, origin):
 			seglist[i] = segments.segment(float(seg[0] - origin), float(seg[1] - origin))
 
 
+def get_coincident_segmentlistdict(seglists, offsetvectors):
+	"""
+	Wrapper of llwapp.get_coincident_segmentlistdict() that generalizes
+	it to work for coincs involving less than all available
+	instruments.
+	"""
+	return llwapp.get_coincident_segmentlistdict(
+		seglists,
+		[offsetvector for offsetvector in ligolw_tisi.time_slide_component_vectors(offsetvectors, 2) if set(offsetvector).issubset(set(seglists))]
+	)
+
+
 def segmentlistdict_unnormalize(seglistdict, origin):
 	"""
 	The opposite of segmentlistdict_normalize(), restores the times in
@@ -434,7 +446,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 
 	epoch = min([min(seg[0] for seg in seglist) for seglist in seglists.values() if seglist] or [None])
 	segmentlistdict_normalize(seglists, epoch)
-	seglists = llwapp.get_coincident_segmentlistdict(seglists, [offset_vector for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, 2) if set(offset_vector.keys()).issubset(set(seglists.keys()))])
+	seglists = get_coincident_segmentlistdict(seglists, offset_vectors)
 	segmentlistdict_unnormalize(seglists, epoch)
 
 	#
