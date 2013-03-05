@@ -33,7 +33,6 @@ data in LIGO Light-Weight XML format.
 import time
 
 
-from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
@@ -114,76 +113,3 @@ def set_process_end_time(process):
 	"""
 	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
-
-
-#
-# =============================================================================
-#
-#                                    Other
-#
-# =============================================================================
-#
-
-
-def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
-	"""
-	Compute the segments for which data is required in order to perform
-	a complete coincidence analysis given the segments for which data
-	is available and the list of offset vectors to be applied to the
-	data during the coincidence analysis.
-
-	seglistdict is a segmentlistdict object defining the instruments
-	and times for which data is available.  offsetdictlist is a list of
-	offset vectors to be applied to the data --- dictionaries of
-	instrument/offset pairs.
-
-	The offset vectors in offsetdictlist are applied to the input
-	segments one by one and the interesection of the shifted segments
-	is computed.  The segments surviving the intersection are unshifted
-	to their original positions and stored.  The return value is the
-	union of the results of this operation.
-
-	In all cases the full n-way intersection is computed, that is if an
-	offset vector lists three instruments then this function returns
-	the times when exactly all three of those isntruments are on.  If
-	the calling code requires times when any two of the three are on
-	the list of offset vectors should be pre-processed to indicate this
-	by listing the allowed instrument combinations as separate offset
-	vectors.  See ligolw_tisi.time_slide_component_vectors() for a
-	function to assist in doing this.
-
-	For example, let us say that "input" is a segmentlistdict object
-	containing segment lists for three instruments, "H1", "H2" and
-	"L1".  And let us say that "slides" is a list of dictionaries, and
-	is equal to [{"H1":0, "H2":0, "L1":0}, {"H1":0, "H2":10}].  Then if
-
-	output = get_coincident_segmentlistdict(input, slides)
-
-	output will contain, for each of the three instruments, the
-	segments (or parts thereof) from the original lists that are
-	required in order to perform a triple-coincident analysis at zero
-	lag betwen the three instruments, *and* a double-coincident
-	analysis between H1 and H2 with H2 offset by 10 seconds.
-
-	The segmentlistdict object returned by this function has its
-	offsets set to those of the input segmentlistdict.
-	"""
-	# don't modify original
-	seglistdict = seglistdict.copy()
-
-	# save original offsets
-	origoffsets = dict(seglistdict.offsets)
-
-	# compute result
-	coincseglists = segments.segmentlistdict()
-	for offsetdict in offsetdictlist:
-		seglistdict.offsets.update(offsetdict)
-		intersection = seglistdict.extract_common(offsetdict.keys())
-		intersection.offsets.clear()
-		coincseglists |= intersection
-
-	# restore original offsets
-	coincseglists.offsets.update(origoffsets)
-
-	# done
-	return coincseglists

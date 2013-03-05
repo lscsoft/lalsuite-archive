@@ -40,7 +40,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import packing
 
 
@@ -105,16 +104,67 @@ def segmentlistdict_normalize(seglistdict, origin):
 			seglist[i] = segments.segment(float(seg[0] - origin), float(seg[1] - origin))
 
 
-def get_coincident_segmentlistdict(seglists, offsetvectors):
+def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	"""
-	Wrapper of llwapp.get_coincident_segmentlistdict() that generalizes
-	it to work for coincs involving less than all available
-	instruments.
+	Compute the segments for which data is required in order to perform
+	a complete coincidence analysis given the segments for which data
+	is available and the list of offset vectors to be applied to the
+	data during the coincidence analysis.
+
+	seglistdict is a segmentlistdict object defining the instruments
+	and times for which data is available.  offsetdictlist is a list of
+	offset vectors to be applied to the data --- dictionaries of
+	instrument/offset pairs.
+
+	The offset vectors in offsetdictlist are applied to the input
+	segments one by one and the interesection of the shifted segments
+	is computed.  The segments surviving the intersection are unshifted
+	to their original positions and stored.  The return value is the
+	union of the results of this operation.
+
+	In all cases all pair-wise intersections are computed, that is if
+	an offset vector lists three instruments then this function returns
+	the times when any two of those isntruments are on, including times
+	when all three are on.
+
+	For example, let us say that "input" is a segmentlistdict object
+	containing segment lists for three instruments, "H1", "H2" and
+	"L1".  And let us say that "slides" is a list of dictionaries, and
+	is equal to [{"H1":0, "H2":0, "L1":0}, {"H1":0, "H2":10}].  Then if
+
+	output = get_coincident_segmentlistdict(input, slides)
+
+	output will contain, for each of the three instruments, the
+	segments (or parts thereof) from the original lists that are
+	required in order to perform a triple- and double-coincident
+	analyses at zero lag with the three instruments, *and* a
+	double-coincident analysis between H1 and H2 with H2 offset by 10
+	seconds.
+
+	The segmentlistdict object returned by this function has its
+	offsets set to those of the input segmentlistdict.
 	"""
-	return llwapp.get_coincident_segmentlistdict(
-		seglists,
-		[offsetvector for offsetvector in ligolw_tisi.time_slide_component_vectors(offsetvectors, 2) if set(offsetvector).issubset(set(seglists))]
-	)
+	# don't modify original
+	seglistdict = seglistdict.copy()
+	all_instruments = set(seglistdict)
+
+	# save original offsets
+	origoffsets = dict(seglistdict.offsets)
+
+	# compute result
+	coincseglists = segments.segmentlistdict()
+	for offsetvector in ligolw_tisi.time_slide_component_vectors(offsetdictlist, 2):
+		if set(offsetvector).issubset(all_instruments):
+			seglistdict.offsets.update(offsetvector)
+			intersection = seglistdict.extract_common(offsetvector.keys())
+			intersection.offsets.clear()
+			coincseglists |= intersection
+
+	# restore original offsets
+	coincseglists.offsets.update(origoffsets)
+
+	# done
+	return coincseglists
 
 
 def segmentlistdict_unnormalize(seglistdict, origin):
