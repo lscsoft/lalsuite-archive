@@ -34,7 +34,6 @@ import time
 
 
 from glue import segments
-from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
