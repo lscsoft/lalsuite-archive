@@ -38,6 +38,8 @@ class LIGOLWContentHandlerExtractSimInspiralTable(ligolw.LIGOLWContentHandler):
 
 lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
 
+#from glue.ligolw import dbtables
+#dbtables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
 
 # We use the GLUE pipeline utilities to construct classes for each
 # type of job. Each class has inputs and outputs, which are used to
