@@ -354,7 +354,9 @@ class DAG(object):
 		progress = progress_wrapper(f, progress)
 		self = cls()
 		arcs = []
-		for line in f:
+		for n, line in enumerate(f):
+			# lines are counted from 1, enumerate counts from 0
+			n += 1
 			# progress
 			progress += 1
 			# skip comments and blank lines
