@@ -284,6 +284,10 @@ class DAG(object):
 	information.
 	"""
 
+	#
+	# lines in DAG files
+	#
+
 	dotpat = re.compile(r'^DOT\s+(?P<filename>\S+)(\s+(?P<options>.+))?', re.IGNORECASE)
 	jobpat = re.compile(r'^JOB\s+(?P<name>\S+)\s+(?P<filename>\S+)(\s+DIR\s+(?P<directory>\S+))?(\s+(?P<noop>NOOP))?(\s+(?P<done>DONE))?', re.IGNORECASE)
 	datapat = re.compile(r'^DATA\s+(?P<name>\S+)\s+(?P<filename>\S+)(\s+DIR\s+(?P<directory>\S+))?(\s+(?P<noop>NOOP))?(\s+(?P<done>DONE))?', re.IGNORECASE)
@@ -301,6 +305,16 @@ class DAG(object):
 	configpat = re.compile(r'^CONFIG\s+(?P<filename>\S+)', re.IGNORECASE)
 	nodestatuspat = re.compile(r'^NODE_STATUS_FILE\s+(?P<filename>\S+)(\s+(?P<updatetime>\S+))?', re.IGNORECASE)
 	jobstatepat = re.compile(r'^JOBSTATE_LOG\s+(?P<filename>\S+)', re.IGNORECASE)
+
+	#
+	# lines in rescue DAG files
+	#
+
+	donepat = re.compile(r'^DONE\s+(?P<name>\S+)', re.IGNORECASE)
+
+	#
+	# methods
+	#
 
 	def __init__(self):
 		# node name --> JOB object mapping
@@ -626,6 +640,65 @@ class DAG(object):
 					raise ValueError("node %s is not a child of its parent %s" % (node.name, parent.name))
 				if parent not in nodes:
 					raise ValueError("node %s has parent %s that is not in DAG" % (node.name, parent.name))
+
+	def load_rescue(self, f, progress = None):
+		"""
+		Parse the file-like object f as a rescue DAG, using the
+		DONE lines therein to set the job states of this DAG.
+
+		In the past, rescue DAGs were full copies of the original
+		DAG with the word DONE added to the JOB lines of completed
+		jobs.  In version 7.7.2 of Condor, the default format of
+		rescue DAGs was changed to a condensed format consisting of
+		only the names of completed jobs and the number of retries
+		remaining for incomplete jobs.  Currently Condor still
+		supports the original rescue DAG format, but the user must
+		set the DAGMAN_WRITE_PARTIAL_RESCUE config variable to
+		false to obtain one.  This module does not directly support
+		the new format, however this moethod allows a new-style
+		rescue DAG to be parsed to set the states of the jobs in a
+		DAG.  This, in effect, converts a new-style rescue DAG to
+		an old-style rescue DAG, allowing the result to be
+		manipulated as before.
+
+		If the progress argument is not None, it should be a
+		callable object.  This object will be called periodically
+		and passed the f argument, the current line number, and a
+		boolean indicating if parsing is complete.  The boolean is
+		always False until parsing is complete, then the callable
+		will be invoked one last time with the final line count and
+		the boolean set to True.
+		"""
+		# set all jobs to "not done"
+		for job in self.nodes.values():
+			job.done = False
+		# now load rescue DAG, updating done and retries states
+		progress = progress_wrapper(f, progress)
+		for n, line in enumerate(f):
+			# lines are counted from 1, enumerate counts from 0
+			n += 1
+			# progress
+			progress += 1
+			# skip comments and blank lines
+			line = line.strip()
+			if not line or line.startswith("#"):
+				continue
+			# DONE ...
+			m = self.donepat.search(line)
+			if m is not None:
+				self.nodes[m.group("name")].done = True
+				continue
+			# RETRY ...
+			m = self.retrypat.search(line)
+			if m is not None:
+				node = self.nodes[m.group("name")]
+				node.retry = int(m.group("retries"))
+				node.retry_unless_exit_value = m.group("retry_unless_exit_value")
+				continue
+			# error
+			raise ValueError("line %d: invalid line in rescue file: %s" % (n, line))
+		# progress
+		del progress
 
 	def write(self, f, progress = None):
 		"""
