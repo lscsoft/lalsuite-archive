@@ -112,27 +112,19 @@ ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 xmldoc = dbtables.get_xml(connection)
 proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__, version = git_version.id)
 
-# create needed indices on tables if they don't already exist
-current_indices = connection.execute('SELECT name FROM sqlite_master WHERE type == "index"').fetchall()
-sqlscript = ''
-if ('es_idx',) not in current_indices:
-    sqlscript += 'CREATE INDEX es_idx ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);\n'
-
-if sqlscript != '':
-    if opts.verbose:
-        print >> sys.stdout, "Creating needed indices..."
-    connection.cursor().executescript(sqlscript)
-
-
 # Cleaning up the veto_definer and segments tables
 sqlutils.simplify_segments_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_vetodef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
+# Remove empty space & defragment database
+sqlutils.vacuum_database(connection, vacuum=opts.vacuum, verbose=opts.verbose)
 
 # Make process_id map from info in the process & process_params tables
 sqlutils.get_process_info(connection, verbose=opts.verbose, debug=opts.debug)
 
 sqlutils.simplify_timeslide_tbl(connection, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_sim_tbls(connection, verbose=opts.verbose, debug=opts.debug)
+# Remove empty space & defragment database
+sqlutils.vacuum_database(connection, vacuum=opts.vacuum, verbose=opts.verbose)
 
 # Cleaning up the coinc_definer & experiment tables
 sqlutils.simplify_coincdef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
@@ -146,11 +138,8 @@ sqlutils.update_sngl_inspiral(connection, verbose=opts.verbose, debug=opts.debug
 # Cleaning up the process & process_params tables
 sqlutils.simplify_proc_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 
-# Vacuum database if desired
-if opts.vacuum:
-    if opts.verbose:
-        print >> sys.stderr, "Vacuuming database..."
-    connection.execute( 'VACUUM' )
+# Remove empty space & defragment database
+sqlutils.vacuum_database(connection, vacuum=opts.vacuum, verbose=opts.verbose)
 
 #
 #       Save and Exit
@@ -163,7 +152,7 @@ connection.close()
 dbtables.put_connection_filename(filename, working_filename, verbose = opts.verbose)
 
 if opts.verbose:
-    print >> sys.stdout, "Finished!"
+    print >> sys.stdout, "Program Finished!"
 
 # set process end time
 process.set_process_end_time(proc_id)

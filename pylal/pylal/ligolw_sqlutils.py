@@ -18,6 +18,7 @@ import os
 import bisect
 import copy
 import time
+import pdb
 
 from glue.ligolw import dbtables
 from glue.ligolw import lsctables
@@ -520,6 +521,16 @@ def get_tables_in_database( connection ):
     sqlquery = 'SELECT name FROM sqlite_master WHERE type == "table"'
     return connection.cursor().execute(sqlquery).fetchall()
 
+def vacuum_database(connection, vacuum=None, verbose=None):
+    """
+    Remove empty space and defragment the database.
+    """
+    if vacuum:
+        if verbose:
+            print >> sys.stderr, "Start vacuuming database"
+        connection.execute("VACUUM")
+        if verbose:
+            print >> sys.stderr, "\tVacuuming database finished\n"
 
 def get_column_names_from_table( connection, table_name ):
     """
@@ -1046,6 +1057,8 @@ def get_process_info(connection, verbose=False, debug=False):
     connection.create_function("concat_5cols", 5, concatenate)
 
     sqlscript = """
+    CREATE INDEX pp_pid_idx ON process_params (process_id);
+
     CREATE TEMP TABLE proc_params AS
         SELECT
             process.process_id AS proc_id,
@@ -1055,11 +1068,12 @@ def get_process_info(connection, verbose=False, debug=False):
             concat_5cols(process.start_time, process.end_time, process.username,
                 process.node, process.version) AS process_info
         FROM
-            process_params AS pp_table
-            JOIN process ON (
+            process
+            JOIN process_params AS pp_table ON (
                 pp_table.process_id == process.process_id)
         GROUP BY proc_id;
 
+    DROP INDEX pp_pid_idx;
     CREATE INDEX proc_params_idx ON proc_params (program, value, params, process_info);
  
     CREATE TEMP TABLE _pidmap_ AS
@@ -1109,19 +1123,19 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
     sqlscript = """
     DELETE FROM filter
         WHERE process_id NOT IN (
-            SELECT new_pid 
+            SELECT DISTINCT new_pid 
             FROM _pidmap_ );
     DELETE FROM summ_value
         WHERE process_id NOT IN (
-            SELECT new_pid 
+            SELECT DISTINCT new_pid 
             FROM _pidmap_ );
     DELETE FROM search_summary
         WHERE process_id NOT IN (
-            SELECT new_pid 
+            SELECT DISTINCT new_pid 
             FROM _pidmap_ );
     DELETE FROM search_summvars
         WHERE process_id NOT IN (
-            SELECT new_pid 
+            SELECT DISTINCT new_pid 
             FROM _pidmap_ );
     """
     if debug:
@@ -1184,13 +1198,15 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     sqlscript = """
     -- Remove redundant process rows
     DELETE FROM process 
-        WHERE process_id NOT IN (
+        WHERE process_id IN (
             SELECT old_pid 
-            FROM _pidmap_ ); 
+            FROM _pidmap_
+            WHERE old_pid != new_pid ); 
     DELETE FROM process_params 
-        WHERE process_id NOT IN (
-            SELECT old_pid 
-            FROM _pidmap_ ); 
+        WHERE process_id IN (
+            SELECT new_pid 
+            FROM _pidmap_
+            WHERE old_pid != new_pid ); 
     
     DROP INDEX _pidmap_idx;
     DROP TABLE _pidmap_;
@@ -1400,7 +1416,7 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
     DROP INDEX expr_summ_info_idx;
     DROP TABLE expr_summ_info;
 
-    CREATE INDEX _esidmap_idx on _esidmap_ (old_esid, new_esid);
+    CREATE INDEX _esidmap_idx on _esidmap_ (old_esid);
     
     -- sum durations and nevents
     CREATE TEMP TABLE sum_dur_nevents AS
@@ -1927,8 +1943,11 @@ def create_sim_rec_map_table(connection, simulation_table, recovery_table, ranki
 
 def simplify_sim_tbls(connection, verbose=False, debug=False):
     """
-    
+    Remove duplicates from simulation tables (sim_inspiral & sim_ringdown)
+    if those tables exist in the database. Also update the sim_proc_id column
+    in the experiment_summary table. 
     """
+
     # check whether there is a simulation table in the database
     query = "SELECT tbl_name FROM sqlite_master WHERE type='table'"
     sim_tables = [table[0] for table in connection.execute( query ) if 'sim' in table[0]]
@@ -2044,13 +2063,16 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
     connection.create_function("concat_2cols", 2, concatenate)
 
     # get the non-auto-generated indices for the tables in table_names
-    table_names = ['segment','segment_definer','segment_summary']
+    table_names = ['process','process_params','segment','segment_definer','segment_summary']
     relevant_indices = get_user_created_indices(connection, table_names)
     # drop indices that will interfere with update & delete statements
     for idx, sql in relevant_indices:
         connection.execute('DROP INDEX %s' % idx)
 
     sqlscript = """
+    CREATE INDEX sd_pisdi_index ON segment_definer (process_id, segment_def_id);
+    CREATE INDEX ss_pisdi_index ON segment_summary (process_id, segment_def_id);
+
     CREATE TEMP TABLE segdef_summary AS
         SELECT
             segment_definer.process_id AS proc_id,
@@ -2064,6 +2086,9 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
                 AND segment_definer.segment_def_id == segment_summary.segment_def_id)
         GROUP BY proc_id;
     
+    DROP INDEX sd_pisdi_index;
+    DROP INDEX ss_pisdi_index;
+
     CREATE TEMP TABLE _sdpid_map_ AS
         SELECT
             old_segs_tbl.proc_id AS old_pid,
@@ -2073,35 +2098,38 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
             JOIN segdef_summary AS new_segs_tbl ON (
                 new_segs_tbl.ifo == old_segs_tbl.ifo
                 AND new_segs_tbl.times == old_segs_tbl.times
-                AND new_segs_tbl.cat_vers == old_segs_tbl.cat_vers );
+                AND new_segs_tbl.cat_vers == old_segs_tbl.cat_vers )
+        GROUP BY old_pid;
 
     DROP TABLE segdef_summary;
     CREATE INDEX sdpid_idx ON _sdpid_map_ (old_pid, new_pid);
  
     DELETE FROM segment 
         WHERE process_id NOT IN (
-            SELECT new_pid	
+            SELECT DISTINCT new_pid	
             FROM _sdpid_map_ );
     DELETE FROM segment_definer 
         WHERE process_id NOT IN (
-            SELECT new_pid	
+            SELECT DISTINCT new_pid	
             FROM _sdpid_map_ );
     DELETE FROM segment_summary
         WHERE process_id NOT IN (
-            SELECT new_pid	
+            SELECT DISTINCT new_pid	
             FROM _sdpid_map_ );
 
     DELETE FROM process
-        WHERE process_id NOT IN (
-            SELECT new_pid	
-            FROM _sdpid_map_ );
+        WHERE process_id IN (
+            SELECT old_pid	
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid );
     DELETE FROM process_params
-        WHERE process_id NOT IN (
-            SELECT new_pid	
-            FROM _sdpid_map_ );
+        WHERE process_id IN (
+            SELECT old_pid	
+            FROM _sdpid_map_
+            WHERE old_pid != new_pid );
  
     DROP INDEX sdpid_idx;
-    DROP TABLE _sdpid_map_
+    DROP TABLE _sdpid_map_;
     """
 
     if debug:
@@ -2214,23 +2242,16 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
         sqlscript = """
         -- Create a table that combines the information about a single time_slide into 
         -- a single row.  This makes comparison between time_slides easier.
+
         CREATE TEMP TABLE compact_time_slide AS
             SELECT
                 time_slide_id AS tsid,
-                process_id AS pid,
                 group_concat(instrument) AS ifos,
                 group_concat(offset) AS offset
             FROM time_slide
             GROUP BY time_slide_id;
         
-        -- Update the process_ids in the compact_time_slide table with the new ids from _pidmap_
-        UPDATE compact_time_slide 
-            SET pid = (
-                SELECT new_pid 
-                FROM _pidmap_ 
-                WHERE pid == old_pid);
-        
-        CREATE INDEX compact_time_slide_idx ON compact_time_slide (pid, ifos, offset);
+        CREATE INDEX cts_io_idx ON compact_time_slide (ifos, offset);
 
         -- Create a table that maps the time_slide_ids of redundant time_slide entries
         -- to those entries one is going to keep.
@@ -2241,12 +2262,11 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
             FROM
                 compact_time_slide AS old_ts_table
                 JOIN compact_time_slide AS new_ts_table ON (
-                    new_ts_table.pid == old_ts_table.pid
-                    AND new_ts_table.ifos == old_ts_table.ifos
+                    new_ts_table.ifos == old_ts_table.ifos
                     AND new_ts_table.offset == old_ts_table.offset)
             GROUP BY old_tsid;
 
-        DROP INDEX compact_time_slide_idx;
+        DROP INDEX cts_io_idx;
         DROP TABLE compact_time_slide;
         
         CREATE INDEX _tsidmap_idx ON _tsidmap_ (old_tsid);
@@ -2263,14 +2283,20 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                 FROM _tsidmap_ 
                 WHERE old_tsid == time_slide_id);
  
-        DROP INDEX _tsidmap_idx;
-        DROP TABLE _tsidmap_;
-        
         -- Delete the redundant entries in the time_slide table
         DELETE FROM time_slide 
-            WHERE process_id NOT IN (
+            WHERE time_slide_id NOT IN (
+                SELECT new_tsid 
+                FROM _tsidmap_ );
+
+        DROP INDEX _tsidmap_idx;
+        DROP TABLE _tsidmap_;
+
+        UPDATE time_slide
+            SET process_id = (
                 SELECT new_pid 
-                FROM _pidmap_ );
+                FROM _pidmap_ 
+                WHERE old_pid == process_id);
         """
         if debug:
             print >> sys.stderr, sqlscript
@@ -2337,12 +2363,13 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
     DROP TABLE veto_procinfo;
  
     DELETE FROM process
-        WHERE process_id NOT IN (
-            SELECT new_pid
-            FROM _veto_pidmap_ );
+        WHERE process_id IN (
+            SELECT old_pid
+            FROM _veto_pidmap_
+            WHERE old_pid != new_pid );
     DELETE FROM veto_definer
         WHERE process_id NOT IN (
-            SELECT new_pid
+            SELECT DISTINCT new_pid
             FROM _veto_pidmap_ );
     
     DROP TABLE _veto_pidmap_;
