@@ -90,7 +90,7 @@ def parse_command_line():
 	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "Extract database contents to the given XML file, \"-\" == stdout (use \"./-\" if you want to write to a file named \"-\").  Extraction is done after any inserts.")
 	options, urls = parser.parse_args()
 
-	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
+	urls += [CacheEntry(line).path for cache in options.input_cache for line in file(cache)]
 
 	if not options.database:
 		raise ValueError, "missing required argument --database"
