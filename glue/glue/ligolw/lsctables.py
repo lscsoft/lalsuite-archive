@@ -1077,6 +1077,9 @@ class SnglBurstTable(table.Table):
 	next_id = SnglBurstID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
+	def get_q(self):
+		return numpy.asarray([row.get_q() for row in self])
+
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
@@ -1150,6 +1153,8 @@ class SnglBurst(object):
 		self.ms_flow = band[0]
 		self.ms_bandwidth = abs(band)
 
+	def get_q(self):
+		return self.duration * 2 * numpy.pi**(1/2.) * self.central_freq
 
 SnglBurstTable.RowType = SnglBurst
 
