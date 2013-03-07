@@ -276,7 +276,6 @@ def OmegaClusterFunc(a, b):
 	#
 
 	if b.ms_snr > a.ms_snr:
-		a.ms_hrss = b.ms_hrss
 		a.ms_snr = b.ms_snr
 	a.set_ms_period(snglcluster.weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
 	a.set_ms_band(snglcluster.weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
