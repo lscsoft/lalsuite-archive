@@ -115,8 +115,6 @@ proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dic
 # Cleaning up the veto_definer and segments tables
 sqlutils.simplify_segments_tbls(connection, verbose=opts.verbose, debug=opts.debug)
 sqlutils.simplify_vetodef_tbl(connection, verbose=opts.verbose, debug=opts.debug)
-# Remove empty space & defragment database
-sqlutils.vacuum_database(connection, vacuum=opts.vacuum, verbose=opts.verbose)
 
 # Make process_id map from info in the process & process_params tables
 sqlutils.get_process_info(connection, verbose=opts.verbose, debug=opts.debug)
