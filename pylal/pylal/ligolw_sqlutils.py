@@ -1052,7 +1052,7 @@ def get_process_info(connection, verbose=False, debug=False):
     -- update the sim_proc_ids in the experiment_summary table
     """
     if verbose:
-        print >> sys.stdout, "Create a map of process_ids for removal of duplicates"
+        print >> sys.stdout, "\nCreate a map of process_ids for removal of duplicates"
 
     # create function to concatenate 5 columns together per row
     connection.create_function("concat_5cols", 5, concatenate)
@@ -1100,14 +1100,14 @@ def get_process_info(connection, verbose=False, debug=False):
     DROP TABLE proc_params; """
     if debug:
         print >> sys.stderr, sqlscript
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+        print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
     # execute SQL script
     cursor.executescript( sqlscript )
     # commit transactions to database and close the cursor
     connection.commit()
     cursor.close()
     if debug:
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+        print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
 
 def simplify_summ_tbls(connection, verbose=False, debug=False):
@@ -1121,7 +1121,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
     # check that at least one table in table_names is in the database
     if set(table_names) & set(all_tables):
         if verbose:
-            print >> sys.stdout, "Delete redundant rows in available summary tables"
+            print >> sys.stdout, "\nDelete redundant rows in available summary tables"
     
         # create the cursor object used to execute queries and commands
         cursor = connection.cursor()
@@ -1141,8 +1141,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'inspiral' OR program = 'ringdown' );
-            """
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
         # if a summ_value table exists, remove duplicate rows
         if 'summ_value' in all_tables:
             sqlscript += """
@@ -1150,8 +1149,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'inspiral' OR program = 'ringdown' );
-            """
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
         # if a search_summary table exists, remove duplicate rows
         if 'search_summary' in all_tables:
             sqlscript += """
@@ -1159,8 +1157,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'inspiral' OR program = 'ringdown' );
-            """
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
         # if a search_summvars table exists, remove duplicate rows
         if 'search_summvars' in all_tables:
             sqlscript += """
@@ -1168,66 +1165,78 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'inspiral' OR program = 'ringdown' );
-            """
+                    WHERE program = 'inspiral' OR program = 'ringdown' ); """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "This database lacks all filtering related summary tables"
 
 
-def update_sngl_inspiral(connection, verbose=False, debug=False):
+def update_pid_in_snglstbls(connection, verbose=False, debug=False):
     """
-    Update process_ids for events in the sngl_inspiral table.
+    Update process_ids for events in the sngl_inspiral &/or sngl_ringdown table.
     This function does *not* remove duplicate events that have different
     event_ids.
     """
 
     all_tables = zip(*get_tables_in_database(connection))[0]
-    if 'sngl_inspiral' in all_tables:
+    table_names = ['sngl_inspiral','sngl_ringdown']
+    if set(table_names) & set(all_tables):
         if verbose:
-            print >> sys.stdout, "Update process_ids in the sngl_inspiral table"
+            print >> sys.stdout, "\nUpdate process_ids in the sngl-ifo trigger tables"
     
         # create the cursor object used to execute queries and commands
         cursor = connection.cursor()
 
         # get the non-auto-generated indices for the tables in table_names
-        table_names = ['sngl_inspiral']
         relevant_indices = get_user_created_indices(connection, table_names)
         # drop indices that will interfere with update & delete statements
         for idx, sql in relevant_indices:
             validate_option(idx)
             cursor.execute('DROP INDEX %s' % idx)
-    
-        sqlscript = """
-        UPDATE sngl_inspiral
-            SET process_id = (
-                SELECT new_pid
-                FROM _pidmap_
-                WHERE process_id == old_pid);
-        """
+
+        sqlscript = ""
+        # if a sngl_inspiral table exists, update process_id column
+        if 'sngl_inspiral' in all_tables:
+            sqlscript += """
+            UPDATE sngl_inspiral
+                SET process_id = (
+                    SELECT new_pid
+                    FROM _pidmap_
+                    WHERE process_id == old_pid
+                        AND program = 'inspiral'); """
+        # if a sngl_ringdown table exists, update process_id column
+        if 'sngl_ringdown' in all_tables:
+            sqlscript += """
+            UPDATE sngl_ringdown
+                SET process_id = (
+                    SELECT new_pid
+                    FROM _pidmap_
+                    WHERE process_id == old_pid
+                        AND program = 'ringdown'); """
+
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            print >> sys.stdout, "This database lacks a sngl_inspiral table"
+            print >> sys.stdout, "This database lacks a sngl_inspiral &/or sngl_ringdown table"
 
 
 def simplify_proc_tbls(connection, verbose=False, debug=False):
@@ -1236,7 +1245,7 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     The temp table _pidmap_ created by the get_process_info function is dropped.
     """
     if verbose:
-        print >> sys.stdout, "Deleting redundant rows in the process & process_params tables"
+        print >> sys.stdout, "\nDeleting redundant rows in the process & process_params tables"
     
     # create the cursor object used to execute queries and commands
     cursor = connection.cursor()
@@ -1263,18 +1272,17 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
             WHERE old_pid != new_pid ); 
     
     DROP INDEX _pidmap_idx;
-    DROP TABLE _pidmap_;
-    """
+    DROP TABLE _pidmap_; """
     if debug:
         print >> sys.stderr, sqlscript
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+        print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
     # execute SQL script
     cursor.executescript( sqlscript )
     # commit transactions to database and close the cursor
     connection.commit()
     cursor.close()
     if debug:
-        print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+        print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
 
 # =============================================================================
@@ -1370,7 +1378,7 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
     # check that both tables in table_names exist in the database
     if not set(table_names) - set(all_tables):
         if verbose:
-            print >> sys.stdout, "Cleaning experiment table..."
+            print >> sys.stdout, "\nCleaning experiment table..."
     
         # create function to concatenate columns together per row
         connection.create_function("concat_7cols", 7, concatenate)
@@ -1425,18 +1433,17 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
                 WHERE experiment_summary.experiment_id == old_eid);
         
         DROP INDEX _eidmap_idx;
-        DROP TABLE _eidmap_;
-        """
+        DROP TABLE _eidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "The database is lacks the experiment &/or experiment_summary table(s)."
@@ -1454,7 +1461,7 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
     # check that both tables in table_names exist in the database
     if not set(table_names) - set(all_tables):
         if verbose:
-            print >> sys.stdout, "Cleaning experiment_summary & experiment_map tables..."
+            print >> sys.stdout, "\nCleaning experiment_summary & experiment_map tables..."
     
         # create function to concatenate columns together per row
         connection.create_function("concat_5cols", 5, concatenate)
@@ -1540,18 +1547,17 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
                 WHERE experiment_map.experiment_summ_id == old_esid);
         
         DROP INDEX _esidmap_idx;
-        DROP TABLE _esidmap_;
-        """
+        DROP TABLE _esidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "The database is lacks the experiment_map &/or experiment_summary table(s)."
@@ -1776,7 +1782,7 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
     # check that both tables in table_names exist in the database
     if not set(table_names) - set(all_tables):
         if verbose:
-            print >> sys.stdout, "Cleaning up the coinc_definer table..."
+            print >> sys.stdout, "\nCleaning up the coinc_definer table..."
     
         # create the cursor object used to execute queries and commands
         cursor = connection.cursor()
@@ -1819,18 +1825,17 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
                 FROM _cdidmap_ );
         
         DROP INDEX cdidmap_index;
-        DROP TABLE _cdidmap_;
-        """
+        DROP TABLE _cdidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "This database lacks the coinc_event and coinc_definer tables."
@@ -2052,7 +2057,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
     # check whether there is a simulation table in the database
     if [tbl for tbl in all_tables if 'sim_' in tbl]:
         if verbose:
-            print >> sys.stdout, "Cleaning simulation tables..."
+            print >> sys.stdout, "\nCleaning simulation tables..."
 
         # create the cursor object used to execute queries and commands
         cursor = connection.cursor()
@@ -2073,8 +2078,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'inspiral');
-            """
+                    WHERE program = 'inspiral'); """
         # if a sim_ringdown table exists, remove duplicate rows
         if ('sim_ringdown',) in all_tables:
             sqlscript += """
@@ -2082,8 +2086,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'ringdown');
-            """
+                    WHERE program = 'ringdown'); """
         # if an experiment_summary table exists, update its sim_proc_id column
         if 'experiment_summary' in all_tables:
             sqlscript += """
@@ -2092,18 +2095,17 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
                 SET sim_proc_id = (
                     SELECT new_pid 
                     FROM _pidmap_ 
-                    WHERE old_pid == sim_proc_id );
-            """ 
+                    WHERE old_pid == sim_proc_id ); """ 
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "This database lacks a simulation table."
@@ -2167,7 +2169,7 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
     all_tables = zip(*get_tables_in_database(connection))[0]
     if 'segment' in all_tables:
         if verbose:
-            print >> sys.stdout, "Cleaning up the segments tables..."
+            print >> sys.stdout, "\nCleaning up the segments tables..."
     
         # create function to concatenate 2 columns together per row
         connection.create_function("concat_2cols", 2, concatenate)
@@ -2244,19 +2246,18 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
                 WHERE old_pid != new_pid );
      
         DROP INDEX sdpid_idx;
-        DROP TABLE _sdpid_map_;
-        """
+        DROP TABLE _sdpid_map_; """
     
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "There are no segments tables in this database"
@@ -2353,7 +2354,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     all_tables = zip(*get_tables_in_database(connection))[0]
     if old_pids and 'time_slide' in all_tables:
         if verbose:
-            print >> sys.stdout, "Clean up the time_slide table ..."
+            print >> sys.stdout, "\nClean up the time_slide table ..."
 
         # create the cursor object used to execute queries and commands
         cursor = connection.cursor()
@@ -2430,21 +2431,20 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                     FROM _tsidmap_ 
                     WHERE old_tsid == time_slide_id);
             """
-
         sqlscript += """
         DROP INDEX _tsidmap_idx;
-        DROP TABLE _tsidmap_;
-        """
+        DROP TABLE _tsidmap_; """
+
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             if 'time_slide' not in all_tables:
@@ -2470,7 +2470,7 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
     all_tables = zip(*get_tables_in_database(connection))[0]
     if 'veto_definer' in all_tables:
         if verbose:
-            print >> sys.stdout, "Cleaning up the veto_definer table..."
+            print >> sys.stdout, "\nCleaning up the veto_definer table..."
 
         # create function to concatenate 7 columns together per row
         connection.create_function("concat_7cols", 7, concatenate)
@@ -2522,18 +2522,17 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
                 SELECT DISTINCT new_pid
                 FROM _veto_pidmap_ );
         
-        DROP TABLE _veto_pidmap_;
-        """
+        DROP TABLE _veto_pidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
         cursor.close()
         if debug:
-            print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print sys.stdout, "This database lacks a veto_definer table."
