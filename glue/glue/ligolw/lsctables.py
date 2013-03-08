@@ -1077,9 +1077,61 @@ class SnglBurstTable(table.Table):
 	next_id = SnglBurstID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
+	def get_column(self, column):
+		"""@returns: an array of column values for each row in the table
+
+		@param column:
+			name of column to return
+		@returntype:
+			numpy.ndarray
+		"""
+		if column.lower() == 'q':
+			return self.get_q
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_peak(self):
+		"""@returns: the peak time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_peak() for row in self])
+
+	def get_start(self):
+		"""@returns: the start time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_start() for row in self])
+
+	def get_stop(self):
+		"""@returns: the stop time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_stop() for row in self])
+
 	def get_q(self):
+		"""@returns: the Q of each row in the table
+		@returntype: numpy.ndarray
+		"""
 		return numpy.asarray([row.get_q() for row in self])
 
+	def get_z(self):
+		"""@returns: the Z (Omega-Pipeline energy) of each row in the
+		table
+		@returntype: numpy.ndarray
+		"""
+		return numy.asarray([row.get_z() for row in self])
+
+	def get_period(self):
+		"""@returns: the period segment of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_period() for row in self])
+
+	def get_band(self):
+		"""@returns: the frequency band of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_band() for row in self])
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
@@ -1153,8 +1205,15 @@ class SnglBurst(object):
 		self.ms_flow = band[0]
 		self.ms_bandwidth = abs(band)
 
+	#
+	# Omega-Pipeline properties
+	#
+
 	def get_q(self):
 		return self.duration * 2 * numpy.pi**(1/2.) * self.central_freq
+
+	def get_z(self):
+		return self.snr ** 2 / 2.
 
 SnglBurstTable.RowType = SnglBurst
 
