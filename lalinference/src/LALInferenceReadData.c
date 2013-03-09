@@ -2095,7 +2095,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
                                              ra, dec, &GPSlal);
-printf("ra %lf dec %lf time %10.10e\n",ra,dec,injtime);
+    printf("ra %lf dec %lf time %10.10e\n",ra,dec,injtime);
     printf("timedelay for IFO %s : %lf\n",dataPtr->name,timedelay);
     dataPtr->injtime=injtime;
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
@@ -2207,8 +2207,8 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
             thisData->skipIFO=1;
             while(thisData2){
                 for(j=0;j<thisData->freqData->data->length;j++){   
-                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re-thisData->noff->data->data[j].re;
-                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im-thisData->noff->data->data[j].im;
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re;
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im;
                   }
                 memcpy(thisData2->BestIFO->detector,thisData->detector,sizeof(LALDetector));
                 thisData2=thisData2->next;

@@ -2137,7 +2137,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
   double timeshift;  /* time shift (not necessarily same as above)                   */
   double deltaT, TwoDeltaToverN, deltaF, twopit, f, re, im;
-  double timeTmp;
+  //double timeTmp;
   //double atan_shift;
   double ci=0.0,iota;
   //int different;
@@ -2170,11 +2170,12 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
   chisquared = 0.0;
   /* loop over data (different interferometers): */
   dataPtr = data;
-REAL8 net_snr=0.0,ifo_snr=0.0;
-UINT4 kappa=0;
+    REAL8 net_snr=0.0,ifo_snr=0.0;
+    UINT4 kappa=0;
   if (dataPtr->skipIFO==1) dataPtr=dataPtr->next;
-  while (dataPtr != NULL && dataPtr->skipIFO!=1) {
-      
+  //while (dataPtr != NULL && dataPtr->skipIFO!=1) {
+   while (dataPtr != NULL) {
+   
      // printf("doing logL for ifo %s\n",dataPtr->name);
     ifo_snr=0.0;
     /* The parameters the Likelihood function can handle by itself   */
@@ -2187,23 +2188,10 @@ UINT4 kappa=0;
     /* Reset log-likelihood */
     dataPtr->loglikelihood = 0.0;
 
-    /* Compare parameter values with parameter values corresponding  */
-    /* to currently stored template; ignore "time" variable:         */
-   // if (LALInferenceCheckVariable(dataPtr->modelParams, "time")) {
-  //    timeTmp = *(REAL8 *) LALInferenceGetVariable(dataPtr->modelParams, "time");
- //     LALInferenceRemoveVariable(dataPtr->modelParams, "time");
-  //  }
-   // else timeTmp = GPSdouble;
-   // SALVO
-    //else 
+  
+    //timeTmp = dataPtr->injtime; 
+	//LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     
-    timeTmp = dataPtr->injtime; //#939936910.0;//939936812.000000;
-   // different = LALInferenceCompareVariables(dataPtr->modelParams, &intrinsicParams);
-    /* "different" now may also mean that "dataPtr->modelParams" */
-    /* wasn't allocated yet (as in the very 1st iteration).      */
-	LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-    
-
     /*-- Template is now in dataPtr->freqModelhPlus and dataPtr->freqModelhCross. --*/
     /*-- (Either freshly computed or inherited.)                            --*/
 
@@ -2222,10 +2210,10 @@ UINT4 kappa=0;
                                              ra, dec, &GPSlal);
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
-    timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))-best_timedelay) + timedelay;
+    //timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))-best_timedelay) + timedelay;
     
-    // printf("IFO %s besttd %lf this td %lf diff %lf\n",dataPtr->name,best_timedelay,timedelay,best_timedelay-timedelay);
-  //timeshift = timedelay;
+     //printf("IFO %s besttd %lf this td %lf diff %lf\n",dataPtr->name,best_timedelay,timedelay,best_timedelay-timedelay);
+  timeshift = timedelay-best_timedelay;
     twopit    = LAL_TWOPI * timeshift;
 //printf("Template's time %10.5lf time %10.5lf epoch=%10.5lf\n", GPSdouble,(*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time")),XLALGPSGetREAL8(&(dataPtr->freqData->epoch))    );
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
