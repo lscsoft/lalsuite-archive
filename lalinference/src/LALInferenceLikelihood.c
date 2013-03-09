@@ -2143,7 +2143,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
   //int different;
   LALStatus status;
   memset(&status,0,sizeof(status));
-  LALInferenceVariables intrinsicParams;
+  //LALInferenceVariables intrinsicParams;
  // double norm=0;
   /* determine source's sky location & orientation parameters: */
   ra        = *(REAL8*) LALInferenceGetVariable(currentParams, "rightascension"); // radian      
@@ -2156,13 +2156,13 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
     }   
   XLALGPSSetREAL8(&GPSlal, GPSdouble);
   gmst=XLALGreenwichMeanSiderealTime(&GPSlal);
-  intrinsicParams.head      = NULL;
-  intrinsicParams.dimension = 0;
-  LALInferenceCopyVariables(currentParams, &intrinsicParams);
-  LALInferenceRemoveVariable(&intrinsicParams, "rightascension");
-  LALInferenceRemoveVariable(&intrinsicParams, "declination");
-  LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
-  LALInferenceRemoveVariable(&intrinsicParams, "time");
+  //intrinsicParams.head      = NULL;
+  //intrinsicParams.dimension = 0;
+  //LALInferenceCopyVariables(currentParams, &intrinsicParams);
+  //LALInferenceRemoveVariable(&intrinsicParams, "rightascension");
+  //LALInferenceRemoveVariable(&intrinsicParams, "declination");
+  //LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
+  //LALInferenceRemoveVariable(&intrinsicParams, "time");
 
   // TODO: add pointer to template function here.
   // (otherwise same parameters but different template will lead to no re-computation!!)
@@ -2213,7 +2213,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
     //timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))-best_timedelay) + timedelay;
     
      //printf("IFO %s besttd %lf this td %lf diff %lf\n",dataPtr->name,best_timedelay,timedelay,best_timedelay-timedelay);
-  timeshift = timedelay-best_timedelay;
+  timeshift = GPSdouble-dataPtr->injtime+timedelay-best_timedelay;
     twopit    = LAL_TWOPI * timeshift;
 //printf("Template's time %10.5lf time %10.5lf epoch=%10.5lf\n", GPSdouble,(*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time")),XLALGPSGetREAL8(&(dataPtr->freqData->epoch))    );
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
@@ -2312,7 +2312,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariab
  // printf("Q %10.2e f %10.2e hrss %10.2e time %10.10f eccentricity %10.10e polangle %10.10e norm %f \n",q,f0,hrss,GPSdouble,eccentricity,polar_angle,norm);
 }
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
-  LALInferenceDestroyVariables(&intrinsicParams);
+  //LALInferenceDestroyVariables(&intrinsicParams);
  // printf("got %10.10e\n",loglikeli);
   return(loglikeli);
 }
