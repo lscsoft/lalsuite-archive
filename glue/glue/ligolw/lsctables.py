@@ -1133,6 +1133,45 @@ class SnglBurstTable(table.Table):
 		"""
 		return segments.segmentlist([row.get_band() for row in self])
 
+	def veto(self, seglist):
+		"""@returns: those rows of the table that don't lie within a
+		given seglist
+		"""
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglist:
+				keep.append(row)
+		return keep
+
+	def vetoed(self, seglist):
+		"""@returns: those rows of the table that lie within a given
+		seglist
+		"""
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglist:
+				vetoed.append(row)
+		return vetoed
+
+	def veto_seglistdict(self, seglistdict):
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglistdict[row.ifo]:
+				keep.append(row)
+		return keep
+
+	def vetoed_seglistdict(self, seglistdict):
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglistdict[row.ifo]:
+				vetoed.append(row)
+		return vetoed
+
+
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
 
