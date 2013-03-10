@@ -1100,7 +1100,7 @@ def get_process_info(connection, verbose=False, debug=False):
     DROP TABLE proc_params; """
     if debug:
         print >> sys.stderr, sqlscript
-        print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+        print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
     # execute SQL script
     cursor.executescript( sqlscript )
     # commit transactions to database and close the cursor
@@ -1168,7 +1168,7 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
                     WHERE program = 'inspiral' OR program = 'ringdown' ); """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -1226,7 +1226,7 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
 
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -1275,7 +1275,7 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     DROP TABLE _pidmap_; """
     if debug:
         print >> sys.stderr, sqlscript
-        print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+        print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
     # execute SQL script
     cursor.executescript( sqlscript )
     # commit transactions to database and close the cursor
@@ -1436,7 +1436,7 @@ def simplify_expr_tbl(connection, verbose=False, debug=False):
         DROP TABLE _eidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -1550,7 +1550,7 @@ def simplify_exprsumm_tbl(connection, verbose=False, debug=False):
         DROP TABLE _esidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -1828,7 +1828,7 @@ def simplify_coincdef_tbl(connection, verbose=False, debug=False):
         DROP TABLE _cdidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -2098,7 +2098,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
                     WHERE old_pid == sim_proc_id ); """ 
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -2250,7 +2250,7 @@ def simplify_segments_tbls(connection, verbose=False, debug=False):
     
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -2437,7 +2437,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
 
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
@@ -2525,7 +2525,7 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
         DROP TABLE _veto_pidmap_; """
         if debug:
             print >> sys.stderr, sqlscript
-            print >> sys.stderr, "SQL script start time: %s", % str(time.localtime()[3:6])
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
