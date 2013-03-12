@@ -266,7 +266,7 @@ def main(trigFile, timeWindow, outdir, verbose=False):
 
   # generate filename and write
   outdesc = '%s_%s' % (cacheFile.description, 'CLUSTERED')
-  xmlFile = cacheFile.path().replace(cacheFile.description, outdesc)
+  xmlFile = cacheFile.path.replace(cacheFile.description, outdesc)
 
   utils.write_filename(xmldoc, xmlFile, gz = xmlFile.endswith("gz"))
   if verbose:

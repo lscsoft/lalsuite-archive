@@ -132,7 +132,7 @@ def read_multi_inspirals(lalcache, veto_segments=segments.segmentlist(),
     trig_table = lsctables.New(lsctables.MultiInspiralTable)
     time_slides = list()
     for i,e in enumerate(lalcache):
-        fp = e.path()
+        fp = e.path
         block = 2048
         # read XML from file (with more helpful error message)
         try:
