@@ -505,7 +505,7 @@ SimInspiralTable* XLALRandomInspiralSpins(
   {
   /* z-component of aligned spin equal to the spin magnitude and
      random in sign */
-	  sgn = XLALUniformDeviate( randParams ) - 0.5;
+          sgn = 1;//XLALUniformDeviate( randParams ) - 0.5; POSITIVE ME
 	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
 	  inj->spin1z = spin1Mag * sgn;
   }
@@ -564,7 +564,7 @@ SimInspiralTable* XLALRandomInspiralSpins(
 	  inj->spin2y = 0.0;
 	  sgn = XLALUniformDeviate( randParams ) - 0.5;
 	  sgn = (sgn > 0.0) ? 1.0 : -1.0;
-	  inj->spin2z = spin2Mag * sgn;
+	  inj->spin2z = inj->spin1z; // THIS GIVES ME UNIFORM IN CHI DISTRUBUTION MUAHAHAHAHAHAHA
   }
   else
   {
