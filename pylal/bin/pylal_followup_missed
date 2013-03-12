@@ -351,9 +351,9 @@ number = 0
 for missed in coireVetoMissedCache:
 
   ## read the file containing the missed injections
-  try: missedInj = SimInspiralUtils.ReadSimInspiralFromFiles( [missed.path()] )
+  try: missedInj = SimInspiralUtils.ReadSimInspiralFromFiles( [missed.path] )
   except:
-    print >>sys.stderr, "Error while reading sim_inspiral table from file ", missed.path()
+    print >>sys.stderr, "Error while reading sim_inspiral table from file ", missed.path
     print >>sys.stderr, "Probably files does not exist"
     sys.exit(1)
 
@@ -361,7 +361,7 @@ for missed in coireVetoMissedCache:
   if missedInj: numInj = len(missedInj)
   else: numInj=0
   if verbose:
-    print "Found %d missed injections in file %s" % ( numInj, missed.path())
+    print "Found %d missed injections in file %s" % ( numInj, missed.path)
 
   # see if we have any missed injection in this round
   if numInj>0:

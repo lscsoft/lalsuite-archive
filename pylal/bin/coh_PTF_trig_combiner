@@ -217,14 +217,14 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
     trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
     trigs['ALL_TIMES'].extend(MultiInspiralUtils.ReadMultiInspiralFromFiles(\
-                                                       e.path() for e in cache))
+                                                       e.path for e in cache))
     # This is a softcopy, so adding values to trigs also adds to zerolagtrigs
     zeroLagTrigs = trigs
   else:
     trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
-    inpFiles = [e.path() for e in cache]
-    inpFiles.extend([e.path() for e in slideCache])
+    inpFiles = [e.path for e in cache]
+    inpFiles.extend([e.path for e in slideCache])
     tempTrigs,slideDictList,timeSlideTable = \
         MultiInspiralUtils.ReadMultiInspiralTimeSlidesFromFiles(inpFiles)
     trigs['ALL_TIMES'].extend(tempTrigs)
@@ -264,8 +264,8 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
   #
 
   # get search summary table from old file
-  oldxml   = utils.load_filename(cache[0].path(),\
-                                  gz = cache[0].path().endswith("gz"))
+  oldxml   = utils.load_filename(cache[0].path,\
+                                  gz = cache[0].path.endswith("gz"))
   oldSearchSummTable = table.get_table(oldxml, "search_summary")
 
   #

@@ -160,9 +160,9 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
  
   for angle,[found,missed] in cache_dict.items():
     if angle >= maxIncl:
-      currFInjs = SimInspiralUtils.ReadSimInspiralFromFiles([found.path()])
-      currMInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missed.path()])
-      currFTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([found.path()])
+      currFInjs = SimInspiralUtils.ReadSimInspiralFromFiles([found.path])
+      currMInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missed.path])
+      currFTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([found.path])
 
       for inj in currMInjs:
         if inj.get_theta() < maxInclRad:
@@ -182,8 +182,8 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
   xmldoc = append_process_params( xmldoc, sys.argv, __version__, __date__ )
 
   # get search summary table from old file
-  oldxml   = utils.load_filename( foundcache[0].path(),\
-                                  gz = foundcache[0].path().endswith("gz") )
+  oldxml   = utils.load_filename( foundcache[0].path,\
+                                  gz = foundcache[0].path.endswith("gz") )
   oldSearchSummTable = table.get_table( oldxml, "search_summary" )
   xmldoc.childNodes[-1].appendChild( oldSearchSummTable )
 
