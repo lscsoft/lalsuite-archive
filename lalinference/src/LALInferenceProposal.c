@@ -2445,6 +2445,34 @@ void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables
   
 }
 
+void NSWrapMCMCSinGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
+{
+  /* PTMCMC likes to read currentParams directly, whereas NS expects proposedParams
+   to be modified by the proposal. Back up currentParams and then restore it after
+   calling the MCMC proposal function. */
+  LALInferenceVariables *currentParamsBackup=runState->currentParams;
+  /* Create the proposal if none exists */
+  if (!LALInferenceCheckVariable(runState->proposalArgs, cycleArrayName) || !LALInferenceCheckVariable(runState->proposalArgs, cycleArrayLengthName))
+   {
+    /* In case there is a partial cycle set up already, delete it. */
+    LALInferenceDeleteProposalCycle(runState);
+    
+	LALInferenceSetupSinGaussianProposal(runState,proposedParams);
+	
+  }  
+  
+  /* PTMCMC expects some variables that NS doesn't use by default, so create them */
+  
+  
+ // NSFillMCMCVariables(proposedParams,runState->priorArgs);
+
+  runState->currentParams=proposedParams; 
+	  LALInferenceCyclicProposal(runState,proposedParams);
+  /* Restore currentParams */
+  runState->currentParams=currentParamsBackup;
+  
+}
+
 /** Setup adaptive proposals. Should be called when state->currentParams is already filled with an initial sample */
 void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state)
 {
@@ -2582,4 +2610,70 @@ void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accept
                 }
         }
         *adaptableStep = 0;
+}
+
+void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+  const UINT4 BIGWEIGHT = 20;
+  //const UINT4 SMALLWEIGHT = 5;
+  const UINT4 TINYWEIGHT = 1;
+  const char defaultPropName[]="none";
+  UINT4 fullProp = 1;
+  UINT4 nDet = numDetectorsUniquePositions(runState);
+
+  if(!runState->proposalStats) runState->proposalStats = calloc(1,sizeof(LALInferenceVariables));
+  
+  if(!LALInferenceCheckVariable(runState->proposalArgs,LALInferenceCurrentProposalName))
+      LALInferenceAddVariable(runState->proposalArgs,LALInferenceCurrentProposalName, (void*)&defaultPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_OUTPUT);
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+
+  /* The default, single-parameter updates. */
+  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
+  {
+    LALInferenceSetupAdaptiveProposals(runState);
+    LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
+  }
+
+/*  if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-extrinsicparam")) {
+    LALInferenceAddProposalToCycle(runState, extrinsicParamProposalName, &LALInferenceExtrinsicParamProposal, SMALLWEIGHT);
+  }
+  */
+  if (fullProp) {
+    /*if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
+    {   // If there are not 3 detectors, the other sky jumps are not used, so increase the % of wandering jumps 
+        if(nDet<3) LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, BIGWEIGHT);
+        else LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, 3.0*SMALLWEIGHT);
+    }*/
+    if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skyreflect")) {
+      LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
+    }
+    /*
+      else if(LALInferenceCheckVariable(proposedParams,"inclination")&&LALInferenceCheckVariable(proposedParams,"distance")) {
+      LALInferenceAddProposalToCycle(runState, inclinationDistanceName, &LALInferenceInclinationDistance, TINYWEIGHT);
+    }
+    */
+    if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
+      LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
+    /*
+    if(LALInferenceCheckVariable(proposedParams,"phase")) {
+      LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
+    }*/
+  }
+
+  /* Now add various special proposals that are conditional on
+     command-line arguments or variables in the params. */
+  
+    /* Always use the covariance method */
+    LALInferenceAddProposalToCycle(runState, covarianceEigenvectorJumpName, &LALInferenceCovarianceEigenvectorJump, BIGWEIGHT);
+
+  /* Use differential evolution unless turned off */
+  if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-differentialevolution")) {
+    LALInferenceAddProposalToCycle(runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull, BIGWEIGHT);
+    //    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
+    //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
+    
+    }
+  
+
+  LALInferenceRandomizeProposalCycle(runState);
 }

@@ -59,6 +59,7 @@ LALSUITE_ENABLE_LALMETAIO
 LALSUITE_ENABLE_LALINSPIRAL
 LALSUITE_ENABLE_LALPULSAR
 LALSUITE_ENABLE_LALXML
+LALSUITE_ENABLE_LALBURST
 
 # put version/configure info in config header
 lalinference_version_major=`echo "$VERSION" | cut -d. -f1`
@@ -146,6 +147,7 @@ LALSUITE_CHECK_LIB([LALFrame],[1.0.7],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_LIB([LALSimulation],[0.6.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_LIB([LALInspiral],[1.4.1],[LALInspiralParameterCalc],[lal/LALInspiral.h])
 LALSUITE_CHECK_LIB([LALPulsar],[1.6.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_LIB([LALBurst],[1.1.6.1],[XLALSimBurstTableFromLIGOLw],[lal/LIGOLwXMLBurstRead.h])
 
 # check for lalxml
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h])

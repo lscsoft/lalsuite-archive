@@ -118,7 +118,7 @@ Parameter arguments:\n\
 	}
  
     state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
-    state->proposal=&NSWrapMCMCLALProposal;
+    state->proposal=&NSWrapMCMCSinGaussProposal;
     BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
     if(!BinjTable){
         fprintf(stderr,"Unable to open injection file %s\n",ppt->value);

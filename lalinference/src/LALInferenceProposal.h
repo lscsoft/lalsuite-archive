@@ -112,7 +112,6 @@ extern const char *distanceQuasiGibbsProposalName;
 extern const char *orbitalPhaseQuasiGibbsProposalName;
 extern const char *extrinsicParamProposalName;
 extern const char *KDNeighborhoodProposalName;
-
 /** The name of the variable that will store the name of the current
     proposal function. */
 extern const char *LALInferenceCurrentProposalName;
@@ -259,6 +258,8 @@ void LALInferenceTimeFrequencySinGaussian(LALInferenceRunState *runState, LALInf
 
 void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
+void NSWrapMCMCSinGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 /*@}*/
 
 #endif

@@ -74,7 +74,7 @@
 #include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
-
+#include <lal/LALSimNoise.h>
 struct fvec {
 	REAL8 f;
 	REAL8 x;
@@ -316,8 +316,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     char strainname[]="LSC-STRAIN";
     UINT4 q=0;	
     //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
-    NoiseFunc *PSD=NULL;
-    REAL8 scalefactor=1;
+    //NoiseFunc *PSD=NULL;
+    //REAL8 scalefactor=1;
     SimInspiralTable *injTable=NULL;
     RandomParams *datarandparam;
     UINT4 event=0;
@@ -733,7 +733,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         }    
         /* Check if fake data is requested */
         if(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO")
-                        && strcmp(caches[i],"LALAdLIGO"))))
+                        && strcmp(caches[i],"LALAdLIGO")&& strcmp(caches[i],"LALAdVirgo"))))
         {
             //FakeFlag=1; - set but not used
             if (!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
@@ -743,27 +743,28 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             }
             datarandparam=XLALCreateRandomParams(dataseed?dataseed+(int)i:dataseed);
             if(!datarandparam) XLAL_ERROR_NULL(XLAL_EFUNC);
-            /* Selection of the noise curve */
-            if(!strcmp(caches[i],"LALLIGO")) {PSD = &LALLIGOIPsd; scalefactor=9E-46;}
-            if(!strcmp(caches[i],"LALVirgo")) {PSD = &LALVIRGOPsd; scalefactor=1.0;}
-            if(!strcmp(caches[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
-            if(!strcmp(caches[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
-            if(!strcmp(caches[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;}
-            if(interpFlag) {PSD=NULL; scalefactor=1.0;}
-            //if(!strcmp(caches[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
-            if(PSD==NULL && !interpFlag) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",caches[i]); exit(-1);}
-
-
-            IFOdata[i].oneSidedNoisePowerSpectrum=(REAL8FrequencySeries *)
-                XLALCreateREAL8FrequencySeries("spectrum",&GPSstart,0.0,
+            IFOdata[i].oneSidedNoisePowerSpectrum=(REAL8FrequencySeries *) XLALCreateREAL8FrequencySeries("spectrum",&GPSstart,0.0,
                         (REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+                        
             if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
-            for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
+            
+            /* Selection of the noise curve */
+            if(!strcmp(caches[i],"LALLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDiLIGOSRD ) ; }
+            if(!strcmp(caches[i],"LALVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDVirgo );}
+            if(!strcmp(caches[i],"LALGEO")) {fprintf(stderr,"I did not port LALGEO noise yet\n");exit(1);}
+            if(!strcmp(caches[i],"LALEGO")) {fprintf(stderr,"I did not port LALGEO noise yet\n");exit(1);}
+            if(!strcmp(caches[i],"LALAdLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDaLIGOZeroDetHighPower ) ;}
+            if(!strcmp(caches[i],"LALAdVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDAdvVirgo) ;}
+            //if(interpFlag) {PSD=NULL; scalefactor=1.0;}
+            //if(!strcmp(caches[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
+            if(IFOdata[i].oneSidedNoisePowerSpectrum==NULL && !interpFlag) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",caches[i]); exit(-1);}
+            
+            /*for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
             {
                 MetaNoiseFunc(&status,&(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]),j*IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,interp,PSD);
                 //PSD(&status,&(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]),j*IFOdata[i].oneSidedNoisePowerSpectrum->deltaF);
                 IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]*=scalefactor;
-            }
+            }*/
             IFOdata[i].freqData = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
             if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
              IFOdata[i].noff=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("noff",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
@@ -1951,6 +1952,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     REAL8 mc=0.0;
     Approximant injapprox;
     LALPNOrder phase_order;
+    int amporder=-1;
     injapprox = XLALGetApproximantFromString(inj_table->waveform);
     if( (int) injapprox == XLAL_FAILURE)
         ABORTXLAL(&status);
@@ -1984,6 +1986,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     latitude=inj_table->latitude;
     polarization=inj_table->polarization;
     injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
+    amporder=inj_table->amp_order;
     
     LALInferenceAddVariable(tmpdata->modelParams, "chirpmass",&mc,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "phase",&startPhase,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);  
@@ -1996,7 +1999,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-      
+    LALInferenceAddVariable(tmpdata->modelParams, "LAL_AMPORDER",&amporder,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);  
       REAL8 lambda1 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
         lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
@@ -2117,11 +2120,11 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
     REAL8 mu_i=sqrt(Fplus*Fplus*(0.5*(1.0+ci*ci))*(0.5*(1.0+ci*ci)) +Fcross* Fcross*ci*ci);
     REAL8 true_amp,true_pha;
     
-    REAL8 tmp_re ,tmp_im;
+    REAL8 tmp_re ,tmp_im;*/
   char InjFileName[50];
           sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
           FILE *outInj=fopen(InjFileName,"w");
- */
+ 
      /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
@@ -2148,8 +2151,8 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
-//  fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,templateReal,tmp_re,templateImag,tmp_im, sqrt(dataPtr->oneSidedNoisePowerSpectrum->data->data[i]));
-       //  fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,dataPtr->freqData->data->data[i].re,dataPtr->freqData->data->data[i].im,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+      //fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,templateReal,tmp_re,templateImag,tmp_im, sqrt(dataPtr->oneSidedNoisePowerSpectrum->data->data[i]));
+         fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,dataPtr->freqData->data->data[i].re,dataPtr->freqData->data->data[i].im,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
        dataPtr->noff->data->data[i].re= dataPtr->freqData->data->data[i].re;
       dataPtr->noff->data->data[i].im= dataPtr->freqData->data->data[i].im;
       dataPtr->freqData->data->data[i].re+=templateReal;
@@ -2167,7 +2170,7 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
     snr_index++;
     dataPtr = dataPtr->next;
     
- //fclose(outInj);
+ fclose(outInj);
   }
 //exit(1);
     LALInferenceDestroyVariables(&intrinsicParams);
@@ -2200,10 +2203,13 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
     thisData=IFOdata;
     LALInferenceIFOData *thisData2=NULL;
     thisData2=IFOdata;
-    
+    uint IFO_choice=0;
+    ProcessParamsTable * ppt=LALInferenceGetProcParamVal(commandLine,"--bestIFO");
+    if(ppt) IFO_choice=best_ifo_snr;
+    else IFO_choice=worst_ifo_snr;
    while(thisData){
        thisData->skipIFO=0;
-	    if (worst_ifo_snr==snr_index){ // SALVO: I put worst now for the moment
+	    if (IFO_choice==snr_index){ // SALVO: I put worst now for the moment
             thisData->skipIFO=1;
             while(thisData2){
                 for(j=0;j<thisData->freqData->data->length;j++){   
@@ -2361,8 +2367,8 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     SimBurst *BinjTable=NULL,*Burst_EventTable=NULL;
 
     //SimBurst *BInjTable=NULL; // salvo to continue here
-    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--burst_inj");
-    if(!ppt){
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
+    if(ppt){
     SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
 ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
     if(ppt) {

@@ -662,7 +662,7 @@ printf("Im here\n");
 		const double t = ((int) i - (length - 1) / 2) * delta_t; // t in [-30 tau, ??]
 		const double phi = LAL_TWOPI * centre_frequency * t; // this is the actual time, not t0
 		const double fac = exp(-0.5 * phi * phi / (Q * Q));
-		(*hplus)->data->data[i]  = 0.0*h0plus * fac * cos(phi);
+		(*hplus)->data->data[i]  = h0plus * fac * cos(phi);
 		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  //salvo remove zero here
 		//fprintf(stdout,"%10.10e %10.10e\n",h0plus * fac * cos(phi), h0cross * fac * sin(phi));
 	}
@@ -687,6 +687,132 @@ printf("Im here\n");
 	return 0;
 }
 
+/**
+ * Input:
+ *
+ * Q:  the "Q" of the waveform.  The Gaussian envelope is \f$exp(-1/2 t^{2} /
+ * \sigma_{t}^{2})\f$ where \f$\sigma_{t} = Q / (2 \pi f)\f$.  High Q --> long
+ * duration.
+ *
+ * centre_frequency:   the frequency of the sinusoidal oscillations that
+ * get multiplied by the Gaussian envelope.
+ *
+ * hrss:  the root-sum-squares strain of the waveform (summed over both
+ * polarizations).
+ *
+ * eccentricity:  0 --> circularly polarized, 1 --> linearly polarized.
+ *
+ * polarization:  the angle from the + axis to the major axis of the
+ * waveform ellipsoid.  with the eccentricity set to 1 (output is linearly
+ * polarized):  0 --> output contains + polarization only;  pi/2 --> output
+ * contains x polarization only.  with the eccentricity set to 0 (output is
+ * circularly polarized), the polarization parameter is irrelevant.
+ *
+ * Output:
+ *
+ * h+ and hx time series containing a cosine-Gaussian in the + polarization
+ * and a sine-Gaussian in the x polarization.  The Gaussian envelope peaks
+ * in both at t = 0 as defined by epoch and deltaT.  Note that a Tukey
+ * window with tapers covering 50% of the time series is applied to make
+ * the waveform go to 0 smoothly at the start and end.
+ */
+
+
+int XLALSimBurstSineGaussianF(
+	COMPLEX16FrequencySeries **hplus,
+	COMPLEX16FrequencySeries **hcross,
+	REAL8 Q,
+	REAL8 centre_frequency,
+	REAL8 hrss,
+	REAL8 eccentricity,
+	REAL8 polarization,
+	REAL8 deltaF,
+    UINT4 n
+)
+{
+	//REAL8Window *window;
+	/* semimajor and semiminor axes of waveform ellipsoid */
+	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
+	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
+	/* rss of plus and cross polarizations */
+	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
+	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
+	/* rss of unit amplitude cosine- and sine-gaussian waveforms.  see
+	 * K. Riles, LIGO-T040055-00.pdf */
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * sqrt(LAL_PI))) * (1.0 + exp(-Q * Q)));
+	const double sgrss = sqrt((Q / (4.0 * centre_frequency * sqrt(LAL_PI))) * (1.0 - exp(-Q * Q)));
+	/* "peak" amplitudes of plus and cross */
+	const double h0plus  = hplusrss / cgrss;
+	const double h0cross = hcrossrss / sgrss;
+	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
+   // printf("pol %lf ecc %lf combination %lf combination %lf\n",polarization,eccentricity,(a * cos(polarization) - b * sin(polarization)),(b * cos(polarization) + a * sin(polarization)));
+	int length;
+	unsigned i;
+    REAL8 deltaT=1/n/deltaF;
+  //  printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
+   // printf("hrss %10.2e hcrosrs %10.2e sgrss %10.2e h0cross %10.2e\n",hrss,hcrossrss,sgrss,h0cross);
+if (isnan(hrss))
+printf("Im here\n");
+ 	/* length of the injection time series is 30 * the width of the
+	 * Gaussian envelope (sigma_t in the comments above), rounded to
+	 * the nearest odd integer */
+
+	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / deltaT / 2.0);  // This is 30 tau
+	length = 2 * length + 1; // length is 60 taus +1 bin
+    XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * deltaT); // epoch is set to minus (30 taus) in secs
+    
+    COMPLEX16FrequencySeries *hptilde;
+    COMPLEX16FrequencySeries *hctilde;
+    
+    
+    hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&epoch,0.0,deltaF,&lalStrainUnit,n);
+    hctilde=XLALCreateCOMPLEX16FrequencySeries("hcross",&epoch,0.0,deltaF,&lalStrainUnit,n);
+	/* the middle sample is t = 0 */
+
+	if(!hptilde || !hctilde) {
+		XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+		XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+		hctilde=hptilde = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+
+	/* populate */
+     REAL8 f=0.0;
+     REAL8 phi1=0.0;
+     REAL8 phi2=0.0;
+     REAL8 tau=0.0;
+	for(i = 0; i < hptilde->data->length; i++) {
+        f=i*deltaF;
+        tau=LAL_SQRT2*Q/2.0/LAL_PI/f;
+		phi1 = LAL_TWOPI*LAL_TWOPI * centre_frequency *f*tau*tau;
+        phi2 = LAL_PI*LAL_PI * (f+centre_frequency )*(f+centre_frequency )*tau*tau;
+		
+		hptilde->data->data[i]  = h0plus * 0.5*sqrt(LAL_PI)*tau* (1.0+exp(phi1))*exp(-phi2);
+		hctilde->data->data[i] = -1.0j*h0cross * 0.5*sqrt(LAL_PI)*tau* (exp(phi1)-1)*exp(-phi2);
+		//fprintf(stdout,"%10.10e %10.10e\n",h0plus * fac * cos(phi), h0cross * fac * sin(phi));
+	}
+
+    *hplus=hptilde;
+    *hcross=hctilde;
+	/* apply a Tukey window for continuity at the start and end of the
+	  injection.  the window's shape parameter sets what fraction of
+    the window is used by the tapers 
+
+	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
+	if(!window) {
+		XLALDestroyREAL8TimeSeries(*hplus);
+		XLALDestroyREAL8TimeSeries(*hcross);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	for(i = 0; i < window->data->length; i++) {
+		(*hplus)->data->data[i] *= window->data->data[i];
+		(*hcross)->data->data[i] *= window->data->data[i];
+	}
+	XLALDestroyREAL8Window(window);
+*/
+	return 0;
+}
 
 /*
  * ============================================================================

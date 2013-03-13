@@ -111,6 +111,17 @@ int XLALSimUnicorn(
 );
 
 
+int XLALSimBurstSineGaussianF(
+	COMPLEX16FrequencySeries **hplus,
+	COMPLEX16FrequencySeries **hcross,
+	REAL8 Q,
+	REAL8 centre_frequency,
+	REAL8 hrss,
+	REAL8 eccentricity,
+	REAL8 polarization,
+	REAL8 deltaF,
+    UINT4 n
+);
 
 REAL8 XLALMeasureHPeak(const REAL8TimeSeries *);
 REAL8 XLALMeasureIntS1S2DT(const REAL8TimeSeries *, const REAL8TimeSeries *);

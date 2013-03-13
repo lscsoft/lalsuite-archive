@@ -86,7 +86,12 @@ Initialisation arguments:\n\
 	/* read data from files: */
 	fprintf(stdout, " readData(): started.\n");
 	irs->commandLine=commandLine;
-	irs->data = LALInferenceReadData(commandLine);
+    
+    if(LALInferenceGetProcParamVal(commandLine,"--burst_inj"))
+        irs->data = LALInferenceReadBurstData(commandLine);
+    else
+    	irs->data = LALInferenceReadData(commandLine);
+
 	/* (this will already initialise each LALIFOData's following elements:  */
         ppt=LALInferenceGetProcParamVal(commandLine,"--help");
         if(ppt)
