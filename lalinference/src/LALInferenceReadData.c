@@ -1072,8 +1072,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
 	REAL8 SNR=0,NetworkSNR=0, previous_snr=0.0; 
-	UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
-	UINT4 highest_snr_index=0;
+	//UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
+	//UINT4 highest_snr_index=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
@@ -1350,8 +1350,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     thisData->SNR=sqrt(SNR);
     NetworkSNR+=SNR;
     printf("this ifo snr %lf, previous %lf\n",thisData->SNR , previous_snr);
-    if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;previous_snr=thisData->SNR;}
-    highest_snr_index++;
+    //if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;previous_snr=thisData->SNR;}
+    //highest_snr_index++;
     
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
       PrintSNRsToFile(IFOdata , injTable);
@@ -1405,55 +1405,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         XLALDestroyREAL4TimeSeries(injectionBuffer);
     }
     
-    thisData=IFOdata;
-    //LALInferenceIFOData *IFOdataRed=NULL;
-    UINT4 Nifo=3;
-    //IFOdataRed=calloc(sizeof(LALInferenceIFOData),Nifo-1);
-    highest_snr_index=0;
-    i=0;
-    
-    while(thisData){
-    thisData->BestIFO=LALMalloc (sizeof(LALInferenceBestIFO));
-    thisData->BestIFO->detector= LALMalloc (sizeof(LALDetector));
-    thisData->BestIFO->TemplateFromInjection=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injastempl",&thisData->timeData->epoch,
-										0.0,
-										thisData->freqData->deltaF,
-										&lalDimensionlessUnit,
-										thisData->freqData->data->length);
-    thisData=thisData->next;
-    }
-    thisData=IFOdata;
-    LALInferenceIFOData *thisData2=NULL;
-    thisData2=IFOdata;
-    
-   while(thisData){
-	    if (best_ifo_snr==highest_snr_index){
-            while(thisData2){
-                for(j=0;j<injF->data->length;j++){   
-                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re;
-                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im;
-                  }
-                memcpy(thisData2->BestIFO->detector,thisData->detector,sizeof(LALDetector));
-                thisData2=thisData2->next;
-            }
-            break;
-            }
-      else
-		highest_snr_index++;
-		thisData=thisData->next;
-		//Salvo: I have to remove the IFO which gave the best snr from the poll
-		
-		}
-    
-    printf("HSNR %d, nifo %d \n",highest_snr_index,Nifo);
-    
-    if (highest_snr_index==0)
-    IFOdata=&IFOdata[1];
-    else if (highest_snr_index==2)
-    IFOdata[highest_snr_index-1].next=NULL;
-    else{
-    IFOdata[highest_snr_index-1].next=&(IFOdata[highest_snr_index+1]);
-    }
+
     
     
     return;

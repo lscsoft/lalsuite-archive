@@ -1037,9 +1037,9 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
-	REAL8 SNR=0.0,NetworkSNR=0.0, previous_snr=0.0; 
-	UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
-	UINT4 highest_snr_index=0;
+	REAL8 SNR=0.0,NetworkSNR=0.0;// previous_snr=0.0; 
+	//UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
+	//UINT4 highest_snr_index=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
@@ -1217,8 +1217,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     thisData->SNR=sqrt(SNR);
     NetworkSNR+=SNR;
     
-    if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;    previous_snr=thisData->SNR;}
-    highest_snr_index++;
+    //if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;    previous_snr=thisData->SNR;}
+    //highest_snr_index++;
 
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
       //PrintSNRsToFile(IFOdata , &injTable);
@@ -1251,9 +1251,10 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     
     thisData=IFOdata;
     //LALInferenceIFOData *IFOdataRed=NULL;
-    UINT4 Nifo=3;
+    //UINT4 Nifo=3;
     //IFOdataRed=calloc(sizeof(LALInferenceIFOData),Nifo-1);
-    highest_snr_index=0;
+    
+    /*highest_snr_index=0;
     i=0;
     
     while(thisData){
@@ -1298,7 +1299,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     IFOdata[highest_snr_index-1].next=NULL;
     else{
     IFOdata[highest_snr_index-1].next=&(IFOdata[highest_snr_index+1]);
-    }
+    }*/
+    
     return;
 }
 
