@@ -189,9 +189,9 @@ Parameter arguments:\n\
           if(!LALInferenceCheckVariable(currentParams,"frequency")) LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         tmpMin=20.0; tmpMax=1500.0;//salvo
         LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
-       tmpVal=-50.0;
+       tmpVal=-52.0;
           if(!LALInferenceCheckVariable(currentParams,"loghrss")) LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-        tmpMin=-51.0; tmpMax=-46.0;// this is log base e
+        tmpMin=-60.0; tmpMax=-51.0;// this is log base e
         LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
         
         tmpVal=10.0;

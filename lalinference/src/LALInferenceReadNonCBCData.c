@@ -76,6 +76,8 @@
 #include <lal/LALInferenceReadNonCBCData.h>
 #define LALINFERENCE_DEFAULT_FLOW "40.0"
 //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
+static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,SimBurst *inj_table);
+char *BurstSNRpath = NULL;
 
 static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
  struct fvec {
@@ -1032,7 +1034,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 	UINT4 Ninj=0;
 	UINT4 event=0;
 	UINT4 i=0,j=0;
-    char *SNRpath = NULL;
+    //nchar *BurstSNRpath = NULL;
     //REAL8 responseScale=1.0;
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;
@@ -1075,9 +1077,9 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 	}
         if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
                 ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
-		SNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
-		memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
-                fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
+		BurstSNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
+		memcpy(BurstSNRpath,ppt->value,strlen(ppt->value)+1);
+                fprintf(stdout,"Writing SNRs in %s\n",BurstSNRpath)     ;
 
 	}
 	injTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
@@ -1220,8 +1222,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     //if (thisData->SNR > previous_snr) {best_ifo_snr=highest_snr_index;    previous_snr=thisData->SNR;}
     //highest_snr_index++;
 
-    if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-      //PrintSNRsToFile(IFOdata , &injTable);
+    if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
+    PrintBurstSNRsToFile(IFOdata , injEvent);
     }
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
@@ -1248,7 +1250,9 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     }
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
-    
+    if (NetworkSNR<8.0) {fprintf(stderr,"NetSNR below 8. Exiting...\n");exit(1);} 
+    if (NetworkSNR>50.0) {fprintf(stderr,"NetSNR above 50. Exiting...\n");exit(1);}
+
     thisData=IFOdata;
     //LALInferenceIFOData *IFOdataRed=NULL;
     //UINT4 Nifo=3;
@@ -1337,5 +1341,37 @@ void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInference
     LALInferenceAddVariable(vars, "rightascension", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "loghrss", &loghrss, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
-
 }
+
+static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,SimBurst *inj_table){
+    char SnrName[300];
+    char ListOfIFOs[10]="";
+    REAL8 NetSNR=0.0;
+    
+    LALInferenceIFOData *thisData=IFOdata;
+    int nIFO=0;
+
+    while(thisData){
+         sprintf(ListOfIFOs,"%s%s",ListOfIFOs,thisData->name);
+         thisData=thisData->next;
+	nIFO++;
+        }
+    
+    sprintf(SnrName,"%s/snr_%s_%10.1f.dat",BurstSNRpath,ListOfIFOs,(REAL8) inj_table->time_geocent_gps.gpsSeconds);
+    FILE * snrout = fopen(SnrName,"w");
+    if(!snrout){
+	fprintf(stderr,"Unable to open the path %s for writing SNR files\n",BurstSNRpath);
+	exit(1);
+    }
+    
+    thisData=IFOdata; // restart from the first IFO
+    while(thisData){
+        fprintf(snrout,"%s:\t %4.2f\n",thisData->name,thisData->SNR);
+        NetSNR+=(thisData->SNR*thisData->SNR);
+        thisData=thisData->next;
+    }		
+    if (nIFO>1){  fprintf(snrout,"Network:\t");
+    fprintf(snrout,"%4.2f\n",sqrt(NetSNR));}
+    fclose(snrout);
+}
+

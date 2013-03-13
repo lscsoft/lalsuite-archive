@@ -761,11 +761,11 @@ printf("Im here\n");
 	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / deltaT / 2.0);  // This is 30 tau
 	length = 2 * length + 1; // length is 60 taus +1 bin
     XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * deltaT); // epoch is set to minus (30 taus) in secs
-    REAL8 fmax=centre_frequency+30.0/(Q/2.0/LAL_PI/centre_frequency);
-    REAL8 fmin=centre_frequency-30.0/(Q/2.0/LAL_PI/centre_frequency);
-    if (fmin<0.) fmin=0.0;
-    if (fmax>(1.0/(2.0*deltaT))) fmax=1.0/(2.0*deltaT);
-    size_t upper= (size_t) fmax/deltaF;
+    REAL8 Fmax=centre_frequency+30.0/(Q/2.0/LAL_PI/centre_frequency);
+    REAL8 Fmin=centre_frequency-30.0/(Q/2.0/LAL_PI/centre_frequency);
+    if (Fmin<0.) Fmin=0.0;
+    if (Fmax>(1.0/(2.0*deltaT))) Fmax=1.0/(2.0*deltaT);
+    size_t upper= (size_t) Fmax/deltaF;
     //size_t lower= (size_t) fmin/deltaF;
 //printf("fmin %lf fmax %lf\n",fmin,fmax);
     COMPLEX16FrequencySeries *hptilde;
