@@ -135,7 +135,7 @@ def parse_command_line():
         raise ValueError, "missing required option(s) %s" % missing_options
 
     if options.snr_stat not in ("rawsnr", "snroverchi", "effsnr", "newsnr"):
-        raise ValueError, "unrecognized --snr-stat %s" % options.snr-stat
+        raise ValueError, "unrecognized --snr-stat %s" % options.snr_stat
 
     return options
 
@@ -227,7 +227,7 @@ FROM time_slide GROUP BY time_slide_id
 """
 time_shifts = connection.execute(sqlquery).fetchall()
 tsid_list = [slide[0] for slide in time_shifts]
-zerolag_tsid = [slide[0] for slide in time_shifts if any(map(float, slide[1].split(',')))][0]
+zerolag_tsid = [slide[0] for slide in time_shifts if not any(map(float, slide[1].split(',')))][0]
 
 # create plot basename
 tmplt_id = [piece for piece in opts.database.split('-') if 'TMPLT' in piece][0]
@@ -247,7 +247,6 @@ for num_ifos in range(2, len(all_ifos)+1):
     for ifos in iterutils.choices(all_ifos, num_ifos):
         # use slides to determine the coincidence window
         tau = sngl_tmplt_far.get_coinc_window(connection, ifos)
-
         # make combined snr bins
         max_comb_snr = sngl_tmplt_far.quadrature_sum([max(sngl_ifo_midbins[ifo]) for ifo in ifos])
         combined_bins = np.arange(
@@ -266,13 +265,13 @@ for num_ifos in range(2, len(all_ifos)+1):
             mchirp, eta,
             min_snr=opts.sngls_threshold,
             datatype="all_data",
-            slide_id=zerolag_tsid
+            slide_id=zerolag_tsid,
             combined_bins=combined_bins,
-            snr_stat=opts.snr_stat)
+            snr_stat=opts.snr_stat)['snr_hist']
         # get the amount of inclusive coinc time
-        T_z = sngl_tmplt_far.coinc_time(connection, "all_data", zerolag_tsid, ifos, opts.time_units)
+        T_z = sngl_tmplt_far.coinc_time(connection, 'all_data', ifos, opts.time_units, tsid=zerolag_tsid)
         # create rates dict for zerolag coincs
-        rate_zerolag = sngl_tmplt_far.compute_cumrate(zerolag_coincs['snr_hist'], T_z)
+        rate_zerolag = sngl_tmplt_far.compute_cumrate(zerolag_coincs, T_z)
 
         # ----------------------- All Possible Coincs ----------------------- #
         if opts.verbose:
@@ -287,22 +286,22 @@ for num_ifos in range(2, len(all_ifos)+1):
         # compute effective background time 
         T_b = sngl_tmplt_far.eff_bkgd_time(T_i, tau, ifos, opts.time_units)
         # create rates dict for all-possible-coincs
-        rate_apc = sngl_tmplt_far.compute_cumrate(apc_hist-zerolag_coincs['snr_hist'], T_b)
+        rate_apc = sngl_tmplt_far.compute_cumrate(apc_hist-zerolag_coincs, T_b)
 
         # ----------------------- Lots of Time Slides ----------------------- #
         if opts.verbose:
             print >> sys.stdout, 'Creating rates distribution from time-slides'
 
-        slide_coinc_hist = np.sum(
-            [ sngl_tmplt_far.coinc_snr_hist(
-                connection,ifos, mchirp, eta, min_snr=opts.sngls_threshold,
-                datatype="slide", combined_bins=combined_bins,
-                snr_stat=opts.snr_stat)['snr_hist']
-            for tsid in tsid_list if tsid != zerolag_tsid
-            ], axis=1 )
+        slide_coinc_hist = sngl_tmplt_far.coinc_snr_hist(
+            connection,
+            ifos,
+            mchirp, eta,
+            min_snr=opts.sngls_threshold,
+            datatype="slide",
+            combined_bins=combined_bins,
+            snr_stat=opts.snr_stat)['snr_hist']
         # total slide time
-        T_s = np.sum([ sngl_tmplt_far.coinc_time(connection, "slide", tsid, ifos, opts.time_units)
-            for tsid in tsid_list if tsid != zerolag_tsid[0] ]) 
+        T_s = sngl_tmplt_far.coinc_time(connection, 'slide', ifos, opts.time_units)
         # create rates dict for time-slides
         rate_slides = sngl_tmplt_far.compute_cumrate(slide_coinc_hist, T_s)
 
@@ -331,16 +330,19 @@ for num_ifos in range(2, len(all_ifos)+1):
 
         # making the plots with errorbars
         ax.errorbar(
-            combined_bins[:-1], rate_apc["mode"], yerr=rate_apc["stdev"],
+            combined_bins[:-1], rate_apc["mode"],
+            yerr=(rate_apc["lower_lim"],rate_apc["upper_lim"]),
             color='r', label='All Possible Coincs',
             linestyle='None', marker='.', markersize=12)
         ax.errorbar(
-            combined_bins[:-1], rate_slides["mode"], yerr=rate_slides["stdev"],
+            combined_bins[:-1], rate_slides["mode"],
+            yerr=(rate_slides["lower_lim"],rate_slides["upper_lim"]),
             color='b', label='100,000 5sec Slides',
             linestyle='None', marker='.', markersize=12)
         ax.errorbar(
-            combined_bins[:-1], rate_zerolag["mode"], yerr=rate_zerolag["stdev"],
-            color='g', label='Zerolag Coincs',
+            combined_bins[:-1], rate_zerolag["mode"],
+            yerr=(rate_zerolag["lower_lim"],rate_zerolag["upper_lim"]),
+            color='c', label='Zerolag Coincs',
             linestyle='None', marker='.', markersize=12)
 
         # set axes scales and tick marks
@@ -364,7 +366,7 @@ for num_ifos in range(2, len(all_ifos)+1):
         quad_sum_string = '+'.join(["\\rho^2_{%s}" % ifo for ifo in ifos])
 
         ax.set_xlabel(r'Combined %s: $\sqrt{%s}$' % (stat_name, quad_sum_string))
-        ax.set_ylabel(r'Most Likely FAR $(yr^{-1})$ for $\rho_c \geq X$')
+        ax.set_ylabel(r'Measured FAR $(yr^{-1})$ for $\rho_c \geq X$')
         ax.set_title(
             r'Rate of %s Events $(%s M_{\odot}-%s M_{\odot})$' %(ifos_str, m1, m2)
             )
@@ -372,7 +374,7 @@ for num_ifos in range(2, len(all_ifos)+1):
 
         # save the figure
         plot_name = opts.output_path + plot_basename % ifos_str.replace(',','')
-        pyplot.savefig(plot_name + '.png', dpi=100, format='png')
+        pyplot.savefig(plot_name + '.png', dpi=200, format='png')
 
         # close figure and clear memory
         pyplot.close(fig)

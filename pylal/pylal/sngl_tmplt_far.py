@@ -30,6 +30,7 @@ triggers of a single template without the need for doing time-slides.
 
 import sqlite3
 import numpy as np
+from scipy import stats
 import bisect
 
 from glue import iterutils
@@ -94,17 +95,40 @@ def end_time_w_ns(end_time, end_time_ns):
     time = end_time + 1e-9*end_time_ns
     return time
 
-def compute_cumrate(hist, T_bkgd):
-    # number of seconds in a year
-    secINyr = 60.0*60.0*24.0*365.25
+def compute_cumrate(hist, T):
     # create the survival function
     cum_hist = np.cumsum( hist[::-1] )[::-1]
 
     rate = {}
     # moments of rate pdf assuming that the bkgd coincs are a Poisson process
-    rate["mode"] = cum_hist * secINyr/T_bkgd
-    rate["mean"] = (cum_hist + 1) * secINyr/T_bkgd
-    rate["stdev"] = (cum_hist + 1)**(1/2.) * secINyr/T_bkgd
+    rate["mode"] = cum_hist / T
+    rate["mean"] = (cum_hist + 1) / T
+    rate["stdev"] = (cum_hist + 1)**(1/2.) / T
+
+    # compute 1-sigma peak density confidence interval for each snr-bin in 
+    #     cumulative rate histogram
+    sigma = 0.674490
+    rate['lower_lim'] = np.zeros(len(rate['mode']))
+    rate['upper_lim'] = np.zeros(len(rate['mode']))
+    for i, R in enumerate(rate['mode']):
+        # define limits to likely rate given peak and stdev
+        max_range = rate['mode'][i]+5*rate['stdev'][i]
+        if 5*rate['stdev'][i] < rate['mode'][i]:
+            min_range = rate['mode'][i]-5*rate['stdev'][i]
+        else:
+            min_range = 0.0
+        r = np.linspace(min_range, max_range, 1e4+1)
+
+        #FIXME: using self-made gamma distribution because one in scipy
+        #    version 0.7.2 is broken 
+        cdf = stats.gamma.cdf(r, cum_hist[i]+1, scale=1./T)
+        pdf = (cdf[1:]-cdf[:-1])/(r[1]-r[0])
+
+        sort_idx = np.argsort(pdf)[::-1]
+        norm_cumsum = np.cumsum(np.sort(pdf)[::-1])/np.sum(pdf)
+        idx = np.argmin(np.abs(norm_cumsum - sigma))
+        rate['lower_lim'][i] += R - r[np.min(sort_idx[:idx+1])]
+        rate['upper_lim'][i] += r[np.max(sort_idx[:idx+1])] - R
 
     return rate
 
@@ -294,8 +318,8 @@ def coinc_snr_hist(
         "ifo1": ifos[0], "ifo2": ifos[1],
         "type": datatype,
         "min_snr": min_snr,
-        "mchirp": mchirp, "eta": eta,
-        "tsid": slide_id }
+        "mchirp": mchirp, "eta": eta
+    }
 
     # get a list of the combined snrs from the coinc_inspiral table
     sqlquery = """
@@ -331,7 +355,6 @@ def coinc_snr_hist(
             AND expr_summ.experiment_summ_id == expr_map.experiment_summ_id)
     WHERE
         expr_summ.datatype == :type
-        AND expr_summ.time_slide_id == :tsid
         AND si_ifo1.mchirp == :mchirp
         AND si_ifo1.eta == :eta
         AND get_snr(si_ifo1.snr, si_ifo1.chisq, si_ifo1.chisq_dof) >= :min_snr
@@ -339,6 +362,10 @@ def coinc_snr_hist(
     if len(ifos) > 2:
         sqlquery += """
         AND get_snr(si_ifo3.snr, si_ifo3.chisq, si_ifo3.chisq_dof) >= :min_snr"""
+    if slide_id:
+        query_params_dict['tsid'] = slide_id
+        sqlquery += """
+        AND expr_summ.time_slide_id == :tsid """
 
     # execute query
     events = connection.execute(sqlquery, query_params_dict).fetchall()
@@ -405,17 +432,23 @@ def all_possible_coincs(
 # =============================================================================
 #
 
-def coinc_time(connection, type, tsid, inc_ifo_list, unit):
+def coinc_time(connection, datatype, inc_ifo_list, unit, tsid=None):
+    params_dict = {'type': datatype}
+    cursor = connection.cursor()
+
     sqlquery = """
     SELECT duration, instruments
     FROM experiment_summary
         JOIN experiment ON (
             experiment.experiment_id == experiment_summary.experiment_id)
-    WHERE datatype = ? and time_slide_id = ?
-    """
+    WHERE datatype = :type """
+    if tsid:
+        params_dict['tsid'] = tsid
+        sqlquery += " AND time_slide_id = :tsid"
+    cursor.execute( sqlquery, params_dict )
+
     # all elements of inclusive ifo_list must be found in ifos for T to be included
-    livetime = np.sum([ T for T,ifos in connection.execute(sqlquery, (type,tsid))
-        if set(ifos.split(',')).issuperset(set(inc_ifo_list)) ])
+    livetime = np.sum([ T for T, ifos in cursor if set(ifos.split(',')).issuperset(set(inc_ifo_list)) ])
 
     return sqlutils.convert_duration(livetime, unit)
 
