@@ -57,7 +57,9 @@ void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState)
   runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
   ppt=LALInferenceGetProcParamVal(commandLine,"--template");
   if(ppt) {
-    if(!strcmp("SinGauss",ppt->value))
+    if(!strcmp("SinGaussF",ppt->value))
+        runState->template=&LALInferenceTemplateSineGaussianF;
+        else if(!strcmp("SinGauss",ppt->value))
         runState->template=&LALInferenceTemplateSineGaussian;
     else if(!strcmp("BestIFO",ppt->value))
         runState->template=&LALInferenceTemplateBestIFO;
@@ -185,7 +187,7 @@ Parameter arguments:\n\
        
        tmpVal=70.0;
           if(!LALInferenceCheckVariable(currentParams,"frequency")) LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-        tmpMin=20.0; tmpMax=280.0;//salvo
+        tmpMin=20.0; tmpMax=1500.0;//salvo
         LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
        tmpVal=-50.0;
           if(!LALInferenceCheckVariable(currentParams,"loghrss")) LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
@@ -194,7 +196,7 @@ Parameter arguments:\n\
         
         tmpVal=10.0;
           if(!LALInferenceCheckVariable(currentParams,"Q")) LALInferenceAddVariable(currentParams, "Q",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-        tmpMin=1.0; tmpMax=100.0;//salvo
+        tmpMin=1.0; tmpMax=50.0;//salvo
         LALInferenceAddMinMaxPrior(priorArgs, "Q",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
         tmpVal=0.0;
              tmpVal=0.5;

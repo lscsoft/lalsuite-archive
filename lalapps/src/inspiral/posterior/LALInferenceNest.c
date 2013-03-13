@@ -252,9 +252,14 @@ Nested sampling arguments:\n\
 	/* Set up the appropriate functions for the nested sampling algorithm */
 	runState->algorithm=&LALInferenceNestedSamplingAlgorithm;
         runState->evolve=&LALInferenceNestedSamplingOneStep;
-	
-    /* use the ptmcmc proposal to sample prior */
+        /* use the ptmcmc proposal to sample prior */
     runState->proposal=&NSWrapMCMCLALProposal;
+	
+     ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+    if(ppt) {
+    if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value))
+    runState->proposal=&NSWrapMCMCSinGaussProposal;
+}
     REAL8 temp=1.0;
     LALInferenceAddVariable(runState->proposalArgs,"temperature",&temp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
 	
@@ -447,7 +452,7 @@ Arguments for each section follow:\n\n";
 	
 	/* Set template function */
     ppt=LALInferenceGetProcParamVal(procParams,"--template");
-    if(!strcmp("SinGauss",ppt->value) || !strcmp("BestIFO",ppt->value))
+    if(!strcmp("SinGauss",ppt->value) || !strcmp("SinGaussF",ppt->value)||!strcmp("BestIFO",ppt->value))
         LALInferenceInitNonCBCTemplate(state);
     else     
         LALInferenceInitCBCTemplate(state);
@@ -484,7 +489,11 @@ Arguments for each section follow:\n\n";
 	/* Call setupLivePointsArray() to populate live points structures */
 	LALInferenceSetupLivePointsArray(state);
 
-	LALInferenceSetupDefaultNSProposal(state,state->currentParams);
+     ppt=LALInferenceGetProcParamVal(procParams,"--template");
+    if(ppt) {
+    if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value))
+    LALInferenceSetupSinGaussianProposal(state,state->currentParams);}
+	else LALInferenceSetupDefaultNSProposal(state,state->currentParams);
 	
 	
 	/* Call nested sampling algorithm */

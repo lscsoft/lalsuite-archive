@@ -2614,7 +2614,7 @@ void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accept
 
 void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
   const UINT4 BIGWEIGHT = 20;
-  //const UINT4 SMALLWEIGHT = 5;
+  const UINT4 SMALLWEIGHT = 5;
   const UINT4 TINYWEIGHT = 1;
   const char defaultPropName[]="none";
   UINT4 fullProp = 1;
@@ -2630,8 +2630,8 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
   /* The default, single-parameter updates. */
   if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
   {
-    LALInferenceSetupAdaptiveProposals(runState);
-    LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
+   // LALInferenceSetupAdaptiveProposals(runState);
+   //LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
   }
 
 /*  if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-extrinsicparam")) {
@@ -2639,11 +2639,12 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
   }
   */
   if (fullProp) {
-    /*if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
-    {   // If there are not 3 detectors, the other sky jumps are not used, so increase the % of wandering jumps 
+    if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skywander"))
+    {   
+         //If there are not 3 detectors, the other sky jumps are not used, so increase the % of wandering jumps 
         if(nDet<3) LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, BIGWEIGHT);
         else LALInferenceAddProposalToCycle(runState, skyLocWanderJumpName, &LALInferenceSkyLocWanderJump, 3.0*SMALLWEIGHT);
-    }*/
+    }
     if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-skyreflect")) {
       LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
     }
@@ -2652,8 +2653,8 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
       LALInferenceAddProposalToCycle(runState, inclinationDistanceName, &LALInferenceInclinationDistance, TINYWEIGHT);
     }
     */
-    if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
-      LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
+    //if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
+     // LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
     /*
     if(LALInferenceCheckVariable(proposedParams,"phase")) {
       LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);

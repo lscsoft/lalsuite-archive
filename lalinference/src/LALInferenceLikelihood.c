@@ -2003,7 +2003,8 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     //	if (!timeDomainWarning) {
 //	  timeDomainWarning = 1;
 //	  fprintf(stderr, "WARNING: using time domain template with frequency domain likelihood (in %s, line %d)\n", __FILE__, __LINE__);
-//	}
+//	} 
+printf("Im doing the FFT in likelihood burst\n");
         LALInferenceExecuteFT(dataPtr);
        // norm=sqrt(dataPtr->window->data->length/dataPtr->window->sumofsquares);
         /* note that the dataPtr->modelParams "time" element may have changed here!! */
@@ -2037,10 +2038,11 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
 
-      /*  char *fname=NULL;
- fname = XLALCalloc(255*sizeof(char),1);
- sprintf(fname,"%s_template.dat",dataPtr->name);
- FILE *testout=fopen(fname,"w");
+//char *fname=NULL;
+ //fname = XLALCalloc(255*sizeof(char),1);
+ //sprintf(fname,"%s_template.dat",dataPtr->name);
+ //FILE *testout=fopen(fname,"w");
+/*
  for(i=0;i<(INT4) dataPtr->timeModelhPlus->data->length;i++){
      fprintf(testout,"%10.10e %10.10e %5.5f\n",(REAL8) i*dataPtr->timeData->deltaT, Fplus*dataPtr->timeModelhPlus->data->data[i]+Fcross*dataPtr->timeModelhCross->data->data[i],timeshift);
  }
@@ -2078,10 +2080,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
       ifo_snr+=TwoDeltaToverN*(templateReal*templateReal+templateImag*templateImag)/ dataPtr->oneSidedNoisePowerSpectrum->data->data[i];
       chisquared  += temp;
       dataPtr->loglikelihood -= temp;
- //fprintf(testout, "%e %e %e %e %e %e\n",
- //        f, dataPtr->oneSidedNoisePowerSpectrum->data->data[i], 
- //        dataPtr->freqData->data->data[i].re, dataPtr->freqData->data->data[i].im,
- //        templateReal, templateImag);
+ //fprintf(testout, "%e %e %e %e %e %e\n",     f, dataPtr->oneSidedNoisePowerSpectrum->data->data[i],          dataPtr->freqData->data->data[i].re, dataPtr->freqData->data->data[i].im,      templateReal, templateImag);
     }
     dataPtr = dataPtr->next;
     net_snr+=4.0*ifo_snr;
@@ -2089,6 +2088,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     //printf("too large single IFOSNR %lf \n",sqrt(ifo_snr));
  //fclose(testout);
   }
+  //exit(1);
   net_snr=sqrt(net_snr);
  // if (net_snr>=99991)
   {

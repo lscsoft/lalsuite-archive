@@ -637,7 +637,7 @@ printf("Im here\n");
  	/* length of the injection time series is 30 * the width of the
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
 	 * the nearest odd integer */
-
+printf("deltaT inj %lf\n",delta_t);
 	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / delta_t / 2.0);  // This is 30 tau
 	length = 2 * length + 1; // length is 60 taus +1 bin
 
@@ -727,7 +727,7 @@ int XLALSimBurstSineGaussianF(
 	REAL8 eccentricity,
 	REAL8 polarization,
 	REAL8 deltaF,
-    UINT4 n
+    REAL8 deltaT
 )
 {
 	//REAL8Window *window;
@@ -748,11 +748,12 @@ int XLALSimBurstSineGaussianF(
    // printf("pol %lf ecc %lf combination %lf combination %lf\n",polarization,eccentricity,(a * cos(polarization) - b * sin(polarization)),(b * cos(polarization) + a * sin(polarization)));
 	int length;
 	unsigned i;
-    REAL8 deltaT=1/n/deltaF;
-  //  printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
-   // printf("hrss %10.2e hcrosrs %10.2e sgrss %10.2e h0cross %10.2e\n",hrss,hcrossrss,sgrss,h0cross);
+    
+   // printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
+    //printf("hrss %10.2e hcrosrs %10.2e sgrss %10.2e h0cross %10.2e\n",hrss,hcrossrss,sgrss,h0cross);
 if (isnan(hrss))
 printf("Im here\n");
+//printf("deltaT rec %10.10e\n",deltaT);
  	/* length of the injection time series is 30 * the width of the
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
 	 * the nearest odd integer */
@@ -760,15 +761,21 @@ printf("Im here\n");
 	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / deltaT / 2.0);  // This is 30 tau
 	length = 2 * length + 1; // length is 60 taus +1 bin
     XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * deltaT); // epoch is set to minus (30 taus) in secs
-    
+    REAL8 fmax=centre_frequency+30.0/(Q/2.0/LAL_PI/centre_frequency);
+    REAL8 fmin=centre_frequency-30.0/(Q/2.0/LAL_PI/centre_frequency);
+    if (fmin<0.) fmin=0.0;
+    if (fmax>(1.0/(2.0*deltaT))) fmax=1.0/(2.0*deltaT);
+    size_t upper= (size_t) fmax/deltaF;
+    //size_t lower= (size_t) fmin/deltaF;
+//printf("fmin %lf fmax %lf\n",fmin,fmax);
     COMPLEX16FrequencySeries *hptilde;
     COMPLEX16FrequencySeries *hctilde;
     
-    
-    hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&epoch,0.0,deltaF,&lalStrainUnit,n);
-    hctilde=XLALCreateCOMPLEX16FrequencySeries("hcross",&epoch,0.0,deltaF,&lalStrainUnit,n);
-	/* the middle sample is t = 0 */
-
+    /* the middle sample is t = 0 */
+    hptilde=XLALCreateCOMPLEX16FrequencySeries("hplus",&epoch,0.0,deltaF,&lalStrainUnit,upper/2+1);
+    hctilde=XLALCreateCOMPLEX16FrequencySeries("hcross",&epoch,0.0,deltaF,&lalStrainUnit,upper/2+1);
+	
+//printf("upper %d, maxF %lf\n",upper,fmax);
 	if(!hptilde || !hctilde) {
 		XLALDestroyCOMPLEX16FrequencySeries(hptilde);
 		XLALDestroyCOMPLEX16FrequencySeries(hctilde);
@@ -778,20 +785,30 @@ printf("Im here\n");
 
 	/* populate */
      REAL8 f=0.0;
-     REAL8 phi1=0.0;
-     REAL8 phi2=0.0;
+     REAL8 phiplus=0.0;
+     REAL8 phiminus=0.0;
      REAL8 tau=0.0;
-	for(i = 0; i < hptilde->data->length; i++) {
-        f=i*deltaF;
-        tau=LAL_SQRT2*Q/2.0/LAL_PI/f;
-		phi1 = LAL_TWOPI*LAL_TWOPI * centre_frequency *f*tau*tau;
-        phi2 = LAL_PI*LAL_PI * (f+centre_frequency )*(f+centre_frequency )*tau*tau;
+     hptilde->data->data[0]=0.0+1.0j*0.0;
+     hctilde->data->data[0]=0.0+1.0j*0.0;
+     tau=LAL_SQRT2*Q/2.0/LAL_PI/centre_frequency;
+     
+  //   FILE * testout = fopen("cippa.txt","w");
+	for(i = 0; i < upper/2+1; i++) {
+        f=((REAL8 ) i )*deltaF;
+        
+		phiplus = LAL_PI*LAL_PI * (centre_frequency +f)*(centre_frequency +f)*tau*tau;
+        phiminus = LAL_PI*LAL_PI * (f-centre_frequency )*(f-centre_frequency )*tau*tau;
 		
-		hptilde->data->data[i]  = h0plus * 0.5*sqrt(LAL_PI)*tau* (1.0+exp(phi1))*exp(-phi2);
-		hctilde->data->data[i] = -1.0j*h0cross * 0.5*sqrt(LAL_PI)*tau* (exp(phi1)-1)*exp(-phi2);
-		//fprintf(stdout,"%10.10e %10.10e\n",h0plus * fac * cos(phi), h0cross * fac * sin(phi));
+		hptilde->data->data[i]  = h0plus * 0.5*sqrt(LAL_PI)*tau* (exp(-phiminus) +exp(-phiplus));
+		hctilde->data->data[i] = -1.0j*h0cross * 0.5*sqrt(LAL_PI)*tau*(exp(-phiminus)-exp(-phiplus));
+        ///printf("f %lf tau %lf phi1 %lf phi2 %lf\n",f, tau,phi1,phi2);
+        //if (f> centre_frequency*(1.-0.5) && f<centre_frequency*(1.+0.5))
+        //printf("f %lf exp1 %10.10e exp2 %10.10e\n",f, exp(phi1),exp(-phi2));
+ //   fprintf(testout,"%lf %10.10e %10.10e  %10.10e %10.10e %lf\n",f,CX16re(hptilde->data->data[i]),CX16im(hptilde->data->data[i]),CX16re(hctilde->data->data[i]),CX16im(hctilde->data->data[i]),centre_frequency);
 	}
 
+//fclose(testout);
+//exit(1);
     *hplus=hptilde;
     *hcross=hctilde;
 	/* apply a Tukey window for continuity at the start and end of the

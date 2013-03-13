@@ -120,7 +120,7 @@ int XLALSimBurstSineGaussianF(
 	REAL8 eccentricity,
 	REAL8 polarization,
 	REAL8 deltaF,
-    UINT4 n
+    REAL8 deltaT
 );
 
 REAL8 XLALMeasureHPeak(const REAL8TimeSeries *);
