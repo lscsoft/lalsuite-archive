@@ -2630,8 +2630,8 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
   /* The default, single-parameter updates. */
   if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-singleadapt"))
   {
-   // LALInferenceSetupAdaptiveProposals(runState);
-   //LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
+   LALInferenceSetupAdaptiveProposals(runState);
+   LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
   }
 
 /*  if (nDet >= 3 && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-extrinsicparam")) {

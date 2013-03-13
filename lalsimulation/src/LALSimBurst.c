@@ -637,7 +637,7 @@ printf("Im here\n");
  	/* length of the injection time series is 30 * the width of the
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
 	 * the nearest odd integer */
-printf("deltaT inj %lf\n",delta_t);
+//printf("deltaT inj %lf\n",delta_t);
 	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / delta_t / 2.0);  // This is 30 tau
 	length = 2 * length + 1; // length is 60 taus +1 bin
 

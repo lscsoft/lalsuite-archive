@@ -75,6 +75,7 @@
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALSimNoise.h>
+#include <lal/LALInferenceReadNonCBCData.h>
 struct fvec {
 	REAL8 f;
 	REAL8 x;
@@ -2367,8 +2368,8 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     SimBurst *BinjTable=NULL,*Burst_EventTable=NULL;
 
     //SimBurst *BInjTable=NULL; // salvo to continue here
-    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
-    if(ppt){
+    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--burst_inj");
+    if(!ppt){
     SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
 ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
     if(ppt) {
@@ -2430,7 +2431,7 @@ ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
                 Burst_EventTable->next=NULL;
             }
 }
-    
+    LALInferenceBurstInjectionToVariables(Burst_EventTable,runState->currentParams);
     REAL8 injPrior = runState->prior(runState,runState->currentParams);
     LALInferenceAddVariable(runState->currentParams,"logPrior",&injPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     REAL8 injL = runState->likelihood(runState->currentParams, runState->data, runState->template);

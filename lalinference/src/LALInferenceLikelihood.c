@@ -2004,7 +2004,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
 //	  timeDomainWarning = 1;
 //	  fprintf(stderr, "WARNING: using time domain template with frequency domain likelihood (in %s, line %d)\n", __FILE__, __LINE__);
 //	} 
-printf("Im doing the FFT in likelihood burst\n");
+//printf("Im doing the FFT in likelihood burst\n");
         LALInferenceExecuteFT(dataPtr);
        // norm=sqrt(dataPtr->window->data->length/dataPtr->window->sumofsquares);
         /* note that the dataPtr->modelParams "time" element may have changed here!! */
