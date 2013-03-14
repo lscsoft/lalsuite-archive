@@ -264,10 +264,10 @@ for template in bank:
 ligolw_process.set_process_end_time(process)
 
 # FIXME output naming conventions to match IHOPE/tmpltbank break sbank_pipe
-#if opts.user_tag:
-#    fout = "%s-SBANK_%s-%d-%d.xml" % (opts.instrument, opts.user_tag, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
-#else:
-#    fout = "%s-SBANK-%d-%d.xml" % (opts.instrument, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
+if opts.user_tag:
+    fout = "%s-SBANK_%s-%d-%d.xml" % (opts.instrument, opts.user_tag, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
+else:
+    fout = "%s-SBANK-%d-%d.xml" % (opts.instrument, opts.gps_start_time, opts.gps_end_time-opts.gps_start_time)
 
-fout = "%s.xml" % opts.user_tag
+#fout = "%s.xml" % opts.user_tag
 utils.write_filename(xmldoc, fout)
