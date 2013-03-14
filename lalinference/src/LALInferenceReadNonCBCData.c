@@ -1160,6 +1160,14 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
       printf("READ polar angle %lf\n",polar_angle); 
       printf("READ ecc %lf\n",injEvent->pol_ellipse_e); 
 
+    if (centre_frequency + 1.0/sqrt(2.)/((Q/LAL_TWOPI/centre_frequency))>=  1.0/(2.0*thisData->timeData->deltaT))
+{
+    fprintf(stderr, "ERROR: Your sample rate is too low to ensure a good analysis for a SG centered at f0=%lf and with Q=%lf. Consider increasing it to more than %lf. Exiting...\n",centre_frequency,Q,2.0*(centre_frequency + 1.0/sqrt(2.)/((Q/LAL_TWOPI/centre_frequency))));
+exit(1);}
+    if (centre_frequency + 1.0/sqrt(2.)/((Q/LAL_TWOPI/centre_frequency))<=  thisData->fLow)
+{
+    fprintf(stderr, "ERROR: The low frenquency tail of your SG centered at f0=%lf and with Q=%lf will lie below the low frequency cutoff. Whit your current settings and parameters the minimum f0 you can analyze is %lf. Exiting...\n",centre_frequency,Q,(centre_frequency + 1.0/sqrt(2.)/((Q/LAL_TWOPI/centre_frequency))));
+exit(1);}
       XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,thisData->timeData->deltaT);
 
  

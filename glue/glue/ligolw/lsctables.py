@@ -2562,7 +2562,11 @@ class SimBurst(TableRow):
 
 	def get_ra_dec(self):
 		return self.ra, self.dec
-
+	def get_end(self, site = None):
+		if site is None:
+			return self.get_time_geocent()
+		else:
+			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
 SimBurstTable.RowType = SimBurst
 

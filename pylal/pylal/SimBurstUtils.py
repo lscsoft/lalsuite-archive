@@ -35,6 +35,10 @@ from pylal import inject
 from pylal import rate
 from pylal import SnglBurstUtils
 
+from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
@@ -429,3 +433,25 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 MW_CENTER_J2000_RA_RAD = 2.0318570464121519
 MW_CENTER_J2000_DEC_RAD = -0.50628171572274738
 
+
+
+def ReadSimBurstFromFiles(fileList, verbose=False):
+  """
+  Read the simBurst tables from a list of files
+
+  @param fileList: list of input files
+  @param verbose: print ligolw_add progress
+  """
+  simBurstTriggers = None
+  for thisFile in fileList:
+    doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"), verbose=verbose)
+    # extract the sim inspiral table
+    try: simBurstTable = \
+      table.get_table(doc, lsctables.SimBurstTable.tableName)
+    except: simInspiralTable = None
+    if simBurstTriggers and simBurstTable: 
+      simBurstTriggers.extend(simBurstTable)
+    elif not simBurstTriggers:
+      simBurstTriggers = simBurstTable
+
+  return simBurstTriggers

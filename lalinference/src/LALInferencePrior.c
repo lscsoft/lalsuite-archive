@@ -1313,9 +1313,7 @@ REAL8 LALInferenceSinGaussPrior(LALInferenceRunState *runState, LALInferenceVari
   }
   /*Use a uniform in log D distribution*/
   if(LALInferenceCheckVariable(params,"loghrss"))
-    logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"loghrss");
-  if(LALInferenceCheckVariable(params,"inclination"))
-    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"inclination"))));
+    logPrior+=-3.0* *(REAL8 *)LALInferenceGetVariable(params,"loghrss");
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
  

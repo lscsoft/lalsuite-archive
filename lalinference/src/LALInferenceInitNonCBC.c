@@ -95,7 +95,7 @@ void LALInferenceInitBurstVariables(LALInferenceRunState *state)
 	ProcessParamsTable *commandLine=state->commandLine;
 	REAL8 endtime;
 	ProcessParamsTable *ppt=NULL;
-    REAL8 dt=0.1;            /* Width of time prior */
+    
     REAL8 tmpMax, tmpVal,tmpMin;
 	memset(currentParams,0,sizeof(LALInferenceVariables));
 	memset(&status,0,sizeof(LALStatus));
@@ -156,18 +156,33 @@ Parameter arguments:\n\
         }
 
 
+    REAL8 fmin=20.0;
+    REAL8 fmax=1500.0;
+    REAL8 Qmin=1.0, Qmax=50.0;
+    REAL8 loghrssmin=-60.0, loghrssmax=-48.0;
+    REAL8 dt=0.1;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmin");
+    if (ppt) loghrssmin=atof(ppt->value);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmax");
+    if (ppt) loghrssmax=atof(ppt->value);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--qmin");
+    if (ppt) Qmin=atof(ppt->value);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
+    if (ppt) Qmax=atof(ppt->value);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--fmin");
+    if (ppt) fmin=atof(ppt->value);    
+    ppt=LALInferenceGetProcParamVal(commandLine,"--fmax");
+    if (ppt) fmax=atof(ppt->value);
+    ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
+    if (ppt) dt=atof(ppt->value);
+    
+
     /* Over-ride end time if specified */
     ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
     if(ppt){
         endtime=atof(ppt->value);
     }
-
-    /* Over-ride time prior if specified */
-    ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
-    if(ppt){
-        dt=atof(ppt->value);
-    }
-    
+       
  
         if(!LALInferenceCheckVariable(currentParams,"time")) LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
     tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
@@ -187,17 +202,17 @@ Parameter arguments:\n\
        
        tmpVal=70.0;
           if(!LALInferenceCheckVariable(currentParams,"frequency")) LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-        tmpMin=20.0; tmpMax=1500.0;//salvo
-        LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+    
+        LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &fmin, &fmax,   LALINFERENCE_REAL8_t);
        tmpVal=-52.0;
           if(!LALInferenceCheckVariable(currentParams,"loghrss")) LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-        tmpMin=-60.0; tmpMax=-51.0;// this is log base e
-        LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+        
+        LALInferenceAddMinMaxPrior(priorArgs, "loghrss",     &loghrssmin, &loghrssmax,   LALINFERENCE_REAL8_t);
         
         tmpVal=10.0;
           if(!LALInferenceCheckVariable(currentParams,"Q")) LALInferenceAddVariable(currentParams, "Q",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-        tmpMin=1.0; tmpMax=50.0;//salvo
-        LALInferenceAddMinMaxPrior(priorArgs, "Q",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+        
+        LALInferenceAddMinMaxPrior(priorArgs, "Q",     &Qmin, &Qmax,   LALINFERENCE_REAL8_t);
         tmpVal=0.0;
              tmpVal=0.5;
           if(!LALInferenceCheckVariable(currentParams,"eccentricity")) LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);

@@ -1510,7 +1510,7 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
       REAL8 Q, centre_frequency,hrss,loghrss,eccentricity,polar_angle;
      // REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
         //UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
-  UINT4 i=0;
+        UINT4 i=0;
   
       Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
       centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
@@ -1528,7 +1528,7 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
            
       XLALSimBurstSineGaussianF(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
    
-   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds - hplus->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds-hplus->epoch.gpsNanoSeconds));
+   REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
     /* write template (time axis) location in "->modelParams" so that     */
     /* template corresponds to stored parameter values                    */
     /* and other functions may time-shift template to where they want it: */

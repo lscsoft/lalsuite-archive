@@ -3146,7 +3146,8 @@ def getRAString(radians,accuracy='auto'):
 def getDecString(radians,accuracy='auto'):
     # LaTeX doesn't like unicode degree symbols etc
     if matplotlib.rcParams['text.usetex']:
-        degsymb='^\circ'
+        #degsymb="^\circ"
+        degsymb=' deg'
         minsymb="'"
         secsymb="''"
     else:
@@ -5053,4 +5054,763 @@ def confidence_interval_uncertainty(cl, cl_bounds, posteriors):
     return (relative_change, frac_uncertainty, quant_uncertainty)
 
 
+class BurstPosterior(object):
+    """
+    Data structure for a table of posterior samples .
+    """
+    def __init__(self,commonResultsFormatData,SimBurstTableEntry=None,injFref=None,SnglBurstList=None,name=None,description=None,votfile=None):
+        """
+        Constructor.
+
+        @param commonResultsFormatData: A 2D array containing the posterior
+            samples and related data. The samples chains form the columns.
+        @type commonResultsFormatData: custom type
+        @param SimInspiralTableEntry: A SimInspiralTable row containing the injected values.
+        @type SimInspiralTableEntry: glue.ligolw.lsctables.SimInspiral
+        @param SnglInspiralList: A list of SnglInspiral objects containing the triggers.
+        @type SnglInspiralList: list
+        
+        """
+        common_output_table_header,common_output_table_raw =commonResultsFormatData
+        self._posterior={}
+        self._injFref=injFref
+        self._injection=SimBurstTableEntry
+        self._triggers=SnglBurstList
+        self._loglaliases=['posterior', 'logl','logL','likelihood', 'deltalogl']
+        self._votfile=votfile
+        
+        common_output_table_header=[i.lower() for i in common_output_table_header]
+        
+        # Define XML mapping
+        self._injXMLFuncMap={
+                            'f0':lambda inj:inj.frequency,
+                            'frequency':lambda inj:inj.frequency,
+                            'centre_frequency':lambda inj:inj.frequency,
+                            'Q':lambda inj:inj.q,
+                            'hrss':lambda inj:inj.hrss,
+                            'loghrss':lambda inj:log(inj.hrss),
+                            'polar_angle':lambda inj:inj.pol_ellipse_angle,
+                            'pol_ellipse_angle':lambda inj:inj.pol_ellipse_angle,
+                            'pol_ellipse_e':lambda inj:inj.pol_ellipse_e,
+                            'eccentricity':lambda inj:inj.pol_ellipse_e,
+                            'time': lambda inj:float(inj.get_end()),
+                            'end_time': lambda inj:float(inj.get_end()),
+                            'ra':self._inj_longitude,
+                            'rightascension':self._inj_longitude,
+                            'long':self._inj_longitude,
+                            'longitude':self._inj_longitude,
+                            'dec':lambda inj:inj.dec,
+                            'declination':lambda inj:inj.dec,
+                            'lat':lambda inj:inj.dec,
+                            'latitude':lambda inj:inj.dec,
+                            'psi': lambda inj: np.mod(inj.psi, np.pi),
+                            'f_ref': lambda inj: self._injFref,
+                            'polarisation':lambda inj:inj.psi,
+                            'polarization':lambda inj:inj.psi,
+                            'h1_end_time':lambda inj:float(inj.get_end('H')),
+                            'l1_end_time':lambda inj:float(inj.get_end('L')),
+                            'v1_end_time':lambda inj:float(inj.get_end('V')),
+                           }
+
+        for one_d_posterior_samples,param_name in zip(np.hsplit(common_output_table_raw,common_output_table_raw.shape[1]),common_output_table_header):
+            
+            self._posterior[param_name]=PosteriorOneDPDF(param_name.lower(),one_d_posterior_samples,injected_value=self._getinjpar(param_name),injFref=self._injFref,trigger_values=self._gettrigpar(param_name))
+
+       
+        logLFound=False
+        
+        for loglalias in self._loglaliases:
+        
+            if loglalias in common_output_table_header:
+                try:
+                    self._logL=self._posterior[loglalias].samples
+                except KeyError:
+                    print "No '%s' column in input table!"%loglalias
+                    continue
+                logLFound=True
+                
+        if not logLFound:
+            raise RuntimeError("No likelihood/posterior values found!")
+
+        if name is not None:
+            self.__name=name
+            
+        if description is not None:
+            self.__description=description
+
+        return
+
+    def bootstrap(self):
+        """
+        Returns a new Posterior object that contains a bootstrap
+        sample of self.
+        
+        @rtype: Posterior
+        """
+        names=[]
+        samples=[]
+        for name,oneDpos in self._posterior.items():
+            names.append(name)
+            samples.append(oneDpos.samples)
+
+        samplesBlock=np.hstack(samples)
+
+        bootstrapSamples=samplesBlock[:,:]
+        Nsamp=bootstrapSamples.shape[0]
+
+        rows=np.vsplit(samplesBlock,Nsamp)
+
+        for i in range(Nsamp):
+            bootstrapSamples[i,:]=random.choice(rows)
+
+        return Posterior((names,bootstrapSamples),self._injection,self._triggers)
+
+    def delete_samples_by_idx(self,samples):
+        """
+        Remove samples from all OneDPosteriors.
+
+        @param samples: The indexes of the samples to be removed.
+        @type samples: list
+        """
+        for name,pos in self:
+            pos.delete_samples_by_idx(samples)
+        return
+
+    def delete_NaN_entries(self,param_list):
+        """
+        Remove samples containing NaN in request params.
+
+        @param param_list: The parameters to be checked for NaNs.
+        @type param_list: list
+        """
+        nan_idxs = np.array(())
+        nan_dict = {}
+        for param in param_list:
+            nan_bool_array = np.isnan(self[param].samples).any(1)
+            idxs = np.where(nan_bool_array == True)[0]
+            if len(idxs) > 0:
+                nan_dict[param]=len(idxs)
+                nan_idxs = np.append(nan_idxs, idxs)
+        total_samps = len(self)
+        nan_samps   = len(nan_idxs)
+        if nan_samps is not 0:
+            print "WARNING: removing %i of %i total samples due to NaNs:"% (nan_samps,total_samps)
+            for param in nan_dict.keys():
+                print "\t%i NaNs in %s."%(nan_dict[param],param)
+            self.delete_samples_by_idx(nan_idxs)
+        return
+
+    @property
+    def injection(self):
+        """
+        Return the injected values.
+        
+        @rtype: glue.ligolw.lsctables.SimInspiral
+        """
+
+        return self._injection
+
+    @property
+    def triggers(self):
+        """
+        Return the trigger values .
+        
+        @rtype: list
+        """
+
+        return self._triggers
+
+    def _total_incl_restarts(self, samples):
+        total=0
+        last=samples[0]
+        for x in samples[1:]:
+            if x < last:
+                total += last
+            last = x
+        total += samples[-1]
+        return total
+
+    def longest_chain_cycles(self):
+        """
+        Returns the number of cycles in the longest chain
+        
+        @rtype: number
+        """
+        samps,header=self.samples()
+        header=header.split()
+        if not ('cycle' in header):
+            raise RuntimeError("Cannot compute number of cycles in longest chain")
+        if 'chain' in header:
+            chain_col=header.index('chain')
+            cycle_col=header.index('cycle')
+            chain_indexes=np.unique(samps[:,chain_col])
+            max_cycle=0
+            for ind in chain_indexes:
+                chain_cycle_samps=samps[ samps[:,chain_col] == ind, cycle_col ]
+                max_cycle=max(max_cycle, self._total_incl_restarts(chain_cycle_samps))
+            return int(max_cycle)
+        else:
+            return int(self._total_incl_restarts(samps[:,cycle_col]))
+
+    #@injection.setter #Python 2.6+
+    def set_injection(self,injection):
+        """
+        Set the injected values of the parameters.
+
+        @param injection: A SimInspiralTable row object containing the injected parameters.
+        @type injection: glue.ligolw.lsctables.SimInspiral
+        """
+        if injection is not None:
+            self._injection=injection
+            for name,onepos in self:
+                new_injval=self._getinjpar(name)
+                if new_injval is not None:
+                    self[name].set_injval(new_injval)
+
+    def set_triggers(self,triggers):
+        """
+        Set the trigger values of the parameters.
+
+        @param triggers: A list of SnglInspiral objects.
+        @type triggers: list
+        """
+        if triggers is not None:
+            self._triggers=triggers
+            for name,onepos in self:
+                new_trigvals=self._gettrigpar(name)
+                if new_trigvals is not None:
+                    self[name].set_trigvals(new_trigvals)
+
+
+    def _getinjpar(self,paramname):
+        """
+        Map parameter names to parameters in a SimInspiralTable .
+        """
+        if self._injection is not None:
+            for key,value in self._injXMLFuncMap.items():
+                if paramname.lower().strip() == key.lower().strip():
+                    return self._injXMLFuncMap[key](self._injection)
+        return None
+
+    def _gettrigpar(self,paramname):
+        """
+        Map parameter names to parameters in a SnglInspiral.
+        """
+        vals = None
+        if self._triggers is not None:
+            for key,value in self._injXMLFuncMap.items():
+                if paramname.lower().strip() == key.lower().strip():
+                    try:
+                        vals = dict([(trig.ifo,self._injXMLFuncMap[key](trig)) for trig in self._triggers])
+                    except AttributeError:
+                        break
+        return vals
+
+    def __getitem__(self,key):
+        """
+        Container method . Returns posterior chain,one_d_pos, with name one_d_pos.name.
+        """
+        return self._posterior[key.lower()]
+
+    def __len__(self):
+        """
+        Container method. Defined as number of samples.
+        """
+        return len(self._logL)
+
+    def __iter__(self):
+        """
+        Container method. Returns iterator from self.forward for use in
+        for (...) in (...) etc.
+        """
+        return self.forward()
+
+    def forward(self):
+        """
+        Generate a forward iterator (in sense of list of names) over Posterior
+        with name,one_d_pos.
+        """
+        current_item = 0
+        while current_item < self.dim:
+            name=self._posterior.keys()[current_item]
+            pos=self._posterior[name]
+            current_item += 1
+            yield name,pos
+
+    def bySample(self):
+        """
+        Generate a forward iterator over the list of samples corresponding to
+        the data stored within the Posterior instance. These are returned as
+        ParameterSamples instances.
+        """
+        current_item=0
+        pos_array,header=self.samples
+        while current_item < len(self):
+            sample_array=(np.squeeze(pos_array[current_item,:]))
+            yield PosteriorSample(sample_array, header, header)
+            current_item += 1
+
+
+    @property
+    def dim(self):
+        """
+        Return number of parameters.
+        """
+        return len(self._posterior.keys())
+
+    @property
+    def names(self):
+        """
+        Return list of parameter names.
+        """
+        nameslist=[]
+        for key,value in self:
+            nameslist.append(key)
+        return nameslist
+
+    @property
+    def means(self):
+        """
+        Return dict {paramName:paramMean} .
+        """
+        meansdict={}
+        for name,pos in self:
+            meansdict[name]=pos.mean
+        return meansdict
+
+    @property
+    def medians(self):
+        """
+        Return dict {paramName:paramMedian} .
+        """
+        mediansdict={}
+        for name,pos in self:
+            mediansdict[name]=pos.median
+        return mediansdict
+
+    @property
+    def stdevs(self):
+        """
+        Return dict {paramName:paramStandardDeviation} .
+        """
+        stdsdict={}
+        for name,pos in self:
+            stdsdict[name]=pos.stdev
+        return stdsdict
+
+    @property
+    def name(self):
+        """
+        Return qualified string containing the 'name' of the Posterior instance.
+        """
+        return self.__name
+
+    @property
+    def description(self):
+        """
+        Return qualified string containing a 'description' of the Posterior instance.
+        """
+        return self.__description
+
+    def append(self,one_d_posterior):
+        """
+        Container method. Add a new OneDParameter to the Posterior instance.
+        """
+        self._posterior[one_d_posterior.name]=one_d_posterior
+        return
+
+    def pop(self,param_name):
+        """
+        Container method.  Remove PosteriorOneDPDF from the Posterior instance.
+        """
+        return self._posterior.pop(param_name)
+
+    def append_mapping(self, new_param_names, func, post_names):
+        """
+        Append posteriors pos1,pos2,...=func(post_names)
+        """
+        # deepcopy 1D posteriors to ensure mapping function doesn't modify the originals
+        import copy
+        #1D input
+        if isinstance(post_names, str):
+            old_post = copy.deepcopy(self[post_names])
+            old_inj  = old_post.injval
+            old_trigs  = old_post.trigvals
+            if old_inj:
+                new_inj = func(old_inj)
+            else:
+                new_inj = None
+            if old_trigs:
+                new_trigs = {}
+                for IFO in old_trigs.keys():
+                    new_trigs[IFO] = func(old_trigs[IFO])
+            else:
+                new_trigs = None
+
+            samps = func(old_post.samples)
+            new_post = PosteriorOneDPDF(new_param_names, samps, injected_value=new_inj, trigger_values=new_trigs)
+            if new_post.samples.ndim is 0:
+                print "WARNING: No posterior calculated for %s ..." % post.name
+            else:
+                self.append(new_post)
+        #MultiD input
+        else:
+            old_posts = [copy.deepcopy(self[post_name]) for post_name in post_names]
+            old_injs = [post.injval for post in old_posts]
+            old_trigs = [post.trigvals for post in old_posts]
+            samps = func(*[post.samples for post in old_posts])
+            #1D output
+            if isinstance(new_param_names, str):
+                if None not in old_injs:
+                    inj = func(*old_injs)
+                else:
+                    inj = None
+                if None not in old_trigs:
+                    new_trigs = {}
+                    for IFO in old_trigs[0].keys():
+                        oldvals = [param[IFO] for param in old_trigs]
+                        new_trigs[IFO] = func(*oldvals)
+                else:
+                    new_trigs = None
+                new_post = PosteriorOneDPDF(new_param_names, samps, injected_value=inj, trigger_values=new_trigs)
+                self.append(new_post)
+            #MultiD output
+            else:
+                if None not in old_injs:
+                    injs = func(*old_injs)
+                else:
+                    injs = [None for name in new_param_names]
+                if None not in old_trigs:
+                    new_trigs = [{} for param in range(len(new_param_names))]
+                    for IFO in old_trigs[0].keys():
+                        oldvals = [param[IFO] for param in old_trigs]
+                        newvals = func(*oldvals)
+                        for param,newval in enumerate(newvals):
+                            new_trigs[param][IFO] = newval
+                else:
+                    new_trigs = [None for param in range(len(new_param_names))]
+                new_posts = [PosteriorOneDPDF(new_param_name,samp,injected_value=inj,trigger_values=new_trigs) for (new_param_name,samp,inj,new_trigs) in zip(new_param_names,samps,injs,new_trigs)]
+                for post in new_posts: 
+                    if post.samples.ndim is 0: 
+                        print "WARNING: No posterior calculated for %s ..." % post.name
+                    else:
+                        self.append(post)
+        return
+
+    def _average_posterior(self, samples, post_name):
+        """
+        Returns the average value of the 'post_name' column of the
+        given samples.
+        """
+        ap = 0.0
+        for samp in samples:
+            ap = ap + samp[post_name]
+        return ap / len(samples)
+
+    def _average_posterior_like_prior(self, samples, logl_name, prior_name, log_bias = 0):
+        """
+        Returns the average value of the posterior assuming that the
+        'logl_name' column contains log(L) and the 'prior_name' column
+        contains the prior (un-logged).
+        """
+        ap = 0.0
+        for samp in samples:
+            ap += np.exp(samp[logl_name]-log_bias)*samp[prior_name]
+        return ap / len(samples)
+
+    def _bias_factor(self):
+        """
+        Returns a sensible bias factor for the evidence so that
+        integrals are representable as doubles.
+        """
+        return np.mean(self._logL)
+
+    def di_evidence(self, boxing=64):
+        """
+        Returns the log of the direct-integration evidence for the
+        posterior samples.
+        """
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
+        samples,header=self.samples()
+        header=header.split()
+        coord_names=[name for name in allowed_coord_names if name in header]
+        coordinatized_samples=[PosteriorSample(row, header, coord_names) for row in samples]
+        tree=KDTree(coordinatized_samples)
+
+        if "prior" in header and "logl" in header:
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "logl", "prior", bf), boxing))
+        elif "prior" in header and "likelihood" in header:
+            bf = self._bias_factor()
+            return bf + np.log(tree.integrate(lambda samps: self._average_posterior_like_prior(samps, "likelihood", "prior", bf), boxing))
+        elif "post" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "post"), boxing))
+        elif "posterior" in header:
+            return np.log(tree.integrate(lambda samps: self._average_posterior(samps, "posterior"), boxing))
+        else:
+            raise RuntimeError("could not find 'post', 'posterior', 'logl' and 'prior', or 'likelihood' and 'prior' columns in output to compute direct integration evidence")
+
+    def elliptical_subregion_evidence(self):
+        """Returns an approximation to the log(evidence) obtained by
+        fitting an ellipse around the highest-posterior samples and
+        performing the harmonic mean approximation within the ellipse.
+        Because the ellipse should be well-sampled, this provides a
+        better approximation to the evidence than the full-domain HM."""
+        allowed_coord_names=["spin1", "spin2", "a1", "phi1", "theta1", "a2", "phi2", "theta2",
+                             "iota", "psi", "ra", "dec",
+                             "phi_orb", "phi0", "dist", "time", "mc", "mchirp", "chirpmass", "q"]
+        samples,header=self.samples()
+        header=header.split()
+
+        n=int(0.05*samples.shape[0])
+        if not n > 1:
+            raise IndexError
+
+        coord_names=[name for name in allowed_coord_names if name in header]
+        indexes=np.argsort(self._logL[:,0])
+
+        my_samples=samples[indexes[-n:], :] # The highest posterior samples.
+        my_samples=np.array([PosteriorSample(sample,header,coord_names).coord() for sample in my_samples])
+
+        mu=np.mean(my_samples, axis=0)
+        cov=np.cov(my_samples, rowvar=0)
+
+        d0=None
+        for mysample in my_samples:
+            d=np.dot(mysample-mu, np.linalg.solve(cov, mysample-mu))
+            if d0 is None:
+                d0 = d
+            else:
+                d0=max(d0,d)
+
+        ellipse_logl=[]
+        ellipse_samples=[]
+        for sample,logl in zip(samples, self._logL):
+            coord=PosteriorSample(sample, header, coord_names).coord()
+            d=np.dot(coord-mu, np.linalg.solve(cov, coord-mu))
+
+            if d <= d0:
+                ellipse_logl.append(logl)
+                ellipse_samples.append(sample)
+        
+        if len(ellipse_samples) > 5*n:
+            print 'WARNING: ellpise evidence region encloses significantly more samples than %d'%n
+
+        ellipse_samples=np.array(ellipse_samples)
+        ellipse_logl=np.array(ellipse_logl)
+
+        ndim = len(coord_names)
+        ellipse_volume=np.pi**(ndim/2.0)*d0**(ndim/2.0)/special.gamma(ndim/2.0+1)*np.sqrt(np.linalg.det(cov))
+
+        try:
+            prior_index=header.index('prior')
+            pmu=np.mean(ellipse_samples[:,prior_index])
+            pstd=np.std(ellipse_samples[:,prior_index])
+            if pstd/pmu > 1.0:
+                print 'WARNING: prior variation greater than 100\% over elliptical volume.'
+            approx_prior_integral=ellipse_volume*pmu
+        except KeyError:
+            # Maybe prior = 1?
+            approx_prior_integral=ellipse_volume
+
+        ll_bias=np.mean(ellipse_logl)
+        ellipse_logl = ellipse_logl - ll_bias
+
+        return np.log(approx_prior_integral) - np.log(np.mean(1.0/np.exp(ellipse_logl))) + ll_bias
+
+    def harmonic_mean_evidence(self):
+        """
+        Returns the log of the harmonic mean evidence for the set of
+        posterior samples.
+        """
+        bf = self._bias_factor()
+        return bf + np.log(1/np.mean(1/np.exp(self._logL-bf)))
+
+    def _posMode(self):
+        """
+        Find the sample with maximum posterior probability. Returns value
+        of posterior and index of sample .
+        """
+        pos_vals=self._logL
+        max_i=0
+        max_pos=pos_vals[0]
+        for i in range(len(pos_vals)):
+            if pos_vals[i] > max_pos:
+                max_pos=pos_vals[i]
+                max_i=i
+        return max_pos,max_i
+
+    def _print_table_row(self,name,entries):
+        """
+        Print a html table row representation of
+
+        name:item1,item2,item3,...
+        """
+
+        row_str='<tr><td>%s</td>'%name
+        for entry in entries:
+            row_str+='<td>%s</td>'%entry
+        row_str+='</tr>'
+        return row_str
+
+    @property
+    def maxL(self):
+        """
+        Return the maximum posterior probability and the corresponding
+        set of parameters.
+        """
+        maxLvals={}
+        max_pos,max_i=self._posMode()
+        for param_name in self.names:
+            maxLvals[param_name]=self._posterior[param_name].samples[max_i][0]
+
+        return (max_pos,maxLvals)
+
+    def samples(self):
+        """
+        Return an (M,N) numpy.array of posterior samples; M = len(self);
+        N = dim(self) .
+        """
+        header_string=''
+        posterior_table=[]
+        for param_name,one_pos in self:
+            column=np.array(one_pos.samples)
+            header_string+=param_name+' '
+            posterior_table.append(column)
+        posterior_table=tuple(posterior_table)
+        return np.column_stack(posterior_table),header_string
+
+    def write_to_file(self,fname):
+        """
+        Dump the posterior table to a file in the 'common format'.
+        """
+        column_list=()
+
+        posterior_table,header_string=self.samples()
+
+        fobj=open(fname,'w')
+
+        fobj.write(header_string+'\n')
+        np.savetxt(fobj,posterior_table)
+        fobj.close()
+
+        return
+
+    def gelman_rubin(self, pname):
+        """
+        Returns an approximation to the Gelman-Rubin statistic (see
+        Gelman, A. and Rubin, D. B., Statistical Science, Vol 7,
+        No. 4, pp. 457--511 (1992)) for the parameter given, accurate
+        as the number of samples in each chain goes to infinity.  The
+        posterior samples must have a column named 'chain' so that the
+        different chains can be separated.
+        """
+        from numpy import seterr as np_seterr
+        np_seterr(all='raise')
+
+        if "chain" in self.names:
+            chains=np.unique(self["chain"].samples)
+            chain_index=self.names.index("chain")
+            param_index=self.names.index(pname)
+            data,header=self.samples()
+            chainData=[data[ data[:,chain_index] == chain, param_index] for chain in chains]
+            allData=np.concatenate(chainData)
+            chainMeans=[np.mean(data) for data in chainData]
+            chainVars=[np.var(data) for data in chainData]
+            BoverN=np.var(chainMeans)
+            W=np.mean(chainVars)
+            sigmaHat2=W + BoverN
+            m=len(chainData)
+            VHat=sigmaHat2 + BoverN/m
+            try:
+              R = VHat/W
+            except:
+              print "Error when computer Gelman-Rubin R statistic for %s.  This may be a fixed parameter"%pname
+              R = np.nan
+            return R
+        else:
+            raise RuntimeError('could not find necessary column header "chain" in posterior samples')
+
+    def __str__(self):
+        """
+        Define a string representation of the Posterior class ; returns
+        a html formatted table of various properties of posteriors.
+        """
+        return_val='<table border="1" id="statstable"><tr><th/>'
+
+        column_names=['maxL','stdev','mean','median','stacc','injection value']
+        IFOs = []
+        if self._triggers is not None:
+            IFOs = [trig.ifo for trig in self._triggers]
+            for IFO in IFOs:
+                column_names.append(IFO+' trigger values')
+
+        for column_name in column_names:
+            return_val+='<th>%s</th>'%column_name
+
+        return_val+='</tr>'
+
+        for name,oned_pos in self:
+
+            max_pos,max_i=self._posMode()
+            maxL=oned_pos.samples[max_i][0]
+            mean=str(oned_pos.mean)
+            stdev=str(oned_pos.stdev)
+            median=str(np.squeeze(oned_pos.median))
+            stacc=str(oned_pos.stacc)
+            injval=str(oned_pos.injval)
+            trigvals=oned_pos.trigvals
+
+            row = [maxL,stdev,mean,median,stacc,injval]
+            if self._triggers is not None:
+                for IFO in IFOs:
+                    try:
+                        row.append(str(trigvals[IFO]))
+                    except TypeError:
+                        row.append(None)
+            return_val+=self._print_table_row(name,row)
+
+        return_val+='</table>'
+
+        parser=XMLParser()
+        parser.feed(return_val)
+        Estr=parser.close()
+
+        elem=Estr
+        rough_string = tostring(elem, 'utf-8')
+        reparsed = minidom.parseString(rough_string)
+        return_val=reparsed.toprettyxml(indent="  ")
+
+        return return_val
+
+    def write_vot_info(self):
+      """
+      Writes the information stored in the VOTtree if there is one
+      """
+      target=VOT2HTML()
+      parser=XMLParser(target=target)
+      parser.feed(self._votfile)
+      return parser.close()
+
+    #===============================================================================
+    # Functions used to parse injection structure.
+    #===============================================================================
+   
+
+    def _inj_longitude(self,inj):
+        """
+        Return the mapping of longitude found in inj to the interval [0,2*pi).
+        
+        @type inj: glue.ligolw.lsctables.SimInspiral
+        @param inj: a custom type with the attribute 'longitude'.
+        @rtype: number
+        """
+        if inj.ra>2*pi_constant or inj.ra<0.0:
+            maplong=2*pi_constant*(((float(inj.ra)/(2*pi_constant)) - floor(((float(inj.ra))/(2*pi_constant)))))
+            print "Warning: Injected longitude/ra (%s) is not within [0,2\pi)! Angles are assumed to be in radians so this will be mapped to [0,2\pi). Mapped value is: %s."%(str(inj.ra),str(maplong))
+            return maplong
+        else:
+            return inj.ra
 
