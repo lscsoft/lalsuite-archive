@@ -527,6 +527,16 @@ typedef enum {
 } LALSpinInteraction;
 
 /**
+ * Enumerator that determines the neutron star EoS.
+ **/
+typedef enum {
+	PP,
+	MS1,
+	H4,
+	SQM3
+} LALInspiralEOS;
+
+/**
  * THE SAME BUT LALSIMULATION STYLE (FOR SPINTAYLORT4)
  * Enumeration to specify which interaction will be used in the waveform
  * generation. Their combination also can be used by the bitwise or.
@@ -1121,7 +1131,8 @@ LALInspiralWaveForInjection(
    CoherentGW       *waveform,
    InspiralTemplate *params,
    PPNParamStruc  *ppnParams,
-   REAL8 *phaseParams);
+   REAL8 *phaseParams,
+   LALInspiralEOS EoS);
 
 /*  <lalLaTeX>
 \newpage\input{LALInspiralWave1C}
@@ -1353,7 +1364,8 @@ void LALInspiralInterfaceSpinTaylorT4(
 	InspiralTemplate *params, 
 	PPNParamStruc *ppnParams,
 	REAL8 *dxis, 
-	REAL8 cutoff
+	REAL8 cutoff,
+	LALInspiralEOS EoS
 	);
 
 int XLALSimInspiralSpinTaylorT4(
@@ -1493,6 +1505,8 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
 	REAL8 v0,                 /**< tail-term gauge choice (default = 1) */
 	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
 	);
+
+REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass);
 
 /* Phenomenological Spin Taylor with RingDown*/
 

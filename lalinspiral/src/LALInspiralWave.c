@@ -386,7 +386,8 @@ LALInspiralWaveForInjection(
    CoherentGW       *waveform,
    InspiralTemplate *inspiralParams,
    PPNParamStruc  *ppnParams,
-   REAL8 *phaseParams)
+   REAL8 *phaseParams,
+   LALInspiralEOS EoS)
 { /* </lalVerbatim>  */
 
    INITSTATUS(status, "LALInspiralWaveForInjection", LALINSPIRALWAVEFORINJECTIONC);
@@ -440,7 +441,7 @@ LALInspiralWaveForInjection(
            CHECKSTATUSPTR(status);
      break;
       case SpinTaylorT4:
-           LALInspiralInterfaceSpinTaylorT4(status->statusPtr, waveform, inspiralParams, ppnParams, phaseParams, 0);
+           LALInspiralInterfaceSpinTaylorT4(status->statusPtr, waveform, inspiralParams, ppnParams, phaseParams, 0, EoS);
            CHECKSTATUSPTR(status);
            break;
       case PhenSpinTaylorRD:

@@ -141,7 +141,8 @@ void LALInspiralInterfaceSpinTaylorT4(
 	InspiralTemplate *params,
 	PPNParamStruc *ppnParams,
 	REAL8 *dxis, 
-	REAL8 cutoff
+	REAL8 cutoff,
+	LALInspiralEOS EoS
 	)
 {
 	INITSTATUS (status, "LALInspiralInterfaceSpinTaylorT4", LALINSPIRALSPINTAYLORT4C);
@@ -170,7 +171,8 @@ void LALInspiralInterfaceSpinTaylorT4(
 	LALSpinInteraction spinInteraction;
 	LALSimInspiralInteraction simInteraction = LAL_SIM_INSPIRAL_INTERACTION_DEFAULT;
 	
-	lambda1 = lambda2 = 0.0; /** Tidal effects switched off **/
+	lambda1 = XLALLambdaOfM_EOS(EoS, m1); /** Tidal effect for mass1 switched on **/
+	lambda2 = XLALLambdaOfM_EOS(EoS, m2); /** Tidal effect for mass2 switched on **/
 	i = params->inclination;
 	lnhatx = sin(i);
 	lnhaty = 0.0;
@@ -1856,4 +1858,37 @@ int XLALSimInspiralPrecessingPTFQWaveforms(
         (*Q5)->data->data[idx] = ampfac * v2 * q5tmp;
     }
     return XLAL_SUCCESS;
+}
+
+REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
+
+    /* this is fed the intrinsic masses and then computes the value of \Lambda(m) */
+    
+    REAL8 lambda=0.;
+    switch (((int) EoS))
+    {
+		case PP:
+		lambda = 0.0;
+		break;
+    // MS1
+        case MS1:
+        lambda = 2.755956E-24*(2.19296 + 20.0273*compMass - 17.9443*compMass*compMass 
+        + 5.75129*compMass*compMass*compMass - 0.699095*compMass*compMass*compMass*compMass);
+        break;
+    // H4
+        case H4:
+        lambda = 2.755956E-24*(0.743351 + 15.8917*compMass - 14.7348*compMass*compMass 
+        + 5.32863*compMass*compMass*compMass - 0.942625*compMass*compMass*compMass*compMass);
+        break; 
+    // SQM3
+        case SQM3:
+        lambda = 2.755956E-24*(-5.55858 + 20.8977*compMass - 20.5583*compMass*compMass 
+        + 9.55465*compMass*compMass*compMass - 1.84933*compMass*compMass*compMass*compMass);
+        break;
+        default:
+        exit(-1);
+	}
+	// [LAMBDA0] = SEC^5; [LAMBDA1] = SEC^4
+	//REAL8 lambda = 1.0E-23*lambdas[0]+(compMass-1.40*1.0E-18*LAL_MTSUN_SI)*lambdas[1];
+    return lambda;
 }

@@ -377,6 +377,7 @@ fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi6l\" Type=\"real
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi7\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi8\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:dphi9\" Type=\"real_4\"/>\n", fp ) == EOF || \
+fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:EoS\" Type=\"int_4s\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:loglambdaG\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:ScalarCharge1\" Type=\"real_4\"/>\n", fp ) == EOF || \
 fputs( "      <Column Name=\"sim_inspiralgroup:sim_inspiral:ScalarCharge2\" Type=\"real_4\"/>\n", fp ) == EOF || \

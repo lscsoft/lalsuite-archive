@@ -857,6 +857,7 @@ LALWriteLIGOLwXMLTable (
           tablePtr.simInspiralTable->dphi7,
           tablePtr.simInspiralTable->dphi8,
           tablePtr.simInspiralTable->dphi9,
+          tablePtr.simInspiralTable->EoS,
           tablePtr.simInspiralTable->loglambdaG,
           tablePtr.simInspiralTable->ScalarCharge1,
           tablePtr.simInspiralTable->ScalarCharge2,

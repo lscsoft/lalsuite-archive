@@ -582,6 +582,11 @@ tagSimInspiralTable
   REAL4          alphaPPE;
   REAL4          bPPE;
   REAL4          betaPPE;
+  
+ /* PARAMETERS FOR TIDAL DEFORMATIONS */
+  INT4  EoS; 
+// REAL4                  lambda0;
+// REAL4                  lambda1;
 }
 SimInspiralTable;
 

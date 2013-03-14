@@ -121,6 +121,7 @@ SkyLocationDistribution       lDistr;
 MassDistribution              mDistr;
 InclDistribution              iDistr;
 SpinDistribution              spinDistr = uniformSpinDist;
+LALInspiralEOS                EoS = PP;
 
 SimInspiralTable *simTable;
 SimRingdownTable *simRingTable;
@@ -186,6 +187,7 @@ INT4 dphiUniform=0;
 INT4 MGInjections = 0;
 INT4 BDinjections = 0;
 INT4 PPEinjections = 0;
+INT4 TidalDeformation = 0;
 
 REAL8 dphi0=0.0;
 REAL8 dphi1=0.0;
@@ -219,6 +221,7 @@ REAL8 aPPE = 0.0;
 REAL8 alphaPPE = 0.0;
 REAL8 bPPE = 0.0;
 REAL8 betaPPE = 0.0;
+REAL8 lambda_shape = 0.0;
 
 static LALStatus status;
 static RandomParams* randParams=NULL;
@@ -691,6 +694,10 @@ static void print_usage(char *program)
       " --sdphi8 value            value of the dphi8 standard deviation\n"\
       " --dphi9 value             value of the dphi9 parameter\n"\
       " --sdphi9 value            value of the dphi9 standard deviation\n");
+  fprintf(stderr,
+      "Tidal Information:\n"\
+      " --enable-tidal              enable Tidal deformations \n"\
+      " --lambda-shape              Equation of state \n");
   fprintf(stderr,
 	  "Massive Graviton Information:\n"\
 	  " --enable-mg				  enable Massive Graviton injections\n"\
@@ -1470,6 +1477,8 @@ int main( int argc, char *argv[] )
     {"alphaPPE",                required_argument, 0,                 1028},
     {"bPPE",                    required_argument, 0,                 1029},
     {"betaPPE",                 required_argument, 0,                 1030},
+    {"enable-tidal",            no_argument,       0,                 1049},
+    {"lambda-shape",            required_argument, 0,                 1050},
     {0, 0, 0, 0}
   };
   int c;
@@ -2548,6 +2557,19 @@ int main( int argc, char *argv[] )
             next_process_param( long_options[option_index].name,
               "float", "%le", betaPPE );
           break;
+       case 1049:
+             /* enable Tidal Deformation */
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "string", "");
+            TidalDeformation = 1; 
+          break;   
+       case 1050:
+            lambda_shape = atof( optarg );
+            this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+              "float", "%le", lambda_shape );
+          break;
 
       case 'h':
         print_usage(argv[0]);
@@ -3263,6 +3285,35 @@ int main( int argc, char *argv[] )
       simTable->dphi9 = dphi9*(2.*XLALUniformDeviate(randPhaseShifts)-1.);	
 	}
 		
+    // FILL THE TIDAL DEFORMATION PARAMETERS
+    simTable->lambda_shape = lambda_shape;
+    
+    /* This calculates the injected values of lambda0 and 1, taking into account the masses and the EOS used. */
+    if(TidalDeformation ==1)
+    {
+        OnePlusZ=(1.0 + 0.00023349486663870643*(simTable->distance));
+        ls=simTable->lambda_shape;
+        mass1Intr=(simTable->mass1)/OnePlusZ;
+        mass2Intr=(simTable->mass2)/OnePlusZ;
+        /* if the intrinsic masses are greater than the maximum NS mass, set the tidal term to 0 */
+        if (mass1Intr<=maxNSmass) {
+            injected_lambda0=LambdaOfM_EOS(ls, mass1Intr);
+        }
+        else {
+            injected_lambda0=0.0;
+        }
+        if (mass2Intr<=maxNSmass) {
+            injected_lambda1=LambdaOfM_EOS(ls, mass2Intr);
+        }
+        else {
+            injected_lambda1=0.0;
+        }
+        //printf("%e\t%e\t%e\t%e\n",mass1Intr,mass2Intr,injected_lambda0,injected_lambda1);
+    }
+    
+//    simTable->lambda0 = injected_lambda0;
+//    simTable->lambda1 = injected_lambda1;
+
     /* populate the massive graviton parameter */
     
     simTable->loglambdaG=loglambdaG;
