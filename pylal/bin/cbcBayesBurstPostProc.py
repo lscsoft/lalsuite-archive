@@ -1173,7 +1173,8 @@ if __name__=='__main__':
     phaseParams=['phase']
     #endTimeParams=['l1_end_time','h1_end_time','v1_end_time']
     endTimeParams=[]
-    statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+    #statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1']
+    statsParams=['logl']
     oneDMenu=polParams + skyParams + timeParams + statsParams+burstParams
    
     ifos_menu=['h1','l1','v1']
@@ -1185,12 +1186,12 @@ if __name__=='__main__':
     if not opts.no2D:
         for b1,b2 in combinations(burstParams,2):
             twoDGreedyMenu.append([b1,b2])
-        for bu in burstParams:
-            for sp in skyParams:
-                twoDGreedyMenu.append([bu,sp])
-        for bu in burstParams:
-            for ti in timeParams:
-                twoDGreedyMenu.append([bu,ti])
+        #for bu in burstParams:
+        #   for sp in skyParams:
+        #        twoDGreedyMenu.append([bu,sp])
+        #for bu in burstParams:
+        #    for ti in timeParams:
+        #        twoDGreedyMenu.append([bu,ti])
     print "TWOOOOOOOOOOOOO" ,twoDGreedyMenu
   
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
