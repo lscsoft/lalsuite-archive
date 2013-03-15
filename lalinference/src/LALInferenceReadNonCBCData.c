@@ -1580,7 +1580,10 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
 //exit(1);
     LALInferenceDestroyVariables(&intrinsicParams);
     printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
-    
+  NetSNR=sqrt(NetSNR); 
+if (NetSNR<8.0) {fprintf(stderr,"NetSNR below 8. Exiting...\n");exit(1);} 
+    if (NetSNR>200.0) {fprintf(stderr,"NetSNR above 200. Exiting...\n");exit(1);}
+ 
     if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
 	PrintBurstSNRsToFile(IFOdata , inj_table);
     }
