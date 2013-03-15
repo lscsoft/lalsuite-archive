@@ -473,6 +473,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Call finalize to build final list of available data
     enginenodes[0].finalize()
     respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
+    respagenode.set_snr_path(enginenodes[0].get_snr_file())
+
     if self.config.has_option('input','injection-file') and event.event_id is not None:
         respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
     if event.GID is not None:
@@ -493,6 +495,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             mkdirs(presultsdir)
             subresnode=self.add_results_page_node(outdir=presultsdir,parent=pmergenode)
             subresnode.set_bayes_coherent_noise(pmergenode.get_B_file())
+            subresnode.set_snr_path(cotest_nodes[0].get_snr_file())
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
         coherence_node=CoherenceTestNode(self.coherence_test_job,outfile=os.path.join(self.basepath,'coherence_test','coherence_test_%s_%s.dat'%(myifos,evstring)))
@@ -642,6 +645,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     out_dir=os.path.join(self.basepath,'engine')
     mkdirs(out_dir)
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
+    node.set_snr_path(os.path.join(self.basepath, 'SNR','snr_'+node.get_ifos()+'_'+str(node.get_trig_time())+".dat"))
     return node
     
   def add_results_page_node(self,outdir=None,parent=None,extra_options=None):
@@ -887,7 +891,8 @@ class LALInferenceNestNode(EngineNode):
     self.paramsfile=self.nsfile+'_params.txt'
     self.Bfilename=self.nsfile+'_B.txt'
     self.headerfile=self.nsfile+'_params.txt'
-
+  def set_snr_path(self,snrpath):
+      self.snrpath=snrpath
   def get_B_file(self):
     return self.Bfilename
 
@@ -896,7 +901,11 @@ class LALInferenceNestNode(EngineNode):
 
   def get_header_file(self):
     return self.headerfile
-
+  def get_snr_file(self):
+      return self.snrpath
+      
+      
+      
 class LALInferenceMCMCNode(EngineNode):
   def __init__(self,li_job):
     EngineNode.__init__(self,li_job)
@@ -962,7 +971,8 @@ class ResultsPageNode(pipeline.CondorDAGNode):
         self.add_var_arg('--bci '+bcifile)
     def set_bayes_coherent_noise(self,bsnfile):
         self.add_var_arg('--bsn '+bsnfile)
-        
+    def set_snr_path(self,snrfile):
+        self.add_var_arg('--snr '+snrfile)
 class CoherenceTestJob(pipeline.CondorDAGJob):
     """
     Class defining the coherence test job to be run as part of a pipeline.
