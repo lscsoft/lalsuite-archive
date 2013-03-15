@@ -156,8 +156,8 @@ Parameter arguments:\n\
         }
 
     /* With these settings should be ok to run at 1024Hz of srate*/
-    REAL8 fmin=20.0;
-    REAL8 fmax=380.0;
+    REAL8 Fmin=20.0;
+    REAL8 Fmax=380.0;
     REAL8 Qmin=10.0, Qmax=50.0;
     /*hrssmin = 1e-26 hrssmax = 1e-23  */ 
     REAL8 loghrssmin=-59.86721242, loghrssmax=-52.95945714;
@@ -171,9 +171,9 @@ Parameter arguments:\n\
     ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
     if (ppt) Qmax=atof(ppt->value);
     ppt=LALInferenceGetProcParamVal(commandLine,"--fmin");
-    if (ppt) fmin=atof(ppt->value);    
+    if (ppt) Fmin=atof(ppt->value);    
     ppt=LALInferenceGetProcParamVal(commandLine,"--fmax");
-    if (ppt) fmax=atof(ppt->value);
+    if (ppt) Fmax=atof(ppt->value);
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
     if (ppt) dt=atof(ppt->value);
     
@@ -204,7 +204,7 @@ Parameter arguments:\n\
        tmpVal=70.0;
           if(!LALInferenceCheckVariable(currentParams,"frequency")) LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     
-        LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &fmin, &fmax,   LALINFERENCE_REAL8_t);
+        LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &Fmin, &Fmax,   LALINFERENCE_REAL8_t);
        tmpVal=-52.0;
           if(!LALInferenceCheckVariable(currentParams,"loghrss")) LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         
@@ -229,12 +229,12 @@ if (BinjTable){
         fprintf(stdout,"WARNING: The injected value of hrss lies outside the prior range\n");
     if (BinjTable->q > Qmax || BinjTable->q < Qmin )
         fprintf(stdout,"WARNING: The injected value of q lies outside the prior range\n");
-     if (BinjTable->frequency > fmax || BinjTable->frequency < fmin )
+     if (BinjTable->frequency > Fmax || BinjTable->frequency < Fmin )
         fprintf(stdout,"WARNING: The injected value of centre_frequency lies outside the prior range\n");
     // Check the max Nyquist frequency for this parameter range
     
-    if ( (fmax+ 3.0*fmax/Qmin) > state->data->fHigh){
-        fprintf(stderr,"ERROR, some of the template in your parameter space will be generated at a frequency higher than fhigh (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(fmax+ 3.0*fmax/Qmin));
+    if ( (Fmax+ 3.0*Fmax/Qmin) > state->data->fHigh){
+        fprintf(stderr,"ERROR, some of the template in your parameter space will be generated at a frequency higher than fhigh (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(Fmax+ 3.0*Fmax/Qmin));
         exit(1);
     }
         
