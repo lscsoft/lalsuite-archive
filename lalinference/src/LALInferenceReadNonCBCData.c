@@ -74,6 +74,8 @@
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALInferenceReadNonCBCData.h>
+#include <lal/LALSimNoise.h>
+
 #define LALINFERENCE_DEFAULT_FLOW "40.0"
 //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,SimBurst *inj_table);
@@ -370,8 +372,8 @@ LALInferenceIFOData *LALInferenceReadBurstData(ProcessParamsTable *commandLine)
     char strainname[]="LSC-STRAIN";
     UINT4 q=0;	
     //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
-    NoiseFunc *PSD=NULL;
-    REAL8 scalefactor=1;
+    //NoiseFunc *PSD=NULL;
+    //REAL8 scalefactor=1;
     SimBurst *BInjTable=NULL;
     RandomParams *datarandparam;
     UINT4 event=0;
@@ -777,7 +779,7 @@ LALInferenceIFOData *LALInferenceReadBurstData(ProcessParamsTable *commandLine)
             interp=interpFromFile(interpfilename);
         }    
         /* Check if fake data is requested */
-        if(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO")
+        if(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") &&strcmp(caches[i],"LALAdVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO")
                         && strcmp(caches[i],"LALAdLIGO"))))
         {
             //FakeFlag=1; - set but not used
@@ -789,26 +791,41 @@ LALInferenceIFOData *LALInferenceReadBurstData(ProcessParamsTable *commandLine)
             datarandparam=XLALCreateRandomParams(dataseed?dataseed+(int)i:dataseed);
             if(!datarandparam) XLAL_ERROR_NULL(XLAL_EFUNC);
             /* Selection of the noise curve */
-            if(!strcmp(caches[i],"LALLIGO")) {PSD = &LALLIGOIPsd; scalefactor=9E-46;}
+           /* if(!strcmp(caches[i],"LALLIGO")) {PSD = &LALLIGOIPsd; scalefactor=9E-46;}
             if(!strcmp(caches[i],"LALVirgo")) {PSD = &LALVIRGOPsd; scalefactor=1.0;}
             if(!strcmp(caches[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
             if(!strcmp(caches[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
             if(!strcmp(caches[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;}
             if(interpFlag) {PSD=NULL; scalefactor=1.0;}
+            */
             //if(!strcmp(caches[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
-            if(PSD==NULL && !interpFlag) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",caches[i]); exit(-1);}
+            //if(PSD==NULL && !interpFlag) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",caches[i]); exit(-1);}
 
 
             IFOdata[i].oneSidedNoisePowerSpectrum=(REAL8FrequencySeries *)
                 XLALCreateREAL8FrequencySeries("spectrum",&GPSstart,0.0,
                         (REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
             if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
-            for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
+            
+            /////
+             /* Selection of the noise curve */
+            if(!strcmp(caches[i],"LALLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDiLIGOSRD ) ; }
+            if(!strcmp(caches[i],"LALVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDVirgo );}
+            if(!strcmp(caches[i],"LALGEO")) {fprintf(stderr,"I did not port LALGEO noise yet\n");exit(1);}
+            if(!strcmp(caches[i],"LALEGO")) {fprintf(stderr,"I did not port LALGEO noise yet\n");exit(1);}
+            if(!strcmp(caches[i],"LALAdLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDaLIGOZeroDetHighPower ) ;}
+            if(!strcmp(caches[i],"LALAdVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDAdvVirgo) ;}
+            //if(interpFlag) {PSD=NULL; scalefactor=1.0;}
+            //if(!strcmp(caches[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
+            if(IFOdata[i].oneSidedNoisePowerSpectrum==NULL && !interpFlag) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",caches[i]); exit(-1);}
+            ////
+            
+           /* for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
             {
                 MetaNoiseFunc(&status,&(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]),j*IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,interp,PSD);
                 //PSD(&status,&(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]),j*IFOdata[i].oneSidedNoisePowerSpectrum->deltaF);
                 IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]*=scalefactor;
-            }
+            }*/
             IFOdata[i].freqData = (COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("stilde",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
             if(!IFOdata[i].freqData) XLAL_ERROR_NULL(XLAL_EFUNC);
 
@@ -1099,6 +1116,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 	REPORTSTATUS(&status);
 	//LALGenerateInspiral(&status,&InjectGW,injTable,&InjParams);
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
+    
+    /* Inject burst in the FreqDomain */
 	if (LALInferenceGetProcParamVal(commandLine,"--FDinjections"))
     {
          InjectSineGaussianFD(thisData, injEvent, commandLine);
