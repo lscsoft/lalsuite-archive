@@ -1135,6 +1135,7 @@ int main( int argc, char *argv[])
 			SimInspiralTable this_injection;
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
             REAL8 dphis[10]={0.0};
+            LALInspiralEOS eos = PP;
             if (check_approx==SpinTaylorT4) {
               dphis[0]=this_injection.dphi0;
               dphis[1]=this_injection.dphi1;
@@ -1145,7 +1146,9 @@ int main( int argc, char *argv[])
               dphis[6]=this_injection.dphi6;
               dphis[7]=this_injection.dphi6l;
               dphis[8]=this_injection.dphi7;
+              eos = (LALInspiralEOS) this_injection.EoS;
               for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi[%i] = %e\n",k,dphis[k]);
+              fprintf(stderr,"Injecting equation of state: %d\n", (int) eos);
             }
             fprintf(stderr, "Injecting spin1: ( %e , %e , %e )\n", this_injection.spin1x, this_injection.spin1y, this_injection.spin1z);
             fprintf(stderr, "Injecting spin2: ( %e , %e , %e )\n", this_injection.spin2x, this_injection.spin2y, this_injection.spin2z);

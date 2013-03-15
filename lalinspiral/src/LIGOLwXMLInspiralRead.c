@@ -1381,6 +1381,7 @@ SimInspiralTableFromLIGOLw (
     {"dphi7",               -1, 65},
     {"dphi8",               -1, 74},
     {"dphi9",               -1, 75},
+    {"EoS",                 -1, 76},
     {"loglambdaG",          -1, 66},
     {"ScalarCharge1",       -1, 67},
     {"ScalarCharge2",       -1, 68},
@@ -1734,6 +1735,10 @@ SimInspiralTableFromLIGOLw (
         else if ( tableDir[j].idx == 75 )
         {
             thisSim->dphi9 = r4colData;
+        }
+        else if ( tableDir[j].idx == 76 )
+        {
+            thisSim->EoS = i4colData;
         }
         else if ( tableDir[j].idx == 66 )
         {
