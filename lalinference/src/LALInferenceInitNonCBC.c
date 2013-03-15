@@ -159,8 +159,8 @@ Parameter arguments:\n\
     REAL8 Fmin=20.0;
     REAL8 Fmax=380.0;
     REAL8 Qmin=10.0, Qmax=50.0;
-    /*hrssmin = 1e-26 hrssmax = 1e-23  */ 
-    REAL8 loghrssmin=-59.86721242, loghrssmax=-52.95945714;
+    /*hrssmin = 1e-23 hrssmax = 1e-21  */ 
+    REAL8 loghrssmin=-52.95945714, loghrssmax=-48.35428695;
     REAL8 dt=0.1;
     ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmin");
     if (ppt) loghrssmin=atof(ppt->value);

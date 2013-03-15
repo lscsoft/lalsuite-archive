@@ -1010,7 +1010,7 @@ static SimBurst *random_all_sky_sineGaussian(double minf, double maxf, double q,
 
 	/* hrss */
 
-	sim_burst->hrss = ran_flat_log(rng, minhrsst, maxhrsst) / duration_from_q_and_f(sim_burst->q, sim_burst->frequency);
+	sim_burst->hrss = ran_flat_log(rng, minhrsst, maxhrsst);// / duration_from_q_and_f(sim_burst->q, sim_burst->frequency);
 
 	/* hard-code for linearly polarized waveforms in the x
 	 * polarization.  induces LAL's sine-Gaussian generator to produce
