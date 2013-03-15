@@ -1188,6 +1188,9 @@ if __name__=='__main__':
         for bu in burstParams:
             for sp in skyParams:
                 twoDGreedyMenu.append([bu,sp])
+        for bu in burstParams:
+            for ti in timeParams:
+                twoDGreedyMenu.append([bu,ti])
     print "TWOOOOOOOOOOOOO" ,twoDGreedyMenu
   
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]

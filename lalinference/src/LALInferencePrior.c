@@ -175,12 +175,14 @@ void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
          withoun range. */
       //while(1) {
         /* Loop until broken. */
-        REAL8 val = *(REAL8 *)paraHead->value; //printf("val=%10.10e\n",val);
+        REAL8 val = *(REAL8 *)paraHead->value;
+        //printf("val=%10.10e\n",val);
         if (val > max) {
               REAL8 delta = max - min;
               if(delta==0.0) {printf("ERROR ZERO DELTA\n");exit(1);}
               shift=(REAL8) floor((val-max)/delta);
             *(REAL8 *)  paraHead->value=val- (1.0+shift)*delta;  
+           // printf("delta %lf sft %lf tot %lf\n",delta,shift,val- (1.0+shift)*delta);
           /* val <-- max - (val - max) */
           // *(REAL8 *)paraHead->value = 2.0*max - val;
         } else if (val < min) {
@@ -188,7 +190,8 @@ void LALInferenceCyclicReflectiveBound(LALInferenceVariables *parameter,
                           if(delta==0.0) {printf("ERROR ZERO DELTA\n");exit(1);}
 
              shift=floor((min-val)/delta);
-             *(REAL8 *)paraHead->value=val+(1.0+ shift)*delta;    
+             *(REAL8 *)paraHead->value=val+(1.0+ shift)*delta; 
+             // printf("delta %lf sft %lf tot %lf\n",delta,shift,val+ (1.0+shift)*delta);   
           /* val <-- min + (min - val) */
           //*(REAL8 *)paraHead->value = 2.0*min - val;
         }

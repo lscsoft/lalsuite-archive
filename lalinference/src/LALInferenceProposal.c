@@ -69,7 +69,8 @@ const char *distanceQuasiGibbsProposalName = "DistanceQuasiGibbs";
 const char *orbitalPhaseQuasiGibbsProposalName = "OrbitalPhaseQuasiGibbs";
 const char *extrinsicParamProposalName = "ExtrinsicParamProposal";
 const char *KDNeighborhoodProposalName = "KDNeighborhood";
-
+const char *HrssQJumpName = "HrssQ";
+const char *differentialEvolutionSineGaussName="DifferentialEvolutionSineGauss";
 /* Mode hopping fraction for the differential evoultion proposals. */
 static const REAL8 modeHoppingFrac = 1.0;
 
@@ -923,7 +924,7 @@ void LALInferenceInclinationDistance(LALInferenceRunState *runState, LALInferenc
   LALInferenceSetLogProposalRatio(runState, log(dcosiCdid));
 }
 
-void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+    void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
   const char *propName = covarianceEigenvectorJumpName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   LALInferenceVariables *proposalArgs = runState->proposalArgs;
@@ -2671,11 +2672,92 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
   /* Use differential evolution unless turned off */
   if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-differentialevolution")) {
     LALInferenceAddProposalToCycle(runState, differentialEvolutionFullName, &LALInferenceDifferentialEvolutionFull, BIGWEIGHT);
-    //    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
+    LALInferenceAddProposalToCycle(runState, differentialEvolutionSineGaussName, &LALInferenceDifferentialEvolutionSineGauss, TINYWEIGHT);
     //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
     
     }
   
-
+ //if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-hrssQ")) {
+    //LALInferenceAddProposalToCycle(runState, HrssQJumpName, &LALInferenceHrssQJump,SMALLWEIGHT );
+    //    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
+    //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
+    
+   // }
   LALInferenceRandomizeProposalCycle(runState);
+}
+
+void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+    
+  const char *propName = HrssQJumpName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  REAL8 loghrss,hrss,Q,Qprime,loghrssprime;
+
+  LALInferenceVariables *proposalArgs = runState->proposalArgs;
+  gsl_matrix *eigenvectors = *((gsl_matrix **)LALInferenceGetVariable(proposalArgs, "covarianceEigenvectors"));
+  REAL8Vector *eigenvalues = *((REAL8Vector **)LALInferenceGetVariable(proposalArgs, "covarianceEigenvalues"));
+  REAL8 temp = 1.0;
+  
+  UINT4 N = eigenvalues->length;
+  gsl_rng *rng = runState->GSLrandom;
+  UINT4 i = gsl_rng_uniform_int(rng, N);
+  REAL8 jumpSize = sqrt(temp*eigenvalues->data[i])*gsl_ran_ugaussian(rng);
+  UINT4 j;
+  LALInferenceVariableItem *proposeIterator;
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+  
+  j = 0;
+  proposeIterator = proposedParams->head;
+ // REAL8 freqpre,freqpost;
+  loghrss = *((REAL8 *) LALInferenceGetVariable(proposedParams, "loghrss"));
+  Q = *((REAL8 *) LALInferenceGetVariable(proposedParams, "Q"));
+//  freqpre = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+ // printf("PRE Q %lf loghrss %lf freq %lf \n",Q, loghrss,freqpre);
+  if (proposeIterator == NULL) {
+    fprintf(stderr, "Bad proposed params in %s, line %d\n",
+            __FILE__, __LINE__);
+    exit(1);
+  }
+  do {
+    if (proposeIterator->vary != LALINFERENCE_PARAM_FIXED && proposeIterator->vary != LALINFERENCE_PARAM_OUTPUT) {
+        if (!strcmp("Q",proposeIterator->name)){
+      REAL8 tmp = *((REAL8 *)proposeIterator->value);
+      REAL8 inc = jumpSize*gsl_matrix_get(eigenvectors, j, i);
+      
+      tmp += inc;
+      
+      memcpy(proposeIterator->value, &tmp, sizeof(REAL8));
+        }
+      j++;
+      continue;
+    }
+  } while ((proposeIterator = proposeIterator->next) != NULL && j < N);
+  
+  loghrss = *((REAL8 *) LALInferenceGetVariable(proposedParams, "loghrss"));
+    hrss=exp(loghrss);
+    
+  
+  Qprime = *((REAL8 *) LALInferenceGetVariable(proposedParams, "Q"));
+  if (Qprime>0)
+      loghrssprime=log(hrss*sqrt(Q)/sqrt(Qprime));
+  else{
+      loghrssprime=loghrss;
+      LALInferenceSetVariable(proposedParams, "Q", &Q);
+  }
+  // freqpost = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+  LALInferenceSetVariable(proposedParams, "loghrss", &loghrssprime);
+  //printf("Post Q %lf loghrss %lf freq %lf \n",Qprime, loghrssprime,freqpost);
+  
+  LALInferenceSetLogProposalRatio(runState, 0.0);
+
+  /* Probably not needed, but play it safe. */
+  LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
+}
+
+void LALInferenceDifferentialEvolutionSineGauss(LALInferenceRunState *runState, LALInferenceVariables *pp) {
+  const char *propName = differentialEvolutionSineGaussName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  const char *names[] = {"frequency", "loghrss", "Q", NULL};
+  
+  LALInferenceDifferentialEvolutionNames(runState, pp, names);
 }

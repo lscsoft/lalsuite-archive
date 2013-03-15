@@ -1534,16 +1534,23 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
     /* and other functions may time-shift template to where they want it: */
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
     
-    
+    // FILE * testout = fopen("freqModelhPlus.txt","w");
     if(hplus->data && hcross->data){
         for (i=0; i<IFOdata->freqData->data->length; i++){
-          if(isnan(hcross->data->data[i].re) || i>=hplus->data->length){
+          if( i>=hplus->data->length){
             IFOdata->freqModelhPlus->data->data[i].re = 0.0;
             IFOdata->freqModelhPlus->data->data[i].im = 0.0;
-            
             IFOdata->freqModelhCross->data->data[i].re = 0.0;		
             IFOdata->freqModelhCross->data->data[i].im = 0.0;		
-          }else{
+          }
+          else if(isnan(hcross->data->data[i].re)){
+              IFOdata->freqModelhPlus->data->data[i].re = 0.0;
+            IFOdata->freqModelhPlus->data->data[i].im = 0.0;
+            IFOdata->freqModelhCross->data->data[i].re = 0.0;		
+            IFOdata->freqModelhCross->data->data[i].im = 0.0;	
+              }
+          
+          else{
             IFOdata->freqModelhPlus->data->data[i].re = hplus->data->data[i].re;
             IFOdata->freqModelhPlus->data->data[i].im = hplus->data->data[i].im;
             IFOdata->freqModelhCross->data->data[i].re = hcross->data->data[i].re;
@@ -1551,10 +1558,16 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
           
         }
       }
-  }
+  }/*
+  for (i=0; i<IFOdata->freqData->data->length; i++){
+      fprintf(testout,"%lf %10.10e %10.10e\n",i*IFOdata->freqData->deltaF,  IFOdata->freqModelhPlus->data->data[i].re,  IFOdata->freqModelhPlus->data->data[i].im);
+      }
+  fclose(testout);
+  */
 		if ( hplus ) XLALDestroyCOMPLEX16FrequencySeries(hplus);
 		if ( hcross )XLALDestroyCOMPLEX16FrequencySeries(hcross);
- 
+ //exit(1);
+
  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
   return;
 }

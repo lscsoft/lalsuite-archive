@@ -1165,7 +1165,7 @@ void LALInferenceSetupLivePointsArray(LALInferenceRunState *runState){
         LALInferenceAddVariable(runState->livePoints[i],"logL",(void *)&(logLs->data[i]),LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 	LALInferenceAddVariable(runState->livePoints[i],"logPrior",(void*)&logPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
 	}
-	
+	//exit(1);
 }
 
 

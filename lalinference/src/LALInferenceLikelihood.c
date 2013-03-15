@@ -1934,14 +1934,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariable
   dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    // radian      
   psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   // radian      
   GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           // GPS seconds 
-  /*printf("Time entering likelihood %10.6lf \n",GPSdouble);
-  q         = *(REAL8*) LALInferenceGetVariable(currentParams, "Q"); //dimensionless???      
-  hrss      = *(REAL8*) LALInferenceGetVariable(currentParams, "hrss"); // strain      
-  f0 = *(REAL8*) LALInferenceGetVariable(currentParams, "frequency"); // Hz     
-  delta_t=*(REAL8*) LALInferenceGetVariable(currentParams, "delta_t"); // secs      
-  eccentricity=*(REAL8*) LALInferenceGetVariable(currentParams, "eccentricity"); // dimensionless      
-  polar_angle       = *(REAL8*) LALInferenceGetVariable(currentParams, "polar_angle");   // radian     
-*/
+ 
   /* figure out GMST: */
   //XLALINT8NSToGPS(&GPSlal, floor(1e9 * GPSdouble + 0.5));
   XLALGPSSetREAL8(&GPSlal, GPSdouble);
@@ -2030,7 +2023,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))) + timedelay;
   //timeshift = timedelay;
     twopit    = LAL_TWOPI * timeshift;
-//printf("Template's time %10.5lf time %10.5lf epoch=%10.5lf\n", GPSdouble,(*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time")),XLALGPSGetREAL8(&(dataPtr->freqData->epoch))    );
+
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  ;
     FcrossScaled = Fcross ;
@@ -2038,8 +2031,6 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
 
-//char *fname=NULL;
- //fname = XLALCalloc(255*sizeof(char),1);
  //sprintf(fname,"%s_template.dat",dataPtr->name);
  //FILE *testout=fopen(fname,"w");
 /*
@@ -2084,17 +2075,14 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     }
     dataPtr = dataPtr->next;
     net_snr+=4.0*ifo_snr;
-   // if(sqrt(ifo_snr)>1000.0)
-    //printf("too large single IFOSNR %lf \n",sqrt(ifo_snr));
  //fclose(testout);
   }
   //exit(1);
   net_snr=sqrt(net_snr);
- // if (net_snr>=99991)
-  {
- //     printf("net_snr %10.10e \n",net_snr);
+  //{
+    //  printf("logl %10.10e \n",-1.0 * chisquared);
  // printf("Q %10.2e f %10.2e hrss %10.2e time %10.10f eccentricity %10.10e polangle %10.10e norm %f \n",q,f0,hrss,GPSdouble,eccentricity,polar_angle,norm);
-}
+//}
   
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
   LALInferenceDestroyVariables(&intrinsicParams);

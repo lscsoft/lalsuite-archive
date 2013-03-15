@@ -155,11 +155,12 @@ Parameter arguments:\n\
             }
         }
 
-
+    /* With these settings should be ok to run at 1024Hz of srate*/
     REAL8 fmin=20.0;
-    REAL8 fmax=1500.0;
-    REAL8 Qmin=1.0, Qmax=50.0;
-    REAL8 loghrssmin=-60.0, loghrssmax=-48.0;
+    REAL8 fmax=380.0;
+    REAL8 Qmin=10.0, Qmax=50.0;
+    /*hrssmin = 1e-26 hrssmax = 1e-23  */ 
+    REAL8 loghrssmin=-59.86721242, loghrssmax=-52.95945714;
     REAL8 dt=0.1;
     ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmin");
     if (ppt) loghrssmin=atof(ppt->value);
@@ -221,6 +222,23 @@ Parameter arguments:\n\
          if(!LALInferenceCheckVariable(currentParams,"polar_angle")) LALInferenceAddVariable(currentParams, "polar_angle",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
         tmpMin=0.0; tmpMax=LAL_PI;
         LALInferenceAddMinMaxPrior(priorArgs, "polar_angle",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
+
+if (BinjTable){
+    
+    if (log(BinjTable->hrss) > loghrssmax || log(BinjTable->hrss) < loghrssmin)
+        fprintf(stdout,"WARNING: The injected value of hrss lies outside the prior range\n");
+    if (BinjTable->q > Qmax || BinjTable->q < Qmin )
+        fprintf(stdout,"WARNING: The injected value of q lies outside the prior range\n");
+     if (BinjTable->frequency > fmax || BinjTable->frequency < fmin )
+        fprintf(stdout,"WARNING: The injected value of centre_frequency lies outside the prior range\n");
+    // Check the max Nyquist frequency for this parameter range
+    
+    if ( (fmax+ 3.0*fmax/Qmin) > state->data->fHigh){
+        fprintf(stderr,"ERROR, some of the template in your parameter space will be generated at a frequency higher than fhigh (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(fmax+ 3.0*fmax/Qmin));
+        exit(1);
+    }
+        
+    }
 
 }
 
