@@ -3309,31 +3309,11 @@ int main( int argc, char *argv[] )
     simTable->EoS = (int) EOS_inj;
     
     /* This calculates the injected values of lambda0 and 1, taking into account the masses and the EOS used. */
-    if(TidalDeformation ==1)
+    /*if(TidalDeformation ==1)
     {
         REAL8 OnePlusZ=(1.0 + 0.00023349486663870643*(simTable->distance));
-        // ls=simTable->EoS;
-        REAL8 mass1Intr=(simTable->mass1)/OnePlusZ;
-        REAL8 mass2Intr=(simTable->mass2)/OnePlusZ;
-        /* if the intrinsic masses are greater than the maximum NS mass, set the tidal term to 0 */
-        /*if (mass1Intr<=maxNSmass) {
-            injected_lambda0=LambdaOfM_EOS(ls, mass1Intr);
-        }
-        else {
-            injected_lambda0=0.0;
-        }
-        if (mass2Intr<=maxNSmass) {
-            injected_lambda1=LambdaOfM_EOS(ls, mass2Intr);
-        }
-        else {
-            injected_lambda1=0.0;
-        }*/
-        //printf("%e\t%e\t%e\t%e\n",mass1Intr,mass2Intr,injected_lambda0,injected_lambda1);
-    }
+    }*/
     
-//    simTable->lambda0 = injected_lambda0;
-//    simTable->lambda1 = injected_lambda1;
-
     /* populate the massive graviton parameter */
     
     simTable->loglambdaG=loglambdaG;

@@ -167,12 +167,10 @@ void LALInspiralInterfaceSpinTaylorT4(
 	LIGOTimeGPS *endTime;
 	LALPNOrder phaseOrder, amplitudeOrder;
 	REAL8 i, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z;
-	REAL8 lambda1, lambda2; 
+	REAL8 m1_intr, m2_intr, lambda1, lambda2, OnePlusZ; 
 	LALSpinInteraction spinInteraction;
 	LALSimInspiralInteraction simInteraction = LAL_SIM_INSPIRAL_INTERACTION_DEFAULT;
 	
-	lambda1 = XLALLambdaOfM_EOS(EoS, m1); /** Tidal effect for mass1 switched on **/
-	lambda2 = XLALLambdaOfM_EOS(EoS, m2); /** Tidal effect for mass2 switched on **/
 	i = params->inclination;
 	lnhatx = sin(i);
 	lnhaty = 0.0;
@@ -184,8 +182,15 @@ void LALInspiralInterfaceSpinTaylorT4(
 	amplitudeOrder = params->ampOrder;
     amplitudeOrder = amplitudeOrder <= MAX_PRECESSING_AMP_PN_ORDER ? amplitudeOrder : MAX_PRECESSING_AMP_PN_ORDER;
     m1 = params->mass1 * LAL_MSUN_SI;    /** has to be in kg **/
-	m2 = params->mass2 * LAL_MSUN_SI;    /** has to be in kg **/
-	fStart = params->fLower;
+    m2 = params->mass2 * LAL_MSUN_SI;    /** has to be in kg **/
+    OnePlusZ = (1.0 + 6.932E4/LAL_C_SI*(params->distance)/(1.0E6*LAL_PC_SI)); 
+    m1_intr = params->mass1*LAL_MTSUN_SI/OnePlusZ; /** intrinsic masses in seconds **/
+    m2_intr = params->mass2*LAL_MTSUN_SI/OnePlusZ;
+    lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr); /** Tidal effect for mass1 switched on **/
+    lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr); /** Tidal effect for mass2 switched on **/
+    lambda1 = (lambda1 > 0.) ? lambda1 : 0.0;
+    lambda2 = (lambda2 > 0.) ? lambda2 : 0.0;
+    fStart = params->fLower;
 	fRef = 0.0;
 	fEnd = cutoff;
 	phiRef = params->startPhase;
@@ -986,7 +991,7 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     {	/* Compute 2PN SS correction to omega derivative */
         wspin2 = params->wdotSS2 * (247. * S1dotS2 - 721. * LNdotS1 * LNdotS2);
     }
-    if( params->wdotQM2S1 != 0. || wdotSSselfS1 != 0.)
+    if( params->wdotQM2S1 != 0. || params->wdotSSselfS1 != 0.)
     {	/* Compute 2PN QM and self-SS corrections to omega derivative */
         // This is equivalent to Eqs. 9c + 9d of astro-ph/0504538
         REAL8 S1sq = (S1x*S1x + S1y*S1y + S1z*S1z);
@@ -1892,7 +1897,5 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
         default:
         exit(-1);
 	}
-	// [LAMBDA0] = SEC^5; [LAMBDA1] = SEC^4
-	//REAL8 lambda = 1.0E-23*lambdas[0]+(compMass-1.40*1.0E-18*LAL_MTSUN_SI)*lambdas[1];
     return lambda;
 }
