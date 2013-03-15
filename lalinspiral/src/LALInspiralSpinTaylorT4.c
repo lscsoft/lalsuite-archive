@@ -374,8 +374,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     REAL8 m1m2, m2m1, dm, M, eta, Mchirp, norm, dtStart, dtEnd, lengths, wEnd;
     LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
     REAL8 m1M, m2M; /* m1/M, m2/M */
-    REAL8 quadparam1 = 0.;
-    REAL8 quadparam2 = 0.;
+    REAL8 quadparam1 = 1.;
+    REAL8 quadparam2 = 1.;
 
     /* Check start and end frequencies are positive */
     if( fStart <= 0. )
@@ -503,10 +503,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
             break;
     }
 
-  /* The \dot\omega coefficients in the d.e. are shifted for modGR signals */
+  /* The \dot\omega PN coefficients in the d.e. are shifted for modGR signals */
   
-  /*if (extraParams != NULL)
-  {*/
     params.wdotcoeff[0]*=1.0+dxis[0];
     params.wdotcoeff[1]=dxis[1];
     params.wdotcoeff[2]*=1.0+dxis[2];
@@ -516,12 +514,6 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     params.wdotcoeff[6]*=1.0+dxis[6];
     params.wdotlogcoeff*=1.0+dxis[7];
     params.wdotcoeff[7]*=1.0+dxis[8];
-
-    
-  /*}
-  else fprintf(stdout, "Using extraParams. dxis have no value.\n");
-  */ 
-
 
 
     /**
@@ -591,6 +583,18 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
         params.ESO25s1 = 11. - 61.*eta/9. + (dm/m1M) * (-3. + 10.*eta/3.);
         params.ESO25s2 = 11. - 61.*eta/9. + (dm/m2M) * (3. - 10.*eta/3.);
     }
+	
+  /* The \dot\omega spin-related coefficients in the d.e. are shifted for modGR signals */
+
+	params.wdotSO15s1 *= 1.0 + dxis[3];
+	params.wdotSO15s2 *= 1.0 + dxis[3];
+	params.wdotSS2 *= 1.0 + dxis[4];
+	params.wdotSSselfS1 *= 1.0 + dxis[4];
+	params.wdotSSselfS1L *= 1.0 + dxis[4];
+	params.wdotSSselfS2 *= 1.0 + dxis[4];
+	params.wdotSSselfS2L *= 1.0 + dxis[4];
+	params.wdotSO25s1 *= 1.0 + dxis[5];
+	params.wdotSO25s2 *= 1.0 + dxis[5];
 	
     /**
      * Compute the coefficients of tidal corrections 
@@ -982,7 +986,7 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
     {	/* Compute 2PN SS correction to omega derivative */
         wspin2 = params->wdotSS2 * (247. * S1dotS2 - 721. * LNdotS1 * LNdotS2);
     }
-    if( params->wdotQM2S1 != 0. )
+    if( params->wdotQM2S1 != 0. || wdotSSselfS1 != 0.)
     {	/* Compute 2PN QM and self-SS corrections to omega derivative */
         // This is equivalent to Eqs. 9c + 9d of astro-ph/0504538
         REAL8 S1sq = (S1x*S1x + S1y*S1y + S1z*S1z);
