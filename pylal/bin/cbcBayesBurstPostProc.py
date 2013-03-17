@@ -227,7 +227,9 @@ def cbcBayesPostProc(
                         #List of meanVector csv files used, one csv file for each covariance matrix
                         meanVectors=None,
                         #header file
-                        header=None
+                        header=None,
+                        #only save stats about PDF and exit #
+                        statsonly=False
                     ):
     """
     This is a demonstration script for using the functionality/data structures
@@ -612,14 +614,26 @@ def cbcBayesPostProc(
 
         fracs=skyreses.keys()
         fracs.sort()
-
+        skystatfilename=os.path.join(outdir,"sky_summary_statistics.dat")
+        statout=open(skystatfilename,"w")
+        if injection:
+            stri="FoundCL\t"
+        for frac in fracs:
+            stri+="%s\t%s\t"%("CL","Size")
+        statout.write(stri)
+        if injection:
+            stri=str(sky_injection_cl)
         skysizes=[skyreses[frac] for frac in fracs]
         for frac,skysize in zip(fracs,skysizes):
             html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
+            stri+="\t%.3f\t%.3f"%(frac,skysize)
         html_sky_write+=('</table>')
-
+        stri+='\n'
+        statout.write('\n'+stri)
+        statout.close()
         html_sky.write(html_sky_write)
-
+        if statsonly:
+            return 0
     #==================================================================#
     #1D posteriors
     #==================================================================#
@@ -1150,6 +1164,7 @@ if __name__=='__main__':
     parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
     parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
     parser.add_option("--email",action="store",default=None,type="string",metavar="user@ligo.org",help="Send an e-mail to the given address with a link to the finished page.")
+    parser.add_option("--stats_only",action="store_true",default=False,dest="stats_only")
     (opts,args)=parser.parse_args()
 
     datafiles=[]
@@ -1192,7 +1207,6 @@ if __name__=='__main__':
         #for bu in burstParams:
         #    for ti in timeParams:
         #        twoDGreedyMenu.append([bu,ti])
-    print "TWOOOOOOOOOOOOO" ,twoDGreedyMenu
   
     #twoDGreedyMenu=[['mc','eta'],['mchirp','eta'],['m1','m2'],['mtotal','eta'],['distance','iota'],['dist','iota'],['dist','m1'],['ra','dec']]
     #Bin size/resolution for binning. Need to match (converted) column names.
@@ -1248,7 +1262,8 @@ if __name__=='__main__':
                         #List of meanVector csv files used, one csv file for each covariance matrix
                         meanVectors=opts.meanVectors,
                         #header file for parameter names in posterior samples
-                        header=opts.header
+                        header=opts.header,
+                        statsonly=opts.stats_only
                     )
 
     # Send an email, useful for keeping track of dozens of jobs!
