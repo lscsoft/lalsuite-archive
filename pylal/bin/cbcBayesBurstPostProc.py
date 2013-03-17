@@ -622,7 +622,10 @@ def cbcBayesPostProc(
             stri+="%s\t%s\t"%("CL","Size")
         statout.write(stri)
         if injection:
-            stri=str(sky_injection_cl)
+            if sky_injection_cl:
+                stri=str(sky_injection_cl)
+            else:
+                stri="-100"
         skysizes=[skyreses[frac] for frac in fracs]
         for frac,skysize in zip(fracs,skysizes):
             html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
