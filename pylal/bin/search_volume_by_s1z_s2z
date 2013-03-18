@@ -21,10 +21,10 @@ from glue.ligolw import utils
 from glue.ligolw import table
 from glue import segmentsUtils
 from glue.ligolw.utils import process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 
 from pylal import db_thinca_rings
-from pylal import llwapp
 from pylal import rate
 from pylal import SimInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -145,10 +145,10 @@ class upper_limit(object):
       segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
     if self.coinc_ringdown_table is not None:
       if opts.live_time_program == "lalapps_ring":
-        segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+        segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
     if self.multi_burst_table is not None:
       if opts.live_time_program == "omega_to_coinc":
-        segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+        segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
       if opts.live_time_program == "waveburst":
         segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
     segs -= self.get_veto_segments(connection, xmldoc)

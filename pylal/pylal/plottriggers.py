@@ -134,7 +134,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     xlim = kwargs.pop('xlim', None)
     ylim = kwargs.pop('ylim', None)
     zlim = kwargs.pop('zlim', None)
-    colorlim = kwargs.pop('colorlim', zlim)
+    colorlim = kwargs.pop('colorlim', None)
+    if zlim and not colorlim:
+        colorlim = zlim
 
     # set up columns
     columns = list(map(str.lower, [xcolumn, ycolumn]))
@@ -216,7 +218,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
         for j,column in enumerate(columns):
             if limits[j]:
                 plotted = plotted & (limits[j][0] <= data[i][j])\
-                                  & (limits[j][1] >  data[i][j])
+                                  & (limits[j][1] >=  data[i][j])
 
         # apply the limits
         if not isinstance(plotted, bool):
@@ -268,6 +270,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             if c == "time":
                 lstr = lstr * unit + t0
             subtitle += " %s=%.2f" % (plotutils.display_name(c), lstr)
+    else:
+        loudest = None
 
     #
     # get parameters
@@ -296,7 +300,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     if greyscale and not kwargs.has_key("cmap"):
         kwargs["cmap"] =\
             pylab.matplotlib.colors.LinearSegmentedColormap("clrs",\
-                                           pylab.matplotlib.cm.hot._segmentdata)
+                                        pylab.matplotlib.cm.hot_r._segmentdata)
     elif not kwargs.has_key("cmap"):
         kwargs["cmap"] = jet
 
@@ -353,6 +357,8 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     plotutils.set_minor_ticks(plot.ax)
 
     # save and close
+    if greyscale:
+        plot.ax.patch.set_facecolor("#E8E8E8")
     plot.savefig(outfile, bbox_inches=bbox_inches,\
                  bbox_extra_artists=plot.ax.texts)
     plot.close()

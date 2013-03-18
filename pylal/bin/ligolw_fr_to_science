@@ -108,8 +108,8 @@ light_segments = segments.segmentlist()
 
 # loop over the frames extracting the science and injection segments
 for frame in frame_files:
-	if options.verbose: print frame.path()
-	state_vec = pylal.Fr.frgetvect(frame.path(), ':'.join([options.ifo,'LSC-DATA_QUALITY_VECTOR']), start=-1, span=-1, verbose=False)
+	if options.verbose: print frame.path
+	state_vec = pylal.Fr.frgetvect(frame.path, ':'.join([options.ifo,'LSC-DATA_QUALITY_VECTOR']), start=-1, span=-1, verbose=False)
 	start_time = state_vec[1]
 	dt = state_vec[3][0]
 	for i in range(len(state_vec[0])):
