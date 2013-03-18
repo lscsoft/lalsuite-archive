@@ -167,7 +167,7 @@ void LALInspiralInterfaceSpinTaylorT4(
 	LIGOTimeGPS *endTime;
 	LALPNOrder phaseOrder, amplitudeOrder;
 	REAL8 i, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z;
-	REAL8 m1_intr, m2_intr, lambda1, lambda2, OnePlusZ; 
+	REAL8 mttot, m1_intr, m2_intr, lambda1, lambda2, OnePlusZ; 
 	LALSpinInteraction spinInteraction;
 	LALSimInspiralInteraction simInteraction = LAL_SIM_INSPIRAL_INTERACTION_DEFAULT;
 	
@@ -184,10 +184,12 @@ void LALInspiralInterfaceSpinTaylorT4(
     m1 = params->mass1 * LAL_MSUN_SI;    /** has to be in kg **/
     m2 = params->mass2 * LAL_MSUN_SI;    /** has to be in kg **/
     OnePlusZ = (1.0 + 6.932E4/LAL_C_SI*(params->distance)/(1.0E6*LAL_PC_SI)); 
-    m1_intr = params->mass1*LAL_MTSUN_SI/OnePlusZ; /** intrinsic masses in seconds **/
-    m2_intr = params->mass2*LAL_MTSUN_SI/OnePlusZ;
-    lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr); /** Tidal effect for mass1 switched on **/
-    lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr); /** Tidal effect for mass2 switched on **/
+    m1_intr = params->mass1*OnePlusZ; /** intrinsic masses in Msun **/
+    m2_intr = params->mass2*OnePlusZ;
+    mttot = (m1_intr + m2_intr)*LAL_MTSUN_SI; /** intrinsic total mass in seconds **/
+    /** Calculate tidal deformability parameters for the two bodies (dimensionless) **/
+    lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr)/(mttot*mttot*mttot*mttot*mttot); /** Tidal effect for mass1 switched on **/
+    lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr)/(mttot*mttot*mttot*mttot*mttot); /** Tidal effect for mass2 switched on **/
     lambda1 = (lambda1 > 0.) ? lambda1 : 0.0;
     lambda2 = (lambda2 > 0.) ? lambda2 : 0.0;
     fStart = params->fLower;
@@ -1869,13 +1871,20 @@ int XLALSimInspiralPrecessingPTFQWaveforms(
     return XLAL_SUCCESS;
 }
 
-REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
+/** Calculates the tidal deformability parameter as a function
+ *  of mass, for several different Neutron Star Equations
+ *  of State. The mass argument should be the intrinsic mass 
+ *  in solar mass units.
+ *  The functions are interpolated with 4th order polynomials.
+ *  The return value for lambda is in units s^5.
+ * **/
 
-    /* this is fed the intrinsic masses and then computes the value of \Lambda(m) */
+REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
     
     REAL8 lambda=0.;
     switch (((int) EoS))
     {
+	// Point Particle
 		case PP:
 		lambda = 0.0;
 		break;
