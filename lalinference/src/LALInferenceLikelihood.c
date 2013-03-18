@@ -195,7 +195,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   dec       = *(REAL8*) LALInferenceGetVariable(currentParams, "declination");    /* radian      */
   psi       = *(REAL8*) LALInferenceGetVariable(currentParams, "polarisation");   /* radian      */
   GPSdouble = *(REAL8*) LALInferenceGetVariable(currentParams, "time");           /* GPS seconds */
-
+    
   if(LALInferenceCheckVariable(currentParams, "redshift")) 
   {
     redshift	= *(REAL8*) LALInferenceGetVariable(currentParams, "redshift");
@@ -207,7 +207,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     distMpc = XLALLuminosityDistance(omega,redshift);
     REAL8 logDistMpc = log(distMpc);
     if(logDistFlag) LALInferenceSetVariable(currentParams,"logdistance",&logDistMpc);
-    else  LALInferenceSetVariable(currentParams,"distance",&distMpc);      /* Mpc         */
+    else  LALInferenceSetVariable(currentParams,"distance",&distMpc);      
     free(omega);
   }
   else 
@@ -215,7 +215,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
         if(logDistFlag)
 		 distMpc = exp(*(REAL8*)LALInferenceGetVariable(currentParams,"logdistance"));
 	else
-		 distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
+		 distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");
   }
 
   /* figure out GMST: */

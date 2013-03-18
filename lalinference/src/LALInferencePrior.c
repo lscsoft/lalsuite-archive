@@ -120,6 +120,7 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
     if(*(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m1
        || *(REAL8 *)LALInferenceGetVariable(priorParams,"component_max") < m2)
       return -DBL_MAX;
+      
     if(LALInferenceCheckVariable(params, "redshift"))
     {
         REAL8 redshift	= *(REAL8*) LALInferenceGetVariable(params, "redshift");
