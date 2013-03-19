@@ -1102,11 +1102,25 @@ class SnglBurstTable(table.Table):
 		"""
 		return numpy.asarray([row.get_start() for row in self])
 
+	def get_ms_start(self):
+		"""@returns: the start time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_start() for row in self])
+
 	def get_stop(self):
 		"""@returns: the stop time of each row in the table
 		@returntype: numpy.ndarray
 		"""
 		return numpy.asarray([row.get_stop() for row in self])
+
+	def get_ms_stop(self):
+		"""@returns: the stop time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_stop() for row in self])
 
 	def get_q(self):
 		"""@returns: the Q of each row in the table
@@ -1127,11 +1141,24 @@ class SnglBurstTable(table.Table):
 		"""
 		return segments.segmentlist([row.get_period() for row in self])
 
+	def get_ms_period(self):
+		"""@returns: the period segment for the most significant tile
+		of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_ms_period() for row in self])
+
 	def get_band(self):
 		"""@returns: the frequency band of each row in the table
 		@returntype: glue.segments.segmentlist
 		"""
 		return segments.segmentlist([row.get_band() for row in self])
+
+	def get_ms_band(self):
+		"""@returns: the frequency band of the most significant tile
+		for each row in the table
+		"""
+		return segments.segmentlist([row.get_ms_band() for row in self])
 
 	def veto(self, seglist):
 		"""@returns: those rows of the table that don't lie within a
