@@ -304,14 +304,14 @@ typedef REAL8 (*LALInferencePriorFunction) (struct tagLALInferenceRunState *runS
   * to their corresponding physical values according to the prior.
   * Can depend on \param runState ->priorArgs
   */
-typedef UINT4 (LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
+typedef UINT4 (*LALInferenceCubeToPriorFunction) (struct tagLALInferenceRunState *runState, 
 	LALInferenceVariables *params, double *cube, void *context);
 
 /** Type declaration for CubeToPriorDensity function which calculates the prior density of
   * physical parameters according to the appropriate prior.
   * Can depend on \param runState ->priorArgs
   */
-typedef REAL8 (LALInferenceCubeToPriorDensityFunction) (struct tagLALInferenceRunState *runState, 
+typedef REAL8 (*LALInferenceCubeToPriorDensityFunction) (struct tagLALInferenceRunState *runState, 
 	LALInferenceVariables *params);
 
 //Likelihood calculator 
