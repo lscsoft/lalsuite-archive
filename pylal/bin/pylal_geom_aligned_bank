@@ -259,6 +259,7 @@ job_cat = pipeline.CondorDAGJob('vanilla',cat_path)
 job_cat.set_stdout_file('logs/bank_cat-$(cluster)-$(process).out')
 job_cat.set_stderr_file('logs/bank_cat-$(cluster)-$(process).err')
 job_cat.set_sub_file('bank_cat.sub')
+job_cat.add_condor_cmd('getenv','True')
 
 # Make the output node
 cat_node = pipeline.CondorDAGNode(job_cat)
