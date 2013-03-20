@@ -726,6 +726,8 @@ class sngl_inspiral_coincs(object):
 		for coinc_event_id in self:
 			yield (coinc_event_id, self[coinc_event_id])
 
+	iteritems = items
+
 	def column_index(self, table_name, column_name):
 		"""
 		Return a dictionary mapping coinc_event_id to the values in

@@ -1077,6 +1077,127 @@ class SnglBurstTable(table.Table):
 	next_id = SnglBurstID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
+	def get_column(self, column):
+		"""@returns: an array of column values for each row in the table
+
+		@param column:
+			name of column to return
+		@returntype:
+			numpy.ndarray
+		"""
+		if column.lower() == 'q':
+			return self.get_q
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_peak(self):
+		"""@returns: the peak time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_peak() for row in self])
+
+	def get_start(self):
+		"""@returns: the start time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_start() for row in self])
+
+	def get_ms_start(self):
+		"""@returns: the start time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_start() for row in self])
+
+	def get_stop(self):
+		"""@returns: the stop time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_stop() for row in self])
+
+	def get_ms_stop(self):
+		"""@returns: the stop time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_stop() for row in self])
+
+	def get_q(self):
+		"""@returns: the Q of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_q() for row in self])
+
+	def get_z(self):
+		"""@returns: the Z (Omega-Pipeline energy) of each row in the
+		table
+		@returntype: numpy.ndarray
+		"""
+		return numy.asarray([row.get_z() for row in self])
+
+	def get_period(self):
+		"""@returns: the period segment of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_period() for row in self])
+
+	def get_ms_period(self):
+		"""@returns: the period segment for the most significant tile
+		of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_ms_period() for row in self])
+
+	def get_band(self):
+		"""@returns: the frequency band of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_band() for row in self])
+
+	def get_ms_band(self):
+		"""@returns: the frequency band of the most significant tile
+		for each row in the table
+		"""
+		return segments.segmentlist([row.get_ms_band() for row in self])
+
+	def veto(self, seglist):
+		"""@returns: those rows of the table that don't lie within a
+		given seglist
+		"""
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglist:
+				keep.append(row)
+		return keep
+
+	def vetoed(self, seglist):
+		"""@returns: those rows of the table that lie within a given
+		seglist
+		"""
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglist:
+				vetoed.append(row)
+		return vetoed
+
+	def veto_seglistdict(self, seglistdict):
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglistdict[row.ifo]:
+				keep.append(row)
+		return keep
+
+	def vetoed_seglistdict(self, seglistdict):
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglistdict[row.ifo]:
+				vetoed.append(row)
+		return vetoed
+
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
@@ -1150,6 +1271,15 @@ class SnglBurst(object):
 		self.ms_flow = band[0]
 		self.ms_bandwidth = abs(band)
 
+	#
+	# Omega-Pipeline properties
+	#
+
+	def get_q(self):
+		return self.duration * 2 * numpy.pi**(1/2.) * self.central_freq
+
+	def get_z(self):
+		return self.snr ** 2 / 2.
 
 SnglBurstTable.RowType = SnglBurst
 
@@ -1302,6 +1432,12 @@ class SnglInspiralTable(table.Table):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
+		"spin1x": "real_4",
+		"spin1y": "real_4",
+		"spin1z": "real_4",
+		"spin2x": "real_4",
+		"spin2y": "real_4",
+		"spin2z": "real_4",
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
@@ -1334,19 +1470,19 @@ class SnglInspiralTable(table.Table):
 				column[i] = mapping[old] = self.get_next_id()
 		return mapping
 
-	def get_column(self,column):
+	def get_column(self,column,fac=250.,index=6.):
 		if column == 'reduced_chisq':
 			return self.get_reduced_chisq()
 		if column == 'reduced_bank_chisq':
 			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
 			return self.get_reduced_cont_chisq()
-		if column == 'new_snr':
-			return self.get_new_snr()
-		if column == 'effective_snr':
-			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
+		if column == 'effective_snr':
+			return self.get_effective_snr(fac=fac)
+		if column == 'new_snr':
+			return self.get_new_snr(index=index)
 		if column == 'lvS5stat':
 			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
@@ -1503,11 +1639,42 @@ class SnglInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
+	def get_reduced_chisq(self):
+		return float(self.chisq)/ (2*self.chisq_dof - 2)
+
+	def get_reduced_bank_chisq(self):
+		return float(self.bank_chisq)/ self.bank_chisq_dof
+
+	def get_reduced_cont_chisq(self):
+		return float(self.cont_chisq)/ self.cont_chisq_dof
+
 	def get_effective_snr(self,fac=250.0):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_chisq()**0.25
 	
+	def get_bank_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25 
+
+	def get_cont_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_cont_chisq()**0.25
+
 	def get_new_snr(self,index=6.0):
-		rchisq = self.chisq/(2*self.chisq_dof - 2)
+		rchisq = self.get_reduced_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_bank_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_bank_chisq()
+		nhigh = 2.
+		if rchisq > 1.:
+			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
+		else:
+			return self.snr
+
+	def get_cont_new_snr(self,index=6.0):
+		rchisq = self.get_reduced_cont_chisq()
 		nhigh = 2.
 		if rchisq > 1.:
 			return self.snr/ ((1+rchisq**(index/nhigh))/2)**(1./index)
@@ -1874,9 +2041,11 @@ class MultiInspiralTable(table.Table):
 	                 "V1":"v"}
 
 	def get_column(self,column):
-		if column == 'new_snr':
+		if column == 'bestnr':
+			return self.get_bestnr()
+		elif column == 'new_snr':
 			return self.get_new_snr()
-		if column == "null_snr":
+		elif column == "null_snr":
 			return self.get_null_snr()
 		elif column == 'coinc_snr':
 			return self.get_coinc_snr()
@@ -2054,12 +2223,14 @@ class MultiInspiralTable(table.Table):
 		            for ifo in instruments)
 
 	def get_bestnr(self, index=4.0, nhigh=3.0, null_snr_threshold=4.25,\
-		null_grad_thresh=20., null_grad_val = 1./5.):
+		           null_grad_thresh=20., null_grad_val = 1./5.):
 		"""
 		Get the BestNR statistic for each row in the table
 		"""
-		return [row.get_bestnr(index=index,\
-		                       null_snr_threshold=null_snr_threshold)\
+		return [row.get_bestnr(index=index, nhigh=nhigh,
+		                       null_snr_threshold=null_snr_threshold,
+		                       null_grad_thresh=null_grad_thresh,
+		                       null_grad_val=null_grad_val)
 		        for row in self]
 
 	def getstat(self):
@@ -2314,19 +2485,18 @@ class MultiInspiral(object):
 		return slide_number
 
 	def get_bestnr(self, index=4.0, nhigh=3.0, null_snr_threshold=4.25,\
-		null_grad_thresh=20., null_grad_val = 1./5.):
+		           null_grad_thresh=20., null_grad_val = 1./5.):
 		"""
 		Return the BestNR statistic for this row.
 		"""
 		# weight SNR by chisq
-		bestnr = self.get_new_snr(index=index, nhigh=nhigh,\
-			 column="chisq")
+		bestnr = self.get_new_snr(index=index, nhigh=nhigh,
+		                          column="chisq")
 		if len(self.get_ifos()) < 3:
 			return bestnr
 		# recontour null SNR threshold for higher SNRs
 		if self.snr > null_grad_thresh:
-			null_snr_threshold += (self.snr - null_grad_thresh)\
-				* null_grad_val
+			null_snr_threshold += (self.snr - null_grad_thresh) * null_grad_val
 		# weight SNR by null SNR
 		if self.get_null_snr() > null_snr_threshold:
 			bestnr /= 1 + self.get_null_snr() - null_snr_threshold

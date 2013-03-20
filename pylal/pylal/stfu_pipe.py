@@ -209,7 +209,7 @@ def getParamsFromCache(fileName,type,ifo=None,time=None):
 			cacheSelected = cacheSelected.sieve(segment=segments.segment(math.floor(float(time))-0.5, math.floor(float(time))+0.5))
 
 	for cacheEntry in cacheSelected:
-		path_output = cacheEntry.path()
+		path_output = cacheEntry.path
 		time_output = str(cacheEntry.segment[0])
 		type_output = cacheEntry.description
 		ifo_output = cacheEntry.observatory

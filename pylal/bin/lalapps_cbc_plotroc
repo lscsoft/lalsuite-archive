@@ -313,7 +313,7 @@ if options.verbose and options.add_cache != []:
 for n, cachename in enumerate(options.add_cache):
 	label = len(cachename.split(':')) > 1 and cachename.split(':')[-1] or "%s%d" % ("cache", n)
 	cn = re.sub( label[::-1]+':', '', cachename[::-1], 1 )[::-1]
-	for fn in [lal.CacheEntry(line).path() for line in file(cn) if lal.CacheEntry(line).path().endswith('sqlite')]:
+	for fn in [lal.CacheEntry(line).path for line in file(cn) if lal.CacheEntry(line).path.endswith('sqlite')]:
 		labels[fn] = label
 
 # get files

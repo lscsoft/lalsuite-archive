@@ -77,7 +77,7 @@ dict_templates = {}
 for entry in sieved_cache:
   # extract the IFO and the filename
   ifo = entry.observatory
-  filename = entry.path()
+  filename = entry.path
 
   # and fill the dict with it
   if ifo in dict_templates:

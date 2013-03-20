@@ -16,10 +16,10 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw import table
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue import segmentsUtils
 
 from pylal import db_thinca_rings
-from pylal import llwapp
 from pylal import rate
 from pylal import SimInspiralUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -121,10 +121,10 @@ class Summary(object):
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = "thinca")
 		
 		if self.coinc_ringdown_table:
-			if opts.live_time_program == "lalapps_ring":segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program)
+			if opts.live_time_program == "lalapps_ring":segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program)
 		if self.multi_burst_table:
 			#FIXME CWB case of rings not handled
-			if opts.live_time_program == "omega_to_coinc": segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
+			if opts.live_time_program == "omega_to_coinc": segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, self.opts.live_time_program).coalesce()
 			if opts.live_time_program == "waveburst": segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = self.opts.live_time_program)
 		segs -= self.get_veto_segments(connection)
 		return segs

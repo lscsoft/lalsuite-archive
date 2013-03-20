@@ -207,12 +207,12 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	working location for improved performance and reduced fileserver
 	load.
 	"""
-	def mktmp(path, verbose = False):
+	def mktmp(path, suffix = ".sqlite", verbose = False):
 		# make sure the clean-up signal traps are installed
 		install_signal_trap()
 		# create the remporary file and replace it's unlink()
 		# function
-		temporary_file = tempfile.NamedTemporaryFile(suffix = ".sqlite", dir = path)
+		temporary_file = tempfile.NamedTemporaryFile(suffix = suffix, dir = path)
 		def new_unlink(self, orig_unlink = temporary_file.unlink):
 			# also remove a -journal partner, ignore all errors
 			try:
@@ -271,7 +271,9 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	database_exists = os.access(filename, os.F_OK)
 
 	if tmp_path is not None:
-		target = mktmp(tmp_path, verbose = verbose)
+		# for suffix, can't use splitext() because it only keeps
+		# the last bit, e.g. won't give ".xml.gz" but just ".gz"
+		target = mktmp(tmp_path, suffix = ".".join(os.path.split(filename)[-1].split(".")[1:]), verbose = verbose)
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
@@ -411,7 +413,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		# make the dummy file.  FIXME: this is stupid, find a
 		# better way to shut TemporaryFile up
 		try:
-			file(working_filename, "w").close()
+			open(working_filename, "w").close()
 		except:
 			pass
 		temporary_files_lock.acquire()
@@ -420,7 +422,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 		finally:
 			temporary_files_lock.release()
 
-		# restore original handlers, and send outselves any trapped signals
+		# restore original handlers, and send ourselves any trapped signals
 		# in order
 		for sig, oldhandler in oldhandlers.iteritems():
 			signal.signal(sig, oldhandler)

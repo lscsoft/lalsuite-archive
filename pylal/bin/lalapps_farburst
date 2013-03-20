@@ -42,13 +42,13 @@ from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from pylal import git_version
 from pylal import rate
 from pylal import db_thinca_rings
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal import SnglBurstUtils
-from pylal import llwapp
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -152,7 +152,7 @@ class Summaries(object):
 		# get the segment lists and live time
 		xmldoc = dbtables.get_xml(connection)
 		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
-		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		if veto_segments_name is not None:
 			veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 			seglists -= veto_segs

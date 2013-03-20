@@ -212,7 +212,7 @@ class pylal_sdist(sdist.sdist):
 
 setup(
 	name = "pylal",
-	version = "0.2.0",
+	version = "0.3.0",
 	author = "Kipp Cannon and Nickolas Fotopoulos",
 	author_email = "lal-discuss@gravity.phys.uwm.edu",
 	description = "Python LIGO Algorithm Library",
@@ -565,6 +565,7 @@ setup(
 		os.path.join("bin", "pylal_exttrig_llsummary"),
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_exttrig_llpage"),
+		os.path.join("bin", "pylal_recolor"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "pylal_version"),
 		os.path.join("bin", "plotethinca"),
@@ -679,6 +680,7 @@ setup(
 		os.path.join("bin", "minifollowups"),
 		os.path.join("bin", "ligolw_cbc_plotcumhist"),
 		os.path.join("bin", "pylal_imr_missed_found"),
+		os.path.join("bin", "pylal_imr_livetime"),
 		os.path.join("bin", "make_imr_summary_page"),
 		os.path.join("bin", "lalapps_cbc_compute_rs"),
 		os.path.join("bin", "lalapps_cbc_print_rs"),
@@ -701,12 +703,14 @@ setup(
 		os.path.join("bin", "pylal_aligned_bank_cat"),
 		os.path.join("bin", "pylal_geom_aligned_2dstack"),
 		os.path.join("bin", "pylal_aligned_stoch_bank"),
+		os.path.join("bin", "pylal_add_missing_sngl_inspiral_columns"),
 		os.path.join("bin", "ring_post"),
 		os.path.join("bin", "ligolw_rinca_to_coinc"),
 		os.path.join("bin", "cbcBayesPostProc.py"),
 		os.path.join("bin", "cbcBayesCompPos.py"),
 		os.path.join("bin", "cbcBayesDIEvidence.py"),
 		os.path.join("bin", "cbcBayesInjProc.py"),
+		os.path.join("bin", "cbcBayesThermoInt.py"),
 		os.path.join("bin", "pulsarBayesPostProc.py"),
 		os.path.join("bin", "ligo_channel_query"),
 		os.path.join("bin", "projectedDetectorTensor"),
@@ -741,7 +745,8 @@ setup(
 		os.path.join("bin", "pylal_coh_PTF_sbv"),
 		os.path.join("bin", "pylal_coh_PTF_plot_results"),
 		os.path.join("bin", "pylal_write_coh_PTF_page"),
-		os.path.join("bin", "ligolw_dbinjfind")
+		os.path.join("bin", "ligolw_dbinjfind"),
+		os.path.join("bin", "lalapps_cbc_plothzdist")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
