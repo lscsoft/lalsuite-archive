@@ -2021,26 +2021,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
             lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
-            approximant), errnum);
-	/*previous_m1 = m1;
-	previous_m2 = m2;
-	previous_spin1z = spin1z;
-	previous_spin1y = spin1y;
-	previous_spin1x = spin1x;
-	previous_spin2z = spin2z;
-	previous_spin2y = spin2y;
-	previous_spin2x = spin2x;
-	previous_phi0 = phi0;
-	previous_distance = distance;
-	previous_lambda1 = lambda1;
-	previous_lambda2 = lambda2;
-	previous_amporder = amporder;
-	previous_order = order;
-	previous_f_min = f_min;
-	previous_f_max = f_max;
-	previous_approximant = approximant;
-	previous_deltaF = deltaF;
-	previous_inclination = inclination;*/
+						     approximant, NULL), errnum);
 
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hptilde'.\n");
@@ -2090,7 +2071,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, 
                                                  spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, fRef, distance, 
                                                  inclination, lambda1, lambda2, waveFlags, nonGRparams,
-                                                 amporder, order, approximant), errnum);
+                                                 amporder, order, approximant, NULL), errnum);
     XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)
