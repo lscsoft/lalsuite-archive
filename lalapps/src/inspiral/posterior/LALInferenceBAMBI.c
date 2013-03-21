@@ -118,15 +118,15 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context
 	if( i == 0 )
 	{
 		*lnew = -DBL_MAX;
-		LALInferenceDestroyVariables(newParams);
+		LALInferenceClearVariables(newParams);
 		free(newParams);
 		return;
 	}
 	
 	// calculate the loglike
-	*lnew=runStateGlobal->likelihood(newParams, runStateGlobal->data, runStateGlobal->template);
+	*lnew=runStateGlobal->likelihood(newParams, runStateGlobal->data, runStateGlobal->templt);
 	*lnew -= (*(REAL8 *)LALInferenceGetVariable(runStateGlobal->algorithmParams, "logZnoise"));
-	LALInferenceDestroyVariables(newParams);
+	LALInferenceClearVariables(newParams);
 	free(newParams);
 }
 
@@ -267,7 +267,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	
 	if( ND==0 )
 	{
-		double like = runState->likelihood(runState->currentParams,runState->data,runState->template);
+		double like = runState->likelihood(runState->currentParams,runState->data,runState->templt);
 		like -= (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
 		fprintf(stdout,"LOG-LIKELIHOOD VALUE RETURNED = %g\n",like);
 		double prior = runState->CubeToPriorDensity(runState,runState->currentParams);
@@ -356,7 +356,7 @@ void LALInferenceMultiNestAlgorithm(LALInferenceRunState *runState)
 	double linj,pinj,lz;
     	char finjname[150];
     	sprintf(finjname,"%sinjlike.txt",root);
-	linj=runState->likelihood(runState->currentParams, runState->data, runState->template);
+	linj=runState->likelihood(runState->currentParams, runState->data, runState->templt);
     	lz = (*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams, "logZnoise"));
 	linj -= lz;
 	pinj = runState->CubeToPriorDensity(runState,runState->currentParams);
