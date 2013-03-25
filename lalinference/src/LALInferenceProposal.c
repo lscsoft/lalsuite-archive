@@ -41,35 +41,35 @@
 
 #include <lal/LALStdlib.h>
 
-const char *cycleArrayName = "Proposal Cycle";
-const char *cycleArrayLengthName = "Proposal Cycle Length";
-const char *cycleArrayCounterName = "Proposal Cycle Counter";
+const char *const cycleArrayName = "Proposal Cycle";
+const char *const cycleArrayLengthName = "Proposal Cycle Length";
+const char *const cycleArrayCounterName = "Proposal Cycle Counter";
 
-const char *LALInferenceCurrentProposalName = "Current Proposal";
+const char *const LALInferenceCurrentProposalName = "Current Proposal";
 
 /* Proposal Names */
-const char *singleAdaptProposalName = "Single";
-const char *singleProposalName = "Single";
-const char *orbitalPhaseJumpName = "OrbitalPhase";
-const char *inclinationDistanceName = "InclinationDistance";
-const char *covarianceEigenvectorJumpName = "CovarianceEigenvector";
-const char *skyLocWanderJumpName = "SkyLocWander";
-const char *differentialEvolutionFullName = "DifferentialEvolutionFull";
-const char *differentialEvolutionMassesName = "DifferentialEvolutionMasses";
-const char *differentialEvolutionSpinsName = "DifferentialEvolutionSpins";
-const char *differentialEvolutionPhysicalSpinsName = "DifferentialEvolutionPhysicalSpins";
-const char *differentialEvolutionExtrinsicName = "DifferentialEvolutionExtrinsic";
-const char *drawApproxPriorName = "DrawApproxPrior";
-const char *skyReflectDetPlaneName = "SkyReflectDetPlane";
-const char *skyRingProposalName = "SkyRingProposal";
-const char *PSDFitJumpName = "PSDFitJump";
-const char *rotateSpinsName = "RotateSpins";
-const char *polarizationPhaseJumpName = "PolarizationPhase";
-const char *polarizationCorrPhaseJumpName = "CorrPolarizationPhase";
-const char *distanceQuasiGibbsProposalName = "DistanceQuasiGibbs";
-const char *orbitalPhaseQuasiGibbsProposalName = "OrbitalPhaseQuasiGibbs";
-const char *extrinsicParamProposalName = "ExtrinsicParamProposal";
-const char *KDNeighborhoodProposalName = "KDNeighborhood";
+const char *const singleAdaptProposalName = "Single";
+const char *const singleProposalName = "Single";
+const char *const orbitalPhaseJumpName = "OrbitalPhase";
+const char *const inclinationDistanceName = "InclinationDistance";
+const char *const covarianceEigenvectorJumpName = "CovarianceEigenvector";
+const char *const skyLocWanderJumpName = "SkyLocWander";
+const char *const differentialEvolutionFullName = "DifferentialEvolutionFull";
+const char *const differentialEvolutionMassesName = "DifferentialEvolutionMasses";
+const char *const differentialEvolutionSpinsName = "DifferentialEvolutionSpins";
+const char *const differentialEvolutionPhysicalSpinsName = "DifferentialEvolutionPhysicalSpins";
+const char *const differentialEvolutionExtrinsicName = "DifferentialEvolutionExtrinsic";
+const char *const drawApproxPriorName = "DrawApproxPrior";
+const char *const skyReflectDetPlaneName = "SkyReflectDetPlane";
+const char *const skyRingProposalName = "SkyRingProposal";
+const char *const PSDFitJumpName = "PSDFitJump";
+const char *const rotateSpinsName = "RotateSpins";
+const char *const polarizationPhaseJumpName = "PolarizationPhase";
+const char *const polarizationCorrPhaseJumpName = "CorrPolarizationPhase";
+const char *const distanceQuasiGibbsProposalName = "DistanceQuasiGibbs";
+const char *const orbitalPhaseQuasiGibbsProposalName = "OrbitalPhaseQuasiGibbs";
+const char *const extrinsicParamProposalName = "ExtrinsicParamProposal";
+const char *const KDNeighborhoodProposalName = "KDNeighborhood";
 
 /* Mode hopping fraction for the differential evoultion proposals. */
 static const REAL8 modeHoppingFrac = 1.0;
@@ -128,11 +128,11 @@ LALInferenceSetLogProposalRatio(LALInferenceRunState *runState, REAL8 logP) {
 }
 
 void
-LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propName, LALInferenceProposalFunction *prop, UINT4 weight) {
+LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propName, LALInferenceProposalFunction prop, UINT4 weight) {
   const char *fname = "LALInferenceAddProposalToCycle";
 
   UINT4 length = 0;
-  LALInferenceProposalFunction **cycle = NULL;
+  LALInferenceProposalFunction *cycle = NULL;
   LALInferenceVariables *propArgs = runState->proposalArgs;
   LALInferenceVariables *propStats = runState->proposalStats;
 
@@ -146,9 +146,9 @@ LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propN
     UINT4 i;
 
     length = *((UINT4 *)LALInferenceGetVariable(propArgs, cycleArrayLengthName));
-    cycle = *((LALInferenceProposalFunction ***)LALInferenceGetVariable(propArgs, cycleArrayName));
+    cycle = *((LALInferenceProposalFunction **)LALInferenceGetVariable(propArgs, cycleArrayName));
 
-    cycle = XLALRealloc(cycle, (length+weight)*sizeof(LALInferenceProposalFunction *));
+    cycle = XLALRealloc(cycle, (length+weight)*sizeof(LALInferenceProposalFunction));
     if (cycle == NULL) {
       XLALError(fname, __FILE__, __LINE__, XLAL_ENOMEM);
       exit(1);
@@ -168,7 +168,7 @@ LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propN
     
     length = weight;
 
-    cycle = XLALMalloc(length*sizeof(LALInferenceProposalFunction *));
+    cycle = XLALMalloc(length*sizeof(LALInferenceProposalFunction));
     if (cycle == NULL) {
       XLALError(fname, __FILE__, __LINE__, XLAL_ENOMEM);
       exit(1);
@@ -200,7 +200,7 @@ void
 LALInferenceRandomizeProposalCycle(LALInferenceRunState *runState) {
   const char *fname = "LALInferenceRandomizeProposalCycle";
   UINT4 length = 0;
-  LALInferenceProposalFunction **cycle = NULL;
+  LALInferenceProposalFunction *cycle = NULL;
   LALInferenceVariables *propArgs = runState->proposalArgs;
 
   UINT4 i;
@@ -210,13 +210,13 @@ LALInferenceRandomizeProposalCycle(LALInferenceRunState *runState) {
     exit(1);
   }
 
-  cycle = *((LALInferenceProposalFunction ***)LALInferenceGetVariable(propArgs, cycleArrayName));
+  cycle = *((LALInferenceProposalFunction **)LALInferenceGetVariable(propArgs, cycleArrayName));
   length = *((UINT4 *)LALInferenceGetVariable(propArgs, cycleArrayLengthName));
 
   for (i = length - 1; i > 0; i--) {
     /* Fill in array from right to left, chosen randomly from remaining proposals. */
     UINT4 j;
-    LALInferenceProposalFunction *prop;
+    LALInferenceProposalFunction prop;
 
     j = gsl_rng_uniform_int(runState->GSLrandom, i+1);
     prop = cycle[j];
@@ -261,7 +261,7 @@ LALInferenceCyclicProposal(LALInferenceRunState *runState, LALInferenceVariables
   const char *fname = "LALInferenceCyclicProposal";
   UINT4 length = 0;
   UINT4 i = 0;
-  LALInferenceProposalFunction **cycle = NULL;
+  LALInferenceProposalFunction *cycle = NULL;
   LALInferenceVariables *propArgs = runState->proposalArgs;
 
   /* Must have cycle array and cycle array length in propArgs. */
@@ -271,7 +271,7 @@ LALInferenceCyclicProposal(LALInferenceRunState *runState, LALInferenceVariables
   }
 
   length = *((UINT4 *)LALInferenceGetVariable(propArgs, cycleArrayLengthName));
-  cycle = *((LALInferenceProposalFunction ***)LALInferenceGetVariable(propArgs, cycleArrayName));
+  cycle = *((LALInferenceProposalFunction **)LALInferenceGetVariable(propArgs, cycleArrayName));
 
   /* If there is not a proposal counter, put one into the variables, initialized to zero. */
   if (!LALInferenceCheckVariable(propArgs, cycleArrayCounterName)) {
@@ -298,7 +298,7 @@ LALInferenceDeleteProposalCycle(LALInferenceRunState *runState) {
   LALInferenceVariables *propArgs = runState->proposalArgs;
   
   if (LALInferenceCheckVariable(propArgs, cycleArrayName)) {
-    LALInferenceProposalFunction **cycle = *((LALInferenceProposalFunction ***)LALInferenceGetVariable(propArgs, cycleArrayName));
+    LALInferenceProposalFunction *cycle = *((LALInferenceProposalFunction **)LALInferenceGetVariable(propArgs, cycleArrayName));
     XLALFree(cycle);
     LALInferenceRemoveVariable(propArgs, cycleArrayName);
   }
@@ -1629,9 +1629,10 @@ void LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVar
    */
   newDec = asin(kp[2]);
   newRA  = atan2(kp[1],kp[0]) + gmst;
-  if(newRA < 0.0) newRA += LAL_TWOPI;
-
-
+  if (newRA < 0.0)
+    newRA += LAL_TWOPI;
+  else if (newRA >= LAL_TWOPI)
+    newRA -= LAL_TWOPI;
   /*
    compute new geocenter time using
    fixed arrival time at IFO1 (arbitrary)
@@ -2002,7 +2003,7 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
     REAL8 logD2 = log(d2);
     LALInferenceSetVariable(proposedParams, "logdistance", &logD2);
   }
-  REAL8 L12 = runState->likelihood(proposedParams, runState->data, runState->template);
+  REAL8 L12 = runState->likelihood(proposedParams, runState->data, runState->templt);
 
   REAL8 u2 = u0*2.0;
   REAL8 d12 = 1.0/u2;
@@ -2012,7 +2013,7 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
     REAL8 logD12 = log(d12);
     LALInferenceSetVariable(proposedParams, "logdistance", &logD12);
   }
-  REAL8 L2 = runState->likelihood(proposedParams, runState->data, runState->template);
+  REAL8 L2 = runState->likelihood(proposedParams, runState->data, runState->templt);
   
   /* Coefficients of quadratic L(u) = A + B*u + C*u^2 */
   REAL8 B = -(L2 + 4.0*L12 - 5.0*L0)/u0;
@@ -2066,7 +2067,7 @@ void LALInferenceDistanceQuasiGibbsProposal(LALInferenceRunState *runState, LALI
     LALInferenceSetVariable(proposedParams, "logdistance", &logDNew);
   }
 
-  REAL8 LNew = runState->likelihood(proposedParams, runState->data, runState->template);
+  REAL8 LNew = runState->likelihood(proposedParams, runState->data, runState->templt);
 
   /* Store our new sample and set jump probability. */
   if (distParam == USES_DISTANCE_VARIABLE) {
@@ -2109,12 +2110,12 @@ void LALInferenceOrbitalPhaseQuasiGibbsProposal(LALInferenceRunState *runState, 
   dPhi1 = 2.0*M_PI/3.0;
   phi1 = fmod(phi0 + dPhi1, 2.0*M_PI);
   LALInferenceSetVariable(proposedParams, "phase", &phi1);
-  L1 = runState->likelihood(proposedParams, runState->data, runState->template);
+  L1 = runState->likelihood(proposedParams, runState->data, runState->templt);
 
   dPhi2 = 4.0*M_PI/3.0;
   phi2 = fmod(phi0 + dPhi2, 2.0*M_PI);
   LALInferenceSetVariable(proposedParams, "phase", &phi2);
-  L2 = runState->likelihood(proposedParams, runState->data, runState->template);
+  L2 = runState->likelihood(proposedParams, runState->data, runState->templt);
 
   /* log(L) = A + C*cos(dPhi) + S*sin(dPhi) */
   REAL8 c0 = cos(dPhi0), c1 = cos(dPhi1), c2 = cos(dPhi2);
@@ -2178,7 +2179,7 @@ void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInfer
   }
   
   LALInferenceKDTree *tree = *(LALInferenceKDTree **)LALInferenceGetVariable(proposalArgs, "kDTree");
-  LALInferenceVariables *template = *(LALInferenceVariables **)LALInferenceGetVariable(proposalArgs, "kDTreeVariableTemplate");
+  LALInferenceVariables *templt = *(LALInferenceVariables **)LALInferenceGetVariable(proposalArgs, "kDTreeVariableTemplate");
   /* If tree has zero points, bail. */
   if (tree->npts == 0) {
     LALInferenceSetLogProposalRatio(runState, 0.0);
@@ -2189,11 +2190,11 @@ void LALInferenceKDNeighborhoodProposal(LALInferenceRunState *runState, LALInfer
   REAL8 *proposedPt = XLALCalloc(tree->dim, sizeof(REAL8));
 
   /* Get the coordinates of the current point. */
-  LALInferenceKDVariablesToREAL8(runState->currentParams, currentPt, template);
+  LALInferenceKDVariablesToREAL8(runState->currentParams, currentPt, templt);
 
   /* A randomly-chosen point from those in the tree. */
   LALInferenceKDDrawEigenFrame(runState->GSLrandom, tree, proposedPt, NCell);
-  LALInferenceKDREAL8ToVariables(proposedParams, proposedPt, template);
+  LALInferenceKDREAL8ToVariables(proposedParams, proposedPt, templt);
 
   REAL8 logPropRatio = LALInferenceKDLogProposalRatio(tree, currentPt, proposedPt, NCell);
 

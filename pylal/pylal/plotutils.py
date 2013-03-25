@@ -1877,7 +1877,7 @@ class LineHistogram(BasicPlot):
             # set defaults
             if fill:
                 plot_kwargs.setdefault("linewidth", 1)
-                plot_kwargs.setdeafult("alpha", 0.8)
+                plot_kwargs.setdefault("alpha", 0.8)
 
             # get cumulative sum
             if cumulative:

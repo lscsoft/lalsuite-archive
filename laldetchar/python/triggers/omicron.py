@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License along
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- 
+
 """Read and manipulate Omicron events from ROOT files
 """
 
@@ -25,6 +25,7 @@ import re
 from ROOT import TChain
 
 from glue.ligolw import ilwd,lsctables,table,utils
+from glue.segments import segment as Segment
 
 from lal import LIGOTimeGPS
 from laldetchar import git_version
@@ -33,9 +34,75 @@ __author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = git_version.id
 __date__ = git_version.date
 
+OMICRON_COLUMNS = ["process_id", "search", "channel", "ifo",
+                   "peak_time", "peak_time_ns", "start_time", "start_time_ns",
+                   "stop_time", "stop_time_ns", "duration",
+                   "central_freq", "peak_frequency",
+                   "flow", "fhigh", "bandwidth",
+                   "snr", "amplitude", "confidence"]
 
-def get_sngl_burst(root_event,
-                   columns=lsctables.SnglBurstTable.validcolumns.keys()):
+_re_comment = re.compile("[#%]")
+_re_delim = re.compile("[\t\,\s]+")
+
+
+def read_ascii_trigger(ascii_line, columns=OMICRON_COLUMNS):
+    """@returns a LIGO_LW SnglBurst event with attributes loaded
+    from given line of ASCII.
+    """
+    sb = lsctables.SnglBurst()
+    if "search" in columns:
+        sb.search = u"omicron"
+
+    if isinstance(ascii_line, str):
+        dat = map(float, _re_delim.split(ascii_line.rstrip()))
+    else:
+        dat = map(float, ascii_line)
+
+    if len(dat) == 5:
+        (peak, freq, duration, band, snr) = dat
+        peak = LIGOTimeGPS(peak)
+        start = peak - duration/2.
+        stop = peak + duration/2.
+    else:
+        raise ValueError("Wrong number of columns in ASCII line. Cannot read.")
+
+    if 'start_time' in columns:
+        sb.start_time = start.gpsSeconds
+    if 'start_time_ns' in columns:
+        sb.start_time_ns = start.gpsNanoSeconds
+    if "time" in columns or 'peak_time' in columns:
+        sb.peak_time = peak.gpsSeconds
+    if "time" in columns or 'peak_time_ns' in columns:
+        sb.peak_time_ns = peak.gpsNanoSeconds
+    if 'stop_time' in columns:
+        sb.stop_time = stop.gpsSeconds
+    if 'stop_time_ns' in columns:
+        sb.stop_time_ns  = stop.gpsNanoSeconds
+    if 'duration' in columns:
+        sb.duration = duration
+
+    if 'central_freq' in columns:
+        sb.central_freq = freq
+    if 'peak_frequency' in columns:
+        sb.peak_frequency = freq
+    if 'bandwidth' in columns:
+        sb.bandwidth = band
+    if 'flow' in columns:
+        sb.flow = freq - band/2.
+    if 'fhigh' in columns:
+        sb.fhigh = freq + band/2.
+
+    if 'snr' in columns:
+        sb.snr = snr
+    if 'amplitude' in columns:
+        sb.amplitude = snr ** 2 / 2.
+    if 'confidence' in columns:
+        sb.confidence = snr
+
+    return sb
+
+
+def read_root_trigger(root_event, columns=OMICRON_COLUMNS):
     """@returns a LIGO_LW SnglBurst event with attributes seeded from
     the given Omicron ROOT tree event
     """
@@ -53,6 +120,8 @@ def get_sngl_burst(root_event,
         sb.bandwidth = fhigh-flow
     if "central_freq" in columns:
         sb.central_freq = root_event.frequency
+    if "peak_frequency" in columns:
+        sb.peak_frequency = root_event.frequency
 
     peak_time = LIGOTimeGPS(root_event.time)
     if "time" in columns or "peak_time" in columns:
@@ -74,15 +143,84 @@ def get_sngl_burst(root_event,
 
     if "snr" in columns:
         sb.snr = root_event.snr
-    if "q" in columns or "param_one_value" in columns:
-        sb.param_one_name = "q"
-        sb.param_one_value = root_event.q
+    if "amplitude" in columns:
+        sb.amplitude = root_event.snr**2 / 2.
+    if "confidence" in columns:
+        sb.confidence = root_event.snr
 
     return sb
 
 
+def from_ascii_file(filename, start=None, end=None, ifo=None, channel=None,
+                    columns=OMICRON_COLUMNS):
+    """Read a SnglBurstTable from an Omicron ASCII file
+
+    @param filename
+        file path from which to read the data
+    @param start
+        GPS start time after which to restrict returned events
+    @param end
+        GPS end time before which to restrict returned
+    @param ifo
+        observatory that produced the given data
+    @param channel
+        source channel that produced the given data
+    @param columns
+        set of valid SnglBurst columns to read from data
+
+    @returns a Multi or Sngl BurstTable object representing the data
+    """
+    if channel and not ifo and re.match("[A-Z]\d:", channel):
+       ifo = channel[:2]
+
+    # set columns
+    if columns is None:
+        columns = lsctables.SnglBurst.__slots__
+        usercolumns = False
+    else:
+        usercolumns = True
+    columns = set(columns)
+
+    if start or end:
+        if start is None:
+            start = -numpy.inf
+        if end is None:
+            end = numpy.inf
+        span = Segment(start, end)
+        columns.update(["peak_time", "peak_time_ns"])
+        check_time = True
+    else:
+        check_time = False
+
+    # generate table
+    out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+    append = out.append
+    if usercolumns:
+        for c in out.columnnames:
+            if c.lower() not in columns:
+                idx = out.columnnames.index(c)
+                out.columnnames.pop(idx)
+                out.columntypes.pop(idx)
+
+    # read table
+    with open(filename, "r") as f:
+        for line in f:
+            if _re_comment.match(line):
+                continue
+            t = read_ascii_trigger(line, columns=columns)
+            if check_time and (float(t.get_peak()) not in span):
+                continue
+            if "ifo" in columns:
+                t.ifo = ifo
+            if "channel" in columns:
+                t.channel = channel
+            append(t)
+
+    return out
+
+
 def from_root_file(filename, start=None, end=None, ifo=None, channel=None,
-                   columns=None):
+                   columns=OMICRON_COLUMNS):
     """Read a SnglBurstTable from an Omicron ROOT file
 
     @param filename
@@ -116,11 +254,18 @@ def from_root_file(filename, start=None, end=None, ifo=None, channel=None,
             start = -numpy.inf
         if end is None:
             end = numpy.inf
-        span = segments.segment(start, end)
+        span = Segment(start, end)
         columns.update(["peak_time", "peak_time_ns"])
         check_time = True
     else:
         check_time = False
+
+    # read file and generate triggers
+    root_tree = TChain("triggers")
+    root_tree.Add(filename)
+
+    out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
+    append = out.append
 
     # generate table
     if usercolumns:
@@ -130,22 +275,16 @@ def from_root_file(filename, start=None, end=None, ifo=None, channel=None,
                 out.columnnames.pop(idx)
                 out.columntypes.pop(idx)
 
-    # read file and generate triggers
-    root_tree = TChain("triggers")
-    root_tree.Add(filename)
-    
-    out = lsctables.New(lsctables.SnglBurstTable, columns=columns)
-    append = out.append
-
+    # read table
     nevents = root_tree.GetEntries()
     for i in range(nevents):
         root_tree.GetEntry(i)
-        t = get_sngl_burst(root_tree, columns=columns)
+        t = read_root_trigger(root_tree, columns=columns)
         if check_time and (float(t.get_peak()) not in span):
             continue
-        if ifo:
+        if "ifo" in columns:
             t.ifo = ifo
-        if channel:
+        if "channel" in columns:
             t.channel = channel
         append(t)
 
@@ -153,7 +292,7 @@ def from_root_file(filename, start=None, end=None, ifo=None, channel=None,
 
 
 def from_file(filename, start=None, end=None, ifo=None, channel=None,
-              columns=None):
+              columns=OMICRON_COLUMNS):
     """Read a SnglBurstTable from an Omicron ROOT or ASCII file
 
     @param filename
@@ -175,13 +314,12 @@ def from_file(filename, start=None, end=None, ifo=None, channel=None,
          return from_root_file(filename, start=start, end=end, ifo=ifo,
                                channel=channel, columns=columns)
     else:
-         raise RuntimeError("Unable to parse Omicron-format ASCII files, "
-                            "please code up the 'from_ascii_file' for "
-                            "Omicron and patch this module...")
+         return from_ascii_file(filename, start=start, end=end, ifo=ifo,
+                                channel=channel, columns=columns)
 
 
 def from_files(filelist, start=None, end=None, ifo=None, channel=None,
-               columns=None, verbose=False):
+               columns=OMICRON_COLUMNS, verbose=False):
     """Read a BurstTable from a list of Omicron-format ROOT or ASCII files
 
     @param filelist
@@ -228,9 +366,9 @@ def from_files(filelist, start=None, end=None, ifo=None, channel=None,
 
 
 def from_lal_cache(cache, start=None, end=None, ifo=None, channel=None,
-                   columns=None, verbose=False):
+                   columns=OMICRON_COLUMNS, verbose=False):
     """Read a SnglBurstTable from a Cache of Omicron ROOT files
-    
+
     @param cache
         glue.lal.Cache of filepaths from which to read the data
     @param start

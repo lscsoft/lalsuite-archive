@@ -1077,6 +1077,127 @@ class SnglBurstTable(table.Table):
 	next_id = SnglBurstID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
+	def get_column(self, column):
+		"""@returns: an array of column values for each row in the table
+
+		@param column:
+			name of column to return
+		@returntype:
+			numpy.ndarray
+		"""
+		if column.lower() == 'q':
+			return self.get_q
+		else:
+			return self.getColumnByName(column).asarray()
+
+	def get_peak(self):
+		"""@returns: the peak time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_peak() for row in self])
+
+	def get_start(self):
+		"""@returns: the start time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_start() for row in self])
+
+	def get_ms_start(self):
+		"""@returns: the start time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_start() for row in self])
+
+	def get_stop(self):
+		"""@returns: the stop time of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_stop() for row in self])
+
+	def get_ms_stop(self):
+		"""@returns: the stop time of the most significant tile for
+		each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_ms_stop() for row in self])
+
+	def get_q(self):
+		"""@returns: the Q of each row in the table
+		@returntype: numpy.ndarray
+		"""
+		return numpy.asarray([row.get_q() for row in self])
+
+	def get_z(self):
+		"""@returns: the Z (Omega-Pipeline energy) of each row in the
+		table
+		@returntype: numpy.ndarray
+		"""
+		return numy.asarray([row.get_z() for row in self])
+
+	def get_period(self):
+		"""@returns: the period segment of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_period() for row in self])
+
+	def get_ms_period(self):
+		"""@returns: the period segment for the most significant tile
+		of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_ms_period() for row in self])
+
+	def get_band(self):
+		"""@returns: the frequency band of each row in the table
+		@returntype: glue.segments.segmentlist
+		"""
+		return segments.segmentlist([row.get_band() for row in self])
+
+	def get_ms_band(self):
+		"""@returns: the frequency band of the most significant tile
+		for each row in the table
+		"""
+		return segments.segmentlist([row.get_ms_band() for row in self])
+
+	def veto(self, seglist):
+		"""@returns: those rows of the table that don't lie within a
+		given seglist
+		"""
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglist:
+				keep.append(row)
+		return keep
+
+	def vetoed(self, seglist):
+		"""@returns: those rows of the table that lie within a given
+		seglist
+		"""
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglist:
+				vetoed.append(row)
+		return vetoed
+
+	def veto_seglistdict(self, seglistdict):
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time not in seglistdict[row.ifo]:
+				keep.append(row)
+		return keep
+
+	def vetoed_seglistdict(self, seglistdict):
+		vetoed = table.new_from_template(self)
+		for row in self:
+			time = row.get_peak()
+			if time in seglistdict[row.ifo]:
+				vetoed.append(row)
+		return vetoed
+
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
@@ -1150,6 +1271,15 @@ class SnglBurst(object):
 		self.ms_flow = band[0]
 		self.ms_bandwidth = abs(band)
 
+	#
+	# Omega-Pipeline properties
+	#
+
+	def get_q(self):
+		return self.duration * 2 * numpy.pi**(1/2.) * self.central_freq
+
+	def get_z(self):
+		return self.snr ** 2 / 2.
 
 SnglBurstTable.RowType = SnglBurst
 

@@ -127,7 +127,7 @@ class Coinc(object):
 
 			ca = self.parse_cache_by_time_and_ifo(time, ifo, ancache)
 			page.sections[name].add("<a href=%s>LINK TO %s QSCAN</a><br>" % (cbcwebpage.web_path_to_url(c[0].url.replace('file://localhost','')),ifo))
-			confile = '%s/configuration.txt' % (c[0].path(),)
+			confile = '%s/configuration.txt' % (c[0].path,)
 			try: qconf = fu_utils.omega_config_parser(confile)
 			except ValueError:
 				print >>sys.stderr, "File %s could not be parsed" % ( confile, )
@@ -139,7 +139,7 @@ class Coinc(object):
 
 	def _add_qscan_plots(self, page, plots, c, ca, img_col, ifo):
 		# get the analyze qscan cache of images
-		cfile = [l.path() for l in ca if l.path().endswith('.cache')][0]
+		cfile = [l.path for l in ca if l.path.endswith('.cache')][0]
 		for i,plot in enumerate(plots):
 			img_col.setdefault(plot[0],{})
 			# first the qscans
@@ -258,16 +258,16 @@ class Coinc(object):
 		page.sections["DQ"].div("This section gives vetoes and flags that were on")
 
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.flag_cache)
-		if ca and os.path.isfile(ca[0].path()):
-			tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+		if ca and os.path.isfile(ca[0].path):
+			tab, title = cbcwebpage.wiki_table_parse(ca[0].path)
 			#FIXME HACK, may stop working
 			for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
 			page.sections["DQ"].add_table(tab[0], 'dq flags', 'dq flags: Yellow denotes before, red during and green after')
 		else: page.sections["DQ"].div("Job did not finish")
 
 		ca = self.parse_cache_by_time_and_ifo(self.coinctime, self.instruments, self.veto_cache)
-		if ca and os.path.isfile(ca[0].path()):
-			tab, title = cbcwebpage.wiki_table_parse(ca[0].path())
+		if ca and os.path.isfile(ca[0].path):
+			tab, title = cbcwebpage.wiki_table_parse(ca[0].path)
 			#FIXME HACK, may stop working
 			for t in tab[0]: t[0] = t[0].replace('<rowbgcolor','</td></tr><tr bgcolor') + '<td>' + t[0]
 			page.sections["DQ"].add_table(tab[0], 'vetoes', 'vetoes: Yellow denotes before, red during and green after')

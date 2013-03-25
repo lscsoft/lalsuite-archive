@@ -56,7 +56,7 @@ typedef enum {
    TaylorF2Test,        /**< The standard stationary phase approximation plus the additional testing parameters; Outputs a frequency-domain wave. */
    TaylorR2F4,		/**< A frequency domain model closely related to TaylorT4 */
    TaylorF2RedSpin,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec]*/
-   TaylorF2RedSpinTidal,		/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec] plus tidal terms (http://arxiv.org/abs/1101.1673) */
+   TaylorF2RedSpinTidal,	/**< TaylorF2 waveforms for non-precessing spins, defined in terms of a single (reduced-spin) parameter [Ajith_2011ec] plus tidal terms (http://arxiv.org/abs/1101.1673) */
    PadeT1,		/**< Time-domain P-approximant; Outputs a time-domain wave. */
    PadeF1,		/**< Frequency-domain P-approximant (not yet implemented). */
    EOB,			/**< Effective one-body waveform; Outputs a time-domain wave. */
@@ -120,6 +120,16 @@ typedef enum
   LAL_SIM_INSPIRAL_TAPER_NUM_OPTS	/**< Number of elements in enum, useful for checking bounds */
 }  LALSimInspiralApplyTaper;
 
+/** Stores previously-computed waveforms and parameters to take
+    advantage of approximant- and parameter-specific opportunities for
+    accelerating waveform computation. */
+typedef struct tagLALSimInspiralWaveformCache LALSimInspiralWaveformCache;
+
+/** Enumeration to specify time or frequency domain */
+typedef enum {
+  LAL_SIM_DOMAIN_TIME,
+  LAL_SIM_DOMAIN_FREQUENCY
+ } LALSimulationDomain;
 
 /**
  * Tapers a REAL4 inspiral waveform in the time domain.
@@ -138,7 +148,7 @@ int XLALSimInspiralREAL8WaveTaper(
 		);
 
 /* 
- * Structyure to carry a collectio of spherical harmonic modes in COMPLEX16 
+ * Structure to carry a collection of spherical harmonic modes in COMPLEX16 
  * time series. Contains convenience getter and setter functions, as well as
  * a convienence "maximum l mode" function. Implemented as a singly forward
  * linked list.
@@ -913,6 +923,17 @@ int XLALGetAdaptiveIntFromString(const CHAR *inString);
  */
 int XLALGetInspiralOnlyFromString(const CHAR *inString);
 
+/** 
+ * Construct and initialize a waveform cache.  Caches are used to
+ * avoid re-computation of waveforms that differ only by simple
+ * scaling relations in parameters.
+ */
+LALSimInspiralWaveformCache *XLALCreateSimInspiralWaveformCache(void);
+
+/** 
+ * Destroy a waveform cache.
+ */
+void XLALDestroySimInspiralWaveformCache(LALSimInspiralWaveformCache *cache);
 
 /**
  * DEPRECATED: USE XLALSimInspiralChooseTDWaveform() INSTEAD
@@ -945,7 +966,8 @@ int XLALSimInspiralChooseWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
+    LALSimInspiralWaveformCache *cache          /**< waveform cache structure; use NULL for no caching */
     );
 
 /**
@@ -978,7 +1000,8 @@ int XLALSimInspiralChooseTDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
     int phaseO,                 /**< twice post-Newtonian phase order */
-    Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,    /**< post-Newtonian approximant to use for waveform production */
+    LALSimInspiralWaveformCache *cache  /**< waveform cache structure; use NULL for no caching */
     );
 
 
@@ -1012,7 +1035,8 @@ int XLALSimInspiralChooseFDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
+    LALSimInspiralWaveformCache *cache         /**< waveform cache structure; use NULL for no caching */
     );
 
 /**

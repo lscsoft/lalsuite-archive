@@ -190,9 +190,9 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
             mins = [data[j][i].min() for j in range(len(tablenames))\
                     if len(data[j][i].shape) and data[j][i].shape[0] != 0]
             if len(mins):
-                lmin = min(mins)*0.999
+                lmin = min(mins)
                 lmax = max(data[j][i].max() for j in range(len(tablenames))\
-                           if len(data[j][i]))*1.000001
+                           if len(data[j][i]))
                 limits[i] = [lmin, lmax]
 
     # get time unit
@@ -218,7 +218,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
         for j,column in enumerate(columns):
             if limits[j]:
                 plotted = plotted & (limits[j][0] <= data[i][j])\
-                                  & (limits[j][1] >  data[i][j])
+                                  & (limits[j][1] >=  data[i][j])
 
         # apply the limits
         if not isinstance(plotted, bool):
@@ -300,7 +300,7 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     if greyscale and not kwargs.has_key("cmap"):
         kwargs["cmap"] =\
             pylab.matplotlib.colors.LinearSegmentedColormap("clrs",\
-                                           pylab.matplotlib.cm.hot._segmentdata)
+                                        pylab.matplotlib.cm.hot_r._segmentdata)
     elif not kwargs.has_key("cmap"):
         kwargs["cmap"] = jet
 

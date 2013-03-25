@@ -31,6 +31,7 @@ import math
 import os
 import numpy as np
 import struct
+import re
 
 import matplotlib
 #matplotlib.use("Agg")
@@ -46,6 +47,7 @@ from pylal import date
 from pylal.xlal import inject
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from pylal import bayespputils as bppu
 
 from types import StringType, FloatType
 
@@ -97,7 +99,9 @@ paramdict = {'H0': '$h_0$', 'COSIOTA': '$\cos{\iota}$', \
              'E': 'eccentricity', \
              'ELL': '$\\varepsilon$', 'H95': '$h_0^{95\%}$', \
              'Q22': '$Q_{22}$\,(kg\,m$^2$)', \
-             'SDRAT': 'spin-down ratio'}
+             'SDRAT': 'spin-down ratio', \
+             'OMDT': '$\dot{\omega}$', \
+             'EPS1': '$\\epsilon_1$', 'EPS2': '$\\epsilon_2$'}
 
 # some angle conversion functions taken from psr_utils.py in PRESTO
 def rad_to_dms(rad):
@@ -613,6 +617,7 @@ def plot_posterior_hist(poslist, param, ifos,
     #plt.legend(ifos)
     ax = plt.gca()
     ax.set_axis_bgcolor("#F2F1F0")
+    plt.hold(False)
     myfigs.append(myfig)
 
   return myfigs, ulvals
@@ -846,6 +851,7 @@ def plot_2Dhist_from_file(histfile, ndimlabel, mdimlabel, margpars=True, \
              interpolation='bicubic', cmap='gray_r')
 
   fig.subplots_adjust(left=0.18, bottom=0.15) # adjust size
+  fax = (fig.get_axes())[0].axis()
 
   figs.append(fig)
 
@@ -870,6 +876,8 @@ def plot_2Dhist_from_file(histfile, ndimlabel, mdimlabel, margpars=True, \
     # plot x histogram
     figx = plt.figure(figsize=(4,4),dpi=200)
     plt.step(xbins, xmarg, color='k')
+    plt.ylim(0, max(xmarg)+0.1*max(xmarg))
+    plt.xlim(fax[0], fax[1])
     plt.xlabel(r''+parxaxis, fontsize=14, fontweight=100)
     plt.ylabel(r'Probability Density', fontsize=14, fontweight=100)
     figx.subplots_adjust(left=0.18, bottom=0.15) # adjust size
@@ -879,6 +887,8 @@ def plot_2Dhist_from_file(histfile, ndimlabel, mdimlabel, margpars=True, \
     # plot y histogram
     figy = plt.figure(figsize=(4,4),dpi=200)
     plt.step(ybins, ymarg, color='k')
+    plt.ylim(0, max(ymarg)+0.1*max(ymarg))
+    plt.xlim(fax[3], fax[2])
     plt.xlabel(r''+paryaxis, fontsize=14, fontweight=100)
     plt.ylabel(r'Probability Density', fontsize=14, fontweight=100)
     figy.subplots_adjust(left=0.18, bottom=0.15) # adjust size
@@ -1255,7 +1265,7 @@ Fs=Fs, window=win)
         fscanfig.subplots_adjust(bottom=0.15, left=0.09, right=0.94)
 
         extent = [tms[0], tms[-1], freqs[0], freqs[-1]]
-        plt.imshow(np.sqrt(fscan), aspect='auto', extent=extent,
+        plt.imshow(np.sqrt(np.flipud(fscan)), aspect='auto', extent=extent,
           interpolation=None, cmap=colmapdic[ifo], norm=colors.Normalize())
         plt.ylabel(r'Frequency (Hz)', fontsize=14, fontweight=100)
         plt.xlabel(r'GPS - %d' % int(gpstime[0]), fontsize=14, fontweight=100)
@@ -1285,7 +1295,7 @@ Fs=Fs, window=win)
 # a function to create a histogram of log10(results) for a list of a given parameter
 # (if a list with previous value is given they will be plotted as well)
 #  - lims is a dictionary of lists for each IFO
-def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, mplparams=False):
+def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, overplot=False, mplparams=False):
   if not mplparams:
     mplparams = { \
       'backend': 'Agg',
@@ -1315,26 +1325,106 @@ def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, mplparams=False)
   if prevlims is not None:
     logprevlims = np.log10(prevlims)
 
-  for ifo in ifos:
-    # get log10 of results
-    loglims = np.log10(lims[ifo])
+  # get the limits of the histogram range
+  hrange = None
+  stacked = False
+  if overplot:
+    highbins = []
+    lowbins = []
 
-    myfig = plt.figure(figsize=(4,4),dpi=200)
+    # combine dataset to plot as stacked
+    stackdata = []
+    stacked = True
 
-    plt.hist(loglims, bins, facecolor=coldict[ifo], edgecolor=coldict[ifo], alpha=0.75)
+    for j, ifo in enumerate(ifos):
+      theselims = lims[ifo]
+
+      # remove any None's
+      for i, val in enumerate(theselims):
+        if val == None:
+          del theselims[i]
+
+      loglims = np.log10(theselims)
+
+      stackdata.append(loglims)
+
+      highbins.append(np.max(loglims))
+      lowbins.append(np.min(loglims))
 
     if logprevlims is not None:
+      highbins.append(max(logprevlims))
+      lowbins.append(min(logprevlims))
+
+    hrange = (min(lowbins), max(highbins))
+
+  for j, ifo in enumerate(ifos):
+    # get log10 of results
+    theselims = lims[ifo]
+
+    # remove any None's
+    for i, val in enumerate(theselims):
+      if val == None:
+        del theselims[i]
+
+    loglims = np.log10(theselims)
+
+    if not overplot:
+      stackdata = loglims
+
+    #if not overplot or (overplot and j == 0):
+    myfig = plt.figure(figsize=(4,4),dpi=200)
+    maxlims = []
+    minlims = []
+
+    if overplot:
+      edgecolor = []
+      facecolor = []
+      for ifoname in ifos:
+        edgecolor.append(coldict[ifoname])
+        facecolor.append(coldict[ifoname])
+    else:
+      edgecolor = [coldict[ifo]]
+      facecolor = [coldict[ifo]]
+
+    #plt.hist(loglims, bins, range=hrange, histtype='step', fill=True, edgecolor=coldict[ifo], facecolor=coldict[ifo], alpha=0.6)
+    n, bins, patches = plt.hist(stackdata, bins, range=hrange, histtype='step', stacked=stacked, fill=True, color=edgecolor, alpha=0.6)
+    for i, patch in enumerate(patches):
+      plt.setp(patch, 'facecolor', facecolor[i])
+
+    if not overplot:
+      maxlims.append(np.max(loglims))
+      minlims.append(np.min(loglims))
+
+    if logprevlims is not None:
+      if not overplot:
+        maxlims.append(max(logprevlims))
+        minlims.append(min(logprevlims))
+
+        maxlim = max(maxlims)
+        minlim = min(minlims)
+      else:
+        maxlim = hrange[1]
+        minlim = hrange[0]      
+
       plt.hold(True)
-
-      n, binedges = np.histogram( logprevlims, bins )
-      n = np.append(n, 0)
-
-      plt.step(binedges, n, c=coldict[ifo], lw=2)
+      plt.hist(logprevlims, bins, range=hrange, edgecolor='k', lw=2, histtype='step', fill=False)
       plt.hold(False)
+    else:
+      if not overplot:
+        maxlim = max(maxlims)
+        minlim = min(minlims)
+      else:
+        maxlim = hrange[1]
+        minlim = hrange[0]
 
     # set xlabels to 10^x
     ax = plt.gca()
-    tls = map(lambda x: '$10^{%d}$' % int(x), ax.get_xticks())
+
+    # work out how many ticks to set
+    tickvals = range(int(math.ceil(maxlim) - math.floor(minlim)))
+    tickvals = map(lambda x: x + int(math.floor(minlim)), tickvals)
+    ax.set_xticks(tickvals)
+    tls = map(lambda x: '$10^{%d}$' % x, tickvals)
     ax.set_xticklabels(tls)
 
     plt.ylabel(r''+paryaxis, fontsize=14, fontweight=100)
@@ -1343,6 +1433,9 @@ def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, mplparams=False)
     myfig.subplots_adjust(left=0.18, bottom=0.15) # adjust size
 
     myfigs.append(myfig)
+
+    if overplot:
+      break
 
   return myfigs
 
@@ -1356,8 +1449,9 @@ def plot_limits_hist(lims, param, ifos, prevlims=None, bins=20, mplparams=False)
 # as a dictionary if list for each ifo.
 # prevlim is a list of previous upper limits at the frequencies prevlimf0gw
 # xlims is the frequency range for the plot
+# overplot - set to true to plot different IFOs on same plot
 def plot_h0_lims(h0lims, f0gw, ifos, xlims=[10, 1500], ulesttop=None,
-                 ulestbot=None, prevlim=None, prevlimf0gw=None, mplparams=False):
+                 ulestbot=None, prevlim=None, prevlimf0gw=None, overplot=False, mplparams=False):
   if not mplparams:
     mplparams = { \
       'backend': 'Agg',
@@ -1378,13 +1472,14 @@ def plot_h0_lims(h0lims, f0gw, ifos, xlims=[10, 1500], ulesttop=None,
   parxaxis = 'Frequency (Hz)'
   paryaxis = '$h_0$'
 
-  for ifo in ifos:
+  for j, ifo in enumerate(ifos):
     h0lim = h0lims[ifo]
 
     if len(h0lim) != len(f0gw):
       return None # exit if lengths aren't correct
 
-    myfig = plt.figure(figsize=(7,5.5),dpi=200)
+    if not overplot or (overplot and j == 0):
+      myfig = plt.figure(figsize=(7,5.5),dpi=200)
 
     plt.hold(True)
     if ulesttop is not None and ulestbot is not None:
@@ -1396,21 +1491,21 @@ def plot_h0_lims(h0lims, f0gw, ifos, xlims=[10, 1500], ulesttop=None,
           plt.loglog([f0gw[i], f0gw[i]], [ulb[i], ult[i]], ls='-', lw=3, c='lightgrey')
 
     if prevlim is not None and prevlimf0gw is not None and len(prevlim) == len(prevlimf0gw):
-      plt.loglog(prevlimf0gw, prevlim, marker='*', ms=10, alpha=0.7, mfc='None', mec='k', ls='None')
+      if not overplot or (overplot and j == len(ifos)-1):
+        plt.loglog(prevlimf0gw, prevlim, marker='*', ms=10, alpha=0.7, mfc='None', mec='k', ls='None')
 
     # plot current limits
     plt.loglog(f0gw, h0lim, marker='*', ms=10, mfc=coldict[ifo], mec=coldict[ifo], ls='None')
 
-    plt.hold(False)
-
     plt.ylabel(r''+paryaxis, fontsize=14, fontweight=100)
     plt.xlabel(r''+parxaxis, fontsize=14, fontweight=100)
 
-    myfig.subplots_adjust(left=0.12, bottom=0.10) # adjust size
-
     plt.xlim(xlims[0], xlims[1])
 
-    myfigs.append(myfig)
+    if not overplot or (overplot and j == len(ifos)-1):
+      plt.hold(False)
+      myfig.subplots_adjust(left=0.12, bottom=0.10) # adjust size
+      myfigs.append(myfig)
 
   return myfigs
 
@@ -1722,6 +1817,7 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
 
   return tss, srs, sis, snrtot
 
+
 # function to create a time domain PSD from theoretical
 # detector noise curves. It takes in the detector name and the frequency at
 # which to generate the noise.
@@ -1766,6 +1862,7 @@ def detector_noise( det, f ):
   else:
     raise ValueError, "%s is not a recognised detector" % (det)
 
+
 # function to calculate the optimal SNR of a heterodyned pulsar signal - it
 # takes in a complex signal model and noise standard deviation
 def get_optimal_snr( sr, si, sig ):
@@ -1775,6 +1872,7 @@ def get_optimal_snr( sr, si, sig ):
     ss = ss + sr[i]*sr[i] + si[i]*si[i]
 
   return np.sqrt( ss / (sig*sig) )
+
 
 # use the Gelman-Rubins convergence test for MCMC chains, where chains is a list
 # of MCMC numpy chain arrays - this copies the gelman_rubins function in
@@ -1795,3 +1893,180 @@ def gelman_rubins(chains):
   R = VHat/W
 
   return R
+
+
+# function to convert MCMC files output from pulsar_parameter_estimation into
+# a posterior class object - also outputting:
+#  - the mean effective sample size of each parameter chain
+#  - the Gelman-Rubins statistic for each parameter (a dictionary)
+#  - the original length of each chain
+# Th input is a list of MCMC chain files
+def pulsar_mcmc_to_posterior(chainfiles):
+  cl = []
+  neffs = []
+  grr = {}
+
+  mcmc = []
+
+  for cfile in chainfiles:
+    if os.path.isfile(cfile):
+      # load MCMC chain
+      mcmcChain = read_pulsar_mcmc_file(cfile)
+
+      # if no chain found then exit with None's
+      if mcmcChain == None:
+        return None, None, None, None
+
+      # find number of effective samples for the chain
+      neffstmp = []
+      for j in range(1, mcmcChain.shape[1]):
+        neff, acl, acf = bppu.effectiveSampleSize(mcmcChain[:,j])
+        neffstmp.append(neff)
+
+      # get the minimum effective sample size
+      #neffs.append(min(neffstmp))
+      # get the mean effective sample size
+      neffs.append(math.floor(np.mean(neffstmp)))
+
+      #nskip = math.ceil(mcmcChain.shape[0]/min(neffstmp))
+      nskip = math.ceil(mcmcChain.shape[0]/np.mean(neffstmp))
+
+      # output every nskip (independent) value
+      mcmc.append(mcmcChain[::nskip,:])
+      cl.append(mcmcChain.shape[0])
+    else:
+      print >> sys.stderr, "File %s does not exist!" % cfile
+      return None, None, None, None
+
+  # output data to common results format
+  # get first line of MCMC chain file for header names
+  cf = open(chainfiles[0], 'r')
+  headers = cf.readline()
+  headers = cf.readline() # column names are on the second line
+  # remove % from start
+  headers = re.sub('%', '', headers)
+  # remove rads
+  headers = re.sub('rads', '', headers)
+  # remove other brackets e.g. around (iota)
+  headers = re.sub('[()]', '', headers)
+  cf.close()
+
+  # get Gelman-Rubins stat for each parameter
+  for idx, parv in enumerate(headers.split()):
+    lgr = []
+    if parv != 'logL':
+      for j in range(0, len(mcmc)):
+        achain = mcmc[j]
+        singlechain = achain[:,idx]
+        lgr.append(singlechain)
+      grr[parv.lower()] = gelman_rubins(lgr)
+
+  # logL in chain is actually log posterior, so also output the posterior
+  # values (can be used to estimate the evidence)
+  headers = headers.replace('\n', '\tpost\n')
+
+  # output full data to common format
+  comfile = chainfiles[0] + '_common_tmp.dat'
+  try:
+    cf = open(comfile, 'w')
+  except:
+    print >> sys.stderr, "Can't open common posterior file!"
+    sys.exit(0)
+
+  cf.write(headers)
+  for narr in mcmc:
+    for j in range(0, narr.shape[0]):
+      mline = narr[j,:]
+      # add on posterior
+      mline = np.append(mline, np.exp(mline[0]))
+
+      strmline = " ".join(str(x) for x in mline) + '\n'
+      cf.write(strmline)
+  cf.close()
+
+  # read in as common object
+  peparser = bppu.PEOutputParser('common')
+  cf = open(comfile, 'r')
+  commonResultsObj = peparser.parse(cf)
+  cf.close()
+
+  # remove temporary file
+  os.remove(comfile)
+
+  # create posterior class
+  pos = bppu.Posterior( commonResultsObj, SimInspiralTableEntry=None, \
+                        votfile=None )
+
+  # convert iota back to cos(iota)
+  # create 1D posterior class of cos(iota) values
+  cipos = None
+  cipos = bppu.PosteriorOneDPDF('cosiota', np.cos(pos['iota'].samples))
+
+  # add it back to posterior
+  pos.append(cipos)
+
+  # remove iota samples
+  pos.pop('iota')
+
+  return pos, neffs, grr, cl
+
+
+# a function that attempt to load an pulsar MCMC chain file: first it tries using
+# numpy.loadtxt; if it fails it tries reading line by line and checking
+# for consistent line numbers, skipping lines that are inconsistent; if this
+# fails it returns None
+def read_pulsar_mcmc_file(cf):
+  cfdata = None
+
+  # first try reading in with loadtxt (skipping lines starting with %)
+  try:
+    cfdata = np.loadtxt(cf, comments='%')
+  except:
+    try:
+      fc = open(cf, 'r')
+
+      # read in header lines and count how many values each line should have
+      headers = fc.readline()
+      headers = fc.readline() # column names are on the second line
+      fc.close()
+      # remove % from start
+      headers = re.sub('%', '', headers)
+      # remove rads
+      headers = re.sub('rads', '', headers)
+      # remove other brackets e.g. around (iota)
+      headers = re.sub('[()]', '', headers)
+
+      lh = len(headers.split())
+
+      cfdata = np.array([])
+
+      lines = cf.readlines()
+
+      for i, line in enumerate(lines):
+        if '%' in line: # skip lines containing %
+          continue
+
+        lvals = line.split()
+
+        # skip line if number of values isn't consistent with header
+        if len(lvals) != lh:
+          continue
+
+        # convert values to floats
+        try:
+          lvalsf = map(float, lvals)
+        except:
+          continue
+
+        # add values to array
+        if i==0:
+          cfdata = np.array(lvalsf)
+        else:
+          cfdata = np.vstack((cfdata, lvalsf))
+
+      if cfdata.size == 0:
+        cfdata = None
+    except:
+      cfdata = None
+
+  return cfdata

@@ -74,7 +74,7 @@ void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
   //	return;
   //}
   /* This is the LAL template generator for inspiral signals */
-  runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
+  runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
   ppt=LALInferenceGetProcParamVal(commandLine,"--template");
   if(ppt) {
     if(!strcmp("LALSTPN",ppt->value)){
@@ -82,17 +82,17 @@ void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
       exit(1);
     }
     else if(!strcmp("PhenSpin",ppt->value))
-      runState->template=&LALInferenceTemplatePSTRD;
+      runState->templt=&LALInferenceTemplatePSTRD;
     else if(!strcmp("LALGenerateInspiral",ppt->value))
-      runState->template=&LALInferenceTemplateLALGenerateInspiral;
+      runState->templt=&LALInferenceTemplateLALGenerateInspiral;
     else if(!strcmp("SpinTaylor",ppt->value))
-      runState->template=&LALInferenceTemplateLALGenerateInspiral;
+      runState->templt=&LALInferenceTemplateLALGenerateInspiral;
     else if(!strcmp("LAL",ppt->value)){
       fprintf(stderr,"Warning: --template LAL is deprecated. Please use --template LALSim in future runs.\n");
-      runState->template=&LALInferenceTemplateLAL;
+      runState->templt=&LALInferenceTemplateLAL;
     }
     else if(!strcmp("LALSim",ppt->value))
-      runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
+      runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
       XLALPrintError(help);
@@ -217,6 +217,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--fixTime)                     Do not allow coalescence time to vary.\n\
                (--fixLambda1)                  Do not allow lambda1 to vary.\n\
                (--fixLambda2)                  Do not allow lambda2 to vary.\n\
+               (--varyFlow)                    Allow the lower frequency bound of integration to vary.\n\
                (--pinparams)                   List of parameters to set to injected values [mchirp,asym_massratio,etc].\n";
 
 
@@ -237,6 +238,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
 
   LALStatus status;
   memset(&status,0,sizeof(status));
+  int errnum;
   SimInspiralTable *injTable=NULL;
   LALInferenceVariables *priorArgs=state->priorArgs;
   state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
@@ -253,7 +255,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   LALInferenceFrame frame = LALINFERENCE_FRAME_RADIATION;
   UINT4 analytic=0;
   LALInferenceIFOData *dataPtr;
-  LALInferenceDomain modelDomain;
+  LALSimulationDomain modelDomain;
   UINT4 event=0;
   UINT4 i=0;
   REAL8 m1=0;
@@ -474,21 +476,23 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   
   
   /* Over-ride approximant if user specifies */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
-  if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--approximant"); //FIXME
+  ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
   if(ppt){
     approx = XLALGetApproximantFromString(ppt->value);
-    if( (int) approx == XLAL_FAILURE)
-      ABORTXLAL(&status);
     ppt_order=LALInferenceGetProcParamVal(commandLine,"--order");
     if(ppt_order) PhaseOrder = XLALGetOrderFromString(ppt_order->value);
-    else PhaseOrder = XLALGetOrderFromString(ppt->value);
-    /* If not given as a separate argument or in the approx string, use maximum available */
-    if( (int) PhaseOrder == XLAL_FAILURE) {
+    else fprintf(stdout, "No phase order given.  Using maximum available order for the template.\n");
+  }
+  ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
+  if(ppt){
+    approx = XLALGetApproximantFromString(ppt->value);
+    XLAL_TRY(PhaseOrder = XLALGetOrderFromString(ppt->value),errnum);
+    if( (int) PhaseOrder == XLAL_FAILURE || errnum) {
       fprintf(stdout, "No phase order given.  Using maximum available order for the template.\n");
       PhaseOrder=-1;
     }
   }
+  
   ppt=LALInferenceGetProcParamVal(commandLine,"--amporder");
   if(ppt) AmpOrder=atoi(ppt->value);
   ppt=LALInferenceGetProcParamVal(commandLine,"--ampOrder");
@@ -514,7 +518,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     case SpinTaylorFrameless:
     case PhenSpinTaylorRD:
     case NumRel:
-      modelDomain=LALINFERENCE_DOMAIN_TIME;
+      modelDomain=LAL_SIM_DOMAIN_TIME;
       break;
     case TaylorF1:
     case TaylorF2:
@@ -523,7 +527,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     case TaylorF2Test:
     case IMRPhenomA:
     case IMRPhenomB:
-      modelDomain=LALINFERENCE_DOMAIN_FREQUENCY;
+      modelDomain=LAL_SIM_DOMAIN_FREQUENCY;
       break;
     default:
       fprintf(stderr,"ERROR. Unknown approximant number %i. Unable to choose time or frequency domain model.",approx);
@@ -539,11 +543,11 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   if(ppt){
     if ( ! strcmp( "time", ppt->value ) )
     {
-      modelDomain = LALINFERENCE_DOMAIN_TIME;
+      modelDomain = LAL_SIM_DOMAIN_TIME;
     }
     else if ( ! strcmp( "frequency", ppt->value ) )
     {
-      modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+      modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
     }
     else
     {
@@ -863,6 +867,31 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     LALInferenceAddVariable(currentParams, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
   LALInferenceAddVariable(currentParams, "fRef", &fRef, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+
+  REAL8 fLow = state->data->fLow;
+  ppt=LALInferenceGetProcParamVal(commandLine,"--varyFlow");
+  if(ppt){
+    LALInferenceAddVariable(currentParams, "fLow", &fLow,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    REAL8 fLow_min = fLow;
+    REAL8 fLow_max = 200.0;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--flowMin");
+    if(ppt){
+      fLow_min=strtod(ppt->value,(char **)NULL);
+    }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--flowMax");
+    if(ppt){
+      fLow_max=strtod(ppt->value,(char **)NULL);
+    }
+    if(LALInferenceCheckVariable(currentParams,"fRef"))
+      fRef = *(REAL8*)LALInferenceGetVariable(currentParams, "fRef");
+      if (fRef > 0.0 && fLow_max > fRef) {
+        fprintf(stdout,"WARNING: fLow can't go higher than the reference frequency.  Setting fLow_max to %f\n",fRef);
+        fLow_max = fRef;
+      }
+    LALInferenceAddMinMaxPrior(state->priorArgs, "fLow", &fLow_min,  &fLow_max, LALINFERENCE_REAL8_t);
+  } else {
+    LALInferenceAddVariable(currentParams, "fLow", &fLow,  LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+  }
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--taper");
   if(ppt){

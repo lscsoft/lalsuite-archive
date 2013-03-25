@@ -168,6 +168,7 @@ a:hover{
 /* set defaults for table data and table headers */
 table{
   border: 0px;
+  border-collapse: collapse;
 }
 
 td{
@@ -299,69 +300,56 @@ def corrcoef(pos):
   return cc, header_string
 
 
-# a function that attempt to load an MCMC chain file: first it tries using
-# numpy.loadtxt; if it fails it tries reading line by line and checking
-# for consistent line numbers, skipping lines that are inconsistent; if this
-# fails it returns None
-def readmcmcfile(cf):
-  cfdata = None
-
-  # first try reading in with loadtxt (skipping lines starting with %)
+# return the ATNF information on a given pulsar
+def get_atnf_info(par):
   try:
-    cfdata = np.loadtxt(cf, comments='%')
-  except:
-    try:
-      fc = open(cf, 'r')
+    # set possible pulsar names to try consecutively
+    trynames = [par['PSRJ'], par['PSRB'], par['PSR'], par['NAME']]
 
-      # read in header lines and count how many values each line should have
-      headers = fc.readline()
-      headers = fc.readline() # column names are on the second line
-      fc.close()
-      # remove % from start
-      headers = re.sub('%', '', headers)
-      # remove rads
-      headers = re.sub('rads', '', headers)
-      # remove other brackets e.g. around (iota)
-      headers = re.sub('[()]', '', headers)
+    for psrname in trynames:
+      badurl = False
 
-      lh = len(headers.split())
+      if psrname != None:
+        psrname = re.sub('\+', '%2B', psrname) # switch + for unicode character
 
-      cfdata = np.array([])
+        atnfurl = \
+'http://www.atnf.csiro.au/people/pulsar/psrcat/proc_form.php?Dist=Dist&Assoc=\
+Assoc&Age_i=Age_i&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&\
+sort_attr=&sort_order=asc&condition=&pulsar_names=' + psrname + \
+'&ephemeris=selected&submit_ephemeris=\
+Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=\
+&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=\
+linear&y_axis=&y_scale=linear&state=query'
 
-      lines = cf.readlines()
+        soup = None
+        pdat = None
 
-      for i, line in enumerate(lines):
-        if '%' in line: # skip lines containing %
+        soup = bs(urllib2.urlopen(atnfurl).read())
+        pdat = soup.pre # data exists in the pre html environment
+
+        for line in pdat:
+          vals = line.split('\n') # split at any new lines
+
+          for row in vals:
+            if 'WARNING' in row or 'not in catalogue' in row:
+              badurl = True
+              break
+
+          if badurl:
+            break
+
+        if badurl:
           continue
-
-        lvals = line.split()
-
-        # skip line if number of values isn't consistent with header
-        if len(lvals) != lh:
-          continue
-
-        # convert values to floats
-        try:
-          lvalsf = map(float, lvals)
-        except:
-          continue
-
-        # add values to array
-        if i==0:
-          cfdata = np.array(lvalsf)
         else:
-          cfdata = np.vstack((cfdata, lvalsf))
+          return (pdat, psrname)
 
-      if cfdata.size == 0:
-        cfdata = None
-    except:
-      cfdata = None
-
-  return cfdata
-
+    if badurl:
+      return None
+  except:
+    return None
 
 # list of parameters to display (in this order)
-paramdisplist = ['RAJ', 'DECJ', 'F0', 'F1', 'F2', 'PEPOCH', 'X' 'E' \
+paramdisplist = ['RAJ', 'DECJ', 'F0', 'F1', 'F2', 'PEPOCH', 'X', 'E', \
 'EPS1', 'EPS2', 'OM', 'T0', 'TASC', 'PB']
 
 # html text to display for different parameter names
@@ -375,6 +363,7 @@ paramtextdisp = {'RAJ': '&alpha;', 'DECJ': '&delta;', \
                  'PEPOCH': 'epoch (MJD)', 'A1': 'a sin<it>i</i> (lt s)', \
                  'E': '<it>e</it>', 'EPS1': '&epsilon;<sub>1</sub>', \
                  'EPS2': '&epsilon;<sub>2</sub>', \
+                 'EPS1': '&epsilon;<sub>1</sub>', \
                  'T0': 'T<sub>0</sub> (MJD)', \
                  'TASC': 'T<sub>asc</sub> (MJD)', \
                  'OM': '&omega;<sub>0</sub> (deg)',
@@ -445,7 +434,7 @@ class paramdisp2:
 def dec_or_exp(f):
   if float(f) > 0.01:
     return '%.2f' % float(f)
-  else
+  else:
     return exp_str(float(f), 1)
 
 
@@ -473,9 +462,6 @@ def output_fig(myfig, outpath, fname, ftypes):
     except:
       print >> sys.stderr, "Error outputting figure %s" % plotpath
       sys.exit(1)
-
-    myfig.clf()
-    matplotlib.pyplot.close(myfig)
 
   return fnameret
 
@@ -741,50 +727,16 @@ performed for two interferometers (H1 and L1):
   agebasedsd = False
 
   if not swinj and not hwinj:
-    try:
-      atnfurl = \
-'http://www.atnf.csiro.au/people/pulsar/psrcat/proc_form.php?Dist=Dist&Assoc=\
-Assoc&Age_i=Age_i&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&\
-sort_attr=&sort_order=asc&condition=&pulsar_names=' + \
-re.sub('\+', '%2B',pname) + '&ephemeris=selected&submit_ephemeris=\
-Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=\
-&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=\
-linear&y_axis=&y_scale=linear&state=query'
+    atnfinfo = get_atnf_info(par)
 
-      soup = None
-      pdat = None
-
-      soup = bs(urllib2.urlopen(atnfurl).read())
-      pdat = soup.pre # data exists in the pre html environment
+    if atnfinfo != None:
+      pdat = atnfinfo[0]
+      pnameurl = atnfinfo[1]
 
       for line in pdat:
         vals = line.split('\n') # split at any new lines
 
         for row in vals:
-          if 'WARNING' in row or 'not in catalogue' in row:
-            # try instead with PSR name 'J' removed
-            atnfurl = \
-'http://www.atnf.csiro.au/people/pulsar/psrcat/proc_form.php?Dist=Dist&Assoc=\
-Assoc&Age_i=Age_i&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&\
-sort_attr=&sort_order=asc&condition=&pulsar_names=' + \
-re.sub('J', '', re.sub('\+', '%2B',pname)) + '&ephemeris=selected&submit_ephemeris=\
-Get+Ephemeris&coords_unit=raj%2Fdecj&radius=&coords_1=\
-&coords_2=&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=\
-linear&y_axis=&y_scale=linear&state=query'
-
-            soup = bs(urllib2.urlopen(atnfurl).read())
-            pdat = soup.pre
-
-            break
-
-      for line in pdat:
-        vals = line.split('\n') # split at any new lines
-
-        for row in vals:
-          if 'WARNING' in row or 'not in catalogue' in row and notinatnf == False:
-            notinatnf = True
-            break
-
           if 'DIST' in row:
             dists = row.split() # split row at whitespace
 
@@ -793,8 +745,9 @@ linear&y_axis=&y_scale=linear&state=query'
 
           if 'ASSOC' in row:
             assoc = row.split()
-
-    except:
+    else:
+      notinatnf = True
+      atnfurl = None
       print >> sys.stderr, 'Problem accessing ATNF for %s!' % pname
 
   if ages:
@@ -904,15 +857,6 @@ function toggle(id) {
   # print out pulsar name to file
   pheadertext = None
   pheadertext = []
-  if not swinj and not hwinj:
-    pulsaratnflink = \
-'http://www.atnf.csiro.au/people/pulsar/psrcat/proc_form.php?startUserDefined=\
-true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&\
-pulsar_names=' + re.sub('\+', '%2B', pname) + \
-'&ephemeris=long&submit_ephemeris=Get+Ephemeris&\
-coords_unit=raj%2Fdecj&radius=&coords_1=&coords_2=&style=Long+with+last+digit+\
-error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=\
-query'
 
   # set title prefix depending is injection or not
   psrnameprefix = 'PSR'
@@ -921,9 +865,10 @@ query'
   elif hwinj:
     psrnameprefix = 'HWINJ'
 
-  if not swinj and not hwinj:
+  if not swinj and not hwinj and not notinatnf:
+    atnfurl = 'http://www.atnf.csiro.au/people/pulsar/psrcat/proc_form.php?startUserDefined=true&pulsar_names=' + pnameurl + '&ephemeris=long&submit_ephemeris=Get+Ephemeris&state=query'
     pheadertext.append('<h1><a href="%s">%s %s</a></h1>\n' %
-(pulsaratnflink, psrnameprefix, pname))
+(atnfurl, psrnameprefix, pname))
   else:
     pheadertext.append('<h1>%s %s</h1>\n' % (psrnameprefix, pname))
 
@@ -965,7 +910,7 @@ query'
   asdtime = 14400 # set time over which to produce the asds
 
   Bkfigs, psdfigs, fscanfigs, asdlist = pppu.plot_Bks_ASDs( Bkdata, ifos, \
-asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
+asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=50 )
 
   if asdlist:
     psrshelf['ASD'] = dict(zip(ifos, asdlist)) # convert into dictionary
@@ -992,11 +937,6 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
         fscanfigname.append(figname)
 
   # loop over detectors
-  poslist = None
-  mcmcgr = None
-  nefflist = None
-  chainlens = None
-
   poslist = []
   mcmcgr = [] # list of Gelman-Rubins stats for detector
   nefflist = [] # effective sample size for each combined chain
@@ -1011,135 +951,31 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
   corrcoefs = []
   corrcoefsheader = []
 
-  erridx = False
-
   for i, ifo in enumerate(ifosNew):
-    mcmc = None
-
     # read in MCMC chains
-    mcmc = []
-    neffs = [] # number of effective samples for each chain
-    cl = []
-    grr = {}
+    chainfiles = []
     for chaindir in mcmcdirs:
-      cfile = chaindir + '/' + 'MCMCchain_' + pname + '_' + ifo
+      chainfiles.append(chaindir + '/' + 'MCMCchain_' + pname + '_' + ifo)
 
-      if os.path.isfile(cfile):
-        # load MCMC chain
-        mcmcChain = None
-        mcmcChain = readmcmcfile(cfile)
+    pos, neffs, grr, cl = pppu.pulsar_mcmc_to_posterior(chainfiles)
 
-        # if no chain was returned write out an error message and skip this
-        # pulsar
-        if mcmcChain == None:
-          outerrfile = os.path.join(outpath, 'mcmc_chain_errors.txt')
-          errfile = open(outerrfile, 'a') # append to file
-          errfile.write('MCMC file %s could not be read in\n' % cfile)
-          errfile.close()
-          erridx = True
-          break
+    if pos == None or neffs == None or grr == None or cl == None:
+      outerrfile = os.path.join(outpath, 'mcmc_chain_errors.txt')
+      errfile = open(outerrfile, 'a') # append to file
+      errfile.write('MCMC files for %s and %s could not be read in\n' % (pname, ifo))
+      errfile.close()
+      print >> sys.stderr, "Error in MCMC chain reading!"
 
-        # find number of effective samples for the chain
-        neffstmp = []
-        for j in range(1, mcmcChain.shape[1]):
-          neff, acl, acf = bppu.effectiveSampleSize(mcmcChain[:,j])
-          neffstmp.append(neff)
+      try:
+        shutil.rmtree(puldir)
+      except:
+        os.system('rm -rf %s' % puldir)
 
-        # get the minimum effective sample size
-        #neffs.append(min(neffstmp))
-        # get the mean effective sample size
-        neffs.append(math.floor(np.mean(neffstmp)))
-
-        #nskip = math.ceil(mcmcChain.shape[0]/min(neffstmp))
-        nskip = math.ceil(mcmcChain.shape[0]/np.mean(neffstmp))
-
-        # output every nskip (independent) value
-        mcmc.append(mcmcChain[::nskip,:])
-        cl.append(mcmcChain.shape[0])
-      else:
-        print >> sys.stderr, "File %s does not exist!" % cfile
-        sys.exit(0)
-
-    if erridx:
-      break
+      sys.exit(0)
 
     nefflist.append(math.fsum(neffs))
     chainlens.append(np.mean(cl))
-
-    # output data to common results format
-    # get first line of MCMC chain file for header names
-    cf = open(cfile, 'r')
-    headers = cf.readline()
-    headers = cf.readline() # column names are on the second line
-    # remove % from start
-    headers = re.sub('%', '', headers)
-    # remove rads
-    headers = re.sub('rads', '', headers)
-    # remove other brackets e.g. around (iota)
-    headers = re.sub('[()]', '', headers)
-    cf.close()
-
-    # get Gelman-Rubins stat for each parameter
-    for idx, parv in enumerate(headers.split()):
-      lgr = []
-      if parv != 'logL':
-        for j in range(0, len(mcmc)):
-          achain = mcmc[j]
-          singlechain = achain[:,idx]
-          lgr.append(singlechain)
-        grr[parv.lower()] = pppu.gelman_rubins(lgr)
-
     mcmcgr.append(grr)
-
-    # logL in chain is actually log posterior, so also output the posterior
-    # values (can be used to estimate the evidence)
-    headers = headers.replace('\n', '\tpost\n')
-
-    # output full data to common format
-    comfile = os.path.join(puldir, 'common_tmp.dat')
-    try:
-      cf = open(comfile, 'w')
-    except:
-      print >> sys.stderr, "Can't open commom posterior file!"
-      sys.exit(0)
-
-    cf.write(headers)
-    for narr in mcmc:
-      for j in range(0, narr.shape[0]):
-        mline = narr[j,:]
-        # add on posterior
-        mline = np.append(mline, np.exp(mline[0]))
-
-        strmline = " ".join(str(x) for x in mline) + '\n'
-        cf.write(strmline)
-    cf.close()
-
-    # read in as common object
-    peparser = None
-    peparser = bppu.PEOutputParser('common')
-    cf = open(comfile, 'r')
-    commonResultsObj = None
-    commonResultsObj = peparser.parse(cf)
-    cf.close()
-
-    # remove temporary file
-    os.remove(comfile)
-
-    # create posterior class
-    pos = None
-    pos = bppu.Posterior( commonResultsObj, SimInspiralTableEntry=None, \
-                          votfile=None )
-
-    # convert iota back to cos(iota)
-    # create 1D posterior class of cos(iota) values
-    cipos = None
-    cipos = bppu.PosteriorOneDPDF('cosiota', np.cos(pos['iota'].samples))
-
-    # add it back to posterior
-    pos.append(cipos)
-
-    # remove iota samples
-    pos.pop('iota')
 
     # get from info about the posteriors
     mP, mL = pos.maxL # maximum likelihood/posterior point
@@ -1158,17 +994,6 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
     corrcoefs.append(cc)
     corrcoefsheader.append(hn)
 
-  # if error occurred in reading in MCMC chains then move to next pulsar
-  if erridx:
-    # remove directory for that pulsar
-    try:
-      shutil.rmtree(puldir)
-    except:
-      os.system('rm -rf %s' % puldir)
-
-    print >> sys.stderr, "Error in MCMC chain reading!"
-    sys.exit(0)
-
   # set whether to attempt to output injection parameter on plot
   parinj = None
   if swinj or hwinj:
@@ -1176,7 +1001,6 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
 
   # output the MAIN posterior plots
   # h0
-  h0Fig = None
   bounds = [0, float("inf")]
   ul = 0.95
   histbins = 30
@@ -1267,7 +1091,6 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
   psrshelf['sdpowrat'] = dict(zip(ifosNew, sdpowrat))
 
   # phi0
-  phi0Fig = None
   bounds = [0, 2*math.pi]
   phi0Fig, ulvals = pppu.plot_posterior_hist( poslist, 'phi0', ifosNew, \
                                         bounds, histbins, \
@@ -1275,7 +1098,6 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
   phi0figname = output_fig(phi0Fig[0], puldir, 'phi0post', ftypes)
 
   # cos(iota)
-  cifig = None
   bounds = [-1, 1]
   ciFig, ulvals = pppu.plot_posterior_hist( poslist, 'cosiota', ifosNew, \
                                       bounds, histbins, \
@@ -1283,7 +1105,6 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
   cifigname = output_fig(ciFig[0], puldir, 'cipost', ftypes)
 
   # psi
-  psiFig = None
   bounds = [-math.pi/4, math.pi/4]
   psiFig, ulvals = pppu.plot_posterior_hist( poslist, 'psi', ifosNew, \
                                        bounds, histbins, \
@@ -1292,17 +1113,26 @@ asdtime, plotpsds=plotpsds, plotfscan=plotfscan, removeoutlier=None )
 
   # get h0 vs cos(iota) 2D posterior histrogram (if single detector of for
   # joint posterior)
-  #bounds = [[0, 3*h0last], [-1, 1]]
-  h0ciFig = None
+  # get bounds from h0 and cos(iota) plots
+  ax = h0Fig[0].get_axes()
+  gh0 = ax[-1].axis()
+  ax = ciFig[0].get_axes()
+  gci = ax[-1].axis()
+  h0cibounds = [[gh0[0], gh0[1]], [gci[1], gci[0]]]
+
   h0ciFig = pppu.plot_posterior_hist2D([poslist[-1]], ['h0', 'cosiota'], \
-[ifosNew[-1]], bounds=None, nbins=[30, 30], parfile=parinj)
+[ifosNew[-1]], bounds=h0cibounds, nbins=[30, 30], parfile=parinj)
   h0cifigname = output_fig(h0ciFig[0], puldir, 'h0cipost', ftypes)
 
   # get phi0 vs psi 2D posterior histogram
-  phi0psiFig = None
+  ax = phi0Fig[0].get_axes()
+  gphi0 = ax[-1].axis()
+  ax = psiFig[0].get_axes()
+  gpsi = ax[-1].axis()
+  phi0psibounds = [[gphi0[0], gphi0[1]], [gpsi[1], gpsi[0]]]
+
   phi0psiFig = pppu.plot_posterior_hist2D([poslist[-1]], ['phi0', 'psi'], \
-[ifosNew[-1]], bounds=[[0, 2.*math.pi], [math.pi/4., -math.pi/4]], \
-nbins=[30, 30], parfile=parinj)
+[ifosNew[-1]], bounds=phi0psibounds, nbins=[30, 30], parfile=parinj)
   phi0psifigname = output_fig(phi0psiFig[0], puldir, 'phi0psipost', ftypes)
 
   # produce output table of posterior plots
@@ -1390,7 +1220,7 @@ priorh0cifigname['png'], priorcifigname['png'], priorcifigname['png']))
     lt.append(float((sp.Popen(['wc', '-l', Bkdata[i]], stdout=sp.PIPE).communicate()[0]).split()[0])*60)
 
     # duty cycle
-    dc = 100.*(60.*float(lt[i]))/(float(et)-float(st))
+    dc = 100.*lt[i]/(float(et)-float(st))
 
     # get UL estimate based on h95 ~ 7-20 *sqrt(2) * ASD / sqrt(T) - the sqrt(2) is because
     # the ASD is calulated from a two-sided PSD
