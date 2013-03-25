@@ -167,7 +167,7 @@ void LALInspiralInterfaceSpinTaylorT4(
 	LIGOTimeGPS *endTime;
 	LALPNOrder phaseOrder, amplitudeOrder;
 	REAL8 i, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z;
-	REAL8 mttot, m1_intr, m2_intr, lambda1, lambda2, OnePlusZ; 
+	REAL8 mttot, m1_intr, m2_intr, lambda1, lambda2, qmparam1, qmparam2, OnePlusZ; 
 	LALSpinInteraction spinInteraction;
 	LALSimInspiralInteraction simInteraction = LAL_SIM_INSPIRAL_INTERACTION_DEFAULT;
 	
@@ -187,11 +187,16 @@ void LALInspiralInterfaceSpinTaylorT4(
     m1_intr = params->mass1*OnePlusZ; /** intrinsic masses in Msun **/
     m2_intr = params->mass2*OnePlusZ;
     mttot = (m1_intr + m2_intr)*LAL_MTSUN_SI; /** intrinsic total mass in seconds **/
+    
     /** Calculate tidal deformability parameters for the two bodies (dimensionless) **/
     lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr)/(mttot*mttot*mttot*mttot*mttot); /** Tidal effect for mass1 switched on **/
     lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr)/(mttot*mttot*mttot*mttot*mttot); /** Tidal effect for mass2 switched on **/
     lambda1 = (lambda1 > 0.) ? lambda1 : 0.0;
     lambda2 = (lambda2 > 0.) ? lambda2 : 0.0;
+    /** Calculate quadrupole-monopole parameters for the two bodies **/
+    qmparam1 = XLALQMparameter_EOS(EoS, m1_intr); 
+    qmparam2 = XLALQMparameter_EOS(EoS, m2_intr); 
+    
     fStart = params->fLower;
 	fRef = 0.0;
 	fEnd = cutoff;
@@ -231,12 +236,12 @@ void LALInspiralInterfaceSpinTaylorT4(
 #if DEBUG
 	printf(	"XLALSimInspiralSpinTaylorT4( hplus pointer = %ld , \nhcrossptr = %ld , \nphiRef = %e , \nv0 = %e ,\ndeltaT = %e ,\nm1 = %e ,\nm2 = %e ,\nfStart = %e ,\nfRef = %e , \
 	\nr = %e ,\ns1x = %e ,\ns1y = %e ,\ns1z = %e ,\ns2x = %e ,\ns2y = %e ,\ns2z = %e ,\nlnhatx = %e ,\nlnhaty = %e ,\nlnhatz = %e ,\ne1x = %e ,\ne1y = %e ,\ne1z = %e ,\nlambda1 = %e , \
-	\nlambda2 = %e ,\nsimInteraction = %i ,\nphaseOrder = %d ,\namplitudeOrder = %d,\ndxi[0] = %e,\ndxi[1] = %e,\ndxi[2] = %e,\ndxi[3] = %e)\n", (long int) &hplusptr, (long int) &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, 
-	fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, params->ampOrder, dxis[0], dxis[1], dxis[2], dxis[3]);
+	\nlambda2 = %e ,\nqmparam1 = %e ,\nqmparam2 = %e ,\nsimInteraction = %i ,\nphaseOrder = %d ,\namplitudeOrder = %d,\ndxi[0] = %e,\ndxi[1] = %e,\ndxi[2] = %e,\ndxi[3] = %e)\n", (long int) &hplusptr, (long int) &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, 
+	fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, qmparam1, qmparam2, simInteraction, phaseOrder, params->ampOrder, dxis[0], dxis[1], dxis[2], dxis[3]);
 #endif
 
 	/* Call the SpinTaylorT4 generator */
-	XLALSimInspiralSpinTaylorT4(&hplusptr, &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, simInteraction, phaseOrder, amplitudeOrder, dxis);
+	XLALSimInspiralSpinTaylorT4(&hplusptr, &hcrossptr, phiRef, v0, deltaT, m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, lambda1, lambda2, qmparam1, qmparam2, simInteraction, phaseOrder, amplitudeOrder, dxis);
 	
     UINT4 bins = hplusptr->data->length;
 
@@ -364,6 +369,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
 	REAL8 e1z,                    /**< initial value of E1z */
 	REAL8 lambda1,                /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 quadparam1,             /**< quadrupole-monopole parameter of mass 1 **/
+	REAL8 quadparam2,             /**< quadrupole-monopole parameter of mass 2 **/
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	INT4 phaseO,                  /**< twice post-Newtonian order */
     REAL8 *dxis                   /**< testing GR parameters */
@@ -381,8 +388,6 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
     REAL8 m1m2, m2m1, dm, M, eta, Mchirp, norm, dtStart, dtEnd, lengths, wEnd;
     LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
     REAL8 m1M, m2M; /* m1/M, m2/M */
-    REAL8 quadparam1 = 1.;
-    REAL8 quadparam2 = 1.;
 
     /* Check start and end frequencies are positive */
     if( fStart <= 0. )
@@ -1191,6 +1196,8 @@ int XLALSimInspiralSpinTaylorT4(
 	REAL8 e1z,                      /**< initial value of E1z */
 	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 qmparam1,               /**< quadrupole-monopole parameter of mass 1 **/
+	REAL8 qmparam2,               /**< quadrupole-monopole parameter of mass 2 **/
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	int phaseO,                     /**< twice PN phase order */
 	int amplitudeO,                  /**< twice PN amplitude order */
@@ -1237,7 +1244,8 @@ int XLALSimInspiralSpinTaylorT4(
                 &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z, 
                 deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y, s2z, 
                 lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
-                lambda1, lambda2, interactionFlags, phaseO, dxis);
+                lambda1, lambda2, qmparam1,qmparam2, interactionFlags, 
+                phaseO, dxis);
         if( n < 0 )
             XLAL_ERROR(func, XLAL_EFUNC);
 
@@ -1259,7 +1267,8 @@ int XLALSimInspiralSpinTaylorT4(
                 &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z, 
                 deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y, s2z, 
                 lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
-                lambda1, lambda2, interactionFlags, phaseO, dxis);
+                lambda1, lambda2, qmparam1, qmparam2, interactionFlags, 
+                phaseO, dxis);
         if( n < 0 )
             XLAL_ERROR(func, XLAL_EFUNC);
 
@@ -1285,7 +1294,8 @@ int XLALSimInspiralSpinTaylorT4(
                 &LNhatx1, &LNhaty1, &LNhatz1, &E1x1, &E1y1, &E1z1,
                 deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y,
                 s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
-                lambda1, lambda2, interactionFlags, phaseO, dxis);
+                lambda1, lambda2, qmparam1, qmparam2, interactionFlags, 
+                phaseO, dxis);
         
         /* Apply phase shift so orbital phase has desired value at fRef */
         phiShift = phiRef - Phi1->data->data[Phi1->data->length-1];
@@ -1302,7 +1312,8 @@ int XLALSimInspiralSpinTaylorT4(
                 &LNhatx2, &LNhaty2, &LNhatz2, &E1x2, &E1y2, &E1z2,
                 deltaT, m1, m2, fS, fE, s1x, s1y, s1z, s2x, s2y,
                 s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
-                lambda1, lambda2, interactionFlags, phaseO, dxis);
+                lambda1, lambda2, qmparam1, qmparam2, interactionFlags, 
+                phaseO, dxis);
         
         /* Apply phase shift so orbital phase has desired value at fRef */
         phiShift = phiRef - Phi2->data->data[0];
@@ -1376,6 +1387,8 @@ int XLALSimInspiralSpinTaylorT4PTFQVecs(
         REAL8 fStart,                   /**< start GW frequency (Hz) */
         REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
         REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+        REAL8 qmparam1,               /**< quadrupole-monopole parameter of mass 1 **/
+        REAL8 qmparam2,               /**< quadrupole-monopole parameter of mass 2 **/
         LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
         int phaseO,                      /**< twice PN phase order */
         REAL8 *dxis                   /**< testing GR parameters */
@@ -1404,7 +1417,8 @@ int XLALSimInspiralSpinTaylorT4PTFQVecs(
             &S2x, &S2y, &S2z, &LNhatx, &LNhaty, &LNhatz, &E1x, &E1y, &E1z,
             deltaT, m1, m2, fStart, fRef, s1x, s1y, s1z, s2x, s2y,
             s2z, lnhatx, lnhaty, lnhatz, e1x, e1y, e1z, 
-            lambda1, lambda2, interactionFlags, phaseO, dxis);
+            lambda1, lambda2, qmparam1, qmparam2, interactionFlags, 
+            phaseO, dxis);
     if( n < 0 )
         XLAL_ERROR(func, XLAL_EFUNC);
 
@@ -1903,8 +1917,63 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
         lambda = 2.755956E-24*(-5.55858 + 20.8977*compMass - 20.5583*compMass*compMass 
         + 9.55465*compMass*compMass*compMass - 1.84933*compMass*compMass*compMass*compMass);
         break;
+        
         default:
-        exit(-1);
+        lambda = 0.0;
+        fprintf(stderr, "Unknown EoS for the calculation of tidal deformability. Lambda is set to 0.\n");
+        break;
 	}
     return lambda;
+}
+
+/** Calculates the quadrupole-monopole parameter as a function
+ *  of mass, for several different Neutron Star Equations
+ *  of State. The mass argument should be the intrinsic mass 
+ *  in solar mass units.
+ *  The functions are interpolated with 3rd order polynomials.
+ * **/
+
+REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
+  
+  REAL8 q = 0.0 ;
+  REAL8 m = m_intr_msun ;
+  REAL8 m2 = m*m ;
+  REAL8 m3 = m2*m ;
+  
+  switch (eos_type) {
+  /*  */
+  case AEOS:
+    q = -6.41414141*m3 + 30.70779221*m2 - 53.37417027*m + 35.62253247 ;
+    break;
+  /*  */
+  case AU:
+    q = -6.18686869*m3 + 30.15909091*m2 - 52.87806638*m + 35.86616883 ;
+    break;
+  /*  */
+  case FPS:
+    q = -3.86363636*m3 + 21.03030303*m2 - 42.19448052*m + 32.83722944 ;
+    break;
+  /*  */
+  case APR:
+    q = -10.55555556*m3 + 49.52380952*m2 - 82.77063492*m + 53.02428571 ;
+    break;
+  /*  */
+  case UU:
+    q = -8.03030303*m3 + 37.61363636*m2 - 63.48733766*m + 41.75080087 ;
+    break;
+  /*  */
+  case LEOS:
+    q = -6.59090909*m3 + 33.67424242*m2 - 63.77034632*m + 48.98073593 ;
+    break;
+  case PP:
+    q = 1.0 ;
+    break;
+
+  default:
+    q = 1.0 ;
+    fprintf(stderr, "Unknown EoS for the calculation of QM parameter. QM is set to 1.0 .\n");
+    break ;
+  }
+  
+  return q ;
 }

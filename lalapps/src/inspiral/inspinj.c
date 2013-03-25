@@ -2580,11 +2580,35 @@ int main( int argc, char *argv[] )
         {
             EOS_inj = SQM3;
         }
+        else if ( ! strcmp( "A", optarg ) )
+        {
+            EOS_inj = AEOS;
+        }
+        else if ( ! strcmp( "AU", optarg ) )
+        {
+            EOS_inj = AU;
+        }
+        else if ( ! strcmp( "FPS", optarg ) )
+        {
+            EOS_inj = FPS;
+        }
+        else if ( ! strcmp( "APR", optarg ) )
+        {
+            EOS_inj = APR;
+        }
+        else if ( ! strcmp( "UU", optarg ) )
+        {
+            EOS_inj = UU;
+        }
+        else if ( ! strcmp( "L", optarg ) )
+        {
+            EOS_inj = LEOS;
+        }
         else
         {
             fprintf( stderr, "invalid argument to --%s:\n"
                     "unknown option specified: %s\n"
-                    "(Must be one of {PP,MS1,H4,SQM3})\n",
+                    "(Must be one of {PP,MS1,H4,SQM3,A,AU,FPS,APR,UU,L})\n",
                     long_options[option_index].name, optarg );
         }
         this_proc_param = this_proc_param->next =

@@ -533,7 +533,13 @@ typedef enum {
 	PP,
 	MS1,
 	H4,
-	SQM3
+	SQM3,
+	AEOS,
+	AU,
+	FPS,
+	APR,
+	UU,
+	LEOS
 } LALInspiralEOS;
 
 /**
@@ -1393,6 +1399,8 @@ int XLALSimInspiralSpinTaylorT4(
 	REAL8 e1z,                      /**< initial value of E1z */
 	REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 quadparam1,               /**< quadrupole-monopole parameter of mass 1 **/
+	REAL8 quadparam2,               /**< quadrupole-monopole parameter of mass 2 **/
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	int phaseO,                     /**< twice PN phase order */
 	int amplitudeO,                 /**< twice PN amplitude order */
@@ -1433,6 +1441,8 @@ int XLALSimInspiralPNEvolveOrbitSpinTaylorT4(
 	REAL8 e1z,                    /**< initial value of E1z */
 	REAL8 lambda1,                /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
 	REAL8 lambda2,                /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+	REAL8 quadparam1,               /**< quadrupole-monopole parameter of mass 1 **/
+	REAL8 quadparam2,               /**< quadrupole-monopole parameter of mass 2 **/
 	LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
 	INT4 phaseO,                  /**< twice post-Newtonian order */
     REAL8 *dxis                   /**< testing GR parameters */
@@ -1452,6 +1462,8 @@ int XLALSimInspiralSpinTaylorT4PTFQVecs(
         REAL8 fStart,                   /**< start GW frequency (Hz) */
         REAL8 lambda1,                  /**< (tidal deformability of mass 1) / (total mass)^5 (dimensionless) */
         REAL8 lambda2,                  /**< (tidal deformability of mass 2) / (total mass)^5 (dimensionless) */
+        REAL8 quadparam1,               /**< quadrupole-monopole parameter of mass 1 **/
+        REAL8 quadparam2,               /**< quadrupole-monopole parameter of mass 2 **/
         LALSimInspiralInteraction interactionFlags, /**< flag to control spin and tidal effects */
         int phaseO,                      /**< twice PN phase order */
         REAL8 *dxis                   /**< testing GR parameters */
@@ -1506,7 +1518,11 @@ int XLALSimInspiralPrecessingPolarizationWaveforms(
 	INT4 ampO	 	  /**< twice amp. post-Newtonian order */
 	);
 
+/* Protorypes for functions that calculate tidal parameters */
+
 REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass);
+
+REAL8 XLALQMparameter_EOS(LALInspiralEOS EoS, REAL8 compMass);
 
 /* Phenomenological Spin Taylor with RingDown*/
 
