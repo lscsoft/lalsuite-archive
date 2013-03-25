@@ -1667,8 +1667,7 @@ int XLALSimInspiralChooseWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
-    LALSimInspiralWaveformCache *cache          /**< waveform cache structure; use NULL for no caching */
+    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
     XLALPrintDeprecationWarning("XLALSimInspiralChooseWaveform", 
@@ -1709,8 +1708,7 @@ int XLALSimInspiralChooseTDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
-    LALSimInspiralWaveformCache *cache         /**< waveform cache structure; use NULL for no caching */
+    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
     )
 {
     REAL8 LNhatx, LNhaty, LNhatz, E1x, E1y, E1z;
@@ -1754,14 +1752,6 @@ int XLALSimInspiralChooseTDWaveform(
         XLALPrintWarning("XLAL Warning - %s: Small value of fmin = %e requested.\nCheck for errors, this could create a very long waveform.\n", __func__, f_min);
     if( f_min > 40.000001 )
         XLALPrintWarning("XLAL Warning - %s: Large value of fmin = %e requested.\nCheck for errors, the signal will start in band.\n", __func__, f_min);
-
-    if (cache != NULL) {
-      /* Try to extract waveform from cache and accelerate
-	 computation. */
-      return ChooseTDWaveformFromCache(hplus, hcross, phiRef, deltaT, m1, m2,
-				       S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2,
-				       waveFlags, nonGRparams, amplitudeO, phaseO, approximant, cache);
-    }
 
     switch (approximant)
     {
