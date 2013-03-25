@@ -1883,6 +1883,23 @@ int XLALSimInspiralChooseTDWaveform(
                     f_min, 0., r, i);
             break;
 
+        case IMRPhenomC:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkTransverseSpinsZero(S1x, S1y, S2x, S2y) )
+                ABORT_NONZERO_TRANSVERSE_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            if( f_ref != 0.)
+                XLALPrintWarning("XLAL Warning - %s: This approximant does use f_ref. The reference phase will be defined at coalescence.\n", __func__);
+            /* Call the waveform driver routine */
+            // NB: f_max = 0 will generate up to the ringdown cut-off frequency
+            ret = XLALSimIMRPhenomCGenerateTD(hplus, hcross, phiRef, deltaT,
+                    m1, m2, XLALSimIMRPhenomBComputeChi(m1, m2, S1z, S2z),
+                    f_min, 0., r, i);
+            break;
+
         case PhenSpinTaylorRD:
             /* Waveform-specific sanity checks */
             // FIXME: need to create a function to take in different modes or produce an error if all modes not given
@@ -2491,6 +2508,7 @@ int XLALSimInspiralImplementedTDApproximants(
         case SpinTaylorT2:
         case SpinTaylorT4:
         case IMRPhenomB:
+        case IMRPhenomC:
         case PhenSpinTaylorRD:
         case SEOBNRv1:
             return 1;
@@ -2624,6 +2642,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "IMRPhenomFB" ) )
   {
     return IMRPhenomFB;
+  }
+  else if ( strstr(inString, "IMRPhenomFC" ) )
+  {
+    return IMRPhenomFC;
   }
   else if ( strstr(inString, "SEOBNRv1" ) )
   {
@@ -2772,6 +2794,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("IMRPhenomFA");
     case IMRPhenomFB:
       return strdup("IMRPhenomFB");
+    case IMRPhenomFC:
+      return strdup("IMRPhenomFC");
     case SEOBNRv1:
       return strdup("SEOBNRv1");
     case EOBNRv2HM:
