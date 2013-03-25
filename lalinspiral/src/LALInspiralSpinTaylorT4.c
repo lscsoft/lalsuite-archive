@@ -187,10 +187,10 @@ void LALInspiralInterfaceSpinTaylorT4(
     m1_intr = params->mass1*OnePlusZ; /** intrinsic masses in Msun **/
     m2_intr = params->mass2*OnePlusZ;
     mttot = (m1_intr + m2_intr)*LAL_MTSUN_SI; /** intrinsic total mass in seconds **/
-    
+
     /** Calculate tidal deformability parameters for the two bodies (dimensionless) **/
-    lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr)/(mttot*mttot*mttot*mttot*mttot); /** Tidal effect for mass1 switched on **/
-    lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr)/(mttot*mttot*mttot*mttot*mttot); /** Tidal effect for mass2 switched on **/
+    lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr)/pow(mttot,5.); /** Tidal effect for mass1 switched on **/
+    lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr)/pow(mttot,5.); /** Tidal effect for mass2 switched on **/
     lambda1 = (lambda1 > 0.) ? lambda1 : 0.0;
     lambda2 = (lambda2 > 0.) ? lambda2 : 0.0;
     /** Calculate quadrupole-monopole parameters for the two bodies **/
@@ -1895,7 +1895,12 @@ int XLALSimInspiralPrecessingPTFQWaveforms(
 
 REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
     
-    REAL8 lambda=0.;
+    /* For the prefactor check the units of Hinderer et al arXiv:0911.3535v1 
+     * There, g cm^2 s^2 is used and we want to translate to s^5 by 
+     * multiplying with 10^{-7}*G/c^5 */
+    REAL8 prefac = 1.0E29 * LAL_G_SI / pow(LAL_C_SI,5.);
+    REAL8 lambda = 0.;
+
     switch (((int) EoS))
     {
 	// Point Particle
@@ -1904,20 +1909,35 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
 		break;
     // MS1
         case MS1:
-        lambda = 2.755956E-24*(2.19296 + 20.0273*compMass - 17.9443*compMass*compMass 
+        lambda = prefac*(2.19296 + 20.0273*compMass - 17.9443*compMass*compMass 
         + 5.75129*compMass*compMass*compMass - 0.699095*compMass*compMass*compMass*compMass);
         break;
     // H4
         case H4:
-        lambda = 2.755956E-24*(0.743351 + 15.8917*compMass - 14.7348*compMass*compMass 
+        lambda = prefac*(0.743351 + 15.8917*compMass - 14.7348*compMass*compMass 
         + 5.32863*compMass*compMass*compMass - 0.942625*compMass*compMass*compMass*compMass);
         break; 
     // SQM3
         case SQM3:
-        lambda = 2.755956E-24*(-5.55858 + 20.8977*compMass - 20.5583*compMass*compMass 
+        lambda = prefac*(-5.55858 + 20.8977*compMass - 20.5583*compMass*compMass 
         + 9.55465*compMass*compMass*compMass - 1.84933*compMass*compMass*compMass*compMass);
         break;
-        
+    // GM1
+        case GM1:
+        lambda = prefac*( 2.91357797 + 8.56300011*compMass - 6.34530151*compMass*compMass 
+        + 0.979368411*compMass*compMass*compMass);
+        break;
+    // L
+        case LEOS:
+        lambda = prefac*(1.58993910 + 15.9638882*compMass - 9.58564021*compMass*compMass 
+        + 1.34201455*compMass*compMass*compMass);
+        break;
+    // SLY
+        case SLY:
+        lambda = prefac*(1.28653162 + 3.77058998*compMass - 3.31593965*compMass*compMass 
+        + 0.596473986*compMass*compMass*compMass);
+        break;
+         
         default:
         lambda = 0.0;
         fprintf(stderr, "Unknown EoS for the calculation of tidal deformability. Lambda is set to 0.\n");
@@ -1941,31 +1961,41 @@ REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
   REAL8 m3 = m2*m ;
   
   switch (eos_type) {
-  /*  */
-  case AEOS:
+  /* A */
+    case AEOS:
     q = -6.41414141*m3 + 30.70779221*m2 - 53.37417027*m + 35.62253247 ;
     break;
-  /*  */
-  case AU:
+  /* AU */
+    case AU:
     q = -6.18686869*m3 + 30.15909091*m2 - 52.87806638*m + 35.86616883 ;
     break;
-  /*  */
-  case FPS:
+  /* FPS */
+    case FPS:
     q = -3.86363636*m3 + 21.03030303*m2 - 42.19448052*m + 32.83722944 ;
     break;
-  /*  */
-  case APR:
+  /* APR */
+    case APR:
     q = -10.55555556*m3 + 49.52380952*m2 - 82.77063492*m + 53.02428571 ;
     break;
-  /*  */
-  case UU:
+  /* UU */
+    case UU:
     q = -8.03030303*m3 + 37.61363636*m2 - 63.48733766*m + 41.75080087 ;
     break;
-  /*  */
-  case LEOS:
-    q = -6.59090909*m3 + 33.67424242*m2 - 63.77034632*m + 48.98073593 ;
+  /* L */
+    case LEOS:
+    q = -2.55905286*m3 + 17.4748882*m2  - 42.58067022*m + 39.98852253 ;
+    // this is the old fit q = -6.59090909*m3 + 33.67424242*m2 - 63.77034632*m + 48.98073593 ;
     break;
-  case PP:
+  /* GM1 */
+    case GM1:
+    q = -4.97311828*m3 + 29.23153294*m2 - 60.91713992*m + 48.32960152 ;
+    break;
+  /* SLY */
+    case SLY:
+    q = -6.27440001*m3 + 32.92777333*m2 - 61.48850029*m + 43.71802667 ;
+    break;
+
+    case PP:
     q = 1.0 ;
     break;
 

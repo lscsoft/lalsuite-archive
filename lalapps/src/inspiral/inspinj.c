@@ -2604,11 +2604,19 @@ int main( int argc, char *argv[] )
         {
             EOS_inj = LEOS;
         }
+        else if ( ! strcmp( "GM1", optarg ) )
+        {
+            EOS_inj = GM1;
+        }
+        else if ( ! strcmp( "SLY", optarg ) )
+        {
+            EOS_inj = SLY;
+        }
         else
         {
             fprintf( stderr, "invalid argument to --%s:\n"
                     "unknown option specified: %s\n"
-                    "(Must be one of {PP,MS1,H4,SQM3,A,AU,FPS,APR,UU,L})\n",
+                    "(Must be one of {PP,MS1,H4,SQM3,A,AU,FPS,APR,UU,L,GM1,SLY})\n",
                     long_options[option_index].name, optarg );
         }
         this_proc_param = this_proc_param->next =

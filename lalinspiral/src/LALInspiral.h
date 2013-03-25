@@ -539,7 +539,9 @@ typedef enum {
 	FPS,
 	APR,
 	UU,
-	LEOS
+	LEOS,
+	SLY,
+	GM1
 } LALInspiralEOS;
 
 /**
