@@ -295,6 +295,8 @@ typedef struct tagPulsarSignalParams {
   UINT4 duration;           	/**< length of time series in seconds */
   REAL8 samplingRate;		/**< sampling rate of time-series (= 2 * frequency-Band) */
   REAL8 fHeterodyne;		/**< heterodyning frequency for output time-series */
+  UINT4 dtDelayBy2; 		/**< half-interval for the Doppler delay look-up table for LALSimulateCoherentGW() */
+  UINT4 dtPolBy2; 		/**< half-interval for the polarisation response look-up table for LALSimulateCoherentGW() */
 } PulsarSignalParams;
 
 /** Parameters defining the SFTs to be returned from LALSignalToSFTs().
@@ -303,7 +305,6 @@ typedef struct tagSFTParams {
   REAL8 Tsft;			 /**< length of each SFT in seconds */
   LIGOTimeGPSVector *timestamps; /**< timestamps to produce SFTs for (can be NULL) */
   SFTVector *noiseSFTs;		 /**< noise SFTs to be added (can be NULL) */
-  INT4 make_v2SFTs;		 /**< UPGRADING switch: should be set to 1 to avoid verbose complaints */
   REAL4Window *window;		 /**< window function for the time series (can be NULL, which is equivalent to a rectangular window) */
 } SFTParams;
 
@@ -342,8 +343,6 @@ extern const SFTandSignalParams empty_SFTandSignalParams;
 
 /* ---------- Function prototypes ---------- */
 void LALGeneratePulsarSignal (LALStatus *, REAL4TimeSeries **signalvec, const PulsarSignalParams *params);
-void LALSimulateExactPulsarSignal (LALStatus *, REAL4TimeSeries **timeSeries, const PulsarSignalParams *params);
-
 void LALSignalToSFTs (LALStatus *, SFTVector **outputSFTs, const REAL4TimeSeries *signalvec, const SFTParams *params);
 
 void LALComputeSkyAndZeroPsiAMResponse (LALStatus *, SkyConstAndZeroPsiAMResponse *output, const SFTandSignalParams *params);

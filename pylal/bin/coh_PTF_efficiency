@@ -88,6 +88,13 @@ def parse_command_line():
                    default=None, help="The location of the CATX veto files")
   fopts.add_option("-b", "--veto-category",action="store",type="int",\
                    default=None, help="Apply vetoes up to this level inclusive")
+  fopts.add_option("-s", "--segment-length", action="store", type="float",\
+                     default=None,\
+                     help="The length of analysis segments.")
+  fopts.add_option("-e", "--pad-data", action="store", type="float",\
+                     default=None,\
+                     help="The length of padding around analysis chunk.")
+
 
   # add signal based veto options
   sigopts = optparse.OptionGroup(parser, "Signal options",\
@@ -95,10 +102,9 @@ def parse_command_line():
                                              "options")
 
   sigopts.add_option("-M", "--mass-bins", action="store", type="string",\
-                     default="0,3.48;3.48,6;6,20",\
-                     help="semi-colon separated list of comma-separater pairs "\
-                          "of m_low,m_high mass bins, default: \"%default\". "\
-                          "Remember to surround this option in quotes.")
+                     default="0-3.48,3.48-6,6-20",\
+                     help="comma separated list of dash-separated pairs "\
+                          "of m_low-m_high mass bins, default: %default")
   sigopts.add_option("-Q", "--chisq-index", action="store", type="float",\
                      default=4.0, help="chisq_index for newSNR calculation, "+\
                                        "default: %default")
@@ -118,6 +124,30 @@ def parse_command_line():
   sigopts.add_option("-C", "--cluster-window", action="store",\
                      type="float",default=0.1,help="The cluster window used "+\
                           "to cluster triggers in time. default: %default")
+
+  sigopts.add_option("-j","--sngl-snr-threshold", action="store", type="float",\
+                    default=4.0, help="Single detector SNR threshold, the"+\
+                    "two most sensitive detectors should have SNR above this"+\
+                    " default: %default")
+
+  sigopts.add_option("-J", "--snr-threshold", action="store", type="float",\
+                    default=6.0, help="SNR threshold for recording triggers,"+\
+                                      " default: %default")
+
+  sigopts.add_option("-k", "--newsnr-threshold", action="store", type="float",\
+                    default=None, help="NewSNR threshold for calculating the "+\
+                    "chisq of triggers (based on value of auto and bank chisq"+\
+                    " values. By default will take the same value as "+\
+                    "snr-threshold")
+
+  sigopts.add_option("-K", "--null-grad-thresh", action="store", type="float",\
+                    default=20., help="Threshold above which to increase the,"+\
+                    "values of the null SNR cut. default: %default")
+
+  sigopts.add_option("-T", "--null-grad-val", action="store", type="float",\
+                    default=0.2, help="Rate the null SNR cut will increase"+\
+                    "above the threshold. default: %default")
+
 
   # efficiency options
   effopts = optparse.OptionGroup(parser, "Efficiency options",\
@@ -207,6 +237,9 @@ def parse_command_line():
 
   if opts.veto_directory and not opts.veto_category:
     parser.error("Must supply veto category if applying vetoes")
+
+  if not opts.newsnr_threshold:
+    opts.newsnr_threshold = opts.snr_threshold
   
   return opts, args
 
@@ -216,11 +249,13 @@ def parse_command_line():
 
 def main(segdir, outdir, trigFile, foundFile, missedFile,\
          onsourceFile, verbose=False, doinj=False, chisq_index=4.0,\
-         chisq_nhigh=3.0, null_thresh=(4.25,6), glitchCheckFac=1.0,\
+         chisq_nhigh=3.0, null_thresh=(4.25,6),snrThresh=6.0,snglSnrThresh=4.0,\
+         newSnrThresh=6.0,nullGradThresh=20.,\
+         nullGradVal=0.2, glitchCheckFac=1.0,\
          clusterWindow=0.1, upperDist=100, lowerDist=0, numBins=20,\
          vetoFiles=[], wavErr=0, calErrs=None, calDCErrs=None,\
          massBins=[[0,3.48], [3.48,6.], [6.,20]], numMCInjs=100,\
-         oldCode=False):
+         oldCode=False,segLength=None,padData=None):
 
   #
   # setup
@@ -239,10 +274,39 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
   trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
   searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-
-
   ifos = sorted(map(str,searchSumm[0].get_ifos()))
   ifoAtt = {'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t'}
+
+  zeroLagSlideID = None
+  # Open the time slide table and make a time slide dict
+  timeSlideTable = table.get_table(xmldoc,lsctables.TimeSlideTable.tableName)
+  slideDict = {}
+  for slide in timeSlideTable:
+    currID = int(slide.time_slide_id)
+    if currID not in slideDict.keys():
+      slideDict[currID] = {}
+      slideDict[currID][slide.instrument] = slide.offset
+    elif slide.instrument not in slideDict[currID].keys():
+      slideDict[currID][slide.instrument] = slide.offset
+  numSlides = len(slideDict.keys())
+  for i in range(numSlides):
+    # Test all slide values are present
+    for ifo in ifos:
+      try:
+        tmp = slideDict[i][ifo]
+      except:
+        raise BrokenError
+    # Is this slide the zero-lag?
+    if max(slideDict[i].values()) == 0:
+      if min(slideDict[i].values()) == 0:
+        if zeroLagSlideID is None:
+          zeroLagSlideID = i
+        else:
+          raise BrokenError
+
+  if zeroLagSlideID is None:
+    raise BrokenError
+
 
   if verbose: sys.stdout.write("%d triggers loaded at %d.\n"\
                                % (len(trigs), elapsed_time()))
@@ -255,157 +319,201 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   segs = readSegFiles(segdir)
  
   # separate segments
-  paddingTime         = 71 
+  # FIXME: THIS IS HARDCODED!!!!!!!!!!!!!!
+  segmentLength       = 1024
+  dataPadding         = 8
+  paddingTime         = segmentLength / 4. + dataPadding 
   trialTime           = abs(segs['on'])
-  startTimeBefore     = (segs['off'][0]+paddingTime)
-  numSegsBeforeBuffer = (segs['buffer'][0] - startTimeBefore)\
-                        //trialTime
-  if (segs['buffer'][0] - startTimeBefore) < 0:
-    print "Buffer zone at start is not fully analysed"
-    numSegsBeforeBuffer = 0
-  endTimeBefore       = (segs['off'][0]+paddingTime) +\
-                        numSegsBeforeBuffer*trialTime
-  numSegsAfterBuffer  = ((segs['off'][1]-paddingTime) - segs['buffer'][1])\
-                        //trialTime
-  if (( segs['off'][1]-paddingTime ) - segs['buffer'][1] ) < 0:
-    print "Buffer zone at end is not fully analysed"
-    numSegsAfterBuffer = 0
-  startTimeAfter      = segs['buffer'][1]
-  endTimeAfter        = startTimeAfter + numSegsAfterBuffer*trialTime
-  numSegs             = numSegsBeforeBuffer + numSegsAfterBuffer
+  startAnalTime       = (segs['off'][0]+paddingTime)
+  endAnalTime         = (segs['off'][1]-paddingTime)
+  
 
   #
   # get vetoes
   #
 
   # Construct veto list
-  vetoes = segments.segmentlist()
+  vetoes = {}
+  for ifo in ifos:
+    vetoes[ifo] = segments.segmentlist()
+
   if vetoFiles:
     for file in vetoFiles:
-      if os.path.basename(file)[:2] in ifos:
+      ifo = os.path.basename(file)[:2]
+      if ifo in ifos:
         # This returns a coalesced list of the vetoes
         tmpVetoSegs = dqSegmentUtils.fromsegmentxml(open(file,'r'))
         for entry in tmpVetoSegs:
-          vetoes.append(entry)
-  vetoes.coalesce()
+          vetoes[ifo].append(entry)
+
+  for ifo in ifos:
+    vetoes[ifo].coalesce()
 
   #
   # construct trials
   #
   
   trials = segments.segmentlist()
+  trialDict = {}
+  sortedTrigs = {}
 
-  # Construct trials before buffer this also sanity checks the above
-  breakLoop = False
-  iterInt = 0
-  while 1:
-    # Check if this trial will overlap buffer
-    if (iterInt + 1)*trialTime + startTimeBefore > segs['buffer'][0]:
-      break
-    # Append trial
-    trials.append( segments.segment(startTimeBefore + trialTime*iterInt,\
-                                    startTimeBefore + trialTime*(iterInt+1)))
-    iterInt += 1
+  # Loop over the various slides
+  for slideID in range(numSlides):
+    # Begin by sorting the triggers into each slide
+    sortedTrigs[slideID] = lsctables.New(lsctables.MultiInspiralTable)
+    sortedTrigs[slideID].extend(\
+    [ trig for trig in trigs if int(trig.time_slide_id) == slideID ])
 
-  # Construct trials after buffer
+    # FIXME: THIS BLOCK IDENTIFIES THE ANALYSIS TIME OF EACH SLIDE
+    # FIXME: THIS ASSUMES WE ARE DOING LONG SLIDES AND MAY BREAK IF DOING
+    # FIXME: ANY OTHER SORT OF SLIDE. SHOULD STORE THIS BETTER
+    # Identify start and end time of this slide  
+    maxSlideOffset = max( slideDict[slideID].values() )
+    minSlideOffset = min( slideDict[slideID].values() )
+    if maxSlideOffset < 0:
+      maxSlideOffset = 0
+    if minSlideOffset > 0:
+      minSlideOffset = 0
+    # These can only *reduce* the analysis time
+    startSlideTime = startAnalTime - minSlideOffset
+    endSlideTime = endAnalTime - maxSlideOffset
 
-  breakLoop = False
-  iterInt = 0
-  while 1:
-    # Check if this trial will overlap end time
-    if (iterInt + 1)*trialTime + startTimeAfter > endTimeAfter:
-      break
-    # Append trial
-    trials.append( segments.segment(startTimeAfter + trialTime*iterInt,\
-                                    startTimeAfter + trialTime*(iterInt+1)))
-    iterInt += 1
+    # Construct the buffer segment list
+    buffer = segments.segmentlist()
+    for ifo in ifos:
+      slideOffset = slideDict[slideID][ifo]
+      buffer.append( segments.segment( segs['buffer'][0] - slideOffset,\
+                                       segs['buffer'][1] - slideOffset))
+    buffer.coalesce() 
 
-  assert (len(trials) == numSegs)
+    # Construct the ifo list
+    slidVetoes = copy.deepcopy(vetoes)
+    for ifo in ifos:
+      slidVetoes[ifo].shift(-slideDict[slideID][ifo])
+    
+    # Construct trial list and check against buffer      
+    trialDict[slideID] = segments.segmentlist()
+    iterInt = 0
+    while 1:
+      if (startSlideTime + trialTime*(iterInt+1)) > endSlideTime:
+        break
+      currSeg = segments.segment(startSlideTime + trialTime*iterInt,\
+                                 startSlideTime + trialTime*(iterInt+1))
+      if not buffer.intersects_segment(currSeg):
+        for ifo in ifos:
+          if slidVetoes[ifo].intersects_segment(currSeg):
+            break
+        else:
+          trialDict[slideID].append(currSeg)
+      iterInt += 1
 
-  # apply vetoes
-  goodtrials = segments.segmentlist([t for t in trials\
-                                     if not vetoes.intersects_segment(t)]) 
-  numTrials = len(goodtrials)
-  
+    sortedTrigs[slideID] = sortedTrigs[slideID].vetoed(trialDict[slideID])
+
+  totalTrials = sum([len(trialDict[slideID]) for slideID in range(numSlides)]) 
+
   if verbose: sys.stdout.write("Segments loaded and %d trials generated at %d."\
-                               "\n" % (numTrials, elapsed_time()))
-
-  # remove vetoed trials
-  trigs = trigs.vetoed(goodtrials)
+                               "\n" % (totalTrials, elapsed_time()))
 
   #
   # extract variables
   #
 
-  # get basics
-  trigAllTime   = np.asarray(trigs.get_end()).astype(float)
-  trigAllSNR    = np.asarray(trigs.get_column('snr'))
-  trigAllBestNR = np.array([get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
-                               null_thresh=null_thresh) for t in trigs])
-  trigAllMchirp = np.asarray(trigs.get_column('mchirp'))
+  trigAllTime = {}
+  trigAllSNR = {}
+  trigAllBestNR = {}
+  trigAllMchirp = {}
+  
+  for slideID in range(numSlides):
+    # get basics
+    slideTrigs = sortedTrigs[slideID]
+    trigAllTime[slideID]   = np.asarray(slideTrigs.get_end()).astype(float)
+    trigAllSNR[slideID]    = np.asarray(slideTrigs.get_column('snr'))
+    trigAllBestNR[slideID] = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in slideTrigs]
+    trigAllBestNR[slideID] = np.array(trigAllBestNR[slideID])
+    trigAllMchirp[slideID] = np.asarray(slideTrigs.get_column('mchirp'))
 
   if verbose: sys.stdout.write("Basic columns extracted at %d.\n"\
-                               % elapsed_time())
+                             % elapsed_time())
+
+  trigTime   = {}
+  trigSNR    = {}
+  trigBestNR = {}
+  timeBinVetoMaxSNR = {}
+  timeBinVetoMaxBestNR = {}
+  timeBinVetoMaxSNRUncut = {}
 
   # define mass bins
   massBin = lambda mc: [i for i,b in enumerate(massBins) if b[0]<=mc<b[1]][0]
 
-  # define arrays for mass bins
-  trigTime   = {}
-  trigSNR    = {}
-  trigBestNR = {}
-  timeBinMaxSNR          = np.zeros([len(massBins)+1, numSegs])
-  timeBinMaxSNRUncut     = np.zeros([len(massBins)+1, numSegs])
-  timeBinMaxBestNR       = np.zeros([len(massBins)+1, numSegs])
-  timeBinVetoMaxSNR      = np.zeros([len(massBins)+1, numTrials])
-  timeBinVetoMaxBestNR   = np.zeros([len(massBins)+1, numTrials])
-  timeBinVetoMaxSNRUncut = np.zeros([len(massBins)+1, numTrials])
+  for slideID in range(numSlides):
+    numSlideSegs = len(trialDict[slideID]) 
+    # define arrays for mass bins
+    trigTime[slideID]   = {}
+    trigSNR[slideID]    = {}
+    trigBestNR[slideID] = {}
+    timeBinVetoMaxSNR[slideID] = np.zeros([len(massBins)+1, numSlideSegs])
+    timeBinVetoMaxBestNR[slideID] = np.zeros([len(massBins)+1, numSlideSegs])
+    timeBinVetoMaxSNRUncut[slideID] = np.zeros([len(massBins)+1, numSlideSegs])
 
   # Check for triggers outside of mass bins if verbose
   if verbose:
-    inMassBins = np.zeros(len(trigs)).astype(np.bool) 
-    for i,bin in enumerate(massBins):
-      massCut = (bin[0] <= trigAllMchirp) & (trigAllMchirp < bin[1])
-      inMassBins = inMassBins | massCut
-    inMassBins = ~inMassBins
-    if inMassBins.any():
+    numCut = 0
+    for slideID in range(numSlides):
+      inMassBins = np.zeros(len(sortedTrigs[slideID])).astype(np.bool) 
+      for i,bin in enumerate(massBins):
+        massCut = (bin[0] <= trigAllMchirp[slideID])\
+                & (trigAllMchirp[slideID] < bin[1])
+        inMassBins = inMassBins | massCut
+      inMassBins = ~inMassBins
+      if inMassBins.any():
+        numCut += len(inMassBins[inMassBins])
+    if numCut:
       sys.stderr.write("Triggers outside of the given mass bins are present.\n")
       sys.stderr.write("These %d triggers will be vetoed.\n" \
-                       %(len(inMassBins[inMassBins])))
+                       %(numCut))
 
-  # separate triggers by mass bin and record maxima for each trial
-  for i,bin in enumerate(massBins):
-    # construct massCut
-    massCut = (bin[0] <= trigAllMchirp) & (trigAllMchirp < bin[1])
-    # apply cut
-    trigTime[bin[0]]   = trigAllTime[massCut]
-    trigSNR[bin[0]]    = trigAllSNR[massCut]
-    trigBestNR[bin[0]] = trigAllBestNR[massCut]
+  for slideID in range(numSlides):
+    # separate triggers by mass bin and record maxima for each trial
+    for i,bin in enumerate(massBins):
+      # construct massCut
+      massCut = (bin[0] <= trigAllMchirp[slideID]\
+            ) & (trigAllMchirp[slideID] < bin[1])
+      # apply cut
+      trigTime[slideID][bin[0]]   = trigAllTime[slideID][massCut]
+      trigSNR[slideID][bin[0]]    = trigAllSNR[slideID][massCut]
+      trigBestNR[slideID][bin[0]] = trigAllBestNR[slideID][massCut]
 
-    k = 0
-    for j,trial in enumerate(trials):
-      trialCut = (trial[0] <= trigTime[bin[0]]) & (trigTime[bin[0]] < trial[1])
-      if not trialCut.any():  continue
-      # max SNR in this mass bin and all mass bins
-      timeBinMaxSNR[i,j]  = max(trigSNR[bin[0]][trialCut])
-      timeBinMaxSNR[-1,j] = max(timeBinMaxSNR[-1,j], timeBinMaxSNR[i,j])
-      # max BestNR in this mass bin and all mass bins
-      timeBinMaxBestNR[i,j]  = max(trigBestNR[bin[0]][trialCut])
-      timeBinMaxBestNR[-1,j] = max(timeBinMaxBestNR[-1,j],timeBinMaxBestNR[i,j])
+      k = 0
+      for j,trial in enumerate(trialDict[slideID]):
+        trialCut = (trial[0] <= trigTime[slideID][bin[0]])\
+                 & (trigTime[slideID][bin[0]] < trial[1])
+        if not trialCut.any():  continue
+        # max SNR in this mass bin and all mass bins
+        timeBinVetoMaxSNR[slideID][i,j] = \
+                max(trigSNR[slideID][bin[0]][trialCut])
+        timeBinVetoMaxSNR[slideID][-1,j] = \
+                max(timeBinVetoMaxSNR[slideID][-1,j],\
+                    timeBinVetoMaxSNR[slideID][i,j])
+        # max BestNR in this mass bin and all mass bins
+        timeBinVetoMaxBestNR[slideID][i,j]  = \
+                max(trigBestNR[slideID][bin[0]][trialCut])
+        timeBinVetoMaxBestNR[slideID][-1,j] = \
+                max(timeBinVetoMaxBestNR[slideID][-1,j],\
+                    timeBinVetoMaxBestNR[slideID][i,j])
 
-      # max SNR for triggers passing SBVs in this mass bin and all mass bins
-      sbvCut = trigBestNR[bin[0]]!=0
-      if not (trialCut&sbvCut).any():  continue
-      timeBinMaxSNRUncut[i,j]  = max(trigSNR[bin[0]][trialCut & sbvCut])
-      timeBinMaxSNRUncut[-1,j] = max(timeBinMaxSNRUncut[-1,j],\
-                                     timeBinMaxSNRUncut[i,j])
-
-  # get max SNR for valid trials only
-  for k,trial in enumerate(goodtrials):
-    idx = trials.index(trial)
-    timeBinVetoMaxSNR[:,k] = timeBinMaxSNR[:,idx]
-    timeBinVetoMaxSNRUncut[:,k] = timeBinMaxSNRUncut[:,idx]
-    timeBinVetoMaxBestNR[:,k] = timeBinMaxBestNR[:,idx]
+        # max SNR for triggers passing SBVs in this mass bin and all mass bins
+        sbvCut = trigBestNR[slideID][bin[0]]!=0
+        if not (trialCut&sbvCut).any():  continue
+        timeBinVetoMaxSNRUncut[slideID][i,j] =\
+                 max(trigSNR[slideID][bin[0]][trialCut & sbvCut])
+        timeBinVetoMaxSNRUncut[slideID][-1,j] =\
+                 max(timeBinVetoMaxSNRUncut[slideID][-1,j],\
+                     timeBinVetoMaxSNRUncut[slideID][i,j])
 
   if verbose: sys.stdout.write("%d mass bins seeded and SNR/bestNR maxima "\
                                "calculated at %d.\n"\
@@ -418,10 +526,11 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   quietestFap = []
   for binNum in range(len(massBins)):
     numEvents = 0
-    for trial in range(numTrials):
-      if timeBinVetoMaxBestNR[binNum,trial] > 0:
-        numEvents += 1
-    quietestFap.append(numEvents/numTrials)
+    for slideID in range(numSlides):
+      for trial in range(len(trialDict[slideID])):
+        if timeBinVetoMaxBestNR[slideID][binNum,trial] > 0:
+          numEvents += 1
+    quietestFap.append(numEvents/totalTrials)
 
   quietestFile=open('%s/quiet_fap_vals.txt' % outdir,'w')
   for val in quietestFap:
@@ -432,20 +541,25 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   # print details of loudest 10 offsouce triggers
   #
 
-  offSourceTrigs = zip(trigAllBestNR,trigs)
+  offSourceTrigs = []
+  for slideID in range(numSlides):
+    offSourceTrigs.extend( zip(trigAllBestNR[slideID],sortedTrigs[slideID]))
   offSourceTrigs.sort(key = lambda element:element[0])
   offSourceTrigs.reverse()
 
-  th = [ 'Mass Bin', 'Trial', 'FAP', 'GPS', 'Rec. m1', 'Rec. m2', 'Rec. Mc',\
+  th = [ 'Mass Bin', 'Trial', 'Slide Num', 'FAP', 'GPS',\
+         'Rec. m1', 'Rec. m2', 'Rec. Mc',\
          'Rec. RA','Rec. Dec', 'SNR', 'Chi^2', 'Bank veto', 'Auto veto',\
          'Null SNR' ]
   th.extend([ '%s SNR' % ifo for ifo in ifos ])
+  th.extend([ '%s time shift (s)' % ifo for ifo in ifos ])
   th.append('BestNR')
   td = []
   
   for i in range(30):
     bestNR = offSourceTrigs[i][0]
     trig = offSourceTrigs[i][1]
+    trigSlideID = int(trig.time_slide_id)
 
     # Get mass bin of trigger
     trigBin = None
@@ -462,35 +576,26 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
       continue
 
     # Get trial of trigger, triggers with 'No trial' should have been removed!
-    chunkNum = numSegs
-    if trig.get_end() < segs['buffer'][0]:
-      if trig.get_end() < (segs['off'][0]+paddingTime):
-        raise ValueError, "ERROR: trig time is outside given analysis "+\
-                          "window! %s" % trig.get_end()
-      if trig.get_end() < endTimeBefore:
-        chunkNum = float(trig.get_end() - (segs['off'][0]+paddingTime))\
-                   // trialTime
-    elif trig.get_end() > segs['buffer'][1]:
-      if trig.get_end() > (segs['off'][1] - paddingTime):
-        raise ValueError, "ERROR: trig time is outside given analysis "+\
-                          "window! %s" % trig.get_end()
-      if trig.get_end() < endTimeAfter:
-        chunkNum = float(trig.get_end() - segs['buffer'][1])\
-                   // trialTime + numSegsBeforeBuffer
-    if chunkNum == numSegs:
+    endTime = trig.get_end()
+    for j,trial in enumerate(trialDict[trigSlideID]):
+      if trig.get_end() in trial:
+        chunkNum = j
+        break
+    else:
       chunkNum = 'No trial'
 
     # Get FAP of trigger
     numTrialsLouder = 0
-    for val in timeBinVetoMaxBestNR[trigBinNum]:
-      if val > bestNR:
-        numTrialsLouder += 1
-    FAP = numTrialsLouder/numTrials
+    for slideID in range(numSlides):
+      for val in timeBinVetoMaxBestNR[slideID][trigBinNum]:
+        if val > bestNR:
+          numTrialsLouder += 1
+    FAP = numTrialsLouder/totalTrials
 
     # Get null SNR of trigger
     nullsnr = trig.get_null_snr()
 
-    d = [ '%s-%s' % tuple(trigBin), chunkNum, '%.2f' % FAP,\
+    d = [ '%s-%s' % tuple(trigBin), chunkNum, trigSlideID, '%.2f' % FAP,\
           '%.4f' % trig.get_end(),\
           '%.2f' % trig.mass1, '%.2f' % trig.mass2, '%.2f' % trig.mchirp,\
           '%.2f' % (np.degrees(trig.ra)), '%.2f'% (np.degrees(trig.dec)),\
@@ -498,13 +603,14 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
           '%.2f' % trig.cont_chisq, '%.2f' % nullsnr ]
     d.extend([ '%.2f' % getattr(trig,'snr_%s' % ifoAtt[ifo])\
                for ifo in ifos ])
+    d.extend([ slideDict[trigSlideID][ifo] for ifo in ifos])
     d.append('%.2f' % bestNR)
     td.append(d)
 
   file = open("%s/loudest_offsource_trigs.html" % outdir, "w")
   file.write(dqHTMLUtils.write_table(markup.page(), th, td)())
   file.close()
- 
+
   # ==========================
   # print loudest SNRs to file
   # THIS OUTPUT FILE IS CURRENTLY UNUSED - MAYBE DELETE?
@@ -520,24 +626,40 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   th = ['','SNR','BestNR']
   td = []
 
+  fullTimeBinVetoMaxSNR = {}
+  fullTimeBinVetoMaxSNRUncut = {}
+  fullTimeBinVetoMaxBestNR = {}
+  for binNum in range(len(massBins)+1):
+    fullTimeBinVetoMaxSNR[binNum] = []
+    fullTimeBinVetoMaxSNRUncut[binNum] = []
+    fullTimeBinVetoMaxBestNR[binNum] = []
+    for slideID in range(numSlides):
+      fullTimeBinVetoMaxSNR[binNum].extend(timeBinVetoMaxSNR[slideID][binNum])
+      fullTimeBinVetoMaxSNRUncut[binNum].extend(\
+              timeBinVetoMaxSNRUncut[slideID][binNum])
+      fullTimeBinVetoMaxBestNR[binNum].extend(\
+              timeBinVetoMaxBestNR[slideID][binNum])
+    fullTimeBinVetoMaxSNR[binNum].sort()
+    fullTimeBinVetoMaxSNRUncut[binNum].sort()
+    fullTimeBinVetoMaxBestNR[binNum].sort()
+    
   binNum = 0
   for bin in massBins:
-    maxSNR[bin[0]] = trigSNR[bin[0]].max()
-    timeBinVetoMaxSNR[binNum].sort()
-    timeBinVetoMaxSNRUncut[binNum].sort()
+    maxSNR[bin[0]] = max([trigSNR[slideID][bin[0]].max() for slideID in \
+                     range(numSlides)] )
+    maxBestNR[bin[0]] = max([trigBestNR[slideID][bin[0]].max() for slideID in \
+                     range(numSlides)] )
  
-    trigBestNR[bin[0]] = np.asarray(trigBestNR[bin[0]])
-    maxBestNR[bin[0]]  = trigBestNR[bin[0]].max()
-    timeBinVetoMaxBestNR[binNum].sort()
-    if (numTrials % 2):
-      medianSNR[bin[0]] = (timeBinVetoMaxSNR[binNum])[(numTrials - 1) /2]
-      medianBestNR[bin[0]] = (timeBinVetoMaxBestNR[binNum])[(numTrials - 1) /2]
+    if (totalTrials % 2):
+      medianSNR[bin[0]] = (fullTimeBinVetoMaxSNR[binNum])\
+              [(totalTrials - 1) // 2]
+      medianBestNR[bin[0]] = (fullTimeBinVetoMaxBestNR[binNum])\
+              [(totalTrials - 1) // 2]
     else:
-      medianSNR[bin[0]] = (timeBinVetoMaxSNR[binNum])\
-                              [numTrials/2 - 1:numTrials/2 + 1].mean()
-      medianBestNR[bin[0]]\
-          = (timeBinVetoMaxBestNR[binNum])[numTrials/2 - 1\
-                                           : numTrials/2 + 1].mean()
+      medianSNR[bin[0]] = np.mean( (fullTimeBinVetoMaxSNR[binNum])\
+                              [totalTrials//2 - 1 : totalTrials//2 + 1])
+      medianBestNR[bin[0]] = np.mean( (fullTimeBinVetoMaxBestNR[binNum])\
+                              [totalTrials//2 - 1 : totalTrials//2 + 1])
   
     binNum += 1
   
@@ -552,14 +674,18 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   # work out all mass bins
   maxSNR['all'] = np.array(maxSNR.values()).max()
   maxBestNR['all'] = np.array(maxBestNR.values()).max()
-  if (numTrials % 2):
-    medianSNR['all'] = (timeBinVetoMaxSNR[binNum])[(numTrials - 1) /2]
-    medianBestNR['all'] = (timeBinVetoMaxBestNR[binNum])[(numTrials - 1) /2]
+  if ( (totalTrials*len(massBins)) % 2):
+    medianSNR['all'] = (fullTimeBinVetoMaxSNR[binNum])\
+            [((totalTrials*len(massBins)) - 1) //2]
+    medianBestNR['all'] = (fullTimeBinVetoMaxBestNR[binNum])\
+            [((totalTrials*len(massBins)) - 1) //2]
   else:
-    medianSNR['all']\
-        = (timeBinVetoMaxSNR[binNum])[numTrials/2 - 1:numTrials/2 + 1].mean()
-    medianBestNR['all']\
-        = (timeBinVetoMaxBestNR[binNum])[numTrials/2 - 1:numTrials/2 + 1].mean()
+    medianSNR['all'] = np.mean( (fullTimeBinVetoMaxSNR[binNum])\
+            [(totalTrials*len(massBins))//2 - 1:\
+             (totalTrials*len(massBins))//2 + 1])
+    medianBestNR['all'] = np.mean( (fullTimeBinVetoMaxBestNR[binNum])\
+            [(totalTrials*len(massBins))//2 - 1:\
+             (totalTrials*len(massBins))//2 + 1])
   
   # print to html table
   d = [ "Loudest in all bins", maxSNR['all'], maxBestNR['all'] ]
@@ -605,11 +731,18 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         loudOnSNRTrigs[bin[0]] = binTrigs[0]
         loudOnSNR[bin[0]]      = binTrigs[0].snr
         binTrigs.sort(key=lambda t: get_bestnr(t, q=chisq_index, n=chisq_nhigh,\
-                                               null_thresh=null_thresh),\
-                      reverse=True)
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal),   reverse=True)
         loudOnBestNRTrigs[bin[0]] = binTrigs[0]
         loudOnBestNR[bin[0]] = get_bestnr(binTrigs[0], q=chisq_index,\
-                                          n=chisq_nhigh,null_thresh=null_thresh) 
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,n=chisq_nhigh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal)
         # If the loudest event has bestNR = 0, there is no event at all!
         if loudOnBestNR[bin[0]] == 0:
           loudOnBestNRTrigs[bin[0]] = None
@@ -629,7 +762,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         numTrialsLouder = len(timeBinVetoMaxBestNR[i][timeBinVetoMaxBestNR[i] >\
                                                       loudOnBestNR[bin[0]]])
 
-        FAP = numTrialsLouder/numTrials
+        FAP = numTrialsLouder/totalTrials
         loudOnFAP[bin[0]] = FAP
         d = ['%s-%s' % tuple(bin), FAP, trig.get_end(),\
              trig.mass1, trig.mass2, trig.mchirp,\
@@ -658,12 +791,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
 
     sites = [ifo[0] for ifo in ifos]
 
-#    foundInjs  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])\
-#                     .veto(vetoes)
     missedInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missedFile])\
                      .veto(vetoes)
-#    foundTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])\
-#                     .veto(vetoes)
   
     foundInjsNoVeto  = SimInspiralUtils.ReadSimInspiralFromFiles([foundFile])
     foundTrigsNVeto = MultiInspiralUtils.ReadMultiInspiralFromFiles([foundFile])
@@ -698,10 +827,13 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     foundInjDist     = np.asarray(foundInjs.get_column('distance'))
 
     foundTrigMchirp  = np.asarray(foundTrigs.get_column('mchirp'))
-    foundTrigBestNR  = np.asarray([get_bestnr(t, q=chisq_index,\
-                                                 n=chisq_nhigh,\
-                                                 null_thresh=null_thresh)\
-                                      for t in foundTrigs])
+    foundTrigBestNR  = [get_bestnr(t,q=chisq_index, n=chisq_nhigh,\
+                             null_thresh=null_thresh,snr_threshold=snrThresh,\
+                             sngl_snr_threshold = snglSnrThresh,\
+                             chisq_threshold = newSnrThresh,\
+                             null_grad_thresh = nullGradThresh,\
+                             null_grad_val = nullGradVal) for t in foundTrigs]
+    foundTrigBestNR  = np.asarray(foundTrigBestNR)
     foundTrigRA      = np.asarray(foundTrigs.get_column('ra'))
     foundTrigDec     = np.asarray(foundTrigs.get_column('dec'))
 
@@ -775,11 +907,11 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     for ix, ( mc, bestNR ) in \
                 enumerate(zip(foundTrigMchirp[nonzeroFAP], gIFARDetStat)):
       try:
-        gIFARStat[ix] = (timeBinVetoMaxBestNR[massBin(mc)] > bestNR).sum()
+        gIFARStat[ix] = (fullTimeBinVetoMaxBestNR[massBin(mc)] > bestNR).sum()
       except IndexError:
         # Trigger is outside of mass bin
-        gIFARStat[ix] = numTrials
-    gIFARStat = gIFARStat / numTrials
+        gIFARStat[ix] = totalTrials
+    gIFARStat = gIFARStat / totalTrials
           
     gIFARm1           = foundInjm1[nonzeroFAP]
     gIFARm2           = foundInjm2[nonzeroFAP]
@@ -1032,7 +1164,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
         nearTest = numpy.zeros((foundExcl).sum()).astype(bool)
         for j,(t,bestNR) in enumerate(zip(foundInjTime[foundExcl],\
                                           foundTrigBestNR[foundExcl])):
-          nearBestNR  = trigAllBestNR[np.abs(trigAllTime-t) < clusterWindow]
+          nearBestNR  = trigAllBestNR[zeroLagSlideID]\
+                        [np.abs(trigAllTime-t) < clusterWindow]
           nearTest[j] = ~((nearBestNR * glitchCheckFac > bestNR).any())
         # apply the local test, putmask doesn't seem to work...
         #numpy.putmask(foundExcl, foundExcl==True, nearTest)
@@ -1183,7 +1316,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     cumplot = plotutils.CumulativeHistogramPlot("BestNR",
                                                  "False alarm probability",
                                                  "")
-    cumplot.add_background([item] for item in timeBinVetoMaxBestNR[i])
+    cumplot.add_background([item] for item in fullTimeBinVetoMaxBestNR[i])
     cumplot.finalize(num_bins=50)
     cumplot.ax.set_ylim(ymax=1.2)
     cumplot.savefig('%s/bestnr_vs_fap_%s_%s.png' % (outdir, bin[0], bin[1]))
@@ -1193,7 +1326,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     cumplot = plotutils.CumulativeHistogramPlot("SNR",
                                                  "False alarm probability",
                                                  "")
-    cumplot.add_background([item] for item in timeBinVetoMaxSNR[i])
+    cumplot.add_background([item] for item in fullTimeBinVetoMaxSNR[i])
     cumplot.finalize(num_bins=50)
     cumplot.ax.set_ylim(ymax=1.2)
     cumplot.savefig('%s/snr_vs_fap_%s_%s.png' % (outdir, bin[0], bin[1]))
@@ -1203,7 +1336,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     cumplot = plotutils.CumulativeHistogramPlot("SNR after signal based vetoes",
                                                  "False alarm probability",
                                                  "")
-    cumplot.add_background([item] for item in timeBinVetoMaxSNRUncut[i])
+    cumplot.add_background([item] for item in fullTimeBinVetoMaxSNRUncut[i])
     cumplot.finalize(num_bins=50)
     cumplot.ax.set_ylim(ymax=1.2)
     cumplot.savefig('%s/snruncut_vs_fap_%s_%s.png' % (outdir, bin[0], bin[1]))
@@ -1592,6 +1725,11 @@ if __name__=='__main__':
   oldCode      = opts.old_code
 
   nullt        = map(float, opts.null_snr_threshold.split(','))
+  snrThresh = opts.snr_threshold
+  snglSnrThresh = opts.sngl_snr_threshold
+  newSnrThresh = opts.newsnr_threshold
+  nullGradThresh = opts.null_grad_thresh
+  nullGradVal    = opts.null_grad_val
   glitchCheckFac = opts.glitch_check_factor
   clusterWindow = opts.cluster_window
   upperDist = opts.upper_inj_dist
@@ -1603,14 +1741,19 @@ if __name__=='__main__':
      vetoFiles = glob.glob(opts.veto_directory +'/*CAT[%s]*.xml' %(vetoString))
 
  
-  massBins = map(lambda p: map(float, p.split(',')), opts.mass_bins.split(';'))
+  massBins = map(lambda p: map(float, p.split('-')), opts.mass_bins.split(','))
   numMCInjs = opts.num_mc_injections
+  segLength = opts.segment_length
+  padData = opts.pad_data
 
   main(segdir, outdir, trigFile, foundFile, missedFile,\
        onsourceFile, verbose=verbose, doinj=doinj, chisq_index=q,\
-       chisq_nhigh=n, null_thresh = nullt , glitchCheckFac = glitchCheckFac,\
+       chisq_nhigh=n, null_thresh = nullt , snrThresh=snrThresh,\
+       snglSnrThresh=snglSnrThresh,newSnrThresh=newSnrThresh,\
+       nullGradThresh=nullGradThresh,nullGradVal=nullGradVal,\
+       glitchCheckFac = glitchCheckFac,\
        clusterWindow=clusterWindow,upperDist=upperDist,lowerDist=lowerDist,\
        numBins=numBins, vetoFiles=vetoFiles,wavErr=wavErr,calErrs=calErrs,\
        calDCErrs=calDCErrs, massBins=massBins, numMCInjs=numMCInjs,\
-       oldCode=oldCode)
+       oldCode=oldCode,segLength=segLength,padData=padData)
 

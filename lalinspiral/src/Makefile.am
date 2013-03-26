@@ -5,6 +5,7 @@ lalinspiralinclude_HEADERS = \
 	BBHPhenomCoeffs.h \
 	Chisq_CPU.h \
 	Chisq_GPU.h \
+	LALInspiralPyCBCTemplate.h \
 	CoherentInspiral.h \
 	CoincInspiralEllipsoid.h \
 	FindChirp.h \
@@ -47,12 +48,14 @@ lalinspiralinclude_HEADERS = \
 	RingUtils.h \
 	SimulateInspiral.h \
 	TemplateBankGeneration.h \
-	TrigScanEThincaCommon.h
+	TrigScanEThincaCommon.h \
+	lalinspiralswig_test.i
 
 lib_LTLIBRARIES = liblalinspiral.la
 liblalinspiral_la_SOURCES = \
 	BandPassInspiralTemplate.c \
 	Chisq_CPU.c \
+    LALInspiralPyCBCTemplate.c \
 	CoherentInspiralFilter.c \
 	CoherentInspiralInput.c \
 	CoincInspiralEllipsoid.c \
@@ -248,7 +251,6 @@ lalinspiral-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "set LALINSPIRAL_PREFIX $(prefix)" >>$@
 	@echo "prepend PATH $(bindir)" >>$@
 	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
@@ -267,7 +269,7 @@ BUILT_SOURCES += LALInspiralVCSInfo.h
 MOSTLYCLEANFILES += LALInspiralVCSInfo.h
 LALInspiralVCSInfo.h .PHONY : gen-LALInspiralVCSInfo.h
 gen-LALInspiralVCSInfo.h :
-	$(GENERATE_VCS_INFO) LALInspiralVCSInfo.h $(srcdir)/LALInspiralVCSInfo.h.git
+	$(AM_V_at)$(GENERATE_VCS_INFO) LALInspiralVCSInfo.h $(srcdir)/LALInspiralVCSInfo.h.git
 endif
 
 @LAL_HEADER_LINK@

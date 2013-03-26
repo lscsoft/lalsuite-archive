@@ -21,12 +21,16 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
+#ifndef LALInferenceTemplate_h
+#define LALInferenceTemplate_h
 
+#include <lal/LALInference.h>
 
 /**
- *  \file LALInferenceTemplate.h
+ *  \defgroup LALInferenceTemplate_h Header LALInferenceTemplate.h
+ *  \ingroup pkg_LALInference
+ *
  *  \brief Main header file for LALInference signal template generating functions.
- *  \ingroup LALInference
  *
  *  All template functions have a parameter
  *    \param[in,out] IFOdata used for both specifiying the signal parameter values 
@@ -46,20 +50,14 @@
  *  1 Mpc luminosity distance.
  *
  */
-
-
-#ifndef LALInferenceTemplate_h
-#define LALInferenceTemplate_h
-
-#include <lal/LALInference.h>
-
+/*@{*/
 
 /** De-bugging function writing a (frequency-domain) signal template to a CSV file.
  *  File contains real & imaginary parts of plus & cross components.
  *  Template amplitude is (usually) scaled to 1 Mpc luminosity distance.                        
  */
 void LALInferenceDumptemplateFreqDomain(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
-                            LALInferenceTemplateFunction *template, const char *filename);
+                            LALInferenceTemplateFunction templt, const char *filename);
 
 
 /** De-bugging function writing a (time-domain) signal template to a CSV file.
@@ -67,7 +65,7 @@ void LALInferenceDumptemplateFreqDomain(LALInferenceVariables *currentParams, LA
  *  Template amplitude is (usually) scaled to 1 Mpc luminosity distance.                        
  */
 void LALInferenceDumptemplateTimeDomain(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
-                            LALInferenceTemplateFunction *template, const char *filename);
+                            LALInferenceTemplateFunction templt, const char *filename);
 
 
 /** Template function to generate LAL's "parametrized post-Newtonian" (PPN) inspiral waveform.
@@ -264,5 +262,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
  *  (untested!)
  */
 void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata);
+
+/*@}*/
 
 #endif

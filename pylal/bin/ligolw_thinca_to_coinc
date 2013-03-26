@@ -47,6 +47,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
@@ -138,7 +139,7 @@ def parse_command_line():
 			if options.verbose and not n % 1597:
 				print >>sys.stderr, "\t%d lines\r" % n,
 			if "INSPIRAL_SECOND" in c.url:
-				metadata_cache[os.path.basename(c.path())] = c.url
+				metadata_cache[os.path.basename(c.path)] = c.url
 			category = pattern.match(c.description)
 			if category is None:
 				continue
@@ -883,7 +884,7 @@ def retrieve_ring_boundaries(xmldoc):
 	# are all the same)
 	#
 
-	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
+	rings = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
 
 	#
 	# because the input often contains two thinca jobs the rings might

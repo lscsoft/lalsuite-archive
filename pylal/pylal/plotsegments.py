@@ -184,9 +184,9 @@ def plotsegmentlistdict(segdict, outfile, keys=None, t0=None,\
         if not t0:
             t0 = start
         unit, timestr = plotutils.time_axis_unit(end-start)
-        t0 = LIGOTimeGPS(t0)
+        t0 = LIGOTimeGPS(float(t0))
         if t0.nanoseconds==0:
-            xlabel = datetime.datetime(*date.XLALGPSToUTC(LIGOTimeGPS(t0))[:6])\
+            xlabel = datetime.datetime(*date.XLALGPSToUTC(t0)[:6])\
                          .strftime("%B %d %Y, %H:%M:%S %ZUTC")
             xlabel = "Time (%s) since %s (%s)" % (timestr, xlabel, int(t0))
         else:
@@ -377,9 +377,9 @@ def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
         if not t0:
             t0 = start
         unit, timestr = plotutils.time_axis_unit(end-start)
-        t0 = LIGOTimeGPS(t0)
+        t0 = LIGOTimeGPS(float(t0))
         if t0.nanoseconds==0:
-            xlabel = datetime.datetime(*date.XLALGPSToUTC(LIGOTimeGPS(t0))[:6])\
+            xlabel = datetime.datetime(*date.XLALGPSToUTC(t0)[:6])\
                          .strftime("%B %d %Y, %H:%M:%S %ZUTC")
             xlabel = "Time (%s) since %s (%s)" % (timestr, xlabel, int(t0))
         else:
@@ -420,15 +420,15 @@ def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
     #
 
     # generate bins
+    binlength = float(binlength)
     if int(end-start) % binlength == 0:
         numbins = int(end-start)/binlength
     else:
         numbins = float(end-start)//binlength+1
-    bins = numpy.arange(start, end, binlength) + binlength/2
-
+    bins = numpy.arange(float(start), float(end), binlength) + binlength/2
     duty = dict((key, numpy.zeros(numbins)) for key in keys)
 
-    bs = start
+    bs = float(start)
     for i in range(numbins):
         be = float(bs + binlength)
         seg = segments.segmentlist([segments.segment(bs, be)])

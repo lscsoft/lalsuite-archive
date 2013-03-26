@@ -22,6 +22,7 @@
 #include <string.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <lal/FrequencySeries.h>
+#include <lal/LALAtomicDatatypes.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALConstants.h>
 #include <lal/AVFactories.h>
@@ -31,7 +32,7 @@
 #include <lal/Window.h>
 #include <lal/Date.h>
 
-static complex double cabs2(complex double z)
+static COMPLEX16 cabs2(COMPLEX16 z)
 {
 	double x = creal(z);
 	double y = cimag(z);
@@ -1417,7 +1418,7 @@ COMPLEX16FrequencySeries *XLALWhitenCOMPLEX16FrequencySeries(COMPLEX16FrequencyS
 /**
  * Geometric mean median bias factor.
  *
- * For a sample of nn 2-degree of freedom $\chi^{2}$-distributed random
+ * For a sample of nn 2-degree of freedom \f$\chi^{2}\f$-distributed random
  * variables, compute and return the natural logarithm of the ratio of the
  * sample median to the geometric mean.  See Section III.A. of
  * LIGO-T0900462 for the derivation.

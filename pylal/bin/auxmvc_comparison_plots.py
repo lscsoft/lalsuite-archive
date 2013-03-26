@@ -860,29 +860,32 @@ if not opts.combined_files:
 	# write glitch samples into a file (full and slim catalog)
 	glitch_file=open(opts.user_tag+'_glitch_data.dat','w')
 	glitch_file.write(' '.join(glitches.dtype.names)+'\n')
+        for da in glitches:
+          glitch_file.write(' '.join(map(str,da))+'\n')
+        glitch_file.close()
 	
 	glitch_slim_file=open(opts.user_tag+'_glitch_slim_data.dat','w')
 	glitch_slim_file.write(' '.join(columns_for_slim_catalog)+'\n')
-
-	for da in glitches:
-	  glitch_file.write(' '.join(map(str,da))+'\n')
-	  glitch_slim_file.write(' '.join(map(str,da[columns_for_slim_catalog]))+'\n')	
+        
+        glitches_slim = glitches[columns_for_slim_catalog]
+	for da in glitches_slim:
+	  glitch_slim_file.write(' '.join(map(str,da))+'\n')	
 	
-	glitch_file.close()
 	glitch_slim_file.close()
 	
 	# write clean samples into a file (full and slim catalog)
 	clean_file=open(opts.user_tag+'_clean_data.dat','w')
 	clean_file.write(' '.join(cleans.dtype.names)+'\n')
-	
+        for da in cleans:
+          clean_file.write(' '.join(map(str,da))+'\n')
+	clean_file.close()
+
 	clean_slim_file=open(opts.user_tag+'_clean_slim_data.dat','w')
 	clean_slim_file.write(' '.join(columns_for_slim_catalog)+'\n')
 
-	for da in cleans:
-	  clean_file.write(' '.join(map(str,da))+'\n')
-	  clean_slim_file.write(' '.join(map(str,da[columns_for_slim_catalog]))+'\n')
-	
-	clean_file.close()
+        cleans_slim = cleans[columns_for_slim_catalog]
+	for da in cleans_slim:
+	  clean_slim_file.write(' '.join(map(str,da))+'\n')	
 	clean_slim_file.close()
 
 	if opts.verbose:
@@ -1335,13 +1338,13 @@ if opts.bit_word:
   sigthr = 100
 
   # open pickle file
-#  pfile1 = open(opts.user_tag+'_bit-word_found_ANN-MVSC-SVM_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
-#  pfile2 = open(opts.user_tag+'_bit-word_found_OVL-combined_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
+  pfile1 = open(opts.user_tag+'_bit-word_clean_ANN-MVSC-SVM_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
+  pfile2 = open(opts.user_tag+'_bit-word_clean_OVL-combined_fapthr-'+str(opts.fap_threshold)+'.pickle', 'w')
 
-#  pickle.dump(sigthr, pfile1)
-#  pickle.dump(sigthr, pfile2)
-#  pickle.dump(opts.fap_threshold, pfile1)
-#  pickle.dump(opts.fap_threshold, pfile2)
+  pickle.dump(sigthr, pfile1)
+  pickle.dump(sigthr, pfile2)
+  pickle.dump(opts.fap_threshold, pfile1)
+  pickle.dump(opts.fap_threshold, pfile2)
 
   ### we define a 5 bit word to be the concatenation of binary flags corresponding to whether or not a classifier removes a glitch at a set FAP
   # 0: classifier did not remove glitch
@@ -1368,19 +1371,19 @@ if opts.bit_word:
         fbw += [BinToDec(s)]
 
       # dump data to pickle files
-#      if clas == [['ann'], ['mvsc'], ['svm']]:
-#        pickle.dump(clas, pfile1)
+      if clas == [['ann'], ['mvsc'], ['svm']]:
+        pickle.dump(clas, pfile1)
         # counts
-#        pickle.dump(fbw, pfile1)
-#        pfile1.close()
+        pickle.dump(fbw, pfile1)
+        pfile1.close()
 
-#      if clas == [['ovl'], ['combined']]:
-#        pickle.dump(clas, pfile2)
+      if clas == [['ovl'], ['combined']]:
+        pickle.dump(clas, pfile2)
         # bins
-#        pickle.dump(numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), pfile2)
+        pickle.dump(numpy.linspace(0.5, 2**len(clas)-0.5, num = 2**len(clas), endpoint = True), pfile2)
         # counts
-#        pickle.dump(fbw, pfile2)
-#        pfile2.close()
+        pickle.dump(fbw, pfile2)
+        pfile2.close()
 
       if opts.diagnostic_plots:
         ### Add regular histograms

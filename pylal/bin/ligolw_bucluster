@@ -74,7 +74,7 @@ def parse_command_line():
 		raise ValueError("unrecognized --cluster-algorithm %s" % options.cluster_algorithm)
 
 	for cache in options.input_cache:
-		filenames += [CacheEntry(line).path() for line in file(cache)]
+		filenames += [CacheEntry(line).path for line in file(cache)]
 
 	return options, (filenames or [None])
 

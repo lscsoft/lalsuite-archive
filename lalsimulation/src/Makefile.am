@@ -1,5 +1,13 @@
-AM_CPPFLAGS = -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include -DPKGDATADIR='"$(pkgdatadir)"'
 LDADD = liblalsimulation.la
+
+NOISEPSDFILES = \
+	LIGO-T0900288-v3-BHBH_20deg.txt \
+	LIGO-T0900288-v3-High_Freq.txt \
+	LIGO-T0900288-v3-NO_SRM.txt \
+	LIGO-T0900288-v3-NSNS_Opt.txt \
+	LIGO-T0900288-v3-ZERO_DET_high_P.txt \
+	LIGO-T0900288-v3-ZERO_DET_low_P.txt
 
 bin_PROGRAMS = \
 	lalsim-bh-qnmode \
@@ -23,7 +31,8 @@ lalsimulationinclude_HEADERS = \
 	LALSimSGWB.h \
 	LALSimulationConfig.h \
 	LALSimulationLibVCSInfo.h \
-	LALSimulationVCSInfo.h
+	LALSimulationVCSInfo.h \
+	lalsimulationswig_test.i
 
 noinst_HEADERS = \
 	LALSimIMREOBFactorizedWaveform.c \
@@ -51,13 +60,15 @@ liblalsimulation_la_SOURCES = \
 	LALSimIMREOBNRv2.c \
 	LALSimIMRSpinAlignedEOB.c \
 	LALSimIMRPhenom.c \
+	LALSimIMRPhenomC.c \
 	LALSimIMRPSpinInspiralRD.c \
 	LALSimInspiralWaveformFlags.c \
 	LALSimInspiralTestGRParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
 	LALSimInspiralPNMode.c \
-	LALSimInspiralSpinTaylorT4.c \
+	LALSimInspiralSpinTaylor.c \
+	LALSimInspiralSpinTaylorF2.c \
 	LALSimInspiralTaylorEt.c \
 	LALSimInspiralTaylorF2.c \
 	LALSimInspiralTaylorF2ReducedSpin.c \
@@ -93,6 +104,8 @@ MOSTLYCLEANFILES = \
 	lalsimulation-user-env.sh \
 	lalsimulation-user-env.csh
 
+pkgdata_DATA = $(NOISEPSDFILES)
+
 sysconf_DATA = \
 	lalsimulation-user-env.sh \
 	lalsimulation-user-env.csh
@@ -106,7 +119,6 @@ lalsimulation-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "set LALSIMULATION_PREFIX $(prefix)" >>$@
 	@echo "prepend PATH $(bindir)" >>$@
 	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
@@ -117,14 +129,15 @@ lalsimulation-user-env.csh lalsimulation-user-env.sh: lalsimulation-user-env.she
 
 EXTRA_DIST = \
 	generate_user_env.awk \
-	LALSimulationConfig.h.in
+	LALSimulationConfig.h.in \
+	$(NOISEPSDFILES)
 
 if HAVE_GIT_REPO
 BUILT_SOURCES += LALSimulationVCSInfo.h
 MOSTLYCLEANFILES += LALSimulationVCSInfo.h
 LALSimulationVCSInfo.h .PHONY : gen-LALSimulationVCSInfo.h
 gen-LALSimulationVCSInfo.h :
-	$(GENERATE_VCS_INFO) LALSimulationVCSInfo.h $(srcdir)/LALSimulationVCSInfo.h.git
+	$(AM_V_at)$(GENERATE_VCS_INFO) LALSimulationVCSInfo.h $(srcdir)/LALSimulationVCSInfo.h.git
 endif
 
 @LAL_HEADER_LINK@

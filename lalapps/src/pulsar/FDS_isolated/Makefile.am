@@ -110,9 +110,7 @@ TESTS += testCFSv2.sh testCFSv2_resamp.sh testGridv2.sh
 endif
 
 
-TESTS_ENVIRONMENT = \
-LALSUITE_TOP_SRCDIR=$(LALSUITE_TOP_SRCDIR) \
-LAL_DATA_PATH=$(LAL_DATA_PATH):.:$${LALPULSAR_PREFIX:+"$${LALPULSAR_PREFIX}/share/lalpulsar"}:$${LALSUITE_TOP_SRCDIR:+"$${LALSUITE_TOP_SRCDIR}/lalpulsar/test/"}
+TESTS_ENVIRONMENT = LALPULSAR_DATADIR="$(LALPULSAR_DATADIR)"
 
 CLEANFILES = testFstat_v3-LFT.sft testFstat_v3-timeseries.dat
 
@@ -123,4 +121,4 @@ NVCC ?= nvcc
 
 ## make sure lalapps.la is rebuilt when appropriate
 BUILT_SOURCES =
-include $(top_srcdir)/misc/vcsID.common
+include $(top_srcdir)/gnuscripts/vcsID.common

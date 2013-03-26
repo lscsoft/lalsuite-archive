@@ -38,7 +38,7 @@ import cPickle as pickle
 from time import strftime
 
 #related third party imports
-import numpy
+import numpy as np
 
 import matplotlib
 matplotlib.use("Agg")

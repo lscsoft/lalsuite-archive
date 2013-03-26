@@ -92,6 +92,11 @@ LALGeneratePulsarSignal (LALStatus *status,		/**< pointer to LALStatus structure
   sourceParams.aCross = params->pulsar.aCross;
   sourceParams.phi0 = params->pulsar.phi0;
   sourceParams.f0 = params->pulsar.f0;
+
+  // internal interpolation parameters for LALSimulateCoherentGW()
+  sourceSignal.dtDelayBy2 = params->dtDelayBy2;
+  sourceSignal.dtPolBy2   = params->dtPolBy2;
+
   /* set source position: make sure it's "normalized", i.e. [0<=alpha<2pi]x[-pi/2<=delta<=pi/2] */
   TRY( LALNormalizeSkyPosition(status->statusPtr, &(sourceParams.position), &(params->pulsar.position)), status);
 
@@ -144,7 +149,7 @@ LALGeneratePulsarSignal (LALStatus *status,		/**< pointer to LALStatus structure
 
   /* get duration of source-signal */
   SSBduration = XLALGPSDiff(&t1, &t0);
-  SSBduration += 2.0 * sourceParams.deltaT; /* add two time-steps to be safe */
+  SSBduration += 2.0 * sourceParams.deltaT; /* add two time-steps to be safe*/
 
   sourceParams.epoch = t0;
   sourceParams.length = (UINT4) ceil( SSBduration / sourceParams.deltaT );
@@ -278,18 +283,6 @@ LALSignalToSFTs (LALStatus *status,		/**< pointer to LALStatus structure */
   ASSERT (*outputSFTs == NULL, status,  GENERATEPULSARSIGNALH_ENONULL,  GENERATEPULSARSIGNALH_MSGENONULL);
   ASSERT (signalvec != NULL, status, GENERATEPULSARSIGNALH_ENULL, GENERATEPULSARSIGNALH_MSGENULL);
   ASSERT (params != NULL, status, GENERATEPULSARSIGNALH_ENULL, GENERATEPULSARSIGNALH_MSGENULL);
-
-  /* UPGRADING switch: complain loudly if user didn't set 'make_v2SFTs' to encourage upgrading */
-  if (  params-> make_v2SFTs != 1 )
-    {
-      fprintf (stderr, "\n********************************************************************************\n\n");
-      fprintf (stderr, "     WARNING: LALSignalToSFTs() now returns properly *v2-normalized* SFTs\n");
-      fprintf (stderr, "    (see  http://www.lsc-group.phys.uwm.edu/lal/slug/nightly/doxygen/html/group__SFTfileIO.html \n");
-      fprintf (stderr, "    for more details on what that means).\n\n");
-      fprintf (stderr, "    Please adapt your code correspondingly and set SFTParams.make_v2SFTs=1 to acknowledge this.\n");
-      fprintf (stderr, "    This parameter and warning will be removed once the transition is complete.\n\n");
-      fprintf (stderr, "********************************************************************************\n\n");
-    }
 
   f0 = signalvec->f0;				/* lowest frequency */
   dt = signalvec->deltaT;		/* timeseries timestep */

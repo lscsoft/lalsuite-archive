@@ -25,6 +25,7 @@ ligolw_test01 :
 	@echo "<=== end test01 ==="
 
 ligolw_test02 :
+	# confirm that ligolw_add refuses to process old-style inspiral files
 	@echo "=== start test02 ===>"
 	sh ligo_lw_test_02.sh && $(printpassfail)
 	@echo "<=== end test02 ==="

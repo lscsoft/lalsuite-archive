@@ -188,6 +188,10 @@ if not opts.config_file:
   print >> sys.stderr, "Use --config-file FILE to specify location."
   sys.exit(1)
 
+if not opts.config_file[-4:]==".ini":
+  print >> sys.stderr, "Configuration file name must end in '.ini'!" 
+  sys.exit(1)
+
 if not opts.log_path:
   print >> sys.stderr, "No log file path specified."
   print >> sys.stderr, "Use --log-path PATH to specify a location."
@@ -364,7 +368,9 @@ os.chdir(analysisDirectory)
 
 ##############################################################################
 # create a log file that the Condor jobs will write to
-basename = opts.config_file.rstrip(".ini")
+# 
+# we already checked that the last 4 characters of the config file are '.ini'
+basename = opts.config_file[:-4]
 logname = basename + '.dag.log.'
 try:
   os.mkdir(opts.log_path)
@@ -1091,11 +1097,8 @@ print >> pegprop_fh, """
 pegasus.catalog.replica=File
 pegasus.catalog.replica.file=%s
 
-pegasus.catalog.site=XML3
-
 pegasus.transfer.force=true
 pegasus.transfer.links=true
-pegasus.transfer.refiner=Bundle
 
 dagman.retry=3
 dagman.maxpre=1
@@ -1112,18 +1115,12 @@ pegasus.dir.submit.logs=%s
 pegasus.catalog.site.file=%s/site-local.xml
 """ % (os.path.join(os.getcwd(),peg_frame_cache),opts.log_path,os.getcwd())
 
-if opts.dax:
+if opts.data_checkpoint:
   print >> pegprop_fh, """\
 
-# pegasus 4.x variables
+# pegasus 4.x variable for data checkpointing
 pegasus.data.configuration=condorio
 """
-else:
-  print >> pegprop_fh, """\
-
-# pegasus 3.x variables
-pegasus.gridstart.kickstart.stat=false
-pegasus.transfer.symlink.impl=Symlink"""
 
 pegprop_fh.close()
 

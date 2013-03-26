@@ -140,12 +140,179 @@
 
 /** For testing purposes (for instance sampling the prior), likelihood that returns 0.0 = log(1) every
  time.  Activated with the --zeroLogLike command flag. */
-REAL8 LALInferenceZeroLogLikelihood(LALInferenceVariables UNUSED *currentParams, LALInferenceIFOData UNUSED *data, LALInferenceTemplateFunction UNUSED *template) {
+REAL8 LALInferenceZeroLogLikelihood(LALInferenceVariables UNUSED *currentParams, LALInferenceIFOData UNUSED *data, LALInferenceTemplateFunction UNUSED template) {
   return 0.0;
 }
 
+REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, LALInferenceTemplateFunction UNUSED template)
+/***************************************************************/
+/* (log-) likelihood function.                                 */
+/* Returns the non-normalised logarithmic likelihood           */
+/* for noise-only models of the data                           */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Required (`currentParams') parameters are:                  */
+/*   - "psdscale"  (gslMatrix)                                 */
+/***************************************************************/
+{
+  double diffRe, diffIm, diffSquared;
+  double dataReal, dataImag;
+  REAL8 loglikeli;
+  int i, j, lower, upper, ifo, n;
+  LALInferenceIFOData *dataPtr;
+  double chisquared;
+  double deltaT, TwoDeltaToverN, deltaF;
+
+  //noise model meta parameters
+  gsl_matrix *lines   = NULL;//pointer to matrix holding line centroids
+  gsl_matrix *widths  = NULL;//pointer to matrix holding line widths
+  gsl_matrix *nparams = NULL;//pointer to matrix holding noise parameters
+  double dflog=1.0;        //logarithmic spacing of psd parameters
+
+  int Nblock = 1;            //number of frequency blocks per IFO
+  int Nlines = 1;            //number of lines to be removed
+  int psdFlag;               //flag for including psd fitting
+  int lineFlag;              //flag for excluding lines from integration
+  int lineimin = 0;
+  int lineimax = 0;
+  int lineSwitch;          //switch inside integration to exclude bins
+
+  //line removal parameters
+  lineFlag = *((INT4 *)LALInferenceGetVariable(currentParams, "removeLinesFlag"));
+  if(lineFlag)
+  {
+    //Add line matrices to variable lists
+    lines  = *(gsl_matrix **)LALInferenceGetVariable(currentParams, "line_center");
+    widths = *(gsl_matrix **)LALInferenceGetVariable(currentParams, "line_width");
+    Nlines = (int)lines->size2;
+  }
+  int lines_array[Nlines];
+  int widths_array[Nlines];
+
+  //check if psd parameters are included in the model
+  psdFlag = *((INT4 *)LALInferenceGetVariable(currentParams, "psdScaleFlag"));
+  if(psdFlag)
+  {
+    //if so, store current noise parameters in easily accessible matrix
+    nparams = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdscale"));
+    Nblock = (int)nparams->size2;
+
+    dflog = *(REAL8*) LALInferenceGetVariable(currentParams, "logdeltaf");
+  }
+  double alpha[Nblock];
+  double lnalpha[Nblock];
+
+
+  chisquared = 0.0;
+  /* loop over data (different interferometers): */
+  dataPtr = data;
+  ifo=0;
+
+  while (dataPtr != NULL) {
+    /* The parameters the Likelihood function can handle by itself   */
+    /* (and which shouldn't affect the template function) are        */
+    /* sky location (ra, dec), polarisation and signal arrival time. */
+    /* Note that the template function shifts the waveform to so that*/
+    /* t_c corresponds to the "time" parameter in                    */
+    /* IFOdata->modelParams (set, e.g., from the trigger value).     */
+
+    /* Reset log-likelihood */
+    dataPtr->loglikelihood = 0.0;
+
+    /* determine frequency range & loop over frequency bins: */
+    deltaT = dataPtr->timeData->deltaT;
+    deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
+
+    lower = (UINT4)ceil(dataPtr->fLow / deltaF);
+    upper = (UINT4)floor(dataPtr->fHigh / deltaF);
+    TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);
+
+    //Set up noise PSD meta parameters
+    for(i=0; i<Nblock; i++)
+    {
+      if(psdFlag)
+      {
+        alpha[i]   = gsl_matrix_get(nparams,ifo,i);
+        lnalpha[i] = log(alpha[i]);
+      }
+      else
+      {
+        alpha[i]=1.0;
+        lnalpha[i]=0.0;
+      }
+    }
+
+    //Set up psd line arrays
+    for(j=0;j<Nlines;j++)
+    {
+      if(lineFlag)
+      {
+
+        //find range of fourier fourier bins which are excluded from integration
+        lines_array[j]  = (int)gsl_matrix_get(lines,ifo,j);//lineimin = (int)(gsl_matrix_get(lines,ifo,j) - gsl_matrix_get(widths,ifo,j));
+        widths_array[j] = (int)gsl_matrix_get(widths,ifo,j);//lineimax = (int)(gsl_matrix_get(lines,ifo,j) + gsl_matrix_get(widths,ifo,j));
+      }
+      else
+      {
+        lines_array[j]=0;
+        widths_array[j]=0;
+      }
+    }
+
+    for (i=lower; i<=upper; ++i)
+    {
+
+      dataReal     = dataPtr->freqData->data->data[i].re / deltaT;
+      dataImag     = dataPtr->freqData->data->data[i].im / deltaT;
+      
+      /* compute squared difference & 'chi-squared': */
+      diffRe       = dataReal;         // Difference in real parts...
+      diffIm       = dataImag;         // ...and imaginary parts, and...
+      diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
+      
+      REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
+
+      /* Add noise PSD parameters to the model */
+      if(psdFlag)
+      {
+        n = (int)( log( (double)i/(double)lower )/dflog );
+        temp  /= alpha[n];
+        temp  += lnalpha[n];
+      }
+
+      /* Remove lines from model */
+      lineSwitch=1;
+
+      if(lineFlag)
+      {
+        for(j=0;j<Nlines;j++)
+        {
+          //find range of fourier fourier bins which are excluded from integration
+          lineimin = lines_array[j] - widths_array[j];//gsl_matrix_get(widths,ifo,j));
+          lineimax = lines_array[j] + widths_array[j];//(int)(gsl_matrix_get(lines,ifo,j) + gsl_matrix_get(widths,ifo,j));
+
+          //if the current bin is inside the exluded region, set the switch to 0
+          if(i>lineimin && i<lineimax) lineSwitch=0;
+        }
+      }
+
+      /*only sum over bins which are outside of excluded regions */
+      if(lineSwitch)
+      {
+        chisquared  += temp;
+        dataPtr->loglikelihood -= temp;
+      }
+      
+     }
+    ifo++; //increment IFO counter for noise parameters
+    dataPtr = dataPtr->next;
+  }
+
+  loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
+  return(loglikeli);
+}
+
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
-                              LALInferenceTemplateFunction *template)
+                              LALInferenceTemplateFunction templt)
 /***************************************************************/
 /* (log-) likelihood function.                                 */
 /* Returns the non-normalised logarithmic likelihood.          */
@@ -166,7 +333,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   REAL8 loglikeli;
   REAL8 plainTemplateReal, plainTemplateImag;
   REAL8 templateReal, templateImag;
-  int i, lower, upper;
+  int i, j, lower, upper, ifo, n;
   LALInferenceIFOData *dataPtr;
   double ra, dec, psi, distMpc, gmst;
   double GPSdouble;
@@ -182,6 +349,47 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LALStatus status;
   memset(&status,0,sizeof(status));
   LALInferenceVariables intrinsicParams;
+
+  //noise model meta parameters
+  gsl_matrix *lines   = NULL;//pointer to matrix holding line centroids
+  gsl_matrix *widths  = NULL;//pointer to matrix holding line widths
+  gsl_matrix *nparams = NULL;//pointer to matrix holding noise parameters
+  double dflog = 1.0;        //logarithmic spacing of psd parameters
+  
+  int Nblock = 1;            //number of frequency blocks per IFO
+  int Nlines = 1;            //number of lines to be removed
+  int psdFlag = 0;           //flag for including psd fitting
+  int lineFlag = 0;          //flag for excluding lines from integration
+  int lineimin = 0;
+  int lineimax = 0;
+  int lineSwitch;          //switch inside integration to exclude bins
+
+  //line removal parameters
+  if(LALInferenceCheckVariable(currentParams, "removeLinesFlag"))
+    lineFlag = *((INT4 *)LALInferenceGetVariable(currentParams, "removeLinesFlag"));
+  if(lineFlag)
+  {
+    //Add line matrices to variable lists
+    lines  = *(gsl_matrix **)LALInferenceGetVariable(currentParams, "line_center");
+    widths = *(gsl_matrix **)LALInferenceGetVariable(currentParams, "line_width");
+    Nlines = (int)lines->size2;
+  }
+  int lines_array[Nlines];
+  int widths_array[Nlines];
+
+  //check if psd parameters are included in the model
+  if(LALInferenceCheckVariable(currentParams, "psdScaleFlag"))
+    psdFlag = *((INT4 *)LALInferenceGetVariable(currentParams, "psdScaleFlag"));
+  if(psdFlag)
+  {
+    //if so, store current noise parameters in easily accessible matrix
+    nparams = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdscale"));
+    Nblock = (int)nparams->size2;
+
+    dflog = *(REAL8*) LALInferenceGetVariable(currentParams, "logdeltaf");
+  }
+  double alpha[Nblock];
+  double lnalpha[Nblock];
 
   logDistFlag=LALInferenceCheckVariable(currentParams, "logdistance");
   if(LALInferenceCheckVariable(currentParams,"logmc")){
@@ -213,6 +421,23 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   LALInferenceRemoveVariable(&intrinsicParams, "declination");
   LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
   LALInferenceRemoveVariable(&intrinsicParams, "time");
+  
+  /* Remove likelihood and prior params from intrinsicParams before equality with currentParams is done */
+   if (LALInferenceCheckVariable(&intrinsicParams,"deltalogL"))
+  LALInferenceRemoveVariable(&intrinsicParams, "deltalogL");
+    if (LALInferenceCheckVariable(&intrinsicParams,"logL"))
+  LALInferenceRemoveVariable(&intrinsicParams, "logL");
+    if (LALInferenceCheckVariable(&intrinsicParams,"deltaloglV1"))
+  LALInferenceRemoveVariable(&intrinsicParams, "deltaloglV1");
+    if (LALInferenceCheckVariable(&intrinsicParams,"deltaloglL1"))
+  LALInferenceRemoveVariable(&intrinsicParams, "deltaloglL1");
+    if (LALInferenceCheckVariable(&intrinsicParams,"deltaloglH1"))
+  LALInferenceRemoveVariable(&intrinsicParams, "deltaloglH1");
+      if (LALInferenceCheckVariable(&intrinsicParams,"logw"))
+  LALInferenceRemoveVariable(&intrinsicParams, "logw");
+        if (LALInferenceCheckVariable(&intrinsicParams,"logPrior"))
+  LALInferenceRemoveVariable(&intrinsicParams, "logPrior");
+  
 	if(logDistFlag)
 			LALInferenceRemoveVariable(&intrinsicParams, "logdistance");
 	else
@@ -223,6 +448,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   chisquared = 0.0;
   /* loop over data (different interferometers): */
   dataPtr = data;
+  ifo=0;
 
   while (dataPtr != NULL) {
     /* The parameters the Likelihood function can handle by itself   */
@@ -249,11 +475,11 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      template(dataPtr);
+      templt(dataPtr);
       if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
           return(-DBL_MAX);
 
-      if (dataPtr->modelDomain == LALINFERENCE_DOMAIN_TIME) {
+      if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
 	/* TD --> FD. */
 	LALInferenceExecuteFT(dataPtr);
       }
@@ -318,6 +544,39 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
 
+    //Set up noise PSD meta parameters
+    for(i=0; i<Nblock; i++)
+    {
+      if(psdFlag)
+      {
+        alpha[i]   = gsl_matrix_get(nparams,ifo,i);
+        lnalpha[i] = log(alpha[i]);
+      }
+      else
+      {
+        alpha[i]=1.0;
+        lnalpha[i]=0.0;
+      }
+    }
+
+    //Set up psd line arrays
+    for(j=0;j<Nlines;j++)
+    {
+      if(lineFlag)
+      {
+
+        //find range of fourier fourier bins which are excluded from integration
+        lines_array[j]  = (int)gsl_matrix_get(lines,ifo,j);//lineimin = (int)(gsl_matrix_get(lines,ifo,j) - gsl_matrix_get(widths,ifo,j));
+        widths_array[j] = (int)gsl_matrix_get(widths,ifo,j);//lineimax = (int)(gsl_matrix_get(lines,ifo,j) + gsl_matrix_get(widths,ifo,j));
+      }
+      else
+      {
+        lines_array[j]=0;
+        widths_array[j]=0;
+      }
+    }
+
+
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re  
@@ -336,13 +595,38 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       diffIm       = dataImag - templateImag;         // ...and imaginary parts, and...
       diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
       REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
-      chisquared  += temp;
-      dataPtr->loglikelihood -= temp;
- //fprintf(testout, "%e %e %e %e %e %e\n",
- //        f, dataPtr->oneSidedNoisePowerSpectrum->data->data[i], 
- //        dataPtr->freqData->data->data[i].re, dataPtr->freqData->data->data[i].im,
- //        templateReal, templateImag);
 
+      /* Add noise PSD parameters to the model */
+      if(psdFlag)
+      {
+        n = (int)( log( (double)i/(double)lower )/dflog );
+        temp  /= alpha[n];
+        temp  += lnalpha[n];
+      }
+
+      /* Remove lines from model */
+      lineSwitch=1;
+      
+      if(lineFlag)
+      {
+        for(j=0;j<Nlines;j++)
+        {
+          //find range of fourier fourier bins which are excluded from integration
+          lineimin = lines_array[j] - widths_array[j];//gsl_matrix_get(widths,ifo,j));
+          lineimax = lines_array[j] + widths_array[j];//(int)(gsl_matrix_get(lines,ifo,j) + gsl_matrix_get(widths,ifo,j));
+
+          //if the current bin is inside the exluded region, set the switch to 0
+          if(i>lineimin && i<lineimax) lineSwitch=0;
+        }
+      }
+
+      /*only sum over bins which are outside of excluded regions */
+      if(lineSwitch)
+      {
+        chisquared  += temp;
+        dataPtr->loglikelihood -= temp;
+      }
+ 
       /* Now update re and im for the next iteration. */
       newRe = re + re*dre - im*dim;
       newIm = im + re*dim + im*dre;
@@ -350,11 +634,12 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       re = newRe;
       im = newIm;
     }
+    ifo++; //increment IFO counter for noise parameters
     dataPtr = dataPtr->next;
  //fclose(testout);
   }
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
-  LALInferenceDestroyVariables(&intrinsicParams);
+  LALInferenceClearVariables(&intrinsicParams);
   return(loglikeli);
 }
 
@@ -390,7 +675,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 /***************************************************************/
 
 REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData *data, 
-                                      LALInferenceTemplateFunction *template)
+                                      LALInferenceTemplateFunction templt)
 {
   //static int timeDomainWarning = 0;
   double Fplus, Fcross;
@@ -480,9 +765,9 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      template(dataPtr);
+      templt(dataPtr);
 
-      if (dataPtr->modelDomain == LALINFERENCE_DOMAIN_TIME) {
+      if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
 	/* TD --> FD. */
 	LALInferenceExecuteFT(dataPtr);
       }
@@ -592,14 +877,14 @@ REAL8 LALInferenceFreqDomainStudentTLogLikelihood(LALInferenceVariables *current
     dataPtr = dataPtr->next;
   }
   loglikeli = -1.0 * chisquared; /* note (again): the log-likelihood is unnormalised! */
-  LALInferenceDestroyVariables(&intrinsicParams);  
+  LALInferenceClearVariables(&intrinsicParams);  
   return(loglikeli);
 }
 
 
 
 REAL8 LALInferenceFreqDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
-                              LALInferenceTemplateFunction *template)
+                              LALInferenceTemplateFunction templt)
 /***************************************************************/
 /* (log-) likelihood function.                                 */
 /* Returns the non-normalised logarithmic likelihood.          */
@@ -627,7 +912,7 @@ REAL8 LALInferenceFreqDomainLogLikelihood(LALInferenceVariables *currentParams, 
 	else
 		freqModelResponse= XLALResizeCOMPLEX16Vector(freqModelResponse, ifoPtr->freqData->data->length);
 	/*compute the response*/
-	LALInferenceComputeFreqDomainResponse(currentParams, ifoPtr, template, freqModelResponse);
+	LALInferenceComputeFreqDomainResponse(currentParams, ifoPtr, templt, freqModelResponse);
 	/*if(residual==NULL)
 		residual=XLALCreateCOMPLEX16Vector(ifoPtr->freqData->data->length);
 	else
@@ -649,7 +934,7 @@ REAL8 LALInferenceFreqDomainLogLikelihood(LALInferenceVariables *currentParams, 
   return(loglikeli);
 }
 
-REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferenceIFOData * data, LALInferenceTemplateFunction *template)
+REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferenceIFOData * data, LALInferenceTemplateFunction templt)
 /***************************************************************/
 /* Chi-Square function.                                        */
 /* Returns the chi square of a template:                       */
@@ -683,7 +968,7 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
     else
       freqModelResponse= XLALResizeCOMPLEX16Vector(freqModelResponse, ifoPtr->freqData->data->length);
     /*compute the response*/
-    LALInferenceComputeFreqDomainResponse(currentParams, ifoPtr, template, freqModelResponse);
+    LALInferenceComputeFreqDomainResponse(currentParams, ifoPtr, templt, freqModelResponse);
 
     deltaT = ifoPtr->timeData->deltaT;
     deltaF = 1.0 / (((REAL8)ifoPtr->timeData->data->length) * deltaT);
@@ -770,7 +1055,7 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
 }
 
 //REAL8 LALInferenceTimeDomainLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data, 
-//                              LALInferenceTemplateFunction *template)
+//                              LALInferenceTemplateFunction templt)
 ///***************************************************************/
 ///* Time domain (log-) likelihood function.                     */
 ///* Returns the non-normalised logarithmic likelihood.          */
@@ -825,7 +1110,7 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
 //}
 
 void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams, LALInferenceIFOData * dataPtr, 
-                              LALInferenceTemplateFunction *template, COMPLEX16Vector *freqWaveform)
+                              LALInferenceTemplateFunction templt, COMPLEX16Vector *freqWaveform)
 /***************************************************************/
 /* Frequency-domain single-IFO response computation.           */
 /* Computes response for a given template.                     */
@@ -927,9 +1212,9 @@ void LALInferenceComputeFreqDomainResponse(LALInferenceVariables *currentParams,
     if (different) { /* template needs to be re-computed: */
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
-      template(dataPtr);
+      templt(dataPtr);
 
-      if (dataPtr->modelDomain == LALINFERENCE_DOMAIN_TIME) {
+      if (dataPtr->modelDomain == LAL_SIM_DOMAIN_TIME) {
 	/* TD --> FD. */
 	LALInferenceExecuteFT(dataPtr);
       }
@@ -1016,7 +1301,7 @@ FILE* file=fopen("TempSignal.dat", "w");
 #ifdef DEBUG
 fclose(file);
 #endif
-	LALInferenceDestroyVariables(&intrinsicParams);
+	LALInferenceClearVariables(&intrinsicParams);
 }
 
 REAL8 LALInferenceComputeFrequencyDomainOverlap(LALInferenceIFOData * dataPtr,
@@ -1466,7 +1751,7 @@ static void extractDimensionlessVariableVector(LALInferenceVariables *currentPar
 
 REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *currentParams, 
                                                   LALInferenceIFOData UNUSED *data, 
-                                                  LALInferenceTemplateFunction UNUSED *template) {
+                                                  LALInferenceTemplateFunction UNUSED template) {
   const INT4 DIM = 15;
   static gsl_matrix *LUCM = NULL;
   static gsl_permutation *LUCMPerm = NULL;
@@ -1507,7 +1792,7 @@ REAL8 LALInferenceCorrelatedAnalyticLogLikelihood(LALInferenceVariables *current
 
 REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *currentParams,
                                                   LALInferenceIFOData UNUSED *data,
-                                                  LALInferenceTemplateFunction UNUSED *template) {
+                                                  LALInferenceTemplateFunction UNUSED template) {
   const INT4 DIM = 15;
   const INT4 MODES = 2;
   INT4 i, mode;
@@ -1566,7 +1851,7 @@ REAL8 LALInferenceBimodalCorrelatedAnalyticLogLikelihood(LALInferenceVariables *
 
 REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams,
                                           LALInferenceIFOData UNUSED *data,
-                                          LALInferenceTemplateFunction UNUSED *template) {
+                                          LALInferenceTemplateFunction UNUSED template) {
   const INT4 DIM = 15;
   REAL8 x[DIM];
 

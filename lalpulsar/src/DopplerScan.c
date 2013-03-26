@@ -32,6 +32,7 @@
 #include <lal/StackMetric.h>
 #include <lal/AVFactories.h>
 #include <lal/LALError.h>
+#include <lal/LALString.h>
 #include <lal/StringInput.h>
 #include <lal/ConfigFile.h>
 #include <lal/Velocity.h>
@@ -710,15 +711,15 @@ plotSkyGrid (LALStatus *status,
  *
  * \heading{Algorithm:}
  *     Count the number of intersections of rays emanating to the right
- *     from the point with the lines of the polygon: even=> outside, odd=> inside
+ *     from the point with the lines of the polygon: even =\> outside, odd =\> inside
  *
  * \heading{Note2:}
  *     we try to get this algorith to count all boundary-points as 'inside'
  *     we do this by counting intersection to the left _AND_ to the right
  *     and consider the point inside if either of those says its inside...
  *
- * \return : TRUE or FALSE
- *----------------------------------------------------------------------*/
+ * \return TRUE or FALSE
+ */
 BOOLEAN
 pointInPolygon ( const SkyPosition *point, const SkyRegion *polygon )
 {
@@ -1324,7 +1325,7 @@ ParseSkyRegionString (LALStatus *status, SkyRegion *region, const CHAR *input)
     {
       strncpy (buf, input, 99);
       buf[99] = 0;
-      if ( XLALLowerCaseString (buf) != XLAL_SUCCESS ) {
+      if ( XLALStringToLowerCase (buf) != XLAL_SUCCESS ) {
         ABORT ( status, DOPPLERSCANH_EXLAL, DOPPLERSCANH_MSGEXLAL );
       }
       /* check if "allsky" was given: replace input by allsky-skyRegion */

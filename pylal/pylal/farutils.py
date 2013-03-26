@@ -26,9 +26,9 @@ from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from pylal import SnglBurstUtils
-from pylal import llwapp
 from pylal import db_thinca_rings
 
 # get choices from a set (useful for on/off ifos)
@@ -128,7 +128,7 @@ def get_segments(connection, xmldoc, program_name):
 	if program_name == "thinca":
 		seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name)
 	if program_name == "gstlal_inspiral" or program_name == "lalapps_ring":
-		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
+		seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
 	return seglists
 
 def get_background_livetime_by_slide(connection, program_name, seglists, veto_segments=None, verbose = False):

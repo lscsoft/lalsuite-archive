@@ -7,7 +7,8 @@ lalxmlinclude_HEADERS = \
 	LALXMLLibVCSInfo.h \
 	LALXMLVCSInfo.h \
 	LALXMLVOTableCommon.h \
-	LALXMLVOTableSerializers.h
+	LALXMLVOTableSerializers.h \
+	lalxmlswig_test.i
 
 lib_LTLIBRARIES = liblalxml.la
 liblalxml_la_SOURCES = \
@@ -35,7 +36,6 @@ lalxml-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "set LALXML_PREFIX $(prefix)" >>$@
 	@echo "prepend PATH $(bindir)" >>$@
 	@echo "prepend MANPATH $(mandir)" >>$@
-	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
@@ -53,7 +53,7 @@ BUILT_SOURCES += LALXMLVCSInfo.h
 MOSTLYCLEANFILES += LALXMLVCSInfo.h
 LALXMLVCSInfo.h .PHONY : gen-LALXMLVCSInfo.h
 gen-LALXMLVCSInfo.h :
-	$(GENERATE_VCS_INFO) LALXMLVCSInfo.h $(srcdir)/LALXMLVCSInfo.h.git
+	$(AM_V_at)$(GENERATE_VCS_INFO) LALXMLVCSInfo.h $(srcdir)/LALXMLVCSInfo.h.git
 endif
 
 @LAL_HEADER_LINK@

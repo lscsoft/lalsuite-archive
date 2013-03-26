@@ -3,14 +3,15 @@ from scipy import random
 from scipy import interpolate
 import bisect
 import sys
+
 from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from pylal.xlal import constants
+from pylal import rate
 
 import matplotlib
 matplotlib.use("agg")
 from matplotlib import pyplot
-
-from pylal import rate
 
 
 def margLikelihoodMonteCarlo(VTs, lambs, mu, mcerrs=None):
@@ -243,7 +244,7 @@ def filter_injections_by_mass(injs, mbins, bin_num , bin_type, bin_num2=None):
     return newinjs
 
 
-def compute_volume_vs_mass(found, missed, mass_bins, bin_type, catalog=None, dbins=None, ploteff=False,logd=False):
+def compute_volume_vs_mass(found, missed, mass_bins, bin_type, dbins=None, ploteff=False):
     """
     Compute the average luminosity an experiment was sensitive to given the sets
     of found and missed injections and assuming luminosity is unformly distributed
@@ -306,7 +307,8 @@ def log_volume_derivative_fit(x, vols):
     Performs a linear least squares to log(vols) as a function of x.
     '''
     if numpy.min(vols) == 0:
-        print >> sys.stderr, "Warning: cannot fit log volume derivative as all volumes are zero!"
+        print >> sys.stderr, "Warning: cannot fit log volume derivative, one or more volumes are zero!"
+        print >> sys.stderr, vols
         return (0,0)
 
     coeffs, resids, rank, svs, rcond = numpy.polyfit(x, numpy.log(vols), 1, full=True)
@@ -318,30 +320,14 @@ def log_volume_derivative_fit(x, vols):
     return coeffs
 
 
-def get_background_livetime(connection, verbose=False):
-    '''
-    Query the database for the background livetime for the input instruments set.
-    This is equal to the sum of the livetime of the time slide experiments.
-    '''
-    query = """
-    SELECT instruments, duration
-    FROM experiment_summary
-    JOIN experiment ON experiment_summary.experiment_id == experiment.experiment_id
-    WHERE experiment_summary.datatype == "slide";
-    """
+def get_loudest_event(connection, coinc_table="coinc_inspiral", datatype="exclude_play"):
 
-    bglivetime = {}
-    for inst,lt in connection.cursor().execute(query):
-        inst =  frozenset(lsctables.instrument_set_from_ifos(inst))
-        try:
-            bglivetime[inst] += lt
-        except KeyError:
-            bglivetime[inst] = lt
+    far_threshold_query = """
+SELECT coinc_event.instruments, MIN(combined_far) FROM %s JOIN coinc_event ON (%s.coinc_event_id == coinc_event.coinc_event_id) JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id) JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id) WHERE experiment_summary.datatype == "%s" GROUP BY coinc_event.instruments;
+""" % (coinc_table, coinc_table, datatype)
 
-    if verbose:
-        for inst in bglivetime.keys():
-            print >>sys.stdout,"The background livetime for time slide experiments on %s data: %d seconds (%.2f years)" % (','.join(sorted(list(inst))),bglivetime[inst],bglivetime[inst]/float(constants.LAL_YRJUL_SI))
+    for inst, far in connection.cursor().execute(far_threshold_query):
+        inst = frozenset(lsctables.instrument_set_from_ifos(inst))
+        yield inst, far
 
-    return bglivetime
-
-
+    return

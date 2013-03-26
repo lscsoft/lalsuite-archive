@@ -18,16 +18,6 @@
  *  MA  02111-1307  USA
  */
 
-/**
- * \file
- *
- * \author Reinhard Prix, Karl Wette
- *
- * Function to compute the full F-statistic metric, including
- * antenna-pattern functions from multi-detector, derived in \ref Prix07.
- *
- */
-
 #ifndef _UNIVERSALDOPPLERMETRIC_H  /* Double-include protection. */
 #define _UNIVERSALDOPPLERMETRIC_H
 
@@ -35,6 +25,17 @@
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+/**
+ * \defgroup UniversalDopplerMetric_h Header UniversalDopplerMetric.h
+ * \ingroup pkg_pulsarMetric
+ * \author Reinhard Prix, Karl Wette
+ *
+ * Function to compute the full F-statistic metric, including
+ * antenna-pattern functions from multi-detector, derived in \ref Prix07.
+ *
+ */
+/*@{*/
 
 /*---------- INCLUDES ----------*/
 #include <math.h>
@@ -52,6 +53,7 @@ extern "C" {
 #include <lal/XLALGSL.h>
 #include <lal/DetectorStates.h>
 #include <lal/SFTutils.h>
+#include <lal/Segments.h>
 
 /*---------- exported types ----------*/
   /** 2D vector */
@@ -81,20 +83,17 @@ typedef struct tagPosVel3D_t {
 } PosVel3D_t;
 
 
-/** Different types of detector-motion to use in order to compute the Doppler-metric,
- * the most 'realistic' obviously being DETMOTION_EPHEMORBIT_SPIN, which includes
- * both orbital and spin motion, and uses the Earth-ephemeris.
- */
+/** Different types of detector-motion to use in order to compute the Doppler-metric */
 typedef enum {
-  DETMOTION_SPIN_ORBIT,		/**< full ephemeris-based detector motion (orbit+spin) */
-  DETMOTION_ORBIT,		/**< ephemeris-based, purely orbital detector-motion, no Earth spin */
-  DETMOTION_SPIN,		/**< purely Earth-spin detector motion (no orbit) */
+  DETMOTION_SPIN_ORBIT,		/**< full detector motion: spin + ephemeris-based orbital motion */
+  DETMOTION_ORBIT,		/**< pure ephemeris-based orbital motion, no spin motion */
+  DETMOTION_SPIN,		/**< pure spin motion, no orbital motion */
 
-  DETMOTION_SPIN_PTOLEORBIT,	/**< ptole-orbital motion (on a circle) + Earth spin */
-  DETMOTION_PTOLEORBIT,		/**< pure "Ptolemaic" orbital motion, no Earth spin */
+  DETMOTION_SPIN_PTOLEORBIT,	/**< spin motion + Ptolemaic (circular) orbital motion */
+  DETMOTION_PTOLEORBIT,		/**< pure Ptolemaic (circular) orbital motion, no spin motion */
 
-  DETMOTION_ORBIT_SPINZ,	/**< orbital motion plus *only* z-component of Earth spin-motion wrt to ecliptic plane */
-  DETMOTION_ORBIT_SPINXY,	/**< orbital motion plus *only* x+y component of Earth spin-motion in the ecliptic */
+  DETMOTION_SPINZ_ORBIT,	/**< *only* ecliptic-Z component of spin motion + ephemeris-based orbital motion*/
+  DETMOTION_SPINXY_ORBIT,	/**< *only* ecliptic-X+Y components of spin motion + ephemeris-based orbital motion */
 
   DETMOTION_LAST
 } DetectorMotionType;
@@ -144,8 +143,9 @@ typedef enum {
   DOPPLERCOORD_N3SX_EQU,	/**< X spin-component of unconstrained super-sky position in equatorial coordinates [Units: none]. */
   DOPPLERCOORD_N3SY_EQU,	/**< Y spin-component of unconstrained super-sky position in equatorial coordinates [Units: none]. */
 
-  DOPPLERCOORD_N3OX_ECL,	/**< X orbit-component of unconstrained super-sky position in equatorial coordinates [Units: none]. */
-  DOPPLERCOORD_N3OY_ECL,	/**< Y orbit-component of unconstrained super-sky position in equatorial coordinates [Units: none]. */
+  DOPPLERCOORD_N3OX_ECL,	/**< X orbit-component of unconstrained super-sky position in ecliptic coordinates [Units: none]. */
+  DOPPLERCOORD_N3OY_ECL,	/**< Y orbit-component of unconstrained super-sky position in ecliptic coordinates [Units: none]. */
+  DOPPLERCOORD_N3OZ_ECL,	/**< Z orbit-component of unconstrained super-sky position in ecliptic coordinates [Units: none]. */
 
   DOPPLERCOORD_LAST
 } DopplerCoordinateID;
@@ -160,26 +160,14 @@ typedef struct tagDopplerCoordinateSystem
   DopplerCoordinateID coordIDs[DOPPLERMETRIC_MAX_DIM];	/**< coordinate 'names' */
 } DopplerCoordinateSystem;
 
-#define DOPPLERMETRIC_MAX_DETECTORS 60	/**< should be way large enough forever */
-/** type describing a set of detectors and their relative noise-weights
- * This is only used for full multi-IFO Fstatistic-metrics
- */
-typedef struct tagMultiDetectorInfo
-{
-  UINT4 length;						/**< number N of detectors */
-  LALDetector sites[DOPPLERMETRIC_MAX_DETECTORS]; 	/**< array of N detectors */
-  REAL8 detWeights[DOPPLERMETRIC_MAX_DETECTORS];	/**< array of N detector noise-weights: must satisfy \f$\sum_{i=1}^N w_i = 1\f$ */
-} MultiDetectorInfo;
-
-/**< meta-info specifying a Doppler-metric
+/** meta-info specifying a Doppler-metric
  */
 typedef struct tagDopplerMetricParams
 {
   DopplerCoordinateSystem coordSys;		/**< number of dimensions and coordinate-IDs of Doppler-metric */
   DetectorMotionType detMotionType;		/**< the type of detector-motion assumed: full spin+orbit, pure orbital, Ptole, ... */
 
-  LIGOTimeGPS startTime;			/**< startTime of the observation */
-  REAL8 Tspan;					/**< total spanned duration of the observation */
+  LALSegList segmentList;			/**< segment list: Nseg segments of the form (startGPS endGPS numSFTs) */
   MultiDetectorInfo detInfo;			/**< detectors (and their noise-weights) to compute metric for */
 
   PulsarParams signalParams;			/**< parameter-space point to compute metric for (doppler + amplitudes) */
@@ -255,6 +243,10 @@ XLALDopplerFstatMetric ( const DopplerMetricParams *metricParams,
 			 const EphemerisData *edat
 			 );
 
+DopplerMetric*
+XLALDopplerFstatMetricCoh ( const DopplerMetricParams *metricParams,
+                            const EphemerisData *edat
+                            );
 
 FmetricAtoms_t*
 XLALComputeAtomsForFmetric ( const DopplerMetricParams *metricParams,
@@ -271,6 +263,12 @@ XLALDetectorPosVel (PosVel3D_t *spin_posvel,
 		    DetectorMotionType special
 		    );
 
+int XLALPtolemaicPosVel ( PosVel3D_t *posvel, const LIGOTimeGPS *tGPS );
+gsl_matrix *XLALProjectMetric ( const gsl_matrix * g_ij, const UINT4 c );
+
+void XLALequatorialVect2ecliptic ( vect3D_t out, const vect3D_t in );
+void XLALeclipticVect2equatorial ( vect3D_t out, const vect3D_t in );
+void XLALmatrix33_in_vect3 ( vect3D_t out, mat33_t mat, const vect3D_t in );
 
 vect3Dlist_t *
 XLALComputeOrbitalDerivatives ( UINT4 maxorder, const LIGOTimeGPS *tGPS, const EphemerisData *edat );
@@ -288,14 +286,16 @@ const CHAR *XLALDetectorMotionName ( DetectorMotionType detType );
 const CHAR *XLALDopplerCoordinateName ( DopplerCoordinateID coordID );
 const CHAR *XLALDopplerCoordinateHelp ( DopplerCoordinateID coordID );
 CHAR *XLALDopplerCoordinateHelpAll ( void );
-int XLALParseMultiDetectorInfo ( MultiDetectorInfo *detInfo, const LALStringVector *detNames, const LALStringVector *detWeights );
 
 gsl_matrix* XLALNaturalizeMetric( const gsl_matrix* g_ij, const DopplerMetricParams *metricParams );
 
 gsl_matrix *XLALDiagNormalizeMetric ( const gsl_matrix * g_ij );
-
+int XLALAddDopplerMetric ( DopplerMetric **metric1, const DopplerMetric *metric2 );
+int XLALScaleDopplerMetric ( DopplerMetric *m, REAL8 scale );
 // destructor for vect3Dlist_t type
 void XLALDestroyVect3Dlist ( vect3Dlist_t *list );
+
+/*@}*/
 
 #ifdef  __cplusplus
 }

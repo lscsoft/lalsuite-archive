@@ -21,24 +21,24 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
-
-/**
- * \file LALInferenceNestedSampler.h
- * \brief Nested sampler written for LALInference. Independent of model.
- */
-
 #ifndef LALInferenceNestedSampler_h
 #define LALInferenceNestedSampler_h
 
+#include <lal/LALInference.h>
 
-/** Nested Sampling algorithm defined using the LALInference
+/**
+ * \defgroup LALInferenceNestedSampler_h Header LALInferenceNestedSampler.h
+ * \ingroup pkg_LALInference
+ * \brief Nested sampler written for LALInference. Independent of model.
+ *
+ *
+ * Nested Sampling algorithm defined using the LALInference
  * Infrastructure. This code should be independent of choice
- * of model. Provided are a LALAlgorithm function and a 
+ * of model. Provided are a LALAlgorithm function and a
  * LALEvolveOneStepFunction which implement the evidence
  * calculation
  */
-
-#include <lal/LALInference.h>
+/*@{*/
 
 /* logadd(a,b) = log(exp(a) + exp(b)) using Stirling's approximation */
 /* double logadd(double a,double b); */
@@ -56,7 +56,7 @@ void LALInferenceNScalcCVM(gsl_matrix **cvm, LALInferenceVariables **Live, UINT4
 void LALInferenceNestedSamplingOneStep(LALInferenceRunState *runState);
 
 /** Compute the autocorrelation length from the sampler at the current global iteration */
-LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *runState, UINT4 max_iterations, LALInferenceEvolveOneStepFunction *evolve);
+LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *runState, UINT4 max_iterations, LALInferenceEvolveOneStepFunction evolve);
 
 /** Perform one MCMC iteration on runState->currentParams. Return 1 if accepted or 0 if not */
 UINT4 LALInferenceMCMCSamplePrior(LALInferenceRunState *runState);
@@ -73,7 +73,9 @@ void LALInferenceNestedSamplingSloppySample(LALInferenceRunState *runState);
 /* REAL8 mean(REAL8 *array,int N); */
 REAL8 LALInferenceNSSample_logt(int Nlive,gsl_rng *RNG);
 
-/** Setup the live points */
+/** Setup the live points by calling runState->initVariables on each of them
+ if it is specified. Otherwise clones runState->currentParams (legacy)
+ */
 void LALInferenceSetupLivePointsArray(LALInferenceRunState *runState);
 
 /** Setup a k-D tree from the current set of nested sampling live points for use
@@ -82,5 +84,7 @@ void LALInferenceSetupkDTreeNSLivePoints( LALInferenceRunState *runState );
 
 /** Project the sample in params onto the eigenvectors given in eigenvectors. */
 void LALInferenceProjectSampleOntoEigenvectors(LALInferenceVariables *params, gsl_matrix *eigenvectors, REAL8Vector **projection);
-#endif
 
+/*@}*/
+
+#endif

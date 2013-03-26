@@ -40,7 +40,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import packing
 
 
@@ -80,7 +79,7 @@ def cache_to_seglistdict(cache):
 	"""
 	s = segments.segmentlistdict()
 	for c in cache:
-		s |= c.to_segmentlistdict()
+		s |= c.segmentlistdict
 	return s
 
 
@@ -103,6 +102,69 @@ def segmentlistdict_normalize(seglistdict, origin):
 	for seglist in seglistdict.itervalues():
 		for i, seg in enumerate(seglist):
 			seglist[i] = segments.segment(float(seg[0] - origin), float(seg[1] - origin))
+
+
+def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
+	"""
+	Compute the segments for which data is required in order to perform
+	a complete coincidence analysis given the segments for which data
+	is available and the list of offset vectors to be applied to the
+	data during the coincidence analysis.
+
+	seglistdict is a segmentlistdict object defining the instruments
+	and times for which data is available.  offsetdictlist is a list of
+	offset vectors to be applied to the data --- dictionaries of
+	instrument/offset pairs.
+
+	The offset vectors in offsetdictlist are applied to the input
+	segments one by one and the interesection of the shifted segments
+	is computed.  The segments surviving the intersection are unshifted
+	to their original positions and stored.  The return value is the
+	union of the results of this operation.
+
+	In all cases all pair-wise intersections are computed, that is if
+	an offset vector lists three instruments then this function returns
+	the times when any two of those isntruments are on, including times
+	when all three are on.
+
+	For example, let us say that "input" is a segmentlistdict object
+	containing segment lists for three instruments, "H1", "H2" and
+	"L1".  And let us say that "slides" is a list of dictionaries, and
+	is equal to [{"H1":0, "H2":0, "L1":0}, {"H1":0, "H2":10}].  Then if
+
+	output = get_coincident_segmentlistdict(input, slides)
+
+	output will contain, for each of the three instruments, the
+	segments (or parts thereof) from the original lists that are
+	required in order to perform a triple- and double-coincident
+	analyses at zero lag with the three instruments, *and* a
+	double-coincident analysis between H1 and H2 with H2 offset by 10
+	seconds.
+
+	The segmentlistdict object returned by this function has its
+	offsets set to those of the input segmentlistdict.
+	"""
+	# don't modify original
+	seglistdict = seglistdict.copy()
+	all_instruments = set(seglistdict)
+
+	# save original offsets
+	origoffsets = dict(seglistdict.offsets)
+
+	# compute result
+	coincseglists = segments.segmentlistdict()
+	for offsetvector in ligolw_tisi.time_slide_component_vectors(offsetdictlist, 2):
+		if set(offsetvector).issubset(all_instruments):
+			seglistdict.offsets.update(offsetvector)
+			intersection = seglistdict.extract_common(offsetvector.keys())
+			intersection.offsets.clear()
+			coincseglists |= intersection
+
+	# restore original offsets
+	coincseglists.offsets.update(origoffsets)
+
+	# done
+	return coincseglists
 
 
 def segmentlistdict_unnormalize(seglistdict, origin):
@@ -140,7 +202,7 @@ class LALCacheBin(packing.Bin):
 		self.extent = None
 
 	def add(self, cache_entry):
-		packing.Bin.add(self, cache_entry, cache_entry.to_segmentlistdict())
+		packing.Bin.add(self, cache_entry, cache_entry.segmentlistdict)
 		self.extent = self.size.extent_all()
 		return self
 
@@ -328,7 +390,7 @@ def split_bins(cafepacker, extentlimit, verbose = False):
 				# apply each offset vector
 				#
 
-				cache_entry_segs = cache_entry.to_segmentlistdict()
+				cache_entry_segs = cache_entry.segmentlistdict
 				for offset_vector in cafepacker.offset_vectors:
 					cache_entry_segs.offsets.update(offset_vector)
 
@@ -382,7 +444,7 @@ def write_caches(base, bins, instruments, verbose = False):
 			print >>sys.stderr, "writing %s ..." % filename
 		f = file(filename, "w")
 		for cacheentry in bin.objects:
-			if instruments & set(cacheentry.to_segmentlistdict().keys()):
+			if instruments & set(cacheentry.segmentlistdict.keys()):
 				print >>f, str(cacheentry)
 	return filenames
 
@@ -434,7 +496,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 
 	epoch = min([min(seg[0] for seg in seglist) for seglist in seglists.values() if seglist] or [None])
 	segmentlistdict_normalize(seglists, epoch)
-	seglists = llwapp.get_coincident_segmentlistdict(seglists, [offset_vector for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, 2) if set(offset_vector.keys()).issubset(set(seglists.keys()))])
+	seglists = get_coincident_segmentlistdict(seglists, offset_vectors)
 	segmentlistdict_unnormalize(seglists, epoch)
 
 	#
@@ -448,7 +510,7 @@ def ligolw_cafe(cache, offset_vectors, verbose = False, extentlimit = None):
 
 	if verbose:
 		print >>sys.stderr, "filtering input cache ..."
-	cache = [c for c in cache if seglists.intersects_all(c.to_segmentlistdict())]
+	cache = [c for c in cache if seglists.intersects_all(c.segmentlistdict)]
 
 	#
 	# Optimization: adding files to bins in time order keeps the number

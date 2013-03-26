@@ -16,18 +16,6 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
-
-/**
- * \author Reinhard Prix
- * \ingroup pulsarCommon
- * \date 2005
- * \file
- * \ingroup pulsarTODO
- * \brief API for the DetectorStates.c functions.
- *
- *
- */
-
 #ifndef _DETECTORSTATES_H  /* Double-include protection. */
 #define _DETECTORSTATES_H
 
@@ -36,13 +24,24 @@
 extern "C" {
 #endif
 
+/**
+ * \author Reinhard Prix
+ * \addtogroup DetectorStates_h Header DetectorStates.h
+ * \ingroup pkg_pulsarCommon
+ * \date 2005
+ * \brief API for the DetectorStates.c functions.
+ *
+ */
+/*@{*/
+
 /*---------- exported INCLUDES ----------*/
 #include <lal/PulsarDataTypes.h>
 #include <lal/SeqFactories.h>
 
 /*---------- exported DEFINES ----------*/
 
-/*----- Error-codes -----*/
+/** \name Error-codes */
+/*@{*/
 #define DETECTORSTATES_ENULL 		1
 #define DETECTORSTATES_ENONULL 		2
 #define DETECTORSTATES_EINPUT  		3
@@ -56,6 +55,7 @@ extern "C" {
 #define DETECTORSTATES_MSGEMEM   	"Out of memory. Bad."
 #define DETECTORSTATES_MSGEXLAL		"XLAL function call failed"
 #define DETECTORSTATES_MSGEIEEE		"Floating point failure"
+/*@}*/
 
 /*---------- exported types ----------*/
 
@@ -100,6 +100,22 @@ typedef struct tagMultiLALDetector
   UINT4 length;		/**< number of IFOs */
   LALDetector *data;	/**< array of LALDetector structs */
 } MultiLALDetector;
+
+
+#define CW_MAX_DETECTORS 20	/**< should be large enough for now */
+/**
+ * Struct describing a set of detectors with their PSDs and derived noise-weights
+ *
+ */
+typedef struct tagMultiDetectorInfo
+{
+  UINT4 length;                         //!< number of detectors \f$N\f$
+  LALDetector sites[CW_MAX_DETECTORS];  //!< array of site information
+  REAL8 sqrtSn[CW_MAX_DETECTORS];       //!< per-IFO sqrt{Sn} values, \f$\sqrt{S_X}\f$
+  REAL8 detWeights[CW_MAX_DETECTORS];   //!< (derived) noise-weights, defined as \f$w_X = \frac{S_X^{-1}}{\mathcal{S}^{-1}}\f$
+  REAL8 calS;                           //!< noise normalization constant \f$\mathcal{S}^{-1}= \frac{1}{N}\sum_{X=1}^{N} S_X^{-1}\f$
+                                        //!< such that \f$\sum_{X=1}^N w_X = N\f$
+} MultiDetectorInfo;
 
 /* ----- Output types for LALGetDetectorStates() */
 /** State-info about position, velocity and LMST of a detector together
@@ -162,6 +178,7 @@ XLALGetDetectorStates ( const LIGOTimeGPSVector *timestamps, const LALDetector *
 MultiDetectorStateSeries*
 XLALGetMultiDetectorStates( const MultiLIGOTimeGPSVector *multiTS, const MultiLALDetector *multiIFO, const EphemerisData *edat, REAL8 tOffset );
 
+int XLALParseMultiDetectorInfo ( MultiDetectorInfo *detInfo, const LALStringVector *detNames, const LALStringVector *sqrtSX );
 
 int XLALAddSymmTensor3s ( SymmTensor3 *sum, const SymmTensor3 *aT, const SymmTensor3 *bT );
 int XLALSubtractSymmTensor3s ( SymmTensor3 *diff, const SymmTensor3 *aT, const SymmTensor3 *bT );
@@ -189,6 +206,8 @@ void LALGetMultiDetectorVelTimePos(LALStatus                *status,
 				   REAL8VectorSequence      **outPos,
 				   LIGOTimeGPSVector        **outTime,
 				   MultiDetectorStateSeries *in);
+
+/*@}*/
 
 #ifdef  __cplusplus
 }

@@ -266,7 +266,7 @@ def display_name(columnName):
             if w[-1].isdigit():
                 words[i] = '$\%s_{%s}$''' %tuple(re.findall(r"[a-zA-Z]+|\d+",w))
             elif wl.endswith('sq'):
-                words[i] = '$\%s^2$' % w[:2]
+                words[i] = '$\%s^2$' % w[:-2]
         # get everything else
         else:
             if w[:-1].isupper():
@@ -1877,7 +1877,7 @@ class LineHistogram(BasicPlot):
             # set defaults
             if fill:
                 plot_kwargs.setdefault("linewidth", 1)
-                plot_kwargs.setdeafult("alpha", 0.8)
+                plot_kwargs.setdefault("alpha", 0.8)
 
             # get cumulative sum
             if cumulative:

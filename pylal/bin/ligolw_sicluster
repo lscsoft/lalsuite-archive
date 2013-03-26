@@ -77,7 +77,7 @@ def parse_command_line():
   options.cluster_window = lsctables.LIGOTimeGPS(options.cluster_window)
 
   for cache in options.input_cache:
-    filenames += [CacheEntry(line).path() for line in file(cache)]
+    filenames += [CacheEntry(line).path for line in file(cache)]
 
   return options, (filenames or [None])
 

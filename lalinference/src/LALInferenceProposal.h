@@ -1,4 +1,4 @@
-/* 
+/*
  *  LALInferenceProposal.h:  Bayesian Followup, jump proposals.
  *
  *  Copyright (C) 2011 Ilya Mandel, Vivien Raymond, Christian Roever,
@@ -20,12 +20,18 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
+#ifndef LALInferenceProposal_h
+#define LALInferenceProposal_h
+
+#include <lal/LALInference.h>
 
 /**
+ * \defgroup LALInferenceProposal_h Header LALInferenceProposal.h
+ * \ingroup pkg_LALInference
+ *
  * \author Ilya Mandel, Vivien Raymond, Christian Roever, Marc van der Sluys, John Veitch, and Will M. Farr.
  * \date 2011
- * \file
- * \ingroup LALInference
+ *
  * \brief Jump proposals for exploring the GW signal parameter space. 
  *
  * For exploring the parameter space of GW signals, it is convenient
@@ -75,45 +81,41 @@
  * in order to ensure that the ordering of the sub-proposals is
  * random.
  */
-
-#ifndef LALInferenceProposal_h
-#define LALInferenceProposal_h
-
-#include <lal/LALInference.h>
+/*@{*/
 
 #define MAX_STRLEN 512
 #define ADAPTSUFFIX "adapt_sigma"
 #define ACCEPTSUFFIX "accepted"
 #define PROPOSEDSUFFIX "proposed"
 
-extern const char *cycleArrayName;
-extern const char *cycleArrayLengthName;
-extern const char *cycleArrayCounterName;
+extern const char *const cycleArrayName;
+extern const char *const cycleArrayLengthName;
+extern const char *const cycleArrayCounterName;
 
 
 /* Proposal Names */
-extern const char *singleAdaptProposalName;
-extern const char *singleProposalName;
-extern const char *orbitalPhaseJumpName;
-extern const char *inclinationDistanceName;
-extern const char *covarianceEigenvectorJumpName;
-extern const char *skyLocWanderJumpName;
-extern const char *differentialEvolutionFullName;
-extern const char *differentialEvolutionMassesName;
-extern const char *differentialEvolutionSpinsName;
-extern const char *differentialEvolutionExtrinsicName;
-extern const char *drawApproxPriorName;
-extern const char *skyReflectDetPlaneName;
-extern const char *rotateSpinsName;
-extern const char *polarizationPhaseJumpName;
-extern const char *distanceQuasiGibbsProposalName;
-extern const char *orbitalPhaseQuasiGibbsProposalName;
-extern const char *extrinsicParamProposalName;
-extern const char *KDNeighborhoodProposalName;
+extern const char *const singleAdaptProposalName;
+extern const char *const singleProposalName;
+extern const char *const orbitalPhaseJumpName;
+extern const char *const inclinationDistanceName;
+extern const char *const covarianceEigenvectorJumpName;
+extern const char *const skyLocWanderJumpName;
+extern const char *const differentialEvolutionFullName;
+extern const char *const differentialEvolutionMassesName;
+extern const char *const differentialEvolutionSpinsName;
+extern const char *const differentialEvolutionExtrinsicName;
+extern const char *const drawApproxPriorName;
+extern const char *const skyReflectDetPlaneName;
+extern const char *const rotateSpinsName;
+extern const char *const polarizationPhaseJumpName;
+extern const char *const distanceQuasiGibbsProposalName;
+extern const char *const orbitalPhaseQuasiGibbsProposalName;
+extern const char *const extrinsicParamProposalName;
+extern const char *const KDNeighborhoodProposalName;
 
 /** The name of the variable that will store the name of the current
     proposal function. */
-extern const char *LALInferenceCurrentProposalName;
+extern const char *const LALInferenceCurrentProposalName;
 
 /** Adds \a weight copies of the proposal \a prop to the end of the
     proposal cycle. 
@@ -122,7 +124,7 @@ extern const char *LALInferenceCurrentProposalName;
     LALInferenceRandomizeProposalCycle() to randomize the order of
     sub-proposal application. */
 void
-LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propName, LALInferenceProposalFunction *prop, UINT4 weight);
+LALInferenceAddProposalToCycle(LALInferenceRunState *runState, const char *propName, LALInferenceProposalFunction prop, UINT4 weight);
 
 /** Randomizes the order of the proposals in the proposal cycle. */
 void 
@@ -139,7 +141,7 @@ LALInferenceDeleteProposalCycle(LALInferenceRunState *runState);
 /** A reasonable default proposal.  Uses adaptation if the --adapt
     command-line flag active. */
 void LALInferenceDefaultProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
-void LALInferencetempProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+/* void LALInferencetempProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams); */
 
 /** Proposal for rapid sky localization.  Used when --rapidSkyLoc
     is specified. */
@@ -170,14 +172,17 @@ void LALInferenceOrbitalPhaseJump(LALInferenceRunState *runState, LALInferenceVa
 /** Polarization-phase exact degeneracy. */
 void LALInferencePolarizationPhaseJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
+/** Polarization-phase correlation jump */
+void LALInferenceCorrPolarizationPhaseJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
 /** Choose a random covariance matrix eigenvector to jump along. */
 void LALInferenceCovarianceEigenvectorJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /** Jump around by 0.01 radians in angle on the sky */
 void LALInferenceSkyLocWanderJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
-void LALInferenceAdaptationProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
-void LALInferenceAdaptationSingleProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+/* void LALInferenceAdaptationProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams); */
+/* void LALInferenceAdaptationSingleProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams); */
 
 /** Differential evolution, on all non-fixed, non-output parameters. */
 void LALInferenceDifferentialEvolutionFull(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
@@ -197,6 +202,7 @@ void LALInferenceDifferentialEvolutionExtrinsic(LALInferenceRunState *state, LAL
 
 /** Perform a differential evolution step on only the spin variables. */
 void LALInferenceDifferentialEvolutionSpins(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
+void LALInferenceDifferentialEvolutionPhysicalSpins(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
 
 /** Draws from an approximation to the true prior.  Flat in all
     variables except for: Mc^(-11/6), flat in cos(co-latitudes), flat
@@ -209,9 +215,13 @@ void LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVar
     different locations for detectors. */
 void LALInferenceSkyReflectDetPlane(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
+void LALInferenceSkyRingProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);;
+
 /* Nested sampling wrappers. */
 void NSFillMCMCVariables(LALInferenceVariables *proposedParams, LALInferenceVariables *priorArgs);
 void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+void LALInferencePSDFitJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 
 /** Rotate each spin by random angles about L. */
 void LALInferenceRotateSpins(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
@@ -246,6 +256,10 @@ void LALInferenceExtrinsicParamProposal(LALInferenceRunState *runState, LALInfer
 void LALInferenceUpdateAdaptiveJumps(LALInferenceRunState *runState, INT4 accepted, REAL8 targetAcceptance);
 /** Helper function to setup the adaptive step proposals before the run */
 void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state);
+
+void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+
+/*@}*/
 
 #endif
 

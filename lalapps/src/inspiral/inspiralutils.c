@@ -80,7 +80,7 @@
 
 #include "inspiral.h"
 
-/**
+/*
 #include <lal/AVFactories.h>
 #include <lal/FrequencySeries.h>
 #include <lal/LALNoiseModels.h>
@@ -180,7 +180,7 @@ REAL4 XLALCandleDistanceTD(
             / spec->data->data[i];
   }
 
-  sigmaSq *= 4.0 * chanDeltaT / nPoints;
+  sigmaSq *= 4.0 * chanDeltaT / (REAL8)nPoints;
 
   /* Now calculate the distance */
   distance = sqrt( sigmaSq ) / (REAL8)candlesnr;

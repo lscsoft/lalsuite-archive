@@ -712,11 +712,11 @@ def fromLALCache(cache, etg, start=None, end=None, columns=None,\
 
   # load files
   for i,e in enumerate(cache):
-    if re.search('(xml|xml.gz)\Z', e.path()):
-      trigsTmp = fromtrigxml(open(e.path()), tablename=trigs.tableName,\
+    if re.search('(xml|xml.gz)\Z', e.path):
+      trigsTmp = fromtrigxml(open(e.path), tablename=trigs.tableName,\
                                start=start, end=end, columns=columns)
     else:
-      trigsTmp = fromtrigfile(open(e.path()), etg=etg, start=start, end=end,\
+      trigsTmp = fromtrigfile(open(e.path), etg=etg, start=start, end=end,\
                                 columns=columns, virgo=virgo)
     # keep only triggers above SNR threshold if requested
     if snr:
@@ -799,7 +799,7 @@ def daily_ihope_cache(start,end,ifo,cluster=None,filetype='xml',cat=0):
         e = LALCacheEntry.from_T050017(csvfile)
         if span.intersects(e.segment):  cache.append(e)
 
-  cache.sort(key=lambda e: e.path())
+  cache.sort(key=lambda e: e.path)
 
   return cache
 
@@ -885,7 +885,7 @@ def omega_online_cache(start, end, channel, mask='DOWNSELECT',\
       append(from_T050017(trigfile))
     t+=triglength-overlap
 
-  cache.sort(key=lambda e: e.path())
+  cache.sort(key=lambda e: e.path)
 
   return cache
 
@@ -957,7 +957,7 @@ def omega_dq_cache(start,end,ifo):
                         os.path.realpath(trigfile))
       if span.intersects(e.segment):  cache.append(e)
 
-  cache.sort(key=lambda e: e.path())
+  cache.sort(key=lambda e: e.path)
 
   return cache
 
@@ -1095,7 +1095,7 @@ def kw_cache(start, end, channel='H1:LSC-DARM_ERR', frequency=None):
 
     t+=triglength
 
-  cache.sort(key=lambda e: e.path()) 
+  cache.sort(key=lambda e: e.path) 
 
   return cache
 
@@ -1834,13 +1834,16 @@ def fromkwfile(fname, start=None, end=None, ifo=None, channel=None,\
   if 'ms_duration' in columns:    attr_map['ms_duration']    = stop-st
   if 'snr' in columns:         attr_map['snr']     = (amplitude-n_pix)**(1/2)
   if 'ms_snr' in columns:      attr_map['ms_snr']  = (amplitude-n_pix)**(1/2)
-
+  if 'confidence' in columns:      attr_map['confidence']  = sig
+  
   if 'n_pix' in columns or 'param_one_value' in columns:
     attr_map['param_one_name'] = ['n_pix'] * numtrigs
     attr_map['param_one_value'] = n_pix
-  if 'signifiance' in columns or 'param_two_value' in columns:
-    attr_map['param_two_name'] = ['signifiance'] * numtrigs
+  """
+  if 'significance' in columns or 'param_two_value' in columns:
+    attr_map['param_two_name'] = ['significance'] * numtrigs
     attr_map['param_two_value'] = sig
+  """
 
   cols   = attr_map.keys()
   append = out.append

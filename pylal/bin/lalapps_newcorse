@@ -146,7 +146,7 @@ def parse_command_line():
 	#
 
 	if options.input_cache is not None:
-		filenames += [lal.CacheEntry(line).path() for filename in options.input_cache for line in file(filename)]
+		filenames += [lal.CacheEntry(line).path for filename in options.input_cache for line in file(filename)]
 
 	#
 	# done

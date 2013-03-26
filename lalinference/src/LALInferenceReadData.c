@@ -282,10 +282,11 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
 (--IFO1-fhigh freq1 [--IFO2-fhigh freq2 ...])     Specify higher frequency cutoff for overlap integral (2048.0)\n\
 (--IFO1-channel chan1 [--IFO2-channel chan2 ...])   Specify channel names when reading cache files\n\
 (--dataseed number)             Specify random seed to use when generating data\n\
-(--lalsimulationinjection)      Enables injections via the LALSimulation package\n\
+(--lalinspiralinjection)      Enables injections via the LALInspiral package\n\
 (--inj-lambda1)                 value of lambda1 to be injected, LALSimulation only (0)\n\
 (--inj-lambda2)                 value of lambda1 to be injected, LALSimulation only (0)\n\
-(--inj-interactionFlags)        value of the interaction flag to be injected, LALSimulation only (LAL_SIM_INSPIRAL_INTERACTION_ALL)\n\
+(--inj-spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
+(--inj-tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
 (--snrpath) 			Set a folder where to write a file with the SNRs being injected\n\
 (--0noise)                      Sets the noise realisation to be identically zero (for the fake caches above only)\n"
 
@@ -437,8 +438,22 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             XLAL_ERROR_NULL(XLAL_EFUNC);
         }
         procparam=LALInferenceGetProcParamVal(commandLine,"--event");
-        if(procparam) event=atoi(procparam->value);
-        while(q<event) {q++; injTable=injTable->next;}
+        if(procparam) {
+            event=atoi(procparam->value);
+            while(q<event) {q++; injTable=injTable->next;}
+        }
+        else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
+        {
+            while(injTable)
+            {
+                if(injTable->event_id->id == (UINT4)atoi(procparam->value)) break;
+                else injTable=injTable->next;
+            }
+            if(!injTable){
+                fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
+                exit(1);
+            }
+        }
     }
 
     procparam=LALInferenceGetProcParamVal(commandLine,"--psdstart");
@@ -1164,21 +1179,74 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 		/*LALSimulateCoherentGW(&status,injWave,&InjectGW,&det);*/
     //LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
 
-    if(LALInferenceGetProcParamVal(commandLine,"--lalsimulationinjection")){
+    if(LALInferenceGetProcParamVal(commandLine,"--lalinspiralinjection")){
+      if ( approximant == NumRelNinja2) {
+        XLALSimInjectNinjaSignals(injectionBuffer, thisData->name, 1./responseScale, injEvent);
+      } else {
+        /* Use this custom version for extra sites - not currently maintained */
+        // LALInferenceLALFindChirpInjectSignals (&status,injectionBuffer,injEvent,resp,det.site);
+	      /* Normal find chirp simulation cannot handle the extra sites */
+	      LALFindChirpInjectSignals (&status,injectionBuffer,injEvent,resp);
+      }
+      printf("Using LALInspiral for injection\n");
+      XLALResampleREAL4TimeSeries(injectionBuffer,thisData->timeData->deltaT); //downsample to analysis sampling rate.
+      if(status.statusCode) REPORTSTATUS(&status);
+      XLALDestroyCOMPLEX8FrequencySeries(resp);
+      
+      if ( approximant != NumRelNinja2 ) {
+        /* Checking the lenght of the injection waveform with respect of thisData->timeData->data->length */
+        CoherentGW            waveform;
+        PPNParamStruc         ppnParams;
+        memset( &waveform, 0, sizeof(CoherentGW) );
+        memset( &ppnParams, 0, sizeof(PPNParamStruc) );
+        ppnParams.deltaT   = 1.0/InjSampleRate;//thisData->timeData->deltaT;
+        ppnParams.lengthIn = 0;
+        ppnParams.ppn      = NULL;
+        unsigned lengthTest = 0;
+        
+        LALGenerateInspiral(&status, &waveform, injEvent, &ppnParams ); //Recompute the waveform just to get access to ppnParams.tc and waveform.h->data->length or waveform.phi->data->length
+        if(status.statusCode) REPORTSTATUS(&status);
+        
+        if(waveform.h){
+          lengthTest = waveform.h->data->length*(thisData->timeData->deltaT*InjSampleRate);
+        }
+        if(waveform.phi){
+          XLALResampleREAL8TimeSeries(waveform.phi,thisData->timeData->deltaT);
+          lengthTest = waveform.phi->data->length;
+        }
+        
+        
+        if(lengthTest>thisData->timeData->data->length-(UINT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT)){
+          fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d and the 2.0 seconds after tc (total of %d points available).\n", lengthTest, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT));
+          fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",ppnParams.tc , thisData->timeData->data->length * thisData->timeData->deltaT, ppnParams.tc + 2.0*padding + 2.0, __FILE__, __LINE__);
+        }
+        if(ppnParams.tc>bufferLength){
+          fprintf(stderr, "ERROR: The waveform injected is %f seconds long and the buffer for FindChirpInjectSignal is %f seconds long. The end of the waveform will be cut ! (in %s, line %d)\n",ppnParams.tc , bufferLength, __FILE__, __LINE__);
+          exit(1);
+        }
+      }
+      
+      /* Now we cut the injection buffer down to match the time domain wave size */
+      injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,thisData->timeData->data->length);
+      if (!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
+      if(status.statusCode) REPORTSTATUS(&status);
+      /*		for(j=0;j<injWave->data->length;j++) printf("%f\n",injWave->data->data[j]);*/
+      for(i=0;i<injectionBuffer->data->length;i++) inj8Wave->data->data[i]=(REAL8)injectionBuffer->data->data[i];
+    }else{
       printf("Using LALSimulation for injection\n");
       REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       REAL8TimeSeries       *signalvecREAL8=NULL;
       LALPNOrder        order;              /* Order of the model             */
       INT4              amporder=0;         /* Amplitude order of the model   */
-
+      
       order = XLALGetOrderFromString(injEvent->waveform);
       if ( (int) order == XLAL_FAILURE)
         ABORTXLAL(&status);
       amporder = injEvent->amp_order;
       //if(amporder<0) amporder=0;
       /* FIXME - tidal lambda's and interactionFlag are just set to command line values here.
-       * They should be added to injEvent and set to appropriate values 
+       * They should be added to injEvent and set to appropriate values
        */
       REAL8 lambda1 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
@@ -1189,30 +1257,28 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
-      }      
+      }
       LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
-      ppt=LALInferenceGetProcParamVal(commandLine,"--inj-interactionFlags");
-      if(ppt){
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_NONE")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_NONE);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_15PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_2PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_SPIN_SELF_2PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_QUAD_MONO_2PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_25PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_SPIN_ORBIT_3PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_TIDAL_5PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_TIDAL_6PN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_ALL_SPIN);
-        if(strstr(ppt->value,"LAL_SIM_INSPIRAL_INTERACTION_ALL")) XLALSimInspiralSetInteraction(waveFlags, LAL_SIM_INSPIRAL_INTERACTION_ALL);
+      LALSimInspiralSpinOrder spinO = -1;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")) {
+        spinO = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")->value);
+        XLALSimInspiralSetSpinOrder(waveFlags, spinO);
+        fprintf(stdout,"Injection (twice) PN spin order set to %i\n",spinO);
+      }
+      LALSimInspiralTidalOrder tideO = -1;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-tidalOrder")) {
+        tideO = atoi(LALInferenceGetProcParamVal(commandLine,"--inj-tidalOrder")->value);
+        XLALSimInspiralSetTidalOrder(waveFlags, tideO);
+        fprintf(stdout,"Injection (twice) PN tidal order set to %i\n",tideO);
       }
       LALSimInspiralTestGRParam *nonGRparams = NULL;
-
+      
       XLALSimInspiralChooseTDWaveform(&hplus, &hcross, injEvent->coa_phase, 1.0/InjSampleRate,
-                                                injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
-                                                injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
-                                                injEvent->spin2z, injEvent->f_lower, 0., injEvent->distance*LAL_PC_SI * 1.0e6,
-                                                injEvent->inclination, lambda1, lambda2, waveFlags,
-                                                nonGRparams, amporder, order, approximant);
+                                      injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
+                                      injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
+                                      injEvent->spin2z, injEvent->f_lower, 0., injEvent->distance*LAL_PC_SI * 1.0e6,
+                                      injEvent->inclination, lambda1, lambda2, waveFlags,
+                                      nonGRparams, amporder, order, approximant, NULL);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);
@@ -1245,59 +1311,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       if ( hplus ) XLALDestroyREAL8TimeSeries(hplus);
       if ( hcross ) XLALDestroyREAL8TimeSeries(hcross);
       
-    }else{
-      if ( approximant == NumRelNinja2) {
-        XLALSimInjectNinjaSignals(injectionBuffer, thisData->name, 1./responseScale, injEvent);
-      } else {
-        /* Use this custom version for extra sites - not currently maintained */
-        // LALInferenceLALFindChirpInjectSignals (&status,injectionBuffer,injEvent,resp,det.site);
-	/* Normal find chirp simulation cannot handle the extra sites */
-	LALFindChirpInjectSignals (&status,injectionBuffer,injEvent,resp);
-      }
-
-      XLALResampleREAL4TimeSeries(injectionBuffer,thisData->timeData->deltaT); //downsample to analysis sampling rate.
-      if(status.statusCode) REPORTSTATUS(&status);
-      XLALDestroyCOMPLEX8FrequencySeries(resp);
-
-      if ( approximant != NumRelNinja2 ) {
-        /* Checking the lenght of the injection waveform with respect of thisData->timeData->data->length */
-        CoherentGW            waveform;
-        PPNParamStruc         ppnParams;
-        memset( &waveform, 0, sizeof(CoherentGW) );
-        memset( &ppnParams, 0, sizeof(PPNParamStruc) );
-        ppnParams.deltaT   = 1.0/InjSampleRate;//thisData->timeData->deltaT;
-        ppnParams.lengthIn = 0;
-        ppnParams.ppn      = NULL;
-        unsigned lengthTest = 0;
-    
-        LALGenerateInspiral(&status, &waveform, injEvent, &ppnParams ); //Recompute the waveform just to get access to ppnParams.tc and waveform.h->data->length or waveform.phi->data->length
-        if(status.statusCode) REPORTSTATUS(&status);
-
-        if(waveform.h){
-          lengthTest = waveform.h->data->length*(thisData->timeData->deltaT*InjSampleRate);
-        }
-        if(waveform.phi){
-          XLALResampleREAL8TimeSeries(waveform.phi,thisData->timeData->deltaT);
-          lengthTest = waveform.phi->data->length;
-        }
-
-
-        if(lengthTest>thisData->timeData->data->length-(UINT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT)){
-          fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d and the 2.0 seconds after tc (total of %d points available).\n", lengthTest, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT));
-          fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",ppnParams.tc , thisData->timeData->data->length * thisData->timeData->deltaT, ppnParams.tc + 2.0*padding + 2.0, __FILE__, __LINE__);
-        }
-        if(ppnParams.tc>bufferLength){
-          fprintf(stderr, "ERROR: The waveform injected is %f seconds long and the buffer for FindChirpInjectSignal is %f seconds long. The end of the waveform will be cut ! (in %s, line %d)\n",ppnParams.tc , bufferLength, __FILE__, __LINE__);
-          exit(1);
-        }
-      }
-      
-      /* Now we cut the injection buffer down to match the time domain wave size */
-      injectionBuffer=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injectionBuffer,realStartSample,thisData->timeData->data->length);
-      if (!injectionBuffer) XLAL_ERROR_VOID(XLAL_EFUNC);
-      if(status.statusCode) REPORTSTATUS(&status);
-      /*		for(j=0;j<injWave->data->length;j++) printf("%f\n",injWave->data->data[j]);*/
-      for(i=0;i<injectionBuffer->data->length;i++) inj8Wave->data->data[i]=(REAL8)injectionBuffer->data->data[i];
     }
     XLALDestroyREAL4TimeSeries(injectionBuffer);
     injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",
@@ -1936,12 +1949,12 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     tmpdata->freqModelhPlus=freqModelhPlus;
     tmpdata->freqModelhCross=freqModelhCross;
-      if(LALInferenceGetProcParamVal(commandLine,"--lalsimulationinjection")){
-        tmpdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
-        LALInferenceTemplateXLALSimInspiralChooseWaveform(tmpdata);
-      }else{
-        LALInferenceTemplateLAL(tmpdata);
-      }
+    if(LALInferenceGetProcParamVal(commandLine,"--lalinspiralinjection")){
+      LALInferenceTemplateLAL(tmpdata);
+    }else{
+      tmpdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
+      LALInferenceTemplateXLALSimInspiralChooseWaveform(tmpdata);
+    }
 
      
     LALInferenceVariables *currentParams=IFOdata->modelParams;
@@ -2002,7 +2015,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
   
   while (dataPtr != NULL) {
      
-      if (IFOdata->modelDomain == LALINFERENCE_DOMAIN_TIME) {
+      if (IFOdata->modelDomain == LAL_SIM_DOMAIN_TIME) {
 	  printf("There is a problem. You seem to be using a time domain model into the frequency domain injection function!. Exiting....\n"); 
       exit(1);
     }
@@ -2069,7 +2082,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
 // fclose(outInj);
   }
 
-    LALInferenceDestroyVariables(&intrinsicParams);
+    LALInferenceClearVariables(&intrinsicParams);
     printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
     
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
@@ -2082,9 +2095,9 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
 
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
     char SnrName[200];
-    char ListOfIFOs[10];
+    char ListOfIFOs[10]="";
     REAL8 NetSNR=0.0;
-    sprintf(ListOfIFOs," ");   
+    // sprintf(ListOfIFOs,"");
     LALInferenceIFOData *thisData=IFOdata;
     int nIFO=0;
 
@@ -2122,7 +2135,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
 	}
     UINT4 spinCheck=LALInferenceCheckVariableNonFixed(vars,"a_spin1");
     /* Destroy existing parameters */
-    if(vars->head!=NULL) LALInferenceDestroyVariables(vars);
+    if(vars->head!=NULL) LALInferenceClearVariables(vars);
     REAL8 q = theEventTable->mass2 / theEventTable->mass1;
     if (q > 1.0) q = 1.0/q;
 
@@ -2248,7 +2261,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     }
     REAL8 injPrior = runState->prior(runState,runState->currentParams);
     LALInferenceAddVariable(runState->currentParams,"logPrior",&injPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
-    REAL8 injL = runState->likelihood(runState->currentParams, runState->data, runState->template);
+    REAL8 injL = runState->likelihood(runState->currentParams, runState->data, runState->templt);
     LALInferenceAddVariable(runState->currentParams,"logL",(void *)&injL,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     if(LALInferenceCheckVariable(runState->algorithmParams,"logZnoise")){
         REAL8 tmp=injL-*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"logZnoise");
@@ -2275,7 +2288,7 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     
     /* Set things back the way they were */    
     //LALInferenceCopyVariables(&backup,runState->currentParams);
-    //if(runState->currentParams && runState->currentParams->head) runState->likelihood(runState->currentParams,runState->data,runState->template);
+    //if(runState->currentParams && runState->currentParams->head) runState->likelihood(runState->currentParams,runState->data,runState->templt);
     return;
 }
 

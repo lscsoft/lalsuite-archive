@@ -21,7 +21,7 @@ from glue import iterutils
 from glue import pipeline
 from glue import segments
 from glue.lal import CacheEntry, LIGOTimeGPS
-from pylal import llwapp
+from pylal import ligolw_cafe
 from lalapps import power
 
 
@@ -164,7 +164,7 @@ class CalcLikelihoodNode(pipeline.CondorDAGNode):
 	def add_input_cache(self, cache):
 		self.input_cache.extend(cache)
 		for c in cache:
-			self.add_output_file(c.path())
+			self.add_output_file(c.path)
 
 	def add_likelihood_cache(self, cache):
 		self.likelihood_cache.extend(cache)
@@ -324,7 +324,7 @@ class RunSqliteNode(pipeline.CondorDAGNode):
 	def add_input_cache(self, cache):
 		self.input_cache.extend(cache)
 		for c in cache:
-			filename = c.path()
+			filename = c.path
 			pipeline.CondorDAGNode.add_file_arg(self, filename)
 			self.add_output_file(filename)
 
@@ -402,14 +402,14 @@ def compute_segment_lists(seglists, offset_vectors, min_segment_length, pad):
 
   # cull too-short single-instrument segments from the input
   # segmentlist dictionary;  this can significantly increase
-  # the speed of the llwapp.get_coincident_segmentlistdict()
+  # the speed of the get_coincident_segmentlistdict()
   # function when the input segmentlists have had many data
   # quality holes poked out of them
   remove_too_short_segments(seglists, min_segment_length, pad)
 
   # extract the segments that are coincident under the time
   # slides
-  new = llwapp.get_coincident_segmentlistdict(seglists, offset_vectors)
+  new = ligolw_cafe.get_coincident_segmentlistdict(seglists, offset_vectors)
 
   # round to integer boundaries because lalapps_StringSearch can't accept
   # non-integer start/stop times
@@ -544,7 +544,7 @@ def make_string_segment_fragment(dag, datafindnodes, instrument, seg, tag, min_s
 	# the unpacking indirectly tests that the file count is correct
 	[framecache] = [node.get_output() for node in datafindnodes]
 	if binjnodes:
-		[simfile] = [cache_entry.path() for node in binjnodes for cache_entry in node.get_output_cache()]
+		[simfile] = [cache_entry.path for node in binjnodes for cache_entry in node.get_output_cache()]
 		injargs = {"injection-file": simfile}
 	else:
 		injargs = {}

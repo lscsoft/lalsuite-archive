@@ -399,19 +399,6 @@ class LIGOTimeGPS(object):
 #
 
 
-class deprecated_method_proxy(property):
-	# FIXME:  temporary nonsense until all code that uses CacheEntry is
-	# ported to access the scheme, host, path attributes directly
-	def __get__(self, instance, owner):
-		result = self.fget(instance)
-		class callable_wrapper(type(result)):
-			name = self.fget.__name__
-			def __call__(self):
-				warnings.warn("glue.lal.CacheEntry.%s() method is deprecated;  use glue.lal.CacheEntry.%s attribute instead" % (self.name, self.name), DeprecationWarning)
-				return self
-		return callable_wrapper(result)
-
-
 class CacheEntry(object):
 	"""
 	An object representing one line in a LAL cache file.
@@ -449,6 +436,14 @@ class CacheEntry(object):
 	represent an entire LAL cache file.  However, for most use cases a
 	simple Python list or set of CacheEntry objects is sufficient for
 	representing a LAL cache file.
+
+	Example (parse a string):
+
+	>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
+	>>> c.scheme
+	'file'
+	>>> c.host
+	'localhost'
 
 	Example (one-liners to read and write a cache file):
 
@@ -578,72 +573,11 @@ class CacheEntry(object):
 		a value to the URL attribute causes the value to be parsed
 		and the scheme, host and path attributes updated.
 		"""
-		return urlparse.urlunparse((self._scheme, self._host, self._path, None, None, None))
+		return urlparse.urlunparse((self.scheme, self.host, self.path, None, None, None))
 
 	@url.setter
 	def url(self, url):
-		self._scheme, self._host, self._path = urlparse.urlparse(url)[:3]
-
-	@deprecated_method_proxy
-	def scheme(self):
-		"""
-		The scheme part of the URL.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.scheme
-		'file'
-		"""
-		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
-		return self._scheme
-
-	@scheme.setter
-	def scheme(self, value):
-		# FIXME:  remove when calling code uses the attribute directly.
-		self._scheme = value
-
-	@deprecated_method_proxy
-	def host(self):
-		"""
-		The host part of the URL.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.host
-		'localhost'
-		"""
-		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
-		return self._host
-
-	@host.setter
-	def host(self, value):
-		# FIXME:  remove when calling code uses the attribute directly.
-		self._host = value
-
-	@deprecated_method_proxy
-	def path(self):
-		"""
-		The path part of the URL.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.path
-		'/home/kipp/tmp/1/H1-815901601-576.xml'
-		"""
-		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
-		return self._path
-
-	@path.setter
-	def path(self, value):
-		# FIXME:  remove when calling code uses the attribute directly.
-		self._path = value
-
-	def to_segmentlistdict(self):
-		warnings.warn("glue.lal.CacheEntry.to_segmentlistdict() method is deprecated;  use glue.lal.CacheEntry.segmentlistdict attribute instead", DeprecationWarning)
-		return self.segmentlistdict
+		self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
 
 	@property
 	def segmentlistdict(self):
@@ -685,7 +619,7 @@ class CacheEntry(object):
 		Parse a URL in the style of T050017-00 into a CacheEntry.
 		The T050017-00 file name format is, essentially,
 
-		observatory-description-start-dur.ext
+		observatory-description-start-duration.extension
 
 		Example:
 

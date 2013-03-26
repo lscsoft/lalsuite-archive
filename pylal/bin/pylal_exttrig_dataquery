@@ -252,7 +252,16 @@ if len(ifos)>1:
 else:
     pas.info("GRB has not enough data!", grb_name)
 
+# Write the analysis segments
 
+for ifo in peu.basic_ifolist:
+  if ifo in ifos:
+    analysisFP = open('%s-analyse_%s.txt' %(ifo,grbtag),'w')
+    analysisFP.write('# seg\t start    \t stop    \t duration\n')
+    analysisFP.write('0\t %d\t %d\t %d\n' %(offsource[0],offsource[1],offsource[1]-offsource[0]))
+  else:
+    analysisFP = open('%s-analyse_%s.txt' %(ifo,grbtag),'w')
+    analysisFP.write('# seg\t start    \t stop    \t duration\n')
 
 if opts.make_plots:
 

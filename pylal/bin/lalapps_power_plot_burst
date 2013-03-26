@@ -78,7 +78,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.input_cache:
-		filenames.extend([c.path() for c in map(CacheEntry, file(options.input_cache))])
+		filenames.extend([c.path for c in map(CacheEntry, file(options.input_cache))])
 
 	if options.plot:
 		options.plot = map(int, options.plot)
