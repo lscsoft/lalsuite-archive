@@ -271,7 +271,7 @@ PyTypeObject pylal_complex16timeseries_type = {
  */
 
 
-void initcomplex16timeseries(void)
+PyMODINIT_FUNC initcomplex16timeseries(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's COMPLEX16TimeSeries type.");
 

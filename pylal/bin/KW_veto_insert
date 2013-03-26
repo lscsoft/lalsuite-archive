@@ -279,7 +279,6 @@ finally:
 from glue.ligolw import ligolw
 from glue.ligolw import utils
 from glue.ligolw import lsctables
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 
 del lsctables.SegmentTable.validcolumns['start_time_ns']

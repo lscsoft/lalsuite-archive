@@ -134,7 +134,7 @@ class RateContours(object):
 
 			# use an average of 3 bins per time slide in each
 			# direction, but round to an odd integer
-			nbins = math.ciel((max_offset - min_offset) / time_slide_spacing * 3)
+			nbins = math.ceil((max_offset - min_offset) / time_slide_spacing * 3)
 
 			# construct the binning
 			self.bins = rate.BinnedRatios(rate.NDBins((rate.LinearBins(min_offset, max_offset, nbins), rate.LinearBins(min_offset, max_offset, nbins))))
@@ -603,9 +603,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames) - options.skip, filename)
 
-	connection = sqlite3.connect(filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program)
+	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(filename), options.live_time_program)
 	if options.verbose:
 		SnglBurstUtils.summarize_coinc_database(database)
 
@@ -614,7 +612,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			print >>sys.stderr, "adding to burca plot %d ..." % n
 		plot.add_contents(database)
 
-	connection.close()
+	database.connection.close()
 
 
 # delete the plots as we go to save memory

@@ -225,7 +225,7 @@ static PyTypeObject pylal_complex16frequencyseries_type = {
  */
 
 
-void initcomplex16frequencyseries(void)
+PyMODINIT_FUNC initcomplex16frequencyseries(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's COMPLEX16FrequencySeries type.");
 

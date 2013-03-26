@@ -30,8 +30,7 @@ try:
   from glue import gpstime
   from glue import segments
 except ImportError:
-  e = "Error, unable to import modules from glue. Check that glue is correctly installed and in your PYTHONPATH."
-  raise ImportError, e
+  raise ImportError("Error, unable to import modules from glue. Check that glue is correctly installed and in your PYTHONPATH.")
 
 #================================================================================
 __author__ = "Ping Wei <piwei@physics.syr.edu>"

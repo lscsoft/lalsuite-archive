@@ -52,8 +52,8 @@ def addm1m2(pos):
         if injection:
             inj_mass1,inj_mass2=bppu.mc2ms(injection.mchirp,injection.eta)
         mass1_samps,mass2_samps=bppu.mc2ms(pos[mchirp_name].samples,pos['eta'].samples)
-        mass1_pos=bppu.OneDPosterior('m1',mass1_samps,injected_value=inj_mass1)
-        mass2_pos=bppu.OneDPosterior('m2',mass2_samps,injected_value=inj_mass2)
+        mass1_pos=bppu.PosteriorOneDPDF('m1',mass1_samps,injected_value=inj_mass1)
+        mass2_pos=bppu.PosteriorOneDPDF('m2',mass2_samps,injected_value=inj_mass2)
         pos.append(mass1_pos)
         pos.append(mass2_pos)
     return

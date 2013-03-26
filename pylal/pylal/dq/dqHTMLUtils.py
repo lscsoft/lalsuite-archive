@@ -5,7 +5,7 @@
 # =============================================================================
 
 from __future__ import division
-import re
+import re,socket
 from glue import markup
 
 from glue import git_version
@@ -360,3 +360,48 @@ def link_file(page, href, text):
 
   return page
 
+# =============================================================================
+# Construct HTML base
+# =============================================================================
+
+def get_ldas_url():
+  """
+    Returns the url for http access to this host, based on its domain name
+    Returns None-type if you're not on a recognised LIGO-Virgo cluster.
+    Should not be used when not on an LDAS cluster, can't tell the difference 
+    between nodes on CDS network at a site, and those on LDAS, for example...
+
+    Example:
+    >>> socket.getfqdn()
+    ldas-pcdev1.ligo-la.caltech.edu
+    >>> dqHTMLUtils.get_ldas_url()
+    'https://ldas-jobs.ligo-la.caltech.edu'
+  """
+
+  # get fully qualified domain name (FQDN)
+  fqdn = socket.getfqdn()
+
+  # work out web root
+  if re.search('ligo.caltech', fqdn):
+    root = "https://ldas-jobs.ligo.caltech.edu"
+  elif re.search('ligo-wa', fqdn):
+    root = "https://ldas-jobs.ligo-wa.caltech.edu"
+  elif re.search('ligo-la', fqdn):
+    root = "https://ldas-jobs.ligo-la.caltech.edu"
+  elif re.search('atlas', fqdn):
+    match = re.search('atlas[13]', fqdn)
+    if match:
+      host = match.group()
+      root = "https://%s.atlas.aei.uni-hannover.de" % host
+    else:
+      match = "https://atlas1.atlas.aei.uni-hannover.de"
+  elif re.search('phy.syr', fqdn):
+    root = "https://sugar-jobs.phy.syr.edu"
+  elif re.search('astro.cf', fqdn):
+    root = "https://gravity.astro.cf.ac.uk"
+  elif re.search('phys.uwm', fqdn):
+    root = "https://ldas-jobs.phys.uwm.edu"
+  else:
+    root = None
+
+  return root

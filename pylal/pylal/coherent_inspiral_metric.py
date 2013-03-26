@@ -271,6 +271,7 @@ class Detector:
 		self.response = 0.5*(scipy.outer(xarm,xarm) - scipy.outer(yarm,yarm))
 		self.f = f
 		self.psd = psd
+		self.deltaf = None
 		self.one_sided_f = None
 		self.one_sided_psd = None
 		self.I_n_vec = {}
@@ -297,6 +298,7 @@ class Detector:
 			else:
 				self.one_sided_f = self.f
 				self.one_sided_psd = self.psd
+		self.deltaf = self.one_sided_f[1] - self.one_sided_f[0]
 
 		for n in moments_required():
 			if self.psd is None:
@@ -306,8 +308,13 @@ class Detector:
 
 	def update_I_n(self, mchirp, eta):
 		f_isco = 1. / (6.**1.5 * pi * mchirp * eta**(-3./5.))
+		fidx = min(int(f_isco / self.deltaf), len(self.one_sided_psd)-1)
 		for key in self.I_n.keys():
-			self.I_n[key] = self.I_n_vec[key][self.one_sided_f < f_isco][-1]
+			self.I_n[key] = self.I_n_vec[key][fidx]
+
+	def update_I_n_Nyquist(self):
+		for key in self.I_n.keys():
+			self.I_n[key] = self.I_n_vec[key][-1]
 
 def dx_n2(y,dx):
 	"""

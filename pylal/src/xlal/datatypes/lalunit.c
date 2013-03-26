@@ -246,7 +246,7 @@ static PyTypeObject pylal_lalunit_type = {
  */
 
 
-void initlalunit(void)
+PyMODINIT_FUNC initlalunit(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
 "Wrapper for LAL's LALUnit type.  Several pre-defined unit constants are also provided.");

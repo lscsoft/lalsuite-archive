@@ -1,4 +1,4 @@
-INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps
 LDADD = $(top_builddir)/src/lalapps/liblalapps.la
 
 if LALFRAME
@@ -52,7 +52,7 @@ bin_SCRIPTS = \
 	lalapps_tracksearch_tune_pipe \
 	lalapps_tracksearch_cutpipe \
 	lalapps_tracksearch_mapcachebuilder
-pkgpython_DATA = \
+pkgpython_PYTHON = \
 	tracksearchutils.py \
 	tracksearch.py
 endif

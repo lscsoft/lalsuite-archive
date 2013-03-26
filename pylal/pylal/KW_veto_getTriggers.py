@@ -219,14 +219,19 @@ def get_trigs_xml(GWcursor,trigger_file,segs,min_thresh,tracker,verbose):
         return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                            (name == ligolw.Table.tagName) and\
                            (table.StripTableName(attrs["Name"]) in tables))
+    try:
+      lsctables.use_in(ligolw.PartialLIGOLWContentHandler)
+    except AttributeError:
+      # old glue did not allow .use_in().
+      # FIXME:  remove when we can require the latest version of glue
+      pass
 
-    utils.ContentHandler = ContentHandler
-    
     # FIXME: find a way to load only columns necessary
     # something like lsctables.SnglInspiral.loadcolumns = columns?
 
     xmldoc = utils.load_url(trigger_file, verbose = verbose,\
-                                 gz = trigger_file.endswith(".gz"))
+                                 gz = trigger_file.endswith(".gz"),
+                                 contenthandler = ContentHandler)
     table.InterningRowBuilder.strings.clear()
     for table_elem in xmldoc.getElements(lambda e:\
                                         (e.tagName == ligolw.Table.tagName)):

@@ -39,6 +39,7 @@ from glue import segmentsUtils
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import lsctables
 from glue.ligolw import array
 from glue.ligolw import utils
 from glue import git_version
@@ -72,6 +73,9 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("--constrain-lsc-tables", action = "store_true", help = "Impose additional constraints on official LSC tables.  Provides format validation and allows RAM requirements to be reduced.")
 	options, urls = parser.parse_args()
+
+	# Ensure the delimiter is unicode compliant as well
+	options.delimiter = unicode(options.delimiter)
 
 	# add urls from cache files
 	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
@@ -111,23 +115,6 @@ table.RowBuilder = table.InterningRowBuilder
 
 
 #
-# If specific table names have been asked for, don't parse other tables so
-# as to improve parsing speed and reduce memory requirements.  Because we
-# do this, we can assume later that we should print all the tables that can
-# be found in the document.
-#
-
-
-def ContentHandler(xmldoc):
-	if not (options.table or options.array):
-		# parse the entire document
-		return ligolw.LIGOLWContentHandler(xmldoc)
-
-	# parse just the desired table and/or array elements
-	return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
-
-
-#
 # =============================================================================
 #
 #                         How to find things to print
@@ -146,7 +133,7 @@ def print_table(table_elem, columns, rows):
 		columns = table_elem.columnnames
 	for n, row in enumerate(table_elem):
 		if n in rows:
-			print options.delimiter.join(map(lambda key: str(getattr(row, key)), columns))
+			print options.delimiter.join(map(lambda key: unicode(getattr(row, key)), columns))
 
 
 #
@@ -181,12 +168,27 @@ options, urls = parse_command_line()
 
 
 #
-# Importing the lsctables module enables additional LSC table constraints
+# Enable appropriate level of table parsing.  If specific table names have
+# been asked for, don't parse other tables so as to improve parsing speed
+# and reduce memory requirements.  Because we do this, we can assume later
+# that we should print all the tables that can be found in the document.
 #
 
 
+if not (options.table or options.array):
+	# parse the entire document
+	ContentHandler = ligolw.LIGOLWContentHandler
+else:
+	class ContentHandler(ligolw.PartialLIGOLWContentHandler):
+		def __init__(self, xmldoc):
+			ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
+
+array.use_in(ContentHandler)
+
 if options.constrain_lsc_tables:
-	from glue.ligolw import lsctables
+	lsctables.use_in(ContentHandler)
+else:
+	table.use_in(ContentHandler)
 
 
 #

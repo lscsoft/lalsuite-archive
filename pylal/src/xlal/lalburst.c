@@ -357,7 +357,7 @@ static struct PyMethodDef methods[] = {
 };
 
 
-void initlalburst(void)
+PyMODINIT_FUNC initlalburst(void)
 {
 	Py_InitModule3(MODULE_NAME, methods, "Wrapper for LALBurst package.");
 

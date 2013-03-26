@@ -31,21 +31,12 @@ import sys
 
 
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue import offsetvector
 from pylal import git_version
 from pylal import ligolw_tisi
 from pylal import llwapp
-
-
-# test that any is in the name space
-try:
-	any
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -80,7 +71,7 @@ def parse_command_line():
 	try:
 		options.normalize = dict((name.strip(), float(offset)) for name, offset in map(lambda s: s.split("="), options.normalize))
 	except Exception, e:
-		raise ValueError, "unable to parse --normalize arguments: %s" % str(e)
+		raise ValueError("unable to parse --normalize arguments: %s" % str(e))
 
 	return options, (filenames or [None])
 
@@ -213,14 +204,14 @@ if options.normalize:
 #
 
 
-table.reset_next_ids([lsctables.TimeSlideTable])
+lsctables.table.reset_next_ids([lsctables.TimeSlideTable])
 while filenames:
 	#
 	# Create an empty document, populate the process information.
 	#
 
 	xmldoc = new_doc()
-	timeslidetable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	timeslidetable = lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	process = ligolw_tisi.append_process(xmldoc, **options.__dict__)
 
 	#

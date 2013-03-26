@@ -1,3 +1,87 @@
+glue (1.43-1) unstable; urgency=low
+
+  * Converted to source format 3.0 (quilt)
+  * Versioned dependencies on -common and -segments
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Tue, 20 Nov 2012 10:35:00 +0100
+
+glue (1.43) unstable; urgency=low
+
+  * New Release of glue for ER3 with updates to ligolw and lal codes. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Mon, 19 Nov 2012 04:59:00 -0500
+
+glue (1.42-1) unstable; urgency=low
+
+  * Converted to source format 3.0 (quilt)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 5 Sep 2012 09:20:00 +0200
+
+glue (1.42) unstable; urgency=low
+
+  * New Release of glue with upgrades and bugfixes to segment database
+    infrastructure. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, 4 Sep 2012 11:36:00 -0500
+
+glue (1.41-3) unstable; urgency=low
+
+  * Move to simplified rules file
+  * Update to machine-parsable copyright file
+  * Bump standards version (3.9.3)
+  * Remove version build dependency on python-all-dev
+
+ -- Jameson Rollins <jameson.rollins@ligo.org>  Thu, 28 Jun 2012 17:06:51 -0700
+
+glue (1.41-2) unstable; urgency=low
+
+  * Add *.dirs and *.install files to get non-empty packages
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 28 Jun 2012 09:22:00 +0200
+
+glue (1.41) unstable; urgency=low
+
+  * Pre-ER2 release of glue with Kipp's bugfixes and fixed debian packaging.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 22 June 2012 14:46:00 -0500
+
+glue (1.40) unstable; urgency=low
+
+  * Pre-ER2 release of glue with Kipp's bugfixes and fixed debian packaging. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 22 June 2012 11:22:00 -0500
+
+glue (1.39.2-4) unstable; urgency=low
+
+  * build using debhelper 7 and python2
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 14 Jun 2012 09:05:00 +0200
+
+glue (1.39.2-1) unstable; urgency=low
+
+  * Obey debian/pyversions (build for 2.6 and up only)
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Mon, 21 May 2012 09:45:00 +0200
+
+glue (1.39.2) unstable; urgency=low
+
+  * Bugfix release of 1.39 labelled 1.39.2, fixes ligolw URL reading,
+    packaging issues.
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 18 May 2012 10:22:00 -0500
+
+glue (1.39.1) unstable; urgency=low
+
+  * Bugfix release of 1.39 labelled 1.39.1
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Fri, 11 May 2012 10:00:00 -0500
+
+glue (1.39) unstable; urgency=low
+
+  * Initial release of 1.39
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, 10 May 2012 17:11:00 -0500
+
 glue (1.38) unstable; urgency=low
 
   * Initial release of 1.38

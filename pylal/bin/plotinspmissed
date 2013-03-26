@@ -26,6 +26,7 @@ from matplotlib.ticker import FormatStrFormatter
 from glue import segments
 from glue import segmentsUtils
 from glue import lal
+from glue.ligolw import utils
 from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
@@ -34,30 +35,6 @@ from pylal import InspiralUtils
 from pylal import git_version
 import numpy
 
-#######################################################################
-def isSummValue(name, attrs):
-  return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs)
-
-#######################################################################
-def readFiles(fList):
-  """
-  read in the SummInspiralTables from a list of files
-  @param fList:  list of input files
-  """
-  output = {}
-  if not fList:
-    return output
-  for thisFile in fList:
-    doc = ligolw.Document()
-    # read in SummValueTable
-    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isSummValue)).parse(file(thisFile))
-    for row in doc.childNodes[0]:
-      if row.name == 'inspiral_effective_distance':
-        if not output.has_key(row.ifo):
-          output[row.ifo] = lsctables.New(lsctables.SummValueTable)
-        output[row.ifo].append(row)
-  return output
 
 #######################################################################
 def getData( table, xname, yname, ifo  ):
@@ -80,7 +57,6 @@ def getData( table, xname, yname, ifo  ):
   else:
     xp = viz.readcol( table,xname)
     legx = xname
-  
 
   if yname == 'eff_dist':
     yp = viz.readcol( table,"eff_dist", ifo )
@@ -109,9 +85,7 @@ def savePlot(opts, filename, tag, keep=False):
     close()
   return fname
 
-#################################################################
-
-##############################################################################
+#######################################################################
 # parse options and arguments
 usage = """Usage: %prog [options] [trigs1 missed1 trigs2 missed2]
 
@@ -119,7 +93,6 @@ Generate found and missed trig plots
 
 plotinspmissed --mtotal-dist-linear --verbose  --output-path plots/ --mchirp-dist-log  --time-dist  --gps-start-time 866088014 --mchirp-dist-linear --gps-end-time 866109614 --cache-file ihope.cache --enable-output  --mtotal-dist-log  --ifo H1 --legend --found-pattern COIRE_INJECTIONS_*_FOUND_SECOND_*_INJ* --missed-pattern COIRE_INJECTIONS_*_MISSED_SECOND_*_INJ*
 """
-
 
 def parse_command_line():
   """
@@ -171,9 +144,6 @@ def parse_command_line():
   parser.add_option("-M","--min-distance",action="store",type="int",\
       default=None, metavar=" MIN_DIST",\
       help="provide time and dist of all missed injections closer than MIN_DIST [Mpc]")
-  parser.add_option("-r","--add-horizon",action="store",type="string",\
-      default=None,metavar="INSP",\
-      help="show the inspiral horizon obtained from files matching the glob INSP")
   parser.add_option("-p","--y-min",action="store",type="float",\
       default=None,metavar="YMIN",\
       help="set the y min range to YMIN")
@@ -278,7 +248,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 comments = ""
 
-# Initialise: add prefix and suffix to the opts strucutre. To be used for filenames
+# Initialise: add prefix and suffix to the opts structure. To be used for filenames
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
 
 # -- set the proper color code
@@ -385,17 +355,6 @@ if opts.do_followup:
 if opts.ifo:
   ifoList=[opts.ifo]
 
-  
-#######################################################################
-# identify the inspiral files if we want the horizon
-inspiralFiles = None
-if opts.add_horizon:
-  inspiralFiles = glob.glob(opts.add_horizon)
-  if not inspiralFiles:
-    print >>sys.stderr, "The glob for " + \
-          opts.inspiral_horizon + \
-          " returned no files"
-    sys.exit(1)
 
 ##############################################################################
 # read in tables into dictionaries of paired sets
@@ -418,13 +377,15 @@ for entry, injfile in zip(injcache,injFiles):
 
   # read the found injections and get the coincidences
   sims =  SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
-  snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile])
+  snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile], verbose=opts.verbose)
 
   # mange event_id's by hand for sire triggers 	 
   if snglInspiralTable and opts.sire: 	 
     for i in range(len(snglInspiralTable)): 	 
       snglInspiralTable[i].event_id=i
 
+  # this is OK because we only treat one file at a time
+  # so event ID collisions will not occur
   triggers = CoincInspiralUtils.coincInspiralTable(
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 
@@ -503,17 +464,6 @@ else:
   missedInj = possibleMissedInj
   followupInj = possibleMissedInj
 
-
-##############################################################################
-# read in the range if desired
-if inspiralFiles:
-  inspiralSumm = readFiles(inspiralFiles)
-  if not opts.ifo:
-    print >> sys.stderr, "Must specify --ifo for --show-horizon"
-    sys.exit(1)
-  
-  horizon = inspiralSumm[opts.ifo].getColumnByName('value').asarray()
-  startTime = viz.timeindays(inspiralSumm[opts.ifo].getColumnByName('start_time').asarray())
 
 ##############################################################################
 # set lists of plot symbols
@@ -611,10 +561,6 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
     px, py, legx, legy = getData( missedInj, xname, yname, ifo )
     plot( px, py, 'ro', markerfacecolor='None',label='missed',\
           markeredgecolor='r',markersize=10, markeredgewidth=1)
-
-    if inspiralFiles:
-      semilogy(startTime, horizon, 'g.', label='Horizon (Mpc)',
-               linewidth=1)
 
     titleText = legx+' vs '+legy +' '+ifo
     title( opts.title + ' '+titleText+' in '+opts.ifo_times+' times', size='x-large')

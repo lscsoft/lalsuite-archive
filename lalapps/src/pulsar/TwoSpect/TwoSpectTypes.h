@@ -61,6 +61,7 @@ typedef struct
    REAL8 simpleSigmaExclusion;
    REAL8 lineDetection;
    INT4 ihsfactor;
+   INT4 harmonicNumToSearch;
    INT4 keepOnlyTopNumIHS;
    INT4 blksize;
    INT4 maxbinshift;
@@ -73,6 +74,7 @@ typedef struct
    INT4 markBadSFTs;
    INT4 FFTplanFlag;
    INT4 calcRthreshold;
+   INT4 noNotchHarmonics;
    INT4 antennaOff;
    INT4 noiseWeightOff;
    INT4 printAllULvalues;
@@ -81,6 +83,8 @@ typedef struct
    INT4 followUpOutsideULrange;
    INT4 validateSSE;
    INT4 randSeed;
+   INT4 ULsolver;
+   INT4 signalOnly;
    gsl_rng *rng;
 } inputParamsStruct;
 

@@ -19,10 +19,16 @@ import gzip
 from glue import segments
 
 from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import utils
 from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import llwapp
+
+try:
+  lsctables.use_in(ligolw.PartialLIGOLWContentHandler)
+except AttributeError:
+  # old glue did not allow .use_in().
+  # FIXME:  remove when we can require the latest version of glue
+  pass
 
 def _table_filter_generator(tables):
   """

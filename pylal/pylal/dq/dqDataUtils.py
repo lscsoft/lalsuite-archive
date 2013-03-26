@@ -851,3 +851,31 @@ def burst_range(f, S, rho=8, E=1e-2, fmin=64, fmax=500):
   FOM2 = FOM1/(fmax-fmin)
 
   return FOM2**(1/3)
+
+def burst_sg_range(f, S, centralFreq, Q, rho=8, E=1e-2, fmin=64, fmax=500):
+  """
+    Calculate range for sine-Gaussians for a given spectrum
+    and background trigger SNR, assuming isotropic GW emission (unphysical but simple)
+  """
+
+  # restrict spectrum to given frequency range
+  condition = (f>=fmin) & (f<fmax)
+  S2 = S[condition]
+  f2 = f[condition]
+
+  # generate frequency dependent range
+  Mpc = 10**6 * XLALConstants.LAL_PC_SI
+  1/centralFreq
+  A = (((XLALConstants.LAL_G_SI * (E*XLALConstants.LAL_MSUN_SI) )/(XLALConstants.LAL_PI**2 * XLALConstants.LAL_C_SI))**(1/2))/Mpc/centralFreq
+  sigmaSq = Q**2 / (4 * XLALConstants.LAL_PI**2 * centralFreq**2)
+  sg = numpy.exp( - (f2 - centralFreq)**2 * sigmaSq / 2) 
+  normSG = scipy.integrate.trapz(sg**2, f2)**(1/2)
+  sg = sg/normSG
+  R = A * sg / (rho * S2**(1/2) )
+
+  # calculate integral
+  FOM1 = scipy.integrate.trapz(R**2, f2)
+
+  # factor 0.36, median antenna pattern factor for a single detector
+  # and linearly polarized GWs
+  return FOM1**(1/2)*0.36

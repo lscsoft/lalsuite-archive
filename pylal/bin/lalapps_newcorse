@@ -44,7 +44,6 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import rate
@@ -92,13 +91,13 @@ def parse_command_line():
 	#
 
 	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "ifos-oninstruments", "oninstruments", "none"):
-		raise ValueError, "missing or unrecognized --categories option"
+		raise ValueError("missing or unrecognized --categories option")
 	if options.rank_by not in ("snr", "uncombined-ifar", "combined-ifar", "likelihood"):
-		raise ValueError, "missing or unrecognized --rank-by option"
+		raise ValueError("missing or unrecognized --rank-by option")
 
 	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
 		if options.rank_by != "snr":
-			raise ValueError, "--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories
+			raise ValueError("--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories)
 		options.populate_column = "false_alarm_rate"
 	else:
 		options.populate_column = "combined_far"
@@ -110,12 +109,12 @@ def parse_command_line():
 
 	if options.extrapolation_num is not None:
 		if options.extrapolation_num <= 0:
-			raise ValueError, "if specifying --extrapolation-num it must be > 0: %d given" % (extrapolation_num,)
+			raise ValueError("if specifying --extrapolation-num it must be > 0: %d given" % extrapolation_num)
 		if options.rank_by in ("snr", "uncombined-ifar"):
 			if options.categories in ("none",):
-				raise ValueError, "extrapolation for --categories=%s not implemented"%(options.categories)
+				raise ValueError("extrapolation for --categories=%s not implemented" % options.categories)
 		else:
-			raise ValueError, "extrapolation not implemented for --rank-by %s"%(options.rank_by)
+			raise ValueError("extrapolation not implemented for --rank-by %s" % options.rank_by)
 
 	#
 	# save a copy of options before mucking with mass bins
@@ -129,10 +128,10 @@ def parse_command_line():
 
 	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
 		if options.mass_bins is None:
-			raise ValueError, "--mass-bins required with category algorithm \"%s\"" % options.categories
+			raise ValueError("--mass-bins required with category algorithm \"%s\"" % options.categories)
 		options.mass_bins = sorted(map(float, options.mass_bins.split(",")))
 		if len(options.mass_bins) < 2:
-			raise ValueError, "must set at least two mass bin boundaries (i.e., define at least one mass bin)"
+			raise ValueError("must set at least two mass bin boundaries (i.e., define at least one mass bin)")
 		options.mass_bins = rate.IrregularBins(options.mass_bins)
 
 	#
@@ -140,7 +139,7 @@ def parse_command_line():
 	#
 
 	if options.live_time_program is None:
-		raise ValueError, "missing required option -p or --live-time-program"
+		raise ValueError("missing required option -p or --live-time-program")
 
 	#
 	# caches
@@ -228,7 +227,7 @@ class ExtrapolationCoeffs(object):
 			self.B = 0
 
 		else:
-			raise ValueError, rank_by
+			raise ValueError(rank_by)
 
 
 	def extrapolate_reputation(self, reputation, t):
@@ -252,7 +251,7 @@ class ExtrapolationCoeffs(object):
 			#
 
 			return self.A * t / reputation
-		raise ValueError, rank_by
+		raise ValueError(rank_by)
 
 
 #
@@ -287,7 +286,7 @@ class Summaries(object):
 			self.time_func = lambda self, on_instruments: None
 			self.category_to_time = lambda self, category: category
 		else:
-			raise ValueError, category_algorithm
+			raise ValueError(category_algorithm)
 		self.category_func = instancemethod(self.category_func, self, self.__class__)
 		self.time_func = instancemethod(self.time_func, self, self.__class__)
 		self.category_to_time = instancemethod(self.category_to_time, self, self.__class__)
@@ -305,7 +304,7 @@ class Summaries(object):
 		elif rank_by == "likelihood":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
-			raise ValueError, rank_by
+			raise ValueError(rank_by)
 		self.rank_by = rank_by
 		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
 
@@ -393,9 +392,9 @@ class Summaries(object):
 
 		try:
 			return n / t
-		except ZeroDivisionError, e:
+		except ZeroDivisionError:
 			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(category)
-			raise e
+			raise
 
 	def get_previous_newcorse_info(self, connection):
 		# this should only return at most one thing because of max(), but if it returns nothing it is a no-op
@@ -435,7 +434,7 @@ def add_process(connection, opts, process, comment=u""):
 # newcorse_process will be inserted into the DB correctly in add_process()
 #
 
-xmldoc=ligolw.Document()
+xmldoc = ligolw.Document()
 xmldoc.appendChild(ligolw.LIGO_LW())
 newcorse_process = llwapp.append_process(xmldoc, program = u"lalapps_newcorse", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = u"")
 

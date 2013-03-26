@@ -26,6 +26,13 @@
 #
 
 
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not be
+	# available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import math
 import numpy
 from optparse import OptionParser
@@ -33,9 +40,20 @@ import sys
 
 
 from glue import segments
+from glue.ligolw import ligolw
+from glue.ligolw import array
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
+
+
+class ContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+
+array.use_in(ContentHandler)
+lsctables.use_in(ContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -90,7 +108,7 @@ def add_to_plot(axes, red, black, blue, gmst, plottype = "LR"):
 		y2 = black[:,gmst]
 		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), black.centres()[0]), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
-		raise ValueError, plottype
+		raise ValueError(plottype)
 
 	ymin, ymax = axes.get_ylim()
 	if ymin < 1e-5 * ymax:
@@ -115,7 +133,7 @@ def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
 		y2 = black[:,gmst]
 		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), x), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
-		raise ValueError, plottype
+		raise ValueError(plottype)
 
 	ymin, ymax = axes.get_ylim()
 	if ymin < 1e-5 * ymax:
@@ -124,9 +142,9 @@ def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
 	axes.set_xlim((0, len(x) - 1))
 
 	if black.bins[0].scale > 150:
-		xticks = (float("-inf"), -0.02, -0.01, -0.005, -0.002, 0, 0.002, 0.005, 0.01, 0.02, float("inf"))
+		xticks = (NegInf, -0.02, -0.01, -0.005, -0.002, 0, 0.002, 0.005, 0.01, 0.02, PosInf)
 	else:
-		xticks = (float("-inf"), -0.05, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.05, float("inf"))
+		xticks = (NegInf, -0.05, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.05, PosInf)
 	xticklabels = [r"$-\infty$"] + [r"$%.3g$" % (1000 * x) for x in xticks[1:-1]] + [r"$\infty$"]
 	axes.set_xticks([black.bins[x,:][0] for x in xticks])
 	axes.set_xticklabels(xticklabels)
@@ -259,7 +277,7 @@ seglists = segments.segmentlistdict()
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose), u"ligolw_burca_tailor")
+	c, s = ligolw_burca_tailor.get_coincparamsdistributions(utils.load_filename(filename, verbose = options.verbose, contenthandler = ContentHandler), u"ligolw_burca_tailor")
 	distributions += c
 	seglists |= s
 if options.verbose:

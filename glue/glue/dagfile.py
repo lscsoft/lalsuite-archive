@@ -365,28 +365,28 @@ class DAG(object):
 			m = self.jobpat.search(line)
 			if m is not None:
 				if m.group("name") in self.nodes:
-					raise ValueError, "line %d: duplicate JOB %s" % (n, m.group("name"))
+					raise ValueError("line %d: duplicate JOB %s" % (n, m.group("name")))
 				self.nodes[m.group("name")] = JOB(m.group("name"), m.group("filename"), directory = m.group("directory") and m.group("directory").strip("\""), done = bool(m.group("done")), noop = bool(m.group("noop")))
 				continue
 			# DATA ...
 			m = self.datapat.search(line)
 			if m is not None:
 				if m.group("name") in self.nodes:
-					raise ValueError, "line %d: duplicate DATA %s" % (n, m.group("name"))
+					raise ValueError("line %d: duplicate DATA %s" % (n, m.group("name")))
 				self.nodes[m.group("name")] = DATA(m.group("name"), m.group("filename"), directory = m.group("directory") and m.group("directory").strip("\""), done = bool(m.group("done")), noop = bool(m.group("noop")))
 				continue
 			# SUBDAG EXTERNAL ...
 			m = self.subdagpat.search(line)
 			if m is not None:
 				if m.group("name") in self.nodes:
-					raise ValueError, "line %d: duplicate SUBDAG EXTERNAL %s" % (n, m.group("name"))
+					raise ValueError("line %d: duplicate SUBDAG EXTERNAL %s" % (n, m.group("name")))
 				self.nodes[m.group("name")] = SUBDAG_EXTERNAL(m.group("name"), m.group("filename"), directory = m.group("directory") and m.group("directory").strip("\""), done = bool(m.group("done")), noop = bool(m.group("noop")))
 				continue
 			# SPLICE ...
 			m = self.splicepat.search(line)
 			if m is not None:
 				if m.group("name") in self.nodes:
-					raise ValueError, "line %d: duplicate SPLICE %s" % (n, m.group("name"))
+					raise ValueError("line %d: duplicate SPLICE %s" % (n, m.group("name")))
 				self.nodes[m.group("name")] = SPLICE(m.group("name"), m.group("filename"), directory = m.group("directory") and m.group("directory").strip("\""))
 				continue
 			# VARS ...
@@ -396,7 +396,7 @@ class DAG(object):
 				# FIXME:  find a way to detect malformed name=value pairs
 				for name, value in self.varsvaluepat.findall(m.group("vars")):
 					if name in node.vars:
-						raise ValueError, "line %d: multiple variable %s for %s %s" % (n, name, node.keyword, node.name)
+						raise ValueError("line %d: multiple variable %s for %s %s" % (n, name, node.keyword, node.name))
 					# apply unescape rules to the value
 					node.vars[name] = value.replace("\\\\", "\\").replace("\\\"", "\"")
 				continue
@@ -420,13 +420,13 @@ class DAG(object):
 				node = self.nodes[m.group("name")]
 				if m.group("type").upper() == "PRE":
 					if node.prescript is not None:
-						raise ValueError, "line %d: multiple SCRIPT PRE for %s %s" % (n, node.keyword, node.name)
+						raise ValueError("line %d: multiple SCRIPT PRE for %s %s" % (n, node.keyword, node.name))
 					node.prescript = m.group("executable")
 					if m.group("arguments") is not None:
 						node.prescriptargs = m.group("arguments").split()
 				elif m.group("type").upper() == "POST":
 					if node.postscript is not None:
-						raise ValueError, "line %d: multiple SCRIPT POST for %s %s" % (n, node.keyword, node.name)
+						raise ValueError("line %d: multiple SCRIPT POST for %s %s" % (n, node.keyword, node.name))
 					node.postscript = m.group("executable")
 					if m.group("arguments") is not None:
 						node.postscriptargs = m.group("arguments").split()
@@ -438,7 +438,7 @@ class DAG(object):
 			if m is not None:
 				node = self.nodes[m.group("name")]
 				if node.priority is not None:
-					raise ValueError, "line %d: multiple PRIORITY for %s %s" % (n, node.keyword, node.name)
+					raise ValueError("line %d: multiple PRIORITY for %s %s" % (n, node.keyword, node.name))
 				node.priority = int(m.group("value"))
 				continue
 			# CATEGORY ...
@@ -451,7 +451,7 @@ class DAG(object):
 			if m is not None:
 				node = self.nodes[m.group("name")]
 				if node.abort_dag_on_abortexitvalue is not None:
-					raise ValueError, "line %d: multiple ABORT-DAG-ON for %s %s" % (n, node.keyword, node.name)
+					raise ValueError("line %d: multiple ABORT-DAG-ON for %s %s" % (n, node.keyword, node.name))
 				node.abort_dag_on_abortexitvalue = int(m.group("exitvalue"))
 				if m.group("returnvalue") is not None:
 					node.abort_dag_on_dagreturnvalue = int(m.group("returnvalue"))
@@ -460,7 +460,7 @@ class DAG(object):
 			m = self.maxjobspat.search(line)
 			if m is not None:
 				if m.group("category") in self.maxjobs:
-					raise ValueError, "line %d: multiple MAXJOBS for category %s" % (n, m.group("category"))
+					raise ValueError("line %d: multiple MAXJOBS for category %s" % (n, m.group("category")))
 				self.maxjobs[m.group("category")] = int(m.group("value"))
 				continue
 			# DOT ...
@@ -482,22 +482,22 @@ class DAG(object):
 						try:
 							self.dotinclude = options.pop(0)
 						except IndexError:
-							raise ValueError, "line %d: missing filename for INCLUDE option of DOT" % n
+							raise ValueError("line %d: missing filename for INCLUDE option of DOT" % n)
 					else:
-						raise ValueError, "unrecognized option %s for DOT" % option
+						raise ValueError("unrecognized option %s for DOT" % option)
 				continue
 			# CONFIG ...
 			m = self.dotpat.search(line)
 			if m is not None:
 				if self.config is not None:
-					raise ValueError, "line %d: multiple CONFIG lines in dag file" % n
+					raise ValueError("line %d: multiple CONFIG lines in dag file" % n)
 				self.config = m.group("filename")
 				continue
 			# NODE_STATUS_FILE ...
 			m = self.nodestatuspat.search(line)
 			if m is not None:
 				if self.node_status_file is not None:
-					raise ValueError, "line %d: multiple NODE_STATUS_FILE lines in dag file" % n
+					raise ValueError("line %d: multiple NODE_STATUS_FILE lines in dag file" % n)
 				self.node_status_file = m.group("filename")
 				if m.group(updatetime) is not None:
 					self.node_status_file_updatetime = int(m.group("updatetime"))
@@ -511,7 +511,7 @@ class DAG(object):
 					self.jobstate_log = m.group("filename")
 				continue
 			# error
-			raise ValueError, "line %d: invalid line in dag file: %s" % (n, line)
+			raise ValueError("line %d: invalid line in dag file: %s" % (n, line))
 		# progress
 		del progress
 		# populate parent and child sets
@@ -616,14 +616,14 @@ class DAG(object):
 		for node in nodes:
 			for child in node.children:
 				if node not in child.parents:
-					raise ValueError, "node %s is not a parent of its child %s" % (node.name, child.name)
+					raise ValueError("node %s is not a parent of its child %s" % (node.name, child.name))
 				if child not in nodes:
-					raise ValueError, "node %s has child %s that is not in DAG" % (node.name, child.name)
+					raise ValueError("node %s has child %s that is not in DAG" % (node.name, child.name))
 			for parent in node.parents:
 				if node not in parent.children:
-					raise ValueError, "node %s is not a child of its parent %s" % (node.name, parent.name)
+					raise ValueError("node %s is not a child of its parent %s" % (node.name, parent.name))
 				if parent not in nodes:
-					raise ValueError, "node %s has parent %s that is not in DAG" % (node.name, parent.name)
+					raise ValueError("node %s has parent %s that is not in DAG" % (node.name, parent.name))
 
 	def write(self, f, progress = None):
 		"""
@@ -687,7 +687,7 @@ class DAG(object):
 
 		# MAXJOBS ...
 		if set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs):
-			raise ValueError, "no MAXJOBS statement(s) for node category(ies) %s" % ", ".join(sorted(set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs)))
+			raise ValueError("no MAXJOBS statement(s) for node category(ies) %s" % ", ".join(sorted(set(node.category for node in self.nodes.values() if node.category is not None) - set(self.maxjobs))))
 		for name, value in sorted(self.maxjobs.items()):
 			if value is not None:
 				f.write("MAXJOBS %s %d\n" % (name, value))

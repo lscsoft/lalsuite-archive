@@ -14,12 +14,12 @@ bin_PROGRAMS = \
 	lalapps_NoiseComparison \
 	$(FRAMEPROGRAMS)
 
-INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
 LDADD = $(top_builddir)/src/lalapps/liblalapps.la
 
 if HAVE_PYTHON
 bin_SCRIPTS = lalapps_strain_pipe lalapps_noise_comp_pipe
-pkgpython_DATA = strain.py
+pkgpython_PYTHON = strain.py
 endif
 
 EXTRA_DIST = \

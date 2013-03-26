@@ -77,9 +77,10 @@ opt.add_option("-a", "--approximant", action="store", default="TaylorF2", help="
 opt.add_option("-A", "--addtl-lalinf-args", action="store", help="Additional args to be sent to the lalinference_mcmc command line.")
 opt.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
 opt.add_option("-i", "--nest-ini-file", action="store", help="Initialization file for lalapps_nest_pipe.")
-opt.add_option("-g", "--gracedb-id", action="store", help="Use information from indicated id.")
+#opt.add_option("-g", "--gracedb-id", action="store", help="Use information from indicated id.")
 opt.add_option("--mcmc", action="store_true", help="Use lalinference_mcmc.")
 opt.add_option("--nest", action="store_true", help="Use lalapps_nest_pipe.")
+opt.add_option("-s", "--sub-filename", action="store", help="Make subfile with this name.")
 # TODO: Integrate graceDB info
 
 opts, args = opt.parse_args()
@@ -90,6 +91,7 @@ if not (opts.mcmc or opts.nest):
 elif opts.mcmc and opts.nest:
 	sys.exit("Indicate one of --mcmc or --nest.")
 
+"""
 if len(args) == 0 and opts.gracedb_id is None:
 	sys.exit("No coinc tables to process and no GDB entry to examine, exiting.")
 
@@ -104,6 +106,7 @@ if opts.gracedb_id is not None:
 		gdbid = "G" + gdbid
 	print "Using graceDB ID %s, ignoring other arguments." % gdbid
 	# TODO: Retrieve coinc table and set argus to that
+"""
 
 if opts.nest and not opts.nest_ini_file:
 	sys.exit("--nest option requires an initilization file")
@@ -211,7 +214,11 @@ for arg in args:
 
 			if verb: print "Creating submit file."
 
-			submit_file = open('%s/lalinference_mcmc_%d.sub' % (os.getcwd(), cid),'w')
+			if opts.sub_filename is None:
+				submit_file = open('%s/lalinference_mcmc_%d.sub' % (os.getcwd(), cid),'w')
+			else: 
+				submit_file = open(opts.sub_filename,'w')
+
 			submit_str ="""
 universe = parallel
 environment=CONDOR_MPI_PATH=/usr/lib64/openmpi
@@ -230,6 +237,7 @@ queue
 			submit_file.write(submit_str)
 
 		elif opts.nest:
+			# TODO: Make submit file for lalapps_nest_pipe
 			command = 'lalapps_nest_pipe --coinc-triggers %s --run-path %s --ini-file %s --condor-submit --ignore-science-mode --coherence-test' % (arg, os.getcwd(), opts.nest_ini_file)
 			retcode = os.execute(command)
 			if retcode != 0:

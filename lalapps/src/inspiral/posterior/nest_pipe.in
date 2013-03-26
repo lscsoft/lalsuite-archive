@@ -43,6 +43,84 @@ def open_pipedown_database(database_filename,tmp_space):
 
 def get_timeslides_pipedown(database_connection, dumpfile=None, gpsstart=None, gpsend=None):
 	"""
+	Returns a dict of dicts {trigtime: {'H1':0,'L1':5,'V1':10},...}
+	of times and timeslide offsets
+	"""
+	output={}
+	if gpsstart is not None: gpsstart=float(gpsstart)
+	if gpsend is not None: gpsend=float(gpsend)
+	if dumpfile is not None:
+		outfile=open(dumpfile,'w')
+	else:
+		outfile=None
+	db_segments=[]
+	sql_seg_query="SELECT search_summary.out_start_time, search_summary.out_end_time from search_summary join process on process.process_id==search_summary.process_id where process.program=='thinca'"
+	db_out = database_connection.cursor().execute(sql_seg_query)
+	for d in db_out:
+		if d not in db_segments:
+			db_segments.append(d)
+	seglist=segments.segmentlist([segments.segment(d[0],d[1]) for d in db_segments])
+	db_out_saved=[]
+	# Get coincidences
+	get_coincs="SELECT sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9,coinc_event.coinc_event_id \
+		    FROM sngl_inspiral join coinc_event_map on (coinc_event_map.table_name == 'sngl_inspiral' and coinc_event_map.event_id \
+		    == sngl_inspiral.event_id) join coinc_event on (coinc_event.coinc_event_id==coinc_event_map.coinc_event_id)"
+	if gpsstart is not None:
+		get_coincs=get_coincs+ ' where sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 > %f'%(gpsstart)
+		joinstr=' and '
+	else:
+		joinstr=' where '
+	if gpsend is not None:
+		get_coincs=get_coincs+ joinstr+' sngl_inspiral.end_time+sngl_inspiral.end_time*1e-9 <%f'%(gpsend)
+	db_out=database_connection.cursor().execute(get_coincs)
+	co_ids=set([d[1] for d in db_out])
+	print 'Found %i coinc events in pipedown database'%(len(co_ids))
+	for co_id in co_ids:
+		coinc_number=co_id.split(":")[-1]
+		sql_query="SELECT time_slide.instrument,time_slide.offset from coinc_event join time_slide on \
+			   (time_slide.time_slide_id==coinc_event.time_slide_id) where coinc_event.coinc_event_id == '%s' "%(str(co_id))
+		db_out=database_connection.cursor().execute(sql_query)
+		offsets={}
+		for event in db_out:
+			offsets[event[0]]=event[1]
+		initialkey=offsets.keys()[0]
+		sql_query='SELECT sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 from sngl_inspiral join coinc_event_map on (coinc_event_map.table_name=="sngl_inspiral" and coinc_event_map.event_id == sngl_inspiral.event_id) where coinc_event_map.coinc_event_id == "%s"'%(str(co_id))
+		db_out=database_connection.cursor().execute(sql_query)
+		db_out_saved=[d for d in db_out]
+		if(len(db_out_saved)==0):
+			print ' Error! No events found for IFO %s for coinc %s'%(str(initialkey),str(co_id))
+			continue
+		true_time=db_out_saved[0][0]
+		for ifo in offsets.keys():
+			deltat=offsets[ifo]
+			# The shifted time is also in the same segment as the original time
+			segfilt=filter(lambda seg:true_time in seg, seglist)
+			if(len(segfilt)!=1):
+				print 'ERROR: time %f must appear in only one segment'%(shifted_time)
+			else:
+				seg=segfilt[0]
+			# Original time is shifted_time-deltat
+			while (true_time+deltat) not in seg:
+				if deltat<0:
+					deltat=deltat+(seg[1]-seg[0])
+				else:
+					deltat=deltat-(seg[1]-seg[0])
+			offsets[ifo]=deltat
+		realtime=true_time-offsets[initialkey]
+		output[realtime]=offsets
+		if outfile is not None:
+			# Get the SNR and chi-squared to dump
+			sql_query = 'SELECT sngl_inspiral.ifo,sngl_inspiral.snr,sngl_inspiral.chisq FROM sngl_inspiral join coinc_event_map on (coinc_event_map.table_name == "sngl_inspiral" and coinc_event_map.event_id==sngl_inspiral.event_id) where coinc_event_map.coinc_event_id == "%s"'%(str(co_id))
+			db_out=database_connection.cursor().execute(sql_query)	
+			for (ifo,snr,chisq) in db_out:
+				print >>outfile,"%s %s %f %f %f %f"%(coinc_number,ifo,realtime-offsets[ifo],snr,chisq,offsets[ifo])
+	if outfile is not None:
+		outfile.close()
+	print 'Found %i time slide coincs to run on'%(len(output))
+	return output
+
+def get_timeslides_pipedown_broken(database_connection, dumpfile=None, gpsstart=None, gpsend=None):
+	"""
 	returns a dict of dicts { trigtime: {'H1':0,'L1':5,'V1':10}) , ... }
 	of times and timeslide offsets.
 	Optionally dumps times, SNR, chi-squared statistics to a file
@@ -335,7 +413,7 @@ if opts.coinc_triggers:
 # Read pipedown database
 if opts.pipedown_db:
 	print 'establishing connection to pipedown database'
-	(db_connection,db_working_filename)=open_pipedown_database(opts.pipedown_db,None)
+	(db_connection,db_working_filename)=open_pipedown_database(opts.pipedown_db,None)[0]
 	timeslides=get_timeslides_pipedown(db_connection,dumpfile=timeslidefiledump,gpsstart=opts.gps_start_time,gpsend=opts.gps_end_time)
 	times=timeslides.keys()
 	starttime=min(times)
@@ -596,7 +674,7 @@ if opts.coherence_test:
             print 'Unable to setup coherence test for time %.3f, only %s data available.\n'%(time,ifos[0])
             continue
         coherence_test_node=OddsPipeline.CoherenceTestNode(coherence_test_job)
-        coherence_test_node.add_var_arg(nest_files[time])
+        coherence_test_node.add_var_arg(nest_files[time]+'_B.txt')
         coherence_test_files[time]={}
         coherence_test_posfiles[time]={}
         coherence_test_bfiles[time]={}
@@ -618,14 +696,14 @@ if opts.coherence_test:
             if nparallel>1:
                 (merge_node,inspnest_nodes)=OddsPipeline.setup_parallel_nest(cp,inspnest_job,merge_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent,nodeclass=nestclass,timeslides=ts)
                 dag.add_node(merge_node)
-                coherence_test_files[time][ifo]=merge_node.get_output_files()[0]
+                coherence_test_files[time][ifo]=merge_node.get_output_files()[0]+'_B.txt'
                 combine_node.add_parent(merge_node)
                 coherence_test_node.add_parent(merge_node)
                 coherence_inspnest_nodes[time][ifo]=merge_node
             else:
                 inspnest_node=OddsPipeline.setup_single_nest(cp,inspnest_job,time,segments_by_time[time],nest_path,ifos=[ifo],event=thisevent,nodeclass=nestclass,timeslides=ts)
                 inspnest_nodes=[inspnest_node]
-                coherence_test_files[time][ifo]=inspnest_node.get_output_files()[0]
+                coherence_test_files[time][ifo]=inspnest_node.get_output_files()[0]+'_B.txt'
                 combine_node.add_parent(inspnest_node)
                 coherence_inspnest_nodes[time][ifo]=inspnest_node
             combine_node.add_var_arg(coherence_test_files[time][ifo])

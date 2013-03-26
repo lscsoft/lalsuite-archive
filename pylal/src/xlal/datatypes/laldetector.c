@@ -138,7 +138,7 @@ static struct PyMethodDef functions[] = {
 };
 
 
-void initlaldetector(void)
+PyMODINIT_FUNC initlaldetector(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's LALDetector type.");
 

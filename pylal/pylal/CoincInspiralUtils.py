@@ -94,6 +94,9 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
         coincFromFile.add_sim_inspirals(simInspiralTable) 
       if coincs: coincs.extend(coincFromFile)
       else: coincs = coincFromFile
+
+    doc.unlink()
+
   return coincs, sims
 
 

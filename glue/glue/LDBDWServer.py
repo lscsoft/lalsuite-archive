@@ -33,6 +33,7 @@ import ConfigParser
 import M2Crypto
 import selector
 import cjson
+import simplejson
 
 from glue import ldbd
 
@@ -396,7 +397,9 @@ class Server(object):
 
     # read the incoming payload
     try:
-        inputString = cjson.decode(environ['wsgi.input'].read())
+        #import simplejson  (moved to top)
+        inputString=simplejson.loads(wsgiIn)
+        #inputString = cjson.decode(environ['wsgi.input'].read())
     except Exception, e:
         start_response("400 Bad Request", [('Content-type', 'text/plain')])
         msg = "400 Bad Request"

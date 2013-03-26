@@ -97,7 +97,7 @@ static PyTypeObject pylal_complex16fftplan_type = {
  */
 
 
-void initcomplex16fftplan(void)
+PyMODINIT_FUNC initcomplex16fftplan(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "Wrapper for LAL's COMPLEX16FFTPlan type.");
 

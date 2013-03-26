@@ -54,6 +54,18 @@ def time_at_instrument(sim, instrument, offsetvector):
 	"""
 	Return the "time" of the injection, delay corrected for the
 	displacement from the geocentre to the given instrument.
+
+	NOTE:  this function does not account for the rotation of the Earth
+	that occurs during the transit of the plane wave from the detector
+	to the geocentre.  That is, it is assumed the Earth is in the same
+	orientation with respect to the celestial sphere when the wave
+	passes through the detector as when it passes through the
+	geocentre.  The Earth rotates by about 1.5 urad during the 21 ms it
+	takes light to travel the radius of the Earth, which corresponds to
+	10 m of displacement at the equator, or 33 ns in units of light
+	travel time.  Therefore, the failure to do a proper retarded time
+	calculation here results in errors no larger than 33 ns, which
+	should be insignificant.
 	"""
 	# the offset is subtracted from the time of the injection.
 	# injections are done this way so that when the triggers that
@@ -61,17 +73,6 @@ def time_at_instrument(sim, instrument, offsetvector):
 	# times the triggers will form a coinc
 	t_geocent = sim.get_time_geocent() - offsetvector[instrument]
 	ra, dec = sim.get_ra_dec()
-	# NOTE:  this does not account for the rotation of the Earth that
-	# occurs during the transit of the plane wave from the detector to
-	# the geocentre.  that is it is assumed the Earth is in the same
-	# orientation with respect to the celestial sphere when the wave
-	# passes through the detector as when it passes through the
-	# geocentre.  the Earth rotates by about 1.5 urad during the 21 ms
-	# it takes light to travel the radius of the Earth, which
-	# corresponds to 10 m of displacement at the equator, or 33 ns in
-	# units of light travel time.  therefore, the failure to do a
-	# proper retarded time calculation here results in errors no larger
-	# than 33 ns, which should be insignificant.
 	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, ra, dec, t_geocent)
 
 

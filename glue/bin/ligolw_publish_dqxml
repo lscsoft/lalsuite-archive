@@ -173,7 +173,7 @@ try:
     result = None
     if die_now:
       break
-    infile = f.path()
+    infile = f.path
     try:
       logger.debug("reading %s" % infile)
       fh = open(infile,'r')

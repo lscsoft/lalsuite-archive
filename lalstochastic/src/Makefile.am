@@ -1,9 +1,10 @@
-INCLUDES = -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include
 
 lalstochasticincludedir = $(includedir)/lal
 lalstochasticinclude_HEADERS = \
 	AstroOmega.h \
 	LALStochasticConfig.h \
+	LALStochasticLibVCSInfo.h \
 	LALStochasticVCSInfo.h \
 	LIGOLwXMLStochasticRead.h \
 	SimulatePopcorn.h \
@@ -28,7 +29,7 @@ liblalstochastic_la_SOURCES = \
 	ZeroPadAndFFT.c
 liblalstochastic_la_LDFLAGS = -version-info $(LIBVERSION)
 
-CLEANFILES = \
+MOSTLYCLEANFILES = \
 	lalstochastic-user-env.shell \
 	lalstochastic-user-env.sh \
 	lalstochastic-user-env.csh
@@ -38,8 +39,6 @@ sysconf_DATA = \
 	lalstochastic-user-env.csh
 
 BUILT_SOURCES = \
-	._vcsinfo \
-	LALStochasticVCSInfo.h \
 	lalstochastic-user-env.sh \
 	lalstochastic-user-env.csh
 
@@ -53,18 +52,18 @@ lalstochastic-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
 
 lalstochastic-user-env.csh lalstochastic-user-env.sh: lalstochastic-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALStochasticConfig.h.in \
-	LALStochasticVCSInfo.h.in \
-	generate_user_env.awk \
-	generate_vcs_info.py
+	generate_user_env.awk
 
-LALStochasticVCSInfo.h: ._vcsinfo
-
-._vcsinfo: $(srcdir)/generate_vcs_info.py LALStochasticConfig.h
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALStochastic $(srcdir) $$PWD
+if HAVE_GIT_REPO
+BUILT_SOURCES += LALStochasticVCSInfo.h
+MOSTLYCLEANFILES += LALStochasticVCSInfo.h
+LALStochasticVCSInfo.h .PHONY : gen-LALStochasticVCSInfo.h
+gen-LALStochasticVCSInfo.h :
+	$(GENERATE_VCS_INFO) LALStochasticVCSInfo.h $(srcdir)/LALStochasticVCSInfo.h.git
+endif
 
 @LAL_HEADER_LINK@

@@ -214,6 +214,13 @@ class LIGOLwParser:
     istr = self.ricrx.sub('',istr)
     if self.octrx.match(istr):
       exec "istr = '"+istr+"'"
+      # if the DB2 module is loaded, the string should be converted
+      # to an instance of the DB2.Binary class. If not, leave it as 
+      # a string containing binary data.
+      try:
+        istr = DB2.Binary(istr)
+      except:
+        pass
     else:
       try:
         istr = self.unique.lookup(istr)
@@ -547,7 +554,8 @@ class LIGOMetadata:
             if re.match(r'\Ailwd:char_u\Z',coltype):
               ligolw += '"'
               for ch in str(tupi):
-                ligolw += '\\%.3o' % (ord(ch))
+                # NOTE: escape the backslash in the ilwd:char_u octal string
+                ligolw += '\\\\%.3o' % (ord(ch))
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
               if ilwdchar_to_hex is True:

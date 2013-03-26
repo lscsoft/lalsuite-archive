@@ -15,15 +15,11 @@ pkginclude_HEADERS = \
 	Sequence.h \
 	Skymap.h \
 	TimeSeries.h \
+	TriggerInterpolation.h \
 	Units.h
 
-CLEANFILES =
-
-MAINTAINERCLEANFILES =
-
 all-local: include-link
-
 @INCLUDEMKFILE@
 
 swig_headers = $(pkginclude_HEADERS)
-include $(top_srcdir)/swig/swig-header.am
+include $(top_srcdir)/swig/swiglal_header.am

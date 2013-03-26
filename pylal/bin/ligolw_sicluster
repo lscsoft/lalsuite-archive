@@ -35,6 +35,8 @@ from pylal import SnglInspiralUtils
 from pylal import git_version
 from pylal import ligolw_sicluster
 
+lsctables.use_in(ligolw.LIGOLWContentHandler)
+
 __author__ = "Duncan Brown <dbrown@ligo.caltech.edu>"
 
 #
@@ -95,7 +97,7 @@ except ValueError, e:
 
 #try:
 for filename in filenames:
-  doc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
+  doc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
   for comment in doc.getElementsByTagName(ligolw.Comment.tagName):
     comment.parentNode.removeChild(comment)
     comment.unlink()

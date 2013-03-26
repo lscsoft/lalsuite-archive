@@ -82,7 +82,7 @@ def set_output_format( output_format ):
         xhl = "</a>"
 
     else:
-        raise ValueError, "unrecognized output_format %s" % output_format
+        raise ValueError("unrecognized output_format %s" % output_format)
 
     return ttx, xtt, tx, xt, capx, xcap, rx, xr, cx, xc, rspx, xrsp, hlx, hxl, xhl
 

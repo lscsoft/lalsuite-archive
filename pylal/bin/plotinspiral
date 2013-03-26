@@ -16,8 +16,6 @@ or with a glob option
 
 """
 
-
-
 __prog__ = "plotinspiral"
 __title__ = "Inspiral Plots"
 
@@ -30,8 +28,6 @@ import glob
 from types import *
 
 from pylal import SnglInspiralUtils
-from pylal import SimInspiralUtils
-from pylal import SearchSummaryUtils
 from glue import lal
 from glue import segments
 from glue import segmentsUtils
@@ -160,7 +156,7 @@ def parse_command_line():
   parser.add_option("", "--user-tag", help="usertag for naming output")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="FIGURERESOLUTION", \
-      help="set the resoultion of the thumbnail (50 dpi by default)" )
+      help="set the resolution of the thumbnail (50 dpi by default)" )
 
   #input
   parser.add_option("-i", "--ifo-times",
@@ -274,8 +270,7 @@ if opts.verbose:
   print >>sys.stdout, "There are " + str(len(trigFiles))+ \
       " files in your glob and/or lal cache"
 
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
-    verbose=opts.verbose)
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
 if inspTriggers is None or len(inspTriggers)==0:
   err_msg = "There were no inspiral triggers in the files read in," + \
       " no plots generated"

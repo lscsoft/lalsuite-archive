@@ -331,10 +331,14 @@ def read_segfile_xml(segfile,verbose):
     return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                (name == ligolw.Table.tagName) and\
                (table.StripTableName(attrs["Name"]) in ["segment"]))
+  try:
+    table.use_in(ligolw.PartialLIGOLWContentHandler)
+  except AttributeError:
+    # old glue did not allow .use_in().
+    # FIXME:  remove when we can require the latest version of glue
+    pass
 
-  utils.ContentHandler = ContentHandler
-
-  xmldoc = utils.load_url(segfile, verbose = verbose,gz = segfile.endswith(".gz"))
+  xmldoc = utils.load_url(segfile, verbose = verbose,gz = segfile.endswith(".gz"), contenthandler = ContentHandler)
   seg_list = segmentlist()
   for table_elem in xmldoc.getElements(lambda e:\
                                        (e.tagName == ligolw.Table.tagName)):
@@ -355,10 +359,14 @@ def find_version_xml(segfile,seg,verbose):
     return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs:\
                (name == ligolw.Table.tagName) and\
                (table.StripTableName(attrs["Name"]) in ["segment_definer","segment_summary"]))
+  try:
+    table.use_in(ligolw.PartialLIGOLWContentHandler)
+  except AttributeError:
+    # old glue did not allow .use_in().
+    # FIXME:  remove when we can require the latest version of glue
+    pass
 
-  utils.ContentHandler = ContentHandler
-
-  xmldoc = utils.load_url(segfile, verbose = verbose,gz = segfile.endswith(".gz"))
+  xmldoc = utils.load_url(segfile, verbose = verbose,gz = segfile.endswith(".gz"), contenthandler = ContentHandler)
   for n, table_elem in enumerate(xmldoc.getElements(lambda e:\
                                        (e.tagName == ligolw.Table.tagName))):
     if n == 0:

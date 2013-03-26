@@ -662,7 +662,7 @@ int main(int argc, char *argv[])
                  ".*%c.*", fqChanName[0]);
         sieve.srcRegEx = ifoRegExPattern;
         sieve.dscRegEx = frInType;
-        LAL_CALL(LALFrCacheSieve(&status, &frInCache, frGlobCache, &sieve),
+        LAL_CALL(LALFrSieveCache(&status, &frInCache, frGlobCache, &sieve),
                  &status);
 
         /* check we got at least one frame file back after the sieve */
@@ -1084,7 +1084,7 @@ int main(int argc, char *argv[])
     memmove(chan.data->data, chan.data->data + padData * sampleRate,
             (chan.data->length -
              2 * padData * sampleRate) * sizeof(REAL4));
-    LALRealloc(chan.data->data,
+    XLALRealloc(chan.data->data,
                (chan.data->length -
                 2 * padData * sampleRate) * sizeof(REAL4));
     chan.data->length -= 2 * padData * sampleRate;
@@ -3950,12 +3950,12 @@ int arg_parse_check(int argc, char *argv[], MetadataTable procparams)
                     "AdvLIGO, mean or median\n");
             exit(1);
         }
-        if (specType == specType_LIGO && colorSpec == 4) {
+        if (specType == specType_LIGO && colorSpec == colorSpec_AdvLIGO) {
             fprintf(stderr, "Error: if "
                     "--colored-gaussian is AdvLIGO --spectrum-type cannot be LIGO\n");
             exit(1);
         }
-        if (specType == specType_AdvLIGO && colorSpec == 3) {
+        if (specType == specType_AdvLIGO && colorSpec == colorSpec_LIGO) {
             fprintf(stderr, "Error: if "
                     "--colored-gaussian is LIGO --spectrum-type cannot be AdvLIGO\n");
             exit(1);

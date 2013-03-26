@@ -258,7 +258,7 @@ static struct PyMethodDef functions[] = {
 };
 
 
-void initsnglinspiraltable(void)
+PyMODINIT_FUNC initsnglinspiraltable(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SnglInspiralTable type.");
 

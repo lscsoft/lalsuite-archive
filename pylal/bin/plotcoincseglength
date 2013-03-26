@@ -5,8 +5,14 @@ import glob
 from optparse import *
 from pylab import *
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import lsctables
+
+try:
+  lsctables.use_in(ligolw.PartialLIGOLWContentHandler)
+except AttributeError:
+  # old glue did not allow .use_in().
+  # FIXME:  remove when we can require the latest version of glue
+  pass
 
 ##############################################################################
 

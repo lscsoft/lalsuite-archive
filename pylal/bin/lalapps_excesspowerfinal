@@ -63,6 +63,13 @@
 
 
 import bisect
+try:
+	from fpconst import PosInf, NegInf
+except ImportError:
+	# fpconst is not part of the standard library and might not be
+	# available
+	PosInf = float("+inf")
+	NegInf = float("-inf")
 import glob
 import math
 from matplotlib import patches
@@ -137,14 +144,14 @@ def parse_command_line():
 
 	if not options.plot_scatter_data:
 		if not options.background_glob:
-			raise ValueError, "missing required --background-glob argument"
+			raise ValueError("missing required --background-glob argument")
 		if not options.injections_glob:
-			raise ValueError, "missing required --injections-glob argument"
+			raise ValueError("missing required --injections-glob argument")
 
 	options.upper_limit_confidence /= 100.0
 
 	if options.upper_limit_scale not in ("E", "hrss"):
-		raise ValueError, "invalid value '%s' for --upper-limit-scale" % options.upper_limit_scale
+		raise ValueError("invalid value '%s' for --upper-limit-scale" % options.upper_limit_scale)
 
 	return options, (filenames or [None])
 
@@ -274,7 +281,6 @@ def dump_confidence_likelihood_scatter_data(globs, live_time_program = "lalapps_
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		connection.create_function("coinc_detection_statistic", 2, coinc_detection_statistic)
-		dbtables.DBTable_set_connection(connection)
 		database = SnglBurstUtils.CoincDatabase(connection, live_time_program)
 		if verbose:
 			SnglBurstUtils.summarize_coinc_database(database)
@@ -317,7 +323,7 @@ WHERE
 		# Done with this file.
 		#
 
-		connection.close()
+		database.connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 	#
@@ -612,9 +618,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 		if verbose:
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
-		connection = sqlite3.connect(working_filename)
-		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(connection, live_time_program)
+		database = SnglBurstUtils.CoincDatabase(sqlite3.connect(working_filename), live_time_program)
 		if verbose:
 			SnglBurstUtils.summarize_coinc_database(database)
 
@@ -628,7 +632,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 		# Done with this file.
 		#
 
-		connection.close()
+		database.connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 	#
@@ -807,7 +811,7 @@ class EfficiencyData(SimBurstUtils.Efficiency_hrss_vs_freq):
 
 	def add_contents(self, contents, threshold):
 		if self.instruments != contents.instruments:
-			raise ValueError, "this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments))
+			raise ValueError("this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments)))
 
 		# iterate over all sims
 
@@ -831,7 +835,7 @@ FROM
 			sim = contents.sim_burst_table.row_from_cols(values)
 			detection_statistic = values[-1]
 			amplitude = self.amplitude_func(sim, None)
-			if SimBurstUtils.on_instruments(sim, contents.seglists, offsetvectors[sim.time_slide_id])) == self.instruments:
+			if SimBurstUtils.on_instruments(sim, contents.seglists, offsetvectors[sim.time_slide_id]) == self.instruments:
 				# injection was made
 				self.injected_x.append(sim.frequency)
 				self.injected_y.append(amplitude)
@@ -886,7 +890,7 @@ FROM
 		lo = index - (len(window) - 1) / 2
 		hi = lo + len(window)
 		if lo < 0 or hi > len(amplitude_weight.array):
-			raise ValueError, "amplitude weighting window too large"
+			raise ValueError("amplitude weighting window too large")
 		amplitude_weight.array[lo:hi] = window
 
 		# store the recovered injections in the found density bins
@@ -982,7 +986,7 @@ def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power"
 	elif upper_limit_scale == "hrss":
 		efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.hrss), r"$h_{\mathrm{rss}}$", 0.1)
 	else:
-		raise ValueError, "bad upper_limit_scale %s" % repr(upper_limit_scale)
+		raise ValueError("bad upper_limit_scale %s" % repr(upper_limit_scale))
 
 	#
 	# Iterate over injection files.
@@ -998,7 +1002,6 @@ def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power"
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		connection.create_function("coinc_detection_statistic", 2, coinc_detection_statistic)
-		dbtables.DBTable_set_connection(connection)
 		database = SnglBurstUtils.CoincDatabase(connection, live_time_program)
 		if verbose:
 			SnglBurstUtils.summarize_coinc_database(database)
@@ -1013,7 +1016,7 @@ def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power"
 		# Done with this file.
 		#
 
-		connection.close()
+		database.connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 	#
@@ -1258,13 +1261,13 @@ def coinc_detection_statistic(likelihood, confidence, m = options.confidence_con
 
 	if likelihood <= 0:
 		# log() doesn't like 0, so we handle this case separately.
-		return float("-inf")
+		return NegInf
 
 	if 1.0 / likelihood <= 0:
 		# this time likelihood == +inf, which can happen when there
 		# are regions of parameter space where no noise is ever,
 		# *ever*, seen.
-		return float("+inf")
+		return PosInf
 
 	return math.log(likelihood) - m * math.log(confidence)
 
@@ -1308,7 +1311,7 @@ if options.verbose:
 	print >>sys.stderr, "building file list ..."
 filenames = sorted(filename for g in options.background_glob for filename in glob.glob(g))
 if not filenames:
-	raise ValueError, "no background/zero lag files found"
+	raise ValueError("no background/zero lag files found")
 
 if True:
 	rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, open_box = options.open_box, verbose = options.verbose)
@@ -1338,7 +1341,7 @@ if options.verbose:
 	print >>sys.stderr, "building file list ..."
 filenames = sorted(filename for g in options.injections_glob for filename in glob.glob(g))
 if not filenames:
-	raise ValueError, "no injection files found"
+	raise ValueError("no injection files found")
 
 efficiency_data = measure_efficiency(filenames, rate_vs_threshold_data.amplitude_threshold, live_time_program = options.live_time_program, upper_limit_scale = options.upper_limit_scale, tmp_path = options.tmp_space, verbose = options.verbose)
 

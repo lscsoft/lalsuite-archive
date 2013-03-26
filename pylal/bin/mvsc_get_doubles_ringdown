@@ -96,7 +96,7 @@ for database in databases:
 		return xlaltools.XLAL3DRinca(rowA,rowB)
 
 	def calc_delta_t(trigger1_ifo, trigger1_time, trigger1_time_ns, trigger2_ifo, trigger2_time, trigger2_time_ns, time_slide_id, rings = rings, offset_vectors = offset_vectors):
-		time_slide_id = ilwd.get_ilwdchar(time_slide_id)
+		time_slide_id = ilwd.ilwdchar(time_slide_id)
 		trigger1_true_time = dbtables.lsctables.LIGOTimeGPS(trigger1_time, trigger1_time_ns)
 		trigger2_true_time = dbtables.lsctables.LIGOTimeGPS(trigger2_time, trigger2_time_ns)
 		# find the instruments that were on at trigger 1's time and
@@ -149,17 +149,17 @@ for database in databases:
 				injections_info[injset]=[]
 				for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_injections]), (ifos[0],ifos[1],injset,) ):
 						normalization[injset]=normalization[injset]+values[-1]
-						injections[injset].append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
+						injections[injset].append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
 						injections_info[injset].append([values[0], database])
 
 	#FIXME: look up coinc_definer_id from definition in pylal
 # get the timeslide/full_data triggers
 	for values in connection.cursor().execute(''.join([mvsc_queries_ringdown.CandidateEventQuery.select_dimensions,mvsc_queries_ringdown.CandidateEventQuery.add_join_fulldata]), tuple(ifos) ):
 		if values[-1] == 'slide':
-			timeslides.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
+			timeslides.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			timeslides_info.append([values[0], database])
 		if values[-1] == 'all_data':
-			zerolag.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
+			zerolag.append((calc_ds_sq(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			zerolag_info.append([values[0], database])
 	dbtables.put_connection_filename(database, working_filename, verbose = True)
 

@@ -107,14 +107,12 @@ void free_UpperLimitVector(UpperLimitVector *vector)
 // Reset the upperLimitStruct
 void reset_UpperLimitStruct(UpperLimit *ul)
 {
-   
    ul->fsig = NULL;
    ul->period = NULL;
    ul->moddepth = NULL;
    ul->ULval = NULL;
    ul->effSNRval = NULL;
-   
-}
+} /* reset_UpperLimitStruct() */
 
 //Free an upperLimitStruct
 void free_UpperLimitStruct(UpperLimit *ul)
@@ -141,17 +139,18 @@ void free_UpperLimitStruct(UpperLimit *ul)
       ul->effSNRval = NULL;
    }
    
-}
+} /* free_UpperLimitStruct() */
 
 
 //Determine the 95% confidence level upper limit at a particular sky location from the loudest IHS value
 void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdata, ihsMaximaStruct *ihsmaxima, ihsfarStruct *ihsfar, REAL4Vector *fbinavgs)
 {
    
-   INT4 ii, jj, kk;
+   INT4 ii, jj, kk, ULdetermined = 0;
    
    INT4 minrows = (INT4)round(2.0*params->dfmin*params->Tcoh)+1;
    
+   //Allocate vectors
    ul->fsig = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
    ul->period = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
    ul->moddepth = XLALCreateREAL8Vector((ihsmaxima->rows-minrows)+1);
@@ -178,7 +177,26 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
    const gsl_root_fsolver_type *T = gsl_root_fsolver_brent;
    gsl_root_fsolver *s = gsl_root_fsolver_alloc (T);
    gsl_function F;
-   F.function = &gsl_ncx2cdf_float_withouttinyprob_solver;     //single precision, without the extremely tiny probability part
+   switch (params->ULsolver) {
+      case 1:
+         F.function = &gsl_ncx2cdf_withouttinyprob_solver;           //double precision, without the extremely tiny probability part
+         break;
+      case 2:
+         F.function = &gsl_ncx2cdf_float_solver;   //single precision
+         break;
+      case 3:
+         F.function = &gsl_ncx2cdf_solver;         //double precision
+         break;
+      case 4:
+         F.function = &ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver;   //single precision, w/ Matlab-based chi2cdf function
+         break;
+      case 5:
+         F.function = &ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver;         //double precision, w/ Matlab-based chi2cdf function
+         break;
+      default:
+         F.function = &gsl_ncx2cdf_float_withouttinyprob_solver;     //single precision, without the extremely tiny probability part
+         break;
+   }
    struct ncx2cdf_solver_params pars;
    
    //loop over modulation depths
@@ -191,19 +209,19 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
       //loop over frequency bins
       for (jj=0; jj<ffdata->numfbins-(ii-1); jj++) {
          INT4 locationinmaximavector = startpositioninmaximavector + jj;      //Current location in IHS maxima vector
-         INT4 location = ihsmaxima->locations->data[locationinmaximavector];  //Location of maximum value
-         REAL8 noise = ihsfar->expectedIHSVector->data[location-5];           //Expected noise at the location of the maximum value
+         REAL8 noise = ihsfar->expectedIHSVector->data[ihsmaxima->locations->data[locationinmaximavector] - 5];  //Expected noise
          
          //Sum across multiple frequency bins scaling noise each time with average noise floor
          REAL8 totalnoise = 0.0;
-         for (kk=0; kk<ii; kk++) totalnoise += noise*fbinavgs->data[jj+kk];
+         for (kk=0; kk<ii; kk++) totalnoise += fbinavgs->data[jj+kk];
+         totalnoise = noise*totalnoise/(REAL8)ii;
          
          REAL8 ihsminusnoise = ihsmaxima->maxima->data[locationinmaximavector] - totalnoise;    //IHS value minus noise
          
-         REAL8 fsig = params->fmin + (0.5*(ii-1.0) + jj)/params->Tcoh;        //"Signal" frequency
+         REAL8 fsig = params->fmin - params->dfmax + (0.5*(ii-1.0) + jj - 6.0)/params->Tcoh;        //"Signal" frequency
          
          if (ihsminusnoise>loudestoutlierminusnoise && 
-             (fsig>=params->ULfmin && fsig<=params->ULfmin+params->ULfspan) && 
+             (fsig>=params->ULfmin && fsig<params->ULfmin+params->ULfspan) && 
              (moddepth>=params->ULmindf && moddepth<=params->ULmaxdf)) {
             loudestoutlier = ihsmaxima->maxima->data[locationinmaximavector];
             loudestoutliernoise = totalnoise;
@@ -213,74 +231,89 @@ void skypoint95UL(UpperLimit *ul, inputParamsStruct *params, ffdataStruct *ffdat
          }
       } /* for jj < ffdata->numfbins-(ii-1) */
       
-      //Signal an error if we didn't find something above the noise level
-      if (locationofloudestoutlier==-1) {
-         fprintf(stderr, "%s: Failed to reach a louder outlier minus noise greater than 0\n", __func__);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      }
-      
       //comment or remove this
       //fprintf(stderr, "%f %f %.6f %.6f %d %d\n", params->fmin + (0.5*(ii-1.0) + jjbinofloudestoutlier)/params->Tcoh, 0.5*(ii-1.0)/params->Tcoh, loudestoutliernoise, loudestoutlierminusnoise, locationofloudestoutlier, jjbinofloudestoutlier);
       
-      //We do a root finding algorithm to find the delta value required so that only 5% of a non-central chi-square
-      //distribution lies below the maximum value.
-      REAL8 initialguess = ncx2inv_float(0.95, 2.0*loudestoutliernoise, 2.0*loudestoutlierminusnoise);
-      if (XLAL_IS_REAL8_FAIL_NAN(initialguess)) {
-         fprintf(stderr, "%s: ncx2inv(%f,%f,%f) failed.\n", __func__, 0.95, 2.0*loudestoutliernoise, 2.0*loudestoutlierminusnoise);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      }
-      REAL8 lo = 0.001*initialguess, hi = 10.0*initialguess;
-      pars.val = 2.0*loudestoutlier;
-      pars.dof = 2.0*loudestoutliernoise;
-      pars.ULpercent = 0.95;
-      F.params = &pars;
-      if (gsl_root_fsolver_set(s, &F, lo, hi) != 0) {
-         fprintf(stderr,"%s: gsl_root_fsolver_set() failed.\n", __func__);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      }
-      
-      INT4 status = GSL_CONTINUE;
-      INT4 max_iter = 100;
-      REAL8 root = 0.0;
-      jj = 0;
-      while (status==GSL_CONTINUE && jj<max_iter) {
-         jj++;
-         status = gsl_root_fsolver_iterate(s);
-         if (status!=GSL_CONTINUE && status!=GSL_SUCCESS) {
-            fprintf(stderr,"%s: gsl_root_fsolver_iterate() failed with code %d.\n", __func__, status);
+      if (locationofloudestoutlier!=-1) {
+         //We do a root finding algorithm to find the delta value required so that only 5% of a non-central chi-square
+         //distribution lies below the maximum value.
+         REAL8 initialguess = ncx2inv_float(0.95, 2.0*loudestoutliernoise, 2.0*loudestoutlierminusnoise);
+         if (XLAL_IS_REAL8_FAIL_NAN(initialguess)) {
+            fprintf(stderr, "%s: ncx2inv(%f,%f,%f) failed.\n", __func__, 0.95, 2.0*loudestoutliernoise, 2.0*loudestoutlierminusnoise);
             XLAL_ERROR_VOID(XLAL_EFUNC);
          }
-         root = gsl_root_fsolver_root(s);
-         lo = gsl_root_fsolver_x_lower(s);
-         hi = gsl_root_fsolver_x_upper(s);
-         status = gsl_root_test_interval(lo, hi, 0.0, 0.001);
-         if (status!=GSL_CONTINUE && status!=GSL_SUCCESS) {
-            fprintf(stderr,"%s: gsl_root_test_interval() failed with code %d.\n", __func__, status);
+         REAL8 lo = 0.001*initialguess, hi = 10.0*initialguess;
+         pars.val = 2.0*loudestoutlier;
+         pars.dof = 2.0*loudestoutliernoise;
+         pars.ULpercent = 0.95;
+         F.params = &pars;
+         if (gsl_root_fsolver_set(s, &F, lo, hi) != 0) {
+            fprintf(stderr,"%s: gsl_root_fsolver_set() failed.\n", __func__);
             XLAL_ERROR_VOID(XLAL_EFUNC);
          }
-      } /* while status==GSL_CONTINUE and jj<max_iter */
-      if (status != GSL_SUCCESS) {
-         fprintf(stderr, "%s: Root finding iteration (%d/%d) failed with code %d. Current root = %f\n", __func__, jj, max_iter, status, root);
-         XLAL_ERROR_VOID(XLAL_FAILURE);
-      } else if (jj==max_iter) {
-         fprintf(stderr, "%s: Root finding failed to converge after %d iterations", __func__, jj);
-         XLAL_ERROR_VOID(XLAL_FAILURE);
-      }
-      
-      //Convert the root value to an h0 value
-      REAL8 h0 = ihs2h0(root, params);
-      if (XLAL_IS_REAL8_FAIL_NAN(h0)) {
-         fprintf(stderr, "%s: ihs2h0() failed.\n", __func__);
-         XLAL_ERROR_VOID(XLAL_EFUNC);
-      }
-      
-      //Store values in the upper limit struct
-      ul->fsig->data[ii-minrows] = params->fmin + (0.5*(ii-1.0) + jjbinofloudestoutlier)/params->Tcoh;
-      ul->period->data[ii-minrows] = params->Tobs/locationofloudestoutlier;
-      ul->moddepth->data[ii-minrows] = 0.5*(ii-1.0)/params->Tcoh;
-      ul->ULval->data[ii-minrows] = h0;
-      ul->effSNRval->data[ii-minrows] = unitGaussianSNR(root+pars.dof, pars.dof);
-   } /* for ii=minrows --> maximum rows */
+         
+         INT4 status = GSL_CONTINUE;
+         INT4 max_iter = 100;
+         REAL8 root = 0.0;
+         jj = 0;
+         while (status==GSL_CONTINUE && jj<max_iter) {
+            jj++;
+            status = gsl_root_fsolver_iterate(s);
+            if (status!=GSL_CONTINUE && status!=GSL_SUCCESS) {
+               fprintf(stderr,"%s: gsl_root_fsolver_iterate() failed with code %d.\n", __func__, status);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
+            root = gsl_root_fsolver_root(s);
+            if (xlalErrno!=0) {
+               fprintf(stderr,"%s: gsl_root_fsolver_root() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
+            lo = gsl_root_fsolver_x_lower(s);
+            if (xlalErrno!=0) {
+               fprintf(stderr,"%s: gsl_root_fsolver_x_lower() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
+            hi = gsl_root_fsolver_x_upper(s);
+            if (xlalErrno!=0) {
+               fprintf(stderr,"%s: gsl_root_fsolver_x_upper() failed.\n", __func__);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
+            status = gsl_root_test_interval(lo, hi, 0.0, 0.001);
+            if (status!=GSL_CONTINUE && status!=GSL_SUCCESS) {
+               fprintf(stderr,"%s: gsl_root_test_interval() failed with code %d.\n", __func__, status);
+               XLAL_ERROR_VOID(XLAL_EFUNC);
+            }
+         } /* while status==GSL_CONTINUE and jj<max_iter */
+         if (status != GSL_SUCCESS) {
+            fprintf(stderr, "%s: Root finding iteration (%d/%d) failed with code %d. Current root = %f\n", __func__, jj, max_iter, status, root);
+            XLAL_ERROR_VOID(XLAL_FAILURE);
+         } else if (jj==max_iter) {
+            fprintf(stderr, "%s: Root finding failed to converge after %d iterations", __func__, jj);
+            XLAL_ERROR_VOID(XLAL_FAILURE);
+         }
+         
+         //Convert the root value to an h0 value
+         REAL8 h0 = ihs2h0(root, params);
+         if (XLAL_IS_REAL8_FAIL_NAN(h0)) {
+            fprintf(stderr, "%s: ihs2h0() failed.\n", __func__);
+            XLAL_ERROR_VOID(XLAL_EFUNC);
+         }
+         
+         //Store values in the upper limit struct
+         ul->fsig->data[ii-minrows] = params->fmin - params->dfmax + (0.5*(ii-1.0) + jjbinofloudestoutlier - 6.0)/params->Tcoh;
+         ul->period->data[ii-minrows] = params->Tobs/locationofloudestoutlier;
+         ul->moddepth->data[ii-minrows] = 0.5*(ii-1.0)/params->Tcoh;
+         ul->ULval->data[ii-minrows] = h0;
+         ul->effSNRval->data[ii-minrows] = unitGaussianSNR(root+pars.dof, pars.dof);
+         ULdetermined++;
+      } /* for ii=minrows --> maximum rows */
+   }
+   
+   //Signal an error if we didn't find something above the noise level
+   if (ULdetermined==0) {
+      fprintf(stderr, "%s: Failed to reach a louder outlier minus noise greater than 0\n", __func__);
+      XLAL_ERROR_VOID(XLAL_EFUNC);
+   }
    
    gsl_root_fsolver_free(s);
    
@@ -341,6 +374,36 @@ REAL8 gsl_ncx2cdf_float_withouttinyprob_solver(REAL8 x, void *p)
    REAL4 val = ncx2cdf_float_withouttinyprob((REAL4)params->val, (REAL4)params->dof, (REAL4)x);
    if (XLAL_IS_REAL4_FAIL_NAN(val)) {
       fprintf(stderr, "%s: ncx2cdf_float_withouttinyprob(%f, %f, %f) failed.\n", __func__, params->val, params->dof, x);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
+   }
+   else return (REAL8)val - (1.0-params->ULpercent);
+   
+}
+
+//The non-central chi-square CDF solver used in the GSL root finding algorithm, using a Matlab-based chi2cdf function
+//Double precision, without the tiny probability
+REAL8 ncx2cdf_withouttinyprob_withmatlabchi2cdf_solver(REAL8 x, void *p)
+{
+   
+   struct ncx2cdf_solver_params *params = (struct ncx2cdf_solver_params*)p;
+   REAL8 val = ncx2cdf_withouttinyprob_withmatlabchi2cdf(params->val, params->dof, x);
+   if (XLAL_IS_REAL8_FAIL_NAN(val)) {
+      fprintf(stderr, "%s: ncx2cdf_withouttinyprob_withmatlabchi2cdf(%f, %f, %f) failed.\n", __func__, params->val, params->dof, x);
+      XLAL_ERROR_REAL8(XLAL_EFUNC);
+   }
+   else return val - (1.0-params->ULpercent);
+   
+}
+
+//The non-central chi-square CDF solver used in the GSL root finding algorithm, using a Matlab-based chi2cdf function
+//Float precision (although output is in double precision for GSL), without the tiny probability
+REAL8 ncx2cdf_float_withouttinyprob_withmatlabchi2cdf_solver(REAL8 x, void *p)
+{
+   
+   struct ncx2cdf_solver_params *params = (struct ncx2cdf_solver_params*)p;
+   REAL4 val = ncx2cdf_float_withouttinyprob_withmatlabchi2cdf((REAL4)params->val, (REAL4)params->dof, (REAL4)x);
+   if (XLAL_IS_REAL4_FAIL_NAN(val)) {
+      fprintf(stderr, "%s: ncx2cdf_float_withouttinyprob_withmatlabchi2cdf(%f, %f, %f) failed.\n", __func__, params->val, params->dof, x);
       XLAL_ERROR_REAL8(XLAL_EFUNC);
    }
    else return (REAL8)val - (1.0-params->ULpercent);

@@ -1,4 +1,4 @@
-INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
 
 if LALFRAME
 if LALMETAIO
@@ -12,7 +12,7 @@ endif
 
 if HAVE_PYTHON
 bin_SCRIPTS = lalapps_cosmicstring_pipe
-pkgpython_DATA = cosmicstring.py
+pkgpython_PYTHON = cosmicstring.py
 endif
 
 #pkgdata_DATA = S3_H1_StringDag.ini S3_StringDag.ini S4_StringDag.ini

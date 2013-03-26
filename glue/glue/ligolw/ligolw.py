@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2012  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -58,8 +58,11 @@ __date__ = git_version.date
 #
 
 
+NameSpace = u"http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt"
+
+
 Header = u"""<?xml version='1.0' encoding='utf-8'?>
-<!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">"""
+<!DOCTYPE LIGO_LW SYSTEM "%s">""" % NameSpace
 
 
 Indent = u"\t"
@@ -103,8 +106,8 @@ class Element(object):
 	"""
 	# XML tag names are case sensitive:  compare with ==, !=, etc.
 	tagName = None
-	validattributes = []
-	validchildren = []
+	validattributes = frozenset()
+	validchildren = frozenset()
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		"""
@@ -113,11 +116,14 @@ class Element(object):
 		documentation, but it's basically a dictionary-like thing)
 		used to set the element attributes.
 		"""
+		# must use .keys(), cannot iterate over AttributesImpl
+		# objects like you can with dictionaries.  you get a
+		# KeyError if you try
 		for key in attrs.keys():
 			if key not in self.validattributes:
-				raise ElementError, "%s does not have attribute %s" % (self.tagName, key)
+				raise ElementError("%s does not have attribute '%s'" % (self.tagName, key))
 		self.parentNode = None
-		self.attributes = attrs
+		self.attributes = attrs.copy()
 		self.childNodes = []
 		self.pcdata = None
 
@@ -157,7 +163,7 @@ class Element(object):
 			if childNode is refchild:
 				break
 		else:
-			raise ValueError, refchild
+			raise ValueError(refchild)
 		self.childNodes.insert(i, newchild)
 		newchild.parentNode = self
 		self._verifyChildren(i)
@@ -185,7 +191,7 @@ class Element(object):
 		self.parentNode = None
 		for child in self.childNodes:
 			child.unlink()
-		self.childNodes = []
+		del self.childNodes[:]
 
 	def replaceChild(self, newchild, oldchild):
 		"""
@@ -200,7 +206,7 @@ class Element(object):
 			if childNode is oldchild:
 				break
 		else:
-			raise ValueError, oldchild
+			raise ValueError(oldchild)
 		self.childNodes[i].parentNode = None
 		self.childNodes[i] = newchild
 		newchild.parentNode = self
@@ -209,8 +215,8 @@ class Element(object):
 
 	def getElements(self, filter):
 		"""
-		Return a list of elements below elem for which filter(element)
-		returns True.
+		Return a list of elements below and including this element
+		for which filter(element) returns True.
 		"""
 		l = reduce(lambda l, e: l + e.getElements(filter), self.childNodes, [])
 		if filter(self):
@@ -271,6 +277,13 @@ class Element(object):
 		"""
 		pass
 
+	def endElement(self):
+		"""
+		Method invoked by document parser when it encounters the
+		end-of-element event.
+		"""
+		pass
+
 	def write(self, file = sys.stdout, indent = u""):
 		"""
 		Recursively write an element and it's children to a file.
@@ -278,7 +291,7 @@ class Element(object):
 		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(file, indent + Indent)
 		if self.pcdata:
 			file.write(xmlescape(self.pcdata))
@@ -310,8 +323,8 @@ class LIGO_LW(Element):
 	LIGO_LW element.
 	"""
 	tagName = u"LIGO_LW"
-	validchildren = [u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"]
-	validattributes = [u"Name", u"Type"]
+	validchildren = frozenset([u"LIGO_LW", u"Comment", u"Param", u"Table", u"Array", u"Stream", u"IGWDFrame", u"AdcData", u"AdcInterval", u"Time", u"Detector"])
+	validattributes = frozenset([u"Name", u"Type"])
 
 
 class Comment(Element):
@@ -334,8 +347,8 @@ class Param(Element):
 	Param element.
 	"""
 	tagName = u"Param"
-	validchildren = [u"Comment"]
-	validattributes = [u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"]
+	validchildren = frozenset([u"Comment"])
+	validattributes = frozenset([u"Name", u"Type", u"Start", u"Scale", u"Unit", u"DataUnit"])
 
 	def get_unit(self):
 		"""
@@ -379,8 +392,8 @@ class Table(Element):
 	Table element.
 	"""
 	tagName = u"Table"
-	validchildren = [u"Comment", u"Column", u"Stream"]
-	validattributes = [u"Name", u"Type"]
+	validchildren = frozenset([u"Comment", u"Column", u"Stream"])
+	validattributes = frozenset([u"Name", u"Type"])
 
 	def _verifyChildren(self, i):
 		ncomment = 0
@@ -389,17 +402,17 @@ class Table(Element):
 		for child in self.childNodes:
 			if child.tagName == Comment.tagName:
 				if ncomment:
-					raise ElementError, "only one Comment allowed in Table"
+					raise ElementError("only one Comment allowed in Table")
 				if ncolumn or nstream:
-					raise ElementError, "Comment must come before Column(s) and Stream in Table"
+					raise ElementError("Comment must come before Column(s) and Stream in Table")
 				ncomment += 1
 			elif child.tagName == Column.tagName:
 				if nstream:
-					raise ElementError, "Column(s) must come before Stream in Table"
+					raise ElementError("Column(s) must come before Stream in Table")
 				ncolumn += 1
 			else:
 				if nstream:
-					raise ElementError, "only one Stream allowed in Table"
+					raise ElementError("only one Stream allowed in Table")
 				nstream += 1
 
 
@@ -408,7 +421,7 @@ class Column(Element):
 	Column element.
 	"""
 	tagName = u"Column"
-	validattributes = [u"Name", u"Type", u"Unit"]
+	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
 	def start_tag(self, indent):
 		"""
@@ -438,18 +451,18 @@ class Array(Element):
 	Array element.
 	"""
 	tagName = u"Array"
-	validchildren = [u"Dim", u"Stream"]
-	validattributes = [u"Name", u"Type", u"Unit"]
+	validchildren = frozenset([u"Dim", u"Stream"])
+	validattributes = frozenset([u"Name", u"Type", u"Unit"])
 
 	def _verifyChildren(self, i):
 		nstream = 0
 		for child in self.childNodes:
 			if child.tagName == Dim.tagName:
 				if nstream:
-					raise ElementError, "Dim(s) must come before Stream in Array"
+					raise ElementError("Dim(s) must come before Stream in Array")
 			else:
 				if nstream:
-					raise ElementError, "only one Stream allowed in Array"
+					raise ElementError("only one Stream allowed in Array")
 				nstream += 1
 
 
@@ -458,7 +471,7 @@ class Dim(Element):
 	Dim element.
 	"""
 	tagName = u"Dim"
-	validattributes = [u"Name", u"Unit", u"Start", u"Scale"]
+	validattributes = frozenset([u"Name", u"Unit", u"Start", u"Scale"])
 
 	def write(self, file = sys.stdout, indent = u""):
 		if self.pcdata:
@@ -474,15 +487,16 @@ class Stream(Element):
 	Stream element.
 	"""
 	tagName = u"Stream"
-	validattributes = [u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"]
+	validattributes = frozenset([u"Name", u"Type", u"Delimiter", u"Encoding", u"Content"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+		attrs = attrs.copy()
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"Local"
 		if not attrs.has_key(u"Delimiter"):
 			attrs._attrs[u"Delimiter"] = u","
 		if attrs[u"Type"] not in [u"Remote", u"Local"]:
-			raise ElementError, "invalid Type for Stream: %s" % attrs[u"Type"]
+			raise ElementError("invalid Type for Stream: '%s'" % attrs[u"Type"])
 		Element.__init__(self, attrs)
 
 
@@ -491,8 +505,8 @@ class IGWDFrame(Element):
 	IGWDFrame element.
 	"""
 	tagName = u"IGWDFrame"
-	validchildren = [u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"]
-	validattributes = [u"Name"]
+	validchildren = frozenset([u"Comment", u"Param", u"Time", u"Detector", u"AdcData", u"LIGO_LW", u"Stream", u"Array", u"IGWDFrame"])
+	validattributes = frozenset([u"Name"])
 
 
 class Detector(Element):
@@ -500,8 +514,8 @@ class Detector(Element):
 	Detector element.
 	"""
 	tagName = u"Detector"
-	validchildren = [u"Comment", u"Param", u"LIGO_LW"]
-	validattributes = [u"Name"]
+	validchildren = frozenset([u"Comment", u"Param", u"LIGO_LW"])
+	validattributes = frozenset([u"Name"])
 
 
 class AdcData(Element):
@@ -509,8 +523,8 @@ class AdcData(Element):
 	AdcData element.
 	"""
 	tagName = u"AdcData"
-	validchildren = [u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"]
-	validattributes = [u"Name"]
+	validchildren = frozenset([u"AdcData", u"Comment", u"Param", u"Time", u"LIGO_LW", u"Array"])
+	validattributes = frozenset([u"Name"])
 
 
 class AdcInterval(Element):
@@ -518,8 +532,8 @@ class AdcInterval(Element):
 	AdcInterval element.
 	"""
 	tagName = u"AdcInterval"
-	validchildren = [u"AdcData", u"Comment", u"Time"]
-	validattributes = [u"Name", u"StartTime", u"DeltaT"]
+	validchildren = frozenset([u"AdcData", u"Comment", u"Time"])
+	validattributes = frozenset([u"Name", u"StartTime", u"DeltaT"])
 
 
 class Time(Element):
@@ -527,13 +541,14 @@ class Time(Element):
 	Time element.
 	"""
 	tagName = u"Time"
-	validattributes = [u"Name", u"Type"]
+	validattributes = frozenset([u"Name", u"Type"])
 
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
+		attrs = attrs.copy()
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"ISO-8601"
 		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
-			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
+			raise ElementError("invalid Type for Time: '%s'" % attrs[u"Type"])
 		Element.__init__(self, attrs)
 
 	def write(self, file = sys.stdout, indent = u""):
@@ -550,7 +565,7 @@ class Document(Element):
 	Description of a LIGO LW file.
 	"""
 	tagName = u"Document"
-	validchildren = [u"LIGO_LW"]
+	validchildren = frozenset([u"LIGO_LW"])
 
 	def write(self, file = sys.stdout, xsl_file = None ):
 		"""
@@ -561,7 +576,7 @@ class Document(Element):
 			file.write(u'<?xml-stylesheet type="text/xsl" href="' + xsl_file + u'" ?>' + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
-				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
+				raise ElementError("invalid child %s for %s" % (c.tagName, self.tagName))
 			c.write(file)
 
 
@@ -574,7 +589,7 @@ class Document(Element):
 #
 
 
-class LIGOLWContentHandler(sax.handler.ContentHandler):
+class LIGOLWContentHandler(sax.handler.ContentHandler, object):
 	"""
 	ContentHandler class for parsing LIGO Light Weight documents with a
 	SAX2-compliant parser.
@@ -593,153 +608,80 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 	gzip'ed documents, MD5 hash computation, and Condor eviction
 	trapping to avoid writing broken documents to disk.
 	"""
-	def __init__(self, document):
+
+	def __init__(self, document, start_handlers = {}):
 		"""
 		Initialize the handler by pointing it to the Document object
 		into which the parsed file will be loaded.
 		"""
-		self.document = document
-		self.current = self.document
+		self.current = self.document = document
 
-	def startAdcData(self, attrs):
+		self._startElementHandlers = {
+			(None, AdcData.tagName): self.startAdcData,
+			(None, AdcInterval.tagName): self.startAdcInterval,
+			(None, Array.tagName): self.startArray,
+			(None, Column.tagName): self.startColumn,
+			(None, Comment.tagName): self.startComment,
+			(None, Detector.tagName): self.startDetector,
+			(None, Dim.tagName): self.startDim,
+			(None, IGWDFrame.tagName): self.startIGWDFrame,
+			(None, LIGO_LW.tagName): self.startLIGO_LW,
+			(None, Param.tagName): self.startParam,
+			(None, Stream.tagName): self.startStream,
+			(None, Table.tagName): self.startTable,
+			(None, Time.tagName): self.startTime,
+		}
+		self._startElementHandlers.update(start_handlers)
+
+	def startAdcData(self, parent, attrs):
 		return AdcData(attrs)
 
-	def endAdcData(self):
-		pass
-
-	def startAdcInterval(self, attrs):
+	def startAdcInterval(self, parent, attrs):
 		return AdcInterval(attrs)
 
-	def endAdcInterval(self):
-		pass
-
-	def startArray(self, attrs):
+	def startArray(self, parent, attrs):
 		return Array(attrs)
 
-	def endArray(self):
-		pass
-
-	def startColumn(self, attrs):
+	def startColumn(self, parent, attrs):
 		return Column(attrs)
 
-	def endColumn(self):
-		pass
-
-	def startComment(self, attrs):
+	def startComment(self, parent, attrs):
 		return Comment(attrs)
 
-	def endComment(self):
-		pass
-
-	def startDetector(self, attrs):
+	def startDetector(self, parent, attrs):
 		return Detector(attrs)
 
-	def endDetector(self):
-		pass
-
-	def startDim(self, attrs):
+	def startDim(self, parent, attrs):
 		return Dim(attrs)
 
-	def endDim(self):
-		pass
-
-	def startIGWDFrame(self, attrs):
+	def startIGWDFrame(self, parent, attrs):
 		return IGWDFrame(attrs)
 
-	def endIGWDFrame(self):
-		pass
-
-	def startLIGO_LW(self, attrs):
+	def startLIGO_LW(self, parent, attrs):
 		return LIGO_LW(attrs)
 
-	def endLIGO_LW(self):
-		pass
-
-	def startParam(self, attrs):
+	def startParam(self, parent, attrs):
 		return Param(attrs)
 
-	def endParam(self):
-		pass
-
-	def startStream(self, attrs):
+	def startStream(self, parent, attrs):
 		return Stream(attrs)
 
-	def endStream(self):
-		pass
-
-	def startTable(self, attrs):
+	def startTable(self, parent, attrs):
 		return Table(attrs)
 
-	def endTable(self):
-		pass
-
-	def startTime(self, attrs):
+	def startTime(self, parent, attrs):
 		return Time(attrs)
 
-	def endTime(self):
-		pass
+	def startElementNS(self, (uri, localname), qname, attrs):
+		try:
+			start_handler = self._startElementHandlers[(uri, localname)]
+		except KeyError:
+			raise ElementError("unknown element %s for namespace %s" % (localname, uri or NameSpace))
+		attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		self.current = self.current.appendChild(start_handler(self.current, attrs))
 
-	def startElement(self, name, attrs):
-		if name == AdcData.tagName:
-			child = self.startAdcData(attrs)
-		elif name == AdcInterval.tagName:
-			child = self.startAdcInterval(attrs)
-		elif name == Array.tagName:
-			child = self.startArray(attrs)
-		elif name == Column.tagName:
-			child = self.startColumn(attrs)
-		elif name == Comment.tagName:
-			child = self.startComment(attrs)
-		elif name == Detector.tagName:
-			child = self.startDetector(attrs)
-		elif name == Dim.tagName:
-			child = self.startDim(attrs)
-		elif name == IGWDFrame.tagName:
-			child = self.startIGWDFrame(attrs)
-		elif name == LIGO_LW.tagName:
-			child = self.startLIGO_LW(attrs)
-		elif name == Param.tagName:
-			child = self.startParam(attrs)
-		elif name == Stream.tagName:
-			child = self.startStream(attrs)
-		elif name == Table.tagName:
-			child = self.startTable(attrs)
-		elif name == Time.tagName:
-			child = self.startTime(attrs)
-		else:
-			raise ElementError, "unknown element %s" % name
-		self.current.appendChild(child)
-		self.current = child
-
-	def endElement(self, name):
-		if name == AdcData.tagName:
-			self.endAdcData()
-		elif name == AdcInterval.tagName:
-			self.endAdcInterval()
-		elif name == Array.tagName:
-			self.endArray()
-		elif name == Column.tagName:
-			self.endColumn()
-		elif name == Comment.tagName:
-			self.endComment()
-		elif name == Detector.tagName:
-			self.endDetector()
-		elif name == Dim.tagName:
-			self.endDim()
-		elif name == IGWDFrame.tagName:
-			self.endIGWDFrame()
-		elif name == LIGO_LW.tagName:
-			self.endLIGO_LW()
-		elif name == Param.tagName:
-			self.endParam()
-		elif name == Stream.tagName:
-			self.endStream()
-		elif name == Table.tagName:
-			self.endTable()
-		elif name == Time.tagName:
-			self.endTime()
-		else:
-			raise ElementError, "unknown element %s" % name
+	def endElementNS(self, (uri, localname), qname):
+		self.current.endElement()
 		self.current = self.current.parentNode
 
 	def characters(self, content):
@@ -749,7 +691,11 @@ class LIGOLWContentHandler(sax.handler.ContentHandler):
 			self.current.appendData(xmlunescape(content))
 
 
-class PartialLIGOLWContentHandler(LIGOLWContentHandler):
+class DefaultLIGOLWContentHandler(LIGOLWContentHandler):
+	pass
+
+
+class PartialLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 	"""
 	LIGO LW content handler object that loads only those parts of the
 	document matching some criteria.  Useful, for example, when one
@@ -772,22 +718,23 @@ class PartialLIGOLWContentHandler(LIGOLWContentHandler):
 		evaluates to True, and the children of those elements, will
 		be loaded.
 		"""
-		LIGOLWContentHandler.__init__(self, document)
+		super(PartialLIGOLWContentHandler, self).__init__(document)
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElement(self, name, attrs):
-		if self.depth > 0 or self.element_filter(name, attrs):
-			LIGOLWContentHandler.startElement(self, name, attrs)
+	def startElementNS(self, (uri, localname), qname, attrs):
+		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		if self.depth > 0 or self.element_filter(localname, filter_attrs):
+			super(PartialLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
 			self.depth += 1
 
-	def endElement(self, name):
+	def endElementNS(self, *args):
 		if self.depth > 0:
 			self.depth -= 1
-			LIGOLWContentHandler.endElement(self, name)
+			super(PartialLIGOLWContentHandler, self).endElementNS(*args)
 
 
-class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
+class FilteringLIGOLWContentHandler(DefaultLIGOLWContentHandler):
 	"""
 	LIGO LW content handler that loads everything but those parts of a
 	document that match some criteria.  Useful, for example, when one
@@ -810,21 +757,22 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 		evaluates to False, and the children of those elements,
 		will not be loaded.
 		"""
-		LIGOLWContentHandler.__init__(self, document)
+		super(FilteringLIGOLWContentHandler, self).__init__(document)
 		self.element_filter = element_filter
 		self.depth = 0
 
-	def startElement(self, name, attrs):
-		if self.depth > 0 or not self.element_filter(name, attrs):
+	def startElementNS(self, (uri, localname), qname, attrs):
+		filter_attrs = sax.xmlreader.AttributesImpl(dict((attrs.getQNameByName(name), value) for name, value in attrs.items()))
+		if self.depth > 0 or not self.element_filter(localname, filter_attrs):
 			self.depth += 1
 		else:
-			LIGOLWContentHandler.startElement(self, name, attrs)
+			super(FilteringLIGOLWContentHandler, self).startElementNS((uri, localname), qname, attrs)
 
-	def endElement(self, name):
+	def endElementNS(self, *args):
 		if self.depth > 0:
 			self.depth -= 1
 		else:
-			LIGOLWContentHandler.endElement(self, name)
+			super(FilteringLIGOLWContentHandler, self).endElementNS(*args)
 
 
 #
@@ -838,16 +786,17 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 
 def make_parser(handler):
 	"""
-	Convenience function to construct a document parser with validation
-	disabled.  Document validation is a nice feature, but enabling
-	validation can require the LIGO LW DTD to be downloaded from the
-	LDAS document server if the DTD is not included inline in the XML.
-	This requires a working connection to the internet, which would
-	preclude the use of this library on slave nodes in LSC computer
-	clusters.
+	Convenience function to construct a document parser with namespaces
+	enabled and validation disabled.  Document validation is a nice
+	feature, but enabling validation can require the LIGO LW DTD to be
+	downloaded from the LDAS document server if the DTD is not included
+	inline in the XML.  This requires a working connection to the
+	internet, which would preclude the use of this library on slave
+	nodes in LSC computer clusters.
 	"""
 	parser = sax.make_parser()
 	parser.setContentHandler(handler)
+	parser.setFeature(sax.handler.feature_namespaces, True)
 	parser.setFeature(sax.handler.feature_validation, False)
 	parser.setFeature(sax.handler.feature_external_ges, False)
 	return parser

@@ -290,7 +290,7 @@ class Coinc(object):
 		self.contents = contents
 		self.sngl_inspiral = {}
 		self.sngl_inspiral_coh = {}
-		self.coinc_event_id = ilwd.get_ilwdchar(row[0])
+		self.coinc_event_id = ilwd.ilwdchar(row[0])
 		self.combined_far = float(row[1])
 		self.snr = float(row[2])
 		self.time = float(row[3])

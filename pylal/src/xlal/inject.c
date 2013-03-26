@@ -90,7 +90,7 @@ static struct PyMethodDef methods[] = {
 };
 
 
-void initinject(void)
+PyMODINIT_FUNC initinject(void)
 {
 	Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's inject package.");
 

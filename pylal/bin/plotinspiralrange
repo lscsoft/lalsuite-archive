@@ -41,28 +41,9 @@ import sys
 import glob
 from optparse import *
 import numpy
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
 from glue import lal
 from pylal import InspiralUtils
 from pylal import git_version
-
-# ============================================================================
-class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-  def __init__(self, xmldoc):
-    """
-    New content handler that only reads in the SummValue table
-    """
-    def element_filter(name, attrs):
-      """
-      Return True if name and attrs describe a SummValueTable
-      """
-      return lsctables.IsTableProperties(lsctables.SummValueTable, name, attrs) 
-    ligolw.PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
-
-utils.ContentHandler = ContentHandler
 
 # ============================================================================
 def stairs(xVal,yVal):
@@ -81,10 +62,10 @@ def stairs(xVal,yVal):
       xStairs.append(xVal[len(xVal)-1])
       yStairs.append(yVal[len(yVal)-1])
     elif not i%2:
-      xStairs.append(mean(xVal[i/2-1],xVal[i/2]))
+      xStairs.append(mean((xVal[i/2-1],xVal[i/2])))
       yStairs.append(yVal[i/2])
     else:
-      xStairs.append(mean(xVal[(i-1)/2],xVal[(i+1)/2]))
+      xStairs.append(mean((xVal[(i-1)/2],xVal[(i+1)/2])))
       yStairs.append(yVal[(i-1)/2])
 
   return xStairs,yStairs
@@ -259,7 +240,6 @@ def plotinspiralrange_range_versus_total_mass(opts):
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
   
-  
   fname = []
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "range_mass")
@@ -401,35 +381,33 @@ OR the cachefile options (--cache-file), not both at the same time.
 
   return options, sys.argv[1:]
 
-
-
 # ============================================================================
 # -- get command line arguments
+
 opts, args = parse_command_line()
+
 # -- Initialise
 opts = InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
+
 # -- set the proper color code
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
 
-# to avoid  display problem when show plot is not used
+# to avoid display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
 
-
-
-
-
 # ============================================================================
 # -- identify the inspiral and template bank files
+
 InspiralUtils.message(opts, "Parsing the cache file...wait...")
 inspiralFiles = get_filelist(opts)
  
-# -- Read in the summ values from the inspiral/tmpltbank  files
+# -- Read in the summ values from the inspiral/tmpltbank files
 inspiralSumm, massInspiralSumm = InspiralUtils.readHorizonDistanceFromSummValueTable(inspiralFiles, opts.verbose)
 
 # ============================================================================
@@ -445,9 +423,9 @@ if opts.range_vs_time is True:
   fnameList.append(fname)
   tagList.append("Horizon distance versus time")
 
-
 # ============================================================================
 # Make histogram of range values
+
 if opts.range_hist is True:
   # create a text for the alt and title of html document
   text = "Histogram of inspiral horizon distance for a (1.4,1.4) solar "+\
@@ -457,8 +435,6 @@ if opts.range_hist is True:
   # -- save results in output files --
   fnameList.append(fname)
   tagList.append("Histogram of horizon distance")
-  
-
 
 # ============================================================================
 # Make plot of mean range vs total mass
@@ -473,10 +449,9 @@ if opts.range_mass is True:
   fnameList.append(fname)
   tagList.append("Horizon distance versus mass")
 
-    
-
 # ============================================================================
 # final step: html, cache file generation
+
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)

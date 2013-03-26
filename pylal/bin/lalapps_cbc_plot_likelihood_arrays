@@ -54,6 +54,9 @@ from pylal import git_version
 from pylal import rate
 
 
+lsctables.use_in(ligolw.LIGOLWContentHandler)
+
+
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
@@ -134,7 +137,7 @@ saved_ratios = {}
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, verbose = options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	for name, ratios in binned_ratios_extractor(xmldoc):
 		if name not in saved_ratios.keys():
 			saved_ratios[name] = ratios

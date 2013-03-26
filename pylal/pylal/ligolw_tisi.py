@@ -30,7 +30,6 @@ import sys
 
 from glue import iterutils
 from glue import offsetvector
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
@@ -139,7 +138,12 @@ def parse_inspiral_num_slides_slidespec(slidespec):
 	return int(count), offsetvect
 
 
-def load_time_slides(filename, verbose = False, gz = None):
+class DefaultContentHandler(lsctables.ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(DefaultContentHandler)
+
+
+def load_time_slides(filename, verbose = False, gz = None, contenthandler = DefaultContentHandler):
 	"""
 	Load a time_slide table from the LIGO Light Weight XML file named
 	filename, or stdin if filename is None.  See
@@ -160,7 +164,7 @@ def load_time_slides(filename, verbose = False, gz = None):
 	from scratch.  Instead, from the glue.ligolw package use
 	table.get_table(...).as_dict().
 	"""
-	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz), lsctables.TimeSlideTable.tableName)
+	time_slide_table = lsctables.table.get_table(utils.load_filename(filename, verbose = verbose, gz = gz, contenthandler = contenthandler), lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
 	return time_slide_table.as_dict()
 

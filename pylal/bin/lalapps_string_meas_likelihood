@@ -81,20 +81,20 @@ def parse_command_line():
 
 	if options.T010150 is not None:
 		if options.output is not None:
-			raise ValueError, "cannot set both --T010150 and --output"
+			raise ValueError("cannot set both --T010150 and --output")
 		if options.T010150 == "":
 			options.T010150 = "STRING_LIKELIHOOD"
 		elif set(options.T010150) - T010150_letters:
-			raise ValueError, "invalid characters in description \"%s\"" % options.T010150
+			raise ValueError("invalid characters in description \"%s\"" % options.T010150)
 
 	if options.input_cache:
 		filenames += [CacheEntry(line).path() for line in file(options.input_cache)]
 
 	if not filenames:
-		raise ValueError, "no input files!"
+		raise ValueError("no input files!")
 
 	if options.injection_reweight not in ("off", "astrophysical"):
-		raise ValueError, "--injection-reweight \"%s\" not recognized" % options.injections_reweight
+		raise ValueError("--injection-reweight \"%s\" not recognized" % options.injections_reweight)
 
 	return options, filenames
 
@@ -115,7 +115,7 @@ def get_injection_weight_func(contents, reweight_type):
 	elif reweight_type == "astrophysical":
 		population, = ligolwprocess.get_process_params(contents.xmldoc, "lalapps_binj", "--population")
 		if population != "string_cusp":
-			raise ValueError, "lalapps_binj was not run with --population=\"string_cusp\""
+			raise ValueError("lalapps_binj was not run with --population=\"string_cusp\"")
 		def weight_func(sim):
 			# the "string_cusp" injection population is uniform
 			# in log A, meaning the number of injections
@@ -134,7 +134,7 @@ def get_injection_weight_func(contents, reweight_type):
 			# have occasion to do so.
 			return (sim.amplitude * 1e21)**-3
 	else:
-		raise ValueError, reweight_type
+		raise ValueError(reweight_type)
 	return weight_func
 
 
@@ -179,7 +179,6 @@ for n, filename in enumerate(filenames):
 
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
 	if options.tmp_space is not None:
 		dbtables.set_temp_store_directory(connection, options.tmp_space, verbose = options.verbose)
 

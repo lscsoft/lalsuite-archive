@@ -1,6 +1,38 @@
 # lalsuite_build.m4 - top level build macros
 #
-# serial 35
+# serial 47
+
+AC_DEFUN([LALSUITE_CHECK_GIT_REPO],[
+  # check for git
+  AC_PATH_PROGS(GIT,[git],[false])
+  # check whether building from a git repository
+  have_git_repo=no
+  AS_IF([test "x${GIT}" != xfalse],[
+    AC_MSG_CHECKING([whether building from a git repository])
+    # git log will print:
+    # * the last log message, if the cwd is in a git repository
+    # * nothing, if the cwd is not part of the git repo (e.g. ignored)
+    # * an error msg to stderr if the cwd is not in a git repository
+    git_log=`( cd "${srcdir}" && ${GIT} log --oneline -n 1 -- . ) 2>/dev/null`
+    AS_IF([test "x${git_log}" != x],[
+      have_git_repo=yes
+    ])
+    AC_MSG_RESULT([${have_git_repo}])
+  ])
+  # conditional for git and building from a git repository
+  AM_CONDITIONAL(HAVE_GIT_REPO,[test "x${have_git_repo}" = xyes])
+  # command line for version information generation script
+  AM_COND_IF(HAVE_GIT_REPO,[
+    m4_pattern_allow([AM_V_GEN])
+    m4_pattern_allow([AM_V_at])
+    AC_SUBST([genvcsinfo_],["\$(genvcsinfo_\$(AM_DEFAULT_VERBOSITY))"])
+    AC_SUBST([genvcsinfo_0],["--am-v-gen='\$(AM_V_GEN)'"])
+    GENERATE_VCS_INFO="\$(AM_V_at)\$(PYTHON) \$(top_srcdir)/../gnuscripts/generate_vcs_info.py --git-path='\$(GIT)' \$(genvcsinfo_\$(V))"
+  ],[
+    GENERATE_VCS_INFO=false
+  ])
+  AC_SUBST(GENERATE_VCS_INFO)
+])
 
 AC_DEFUN([LALSUITE_REQUIRE_CXX],[
   # require a C++ compiler
@@ -20,15 +52,29 @@ AC_DEFUN([LALSUITE_PROG_CC_CXX],[
   AC_REQUIRE([AC_PROG_CC])
   AC_REQUIRE([AC_PROG_CC_C99])
   AC_REQUIRE([AC_PROG_CPP])
+
+  # check for clang
+  AS_IF([test "x$GCC" = xyes],
+    [AS_IF([test "`$CC -v 2>&1 | grep -c 'clang version'`" != "0"],[CLANG_CC=1])],
+    [CLANG_CC=])
+  AC_SUBST(CLANG_CC)
+
   # check for C++ compiler, if needed
   AS_IF([test "${lalsuite_require_cxx}" = true],[
     AC_PROG_CXX
     AC_PROG_CXXCPP
+
+    # check for clang++
+    AS_IF([test "x$GXX" = xyes],
+      [AS_IF([test "`$CXX -v 2>&1 | grep -c 'clang version'`" != "0"],[CLANG_CXX=1])],
+      [CLANG_CXX=])
+    AC_SUBST(CLANG_CXX)
   ],[
     CXX=
     CXXCPP=
     AM_CONDITIONAL([am__fastdepCXX],[test 1 == 0])
   ])
+
   # check complex numbers
   LALSUITE_CHECK_C99_COMPLEX_NUMBERS
   AS_IF([test "${lalsuite_require_cxx}" = true],[
@@ -59,11 +105,12 @@ AC_DEFUN([LALSUITE_MULTILIB_LIBTOOL_HACK],
 [## $0: libtool incorrectly determine library path on SL6
 case "${host}" in
   x86_64-*-linux-gnu*)
-    redhat_release=`cat /etc/redhat-release 2> /dev/null`
-    if test "${redhat_release}" = "Scientific Linux release 6.1 (Carbon)"; then
-      AC_MSG_NOTICE([hacking round broken libtool multilib support on SL6])
-      lt_cv_sys_lib_dlsearch_path_spec="/lib64 /usr/lib64"
-    fi
+    case `cat /etc/redhat-release 2> /dev/null` in
+      "Scientific Linux"*|"CentOS"*)
+        AC_MSG_NOTICE([hacking round broken libtool multilib support on RedHat systems])
+        lt_cv_sys_lib_dlsearch_path_spec="/lib64 /usr/lib64"
+        ;;
+    esac
     ;;
 esac
 ]) # LALSUITE_MULTILIB_LIBTOOL_HACK
@@ -73,7 +120,20 @@ AC_DEFUN([LALSUITE_DISTCHECK_CONFIGURE_FLAGS],[
   DISTCHECK_CONFIGURE_FLAGS=
   for arg in ${ac_configure_args}; do
     case ${arg} in
-      (\'--enable-*\'|\'--disable-*\'|\'--with-*\'|\'--without-*\')
+      (\'--enable-*\'|\'--disable-*\')
+        # save any --enable/--disable arguments
+        DISTCHECK_CONFIGURE_FLAGS="${DISTCHECK_CONFIGURE_FLAGS} ${arg}";;
+      (\'--with-*\'|\'--without-*\')
+        # save any --with/--without arguments
+        DISTCHECK_CONFIGURE_FLAGS="${DISTCHECK_CONFIGURE_FLAGS} ${arg}";;
+      (\'--*\')
+        # skip all other ./configure arguments
+        : ;;
+      (\'DISTCHECK_CONFIGURE_FLAGS=*\')
+        # append value of DISTCHECK_CONFIGURE_FLAGS
+        DISTCHECK_CONFIGURE_FLAGS="${DISTCHECK_CONFIGURE_FLAGS} "`expr "X${arg}" : "X'DISTCHECK_CONFIGURE_FLAGS=\(.*\)'"`;;
+      (\'*=*\')
+        # save any environment variables given to ./configure
         DISTCHECK_CONFIGURE_FLAGS="${DISTCHECK_CONFIGURE_FLAGS} ${arg}";;
     esac
   done
@@ -177,7 +237,7 @@ AC_DEFUN([LALSUITE_ENABLE_NIGHTLY],
   [nightly],
   AC_HELP_STRING([--enable-nightly],[nightly build [default=no]]),
   [ case "${enableval}" in
-      yes) NIGHTLY_VERSION=`date +"%Y%m%d"`
+      yes) NIGHTLY_VERSION=`date -u +"%Y%m%d"`
            VERSION="${VERSION}.${NIGHTLY_VERSION}" ;;
       no) NIGHTLY_VERSION="";;
       *) NIGHTLY_VERSION="${enableval}"
@@ -269,6 +329,19 @@ AC_ARG_ENABLE(
   ], [ lalsimulation=${all_lal:-true} ] )
 ])
 
+AC_DEFUN([LALSUITE_ENABLE_LALDETCHAR],
+[AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
+AC_ARG_ENABLE(
+  [laldetchar],
+  AC_HELP_STRING([--enable-laldetchar],[compile code that requires laldetchar library [default=no]]),
+  [ case "${enableval}" in
+      yes) laldetchar=true;;
+      no) laldetchar=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-laldetchar) ;;
+    esac
+  ], [ laldetchar=${all_lal:-false} ] )
+])
+
 AC_DEFUN([LALSUITE_ENABLE_LALBURST],
 [AC_REQUIRE([LALSUITE_ENABLE_ALL_LAL])
 AC_ARG_ENABLE(
@@ -299,6 +372,9 @@ AC_ARG_ENABLE(
       *) AC_MSG_ERROR(bad value ${enableval} for --enable-lalinspiral) ;;
     esac
   ], [ lalinspiral=${all_lal:-true} ] )
+if test "$lalframe" = "false"; then
+  lalinspiral=false
+fi
 if test "$lalmetaio" = "false"; then
   lalinspiral=false
 fi
@@ -410,43 +486,42 @@ AC_MSG_RESULT([unknown])
 [boinc=false])
 ])
 
-AC_DEFUN([LALSUITE_WITH_CUDA],
-[AC_ARG_WITH(
+AC_DEFUN([LALSUITE_WITH_CUDA],[
+AC_ARG_WITH(
   [cuda],
-  AC_HELP_STRING([--with-cuda=PATH],[specify location of CUDA [/opt/cuda]]),
-  [ case "$with_cuda" in
-    no)
-      cuda=false
-      ;;
-    yes)
-      AC_MSG_WARN([No path for CUDA specifed, using /opt/cuda])
-      cuda=true
-      AS_CASE([$build_os],
-          [linux*],[AS_IF([test "x$build_cpu" = "xx86_64"],[CLIBS="lib64"],[CLIBS="lib"])],
-          [CLIBS="lib"])
-      CUDA_LIBS="-L/opt/cuda/$CLIBS -lcufft -lcudart"
-      CUDA_CFLAGS="-I/opt/cuda/include"
-      LIBS="$LIBS $CUDA_LIBS"
-      CFLAGS="$CFLAGS $CUDA_CFLAGS"
-      AC_SUBST(CUDA_LIBS)
-      AC_SUBST(CUDA_CFLAGS)
-      ;;
-    *)
-      AC_MSG_NOTICE([Using ${with_cuda} as CUDA path])
-      cuda=true
-      AS_CASE([$build_os],
-          [linux*],[AS_IF([test "x$build_cpu" = "xx86_64"],[CLIBS="lib64"],[CLIBS="lib"])],
-          [CLIBS="lib"])
-      CUDA_LIBS="-L${with_cuda}/$CLIBS -lcufft -lcudart"
-      CUDA_CFLAGS="-I${with_cuda}/include"
-      LIBS="$LIBS $CUDA_LIBS"
-      CFLAGS="$CFLAGS $CUDA_CFLAGS"
-      AC_SUBST(CUDA_LIBS)
-      AC_SUBST(CUDA_CFLAGS)
-      ;;
-    esac
-  ], [ cuda=false ])
-  AS_IF([test "${cuda}" = true],[LALSUITE_REQUIRE_CXX])
+  AC_HELP_STRING([--with-cuda=PATH],[specify location of CUDA [/opt/cuda]]),[
+    AS_CASE([${with_cuda}],
+      [no],[cuda=false],
+      [yes],[cuda=true; cuda_path=/opt/cuda],
+      [cuda=true; cuda_path=${with_cuda}]
+    )
+  ],[
+    cuda=false
+  ])
+  AS_IF([test "${cuda}" = true],[
+    LALSUITE_REQUIRE_CXX
+    AC_MSG_NOTICE([Using ${with_cuda} as CUDA path])
+    AS_CASE([$build_os],
+      [linux*],[
+        AS_IF([test "x$build_cpu" = "xx86_64"],[
+          cuda_libdir=lib64
+        ],[
+          cuda_libdir=lib
+        ])
+      ],
+      [cuda_libdir=lib]
+    )
+    CUDA_LIBS="-L${cuda_path}/${cuda_libdir} -Wl,-rpath -Wl,${cuda_path}/${cuda_libdir} -lcufft -lcudart"
+    CUDA_CPPFLAGS="-I${with_cuda}/include"
+    LIBS="$LIBS $CUDA_LIBS"
+    CPPFLAGS="$CPPFLAGS $CUDA_CPPFLAGS"
+    AC_SUBST(CUDA_LIBS)
+    AC_SUBST(CUDA_CPPFLAGS)
+    AC_PATH_PROGS(NVCC,[nvcc],[],[${cuda_path}/bin:${PATH}])
+    AS_IF([test "x${NVCC}" = x],[
+      AC_MSG_ERROR([could not find 'nvcc' in path])
+    ])
+  ])
   LALSUITE_ENABLE_MODULE([CUDA],[cuda])
 ])
 

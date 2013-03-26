@@ -55,13 +55,15 @@ def f_PSD_from_file(filename, fLow, fNyq, deltaF):
 	S = pylab.interp(f, f_in, S_in)
 	# packing is of the form:
 	# [0 deltaF 2*deltaF ... fNyquist-deltaF fNyquist -fNyquist+deltaF ... -2*deltaF -deltaF]
-	PSD = scipy.zeros(2*(fNyq/deltaF), dtype='float')+scipy.inf
-	PSD[fLow/deltaF:fNyq/deltaF+1] = S**2
-	if -scipy.floor(fLow/deltaF) == 0:
-		PSD[fNyq/deltaF+1:] = S[-2:0:-1]**2
-	else:
-		PSD[fNyq/deltaF+1:-scipy.floor(fLow/deltaF)] = S[-2:0:-1]**2
 	f = f_for_fft(fLow, fNyq, deltaF)
+	nNyq = round(fNyq/deltaF)
+	nLow = round(fLow/deltaF)
+	PSD = scipy.zeros(2*nNyq, dtype='float')+scipy.inf
+	PSD[nLow:nNyq+1] = S**2
+	if -nLow == 0:
+		PSD[nNyq+1:] = S[-2:0:-1]**2
+	else:
+		PSD[nNyq+1:-nLow] = S[-2:0:-1]**2
 	return f,PSD
 
 def DegMinSec2Rad(sign,deg,minutes,seconds):

@@ -26,17 +26,27 @@ LALInferenceProposalTest_SOURCES = \
 	LALInferenceProposalTest.c
 	LALInferenceTest.h
 
+LALInferenceInjectionTest_SOURCES = \
+	LALInferenceTestInjectionLikelihood.c
+	LALInferenceTest.h
+
+LALInferenceKDTest_SOURCES = \
+	LALInferenceKDTest.c \
+	LALInferenceTest.h
+
 check_PROGRAMS = \
 	LALInferenceTest \
 	LALInferencePriorTest \
 	LALInferenceLikelihoodTest \
 	LALInferenceProposalTest \
+	LALInferenceKDTest \
+	LALInferenceInjectionTest \
 	$(XMLPRG)
 
 TESTS = \
 	LALInferenceTest \
 	LALInferencePriorTest \
-	LALInferenceLikelihoodTest \
+	LALInferenceKDTest \
 	$(XMLPRG)
 
 endif
@@ -49,5 +59,3 @@ CLEANFILES = \
 	*.out \
 	*.dat \
 	*.xml
-
-TESTS_ENVIRONMENT = 1>/dev/null 2>/dev/null

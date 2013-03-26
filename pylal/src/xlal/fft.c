@@ -164,7 +164,7 @@ static struct PyMethodDef module_methods[] = {
 };
 
 
-void initfft(void)
+PyMODINIT_FUNC initfft(void)
 {
 	/* commented out to silence warning */
 	/*PyObject *module = */Py_InitModule3(MODULE_NAME, module_methods, "Wrapper for LAL's fft package.");

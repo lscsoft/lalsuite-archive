@@ -32,6 +32,7 @@ from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcluster
@@ -289,7 +290,7 @@ def ligolw_bucluster(
 		if verbose:
 			print >>sys.stderr, "document does not contain a sngl_burst table, skipping ..."
 		return xmldoc, False
-	seg = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce().extent_all()
+	seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 
 	#
 	# Remove all H2 triggers intersecting the frequency band
@@ -327,10 +328,12 @@ def ligolw_bucluster(
 	postfunc(sngl_burst_table, preprocess_output)
 
 	#
-	# Add search summary information
+	# Update instrument list in process table and add search summary
+	# information
 	#
 
-	llwapp.append_search_summary(xmldoc, process, inseg = seg, outseg = seg, nevents = len(sngl_burst_table))
+	process.set_ifos(seglists.keys())
+	ligolw_search_summary.append_search_summary(xmldoc, process, inseg = seglists.extent_all(), outseg = seglists.extent_all(), nevents = len(sngl_burst_table))
 
 	#
 	# Done

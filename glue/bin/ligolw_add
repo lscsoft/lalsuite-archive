@@ -40,6 +40,7 @@ from glue import git_version
 from glue.lal import CacheEntry
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw
+from glue.ligolw import array
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
@@ -65,14 +66,13 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "Name: %%prog\n%s" % git_version.verbose_msg,
 		usage = "%prog [options] [url ...]",
-		description = "Combines one or more LIGO Light Weight XML files into a single output file.  The output is written to stdout or to the filename specified by --output.  In addition to regular files, many common URL types can be read such as http:// and ftp://.  Any input files or URLs whose names end in \".gz\" are assumed to be gzip-compressed, and will be uncompressed while reading.  If the output file's name ends in \".gz\", the output document will be gzip-compressed while writing.  Table elements contained in the document will be merged so that there is not more than one table of any given name in the output.  To accomplish this, any tables in the input documents that share the same name must have compatible columns, meaning the same column names with matching types (but not necessarily in the same order)."
+		description = "Combines one or more LIGO Light Weight XML files into a single output file.  The output is written to stdout or to the filename specified by --output.  In addition to regular files, many common URL types can be read such as http:// and ftp://.  Input documents that are gzip-compressed are automatically detected and decompressed.  If the output file's name ends in \".gz\", the output document will be gzip-compressed.  Table elements contained in the document will be merged so that there is not more than one table of any given name in the output.  To accomplish this, any tables in the input documents that share the same name must have compatible columns, meaning the same column names with matching types (but not necessarily in the same order)."
 	)
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get input files from the LAL cache named filename.")
 	parser.add_option("--add-lfn-table", action = "store_true", help = "Add an lfn entry for each process.")
 	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "Set lfn start_time (optional).")
 	parser.add_option("--lfn-end-time", metavar = "GPS seconds", help = "Set lfn end_time (optional).")
 	parser.add_option("--lfn-comment", metavar = "string", help = "Set lfn comment (optional).")
-	parser.add_option("--mangle-sngl-inspiral-ids", metavar = "type", default = None, help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  The type parameter indicates the reassignment style and must be either \"int_8s\" indicating an old-style document with time-slide information encoded in the ID, or \"ilwd:char\" indicating a new-style document using coinc tables for time slide information (the actual IDs themselves must be ilwd:char in both cases).  CAUTION:  enabling ID reassignment messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
 	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables.")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to filename (default = stdout).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -89,9 +89,6 @@ def parse_command_line():
 
 	if len(urls) < 1:
 		raise ValueError, "no input files!"
-
-	if options.mangle_sngl_inspiral_ids not in (None, "int_8s", "ilwd:char"):
-		raise ValueError, "unrecognized --mangle-sngl-inspiral-ids %s" % options.mangle_sngl_inspiral_ids
 
 	return options, urls
 
@@ -171,34 +168,21 @@ options, urls = parse_command_line()
 
 
 #
-# sngl_inspiral event_id re-assignment
-#
-# FIXME: remove this when the sngl_inspiral event_id column no longer
-# encodes time slide information
-#
-# FIXME: in the meantime, LAL uses ID 0 to indicate "no valid ID has been
-# set", so for safety we start at 1.  If that gets fixed in LAL before this
-# code is simply removed, then set the initial value back to 0 for
-# cleanliness.
-#
-
-
-if options.mangle_sngl_inspiral_ids == "int_8s":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(1)
-elif options.mangle_sngl_inspiral_ids == "ilwd:char":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(1)
-	lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
-
-
-#
 # Input
 #
+
+
+class ContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+
+array.use_in(ContentHandler)
+lsctables.use_in(ContentHandler)
 
 
 lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
-xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = options.non_lsc_tables_ok, verbose = options.verbose)
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = options.non_lsc_tables_ok, verbose = options.verbose, contenthandler = ContentHandler)
 
 
 #

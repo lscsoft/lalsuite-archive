@@ -41,14 +41,21 @@ from glue import segments
 from glue import iterutils
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
-from glue.ligolw import table
+from glue.ligolw import dbtables
 from glue.ligolw import utils
+from pylal import db_thinca_rings
 from pylal import git_version
+from pylal import ligolw_sqlutils as sqlutils
 from pylal import rate
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 import scipy
 import numpy
 lsctables.LIGOTimeGPS = LIGOTimeGPS
+
+
+class StatsContentHandler(ligolw.LIGOLWContentHandler):
+	pass
+lsctables.use_in(StatsContentHandler)
 
 
 __author__ = "Drew G. Keppel <drew.keppel@ligo.org>"
@@ -83,8 +90,8 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.output_table not in ["coinc_event", "coinc_inspiral"]:
-		raise ValueError, "--output-table must be either coinc_event or coinc_inspiral. %s given"%(options.output_table)
+	if options.output_table not in ("coinc_event", "coinc_inspiral"):
+		raise ValueError("--output-table %s invalid.  must be one of coinc_event, coinc_inspiral" % options.output_table)
 
 	return options, (filenames or [None])
 
@@ -177,8 +184,8 @@ class Summaries(object):
 		#
 		# not used yet, only using single detector statistics
 		#
-		trigger1_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
-		trigger2_true_end_time = dbtables.lsctables.LIGOTimeGPS(trigger2_end_time, trigger2_end_time_ns)
+		trigger1_true_end_time = lsctables.LIGOTimeGPS(trigger1_end_time, trigger1_end_time_ns)
+		trigger2_true_end_time = lsctables.LIGOTimeGPS(trigger2_end_time, trigger2_end_time_ns)
 		# find the instruments that were on at trigger 1's end time and
 		# find the ring that contains this trigger
 		try:
@@ -288,7 +295,7 @@ class Summaries(object):
 		#
 		missing = 0
 		for filename in filenames:
-			xmldoc = utils.load_filename(filename, verbose=options.verbose)
+			xmldoc = utils.load_filename(filename, verbose=options.verbose, contenthandler=StatsContentHandler)
 			for name, ratios in binned_ratios_extractor(xmldoc):
 				if '-vs-' in name:
 					ifo,key1,junk,key2 = name.split('-')
@@ -662,16 +669,6 @@ if options.input_bins:
 
 
 #
-# import db tools at last second as they override some xml reading in ligolw
-#
-
-
-from glue.ligolw import dbtables
-from pylal import db_thinca_rings
-from pylal import ligolw_sqlutils as sqlutils
-
-
-#
 # validating output_table and output_column
 #
 
@@ -798,7 +795,7 @@ else:
 #		if options.verbose:
 #			print >>sys.stderr, "\textracting all dbls ..."
 #		likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#		likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
+#		likelihood_bins.offset_vectors = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.TimeSlideTable.tableName).as_dict()
 #		connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
 #		for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
 #			if options.verbose:
@@ -878,7 +875,7 @@ for n, filename in enumerate(filenames):
 #	if options.verbose:
 #		print >>sys.stderr, "\textracting all dbls ..."
 #	likelihood_bins.rings = db_thinca_rings.get_thinca_rings_by_available_instruments(connection)
-#	likelihood_bins.offset_vectors = dbtables.lsctables.table.get_table(dbtables.get_xml(connection), dbtables.lsctables.TimeSlideTable.tableName).as_dict()
+#	likelihood_bins.offset_vectors = lsctables.table.get_table(dbtables.get_xml(connection), lsctables.TimeSlideTable.tableName).as_dict()
 #	connection.create_function("calc_delta_t", 7, likelihood_bins.calc_delta_t)
 #	for ifos in list(iterutils.choices(likelihood_bins.ifos, 2)):
 #		if options.verbose:

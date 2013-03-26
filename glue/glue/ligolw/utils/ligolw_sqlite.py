@@ -76,8 +76,8 @@ __date__ = git_version.date
 #
 
 
-def setup(target, check_same_thread=True):
-	connection = sqlite3.connect(target, check_same_thread=check_same_thread)
+def setup(target, check_same_thread = True):
+	connection = sqlite3.connect(target, check_same_thread = check_same_thread)
 	dbtables.DBTable_set_connection(connection)
 
 	dbtables.idmap_sync(connection)
@@ -128,6 +128,11 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 	printed to stderr.  contenthandler allows a custom XML SAX content
 	handler to be provided.
 	"""
+	# FIXME:  remove the connection parameter, replace it with a
+	# mandatory content handler.  or should this function create its
+	# own content handler if one isn't provided?
+	if contenthandler is not None:
+		assert contenthandler.connection is connection
 	#
 	# load document.  this process inserts the document's contents into
 	# the database.  the XML tree constructed by this process contains
@@ -138,7 +143,7 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 	# that all newly-inserted tables are processed and (b) all
 	# newly-inserted rows are processed.  NOTE:  it is assumed the
 	# content handler is creating DBTable instances in the XML tree,
-	# not regular Table instances
+	# not regular Table instances, but this is not checked.
 	#
 
 	xmldoc = utils.load_url(url, verbose = verbose, contenthandler = contenthandler)

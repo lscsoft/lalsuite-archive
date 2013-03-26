@@ -1,4 +1,4 @@
-INCLUDES = -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include
 
 lalburstincludedir = $(includedir)/lal
 lalburstinclude_HEADERS = \
@@ -6,6 +6,7 @@ lalburstinclude_HEADERS = \
 	EPSearch.h \
 	GenerateBurst.h \
 	LALBurstConfig.h \
+	LALBurstLibVCSInfo.h \
 	LALBurstVCSInfo.h \
 	LIGOLwXMLBurstRead.h \
 	LIGOMetadataBurstUtils.h \
@@ -46,7 +47,7 @@ liblalburst_la_SOURCES = \
 
 liblalburst_la_LDFLAGS = -version-info $(LIBVERSION)
 
-CLEANFILES = \
+MOSTLYCLEANFILES = \
 	lalburst-user-env.shell \
 	lalburst-user-env.sh \
 	lalburst-user-env.csh
@@ -56,8 +57,6 @@ sysconf_DATA = \
 	lalburst-user-env.csh
 
 BUILT_SOURCES = \
-	._vcsinfo \
-	LALBurstVCSInfo.h \
 	lalburst-user-env.sh \
 	lalburst-user-env.csh
 
@@ -68,21 +67,22 @@ lalburst-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend MANPATH $(mandir)" >>$@
 	@echo "prepend LD_LIBRARY_PATH $(libdir)" >>$@
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
+	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
 
 lalburst-user-env.csh lalburst-user-env.sh: lalburst-user-env.shell $(srcdir)/generate_user_env.awk
-	@echo "creating $@"
-	@$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
+	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALBurstConfig.h.in \
-	LALBurstVCSInfo.h.in \
-	generate_user_env.awk \
-	generate_vcs_info.py
+	generate_user_env.awk
 
-LALBurstVCSInfo.h: ._vcsinfo
-
-._vcsinfo: $(srcdir)/generate_vcs_info.py LALBurstConfig.h
-	@$(PYTHON) $(srcdir)/generate_vcs_info.py LALBurst $(srcdir) $$PWD
+if HAVE_GIT_REPO
+BUILT_SOURCES += LALBurstVCSInfo.h
+MOSTLYCLEANFILES += LALBurstVCSInfo.h
+LALBurstVCSInfo.h .PHONY : gen-LALBurstVCSInfo.h
+gen-LALBurstVCSInfo.h :
+	$(GENERATE_VCS_INFO) LALBurstVCSInfo.h $(srcdir)/LALBurstVCSInfo.h.git
+endif
 
 @LAL_HEADER_LINK@

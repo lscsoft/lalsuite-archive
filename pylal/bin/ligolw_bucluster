@@ -30,11 +30,15 @@ from optparse import OptionParser
 
 
 from glue.lal import CacheEntry
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
 from pylal import ligolw_bucluster
 from pylal import llwapp
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -65,9 +69,9 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.cluster_algorithm is None:
-		raise ValueError, "missing required argument --cluster-algorithm"
+		raise ValueError("missing required argument --cluster-algorithm")
 	if options.cluster_algorithm not in ("excesspower",):
-		raise ValueError, "unrecognized --cluster-algorithm %s" % options.cluster_algorithm
+		raise ValueError("unrecognized --cluster-algorithm %s" % options.cluster_algorithm)
 
 	for cache in options.input_cache:
 		filenames += [CacheEntry(line).path() for line in file(cache)]
@@ -129,7 +133,7 @@ for filename in filenames:
 	# Load document
 	#
 
-	xmldoc = utils.load_filename(filename, verbose = options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	lsctables.table.InterningRowBuilder.strings.clear()
 
 	# FIXME:  don't do this:  fix lalapps_power's output

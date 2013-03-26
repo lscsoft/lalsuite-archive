@@ -37,12 +37,7 @@ from optparse import OptionParser
 import re
 import sys
 import os
-try:
-	any
-	all
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any, all
+
 
 from glue import iterutils
 from glue import lal
@@ -59,6 +54,9 @@ from pylal import llwapp
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -91,15 +89,6 @@ def __sngl_inspiral_hash__(self):
 
 
 lsctables.SnglInspiral.__hash__ = __sngl_inspiral_hash__
-
-
-#
-# Disable the custom ID remapping attached to the SnglInspiralTable class
-# (use the generic ID mapping provided by the parent class instead)
-#
-
-
-del lsctables.SnglInspiralTable.updateKeyMapping
 
 
 #
@@ -137,7 +126,7 @@ def parse_command_line():
 
 	if options.ihope_cache:
 		if options.zero_lag_file or options.time_slide_file:
-			raise ValueError, "cannot specify --zero-lag-file or --time-slide-file with --ihope-cache"
+			raise ValueError("cannot specify --zero-lag-file or --time-slide-file with --ihope-cache")
 		if options.verbose:
 			print >>sys.stderr, "reading %s ..." % options.ihope_cache
 		# find second thinca cache entries
@@ -188,16 +177,18 @@ def parse_command_line():
 		metadata_cache = None
 		categories = {(None, None): [(options.zero_lag_file, options.time_slide_file)]}
 	else:
-		raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
-	if options.veto_segments and not options.veto_segments_name:
-		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
+		raise ValueError("must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file")
+	if options.veto_segments and options.veto_segments_name is None:
+		raise ValueError("must specify --veto-segments-name if --veto-sements is specified")
 	if options.instruments:
 		options.instruments = set(options.instruments.split(","))
-	if not options.experiment_start_time or not options.experiment_end_time:
-		raise ValueError, "must specify --experiment-start-time and --experiment-end-time"
+	if None in (options.experiment_start_time, options.experiment_end_time):
+		raise ValueError("must specify --experiment-start-time and --experiment-end-time")
+	if options.statistic not in ("new_snr", "effective_snr"):
+		raise ValueError("--statistic must be one of \"new_snr\", \"effective_snr\"")
 
 	if args:
-		raise ValueError, "extraneous command line arguments specified"
+		raise ValueError("extraneous command line arguments specified")
 
 	return options, categories, metadata_cache
 
@@ -220,6 +211,14 @@ def parse_command_line():
 class MetadataContentHandler(ligolw.FilteringLIGOLWContentHandler):
 	def __init__(self, xmldoc):
 		ligolw.FilteringLIGOLWContentHandler.__init__(self, xmldoc, lambda name, attrs: not lsctables.IsTableProperties(lsctables.SnglInspiralTable, name, attrs))
+
+
+try:
+	lsctables.use_in(MetadataContentHandler)
+except AttributeError:
+	# old glue did not allow .use_in().
+	# FIXME:  remove when we can require the latest version of glue
+	pass
 
 
 #
@@ -265,7 +264,7 @@ def add_metadata(xmldoc, metadata_cache, verbose = False):
 			print >>sys.stderr, "cannot find sngl_inspiral table"
 		return xmldoc
 	if len(set(row.search for row in table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName))) != 1:
-		raise ValueError, "sngl_inspiral triggers must be collected from exactly one search"
+		raise ValueError("sngl_inspiral triggers must be collected from exactly one search")
 
 	#
 	# index lalapps_inspiral entries in the search_summary table
@@ -445,9 +444,9 @@ def get_search_summary_instruments(xmldoc, thinca_process_ids):
 	"""
 	search_summary_instruments = set(frozenset(row.get_ifos()) for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in thinca_process_ids)
 	if len(search_summary_instruments) < 1:
-		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
+		raise ValueError("cannot find entries for thinca jobs in search_summary table")
 	if len(search_summary_instruments) > 1:
-		raise ValueError, "search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(search_summary_instruments)
+		raise ValueError("search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(search_summary_instruments))
 	return search_summary_instruments.pop()
 
 
@@ -496,9 +495,9 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 	slides_process_ids = thinca_process_ids & set(row.process_id for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if row.param == u"--num-slides")
 
 	if len(thinca_process_ids - slides_process_ids) > 1:
-		raise ValueError, "document contains more than 1 zero-lag thinca job"
+		raise ValueError("document contains more than 1 zero-lag thinca job")
 	if len(slides_process_ids) > 1:
-		raise ValueError, "document contains more than 1 non-zero-lag thinca job"
+		raise ValueError("document contains more than 1 non-zero-lag thinca job")
 
 	#
 	# get the list of analyzed instruments from the search_summary
@@ -519,7 +518,7 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 	elif search_summary_instruments.issubset(instruments):
 		required_instruments = instruments
 	else:
-		raise ValueError, "search_summary table named instrument(s) %s that were not named on the command line" % ", ".join(search_summary_instruments - instruments)
+		raise ValueError("search_summary table named instrument(s) %s that were not named on the command line" % ", ".join(search_summary_instruments - instruments))
 
 	#
 	# identify lalapps_thinca's time slides
@@ -551,7 +550,7 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 				if row.param == u"--num-slides":
 					num_slides = row.pyvalue
 					if num_slides < 0:
-						raise ValueError, "invalid --num-slides '%s' for process '%s'" % (row.value, row.process_id)
+						raise ValueError("invalid --num-slides '%s' for process '%s'" % (row.value, row.process_id))
 				else:
 					match = re.search(slide_option_pattern, row.param)
 					if match is not None:
@@ -564,7 +563,7 @@ def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbos
 
 		if not required_instruments.issubset(set(offset_vector)):
 			missing_instruments = set(offset_vector) - required_instruments
-			raise ValueError, "no option(s) %s in process_params table for instrument(s) %s in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
+			raise ValueError("no option(s) %s in process_params table for instrument(s) %s in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments)))
 
 		#
 		# if the user has provided an explicit list of instruments,
@@ -902,7 +901,7 @@ def retrieve_ring_boundaries(xmldoc):
 
 	for i in range(len(rings) - 1):
 		if rings[i].intersects(rings[i + 1]):
-			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
+			raise ValueError("non-disjoint thinca rings detected in search_summary table")
 
 	#
 	# done
@@ -1086,8 +1085,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ch
 		elif options.statistic == "effective_snr":
 			coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		else:
-			print >>sys.stderr, "Error: no recognized statistic given in --statistic (should be new_snr or effective_snr)"
-			sys.exit(1)
+			raise AssertionError
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.combined_far = None
 
@@ -1267,11 +1265,9 @@ def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name
 
 		if simulation:
 			# map to the simulation entry in the experiment_summary table
-			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id, coinc.time_slide_id,
-				veto_def_name, 'simulation', sim_proc_id = None )
+			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id, coinc.time_slide_id, veto_def_name, 'simulation', sim_proc_id = None )
 			if not expr_map.experiment_summ_id:
-				raise ValueError, "simulation experiment_summ_id could not be found with %s" \
-				%(','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
+				raise ValueError("simulation experiment_summ_id could not be found with %s" % (','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ])))
 
 			# map the experiment
 			expr_map_table.append(expr_map)
@@ -1281,11 +1277,9 @@ def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name
 		# if not simulation, check if the coinc is time-slide or zero-lag
 		elif not any( time_slide_dict[coinc.time_slide_id].values() ):
 			# map it to the all_data zero-lag entry for this experiment in the experiment_summary table
-			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id, coinc.time_slide_id,
-				veto_def_name, 'all_data', sim_proc_id = None )
+			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id, coinc.time_slide_id, veto_def_name, 'all_data', sim_proc_id = None )
 			if not expr_map.experiment_summ_id:
-				raise ValueError, "all_data experiment_summ_id could not be found with %s" \
-				%(','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
+				raise ValueError("all_data experiment_summ_id could not be found with %s" % (','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ])))
 
 			expr_map_table.append(expr_map)
 			expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
@@ -1307,8 +1301,7 @@ def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name
 					veto_def_name, 'exclude_play', sim_proc_id = None )
 
 			if not expr_map.experiment_summ_id:
-				raise ValueError, "playground/exclude_play experiment_summ_id could not be found with %s" \
-				%(','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
+				raise ValueError("playground/exclude_play experiment_summ_id could not be found with %s" % (','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ])))
 
 			expr_map_table.append(expr_map)
 			expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
@@ -1319,8 +1312,7 @@ def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name
 				veto_def_name, 'slide', sim_proc_id = None )
 
 			if expr_map.experiment_summ_id is None:
-				raise ValueError, "experiment_summ_id could not be found with ids %s" \
-				%(','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ]))
+				raise ValueError("experiment_summ_id could not be found with ids %s" % (','.join([ str(expr_id), str(coinc.time_slide_id), veto_def_name ])))
 
 			expr_map_table.append(expr_map)
 			expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
@@ -1466,7 +1458,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		found_instruments = set(event.ifo for event in index[coinc_event.coinc_event_id])
 
 		if not found_instruments.issubset(set(offset_vector)):
-			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector)), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
+			raise ValueError("coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector)), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()])))
 
 		#
 		# from the vetoes, check to see which instruments were
@@ -1572,7 +1564,7 @@ options, url_categories, metadata_cache = parse_command_line()
 
 if options.veto_segments:
 	try:
-		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose), options.veto_segments_name).coalesce()
+		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler), options.veto_segments_name).coalesce()
 	except AttributeError:
 		# will get an AttributeError if using old-format veto
 		# segment file because old format does not include _ns; if
@@ -1599,7 +1591,7 @@ if options.veto_segments:
 		lsctables.Segment.get = get_segment
 		lsctables.Segment.set = set_segment
 
-		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose), options.veto_segments_name).coalesce()
+		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler), options.veto_segments_name).coalesce()
 
 
 for (tag, veto_category), url_pairs in url_categories.items():
@@ -1608,8 +1600,12 @@ for (tag, veto_category), url_pairs in url_categories.items():
 	else:
 		output_template = None
 	for n, url_pair in enumerate(url_pairs):
+		# temporarily disable sngl_inspiral ID remapping for
+		# lalapps_thinca input
 		lsctables.SnglInspiralTable.next_id = None
+		# load lalapps_thinca document(s)
 		xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
+		# re-enable sngl_inspiral ID remapping
 		lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
 		process = initialize_process(xmldoc)
@@ -1648,12 +1644,13 @@ for (tag, veto_category), url_pairs in url_categories.items():
 
 		llwapp.set_process_end_time(process)
 
-		# construct the output filename from the zero lag file being processed
 		if output_template:
 			output = output_template % n
 		else:
-			zero_lag_filename = os.path.basename(url_pair[0])
-			output = re.sub('THINCA','THINCA_TO_COINC',zero_lag_filename)
+			# construct the output filename from one of the
+			# files being processed
+			output = re.sub("THINCA", "THINCA_TO_COINC", os.path.basename(url_pair[0] or url_pair[1]))
+
 		utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
 		xmldoc.unlink()
 		lsctables.table.reset_next_ids(lsctables.TableByName.values())

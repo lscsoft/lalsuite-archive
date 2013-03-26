@@ -146,7 +146,7 @@ static struct PyMethodDef functions[] = {
 };
 
 
-void initsnglringdowntable(void)
+PyMODINIT_FUNC initsnglringdowntable(void)
 {
 	PyObject *module = Py_InitModule3(MODULE_NAME, functions, "Wrapper for LAL's SnglRingdownTable type.");
 

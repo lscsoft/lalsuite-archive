@@ -119,6 +119,7 @@ def parse_command_line():
   parser.add_option("","--dq-cats",action="store", type="string",default="ALL", help="Generate DQ veto categories" )
   parser.add_option("","--exclude-variables",action="store", type="string", default=None, help="Comma separated list of variables that should be excluded from MVSC parameter list" )
   parser.add_option("","--max-clean-samples",default=None,type="int",help="Maximum number of clean samples that wil be used in training")
+  parser.add_option("","--max-glitch-samples",default=None,type="int",help="Maximum number of glitch samples that wil be used in training")  
   parser.add_option("","--output-tag",action="store",type="string", default=None, metavar=" OUTPUTTAG",\
       help="The output files will be named according to OUTPUTTAG" )
 
@@ -228,6 +229,12 @@ if opts.clean_paramsfile or opts.glitch_paramsfile is True:
       for i in range(len(List_of_Glitch_KW_Sets_cats)):
     
         Primary_Clean_set_cats, Primary_Glitch_set_cats, Secondary_Clean_set_cats, Secondary_Glitch_set_cats=RoundRobin(List_of_Glitch_KW_Sets_cats, List_of_Clean_KW_Sets_cats,i)
+        
+        # set the limit on the size of glitch training sample if necessary
+        if opts.max_glitch_samples:          
+          if len(Secondary_Glitch_set_cats) > opts.max_glitch_samples:
+            Secondary_Glitch_set_cats = Secondary_Glitch_set_cats[random.sample(numpy.arange(len(Secondary_Glitch_set_cats)), opts.max_glitch_samples)]   
+
         # set the limit on the size of clean training set if necessary
         if opts.max_clean_samples:
           if len(Secondary_Clean_set_cats) > opts.max_clean_samples:

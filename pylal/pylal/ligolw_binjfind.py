@@ -44,6 +44,7 @@ from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import lalconstants
 from pylal import ligolw_burca
@@ -51,13 +52,6 @@ from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.xlal import tools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
-
-
-try:
-	any, all
-except NameError:
-	# compatibility for Python < 2.5
-	from glue.iterutils import any, all
 
 
 #
@@ -208,7 +202,7 @@ class DocContents(object):
 		# that produced burst events could have produced output
 		#
 
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, livetime_program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, livetime_program).coalesce()
 
 		#
 		# FIXME:  in the future, the sim_inspiral table should
@@ -442,13 +436,13 @@ def OmegaSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
 	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
-def CWBSnglCompare(sim, burst, delta_t = 10.0):
+def CWBSnglCompare(sim, burst, offsetvector, delta_t = 10.0):
 	"""
 	Return False (injection matches event) if the time of the sim and
 	the peak time of the burst event differ by less than or equal to
 	delta_t seconds.
 	"""
-	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo) - burst.get_peak())) > delta_t
+	return abs(float(SimBurstUtils.time_at_instrument(sim, burst.ifo, offsetvector) - burst.get_peak())) > delta_t
 
 
 def StringCuspNearCoincCompare(sim, burst, offsetvector):
@@ -478,12 +472,12 @@ def OmegaNearCoincCompare(sim, burst, offsetvector):
 	"""
 	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
 
-def CWBNearCoincCompare(sim, burst):
+def CWBNearCoincCompare(sim, burst, offsetvector):
 	"""
 	Return False (injection matches coinc) if the peak time of the sim
 	is "near" the burst event.
 	"""
-	return OmegaSnglCompare(sim, burst, delta_t = 20.0 + burst.duration / 2)
+	return OmegaSnglCompare(sim, burst, offsetvector, delta_t = 20.0 + burst.duration / 2)
 
 
 #

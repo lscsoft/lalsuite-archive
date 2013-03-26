@@ -29,14 +29,13 @@ extern "C" {
 } /* so that editors will match preceding brace */
 #endif
 
-const LALDetector *XLALInstrumentNameToLALDetector(
+const LALDetector *XLALDetectorPrefixToLALDetector(
 	const char *string
 );
+/* FIXME:  compatibility wrapper.  remove when not needed */
+const LALDetector *XLALInstrumentNameToLALDetector(const char *string);
 
 
-#ifdef SWIG
-%newobject XLALSimDetectorStrainREAL8TimeSeries;
-#endif
 REAL8TimeSeries *XLALSimDetectorStrainREAL8TimeSeries(
 	const REAL8TimeSeries *hplus,
 	const REAL8TimeSeries *hcross,
@@ -53,6 +52,11 @@ int XLALSimAddInjectionREAL8TimeSeries(
 	const COMPLEX16FrequencySeries *response
 );
 
+int XLALSimAddInjectionREAL4TimeSeries(
+	REAL4TimeSeries *target,
+	REAL4TimeSeries *h,
+	const COMPLEX8FrequencySeries *response
+);
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)

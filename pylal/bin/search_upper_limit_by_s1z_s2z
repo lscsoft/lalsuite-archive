@@ -12,7 +12,6 @@ from math import *
 import sys
 import glob
 import copy
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw, utils
 from glue import lal
 

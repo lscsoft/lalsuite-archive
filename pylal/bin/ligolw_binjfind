@@ -35,12 +35,16 @@ from optparse import OptionParser
 import sys
 
 
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import llwapp
 from pylal import ligolw_binjfind
+
+
+lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -70,9 +74,9 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if options.match_algorithm is None:
-		raise ValueError, "missing required --match-algorithm option"
+		raise ValueError("missing required --match-algorithm option")
 	if options.match_algorithm not in ("stringcusp", "excesspower", "omega", "waveburst"):
-		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
+		raise ValueError("unrecognized match algorithm \"%s\"" % options.match_algorithm)
 
 	return options, (filenames or [None])
 
@@ -145,7 +149,7 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose)
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, contenthandler = ligolw.LIGOLWContentHandler)
 	ligolw_binjfind.table.InterningRowBuilder.strings.clear()
 
 	#

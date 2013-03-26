@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalsuite],[6.7.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalsuite],[6.12.1],[lal-discuss@gravity.phys.uwm.edu])
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -22,6 +22,7 @@ LALSUITE_ENABLE_LALFRAME
 LALSUITE_ENABLE_LALMETAIO
 LALSUITE_ENABLE_LALXML
 LALSUITE_ENABLE_LALSIMULATION
+LALSUITE_ENABLE_LALDETCHAR
 LALSUITE_ENABLE_LALBURST
 LALSUITE_ENABLE_LALINSPIRAL
 LALSUITE_ENABLE_LALSTOCHASTIC
@@ -33,10 +34,10 @@ lalsuite_top_builddir='$(top_builddir)/..'
 lalsuite_top_srcdir='$(top_srcdir)/..'
 LALSUITE_BUILD="true"
 LALSUITE_TOP_SRCDIR="${lalsuite_top_srcdir}"
-LAL_LIBS="${lalsuite_top_builddir}/lal/lib/liblal.la"
+LAL_LIBS="${lalsuite_top_builddir}/lal/lib/lal/liblal.la"
 LAL_CFLAGS="-I${lalsuite_top_builddir}/lal/include"
 export LALSUITE_BUILD LALSUITE_TOP_SRCDIR LAL_LIBS LAL_CFLAGS
-LALSUPPORT_LIBS="${lalsuite_top_builddir}/lal/packages/support/src/liblalsupport.la ${lalsuite_top_builddir}/lal/lib/liblal.la"
+LALSUPPORT_LIBS="${lalsuite_top_builddir}/lal/lib/lalsupport/src/liblalsupport.la ${lalsuite_top_builddir}/lal/lib/lal/liblal.la"
 LALSUPPORT_CFLAGS="-I${lalsuite_top_builddir}/lal/include"
 export LALSUPPORT_LIBS LALSUPPORT_CFLAGS
 
@@ -62,6 +63,12 @@ if test "$lalsimulation" = "true"; then
   LALSIMULATION_LIBS="${lalsuite_top_builddir}/lalsimulation/src/liblalsimulation.la"
   LALSIMULATION_CFLAGS="-I${lalsuite_top_builddir}/lalsimulation/include"
   export LALSIMULATION_LIBS LALSIMULATION_CFLAGS
+fi
+
+if test "$laldetchar" = "true"; then
+  LALDETCHAR_LIBS="${lalsuite_top_builddir}/laldetchar/src/liblaldetchar.la"
+  LALDETCHAR_CFLAGS="-I${lalsuite_top_builddir}/laldetchar/include"
+  export LALDETCHAR_LIBS LALDETCHAR_CFLAGS
 fi
 
 if test "$lalburst" = "true"; then
@@ -110,6 +117,10 @@ fi
 
 if test "$lalsimulation" = "true"; then
   AC_CONFIG_SUBDIRS([lalsimulation])
+fi
+
+if test "$laldetchar" = "true"; then
+  AC_CONFIG_SUBDIRS([laldetchar])
 fi
 
 if test "$lalburst" = "true"; then

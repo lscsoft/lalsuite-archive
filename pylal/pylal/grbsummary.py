@@ -14,6 +14,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
 from pylal import rate
+from pylal.SnglInspiralUtils import SnglInspiralID_old
 
 ##############################################################################
 # Detector threshold function
@@ -308,7 +309,7 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
 
     # turn on event_id mangling
     old_id = lsctables.SnglInspiralTable.next_id
-    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+    lsctables.SnglInspiralTable.next_id = SnglInspiralID_old(0)
 
     # reduce memory footprint at the expense of speed
     # table.RowBuilder = table.InterningRowBuilder

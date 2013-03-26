@@ -48,7 +48,6 @@ from glue.segments import segment, segmentlist, segmentlistdict
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw.utils import ligolw_add
 from glue.iterutils import any
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils

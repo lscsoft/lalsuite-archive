@@ -59,19 +59,14 @@ by many LAL routines:
 #include <stdarg.h>
 #include <lal/LALMalloc.h>
 
+/* Redefine the restict keyword when compiling with C++ */
 #ifdef  __cplusplus
-extern "C" {
+#undef restrict
+#ifdef __GNUC__
+#define restrict __restrict__
+#else
+#define restrict
 #endif
-
-/* These are non-ANSI standard routines that will be allowed in LAL */
-#ifndef SWIG /* exclude from SWIG interface */
-int getopt( int, char * const *, const char * );
-FILE *popen( const char *, const char * );
-int pclose( FILE * );
-#endif /* SWIG */
-
-#ifdef  __cplusplus
-}
 #endif
 
 #endif /* _LALSTDLIB_H */
