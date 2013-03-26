@@ -83,8 +83,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
                 compF.set_matchCriteriaA( thisFunc )
                 compF.set_matchCriteriaB( thisFunc )
                 compF.create_dbCompF( connection, compF.diffRowARowB, funcName, window, recColumns, recColumns )
-            simSnglCols = ','.join(['rec_sngls.%s' %(col) for col in recColumns])
-            allSnglCols = ','.join(['all_data_sngls.%s' %(col) for col in recColumns])
+            simSnglCols = ','.join(['rec_sngls.%s' %(col) for col in compF.neededColumnsA])
+            allSnglCols = ','.join(['all_data_sngls.%s' %(col) for col in compF.neededColumnsB])
             rejection_tests.append( '%s(%s, %s)' %(funcName, simSnglCols, allSnglCols) ) 
 
         # now remove triggers
@@ -121,8 +121,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
             compF.set_matchCriteriaA( simFunc )
             compF.set_matchCriteriaB( snglFunc )
             compF.create_dbCompF( connection, compF.diffSimSngl, funcName, window, simColumns, recColumns )
-        simCols = ','.join(['sim.%s'%(col) for col in simColumns])
-        snglCols = ','.join(['rec_sngls.%s'%(col) for col in recColumns])
+        simCols = ','.join(['sim.%s'%(col) for col in compF.neededColumnsA])
+        snglCols = ','.join(['rec_sngls.%s'%(col) for col in compF.neededColumnsB])
         match_tests.append( '%s(%s, %s)' %(funcName, simCols, snglCols) )
 
     # determine matches
