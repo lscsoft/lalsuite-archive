@@ -38,6 +38,7 @@ from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
+from pylal import lalconstants
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
@@ -391,11 +392,10 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
 
-	# FIXME: get these from somewhere else
-	LAL_REARTH_SI = 6.378140e6 # m
-	LAL_C_SI = 299792458 # m s^-1
+	LTT_DEARTH_SI = 2. * lalconstants.LAL_REARTH_SI / lalconstants.LAL_C_SI
+        ifos = set(events.getColumnByName('ifo'))
 
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == ifo) for ifo in ifos)[-2:]) + LTT_DEARTH_SI
 
 
 def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
@@ -422,7 +422,20 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
 	Returns False (a & b are coincident) if their component masses and spins
 	are equal and they pass the ellipsoidal thinca test.
 	"""
-	if ( (a.mass1 == b.mass1) and (a.mass2 == b.mass2) and (a.chi == b.chi) and (a.kappa == b.kappa) ):
+        # define mchirp, eta tuple
+        a_masses = (a.mchirp, a.eta)
+        b_masses = (a.mchirp, a.eta)
+
+        try:
+                # check for spin columns (from events in sngl_inspiral table)
+        	a_spins = (a.spin1x, a.spin1y, a.spin1z, a.spin2x, a.spin2y, a.spin2z)
+        	b_spins = (b.spin1x, b.spin1y, b.spin1z, b.spin2x, b.spin2y, b.spin2z)
+	except:
+                # use spin correction terms for older templates
+        	a_spins = (a.beta, a.chi)
+        	b_spins = (b.beta, b.chi)
+		
+	if (a_masses == b_masses) and (a_spins == b_spins):
 		return inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter)
 	else:
 		return True
