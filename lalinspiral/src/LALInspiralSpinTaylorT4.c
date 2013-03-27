@@ -184,8 +184,8 @@ void LALInspiralInterfaceSpinTaylorT4(
     m1 = params->mass1 * LAL_MSUN_SI;    /** has to be in kg **/
     m2 = params->mass2 * LAL_MSUN_SI;    /** has to be in kg **/
     OnePlusZ = (1.0 + 6.932E4/LAL_C_SI*(params->distance)/(1.0E6*LAL_PC_SI)); 
-    m1_intr = params->mass1*OnePlusZ; /** intrinsic masses in Msun **/
-    m2_intr = params->mass2*OnePlusZ;
+    m1_intr = params->mass1/OnePlusZ; /** intrinsic masses in Msun **/
+    m2_intr = params->mass2/OnePlusZ;
     mttot = (m1_intr + m2_intr)*LAL_MTSUN_SI; /** intrinsic total mass in seconds **/
 
     /** Calculate tidal deformability parameters for the two bodies (dimensionless) **/
@@ -1999,7 +1999,7 @@ REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
     q = 1.0 ;
     break;
 
-  default:
+    default:
     q = 1.0 ;
     fprintf(stderr, "Unknown EoS for the calculation of QM parameter. QM is set to 1.0 .\n");
     break ;

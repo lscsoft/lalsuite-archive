@@ -1135,6 +1135,7 @@ int main( int argc, char *argv[])
 			SimInspiralTable this_injection;
 			memcpy(&this_injection,injTable,sizeof(SimInspiralTable));
             REAL8 dphis[10]={0.0};
+            INT4 modGR = 0;
             LALInspiralEOS eos = PP;
             if (check_approx==SpinTaylorT4) {
               dphis[0]=this_injection.dphi0;
@@ -1147,7 +1148,13 @@ int main( int argc, char *argv[])
               dphis[7]=this_injection.dphi6l;
               dphis[8]=this_injection.dphi7;
               eos = (LALInspiralEOS) this_injection.EoS;
-              for (int k=0;k<10;k++) fprintf(stderr,"Injecting dphi[%i] = %e\n",k,dphis[k]);
+              for (int k=0;k<10;k++) {
+				  if (dphis[k] != 0.0) {
+				    fprintf(stderr,"Injecting modGR parameter dphi[%i] = %e\n",k,dphis[k]);
+				    modGR++;
+				    }
+				  }
+              if (!modGR) fprintf(stderr, "Injecting GR waveform.\n");
               fprintf(stderr,"Injecting equation of state: %d\n", (int) eos);
             }
             fprintf(stderr, "Injecting spin1: ( %e , %e , %e )\n", this_injection.spin1x, this_injection.spin1y, this_injection.spin1z);
@@ -1188,7 +1195,7 @@ int main( int argc, char *argv[])
 			injWave=(REAL4TimeSeries *)XLALCutREAL4TimeSeries(injWave,TrigSegStart,seglen);
 
 			fprintf(stderr,"Cut buffer start time=%lf, segment start time=%lf\n",injWave->epoch.gpsSeconds+1e-9*injWave->epoch.gpsNanoSeconds,inputMCMC.stilde[i]->epoch.gpsSeconds + 1.0e-9*inputMCMC.stilde[i]->epoch.gpsNanoSeconds);
-			REPORTSTATUS(&status);
+			// REPORTSTATUS(&status);
 			if(decohereflag) {
 				memcpy(&segmentStart,&realSegStart,sizeof(realSegStart));
 				memcpy(&(injWave->epoch),&realSegStart,sizeof(realSegStart));
@@ -1205,7 +1212,7 @@ int main( int argc, char *argv[])
 			for(j=0;j<inj8Wave->data->length;j++) inj8Wave->data->data[j]*=SNRfac*windowplan->data->data[j]/WinNorm;
 			XLALREAL8TimeFreqFFT(injF,inj8Wave,fwdplan); /* This calls XLALREAL8TimeFreqFFT which normalises by deltaT */
 			
-			REPORTSTATUS(&status);
+			// REPORTSTATUS(&status);
             
             /* Add calibration errors to the time-domain generated WF. This is done before the SNR is calculated */
             if(enable_calfreq){
@@ -1538,7 +1545,7 @@ doneinit:
 	Live = (LALMCMCParameter **)LALMalloc(Nlive*sizeof(LALMCMCParameter *));
 	for (i=0;i<Nlive;i++) Live[i]=(LALMCMCParameter *)LALMalloc(sizeof(LALMCMCParameter));
 
-	if(networkSNR!=0.0) fprintf(stdout,"Injected signal network SNR= %lf\n",sqrt(networkSNR));
+	if(networkSNR!=0.0) fprintf(stdout,"Injected signal network SNR= %lf\n",networkSNR);
 
 	double ReducedChiSq=0;
 	/* variance of dimensionful real part d(f_k) (= variance of imaginary part) is zeta^2 */
