@@ -114,8 +114,6 @@ void AddNumRelStrainModesREAL8(LALStatus      *status,  /**< pointer to LALStatu
   REAL8TimeSeries  *modePlus=NULL;
   REAL8TimeSeries  *modeCross=NULL;
   REAL8 massMpc, timeStep;
-  INITSTATUS(status);
-  ATTATCHSTATUSPTR (status);
 
   modeLlo = thisinj->numrel_mode_min;
   modeLhi = thisinj->numrel_mode_max;
@@ -219,8 +217,6 @@ void AddNumRelStrainModesREAL8(LALStatus      *status,  /**< pointer to LALStatu
   (*seriesCross)->deltaT *= timeStep;
   XLALFrClose( frStream );
   LALFree(frCache.frameFiles);
-  DETATCHSTATUSPTR(status);
-  RETURN(status);
 }
 
 REAL8TimeSeries *
