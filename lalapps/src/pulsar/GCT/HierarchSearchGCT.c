@@ -336,7 +336,7 @@ int MAIN( int argc, char *argv[]) {
   FILE *fpFstat1=NULL;
 
   /* checkpoint filename */
-  CHAR *fnameChkPoint=NULL;
+  CHAR *uvar_fnameChkPoint = NULL;
 
   /* user variables */
   BOOLEAN uvar_help = FALSE;    /* true if -h option is given */
@@ -477,6 +477,7 @@ int MAIN( int argc, char *argv[]) {
   LAL_CALL( LALRegisterINTUserVar (   &status, "gammaRefine", 'g', UVAR_OPTIONAL, "Refinement of fine grid (default: use segment times)", &uvar_gammaRefine), &status);
   LAL_CALL( LALRegisterINTUserVar (   &status, "gamma2Refine",'G', UVAR_OPTIONAL, "Refinement of f2dot fine grid (default: use segment times, -1=use gammaRefine)", &uvar_gamma2Refine), &status);
   LAL_CALL( LALRegisterSTRINGUserVar( &status, "fnameout",    'o', UVAR_OPTIONAL, "Output filename", &uvar_fnameout), &status);
+  LAL_CALL( LALRegisterSTRINGUserVar( &status, "fnameChkPoint",0,  UVAR_OPTIONAL, "Checkpoint filename", &uvar_fnameChkPoint), &status);
   LAL_CALL( LALRegisterINTUserVar(    &status, "nCand1",      'n', UVAR_OPTIONAL, "No. of candidates to output", &uvar_nCand1), &status);
   LAL_CALL( LALRegisterBOOLUserVar(   &status, "printCand1",   0,  UVAR_OPTIONAL, "Print 1st stage candidates", &uvar_printCand1), &status);
   LAL_CALL( LALRegisterREALUserVar(   &status, "refTime",      0,  UVAR_OPTIONAL, "Ref. time for pulsar pars [Default: mid-time]", &uvar_refTime), &status);
@@ -612,15 +613,17 @@ int MAIN( int argc, char *argv[]) {
                    XLAL_EFUNC, "create_gctFStat_toplist() failed for nCand=%d and sortBy=%d\n", uvar_nCand1, uvar_SortToplist );
     }
 
-  /* checkpoint filename */
-  // in BOINC App don't derive the checkpoint name from the output filename,
-  // or else the checkpoint file will end up in the project- rather than the slot-directory
 #ifdef EAH_BOINC
-  fnameChkPoint="checkpoint.cpt";
-#else
-  fnameChkPoint = LALCalloc( strlen(uvar_fnameout) + 1 + 4, sizeof(CHAR) );
-  strcpy(fnameChkPoint, uvar_fnameout);
-  strcat(fnameChkPoint, ".cpt");
+  // BOINC Apps always checkpoint, so set a default filename here
+  if (uvar_fnameChkPoint == NULL) {
+    CHAR*fname = "checkpoint.cpt";
+    uvar_fnameChkPoint = XLALMalloc(strlen(fname)+1);
+    if (uvar_fnameChkPoint == NULL) {
+      fprintf(stderr, "error allocating memory [HierarchSearchGCT.c %d]\n" , __LINE__);
+      return(HIERARCHICALSEARCH_EMEM);
+    }
+    strcpy(uvar_fnameChkPoint, fname);
+  }
 #endif
 
   /* write the log file */
@@ -783,7 +786,7 @@ int MAIN( int argc, char *argv[]) {
     if ( LALUserVarWasSet(&uvar_dFreq) ) {
       usefulParams.dFreqStack = uvar_dFreq;
     } else {
-      LALPrintError("--dFreq is required if --FreqBand is given\n");
+      XLALPrintError("--dFreq is required if --FreqBand is given\n");
       return( HIERARCHICALSEARCH_EBAD );
     }
   } else {
@@ -795,7 +798,7 @@ int MAIN( int argc, char *argv[]) {
     if ( LALUserVarWasSet(&uvar_df1dot) ) {
       usefulParams.df1dot = uvar_df1dot;
     } else {
-      LALPrintError("--df1dot is required if --f1dotBand is given\n");
+      XLALPrintError("--df1dot is required if --f1dotBand is given\n");
       return( HIERARCHICALSEARCH_EBAD );
     }
   } else {
@@ -808,7 +811,7 @@ int MAIN( int argc, char *argv[]) {
       usefulParams.df2dot = uvar_df2dot;
     }
     else {
-      LALPrintError("--df2dot is required if --f2dotBand is given\n");
+      XLALPrintError("--df2dot is required if --f2dotBand is given\n");
       return( HIERARCHICALSEARCH_EBAD );
     }
   }
@@ -1178,7 +1181,7 @@ int MAIN( int argc, char *argv[]) {
     UINT4 count = 0; /* The first checkpoint should have value 1 */
     UINT4 skycount = 0;
 
-    GET_GCT_CHECKPOINT (fnameChkPoint, semiCohToplist, semiCohToplist2, &count);
+    GET_GCT_CHECKPOINT (uvar_fnameChkPoint, semiCohToplist, semiCohToplist2, &count);
 
     if (count) {
       f1dotGridCounter = (UINT4) (count % nf1dot);  /* Checkpointing counter = i_sky * nf1dot + i_f1dot */
@@ -1769,7 +1772,7 @@ int MAIN( int argc, char *argv[]) {
                       skyGridCounter * nf1dot + ifdot,
                       thisScan.numSkyGridPoints * nf1dot, uvar_Freq, uvar_FreqBand);
 
-        SET_GCT_CHECKPOINT (fnameChkPoint, semiCohToplist, semiCohToplist2, skyGridCounter*nf1dot+ifdot, TRUE);
+        SET_GCT_CHECKPOINT (uvar_fnameChkPoint, semiCohToplist, semiCohToplist2, skyGridCounter*nf1dot+ifdot, TRUE);
 
       } /* ########## End of loop over coarse-grid f1dot values (ifdot) ########## */
 
@@ -1894,8 +1897,7 @@ int MAIN( int argc, char *argv[]) {
 
   // in BOINC App the checkpoint is left behind to be cleaned up by the Core Client
 #ifndef EAH_BOINC
-  clear_gct_checkpoint (fnameChkPoint);
-  LALFree (fnameChkPoint);
+  clear_gct_checkpoint (uvar_fnameChkPoint);
 #endif
 
   /*------------ free all remaining memory -----------*/

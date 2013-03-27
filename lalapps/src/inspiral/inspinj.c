@@ -121,10 +121,11 @@ REAL8 redshift_mass(REAL8 mass, REAL8 z);
  */
 
 lalinspiral_time_distribution tDistr;
-DistanceDistribution          dDistr;
+LoudnessDistribution          dDistr;
 SkyLocationDistribution       lDistr;
 MassDistribution              mDistr;
 InclDistribution              iDistr;
+SpinDistribution              spinDistr = uniformSpinDist;
 
 SimInspiralTable *simTable;
 SimRingdownTable *simRingTable;
@@ -142,31 +143,37 @@ INT4 enable_cosmology =0;
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
 INT4 real8Ninja2 = 0;
+INT4 ninjaSNR    = 0;
+INT4 haveLoudness= 0;
 
-INT4 logSNR      = 0;
-REAL4 minSNR     = -1;
-REAL4 maxSNR     = -1;
-char *ifos       = NULL;
-
-float mwLuminosity = -1;
-REAL4 dmin= -1;
-REAL4 dmax= -1;
+REAL4 mwLuminosity = -1;
+REAL4 minD = -1;
+REAL4 maxD = -1;
+REAL4 minZ = -1;
+REAL4 maxZ = -1;
 REAL4 localRate = -1.0;
-REAL4 minMass1=-1;
-REAL4 maxMass1=-1;
-REAL4 minMass2=-1;
-REAL4 maxMass2=-1;
-REAL4 minMtotal=-1;
-REAL4 maxMtotal=-1;
-REAL4 meanMass1=-1.0;
-REAL4 meanMass2=-1.0;
-REAL4 massStdev1=-1.0;
-REAL4 massStdev2=-1.0;
+REAL4 minSNR    = -1;
+REAL4 maxSNR    = -1;
+char *ifos      = NULL;
+
+REAL4 minMass1  = -1;
+REAL4 maxMass1  = -1;
+REAL4 minMass2  = -1;
+REAL4 maxMass2  = -1;
+REAL4 minMtotal = -1;
+REAL4 maxMtotal = -1;
+REAL4 meanMass1 = -1.0;
+REAL4 meanMass2 = -1.0;
+REAL4 massStdev1= -1.0;
+REAL4 massStdev2= -1.0;
 REAL4 minMassRatio=-1.0;
 REAL4 maxMassRatio=-1.0;
+
 REAL4 inclStd=-1.0;
 REAL4 fixed_inc=-1.0;
 REAL4 max_inc=LAL_PI/2.0;
+int coaPhaseFixed = 0;
+REAL4 fixedCoaPhase = 0;
 REAL4 psi=-1.0;
 REAL4 longitude=181.0;
 REAL4 latitude=91.0;
@@ -175,8 +182,12 @@ int spinInjections=-1;
 int spinAligned=-1;
 REAL4 minSpin1=-1.0;
 REAL4 maxSpin1=-1.0;
+REAL4 meanSpin1=0.0;
+REAL4 Spin1Std=0.0;
 REAL4 minSpin2=-1.0;
 REAL4 maxSpin2=-1.0;
+REAL4 meanSpin2=0.0;
+REAL4 Spin2Std=0.0;
 REAL4 minKappa1=-1.0;
 REAL4 maxKappa1=1.0;
 REAL4 minabsKappa1=0.0;
@@ -244,9 +255,9 @@ int i = 0;
 SimInspiralTable **nrSimArray = NULL;
 
 /*
- *  *********************************
- *  Implementation of the code pieces
- *  *********************************
+ *  *****************************************************
+ *  Functions implementing SFR distribution over redshift
+ *  *****************************************************
  */
 
 REAL8 probability_redshift_sfr(REAL8 rshift)
@@ -302,7 +313,7 @@ REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax)
 REAL8 redshift_mass(REAL8 mass, REAL8 z)
 {
   REAL8 mz;
-  mz= mass * (1.+z);
+  mz = mass * (1.+z);
         
   return mz;
 }
@@ -329,7 +340,6 @@ REAL8 snr_in_ifo(const char *ifo, SimInspiralTable *inj)
 
   return this_snr;
 }
-
 
 REAL8 network_snr(const char *ifo_list, SimInspiralTable *inj)
 {
@@ -451,7 +461,10 @@ REAL8 network_snr_real8(const char *ifo_list, SimInspiralTable *inj)
 }
 
 
-void adjust_snr_real8(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_list)
+void adjust_snr_real8(
+    SimInspiralTable *inj, 
+    REAL8             target_snr, 
+    const char       *ifo_list)
 {
   /* Vars for calculating SNRs */
   REAL8 this_snr;
@@ -472,7 +485,9 @@ void adjust_snr_real8(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_l
     }
     low_snr  = this_snr;
     low_dist = inj->distance;
-  } else {
+  } 
+  else 
+  {
     low_snr  = this_snr;
     low_dist = inj->distance;
 
@@ -494,7 +509,9 @@ void adjust_snr_real8(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_l
     {
       high_snr  = this_snr;
       high_dist = inj->distance;
-    } else {
+    } 
+    else 
+    {
       low_snr  = this_snr;
       low_dist = inj->distance;
     }
@@ -507,9 +524,13 @@ void adjust_snr_real8(SimInspiralTable *inj, REAL8 target_snr, const char *ifo_l
  * injections, using arbitrary LIGO/Virgo noise curves given
  * in files.
  *************************************************************/
-REAL8 snr_in_psd_real8(const char *ifo, REAL8FrequencySeries *psd, REAL8 start_freq, SimInspiralTable *inj)
+REAL8 snr_in_psd_real8(
+    const char           *ifo, 
+    REAL8FrequencySeries *psd, 
+    REAL8                 start_freq, 
+    SimInspiralTable     *inj)
 {
-  REAL8       this_snr;
+  REAL8            this_snr;
   REAL8TimeSeries *strain = NULL;
 
   strain   = XLALNRInjectionStrain(ifo, inj);
@@ -520,7 +541,12 @@ REAL8 snr_in_psd_real8(const char *ifo, REAL8FrequencySeries *psd, REAL8 start_f
   return this_snr;
 }
 
-REAL8 network_snr_with_psds_real8(int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs, SimInspiralTable *inj)
+REAL8 network_snr_with_psds_real8(
+    int                    num_ifos, 
+    const char           **ifo_list, 
+    REAL8FrequencySeries **psds, 
+    REAL8                 *start_freqs, 
+    SimInspiralTable      *inj)
 {
   REAL8 snr_total = 0.0;
   REAL8 this_snr;
@@ -534,16 +560,20 @@ REAL8 network_snr_with_psds_real8(int num_ifos, const char **ifo_list, REAL8Freq
   return sqrt(snr_total);
 }
 
-void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num_ifos, const char **ifo_list, REAL8FrequencySeries **psds, REAL8 *start_freqs)
+void adjust_snr_with_psds_real8(
+    SimInspiralTable      *inj,
+    REAL8                  target_snr,
+    int                    num_ifos,
+    const char           **ifo_list,
+    REAL8FrequencySeries **psds,
+    REAL8                 *start_freqs)
 {
   /* Vars for calculating SNRs */
   REAL8 this_snr;
 
   this_snr = network_snr_with_psds_real8(num_ifos, ifo_list, psds, start_freqs, inj);
   inj->distance = inj->distance * (this_snr/target_snr);
-
 }
-
 
 
 /*
@@ -617,51 +647,61 @@ static void print_usage(char *program)
       "                           fixed: set fixed location\n"\
       "                           ipn: random locations from IPN skypoints\n"\
       " [--longitude] longitude   read longitude if fixed value (degrees)\n"
-      " [--latitude] latitude     read latitide if fixed value (degrees)\n"
-      "  --d-distr distDist       set the distance distribution of injections\n"\
+      " [--latitude] latitude     read latitude if fixed value (degrees)\n"
+      " [--d-distr] distDist      use a distribution over physical distance\n"\
       "                           source: take distance from galaxy source file\n"\
       "                           uniform: uniform distribution in distance\n"\
       "                           distancesquared: uniform distribution in distance^2\n"\
       "                           log10: uniform distribution in log10(d) \n"\
-      "                           volume: uniform distribution in volume, requires the specification of a cosmology, a minimum and a maximum redshift\n"\
-      "                           sfr: distribution derived from the SFR, requires the specification of a minimum and a maximum redshift\n"\
-      "                           NB: when specifying a volume distribution the sources will always be generated in the redshift space\n"\
-      " [--local-rate] rho        set the local coalescence rate when --d-dist sfr\n"\
-      "                           (suggestion: 1 per Mpc^3 per Myr)\n"\
-      "  --i-distr INCDIST        set the inclination distribution, must be either\n"\
-      "                           uniform: distribute uniformly over arccos(i)\n"\
-      "                           gaussian: gaussian distributed in (i)\n"\
-      "                           fixed: no distribution, fixed valued of (i)\n"\
-      " --polarization psi        set the polarization angle for all \n"
-      "                           injections (degrees)\n"\
-      " [--incl-std]  inclStd     std dev for gaussian inclination dist\n"\
-      " [--fixed-inc]  fixed_inc  value for the fixed inclination angle (in degrees) if '--i-distr fixed' is chosen.\n"\
-      " [--max-inc]  max_inc      value for the maximum inclination angle (in degrees) if '--i-distr uniform' is chosen. \n"\
+      "                           volume: uniform distribution in volume\n"\
+      "                           sfr: distribution derived from the SFR\n"\
+      " [--min-distance] DMIN     set the minimum (chirp) distance to DMIN kpc\n"\
+      " [--max-distance] DMAX     set the maximum (chirp) distance to DMAX kpc\n"\
+      "                           min/max distance required if d-distr not 'source'\n"\
       " [--source-file] sources   read source parameters from sources\n"\
       "                           requires enable/disable milkyway\n"\
-      " [--ipn-file] ipnskypoints read IPN sky points from file\n"\
       " [--sourcecomplete] distance \n"
       "                           complete galaxy catalog out to distance (kPc)\n"\
       " [--make-catalog]          create a text file of the completed galaxy catalog\n"\
       " [--enable-milkyway] lum   enables MW injections, set MW luminosity\n"\
       " [--disable-milkyway]      disables Milky Way injections\n"\
-      " [--exttrig-file] exttrig  XML file containing external trigger\n"\
-      " [--min-distance] DMIN     set the minimum distance to DMIN kpc, unused when using a volume or sfr distance distribution\n"\
-      " [--max-distance] DMAX     set the maximum distance to DMAX kpc, unused when using a volume or sfr distance distribution\n"\
-      "                           min/max distance required if d-distr not 'source'\n"\
-      " [--use-chirp-distance]    Use this option to scale injections using \n"
-      "                           chirp distance (relative to a 1.4,1.4)\n"\
-      " [--min-snr] SMIN          Sets the minimum network snr\n"\
-      " [--max-snr] SMAX          Sets the maximum network snr\n"\
-      " [--log-snr]               If set distribute uniformly in log(snr) rather than snr\n"\
+      " [--dchirp-distr]          use a distribution over chirp distance\n"\
+      "                           (normalized to a 1.4,1.4 Msun binary)\n"\
+      " [--z-distr]               use a distribution over redshift\n"\
+      "                           currently only 'sfr' is supported\n"\
+      " [--local-rate] rho        set the local coalescence rate for --z-distr sfr\n"\
+      "                           (suggestion: 1 per Mpc^3 per Myr)\n"\
+      " [--min-z]                 set the minimum redshift: at least 0.2 for sfr\n"\
+      " [--max-z]                 set the maximum redshift: at most 1.0 for sfr\n"\
+      " [--snr-distr]             use a distribution over expected (optimal) network SNR\n"\
+      "                           uniform: uniform in SNR, log10: uniform in log10(SNR)\n"\
+      "                           volume: uniform in 1/SNR^3\n"\
+      " [--ninja-snr]             use a NINJA waveform SNR calculation (if not set, use LALSimulation)\n"\
+      " [--min-snr] SMIN          set the minimum network snr\n"\
+      " [--max-snr] SMAX          set the maximum network snr\n"\
       " [--ligo-psd] filename     Ascii, tab-separated file of frequency, value pairs to use for LIGO PSD in snr computation\n"\
       " [--ligo-start-freq] freq  Frequency in Hz to use for LIGO snr computation\n"\
       " [--virgo-psd] filename    Ascii, tab-separated file of frequency, value pairs to use for Virgo PSD in snr computation\n"\
       " [--virgo-start-freq] freq Frequency in Hz to use for Virgo snr computation\n"\
-      " [--ifos] ifos             Comma-separated list of ifos to include in network SNR\n\n");
+      " [--ifos] ifos             Comma-separated list of ifos to include in network SNR\n"\
+      "  --i-distr INCDIST        set the inclination distribution, must be either\n"\
+      "                           uniform: distribute uniformly over arccos(i)\n"\
+      "                           gaussian: gaussian distributed in (i)\n"\
+      "                           fixed: no distribution, fixed values of (i)\n"\
+      " [--polarization] psi      set the polarization angle for all injections (degrees)\n"\
+      " [--incl-std]  inclStd     std dev for gaussian inclination dist\n"\
+      " [--fixed-inc]  fixed_inc  value for the fixed inclination angle (in degrees) if '--i-distr fixed' is chosen.\n"\
+      " [--max-inc]  max_inc      value for the maximum inclination angle (in degrees) if '--i-distr uniform' is chosen. \n"\
+      " [--coa-phase-distr] cDist set the coalescence phase distribution,\n"\
+      "                           cDist must be one of:\n"\
+      "                           uniform: use random, uniformly distributed coalescence phase [default]\n"\
+      "                           fixed: set fixed coalescence phase\n"\
+      " [--fixed-coa-phase] phase set the coalescence phase (in degrees) for all injections if --coa-phase-distr=fixed\n"\
+      " [--ipn-file] ipnskypoints read IPN sky points from file\n"\
+      " [--exttrig-file] exttrig  XML file containing external trigger\n\n");
   fprintf(stderr,
       "Mass distribution information:\n"\
-      " --m-distr massDist        set the mass distribution of injections\n"\
+      "  --m-distr massDist       set the mass distribution of injections\n"\
       "                           must be one of:\n"\
       "                           source: using file containing list of mass pairs\n"\
       "                           nrwaves: using xml file with list of NR waveforms\n"\
@@ -671,11 +711,11 @@ static void print_usage(char *program)
       "                           gaussian: gaussian mass distribution\n"\
       "                           log: log distribution in component mass\n"\
       "                           totalMassRatio: uniform distribution in total mass and\n"\
-      "                           mass ratio m1 / m2\n"\
+      "                           mass ratio m1 /m2\n"\
       "                           logTotalMassUniformMassRatio: log distribution in total mass\n"\
       "                           and uniform in mass ratio\n"\
       "                           totalMassFraction: uniform distribution in total mass and\n"\
-      "                           in `mass fraction' m1 / (m1+m2)\n"\
+      "                           in m1 /(m1+m2)\n"\
       "                           m1m2SquareGrid: component masses on a square grid\n"\
       "                           fixMasses: fix m1 and m2 to specific values\n"\
       " [--ninja2-mass]           use the NINJA 2 mass-selection algorithm\n"\
@@ -703,12 +743,17 @@ static void print_usage(char *program)
       "  --disable-spin           disables spinning injections\n"\
       "  --enable-spin            enables spinning injections\n"\
       "                           One of these is required.\n"\
+      "  [--spin-gaussian]        enable gaussian spin distribution\n"\
       "  --aligned                enforces the spins to be along the direction\n"\
       "                           of orbital angular momentum.\n"\
       "  [--min-spin1] spin1min   Set the minimum spin1 to spin1min (0.0)\n"\
       "  [--max-spin1] spin1max   Set the maximum spin1 to spin1max (0.0)\n"\
+      "  [--mean-spin1] spin1mean Set the mean for |spin1| distribution\n"\
+      "  [--stdev-spin1] spin1std Set the standard deviation for |spin1|\n"\
       "  [--min-spin2] spin2min   Set the minimum spin2 to spin2min (0.0)\n"\
       "  [--max-spin2] spin2max   Set the maximum spin2 to spin2max (0.0)\n"\
+      "  [--mean-spin2] spin2mean Set the mean for |spin2| distribution\n"\
+      "  [--stdev-spin2] spin2std Set the standard deviation for |spin2|\n"\
       "  [--min-kappa1] kappa1min Set the minimum cos(S1.L_N) to kappa1min (-1.0)\n"\
       "  [--max-kappa1] kappa1max Set the maximum cos(S1.L_N) to kappa1max (1.0)\n"\
       "  [--min-abskappa1] abskappa1min \n"\
@@ -729,7 +774,7 @@ static void print_usage(char *program)
   fprintf(stderr,
       "Tapering the injection waveform:\n"\
       "  [--taper-injection] OPT  Taper the inspiral template using option OPT\n"\
-      "                            (start|end|startend) \n)"\
+      "                            (start|end|startend) \n"\
       "  [--band-pass-injection]  sets the tapering method of the injected waveform\n\n");
   fprintf(stderr,
       "Output:\n"\
@@ -926,32 +971,30 @@ read_source_data( char* filename )
 }
 
 /*
- Function to read IPN sky simulations from text file given file - read(file,ra,dec)
-*/
-void read_IPN_grid_from_file( char *fname )
+ *
+ * Function to read IPN sky simulations from text file given file - read(file,ra,dec)
+ *
+ */
 
+  void 
+read_IPN_grid_from_file( char *fname )
 {
-
-  UINT4              j;                      /* counters */
-  char               line[256];              /* string holders */
-  FILE               *data;                  /* file object */
+  UINT4    j;                      /* counter */
+  char     line[256];              /* string holders */
+  FILE     *data;                  /* file object */
 
   /* read file */
   data = fopen(fname, "r");
-
-  /* check file */
   if ( ! data )
   {
     fprintf( stderr, "Could not find file %s\n", fname );
     exit( 1 );
   }
 
-
   /* find number of lines */
   numSkyPoints = 0;
   while ( fgets( line, sizeof( line ), data ) )
     ++numSkyPoints;
-
 
   /* seek to start of file again */
   fseek(data, 0, SEEK_SET);  
@@ -966,36 +1009,38 @@ void read_IPN_grid_from_file( char *fname )
 
   j = 0;
   while ( fgets( line, sizeof( line ), data ) )
+  {
+    REAL8 ra, dec;
+    int c;
+
+    c = sscanf( line, "%le %le", &ra, &dec );
+    if ( c != 2 )
     {
-      REAL8 ra, dec;
-      int c;
-
-      c = sscanf( line, "%le %le", &ra, &dec );
-      if ( c != 2 )
-      {
-        fprintf( stderr, "error parsing IPN sky points datafile %s\n", IPNSkyPositionsFile );
-        exit( 1 );
-      }
-
-      /* convert to radians */
-      skyPoints[j].ra  = ra * ( LAL_PI / 180.0 );  /* from degrees (IPN file) to radians */
-      skyPoints[j].dec = dec * ( LAL_PI / 180.0 );
-      ++j;
+      fprintf( stderr, "error parsing IPN sky points datafile %s\n", IPNSkyPositionsFile );
+      exit( 1 );
     }
 
+    /* convert to radians */
+    skyPoints[j].ra  = ra * ( LAL_PI / 180.0 );  /* from degrees (IPN file) to radians */
+    skyPoints[j].dec = dec * ( LAL_PI / 180.0 );
+    ++j;
+  }
 
   /* close file */
   fclose( data );
 }
 
 /*
-*
-*
-* Function to complete galaxy catalog
-*
-*/
-void sourceComplete() {
+ *
+ * Function to complete galaxy catalog 
+ *
+ * FIXME: Formatting of this function sucks
+ *
+ */
 
+  void 
+sourceComplete() 
+{
 /*  Catalog Completion Constants */
 REAL8 Mbstar = -20.45;
 /* Mbstar = magnitude at which the number of galaxies begins to fall off exponentially, corrected for reddening (to agree with the
@@ -1214,17 +1259,17 @@ XLALDestroyREAL8Vector(phi);
 XLALDestroyREAL8Vector(phiN);
 XLALDestroyREAL8Vector(N);
 XLALDestroyREAL8Vector(pN);
+
 }
-
-
 
 /*
  *
- * functions to draw masses from mass distribution
+ * functions to draw masses from source distribution
  *
  */
 
-void drawMassFromSource( SimInspiralTable* table )
+  void 
+drawMassFromSource( SimInspiralTable* table )
 {
   REAL4 m1, m2, eta;
   int mass_index=0;
@@ -1244,10 +1289,12 @@ void drawMassFromSource( SimInspiralTable* table )
 
 /*
  *
- * functions to draw masses from mass distribution
+ * functions to draw masses and spins from NR distribution
  *
  */
-void drawMassSpinFromNR( SimInspiralTable* table )
+
+  void 
+drawMassSpinFromNR( SimInspiralTable* table )
 {
   int mass_index=0;
 
@@ -1258,7 +1305,8 @@ void drawMassSpinFromNR( SimInspiralTable* table )
 }
 
 
-void drawMassSpinFromNRNinja2( SimInspiralTable* inj )
+  void 
+drawMassSpinFromNRNinja2( SimInspiralTable* inj )
 {
   /* For ninja2 we first select a mass, then find */
   /* a waveform that can be injected at that mass */
@@ -1335,7 +1383,10 @@ void drawMassSpinFromNRNinja2( SimInspiralTable* inj )
  * functions to draw sky location from source distribution
  *
  */
-void drawFromSource( REAL8 *rightAscension,
+
+  void 
+drawFromSource( 
+    REAL8 *rightAscension,
     REAL8 *declination,
     REAL8 *distance,
     CHAR   name[LIGOMETA_SOURCE_MAX] )
@@ -1365,23 +1416,24 @@ void drawFromSource( REAL8 *rightAscension,
   XLALRandomInspiralMilkywayLocation( rightAscension, declination, distance,
       randParams );
   memcpy( name, MW_name, sizeof(CHAR) * 30 );
-
 }
 
 /*
  *
- * functions to draw IPN sky location from IPN simulation points
+ * function to draw IPN sky location from IPN simulation points
  *
  */
-void drawFromIPNsim( REAL8 *rightAscension,
+
+  void 
+drawFromIPNsim( 
+    REAL8 *rightAscension,
     REAL8 *declination )
 {
   REAL4 u;
   INT4 j;
   
   u=XLALUniformDeviate( randParams );
-  j=( int ) (u*numSkyPoints);  
- 
+  j=( int ) (u*numSkyPoints);
 
   /* draw from the IPN source table */
     if ( j < numSkyPoints )
@@ -1393,13 +1445,14 @@ void drawFromIPNsim( REAL8 *rightAscension,
     }
 }
 
-
 /*
  *
- * functions to draw sky location from exttrig source file
+ * function to draw sky location from exttrig source file
  *
  */
-void drawLocationFromExttrig( SimInspiralTable* table )
+
+  void 
+drawLocationFromExttrig( SimInspiralTable* table )
 {
   LIGOTimeGPS timeGRB;  /* real time of the GRB */
   REAL4 ra_rad, de_rad;
@@ -1427,6 +1480,7 @@ void drawLocationFromExttrig( SimInspiralTable* table )
  * generate all parameters (sky position and angles) for a random inspiral
  *
  */
+
 int main( int argc, char *argv[] )
 {
   LIGOTimeGPS gpsStartTime = {-1,0};
@@ -1439,7 +1493,8 @@ int main( int argc, char *argv[] )
   REAL8 timeInterval = 0;
   REAL4 fLower = -1;
   UINT4 useChirpDist = 0;
-  REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0, meanMass10, meanMass20, massStdev10, massStdev20; /* masses at z=0 */
+  REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0, 
+      meanMass10, meanMass20, massStdev10, massStdev20; /* masses at z=0 */
   REAL8 pzmax=0; /* maximal value of the probability distribution of the redshift */
   INT4 ncount;
   size_t ninj;
@@ -1467,7 +1522,7 @@ int main( int argc, char *argv[] )
 
   REAL8 targetSNR;
 
-  CHAR  *ligoPsdFileName  = NULL;
+  CHAR *ligoPsdFileName   = NULL;
   REAL8 ligoStartFreq     = -1;
   CHAR *virgoPsdFileName  = NULL;
   REAL8 virgoStartFreq    = -1;
@@ -1478,7 +1533,7 @@ int main( int argc, char *argv[] )
   /* getopt arguments */
   struct option long_options[] =
   {
-    {"help",                          no_argument, 0,                'h'},
+    {"help",                    no_argument,       0,                'h'},
     {"verbose",                 no_argument,       &vrbflg,           1 },
     {"source-file",             required_argument, 0,                'f'},
     {"mass-file",               required_argument, 0,                'm'},
@@ -1515,19 +1570,23 @@ int main( int argc, char *argv[] )
     {"stdev-mass2",             required_argument, 0,                'O'},
     {"min-mratio",              required_argument, 0,                'x'},
     {"max-mratio",              required_argument, 0,                'y'},
+    {"d-distr",                 required_argument, 0,                'e'},
     {"min-distance",            required_argument, 0,                'p'},
     {"max-distance",            required_argument, 0,                'r'},
-    {"use-chirp-distance",      no_argument,       0,                ','},
-    {"min-snr",                 required_argument, 0,                '1'},
-    {"max-snr",                 required_argument, 0,                '2'},
-    {"log-snr",                 no_argument,       &logSNR,            1},
+    {"dchirp-distr",            required_argument, 0,                ','},
+    {"z-distr",                 required_argument, 0,                '5'},
+    {"min-z",                   required_argument, 0,                '6'},
+    {"max-z",                   required_argument, 0,                '7'},
+    {"local-rate",              required_argument, 0,                ')'},
+    {"snr-distr",               required_argument, 0,                '1'},
+    {"min-snr",                 required_argument, 0,                '2'},
+    {"max-snr",                 required_argument, 0,                '3'},
+    {"ifos",                    required_argument, 0,                '4'},
+    {"ninja-snr",               no_argument,       &ninjaSNR,          1},
     {"ligo-psd",                required_argument, 0,                500},
     {"ligo-start-freq",         required_argument, 0,                501},
     {"virgo-psd",               required_argument, 0,                600},
     {"virgo-start-freq",        required_argument, 0,                601},
-    {"ifos",                    required_argument, 0,                '3'},
-    {"d-distr",                 required_argument, 0,                'e'},
-    {"local-rate",              required_argument, 0,                ')'},
     {"l-distr",                 required_argument, 0,                'l'},
     {"longitude",               required_argument, 0,                'v'},
     {"latitude",                required_argument, 0,                'z'},
@@ -1536,6 +1595,8 @@ int main( int argc, char *argv[] )
     {"fixed-inc",               required_argument, 0,                'C'},
     {"max-inc",                 required_argument, 0,               1001},
     {"polarization",            required_argument, 0,                'S'},
+    {"coa-phase-distr",         required_argument, 0,               1007},
+    {"fixed-coa-phase",         required_argument, 0,               1008},
     {"sourcecomplete",          required_argument, 0,                'H'},
     {"make-catalog",            no_argument,       0,                '.'},
     {"enable-milkyway",         required_argument, 0,                'M'},
@@ -1562,6 +1623,11 @@ int main( int argc, char *argv[] )
     {"band-pass-injection",     no_argument,       0,                '}'},
     {"write-sim-ring",          no_argument,       0,                '{'},
     {"ipn-file",                required_argument, 0,                '^'},
+    {"spin-gaussian",           no_argument,       0,                 1002},
+    {"stdev-spin1",             required_argument, 0,                 1003},
+    {"stdev-spin2",             required_argument, 0,                 1004},
+    {"mean-spin1",              required_argument, 0,                 1005},
+    {"mean-spin2",              required_argument, 0,                 1006},
     {0, 0, 0, 0}
   };
   int c;
@@ -1720,53 +1786,59 @@ int main( int argc, char *argv[] )
         break;
                         
       case '(':
-                optarg_len = strlen( optarg ) + 1;
-                memcpy( dummy, optarg, optarg_len );
+        optarg_len = strlen( optarg ) + 1;
+        memcpy( dummy, optarg, optarg_len );
 
-                if (!strcmp(dummy, "fixed"))
-                {
-                  tDistr=LALINSPIRAL_FIXED_TIME_DIST;
-                }
-                else if (!strcmp(dummy, "uniform"))
-                {
-                  tDistr=LALINSPIRAL_UNIFORM_TIME_DIST;
-                }
-                else if(!strcmp(dummy, "exponential"))
-                {
-                  tDistr=LALINSPIRAL_EXPONENTIAL_TIME_DIST;
-                }
-                else
-                {
-                  tDistr=LALINSPIRAL_UNKNOWN_TIME_DIST;
-                  fprintf( stderr, "invalid argument to --%s:\n"
-                          "unknown time distribution: %s must be one of\n"
-                          "fixed, uniform or exponential\n",
-                          long_options[option_index].name, optarg );
-                  exit( 1 );
-                }
-                break;
+        if (!strcmp(dummy, "fixed"))
+        {
+          tDistr=LALINSPIRAL_FIXED_TIME_DIST;
+        }
+        else if (!strcmp(dummy, "uniform"))
+        {
+          tDistr=LALINSPIRAL_UNIFORM_TIME_DIST;
+        }
+        else if (!strcmp(dummy, "exponential"))
+        {
+          tDistr=LALINSPIRAL_EXPONENTIAL_TIME_DIST;
+        }
+        else
+        {
+          tDistr=LALINSPIRAL_UNKNOWN_TIME_DIST;
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "unknown time distribution: %s must be one of\n"
+              "fixed, uniform or exponential\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
 
       case ')':
-            localRate = atof( optarg );
-            this_proc_param = this_proc_param->next =
-            next_process_param( long_options[option_index].name,
-                        "float", "%le", localRate );
-            break;
+        localRate = atof( optarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "float", 
+              "%le", localRate );
+        if ( ! localRate > 0. )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "local coalescence rate must be positive"
+              "(%f specified)\n",
+              long_options[option_index].name, localRate );
+          exit( 1 );
+        }
+        break;
 
       case 't':
-        {
-          meanTimeStep = atof( optarg );
-          this_proc_param = this_proc_param->next =
-            next_process_param( long_options[option_index].name, "float",
-                "%le", meanTimeStep );
-        }
+        meanTimeStep = atof( optarg );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "float",
+              "%le", meanTimeStep );
         break;
 
       case 'i':
         timeInterval = atof( optarg );
         this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%le", timeInterval );
+          next_process_param( long_options[option_index].name, "float", 
+              "%le", timeInterval );
         break;
 
       case 'w':
@@ -1779,8 +1851,8 @@ int main( int argc, char *argv[] )
       case 'q':
         amp_order = atof( optarg );
         this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-            "int", "%ld", amp_order );
+          next_process_param( long_options[option_index].name, "int", 
+              "%ld", amp_order );
       break;
 
       case 'M':
@@ -2004,46 +2076,6 @@ int main( int argc, char *argv[] )
               "float", "%d", fixedMass2 );
         break;
 
-      case 'p':
-        /* minimum distance from earth */
-        dmin = (REAL4) atof( optarg );
-        if ( dmin <= 0 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "minimum distance must be > 0: "
-              "(%f kpc specified)\n",
-              long_options[option_index].name, dmin );
-          exit( 1 );
-        }
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%e", dmin );
-        break;
-
-      case 'r':
-        /* max distance from earth */
-        dmax = (REAL4) atof( optarg );
-        if ( dmax <= 0 )
-        {
-          fprintf( stderr, "invalid argument to --%s:\n"
-              "maximum distance must be greater than 0: "
-              "(%f kpc specified)\n",
-              long_options[option_index].name, dmax );
-          exit( 1 );
-        }
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%e", dmax );
-        break;
-
-      case ',':
-        /* Distribute injections in chirp distance not distance*/
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, "string",
-              "" );
-        useChirpDist = 1;
-        break;
-
       case 'e':
         optarg_len = strlen( optarg ) + 1;
         memcpy( dummy, optarg, optarg_len );
@@ -2053,8 +2085,8 @@ int main( int argc, char *argv[] )
             PROGRAM_NAME );
         snprintf( this_proc_param->param,LIGOMETA_PARAM_MAX,"--d-distr" );
         snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
-        snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
-            optarg );
+        snprintf( this_proc_param->value,LIGOMETA_VALUE_MAX,"%s", optarg );
+        haveLoudness += 1;  /* counter to check for clashing options */
 
         if (!strcmp(dummy, "source"))
         {
@@ -2076,19 +2108,210 @@ int main( int argc, char *argv[] )
         {
           dDistr=uniformVolume;
         }
-        else if (!strcmp(dummy, "sfr"))
+        else
         {
-          dDistr=sfr;
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "unknown distance distribution: "
+              "%s, must be one of (uniform, distancesquared, volume, log10, source)\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case ',':
+        optarg_len = strlen( optarg ) + 1;
+        memcpy( dummy, optarg, optarg_len );
+        this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+          calloc( 1, sizeof(ProcessParamsTable) );
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
+            PROGRAM_NAME );
+        snprintf( this_proc_param->param,LIGOMETA_PARAM_MAX,"--dchirp-distr" );
+        snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+        snprintf( this_proc_param->value,LIGOMETA_VALUE_MAX,"%s", optarg );
+        haveLoudness += 1; /* counter to check for clashing options */
+        useChirpDist = 1;
+
+        if (!strcmp(dummy, "uniform"))
+        {
+          dDistr=uniformDistance;
+        }
+        else if (!strcmp(dummy, "distancesquared"))
+        {
+          dDistr=uniformDistanceSquared;
+        }
+        else if (!strcmp(dummy, "log10"))
+        {
+          dDistr=uniformLogDistance;
+        }
+        else if (!strcmp(dummy, "volume"))
+        {
+          dDistr=uniformVolume;
         }
         else
         {
           fprintf( stderr, "invalid argument to --%s:\n"
-              "unknown source distribution: "
-              "%s, must be one of (uniform, distancesquared, log10, volume, source, sfr)\n",
+              "unknown distribution: "
+              "%s, must be one of (uniform, distancesquared, volume, log10)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
+        break;
 
+      case 'p':
+        /* minimum distance from earth */
+        minD = (REAL4) atof( optarg );
+        if ( minD <= 0 )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "minimum distance must be > 0: "
+              "(%f kpc specified)\n",
+              long_options[option_index].name, minD );
+          exit( 1 );
+        }
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%e", minD );
+        break;
+
+      case 'r':
+        /* max distance from earth */
+        maxD = (REAL4) atof( optarg );
+        if ( maxD <= 0 )
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "maximum distance must be greater than 0: "
+              "(%f kpc specified)\n",
+              long_options[option_index].name, maxD );
+          exit( 1 );
+        }
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%e", maxD );
+        break;
+
+      case '5':
+        optarg_len = strlen( optarg ) + 1;
+        memcpy( dummy, optarg, optarg_len );
+        this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+          calloc( 1, sizeof(ProcessParamsTable) );
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
+            PROGRAM_NAME );
+        snprintf( this_proc_param->param,LIGOMETA_PARAM_MAX,"--z-distr" );
+        snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+        snprintf( this_proc_param->value,LIGOMETA_VALUE_MAX,"%s", optarg );
+        haveLoudness += 1; /* counter to check for clashing options */
+
+        if (!strcmp(dummy, "sfr"))
+        {
+          dDistr = starFormationRate;
+        }
+        else
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "unknown redshift distribution: "
+              "%s, must be sfr (other distributions may be implemented in future)\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case '6':
+        minZ = atof( optarg );
+        this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+            "float", "%le", minSNR );
+        if ( minZ < 0 )
+        {
+          fprintf(stderr,"invalid argument to --%s:\n"
+                  "%s must not be less than 0.\n",
+                  long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case '7':
+        maxZ = atof( optarg );
+        this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+            "float", "%le", minSNR );
+        if ( maxZ < 0 )
+        {
+          fprintf(stderr,"invalid argument to --%s:\n"
+                  "%s must not be less than 0.\n",
+                  long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case '1':
+        optarg_len = strlen( optarg ) + 1;
+        memcpy( dummy, optarg, optarg_len );
+        this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+          calloc( 1, sizeof(ProcessParamsTable) );
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
+            PROGRAM_NAME );
+        snprintf( this_proc_param->param,LIGOMETA_PARAM_MAX,"--snr-distr" );
+        snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+        snprintf( this_proc_param->value,LIGOMETA_VALUE_MAX,"%s", optarg );
+        haveLoudness += 1; /* counter to check for clashing options */
+
+        if (!strcmp(dummy, "uniform"))
+        {
+          dDistr=uniformSnr;
+        }
+        else if (!strcmp(dummy, "log10"))
+        {
+          dDistr=uniformLogSnr;
+        }
+        else if (!strcmp(dummy, "volume"))
+        {
+          dDistr=uniformVolumeSnr;
+        }
+        else
+        {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "unknown SNR distribution: "
+              "%s, must be \n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case '2':
+        minSNR = atof( optarg );
+        this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+            "float", "%le", minSNR );
+        if ( minSNR < 2 )
+        {
+          fprintf(stderr,"invalid argument to --%s:\n"
+                  "%s must be greater than 2\n",
+                  long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case '3':
+        maxSNR = atof( optarg );
+        this_proc_param = this_proc_param->next =
+            next_process_param( long_options[option_index].name,
+            "float", "%le", maxSNR );
+        if ( maxSNR < 2 )
+        {
+          fprintf(stderr,"invalid argument to --%s:\n"
+                  "%s must be greater than 2\n",
+                  long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        break;
+
+      case '4':
+        optarg_len = strlen( optarg ) + 1;
+        ifos       = calloc( 1, optarg_len * sizeof(char) );
+        memcpy( ifos, optarg, optarg_len * sizeof(char) );
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name, "string",
+              "%s", optarg );
         break;
 
       case 'l':
@@ -2115,11 +2338,11 @@ int main( int argc, char *argv[] )
         {
           lDistr=uniformSkyLocation;
         }
-        else if(!strcmp(dummy, "fixed"))
+        else if (!strcmp(dummy, "fixed"))
         {
           lDistr=fixedSkyLocation;
         }
-        else if(!strcmp(dummy, "ipn"))
+        else if (!strcmp(dummy, "ipn"))
         {
           lDistr=locationFromIPNFile;
         }
@@ -2215,9 +2438,7 @@ int main( int argc, char *argv[] )
               long_options[option_index].name, optarg );
           exit( 1 );
         }
-
         break;
-
 
       case 'B':
         /* gaussian width for inclination */
@@ -2227,7 +2448,7 @@ int main( int argc, char *argv[] )
           fprintf( stderr, "invalid argument to --%s:\n"
               "inclination gaussian width must be greater than 0: "
               "(%f specified)\n",
-              long_options[option_index].name, dmax );
+              long_options[option_index].name, inclStd );
           exit( 1 );
         }
         this_proc_param = this_proc_param->next =
@@ -2243,8 +2464,8 @@ int main( int argc, char *argv[] )
               "float", "%e", fixed_inc );
         break;
 
-     case 1001:
-        /* maximum  angle of inclination */
+      case 1001:
+        /* maximum angle of inclination */
         max_inc = (REAL4) atof( optarg )/180.*LAL_PI;
         if ( (atof(optarg) < 0.) || (atof(optarg) >= 180.) ) {
           fprintf( stderr, "invalid argument to --%s:\n"
@@ -2256,6 +2477,44 @@ int main( int argc, char *argv[] )
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name,
               "float", "%e", max_inc );
+        break;
+
+      case 1007:
+        /* coalescence phase distribution */
+        if ( strcmp( optarg, "uniform" ) == 0)
+          coaPhaseFixed = 0;
+        else if ( strcmp( optarg, "fixed" ) == 0)
+          coaPhaseFixed = 1;
+        else {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "must either uniform or fixed (%s specified)\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        this_proc_param = this_proc_param->next = (ProcessParamsTable *)
+          calloc( 1, sizeof(ProcessParamsTable) );
+        snprintf( this_proc_param->program, LIGOMETA_PROGRAM_MAX, "%s",
+            PROGRAM_NAME );
+        snprintf( this_proc_param->param, LIGOMETA_PARAM_MAX, "--coa-phase-distr" );
+        snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
+        snprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, "%s",
+            optarg );
+        break;
+
+     case 1008:
+        /* fixed coalescence phase */
+        fixedCoaPhase = (REAL4) atof( optarg );
+        if ( (fixedCoaPhase < 0.) || (fixedCoaPhase >= 360.) ) {
+          fprintf( stderr, "invalid argument to --%s:\n"
+              "fixed coalescence phase must be between 0 and 360 degrees:"
+              "(%s specified)\n",
+              long_options[option_index].name, optarg );
+          exit( 1 );
+        }
+        this_proc_param = this_proc_param->next =
+          next_process_param( long_options[option_index].name,
+              "float", "%e", fixedCoaPhase );
+        fixedCoaPhase *= LAL_PI / 180.;
         break;
 
       case 'S':
@@ -2473,46 +2732,6 @@ int main( int argc, char *argv[] )
                         "string", optarg );
         break;
 
-      case '1':
-        minSNR = atof( optarg );
-
-        if ( minSNR < 2 )
-        {
-          fprintf(stderr,"invalid argument to --%s:\n"
-                  "%s must be greater than 2\n",
-                  long_options[option_index].name, optarg );
-
-          exit( 1 );
-        }
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%le", minSNR );
-
-        break;
-      case '2':
-        maxSNR = atof( optarg );
-        if ( maxSNR < 2 )
-        {
-          fprintf(stderr,"invalid argument to --%s:\n"
-                  "%s must be greater than 2\n",
-                  long_options[option_index].name, optarg );
-
-          exit( 1 );
-        }
-
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%le", maxSNR );
-        break;
-      case '3':
-        optarg_len = strlen( optarg ) + 1;
-        ifos       = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( ifos, optarg, optarg_len * sizeof(char) );
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, "string",
-              "%s", optarg );
-        break;
-
       case 'h':
         print_usage(argv[0]);
         exit( 0 );
@@ -2530,6 +2749,38 @@ int main( int argc, char *argv[] )
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name, "string",
               "%s", optarg );
+        break;
+
+      case 1002:
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name, "string", "" );
+        spinDistr = gaussianSpinDist;
+        break;
+
+      case 1003:
+        Spin1Std = atof( optarg );
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name,
+          "float", "%le", Spin1Std );
+        break;
+
+      case 1004:
+        Spin2Std = atof( optarg );
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name,
+          "float", "%le", Spin2Std );
+        break;
+      case 1005:
+        meanSpin1 = atof( optarg );
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name,
+          "float", "%le", meanSpin1 );
+        break;
+      case 1006:
+        meanSpin2 = atof( optarg );
+        this_proc_param = this_proc_param->next = 
+        next_process_param( long_options[option_index].name,
+          "float", "%le", meanSpin2 );
         break;
 
 
@@ -2558,9 +2809,10 @@ int main( int argc, char *argv[] )
 
   gpsDuration=gpsEndTime.gpsSeconds-gpsStartTime.gpsSeconds;
 
-  if ( dDistr == unknownDistanceDist )
+  if ( (dDistr == unknownLoudnessDist) || (haveLoudness != 1) )
   {
-    fprintf(stderr,"Must specify a distance distribution (--d-distr).\n");
+    fprintf(stderr,"Must specify exactly one distribution out of\n"\
+        "--d-distr, --dchirp-distr, --z-distr or --snr-distr.\n");
     exit( 1 );
   }
 
@@ -2604,15 +2856,23 @@ int main( int argc, char *argv[] )
     if ( ! sourceFileName )
     {
       fprintf( stderr,
-          "Must specify --source-file when using --d-distr source \n" );
+          "Must specify --source-file when using --d-distr or --l-distr source \n" );
+      exit( 1 );
+    }
+  
+    if ( ( dDistr == distFromSourceFile ) && ( minD>0.0 || maxD>0.0 ) )
+    {
+      fprintf( stderr,
+        "Cannot specify --min-distance or --max-distance\n"\
+            "if --d-distr=source\n");
       exit( 1 );
     }
 
     /* read the source distribution here */
     read_source_data( sourceFileName );
 
-   /* complete the galaxy catalog */
-   if (srcComplete == 1)
+    /* complete the galaxy catalog */
+    if (srcComplete == 1)
     {
     sourceComplete();
     }
@@ -2624,7 +2884,7 @@ int main( int argc, char *argv[] )
     if ( ! IPNSkyPositionsFile )
     {
       fprintf( stderr,
-          "Must specify --ipn-file when using IPN sky points distribution \n" );
+          "Must specify --ipn-file when using IPN sky points distribution\n" );
       exit( 1 );
     }
     /* sanity check on the input */
@@ -2664,23 +2924,90 @@ int main( int argc, char *argv[] )
     /* read the source distribution here */
    read_IPN_grid_from_file( IPNSkyPositionsFile );
   }
-  /* If we're distributing over snr make sure we have everything */
-  if ( minSNR > -1 || maxSNR > -1 || logSNR || ifos )
+
+  /* check compatibility of distance/loudness options */
+  if ( ( dDistr == uniformDistance || dDistr == uniformDistanceSquared ||
+      dDistr == uniformLogDistance || dDistr == uniformVolume ) &&
+      ( minD<=0.0 || maxD<=0.0 ) )
   {
+    fprintf( stderr,
+      "Positive minimum and maximum distances must be specified\n");
+    exit( 1 );
+  }
+  if ( dDistr == uniformDistance || dDistr == uniformDistanceSquared ||
+      dDistr == uniformLogDistance || dDistr == uniformVolume ||
+      dDistr == distFromSourceFile )
+  {
+    if ( minZ>0.0 || maxZ>0.0 || localRate>0.0 || ninjaSNR ||
+        minSNR>0.0 || maxSNR>0.0 || ifos!=NULL )
+    {
+      fprintf( stderr,
+        "One or more options on redshift or SNR are incompatible\n"\
+           "with --d-distr or --dchirp-distr !\n");
+      exit( 1 );
+    }
+  }
+  if ( dDistr == starFormationRate )
+  {
+    if ( minD>0.0 || maxD>0.0 || ninjaSNR || minSNR>0.0 || maxSNR>0.0 || ifos!=NULL )
+    {
+      fprintf( stderr,
+          "One or more options on distance or SNR are incompatible\n"\
+              "with --z-distr !\n");
+      exit( 1 );
+    }
+    if ( minZ<0.2 || maxZ>1.0 ) 
+    {
+      fprintf( stderr,
+          "Redshift can only take values between 0.2 and 1 for --z-distr=sfr\n");
+      exit( 1 );
+    }
+    if ( localRate<=0. )
+    {
+      fprintf( stderr,
+          "Local coalescence rate must be positive for --z-distr=sfr\n");
+      exit( 1 );
+    }
+    if ( meanTimeStep>=0. )
+    {
+      fprintf( stderr, "Time step cannot be specified for --z-distr=sfr\n"\
+              "(it is calculated from local coalescence rate)\n");
+      exit( 1 );
+    }
+  }
+  if ( ( dDistr == uniformSnr || dDistr == uniformLogSnr || 
+      dDistr == uniformVolumeSnr ) && 
+      ( minD>0.0 || maxD>0.0 || minZ>0.0 || maxZ>0.0 || localRate>0.0 ) )
+  { 
+    fprintf( stderr,
+        "One or more options on distance or redshift are incompatible\n"\
+            "with --snr-distr !\n");
+    exit( 1 );
+  }
+
+  /* if distributing over SNR, currently only NINJA calculation is supported */
+  if ( dDistr == uniformSnr || dDistr == uniformLogSnr || 
+      dDistr == uniformVolumeSnr )
+  {
+    if ( !ninjaSNR )
+    {
+      fprintf( stderr, 
+        "Only the --ninja-snr option is currently supported\n");
+      exit( 1 );
+    }
+    /* make sure we have everything */
     if ( minSNR == -1 || maxSNR == -1 || ifos == NULL )
     {
       fprintf( stderr,
         "Must provide all of --min-snr, --max-snr and --ifos to distribute by SNR\n" );
       exit( 1 );
     }
-
     if ( maxSNR <= minSNR )
     {
       fprintf( stderr, "max SNR must be greater than min SNR\n");
       exit( 1 );
     }
-
-    if ( logSNR )
+    if ( dDistr == uniformLogSnr )
     {
       minSNR = log(minSNR);
       maxSNR = log(maxSNR);
@@ -2706,7 +3033,6 @@ int main( int argc, char *argv[] )
         "but NOT for distances, while Milky Way injections "
         "are allowed. This might give strange distributions\n" );
   }
-
 
   /* check selection of masses */
   if ( !massFileName && mDistr==massFromSourceFile )
@@ -2760,7 +3086,6 @@ int main( int argc, char *argv[] )
     /* We're done with the filename */
     free(virgoPsdFileName);
   }
-
 
   /* read the masses from the mass file here */
   if ( massFileName && mDistr==massFromSourceFile )
@@ -2828,7 +3153,6 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-
   /* check for gaussian mass distribution parameters */
   if ( mDistr==gaussianMassDist && (meanMass1 <= 0.0 || massStdev1 <= 0.0 ||
         meanMass2 <= 0.0 || massStdev2 <= 0.0))
@@ -2850,7 +3174,7 @@ int main( int argc, char *argv[] )
   }
 
   /* check if the maximum total mass is properly specified */
-  if ( mDistr!=gaussianMassDist && maxMtotal<(minMass1 + minMass2 ))
+  if ( mDistr!=gaussianMassDist && mDistr!=fixMasses && maxMtotal<(minMass1 + minMass2) )
   {
     fprintf( stderr,
         "Maximum total mass must be larger than minMass1+minMass2\n");
@@ -2900,7 +3224,7 @@ int main( int argc, char *argv[] )
     if ( pntMass1<2 || pntMass2<2 )
     {
     fprintf( stderr, "--mass1-points and --mass2-points must be specified "
-        "and >= 2 if --m-distr=m1m2SquareGrid \n" );
+        "and >= 2 if --m-distr=m1m2SquareGrid\n" );
     exit( 1 );
     }
     else
@@ -2940,24 +3264,40 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  if ( spinInjections==1 && strncmp(waveform, "IMRPhenomB", 10)==0 && spinAligned==-1 )
+  if ( spinInjections==1 && spinAligned==-1 && 
+      ( !strncmp(waveform, "IMRPhenomB", 10) || !strncmp(waveform, "IMRPhenomC", 10) ) )
   {
     fprintf( stderr,
-        "Spinning IMRPhenomB injections must have the --aligned option.\n" );
+        "Spinning IMRPhenomB or -C injections must have the --aligned option.\n" );
     exit( 1 );
   }
 
   if ( spinInjections==1 && spinAligned==1 && strncmp(waveform, "IMRPhenomB", 10)
-    && strncmp(waveform, "SpinTaylor", 10) )
+    && strncmp(waveform, "IMRPhenomC", 10) && strncmp(waveform, "SpinTaylor", 10) )
   {
     fprintf( stderr,
         "Sorry, I only know to make spin aligned injections for \n"
-        "IMRPhenomB, SpinTaylor and SpinTaylorFrameless waveforms.\n" );
+        "IMRPhenomB/C, SpinTaylor and SpinTaylorFrameless waveforms.\n" );
     exit( 1 );
   }
 
   if ( spinInjections==1 )
   {
+    if ( spinDistr == unknownSpinDist ) /* Not currently used */
+    {
+      fprintf(stderr,"Must specify a spin magnitude distribution (--spin-distr).\n");
+      exit( 1 );
+    }
+
+    /* check that spin stddev is positive */
+    if ( spinDistr==gaussianSpinDist && (Spin1Std <= 0.0 || Spin2Std <= 0.0))
+    {
+        fprintf( stderr,
+            "Must specify positive |spin| standard deviations when using"
+            " --spin-gaussian\n" );
+        exit( 1 );
+    }
+
     /* check that spins are in range 0 - 1 */
     if (minSpin1 < 0. || minSpin2 < 0. || maxSpin1 > 1. || maxSpin2 >1.)
     {
@@ -2973,6 +3313,18 @@ int main( int argc, char *argv[] )
           "Minimal spins must be less than maximal spins.\n" );
       exit( 1 );
     }
+
+    /* check that spin means are within a reasonable range */
+    if (spinDistr==gaussianSpinDist && ( minSpin1 - meanSpin1 > 2.0*Spin1Std || meanSpin1 - maxSpin1 > 2.0*Spin2Std ))
+    {
+      fprintf(stderr,"Mean of |spin1| distribution is way out of range.\n");
+      exit( 1 );		
+	}
+    if (spinDistr==gaussianSpinDist && ( minSpin2 - meanSpin2 > 2.0*Spin2Std || meanSpin2 - maxSpin2 > 2.0*Spin2Std ))
+    {
+      fprintf(stderr,"Mean of |spin2| distribution is way out of range.\n");
+      exit( 1 );		
+	}
 
     /* check that selection criteria for kappa are unique */
     if ( (minKappa1 > -1.0 || maxKappa1 < 1.0) &&
@@ -2991,6 +3343,7 @@ int main( int argc, char *argv[] )
           "Kappa can only take values between -1 and +1\n" );
       exit( 1 );
     }
+
     /* check that kappa min-max are set correctly */
     if (minKappa1 > maxKappa1)
     {
@@ -2998,13 +3351,15 @@ int main( int argc, char *argv[] )
           "Minimal kappa must be less than maximal kappa\n" );
       exit( 1 );
     }
+
     /* check that abskappa is in range */
     if (minabsKappa1 < 0.0 || maxabsKappa1 > 1.0)
     {
       fprintf( stderr,
-      "The absolute value of kappa can only take values between 0 and +1\n" );
+          "The absolute value of kappa can only take values between 0 and +1\n" );
       exit( 1 );
     }
+
     /* check that kappa min-max are set correctly */
     if (minabsKappa1 > maxabsKappa1)
     {
@@ -3013,11 +3368,11 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
   }
-        
-  if( dDistr==sfr && localRate > 0.)
+
+  if ( dDistr == starFormationRate )
   {
-    /* calculate mean time step from the SFR  */
-        meanTimeStep = mean_time_step_sfr(dmax,localRate);
+    /* recalculate mean time step from the SFR  */
+    meanTimeStep = mean_time_step_sfr(maxZ, localRate);
   }
 
   if (meanTimeStep<=0)
@@ -3033,7 +3388,6 @@ int main( int argc, char *argv[] )
          "time interval must be zero\n" );
     exit( 1 );
   }
-
 
   if ( userTag && outCompress )
   {
@@ -3093,6 +3447,12 @@ int main( int argc, char *argv[] )
   massStdev10 = massStdev1;
   massStdev20 = massStdev2;
 
+  /* calculate the maximal value of the probability distribution of the redshift */        
+  if (dDistr == starFormationRate)
+  {
+    pzmax = probability_redshift_sfr(maxZ);
+  }
+
   /* loop over parameter generation until end time is reached */
   ninj = 0;
   ncount = 0;
@@ -3112,10 +3472,9 @@ int main( int argc, char *argv[] )
     simTable->f_lower = fLower;
     simTable->amp_order = amp_order;
     /* draw redshift */
-    if (dDistr==sfr)
+    if (dDistr==starFormationRate)
     {
       redshift= drawRedshiftSFR(zminimal,zmaximal,pzmax);        
-
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
       meanMass1 = redshift_mass(meanMass10, redshift);
@@ -3201,9 +3560,9 @@ int main( int argc, char *argv[] )
     /* populate distances */
     if ( dDistr == distFromSourceFile )
     {
-      if ( dmax > 0 )
+      if ( maxD > 0 )
       {
-        while ( drawnDistance > dmax/1000.0 )
+        while ( drawnDistance > maxD/1000.0 )
         {
           drawFromSource( &drawnRightAscension, &drawnDeclination,
                           &drawnDistance, drawnSourceName );
@@ -3211,7 +3570,7 @@ int main( int argc, char *argv[] )
       }
       simTable->distance = drawnDistance;
     }
-    else if ((dDistr == sfr )||(dDistr==uniformVolume))
+    else if ((dDistr == starFormationRate )||(dDistr==uniformVolume))
     {
        simTable->distance = XLALLuminosityDistance(omega,redshift);
        simTable->redshift = redshift;
@@ -3219,10 +3578,10 @@ int main( int argc, char *argv[] )
     else
     {
       simTable=XLALRandomInspiralDistance(simTable, randParams,
-          dDistr, dmin/1000.0, dmax/1000.0);
+          dDistr, minD/1000.0, maxD/1000.0);
     }
     /* Scale by chirp mass if desired, relative to a 1.4,1.4 object */
-    if (useChirpDist)
+    if ( useChirpDist )
     {
       REAL4 scaleFac;
       scaleFac = simTable->mchirp/(2.8*pow(0.25,0.6));
@@ -3246,7 +3605,7 @@ int main( int argc, char *argv[] )
       simTable->longitude = longitude;
       simTable->latitude = latitude;
     }
-    else if (lDistr == uniformSkyLocation)
+    else if ( lDistr == uniformSkyLocation )
     {
       simTable=XLALRandomInspiralSkyLocation(simTable, randParams);
     }
@@ -3301,14 +3660,20 @@ int main( int argc, char *argv[] )
       simTable->polarization = psi;
     }
 
+    /* override coalescence phase */
+    if ( coaPhaseFixed )
+    {
+      simTable->coa_phase = fixedCoaPhase;
+    }
+
     /* populate spins, if required */
     if (spinInjections)
     {
       if (spinAligned==1)
       {
-        if (strncmp(waveform, "IMRPhenomB", 10)==0)
+        if ( !strncmp(waveform, "IMRPhenomB", 10) || !strncmp(waveform, "IMRPhenomC", 10) )
           alignInj = alongzAxis;
-        else if (strncmp(waveform, "SpinTaylor", 10)==0)
+        else if ( !strncmp(waveform, "SpinTaylor", 10) )
           alignInj = inxzPlane;
         else
         {
@@ -3316,73 +3681,82 @@ int main( int argc, char *argv[] )
           exit( 1 );
         }
       }
-      else
-        alignInj = notAligned;
+      else alignInj = notAligned;
+
       simTable = XLALRandomInspiralSpins( simTable, randParams,
           minSpin1, maxSpin1,
           minSpin2, maxSpin2,
           minKappa1, maxKappa1,
           minabsKappa1, maxabsKappa1,
-          alignInj );
+          alignInj, spinDistr, 
+          meanSpin1, Spin1Std, 
+          meanSpin2, Spin2Std );
     }
 
+    /* adjust SNR to desired distribution using NINJA calculation */ 
     if ( ifos != NULL )
     {
-        targetSNR = minSNR + (maxSNR - minSNR) * XLALUniformDeviate( randParams );
-        if ( logSNR )
-          targetSNR = exp(targetSNR);
-
-        if (! real8Ninja2)
+      targetSNR = minSNR + (maxSNR - minSNR) * XLALUniformDeviate( randParams );
+      if ( dDistr == uniformLogSnr )
         {
-            adjust_snr(simTable, targetSNR, ifos);
-        } else {
-            REAL8 *start_freqs;
-            const char  **ifo_list;
-            REAL8FrequencySeries **psds;
-            int count, num_ifos = 0;
-            char *tmp, *ifo;
-
-            tmp = LALCalloc(1, strlen(ifos) + 1);
-            strcpy(tmp, ifos);
-            ifo = strtok (tmp,",");
-
-            while (ifo != NULL)
-            {
-              num_ifos += 1;
-              ifo       = strtok (NULL, ",");
-            }
-
-            start_freqs = (REAL8 *) LALCalloc(num_ifos, sizeof(REAL8));
-            ifo_list    = (const char **) LALCalloc(num_ifos, sizeof(char *));
-            psds        = (REAL8FrequencySeries **) LALCalloc(num_ifos, sizeof(REAL8FrequencySeries *));
-
-            strcpy(tmp, ifos);
-            ifo   = strtok (tmp,",");
-            count = 0;
-
-            while (ifo != NULL)
-            {
-                ifo_list[count] = ifo; 
-
-                if (ifo_list[count][0] == 'V')
-                {
-                    start_freqs[count] = virgoStartFreq;
-                    psds[count]        = virgoPsd;
-                } else {
-                    start_freqs[count] = ligoStartFreq;
-                    psds[count]        = ligoPsd;
-                }
-                count++;
-                ifo = strtok (NULL, ",");
-            }
-
-            adjust_snr_with_psds_real8(simTable, targetSNR, num_ifos, ifo_list, psds, start_freqs);
-        
-            LALFree(start_freqs);
-            LALFree(ifo_list);
-            LALFree(psds);
-            LALFree(tmp);
+          targetSNR = exp(targetSNR);
         }
+
+      if (! real8Ninja2)
+      {
+        adjust_snr(simTable, targetSNR, ifos);
+      } 
+      else 
+      {
+        REAL8 *start_freqs;
+        const char  **ifo_list;
+        REAL8FrequencySeries **psds;
+        int count, num_ifos = 0;
+        char *tmp, *ifo;
+
+        tmp = LALCalloc(1, strlen(ifos) + 1);
+        strcpy(tmp, ifos);
+        ifo = strtok (tmp,",");
+
+        while (ifo != NULL)
+        {
+          num_ifos += 1;
+          ifo       = strtok (NULL, ",");
+        }
+
+        start_freqs = (REAL8 *) LALCalloc(num_ifos, sizeof(REAL8));
+        ifo_list    = (const char **) LALCalloc(num_ifos, sizeof(char *));
+        psds        = (REAL8FrequencySeries **) LALCalloc(num_ifos, sizeof(REAL8FrequencySeries *));
+
+        strcpy(tmp, ifos);
+        ifo   = strtok (tmp,",");
+        count = 0;
+
+        while (ifo != NULL)
+        {
+          ifo_list[count] = ifo; 
+
+          if (ifo_list[count][0] == 'V')
+          {
+            start_freqs[count] = virgoStartFreq;
+            psds[count]        = virgoPsd;
+          } 
+          else 
+          {
+            start_freqs[count] = ligoStartFreq;
+            psds[count]        = ligoPsd;
+          }
+          count++;
+          ifo = strtok (NULL, ",");
+        }
+
+        adjust_snr_with_psds_real8(simTable, targetSNR, num_ifos, ifo_list, psds, start_freqs);
+
+        LALFree(start_freqs);
+        LALFree(ifo_list);
+        LALFree(psds);
+        LALFree(tmp);
+      }
     }
     /* temporarily populate additional parameters */
     simTable->fref = 0.0;
@@ -3468,7 +3842,7 @@ int main( int argc, char *argv[] )
        check if end of loop is reached */
     if (tDistr == LALINSPIRAL_EXPONENTIAL_TIME_DIST)
     {
-      XLALGPSAdd( &currentGpsTime, -(REAL8 )meanTimeStep * log( XLALUniformDeviate(randParams) ) );
+      XLALGPSAdd( &currentGpsTime, -(REAL8)meanTimeStep * log( XLALUniformDeviate(randParams) ) );
     }
     else
     {

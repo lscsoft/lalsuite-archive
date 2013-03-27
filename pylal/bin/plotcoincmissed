@@ -208,7 +208,7 @@ for entry in missed_cache:
   ifos = entry.observatory
   page.h2(ifos)
   page.ul()
-  missed_inj= SimInspiralUtils.ReadSimInspiralFromFiles([entry.path()])
+  missed_inj= SimInspiralUtils.ReadSimInspiralFromFiles([entry.path])
   if missed_inj is None:
     continue
 

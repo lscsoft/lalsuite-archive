@@ -22,10 +22,15 @@
 # =============================================================================
 #
 
+import numpy
+import itertools
+
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw import ilwd
+
 #
 # =============================================================================
 #
@@ -55,6 +60,75 @@ def ReadMultiInspiralFromFiles(fileList):
       else: multis = multiInspiralTable
     except: multiInspiralTable = None
   return multis
+
+def ReadMultiInspiralTimeSlidesFromFiles(fileList):
+  """
+  Read time-slid multiInspiral tables from a list of files
+  @param fileList: list of input files
+  """
+  if not fileList:
+    return multiInspiralTable(), None
+
+  multis = None
+  timeSlides = []
+
+  for thisFile in fileList:
+
+    doc = utils.load_filename(thisFile,
+        gz=(thisFile or "stdin").endswith(".gz"))
+    # Extract the time slide table
+    timeSlideTable = table.get_table(doc,
+          lsctables.TimeSlideTable.tableName)
+    slideMapping = {}
+    currSlides = {}
+    for slide in timeSlideTable:
+      currID = int(slide.time_slide_id)
+      if currID not in currSlides.keys():
+        currSlides[currID] = {}
+        currSlides[currID][slide.instrument] = slide.offset
+      elif slide.instrument not in currSlides[currID].keys():
+        currSlides[currID][slide.instrument] = slide.offset
+
+    for slideID,offsetDict in currSlides.items():
+      try:
+        # Is the slide already in the list and where?
+        offsetIndex = timeSlides.index(offsetDict)
+        slideMapping[slideID] = offsetIndex
+      except ValueError:
+        # If not then add it
+        timeSlides.append(offsetDict)
+        slideMapping[slideID] = len(timeSlides) - 1
+    
+    # extract the multi inspiral table
+    try:
+      multiInspiralTable = table.get_table(doc,
+          lsctables.MultiInspiralTable.tableName)
+      # Remap the time slide IDs
+      for multi in multiInspiralTable:
+        newID = slideMapping[int(multi.time_slide_id)]
+        multi.time_slide_id = ilwd.ilwdchar(\
+                              "multi_inspiral:time_slide_id:%d" % (newID))
+      if multis: multis.extend(multiInspiralTable)
+      else: multis = multiInspiralTable
+#    except: multiInspiralTable = None
+    except: raise
+
+  # Make a new time slide table
+  timeSlideTab = lsctables.New(lsctables.TimeSlideTable)
+
+  for slideID,offsetDict in enumerate(timeSlides):
+    for instrument in offsetDict.keys():
+      currTimeSlide = lsctables.TimeSlide()
+      currTimeSlide.instrument = instrument
+      currTimeSlide.offset = offsetDict[instrument]
+      currTimeSlide.time_slide_id = ilwd.ilwdchar(\
+                              "time_slide:time_slide_id:%d" % (slideID))
+      currTimeSlide.process_id = ilwd.ilwdchar(\
+                              "time_slide:process_id:%d" % (0))
+      timeSlideTab.append(currTimeSlide)
+
+  return multis,timeSlides,timeSlideTab
+
 
 #
 # =============================================================================
@@ -88,3 +162,113 @@ def CompareMultiInspiral(a, b, twindow = LIGOTimeGPS(0)):
   else:
     return cmp(a.get_end(), b.get_end())
 
+
+def cluster_multi_inspirals(mi_table, dt, loudest_by="snr"):
+    """Cluster a MultiInspiralTable with a given ranking statistic and
+    clustering window.
+
+    This method separates the table rows into time bins, returning those
+    row that are
+        * loudest in their own bin, and
+        * louder than those events in the preceeding and following bins
+          that are within the clustering time window
+
+    @return: a new MultiInspiralTable containing those clustered events
+
+    @param mi_table:
+        MultiInspiralTable to cluster
+    @param dt:
+        width (seconds) of clustering window
+    @keyword loudest_by:
+        column by which to rank events, default: 'snr'
+
+    @type mi_table: glue.ligolw.lsctables.MultiInspiralTable
+    @type dt: float
+    @type loudest_by: string
+    @rtype: glue.ligolw.lsctables.MultiInspiralTable
+    """
+    cluster_table = table.new_from_template(mi_table)
+    if not len(mi_table):
+        return cluster_table
+
+    # get data
+    end_time = numpy.asarray(mi_table.get_end()).astype(float)
+    if hasattr(mi_table, "get_%s" % loudest_by):
+        stat = numpy.asarray(getattr(mi_table, "get_%s" % loudest_by)())
+    else:
+        stat = numpy.asarray(mi_table.get_column(loudest_by))
+
+    # get times
+    start = round(end_time.min())
+    end = round(end_time.max()+1)
+
+    # generate bins
+    num_bins  = int((end-start)//dt + 1)
+    time_bins = []
+    loudest_stat = numpy.empty(num_bins)
+    loudest_time = numpy.empty(num_bins)
+    for n in range(num_bins):
+        time_bins.append([])
+
+    # bin triggers
+    for i,(t,s) in enumerate(itertools.izip(end_time, stat)):
+        bin_ = int(float(t-start)//dt)
+        time_bins[bin_].append(i)
+        if s > loudest_stat[bin_]:
+            loudest_stat[bin_] = s
+            loudest_time[bin_] = t
+
+    # loop over all bins
+    for i,bin_ in enumerate(time_bins):
+        if len(bin_)<1:
+            continue
+        first = i==0
+        last = i==(num_bins-1)
+
+        prev = i-1
+        next_ = i+1
+        check_prev = (not first and len(time_bins[prev]) > 0)
+        check_next = (not last and len(time_bins[next_]) > 0)
+
+        # pick loudest event in bin
+        idx = bin_[stat[bin_].argmax()]
+        s = stat[idx]
+        t = end_time[idx]
+
+        # trigger was loudest in it's bin, search loudest event
+        # in previous bin
+        if (check_prev and (t - loudest_time[prev]) < dt and
+                s < loudest_stat[prev]):
+            continue
+
+        # Same for the next bin
+        if (check_next and (loudest_time[next_] - t) < dt and
+                s < loudest_stat[next_]):
+            continue
+
+        loudest=True
+
+        # trigger was loudest in it's bin, search previous bin
+        if check_prev and not (t - loudest_time[prev]) < dt:
+            for idx2 in time_bins[prev]:
+                t2 = end_time[idx2]
+                if (t - end_time[idx2]) < dt and s < stat[idx2]:
+                    loudest = False
+                    break
+        if not loudest:
+            continue
+
+        # if still loudest, check the next bin
+        if check_next and not (loudest_time[next_] - t) < dt:
+            for idx2 in time_bins[next_]:
+                if (end_time[idx2] - t) < dt and s < stat[idx2]:
+                    loudest = False
+                    break
+        if not loudest:
+            continue
+
+        # this was the loudest trigger in its vicinity,
+        # keep it and move to the next bin
+        cluster_table.append(mi_table[idx])
+
+    return cluster_table

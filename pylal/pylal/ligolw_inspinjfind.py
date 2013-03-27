@@ -45,6 +45,7 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
+from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
@@ -128,7 +129,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
+		self.tisi_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(seglists, 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_inspiral <--> sngl_inspiral

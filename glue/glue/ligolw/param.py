@@ -29,10 +29,16 @@ High-level support for Param elements.
 """
 
 
+import pickle
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl as Attributes
+try:
+	import yaml
+except ImportError:
+	# yaml serialization is optional
+	pass
 
 
 from glue import git_version
@@ -150,6 +156,63 @@ def get_pyvalue(xml, name):
 	# Note:  the Param is automatically parsed into the correct Python
 	# type, so this function is mostly a no-op.
 	return get_param(xml, name).pcdata
+
+
+#
+# =============================================================================
+#
+#                        (De-)Serialization via Params
+#
+# =============================================================================
+#
+
+
+def pickle_to_param(obj, name):
+	"""
+	Return the top-level element of a document sub-tree containing the
+	pickled serialization of a Python object.
+	"""
+	return param.from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
+
+
+def pickle_from_param(elem, name):
+	"""
+	Retrieve a pickled Python object from the document tree rooted at
+	elem.
+	"""
+	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
+
+
+def yaml_to_param(obj, name):
+	"""
+	Return the top-level element of a document sub-tree containing the
+	YAML serialization of a Python object.
+	"""
+	return param.from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
+
+
+def yaml_from_param(elem, name):
+	"""
+	Retrieve a YAMLed Python object from the document tree rooted at
+	elem.
+	"""
+	return yaml.load(param.get_pyvalue(elem, u"yaml:%s" % name))
+
+
+try:
+	yaml
+except NameError:
+	# yaml module not loaded, disable (de-)serializers
+	def yaml_to_param(obj, name):
+		"""
+		Not available.  Install yaml to use.
+		"""
+		raise NameError("yaml not installed")
+	def yaml_from_param(elem, name):
+		"""
+		Not available.  Install yaml to use.
+		"""
+		raise NameError("yaml not installed")
 
 
 #

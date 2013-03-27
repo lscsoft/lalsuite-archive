@@ -46,6 +46,7 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import git_version
 from pylal import ligolw_thinca
 from pylal import ligolw_rinca
+from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
@@ -133,7 +134,7 @@ class DocContents(object):
 		# indicate time slide at which the injection was done
 		#
 
-		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.sngltable.getColumnByName("ifo"), 0.0), create_new = process)
+		self.tisi_id = ligolw_tisi.get_time_slide_id(xmldoc, {}.fromkeys(self.sngltable.getColumnByName("ifo"), 0.0), create_new = process)
 
 		#
 		# get coinc_definer row for sim_type <--> sngl_type
@@ -229,10 +230,10 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
- 		# FIXME I'll just make the windows 15 ms
+ 		# FIXME I'll just make the windows 1.0 s
 
-                self.search_time_window = .015
-                self.coinc_time_window = .015
+                self.search_time_window = 1.0
+                self.coinc_time_window = 1.0
 
 
 	def type_near_time(self, t):

@@ -24,9 +24,9 @@ from pylal import db_thinca_rings
 from pylal import rate
 import numpy
 import copy
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
-from pylal import llwapp
 
 try:
 	import sqlite3
@@ -149,7 +149,7 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
 		if live_time_program == "gstlal_inspiral":
 			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, data_segments_name).coalesce()
-			segs &= llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs &= ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		elif live_time_program == "thinca":
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
 		else:
@@ -159,14 +159,14 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-		segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		if veto_segments_name is not None:
 			veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
 		if live_time_program == "omega_to_coinc":
-			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 			if veto_segments_name is not None:
 				veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 				segs -= veto_segs
