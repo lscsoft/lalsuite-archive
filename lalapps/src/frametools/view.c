@@ -797,7 +797,7 @@ int dbg_fsdump( COMPLEX8FrequencySeries *series, const char *fname )
 		fp = fopen( fname, "w" );
 		for ( k = 1; k < series->data->length; ++k )
 			fprintf( fp, "%e\t%e\t%e\n", k * series->deltaF,
-					LAL_CABSF(series->data->data[k]), LAL_CARGF(series->data->data[k]) );
+					cabsf(series->data->data[k]), cargf(series->data->data[k]) );
 		fclose( fp );
 	}
 	return 0;
