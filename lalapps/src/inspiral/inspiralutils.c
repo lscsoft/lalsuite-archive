@@ -300,7 +300,7 @@ void InjectNumRelWaveformsUsingPSDREAL8(LALStatus *status,         /**< pointer 
   SimInspiralTable *simTableOut=NULL;
   SimInspiralTable *thisInjOut=NULL;
 
-  INITSTATUS(status);
+  INITSTATUS(status, "InjectNumRelWaveformsUsingPSDREAL8", rcsid);
   ATTATCHSTATUSPTR (status);
   ASSERT( chan, status, INSPIRALH_ENULL, INSPIRALH_MSGENULL );
   ASSERT( ifo, status, INSPIRALH_ENULL, INSPIRALH_MSGENULL );
@@ -855,7 +855,7 @@ XLALPsdFromFile(REAL8FrequencySeries **psd,  /**< [out] The PSD */
   /* XLALParseDataFile checks that filename is not null for us */
   retval = XLALParseDataFile(&cfgdata, filename);
   if ( retval != XLAL_SUCCESS ) {
-    XLAL_ERROR ( retval );
+    XLAL_ERROR ("XLALPsdFromFile", retval );
   }
 
   /*number of data points */
@@ -866,7 +866,7 @@ XLALPsdFromFile(REAL8FrequencySeries **psd,  /**< [out] The PSD */
   if (ret == NULL) {
     XLALDestroyParsedDataFile( &cfgdata );
     XLALPrintError ("%s: XLALPsdFromFile() failed.\n", __func__ );
-    XLAL_ERROR ( XLAL_ENOMEM );
+    XLAL_ERROR ("XLALPsdFromFile", XLAL_ENOMEM );
   }
 
   /* now get the data */
@@ -877,7 +877,7 @@ XLALPsdFromFile(REAL8FrequencySeries **psd,  /**< [out] The PSD */
     if ( r != 2 ) {
       XLALDestroyParsedDataFile( &cfgdata );
       XLALPrintError ("%s: XLALPsdFromFile() failed on bad line in psd file.\n", __func__ );
-      XLAL_ERROR ( XLAL_EFUNC );
+      XLAL_ERROR ("XLALPsdFromFile", XLAL_EFUNC );
     }
 
     if (deltaF == 0) {
@@ -919,13 +919,13 @@ XLALInterpolatePSD( REAL8FrequencySeries *in,      /**< input strain time series
   ret = LALCalloc(1, sizeof(*ret));
   if (!ret)
   {
-    XLAL_ERROR_NULL( XLAL_ENOMEM );
+    XLAL_ERROR_NULL("XLALInterpolatePSD", XLAL_ENOMEM );
   }
 
   ret->data = XLALCreateREAL8Vector( numPoints );
   if (! ret->data)
   {
-    XLAL_ERROR_NULL( XLAL_ENOMEM );
+    XLAL_ERROR_NULL("XLALInterpolatePSD", XLAL_ENOMEM );
   }
 
   ret->deltaF = deltaFout;

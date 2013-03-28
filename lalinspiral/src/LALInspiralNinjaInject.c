@@ -51,6 +51,12 @@
 #include <lal/LALInspiral.h>
 #include <lal/LALFrameIO.h>
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 int XLALCheckFrameHasChannel(
         CHAR *name,
         FrStream *stream
@@ -99,7 +105,7 @@ int XLALCheckFrameHasChannel( CHAR *channel, FrStream *stream )
     return 0;
   return 1;
 }
-void AddNumRelStrainModesREAL8(LALStatus      *status,  /**< pointer to LALStatus structure */
+void AddNumRelStrainModesREAL8(LALStatus      UNUSED *status,  /**< pointer to LALStatus structure */
                             REAL8TimeSeries   **seriesPlus, /**< [out]  h+, hx data    */
                             REAL8TimeSeries   **seriesCross, /**< [out]  h+, hx data    */
                             SimInspiralTable  *thisinj  /**< [in]   injection data */)
