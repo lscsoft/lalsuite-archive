@@ -282,12 +282,12 @@ for waveform in waveforms:
         # the rest are rescaled
         apprx = lalsim.GetApproximantFromString(waveform)
         if lalsim.SimInspiralImplementedFDApproximants(apprx):
-            htilde, _ = lalsim.SimInspiralChooseFDWaveform(phi0, df, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_max, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx, None)
+            htilde, _ = lalsim.SimInspiralChooseFDWaveform(phi0, df, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_max, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
             N = 2*(htilde.data.length-1)
 
         elif lalsim.SimInspiralImplementedTDApproximants(apprx):
             if ii == 0:
-                hplus, hcross = lalsim.SimInspiralChooseTDWaveform(phi0, dt, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_ref, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx, None)
+                hplus, hcross = lalsim.SimInspiralChooseTDWaveform(phi0, dt, m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, s1x, s1y, s1z, s2x, s2y, s2z, wFmin, f_ref, 1e6*lal.LAL_PC_SI, inc, lmbda1, lmbda2, None, None, ampO, phaseO, apprx)
                 if waveform in tapers:
                     lalsim.SimInspiralREAL8WaveTaper(hplus.data, tapers[waveform])
 
