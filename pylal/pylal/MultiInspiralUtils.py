@@ -205,8 +205,8 @@ def cluster_multi_inspirals(mi_table, dt, loudest_by="snr"):
     # generate bins
     num_bins  = int((end-start)//dt + 1)
     time_bins = []
-    loudest_stat = numpy.empty(num_bins)
-    loudest_time = numpy.empty(num_bins)
+    loudest_stat = numpy.zeros(num_bins)
+    loudest_time = numpy.zeros(num_bins)
     for n in range(num_bins):
         time_bins.append([])
 
