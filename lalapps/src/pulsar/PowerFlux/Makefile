@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.53-64
+VERSION=1.4.54-64
 LALROOT=./../../../../
 LALROOT=/home/vdergach/opt/
 LALROOT=/opt/lalsuite/
@@ -336,9 +336,32 @@ test6b: powerflux-mt2
 		--expected-timebase 14 \
 		--output test6b --num-threads=1
 
-#  		--fake-ref-time=793154935 \
-#  		--fake-ra=$(RA) --fake-dec=$(DEC) --fake-freq=200.10027777 --fake-strain=10e-24 \
-#  		--fake-spindown=2e-10 --fake-iota=1.57 --fake-psi=0.0 \
+test7a: powerflux-mt2
+	 ./powerflux-mt2 --dataset=random.dst -f 2700000 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/PowerFlux/testsuite \
+		--averaging-mode=single_bin_loose --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--compute-skymaps=1 \
+		--sky-grid=targeted_rectangular \
+		--focus-ra=0 --focus-dec=0 --focus-radius=0.01 \
+		--dump-candidates=0 \
+  		--fake-ref-time=793154935 \
+  		--fake-ra=0 --fake-dec=0 --fake-freq=1500.005 --fake-strain=1e-22 \
+  		--fake-spindown=0e-10 --fake-iota=1.5707 --fake-psi=0.0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/PowerFlux/testsuite/sun05-09.dat  \
+		--max-candidates=10000 \
+		--expected-timebase 14 \
+		--skymap-resolution-ratio=0.1666666 \
+		--split-ifos=0 --compute-cross-terms=0 --mixed-dataset-only=1 \
+		--cache-granularity=12 --nfshift=12 --npsi=24 --niota=8 --phase-mismatch=1.0471976 \
+		--nchunks=1 \
+		--skymap-resolution=0.000278 \
+		--output test7a
+
 
 
 # 		--write-dat=NONE \

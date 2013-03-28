@@ -2576,7 +2576,7 @@ DATASET *d;
 a=datasets_normalizing_weight();
 for(i=0;i<d_free;i++){
 	d=&(datasets[i]);
-	b=a*exp(M_LN10*d->TMedian); 
+	b=a*exp(M_LN10*d->TMedian);
 	d->weight/=b*b;
 	}
 }

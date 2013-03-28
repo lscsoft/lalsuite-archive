@@ -161,6 +161,7 @@ const char *gengetopt_args_info_help[] = {
   "      --phase-mismatch=DOUBLE   maximal phase mismatch over coherence length to \n                                  assume when using loosely coherent mode  \n                                  (default=`1.570796')",
   "      --bypass-powersum-cache=INT\n                                bypass partial power sum cache  (default=`0')",
   "      --compute-cross-terms=INT compute imaginary cross terms in loosely \n                                  coherent search  (default=`0')",
+  "      --mixed-dataset-only=INT  use only mixed-dataset (ifo) terms in loosely \n                                  coherent sum  (default=`0')",
   "      --preallocate-memory=DOUBLE\n                                preallocate this many gigabytes of memory for \n                                  future usage  (default=`0.0')",
   "      --memory-allocation-retries=INT\n                                number of times to retry allocating memory \n                                  before giving up  (default=`1000')",
   "      --sse=INT                 use hand-coded SSE optimizations  (default=`1')",
@@ -344,6 +345,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->phase_mismatch_given = 0 ;
   args_info->bypass_powersum_cache_given = 0 ;
   args_info->compute_cross_terms_given = 0 ;
+  args_info->mixed_dataset_only_given = 0 ;
   args_info->preallocate_memory_given = 0 ;
   args_info->memory_allocation_retries_given = 0 ;
   args_info->sse_given = 0 ;
@@ -589,6 +591,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->bypass_powersum_cache_orig = NULL;
   args_info->compute_cross_terms_arg = 0;
   args_info->compute_cross_terms_orig = NULL;
+  args_info->mixed_dataset_only_arg = 0;
+  args_info->mixed_dataset_only_orig = NULL;
   args_info->preallocate_memory_arg = 0.0;
   args_info->preallocate_memory_orig = NULL;
   args_info->memory_allocation_retries_arg = 1000;
@@ -735,10 +739,11 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->phase_mismatch_help = gengetopt_args_info_help[126] ;
   args_info->bypass_powersum_cache_help = gengetopt_args_info_help[127] ;
   args_info->compute_cross_terms_help = gengetopt_args_info_help[128] ;
-  args_info->preallocate_memory_help = gengetopt_args_info_help[129] ;
-  args_info->memory_allocation_retries_help = gengetopt_args_info_help[130] ;
-  args_info->sse_help = gengetopt_args_info_help[131] ;
-  args_info->extra_phase_help = gengetopt_args_info_help[132] ;
+  args_info->mixed_dataset_only_help = gengetopt_args_info_help[129] ;
+  args_info->preallocate_memory_help = gengetopt_args_info_help[130] ;
+  args_info->memory_allocation_retries_help = gengetopt_args_info_help[131] ;
+  args_info->sse_help = gengetopt_args_info_help[132] ;
+  args_info->extra_phase_help = gengetopt_args_info_help[133] ;
   args_info->extra_phase_min = 0;
   args_info->extra_phase_max = 0;
   
@@ -1015,6 +1020,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->phase_mismatch_orig));
   free_string_field (&(args_info->bypass_powersum_cache_orig));
   free_string_field (&(args_info->compute_cross_terms_orig));
+  free_string_field (&(args_info->mixed_dataset_only_orig));
   free_string_field (&(args_info->preallocate_memory_orig));
   free_string_field (&(args_info->memory_allocation_retries_orig));
   free_string_field (&(args_info->sse_orig));
@@ -1312,6 +1318,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "bypass-powersum-cache", args_info->bypass_powersum_cache_orig, 0);
   if (args_info->compute_cross_terms_given)
     write_into_file(outfile, "compute-cross-terms", args_info->compute_cross_terms_orig, 0);
+  if (args_info->mixed_dataset_only_given)
+    write_into_file(outfile, "mixed-dataset-only", args_info->mixed_dataset_only_orig, 0);
   if (args_info->preallocate_memory_given)
     write_into_file(outfile, "preallocate-memory", args_info->preallocate_memory_orig, 0);
   if (args_info->memory_allocation_retries_given)
@@ -2019,6 +2027,7 @@ cmdline_parser_internal (
         { "phase-mismatch",	1, NULL, 0 },
         { "bypass-powersum-cache",	1, NULL, 0 },
         { "compute-cross-terms",	1, NULL, 0 },
+        { "mixed-dataset-only",	1, NULL, 0 },
         { "preallocate-memory",	1, NULL, 0 },
         { "memory-allocation-retries",	1, NULL, 0 },
         { "sse",	1, NULL, 0 },
@@ -3793,6 +3802,20 @@ cmdline_parser_internal (
                 &(local_args_info.compute_cross_terms_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "compute-cross-terms", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* use only mixed-dataset (ifo) terms in loosely coherent sum.  */
+          else if (strcmp (long_options[option_index].name, "mixed-dataset-only") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->mixed_dataset_only_arg), 
+                 &(args_info->mixed_dataset_only_orig), &(args_info->mixed_dataset_only_given),
+                &(local_args_info.mixed_dataset_only_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "mixed-dataset-only", '-',
                 additional_error))
               goto failure;
           

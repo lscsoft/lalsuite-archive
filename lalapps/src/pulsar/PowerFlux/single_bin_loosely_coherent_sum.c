@@ -189,6 +189,9 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	si_local=&(si[k]);
 	si_local2=&(si[m+ctx->loose_first_half_count]);
 
+	/* Cross-correlation only to test split_ifos=0 */
+	if(args_info.mixed_dataset_only_arg && (si_local->dataset==si_local2->dataset))continue;
+
 	/* off diagonal entries are x2 */
 	if(same_halfs && (k==m))x=1.0;
 		else x=2.0;
@@ -270,11 +273,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	gps_delta=(priv->emission_time[si_local->index].te.gpsSeconds-priv->emission_time[si_local2->index].te.gpsSeconds)+1e-9*(priv->emission_time[si_local->index].te.gpsNanoSeconds-priv->emission_time[si_local2->index].te.gpsNanoSeconds);
 	gps_mid=0.5*(gps1+gps2);
 
-	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid+args_info.fdotdot_arg*(gps1*gps1+gps1*gps2+gps2*gps2)*M_1_6)*gps_delta;
+	phase_offset=((first_bin+side_cut-pps->offset)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid+args_info.fdotdot_arg*(gps1*gps1+gps1*gps2+gps2*gps2)*M_1_6)*gps_delta;
 
 	phase_increment=gps_delta*priv->inv_coherence_length;
 
-	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
+	//fprintf(stderr, "phase_offset=%f phase_increment=%f tDot_diff=%g\n", phase_offset, phase_increment, (priv->emission_time[si_local->index].tDot-priv->emission_time[si_local2->index].tDot));
 
 	/* we get an extra M_PI in phase from jumping one bin
 	 * This happens because SFT is computed from t=0 but our gps refers to middle of the interval
@@ -584,6 +587,9 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	si_local=&(si[k]);
 	si_local2=&(si[m+ctx->loose_first_half_count]);
 
+	/* Cross-correlation only to test split_ifos=0 */
+	if(args_info.mixed_dataset_only_arg && (si_local->dataset==si_local2->dataset))continue;
+	
 	/* off diagonal entries are x2 */
 	if(same_halfs && (k==m))x=1.0;
 		else x=2.0;
@@ -665,11 +671,11 @@ for(m=(same_halfs?k:0);m<(count-ctx->loose_first_half_count);m++) {
 	gps_delta=(priv->emission_time[si_local->index].te.gpsSeconds-priv->emission_time[si_local2->index].te.gpsSeconds)+1e-9*(priv->emission_time[si_local->index].te.gpsNanoSeconds-priv->emission_time[si_local2->index].te.gpsNanoSeconds);
 	gps_mid=0.5*(gps1+gps2);
 
-	phase_offset=((first_bin+side_cut)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid+args_info.fdotdot_arg*(gps1*gps1+gps1*gps2+gps2*gps2)*M_1_6)*gps_delta;
+	phase_offset=((first_bin+side_cut-pps->offset)*priv->inv_coherence_length+priv->freq_shift+priv->spindown*gps_mid+args_info.fdotdot_arg*(gps1*gps1+gps1*gps2+gps2*gps2)*M_1_6)*gps_delta;
 
 	phase_increment=gps_delta*priv->inv_coherence_length;
 
-	//fprintf(stderr, "phase_offset=%f phase_increment=%f\n", phase_offset, phase_increment);
+	//fprintf(stderr, "d1=%d d2=%d segment=(%d,%d), gps_delta=%g phase_offset=%f phase_increment=%f diff_shift=(%g,%g) tDot1=%g tDot2=%g tDot_diff=%g\n", si_local->dataset, si_local2->dataset, si_local->segment, si_local2->segment, gps_delta, phase_offset, phase_increment, si_local->diff_bin_shift, si_local2->diff_bin_shift, priv->emission_time[si_local->index].tDot, priv->emission_time[si_local2->index].tDot, (priv->emission_time[si_local->index].tDot-priv->emission_time[si_local2->index].tDot));
 
 	/* we get an extra M_PI in phase from jumping one bin
 	 * This happens because SFT is computed from t=0 but our gps refers to middle of the interval
@@ -1095,6 +1101,9 @@ for(k=0;k<count1;k++) {
 	si_local2=si2;
 	for(m=0;m<count2;m++) {
 
+		/* Cross-correlation only to test split_ifos=0 */
+		if(args_info.mixed_dataset_only_arg && (si_local1->dataset==si_local2->dataset))continue;
+
 		if(same_halfs && (k==m))x=1.0;
 			else x=2.0;
 	
@@ -1467,6 +1476,7 @@ if(count>100)count=100;
 memcpy(&(si[count/2]), si, (count/2)*sizeof(*si));
 for(i=0;i<count;i++) {
 	si[i].bin_shift= (i%7)-3.1;
+	si[i].diff_bin_shift=(i%7);
 	si[i].f_plus= (i%11)/11.0;
 	si[i].f_cross= (i%17)/17.0;
 	}
