@@ -3600,7 +3600,7 @@ class LigolwSqliteJob(SqliteJob):
     Sets the --replace option. This will cause the job
     to overwrite existing databases rather than add to them.
     """
-    self.add_opt('replace', '')
+    self.add_var_opt('replace')
 
 
 class LigolwSqliteNode(SqliteNode):
