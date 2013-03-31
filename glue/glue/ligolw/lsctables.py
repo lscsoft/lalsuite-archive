@@ -2640,6 +2640,10 @@ class SimInspiralTable(table.Table):
 				keep.append(row)
 		return vetoed
 
+	def get_end(self, site=None):
+		return numpy.asarray([row.get_end(site=site) for row in self])
+
+
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
