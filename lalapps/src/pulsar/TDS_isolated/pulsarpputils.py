@@ -41,6 +41,7 @@ from matplotlib import colors
 from matplotlib.mlab import specgram, find, psd
 from scipy.integrate import cumtrapz
 from scipy.interpolate import interp1d
+from scipy.stats import hmean
 
 # pylal stuff
 from pylal import date
@@ -1199,8 +1200,6 @@ Bk[:,2])))), 50)
         exit(-1)
 
       count = 0
-      npsds = 0
-      totalpsd = np.zeros(math.floor(delt/60)) # add sum of PSDs
 
       # zero pad the data and bin each point in the nearest 60s bin
       datazeropad = np.zeros(math.ceil(totlen/60.)+1, dtype=complex)
@@ -1209,7 +1208,7 @@ Bk[:,2])))), 50)
       for i in range(0, len(idx)):
         datazeropad[idx[i]] = complex(Bk[i,1], Bk[i,2])
 
-      win = tukey_window(math.floor(delt/60), alpha=0.25)
+      win = tukey_window(math.floor(delt/60), alpha=0.1)
 
       Fs = 1./60. # sample rate in Hz
 
@@ -1219,24 +1218,25 @@ Fs=Fs, window=win)
       if plotpsds:
         fshape = fscan.shape
 
-        for i in range(0, fshape[1]):
-          # add to total psd if the psd does not contain zero
-          if fscan[0,i] != 0.:
-            # add psd onto total value
-            totalpsd = map(lambda x, y: x+y, totalpsd, fscan[:,i])
+        totalasd = np.zeros(fshape[0])
 
-            # count number of psds
-            npsds = npsds+1
+        for i in range(0, fshape[0]):
+          scanasd = np.sqrt(fscan[i,:])
+          nonzasd = np.nonzero(scanasd)
+          scanasd = scanasd[nonzasd]
 
-        # average the PSD and convert to amplitude spectral density
-        totalpsd = map(lambda x: math.sqrt(x/npsds), totalpsd)
-        asdlist.append(totalpsd)
+          # median amplitude spectral density
+          #totalasd[i] = hmean(scanasd)
+          totalasd[i] = np.median(scanasd)
+
+        # average amplitude spectral density 
+        asdlist.append(totalasd)
 
         # plot PSD
         psdfig = plt.figure(figsize=(4,3.5), dpi=200)
         psdfig.subplots_adjust(left=0.18, bottom=0.15)
 
-        plt.plot(freqs, totalpsd, color=coldict[ifo])
+        plt.plot(freqs, totalasd, color=coldict[ifo])
         plt.xlim(freqs[0], freqs[-1])
         plt.xlabel(r'Frequency (Hz)', fontsize=14, fontweight=100)
         plt.ylabel(r'$h/\sqrt{\rm Hz}$', fontsize=14, fontweight=100)
@@ -1475,7 +1475,12 @@ def plot_h0_lims(h0lims, f0gw, ifos, xlims=[10, 1500], ulesttop=None,
   for j, ifo in enumerate(ifos):
     h0lim = h0lims[ifo]
 
-    if len(h0lim) != len(f0gw):
+    if len(ifos) > 1:
+      f0s = f0gw[ifo]
+    else:
+      f0s = f0gw
+
+    if len(h0lim) != len(f0s):
       return None # exit if lengths aren't correct
 
     if not overplot or (overplot and j == 0):
@@ -1486,16 +1491,16 @@ def plot_h0_lims(h0lims, f0gw, ifos, xlims=[10, 1500], ulesttop=None,
       ult = ulesttop[ifo]
       ulb = ulestbot[ifo]
 
-      if len(ult) == len(ulb) and len(ult) == len(f0gw):
+      if len(ult) == len(ulb) and len(ult) == len(f0s):
         for i in range(len(ult)):
-          plt.loglog([f0gw[i], f0gw[i]], [ulb[i], ult[i]], ls='-', lw=3, c='lightgrey')
+          plt.loglog([f0s[i], f0s[i]], [ulb[i], ult[i]], ls='-', lw=3, c='lightgrey')
 
     if prevlim is not None and prevlimf0gw is not None and len(prevlim) == len(prevlimf0gw):
       if not overplot or (overplot and j == len(ifos)-1):
         plt.loglog(prevlimf0gw, prevlim, marker='*', ms=10, alpha=0.7, mfc='None', mec='k', ls='None')
 
     # plot current limits
-    plt.loglog(f0gw, h0lim, marker='*', ms=10, mfc=coldict[ifo], mec=coldict[ifo], ls='None')
+    plt.loglog(f0s, h0lim, marker='*', ms=10, mfc=coldict[ifo], mec=coldict[ifo], ls='None')
 
     plt.ylabel(r''+paryaxis, fontsize=14, fontweight=100)
     plt.xlabel(r''+parxaxis, fontsize=14, fontweight=100)

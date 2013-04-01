@@ -567,7 +567,7 @@ def get_next_id(connection, table, id_column):
     Gets the next available id in the specified id_column in the specified table.
     """
     sqlquery = ' '.join(['SELECT', id_column, 'FROM', table ])
-    ids = dict([ [int(ilwd.get_ilwdchar(this_id)), ilwd.get_ilwdchar(this_id)] for (this_id,) in connection.cursor().execute(sqlquery)])
+    ids = dict([ [int(ilwd.ilwdchar(this_id)), ilwd.ilwdchar(this_id)] for (this_id,) in connection.cursor().execute(sqlquery)])
     new_id = ids[ max(ids.keys()) ] + 1
 
     return new_id
@@ -1338,7 +1338,7 @@ def write_newstyle_coinc_def_entry( connection, description, search = None, sear
         connection.cursor().execute( sqlquery, (str(this_id), description, search, search_coinc_type) )
         connection.commit()
     else:
-        this_id = ilwd.get_ilwdchar(results.pop()[0])
+        this_id = ilwd.ilwdchar(results.pop()[0])
 
     return this_id
 
@@ -1514,7 +1514,7 @@ def add_coinc_event_entries( connection, process_id, coinc_def_id, time_slide_id
     sqlquery = 'INSERT INTO coinc_event (process_id, coinc_def_id, time_slide_id, coinc_event_id) VALUES (?, ?, ?, ?)'
     connection.cursor().executemany( sqlquery, new_entries )
     # return the coinc_event_ids of the new entries
-    return [ilwd.get_ilwdchar(new_id[-1]) for new_id in new_entries]
+    return [ilwd.ilwdchar(new_id[-1]) for new_id in new_entries]
 
 
 def update_coinctab_nevents( connection ):

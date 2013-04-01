@@ -36,6 +36,9 @@
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceInit.h>
 
+/* Setup the template generation */
+/* Defaults to using LALSimulation */
+
 void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
 {
   char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
@@ -87,10 +90,11 @@ void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
 }
 
 
-/* Setup the variables to control template generation */
-/* Includes specification of prior ranges */
+/* Setup the variables to control template generation for the CBC model */
+/* Includes specification of prior ranges. Sets runState->currentParams and
+ returns address of new LALInferenceVariables */
 
-void LALInferenceInitCBCVariables(LALInferenceRunState *state)
+LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
 {
 
   char help[]="\
@@ -163,6 +167,8 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--comp-max max)                Maximum component mass (30.0).\n\
                (--mtotalmin min)               Minimum total mass (2.0).\n\
                (--mtotalmax max)               Maximum total mass (35.0).\n\
+               (--a-min max)                   Minimum component spin (-1.0 for spin-aligned, 0.0 for precessing).\n\
+               (--a-max max)                   Maximum component spin (1.0).\n\
                (--iota-max max)                Maximum inclination angle (pi).\n\
                (--Dmin dist)                   Minimum distance in Mpc (1).\n\
                (--Dmax dist)                   Maximum distance in Mpc (100).\n\
@@ -201,14 +207,14 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   if(state==NULL)
     {
       fprintf(stdout,"%s",help);
-      return;
+      return(NULL);
     }
 
   /* Print command line arguments if help requested */
   if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
     {
       fprintf(stdout,"%s",help);
-      return;
+      return(NULL);
     }
 
 
@@ -222,10 +228,9 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   ProcessParamsTable *commandLine=state->commandLine;
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *ppt_order=NULL;
-  //INT4 AmpOrder=0;
   LALPNOrder PhaseOrder=-1;
   LALPNOrder AmpOrder=-1;
-  Approximant approx=TaylorF2;
+  Approximant approx=NumApproximants;
   REAL8 fRef = 0.0;
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
   LALInferenceFrame frame = LALINFERENCE_FRAME_RADIATION;
@@ -271,7 +276,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   REAL8 lambda2Min=0.0;
   REAL8 lambda2Max=3000.0;  
   REAL8 tmpMin,tmpMax;//,tmpVal;
-  gsl_rng * GSLrandom=state->GSLrandom;
+  gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 endtime=0.0, timeParam=0.0;
   REAL8 timeMin=endtime-dt,timeMax=endtime+dt;
   //REAL8 start_mc			=4.82+gsl_ran_gaussian(GSLrandom,0.025);
@@ -290,10 +295,10 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   REAL8 start_tilt_spin1 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_tilt_spin2 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_phi_12 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_a_spin1		=0.0+gsl_rng_uniform(GSLrandom)*(1.0-0.0);
+  REAL8 start_a_spin1		=0.0+gsl_rng_uniform(GSLrandom)*(a1max-a1min);
   REAL8 start_theta_spin1 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_phi_spin1	=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_a_spin2		=0.0+gsl_rng_uniform(GSLrandom)*(1.0-0.0);
+  REAL8 start_a_spin2		=0.0+gsl_rng_uniform(GSLrandom)*(a2max-a2min);
   REAL8 start_theta_spin2 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_phi_spin2	=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
   REAL8 start_lambda1 =lambda1Min+gsl_rng_uniform(GSLrandom)*(lambda1Max-lambda1Min);
@@ -444,6 +449,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     while(N>0){
       N--;
       char *name=strings[N];
+      fprintf(stdout,"Pinning parameter %s\n",node->name);
       node=LALInferenceGetItem(&tempParams,name);
       if(node) LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary);
       else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
@@ -473,8 +479,20 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   if(ppt) AmpOrder=atoi(ppt->value);
   ppt=LALInferenceGetProcParamVal(commandLine,"--ampOrder");
   if(ppt) AmpOrder = XLALGetOrderFromString(ppt->value);
-  fprintf(stdout,"Templates will run using Approximant %i, phase order %i, amp order %i\n",approx,PhaseOrder,AmpOrder);
   
+  
+  
+  if(approx==NumApproximants && injTable){ /* Read aproximant from injection file */
+    approx=XLALGetApproximantFromString(injTable->waveform);
+    if(PhaseOrder!=(LALPNOrder)XLALGetOrderFromString(injTable->waveform))
+      fprintf(stdout,"WARNING! Injection specified phase order %i, you are using %i\n",\
+      XLALGetOrderFromString(injTable->waveform),PhaseOrder);
+    if(AmpOrder!=(LALPNOrder)injTable->amp_order)
+      fprintf(stdout,"WARNING! Injection specified amplitude order %i, you are using %i\n",
+	      injTable->amp_order,AmpOrder);
+  }
+  if(approx==NumApproximants) approx=TaylorF2; /* Defaults to TF2 */
+    
   /* Set the modeldomain appropriately */
   switch(approx)
   {
@@ -509,7 +527,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
       exit(1);
       break;
   }
-  
+  fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
   
   ppt=LALInferenceGetProcParamVal(commandLine, "--fref");
   if (ppt) fRef = atof(ppt->value);
@@ -559,15 +577,21 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     if(strstr(ppt->value,"SMOOTH")) bookends=LALINFERENCE_SMOOTH;
   }
 
+  /* Read time parameter from injection file */
+  if(injTable)
+  {
+    endtime=XLALGPSGetREAL8(&(injTable->geocent_end_time));
+    fprintf(stdout,"Using end time from injection file: %lf\n", endtime);
+  }
   /* Over-ride end time if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
   if(ppt && !analytic){
     endtime=atof(ppt->value);
-    timeMin=endtime-dt; timeMax=endtime+dt;
     printf("Read end time %f\n",endtime);
-
   }
-
+  /* Adjust prior accordingly */
+  timeMin=endtime-dt; timeMax=endtime+dt;
+  
   /* Over-ride chirp mass if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--mc");
   if(ppt){
@@ -826,6 +850,18 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
         }
     }
 
+  ppt=LALInferenceGetProcParamVal(commandLine,"--a-min");
+  if (ppt) {
+    a1min = atof(ppt->value);
+    a2min = a1min;
+  }
+
+  ppt=LALInferenceGetProcParamVal(commandLine,"--a-max");
+  if (ppt) {
+    a1max = atof(ppt->value);
+    a2max = a1max;
+  }
+
   ppt=LALInferenceGetProcParamVal(commandLine,"--iota-max");
   if (ppt) {
     iotaMax = atof(ppt->value);
@@ -838,8 +874,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
 
   LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   LALInferenceAddVariable(currentParams, "LAL_PNORDER",     &PhaseOrder,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  if(LALInferenceGetProcParamVal(commandLine,"--ampOrder")) 
-    LALInferenceAddVariable(currentParams, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  LALInferenceAddVariable(currentParams, "LAL_AMPORDER",     &AmpOrder,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
   LALInferenceAddVariable(currentParams, "fRef", &fRef, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
@@ -1250,7 +1285,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
   
   if((approx==SpinTaylor || approx==SpinTaylorFrameless || approx==PhenSpinTaylorRD || approx==SpinTaylorT4) && !noSpin){
     if(frame==LALINFERENCE_FRAME_RADIATION) {
-      if(spinAligned) a1min=-1.0;
+      if(spinAligned && !(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a1min=-1.0;
       ppt=LALInferenceGetProcParamVal(commandLine,"--fixA1");
       if(ppt){
         LALInferenceAddVariable(currentParams, "a_spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -1314,7 +1349,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
         }
       }
     } else if (frame==LALINFERENCE_FRAME_SYSTEM) {
-      if(spinAligned) a1min=-1.0;
+      if(spinAligned && !(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a1min=-1.0;
       ppt=LALInferenceGetProcParamVal(commandLine,"--fixA1");
       if(ppt){
         LALInferenceAddVariable(currentParams, "a_spin1", &start_a_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -1377,14 +1412,14 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
 
     } else {
       XLALPrintError("Error: unknown frame %i\n",frame);
-      XLAL_ERROR_VOID(XLAL_EINVAL);
+      XLAL_ERROR_NULL(XLAL_EINVAL);
     }
   }
 
   /* Spin-aligned-only templates */
   if((approx==TaylorF2 || approx==TaylorF2RedSpin || approx==TaylorF2RedSpinTidal || approx==IMRPhenomB || approx==SEOBNRv1) && spinAligned){
 
-    a1min=-1.0;
+    if(!(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a1min=-1.0;
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixA1");
     if(ppt){
       LALInferenceAddVariable(currentParams, "spin1",     &start_a_spin1,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -1394,7 +1429,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     }
     LALInferenceAddMinMaxPrior(priorArgs, "spin1",     &a1min, &a1max,   LALINFERENCE_REAL8_t);
 
-    a2min=-1.0;
+    if(!(LALInferenceGetProcParamVal(commandLine,"--a-min"))) a2min=-1.0;
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixA2");
     if(ppt){
       LALInferenceAddVariable(currentParams, "spin2",     &start_a_spin2,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
@@ -1540,7 +1575,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
     LALInferenceAddVariable(currentParams, "tideO", &tideO,
         LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
   }
- 
+  return(currentParams);
 }
 
 
@@ -1548,7 +1583,7 @@ void LALInferenceInitCBCVariables(LALInferenceRunState *state)
 /* Setup the variable for the evidence calculation test for review */
 /* 5-sigma ranges for analytic likeliood function */
 /* https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/LALInferenceReviewAnalyticGaussianLikelihood */
-void LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state)
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state)
 {
     ProcessParamsTable *commandLine=state->commandLine;
     ProcessParamsTable *ppt=NULL;
@@ -1597,11 +1632,11 @@ void LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state)
 	    LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
 		i++;
 	}
-	return;
+	return(currentParams);
 }
 
 
-void LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state)
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state)
 {
   ProcessParamsTable *commandLine=state->commandLine;
   ProcessParamsTable *ppt=NULL;
@@ -1650,10 +1685,10 @@ void LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state)
     LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
     i++;
   }
-  return;
+  return(currentParams);
 }
 
-void LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state)
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state)
 {
   ProcessParamsTable *commandLine=state->commandLine;
   ProcessParamsTable *ppt=NULL;
@@ -1702,7 +1737,7 @@ void LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state)
     LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
     i++;
   }
-  return;
+  return(currentParams);
 }
 
 
