@@ -49,7 +49,6 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import inject
-from pylal import llwapp
 from pylal import ligolw_tisi
 
 
@@ -363,7 +362,7 @@ class TimeSlideGraphNode(object):
 			#
 			# search for and record coincidences.  coincs is a
 			# sorted tuple of event ID pairs, where each pair
-			# of IDs is sorted in alphabetical order by
+			# of IDs is, itself, ordered alphabetically by
 			# instrument name
 			#
 
@@ -375,7 +374,7 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
+			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
 			return self.coincs
 
 		#
