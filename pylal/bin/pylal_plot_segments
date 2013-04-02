@@ -61,10 +61,25 @@ if __name__ == "__main__":
     epilog = "If you are having problems, please contact daswg@ligo.org."
     parser = optparse.OptionParser(usage=usage, description=__doc__,\
                                    formatter=optparse.IndentedHelpFormatter(4),
-                                   epilog=epilog)
-    parser.add_option("-V", "--version", action="version",\
-                      help="show program's version number and exit")
-    parser.version = git_version.verbose_msg
+                                   epilog=epilog,
+                                   version=git_version.verbose_msg)
+    parser.add_option("-o", "--output-file", action="store",\
+                      default=False, help="output xml file, default: stdout")
+
+    segopts = parser.add_option_group("Segment options",
+                                      "Manipulate segments before plotting.")
+    segopts.add_option("-G", "--g-offset", action="store", type="float",
+                       default=0.0,
+                       help="offset for all GEO600 segments, default: %default")
+    segopts.add_option("-H", "--h-offset", action="store", type="float",
+                       default=0.0,
+                       help="offset for all LHO segments, default: %default")
+    segopts.add_option("-L", "--l-offset", action="store", type="float",
+                       default=0.0,
+                       help="offset for all LLO segments, default: %default")
+    segopts.add_option("-V", "--v-offset", action="store", type="float",
+                       default=0.0,
+                       help="offset for all Virgo segments, default: %default")
 
     plotopts = parser.add_option_group("Plot options")
     plotopts.add_option("-c", "--cumulative", action="store_true",
@@ -98,10 +113,6 @@ if __name__ == "__main__":
     histopts = parser.add_option_group(
                    "Segment histogram options",
                    "Histograms have not been implemented yet, apologies")
-
-    outopts = parser.add_option_group("Input options")
-    outopts.add_option("-o", "--output-file", action="store",\
-                      default=False, help="output xml file, default: stdout")
 
     # parse args
     opts, segfiles = parser.parse_args()
@@ -151,6 +162,14 @@ if __name__ == "__main__":
                     segments["_"] += fromsegziward(f, coltype=LIGOTimeGPS)
                 except KeyError:
                     segments["_"] = fromsegziward(f, coltype=LIGOTimeGPS)
+    segments.coalesce()
+
+    # apply offsets
+    for key in segments.keys():
+        site = ((re.match("[A-Z]1\Z", key) or re.match("[A-Z]1:", key)) and
+                key[0].lower() or None)
+        if site:
+            segments.offsets.update({key:getattr(opts, "%s_offset" % site)})
 
     # plot segments
     bbox = opts.tight_bbox and "tight" or None
