@@ -38,18 +38,18 @@ import random
 try:
 	from scipy.constants import c as speed_of_light
 except ImportError:
-	from pylal.lalconstants import LAL_C_SI as speed_of_light
+	from lal import LAL_C_SI as speed_of_light
 	speed_of_light = float(speed_of_light)
 import scipy.optimize
 import sys
 
 
 from glue import iterutils
+from glue import offsetvector
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import inject
-from pylal import ligolw_tisi
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -534,7 +534,7 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			#
 			# collect all offset vectors of length n that we
@@ -551,7 +551,7 @@ class TimeSlideGraph(object):
 			# as the n-1'st generation
 			#
 
-			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, n - 1))
+			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors(offset_vectors, n - 1))
 
 		#
 		# link each n-instrument node to the n-1 instrument nodes
@@ -581,7 +581,7 @@ class TimeSlideGraph(object):
 				# leaf nodes have no components
 				continue
 			for node in nodes:
-				component_deltas = set(frozenset(offset_vector.deltas.items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
+				component_deltas = set(frozenset(offset_vector.deltas.items()) for offset_vector in offsetvector.component_offsetvectors([node.offset_vector], n - 1))
 				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), key = lambda x: sorted(x.offset_vector)))
 
 		#
