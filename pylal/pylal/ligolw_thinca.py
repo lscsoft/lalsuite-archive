@@ -34,6 +34,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+import lal
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
@@ -367,12 +368,7 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-
-	# FIXME: get these from somewhere else
-	LAL_REARTH_SI = 6.378140e6 # m
-	LAL_C_SI = 299792458 # m s^-1
-
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * LAL_REARTH_SI / LAL_C_SI
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.LAL_REARTH_SI / lal.LAL_C_SI
 
 
 def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
