@@ -35,10 +35,10 @@ rather than importing xlal.inject directly.
 import math
 
 
+from lal import LAL_C_SI
 from pylal import git_version
 from pylal.xlal.tools import *
 from pylal.xlal.inject import *
-from pylal.xlal.constants import LAL_C_SI
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
