@@ -20,18 +20,19 @@
 """
 
 from __future__ import division
-import os
 import sys
 import time
 import optparse
 import numpy
 import warnings
+from os.path import basename
 
 from pylal import (git_version, MultiInspiralUtils)
 from pylal.xlal.date import XLALGPSTimeNow
 
 from glue import (lal as cache, iterutils)
-from glue.segments import segmentlist as SegmentList
+from glue.segments import (segment as Segment, segmentlist as SegmentList,
+                           segmentlistdict as SegmentListDict)
 from glue.ligolw import (ligolw, lsctables, table, ilwd, utils as ligolw_utils)
 from glue.ligolw.utils import (process as ligolw_process,
                                search_summary as ligolw_search_summary)
@@ -108,10 +109,6 @@ if __name__=='__main__':
     outputopts.add_option("-s", "--preserve-sim-inspiral", action="store_true",
                           help=("copy the unique sim_inspiral rows into "
                                 "output file, default: %default"))
-    outputopts.add_option("-x", "--preserve-time-slides",
-                          action="store_true",
-                          help=("build a new TimeSlideTable from those in the"
-                                "input files, default: %default"))
 
     # clustering options
     clusteropts = parser.add_option_group("Clustering options")
@@ -176,8 +173,7 @@ if __name__=='__main__':
     append = trig_table.append
     if opts.preserve_sim_inspiral:
         inj_table = lsctables.New(lsctables.SimInspiralTable)
-    if opts.preserve_time_slides:
-        slide_table = lsctables.New(lsctables.TimeSlideTable)
+    slide_table = lsctables.New(lsctables.TimeSlideTable)
     for i,fp in enumerate(trig_cache.pfnlist()):
         # read XML from file (with more helpful error message)
         xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith("gz"))
@@ -186,7 +182,7 @@ if __name__=='__main__':
         # read process_id
         process_table = table.get_table(xmldoc,
                                         lsctables.ProcessTable.tableName)
-        process_id = process_table[-1].process_id
+        process_id = process_table[0].process_id
 
         # read SearchSummaryTable
         search_summ_table = table.get_table(
@@ -205,19 +201,16 @@ if __name__=='__main__':
                                    lsctables.MultiInspiralTable.tableName)
 
         # read TimeSlideTable, remapping ids for duplicate slides
-        if opts.preserve_time_slides:
-            time_slide_table = table.get_table(
-                                   xmldoc, lsctables.TimeSlideTable.tableName)
-            slide_map = dict()
-            for id_, vector in time_slide_table.as_dict().items():
-                slide_map[int(id_)] = int(slide_table.get_time_slide_id(
-                                              vector, create_new=process))
-            for mi in mi_table:
-                idx = slide_map[int(mi.time_slide_id)]
-                mi.time_slide_id = TimeSlideId(idx)
-                append(mi)
-        else:
-            trig_table.extend(mi_table)
+        time_slide_table = table.get_table(
+                               xmldoc, lsctables.TimeSlideTable.tableName)
+        slide_map = dict()
+        for id_, vector in time_slide_table.as_dict().items():
+            slide_map[int(id_)] = int(slide_table.get_time_slide_id(
+                                          vector, create_new=process))
+        for mi in mi_table:
+            idx = slide_map[int(mi.time_slide_id)]
+            mi.time_slide_id = TimeSlideId(idx)
+            append(mi)
         trig_table.sync_next_id()
 
         # read SimInspiralTable
@@ -231,39 +224,66 @@ if __name__=='__main__':
         print_verbose("Loading triggers from %d files...  %.2d%%\r"
                       % (N, int(100*(i)/N)))
 
+    search_summ_in.coalesce()
+    search_summ_out.coalesce()
+    gps_start,gps_end = search_summ_out.extent()
+
     print_verbose("Loading triggers from %d files...  100%%\n" % N)
     print_verbose("%d triggers found.\n" % (len(trig_table)), profile=False)
     if opts.preserve_sim_inspiral:
         print_verbose("%d unique SimInspirals identified.\n"
                       % len(inj_table), profile=False)
 
-    # cluster the triggers
-    cluster_table = MultiInspiralUtils.cluster_multi_inspirals(
-                        trig_table, opts.time_window,
-                        loudest_by=opts.loudest_by)
+    # cluster the triggers separately for each time slide
+    slides = slide_table.as_dict()
+    cluster_table = table.new_from_template(trig_table)
+    expr_table = lsctables.New(lsctables.ExperimentTable)
+    expr_summ_table = lsctables.New(lsctables.ExperimentSummaryTable)
+    for slide_id,vector in sorted(slides.items(), key=lambda (a,b): int(a)):
+        print_verbose("Clustering time slide %d... " % int(slide_id))
+        mi_slide_table = table.new_from_template(cluster_table)
+        mi_slide_table.extend(filter(lambda row: int(row.time_slide_id) ==
+                                                 int(slide_id), trig_table))
+        clusters = MultiInspiralUtils.cluster_multi_inspirals(
+                       mi_slide_table, opts.time_window,
+                       loudest_by=opts.loudest_by)
+        cluster_table.extend(clusters)
+        # work out livetime for this slide
+        expr_span = SegmentList([Segment(gps_start, gps_end)])
+        slide_segments = SegmentListDict((ifo, expr_span) for ifo in
+                                         vector.keys()).copy()
+        slide_segments.offsets.update(dict((ifo, -offset) for ifo,offset in
+                                           vector.iteritems()))
+        expr_start, expr_end = (
+            slide_segments.intersection(vector.keys()).extent())
+        # construct experiment
+        expr_id = expr_table.write_new_expr_id("cbc", "coh_PTF_inspiral",
+                                               None, vector.keys(),
+                                               expr_start, expr_end)
+        datatype = any(vector.values()) and "full_data_slide" or "full_data"
+        expr_summ_table.write_experiment_summ(expr_id, slide_id, None, datatype)
+        expr_summ_table[-1].nevents = len(clusters)
+        expr_summ_table[-1].duration = int(expr_end-expr_start)
+        print_verbose("%d events selected.\n" % len(clusters))
     print_verbose("Clustering complete.\n")
-    print_verbose("%d triggers remaining.\n" % (len(cluster_table)),
-                  profile=False)
 
-    # write the clusters to file
+    # write the output file
     table.reset_next_ids(lsctables.TableByName.values())
-    if opts.preserve_time_slides:
-        outxml.childNodes[-1].appendChild(time_slide_table)
-    if opts.preserve_sim_inspiral:
-        outxml.childNodes[-1].appendChild(inj_table)
+    outxml.childNodes[-1].appendChild(slide_table)
+    outxml.childNodes[-1].appendChild(expr_summ_table)
+    outxml.childNodes[-1].appendChild(expr_table)
     outxml.childNodes[-1].appendChild(
         lsctables.New(lsctables.SearchSummaryTable))
-    outxml.childNodes[-1].appendChild(cluster_table)
-    search_summ_in.coalesce()
-    search_summ_out.coalesce()
     for in_seg,out_seg in zip(search_summ_in, search_summ_out):
         ligolw_search_summary.append_search_summary(outxml, process,
                                                     nevents=len(cluster_table),
-                                                    comment=os.path.basename(
-                                                                __file__),
+                                                    comment=basename(__file__),
                                                     inseg=in_seg,
                                                     outseg=out_seg,
                                                     ifos=search_summ_ifos)
+    if opts.preserve_sim_inspiral:
+        outxml.childNodes[-1].appendChild(inj_table)
+    outxml.childNodes[-1].appendChild(cluster_table)
     #table.reassign_ids(outxml) # FIXME: replace when slide<-->multi works
     process.set_ifos(search_summ_ifos)
     process.end_time = XLALGPSTimeNow().seconds
