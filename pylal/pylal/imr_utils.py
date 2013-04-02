@@ -299,6 +299,19 @@ def guess_distance_phenomb_spin_parameter_bins_from_sims(sims, chibins = 11, dis
 	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(chis), max(chis), chibins)])
 
 
+def guess_distance_mass_ratio_bins_from_sims(sims, qbins = 11, distbins = 200):
+	"""
+	Given a list of the injections, guess at the chi and distance
+	bins.
+	"""
+	dist_mratio_vals = map(sim_to_distance_mass_ratio_bins_function, sims)
+
+	distances = [tup[0] for tup in dist_mratio_vals]
+	mratios = [tup[1] for tup in dist_mratio_vals]
+
+	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(mratios), max(mratios), qbins)])
+
+
 def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
        """
        Given a list of the injections, guess at the mass1, mass2 and distance
@@ -342,6 +355,15 @@ def sim_to_distance_phenomb_spin_parameter_bins_function(sim):
 	"""
 
 	return (sim.distance, (sim.mass1*sim.spin1z + sim.mass2*sim.spin2z)/(sim.mass1 + sim.mass2))
+
+
+def sim_to_distance_mass_ratio_bins_function(sim):
+	"""
+	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	"""
+	# note that if you use symmetrize_sims() below, m2/m1 > 1
+	# which just strikes me as more intuitive
+	return (sim.distance, sim.mass2/sim.mass1)
 
 
 def symmetrize_sims(sims, col1, col2):
