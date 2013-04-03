@@ -449,15 +449,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.window",
-			["src/xlal/window.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal._spawaveform",
 			["src/_spawaveform.c"],
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
