@@ -325,6 +325,7 @@ class LogarithmicBins(Bins):
 	def upper(self):
 		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 1))
 
+
 class LogarithmicPlusOverflowBins(Bins):
 	"""
 	Logarithmically-spaced bins plus one bin at each end that goes to zero
@@ -603,6 +604,7 @@ class IrregularBins(Bins):
 	def centres(self):
 		return (self.lower() + self.upper()) / 2
 
+
 class Categories(Bins):
 	"""
 	Categories is a many-to-one mapping from a value to an integer
@@ -673,6 +675,7 @@ class Categories(Bins):
 
 	def centres(self):
 		return self.containers
+
 
 class NDBins(tuple):
 	"""
@@ -816,17 +819,17 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
 	        0.   ,  0.   ,  0.   ,  0.   ])
 	"""
-        lower = bins.lower()
-        upper = bins.upper()
-        # make an intersection of the segment list with the extend of the bins
-        # need to use lower/upper instead of min/max because the latter sometimes
-        # merely correspond to low and high parameters used to construct the binning
-        # (see, for example, the atan binning)
-        seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
-        array = numpy.zeros((len(bins),), dtype = dtype)
-        for i, (a, b) in enumerate(zip(lower, upper)):
-                array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-        return array
+	lower = bins.lower()
+	upper = bins.upper()
+	# make an intersection of the segment list with the extend of the bins
+	# need to use lower/upper instead of min/max because the latter sometimes
+	# merely correspond to low and high parameters used to construct the binning
+	# (see, for example, the atan binning)
+	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
+	array = numpy.zeros((len(bins),), dtype = dtype)
+	for i, (a, b) in enumerate(zip(lower, upper)):
+		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
+	return array
 
 
 #
