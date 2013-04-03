@@ -351,7 +351,24 @@ class DistributionsStats(object):
 
 
 #
-# Livetime
+# I/O
+#
+
+
+def load_likelihood_data(filenames, verbose = False):
+	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
+
+
+def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
+	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
+
+
+#
+# =============================================================================
+#
+#                                   Livetime
+#
+# =============================================================================
 #
 
 
@@ -410,19 +427,6 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 	return livetime
-
-
-#
-# I/O
-#
-
-
-def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
-
-
-def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
-	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #
