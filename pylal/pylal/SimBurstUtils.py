@@ -62,10 +62,11 @@ def time_at_instrument(sim, instrument, offsetvector):
 	passes through the detector as when it passes through the
 	geocentre.  The Earth rotates by about 1.5 urad during the 21 ms it
 	takes light to travel the radius of the Earth, which corresponds to
-	10 m of displacement at the equator, or 33 ns in units of light
-	travel time.  Therefore, the failure to do a proper retarded time
-	calculation here results in errors no larger than 33 ns, which
-	should be insignificant.
+	10 m of displacement at the equator, or 33 light-ns.  Therefore,
+	the failure to do a proper retarded time calculation here results
+	in errors as large as 33 ns.  This is insignificant for burst
+	searches, but be aware that this approximation is being made if
+	this function is used in other contexts.
 	"""
 	# the offset is subtracted from the time of the injection.
 	# injections are done this way so that when the triggers that
