@@ -50,8 +50,8 @@ from scipy.signal import signaltools
 
 from glue import iterutils
 from glue import segments
+import lal
 from pylal import git_version
-from pylal import window
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -1040,8 +1040,8 @@ def gaussian_window(bins, sigma = 10):
 	if bins <= 0:
 		raise ValueError(bins)
 	l = int(math.floor(sigma * bins / 2.0)) * 2
-	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
-	return w.data / w.sum
+	w = lal.CreateGaussREAL8Window(l + 1, l / float(bins))
+	return w.data.data / w.sum
 
 
 def gaussian_window2d(bins_x, bins_y, sigma = 10):
@@ -1061,8 +1061,8 @@ def tophat_window(bins):
 	"""
 	if bins <= 0:
 		raise ValueError(bins)
-	w = window.XLALCreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
-	return w.data / w.sum
+	w = lal.CreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
+	return w.data.data / w.sum
 
 
 def tophat_window2d(bins_x, bins_y):
@@ -1094,7 +1094,7 @@ def tophat_window2d(bins_x, bins_y):
 			window[x, y] = 0.0
 
 	# normalize
-	window /= numpy.sum(window)
+	window /= window.sum()
 
 	return window
 
