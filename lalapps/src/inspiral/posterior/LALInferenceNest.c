@@ -424,23 +424,25 @@ Arguments for each section follow:\n\n";
 	/* And allocating memory */
 	state = initialize(procParams);
 	
-	/* Set template function */
-	LALInferenceInitCBCTemplate(state);
-	
 	/* Set up structures for nested sampling */
 	initializeNS(state);
+	
+	/* Set template function */
+	LALInferenceInitCBCTemplate(state);
 
 	/* Set up currentParams with variables to be used */
 	/* Review task needs special priors */
+	LALInferenceInitVariablesFunction initVarsFunc=NULL;
 	if(LALInferenceGetProcParamVal(procParams,"--correlatedgaussianlikelihood"))
-		LALInferenceInitVariablesReviewEvidence(state);
+		initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
         else if(LALInferenceGetProcParamVal(procParams,"--bimodalgaussianlikelihood"))
-                LALInferenceInitVariablesReviewEvidence_bimod(state);
+                initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
         else if(LALInferenceGetProcParamVal(procParams,"--rosenbrocklikelihood"))
-                LALInferenceInitVariablesReviewEvidence_banana(state);
+                initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
 	else
-		LALInferenceInitCBCVariables(state);
-	
+		initVarsFunc=&LALInferenceInitCBCVariables;
+	state->initVariables=initVarsFunc;
+	initVarsFunc(state);
 	/* Check for student-t and apply */
 	initStudentt(state);
     
@@ -456,6 +458,8 @@ Arguments for each section follow:\n\n";
 
 	LALInferenceSetupDefaultNSProposal(state,state->currentParams);
 	
+	/* write injection with noise evidence information from algorithm */
+	LALInferencePrintInjectionSample(state);
 	
 	/* Call nested sampling algorithm */
 	state->algorithm(state);

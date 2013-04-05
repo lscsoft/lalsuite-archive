@@ -83,8 +83,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
                 compF.set_matchCriteriaA( thisFunc )
                 compF.set_matchCriteriaB( thisFunc )
                 compF.create_dbCompF( connection, compF.diffRowARowB, funcName, window, recColumns, recColumns )
-            simSnglCols = ','.join(['rec_sngls.%s' %(col) for col in recColumns])
-            allSnglCols = ','.join(['all_data_sngls.%s' %(col) for col in recColumns])
+            simSnglCols = ','.join(['rec_sngls.%s' %(col) for col in compF.neededColumnsA])
+            allSnglCols = ','.join(['all_data_sngls.%s' %(col) for col in compF.neededColumnsB])
             rejection_tests.append( '%s(%s, %s)' %(funcName, simSnglCols, allSnglCols) ) 
 
         # now remove triggers
@@ -121,8 +121,8 @@ def dbinjfind( connection, simulation_table, recovery_table, match_criteria, rou
             compF.set_matchCriteriaA( simFunc )
             compF.set_matchCriteriaB( snglFunc )
             compF.create_dbCompF( connection, compF.diffSimSngl, funcName, window, simColumns, recColumns )
-        simCols = ','.join(['sim.%s'%(col) for col in simColumns])
-        snglCols = ','.join(['rec_sngls.%s'%(col) for col in recColumns])
+        simCols = ','.join(['sim.%s'%(col) for col in compF.neededColumnsA])
+        snglCols = ','.join(['rec_sngls.%s'%(col) for col in compF.neededColumnsB])
         match_tests.append( '%s(%s, %s)' %(funcName, simCols, snglCols) )
 
     # determine matches
@@ -185,11 +185,11 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
     connection.cursor().executescript(sqlquery)
     # get the sim_coincs
     sqlquery = "SELECT DISTINCT sid, ceid FROM coinc_inj"
-    sim_coincs = [(ilwd.get_ilwdchar(sim_id), ilwd.get_ilwdchar(ceid)) for ceid, sim_id in connection.cursor().execute( sqlquery ).fetchall()]
+    sim_coincs = [(ilwd.ilwdchar(sim_id), ilwd.ilwdchar(ceid)) for ceid, sim_id in connection.cursor().execute( sqlquery ).fetchall()]
 
     # get the sim_sngls
     sqlquery = "SELECT sim_id, event_id FROM found_inj WHERE event_id NOT IN (SELECT DISTINCT evid FROM coinc_inj)"
-    sim_sngls = [(ilwd.get_ilwdchar(sim_id), ilwd.get_ilwdchar(eid)) for sim_id, eid in connection.cursor().execute( sqlquery ).fetchall()]
+    sim_sngls = [(ilwd.ilwdchar(sim_id), ilwd.ilwdchar(eid)) for sim_id, eid in connection.cursor().execute( sqlquery ).fetchall()]
 
     # create a new coinc_def id for this map label, if it already doesn't exist
     coinc_def_id = sqlutils.write_newstyle_coinc_def_entry( connection, map_label )
@@ -202,7 +202,7 @@ def write_coincidences(connection, map_label, process_id, verbose = False):
         raise ValueError, "more than one time_slide_id found for the simulation datatype"
     elif len(time_slide_id) == 0:
         raise ValueError, "no time_slide_id found for the simulation datatype"
-    time_slide_id = ilwd.get_ilwdchar(time_slide_id.pop()[0])
+    time_slide_id = ilwd.ilwdchar(time_slide_id.pop()[0])
     
     # write the number of new entries needed for the sim_coincs to the coinc_event table
     if verbose:
