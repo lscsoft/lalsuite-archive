@@ -34,12 +34,12 @@ import sys
 
 
 from glue import segments
+from glue import offsetvector
 from glue.lal import CacheEntry
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
-from pylal import ligolw_tisi
 from pylal import packing
 
 
@@ -153,7 +153,7 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 
 	# compute result
 	coincseglists = segments.segmentlistdict()
-	for offsetvector in ligolw_tisi.time_slide_component_vectors(offsetdictlist, 2):
+	for offsetvector in offsetvector.component_offsetvectors(offsetdictlist, 2):
 		if set(offsetvector).issubset(all_instruments):
 			seglistdict.offsets.update(offsetvector)
 			intersection = seglistdict.extract_common(offsetvector.keys())

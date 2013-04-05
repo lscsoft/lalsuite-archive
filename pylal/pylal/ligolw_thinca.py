@@ -35,10 +35,10 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+import lal
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal import lalconstants
 from pylal.xlal import tools as xlaltools
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.datatypes import snglinspiraltable
@@ -132,7 +132,27 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 #
 # =============================================================================
 #
-#			   Add Process Information
+#              Teach pylal.inject About LHO Coherent Combinations
+#
+# =============================================================================
+#
+
+
+# FIXME:  this is a hack to allow inject.light_travel_time(), which is used
+# internally by snglcoinc.py, to work with the H1H2 coherent and null
+# detectors.  the use of light_travel_time() internally by snglcoinc.py
+# might be inappropriate and should be re-considered.  in the meantime,
+# this will get the sub-solar mass search working.
+
+
+from pylal import inject
+inject.prefix_to_name["H1H2"] = "LHO_4k"
+
+
+#
+# =============================================================================
+#
+#                           Add Process Information
 #
 # =============================================================================
 #
@@ -391,11 +411,7 @@ def inspiral_max_dt(events, e_thinca_parameter):
 	# for each instrument present in the event list, compute the
 	# largest \Delta t interval for the events from that instrument,
 	# and return the sum of the largest two such \Delta t's.
-
-	LTT_DEARTH_SI = 2. * lalconstants.LAL_REARTH_SI / lalconstants.LAL_C_SI
-        ifos = set(events.getColumnByName('ifo'))
-
-	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == ifo) for ifo in ifos)[-2:]) + LTT_DEARTH_SI
+	return sum(sorted(max(xlaltools.XLALSnglInspiralTimeError(event, e_thinca_parameter) for event in events if event.ifo == instrument) for instrument in set(event.ifo for event in events))[-2:]) + 2. * lal.LAL_REARTH_SI / lal.LAL_C_SI
 
 
 def inspiral_coinc_compare(a, offseta, b, offsetb, light_travel_time, e_thinca_parameter):
