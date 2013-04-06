@@ -72,12 +72,11 @@ class ProgressBar:
 
     def __init__(self, text='Working', max=1, value=0, textwidth=24, fid=None):
         if fid is None:
-            fid = sys.stderr
+            self.fid = sys.stderr
         self.text = text
         self.max = max
         self.value = value
         self.textwidth = textwidth
-        self.fid = fid
         self.twiddle = 0
 
     def show(self):
