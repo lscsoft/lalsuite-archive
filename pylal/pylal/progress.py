@@ -22,10 +22,9 @@ __all__       = ["ProgressBar"]
 
 # TODO: Implement the context manager API (but wait until clusters have Python >= 2.5).
 # TODO: Is it better to print the progress bar to stderr or stdout?
-# TODO: Automatically detect if the file descriptor is NOT hooked up to a tty, to
-#       avoid printing control characters if the program is not being used interactively.
 
 
+import os
 import sys
 
 
@@ -73,6 +72,7 @@ class ProgressBar:
     def __init__(self, text='Working', max=1, value=0, textwidth=24, fid=None):
         if fid is None:
             self.fid = sys.stderr
+        self.isatty = os.isatty(self.fid.fileno())
         self.text = text
         self.max = max
         self.value = value
@@ -126,11 +126,15 @@ class ProgressBar:
 
     def update(self, value = None, text = None):
         """Redraw the progress bar, optionally changing the value and text."""
+        old_text = self.text
         if text is not None:
             self.text = text
         if value is not None:
             self.value = value
-        self.show()
+        if self.isatty:
+            self.show()
+        elif self.text != old_text:
+            print self.text
 
 
 def demo():
