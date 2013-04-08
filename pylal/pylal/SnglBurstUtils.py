@@ -189,12 +189,12 @@ FROM
 	time_slide
 ORDER BY
 	time_slide_id
-	"""), lambda (time_slide_id, instrument, offset): time_slide_id):
+	"""), lambda (time_slide_id, instrument, offset): ilwd.ilwdchar(time_slide_id)):
 		offset_vector = offsetvector.offsetvector((instrument, offset) for time_slide_id, instrument, offset in rows)
 		if any(offset_vector.values()):
-			background_time_slides[ilwd.ilwdchar(time_slide_id)] = offset_vector
+			background_time_slides[time_slide_id] = offset_vector
 		else:
-			zero_lag_time_slides[ilwd.ilwdchar(time_slide_id)] = offset_vector
+			zero_lag_time_slides[time_slide_id] = offset_vector
 	return zero_lag_time_slides, background_time_slides
 
 
