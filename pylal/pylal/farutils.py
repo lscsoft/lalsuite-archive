@@ -49,6 +49,10 @@ def detector_combos( instruments ):
 def background_livetime_nonring_by_slide(connection, seglists, veto_segments=None, coinc_segments=None, verbose = False):
 	# get the segment lists and live time
 	# FIXME veto segments not handled yet
+	seglists = seglists.copy()
+	if veto_segments is not None:
+		seglists -= veto_segments
+
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 	instruments = frozenset(seglists.keys())
 	background_livetime = {}
@@ -60,8 +64,6 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 		background_livetime.setdefault(key, {})
 		for id, time_slide in background_time_slides.items():
 			seglists.offsets.update(time_slide)
-			if veto_segments is not None:
-				seglists -= veto_segments
 			segs=seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
 			if coinc_segments is not None:
 				segs &= coinc_segments
