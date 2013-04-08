@@ -18,7 +18,7 @@ for table in ("mass1_mass2_volume", "mass1_mass2_range"):
 	pylab.pcolor(x, y, A.array)
 	pylab.xlim([min(x), max(x)])
 	pylab.ylim([min(y), max(y)])
-	pylab.savefig(table + ".png")	
+	pylab.savefig(table + ".png")
 
 
 
