@@ -73,19 +73,19 @@ for instruments, total_injections in IMR.total_injections_by_instrument_set.item
 	# First do masses
 	m1m2_found_below_far = imr_utils.symmetrize_sims(found_below_far, "mass2", "mass1")
 	m1m2_total_injections = imr_utils.symmetrize_sims(total_injections, "mass2", "mass1")
-	
+
 	# figure out bin boundaries
 	d = [r.distance for r in m1m2_total_injections]
 	m = [r.mass1 for r in m1m2_total_injections] + [r.mass2 for r in m1m2_total_injections]
-	dist_m1_m2_bins = rate.NDBins((rate.LogarithmicBins(min(d), max(d), 200), rate.LinearBins(min(m), max(m), 11), rate.LinearBins(min(m) ,max(m), 11))) 
-	
+	dist_m1_m2_bins = rate.NDBins((rate.LogarithmicBins(min(d), max(d), 200), rate.LinearBins(min(m), max(m), 11), rate.LinearBins(min(m) ,max(m), 11)))
+
 	mass_volume, errors = imr_utils.compute_search_volume_in_bins(m1m2_found_below_far, m1m2_total_injections, dist_m1_m2_bins, imr_utils.sim_to_distance_mass1_mass2_bins_function) #FIXME use errors?
-	
+
 	# symmetrize the m1/m2 plane
 	for m1 in mass_volume.centres()[0]:
 		for m2 in mass_volume.centres()[1]:
 			if m2 > m1:
-				mass_volume[(m2,m1)] = mass_volume[(m1,m2)]	
+				mass_volume[(m2,m1)] = mass_volume[(m1,m2)]
 				errors[(m2,m1)] = errors[(m1,m2)]
 
 	lw = xmldoc.appendChild(ligolw.LIGO_LW())
