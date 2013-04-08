@@ -13,7 +13,11 @@ xmldoc = xmldoc.childNodes[0]
 
 for table in ("mass1_mass2_volume", "mass1_mass2_range"):
 	A  = rate.binned_array_from_xml(xmldoc, table)
-	pylab.pcolor(A.array)
+	x = A.centres()[0]
+	y = A.centres()[1]
+	pylab.pcolor(x, y, A.array)
+	pylab.xlim([min(x), max(x)])
+	pylab.ylim([min(y), max(y)])
 	pylab.savefig(table + ".png")	
 
 
