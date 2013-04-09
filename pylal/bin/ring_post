@@ -639,7 +639,12 @@ for (desc, cachefile) in cachenamestypes.items():
 		injfind_node = lalapps_cbc_injfind_node(injfind_job, dag, [xml], p_node=[sqlitex_node])
 		all_sqlite_node = ligolw_sqlite_node(sqlite_job, dag, db, [xml], p_node=[injfind_node])
 
-ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=runsql_node.values())
+# add veto segments back in
+p_nodes = []
+for db in dbs:
+	p_nodes.append(ligolw_sqlite_node(sqlite_job, dag, db, [self.add_file_arg(cp.get('input','veto_file'))], p_node=runsql_node.values()))
+
+ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=p_nodes)
 [node.set_retry(10) for node in dag.get_nodes()]
 dag.write_sub_files()
 dag.write_dag()
