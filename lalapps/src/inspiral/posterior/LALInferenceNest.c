@@ -275,10 +275,11 @@ Nested sampling arguments:\n\
             runState->prior = &LALInferenceInspiralPriorNormalised;
         }
 	
-    ppt=LALInferenceGetProcParamVal(commandLine,"--burst_inj");
-    if (ppt){
+    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+   if(ppt) {
+    if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value)){
             runState->prior = &LALInferenceSinGaussPrior;
-        printf("Using SinGauss prior\n");
+        printf("Using SinGauss prior\n");}
         }
         
 	if(LALInferenceGetProcParamVal(commandLine,"--correlatedgaussianlikelihood")){
@@ -469,7 +470,7 @@ Arguments for each section follow:\n\n";
                 LALInferenceInitVariablesReviewEvidence_bimod(state);
         else if(LALInferenceGetProcParamVal(procParams,"--rosenbrocklikelihood"))
                 LALInferenceInitVariablesReviewEvidence_banana(state);
-	else if(LALInferenceGetProcParamVal(procParams,"--burst_inj"))
+	else if(!strcmp("SinGauss",ppt->value) || !strcmp("SinGaussF",ppt->value))
         LALInferenceInitBurstVariables(state);
     else if(!strcmp("BestIFO",LALInferenceGetProcParamVal(procParams,"--template")->value))
         LALInferenceInitBestIFOVariables(state);

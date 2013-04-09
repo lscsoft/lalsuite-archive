@@ -961,9 +961,11 @@ int XLALSimNoisePSD(
 	psd->data->data[0] = 0.0; /* set DC to zero */
 	for (k = 1; k < kmin; ++k) /* set low frequency components to zero */
 		psd->data->data[k] = 0.0;
-	for (; k < psd->data->length - 1; ++k) /* evaluate psdfn for frequencies in requested band */
+	for (; k < psd->data->length ; ++k) /* evaluate psdfn for frequencies in requested band */
 		psd->data->data[k] = (*psdfunc)(k * psd->deltaF);
-	psd->data->data[psd->data->length - 1] = 0.0; /* set Nyquist to zero (presume this is Nyquist!) */
+	//for (; k < psd->data->length - 1; ++k) /* evaluate psdfn for frequencies in requested band */
+	//	psd->data->data[k] = (*psdfunc)(k * psd->deltaF);
+	//psd->data->data[psd->data->length - 1] = 0.0; /* set Nyquist to zero (presume this is Nyquist!) */
 
 	return 0;
 }

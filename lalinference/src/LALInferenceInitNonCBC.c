@@ -89,6 +89,7 @@ void LALInferenceInitBurstVariables(LALInferenceRunState *state)
 
     LALStatus status;
     SimBurst *BinjTable=NULL;
+     SimInspiralTable *inj_table=NULL;
 	LALInferenceVariables *priorArgs=state->priorArgs;
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	LALInferenceVariables *currentParams=state->currentParams;
@@ -118,16 +119,16 @@ Parameter arguments:\n\
 		fprintf(stdout,"%s",help);
 		return;
 	}
- 
+    
+    int burst_inj=0;
     state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
     state->proposal=&NSWrapMCMCSinGaussProposal;
-    BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-    if(!BinjTable){
-        fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
-        exit(1);
-    }
-    
-     ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+    /* We may have used a CBC injection... test */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--burst_inj");
+    if (ppt) {
+        burst_inj=1;
+        BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+         ppt=LALInferenceGetProcParamVal(commandLine,"--event");
         if(ppt){
           event = atoi(ppt->value);
           while(i<event) {i++; BinjTable = BinjTable->next;}
@@ -135,6 +136,25 @@ Parameter arguments:\n\
         endtime=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
         fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
         state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
+    }
+    else{
+        SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+        ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+        if(ppt){
+          event= atoi(ppt->value);
+          fprintf(stderr,"Reading event %d from file\n",event);
+          i=0;
+          while(i<event) {i++; inj_table=inj_table->next;} /* select event */
+          endtime=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
+          state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
+    }
+  
+    }
+    if(!(BinjTable || inj_table)){
+        fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
+        exit(1);
+    }
+    
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
             pinned_params=ppt->value;
@@ -223,7 +243,7 @@ Parameter arguments:\n\
         tmpMin=0.0; tmpMax=LAL_PI;
         LALInferenceAddMinMaxPrior(priorArgs, "polar_angle",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
-if (BinjTable){
+if (BinjTable && burst_inj){
     
     if (log(BinjTable->hrss) > loghrssmax || log(BinjTable->hrss) < loghrssmin)
         fprintf(stdout,"WARNING: The injected value of hrss lies outside the prior range\n");
