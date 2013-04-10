@@ -40,20 +40,13 @@
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 
-void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState)
+void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 {
-  char help[]="(--template [SinGauss,BestIFO]\tSpecify template (default LAL)\n";
+  char help[]="(--template [SinGauss,SinGaussF,BestIFO,RingdownF]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
-  //Help is taken care of in LALInferenceInitCBCVariables
-  //ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-  //if(ppt)
-  //{
-  //	fprintf(stdout,"%s",help);
-  //	return;
-  //}
-  /* This is the LAL template generator for inspiral signals */
+  
   runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
   ppt=LALInferenceGetProcParamVal(commandLine,"--template");
   if(ppt) {
@@ -63,6 +56,9 @@ void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState)
         runState->template=&LALInferenceTemplateSineGaussian;
     else if(!strcmp("BestIFO",ppt->value))
         runState->template=&LALInferenceTemplateBestIFO;
+    else if(!strcmp("RingdownF",ppt->value)){
+        printf("Using LALInferenceTemplateXLALSimRingdown: congratulations!\n");
+        runState->template=&LALInferenceTemplateXLALSimRingdown;}
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
       XLALPrintError(help);
@@ -85,7 +81,7 @@ void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState)
 /* Includes specification of prior ranges */
 
 void LALInferenceInitBurstVariables(LALInferenceRunState *state)
-{
+{   printf("---------------------------------Using LALInferenceBurstVariables!\n");
 
     LALStatus status;
     SimBurst *BinjTable=NULL;
@@ -138,21 +134,28 @@ Parameter arguments:\n\
         state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
     }
     else{
-        SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-        ppt=LALInferenceGetProcParamVal(commandLine,"--event");
-        if(ppt){
-          event= atoi(ppt->value);
-          fprintf(stderr,"Reading event %d from file\n",event);
-          i=0;
-          while(i<event) {i++; inj_table=inj_table->next;} /* select event */
-          endtime=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
-          state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
+        ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+        if (ppt){
+            SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+            ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+            if(ppt){
+              event= atoi(ppt->value);
+              fprintf(stderr,"Reading event %d from file\n",event);
+              i=0;
+              while(i<event) {i++; inj_table=inj_table->next;} /* select event */
+              endtime=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
+              state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
+        }
     }
-  
     }
     if(!(BinjTable || inj_table)){
-        fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
-        exit(1);
+        fprintf(stderr,"No injection file provided. NOT INJECTING!\n");
+        ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+        if (ppt)
+            endtime=atof(ppt->value);
+        else{
+            printf("did not provide --trigtime nor an xml file\n");
+            exit(1);}
     }
     
     
@@ -464,3 +467,329 @@ Parameter arguments:\n\
 
 }
 
+/* Setup variables for ringdown template generation */
+void LALInferenceInitRDVariables(LALInferenceRunState *state)
+{   printf("Using LALInferenceInitRDVariables: congratulations!\n");
+	LALStatus status;
+	LALInferenceVariables *priorArgs=state->priorArgs;
+	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
+	LALInferenceVariables *currentParams=state->currentParams;
+	ProcessParamsTable *commandLine=state->commandLine;
+	ProcessParamsTable *ppt=NULL;
+    state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
+    /* If --margphi, marginalise over phase */
+	if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
+	  printf("Using Marginalise Phase Likelihood\n");
+	  state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
+	}
+    state->proposal=&NSWrapMCMCSinGaussProposal;
+    /* Prior Ranges */
+	REAL8 starttime;
+	REAL8 logampmin=log(1e-25);  /* amplitude parameter */
+	REAL8 logampmax=log(1e-18);
+	REAL8 f0min=1800.0;   /* dominant frequency */
+	REAL8 f0max=4000.0;
+	REAL8 qualitymin=20;  /* decay time */
+	REAL8 qualitymax=100;
+	REAL8 phi0min=0.0;    /* initial phase */
+	REAL8 phi0max=LAL_TWOPI;
+	REAL8 sphPhimin=0.0;    /* spherical harmonic azimuthal angle */
+	REAL8 sphPhimax=LAL_TWOPI;
+	REAL8 dt=0.1;            /* Width of time prior */
+	REAL8 tmpMin,tmpMax,tmpVal;
+
+	memset(currentParams,0,sizeof(LALInferenceVariables));
+	memset(&status,0,sizeof(LALStatus));
+
+
+	char help[]="\
+Parameter arguments:\n\
+(--inj injections.xml)\tInjection XML file to use (unsupported)\n\
+(--trigtime GPS)\tstart time for ringdown\n\
+(--dt time)\tWidth of time prior, centred around trigger (0.1s)\n\
+(--trigtime time)\tTrigger time to use\n\
+(--ampmin amplitude)\tMinimum amplitude (1e-24)\n\
+(--ampmax amplitude)\tMaximum amplitude (1e-20)\n\
+(--f0min frequency)\tMinimum frequency\n\
+(--f0max frequency)\tMaximum frequency\n\
+(--qualitymin quality)\tMinimum quality factor\n\
+(--qualitymax quality)\tMaximum quality factor\n\
+(--phi0max initPhase [degrees])\tMax initial phase\n\
+(--phi0min initPhase [degrees])\tMin initial phase\n\
+(--sphPhimax initAzimuth [degrees])\tMax spherical harmonic azimuth\n\
+(--sphPhimin initAzimuth [degrees])\tMin spherical harmonic azimuth\n\
+(--pin-sphPhi [degrees])\t pin right-ascension to here\n\
+(--pin-RA [radians])\t pin right-ascension to here\n\
+(--pin-dec [radians])\t pin declination to here\n";
+
+	/* Print command line arguments if help requested */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--help");
+	if(ppt)
+	{
+		fprintf(stdout,"%s",help);
+		return;
+	}
+
+    /*
+     *     char *pinned_params=NULL;
+    * SALVO: Disabled until it is clear if a BinjTable is defined for these signals
+     * if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
+            pinned_params=ppt->value;
+            LALInferenceVariables tempParams;
+            memset(&tempParams,0,sizeof(tempParams));
+            char **strings=NULL;
+            UINT4 N;
+            LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
+            LALInferenceBurstInjectionToVariables(BinjTable,&tempParams);
+
+            LALInferenceVariableItem *node=NULL;
+            while(N>0){
+                N--;
+                char *name=strings[N];
+                node=LALInferenceGetItem(&tempParams,name);
+                if(node) {LALInferenceAddVariable(currentParams,node->name,node->value,node->type,node->vary); printf("pinned %s \n",node->name);}
+                else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
+            }
+        }
+    */
+	/* Over-ride end time if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+	if(ppt){
+		starttime=atof(ppt->value);
+	}
+	
+	/* Over-ride time prior if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
+	if(ppt){
+		dt=atof(ppt->value);
+	}
+
+	/* Over-ride Amplitude min if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--ampmin");
+	if(ppt){
+		logampmin=log(atof(ppt->value));
+	}
+	
+	/* Over-ride Amplitude max if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--ampmax");
+	if(ppt){
+		logampmax=log(atof(ppt->value));
+	}
+
+	/* Over-ride freq min if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--f0min");
+	if(ppt){
+		f0min=atof(ppt->value);
+	}
+	
+	/* Over-ride Amplitude max if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--f0max");
+	if(ppt){
+		f0max=atof(ppt->value);
+	}
+
+	/* Over-ride quality min if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--qualitymin");
+	if(ppt){
+		qualitymin=atof(ppt->value);
+	}
+	
+	/* Over-ride quality max if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--qualitymax");
+	if(ppt){
+		qualitymax=atof(ppt->value);
+	}
+
+	/* Over-ride phi0 min if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--phi0min");
+	if(ppt){
+		phi0min=LAL_PI_180*atof(ppt->value);
+	}
+	
+	/* Over-ride phi0 max if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--phi0max");
+	if(ppt){
+		phi0max=LAL_PI_180*atof(ppt->value);
+	}
+
+	/* Pin phi0 */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--pin-phi0");
+	if(ppt){
+
+        tmpVal=LAL_PI_180*atof(ppt->value);
+
+		LALInferenceAddVariable(currentParams, "phase",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+		tmpMin=0.0; tmpMax=LAL_TWOPI;
+		LALInferenceAddMinMaxPrior(priorArgs, "phase", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+    }
+
+	/* Over-ride sphPhi min if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--sphPhimin");
+	if(ppt){
+		sphPhimin=LAL_PI_180*atof(ppt->value);
+	}
+	
+	/* Over-ride phi0 max if specified */
+	ppt=LALInferenceGetProcParamVal(commandLine,"--sphPhimax");
+	if(ppt){
+		sphPhimax=LAL_PI_180*atof(ppt->value);
+	}
+
+	/* Pin sphPhi */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--pin-sphPhi");
+	if(ppt){
+
+        tmpVal=LAL_PI_180*atof(ppt->value);
+
+		LALInferenceAddVariable(currentParams, "azimuth",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+		tmpMin=0.0; tmpMax=LAL_TWOPI;
+		LALInferenceAddMinMaxPrior(priorArgs, "azimuth", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+    }
+
+    /* Pin right ascension */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--pin-RA");
+	if(ppt){
+
+        tmpVal=atof(ppt->value);
+
+		LALInferenceAddVariable(currentParams, "rightascension",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+		tmpMin=0.0; tmpMax=LAL_TWOPI;
+		LALInferenceAddMinMaxPrior(priorArgs, "rightascension", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+    }
+
+    /* Pin declination */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--pin-dec");
+	if(ppt){
+
+        tmpVal=atof(ppt->value);
+
+		LALInferenceAddVariable(currentParams, "declination",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+		tmpMin=-LAL_PI/2.0; tmpMax=LAL_PI/2.0;
+		LALInferenceAddMinMaxPrior(priorArgs, "declination", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+    }
+
+	if(!LALInferenceCheckVariable(currentParams,"rightascension")) 
+	{
+		LALInferenceAddVariable(currentParams, "rightascension",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+		tmpMin=0.0; tmpMax=LAL_TWOPI;
+		LALInferenceAddMinMaxPrior(priorArgs, "rightascension", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+	}
+	
+	if(!LALInferenceCheckVariable(currentParams,"declination")) 
+	{
+		LALInferenceAddVariable(currentParams, "declination",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+		tmpMin=-LAL_PI/2.0; tmpMax=LAL_PI/2.0;
+		LALInferenceAddMinMaxPrior(priorArgs, "declination", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+	}
+    
+	if(!LALInferenceCheckVariable(currentParams,"polarisation")) 
+	{
+		LALInferenceAddVariable(currentParams, "polarisation",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+		tmpMin=0.0; tmpMax=LAL_PI;
+		LALInferenceAddMinMaxPrior(priorArgs, "polarisation", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+	}
+
+ 	if(!LALInferenceCheckVariable(currentParams,"inclination")) 
+	{
+		LALInferenceAddVariable(currentParams, "inclination",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+		tmpMin=0.0; tmpMax=LAL_PI;
+		LALInferenceAddMinMaxPrior(priorArgs, "inclination", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+	}
+
+    /* Now Add intrinsic variables to Prior arguments */
+    if(!LALInferenceCheckVariable(currentParams,"time"))
+        LALInferenceAddVariable(currentParams, "time", &starttime,
+                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+	tmpMin=starttime-0.5*dt; tmpMax=starttime+0.5*dt;
+    LALInferenceAddMinMaxPrior(priorArgs, "time", &tmpMin, &tmpMax,
+            LALINFERENCE_REAL8_t);	
+
+    tmpVal=logampmin+(logampmax-logampmin)/2.0;
+    if(!LALInferenceCheckVariable(currentParams,"logamp"))
+        LALInferenceAddVariable(currentParams,"logamp",&tmpVal,
+                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddMinMaxPrior(priorArgs, "logamp", &logampmin, &logampmax,
+            LALINFERENCE_REAL8_t);
+
+    tmpVal=f0min+(f0max-f0min)/2.0;
+    if(!LALInferenceCheckVariable(currentParams,"frequency"))
+        LALInferenceAddVariable(currentParams, "frequency", &tmpVal,
+                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+    LALInferenceAddMinMaxPrior(priorArgs, "frequency", &f0min, &f0max,
+            LALINFERENCE_REAL8_t);	
+
+    tmpVal=qualitymin+(qualitymax-qualitymin)/2.0;
+    if(!LALInferenceCheckVariable(currentParams,"Q"))
+        LALInferenceAddVariable(currentParams, "Q", &tmpVal,
+                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+    LALInferenceAddMinMaxPrior(priorArgs, "Q", &qualitymin, &qualitymax,
+            LALINFERENCE_REAL8_t);	
+
+	tmpVal=1.0;
+    if(!LALInferenceCheckVariable(currentParams,"phase")) 
+        LALInferenceAddVariable(currentParams, "phase", &tmpVal,
+                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+    LALInferenceAddMinMaxPrior(priorArgs, "phase", &phi0min, &phi0max,
+            LALINFERENCE_REAL8_t);
+
+	tmpVal=1.0;
+    if(!LALInferenceCheckVariable(currentParams,"azimuth")) 
+        LALInferenceAddVariable(currentParams, "azimuth", &tmpVal,
+                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+    LALInferenceAddMinMaxPrior(priorArgs, "azimuth", &sphPhimin, &sphPhimax,
+            LALINFERENCE_REAL8_t);
+
+
+    return; 
+
+}
+
+
+void LALInferenceInitPowerBurst(LALInferenceRunState *state)
+{
+    LALInferenceVariables *currentParams = state->currentParams;
+    ProcessParamsTable *ppt=NULL;
+    if (LALInferenceGetProcParamVal(state->commandLine,"--powerburst"))
+    {
+        /* log amplitude at 1 Hz */
+        /* N.B. at 1000 Hz 10^-7 smaller */
+        REAL8 logampmin=log(1.0e-25),logampmax=log(1.0e-20);
+        if(LALInferenceGetProcParamVal(state->commandLine,"--powerburst-amp-min"))
+            logampmin=log(atoi(ppt->value));
+        if(LALInferenceGetProcParamVal(state->commandLine,"--powerburst-amp-max"))
+            logampmax=log(atoi(ppt->value));
+
+        REAL8 logamptmp=0.5*(logampmax+logampmin);
+        LALInferenceAddVariable(currentParams,"powerburst_logamp",&logamptmp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddMinMaxPrior(state->priorArgs,"powerburst_logamp",&logampmin,&logampmax,LALINFERENCE_REAL8_t);
+        REAL8 freqmin=state->data->fLow,freqmax=state->data->fHigh;
+        if(LALInferenceGetProcParamVal(state->commandLine,"--powerburst-freq-min"))
+            freqmin=atoi(ppt->value);
+        if(LALInferenceGetProcParamVal(state->commandLine,"--powerburst-freq-max"))
+            freqmax=atoi(ppt->value);
+
+        REAL8 freqtmp=0.5*(freqmin+freqmax);
+        LALInferenceAddVariable(currentParams,"powerburst_fstar",&freqtmp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddMinMaxPrior(state->priorArgs,"powerburst_fstar",&freqmin,&freqmax,LALINFERENCE_REAL8_t);
+
+        state->likelihood=&LALInferenceExtraPowerLogLikelihood;
+    }
+
+    return;
+}

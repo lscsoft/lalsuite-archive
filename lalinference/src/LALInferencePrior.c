@@ -1322,3 +1322,47 @@ REAL8 LALInferenceSinGaussPrior(LALInferenceRunState *runState, LALInferenceVari
  
   return(logPrior);
 }
+
+/** Return the logarithmic prior density of the variables specified, for the
+ * simple ringdown case.
+ */
+REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVariables *params)
+{
+  if (params == NULL || runState == NULL || runState->priorArgs == NULL)
+    XLAL_ERROR_REAL8(XLAL_EFAULT, "Null arguments received.");
+
+  REAL8 logPrior=0.0;
+  static int RDPriorWarning = 0;
+  (void)runState;
+  LALInferenceVariableItem *item=params->head;
+  LALInferenceVariables *priorParams=runState->priorArgs;
+  REAL8 min, max;
+
+  if (!RDPriorWarning ) {
+    RDPriorWarning  = 1;
+    fprintf(stderr, "Ringdown priors are being used. (in %s, line %d)\n", __FILE__, __LINE__);
+  }
+  /* Check boundaries */
+  for(;item;item=item->next)
+  {
+    // if(item->vary!=PARAM_LINEAR || item->vary!=PARAM_CIRCULAR)
+    if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
+      continue;
+    else
+    {
+      LALInferenceGetMinMaxPrior(priorParams, item->name, &min, &max);
+      if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
+    }
+  }
+  if(LALInferenceCheckVariable(params,"inclination"))
+    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"inclination"))));
+  if(LALInferenceCheckVariable(params,"declination"))
+    logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
+// if(LALInferenceCheckVariable(params,"Q")) {
+//     double quality;
+//     quality=*(REAL8 *)LALInferenceGetVariable(params,"Q");
+//     logPrior+=2*log(quality);
+// }
+
+  return(logPrior);
+}

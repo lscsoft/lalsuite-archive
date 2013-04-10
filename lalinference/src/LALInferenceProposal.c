@@ -2447,7 +2447,7 @@ void NSWrapMCMCLALProposal(LALInferenceRunState *runState, LALInferenceVariables
 }
 
 void NSWrapMCMCSinGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams)
-{
+{ //printf("Using NSWrapMCMCSinGaussProposal\n");
   /* PTMCMC likes to read currentParams directly, whereas NS expects proposedParams
    to be modified by the proposal. Back up currentParams and then restore it after
    calling the MCMC proposal function. */

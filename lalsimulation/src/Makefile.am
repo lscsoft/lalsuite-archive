@@ -20,6 +20,7 @@ bin_PROGRAMS = \
 lalsimulationincludedir = $(includedir)/lal
 lalsimulationinclude_HEADERS = \
 	LALSimBlackHoleRingdown.h \
+	LALSimRingdown.h \
 	LALSimBurst.h \
 	LALSimInspiralPrecess.h \
 	LALSimInspiralWaveformFlags.h \
@@ -54,6 +55,8 @@ noinst_HEADERS = \
 lib_LTLIBRARIES = liblalsimulation.la
 liblalsimulation_la_SOURCES = \
 	LALSimBlackHoleRingdown.c \
+	LALSimRingdown.c \
+	LALSimRingdownFD.c \
 	LALSimBurst.c \
 	LALSimBurstImg.c \
 	LALSimIMREOBNRv2.c \

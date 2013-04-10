@@ -13,7 +13,7 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceNestedSampler.h \
 	LALInferencePrior.h \
 	LALInferenceReadData.h \
-	LALInferenceReadNonCBCData.h \
+	LALInferenceReadBurstData.h \
 	LALInferenceTemplate.h \
 	LALInferenceProposal.h \
 	LALInferenceLibVCSInfo.h \
@@ -28,11 +28,11 @@ liblalinference_la_SOURCES = \
 	LALInferenceNestedSampler.c \
 	LALInferencePrior.c \
 	LALInferenceReadData.c \
-	LALInferenceReadNonCBCData.c \
+	LALInferenceReadBurstData.c \
 	LALInferenceTemplate.c \
 	LALInferenceProposal.c \
 	LALInferenceInitCBC.c \
-	LALInferenceInitNonCBC.c \
+	LALInferenceInitBurst.c \
 	LALInferenceVCSInfo.c \
 	$(XMLSRC)
 

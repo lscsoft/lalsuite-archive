@@ -794,7 +794,6 @@ for(i = 0; i < upper; i++) {
 		
 		hptilde->data->data[i]  =0.0;// h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
 		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus));
-        //printf("f %lf tau %lf phi1 %lf phi2 %lf\n",f, tau,phi1,phi2);
         //if (f> centre_frequency*(1.-0.5) && f<centre_frequency*(1.+0.5))
       //  printf("f %lf exp1 %10.10e exp2 %10.10e\n",f, exp(phi1),exp(-phi2));
    //fprintf(testout,"%lf %10.10e %10.10e  %10.10e %10.10e %lf\n",f,CX16re(hptilde->data->data[i]),CX16im(hptilde->data->data[i]),CX16re(hctilde->data->data[i]),CX16im(hctilde->data->data[i]),centre_frequency);

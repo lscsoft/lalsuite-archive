@@ -39,7 +39,7 @@
 #include <lal/XLALError.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/LALSimInspiral.h>
-
+#include <lal/LALSimRingdown.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALSimBurst.h>
 
@@ -2541,4 +2541,128 @@ void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata)
  
  IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
   return;
+}
+
+void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
+/********************************************************************************************/
+/* XLALSimRingdown wrapper                                                                  */
+/*  Required (`IFOdata->modelParams') parameters are:										*/
+/*   - "time" 	        (coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)	*/
+/*   - "amplitude"      (peak amplitude of GW signal)                                       */
+/*   - "frequency"      (central frequency of ringdown signal)								*/
+/*   - "Q"        (quality factor for ringdown = pi*frequency*decay) 					*/
+/*   - "phase"          (initial phase ringdown signal) 					                */
+/********************************************************************************************/
+{
+    COMPLEX16FrequencySeries *htilde=NULL;
+    REAL8 deltaF = IFOdata->freqData->deltaF;
+    REAL8 f_min, f_max;
+    f_min = IFOdata->fLow;
+    f_max = IFOdata->fHigh;
+
+    REAL8 instant, frequency, quality, inclination;
+
+    unsigned i;
+
+	INT4 errnum=0;
+    int ret=0;
+
+    inclination = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "inclination"); 
+    frequency = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "frequency");
+    quality = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "Q");
+    
+    /* **************************************************************************** */
+    /* Frequency domain ringdown */
+
+    static REAL8 previous_frequency;
+    static REAL8 previous_quality;
+    static REAL8 previous_inclination;
+
+    IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+
+    double cosi = cos(inclination);
+    double plusCoef  = -0.5 * (1.0 + cosi*cosi);
+    double crossCoef = cosi;
+    
+
+    /* Only regenerate waveform for new frequency, quality, ... */
+    if(previous_frequency != frequency || previous_quality != quality){
+
+        /* Generate Waveform */
+        XLAL_TRY(ret=XLALSimRingdownFD(&htilde, f_min, f_max, deltaF,
+                    LAL_TWOPI*frequency, quality), errnum);
+        if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
+
+        previous_frequency=frequency;
+        previous_quality=quality;
+
+        if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
+            XLALPrintError(" ERROR in LALInferenceTemplateXLALSimRingdown(): encountered unallocated 'htilde'.\n");
+            XLAL_ERROR_VOID(XLAL_EFAULT);
+        }
+
+        /* point to data structure in waveform */
+        COMPLEX16 *dataPtr = htilde->data->data;
+
+        if (IFOdata->freqData==NULL) {
+            XLALPrintError(" ERROR in LALInferenceTemplateXLALSimRingdown(): encountered unallocated 'freqData'.\n");
+            XLAL_ERROR_VOID(XLAL_EFAULT);
+        }
+
+        /* populate model in IFOdata with real/imag parts of hplus and hcross */
+        for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
+            dataPtr = htilde->data->data;
+            if(i < htilde->data->length){
+                IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+            }
+            else{
+                IFOdata->freqModelhPlus->data->data[i].re = 0.0; 
+                IFOdata->freqModelhPlus->data->data[i].im = 0.0;
+            }
+        }
+
+        /*  cross waveform is "i x plus" :  */
+        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
+            IFOdata->freqModelhCross->data->data[i].re =
+                -IFOdata->freqModelhPlus->data->data[i].im;
+            IFOdata->freqModelhCross->data->data[i].im =
+                IFOdata->freqModelhPlus->data->data[i].re;
+
+            /* Scale by inclination dependence */
+            IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
+            IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
+            IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
+            IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
+
+        }
+    }
+    else{
+        /* Do not recompute the waveform if only inclination has changed. The
+         * test assumes that deltaF, f_min and f_max did not change !*/
+        double previous_cosi = cos(previous_inclination);
+
+        plusCoef  /= (-0.5 * (1.0 + previous_cosi*previous_cosi));
+        crossCoef /= (previous_cosi);
+
+        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
+            IFOdata->freqModelhPlus->data->data[i].re  *= plusCoef;
+            IFOdata->freqModelhPlus->data->data[i].im  *= plusCoef;
+            IFOdata->freqModelhCross->data->data[i].re *= crossCoef;
+            IFOdata->freqModelhCross->data->data[i].im *= crossCoef;
+        }
+
+    }
+    previous_inclination = inclination;
+
+	instant= (IFOdata->timeData->epoch.gpsSeconds +
+			1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+
+    if ( htilde ) XLALDestroyCOMPLEX16FrequencySeries(htilde);
+
+    /* **************************************************************************** */
+
+
+    return;
 }

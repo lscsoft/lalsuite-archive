@@ -44,7 +44,9 @@ void LALInferenceInitBestIFOVariables(LALInferenceRunState *state);
 Initialise the template for a standard CBC signal
 */
 void LALInferenceInitCBCTemplate(LALInferenceRunState *runState);
-void LALInferenceInitNonCBCTemplate(LALInferenceRunState *runState);
+void LALInferenceInitBurstTemplate(LALInferenceRunState *runState);
+void LALInferenceInitRDVariables(LALInferenceRunState *state);
+void LALInferenceInitPowerBurst(LALInferenceRunState *state);
 
 /** Review functions
  * 
