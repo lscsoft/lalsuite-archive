@@ -1,7 +1,7 @@
 /*
  *  LALInferenceCBCInit.c:  Bayesian Followup initialisation routines.
  *
- *  Copyright (C) 2012 Vivien Raymond, John Veitch and Salvatore Vitale
+ *  Copyright (C) 2013 James Clark, John Veitch, Salvatore Vitale
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -154,7 +154,7 @@ Parameter arguments:\n\
         if (ppt)
             endtime=atof(ppt->value);
         else{
-            printf("did not provide --trigtime nor an xml file\n");
+            printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
             exit(1);}
     }
     

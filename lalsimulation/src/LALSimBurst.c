@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 J. Creighton, K. Cannon
+ * Copyright (C) 2008 J. Creighton, K. Cannon, S. Vitale
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -758,6 +758,8 @@ int XLALSimBurstSineGaussianF(
     
     /* tau is the width of the gaussian envelope in the freq domain */
     REAL8 tau=centre_frequency/Q;
+	/* sigma is the width of the gaussian envelope in the time domain */
+
     REAL8 sigma= Q/(LAL_TWOPI*centre_frequency);
     REAL8 tau2=tau*tau;
     /* set fmax to be f0 + 3sigmas*/
@@ -800,26 +802,10 @@ for(i = 0; i < upper; i++) {
 	}
 
 //fclose(testout);
-//exit(1);
+
     *hplus=hptilde;
     *hcross=hctilde;
-	/* apply a Tukey window for continuity at the start and end of the
-	  injection.  the window's shape parameter sets what fraction of
-    the window is used by the tapers 
-
-	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
-	if(!window) {
-		XLALDestroyREAL8TimeSeries(*hplus);
-		XLALDestroyREAL8TimeSeries(*hcross);
-		*hplus = *hcross = NULL;
-		XLAL_ERROR(XLAL_EFUNC);
-	}
-	for(i = 0; i < window->data->length; i++) {
-		(*hplus)->data->data[i] *= window->data->data[i];
-		(*hcross)->data->data[i] *= window->data->data[i];
-	}
-	XLALDestroyREAL8Window(window);
-*/
+	
 	return 0;
 }
 
