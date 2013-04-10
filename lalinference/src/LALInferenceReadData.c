@@ -75,7 +75,7 @@
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
 #include <lal/LALSimNoise.h>
-#include <lal/LALInferenceReadNonCBCData.h>
+#include <lal/LALInferenceReadBurstData.h>
 struct fvec {
 	REAL8 f;
 	REAL8 x;

@@ -73,7 +73,7 @@
 #include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/GenerateBurst.h>
 #include <lal/LALSimBurst.h>
-#include <lal/LALInferenceReadNonCBCData.h>
+#include <lal/LALInferenceReadBurstData.h>
 #include <lal/LALSimNoise.h>
 
 #define LALINFERENCE_DEFAULT_FLOW "40.0"

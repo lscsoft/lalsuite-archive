@@ -34,7 +34,7 @@
 #include <lal/LALInferenceProposal.h>
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
-#include <lal/LALInferenceReadNonCBCData.h>
+#include <lal/LALInferenceReadBurstData.h>
 #include <lal/LALInferenceInit.h>
 #include <lal/LIGOLwXMLBurstRead.h>
 #include <lal/GenerateBurst.h>
