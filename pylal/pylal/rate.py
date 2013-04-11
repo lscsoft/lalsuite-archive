@@ -1,4 +1,4 @@
-# Copyright (C) 2006  Kipp Cannon
+# Copyright (C) 2006--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -50,8 +50,8 @@ from scipy.signal import signaltools
 
 from glue import iterutils
 from glue import segments
+import lal
 from pylal import git_version
-from pylal import window
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -85,9 +85,9 @@ class Bins(object):
 		# convenience code to do some common initialization and
 		# input checking
 		if not isinstance(n, int):
-			raise TypeError, n
+			raise TypeError(n)
 		if max <= min:
-			raise ValueError, (min, max)
+			raise ValueError((min, max))
 		self.min = min
 		self.max = max
 		self.n = n
@@ -171,7 +171,7 @@ class LinearBins(Bins):
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -186,7 +186,7 @@ class LinearBins(Bins):
 		if x == self.max:
 			# special "measure zero" corner case
 			return len(self) - 1
-		raise IndexError, x
+		raise IndexError(x)
 
 	def lower(self):
 		return self.min + self.delta * numpy.arange(len(self))
@@ -238,14 +238,14 @@ class LinearPlusOverflowBins(Bins):
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
-			raise ValueError, "n must be >= 3"
+			raise ValueError("n must be >= 3")
 		Bins.__init__(self, min, max, n)
 		self.delta = float(max - min) / (n-2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -263,7 +263,7 @@ class LinearPlusOverflowBins(Bins):
 		if x < self.min:
 			# -infinity overflow bin
 			return 0
-		raise IndexError, x
+		raise IndexError(x)
 
 	def lower(self):
 		return numpy.concatenate((numpy.array([NegInf]), self.min + self.delta * numpy.arange(len(self) - 2), numpy.array([self.max])))
@@ -299,7 +299,7 @@ class LogarithmicBins(Bins):
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -314,7 +314,7 @@ class LogarithmicBins(Bins):
 		if x == self.max:
 			# special "measure zero" corner case
 			return len(self) - 1
-		raise IndexError, x
+		raise IndexError(x)
 
 	def lower(self):
 		return self.min * numpy.exp(self.delta * numpy.arange(len(self)))
@@ -324,6 +324,7 @@ class LogarithmicBins(Bins):
 
 	def upper(self):
 		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 1))
+
 
 class LogarithmicPlusOverflowBins(Bins):
 	"""
@@ -358,14 +359,14 @@ class LogarithmicPlusOverflowBins(Bins):
 	"""
 	def __init__(self, min, max, n):
 		if n < 3:
-			raise ValueError, "n must be >= 3"
+			raise ValueError("n must be >= 3")
 		Bins.__init__(self, min, max, n)
 		self.delta = (math.log(max) - math.log(min)) / (n-2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -383,7 +384,7 @@ class LogarithmicPlusOverflowBins(Bins):
 		if x < self.min:
 			# zero overflow bin
 			return 0
-		raise IndexError, x
+		raise IndexError(x)
 
 	def lower(self):
 		return numpy.concatenate((numpy.array([0.]), self.min * numpy.exp(self.delta * numpy.arange(len(self) - 1))))
@@ -428,7 +429,7 @@ class ATanBins(Bins):
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -492,7 +493,7 @@ class ATanLogarithmicBins(Bins):
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -555,10 +556,10 @@ class IrregularBins(Bins):
 		"""
 		# check pre-conditions
 		if len(boundaries) < 2:
-			raise ValueError, "less than two boundaries provided"
+			raise ValueError("less than two boundaries provided")
 		boundaries = numpy.array(boundaries)
 		if (boundaries[:-1] > boundaries[1:]).any():
-			raise ValueError, "non-monotonic boundaries provided"
+			raise ValueError("non-monotonic boundaries provided")
 
 		self.boundaries = boundaries
 		self.n = len(boundaries) - 1
@@ -577,7 +578,7 @@ class IrregularBins(Bins):
 	def __getitem__(self, x):
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, x
+				raise NotImplementedError(x)
 			if x.start is None:
 				start = 0
 			else:
@@ -588,7 +589,7 @@ class IrregularBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if x < self.min or x > self.max:
-			raise IndexError, x
+			raise IndexError(x)
 		# special measure-zero edge case
 		if x == self.max:
 			return len(self.boundaries) - 2
@@ -602,6 +603,7 @@ class IrregularBins(Bins):
 
 	def centres(self):
 		return (self.lower() + self.upper()) / 2
+
 
 class Categories(Bins):
 	"""
@@ -664,7 +666,7 @@ class Categories(Bins):
 		for i, s in enumerate(self.containers):
 			if value in s:
 				return i
-		raise IndexError, value
+		raise IndexError(value)
 
 	def __cmp__(self, other):
 		if not isinstance(other, type(self)):
@@ -673,6 +675,7 @@ class Categories(Bins):
 
 	def centres(self):
 		return self.containers
+
 
 class NDBins(tuple):
 	"""
@@ -736,7 +739,7 @@ class NDBins(tuple):
 		"""
 		if isinstance(coords, tuple):
 			if len(coords) != len(self):
-				raise ValueError, "dimension mismatch"
+				raise ValueError("dimension mismatch")
 			return tuple(map(lambda b, c: b[c], self, coords))
 		else:
 			return tuple.__getitem__(self, coords)
@@ -816,17 +819,17 @@ def bins_spanned(bins, seglist, dtype = "double"):
 	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
 	        0.   ,  0.   ,  0.   ,  0.   ])
 	"""
-        lower = bins.lower()
-        upper = bins.upper()
-        # make an intersection of the segment list with the extend of the bins
-        # need to use lower/upper instead of min/max because the latter sometimes
-        # merely correspond to low and high parameters used to construct the binning
-        # (see, for example, the atan binning)
-        seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
-        array = numpy.zeros((len(bins),), dtype = dtype)
-        for i, (a, b) in enumerate(zip(lower, upper)):
-                array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
-        return array
+	lower = bins.lower()
+	upper = bins.upper()
+	# make an intersection of the segment list with the extend of the bins
+	# need to use lower/upper instead of min/max because the latter sometimes
+	# merely correspond to low and high parameters used to construct the binning
+	# (see, for example, the atan binning)
+	seglist = seglist & segments.segmentlist([segments.segment(lower[0], upper[-1])])
+	array = numpy.zeros((len(bins),), dtype = dtype)
+	for i, (a, b) in enumerate(zip(lower, upper)):
+		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
+	return array
 
 
 #
@@ -863,7 +866,7 @@ class BinnedArray(object):
 			self.array = numpy.zeros(bins.shape, dtype = dtype)
 		else:
 			if array.shape != bins.shape:
-				raise ValueError,"Input array and input bins must have the same shape."
+				raise ValueError("input array and input bins must have the same shape")
 			self.array = array
 
 	def __getitem__(self, coords):
@@ -888,7 +891,7 @@ class BinnedArray(object):
 			return self
 		# can other's bins be put into ours?
 		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
-			raise TypeError, "incompatible binning: %s" % repr(other)
+			raise TypeError("incompatible binning: %s" % repr(other))
 		for coords in iterutils.MultiIter(*other.bins.centres()):
 			self[coords] += other[coords]
 		return self
@@ -956,7 +959,7 @@ class BinnedRatios(object):
 			self.numerator += other.numerator
 			self.denominator += other.denominator
 		except TypeError:
-			raise TypeError, "incompatible binning: %s" % repr(other)
+			raise TypeError("incompatible binning: %s" % repr(other))
 		return self
 
 	def incnumerator(self, coords, weight = 1):
@@ -1038,10 +1041,10 @@ def gaussian_window(bins, sigma = 10):
 	is peaked on the middle sample.
 	"""
 	if bins <= 0:
-		raise ValueError, bins
+		raise ValueError(bins)
 	l = int(math.floor(sigma * bins / 2.0)) * 2
-	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
-	return w.data / w.sum
+	w = lal.CreateGaussREAL8Window(l + 1, l / float(bins))
+	return w.data.data / w.sum
 
 
 def gaussian_window2d(bins_x, bins_y, sigma = 10):
@@ -1060,9 +1063,9 @@ def tophat_window(bins):
 	up to the nearest odd integer.
 	"""
 	if bins <= 0:
-		raise ValueError, bins
-	w = window.XLALCreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
-	return w.data / w.sum
+		raise ValueError(bins)
+	w = lal.CreateRectangularREAL8Window(int(math.floor(bins / 2.0)) * 2 + 1)
+	return w.data.data / w.sum
 
 
 def tophat_window2d(bins_x, bins_y):
@@ -1075,9 +1078,9 @@ def tophat_window2d(bins_x, bins_y):
 	and all other elements set to 0.
 	"""
 	if bins_x <= 0:
-		raise ValueError, bins_x
+		raise ValueError(bins_x)
 	if bins_y <= 0:
-		raise ValueError, bins_y
+		raise ValueError(bins_y)
 
 	# This might appear to be using a screwy, slow, algorithm but it's
 	# the only way I have found to get a window with the correct bins
@@ -1094,7 +1097,7 @@ def tophat_window2d(bins_x, bins_y):
 			window[x, y] = 0.0
 
 	# normalize
-	window /= numpy.sum(window)
+	window /= window.sum()
 
 	return window
 
@@ -1127,10 +1130,10 @@ def filter_array(a, window, cyclic = False):
 	# dimensions
 	dims = len(a.shape)
 	if dims != len(window.shape):
-		raise ValueError, "array and window dimensions mismatch"
+		raise ValueError("array and window dimensions mismatch")
 	# check that all of the window's dimensions have an odd size
 	if 0 in map((1).__and__, window.shape):
-		raise ValueError, "window size is not an odd integer in at least 1 dimension"
+		raise ValueError("window size is not an odd integer in at least 1 dimension")
 	# determine how much of the window function can be used
 	window_slices = []
 	for d in xrange(dims):
@@ -1155,7 +1158,7 @@ def filter_array(a, window, cyclic = False):
 		else:
 			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same")
 	else:
-		raise ValueError, "can only filter 1 and 2 dimensional arrays"
+		raise ValueError("can only filter 1 and 2 dimensional arrays")
 	return a
 
 
@@ -1351,7 +1354,7 @@ def bins_from_xml(xml):
 	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
 	for row in xml:
 		if binnings[row.order] is not None:
-			raise ValueError, "duplicate binning for dimension %d" % row.order
+			raise ValueError("duplicate binning for dimension %d" % row.order)
 		binnings[row.order] = {
 			"lin": LinearBins,
 			"linplusoverflow": LinearPlusOverflowBins,
@@ -1361,7 +1364,7 @@ def bins_from_xml(xml):
 			"logplusoverflow": LogarithmicPlusOverflowBins
 		}[row.type](row.min, row.max, row.n)
 	if None in binnings:
-		raise ValueError, "no binning for dimension %d" % binnings.find(None)
+		raise ValueError("no binning for dimension %d" % binnings.find(None))
 	return NDBins(binnings)
 
 
@@ -1386,7 +1389,7 @@ def binned_array_from_xml(xml, name):
 	try:
 		xml, = xml
 	except ValueError:
-		raise ValueError, "document must contain exactly 1 BinnedArray named '%s'" % name
+		raise ValueError("document must contain exactly 1 BinnedArray named '%s'" % name)
 	# an empty binning is used for the initial object creation instead
 	# of using the real binning to avoid the creation of a (possibly
 	# large) array that would otherwise accompany this step

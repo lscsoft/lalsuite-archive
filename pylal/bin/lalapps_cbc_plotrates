@@ -804,7 +804,7 @@ class getRowStatsFromDatabase:
 opts, filenames, input_args = parse_command_line()
 for this_cache in opts.cache_file:
     this_cache = lal.Cache().fromfile(file(this_cache))
-    filenames.extend([x.path() for x in this_cache])
+    filenames.extend([x.path for x in this_cache])
 sqlite3.enable_callback_tracebacks(True)
 
 statistic, stat_label = len(opts.statistic.split(':')) == 2 and opts.statistic.split(':') or [opts.statistic, opts.statistic.replace('_', ' ').title()]

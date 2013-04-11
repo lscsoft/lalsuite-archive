@@ -32,6 +32,7 @@ import sys
 from glue import iterutils
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal import llwapp
 from pylal import snglcoinc
@@ -189,7 +190,7 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		# extract the coalesced out segment lists from lalapps_ring
 		#
 
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
+		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = program).coalesce()
 		if vetoes is not None:
 			self.seglists -= vetoes
 
@@ -224,6 +225,15 @@ class RingdownCoincTables(snglcoinc.CoincTables):
 		coinc_ringdown.set_ifos(event.ifo for event in events)
 		coinc_ringdown.frequency = sum(event.snr * event.frequency for event in events) / sum(event.snr for event in events)
 		coinc_ringdown.quality = sum(event.snr * event.quality for event in events) / sum(event.snr for event in events)
+		coinc_ringdown.mass = None
+		coinc_ringdown.spin = None
+		coinc_ringdown.snr_sq = None
+		coinc_ringdown.choppedl_snr = None
+		coinc_ringdown.eff_coh_snr = None
+		coinc_ringdown.null_stat = None
+		coinc_ringdown.kappa = None
+		coinc_ringdown.snr_ratio = None
+		coinc_ringdown.combined_far = None
 		self.coinc_ringdown_table.append(coinc_ringdown)
 
 		#

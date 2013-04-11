@@ -562,7 +562,7 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	if not filenames: filenames = []
-	if options.input_cache: filenames.extend([lal.CacheEntry(l).path() for l in open(options.input_cache).readlines()])
+	if options.input_cache: filenames.extend([lal.CacheEntry(l).path for l in open(options.input_cache).readlines()])
 
 	return options, (filenames or [])
 

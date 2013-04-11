@@ -399,19 +399,6 @@ class LIGOTimeGPS(object):
 #
 
 
-class deprecated_method_proxy(property):
-	# FIXME:  temporary nonsense until all code that uses CacheEntry is
-	# ported to access the scheme, host, path attributes directly
-	def __get__(self, instance, owner):
-		result = self.fget(instance)
-		class callable_wrapper(type(result)):
-			name = self.fget.__name__
-			def __call__(self):
-				warnings.warn("glue.lal.CacheEntry.%s() method is deprecated;  use glue.lal.CacheEntry.%s attribute instead" % (self.name, self.name), DeprecationWarning)
-				return self
-		return callable_wrapper(result)
-
-
 class CacheEntry(object):
 	"""
 	An object representing one line in a LAL cache file.
@@ -586,30 +573,11 @@ class CacheEntry(object):
 		a value to the URL attribute causes the value to be parsed
 		and the scheme, host and path attributes updated.
 		"""
-		return urlparse.urlunparse((self.scheme, self.host, self._path, None, None, None))
+		return urlparse.urlunparse((self.scheme, self.host, self.path, None, None, None))
 
 	@url.setter
 	def url(self, url):
-		self.scheme, self.host, self._path = urlparse.urlparse(url)[:3]
-
-	@deprecated_method_proxy
-	def path(self):
-		"""
-		The path part of the URL.
-
-		Example:
-
-		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
-		>>> c.path
-		'/home/kipp/tmp/1/H1-815901601-576.xml'
-		"""
-		# FIXME:  switch calling code to use the attribute directly.  reason:  then it's writable, too!
-		return self._path
-
-	@path.setter
-	def path(self, value):
-		# FIXME:  remove when calling code uses the attribute directly.
-		self._path = value
+		self.scheme, self.host, self.path = urlparse.urlparse(url)[:3]
 
 	@property
 	def segmentlistdict(self):

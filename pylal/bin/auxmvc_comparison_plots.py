@@ -860,29 +860,32 @@ if not opts.combined_files:
 	# write glitch samples into a file (full and slim catalog)
 	glitch_file=open(opts.user_tag+'_glitch_data.dat','w')
 	glitch_file.write(' '.join(glitches.dtype.names)+'\n')
+        for da in glitches:
+          glitch_file.write(' '.join(map(str,da))+'\n')
+        glitch_file.close()
 	
 	glitch_slim_file=open(opts.user_tag+'_glitch_slim_data.dat','w')
 	glitch_slim_file.write(' '.join(columns_for_slim_catalog)+'\n')
-
-	for da in glitches:
-	  glitch_file.write(' '.join(map(str,da))+'\n')
-	  glitch_slim_file.write(' '.join(map(str,da[columns_for_slim_catalog]))+'\n')	
+        
+        glitches_slim = glitches[columns_for_slim_catalog]
+	for da in glitches_slim:
+	  glitch_slim_file.write(' '.join(map(str,da))+'\n')	
 	
-	glitch_file.close()
 	glitch_slim_file.close()
 	
 	# write clean samples into a file (full and slim catalog)
 	clean_file=open(opts.user_tag+'_clean_data.dat','w')
 	clean_file.write(' '.join(cleans.dtype.names)+'\n')
-	
+        for da in cleans:
+          clean_file.write(' '.join(map(str,da))+'\n')
+	clean_file.close()
+
 	clean_slim_file=open(opts.user_tag+'_clean_slim_data.dat','w')
 	clean_slim_file.write(' '.join(columns_for_slim_catalog)+'\n')
 
-	for da in cleans:
-	  clean_file.write(' '.join(map(str,da))+'\n')
-	  clean_slim_file.write(' '.join(map(str,da[columns_for_slim_catalog]))+'\n')
-	
-	clean_file.close()
+        cleans_slim = cleans[columns_for_slim_catalog]
+	for da in cleans_slim:
+	  clean_slim_file.write(' '.join(map(str,da))+'\n')	
 	clean_slim_file.close()
 
 	if opts.verbose:

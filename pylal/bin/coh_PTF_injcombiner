@@ -160,9 +160,9 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
  
   for angle,[found,missed] in cache_dict.items():
     if angle >= maxIncl:
-      currFInjs = SimInspiralUtils.ReadSimInspiralFromFiles([found.path()])
-      currMInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missed.path()])
-      currFTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([found.path()])
+      currFInjs = SimInspiralUtils.ReadSimInspiralFromFiles([found.path])
+      currMInjs = SimInspiralUtils.ReadSimInspiralFromFiles([missed.path])
+      currFTrigs = MultiInspiralUtils.ReadMultiInspiralFromFiles([found.path])
 
       for inj in currMInjs:
         if inj.get_theta() < maxInclRad:
@@ -182,17 +182,14 @@ def main( injCacheFile, outdir, maxIncl , injString , verbose=False ):
   xmldoc = append_process_params( xmldoc, sys.argv, __version__, __date__ )
 
   # get search summary table from old file
-  oldxml   = utils.load_filename( foundcache[0].path(),\
-                                  gz = foundcache[0].path().endswith("gz") )
+  oldxml   = utils.load_filename( foundcache[0].path,\
+                                  gz = foundcache[0].path.endswith("gz") )
   oldSearchSummTable = table.get_table( oldxml, "search_summary" )
   xmldoc.childNodes[-1].appendChild( oldSearchSummTable )
 
   # construct output filename
   ifoTag = foundcache[0].observatory
-  allsegs = foundcache.to_segmentlistdict()[ifoTag].coalesce()
-  allsegs.sort(key=lambda seg: (seg[0],seg[1]) )
-  start   = allsegs[0][0]
-  end     = allsegs[-1][-1]
+  start, end = foundcache.to_segmentlistdict().extent_all()
 
   userTag = injcache[0].description.rsplit( '_', 2 )[0]
   xmlFile = '%s/%s-%s_injectionsAstro%s_FILTERED_%d_FOUND-%d-%d.xml'\
