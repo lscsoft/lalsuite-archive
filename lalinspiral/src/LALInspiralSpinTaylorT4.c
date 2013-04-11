@@ -191,11 +191,14 @@ void LALInspiralInterfaceSpinTaylorT4(
     /** Calculate tidal deformability parameters for the two bodies (dimensionless) **/
     lambda1 = XLALLambdaOfM_EOS(EoS, m1_intr)/pow(mttot,5.); /** Tidal effect for mass1 switched on **/
     lambda2 = XLALLambdaOfM_EOS(EoS, m2_intr)/pow(mttot,5.); /** Tidal effect for mass2 switched on **/
-    lambda1 = (lambda1 > 0.) ? lambda1 : 0.0;
-    lambda2 = (lambda2 > 0.) ? lambda2 : 0.0;
+    
     /** Calculate quadrupole-monopole parameters for the two bodies **/
-    qmparam1 = XLALQMparameter_EOS(EoS, m1_intr); 
-    qmparam2 = XLALQMparameter_EOS(EoS, m2_intr); 
+    /* SET TO ZERO FOR THESE RUNS!!!
+     * qmparam1 = XLALQMparameter_EOS(EoS, m1_intr); 
+     * qmparam2 = XLALQMparameter_EOS(EoS, m2_intr); 
+    */
+    qmparam1 = 0.0;
+    qmparam2 = 0.0;
     
     fStart = params->fLower;
 	fRef = 0.0;
@@ -1901,7 +1904,11 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
     REAL8 prefac = 1.0E29 * LAL_G_SI / pow(LAL_C_SI,5.);
     REAL8 lambda = 0.;
 
-    switch (((int) EoS))
+	if ( (int) EoS < (int) PP || (int) EoS > (int) SLY ){
+        fprintf(stderr, "Unknown EoS. Exiting...\n");
+        exit(-1);
+		}
+    switch ( EoS )
     {
 	// Point Particle
 		case PP:
@@ -1940,8 +1947,9 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
          
         default:
         lambda = 0.0;
-        fprintf(stderr, "Unknown EoS for the calculation of tidal deformability. Lambda is set to 0.\n");
         break;
+    lambda = (lambda > 0.) ? lambda : 0.0;
+    
 	}
     return lambda;
 }
@@ -1960,6 +1968,10 @@ REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
   REAL8 m2 = m*m ;
   REAL8 m3 = m2*m ;
   
+	if ( (int) eos_type < (int) PP || (int) eos_type > (int) SLY ){
+        fprintf(stderr, "Unknown EoS. Exiting...\n");
+        exit(-1);
+		}
   switch (eos_type) {
   /* A */
     case AEOS:
@@ -2001,8 +2013,9 @@ REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
 
     default:
     q = 1.0 ;
-    fprintf(stderr, "Unknown EoS for the calculation of QM parameter. QM is set to 1.0 .\n");
     break ;
+    q = (q > 0.) ? q : 0.0;
+
   }
   
   return q ;
