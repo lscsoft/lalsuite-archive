@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 
@@ -75,6 +74,8 @@
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceTemplate.h>
 #include <lal/LALSimNoise.h>
+#include <LALInferenceRemoveLines.h>
+
 struct fvec {
 	REAL8 f;
 	REAL8 x;
@@ -92,7 +93,7 @@ struct fvec *interpFromFile(char *filename){
 	UINT4 minLength=100; /* size of initial file buffer, and also size of increment */
 	FILE *interpfile=NULL;
 	struct fvec *interp=NULL;
-	interp=calloc(minLength,sizeof(struct fvec)); /* Initialise array */
+	interp=XLALCalloc(minLength,sizeof(struct fvec)); /* Initialise array */
 	if(!interp) {printf("Unable to allocate memory buffer for reading interpolation file\n");}
 	fileLength=minLength;
 	REAL8 f=0.0,x=0.0;
@@ -105,13 +106,13 @@ struct fvec *interpFromFile(char *filename){
 		interp[i].f=f; interp[i].x=x*x;
 		i++;
 		if(i>fileLength-1){ /* Grow the array */
-			interp=realloc(interp,(fileLength+minLength)*sizeof(struct fvec));
+			interp=XLALRealloc(interp,(fileLength+minLength)*sizeof(struct fvec));
 			fileLength+=minLength;
 		}
 	}
 	interp[i].f=0; interp[i].x=0;
 	fileLength=i+1;
-	interp=realloc(interp,fileLength*sizeof(struct fvec)); /* Resize array */
+	interp=XLALRealloc(interp,fileLength*sizeof(struct fvec)); /* Resize array */
 	fclose(interpfile);
 	printf("Read %i records from %s\n",fileLength-1,filename);
 	return interp;
@@ -229,15 +230,15 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
         if(!strcmp(this->param,"--ifo")||!strcmp(this->param,"--IFO"))
         {
             (*N)++;
-            *ifos=realloc(*ifos,*N*sizeof(char *));
-            (*ifos)[*N-1]=strdup(this->value);
+            *ifos=XLALRealloc(*ifos,*N*sizeof(char *));
+            (*ifos)[*N-1]=XLALStringDuplicate(this->value);
         }
     }
-    *caches=calloc(*N,sizeof(char *));
-    *channels=calloc(*N,sizeof(char *));
-    *flows=calloc(*N,sizeof(REAL8));
-    *fhighs=calloc(*N,sizeof(REAL8));
-    *timeslides=calloc(*N,sizeof(REAL8));
+    *caches=XLALCalloc(*N,sizeof(char *));
+    *channels=XLALCalloc(*N,sizeof(char *));
+    *flows=XLALCalloc(*N,sizeof(REAL8));
+    *fhighs=XLALCalloc(*N,sizeof(REAL8));
+    *timeslides=XLALCalloc(*N,sizeof(REAL8));
     /* For each IFO, fetch the other options if available */
     for(i=0;i<*N;i++)
     {
@@ -245,27 +246,27 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
         sprintf(tmp,"--%s-cache",(*ifos)[i]);
         this=LALInferenceGetProcParamVal(commandLine,tmp);
         if(!this){fprintf(stderr,"ERROR: Must specify a cache file for %s with --%s-cache\n",(*ifos)[i],(*ifos)[i]); exit(1);}
-        (*caches)[i]=strdup(this->value);
+        (*caches)[i]=XLALStringDuplicate(this->value);
         
         /* Channel */
         sprintf(tmp,"--%s-channel",(*ifos)[i]);
         this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*channels)[i]=strdup(this?this->value:"Unknown channel");
+        (*channels)[i]=XLALStringDuplicate(this?this->value:"Unknown channel");
 
         /* flow */
         sprintf(tmp,"--%s-flow",(*ifos)[i]);
         this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*flows)[i]=strdup(this?this->value:LALINFERENCE_DEFAULT_FLOW);
+        (*flows)[i]=XLALStringDuplicate(this?this->value:LALINFERENCE_DEFAULT_FLOW);
         
         /* fhigh */
         sprintf(tmp,"--%s-fhigh",(*ifos)[i]);
         this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*fhighs)[i]=this?strdup(this->value):NULL;
+        (*fhighs)[i]=this?XLALStringDuplicate(this->value):NULL;
 
         /* timeslides */
         sprintf(tmp,"--%s-timeslide",(*ifos)[i]);
         this=LALInferenceGetProcParamVal(commandLine,tmp);
-        (*timeslides)[i]=strdup(this?this->value:"0.0");
+        (*timeslides)[i]=XLALStringDuplicate(this?this->value:"0.0");
     }
     return(1);
 }
@@ -423,7 +424,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         dataseed=atoi(procparam->value);
     }
 
-    IFOdata=headIFO=calloc(sizeof(LALInferenceIFOData),Nifo);
+    IFOdata=headIFO=XLALCalloc(sizeof(LALInferenceIFOData),Nifo);
     if(!IFOdata) XLAL_ERROR_NULL(XLAL_ENOMEM);
 
     if(LALInferenceGetProcParamVal(commandLine,"--injXML"))
@@ -492,10 +493,10 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     }
 
     /* Only allocate this array if there weren't channels read in from the command line */
-    if(!dataOpts && !Nchannel) channels=calloc(Nifo,sizeof(char *));
+    if(!dataOpts && !Nchannel) channels=XLALCalloc(Nifo,sizeof(char *));
     for(i=0;i<Nifo;i++) {
-        if(!dataOpts && !Nchannel) channels[i]=malloc(VARNAME_MAX);
-        IFOdata[i].detector=calloc(1,sizeof(LALDetector));
+        if(!dataOpts && !Nchannel) channels[i]=XLALMalloc(VARNAME_MAX);
+        IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
 
         if(!strcmp(IFOnames[i],"H1")) {			
             memcpy(IFOdata[i].detector,&lalCachedDetectors[LALDetectorIndexLHODIFF],sizeof(LALDetector));
@@ -538,7 +539,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             ETHomestakeFr.yArmAltitudeRadians=0.0;
             ETHomestakeFr.yArmAzimuthRadians=0.0;
             ETHomestakeFr.xArmMidpoint = ETHomestakeFr.yArmMidpoint = sqrt(2.0)*7.5/2.0;
-            IFOdata[i].detector=calloc(1,sizeof(LALDetector));
+            IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&ETHomestakeFr,LALDETECTORTYPE_IFODIFF);
             printf("Created Homestake Mine ET detector, location: %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
             printf("detector tensor:\n");
@@ -563,7 +564,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             ETHomestakeFr.yArmAltitudeRadians=0.0;
             ETHomestakeFr.yArmAzimuthRadians=LAL_PI/4.0;
             ETHomestakeFr.xArmMidpoint = ETHomestakeFr.yArmMidpoint = sqrt(2.0)*7500./2.0;
-            IFOdata[i].detector=calloc(1,sizeof(LALDetector));
+            IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&ETHomestakeFr,LALDETECTORTYPE_IFODIFF);
             printf("Created Homestake Mine ET detector, location: %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
             printf("detector tensor:\n");
@@ -584,7 +585,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             ETmic1.xArmAzimuthRadians = LAL_PI/2.0;
             ETmic1.yArmAzimuthRadians = 0.0;
             ETmic1.xArmMidpoint = ETmic1.yArmMidpoint = sqrt(2.0)*7500./2.;
-            IFOdata[i].detector=calloc(1,sizeof(LALDetector));
+            IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&ETmic1,LALDETECTORTYPE_IFODIFF);
             printf("Created ET L-detector 1 (N/E) arms, location: %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
             printf("detector tensor:\n");
@@ -605,7 +606,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             ETmic2.xArmAzimuthRadians = 3.0*LAL_PI/4.0;
             ETmic2.yArmAzimuthRadians = LAL_PI/4.0;
             ETmic2.xArmMidpoint = ETmic2.yArmMidpoint = sqrt(2.0)*7500./2.;
-            IFOdata[i].detector=calloc(1,sizeof(LALDetector));
+            IFOdata[i].detector=XLALCalloc(1,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&ETmic2,LALDETECTORTYPE_IFODIFF);
             printf("Created ET L-detector 2 (NE/SE) arms, location: %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
             printf("detector tensor:\n");
@@ -631,7 +632,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             LIGOIndiaFr.xArmMidpoint = 2000.;
             LIGOIndiaFr.xArmAzimuthRadians = LAL_PI/2.;
             LIGOIndiaFr.yArmAzimuthRadians = 0.;
-            IFOdata[i].detector=malloc(sizeof(LALDetector));
+            IFOdata[i].detector=XLALMalloc(sizeof(LALDetector));
             memset(IFOdata[i].detector,0,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&LIGOIndiaFr,LALDETECTORTYPE_IFODIFF);
             printf("Created LIGO India Detector, location %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
@@ -658,7 +659,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             LIGOSouthFr.yArmAzimuthRadians=AIGOang;
             LIGOSouthFr.xArmMidpoint=2000.;
             LIGOSouthFr.yArmMidpoint=2000.;
-            IFOdata[i].detector=malloc(sizeof(LALDetector));
+            IFOdata[i].detector=XLALMalloc(sizeof(LALDetector));
             memset(IFOdata[i].detector,0,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&LIGOSouthFr,LALDETECTORTYPE_IFODIFF);
             printf("Created LIGO South detector, location: %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
@@ -684,7 +685,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             LCGTFr.yArmAzimuthRadians=LCGTangle;
             LCGTFr.xArmMidpoint=1500.;
             LCGTFr.yArmMidpoint=1500.;
-            IFOdata[i].detector=malloc(sizeof(LALDetector));
+            IFOdata[i].detector=XLALMalloc(sizeof(LALDetector));
             memset(IFOdata[i].detector,0,sizeof(LALDetector));
             XLALCreateDetector(IFOdata[i].detector,&LCGTFr,LALDETECTORTYPE_IFODIFF);
             printf("Created LCGT telescope, location: %lf, %lf, %lf\n",IFOdata[i].detector->location[0],IFOdata[i].detector->location[1],IFOdata[i].detector->location[2]);
@@ -775,15 +776,17 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
             if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
                 for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
-                    IFOdata[i].freqData->data->data[j].re=IFOdata[i].freqData->data->data[j].im=0.0;
+                    IFOdata[i].freqData->data->data[j] = 0.0;
                 }
             } else {
                 for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
-                    IFOdata[i].freqData->data->data[j].re=XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF));
-                    IFOdata[i].freqData->data->data[j].im=XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF));
+                    IFOdata[i].freqData->data->data[j] = crect(
+                      XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF)),
+                      XLALNormalDeviate(datarandparam)*(0.5*sqrt(IFOdata[i].oneSidedNoisePowerSpectrum->data->data[j]/IFOdata[i].freqData->deltaF))
+                      );
                 }
             }
-            IFOdata[i].freqData->data->data[0].re=0; 			IFOdata[i].freqData->data->data[0].im=0;
+            IFOdata[i].freqData->data->data[0] = 0;
             const char timename[]="timeData";
             IFOdata[i].timeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries(timename,&segStart,0.0,(REAL8)1.0/SampleRate,&lalDimensionlessUnit,(size_t)seglen);
             if(!IFOdata[i].timeData) XLAL_ERROR_NULL(XLAL_EFUNC);
@@ -823,6 +826,74 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 else
                     XLALREAL8AverageSpectrumMedian(IFOdata[i].oneSidedNoisePowerSpectrum ,PSDtimeSeries, seglen, (UINT4)seglen, IFOdata[i].window, IFOdata[i].timeToFreqFFTPlan);	
 
+                if (LALInferenceGetProcParamVal(commandLine, "--chisquaredlines")){
+
+                    double deltaF = IFOdata[i].oneSidedNoisePowerSpectrum->deltaF;
+                    int lengthF = IFOdata[i].oneSidedNoisePowerSpectrum->data->length;
+
+                    REAL8 *pvalues;
+                    pvalues = XLALMalloc( lengthF * sizeof( *pvalues ) );
+
+                    printf("Running chi-squared tests... ");
+                    LALInferenceRemoveLinesChiSquared(IFOdata[i].oneSidedNoisePowerSpectrum,PSDtimeSeries, seglen, (UINT4)seglen, IFOdata[i].window, IFOdata[i].timeToFreqFFTPlan,pvalues);
+                    printf("completed!\n");
+
+                    const UINT4 nameLength=256;
+                    char filename[nameLength];
+                    FILE *out;
+
+                    snprintf(filename, nameLength, "%s-ChiSquaredLines.dat", IFOdata[i].name);
+                    out = fopen(filename, "w");
+                    for (int k = 0; k < lengthF; ++k ) {
+                        if (pvalues[k] < 0.05) {
+                            fprintf(out,"%g\n",((double) k) * deltaF);
+                        }
+                    }
+                    fclose(out);
+
+                    snprintf(filename, nameLength, "%s-ChiSquaredLines-pvalues.dat", IFOdata[i].name);
+                    out = fopen(filename, "w");
+                    for (int k = 0; k < lengthF; ++k ) {
+                        fprintf(out,"%g %g\n",((double) k) * deltaF,pvalues[k]);
+                    }
+                    fclose(out);
+
+                }
+
+                if (LALInferenceGetProcParamVal(commandLine, "--KSlines")){
+
+                    double deltaF = IFOdata[i].oneSidedNoisePowerSpectrum->deltaF;
+                    int lengthF = IFOdata[i].oneSidedNoisePowerSpectrum->data->length;
+
+                    REAL8 *pvalues;
+                    pvalues = XLALMalloc( lengthF * sizeof( *pvalues ) );
+
+                    printf("Running KS tests... ");
+                    LALInferenceRemoveLinesKS(IFOdata[i].oneSidedNoisePowerSpectrum,PSDtimeSeries, seglen, (UINT4)seglen, IFOdata[i].window, IFOdata[i].timeToFreqFFTPlan,pvalues);
+                    printf("completed!\n");
+
+                    const UINT4 nameLength=256;
+                    char filename[nameLength];
+                    FILE *out;
+
+                    snprintf(filename, nameLength, "%s-KSLines.dat", IFOdata[i].name);
+                    out = fopen(filename, "w");
+                    for (int k = 0; k < lengthF; ++k ) {
+                        if (pvalues[k] < 0.05) {
+                            fprintf(out,"%g\n",((double) k) * deltaF);
+                        }
+                    }
+                    fclose(out);
+
+                    snprintf(filename, nameLength, "%s-KSLines-pvalues.dat", IFOdata[i].name);
+                    out = fopen(filename, "w");
+                    for (int k = 0; k < lengthF; ++k ) {
+                        fprintf(out,"%g %g\n",((double) k) * deltaF,pvalues[k]);
+                    }
+                    fclose(out);
+
+                }
+
                 XLALDestroyREAL8TimeSeries(PSDtimeSeries);
             }
 
@@ -859,8 +930,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             XLALREAL8TimeFreqFFT(IFOdata[i].freqData,IFOdata[i].windowedTimeData,IFOdata[i].timeToFreqFFTPlan);
 
             for(j=0;j<IFOdata[i].freqData->data->length;j++){
-                IFOdata[i].freqData->data->data[j].re/=sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
-                IFOdata[i].freqData->data->data[j].im/=sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
+                IFOdata[i].freqData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
                 IFOdata[i].windowedTimeData->data->data[j] /= sqrt(IFOdata[i].window->sumofsquares / IFOdata[i].window->data->length);
             }
         } /* End of data reading process */
@@ -898,8 +968,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
             // REAL8 *tempPSD = NULL;
             // REAL8 *tempfreq = NULL;
-            // tempPSD=calloc(sizeof(REAL8),templen+1);
-            // tempfreq=calloc(sizeof(REAL8),templen+1);
+            // tempPSD=XLALCalloc(sizeof(REAL8),templen+1);
+            // tempfreq=XLALCalloc(sizeof(REAL8),templen+1);
 
             rewind(in);
             IFOdata[i].oneSidedNoisePowerSpectrum->data->data[0] = 1.0;
@@ -954,8 +1024,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             out = fopen(filename, "w");
             for (j = 0; j < IFOdata[i].freqData->data->length; j++) {
                 REAL8 f = IFOdata[i].freqData->deltaF * j;
-                REAL8 dre = IFOdata[i].freqData->data->data[j].re;
-                REAL8 dim = IFOdata[i].freqData->data->data[j].im;
+                REAL8 dre = creal(IFOdata[i].freqData->data->data[j]);
+                REAL8 dim = cimag(IFOdata[i].freqData->data->data[j]);
 
                 fprintf(out, "%g %g %g\n", f, dre, dim);
             }
@@ -970,17 +1040,17 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     for (i=0;i<Nifo-1;i++) IFOdata[i].next=&(IFOdata[i+1]);
 
     for(i=0;i<Nifo;i++) {
-        if(channels) if(channels[i]) free(channels[i]);
-        if(caches) if(caches[i]) free(caches[i]);
-        if(IFOnames) if(IFOnames[i]) free(IFOnames[i]);
-        if(fLows) if(fLows[i]) free(fLows[i]);
-        if(fHighs) if(fHighs[i]) free(fHighs[i]);
+        if(channels) if(channels[i]) XLALFree(channels[i]);
+        if(caches) if(caches[i]) XLALFree(caches[i]);
+        if(IFOnames) if(IFOnames[i]) XLALFree(IFOnames[i]);
+        if(fLows) if(fLows[i]) XLALFree(fLows[i]);
+        if(fHighs) if(fHighs[i]) XLALFree(fHighs[i]);
     }
-    if(channels) free(channels);
-    if(caches) free(caches);
-    if(IFOnames) free(IFOnames);
-    if(fLows) free(fLows);
-    if(fHighs) free(fHighs);
+    if(channels) XLALFree(channels);
+    if(caches) XLALFree(caches);
+    if(IFOnames) XLALFree(IFOnames);
+    if(fLows) XLALFree(fLows);
+    if(fHighs) XLALFree(fHighs);
 
     return headIFO;
 }
@@ -1015,21 +1085,18 @@ static void makeWhiteData(LALInferenceIFOData *IFOdata) {
   UINT4 i;
 
   for (i = 0; i < IFOdata->freqData->data->length; i++) {
-    IFOdata->whiteFreqData->data->data[i].re = IFOdata->freqData->data->data[i].re / IFOdata->oneSidedNoisePowerSpectrum->data->data[i];
-    IFOdata->whiteFreqData->data->data[i].im = IFOdata->freqData->data->data[i].im / IFOdata->oneSidedNoisePowerSpectrum->data->data[i];
+    IFOdata->whiteFreqData->data->data[i] = IFOdata->freqData->data->data[i] / IFOdata->oneSidedNoisePowerSpectrum->data->data[i];
 		
     if (i == 0) {
       /* Cut off the average trend in the data. */
-      IFOdata->whiteFreqData->data->data[i].re = 0.0;
-      IFOdata->whiteFreqData->data->data[i].im = 0.0;
+      IFOdata->whiteFreqData->data->data[i] = 0.0;
     }
     if (i <= iLow) {
       /* Need to taper to implement the fLow cutoff.  Tukey window
 			 that starts at zero, and reaches 100% at fLow. */
       REAL8 weight = 0.5*(1.0 + cos(M_PI*(i-iLow)/iLow)); /* Starts at -Pi, runs to zero at iLow. */
 			
-      IFOdata->whiteFreqData->data->data[i].re *= weight;
-      IFOdata->whiteFreqData->data->data[i].im *= weight;
+      IFOdata->whiteFreqData->data->data[i] *= weight;
 			
       windowSquareSum += weight*weight;
     } else if (i >= iHigh) {
@@ -1040,8 +1107,7 @@ static void makeWhiteData(LALInferenceIFOData *IFOdata) {
       REAL8 NWind = IFOdata->whiteFreqData->data->length - iHigh;
       REAL8 weight = 0.5*(1.0 + cos(M_PI*(i-iHigh)/NWind)); /* Starts at 0, runs to Pi at i = length */
 			
-      IFOdata->whiteFreqData->data->data[i].re *= weight;
-      IFOdata->whiteFreqData->data->data[i].im *= weight;
+      IFOdata->whiteFreqData->data->data[i] *= weight;
 			
       windowSquareSum += weight*weight;
     } else {
@@ -1051,8 +1117,7 @@ static void makeWhiteData(LALInferenceIFOData *IFOdata) {
 	
   REAL8 norm = sqrt(IFOdata->whiteFreqData->data->length / windowSquareSum);
   for (i = 0; i < IFOdata->whiteFreqData->data->length; i++) {
-    IFOdata->whiteFreqData->data->data[i].re *= norm;
-    IFOdata->whiteFreqData->data->data[i].im *= norm;
+    IFOdata->whiteFreqData->data->data[i] *= norm;
   }
 	
   XLALREAL8FreqTimeFFT(IFOdata->whiteTimeData, IFOdata->whiteFreqData, IFOdata->freqToTimeFFTPlan);
@@ -1107,7 +1172,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	}
         if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
                 ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
-		SNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
+		SNRpath = XLALCalloc(strlen(ppt->value)+1,sizeof(char));
 		memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
                 fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
 
@@ -1157,7 +1222,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 																		  &strainPerCount,
 																		  thisData->freqData->data->length);
 		
-		for(i=0;i<resp->data->length;i++) {resp->data->data[i].re=(REAL4)1.0; resp->data->data[i].im=0.0;}
+		for(i=0;i<resp->data->length;i++) {resp->data->data[i] = 1.0;}
 		/* Originally created for injecting into DARM-ERR, so transfer function was needed.  
 		But since we are injecting into h(t), the transfer function from h(t) to h(t) is 1.*/
 
@@ -1337,9 +1402,9 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     XLALREAL8TimeFreqFFT(injF,inj8Wave,thisData->timeToFreqFFTPlan);
     /*for(j=0;j<injF->data->length;j++) printf("%lf\n",injF->data->data[j].re);*/
     if(thisData->oneSidedNoisePowerSpectrum){
-	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<injF->data->length;j++){
-	  SNR+=pow(injF->data->data[j].re,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
-	  SNR+=pow(injF->data->data[j].im,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<thisData->fHigh/injF->deltaF;j++){
+	  SNR += pow(creal(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+	  SNR += pow(cimag(injF->data->data[j]), 2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
 	}
         SNR*=4.0*injF->deltaF;
     }
@@ -1362,9 +1427,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       sprintf(filename,"%s_freqInjection.dat",thisData->name);
       file=fopen(filename, "w");
       for(j=0;j<injF->data->length;j++){   
-	thisData->freqData->data->data[j].re+=injF->data->data[j].re/WinNorm;
-	thisData->freqData->data->data[j].im+=injF->data->data[j].im/WinNorm;
-	fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, injF->data->data[j].re, injF->data->data[j].im);
+	thisData->freqData->data->data[j] += injF->data->data[j] / WinNorm;
+	fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
       }
       fclose(file);
     
@@ -1514,8 +1578,7 @@ LALInferenceLALFindChirpInjectSignals (
   CHECKSTATUSPTR( status );
   for ( k = 0; k < resp->data->length; ++k )
   {
-    unity->data[k].re = 1.0;
-    unity->data[k].im = 0.0;
+    unity->data[k] = 1.0;
   }
 
   LALCCVectorDivide( status->statusPtr, detector.transfer->data, unity,
@@ -2119,10 +2182,10 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
      chisquared = 0.0;
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      plainTemplateReal = FplusScaled * IFOdata->freqModelhPlus->data->data[i].re  
-                          +  FcrossScaled * IFOdata->freqModelhCross->data->data[i].re;
-      plainTemplateImag = FplusScaled * IFOdata->freqModelhPlus->data->data[i].im  
-                          +  FcrossScaled * IFOdata->freqModelhCross->data->data[i].im;
+      plainTemplateReal = FplusScaled * creal(IFOdata->freqModelhPlus->data->data[i])
+                          +  FcrossScaled * creal(IFOdata->freqModelhCross->data->data[i]);
+      plainTemplateImag = FplusScaled * cimag(IFOdata->freqModelhPlus->data->data[i])
+                          +  FcrossScaled * cimag(IFOdata->freqModelhCross->data->data[i]);
 
       /* do time-shifting...             */
       /* (also un-do 1/deltaT scaling): */
@@ -2135,8 +2198,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
   
   
        //  fprintf(outInj,"%lf %e %e %e %e %e\n",i*deltaF ,dataPtr->freqData->data->data[i].re,dataPtr->freqData->data->data[i].im,templateReal,templateImag,1.0/dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
-      dataPtr->freqData->data->data[i].re+=templateReal;
-      dataPtr->freqData->data->data[i].im+=templateImag;
+      dataPtr->freqData->data->data[i] += crect( templateReal, templateImag );
    
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       chisquared  += temp;

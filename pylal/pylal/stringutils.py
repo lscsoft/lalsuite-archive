@@ -351,7 +351,24 @@ class DistributionsStats(object):
 
 
 #
-# Livetime
+# I/O
+#
+
+
+def load_likelihood_data(filenames, verbose = False):
+	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
+
+
+def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
+	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
+
+
+#
+# =============================================================================
+#
+#                                   Livetime
+#
+# =============================================================================
 #
 
 
@@ -413,19 +430,6 @@ def time_slides_livetime_for_instrument_combo(seglists, time_slides, instruments
 
 
 #
-# I/O
-#
-
-
-def load_likelihood_data(filenames, verbose = False):
-	return ligolw_burca_tailor.load_likelihood_data(filenames, name = u"string_cusp_likelihood", verbose = verbose)
-
-
-def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose = False):
-	utils.write_filename(ligolw_burca_tailor.gen_likelihood_control(coincparamsdistributions, seglists, name = u"string_cusp_likelihood"), filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
-
-
-#
 # =============================================================================
 #
 #                              Database Utilities
@@ -434,12 +438,12 @@ def write_likelihood_data(filename, coincparamsdistributions, seglists, verbose 
 #
 
 
-def create_recovered_likelihood_table(connection, bb_coinc_def_id):
+def create_recovered_likelihood_table(connection, coinc_def_id):
 	"""
 	Create a temporary table named "recovered_likelihood" containing
 	two columns:  "simulation_id", the simulation_id of an injection,
 	and "likelihood", the highest likelihood ratio at which that
-	injection was recovered by a coincidence of type bb_coinc_def_id.
+	injection was recovered by a coincidence of type coinc_def_id.
 	"""
 	cursor = connection.cursor()
 	cursor.execute("""
@@ -468,5 +472,84 @@ WHERE
 	coinc_event.coinc_def_id == ?
 GROUP BY
 	sim_burst.simulation_id
-	""", (bb_coinc_def_id,))
+	""", (coinc_def_id,))
 	cursor.close()
+
+
+def create_sim_burst_best_string_sngl_map(connection, coinc_def_id):
+	"""
+	Construct a sim_burst --> best matching coinc_event mapping.
+	"""
+	connection.cursor().execute("""
+CREATE TEMPORARY TABLE
+	sim_burst_best_string_sngl_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		(
+			SELECT
+				sngl_burst.event_id
+			FROM
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_event ON (
+					coinc_event.coinc_event_id == a.coinc_event_id
+				)
+				JOIN sngl_burst ON (
+					b.table_name == 'sngl_burst'
+					AND b.event_id == sngl_burst.event_id
+				)
+			WHERE
+				a.table_name == 'sim_burst'
+				AND a.event_id == sim_burst.simulation_id
+				AND coinc_event.coinc_def_id == ?
+			ORDER BY
+				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
+			LIMIT 1
+		) AS event_id
+	FROM
+		sim_burst
+	WHERE
+		event_id IS NOT NULL
+	""", (coinc_def_id,))
+
+
+def create_sim_burst_best_string_coinc_map(connection, coinc_def_id):
+	"""
+	Construct a sim_burst --> best matching coinc_event mapping for
+	string cusp injections and coincs.
+	"""
+	# FIXME:  this hasn't finished being ported from the inspiral code
+	connection.cursor().execute("""
+CREATE TEMPORARY TABLE
+	sim_burst_best_string_coinc_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		(
+			SELECT
+				coinc_inspiral.coinc_event_id
+			FROM
+				coinc_event_map AS a
+				JOIN coinc_event_map AS b ON (
+					b.coinc_event_id == a.coinc_event_id
+				)
+				JOIN coinc_inspiral ON (
+					b.table_name == 'coinc_event'
+					AND b.event_id == coinc_inspiral.coinc_event_id
+				)
+			WHERE
+				a.table_name == 'sim_burst'
+				AND a.event_id == sim_burst.simulation_id
+				AND coinc_event.coinc_def_id == ?
+			ORDER BY
+				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
+			LIMIT 1
+		) AS coinc_event_id
+	FROM
+		sim_burst
+	WHERE
+		coinc_event_id IS NOT NULL
+	""", (coinc_def_id,))

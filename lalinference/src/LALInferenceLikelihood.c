@@ -157,7 +157,7 @@ REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, L
   double diffRe, diffIm, diffSquared;
   double dataReal, dataImag;
   REAL8 loglikeli;
-  int i, j, lower, upper, ifo, n;
+  int i, j, lower, upper, ifo;
   LALInferenceIFOData *dataPtr;
   double chisquared;
   double deltaT, TwoDeltaToverN, deltaF;
@@ -166,7 +166,11 @@ REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, L
   gsl_matrix *lines   = NULL;//pointer to matrix holding line centroids
   gsl_matrix *widths  = NULL;//pointer to matrix holding line widths
   gsl_matrix *nparams = NULL;//pointer to matrix holding noise parameters
-  double dflog=1.0;        //logarithmic spacing of psd parameters
+
+  gsl_matrix *psdBandsMin  = NULL;//pointer to matrix holding min frequencies for psd model
+  gsl_matrix *psdBandsMax = NULL;//pointer to matrix holding max frequencies for psd model
+
+  //double dflog=1.0;        //logarithmic spacing of psd parameters
 
   int Nblock = 1;            //number of frequency blocks per IFO
   int Nlines = 1;            //number of lines to be removed
@@ -196,11 +200,17 @@ REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, L
     nparams = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdscale"));
     Nblock = (int)nparams->size2;
 
-    dflog = *(REAL8*) LALInferenceGetVariable(currentParams, "logdeltaf");
+    //dflog = *(REAL8*) LALInferenceGetVariable(currentParams, "logdeltaf");
+
+    psdBandsMin = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdBandsMin"));
+    psdBandsMax = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdBandsMax"));
+
   }
   double alpha[Nblock];
   double lnalpha[Nblock];
 
+  double psdBandsMin_array[Nblock];
+  double psdBandsMax_array[Nblock];
 
   chisquared = 0.0;
   /* loop over data (different interferometers): */
@@ -233,6 +243,10 @@ REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, L
       {
         alpha[i]   = gsl_matrix_get(nparams,ifo,i);
         lnalpha[i] = log(alpha[i]);
+
+        psdBandsMin_array[i] = gsl_matrix_get(psdBandsMin,ifo,i);
+        psdBandsMax_array[i] = gsl_matrix_get(psdBandsMax,ifo,i);
+
       }
       else
       {
@@ -274,9 +288,14 @@ REAL8 LALInferenceNoiseOnlyLogLikelihood(LALInferenceVariables *currentParams, L
       /* Add noise PSD parameters to the model */
       if(psdFlag)
       {
-        n = (int)( log( (double)i/(double)lower )/dflog );
-        temp  /= alpha[n];
-        temp  += lnalpha[n];
+        for(j=0; j<Nblock; j++)
+        {
+            if (i >= psdBandsMin_array[j] && i <= psdBandsMax_array[j])
+            {
+                temp  /= alpha[j];
+                temp  += lnalpha[j];
+            }
+        }
       }
 
       /* Remove lines from model */
@@ -333,7 +352,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   REAL8 loglikeli;
   REAL8 plainTemplateReal, plainTemplateImag;
   REAL8 templateReal, templateImag;
-  int i, j, lower, upper, ifo, n;
+  int i, j, lower, upper, ifo;
   LALInferenceIFOData *dataPtr;
   double ra, dec, psi, distMpc, gmst;
   double GPSdouble;
@@ -354,7 +373,11 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   gsl_matrix *lines   = NULL;//pointer to matrix holding line centroids
   gsl_matrix *widths  = NULL;//pointer to matrix holding line widths
   gsl_matrix *nparams = NULL;//pointer to matrix holding noise parameters
-  double dflog = 1.0;        //logarithmic spacing of psd parameters
+
+  gsl_matrix *psdBandsMin  = NULL;//pointer to matrix holding min frequencies for psd model
+  gsl_matrix *psdBandsMax = NULL;//pointer to matrix holding max frequencies for psd model
+
+  //double dflog = 1.0;        //logarithmic spacing of psd parameters
   
   int Nblock = 1;            //number of frequency blocks per IFO
   int Nlines = 1;            //number of lines to be removed
@@ -386,10 +409,17 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
     nparams = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdscale"));
     Nblock = (int)nparams->size2;
 
-    dflog = *(REAL8*) LALInferenceGetVariable(currentParams, "logdeltaf");
+    //dflog = *(REAL8*) LALInferenceGetVariable(currentParams, "logdeltaf");
+
+    psdBandsMin = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdBandsMin"));
+    psdBandsMax = *((gsl_matrix **)LALInferenceGetVariable(currentParams, "psdBandsMax"));
+
   }
   double alpha[Nblock];
   double lnalpha[Nblock];
+
+  double psdBandsMin_array[Nblock];
+  double psdBandsMax_array[Nblock];
 
   logDistFlag=LALInferenceCheckVariable(currentParams, "logdistance");
   if(LALInferenceCheckVariable(currentParams,"logmc")){
@@ -551,6 +581,10 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       {
         alpha[i]   = gsl_matrix_get(nparams,ifo,i);
         lnalpha[i] = log(alpha[i]);
+
+        psdBandsMin_array[i] = gsl_matrix_get(psdBandsMin,ifo,i);
+        psdBandsMax_array[i] = gsl_matrix_get(psdBandsMax,ifo,i);
+
       }
       else
       {
@@ -599,9 +633,14 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       /* Add noise PSD parameters to the model */
       if(psdFlag)
       {
-        n = (int)( log( (double)i/(double)lower )/dflog );
-        temp  /= alpha[n];
-        temp  += lnalpha[n];
+        for(j=0; j<Nblock; j++)
+        {
+            if (i >= psdBandsMin_array[j] && i <= psdBandsMax_array[j])
+            {
+                temp  /= alpha[j];
+                temp  += lnalpha[j];
+            }
+        }
       }
 
       /* Remove lines from model */
@@ -958,8 +997,8 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
   //COMPLEX16Vector *segmentFreqModelResponse-NULL;
 
   /* Allocate memory for local pointers */
-  segnorm=malloc(sizeof(REAL8) * ifoPtr->freqData->data->length);
-  chisqBin=malloc(sizeof(INT4) * (numBins + 1));
+  segnorm=XLALMalloc(sizeof(REAL8) * ifoPtr->freqData->data->length);
+  chisqBin=XLALMalloc(sizeof(INT4) * (numBins + 1));
 
   /* loop over data (different interferometers): */
   while (ifoPtr != NULL) {
@@ -1049,8 +1088,8 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
     
     ifoPtr = ifoPtr->next;
   }
-  free(chisqBin);
-  free(segnorm);
+  XLALFree(chisqBin);
+  XLALFree(segnorm);
   return(ChiSquared);
 }
 
@@ -1085,7 +1124,7 @@ REAL8 LALInferenceChiSquareTest(LALInferenceVariables *currentParams, LALInferen
 //				  &lalDimensionlessUnit,
 //				  ifoPtr->timeData->data->length);
 //    } else if (timeModelResponse->data->length != ifoPtr->timeData->data->length) {
-//      /* Cannot resize *up* a time series, so just dealloc and reallocate it. */
+//      /* Cannot resize *up* a time series, so just dealloc and XLALReallocate it. */
 //      XLALDestroyREAL8TimeSeries(timeModelResponse);
 //      timeModelResponse =                   
 //	XLALCreateREAL8TimeSeries("time detector response", &(ifoPtr->timeData->epoch), 

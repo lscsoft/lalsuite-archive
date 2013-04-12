@@ -106,8 +106,8 @@
 %typemaps_primitive(%checkcode(CPLXDBL), gsl_complex);
 
 // SWIG conversion fragments and typemaps for LAL complex numbers.
-%swig_cplxflt_convn(COMPLEX8, CX8rect, CX8re, CX8im);
-%swig_cplxdbl_convn(COMPLEX16, CX16rect, CX16re, CX16im);
+%swig_cplxflt_convn(COMPLEX8, COMPLEX8, std::real, std::imag);
+%swig_cplxdbl_convn(COMPLEX16, COMPLEX16, std::real, std::imag);
 %typemaps_primitive(%checkcode(CPLXFLT), COMPLEX8);
 %typemaps_primitive(%checkcode(CPLXDBL), COMPLEX16);
 
@@ -377,7 +377,7 @@
         // 2-dimensional, so need to check that one of those dimensions is singular.
         dim_vector objdims = obj.dims();
         if (sloav_ndims == 1) {
-          if (objdims.length() > 2 || objdims.num_ones() > 1 || objdims.numel() != sloav_dims(0)) {
+          if (objdims.length() > 2 || objdims.num_ones() == 0 || objdims.numel() != sloav_dims(0)) {
             return SWIG_ValueError;
           }
         }

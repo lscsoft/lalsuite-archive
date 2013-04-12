@@ -66,9 +66,19 @@ def summary_page(params,channels):
 
         textLocation = params["path"] + "/" + channel.station_underscore
 
-        f = open(os.path.join(textLocation,"sig.pickle"),"r")
-        sigDict = pickle.load(f)
-        f.close()
+        file = os.path.join(textLocation,"sig.txt")
+        lines = [line.strip() for line in open(file)]
+
+        sigDict = []
+        for line in lines:
+            sig = {}
+            lineSplit = line.split(" ")
+            sig["flow"] = float(lineSplit[0])
+            sig["fhigh"] = float(lineSplit[1])
+            sig["meanPSD"] = float(lineSplit[2])
+            sig["sig"] = float(lineSplit[3])
+            sig["bgcolor"] = lineSplit[4]
+            sigDict.append(sig)
 
         if i == 0:
             table.append("""<tr><td>Frequency Band</td>""")
@@ -135,9 +145,19 @@ def seismon_page(channel,textLocation):
     <tbody>
     """]
 
-    f = open(os.path.join(textLocation,"sig.pickle"),"r")
-    sigDict = pickle.load(f)
-    f.close()
+    file = os.path.join(textLocation,"sig.txt")
+    lines = [line.strip() for line in open(file)]  
+
+    sigDict = []
+    for line in lines:
+        sig = {}
+        lineSplit = line.split(" ")
+        sig["flow"] = float(lineSplit[0])
+        sig["fhigh"] = float(lineSplit[1])
+        sig["meanPSD"] = float(lineSplit[2])
+        sig["sig"] = float(lineSplit[3])
+        sig["bgcolor"] = lineSplit[4]
+        sigDict.append(sig)
 
     table.append("""<tr><td>Frequency Band</td>""")
     for sig in sigDict: 
@@ -166,6 +186,7 @@ def seismon_page(channel,textLocation):
     </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./tf.png"><img alt="" src="./tf.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./tf.png"><img alt="" src="./omicron.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     </tr>
     </tbody></table><br><br>
     """]
