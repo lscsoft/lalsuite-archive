@@ -37,8 +37,8 @@
 
 
 /**
- * Computes the waveform for the ringdown of a Newtonian neutron star
- * quasinormal mode (l,m).
+ * Computes the frequency domain representation for a generic ringdown.  NOTE:
+ * amplitude is not (currently) handled in this function!
  *
  */
 int XLALSimRingdownFD(
@@ -60,14 +60,9 @@ int XLALSimRingdownFD(
 
     memset((*htilde)->data->data, 0, n * sizeof(COMPLEX16));
 
-    XLALUnitMultiply(&((*htilde)->sampleUnits), &((*htilde)->sampleUnits),
-            &lalSecondUnit);
-
     /* Get tau from quality factor and frequency */
-    /* quality = LAL_PI*f0*tau */
-    /*         = omega0/2 * tau */
-    /* tau = quality/(omega/2) */
-    double tau = 2.0*quality/omega0;
+	/* From T040055-00-Z: Q = sqrt(2)*PI*f0*tau */
+    double tau = sqrt(2.0)*quality/omega0;
 
     if (!(*htilde)) XLAL_ERROR(XLAL_EFUNC);
 
