@@ -234,7 +234,7 @@ def analysis(params, channel):
 
     f.close()
 
-    if params["doPlots"] or not params["doPlots"]:
+    if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
@@ -259,11 +259,14 @@ def analysis(params, channel):
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
         plt.close('all')
 
-    if params["doPlots"]:
+        indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
+        indices = [int(x) for x in indexes]
 
-        X,Y = np.meshgrid(freq, range_binning)
+        #X,Y = np.meshgrid(freq, range_binning)
+        X,Y = np.meshgrid(freq[indices], range_binning)
         ax = plt.subplot(111)
-        im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm), cmap=plt.cm.jet)
+        #im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm), cmap=plt.cm.jet)
+        im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm[indices,:]), cmap=plt.cm.jet)
         ax.set_xscale('log')
         ax.set_yscale('log')
         plt.semilogx(freqNow,spectraNow, 'k', label='Current')
@@ -285,9 +288,11 @@ def analysis(params, channel):
         ttStart = min(tt)
         tt = [(c-ttStart)/(60*60) for c in tt]
 
-        X,Y = np.meshgrid(freq, tt)
+        #X,Y = np.meshgrid(freq, tt)
+        X,Y = np.meshgrid(freq[indices], tt)
         ax = plt.subplot(111)
-        im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
+        #im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
+        im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=-9, vmax=-5)
         ax.set_xscale('log')
         plt.xlim([params["fmin"],params["fmax"]])
         plt.xlabel("Frequency [Hz]")
