@@ -147,11 +147,11 @@ pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station
-    pylal.pylal_seismon_psd.mat(params,channel);
+    pylal.pylal_seismon_psd.mat(params,channel)
     print "Analyzing PSD significance for %s"%channel.station
-    pylal.pylal_seismon_psd.analysis(params,channel);
+    pylal.pylal_seismon_psd.analysis(params,channel)
     print "Plotting Omicron triggers for %s"%channel.station
-    pylal.pylal_seismon_omicron.plot_triggers(params,channel);
+    pylal.pylal_seismon_omicron.plot_triggers(params,channel)
 
 htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
 if htmlPage is not None:
