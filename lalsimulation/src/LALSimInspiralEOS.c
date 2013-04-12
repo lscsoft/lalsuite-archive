@@ -73,11 +73,11 @@ REAL8 LambdaOfM_EOS(LALEquationOfState eos_type, REAL8 m_intr_msun){/** this mus
         - 3.50234*m_intr_msun*m_intr_msun*m_intr_msun + 0.894662*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
         break;
     case EOS_AP1:
-        lambda = 2.755956E-24*(0.388691 + 1.80804*compMass - 1.94144*compMass*compMass + 0.456738*compMass*compMass*compMass);
+        lambda = 2.755956E-24*(0.388691 + 1.80804*m_intr_msun - 1.94144*m_intr_msun*m_intr_msun + 0.456738*m_intr_msun*m_intr_msun*m_intr_msun);
         break;
 
     case EOS_SLY:
-        lambda = 2.755956E-24*(1.28653162 + 3.77058998*compMass - 3.31593965*compMass*compMass + 0.596473986*compMass*compMass*compMass);
+        lambda = 2.755956E-24*(1.28653162 + 3.77058998*m_intr_msun - 3.31593965*m_intr_msun*m_intr_msun + 0.596473986*m_intr_msun*m_intr_msun*m_intr_msun);
         break;
 
     default:
