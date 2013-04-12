@@ -1904,10 +1904,10 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
     REAL8 prefac = 1.0E29 * LAL_G_SI / pow(LAL_C_SI,5.);
     REAL8 lambda = 0.;
 
-	if ( (int) EoS < (int) PP || (int) EoS > (int) SLY ){
+	/*if ( (int) EoS < (int) PP || (int) EoS > (int) SLY ){
         fprintf(stderr, "Unknown EoS. Exiting...\n");
         exit(-1);
-		}
+		}*/
     switch ( EoS )
     {
 	// Point Particle
@@ -1946,11 +1946,13 @@ REAL8 XLALLambdaOfM_EOS(LALInspiralEOS EoS, REAL8 compMass){
         break;
          
         default:
-        lambda = 0.0;
+//        lambda = 0.0;
+        fprintf(stderr, "Unknown EoS. Exiting...\n");
+        exit(-1);
         break;
-    lambda = (lambda > 0.) ? lambda : 0.0;
     
 	}
+    lambda = (lambda > 0.) ? lambda : 0.0;
     return lambda;
 }
 
@@ -1968,10 +1970,10 @@ REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
   REAL8 m2 = m*m ;
   REAL8 m3 = m2*m ;
   
-	if ( (int) eos_type < (int) PP || (int) eos_type > (int) SLY ){
+/*	if ( (int) eos_type < (int) PP || (int) eos_type > (int) SLY ){
         fprintf(stderr, "Unknown EoS. Exiting...\n");
         exit(-1);
-		}
+		} */
   switch (eos_type) {
   /* A */
     case AEOS:
@@ -2012,11 +2014,13 @@ REAL8 XLALQMparameter_EOS(LALInspiralEOS eos_type, REAL8 m_intr_msun){
     break;
 
     default:
-    q = 1.0 ;
+//    q = 1.0 ;
+    fprintf(stderr, "Unknown EoS. Exiting...\n");
+    exit(-1);
     break ;
-    q = (q > 0.) ? q : 0.0;
 
   }
+    q = (q > 0.) ? q : 0.0;
   
   return q ;
 }
