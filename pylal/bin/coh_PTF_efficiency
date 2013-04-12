@@ -320,7 +320,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
  
   # separate segments
   # FIXME: THIS IS HARDCODED!!!!!!!!!!!!!!
-  segmentLength       = 1024
+  segmentLength       = 256
   dataPadding         = 8
   paddingTime         = segmentLength / 4. + dataPadding 
   trialTime           = abs(segs['on'])
