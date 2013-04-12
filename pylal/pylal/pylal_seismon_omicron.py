@@ -116,7 +116,7 @@ def plot_triggers(params,channel):
         f.write("%.1f %e %e\n"%(triggers_t[i],triggers_f[i],triggers_snr[i]))
     f.close()
 
-    if params["doPlots"] or not params["doPlots"]:
+    if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
