@@ -35,7 +35,9 @@ typedef enum
     EOS_H4 = 2,
     EOS_SQM3 = 3,
     EOS_MPA1 = 4,
-    EOS_GNH3 = 5
+    EOS_GNH3 = 5,
+    EOS_AP1 = 6,
+    EOS_SLY = 7
 } LALEquationOfState;
 
 LALEquationOfState XLALSimEOSfromString(char eos_name[]);

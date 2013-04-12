@@ -27,6 +27,8 @@ LALEquationOfState XLALSimEOSfromString(char eos_name[])
     else if (!strcmp("SQM3",eos_name)) eos = EOS_SQM3;
     else if (!strcmp("MPA1",eos_name)) eos = EOS_MPA1;
     else if (!strcmp("GNH3",eos_name)) eos = EOS_GNH3;
+    else if (!strcmp("AP1",eos_name)) eos = EOS_AP1;
+    else if (!strcmp("SLY",eos_name)) eos = EOS_SLY;
     else 
     {
         fprintf(stderr,"Warning! %s not supported. Equation of state set to NONE\n",eos_name);
@@ -70,6 +72,14 @@ REAL8 LambdaOfM_EOS(LALEquationOfState eos_type, REAL8 m_intr_msun){/** this mus
         lambda = 2.755956E-24*(7.80715 + 0.683549*m_intr_msun + 1.21351*m_intr_msun*m_intr_msun
         - 3.50234*m_intr_msun*m_intr_msun*m_intr_msun + 0.894662*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
         break;
+    case EOS_AP1:
+        lambda = 2.755956E-24*(0.388691 + 1.80804*compMass - 1.94144*compMass*compMass + 0.456738*compMass*compMass*compMass);
+        break;
+
+    case EOS_SLY:
+        lambda = 2.755956E-24*(1.28653162 + 3.77058998*compMass - 3.31593965*compMass*compMass + 0.596473986*compMass*compMass*compMass);
+        break;
+
     default:
         lambda = 0.0;
         break;
