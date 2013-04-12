@@ -812,7 +812,7 @@ XLALSimInspiralTaylorF2_2PNCoeff(REAL8 eta, REAL8 sigma)
 static REAL8 UNUSED
 XLALSimInspiralTaylorF2_25PNCoeff(REAL8 eta)
 {
-    return 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
+    return 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI;
 }
 
 static REAL8 UNUSED
