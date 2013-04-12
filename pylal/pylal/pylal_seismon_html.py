@@ -186,6 +186,7 @@ def seismon_page(channel,textLocation):
     </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./tf.png"><img alt="" src="./tf.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./tf.png"><img alt="" src="./omicron.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     </tr>
     </tbody></table><br><br>
     """]

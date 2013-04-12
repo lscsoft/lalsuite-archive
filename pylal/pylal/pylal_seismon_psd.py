@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-from pylab import *
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
+import matplotlib.pyplot as plt
 import numpy as np
 from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
@@ -32,14 +32,10 @@ def read_frames(start_time,end_time,channel,cache):
         frame_time = data_start+dt*np.arange(len(frame_data))
 
         for i in range(len(frame_data)):
+            if frame_time[i] <= start_time:  continue
+            if frame_time[i] >= end_time:  continue
             time.append(frame_time[i])
             data.append(frame_data[i])
-        else:
-            for i in range(len(frame_data)):
-                if frame_time[i] <= start_time:  continue
-                if frame_time[i] >= end_time:  continue
-                time.append(frame_time[i])
-                data.append(frame_data[i])
         data = [e/channel.calibration for e in data]
 
     return time,data
@@ -50,7 +46,7 @@ def mat(params, channel):
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
 
-    time,data = read_frames(params["frameGPS"],params["frameGPS"]+params["frameDur"],channel,params["frame"])
+    time,data = read_frames(params["gpsStart"],params["gpsEnd"],channel,params["frame"])
     #freq,spectra = dqDataUtils.spectrum(data, channel.samplef, NFFT=len(data), overlap = 0)
 
     spectra, freq = matplotlib.pyplot.psd(data, NFFT=64*channel.samplef, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
@@ -68,15 +64,13 @@ def mat(params, channel):
     spectra = newSpectra
     freq = newFreq
 
-    psdFile = psdLocation + "/" + str(params["frameGPS"]) + ".txt"
-    itemlist = zip(freq,spectra)
-
+    psdFile = psdLocation + "/" + str(params["gpsStart"]) + ".txt"
     f = open(psdFile,"wb")
     for i in xrange(len(freq)):
         f.write("%e %e\n"%(freq[i],spectra[i]))
     f.close()
 
-    if params["doPlots"] == 1:
+    if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
@@ -84,17 +78,17 @@ def mat(params, channel):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        semilogx(freq,spectra, 'k')
-        loglog(fl,low,'k-.',fh,high,'k-.')
-        xlim([params["fmin"],params["fmax"]])
-        ylim([10**-10, 10**-5])
-        xlabel("Frequency [Hz]")
-        ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
-        grid
-        show()
-        savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
-        savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
-        close('all')
+        plt.semilogx(freq,spectra, 'k')
+        plt.loglog(fl,low,'k-.',fh,high,'k-.')
+        plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([10**-10, 10**-5])
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
+        plt.grid
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
+        plt.close('all')
 
 def spectral_histogram(data,bins):
     
@@ -177,7 +171,7 @@ def analysis(params, channel):
             spectra = np.array(thisSpectra)
         else:
             spectra = np.vstack([spectra,np.array(copy.copy(thisSpectra))])
-        if thisTT == params["frameGPS"]:
+        if thisTT == params["gpsStart"]:
             freqNow = copy.copy(thisFreq)
             spectraNow = copy.copy(thisSpectra)
 
@@ -185,7 +179,7 @@ def analysis(params, channel):
     nb = 500
     range_binning = np.logspace(-10,-5,num=nb);
 
-    spectra[spectra==Inf] = 0
+    spectra[spectra==float('Inf')] = 0
 
     # Calculate bin histogram of PSDs
     which_spectra = np.all([spectra.max(axis = 1) <= 10**-4,spectra.max(axis = 1) >= 10**-10],axis=0)
@@ -240,7 +234,7 @@ def analysis(params, channel):
 
     f.close()
 
-    if params["doPlots"] == 1:
+    if params["doPlots"] or not params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
@@ -248,63 +242,63 @@ def analysis(params, channel):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        semilogx(freqNow,spectraNow, 'k', label='Current')
-        semilogx(freq,spectral_variation_norm_10per,'b',label='10')
-        semilogx(freq,spectral_variation_norm_50per,'r',label='50')
-        semilogx(freq,spectral_variation_norm_90per,'g',label='90')
-        loglog(fl,low,'k-.')
-        loglog(fh,high,'k-.',label='LNM/HNM')
-        legend()
-        xlim([params["fmin"],params["fmax"]])
-        ylim([10**-10, 10**-5])
-        xlabel("Frequency [Hz]")
-        ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
-        grid
-        show()
-        savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
-        savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
-        close('all')
+        plt.semilogx(freqNow,spectraNow, 'k', label='Current')
+        plt.semilogx(freq,spectral_variation_norm_10per,'b',label='10')
+        plt.semilogx(freq,spectral_variation_norm_50per,'r',label='50')
+        plt.semilogx(freq,spectral_variation_norm_90per,'g',label='90')
+        plt.loglog(fl,low,'k-.')
+        plt.loglog(fh,high,'k-.',label='LNM/HNM')
+        plt.legend()
+        plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([10**-10, 10**-5])
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
+        plt.grid
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
+        plt.close('all')
 
-        X,Y = meshgrid(freq, range_binning)
-        ax = subplot(111)
-        im = pcolor(X,Y,transpose(spectral_variation_norm), cmap=cm.jet)
+    if params["doPlots"]:
+
+        X,Y = np.meshgrid(freq, range_binning)
+        ax = plt.subplot(111)
+        im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm), cmap=plt.cm.jet)
         ax.set_xscale('log')
         ax.set_yscale('log')
-        #im.set_interpolation('bilinear')
-        semilogx(freqNow,spectraNow, 'k', label='Current')
-        semilogx(freq,spectral_variation_norm_10per,'w',label='10')
-        semilogx(freq,spectral_variation_norm_50per,'w',label='50')
-        semilogx(freq,spectral_variation_norm_90per,'w',label='90')
-        loglog(fl,low,'k-.')
-        loglog(fh,high,'k-.',label='LNM/HNM')  
-        xlim([params["fmin"],params["fmax"]])
-        ylim([10**-10, 10**-5])
-        xlabel("Frequency [Hz]")
-        ylabel("Seismic Spectrum [(m/s)/\surd Hz]")        
-        grid
-        show()
-        savefig(os.path.join(plotLocation,"specvar.png"),dpi=200)
-        savefig(os.path.join(plotLocation,"specvar.eps"),dpi=200)
-        close('all')
+        plt.semilogx(freqNow,spectraNow, 'k', label='Current')
+        plt.semilogx(freq,spectral_variation_norm_10per,'w',label='10')
+        plt.semilogx(freq,spectral_variation_norm_50per,'w',label='50')
+        plt.semilogx(freq,spectral_variation_norm_90per,'w',label='90')
+        plt.loglog(fl,low,'k-.')
+        plt.loglog(fh,high,'k-.',label='LNM/HNM')  
+        plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([10**-10, 10**-5])
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
+        plt.grid
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"specvar.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"specvar.eps"),dpi=200)
+        plt.close('all')
 
         ttStart = min(tt)
         tt = [(c-ttStart)/(60*60) for c in tt]
 
-        X,Y = meshgrid(freq, tt)
-        ax = subplot(111)
-        im = pcolor(X,Y,np.log10(spectra), cmap=cm.jet, vmin=-9, vmax=-5)
+        X,Y = np.meshgrid(freq, tt)
+        ax = plt.subplot(111)
+        im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
         ax.set_xscale('log')
-        #im.set_interpolation('bilinear')
-        xlim([params["fmin"],params["fmax"]])
-        xlabel("Frequency [Hz]")
-        ylabel("Time [Hours]")
-        cbar=colorbar()
+        plt.xlim([params["fmin"],params["fmax"]])
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Time [Hours]")
+        cbar=plt.colorbar()
         cbar.set_label('log10(Seismic Spectrum [(m/s)/\surd Hz])') 
-        grid
-        show()
-        savefig(os.path.join(plotLocation,"tf.png"),dpi=200)
-        savefig(os.path.join(plotLocation,"tf.eps"),dpi=200)
-        close('all')
+        plt.grid
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"tf.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"tf.eps"),dpi=200)
+        plt.close('all')
 
     htmlPage = pylal.pylal_seismon_html.seismon_page(channel,textLocation)
     if htmlPage is not None:
