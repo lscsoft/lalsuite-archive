@@ -157,7 +157,7 @@ int XLALSimInspiralTaylorF2Test(
 
     /* extrinsic parameters */
     //phi0 = phic;
-    amp0 = 4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L); /* Why was there a factor of deltaF in the lalinspiral version? */
+    amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
     shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
 
     iStart = (size_t) ceil(fStart / deltaF);
@@ -237,7 +237,7 @@ int XLALSimInspiralTaylorF2Test(
 
         phasing += shft * f -2.0* phic;
         amp = amp0 * sqrt(-dEnergy/flux) * v;
-        data[i] = amp * cos(phasing + LAL_PI_4) - amp * sin(phasing + LAL_PI_4) * 1.0j;
+        data[i] = amp * cos(phasing - LAL_PI_4) - amp * sin(phasing- LAL_PI_4) * 1.0j;
     }
 
     *htilde_out = htilde;
