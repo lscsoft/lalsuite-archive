@@ -74,7 +74,7 @@ page.add_subpage("volume", "volume", "Detection volume")
 
 #FIXME sort out base names
 #imgtab = cbcwebpage.image_glob("*-H1H2L1_distance.png")
-imgtab = cbcwebpage.image_glob("*distance.png")
+imgtab = cbcwebpage.image_glob("*range.png")
 
 page.subpages["volume"].add_section("distance",'"Sensemon" distance above a FAR')
 page.subpages["volume"].sections["distance"].add_table(imgtab,"detection distance above a far", "detection distance above a far")
