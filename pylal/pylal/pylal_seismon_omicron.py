@@ -116,25 +116,50 @@ def plot_triggers(params,channel):
         f.write("%.1f %e %e\n"%(triggers_t[i],triggers_f[i],triggers_snr[i]))
     f.close()
 
+    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+    if os.path.isfile(earthquakesFile):
+        earthquakes = np.loadtxt(earthquakesFile)
+    else:
+        earthquakes = []
+
     if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
             os.makedirs(plotLocation)
 
-        triggers_t_min = params["gpsStart"]
-        triggers_t = triggers_t - triggers_t_min
+        startTime = params["gpsStart"]
+        timeDur = params["gpsEnd"] - startTime
+
+        triggers_t = triggers_t - startTime
 
         ax = plt.subplot(111)
         plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
         cbar = plt.colorbar() 
         cbar.set_label('SNR')
         ax.set_yscale('log')
+
+        if len(earthquakes) > 0:
+            for i in xrange(len(earthquakes)):
+
+                Ptime = earthquakes[i,2] - startTime
+                Stime = earthquakes[i,3] - startTime
+                Rtime = earthquakes[i,4] - startTime
+
+                plt.text(Ptime, 15, 'P', fontsize=18, ha='center', va='top')
+                plt.text(Stime, 15, 'S', fontsize=18, ha='center', va='top')
+                plt.text(Rtime, 15, 'R', fontsize=18, ha='center', va='top')
+
+                plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
+                plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
+                plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
+
         plt.ylim([0.1,10])
         #plt.xlim([params["gpsStart"], params["gpsEnd"]])
-        plt.xlim([min(triggers_t), max(triggers_t)])
+        plt.xlim([0,timeDur])
         plt.ylabel("Frequency [Hz]")
-        plt.xlabel("GPS [s] [%s]"%triggers_t_min)
+        plt.xlabel("GPS [s] [%d]"%startTime)
         plt.grid
         plt.show()
         plt.savefig(os.path.join(plotLocation,"omicron.png"),dpi=200)

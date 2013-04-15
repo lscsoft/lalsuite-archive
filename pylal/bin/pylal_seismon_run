@@ -6,6 +6,7 @@ from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
+import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -141,6 +142,9 @@ print params["path"]
 params["fmin"] = 1/float(64)
 params["fmax"] = 64
 params["doPlots"] = opts.doPlots
+
+print "Finding earthquakes"
+pylal.pylal_seismon_eqmon.run_earthquakes(params)
 
 print "Generating Omicron triggers"
 pylal.pylal_seismon_omicron.generate_triggers(params,channels)
