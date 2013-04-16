@@ -35,6 +35,7 @@ lalsimulationinclude_HEADERS = \
 	LALSimIMR.h \
 	LALSimInspiral.h \
 	LALSimInspiralWaveformCache.h \
+    LALSimInspiralEOS.h \
 	LALSimulation.h \
 	LALSimNeutronStar.h \
 	LALSimNoise.h \
@@ -80,6 +81,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimInspiralTestGRParams.c \
 	LALSimInspiralPrecess.c \
 	LALSimInspiral.c \
+    LALSimInspiralEOS.c \
 	LALSimInspiralPNMode.c \
 	LALSimInspiralSpinTaylor.c \
 	LALSimInspiralSpinTaylorF2.c \

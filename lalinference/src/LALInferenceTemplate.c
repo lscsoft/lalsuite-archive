@@ -39,7 +39,7 @@
 #include <lal/XLALError.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/LALSimInspiral.h>
-
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/LALInferenceTemplate.h>
 
 #define PROGRAM_NAME "LALInferenceTemplate.c"
@@ -1858,7 +1858,12 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     XLAL_ERROR_VOID(XLAL_EFAULT);
   }
   deltaT = IFOdata->timeData->deltaT;
-  
+ 
+    LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE ;
+    if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS"))
+      equation_of_state = *(LALEquationOfState*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
+
+ 
   
   if(IFOdata->modelDomain == LAL_SIM_DOMAIN_FREQUENCY) {
     if (IFOdata->freqData==NULL) {
@@ -1872,7 +1877,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, f_max, distance, inclination,
             lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
-            approximant), errnum);
+            approximant, equation_of_state), errnum);
 
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hptilde'.\n");
@@ -1918,7 +1923,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
             m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_start, fRef, distance,
             inclination, lambda1, lambda2, waveFlags, nonGRparams,
-            amporder, order, approximant), errnum);
+            amporder, order, approximant, equation_of_state), errnum);
     XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)

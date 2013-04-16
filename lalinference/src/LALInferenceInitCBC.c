@@ -35,6 +35,7 @@
 #include <lal/LALInferenceLikelihood.h>
 #include <lal/LALInferenceReadData.h>
 #include <lal/LALInferenceInit.h>
+#include <lal/LALSimInspiralEOS.h>
 
 
 static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTable *commline);
@@ -754,6 +755,24 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     frame = LALINFERENCE_FRAME_SYSTEM;
   }
   LALInferenceAddVariable(currentParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+
+  /* Set Neutron Star EOS */
+  LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
+  ppt=LALInferenceGetProcParamVal(commandLine,"--eos");
+  if(ppt){
+
+      equation_of_state = XLALSimEOSfromString(ppt->value);
+
+      /* check which EOS chosen, error if not available */
+      if (equation_of_state > LAL_SIM_INSPIRAL_NumEOS ) {
+          XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
+          exit(-1) ;
+      }
+
+      LALInferenceAddVariable(currentParams, "LAL_SIM_INSPIRAL_EOS", &equation_of_state, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+
+  }
+
 
   /* Set up the variable parameters */
 

@@ -25,6 +25,7 @@
 #include <lal/LALSimInspiralTestGRParams.h>
 #include <lal/TimeSeries.h>
 #include <gsl/gsl_matrix.h>
+#include <lal/LALSimInspiralEOS.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -1081,7 +1082,8 @@ int XLALSimInspiralChooseTDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, /**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,             /**< twice post-Newtonian amplitude order */
     int phaseO,                 /**< twice post-Newtonian phase order */
-    Approximant approximant     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,    /**< post-Newtonian approximant to use for waveform production */
+    LALEquationOfState eos
     );
 
 /**
@@ -1114,7 +1116,8 @@ int XLALSimInspiralChooseFDWaveform(
     LALSimInspiralTestGRParam *nonGRparams, 	/**< Linked list of non-GR parameters. Pass in NULL (or None in python) for standard GR waveforms */
     int amplitudeO,                             /**< twice post-Newtonian amplitude order */
     int phaseO,                                 /**< twice post-Newtonian order */
-    Approximant approximant                     /**< post-Newtonian approximant to use for waveform production */
+    Approximant approximant,                    /**< post-Newtonian approximant to use for waveform production */
+    LALEquationOfState eos
     );
 
 /**
@@ -1832,7 +1835,8 @@ int XLALSimInspiralTaylorF2(
 		const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
 		LALSimInspiralTidalOrder tideO, /**< twice PN order of tidal effects */
 		const INT4 phaseO,              /**< twice PN phase order */
-		const INT4 amplitudeO           /**< twice PN amplitude order */
+		const INT4 amplitudeO,          /**< twice PN amplitude order */
+        const LALEquationOfState eos
 		);
 
 int XLALSimInspiralSpinTaylorF2(

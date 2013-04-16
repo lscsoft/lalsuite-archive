@@ -30,6 +30,7 @@
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/Units.h>
 #include <lal/XLALError.h>
 #include "LALSimInspiralPNCoefficients.c"
@@ -60,7 +61,8 @@ int XLALSimInspiralTaylorF2(
         const LALSimInspiralSpinOrder spinO,  /**< twice PN order of spin effects */
         const LALSimInspiralTidalOrder tideO,  /**< flag to control tidal effects */
         const INT4 phaseO,                     /**< twice PN phase order */
-        const INT4 amplitudeO                  /**< twice PN amplitude order */
+        const INT4 amplitudeO,                 /**< twice PN amplitude order */
+        const LALEquationOfState eos
         )
 {
     const REAL8 lambda = -1987./3080.;
@@ -78,8 +80,8 @@ int XLALSimInspiralTaylorF2(
     const REAL8 v0 = cbrt(piM * fStart);
     const REAL8 chi1 = m1 / m;
     const REAL8 chi2 = m2 / m;
-    const REAL8 lam1 = lambda1;
-    const REAL8 lam2 = lambda2;
+    REAL8 lam1 = lambda1;
+    REAL8 lam2 = lambda2;
     REAL8 shft, amp0, f_max;
     size_t i, n, iStart;
     COMPLEX16 *data = NULL;
@@ -113,8 +115,11 @@ int XLALSimInspiralTaylorF2(
     REAL8 xs = .5 * (S1z + S2z);
     REAL8 xa = .5 * (S1z - S2z);
 
-    REAL8 qm_def1 = 1; /* The QM deformability parameters */
-    REAL8 qm_def2 = 1; /* This is 1 for black holes and larger for neutron stars */
+    lam1 = XLALSimInspiralEOSLambda(eos, m1);
+    lam2 = XLALSimInspiralEOSLambda(eos, m2);
+
+    REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lam1); /* The QM deformability parameters */
+    REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lam2); /* This is 1 for black holes and larger for neutron stars */
 
     switch( spinO )
     {

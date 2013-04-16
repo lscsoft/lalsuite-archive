@@ -126,7 +126,7 @@
 #include <lal/GeneratePPNInspiral.h>
 #include <lal/LALSQTPNWaveformInterface.h>
 #include <lal/TimeSeries.h>
-
+#include <lal/LALSimInspiralEOS.h>
 /**
  * Generate the plus and cross polarizations for a waveform
  * form a row of the sim_inspiral table.
@@ -183,6 +183,7 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
    if ( (int) taper == XLAL_FAILURE)
       XLAL_ERROR(XLAL_EFUNC);
 
+    LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE; // Shoud be set from command line argument --eos
    /* generate +,x waveforms */
    /* special case for NR waveforms */
    switch(approximant)
@@ -191,12 +192,11 @@ int XLALSimInspiralChooseWaveformFromSimInspiral(
          if (XLALNRInjectionFromSimInspiral(hplus, hcross, thisRow, deltaT) == XLAL_FAILURE)
             XLAL_ERROR(XLAL_EFUNC);
          break;
-
       default:
          ret = XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT,
                m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i,
                lambda1, lambda2, waveFlags, nonGRparams, amplitudeO,
-               order, approximant);
+               order, approximant, eos);
          XLALSimInspiralDestroyWaveformFlags(waveFlags);
          XLALSimInspiralDestroyTestGRParam(nonGRparams);
          if( ret == XLAL_FAILURE )
@@ -250,11 +250,11 @@ XLALSimInspiralChooseWaveformFromInspiralTemplate(
   LALPNOrder amplitudeO = params->ampOrder;
   LALPNOrder order = params->order;
   Approximant approximant = params->approximant;
-
+  LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE; //Should be set from command line
   /* generate +,x waveforms */
   ret = XLALSimInspiralChooseTDWaveform(hplus, hcross, phi0, deltaT, m1, m2,
             S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref, r, i, lambda1, lambda2,
-            waveFlags, nonGRparams, amplitudeO, order, approximant);
+            waveFlags, nonGRparams, amplitudeO, order, approximant, eos);
   XLALSimInspiralDestroyWaveformFlags(waveFlags);
   XLALSimInspiralDestroyTestGRParam(nonGRparams);
   if( ret == XLAL_FAILURE)

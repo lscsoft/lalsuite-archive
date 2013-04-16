@@ -28,9 +28,11 @@
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 
+
 #include <lal/LALInspiral.h>
 #include <lal/LALCache.h>
 #include <lal/LALFrStream.h>
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/LALDetectors.h>
 #include <lal/AVFactories.h>
@@ -1508,12 +1510,28 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       REAL8 f_min = fLow2fStart(injEvent->f_lower, amporder, approximant);
       printf("Injecting with f_min = %f.\n", f_min);
 
+
+    LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--eos");
+    if(ppt){
+
+      eos = XLALSimEOSfromString(ppt->value);
+
+      /* check which EOS chosen, error if not available */
+      if (eos > LAL_SIM_INSPIRAL_NumEOS ) {
+          XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
+          exit(-1) ;
+      }
+    }
+
+
+      
       XLALSimInspiralChooseTDWaveform(&hplus, &hcross, injEvent->coa_phase, 1.0/InjSampleRate,
                                       injEvent->mass1*LAL_MSUN_SI, injEvent->mass2*LAL_MSUN_SI, injEvent->spin1x,
                                       injEvent->spin1y, injEvent->spin1z, injEvent->spin2x, injEvent->spin2y,
                                       injEvent->spin2z, f_min, fref, injEvent->distance*LAL_PC_SI * 1.0e6,
                                       injEvent->inclination, lambda1, lambda2, waveFlags,
-                                      nonGRparams, amporder, order, approximant);
+                                      nonGRparams, amporder, order, approximant, eos);
       if(!hplus || !hcross) {
         fprintf(stderr,"Error: XLALSimInspiralChooseWaveform() failed to produce waveform.\n");
         exit(-1);
