@@ -1867,7 +1867,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
     /* Incremental values, using cos(theta) - 1 = -2*sin(theta/2)^2 */
     dim = -sin(twopit*deltaF);
     dre = -2.0*sin(0.5*twopit*deltaF)*sin(0.5*twopit*deltaF);
-//~ <<<<<<< HEAD
+
     /* Loop over freq domain */
     for (i=lower; i<=upper; ++i){
 
@@ -1914,32 +1914,6 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
 	}
       }
 
-//~ =======
-    //~ 
-    //~ for (i=lower; i<=upper; ++i){
-      //~ /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
-      //~ plainTemplateReal = FplusScaled * dataPtr->freqModelhPlus->data->data[i].re
-      //~ +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].re;
-      //~ plainTemplateImag = FplusScaled * dataPtr->freqModelhPlus->data->data[i].im
-      //~ +  FcrossScaled * dataPtr->freqModelhCross->data->data[i].im;
-      //~ /* do time-shifting...             */
-      //~ /* (also un-do 1/deltaT scaling): */
-      //~ templateReal = (plainTemplateReal*re - plainTemplateImag*im) / deltaT;
-      //~ templateImag = (plainTemplateReal*im + plainTemplateImag*re) / deltaT;
-      //~ dataReal     = dataPtr->freqData->data->data[i].re / deltaT;
-      //~ dataImag     = dataPtr->freqData->data->data[i].im / deltaT;
-      //~ 
-      //~ REAL8 S_h = dataPtr->oneSidedNoisePowerSpectrum->data->data[i];
-      //~ 
-      //~ S+=TwoDeltaToverN*((templateReal*templateReal)+(templateImag*templateImag)) / S_h;
-      //~ D+=TwoDeltaToverN*(dataReal*dataReal + dataImag*dataImag)/S_h;
-      //~ REAL8 dhstarRe=dataReal*templateReal+dataImag*templateImag; /* (-i^2=1) */
-      //~ REAL8 dhstarIm=dataImag*templateReal-dataReal*templateImag;
-      //~ 
-      //~ Rre+=TwoDeltaToverN*dhstarRe/S_h;
-      //~ Rim+=TwoDeltaToverN*dhstarIm/S_h;
-      //~ 
-//~ >>>>>>> Add marginalised phase likelihood function
       /* Now update re and im for the next iteration. */
       newRe = re + re*dre - im*dim;
       newIm = im + re*dim + im*dre;
