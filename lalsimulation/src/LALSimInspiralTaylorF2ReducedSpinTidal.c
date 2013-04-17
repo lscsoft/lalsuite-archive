@@ -190,14 +190,14 @@ int XLALSimInspiralTaylorF2ReducedSpinTidal(
         /* PN expansion parameter */
         REAL8 Psi, amp;
         const REAL8 v = cbrt(v3);
-	const REAL8 logv=log(v);
+        const REAL8 logv=log(v);
         const REAL8 v2 = v*v;
-	const REAL8 v4 = v3*v;
-	const REAL8 v5 = v4*v;
-	const REAL8 v6 = v3*v3;
-	const REAL8 v7 = v6*v;
+        const REAL8 v4 = v3*v;
+        const REAL8 v5 = v4*v;
+        const REAL8 v6 = v3*v3;
+        const REAL8 v7 = v6*v;
         const REAL8 v10 = v5*v5;
-	const REAL8 v12 = v6*v6;
+        const REAL8 v12 = v6*v6;
 
         /* compute the phase and amplitude */
         Psi = psiNewt / v5 * (1.

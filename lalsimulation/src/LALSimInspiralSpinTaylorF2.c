@@ -165,7 +165,8 @@ REAL8 XLALSimInspiralSF2Zeta(
     const REAL8 dtdv4 = coeffs.dtdv4;
     const REAL8 dtdv5 = coeffs.dtdv5;
 
-    return prec_fac*(dtdv3*gamma0*kappa*v*pow(1,3) + dtdv4*v*pow(1,4) + logfac2*(-(dtdv2*gamma0*pow(1,2)) - dtdv3*kappa*pow(1,3) + (dtdv5*kappa*pow(1,5)*pow(gamma0,-2))/2. - (dtdv4*pow(1,4)*pow(gamma0,-1))/2. + (dtdv4*pow(1,4)*pow(gamma0,-1)*pow(kappa,2))/2. - (dtdv5*pow(1,5)*pow(gamma0,-2)*pow(kappa,3))/2.) + logv*((kappa*pow(gamma0,3))/2. - (pow(gamma0,3)*pow(kappa,3))/2.) + logfac1*(dtdv2*gamma0*kappa*pow(1,2) + dtdv3*pow(1,3) - (kappa*pow(gamma0,3))/2. + (pow(gamma0,3)*pow(kappa,3))/2.) - pow(v,-3)/3. - (gamma0*kappa*pow(v,-2))/2. - dtdv2*pow(1,2)*pow(v,-1) + (dtdv4*gamma0*kappa*pow(1,4)*pow(v,2))/2. + (dtdv5*pow(1,5)*pow(v,2))/2. + sqrtfac*(-(dtdv3*pow(1,3)) - (dtdv4*v*pow(1,4))/2. - (dtdv5*pow(1,5)*pow(gamma0,-2))/3. - (dtdv4*kappa*pow(1,4)*pow(gamma0,-1))/2. - (dtdv5*kappa*v*pow(1,5)*pow(gamma0,-1))/6. + (dtdv5*pow(1,5)*pow(gamma0,-2)*pow(kappa,2))/2. + pow(v,-3)/3. + (gamma0*kappa*pow(v,-2))/6. + dtdv2*pow(1,2)*pow(v,-1) + (pow(gamma0,2)*pow(v,-1))/3. - (pow(gamma0,2)*pow(kappa,2)*pow(v,-1))/2. - (dtdv5*pow(1,5)*pow(v,2))/3.) + (dtdv5*gamma0*kappa*pow(1,5)*pow(v,3))/3.);
+    return prec_fac*(dtdv3*gamma0*kappa*v*pow(1,3) + dtdv4*v*pow(1,4) + logfac2*(-(dtdv2*gamma0*pow(1,2)) - dtdv3*kappa*pow(1,3) + (dtdv5*kappa*pow(1,5)*pow(gamma0,-2))/2. - (dtdv4*pow(1,4)*pow(gamma0,-1))/2. + (dtdv4*pow(1,4)*pow(gamma0,-1)*pow(kappa,2))/2. - (dtdv5*pow(1,5)*pow(gamma0,-2)*pow(kappa,3))/2.) + logv*((kappa*pow(gamma0,3))/2. - (pow(gamma0,3)*pow(kappa,3))/2.) + logfac1*(dtdv2*gamma0*kappa*pow(1,2) + dtdv3*pow(1,3) - (kappa*pow(gamma0,3))/2. + (pow(gamma0,3)*pow(kappa,3))/2.) - pow(v,-3)/3. - (gamma0*kappa*pow(v,-2))/2. - dtdv2*pow(1,2)*pow(v,-1) + (dtdv4*gamma0*kappa*pow(1,4)*pow(v,2))/2. + (dtdv5*pow(1,5)*pow(v,2))/2. + sqrtfac*(-(dtdv3*pow(1,3)) - (dtdv4*v*pow(1,4))/2. - (dtdv5*pow(1,5)*pow(gamma0,-2))/3. - (dtdv4*kappa*pow(1,4)*pow(gamma0,-1))/2. - (dtdv5*kappa*v*pow(1,5)*pow(gamma0,-1))/6. + (dtdv5*pow(1,5)*pow(gamma0,-2)*pow(kappa,2))/2. + pow(v,-3)/3. + (gamma0*kappa*pow(v,-2))/6. + dtdv2*pow(1,2)*pow(v,-1) + (pow(gamma0,2)*pow(v,-1))/3. - (pow(gamma0,2)*pow(kappa,2)*pow(v,-1))/2. - (
+dtdv5*pow(1,5)*pow(v,2))/3.) + (dtdv5*gamma0*kappa*pow(1,5)*pow(v,3))/3.);
 }
 
 REAL8 XLALSimInspiralSF2Beta(
@@ -415,9 +416,12 @@ int XLALSimInspiralSpinTaylorF2(
     iISCO = (size_t) (fISCO / deltaF);
     iISCO = (iISCO < n) ? iISCO : n;  /* overflow protection; should we warn? */
     data = htilde->data->data;
+    const REAL8 logv0=log(v0);
+    const REAL8 log4=log(4.0);
     for (i = iStart; i < iISCO; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);
+   const REAL8 logv = log(v);
         const REAL8 v2 = v * v;
         const REAL8 v3 = v * v2;
         const REAL8 v4 = v * v3;
@@ -438,9 +442,9 @@ int XLALSimInspiralSpinTaylorF2(
             case 7:
                 phasing += pfa7 * v7;
             case 6:
-                phasing += (pfa6 + pfl6 * log(4.*v) ) * v6;
+                phasing += (pfa6 + pfl6 * (log4 + logv) ) * v6;
             case 5:
-                phasing += (pfa5 + pfl5 * log(v/v0)) * v5;
+                phasing += (pfa5 + pfl5 * (logv -logv0)) * v5;
             case 4:
                 phasing += pfa4 * v4;
             case 3:
@@ -460,7 +464,7 @@ int XLALSimInspiralSpinTaylorF2(
             case 7:
                 flux += FTa7 * v7;
             case 6:
-                flux += (FTa6 + FTl6*log(16.*v2)) * v6;
+                flux += (FTa6 + FTl6*2.0*(log4 + logv)) * v6;
                 dEnergy += dETa3 * v6;
             case 5:
                 flux += FTa5 * v5;

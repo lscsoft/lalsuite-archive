@@ -238,7 +238,7 @@ int XLALSimInspiralTaylorF2(
     for (i = iStart; i < n; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);
-	const REAL8 logv = log(v);
+        const REAL8 logv = log(v);
         const REAL8 v2 = v * v;
         const REAL8 v3 = v * v2;
         const REAL8 v4 = v * v3;
