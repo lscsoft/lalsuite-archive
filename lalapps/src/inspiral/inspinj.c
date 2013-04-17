@@ -138,6 +138,8 @@ char *sourceFileName = NULL;
 char *outputFileName = NULL;
 char *exttrigFileName = NULL;
 char *IPNSkyPositionsFile = NULL;
+char eos_name[128]="";
+LALEquationOfState equation_of_state = LAL_SIM_INSPIRAL_EOS_NONE;
 
 INT4 outCompress = 0;
 INT4 ninjaMass   = 0;
@@ -1611,6 +1613,7 @@ int main( int argc, char *argv[] )
     {"enable-spin",             no_argument,       0,                'T'},
     {"disable-spin",            no_argument,       0,                'W'},
     {"aligned",                 no_argument,       0,                '@'},
+    {"eos",                     required_argument, 0,                666},
     {"write-compress",          no_argument,       &outCompress,       1},
     {"taper-injection",         required_argument, 0,                '*'},
     {"band-pass-injection",     no_argument,       0,                '}'},
@@ -2678,6 +2681,14 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name, "string",
               "" );
         spinAligned = 1;
+        break;
+
+      case 666:
+        sprintf(eos_name, "%s",optarg);
+        this_proc_param = this_proc_param->next =
+        next_process_param( long_options[option_index].name, "string",
+                            "%s", optarg );
+        equation_of_state = XLALSimEOSfromString(eos_name);
         break;
 
       case '}':
@@ -3998,6 +4009,11 @@ int main( int argc, char *argv[] )
     /* populate the bandpass options */
     simTable->bandpass = bandPassInj;
 
+    /* check which EOS chosen, error if not available */
+    if (equation_of_state > LAL_SIM_INSPIRAL_NumEOS ) {
+      XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
+      exit(-1) ;
+    }
 
     /* populate the sim_ringdown table */
     if ( writeSimRing )
