@@ -51,7 +51,6 @@ GeneratePPNAmpCorInspiralTest [-m m1 m2] [-r dist] [-i inc phii psi] [-f f_min f
 
 #define BUFFSIZE 1024     /* Number of timesteps buffered */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <math.h>
 #include <stdlib.h>
 #include <lal/LALStdio.h>
@@ -499,7 +498,7 @@ main(int argc, char **argv)
       fourier = fopen("fftout", "w");
 
     for(i = 0; i < waveform.h->data->length/ 2 + 1; i++, f+=Hf.deltaF)
-      fprintf(fourier," %f %1.6e %1.6e\n", f, Hf.data->data[i].re, Hf.data->data[i].im);
+      fprintf(fourier," %f %1.6e %1.6e\n", f, crealf(Hf.data->data[i]), cimagf(Hf.data->data[i]));
     fclose(fourier);
 
 		LALDestroyRealFFTPlan( &stat, &fwdRealPlan );

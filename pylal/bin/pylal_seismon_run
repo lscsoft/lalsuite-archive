@@ -6,6 +6,7 @@ from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
+import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -142,16 +143,19 @@ params["fmin"] = 1/float(64)
 params["fmax"] = 64
 params["doPlots"] = opts.doPlots
 
+print "Finding earthquakes"
+pylal.pylal_seismon_eqmon.run_earthquakes(params)
+
 print "Generating Omicron triggers"
 pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station
-    pylal.pylal_seismon_psd.mat(params,channel);
+    pylal.pylal_seismon_psd.mat(params,channel)
     print "Analyzing PSD significance for %s"%channel.station
-    pylal.pylal_seismon_psd.analysis(params,channel);
+    pylal.pylal_seismon_psd.analysis(params,channel)
     print "Plotting Omicron triggers for %s"%channel.station
-    pylal.pylal_seismon_omicron.plot_triggers(params,channel);
+    pylal.pylal_seismon_omicron.plot_triggers(params,channel)
 
 htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
 if htmlPage is not None:

@@ -1664,8 +1664,8 @@ XLALLoadTransferFunctionFromActuation ( REAL8 actuationScale, /**< overall scale
       }
 
       /* now convert into transfer-function and (Re,Im): T = A^-1 */
-      data->data[i-startline].re =  cos(phi) / ( amp * actuationScale );
-      data->data[i-startline].im = -sin(phi) / ( amp * actuationScale );
+      data->data[i-startline].realf_FIXME =  cos(phi) / ( amp * actuationScale );
+      data->data[i-startline].imagf_FIXME = -sin(phi) / ( amp * actuationScale );
 
     } /* for i < numlines */
 
@@ -1763,6 +1763,8 @@ XLALGenerateLineFeature ( const PulsarSignalParams *params )
   LALUnit units = empty_LALUnit;
   REAL4TimeSeries *ret = XLALCreateREAL4TimeSeries (name, &(params->startTimeGPS), params->fHeterodyne, deltaT, &units, length);
   XLAL_CHECK_NULL ( ret != NULL, XLAL_EFUNC, "XLALCreateREAL4TimeSeries() failed.\n");
+
+  XLALFree( name );
 
   REAL8 h0 = params->pulsar.aPlus + sqrt ( pow(params->pulsar.aPlus,2) - pow(params->pulsar.aCross,2) );
   REAL8 omH = LAL_TWOPI * ( params->pulsar.f0 - params->fHeterodyne );

@@ -413,9 +413,9 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
 	}
 
 #ifndef LAL_NDEBUG
-      if ( !finite(FcX.Fa.re) || !finite(FcX.Fa.im) || !finite(FcX.Fb.re) || !finite(FcX.Fb.im) ) {
+      if ( !finite(creal(FcX.Fa)) || !finite(cimag(FcX.Fa)) || !finite(creal(FcX.Fb)) || !finite(cimag(FcX.Fb)) ) {
 	XLALPrintError("XLALComputeFaFb() returned non-finite: Fa=(%f,%f), Fb=(%f,%f)\n",
-		      FcX.Fa.re, FcX.Fa.im, FcX.Fb.re, FcX.Fb.im );
+		      creal(FcX.Fa), cimag(FcX.Fa), creal(FcX.Fb), cimag(FcX.Fb) );
 	ABORT (status,  COMPUTEFSTATC_EIEEE,  COMPUTEFSTATC_MSGEIEEE);
       }
 #endif
@@ -429,19 +429,19 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
          REAL8 DdX_inv = 1.0 / multiAMcoef->data[X]->D;
 
 	 /* compute final single-IFO F-stat */
-	 retF.FX[X] = DdX_inv * (  BdX * (SQ(FcX.Fa.re) + SQ(FcX.Fa.im) )
-	                           + AdX * ( SQ(FcX.Fb.re) + SQ(FcX.Fb.im) )
-		                   - 2.0 * CdX *( FcX.Fa.re * FcX.Fb.re + FcX.Fa.im * FcX.Fb.im )
+	 retF.FX[X] = DdX_inv * (  BdX * (SQ(creal(FcX.Fa)) + SQ(cimag(FcX.Fa)) )
+	                           + AdX * ( SQ(creal(FcX.Fb)) + SQ(cimag(FcX.Fb)) )
+		                   - 2.0 * CdX *( creal(FcX.Fa) * creal(FcX.Fb) + cimag(FcX.Fa) * cimag(FcX.Fb) )
 		                   );
         } /* if returnSingleF */
 
       /* Fa = sum_X Fa_X */
-      retF.Fa.re += FcX.Fa.re;
-      retF.Fa.im += FcX.Fa.im;
+      retF.Fa.real_FIXME += creal(FcX.Fa);
+      retF.Fa.imag_FIXME += cimag(FcX.Fa);
 
       /* Fb = sum_X Fb_X */
-      retF.Fb.re += FcX.Fb.re;
-      retF.Fb.im += FcX.Fb.im;
+      retF.Fb.real_FIXME += creal(FcX.Fb);
+      retF.Fb.imag_FIXME += cimag(FcX.Fb);
 
     } /* for  X < numDetectors */
 
@@ -451,13 +451,13 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
    * therefore there is a factor of 2 difference with respect to the equations in JKS, which
    * where based on the single-sided PSD.
    */
-  retF.F = Dd_inv * (  Bd * (SQ(retF.Fa.re) + SQ(retF.Fa.im) )
-		       + Ad * ( SQ(retF.Fb.re) + SQ(retF.Fb.im) )
-		       - 2.0 * Cd *( retF.Fa.re * retF.Fb.re + retF.Fa.im * retF.Fb.im )
+  retF.F = Dd_inv * (  Bd * (SQ(creal(retF.Fa)) + SQ(cimag(retF.Fa)) )
+		       + Ad * ( SQ(creal(retF.Fb)) + SQ(cimag(retF.Fb)) )
+		       - 2.0 * Cd *( creal(retF.Fa) * creal(retF.Fb) + cimag(retF.Fa) * cimag(retF.Fb) )
 		       );
 
   if ( Ed != 0 ) /* extra term in RAA case */
-    retF.F += - 2.0 * Dd_inv * Ed *( - retF.Fa.re * retF.Fb.im + retF.Fa.im * retF.Fb.re ); /* -2 E Im(Fa Fb^* ) / D */
+    retF.F += - 2.0 * Dd_inv * Ed *( - creal(retF.Fa) * cimag(retF.Fb) + cimag(retF.Fa) * creal(retF.Fb) ); /* -2 E Im(Fa Fb^* ) / D */
 
   /* set correct F-stat reference time (taken from template 'doppler') [relevant only for phase of {Fa,Fb}] */
   retF.refTime = doppler->refTime;
@@ -574,10 +574,10 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
     if ( fkdot[spdnOrder] )
       break;
 
-  Fa.re = 0.0f;
-  Fa.im = 0.0f;
-  Fb.re = 0.0f;
-  Fb.im = 0.0f;
+  Fa.real_FIXME = 0.0f;
+  Fa.imag_FIXME = 0.0f;
+  Fb.real_FIXME = 0.0f;
+  Fb.imag_FIXME = 0.0f;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -680,8 +680,8 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	   * take out repeated divisions into a single common denominator,
 	   * plus use extra cleverness to compute the nominator efficiently...
 	   */
-	  REAL4 Sn = (*Xalpha_l).re;
-	  REAL4 Tn = (*Xalpha_l).im;
+	  REAL4 Sn = crealf(*Xalpha_l);
+	  REAL4 Tn = cimagf(*Xalpha_l);
 	  REAL4 pn = kappa_max;
 	  REAL4 qn = pn;
 	  REAL4 U_alpha, V_alpha;
@@ -693,8 +693,8 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	      Xalpha_l ++;
 
 	      pn = pn - 1.0f; 			/* p_(n+1) */
-	      Sn = pn * Sn + qn * (*Xalpha_l).re;	/* S_(n+1) */
-	      Tn = pn * Tn + qn * (*Xalpha_l).im;	/* T_(n+1) */
+	      Sn = pn * Sn + qn * crealf(*Xalpha_l);	/* S_(n+1) */
+	      Tn = pn * Tn + qn * cimagf(*Xalpha_l);	/* T_(n+1) */
 	      qn *= pn;				/* q_(n+1) */
 	    } /* for l <= 2*Dterms */
 
@@ -716,8 +716,8 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	  UINT4 ind0;
   	  if ( kappa_star <= LD_SMALL4 ) ind0 = Dterms - 1;
   	  else ind0 = Dterms;
-	  realXP = TWOPI_FLOAT * Xalpha_l[ind0].re;
-	  imagXP = TWOPI_FLOAT * Xalpha_l[ind0].im;
+	  realXP = TWOPI_FLOAT * crealf(Xalpha_l[ind0]);
+	  imagXP = TWOPI_FLOAT * cimagf(Xalpha_l[ind0]);
 	} /* if |remainder| <= LD_SMALL4 */
 
       realQXP = realQ * realXP - imagQ * imagXP;
@@ -727,15 +727,15 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
       a_alpha = (*a_al);
       b_alpha = (*b_al);
 
-      Fa_alpha.re = a_alpha * realQXP;
-      Fa_alpha.im = a_alpha * imagQXP;
-      Fa.re += Fa_alpha.re;
-      Fa.im += Fa_alpha.im;
+      Fa_alpha.realf_FIXME = a_alpha * realQXP;
+      Fa_alpha.imagf_FIXME = a_alpha * imagQXP;
+      Fa.real_FIXME += crealf(Fa_alpha);
+      Fa.imag_FIXME += cimagf(Fa_alpha);
 
-      Fb_alpha.re = b_alpha * realQXP;
-      Fb_alpha.im = b_alpha * imagQXP;
-      Fb.re += Fb_alpha.re;
-      Fb.im += Fb_alpha.im;
+      Fb_alpha.realf_FIXME = b_alpha * realQXP;
+      Fb_alpha.imagf_FIXME = b_alpha * imagQXP;
+      Fb.real_FIXME += crealf(Fb_alpha);
+      Fb.imag_FIXME += cimagf(Fb_alpha);
 
       /* store per-SFT F-stat 'atoms' for transient-CW search */
       if ( params->returnAtoms )
@@ -744,10 +744,10 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	  FaFb->multiFstatAtoms->data[0]->data[alpha].a2_alpha   = a_alpha * a_alpha;
 	  FaFb->multiFstatAtoms->data[0]->data[alpha].b2_alpha   = b_alpha * b_alpha;
 	  FaFb->multiFstatAtoms->data[0]->data[alpha].ab_alpha   = a_alpha * b_alpha;
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha.re   = norm * Fa_alpha.re;
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha.im   = norm * Fa_alpha.im;
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha.re   = norm * Fb_alpha.re;
-	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha.im   = norm * Fb_alpha.im;
+	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha.realf_FIXME   = norm * crealf(Fa_alpha);
+	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fa_alpha.imagf_FIXME   = norm * cimagf(Fa_alpha);
+	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha.realf_FIXME   = norm * crealf(Fb_alpha);
+	  FaFb->multiFstatAtoms->data[0]->data[alpha].Fb_alpha.imagf_FIXME   = norm * cimagf(Fb_alpha);
 	}
 
       /* advance pointers over alpha */
@@ -760,10 +760,10 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.re = norm * Fa.re;
-  FaFb->Fa.im = norm * Fa.im;
-  FaFb->Fb.re = norm * Fb.re;
-  FaFb->Fb.im = norm * Fb.im;
+  FaFb->Fa.real_FIXME = norm * creal(Fa);
+  FaFb->Fa.imag_FIXME = norm * cimag(Fa);
+  FaFb->Fb.real_FIXME = norm * creal(Fb);
+  FaFb->Fb.imag_FIXME = norm * cimag(Fb);
 
   return XLAL_SUCCESS;
 
@@ -848,10 +848,10 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     if ( fkdot[spdnOrder] )
       break;
 
-  Fa.re = 0.0f;
-  Fa.im = 0.0f;
-  Fb.re = 0.0f;
-  Fb.im = 0.0f;
+  Fa.real_FIXME = 0.0f;
+  Fa.imag_FIXME = 0.0f;
+  Fb.real_FIXME = 0.0f;
+  Fb.imag_FIXME = 0.0f;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -953,8 +953,8 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 	   * take out repeated divisions into a single common denominator,
 	   * plus use extra cleverness to compute the nominator efficiently...
 	   */
-	  REAL4 Sn = (*Xalpha_l).re;
-	  REAL4 Tn = (*Xalpha_l).im;
+	  REAL4 Sn = crealf(*Xalpha_l);
+	  REAL4 Tn = cimagf(*Xalpha_l);
 	  REAL4 pn = kappa_max;
 	  REAL4 qn = pn;
 	  REAL4 U_alpha, V_alpha;
@@ -966,8 +966,8 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 	      Xalpha_l ++;
 
 	      pn = pn - 1.0f; 			/* p_(n+1) */
-	      Sn = pn * Sn + qn * (*Xalpha_l).re;	/* S_(n+1) */
-	      Tn = pn * Tn + qn * (*Xalpha_l).im;	/* T_(n+1) */
+	      Sn = pn * Sn + qn * crealf(*Xalpha_l);	/* S_(n+1) */
+	      Tn = pn * Tn + qn * cimagf(*Xalpha_l);	/* T_(n+1) */
 	      qn *= pn;				/* q_(n+1) */
 	    } /* for l <= 2*Dterms */
 
@@ -989,8 +989,8 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 	  UINT4 ind0;
   	  if ( kappa_star <= LD_SMALL4 ) ind0 = Dterms - 1;
   	  else ind0 = Dterms;
-	  realXP = TWOPI_FLOAT * Xalpha_l[ind0].re;
-	  imagXP = TWOPI_FLOAT * Xalpha_l[ind0].im;
+	  realXP = TWOPI_FLOAT * crealf(Xalpha_l[ind0]);
+	  imagXP = TWOPI_FLOAT * cimagf(Xalpha_l[ind0]);
 	} /* if |remainder| <= LD_SMALL4 */
 
       realQXP = realQ * realXP - imagQ * imagXP;
@@ -1001,12 +1001,12 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
       b_alpha = (*b_al);
 
       /* Fa contains complex conjugate of a */
-      Fa.re += a_alpha.re * realQXP + a_alpha.im * imagQXP;
-      Fa.im += a_alpha.re * imagQXP - a_alpha.im * realQXP;
+      Fa.real_FIXME += crealf(a_alpha) * realQXP + cimagf(a_alpha) * imagQXP;
+      Fa.imag_FIXME += crealf(a_alpha) * imagQXP - cimagf(a_alpha) * realQXP;
 
       /* Fb contains complex conjugate of b */
-      Fb.re += b_alpha.re * realQXP + b_alpha.im * imagQXP;
-      Fb.im += b_alpha.re * imagQXP - b_alpha.im * realQXP;
+      Fb.real_FIXME += crealf(b_alpha) * realQXP + cimagf(b_alpha) * imagQXP;
+      Fb.imag_FIXME += crealf(b_alpha) * imagQXP - cimagf(b_alpha) * realQXP;
 
       /* advance pointers over alpha */
       a_al ++;
@@ -1018,10 +1018,10 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.re = norm * Fa.re;
-  FaFb->Fa.im = norm * Fa.im;
-  FaFb->Fb.re = norm * Fb.re;
-  FaFb->Fb.im = norm * Fb.im;
+  FaFb->Fa.real_FIXME = norm * creal(Fa);
+  FaFb->Fa.imag_FIXME = norm * cimag(Fa);
+  FaFb->Fb.real_FIXME = norm * creal(Fb);
+  FaFb->Fb.imag_FIXME = norm * cimag(Fb);
 
   return XLAL_SUCCESS;
 
@@ -1103,10 +1103,10 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     if ( fkdot[spdnOrder] )
       break;
 
-  Fa.re = 0.0f;
-  Fa.im = 0.0f;
-  Fb.re = 0.0f;
-  Fb.im = 0.0f;
+  Fa.real_FIXME = 0.0f;
+  Fa.imag_FIXME = 0.0f;
+  Fb.real_FIXME = 0.0f;
+  Fb.imag_FIXME = 0.0f;
 
   a_al = amcoe->a->data;	/* point to beginning of alpha-arrays */
   b_al = amcoe->b->data;
@@ -1187,17 +1187,17 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
       /* lim_{kappa_star->0}P_alpha,k  = 2pi delta_{k,kstar} */
 
       /* combine with e^-i 2pi lambda_alpha */
-      realQXP = realQ * Xalpha_l.re - imagQ * Xalpha_l.im;
-      imagQXP = realQ * Xalpha_l.im + imagQ * Xalpha_l.re;
+      realQXP = realQ * crealf(Xalpha_l) - imagQ * cimagf(Xalpha_l);
+      imagQXP = realQ * cimagf(Xalpha_l) + imagQ * crealf(Xalpha_l);
 
       /* we're done: ==> combine these into Fa and Fb */
       a_alpha = (*a_al);
       b_alpha = (*b_al);
 
-      Fa.re += a_alpha * realQXP;
-      Fa.im += a_alpha * imagQXP;
-      Fb.re += b_alpha * realQXP;
-      Fb.im += b_alpha * imagQXP;
+      Fa.real_FIXME += a_alpha * realQXP;
+      Fa.imag_FIXME += a_alpha * imagQXP;
+      Fb.real_FIXME += b_alpha * realQXP;
+      Fb.imag_FIXME += b_alpha * imagQXP;
 
       /* advance pointers over alpha */
       a_al ++;
@@ -1209,10 +1209,10 @@ XLALComputeFaFbXavie ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
     } /* for alpha < numSFTs */
 
   /* return result */
-  FaFb->Fa.re = Fa.re;
-  FaFb->Fa.im = Fa.im;
-  FaFb->Fb.re = Fb.re;
-  FaFb->Fb.im = Fb.im;
+  FaFb->Fa.real_FIXME = creal(Fa);
+  FaFb->Fa.imag_FIXME = cimag(Fa);
+  FaFb->Fb.real_FIXME = creal(Fb);
+  FaFb->Fb.imag_FIXME = cimag(Fb);
 
   return XLAL_SUCCESS;
 
@@ -1848,10 +1848,10 @@ LALEstimatePulsarAmplitudeParams (LALStatus * status,			/**< pointer to LALStatu
   }
 
   /* ----- fill vector x_mu */
-  gsl_vector_set (x_mu, 0,   Fstat->Fa.re );	/* x_1 */
-  gsl_vector_set (x_mu, 1,   Fstat->Fb.re ); 	/* x_2 */
-  gsl_vector_set (x_mu, 2, - Fstat->Fa.im );	/* x_3 */
-  gsl_vector_set (x_mu, 3, - Fstat->Fb.im );	/* x_4 */
+  gsl_vector_set (x_mu, 0,   creal(Fstat->Fa) );	/* x_1 */
+  gsl_vector_set (x_mu, 1,   creal(Fstat->Fb) ); 	/* x_2 */
+  gsl_vector_set (x_mu, 2, - cimag(Fstat->Fa) );	/* x_3 */
+  gsl_vector_set (x_mu, 3, - cimag(Fstat->Fb) );	/* x_4 */
 
   /* ----- fill matrix M^{mu,nu} [symmetric: use UPPER HALF ONLY!!]*/
   gsl_matrix_set (M_Mu_Nu, 0, 0,   Bd / Dd );

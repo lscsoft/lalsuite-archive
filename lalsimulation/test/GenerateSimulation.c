@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Date.h>
@@ -298,7 +297,7 @@ static int dump_FD(FILE *f, COMPLEX16FrequencySeries *hptilde,
     for (i=0; i < hptilde->data->length; i++)
         fprintf(f, "%.16e %.16e %.16e %.16e %.16e\n",
                 hptilde->f0 + i * hptilde->deltaF,
-                dataPtr1[i].re, dataPtr1[i].im, dataPtr2[i].re, dataPtr2[i].im);
+                creal(dataPtr1[i]), cimag(dataPtr1[i]), creal(dataPtr2[i]), cimag(dataPtr2[i]));
     return 0;
 }
 
@@ -320,12 +319,12 @@ static int dump_FD2(FILE *f, COMPLEX16FrequencySeries *hptilde,
     REAL8 phaseUW1[hptilde->data->length], phaseUW2[hptilde->data->length];
     for (i=0; i < hptilde->data->length; i++)
     {
-        amp1[i] = sqrt(dataPtr1[i].re*dataPtr1[i].re
-                + dataPtr1[i].im*dataPtr1[i].im);
-        phase1[i] = atan2(dataPtr1[i].im, dataPtr1[i].re);
-        amp2[i] = sqrt(dataPtr2[i].re*dataPtr2[i].re
-                + dataPtr2[i].im*dataPtr2[i].im);
-        phase2[i] = atan2(dataPtr2[i].im, dataPtr2[i].re);
+        amp1[i] = sqrt(creal(dataPtr1[i])*creal(dataPtr1[i])
+                + cimag(dataPtr1[i])*cimag(dataPtr1[i]));
+        phase1[i] = atan2(cimag(dataPtr1[i]), creal(dataPtr1[i]));
+        amp2[i] = sqrt(creal(dataPtr2[i])*creal(dataPtr2[i])
+                + cimag(dataPtr2[i])*cimag(dataPtr2[i]));
+        phase2[i] = atan2(cimag(dataPtr2[i]), creal(dataPtr2[i]));
     }
     unwind_phase(phaseUW1, phase1, hptilde->data->length, threshold);
     unwind_phase(phaseUW2, phase2, hptilde->data->length, threshold);

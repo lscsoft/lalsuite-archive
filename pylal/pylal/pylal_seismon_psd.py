@@ -3,6 +3,7 @@
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.signal
 from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
@@ -50,6 +51,7 @@ def mat(params, channel):
     #freq,spectra = dqDataUtils.spectrum(data, channel.samplef, NFFT=len(data), overlap = 0)
 
     spectra, freq = matplotlib.pyplot.psd(data, NFFT=64*channel.samplef, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
+    plt.close('all')
 
     spectra = [math.sqrt(e) for e in spectra]
 
@@ -70,11 +72,65 @@ def mat(params, channel):
         f.write("%e %e\n"%(freq[i],spectra[i]))
     f.close()
 
+    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+    if os.path.isfile(earthquakesFile):
+        earthquakes = np.loadtxt(earthquakesFile)
+    else:
+        earthquakes = []
+
     if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
             os.makedirs(plotLocation)        
+
+        startTime = np.min(time)
+        time = time - startTime
+
+        norm_pass = 1.0/(channel.samplef/2)
+        norm_stop = 1.5*norm_pass
+        #(N, Wn) = scipy.signal.buttord(wp=norm_pass, ws=norm_stop, gpass=2, gstop=30, analog=0)
+        order = 5
+        (b, a) = scipy.signal.butter(order, norm_pass, btype='low', analog=0, output='ba')
+        data = np.array(data)
+        dataLowpass = scipy.signal.filtfilt(b, a, data) 
+
+        minData = np.min(data)
+        maxData = np.max(data)
+        data = 1/(maxData - minData) * (data - minData)
+
+        minDataLowpass = np.min(dataLowpass)
+        maxDataLowpass = np.max(dataLowpass)
+        dataLowpass = 1/(maxDataLowpass - minDataLowpass) * (dataLowpass - minDataLowpass)
+
+        plt.plot(time,data,'k',label='data')
+        plt.plot(time,dataLowpass,'b',label='data lowpassed')
+        plt.legend(loc=1,prop={'size':10})
+
+        if len(earthquakes) > 0:
+            for i in xrange(len(earthquakes)):
+
+                Ptime = earthquakes[i,2] - startTime
+                Stime = earthquakes[i,3] - startTime
+                Rtime = earthquakes[i,4] - startTime
+
+                plt.text(Ptime, 1.1, 'P', fontsize=18, ha='center', va='top')
+                plt.text(Stime, 1.1, 'S', fontsize=18, ha='center', va='top')
+                plt.text(Rtime, 1.1, 'R', fontsize=18, ha='center', va='top')
+
+                plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
+                plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
+                plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
+
+        plt.xlabel("Time [s] [%d]"%(startTime))
+        plt.ylabel("Normalized Amplitude")
+        plt.xlim([np.min(time),np.max(time)])
+
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"timeseries.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"timeseries.eps"),dpi=200)
+        plt.close('all')
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
@@ -234,7 +290,7 @@ def analysis(params, channel):
 
     f.close()
 
-    if params["doPlots"] or not params["doPlots"]:
+    if params["doPlots"]:
 
         plotLocation = params["path"] + "/" + channel.station_underscore
         if not os.path.isdir(plotLocation):
@@ -248,7 +304,7 @@ def analysis(params, channel):
         plt.semilogx(freq,spectral_variation_norm_90per,'g',label='90')
         plt.loglog(fl,low,'k-.')
         plt.loglog(fh,high,'k-.',label='LNM/HNM')
-        plt.legend()
+        plt.legend(loc=3,prop={'size':10})
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
@@ -259,11 +315,14 @@ def analysis(params, channel):
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
         plt.close('all')
 
-    if params["doPlots"]:
+        indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
+        indices = [int(x) for x in indexes]
 
-        X,Y = np.meshgrid(freq, range_binning)
+        #X,Y = np.meshgrid(freq, range_binning)
+        X,Y = np.meshgrid(freq[indices], range_binning)
         ax = plt.subplot(111)
-        im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm), cmap=plt.cm.jet)
+        #im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm), cmap=plt.cm.jet)
+        im = plt.pcolor(X,Y,np.transpose(spectral_variation_norm[indices,:]), cmap=plt.cm.jet)
         ax.set_xscale('log')
         ax.set_yscale('log')
         plt.semilogx(freqNow,spectraNow, 'k', label='Current')
@@ -285,9 +344,11 @@ def analysis(params, channel):
         ttStart = min(tt)
         tt = [(c-ttStart)/(60*60) for c in tt]
 
-        X,Y = np.meshgrid(freq, tt)
+        #X,Y = np.meshgrid(freq, tt)
+        X,Y = np.meshgrid(freq[indices], tt)
         ax = plt.subplot(111)
-        im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
+        #im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
+        im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=-9, vmax=-5)
         ax.set_xscale('log')
         plt.xlim([params["fmin"],params["fmax"]])
         plt.xlabel("Frequency [Hz]")
