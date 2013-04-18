@@ -854,6 +854,7 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->eff_dist_g,
               tablePtr.simInspiralTable->eff_dist_t,
               tablePtr.simInspiralTable->eff_dist_v,
+            tablePtr.simInspiralTable->eos,
 	      tablePtr.simInspiralTable->numrel_mode_min,
 	      tablePtr.simInspiralTable->numrel_mode_max,
 	      tablePtr.simInspiralTable->numrel_data,

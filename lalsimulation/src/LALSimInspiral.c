@@ -1806,7 +1806,12 @@ int XLALSimInspiralChooseTDWaveform(
      * For now, hardcode quadparam1,2 = 1.
      * Will later add ability to set via LALSimInspiralTestGRParam
      */
-    REAL8 v0 = 1., quadparam1 = 1., quadparam2 = 1.;
+    REAL8 v0 = 1., quadparam1 = 1., quadparam2 = 1., lam1 = 0., lam2 = 0.;
+
+    lam1 = XLALSimInspiralEOSLambda(eos, m1); //These should be intrinsic masses; how do I do that?
+    lam2 = XLALSimInspiralEOSLambda(eos, m2); 
+    quadparam1 = XLALSimInspiralEOSQfromLambda(lam1);
+    quadparam2 = XLALSimInspiralEOSQfromLambda(lam2); 
 
     /* General sanity checks that will abort */
 
@@ -2024,7 +2029,7 @@ int XLALSimInspiralChooseTDWaveform(
             /* Call the waveform driver routine */
             ret = XLALSimInspiralSpinTaylorT4(hplus, hcross, phiRef, v0, deltaT,
                     m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z,
-                    LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lambda1, lambda2,
+                    LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lam1, lam2,
                     quadparam1, quadparam2,
                     XLALSimInspiralGetSpinOrder(waveFlags),
                     XLALSimInspiralGetTidalOrder(waveFlags),

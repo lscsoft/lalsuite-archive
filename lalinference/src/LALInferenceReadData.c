@@ -1286,6 +1286,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	UINT4 bufferN=0;
 	LIGOTimeGPS bufferStart;
 
+    int NlowSNR = 0; // Counts number of interferometers where the SNR < 5.5
 	
 	LALInferenceIFOData *thisData=IFOdata->next;
 	REAL8 minFlow=IFOdata->fLow;
@@ -1590,6 +1591,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     }
     thisData->SNR=sqrt(SNR);
     NetworkSNR+=SNR;
+    if (thisData->SNR<5.5){ NlowSNR += 1; } // Flag low-SNR detector
+
 
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
       PrintSNRsToFile(IFOdata , injTable);
@@ -1618,6 +1621,13 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     }
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %g\n",event,NetworkSNR);
+    if(NetworkSNR<8) { fprintf(stderr,"Network SNR < 8; exiting.\n");
+                         exit(EXIT_FAILURE); }
+    if(NetworkSNR>30) { fprintf(stderr,"NetworkSNR > 30; exiting.\n");
+            exit(EXIT_FAILURE); }
+    if(NlowSNR>1) { fprintf(stderr,"At least two individual detectors have SNR < 5.5; exiting.\n");
+            exit(EXIT_FAILURE); }
+
     /* Output waveform raw h-plus mode */
     if( (ppt=LALInferenceGetProcParamVal(commandLine,"--rawwaveform")) )
     {
