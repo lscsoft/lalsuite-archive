@@ -379,7 +379,7 @@ class ligolw_sqlite_node(pipeline.CondorDAGNode):
 		if input_cache is not None:
 			self.add_var_opt("input-cache", input_cache)
 		if replace:
-			self.add_var_opt("replace","")
+			self.add_var_arg("--replace")
 		for xml in xml_list:
 			self.add_file_arg(xml)
 		for p in p_node:
@@ -686,7 +686,7 @@ for (desc, cachefile) in cachenamestypes.items():
 # add veto segments back in
 p_nodes = []
 for db in dbs:
-	p_nodes.append(ligolw_sqlite_node(sqlite_job, dag, db, [self.add_file_arg(cp.get('input','veto_file'))], p_node=runsql_node.values()))
+	p_nodes.append(ligolw_sqlite_node(sqlite_job, dag, db, [cp.get('input','veto_file')], replace=False, p_node=runsql_node.values()))
 
 ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=p_nodes)
 [node.set_retry(10) for node in dag.get_nodes()]
