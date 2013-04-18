@@ -4015,6 +4015,8 @@ int main( int argc, char *argv[] )
       exit(-1) ;
     }
 
+    simTable->eos = equation_of_state;
+
     /* populate the sim_ringdown table */
     if ( writeSimRing )
     {

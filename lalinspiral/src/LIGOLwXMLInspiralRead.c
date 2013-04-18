@@ -1422,6 +1422,7 @@ SimInspiralTableFromLIGOLw (
     {"eff_dist_g",          -1, 47},
     {"eff_dist_t",          -1, 48},
     {"eff_dist_v",          -1, 49},
+    {"eos",                 -1, 56},
     {"numrel_mode_min",     -1, 50},
     {"numrel_mode_max",     -1, 51},
     {"numrel_data",         -1, 52},
@@ -1727,7 +1728,7 @@ SimInspiralTableFromLIGOLw (
             thisSim->bandpass = i4colData;
         }
         else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
+        	thisSim->eos = i4colData;
         }
         else if ( tableDir[j].idx == 57 ) {
         	thisSim->qmParameter2 = r4colData;
