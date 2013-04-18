@@ -34,12 +34,12 @@ import sys
 
 
 from glue import segments
+from glue import offsetvector
 from glue.lal import CacheEntry
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import git_version
-from pylal import ligolw_tisi
 from pylal import packing
 
 
@@ -104,7 +104,7 @@ def segmentlistdict_normalize(seglistdict, origin):
 			seglist[i] = segments.segment(float(seg[0] - origin), float(seg[1] - origin))
 
 
-def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
+def get_coincident_segmentlistdict(seglistdict, offset_vectors):
 	"""
 	Compute the segments for which data is required in order to perform
 	a complete coincidence analysis given the segments for which data
@@ -112,11 +112,11 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	data during the coincidence analysis.
 
 	seglistdict is a segmentlistdict object defining the instruments
-	and times for which data is available.  offsetdictlist is a list of
+	and times for which data is available.  offset_vectors is a list of
 	offset vectors to be applied to the data --- dictionaries of
 	instrument/offset pairs.
 
-	The offset vectors in offsetdictlist are applied to the input
+	The offset vectors in offset_vectors are applied to the input
 	segments one by one and the interesection of the shifted segments
 	is computed.  The segments surviving the intersection are unshifted
 	to their original positions and stored.  The return value is the
@@ -153,10 +153,10 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 
 	# compute result
 	coincseglists = segments.segmentlistdict()
-	for offsetvector in ligolw_tisi.time_slide_component_vectors(offsetdictlist, 2):
-		if set(offsetvector).issubset(all_instruments):
-			seglistdict.offsets.update(offsetvector)
-			intersection = seglistdict.extract_common(offsetvector.keys())
+	for offset_vector in offsetvector.component_offsetvectors(offset_vectors, 2):
+		if set(offset_vector).issubset(all_instruments):
+			seglistdict.offsets.update(offset_vector)
+			intersection = seglistdict.extract_common(offset_vector.keys())
 			intersection.offsets.clear()
 			coincseglists |= intersection
 

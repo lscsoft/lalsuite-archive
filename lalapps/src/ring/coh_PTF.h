@@ -137,12 +137,14 @@ struct coh_PTF_params {
   UINT4        numTimePoints;
   UINT4        numFreqPoints;
   UINT4        analStartPoint;
+  REAL8        analStartTime;
   UINT4        analEndPoint;
   UINT4        analStartPointBuf;
   UINT4        analEndPointBuf;
   UINT4        numAnalPoints;
   UINT4        numAnalPointsBuf;
   UINT4        numBufferPoints;
+  REAL4        maxTempLength;
   UINT4        numOverlapSegments;
   REAL4        dynRangeFac;
   REAL4        lowTemplateFrequency;
@@ -219,6 +221,7 @@ struct coh_PTF_params {
   int          faceAwayAnalysis;
   int          dynTempLength;
   int          storeAmpParams;
+  int          analSegmentEnd;
   /* write intermediate result flags */
   int          writeRawData;
   int          writeProcessedData;
@@ -905,8 +908,8 @@ REAL4 coh_PTF_calculate_bank_veto(
     COMPLEX8VectorSequence  *PTFqVec[LAL_NUM_IFO+1],
     REAL8Array      *PTFM[LAL_NUM_IFO+1],
     INT4            timeOffsetPoints[LAL_NUM_IFO],
-    gsl_matrix *Bankeigenvecs[50],
-    gsl_vector *Bankeigenvals[50],
+    gsl_matrix **Bankeigenvecs,
+    gsl_vector **Bankeigenvals,
     UINT4       detectorNum,
     UINT4       vecLength,
     UINT4       vecLengthTwo

@@ -18,6 +18,7 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceLibVCSInfo.h \
 	LALInferenceInit.h \
 	LALInferenceVCSInfo.h \
+        LALInferenceRemoveLines.h \
 	lalinferenceswig_test.i \
 	priors.h \
 	$(XMLHDR)
@@ -33,6 +34,7 @@ liblalinference_la_SOURCES = \
 	LALInferenceProposal.c \
 	LALInferenceInitCBC.c \
 	LALInferenceVCSInfo.c \
+	LALInferenceRemoveLines.c \
 	priors.c \
 	$(XMLSRC)
 

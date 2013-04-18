@@ -1,4 +1,3 @@
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include "coh_PTF.h"
 
 #define PROGRAM_NAME "lalapps_coh_PTF_inspiral"
@@ -346,7 +345,7 @@ int main(int argc, char **argv)
       }
     }
     /* We only analyse middle half so add duration/4 to epoch */
-    XLALGPSAdd(&segStartTime, params->segmentDuration/4.0);
+    XLALGPSAdd(&segStartTime, params->analStartTime);
 
     if (params->doBankVeto)
     {

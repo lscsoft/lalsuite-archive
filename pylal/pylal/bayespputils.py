@@ -4629,7 +4629,7 @@ class PEOutputParser(object):
             pos,bayesfactor=burnin(data,spin,deltaLogL,"posterior_samples.dat")
             return self._common_to_pos(open("posterior_samples.dat",'r'))
 
-    def _ns_to_pos(self,files,Nlive=None,Npost=10000):
+    def _ns_to_pos(self,files,Nlive=None,Npost=None):
         """
         Parser for nested sampling output.
         files : list of input NS files

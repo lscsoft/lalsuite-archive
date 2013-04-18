@@ -4,7 +4,7 @@ project_version = $(GIT_BRANCH_A)
 component = $(WORKFLOW_NODENAME)
 component_version = $(GIT_ID_A)
 run_type = test
-platforms = x86_64_cent_5.3
+platforms = x86_64_sl_6.1
 notify = $(USER)
 notify_fail_only = true
 # stream "live" stdout/err from tasks back to the submit node

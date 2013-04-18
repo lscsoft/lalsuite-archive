@@ -380,53 +380,6 @@ def time_slide_list_merge(slides1, slides2):
 #
 # =============================================================================
 #
-#                           Time Slide Manipulation
-#
-# =============================================================================
-#
-
-
-def time_slide_component_vectors(offsetvectors, n):
-	"""
-	Given an iterable of time slide vectors, return the shortest list
-	of the unique n-instrument time slide vectors from which all the
-	vectors in the input list can be constructed.  This can be used to
-	determine the minimal set of n-instrument coincs required to
-	construct all of the coincs for all of the requested instrument and
-	offset combinations in the time slide list.
-
-	It is assumed that the coincs for the vector {"H1": 0, "H2": 10,
-	"L1": 20} can be constructed from the coincs for the vectors {"H1":
-	0, "H2": 10} and {"H2": 0, "L1": 10}, that is only the relative
-	offsets are significant in determining if two events are
-	coincident, not the absolute offsets.  This assumption is not true
-	for the standard inspiral pipeline, where the absolute offsets are
-	significant.
-	"""
-	#
-	# collect unique instrument set / deltas combinations
-	#
-
-	delta_sets = {}
-	for offsetvect in offsetvectors:
-		for instruments in iterutils.choices(sorted(offsetvect), n):
-			# NOTE:  the arithmetic used to construct the
-			# offsets *must* match the arithmetic used by
-			# offset_vector.deltas so that the results of the
-			# two can be compared to each other without worry
-			# of floating-point round off confusing things.
-			delta_sets.setdefault(instruments, set()).add(tuple(offsetvect[instrument] - offsetvect[instruments[0]] for instrument in instruments))
-
-	#
-	# translate into a list of normalized n-instrument offset vectors
-	#
-
-	return [offsetvector.offsetvector(zip(instruments, deltas)) for instruments, delta_set in delta_sets.items() for deltas in delta_set]
-
-
-#
-# =============================================================================
-#
 #                                    Other
 #
 # =============================================================================
@@ -435,7 +388,8 @@ def time_slide_component_vectors(offsetvectors, n):
 
 def display_component_offsets(component_offset_vectors, fileobj = sys.stderr):
 	"""
-	Print a summary of the output of time_slide_component_vectors().
+	Print a summary of the output of
+	glue.offsetvector.component_offsetvectors().
 	"""
 	#
 	# organize the information

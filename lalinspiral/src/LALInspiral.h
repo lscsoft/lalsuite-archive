@@ -34,7 +34,6 @@
 # include <lal/GeneratePPNInspiral.h>
 # include <lal/LIGOMetadataTables.h>
 # include <lal/LALDatatypes.h>
-# include <lal/LALComplex.h>
 # include <lal/LALSimInspiral.h>
 
 #ifdef  __cplusplus
@@ -1921,6 +1920,11 @@ void XLALSimInjectNinjaSignals(
         const char *ifo,
         REAL8 dynRange,
         SimInspiralTable* events
+);
+
+/* Determines if a given time is playground data. */
+int XLALINT8NanoSecIsPlayground (
+        INT8 ns
 );
 
 /*---------------------------------------------------------------- */
