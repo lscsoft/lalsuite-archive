@@ -256,8 +256,9 @@ def RFCproxyUsage():
     a RFC 3820 compliant proxy certificate.
     """
     msg = """\
-Could not find a RFC 3820 compliant proxy credential.
-Please run 'grid-proxy-init -rfc' and try again.
+Could not find a valid proxy credential.
+LIGO users, please run 'ligo-proxy-init' and try again.
+Others, please run 'grid-proxy-init' and try again.
 """
 
     print >>sys.stderr, msg

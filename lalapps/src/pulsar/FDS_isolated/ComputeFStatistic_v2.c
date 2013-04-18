@@ -188,8 +188,8 @@ typedef struct {
   CHAR *VCSInfoString;                      /**< LAL + LALapps Git version string */
   CHAR *logstring;                          /**< log containing max-info on the whole search setup */
   transientWindowRange_t transientWindowRange; /**< search range parameters for transient window */
-  REAL4 LVlogRhoTerm;                       /**< log(rho^4/70) of LV line-prior amplitude 'rho' */
-  REAL4Vector *LVloglX;                     /**< vector of line-prior ratios per detector {l1, l2, ... } */
+  REAL8 LVlogRhoTerm;                       /**< log(rho^4/70) of LV line-prior amplitude 'rho' */
+  REAL8Vector *LVloglX;                     /**< vector of line-prior ratios per detector {l1, l2, ... } */
   RankingStat_t RankingStatistic;           /**< rank candidates according to F or LV */
 } ConfigVariables;
 
@@ -661,7 +661,7 @@ int main(int argc,char *argv[])
       if ( !finite(Fstat.F) )
 	{
 	  LogPrintf(LOG_CRITICAL, "non-finite F = %.16g, Fa=(%.16g,%.16g), Fb=(%.16g,%.16g)\n",
-		    Fstat.F, Fstat.Fa.re, Fstat.Fa.im, Fstat.Fb.re, Fstat.Fb.im );
+		    Fstat.F, creal(Fstat.Fa), cimag(Fstat.Fa), creal(Fstat.Fb), cimag(Fstat.Fb) );
 	  LogPrintf (LOG_CRITICAL, "[Alpha,Delta] = [%.16g,%.16g],\nfkdot=[%.16g,%.16g,%.16g,%16.g]\n",
 		     dopplerpos.Alpha, dopplerpos.Delta,
 		     dopplerpos.fkdot[0], dopplerpos.fkdot[1], dopplerpos.fkdot[2], dopplerpos.fkdot[3] );
@@ -712,8 +712,8 @@ int main(int argc,char *argv[])
       if ( uvar.SignalOnly )
 	{
 	  REAL8 norm = 1.0 / sqrt( 0.5 * GV.Tsft );
-	  Fstat.Fa.re *= norm;  Fstat.Fa.im *= norm;
-	  Fstat.Fb.re *= norm;  Fstat.Fb.im *= norm;
+	  Fstat.Fa.real_FIXME *= norm;  Fstat.Fa.imag_FIXME *= norm;
+	  Fstat.Fb.real_FIXME *= norm;  Fstat.Fb.imag_FIXME *= norm;
 	  Fstat.F *= norm * norm;
 	  Fstat.F += 2;		/* compute E[2F]:= 4 + SNR^2 */
 	  UINT4 X, numDet = Fstat.numDetectors;
@@ -732,10 +732,10 @@ int main(int argc,char *argv[])
 		  FstatAtomVector *thisAtomList = Fstat.multiFstatAtoms->data[X];
 		  for ( alpha=0; alpha < thisAtomList->length; alpha ++ )
 		    {
-		      thisAtomList->data[alpha].Fa_alpha.re *= norm;
-		      thisAtomList->data[alpha].Fa_alpha.im *= norm;
-		      thisAtomList->data[alpha].Fb_alpha.re *= norm;
-		      thisAtomList->data[alpha].Fb_alpha.im *= norm;
+		      thisAtomList->data[alpha].Fa_alpha.realf_FIXME *= norm;
+		      thisAtomList->data[alpha].Fa_alpha.imagf_FIXME *= norm;
+		      thisAtomList->data[alpha].Fb_alpha.realf_FIXME *= norm;
+		      thisAtomList->data[alpha].Fb_alpha.imagf_FIXME *= norm;
 		    } /* for alpha < numSFTs */
 		} /* for X < numDet */
 	    } /* if outputFstatAtoms */
@@ -747,7 +747,7 @@ int main(int argc,char *argv[])
           REAL4 TwoFX[Fstat.numDetectors];
           for ( UINT4 X=0; X < Fstat.numDetectors; X++ )
             TwoFX[X] = 2.0*Fstat.FX[X];
-          REAL4* LVlogLX = NULL;
+          REAL8* LVlogLX = NULL;
           if ( GV.LVloglX ) LVlogLX = GV.LVloglX->data;
           thisFCand.LVstat = XLALComputeLineVetoArray ( 2.0*Fstat.F, Fstat.numDetectors, TwoFX, GV.LVlogRhoTerm, LVlogLX, uvar.LVuseAllTerms );
           if ( xlalErrno ) {
@@ -1884,7 +1884,7 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
   else if ( uvar->LVrho > 0.0 )
     cfg->LVlogRhoTerm = 4.0 * log(uvar->LVrho) - log(70.0);
   else /* if uvar.LVrho == 0.0, logRhoTerm should become irrelevant in summation */
-    cfg->LVlogRhoTerm = - LAL_REAL4_MAX;
+    cfg->LVlogRhoTerm = - LAL_REAL8_MAX;
   UINT4 numDetectors = cfg->multiSFTs->length;
 
   if ( uvar->computeLV && uvar->LVlX )
@@ -1893,8 +1893,8 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
         XLALPrintError( "Length of LV prior ratio vector does not match number of detectors! (%d != %d)\n", uvar->LVlX->length, numDetectors);
         ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT);
       }
-      if ( (cfg->LVloglX = XLALCreateREAL4Vector ( numDetectors )) == NULL ) {
-        XLALPrintError ("Failed to XLALCreateREAL4Vector ( %d )\n", numDetectors );
+      if ( (cfg->LVloglX = XLALCreateREAL8Vector ( numDetectors )) == NULL ) {
+        XLALPrintError ("Failed to XLALCreateREAL8Vector ( %d )\n", numDetectors );
         ABORT (status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT);
       }
       for (UINT4 X = 0; X < numDetectors; X++)
@@ -1911,7 +1911,7 @@ InitFStat ( LALStatus *status, ConfigVariables *cfg, const UserInput_t *uvar )
           else if ( LVlX > 0.0 )
             cfg->LVloglX->data[X] = log ( LVlX );
           else /* if zero prior ratio, approximate log(0)=-inf by -LAL_REA4_MAX to avoid raising underflow exceptions */
-            cfg->LVloglX->data[X] = - LAL_REAL4_MAX;
+            cfg->LVloglX->data[X] = - LAL_REAL8_MAX;
         } /* for X < numDetectors */
     } /* if ( uvar.computeLV && uvar.LVlX ) */
 
@@ -2085,7 +2085,7 @@ Freemem(LALStatus *status,  ConfigVariables *cfg)
     LALFree ( cfg->logstring );
 
   if ( cfg->LVloglX )
-    XLALDestroyREAL4Vector ( cfg->LVloglX );
+    XLALDestroyREAL8Vector ( cfg->LVloglX );
 
   DETATCHSTATUSPTR (status);
   RETURN (status);
@@ -2397,8 +2397,8 @@ write_PulsarCandidate_to_fp ( FILE *fp,  const PulsarCandidate *pulsarParams, co
   fprintf (fp, "\n");
 
   /* Fstat-values */
-  fprintf (fp, "Fa       = % .6g  %+.6gi;\n", Fcand->Fstat.Fa.re, Fcand->Fstat.Fa.im );
-  fprintf (fp, "Fb       = % .6g  %+.6gi;\n", Fcand->Fstat.Fb.re, Fcand->Fstat.Fb.im );
+  fprintf (fp, "Fa       = % .6g  %+.6gi;\n", creal(Fcand->Fstat.Fa), cimag(Fcand->Fstat.Fa) );
+  fprintf (fp, "Fb       = % .6g  %+.6gi;\n", creal(Fcand->Fstat.Fb), cimag(Fcand->Fstat.Fb) );
   fprintf (fp, "twoF     = % .6g;\n", 2.0 * Fcand->Fstat.F );
   /* single-IFO Fstat-values, if present */
   UINT4 X, numDet = Fcand->Fstat.numDetectors;

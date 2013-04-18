@@ -406,15 +406,6 @@ class DataBaseSummary(object):
 					instruments_set = frozenset(lsctables.instrument_set_from_ifos(instruments))
 					self.this_injection_instruments.append(instruments_set)
 					segments_to_consider_for_these_injections = self.this_injection_segments.intersection(instruments_set) - self.this_injection_segments.union(set(self.this_injection_segments.keys()) - instruments_set)
-					# FIXME check to see if a maxextent option was used.  Currently only effect ligolw_rinca, but will effect ligolw_thinca someday
-					if self.table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-						coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
-						if len(coinc_end_time_seg_param) == 1:
-							segments_to_consider_for_these_injections &= segmentsUtils.from_range_strings(coinc_end_time_seg_param, boundtype = float)
-						else:
-							# FIXME what would that mean if it is greater than one???
-							raise ValueError("len(coinc_end_time_seg_param) > 1")
-
 					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)
