@@ -16,8 +16,8 @@
 {
 # TODO: these should be replaced with proper Metronome prereqs
 export PKG_CONFIG_PATH=/usr/lib64/pkgconfig
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/lscsoft/libframe/lib64/pkgconfig
-export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/lscsoft/libmetaio/lib64/pkgconfig
+#export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/lscsoft/libframe/lib64/pkgconfig
+#export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/lscsoft/libmetaio/lib64/pkgconfig
 
 # exit immediately if any command exits with a non-zero status.
 set -e
