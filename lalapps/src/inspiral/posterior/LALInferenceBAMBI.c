@@ -39,6 +39,12 @@
 #include <lal/LALInferenceInit.h>
 #include "bambi.h"
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeMN(LALInferenceRunState *runState);
 void initStudentt(LALInferenceRunState *state);
@@ -105,7 +111,7 @@ void LogLikeFctn(double *Cube, int *ndim, int *npars, double *lnew, void *contex
 	_Z7LogLikePdPiS0_S_Pv(Cube, ndim, npars, lnew, context);
 }
 
-void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context)
+void getLogLike(double *Cube, UNUSED int *ndim, UNUSED int *npars, double *lnew, void *context)
 {
 	// transform the parameter in the unit hypercube to their physical counterparts according to the prior
 	LALInferenceVariables *newParams=NULL;
@@ -130,7 +136,9 @@ void getLogLike(double *Cube, int *ndim, int *npars, double *lnew, void *context
 	free(newParams);
 }
 
-void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **posterior, double **paramConstr, double *maxLogLike, double *logZ, double *logZerr, void *context)
+void dumper(UNUSED int *nSamples, UNUSED int *nlive, UNUSED int *nPar, UNUSED double **physLive,
+			UNUSED double **posterior, UNUSED double **paramConstr, UNUSED double *maxLogLike,
+			double *logZ, UNUSED double *logZerr, void *context)
 {
 	char **info = (char **)context;
 	char *root=&info[0][0];
@@ -155,7 +163,7 @@ void dumper(int *nSamples, int *nlive, int *nPar, double **physLive, double **po
 	}
 }
 
-void getphysparams(double *Cube, int *ndim, int *nPar, void *context)
+void getphysparams(double *Cube, UNUSED int *ndim, UNUSED int *nPar, void *context)
 {
 	// CubeToPrior function does this and physical params are in first ndim already
 	LALInferenceVariables *newParams=NULL;
@@ -174,7 +182,7 @@ void getphysparams(double *Cube, int *ndim, int *nPar, void *context)
 	}
 }
 
-void getallparams(double *Cube, int *ndim, int *nPar, void *context)
+void getallparams(double *Cube, UNUSED int *ndim, UNUSED int *nPar, void *context)
 {
 	// CubeToPrior function does this
 	LALInferenceVariables *newParams=NULL;
