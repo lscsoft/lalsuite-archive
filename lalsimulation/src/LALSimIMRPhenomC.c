@@ -946,7 +946,8 @@ static int IMRPhenomCGenerateTD(
 		XLALPrintWarning("Warning: sampling rate (%" LAL_REAL8_FORMAT " Hz) too low for expected spectral content (%" LAL_REAL8_FORMAT " Hz) \n", deltaT, EstimateSafeFMaxForTD(f_max, deltaT));
     
     const size_t nt = NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT));
-    *ind_t0 = nt -EstimateIMRLength(m1, m2, params->fRingDown, deltaT);
+    const size_t ne = EstimateIMRLength(m1, m2, params->fRingDown, deltaT);
+    *ind_t0 = (nt > (16 * ne)) ? (nt - (4 * ne)) : (nt - (2 * ne));
 	deltaF = 1. / (deltaT * (REAL8) nt);
 	
 	#if debugPrayush
