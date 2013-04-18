@@ -1,4 +1,4 @@
-# Metronome submit file for CBC builds
+# Metronome submit template for CBC builds
 
 # metadata for the Metronome DB
 description = build of lalsuite from repo=$(GIT_REPO), branch=$(GIT_BRANCH), id=$(GIT_ID)
