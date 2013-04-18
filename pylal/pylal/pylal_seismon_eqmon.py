@@ -40,7 +40,7 @@ def run_earthquakes(params):
         gpsStart = traveltimes["arrivalMin"] - 200
         gpsEnd = traveltimes["arrivalMax"] + 200
 
-        f.write("%.1f %.1f %.1f %.1f %.1f %.5e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"],attributeDic["Rfamp"])))
+        f.write("%.1f %.1f %.1f %.1f %.1f %.5e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0]))
 
     f.close()
 
