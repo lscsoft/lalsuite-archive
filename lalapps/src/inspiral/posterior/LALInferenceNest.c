@@ -865,13 +865,14 @@ Parameter arguments:\n\
 			LALInferenceAddMinMaxPrior(priorArgs, "phi_spin2",     &phi_spin1_min, &phi_spin1_max,   LALINFERENCE_REAL8_t);
 		}
 	}
-        if(LALInferenceGetProcParamVal(commandLine,"--cosmology")) 
-        {
+//        if(LALInferenceGetProcParamVal(commandLine,"--cosmology")) 
+//        {
             tmpVal = 0.1;
-            REAL8 minz = 0.0, maxz = 6.0, maxh = 1.0, minh =0.5, minom =0.044, maxom = 1.0, minol= 0.0, maxol =1.0, minok =-1.0, maxok = 1.0;
+            REAL8 minz = 0.0, maxz = 4.0, maxh = 1.0, minh =0.5, minom =0.044, maxom = 1.0, minol= 0.0, maxol =1.0, minok =-1.0, maxok = 1.0;
             LALInferenceAddVariable(currentParams, "redshift",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
             LALInferenceAddMinMaxPrior(priorArgs, "redshift",     &minz, &maxz,   LALINFERENCE_REAL8_t);
-
+        if(LALInferenceGetProcParamVal(commandLine,"--cosmology")) 
+        {
             tmpVal=0.5;
             LALInferenceAddVariable(currentParams, "h0",&tmpVal,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
             LALInferenceAddMinMaxPrior(priorArgs, "h0",     &minh, &maxh,   LALINFERENCE_REAL8_t);

@@ -280,28 +280,15 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
   return step;
 }
 
-//REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
-//{
-//  REAL8 test,z,p;
-//    do
-//        {
-//      test = pzmax * XLALUniformDeviate(randParams);
-//      z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
-//          p= probability_redshift(z);
-//        }
-//        while (test>p);
-//        
-//  return z;
-//}
 
 REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs, double local_rate)
 {
     if (local_rate>0.0) local_rate /= 31536000000000.0; /** convert to s/mpc^3 from Myr/mpc^3 */
     REAL8 test,z,p;
-//    REAL8 pT,pt;  
-//    do
-//    {
-//        pT = XLALUniformDeviate(randParams);
+    REAL8 pT,pt;  
+    do
+    {
+        pT = XLALUniformDeviate(randParams);
         do
         {   
             test = XLALUniformDeviate(randParams);
@@ -309,9 +296,10 @@ REAL8 drawRedshift(LALCosmologicalParameters *params, double zmax, double tobs, 
             p=XLALUniformComovingVolumeDistribution(params, z, zmax);
         } while (test>p);
         //printf("z:%lf V(z):%lf\n",z,XLALIntegrateComovingVolumeDensity(params, z));
-//        if (local_rate>0.0) pt = 1.0-exp(-tobs*local_rate*XLALIntegrateComovingVolumeDensity(params, z));
-//        else pt = 1.0;
-//    } while (pT>pt);
+        if (local_rate>0.0) pt = 1.0-exp(-tobs*local_rate*XLALIntegrateComovingVolumeDensity(params, z));
+        else pt = 1.0;
+        //printf("R(z) = %lf %le %le\n",XLALIntegrateComovingVolumeDensity(params, z),exp(-tobs*local_rate*XLALIntegrateComovingVolumeDensity(params, z)),pt);
+    } while (pT>pt);
     
     return z;
 }
@@ -3071,7 +3059,7 @@ int main( int argc, char *argv[] )
   {
     /* increase counter */
     ninj++;
-    //printf("generating injection %d\n",(int) ninj);
+    printf("generating injection %d\n",(int) ninj);
     /* store time in table */
     simTable=XLALRandomInspiralTime( simTable, randParams,
         currentGpsTime, timeInterval );
@@ -3085,6 +3073,7 @@ int main( int argc, char *argv[] )
     /* draw redshift */
     if (dDistr==sfr)
     {
+        localRate = 1.0;
           redshift= drawRedshift(omega,zmaximal,tobs,localRate);        
 
       minMass1 = redshift_mass(minMass10, redshift);
@@ -3100,6 +3089,7 @@ int main( int argc, char *argv[] )
     }
     if (dDistr==uniformVolume) 
     {
+        localRate = 1.0;
         redshift= drawRedshift(omega,zmaximal,tobs,localRate); 
         minMass1 = redshift_mass(minMass10, redshift);
         maxMass1 = redshift_mass(maxMass10, redshift);
