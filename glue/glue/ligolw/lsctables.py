@@ -1225,7 +1225,7 @@ class SnglBurst(object):
 		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_period(self):
-		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
+		start = self.get_start()
 		return segments.segment(start, start + self.duration)
 
 	def set_period(self, period):
@@ -1257,7 +1257,7 @@ class SnglBurst(object):
 		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_ms_period(self):
-		start = LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+		start = self.get_ms_start()
 		return segments.segment(start, start + self.ms_duration)
 
 	def set_ms_period(self, period):
@@ -1280,6 +1280,7 @@ class SnglBurst(object):
 
 	def get_z(self):
 		return self.snr ** 2 / 2.
+
 
 SnglBurstTable.RowType = SnglBurst
 
@@ -2639,6 +2640,10 @@ class SimInspiralTable(table.Table):
 			else:
 				keep.append(row)
 		return vetoed
+
+	def get_end(self, site=None):
+		return numpy.asarray([row.get_end(site=site) for row in self])
+
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()

@@ -449,15 +449,6 @@ setup(
 			extra_compile_args = lal_pkg_config.extra_cflags
 		),
 		Extension(
-			"pylal.xlal.window",
-			["src/xlal/window.c", "src/xlal/misc.c"],
-			include_dirs = lal_pkg_config.incdirs + [numpy_get_include(), "src/xlal"],
-			libraries = lal_pkg_config.libs,
-			library_dirs = lal_pkg_config.libdirs,
-			runtime_library_dirs = lal_pkg_config.libdirs,
-			extra_compile_args = lal_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal._spawaveform",
 			["src/_spawaveform.c"],
 			include_dirs = lal_pkg_config.incdirs + lalinspiral_pkg_config.incdirs + [numpy_get_include()],
@@ -525,7 +516,6 @@ setup(
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
-		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotextrapolation"),
@@ -535,8 +525,6 @@ setup(
 		os.path.join("bin", "lalapps_compute_posterior"),
 		os.path.join("bin", "plotulvsmass"),
 		os.path.join("bin", "plotifar"),
-		os.path.join("bin", "plotinjnum"),
-		os.path.join("bin", "plotinspfound"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
 		os.path.join("bin", "plotinspmissed"),
@@ -565,6 +553,7 @@ setup(
 		os.path.join("bin", "pylal_exttrig_llsummary"),
 		os.path.join("bin", "pylal_exttrig_llbox"),
 		os.path.join("bin", "pylal_exttrig_llpage"),
+		os.path.join("bin", "pylal_make_imr_summary_page"),
 		os.path.join("bin", "pylal_recolor"),
 		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "pylal_version"),
@@ -682,7 +671,6 @@ setup(
 		os.path.join("bin", "ligolw_cbc_plotcumhist"),
 		os.path.join("bin", "pylal_imr_missed_found"),
 		os.path.join("bin", "pylal_imr_livetime"),
-		os.path.join("bin", "make_imr_summary_page"),
 		os.path.join("bin", "lalapps_cbc_compute_rs"),
 		os.path.join("bin", "lalapps_cbc_print_rs"),
 		os.path.join("bin", "ligolw_cbc_printsims"),
@@ -747,7 +735,8 @@ setup(
 		os.path.join("bin", "pylal_coh_PTF_plot_results"),
 		os.path.join("bin", "pylal_write_coh_PTF_page"),
 		os.path.join("bin", "ligolw_dbinjfind"),
-		os.path.join("bin", "lalapps_cbc_plothzdist")
+		os.path.join("bin", "lalapps_cbc_plothzdist"),
+		os.path.join("bin", "pylal_plot_segments")
 		],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

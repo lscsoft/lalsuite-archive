@@ -334,9 +334,18 @@ LALFindChirpSPTemplate (
     /* Dynamic lower cutoff
      * Work out longest length for template
      * Keep a few extra sample points for safety */
-    REAL4 currTime;
-    REAL4 maxT = ((REAL4) params->deltaT * (REAL4) (numPoints-12))/4.;
-    maxT -= 0.5 * (REAL4) params->invSpecTrunc * (REAL4) params->deltaT;
+    REAL4 currTime,maxT;
+    if (params->maxTempLength > 0)
+    {
+      /* If the maximum length is given use that */
+      maxT = params->maxTempLength;
+    }
+    else
+    {
+      /* If not work it out assuming middle of segment is analysed */
+      maxT = ((REAL4) params->deltaT * (REAL4) (numPoints-12))/4.;
+      maxT -= 0.5 * (REAL4) params->invSpecTrunc * (REAL4) params->deltaT;
+    }
     fLow = -1;
     for (f=1; f < 100; f++)
     {
@@ -414,29 +423,29 @@ LALFindChirpSPTemplate (
         psi1 = -LAL_PI - psi1;
         psi2 = psi1 * psi1;
         /* XXX minus sign added because of new sign convention for fft */
-        expPsi[k].im = - psi1 * ( 1 + psi2 * ( s2 + psi2 * s4 ) );
-        expPsi[k].re = -1 - psi2 * ( c2 + psi2 * c4 );
+        expPsi[k].imagf_FIXME = - psi1 * ( 1 + psi2 * ( s2 + psi2 * s4 ) );
+        expPsi[k].realf_FIXME = -1 - psi2 * ( c2 + psi2 * c4 );
       }
       else if ( psi1 > LAL_PI/2 )
       {
         psi1 = LAL_PI - psi1;
         psi2 = psi1 * psi1;
         /* XXX minus sign added because of new sign convention for fft */
-        expPsi[k].im = - psi1 * ( 1 + psi2 * ( s2 + psi2 * s4 ) );
-        expPsi[k].re = -1 - psi2 * ( c2 + psi2 * c4 );
+        expPsi[k].imagf_FIXME = - psi1 * ( 1 + psi2 * ( s2 + psi2 * s4 ) );
+        expPsi[k].realf_FIXME = -1 - psi2 * ( c2 + psi2 * c4 );
       }
       else
       {
         psi2 = psi1 * psi1;
         /* XXX minus sign added because of new sign convention for fft */
-        expPsi[k].im = - psi1 * ( 1 + psi2 * ( s2 + psi2 * s4 ) );
-        expPsi[k].re = 1 + psi2 * ( c2 + psi2 * c4 );
+        expPsi[k].imagf_FIXME = - psi1 * ( 1 + psi2 * ( s2 + psi2 * s4 ) );
+        expPsi[k].realf_FIXME = 1 + psi2 * ( c2 + psi2 * c4 );
       }
 
       /* if reverse chirp bank option selected, switch sign of imag. part */
       if ( params->reverseChirpBank )
       {
-        expPsi[k].im = - expPsi[k].im;
+        expPsi[k].imagf_FIXME = - cimagf(expPsi[k]);
       }
 
     }

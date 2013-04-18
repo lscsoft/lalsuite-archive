@@ -321,7 +321,7 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
   UINT4 fullProp = 1;
   UINT4 nDet = numDetectorsUniquePositions(runState);
 
-  if(!runState->proposalStats) runState->proposalStats = calloc(1,sizeof(LALInferenceVariables));
+  if(!runState->proposalStats) runState->proposalStats = XLALCalloc(1,sizeof(LALInferenceVariables));
   
   if(!LALInferenceCheckVariable(runState->proposalArgs,LALInferenceCurrentProposalName))
       LALInferenceAddVariable(runState->proposalArgs,LALInferenceCurrentProposalName, (void*)&defaultPropName, LALINFERENCE_string_t, LALINFERENCE_PARAM_OUTPUT);
@@ -335,7 +335,7 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
     LALInferenceAddProposalToCycle(runState, singleAdaptProposalName, &LALInferenceSingleAdaptProposal, TINYWEIGHT);
   }
 
-  if(!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi"))
+  if(!LALInferenceGetProcParamVal(runState->commandLine,"--margphi") && !LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-psiphi"))
     LALInferenceAddProposalToCycle(runState, polarizationPhaseJumpName, &LALInferencePolarizationPhaseJump, TINYWEIGHT);
 
   LALInferenceFrame frame=LALINFERENCE_FRAME_RADIATION;
@@ -1314,7 +1314,7 @@ LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVariable
       LALInferenceSetVariable(proposedParams, "tilt_spin2", &tilt2);
     }
 
-   if (LALInferenceCheckVariableNonFixed(proposedParams, "a_spin1")) {
+    if (LALInferenceCheckVariableNonFixed(proposedParams, "a_spin1")) {
       REAL8 a1 = draw_flat(runState, "a_spin1");
       LALInferenceSetVariable(proposedParams, "a_spin1", &a1);
     }
@@ -1322,6 +1322,16 @@ LALInferenceDrawApproxPrior(LALInferenceRunState *runState, LALInferenceVariable
     if (LALInferenceCheckVariableNonFixed(proposedParams, "a_spin2")) {
       REAL8 a2 = draw_flat(runState, "a_spin2");
       LALInferenceSetVariable(proposedParams, "a_spin2", &a2);
+    }
+
+    if (LALInferenceCheckVariableNonFixed(proposedParams, "spin1")) {
+      REAL8 a1 = draw_flat(runState, "spin1");
+      LALInferenceSetVariable(proposedParams, "spin1", &a1);
+    }
+
+    if (LALInferenceCheckVariableNonFixed(proposedParams, "spin2")) {
+      REAL8 a2 = draw_flat(runState, "spin2");
+      LALInferenceSetVariable(proposedParams, "spin2", &a2);
     }
 
     if (LALInferenceCheckVariableNonFixed(proposedParams, "phi_spin1")) {
@@ -2540,7 +2550,7 @@ void LALInferenceSetupAdaptiveProposals(LALInferenceRunState *state)
         INT4 adaptableStep = 0;
         LALInferenceAddVariable(state->proposalArgs, "adaptableStep", &adaptableStep, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_OUTPUT);
 
-        char *nameBuffer=calloc(MAX_STRLEN,sizeof(char));
+        char *nameBuffer=XLALCalloc(MAX_STRLEN,sizeof(char));
         sprintf(nameBuffer,"none");
         LALInferenceAddVariable(state->proposalArgs, "proposedVariableName", &nameBuffer, LALINFERENCE_string_t, LALINFERENCE_PARAM_OUTPUT);
 

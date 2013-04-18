@@ -174,8 +174,8 @@ LALCheckMemoryLeaks()
 #include <lal/GenerateSpinOrbitCW.h>
 
 /* Locations of the earth and sun ephemeris data */
-#define EARTHDATA "earth00-04.dat"
-#define SUNDATA "sun00-04.dat"
+#define EARTHDATA "earth00-19-DE405.dat.gz"
+#define SUNDATA   "sun00-19-DE405.dat.gz"
 
 int mycalls=0;
 int myclears=0;
@@ -799,8 +799,8 @@ int correct_phase(void) {
   sinx=sin(x);
   for (i = 0; i < fvec->length; ++i){
     fvec1=fvec->data[i];
-    fvec->data[i].re=fvec1.re*cosx-fvec1.im*sinx;
-    fvec->data[i].im=fvec1.im*cosx+fvec1.re*sinx;
+    fvec->data[i].realf_FIXME=crealf(fvec1)*cosx-cimagf(fvec1)*sinx;
+    fvec->data[i].imagf_FIXME=cimagf(fvec1)*cosx+crealf(fvec1)*sinx;
   }
 
   return 0;
@@ -905,10 +905,10 @@ int prepare_cwDetector(LALStatus* status){
   LALCCreateVector(status, &(cwDetector.transfer->data), 2);
 
   /* unit response function */
-  cwDetector.transfer->data->data[0].re = 1.0;
-  cwDetector.transfer->data->data[1].re = 1.0;
-  cwDetector.transfer->data->data[0].im = 0.0;
-  cwDetector.transfer->data->data[1].im = 0.0;
+  cwDetector.transfer->data->data[0].realf_FIXME = 1.0;
+  cwDetector.transfer->data->data[1].realf_FIXME = 1.0;
+  cwDetector.transfer->data->data[0].imagf_FIXME = 0.0;
+  cwDetector.transfer->data->data[1].imagf_FIXME = 0.0;
 
   /*
      Note that we DON'T update cwDetector Heterodyne Epoch.  Teviet
@@ -1274,8 +1274,8 @@ int read_and_add_freq_domain_noise(LALStatus* status, int iSFT) {
   norm=((REAL4)(fvec->length-1)*1.0/((REAL4)(header.nsamples-1)));
 
   for (i = 0; i < fvec->length; ++i) {
-    fvec->data[i].re += scale*fvecn->data[i].re*norm;
-    fvec->data[i].im += scale*fvecn->data[i].im*norm;
+    fvec->data[i].realf_FIXME += scale*crealf(fvecn->data[i])*norm;
+    fvec->data[i].imagf_FIXME += scale*cimagf(fvecn->data[i])*norm;
   }
 
   return 0;
@@ -1363,8 +1363,8 @@ int write_SFTS(int iSFT){
 
   for (i=0;i<fvec->length-1;i++){
 
-    rpw=fvec->data[i].re;
-    ipw=fvec->data[i].im;
+    rpw=crealf(fvec->data[i]);
+    ipw=cimagf(fvec->data[i]);
 
     errorcode=fwrite((void*)&rpw, sizeof(REAL4),1,fp);
     if (errorcode!=1){

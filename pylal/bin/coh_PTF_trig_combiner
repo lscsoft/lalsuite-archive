@@ -220,6 +220,11 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
                                                        e.path for e in cache))
     # This is a softcopy, so adding values to trigs also adds to zerolagtrigs
     zeroLagTrigs = trigs
+    # Also load the basic time slide table
+    timeSlideDoc = utils.load_filename((cache[0]).path,
+        gz=( (cache[0]).path ).endswith(".gz"))
+    timeSlideTable = table.get_table(timeSlideDoc,
+          lsctables.TimeSlideTable.tableName)
   else:
     trigs['ALL_TIMES'] = lsctables.New(lsctables.MultiInspiralTable,\
                                columns=lsctables.MultiInspiralTable.loadcolumns)
@@ -325,9 +330,8 @@ def main(cacheFile, ifoTag, userTag, segdir, outdir, grbTag=None, numTrials=6,\
   # get search summary table from old file
   xmldoc.childNodes[-1].appendChild(oldSearchSummTable)
 
-  if timeSlides:
-    # Add time slide table
-    xmldoc.childNodes[-1].appendChild(timeSlideTable)
+  # Add time slide table
+  xmldoc.childNodes[-1].appendChild(timeSlideTable)
 
   # construct new xml file names
   start, end = cache.to_segmentlistdict().extent_all()

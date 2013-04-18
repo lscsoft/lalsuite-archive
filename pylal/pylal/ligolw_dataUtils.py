@@ -314,8 +314,8 @@ class CompareDataRows:
         self.classB = RowClassB
         self.matchCriteriaA = None
         self.matchCriteriaB = None
-        self.classAcolumnOrder = None
-        self.classBcolumnOrder = None
+        self.neededColumnsA = None
+        self.neededColumnsB = None
         self.diffFunc = None
         self.window = None
 
@@ -331,17 +331,17 @@ class CompareDataRows:
     def set_matchCriteriaB( self, match_criteria ):
         self.matchCriteriaB = match_criteria
 
-    def set_classAcolumnOrder( self, columns ):
+    def set_neededColumnsA( self, columns ):
         for column in columns:
             if column not in self.classA.__slots__:
                 raise ValueError, "column %s not in classA's slots" % column
-        self.classAcolumnOrder = columns
+        self.neededColumnsA = columns
 
-    def set_classBcolumnOrder( self, columns ):
+    def set_neededColumnsB( self, columns ):
         for column in columns:
             if column not in self.classB.__slots__:
                 raise ValueError, "column %s not in classB's slots" % column
-        self.classBcolumnOrder = columns
+        self.neededColumnsB = columns
 
     def set_diffFunc( self, function ):
         self.diffFunc = function
@@ -365,15 +365,15 @@ class CompareDataRows:
     def dbWrapper( self, *args ):
         """
         A database wrapper for the compare functions.
-        @args: A list of values. The first len(self.classAcolumnOrder) is
-         assumed to be the data for classA, in the order that classAcolumnOrder
+        @args: A list of values. The first len(self.neededColumnsA) is
+         assumed to be the data for classA, in the order that neededColumnsA
          is in. The rest of the values are assumed to be the data for classB, in
-         the order that classBcolumnOrder is in.
+         the order that neededColumnsB is in.
         """
-        dataA = [args[i] for i in range(len(self.classAcolumnOrder))]
-        dataB = [args[i] for i in range(len(self.classAcolumnOrder), len(args))]
-        dataA = zip( self.classAcolumnOrder, dataA )
-        dataB = zip( self.classBcolumnOrder, dataB )
+        dataA = [args[i] for i in range(len(self.neededColumnsA))]
+        dataB = [args[i] for i in range(len(self.neededColumnsA), len(args))]
+        dataA = zip( self.neededColumnsA, dataA )
+        dataB = zip( self.neededColumnsB, dataB )
 
         return self._compare( dataA, dataB )
         
@@ -381,8 +381,8 @@ class CompareDataRows:
         """
         Creates a function in the given connection to a database that allows
         the given diffFunc to be performed on classA and classB on the fly.
-        To ensure data is populated correctly, self.classAcolumnOrder and 
-        self.classBcolumnOrder are set to whatever the order of columns is
+        To ensure data is populated correctly, self.neededColumnsA and 
+        self.neededColumnsB are set to whatever the order of columns is
         in the database. This can be overwritten using  classAcolumns and
         classBcolumns
         @connection: a connection to SQLite database
@@ -401,13 +401,30 @@ class CompareDataRows:
         """
         self.set_diffFunc( diffFunc )
         self.set_window( window )
-        if classAcolumns is None:
-            classAcolumns = sqlutils.get_column_names_from_table( connection, self.classA.tableName)
-        self.set_classAcolumnOrder(classAcolumns)
-        if classBcolumns is None:
-            classBcolumns = sqlutils.get_column_names_from_table( connection, self.classA.tableName)
-        self.set_classBcolumnOrder(classBcolumns)
-        connection.create_function( compFuncName, len(self.classAcolumnOrder)+len(self.classBcolumnOrder), self.dbWrapper )
+        classAcolumns = sqlutils.get_column_names_from_table( connection, self.classA.tableName)
+        classBcolumns = sqlutils.get_column_names_from_table( connection, self.classB.tableName)
+        if self.diffFunc == self.eThincaSim or self.diffFunc == self.eThincaSngl:
+            self.set_neededColumnsA(classAcolumns)
+            self.set_neededColumnsB(classBcolumns)
+        else:
+            # figure out what columns are needed
+            if self.matchCriteriaA == 'startTime':
+                neededColumnsA = [col for col in classAcolumns if re.search('ifo|start_time', col) is not None]
+            elif self.matchCriteriaA == 'endTime':
+                neededColumnsA = [col for col in classAcolumns if re.search('ifo|end_time', col) is not None]
+            else:
+                neededColumnsA = [col for col in classAcolumns if re.search(self.matchCriteriaA, col) is not None]
+            self.set_neededColumnsA(neededColumnsA)
+
+            if self.matchCriteriaB == 'startTime':
+                neededColumnsB = [col for col in classBcolumns if re.search('ifo|start_time', col) is not None]
+            elif self.matchCriteriaB == 'endTime':
+                neededColumnsB = [col for col in classBcolumns if re.search('ifo|end_time', col) is not None]
+            else:
+                neededColumnsB = [col for col in classBcolumns if re.search(self.matchCriteriaB, col) is not None]
+            self.set_neededColumnsB(neededColumnsB)
+
+        connection.create_function(compFuncName, len(self.neededColumnsA)+len(self.neededColumnsB), self.dbWrapper)
 
     def diffRowARowB( self, dataA, dataB ):
         """

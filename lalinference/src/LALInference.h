@@ -173,6 +173,9 @@ char **LALInferenceGetHeaderLine(FILE *inp);
 /** Converts between internally used parameter names and those external (e.g. in SimInspiralTable?) */
 const char *LALInferenceTranslateInternalToExternalParamName(const char *inName);
 
+/** Converts between externally used parameter names and those internal */
+void LALInferenceTranslateExternalToInternalParamName(char *outName, const char *inName);
+
 /** Print the parameters which do not vary to a file as a tab-separated ASCII line
  * \param out [in] pointer to output file
  * \param params [in] LALInferenceVaraibles structure to print
@@ -322,6 +325,11 @@ typedef void (*LALInferenceAlgorithm) (struct tagLALInferenceRunState *runState)
 /** Type declaration for output logging function, can be user-declared */
 typedef void (*LALInferenceLogFunction) (struct tagLALInferenceRunState *runState, LALInferenceVariables *vars);
 
+/** Type declaration for variables init function, can be user-declared.
+ * The function returns a pointer to a new LALInferenceVariables instance
+ * Reads \param runState->commandLine to get user config */
+typedef LALInferenceVariables * (*LALInferenceInitVariablesFunction) (struct tagLALInferenceRunState *runState);
+
 /** Structure containing inference run state
  * This includes pointers to the function types required to run
  * the algorithm, and data structures as required */
@@ -329,6 +337,7 @@ typedef struct
 tagLALInferenceRunState
 {
   ProcessParamsTable        *commandLine; /** A ProcessParamsTable with command line arguments */
+  LALInferenceInitVariablesFunction  initVariables; /** A function that returns a new set of variables for the model */
   LALInferenceAlgorithm              algorithm; /** The algorithm function */
   LALInferenceEvolveOneStepFunction  evolve; /** The algorithm's single iteration function */
   LALInferencePriorFunction          prior; /** The prior for the parameters */
@@ -455,6 +464,16 @@ void LALInferenceProcessParamLine(FILE *inp, char **headers, LALInferenceVariabl
 
 /** Sorts the variable structure by name */
 void LALInferenceSortVariablesByName(LALInferenceVariables *vars);
+
+/** LALInferenceVariable buffer to array and vica versa */
+INT4 LALInferenceBufferToArray(LALInferenceRunState *state, INT4 startCycle, INT4 endCycle, REAL8 **array);
+
+void LALInferenceArrayToBuffer(LALInferenceRunState *state, REAL8 **array);
+
+/** LALInference variables to an array, and vica versa */
+REAL8Vector *LALInferenceCopyVariablesToArray(LALInferenceVariables *origin);
+
+void LALInferenceCopyArrayToVariables(REAL8Vector *origin, LALInferenceVariables *target);
 
 /** Append the sample to a file. file pointer is stored in state->algorithmParams as a
  * LALInferenceVariable called "outfile", as a void ptr.
