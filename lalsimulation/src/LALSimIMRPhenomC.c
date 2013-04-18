@@ -122,7 +122,7 @@ static int IMRPhenomCGenerateAmpPhase( REAL8 *amplitude, REAL8 *phasing, REAL8 f
 static int IMRPhenomCGenerateFD(COMPLEX16FrequencySeries **htilde, const REAL8 phi0, const REAL8 deltaF, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomCParams *params);
 
 static int IMRPhenomCGenerateFDForTD(COMPLEX16FrequencySeries **htilde, const REAL8 t0, const REAL8 phi0, const REAL8 deltaF, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomCParams *params, const size_t nf);
-static int IMRPhenomCGenerateTD(REAL8TimeSeries **h, const REAL8 phiPeak, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomCParams *params);
+static int IMRPhenomCGenerateTD(REAL8TimeSeries **h, const REAL8 phiPeak, size_t *ind_t0, const REAL8 deltaT, const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 f_max, const REAL8 distance, const BBHPhenomCParams *params);
 
 static REAL8 EstimateSafeFMinForTD(const REAL8 m1, const REAL8 m2, const REAL8 f_min, const REAL8 deltaT);
 static REAL8 EstimateSafeFMaxForTD(const REAL8 f_max, const REAL8 dt);
@@ -534,7 +534,7 @@ int XLALSimIMRPhenomCGenerateTD(
     const REAL8 inclination   /**< inclination of source (rad) */
 ) {
 	BBHPhenomCParams *params;
-	size_t cut_ind, peak_ind;
+	size_t cut_ind, peak_ind, ind_t0;
 	REAL8 peak_phase;  /* measured, not intended */
 	REAL8 f_max_prime;
 	
@@ -582,8 +582,8 @@ int XLALSimIMRPhenomCGenerateTD(
 	}
 	#if debugPrayush
 	printf("In XLALSimIMRPhenomCGenerateTD: f_min=%f, f_max=%f\n", f_min, f_max);
-	printf("In XLALSimIMRPhenomCGenerateTD, start index: f_min = %f fRingDown = %f fCut = %f\n",
-            f_min, params->fRingDown, params->fCut);
+	printf("In XLALSimIMRPhenomCGenerateTD, fRingDown = %f fCut = %f\n",
+            params->fRingDown, params->fCut);
 	fflush(NULL);
 	#endif
 	
@@ -602,7 +602,7 @@ int XLALSimIMRPhenomCGenerateTD(
 	fflush(NULL);
 	#endif
 	
-	IMRPhenomCGenerateTD(hplus, 0., deltaT, m1, m2, f_min, f_max_prime, distance, params);
+	IMRPhenomCGenerateTD(hplus, 0., &ind_t0, deltaT, m1, m2, f_min, f_max_prime, distance, params);
 	if (!(*hplus)) {
 		XLALFree(params);
 		XLAL_ERROR(XLAL_EFUNC);
@@ -610,7 +610,7 @@ int XLALSimIMRPhenomCGenerateTD(
 	
 	/* generate hcross, which is hplus w/ GW phase shifted by pi/2
 	 * <==> orb. phase shifted by pi/4 */
-	IMRPhenomCGenerateTD(hcross, LAL_PI_4, deltaT, m1, m2, f_min, f_max_prime, distance, params);
+	IMRPhenomCGenerateTD(hcross, LAL_PI_4, &ind_t0, deltaT, m1, m2, f_min, f_max_prime, distance, params);
 	if (!(*hcross)) {
 		XLALDestroyREAL8TimeSeries(*hplus);
 		*hplus = NULL;
@@ -620,36 +620,16 @@ int XLALSimIMRPhenomCGenerateTD(
 	/* clip the parts below f_min */
 	//const size_t start_ind = ((*hplus)->data->length + EstimateIMRLength(m1, m2, f_max_prime, deltaT)) > EstimateIMRLength(m1, m2, f_min, deltaT) ? ((*hplus)->data->length + EstimateIMRLength(m1, m2, f_max_prime, deltaT) - EstimateIMRLength(m1, m2, f_min, deltaT)) : 0;
 	
-	const size_t start_ind = ((*hplus)->data->length 
-		      - EstimateIMRLength(m1, m2, 0.95 * f_min + 0.05 * f_max_prime, deltaT));
+	//const size_t start_ind = ((*hplus)->data->length 
+	//	      - EstimateIMRLength(m1, m2, 0.95 * f_min + 0.05 * f_max_prime, deltaT));
 	
-	#if debugPrayush
-	printf("In XLALSimIMRPhenomCGenerateTD, start index: f_min = %f fRingDown = %f\n",
-            f_min, params->fRingDown);
-	printf("In XLALSimIMRPhenomCGenerateTD, start index: len - RDlength(%f Hz) = %d - %zu\n", 
-            0.95 * f_min + 0.05 * f_max_prime, (*hplus)->data->length, 
-             EstimateIMRLength(m1, m2, 0.95 * f_min + 0.05 * f_max_prime, deltaT));
-
-	printf("In XLALSimIMRPhenomCGenerateTD, before clipping: f_min=%f, f_max=%f, f_max_prime=%f\n", f_min, f_max, f_max_prime);
-	printf("In XLALSimIMRPhenomCGenerateTD, start index passed to find_instant_freq = %zu\n", 
-	((*hplus)->data->length - EstimateIMRLength(m1, m2, f_max_prime, deltaT)));
-	printf("In XLALSimIMRPhenomCGenerateTD, data length = %d, estimated IMR length = %d (fmin) , %d (fmaxprime)\n", (int) (*hplus)->data->length , (int) EstimateIMRLength(m1, m2, f_min, deltaT), (int) EstimateIMRLength(m1, m2, f_max_prime, deltaT));
-	printf("In XLALSimIMRPhenomCGenerateTD, estimated length from %f Hz = %f s\n", f_min, deltaT * (int) EstimateIMRLength(m1, m2, f_min, deltaT));
-	printf("In XLALSimIMRPhenomCGenerateTD, start_ind = %zu\n", start_ind);
-	fflush(NULL);
-	
-	printf("In XLALSimIMRPhenomCGenerateTD, Before resizing deltaT = %f\n", (*hplus)->deltaT );
-	printf("In XLALSimIMRPhenomCGenerateTD, length = %d, start_ind at %zu\n", 
-		(int) (*hplus)->data->length, start_ind );
-	#endif
-	cut_ind = find_instant_freq(*hplus, *hcross, f_min, start_ind);
+	cut_ind = 0.* find_instant_freq(*hplus, *hcross, f_min, ind_t0);
 	*hplus = XLALResizeREAL8TimeSeries(*hplus, cut_ind, (*hplus)->data->length - cut_ind);
 	*hcross = XLALResizeREAL8TimeSeries(*hcross, cut_ind, (*hcross)->data->length - cut_ind);
 	
 	#if debugPrayush
 	printf("In XLALSimIMRPhenomCGenerateTD, Cut at cut_ind=%d, t = %f\n", (int) cut_ind, 
 		(*hplus)->deltaT * (int) cut_ind );
-	printf("In XLALSimIMRPhenomCGenerateTD, Resized deltaT = %f\n", (*hplus)->deltaT );
 	
 	FILE *fout=fopen("hpluscrossTrunc.dat","w+");
 	for( int i = 0; i < (int)(*hplus)->data->length; i++ )
@@ -943,7 +923,8 @@ static int IMRPhenomCGenerateFDForTD(
  */
 static int IMRPhenomCGenerateTD(
 	REAL8TimeSeries **h, 
-    const REAL8 phi0, 
+    const REAL8 phi0,
+    size_t *ind_t0,
 	const REAL8 deltaT, 
 	const REAL8 m1, 
 	const REAL8 m2, 
@@ -963,8 +944,10 @@ static int IMRPhenomCGenerateTD(
 	const REAL8 f_max_wide = params->fCut; //0.5 / deltaT;
 	if (EstimateSafeFMaxForTD(f_max, deltaT) > f_max_wide)
 		XLALPrintWarning("Warning: sampling rate (%" LAL_REAL8_FORMAT " Hz) too low for expected spectral content (%" LAL_REAL8_FORMAT " Hz) \n", deltaT, EstimateSafeFMaxForTD(f_max, deltaT));
-        const size_t nt = NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT));
-	deltaF = 1. / (deltaT * NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT)));
+    
+    const size_t nt = NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT));
+    *ind_t0 = nt -EstimateIMRLength(m1, m2, params->fRingDown, deltaT);
+	deltaF = 1. / (deltaT * (REAL8) nt);
 	
 	#if debugPrayush
 	printf("In IMRPhenomCGenerateTD: deltaT = %f, delta_f=%f, Tlen = %d\n", 
@@ -975,11 +958,10 @@ static int IMRPhenomCGenerateTD(
 	
 	/* Get the length in time for the entire IMR waveform, so the coalesence
 	 * can be positioned (in time) accordingly, to avoid wrap-around */
-	REAL8 t0 = deltaT * (NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT))
-			    - EstimateIMRLength(m1, m2, params->fRingDown, deltaT));
+	REAL8 t0 = deltaT * ((REAL8) *ind_t0);
 	
 	#if debugPrayush
-	printf("In IMRPhenomCGenerateTD: t0 passed = %f, from %f Hz\n", t0,
+	printf("In IMRPhenomCGenerateTD: t0 passed = %f, fRD = %f Hz\n", t0,
             params->fRingDown);
 	#endif
 	
@@ -994,26 +976,7 @@ static int IMRPhenomCGenerateTD(
 	
 	/* convert to time domain */
 	FDToTD(h, htilde, m1 + m2, deltaT, f_min, f_max, f_min_wide, f_max_wide);
-	#if debugPrayush
-	FILE *fout=fopen("htilde.dat","w+");
-	for( int i = 0; i < (int)(htilde)->data->length; i++ )
-		fprintf(fout, "%e\t%e\t%e\t%e\n", i * deltaF, creal((htilde->data->data)[i]),
-				cimag((htilde->data->data)[i]), cabs((htilde->data->data)[i]) );
-	fclose(fout);
-	#endif
 	
-	#if debugPrayush
-	printf("In IMRPhenomCGenerateTD: deltaF=%f, length of htild=%d\n",
-			deltaF, (int) htilde->data->length );
-	printf("In IMRPhenomCGenerateTD: deltaT=%f, length of hplus=%d, hplus->deltaT=%f\n",
-			deltaT, (int) (*h)->data->length, (*h)->deltaT );
-	
-	
-	fout=fopen("hpluscross.dat","w+");
-	for( int i = 0; i < (int)(*h)->data->length; i++ )
-		fprintf(fout, "%e\t%e\n", i * (*h)->deltaT, (*h)->data->data[i] );
-	fclose(fout);
-	#endif
 	XLALDestroyCOMPLEX16FrequencySeries(htilde);
 	if (!*h) XLAL_ERROR(XLAL_EFUNC);
 	
@@ -1149,10 +1112,7 @@ static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries
 	size_t k = (start + 1) > 0 ? (start + 1) : 0;
 	size_t target_ind = 0;
 	FILE *fout = fopen("./instF.dat","w+");
-	#if debugPrayush
-	printf("In find_instant_freq: start = %zu, k = %zu, n = %zu\n", start, k, n);
-	fflush(NULL);
-	#endif
+	
 	/* Use second order differencing to find the instantaneous frequency as
 	 * h = A e^(2 pi i f t) ==> f = d/dt(h) / (2*pi*h) */
 	for (; k > 0 /*< n*/; k--) {
@@ -1166,8 +1126,19 @@ static size_t find_instant_freq(const REAL8TimeSeries *hp, const REAL8TimeSeries
 		fprintf( fout, "%d\t%e\n", (int) k, f );
 		fflush(NULL);
 		#endif
-		if (f <= target && target_ind == 0)target_ind = k + 1; //return k;// - 1;
+		if (f <= target && target_ind == 0){
+			target_ind = k + 1; 
+			//break;
+			//return k;// - 1;
+		}
 	}
+	
+	#if debugPrayush
+	printf("In find_instant_freq: start = %zu, k = %zu, n = %zu\n", start, k, n);
+	printf("In find_instant_freq: target_ind = %zu\n", target_ind);
+	fflush(NULL);
+	#endif
+
 	return target_ind;
 	fclose(fout);
 	XLAL_ERROR(XLAL_EDOM);
