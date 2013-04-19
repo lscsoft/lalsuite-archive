@@ -477,9 +477,7 @@ int XLALSimIMRPhenomCGenerateFD(
 
   /* If mass ratio is above 4 and below 20, give a warning, and if it is above
    * 20, throw an error */
-  REAL8 q = m1/m2;
-  if (q > 1.0)
-    q = 1./q;
+	REAL8 q = (m1 > m2) ? (m1 / m2) : (m2 / m1);
 
   if (q > 20.0){
       XLALPrintError("Mass ratio is way outside the calibration range. m1/m2 should be <= 20.\n");
@@ -561,9 +559,7 @@ int XLALSimIMRPhenomCGenerateTD(
 	
 	/* If mass ratio is above 4 and below 20, give a warning, and if it is above
 	 * 20, throw an error */
-	REAL8 q = m1/m2;
-	if (q > 1.0)
-		q = 1./q;
+	REAL8 q = (m1 > m2) ? (m1 / m2) : (m2 / m1);
 	
 	if (q > 20.0){
 		XLALPrintError("Mass ratio is way outside the calibration range. m1/m2 should be <= 20.\n");
@@ -947,7 +943,7 @@ static int IMRPhenomCGenerateTD(
     
     const size_t nt = NextPow2(EstimateIMRLength(m1, m2, f_min_wide, deltaT));
     const size_t ne = EstimateIMRLength(m1, m2, params->fRingDown, deltaT);
-    *ind_t0 = (nt > (16 * ne)) ? (nt - (4 * ne)) : (nt - (2 * ne));
+    *ind_t0 = ((nt - EstimateIMRLength(m1, m2, f_min_wide, deltaT)) > (4 * ne)) ? (nt - (4 * ne)) : (nt - (2 * ne));
 	deltaF = 1. / (deltaT * (REAL8) nt);
 	
 	#if debugPrayush
