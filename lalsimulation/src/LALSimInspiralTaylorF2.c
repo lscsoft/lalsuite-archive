@@ -118,8 +118,10 @@ int XLALSimInspiralTaylorF2(
     lam1 = XLALSimInspiralEOSLambda(eos, m1);
     lam2 = XLALSimInspiralEOSLambda(eos, m2);
 
-    REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lam1); /* The QM deformability parameters */
-    REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lam2); /* This is 1 for black holes and larger for neutron stars */
+    REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lam1,m1); /* The QM deformability parameters */
+    REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lam2,m2); /* This is 1 for black holes and larger for neutron stars */
+
+//  printf("Quadparams: %e, %e\n", qm_def1, qm_def2);
 
     switch( spinO )
     {

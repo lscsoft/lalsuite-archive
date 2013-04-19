@@ -16,7 +16,7 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
- 
+ #include <stdlib.h> 
  #include <stdio.h>
  #include <string.h>
  #include <lal/LALSimInspiralEOS.h>
@@ -48,6 +48,8 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
     /* this is fed the intrinsic masses and then computes the value of \Lambda(m) See Hinderer et al ( http://arxiv.org/abs/0911.3535 ) for details of the EOSes*/
     /* \Lambda(m) is in units of s^-5 */
     REAL8 lambda=0.;
+//  printf("EOS number: %d\n", eos_type);
+//  printf("mass: %e\n", m_intr_msun);
     switch (eos_type)
     {
         case LAL_SIM_INSPIRAL_EOS_NONE:
@@ -55,6 +57,7 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
         break;
     // MS1
         case LAL_SIM_INSPIRAL_EOS_MS1:
+            printf("Using EOS MS1\n");
             lambda = 2.755956E-24*(2.19296 + 20.0273*m_intr_msun - 17.9443*m_intr_msun*m_intr_msun 
             + 5.75129*m_intr_msun*m_intr_msun*m_intr_msun - 0.699095*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
         break;
@@ -82,19 +85,25 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
         lambda = 0.0;
         break;
     }
+//  printf("calculated love number: %e\n", lambda);
     if (lambda<0.0) return 0.0;
     else return lambda;
 }
 
-REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda) {
+REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda, REAL8 m_intr_msun) {
     /* Quadrupole-monopole parameter calculated from love number;
        see http://arxiv.org/abs/1303.1528 */
-    REAL8 q = 0.0;
-    REAL8 l = lambda;
-
+    REAL8 q;
+    REAL8 l = 3.44E26*lambda/m_intr_msun;
+    REAL8 tolerance = 1E-15;
+    if(l<tolerance) { //printf("Love number is (nearly) zero; cannot compute QM parameter. Setting to 1.0 (BH value).\n");
+                      q = 1.0; } 
+    else {
     q =  0.194 + 0.0936*log(l) + 0.0474*log(l)*log(l);
     q -= 0.00421*log(l)*log(l)*log(l);
     q += 0.000123*log(l)*log(l)*log(l)*log(l);
+    q = exp(q);
+    }
 
     return q;
 

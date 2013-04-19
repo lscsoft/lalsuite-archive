@@ -1512,18 +1512,17 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       printf("Injecting with f_min = %f.\n", f_min);
 
 
-    LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE;
-    ppt=LALInferenceGetProcParamVal(commandLine,"--eos");
-    if(ppt){
+      LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE;
 
-      eos = XLALSimEOSfromString(ppt->value);
+      eos = injEvent->eos;
+
+      printf("Equation of state: %d\n",eos);
 
       /* check which EOS chosen, error if not available */
       if (eos > LAL_SIM_INSPIRAL_NumEOS ) {
           XLALPrintError("Chosen equation of state not implemented in lalsimulation.\n");
           exit(-1) ;
       }
-    }
 
 
       

@@ -1798,7 +1798,6 @@ int XLALSimInspiralChooseTDWaveform(
 {
     REAL8 LNhatx, LNhaty, LNhatz, E1x, E1y, E1z;
     int ret;
-    (void)eos; //Unused for now
     /* N.B. the quadrupole of a spinning compact body labeled by A is 
      * Q_A = - quadparam_A chi_A^2 m_A^3 (see gr-qc/9709032)
      * where quadparam = 1 for BH ~= 4-8 for NS.
@@ -1807,11 +1806,16 @@ int XLALSimInspiralChooseTDWaveform(
      * Will later add ability to set via LALSimInspiralTestGRParam
      */
     REAL8 v0 = 1., quadparam1 = 1., quadparam2 = 1., lam1 = 0., lam2 = 0.;
-
-    lam1 = XLALSimInspiralEOSLambda(eos, m1); //These should be intrinsic masses; how do I do that?
-    lam2 = XLALSimInspiralEOSLambda(eos, m2); 
-    quadparam1 = XLALSimInspiralEOSQfromLambda(lam1);
-    quadparam2 = XLALSimInspiralEOSQfromLambda(lam2); 
+    REAL8 m1sun, m2sun;
+    m1sun = m1/LAL_MSUN_SI;
+    m2sun = m2/LAL_MSUN_SI;
+    printf("masses: %e, %e\n", m1, m2);
+    lam1 = XLALSimInspiralEOSLambda(eos, m1sun); //Marco: These should be intrinsic masses; how do I do that?
+    lam2 = XLALSimInspiralEOSLambda(eos, m2sun); 
+    printf("love numbers: %e, %e\n", lam1, lam2);
+    quadparam1 = XLALSimInspiralEOSQfromLambda(lam1,m1sun);
+    quadparam2 = XLALSimInspiralEOSQfromLambda(lam2,m2sun); 
+    printf("quadparams: %e, %e\n", quadparam1, quadparam2);
 
     /* General sanity checks that will abort */
 
