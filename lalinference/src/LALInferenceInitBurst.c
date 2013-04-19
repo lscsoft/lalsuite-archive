@@ -487,9 +487,9 @@ void LALInferenceInitRDVariables(LALInferenceRunState *state)
 	REAL8 starttime;
 	REAL8 logampmin=log(1e-25);  /* amplitude parameter */
 	REAL8 logampmax=log(1e-18);
-	REAL8 f0min=1800.0;   /* dominant frequency */
+	REAL8 f0min=1600.0;   /* dominant frequency */
 	REAL8 f0max=4000.0;
-	REAL8 qualitymin=20;  /* decay time */
+	REAL8 qualitymin=10;  /* decay time */
 	REAL8 qualitymax=100;
 	REAL8 phi0min=0.0;    /* initial phase */
 	REAL8 phi0max=LAL_TWOPI;
@@ -516,9 +516,6 @@ Parameter arguments:\n\
 (--qualitymax quality)\tMaximum quality factor\n\
 (--phi0max initPhase [degrees])\tMax initial phase\n\
 (--phi0min initPhase [degrees])\tMin initial phase\n\
-(--sphPhimax initAzimuth [degrees])\tMax spherical harmonic azimuth\n\
-(--sphPhimin initAzimuth [degrees])\tMin spherical harmonic azimuth\n\
-(--pin-sphPhi [degrees])\t pin right-ascension to here\n\
 (--pin-RA [radians])\t pin right-ascension to here\n\
 (--pin-dec [radians])\t pin declination to here\n";
 
