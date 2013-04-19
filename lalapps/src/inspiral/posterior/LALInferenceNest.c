@@ -45,7 +45,7 @@
 
 LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
-void initVariables(LALInferenceRunState *state);
+//void initVariables(LALInferenceRunState *state);
 
 void initStudentt(LALInferenceRunState *state);
 // static void mc2masses(double mc, double eta, double *m1, double *m2);
@@ -87,9 +87,9 @@ Initialisation arguments:\n\
 	fprintf(stdout, " readData(): started.\n");
 	irs->commandLine=commandLine;
     
-    if(LALInferenceGetProcParamVal(commandLine,"--burst_inj"))
-        irs->data = LALInferenceReadBurstData(commandLine);
-    else
+    //if(LALInferenceGetProcParamVal(commandLine,"--burst_inj"))
+    //    irs->data = LALInferenceReadBurstData(commandLine);
+    //else
     	irs->data = LALInferenceReadData(commandLine);
 
 	/* (this will already initialise each LALIFOData's following elements:  */
@@ -114,6 +114,8 @@ Initialisation arguments:\n\
 		LALInferenceInjectInspiralSignal(irs->data,commandLine);
 		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
     }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--inject_from_mdc");
+    if (ppt) {fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT BEEN IMPLEMENTED YET. Exiting...\n"); exit(1);}
 		ifoPtr = irs->data;
 		ifoListStart = irs->data;
 		while (ifoPtr != NULL) {
