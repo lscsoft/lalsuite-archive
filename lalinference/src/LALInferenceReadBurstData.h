@@ -41,7 +41,6 @@
  * \return Pointer to a new \c LALInferenceIFOData linked list containing the data, or NULL upon error.
  * \author John Veitch
  */
-struct tagLALInferenceIFOData * LALInferenceReadBurstData (ProcessParamsTable * commandLine);
 void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
 void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 /*@}*/
