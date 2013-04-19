@@ -105,6 +105,8 @@ REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda, REAL8 m_intr_msun) {
     q = exp(q);
     }
 
+//  printf("%e %e\n", l, q); // Testing numerical results from these functions.
+
     return q;
 
 }
