@@ -630,10 +630,10 @@ int XLALSimBurstSineGaussian(
    // printf("pol %lf ecc %lf combination %lf combination %lf\n",polarization,eccentricity,(a * cos(polarization) - b * sin(polarization)),(b * cos(polarization) + a * sin(polarization)));
 	int length;
 	unsigned i;
-  //  printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
-   // printf("hrss %10.2e hcrosrs %10.2e sgrss %10.2e h0cross %10.2e\n",hrss,hcrossrss,sgrss,h0cross);
-if (isnan(hrss))
-printf("Im here\n");
+    //printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
+    //printf("hrss %10.2e hcrosrs %10.2e sgrss %10.2e h0cross %10.2e\n",hrss,hcrossrss,sgrss,h0cross);
+//if (isnan(hrss))
+//printf("Im here\n");
  	/* length of the injection time series is 30 * the width of the
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
 	 * the nearest odd integer */
@@ -665,7 +665,6 @@ printf("Im here\n");
 		const double fac = exp(-0.5 * phi * phi / (Q * Q));
 		(*hplus)->data->data[i]  = h0plus * fac * cos(phi);
 		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  //salvo remove zero here
-	//	fprintf(testout,"%lf %10.10e %10.10e\n",t,h0plus * fac * cos(phi), h0cross * fac * sin(phi));
 	}
 //fclose(testout);
 	/* apply a Tukey window for continuity at the start and end of the
@@ -763,10 +762,11 @@ int XLALSimBurstSineGaussianF(
     REAL8 sigma= Q/(LAL_TWOPI*centre_frequency);
     REAL8 tau2=tau*tau;
     /* set fmax to be f0 + 3sigmas*/
-    REAL8 Fmax=centre_frequency + 3.0*tau;
-    
+    //REAL8 Fmax=centre_frequency + 6.0*tau;
+    //printf("fmax %lf    f0=%lf\n",Fmax,centre_frequency);
     /* if fmax > nyquist use nyquist */
-    if (Fmax>(1.0/(2.0*deltaT))) Fmax=1.0/(2.0*deltaT);
+   // if (Fmax>(1.0/(2.0*deltaT))) 
+    REAL8 Fmax=1.0/(2.0*deltaT);
     size_t upper= (size_t) ( Fmax/deltaF+1);
     
     COMPLEX16FrequencySeries *hptilde;
@@ -788,8 +788,8 @@ int XLALSimBurstSineGaussianF(
      REAL8 phi2plus=0.0;
      REAL8 phi2minus=0.0;
      
-  // FILE * testout = fopen("cippa2.txt","w");
-for(i = 0; i < upper; i++) {
+   //FILE * testout = fopen("cippa2.txt","w");
+	for(i = 0; i < upper; i++) {
         f=((REAL8 ) i )*deltaF;
 		phi2plus =(centre_frequency +f)*(centre_frequency +f)/tau2;
         phi2minus= (f-centre_frequency )*(f-centre_frequency )/tau2;
@@ -797,11 +797,11 @@ for(i = 0; i < upper; i++) {
 		hptilde->data->data[i]  =0.0;// h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
 		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus));
         //if (f> centre_frequency*(1.-0.5) && f<centre_frequency*(1.+0.5))
-      //  printf("f %lf exp1 %10.10e exp2 %10.10e\n",f, exp(phi1),exp(-phi2));
-   //fprintf(testout,"%lf %10.10e %10.10e  %10.10e %10.10e %lf\n",f,CX16re(hptilde->data->data[i]),CX16im(hptilde->data->data[i]),CX16re(hctilde->data->data[i]),CX16im(hctilde->data->data[i]),centre_frequency);
+		//printf("f %lf exp1 %10.10e exp2 %10.10e\n",f, exp(phi1),exp(-phi2));
+		//fprintf(testout,"%lf %10.10e %10.10e  %10.10e %10.10e %lf\n",f,CX16re(hptilde->data->data[i]),CX16im(hptilde->data->data[i]),CX16re(hctilde->data->data[i]),CX16im(hctilde->data->data[i]),centre_frequency);
 	}
 
-//fclose(testout);
+	//fclose(testout);
 
     *hplus=hptilde;
     *hcross=hctilde;
