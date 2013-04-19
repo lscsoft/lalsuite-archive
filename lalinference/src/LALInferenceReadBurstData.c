@@ -305,8 +305,6 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     if(thisData->oneSidedNoisePowerSpectrum){
         UINT4 upper=thisData->fHigh/injF->deltaF;
 	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<upper;j++){
-        if (j==thisData->fLow/injF->deltaF+1)
-        printf("f %lf flow %lf fHigh %lf, injF %10.10e PSD %10.10e\n",j*injF->deltaF,thisData->fLow,thisData->fHigh,injF->data->data[j].re,thisData->oneSidedNoisePowerSpectrum->data->data[j]);
 	  SNR+=pow(injF->data->data[j].re,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
 	  SNR+=pow(injF->data->data[j].im,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
 	}
@@ -328,7 +326,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
       sprintf(filename,"%s_timeInjection.dat",thisData->name);
       FILE* file=fopen(filename, "w");
       for(j=0;j<inj8Wave->data->length;j++){   
-	fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
+	  fprintf(file, "%.6f\t%lg\n", XLALGPSGetREAL8(&thisData->timeData->epoch) + thisData->timeData->deltaT*j, inj8Wave->data->data[j]);
       }
       fclose(file);
       sprintf(filename,"%s_freqInjection.dat",thisData->name);
@@ -346,8 +344,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     }
     NetworkSNR=sqrt(NetworkSNR);
     fprintf(stdout,"Network SNR of event %d = %.4f\n",event,NetworkSNR);
-    if (NetworkSNR<8.0) {fprintf(stderr,"NetSNR below 8. Exiting...\n");exit(1);} 
-    if (NetworkSNR>50.0) {fprintf(stderr,"NetSNR above 50. Exiting...\n");exit(1);}
+    //if (NetworkSNR<8.0) {fprintf(stderr,"NetSNR below 8. Exiting...\n");exit(1);} 
+    //if (NetworkSNR>50.0) {fprintf(stderr,"NetSNR above 50. Exiting...\n");exit(1);}
 
     thisData=IFOdata;
     //LALInferenceIFOData *IFOdataRed=NULL;
