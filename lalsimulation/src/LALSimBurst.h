@@ -129,6 +129,13 @@ REAL8 XLALMeasureHrss(const REAL8TimeSeries *, const REAL8TimeSeries *);
 REAL8 XLALMeasureIntHDotSquaredDT(const COMPLEX16FrequencySeries *);
 REAL8 XLALMeasureEoverRsquared(REAL8TimeSeries *, REAL8TimeSeries *);
 
+/** Enumeration to specify time or frequency domain */
+typedef enum {
+  LAL_SIM_BURST_DOMAIN_TIME,
+  LAL_SIM_BURST_DOMAIN_FREQUENCY
+ } LALSimulationBurstDomain;
+
+
 #if 0
 { /* so that editors will match succeeding brace */
 #elif defined(__cplusplus)
