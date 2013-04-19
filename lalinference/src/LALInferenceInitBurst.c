@@ -257,7 +257,7 @@ if (BinjTable && burst_inj){
     // Check the max Nyquist frequency for this parameter range
     
     if ( (Fmax+ 3.0*Fmax/Qmin) > state->data->fHigh){
-        fprintf(stderr,"ERROR, some of the template in your parameter space will be generated at a frequency higher than fhigh (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(Fmax+ 3.0*Fmax/Qmin));
+        fprintf(stderr,"ERROR, some of the template in your parameter space will be generated at a frequency higher than Nyquist (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(Fmax+ 3.0*Fmax/Qmin));
         exit(1);
     }
         

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Kipp Cannon, Lisa M. Goggin, Patrick Brady, Saikat
- * Ray-Majumder, Xavier Siemens
+ * Ray-Majumder, Xavier Siemens, Salvatore Vitale
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
