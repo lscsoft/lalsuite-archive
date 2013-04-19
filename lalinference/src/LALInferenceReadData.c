@@ -86,7 +86,7 @@ struct fvec {
 char *SNRpath = NULL;
 
 //struct fvec *interpFromFile(char *filename);
-
+static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParamsTable *commandLine);
 struct fvec *interpFromFile(char *filename);
 typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 void MetaNoiseFunc(LALStatus *status, REAL8 *psd, REAL8 f, struct fvec *interp, NoiseFunc *noisefunc);
@@ -315,13 +315,13 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     UINT4 i,j;
     //int FakeFlag=0; - set but not used
     char strainname[]="LSC-STRAIN";
-    UINT4 q=0;	
+    //UINT4 q=0;	
     //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
     //NoiseFunc *PSD=NULL;
     //REAL8 scalefactor=1;
-    SimInspiralTable *injTable=NULL;
+    //SimInspiralTable *injTable=NULL;
     RandomParams *datarandparam;
-    UINT4 event=0;
+    //UINT4 event=0;
     char *chartmp=NULL;
     char **channels=NULL;
     char **caches=NULL;
@@ -430,53 +430,13 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     IFOdata=headIFO=calloc(sizeof(LALInferenceIFOData),Nifo);
     if(!IFOdata) XLAL_ERROR_NULL(XLAL_ENOMEM);
 
-    if(LALInferenceGetProcParamVal(commandLine,"--injXML"))
-    {
-        XLALPrintError("ERROR: --injXML option is deprecated. Use --inj and update your scripts\n");
-        exit(1);
-    }
-    procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
-    if(procparam){
-        SimInspiralTableFromLIGOLw(&injTable,procparam->value,0,0);
-        if(!injTable){
-            XLALPrintError("Unable to open injection file(LALInferenceReadData) %s\n",procparam->value);
-            XLAL_ERROR_NULL(XLAL_EFUNC);
-        }
-        procparam=LALInferenceGetProcParamVal(commandLine,"--event");
-        if(procparam) {
-            event=atoi(procparam->value);
-            while(q<event) {q++; injTable=injTable->next;}
-        }
-        else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
-        {
-            while(injTable)
-            {
-                if(injTable->event_id->id == (UINT4)atoi(procparam->value)) break;
-                else injTable=injTable->next;
-            }
-            if(!injTable){
-                fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
-                exit(1);
-            }
-        }
-    }
-
     procparam=LALInferenceGetProcParamVal(commandLine,"--psdstart");
     if (!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--PSDstart");
     LALStringToGPS(&status,&GPSstart,procparam->value,&chartmp);
     if(status.statusCode) REPORTSTATUS(&status);
 
-    if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
-        procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-        LALStringToGPS(&status,&GPStrig,procparam->value,&chartmp);
-    }
-    else{
-        if(injTable) memcpy(&GPStrig,&(injTable->geocent_end_time),sizeof(GPStrig));
-        else {
-            XLALPrintError("Error: No trigger time specifed and no injection given \n");
-            XLAL_ERROR_NULL(XLAL_EINVAL);
-        }
-    }
+    LALInferenceSetGPSTrigtimeFromXML(&GPStrig,commandLine);
+    
     if(status.statusCode) REPORTSTATUS(&status);
     ppt=LALInferenceGetProcParamVal(commandLine,"--psdlength");
     if(!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--PSDlength");
@@ -2416,3 +2376,85 @@ ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
     //if(runState->currentParams && runState->currentParams->head) runState->likelihood(runState->currentParams,runState->data,runState->template);
     return;
 }
+
+static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParamsTable *commandLine){
+    
+    ProcessParamsTable *procparam;
+    SimInspiralTable *inspiralTable=NULL;
+    SimBurst *burstTable=NULL;
+    char *chartmp=NULL;
+    UINT4 event=0;
+    UINT4 q=0;
+    LALStatus status;
+    /* First check if trigtime has been given as an option */
+    if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
+        procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+        LALStringToGPS(&status,GPStrig,procparam->value,&chartmp);
+    }
+    else{
+    /* If not check if we have an injtable passed with --inj */
+        
+        if(LALInferenceGetProcParamVal(commandLine,"--injXML"))
+    {
+        XLALPrintError("ERROR: --injXML option is deprecated. Use --inj and update your scripts\n");
+        exit(1);
+    }
+    procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
+    if(procparam){
+        fprintf(stdout,"Checking if the xml table is an inspiral table... \n");
+        /* Check if it is a SimInspiralTable */
+        SimInspiralTableFromLIGOLw(&inspiralTable,procparam->value,0,0);
+        
+        if (inspiralTable){
+            procparam=LALInferenceGetProcParamVal(commandLine,"--event");
+            if(procparam) {
+                event=atoi(procparam->value);
+                while(q<event) {q++; inspiralTable=inspiralTable->next;}
+            }
+            else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
+            {
+                while(inspiralTable)
+                {
+                    if(inspiralTable->event_id->id == (UINT4)atoi(procparam->value)) break;
+                    else inspiralTable=inspiralTable->next;
+                }
+                if(!inspiralTable){
+                    fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",procparam->value);
+                    exit(1);
+                }
+            }
+          memcpy(&GPStrig,&(inspiralTable->geocent_end_time),sizeof(GPStrig));
+          printf("Set inspiral injtime %i\n",inspiralTable->geocent_end_time.gpsSeconds);
+          return;
+       }
+       procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
+       /* Check if it is a SimBurst table */
+        fprintf(stdout,"Checking if the xml table is a burst table... \n");
+        burstTable=XLALSimBurstTableFromLIGOLw(procparam->value,0,0);
+        if(burstTable){
+            
+            procparam=LALInferenceGetProcParamVal(commandLine,"--event");
+            if(procparam) {
+                event=atoi(procparam->value);
+                while(q<event) {q++; burstTable=burstTable->next;}
+            }
+            else if ((procparam=LALInferenceGetProcParamVal(commandLine,"--event-id")))
+            {
+                fprintf(stderr,"Error, SimBurst tables do not currently support event_id tags \n");
+                exit(1);
+                
+            }
+          memcpy(&GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
+          printf("Set burst injtime %i\n",burstTable->time_geocent_gps.gpsSeconds);
+          return;
+            
+        }
+        
+        
+        XLALPrintError("Error: No trigger time specifed and no injection given. Use either --trigtime TIME or --inj inj.xml \n");
+
+        
+        }
+    }
+}
+
