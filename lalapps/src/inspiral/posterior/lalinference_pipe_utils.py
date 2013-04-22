@@ -23,7 +23,7 @@ class Event():
   Represents a unique event to run on
   """
   new_id=itertools.count().next
-  def __init__(self,trig_time=None,SimInspiral=None,SnglInspiral=None,CoincInspiral=None,event_id=None,timeslide_dict=None,GID=None,ifos=None, duration=None,srate=None,trigSNR=None):
+  def __init__(self,trig_time=None,SimInspiral=None,SnglInspiral=None,CoincInspiral=None,SimBurst=None,event_id=None,timeslide_dict=None,GID=None,ifos=None, duration=None,srate=None,trigSNR=None):
     self.trig_time=trig_time
     self.injection=SimInspiral
     self.sngltrigger=SnglInspiral
@@ -33,6 +33,7 @@ class Event():
       self.timeslides=timeslide_dict
     self.GID=GID
     self.coinctrigger=CoincInspiral
+    self.burstinjection=SimBurst
     if ifos is None:
       self.ifos = []
     else:
@@ -47,6 +48,9 @@ class Event():
     if self.injection is not None:
         self.trig_time=self.injection.get_end()
         if event_id is None: self.event_id=int(str(self.injection.simulation_id).split(':')[2])
+    if self.burstinjection is not None:
+        self.trig_time=self.burstinjection.get_end()
+        if event_id is None: self.event_id=int(str(self.burstinjection.simulation_id).split(':')[2])
     if self.sngltrigger is not None:
         self.trig_time=self.sngltrigger.get_end()
         self.event_id=int(str(self.sngltrigger.event_id).split(':')[2])
@@ -55,7 +59,7 @@ class Event():
     if self.GID is not None:
         self.event_id=int(''.join(i for i in self.GID if i.isdigit()))
 
-dummyCacheNames=['LALLIGO','LALVirgo','LALAdLIGO','LALAdVirgo']
+dummyCacheNames=['LALLIGO','LALVirgo','LALAdLIGO','LALAdVirgo','LALSimLIGO','LALSimAdLIGO','LALSimVirgo','LALSimAdVirgo']
 
 def readLValert(lvalertfile,SNRthreshold=0,gid=None):
   """
@@ -380,7 +384,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     """
     gpsstart=None
     gpsend=None
-    inputnames=['gps-time-file','injection-file','sngl-inspiral-file','coinc-inspiral-file','pipedown-db','lvalert-file']
+    inputnames=['gps-time-file','injection-file','burst-injection-file','sngl-inspiral-file','coinc-inspiral-file','pipedown-db','lvalert-file']
     if sum([ 1 if self.config.has_option('input',name) else 0 for name in inputnames])!=1:
         print 'Plese specify only one input file'
         sys.exit(1)
@@ -407,6 +411,10 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       from pylal import SimInspiralUtils
       injTable=SimInspiralUtils.ReadSimInspiralFromFiles([self.config.get('input','injection-file')])
       events=[Event(SimInspiral=inj) for inj in injTable]
+    if self.config.has_option('input','burst-injection-file'):
+      from pylal import SimBurstUtils
+      injTable=SimBurstUtils.ReadSimBurstFromFiles([self.config.get('input','burst-injection-file')])
+      events=[Event(SimBurst=inj) for inj in injTable]
     # SnglInspiral Table
     if self.config.has_option('input','sngl-inspiral-file'):
       from pylal import SnglInspiralUtils
