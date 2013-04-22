@@ -9,7 +9,7 @@
 #       Will M. Farr <will.farr@ligo.org>,
 #       John Veitch <john.veitch@ligo.org>
 #       Vivien Raymond <vivien.raymond@ligo.org>
-#
+#       Salvatore Vitale <salvatore.vitale@ligo.org>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -408,8 +408,8 @@ def cbcBayesPostProc(
         my_ifos=['H1','L1','V1']
         for ifo in my_ifos:
             inj_time=None
-            #if injection:
-            #    inj_time=float(injection.get_end(ifo[0]))
+            if injection:
+                inj_time=float(injection.get_end(ifo[0]))
             location=tools.cached_detector[detMap[ifo]].location
             ifo_times[ifo]=array(map(lambda ra,dec,time: array([time[0]+XLALTimeDelayFromEarthCenter(location,ra[0],dec[0],LIGOTimeGPS(float(time[0])))]), pos[ra_name].samples,pos[dec_name].samples,pos['time'].samples))
             loc_end_time=bppu.PosteriorOneDPDF(ifo.lower()+'_end_time',ifo_times[ifo],injected_value=inj_time)
@@ -418,10 +418,10 @@ def cbcBayesPostProc(
             for ifo2 in my_ifos:
                 if ifo1==ifo2: continue
                 delay_time=ifo_times[ifo2]-ifo_times[ifo1]
-                #if injection:
-                #    inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
-                #else:
-                inj_delay=None
+                if injection:
+                    inj_delay=float(injection.get_end(ifo2[0])-injection.get_end(ifo1[0]))
+                else:
+                    inj_delay=None
                 time_delay=bppu.PosteriorOneDPDF(ifo1.lower()+ifo2.lower()+'_delay',delay_time,inj_delay)
                 pos.append(time_delay)
 
@@ -616,8 +616,9 @@ def cbcBayesPostProc(
         fracs.sort()
         skystatfilename=os.path.join(outdir,"sky_summary_statistics.dat")
         statout=open(skystatfilename,"w")
+        stri=""
         if injection:
-            stri="FoundCL\t"
+            stri+="FoundCL\t"
         for frac in fracs:
             stri+="%s\t%s\t"%("CL","Size")
         statout.write(stri)
@@ -1126,7 +1127,7 @@ if __name__=='__main__':
     parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
     parser.add_option("-d","--data",dest="data",action="callback",callback=multipleFileCB,help="datafile")
     #Optional (all)
-    parser.add_option("-i","--inj",dest="injfile",help="SimInsipral injection file",metavar="INJ.XML",default=None)
+    parser.add_option("-i","--inj",dest="injfile",help="SimBurst injection file",metavar="INJ.XML",default=None)
     parser.add_option("-t","--trig",dest="trigfile",help="Coinc XML file",metavar="COINC.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
