@@ -208,7 +208,7 @@ Parameter arguments:\n\
     }
        
  
-        if(!LALInferenceCheckVariable(currentParams,"time")) LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
+    if(!LALInferenceCheckVariable(currentParams,"time")) LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
     tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
     LALInferenceAddMinMaxPrior(priorArgs, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
 
@@ -237,12 +237,25 @@ Parameter arguments:\n\
           if(!LALInferenceCheckVariable(currentParams,"Q")) LALInferenceAddVariable(currentParams, "Q",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
         
         LALInferenceAddMinMaxPrior(priorArgs, "Q",     &Qmin, &Qmax,   LALINFERENCE_REAL8_t);
-        tmpVal=0.0;
-             tmpVal=0.5;
-          if(!LALInferenceCheckVariable(currentParams,"eccentricity")) LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+	 tmpVal=1.0;
+          if(!LALInferenceCheckVariable(currentParams,"eccentricity")){
+	  ppt=LALInferenceGetProcParamVal(commandLine,"--SGonly");
+	  if (ppt){printf("Fixing eccentricity to 0 in template \n");
+	  LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
+	  else
+	  LALInferenceAddVariable(currentParams, "eccentricity",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+	    }
         tmpMin=0.0; tmpMax=1.0;//salvo
         LALInferenceAddMinMaxPrior(priorArgs, "eccentricity",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
-         if(!LALInferenceCheckVariable(currentParams,"polar_angle")) LALInferenceAddVariable(currentParams, "polar_angle",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+	tmpVal=LAL_PI_2;
+         if(!LALInferenceCheckVariable(currentParams,"polar_angle")) {
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--SGonly");
+	    if (ppt){printf("Fixing polar angle to Pi/2 in template \n");
+	    LALInferenceAddVariable(currentParams, "polar_angle",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);}
+	    else
+	     LALInferenceAddVariable(currentParams, "polar_angle",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+	     
+	     }
         tmpMin=0.0; tmpMax=LAL_PI;
         LALInferenceAddMinMaxPrior(priorArgs, "polar_angle",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);
 
