@@ -115,7 +115,11 @@ Initialisation arguments:\n\
 		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
     }
     ppt=LALInferenceGetProcParamVal(commandLine,"--inject_from_mdc");
-    if (ppt) {fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT BEEN IMPLEMENTED YET. Exiting...\n"); exit(1);}
+    if (ppt) {fprintf(stdout,"INJECTING A SIGNAL FROM MDC HAS NOT CAREFULLY TESTED YET...\n"); 
+	
+	LALInferenceInjectFromMDC(commandLine, irs->data);
+	
+	}
 		ifoPtr = irs->data;
 		ifoListStart = irs->data;
 		while (ifoPtr != NULL) {
