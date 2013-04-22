@@ -281,6 +281,7 @@ static INT4 getDataOptionsByDetectors(ProcessParamsTable *commandLine, char ***i
  --psdlength length             length of PSD estimation data in seconds\n\
  --seglen length                length of segments for PSD estimation and analysis in seconds\n\
  --trigtime GPStime             GPS time of the trigger to analyse\n\
+(--padding PAD [sec]            Override default 0.4 seconds padding\n\
 (--srate rate)                  Downsample data to rate in Hz (4096.0,)\n\
 (--injectionsrate rate)         Downsample injection signal to rate in Hz (--srate)\n\
 (--IFO1-flow freq1 [--IFO2-flow freq2 ...])      Specify lower frequency cutoff for overlap integral (40.0)\n\
@@ -336,7 +337,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     procparam=LALInferenceGetProcParamVal(commandLine,"--aigoang");
     if(!procparam) procparam=LALInferenceGetProcParamVal(commandLine,"--AIGOang");
     if(procparam)
-        AIGOang=atof(procparam->value)*LAL_PI/180.0;
+    AIGOang=atof(procparam->value)*LAL_PI/180.0;
 
     struct fvec *interp;
     int interpFlag=0;
@@ -444,7 +445,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     SegmentLength=atof(LALInferenceGetProcParamVal(commandLine,"--seglen")->value);
     seglen=(size_t)(SegmentLength*SampleRate);
     nSegs=(int)floor(PSDdatalength/SegmentLength);
-
+    
     for(i=0;i<Nifo;i++) {
         IFOdata[i].fLow=fLows?atof(fLows[i]):defaultFLow; 
         if(fHighs) IFOdata[i].fHigh=fHighs[i]?atof(fHighs[i]):(SampleRate/2.0-(1.0/SegmentLength));
@@ -670,6 +671,15 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         IFOdata[i].freqToTimeFFTPlan = XLALCreateReverseREAL8FFTPlan((UINT4) seglen,0);
         if(!IFOdata[i].freqToTimeFFTPlan) XLAL_ERROR_NULL(XLAL_EFUNC);		
         /* Setup windows */
+        ppt=LALInferenceGetProcParamVal(commandLine,"--padding");
+        if (ppt){
+            padding=atof(ppt->value);
+            fprintf(stdout,"Using %lf seconds of padding for IFO %s \n",padding, IFOdata[i].name);
+        }
+        if ((REAL8)2.0*padding*SampleRate/(REAL8)seglen <0.0 ||(REAL8)2.0*padding*SampleRate/(REAL8)seglen >1 ){
+            fprintf(stderr,"Padding is negative or 2*padding is bigger than the whole segment. Consider reducing it using --padding or ingrease --seglen. Exiting\n");
+            exit(1);
+            }
         IFOdata[i].window=XLALCreateTukeyREAL8Window(seglen,(REAL8)2.0*padding*SampleRate/(REAL8)seglen);
         if(!IFOdata[i].window) XLAL_ERROR_NULL(XLAL_EFUNC);
     }
@@ -677,7 +687,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     /* Trigger time = 2 seconds before end of segment (was 1 second, but Common Inputs for The Events are -6 +2*/
     memcpy(&segStart,&GPStrig,sizeof(LIGOTimeGPS));
     // SALVO XLALGPSAdd(&segStart,-SegmentLength+2.0);
-XLALGPSAdd(&segStart,-SegmentLength/2.0);
+    XLALGPSAdd(&segStart,-SegmentLength/2.0);
 
     /* Read the PSD data */
     for(i=0;i<Nifo;i++) {
@@ -731,7 +741,10 @@ XLALGPSAdd(&segStart,-SegmentLength/2.0);
              IFOdata[i].noff=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("noff",&segStart,0.0,IFOdata[i].oneSidedNoisePowerSpectrum->deltaF,&lalDimensionlessUnit,seglen/2 +1);
  			if(!IFOdata[i].noff) XLAL_ERROR_NULL(XLAL_EFUNC);
             /* Create the fake data */
-            int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;
+            int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;            
+            for(j=0;j<IFOdata[i].freqData->data->length;j++){
+                IFOdata[i].freqData->data->data[j].re=IFOdata[i].freqData->data->data[j].im=0.0;
+              }
             if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
                 for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
                     IFOdata[i].freqData->data->data[j].re=IFOdata[i].freqData->data->data[j].im=0.0;
@@ -748,7 +761,7 @@ XLALGPSAdd(&segStart,-SegmentLength/2.0);
             if(!IFOdata[i].timeData) XLAL_ERROR_NULL(XLAL_EFUNC);
             XLALREAL8FreqTimeFFT(IFOdata[i].timeData,IFOdata[i].freqData,IFOdata[i].freqToTimeFFTPlan);
             if(*XLALGetErrnoPtr()) printf("XLErr: %s\n",XLALErrorString(*XLALGetErrnoPtr()));
-            XLALDestroyRandomParams(datarandparam);
+           XLALDestroyRandomParams(datarandparam);
         }
         else{ /* Not using fake data, load the data from a cache file */
             if (LALInferenceGetProcParamVal(commandLine, "--psd")){
@@ -758,8 +771,8 @@ XLALGPSAdd(&segStart,-SegmentLength/2.0);
                 printf("Looking for psd interpolation file %s\n",interpfilename);
                 interp=interpFromFile(interpfilename);
                 IFOdata[i].oneSidedNoisePowerSpectrum=(REAL8FrequencySeries *)
-                    XLALCreateREAL8FrequencySeries("spectrum",&GPSstart,0.0,
-                            (REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
+                XLALCreateREAL8FrequencySeries("spectrum",&GPSstart,0.0,
+                    (REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
                 if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
                 for(j=0;j<IFOdata[i].oneSidedNoisePowerSpectrum->data->length;j++)
                 {
@@ -792,6 +805,7 @@ XLALGPSAdd(&segStart,-SegmentLength/2.0);
                 XLALGPSAdd(&segStart, deltaT);
                 fprintf(stderr,"Slid %s by %f s from %10.10lf to %10.10lf\n",IFOnames[i],deltaT,truesegstart.gpsSeconds+1e-9*truesegstart.gpsNanoSeconds,segStart.gpsSeconds+1e-9*segStart.gpsNanoSeconds);
             }
+            
             IFOdata[i].timeData=readTseries(caches[i],channels[i],segStart,SegmentLength);
             segStart=truesegstart;
             if(Ntimeslides) IFOdata[i].timeData->epoch=truesegstart;
@@ -1032,8 +1046,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
 	REAL8 SNR=0,NetworkSNR=0, previous_snr=0.0; 
-	//UINT4 best_ifo_snr=0;//best_ifo_snr+=1;
-	//UINT4 highest_snr_index=0;
 	DetectorResponse det;
 	memset(&injstart,0,sizeof(LIGOTimeGPS));
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
@@ -1045,12 +1057,12 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	LIGOTimeGPS bufferStart;
 
 	
-	LALInferenceIFOData *thisData=IFOdata->next;
-	REAL8 minFlow=IFOdata->fLow;
-	REAL8 MindeltaT=IFOdata->timeData->deltaT;
-  REAL8 InjSampleRate=1.0/MindeltaT;
-	REAL4TimeSeries *injectionBuffer=NULL;
-  REAL8 padding=0.4; //default, set in LALInferenceReadData()
+    LALInferenceIFOData *thisData=IFOdata->next;
+    REAL8 minFlow=IFOdata->fLow;
+    REAL8 MindeltaT=IFOdata->timeData->deltaT;
+    REAL8 InjSampleRate=1.0/MindeltaT;
+    REAL4TimeSeries *injectionBuffer=NULL;
+    REAL8 padding=0.4; //default, set in LALInferenceReadData()
 	
   
 	while(thisData){
@@ -1067,13 +1079,13 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
     fprintf(stdout,"Injecting event %d\n",event);
 	}
-        if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
-                ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
-		SNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
-		memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
-                fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
+    if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
+        ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
+        SNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
+        memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
+        fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
 
-	}
+    }
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
 	REPORTSTATUS(&status);
 	printf("Ninj %d\n", Ninj);
@@ -2456,5 +2468,140 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
         
         }
     }
+}
+
+void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOData *IFOdata){
+    
+    /* Inject WF present in the lal frame file mdc into the time domain stream */
+    char mdcname[]="GW";
+    char **mdc_caches=NULL;
+    char **mdc_channels;
+    ProcessParamsTable * ppt=commandLine; 
+
+    UINT4 nIFO=0;
+    int i=0;
+    UINT4 j=0;
+    LALInferenceIFOData *data=IFOdata;
+    REAL8 prefactor =1.0;
+    REAL8 tmp=0.0;
+    REAL8 net_snr=0.0;
+    while (data) {nIFO++; data=data->next;}
+    
+    UINT4 Nmdc=0;    ppt=LALInferenceGetProcParamVal(commandLine,"--MDCs");
+    if (!ppt){
+        
+        fprintf(stderr,"You must provide the path of an MDC lal cache file for each IFO, using --MDCs [ XXX, YYY, ZZZ]\n");
+        exit(1);
+        
+        }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+    if (ppt){
+        
+        fprintf(stderr,"You cannot use both injfile (--inj) and MDCs (--MDCs) Exiting... \n");
+        exit(1);
+        
+        }
+    ppt=LALInferenceGetProcParamVal(commandLine,"--MDCs");
+    LALInferenceParseCharacterOptionString(ppt->value,&mdc_caches,&Nmdc);
+
+    if (Nmdc!= nIFO){
+        fprintf(stderr, "You have to provide an MDC cache file for each IFO\n");
+        exit(1);
+        }
+    else printf("got %i ifos and %i MDCs\n",nIFO,Nmdc);
+    
+    mdc_channels=  malloc((nIFO+1)*sizeof(char*));
+    data=IFOdata;
+    i=0;
+    while (data){
+       mdc_channels[i] =  malloc(512*sizeof(char));
+        if(!strcmp(data->name,"H1")) {
+           sprintf(mdc_channels[i],"H1:%s-H",mdcname);}
+        else if(!strcmp(data->name,"L1")) {		
+             sprintf(mdc_channels[i],"L1:%s-H",mdcname); }
+        else if(!strcmp(data->name,"V1")) {		
+             sprintf(mdc_channels[i],"V1:%s-16K",mdcname);}
+        data=data->next;
+        i++;
+        
+        }
+    
+    LIGOTimeGPS epoch=IFOdata->timeData->epoch;
+    REAL8 deltaT=IFOdata->timeData->deltaT ;
+    int seglen=IFOdata->timeData->data->length;
+    REAL8 SampleRate=4096.0,SegmentLength=0.0;
+    if(LALInferenceGetProcParamVal(commandLine,"--srate")) SampleRate=atof(LALInferenceGetProcParamVal(commandLine,"--srate")->value);
+    SegmentLength=(REAL8) seglen/SampleRate;
+    
+    REAL8TimeSeries * timeData=NULL;
+    REAL8TimeSeries * windTimeData=(REAL8TimeSeries *)XLALCreateREAL8TimeSeries("WindMDCdata",&epoch,0.0,deltaT,&lalDimensionlessUnit,(size_t)seglen);
+    COMPLEX16FrequencySeries* injF=(COMPLEX16FrequencySeries *)XLALCreateCOMPLEX16FrequencySeries("injF",&IFOdata->timeData->epoch,0.0,IFOdata->freqData->deltaF,&lalDimensionlessUnit,	IFOdata->freqData->data->length);
+    
+    if(!injF) {
+      XLALPrintError("Unable to allocate memory for injection buffer\n");
+      XLAL_ERROR_VOID(XLAL_EFUNC);
+    }
+    
+    REAL4 WinNorm = sqrt(IFOdata->window->sumofsquares/IFOdata->window->data->length);
+
+    data=IFOdata;
+    i=0;
+    UINT4 lower = (UINT4)ceil(data->fLow / injF->deltaF);
+    UINT4 upper = (UINT4)floor(data->fHigh /injF-> deltaF);
+
+    /* Inject into data stream and calculate optimal SNR */
+    while(data){
+        
+        char foutname[50]="";
+        sprintf(foutname,"MDC_time_%s",data->name);
+        FILE * fout = fopen(foutname,"w");
+
+        char outname[50]="";
+        sprintf(outname,"MDC_freq_%s",data->name);
+        FILE * out = fopen(outname,"w");
+    
+        tmp=0.0;
+        
+        /* Read MDC frame */
+        timeData=readTseries(mdc_caches[i],mdc_channels[i],epoch,SegmentLength);
+        /* downsample */ 
+        XLALResampleREAL8TimeSeries(timeData,1.0/SampleRate);	 
+        /* window timeData and store it in windTimeData */
+        XLALDDVectorMultiply(windTimeData->data,timeData->data,IFOdata->window->data);
+
+        for(j=0;j< timeData->data->length;j++) 
+            fprintf(out,"%lf %10.10e %10.10e \n",epoch.gpsSeconds + j*deltaT,data->timeData->data->data[j]+timeData->data->data[j],timeData->data->data[j]);
+        fclose(out);
+        
+        /* set the whole seq to 0 */
+        for(j=0;j<injF->data->length;j++) injF->data->data[j].re=injF->data->data[j].im=0.0;
+            
+        /* FFT */
+        XLALREAL8TimeFreqFFT(injF,windTimeData,IFOdata->timeToFreqFFTPlan);   
+        
+        
+        for(j=lower;j<upper;j++){
+         fprintf(fout,"%lf %10.10e %10.10e\n", j*injF->deltaF,injF->data->data[j].re/WinNorm,injF->data->data[j].im/WinNorm);
+                injF ->data->data[j].re/=sqrt(data->window->sumofsquares / data->window->data->length);
+                injF ->data->data[j].im/=sqrt(data->window->sumofsquares / data->window->data->length);
+                windTimeData->data->data[j] /= sqrt(data->window->sumofsquares / data->window->data->length);
+
+                /* Add data in freq stream */
+                data->freqData->data->data[j].re+=prefactor *injF->data->data[j].re/WinNorm;
+                data->freqData->data->data[j].im+=prefactor *injF->data->data[j].im/WinNorm;
+                tmp+= prefactor*prefactor*(injF ->data->data[j].re*injF ->data->data[j].re+injF ->data->data[j].im*injF ->data->data[j].im)/data->oneSidedNoisePowerSpectrum->data->data[j];             
+        }
+       
+        tmp*=2.*injF->deltaF;
+        printf("Injected SNR %.3f in IFO %s from MDC \n",sqrt(2*tmp),data->name);
+        net_snr+=2*tmp;
+        fclose(fout);         
+
+        i++;
+        data=data->next;
+    }
+printf("Injected network SNR %.3f from MDC\n",sqrt(net_snr));
+return ;
+    
 }
 
