@@ -2566,7 +2566,18 @@ class SimBurst(TableRow):
 		if site is None:
 			return self.get_time_geocent()
 		else:
-			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
+			from pylal.xlal import tools
+			from pylal import date
+			from pylal.date import XLALTimeDelayFromEarthCenter
+			from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+			detMap = {'H': 'LHO_4k', 'L': 'LLO_4k',
+                'G': 'GEO_600', 'V': 'VIRGO', 'T': 'TAMA_300'}
+			location=tools.cached_detector[detMap[site]].location
+			ra,dec=self.get_ra_dec()
+			time=self.get_time_geocent()
+			time=time+LIGOTimeGPS(XLALTimeDelayFromEarthCenter(location,ra,dec,LIGOTimeGPS(time)))
+			return LIGOTimeGPS(float(time))
+			#return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
 SimBurstTable.RowType = SimBurst
 
