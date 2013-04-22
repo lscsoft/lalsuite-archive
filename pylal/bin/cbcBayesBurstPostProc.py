@@ -756,7 +756,7 @@ def cbcBayesPostProc(
         if not ("chain" in pos.names):
             # If there is not a parameter named "chain" in the
             # posterior, then just produce a plot of the samples.
-            plt.plot(pos_samps,'k,',linewidth=0.0, markeredgewidth=0,figure=myfig)
+            plt.plot(pos_samps,'k.',linewidth=0.0, markeredgewidth=0,figure=myfig)
             maxLen=len(pos_samps)
         else:
             # If there is a parameter named "chain", then produce a
