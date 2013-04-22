@@ -483,8 +483,12 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     respagenode.set_bayes_coherent_noise(mergenode.get_B_file())
     respagenode.set_snr_path(enginenodes[0].get_snr_file())
 
-    if self.config.has_option('input','injection-file') and event.event_id is not None:
-        respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+    if (self.config.has_option('input','injection-file') or self.config.has_option('input','burst-injection-file')) and event.event_id is not None:
+        if self.config.has_option('input','injection-file'):
+            respagenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+        else:
+            respagenode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
+           
     if event.GID is not None:
         self.add_gracedb_log_node(respagenode,event.GID)
     if self.config.getboolean('analysis','coherence-test') and len(enginenodes[0].ifos)>1:
@@ -506,6 +510,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
             subresnode.set_snr_path(cotest_nodes[0].get_snr_file())
             if self.config.has_option('input','injection-file') and event.event_id is not None:
                 subresnode.set_injection(self.config.get('input','injection-file'),event.event_id)
+            if self.config.has_option('input','burst-injection-file') and event.event_id is not None:
+                subresnode.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
         coherence_node=CoherenceTestNode(self.coherence_test_job,outfile=os.path.join(self.basepath,'coherence_test','coherence_test_%s_%s.dat'%(myifos,evstring)))
         coherence_node.add_coherent_parent(mergenode)
         map(coherence_node.add_incoherent_parent, par_mergenodes)
@@ -644,6 +650,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # Add control options
     if self.config.has_option('input','injection-file'):
        node.set_injection(self.config.get('input','injection-file'),event.event_id)
+    if self.config.has_option('input','burst-injection-file'):
+       node.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
     node.set_seglen(self.config.getint('lalinference','seglen'))
     if self.config.has_option('input','psd-length'):
       node.set_psdlength(self.config.getint('input','psd-length'))
