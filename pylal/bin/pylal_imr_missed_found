@@ -47,7 +47,7 @@ def parse_command_line():
 	parser = OptionParser(version=git_version.verbose_msg, usage = "%prog [options] [file ...]", description = "%prog computes missed found plots")
 	parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Required.  Example \"H1,H2,L1\"")
 	parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-	parser.add_option("--output-nametag", dest= "outnametag", default = "omega", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"omega\".")
+	parser.add_option("--output-name-tag", dest= "outnametag", default = "omega", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"omega\".")
 	parser.add_option("--far", help = "FAR to use for injection finding instead of loudest event", default=float("inf"), type="float")
 	parser.add_option("--veto-segments-name", default = "vetoes", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
@@ -64,7 +64,7 @@ def parse_command_line():
 
 opts, filenames = parse_command_line()
 
-summ = imr_utils.DataBaseSummary(filenames, opts.live_time_program, opts.veto_segments_name, tmp_path = opts.tmp_space, verbose = opts.verbose)
+IMR = imr_utils.DataBaseSummary(filenames, opts.live_time_program, opts.veto_segments_name, tmp_path = opts.tmp_space, verbose = opts.verbose)
 
 def inbin(x, y, xbottom, xtop, ybottom, ytop):
 	xmasked = numpy.ma.masked_outside(x, xbottom, xtop)
@@ -131,13 +131,13 @@ errfunc = lambda p, y, x: fitfunc(p,x) - y
   
 
 #Missed-Found plots
-for instruments in summ.instruments:
+for instruments in IMR.instruments:
 	if opts.instruments != instruments:
 		print >> sys.stderr, "Instruments %s does not equal requested instruments %s, continuing" % (instruments, opts.instruments)
 		continue
-	found = imr_utils.found_injections_below_far(summ.found_injections_by_instrument_set[instruments], opts.far)
-	total = summ.total_injections_by_instrument_set[instruments]
-	missed = summ.missed_injections_by_instrument_set[instruments]
+	found = imr_utils.found_injections_below_far(IMR.found_injections_by_instrument_set[instruments], opts.far)
+	total = IMR.total_injections_by_instrument_set[instruments]
+	missed = IMR.missed_injections_by_instrument_set[instruments]
 	sims = total
 	
 	pylab.figure()
@@ -381,20 +381,29 @@ for instruments in summ.instruments:
 	FoundBineffect = {}
 	TotalBineffect = {}
 	efficiencyeffdist = {}
+	eff_err = {}
 	for ifo in opts.instruments:
 		FoundBineffect[ifo] = bin(distance_found_dict[ifo], binVec)
 		TotalBineffect[ifo] = bin(distance_total_dict[ifo], binVec)
 		efficiencyeffdist[ifo] = numpy.empty(len(centerVec))
+		eff_err[ifo] = numpy.empty(len(centerVec))
+
 		for b in range(len(centerVec)):
 			try:
 				efficiencyeffdist[ifo][b]  = float(len(FoundBineffect[ifo][b]))/float(len(TotalBineffect[ifo][b]))
+				eff_err[ifo][b] = numpy.sqrt(efficiencyeffdist[ifo][b] * (1-efficiencyeffdist[ifo][b])/float(len(TotalBineffect[ifo][b])))
+
+
 			except ZeroDivisionError:
 				efficiencyeffdist[ifo][b] = numpy.nan
+				eff_err[ifo][b] = numpy.nan
 
 	FoundBindist = bin(distance_found, binVec1)
 	TotalBindist = bin(distance_total, binVec1)
 	efficiencydist = numpy.empty(len(centerVec1))
 	amp = numpy.copy(centerVec)
+
+	print eff_err
 
 	def func50(x):
 		return fitfunc(p1,x)-0.5

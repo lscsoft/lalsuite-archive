@@ -80,11 +80,14 @@ def parse_command_line():
 	parser = OptionParser(version = git_version.verbose_msg, usage = "%prog [options] [file ...]", description = "%prog computes mass/mass upperlimit")
 	parser.add_option("--output-name-tag", default = "", metavar = "name", help = "Set the file output name tag, real name is 2Dsearchvolume-<tag>-<ifos>.xml")
 	parser.add_option("--live-time-program", default = "thinca", help = "Set the name of the live time program to use to get segments from the search summary table")
+	parser.add_option("--instruments", help = "Exclude instruments to this comma separated list, e.g. H1,H2,L1")
 	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document. Default: don't use vetoes.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
 
 	opts, filenames = parser.parse_args()
+	if opts.instruments is not None:
+		opts.instruments = lsctables.instrument_set_from_ifos(opts.instruments) 
 
 	if not filenames:
 		raise ValueError("must provide at least one database")
@@ -114,7 +117,10 @@ def process_fars(fars1, T, minfap = None, maxsigma = 5):
 	idxs = numpy.arange(len(fars1))+1
 	Ns1 = fars1*T
 	full_fars1 = fars1
-	idx_end = scipy.arange(len(Ns1))[Ns1 >= 1][0] + 1
+	try:
+		idx_end = scipy.arange(len(Ns1))[Ns1 >= 1][0] + 1
+	except IndexError:
+		idx_end = len(Ns1) - 1
 	idxs = idxs[:idx_end]
 	stop_far = fars1[idx_end]
 	Ns1 = Ns1[:idx_end]
@@ -138,6 +144,9 @@ options, filenames = parse_command_line()
 IMR = imr_utils.DataBaseSummary(filenames, tmp_path = options.tmp_space, veto_segments_name = options.veto_segments_name, live_time_program = options.live_time_program, verbose = options.verbose)
 
 for instruments in IMR.instruments:
+	print instruments, options.instruments
+	if instruments != options.instruments:
+		continue 
 	# Live Time FIXME only approximate for time slides
 	segs = IMR.segments.intersection(instruments)
 	
@@ -167,7 +176,7 @@ for instruments in IMR.instruments:
 			down[down == 0] = 0.1
 			ax.fill_between(bg_ifars, down, up, color = 'k', alpha = .1)
 
-		ax.scatter(1./stop_far, [stop_N], color = 'k', marker = 'o', s = 49, facecolors = 'none', label = r'$N_{\max}$')
+		#ax.scatter(1./stop_far, [stop_N], color = 'k', marker = 'o', s = 49, facecolors = 'none', label = r'$N_{\max}$')
 
 		ax.set_xlabel(r'\rm IFAR (Hz$^{-1}$)')
 		ax.set_ylabel(r'\rm Count')

@@ -46,16 +46,12 @@ import scipy
 from scipy import log,exp,sin,cos,arccos,arctan2,pi
 from scipy import linalg
 import copy
+from lal import LAL_REARTH_SI as R_earth, LAL_MTSUN_SI as M_sun, \
+	LAL_C_SI as c_speed, LAL_PC_SI as pc2m, LAL_GAMMA as gamma
 
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
 
-# FIXME: these constants should come from LAL
-R_earth = 6.3781e6 # radius of Earth in meters
-M_sun = 4.92549095e-6 # mass of sun in seconds
-c_speed = 2.99792458e8 # speed of light in meters per second
-pc2m = 3.0856775807e16 # par secs in meters
 pc2s = pc2m / c_speed # par secs in seconds
-gamma = .577215664901532860606512090082
 
 def A_plus(cosi, distance):
 	"""

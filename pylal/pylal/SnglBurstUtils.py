@@ -23,6 +23,7 @@
 #
 
 
+import itertools
 import math
 import matplotlib
 matplotlib.rcParams.update({
@@ -42,9 +43,13 @@ import re
 import sys
 
 
+from glue.ligolw import ilwd
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from glue.ligolw.utils import search_summary as ligolw_search_summary
+from glue.ligolw.utils import segments as ligolw_segments
+from glue import offsetvector
 
 
 #
@@ -64,8 +69,6 @@ class CoincDatabase(object):
 		and before you want any of this information.
 		"""
 
-		from glue.ligolw import dbtables
-		from glue.ligolw.utils import segments as ligolwsegments
 		self.connection = connection
 		self.xmldoc = dbtables.get_xml(connection)
 
@@ -95,9 +98,9 @@ class CoincDatabase(object):
 		self.seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program).coalesce()
 		self.instruments = set(self.seglists.keys())
 		if veto_segments_name is not None:
-			self.vetoseglists = ligolwsegments.segmenttable_get_by_name(self.xmldoc, veto_segments_name).coalesce()
+			self.vetoseglists = ligolw_segments.segmenttable_get_by_name(self.xmldoc, veto_segments_name).coalesce()
 		else:
-			self.vetoseglists = ligolwsegments.segments.segmentlistdict()
+			self.vetoseglists = ligolw_segments.segments.segmentlistdict()
 
 		# determine a few coinc_definer IDs
 		# FIXME:  don't hard-code the numbers
@@ -175,20 +178,23 @@ def get_time_slides(connection):
 	return two dictionaries one containing the all-zero time slides and
 	the other containing the not-all-zero time slides.
 	"""
-	offset_vectors = {}
-	for id, instrument, offset in connection.cursor().execute("""
+	zero_lag_time_slides = {}
+	background_time_slides = {}
+	for time_slide_id, rows in itertools.groupby(connection.cursor().execute("""
 SELECT
 	time_slide_id,
 	instrument,
 	offset
 FROM
 	time_slide
-	"""):
-		if id not in offset_vectors:
-			offset_vectors[id] = {}
-		offset_vectors[id][instrument] = offset
-	zero_lag_time_slides = dict((id, offset_vector) for id, offset_vector in offset_vectors.items() if not any(offset_vector.values()))
-	background_time_slides = dict((id, offset_vector) for id, offset_vector in offset_vectors.items() if any(offset_vector.values()))
+ORDER BY
+	time_slide_id
+	"""), lambda (time_slide_id, instrument, offset): ilwd.ilwdchar(time_slide_id)):
+		offset_vector = offsetvector.offsetvector((instrument, offset) for time_slide_id, instrument, offset in rows)
+		if any(offset_vector.values()):
+			background_time_slides[time_slide_id] = offset_vector
+		else:
+			zero_lag_time_slides[time_slide_id] = offset_vector
 	return zero_lag_time_slides, background_time_slides
 
 

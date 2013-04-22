@@ -797,11 +797,12 @@ def setup_clustering(cp, network, data, inspcache, logdir,\
         segment = segments.segment(seg.start(), seg.end())
         for slide in time_slides:
             if slide:
-                usertag = "_SLIDE_%s" \
+                usertag = "*_SLIDE_%s" \
                            % "_".join(["%s%d" % (ifo.upper(), s)\
                                        for s,ifo in zip(slide, ifos)])
-                segcache = inspcache.sieve(segment=segment,\
-                                           description=usertag)
+                segcache = inspcache.sieve(segment=segment)
+                segcache = segcache.sieve(description=usertag,
+                                          exact_match=True)
             elif injection_run:
                 usertag = "_%s" % injection_run.upper()
                 segcache = inspcache.sieve(segment=segment)
@@ -865,7 +866,7 @@ def setup_dqv(cp, network, xml_cache, logdir, run_dqv=True):
                                           "%s-VETOTIME_CAT%d-%d-%d.xml"
                                           % (ifo, cat, gpsstart, gpsdur)))
         for e in xml_cache:
-            fp = e.path()
+            fp = e.path
             node = pipeline.CondorDAGNode(job)
             node.add_var_opt("segment-file", ",".join(vetofiles))
             outfile = fp.replace(e.description,
@@ -929,7 +930,7 @@ def setup_sbv(cp, network, xml_cache, logdir, run_sbv=True):
     # set up injfinder nodes
     sbv_cache = cache.Cache()
     for e in xml_cache:
-        fp = e.path()
+        fp = e.path
         node = pipeline.CondorDAGNode(job)
         outfile = fp.replace(e.description, "%s_SBV" % e.description)
         node.add_var_opt("output-file", outfile)

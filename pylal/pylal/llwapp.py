@@ -30,20 +30,11 @@ data in LIGO Light-Weight XML format.
 """
 
 
-import os
-import pickle
-import socket
 import time
-import warnings
 
 
-from glue import segments
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw.utils import process as ligolw_process
-from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import git_version
 from pylal.date import XLALUTCToGPS
 
@@ -62,42 +53,6 @@ __date__ = git_version.date
 #
 
 
-def get_time_slide_id(xmldoc, time_slide, create_new = None, superset_ok = False, nonunique_ok = False):
-	"""
-	Return the time_slide_id corresponding to the offset vector
-	described by time_slide, a dictionary of instrument/offset pairs.
-
-	Example:
-
-	>>> get_time_slide_id(xmldoc, {"H1": 0, "L1": 0})
-	'time_slide:time_slide_id:10'
-
-	This function is a wrapper around the .get_time_slide_id() method
-	of the glue.ligolw.lsctables.TimeSlideTable class.  See the
-	documentation for that class for the meaning of the create_new,
-	superset_ok and nonunique_ok keyword arguments.
-
-	This function requires the document to contain exactly one
-	time_slide table.  If the document does not contain exactly one
-	time_slide table then ValueError is raised, unless the optional
-	create_new argument is not None.  In that case a new table is
-	created.  This effect of the create_new argument is in addition to
-	the affects described by the TimeSlideTable class.
-	"""
-	try:
-		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	except ValueError:
-		# table not found
-		if create_new is None:
-			raise
-		tisitable = lsctables.New(lsctables.TimeSlideTable)
-		xmldoc.childNodes[0].appendChild(tisitable)
-	# make sure the next_id attribute is correct
-	tisitable.sync_next_id()
-	# get the id
-	return tisitable.get_time_slide_id(time_slide, create_new = create_new, superset_ok = superset_ok, nonunique_ok = nonunique_ok)
-
-
 def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description = u""):
 	"""
 	Wrapper for the get_coinc_def_id() method of the CoincDefiner table
@@ -106,7 +61,7 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	already exist.
 	"""
 	try:
-		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+		coincdeftable = lsctables.table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
 	except ValueError:
 		# table not found
 		if not create_new:
@@ -119,49 +74,6 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	coincdeftable.sync_next_id()
 	# get the id
 	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
-
-
-#
-# =============================================================================
-#
-#                                    Params
-#
-# =============================================================================
-#
-
-
-def pickle_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	pickled serialization of a Python object.
-	"""
-	return param.from_pyvalue(u"pickle:%s" % name, unicode(pickle.dumps(obj)))
-
-
-def pickle_from_param(elem, name):
-	"""
-	Retrieve a pickled Python object from the document tree rooted at
-	elem.
-	"""
-	return pickle.loads(str(param.get_pyvalue(elem, u"pickle:%s" % name)))
-
-
-def yaml_to_param(obj, name):
-	"""
-	Return the top-level element of a document sub-tree containing the
-	YAML serialization of a Python object.
-	"""
-	import yaml
-	return param.from_pyvalue(u"yaml:%s" % name, unicode(yaml.dump(obj)))
-
-
-def yaml_from_param(elem, name):
-	"""
-	Retrieve a YAMLed Python object from the document tree rooted at
-	elem.
-	"""
-	import yaml
-	return yaml.load(param.get_pyvalue(elem, u"yaml:%s" % name))
 
 
 #
@@ -201,101 +113,3 @@ def set_process_end_time(process):
 	"""
 	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
-
-
-#
-# =============================================================================
-#
-#                               Search Metadata
-#
-# =============================================================================
-#
-
-
-def append_search_summary(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.search_summary.append_search_summary() instead.
-	"""
-	warnings.warn("function pylal.llwapp.append_search_summary is deprecated, use glue.ligolw.utils.search_summary.append_search_summary instead", DeprecationWarning, stacklevel = 2)
-	return ligolw_search_summary.append_search_summary(*args, **kwargs)
-
-
-def segmentlistdict_fromsearchsummary(*args, **kwargs):
-	"""
-	Deprecated.  Use glue.ligolw.utils.search_summary.segmentlistdict_fromsearchsummary() instead.
-	"""
-	warnings.warn("function pylal.llwapp.segmentlistdict_fromsearchsummary is deprecated, use glue.ligolw.utils.search_summary.segmentlistdict_fromsearchsummary instead", DeprecationWarning, stacklevel = 2)
-	return ligolw_search_summary.segmentlistdict_fromsearchsummary(*args, **kwargs)
-
-
-#
-# =============================================================================
-#
-#                                    Other
-#
-# =============================================================================
-#
-
-
-def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
-	"""
-	Compute the segments for which data is required in order to perform
-	a complete coincidence analysis given the segments for which data
-	is available and the list of offset vectors to be applied to the
-	data during the coincidence analysis.
-
-	seglistdict is a segmentlistdict object defining the instruments
-	and times for which data is available.  offsetdictlist is a list of
-	offset vectors to be applied to the data --- dictionaries of
-	instrument/offset pairs.
-
-	The offset vectors in offsetdictlist are applied to the input
-	segments one by one and the interesection of the shifted segments
-	is computed.  The segments surviving the intersection are unshifted
-	to their original positions and stored.  The return value is the
-	union of the results of this operation.
-
-	In all cases the full n-way intersection is computed, that is if an
-	offset vector lists three instruments then this function returns
-	the times when exactly all three of those isntruments are on.  If
-	the calling code requires times when any two of the three are on
-	the list of offset vectors should be pre-processed to indicate this
-	by listing the allowed instrument combinations as separate offset
-	vectors.  See ligolw_tisi.time_slide_component_vectors() for a
-	function to assist in doing this.
-
-	For example, let us say that "input" is a segmentlistdict object
-	containing segment lists for three instruments, "H1", "H2" and
-	"L1".  And let us say that "slides" is a list of dictionaries, and
-	is equal to [{"H1":0, "H2":0, "L1":0}, {"H1":0, "H2":10}].  Then if
-
-	output = get_coincident_segmentlistdict(input, slides)
-
-	output will contain, for each of the three instruments, the
-	segments (or parts thereof) from the original lists that are
-	required in order to perform a triple-coincident analysis at zero
-	lag betwen the three instruments, *and* a double-coincident
-	analysis between H1 and H2 with H2 offset by 10 seconds.
-
-	The segmentlistdict object returned by this function has its
-	offsets set to those of the input segmentlistdict.
-	"""
-	# don't modify original
-	seglistdict = seglistdict.copy()
-
-	# save original offsets
-	origoffsets = dict(seglistdict.offsets)
-
-	# compute result
-	coincseglists = segments.segmentlistdict()
-	for offsetdict in offsetdictlist:
-		seglistdict.offsets.update(offsetdict)
-		intersection = seglistdict.extract_common(offsetdict.keys())
-		intersection.offsets.clear()
-		coincseglists |= intersection
-
-	# restore original offsets
-	coincseglists.offsets.update(origoffsets)
-
-	# done
-	return coincseglists

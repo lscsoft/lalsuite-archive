@@ -98,7 +98,7 @@ for i, line in enumerate(new_list):
 	print >>sys.stderr, "\tprocessing %d/%d\r" % (i, len(new_list)),
 	c = lal.CacheEntry(line)
 	patIX = [j for j, val in enumerate(pats) if val.search(c.description)][0]
-	XML = utils.load_filename(c.path(), gz=c.path().endswith('.gz'))
+	XML = utils.load_filename(c.path, gz=c.path.endswith('.gz'))
 	try: summ = lsctables.table.get_table(XML, "summ_value")
 	except: continue
 	if len(summ):

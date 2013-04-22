@@ -21,7 +21,7 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from pylal import llwapp
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 
 try:
   lsctables.use_in(ligolw.PartialLIGOLWContentHandler)
@@ -70,7 +70,7 @@ def GetSegListFromSearchSummaries(fileList, verbose=False):
   for thisFile in fileList:
     doc = ReadTablesFromFiles([thisFile], required_tables, verbose)
     try:
-      segs = llwapp.segmentlistdict_fromsearchsummary(doc)
+      segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(doc)
     except:
       raise ValueError, "Cannot extract segments from the SearchSummaryTable of %s" % thisFile
 

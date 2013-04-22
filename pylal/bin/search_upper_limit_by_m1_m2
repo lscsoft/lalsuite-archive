@@ -102,7 +102,7 @@ def parse_command_line():
 	parser.add_option("","--input-cache", help="input cache containing only the databases you want to run on (you can also list them as arguments, but you should use a cache if you are afraid that the command line will be too long.)")
 	options, filenames = parser.parse_args()
 	if not filenames: filenames = []
-	if options.input_cache: filenames.extend([lal.CacheEntry(l).path() for l in open(options.input_cache).readlines()])
+	if options.input_cache: filenames.extend([lal.CacheEntry(l).path for l in open(options.input_cache).readlines()])
 
 	return options, (filenames or [])
 				

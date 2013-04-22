@@ -70,7 +70,6 @@ params = loadtxt(fileinput.input(glob.glob(options.input_glob)))
 
 # FIXME: Make spin1z and spin2z
 col_names = ['mass1','mass2','spin1z','spin2z']
-col_names = ['mass1','mass2','chi','kappa']
 
 sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
 

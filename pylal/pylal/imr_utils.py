@@ -24,9 +24,9 @@ from pylal import db_thinca_rings
 from pylal import rate
 import numpy
 import copy
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
-from pylal import llwapp
 
 try:
 	import sqlite3
@@ -149,7 +149,7 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
 		if live_time_program == "gstlal_inspiral":
 			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, data_segments_name).coalesce()
-			segs &= llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs &= ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		elif live_time_program == "thinca":
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
 		else:
@@ -159,14 +159,14 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-		segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		if veto_segments_name is not None:
 			veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
 		if live_time_program == "omega_to_coinc":
-			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 			if veto_segments_name is not None:
 				veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 				segs -= veto_segs
@@ -406,15 +406,6 @@ class DataBaseSummary(object):
 					instruments_set = frozenset(lsctables.instrument_set_from_ifos(instruments))
 					self.this_injection_instruments.append(instruments_set)
 					segments_to_consider_for_these_injections = self.this_injection_segments.intersection(instruments_set) - self.this_injection_segments.union(set(self.this_injection_segments.keys()) - instruments_set)
-					# FIXME check to see if a maxextent option was used.  Currently only effect ligolw_rinca, but will effect ligolw_thinca someday
-					if self.table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-						coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
-						if len(coinc_end_time_seg_param) == 1:
-							segments_to_consider_for_these_injections &= segmentsUtils.from_range_strings(coinc_end_time_seg_param, boundtype = float)
-						else:
-							# FIXME what would that mean if it is greater than one???
-							raise ValueError("len(coinc_end_time_seg_param) > 1")
-
 					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)

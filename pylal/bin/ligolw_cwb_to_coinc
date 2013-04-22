@@ -83,7 +83,7 @@ opts, rootfiles = parser.parse_args()
 
 if opts.input_cache:
   if rootfiles == None: rootfiles = []
-  rootfiles += [CacheEntry(line).path() for cache in opts.input_cache for line in file(cache)]
+  rootfiles += [CacheEntry(line).path for cache in opts.input_cache for line in file(cache)]
 
 if rootfiles == None:
   sys.exit("Must specify input Coherent WaveBurst ROOT files")

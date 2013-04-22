@@ -371,6 +371,35 @@ def apply_snr_veto(mi_table, snr=6.0, return_index=False):
         return out
 
 
+def apply_chisq_veto(mi_table, snr=6.0, chisq_index=4.0, return_index=False):
+    """Veto events in a MultiInspiralTable based on their \f$\chi^2\f$
+    re-weighted coherent SNR.
+
+    @param mi_table
+        a MultiInspiralTable from which to veto events
+    @param snr
+        the value of coherent new SNR on which to threshold
+    @param chisq_index
+        the index \f$\iota\f$ used in the newSNR calculation:
+        \f[\rho_{\mbox{new}} =
+            \frac{\rho}{\left[\frac{1}{2}
+                \left(1 + \left(\frac{\chi^2}{n_\mbox{dof}}\right)^{\iota/3}
+                \right)\right]^{1/\iota}}
+        \f]
+    @param return_index
+        boolean to return the index array of non-vetoed elements rather
+        than a new table containing the elements themselves
+    """
+    new_snr = numpy.asarray(mi_table.get_new_snr(column="chisq"))
+    keep = new_snr >= snr
+    if return_index:
+        return keep
+    else:
+        out = table.new_from_template(mi_table)
+        out.extend(numpy.asarray(mi_table)[keep])
+        return out
+
+
 def apply_bank_veto(mi_table, snr=6.0, chisq_index=4.0, return_index=False):
     """Veto events in a MultiInspiralTable based on their bank chisq-
     weighted (new) coherent SNR.

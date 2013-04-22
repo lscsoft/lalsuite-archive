@@ -353,7 +353,7 @@ def get_cache(start, end, ifo, mask='DOWNSELECT', checkfilesexist=False,\
             append(from_T050017(trigfile))
         t+=triglength-overlap
 
-    cache.sort(key=lambda e: e.path())
+    cache.sort(key=lambda e: e.path)
 
     return cache
 

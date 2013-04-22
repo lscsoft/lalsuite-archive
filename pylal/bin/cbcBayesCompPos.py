@@ -37,7 +37,7 @@ mpl.use("AGG")
 from matplotlib import pyplot as plt
 from matplotlib import colors as mpl_colors
 from matplotlib import cm as mpl_cm
-
+from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
 from scipy import stats
 
@@ -162,7 +162,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
 
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -203,7 +203,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
             plt.plot(ind,np.transpose(kdepdf),label=name)
         plt.grid()
         plt.legend()
-        plt.xlabel(param)
+        plt.xlabel(bppu.plot_label(param))
         plt.xlim(min_pos,max_pos)
         plt.ylabel('Probability Density')
         #plt.tight_layout()
@@ -216,7 +216,7 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
     #
     return myfig#,rkde
 #
-def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,legend='right'):
 
 
     """
@@ -232,8 +232,18 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
-    myfig.add_axes([0.1,0.1,0.65,0.85])
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
+  #myfig.add_axes([0.1,0.1,0.65,0.85])
+  #myfig.add_axes([0.15,0.15,0.6,0.76])
+    axes=plt.Axes(myfig,[0.15,0.15,0.6,0.76])
+    myfig.add_axes(axes)
+    majorFormatterX=ScalarFormatter(useMathText=True)
+    majorFormatterX.format_data=lambda data:'%.6g'%(data)
+    majorFormatterY=ScalarFormatter(useMathText=True)
+    majorFormatterY.format_data=lambda data:'%.6g'%(data)
+    majorFormatterX.set_scientific(True)
+    majorFormatterY.set_scientific(True)
+
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
 
@@ -251,7 +261,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -262,9 +272,22 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
         locmaxy=max(n)
         if locmaxy>max_y: max_y=locmaxy
-        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
-
+#(n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,facecolor='white',label=name,normed=True,hold=True,color=color_by_name[name])#range=(min_pos,max_pos)
+        (n, bins, patches)=plt.hist(posterior[param].samples,bins=bins,histtype='step',label=name,normed=True,hold=True,color=color_by_name[name])
         patch_list.append(patches[0])
+
+    Nchars=max(map(lambda d:len(majorFormatterX.format_data(d)),axes.get_xticks()))
+    if Nchars>8:
+      Nticks=3
+    elif Nchars>5:
+      Nticks=4
+    elif Nchars>4:
+      Nticks=6
+    else:
+      Nticks=6
+    locatorX=mpl.ticker.MaxNLocator(nbins=Nticks)
+    locatorX.view_limits(bins[0],bins[-1])
+    axes.xaxis.set_major_locator(locatorX)
 
     plt.xlim(min_pos,max_pos)
     top_cl_intervals_list={}
@@ -289,10 +312,11 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     plt.grid()
     plt.xlim(min_pos,max_pos)
-    oned_legend=plt.figlegend(patch_list,pos_names,'right')
-    for text in oned_legend.get_texts():
+    if legend is not None:
+      oned_legend=plt.figlegend(patch_list,pos_names,'right')
+      for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -345,7 +369,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     from scipy import seterr as sp_seterr
 
     #Create common figure
-    myfig=plt.figure(figsize=(6,4),dpi=150)
+    myfig=plt.figure(figsize=(6,4.5),dpi=150)
     myfig.add_axes([0.1,0.1,0.65,0.85])
     list_of_pos=list_of_pos_by_name.values()
     list_of_pos_names=list_of_pos_by_name.keys()
@@ -363,7 +387,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -402,7 +426,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     oned_legend=plt.figlegend(patch_list,pos_names,'right')
     for text in oned_legend.get_texts():
         text.set_fontsize('small')
-    plt.xlabel(param)
+    plt.xlabel(bppu.plot_label(param))
     plt.ylabel('Probability density')
     plt.draw()
     #plt.tight_layout()
@@ -415,7 +439,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,contour_figsize=(6,4),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
 
     injection=None
 
@@ -558,7 +582,17 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
-        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
+        try:
+            idx=common_output_table_header.index('f_ref')
+            injFrefs=np.unique(common_output_table_raw[:,idx])
+            if len(injFrefs) == 1:
+              injFref = injFrefs[0]
+              print "Using f_ref in results as injected value"
+        except:
+            injFref = None
+            pass
+
+        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection, injFref=injFref)
 
         if 'a1' in pos_temp.names and min(pos_temp['a1'].samples)[0] < 0:
           pos_temp.append_mapping('spin1', lambda a:a, 'a1')
@@ -665,12 +699,15 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     cs_list=[]
 
                     slinestyles=['solid', 'dashed', 'dashdot', 'dotted']
+                    ldg='right'
+                    if not ldg_flag:
+                      ldg=None
 
-                    fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
-
+                    fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
+                    #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
-                    fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
-                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])))
+                    fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])),bbox_inches='tight')
+                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])),bbox_inches='tight')
 
 
             plt.clf()
@@ -687,7 +724,7 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             for confidence_level in OneDconfidenceLevels:
 
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
-                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg)
                 hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
 
                 # Save confidence levels and uncertainty
@@ -708,13 +745,13 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
-                    hist_fig.savefig(save_path)
-                    hist_fig.savefig(save_path_pdf)
+                    hist_fig.savefig(save_path,bbox_inches='tight')
+                    hist_fig.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
                     save_path=os.path.join(outdir,'%s_%i_cum.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i_cum.pdf'%(param,int(100*confidence_level)))
-                    hist_fig2.savefig(save_path)
-                    hist_fig2.savefig(save_path_pdf)
+                    hist_fig2.savefig(save_path,bbox_inches='tight')
+                    hist_fig2.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
                 min_low,max_high=cl_intervals.values()[0]
                 for name,interval in cl_intervals.items():
@@ -855,6 +892,7 @@ if __name__ == '__main__':
     parser.add_option("--contour-height",dest="ch",default=6,help="Height (in inches) of contour plots (optional).")
     parser.add_option("--contour-plot-width",dest="cpw",default=0.5,help="Relative width of plot element 0.15<width<1 (optional).")
     parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
+    parser.add_option("--no-legend",dest="ldg_flag",action="store_false",default=True,help="Hide legend (optional).")
     parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
     (opts,args)=parser.parse_args()
 
@@ -879,7 +917,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    

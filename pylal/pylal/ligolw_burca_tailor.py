@@ -39,6 +39,7 @@ from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import date
 from pylal import git_version
 from pylal import inject
@@ -586,7 +587,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists, name = u"ligolw
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
 	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
 	process = append_process(xmldoc, comment = comment)
-	llwapp.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
+	ligolw_search_summary.append_search_summary(xmldoc, process, ifos = seglists.keys(), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 	node.appendChild(coinc_params_distributions.to_xml(process, name))
 

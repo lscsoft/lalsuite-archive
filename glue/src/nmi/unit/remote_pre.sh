@@ -4,7 +4,8 @@
 # order to insulate that task's lalapps code from the production glue
 # environment we use for ligolw_print here
 
-. /opt/lscsoft/glue/etc/glue-user-env.sh
+# 2013-04-17 pfcouvar: remove since we now use a standard OS install of lalsuite
+#. /opt/lscsoft/glue/etc/glue-user-env.sh
 
 # exit immediately if any command exits with a non-zero status.
 set -e

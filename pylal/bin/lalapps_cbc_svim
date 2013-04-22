@@ -42,8 +42,20 @@ __author__ = "Stephen Privitera <sprivite@caltech.edu>, Chad Hanna <channa@perim
 __version__ = "git id %s" % git_version.id
 __date__ = git_version.date
 
-pyplot.rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
-matplotlib.rcParams.update({"text.usetex": True})
+matplotlib.rcParams.update({
+        "font.size": 14.0,
+        "font.family":"serif",
+        "font.serif":"Computer Modern Roman",
+        "axes.titlesize": 18.0,
+        "axes.labelsize": 16.0,
+        "xtick.labelsize": 14.0,
+        "ytick.labelsize": 14.0,
+        "legend.fontsize": 16.0,
+        "figure.dpi": 200,
+        "savefig.dpi": 200,
+        "text.usetex": True,
+        "path.simplify": True
+})
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
@@ -178,7 +190,7 @@ class upper_limit(object):
     '''Compute multi-ifo (coincident) segment list from single ifo segments.'''
     if self.opts.verbose: print >>sys.stdout,"\nForming coincident segments from single IFO segments..."
 
-    self.zero_lag_segments = dict( (inst,0) for inst in self.instruments )
+    self.zero_lag_segments = segments.segmentlistdict()
     for inst in self.instruments:
       self.zero_lag_segments[inst] = self.segments.intersection(inst) - self.segments.union(set(self.segments.keys()) - inst)
       if self.opts.verbose:
@@ -297,19 +309,25 @@ class upper_limit(object):
       # use true loudest event for open box
       else:
 
-          far_threshold_query = """
-          SELECT coinc_event.instruments,MIN(combined_far)
-          FROM coinc_inspiral
-          JOIN coinc_event ON (coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id)
-          JOIN experiment_map ON (coinc_event.coinc_event_id == experiment_map.coinc_event_id)
-          JOIN experiment_summary ON ( experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id)
-          WHERE experiment_summary.datatype == "exclude_play"
-          GROUP BY coinc_event.instruments;
-          """
+          if self.opts.include_play:
+              datatype = "all_data"
+          else:
+              datatype = "exclude_play"
 
-          for inst, far in connection.cursor().execute(far_threshold_query):
-              inst = frozenset(lsctables.instrument_set_from_ifos(inst))
-              self.far[inst] = far # handle FAR = 0 case specially downstream
+          for inst, far in upper_limit_utils.get_loudest_event(connection, opts.coinc_table, datatype):
+
+              if inst not in self.instruments:
+                  continue
+
+              # cannot determine efficiency above the loudest event
+              # when the loudest event has FAR=0
+              if far == 0:
+                  print >> sys.stderr, "Cannot determine efficiency above the loudest event when the loudest event has FAR=0. Skipping %s ..."%','.join(sorted(list(inst)))
+                  self.instruments.remove(inst)
+                  continue
+
+              else:
+                  self.far[inst] = far
 
       # report the far threshold being used
       if self.opts.verbose:
@@ -327,7 +345,8 @@ class upper_limit(object):
 
   def set_instruments(self, connection):
 
-      self.instruments = imr_utils.get_instruments_from_coinc_event_table(connection)
+      # looking for instrument sets of two or more detectors
+      self.instruments = [inst for inst in imr_utils.get_instruments_from_coinc_event_table(connection) if len(inst) > 1]
 
       if self.opts.instruments is None:
           return
@@ -486,12 +505,19 @@ class upper_limit(object):
     coincident event. All other injections are considered "missed".
     """
 
+    if self.opts.verbose:
+        print >>sys.stdout, "\nFinding parameters of the injections performed ..."
+
     self.injections = {}
 
     for inst in self.instruments:
-        self.injections.setdefault(inst,[])
-        injs = upper_limit_utils.get_all_min_far_inspiral_injections(connection, segments=self.zero_lag_segments[inst], table_name="coinc_inspiral:table")
-        self.injections[inst] += injs
+        found, total, missed = imr_utils.get_min_far_inspiral_injections(connection, segments = self.zero_lag_segments[inst], table_name = "%s:table"%self.opts.coinc_table)
+        self.injections[inst] = found + [(float('inf'), sim) for sim in missed]
+
+    # report how many injections were performs
+    if self.opts.verbose:
+        for inst in self.instruments:
+            print >>sys.stdout,"\tFound %d injections performed in %s time" % (len(self.injections[inst]),','.join(sorted(list(inst))))
 
     return True
 
@@ -551,6 +577,13 @@ will compute the search volume using all injections with at least one component 
   parser = OptionParser(version = git_version.verbose_msg, usage = usage + description)
 
   #
+  # tell svim where to find injections, segments, and triggers
+  parser.add_option("--sim-table", default = "sim_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding the injected signal parameters.", choices = ["sim_inspiral", "sim_ringdown"])
+  parser.add_option("--coinc-table", default = "coinc_inspiral", metavar = "TBL", help = "Set the name of the table containing information regarding coincident triggers.", choices = ["coinc_inspiral", "coinc_ringdown"])
+  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
+  parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
+
+  #
   # The code supports five mass binning modes.
   #
   parser.add_option("--bin-by-mass1-mass2", default = False, action = "store_true", help = "Bin injections by component mass in two dimensions when estimating the search efficiency.")
@@ -589,9 +622,6 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--disable-spin", default = False, action = "store_true", help = "When computing the search volume, exclude injections with any nonzero spin components.")
   parser.add_option("--spin-only", default = False, action = "store_true", help = "When computing the search volume, exclude injections with all spin components equal to zero. --disable-spin takes precedence.")
 
-  # These options control the volume uncertainty estimation.
-  parser.add_option("--seed",default = None, metavar = "integer",type = "int", help = "Provide a seed for the resampling and calibration error RNGs. This is useful for testing code changes. Otherwise output is completely (pseudo) random!")
-
   # Binning options. A large number of distance bins is needed for accurate numerical integration.
   parser.add_option("--dist-bins", default = 15, metavar = "integer", type = "int", help = "Space distance bins evenly and specify the number of distance bins to use.")
   parser.add_option("--mass-bins", default = 6, metavar = "integer", type = "int", help = "If mass bin boundaries are not explicitly set, you can specify here the number of mass bins to use along a single dimension. The number of bins is currently 1 fewer than the value you specify.")
@@ -602,17 +632,14 @@ will compute the search volume using all injections with at least one component 
   parser.add_option("--open-box", default = False, action = "store_true", help = "Use the observed cFAR for the loudest event: only appropriate when the full search result is known. If neither --far nor --open-box is given, default action is to use cFAR=1/livetime.")
   parser.add_option("--include-play", default = False, action = "store_true", help = "Include playground data in computing the livetime and volume.")
 
-  # Techincal options which the general user won't care about
-  parser.add_option("--live-time-program", default = "thinca", metavar = "name", help = "Set the name of the program whose rings will be extracted from the search_summary table.  Default = \"thinca\".")
-  parser.add_option("--veto-segments-name", default = "VETO_CAT4_CUMULATIVE", help = "Set the name of the veto segments to use from the XML document.")
+  # options to control output
   parser.add_option("--user-tag", default = "", metavar = "name", help = "Add a descriptive tag to the names of output files.")
-  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
   parser.add_option("--output-cache", default = None, help = "Name of output cache file. If not specified, then no cache file will be written.")
-
-  # options for level of output
   parser.add_option("--output-path", default = "./", action = "store", help="Choose directory to save output files.")
   parser.add_option("--verbose", action = "store_true", help = "Be verbose.")
   parser.add_option("--plot-efficiency", action = "store_true", help = "Plot efficiency as a function of distance.")
+  parser.add_option("--plot-volume-vs-far", action = "store_true", help = "Compute and plot the volume as a function of FAR.")
+  parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory used as work area for the database file.  The database file will be worked on in this directory then moved to the final location when complete.  Intended to improve performance in a networked environment: eg local disk with higher available bandwidth than the filesystem where the database lives.")
 
   opts, filenames = parser.parse_args()
 
@@ -672,6 +699,91 @@ UL = upper_limit(database, opts)#
 # Set up opts structure for use with InspiralUtils
 opts.gps_start_time = UL.start_time
 opts.gps_end_time = UL.end_time
+
+#
+# plot the sensitive volume and range as a function of FAR threshold
+#
+if opts.plot_volume_vs_far:
+
+    # determine the range of FARs applicable to this search.
+    # do it once and for all to give plots the same x-limits
+    fars = []
+    for instr in UL.instruments:
+        fars.extend([f for f, sim in UL.injections[instr] if 0 < f < float('inf')])
+    fars = numpy.sort(fars)
+    far_min = min( fars )
+    far_max = max( fars )
+
+    # make an array of fars to loop over
+    nfars = 25
+    fars = numpy.logspace( numpy.log10(far_min), numpy.log10(far_max), nfars )
+
+    for instr in UL.instruments:
+
+        lt = UL.livetime[instr] #preferred unit is Mpc^3*yr
+
+        for bin_type in UL.mass_bins:
+            vAs, vA2s = [], []
+
+            for far in fars:
+
+                # compute volume for given far binned in mass
+                found, missed = UL.get_injections(instr, far, bin_type)
+                vA, vA2, _, _, _, _  = upper_limit_utils.compute_volume_vs_mass(found, missed, UL.mass_bins[bin_type], bin_type,dbins=UL.dbins[instr])
+                vAs.append(vA)
+                vA2s.append(vA2)
+
+            for j, mbin in enumerate(iterutils.MultiIter(*UL.mass_bins[bin_type].centres())):
+
+                if bin_type == "BNS_BBH":
+                    label = ["NS-NS","NS-BH","BH-BH"][j]
+                elif bin_type == "Mass1_Mass2":
+                    label = '-'.join(["%.2f"%ma for ma in mbin])+"M$_\odot$"
+                else:
+                    lo = UL.mass_bins[bin_type].lower()
+                    hi = UL.mass_bins[bin_type].upper()
+                    label = ','.join("%.1f-%.1f M$_\odot$"%(lo[k][j],hi[k][j]) for k in range(len(lo)))
+
+                vols = numpy.array([ v[mbin] for v in vAs ])
+                vols_errs = numpy.array([v2[mbin] for v2 in vA2s ])
+
+                pyplot.figure(1)
+                line, = pyplot.plot(fars, lt*vols, label=label)
+                pyplot.fill_between(fars, lt*vols - lt*vols_errs, lt*vols + lt*vols_errs, alpha=0.5, color=line.get_color())
+
+                dists = (3*vols/(4*numpy.pi))**(1./3)
+                dists_errs = dists*vols_errs/(3*vols)
+
+                pyplot.figure(2)
+                line, = pyplot.plot(fars, dists, label=label)
+                pyplot.fill_between(fars, dists - dists_errs, dists + dists_errs, alpha=0.5, color=line.get_color())
+
+            pyplot.figure(1)
+            pyplot.axvline(UL.far[instr],ls='--',c='k')
+            tag = "%s-VOLUME_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
+            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
+            pyplot.ylabel("Mean Sensitive 4-Volume ($Mpc^3 yr$)")
+            pyplot.semilogx()
+            pyplot.grid()
+            pyplot.xlim(min(fars), max(fars))
+            pyplot.ylim(ymin=0)
+            pyplot.legend(loc="lower right")
+            pyplot.savefig(tag)
+            pyplot.close()
+
+            pyplot.figure(2)
+            pyplot.axvline(UL.far[instr],ls='--',c='k')
+            tag = "%s-RANGE_VS_FAR_BINNED_BY_%s_%s" % ("".join(sorted(list(instr))),bin_type.upper(),opts.user_tag)
+            pyplot.xlabel("False Alarm Rate ($yr^{-1}$)")
+            pyplot.ylabel("Mean Sensitive Distance ($Mpc$)")
+            pyplot.semilogx()
+            pyplot.grid()
+            pyplot.xlim(min(fars), max(fars))
+            pyplot.ylim(ymin=0)
+            pyplot.legend(loc="lower right")
+            pyplot.savefig(tag)
+            pyplot.close()
+
 
 # loop over the requested instruments and mass bin types,
 # compute the search volume and volume derivative at the specified
