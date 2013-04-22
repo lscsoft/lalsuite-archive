@@ -59,7 +59,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   * Requires --inj, --outfile and optionally --event (if not 0).
   */
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
-
+void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOData *IFOdata);
 //void LALInferenceInjectBurstSignal(LALInferenceRunState *runState, ProcessParamsTable *commandLine);
 //void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInferenceVariables *vars);
 /*@}*/
