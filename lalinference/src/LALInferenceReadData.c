@@ -704,7 +704,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         }    
         /* Check if fake data is requested */
         if(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO")
-                        && strcmp(caches[i],"LALAdLIGO")&& strcmp(caches[i],"LALAdVirgo"))))
+                        && strcmp(caches[i],"LALAdLIGO")&& strcmp(caches[i],"LALSimAdLIGO")&& strcmp(caches[i],"LALSimLIGO")&& strcmp(caches[i],"LALSimVirgo")&& strcmp(caches[i],"LALSimAdVirgo")&& strcmp(caches[i],"LALAdVirgo"))))
         {
             //FakeFlag=1; - set but not used
             if (!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
@@ -720,12 +720,12 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
             
             /* Selection of the noise curve */
-            if(!strcmp(caches[i],"LALLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDiLIGOSRD ) ; }
-            if(!strcmp(caches[i],"LALVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDVirgo );}
+            if(!strcmp(caches[i],"LALSimLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDiLIGOSRD ) ; }
+            if(!strcmp(caches[i],"LALSimVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDVirgo );}
             if(!strcmp(caches[i],"LALGEO")) {fprintf(stderr,"I did not port LALGEO noise yet\n");exit(1);}
             if(!strcmp(caches[i],"LALEGO")) {fprintf(stderr,"I did not port LALGEO noise yet\n");exit(1);}
-            if(!strcmp(caches[i],"LALAdLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDaLIGOZeroDetHighPower ) ;}
-            if(!strcmp(caches[i],"LALAdVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDAdvVirgo) ;}
+            if(!strcmp(caches[i],"LALSimAdLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDaLIGOZeroDetHighPower ) ;}
+            if(!strcmp(caches[i],"LALSimAdVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDAdvVirgo) ;}
             //if(interpFlag) {PSD=NULL; scalefactor=1.0;}
             //if(!strcmp(caches[i],"LAL2kLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 36E-46;}
             if(IFOdata[i].oneSidedNoisePowerSpectrum==NULL && !interpFlag) {fprintf(stderr,"Error: unknown simulated PSD: %s\n",caches[i]); exit(-1);}
