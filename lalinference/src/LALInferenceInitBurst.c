@@ -90,7 +90,7 @@ void LALInferenceInitBurstVariables(LALInferenceRunState *state)
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
-	REAL8 endtime;
+	REAL8 endtime=-1.0;
 	ProcessParamsTable *ppt=NULL;
     
     REAL8 tmpMax, tmpVal,tmpMin;
@@ -186,28 +186,20 @@ Parameter arguments:\n\
     REAL8 loghrssmin=-52.95945714, loghrssmax=-48.35428695;
     REAL8 dt=0.1;
     ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmin");
-    if (ppt) loghrssmin=atof(ppt->value);
+    if (ppt){ loghrssmin=atof(ppt->value); fprintf(stdout,"Setting min prior for loghrss to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--loghrssmax");
-    if (ppt) loghrssmax=atof(ppt->value);
+    if (ppt){ loghrssmax=atof(ppt->value); fprintf(stdout,"Setting max prior for loghrss to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--qmin");
-    if (ppt) Qmin=atof(ppt->value);
+    if (ppt){ Qmin=atof(ppt->value); fprintf(stdout,"Setting min prior for Q to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
-    if (ppt) Qmax=atof(ppt->value);
+    if (ppt){ Qmax=atof(ppt->value); fprintf(stdout,"Setting max prior for Q to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--fmin");
-    if (ppt) Fmin=atof(ppt->value);    
+    if (ppt){ Fmin=atof(ppt->value);     fprintf(stdout,"Setting min prior for centre frequency to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--fmax");
-    if (ppt) Fmax=atof(ppt->value);
+    if (ppt){ Fmax=atof(ppt->value); fprintf(stdout,"Setting max prior for centre frequency to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
     if (ppt) dt=atof(ppt->value);
-    
-
-    /* Over-ride end time if specified */
-    ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-    if(ppt){
-        endtime=atof(ppt->value);
-    }
-       
- 
+	 
     if(!LALInferenceCheckVariable(currentParams,"time")) LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
     tmpMin=endtime-0.5*dt; tmpMax=endtime+0.5*dt;
     LALInferenceAddMinMaxPrior(priorArgs, "time",     &tmpMin, &tmpMax,   LALINFERENCE_REAL8_t);	
@@ -270,8 +262,8 @@ if (BinjTable && burst_inj){
     // Check the max Nyquist frequency for this parameter range
     
     if ( (Fmax+ 3.0*Fmax/Qmin) > state->data->fHigh){
-        fprintf(stderr,"ERROR, some of the template in your parameter space will be generated at a frequency higher than Nyquist (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(Fmax+ 3.0*Fmax/Qmin));
-        exit(1);
+        fprintf(stderr,"WARNING, some of the template in your parameter space will be generated at a frequency higher than Nyquist (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(Fmax+ 3.0*Fmax/Qmin));
+        //exit(1);
     }
         
     }
