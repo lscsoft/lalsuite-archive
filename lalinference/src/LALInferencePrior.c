@@ -1314,7 +1314,7 @@ REAL8 LALInferenceSinGaussPrior(LALInferenceRunState *runState, LALInferenceVari
       if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
     }
   }
-  /*Use a uniform in log D distribution*/
+  /*Use a distribution uniform in space volume */
   if(LALInferenceCheckVariable(params,"loghrss"))
     logPrior+=-3.0* *(REAL8 *)LALInferenceGetVariable(params,"loghrss");
   if(LALInferenceCheckVariable(params,"declination"))

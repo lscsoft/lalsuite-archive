@@ -339,7 +339,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     """
     psdlength=self.config.getint('input','max-psd-length')
     padding=self.config.getint('input','padding')
-    seglen = self.config.getint('lalinference','seglen')
+    seglen = self.config.getfloat('lalinference','seglen')
     # Assume that the data interval is (end_time - seglen -padding , end_time + psdlength +padding )
     # Also require padding before start time
     return (min(times)-padding-seglen,max(times)+padding+psdlength)
