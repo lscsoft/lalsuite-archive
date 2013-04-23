@@ -169,7 +169,12 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 	//if(status.statusCode!=0) {fprintf(stderr,"Error generating injection!\n"); REPORTSTATUS(&status); }
     
     /* Inject burst in the FreqDomain */
-	if (LALInferenceGetProcParamVal(commandLine,"--FDinjections"))
+    int FDinj=0;
+    if (injTable){
+        if(!strcmp("SineGaussianF",injEvent->waveform)) FDinj=1;
+        }
+    
+	if (LALInferenceGetProcParamVal(commandLine,"--FDinjections") || FDinj==1)
     {
          InjectSineGaussianFD(thisData, injEvent, commandLine);
          return;
@@ -219,7 +224,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     //LALFindChirpInjectSignals(&status,injectionBuffer,injEvent,resp);
 
     if(LALInferenceGetProcParamVal(commandLine,"--lalsimulationinjection")){
-      printf("Using LALSimulation for injection\n");
+      printf("--------------------------Using LALSimulation for injection\n");
       REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       REAL8TimeSeries       *signalvecREAL8=NULL;
@@ -230,18 +235,16 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
       hrss=injEvent->hrss;
      // psi=injEvent->psi;
       polar_angle=injEvent->pol_ellipse_angle;
-      eccentricity=injEvent->pol_ellipse_e; // salvo
-      printf("READ polar angle %lf\n",polar_angle); 
-      printf("READ ecc %lf\n",injEvent->pol_ellipse_e); 
+      eccentricity=injEvent->pol_ellipse_e; 
     /* Check that 2*width_gauss_envelope is inside frequency range */
     if ((centre_frequency + 3.0*centre_frequency/Q)>=  1.0/(2.0*thisData->timeData->deltaT))
 {
-    fprintf(stderr, "ERROR: Your sample rate is too low to ensure a good analysis for a SG centered at f0=%lf and with Q=%lf. Consider increasing it to more than %lf. Exiting...\n",centre_frequency,Q,2.0*(centre_frequency + 3.0*centre_frequency/Q));
+    fprintf(stdout, "WARNING: Your sample rate is too low to ensure a good analysis for a SG centered at f0=%lf and with Q=%lf. Consider increasing it to more than %lf. Exiting...\n",centre_frequency,Q,2.0*(centre_frequency + 3.0*centre_frequency/Q));
 //exit(1);
 }
     if ((centre_frequency -3.0*centre_frequency/Q)<=  thisData->fLow)
 {
-    fprintf(stderr, "WARNING: The low frenquency tail of your SG centered at f0=%lf and with Q=%lf will lie below the low frequency cutoff. Whit your current settings and parameters the minimum f0 you can analyze without cuts is %lf.\n Continuing... \n",centre_frequency,Q,centre_frequency -3.0*centre_frequency/Q);
+    fprintf(stdout, "WARNING: The low frenquency tail of your SG centered at f0=%lf and with Q=%lf will lie below the low frequency cutoff. Whit your current settings and parameters the minimum f0 you can analyze without cuts is %lf.\n Continuing... \n",centre_frequency,Q,centre_frequency -3.0*centre_frequency/Q);
 //exit(1);
 }
       XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,thisData->timeData->deltaT);
@@ -257,7 +260,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
       }
       /* XLALSimInspiralChooseTDWaveform always ends the waveform at t=0 */
       /* So we can adjust the epoch so that the end time is as desired */
-      XLALGPSAddGPS(&(hplus->epoch), &(injEvent->time_geocent_gps));       // SALVO check this
+      XLALGPSAddGPS(&(hplus->epoch), &(injEvent->time_geocent_gps));  
       XLALGPSAddGPS(&(hcross->epoch), &(injEvent->time_geocent_gps));
 //for(i=0;i<hcross->data->length;i++){      
     
@@ -271,9 +274,9 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
         if(isnan(signalvecREAL8->data->data[i])) {signalvecREAL8->data->data[i]=0.0;printf("isnan %d\n",i);}
       }
       
-      if(signalvecREAL8->data->length > thisData->timeData->data->length-(UINT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT)){
-        fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d and the 2.0 seconds after tc (total of %d points available).\n", signalvecREAL8->data->length, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding+2.0)/thisData->timeData->deltaT));
-        fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",signalvecREAL8->data->length * thisData->timeData->deltaT , thisData->timeData->data->length * thisData->timeData->deltaT, signalvecREAL8->data->length * thisData->timeData->deltaT + 2.0*padding + 2.0, __FILE__, __LINE__);
+      if(signalvecREAL8->data->length > thisData->timeData->data->length-(UINT4)ceil((2.0*padding)/thisData->timeData->deltaT)){
+        fprintf(stderr, "WARNING: waveform length = %u is longer than thisData->timeData->data->length = %d minus the window width = %d (total of %d points available).\n", signalvecREAL8->data->length, thisData->timeData->data->length, (INT4)ceil((2.0*padding)/thisData->timeData->deltaT) , thisData->timeData->data->length-(INT4)ceil((2.0*padding)/thisData->timeData->deltaT));
+        fprintf(stderr, "The waveform injected is %f seconds long. Consider increasing the %f seconds segment length (--seglen) to be greater than %f. (in %s, line %d)\n",signalvecREAL8->data->length * thisData->timeData->deltaT , thisData->timeData->data->length * thisData->timeData->deltaT, signalvecREAL8->data->length * thisData->timeData->deltaT + 2.0*padding , __FILE__, __LINE__);
       }
       //for(i=0;i<signal->data->length;i++){      
     
@@ -598,14 +601,16 @@ longitude=inj_table->ra;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
     
-   
-    //char InjFileName[50];
-    //sprintf(InjFileName,"injection_%s.dat",dataPtr->name);
-    //FILE *outInj=fopen(InjFileName,"w");
+    char InjFileName[50];
+    sprintf(InjFileName,"FD_injection_%s.dat",dataPtr->name);
+    FILE *outInj=fopen(InjFileName,"w");
  
      /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
+    REAL8 time_env_2sigma=Q / (LAL_TWOPI * centre_frequency);
+    if (2.0*time_env_2sigma>1./deltaF)
+        fprintf(stdout,"WARNING: 95 of the Gaussian envelop (%lf) is larger than seglen (%lf)!!\n",2.0*time_env_2sigma,1./deltaF);
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
      chisquared = 0.0;
@@ -628,6 +633,7 @@ longitude=inj_table->ra;
       dataPtr->freqData->data->data[i].im+=templateImag;
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       chisquared  += temp;
+      fprintf(outInj,"%lf %10.10e %10.10e\n",f,templateReal,templateImag);
     }
     printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
     NetSNR+=2.0*chisquared;
@@ -635,7 +641,7 @@ longitude=inj_table->ra;
      
     dataPtr = dataPtr->next;
     
-    // fclose(outInj);
+     fclose(outInj);
   }
 
     LALInferenceDestroyVariables(&intrinsicParams);
