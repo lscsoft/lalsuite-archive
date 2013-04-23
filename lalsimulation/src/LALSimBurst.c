@@ -611,7 +611,7 @@ int XLALSimBurstSineGaussian(
 	REAL8 polarization,
 	REAL8 delta_t // 1 over srate
 )
-{
+{	
 	REAL8Window *window;
 	/* semimajor and semiminor axes of waveform ellipsoid */
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
@@ -664,7 +664,7 @@ int XLALSimBurstSineGaussian(
 		const double phi = LAL_TWOPI * centre_frequency * t; // this is the actual time, not t0
 		const double fac = exp(-0.5 * phi * phi / (Q * Q));
 		(*hplus)->data->data[i]  = h0plus * fac * cos(phi);
-		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  //salvo remove zero here
+		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  
 	}
 //fclose(testout);
 	/* apply a Tukey window for continuity at the start and end of the
@@ -794,11 +794,10 @@ int XLALSimBurstSineGaussianF(
 		phi2plus =(centre_frequency +f)*(centre_frequency +f)/tau2;
         phi2minus= (f-centre_frequency )*(f-centre_frequency )/tau2;
 		
-		hptilde->data->data[i]  =0.0;// h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
+		hptilde->data->data[i]  =0.0;
+		//ASSIGN HPTILDE TO THIS TO RESTORE h_+: h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
 		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus));
-        //if (f> centre_frequency*(1.-0.5) && f<centre_frequency*(1.+0.5))
-		//printf("f %lf exp1 %10.10e exp2 %10.10e\n",f, exp(phi1),exp(-phi2));
-		//fprintf(testout,"%lf %10.10e %10.10e  %10.10e %10.10e %lf\n",f,CX16re(hptilde->data->data[i]),CX16im(hptilde->data->data[i]),CX16re(hctilde->data->data[i]),CX16im(hctilde->data->data[i]),centre_frequency);
+
 	}
 
 	//fclose(testout);
