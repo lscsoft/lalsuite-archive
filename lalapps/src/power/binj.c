@@ -74,7 +74,7 @@
 
 double q_min=2.0;
 static void get_FakePsdFromString(REAL8FrequencySeries* PsdFreqSeries,char* FakePsdName, REAL8 StartFreq);
-double single_IFO_SNR_threshold=5.5;
+double single_IFO_SNR_threshold=0.0;
 char *snr_ifos      = NULL; // ifo list to be used for SNR calculation 
 REAL8 ligoStartFreq=-1.0;
 REAL8 virgoStartFreq=-1.0;
@@ -596,15 +596,15 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		break;
 	case 1709:
 		options.q_distr=(ParDistr) parse_distr(optarg);
-		ADD_PROCESS_PARAM(process, "int_4");
+		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
 	case 1710:
 		options.f_distr=parse_distr(optarg);
-		ADD_PROCESS_PARAM(process, "int_4");
+		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
 	case 1711:
 		options.hrss_distr=parse_distr(optarg);
-		ADD_PROCESS_PARAM(process, "int_4");
+		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
 	case 1712:
 		options.q_stdev = atof(optarg);
@@ -628,7 +628,7 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		break;
 	case 1717:
 		options.snr_distr=parse_distr(optarg);
-		ADD_PROCESS_PARAM(process, "int_4");
+		ADD_PROCESS_PARAM(process, "int_4s");
 		break;
 	case 1718:
 		options.minsnr=atof(optarg);
@@ -1798,7 +1798,7 @@ static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8Frequ
         net_snr+=SNRs[j]*SNRs[j];
     }
     net_snr=sqrt(net_snr);
-
+FILE* snrs=fopen("SNR.txt","a");
     local_min=options->minsnr;  
     /* Draw a proposed netw SNR. Check that two or more IFOs are above coincidence (if given and if num_ifos>=2) */
     do{
@@ -1846,6 +1846,8 @@ static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8Frequ
         
     }while(!(above_threshold>=2) && num_ifos>=2); 
     inj->hrss=inj->hrss/ratio;
+    fprintf(snrs,"%10.10e\n",proposedSNR);
+    fclose(snrs);
 if (SNRs) free(SNRs);
 
 return 0;
