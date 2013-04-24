@@ -652,7 +652,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
        node.set_injection(self.config.get('input','injection-file'),event.event_id)
     if self.config.has_option('input','burst-injection-file'):
        node.set_injection(self.config.get('input','burst-injection-file'),event.event_id)
-    node.set_seglen(self.config.getint('lalinference','seglen'))
+    node.set_seglen(self.config.getfloat('lalinference','seglen'))
     if self.config.has_option('input','psd-length'):
       node.set_psdlength(self.config.getint('input','psd-length'))
     if self.config.has_option('input','psd-start-time'):
