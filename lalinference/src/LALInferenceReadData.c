@@ -2269,7 +2269,6 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj
     will over-write and destroy any existing parameters. Param vary type will be fixed */
 void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInferenceVariables *vars)
 {
-    UINT4 spinCheck=0;
     if(!vars) {
 	XLALPrintError("Encountered NULL variables pointer");
    	XLAL_ERROR_VOID(XLAL_EINVAL);

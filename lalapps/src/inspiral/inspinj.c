@@ -2741,46 +2741,6 @@ int main( int argc, char *argv[] )
                         "string", optarg );
         break;
 
-      case '1':
-        minSNR = atof( optarg );
-
-        if ( minSNR < 2 )
-        {
-          fprintf(stderr,"invalid argument to --%s:\n"
-                  "%s must be greater than 2\n",
-                  long_options[option_index].name, optarg );
-
-          exit( 1 );
-        }
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%le", minSNR );
-
-        break;
-      case '2':
-        maxSNR = atof( optarg );
-        if ( maxSNR < 2 )
-        {
-          fprintf(stderr,"invalid argument to --%s:\n"
-                  "%s must be greater than 2\n",
-                  long_options[option_index].name, optarg );
-
-          exit( 1 );
-        }
-
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name,
-              "float", "%le", maxSNR );
-        break;
-      case '3':
-        optarg_len = strlen( optarg ) + 1;
-        ifos       = calloc( 1, optarg_len * sizeof(char) );
-        memcpy( ifos, optarg, optarg_len * sizeof(char) );
-        this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, "string",
-              "%s", optarg );
-        break;
-
       case '^':
         optarg_len = strlen( optarg ) + 1;
         IPNSkyPositionsFile = calloc( 1, optarg_len * sizeof(char) );
@@ -2789,7 +2749,7 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name, "string",
               "%s", optarg );
         break;
-      case '1009':
+      case 1009:
               /* enable PhiTest injections */
         this_proc_param = this_proc_param->next = 
         next_process_param( long_options[option_index].name, "string", 
