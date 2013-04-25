@@ -2801,7 +2801,7 @@ char* XLALGetStringFromApproximant(Approximant approximant)
     case TaylorF2Test:
       return strdup("TaylorF2Test");
     case PPE:
-      return strdup("PPE")
+      return strdup("PPE");
     case TaylorR2F4:
       return strdup("TaylorR2F4");
     case PhenSpinTaylorRDF:

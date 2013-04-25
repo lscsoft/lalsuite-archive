@@ -536,11 +536,10 @@ void adjust_snr_real8(
  * default=0) and chirp mass. All quantities should be in meters
  *************************************************************/
  
-REAL8 ComputePPEparameterFromLambdaG(REAL8 loglambdaG, REAL8 distance, REAL8 mchirp, REAL8 redshift)
+REAL8 ComputePPEparameterFromLambdaG(REAL8 wavelength, REAL8 distance, REAL8 mchirp, REAL8 z)
 {
-    REAL8 out=0.0
-    REAL8 lambdaG=pow(10.0,loglambdaG);
-    return -LAL_PI*LAL_PI*distance*mchirp/(lambdaG*lambdaG*(1.0+redshift));
+    REAL8 lambdaG=pow(10.0,wavelength);
+    return -LAL_PI*LAL_PI*distance*mchirp/(lambdaG*lambdaG*(1.0+z));
 }
 
 
@@ -3899,7 +3898,7 @@ int main( int argc, char *argv[] )
     /* compute the corresponding value of the betaPPE parameter */
     
     bPPE = -1.0;
-    betaPPE = ComputePPEparameterFromLambdaG(loglambdaG,distance*1e3*LAL_PC_SI,mchirp*LAL_MRSUN_SI,0.0);
+    betaPPE = ComputePPEparameterFromLambdaG(loglambdaG,simTable->distance*1e6*LAL_PC_SI,simTable->mchirp*LAL_MRSUN_SI,0.0);
     
     /* populate the Brans-Dicke parameters */
     
