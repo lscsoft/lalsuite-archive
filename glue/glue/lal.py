@@ -1,4 +1,4 @@
-# Copyright (C) 2006-2011  Kipp Cannon
+# Copyright (C) 2006-2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -103,7 +103,7 @@ class LIGOTimeGPS(object):
 			try:
 				nanoseconds = float(nanoseconds)
 			except:
-				raise TypeError, nanoseconds
+				raise TypeError(nanoseconds)
 		if type(seconds) is float:
 			seconds, ns = divmod(seconds, 1)
 			seconds = int(seconds)
@@ -118,7 +118,7 @@ class LIGOTimeGPS(object):
 						ns = 0
 					seconds = int(seconds)
 				except:
-					raise TypeError, "invalid literal for LIGOTimeGPS(): %s" % seconds
+					raise TypeError("invalid literal for LIGOTimeGPS(): %s" % seconds)
 				if seconds < 0 and ns:
 					seconds -= 1
 					ns = 1e9 - ns
@@ -131,7 +131,7 @@ class LIGOTimeGPS(object):
 					nanoseconds += seconds.nanoseconds
 					seconds = seconds.seconds
 				except:
-					raise TypeError, seconds
+					raise TypeError(seconds)
 		self.__seconds = seconds + int(nanoseconds // 1000000000)
 		self.__nanoseconds = int(nanoseconds % 1000000000)
 
@@ -503,7 +503,7 @@ class CacheEntry(object):
 			try:
 				match = match.groupdict()
 			except AttributeError:
-				raise ValueError, "could not convert %s to CacheEntry" % repr(args[0])
+				raise ValueError("could not convert %s to CacheEntry" % repr(args[0]))
 			self.observatory = match["obs"]
 			self.description = match["dsc"]
 			start = match["strt"]
@@ -517,15 +517,15 @@ class CacheEntry(object):
 				self.segment = segments.segment(start, start + coltype(duration))
 			self.url = match["url"]
 			if kwargs:
-				raise TypeError, "unrecognized keyword arguments: %s" % ", ".join(kwargs)
+				raise TypeError("unrecognized keyword arguments: %s" % ", ".join(kwargs))
 		elif len(args) == 4:
 			# parse arguments as observatory, description,
 			# segment, url
 			if kwargs:
-				raise TypeError, "invalid arguments: %s" % ", ".join(kwargs)
+				raise TypeError("invalid arguments: %s" % ", ".join(kwargs))
 			self.observatory, self.description, self.segment, self.url = args
 		else:
-			raise TypeError, "invalid arguments: %s" % args
+			raise TypeError("invalid arguments: %s" % args)
 
 		# "-" indicates an empty column
 		if self.observatory == "-":
@@ -559,7 +559,7 @@ class CacheEntry(object):
 		description, then segment, then URL.
 		"""
 		if type(other) != CacheEntry:
-			raise TypeError, "can only compare CacheEntry to CacheEntry"
+			raise TypeError("can only compare CacheEntry to CacheEntry")
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
 
 	def __hash__(self):
@@ -633,7 +633,7 @@ class CacheEntry(object):
 		"""
 		match = cls._url_regex.search(url)
 		if not match:
-			raise ValueError, "could not convert %s to CacheEntry" % repr(url)
+			raise ValueError("could not convert %s to CacheEntry" % repr(url))
 		observatory = match.group("obs")
 		description = match.group("dsc")
 		start = match.group("strt")
@@ -847,8 +847,8 @@ class Cache(list):
 		  "ignore": do nothing
 		'''  
 		if on_missing not in ("warn", "error", "ignore"):
-			raise ValueError, "on_missing must be \"warn\", " \
-			      "\"error\", or \"ignore\"."
+			raise ValueError("on_missing must be \"warn\", " \
+			      "\"error\", or \"ignore\".")
 		
 		c_found = []
 		c_missed = []
@@ -864,10 +864,10 @@ class Cache(list):
 			if on_missing == "warn":
 				print >>sys.stderr, "warning: " + msg
 			elif on_missing == "error":
-				raise ValueError, msg
+				raise ValueError(msg)
 			elif on_missing == "ignore":
 				pass
 			else:
-				raise ValueError, "Why am I here? "\
-				      "Please file a bug report!"
+				raise ValueError("Why am I here? "\
+				      "Please file a bug report!")
 		return self.__class__(c_found), self.__class__(c_missed)
