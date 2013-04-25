@@ -285,7 +285,7 @@ def WriteMVSCTriggers(MVSCTriggers, output_filename, Classified = False):
     file.write(second_line + "\n")
   
   for i in range(n_triggers):
-    line = " ".join([str(var) for var in Triggers[i]])
+    line = " ".join(["%0.3f" % (var) for var in Triggers[i]])
     file.write(line + "\n")
 
   file.close()    

@@ -40,7 +40,7 @@ def run_earthquakes(params):
         gpsStart = traveltimes["arrivalMin"] - 200
         gpsEnd = traveltimes["arrivalMax"] + 200
 
-        f.write("%.1f %.1f %.1f %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"])))
+        f.write("%.1f %.1f %.1f %.1f %.1f %.5e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0]))
 
     f.close()
 
@@ -48,15 +48,15 @@ def run_earthquakes(params):
         plotName = os.path.join(earthquakesDirectory,"magnitudes.png")
         pylal.pylal_seismon_eqmon_plot.magnitudes(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"magnitudes_latencies.png")
-        #pylal.pylal_seismon_eqmon_plot.magnitudes_latencies(params,attributeDics,plotName)
+        pylal.pylal_seismon_eqmon_plot.magnitudes_latencies(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"latencies_sent.png")
-        #pylal.pylal_seismon_eqmon_plot.latencies_sent(params,attributeDics,plotName)
+        pylal.pylal_seismon_eqmon_plot.latencies_sent(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"latencies_written.png")
-        #pylal.pylal_seismon_eqmon_plot.latencies_written(params,attributeDics,plotName)
+        pylal.pylal_seismon_eqmon_plot.latencies_written(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"traveltimes%s.png"%params["ifo"])
         pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,params["gps"],plotName)
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
-        #pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,params["gpsEnd"],plotName)
+        pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,params["gpsEnd"],plotName)
 
 def parse_xml(element):
 

@@ -418,17 +418,19 @@ def worldmap_plot(params,attributeDics,currentGPS,plotName):
         nearestGPS, Rindex = find_nearest(attributeDic["traveltimes"][ifo]["Ptimes"],currentGPS)
         Rdist = attributeDic["traveltimes"][ifo]["Distances"][Rindex]/1000
 
-        if attributeDic["doPlots"] == 1:
-            x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
-            m.scatter(
+        if currentGPS > max([attributeDic["traveltimes"][ifo]["Ptimes"][-1],attributeDic["traveltimes"][ifo]["Stimes"][-1],attributeDic["traveltimes"][ifo]["Rtimes"][-1]]):
+            continue
+
+        x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
+        m.scatter(
                 x,
                 y,
                 s=10, #size
                 marker='o', #symbol
                 alpha=0.5, #transparency
                 zorder = 2, #plotting order
-            )
-            text(
+        )
+        text(
                 x,
                 y,
                 attributeDic["eventName"],
@@ -437,32 +439,32 @@ def worldmap_plot(params,attributeDics,currentGPS,plotName):
                 horizontalalignment='center',
                 verticalalignment='center',
                 zorder = 3,
-                )
+        )
 
-            X,Y = pylal.pylal_seismon_eqmon.equi(m, attributeDic["Longitude"], attributeDic["Latitude"], Pdist)
-            m.plot(
+        X,Y = pylal.pylal_seismon_eqmon.equi(m, attributeDic["Longitude"], attributeDic["Latitude"], Pdist)
+        m.plot(
                 X,
                 Y,
                 linewidth = attributeDic["Magnitude"] / 2,
                 zorder = 3, #plotting order
                 color = 'b'
-            )
-            X,Y = pylal.pylal_seismon_eqmon.equi(m, attributeDic["Longitude"], attributeDic["Latitude"], Sdist)
-            m.plot(
+        )
+        X,Y = pylal.pylal_seismon_eqmon.equi(m, attributeDic["Longitude"], attributeDic["Latitude"], Sdist)
+        m.plot(
                 X,
                 Y,
                 linewidth = attributeDic["Magnitude"] / 2,
                 zorder = 3, #plotting order
                 color = 'r'
-            )
-            X,Y = pylal.pylal_seismon_eqmon.equi(m, attributeDic["Longitude"], attributeDic["Latitude"], Rdist)
-            m.plot(
+        )
+        X,Y = pylal.pylal_seismon_eqmon.equi(m, attributeDic["Longitude"], attributeDic["Latitude"], Rdist)
+        m.plot(
                 X,
                 Y,
                 linewidth = attributeDic["Magnitude"] / 2,
                 zorder = 3, #plotting order
                 color = 'y'
-            )
+        )
 
     show()
     savefig(plotName,dpi=200)

@@ -17,8 +17,6 @@
  *  MA  02111-1307  USA
  */
 
-/** \cond DONT_DOXYGEN */
-
 /* Use more efficient trig routines for solaris, if available and
    requested. */
 #include <config.h>
@@ -39,25 +37,61 @@
 #include <lal/Date.h>
 #include <lal/Units.h>
 #include <lal/TimeDelay.h>
+#include <lal/LALBarycenter.h>
 #include <lal/VectorOps.h>
-#include <lal/SimulateCoherentGW.h>
+#include <lal/PulsarSimulateCoherentGW.h>
 #include <lal/SkyCoordinates.h>
 
-/* \name Error Codes */
-#define SIMULATECOHERENTGWH_ENUL  1	/*< Unexpected null pointer in arguments */
-#define SIMULATECOHERENTGWH_EBAD  2	/*< A sampling interval is (effectively) zero */
-#define SIMULATECOHERENTGWH_ESIG  3	/*< Input signal must specify amplitude and phase functions */
-#define SIMULATECOHERENTGWH_EDIM  4	/*< Amplitude must be a 2-dimensional vector */
-#define SIMULATECOHERENTGWH_EMEM  5	/*< Memory allocation error */
-#define SIMULATECOHERENTGWH_EUNIT 6	/*< Bad input units */
+/** \name Error Codes */
+/*@{*/
+#define SIMULATECOHERENTGWH_ENUL  1	/**< Unexpected null pointer in arguments */
+#define SIMULATECOHERENTGWH_EBAD  2	/**< A sampling interval is (effectively) zero */
+#define SIMULATECOHERENTGWH_ESIG  3	/**< Input signal must specify amplitude and phase functions */
+#define SIMULATECOHERENTGWH_EDIM  4	/**< Amplitude must be a 2-dimensional vector */
+#define SIMULATECOHERENTGWH_EMEM  5	/**< Memory allocation error */
+#define SIMULATECOHERENTGWH_EUNIT 6	/**< Bad input units */
+/*@} */
 
+/** \cond DONT_DOXYGEN */
 #define SIMULATECOHERENTGWH_MSGENUL  "Unexpected null pointer in arguments"
 #define SIMULATECOHERENTGWH_MSGEBAD  "A sampling interval is (effectively) zero"
 #define SIMULATECOHERENTGWH_MSGESIG  "Input signal must specify amplitude and phase functions"
 #define SIMULATECOHERENTGWH_MSGEDIM  "Amplitude must be a 2-dimensional vector"
 #define SIMULATECOHERENTGWH_MSGEMEM  "Memory allocation error"
 #define SIMULATECOHERENTGWH_MSGEUNIT "Bad input units"
+/** \endcond */
 
+static LALStatus empty_LALStatus;
+
+/**
+ * FIXME: Temporary XLAL-wapper to LAL-function LALPulsarSimulateCoherentGW()
+ *
+ * NOTE: This violates the current version of the XLAL-spec, but is unavoidable at this time,
+ * as LALPulsarSimulateCoherentGW() hasn't been properly XLALified yet, and doing this would be beyond
+ * the scope of this patch.
+ * However, doing it here in this way is better than calling LALxxx() from various
+ * far-flung XLAL-functions, as in this way the "violation" is localized in one place, and serves
+ * as a reminder for future XLAL-ification at the same time.
+ */
+int
+XLALPulsarSimulateCoherentGW ( REAL4TimeSeries  *output,	///< [in/out] output timeseries
+                         PulsarCoherentGW       *CWsignal,	///< [in] internal signal representation
+                         PulsarDetectorResponse *detector	///< [in] detector response
+                         )
+{
+  XLAL_CHECK ( output   != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( CWsignal != NULL, XLAL_EINVAL );
+  XLAL_CHECK ( detector != NULL, XLAL_EINVAL );
+
+  LALStatus status = empty_LALStatus;
+
+  LALPulsarSimulateCoherentGW ( &status, output, CWsignal, detector );
+
+  XLAL_CHECK ( status.statusCode == 0, XLAL_EFAILED, "LALPulsarSimulateCoherentGW() failed with code=%d, msg='%s'\n", status.statusCode, status.statusDescription );
+
+  return XLAL_SUCCESS;
+
+} // XLALPulsarSimulateCoherentGW()
 
 
 
@@ -78,8 +112,7 @@
     + (1.0-indexFrac)*delayData[intIndex]                               \
     )
 
-
-/*
+/**
    \author Creighton, T. D.
 
    \brief Computes the response of a detector to a coherent gravitational wave.
@@ -154,7 +187,7 @@
    phase of the transfer function is added to \f$\phi\f$,</li>
    <li> The plus and cross contributions \f$o_+\f$, \f$o_\times\f$ to the
    detector output are computed as in Eqs.\eqref{eq_quasiperiodic_hpluscross}
-   of \ref SimulateCoherentGW_h, but
+   of \ref PulsarSimulateCoherentGW_h, but
    using the response-adjusted amplitudes and phase.</li>
    <li> The final detector response \f$o\f$ is computed as
    \f$o=(o_+F_+)+(o_\times F_\times)\f$.</li>
@@ -189,7 +222,7 @@
    The major computational hit in this routine comes from computing the
    sine and cosine of the phase angle in
    Eqs.\eqref{eq_quasiperiodic_hpluscross} of
-   \ref SimulateCoherentGW_h.  For better online performance, these can
+   \ref PulsarSimulateCoherentGW_h.  For better online performance, these can
    be replaced by other (approximate) trig functions.  Presently the code
    uses the native \c libm functions by default, or the function
    <tt>sincosp()</tt> in \c libsunmath \e if this function is
@@ -207,10 +240,10 @@
 
 */
 void
-LALSimulateCoherentGW( LALStatus        *stat,
+LALPulsarSimulateCoherentGW( LALStatus        *stat,
                        REAL4TimeSeries  *output,
-                       CoherentGW       *CWsignal,
-                       DetectorResponse *detector )
+                       PulsarCoherentGW       *CWsignal,
+                       PulsarDetectorResponse *detector )
 {
   INT4 i, n;          /* index over output->data, and its final value */
   INT4 nMax;          /* used to store limits on index ranges */
@@ -226,7 +259,7 @@ LALSimulateCoherentGW( LALStatus        *stat,
   BOOLEAN pFlag = 0; /* 1 if frequency was estimated from phase */
 
   /* get delay table and polaristion tables half intervals if defined (>0) in
-     the CoherentGW structure otherwise default to 400s for dtDelatBy2 and 300s
+     the PulsarCoherentGW structure otherwise default to 400s for dtDelatBy2 and 300s
      for dtPolBy2 */
   dtDelayBy2 = CWsignal->dtDelayBy2 > 0 ? CWsignal->dtDelayBy2 : 400;
   dtPolBy2   = CWsignal->dtPolBy2   > 0 ? CWsignal->dtPolBy2   : 300;
@@ -438,39 +471,51 @@ LALSimulateCoherentGW( LALStatus        *stat,
   TRY( LALDCreateVector( stat->statusPtr, &delay, nMax ), stat );
   delayData = delay->data;
 
-  /* Compute delay from Earth centre. */
-  if ( detector->site ) {
-    LIGOTimeGPS gpsTime;     /* detector time when we compute delay */
+  /* Compute delay from solar system barycentre. */
+  if ( detector->site && detector->ephemerides ) {
+    LIGOTimeGPS gpsTime;   /* detector time when we compute delay */
+    EarthState state;      /* Earth position info at that time */
+    BarycenterInput input; /* input structure to LALBarycenter() */
+    EmissionTime emit;     /* output structure from LALBarycenter() */
 
     /* Arrange nested pointers, and set initial values. */
-    gpsTime = output->epoch;
+    gpsTime = input.tgps = output->epoch;
     gpsTime.gpsSeconds -= dtDelayBy2;
-    delayMin = delayMax = LAL_REARTH_SI / ( LAL_C_SI*output->deltaT );
-    delayMin *= -1;
+    input.tgps.gpsSeconds -= dtDelayBy2;
+    input.site = *(detector->site);
+    for ( i = 0; i < 3; i++ )
+      input.site.location[i] /= LAL_C_SI;
+    input.alpha = source.longitude;
+    input.delta = source.latitude;
+    input.dInv = 0.0;
+    delayMin = delayMax = 1.1*LAL_AU_SI/( LAL_C_SI*output->deltaT );
+    delayMax *= -1;
 
     /* Compute table. */
     for ( i = 0; i < nMax; i++ ) {
       REAL8 tDelay; /* propagation time */
-      tDelay = XLALTimeDelayFromEarthCenter( detector->site->location, source.longitude, source.latitude, &gpsTime );
+      LALBarycenterEarth( stat->statusPtr, &state, &gpsTime,
+                          detector->ephemerides );
       BEGINFAIL( stat )
         TRY( LALDDestroyVector( stat->statusPtr, &delay ), stat );
       ENDFAIL( stat );
-      /* TimeDelayFromEarthCenter() measures propagation delay from
-         geocentre to detector, which is the opposite of what we want.
-         We also want it normalized. */
-      tDelay /= -output->deltaT;
-      delayData[i] = tDelay;
+      LALBarycenter( stat->statusPtr, &emit, &input, &state );
+      BEGINFAIL( stat )
+        TRY( LALDDestroyVector( stat->statusPtr, &delay ), stat );
+      ENDFAIL( stat );
+      delayData[i] = tDelay = emit.deltaT/output->deltaT;
       if ( tDelay < delayMin )
         delayMin = tDelay;
       if ( tDelay > delayMax )
         delayMax = tDelay;
       gpsTime.gpsSeconds += 2*dtDelayBy2;
+      input.tgps.gpsSeconds += 2*dtDelayBy2;
     }
   }
 
   /* No information from which to compute delays. */
   else {
-    LALInfo( stat, "Detector site absent; simulating hplus with no"
+    LALInfo( stat, "Detector site and ephemerides absent; simulating hplus with no"
              " propagation delays" );
     memset( delayData, 0, nMax*sizeof(REAL8) );
     delayMin = delayMax = 0.0;
@@ -942,6 +987,4 @@ LALSimulateCoherentGW( LALStatus        *stat,
   DETATCHSTATUSPTR( stat );
   RETURN( stat );
 
-} /* LALSimulateCoherentGW() */
-
-/** \endcond */
+} /* LALPulsarSimulateCoherentGW() */
