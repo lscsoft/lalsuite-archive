@@ -2310,6 +2310,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
   
+  int NlowSNR = 0;
+
   while (dataPtr != NULL) {
      
       if (IFOdata->modelDomain == LAL_SIM_DOMAIN_TIME) {
@@ -2373,6 +2375,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
     NetSNR+=2.0*chisquared;
     dataPtr->SNR=sqrt(2.0*chisquared);
+    if (dataPtr->SNR < 5.5) { NlowSNR += 1; }
     dataPtr = dataPtr->next;
     
 // fclose(outInj);
@@ -2384,8 +2387,15 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
 	PrintSNRsToFile(IFOdata , inj_table);
 	}
+    REAL8 NetworkSNR = sqrt(NetSNR);
 	XLALDestroyCOMPLEX16FrequencySeries(freqModelhCross);
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
+    if(NetworkSNR<8) { fprintf(stderr,"Network SNR < 8; exiting.\n");
+                         exit(EXIT_FAILURE); }
+    if(NetworkSNR>30) { fprintf(stderr,"NetworkSNR > 30; exiting.\n");
+            exit(EXIT_FAILURE); }
+    if(NlowSNR>1) { fprintf(stderr,"At least two individual detectors have SNR < 5.5; exiting.\n");
+            exit(EXIT_FAILURE); }
 }
 
 
