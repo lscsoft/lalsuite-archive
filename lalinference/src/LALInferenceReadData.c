@@ -2403,9 +2403,9 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
     /* First check if trigtime has been given as an option */
     if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
         procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-        printf("passed time %s\n",procparam->value);
         LALStringToGPS(&status,GPStrig,(const char*) procparam->value,&chartmp);
-        fprintf(stdout,"fixed trigtime to %lf\n",GPStrig->gpsSeconds+1.0e-9*GPStrig->gpsNanoSeconds);
+        fprintf(stdout,"Set trigtime to %.10f\n",GPStrig->gpsSeconds+1.0e-9 * GPStrig->gpsNanoSeconds);
+        return;    
     }
     else{
     /* If not check if we have an injtable passed with --inj */
@@ -2440,7 +2440,7 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
                 }
             }
           memcpy(&GPStrig,&(inspiralTable->geocent_end_time),sizeof(GPStrig));
-          printf("Set inspiral injtime %i\n",inspiralTable->geocent_end_time.gpsSeconds);
+          printf("Set inspiral injtime %.10f\n",inspiralTable->geocent_end_time.gpsSeconds+1.0e-9* inspiralTable->geocent_end_time.gpsNanoSeconds);
           return;
        }
        procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
@@ -2461,17 +2461,15 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
                 
             }
           memcpy(&GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
-          printf("Set burst injtime %i\n",burstTable->time_geocent_gps.gpsSeconds);
+          printf("Set burst injtime %.10f\n",burstTable->time_geocent_gps.gpsSeconds+1.0e-9*burstTable->time_geocent_gps.gpsNanoSeconds);
           return;
             
         }
-        
-        
-        XLALPrintError("Error: No trigger time specifed and no injection given. Use either --trigtime TIME or --inj inj.xml \n");
-
-        
-        }
     }
+    }
+
+    XLALPrintError("Error: No trigger time specifed and no injection given. Use either --trigtime TIME or --inj inj.xml \n");
+    exit(1);
 }
 
 void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOData *IFOdata){
