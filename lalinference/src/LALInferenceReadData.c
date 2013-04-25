@@ -2398,10 +2398,14 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
     UINT4 event=0;
     UINT4 q=0;
     LALStatus status;
+    memset(&status,0,sizeof(LALStatus));
+
     /* First check if trigtime has been given as an option */
     if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
         procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-        LALStringToGPS(&status,GPStrig,procparam->value,&chartmp);
+        printf("passed time %s\n",procparam->value);
+        LALStringToGPS(&status,GPStrig,(const char*) procparam->value,&chartmp);
+        fprintf(stdout,"fixed trigtime to %lf\n",GPStrig->gpsSeconds+1.0e-9*GPStrig->gpsNanoSeconds);
     }
     else{
     /* If not check if we have an injtable passed with --inj */
