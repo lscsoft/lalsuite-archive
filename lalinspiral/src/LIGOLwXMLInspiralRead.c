@@ -19,7 +19,7 @@
 
 #include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOLwXMLInspiralRead.h>
-
+#include <lal/LALStdio.h>
 
 #define XLAL_CLOBBER_EVENTS \
   while ( eventHead ) \
