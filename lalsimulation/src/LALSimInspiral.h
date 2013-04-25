@@ -93,6 +93,7 @@ typedef enum {
    TaylorEt,		/**< UNDOCUMENTED */
    TaylorT4,		/**< UNDOCUMENTED */
    TaylorN,		/**< UNDOCUMENTED */
+   PPE,
    NumApproximants	/**< Number of elements in enum, useful for checking bounds */
  } Approximant;
 
@@ -1835,7 +1836,7 @@ int XLALSimInspiralTaylorF2(
  * and amplitude given by expanding \f$1/\sqrt{\dot{F}}\f$. If the PN order is
  * set to -1, then the highest implemented order is used.
  * The phasing is then modified for the testing parameters if present. See Li et al, 2011
- * \author B.S. Sathyaprakash
+ * \author W. Del Pozzo
  */
 int XLALSimInspiralTaylorF2Test(
         COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
@@ -1849,7 +1850,28 @@ int XLALSimInspiralTaylorF2Test(
         const INT4 amplitudeO,            /**< twice PN amplitude order */
         const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
         );
-        
+
+/**
+ * Computes the stationary phase approximation to the Fourier transform of
+ * a chirp waveform with phase given by Eq.\eqref{eq_InspiralFourierPhase_f2}
+ * and amplitude given by expanding \f$1/\sqrt{\dot{F}}\f$. If the PN order is
+ * set to -1, then the highest implemented order is used.
+ * The phasing is then modified for the PPE parameters if present. See Yunes & Pretorius, 2011
+ * \author W. Del Pozzo
+ */
+ 
+int XLALSimInspiralPPE(
+        COMPLEX16FrequencySeries **htilde_out, /**< FD waveform */
+        const REAL8 phic,                /**< coalescence GW phase (rad) */
+        const REAL8 deltaF,              /**< frequency resolution */
+        const REAL8 m1_SI,               /**< mass of companion 1 (kg) */
+        const REAL8 m2_SI,               /**< mass of companion 2 (kg) */
+        const REAL8 fStart,              /**< start GW frequency (Hz) */
+        const REAL8 r,                   /**< distance of source (m) */
+        const INT4 phaseO,               /**< twice PN phase order */
+        const INT4 amplitudeO,            /**< twice PN amplitude order */
+        const LALSimInspiralTestGRParam *extraParams /**< structure of testing parameters */
+        );
 
 int XLALSimInspiralSpinTaylorF2(
 	COMPLEX16FrequencySeries **htilde_out, /**< frequency-domain waveform */

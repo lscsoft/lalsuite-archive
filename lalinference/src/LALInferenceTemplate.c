@@ -811,6 +811,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
            || (params.approximant == TaylorF1)
            || (params.approximant == TaylorF2)
            || (params.approximant == TaylorF2Test)
+           || (params.approximant == PPE)
            || (params.approximant == PadeF1)
            || (params.approximant == BCV))
     params.distance  = 1.0;                                          /* distance in Mpc */
@@ -847,7 +848,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
     LALInspiralParameterCalc(&status, &params); /* (re-calculation necessary? probably not...) */
   }
 
-  if (params.approximant == TaylorF2 || params.approximant == TaylorF2Test || params.approximant == TaylorF2RedSpin) {	
+  if (params.approximant == TaylorF2 || params.approximant == TaylorF2Test || params.approximant == TaylorF2RedSpin || (params.approximant == PPE)) {	
 	expnCoeffs ak;
 	expnFunc expnFunction;
 	memset(&ak,0,sizeof(expnCoeffs));
@@ -868,6 +869,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   FDomain = ((params.approximant == TaylorF1)
              || (params.approximant == TaylorF2)
              || (params.approximant == TaylorF2Test)
+             || (params.approximant == PPE)
              || (params.approximant == TaylorF2RedSpin)
              || (params.approximant == PadeF1)
              || (params.approximant == BCV));
@@ -1026,6 +1028,7 @@ void LALInferenceTemplateLAL(LALInferenceIFOData *IFOdata)
   if ((params.approximant == TaylorT2) 
       || (params.approximant == TaylorF2)
       || (params.approximant == TaylorF2Test)
+      || (params.approximant == PPE)
       || (params.approximant == TaylorF2RedSpin))
     instant = XLALGPSGetREAL8(&IFOdata->timeData->epoch) + chirptime;
 
@@ -2074,9 +2077,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 
     LALSimInspiralTestGRParam *nonGRparams=NULL;
     
-    const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
+    const char list_extra_parameters[32][14] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE"}; 
     
-    for (UINT4 k=0; k<10; k++) 
+    for (UINT4 k=0; k<14; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
         {
@@ -2084,10 +2087,6 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 		}
     }
     
-    //REAL8 dchi3= 0.0;
-    //if (LALInferenceCheckVariable(IFOdata->modelParams,"dchi3")) dchi3=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams,"dchi3");
-        
-
 	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
@@ -2145,9 +2144,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 
     LALSimInspiralTestGRParam *nonGRparams=NULL;
     
-    const char list_extra_parameters[32][10] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7"}; 
+    const char list_extra_parameters[32][14] = {"dchi0","dchi1","dchi2","dchi3","dchi4","dchi5","dchi5l","dchi6","dchi6l","dchi7","aPPE","alphaPPE","bPPE","betaPPE"};  
     
-    for (UINT4 k=0; k<10; k++) 
+    for (UINT4 k=0; k<14; k++) 
     {
         if(LALInferenceCheckVariable(IFOdata->modelParams,list_extra_parameters[k])) 
             XLALSimInspiralAddTestGRParam(&nonGRparams,

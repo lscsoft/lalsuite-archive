@@ -112,6 +112,8 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
 REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax);
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 
+REAL8 ComputePPEparameterFromLambdaG(REAL8 loglambdaG, REAL8 distance, REAL8 mchirp, REAL8 redshift);
+
 /*
  *  *************************************
  *  Defining of the used global variables
@@ -527,6 +529,20 @@ void adjust_snr_real8(
     }
   }
 }
+
+/*************************************************************
+ * Function to compute the value of betaPPE from distance
+ * Compton wavelength of the graviton, redshift (if available, 
+ * default=0) and chirp mass. All quantities should be in meters
+ *************************************************************/
+ 
+REAL8 ComputePPEparameterFromLambdaG(REAL8 loglambdaG, REAL8 distance, REAL8 mchirp, REAL8 redshift)
+{
+    REAL8 out=0.0
+    REAL8 lambdaG=pow(10.0,loglambdaG);
+    return -LAL_PI*LAL_PI*distance*mchirp/(lambdaG*lambdaG*(1.0+redshift));
+}
+
 
 
 /*************************************************************
@@ -3879,6 +3895,11 @@ int main( int argc, char *argv[] )
     /* populate the massive graviton parameter */
     
     simTable->loglambdaG=loglambdaG;
+    
+    /* compute the corresponding value of the betaPPE parameter */
+    
+    bPPE = -1.0;
+    betaPPE = ComputePPEparameterFromLambdaG(loglambdaG,distance*1e3*LAL_PC_SI,mchirp*LAL_MRSUN_SI,0.0);
     
     /* populate the Brans-Dicke parameters */
     

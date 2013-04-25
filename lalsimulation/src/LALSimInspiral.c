@@ -2064,6 +2064,34 @@ int XLALSimInspiralChooseFDWaveform(
 	    }
             break;
 
+        /* non-spinning inspiral-only PPE models */
+        case PPE:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralWaveformFlagsIsDefault(waveFlags) )
+                ABORT_NONDEFAULT_WAVEFORM_FLAGS(waveFlags);
+            if( !checkSpinsZero(S1x, S1y, S1z, S2x, S2y, S2z) )
+                ABORT_NONZERO_SPINS(waveFlags);
+            if( !checkTidesZero(lambda1, lambda2) )
+                ABORT_NONZERO_TIDES(waveFlags);
+            /* Call the waveform driver routine */
+            ret = XLALSimInspiralPPE(hptilde, phiRef, deltaF, m1, m2, f_min,
+                    r, phaseO, amplitudeO, nonGRparams);
+	    /* The above returns h(f) for optimal orientation (i=0, Fp=1, Fc=0)
+	     * To get generic polarizations we multiply by incl. dependence
+	     * and note hc(f) \propto I * hp(f)
+	     */
+	    *hctilde = XLALCreateCOMPLEX16FrequencySeries("FD hcross",
+							  &((*hptilde)->epoch), (*hptilde)->f0, (*hptilde)->deltaF,
+							  &((*hptilde)->sampleUnits), (*hptilde)->data->length);
+	    cfac = cos(i);
+	    pfac = 0.5 * (1. + cfac*cfac);
+	    for(j = 0; j < (*hptilde)->data->length; j++) {
+	      (*hctilde)->data->data[j] = I*cfac * (*hptilde)->data->data[j];
+	      (*hptilde)->data->data[j] *= pfac;
+	    }
+            break;
+
+
         /* non-spinning inspiral-merger-ringdown models */
         case IMRPhenomA:
             /* Waveform-specific sanity checks */
@@ -2543,8 +2571,8 @@ int XLALSimInspiralImplementedFDApproximants(
         //case TaylorR2F4:
         case TaylorF2:
         case TaylorF2Test:
+        case PPE:
         case SpinTaylorF2:
-        //case SpinTaylorF2:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
             return 1;
@@ -2576,6 +2604,10 @@ int XLALGetApproximantFromString(const CHAR *inString)
   else if ( strstr(inString, "TaylorF2Test" ) )
   {
     return TaylorF2Test;
+  }
+  else if ( strstr(inString, "PPE" ) )
+  {
+    return PPE;
   }
   else if ( strstr(inString, "SpinTaylorF2" ) )
   {
@@ -2768,6 +2800,8 @@ char* XLALGetStringFromApproximant(Approximant approximant)
       return strdup("TaylorF2");
     case TaylorF2Test:
       return strdup("TaylorF2Test");
+    case PPE:
+      return strdup("PPE")
     case TaylorR2F4:
       return strdup("TaylorR2F4");
     case PhenSpinTaylorRDF:

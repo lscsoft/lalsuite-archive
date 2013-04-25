@@ -2047,7 +2047,23 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
 		fprintf(stdout,"adding dchi7=%1.3f in the injection\n",inj_table->dchi7);
 		
 		}
-	
+
+    if (strstr(inj_table->waveform,"PPE")){ 
+		REAL8 aPPE=inj_table->aPPE;
+		LALInferenceAddVariable(tmpdata->modelParams, "aPPE",&aPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 alphaPPE=inj_table->alphaPPE;
+		LALInferenceAddVariable(tmpdata->modelParams, "alphaPPE",&alphaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 bPPE=inj_table->bPPE;
+		LALInferenceAddVariable(tmpdata->modelParams, "bPPE",&bPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		REAL8 betaPPE=inj_table->betaPPE;
+		LALInferenceAddVariable(tmpdata->modelParams, "betaPPE",&betaPPE,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+		fprintf(stdout,"Injecting %s in the frequency domain...\n",inj_table->waveform);
+		fprintf(stdout,"adding aPPE=%1.3f in the injection\n",inj_table->aPPE);
+		fprintf(stdout,"adding alphaPPE=%1.3f in the injection\n",inj_table->alphaPPE);
+		fprintf(stdout,"adding bPPE=%1.3f in the injection\n",inj_table->bPPE);
+        fprintf(stdout,"adding betaPPE=%1.3f in the injection\n",inj_table->betaPPE);
+		
+		}	
     
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_AMPORDER",&amp_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
 
