@@ -186,8 +186,8 @@ def generate_triggers(params,channels):
     f.write("%d %d\n"%(params["frameGPS"][0],params["frameGPS"][-1]+params["frameDur"][-1]))
     f.close()
 
-    omicron = "/home/frobinet/VirgoSoft/Omicron/v0r3/Linux-x86_64/omicron.exe"
-    environmentSetup = "CMTPATH=/home/frobinet/VirgoSoft; export CMTPATH; source /home/frobinet/VirgoSoft/Omicron/v0r3/cmt/setup.sh"
+    omicron = "/home/detchar/opt/virgosoft/Omicron/v0r3/Linux-x86_64/omicron.exe"
+    environmentSetup = "CMTPATH=/home/detchar/opt/virgosoft; export CMTPATH; source /home/detchar/opt/virgosoft/Omicron/v0r3/cmt/setup.sh"
     omicronCommand = "%s; %s %s %s"%(environmentSetup, omicron, os.path.join(omicronDirectory,"segments.txt"),os.path.join(omicronDirectory,"params.txt"))
 
     p = Popen(omicronCommand,shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
