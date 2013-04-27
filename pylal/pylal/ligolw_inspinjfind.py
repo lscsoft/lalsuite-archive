@@ -90,6 +90,7 @@ lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
 #
 
 
+InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
 InspiralSICoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 1, description = u"sim_inspiral<-->sngl_inspiral coincidences")
 InspiralSCNearCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 2, description = u"sim_inspiral<-->coinc_event coincidences (nearby)")
 InspiralSCExactCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 3, description = u"sim_inspiral<-->coinc_event coincidences (exact)")
@@ -446,7 +447,7 @@ def ligolw_inspinjfind(xmldoc, process, search, snglcomparefunc, nearcoinccompar
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	bbdef = {"inspiral": ligolw_thinca.InspiralCoincDef}[search]
+	bbdef = {"inspiral": InspiralCoincDef}[search]
 	sbdef = {"inspiral": InspiralSICoincDef}[search]
 	scedef = {"inspiral": InspiralSCExactCoincDef}[search]
 	scndef = {"inspiral": InspiralSCNearCoincDef}[search]
