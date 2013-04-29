@@ -13,7 +13,7 @@ __version__ = '$Revision$'
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
-import os, sys, copy, shutil
+import os, sys, copy, shutil, re
 import ConfigParser
 import optparse
 import tempfile
@@ -243,8 +243,10 @@ def check_grid_proxy(path):
   try:
     proxy.get_ext("proxyCertInfo")
   except LookupError:
-    msg = "Proxy %s is not RFC compliant" % path
-    raise RuntimeError, msg
+    subject = proxy.get_subject().as_text()
+    if re.search(r'.+CN=proxy$', subject):
+      msg = "Proxy %s is not RFC compliant" % path
+      raise RuntimeError, msg
 
   try:
     expireASN1 = proxy.get_not_after().__str__()
@@ -1027,7 +1029,7 @@ export _CONDOR_DAGMAN_LOG_ON_NFS_IS_ERROR=FALSE
 export _CONDOR_DAGMAN_COPY_TO_SPOOL=False
 
 if [ -f ${TMP_EXEC_DIR}/${UEBER_CONCRETE_DAG} ] ; then
-  pegasus-run --conf ${IHOPE_RUN_DIR}/pegasus.properties --nodatabase ${TMP_EXEC_DIR}/.
+  pegasus-run --conf ${IHOPE_RUN_DIR}/pegasus.properties ${TMP_EXEC_DIR}/.
 else
   pegasus-plan --conf ${IHOPE_RUN_DIR}/pegasus.properties \\
                --dax %s \\
