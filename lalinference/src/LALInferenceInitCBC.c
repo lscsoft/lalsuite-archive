@@ -1140,9 +1140,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     gsl_matrix_set_all(nscale, 1.0);
     gsl_matrix_set_all(nstore, 1.0);
 
-    LALInferenceAddVariable(currentParams, "psdscale", &nscale, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddVariable(currentParams, "psdstore", &nstore, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
 
+    LALInferenceAddVariable(currentParams, "psdscale", &nscale, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(currentParams, "psdstore", &nstore, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(currentParams, "logdeltaf", &nscale_dflog, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
     LALInferenceAddVariable(currentParams, "psdBandsMin", &bands_min, LALINFERENCE_gslMatrix_t, LALINFERENCE_PARAM_FIXED);
@@ -1199,7 +1199,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
       snprintf (ifoRemoveLines,500, "--%s-removeLines",dataPtr->name);
 
       ppt = LALInferenceGetProcParamVal(commandLine,ifoRemoveLines);
-      if(ppt || LALInferenceGetProcParamVal(commandLine, "--chisquaredlines") || LALInferenceGetProcParamVal(commandLine, "--KSlines"))
+      if(ppt || LALInferenceGetProcParamVal(commandLine, "--chisquaredlines") || LALInferenceGetProcParamVal(commandLine, "--KSlines") || LALInferenceGetProcParamVal(commandLine, "--powerlawlines"))
       /* Load in values from file if requested */
       {
         char line [ 128 ];
@@ -1210,6 +1210,9 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
         }
         else if (LALInferenceGetProcParamVal(commandLine, "--KSlines")) {
              snprintf (lines_tempfile,500, "%s-KSLines.dat",dataPtr->name);
+        }
+        else if (LALInferenceGetProcParamVal(commandLine, "--powerlawlines")) {
+             snprintf (lines_tempfile,500, "%s-PowerLawLines.dat",dataPtr->name);
         }
         else {
              char *lines_tempfile_temp = ppt->value;
