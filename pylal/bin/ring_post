@@ -676,19 +676,21 @@ for (desc, cachefile) in cachenamestypes.items():
 	else:
 		merge_node = ligolw_sqlite_node(sqlite_job, dag, db, input_dbs, p_node=p_nodes)
 	merge_node = lalapps_run_sqlite_node(runsql_job, dag, db, p_node=[merge_node])
-
+	p_nodes = []
+	p_nodes.append(merge_node)
 	if "INJ" in desc:
 		xml = db.replace('.sqlite','.xml.gz')
 		sqlitex_node = ligolw_sqlitex_node(sqlitex_job, dag, db, xml, p_node=[merge_node])
 		injfind_node = lalapps_cbc_injfind_node(injfind_job, dag, [xml], p_node=[sqlitex_node])
 		all_sqlite_node = ligolw_sqlite_node(sqlite_job, dag, db, [xml], p_node=[injfind_node])
+		p_nodes.append(all_sqlite_node)
 
 # add veto segments back in
-p_nodes = []
+fp_nodes = []
 for db in dbs:
-	p_nodes.append(ligolw_sqlite_node(sqlite_job, dag, db, [cp.get('input','veto_file')], replace=False, p_node=runsql_node.values()))
+	fp_nodes.append(ligolw_sqlite_node(sqlite_job, dag, db, [cp.get('input','veto_file')], replace=False, p_node=p_nodes))
 
-ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=p_nodes)
+ringcorse_node = lalapps_ringcorse_node(ringcorse_job, dag, dbs, categories, rank_by, frequency_bins, live_time_program, veto_segments_name, p_node=fp_nodes)
 [node.set_retry(10) for node in dag.get_nodes()]
 dag.write_sub_files()
 dag.write_dag()
