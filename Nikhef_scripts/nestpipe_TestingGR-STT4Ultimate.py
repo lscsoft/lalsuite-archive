@@ -14,7 +14,7 @@ import os
 #
 ################################################################################
 
-inspinj_seed=8000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
+inspinj_seed=5000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="GR"   ## This has to be either GR or the name of the test param (e.g. dphi7)
 shift=0            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
@@ -35,13 +35,13 @@ if type_inj!='GR':
 else:
     type_name=type_inj
 
-PATH_TO_OPT="/home/magathos/opt"  ## Path to the opt folder of your installation
-CALIB_SEED="1234"
+PATH_TO_OPT="/home/vdbroeck/opt"  ## Path to the opt folder of your installation
+CALIB_SEED="5000"
 
-basefolder = "/home/magathos/STT4Spins/%s/%s"%(type_name,inspinj_seed)                       ##
-postprocfolder = "/home/magathos/public_html/STT4Spins/%s/%s"%(type_name,inspinj_seed)       ##
-scratchdir = "/scratch/magathos/STT4Spins/%s/%s"%(type_name,inspinj_seed)            ##
-logdir = "/people/magathos/STT4Spins/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
+basefolder = "/home/vdbroeck/STT4_Full/%s/%s"%(type_name,inspinj_seed)                       ##
+postprocfolder = "/home/vdbroeck/public_html/STT4_Full/%s/%s"%(type_name,inspinj_seed)       ##
+scratchdir = "/scratch/vdbroeck/STT4_Full/%s/%s"%(type_name,inspinj_seed)            ##
+logdir = "/people/vdbroeck/STT4_Full/%s/%s"%(type_name,inspinj_seed)                  ## logdir and scratchdir are ignored in all the clusters but UWM.                 
 
  ## NOTE: You only need to change the path leaving the last two levels are they are (i.e. /%s/%s). The code w#ill add the seed and the type of run (GR or tested param +value of the shift)
 
@@ -237,15 +237,15 @@ data_seed="""+str(inspnest_dataseed)+"""
 analysis-chunk-length=215.0
 
 [condor]
-inspnest=PATH_TO_OPT/lalapps/bin/lalapps_inspnest
-combinez=PATH_TO_OPT/lalapps/bin/lalapps_combine_evidence
-datafind=PATH_TO_OPT/glue/bin/ligo_data_find
-mergescript=PATH_TO_OPT/lalapps/bin/lalapps_merge_nested_sampling_runs
-resultspage=PATH_TO_OPT/pylal/bin/cbcBayesPostProc.py
-segfind=PATH_TO_OPT/glue/bin/ligolw_segment_query
-ligolw_print=PATH_TO_OPT/glue/bin/ligolw_print
-coherencetest=PATH_TO_OPT/lalapps/bin/lalapps_coherence_test
-database=PATH_TO_OPT/pylal/bin/AppendToDatabase.py
+inspnest=PATH_TO_OPT/bin/lalapps_inspnest
+combinez=PATH_TO_OPT/bin/lalapps_combine_evidence
+datafind=PATH_TO_OPT/bin/ligo_data_find
+mergescript=PATH_TO_OPT/bin/lalapps_merge_nested_sampling_runs
+resultspage=PATH_TO_OPT/bin/cbcBayesPostProc.py
+segfind=PATH_TO_OPT/bin/ligolw_segment_query
+ligolw_print=PATH_TO_OPT/bin/ligolw_print
+coherencetest=PATH_TO_OPT/bin/lalapps_coherence_test
+database=PATH_TO_OPT/bin/AppendToDatabase.py
 
 [datafind]
 url-type=file
@@ -319,7 +319,7 @@ for i in os.uname():
 #print PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
 #os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd + " -R "+remote_script+" -S "+type_name+" -Q "+str(inspinj_seed)+" -D "+remote_database)
 print PATH_TO_OPT + "/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd
-os.system(PATH_TO_OPT + "/lalapps/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
+os.system(PATH_TO_OPT + "/bin/lalapps_nest_multi_parser_reduced -i "+ parser_paths + " -I "+outname+ " -r " + basefolder +" -P "+foldernames+" -p " + logd + " -l " + scrd )
 
 # RETURN TO CURRENT WORKING DIRECTORY
 os.chdir(curdir)
