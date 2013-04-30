@@ -70,6 +70,7 @@ const char *orbitalPhaseQuasiGibbsProposalName = "OrbitalPhaseQuasiGibbs";
 const char *extrinsicParamProposalName = "ExtrinsicParamProposal";
 const char *KDNeighborhoodProposalName = "KDNeighborhood";
 const char *HrssQJumpName = "HrssQ";
+const char *TimeFreqJumpName = "TimeFreq";
 const char *differentialEvolutionSineGaussName="DifferentialEvolutionSineGauss";
 /* Mode hopping fraction for the differential evoultion proposals. */
 static const REAL8 modeHoppingFrac = 1.0;
@@ -2650,17 +2651,6 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
         printf("adding Skyref\n");
       LALInferenceAddProposalToCycle(runState, skyReflectDetPlaneName, &LALInferenceSkyReflectDetPlane, TINYWEIGHT);
     }
-    /*
-      else if(LALInferenceCheckVariable(proposedParams,"inclination")&&LALInferenceCheckVariable(proposedParams,"distance")) {
-      LALInferenceAddProposalToCycle(runState, inclinationDistanceName, &LALInferenceInclinationDistance, TINYWEIGHT);
-    }
-    */
-    //if(LALInferenceGetProcParamVal(runState->commandLine,"--proposal-drawprior"))
-     // LALInferenceAddProposalToCycle(runState, drawApproxPriorName, &LALInferenceDrawApproxPrior, TINYWEIGHT);
-    /*
-    if(LALInferenceCheckVariable(proposedParams,"phase")) {
-      LALInferenceAddProposalToCycle(runState, orbitalPhaseJumpName, &LALInferenceOrbitalPhaseJump, TINYWEIGHT);
-    }*/
   }
 
   /* Now add various special proposals that are conditional on
@@ -2677,12 +2667,13 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
     
     }
   
- //if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-hrssQ")) {
-    //LALInferenceAddProposalToCycle(runState, HrssQJumpName, &LALInferenceHrssQJump,SMALLWEIGHT );
+ if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-timefreq")) {
+     printf("Adding timeFreq jump\n");
+    LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,3.0*SMALLWEIGHT );
     //    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
     //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
     
-   // }
+   }
   LALInferenceRandomizeProposalCycle(runState);
 }
 
@@ -2760,4 +2751,41 @@ void LALInferenceDifferentialEvolutionSineGauss(LALInferenceRunState *runState, 
   const char *names[] = {"frequency", "loghrss", "Q", NULL};
   
   LALInferenceDifferentialEvolutionNames(runState, pp, names);
+}
+
+
+void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+    
+  const char *propName = TimeFreqJumpName;
+  LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
+  REAL8 timeprime,time,freq;
+
+  REAL8 temp = 1.0;
+  int N=0;
+  
+  gsl_rng *rng = runState->GSLrandom;
+  
+  
+
+  LALInferenceCopyVariables(runState->currentParams, proposedParams);
+  
+ // REAL8 freqpre,freqpost;
+  time = *((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
+  freq = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+  
+  LALInferenceSetVariable(proposedParams, "time", &time);
+  N=ceil(fabs(gsl_ran_gaussian(rng,2)));
+  temp=gsl_ran_flat(rng,0,1);
+  if (temp<0.5)
+  timeprime= time- N/freq;
+  else
+  timeprime= time+ N/freq;
+  // freqpost = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+  LALInferenceSetVariable(proposedParams, "time", &timeprime);
+  //printf("jumping from %10.5f to %10.5f N %d jump %10.5f \n",time, timeprime,N,N/freq);
+  
+  LALInferenceSetLogProposalRatio(runState, 0.0);
+
+  /* Probably not needed, but play it safe. */
+  LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
 }

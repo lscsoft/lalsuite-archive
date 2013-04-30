@@ -263,6 +263,7 @@ void LALInferenceSetupDefaultNSProposal(LALInferenceRunState *runState, LALInfer
 void NSWrapMCMCSinGaussProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
+void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceDifferentialEvolutionSineGauss(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
 /*@}*/
 
