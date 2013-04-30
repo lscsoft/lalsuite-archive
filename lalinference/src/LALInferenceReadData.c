@@ -2129,7 +2129,7 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
     thisData=IFOdata;
     LALInferenceIFOData *thisData2=NULL;
     thisData2=IFOdata;
-    uint IFO_choice=0;
+    UINT4 IFO_choice=0;
     ProcessParamsTable * ppt=LALInferenceGetProcParamVal(commandLine,"--bestIFO");
     if(ppt) IFO_choice=best_ifo_snr;
     else IFO_choice=worst_ifo_snr;

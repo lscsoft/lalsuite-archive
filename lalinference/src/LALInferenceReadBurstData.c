@@ -547,7 +547,7 @@ longitude=inj_table->ra;
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
   double timeshift;  /* time shift (not necessarily same as above)                   */
   double deltaT, deltaF, twopit, f, re, im;
- uint j=0;
+ UINT4 j=0;
   REAL8 temp=0.0;
     REAL8 NetSNR=0.0;
   LALInferenceVariables intrinsicParams;
