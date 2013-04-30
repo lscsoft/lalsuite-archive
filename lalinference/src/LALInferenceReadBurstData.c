@@ -508,7 +508,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
 injtime=inj_table->time_geocent_gps.gpsSeconds + 1e-9*inj_table->time_geocent_gps.gpsNanoSeconds;
 latitude=inj_table->dec;
 longitude=inj_table->ra;
-
+//printf("----time before template call %10.10e\n",injtime);
     LALInferenceAddVariable(tmpdata->modelParams, "loghrss",&loghrss,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "Q",&Q,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);  
     LALInferenceAddVariable(tmpdata->modelParams, "rightascension",&longitude,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);  
@@ -524,6 +524,8 @@ longitude=inj_table->ra;
    freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     COMPLEX16FrequencySeries *freqModelhPlus=NULL;
     freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
+    COMPLEX16FrequencySeries *freqTemplate=NULL;
+    freqTemplate=XLALCreateCOMPLEX16FrequencySeries("freqTemplate",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     tmpdata->freqModelhPlus=freqModelhPlus;
     tmpdata->freqModelhCross=freqModelhCross;
     
@@ -545,7 +547,7 @@ longitude=inj_table->ra;
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
   double timeshift;  /* time shift (not necessarily same as above)                   */
   double deltaT, deltaF, twopit, f, re, im;
- 
+ uint j=0;
   REAL8 temp=0.0;
     REAL8 NetSNR=0.0;
   LALInferenceVariables intrinsicParams;
@@ -571,7 +573,10 @@ longitude=inj_table->ra;
 	
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
-  
+  for (j=0; j<freqTemplate->data->length; ++j){
+        freqTemplate->data->data[j].re=freqTemplate->data->data[j].im=0.0;
+    }
+    
   while (dataPtr != NULL) {
      
       if (IFOdata->modelDomain == LALINFERENCE_DOMAIN_TIME) {
@@ -587,7 +592,7 @@ longitude=inj_table->ra;
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
                                              ra, dec, &GPSlal);
-    
+    //printf("----time after template call %10.10e\n",(*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")));
     dataPtr->injtime=injtime;
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
@@ -596,7 +601,7 @@ longitude=inj_table->ra;
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus ;
     FcrossScaled = Fcross;
-    //printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")),(injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
+    //printf("diff in inj %lf \n", (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
     dataPtr->fPlus = FplusScaled;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
@@ -604,7 +609,13 @@ longitude=inj_table->ra;
     char InjFileName[50];
     sprintf(InjFileName,"FD_injection_%s.dat",dataPtr->name);
     FILE *outInj=fopen(InjFileName,"w");
- 
+    REAL8 time=IFOdata->epoch.gpsSeconds+1.0e-9 *IFOdata->epoch.gpsNanoSeconds;
+    //printf("time + shift= %lf \n", time+(injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
+    //printf("IFOdata time %lf, Time data time %lf\n",time,IFOdata->timeData->epoch.gpsSeconds+1.0e-9 *IFOdata->timeData->epoch.gpsNanoSeconds);
+     char TInjFileName[50];
+    sprintf(TInjFileName,"TD_injection_%s.dat",dataPtr->name);
+    FILE *outTInj=fopen(TInjFileName,"w");
+    
      /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
@@ -629,6 +640,8 @@ longitude=inj_table->ra;
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
+      freqTemplate->data->data[i].re=templateReal;
+      freqTemplate->data->data[i].im=templateImag;
       dataPtr->freqData->data->data[i].re+=templateReal;
       dataPtr->freqData->data->data[i].im+=templateImag;
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
@@ -642,7 +655,28 @@ longitude=inj_table->ra;
     dataPtr = dataPtr->next;
     
      fclose(outInj);
+  
+
+    /* Calculate IFFT and print it to file */
+    REAL8TimeSeries* timeData=NULL;
+    //printf("doing IFFT. epoch %10.10f , dT %lf lenght %i \n",IFOdata->timeData->epoch.gpsSeconds+1.0e-9*IFOdata->timeData->epoch.gpsNanoSeconds,(REAL8)IFOdata->timeData->deltaT,IFOdata->timeData->data->length);
+    timeData=(REAL8TimeSeries *) XLALCreateREAL8TimeSeries("name",&IFOdata->timeData->epoch,0.0,(REAL8)IFOdata->timeData->deltaT,&lalDimensionlessUnit,(size_t)IFOdata->timeData->data->length);
+     
+     XLALREAL8FreqTimeFFT(timeData,freqTemplate,IFOdata->freqToTimeFFTPlan);
+     for (j=0;j<timeData->data->length;j++){
+         
+         fprintf(outTInj,"%10.10e %10.10e \n",time+j*deltaT,timeData->data->data[j]);
+         
+         
+         }
+     fclose(outTInj);
+    //if(!timeData) XLAL_ERROR_NULL(XLAL_EFUNC);
+    
+  
+  
+  
   }
+  
 
     LALInferenceDestroyVariables(&intrinsicParams);
     printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
