@@ -1527,8 +1527,8 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
       eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
            
       XLALSimBurstSineGaussianF(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->freqData->deltaF,IFOdata->timeData->deltaT);
-   
    REAL8 instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*(IFOdata->timeData->epoch.gpsNanoSeconds));
+
     /* write template (time axis) location in "->modelParams" so that     */
     /* template corresponds to stored parameter values                    */
     /* and other functions may time-shift template to where they want it: */

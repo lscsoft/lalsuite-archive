@@ -797,9 +797,10 @@ int XLALSimBurstSineGaussianF(
 		hptilde->data->data[i]  =0.0;
 		//ASSIGN HPTILDE TO THIS TO RESTORE h_+: h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
 		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus));
-
+  //     if(i*deltaF>800. && i*deltaF<801.)
+    //      printf("%lf %10.10e\n",i*deltaF,-h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus)));
 	}
-
+//exit(1);
 	//fclose(testout);
 
     *hplus=hptilde;
