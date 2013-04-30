@@ -2400,6 +2400,7 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
     UINT4 q=0;
     LALStatus status;
     memset(&status,0,sizeof(LALStatus));
+
     /* First check if trigtime has been given as an option */
     if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
         procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
@@ -2441,7 +2442,7 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
                 }
             }
           memcpy(&GPStrig,&(inspiralTable->geocent_end_time),sizeof(GPStrig));
-          printf("Set inspiral injtime %i\n",inspiralTable->geocent_end_time.gpsSeconds);
+          printf("Set inspiral injtime %.10f\n",inspiralTable->geocent_end_time.gpsSeconds+1.0e-9* inspiralTable->geocent_end_time.gpsNanoSeconds);
           return;
        }
        procparam=LALInferenceGetProcParamVal(commandLine,"--inj");
@@ -2461,13 +2462,13 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
                 exit(1);
                 
             }
-          memcpy(GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
+        memcpy(GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
         fprintf(stdout,"Set trigtime from burstable to %.10f\n",GPStrig->gpsSeconds+1.0e-9 * GPStrig->gpsNanoSeconds);
           return;
             
         }
         
-        }
+    }
     XLALPrintError("Error: No trigger time specifed and no injection given. Use either --trigtime TIME or --inj inj.xml \n");
     exit(1);
     }
