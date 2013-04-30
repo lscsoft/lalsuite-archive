@@ -688,6 +688,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     memcpy(&segStart,&GPStrig,sizeof(LIGOTimeGPS));
     // SALVO XLALGPSAdd(&segStart,-SegmentLength+2.0);
     XLALGPSAdd(&segStart,-SegmentLength/2.0);
+    //fprintf(stdout,"Set segStart to %.10f\n",segStart.gpsSeconds+1.0e-9 * segStart.gpsNanoSeconds);
 
     /* Read the PSD data */
     for(i=0;i<Nifo;i++) {
@@ -2398,10 +2399,14 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
     UINT4 event=0;
     UINT4 q=0;
     LALStatus status;
+    memset(&status,0,sizeof(LALStatus));
     /* First check if trigtime has been given as an option */
     if(LALInferenceGetProcParamVal(commandLine,"--trigtime")){
         procparam=LALInferenceGetProcParamVal(commandLine,"--trigtime");
         LALStringToGPS(&status,GPStrig,procparam->value,&chartmp);
+        fprintf(stdout,"Set trigtime to %.10f\n",GPStrig->gpsSeconds+1.0e-9 * GPStrig->gpsNanoSeconds);
+        return;
+
     }
     else{
     /* If not check if we have an injtable passed with --inj */
@@ -2456,23 +2461,21 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
                 exit(1);
                 
             }
-          memcpy(&GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
-          printf("Set burst injtime %i\n",burstTable->time_geocent_gps.gpsSeconds);
+          memcpy(GPStrig,&(burstTable->time_geocent_gps),sizeof(GPStrig));
+        fprintf(stdout,"Set trigtime from burstable to %.10f\n",GPStrig->gpsSeconds+1.0e-9 * GPStrig->gpsNanoSeconds);
           return;
             
         }
         
-        
-        XLALPrintError("Error: No trigger time specifed and no injection given. Use either --trigtime TIME or --inj inj.xml \n");
-
-        
         }
+    XLALPrintError("Error: No trigger time specifed and no injection given. Use either --trigtime TIME or --inj inj.xml \n");
+    exit(1);
     }
 }
 
 void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOData *IFOdata){
     
-    /* Inject WF present in the lal frame file mdc into the time domain stream */
+    /* Inject WF present in the lal a mdc frame file into the time domain stream */
     char mdcname[]="GW";
     char **mdc_caches=NULL;
     char **mdc_channels;
