@@ -2758,7 +2758,7 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
     
   const char *propName = TimeFreqJumpName;
   LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
-  REAL8 timeprime,time,freq;
+  REAL8 timeprime,t,freq;
 
   REAL8 temp = 1.0;
   int N=0;
@@ -2770,16 +2770,16 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
   LALInferenceCopyVariables(runState->currentParams, proposedParams);
   
  // REAL8 freqpre,freqpost;
-  time = *((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
+  t = *((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
   freq = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   
-  LALInferenceSetVariable(proposedParams, "time", &time);
+  LALInferenceSetVariable(proposedParams, "time", &t);
   N=ceil(fabs(gsl_ran_gaussian(rng,2)));
   temp=gsl_ran_flat(rng,0,1);
   if (temp<0.5)
-  timeprime= time- N/freq;
+  timeprime= t- N/freq;
   else
-  timeprime= time+ N/freq;
+  timeprime= t+ N/freq;
   // freqpost = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   LALInferenceSetVariable(proposedParams, "time", &timeprime);
   //printf("jumping from %10.5f to %10.5f N %d jump %10.5f \n",time, timeprime,N,N/freq);

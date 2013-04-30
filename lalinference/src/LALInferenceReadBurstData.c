@@ -609,7 +609,7 @@ longitude=inj_table->ra;
     char InjFileName[50];
     sprintf(InjFileName,"FD_injection_%s.dat",dataPtr->name);
     FILE *outInj=fopen(InjFileName,"w");
-    REAL8 time=IFOdata->epoch.gpsSeconds+1.0e-9 *IFOdata->epoch.gpsNanoSeconds;
+    REAL8 starttime=IFOdata->epoch.gpsSeconds+1.0e-9 *IFOdata->epoch.gpsNanoSeconds;
     //printf("time + shift= %lf \n", time+(injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
     //printf("IFOdata time %lf, Time data time %lf\n",time,IFOdata->timeData->epoch.gpsSeconds+1.0e-9 *IFOdata->timeData->epoch.gpsNanoSeconds);
      char TInjFileName[50];
@@ -665,7 +665,7 @@ longitude=inj_table->ra;
      XLALREAL8FreqTimeFFT(timeData,freqTemplate,IFOdata->freqToTimeFFTPlan);
      for (j=0;j<timeData->data->length;j++){
          
-         fprintf(outTInj,"%10.10e %10.10e \n",time+j*deltaT,timeData->data->data[j]);
+         fprintf(outTInj,"%10.10e %10.10e \n",starttime+j*deltaT,timeData->data->data[j]);
          
          
          }
