@@ -90,7 +90,7 @@ void LALInferenceInitBurstVariables(LALInferenceRunState *state)
 	state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
-	REAL8 endtime=-1.0;
+	REAL8 endtime=0;
 	ProcessParamsTable *ppt=NULL;
     
     REAL8 tmpMax, tmpVal,tmpMin;
@@ -119,45 +119,49 @@ Parameter arguments:\n\
     int burst_inj=0;
     state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
     state->proposal=&NSWrapMCMCSinGaussProposal;
-    /* We may have used a CBC injection... test */
-    ppt=LALInferenceGetProcParamVal(commandLine,"--burst_inj");
-    if (ppt) {
-        burst_inj=1;
-        BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-         ppt=LALInferenceGetProcParamVal(commandLine,"--event");
-        if(ppt){
-          event = atoi(ppt->value);
-          while(i<event) {i++; BinjTable = BinjTable->next;}
-        }
-        endtime=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-        fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
-        state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
-    }
-    else{
-        ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
-        if (ppt){
-            SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-            ppt=LALInferenceGetProcParamVal(commandLine,"--event");
-            if(ppt){
-              event= atoi(ppt->value);
-              fprintf(stderr,"Reading event %d from file\n",event);
-              i=0;
-              while(i<event) {i++; inj_table=inj_table->next;} /* select event */
-              endtime=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
-              state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
-        }
-    }
-    }
-    if(!(BinjTable || inj_table)){
-        fprintf(stderr,"No injection file provided. NOT INJECTING!\n");
-        ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-        if (ppt)
-            endtime=atof(ppt->value);
-        else{
-            printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
-            exit(1);}
-    }
     
+    /* We may have used a CBC injection... test */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+    if (ppt)
+	endtime=atof(ppt->value);
+    else{
+	ppt=LALInferenceGetProcParamVal(commandLine,"--burst_inj");
+	if (ppt) {
+	    burst_inj=1;
+	    BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+	     ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+	    if(ppt){
+	      event = atoi(ppt->value);
+	      while(i<event) {i++; BinjTable = BinjTable->next;}
+	    }
+	    else
+	    fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+	    endtime=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
+	    state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
+	}
+	else{
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+	    if (ppt){
+		SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+		ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+		if(ppt){
+		  event= atoi(ppt->value);
+		  fprintf(stderr,"Reading event %d from file\n",event);
+		  i=0;
+		  while(i<event) {i++; inj_table=inj_table->next;} /* select event */
+		  endtime=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
+		  state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
+		}
+		else
+		fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+	    }
+	}
+    }
+    if(!(BinjTable || inj_table || endtime )){
+            printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
+            exit(1);
+    }
+    fprintf(stdout,"Set trigtime %lf for template\n",endtime);
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
             pinned_params=ppt->value;
