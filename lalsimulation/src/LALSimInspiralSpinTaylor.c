@@ -492,7 +492,7 @@ static int XLALSimInspiralSpinTaylorT4Setup(
             params->EQM2S1L 		= -quadparam1*3./2./m1M/m1M;
             params->EQM2S2 		= quadparam2/2./m2M/m2M;
             params->EQM2S2L 		= -quadparam2*3./2./m2M/m2M;
-            printf("quadparams: %e, %e\n", quadparam1, quadparam2);
+           // printf("quadparams: %e, %e\n", quadparam1, quadparam2);
             // 2PN self-spin terms
             params->wdotSSselfS1     = 7./96./m1M/m1M;
             params->wdotSSselfS1L    = -1./96./m1M/m1M;
@@ -534,7 +534,7 @@ static int XLALSimInspiralSpinTaylorT4Setup(
                     + 3. * m1M * m1M) * lambda1 * m1M*m1M*m1M*m1M*m1M
                     - 11./2. * m1m2 * (3. + 2. * m2M + 3. * m2M * m2M)
                     * lambda2 * m2M*m2M*m2M*m2M*m2M;
-            printf("love numbers: %e, %e\n", lambda1, lambda2);
+           // printf("love numbers: %e, %e\n", lambda1, lambda2);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
             params->wdottidal5pn = lambda1 * 6. * (1. + 11. * m2M)
                     * m1M*m1M*m1M*m1M + lambda2

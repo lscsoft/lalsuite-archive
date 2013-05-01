@@ -57,7 +57,7 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
         break;
     // MS1
         case LAL_SIM_INSPIRAL_EOS_MS1:
-            printf("Using EOS MS1\n");
+           // printf("Using EOS MS1\n");
             lambda = 2.755956E-24*(2.19296 + 20.0273*m_intr_msun - 17.9443*m_intr_msun*m_intr_msun 
             + 5.75129*m_intr_msun*m_intr_msun*m_intr_msun - 0.699095*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
         break;
