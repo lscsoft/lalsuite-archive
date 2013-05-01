@@ -1345,7 +1345,6 @@ REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVari
   /* Check boundaries */
   for(;item;item=item->next)
   {
-    // if(item->vary!=PARAM_LINEAR || item->vary!=PARAM_CIRCULAR)
     if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
       continue;
     else
@@ -1358,11 +1357,8 @@ REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVari
     logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"inclination"))));
   if(LALInferenceCheckVariable(params,"declination"))
     logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
-// if(LALInferenceCheckVariable(params,"Q")) {
-//     double quality;
-//     quality=*(REAL8 *)LALInferenceGetVariable(params,"Q");
-//     logPrior+=2*log(quality);
-// }
+  if(LALInferenceCheckVariable(params,"loghrss"))
+    logPrior+=-3.0* *(REAL8 *)LALInferenceGetVariable(params,"loghrss");
 
   return(logPrior);
 }

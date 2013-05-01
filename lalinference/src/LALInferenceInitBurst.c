@@ -494,8 +494,8 @@ void LALInferenceInitRDVariables(LALInferenceRunState *state)
     state->proposal=&NSWrapMCMCSinGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;
-	REAL8 logampmin=log(1e-25);  /* amplitude parameter */
-	REAL8 logampmax=log(1e-18);
+	REAL8 loghrssmin=log(1e-25);  /* amplitude parameter */
+	REAL8 loghrssmax=log(1e-15);
 	REAL8 f0min=1600.0;   /* dominant frequency */
 	REAL8 f0max=4000.0;
 	REAL8 qualitymin=10;  /* decay time */
@@ -517,8 +517,8 @@ Parameter arguments:\n\
 (--trigtime GPS)\tstart time for ringdown\n\
 (--dt time)\tWidth of time prior, centred around trigger (0.1s)\n\
 (--trigtime time)\tTrigger time to use\n\
-(--ampmin amplitude)\tMinimum amplitude (1e-24)\n\
-(--ampmax amplitude)\tMaximum amplitude (1e-20)\n\
+(--hrssmin root-sum-squared amplitude)\tMinimum rss amplitude (1e-24)\n\
+(--hrssmax root-sum-squared amplitude)\tMaximum rss amplitude (1e-20)\n\
 (--f0min frequency)\tMinimum frequency\n\
 (--f0max frequency)\tMaximum frequency\n\
 (--qualitymin quality)\tMinimum quality factor\n\
@@ -571,15 +571,15 @@ Parameter arguments:\n\
 	}
 
 	/* Over-ride Amplitude min if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--ampmin");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--hrssmin");
 	if(ppt){
-		logampmin=log(atof(ppt->value));
+		loghrssmin=log(atof(ppt->value));
 	}
 	
 	/* Over-ride Amplitude max if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--ampmax");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--hrssmax");
 	if(ppt){
-		logampmax=log(atof(ppt->value));
+		loghrssmax=log(atof(ppt->value));
 	}
 
 	/* Over-ride freq min if specified */
@@ -726,11 +726,11 @@ Parameter arguments:\n\
     LALInferenceAddMinMaxPrior(priorArgs, "time", &tmpMin, &tmpMax,
             LALINFERENCE_REAL8_t);	
 
-    tmpVal=logampmin+(logampmax-logampmin)/2.0;
-    if(!LALInferenceCheckVariable(currentParams,"logamp"))
-        LALInferenceAddVariable(currentParams,"logamp",&tmpVal,
+    tmpVal=loghrssmin+(loghrssmax-loghrssmin)/2.0;
+    if(!LALInferenceCheckVariable(currentParams,"loghrss"))
+        LALInferenceAddVariable(currentParams,"loghrss",&tmpVal,
                 LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    LALInferenceAddMinMaxPrior(priorArgs, "logamp", &logampmin, &logampmax,
+    LALInferenceAddMinMaxPrior(priorArgs, "loghrss", &loghrssmin, &loghrssmax,
             LALINFERENCE_REAL8_t);
 
     tmpVal=f0min+(f0max-f0min)/2.0;

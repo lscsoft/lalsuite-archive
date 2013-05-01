@@ -2589,8 +2589,12 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     if(previous_frequency != frequency || previous_quality != quality){
 
         /* Generate Waveform */
+
+        // XXX: set peak amplitude = 1 and handle correctly in likelihood
+        double hrss = 0.5*sqrt(quality/(LAL_SQRT2*LAL_PI*frequency));
+
         XLAL_TRY(ret=XLALSimRingdownFD(&htilde, f_min, f_max, deltaF,
-                    LAL_TWOPI*frequency, quality), errnum);
+                    frequency, quality, hrss), errnum);
         if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
 
         previous_frequency=frequency;

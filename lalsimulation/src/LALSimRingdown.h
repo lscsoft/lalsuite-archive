@@ -37,8 +37,9 @@ int XLALSimRingdownFD(
     double f_min,
     double f_max,
 	double deltaF,			/**< sampling interval (s) */
-	double omega0,			/* f-mode oscillation frequency (rad) */
-	double quality			/* quality factor = pi*decay*frequency*/
+	double frequency,		/* ringdown frequency (Hz) */
+	double quality,			/* quality factor = pi*decay*frequency*/
+    double hrss             /* Root-sum-squared amplitude */
 );
 
 /**
