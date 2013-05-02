@@ -2609,7 +2609,7 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *curre
   //double ra, dec, psi, distMpc, gmst;
   double ra, dec, psi, gmst;
   double amplitude=1.0, distMpc=1.0;
-  double hrss, frequency, Q;
+  //double hrss, frequency, Q;
   double GPSdouble;
   LIGOTimeGPS GPSlal;
   double timedelay;  /* time delay b/w iterferometer & geocenter w.r.t. sky location */
@@ -2643,13 +2643,14 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *curre
 		else
 			distMpc   = *(REAL8*) LALInferenceGetVariable(currentParams, "distance");       /* Mpc         */
 	}
-	if(LALInferenceCheckVariable(currentParams,"loghrss")){
-            hrss = exp(*(REAL8*) LALInferenceGetVariable(currentParams, "loghrss"));
-            /* Now compute the peak amplitude from hrss, quality and frequency */
-            frequency = *(REAL8*) LALInferenceGetVariable(currentParams, "frequency");
-            Q = *(REAL8*) LALInferenceGetVariable(currentParams, "Q");
-            amplitude = 2.0*hrss*sqrt(LAL_SQRT2*LAL_PI*frequency/Q);
-	}
+
+//if(LALInferenceCheckVariable(currentParams,"loghrss")){
+//        hrss = exp(*(REAL8*) LALInferenceGetVariable(currentParams, "loghrss"));
+//        /* Now compute the peak amplitude from hrss, quality and frequency */
+//        frequency = *(REAL8*) LALInferenceGetVariable(currentParams, "frequency");
+//        Q = *(REAL8*) LALInferenceGetVariable(currentParams, "Q");
+//        amplitude = 2.0*hrss*sqrt(LAL_SQRT2*LAL_PI*frequency/Q);
+//}
   
   REAL8 phi0=0.0;
   

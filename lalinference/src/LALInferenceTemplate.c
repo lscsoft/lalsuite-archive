@@ -2560,7 +2560,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     f_min = IFOdata->fLow;
     f_max = IFOdata->fHigh;
 
-    REAL8 instant, frequency, quality, inclination;
+    REAL8 instant, frequency, quality, inclination, hrss;
 
     unsigned i;
 
@@ -2570,6 +2570,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     inclination = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "inclination"); 
     frequency = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "frequency");
     quality = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "Q");
+    hrss = exp(*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "loghrss"));
     
     /* **************************************************************************** */
     /* Frequency domain ringdown */
@@ -2577,6 +2578,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     static REAL8 previous_frequency;
     static REAL8 previous_quality;
     static REAL8 previous_inclination;
+    static REAL8 previous_hrss;
 
     IFOdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
 
@@ -2586,12 +2588,12 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     
 
     /* Only regenerate waveform for new frequency, quality, ... */
-    if(previous_frequency != frequency || previous_quality != quality){
+    if(previous_frequency != frequency || previous_quality != quality || previous_hrss != hrss){
 
         /* Generate Waveform */
 
         // XXX: set peak amplitude = 1 and handle correctly in likelihood
-        double hrss = 0.5*sqrt(quality/(LAL_SQRT2*LAL_PI*frequency));
+        //double hrss = 0.5*sqrt(quality/(LAL_SQRT2*LAL_PI*frequency));
 
         XLAL_TRY(ret=XLALSimRingdownFD(&htilde, f_min, f_max, deltaF,
                     frequency, quality, hrss), errnum);
