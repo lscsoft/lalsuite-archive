@@ -2993,7 +2993,7 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
         x = np.linspace(xmin,xmax,2*len(bins))
         plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
-            D,p = stats.kstest(pos_samps.flatten(), analyticCDF)
+            D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
             plt.title("%s: ks p-value %.3f"%(param,p))
 
     rbins=None
