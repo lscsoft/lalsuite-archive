@@ -142,6 +142,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
     fprintf(stdout,"Injecting event %d\n",event);
 	}
+	else
+	fprintf(stdout,"WARNING: you did not give --event. Injecting event 0 of the xml table, which may not be what you want!\n");
         if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
                 ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
 		BurstSNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
