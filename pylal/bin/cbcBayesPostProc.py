@@ -339,10 +339,11 @@ def cbcBayesPostProc(
 
         #Plot only analytic parameters
         oneDMenu = analyticLikelihood.names
-        twoDGreedyMenu = []
-        for i in range(len(oneDMenu)):
-            for j in range(i+1,len(oneDMenu)):
-                twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+        if twoDGreedyMenu:
+            twoDGreedyMenu = []
+            for i in range(len(oneDMenu)):
+                for j in range(i+1,len(oneDMenu)):
+                    twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
         twoDplots = twoDGreedyMenu
 
     if eventnum is None and injfile is not None:
