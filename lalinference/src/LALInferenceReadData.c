@@ -2480,10 +2480,11 @@ static void LALInferenceSetGPSTrigtimeFromXML(LIGOTimeGPS *GPStrig, ProcessParam
 
 void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOData *IFOdata){
     
-    /* Inject WF present in the lal a mdc frame file into the time domain stream */
+    /* Read time domain WF present in an mdc frame file, FFT it and inject into the frequency domain stream */
+    
     char mdcname[]="GW";
     char **mdc_caches=NULL;
-    char **mdc_channels;
+    char **mdc_channels=NULL;
     ProcessParamsTable * ppt=commandLine; 
 
     UINT4 nIFO=0;
@@ -2494,45 +2495,60 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     REAL8 tmp=0.0;
     REAL8 net_snr=0.0;
     while (data) {nIFO++; data=data->next;}
+    UINT4 Nmdc=0,Nchannel=0;    
     
-    UINT4 Nmdc=0;    ppt=LALInferenceGetProcParamVal(commandLine,"--MDCs");
+    ppt=LALInferenceGetProcParamVal(commandLine,"--MDC-cache");
     if (!ppt){
         
-        fprintf(stderr,"You must provide the path of an MDC lal cache file for each IFO, using --MDCs [ XXX, YYY, ZZZ]\n");
+        fprintf(stderr,"You must provide the path of an MDC lal cache file for each IFO, using --MDC-cache [ XXX, YYY, ZZZ]\n");
         exit(1);
         
         }
     ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
     if (ppt){
         
-        fprintf(stderr,"You cannot use both injfile (--inj) and MDCs (--MDCs) Exiting... \n");
+        fprintf(stderr,"You cannot use both injfile (--inj) and MDCs (--MDC-cache) Exiting... \n");
         exit(1);
         
         }
-    ppt=LALInferenceGetProcParamVal(commandLine,"--MDCs");
+        
+    ppt=LALInferenceGetProcParamVal(commandLine,"--MDC-cache");
     LALInferenceParseCharacterOptionString(ppt->value,&mdc_caches,&Nmdc);
 
     if (Nmdc!= nIFO){
         fprintf(stderr, "You have to provide an MDC cache file for each IFO\n");
         exit(1);
         }
-    else printf("got %i ifos and %i MDCs\n",nIFO,Nmdc);
+    else printf("got %i ifos and %i MDC cache files\n",nIFO,Nmdc);
     
-    mdc_channels=  malloc((nIFO+1)*sizeof(char*));
-    data=IFOdata;
-    i=0;
-    while (data){
-       mdc_channels[i] =  malloc(512*sizeof(char));
-        if(!strcmp(data->name,"H1")) {
-           sprintf(mdc_channels[i],"H1:%s-H",mdcname);}
-        else if(!strcmp(data->name,"L1")) {		
-             sprintf(mdc_channels[i],"L1:%s-H",mdcname); }
-        else if(!strcmp(data->name,"V1")) {		
-             sprintf(mdc_channels[i],"V1:%s-16K",mdcname);}
-        data=data->next;
-        i++;
+    
+    ppt=LALInferenceGetProcParamVal(commandLine,"--MDC-channel");
+    if (ppt){
         
-        }
+        LALInferenceParseCharacterOptionString(ppt->value,&mdc_channels,&Nchannel);
+        if (Nchannel!=Nmdc){
+            fprintf(stderr,"You must provide a channel name for eache mdc frame, using --MDC-channel [X, Y, Z] . Exiting...\n");
+            exit(1);
+            }
+    }
+    else{
+        fprintf(stdout,"WARNING: You did not provide the name(s) of channel(s) to use with the injection mdc. Using the default which may not be what you want!\n");
+        mdc_channels=  malloc((nIFO+1)*sizeof(char*));
+        data=IFOdata;
+        i=0;
+        while (data){
+           mdc_channels[i] =  malloc(512*sizeof(char));
+            if(!strcmp(data->name,"H1")) {
+               sprintf(mdc_channels[i],"H1:%s-H",mdcname);}
+            else if(!strcmp(data->name,"L1")) {		
+                 sprintf(mdc_channels[i],"L1:%s-H",mdcname); }
+            else if(!strcmp(data->name,"V1")) {		
+                 sprintf(mdc_channels[i],"V1:%s-16K",mdcname);}
+            data=data->next;
+            i++;
+            
+            }
+    }
     
     LIGOTimeGPS epoch=IFOdata->timeData->epoch;
     REAL8 deltaT=IFOdata->timeData->deltaT ;
@@ -2557,7 +2573,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     UINT4 lower = (UINT4)ceil(data->fLow / injF->deltaF);
     UINT4 upper = (UINT4)floor(data->fHigh /injF-> deltaF);
 
-    /* Inject into data stream and calculate optimal SNR */
+    /* Inject into FD data stream and calculate optimal SNR */
     while(data){
         
         char foutname[50]="";
@@ -2608,8 +2624,8 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         i++;
         data=data->next;
     }
-printf("Injected network SNR %.3f from MDC\n",sqrt(net_snr));
-return ;
-    
+    printf("Injected network SNR %.3f from MDC\n",sqrt(net_snr));
+    return ;
+        
 }
 
