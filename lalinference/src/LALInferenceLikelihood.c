@@ -2024,7 +2024,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     timeshift =  (GPSdouble - (*(REAL8*) LALInferenceGetVariable(dataPtr->modelParams, "time"))) + timedelay;
   //timeshift = timedelay;
     twopit    = LAL_TWOPI * timeshift;
-//fprintf(stdout,"RA %lf dec %lf\n",ra,dec);
+    
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  ;
     FcrossScaled = Fcross ;
@@ -2043,7 +2043,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
-    // printf("deltaF %g, Nt %d, deltaT %g\n", deltaF, dataPtr->timeData->data->length, dataPtr->timeData->deltaT);
+    //printf("deltaF %g, Nt %d, deltaT %g\n", deltaF, dataPtr->timeData->data->length, dataPtr->timeData->deltaT);
     lower = (UINT4)ceil(dataPtr->fLow / deltaF);
     upper = (UINT4)floor(dataPtr->fHigh / deltaF);
     TwoDeltaToverN = 2.0 * deltaT / ((double) dataPtr->timeData->data->length);

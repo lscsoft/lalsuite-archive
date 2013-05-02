@@ -139,11 +139,11 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 
 	if(!LALInferenceGetProcParamVal(commandLine,"--inj")) {fprintf(stdout,"No injection file specified, not injecting\n"); return;}
 	if(LALInferenceGetProcParamVal(commandLine,"--event")){
-    event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
-    fprintf(stdout,"Injecting event %d\n",event);
+	    event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
+	    fprintf(stdout,"Injecting event %d\n",event);
 	}
 	else
-	fprintf(stdout,"WARNING: you did not give --event. Injecting event 0 of the xml table, which may not be what you want!\n");
+	    fprintf(stdout,"WARNING: you did not give --event. Injecting event 0 of the xml table, which may not be what you want!\n");
         if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
                 ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
 		BurstSNRpath = calloc(strlen(ppt->value)+1,sizeof(char));

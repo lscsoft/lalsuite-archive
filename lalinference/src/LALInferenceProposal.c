@@ -2789,3 +2789,37 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
   /* Probably not needed, but play it safe. */
   LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
 }
+
+#if 0
+static void
+LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+    
+  LALStatus status;
+  memset(&status,0,sizeof(status));
+  REAL8 x[3], y[3], z[3];
+  LALInferenceIFOData *xD = runState->data;
+  
+  memcpy(x, xD->detector->location, 3*sizeof(REAL8));
+
+  LALInferenceIFOData *yD = xD->next;
+  while (same_detector_location(yD, xD)) {
+    yD = yD->next;
+  }
+  memcpy(y, yD->detector->location, 3*sizeof(REAL8));
+
+  LALInferenceIFOData *zD = yD->next;
+  while (same_detector_location(zD, yD) || same_detector_location(zD, xD)) {
+    zD = zD->next;
+  }
+  memcpy(z, zD->detector->location, 3*sizeof(REAL8));
+    REAL8 ra=*((REAL8 *) LALInferenceGetVariable(proposedParams, "righascension"));
+    REAL8 dec=*((REAL8 *) LALInferenceGetVariable(proposedParams, "declination"));
+    REAL8 time=*((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
+    gsl_rng *rng = runState->GSLrandom;
+  int N=floor(fabs(gsl_ran_uniform(rng,0,3)));
+  
+  double ddelta,dalpha;
+   
+  
+}
+#endif
