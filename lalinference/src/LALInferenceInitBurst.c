@@ -47,18 +47,18 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
   
-  runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
+  runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
   ppt=LALInferenceGetProcParamVal(commandLine,"--template");
   if(ppt) {
     if(!strcmp("SinGaussF",ppt->value))
-        runState->template=&LALInferenceTemplateSineGaussianF;
+        runState->templt=&LALInferenceTemplateSineGaussianF;
         else if(!strcmp("SinGauss",ppt->value))
-        runState->template=&LALInferenceTemplateSineGaussian;
+        runState->templt=&LALInferenceTemplateSineGaussian;
     else if(!strcmp("BestIFO",ppt->value))
-        runState->template=&LALInferenceTemplateBestIFO;
+        runState->templt=&LALInferenceTemplateBestIFO;
     else if(!strcmp("RingdownF",ppt->value)){
         printf("Using LALInferenceTemplateXLALSimRingdown: congratulations!\n");
-        runState->template=&LALInferenceTemplateXLALSimRingdown;}
+        runState->templt=&LALInferenceTemplateXLALSimRingdown;}
     else {
       XLALPrintError("Error: unknown template %s\n",ppt->value);
       XLALPrintError(help);
@@ -80,7 +80,7 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 /* Setup the variables to control Burst template generation */
 /* Includes specification of prior ranges */
 
-void LALInferenceInitBurstVariables(LALInferenceRunState *state)
+LALInferenceVariables * LALInferenceInitBurstVariables(LALInferenceRunState *state)
 {   printf("---------------------------------Using LALInferenceBurstVariables!\n");
 
     LALStatus status;
@@ -114,7 +114,7 @@ Parameter arguments:\n\
 	if(ppt)
 	{
 		fprintf(stdout,"%s",help);
-		return;
+		return 0;
 	}
     
     int burst_inj=0;
@@ -138,7 +138,7 @@ Parameter arguments:\n\
 	else
 	fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
 	endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-	state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
+	state->data->modelDomain=LAL_SIM_DOMAIN_TIME; // salvo
     }
     else{
 	ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
@@ -151,7 +151,7 @@ Parameter arguments:\n\
 	      i=0;
 	      while(i<event) {i++; inj_table=inj_table->next;} /* select event */
 	      endtime_from_inj=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
-	      state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
+	      state->data->modelDomain=LAL_SIM_DOMAIN_TIME;
 	    }
 	    else
 	    fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
@@ -278,7 +278,7 @@ if (BinjTable && burst_inj){
     return currentParams;
 }
 
-void LALInferenceInitBestIFOVariables(LALInferenceRunState *state)
+LALInferenceVariables * LALInferenceInitBestIFOVariables(LALInferenceRunState *state)
 {
 
     LALStatus status;
@@ -312,7 +312,7 @@ Parameter arguments:\n\
 	if(ppt)
 	{
 		fprintf(stdout,"%s",help);
-		return;
+		return 0;
 	}
  
     state->proposal=&NSWrapMCMCLALProposal;
@@ -340,7 +340,7 @@ Parameter arguments:\n\
         }
         endtime=XLALGPSGetREAL8(&(BInjTable->time_geocent_gps));
         fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
-        state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
+        state->data->modelDomain=LAL_SIM_DOMAIN_TIME; // salvo
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
             pinned_params=ppt->value;
@@ -370,7 +370,7 @@ Parameter arguments:\n\
         }
         endtime=XLALGPSGetREAL8(&injTable->geocent_end_time);
         fprintf(stderr,"Read trig time %lf from injection XML file\n",endtime);
-        state->data->modelDomain=LALINFERENCE_DOMAIN_FREQUENCY; // salvo
+        state->data->modelDomain=LAL_SIM_DOMAIN_FREQUENCY; // salvo
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
             pinned_params=ppt->value;
@@ -483,7 +483,7 @@ return currentParams;
 }
 
 /* Setup variables for ringdown template generation */
-void LALInferenceInitRDVariables(LALInferenceRunState *state)
+LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
 {   printf("Using LALInferenceInitRDVariables: congratulations!\n");
 	LALStatus status;
 	LALInferenceVariables *priorArgs=state->priorArgs;
@@ -539,7 +539,7 @@ Parameter arguments:\n\
 	if(ppt)
 	{
 		fprintf(stdout,"%s",help);
-		return;
+		return 0;
 	}
 
     /*
@@ -773,7 +773,7 @@ Parameter arguments:\n\
 }
 
 
-void LALInferenceInitPowerBurst(LALInferenceRunState *state)
+LALInferenceVariables * LALInferenceInitPowerBurst(LALInferenceRunState *state)
 {
     LALInferenceVariables *currentParams = state->currentParams;
     ProcessParamsTable *ppt=NULL;

@@ -319,8 +319,8 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     char strainname[]="LSC-STRAIN";
     //UINT4 q=0;	
     //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
-    //NoiseFunc *PSD=NULL;
-    //REAL8 scalefactor=1;
+    NoiseFunc *PSD=NULL;
+    REAL8 scalefactor=1;
     //SimInspiralTable *injTable=NULL;
     RandomParams *datarandparam;
     //UINT4 event=0;
@@ -720,7 +720,6 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
                 XLALCreateREAL8FrequencySeries("spectrum",&GPSstart,0.0,
                         (REAL8)(SampleRate)/seglen,&lalDimensionlessUnit,seglen/2 +1);
             if(!IFOdata[i].oneSidedNoisePowerSpectrum) XLAL_ERROR_NULL(XLAL_EFUNC);
-            
             int LALSimPsd=0;
             /* Selection of the noise curve */
             if(!strcmp(caches[i],"LALLIGO")) {PSD = &LALLIGOIPsd; scalefactor=9E-46;}
@@ -752,7 +751,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             /* Create the fake data */
             int j_Lo = (int) IFOdata[i].fLow/IFOdata[i].freqData->deltaF;            
             for(j=0;j<IFOdata[i].freqData->data->length;j++){
-                IFOdata[i].freqData->data->data[j].re=IFOdata[i].freqData->data->data[j].im=0.0;
+                IFOdata[i].freqData->data->data[j]=0.0+I*0.0;
               }
             if(LALInferenceGetProcParamVal(commandLine,"--0noise")){
                 for(j=j_Lo;j<IFOdata[i].freqData->data->length;j++){
@@ -2337,8 +2336,7 @@ printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInference
             thisData->skipIFO=1;
             while(thisData2){
                 for(j=0;j<thisData->freqData->data->length;j++){   
-                    thisData2->BestIFO->TemplateFromInjection->data->data[j].re=thisData->freqData->data->data[j].re;
-                    thisData2->BestIFO->TemplateFromInjection->data->data[j].im=thisData->freqData->data->data[j].im;
+                    thisData2->BestIFO->TemplateFromInjection->data->data[j]=thisData->freqData->data->data[j];
                   }
                 memcpy(thisData2->BestIFO->detector,thisData->detector,sizeof(LALDetector));
                 thisData2=thisData2->next;
@@ -2799,22 +2797,20 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         fclose(out);
         
         /* set the whole seq to 0 */
-        for(j=0;j<injF->data->length;j++) injF->data->data[j].re=injF->data->data[j].im=0.0;
+        for(j=0;j<injF->data->length;j++) injF->data->data[j]=0.0+I*0.0;
             
         /* FFT */
         XLALREAL8TimeFreqFFT(injF,windTimeData,IFOdata->timeToFreqFFTPlan);   
         
         
         for(j=lower;j<upper;j++){
-         fprintf(fout,"%lf %10.10e %10.10e\n", j*injF->deltaF,injF->data->data[j].re/WinNorm,injF->data->data[j].im/WinNorm);
-                injF ->data->data[j].re/=sqrt(data->window->sumofsquares / data->window->data->length);
-                injF ->data->data[j].im/=sqrt(data->window->sumofsquares / data->window->data->length);
+         fprintf(fout,"%lf %10.10e %10.10e\n", j*injF->deltaF,creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm);
+                injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
                 windTimeData->data->data[j] /= sqrt(data->window->sumofsquares / data->window->data->length);
 
                 /* Add data in freq stream */
-                data->freqData->data->data[j].re+=prefactor *injF->data->data[j].re/WinNorm;
-                data->freqData->data->data[j].im+=prefactor *injF->data->data[j].im/WinNorm;
-                tmp+= prefactor*prefactor*(injF ->data->data[j].re*injF ->data->data[j].re+injF ->data->data[j].im*injF ->data->data[j].im)/data->oneSidedNoisePowerSpectrum->data->data[j];             
+                data->freqData->data->data[j]+=crect(prefactor *creal(injF->data->data[j])/WinNorm,prefactor *cimag(injF->data->data[j])/WinNorm);
+                tmp+= prefactor*prefactor*(creal(injF ->data->data[j])*creal(injF ->data->data[j])+cimag(injF ->data->data[j])*cimag(injF ->data->data[j]))/data->oneSidedNoisePowerSpectrum->data->data[j];             
         }
        
         tmp*=2.*injF->deltaF;
