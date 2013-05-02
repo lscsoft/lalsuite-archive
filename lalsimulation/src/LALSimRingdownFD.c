@@ -20,6 +20,7 @@
 #include <complex.h>
 
 #include <lal/LALSimRingdown.h>
+
 #include <lal/LALConstants.h>
 #include <lal/LALStdlib.h>
 #include <lal/FrequencySeries.h>
@@ -37,8 +38,7 @@
 
 
 /**
- * Computes the frequency domain representation for a generic ringdown.  NOTE:
- * amplitude is not (currently) handled in this function!
+ * Generic ringdown
  *
  */
 int XLALSimRingdownFD(
@@ -46,8 +46,9 @@ int XLALSimRingdownFD(
     double f_min,
     double f_max,
 	double deltaF,			/**< sampling interval (s) */
-	double omega0,			/* f-mode oscillation frequency (rad) */
-	double quality			/* quality factor = pi*decay*frequency*/
+	double frequency,		/* ringdown frequency (Hz) */
+	double quality,			/* quality factor = pi*decay*frequency*/
+    double hrss             /* Root-sum-squared amplitude */
 )
 {
     static LIGOTimeGPS ligotimegps_zero = {0, 0};
@@ -60,9 +61,12 @@ int XLALSimRingdownFD(
 
     memset((*htilde)->data->data, 0, n * sizeof(COMPLEX16));
 
-    /* Get tau from quality factor and frequency */
-	/* From T040055-00-Z: Q = sqrt(2)*PI*f0*tau */
-    double tau = sqrt(2.0)*quality/omega0;
+    /* Derived parameters */
+    double omega0 = LAL_TWOPI*frequency;
+    double tau = quality/(LAL_SQRT2*LAL_PI*frequency);
+
+    /* assume Q >> 2 */
+    double h0 = 2.0*hrss*sqrt(LAL_SQRT2*LAL_PI*frequency/quality);
 
     if (!(*htilde)) XLAL_ERROR(XLAL_EFUNC);
 
@@ -74,8 +78,8 @@ int XLALSimRingdownFD(
         double f = i * deltaF;
         double w = LAL_TWOPI*f;
 
-        ((*htilde)->data->data)[i] = 1.0/(2.0*(w+omega0)+2.0*I/tau);
-        ((*htilde)->data->data)[i] -= 1.0/(2.0*(w-omega0)+2.0*I/tau);
+        ((*htilde)->data->data)[i] = h0/(2.0*(w+omega0)+2.0*I/tau);
+        ((*htilde)->data->data)[i] -= h0/(2.0*(w-omega0)+2.0*I/tau);
     }
 
 	return XLAL_SUCCESS;
