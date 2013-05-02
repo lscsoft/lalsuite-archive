@@ -2599,6 +2599,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
                     frequency, quality, hrss), errnum);
         if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
 
+        previous_hrss=hrss;
         previous_frequency=frequency;
         previous_quality=quality;
 
