@@ -91,6 +91,7 @@ void LALInferenceInitBurstVariables(LALInferenceRunState *state)
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
 	REAL8 endtime=0;
+	REAL8 endtime_from_inj=0;
 	ProcessParamsTable *ppt=NULL;
     
     REAL8 tmpMax, tmpVal,tmpMin;
@@ -124,43 +125,46 @@ Parameter arguments:\n\
     ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
     if (ppt)
 	endtime=atof(ppt->value);
+    
+    ppt=LALInferenceGetProcParamVal(commandLine,"--burst_inj");
+    if (ppt) {
+	burst_inj=1;
+	BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+	 ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+	if(ppt){
+	  event = atoi(ppt->value);
+	  while(i<event) {i++; BinjTable = BinjTable->next;}
+	}
+	else
+	fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
+	endtime_from_inj=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
+	state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
+    }
     else{
-	ppt=LALInferenceGetProcParamVal(commandLine,"--burst_inj");
-	if (ppt) {
-	    burst_inj=1;
-	    BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-	     ppt=LALInferenceGetProcParamVal(commandLine,"--event");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
+	if (ppt){
+	    SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
+	    ppt=LALInferenceGetProcParamVal(commandLine,"--event");
 	    if(ppt){
-	      event = atoi(ppt->value);
-	      while(i<event) {i++; BinjTable = BinjTable->next;}
+	      event= atoi(ppt->value);
+	      fprintf(stderr,"Reading event %d from file\n",event);
+	      i=0;
+	      while(i<event) {i++; inj_table=inj_table->next;} /* select event */
+	      endtime_from_inj=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
+	      state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
 	    }
 	    else
 	    fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
-	    endtime=XLALGPSGetREAL8(&(BinjTable->time_geocent_gps));
-	    state->data->modelDomain=LALINFERENCE_DOMAIN_TIME; // salvo
-	}
-	else{
-	    ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
-	    if (ppt){
-		SimInspiralTableFromLIGOLw(&inj_table,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
-		ppt=LALInferenceGetProcParamVal(commandLine,"--event");
-		if(ppt){
-		  event= atoi(ppt->value);
-		  fprintf(stderr,"Reading event %d from file\n",event);
-		  i=0;
-		  while(i<event) {i++; inj_table=inj_table->next;} /* select event */
-		  endtime=XLALGPSGetREAL8(&(inj_table->geocent_end_time));
-		  state->data->modelDomain=LALINFERENCE_DOMAIN_TIME;
-		}
-		else
-		fprintf(stdout,"WARNING: You did not provide an event number with you --inj. Using default event=0 which may not be what you want!!!!\n");
-	    }
 	}
     }
+
     if(!(BinjTable || inj_table || endtime )){
             printf("Did not provide --trigtime or an xml file and event... Exiting.\n");
             exit(1);
     }
+    if(endtime_from_inj && endtime && (endtime_from_inj!=endtime))
+	fprintf(stderr,"WARNING!!! You set trigtime %lf with --trigtime but event %i seems to trigger at time %lf\n",endtime,event,endtime_from_inj);
+	
     fprintf(stdout,"Set trigtime %lf for template\n",endtime);
     
     if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
