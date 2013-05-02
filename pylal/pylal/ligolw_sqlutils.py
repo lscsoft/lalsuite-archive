@@ -1268,15 +1268,13 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     sqlscript = """
     -- Remove redundant process rows
     DELETE FROM process 
-        WHERE process_id IN (
+        WHERE process_id NOT IN (
             SELECT old_pid 
-            FROM _pidmap_
-            WHERE old_pid != new_pid ); 
+            FROM _pidmap_ ); 
     DELETE FROM process_params 
-        WHERE process_id IN (
-            SELECT new_pid 
-            FROM _pidmap_
-            WHERE old_pid != new_pid ); 
+        WHERE process_id NOT IN (
+            SELECT DISTINCT new_pid 
+            FROM _pidmap_ ); 
     
     DROP INDEX _pidmap_idx;
     DROP TABLE _pidmap_; """
@@ -2374,7 +2372,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
             sqlscript += """
             DELETE FROM sim_ringdown
                 WHERE process_id NOT IN (
-                    SELECT new_pid 
+                    SELECT DISTINCT new_pid 
                     FROM _pidmap_
                     WHERE program = 'ringdown'); """
         # if an experiment_summary table exists, update its sim_proc_id column
@@ -2383,7 +2381,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
             -- Update sim_proc_ids in the experiment_summary table
             UPDATE experiment_summary 
                 SET sim_proc_id = (
-                    SELECT new_pid 
+                    SELECT DISTINCT new_pid 
                     FROM _pidmap_ 
                     WHERE old_pid == sim_proc_id ); """ 
         if debug:
