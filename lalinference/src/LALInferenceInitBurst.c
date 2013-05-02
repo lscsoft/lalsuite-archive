@@ -275,7 +275,7 @@ if (BinjTable && burst_inj){
     }
         
     }
-
+    return currentParams;
 }
 
 void LALInferenceInitBestIFOVariables(LALInferenceRunState *state)
@@ -477,6 +477,8 @@ Parameter arguments:\n\
        
    fprintf(stdout,"WARNING: Using bestIFO template, only the extrinsic parameters are enabled!\n");
             state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
+
+return currentParams;
 
 }
 
@@ -766,7 +768,7 @@ Parameter arguments:\n\
             LALINFERENCE_REAL8_t);
 
 
-    return; 
+    return currentParams;
 
 }
 
@@ -801,5 +803,6 @@ void LALInferenceInitPowerBurst(LALInferenceRunState *state)
         state->likelihood=&LALInferenceExtraPowerLogLikelihood;
     }
 
-    return;
+    return currentParams;
+
 }

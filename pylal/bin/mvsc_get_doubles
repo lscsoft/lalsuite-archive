@@ -155,13 +155,13 @@ for database in databases:
 # please note that the third to last entry in exact_injections and all_injections is the gps time of the coinc_inspiral. We will only be using this for bookkeeping, it will not stay in the array
 	if is_injections:
 		for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_select_injections,mvsc_queries.CandidateEventQuery.add_from_injections,mvsc_queries.CandidateEventQuery.add_where_all,]), (ifos[0],ifos[1],) ):
-			all_injections.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
+			all_injections.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
 			all_injections_info.append([values[0], database])
 			all_injections_distance.append([values[-1], database])
 		#for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_select_injections,mvsc_queries.
 #CandidateEventQuery.add_where_exact,mvsc_queries.CandidateEventQuery.add_from_injections]), (ifos[0],ifos[1],opts.start_time,opts.end_time,opts.exact_tag,) ):
 		for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_select_injections,mvsc_queries.CandidateEventQuery.add_from_injections,mvsc_queries.CandidateEventQuery.add_where_exact,]), (ifos[0],ifos[1],opts.exact_tag,) ):
-			exact_injections.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
+			exact_injections.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors,),) + values[2*num_sngl_cols+2:] + (1,))
 			exact_injections_info.append([values[0], database])
 			exact_injections_distance.append([values[-1], database])
 
@@ -169,10 +169,10 @@ for database in databases:
 # get the timeslide/full_data triggers
 	for values in connection.cursor().execute(''.join([mvsc_queries.CandidateEventQuery.select_dimensions,mvsc_queries.CandidateEventQuery.add_select_fulldata,mvsc_queries.CandidateEventQuery.add_from_fulldata]), (ifos[0],ifos[1],) ):
 		if values[-1] == 'slide':
-			timeslides.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
+			timeslides.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			timeslides_info.append([values[0], database])
 		if values[-1] == 'all_data':
-			zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.get_ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
+			zerolag.append((calc_ethinca(values[1:num_sngl_cols+1],values[num_sngl_cols+1:2*num_sngl_cols+1],ilwd.ilwdchar(values[2*num_sngl_cols+1]),rings,offset_vectors),) + values[2*num_sngl_cols+2:-1] + (1,) + (0,))
 			zerolag_info.append([values[0], database])
 	dbtables.put_connection_filename(database, working_filename, verbose = True)
 
@@ -239,21 +239,21 @@ if opts.apply_weights:
 		injtmp = list(row)
 		injtmp[-3]=str(injtmp[-3])
 		if injtmp[-3] == 'uniform':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**2
-			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-3]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
+			exact_injections_lin.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		if injtmp[-3] == 'log10':
-			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
-			exact_injections_log.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-3]])
+			injtmp[-2]=((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
+			exact_injections_log.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		if injtmp[-3] == 'volume':
 			injtmp[-2]=1.0
-			exact_injections_vol.append([exact_injections_distance[i][0],injtmp[10],injtmp[11],injtmp[-3]])
+			exact_injections_vol.append([exact_injections_distance[i][0],injtmp[4],injtmp[5],injtmp[-2]])
 		newexact_injections.append(tuple(injtmp))
 	for row in all_injections:
 		injtmp = list(row)
 		injtmp[-3]=str(injtmp[-3])
-		injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**2
+		injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**2
 		if injtmp[-3] == 'log10':
-			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[10]**2+injtmp[11]**2)**0.5)**3
+			injtmp[-2]=3*((8**2+8**2)**0.5/(injtmp[4]**2+injtmp[5]**2)**0.5)**3
 		if injtmp[-3] == 'volume':
 			injtmp[-2]=1.0
 		newall_injections.append(tuple(injtmp))
@@ -269,6 +269,23 @@ else:
 exact_injections=newexact_injections
 all_injections=newall_injections
 
+def open_file_write_pickle(filetype, datatype, ifos, object):
+	f=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(datatype) + '_' + str(filetype) +  '.pickle', 'w')
+	pickle.dump(object,f)
+	f.close()
+def open_file_write_text(filetype, datatype, ifos, object):
+	f=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(datatype) + '_' + str(filetype) +  '.txt', 'w')
+	f.write('distance snr_a snr_b weight \n')
+	for row in object:
+		f.write("%s\n" % " ".join(map(str,row)))
+	f.close()
+
+
+if opts.check_weights:
+	open_file_write_text('weights_vol','exact_injections',ifos,exact_injections_vol)
+	open_file_write_text('weights_lin','exact_injections',ifos,exact_injections_lin)
+	open_file_write_text('weights_log','exact_injections',ifos,exact_injections_log)
+
 #now let's get rid of the injection distribution tags so they're not in our table anymore
 tmp = zip(*exact_injections)
 del(tmp[-3]) # we have to remove the GPS times from the array before writing to file
@@ -279,11 +296,6 @@ all_injections = zip(*tmp)
 print all_injections[0]
 
 ##save all injections, timeslides, zerolag, gps files, and infofiles to pickles
-#def open_file_write_pickle(filetype, datatype, ifos, object):
-#	f=open(''.join(ifos) + '_' + opts.output_tag + '_' + str(datatype) + '_' + str(filetype) +  '.pickle', 'w')
-#	pickle.dump(object,f)
-#	f.close()
-#
 #open_file_write_pickle('data','all_injections',ifos,all_injections)
 #open_file_write_pickle('data','exact_injections',ifos,exact_injections)
 #open_file_write_pickle('data','timeslides',ifos,timeslides)

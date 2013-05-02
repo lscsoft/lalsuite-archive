@@ -12,7 +12,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
-from pylal import llwapp
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from pylal import rate
 from pylal.SnglInspiralUtils import SnglInspiralID_old
 
@@ -190,7 +190,7 @@ def get_segs_from_doc(doc):
     """
 
     # get segments
-    seg_dict = llwapp.segmentlistdict_fromsearchsummary(doc)
+    seg_dict = ligolw_search_summary.segmentlistdict_fromsearchsummary(doc)
     segs = seg_dict.union(seg_dict.iterkeys()).coalesce()
     # typecast to ints, which are better behaved and faster than LIGOTimeGPS
     segs = segments.segmentlist([segments.segment(int(seg[0]), int(seg[1]))\
@@ -351,7 +351,7 @@ def retrieve_ring_boundaries(xmldoc):
 	# are all the same)
 	#
 
-	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
+	rings = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
 
 	#
 	# because the input often contains two thinca jobs the rings might

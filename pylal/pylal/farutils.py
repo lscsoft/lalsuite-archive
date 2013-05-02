@@ -26,9 +26,9 @@ from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from pylal import SnglBurstUtils
-from pylal import llwapp
 from pylal import db_thinca_rings
 
 # get choices from a set (useful for on/off ifos)
@@ -49,6 +49,10 @@ def detector_combos( instruments ):
 def background_livetime_nonring_by_slide(connection, seglists, veto_segments=None, coinc_segments=None, verbose = False):
 	# get the segment lists and live time
 	# FIXME veto segments not handled yet
+	seglists = seglists.copy()
+	if veto_segments is not None:
+		seglists -= veto_segments
+
 	zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(connection)
 	instruments = frozenset(seglists.keys())
 	background_livetime = {}
@@ -60,8 +64,6 @@ def background_livetime_nonring_by_slide(connection, seglists, veto_segments=Non
 		background_livetime.setdefault(key, {})
 		for id, time_slide in background_time_slides.items():
 			seglists.offsets.update(time_slide)
-			if veto_segments is not None:
-				seglists -= veto_segments
 			segs=seglists.intersection(list(on_inst))-seglists.union(list(off_inst))
 			if coinc_segments is not None:
 				segs &= coinc_segments
@@ -128,7 +130,7 @@ def get_segments(connection, xmldoc, program_name):
 	if program_name == "thinca":
 		seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name)
 	if program_name == "gstlal_inspiral" or program_name == "lalapps_ring":
-		seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
+		seglists = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, program_name).coalesce()
 	return seglists
 
 def get_background_livetime_by_slide(connection, program_name, seglists, veto_segments=None, verbose = False):

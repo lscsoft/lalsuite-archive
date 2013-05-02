@@ -194,7 +194,7 @@ def write_glossary(entries, htag="h1",\
     # write heading and description
     getattr(page, htag)("Glossary", id_="%s_glossary" % htag)
     page.div(id_="div_glossary", style="display: block;",\
-             class_=classdict.get("div", ""))
+             class_=classdict.get("div", ""),  onclick="toggleVisible();")
     page.p("This section gives a glossary of terms relevant to this page.",\
            class_=classdict.get("p", ""))
     lvwiki = "https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/Acronyms"

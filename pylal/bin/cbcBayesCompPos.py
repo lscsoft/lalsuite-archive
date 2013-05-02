@@ -261,7 +261,7 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -387,7 +387,7 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
 
     for name,posterior in list_of_pos_by_name.items():
         colour=color_by_name[name]
-        myfig.gca(autoscale_on=True)
+        #myfig.gca(autoscale_on=True)
         if posterior[param].injval:
             injvals.append(posterior[param].injval)
 
@@ -582,7 +582,17 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
         except:
             pass
 
-        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection)
+        try:
+            idx=common_output_table_header.index('f_ref')
+            injFrefs=np.unique(common_output_table_raw[:,idx])
+            if len(injFrefs) == 1:
+              injFref = injFrefs[0]
+              print "Using f_ref in results as injected value"
+        except:
+            injFref = None
+            pass
+
+        pos_temp=bppu.Posterior((common_output_table_header,common_output_table_raw),SimInspiralTableEntry=injection, injFref=injFref)
 
         if 'a1' in pos_temp.names and min(pos_temp['a1'].samples)[0] < 0:
           pos_temp.append_mapping('spin1', lambda a:a, 'a1')
@@ -696,8 +706,8 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                     fig=bppu.plot_two_param_kde_greedy_levels(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition,legend=ldg)
                     #fig=bppu.plot_two_param_greedy_bins_contour(pos_list,greedy2Params,TwoDconfidenceLevels,color_by_name,figsize=contour_figsize,dpi=contour_dpi,figposition=contour_figposition)
                     greedy2savepaths.append('%s-%s.png'%(pplst[0],pplst[1]))
-                    fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])))
-                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])))
+                    fig.savefig(os.path.join(outdir,'%s-%s.png'%(pplst[0],pplst[1])),bbox_inches='tight')
+                    fig.savefig(os.path.join(pdfdir,'%s-%s.pdf'%(pplst[0],pplst[1])),bbox_inches='tight')
 
 
             plt.clf()
@@ -735,13 +745,13 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 if hist_fig is not None:
                     save_path=os.path.join(outdir,'%s_%i.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i.pdf'%(param,int(100*confidence_level)))
-                    hist_fig.savefig(save_path)
-                    hist_fig.savefig(save_path_pdf)
+                    hist_fig.savefig(save_path,bbox_inches='tight')
+                    hist_fig.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
                     save_path=os.path.join(outdir,'%s_%i_cum.png'%(param,int(100*confidence_level)))
                     save_path_pdf=os.path.join(pdfdir,'%s_%i_cum.pdf'%(param,int(100*confidence_level)))
-                    hist_fig2.savefig(save_path)
-                    hist_fig2.savefig(save_path_pdf)
+                    hist_fig2.savefig(save_path,bbox_inches='tight')
+                    hist_fig2.savefig(save_path_pdf,bbox_inches='tight')
                     save_paths.append(save_path)
                 min_low,max_high=cl_intervals.values()[0]
                 for name,interval in cl_intervals.items():

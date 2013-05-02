@@ -5,7 +5,8 @@ from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import pylal.pylal_seismon_psd, pylal.pylal_seismon_html
+import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
+import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -26,7 +27,8 @@ def parse_commandline():
     parser.add_option("-p", "--paramsFile", help="Seismon params file.", 
                       default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_H1PEM.txt")
 
-    parser.add_option("-g", "--gps", help="GPS Time.", default="1030044950")
+    parser.add_option("-g", "--gps", help="GPS Time.", default="1049707008")
+    parser.add_option("-d", "--doPlots",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -89,7 +91,7 @@ def channel_struct(channelList):
 
 def frame_struct(params):
 
-    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gps"],params["gps"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gps"]-1000,params["gps"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
     output = p.stdout.read()
     frameList = output.split("\n")
     frames = []
@@ -100,11 +102,12 @@ def frame_struct(params):
         if thisFrame is not "":
             frames.append(thisFrame)
             thisFrameSplit = thisFrame.split("-")
-            frameGPS = float(thisFrameSplit[-2])
-            frameDur = float(thisFrameSplit[-1].replace(".gwf",""))
+            frameGPS.append(float(thisFrameSplit[-2]))
+            frameDur.append(float(thisFrameSplit[-1].replace(".gwf","")))
     params["frame"] = frames
     params["frameGPS"] = frameGPS
     params["frameDur"] = frameDur
+
     return params
 
 # =============================================================================
@@ -126,20 +129,33 @@ channels = channel_struct(channelList)
 
 params = frame_struct(params)
 
+params["gpsStart"] = params["frameGPS"][-1]
+params["gpsEnd"] = params["frameGPS"][-1] + params["frameDur"][-1]
+
 # Output path for run
-params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["frameGPS"])
+params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"])
 if not os.path.isdir(params["path"]):
     os.makedirs(params["path"])
 
+print params["path"]
+
 params["fmin"] = 1/float(64)
 params["fmax"] = 64
-params["doPlots"] = 1
+params["doPlots"] = opts.doPlots
+
+print "Finding earthquakes"
+pylal.pylal_seismon_eqmon.run_earthquakes(params)
+
+print "Generating Omicron triggers"
+pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station
-    pylal.pylal_seismon_psd.mat(params,channel);
+    pylal.pylal_seismon_psd.mat(params,channel)
     print "Analyzing PSD significance for %s"%channel.station
-    pylal.pylal_seismon_psd.analysis(params,channel);
+    pylal.pylal_seismon_psd.analysis(params,channel)
+    print "Plotting Omicron triggers for %s"%channel.station
+    pylal.pylal_seismon_omicron.plot_triggers(params,channel)
 
 htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
 if htmlPage is not None:
@@ -152,6 +168,6 @@ params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
 if not os.path.isdir(params["outputPath"]):
     os.makedirs(params["outputPath"])
 
-os.system("mv %s/%s %s/%s-old"%(params["outputPath"],params["runName"],params["outputPath"],params["runName"]))
-os.system("mv %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
+os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
+os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
 

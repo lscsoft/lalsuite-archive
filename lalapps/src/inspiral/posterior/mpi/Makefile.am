@@ -1,5 +1,5 @@
 LDADD = $(top_builddir)/src/lalapps/liblalapps.la
-AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps
+AM_CPPFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps -I$(top_builddir)/src/lalapps -DPKG_DATA_DIR='"$(pkgdatadir)/"'
 
 CC = $(MPICC)
 AM_CFLAGS = -std=gnu99
@@ -19,4 +19,4 @@ lalinference_mcmc_SOURCES = \
 bin_PROGRAMS = $(mpi_progs)
 
 BUILT_SOURCES =
-include $(top_srcdir)/misc/vcsID.common
+include $(top_srcdir)/gnuscripts/vcsID.common

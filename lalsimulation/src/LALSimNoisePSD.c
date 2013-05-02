@@ -504,7 +504,7 @@ double XLALSimNoisePSDTAMA(double f /**< frequency (Hz) */)
 
 
 /**
- * Provides the thermal noise (suspension + coating) power spectrum for iLIGO.
+ * Provides the thermal noise (suspension + coating) power spectrum for aLIGO.
  *
  * Note: this is a phenomenological fit to the broadband component.
  */
@@ -973,7 +973,7 @@ int XLALSimNoisePSD(
 /* opens a data file */
 static LALFILE *XLALSimNoisePSDFileOpen(const char *fname)
 {
-	const char *pkgdatadir = PKGDATADIR;
+	const char *pkgdatadir = PKG_DATA_DIR;
 	char path[PATH_MAX] = "";
 	LALFILE *fp;
 
