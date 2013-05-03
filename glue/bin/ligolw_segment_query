@@ -539,7 +539,9 @@ if __name__ == '__main__':
         run_query_types(doc, process_id, connection, engine, gps_start_time, gps_end_time, options.include_segments)
 
 
-    utils.write_filename(doc, options.output_file)
+    gz = (options.output_file is not None and
+          options.output_file.endswith(".gz"))
+    utils.write_filename(doc, options.output_file, gz=gz)
 
     # Clean up
     if temp_files:

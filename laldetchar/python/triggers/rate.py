@@ -50,7 +50,7 @@ def rate(table, stride, start=None, end=None):
     rate = CreateREAL8TimeSeries("Rate (Hz)", LIGOTimeGPS(start), 0,
                                  stride, lalHertzUnit, bins.size-1)
     hist,_ = numpy.histogram(tarray, bins=bins)
-    rate.data.data = (hist / stride).astype(numpy.float64)
+    rate.data.data = hist.astype(numpy.float64)/stride
     return rate
 
 
@@ -79,7 +79,7 @@ def rate_per_bin(table, stride, column, bins, start=None, end=None):
     for bin_l,bin_r in bins:
         in_bin = (bin_l <= carray) & (carray < bin_r)
         rate = CreateREAL8TimeSeries("Rate (Hz) [%s <= %s < %s]"
-                                     % (bin_l, column, bin_r)
+                                     % (bin_l, column, bin_r),
                                      LIGOTimeGPS(start), 0,
                                      stride, lalHertzUnit, bins.size-1)
         hist,_ = numpy.histogram(tarray, bins=bins)

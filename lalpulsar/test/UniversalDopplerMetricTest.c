@@ -105,8 +105,8 @@ test_XLALDopplerFstatMetric ( void )
   REAL8 tolPh = 0.01;	// 1% tolerance on phase metrics [taken from testMetricCodes.py]
 
   // ----- load ephemeris
-  char earthEphem[] = DATADIR "earth00-19-DE200.dat.gz";
-  char sunEphem[]   = DATADIR "sun00-19-DE200.dat.gz";
+  char earthEphem[] = TEST_DATA_DIR "earth00-19-DE200.dat.gz";
+  char sunEphem[]   = TEST_DATA_DIR "sun00-19-DE200.dat.gz";
   EphemerisData *edat = XLALInitBarycenter ( earthEphem, sunEphem );
   XLAL_CHECK ( edat != NULL, XLAL_EFUNC, "XLALInitBarycenter('%s','%s') failed with xlalErrno = %d\n", earthEphem, sunEphem, xlalErrno );
 
@@ -119,12 +119,12 @@ test_XLALDopplerFstatMetric ( void )
   REAL8 Freq  = 100;
   REAL8 f1dot = 0;// -1e-8;
 
-  LALStringVector *detNames   = XLALCreateStringVector ( "H1", "L1", "V1",  NULL );
-  LALStringVector *detWeights = XLALCreateStringVector ( "1.0", "0.5", "1.5", NULL );
+  LALStringVector *detNames = XLALCreateStringVector ( "H1", "L1", "V1",  NULL );
+  LALStringVector *sqrtSX   = XLALCreateStringVector ( "1.0", "0.5", "1.5", NULL );
   MultiDetectorInfo detInfo;
-  XLAL_CHECK ( XLALParseMultiDetectorInfo ( &detInfo, detNames, detWeights ) == XLAL_SUCCESS, XLAL_EFUNC );
+  XLAL_CHECK ( XLALParseMultiDetectorInfo ( &detInfo, detNames, sqrtSX ) == XLAL_SUCCESS, XLAL_EFUNC );
   XLALDestroyStringVector ( detNames );
-  XLALDestroyStringVector ( detWeights );
+  XLALDestroyStringVector ( sqrtSX );
 
   // prepare metric parameters for modern XLALDopplerFstatMetric() and mid-old XLALOldDopplerFstatMetric()
   DopplerCoordinateSystem coordSys = { 4, { DOPPLERCOORD_FREQ, DOPPLERCOORD_ALPHA, DOPPLERCOORD_DELTA, DOPPLERCOORD_F1DOT } };
@@ -403,8 +403,8 @@ test_XLALComputeOrbitalDerivatives ( void )
 {
   // ----- load an example ephemeris, describing a pure cicular 2D
   // orbit w period of one year
-  CHAR earthEphem[] = DATADIR "circularEphem.dat";
-  CHAR sunEphem[]   = DATADIR "sun00-04.dat";
+  CHAR earthEphem[] = TEST_DATA_DIR "circularEphem.dat";
+  CHAR sunEphem[]   = TEST_DATA_DIR "sun00-19-DE405.dat";
 
   EphemerisData *edat = XLALInitBarycenter ( earthEphem, sunEphem );
   XLAL_CHECK ( edat != NULL, XLAL_EFUNC, "XLALInitBarycenter('%s','%s') failed with xlalErrno = %d\n", earthEphem, sunEphem, xlalErrno );

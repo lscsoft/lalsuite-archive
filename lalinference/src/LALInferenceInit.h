@@ -36,24 +36,25 @@
 Initialise state variables needed for LALInferenceNest or LALInferenceMCMC to run
 on a CBC signal. Reads the command line to get user-specified options
 */
-void LALInferenceInitCBCVariables(LALInferenceRunState *state);
-void LALInferenceInitBurstVariables(LALInferenceRunState *state);
-void LALInferenceInitBestIFOVariables(LALInferenceRunState *state);
 
+LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitBurstVariables(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitBestIFOVariables(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitRDVariables(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitPowerBurst(LALInferenceRunState *state);
 /**
 Initialise the template for a standard CBC signal
 */
 void LALInferenceInitCBCTemplate(LALInferenceRunState *runState);
 void LALInferenceInitBurstTemplate(LALInferenceRunState *runState);
-void LALInferenceInitRDVariables(LALInferenceRunState *state);
-void LALInferenceInitPowerBurst(LALInferenceRunState *state);
+
 
 /** Review functions
  * 
  * */
 
-void LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state);
-void LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state);
-void LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state);
 
 #endif

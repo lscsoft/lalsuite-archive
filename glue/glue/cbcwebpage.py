@@ -127,7 +127,7 @@ def script_dict(fname):
 	script = {}
 	tog = os.path.split(create_toggle(fname))[1]
 	script[tog] = 'javascript'
-	script['http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
+	script['https://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js'] = 'javascript'
 	return (script, [tog])
 
 

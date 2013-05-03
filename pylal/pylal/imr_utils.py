@@ -24,9 +24,9 @@ from pylal import db_thinca_rings
 from pylal import rate
 import numpy
 import copy
+from glue.ligolw.utils import search_summary as ligolw_search_summary
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process
-from pylal import llwapp
 
 try:
 	import sqlite3
@@ -149,7 +149,7 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
 		if live_time_program == "gstlal_inspiral":
 			segs = ligolw_segments.segmenttable_get_by_name(xmldoc, data_segments_name).coalesce()
-			segs &= llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs &= ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		elif live_time_program == "thinca":
 			segs = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program).coalesce()
 		else:
@@ -159,14 +159,14 @@ def get_segments(connection, xmldoc, table_name, live_time_program, veto_segment
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-		segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+		segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 		if veto_segments_name is not None:
 			veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 			segs -= veto_segs
 		return segs
 	elif table_name == dbtables.lsctables.MultiBurstTable.tableName:
 		if live_time_program == "omega_to_coinc":
-			segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
+			segs = ligolw_search_summary.segmentlistdict_fromsearchsummary(xmldoc, live_time_program).coalesce()
 			if veto_segments_name is not None:
 				veto_segs = ligolw_segments.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 				segs -= veto_segs
@@ -286,6 +286,32 @@ def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins 
 	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
 
 
+def guess_distance_phenomb_spin_parameter_bins_from_sims(sims, chibins = 11, distbins = 200):
+	"""
+	Given a list of the injections, guess at the chi and distance
+	bins.
+	"""
+	dist_chi_vals = map(sim_to_distance_phenomb_spin_parameter_bins_function, sims)
+
+	distances = [tup[0] for tup in dist_chi_vals]
+	chis = [tup[1] for tup in dist_chi_vals]
+
+	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(chis), max(chis), chibins)])
+
+
+def guess_distance_mass_ratio_bins_from_sims(sims, qbins = 11, distbins = 200):
+	"""
+	Given a list of the injections, guess at the chi and distance
+	bins.
+	"""
+	dist_mratio_vals = map(sim_to_distance_mass_ratio_bins_function, sims)
+
+	distances = [tup[0] for tup in dist_mratio_vals]
+	mratios = [tup[1] for tup in dist_mratio_vals]
+
+	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(mratios), max(mratios), qbins)])
+
+
 def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
        """
        Given a list of the injections, guess at the mass1, mass2 and distance
@@ -321,6 +347,23 @@ def sim_to_distance_spin1z_spin2z_bins_function(sim):
 	"""
 
 	return (sim.distance, sim.spin1z, sim.spin2z)
+
+
+def sim_to_distance_phenomb_spin_parameter_bins_function(sim):
+	"""
+	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	"""
+
+	return (sim.distance, (sim.mass1*sim.spin1z + sim.mass2*sim.spin2z)/(sim.mass1 + sim.mass2))
+
+
+def sim_to_distance_mass_ratio_bins_function(sim):
+	"""
+	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	"""
+	# note that if you use symmetrize_sims() below, m2/m1 > 1
+	# which just strikes me as more intuitive
+	return (sim.distance, sim.mass2/sim.mass1)
 
 
 def symmetrize_sims(sims, col1, col2):
@@ -406,16 +449,9 @@ class DataBaseSummary(object):
 					instruments_set = frozenset(lsctables.instrument_set_from_ifos(instruments))
 					self.this_injection_instruments.append(instruments_set)
 					segments_to_consider_for_these_injections = self.this_injection_segments.intersection(instruments_set) - self.this_injection_segments.union(set(self.this_injection_segments.keys()) - instruments_set)
-					# FIXME check to see if a maxextent option was used.  Currently only effect ligolw_rinca, but will effect ligolw_thinca someday
-					if self.table_name == dbtables.lsctables.CoincRingdownTable.tableName:
-						coinc_end_time_seg_param = process.get_process_params(xmldoc, "ligolw_rinca", "--coinc-end-time-segment")
-						if len(coinc_end_time_seg_param) == 1:
-							segments_to_consider_for_these_injections &= segmentsUtils.from_range_strings(coinc_end_time_seg_param, boundtype = float)
-						else:
-							# FIXME what would that mean if it is greater than one???
-							raise ValueError("len(coinc_end_time_seg_param) > 1")
-
 					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
+					if verbose:
+						print >> sys.stderr, "Total injections: %d; Found injections %d: Missed injections %d" % (len(total), len(found), len(missed))
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)
 					self.missed_injections_by_instrument_set.setdefault(instruments_set, []).extend(missed)

@@ -38,19 +38,18 @@ import random
 try:
 	from scipy.constants import c as speed_of_light
 except ImportError:
-	from pylal.lalconstants import LAL_C_SI as speed_of_light
+	from lal import LAL_C_SI as speed_of_light
 	speed_of_light = float(speed_of_light)
 import scipy.optimize
 import sys
 
 
 from glue import iterutils
+from glue import offsetvector
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import git_version
 from pylal import inject
-from pylal import llwapp
-from pylal import ligolw_tisi
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -363,7 +362,7 @@ class TimeSlideGraphNode(object):
 			#
 			# search for and record coincidences.  coincs is a
 			# sorted tuple of event ID pairs, where each pair
-			# of IDs is sorted in alphabetical order by
+			# of IDs is, itself, ordered alphabetically by
 			# instrument name
 			#
 
@@ -375,7 +374,7 @@ class TimeSlideGraphNode(object):
 			# tuple returned by get_doubles() is arbitrary so
 			# we need to sort each tuple by instrument name
 			# explicitly
-			self.coincs = tuple(sorted(tuple(event.event_id for event in sorted(double, lambda a, b: cmp(a.ifo, b.ifo))) for double in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
+			self.coincs = tuple(sorted((a.event_id, b.event_id) if a.ifo <= b.ifo else (b.event_id, a.event_id) for (a, b) in get_doubles(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose)))
 			return self.coincs
 
 		#
@@ -535,7 +534,7 @@ class TimeSlideGraph(object):
 
 		self.generations = {}
 		n = max(len(offset_vector) for offset_vector in offset_vector_dict.values())
-		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
+		self.generations[n] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors((node.offset_vector for node in self.head if len(node.offset_vector) == n), n))
 		for n in range(n, 2, -1):	# [n, n-1, ..., 3]
 			#
 			# collect all offset vectors of length n that we
@@ -552,7 +551,7 @@ class TimeSlideGraph(object):
 			# as the n-1'st generation
 			#
 
-			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in ligolw_tisi.time_slide_component_vectors(offset_vectors, n - 1))
+			self.generations[n - 1] = tuple(TimeSlideGraphNode(offset_vector) for offset_vector in offsetvector.component_offsetvectors(offset_vectors, n - 1))
 
 		#
 		# link each n-instrument node to the n-1 instrument nodes
@@ -582,7 +581,7 @@ class TimeSlideGraph(object):
 				# leaf nodes have no components
 				continue
 			for node in nodes:
-				component_deltas = set(frozenset(offset_vector.deltas.items()) for offset_vector in ligolw_tisi.time_slide_component_vectors([node.offset_vector], n - 1))
+				component_deltas = set(frozenset(offset_vector.deltas.items()) for offset_vector in offsetvector.component_offsetvectors([node.offset_vector], n - 1))
 				node.components = tuple(sorted((component for component in self.generations[n - 1] if component.deltas in component_deltas), key = lambda x: sorted(x.offset_vector)))
 
 		#
@@ -706,72 +705,6 @@ class CoincTables(object):
 			coincmap.event_id = event.event_id
 			self.coincmaptable.append(coincmap)
 		return coinc
-
-
-#
-# =============================================================================
-#
-#                                Process Filter
-#
-# =============================================================================
-#
-
-
-def coincident_process_ids(xmldoc, offset_vectors, max_segment_gap, program):
-	"""
-	Take an XML document tree and determine the set of process IDs
-	that will participate in coincidences identified by the time slide
-	table therein.  It is OK for xmldoc to contain time slides
-	involving instruments not represented in the list of processes:
-	these time slides are ignored.  max_segment_gap is the largest gap
-	(in seconds) that can exist between two segments and it still be
-	possible for the two to provide events coincident with one another.
-	"""
-	# get the list of all process IDs for the given program
-	proc_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
-	if not proc_ids:
-		# hmm... that program's output is not in this file.
-		raise KeyError, program
-
-	# extract a segmentlistdict
-	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce()
-
-	# fast path:  if the largest gap anywhere in the lists is smaller
-	# than max_segment_gap then all process_ids participate.  NOTE:
-	# this also handles the case of max_segment_gap being passed in as
-	# float("inf") (which would otherwise break the LIGOTimeGPS
-	# arithmetic).
-	#
-	# this is checking the gaps between segments in the *same
-	# instrument*.  this assumption is that if max_segment_gap can
-	# close all the gaps within each instrument's segment list then,
-	# finally, all processes will be found to be required for the
-	# coincidence analysis.  this is not really true, but it's safe.
-	if len([segs for segs in seglistdict.values() if len(segs) == 1]):
-		return proc_ids
-	elif max(b[0] - a[1] for segs in seglistdict.values() for a, b in zip(segs[:-1], segs[1:])) <= max_segment_gap:
-		return proc_ids
-
-	# protract by half the largest coincidence window so as to not miss
-	# edge effects
-	seglistdict.protract(max_segment_gap / 2)
-
-	# determine what time slides are possible given the instruments in
-	# the search summary table
-	avail_instruments = set(seglistdict)
-	offset_vectors = [offset_vector for offset_vector in offset_vectors if set(offset_vector).issubset(avail_instruments)]
-
-	# determine the coincident segments for each instrument
-	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, offset_vectors)
-
-	# find the IDs of the processes that contributed to the coincident
-	# segments
-	coinc_proc_ids = set()
-	for row in search_summ_table:
-		if row.process_id in proc_ids and row.process_id not in coinc_proc_ids and seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
-			coinc_proc_ids.add(row.process_id)
-	return coinc_proc_ids
 
 
 #

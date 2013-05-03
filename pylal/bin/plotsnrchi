@@ -131,7 +131,7 @@ def loghistval(trig_val, slide_val, inj_val, comments, nbins=40):
   else:
     comments += InspiralUtils.message(opts, \
       'No background triggers were found, all ' + str(len(inj_val)) + \
-      'injections were louder than the non-existent background' )
+      ' injections were louder than the non-existent background' )
 
   return comments
 
@@ -528,7 +528,7 @@ else:
 # Input triggers
 
 snr = np.array([])
-chisq = np.array([])
+rchisq = np.array([])
 chisq_dof = np.array([])
 bankrchisq = np.array([])
 bank_dof = np.array([])
@@ -557,7 +557,6 @@ if trigFiles:
         (n_before_vetos, nevents, n_before_vetos - nevents))
   if nevents:
     snr = inspTriggers.get_column('snr')
-    chisq = inspTriggers.get_column('chisq')
     rchisq = inspTriggers.get_column('reduced_chisq')
     chisq_dof = 2 * (inspTriggers.get_column('chisq_dof') - 1)
     bank_dof = inspTriggers.get_column('bank_chisq_dof')
@@ -569,7 +568,7 @@ if trigFiles:
 # Time slide triggers
 
 slide_snr = np.array([])
-slide_chisq = np.array([])
+slide_rchisq = np.array([])
 slide_chisq_dof = np.array([])
 slide_bankrchisq = np.array([])
 slide_bank_dof = np.array([])
@@ -590,7 +589,6 @@ if slideFiles:
       'Read '+str(slide_events)+ ' triggers from inspiral files')
   if slide_events:
     slide_snr = slideTriggers.get_column('snr')
-    slide_chisq = slideTriggers.get_column('chisq')
     slide_rchisq = slideTriggers.get_column('reduced_chisq')
     slide_chisq_dof = 2 * (slideTriggers.get_column('chisq_dof') - 1)
     slide_bank_dof = slideTriggers.get_column('bank_chisq_dof')
@@ -602,7 +600,7 @@ if slideFiles:
 # input injections:
 
 inj_snr = np.array([])
-inj_chisq = np.array([])
+inj_rchisq = np.array([])
 inj_bankrchisq = np.array([])
 inj_contrchisq = np.array([])
 inj_chisq_dof = np.array([])
@@ -631,7 +629,6 @@ if injFiles:
         (ninj_before_vetos, ninj_events, ninj_before_vetos - ninj_events))
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
-    inj_chisq = injTriggers.get_column('chisq')
     inj_rchisq = injTriggers.get_column('reduced_chisq')
     inj_chisq_dof = 2 * (injTriggers.get_column('chisq_dof') - 1)
     inj_bank_dof = injTriggers.get_column('bank_chisq_dof')
@@ -1013,7 +1010,7 @@ if opts.snr_chisq_contours:
 if opts.hist_snr:
   fig_num +=1
   pl.figure(fig_num)
-  comments += loghistval(snr, slide_snr, inj_snr, comments, opts.nbins)
+  comments = loghistval(snr, slide_snr, inj_snr, comments, opts.nbins)
   pl.title('Histogram of snr',size='x-large')
   pl.xlabel(r'$\rho$', size='x-large')
   pl.ylabel('pdf', size='x-large')
@@ -1034,7 +1031,7 @@ if opts.hist_snr_chi:
   pl.figure(fig_num)
   comments += InspiralUtils.message(opts,\
                     'Statistic is snr over chi')
-  comments += loghistval(snr/sqrt(rchisq), slide_snr/sqrt(slide_rchisq),\
+  comments = loghistval(snr/sqrt(rchisq), slide_snr/sqrt(slide_rchisq),\
       inj_snr/sqrt(inj_rchisq), comments, opts.nbins)
   pl.title('Histogram of snr divided by chi')
   pl.xlabel(r'$\rho/\chi$', size='x-large')
@@ -1066,7 +1063,7 @@ if opts.hist_effsnr:
       slide_stat = slideTriggers.get_effective_snr(fac=C)
     comments += InspiralUtils.message(opts,\
                     'Statistic is effective snr')
-    comments += loghistval(stat, slide_stat, inj_stat, comments, opts.nbins)
+    comments = loghistval(stat, slide_stat, inj_stat, comments, opts.nbins)
     pl.title(opts.ifo_times + ' statistic', size='x-large')
     pl.xlabel("Effective SNR", size='x-large')
     pl.ylabel('pdf', size='x-large')
@@ -1096,7 +1093,7 @@ if opts.hist_newsnr and opts.chisq_index:
     slide_newsnr = slideTriggers.get_new_snr(index=q)
   comments += InspiralUtils.message(opts,\
                   'Statistic is newSNR')
-  comments += loghistval(newsnr, slide_newsnr, inj_newsnr, comments, opts.nbins)
+  comments = loghistval(newsnr, slide_newsnr, inj_newsnr, comments, opts.nbins)
   pl.title(opts.ifo_times + ' statistic', size='x-large')
   pl.xlabel("newSNR", size='x-large')
   pl.ylabel("pdf", size='x-large')
@@ -1120,7 +1117,7 @@ if opts.hist_newsnr and opts.chisq_index:
       slide_newsnr = slideTriggers.get_bank_new_snr(index=q)
     comments += InspiralUtils.message(opts,\
                   'Statistic is bank newSNR')
-    comments += loghistval(newsnr, slide_newsnr, inj_newsnr, comments, opts.nbins)
+    comments = loghistval(newsnr, slide_newsnr, inj_newsnr, comments, opts.nbins)
     pl.title(opts.ifo_times + ' statistic', size='x-large')
     pl.xlabel("bank newSNR", size='x-large')
     pl.ylabel("pdf", size='x-large')
@@ -1144,7 +1141,7 @@ if opts.hist_newsnr and opts.chisq_index:
       slide_newsnr = slideTriggers.get_cont_new_snr(index=q)
       comments += InspiralUtils.message(opts,\
                     'Statistic is cont newSNR')
-      comments += loghistval(newsnr, slide_newsnr, inj_newsnr, comments, opts.nbins)
+      comments = loghistval(newsnr, slide_newsnr, inj_newsnr, comments, opts.nbins)
       pl.title(opts.ifo_times + ' statistic', size='x-large')
       pl.xlabel("cont newSNR", size='x-large')
       pl.ylabel("pdf", size='x-large')

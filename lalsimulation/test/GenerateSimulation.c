@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALConstants.h>
 #include <lal/LALDatatypes.h>
 #include <lal/Date.h>
@@ -31,15 +30,11 @@
 #include <lal/XLALError.h>
 #include <lal/LALAdaptiveRungeKutta4.h>
 
-typedef enum tagGSDomain {
-    GSDomain_TD,
-    GSDomain_FD
-} GSDomain;
 
 /* internal storage is in SI units! */
 typedef struct tagGSParams {
     Approximant approximant;  /**< waveform family or "approximant" */
-    GSDomain domain;          /**< flag for time or frequency domain waveform */
+    LALSimulationDomain domain; /**< flag for time or frequency domain waveform */
     int phaseO;               /**< twice PN order of the phase */
     int ampO;                 /**< twice PN order of the amplitude */
     REAL8 phiRef;             /**< phase at fRef */
@@ -91,6 +86,7 @@ const char * usage =
 "                             SEOBNRv1\n"
 "                             SpinTaylorT4\n"
 "                             SpinTaylorT2\n"
+"                             PhenSpinTaylor\n"
 "                             PhenSpinTaylorRD\n"
 "                           Supported FD approximants:\n"
 "                             IMRPhenomA\n"
@@ -105,7 +101,7 @@ const char * usage =
 "                           developer forgot to edit this help message\n"
 "--phase-order ORD          Twice PN order of phase (default ORD=7 <==> 3.5PN)\n"
 "--amp-order ORD            Twice PN order of amplitude (default 0 <==> Newt.)\n"
-"--phiRef                   Phase at the reference frequency (default 0)\n"
+"--phiRef PHIREF            Phase at the reference frequency (default 0)\n"
 "--fRef FREF                Reference frequency in Hz\n"
 "                           (default: 0)\n"
 "--sample-rate SRATE        Sampling rate of TD approximants in Hz (default 4096)\n"
@@ -122,9 +118,9 @@ const char * usage =
 "--spin2y S2Y               z-axis=line of sight, L in x-z plane at reference\n"
 "--spin2z S2Z               Kerr limit: s2x^2 + s2y^2 + s2z^2 <= 1\n"
 "--tidal-lambda1 L1         (tidal deformability of mass 1) / (mass of body 1)^5\n"
-"                           (~4-80 for NS, 0 for BH) (default 0)\n"
+"                           (~128-2560 for NS, 0 for BH) (default 0)\n"
 "--tidal-lambda2 L2         (tidal deformability of mass 2) / (mass of body 2)^5\n"
-"                           (~4-80 for NS, 0 for BH) (default 0)\n"
+"                           (~128-2560 for NS, 0 for BH) (default 0)\n"
 "--spin-order ORD           Twice PN order of spin effects\n"
 "                           (default ORD=-1 <==> All spin effects)\n"
 "--tidal-order ORD          Twice PN order of tidal effects\n"
@@ -134,6 +130,8 @@ const char * usage =
 "                           (default: generate as much as possible)\n"
 "--distance D               Distance in Mpc (default 100)\n"
 "--axis AXIS                for PhenSpin: 'View' (default), 'TotalJ', 'OrbitalL'\n"
+"--nonGRpar NAME VALUE      add the nonGRparam with name 'NAME' and value 'VALUE'\n"
+"--higher-modes VALUE       specify l modes with value 'VALUE' (L2 or RESTRICTED is default)\n"
 "--outname FNAME            Output to file FNAME (default 'simulation.dat')\n"
 "--verbose                  If included, add verbose output\n"
 ;
@@ -150,7 +148,7 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
     params->waveFlags = XLALSimInspiralCreateWaveformFlags();
     params->nonGRparams = NULL;
     params->approximant = TaylorT1;
-    params->domain = GSDomain_TD;
+    params->domain = LAL_SIM_DOMAIN_TIME;
     params->phaseO = 7;
     params->ampO = 0;
     params->phiRef = 0.;
@@ -190,9 +188,9 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
         } else if (strcmp(argv[i], "--domain") == 0) {
             i++;
             if (strcmp(argv[i], "TD") == 0)
-                params->domain = GSDomain_TD;
+                params->domain = LAL_SIM_DOMAIN_TIME;
             else if (strcmp(argv[i], "FD") == 0)
-                params->domain = GSDomain_FD;
+                params->domain = LAL_SIM_DOMAIN_FREQUENCY;
             else {
                 XLALPrintError("Error: Unknown domain\n");
                 goto fail;
@@ -249,6 +247,21 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
                 XLALPrintError("Error: invalid value %s for --axis\n", argv[i]);
                 goto fail;
             }
+        } else if (strcmp(argv[i], "--modes") == 0) {
+            XLALSimInspiralSetModesChoice( params->waveFlags,
+                    XLALGetHigherModesFromString(argv[++i]) );
+            if ( (int) XLALSimInspiralGetModesChoice(params->waveFlags)
+                    == (int) XLAL_FAILURE) {
+                XLALPrintError("Error: invalid value %s for --modes\n", argv[i]);
+                goto fail;
+            }
+        } else if (strcmp(argv[i], "--nonGRpar") == 0) {
+	    char name[100];
+	    strcpy(name,argv[++i]);
+	    if (params->nonGRparams==NULL)
+	      params->nonGRparams=XLALSimInspiralCreateTestGRParam(name,atof(argv[++i]));
+	    else
+	      XLALSimInspiralAddTestGRParam(&params->nonGRparams,name,atof(argv[++i]));
         } else if (strcmp(argv[i], "--outname") == 0) {
             strncpy(params->outname, argv[++i], 256);
         } else if (strcmp(argv[i], "--verbose") == 0) {
@@ -302,7 +315,7 @@ static int dump_FD(FILE *f, COMPLEX16FrequencySeries *hptilde,
     for (i=0; i < hptilde->data->length; i++)
         fprintf(f, "%.16e %.16e %.16e %.16e %.16e\n",
                 hptilde->f0 + i * hptilde->deltaF,
-                dataPtr1[i].re, dataPtr1[i].im, dataPtr2[i].re, dataPtr2[i].im);
+                creal(dataPtr1[i]), cimag(dataPtr1[i]), creal(dataPtr2[i]), cimag(dataPtr2[i]));
     return 0;
 }
 
@@ -324,12 +337,12 @@ static int dump_FD2(FILE *f, COMPLEX16FrequencySeries *hptilde,
     REAL8 phaseUW1[hptilde->data->length], phaseUW2[hptilde->data->length];
     for (i=0; i < hptilde->data->length; i++)
     {
-        amp1[i] = sqrt(dataPtr1[i].re*dataPtr1[i].re
-                + dataPtr1[i].im*dataPtr1[i].im);
-        phase1[i] = atan2(dataPtr1[i].im, dataPtr1[i].re);
-        amp2[i] = sqrt(dataPtr2[i].re*dataPtr2[i].re
-                + dataPtr2[i].im*dataPtr2[i].im);
-        phase2[i] = atan2(dataPtr2[i].im, dataPtr2[i].re);
+        amp1[i] = sqrt(creal(dataPtr1[i])*creal(dataPtr1[i])
+                + cimag(dataPtr1[i])*cimag(dataPtr1[i]));
+        phase1[i] = atan2(cimag(dataPtr1[i]), creal(dataPtr1[i]));
+        amp2[i] = sqrt(creal(dataPtr2[i])*creal(dataPtr2[i])
+                + cimag(dataPtr2[i])*cimag(dataPtr2[i]));
+        phase2[i] = atan2(cimag(dataPtr2[i]), creal(dataPtr2[i]));
     }
     unwind_phase(phaseUW1, phase1, hptilde->data->length, threshold);
     unwind_phase(phaseUW2, phase2, hptilde->data->length, threshold);
@@ -412,7 +425,7 @@ int main (int argc , char **argv) {
     /* generate waveform */
     start_time = time(NULL);
     switch (params->domain) {
-        case GSDomain_FD:
+        case LAL_SIM_DOMAIN_FREQUENCY:
             XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, params->phiRef, 
                     params->deltaF, params->m1, params->m2, params->s1x, 
                     params->s1y, params->s1z, params->s2x, params->s2y, 
@@ -421,7 +434,7 @@ int main (int argc , char **argv) {
                     params->lambda2, params->waveFlags, params->nonGRparams,
                     params->ampO, params->phaseO, params->approximant);
             break;
-        case GSDomain_TD:
+        case LAL_SIM_DOMAIN_TIME:
             XLALSimInspiralChooseTDWaveform(&hplus, &hcross, params->phiRef, 
                     params->deltaT, params->m1, params->m2, params->s1x, 
                     params->s1y, params->s1z, params->s2x, params->s2y, 
@@ -437,15 +450,15 @@ int main (int argc , char **argv) {
     if (params->verbose)
         XLALPrintInfo("Generation took %.0f seconds\n", 
                 difftime(time(NULL), start_time));
-    if (((params->domain == GSDomain_FD) && (!hptilde || !hctilde)) ||
-        ((params->domain == GSDomain_TD) && (!hplus || !hcross))) {
+    if (((params->domain == LAL_SIM_DOMAIN_FREQUENCY) && (!hptilde || !hctilde)) ||
+        ((params->domain == LAL_SIM_DOMAIN_TIME) && (!hplus || !hcross))) {
         XLALPrintError("Error: waveform generation failed\n");
         goto fail;
     }
 
     /* dump file */
     f = fopen(params->outname, "w");
-    if (params->domain == GSDomain_FD)
+    if (params->domain == LAL_SIM_DOMAIN_FREQUENCY)
         if (params->ampPhase == 1)
             status = dump_FD2(f, hptilde, hctilde);
         else

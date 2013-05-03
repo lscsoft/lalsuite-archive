@@ -285,19 +285,3 @@ class ilwdchar(object):
 		#
 
 		return get_ilwdchar_class(table_name, column_name)(int(i))
-
-
-#
-# for backwards compatibility.  do not use
-#
-# FIXME:  remove when not used
-#
-
-
-def get_ilwdchar(*args):
-	"""
-	Deprecated interface to ilwdchar class.
-	"""
-	import warnings
-	warnings.warn("glue.ligolw.ilwd.get_ilwdchar() is deprecated.  use glue.ligolw.ilwd.ilwdchar() instead", DeprecationWarning)
-	return ilwdchar(*args)
