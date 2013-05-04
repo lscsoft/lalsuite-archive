@@ -2776,11 +2776,11 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     while(data){
         
         char foutname[50]="";
-        sprintf(foutname,"MDC_time_%s",data->name);
+        sprintf(foutname,"MDC_freq_%s",data->name);
         FILE * fout = fopen(foutname,"w");
 
         char outname[50]="";
-        sprintf(outname,"MDC_freq_%s",data->name);
+        sprintf(outname,"MDC_time_%s",data->name);
         FILE * out = fopen(outname,"w");
     
         tmp=0.0;
@@ -2793,7 +2793,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         XLALDDVectorMultiply(windTimeData->data,timeData->data,IFOdata->window->data);
 
         for(j=0;j< timeData->data->length;j++) 
-            fprintf(out,"%lf %10.10e %10.10e \n",epoch.gpsSeconds + j*deltaT,data->timeData->data->data[j]+timeData->data->data[j],timeData->data->data[j]);
+            fprintf(out,"%lf %10.10e %10.10e %10.10e \n",epoch.gpsSeconds + j*deltaT,data->timeData->data->data[j],data->timeData->data->data[j]+timeData->data->data[j],timeData->data->data[j]);
         fclose(out);
         
         /* set the whole seq to 0 */
@@ -2804,10 +2804,10 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         
         
         for(j=lower;j<upper;j++){
-         fprintf(fout,"%lf %10.10e %10.10e\n", j*injF->deltaF,creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm);
-                injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
+         fprintf(fout,"%lf %10.10e %10.10e %10.10e\n", j*injF->deltaF,creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm,data->oneSidedNoisePowerSpectrum->data->data[j]);
+                //injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
                 windTimeData->data->data[j] /= sqrt(data->window->sumofsquares / data->window->data->length);
-
+ 
                 /* Add data in freq stream */
                 data->freqData->data->data[j]+=crect(prefactor *creal(injF->data->data[j])/WinNorm,prefactor *cimag(injF->data->data[j])/WinNorm);
                 tmp+= prefactor*prefactor*(creal(injF ->data->data[j])*creal(injF ->data->data[j])+cimag(injF ->data->data[j])*cimag(injF ->data->data[j]))/data->oneSidedNoisePowerSpectrum->data->data[j];             
