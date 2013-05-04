@@ -187,9 +187,9 @@ Parameter arguments:\n\
         }
 
     /* With these settings should be ok to run at 1024Hz of srate */
-    REAL8 Fmin=20.0;
-    REAL8 Fmax=380.0;
-    REAL8 Qmin=10.0, Qmax=50.0;
+    REAL8 Fmin=40.0;
+    REAL8 Fmax=1300.0;
+    REAL8 Qmin=3.0, Qmax=100.0;
     /*hrssmin = 1e-23 hrssmax = 1e-21  */ 
     REAL8 loghrssmin=-52.95945714, loghrssmax=-48.35428695;
     REAL8 dt=0.1;
