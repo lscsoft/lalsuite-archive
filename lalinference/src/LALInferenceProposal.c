@@ -74,7 +74,7 @@ const char *const KDNeighborhoodProposalName = "KDNeighborhood";
 const char *const HrssQJumpName = "HrssQ";
 const char *const TimeFreqJumpName = "TimeFreq";
 const char *const differentialEvolutionSineGaussName="DifferentialEvolutionSineGauss";
-
+const char *const TimeDelaysJumpName="TimeDelays";
 /* Mode hopping fraction for the differential evoultion proposals. */
 static const REAL8 modeHoppingFrac = 1.0;
 
@@ -2749,13 +2749,17 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
     
     }
   
- if (!LALInferenceGetProcParamVal(runState->commandLine,"--proposal-no-timefreq")) {
-     printf("Adding timeFreq jump\n");
-    LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,3.0*SMALLWEIGHT );
-    //    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
-    //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
+    if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timefreq")) {
+         printf("Adding timeFreq jump\n");
+        LALInferenceAddProposalToCycle(runState, TimeFreqJumpName, &LALInferenceTimeFreqJump,SMALLWEIGHT );
+    }
+    if (LALInferenceGetProcParamVal(runState->commandLine,"--proposal-timedelay")) {        
+        printf("Adding time delay jump\n");
+         LALInferenceAddProposalToCycle(runState, TimeDelaysJumpName, &LALInferenceTimeDelaysJump,SMALLWEIGHT );
+        //    LALInferenceAddProposalToCycle(runState, differentialEvolutionMassesName, &LALInferenceDifferentialEvolutionMasses, SMALLWEIGHT);
+        //LALInferenceAddProposalToCycle(runState, differentialEvolutionExtrinsicName, &LALInferenceDifferentialEvolutionExtrinsic, SMALLWEIGHT);
     
-   }
+    }
   LALInferenceRandomizeProposalCycle(runState);
 }
 
@@ -2872,10 +2876,27 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
   LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
 }
 
-#if 0
-static void
-LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+static REAL8 t_coeff(REAL8 RA, REAL8 dec, REAL8 GPS, REAL8 *v){
     
+    return -v[0]*cos(dec)*sin(GPS)*cos(RA)-v[1]*cos(dec)*sin(GPS)*sin(RA)-v[1]*cos(dec)*cos(GPS)*cos(RA)+v[0]*cos(dec)*cos(GPS)*sin(RA);
+    }
+    
+static REAL8 r_coeff(REAL8 RA, REAL8 dec, REAL8 GPS, REAL8 *v){
+    
+    return v[1]*cos(dec)*cos(GPS)*cos(RA)+v[1]*cos(dec)*sin(GPS)*sin(RA)+v[0]*cos(dec)*sin(GPS)*cos(RA)-v[0]*cos(dec)*cos(GPS)*sin(RA);
+    
+    }
+    
+static REAL8 d_coeff(REAL8 RA, REAL8 dec, REAL8 GPS, REAL8 *v){
+    
+    return v[2]*cos(dec)-v[0]*sin(dec)*cos(GPS)*cos(RA)-v[0]*sin(dec)*sin(GPS)*sin(RA)+v[1]*sin(dec)*sin(GPS)*cos(RA)-v[1]*sin(dec)*cos(GPS)*sin(RA);
+}
+    
+ void
+LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) {
+
+ const char *propName = TimeDelaysJumpName;
+ LALInferenceSetVariable(runState->proposalArgs, LALInferenceCurrentProposalName, &propName);
   LALStatus status;
   memset(&status,0,sizeof(status));
   REAL8 x[3], y[3], z[3];
@@ -2894,14 +2915,139 @@ LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables
     zD = zD->next;
   }
   memcpy(z, zD->detector->location, 3*sizeof(REAL8));
-    REAL8 ra=*((REAL8 *) LALInferenceGetVariable(proposedParams, "righascension"));
+  
+    REAL8 ra=*((REAL8 *) LALInferenceGetVariable(proposedParams, "rightascension"));
     REAL8 dec=*((REAL8 *) LALInferenceGetVariable(proposedParams, "declination"));
-    REAL8 time=*((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
-    gsl_rng *rng = runState->GSLrandom;
-  int N=floor(fabs(gsl_ran_uniform(rng,0,3)));
+    REAL8 realgpstime=*((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
+    REAL8 freq=*((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
+    
+    if (freq>1795. || freq <1000.0) {return;}
+    printf("-------------------------------------\n Starting with time %lf ra %lf dec %lf \n",realgpstime,ra,dec);
+    
+    //gsl_rng *rng = runState->GSLrandom;
+    LIGOTimeGPS GPSlal;
+    XLALGPSSetREAL8(&GPSlal, realgpstime);
+    printf("LAL time %lf \n",GPSlal.gpsSeconds+1.0e-9*GPSlal.gpsNanoSeconds);
+    REAL8 old_timediff_xy=XLALArrivalTimeDiff(x,y,ra,dec,&GPSlal);
+    REAL8 old_timediff_xz=XLALArrivalTimeDiff(x,z,ra,dec,&GPSlal);
+    REAL8 old_timediff_yz=XLALArrivalTimeDiff(y,z,ra,dec,&GPSlal);
+    printf("time delays are: \n %lf \n %lf \n%lf \n",
+    old_timediff_xy,
+    old_timediff_xz,
+    old_timediff_yz) ;   
+    
+  REAL8 xybias=(REAL8) 2/freq*LAL_C_SI;//floor(fabs(gsl_ran_flat(rng,0,3)));
+  REAL8 xzbias=(REAL8) 1/freq*LAL_C_SI;//floor(fabs(gsl_ran_flat(rng,0,3)));
+  //REAL8 yzbias=(REAL8) xzbias-xybias;//floor(fabs(gsl_ran_flat(rng,0,3)));
   
-  double ddelta,dalpha;
+  printf("Jumping by %f %f cycles. Eq to %lf and %lf sec freq %f\n",xybias*freq/LAL_C_SI,xzbias*freq/LAL_C_SI,xybias,xzbias,freq);
+  REAL8 dra,ddec,dtime;
+  dtime=0.0; // in rad
+  
+    double xy[3];   // V
+    xy[0]=-(x[0]-y[0]);
+    xy[1]=-(x[1]-y[1]);
+    xy[2]=-(x[2]-y[2]);
    
+    double xz[3];  // W
+    xz[0]=-(x[0]-z[0]);
+    xz[1]=-(x[1]-z[1]);
+    xz[2]=-(x[2]-z[2]);
   
+    /*double yz[3];   // Y
+    yz[0]=y[0]-z[0];
+    yz[1]=y[1]-z[1];
+    yz[2]=y[2]-z[2];
+    */
+    //REAL8 cdec=cos(dec);
+    //REAL8 sdec=sin(dec);
+    //REAL8 cra=cos(ra);
+    //REAL8 sra=sin(ra);
+    REAL8 gmst= XLALGreenwichMeanSiderealTime(&GPSlal);
+    printf("TIME IS %lf\n",gmst);
+    //REAL8 stime=sin(gmst);
+    //REAL8 ctime=cos(gmst);
+    //REAL8 stime2=stime*stime;
+    //REAL8 ctime2=ctime*ctime;
+    //REAL8 sra2=sra*sra;
+    //REAL8 cra2=cra*cra;
+    
+    REAL8 Txy=t_coeff(ra,dec,gmst,xy);
+    REAL8 Rxy=r_coeff(ra,dec,gmst,xy);
+    REAL8 Dxy=d_coeff(ra,dec,gmst,xy);
+    REAL8 Txz=t_coeff(ra,dec,gmst,xz);
+    REAL8 Rxz=r_coeff(ra,dec,gmst,xz);
+    REAL8 Dxz=d_coeff(ra,dec,gmst,xz);
+    printf("xy Tcoef %lf R %lf D %lf xz: %lf %lf %lf\n",Txy,Rxy,Dxy,Txz,Rxz,Dxz);
+    //REAL8 Tyz=t_coeff(ra,dec,gmst,yz);
+    //REAL8 Ryz=r_coeff(ra,dec,gmst,yz);
+    //REAL8 Dyz=d_coeff(ra,dec,gmst,yz);
+    
+    REAL8 den=0.;
+    REAL8 num=0.;
+    
+    ////den=-Rxy*Dxz*Tyz+Rxz*Dxy*Tyz-Dyz*Rxz*Txy-Ryz*Dxy*Txz+Dxz*Ryz*Txy+Rxy*Dyz*Txz;
+    //den=-Rxy*Dxz+Rxz*Dxy;
+    ////num=Rxz*xybias*Tyz-Rxz*Txy*yzbias+Rxy*Txz*yzbias-Rxy*xzbias*Tyz+Txy*Ryz*xzbias-xybias*Ryz*Txz;
+    //num=(Rxy*Txz*dtime+Rxz*xybias-Rxy*xzbias-Rxz*Txy*dtime);
+    //num/=freq;
+    //if (den!=0.0)
+    //    ddec= num/den;
+    //else
+    //    return;
+    den=Rxz*Dxy - Rxy*Dxz ;
+    num=xybias*Rxz- xzbias*Rxy;
+    if (den!=0.0)
+        ddec= num/den;
+    else
+        return;
+    ////num=-(Txy*Dyz*xzbias-Txy*Dxz*yzbias+Dxy*Txz*yzbias-Dxy*xzbias*Tyz+xybias*Dxz*Tyz-xybias*Dyz*Txz);
+    //num=-(-Txy*dtime*Dxz+Dxy*Txz*dtime-Dxy*xzbias+Dxz*xybias);
+    //num/=freq;
+    
+    num= xzbias*Dxy - xybias*Dxz;
+    
+    
+    if (den!=0.0)
+        dra=num/den + dtime;
+    else
+        return;
+   /*        
+   num=Rxy*Dyz*xzbias-Rxy*Dxz*yzbias+Dxz*Ryz*xybias+Rxz*Dxy*yzbias-Dyz*Rxz*xybias-Ryz*Dxy*xzbias;
+   num/=freq;
+   if (den!=0.0)
+        dtime=num/den* LAL_C_SI;
+    else
+        return;
+    */
+    gmst+=dtime;
+    ra+=dra;
+    dec+=ddec;
+    
+    printf("Theoretical value of ddelay in cycles %lf %lf\n",(ddec*Dxy+dra*Rxy - dtime*Rxy)*freq/LAL_C_SI,(ddec*Dxz+dra*Rxz - dtime*Rxz)*freq/LAL_C_SI);
+    printf("GENERATED JUMPS\n dt %10.10e dra %10.10e ddec %10.10e \n",dtime,dra,ddec);
+        LIGOTimeGPS *GPSlal2=NULL;
+        GPSlal2=XLALMalloc(sizeof(LIGOTimeGPS));
+    GPSlal2=XLALGreenwichMeanSiderealTimeToGPS(gmst,GPSlal2);
+    printf("LAL time %lf \n",GPSlal2->gpsSeconds+1.0e-9*GPSlal2->gpsNanoSeconds);
+
+    printf("After jump with time %lf ra %lf dec %lf  ---- cycle %lf \n",gmst,ra,dec,1./freq);
+    REAL8 new_timediff_xy=XLALArrivalTimeDiff(x,y,ra,dec,GPSlal2);
+    REAL8 new_timediff_xz=XLALArrivalTimeDiff(x,z,ra,dec,GPSlal2);
+    REAL8 new_timediff_yz=XLALArrivalTimeDiff(y,z,ra,dec,GPSlal2);
+    printf("AFTER the time jumps are: \n %lf \n %lf \n %lf ----combine two last %lf \n ------------------------------------------\n",
+    (new_timediff_xy-old_timediff_xy)*freq,
+    (new_timediff_xz-old_timediff_xz)*freq,
+    (new_timediff_yz-old_timediff_yz)*freq,
+    //new_timediff_xy,new_timediff_xz,new_timediff_yz,
+     (new_timediff_xz-old_timediff_xz)*freq- (new_timediff_yz-old_timediff_yz)*freq
+    );
+    
+    
+    LALInferenceSetLogProposalRatio(runState, 0.0);
+
+  /* Probably not needed, but play it safe. */
+    LALInferenceCyclicReflectiveBound(proposedParams, runState->priorArgs);
+    
 }
-#endif
+

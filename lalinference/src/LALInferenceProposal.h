@@ -268,6 +268,8 @@ void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInf
 void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceDifferentialEvolutionSineGauss(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
+void
+LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) ;
 /*@}*/
 
 #endif
