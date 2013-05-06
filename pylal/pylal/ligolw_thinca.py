@@ -441,7 +441,7 @@ def inspiral_coinc_compare_exact(a, offseta, b, offsetb, light_travel_time, e_th
 	"""
         # define mchirp, eta tuple
         a_masses = (a.mchirp, a.eta)
-        b_masses = (a.mchirp, a.eta)
+        b_masses = (b.mchirp, b.eta)
 
         try:
                 # check for spin columns (from events in sngl_inspiral table)
