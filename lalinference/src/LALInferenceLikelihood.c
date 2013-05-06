@@ -31,7 +31,6 @@
 #include <lal/FrequencySeries.h>
 #include <lal/TimeFreqFFT.h>
 #include <gsl/gsl_sf_bessel.h>
-
 #include <gsl/gsl_sf_bessel.h>
 
 

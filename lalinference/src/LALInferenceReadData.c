@@ -76,6 +76,7 @@
 #include <lal/LALSimNoise.h>
 #include <lal/LALInferenceReadBurstData.h>
 #include <LALInferenceRemoveLines.h>
+#include <lal/LALAtomicDatatypes.h>
 
 struct fvec {
 	REAL8 f;
@@ -2691,6 +2692,12 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     UINT4 j=0;
     LALInferenceIFOData *data=IFOdata;
     REAL8 prefactor =1.0;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--MDC-prefactor");
+    if (ppt){
+
+        prefactor=atof(ppt->value);
+        fprintf(stdout,"Using prefactor=%f to scale the MDC injection\n",prefactor);
+    }
     REAL8 tmp=0.0;
     REAL8 net_snr=0.0;
     while (data) {nIFO++; data=data->next;}
