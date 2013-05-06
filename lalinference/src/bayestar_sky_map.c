@@ -148,9 +148,8 @@ static int bayestar_sky_map_tdoa_not_normalized_log(
     int nifos, /* Input: number of detectors. */
     const double **locs, /* Input: array of detector positions. */
     const double *toas, /* Input: array of times of arrival. */
-    const double *s2_toas /* Input: uncertainties in times of arrival. */
+    const double *w_toas /* Input: sum-of-squares weights, (1/TOA variance)^2. */
 ) {
-    double t[nifos], w[nifos];
     long nside;
     long i;
 
@@ -158,17 +157,6 @@ static int bayestar_sky_map_tdoa_not_normalized_log(
     nside = npix2nside(npix);
     if (nside < 0)
         GSL_ERROR("output is not a valid HEALPix array", GSL_EINVAL);
-
-    /* Take reciprocal of measurement variances to get sum-of-squares weights. */
-    for (i = 0; i < nifos; i ++)
-        w[i] = 1 / s2_toas[i];
-
-    /* Subtract off zeroth TOA so that when we compare these with the expected
-     * time delays we are subtracting numbers of similar size (rather than
-     * subtracting gigaseconds from milliseconds). In exact arithmetic, this
-     * would not affect the final answer. */
-    for (i = 0; i < nifos; i ++)
-        t[i] = toas[i] - toas[0];
 
     /* Loop over pixels. */
     for (i = 0; i < npix; i ++)
@@ -189,10 +177,10 @@ static int bayestar_sky_map_tdoa_not_normalized_log(
         /* Loop over detectors. */
         double dt[nifos];
         for (j = 0; j < nifos; j ++)
-            dt[j] = t[j] + cblas_ddot(3, n, 1, locs[j], 1) / LAL_C_SI;
+            dt[j] = toas[j] + cblas_ddot(3, n, 1, locs[j], 1) / LAL_C_SI;
 
         /* Evaluate the (un-normalized) Gaussian log likelihood. */
-        P[i] = -0.5 * gsl_stats_wtss(w, 1, dt, 1, nifos);
+        P[i] = -0.5 * gsl_stats_wtss(w_toas, 1, dt, 1, nifos);
     }
 
     /* Done! */
@@ -213,7 +201,7 @@ static double *bayestar_sky_map_tdoa_adapt_resolution(
     int nifos, /* Input: number of detectors. */
     const double **locs, /* Input: array of detector positions. */
     const double *toas, /* Input: array of times of arrival. */
-    const double *s2_toas /* Input: uncertainties in times of arrival. */
+    const double *w_toas /* Input: sum-of-squares weights, (1/TOA variance)^2. */
 ) {
     int ret;
     double *P = NULL;
@@ -233,7 +221,7 @@ static double *bayestar_sky_map_tdoa_adapt_resolution(
             P = malloc(my_npix * sizeof(double));
             if (!P)
                 GSL_ERROR_NULL("failed to allocate output array", GSL_ENOMEM);
-            ret = bayestar_sky_map_tdoa_not_normalized_log(my_npix, P, gmst, nifos, locs, toas, s2_toas);
+            ret = bayestar_sky_map_tdoa_not_normalized_log(my_npix, P, gmst, nifos, locs, toas, w_toas);
             if (ret != GSL_SUCCESS)
             {
                 free(P);
@@ -255,7 +243,7 @@ static double *bayestar_sky_map_tdoa_adapt_resolution(
         P = malloc(my_npix * sizeof(double));
         if (!P)
             GSL_ERROR_NULL("failed to allocate output array", GSL_ENOMEM);
-        ret = bayestar_sky_map_tdoa_not_normalized_log(my_npix, P, gmst, nifos, locs, toas, s2_toas);
+        ret = bayestar_sky_map_tdoa_not_normalized_log(my_npix, P, gmst, nifos, locs, toas, w_toas);
         if (ret != GSL_SUCCESS)
         {
             free(P);
@@ -287,11 +275,11 @@ double *bayestar_sky_map_tdoa(
     int nifos, /* Input: number of detectors. */
     const double **locs, /* Input: array of detector positions. */
     const double *toas, /* Input: array of times of arrival. */
-    const double *s2_toas /* Input: uncertainties in times of arrival. */
+    const double *w_toas /* Input: sum-of-squares weights, (1/TOA variance)^2. */
 ) {
     long maxpix;
     gsl_permutation *pix_perm = NULL;
-    double *ret = bayestar_sky_map_tdoa_adapt_resolution(&pix_perm, &maxpix, npix, gmst, nifos, locs, toas, s2_toas);
+    double *ret = bayestar_sky_map_tdoa_adapt_resolution(&pix_perm, &maxpix, npix, gmst, nifos, locs, toas, w_toas);
     gsl_permutation_free(pix_perm);
     return ret;
 }
@@ -301,28 +289,19 @@ typedef struct {
     double A;
     double B;
     double log_offset;
+    int prior_distance_power;
 } inner_integrand_params;
 
 
 /* Radial integrand for uniform-in-log-distance prior. */
-static double radial_integrand_uniform_in_log_distance(double r, void *params)
+static double radial_integrand(double r, void *params)
 {
     const inner_integrand_params *integrand_params = (const inner_integrand_params *) params;
 
     const double onebyr = 1 / r;
     const double onebyr2 = gsl_pow_2(onebyr);
-    return exp(integrand_params->A * onebyr2 + integrand_params->B * onebyr - integrand_params->log_offset) * onebyr;
-}
-
-
-/* Radial integrand for uniform-in-volume prior. */
-static double radial_integrand_uniform_in_volume(double r, void *params)
-{
-    const inner_integrand_params *integrand_params = (const inner_integrand_params *) params;
-
-    const double onebyr = 1 / r;
-    const double onebyr2 = gsl_pow_2(onebyr);
-    return exp(integrand_params->A * onebyr2 + integrand_params->B * onebyr - integrand_params->log_offset) * gsl_pow_2(r);
+    return exp(integrand_params->A * onebyr2 + integrand_params->B * onebyr - integrand_params->log_offset)
+        * gsl_pow_int(r, integrand_params->prior_distance_power);
 }
 
 
@@ -335,11 +314,11 @@ double *bayestar_sky_map_tdoa_snr(
     const double **locations, /* Pointers to locations of detectors in Cartesian geographic coordinates. */
     const double *toas, /* Input: array of times of arrival with arbitrary relative offset. (Make toas[0] == 0.) */
     const double *snrs, /* Input: array of SNRs. */
-    const double *s2_toas, /* Measurement variance of TOAs. */
+    const double *w_toas, /* Input: sum-of-squares weights, (1/TOA variance)^2. */
     const double *horizons, /* Distances at which a source would produce an SNR of 1 in each detector. */
     double min_distance,
     double max_distance,
-    bayestar_prior_t prior)
+    int prior_distance_power) /* Use a prior of (distance)^(prior_distance_power) */
 {
     long nside;
     long maxpix;
@@ -347,9 +326,6 @@ double *bayestar_sky_map_tdoa_snr(
     double d1[nifos];
     double *P;
     gsl_permutation *pix_perm;
-
-    /* Function pointer to hold radial integrand. */
-    double (* radial_integrand) (double x, void *params);
 
     /* Will point to memory for storing GSL return values for each thread. */
     int *gsl_errnos;
@@ -370,20 +346,6 @@ double *bayestar_sky_map_tdoa_snr(
     /* Number of integration steps in cos(inclination) */
     static const int nu = 16;
 
-    /* Choose radial integrand function based on selected prior. */
-    switch (prior)
-    {
-        case BAYESTAR_PRIOR_UNIFORM_IN_LOG_DISTANCE:
-            radial_integrand = radial_integrand_uniform_in_log_distance;
-            break;
-        case BAYESTAR_PRIOR_UNIFORM_IN_VOLUME:
-            radial_integrand = radial_integrand_uniform_in_volume;
-            break;
-        default:
-            GSL_ERROR_NULL("unrecognized choice of prior", GSL_EINVAL);
-            break;
-    }
-
     /* Rescale distances so that furthest horizon distance is 1. */
     {
         double d1max;
@@ -398,7 +360,7 @@ double *bayestar_sky_map_tdoa_snr(
     }
 
     /* Evaluate posterior term only first. */
-    P = bayestar_sky_map_tdoa_adapt_resolution(&pix_perm, &maxpix, npix, gmst, nifos, locations, toas, s2_toas);
+    P = bayestar_sky_map_tdoa_adapt_resolution(&pix_perm, &maxpix, npix, gmst, nifos, locations, toas, w_toas);
     if (!P)
         return NULL;
 
@@ -538,7 +500,7 @@ double *bayestar_sky_map_tdoa_snr(
                 {
                     /* Perform adaptive integration. Stop when a relative
                      * accuracy of 0.05 has been reached. */
-                    inner_integrand_params integrand_params = {A, B, -0.25 * gsl_pow_2(B) / A};
+                    inner_integrand_params integrand_params = {A, B, -0.25 * gsl_pow_2(B) / A, prior_distance_power};
                     const gsl_function func = {radial_integrand, &integrand_params};
                     double result, abserr;
                     int ret = gsl_integration_qagp(&func, &breakpoints[0], num_breakpoints, DBL_MIN, 0.05, subdivision_limit, workspace, &result, &abserr);

@@ -101,12 +101,12 @@ def read_psd_xmldoc(xmldoc):
 # End section copied and adapted from pylal.series.read_psd_xmldoc.
 
 
-def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low, min_distance=None, max_distance=None, prior=None, method="toa_snr", reference_frequency=None, psds=None, nside=-1):
+def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low, min_distance=None, max_distance=None, prior_distance_power=None, method="toa_snr", reference_frequency=None, psds=None, nside=-1):
     """Convenience function to produce a sky map from LIGO-LW rows. Note that
     min_distance and max_distance should be in Mpc."""
 
-    if method == "toa_snr" and prior is None:
-        raise ValueError("For method='toa_snr', the argument prior is required.")
+    if method == "toa_snr" and prior_distance_power is None:
+        raise ValueError("For method='toa_snr', the argument prior_distance_power is required.")
 
     ifos = [sngl_inspiral.ifo for sngl_inspiral in sngl_inspirals]
 
@@ -132,13 +132,14 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
             m2 * lal.LAL_MSUN_SI,
             0, 4))) for m1, m2 in zip(mass1s, mass2s)]
 
-    # Convert TOAs from nanoseconds to seconds.
-    toas = 1e-9 * toas_ns
-
     # Find average Greenwich mean sidereal time of event.
     mean_toa_ns = sum(toas_ns) // len(toas_ns)
     epoch = lal.LIGOTimeGPS(0, long(mean_toa_ns))
     gmst = lal.GreenwichMeanSiderealTime(epoch)
+
+    # Convert TOAs from nanoseconds to seconds, subtracting off mean TOA
+    # to keep numbers small.
+    toas = 1e-9 * (toas_ns - mean_toa_ns)
 
     # Power spectra for each detector.
     if psds is None:
@@ -154,7 +155,7 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
 
     # Estimate TOA uncertainty (squared) using CRB or BRB evaluated at MEASURED
     # values of the SNRs.
-    s2_toas = [np.square(signal_model.get_toa_uncert(np.abs(snr)))
+    w_toas = [1/np.square(signal_model.get_toa_uncert(np.abs(snr)))
         for signal_model, snr in zip(signal_models, snrs)]
 
     # Look up physical parameters for detector.
@@ -176,9 +177,9 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     # Time and run sky localization.
     start_time = time.time()
     if method == "toa":
-        prob = sky_map.tdoa(gmst, toas, s2_toas, locations, nside=nside)
+        prob = sky_map.tdoa(gmst, toas, w_toas, locations, nside=nside)
     elif method == "toa_snr":
-        prob = sky_map.tdoa_snr(gmst, toas, snrs, s2_toas, responses, locations, horizons, min_distance, max_distance, prior, nside=nside)
+        prob = sky_map.tdoa_snr(gmst, toas, snrs, w_toas, responses, locations, horizons, min_distance, max_distance, prior_distance_power, nside=nside)
     else:
         raise ValueError("Unrecognized method: %s" % method)
     end_time = time.time()
@@ -190,7 +191,7 @@ def ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_
     return prob, epoch, elapsed_time
 
 
-def gracedb_sky_map(coinc_file, psd_file, waveform, f_low, min_distance=None, max_distance=None, prior=None, reference_frequency=None, nside=-1):
+def gracedb_sky_map(coinc_file, psd_file, waveform, f_low, min_distance=None, max_distance=None, prior_distance_power=None, reference_frequency=None, nside=-1):
     # LIGO-LW XML imports.
     from glue.ligolw import table as ligolw_table
     from glue.ligolw import utils as ligolw_utils
@@ -233,5 +234,5 @@ def gracedb_sky_map(coinc_file, psd_file, waveform, f_low, min_distance=None, ma
 
     # TOA+SNR sky localization
     return ligolw_sky_map(sngl_inspirals, approximant, amplitude_order, phase_order, f_low,
-        min_distance, max_distance, prior,
+        min_distance, max_distance, prior_distance_power,
         reference_frequency=reference_frequency, nside=nside, psds=psds)

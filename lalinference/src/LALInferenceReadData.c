@@ -76,6 +76,7 @@
 #include <lal/LALSimNoise.h>
 #include <lal/LALInferenceReadBurstData.h>
 #include <LALInferenceRemoveLines.h>
+#include <lal/LALAtomicDatatypes.h>
 
 struct fvec {
 	REAL8 f;
@@ -2691,6 +2692,12 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     UINT4 j=0;
     LALInferenceIFOData *data=IFOdata;
     REAL8 prefactor =1.0;
+    ppt=LALInferenceGetProcParamVal(commandLine,"--MDC-prefactor");
+    if (ppt){
+
+        prefactor=atof(ppt->value);
+        fprintf(stdout,"Using prefactor=%f to scale the MDC injection\n",prefactor);
+    }
     REAL8 tmp=0.0;
     REAL8 net_snr=0.0;
     while (data) {nIFO++; data=data->next;}
@@ -2805,9 +2812,9 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         
         for(j=lower;j<upper;j++){
          fprintf(fout,"%lf %10.10e %10.10e %10.10e\n", j*injF->deltaF,creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm,data->oneSidedNoisePowerSpectrum->data->data[j]);
-                injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
+                //injF ->data->data[j]/=sqrt(data->window->sumofsquares / data->window->data->length);
                 windTimeData->data->data[j] /= sqrt(data->window->sumofsquares / data->window->data->length);
-
+ 
                 /* Add data in freq stream */
                 data->freqData->data->data[j]+=crect(prefactor *creal(injF->data->data[j])/WinNorm,prefactor *cimag(injF->data->data[j])/WinNorm);
                 tmp+= prefactor*prefactor*(creal(injF ->data->data[j])*creal(injF ->data->data[j])+cimag(injF ->data->data[j])*cimag(injF ->data->data[j]))/data->oneSidedNoisePowerSpectrum->data->data[j];             

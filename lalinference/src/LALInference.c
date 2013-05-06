@@ -21,7 +21,6 @@
  *  MA  02111-1307  USA
  */
 
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -1269,10 +1268,8 @@ once on a given timeModel!
     norm=sqrt(IFOdata->window->data->length/IFOdata->window->sumofsquares);
     
     for(i=0;i<IFOdata->freqModelhPlus->data->length;i++){
-      IFOdata->freqModelhPlus->data->data[i].real_FIXME*=norm;
-      IFOdata->freqModelhPlus->data->data[i].imag_FIXME*=norm;
-      IFOdata->freqModelhCross->data->data[i].real_FIXME*=norm;
-      IFOdata->freqModelhCross->data->data[i].imag_FIXME*=norm;
+      IFOdata->freqModelhPlus->data->data[i]*=norm;
+      IFOdata->freqModelhCross->data->data[i]*=norm;
     }
   }
 }
