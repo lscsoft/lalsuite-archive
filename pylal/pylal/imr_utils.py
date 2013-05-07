@@ -286,6 +286,32 @@ def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins 
 	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
 
 
+def guess_distance_phenomb_spin_parameter_bins_from_sims(sims, chibins = 11, distbins = 200):
+	"""
+	Given a list of the injections, guess at the chi and distance
+	bins.
+	"""
+	dist_chi_vals = map(sim_to_distance_phenomb_spin_parameter_bins_function, sims)
+
+	distances = [tup[0] for tup in dist_chi_vals]
+	chis = [tup[1] for tup in dist_chi_vals]
+
+	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(chis), max(chis), chibins)])
+
+
+def guess_distance_mass_ratio_bins_from_sims(sims, qbins = 11, distbins = 200):
+	"""
+	Given a list of the injections, guess at the chi and distance
+	bins.
+	"""
+	dist_mratio_vals = map(sim_to_distance_mass_ratio_bins_function, sims)
+
+	distances = [tup[0] for tup in dist_mratio_vals]
+	mratios = [tup[1] for tup in dist_mratio_vals]
+
+	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(mratios), max(mratios), qbins)])
+
+
 def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
        """
        Given a list of the injections, guess at the mass1, mass2 and distance
@@ -321,6 +347,23 @@ def sim_to_distance_spin1z_spin2z_bins_function(sim):
 	"""
 
 	return (sim.distance, sim.spin1z, sim.spin2z)
+
+
+def sim_to_distance_phenomb_spin_parameter_bins_function(sim):
+	"""
+	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	"""
+
+	return (sim.distance, (sim.mass1*sim.spin1z + sim.mass2*sim.spin2z)/(sim.mass1 + sim.mass2))
+
+
+def sim_to_distance_mass_ratio_bins_function(sim):
+	"""
+	create a function to map a sim to a distance, aligned spin parameter (a.k.a. chi) NDBins based object
+	"""
+	# note that if you use symmetrize_sims() below, m2/m1 > 1
+	# which just strikes me as more intuitive
+	return (sim.distance, sim.mass2/sim.mass1)
 
 
 def symmetrize_sims(sims, col1, col2):
@@ -407,6 +450,8 @@ class DataBaseSummary(object):
 					self.this_injection_instruments.append(instruments_set)
 					segments_to_consider_for_these_injections = self.this_injection_segments.intersection(instruments_set) - self.this_injection_segments.union(set(self.this_injection_segments.keys()) - instruments_set)
 					found, total, missed = get_min_far_inspiral_injections(connection, segments = segments_to_consider_for_these_injections, table_name = self.table_name)
+					if verbose:
+						print >> sys.stderr, "Total injections: %d; Found injections %d: Missed injections %d" % (len(total), len(found), len(missed))
 					self.found_injections_by_instrument_set.setdefault(instruments_set, []).extend(found)
 					self.total_injections_by_instrument_set.setdefault(instruments_set, []).extend(total)
 					self.missed_injections_by_instrument_set.setdefault(instruments_set, []).extend(missed)

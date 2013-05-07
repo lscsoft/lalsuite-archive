@@ -1,8 +1,13 @@
-AM_CPPFLAGS = -I$(top_builddir)/include
+AM_CPPFLAGS = -I$(top_builddir)/include -DPKG_DATA_DIR='"$(pkgdatadir)/"'
 
 if LALXML
 XMLHDR = LALInferenceXML.h
 XMLSRC = LALInferenceXML.c
+endif
+
+if HAVE_CHEALPIX
+BAYESTARHDR = bayestar_sky_map.h
+BAYESTARSRC = logaddexp.h bayestar_sky_map.c
 endif
 
 lalinferenceincludedir = $(includedir)/lal
@@ -20,7 +25,11 @@ lalinferenceinclude_HEADERS = \
 	LALInferenceVCSInfo.h \
         LALInferenceRemoveLines.h \
 	lalinferenceswig_test.i \
+<<<<<<< HEAD
 	priors.h \
+=======
+	$(BAYESTARHDR) \
+>>>>>>> 1aa6db2f8be7aaba75f3267b36b6a456979c9966
 	$(XMLHDR)
 
 lib_LTLIBRARIES = liblalinference.la
@@ -34,8 +43,13 @@ liblalinference_la_SOURCES = \
 	LALInferenceProposal.c \
 	LALInferenceInitCBC.c \
 	LALInferenceVCSInfo.c \
+<<<<<<< HEAD
 	LALInferenceRemoveLines.c \
 	priors.c \
+=======
+        LALInferenceRemoveLines.c \
+	$(BAYESTARSRC) \
+>>>>>>> 1aa6db2f8be7aaba75f3267b36b6a456979c9966
 	$(XMLSRC)
 
 liblalinference_la_LDFLAGS = -version-info $(LIBVERSION)

@@ -1334,7 +1334,8 @@ XLALSimIMREOBNRv2Generator(
   gsl_spline_init( spline, dynamicsHi->data, phiVecHi.data, retLen );
   /* sSub = phiVecHi.data[peakIdx] - phiC/2.; */
   sSub = gsl_spline_eval( spline, timePeak, acc ) - phiC;
-
+  sSub=0.0;
+  
   gsl_spline_free( spline );
   gsl_interp_accel_free( acc );
 
