@@ -106,6 +106,16 @@ def summary_page(params,channels):
     """%(params["ifo"],params["ifo"])]
     contents.append("".join(table))
 
+    table = ["""
+    <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
+    <tbody>
+    <tr>
+    <td><a href= "https://ldas-jobs.ligo.caltech.edu/~mcoughlin/EQMon/EQMon.pdf">README</a></td>
+    </tr>
+    </tbody></table><br><br>
+    """]
+    contents.append("".join(table))
+
     ################################# closing ##################################
     user=os.environ['USER']
     curTime=time.strftime('%m-%d-%Y %H:%M:%S',time.localtime())
