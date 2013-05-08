@@ -202,12 +202,23 @@ def seismon_page(channel,textLocation):
     <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
     <tbody>
     <tr>
+    <td style="vertical-align: top;">Timeseries (raw and lowpassed at 1 Hz)</td>
+    <td style="vertical-align: top;">Omicron triggers</td>
+    </tr>
+    <tr>
     <td style="vertical-align: top;"><a href="./timeseries.png"><img alt="" src="./timeseries.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     <td style="vertical-align: top;"><a href="./omicron.png"><img alt="" src="./omicron.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     </tr>
     <tr>
+    <td style="vertical-align: top;">PSD (including 10, 50, and 90 percentiles)</td>
+    <td style="vertical-align: top;">Spectral Variation</td>
+    </tr>
+    <tr>
     <td style="vertical-align: top;"><a href="./psd.png"><img alt="" src="./psd.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     <td style="vertical-align: top;"><a href="./specvar.png"><img alt="" src="./specvar.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    </tr>
+    <tr>
+    <td style="vertical-align: top;">Frequency vs. Time</td>
     </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./tf.png"><img alt="" src="./tf.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>

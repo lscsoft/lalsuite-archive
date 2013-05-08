@@ -117,6 +117,8 @@ def mat(params, channel):
             else:
                 [shape_x,shape_y] = earthquakes.shape
             for i in xrange(shape_x):
+                if earthquakes[i,1] < 4.0:
+                    continue
 
                 Ptime = earthquakes[i,2] - startTime
                 Stime = earthquakes[i,3] - startTime
