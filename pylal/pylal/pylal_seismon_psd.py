@@ -37,7 +37,7 @@ def read_frames(start_time,end_time,channel,cache):
             if frame_time[i] >= end_time:  continue
             time.append(frame_time[i])
             data.append(frame_data[i])
-        data = [e/channel.calibration for e in data]
+    data = [e/channel.calibration for e in data]
 
     return time,data
 
@@ -54,6 +54,9 @@ def mat(params, channel):
     plt.close('all')
 
     spectra = [math.sqrt(e) for e in spectra]
+
+    #print spectra
+    #print penis
 
     newSpectra = []
     newFreq = []
@@ -74,9 +77,9 @@ def mat(params, channel):
 
     earthquakesDirectory = os.path.join(params["path"],"earthquakes")
     earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    if os.path.isfile(earthquakesFile):
+    try:
         earthquakes = np.loadtxt(earthquakesFile)
-    else:
+    except:
         earthquakes = []
 
     if params["doPlots"]:
@@ -109,7 +112,11 @@ def mat(params, channel):
         plt.legend(loc=1,prop={'size':10})
 
         if len(earthquakes) > 0:
-            for i in xrange(len(earthquakes)):
+            if len(earthquakes.shape) == 1:
+                shape_x = 1
+            else:
+                [shape_x,shape_y] = earthquakes.shape
+            for i in xrange(shape_x):
 
                 Ptime = earthquakes[i,2] - startTime
                 Stime = earthquakes[i,3] - startTime

@@ -118,9 +118,9 @@ def plot_triggers(params,channel):
 
     earthquakesDirectory = os.path.join(params["path"],"earthquakes")
     earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    if os.path.isfile(earthquakesFile):
+    try:
         earthquakes = np.loadtxt(earthquakesFile)
-    else:
+    except:
         earthquakes = []
 
     if params["doPlots"]:
