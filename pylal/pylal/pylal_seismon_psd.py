@@ -55,9 +55,6 @@ def mat(params, channel):
 
     spectra = [math.sqrt(e) for e in spectra]
 
-    #print spectra
-    #print penis
-
     newSpectra = []
     newFreq = []
 
@@ -89,6 +86,7 @@ def mat(params, channel):
             os.makedirs(plotLocation)        
 
         startTime = np.min(time)
+        startTimeUTC = XLALGPSToUTC(LIGOTimeGPS(int(startTime)))
         time = time - startTime
 
         norm_pass = 1.0/(channel.samplef/2)
@@ -132,7 +130,7 @@ def mat(params, channel):
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
 
-        plt.xlabel("Time [s] [%d]"%(startTime))
+        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTC,startTime))
         plt.ylabel("Normalized Amplitude")
         plt.xlim([np.min(time),np.max(time)])
 
@@ -149,7 +147,7 @@ def mat(params, channel):
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
-        plt.grid
+        plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
@@ -215,6 +213,8 @@ def analysis(params, channel):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
+
+    file = sorted(files)
 
     tt = []
     freq = []
@@ -317,11 +317,28 @@ def analysis(params, channel):
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
-        plt.grid
+        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
+        plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
+        plt.close('all')
+
+        plt.semilogx(freqNow,[y/x for x,y in zip(freqNow,spectraNow)], 'k', label='Current')
+        plt.semilogx(freq,[y/x for x,y in zip(freq,spectral_variation_norm_10per)],'b',label='10')
+        plt.semilogx(freq,[y/x for x,y in zip(freq,spectral_variation_norm_50per)],'r',label='50')
+        plt.semilogx(freq,[y/x for x,y in zip(freq,spectral_variation_norm_90per)],'g',label='90')
+        plt.loglog(fl,[y/x for x,y in zip(fl,low)],'k-.')
+        plt.loglog(fh,[y/x for x,y in zip(fl,high)],'k-.',label='LNM/HNM')
+        plt.legend(loc=3,prop={'size':10})
+        plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([10**-10, 10**-5])
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Seismic Spectrum [m/rtHz]")
+        plt.grid()
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"disp.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"disp.eps"),dpi=200)
         plt.close('all')
 
         indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
@@ -343,13 +360,18 @@ def analysis(params, channel):
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
-        plt.grid
+        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
+        plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"specvar.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"specvar.eps"),dpi=200)
         plt.close('all')
 
+        tt = np.array(tt)
+        indices_tt = np.where(tt >= params["gpsStart"] - 12*60*60)
+        tt = tt[indices_tt]
+
+        spectra = np.squeeze(spectra[indices_tt,:])
         ttStart = min(tt)
         tt = [(c-ttStart)/(60*60) for c in tt]
 
@@ -363,8 +385,8 @@ def analysis(params, channel):
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Time [Hours]")
         cbar=plt.colorbar()
-        cbar.set_label('log10(Seismic Spectrum [(m/s)/\surd Hz])') 
-        plt.grid
+        cbar.set_label('log10(Seismic Spectrum [(m/s)/rtHz])') 
+        plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"tf.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"tf.eps"),dpi=200)
