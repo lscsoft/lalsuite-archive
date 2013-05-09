@@ -271,31 +271,19 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   # load triggers 
   #
 
+  # FIXME: This is nasty, we actually read the file twice, can we fix this?
   xmldoc = utils.load_filename(trigFile,gz=trigFile.endswith("gz"))
-  trigs = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
   searchSumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
   ifos = sorted(map(str,searchSumm[0].get_ifos()))
   ifoAtt = {'G1':'g', 'H1':'h1', 'H2':'h2', 'L1':'l', 'V1':'v', 'T1':'t'}
 
+  trigs, slideDict, segmentDict = \
+      MultiInspiralUtils.ReadMultiInspiralTimeSlidesFromFiles([trigFile])
+
+  # Identify the zero-lag slide
   zeroLagSlideID = None
-  # Open the time slide table and make a time slide dict
-  timeSlideTable = table.get_table(xmldoc,lsctables.TimeSlideTable.tableName)
-  slideDict = {}
-  for slide in timeSlideTable:
-    currID = int(slide.time_slide_id)
-    if currID not in slideDict.keys():
-      slideDict[currID] = {}
-      slideDict[currID][slide.instrument] = slide.offset
-    elif slide.instrument not in slideDict[currID].keys():
-      slideDict[currID][slide.instrument] = slide.offset
-  numSlides = len(slideDict.keys())
+  numSlides = len(slideDict)
   for i in range(numSlides):
-    # Test all slide values are present
-    for ifo in ifos:
-      try:
-        tmp = slideDict[i][ifo]
-      except:
-        raise BrokenError
     # Is this slide the zero-lag?
     if max(slideDict[i].values()) == 0:
       if min(slideDict[i].values()) == 0:
@@ -319,14 +307,7 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   segs = readSegFiles(segdir)
  
   # separate segments
-  # FIXME: THIS IS HARDCODED!!!!!!!!!!!!!!
-  segmentLength       = 256
-  dataPadding         = 8
-  paddingTime         = segmentLength / 4. + dataPadding 
   trialTime           = abs(segs['on'])
-  startAnalTime       = (segs['off'][0]+paddingTime)
-  endAnalTime         = (segs['off'][1]-paddingTime)
-  
 
   #
   # get vetoes
@@ -364,19 +345,8 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     sortedTrigs[slideID].extend(\
     [ trig for trig in trigs if int(trig.time_slide_id) == slideID ])
 
-    # FIXME: THIS BLOCK IDENTIFIES THE ANALYSIS TIME OF EACH SLIDE
-    # FIXME: THIS ASSUMES WE ARE DOING LONG SLIDES AND MAY BREAK IF DOING
-    # FIXME: ANY OTHER SORT OF SLIDE. SHOULD STORE THIS BETTER
-    # Identify start and end time of this slide  
-    maxSlideOffset = max( slideDict[slideID].values() )
-    minSlideOffset = min( slideDict[slideID].values() )
-    if maxSlideOffset < 0:
-      maxSlideOffset = 0
-    if minSlideOffset > 0:
-      minSlideOffset = 0
     # These can only *reduce* the analysis time
-    startSlideTime = startAnalTime - minSlideOffset
-    endSlideTime = endAnalTime - maxSlideOffset
+    currSegList = segmentDict[slideID]
 
     # Construct the buffer segment list
     buffer = segments.segmentlist()
@@ -393,19 +363,20 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
     
     # Construct trial list and check against buffer      
     trialDict[slideID] = segments.segmentlist()
-    iterInt = 0
-    while 1:
-      if (startSlideTime + trialTime*(iterInt+1)) > endSlideTime:
-        break
-      currSeg = segments.segment(startSlideTime + trialTime*iterInt,\
-                                 startSlideTime + trialTime*(iterInt+1))
-      if not buffer.intersects_segment(currSeg):
-        for ifo in ifos:
-          if slidVetoes[ifo].intersects_segment(currSeg):
-            break
-        else:
-          trialDict[slideID].append(currSeg)
-      iterInt += 1
+    for currSeg in currSegList:
+      iterInt = 0
+      while 1:
+        if (currSeg[0] + trialTime*(iterInt+1)) > currSeg[1]:
+          break
+        currTrial = segments.segment(currSeg[0] + trialTime*iterInt,\
+                                     currSeg[0] + trialTime*(iterInt+1))
+        if not buffer.intersects_segment(currTrial):
+          for ifo in ifos:
+            if slidVetoes[ifo].intersects_segment(currTrial):
+              break
+          else:
+            trialDict[slideID].append(currTrial)
+        iterInt += 1
 
     sortedTrigs[slideID] = sortedTrigs[slideID].vetoed(trialDict[slideID])
 
@@ -646,9 +617,9 @@ def main(segdir, outdir, trigFile, foundFile, missedFile,\
   binNum = 0
   for bin in massBins:
     maxSNR[bin[0]] = max([trigSNR[slideID][bin[0]].max() for slideID in \
-                     range(numSlides)] )
+                     range(numSlides) if len(trigSNR[slideID][bin[0]]) ])
     maxBestNR[bin[0]] = max([trigBestNR[slideID][bin[0]].max() for slideID in \
-                     range(numSlides)] )
+                     range(numSlides) if len(trigBestNR[slideID][bin[0]]) ])
  
     if (totalTrials % 2):
       medianSNR[bin[0]] = (fullTimeBinVetoMaxSNR[binNum])\
