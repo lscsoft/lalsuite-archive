@@ -1685,6 +1685,7 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
         pass
 
       print >> sitefile, """\
+    <profile namespace="env" key="JAVA_HEAPMAX">4096</profile>
     <profile namespace="pegasus" key="style">condor</profile>
     <profile namespace="condor" key="getenv">True</profile>
     <profile namespace="condor" key="should_transfer_files">YES</profile>
