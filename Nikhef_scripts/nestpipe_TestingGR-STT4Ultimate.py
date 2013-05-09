@@ -72,7 +72,7 @@ inspinj_command="""%s/lalapps/bin/lalapps_inspinj \
 --seed %s \
 --waveform SpinTaylorT4threePointFivePN \
 --min-distance 1.00e+05 \
---max-distance 3.00e+05 \
+--max-distance 2.50e+05 \
 --d-distr volume \
 --l-distr random \
 --i-distr uniform \
