@@ -26,7 +26,7 @@ def summary_page(params,channels):
     creates eqmon summary page
     """
 
-    title = "Seismon Summary Page for %d"%params["gps"]
+    title = "Seismon Summary Page for %s (%d)"%(params["date"],params["gps"])
 
     contents=["""
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
@@ -81,7 +81,7 @@ def summary_page(params,channels):
             sigDict.append(sig)
 
         if i == 0:
-            table.append("""<tr><td>Frequency Band</td>""")
+            table.append("""<tr><td>Frequency Band (Hz)</td>""")
             for sig in sigDict:
                 table.append("""<td>%.4f - %.4f</td>"""%(sig["flow"],sig["fhigh"]))
             table.append("""</tr>""")
@@ -98,6 +98,10 @@ def summary_page(params,channels):
     table = ["""
     <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
     <tbody>
+    <tr>
+    <td style="vertical-align: top;">Recent Earthquake Magnitudes (t = 0 is current time)</td>
+    <td style="vertical-align: top;">Time until earthquake phase arrivals (p = pressure, s = shear, r = surface)</td>
+    </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./earthquakes/magnitudes.png"><img alt="" src="./earthquakes/magnitudes.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     <td style="vertical-align: top;"><a href="./earthquakes/traveltimes%s.png"><img alt="" src="./earthquakes/traveltimes%s.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
@@ -138,7 +142,7 @@ def seismon_page(channel,textLocation):
     """
 
     ############################## header ######################################
-    title = "PSD and Time Frequency Plots for %s"%channel.station
+    title = "Seismon page for %s"%channel.station
 
     contents=["""
     <html>
@@ -180,15 +184,15 @@ def seismon_page(channel,textLocation):
         sig["bgcolor"] = lineSplit[4]
         sigDict.append(sig)
 
-    table.append("""<tr><td>Frequency Band</td>""")
+    table.append("""<tr><td>Frequency Band (Hz)</td>""")
     for sig in sigDict: 
         table.append("""<td>%.4f - %.4f</td>"""%(sig["flow"],sig["fhigh"]))
     table.append("""</tr>""")
-    table.append("""<tr><td>Mean PSD</td>""")
+    table.append("""<tr><td>Mean ASD ((m/s)/rtHz)</td>""")
     for sig in sigDict:
         table.append("""<td>%.4e</td>"""%(sig["meanPSD"]))
     table.append("""</tr>""")
-    table.append("""<tr><td>PSD Significance</td>""")
+    table.append("""<tr><td>ASD Significance (red = loud, green = average, blue = quiet)</td>""")
     for sig in sigDict:
         table.append("""<td style="background-color: %s">%.4f</td>"""%(sig["bgcolor"],sig["sig"]))
     table.append("""</tr>""")
@@ -202,26 +206,35 @@ def seismon_page(channel,textLocation):
     <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
     <tbody>
     <tr>
-    <td style="vertical-align: top;">Timeseries (raw and lowpassed at 1 Hz)</td>
-    <td style="vertical-align: top;">Omicron triggers</td>
-    </tr>
-    <tr>
-    <td style="vertical-align: top;"><a href="./timeseries.png"><img alt="" src="./timeseries.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
-    <td style="vertical-align: top;"><a href="./omicron.png"><img alt="" src="./omicron.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
-    </tr>
-    <tr>
-    <td style="vertical-align: top;">PSD (including 10, 50, and 90 percentiles)</td>
-    <td style="vertical-align: top;">Spectral Variation</td>
-    </tr>
-    <tr>
-    <td style="vertical-align: top;"><a href="./psd.png"><img alt="" src="./psd.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
-    <td style="vertical-align: top;"><a href="./specvar.png"><img alt="" src="./specvar.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
-    </tr>
-    <tr>
     <td style="vertical-align: top;">Frequency vs. Time</td>
+    <td style="vertical-align: top;">Glitch-gram (Omicron)</td>
     </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./tf.png"><img alt="" src="./tf.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./omicron.png"><img alt="" src="./omicron.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    </tr>
+
+    <tr>
+    <td style="vertical-align: top;">ASD (m) (including 10, 50, and 90 percentiles)</td>
+    <td style="vertical-align: top;">Timeseries (raw and lowpassed at 1 Hz)</td>
+    </tr>
+    <tr>
+    <td style="vertical-align: top;"><a href="./disp.png"><img alt="" src="./disp.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./timeseries.png"><img alt="" src="./timeseries.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    </tr>
+
+    <tr>
+    <td style="vertical-align: top;">ASD (m/s) (including 10, 50, and 90 percentiles)</td>
+    </tr>
+    <tr>
+    <td style="vertical-align: top;"><a href="./psd.png"><img alt="" src="./psd.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    </tr>
+
+    <tr>
+    <td style="vertical-align: top;">Spectral Variation (including 10, 50, and 90 percentiles in white, color scale indicates percentage of time in a particular bin)</td>
+    </tr>
+    <tr>
+    <td style="vertical-align: top;"><a href="./specvar.png"><img alt="" src="./specvar.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     </tr>
     </tbody></table><br><br>
     """]

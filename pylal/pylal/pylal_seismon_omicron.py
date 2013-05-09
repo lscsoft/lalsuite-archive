@@ -136,7 +136,8 @@ def plot_triggers(params,channel):
 
         ax = plt.subplot(111)
         plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
-        cbar = plt.colorbar() 
+        cbar = plt.colorbar(orientation='horizontal')  
+        #cbar = plt.colorbar(orientation='vertical') 
         cbar.set_label('SNR')
         ax.set_yscale('log')
 

@@ -80,24 +80,24 @@ def plot_timeseries(time,data,traveltimes,gpsStart,gpsEnd,type,plotName):
     Rtime = traveltimes["Rtimes"][-1] - startTime
 
     if type == "timeseries":
-        plot(time,data, 'k')
+        plt.plot(time,data, 'k')
     elif type == "kw":
-        plot(time,data, 'k*')
-    axvline(x=Ptime,color='r')
-    axvline(x=Stime,color='b')
-    axvline(x=Rtime,color='g')
-    text(Ptime, -0.05, 'P', fontsize=18, ha='center', va='top')
-    text(Stime, -0.05, 'S', fontsize=18, ha='center', va='top')
-    text(Rtime, -0.05, 'R', fontsize=18, ha='center', va='top')
+        plot.plot(time,data, 'k*')
+    plt.axvline(x=Ptime,color='r')
+    plt.axvline(x=Stime,color='b')
+    plt.axvline(x=Rtime,color='g')
+    plt.text(Ptime, -0.05, 'P', fontsize=18, ha='center', va='top')
+    plt.text(Stime, -0.05, 'S', fontsize=18, ha='center', va='top')
+    plt.text(Rtime, -0.05, 'R', fontsize=18, ha='center', va='top')
     #xlim([min(time), max(time)])
-    xlim([0, endTime-startTime])
-    ylim([0, 1])
-    xlabel('Time [s]')
-    ylabel("%.0f - %.0f"%(startTime,endTime))
-    title(plotTitle)
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.xlim([0, endTime-startTime])
+    plt.ylim([0, 1])
+    plt.xlabel('Time [s]')
+    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
+    plt.title(plotTitle)
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def latencies_sent(params,attributeDics,plotName):
 
@@ -128,16 +128,16 @@ def latencies_written(params,attributeDics,plotName):
     if latencies == []:
         return
 
-    figure()
+    plt.figure()
     bins=np.linspace(0,100,100)
-    hist(latencies, bins=bins, rwidth=1)
-    gca().set_xscale("linear")
-    gca().set_xlim([0,25])
-    xlabel('Latencies [s]')
+    plt.hist(latencies, bins=bins, rwidth=1)
+    plt.gca().set_xscale("linear")
+    plt.gca().set_xlim([0,25])
+    plt.xlabel('Latencies [s]')
     #title("Latencies Written")
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def magnitudes(params,attributeDics,plotName):
 
@@ -158,16 +158,16 @@ def magnitudes(params,attributeDics,plotName):
     endTime = params["gpsEnd"]
     gps = (gps - endTime)/(60)
 
-    figure()
-    plot(gps,magnitudes, 'k*')
-    ylim([min(magnitudes)-0.5, max(magnitudes)+0.5])
-    xlabel('Time [Minutes]')
-    ylabel("%.0f - %.0f"%(startTime,endTime))
-    xlim([-60, 0])
-    title("Magnitude vs. Time")
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
+    plt.figure()
+    plt.plot(gps,magnitudes, 'k*')
+    plt.ylim([min(magnitudes)-0.5, max(magnitudes)+0.5])
+    plt.xlabel('Time [Minutes]')
+    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
+    plt.xlim([-60, 0])
+    plt.title("Magnitude vs. Time")
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
 
 def magnitudes_latencies(params,attributeDics,plotName):
 
