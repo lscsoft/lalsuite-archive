@@ -3140,7 +3140,7 @@ static int ChooseTDWaveformFromCache(
      h+ ~ -(1.0 + cos(i)^2)/r
      hx ~ -2.0*cos(i)/r
   */
-  if ((approximant == TaylorT1 || approximant == TaylorT2 || approximant == TaylorT3) && 
+  if ((approximant == TaylorT1 || approximant == TaylorT2 || approximant == TaylorT3 || approximant == TaylorT4) &&
       (amplitudeO == 0) && 
       CacheArgsAgree(cache, phiRef, deltaT, m1, m2, S1x, S1y, S1z, S2x, S2y, S2z, f_min, f_ref,
 		     CACHE_IGNORE_REAL8, CACHE_IGNORE_REAL8, /* Ignore r and i */
