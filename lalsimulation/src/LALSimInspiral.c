@@ -3104,7 +3104,7 @@ static int ChooseTDWaveformFromCache(
 		     amplitudeO, phaseO, approximant) &&
       cache->hplus != NULL &&
       cache->hcross != NULL && 
-      cache->hplus->data->length == cache->hplus->data->length) {
+      cache->hplus->data->length == cache->hcross->data->length) {
     REAL8 ratio = cache->r / r;
     size_t j;
     *hplus = XLALCreateREAL8TimeSeries(cache->hplus->name, &(cache->hplus->epoch), cache->hplus->f0,
