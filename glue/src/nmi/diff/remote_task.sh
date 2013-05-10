@@ -12,12 +12,10 @@ GIT_ID_B=$2
 #
 # 1 or more pairs of identically-named xml data products exist in
 #   ./$GIT_ID_A/ and ./$GIT_ID_B/
-# lalsuite glue is installed in /opt/lscsoft/glue
+# lalsuite glue is installed in default OS directories
 
 # wrap this whole script in a block combining stdout & stderr
 {
-
-source /opt/lscsoft/glue/etc/glue-user-env.sh
 
 # exit immediately if any command exits with a non-zero status.
 #set -e
