@@ -60,6 +60,13 @@ name_to_prefix = dict((detector.name, detector.prefix) for detector in cached_de
 
 prefix_to_name = dict((detector.prefix, detector.name) for detector in cached_detector.itervalues())
 
+# FIXME:  this is a hack to allow inject.light_travel_time(), which is used
+# internally by snglcoinc.py, to work with the H1H2 coherent and null
+# detectors.  the use of light_travel_time() internally by snglcoinc.py
+# might be inappropriate and should be re-considered.  in the meantime,
+# this will get the sub-solar mass search working.
+prefix_to_name["H1H2"]="LHO_4k"
+
 
 #
 # =============================================================================

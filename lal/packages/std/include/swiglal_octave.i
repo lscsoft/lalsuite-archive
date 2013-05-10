@@ -343,6 +343,9 @@
 
     public:
 
+      virtual ~swiglal_oct_array_view()
+      { }
+
       swiglal_oct_array_view()
         : octave_base_value(), sloav_parent(),
           sloav_ptr(0), sloav_esize(0), sloav_ndims(0),
@@ -491,6 +494,7 @@
           error("failed to perform indexed assignment for %s type", nm.c_str());
           return octave_value();
         }
+        count++;
         return octave_value(this);
       }
 
@@ -813,6 +817,9 @@
       protected:
 
       public:
+
+        virtual ~%swiglal_oct_array_view_class(ACFTYPE)()
+        { }
 
         %swiglal_oct_array_view_class(ACFTYPE)()
           : %swiglal_oct_array_view_tmpl(ACFTYPE)()

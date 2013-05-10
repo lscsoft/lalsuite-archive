@@ -861,13 +861,20 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     double lines_width;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--chisquaredlinesWidth");
-                    if(ppt) lines_width = atoi(ppt->value);
+                    if(ppt) lines_width = atof(ppt->value);
                     else lines_width = deltaF;
+
+                    double lines_threshold;
+                    ppt = LALInferenceGetProcParamVal(commandLine, "--chisquaredlinesThreshold");
+                    if(ppt) lines_threshold = atof(ppt->value);
+                    else lines_threshold = 2*pow(10.0,-14.0);
+
+                    printf("Using chi squared threshold of %g\n",lines_threshold);
 
                     snprintf(filename, nameLength, "%s-ChiSquaredLines.dat", IFOdata[i].name);
                     out = fopen(filename, "w");
                     for (int k = 0; k < lengthF; ++k ) {
-                        if (pvalues[k] < 0.001) {
+                        if (pvalues[k] < lines_threshold) {
                             fprintf(out,"%g %g\n",((double) k) * deltaF,lines_width);
                         }
                     }
@@ -900,13 +907,20 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     double lines_width;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--KSlinesWidth");
-                    if(ppt) lines_width = atoi(ppt->value);
+                    if(ppt) lines_width = atof(ppt->value);
                     else lines_width = deltaF;
+
+                    double lines_threshold;
+                    ppt = LALInferenceGetProcParamVal(commandLine, "--KSlinesThreshold");
+                    if(ppt) lines_threshold = atof(ppt->value);
+                    else lines_threshold = 0.134558;
+
+                    printf("Using KS threshold of %g\n",lines_threshold);
 
                     snprintf(filename, nameLength, "%s-KSLines.dat", IFOdata[i].name);
                     out = fopen(filename, "w");
                     for (int k = 0; k < lengthF; ++k ) {
-                        if (pvalues[k] < 0.10) {
+                        if (pvalues[k] < lines_threshold) {
                             fprintf(out,"%g %g\n",((double) k) * deltaF,lines_width);
                         }
                     }
@@ -939,13 +953,20 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     double lines_width;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--powerlawlinesWidth");
-                    if(ppt) lines_width = atoi(ppt->value);
+                    if(ppt) lines_width = atof(ppt->value);
                     else lines_width = deltaF;
+
+                    double lines_threshold;
+                    ppt = LALInferenceGetProcParamVal(commandLine, "--powerlawlinesThreshold");
+                    if(ppt) lines_threshold = atof(ppt->value);
+                    else lines_threshold = 0.7197370;
+
+                    printf("Using power law threshold of %g\n",lines_threshold);
 
                     snprintf(filename, nameLength, "%s-PowerLawLines.dat", IFOdata[i].name);
                     out = fopen(filename, "w");
                     for (int k = 0; k < lengthF; ++k ) {
-                        if (pvalues[k] < 1.0) {
+                        if (pvalues[k] < lines_threshold) {
                             fprintf(out,"%g %g\n",((double) k) * deltaF,lines_width);
                         }
                     }
@@ -960,6 +981,39 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                 }
 
+                if (LALInferenceGetProcParamVal(commandLine, "--xcorrbands")){
+
+                    //double deltaF = IFOdata[i].oneSidedNoisePowerSpectrum->deltaF;
+                    int lengthF = IFOdata[i].oneSidedNoisePowerSpectrum->data->length;
+
+                    REAL8 *pvalues;
+                    pvalues = XLALMalloc( lengthF * sizeof( *pvalues ) );
+
+                    const UINT4 nameLength=256;
+                    char filename[nameLength];
+                    FILE *out;
+
+                    snprintf(filename, nameLength, "%s-XCorrVals.dat", IFOdata[i].name);
+
+                    printf("Running xcorr tests... ");
+                    LALInferenceXCorrBands(IFOdata[i].oneSidedNoisePowerSpectrum,PSDtimeSeries, seglen, (UINT4)seglen, IFOdata[i].window, IFOdata[i].timeToFreqFFTPlan,pvalues,filename);
+                    printf("completed!\n");
+
+                    snprintf(filename, nameLength, "%s-XCorrBands.dat", IFOdata[i].name);
+                    out = fopen(filename, "w");
+                    /*
+                    for (int k = 0; k < lengthF; ++k ) {
+                        if (pvalues[k] < 0.001) {
+                            fprintf(out,"%g %g\n",((double) k) * deltaF,lines_width);
+                        }
+                    }
+                    */
+                    fprintf(out,"%g %g\n",10.0,75.0);
+                    fprintf(out,"%g %g\n",16.0,40.0);
+                    fprintf(out,"%g %g\n",40.0,330.0);
+                    fclose(out);
+
+                }
 
                 XLALDestroyREAL8TimeSeries(PSDtimeSeries);
             }
