@@ -430,6 +430,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   /* Find maximum likelihood and sanity check */
   for(i=0;i<Nlive;i++)
   {
+    LALInferenceAddVariable(runState->livePoints[i],"logw",&logw,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     logLtmp=logLikelihoods[i];
     logLmax=logLtmp>logLmax? logLtmp : logLmax;
     if(isnan(logLikelihoods[i]) || isinf(logLikelihoods[i])) {
@@ -438,6 +439,10 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
 	exit(1);
     }
   }
+  /* sort points for consistent order before creating the matrix */
+  for(i=0;i<Nlive;i++) 
+    LALInferenceSortVariablesByName(runState->livePoints[i]);
+
   /* Add the covariance matrix for proposal distribution */
   LALInferenceNScalcCVM(cvm,runState->livePoints,Nlive);
   runState->differentialPoints=runState->livePoints;
@@ -485,7 +490,6 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   LALInferenceSetVariable(runState->algorithmParams,"logLmin",&dblmax);
   for(i=0;i<Nlive;i++) {
     runState->currentParams=runState->livePoints[i];
-    LALInferenceAddVariable(runState->livePoints[i],"logw",&logw,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     runState->evolve(runState);
     logLikelihoods[i]=runState->likelihood(runState->livePoints[i],runState->data,runState->templt);
     if(XLALPrintProgressBar((double)i/(double)Nlive)) fprintf(stderr,"\n");
@@ -523,11 +527,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   sprintf(param_list,"%s_params.txt",outfile);
   lout=fopen(param_list,"w");
   minpos=0;
-  LALInferenceSortVariablesByName(runState->livePoints[0]);
-  for(param_ptr=runState->livePoints[0]->head;param_ptr;param_ptr=param_ptr->next)
-  {
-    fprintf(lout,"%s\t",param_ptr->name);
-  }
+  LALInferenceFprintParameterHeaders(lout,runState->livePoints[0]);
   fclose(lout);
   runState->currentParams=currentVars;
   fprintf(stdout,"Starting nested sampling loop!\n");
