@@ -3,12 +3,7 @@
 __author__ = "Stephen Fairhurst <fairhurst_s@ligo.caltech.edu>"
 
 import sys
-import os
-import re
-import exceptions
 import glob
-import fileinput
-import linecache
 import string
 import random 
 from optparse import *
@@ -17,9 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 from pylab import *
-from glue import segments
 from glue import segmentsUtils
-from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -615,7 +608,7 @@ class astroData:
       sites = column.split('_')[-1]
       invDistsq = zeros(len(self.astro_inj),'d')
       for site in sites:
-        dist = self.astro_inj.get_chirp_dist(site)
+        dist = self.astro_inj.get_chirp_eff_dist(site)
         if error == "Distance":
           # apply the appropriate correction
           for i in range(len(gal_name)):
@@ -821,9 +814,9 @@ class injData:
         if  error != "None" and \
             (error == "Waveform" or error[0].lower() == site):
           # apply the appropriate correction
-          dist = distError(injs.get_chirp_dist(site), errorVal[error], 0)
+          dist = distError(injs.get_chirp_eff_dist(site), errorVal[error], 0)
         else:
-          dist = injs.get_chirp_dist(site)
+          dist = injs.get_chirp_eff_dist(site)
         invDistsq += (distNorm[site]/dist)**2.
       return invDistsq**-.5
     else:
