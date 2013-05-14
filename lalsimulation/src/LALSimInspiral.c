@@ -239,6 +239,74 @@ static int StoreFDHCache(LALSimInspiralWaveformCache *cache,
 			 int phaseO,
 			 Approximant approximant);
 
+#define CACHE_IGNORE_REAL8 NAN
+#define CACHE_IGNORE_INT -31415
+
+/* Compares the given arguments to those stored in the cache,
+   returning 1 if the arguments match and 0 otherwise.  If an argument
+   does not need to match, it should be replaced with one of the
+   special values above or NULL if pointer. */
+static int CacheArgsAgree(
+    LALSimInspiralWaveformCache *cache,
+    REAL8 phiRef,
+    REAL8 deltaTF,
+    REAL8 m1,
+    REAL8 m2,
+    REAL8 S1x, REAL8 S1y, REAL8 S1z,
+    REAL8 S2x, REAL8 S2y, REAL8 S2z,
+    REAL8 f_min, REAL8 f_ref_max,
+    REAL8 r,
+    REAL8 i,
+    REAL8 lambda1,
+    REAL8 lambda2,
+    LALSimInspiralWaveformFlags *waveFlags,
+    LALSimInspiralTestGRParam *nonGRparams,
+    int amplitudeO,
+    int phaseO,
+    Approximant approximant);
+
+/* Store the output hplus and hcross in the cache. */
+static int StoreTDHCache(LALSimInspiralWaveformCache *cache,
+			 REAL8TimeSeries *hplus,
+			 REAL8TimeSeries *hcross,
+			 REAL8 phiRef,
+			 REAL8 deltaT,
+			 REAL8 m1,
+			 REAL8 m2,
+			 REAL8 S1x, REAL8 S1y, REAL8 S1z,
+			 REAL8 S2x, REAL8 S2y, REAL8 S2z,
+			 REAL8 f_min, REAL8 f_ref_max,
+			 REAL8 r,
+			 REAL8 i,
+			 REAL8 lambda1,
+			 REAL8 lambda2,
+			 LALSimInspiralWaveformFlags *waveFlags,
+			 LALSimInspiralTestGRParam *nonGRparams,
+			 int amplitudeO,
+			 int phaseO,
+			 Approximant approximant);
+
+/* Store the output hptilde and hctilde in cache. */
+static int StoreFDHCache(LALSimInspiralWaveformCache *cache,
+			 COMPLEX16FrequencySeries *hptilde,
+			 COMPLEX16FrequencySeries *hctilde,
+			 REAL8 phiRef,
+			 REAL8 deltaT,
+			 REAL8 m1,
+			 REAL8 m2,
+			 REAL8 S1x, REAL8 S1y, REAL8 S1z,
+			 REAL8 S2x, REAL8 S2y, REAL8 S2z,
+			 REAL8 f_min, REAL8 f_ref_max,
+			 REAL8 r,
+			 REAL8 i,
+			 REAL8 lambda1,
+			 REAL8 lambda2,
+			 LALSimInspiralWaveformFlags *waveFlags,
+			 LALSimInspiralTestGRParam *nonGRparams,
+			 int amplitudeO,
+			 int phaseO,
+			 Approximant approximant);
+
 /* Internal utility function to check all spin components are zero
    returns 1 if all spins zero, otherwise returns 0 */
 static int checkSpinsZero(REAL8 s1x, REAL8 s1y, REAL8 s1z,
