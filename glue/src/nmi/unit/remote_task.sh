@@ -2,7 +2,7 @@
 
 # this script expects:
 #
-# lalapps installed in ./head/opt/lscsoft/lalapps
+# lalapps build to be tested is installed is in ./opt/lscsoft
 #
 # $NMI_ligo_reference_xml defined (by Metronome, from our submit file)
 # $NMI_component_version (git id) defined (by Metronome, from our submit file)

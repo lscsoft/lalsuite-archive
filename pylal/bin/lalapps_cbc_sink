@@ -170,13 +170,13 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
    if len(files) == 0: continue
 
    # read in the data produced by lalapps_cbc_svim
-   bins = get_bins(files[0].path(),bin_type) # better use same binning in all files!!
-   vols = [rate.BinnedArray(bins,array=(1-opts.wave_err)**3 *get_data(entry.path(),"SearchVolumeFirstMoment")) for entry in files]
-   volErrs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeSecondMoment")) for entry in files]
-   volDerivs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeDerivative")) for entry in files]
-   foundInjs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeFoundInjections")) for entry in files]
-   missedInjs = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeMissedInjections")) for entry in files]
-   livetimes = [rate.BinnedArray(bins,array=get_data(entry.path(),"SearchVolumeLiveTime")) for entry in files]
+   bins = get_bins(files[0].path,bin_type) # better use same binning in all files!!
+   vols = [rate.BinnedArray(bins,array=(1-opts.wave_err)**3 *get_data(entry.path,"SearchVolumeFirstMoment")) for entry in files]
+   volErrs = [rate.BinnedArray(bins,array=get_data(entry.path,"SearchVolumeSecondMoment")) for entry in files]
+   volDerivs = [rate.BinnedArray(bins,array=get_data(entry.path,"SearchVolumeDerivative")) for entry in files]
+   foundInjs = [rate.BinnedArray(bins,array=get_data(entry.path,"SearchVolumeFoundInjections")) for entry in files]
+   missedInjs = [rate.BinnedArray(bins,array=get_data(entry.path,"SearchVolumeMissedInjections")) for entry in files]
+   livetimes = [rate.BinnedArray(bins,array=get_data(entry.path,"SearchVolumeLiveTime")) for entry in files]
 
    # get some aggregate data
    total_vol = rate.BinnedArray(bins,array=numpy.sum(a.array for a in vols))
@@ -218,16 +218,16 @@ for bin_type in ["Total_Mass","Component_Mass","BNS_BBH","Mass1_Mass2","Chirp_Ma
      pk = priors.sieve(description="%s:%d:"%(bin_type,j+1))
      if len(pk) == 1: # use given prior
        if opts.verbose:
-         print >>sys.stdout,"\tbin %d, %s... using input prior %s"%(j+1,str(mbin),pk[0].path())
-       mu_in = numpy.loadtxt(pk[0].path())[:,0]
-       prior = numpy.loadtxt(pk[0].path())[:,1]
+         print >>sys.stdout,"\tbin %d, %s... using input prior %s"%(j+1,str(mbin),pk[0].path)
+       mu_in = numpy.loadtxt(pk[0].path)[:,0]
+       prior = numpy.loadtxt(pk[0].path)[:,1]
        prior_new = interpolate.splrep(mu_in,prior,k=1,s=0)
        prior = interpolate.splev(mu,prior_new,der=0)
        prior[prior<0] = 0
        #mu_in = mu[:]
        prior_upper_limit[mbin] = upper_limit_utils.compute_upper_limit(mu, prior, 0.90)
      elif len(pk) > 1:
-       print [p.path() for p in pk]
+       print [p.path for p in pk]
        print >>sys.stderr, "Too many priors given in input cache."
        sys.exit(1)
      else: # use flat prior

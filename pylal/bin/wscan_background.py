@@ -342,11 +342,11 @@ for ifo in ifos_list:
       dHoftNode = stfu_pipe.fuDataFindNode(dag,htdataJob,cp,opts,ifo,sngl=None,qscan=True,trigger_time=qtime,p_nodes=[start_node])
 
       # SETUP BACKGROUND QSCAN JOBS
-      qHtBgNode = stfu_pipe.fuQscanNode(dag,htQscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path(),p_nodes=[dHoftNode],type="ht",variety="bg")
+      qHtBgNode = stfu_pipe.fuQscanNode(dag,htQscanBgJob,cp,opts,qtime,ifo,dHoftNode.output_cache.path,p_nodes=[dHoftNode],type="ht",variety="bg")
 
-      qRdsBgNode = stfu_pipe.fuQscanNode(dag,rdsQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="rds",variety="bg")
+      qRdsBgNode = stfu_pipe.fuQscanNode(dag,rdsQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path,p_nodes=[dNode],type="rds",variety="bg")
 
-      qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path(),p_nodes=[dNode],type="seismic",variety="bg")
+      qSeisBgNode = stfu_pipe.fuQscanNode(dag,seisQscanBgJob,cp,opts,qtime,ifo,dNode.output_cache.path,p_nodes=[dNode],type="seismic",variety="bg")
 
       if opts.prepare_scan_ccin2p3 and ifo in cp.get("fu-remote-jobs","remote-ifos").strip().split(","):
         if hasattr(qRdsBgNode.output_cache,'__iter__'):

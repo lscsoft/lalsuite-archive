@@ -217,16 +217,20 @@ def insert_from_xmldoc(connection, source_xmldoc, preserve_ids = False, verbose 
 
 	try:
 		#
-		# create a place-holder XML representation of the target document
-		# so we can pass the correct tree to update_ids()
+		# create a place-holder XML representation of the target
+		# document so we can pass the correct tree to update_ids().
+		# note that only tables present in the source document need
+		# ID ramapping, so xmldoc only contains representations of
+		# the tables in the target document that are also in the
+		# source document
 		#
 
 		xmldoc = ligolw.Document()
 		xmldoc.appendChild(ligolw.LIGO_LW())
 
 		#
-		# iterate over tables in the XML tree, reconstructing each inside
-		# the database
+		# iterate over tables in the source XML tree, inserting
+		# each into the target database
 		#
 
 		for tbl in source_xmldoc.getElementsByTagName(ligolw.Table.tagName):

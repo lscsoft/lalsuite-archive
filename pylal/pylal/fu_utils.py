@@ -301,7 +301,7 @@ class getCache(UserDict):
         if process[ifo]:
           break
 
-        path = f.path()
+        path = f.path
         extension = path.split('.')[len(path.split('.'))-1]
         if extension == 'gz': gz = True
         else: gz = False

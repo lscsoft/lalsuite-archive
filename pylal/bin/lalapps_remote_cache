@@ -81,7 +81,10 @@ class RemoteCache(object):
 	def retrieve_file(self, remotepath, localpath, filelist=None, n=1):
 		if self.verbose: st = sys.stderr
 		else: st = None
-		opts = "-zqL"
+		if self.verbose:
+			opts = "-zuL"
+		else:
+			opts = "-zquL"
 		if filelist is None:
 			command = ["rsync", opts, "--rsh=gsissh", "--progress", "%s:%s" % (self.host, remotepath), "%s" % (localpath,)]
 			ret = subprocess.call(command, stdout=st, stderr=st)

@@ -66,9 +66,19 @@ def summary_page(params,channels):
 
         textLocation = params["path"] + "/" + channel.station_underscore
 
-        f = open(os.path.join(textLocation,"sig.pickle"),"r")
-        sigDict = pickle.load(f)
-        f.close()
+        file = os.path.join(textLocation,"sig.txt")
+        lines = [line.strip() for line in open(file)]
+
+        sigDict = []
+        for line in lines:
+            sig = {}
+            lineSplit = line.split(" ")
+            sig["flow"] = float(lineSplit[0])
+            sig["fhigh"] = float(lineSplit[1])
+            sig["meanPSD"] = float(lineSplit[2])
+            sig["sig"] = float(lineSplit[3])
+            sig["bgcolor"] = lineSplit[4]
+            sigDict.append(sig)
 
         if i == 0:
             table.append("""<tr><td>Frequency Band</td>""")
@@ -83,6 +93,17 @@ def summary_page(params,channels):
     table.append("</tbody></table><br><br>")
 
     # add tables and list
+    contents.append("".join(table))
+
+    table = ["""
+    <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
+    <tbody>
+    <tr>
+    <td style="vertical-align: top;"><a href="./earthquakes/magnitudes.png"><img alt="" src="./earthquakes/magnitudes.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./earthquakes/traveltimes%s.png"><img alt="" src="./earthquakes/traveltimes%s.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    </tr>
+    </tbody></table><br><br>
+    """%(params["ifo"],params["ifo"])]
     contents.append("".join(table))
 
     ################################# closing ##################################
@@ -135,9 +156,19 @@ def seismon_page(channel,textLocation):
     <tbody>
     """]
 
-    f = open(os.path.join(textLocation,"sig.pickle"),"r")
-    sigDict = pickle.load(f)
-    f.close()
+    file = os.path.join(textLocation,"sig.txt")
+    lines = [line.strip() for line in open(file)]  
+
+    sigDict = []
+    for line in lines:
+        sig = {}
+        lineSplit = line.split(" ")
+        sig["flow"] = float(lineSplit[0])
+        sig["fhigh"] = float(lineSplit[1])
+        sig["meanPSD"] = float(lineSplit[2])
+        sig["sig"] = float(lineSplit[3])
+        sig["bgcolor"] = lineSplit[4]
+        sigDict.append(sig)
 
     table.append("""<tr><td>Frequency Band</td>""")
     for sig in sigDict: 
@@ -160,6 +191,10 @@ def seismon_page(channel,textLocation):
     table = ["""
     <table style="text-align: center; width: 1260px; height: 67px; margin-left:auto; margin-right: auto;" border="1" cellpadding="1" cellspacing="1">
     <tbody>
+    <tr>
+    <td style="vertical-align: top;"><a href="./timeseries.png"><img alt="" src="./timeseries.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./omicron.png"><img alt="" src="./omicron.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./psd.png"><img alt="" src="./psd.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     <td style="vertical-align: top;"><a href="./specvar.png"><img alt="" src="./specvar.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>

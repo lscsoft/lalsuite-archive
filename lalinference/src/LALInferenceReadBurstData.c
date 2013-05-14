@@ -24,8 +24,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#define LAL_USE_OLD_COMPLEX_STRUCTS
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
@@ -195,7 +193,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
 																		  &strainPerCount,
 																		  thisData->freqData->data->length);
 		
-		for(i=0;i<resp->data->length;i++) {resp->data->data[i].re=(REAL4)1.0; resp->data->data[i].im=0.0;}
+		for(i=0;i<resp->data->length;i++) {resp->data->data[i]=crect((REAL4)1.0,0.0);}
 		/* Originally created for injecting into DARM-ERR, so transfer function was needed.  
 		But since we are injecting into h(t), the transfer function from h(t) to h(t) is 1.*/
 
@@ -310,8 +308,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     if(thisData->oneSidedNoisePowerSpectrum){
         UINT4 upper=thisData->fHigh/injF->deltaF;
 	for(SNR=0.0,j=thisData->fLow/injF->deltaF;j<upper;j++){
-	  SNR+=pow(injF->data->data[j].re,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
-	  SNR+=pow(injF->data->data[j].im,2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+	  SNR+=pow(creal(injF->data->data[j]),2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
+	  SNR+=pow(cimag(injF->data->data[j]),2.0)/thisData->oneSidedNoisePowerSpectrum->data->data[j];
 	}
         SNR*=4.0*injF->deltaF;
     }
@@ -337,9 +335,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
       sprintf(filename,"%s_freqInjection.dat",thisData->name);
       file=fopen(filename, "w");
       for(j=0;j<injF->data->length;j++){   
-	thisData->freqData->data->data[j].re+=injF->data->data[j].re/WinNorm;
-	thisData->freqData->data->data[j].im+=injF->data->data[j].im/WinNorm;
-	fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, injF->data->data[j].re, injF->data->data[j].im);
+	thisData->freqData->data->data[j]+=crect(creal(injF->data->data[j])/WinNorm,cimag(injF->data->data[j])/WinNorm);
+	fprintf(file, "%lg %lg \t %lg\n", thisData->freqData->deltaF*j, creal(injF->data->data[j]), cimag(injF->data->data[j]));
       }
       fclose(file);
     
@@ -416,7 +413,7 @@ void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInference
    	XLAL_ERROR_VOID(XLAL_EINVAL);
 	}
     /* Destroy existing parameters */
-    if(vars->head!=NULL) LALInferenceDestroyVariables(vars);
+    if(vars->head!=NULL) LALInferenceClearVariables(vars);
     REAL8 q = theEventTable->q;
     REAL8 psi = theEventTable->psi;
     REAL8 injGPSTime = XLALGPSGetREAL8(&(theEventTable->time_geocent_gps));
@@ -531,7 +528,7 @@ longitude=inj_table->ra;
     tmpdata->freqModelhPlus=freqModelhPlus;
     tmpdata->freqModelhCross=freqModelhCross;
     
-      tmpdata->modelDomain = LALINFERENCE_DOMAIN_FREQUENCY;
+      tmpdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
     LALInferenceTemplateSineGaussianF(tmpdata);
     
      
@@ -576,12 +573,12 @@ longitude=inj_table->ra;
   /* loop over data (different interferometers): */
   dataPtr = IFOdata;
   for (j=0; j<freqTemplate->data->length; ++j){
-        freqTemplate->data->data[j].re=freqTemplate->data->data[j].im=0.0;
+        freqTemplate->data->data[j]=0.0+j*0.0;
     }
     
   while (dataPtr != NULL) {
      
-      if (IFOdata->modelDomain == LALINFERENCE_DOMAIN_TIME) {
+      if (IFOdata->modelDomain == LAL_SIM_DOMAIN_TIME) {
 	  printf("There is a problem. You seem to be using a time domain model into the frequency domain injection function!. Exiting....\n"); 
       exit(1);
     }
@@ -630,10 +627,10 @@ longitude=inj_table->ra;
     for (i=lower; i<=upper; ++i){
       /* derive template (involving location/orientation parameters) from given plus/cross waveforms: */
       
-      plainTemplateReal =FplusScaled * IFOdata->freqModelhPlus->data->data[i].re  
-                          + FcrossScaled * IFOdata->freqModelhCross->data->data[i].re; //SALVO
-      plainTemplateImag = FplusScaled * IFOdata->freqModelhPlus->data->data[i].im  
-                          + FcrossScaled * IFOdata->freqModelhCross->data->data[i].im;
+      plainTemplateReal =FplusScaled * creal(IFOdata->freqModelhPlus->data->data[i]) 
+                          + FcrossScaled * creal(IFOdata->freqModelhCross->data->data[i]); //SALVO
+      plainTemplateImag = FplusScaled * cimag(IFOdata->freqModelhPlus->data->data[i])  
+                          + FcrossScaled * cimag(IFOdata->freqModelhCross->data->data[i]);
                           
    
       f = ((double) i) * deltaF;
@@ -642,10 +639,8 @@ longitude=inj_table->ra;
       im = - sin(twopit * f);
       templateReal = (plainTemplateReal*re - plainTemplateImag*im);
       templateImag = (plainTemplateReal*im + plainTemplateImag*re);
-      freqTemplate->data->data[i].re=templateReal;
-      freqTemplate->data->data[i].im=templateImag;
-      dataPtr->freqData->data->data[i].re+=templateReal;
-      dataPtr->freqData->data->data[i].im+=templateImag;
+      freqTemplate->data->data[i]=crect(templateReal,templateImag);
+      dataPtr->freqData->data->data[i]+=crect(templateReal,templateImag);
       temp = ((2.0/( deltaT*(double) dataPtr->timeData->data->length) * (templateReal*templateReal+templateImag*templateImag)) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       chisquared  += temp;
       fprintf(outInj,"%lf %10.10e %10.10e\n",f,templateReal,templateImag);
@@ -680,7 +675,7 @@ longitude=inj_table->ra;
   }
   
 
-    LALInferenceDestroyVariables(&intrinsicParams);
+    LALInferenceClearVariables(&intrinsicParams);
     printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
   NetSNR=sqrt(NetSNR); 
 

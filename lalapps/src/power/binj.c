@@ -1590,7 +1590,6 @@ int main(int argc, char *argv[])
 
 
 	lal_errhandler = LAL_ERR_EXIT;
-	lalDebugLevel = LALINFO | LALWARNING | LALERROR | LALNMEMDBG | LALNMEMPAD | LALNMEMTRK;
 
 
 	/*

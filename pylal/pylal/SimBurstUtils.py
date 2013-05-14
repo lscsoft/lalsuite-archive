@@ -66,10 +66,11 @@ def time_at_instrument(sim, instrument, offsetvector):
 	passes through the detector as when it passes through the
 	geocentre.  The Earth rotates by about 1.5 urad during the 21 ms it
 	takes light to travel the radius of the Earth, which corresponds to
-	10 m of displacement at the equator, or 33 ns in units of light
-	travel time.  Therefore, the failure to do a proper retarded time
-	calculation here results in errors no larger than 33 ns, which
-	should be insignificant.
+	10 m of displacement at the equator, or 33 light-ns.  Therefore,
+	the failure to do a proper retarded time calculation here results
+	in errors as large as 33 ns.  This is insignificant for burst
+	searches, but be aware that this approximation is being made if
+	this function is used in other contexts.
 	"""
 	# the offset is subtracted from the time of the injection.
 	# injections are done this way so that when the triggers that
@@ -86,85 +87,6 @@ def on_instruments(sim, seglists, offsetvector):
 	time of the injection.
 	"""
 	return set(instrument for instrument, seglist in seglists.items() if time_at_instrument(sim, instrument, offsetvector) in seglist)
-
-
-def create_sim_burst_best_string_sngl_map(connection, coinc_def_id):
-	"""
-	Construct a sim_burst --> best matching coinc_event mapping.
-	"""
-	connection.cursor().execute("""
-CREATE TEMPORARY TABLE
-	sim_burst_best_string_sngl_map
-AS
-	SELECT
-		sim_burst.simulation_id AS simulation_id,
-		(
-			SELECT
-				sngl_burst.event_id
-			FROM
-				coinc_event_map AS a
-				JOIN coinc_event_map AS b ON (
-					b.coinc_event_id == a.coinc_event_id
-				)
-				JOIN coinc_event ON (
-					coinc_event.coinc_event_id == a.coinc_event_id
-				)
-				JOIN sngl_burst ON (
-					b.table_name == 'sngl_burst'
-					AND b.event_id == sngl_burst.event_id
-				)
-			WHERE
-				a.table_name == 'sim_burst'
-				AND a.event_id == sim_burst.simulation_id
-				AND coinc_event.coinc_def_id == ?
-			ORDER BY
-				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
-			LIMIT 1
-		) AS event_id
-	FROM
-		sim_burst
-	WHERE
-		event_id IS NOT NULL
-	""", (coinc_def_id,))
-
-
-def create_sim_burst_best_string_coinc_map(connection, coinc_def_id):
-	"""
-	Construct a sim_burst --> best matching coinc_event mapping for
-	string cusp injections and coincs.
-	"""
-	# FIXME:  this hasn't finished being ported from the inspiral code
-	connection.cursor().execute("""
-CREATE TEMPORARY TABLE
-	sim_burst_best_string_coinc_map
-AS
-	SELECT
-		sim_burst.simulation_id AS simulation_id,
-		(
-			SELECT
-				coinc_inspiral.coinc_event_id
-			FROM
-				coinc_event_map AS a
-				JOIN coinc_event_map AS b ON (
-					b.coinc_event_id == a.coinc_event_id
-				)
-				JOIN coinc_inspiral ON (
-					b.table_name == 'coinc_event'
-					AND b.event_id == coinc_inspiral.coinc_event_id
-				)
-			WHERE
-				a.table_name == 'sim_burst'
-				AND a.event_id == sim_burst.simulation_id
-				AND coinc_event.coinc_def_id == ?
-			ORDER BY
-				(sngl_burst.chisq / sngl_burst.chisq_dof) / (sngl_burst.snr * sngl_burst.snr)
-			LIMIT 1
-		) AS coinc_event_id
-	FROM
-		sim_burst
-	WHERE
-		coinc_event_id IS NOT NULL
-	""", (coinc_def_id,))
 
 
 #

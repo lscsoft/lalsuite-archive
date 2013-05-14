@@ -42,6 +42,7 @@ from glue.ligolw import ilwd
 
 from glue.lal import LIGOTimeGPS
 from glue.lal import CacheEntry
+from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import git_version
 
@@ -225,7 +226,7 @@ class CWB2Coinc(object):
       coinc_event.coinc_def_id = coinc_def_id
       coinc_event.nevents = sim_tree.ndim
       coinc_event.instruments = lsctables.ifos_from_instrument_set( get_ifos_from_index( branch_array_to_list ( sim_tree.ifo, sim_tree.ndim ) ) )
-      coinc_event.time_slide_id = llwapp.get_time_slide_id(xmldoc, offset_vector, process_index[sim_tree.run])
+      coinc_event.time_slide_id = ligolw_tisi.get_time_slide_id(xmldoc, offset_vector, process_index[sim_tree.run])
       coinc_event.likelihood = sim_tree.likelihood
       coinc_event_table.append(coinc_event)
   

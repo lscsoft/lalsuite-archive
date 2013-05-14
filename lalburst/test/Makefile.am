@@ -1,7 +1,6 @@
-AM_CFLAGS = $(LALSUPPORT_CFLAGS) -DDATADIR='"$(abs_srcdir)/"'
+AM_CFLAGS = $(LALSUPPORT_CFLAGS) -DTEST_DATA_DIR='"$(abs_srcdir)/"'
 LDADD = $(LALSUPPORT_LIBS) $(top_builddir)/src/liblalburst.la
 
-if LALSUPPORT
 check_PROGRAMS = \
 	CLRTest \
 	TfrPswvTest \
@@ -12,10 +11,6 @@ check_PROGRAMS = \
 	TrackSearchTest
 TESTS = \
 	$(check_PROGRAMS)
-else
-check_PROGRAMS =
-TESTS =
-endif
 
 noinst_DATA = \
 	a.pgm \

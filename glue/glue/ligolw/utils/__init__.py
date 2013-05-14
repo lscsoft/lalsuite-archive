@@ -110,6 +110,29 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	return [filename for size, filename in measure_file_sizes(filenames, reverse = reverse)]
 
 
+def local_path_from_url(url):
+	"""
+	For URLs that point to locations in the local filesystem, extract
+	and return the filesystem path of the object to which they point.
+	As a special case pass-through, if the URL is None, the return
+	value is None.  Raises ValueError if the URL is not None and does
+	not point to a local file.
+
+	Example:
+
+	>>> print local_path_from_url(None)
+	None
+	>>> local_path_from_url("file:///home/me/somefile.xml.gz")
+	'/home/me/somefile.xml.gz'
+	"""
+	if url is None:
+		return None
+	scheme, host, path = urlparse.urlparse(url)[:3]
+	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
+		raise ValueError("%s is not a local file" % repr(url))
+	return path
+
+
 class RewindableInputFile(object):
 	"""
 	DON'T EVER USE THIS FOR ANYTHING!  I'M NOT EVEN KIDDING!
@@ -357,7 +380,7 @@ def load_url(url, verbose = False, gz = None, xmldoc = None, contenthandler = No
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
 	if url is not None:
-		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
+		scheme, host, path = urlparse.urlparse(url)[:3]
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = open(path)
 		else:
@@ -471,10 +494,4 @@ def write_url(xmldoc, url, verbose = False, gz = False, xsl_file = None, trap_si
 
 	>>> write_url(xmldoc, "file:///data.xml")
 	"""
-	if url is None:
-		scheme, host, path = "", "", None
-	else:
-		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
-	if scheme.lower() not in ("", "file") or host.lower() not in ("", "localhost"):
-		raise ValueError("%s is not a local file" % repr(url))
-	return write_filename(xmldoc, path, verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
+	return write_filename(xmldoc, local_path_from_url(url), verbose = verbose, gz = gz, xsl_file = xsl_file, trap_signals = trap_signals)
