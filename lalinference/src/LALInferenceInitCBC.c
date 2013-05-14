@@ -133,6 +133,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                                                *Enables* spins for TaylorF2, TaylorF2RedSpin, TaylorF2RedSpinTidal, IMRPhenomB.\n\
                (--singleSpin)                  template will assume only the spin of the most massive binary component exists.\n\
                (--noSpin, --disable-spin)      template will assume no spins.\n\
+               (--no-cache)                    waveforms will not be cached.\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Starting Parameters ------------------------------------------------------------------------------------------\n\
