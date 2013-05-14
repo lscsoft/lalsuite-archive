@@ -1933,7 +1933,11 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   static Approximant previous_approximant;*/
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
-  
+
+  LALSimInspiralWaveformCache *cache=NULL;
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "waveform_cache"))
+      cache = *(LALSimInspiralWaveformCache **) LALInferenceGetVariable(IFOdata->modelParams, "waveform_cache");
+
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
     approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
   else {
@@ -2038,7 +2042,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "spin1"))		spin1z		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin1");
   if(LALInferenceCheckVariable(IFOdata->modelParams, "spin2"))		spin2z		= *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin2");
   
-  distance	= LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
+  /* Cacheing handles distance, otherwise we do */
+  if (cache)
+      distance = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "distance");
+  else
+      distance = 1.0;
+
+  distance *= LAL_PC_SI * 1.0e6;        /* distance (1 Mpc) in units of metres */
 	
   REAL8 lambda1 = 0.;
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambda1")) lambda1 = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambda1");
@@ -2063,12 +2073,20 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     }
 
     deltaF = IFOdata->freqData->deltaF;
-    
-	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
-            deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-            spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
-            lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
-            approximant), errnum);
+
+    if (cache)
+        XLAL_TRY(ret=XLALSimInspiralChooseFDWaveformFromCache(&hptilde, &hctilde, phi0,
+                deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
+                spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
+                lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
+                approximant, cache), errnum);
+    else
+
+        XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
+                deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
+                spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
+                lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
+                approximant), errnum);
 
 	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
 	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hptilde'.\n");
@@ -2115,11 +2133,19 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     
   } else {
 
-    XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT,
-            m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
-            spin2x, spin2y, spin2z, f_min, fRef, distance,
-            inclination, lambda1, lambda2, waveFlags, nonGRparams,
-            amporder, order, approximant), errnum);
+    if (cache)
+        XLAL_TRY(ret=XLALSimInspiralChooseTDWaveformFromCache(&hplus, &hcross, phi0, deltaT,
+                m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
+                spin2x, spin2y, spin2z, f_min, fRef, distance,
+                inclination, lambda1, lambda2, waveFlags, nonGRparams,
+                amporder, order, approximant, cache), errnum);
+    else
+        XLAL_TRY(ret=XLALSimInspiralChooseTDWaveform(&hplus, &hcross, phi0, deltaT,
+                m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
+                spin2x, spin2y, spin2z, f_min, fRef, distance,
+                inclination, lambda1, lambda2, waveFlags, nonGRparams,
+                amporder, order, approximant), errnum);
+
     XLALSimInspiralDestroyWaveformFlags(waveFlags);
     XLALSimInspiralDestroyTestGRParam(nonGRparams);
     if (ret == XLAL_FAILURE || hplus == NULL || hcross == NULL)

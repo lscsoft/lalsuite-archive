@@ -88,6 +88,7 @@ void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
   else {
     fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimInspiralChooseWaveform\"\n");
   }
+
   return;
 }
 
@@ -548,7 +549,13 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
       exit( 1 );
     }
   }
-  
+
+  ppt=LALInferenceGetProcParamVal(commandLine, "--no-cache");
+  if (!ppt && state->templt==LALInferenceTemplateXLALSimInspiralChooseWaveform) {
+      LALSimInspiralWaveformCache *cache = XLALCreateSimInspiralWaveformCache();
+      LALInferenceAddVariable(currentParams, "waveform_cache", &cache, LALINFERENCE_void_ptr_t, LALINFERENCE_PARAM_FIXED);
+  }
+
   dataPtr = state->data;
   while (dataPtr != NULL) {
     dataPtr->modelDomain = modelDomain;
