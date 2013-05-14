@@ -124,7 +124,9 @@ SkyLocationDistribution       lDistr;
 MassDistribution              mDistr;
 InclDistribution              iDistr;
 
-SimInspiralTable *simTable;
+SimInspiralTable *simTable = NULL;
+SimInspiralTable *interestingSims = NULL;
+SimInspiralTable *missedSims = NULL;
 SimRingdownTable *simRingTable;
 
 char *massFileName = NULL;
@@ -1321,7 +1323,7 @@ int main( int argc, char *argv[] )
   REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0, meanMass10, meanMass20, massStdev10, massStdev20; /* masses at z=0 */
   REAL8 pzmax=0; /* maximal value of the probability distribution of the redshift */
   INT4 ncount;
-  size_t ninj;
+  UINT4 ninj;
   int rand_seed = 1;
 
   /* waveform */
@@ -1330,10 +1332,14 @@ int main( int argc, char *argv[] )
   INT4 amp_order = -1;
   /* xml output data */
   CHAR                  fname[256];
+  CHAR                  farFname[256];
   CHAR                 *userTag = NULL;
   MetadataTable         proctable;
   MetadataTable         procparams;
-  MetadataTable         injections;
+  MetadataTable         intInjections;
+  MetadataTable         farInjections;
+  intInjections.simInspiralTable = NULL;
+  farInjections.simInspiralTable = NULL;
   MetadataTable         ringparams;
   ProcessParamsTable   *this_proc_param;
   LIGOLwXMLStream       xmlfp;
@@ -2834,6 +2840,33 @@ int main( int argc, char *argv[] )
         outputFileName);
   }
 
+  if ( userTag && outCompress )
+  {
+    snprintf( farFname, sizeof(farFname), "HL-FAR_INJECTIONS_%d_%s-%d-%ld.xml.gz",
+        rand_seed, userTag, gpsStartTime.gpsSeconds, gpsDuration );
+  }
+  else if ( userTag && !outCompress )
+  {
+    snprintf( farFname, sizeof(farFname), "HL-FAR_INJECTIONS_%d_%s-%d-%ld.xml",
+        rand_seed, userTag, gpsStartTime.gpsSeconds, gpsDuration );
+  }
+  else if ( !userTag && outCompress )
+  {
+    snprintf( farFname, sizeof(farFname), "HL-FAR_INJECTIONS_%d-%d-%ld.xml.gz",
+        rand_seed, gpsStartTime.gpsSeconds, gpsDuration );
+  }
+  else
+  {
+    snprintf( farFname, sizeof(farFname), "HL-FAR_INJECTIONS_%d-%d-%ld.xml",
+        rand_seed, gpsStartTime.gpsSeconds, gpsDuration );
+  }
+  if ( outputFileName )
+  {
+    snprintf( farFname, sizeof(farFname), "FAR_%s",
+        outputFileName);
+  }
+
+
   /* increment the random seed by the GPS start time:*/
   rand_seed += gpsStartTime.gpsSeconds;
 
@@ -2845,7 +2878,7 @@ int main( int argc, char *argv[] )
   free( this_proc_param );
 
   /* create the first injection */
-  simTable = injections.simInspiralTable = (SimInspiralTable *)
+  simTable = (SimInspiralTable *)
     calloc( 1, sizeof(SimInspiralTable) );
 
   simRingTable = ringparams.simRingdownTable = (SimRingdownTable *)
@@ -2878,9 +2911,6 @@ int main( int argc, char *argv[] )
   currentGpsTime = gpsStartTime;
   while ( 1 )
   {
-    /* increase counter */
-    ninj++;
-
     /* store time in table */
     simTable=XLALRandomInspiralTime( simTable, randParams,
         currentGpsTime, timeInterval );
@@ -3198,8 +3228,85 @@ int main( int argc, char *argv[] )
        simRingTable->hrss_v = 0.; //XLALBlackHoleRingHRSS( simRingTable->frequency, simRingTable->quality, simRingTable->amplitude, 0., 0. );
     }
 
+  /* allocate and go to next SimInspiralTable */
+    UINT4 storeSim;
+    UINT4 separateFarInjections = 1;
+    REAL8 intDistThresh,currDistThresh,scaleFact;
+    storeSim = 1;
+    intDistThresh = 220.;
+    scaleFact = simTable->mchirp/(2.8*pow(0.25,0.6)); 
+    currDistThresh = intDistThresh * pow(scaleFact,5./6.);
+
+    if ( separateFarInjections)
+    {
+      if (simTable->eff_dist_h > currDistThresh)
+      {
+        if (simTable->eff_dist_l > currDistThresh)
+        {
+          storeSim = 0;
+        }
+        else if (simTable->eff_dist_v > currDistThresh) 
+        {
+          storeSim = 0;
+        }
+      }
+      else if (simTable->eff_dist_l > currDistThresh)
+      {
+        if (simTable->eff_dist_v > currDistThresh)
+        {
+          storeSim = 0;
+        }
+      }
+    }
+
+    if (storeSim)
+    {
+      if (! interestingSims)
+      {
+        interestingSims = simTable;
+        intInjections.simInspiralTable = interestingSims;
+      }
+      else
+      {
+        interestingSims->next = simTable;
+        interestingSims = simTable;
+      }
+      if (! interestingSims)
+      {
+        interestingSims = simTable;
+      }
+      else
+      {
+        interestingSims->next = simTable;
+        interestingSims = simTable;
+      }
+      ninj += 1;
+    }
+    else
+    {
+      if (! missedSims)
+      {
+        missedSims = simTable;
+        farInjections.simInspiralTable = missedSims;
+      }
+      else
+      {
+        missedSims->next = simTable;
+        missedSims = simTable;
+      }
+      if (! missedSims)
+      {
+        missedSims = simTable;
+      }
+      else
+      {
+        missedSims->next = simTable;
+        missedSims = simTable;
+      }
+    }
+
     /* increment current time, avoiding roundoff error;
-       check if end of loop is reached */
+     * check if end of loop is reached */
     if (tDistr == LALINSPIRAL_EXPONENTIAL_TIME_DIST)
     {
       XLALGPSAdd( &currentGpsTime, -(REAL8 )meanTimeStep * log( XLALUniformDeviate(randParams) ) );
@@ -3212,14 +3319,15 @@ int main( int argc, char *argv[] )
     if ( XLALGPSCmp( &currentGpsTime, &gpsEndTime ) >= 0 )
       break;
 
-  /* allocate and go to next SimInspiralTable */
     simTable = simTable->next = (SimInspiralTable *)
       calloc( 1, sizeof(SimInspiralTable) );
     simRingTable = simRingTable->next = (SimRingdownTable *)
       calloc( 1, sizeof(SimRingdownTable) );
 
   }
-
+  /* Null out the next vectors */
+  interestingSims->next = NULL;
+  missedSims->next = NULL;
 
   /* destroy the structure containing the random params */
   LAL_CALL(  LALDestroyRandomParams( &status, &randParams ), &status);
@@ -3260,11 +3368,11 @@ int main( int argc, char *argv[] )
     LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
   }
 
-  if ( injections.simInspiralTable )
+  if ( intInjections.simInspiralTable )
   {
     LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, sim_inspiral_table ),
         &status );
-    LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, injections,
+    LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, intInjections,
           sim_inspiral_table ), &status );
     LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
   }
@@ -3282,6 +3390,49 @@ int main( int argc, char *argv[] )
   }
 
   LAL_CALL( LALCloseLIGOLwXMLFile ( &status, &xmlfp ), &status );
+
+  memset( &xmlfp, 0, sizeof(LIGOLwXMLStream) );
+
+  LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlfp, farFname ), &status );
+  XLALGPSTimeNow(&(proctable.processTable->end_time));
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, process_table ),
+      &status );
+  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, proctable,
+        process_table ), &status );
+  LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
+
+  if ( procparams.processParamsTable )
+  {
+    LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, process_params_table ),
+        &status );
+    LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, procparams,
+          process_params_table ), &status );
+    LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
+  }
+
+  if ( farInjections.simInspiralTable )
+  {
+    LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, sim_inspiral_table ),
+        &status );
+    LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, farInjections,
+          sim_inspiral_table ), &status );
+    LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
+  }
+
+  if ( writeSimRing )
+  {
+    if ( ringparams.simRingdownTable )
+    {
+      LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, sim_ringdown_table ),
+          &status );
+      LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, ringparams,
+          sim_ringdown_table ), &status );
+      LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
+    }
+  }
+
+  LAL_CALL( LALCloseLIGOLwXMLFile ( &status, &xmlfp ), &status );
+
 
   if (source_data)
     LALFree(source_data);
