@@ -3233,7 +3233,7 @@ int main( int argc, char *argv[] )
     UINT4 separateFarInjections = 1;
     REAL8 intDistThresh,currDistThresh,scaleFact;
     storeSim = 1;
-    intDistThresh = 220.;
+    intDistThresh = dmax / 1000.;
     scaleFact = simTable->mchirp/(2.8*pow(0.25,0.6)); 
     currDistThresh = intDistThresh * pow(scaleFact,5./6.);
 
