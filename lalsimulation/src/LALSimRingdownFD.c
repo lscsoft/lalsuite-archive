@@ -63,7 +63,7 @@ int XLALSimRingdownFD(
 
     /* Derived parameters */
     double omega0 = LAL_TWOPI*frequency;
-    double tau = quality/(LAL_SQRT2*LAL_PI*frequency);
+    double tau = 2.0 * quality / frequency;
 
     /* assume Q >> 2 */
     double h0 = 2.0*hrss*sqrt(LAL_SQRT2*LAL_PI*frequency/quality);

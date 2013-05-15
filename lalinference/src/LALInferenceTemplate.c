@@ -2556,8 +2556,11 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 /*   - "phase"          (initial phase ringdown signal) 					                */
 /********************************************************************************************/
 {
-    COMPLEX16FrequencySeries *htilde=NULL;
+    //COMPLEX16FrequencySeries *htilde=NULL;
+    COMPLEX16FrequencySeries *hptilde=NULL;
+//    COMPLEX16FrequencySeries *hctilde=NULL;
     REAL8 deltaF = IFOdata->freqData->deltaF;
+//    REAL8 deltaT = IFOdata->timeData->deltaT;
     REAL8 f_min, f_max;
     f_min = IFOdata->fLow;
     f_max = IFOdata->fHigh;
@@ -2594,24 +2597,27 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
         /* Generate Waveform */
 
-        // XXX: set peak amplitude = 1 and handle correctly in likelihood
-        //double hrss = 0.5*sqrt(quality/(LAL_SQRT2*LAL_PI*frequency));
-
-        XLAL_TRY(ret=XLALSimRingdownFD(&htilde, f_min, f_max, deltaF,
+        XLAL_TRY(ret=XLALSimRingdownFD(&hptilde, f_min, f_max, deltaF,
                     frequency, quality, hrss), errnum);
+
+        /* XXX: beware XLALSimBurstSineGaussianF() - hp=0, hc!=0. Later in THIS
+         * function, we set hc=-1j*hp so swap hp and hc in the following: XXX */
+        //XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hctilde, &hptilde, quality,
+        //            frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
         if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
 
         previous_hrss=hrss;
         previous_frequency=frequency;
         previous_quality=quality;
 
-        if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
+        if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
             XLALPrintError(" ERROR in LALInferenceTemplateXLALSimRingdown(): encountered unallocated 'htilde'.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
         }
 
         /* point to data structure in waveform */
-        COMPLEX16 *dataPtr = htilde->data->data;
+        //COMPLEX16 *dataPtr = htilde->data->data;
+        COMPLEX16 *dataPtr = hptilde->data->data;
 
         if (IFOdata->freqData==NULL) {
             XLALPrintError(" ERROR in LALInferenceTemplateXLALSimRingdown(): encountered unallocated 'freqData'.\n");
@@ -2620,8 +2626,10 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
         /* populate model in IFOdata with real/imag parts of hplus and hcross */
         for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-            dataPtr = htilde->data->data;
-            if(i < htilde->data->length){
+            //dataPtr = htilde->data->data;
+            dataPtr = hptilde->data->data;
+            //if(i < htilde->data->length){
+            if(i < hptilde->data->length){
                 IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
             }
             else{
@@ -2660,7 +2668,8 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
 
-    if ( htilde ) XLALDestroyCOMPLEX16FrequencySeries(htilde);
+    if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+    //if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 
     /* **************************************************************************** */
 
