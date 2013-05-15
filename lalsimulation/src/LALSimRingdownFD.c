@@ -66,7 +66,7 @@ int XLALSimRingdownFD(
     double tau = 2.0 * quality / frequency;
 
     /* assume Q >> 2 */
-    double h0 = 2.0*hrss*sqrt(LAL_SQRT2*LAL_PI*frequency/quality);
+    double h0 = 2.0*hrss / sqrt(tau);
 
     if (!(*htilde)) XLAL_ERROR(XLAL_EFUNC);
 
