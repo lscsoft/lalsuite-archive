@@ -2723,10 +2723,12 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *curre
   intrinsicParams.head      = NULL;
   intrinsicParams.dimension = 0;
   LALInferenceCopyVariables(currentParams, &intrinsicParams);
-  if(logDistFlag)
-    LALInferenceRemoveVariable(&intrinsicParams, "logdistance");
-  else
-    LALInferenceRemoveVariable(&intrinsicParams, "distance");
+  if(LALInferenceCheckVariable(currentParams,"distance") || LALInferenceCheckVariable(currentParams,"logdistance")){
+      if(logDistFlag)
+          LALInferenceRemoveVariable(&intrinsicParams, "logdistance");
+      else
+          LALInferenceRemoveVariable(&intrinsicParams, "distance");
+  }
   LALInferenceRemoveVariable(&intrinsicParams, "rightascension");
   LALInferenceRemoveVariable(&intrinsicParams, "declination");
   LALInferenceRemoveVariable(&intrinsicParams, "polarisation");
