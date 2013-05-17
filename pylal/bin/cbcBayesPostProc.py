@@ -174,7 +174,7 @@ def cbcBayesPostProc(
                         outdir,data,oneDMenu,twoDGreedyMenu,GreedyRes,
                         confidence_levels,twoDplots,
                         #misc. optional
-                        injfile=None,eventnum=None,
+                        injfile=None,eventnum=None,event_id=None,
                         trigfile=None,trignum=None,
                         skyres=None,
                         #direct integration evidence
@@ -289,7 +289,7 @@ def cbcBayesPostProc(
           injection=siminspiraltable[eventnum]
 	elif event_id is not None:
           print 'Looking for event_id %s in %s\n'%(str(event_id),injfile)
-          injection = filter(lambda x: x.event_id == event_id, siminspiraltable)[0]
+          injection = filter(lambda x: str(x.simulation_id) == 'sim_inspiral:simulation_id:%s'%(str(event_id)), siminspiraltable)[0]
 
     #Get trigger
     triggers = None
@@ -1183,6 +1183,7 @@ if __name__=='__main__':
     parser.add_option("-t","--trig",dest="trigfile",help="Coinc XML file",metavar="COINC.XML",default=None)
     parser.add_option("--skyres",dest="skyres",help="Sky resolution to use to calculate sky box size",default=None)
     parser.add_option("--eventnum",dest="eventnum",action="store",default=None,help="event number in SimInspiral file of this signal",type="int",metavar="NUM")
+    parser.add_option("--event-id",dest="event_id",action="store",default=None,help="event-id in SimInspiral table file", type="int",metavar="NUM")
     parser.add_option("--trignum",dest="trignum",action="store",default=None,help="trigger number in CoincTable",type="int",metavar="NUM")
     parser.add_option("--bsn",action="store",default=None,help="Optional file containing the bayes factor signal against noise",type="string")
     parser.add_option("--bci",action="store",default=None,help="Optional file containing the bayes factor coherent signal model against incoherent signal model.",type="string")
@@ -1330,7 +1331,7 @@ if __name__=='__main__':
                         opts.outpath,datafiles,oneDMenu,twoDGreedyMenu,
                         greedyBinSizes,confidenceLevels,twoDplots,
                         #optional
-                        injfile=opts.injfile,eventnum=opts.eventnum,
+                        injfile=opts.injfile,eventnum=opts.eventnum,event_id=opts.event_id,
                         trigfile=opts.trigfile,trignum=opts.trignum,
                         skyres=opts.skyres,
                         # direct integration evidence
