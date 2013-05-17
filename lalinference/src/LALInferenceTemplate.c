@@ -2747,7 +2747,7 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
             if(i < hptilde->data->length){
                 //IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
                 // XXX Multiply by -1j to get hp from hc (see SimBurst.c) 
-                IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+                IFOdata->freqModelhPlus->data->data[i] = -1.0j*dataPtr[i];
             }
             else{
                 IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
