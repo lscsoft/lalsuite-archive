@@ -281,9 +281,6 @@ REAL8 LALInferenceRosenbrockLogLikelihood(LALInferenceVariables *currentParams,
                                           LALInferenceIFOData *data,
                                           LALInferenceTemplateFunction templt);
 
-REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
-
-
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_Burst(LALInferenceVariables *currentParams, LALInferenceIFOData * data, LALInferenceTemplateFunction templt);
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 REAL8 LALInferenceExtraPowerLogLikelihood(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
