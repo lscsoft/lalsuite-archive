@@ -537,6 +537,10 @@ Arguments for each section follow:\n\n";
 	     fprintf(stdout,"--- Calling RD init function \n");
 	    initVarsFunc=&LALInferenceInitRDVariables;
 	}
+	else if(!strcmp("HMNS",ppt->value) ){
+	     fprintf(stdout,"--- Calling HMNS init function \n");
+	    initVarsFunc=&LALInferenceInitHMNSVariables;
+	}
 	else if(!strcmp("BestIFO",LALInferenceGetProcParamVal(procParams,"--template")->value)){
 	    fprintf(stdout,"--- Calling bestIFO init function \n");
 	    initVarsFunc=&LALInferenceInitBestIFOVariables;

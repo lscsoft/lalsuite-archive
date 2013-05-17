@@ -1464,3 +1464,40 @@ REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVari
 
   return(logPrior);
 }
+
+REAL8 LALInferenceHMNSPrior(LALInferenceRunState *runState, LALInferenceVariables *params)
+{
+  if (params == NULL || runState == NULL || runState->priorArgs == NULL)
+    XLAL_ERROR_REAL8(XLAL_EFAULT, "Null arguments received.");
+
+  REAL8 logPrior=0.0;
+  static int HMNSPriorWarning = 0;
+  (void)runState;
+  LALInferenceVariableItem *item=params->head;
+  LALInferenceVariables *priorParams=runState->priorArgs;
+  REAL8 min, max;
+
+  if (!HMNSPriorWarning ) {
+    HMNSPriorWarning  = 1;
+    fprintf(stderr, "HMNS priors are being used. (in %s, line %d)\n", __FILE__, __LINE__);
+  }
+  /* Check boundaries */
+  for(;item;item=item->next)
+  {
+    if(item->vary==LALINFERENCE_PARAM_FIXED || item->vary==LALINFERENCE_PARAM_OUTPUT)
+      continue;
+    else
+    {
+      LALInferenceGetMinMaxPrior(priorParams, item->name, &min, &max);
+      if(*(REAL8 *) item->value < min || *(REAL8 *)item->value > max) return -DBL_MAX;
+    }
+  }
+  if(LALInferenceCheckVariable(params,"inclination"))
+    logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"inclination"))));
+  if(LALInferenceCheckVariable(params,"declination"))
+    logPrior+=log(fabs(cos(*(REAL8 *)LALInferenceGetVariable(params,"declination"))));
+  if(LALInferenceCheckVariable(params,"loghrss"))
+    logPrior+=-3.0* *(REAL8 *)LALInferenceGetVariable(params,"loghrss");
+
+  return(logPrior);
+}

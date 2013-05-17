@@ -41,6 +41,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
 LALInferenceVariables *LALInferenceInitBurstVariables(LALInferenceRunState *state);
 LALInferenceVariables *LALInferenceInitBestIFOVariables(LALInferenceRunState *state);
 LALInferenceVariables *LALInferenceInitRDVariables(LALInferenceRunState *state);
+LALInferenceVariables *LALInferenceInitHMNSVariables(LALInferenceRunState *state);
 LALInferenceVariables *LALInferenceInitPowerBurst(LALInferenceRunState *state);
 /**
 Initialise the template for a standard CBC signal

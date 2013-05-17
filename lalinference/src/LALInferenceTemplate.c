@@ -2556,11 +2556,8 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 /*   - "phase"          (initial phase ringdown signal) 					                */
 /********************************************************************************************/
 {
-    //COMPLEX16FrequencySeries *htilde=NULL;
     COMPLEX16FrequencySeries *hptilde=NULL;
-//    COMPLEX16FrequencySeries *hctilde=NULL;
     REAL8 deltaF = IFOdata->freqData->deltaF;
-//    REAL8 deltaT = IFOdata->timeData->deltaT;
     REAL8 f_min, f_max;
     f_min = IFOdata->fLow;
     f_max = IFOdata->fHigh;
@@ -2600,10 +2597,6 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
         XLAL_TRY(ret=XLALSimRingdownFD(&hptilde, f_min, f_max, deltaF,
                     frequency, quality, hrss), errnum);
 
-        /* XXX: beware XLALSimBurstSineGaussianF() - hp=0, hc!=0. Later in THIS
-         * function, we set hc=-1j*hp so swap hp and hc in the following: XXX */
-        //XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hctilde, &hptilde, quality,
-        //            frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
         if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
 
         previous_hrss=hrss;
@@ -2616,7 +2609,6 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
         }
 
         /* point to data structure in waveform */
-        //COMPLEX16 *dataPtr = htilde->data->data;
         COMPLEX16 *dataPtr = hptilde->data->data;
 
         if (IFOdata->freqData==NULL) {
@@ -2626,9 +2618,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
         /* populate model in IFOdata with real/imag parts of hplus and hcross */
         for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-            //dataPtr = htilde->data->data;
             dataPtr = hptilde->data->data;
-            //if(i < htilde->data->length){
             if(i < hptilde->data->length){
                 IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
             }
@@ -2669,7 +2659,135 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
 
     if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
-    //if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
+
+    /* **************************************************************************** */
+
+
+    return;
+}
+
+void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
+/********************************************************************************************/
+/* XLALSimBurst wrapper with l=m=2 inclination dependence for circ sine gaussians           */
+/*  Required (`IFOdata->modelParams') parameters are:										*/
+/*   - "time" 	        (coalescence time, or equivalent/analog/similar; REAL8, GPS sec.)	*/
+/*   - "hrss"           (RSS amplitude of GW signal)                                        */
+/*   - "frequency"      (central frequency of ringdown signal)								*/
+/*   - "Q"              (quality factor = frequency / bandwidth i    					    */
+/********************************************************************************************/
+{
+    COMPLEX16FrequencySeries *hptilde=NULL;
+    COMPLEX16FrequencySeries *hctilde=NULL;
+    REAL8 deltaF = IFOdata->freqData->deltaF;
+    REAL8 deltaT = IFOdata->timeData->deltaT;
+    REAL8 f_min, f_max;
+    f_min = IFOdata->fLow;
+    f_max = IFOdata->fHigh;
+
+    REAL8 instant, frequency, quality, inclination, hrss;
+
+    unsigned i;
+
+	INT4 errnum=0;
+    int ret=0;
+
+    inclination = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "inclination"); 
+    frequency = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "frequency");
+    quality = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "Q");
+    hrss = exp(*(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "loghrss"));
+    
+    /* **************************************************************************** */
+    /* Frequency domain ringdown */
+
+    static REAL8 previous_frequency;
+    static REAL8 previous_quality;
+    static REAL8 previous_inclination;
+    static REAL8 previous_hrss;
+
+    IFOdata->modelDomain = LAL_SIM_DOMAIN_FREQUENCY;
+
+    double cosi = cos(inclination);
+    double plusCoef  = -0.5 * (1.0 + cosi*cosi);
+    double crossCoef = cosi;
+    
+
+    /* Only regenerate waveform for new frequency, quality, ... */
+    if(previous_frequency != frequency || previous_quality != quality || previous_hrss != hrss){
+
+        /* Generate Waveform */
+
+        /* XXX: beware XLALSimBurstSineGaussianF() - hp=0, hc!=0. Later in THIS
+         * function, we set hc=-1j*hp so swap hp and hc in the following: XXX */
+        XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hctilde, &hptilde, quality,
+                    frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
+        if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
+
+        previous_hrss=hrss;
+        previous_frequency=frequency;
+        previous_quality=quality;
+
+        if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ||
+                hctilde==NULL || hctilde->data==NULL ||
+                hctilde->data->data==NULL ) {
+            XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered
+                    unallocated 'h(p,c)tilde'.\n"); XLAL_ERROR_VOID(XLAL_EFAULT);
+        }
+
+        /* point to data structure in waveform */
+        COMPLEX16 *dataPtr = hptilde->data->data;
+
+        if (IFOdata->freqData==NULL) {
+            XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered unallocated 'freqData'.\n");
+            XLAL_ERROR_VOID(XLAL_EFAULT);
+        }
+
+        /* populate model in IFOdata with real/imag parts of hplus and hcross */
+        for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
+            dataPtr = hptilde->data->data;
+            if(i < hptilde->data->length){
+                //IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+                // XXX Multiply by -1j to get hp from hc (see SimBurst.c) 
+                IFOdata->freqModelhPlus->data->data[i] = -1.0j*dataPtr[i];
+            }
+            else{
+                IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
+            }
+        }
+
+        /*  cross waveform is "i x plus" :  */
+        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
+            
+            IFOdata->freqModelhCross->data->data[i]=crect(cimag(-IFOdata->freqModelhCross->data->data[i]),
+                    creal(IFOdata->freqModelhPlus->data->data[i]));
+            /* Scale by inclination dependence */
+            IFOdata->freqModelhPlus->data->data[i] *= plusCoef;
+            IFOdata->freqModelhCross->data->data[i]*= crossCoef;
+        }
+    }
+    else{
+        /* Do not recompute the waveform if only inclination has changed. The
+         * test assumes that deltaF, f_min and f_max did not change !*/
+        double previous_cosi = cos(previous_inclination);
+
+        plusCoef  /= (-0.5 * (1.0 + previous_cosi*previous_cosi));
+        crossCoef /= (previous_cosi);
+
+        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
+            IFOdata->freqModelhPlus->data->data[i]  *= plusCoef;
+            IFOdata->freqModelhCross->data->data[i] *= crossCoef;
+        }
+
+    }
+
+    previous_inclination = inclination;
+
+	instant= (IFOdata->timeData->epoch.gpsSeconds +
+			1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+
+    if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+    if ( hctilde ) XLALDestroyCOMPLEX16FrequencySeries(hctilde);
 
     /* **************************************************************************** */
 
