@@ -176,6 +176,12 @@ const char *LALInferenceTranslateInternalToExternalParamName(const char *inName)
 /** Converts between externally used parameter names and those internal */
 void LALInferenceTranslateExternalToInternalParamName(char *outName, const char *inName);
 
+/** Print the parameter names to a file as a tab-separated ASCII line
+ * \param out [in] pointer to output file
+ * \param params [in] LALInferenceVaraibles structure to print
+ */
+int LALInferenceFprintParameterHeaders(FILE *out, LALInferenceVariables *params);
+
 /** Print the parameters which do not vary to a file as a tab-separated ASCII line
  * \param out [in] pointer to output file
  * \param params [in] LALInferenceVaraibles structure to print
@@ -499,6 +505,9 @@ void LALInferenceMcQ2Masses(double mc, double q, double *m1, double *m2);
 /** Convert from q to eta (q = m2/m1, with m1 > m2). */
 void LALInferenceQ2Eta(double q, double *eta);
 
+/** Convert from lambdaT, dLambdaT, and eta to lambda1 and lambda2. */
+void LALInferenceLambdaTsEta2Lambdas(REAL8 lambdaT, REAL8 dLambdaT, REAL8 eta, REAL8 *lambda1, REAL8 *lambda2);
+
 /** The kD trees in LALInference are composed of cells.  Each cell
     represents a rectangular region in parameter space, defined by
     \f$\mathrm{lowerLeft} <= x <= \mathrm{upperRight}\f$.  It also
@@ -642,3 +651,4 @@ void LALInferenceDumpWaveforms(LALInferenceRunState *state, const char *basefile
 /*@}*/
 
 #endif
+

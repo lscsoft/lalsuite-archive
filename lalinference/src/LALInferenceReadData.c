@@ -1195,11 +1195,12 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	LALStatus status;
 	memset(&status,0,sizeof(status));
 	SimInspiralTable *injTable=NULL;
-    SimInspiralTable *injEvent=NULL;
+	SimInspiralTable *injEvent=NULL;
 	UINT4 Ninj=0;
 	UINT4 event=0;
 	UINT4 i=0,j=0;
-    REAL8 responseScale=1.0;
+	REAL8 responseScale=1.0;
+	ProcessParamsTable *ppt=NULL;
 	//CoherentGW InjectGW;
 	//PPNParamStruc InjParams;
 	LIGOTimeGPS injstart;
@@ -1209,7 +1210,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//memset(&InjParams,0,sizeof(PPNParamStruc));
 	COMPLEX16FrequencySeries *injF=NULL;
 	FILE *rawWaveform=NULL;
-	ProcessParamsTable *ppt=NULL;
 	REAL8 bufferLength = 2048.0; /* Default length of buffer for injections (seconds) */
 	UINT4 bufferN=0;
 	LIGOTimeGPS bufferStart;
@@ -1233,10 +1233,6 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	//InjParams.fStartIn=(REAL4)minFlow;
 
 	if(!LALInferenceGetProcParamVal(commandLine,"--inj")) {fprintf(stdout,"No injection file specified, not injecting\n"); return;}
-	if(LALInferenceGetProcParamVal(commandLine,"--event")){
-    event= atoi(LALInferenceGetProcParamVal(commandLine,"--event")->value);
-    fprintf(stdout,"Injecting event %d\n",event);
-	}
         if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
                 ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
 		SNRpath = XLALCalloc(strlen(ppt->value)+1,sizeof(char));
@@ -1247,8 +1243,29 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	Ninj=SimInspiralTableFromLIGOLw(&injTable,LALInferenceGetProcParamVal(commandLine,"--inj")->value,0,0);
 	REPORTSTATUS(&status);
 	printf("Ninj %d\n", Ninj);
-	if(Ninj<event) fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
-	while(i<event) {i++; injTable = injTable->next;} /* Select event */
+	if((ppt=LALInferenceGetProcParamVal(commandLine,"--event"))){
+    		event= atoi(ppt->value);
+		fprintf(stdout,"Injecting event %d\n",event);
+		if(Ninj<event) fprintf(stderr,"Error reading event %d from %s\n",event,LALInferenceGetProcParamVal(commandLine,"--inj")->value);
+		while(i<event) {i++; injTable = injTable->next;} /* Select event */
+	}
+	else
+	{
+		if((ppt=LALInferenceGetProcParamVal(commandLine,"--event-id"))){
+			UINT4 eventid=(UINT4)atoi(ppt->value);
+			fprintf(stderr,"Looking for simulation_id:%i\n",eventid);
+            		while(injTable)
+            		{
+				if(injTable->event_id->id == eventid) break;
+			        else injTable=injTable->next;
+		        }
+		        if(!injTable){
+                		fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",ppt->value);
+		                exit(1);
+            		}
+		}
+	}
+
 	injEvent = injTable;
 	injEvent->next = NULL;
 	

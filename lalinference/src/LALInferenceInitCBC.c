@@ -436,6 +436,19 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
       i=0;
       while(i<event) {i++; injTable=injTable->next;} /* select event */
     }
+    else if ((ppt=LALInferenceGetProcParamVal(commandLine,"--event-id")))
+    {
+	    while(injTable)
+	    {
+		    if(injTable->event_id->id == (UINT4)atoi(ppt->value)) break;
+		    else injTable=injTable->next;
+	    }
+	    if(!injTable){
+		    fprintf(stderr,"Error, cannot find simulation id %s in injection file\n",ppt->value);
+		    exit(1);
+	    }
+    }
+
   }
 
   /* See if there are any parameters pinned to injection values */
