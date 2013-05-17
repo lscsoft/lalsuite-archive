@@ -175,6 +175,8 @@ struct options {
 	int write_mdc;
 	char ** ifonames;
 	int nIFO;
+	double mdc_gps_start;
+	int mdc_duration;
 };
 
 
@@ -222,6 +224,8 @@ static struct options options_defaults(void)
 	defaults.write_mdc=0;
 	defaults.ifonames=NULL;
 	defaults.nIFO=0;
+	defaults.mdc_gps_start=0;
+	defaults.mdc_duration=0;
 	return defaults;
 }
 
@@ -423,6 +427,8 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		{"virgo-start-freq", required_argument, 0, 1724},
 		{"ligo-psd",  required_argument, 0, 1725},
 		{"virgo-psd",  required_argument, 0, 1726},
+		{"mdc_gps_start", required_argument,0,1728},
+		{"mdc_duration", required_argument,0,1729},
 		{"ra-dec", required_argument, NULL, 'U'},
 		{"seed", required_argument, NULL, 'P'},
 		{"time-step", required_argument, NULL, 'Q'},
@@ -685,6 +691,13 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 	printf("Trying to write MDC!\n");
 		options.write_mdc=1;
         break;
+	case 1728:
+		options.mdc_gps_start= (double) atof(optarg);
+		break;
+	case 1729:
+		options.mdc_duration=  atoi(optarg);
+		break;
+
 	case 0:
 		/* option sets a flag */
 		break;
@@ -1805,11 +1818,12 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 	CHAR frameType[256]="SineGaussian";
 	//lalDebugLevel=LALMSGLVL3;
 	//sprintf(frameType,"%s","SineGaussian");
-	
+	double mdc_gps_start=options->mdc_gps_start;
+	int mdc_duration=options->mdc_duration;
 	/* Just set min and max trigtime to 0th event to start with */
-	gps_start= (INT4) (inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds - 10.);
+	gps_start= (INT4) (inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds - 1.);
 	/* Set epoch */
-	XLALGPSSet(&epoch,inj->time_geocent_gps.gpsSeconds-4.,inj->time_geocent_gps.gpsNanoSeconds);
+	XLALGPSSet(&epoch,floor(mdc_gps_start),1e9 *(mdc_gps_start-floor(mdc_gps_start))); //SALVO that is wrong
 	
 	/* Now look for max */
 	while(inj){
@@ -1818,10 +1832,19 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 		inj=inj->next;
 	}
 	
-	gps_end= (INT4) trigtime +4.;
-	duration=gps_end-gps_start;
+	gps_end= (INT4) trigtime +1;
+	duration=mdc_duration;
+	if (gps_end - gps_start > duration) {
+		fprintf(stderr,"ERROR, the requested duration of the MDC file (%d sec) is shorter than the time difference between the last and first injections + 2 seconds (%d sec). Exiting\n",duration,(gps_end-gps_start));
+		exit(1);
+	}
+	if (mdc_gps_start > gps_start){
+		fprintf(stderr,"ERROR, the requested start time of the MDC file seems to be larger than the trigtime of the first event. Exiting\n");
+		exit(1);
+		}
+		
 	
-	snprintf( fname, FILENAME_MAX, "GHLTV-%s-%d-%d.gwf", frameType, gps_start, duration );
+	snprintf( fname, FILENAME_MAX, "GHLTV-%s-%d-%d.gwf", frameType, (int) mdc_gps_start, duration );
 		 /* set detector flags */
 	detectorFlags = LAL_GEO_600_DETECTOR_BIT | LAL_LHO_4K_DETECTOR_BIT |
 			LAL_LHO_2K_DETECTOR_BIT | LAL_LLO_4K_DETECTOR_BIT |
