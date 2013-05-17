@@ -175,6 +175,7 @@ REAL8 LALInferenceFlatBoundedPrior(LALInferenceRunState *runState, LALInferenceV
 
 REAL8 LALInferenceSinGaussPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 REAL8 LALInferenceRingdownPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
+REAL8 LALInferenceHMNSPrior(LALInferenceRunState *runState, LALInferenceVariables *params);
 
 /*@}*/
 #endif

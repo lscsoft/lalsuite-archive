@@ -42,6 +42,7 @@
 
 void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 {
+
   char help[]="(--template [SinGauss,SinGaussF,BestIFO,RingdownF,HMNS]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
@@ -496,7 +497,7 @@ LALInferenceVariables * LALInferenceInitHMNSVariables(LALInferenceRunState *stat
 	ProcessParamsTable *ppt=NULL;
 
     /* Always use phase-marginalised likelihood */
-    printf("Using Marginalise Phase Likelihood\n");
+    printf("Using Marginalised Phase Likelihood\n");
     state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
 
     /* Use sine-Gaussian proposal (should be good for bursts...) */

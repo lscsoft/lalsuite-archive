@@ -301,7 +301,7 @@ Nested sampling arguments:\n\
 	
      ppt=LALInferenceGetProcParamVal(commandLine,"--template");
     if(ppt) {
-    if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value) || !strcmp("RingdownF",ppt->value))
+    if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value))
     // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
     runState->proposal=&NSWrapMCMCSinGaussProposal;
     }
@@ -330,6 +330,10 @@ Nested sampling arguments:\n\
 	    runState->prior = &LALInferenceRingdownPrior;
 	    XLALPrintInfo("Using Ringdown prior\n");
 	}
+	else if (!strcmp("HMNS",ppt->value)){
+	    runState->prior = &LALInferenceHMNSPrior;
+	    XLALPrintInfo("Using HMNS prior\n");
+    }
     }
 
         
@@ -510,7 +514,7 @@ Arguments for each section follow:\n\n";
 	
 	/* Set template function */
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
-	if(!strcmp("SinGauss",ppt->value) || !strcmp("SinGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value)){  
+	if(!strcmp("SinGauss",ppt->value) || !strcmp("SinGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
 	    LALInferenceInitBurstTemplate(state);
 	}
 	else {    
@@ -573,7 +577,7 @@ Arguments for each section follow:\n\n";
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
 	if(ppt) {
 	// SALVO: We may want different if else for differnt templates in the future
-	if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value) || !strcmp("RingdownF",ppt->value) )
+	if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) )
 	    LALInferenceSetupSinGaussianProposal(state,state->currentParams);}
 	else 
 	    LALInferenceSetupDefaultNSProposal(state,state->currentParams);

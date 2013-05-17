@@ -2400,7 +2400,6 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood_HMNS(LALInferenceVariables *cur
     double timeshift;  /* time shift (not necessarily same as above)                   */
     double deltaT, TwoDeltaToverN, deltaF, twopit, re, im, dre, dim, newRe, newIm;
     double timeTmp;
-    double mc;
     int different;
 
     LALStatus status;

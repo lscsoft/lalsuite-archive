@@ -2720,7 +2720,7 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
          * function, we set hc=-1j*hp so swap hp and hc in the following: XXX */
         XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hctilde, &hptilde, quality,
                     frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
-        if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
+        if(ret || errnum) fprintf(stderr,"ERROR generating SineGaussianF template\n");
 
         previous_hrss=hrss;
         previous_frequency=frequency;
@@ -2729,8 +2729,8 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
         if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ||
                 hctilde==NULL || hctilde->data==NULL ||
                 hctilde->data->data==NULL ) {
-            XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered
-                    unallocated 'h(p,c)tilde'.\n"); XLAL_ERROR_VOID(XLAL_EFAULT);
+            XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered unallocated 'h(p,c)tilde'.\n"); 
+            XLAL_ERROR_VOID(XLAL_EFAULT);
         }
 
         /* point to data structure in waveform */
@@ -2747,7 +2747,7 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
             if(i < hptilde->data->length){
                 //IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
                 // XXX Multiply by -1j to get hp from hc (see SimBurst.c) 
-                IFOdata->freqModelhPlus->data->data[i] = -1.0j*dataPtr[i];
+                IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
             }
             else{
                 IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
