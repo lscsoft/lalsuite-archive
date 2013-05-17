@@ -67,11 +67,13 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/DetResponse.h>
 #include <lal/Units.h>
+#include <lal/FrameStream.h>
+#include <lal/LALFrameIO.h>
+
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
 #define PROGRAM_NAME "lalapps_binj"
-
 double q_min=2.0;
 static void get_FakePsdFromString(REAL8FrequencySeries* PsdFreqSeries,char* FakePsdName, REAL8 StartFreq);
 double single_IFO_SNR_threshold=0.0;
@@ -170,6 +172,9 @@ struct options {
 	ParDistr snr_distr;
 	double minsnr;
 	double maxsnr;
+	int write_mdc;
+	char ** ifonames;
+	int nIFO;
 };
 
 
@@ -214,10 +219,14 @@ static struct options options_defaults(void)
 	defaults.snr_distr=NUM_ELEMENTS+1;
 	defaults.minsnr=XLAL_REAL8_FAIL_NAN;
 	defaults.maxsnr=XLAL_REAL8_FAIL_NAN;
+	defaults.write_mdc=0;
+	defaults.ifonames=NULL;
+	defaults.nIFO=0;
 	return defaults;
 }
 
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds, REAL8 *start_freqs, struct options *options, gsl_rng *rng);
+static void write_mdc(SimBurst **injs, TimeSlide *time_slide_table_head,struct options *options);
 
 
 static void print_usage(void)
@@ -412,12 +421,15 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		{"ligo-fake-psd",  required_argument, 0, 1722},
 		{"virgo-fake-psd",  required_argument, 0, 1723},
 		{"virgo-start-freq", required_argument, 0, 1724},
+		{"ligo-psd",  required_argument, 0, 1725},
+		{"virgo-psd",  required_argument, 0, 1726},
 		{"ra-dec", required_argument, NULL, 'U'},
 		{"seed", required_argument, NULL, 'P'},
 		{"time-step", required_argument, NULL, 'Q'},
 		{"time-slide-file", required_argument, NULL, 'W'},
 		{"jitter", required_argument, NULL, 'X'},
 		{"user-tag", required_argument, NULL, 'R'},
+		{"write-mdc",no_argument,NULL, 1727},
 		{NULL, 0, NULL, 0}
 	};
 	int optarg_len=0;
@@ -668,6 +680,10 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		optarg_len       = strlen( optarg ) + 1;
         virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
+        break;
+	case 1727:
+	printf("Trying to write MDC!\n");
+		options.write_mdc=1;
         break;
 	case 0:
 		/* option sets a flag */
@@ -1351,7 +1367,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 
 	if(!sim_burst)
 		return NULL;
-    XLALINT8NSToGPS(&(sim_burst)->time_geocent_gps, tinj);
+	XLALINT8NSToGPS(&(sim_burst)->time_geocent_gps, tinj);
     
     if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN)
 		strcpy(sim_burst->waveform, "SineGaussian");
@@ -1440,72 +1456,75 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		sim_burst->hrss=10.0e-23;
 		/* adjust SNR to desired distribution using LALSimulation WF Generator */
 		{
-    
-        char *ifo;
-        REAL8 *start_freqs;
-        REAL8FrequencySeries **psds;
-        int i=1;
-    
-        /*reset counter */
-        ifo=ifonames[0];
-        i=0;
-       // printf("numifos %d\n",numifos);
-        /* Create variables for PSDs and starting frequencies */
-        start_freqs = (REAL8 *) LALCalloc(numifos+1, sizeof(REAL8));
-        psds        = (REAL8FrequencySeries **) LALCalloc(numifos+1, sizeof(REAL8FrequencySeries *));
-        REAL8    srate=8192.0;
-        /* Salvo: Use 60secs. May want to increase*/
-        REAL8 segment=60.0;
-        size_t seglen=(size_t) segment*srate;
-        LIGOTimeGPS time;
-        memcpy(&time,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
-        
-        /* Fill psds and start_freqs */
-        /* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
-        while(ifo !=NULL){
-            if(!strcmp("V1",ifo)){
-                start_freqs[i]=virgoStartFreq;
-                if (!virgoPsd){
-					
-                    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&time , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
-                    get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
-                }
-                if (!virgoPsd) fprintf(stderr,"Failed to produce Virgo PSD series. Exiting...\n");
-                psds[i]=virgoPsd;
-            }
-            else if (!strcmp("L1",ifo) || !strcmp("H1",ifo)){
-                start_freqs[i]=ligoStartFreq;
-                if(!ligoPsd){
-                    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &time, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
-                    get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
-                }   
-                if (!ligoPsd) fprintf(stderr,"Failed to produce LIGO PSD series. Exiting...\n");   
-                psds[i]=ligoPsd;
-            }
-            else{
-                fprintf(stderr,"Unknown IFO. Allowed IFOs are H1,L1 and V1. Exiting...\n");
-                exit(-1);
-                }
-            i++;
-            ifo=ifonames[i];
-            }
-        
-        /* If 1 detector is used, turn the single IFO snr check off. */ 
-        if (numifos<2){
-                fprintf(stdout,"Warning: You are using less than 2 IFOs. Disabling the single IFO SNR threshold check...\n");
-                single_IFO_SNR_threshold=0.0;
-        }
-        
-        /* This function takes care of drawing a proposed SNR and set the distance accordingly  */
-         scale_sinegaussian_hrss(sim_burst,ifonames, psds, start_freqs, options, rng);
-        
-        /* Clean  */
-        if (psds) LALFree(psds);
-        if (start_freqs) LALFree(start_freqs);
-        /* Done */
-	}  
+	    
+		char *ifo;
+		REAL8 *start_freqs;
+		REAL8FrequencySeries **psds;
+		int i=1;
+	    
+		/*reset counter */
+		ifo=ifonames[0];
+		i=0;
+	       // printf("numifos %d\n",numifos);
+		/* Create variables for PSDs and starting frequencies */
+		start_freqs = (REAL8 *) LALCalloc(numifos+1, sizeof(REAL8));
+		psds        = (REAL8FrequencySeries **) LALCalloc(numifos+1, sizeof(REAL8FrequencySeries *));
+		REAL8    srate=8192.0;
+		/* Salvo: Use 60secs. May want to increase*/
+		REAL8 segment=60.0;
+		size_t seglen=(size_t) segment*srate;
+		LIGOTimeGPS time;
+		memcpy(&time,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
 		
-	}
+		/* Fill psds and start_freqs */
+		/* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
+		while(ifo !=NULL){
+		    if(!strcmp("V1",ifo)){
+			start_freqs[i]=virgoStartFreq;
+			if (!virgoPsd){
+						
+			    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&time , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+			    get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
+			}
+			if (!virgoPsd) fprintf(stderr,"Failed to produce Virgo PSD series. Exiting...\n");
+			psds[i]=virgoPsd;
+		    }
+		    else if (!strcmp("L1",ifo) || !strcmp("H1",ifo)){
+			start_freqs[i]=ligoStartFreq;
+			if(!ligoPsd){
+			    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &time, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+			    get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
+			}   
+			if (!ligoPsd) fprintf(stderr,"Failed to produce LIGO PSD series. Exiting...\n");   
+			psds[i]=ligoPsd;
+		    }
+		    else{
+			fprintf(stderr,"Unknown IFO. Allowed IFOs are H1,L1 and V1. Exiting...\n");
+			exit(-1);
+			}
+		    i++;
+		    ifo=ifonames[i];
+		    }
+	
+		options->ifonames=ifonames;
+		options->nIFO=i+1;
+		
+		/* If 1 detector is used, turn the single IFO snr check off. */ 
+		if (numifos<2){
+			fprintf(stdout,"Warning: You are using less than 2 IFOs. Disabling the single IFO SNR threshold check...\n");
+			single_IFO_SNR_threshold=0.0;
+		}
+		
+		/* This function takes care of drawing a proposed SNR and set the distance accordingly  */
+		 scale_sinegaussian_hrss(sim_burst,ifonames, psds, start_freqs, options, rng);
+		
+		/* Clean  */
+		if (psds) LALFree(psds);
+		if (start_freqs) LALFree(start_freqs);
+		/* Done */
+		}  
+			
+		}
 
 	/* done */
 
@@ -1730,7 +1749,9 @@ int main(int argc, char *argv[])
 	XLALGPSTimeNow(&process->end_time);
 	search_summary->nevents = XLALSimBurstAssignIDs(sim_burst_table_head, process->process_id, time_slide_table_head->time_slide_id, 0);
 	write_xml(options.output, process_table_head, process_params_table_head, search_summary_table_head, time_slide_table_head, sim_burst_table_head);
-
+	if (options.write_mdc)
+		write_mdc(&sim_burst_table_head, time_slide_table_head, &options);
+		
 	/* done */
 
 	gsl_rng_free(rng);
@@ -1764,6 +1785,76 @@ static void get_FakePsdFromString(REAL8FrequencySeries* PsdFreqSeries,char* Fake
             }
 }
 
+static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options){
+	
+	SimBurst *inj=&(*injs[0]);
+	TimeSlide * ts=NULL;
+	INT4 gps_start;
+	CHAR fname[256];
+	INT4 gps_end=0;
+	INT4 duration=0;
+	INT4 detectorFlags;
+	FrameH *frame=NULL;
+	REAL8 trigtime=0.0;
+	REAL8 srate=16384.;
+	REAL8 deltaT=1./srate;
+	REAL8 seglen;
+	LIGOTimeGPS epoch;
+	int i=0;
+	int nIFO=options->nIFO;
+	CHAR frameType[256]="SineGaussian";
+	//lalDebugLevel=LALMSGLVL3;
+	//sprintf(frameType,"%s","SineGaussian");
+	
+	/* Just set min and max trigtime to 0th event to start with */
+	gps_start= (INT4) (inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds - 10.);
+	/* Set epoch */
+	XLALGPSSet(&epoch,inj->time_geocent_gps.gpsSeconds-4.,inj->time_geocent_gps.gpsNanoSeconds);
+	
+	/* Now look for max */
+	while(inj){
+		
+		trigtime=inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds;
+		inj=inj->next;
+	}
+	
+	gps_end= (INT4) trigtime +4.;
+	duration=gps_end-gps_start;
+	
+	snprintf( fname, FILENAME_MAX, "GHLTV-%s-%d-%d.gwf", frameType, gps_start, duration );
+		 /* set detector flags */
+	detectorFlags = LAL_GEO_600_DETECTOR_BIT | LAL_LHO_4K_DETECTOR_BIT |
+			LAL_LHO_2K_DETECTOR_BIT | LAL_LLO_4K_DETECTOR_BIT |
+			LAL_TAMA_300_DETECTOR_BIT | LAL_VIRGO_DETECTOR_BIT;
+		
+	seglen = duration*srate;
+	frame = XLALFrameNew( &epoch, duration, "LIGO", 0, 1,detectorFlags );
+	
+	for (i=0;i<nIFO-1;i++){
+		char IFOname[256];
+		sprintf(IFOname,"%s",options->ifonames[i]);
+		REAL8TimeSeries *soft=NULL;
+		soft = XLALCreateREAL8TimeSeries(IFOname,&epoch,0.0,deltaT,&lalStrainUnit,	seglen);
+		memset(soft->data->data,0.0,soft->data->length*sizeof(REAL8));
+		inj=&(*injs[0]);
+		ts=time_slide_table_head;
+		XLALBurstInjectSignals(soft,inj,ts , NULL);
+		char foutname[50]="";
+                sprintf(foutname,"MDC_create_time_%s",IFOname);
+		FILE * fout = fopen(foutname,"w");
+                UINT4 j=0;
+		for (j=0;j<soft->data->length;j++)
+		fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
+		fclose(fout);
+		XLALFrameAddREAL8TimeSeriesSimData( frame, soft );
+		XLALDestroyREAL8TimeSeries(soft);
+	}
+	XLALFrameWrite( frame, fname, 8 );
+	FrameFree(frame);
+	
+	return;
+}
+
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs, struct options *options, gsl_rng *rng )
 {
     
@@ -1788,8 +1879,7 @@ static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8Frequ
         num_ifos++;
         ifo=IFOnames[num_ifos];
     }
-    
-    
+            
     SNRs=calloc(num_ifos+1 ,sizeof(REAL8));
     /* Calculate the single IFO and network SNR for the dummy distance of 100Mpc */
     for (j=0;j<num_ifos;j++){
