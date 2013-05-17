@@ -508,8 +508,6 @@ LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
 	REAL8 qualitymax=100;
 	REAL8 phi0min=0.0;    /* initial phase */
 	REAL8 phi0max=LAL_TWOPI;
-	REAL8 sphPhimin=0.0;    /* spherical harmonic azimuthal angle */
-	REAL8 sphPhimax=LAL_TWOPI;
 	REAL8 dt=0.1;            /* Width of time prior */
 	REAL8 tmpMin,tmpMax,tmpVal;
 
@@ -637,30 +635,6 @@ Parameter arguments:\n\
 				LALINFERENCE_REAL8_t);
     }
 
-	/* Over-ride sphPhi min if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--sphPhimin");
-	if(ppt){
-		sphPhimin=LAL_PI_180*atof(ppt->value);
-	}
-	
-	/* Over-ride phi0 max if specified */
-	ppt=LALInferenceGetProcParamVal(commandLine,"--sphPhimax");
-	if(ppt){
-		sphPhimax=LAL_PI_180*atof(ppt->value);
-	}
-
-	/* Pin sphPhi */
-    ppt=LALInferenceGetProcParamVal(commandLine,"--pin-sphPhi");
-	if(ppt){
-
-        tmpVal=LAL_PI_180*atof(ppt->value);
-
-		LALInferenceAddVariable(currentParams, "azimuth",  &tmpVal,
-				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-		tmpMin=0.0; tmpMax=LAL_TWOPI;
-		LALInferenceAddMinMaxPrior(priorArgs, "azimuth", &tmpMin, &tmpMax,
-				LALINFERENCE_REAL8_t);
-    }
 
     /* Pin right ascension */
     ppt=LALInferenceGetProcParamVal(commandLine,"--pin-RA");
@@ -758,13 +732,6 @@ Parameter arguments:\n\
         LALInferenceAddVariable(currentParams, "phase", &tmpVal,
                 LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
     LALInferenceAddMinMaxPrior(priorArgs, "phase", &phi0min, &phi0max,
-            LALINFERENCE_REAL8_t);
-
-	tmpVal=1.0;
-    if(!LALInferenceCheckVariable(currentParams,"azimuth")) 
-        LALInferenceAddVariable(currentParams, "azimuth", &tmpVal,
-                LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-    LALInferenceAddMinMaxPrior(priorArgs, "azimuth", &sphPhimin, &sphPhimax,
             LALINFERENCE_REAL8_t);
 
 
