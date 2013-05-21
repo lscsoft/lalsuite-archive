@@ -2716,8 +2716,8 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
 
         /* Generate Waveform */
 
-        /* XXX: beware XLALSimBurstSineGaussianF() - hp=0, hc!=0. Later in THIS
-         * function, we set hc=-1j*hp so swap hp and hc in the following: XXX */
+        /* XXX: beware XLALSimBurstSineGaussianF() - hp=0, hc!=0 so swap hp and
+         * hc in the following: XXX */
         XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hctilde, &hptilde, quality,
                     frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
         if(ret || errnum) fprintf(stderr,"ERROR generating SineGaussianF template\n");
@@ -2745,9 +2745,7 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
         for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
             dataPtr = hptilde->data->data;
             if(i < hptilde->data->length){
-                //IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
-                // XXX Multiply by -1j to get hp from hc (see SimBurst.c) 
-                IFOdata->freqModelhPlus->data->data[i] = -1.0j*dataPtr[i];
+                IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
             }
             else{
                 IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
