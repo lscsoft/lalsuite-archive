@@ -201,7 +201,7 @@ for n, filename in enumerate(filenames):
 	# identical for H1, H2, L1, and V1.
 	#
 
-	triangulators = stringutils.triangulators(dict((instrument, 8e-5) for instrument in contents.instruments))
+	triangulators = stringutils.triangulators(dict.fromkeys(contents.instruments, 8e-5))
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
