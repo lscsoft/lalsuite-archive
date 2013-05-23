@@ -36,6 +36,7 @@ import numpy
 import copy
 import StringIO
 import lal
+import warnings
 
 from dateutil.relativedelta import relativedelta
 from matplotlib import use
@@ -498,9 +499,8 @@ class SummaryTab(object):
         if cp.has_option(cpsec, "html-information"):
             self.information = cp.get(cpsec, "html-information")
         else:
-            sys.stderr.write("Warning. No HTML information found for %s. "\
-                             "Please add this.\n" % self.name)
-            sys.stderr.flush()
+            warnings.warn("No HTML information found for %s. "
+                          "Please add this." % self.name)
 
 
 class SectionSummaryTab(SummaryTab):
