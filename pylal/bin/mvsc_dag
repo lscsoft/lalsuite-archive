@@ -338,6 +338,11 @@ finished_rank_nodes=[]
 for key in rank_node:
   finished_rank_nodes.extend(rank_node[key].values())
   finished_rank_nodes.extend(zl_rank_node[key].values())
+
+update_options=[]
+if cp.has_section("mvsc_update_sql"):
+  update_options = cp.items("mvsc_update_sql")
+
 update_node['all'] = mvsc_update_sql_node(update_job, dag, cp.items("mvsc_update_sql"), databases+update_files, p_node=finished_rank_nodes)
 print update_files
 dag.write_sub_files()
