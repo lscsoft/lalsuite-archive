@@ -2709,10 +2709,7 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
     if(previous_frequency != frequency || previous_quality != quality || previous_hrss != hrss){
 
         /* Generate Waveform */
-
-        /* XXX: beware XLALSimBurstSineGaussianF() - hp=0, hc!=0 so swap hp and
-         * hc in the following: XXX */
-        XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hctilde, &hptilde, quality,
+        XLAL_TRY(ret=XLALSimBurstSineGaussianF(&hptilde, &hctilde, quality,
                     frequency, hrss, 0.0, 0.0, deltaF, deltaT), errnum);
         if(ret || errnum) fprintf(stderr,"ERROR generating SineGaussianF template\n");
 
@@ -2728,7 +2725,8 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
         }
 
         /* point to data structure in waveform */
-        COMPLEX16 *dataPtr = hptilde->data->data;
+        COMPLEX16 *dataPtrp = hptilde->data->data;
+        COMPLEX16 *dataPtrc = hctilde->data->data;
 
         if (IFOdata->freqData==NULL) {
             XLALPrintError(" ERROR in LALInferenceTemplateHMNS(): encountered unallocated 'freqData'.\n");
@@ -2737,23 +2735,16 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
 
         /* populate model in IFOdata with real/imag parts of hplus and hcross */
         for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-            dataPtr = hptilde->data->data;
+            dataPtrp = hptilde->data->data;
+            dataPtrc = hptilde->data->data;
             if(i < hptilde->data->length){
-                IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+                IFOdata->freqModelhPlus->data->data[i] = dataPtrp[i];
+                IFOdata->freqModelhCross->data->data[i] = dataPtrc[i];
             }
             else{
                 IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
+                IFOdata->freqModelhCross->data->data[i]= crect(0.0,0.0); 
             }
-        }
-
-        /*  cross waveform is "i x plus" :  */
-        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
-            
-            IFOdata->freqModelhCross->data->data[i]=crect(cimag(-IFOdata->freqModelhCross->data->data[i]),
-                    creal(IFOdata->freqModelhPlus->data->data[i]));
-            /* Scale by inclination dependence */
-            IFOdata->freqModelhPlus->data->data[i] *= plusCoef;
-            IFOdata->freqModelhCross->data->data[i]*= crossCoef;
         }
     }
     else{
