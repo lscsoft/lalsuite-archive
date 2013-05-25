@@ -2556,7 +2556,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 /*   - "phase"          (initial phase ringdown signal) 					                */
 /********************************************************************************************/
 {
-    COMPLEX16FrequencySeries *hptilde=NULL;
+    COMPLEX16FrequencySeries *htilde=NULL;
     REAL8 deltaF = IFOdata->freqData->deltaF;
     REAL8 f_min, f_max;
     f_min = IFOdata->fLow;
@@ -2594,7 +2594,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
         /* Generate Waveform */
 
-        XLAL_TRY(ret=XLALSimRingdownFD(&hptilde, f_min, f_max, deltaF,
+        XLAL_TRY(ret=XLALSimRingdownFD(&htilde, f_min, f_max, deltaF,
                     frequency, quality, hrss), errnum);
 
         if(ret || errnum) fprintf(stderr,"ERROR generating ringdown template\n");
@@ -2603,13 +2603,13 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
         previous_frequency=frequency;
         previous_quality=quality;
 
-        if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
+        if (htilde==NULL || htilde->data==NULL || htilde->data->data==NULL ) {
             XLALPrintError(" ERROR in LALInferenceTemplateXLALSimRingdown(): encountered unallocated 'htilde'.\n");
             XLAL_ERROR_VOID(XLAL_EFAULT);
         }
 
         /* point to data structure in waveform */
-        COMPLEX16 *dataPtr = hptilde->data->data;
+        COMPLEX16 *dataPtr = htilde->data->data;
 
         if (IFOdata->freqData==NULL) {
             XLALPrintError(" ERROR in LALInferenceTemplateXLALSimRingdown(): encountered unallocated 'freqData'.\n");
@@ -2618,23 +2618,17 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
         /* populate model in IFOdata with real/imag parts of hplus and hcross */
         for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
-            dataPtr = hptilde->data->data;
-            if(i < hptilde->data->length){
-                IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+            dataPtr = htilde->data->data;
+            if(i < htilde->data->length){
+                IFOdata->freqModelhPlus->data->data[i] = creal(dataPtr[i]);
+                IFOdata->freqModelhCross->data->data[i] = -1.0*cimag(dataPtr[i]);
             }
             else{
                 IFOdata->freqModelhPlus->data->data[i]= crect(0.0,0.0); 
+                IFOdata->freqModelhCross->data->data[i]= crect(0.0,0.0); 
             }
         }
 
-        /*  cross waveform is "i x plus" :  */
-        for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
-            
-            IFOdata->freqModelhCross->data->data[i]=crect(cimag(-IFOdata->freqModelhCross->data->data[i]),creal(IFOdata->freqModelhPlus->data->data[i]));
-            /* Scale by inclination dependence */
-            IFOdata->freqModelhPlus->data->data[i] *= plusCoef;
-            IFOdata->freqModelhCross->data->data[i]*= crossCoef;
-        }
     }
     else{
         /* Do not recompute the waveform if only inclination has changed. The
@@ -2658,7 +2652,7 @@ void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata)
 
     LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
 
-    if ( hptilde ) XLALDestroyCOMPLEX16FrequencySeries(hptilde);
+    if ( htilde ) XLALDestroyCOMPLEX16FrequencySeries(htilde);
 
     /* **************************************************************************** */
 
