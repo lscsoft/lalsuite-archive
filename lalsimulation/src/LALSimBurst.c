@@ -736,14 +736,14 @@ int XLALSimBurstSineGaussianF(
 	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
 	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
 	/* rss of plus and cross polarizations */
-	//const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
+	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
 	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
 	/* rss of unit amplitude cosine- and sine-gaussian waveforms.  see
 	 * K. Riles, LIGO-T040055-00.pdf */
-	//const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 + exp(-Q * Q)));
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * LAL_SQRT_PI)) * (1.0 + exp(-Q * Q)));
 	const double sgrss = sqrt((Q / (4.0 * centre_frequency *LAL_SQRT_PI)) * (1.0 - exp(-Q * Q)));
 	/* "peak" amplitudes of plus and cross */
-	//const double h0plus  = hplusrss / cgrss;
+	const double h0plus  = hplusrss / cgrss;
 	const double h0cross = hcrossrss / sgrss;
 	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
 	int length;
@@ -794,8 +794,9 @@ int XLALSimBurstSineGaussianF(
 		phi2plus =(centre_frequency +f)*(centre_frequency +f)/tau2;
         phi2minus= (f-centre_frequency )*(f-centre_frequency )/tau2;
 		
-		hptilde->data->data[i]  =0.0;
+		//hptilde->data->data[i]  =0.0;
 		//ASSIGN HPTILDE TO THIS TO RESTORE h_+: h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
+        hptilde->data->data[i] = h0plus * sigma* LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus) +exp(-0.5*phi2plus));
 		hctilde->data->data[i] = -1.0j*h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus));
   //     if(i*deltaF>800. && i*deltaF<801.)
     //      printf("%lf %10.10e\n",i*deltaF,-h0cross *sigma*LAL_SQRT1_2*LAL_SQRT_PI*(exp(-0.5*phi2minus)-exp(-0.5*phi2plus)));
