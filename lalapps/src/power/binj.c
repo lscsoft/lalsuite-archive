@@ -1862,13 +1862,13 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 		inj=&(*injs[0]);
 		ts=time_slide_table_head;
 		XLALBurstInjectSignals(soft,inj,ts , NULL);
-		char foutname[50]="";
-                sprintf(foutname,"MDC_create_time_%s",IFOname);
-		FILE * fout = fopen(foutname,"w");
-                UINT4 j=0;
-		for (j=0;j<soft->data->length;j++)
-		fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
-		fclose(fout);
+		//char foutname[50]="";
+                //sprintf(foutname,"MDC_create_time_%s",IFOname);
+		//FILE * fout = fopen(foutname,"w");
+                //UINT4 j=0;
+		//for (j=0;j<soft->data->length;j++)
+		//fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
+		//fclose(fout);
 		XLALFrameAddREAL8TimeSeriesSimData( frame, soft );
 		XLALDestroyREAL8TimeSeries(soft);
 	}
