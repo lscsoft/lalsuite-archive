@@ -1246,7 +1246,7 @@ if __name__=='__main__':
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
-    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde']
+    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
 
@@ -1299,6 +1299,7 @@ if __name__=='__main__':
                      twoDGreedyMenu.append([mp, tp])
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
+        twoDGreedyMenu.append(['lambdat','dlambdat'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])

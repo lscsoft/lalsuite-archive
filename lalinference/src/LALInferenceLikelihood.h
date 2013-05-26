@@ -289,6 +289,13 @@ REAL8 LALInferenceMarginalisedPhaseLogLikelihood(LALInferenceVariables *currentP
 REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood_RD(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood_RD(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
 REAL8 LALInferenceMarginalisedPhaseLogLikelihood_HMNS(LALInferenceVariables *currentParams, LALInferenceIFOData * data,LALInferenceTemplateFunction templt);
+
+
+/** Initialisation function which reads runState->commaneLine and sets up the
+ * likelihood function accordingly. Can choose between Gaussian, Student-t, marginalised
+ * phase likelihoods */
+void LALInferenceInitLikelihood(LALInferenceRunState *runState);
+
 /*@}*/
 
 #endif

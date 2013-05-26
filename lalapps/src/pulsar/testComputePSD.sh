@@ -14,15 +14,15 @@ injectdir="./Injections/"
 
 ## check for LALPulsar data directory
 if [ -z "${LALPULSAR_DATADIR}" ]; then
-    echo "Need environment-variable LALPULSAR_DATADIR to be set to" 
-    echo "your ephemeris-directory (e.g. /usr/local/share/lalpulsar)" 
-    echo "This might indicate an incomplete LAL+LALPULSAR installation" 
+    echo "Need environment-variable LALPULSAR_DATADIR to be set to"
+    echo "your ephemeris-directory (e.g. /usr/local/share/lalpulsar)"
+    echo "This might indicate an incomplete LAL+LALPULSAR installation"
     exit 1
 fi
 
 ##---------- names of codes and input/output files
 psd_code="${builddir}lalapps_ComputePSD"
-mfd_code="${injectdir}lalapps_Makefakedata_v4 -E ${LALPULSAR_DATADIR}" 
+mfd_code="${injectdir}lalapps_Makefakedata_v4 -E ${LALPULSAR_DATADIR}"
 SFTdir="$srcdir"
 
 tolerance=1e-5
@@ -38,6 +38,7 @@ fBand=0.099997	  ## 0.1 - 3eps
 
 blocksRngMed=101
 outPSD=psd1.dat
+outPSDstripped=psd1-stripped.dat
 refPSD=${srcdir}/psd_ref.dat
 
 inputData="${SFTdir}/SFT.0*"
@@ -58,8 +59,9 @@ if [ ! -r "$outPSD" -o ! -r "$refPSD" ]; then
     echo "ERROR: missing psd output file '$outPSD' or '$refPSD'"
     exit 1
 fi
+cat ${outPSD} | sed -e"/^%%.*/d" > ${outPSDstripped}
 
-cmp=`paste $outPSD $refPSD | LC_ALL=C awk 'BEGIN {n=0; maxErr = 0; avgErr = 0; binsOff = 0} {n+=1; dFreq = $3 - $1; if ( dFreq != 0 ) binsOff ++; relErr = 2*($4 - $2)/($4 + $2); if (relErr > maxErr) maxErr = relErr; avgErr += relErr } END { avgErr /= n; printf "binsOff=%d; avgErr=%g; maxErr=%g", binsOff, avgErr, maxErr}'`
+cmp=`paste ${outPSDstripped} $refPSD | LC_ALL=C awk 'BEGIN {n=0; maxErr = 0; avgErr = 0; binsOff = 0} {n+=1; dFreq = $3 - $1; if ( dFreq != 0 ) binsOff ++; relErr = 2*($4 - $2)/($4 + $2); if (relErr > maxErr) maxErr = relErr; avgErr += relErr } END { avgErr /= n; printf "binsOff=%d; avgErr=%g; maxErr=%g", binsOff, avgErr, maxErr}'`
 
 eval $cmp
 
@@ -89,7 +91,7 @@ outSFT="./testpsd_sft_H1"
 linefreq="50.05"
 
 ## ----- run MFDv4
-cmdline="${mfd_code} -v1 --IFO=$IFO --outSingleSFT=1 --outSFTbname=$outSFT --startTime=828002611 --duration=1800 --fmin=50 --Band=0.1 --noiseSqrtSh=3.25e-22 --lineFeature=1 --h0=5e-23 --cosi=0 --Freq=$linefreq --randSeed=1 "
+cmdline="${mfd_code} --IFO=$IFO --outSingleSFT=1 --outSFTbname=$outSFT --startTime=828002611 --duration=1800 --fmin=50 --Band=0.1 --noiseSqrtSh=3.25e-22 --lineFeature=1 --h0=5e-23 --cosi=0 --Freq=$linefreq --randSeed=1 "
 
 echo $cmdline;
 if ! eval $cmdline; then
@@ -132,7 +134,7 @@ topline_power_band=$(sort -nr -k3,3 $outPSD_band | head -1)
 toppower_band=$(echo $topline_power_band | awk '{print $3}')
 toppowerfreq_band=$(echo $topline_power_band | awk '{print $1}')
 
-echo "Loudest bins:"      
+echo "Loudest bins:"
 echo "==>  full SFT: PSD=$toppsd_full at $toppsdfreq_full Hz, normPower=$toppower_full at $toppowerfreq_full Hz"
 echo "==>  freqband: PSD=$toppsd_band at $toppsdfreq_band Hz, normPower=$toppower_band at $toppowerfreq_band Hz"
 
@@ -169,7 +171,7 @@ fi
 
 ## clean up files
 if [ -z "$NOCLEANUP" ]; then
-    rm $outPSD
+    rm $outPSD $outPSDstripped
     rm $outSFT
     rm $outPSD_band
     rm $outPSD_full

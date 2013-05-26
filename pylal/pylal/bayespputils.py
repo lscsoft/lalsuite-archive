@@ -2827,8 +2827,8 @@ def symm_tidal_params(lambda1,lambda2,eta):
     """
     Calculate best tidal parameters
     """
-    lam_tilde = (1./52.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
-    dlam_tilde = (1.-4.*eta)*(1.-32132.*eta/2195.+43784.*eta*eta/2195.)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.-36522.*eta/2195.+103658.*eta*eta/2195.-32084.*eta*eta*eta/2195.)*(lambda1-lambda2)
+    lam_tilde = (8./13.)*((1.+7.*eta-31.*eta*eta)*(lambda1+lambda2) + np.sqrt(1.-4.*eta)*(1.+9.*eta-11.*eta*eta)*(lambda1-lambda2))
+    dlam_tilde = (1./2.)*(np.sqrt(1.-4.*eta)*(1.-13272.*eta/1319.+8944.*eta*eta/1319.)*(lambda1+lambda2) + (1.-15910.*eta/1319.+32850.*eta*eta/1319.+3380.*eta*eta*eta/1319.)*(lambda1-lambda2))
     return lam_tilde, dlam_tilde
 
 def spin_angles(fref,mc,eta,incl,a1,theta1,phi1,a2=None,theta2=None,phi2=None):
@@ -2993,8 +2993,12 @@ def plot_one_param_pdf(posterior,plot1DParams,analyticPDF=None,analyticCDF=None,
         x = np.linspace(xmin,xmax,2*len(bins))
         plt.plot(x, analyticPDF(x+offset), color='r', linewidth=2, linestyle='dashed')
         if analyticCDF:
-            D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
-            plt.title("%s: ks p-value %.3f"%(param,p))
+            try:
+                D,p = stats.kstest(pos_samps.flatten()+offset, analyticCDF)
+                plt.title("%s: ks p-value %.3f"%(param,p))
+            except FloatingPointError:
+                print 'Underflow when calculating KS for %s, setting to 0'%(param)
+                p=0.0
 
     rbins=None
 

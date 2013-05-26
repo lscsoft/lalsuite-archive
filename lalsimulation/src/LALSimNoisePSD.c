@@ -1270,7 +1270,6 @@ int test_aligo_psd(void)
 
 int main(void)
 {
-	lalDebugLevel = 7;
 	XLALSetErrorHandler(XLALAbortErrorHandler);
 	test_iligo_psd();
 	test_aligo_psd();

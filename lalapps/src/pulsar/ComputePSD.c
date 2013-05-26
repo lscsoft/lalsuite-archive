@@ -132,6 +132,8 @@ typedef struct
   REAL8 fStart;		/**< Start Frequency to load from SFT and compute PSD, including wings (it is RECOMMENDED to use --Freq instead) */
   REAL8 fBand;		/**< Frequency Band to load from SFT and compute PSD, including wings (it is RECOMMENDED to use --FreqBand instead) */
 
+  BOOLEAN version;	/**< Output version information */
+
 } UserVariables_t;
 
 /** Config variables 'derived' from user-input
@@ -150,7 +152,6 @@ ConfigVariables_t empty_ConfigVariables;
 /* ---------- global variables ----------*/
 
 extern int vrbflg;
-extern INT4 lalDebugLevel;
 
 
 /* ---------- local prototypes ---------- */
@@ -183,14 +184,10 @@ main(int argc, char *argv[])
   REAL8Vector *finalPSD = NULL; /* math. operation PSD over SFTs and IFOs */
   REAL8Vector *finalNormSFT = NULL; /* normalised SFT power */
 
-  /* LALDebugLevel must be called before anything else */
-  lalDebugLevel = 0;
   vrbflg = 1;	/* verbose error-messages */
 
   /* set LAL error-handler */
   lal_errhandler = LAL_ERR_EXIT;
-  if (XLALGetDebugLevel(argc, argv, 'v') != XLAL_SUCCESS)
-    return EXIT_FAILURE;
 
   /* set log-level */
   LogSetLevel ( lalDebugLevel );
@@ -198,6 +195,19 @@ main(int argc, char *argv[])
   /* register and read user variables */
   if (initUserVars(argc, argv, &uvar) != XLAL_SUCCESS)
     return EXIT_FAILURE;
+
+  /* assemble version string */
+  CHAR *VCSInfoString;
+  if ( (VCSInfoString = XLALGetVersionString(0)) == NULL ) {
+    XLALPrintError("XLALGetVersionString(0) failed with xlalErrno = %d\n", xlalErrno );
+    return EXIT_FAILURE;
+  }
+
+  if ( uvar.version )
+    {
+      printf ("%s\n", VCSInfoString );
+      return (0);
+    }
 
   /* exit if help was required */
   if (uvar.help)
@@ -409,6 +419,23 @@ main(int argc, char *argv[])
       return EXIT_FAILURE;
     }
 
+    /* write header info in comments */
+    if ( XLAL_SUCCESS != XLALOutputVersionString ( fpOut, 0 ) )
+      XLAL_ERROR ( XLAL_EFUNC );
+
+    /* write the command-line */
+    for (int a = 0; a < argc; a++)
+      fprintf(fpOut,"%%%% argv[%d]: '%s'\n", a, argv[a]);
+
+    /* write column headings */
+    fprintf(fpOut,"%%%% columns:\n%%%% FreqBinStart");
+    if (uvar.outFreqBinEnd)
+      fprintf(fpOut," FreqBinEnd");
+    fprintf(fpOut," PSD");
+    if (uvar.outputNormSFT)
+      fprintf(fpOut," normSFTpower");
+    fprintf(fpOut,"\n");
+
     LogPrintf(LOG_DEBUG, "Printing PSD to file ... ");
     for (k = 0; k < finalNumBins; ++k) {
       UINT4 b = k * finalBinStep;
@@ -451,6 +478,7 @@ main(int argc, char *argv[])
   XLALDestroyREAL8Vector ( overIFOs );
   XLALDestroyREAL8Vector ( finalPSD );
   XLALDestroyREAL8Vector ( finalNormSFT );
+  XLALFree ( VCSInfoString );
 
   LALCheckMemoryLeaks();
 
@@ -583,6 +611,8 @@ initUserVars (int argc, char *argv[], UserVariables_t *uvar)
   uvar->binStep   = 0.0;
   uvar->binStep   = 1;
 
+  uvar->version = FALSE;
+
   /* register user input variables */
   XLALregBOOLUserStruct  (help,             'h', UVAR_HELP,     "Print this message" );
   XLALregSTRINGUserStruct(inputData,        'i', UVAR_REQUIRED, "Input SFT pattern");
@@ -635,6 +665,7 @@ initUserVars (int argc, char *argv[], UserVariables_t *uvar)
   XLALregREALUserStruct  (fStart,           'f', UVAR_DEVELOPER, "Start Frequency to load from SFT and compute PSD, including rngmed wings (BETTER: use --Freq instead)");
   XLALregREALUserStruct  (fBand,            'b', UVAR_DEVELOPER, "Frequency Band to load from SFT and compute PSD, including rngmed wings (BETTER: use --FreqBand instead)");
 
+  XLALregBOOLUserStruct  (version,          'V', UVAR_SPECIAL, "Output version information");
 
 
   /* read all command line variables */

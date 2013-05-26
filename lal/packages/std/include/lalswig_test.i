@@ -24,6 +24,7 @@ lalswig_test_struct lalswig_test_struct_vector[3];
 lalswig_test_struct lalswig_test_struct_matrix[2][3];
 lalswig_test_enum lalswig_test_enum_vector[3];
 lalswig_test_enum lalswig_test_enum_matrix[2][3];
+INT4 lalswig_test_empty_INT4_vector[0];
 INT4 lalswig_test_INT4_vector[3];
 INT4 lalswig_test_INT4_matrix[2][3];
 const INT4 lalswig_test_INT4_const_vector[3] = {1, 2, 4};
@@ -36,14 +37,14 @@ COMPLEX8 lalswig_test_COMPLEX8_matrix[2][3];
 // Test dynamic array of pointer access
 typedef struct taglalswig_test_arrayofdata {
 #ifdef SWIG
-  SWIGLAL(1D_ARRAY(INT4, data, UINT4, length));
+  SWIGLAL(ARRAY_1D(lalswig_test_arrayofdata, INT4, data, UINT4, length));
 #endif // SWIG
   UINT4 length;
   INT4 *data;
 } lalswig_test_arrayofdata;
 typedef struct taglalswig_test_arrayofptrs {
 #ifdef SWIG
-  SWIGLAL(1D_ARRAY(lalswig_test_arrayofdata*, data, UINT4, length));
+  SWIGLAL(ARRAY_1D(lalswig_test_arrayofptrs, lalswig_test_arrayofdata*, data, UINT4, length));
 #endif // SWIG
   UINT4 length;
   lalswig_test_arrayofdata **data;
@@ -93,3 +94,11 @@ void lalswig_test_Destroy_arrayofptrs(lalswig_test_arrayofptrs*);
 typedef struct taglalswig_test_gps {
   LIGOTimeGPS t;
 } lalswig_test_gps;
+REAL8 lalswig_test_noptrgps(const LIGOTimeGPS gps);
+#ifdef SWIG
+%header %{
+  REAL8 lalswig_test_noptrgps(const LIGOTimeGPS gps) {
+    return XLALGPSGetREAL8(&gps);
+  }
+%}
+#endif // SWIG

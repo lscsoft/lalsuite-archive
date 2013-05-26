@@ -27,9 +27,11 @@ lalpulsarinclude_HEADERS = \
 	GenerateSpinOrbitCW.h \
 	GenerateTaylorCW.h \
 	HoughMap.h \
+	LALBarycenter.h \
 	LALComputeAM.h \
 	LALDemod.h \
 	LALHough.h \
+	LALInitBarycenter.h \
 	LALPulsarConfig.h \
 	LALPulsarLibVCSInfo.h \
 	LALPulsarVCSInfo.h \
@@ -47,7 +49,6 @@ lalpulsarinclude_HEADERS = \
 	PulsarDataTypes.h \
 	PulsarSimulateCoherentGW.h \
 	PulsarTimes.h \
-	Resample.h \
 	SFTClean.h \
 	SFTfileIO.h \
 	SFTutils.h \
@@ -64,7 +65,6 @@ lalpulsarinclude_HEADERS = \
 
 lib_LTLIBRARIES = liblalpulsar.la
 liblalpulsar_la_SOURCES = \
-	ApplyResampleRules.c \
 	BinaryPulsarTiming.c \
 	CoherentMetric.c \
 	ComplexAM.c \
@@ -72,9 +72,7 @@ liblalpulsar_la_SOURCES = \
 	ComputeSky.c \
 	ComputeSkyBinary.c \
 	ConstructPLUT.c \
-	CreateResampleRules.c \
 	DTEphemeris.c \
-	DestroyResampleRules.c \
 	DetectorStates.c \
 	DopplerFullScan.c \
 	DopplerLatticeCovering.c \
@@ -94,9 +92,11 @@ liblalpulsar_la_SOURCES = \
 	GenerateTaylorCW.c \
 	GetEarthTimes.c \
 	HoughMap.c \
+	LALBarycenter.c \
 	LALComputeAM.c \
 	LALDemod.c \
 	LALDemodFAST.c \
+	LALInitBarycenter.c \
 	LALPulsarVCSInfo.c \
 	LALXMGRInterface.c \
 	LISAspecifics.c \
@@ -106,7 +106,6 @@ liblalpulsar_la_SOURCES = \
 	ParamPLUT.c \
 	PatchGrid.c \
 	Peak2PHMD.c \
-	PolycoToTimingDifference.c \
 	ProbabilityDensity.c \
 	ProjectMetric.c \
 	PtoleMetric.c \
@@ -116,7 +115,6 @@ liblalpulsar_la_SOURCES = \
 	PulsarCrossCorr_v2.c \
 	PulsarDataTypes.c \
 	PulsarSimulateCoherentGW.c \
-	RulesToTimingDifference.c \
 	SFTClean.c \
 	SFTfileIO.c \
 	SFTutils.c \
@@ -163,13 +161,14 @@ lalpulsar-user-env.shell: Makefile $(srcdir)/generate_user_env.awk
 	@echo "prepend PKG_CONFIG_PATH $(libdir)/pkgconfig" >>$@
 	@echo "prepend PYTHONPATH $(pyexecdir)" >>$@
 	@echo "prepend LAL_DATA_PATH $(pkgdatadir)" >>$@
-	@printf "$(SWIG_USER_ENV)" >>$@
+	@echo "prepend OCTAVE_PATH $(octexecdir)" >>$@
 
 lalpulsar-user-env.csh lalpulsar-user-env.sh: lalpulsar-user-env.shell $(srcdir)/generate_user_env.awk
 	$(AM_V_GEN)$(AWK) -f $(srcdir)/generate_user_env.awk -v SED=$(SED) -v package=$(PACKAGE_NAME) -v output=$@ $< || { rm -f $@; exit 1; }
 
 EXTRA_DIST = \
 	LALPulsarConfig.h.in \
+	config.h.in \
 	generate_user_env.awk
 
 if HAVE_GIT_REPO
@@ -179,6 +178,8 @@ LALPulsarVCSInfo.h .PHONY : gen-LALPulsarVCSInfo.h
 gen-LALPulsarVCSInfo.h :
 	$(AM_V_at)$(GENERATE_VCS_INFO) LALPulsarVCSInfo.h $(srcdir)/LALPulsarVCSInfo.h.git
 endif
+
+DISTCLEANFILES = config.h
 
 @LAL_HEADER_LINK@
 

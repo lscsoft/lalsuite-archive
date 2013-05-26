@@ -1,6 +1,6 @@
 AC_PREREQ([2.63])
 AC_INIT([lalinference],[1.1.0.1],[lal-discuss@gravity.phys.uwm.edu])
-AC_CONFIG_HEADERS([include/config.h src/LALInferenceConfig.h])
+AC_CONFIG_HEADERS([src/config.h src/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -144,8 +144,8 @@ AS_IF([test "x$OPENMP_CFLAGS" != "x"],
         AC_MSG_RESULT([no, disabling OpenMP])
         OPENMP_CFLAGS=
       ]
-      CFLAGS=$save_CFLAGS
     )
+    CFLAGS=$save_CFLAGS
   ]
 )
 
@@ -200,11 +200,16 @@ LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLALInference LALInference XLAL LAL])
-LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
 
+# Disable OpenMP by default.
+# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
+AS_IF(
+  [test "x$enable_openmp" = "x"],
+  [OPENMP_CFLAGS=]
+)
 # add compiler flags for OpenMP
 AS_IF(
   [test "x$OPENMP_CFLAGS" = "x"],
@@ -217,6 +222,11 @@ AS_IF(
     CFLAGS="$CFLAGS $OPENMP_CFLAGS"
   ]
 )
+
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk

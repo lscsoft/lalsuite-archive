@@ -43,7 +43,7 @@
 void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
 {
 
-  char help[]="(--template [SinGauss,SinGaussF,BestIFO,RingdownF,HMNS]\tSpecify template (default LAL)\n";
+  char help[]="(--template [SineGauss,SineGaussF,BestIFO,RingdownF,HMNS]\tSpecify template (default LAL)\n";
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *commandLine=runState->commandLine;
   /* Print command line arguments if help requested */
@@ -122,7 +122,7 @@ Parameter arguments:\n\
 	}
     
     int burst_inj=0;
-    state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
+    //state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
     state->proposal=&NSWrapMCMCSinGaussProposal;
     
     /* We may have used a CBC injection... test */
@@ -480,7 +480,7 @@ Parameter arguments:\n\
        
        
    fprintf(stdout,"WARNING: Using bestIFO template, only the extrinsic parameters are enabled!\n");
-            state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
+            //state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
 
 return currentParams;
 
@@ -498,7 +498,7 @@ LALInferenceVariables * LALInferenceInitHMNSVariables(LALInferenceRunState *stat
 
     /* Always use phase-marginalised likelihood */
     printf("Using Marginalised Phase Likelihood\n");
-    state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
+    //state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
 
     /* Use sine-Gaussian proposal (should be good for bursts...) */
     state->proposal=&NSWrapMCMCSinGaussProposal;
@@ -730,12 +730,13 @@ LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
 	ProcessParamsTable *ppt=NULL;
-    state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
-    /* If --margphi, marginalise over phase */
+    /*state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
+    // If --margphi, marginalise over phase //
 	if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
 	  printf("Using Marginalise Phase Likelihood\n");
 	  state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
 	}
+    * /
     state->proposal=&NSWrapMCMCSinGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;
@@ -1006,7 +1007,7 @@ LALInferenceVariables * LALInferenceInitPowerBurst(LALInferenceRunState *state)
         LALInferenceAddVariable(currentParams,"powerburst_fstar",&freqtmp,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
         LALInferenceAddMinMaxPrior(state->priorArgs,"powerburst_fstar",&freqmin,&freqmax,LALINFERENCE_REAL8_t);
 
-        state->likelihood=&LALInferenceExtraPowerLogLikelihood;
+       // state->likelihood=&LALInferenceExtraPowerLogLikelihood;
     }
 
     return currentParams;

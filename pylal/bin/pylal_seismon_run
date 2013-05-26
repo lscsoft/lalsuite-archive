@@ -132,6 +132,9 @@ params = frame_struct(params)
 params["gpsStart"] = params["frameGPS"][-1]
 params["gpsEnd"] = params["frameGPS"][-1] + params["frameDur"][-1]
 
+if params["gpsEnd"] - params["gpsStart"] < 256:
+    params["gpsStart"] = params["gpsEnd"] - 256
+
 # Output path for run
 params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"])
 if not os.path.isdir(params["path"]):

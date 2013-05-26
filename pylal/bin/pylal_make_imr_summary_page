@@ -70,24 +70,24 @@ page.subpages["injections"].sections["spinweight_efficiency"].add_table(imgtab,"
 
 
 
-page.add_subpage("volume", "volume", "Detection volume")
+page.add_subpage("distance", "distance", "Sensitive Distance")
 
 #FIXME sort out base names
 #imgtab = cbcwebpage.image_glob("*-H1H2L1_distance.png")
-imgtab = cbcwebpage.image_glob("*range.png")
+imgtab = cbcwebpage.image_glob("*range*.png")
 
-page.subpages["volume"].add_section("distance",'"Sensemon" distance above a FAR')
-page.subpages["volume"].sections["distance"].add_table(imgtab,"detection distance above a far", "detection distance above a far")
+page.subpages["distance"].add_section("distance",'"Sensemon" distance above a FAR')
+page.subpages["distance"].sections["distance"].add_table(imgtab,"detection distance above a far", "detection distance above a far")
 
 range_summs = glob.glob('*_range_summary.txt')
 for rs in range_summs:
 	tag = rs.replace('_',' ').replace('.txt','')
-	page.subpages["volume"].add_section(tag,rs)
+	page.subpages["distance"].add_section(tag,rs)
 	tab,name = cbcwebpage.wiki_table_parse(rs)
-	page.subpages["volume"].sections[tag].add_table(tab[0], "Range Summary", "Range summary")
+	page.subpages["distance"].sections[tag].add_table(tab[0], "Range Summary", "Range summary")
 
 
-page.add_subpage("Efficiency", "Efficiency curve", "Efficiency curve")
+page.add_subpage("Efficiency", "Efficiency Curve", "Efficiency Curve")
 imgtab = cbcwebpage.image_glob("*_sigmoid.png")
 page.subpages["Efficiency"].add_section("distance",'Efficiency curve for the injection set')
 page.subpages["Efficiency"].sections["distance"].add_table(imgtab,"Efficiency curve for the injection set", "Efficiency curve for the injection set")

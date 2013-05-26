@@ -52,8 +52,6 @@ void initStudentt(LALInferenceRunState *state);
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);                             
 void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);                              
  
-
-
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars)
 {
   NSFillMCMCVariables(vars,state->priorArgs);
@@ -121,8 +119,6 @@ Initialisation arguments:\n\
 	  LALInferenceAddVariable(irs->algorithmParams,"verbose", &verbose , LALINFERENCE_INT4_t,
 				  LALINFERENCE_PARAM_FIXED);		
 	}
-	if(verbose) lalDebugLevel=verbose;
-	else set_debug_level("NDEBUG");
 	
 	irs->data = LALInferenceReadData(commandLine);
 
@@ -174,30 +170,10 @@ Initialisation arguments:\n\
 				}
 			}
 			if(!foundIFOwithSameSampleRate){
-				ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",
-																	&(ifoPtr->timeData->epoch),
-																	0.0,
-																	ifoPtr->timeData->deltaT,
-																	&lalDimensionlessUnit,
-																	ifoPtr->timeData->data->length);
-				ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",
-																	&(ifoPtr->timeData->epoch),
-																	0.0,
-																	ifoPtr->timeData->deltaT,
-																	&lalDimensionlessUnit,
-																	ifoPtr->timeData->data->length);
-				ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",
-																			&(ifoPtr->freqData->epoch),
-																			0.0,
-																			ifoPtr->freqData->deltaF,
-																			&lalDimensionlessUnit,
-																			ifoPtr->freqData->data->length);
-				ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",
-																			 &(ifoPtr->freqData->epoch),
-																			 0.0,
-																			 ifoPtr->freqData->deltaF,
-																			 &lalDimensionlessUnit,
-																			 ifoPtr->freqData->data->length);
+				ifoPtr->timeModelhPlus  = XLALCreateREAL8TimeSeries("timeModelhPlus",&(ifoPtr->timeData->epoch),0.0,ifoPtr->timeData->deltaT,&lalDimensionlessUnit,ifoPtr->timeData->data->length);
+				ifoPtr->timeModelhCross = XLALCreateREAL8TimeSeries("timeModelhCross",&(ifoPtr->timeData->epoch),0.0,	ifoPtr->timeData->deltaT,&lalDimensionlessUnit,ifoPtr->timeData->data->length);
+				ifoPtr->freqModelhPlus = XLALCreateCOMPLEX16FrequencySeries("freqModelhPlus",&(ifoPtr->freqData->epoch),0.0,ifoPtr->freqData->deltaF,&lalDimensionlessUnit,ifoPtr->freqData->data->length);
+				ifoPtr->freqModelhCross = XLALCreateCOMPLEX16FrequencySeries("freqModelhCross",&(ifoPtr->freqData->epoch), 0.0, ifoPtr->freqData->deltaF, &lalDimensionlessUnit,ifoPtr->freqData->data->length);
 				ifoPtr->modelParams = XLALCalloc(1, sizeof(LALInferenceVariables));
 			}
 			ifoPtr = ifoPtr->next;
@@ -237,7 +213,6 @@ Initialisation arguments:\n\
 	}
 	fprintf(stdout, " initialize(): random seed: %lu\n", randomseed);
 	gsl_rng_set(irs->GSLrandom, randomseed);
-	
 	return(irs);
 }
 
@@ -263,10 +238,7 @@ Nested sampling arguments:\n\
 (--iotaDistance FRAC)\tPTMCMC: Use iota-distance jump FRAC of the time\n\
 (--covarianceMatrix)\tPTMCMC: Propose jumps from covariance matrix of current live points\n\
 (--differential-evolution)\tPTMCMC:Use differential evolution jumps\n\
-(--prior_distr )\t Set the prior to use (for the moment the only possible choice is SkyLoc which will use the sky localization project prior. All other values or skipping this option select LALInferenceInspiralPriorNormalised)\n\
-(--correlatedgaussianlikelihood)\tUse analytic, correlated Gaussian for Likelihood.\n\
-(--bimodalgaussianlikelihood)\tUse analytic, bimodal correlated Gaussian for Likelihood.\n\
-(--rosenbrocklikelihood \tUse analytic, Rosenbrock banana for Likelihood.\n\
+(--prior_distr )\t Set the prior to use (for the moment the only possible choice is SkyLoc which will use the sky localization project prior. All other values or skipping this option select LALInferenceInspiralPriorNormalised)\n\n\
   ---------------------------------------------------------------------------------------------------\n\
   --- Noise Model -----------------------------------------------------------------------------------\n\
   ---------------------------------------------------------------------------------------------------\n\
@@ -274,6 +246,13 @@ Nested sampling arguments:\n\
   (--psdNblock)                    Number of noise parameters per IFO channel (8)\n\
   (--psdFlatPrior)                 Use flat prior on psd parameters (Gaussian)\n\
   (--removeLines)                  Do include persistent PSD lines in fourier-domain integration\n\
+  (--KSlines)                      Run with the KS test line removal\n\
+  (--KSlinesWidth)                 Width of the lines removed by the KS test (deltaF)\n\
+  (--chisquaredlines)              Run with the Chi squared test line removal\n\
+  (--chisquaredlinesWidth)         Width of the lines removed by the Chi squared test (deltaF)\n\
+  (--powerlawlines)                Run with the power law line removal\n\
+  (--powerlawlinesWidth)           Width of the lines removed by the power law test (deltaF)\n\
+  (--xcorrbands)                   Run PSD fitting with correlated frequency bands\n\
   \n";
 
 //(--tdlike)\tUse time domain likelihood.\n";
@@ -301,7 +280,7 @@ Nested sampling arguments:\n\
 	
      ppt=LALInferenceGetProcParamVal(commandLine,"--template");
     if(ppt) {
-    if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value))
+    if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value))
     // SALVO: giving the same basic jump proposal to all the burst signals. When we have more ad hoc functions we can differentiate here
     runState->proposal=&NSWrapMCMCSinGaussProposal;
     }
@@ -320,58 +299,42 @@ Nested sampling arguments:\n\
             runState->prior = &LALInferenceInspiralPriorNormalised;
         }
 	
-    ppt=LALInferenceGetProcParamVal(commandLine,"--template");
-    if(ppt) {
-	if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value)){
-	    runState->prior = &LALInferenceSinGaussPrior;
-	    XLALPrintInfo("Using SinGauss prior\n");
+	ppt=LALInferenceGetProcParamVal(commandLine,"--template");
+        if(ppt) {
+		if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value)){
+		runState->prior = &LALInferenceSinGaussPrior;
+		XLALPrintInfo("Using SineGauss prior\n");
+		}
+		else if (!strcmp("RingdownF",ppt->value)){
+		runState->prior = &LALInferenceRingdownPrior;
+		XLALPrintInfo("Using Ringdown prior\n");
+		}
+		else if (!strcmp("HMNS",ppt->value)){
+		runState->prior = &LALInferenceHMNSPrior;
+		XLALPrintInfo("Using HMNS prior\n");
+		}
 	}
-	else if (!strcmp("RingdownF",ppt->value)){
-	    runState->prior = &LALInferenceRingdownPrior;
-	    XLALPrintInfo("Using Ringdown prior\n");
-	}
-	else if (!strcmp("HMNS",ppt->value)){
-	    runState->prior = &LALInferenceHMNSPrior;
-	    XLALPrintInfo("Using HMNS prior\n");
-    }
-    }
 
-        
-	if(LALInferenceGetProcParamVal(commandLine,"--correlatedgaussianlikelihood")){
-        	runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
+	/* Set up the prior for analytic tests if needed */
+	if(LALInferenceGetProcParamVal(commandLine,"--correlatedGaussianLikelihood")){
 		runState->prior=LALInferenceAnalyticNullPrior;
 	}
-    	if(LALInferenceGetProcParamVal(commandLine,"--bimodalgaussianlikelihood")){
-        	runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
+    	if(LALInferenceGetProcParamVal(commandLine,"--bimodalGaussianLikelihood")){
 		runState->prior=LALInferenceAnalyticNullPrior;
 	}
-        if(LALInferenceGetProcParamVal(commandLine,"--rosenbrocklikelihood")){
-                runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
+        if(LALInferenceGetProcParamVal(commandLine,"--rosenbrockLikelihood")){
                 runState->prior=LALInferenceAnalyticNullPrior;
-        }
-    /* Marginalise over phase */
-    if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
-      printf("Using Marginalise Phase Likelihood\n");
-      runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
-    }
-
-//	if(LALInferenceGetProcParamVal(commandLine,"--tdlike")){
-//		fprintf(stderr, "Computing likelihood in the time domain.\n");
-//		runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
-//    	}
-    
+        }    
 	#ifdef HAVE_LIBLALXML
 	runState->logsample=LogNSSampleAsMCMCSampleToArray;
 	#else
 	runState->logsample=LogNSSampleAsMCMCSampleToFile;
 	#endif
 	
-	
-		
 	printf("set number of live points.\n");
 	/* Number of live points */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--Nlive");
-    if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--nlive");
+	if (!ppt) ppt=LALInferenceGetProcParamVal(commandLine,"--nlive");
 	if(ppt)
 		tmpi=atoi(ppt->value);
 	else {
@@ -438,55 +401,6 @@ Nested sampling arguments:\n\
 	
 }
 
-void initStudentt(LALInferenceRunState *state)
-{
-    char help[]="\
-                 Student T Likelihood Arguments:\n\
-                 (--studentt)\tUse student-t likelihood function\n";
-
-    ProcessParamsTable *ppt=NULL;
-    LALInferenceIFOData *ifo=state->data;
-
-    /* Print command line arguments if help requested */
-    if(LALInferenceGetProcParamVal(state->commandLine,"--help"))
-    {
-        fprintf(stdout,"%s",help);
-        while(ifo) {
-            fprintf(stdout,"(--dof-%s DoF)\tDegrees of freedom for %s\n",ifo->name,ifo->name);
-            ifo=ifo->next;
-        }
-        return;
-    }
-    /* Don't do anything unless asked */
-    if(!LALInferenceGetProcParamVal(state->commandLine,"--studentt")) return;
-
-    /* initialise degrees of freedom parameters for each IFO */
-    while(ifo){
-        CHAR df_argument_name[128];
-        CHAR df_variable_name[64];
-        REAL8 dof=10.0; /* Degrees of freedom parameter */
-
-        sprintf(df_argument_name,"--dof-%s",ifo->name);
-        if((ppt=LALInferenceGetProcParamVal(state->commandLine,df_argument_name)))
-            dof=atof(ppt->value);
-        sprintf(df_variable_name,"df_%s",ifo->name);
-        LALInferenceAddVariable(state->currentParams,df_variable_name,&dof,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-        fprintf(stdout,"Setting %lf degrees of freedom for %s\n",dof,ifo->name);
-        ifo=ifo->next;
-    }
-
-    /* Set likelihood to student-t */
-    state->likelihood = &LALInferenceFreqDomainStudentTLogLikelihood;
-
-    /* Set the noise model evidence to the student t model value */
-    LALInferenceTemplateNullFreqdomain(state->data);
-    REAL8 noiseZ=LALInferenceFreqDomainStudentTLogLikelihood(state->currentParams,state->data,&LALInferenceTemplateNullFreqdomain);
-    LALInferenceAddVariable(state->algorithmParams,"logZnoise",&noiseZ,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_FIXED);
-    fprintf(stdout,"Student-t Noise evidence %lf\n",noiseZ);
-
-    return;
-}
-
 /*************** MAIN **********************/
 
 
@@ -523,17 +437,16 @@ Arguments for each section follow:\n\n";
 
 	/* Set up currentParams with variables to be used */
 	/* Review task needs special priors */
+	ppt=LALInferenceGetProcParamVal(procParams,"--template");
 
 	LALInferenceInitVariablesFunction initVarsFunc=NULL;
-
-	ppt=LALInferenceGetProcParamVal(procParams,"--template");
-	if(LALInferenceGetProcParamVal(procParams,"--correlatedgaussianlikelihood"))
+	if(LALInferenceGetProcParamVal(procParams,"--correlatedGaussianLikelihood"))
 		initVarsFunc=&LALInferenceInitVariablesReviewEvidence;
-        else if(LALInferenceGetProcParamVal(procParams,"--bimodalgaussianlikelihood"))
+        else if(LALInferenceGetProcParamVal(procParams,"--bimodalGaussianLikelihood"))
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
-        else if(LALInferenceGetProcParamVal(procParams,"--rosenbrocklikelihood"))
+        else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
-	else if(!strcmp("SinGauss",ppt->value) || !strcmp("SinGaussF",ppt->value)){
+	else if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
 	    fprintf(stdout,"--- Calling burst init function \n");
 	    initVarsFunc=&LALInferenceInitBurstVariables;
 	}
@@ -559,6 +472,8 @@ Arguments for each section follow:\n\n";
 
 	/* Check for student-t and apply */
 	initStudentt(state);
+        /* Choose the likelihood */
+        LALInferenceInitLikelihood(state);
     
         /* Check for powerburst and apply (ignored unless --powerburst is provided) */
 	LALInferenceInitPowerBurst(state);
@@ -577,7 +492,7 @@ Arguments for each section follow:\n\n";
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
 	if(ppt) {
 	// SALVO: We may want different if else for differnt templates in the future
-	if(!strcmp("SinGaussF",ppt->value) || !strcmp("SinGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) )
+	if(!strcmp("SineGaussF",ppt->value) || !strcmp("SineGauss",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value) )
 	    LALInferenceSetupSinGaussianProposal(state,state->currentParams);}
 	else 
 	    LALInferenceSetupDefaultNSProposal(state,state->currentParams);
@@ -587,8 +502,6 @@ Arguments for each section follow:\n\n";
 	
 	/* Call nested sampling algorithm */
 	state->algorithm(state);
-
-	
 
 	/* end */
 	return(0);

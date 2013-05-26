@@ -118,9 +118,9 @@ def plot_triggers(params,channel):
 
     earthquakesDirectory = os.path.join(params["path"],"earthquakes")
     earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    if os.path.isfile(earthquakesFile):
+    try:
         earthquakes = np.loadtxt(earthquakesFile)
-    else:
+    except:
         earthquakes = []
 
     if params["doPlots"]:
@@ -136,12 +136,19 @@ def plot_triggers(params,channel):
 
         ax = plt.subplot(111)
         plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
-        cbar = plt.colorbar() 
+        cbar = plt.colorbar(orientation='horizontal')  
+        #cbar = plt.colorbar(orientation='vertical') 
         cbar.set_label('SNR')
         ax.set_yscale('log')
 
         if len(earthquakes) > 0:
-            for i in xrange(len(earthquakes)):
+            if len(earthquakes.shape) == 1:
+                shape_x = 1
+            else:
+                [shape_x,shape_y] = earthquakes.shape
+            for i in xrange(shape_x):
+                if earthquakes[i,1] < 4.0:
+                    continue
 
                 Ptime = earthquakes[i,2] - startTime
                 Stime = earthquakes[i,3] - startTime

@@ -18,9 +18,8 @@
 
 """Interferometer summary information generator.
 
-This script generates a
-nested web page and content for reviewing interferometer performance
-and status.
+This script generates a nested web page and content for
+reviewing interferometer performance and status.
 
 Comments should be e-mailed to detchar+code@ligo.org.
 Bugs should be noted at https://bugs.ligo.org/redmine/projects/detchar/.
@@ -45,7 +44,7 @@ import numpy
 import inspect
 import glob
 import warnings
-warnings.filterwarnings("ignore", message="is not lower case")
+warnings.filterwarnings("ignore", "column name", UserWarning)
 
 from scipy import (stats, signal)
 from dateutil.relativedelta import relativedelta
@@ -79,7 +78,7 @@ from glue.segments import (segment as Segment, segmentlist as SegmentList,
                            segmentlistdict as SegmentListDict)
 
 # set metadata
-__author__  = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__author__  = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = git_version.id
 __date__    = git_version.date
 
@@ -2762,7 +2761,7 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     if (cp.has_option(cpsec, "use-archive") and
             (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
         for channel in channels:
-            load_archive_triggers(cp, ifo, channel, etg, tab.segments,
+            load_archive_triggers(cp, ifo, channel, tab.etg, tab.segments,
                                   mode=tab.mode, clustered=tab.cluster)
         print_verbose("Archive triggers loaded.\n", verbose=verbose)
 
