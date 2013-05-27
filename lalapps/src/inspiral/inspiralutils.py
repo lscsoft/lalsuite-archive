@@ -1556,7 +1556,7 @@ def omega_scan_setup(cp,ifos):
 ###############################################################################
 # This function will...
 
-def create_frame_pfn_file(ifos, gpsstart, gpsend):
+def create_frame_pfn_file(ifos, gpsstart, gpsend, server='internal_ldr_port'):
 	namer = "frame-cache_"+str(gpsstart)+"-"+ \
 		str(gpsend)
 	gwfname = namer+".pfn" # physical file location file
@@ -1572,8 +1572,10 @@ def create_frame_pfn_file(ifos, gpsstart, gpsend):
 	for v in ifos.keys():
 		# Calls a system command to create the file.
 		ldfcommand = "ligo_data_find --gps-start-time "+str(gpsstart)+ \
-		" --gps-end-time "+str(gpsend)+" --observatory "+v[0]+" --type "+ ifos[v] + \
-		" --url-type=file >> "+ gwfname
+		" --gps-end-time "+str(gpsend)+" --observatory "+v[0]+" --type "+ ifos[v]
+		if server != 'internal_ldr_port':
+			ldfcommand += " --server "+ server
+		ldfcommand +=" --url-type=file >> "+ gwfname
 		make_external_call(ldfcommand)
 
 	return gwfname
