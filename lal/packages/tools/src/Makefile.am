@@ -15,6 +15,7 @@ libtools_la_SOURCES = \
 	FlatLatticeTiling.c \
 	FrequencySeries.c \
 	LALCalibration.c \
+    LALCosmologyCalculator.c \
 	ResampleTimeSeries.c \
 	Segments.c \
 	Sequence.c \
