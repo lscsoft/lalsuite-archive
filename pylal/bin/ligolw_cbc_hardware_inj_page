@@ -149,10 +149,9 @@ def check_ifo_result_pipedowndb(ifo,time,database_connection,successful_inj,veto
     if (time in veto_segs): analysed=0
     else: analysed=1
     # Check for triggers
-    sql_query="SELECT sngl_inspiral.end_time FROM sngl_inspiral \
+    sql_query="SELECT sngl_inspiral.end_time,sngl_inspiral.snr FROM sngl_inspiral \
                JOIN experiment_summary, experiment_map, coinc_event_map \
                ON (experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id AND \
-           experiment_summary.coinc_event_id == coinc_event_map.coinc_event_id AND \
            coinc_event_map.event_id == sngl_inspiral.event_id ) \
            WHERE \
            experiment_summary.datatype == \"all_data\" AND \
@@ -160,12 +159,13 @@ def check_ifo_result_pipedowndb(ifo,time,database_connection,successful_inj,veto
            sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 >= "+str(time-0.1)+" AND \
            sngl_inspiral.end_time+sngl_inspiral.end_time_ns*1e-9 <= "+str(time+0.1)
     
-    triggers=database_connection.cursor().execute(sql_query)
+    triggers=list(database_connection.cursor().execute(sql_query))
     if(triggers and len(triggers)>0):
         found=1
-	snr=triggers[0].snr
+        snr=triggers[0][1]
     else:
         found=0
+        snr=0.0
     return (injected,analysed,found,snr)
 
 # =============================================================================
@@ -347,7 +347,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
             (db_connection,db_working_filename)=open_pipedown_database(opts.pipedown_db,opts.tmp_space)
             vetos={}
             for ifo in ifos:
-                vetos[ifo]=get_veto_times(connection,ifo)
+                vetos[ifo]=get_veto_times(db_connection,ifo)
 
 	# Write table contents
 	for inj in injections:
@@ -396,7 +396,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
         if opts.pipedown_db:
 		if db_connection:
 			db_connection.close()
-			dbtable.discard_connection_filename(opts.pipedown_db,db_working_filename)
+			dbtables.discard_connection_filename(opts.pipedown_db,db_working_filename)
 	# Generate plot for injections
 	import matplotlib
 	matplotlib.use('Agg')
@@ -502,17 +502,19 @@ parser.add_option("-t","--gps-start-time",action="store",type="int",\
 parser.add_option("-r","--range-dir",action="store",type="string",dest="range_dir",default=None,metavar="DIR")
 
 parser.add_option("-e","--gps-end-time",action="store",type="int",\
-    default=999999999, metavar="END",
-    help="end of GPS time range (default = 999999999)")
+    default=1999999999, metavar="END",
+    help="end of GPS time range (default = 1999999999)")
 
 parser.add_option("-S","--segment-dir",action="store",type="string",dest="seg_dir",default="./",metavar="S_DIR",help="Directory to store results of polling segDB")
-
-parser.add_option("-i","--h1-injections",action="store_true",\
-    default=False, help="look at H1 injections")
 
 parser.add_option("-g","--get-segment-list",action="store_true",default=False,help="Get the segment lists from the database")
 
 parser.add_option("-a","--analyze-injections",action="store_true",default=False,help="Perform analysis of the hardware injections using segment lists")
+
+parser.add_option("--skip-segment-check",action="store_true",default=False,dest="skipsegcheck",help="Don't check the segment database to see if injections were successful, just assume they were")
+
+parser.add_option("-i","--h1-injections",action="store_true",\
+    default=False, help="look at H1 injections")
 
 parser.add_option("-l","--l1-injections",action="store_true",\
     default=False, help="look at L1 injections")
@@ -551,6 +553,7 @@ parser.add_option("-C","--cache-pattern",action="store",\
 
 parser.add_option("-n","--coinc",action="store_true",\
         default=False,help="Operate only on HW injections in >2 IFOs")
+
 
 opts,args  = parser.parse_args()
 if opts.outfile is None and opts.analyze_injections:
@@ -624,6 +627,9 @@ if not opts.analyze_injections:
         sys.exit(0)
     
 for ifo in ifos:
+    if opts.skipsegcheck:
+        hwinj_done[ifo]=segments.segmentlist([segments.segment(opts.gps_start_time,opts.gps_end_time)])
+    else:
         out_file_name = '-'.join([ifo, "HWINJ_SEGMENTS", str(opts.gps_start_time), str(opts.gps_end_time - opts.gps_start_time)])
         out_xml = os.path.join(opts.seg_dir,out_file_name + '.xml')
         indoc = ligolw_utils.load_url(out_xml)
@@ -632,6 +638,7 @@ for ifo in ifos:
 # ==============================================================================
 # Read in the list of triggers
 rangefilenames=None
+filenames=None
 if opts.trig_dir is not None:
     filenames = segmentdb_utils.get_all_files_in_range(opts.trig_dir, opts.gps_start_time, opts.gps_end_time)
     
