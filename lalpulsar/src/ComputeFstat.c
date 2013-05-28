@@ -385,8 +385,8 @@ ComputeFStat ( LALStatus *status,				/**< pointer to LALStatus structure */
   if ( params->returnSingleF )
     {
       retF.numDetectors = numDetectors;
-      if ( numDetectors > CFS_MAX_IFOS ) {
-        XLALPrintError ("%s: numDetectors = %d exceeds currently allowed upper limit of detectors (%d) for returnSingleF=TRUE\n", __func__, numDetectors, CFS_MAX_IFOS );
+      if ( numDetectors > PULSAR_MAX_DETECTORS ) {
+        XLALPrintError ("%s: numDetectors = %d exceeds currently allowed upper limit of detectors (%d) for returnSingleF=TRUE\n", __func__, numDetectors, PULSAR_MAX_DETECTORS );
         ABORT ( status, COMPUTEFSTATC_EINPUT, COMPUTEFSTATC_MSGEINPUT );
       }
     }
@@ -718,9 +718,11 @@ XLALComputeFaFb ( Fcomponents *FaFb,		      	/**< [out] Fa,Fb (and possibly atom
 	  V_alpha = Tn / qn;
 
 #ifndef LAL_NDEBUG
-	  if ( !isfinite(U_alpha) || !isfinite(V_alpha) || !isfinite(pn) || !isfinite(qn) || !isfinite(Sn) || !isfinite(Tn) ) {
-	    XLAL_ERROR (COMPUTEFSTATC_EIEEE);
-	  }
+          if ( !isfinite(U_alpha) || !isfinite(V_alpha) || !isfinite(pn) || !isfinite(qn) || !isfinite(Sn) || !isfinite(Tn) ) {
+            XLALPrintError("XLALComputeFaFb() returned non-finite: U_alpha=%f, V_alpha=%f, pn=%f, qn=%f, Sn=%f, Tn=%f\n",
+                           U_alpha, V_alpha, pn, qn, Sn, Tn);
+            XLAL_ERROR (XLAL_EFPINVAL);
+          }
 #endif
 
 	  realXP = s_alpha * U_alpha - c_alpha * V_alpha;
@@ -991,9 +993,11 @@ XLALComputeFaFbCmplx ( Fcomponents *FaFb,		/**< [out] Fa,Fb (and possibly atoms)
 	  V_alpha = Tn / qn;
 
 #ifndef LAL_NDEBUG
-	  if ( !isfinite(U_alpha) || !isfinite(V_alpha) || !isfinite(pn) || !isfinite(qn) || !isfinite(Sn) || !isfinite(Tn) ) {
-	    XLAL_ERROR (COMPUTEFSTATC_EIEEE);
-	  }
+          if ( !isfinite(U_alpha) || !isfinite(V_alpha) || !isfinite(pn) || !isfinite(qn) || !isfinite(Sn) || !isfinite(Tn) ) {
+            XLALPrintError("XLALComputeFaFbCmplx() returned non-finite: U_alpha=%f, V_alpha=%f, pn=%f, qn=%f, Sn=%f, Tn=%f\n",
+                           U_alpha, V_alpha, pn, qn, Sn, Tn);
+            XLAL_ERROR (XLAL_EFPINVAL);
+          }
 #endif
 
 	  realXP = s_alpha * U_alpha - c_alpha * V_alpha;

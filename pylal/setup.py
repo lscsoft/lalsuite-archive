@@ -463,15 +463,6 @@ setup(
 			include_dirs = [numpy_get_include(),'src/']
 		),
 		Extension(
-			"pylal.cs_gamma",
-			["src/cs_gamma.c"],
-			include_dirs = lalburst_pkg_config.incdirs + [numpy_get_include()],
-			libraries = lalburst_pkg_config.libs,
-			library_dirs = lalburst_pkg_config.libdirs,
-			runtime_library_dirs = lalburst_pkg_config.libdirs,
-			extra_compile_args = lalburst_pkg_config.extra_cflags
-		),
-		Extension(
 			"pylal._stats",
 			["src/_stats.c"],
 			include_dirs = [numpy_get_include()],
@@ -594,7 +585,6 @@ setup(
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "lalapps_string_calc_likelihood"),
 		os.path.join("bin", "lalapps_string_contour_plotter"),
-		os.path.join("bin", "lalapps_string_cs_gamma"),
 		os.path.join("bin", "lalapps_string_meas_likelihood"),
 		os.path.join("bin", "lalapps_string_plot_binj"),
 		os.path.join("bin", "lalapps_string_plot_likelihood"),

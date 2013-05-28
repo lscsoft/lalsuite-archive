@@ -240,7 +240,8 @@ XLALSimInspiralChooseWaveformFromInspiralTemplate(
   REAL8 S2z = params->spin2[2];
   REAL8 f_min = params->fLower;
   REAL8 f_ref = 0.;
-  REAL8 r = params->distance; /* stored as Mpc in InspiralTemplate */
+  /* Value of 'distance' fed to lalsim is conventional to obtain a correct template norm */
+  REAL8 r = params->distance;
   REAL8 i = params->inclination;
   REAL8 lambda1 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
   REAL8 lambda2 = 0.; /* FIXME:0 turns these terms off, these should be obtained by some other means */
@@ -312,6 +313,8 @@ LALInspiralWave(
       {
           signalvec->data[idx] = (REAL4) hplus->data->data[idx];
       }
+
+      params->tC = - ( ((REAL8)hplus->epoch.gpsSeconds) + 1.e-9*((REAL8)hplus->epoch.gpsNanoSeconds) );
 
       /* free hplus and hcross */
       XLALDestroyREAL8TimeSeries(hplus);
@@ -471,6 +474,8 @@ LALInspiralWaveTemplates(
           signalvec1->data[idx] = (REAL4) hplus->data->data[idx];
           signalvec2->data[idx] = (REAL4) hcross->data->data[idx];
       }
+
+      params->tC = - ( ((REAL8)hplus->epoch.gpsSeconds) + 1.e-9*((REAL8)hplus->epoch.gpsNanoSeconds) );
 
       /* free hplus and hcross */
       XLALDestroyREAL8TimeSeries(hplus);

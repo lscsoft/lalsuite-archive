@@ -1,7 +1,7 @@
 # SWIG configuration
 # Author: Karl Wette, 2011, 2012
 #
-# serial 32
+# serial 38
 
 # enable SWIG wrapping modules
 AC_DEFUN([LALSUITE_ENABLE_SWIG],[
@@ -65,6 +65,7 @@ AC_DEFUN([LALSUITE_ENABLE_SWIG_LANGUAGE],[
 
 # check the version of ${SWIG}, and store it in ${SWIG_VERSION}
 AC_DEFUN([_LALSUITE_CHECK_SWIG_VERSION],[
+  AC_MSG_CHECKING([${SWIG} version])
   SWIG_VERSION=0.0
   swig_version_output=[`${SWIG} -version 2>/dev/null`]
   AS_IF([test $? -eq 0],[
@@ -74,6 +75,7 @@ AC_DEFUN([_LALSUITE_CHECK_SWIG_VERSION],[
       AC_MSG_ERROR([could not determine version of ${SWIG}])
     ])
   ])
+  AC_MSG_RESULT([${SWIG_VERSION}])
 ])
 
 # configure SWIG wrapping modules
@@ -126,8 +128,6 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     # if a SWIG binary was found, get its full path and print its version, otherwise fail
     AS_IF([test "x${SWIG}" != x],[
       AC_PATH_PROG(SWIG,["${SWIG}"])
-      AC_MSG_CHECKING([${SWIG} version])
-      AC_MSG_RESULT([${SWIG_VERSION}])
     ],[
       AC_MSG_ERROR([could not find SWIG with version >= ${swig_min_version}])
     ])
@@ -172,7 +172,7 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     ])
 
     # look here for interfaces and LAL headers (but not for preprocessing)
-    SWIG_CPPFLAGS="${SWIG_CPPFLAGS} -I/usr/include"
+    SWIG_CPPFLAGS="${SWIG_CPPFLAGS} -I\$(top_builddir)/include -I/usr/include"
 
     # flags for compiling SWIG wrapping module sources
     AC_SUBST(SWIG_CFLAGS,[])
@@ -243,20 +243,33 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
     ])
     AC_SUBST(SWIG_LD_LIBPATH_NAME)
 
-  ])
+    # list of other LAL SWIG modules that this module depends on
+    AC_MSG_CHECKING([for SWIG module dependencies])
+    AC_SUBST(SWIG_MODULE_DEPENDS,[""])
+    for arg in ${LALSUITE_CHECKED_LIBS}; do
+      AS_IF([test "x`echo ${arg} | ${SED} -n '/^lalsupport$/d;/^lal/p'`" != x],[
+        SWIG_MODULE_DEPENDS="${SWIG_MODULE_DEPENDS} ${arg}"
+      ])
+    done
+    AS_IF([test "x${SWIG_MODULE_DEPENDS}" = x],[
+      AC_MSG_RESULT([none])
+    ],[
+      AC_MSG_RESULT([${SWIG_MODULE_DEPENDS}])
+    ])
 
-  # string to add to user environment setup scripts
-  AC_SUBST(SWIG_USER_ENV,[""])
+    # scripting-language path to search for pre-installed SWIG modules
+    AC_SUBST(SWIG_PREINST_PATH,["\$(SWIG_OUTDIR)"])
+    AS_IF([test "x${LALSUITE_BUILD}" = xtrue],[
+      for dir in ${LALSUITE_SUBDIRS}; do
+        SWIG_PREINST_PATH="${SWIG_PREINST_PATH}:\$(abs_top_builddir)/../${dir}/\$(subdir)/${objdir}"
+      done
+    ])
+
+  ])
 
   # configure SWIG languages
   LALSUITE_USE_SWIG_OCTAVE
   LALSUITE_USE_SWIG_PYTHON
-
-  # list of other LAL libraries SWIG wrapping module depends on
-  AC_SUBST(SWIG_MODULE_DEPENDS,[""])
-
-  # scripting-language path to search for pre-installed SWIG modules
-  AC_SUBST(SWIG_PREINST_PATH,["\$(SWIG_OUTDIR)"])
 
   # restore global compiler/linker variables
   CPPFLAGS=${swig_save_CPPFLAGS}
@@ -265,20 +278,6 @@ AC_DEFUN([LALSUITE_USE_SWIG],[
   LDFLAGS=${swig_save_LDFLAGS}
   LIBS=${swig_save_LIBS}
 
-])
-
-# add to list of other LAL libraries SWIG wrapping module depends on
-# args: $1=LAL library, $2=enable dependency?
-AC_DEFUN([LALSUITE_SWIG_DEPENDS],[
-  AS_IF([test "x$2" = xtrue],[
-    SWIG_MODULE_DEPENDS="${SWIG_MODULE_DEPENDS} $1"
-
-    # add to scripting-language path to search for pre-installed SWIG modules
-    AS_IF([test "x${LALSUITE_BUILD}" = xtrue],[
-      SWIG_PREINST_PATH="${SWIG_PREINST_PATH}:\$(abs_top_builddir)/../$1/\$(subdir)/${objdir}"
-    ])
-
-  ])
 ])
 
 # configure SWIG language wrapping module
@@ -389,9 +388,6 @@ AC_DEFUN([LALSUITE_USE_SWIG_OCTAVE],[
     octexecdir='${prefix}'/"${octexecdir}"
     AC_MSG_RESULT([${octexecdir}])
     AC_SUBST(octexecdir)
-
-    # string to add to user environment setup scripts
-    SWIG_USER_ENV="${SWIG_USER_ENV}"'prepend OCTAVE_PATH $(octexecdir)\n'
 
   ])
 ])

@@ -1894,7 +1894,7 @@ class followUpChiaNode(inspiral.ChiaNode,webTheNode):
   """
   A C code for computing the coherent inspiral statistic.
   An example command line is:
-lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.900000e+01 --low-frequency-cutoff 4.000000e+01 --bank-file H1H2-COHBANK_COHERENT_H1H2_PLAYGROUND-823269333-600.xml --sample-rate 4096 --cohsnr-threshold 5.500000e+00 --ifo-tag H1H2 --frame-type LSC-STRAIN --H1-framefile H1-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823269286-2048.gwf --H2-framefile H2-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823268952-2048.gwf --gps-end-time 823269933 --gps-start-time 823269333 --write-cohsnr --write-cohnullstat --write-cohphasediff --write-events --verbose --debug-level 1
+lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.900000e+01 --low-frequency-cutoff 4.000000e+01 --bank-file H1H2-COHBANK_COHERENT_H1H2_PLAYGROUND-823269333-600.xml --sample-rate 4096 --cohsnr-threshold 5.500000e+00 --ifo-tag H1H2 --frame-type LSC-STRAIN --H1-framefile H1-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823269286-2048.gwf --H2-framefile H2-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823268952-2048.gwf --gps-end-time 823269933 --gps-start-time 823269333 --write-cohsnr --write-cohnullstat --write-cohphasediff --write-events --verbose
   """
 
   #def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
@@ -1925,7 +1925,6 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
       self.add_var_opt("write-events","")
       self.add_var_opt("write-compress","")
-      self.add_var_opt("debug-level","33")
       self.add_var_opt("write-cohsnr","")
       self.add_var_opt("write-cohnullstat","")
       self.add_var_opt("write-h1h2nullstat","")

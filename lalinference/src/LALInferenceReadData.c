@@ -482,12 +482,21 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     seglen=(size_t)(SegmentLength*SampleRate);
     nSegs=(int)floor(PSDdatalength/SegmentLength);
 
+    CHAR df_argument_name[128];
+    REAL8 dof;
+
     for(i=0;i<Nifo;i++) {
         IFOdata[i].fLow=fLows?atof(fLows[i]):defaultFLow; 
         if(fHighs) IFOdata[i].fHigh=fHighs[i]?atof(fHighs[i]):(SampleRate/2.0-(1.0/SegmentLength));
         else IFOdata[i].fHigh=(SampleRate/2.0-(1.0/SegmentLength));
         strncpy(IFOdata[i].name, IFOnames[i], DETNAMELEN);
-        IFOdata[i].STDOF = 4.0 / M_PI * nSegs;
+
+        dof=4.0 / M_PI * nSegs; /* Degrees of freedom parameter */
+        sprintf(df_argument_name,"--dof-%s",IFOdata[i].name);
+        if((ppt=LALInferenceGetProcParamVal(commandLine,df_argument_name)))
+            dof=atof(ppt->value);
+
+        IFOdata[i].STDOF = dof;
         fprintf(stderr, "Detector %s will run with %g DOF if Student's T likelihood used.\n",
                 IFOdata[i].name, IFOdata[i].STDOF);
     }
@@ -1452,6 +1461,21 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
       }
+      REAL8 lambdaT = 0.;
+      REAL8 dLambdaT = 0.;
+      REAL8 m1=injEvent->mass1;
+      REAL8 m2=injEvent->mass2;
+      REAL8 Mt=m1+m2;
+      REAL8 eta=m1*m2/(Mt*Mt);
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
+        lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
+        dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
+        LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,eta,&lambda1,&lambda2);
+        fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
+        fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
+        fprintf(stdout,"lambda1 set to %f\n",lambda1);
+        fprintf(stdout,"lambda2 set to %f\n",lambda2);
+      }
       LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
       LALSimInspiralSpinOrder spinO = -1;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-spinOrder")) {
@@ -2190,7 +2214,20 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
         LALInferenceAddVariable(tmpdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
       }
-      
+      REAL8 lambdaT = 0.;
+      REAL8 dLambdaT = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
+        lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
+        dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
+        LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,eta,&lambda1,&lambda2);
+        fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
+        fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
+        fprintf(stdout,"lambda1 set to %f\n",lambda1);
+        fprintf(stdout,"lambda2 set to %f\n",lambda2);
+        LALInferenceAddVariable(tmpdata->modelParams, "lambdaT",&lambdaT,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(tmpdata->modelParams, "dLambdaT",&dLambdaT,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      }
+
     LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
 
     if(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")) {

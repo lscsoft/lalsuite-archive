@@ -158,7 +158,7 @@ class ProgressBar:
         if self.isatty:
             self.show()
         elif self.text != old_text:
-            print self.text
+            print >>self.fid, self.text
 
 
 def demo():

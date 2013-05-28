@@ -1,6 +1,6 @@
 AC_PREREQ([2.63])
 AC_INIT([lalinspiral],[1.5.0.1],[lal-discuss@gravity.phys.uwm.edu])
-AC_CONFIG_HEADERS([include/config.h src/LALInspiralConfig.h])
+AC_CONFIG_HEADERS([src/config.h src/LALInspiralConfig.h])
 AC_CONFIG_SRCDIR([src/LALInspiral.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -156,7 +156,6 @@ LALSUITE_CHECK_LIB([LALFrame],[1.0.10],[LALFrOpen],[lal/LALFrameL.h])
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLAL LAL])
-LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS

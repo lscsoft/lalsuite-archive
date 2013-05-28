@@ -3670,6 +3670,26 @@ class SummMime(object):
 
 SummMimeTable.RowType = SummMime
 
+#
+# =============================================================================
+#
+#                            time_slide_segment_map:table
+#
+# =============================================================================
+#
+
+class TimeSlideSegmentMapTable(table.Table):
+	tableName = "time_slide_segment_map:table"
+	validcolumns = {
+		"segment_def_id": "ilwd:char",
+		"time_slide_id": "ilwd:char",
+	}
+
+class TimeSlideSegmentMap(object):
+	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
+
+TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
+
 
 #
 # =============================================================================
@@ -3721,7 +3741,8 @@ TableByName = {
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
 	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
-	table.StripTableName(SummMimeTable.tableName): SummMimeTable
+	table.StripTableName(SummMimeTable.tableName): SummMimeTable,
+	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
 }
 
 

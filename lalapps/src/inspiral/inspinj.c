@@ -230,7 +230,7 @@ REAL8 betaPPE = 0.0;
 REAL8 single_IFO_SNR_threshold=0.0;
 char ** ifonames=NULL;
 int numifos=0;
-    
+
 static LALStatus status;
 static RandomParams* randParams=NULL;
 INT4 numExtTriggers = 0;
@@ -295,7 +295,7 @@ REAL8 probability_redshift(REAL8 rshift)
 REAL8 luminosity_distance(REAL8 rshift)
 {
   REAL8 dL;
-        
+
         dL = -2.89287707063171+(rshift*(4324.33492012756+(rshift*(3249.74193862773
            +(rshift*(-1246.66339928289+rshift*(335.354613407693+rshift*(-56.1194965448065
        +rshift*(5.20261234121263+rshift*(-0.203151569744028))))))))));
@@ -325,7 +325,7 @@ REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
     p = probability_redshift(z);
   }
   while (test>p);
-        
+
   return z;
 }
 
@@ -333,7 +333,7 @@ REAL8 redshift_mass(REAL8 mass, REAL8 z)
 {
   REAL8 mz;
   mz = mass * (1.+z);
-        
+
   return mz;
 }
 
@@ -481,8 +481,8 @@ REAL8 network_snr_real8(const char *ifo_list, SimInspiralTable *inj)
 
 
 void adjust_snr_real8(
-    SimInspiralTable *inj, 
-    REAL8             target_snr, 
+    SimInspiralTable *inj,
+    REAL8             target_snr,
     const char       *ifo_list)
 {
   /* Vars for calculating SNRs */
@@ -504,8 +504,8 @@ void adjust_snr_real8(
     }
     low_snr  = this_snr;
     low_dist = inj->distance;
-  } 
-  else 
+  }
+  else
   {
     low_snr  = this_snr;
     low_dist = inj->distance;
@@ -528,8 +528,8 @@ void adjust_snr_real8(
     {
       high_snr  = this_snr;
       high_dist = inj->distance;
-    } 
-    else 
+    }
+    else
     {
       low_snr  = this_snr;
       low_dist = inj->distance;
@@ -557,9 +557,9 @@ REAL8 ComputePPEparameterFromLambdaG(REAL8 wavelength, REAL8 distance, REAL8 mch
  * in files.
  *************************************************************/
 REAL8 snr_in_psd_real8(
-    const char           *ifo, 
-    REAL8FrequencySeries *psd, 
-    REAL8                 start_freq, 
+    const char           *ifo,
+    REAL8FrequencySeries *psd,
+    REAL8                 start_freq,
     SimInspiralTable     *inj)
 {
   REAL8            this_snr;
@@ -574,10 +574,10 @@ REAL8 snr_in_psd_real8(
 }
 
 REAL8 network_snr_with_psds_real8(
-    int                    num_ifos, 
-    const char           **ifo_list, 
-    REAL8FrequencySeries **psds, 
-    REAL8                 *start_freqs, 
+    int                    num_ifos,
+    const char           **ifo_list,
+    REAL8FrequencySeries **psds,
+    REAL8                 *start_freqs,
     SimInspiralTable      *inj)
 {
   REAL8 snr_total = 0.0;
@@ -1032,7 +1032,7 @@ read_source_data( char* filename )
  *
  */
 
-  void 
+  void
 read_IPN_grid_from_file( char *fname )
 {
   UINT4    j;                      /* counter */
@@ -1053,7 +1053,7 @@ read_IPN_grid_from_file( char *fname )
     ++numSkyPoints;
 
   /* seek to start of file again */
-  fseek(data, 0, SEEK_SET);  
+  fseek(data, 0, SEEK_SET);
 
   /* assign memory for sky points */
   skyPoints = LALCalloc(numSkyPoints, sizeof(*skyPoints));
@@ -1088,199 +1088,202 @@ read_IPN_grid_from_file( char *fname )
 
 /*
  *
- * Function to complete galaxy catalog 
- *
- * FIXME: Formatting of this function sucks
+ * Function to complete galaxy catalog
  *
  */
 
-  void 
-sourceComplete() 
+  void
+sourceComplete()
 {
-/*  Catalog Completion Constants */
-REAL8 Mbstar = -20.45;
-/* Mbstar = magnitude at which the number of galaxies begins to fall off exponentially, corrected for reddening (to agree with the
-lum density of 0.0198) */
-REAL8 phistar = 0.0081/0.92; /* normalization constant */
-REAL8 alpha = -0.9; /* determines slope at faint end of luminosity function */
-REAL8 initDistance = 0.0; /*minimum Distance for galaxy catalog*/
-REAL8 DeltaD = 100.0; /* Distance step for stepping through galaxy catalog (kpc) */
-REAL8 maxDistance = srcCompleteDist; /*Distance to which you want to correct the catalog (kPc)*/
-REAL8 M_min = -12.0; /* minimum blue light magnitude */
-REAL8 M_max = -25; /* maximum blue light magnitude */
-REAL8 edgestep = 0.1; /* magnitude bin size */
+  /*  Catalog Completion Constants */
+  REAL8 Mbstar       = -20.45;
+  /* Mbstar = magnitude at which the number of galaxies begins to fall off exponentially, */
+  /* corrected for reddening (to agree with the lum density of 0.0198) */
+  REAL8 phistar      = 0.0081/0.92;     /* normalization constant */
+  REAL8 alpha        = -0.9;            /* determines slope at faint end of luminosity function */
+  REAL8 initDistance = 0.0;             /* minimum Distance for galaxy catalog*/
+  REAL8 DeltaD       = 100.0;           /* Distance step for stepping through galaxy catalog (kPc) */
+  REAL8 maxDistance  = srcCompleteDist; /* Distance to which you want to correct the catalog (kPc)*/
+  REAL8 M_min        = -12.0;           /* minimum blue light magnitude */
+  REAL8 M_max        = -25;             /* maximum blue light magnitude */
+  REAL8 edgestep     = 0.1;             /* magnitude bin size */
 
-/*  Vectors  */
-REAL8Vector *phibins = NULL; /* Magnitude bins for calculating Schechter function */
-REAL8Vector *Distance = NULL; /* Distances from initDistance to maxDistance in steps of DeltaD */
-REAL8Vector *phi = NULL; /* Schecter magnitude function */
-REAL8Vector *phiN = NULL; /* Number of expected galaxies in each magnitude bin */
-REAL8Vector *N = NULL; /* Actual number of galaxies in each magnitude bin */
-REAL8Vector *pN = NULL; /* Running tally of the fake galaxies added to the catalog */
-REAL8Vector *Corrections = NULL; /* Number of galaxies to be added in each magnitude bin */
+  /*  Vectors  */
+  REAL8Vector *phibins     = NULL; /* Magnitude bins for calculating Schechter function */
+  REAL8Vector *Distance    = NULL; /* Distances from initDistance to maxDistance in steps of DeltaD */
+  REAL8Vector *phi         = NULL; /* Schechter magnitude function */
+  REAL8Vector *phiN        = NULL; /* Number of expected galaxies in each magnitude bin */
+  REAL8Vector *N           = NULL; /* Actual number of galaxies in each magnitude bin */
+  REAL8Vector *pN          = NULL; /* Running tally of the fake galaxies added to the catalog */
+  REAL8Vector *Corrections = NULL; /* Number of galaxies to be added in each magnitude bin */
 
-/* Other Variables */
-int edgenum = (int) ceil((M_min-M_max)/edgestep); /* Number of magnitude bins */
-char galaxyname[LIGOMETA_SOURCE_MAX] = "Fake"; /* Beginning of name for all added (non-real) galaxies */
-int distnum = (maxDistance-initDistance)/DeltaD; /* Number of elements in Distance vector */
-int k_at_25Mpc = floor((25000-initDistance)/DeltaD); /*Initial index for Distance vector - no galaxies added before 25Mpc */
-int j,k,q; /* Indices for loops */
-REAL8 mag; /* Converted blue light luminosity of each galaxy */
-int mag_index; /* Index of each galaxy when binning by magnitude */
-FILE *fp; /* File for output of corrected galaxy catalog */
-REAL8 pow1 = 0.0; /* Used to calculate Schechter function */
-REAL8 pow2 = 0.0; /* Used to calculate Schechter function */
+  /* Other Variables */
+  int edgenum    = (int) ceil((M_min-M_max)/edgestep); /* Number of magnitude bins */
+  char galaxyname[LIGOMETA_SOURCE_MAX] = "Fake";       /* Beginning of name for all added (non-real) galaxies */
+  int distnum    = (maxDistance-initDistance)/DeltaD;  /* Number of elements in Distance vector */
+  int k_at_25Mpc = floor((25000-initDistance)/DeltaD); /* Initial index for Distance vector - no galaxies added before 25Mpc */
+  int j,k,q;            /* Indices for loops */
+  REAL8 mag;            /* Converted blue light luminosity of each galaxy */
+  int mag_index;        /* Index of each galaxy when binning by magnitude */
+  FILE *fp;             /* File for output of corrected galaxy catalog */
+  REAL8 pow1     = 0.0; /* Used to calculate Schechter function */
+  REAL8 pow2     = 0.0; /* Used to calculate Schechter function */
 
-REAL8 UNUSED shellLum = 0.0;
+  REAL8 UNUSED shellLum = 0.0;
 
-/* Parameters for generating random sky positions */
-SimInspiralTable *randPositionTable;
-static RandomParams* randPositions=NULL;
-int rand_skylocation_seed = 3456;
+  /* Parameters for generating random sky positions */
+  SimInspiralTable     *randPositionTable;
+  static RandomParams*  randPositions = NULL;
+  int rand_skylocation_seed = 3456;
 
-/* Set up linked list for added galaxies*/
-struct FakeGalaxy *myFakeGalaxy;
-struct FakeGalaxy *head; /*=myFakeGalaxy;*/
-struct FakeGalaxy *saved_next;
+  /* Set up linked list for added galaxies*/
+  struct FakeGalaxy *myFakeGalaxy;
+  struct FakeGalaxy *head; /*=myFakeGalaxy;*/
+  struct FakeGalaxy *saved_next;
 
-/* Create the Vectors */
-phibins = XLALCreateREAL8Vector(edgenum);
-Distance = XLALCreateREAL8Vector(distnum+1);
-phi = XLALCreateREAL8Vector(edgenum);
-phiN = XLALCreateREAL8Vector(edgenum); N = XLALCreateREAL8Vector(edgenum);
-pN = XLALCreateREAL8Vector(edgenum);
-Corrections = XLALCreateREAL8Vector(edgenum);
+  /* Create the Vectors */
+  phibins     = XLALCreateREAL8Vector(edgenum);
+  Distance    = XLALCreateREAL8Vector(distnum+1);
+  phi         = XLALCreateREAL8Vector(edgenum);
+  phiN        = XLALCreateREAL8Vector(edgenum);
+  N           = XLALCreateREAL8Vector(edgenum);
+  pN          = XLALCreateREAL8Vector(edgenum);
+  Corrections = XLALCreateREAL8Vector(edgenum);
 
-/* Initialize sky location parameters and FakeGalaxy linked list */
-randPositionTable = calloc(1, sizeof(SimInspiralTable));
-LALCreateRandomParams( &status, &randPositions, rand_skylocation_seed);
-galaxynum = 0;
-myFakeGalaxy = (struct FakeGalaxy*) calloc(1, sizeof(struct FakeGalaxy));
-head = myFakeGalaxy;
+  /* Initialize sky location parameters and FakeGalaxy linked list */
+  randPositionTable = calloc(1, sizeof(SimInspiralTable));
+  LALCreateRandomParams( &status, &randPositions, rand_skylocation_seed);
+  galaxynum = 0;
+  myFakeGalaxy = (struct FakeGalaxy*) calloc(1, sizeof(struct FakeGalaxy));
+  head = myFakeGalaxy;
 
-/* Initialize the vectors */
-for (j=0; j<edgenum; j++)
+  /* Initialize the vectors */
+  for (j=0; j<edgenum; j++)
   {
-  phibins->data[j] = M_max+j*edgestep;
-  phiN->data[j] = 0;
-  N->data[j] = 0;
-  pN->data[j] = 0;
-  Corrections->data[j] = 0;
+    phibins->data[j] = M_max+j*edgestep;
+    phiN->data[j] = 0;
+    N->data[j] = 0;
+    pN->data[j] = 0;
+    Corrections->data[j] = 0;
 
-  /* Calculate the theoretical blue light magnitude in each magnitude bin */
-  pow1 = -1*pow(10, (-0.4*(phibins->data[j]-Mbstar)));
-  pow2 = pow(10, (-0.4*(phibins->data[j]-Mbstar)));
-  phi->data[j] = 0.92*phistar*exp(pow1)*pow(pow2, alpha+1);
+    /* Calculate the theoretical blue light magnitude in each magnitude bin */
+    pow1 = -1*pow(10, (-0.4*(phibins->data[j]-Mbstar)));
+    pow2 = pow(10, (-0.4*(phibins->data[j]-Mbstar)));
+    phi->data[j] = 0.92*phistar*exp(pow1)*pow(pow2, alpha+1);
   }
 
-/* Initialize the Distance array */
-for (j=0; j<=distnum; j++)
+  /* Initialize the Distance array */
+  for (j=0; j<=distnum; j++)
   {
-  Distance->data[j] = initDistance+j*DeltaD;
+    Distance->data[j] = initDistance+j*DeltaD;
   }
 
-
-/* Iterate through Distance vector and bin galaxies according to magnitude at each distance */
-for (k = k_at_25Mpc; k<distnum; k++)
+  /* Iterate through Distance vector and bin galaxies according to magnitude at each distance */
+  for (k = k_at_25Mpc; k<distnum; k++)
   {
 
-  /* Reset N to zero before you count the galaxies with distances less than the current Distance */
-  for (q = 0; q<edgenum;q++)
+    /* Reset N to zero before you count the galaxies with distances less than the current Distance */
+    for (q = 0; q<edgenum;q++)
     {
-    N->data[q]=0;
+      N->data[q]=0;
     }
 
-  /* Count the number of galaxies in the spherical volume with radius Distance->data[k+1] and bin them in magnitude */
-  for( q = 0; q<num_source; q++)
+    /* Count the number of galaxies in the spherical volume with radius Distance->data[k+1] and bin them in magnitude */
+    for( q = 0; q<num_source; q++)
     {
-    if ( (source_data[q].dist<=Distance->data[k+1]) )
+      if ( (source_data[q].dist<=Distance->data[k+1]) )
       {
-      /* Convert galaxy luminosity to blue light magnitude */
-      mag = -2.5*(log10(source_data[q].lum)+7.808);
-      /* Calculate which magnitude bin it falls in */
-      mag_index = (int) floor((mag-M_max)/edgestep);
-      /* Create a histogram array of the number of galaxies in each magnitude bin */
-      if (mag_index >= 0 && mag_index<edgenum)
+        /* Convert galaxy luminosity to blue light magnitude */
+        mag = -2.5*(log10(source_data[q].lum)+7.808);
+        /* Calculate which magnitude bin it falls in */
+        mag_index = (int) floor((mag-M_max)/edgestep);
+        /* Create a histogram array of the number of galaxies in each magnitude bin */
+        if (mag_index >= 0 && mag_index<edgenum)
         {
-        N->data[mag_index] += 1.0;
+          N->data[mag_index] += 1.0;
         }
-      else printf("WARNING GALAXY DOESNT FIT IN BIN\n");
+        else printf("WARNING GALAXY DOESNT FIT IN BIN\n");
       }
     }
 
-  /* Add galaxies to the catalog based on the difference between the expected number of galaxies and the number of galaxies in the catalog */
-  for (j = 0; j<edgenum; j++)
+    /* Add galaxies to the catalog based on the difference between the expected number of galaxies and the number of galaxies in the catalog */
+    for (j = 0; j<edgenum; j++)
     {
-    /* Number of galaxies expected in the spherical volume with radius Distance->data[k+1] */
-    phiN->data[j] =edgestep*phi->data[j]*(4.0/3.0)*LAL_PI*(pow(Distance->data[k+1]/1000.0,3));
-    /*Difference between the counted number of galaxies and the expected number of galaxies */
-    Corrections->data[j] = phiN->data[j] - N->data[j] - pN->data[j];
-    /* If there are galaxies missing, add them */
-    if (Corrections->data[j]>0.0)
+      /* Number of galaxies expected in the spherical volume with radius Distance->data[k+1] */
+      phiN->data[j] =edgestep*phi->data[j]*(4.0/3.0)*LAL_PI*(pow(Distance->data[k+1]/1000.0,3));
+      /* Difference between the counted number of galaxies and the expected number of galaxies */
+      Corrections->data[j] = phiN->data[j] - N->data[j] - pN->data[j];
+      /* If there are galaxies missing, add them */
+      if (Corrections->data[j]>0.0)
       {
-      for (q=0;q<floor(Corrections->data[j]);q++)
+        for (q=0;q<floor(Corrections->data[j]);q++)
         {
-        randPositionTable = XLALRandomInspiralSkyLocation( randPositionTable, randPositions);
-        myFakeGalaxy->dist = Distance->data[k+1];
-        myFakeGalaxy->ra = randPositionTable->longitude;
-        myFakeGalaxy->dec = randPositionTable->latitude;
-        myFakeGalaxy->fudge = 1;
-        sprintf(myFakeGalaxy->name, "%s%d", galaxyname, galaxynum);
-        myFakeGalaxy->lum = pow(10.0, (phibins->data[j]/(-2.5)-7.808));
-        myFakeGalaxy->next = (struct FakeGalaxy*) calloc(1,sizeof(struct FakeGalaxy));
-        myFakeGalaxy = myFakeGalaxy->next;
-        galaxynum++;
-        pN->data[j] += 1.0;
+          randPositionTable = XLALRandomInspiralSkyLocation( randPositionTable, randPositions);
+          myFakeGalaxy->dist = Distance->data[k+1];
+          myFakeGalaxy->ra = randPositionTable->longitude;
+          myFakeGalaxy->dec = randPositionTable->latitude;
+          myFakeGalaxy->fudge = 1;
+          sprintf(myFakeGalaxy->name, "%s%d", galaxyname, galaxynum);
+          myFakeGalaxy->lum = pow(10.0, (phibins->data[j]/(-2.5)-7.808));
+          myFakeGalaxy->next = (struct FakeGalaxy*) calloc(1,sizeof(struct FakeGalaxy));
+          myFakeGalaxy = myFakeGalaxy->next;
+          galaxynum++;
+          pN->data[j] += 1.0;
         }
       }
     }
   }
 
-/*Combine source_data (original catalog) and FakeGalaxies into one array */
-temparray = calloc((num_source+galaxynum), sizeof(*source_data));
+  /* Combine source_data (original catalog) and FakeGalaxies into one array */
+  temparray = calloc((num_source+galaxynum), sizeof(*source_data));
   if ( !temparray )
   {     fprintf( stderr, "Allocation error for temparray\n" );
     exit( 1 );
   }
 
-for (j=0;j<num_source;j++) {
-        temparray[j].dist = source_data[j].dist;
-        temparray[j].lum = source_data[j].lum;
-        sprintf(temparray[j].name, "%s", source_data[j].name);
-        temparray[j].ra = source_data[j].ra;
-        temparray[j].dec = source_data[j].dec;
-        temparray[j].fudge = source_data[j].fudge;
-}
-myFakeGalaxy = head;
-for (j=num_source;j<(num_source+galaxynum);j++) {
-        temparray[j].dist = myFakeGalaxy->dist;
-        temparray[j].lum = myFakeGalaxy->lum;
-        sprintf(temparray[j].name, "%s", myFakeGalaxy->name);
-        temparray[j].ra = myFakeGalaxy->ra;
-        temparray[j].dec = myFakeGalaxy->dec;
-        temparray[j].fudge = myFakeGalaxy->fudge;
-        myFakeGalaxy = myFakeGalaxy->next;
-}
-myFakeGalaxy->next = NULL;
+  for (j=0;j<num_source;j++)
+  {
+    temparray[j].dist = source_data[j].dist;
+    temparray[j].lum = source_data[j].lum;
+    sprintf(temparray[j].name, "%s", source_data[j].name);
+    temparray[j].ra = source_data[j].ra;
+    temparray[j].dec = source_data[j].dec;
+    temparray[j].fudge = source_data[j].fudge;
+  }
+  myFakeGalaxy = head;
+  for (j=num_source;j<(num_source+galaxynum);j++)
+  {
+    temparray[j].dist = myFakeGalaxy->dist;
+    temparray[j].lum = myFakeGalaxy->lum;
+    sprintf(temparray[j].name, "%s", myFakeGalaxy->name);
+    temparray[j].ra = myFakeGalaxy->ra;
+    temparray[j].dec = myFakeGalaxy->dec;
+    temparray[j].fudge = myFakeGalaxy->fudge;
+    myFakeGalaxy = myFakeGalaxy->next;
+  }
+  myFakeGalaxy->next = NULL;
 
-/*Point old_source_data at source_data */
-old_source_data = source_data;
+  /* Point old_source_data at source_data */
+  old_source_data = source_data;
 
-/*Point source_data at the new array*/
-source_data = temparray;
-shellLum = 0;
+  /* Point source_data at the new array*/
+  source_data = temparray;
+  shellLum = 0;
 
-if (makeCatalog == 1) {
-/* Write the corrected catalog to a file */
-fp = fopen("correctedcatalog.txt", "w+");
-for (j=0; j<(num_source+galaxynum);j++) {
-fprintf(fp, "%s %g %g %g %g %g \n", source_data[j].name, source_data[j].ra, source_data[j].dec, source_data[j].dist, source_data[j].lum, source_data[j].fudge );
-}
-fclose(fp);
-}
-/* Recalculate some variables from read_source_data that will have changed due to the addition of fake galaxies */
- ratioVec = (REAL8*) calloc( (num_source+galaxynum), sizeof( REAL8 ) );
- fracVec  = (REAL8*) calloc( (num_source+galaxynum), sizeof( REAL8  ) );
+  if (makeCatalog == 1)
+  {
+    /* Write the corrected catalog to a file */
+    fp = fopen("correctedcatalog.txt", "w+");
+    for (j=0; j<(num_source+galaxynum);j++) {
+      fprintf(fp, "%s %g %g %g %g %g \n", source_data[j].name, source_data[j].ra,
+        source_data[j].dec, source_data[j].dist, source_data[j].lum, source_data[j].fudge );
+    }
+    fclose(fp);
+  }
+
+  /* Recalculate some variables from read_source_data that will have changed due to the addition of fake galaxies */
+  ratioVec = (REAL8*) calloc( (num_source+galaxynum), sizeof( REAL8 ) );
+  fracVec  = (REAL8*) calloc( (num_source+galaxynum), sizeof( REAL8 ) );
   if ( !ratioVec || !fracVec )
   {
     fprintf( stderr, "Allocation error for ratioVec/fracVec\n" );
@@ -1297,25 +1300,24 @@ fclose(fp);
   for ( i = 1; i <(num_source+galaxynum); ++i )
     fracVec[i] = fracVec[i-1] + ratioVec[i] / norm;
 
-/* Free some stuff */
-myFakeGalaxy = head;
-for (j=0; j<galaxynum; j++) {
-        saved_next = myFakeGalaxy->next;
-        free(myFakeGalaxy);
-        myFakeGalaxy = saved_next;
-}
-LALFree(old_source_data);
-LALFree( skyPoints );
-LALDestroyRandomParams( &status, &randPositions);
+  /* Free some stuff */
+  myFakeGalaxy = head;
+  for (j=0; j<galaxynum; j++) {
+    saved_next = myFakeGalaxy->next;
+    free(myFakeGalaxy);
+    myFakeGalaxy = saved_next;
+  }
+  LALFree(old_source_data);
+  LALFree( skyPoints );
+  LALDestroyRandomParams(&status, &randPositions);
 
-XLALDestroyREAL8Vector(phibins);
-XLALDestroyREAL8Vector(Corrections);
-XLALDestroyREAL8Vector(Distance);
-XLALDestroyREAL8Vector(phi);
-XLALDestroyREAL8Vector(phiN);
-XLALDestroyREAL8Vector(N);
-XLALDestroyREAL8Vector(pN);
-
+  XLALDestroyREAL8Vector(phibins);
+  XLALDestroyREAL8Vector(Corrections);
+  XLALDestroyREAL8Vector(Distance);
+  XLALDestroyREAL8Vector(phi);
+  XLALDestroyREAL8Vector(phiN);
+  XLALDestroyREAL8Vector(N);
+  XLALDestroyREAL8Vector(pN);
 }
 
 /*
@@ -1324,7 +1326,7 @@ XLALDestroyREAL8Vector(pN);
  *
  */
 
-  void 
+  void
 drawMassFromSource( SimInspiralTable* table )
 {
   REAL4 m1, m2, eta;
@@ -1349,7 +1351,7 @@ drawMassFromSource( SimInspiralTable* table )
  *
  */
 
-  void 
+  void
 drawMassSpinFromNR( SimInspiralTable* table )
 {
   int mass_index=0;
@@ -1361,7 +1363,7 @@ drawMassSpinFromNR( SimInspiralTable* table )
 }
 
 
-  void 
+  void
 drawMassSpinFromNRNinja2( SimInspiralTable* inj )
 {
   /* For ninja2 we first select a mass, then find */
@@ -1440,8 +1442,8 @@ drawMassSpinFromNRNinja2( SimInspiralTable* inj )
  *
  */
 
-  void 
-drawFromSource( 
+  void
+drawFromSource(
     REAL8 *rightAscension,
     REAL8 *declination,
     REAL8 *distance,
@@ -1480,14 +1482,14 @@ drawFromSource(
  *
  */
 
-  void 
-drawFromIPNsim( 
+  void
+drawFromIPNsim(
     REAL8 *rightAscension,
     REAL8 *declination )
 {
   REAL4 u;
   INT4 j;
-  
+
   u=XLALUniformDeviate( randParams );
   j=( int ) (u*numSkyPoints);
 
@@ -1507,7 +1509,7 @@ drawFromIPNsim(
  *
  */
 
-  void 
+  void
 drawLocationFromExttrig( SimInspiralTable* table )
 {
   LIGOTimeGPS timeGRB;  /* real time of the GRB */
@@ -1549,7 +1551,7 @@ int main( int argc, char *argv[] )
   REAL8 timeInterval = 0;
   REAL4 fLower = -1;
   UINT4 useChirpDist = 0;
-  REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0, 
+  REAL4 minMass10, maxMass10, minMass20, maxMass20, minMtotal0, maxMtotal0,
       meanMass10, meanMass20, massStdev10, massStdev20; /* masses at z=0 */
   REAL8 pzmax=0; /* maximal value of the probability distribution of the redshift */
   INT4 ncount;
@@ -1624,7 +1626,7 @@ int main( int argc, char *argv[] )
     {"ninja2-mass",             no_argument,       &ninjaMass,         1},
     {"real8-ninja2",            no_argument,       &real8Ninja2,       1},
     {"mass1-points",            required_argument, 0,                ':'},
-    {"mass2-points",            required_argument, 0,                ';'},    
+    {"mass2-points",            required_argument, 0,                ';'},
     {"stdev-mass1",             required_argument, 0,                'o'},
     {"stdev-mass2",             required_argument, 0,                'O'},
     {"min-mratio",              required_argument, 0,                'x'},
@@ -1714,7 +1716,6 @@ int main( int argc, char *argv[] )
 
   /* set up initial debugging values */
   lal_errhandler = LAL_ERR_EXIT;
-  set_debug_level( "1" );
 
   /* create the process and process params tables */
   proctable.processTable = (ProcessTable *)
@@ -1864,7 +1865,7 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name, "int",
               "%d", rand_seed );
         break;
-                        
+
       case '(':
         optarg_len = strlen( optarg ) + 1;
         memcpy( dummy, optarg, optarg_len );
@@ -1895,7 +1896,7 @@ int main( int argc, char *argv[] )
       case ')':
         localRate = atof( optarg );
         this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, "float", 
+          next_process_param( long_options[option_index].name, "float",
               "%le", localRate );
         if ( ! localRate > 0. )
         {
@@ -1917,7 +1918,7 @@ int main( int argc, char *argv[] )
       case 'i':
         timeInterval = atof( optarg );
         this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, "float", 
+          next_process_param( long_options[option_index].name, "float",
               "%le", timeInterval );
         break;
 
@@ -1931,7 +1932,7 @@ int main( int argc, char *argv[] )
       case 'q':
         amp_order = atof( optarg );
         this_proc_param = this_proc_param->next =
-          next_process_param( long_options[option_index].name, "int", 
+          next_process_param( long_options[option_index].name, "int",
               "%ld", amp_order );
       break;
 
@@ -2038,7 +2039,7 @@ int main( int argc, char *argv[] )
               "unknown mass distribution: %s must be one of\n"
               "(source, nrwaves, totalMass, componentMass, gaussian, log,\n"
               "totalMassRatio, totalMassFraction, logTotalMassUniformMassRatio,\n"
-              "m1m2SquareGrid)\n",
+              "m1m2SquareGrid, fixMasses)\n",
               long_options[option_index].name, optarg );
           exit( 1 );
         }
@@ -2141,14 +2142,14 @@ int main( int argc, char *argv[] )
           next_process_param( long_options[option_index].name,
               "int", "%d", pntMass2 );
         break;
-      
+
       case ']':
         fixedMass1 = atof( optarg );
         this_proc_param = this_proc_param->next =
           next_process_param( long_options[option_index].name,
               "float", "%d", fixedMass1 );
         break;
-      
+
       case '[':
         fixedMass2 = atof( optarg );
         this_proc_param = this_proc_param->next =
@@ -2642,17 +2643,17 @@ int main( int argc, char *argv[] )
         virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
         break;
-       
+
        case 601:  /* Virgo fake LALSim PSD */
         optarg_len      = strlen( optarg ) + 1;
         virgoFakePsd = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoFakePsd, optarg, optarg_len * sizeof(char) );
         break;
-      
-      case 602:  /* LIGO start frequency */
+
+      case 602:  /* Virgo start frequency */
         virgoStartFreq = (REAL8) atof( optarg );
         break;
-      
+
       case 1707: /* Set min coincident SNR in two IFOs */
             single_IFO_SNR_threshold=(REAL8) atof(optarg);
             break;
@@ -2942,33 +2943,33 @@ int main( int argc, char *argv[] )
         exit( 1 );
         break;
       case 1002:
-        this_proc_param = this_proc_param->next = 
+        this_proc_param = this_proc_param->next =
         next_process_param( long_options[option_index].name, "string", "" );
         spinDistr = gaussianSpinDist;
         break;
 
       case 1003:
         Spin1Std = atof( optarg );
-        this_proc_param = this_proc_param->next = 
+        this_proc_param = this_proc_param->next =
         next_process_param( long_options[option_index].name,
           "float", "%le", Spin1Std );
         break;
 
       case 1004:
         Spin2Std = atof( optarg );
-        this_proc_param = this_proc_param->next = 
+        this_proc_param = this_proc_param->next =
         next_process_param( long_options[option_index].name,
           "float", "%le", Spin2Std );
         break;
       case 1005:
         meanSpin1 = atof( optarg );
-        this_proc_param = this_proc_param->next = 
+        this_proc_param = this_proc_param->next =
         next_process_param( long_options[option_index].name,
           "float", "%le", meanSpin1 );
         break;
       case 1006:
         meanSpin2 = atof( optarg );
-        this_proc_param = this_proc_param->next = 
+        this_proc_param = this_proc_param->next =
         next_process_param( long_options[option_index].name,
           "float", "%le", meanSpin2 );
         break;
@@ -3048,7 +3049,7 @@ int main( int argc, char *argv[] )
           "Must specify --source-file when using --d-distr or --l-distr source \n" );
       exit( 1 );
     }
-  
+
     if ( ( dDistr == distFromSourceFile ) && ( minD>0.0 || maxD>0.0 ) )
     {
       fprintf( stderr,
@@ -3112,7 +3113,7 @@ int main( int argc, char *argv[] )
               "with --z-distr !\n");
       exit( 1 );
     }
-    if ( minZ<0.2 || maxZ>1.0 ) 
+    if ( minZ<0.2 || maxZ>1.0 )
     {
       fprintf( stderr,
           "Redshift can only take values between 0.2 and 1 for --z-distr=sfr\n");
@@ -3131,22 +3132,22 @@ int main( int argc, char *argv[] )
       exit( 1 );
     }
   }
-  if ( ( dDistr == uniformSnr || dDistr == uniformLogSnr || 
-      dDistr == uniformVolumeSnr ) && 
+  if ( ( dDistr == uniformSnr || dDistr == uniformLogSnr ||
+      dDistr == uniformVolumeSnr ) &&
       ( minD>0.0 || maxD>0.0 || minZ>0.0 || maxZ>0.0 || localRate>0.0 ) )
-  { 
+  {
     fprintf( stderr,
         "One or more options on distance or redshift are incompatible\n"\
             "with --snr-distr !\n");
     exit( 1 );
   }
 
-  /*SNR distribution options */
-  
-  if ( dDistr == uniformSnr || dDistr == uniformLogSnr || 
+  /* SNR distribution options */
+
+  if ( dDistr == uniformSnr || dDistr == uniformLogSnr ||
       dDistr == uniformVolumeSnr )
   {
-    /* make sure we have everything */
+    /* basic input checks */
     if ( minSNR == -1 || maxSNR == -1 || ifos == NULL )
     {
       fprintf( stderr,
@@ -3159,28 +3160,31 @@ int main( int argc, char *argv[] )
         "Minimum coincident SNR should not be larger than maximum network SNR. Exiting...\n");
       exit(1);
     }
-    
+
     /* Check that each ifo has its PSD file or fakePSD */
     char *tmp, *ifo;
 
     /* Get the number and names of IFOs */
     tmp = LALCalloc(1, strlen(ifos) + 1);
     strcpy(tmp, ifos);
-    ifo = strtok (tmp,",");
+    ifo = strtok(tmp,",");
+
     while (ifo != NULL)
     {
       numifos += 1;
-      ifo= strtok (NULL, ",");
+      ifo = strtok(NULL, ",");
     }
+
     ifonames=realloc(ifonames,(numifos+2)*sizeof(CHAR **));
     strcpy(tmp, ifos);
-    ifo = strtok (tmp,",");
+    ifo = strtok(tmp,",");
     ifonames[0]=malloc(strlen(ifo)+1);
     sprintf(ifonames[0],"%s",ifo);
+
     i=1;
     while (ifo != NULL)
     {
-      ifo = strtok (NULL, ",");
+      ifo = strtok(NULL, ",");
       if (ifo!=NULL)
       {
         ifonames[i]=malloc(strlen(ifo)+1);
@@ -3188,6 +3192,7 @@ int main( int argc, char *argv[] )
       }
       i++;
     }
+
     ifonames[numifos]=NULL;
     i=0;
     while (ifonames[i]!= NULL)
@@ -3195,7 +3200,7 @@ int main( int argc, char *argv[] )
       if (!strcmp(ifonames[i],"H1") || !strcmp(ifonames[i],"L1"))
       {
         /* Check either PSD file or fakePSD are given */
-        if(!(ligoFakePsd || ligoPsdFileName ))
+        if(!( ligoFakePsd || ligoPsdFileName ))
         {
           fprintf( stderr,
            "Must provide PSD file or the name of analytic PSD for LIGO if --snr-distr is given and H1 or L1 are in --ifos. \n" );
@@ -3216,14 +3221,15 @@ int main( int argc, char *argv[] )
             /* Ninja only work with PSD file, check user provided it */
         if (ninjaSNR && !(ligoPsdFileName))
         {
-          fprintf( stderr, "Ninja injections do not support SNR calculation with simulated PSD. Please provide PSD file for LIGO (with --ligo-psd filename.dat). Exiting...\n");
+          fprintf( stderr, "Ninja injections do not support SNR calculation with simulated PSD.\n"
+            "Please provide PSD file for LIGO (with --ligo-psd filename.dat). Exiting...\n");
           exit( 1 );
         }
       }
       else if (!strcmp(ifonames[i],"V1"))
       {
         /* Check either PSD file or fakePSD are given */
-        if(!(virgoFakePsd || virgoPsdFileName ))
+        if (!(virgoFakePsd || virgoPsdFileName ))
         {
           fprintf( stderr,
             "Must provide PSD file or the name of analytic PSD for Virgo if --snr-distr is given and V1 is in --ifos. \n" );
@@ -3236,7 +3242,7 @@ int main( int argc, char *argv[] )
           exit( 1 );
         }
         /* Check flow for SNR calculation was given */
-        if (virgoStartFreq < 0) 
+        if (virgoStartFreq < 0)
         {
           fprintf( stderr,"Must specify --virgo-start-freq with --virgo-psd or --virgo-fake-psd.\n");
           exit( 1 );
@@ -3244,39 +3250,39 @@ int main( int argc, char *argv[] )
         /* Ninja only work with PSD file, check user provided it */
         if (ninjaSNR && !(virgoPsdFileName))
         {
-          fprintf( stderr, "Ninja injections do not support SNR calculation with simulated PSD. Please provide PSD file for Virgo (with --virgo-psd filename.dat). Exiting...\n");
+          fprintf( stderr, "Ninja injections do not support SNR calculation with simulated PSD.\n"
+            "Please provide PSD file for Virgo (with --virgo-psd filename.dat). Exiting...\n");
           exit( 1 );
         }
       }
-        
       i++;
     }
+
     if (tmp) LALFree(tmp);
     if (ifo) LALFree(ifo);
-    
+
     if ( maxSNR <= minSNR )
     {
       fprintf( stderr, "max SNR must be greater than min SNR\n");
       exit( 1 );
     }
     if (single_IFO_SNR_threshold<0.0)
+    {
+      fprintf( stderr,
+        "The single IFO SNR threshold must be positive. Exiting...\n" );
+      exit( 1 );
+    }
+
+    /* Check custom PSDs */
+    if (ligoPsdFileName) {
+      if (XLALPsdFromFile(&ligoPsd, ligoPsdFileName) != XLAL_SUCCESS)
       {
-        fprintf( stderr,
-            "The single IFO SNR threshold must be positive. Exiting...\n" );
+        fprintf(stderr, "Unable to load PSD file %s.\n", ligoPsdFileName);
         exit( 1 );
       }
-      
-       /* Check custom PSDs */
-      if (ligoPsdFileName){
-        if (XLALPsdFromFile(&ligoPsd, ligoPsdFileName) != XLAL_SUCCESS)
-        {
-          fprintf(stderr, "Unable to load PSD file %s.\n", ligoPsdFileName);
-          exit( 1 );
-        }
-    
-        /* We're done with the filename */
-        free(ligoPsdFileName);
-        }
+      /* We're done with the filename */
+      free(ligoPsdFileName);
+    }
 
     if (virgoPsdFileName) {
       if (XLALPsdFromFile(&virgoPsd, virgoPsdFileName) != XLAL_SUCCESS)
@@ -3287,7 +3293,6 @@ int main( int argc, char *argv[] )
       /* We're done with the filename */
       free(virgoPsdFileName);
     }
-      
   }
 
   /* check if the source file is specified for distance but NOT for
@@ -3308,34 +3313,6 @@ int main( int argc, char *argv[] )
         "WARNING: source file specified for locations "
         "but NOT for distances, while Milky Way injections "
         "are allowed. This might give strange distributions\n" );
-  }
-
-  /* check selection of masses */
-  if ( !massFileName && mDistr==massFromSourceFile )
-  {
-    fprintf( stderr,
-        "Must specify either a file contining the masses (--mass-file) "
-        "or choose another mass-distribution (--m-distr).\n" );
-    exit( 1 );
-  }
-  
-  if ( !nrFileName && mDistr==massFromNRFile )
-  {
-    fprintf( stderr,
-        "Must specify either a file contining the masses (--nr-file) "
-        "or choose another mass-distribution (--m-distr).\n" );
-    exit( 1 );
-  }
-
-  /* read the masses from the mass file here */
-  if ( massFileName && mDistr==massFromSourceFile )
-  {
-    read_mass_data( massFileName );
-  }
-
-  if ( nrFileName && mDistr==massFromNRFile )
-  {
-    read_nr_data ( nrFileName );
   }
 
   /* read in the data from the external trigger file */
@@ -3365,7 +3342,6 @@ int main( int argc, char *argv[] )
       fprintf(stderr,
                 "ERROR: No external trigger found in file '%s'",
                  exttrigFileName );
-
       exit(1);
     }
   }
@@ -3393,68 +3369,177 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
+  /* check files have been specified correctly for mass distributions */
+  if ( !massFileName && mDistr==massFromSourceFile )
+  {
+    fprintf( stderr,
+        "Must specify either a file contining the masses (--mass-file) \n"
+        "or choose another mass-distribution (--m-distr).\n" );
+    exit( 1 );
+  }
+  if ( !nrFileName && mDistr==massFromNRFile )
+  {
+    fprintf( stderr,
+        "Must specify either a file contining the masses (--nr-file) \n"
+        "or choose another mass-distribution (--m-distr).\n" );
+    exit( 1 );
+  }
+
+  /* read the masses from the mass file here, check for junk options */
+  if ( massFileName && mDistr==massFromSourceFile )
+  {
+    if ( minMass1>0.0 || minMass2>0.0 || maxMass1>0.0 || maxMass2>0.0 ||
+         minMtotal>0.0 || maxMtotal>0.0 || meanMass1>0.0 || meanMass2>0.0 ||
+         massStdev1>0.0 || massStdev2>0.0 || minMassRatio>0.0 || maxMassRatio>0.0 ||
+         pntMass1>1 || pntMass2>1 || fixedMass1>0.0 || fixedMass2>0.0 )
+    {
+      fprintf( stderr,
+        "One or more mass distribution options are incompatible with \n"
+        "using a file containing masses (--mass-file).\n" );
+      exit( 1 );
+    }
+    else
+    {
+      read_mass_data( massFileName );
+    }
+  }
+
+  /* NR option requires min- & max-mtotal, all other options are junk */
+  if ( nrFileName && mDistr==massFromNRFile )
+  {
+    if ( minMtotal<=0.0 || maxMtotal<=0.0 )
+    {
+      fprintf( stderr,
+        "Must specify positive min-mtotal and max-mtotal when using \n"
+        "a file containing NR injection masses (--nr-file).\n" );
+      exit( 1 );
+    }
+    else if ( minMass1>0.0 || minMass2>0.0 || maxMass1>0.0 || maxMass2>0.0 ||
+         meanMass1>0.0 || meanMass2>0.0 ||
+         massStdev1>0.0 || massStdev2>0.0 || minMassRatio>0.0 || maxMassRatio>0.0 ||
+         pntMass1>1 || pntMass2>1 || fixedMass1>0.0 || fixedMass2>0.0 )
+    {
+      fprintf( stderr,
+        "One or more mass distribution options are incompatible with \n"
+        "using a file containing masses (--nr-file).\n" );
+      exit( 1 );
+    }
+    else
+    {
+      read_nr_data ( nrFileName );
+    }
+  }
+
+  /* inverse logic check */
+  if ( ( massFileName && mDistr!=massFromSourceFile ) ||
+    ( nrFileName && mDistr!=massFromNRFile ) )
+  {
+    fprintf( stderr,
+      "Cannot specify a source or NR injection mass file for your choice \n"
+      "of --m-distr.\n" );
+    exit( 1 );
+  }
+
+  /* check options for component-based distributions */
+  if ( mDistr==uniformTotalMass || mDistr==uniformComponentMass ||
+       mDistr==logComponentMass || mDistr==gaussianMassDist ||
+       mDistr==m1m2SquareGrid )
+  {
+    /* first check: require component mass ranges */
+    if ( minMass1<=0.0 || minMass2<=0.0 || maxMass1<=0.0 || maxMass2<=0.0 )
+    {
+      fprintf( stderr,
+        "Must specify positive minimum and maximum component masses for \n"
+        "your choice of --m-distr.\n" );
+      exit( 1 );
+    }
+    /* second check: exclude junk options */
+    if ( minMassRatio>=0.0 || maxMassRatio>=0.0 ||
+         fixedMass1>=0.0 || fixedMass2>=0.0 )
+    {
+      fprintf( stderr,
+        "Cannot specify --min-mratio, --max-mratio, or fixed m1,m2 for \n"
+        "your choice of --m-distr.\n" );
+      exit( 1 );
+    }
+    /* if max-mtotal and min-mtotal values were not specified, assign them */
+    if ( minMtotal<0.0 )
+      { minMtotal = minMass1 + minMass2; }
+    if ( maxMtotal<0.0 )
+      { maxMtotal = maxMass1 + maxMass2; }
+    /* third check: proper values of min-mtotal and max-mtotal */
+    if ( maxMtotal<(minMass1 + minMass2) || minMtotal>(maxMass1 + maxMass2) )
+    {
+      fprintf( stderr,
+        "Maximum (minimum) total mass must be larger (smaller) than \n"
+        "minMass1+minMass2 (maxMass1+maxMass2). Check your arithmetic\n");
+      exit( 1 );
+    }
+  }
+
+  /* check options for mtotal/q-based distributions */
+  if ( mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio ||
+       mDistr==uniformTotalMassFraction )
+  {
+    /* first check: required options */
+    if ( minMassRatio<=0.0 || maxMassRatio<=0.0 ||
+         minMtotal<=0.0 || maxMtotal<=0.0 )
+    {
+      fprintf( stderr,
+        "Must specify positive min-mratio and max-mratio and min/max mtotal for \n"
+        "your choice of --m-distr.\n" );
+      exit( 1 );
+    }
+    /* second check: exclude junk options */
+    if ( minMass1>=0.0 || minMass2>=0.0 || maxMass1>=0.0 || maxMass2>=0.0 ||
+         meanMass1>=0.0 || meanMass2>=0.0 || massStdev1>=0.0 || massStdev2>=0.0 ||
+         pntMass1>1 || pntMass2>1 || fixedMass1>=0.0 || fixedMass2>=0.0 )
+    {
+      fprintf( stderr,
+        "Cannot specify options related to component masses for your choice \n"
+        "of --m-distr.\n" );
+      exit( 1 );
+    }
+  }
+
   /* check for gaussian mass distribution parameters */
-  if ( mDistr==gaussianMassDist && (meanMass1 <= 0.0 || massStdev1 <= 0.0 ||
-        meanMass2 <= 0.0 || massStdev2 <= 0.0))
+  if ( mDistr==gaussianMassDist )
+  {
+    if ( meanMass1 <= 0.0 || massStdev1 <= 0.0 ||
+         meanMass2 <= 0.0 || massStdev2 <= 0.0 )
+    {
+      fprintf( stderr,
+        "Must specify positive --mean-mass1/2 and --stdev-mass1/2 if choosing \n"
+        " --m-distr gaussian\n" );
+      exit( 1 );
+    }
+    if ( minMass1==maxMass1 || minMass2==maxMass2 )
+    {
+      fprintf( stderr,
+        "Must specify a nonzero range of mass1 and mass2 if choosing \n"
+        " --m-distr gaussian\n" );
+      exit( 1 );
+    }
+  }
+  /* inverse logic check for junk options */
+  if ( ( meanMass1>=0.0 || meanMass2>=0.0 || massStdev1>=0.0 || massStdev2>=0.0 )
+        && ( mDistr!=gaussianMassDist ) )
   {
     fprintf( stderr,
-        "Must specify --mean-mass1/2 and --stdev-mass1/2 if choosing \n"
-        " --m-distr=gaussian\n" );
+      "Cannot specify --mean-mass1/2 or --stdev-mass1/2 unless choosing \n"
+      " --m-distr gaussian\n" );
     exit( 1 );
   }
 
-  /* check if the mass area is properly specified */
-  if ( (mDistr!=gaussianMassDist && mDistr!=fixMasses) && 
-      (minMass1 <=0.0 || minMass2 <=0.0 || maxMass1 <=0.0 || maxMass2 <=0.0) )
-  {
-    fprintf( stderr,
-        "Must specify --min-mass1/2 and --max-mass1/2 if choosing"
-        " --m-distr not gaussian or fixMasses\n" );
-    exit( 1 );
-  }
-
-  /* check if the maximum total mass is properly specified */
-  if ( mDistr!=gaussianMassDist && mDistr!=fixMasses && maxMtotal<(minMass1 + minMass2) )
-  {
-    fprintf( stderr,
-        "Maximum total mass must be larger than minMass1+minMass2\n");
-    exit( 1 );
-  }
-
-  /* check if total mass is specified */
-  if ( mDistr != fixMasses && maxMtotal<0.0)
-  {
-    fprintf( stderr,
-        "Must specify --max-mtotal.\n" );
-    exit( 1 );
-  }
-  if ( mDistr != fixMasses && minMtotal<0.0)
-  {
-    fprintf( stderr,
-        "Must specify --min-mtotal.\n" );
-    exit( 1 );
-  }
-
-  /* check if mass ratios are specified */
-  if ( (mDistr==uniformTotalMassRatio || mDistr==logMassUniformTotalMassRatio
-        || mDistr==uniformTotalMassFraction)
-      && (minMassRatio < 0.0 || maxMassRatio < 0.0) )
-  {
-    fprintf( stderr,
-        "Must specify --min-mass-ratio and --max-mass-ratio if choosing \n"
-        " --m-distr=totalMassRatio or --m-distr=logTotalMassUniformMassRatio \n"
-        " or --m-distr=totalMassFraction\n");
-    exit( 1 );
-  }
-
-  /* check if number of grid points is specified */
+  /* checks for m1m2 mass grid options */
   if ( mDistr==m1m2SquareGrid )
   {
     if ( pntMass1<2 || pntMass2<2 )
     {
-    fprintf( stderr, "--mass1-points and --mass2-points must be specified "
-        "and >= 2 if --m-distr=m1m2SquareGrid\n" );
-    exit( 1 );
+      fprintf( stderr,
+        "Values of --mass1-points and --mass2-points must be specified \n"
+        "and >= 2 if choosing --m-distr m1m2SquareGrid\n" );
+      exit( 1 );
     }
     else
     {
@@ -3462,13 +3547,35 @@ int main( int argc, char *argv[] )
       deltaMass2 = ( maxMass2 - minMass2 ) / (REAL4) ( pntMass2 -1 );
     }
   }
-
-  /* check if fixed-mass1 and fixed-mass2 are specified */
-  if ( mDistr==fixMasses && ( fixedMass1<0.0 || fixedMass2<0.0 ) )
+  /* inverse logic check */
+  if ( ( pntMass1>1 || pntMass2>1 ) && ( mDistr!=m1m2SquareGrid ) )
   {
-    fprintf( stderr, "--fixed-mass1 and --fixed-mass2 must be specified "
-        "and >= 0 if --m-distr=fixMasses\n" );
+    fprintf( stderr,
+      "Cannot specify --mass1-points or mass2-points unless choosing \n"
+      " --m-distr m1m2SquareGrid\n" );
     exit( 1 );
+  }
+
+  /* checks for fixed-mass injections */
+  if ( mDistr==fixMasses )
+  {
+    if ( fixedMass1<=0.0 || fixedMass2<=0.0 )
+    {
+      fprintf( stderr, "--fixed-mass1 and --fixed-mass2 must be specified "
+        "and positive if choosing --m-distr fixMasses\n" );
+      exit( 1 );
+    }
+    /* exclude junk options */
+    if ( minMass1>=0.0 || minMass2>=0.0 || maxMass1>=0.0 || maxMass2>=0.0 ||
+         minMtotal>=0.0 || maxMtotal>=0.0 || meanMass1>=0.0 || meanMass2>=0.0 ||
+         massStdev1>=0.0 || massStdev2>=0.0 || minMassRatio>=0.0 ||
+         maxMassRatio>=0.0 || pntMass1>1 || pntMass2>1 )
+    {
+      fprintf( stderr,
+        "One or more mass options are incompatible with --m-distr fixMasses, \n"
+        "only --fixed-mass1 and --fixed-mass2 may be specified\n" );
+      exit( 1 );
+    }
   }
 
   /* check if waveform is specified */
@@ -3493,7 +3600,7 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
 
-  if ( spinInjections==1 && spinAligned==-1 && 
+  if ( spinInjections==1 && spinAligned==-1 &&
       ( !strncmp(waveform, "IMRPhenomB", 10) || !strncmp(waveform, "IMRPhenomC", 10) ) )
   {
     fprintf( stderr,
@@ -3502,10 +3609,11 @@ int main( int argc, char *argv[] )
   }
 
   if ( spinInjections==1 && spinAligned==1 && strncmp(waveform, "IMRPhenomB", 10)
-    && strncmp(waveform, "IMRPhenomC", 10) && strncmp(waveform, "SpinTaylor", 10) )
+    && strncmp(waveform, "IMRPhenomC", 10) && strncmp(waveform, "SpinTaylor", 10)
+    && strncmp(waveform, "SEOBNR", 6) )
   {
     fprintf( stderr,
-        "Sorry, I only know to make spin aligned injections for \n"
+        "Sorry, I only know to make spin aligned injections for SEOBNR, \n"
         "IMRPhenomB/C, SpinTaylor and SpinTaylorFrameless waveforms.\n" );
     exit( 1 );
   }
@@ -3676,7 +3784,7 @@ int main( int argc, char *argv[] )
   massStdev10 = massStdev1;
   massStdev20 = massStdev2;
 
-  /* calculate the maximal value of the probability distribution of the redshift */        
+  /* calculate the maximal value of the probability distribution of the redshift */
   if (dDistr == starFormationRate)
   {
     pzmax = probability_redshift(maxZ);
@@ -3704,7 +3812,7 @@ int main( int argc, char *argv[] )
     /* draw redshift and apply to mass parameters */
     if (dDistr==starFormationRate)
     {
-      redshift = drawRedshift(minZ,maxZ,pzmax);        
+      redshift = drawRedshift(minZ,maxZ,pzmax);
 
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
@@ -3751,7 +3859,7 @@ int main( int argc, char *argv[] )
     else if ( mDistr==m1m2SquareGrid )
     {
       simTable=XLALm1m2SquareGridInspiralMasses( simTable, minMass1, minMass2,
-          minMtotal, maxMtotal, deltaMass1, deltaMass2, pntMass1, pntMass2, 
+          minMtotal, maxMtotal, deltaMass1, deltaMass2, pntMass1, pntMass2,
           ninj, &ncount);
     }
     else if ( mDistr==fixMasses )
@@ -3769,7 +3877,7 @@ int main( int argc, char *argv[] )
           minMass2, maxMass2,
           minMtotal, maxMtotal);
     }
-    
+
     /* draw location and distances */
     drawFromSource( &drawnRightAscension, &drawnDeclination, &drawnDistance,
         drawnSourceName );
@@ -3803,7 +3911,8 @@ int main( int argc, char *argv[] )
       /* Set distance to just any value, e.g. 100, which will be used to scale the SNR */
       simTable->distance=100.0;
     }
-    /* Possible errors (i.e. no dDistr given) should have already been caught, but just to be sure (in case someone adds new LoudnessDistribution) */ 
+    /* Possible errors (i.e. no dDistr given) should have already been caught */
+    /* check just to be sure in case someone adds new LoudnessDistribution    */
     else
     {
       fprintf(stderr,"Error while generating the distance of the event.\n");
@@ -3883,7 +3992,9 @@ int main( int argc, char *argv[] )
     {
       if (spinAligned==1)
       {
-        if ( !strncmp(waveform, "IMRPhenomB", 10) || !strncmp(waveform, "IMRPhenomC", 10) )
+        if ( !strncmp(waveform, "IMRPhenomB", 10) || 
+             !strncmp(waveform, "IMRPhenomC", 10) ||
+             !strncmp(waveform, "SEOBNR", 6) )
           alignInj = alongzAxis;
         else if ( !strncmp(waveform, "SpinTaylor", 10) )
           alignInj = inxzPlane;
@@ -3900,35 +4011,33 @@ int main( int argc, char *argv[] )
           minSpin2, maxSpin2,
           minKappa1, maxKappa1,
           minabsKappa1, maxabsKappa1,
-          alignInj, spinDistr, 
-          meanSpin1, Spin1Std, 
+          alignInj, spinDistr,
+          meanSpin1, Spin1Std,
           meanSpin2, Spin2Std );
     }
 
-    /* adjust SNR to desired distribution using NINJA calculation */ 
+    /* adjust SNR to desired distribution using NINJA calculation */
     if ( ifos != NULL && ninjaSNR )
     {
-        
-        
-        if (dDistr==uniformSnr){
-            targetSNR=draw_uniform_snr(minSNR,maxSNR);
-        }
-        else if(dDistr==uniformLogSnr){
-            targetSNR=draw_log10_snr(minSNR,maxSNR);
-        }
-        else if (dDistr==uniformVolumeSnr){
-            targetSNR=draw_volume_snr(minSNR,maxSNR);
-        }
-        else{
-            fprintf(stderr,"Allowed values for snr-distr are uniformSnr, uniformLogSnr and uniformVolumeSnr. Exiting...\n");
-            exit(1);
-        }
+      if (dDistr==uniformSnr){
+        targetSNR=draw_uniform_snr(minSNR,maxSNR);
+      }
+      else if(dDistr==uniformLogSnr){
+        targetSNR=draw_log10_snr(minSNR,maxSNR);
+      }
+      else if (dDistr==uniformVolumeSnr){
+        targetSNR=draw_volume_snr(minSNR,maxSNR);
+      }
+      else{
+        fprintf(stderr,"Allowed values for --snr-distr are uniform, log10 and volume. Exiting...\n");
+        exit(1);
+      }
 
       if (! real8Ninja2)
       {
         adjust_snr(simTable, targetSNR, ifos);
-      } 
-      else 
+      }
+      else
       {
         REAL8 *start_freqs;
         const char  **ifo_list;
@@ -3956,14 +4065,14 @@ int main( int argc, char *argv[] )
 
         while (ifo != NULL)
         {
-          ifo_list[count] = ifo; 
+          ifo_list[count] = ifo;
 
           if (ifo_list[count][0] == 'V')
           {
             start_freqs[count] = virgoStartFreq;
             psds[count]        = virgoPsd;
-          } 
-          else 
+          }
+          else
           {
             start_freqs[count] = ligoStartFreq;
             psds[count]        = ligoPsd;
@@ -3988,26 +4097,24 @@ int main( int argc, char *argv[] )
       REAL8 *start_freqs;
       REAL8FrequencySeries **psds;
       i=1;
-  
+
       /*reset counter */
-      ifo=ifonames[0];
-      i=0;
-      //printf("numifos %d\n",numifos);
+      ifo = ifonames[0];
+      i = 0;
       /* Create variables for PSDs and starting frequencies */
       start_freqs = (REAL8 *) LALCalloc(numifos+1, sizeof(REAL8));
       psds        = (REAL8FrequencySeries **) LALCalloc(numifos+1, sizeof(REAL8FrequencySeries *));
-      
+
       /* Hardcoded values of srate and segment length. If changed here they must also be changed in inspiralutils.c/calculate_lalsim_snr */
-      REAL8 srate=4096.0;
-      /* Increase srate for EOB WFs */ 
+      REAL8 srate = 4096.0;
+      /* Increase srate for EOB WFs */
       const char* WF=simTable->waveform;
       if (strstr(WF,"EOB"))
-        srate=8192.0;
+        srate = 8192.0;
       /* We may want to increase the segment length when starting at low frequencies */
-      REAL8 segment=64.0;
-      size_t seglen=(size_t) segment*srate;
-        
-        
+      REAL8 segment = 64.0;
+      size_t seglen = (size_t) segment*srate;
+
       /* Fill psds and start_freqs */
       /* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
       while(ifo !=NULL)
@@ -4029,8 +4136,8 @@ int main( int argc, char *argv[] )
           if(!ligoPsd){
             ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &(simTable->geocent_end_time), 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
             get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
-          }   
-          if (!ligoPsd) fprintf(stderr,"Failed to produce LIGO PSD series. Exiting...\n");   
+          }
+          if (!ligoPsd) fprintf(stderr,"Failed to produce LIGO PSD series. Exiting...\n");
           psds[i]=ligoPsd;
         }
         else
@@ -4041,23 +4148,23 @@ int main( int argc, char *argv[] )
         i++;
         ifo=ifonames[i];
       }
-      
-      /* If 1 detector is used, turn the single IFO snr check off. */ 
+
+      /* If 1 detector is used, turn the single IFO snr check off. */
       if (numifos<2)
       {
         fprintf(stdout,"Warning: You are using less than 2 IFOs. Disabling the single IFO SNR threshold check...\n");
         single_IFO_SNR_threshold=0.0;
       }
-      
+
       /* This function takes care of drawing a proposed SNR and set the distance accordingly  */
       scale_lalsim_distance(simTable,ifonames, psds, start_freqs, dDistr);
-      
+
       /* Clean  */
       if (psds) LALFree(psds);
       if (start_freqs) LALFree(start_freqs);
-      /* Done */
-      /* Note: Because LALPopulateSimInspiralSiteInfo is called afterwards, the effective distances are also been scaled. */
-    }  
+
+      /* Note: Because LALPopulateSimInspiralSiteInfo is called afterwards, the effective distances have also been scaled. */
+    }
 
     /* populate the site specific information */
     LALPopulateSimInspiralSiteInfo( &status, simTable );
@@ -4256,24 +4363,25 @@ int main( int argc, char *argv[] )
     LALFree(skyPoints);
 
   if ( ligoPsd )
-      XLALDestroyREAL8FrequencySeries( ligoPsd );
-
+    XLALDestroyREAL8FrequencySeries( ligoPsd );
   if ( virgoPsd )
-      XLALDestroyREAL8FrequencySeries( virgoPsd );
-    if (ifonames) LALFree(ifonames);
-    
-   
+    XLALDestroyREAL8FrequencySeries( virgoPsd );
+  if (ifonames) LALFree(ifonames);
+
   LALCheckMemoryLeaks();
   return 0;
 }
 
-static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs,LoudnessDistribution snrDistr)
+static void scale_lalsim_distance(SimInspiralTable *inj,
+                                  char **IFOnames,
+                                  REAL8FrequencySeries **psds,
+                                  REAL8 *start_freqs,
+                                  LoudnessDistribution snrDistr)
 {
-    
   REAL8 proposedSNR=0.0;
   REAL8 local_min=0.0;
   REAL8 net_snr=0.0;
-  REAL8 * SNRs=NULL;
+  REAL8 *SNRs=NULL;
   UINT4 above_threshold=0;
   REAL8 ratio=1.0;
   UINT4 j=0;
@@ -4281,22 +4389,21 @@ static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8F
   /* If not already done, set distance to 100Mpc, just to have something while calculating the actual SNR */
   if (inj->distance<=0)
     inj->distance=100.0;
-  
+
   if (IFOnames ==NULL)
   {
     fprintf(stderr,"scale_lalsim_distance() called with IFOnames=NULL. Exiting...\n");
     exit(1);
   }
   char * ifo=IFOnames[0];
-  
+
   /* Get the number of IFOs from IFOnames*/
   while(ifo !=NULL)
   {
-      num_ifos++;
-      ifo=IFOnames[num_ifos];
+    num_ifos++;
+    ifo=IFOnames[num_ifos];
   }
-    
-    
+
   SNRs=calloc(num_ifos+1 ,sizeof(REAL8));
   /* Calculate the single IFO and network SNR for the dummy distance of 100Mpc */
   for (j=0;j<num_ifos;j++)
@@ -4305,75 +4412,77 @@ static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8F
     net_snr+=SNRs[j]*SNRs[j];
   }
   net_snr=sqrt(net_snr);
-    
 
-  local_min=minSNR;  
-    /* Draw a proposed netw SNR. Check that two or more IFOs are above coincidence (if given and if num_ifos>=2) */
+  local_min=minSNR;
+  /* Draw a proposed new SNR. Check that two or more IFOs are above coincidence (if given and if num_ifos>=2) */
   do
   {
     above_threshold=num_ifos;
     /* Generate a new SNR from given distribution */
-      if (snrDistr==uniformSnr)
-      {
-        proposedSNR=draw_uniform_snr(local_min,maxSNR);
-      }
-      else if(snrDistr==uniformLogSnr)
-      {
-        proposedSNR=draw_log10_snr(local_min,maxSNR);
-      }
-      else if (snrDistr==uniformVolumeSnr)
-      {
-        proposedSNR=draw_volume_snr(local_min,maxSNR);
-      }
-      else
-      {
-        fprintf(stderr,"Allowed values for snr-distr are uniformSnr, uniformLogSnr and uniformVolumeSnr. Exiting...\n");
-        exit(1);
-      }
- 
-      if (vrbflg)
-      { /* print if verbose */
-        printf("proposed SNR %lf. Proposed new dist %lf \n",proposedSNR,inj->distance*net_snr/proposedSNR);
-      }
-      ratio=net_snr/proposedSNR;
-      
-      
-      /* Check that single ifo SNRs above threshold in two IFOs */
-      for (j=0;j<num_ifos;j++)
-      {
-        if (SNRs[j]<single_IFO_SNR_threshold*ratio)
-        above_threshold--;
-      }
-      /* Set the min to the proposed SNR, so that next drawing for this event (if necessary) will give higher SNR */
-      local_min=proposedSNR;
-      /* We hit the upper bound of the Network SNR. It is simply not possible to have >2 IFOs with single IFO above coincidence level without getting the network SNR above the maxSNR.
-       * Use the last proposed value (~maxSNR) and continue */ 
-      if (maxSNR-proposedSNR<0.1 && single_IFO_SNR_threshold>0.0)
-      {
-        fprintf(stdout,"WARNING: Could not get two or more IFOs having SNR>%.1f without making the network SNR larger that its maximum value %.1f. Setting SNR to %lf.\n",single_IFO_SNR_threshold,maxSNR,proposedSNR);
-          
-        /* set above_threshold to 3 to go out */
-        above_threshold=3;
-      }
-      else
-      if (vrbflg)
-      {
-        if (above_threshold<2 && num_ifos>=2) 
+    if (snrDistr==uniformSnr)
+    {
+      proposedSNR=draw_uniform_snr(local_min,maxSNR);
+    }
+    else if(snrDistr==uniformLogSnr)
+    {
+      proposedSNR=draw_log10_snr(local_min,maxSNR);
+    }
+    else if (snrDistr==uniformVolumeSnr)
+    {
+      proposedSNR=draw_volume_snr(local_min,maxSNR);
+    }
+    else
+    {
+      fprintf(stderr,"Allowed values for snr-distr are uniform, uniformLogSnr and uniformVolumeSnr. Exiting...\n");
+      exit(1);
+    }
+
+    if (vrbflg)
+    { /* print if verbose */
+      printf("proposed SNR %lf. Proposed new dist %lf \n",proposedSNR,inj->distance*net_snr/proposedSNR);
+    }
+    ratio=net_snr/proposedSNR;
+
+    /* Check that single ifo SNRs above threshold in two IFOs */
+    for (j=0;j<num_ifos;j++)
+    {
+      if (SNRs[j]<single_IFO_SNR_threshold*ratio)
+      above_threshold--;
+    }
+    /* Set the min to the proposed SNR, so that next drawing for this event (if necessary) will give higher SNR */
+    local_min=proposedSNR;
+
+    /* We hit the upper bound of the Network SNR. It is simply not possible to have */
+    /* >2 IFOs with single IFO above coincidence level without getting the network  */
+    /* SNR above the maxSNR.                                                        */
+    /* Use the last proposed value (~maxSNR) and continue */
+    if (maxSNR-proposedSNR<0.1 && single_IFO_SNR_threshold>0.0)
+    {
+      fprintf(stdout,"WARNING: Could not get two or more IFOs having SNR>%.1f without\n"
+        "making the network SNR larger that its maximum value %.1f. Setting SNR to %lf.\n",
+        single_IFO_SNR_threshold,maxSNR,proposedSNR);
+
+    /* set above_threshold to 3 to go out */
+    above_threshold=3;
+    }
+    else if (vrbflg)
+    {
+      if (above_threshold<2 && num_ifos>=2)
         fprintf(stdout,"WARNING: Proposed SNR does not get two or more IFOs having SNR>%.1f. Re-drawing... \n",single_IFO_SNR_threshold);
-      }
-      
-  }while(!(above_threshold>=2) && num_ifos>=2); 
-  
+    }
+
+  } while(!(above_threshold>=2) && num_ifos>=2);
+
   inj->distance=inj->distance*ratio;
 
-  /* We may want the resulting SNR printed to a file. If so, uncomment those lines 
+  /* We may want the resulting SNR printed to a file. If so, uncomment those lines
   char SnrName[200];
   sprintf(SnrName,"SNRfile.txt");
   FILE * snrout = fopen(SnrName,"a");
   fprintf(snrout,"%lf\n",proposedSNR);
   fclose(snrout);
   */
-  
+
   if (SNRs) free(SNRs);
 
 }
@@ -4381,24 +4490,24 @@ static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8F
 static REAL8 draw_volume_snr(REAL8 minsnr,REAL8 maxsnr)
 {
   REAL8 proposedSNR=0.0;
-  proposedSNR=1.0/(maxsnr*maxsnr*maxsnr)+(1.0/(minsnr*minsnr*minsnr)- 1.0/(maxsnr*maxsnr*maxsnr))*XLALUniformDeviate(randParams);
+  proposedSNR=1.0/(maxsnr*maxsnr*maxsnr) +
+    (1.0/(minsnr*minsnr*minsnr)-1.0/(maxsnr*maxsnr*maxsnr))*XLALUniformDeviate(randParams);
   proposedSNR=1.0/cbrt(proposedSNR);
   return proposedSNR;
 }
-    
+
 static REAL8 draw_uniform_snr(REAL8 minsnr,REAL8 maxsnr)
 {
-    
-  REAL8 proposedSNR=0.0;  
+  REAL8 proposedSNR=0.0;
   proposedSNR=minsnr+ (maxsnr-minsnr)*XLALUniformDeviate(randParams);
   return proposedSNR;
 }
-    
+
 static REAL8 draw_log10_snr(REAL8 minsnr,REAL8 maxsnr)
 {
   REAL8 proposedlogSNR=0.0;
   REAL8 logminsnr=log10(minsnr);
-  REAL8 logmaxsnr=log10(maxsnr);    
+  REAL8 logmaxsnr=log10(maxsnr);
   proposedlogSNR=logminsnr+ (logmaxsnr-logminsnr)*XLALUniformDeviate(randParams);
   return pow(10.0,proposedlogSNR);
 }
