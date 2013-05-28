@@ -2683,9 +2683,9 @@ void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata)
     COMPLEX16FrequencySeries *hctilde=NULL;
     REAL8 deltaF = IFOdata->freqData->deltaF;
     REAL8 deltaT = IFOdata->timeData->deltaT;
-    REAL8 f_min, f_max;
-    f_min = IFOdata->fLow;
-    f_max = IFOdata->fHigh;
+    //REAL8 f_min, f_max;
+    //f_min = IFOdata->fLow;
+    //f_max = IFOdata->fHigh;
 
     REAL8 instant, frequency, quality, inclination, hrss;
 

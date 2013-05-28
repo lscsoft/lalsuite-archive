@@ -51,9 +51,9 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
   ppt=LALInferenceGetProcParamVal(commandLine,"--template");
   if(ppt) {
-    if(!strcmp("SinGaussF",ppt->value))
+    if(!strcmp("SineGaussF",ppt->value))
         runState->templt=&LALInferenceTemplateSineGaussianF;
-        else if(!strcmp("SinGauss",ppt->value))
+    else if(!strcmp("SineGauss",ppt->value))
         runState->templt=&LALInferenceTemplateSineGaussian;
     else if(!strcmp("BestIFO",ppt->value))
         runState->templt=&LALInferenceTemplateBestIFO;
@@ -730,13 +730,13 @@ LALInferenceVariables * LALInferenceInitRDVariables(LALInferenceRunState *state)
 	LALInferenceVariables *currentParams=state->currentParams;
 	ProcessParamsTable *commandLine=state->commandLine;
 	ProcessParamsTable *ppt=NULL;
-    /*state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
+    /* state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
     // If --margphi, marginalise over phase //
 	if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
 	  printf("Using Marginalise Phase Likelihood\n");
 	  state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
 	}
-    * /
+    */
     state->proposal=&NSWrapMCMCSinGaussProposal;
     /* Prior Ranges */
 	REAL8 starttime;

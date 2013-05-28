@@ -47,7 +47,7 @@ LALInferenceRunState *initialize(ProcessParamsTable *commandLine);
 void initializeNS(LALInferenceRunState *runState);
 //void initVariables(LALInferenceRunState *state);
 
-void initStudentt(LALInferenceRunState *state);
+//void initStudentt(LALInferenceRunState *state);
 // static void mc2masses(double mc, double eta, double *m1, double *m2);
 void LogNSSampleAsMCMCSampleToArray(LALInferenceRunState *state, LALInferenceVariables *vars);                             
 void LogNSSampleAsMCMCSampleToFile(LALInferenceRunState *state, LALInferenceVariables *vars);                              
@@ -428,7 +428,7 @@ Arguments for each section follow:\n\n";
 	
 	/* Set template function */
 	ppt=LALInferenceGetProcParamVal(procParams,"--template");
-	if(!strcmp("SinGauss",ppt->value) || !strcmp("SinGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
+	if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)||!strcmp("BestIFO",ppt->value) || !strcmp("RingdownF",ppt->value) || !strcmp("HMNS",ppt->value)){  
 	    LALInferenceInitBurstTemplate(state);
 	}
 	else {    
@@ -471,7 +471,7 @@ Arguments for each section follow:\n\n";
 	initVarsFunc(state);
 
 	/* Check for student-t and apply */
-	initStudentt(state);
+	//initStudentt(state);
         /* Choose the likelihood */
         LALInferenceInitLikelihood(state);
     

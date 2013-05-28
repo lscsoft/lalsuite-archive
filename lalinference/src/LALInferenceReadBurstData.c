@@ -90,7 +90,6 @@ typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
 
 void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable *commandLine)
 {
-    lalDebugLevel=1;
 	LALStatus status;
 	memset(&status,0,sizeof(status));
 	SimBurst *injTable=NULL;

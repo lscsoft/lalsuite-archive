@@ -13,10 +13,35 @@ import string
 from math import floor,ceil,log,pow
 import sys
 import random
+from glue.ligolw import table
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils
 
 # We use the GLUE pipeline utilities to construct classes for each
 # type of job. Each class has inputs and outputs, which are used to
 # join together types of jobs into a DAG.
+
+
+class LIGOLWContentHandlerExtractSimBurstTable(ligolw.LIGOLWContentHandler):
+    def __init__(self,document):
+      ligolw.LIGOLWContentHandler.__init__(self,document)
+      self.tabname=lsctables.SimBurstTable.tableName
+      self.intable=False
+      self.tableElementName=''
+    def startElement(self,name,attrs):
+      if attrs.has_key('Name') and attrs['Name']==self.tabname:
+        self.tableElementName=name
+        # Got the right table, let's see if it's the right event
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+        self.intable=True
+      elif self.intable: # We are in the correct table
+        ligolw.LIGOLWContentHandler.startElement(self,name,attrs)
+    def endElement(self,name):
+      if self.intable: ligolw.LIGOLWContentHandler.endElement(self,name)
+      if self.intable and name==self.tableElementName: self.intable=False
+
+lsctables.use_in(LIGOLWContentHandlerExtractSimBurstTable)
 
 class Event():
   """
@@ -413,7 +438,11 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       events=[Event(SimInspiral=inj) for inj in injTable]
     if self.config.has_option('input','burst-injection-file'):
       from pylal import SimBurstUtils
-      injTable=SimBurstUtils.ReadSimBurstFromFiles([self.config.get('input','burst-injection-file')])
+      injfile=self.config.get('input','burst-injection-file')
+      xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
+      injTable=table.get_table(xmldoc,lsctables.SimBurstTable.tableName)
+      #injection=siminspiraltable[eventnum]
+      #injTable=SimBurstUtils.ReadSimBurstFromFiles([self.config.get('input','burst-injection-file')])
       events=[Event(SimBurst=inj) for inj in injTable]
     # SnglInspiral Table
     if self.config.has_option('input','sngl-inspiral-file'):

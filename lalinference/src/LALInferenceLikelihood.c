@@ -113,7 +113,7 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
 
     ProcessParamsTable *commandLine=runState->commandLine;
     LALInferenceIFOData *ifo=runState->data;
-    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(procParams,"--template");
+    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(commandLine,"--template");
 
     /* Print command line arguments if help requested */
     if(LALInferenceGetProcParamVal(runState->commandLine,"--help"))
@@ -150,21 +150,21 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
    }  else if (ppt){
      if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value))
-        &LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
+        runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
       else if(!strcmp("RingdownF",ppt->value))
       {
-          state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
+          runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
           if(LALInferenceGetProcParamVal(commandLine,"--margphi")){
             printf("Using Marginalise Phase Likelihood\n");
-            state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
+            runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_RD;
           }
       }
       else if(!strcmp("HMNS",ppt->value) )
-        state->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
+        runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood_HMNS;
       else if(!strcmp("BestIFO",ppt->value))
-        state->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
+        runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_BestIFO;
       else if(LALInferenceGetProcParamVal(commandLine,"--powerburst"))
-        state->likelihood=&LALInferenceExtraPowerLogLikelihood;
+        runState->likelihood=&LALInferenceExtraPowerLogLikelihood;
    } else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
     fprintf(stderr, "Using marginalised phase likelihood.\n");
     runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
