@@ -420,11 +420,11 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		nay=[]
 		thisplot=pylab.figure()
 		def isBNS(tup):
-			return tup[1].mass1<2.0 and tup[1].mass2<2.0
+			return tup[1].mass1<3.0 and tup[1].mass2<3.0
 		def isNSBH(tup):
-			return (tup[1].mass1<2.0 and tup[1].mass2>2.0) or (tup[1].mass2<2.0 and tup[1].mass1>2.0)
+			return (tup[1].mass1<3.0 and tup[1].mass2>3.0) or (tup[1].mass2<3.0 and tup[1].mass1>3.0)
 		def isBBH(tup):
-			return (tup[1].mass1>2.0 and tup[1].mass2>2.0)
+			return (tup[1].mass1>3.0 and tup[1].mass2>3.0)
 		# Plot each type of injection
 		for (filt,symb,injtype) in zip((isBNS,isNSBH,isBBH) , ('+','x','o'),('BNS','NSBH','BBH')):
 			results=filter(filt,statelist[ifo])
@@ -440,7 +440,7 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 			pylab.plot(missedx,missedy,'r'+symb,label='Missed '+injtype)
 			#pylab.plot(nax,nay,'y'+symb,label='Not Analysed '+injtype)
 		thisplot.gca().set_xbound(int(opts.gps_start_time),int(opts.gps_end_time))
-		thisplot.gca().set_ybound(0,100)
+		thisplot.gca().set_ybound(0,300)
 		pylab.title(ifo+' Hardware injections '+ str(opts.gps_start_time) +' - '+ str(opts.gps_end_time))
 		pylab.xlabel('GPS time')
 		pylab.ylabel('Chirp Distance (Mpc)')
@@ -448,7 +448,8 @@ def write_page_short(opts,injections,ifos,filenames,hwinj_done,rangefilenames=No
 		pylab.grid(b=True)
 		# save figure
 		#print 'save figure'
-                plotname=str(ifo) + '-' + os.path.splitext('-'.join(os.path.basename(opts.outfile).split('-')[1:]))[0] + '.png'
+		plotname=str(ifo) +'-'+'-'.join([str(opts.gps_start_time),str(opts.gps_end_time)]) +'.png'
+		print 'saving figure %s'%(plotname)
 		pylab.savefig(os.path.join(imagedirname,plotname))
 		pylab.savefig(os.path.join(imagedirname,plotname.replace('.png','_thumb.png')),dpi=40)
 		print >>cachefile, 'Images/'+plotname
