@@ -33,7 +33,7 @@ from pylal import ligolw_tisi
 from pylal import ligolw_cafe
 from lalapps import inspiral
 from lalapps import power
-import inspiralutils
+from lalapps import inspiralutils
 
 ##############################################################################
 # concrete dag setup functions
