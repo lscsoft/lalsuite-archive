@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (C) 2012 Duncan M. Macleod
+# Copyright (C) 2012 Duncan Macleod
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -19,11 +19,6 @@
 """Plot zero-lag triggers from a coherent inspiral analysis.
 """
 
-# =============================================================================
-# Preamble
-# =============================================================================
-
-# set float division
 from __future__ import division
 
 import sys
@@ -35,6 +30,7 @@ import numpy
 import re
 import warnings
 warnings.filterwarnings("ignore", message="Module dap was already imported")
+warnings.filterwarnings("ignore", message="column name (.*) is not lower case")
 
 # set backend for non-interactive plotting
 if not os.getenv("DISPLAY", None):
@@ -43,20 +39,20 @@ if not os.getenv("DISPLAY", None):
 
 
 from pylal import (antenna, date, git_version, plotutils, MultiInspiralUtils,
-                   coh_PTF_pyutils, htmlutils)
+                   coh_PTF_pyutils, htmlutils, ligolw_tisi)
 from pylal.dq import dqSegmentUtils
 from pylal.xlal.date import XLALGPSTimeNow
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
-from glue import markup, segments, lal as cache
+from glue import iterutils, markup, segments, lal as cache
 from glue.ligolw import ilwd, ligolw, table, lsctables, utils as ligolw_utils
-from glue.ligolw.utils import (process as ligolw_process,
+from glue.ligolw.utils import (process as ligolw_process, ligolw_add,
                                search_summary as ligolw_search_summary)
 lsctables.MultiInspiralTable.veto = coh_PTF_pyutils.veto
 lsctables.MultiInspiralTable.vetoed = coh_PTF_pyutils.vetoed
 
 # set up metadata
-__author__ = "Duncan M. Macleod <duncan.macleod@ligo.org>"
+__author__ = "Duncan Macleod <duncan.macleod@ligo.org>"
 __version__ = git_version.id
 __date__ = git_version.date
 
@@ -81,9 +77,9 @@ GRAY = "#dddddd"
 SNR_LIM = [5, 100]
 SNGL_SNR_LIM = [1, 200]
 BESTNR_LIM = [5, 30]
-CHISQ_LIM = [1, 2000]
-BANK_CHISQ_LIM = [1, 2000]
-CONT_CHISQ_LIM = [1, 5000]
+CHISQ_LIM = [8, 2000]
+BANK_CHISQ_LIM = [8, 2000]
+CONT_CHISQ_LIM = [10, 5000]
 NULL_SNR_LIM = [0, 30]
 
 # conveniences
@@ -115,73 +111,26 @@ def print_verbose(message, verbose=True, stream=sys.stdout, profile=True):
         stream.flush()
 
 
-# =============================================================================
-# Read multi inspiral events from cache
-# =============================================================================
-
-def read_multi_inspirals(lalcache, veto_segments=segments.segmentlist(),
-                         background=False):
-    """Read MultiInspiralTables from a cache object
+def read_ligolw(lalcache):
+    """Read a cache of LIGO_LW files into a single xmldoc
 
     @param lalcache
         LAL-format cache object (GLUE) from which to read
     """
-    N = len(lalcache)
-    if opts.verbose:
-        print_verbose("Loading events from %d files...     \r" % N)
-    trig_table = lsctables.New(lsctables.MultiInspiralTable)
-    time_slides = list()
-    for i,e in enumerate(lalcache):
-        fp = e.path
-        block = 2048
-        # read XML from file (with more helpful error message)
-        try:
-            xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith("gz"))
-        except:
-            print_verbose("\nERROR: failed to load XML from %s.\n" % fp,
-                          stream=sys.stderr)
-            raise
-        mi_table = table.get_table(xmldoc,
-                                   lsctables.MultiInspiralTable.tableName)
-        if background:
-            time_slide_table = table.get_table(
-                                   xmldoc, lsctables.TimeSlideTable.tableName)
-            mi_table = mi_table.veto(veto_segments, time_slide_table)
-            slide_dict = time_slide_table.as_dict()
-            # remove duplicates
-            slide_list = slide_dict.items()
-            for (id_, vector) in slide_dict.iteritems():
-                for key,val in vector.iteritems():
-                    vector[key] = val % block
-                slide_dict[id_] = vector
-            # cast id to string
-            for id_,vector in slide_dict.items():
-                slide_dict[str(id_)] = vector
-                del slide_dict[id_]
-            # map this files slides to global list
-            time_slides.extend(td for td in slide_dict.values() if
-                               td not in time_slides)
-            slide_map = dict((str(id_), time_slides.index(vector)) for
-                             id_,vector in slide_dict.iteritems())
-            for mi in mi_table:
-                old_idx = str(mi.time_slide_id).split(":")[-1]
-                idx = slide_map["time_slide:time_slide_id:%s" % old_idx]
-                mi.time_slide_id = ilwd.ilwdchar(
-                                       "multi_inspiral:time_slide_id:%d" % idx)
-            trig_table.extend(mi_table)
-        else:
-            trig_table.extend(mi_table.veto(veto_segments))
-        print_verbose("Loading events from %d files...  %.2d%%\r"
-                      % (N, int(100*(i)/N)))
-    print_verbose("Loading events from %d files...  100%%\n" % N)
-    print_verbose("%d triggers found.\n" % (len(trig_table)), profile=False)
-    return trig_table
+    xmldoc = ligolw.Document()
+    ligolw_add.ligolw_add(xmldoc, lalcache.pfnlist())
+    time_slide_table = table.get_table(xmldoc,
+                                       lsctables.TimeSlideTable.tableName)
+    time_slide_mapping = ligolw_tisi.time_slides_vacuum(
+                             time_slide_table.as_dict())
+    iterutils.inplace_filter(lambda row: row.time_slide_id not in
+                             time_slide_mapping.keys(), time_slide_table)
+    for tbl in xmldoc.getElementsByTagName(ligolw.Table.tagName):
+        tbl.applyKeyMapping(time_slide_mapping)
+    return xmldoc
 
 
-re_sim_id = re.compile("sim_inspiral:simulation_id:\d+\Z")
-re_mi_id = re.compile("multi_inspiral:event_id:\d+\Z")
-def read_found_missed(lalcache, veto_segments=segments.segmentlist(),
-                      loudest_by="snr"):
+def read_found_missed(xmldoc, loudest_by="snr"):
     """Read MultiInspiralTables and SimInspiralTables from a cache object
 
     @param lalcache
@@ -190,68 +139,46 @@ def read_found_missed(lalcache, veto_segments=segments.segmentlist(),
         column name by which to select most significant event in the case
         of multiple MultiInspiral events mapped to one SimInspiral
     """
-    N = len(lalcache)
-    if opts.verbose:
-        print_verbose("Loading simulations from %d files...     \r" % N)
-    mi_found = lsctables.New(lsctables.MultiInspiralTable)
-    sim_found = lsctables.New(lsctables.SimInspiralTable)
-    sim_missed = lsctables.New(lsctables.SimInspiralTable)
-    num_injections = 0
-    for i,fp in enumerate(lalcache.pfnlist()):
-        # read XML from file (with more helpful error message)
-        try:
-            xmldoc = ligolw_utils.load_filename(fp, gz=fp.endswith("gz"))
-        except:
-            print_verbose("\nERROR: failed to load XML from %s.\n" % fp,
-                          stream=sys.stderr)
-            raise
-        # read MultiInspiralTable, SimInspiralTable and CoincMapTable
-        mi_table = table.get_table(xmldoc,
-                                   lsctables.MultiInspiralTable.tableName)
-        sim_table = table.get_table(xmldoc,
-                                    lsctables.SimInspiralTable.tableName)
-        coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-        coinc_map_table = table.get_table(xmldoc,
-                                          lsctables.CoincMapTable.tableName)
-        # parse found injections
-        found_ids = []
-        for coinc in coinc_table:
-            event_ids = [str(coinc_map.event_id) for coinc_map in
-                         coinc_map_table if
-                         coinc_map.coinc_event_id == coinc.coinc_event_id]
-            if not len(event_ids):
-                continue
-            # parse found injection
-            sim_id = [id_ for id_ in event_ids if re_sim_id.match(id_)][0]
-            sim = [sim for sim in sim_table if
-                   str(sim.simulation_id) == sim_id][0]
-            # parse search trigger
-            mi_ids = [id_ for id_ in event_ids if re_mi_id.match(id_)]
-            mi_events = [mi for mi in mi_table if str(mi.event_id) in mi_ids]
+    # get coinc_table
+    coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+    coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+    all_sims = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
+    all_multis = table.get_table(xmldoc, lsctables.MultiInspiralTable.tableName)
+    found_sims = table.new_from_template(all_sims)
+    found_multis = table.new_from_template(all_multis)
+    missed_sims = table.new_from_template(all_sims)
+    for coinc in coinc_table:
+        sim_ids = [row.event_id for row in coinc_map_table if
+                      row.coinc_event_id == coinc.coinc_event_id and
+                      row.table_name == "sim_inspiral"]
+        if len(sim_ids) > 1:
+            raise ValueError("More than one SimInspiral associated with this "
+                             "found injection coinc.")
+        found_sims.append([row for row in all_sims if
+                           row.simulation_id == sim_ids[0]][0])
+        multi_ids = [row.event_id for row in coinc_map_table if
+                     row.coinc_event_id == coinc.coinc_event_id and
+                     row.table_name == "multi_inspiral"]
+        multis = [row for row in all_multis if row.event_id in multi_ids]
+        if len(multis) > 1:
             if hasattr(lsctables.MultiInspiral, "get_%s" % loudest_by):
                 rank = getattr(lsctables.MultiInspiral, "get_%s" % loudest_by)
             else:
                 rank = lambda x: getattr(x, loudest_by)
-            mi = sorted(mi_events, key=lambda x: rank(mi))[-1]
-            if float(mi.get_end()) not in veto_segments:
-                found_ids.append(sim_id)
-                sim_found.append(sim)
-                mi_found.append(mi)
-        # parse missed injections
-        sim_missed.extend(sim for sim in sim_table if
-                          str(sim.simulation_id) not in found_ids)
-        print_verbose("Loading simulations from %d files...  %.2d%%\r"
-                      % (N, int(100*(i)/N)))
-        num_injections += len(sim_table)
-    print_verbose("Loading simulations from %d files...  100%%\n" % N)
-    if len(sim_found) + len(sim_missed) != num_injections:
+            multis.sort(key=lambda row: rank(row), reverse=True)
+        found_multis.append(multis[0])
+    found_ids = [row.simulation_id for row in found_sims]
+    missed_sims.extend(filter(lambda row: row.simulation_id not in found_ids,
+                              all_sims))
+    if len(found_sims) + len(missed_sims) != len(all_sims):
         raise RuntimeError("%d found and %d missed identified from a total "
-                           "of %d. Oops." % (len(sim_found), len(sim_missed),
-                                             num_injections))
-    print_verbose("%d found injections identified.\n" % len(sim_found),
+                           "of %d. Oops." % (len(found_sims), len(missed_sims),
+                                             len(all_sims)))
+    print_verbose("%d found injections identified.\n" % len(found_sims),
                   profile=False)
-    print_verbose("%d missed injections identified.\n" % len(sim_missed),
+    print_verbose("%d missed injections identified.\n" % len(missed_sims),
                   profile=False)
+    return found_multis, found_sims, missed_sims
     return mi_found,sim_found,sim_missed
 
 
@@ -280,10 +207,6 @@ def separate_time_slides(mi_table, return_index=False):
             slides.append(slide_table)
         return slides
 
-
-# =============================================================================
-# Plot triggers
-# =============================================================================
 
 def write_multi_inspiral_table(mi_table, outfile, search):
     """Write MultiInspiralTable to file
@@ -322,40 +245,38 @@ def write_sim_inspiral_table(sim_table, outfile, search):
     ligolw_utils.write_filename(xmldoc, outfile, gz=outfile.endswith(".gz"))
 
 
-# =============================================================================
-# Plot triggers
-# =============================================================================
-
-contours = {"new_snr": [5.5, 6, 6.5, 7, 8, 9, 10, 11]}
-(contours["bank_chisq"], contours["cont_chisq"], contours["chisq"],
- contours["null"], contours["snr"],
- contours["color"]) = coh_PTF_pyutils.calculate_contours(
-                          new_snrs=contours["new_snr"])
-
 def plot_xy(outfile, xdata, ydata, xlabel, ylabel, xlim=None, ylim=None,
-           logx=False, logy=False, fill=None, plot_contours=False,
-           fill_vetoes=True):
+           logx=False, logy=False, fill=None, plot_contours=None,
+           fill_above=None, fill_below=None, line=None):
     plot = plotutils.ScatterPlot(xlabel, ylabel)
     for key,marker,lc,lw in zip(SEARCHES, MARKERS, MARKER_EC, MARKER_LW):
         if not xdata.has_key(key):
            continue
         plot.add_content(xdata[key], ydata[key], label=latex(key),
                          marker=marker, edgecolor=lc, linewidth=lw)
-    if plot_contours == "null":
-        plot.ax.plot(contours["snr"], contours["null"], "k-")
-    elif plot_contours:
+    if plot_contours:
         coh_PTF_pyutils.plot_contours(plot.ax, contours["snr"],
                                       contours[plot_contours],
                                       contours["color"])
-        # Add shading to vetoed area
-        if fill_vetoes:
-            ymax = ylim and ylim[1] or plot.ax.get_ylim()[1]
-            polyx = numpy.concatenate((contours["snr"], [max(contours["snr"]),
-                                                         min(contours["snr"])]))
-            yidx = contours["new_snr"].index(6)
-            polyy = numpy.concatenate((contours[plot_contours][yidx],
-                                       [ymax, ymax]))
-            plot.ax.fill(polyx, polyy, color='#dddddd', alpha=0.8)
+
+    if fill_above:
+        x, y = fill_above
+        plot.ax.plot(x, y, "k-")
+        ymax = ylim and ylim[1] or plot.ax.get_ylim()[1]
+        polyx = numpy.concatenate((x, [max(x), min(x)]))
+        polyy = numpy.concatenate((y, [ymax, ymax]))
+        plot.ax.fill(polyx, polyy, color='#dddddd', alpha=0.8)
+    if fill_below:
+        x, y = fill_below
+        plot.ax.plot(x, y, "k-")
+        ymin = ylim and ylim[0] or plot.ax.get_ylim()[0]
+        polyx = numpy.concatenate((x, [max(x), min(x)]))
+        polyy = numpy.concatenate((y, [ymin, ymin]))
+        plot.ax.fill(polyx, polyy, color='#dddddd', alpha=0.5)
+    if line:
+        x, y = line
+        plot.ax.plot(x, y, "k--")
+
     plot.finalize()
     plotutils.add_colorbar(plot.ax, visible=False)
     if logx:
@@ -401,14 +322,17 @@ def plot_found_missed(outfile, found_xy, missed_xy, nonzerofap_xyz,
     """
     plot = plotutils.ColorbarScatterPlot(xlabel, ylabel,
                                          "False alarm probability (FAP)")
-    plot.ax.scatter(*missed_xy, edgecolor="r", marker="x", label="Missed")
-    plot.ax.scatter(*found_xy, edgecolor="g", marker="x", label="Found")
+    plot.ax.scatter(*missed_xy, edgecolor="r", marker="x")#, label="Missed")
+    plot.ax.scatter(*found_xy, edgecolor="k", marker="x")#, label="Found")
     if len(nonzerofap_xyz[0]):
         plot.add_content(*nonzerofap_xyz,
-                         edgecolors='none', label="Non-zero FAP")
+                         edgecolors='none')#, label="Non-zero FAP")
     else:
         plot.add_content([1e-100], [1e-100], [0.5], edgecolors="none",
-                         label="Non-zero FAP", visible=True)
+                         visible=True)#, label="Non-zero FAP")
+    if not xlim:
+        xlim = [0.8, 2.7]
+    ylim = [0.8,500]
     plot.finalize(clim=[0,1])
     if logx:
         plot.ax.set_xscale("log")
@@ -419,11 +343,9 @@ def plot_found_missed(outfile, found_xy, missed_xy, nonzerofap_xyz,
     if ylim:
         plot.ax.set_ylim(*ylim)
     plot.savefig(outfile)
+    plot.savefig(outfile.replace(".png", ".pdf"), bbox_inches="tight")
     plot.close()
 
-# =============================================================================
-# Parse command line
-# =============================================================================
 
 def parse_threshold(option, opt_str, value, parser):
     """Verify threshold argument is valid on callback.
@@ -436,25 +358,21 @@ def parse_threshold(option, opt_str, value, parser):
         setattr(parser.values, option.dest, float(value))
 
 
-def parse_command_line():
-    """
-    Parse command line arguments, and perform sanity checks.
+if __name__ == "__main__":
 
-    @returns command line (options, arguments) tuple
-    """
-    parser = optparse.OptionParser(description=__doc__,\
+    parser = optparse.OptionParser(description=__doc__,
                                    epilog="For help, ask.ligo.org",
                                    formatter=optparse.IndentedHelpFormatter(4))
     parser.add_option("-p", "--profile", action="store_true", default=False,
                       help="timestamp output, default: %default")
-    parser.add_option("-v", "--verbose", action="store_true", default=False,\
+    parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="show verbose output, default: %default")
     parser.add_option("-V", "--version", action="version",\
                       help="show program's version number and exit")
-    parser.version =  __version__
+    parser.version = git_version.verbose_msg
 
     # input options
-    inputopts = optparse.OptionGroup(parser, "Input options")
+    inputopts = parser.add_option_group("Input options")
     inputopts.add_option("--gps-start-time", action="store", type="float",
                          help="GPS start time for plots.")
     inputopts.add_option("--gps-end-time", action="store", type="float",
@@ -477,12 +395,28 @@ def parse_command_line():
                                "containing MultiInspiralTables representing "
                                "the results of software injections. "
                                "Can be given multiple times."))
-    parser.add_option_group(inputopts)
+
+    # sbv options
+    sbvopts = parser.add_option_group("Signal-based veto options")
+    sbvopts.add_option("-S", "--snr-threshold", action="store",
+                       type="float", default=6.0,
+                       help=("veto threshold on (new) SNR, default: %default"))
+    sbvopts.add_option("-N", "--null-snr-threshold", action="store",
+                       type="float", default=6.0,
+                       help=("veto threshold on null SNR, default: %default"))
+    sbvopts.add_option("-W", "--null-weight-threshold", action="store",
+                       type="float", default=4.25,
+                       help=("threshold on null SNR above which events get "
+                             "down-ranked, default: %default"))
+    sbvopts.add_option("-g", "--sngl-snr-threshold", action="store",
+                       type="string", default="4.0,4.0",
+                       help=("comma-separated list of veto thresholds on "
+                             "single-detector SNR, default: %default"))
 
     # efficiency options
-    effopts = optparse.OptionGroup(parser, "Efficiency options",
-                                   description=("Tunable parameters for "
-                                                "efficiency calculation"))
+    effopts = parser.add_option_group("Efficiency options",
+                                      ("Tunable parameters for efficiency"
+                                       "calculation"))
     effopts.add_option("-U", "--upper-inj-dist", action="store", type="float",
                        default=100,
                        help=("upper limit on injection efficiency distance, "
@@ -496,14 +430,13 @@ def parse_command_line():
                              "injection efficiency. default: %default"))
 
     # output options
-    outopts = optparse.OptionGroup(parser, "Output options")
+    outopts = parser.add_option_group("Output options")
     outopts.add_option("-o", "--output-directory", action="store",
                        type="string", default=os.getcwd(), metavar="DIR",
                        help="output directory for all plots, default: %default")
     outopts.add_option("-t", "--output-tag", action="store", type="string",
                        default="COH_PTF_INSPIRAL", metavar="TAG",
                        help="output tag for all plots, default: %default")
-    parser.add_option_group(outopts)
 
     # parse args, printing help if nothing given
     opts,args = parser.parse_args()
@@ -511,19 +444,11 @@ def parse_command_line():
         parser.print_help()
         sys.exit(0)
 
-    return opts
-
-
-# =============================================================================
-# Run from the command line
-# =============================================================================
-
-if __name__ == "__main__":
-    opts = parse_command_line()
     start_time = opts.gps_start_time
     end_time = opts.gps_end_time
     VERBOSE = opts.verbose
     PROFILE = opts.profile
+    opts.sngl_snr_threshold = map(float, opts.sngl_snr_threshold.split(","))
 
     #
     # load multi_inspirals
@@ -577,33 +502,34 @@ if __name__ == "__main__":
     duration = end_time - start_time
 
     # load triggers and injections
-    totevents = 0
     num_slides = 0
     if background:
         print_verbose("Reading background events:\n", profile=False)
-        bg_mi_table = read_multi_inspirals(bg_cache, background=True)
-        num_slides = len(set(mi.time_slide_id for mi in bg_mi_table))
-        if num_slides:
-            print_verbose("%d time slides identified.\n" % num_slides)
-        totevents += len(bg_mi_table)
+        xmldoc = read_ligolw(bg_cache)
+        time_slide_table = table.get_table(xmldoc,
+                                           lsctables.TimeSlideTable.tableName)
+        bg_mi_table = table.get_table(
+                              xmldoc, lsctables.MultiInspiralTable.tableName)
+        slide_dict = time_slide_table.as_dict()
+        num_slides = len(slide_dict)
+        print_verbose("%d time slides identified.\n" % num_slides)
     else:
         bg_mi_table = None
     if foreground:
         print_verbose("Reading foreground events:\n", profile=False)
-        fg_mi_table = read_multi_inspirals(fg_cache)
-        totevents += len(fg_mi_table)
+        xmldoc = read_ligolw(fg_cache)
+        fg_mi_table = table.get_table(
+                             xmldoc, lsctables.MultiInspiralTable.tableName)
     else:
         fg_mi_table = None
     if simulations:
         print_verbose("Reading simulation events:\n", profile=False)
+        xmldoc = read_ligolw(sim_cache)
         sim_mi_table, sim_found_inj, sim_missed_inj = read_found_missed(
-                                                   sim_cache,
-                                                   loudest_by="snr")
-        totevents += len(sim_mi_table) + len(sim_missed_inj)
+                                                             xmldoc,
+                                                             loudest_by="snr")
     else:
         sim_mi_table = None
-    if totevents == 0:
-        raise
 
     # find ifos
     ifos = (bg_mi_table and bg_mi_table[0].ifos or
@@ -681,6 +607,13 @@ if __name__ == "__main__":
     sim_eff_dist = dict((key, numpy.power(numpy.power(sim_sngl_eff_dist[key],
                                                      -1).sum(0), -1)) for
                         key, tab in sim_tables.iteritems())
+    sim_dec_dist = dict()
+    for key,tab in sim_tables.iteritems():
+        sim_dec_dist[key] = numpy.zeros(len(tab))
+        for k in range(len(tab)):
+            sim_dec_dist[key][k] = sorted([sim_sngl_eff_dist[key][i][k] for
+                                           i in range(len(sites))])[-2]
+        print sim_dec_dist[key]
 
     #
     # get time slide values
@@ -788,7 +721,43 @@ if __name__ == "__main__":
 
     # set plot params
     plotutils.set_rcParams()
-    plotutils.pylab.rcParams["axes.axisbelow"] = True
+    plotutils.pylab.rcParams.update({
+        "font.family": "serif",
+        "font.serif": ["Computer Modern Roman"],
+        "axes.labelsize" : 21,
+        "xtick.labelsize" : 18,
+        "ytick.labelsize" : 18,
+        "axes.axisbelow" : True})
+
+    # set chisq DOF
+    chisq_dof = (bg_mi_table and bg_mi_table[0].chisq_dof or
+                 fg_mi_table and fg_mi_table[0].chisq_dof or
+                 sim_mi_table and sim_mi_table[0].chisq_dof)
+    bank_chisq_dof = (bg_mi_table and bg_mi_table[0].bank_chisq_dof or
+                      fg_mi_table and fg_mi_table[0].bank_chisq_dof or
+                      sim_mi_table and sim_mi_table[0].bank_chisq_dof)
+    cont_chisq_dof = (bg_mi_table and bg_mi_table[0].cont_chisq_dof or
+                      fg_mi_table and fg_mi_table[0].cont_chisq_dof or
+                      sim_mi_table and sim_mi_table[0].cont_chisq_dof)
+
+    # get )contours
+    new_snr_contours = list(set([5.5, 6, 6.5, 7, 8, 9, 10, 11] +
+                                [opts.snr_threshold]))
+    veto_contour_index = new_snr_contours.index(opts.snr_threshold)
+    contours = coh_PTF_pyutils.calculate_contours(
+                   new_snrs=new_snr_contours,
+                   null_thresh=opts.null_snr_threshold,
+                   new_snr_thresh=opts.snr_threshold,
+                   chisq_dof=chisq_dof, bank_chisq_dof=bank_chisq_dof,
+                   cont_chisq_dof=cont_chisq_dof)
+    contours = dict(zip(("new_snr", "bank_chisq", "cont_chisq", "chisq",
+                         "null", "snr", "color"),
+                        [new_snr_contours]+list(contours)))
+    contours["null_weight"] = (contours["null"] / opts.null_snr_threshold *
+                               opts.null_weight_threshold)
+    veto_contours = dict((key, contours[key][veto_contour_index]) for
+                         key in ["new_snr", "bank_chisq", "cont_chisq",
+                                 "chisq"])
 
     # get plot time
     time_unit, time_str = plotutils.time_axis_unit(end_time - start_time)
@@ -818,36 +787,40 @@ if __name__ == "__main__":
     # plot time versus SNR
     outfile = plotname % "TIME_SNR"
     plot_xy(outfile, mi_plot_time, mi_snr, time_label,
-           latex("SNR"), xlim=[0, plot_duration], ylim=SNR_LIM, logy=True)
+            "Coherent signal-to-noise ratio (SNR)", xlim=[0, plot_duration],
+            ylim=SNR_LIM, logy=True)
     print_verbose("%s written.\n" % outfile)
 
     # plot time versus Null SNR
     outfile = plotname % "TIME_NULL_SNR"
     plot_xy(outfile, mi_plot_time, mi_null_snr, time_label,
-           latex("Null SNR"), xlim=[0, plot_duration], ylim=NULL_SNR_LIM)
+            "Null signal-to-noise ratio (SNR)", xlim=[0, plot_duration],
+            ylim=NULL_SNR_LIM,
+            fill_below=([0, plot_duration],[opts.null_snr_threshold]*2))
     print_verbose("%s written.\n" % outfile)
 
     # plot time versus BestNR
     outfile = plotname % "TIME_BESTNR"
-    plot_xy(outfile, mi_plot_time, mi_bestnr, time_label, latex("BestNR"),
-           xlim=[0, plot_duration], ylim=BESTNR_LIM, logy=True)
+    plot_xy(outfile, mi_plot_time, mi_bestnr, time_label,
+            "$\\chi^2$ re-weighted signal-to-noise ratio (SNR)",
+            xlim=[0, plot_duration], ylim=BESTNR_LIM, logy=True,
+            fill_below=([0, plot_duration], [opts.snr_threshold]*2))
     print_verbose("%s written.\n" % outfile)
 
     # plot time versus sngl SNR
     for i,ifo in enumerate(ifos):
         outfile = plotname % ("TIME_SNR%s" % ifo.upper())
         plot_xy(outfile, mi_plot_time, mi_sngl_snr[ifo], time_label,
-               latex("%s SNR" % ifo.upper()), xlim=[0, plot_duration],
-               ylim=SNGL_SNR_LIM, logy=True)
+                "%s signal-to-noise ratio (SNR)" % ifo.upper(),
+                xlim=[0, plot_duration], ylim=SNGL_SNR_LIM, logy=True,
+                fill_below=([0, plot_duration], [opts.snr_threshold]*2))
         print_verbose("%s written.\n" % outfile)
-
-    plotutils.pylab.rcParams.update({"figure.figsize":[8,6]})
 
     #
     # plot num slides
     #
 
-    if background:
+    if background and not simulations:
         plot = plotutils.BarPlot("Slide number", "Number of events")
         xdata = numpy.arange(num_slides+1) - num_slides//2
         xdata = xdata[xdata!=0]
@@ -864,6 +837,7 @@ if __name__ == "__main__":
         plot.close()
         print_verbose("%s written.\n" % outfile)
 
+    plotutils.pylab.rcParams.update({"figure.figsize":[8,6]})
 
     #
     # plot SNR histograms
@@ -871,7 +845,8 @@ if __name__ == "__main__":
 
     try:
         outfile = plotname % "BESTNR_HISTOGRAM"
-        plot_hist(outfile, mi_slide_bestnr, latex("BestNR"),
+        plot_hist(outfile, mi_slide_bestnr,
+                  "$\\chi^2$ re-weighted signal-to-noise ratio (SNR)",
                   "Cumulative number of events", xlim=[5, 20])
         print_verbose("%s written.\n" % outfile)
     except RuntimeError as e:
@@ -886,36 +861,65 @@ if __name__ == "__main__":
 
     # plot BestNR
     outfile = plotname % ("SNR_BESTNR")
-    plot_xy(outfile, mi_snr, mi_bestnr, latex("SNR"), latex("BestNR"),
+    plot_xy(outfile, mi_snr, mi_bestnr, "Coherent signal-to-noise ratio (SNR)",
+            "$\\chi^2$ re-weighted signal-to-noise ratio (SNR)",
             xlim=SNR_LIM, ylim=BESTNR_LIM, logx=True, logy=True)
     print_verbose("%s written.\n" % outfile)
 
     # plot sngl SNR
     for i,ifo in enumerate(ifos):
         outfile = plotname % ("SNR_SNR%s" % ifo.upper())
-        plot_xy(outfile, mi_snr, mi_sngl_snr[ifo], latex("SNR"),
-               latex("%s SNR" % ifo.upper()), xlim=SNR_LIM, ylim=SNGL_SNR_LIM,
-               logx=True, logy=True)
+        line = dict()
+        second_veto = (len(opts.sngl_snr_threshold) > 1 and
+                       {"line": (SNR_LIM, [opts.sngl_snr_threshold[1]]*2)} or
+                       {})
+        try:
+            plot_xy(outfile, mi_snr, mi_sngl_snr[ifo],
+                    "Coherent signal-to-noise ratio (SNR)",
+                    "%s SNR" % ifo.upper(), xlim=SNR_LIM, ylim=SNGL_SNR_LIM,
+                    logx=True, logy=True,
+                    fill_below=(SNR_LIM, [opts.sngl_snr_threshold[0]]*2),
+                    **second_veto)
+        except RuntimeError as e:
+            if re.search("maximum recursion", str(e)):
+                warnings.warn("Maximum recursion error caught (bug in "
+                              "matplotlib < 1), plot will not be shaded")
+            plot_xy(outfile, mi_snr, mi_sngl_snr[ifo],
+                    "Coherent signal-to-noise ratio (SNR)",
+                    "%s SNR" % ifo.upper(), xlim=SNR_LIM, ylim=SNGL_SNR_LIM,
+                    logx=True, logy=True,
+                    **second_veto)
         print_verbose("%s written.\n" % outfile)
 
     # plot null snr
     outfile = plotname % "SNR_NULL"
-    plot_xy(outfile, mi_snr, mi_null_snr, latex("SNR"), latex("null_snr"),
-            xlim=SNR_LIM, ylim=NULL_SNR_LIM, logx=True, logy=False,
-            plot_contours="null")
+    try:
+        plot_xy(outfile, mi_snr, mi_null_snr, "Coherent signal-to-noise ratio (SNR)",
+                "Null SNR", xlim=SNR_LIM, ylim=NULL_SNR_LIM, logx=True,
+                logy=False, fill_above=(contours["snr"], contours["null"]),
+                line=(contours["snr"], contours["null_weight"]))
+    except RuntimeError as e:
+        plot_xy(outfile, mi_snr, mi_null_snr, "Coherent signal-to-noise ratio (SNR)",
+                "Null SNR", xlim=SNR_LIM, ylim=NULL_SNR_LIM, logx=True,
+                logy=False, plot_contours="null",
+                line=(contours["snr"], contours["null_weight"]))
     print_verbose("%s written.\n" % outfile)
 
     # plot chisqs
     outfile = plotname % "SNR_CHISQ"
     try:
-        plot_xy(outfile, mi_snr, mi_chisq, latex("SNR"), latex("chisq"),
-                xlim=SNR_LIM, ylim=CHISQ_LIM, logx=True, logy=True,
-                plot_contours="chisq")
+        plot_xy(outfile, mi_snr, mi_chisq, "Coherent signal-to-noise ratio (SNR)",
+                "$\\chi^2$", xlim=SNR_LIM, ylim=CHISQ_LIM, logx=True, logy=True,
+                plot_contours="chisq",
+                fill_above=(contours["snr"], veto_contours["chisq"]))
     except RuntimeError as e:
         if re.search("maximum recursion", str(e)):
-            plot_xy(outfile, mi_snr, mi_chisq, latex("SNR"), latex("chisq"),
+            warnings.warn("Maximum recursion error caught (bug in "
+                          "matplotlib < 1), plot will not be shaded")
+            plot_xy(outfile, mi_snr, mi_chisq,
+                    "Coherent signal-to-noise ratio (SNR)", "$\\chi^2$",
                     xlim=SNR_LIM, ylim=CHISQ_LIM, logx=True, logy=True,
-                    plot_contours="chisq", fill_vetoes=False)
+                    plot_contours="chisq")
 
         else:
             raise
@@ -924,30 +928,35 @@ if __name__ == "__main__":
 
     outfile = plotname % "SNR_BANK_CHISQ"
     try:
-        plot_xy(outfile, mi_snr, mi_bank_chisq, latex("SNR"),
-                latex("bank_chisq"), xlim=SNR_LIM, ylim=BANK_CHISQ_LIM,
-                logx=True, logy=True, plot_contours="bank_chisq")
+        plot_xy(outfile, mi_snr, mi_bank_chisq,
+                "Coherent signal-to-noise ratio (SNR)", "Bank $\\chi^2$",
+                xlim=SNR_LIM, ylim=BANK_CHISQ_LIM,
+                logx=True, logy=True, plot_contours="bank_chisq",
+                fill_above=(contours["snr"], veto_contours["bank_chisq"]))
     except RuntimeError as e:
         if re.search("maximum recursion", str(e)):
-            plot_xy(outfile, mi_snr, mi_bank_chisq, latex("SNR"),
-                    latex("bank_chisq"), xlim=SNR_LIM, ylim=BANK_CHISQ_LIM,
-                    logx=True, logy=True, plot_contours="bank_chisq",
-                    fill_vetoes=False)
+            plot_xy(outfile, mi_snr, mi_bank_chisq,
+                    "Coherent signal-to-noise ratio (SNR)",
+                    "Bank $\\chi^2$", xlim=SNR_LIM, ylim=BANK_CHISQ_LIM,
+                    logx=True, logy=True, plot_contours="bank_chisq")
         else:
             raise
     print_verbose("%s written.\n" % outfile)
 
     outfile = plotname % "SNR_CONT_CHISQ"
     try:
-        plot_xy(outfile, mi_snr, mi_cont_chisq, latex("SNR"),
-                latex("cont_chisq"), xlim=SNR_LIM, ylim=CONT_CHISQ_LIM,
-                logx=True, logy=True, plot_contours="cont_chisq")
+        plot_xy(outfile, mi_snr, mi_cont_chisq,
+                "Coherent signal-to-noise ratio (SNR)",
+                "Auto-correlation $\\chi^2$", xlim=SNR_LIM, ylim=CONT_CHISQ_LIM,
+                logx=True, logy=True, plot_contours="cont_chisq",
+                fill_above=(contours["snr"], veto_contours["cont_chisq"]))
     except RuntimeError as e:
         if re.search("maximum recursion", str(e)):
-            plot_xy(outfile, mi_snr, mi_cont_chisq, latex("SNR"),
-                    latex("cont_chisq"), xlim=SNR_LIM, ylim=CONT_CHISQ_LIM,
-                    logx=True, logy=True, plot_contours="cont_chisq",
-                    fill_vetoes=False)
+            plot_xy(outfile, mi_snr, mi_cont_chisq,
+                    "Coherent signal-to-noise ratio (SNR)",
+                    "Auto-correlation $\\chi^2$", xlim=SNR_LIM,
+                    ylim=CONT_CHISQ_LIM, logx=True, logy=True,
+                    plot_contours="cont_chisq")
         else:
             raise
 
@@ -958,31 +967,35 @@ if __name__ == "__main__":
     #
 
     if simulations:
-        outfile = plotname % "FOUND_MISSED_MCHIRP_EFF_DIST"
+        outfile = plotname % "FOUND_MISSED_MCHIRP_DEC_DIST"
         plot_found_missed(outfile,
                           (sim_mchirp[found_inj][fap==0],
-                           sim_eff_dist[found_inj][fap==0]),
-                          (sim_mchirp[missed_inj], sim_eff_dist[missed_inj]),
+                           sim_dec_dist[found_inj][fap==0]),
+                          (sim_mchirp[missed_inj], sim_dec_dist[missed_inj]),
                           (sim_mchirp[found_inj][fap!=0],
-                           sim_eff_dist[found_inj][fap!=0], fap[fap!=0]),
-                          latex("mchirp"), latex("Effective distance (Mpc)"),
+                           sim_dec_dist[found_inj][fap!=0], fap[fap!=0]),
+                          "$\mathcal{M}_c$ (${\\rm M_\\odot}$)",
+                          "Injected decisive distance (${\\rm Mpc}$)",
                           ylim=[opts.lower_inj_dist, opts.upper_inj_dist])
         print_verbose("%s written.\n" % outfile)
 
-        outfile = plotname % "FOUND_MISSED_TIME_EFF_DIST"
+        outfile = plotname % "FOUND_MISSED_TIME_DEC_DIST"
         plot_found_missed(outfile,
                           (sim_plot_time[found_inj][fap==0],
-                           sim_eff_dist[found_inj][fap==0]),
-                          (sim_plot_time[missed_inj], sim_eff_dist[missed_inj]),
+                           sim_dec_dist[found_inj][fap==0]),
+                          (sim_plot_time[missed_inj], sim_dec_dist[missed_inj]),
                           (sim_plot_time[found_inj][fap!=0],
-                           sim_eff_dist[found_inj][fap!=0], fap[fap!=0]),
-                          time_label, latex("Effective distance (Mpc)"),
+                           sim_dec_dist[found_inj][fap!=0], fap[fap!=0]),
+                          time_label,
+                          "Injected decisive distance (${\\rm Mpc}$)",
                           xlim=[0, plot_duration],
                           ylim=[opts.lower_inj_dist, opts.upper_inj_dist])
         print_verbose("%s written.\n" % outfile)
 
         outfile = plotname % "EFFICIENCY"
-        plot = plotutils.SimplePlot("Distance (Mpc)", "Efficiency")
+        plot = plotutils.SimplePlot("Distance (${\\rm Mpc}$)", "Efficiency")
+        for d,e in zip(efficiency_distance, efficiency_by_dist):
+            print d,e
         plot.add_content(efficiency_distance, efficiency_by_dist)
         plot.finalize()
         plot.ax.set_xscale("log")
@@ -1003,8 +1016,8 @@ if __name__ == "__main__":
                               (sim_mchirp[found_inj][fap!=0],
                                sim_sngl_eff_dist[found_inj][i,:][fap!=0],
                                fap[fap!=0]),
-                              latex("Chirp mass ($M_{\\odot}$)"),
-                              latex("%s effective distance (Mpc)" % ifo),
+                              "Chirp mass ($\mathrm{M}_{\\odot}$)",
+                              "%s effective distance (Mpc)" % ifo,
                               ylim=[opts.lower_inj_dist, opts.upper_inj_dist])
             print_verbose("%s written.\n" % outfile)
 
@@ -1019,14 +1032,14 @@ if __name__ == "__main__":
                                sim_sngl_eff_dist[found_inj][i,:][fap!=0],
                                fap[fap!=0]),
                               time_label,
-                              latex("%s effective distance (Mpc)" % ifo),
+                              "%s effective distance (${\\rm Mpc}$)" % ifo,
                               xlim=[0, plot_duration],
                               ylim=[opts.lower_inj_dist, opts.upper_inj_dist])
             print_verbose("%s written.\n" % outfile)
 
             outfile = plotname % "%s_EFFICIENCY" % ifo
-            plot = plotutils.SimplePlot("%s effective distance (Mpc)" % ifo,
-                                        "Efficiency")
+            plot = plotutils.SimplePlot("%s effective distance (${\\rm Mpc}$)"
+                                        % ifo, "Efficiency")
             plot.add_content(efficiency_distance, sngl_efficiency_by_dist[ifo])
             plot.finalize()
             plot.ax.set_xscale("log")
