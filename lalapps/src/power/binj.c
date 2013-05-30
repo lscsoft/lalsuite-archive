@@ -90,6 +90,7 @@ REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
 static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8FrequencySeries *psd, REAL8 start_freq);
 
+
 /*
  * ============================================================================
  *
@@ -231,6 +232,7 @@ static struct options options_defaults(void)
 
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds, REAL8 *start_freqs, struct options *options, gsl_rng *rng);
 static void write_mdc(SimBurst **injs, TimeSlide *time_slide_table_head,struct options *options);
+static void write_mdc_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options,char* fname);
 
 
 static void print_usage(void)
@@ -1764,7 +1766,6 @@ int main(int argc, char *argv[])
 	write_xml(options.output, process_table_head, process_params_table_head, search_summary_table_head, time_slide_table_head, sim_burst_table_head);
 	if (options.write_mdc)
 		write_mdc(&sim_burst_table_head, time_slide_table_head, &options);
-		
 	/* done */
 
 	gsl_rng_free(rng);
@@ -1874,9 +1875,103 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 	}
 	XLALFrameWrite( frame, fname, 8 );
 	FrameFree(frame);
-	
+    write_mdc_log(injs, time_slide_table_head, options,fname);
+
 	return;
 }
+
+static void write_mdc_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options,char* fname){
+        
+    SimBurst *inj=&(*injs[0]);
+    //const TimeSlide *time_slide_row;    
+    (void) time_slide_table_head;
+    char mdc_log_filename[256];
+    sprintf(mdc_log_filename,"%s.log",fname);
+    FILE * mdc_log_file=fopen(mdc_log_filename,"w");
+    REAL8 geoc_time;
+    REAL8 ra, dec,psi,Fplus,Fcross;
+    LALStatus status;
+    memset(&status,0,sizeof(LALStatus));
+    REAL8 q=0.0;
+    REAL8 f=0.0;
+    REAL8 hrss=0.0;
+    SkyPosition currentEqu, currentGeo;
+    LIGOTimeGPS injtime;
+    REAL8 gmst,timedelay;
+    char IFOnames[5][4]={"GEO","H1","H2","L1","V1"};    
+    int nifos=5;
+    int i=0;
+    
+    currentEqu.system = COORDINATESYSTEM_EQUATORIAL;
+    currentGeo.system = COORDINATESYSTEM_GEOGRAPHIC;
+
+
+    while(inj){
+        
+    
+    q=inj->q;
+    f=inj->frequency;
+    hrss=inj->hrss;
+    ra=inj->ra;
+    dec=inj->dec;
+    psi=inj->psi;
+    geoc_time=inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds;
+    //time_slide_row = XLALTimeSlideConstGetByIDAndInstrument(time_slide_table_head, inj->time_slide_id, detector->frDetector.prefix);
+    
+    XLALGPSSet(&injtime,inj->time_geocent_gps.gpsSeconds ,inj->time_geocent_gps.gpsNanoSeconds);
+    
+    currentEqu.latitude = dec;
+    currentEqu.longitude = ra;
+    double mdc_gps_start=options->mdc_gps_start;
+    
+    LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &injtime);
+    
+	char WFname[256]; 
+    sprintf(WFname,"SG%dQ%dd%d",(int) f,(int) floor(q),(int) (10.*(q-floor(q))));
+    fprintf(mdc_log_file,"%s\
+    -100 \
+    -100 \
+    %.10e\
+    -100\
+    -100\
+    %.10e\
+    %.10e\
+    %.10e\
+    %d\
+    %10.10f\
+    %s\
+    -100\
+    0\
+    0 ",WFname,hrss, (LAL_PI_2 - currentGeo.latitude),currentGeo.longitude,psi,(int) (mdc_gps_start), geoc_time,WFname);
+    
+    i=0;
+    while (i<nifos){
+        LALDetector* detector=XLALCalloc(1,sizeof(LALDetector));
+        if (!strcmp(IFOnames[i],"H1") || !strcmp(IFOnames[i],"H2"))
+            memcpy(detector,&lalCachedDetectors[LALDetectorIndexLHODIFF],sizeof(LALDetector));
+        else if (!strcmp(IFOnames[i],"L1"))
+             memcpy(detector,&lalCachedDetectors[LALDetectorIndexLLODIFF],sizeof(LALDetector));
+        else if (!strcmp(IFOnames[i],"V1"))
+            memcpy(detector,&lalCachedDetectors[LALDetectorIndexVIRGODIFF],sizeof(LALDetector));
+        else if(!strcmp(IFOnames[i],"GEO")) 
+            memcpy(detector,&lalCachedDetectors[LALDetectorIndexGEO600DIFF],sizeof(LALDetector));
+        gmst=XLALGreenwichMeanSiderealTime(&injtime);
+        XLALComputeDetAMResponse(&Fplus, &Fcross,detector->response, ra, dec, psi, gmst);
+        timedelay = XLALTimeDelayFromEarthCenter(detector->location,ra, dec, &injtime);
+    
+        fprintf(mdc_log_file, "%s %10.10f %.10e %.10e ", IFOnames[i], geoc_time+timedelay,Fplus,Fcross);
+    
+        i++;
+        XLALFree(detector);
+    }    
+    
+    fprintf(mdc_log_file, "\n");
+    inj=inj->next;
+    }
+    
+    fclose(mdc_log_file);    
+}
+
 
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs, struct options *options, gsl_rng *rng )
 {

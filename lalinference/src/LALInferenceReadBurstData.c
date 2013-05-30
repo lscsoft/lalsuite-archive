@@ -171,7 +171,7 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     int FDinj=0;
     if (injTable){
         if(!strcmp("SineGaussianF",injEvent->waveform)) FDinj=1;
-        }
+    }
     
 	if (LALInferenceGetProcParamVal(commandLine,"--FDinjections") || FDinj==1)
     {

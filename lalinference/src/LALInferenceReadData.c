@@ -2271,8 +2271,6 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     /* signal arrival time (relative to geocenter); */
     timedelay = XLALTimeDelayFromEarthCenter(dataPtr->detector->location,
                                              ra, dec, &GPSlal);
-    printf("ra %lf dec %lf time %10.10e\n",ra,dec,injtime);
-    printf("timedelay for IFO %s : %lf\n",dataPtr->name,timedelay);
     dataPtr->injtime=injtime;
     /* (negative timedelay means signal arrives earlier at Ifo than at geocenter, etc.) */
     /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
@@ -2281,7 +2279,6 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     /* include distance (overall amplitude) effect in Fplus/Fcross: */
     FplusScaled  = Fplus  / distMpc;
     FcrossScaled = Fcross / distMpc;
-printf("diff in inj %lf inj %lf partime %lf \n", injtime,(*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time")),(injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
     dataPtr->fPlus = FplusScaled;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
