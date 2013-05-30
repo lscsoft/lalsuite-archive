@@ -227,13 +227,13 @@ def ifos_from_instrument_set(instruments):
 	Convert an iterable of instrument names into a value suitable for
 	storage in the "ifos" column found in many tables.  This function
 	is mostly for internal use by the .set_ifos() methods of the
-	corresponding row classes.  The input can be None or an interable
+	corresponding row classes.  The input can be None or an iterable
 	of zero or more instrument names, none of which may contain "," or
 	"+" characters.  The output is a single string containing the
 	instrument names concatenated using "," as a delimiter.
 	instruments will only be iterated over once and so can be a
 	generator expression.  Whitespace is allowed in instrument names
-	but may not be preserved.
+	but might not be preserved.
 
 	NOTE:  in the special case that there is 1 instrument name in the
 	iterable and it has an even number of characters > 2 in it, the
@@ -3649,6 +3649,26 @@ class SummMime(object):
 
 SummMimeTable.RowType = SummMime
 
+#
+# =============================================================================
+#
+#                            time_slide_segment_map:table
+#
+# =============================================================================
+#
+
+class TimeSlideSegmentMapTable(table.Table):
+	tableName = "time_slide_segment_map:table"
+	validcolumns = {
+		"segment_def_id": "ilwd:char",
+		"time_slide_id": "ilwd:char",
+	}
+
+class TimeSlideSegmentMap(object):
+	__slots__ = TimeSlideSegmentMapTable.validcolumns.keys()
+
+TimeSlideSegmentMapTable.RowType = TimeSlideSegmentMap
+
 
 #
 # =============================================================================
@@ -3700,7 +3720,8 @@ TableByName = {
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
 	table.StripTableName(VetoDefTable.tableName): VetoDefTable,
-	table.StripTableName(SummMimeTable.tableName): SummMimeTable
+	table.StripTableName(SummMimeTable.tableName): SummMimeTable,
+	table.StripTableName(TimeSlideSegmentMapTable.tableName): TimeSlideSegmentMapTable
 }
 
 

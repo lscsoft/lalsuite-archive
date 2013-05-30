@@ -350,6 +350,13 @@ void initializeMCMC(LALInferenceRunState *runState)
                (--psdNblock)                    Number of noise parameters per IFO channel (8)\n\
                (--psdFlatPrior)                 Use flat prior on psd parameters (Gaussian)\n\
                (--removeLines)                  Do include persistent PSD lines in fourier-domain integration\n\
+               (--KSlines)                      Run with the KS test line removal\n\
+               (--KSlinesWidth)                 Width of the lines removed by the KS test (deltaF)\n\
+               (--chisquaredlines)              Run with the Chi squared test line removal\n\
+               (--chisquaredlinesWidth)         Width of the lines removed by the Chi squared test (deltaF)\n\
+               (--powerlawlines)                Run with the power law line removal\n\
+               (--powerlawlinesWidth)           Width of the lines removed by the power law test (deltaF)\n\
+               (--xcorrbands)                   Run PSD fitting with correlated frequency bands\n\
                \n\
                ---------------------------------------------------------------------------------------------------\n\
                --- Proposals  ------------------------------------------------------------------------------------\n\
@@ -358,8 +365,10 @@ void initializeMCMC(LALInferenceRunState *runState)
                (--kDTree)                       Use a kDTree proposal.\n\
                (--kDNCell N)                    Number of points per kD cell in proposal.\n\
                (--covarianceMatrix file)        Find the Cholesky decomposition of the covariance matrix for jumps in file.\n\
-               (--proposalSkyRing)              Rotate sky position around vector connecting any two IFOs in network.\n\
-               (--proposalCorrPsiPhi)           Jump along psi-phi correlation\n\
+               (--noProposalSkyRing)              Disable the proposal that rotates sky position\n\
+                                                  around vector connecting any two IFOs in network.\n\
+               (--noProposalCorrPsiPhi)           Disable the proponal that jumps along psi-phi \n\
+                                                  correlation\n\
                \n\
                ---------------------------------------------------------------------------------------------------\n\
                --- Parallel Tempering Algorithm Parameters -------------------------------------------------------\n\
@@ -428,7 +437,7 @@ void initializeMCMC(LALInferenceRunState *runState)
 
   /* Choose the template generator for inspiral signals */
   LALInferenceInitCBCTemplate(runState);
-    
+
  /* runState->template=&LALInferenceTemplateLAL;
   if(LALInferenceGetProcParamVal(commandLine,"--LALSimulation")){
     runState->template=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
@@ -453,27 +462,6 @@ void initializeMCMC(LALInferenceRunState *runState)
 //    fprintf(stderr, "Computing likelihood in the time domain.\n");
 //    runState->likelihood=&LALInferenceTimeDomainLogLikelihood;
 //  } else
-  if (LALInferenceGetProcParamVal(commandLine, "--zeroLogLike")) {
-    /* Use zero log(L) */
-    runState->likelihood=&LALInferenceZeroLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
-    runState->likelihood=&LALInferenceCorrelatedAnalyticLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
-    runState->likelihood=&LALInferenceBimodalCorrelatedAnalyticLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
-    runState->likelihood=&LALInferenceRosenbrockLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--studentTLikelihood")) {
-    fprintf(stderr, "Using Student's T Likelihood.\n");
-    runState->likelihood=&LALInferenceFreqDomainStudentTLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--noiseonly")) {
-    fprintf(stderr, "Using noise-only likelihood.\n");
-    runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--margphi")) {
-    fprintf(stderr, "Using marginalised phase likelihood.\n");
-    runState->likelihood=&LALInferenceMarginalisedPhaseLogLikelihood;
-  } else {
-    runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood;
-  }
 
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
     runState->prior=&LALInferenceInspiralSkyLocPrior;
@@ -497,9 +485,7 @@ void initializeMCMC(LALInferenceRunState *runState)
     verbose=1;
     LALInferenceAddVariable(runState->algorithmParams,"verbose", &verbose , LALINFERENCE_UINT4_t,
                             LALINFERENCE_PARAM_FIXED);
-    set_debug_level("ERROR|INFO");
   }
-  else set_debug_level("NDEBUG");
 
   printf("set iteration number.\n");
   /* Number of live points */
@@ -814,10 +800,13 @@ int main(int argc, char *argv[]){
 
   /* Set up currentParams with variables to be used */
   LALInferenceInitCBCVariables(runState);
-  
+
+  /* Choose the likelihood */
+  LALInferenceInitLikelihood(runState);
+ 
   /* Call the extra code that was removed from previous function */
   LALInferenceInitMCMCState(runState);
-  
+ 
   if(runState==NULL) {
     fprintf(stderr, "runState not allocated (%s, line %d).\n",
             __FILE__, __LINE__);

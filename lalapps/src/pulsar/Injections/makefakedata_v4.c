@@ -243,13 +243,10 @@ main(int argc, char *argv[])
   size_t len;
   UserVariables_t uvar = empty_UserVariables;
 
-  lalDebugLevel = 0;	/* default value */
 
   /* ------------------------------
    * read user-input and set up shop
    *------------------------------*/
-  XLAL_CHECK ( XLALGetDebugLevel(argc, argv, 'v') == XLAL_SUCCESS, XLAL_EFUNC );
-
   XLAL_CHECK ( XLALInitUserVars ( &uvar, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   XLAL_CHECK ( XLALInitMakefakedata ( &GV, &uvar ) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -961,6 +958,9 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	/* load effective frequency-band from noise-SFTs */
 	fMin = cfg->fmin_eff;
 	fMax = fMin + cfg->fBand_eff;
+	/* temporary solution to "off by one" error that can occur as fmin_eff and fBand_eff are already rounded to exact SFT bins here and XLALLoadSFTs then uses floor/ceil to be conservative */
+	fMin += 0.5 / uvar->Tsft;
+	fMax -= 0.5 / uvar->Tsft;
 
         cfg->noiseSFTs = XLALLoadSFTs ( catalog, fMin, fMax );
         XLAL_CHECK ( cfg->noiseSFTs != NULL, XLAL_EFUNC, "XLALLoadSFTs() failed\n" );

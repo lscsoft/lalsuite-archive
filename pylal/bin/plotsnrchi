@@ -121,7 +121,7 @@ def loghistval(trig_val, slide_val, inj_val, comments, nbins=40):
   # compute simple figure of merit
   if len(slide_val):
     max_stat = max(slide_val)
-    comments = InspiralUtils.message(opts, 'loudest background trigger = ' + \
+    comments += InspiralUtils.message(opts, 'loudest background trigger = ' + \
       str(max_stat) )
     comments += InspiralUtils.message(opts, 'total number of injections = ' + \
       str(len(inj_val)) )

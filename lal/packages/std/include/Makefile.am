@@ -9,6 +9,7 @@ pkginclude_HEADERS = \
 	LALAtomicDatatypes.h \
 	LALConstants.h \
 	LALDatatypes.h \
+	LALDebugLevel.h \
 	LALErrno.h \
 	LALError.h \
 	LALGSL.h \
@@ -23,7 +24,6 @@ pkginclude_HEADERS = \
 	XLALGSL.h \
 	lalswig_error.i \
 	lalswig_gsl.i \
-	lalswig_ligotimegps.i \
 	lalswig_test.i
 
 all-local: include-link
@@ -34,6 +34,7 @@ include $(top_srcdir)/swig/swiglal_header.am
 
 swigincludedir = $(pkgincludedir)
 swiginclude_HEADERS = \
+	lalswig_ligotimegps.i \
 	swiglal_common.i \
 	swiglal_octave.i \
 	swiglal_python.i

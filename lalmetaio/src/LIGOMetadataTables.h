@@ -72,7 +72,7 @@ extern "C" {
 #define LIGOMETA_VALUE_MAX 1025
 #define LIGOMETA_NAME_MAX 257
 #define LIGOMETA_STRING_MAX 257
-#define LIGOMETA_IFO_MAX 3
+#define LIGOMETA_IFO_MAX 8
 #define LIGOMETA_SEARCH_MAX 25
 #define LIGOMETA_CHANNEL_MAX 65
 #define LIGOMETA_FRAMESETG_MAX 49
@@ -946,6 +946,29 @@ tagMetadataTable
   FilterTable           *filterTable;
 }
 MetadataTable;
+
+typedef struct
+tagSegmentTable
+{
+  struct tagSegmentTable *next;
+  INT4 creator_db;
+  long process_id;
+  long segment_id;
+  LIGOTimeGPS start_time;
+  LIGOTimeGPS end_time;
+  long segment_def_id;
+  INT4 segment_def_cdb; 
+}
+SegmentTable;
+
+typedef struct
+tagTimeSlideSegmentMapTable
+{
+  struct tagTimeSlideSegmentMapTable *next;
+  long segment_def_id;
+  long time_slide_id;
+}
+TimeSlideSegmentMapTable;
 
 #if 0
 { /* so that editors will match succeeding brace */

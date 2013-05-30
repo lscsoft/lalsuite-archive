@@ -26,6 +26,7 @@ import numpy
 import itertools
 
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
+from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -61,7 +62,7 @@ def ReadMultiInspiralFromFiles(fileList):
     except: multiInspiralTable = None
   return multis
 
-def ReadMultiInspiralTimeSlidesFromFiles(fileList):
+def ReadMultiInspiralTimeSlidesFromFiles(fileList,generate_output_tables=False):
   """
   Read time-slid multiInspiral tables from a list of files
   @param fileList: list of input files
@@ -72,6 +73,7 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
   multis = None
   timeSlides = []
 
+  segmentDict = {}
   for thisFile in fileList:
 
     doc = utils.load_filename(thisFile,
@@ -81,6 +83,8 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
           lsctables.TimeSlideTable.tableName)
     slideMapping = {}
     currSlides = {}
+    # NOTE: I think some of this is duplicated in the glue definition of the
+    # time slide table. Probably should move over to that
     for slide in timeSlideTable:
       currID = int(slide.time_slide_id)
       if currID not in currSlides.keys():
@@ -98,6 +102,24 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
         # If not then add it
         timeSlides.append(offsetDict)
         slideMapping[slideID] = len(timeSlides) - 1
+
+    # Get the mapping table
+    segmentMap = {}
+    timeSlideMapTable = table.get_table(doc,
+        lsctables.TimeSlideSegmentMapTable.tableName)
+    for entry in timeSlideMapTable:
+      segmentMap[int(entry.segment_def_id)] = int(entry.time_slide_id)
+
+    # Extract the segment table
+    segmentTable = table.get_table(doc,
+        lsctables.SegmentTable.tableName)
+    for entry in segmentTable:
+      currSlidId = segmentMap[int(entry.segment_def_id)]
+      currSeg = entry.get()
+      if not segmentDict.has_key(slideMapping[currSlidId]):
+        segmentDict[slideMapping[currSlidId]] = segments.segmentlist()
+      segmentDict[slideMapping[currSlidId]].append(currSeg)
+      segmentDict[slideMapping[currSlidId]].coalesce()
     
     # extract the multi inspiral table
     try:
@@ -107,27 +129,61 @@ def ReadMultiInspiralTimeSlidesFromFiles(fileList):
       for multi in multiInspiralTable:
         newID = slideMapping[int(multi.time_slide_id)]
         multi.time_slide_id = ilwd.ilwdchar(\
-                              "multi_inspiral:time_slide_id:%d" % (newID))
+                              "time_slide:time_slide_id:%d" % (newID))
       if multis: multis.extend(multiInspiralTable)
       else: multis = multiInspiralTable
 #    except: multiInspiralTable = None
     except: raise
 
-  # Make a new time slide table
-  timeSlideTab = lsctables.New(lsctables.TimeSlideTable)
+  if not generate_output_tables:
+    return multis,timeSlides,segmentDict
+  else:
+    # Make a new time slide table
+    timeSlideTab = lsctables.New(lsctables.TimeSlideTable)
 
-  for slideID,offsetDict in enumerate(timeSlides):
-    for instrument in offsetDict.keys():
-      currTimeSlide = lsctables.TimeSlide()
-      currTimeSlide.instrument = instrument
-      currTimeSlide.offset = offsetDict[instrument]
-      currTimeSlide.time_slide_id = ilwd.ilwdchar(\
-                              "time_slide:time_slide_id:%d" % (slideID))
-      currTimeSlide.process_id = ilwd.ilwdchar(\
-                              "time_slide:process_id:%d" % (0))
-      timeSlideTab.append(currTimeSlide)
+    for slideID,offsetDict in enumerate(timeSlides):
+      for instrument in offsetDict.keys():
+        currTimeSlide = lsctables.TimeSlide()
+        currTimeSlide.instrument = instrument
+        currTimeSlide.offset = offsetDict[instrument]
+        currTimeSlide.time_slide_id = ilwd.ilwdchar(\
+                                "time_slide:time_slide_id:%d" % (slideID))
+        currTimeSlide.process_id = ilwd.ilwdchar(\
+                                "process:process_id:%d" % (0))
+        timeSlideTab.append(currTimeSlide)
 
-  return multis,timeSlides,timeSlideTab
+    # Make a new mapping table
+    timeSlideSegMapTab = lsctables.New(lsctables.TimeSlideSegmentMapTable)
+    
+    for i in range(len(timeSlides)):
+      currMapEntry = lsctables.TimeSlideSegmentMap()
+      currMapEntry.time_slide_id = ilwd.ilwdchar(\
+                                "time_slide:time_slide_id:%d" % (i))
+      currMapEntry.segment_def_id = ilwd.ilwdchar(\
+                                "segment_def:segment_def_id:%d" % (i))
+      timeSlideSegMapTab.append(currMapEntry)
+
+    # Make a new segment table
+    newSegmentTable = lsctables.New(lsctables.SegmentTable)
+
+    segmentIDCount = 0
+    for i in range(len(timeSlides)):
+      currSegList = segmentDict[i]
+      for seg in currSegList:
+        currSegment = lsctables.Segment()
+        currSegment.segment_id = ilwd.ilwdchar(\
+                              "segment:segment_id:%d" %(segmentIDCount))
+        segmentIDCount += 1
+        currSegment.segment_def_id = ilwd.ilwdchar(\
+                                "segment_def:segment_def_id:%d" % (i))
+        currSegment.process_id = ilwd.ilwdchar(\
+                                "process:process_id:%d" % (0))
+        currSegment.set(seg)
+        currSegment.creator_db = -1
+        currSegment.segment_def_cdb = -1
+        newSegmentTable.append(currSegment)
+    return multis,timeSlides,segmentDict,timeSlideTab,newSegmentTable,\
+           timeSlideSegMapTab
 
 
 #

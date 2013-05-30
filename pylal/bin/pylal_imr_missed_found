@@ -219,6 +219,17 @@ for instruments in IMR.instruments:
 			pylab.title('Missed-Found:%s Effective Distance vs Final Spin' % ifo)
 			pylab.savefig(opts.outnametag + '_' + ifo + 'effdist_finalspin.png')
 
+        #                                                      
+        # Decisive distance plots                             
+                        pylab.figure()
+                        pylab.semilogy([f.mass1+f.mass2 for f \
+in found], [max([f.eff_dist_h,f.eff_dist_l]) for f in found],'.')
+                        pylab.semilogy([m.mass1+m.mass2 for m in missed],[max([m.eff_dist_h,m.eff_dist_l]) for m in missed],'k.')
+                        pylab.xlabel('Total Mass ($M_\odot$)')
+                        pylab.ylabel('Decisive Distance (Mpc)')
+                        pylab.title('Missed-Found: Decisive Distance vs Total Mass')
+                        pylab.savefig(opts.outnametag + '_' + 'decisive_distance_mass.png')
+
 	#
 	# Physical distance plots
 
@@ -316,7 +327,8 @@ for instruments in IMR.instruments:
 		E = pylab.empty((nbinsM, nbinsD))
 		Xarray = pylab.linspace(numpy.min(xtotal), numpy.max(xtotal), nbinsM+1)
 		if log:
-			Yarray = pylab.exp(pylab.linspace(math.log(numpy.min(ytotal)), math.log(numpy.max(ytotal)), nbinsD+1))
+			Yarray = pylab.linspace(math.log(numpy.min(ytotal)), math.log(numpy.max(ytotal)), nbinsD+1)
+			Yarray = pylab.exp(Yarray)
 		else:
 			Yarray = pylab.linspace(numpy.min(ytotal), numpy.max(ytotal), nbinsD+1)
 		for i in range(nbinsM):
@@ -333,7 +345,7 @@ for instruments in IMR.instruments:
 		pylab.title('Detection Efficiency vs. %s and %s' % (name, xname))
 		pylab.xlabel(r'%s ($M_\odot$)' % name)
 		pylab.ylabel('%s:Effective Distance (Mpc)' % xname)
-		pylab.yscale('log')
+		if log: pylab.yscale('log')
 		pylab.ylim(2,10000)
 		#pylab.grid(color='k')
 		cb = pylab.colorbar()
@@ -368,7 +380,7 @@ for instruments in IMR.instruments:
 		(spin_total, spin_found, distance_total_dict[ifo], distance_found_dict[ifo], 'Final Spin', '%seffdist_finalspin' % ifo, '%s:Effective Distance' % ifo, True)
 		
 		]:
-			eff_plot(xtotal, xfound, ytotal, yfound, name, plotname, xname, log)
+			eff_plot(xtotal, xfound, ytotal, yfound, name, plotname, xname, True)
 
 
 	EffdistanceMin = min([min(f) for f in distance_found_dict.values()])
@@ -432,6 +444,7 @@ for instruments in IMR.instruments:
 		pylab.axvline(x=x90,ymin=0, ymax=0.9,linewidth=1, color='green')
 		pylab.xlim(10,10000)
 		pylab.ylim(0,1.05)
+		pylab.grid()
 		pylab.title(ifo +  ' effective distance')
 		pylab.xlabel(ifo + ' effective distance (Mpc)')
 		pylab.ylabel('Efficiency')	

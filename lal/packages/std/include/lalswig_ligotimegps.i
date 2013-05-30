@@ -21,7 +21,57 @@
 // Author: Karl Wette
 
 // Only in SWIG interface.
-#ifdef SWIG
+#if defined(SWIG) && !defined(SWIGXML)
+
+// Specialised input typemaps for LIGOTimeGPS structs.
+// Accepts a SWIG-wrapped LIGOTimeGPS or a double as input.
+%typemap(in, noblock=1, fragment=SWIG_AsVal_frag(double))
+  LIGOTimeGPS (void *argp = 0, int res = 0),
+  const LIGOTimeGPS (void *argp = 0, int res = 0)
+{
+  res = SWIG_ConvertPtr($input, &argp, $&descriptor, $disown | %convertptr_flags);
+  if (!SWIG_IsOK(res)) {
+    double val = 0;
+    res = SWIG_AsVal(double)($input, &val);
+    if (!SWIG_IsOK(res)) {
+      %argument_fail(res, "$type", $symname, $argnum);
+    } else {
+      XLALGPSSetREAL8(&$1, val);
+    }
+  } else {
+    if (!argp) {
+      %argument_nullref("$type", $symname, $argnum);
+    } else {
+      $&ltype temp = %reinterpret_cast(argp, $&ltype);
+      $1 = *temp;
+      if (SWIG_IsNewObj(res)) {
+        %delete(temp);
+      }
+    }
+  }
+}
+%typemap(freearg) LIGOTimeGPS, const LIGOTimeGPS "";
+
+// Specialised input typemaps for pointers to LIGOTimeGPS.
+// Accepts a SWIG-wrapped LIGOTimeGPS or a double as input.
+%typemap(in, noblock=1, fragment=SWIG_AsVal_frag(double))
+  LIGOTimeGPS* (LIGOTimeGPS tmp, void *argp = 0, int res = 0),
+  const LIGOTimeGPS* (LIGOTimeGPS tmp, void *argp = 0, int res = 0)
+{
+  res = SWIG_ConvertPtr($input, &argp, $descriptor, $disown | %convertptr_flags);
+  if (!SWIG_IsOK(res)) {
+    double val = 0;
+    res = SWIG_AsVal(double)($input, &val);
+    if (!SWIG_IsOK(res)) {
+      %argument_fail(res, "$type", $symname, $argnum);
+    } else {
+      $1 = %reinterpret_cast(XLALGPSSetREAL8(&tmp, val), $ltype);
+    }
+  } else {
+    $1 = %reinterpret_cast(argp, $ltype);
+  }
+}
+%typemap(freearg) LIGOTimeGPS*, const LIGOTimeGPS* "";
 
 // Allocate a new LIGOTimeGPS.
 #define %lalswig_new_LIGOTimeGPS() (LIGOTimeGPS*)(XLALCalloc(1, sizeof(LIGOTimeGPS)))
@@ -49,7 +99,8 @@
     char *end = NULL;
     if (XLALStrToGPS(gps, str, &end) < 0 || *end != '\0') {
       XLALFree(gps);
-      XLAL_ERROR_NULL(XLAL_EFUNC);
+      xlalErrno = XLAL_EFUNC;   // Silently signal an error to constructor
+      return NULL;
     }
     return gps;
   }

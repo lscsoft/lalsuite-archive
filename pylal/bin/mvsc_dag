@@ -191,10 +191,12 @@ class mvsc_update_sql_job(pipeline.CondorDAGJob):
 class mvsc_update_sql_node(pipeline.CondorDAGNode):
   """
   """
-  def __init__(self, job, dag, databases, p_node=[]):
+  def __init__(self, job, dag, options, databases, p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
     #FIXME add tmp file space
     self.add_macro("macroid", dag.id)
+    for opt in options:
+      self.add_var_opt(opt[0],opt[1])
     [self.add_var_arg(database) for database in databases]
     self.add_var_opt("all-instruments",opts.all_instruments)
     self.add_var_opt("output-tag",opts.user_tag)
@@ -336,7 +338,7 @@ finished_rank_nodes=[]
 for key in rank_node:
   finished_rank_nodes.extend(rank_node[key].values())
   finished_rank_nodes.extend(zl_rank_node[key].values())
-update_node['all'] = mvsc_update_sql_node(update_job, dag, databases+update_files, p_node=finished_rank_nodes)
+update_node['all'] = mvsc_update_sql_node(update_job, dag, cp.items("mvsc_update_sql"), databases+update_files, p_node=finished_rank_nodes)
 print update_files
 dag.write_sub_files()
 dag.write_dag()

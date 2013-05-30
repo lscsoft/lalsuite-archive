@@ -31,7 +31,6 @@
 #include <lal/LALSimInspiralPrecess.h>
 
 int main(void){
-		lalDebugLevel=7;
 
 		FILE* h_ref = fopen("h_ref.txt", "w");
 		FILE* h_rot = fopen("h_rot.txt", "w");
@@ -136,9 +135,13 @@ int main(void){
 
 		XLALSimInspiralDestroyWaveformFlags( waveFlags );
 
+		SphHarmTimeSeries *ts = NULL;
+		ts = XLALSphHarmTimeSeriesAddMode( h_22, 2, 2, ts );
+		ts = XLALSphHarmTimeSeriesAddMode( h_2_2, 2, -2, ts );
+
 		ret = XLALSimInspiralConstantPrecessionConeWaveform(
 				&hp, &hx,
-				h_2_2, h_22, 
+				ts,
 				10, LAL_PI/4, 0,
 				0, LAL_PI/4 );
         if( ret != XLAL_SUCCESS )
@@ -146,6 +149,7 @@ int main(void){
 
 		//XLALDestroyCOMPLEX16TimeSeries( h_22 );
 		//XLALDestroyCOMPLEX16TimeSeries( h_2_2 );
+		XLALDestroySphHarmTimeSeries( ts );
 
 		// Write out rotated waveform
 		for(i=0; i<hp->data->length; i++)

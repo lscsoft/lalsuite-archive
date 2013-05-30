@@ -1,6 +1,6 @@
 AC_PREREQ([2.63])
 AC_INIT([lalinference],[1.1.0.1],[lal-discuss@gravity.phys.uwm.edu])
-AC_CONFIG_HEADERS([include/config.h src/LALInferenceConfig.h])
+AC_CONFIG_HEADERS([src/config.h src/LALInferenceConfig.h])
 AC_CONFIG_SRCDIR([src/LALInference.h])
 AC_CONFIG_AUX_DIR([gnuscripts])
 AC_CONFIG_MACRO_DIR([gnuscripts])
@@ -15,6 +15,7 @@ AC_CONFIG_FILES([ \
   src/Makefile \
   python/Makefile \
   python/__init__.py \
+  python/bayestar/Makefile \
   swig/Makefile \
   swig/octave/Makefile \
   swig/python/Makefile \
@@ -105,6 +106,7 @@ AC_PROG_LN_S
 AC_PROG_AWK
 AC_PROG_SED
 AM_PATH_PYTHON([2.6],,[AC_MSG_ERROR([Python-2.6, or higher, is required])])
+AM_CONDITIONAL([HAVE_PYTHON],[test "$PYTHON" != :])
 
 # check for supported mac os x version
 LALSUITE_OSX_VERSION_CHECK
@@ -117,6 +119,41 @@ AC_HEADER_STDC
 
 # check for required libraries
 AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
+
+# check for OpenMP
+AC_OPENMP
+
+# check that compiler supports C99 variable length arrays in OpenMP for loops.
+# Apple's llvm-gcc-4.2 is buggy and does not.
+AS_IF([test "x$OPENMP_CFLAGS" != "x"],
+  [
+    AC_MSG_CHECKING([if compiler supports C99 VLAs in OpenMP for loops])
+    save_CFLAGS=$CFLAGS
+    CFLAGS="$CFLAGS $OPENMP_CFLAGS"
+    AC_LINK_IFELSE([
+        AC_LANG_PROGRAM(, [
+          int i, n = 10;
+          #pragma omp parallel for
+          for (i = 0; i < 10; i ++)
+          { int a@<:@n@:>@; }
+        ])
+      ],
+      [AC_MSG_RESULT([yes])],
+      [
+        AC_MSG_RESULT([no, disabling OpenMP])
+        OPENMP_CFLAGS=
+      ]
+    )
+    CFLAGS=$save_CFLAGS
+  ]
+)
+
+# check for HEALPix
+PKG_CHECK_MODULES([CHEALPIX],[chealpix],[true],[false])
+CPPFLAGS="$CPPFLAGS $CHEALPIX_CFLAGS"
+LIBS="$LIBS $CHEALPIX_LIBS"
+AC_CHECK_LIB([chealpix],[nside2npix],[HEALPIX_ENABLE_VAL=ENABLED],[HEALPIX_ENABLE_VAL=DISABLED])
+AM_CONDITIONAL([HAVE_CHEALPIX],[test "x$HEALPIX_ENABLE_VAL" = "xENABLED"])
 
 # check for gsl
 PKG_CHECK_MODULES([GSL],[gsl],[true],[false])
@@ -160,10 +197,33 @@ LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.5],[XLALXMLFilePrintElements],[lal/LALXML.h
 
 # configure SWIG wrapping modules
 LALSUITE_USE_SWIG([XLALInference LALInference XLAL LAL])
-LALSUITE_SWIG_DEPENDS([lal],[true])
 
 # add gcc specific flags
 LALSUITE_ADD_GCC_FLAGS
+
+# Disable OpenMP by default.
+# FIXME: OpenMP should be on by default, but it breaks condor_compiling lalapps.
+AS_IF(
+  [test "x$enable_openmp" = "x"],
+  [OPENMP_CFLAGS=]
+)
+# add compiler flags for OpenMP
+AS_IF(
+  [test "x$OPENMP_CFLAGS" = "x"],
+  [
+    OPENMP_ENABLE_VAL="DISABLED"
+    CFLAGS="$CFLAGS -Wno-unknown-pragmas"
+  ],
+  [
+    OPENMP_ENABLE_VAL="ENABLED"
+    CFLAGS="$CFLAGS $OPENMP_CFLAGS"
+  ]
+)
+
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
 # output
 LAL_HEADER_LINK=${ac_aux_dir}/header-link.mk
@@ -177,6 +237,8 @@ LALInference has now been successfully configured:
 * LALXML library support is $LALXML_ENABLE_VAL
 * SWIG wrapping module for Octave is $SWIG_OCTAVE_ENABLE_VAL
 * SWIG wrapping module for Python is $SWIG_PYTHON_ENABLE_VAL
+* HEALPix is $HEALPIX_ENABLE_VAL
+* OpenMP acceleration is $OPENMP_ENABLE_VAL
 
 and will be installed under the directory:
 

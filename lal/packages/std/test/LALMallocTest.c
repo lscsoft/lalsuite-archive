@@ -54,6 +54,9 @@
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 
+/* never use this... never! */
+void XLALClobberDebugLevel(int);
+
 char caughtMessage[1024];
 jmp_buf jump;
 FILE *mystderr;
@@ -113,8 +116,6 @@ while ( 0 )
     exit(1); \
   } while (0)
 
-extern int lalDebugLevel;
-
 /* make these global so they don't get clobbered by longjmp */
 size_t   i;
 size_t   j;
@@ -133,7 +134,7 @@ static int testOK( void )
 {
   int keep = lalDebugLevel;
 
-  lalDebugLevel &= ~( LALNMEMDBG | LALNMEMPAD | LALNMEMTRK );
+  XLALClobberDebugLevel(lalDebugLevel | LALMEMDBGBIT | LALMEMPADBIT | LALMEMTRKBIT);
   trial( p = LALMalloc( 1024 * sizeof( *p ) ), 0, "" );
   for ( i = 0; i < 1024; ++i ) p[i] = i;
   trial( q = LALCalloc( 1024, sizeof( *q ) ), 0, "" );
@@ -148,7 +149,7 @@ static int testOK( void )
   trial( LALFree( p ), 0, "" );
   trial( LALCheckMemoryLeaks(), 0, "" );
 
-  lalDebugLevel |= LALNMEMPAD;
+  XLALClobberDebugLevel(lalDebugLevel & ~LALMEMPADBIT);
   trial( p = LALMalloc( 1024 * sizeof( *p ) ), 0, "" );
   for ( i = 0; i < 1024; ++i ) p[i] = i;
   trial( q = LALCalloc( 1024, sizeof( *q ) ), 0, "" );
@@ -161,8 +162,8 @@ static int testOK( void )
   trial( LALFree( p ), 0, "" );
   trial( LALCheckMemoryLeaks(), 0, "" );
 
-  lalDebugLevel &= ~LALNMEMPAD;
-  lalDebugLevel |= LALNMEMTRK;
+  XLALClobberDebugLevel(lalDebugLevel | LALMEMPADBIT);
+  XLALClobberDebugLevel(lalDebugLevel & ~LALMEMTRKBIT);
   trial( p = LALMalloc( 1024 * sizeof( *p ) ), 0, "" );
   for ( i = 0; i < 1024; ++i ) p[i] = i;
   trial( q = LALCalloc( 1024, sizeof( *q ) ), 0, "" );
@@ -177,7 +178,7 @@ static int testOK( void )
   trial( LALFree( p ), 0, "" );
   trial( LALCheckMemoryLeaks(), 0, "" );
 
-  lalDebugLevel |= LALNMEMDBG;
+  XLALClobberDebugLevel(lalDebugLevel & ~LALMEMDBGBIT);
   trial( p = LALMalloc( 1024 * sizeof( *p ) ), 0, "" );
   for ( i = 0; i < 1024; ++i ) p[i] = i;
   trial( q = LALCalloc( 1024, sizeof( *q ) ), 0, "" );
@@ -190,7 +191,7 @@ static int testOK( void )
   trial( LALFree( p ), 0, "" );
   trial( LALCheckMemoryLeaks(), 0, "" );
 
-  lalDebugLevel = keep;
+  XLALClobberDebugLevel(keep);
   return 0;
 }
 
@@ -200,11 +201,12 @@ static int testPadding( void )
 {
   int keep = lalDebugLevel;
 
-  lalDebugLevel |= LALNMEMTRK;
-  lalDebugLevel &= ~( LALNMEMDBG | LALNMEMPAD );
+  XLALClobberDebugLevel(lalDebugLevel | LALMEMDBGBIT | LALMEMPADBIT);
+  XLALClobberDebugLevel(lalDebugLevel & ~LALMEMTRKBIT);
 
   /* try to free NULL pointer */
-  trial( LALFree( NULL ), SIGSEGV, "error: tried to free NULL pointer" );
+  /* changed behaviour: LALFree is a no-op when passed NULL */
+  // trial( LALFree( NULL ), SIGSEGV, "error: tried to free NULL pointer" );
 
   /* wrong magic */
   trial( p = LALMalloc( 2 * sizeof( *p ) ), 0, "" );
@@ -241,7 +243,7 @@ static int testPadding( void )
   free( q );
   trial( LALCheckMemoryLeaks(), 0, "" );
 
-  lalDebugLevel = keep;
+  XLALClobberDebugLevel(keep);
   return 0;
 }
 
@@ -252,8 +254,8 @@ static int testAllocList( void )
 
   s = malloc( sizeof( *s ) );
 
-  lalDebugLevel |= LALNMEMPAD;
-  lalDebugLevel &= ~( LALNMEMDBG | LALNMEMTRK );
+  XLALClobberDebugLevel(lalDebugLevel | LALMEMDBGBIT | LALMEMTRKBIT);
+  XLALClobberDebugLevel(lalDebugLevel & ~LALMEMPADBIT);
 
   /* empty allocation list */
   trial( LALCheckMemoryLeaks(), 0, "" );
@@ -279,7 +281,7 @@ static int testAllocList( void )
   trial( LALCheckMemoryLeaks(), 0, "" );
 
   free( s );
-  lalDebugLevel = keep;
+  XLALClobberDebugLevel(keep);
   return 0;
 }
 
@@ -291,7 +293,8 @@ static int stressTestRealloc( void )
 
   v = NULL;
 
-  lalDebugLevel &= ~( LALMEMINFO | LALNMEMDBG | LALNMEMPAD | LALNMEMTRK );
+  XLALClobberDebugLevel(lalDebugLevel | LALMEMDBGBIT | LALMEMPADBIT | LALMEMTRKBIT);
+  XLALClobberDebugLevel(lalDebugLevel & ~LALMEMINFOBIT);
 
   /* ascending */
   for ( n = 1; n <= nmax; ++n )
@@ -317,7 +320,7 @@ static int stressTestRealloc( void )
   trial( v = LALRealloc( v, 0 ), 0, "" );
 
   trial( LALCheckMemoryLeaks(), 0, "" );
-  lalDebugLevel = keep;
+  XLALClobberDebugLevel(keep);
   return 0;
 }
 #endif
@@ -328,7 +331,8 @@ int main( void )
 #if defined(NDEBUG) || defined(LAL_NDEBUG) /* debugging is turned off */
   return 77; /* don't do any testing */
 #else
-  lalDebugLevel = LALMEMDBG;
+  XLALGetDebugLevel();
+  XLALClobberDebugLevel(LALMEMDBG);
 
   /* get rid of annoying messages from elsewhere */
   setvbuf( mystderr = stdout, NULL, _IONBF, 0 );

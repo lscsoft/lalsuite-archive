@@ -86,6 +86,7 @@ const char * usage =
 "                             SEOBNRv1\n"
 "                             SpinTaylorT4\n"
 "                             SpinTaylorT2\n"
+"                             PhenSpinTaylor\n"
 "                             PhenSpinTaylorRD\n"
 "                           Supported FD approximants:\n"
 "                             IMRPhenomA\n"
@@ -100,7 +101,7 @@ const char * usage =
 "                           developer forgot to edit this help message\n"
 "--phase-order ORD          Twice PN order of phase (default ORD=7 <==> 3.5PN)\n"
 "--amp-order ORD            Twice PN order of amplitude (default 0 <==> Newt.)\n"
-"--phiRef                   Phase at the reference frequency (default 0)\n"
+"--phiRef PHIREF            Phase at the reference frequency (default 0)\n"
 "--fRef FREF                Reference frequency in Hz\n"
 "                           (default: 0)\n"
 "--sample-rate SRATE        Sampling rate of TD approximants in Hz (default 4096)\n"
@@ -129,6 +130,8 @@ const char * usage =
 "                           (default: generate as much as possible)\n"
 "--distance D               Distance in Mpc (default 100)\n"
 "--axis AXIS                for PhenSpin: 'View' (default), 'TotalJ', 'OrbitalL'\n"
+"--nonGRpar NAME VALUE      add the nonGRparam with name 'NAME' and value 'VALUE'\n"
+"--higher-modes VALUE       specify l modes with value 'VALUE' (L2 or RESTRICTED is default)\n"
 "--outname FNAME            Output to file FNAME (default 'simulation.dat')\n"
 "--verbose                  If included, add verbose output\n"
 ;
@@ -244,6 +247,21 @@ static GSParams *parse_args(ssize_t argc, char **argv) {
                 XLALPrintError("Error: invalid value %s for --axis\n", argv[i]);
                 goto fail;
             }
+        } else if (strcmp(argv[i], "--modes") == 0) {
+            XLALSimInspiralSetModesChoice( params->waveFlags,
+                    XLALGetHigherModesFromString(argv[++i]) );
+            if ( (int) XLALSimInspiralGetModesChoice(params->waveFlags)
+                    == (int) XLAL_FAILURE) {
+                XLALPrintError("Error: invalid value %s for --modes\n", argv[i]);
+                goto fail;
+            }
+        } else if (strcmp(argv[i], "--nonGRpar") == 0) {
+	    char name[100];
+	    strcpy(name,argv[++i]);
+	    if (params->nonGRparams==NULL)
+	      params->nonGRparams=XLALSimInspiralCreateTestGRParam(name,atof(argv[++i]));
+	    else
+	      XLALSimInspiralAddTestGRParam(&params->nonGRparams,name,atof(argv[++i]));
         } else if (strcmp(argv[i], "--outname") == 0) {
             strncpy(params->outname, argv[++i], 256);
         } else if (strcmp(argv[i], "--verbose") == 0) {
@@ -398,7 +416,6 @@ int main (int argc , char **argv) {
     GSParams *params;
 	
     /* set us up to fail hard */
-    lalDebugLevel = 7;
     XLALSetErrorHandler(XLALAbortErrorHandler);
 
     /* parse commandline */

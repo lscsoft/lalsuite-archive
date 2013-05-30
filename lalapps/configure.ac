@@ -34,6 +34,7 @@ AC_CONFIG_FILES([\
   src/pulsar/TimingTests/Makefile \
   src/pulsar/TDS_isolated/Makefile \
   src/inspiral/Makefile \
+  src/inspiral/bayestar/Makefile \
   src/inspiral/posterior/Makefile \
   src/inspiral/posterior/SPINspiral/Makefile \
   src/inspiral/posterior/mpi/Makefile \
@@ -453,8 +454,12 @@ if test "${allstatic}" = "true" ; then
   LDFLAGS="-static -all-static $LDFLAGS"
 fi
 
-AC_OUTPUT
+# force all python modules into the exec dir to prevent mixed C and
+# pure-python library code from being split across lib and lib64 on
+# RedHat-derived systems.
+AC_SUBST([pkgpythondir], ["\${pkgpyexecdir}"])
 
+AC_OUTPUT
 echo "
 ==================================================
 LALApps has now been successfully configured:

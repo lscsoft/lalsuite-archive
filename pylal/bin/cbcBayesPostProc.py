@@ -339,10 +339,11 @@ def cbcBayesPostProc(
 
         #Plot only analytic parameters
         oneDMenu = analyticLikelihood.names
-        twoDGreedyMenu = []
-        for i in range(len(oneDMenu)):
-            for j in range(i+1,len(oneDMenu)):
-                twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
+        if twoDGreedyMenu:
+            twoDGreedyMenu = []
+            for i in range(len(oneDMenu)):
+                for j in range(i+1,len(oneDMenu)):
+                    twoDGreedyMenu.append([oneDMenu[i],oneDMenu[j]])
         twoDplots = twoDGreedyMenu
 
     if eventnum is None and injfile is not None:
@@ -1245,7 +1246,7 @@ if __name__=='__main__':
     tigerParams=['dphi%i'%(i) for i in range(7)] + ['dphi%il'%(i) for i in [5,6] ]
     bransDickeParams=['omegaBD','ScalarCharge1','ScalarCharge2']
     massiveGravitonParams=['lambdaG']
-    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde']
+    tidalParams=['lambda1','lambda2','lam_tilde','dlam_tilde','lambdat','dlambdat']
     statsParams=['logprior','logl','deltalogl','deltaloglh1','deltalogll1','deltaloglv1','deltaloglh2','deltaloglg1','flow']
     oneDMenu=massParams + distParams + incParams + polParams + skyParams + timeParams + spinParams + phaseParams + endTimeParams + ppEParams + tigerParams + bransDickeParams + massiveGravitonParams + tidalParams + statsParams
     # ['mtotal','m1','m2','chirpmass','mchirp','mc','distance','distMPC','dist','iota','inclination','psi','eta','massratio','ra','rightascension','declination','dec','time','a1','a2','phi1','theta1','phi2','theta2','costilt1','costilt2','chi','effectivespin','phase','l1_end_time','h1_end_time','v1_end_time']
@@ -1295,6 +1296,7 @@ if __name__=='__main__':
                      twoDGreedyMenu.append([mp, tp])
         twoDGreedyMenu.append(['lambda1','lambda2'])
         twoDGreedyMenu.append(['lam_tilde','dlam_tilde'])
+        twoDGreedyMenu.append(['lambdat','dlambdat'])
         for psip in polParams:
             for phip in phaseParams:
                 twoDGreedyMenu.append([psip,phip])
