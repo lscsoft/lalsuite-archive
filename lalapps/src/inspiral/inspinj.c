@@ -47,6 +47,7 @@
 #include <LALAppsVCSInfo.h>
 #include <lal/LALDatatypes.h>
 #include <lal/FrequencySeries.h>
+#include <lal/LALCosmologyCalculator.h>
 #include "inspiral.h"
 
 #define CVS_REVISION "$Revision$"
@@ -110,7 +111,8 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin double zmax);
+
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs,LoudnessDistribution dDistr);
 static REAL8 draw_uniform_snr(REAL8 snrmin,REAL8 snrmax);
@@ -291,18 +293,16 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
   return step;
 }
 
-REAL8 drawRedshift(REAL8 zmin, REAL8 zmax, REAL8 pzmax)
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin double zmax)
 {
-  REAL8 test,z,p;
-  do
-  {
-    test = pzmax * XLALUniformDeviate(randParams);
-    z = (zmax-zmin) * XLALUniformDeviate(randParams)+zmin;
-    p = probability_redshift(z);
-  }
-  while (test>p);
-
-  return z;
+    REAL8 test,z,p;
+    do
+    {   
+        test = XLALUniformDeviate(randParams);
+        z = zmin+(zmax-zmin) * XLALUniformDeviate(randParams);
+        p=XLALUniformComovingVolumeDistribution(params, z, zmax);
+    } while (test>p);
+    return z;
 }
 
 REAL8 redshift_mass(REAL8 mass, REAL8 z)
@@ -3588,8 +3588,9 @@ int main( int argc, char *argv[] )
     /* draw redshift and apply to mass parameters */
     if (dDistr==starFormationRate)
     {
-      redshift = drawRedshift(minZ,maxZ,pzmax);
-
+      LALCosmologicalParameters *omega=XLALCreateCosmologicalParameters(0.7,0.3,0.0,0.7,-1.0,0.0,0.0);
+      redshift = drawRedshift(omega,maxZ,pzmax);
+      XLALDestroyCosmologicalParameters(omega);
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
       meanMass1 = redshift_mass(meanMass10, redshift);
