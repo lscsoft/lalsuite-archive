@@ -271,9 +271,9 @@ def get_experiment_type(xmldoc, time_slide_dict):
 
 	usertags = set(['FULL_DATA','PLAYGROUND'])
 	if len(zero_lag_dict):
-		if ('--injection-file' in pp_param) and not (pp_values & usertags):
+		if ('--injection-file' in pp_param) and not (pp_value & usertags):
 			datatypes = ['simulation']
-		elif 'PLAYGROUND' in pp_values:
+		elif 'PLAYGROUND' in pp_value:
 			datatypes = ['playground']
 
 	if len(time_slide_dict) > len(zero_lag_dict):
@@ -328,7 +328,7 @@ def populate_experiment_summ_table(
 				type,
 				sim_proc_id = None
 			)
-			if type != "slide"
+			if type != "slide":
 				break
 
 def get_on_instruments(xmldoc, trigger_program):
