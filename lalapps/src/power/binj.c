@@ -90,7 +90,14 @@ REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
 static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8FrequencySeries *psd, REAL8 start_freq);
 
-
+struct fvec *interpFromFile(char *filename);
+struct fvec {
+	REAL8 f;
+	REAL8 x;
+};
+REAL8 interpolate(struct fvec *fvec, REAL8 f);
+struct fvec *ligo_interp;
+struct fvec *virgo_interp;
 /*
  * ============================================================================
  *
@@ -875,8 +882,37 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
     }
     if (tmp) LALFree(tmp);
     if (ifo) LALFree(ifo);
-	
-	}
+	if ( options.maxsnr <= options.minsnr )
+    {
+      fprintf( stderr, "max SNR must be greater than min SNR\n");
+      exit( 1 );
+    }
+    /*if (single_IFO_SNR_threshold<0.0)
+      {
+        fprintf( stderr,
+            "The single IFO SNR threshold must be positive. Exiting...\n" );
+        exit( 1 );
+      }*/
+      
+       /* Check custom PSDs */
+      if (ligoPsdFileName){
+        ligo_interp=interpFromFile(ligoPsdFileName);
+            
+        
+        /* We're done with the filename */
+        free(ligoPsdFileName);
+        }
+
+    if (virgoPsdFileName) {
+      
+      virgo_interp=interpFromFile(virgoPsdFileName);
+      /* We're done with the filename */
+      free(virgoPsdFileName);
+    }
+  
+  
+  
+    }
 	switch(options.population) {
 	case POPULATION_TARGETED:
 	case POPULATION_ALL_SKY_SINEGAUSSIAN:
@@ -1476,7 +1512,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		REAL8 *start_freqs;
 		REAL8FrequencySeries **psds;
 		int i=1;
-	    
+	    UINT4 ui=0;
 		/*reset counter */
 		ifo=ifonames[0];
 		i=0;
@@ -1495,21 +1531,34 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		/* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
 		while(ifo !=NULL){
 		    if(!strcmp("V1",ifo)){
-			start_freqs[i]=virgoStartFreq;
-			if (!virgoPsd){
-						
-			    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&time , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
-			    get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
-			}
-			if (!virgoPsd) fprintf(stderr,"Failed to produce Virgo PSD series. Exiting...\n");
-			psds[i]=virgoPsd;
+                start_freqs[i]=virgoStartFreq;
+                if (!virgoPsd){
+                            
+                    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&time , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+                    if (!virgo_interp)
+                        get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
+                    else{
+                        for (ui=0;ui<virgoPsd->data->length;ui++){
+                            virgoPsd->data->data[ui]=interpolate(virgo_interp,ui/segment);
+                    
+                        }
+                    }
+                }
+                if (!virgoPsd) fprintf(stderr,"Failed to produce Virgo PSD series. Exiting...\n");
+                psds[i]=virgoPsd;
 		    }
 		    else if (!strcmp("L1",ifo) || !strcmp("H1",ifo)){
 			start_freqs[i]=ligoStartFreq;
 			if(!ligoPsd){
 			    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &time, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
-			    get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
-			}   
+                if (! ligo_interp)
+                    get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
+                else{
+                    for (ui=0;ui<ligoPsd->data->length;ui++){
+                    ligoPsd->data->data[ui]=interpolate(ligo_interp,ui/segment);
+                
+                    }
+                }			}   
 			if (!ligoPsd) fprintf(stderr,"Failed to produce LIGO PSD series. Exiting...\n");   
 			psds[i]=ligoPsd;
 		    }
@@ -1863,13 +1912,13 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 		inj=&(*injs[0]);
 		ts=time_slide_table_head;
 		XLALBurstInjectSignals(soft,inj,ts , NULL);
-		//char foutname[50]="";
-                //sprintf(foutname,"MDC_create_time_%s",IFOname);
-		//FILE * fout = fopen(foutname,"w");
-                //UINT4 j=0;
-		//for (j=0;j<soft->data->length;j++)
-		//fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
-		//fclose(fout);
+		char foutname[50]="";
+        sprintf(foutname,"MDC_create_time_%s",IFOname);
+		FILE * fout = fopen(foutname,"w");
+        UINT4 j=0;
+		for (j=0;j<soft->data->length;j++)
+		fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
+		fclose(fout);
 		XLALFrameAddREAL8TimeSeriesSimData( frame, soft );
 		XLALDestroyREAL8TimeSeries(soft);
 	}
@@ -1987,7 +2036,7 @@ static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8Frequ
     /* If not already done, set distance to 100Mpc, just to have something while calculating the actual SNR */
        
     if (IFOnames ==NULL){
-        fprintf(stderr,"scale_lalsim_distance() called with IFOnames=NULL. Exiting...\n");
+        fprintf(stderr,"scale_sinegaussian_hrss() called with IFOnames=NULL. Exiting...\n");
         exit(1);
         }
     char * ifo=IFOnames[0];
@@ -2283,4 +2332,52 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
     
     return sqrt(this_snr*2.0);
   
+}
+
+struct fvec *interpFromFile(char *filename){
+	UINT4 fileLength=0;
+	UINT4 i=0;
+	UINT4 minLength=100; /* size of initial file buffer, and also size of increment */
+	FILE *interpfile=NULL;
+	struct fvec *interp=NULL;
+	interp=XLALCalloc(minLength,sizeof(struct fvec)); /* Initialise array */
+	if(!interp) {printf("Unable to allocate memory buffer for reading interpolation file\n");}
+	fileLength=minLength;
+	REAL8 f=0.0,x=0.0;
+	interpfile = fopen(filename,"r");
+	if (interpfile==NULL){
+		printf("Unable to open file %s\n",filename);
+		exit(1);
+	}
+	while(2==fscanf(interpfile," %lf %lf ", &f, &x )){
+		interp[i].f=f; interp[i].x=x*x;
+		i++;
+		if(i>fileLength-1){ /* Grow the array */
+			interp=XLALRealloc(interp,(fileLength+minLength)*sizeof(struct fvec));
+			fileLength+=minLength;
+		}
+	}
+	interp[i].f=0; interp[i].x=0;
+	fileLength=i+1;
+	interp=XLALRealloc(interp,fileLength*sizeof(struct fvec)); /* Resize array */
+	fclose(interpfile);
+	printf("Read %i records from %s\n",fileLength-1,filename);
+	return interp;
+}
+
+REAL8 interpolate(struct fvec *fvec, REAL8 f){
+	int i=0;
+	REAL8 a=0.0; /* fractional distance between bins */
+	REAL8 delta=0.0;
+	if(f<fvec[0].f) return(0.0);
+	while(fvec[i].f<f && (fvec[i].x!=0.0 )){i++;}; //&& fvec[i].f!=0.0)){i++;};
+  //printf("%d\t%lg\t%lg\t%lg\n",i,fvec[i].f,f,fvec[i].x);
+	if (fvec[i].f==0.0 && fvec[i].x==0.0) /* Frequency above moximum */
+	{
+		return (fvec[i-1].x);
+	}
+  //if(i==0){return (fvec[0].x);}
+	a=(fvec[i].f-f)/(fvec[i].f-fvec[i-1].f);
+	delta=fvec[i].x-fvec[i-1].x;
+	return (fvec[i-1].x + delta*a);
 }
