@@ -1460,7 +1460,20 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     }
     LALInferenceAddMinMaxPrior(priorArgs, "phase",     &phiMin, &phiMax,   LALINFERENCE_REAL8_t);
   }
-
+  /* Add redshift if quasi likelihoods are requested */
+  if(!LALInferenceGetProcParamVal(commandLine,"--redshift"))
+  {
+    ppt = LALInferenceGetProcParamVal(commandLine,"--zmin");
+    REAL8 zmin=atof(ppt->value);
+    ppt = LALInferenceGetProcParamVal(commandLine,"--zmax");
+    REAL8 zmax=atof(ppt->value);
+    REAL8 redshift=0.1;
+    UINT4 marginals=0;
+    if(!LALInferenceGetProcParamVal(commandLine,"--marginals")) marginals=1;
+    LALInferenceAddVariable(priorArgs, "marginals",  &marginals   ,LALINFERENCE_UINT4_t,   LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(currentParams,"redshift", &redshift, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddMinMaxPrior(priorArgs, "redshift",     &zmin, &zmax,   LALINFERENCE_REAL8_t);
+  }
   /* Jump in log distance if requested, otherwise use distance */
   if(LALInferenceGetProcParamVal(commandLine,"--logdistance"))
   { 

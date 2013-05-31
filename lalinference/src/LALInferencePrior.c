@@ -21,6 +21,7 @@
  */
 
 #include <lal/LALInferencePrior.h>
+#include <lal/LALCosmologyCalculator.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
 
@@ -63,11 +64,13 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
   }
   if(LALInferenceCheckVariable(params,"fLow"))
     logPrior+=log(*(REAL8 *)LALInferenceGetVariable(params,"fLow"));
-
-  if(LALInferenceCheckVariable(params,"logdistance"))
-    logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
-  else if(LALInferenceCheckVariable(params,"distance"))
-    logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+  if (!LALInferenceGetVariable(priorParams,"marginals")) 
+  {
+    if(LALInferenceCheckVariable(params,"logdistance"))
+        logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
+    else if(LALInferenceCheckVariable(params,"distance"))
+        logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+  }
 
   if(LALInferenceCheckVariable(params,"inclination"))
     logPrior+=log(fabs(sin(*(REAL8 *)LALInferenceGetVariable(params,"inclination"))));
@@ -499,6 +502,7 @@ LALInferenceVariableItem *item=params->head;
 	REAL8 mc=0.0;
   REAL8 eta=0.0;
 	REAL8 m1,m2;
+    REAL8 redshift = 0.0;
 	REAL8 massRatioMin=0.0, massRatioMax=0.0; // min,max for q or eta
 	REAL8 MTotMax=0.0;
   REAL8 component_max, component_min;
@@ -661,8 +665,9 @@ LALInferenceVariableItem *item=params->head;
           			if( LALInferenceCheckVariable(priorParams,"component_max") && LALInferenceCheckVariable(priorParams,"component_min") 
 			             && LALInferenceCheckVariable(priorParams,"MTotMax")
 			             && LALInferenceCheckVariable(params,"mass2") ){
-			            m1=(*(REAL8 *)LALInferenceGetVariable(params,"mass1"));
-			            m2=(*(REAL8 *)LALInferenceGetVariable(params,"mass2"));
+                        if (LALInferenceCheckVariable(params,"redshift")) redshift = (*(REAL8 *)LALInferenceGetVariable(params,"redshift"));
+			            m1=(*(REAL8 *)LALInferenceGetVariable(params,"mass1"))/(1.0+redshift);
+			            m2=(*(REAL8 *)LALInferenceGetVariable(params,"mass2"))/(1.0+redshift);
 			            MTotMax=*(REAL8 *)LALInferenceGetVariable(priorParams,"MTotMax");
 			            component_min=*(REAL8 *)LALInferenceGetVariable(priorParams,"component_min");
 			            component_max=*(REAL8 *)LALInferenceGetVariable(priorParams,"component_max");
@@ -691,7 +696,9 @@ LALInferenceVariableItem *item=params->head;
 				        exit(1);
 			        }
 		     	}
-			else if(!strcmp(item->name, "distance")){
+			else if (LALInferenceGetVariable(priorParams,"marginals")) 
+            {
+                    if(!strcmp(item->name, "distance")){
 					if(LALInferenceCheckVariable(priorParams,"distance_norm")) {
 						norm = *(REAL8 *)LALInferenceGetVariable(priorParams,"distance_norm");
 					}
@@ -715,6 +722,7 @@ LALInferenceVariableItem *item=params->head;
 					logPrior += 3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance")+norm;
 					//printf("logPrior@%s=%f\n",item->name,logPrior);
 				}
+            }
 				else if(!strcmp(item->name, "fLow")){
 					if(LALInferenceCheckVariable(priorParams,"fLow_norm")) {
 						norm = *(REAL8 *)LALInferenceGetVariable(priorParams,"fLow_norm");
