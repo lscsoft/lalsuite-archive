@@ -2055,8 +2055,8 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "redshift")) redshift = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "redshift");
   if (eos!=LAL_SIM_INSPIRAL_EOS_NONE)
   {
-    lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift));
-    lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift));
+    lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1/(1.0+redshift)*LAL_MTSUN_SI,5.0);
+    lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2/(1.0+redshift)*LAL_MTSUN_SI,5.0);;
   }
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambdaT")&&LALInferenceCheckVariable(IFOdata->modelParams, "dLambdaT")){
     lambdaT = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambdaT");
