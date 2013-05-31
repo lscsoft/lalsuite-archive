@@ -26,6 +26,7 @@ lalsimulationinclude_HEADERS = \
 	LALSimInspiralTestGRParams.h \
 	LALSimIMR.h \
 	LALSimInspiral.h \
+	LALSimInspiralEOS.h \
 	LALSimulation.h \
 	LALSimNoise.h \
 	LALSimSGWB.h \

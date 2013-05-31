@@ -70,6 +70,11 @@ REAL8 LALInferenceInspiralPrior(LALInferenceRunState *runState, LALInferenceVari
         logPrior+=3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance");
     else if(LALInferenceCheckVariable(params,"distance"))
         logPrior+=2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"));
+    if(LALInferenceCheckVariable(params,"redshift")) 
+    {
+        /* here add the comoving volume dependence of the prior */
+        logPrior+=0.0;
+    }
   }
 
   if(LALInferenceCheckVariable(params,"inclination"))

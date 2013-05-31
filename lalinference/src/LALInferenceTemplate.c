@@ -39,7 +39,7 @@
 #include <lal/XLALError.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
 #include <lal/LALSimInspiral.h>
-
+#include <lal/LALSimInspiralEOS.h>
 #include <lal/LALInferenceTemplate.h>
 
 #define PROGRAM_NAME "LALInferenceTemplate.c"
@@ -1931,6 +1931,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   static REAL8 previous_lambda1, previous_lambda2;
   static int previous_order, previous_amporder;
   static Approximant previous_approximant;*/
+  LALEquationOfState eos = LAL_SIM_INSPIRAL_EOS_NONE;
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
   
@@ -1957,6 +1958,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
   REAL8 fTemp = fRef;
 
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "EOS"))
+      eos = *(LALEquationOfState *)LALInferenceGetVariable(IFOdata->modelParams, "EOS");
+      
   if(LALInferenceCheckVariable(IFOdata->modelParams,"chirpmass"))
     {
       mc  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
@@ -2047,6 +2051,13 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   REAL8 lambdaT = 0.;
   REAL8 dLambdaT = 0.;
   REAL8 sym_mass_ratio_eta = 0.;
+  REAL8 redshift = 0.0;
+  if(LALInferenceCheckVariable(IFOdata->modelParams, "redshift")) redshift = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "redshift");
+  if (eos!=LAL_SIM_INSPIRAL_EOS_NONE)
+  {
+    lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift));
+    lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift));
+  }
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambdaT")&&LALInferenceCheckVariable(IFOdata->modelParams, "dLambdaT")){
     lambdaT = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambdaT");
     dLambdaT = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "dLambdaT");
