@@ -90,6 +90,8 @@ def mat(params, channel):
 
         startTime = np.min(time)
         startTimeUTC = XLALGPSToUTC(LIGOTimeGPS(int(startTime)))
+        startTimeUTCString = "%d-%d-%d %d:%d:%d"%(startTimeUTC[0],startTimeUTC[1],startTimeUTC[2],startTimeUTC[3],startTimeUTC[4],startTimeUTC[5])
+
         time = time - startTime
 
         norm_pass = 1.0/(channel.samplef/2)
@@ -133,7 +135,7 @@ def mat(params, channel):
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
 
-        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTC,startTime))
+        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
         plt.ylabel("Normalized Amplitude")
         plt.xlim([np.min(time),np.max(time)])
 
@@ -168,13 +170,17 @@ def freq_analysis(params,channel,freq,spectra):
         plotLocation = params["path"] + "/" + channel.station_underscore + "/freq" 
         if not os.path.isdir(plotLocation):
             os.makedirs(plotLocation)
-    
+ 
     indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
     indexes = list(np.unique(np.ceil(indexes)))
-
     indexes = range(len(freq))
 
+    n_dist = []
+    for j in xrange(1000):
+        n_dist.append(scipy.stats.chi2.rvs(2))
+
     p_chi2_vals = []
+    p_ks_vals = []
     for i in indexes:
         vals = spectra[:,i]
 
@@ -182,15 +188,6 @@ def freq_analysis(params,channel,freq,spectra):
         stdPSD = np.std(vals)
 
         vals_norm = 2 * vals / meanPSD
-
-        expected_vals_norm = []
-        for j in xrange(len(vals_norm)):
-            val_norm = vals_norm[j]
-            expected_val_norm = scipy.stats.chi2.pdf(val_norm, 2)
-            expected_vals_norm.append(expected_val_norm)
-
-        vals_norm = np.array(vals_norm)
-        expected_vals_norm = np.array(expected_vals_norm)
 
         bins = np.arange(0,10,1)
         (n,bins) = np.histogram(vals_norm,bins=bins)
@@ -205,9 +202,10 @@ def freq_analysis(params,channel,freq,spectra):
         n_expected = np.array(n_expected)
 
         (stat_chi2,p_chi2) = scipy.stats.mstats.chisquare(n, f_exp=n_expected)
-        #(stat_ks,p_ks) = scipy.stats.ks_2samp(data1, data2)
-
         p_chi2_vals.append(p_chi2)
+
+        (stat_ks,p_ks) = scipy.stats.ks_2samp(vals_norm, n_dist)
+        p_ks_vals.append(p_ks)
 
         if freq[i] > 0:
             continue
@@ -228,13 +226,15 @@ def freq_analysis(params,channel,freq,spectra):
 
     if params["doPlots"]:
         ax = plt.subplot(111)
-        plt.semilogx(freq[indexes],p_chi2_vals)
+        plt.semilogx(freq[indexes],p_chi2_vals,label='chi2')
+        plt.semilogx(freq[indexes],p_ks_vals,label='k-s')
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("p-value")
+        plt.legend()
         plt.show()
-        plt.savefig(os.path.join(plotLocation,"chi_squared.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"chi_squared.eps"),dpi=200)
-        plt.close('all')        
+        plt.savefig(os.path.join(plotLocation,"freq_analysis.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"freq_analysis.eps"),dpi=200)
+        plt.close('all')      
 
 def spectral_histogram(data,bins):
     
