@@ -36,21 +36,24 @@
 #include <lal/DopplerScan.h>
 #include <lal/ExtrapolatePulsarSpins.h>
 #include <lal/LALInitBarycenter.h>
+#include <lal/NormalizeSFTRngMed.h>
+#include <lal/PulsarCrossCorr_v2.h>
 
 /* user input variables */
 typedef struct{
   BOOLEAN help; /**< if the user wants a help message */
-
   INT4    startTime;          /**< desired start GPS time of search */ 
   INT4    endTime;            /**< desired end GPS time */
-  REAL8   fStart;             /**< start frequency */
-  REAL8   fBand;              /**< frequency band to search over */
-  REAL8   fdotStart;          /**< starting value for first spindown */
-  REAL8   fdotBand;           /**< range of first spindown to search over */
+  REAL8   maxLag;             /**< maximum lag time in seconds between SFTs in correlation */
+  BOOLEAN inclAutoCorr;       /**< include auto-correlation terms (an SFT with itself) */
+  REAL8   fStart;             /**< start frequency in Hz */
+  REAL8   fBand;              /**< frequency band to search over in Hz */
+  REAL8   fdotStart;          /**< starting value for first spindown in Hz/s*/
+  REAL8   fdotBand;           /**< range of first spindown to search over in Hz/s */
   REAL8   refTime;            /**< reference time for pulsar phase definition */
   CHAR    *sftLocation;       /**< location of SFT data */
   CHAR    *ephemYear;         /**< range of years for ephemeris file */
-  UINT4   rngMedBlock;        /**< running median block size */
+  INT4    rngMedBlock;        /**< running median block size */
 } UserInput_t;
 
 /* struct to store useful variables */
@@ -82,13 +85,14 @@ int main(int argc, char *argv[]){
   /* sft related variables */ 
   MultiSFTVector *inputSFTs = NULL;
   MultiPSDVector *psd = NULL;
-  LIGOTimeGPS firstTimeStamp, lastTimeStamp;
-  REAL8 tObs;
+  SFTIndexList *sftIndices;
+  SFTPairIndexList *sftPairs;
 
   REAL8 fMin, fMax; /* min and max frequencies read from SFTs */
-  
-   /* initialize and register user variables */
-   if ( XLALInitUserVars( &uvar ) != XLAL_SUCCESS ) {
+  REAL8 deltaF; /* Tsft; frequency resolution and time baseline of SFTs */
+
+  /* initialize and register user variables */
+  if ( XLALInitUserVars( &uvar ) != XLAL_SUCCESS ) {
     LogPrintf ( LOG_CRITICAL, "%s: XLALInitUserVars() failed with errno=%d\n", __func__, xlalErrno );
     return 1;
   }
@@ -108,15 +112,19 @@ int main(int argc, char *argv[]){
     return 1;
   }
 
+  deltaF = config.catalog->data[0].header.deltaF;
+  /*Tsft = 1. / deltaF;*/
+
   /* now read the data */
   /* FIXME: need to correct fMin and fMax for Doppler shift, rngmedian bins and spindown range */
   /* this is essentially just a place holder for now */
-  fMin = uvar.fStart;
-  fMax = uvar.fStart + uvar.fBand;
+  /* FIXME: this running median buffer is overkill, since the running median block need not be centered on the search frequency */
+  fMin = uvar.fStart - 0.5 * uvar.rngMedBlock * deltaF;
+  fMax = uvar.fStart + 0.5 * uvar.rngMedBlock * deltaF + uvar.fBand;
 
   /* read the SFTs*/
   if ((inputSFTs = XLALLoadMultiSFTs ( config.catalog, fMin, fMax)) == NULL){ 
-    LogPrintf ( LOG_CRITICAL, "%s: XLALLoadSFTs() failed with errno=%d\n", __func__, xlalErrno );
+    LogPrintf ( LOG_CRITICAL, "%s: XLALLoadMultiSFTs() failed with errno=%d\n", __func__, xlalErrno );
     return 1;
   }
 
@@ -126,6 +134,38 @@ int main(int argc, char *argv[]){
     return 1;
   }
 
+  /* Construct the flat list of SFTs (this sort of replicates the
+     catalog, but there's not an obvious way to get the information
+     back) */
+
+  if ( ( XLALCreateSFTIndexListFromMultiSFTVect( &sftIndices, inputSFTs ) != XLAL_SUCCESS ) ) {
+    XLALDestroyMultiSFTVector ( inputSFTs ); 
+    XLALDestroyMultiPSDVector ( psd );    
+    XLALDestroySFTCatalog (config.catalog );
+    XLALFree( config.edat->ephemE );
+    XLALFree( config.edat->ephemS );
+    XLALFree( config.edat );
+    /* de-allocate memory for user input variables */
+
+    XLALDestroyUserVars();
+    XLAL_ERROR( XLAL_EFUNC );
+  }
+
+  /* Construct the list of SFT pairs */
+
+  if ( ( XLALCreateSFTPairIndexList( &sftPairs, sftIndices, inputSFTs, uvar.maxLag, uvar.inclAutoCorr ) != XLAL_SUCCESS ) ) {
+    /* XLALDestroySFTIndexList(sftIndices) */
+    XLALDestroyMultiSFTVector ( inputSFTs ); 
+    XLALDestroyMultiPSDVector ( psd );    
+    XLALDestroySFTCatalog (config.catalog );
+    XLALFree( config.edat->ephemE );
+    XLALFree( config.edat->ephemS );
+    XLALFree( config.edat );
+    /* de-allocate memory for user input variables */
+
+    XLALDestroyUserVars();
+    XLAL_ERROR( XLAL_EFUNC );
+  }
 
   /* /\* get SFT parameters so that we can initialise search frequency resolutions *\/ */
   /* /\* calculate deltaF_SFT *\/ */
@@ -187,6 +227,8 @@ int main(int argc, char *argv[]){
   /* } */
 
 
+  /* XLALDestroySFTPairIndexList(sftPairs) */
+  /* XLALDestroySFTIndexList(sftIndices) */
   XLALDestroyMultiSFTVector ( inputSFTs ); 
   XLALDestroyMultiPSDVector ( psd );
 
@@ -194,8 +236,6 @@ int main(int argc, char *argv[]){
   XLALFree( config.edat->ephemE );
   XLALFree( config.edat->ephemS );
   XLALFree( config.edat );
-
-  
 
   /* de-allocate memory for user input variables */
   XLALDestroyUserVars();
@@ -216,6 +256,8 @@ int XLALInitUserVars (UserInput_t *uvar)
   uvar->help = FALSE;
   uvar->startTime = 814838413;	/* 1 Nov 2005, ~ start of S5 */
   uvar->endTime = uvar->startTime + (INT4) round ( LAL_YRSID_SI ) ;	/* 1 year of data */
+  uvar->maxLag = 0.0;
+  uvar->inclAutoCorr = FALSE;
   uvar->fStart = 100.0; 
   uvar->fBand = 0.1;
   uvar->fdotStart = 0.0;
@@ -235,6 +277,8 @@ int XLALInitUserVars (UserInput_t *uvar)
   
   XLALregINTUserStruct   ( startTime,     0,  UVAR_OPTIONAL, "Desired start time of analysis in GPS seconds");
   XLALregINTUserStruct   ( endTime,       0,  UVAR_OPTIONAL, "Desired end time of analysis in GPS seconds");
+  XLALregREALUserStruct  ( maxLag,        0,  UVAR_OPTIONAL, "Maximum lag time in seconds between SFTs in correlation");
+  XLALregBOOLUserStruct  ( inclAutoCorr,  0,  UVAR_OPTIONAL, "Include auto-correlation terms (an SFT with itself)");
   XLALregREALUserStruct  ( fStart,        0,  UVAR_OPTIONAL, "Start frequency in Hz");
   XLALregREALUserStruct  ( fBand,         0,  UVAR_OPTIONAL, "Frequency band to search over in Hz ");
   XLALregREALUserStruct  ( fdotStart,     0,  UVAR_OPTIONAL, "Start value of spindown in Hz/s");
@@ -258,6 +302,7 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
 {
 
   static SFTConstraints constraints;
+  LIGOTimeGPS startTime, endTime;
   CHAR EphemEarth[MAXFILENAMELENGTH]; /* file with earth-ephemeris data */
   CHAR EphemSun[MAXFILENAMELENGTH];	/* file with sun-ephemeris data */
 
@@ -265,20 +310,26 @@ int XLALInitializeConfigVars (ConfigVariables *config, const UserInput_t *uvar)
   /* set sft catalog constraints */
   constraints.detector = NULL;
   constraints.timestamps = NULL;
+  constraints.startTime = &startTime;
+  constraints.endTime = &endTime;
   XLALGPSSet( constraints.startTime, uvar->startTime, 0);
   XLALGPSSet( constraints.endTime, uvar->endTime,0); 
-  if ( (constraints.startTime == NULL)&& (constraints.startTime == NULL) ) {
+
+  /* This check doesn't seem to work, since XLALGPSSet doesn't set its
+     first argument.
+
+  if ( (constraints.startTime == NULL)&& (constraints.endTime == NULL) ) {
     LogPrintf ( LOG_CRITICAL, "%s: XLALGPSSet() failed with errno=%d\n", __func__, xlalErrno );
     return 1;
   }
+
+  */
 
   /* get catalog of SFTs */
   if ((config->catalog = XLALSFTdataFind (uvar->sftLocation, &constraints)) == NULL){ 
     LogPrintf ( LOG_CRITICAL, "%s: XLALSFTdataFind() failed with errno=%d\n", __func__, xlalErrno );
     return 1;
   }
-
-
 
   /* initialize ephemeris data*/
   /* first check input consistency */

@@ -258,17 +258,13 @@ static const LALStatus swiglal_empty_LALStatus = {0, NULL, NULL, NULL, NULL, 0, 
 
 // Process an interface function NAME: rename it to RENAME, and set it to
 // always return SWIG-owned wrapping objects (unless the function is being
-// ignored). If TYPE is given, ignore the return value of the function.
-%typemap(out, noblock=1) SWIGTYPE SWIGLAL_RETURN_VOID {
-  %set_output(VOID_Object);
-}
-%typemap(newfree, noblock=1) SWIGTYPE SWIGLAL_RETURN_VOID "";
-%define %swiglal_process_function(NAME, RENAME, TYPE)
+// ignored). If DISOWN is true, disown the function's first argument.
+%define %swiglal_process_function(NAME, RENAME, DISOWN)
 %rename(#RENAME) NAME;
 #if #RENAME != "$ignore"
 %feature("new", "1") NAME;
-#if #TYPE != ""
-%apply SWIGTYPE SWIGLAL_RETURN_VOID { TYPE NAME };
+#if DISOWN
+%feature("del", "1") NAME;
 #endif
 #endif
 %enddef
@@ -988,6 +984,38 @@ if (swiglal_release_parent(PTR)) {
                        strlen, %swiglal_new_copy_array, XLALFree,
                        "<limits.h>", CHAR_MIN, CHAR_MAX);
 
+// Typemaps for string pointers.  By default, treat arguments of type char**
+// as output-only arguments, which do not require a scripting-language input
+// argument, and return their results in the output argument list. Also
+// supply an INOUT typemap for input-output arguments, which allows a
+// scripting-language input string to be supplied. The INOUT typemaps can be
+// applied as needed using the SWIGLAL(INOUT_STRINGS(...)) macro.
+%typemap(in, noblock=1, numinputs=0) char ** (char *str = NULL, int alloc = 0) {
+  $1 = %reinterpret_cast(&str, $ltype);
+  alloc = 0;
+}
+%typemap(in, noblock=1, fragment="SWIG_AsLALcharPtrAndSize") char ** INOUT (char *str = NULL, int alloc = 0, int ecode = 0) {
+  ecode = SWIG_AsLALcharPtr($input, &str, &alloc);
+  if (!SWIG_IsOK(ecode)) {
+    %argument_fail(ecode, "$type", $symname, $argnum);
+  }
+  $1 = %reinterpret_cast(&str, $ltype);
+}
+%typemap(argout, noblock=1) char ** {
+  %append_output(SWIG_FromLALcharPtr(str$argnum));
+}
+%typemap(freearg, match="in") char ** {
+  if (SWIG_IsNewObj(alloc$argnum)) {
+    XLALFree(str$argnum);
+  }
+}
+%define %swiglal_public_INOUT_STRINGS(...)
+%swiglal_map_ab(%swiglal_apply, char ** INOUT, char **, __VA_ARGS__);
+%enddef
+%define %swiglal_public_clear_INOUT_STRINGS(...)
+%swiglal_map_a(%swiglal_clear, char **, __VA_ARGS__);
+%enddef
+
 // Do not try to free const char* return arguments.
 %typemap(newfree,noblock=1) const char* "";
 
@@ -1114,19 +1142,19 @@ if (swiglal_release_parent(PTR)) {
 // Make the wrapping of printf-style LAL functions a little safer, as suggested in
 // the SWIG 2.0 documentation (section 13.5). These functions should now be safely
 // able to print any string, so long as the format string is named "format" or "fmt".
-%typemap(in, fragment="SWIG_AsCharPtrAndSize") (const char *SWIGLAL_PRINTF_FORMAT, ...)
+%typemap(in, fragment="SWIG_AsLALcharPtrAndSize") (const char *SWIGLAL_PRINTF_FORMAT, ...)
 (char fmt[] = "%s", char *str = 0, int alloc = 0)
 {
   $1 = fmt;
-  int ecode = SWIG_AsCharPtrAndSize($input, &str, NULL, &alloc);
+  int ecode = SWIG_AsLALcharPtr($input, &str, &alloc);
   if (!SWIG_IsOK(ecode)) {
-    %argument_fail(ecode, "const char*, ...", $symname, $argnum);
+    %argument_fail(ecode, "$type", $symname, $argnum);
   }
   $2 = (void *) str;
 }
 %typemap(freearg, match="in") (const char *format, ...) {
   if (SWIG_IsNewObj(alloc$argnum)) {
-    %delete_array(str$argnum);
+    XLALFree(str$argnum);
   }
 }
 %apply (const char *SWIGLAL_PRINTF_FORMAT, ...) {
