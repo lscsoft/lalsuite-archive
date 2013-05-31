@@ -226,11 +226,11 @@ def freq_analysis(params,channel,freq,spectra):
 
     if params["doPlots"]:
         ax = plt.subplot(111)
-        plt.semilogx(freq[indexes],p_chi2_vals,label='chi2')
-        plt.semilogx(freq[indexes],p_ks_vals,label='k-s')
+        plt.loglog(freq[indexes],p_chi2_vals,label='chi2')
+        plt.loglog(freq[indexes],p_ks_vals,label='k-s')
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("p-value")
-        plt.legend()
+        plt.legend(loc=3)
         plt.show()
         plt.savefig(os.path.join(plotLocation,"freq_analysis.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"freq_analysis.eps"),dpi=200)
