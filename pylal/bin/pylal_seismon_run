@@ -25,10 +25,15 @@ def parse_commandline():
     parser = optparse.OptionParser(usage=__doc__,version=__version__)
 
     parser.add_option("-p", "--paramsFile", help="Seismon params file.", 
-                      default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_H1PEM.txt")
+                      default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_HIFOY.txt")
 
-    parser.add_option("-g", "--gps", help="GPS Time.", default="1049707008")
+    parser.add_option("-s", "--gpsStart", help="GPS Start Time.", default=1054028959,type=int)
+    parser.add_option("-e", "--gpsEnd", help="GPS End Time.", default=1054029209,type=int)
+    parser.add_option("-f", "--fftDuration", help="FFT duration.", default=64,type=int)
+
     parser.add_option("-d", "--doPlots",  action="store_true", default=False)
+    parser.add_option("-q", "--doEarthquakes",  action="store_true", default=False)
+    parser.add_option("-o", "--doOmicron",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -38,7 +43,7 @@ def parse_commandline():
     # show parameters
     if opts.verbose:
         print >> sys.stderr, ""
-        print >> sys.stderr, "running network_eqmon..."
+        print >> sys.stderr, "running pylal_seismon_run..."
         print >> sys.stderr, "version: %s"%__version__
         print >> sys.stderr, ""
         print >> sys.stderr, "***************** PARAMETERS ********************"
@@ -91,7 +96,7 @@ def channel_struct(channelList):
 
 def frame_struct(params):
 
-    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gps"]-1000,params["gps"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gpsStart"]-1000,params["gpsEnd"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
     output = p.stdout.read()
     frameList = output.split("\n")
     frames = []
@@ -121,22 +126,21 @@ warnings.filterwarnings("ignore")
 # Parse command line
 opts = parse_commandline()
 params = readParamsFromFile(opts.paramsFile)
-params["gps"] = float(opts.gps)
-params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gps"]))
+#params["gps"] = float(opts.gps)
+params["gpsStart"] = opts.gpsStart
+params["gpsEnd"] = opts.gpsEnd
+params["fftDuration"] = opts.fftDuration
+
+params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
+params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
 
 channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 channels = channel_struct(channelList)
 
 params = frame_struct(params)
 
-params["gpsStart"] = params["frameGPS"][-1]
-params["gpsEnd"] = params["frameGPS"][-1] + params["frameDur"][-1]
-
-if params["gpsEnd"] - params["gpsStart"] < 256:
-    params["gpsStart"] = params["gpsEnd"] - 256
-
 # Output path for run
-params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"])
+params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
 if not os.path.isdir(params["path"]):
     os.makedirs(params["path"])
 
@@ -145,20 +149,26 @@ print params["path"]
 params["fmin"] = 1/float(64)
 params["fmax"] = 64
 params["doPlots"] = opts.doPlots
+params["doEarthquakes"] = opts.doEarthquakes
+params["doOmicron"] = opts.doOmicron
 
-print "Finding earthquakes"
-pylal.pylal_seismon_eqmon.run_earthquakes(params)
+if params["doEarthquakes"]:
+    print "Finding earthquakes"
+    pylal.pylal_seismon_eqmon.run_earthquakes(params)
 
-print "Generating Omicron triggers"
-pylal.pylal_seismon_omicron.generate_triggers(params,channels)
+if params["doOmicron"]:
+    print "Generating Omicron triggers"
+    pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station
     pylal.pylal_seismon_psd.mat(params,channel)
     print "Analyzing PSD significance for %s"%channel.station
     pylal.pylal_seismon_psd.analysis(params,channel)
-    print "Plotting Omicron triggers for %s"%channel.station
-    pylal.pylal_seismon_omicron.plot_triggers(params,channel)
+
+    if params["doOmicron"]:
+        print "Plotting Omicron triggers for %s"%channel.station
+        pylal.pylal_seismon_omicron.plot_triggers(params,channel)
 
 htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
 if htmlPage is not None:

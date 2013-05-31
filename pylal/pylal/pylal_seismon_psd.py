@@ -46,11 +46,15 @@ def mat(params, channel):
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
+    psdLocation = os.path.join(psdLocation,str(params["fftDuration"])) 
+    if not os.path.isdir(psdLocation):
+        os.makedirs(psdLocation)
 
     time,data = read_frames(params["gpsStart"],params["gpsEnd"],channel,params["frame"])
     #freq,spectra = dqDataUtils.spectrum(data, channel.samplef, NFFT=len(data), overlap = 0)
 
-    spectra, freq = matplotlib.pyplot.psd(data, NFFT=64*channel.samplef, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
+    NFFT = params["fftDuration"]*channel.samplef
+    spectra, freq = matplotlib.pyplot.psd(data, NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
     plt.close('all')
 
     spectra = [math.sqrt(e) for e in spectra]
@@ -66,7 +70,7 @@ def mat(params, channel):
     spectra = newSpectra
     freq = newFreq
 
-    psdFile = psdLocation + "/" + str(params["gpsStart"]) + ".txt"
+    psdFile = psdLocation + "/" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"]) + ".txt"
     f = open(psdFile,"wb")
     for i in xrange(len(freq)):
         f.write("%e %e\n"%(freq[i],spectra[i]))
@@ -141,12 +145,15 @@ def mat(params, channel):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        plt.semilogx(freq,spectra, 'k')
-        plt.loglog(fl,low,'k-.',fh,high,'k-.')
+        try:
+            plt.semilogx(freq,spectra, 'k')
+            plt.loglog(fl,low,'k-.',fh,high,'k-.')
+        except:
+            pass
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
+        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
         plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
@@ -212,19 +219,26 @@ def html_bgcolor(snr,data):
 def analysis(params, channel):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
+    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
 
     file = sorted(files)
 
-    tt = []
+    ttStart = []
+    ttEnd = []
     freq = []
     spectra = []
 
     for file in files:
 
         fileSplit = file.split("/")
-        thisTT = float(fileSplit[-1].replace(".txt",""))
-        tt.append(thisTT)
+        txtFile = fileSplit[-1].replace(".txt","")
+        txtFileSplit = txtFile.split("-")
+        thisTTStart = int(txtFileSplit[0])
+        thisTTEnd = int(txtFileSplit[1])
+
+        ttStart.append(thisTTStart)
+        ttEnd.append(thisTTEnd)
 
         data = np.loadtxt(file)
         thisSpectra = data[:,1]
@@ -236,7 +250,7 @@ def analysis(params, channel):
             spectra = np.array(thisSpectra)
         else:
             spectra = np.vstack([spectra,np.array(copy.copy(thisSpectra))])
-        if thisTT == params["gpsStart"]:
+        if thisTTStart == params["gpsStart"]:
             freqNow = copy.copy(thisFreq)
             spectraNow = copy.copy(thisSpectra)
 
@@ -244,11 +258,19 @@ def analysis(params, channel):
     nb = 500
     range_binning = np.logspace(-10,-5,num=nb);
 
+    try:
+        spectra.max(axis = 1)
+    except:
+        print "Requires more than one spectra for analysis, continuing..."
+        return
+
     spectra[spectra==float('Inf')] = 0
 
     # Calculate bin histogram of PSDs
-    which_spectra = np.all([spectra.max(axis = 1) <= 10**-4,spectra.max(axis = 1) >= 10**-10],axis=0)
+    which_spectra = np.all([spectra.max(axis = 1) <= 10**-3,spectra.max(axis = 1) >= 10**-12],axis=0)
 
+    if len(spectra[which_spectra]) == 0:
+        return
     spectral_variation_norm = spectral_histogram(spectra[which_spectra],range_binning)
 
     # Initialize arrays
@@ -367,13 +389,13 @@ def analysis(params, channel):
         plt.savefig(os.path.join(plotLocation,"specvar.eps"),dpi=200)
         plt.close('all')
 
-        tt = np.array(tt)
-        indices_tt = np.where(tt >= params["gpsStart"] - 12*60*60)
-        tt = tt[indices_tt]
+        ttStart = np.array(ttStart)
+        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 12*60*60)
+        ttStart = ttStart[indices_ttStart]
 
-        spectra = np.squeeze(spectra[indices_tt,:])
-        ttStart = min(tt)
-        tt = [(c-ttStart)/(60*60) for c in tt]
+        spectra = np.squeeze(spectra[indices_ttStart,:])
+        ttStartMin = min(ttStart)
+        tt = [(c-ttStartMin)/(60*60) for c in ttStart]
 
         #X,Y = np.meshgrid(freq, tt)
         X,Y = np.meshgrid(freq[indices], tt)

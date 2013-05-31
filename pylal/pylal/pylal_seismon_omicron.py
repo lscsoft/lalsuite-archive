@@ -106,10 +106,10 @@ def plot_triggers(params,channel):
         os.makedirs(textLocation)
 
     triggers = np.array(triggers)
-
-    triggers_t = triggers[:,0]
-    triggers_f = triggers[:,1]
-    triggers_snr = triggers[:,2]
+    if len(triggers) > 0:
+        triggers_t = triggers[:,0]
+        triggers_f = triggers[:,1]
+        triggers_snr = triggers[:,2]
 
     f = open(os.path.join(textLocation,"triggers.txt"),"w")
     for i in xrange(len(triggers)):
@@ -132,10 +132,10 @@ def plot_triggers(params,channel):
         startTime = params["gpsStart"]
         timeDur = params["gpsEnd"] - startTime
 
-        triggers_t = triggers_t - startTime
-
         ax = plt.subplot(111)
-        plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
+        if len(triggers) > 0:
+            triggers_t = triggers_t - startTime
+            plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
         cbar = plt.colorbar(orientation='horizontal')  
         #cbar = plt.colorbar(orientation='vertical') 
         cbar.set_label('SNR')
