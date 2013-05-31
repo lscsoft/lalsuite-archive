@@ -3,9 +3,8 @@
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal
+import scipy.signal, scipy.stats
 from collections import namedtuple
-from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 from pylal import Fr
@@ -160,6 +159,83 @@ def mat(params, channel):
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
         plt.close('all')
 
+def freq_analysis(params,channel,freq,spectra):
+
+    if params["doPlots"]:
+        plotLocation = params["path"] + "/" + channel.station_underscore
+        if not os.path.isdir(plotLocation):
+            os.makedirs(plotLocation)
+        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq" 
+        if not os.path.isdir(plotLocation):
+            os.makedirs(plotLocation)
+    
+    indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
+    indexes = list(np.unique(np.ceil(indexes)))
+
+    indexes = range(len(freq))
+
+    p_chi2_vals = []
+    for i in indexes:
+        vals = spectra[:,i]
+
+        meanPSD = np.mean(vals) 
+        stdPSD = np.std(vals)
+
+        vals_norm = 2 * vals / meanPSD
+
+        expected_vals_norm = []
+        for j in xrange(len(vals_norm)):
+            val_norm = vals_norm[j]
+            expected_val_norm = scipy.stats.chi2.pdf(val_norm, 2)
+            expected_vals_norm.append(expected_val_norm)
+
+        vals_norm = np.array(vals_norm)
+        expected_vals_norm = np.array(expected_vals_norm)
+
+        bins = np.arange(0,10,1)
+        (n,bins) = np.histogram(vals_norm,bins=bins)
+        n_total = np.sum(n)
+
+        bins = (bins[1:] + bins[:len(bins)-1])/2
+
+        n_expected = []
+        for bin in bins:
+            expected_val = n_total * scipy.stats.chi2.pdf(bin, 2)
+            n_expected.append(expected_val)
+        n_expected = np.array(n_expected)
+
+        (stat_chi2,p_chi2) = scipy.stats.mstats.chisquare(n, f_exp=n_expected)
+        #(stat_ks,p_ks) = scipy.stats.ks_2samp(data1, data2)
+
+        p_chi2_vals.append(p_chi2)
+
+        if freq[i] > 0:
+            continue
+
+        if params["doPlots"]:
+            ax = plt.subplot(111)
+            plt.plot(bins,n,label='true')
+            plt.plot(bins,n_expected,'k*',label='expected')
+            plt.xlabel("2 * data / mean")
+            plt.ylabel("Counts")
+            plot_title = "p-value: %f"%p_chi2
+            plt.title(plot_title)
+            plt.legend()
+            plt.show()
+            plt.savefig(os.path.join(plotLocation,"%s.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"%s.eps"%str(freq[i])),dpi=200)
+            plt.close('all')
+
+    if params["doPlots"]:
+        ax = plt.subplot(111)
+        plt.semilogx(freq[indexes],p_chi2_vals)
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("p-value")
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"chi_squared.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"chi_squared.eps"),dpi=200)
+        plt.close('all')        
+
 def spectral_histogram(data,bins):
     
     spectral_variation_norm = []
@@ -271,6 +347,10 @@ def analysis(params, channel):
 
     if len(spectra[which_spectra]) == 0:
         return
+
+    if params["doFreqAnalysis"]:
+        freq_analysis(params,channel,freq,spectra[which_spectra])
+
     spectral_variation_norm = spectral_histogram(spectra[which_spectra],range_binning)
 
     # Initialize arrays

@@ -34,6 +34,7 @@ def parse_commandline():
     parser.add_option("-d", "--doPlots",  action="store_true", default=False)
     parser.add_option("-q", "--doEarthquakes",  action="store_true", default=False)
     parser.add_option("-o", "--doOmicron",  action="store_true", default=False)
+    parser.add_option("-a", "--doFreqAnalysis",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -151,6 +152,7 @@ params["fmax"] = 64
 params["doPlots"] = opts.doPlots
 params["doEarthquakes"] = opts.doEarthquakes
 params["doOmicron"] = opts.doOmicron
+params["doFreqAnalysis"] = opts.doFreqAnalysis
 
 if params["doEarthquakes"]:
     print "Finding earthquakes"
