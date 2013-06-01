@@ -378,6 +378,18 @@ for tag in user_tags:
   else:
     raise ValueError, "More than one injection file found for %s" % tag
 
+  # determine location of veto-file relevant to tag
+  cat_num = str(get_veto_cat_from_tag( tag ))
+  veto_file_path = cp.get('input', 'ihope-segments-directory')
+  veto_file_name = ''.join([
+    distinct_ifos, '-VETOTIME_CAT_', cat_num, '-', experiment_start, '-', experiment_duration,
+    '.xml' ])
+  veto_file = '/'.join([ veto_file_path, veto_file_name ])
+  if not os.path.exists( veto_file ):
+    raise ValueError, "Veto file %s could not be found." % veto_file
+  # store the veto file for additional later use
+  veto_cat = '_'.join(['CAT', cat_num, 'VETO'])
+  veto_files[veto_cat] = veto_file
 
   ############################################################################
   # Creating the thinca_user_tag cache file and writing it to disk
@@ -395,10 +407,6 @@ for tag in user_tags:
   for on_instruments in distinct_instrument_sets:
     distinct_ifo_set |= lsctables.instrument_set_from_ifos(on_instruments)
   distinct_ifos = ''.join(sorted(distinct_ifo_set))
-
-  # get the veto category
-  cat_num = str(get_veto_cat_from_tag( tag ))
-  veto_cat = '_'.join(['CAT', cat_num, 'VETO'])
 
   # create cache name from what's in the output cache
   cache_type = thinca_usertag_cache[0].description
@@ -655,7 +663,22 @@ for result_db in result_dbs_cache:
   else:
     last_node = cluster_nodes[tag]
 
+  ############################################################################
+  # Setup a LigolwSqliteNode for putting the veto-segments file into the
+  # database 
+  
+  # write node to add the veto file
+  veto2sql_node = pipeline.LigolwSqliteNode( sql_frominput_job )
+  veto2sql_node.set_category('ligolw_sqlite')
+  veto2sql_node.add_file_arg( veto_files[veto_cat] )
+  veto2sql_node.set_tmp_space( tmp_space )
+  veto2sql_node.set_database( result_db.path )
 
+  # set parent node
+  veto2sql_node.add_parent( last_node )
+
+  dag.add_node( veto2sql_node )
+                     
   ############################################################################
   # Compute durations in the database
 
@@ -668,7 +691,7 @@ for result_db in result_dbs_cache:
   comp_durs_node.set_database( result_db.path )
 
   # set parent node
-  comp_durs_node.add_parent( last_node )
+  comp_durs_node.add_parent( veto2sql_node )
 
   dag.add_node(comp_durs_node)
   
