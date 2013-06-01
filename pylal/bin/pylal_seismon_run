@@ -5,6 +5,7 @@ from collections import namedtuple
 from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
+import pylal.dq.dqFrameUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
@@ -34,7 +35,8 @@ def parse_commandline():
     parser.add_option("-d", "--doPlots",  action="store_true", default=False)
     parser.add_option("-q", "--doEarthquakes",  action="store_true", default=False)
     parser.add_option("-o", "--doOmicron",  action="store_true", default=False)
-    parser.add_option("-a", "--doFreqAnalysis",  action="store_true", default=False)
+    parser.add_option("-c", "--doFreqAnalysis",  action="store_true", default=False)
+    parser.add_option("-a", "--doAnalysis",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -98,6 +100,9 @@ def channel_struct(channelList):
 def frame_struct(params):
 
     p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gpsStart"]-1000,params["gpsEnd"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+
+    #cache = pylal.dq.dqFrameUtils.get_cache(params["gpsStart"]-1000, params["gpsEnd"], params["ifo"], params["frameType"])
+
     output = p.stdout.read()
     frameList = output.split("\n")
     frames = []
@@ -152,6 +157,7 @@ params["fmax"] = 64
 params["doPlots"] = opts.doPlots
 params["doEarthquakes"] = opts.doEarthquakes
 params["doOmicron"] = opts.doOmicron
+params["doAnalysis"] = opts.doAnalysis
 params["doFreqAnalysis"] = opts.doFreqAnalysis
 
 if params["doEarthquakes"]:
@@ -165,8 +171,10 @@ if params["doOmicron"]:
 for channel in channels:
     print "Generating PSD for %s"%channel.station
     pylal.pylal_seismon_psd.mat(params,channel)
-    print "Analyzing PSD significance for %s"%channel.station
-    pylal.pylal_seismon_psd.analysis(params,channel)
+
+    if params["doAnalysis"]:
+        print "Analyzing PSD significance for %s"%channel.station
+        pylal.pylal_seismon_psd.analysis(params,channel)
 
     if params["doOmicron"]:
         print "Plotting Omicron triggers for %s"%channel.station

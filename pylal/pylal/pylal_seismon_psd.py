@@ -161,7 +161,7 @@ def mat(params, channel):
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
         plt.close('all')
 
-def freq_analysis(params,channel,freq,spectra):
+def freq_analysis(params,channel,tt,freq,spectra):
 
     if params["doPlots"]:
         plotLocation = params["path"] + "/" + channel.station_underscore
@@ -173,7 +173,12 @@ def freq_analysis(params,channel,freq,spectra):
  
     indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
     indexes = list(np.unique(np.ceil(indexes)))
-    indexes = range(len(freq))
+    #indexes = range(len(freq))
+    #indexes = range(16)
+
+    indexes = np.where(0.1 >= freq)[0]
+
+    deltaT = tt[1] - tt[0]
 
     n_dist = []
     for j in xrange(1000):
@@ -181,6 +186,8 @@ def freq_analysis(params,channel,freq,spectra):
 
     p_chi2_vals = []
     p_ks_vals = []
+    ttCoh_vals = []
+
     for i in indexes:
         vals = spectra[:,i]
 
@@ -207,8 +214,33 @@ def freq_analysis(params,channel,freq,spectra):
         (stat_ks,p_ks) = scipy.stats.ks_2samp(vals_norm, n_dist)
         p_ks_vals.append(p_ks)
 
-        if freq[i] > 0:
+        acov = np.correlate(vals,vals,"full")
+        acov = acov / np.max(acov)
+
+        ttCov = (np.arange(len(acov)) - len(acov)/2) * float(deltaT)
+
+        #ttLimitMin = - 5/freq[i]
+        #ttLimitMax = 5 /freq[i]
+
+        ttLimitMin = - float('inf')
+        ttLimitMax = float('inf')
+
+        ttIndexes = np.intersect1d(np.where(ttCov >= ttLimitMin)[0],np.where(ttCov <= ttLimitMax)[0])
+        #ttCov = ttCov / (60)
+
+        acov_minus_05 = np.absolute(acov[ttIndexes] - 0.66)
+        index_min = acov_minus_05.argmin()
+
+        ttCoh = np.absolute(ttCov[ttIndexes[index_min]])
+        ttCoh_vals.append(ttCoh)
+
+        print freq[i], ttCoh, len(ttIndexes)
+
+        if len(ttIndexes) == 0:
             continue
+
+        #if freq[i] > 0:
+        #    continue
 
         if params["doPlots"]:
             ax = plt.subplot(111)
@@ -220,8 +252,19 @@ def freq_analysis(params,channel,freq,spectra):
             plt.title(plot_title)
             plt.legend()
             plt.show()
-            plt.savefig(os.path.join(plotLocation,"%s.png"%str(freq[i])),dpi=200)
-            plt.savefig(os.path.join(plotLocation,"%s.eps"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"%s_dist.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"%s_dist.eps"%str(freq[i])),dpi=200)
+            plt.close('all')
+
+            ax = plt.subplot(111)
+            plt.semilogy(ttCov[ttIndexes],acov[ttIndexes])
+            plt.vlines(ttCoh,10**(-3),1,color='r')
+            plt.vlines(-ttCoh,10**(-3),1,color='r')
+            plt.xlabel("Time [Seconds]")
+            plt.ylabel("Correlation")
+            plt.show()
+            plt.savefig(os.path.join(plotLocation,"%s_cov.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"%s_cov.eps"%str(freq[i])),dpi=200)
             plt.close('all')
 
     if params["doPlots"]:
@@ -235,6 +278,15 @@ def freq_analysis(params,channel,freq,spectra):
         plt.savefig(os.path.join(plotLocation,"freq_analysis.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"freq_analysis.eps"),dpi=200)
         plt.close('all')      
+
+        ax = plt.subplot(111)
+        plt.plot(freq[indexes],ttCoh_vals)
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Coherence Time [s]")
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"ttCohs.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"ttCohs.eps"),dpi=200)
+        plt.close('all')
 
 def spectral_histogram(data,bins):
     
@@ -298,7 +350,7 @@ def analysis(params, channel):
     psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
 
-    file = sorted(files)
+    files = sorted(files)
 
     ttStart = []
     ttEnd = []
@@ -349,7 +401,7 @@ def analysis(params, channel):
         return
 
     if params["doFreqAnalysis"]:
-        freq_analysis(params,channel,freq,spectra[which_spectra])
+        freq_analysis(params,channel,ttStart,freq,spectra[which_spectra])
 
     spectral_variation_norm = spectral_histogram(spectra[which_spectra],range_binning)
 
