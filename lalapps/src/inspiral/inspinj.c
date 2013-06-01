@@ -3652,7 +3652,14 @@ int main( int argc, char *argv[] )
           minMass2, maxMass2,
           minMtotal, maxMtotal);
     }
-
+    /* enforce m1 < m2 convention */
+    REAL8 tmp_mass;
+    if (simTable->mass1>simTable->mass2) 
+    {
+        tmp_mass=simTable->mass1;
+        simTable->mass1 = simTable->mass2;
+        simTable->mass2 = tmp_mass;
+    }
     /* draw location and distances */
     drawFromSource( &drawnRightAscension, &drawnDeclination, &drawnDistance,
         drawnSourceName );
@@ -4060,7 +4067,6 @@ int main( int argc, char *argv[] )
   }
 
   memset( &xmlfp, 0, sizeof(LIGOLwXMLStream) );
-
 
   LAL_CALL( LALOpenLIGOLwXMLFile( &status, &xmlfp, fname ), &status );
   XLALGPSTimeNow(&(proctable.processTable->end_time));

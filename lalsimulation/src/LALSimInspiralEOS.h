@@ -33,7 +33,9 @@ typedef enum
     LAL_SIM_INSPIRAL_EOS_H4 = 2,
     LAL_SIM_INSPIRAL_EOS_SQM3 = 3,
     LAL_SIM_INSPIRAL_EOS_MPA1 = 4,
-    LAL_SIM_INSPIRAL_EOS_GNH3 = 5
+    LAL_SIM_INSPIRAL_EOS_GNH3 = 5,
+    LAL_SIM_INSPIRAL_EOS_AP1 = 6,
+    LAL_SIM_INSPIRAL_EOS_SLY = 7,
 } LALEquationOfState;
 
 LALEquationOfState XLALSimEOSfromString(char eos_name[]);
