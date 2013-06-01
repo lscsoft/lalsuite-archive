@@ -826,6 +826,7 @@ LALWriteLIGOLwXMLTable (
               tablePtr.simInspiralTable->mchirp,
               tablePtr.simInspiralTable->eta,
               tablePtr.simInspiralTable->distance,
+              tablePtr.simInspiralTable->redshift,
               tablePtr.simInspiralTable->longitude,
               tablePtr.simInspiralTable->latitude,
               tablePtr.simInspiralTable->inclination,

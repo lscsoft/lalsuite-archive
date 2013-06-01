@@ -739,7 +739,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             interp=interpFromFile(interpfilename);
         }    
         /* Check if fake data is requested */
-       if(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO") && strcmp(caches[i],"LALSimLIGO") && strcmp(caches[i],"LALSimAdLIGO") && strcmp(caches[i],"LALSimVirgo") && strcmp(caches[i],"LALSimAdVirgo") && strcmp(caches[i],"LALAdLIGO"))))
+       if(interpFlag || (!(strcmp(caches[i],"LALLIGO") && strcmp(caches[i],"LALVirgo") && strcmp(caches[i],"LALGEO") && strcmp(caches[i],"LALEGO") && strcmp(caches[i],"LALSimLIGO") && strcmp(caches[i],"LALSimAdLIGO") && strcmp(caches[i],"LALSimVirgo") && strcmp(caches[i],"LALSimAdVirgo") && strcmp(caches[i],"LALAdLIGO")&& strcmp(caches[i],"LALETB"))))
         {
             //FakeFlag=1; - set but not used
             if (!LALInferenceGetProcParamVal(commandLine,"--dataseed")){
@@ -761,6 +761,7 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
             if(!strcmp(caches[i],"LALGEO")) {PSD = &LALGEOPsd; scalefactor=1E-46;}
             if(!strcmp(caches[i],"LALEGO")) {PSD = &LALEGOPsd; scalefactor=1.0;}
             if(!strcmp(caches[i],"LALAdLIGO")) {PSD = &LALAdvLIGOPsd; scalefactor = 1E-49;}
+            if(!strcmp(caches[i],"LALETB")) {PSD = &LALETBPsd; scalefactor = 1E-50;}
             if(!strcmp(caches[i],"LALSimLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDiLIGOSRD ) ; LALSimPsd=1;}
             if(!strcmp(caches[i],"LALSimVirgo")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDVirgo ); LALSimPsd=1;}
             if(!strcmp(caches[i],"LALSimAdLIGO")) {XLALSimNoisePSD(IFOdata[i].oneSidedNoisePowerSpectrum,IFOdata[i].fLow,XLALSimNoisePSDaLIGOZeroDetHighPower ) ;LALSimPsd=1;}
@@ -2099,6 +2100,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALStatus status;
     memset(&status,0,sizeof(LALStatus));
     REAL8 mc=0.0;
+    REAL8 m1=0.0,m2=0.0;
     Approximant injapprox;
     LALPNOrder phase_order=-1;
     LALPNOrder amp_order=-1;
@@ -2118,7 +2120,10 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     REAL8 latitude=0.0;
     REAL8 polarization=0.0;
     REAL8 injtime=0.0;
-   
+    REAL8 redshift=0.0;
+    LALEquationOfState eos=LAL_SIM_INSPIRAL_EOS_NONE;
+    ProcessParamsTable *ppt=LALInferenceGetProcParamVal(commandLine,"--EOSInj");
+    if (ppt) eos=XLALSimEOSfromString(ppt->value);
     
     tmpdata->modelParams=XLALCalloc(1,sizeof(LALInferenceVariables));
 	modelParams=tmpdata->modelParams;
@@ -2132,6 +2137,11 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     longitude=inj_table->longitude;
     latitude=inj_table->latitude;
     polarization=inj_table->polarization;
+    redshift=inj_table->redshift;
+    m1=inj_table->mass1;
+    m2=inj_table->mass2;
+    //REAL8 tmp;
+    
     injtime=(REAL8) inj_table->geocent_end_time.gpsSeconds + (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9;
     amp_order=(LALPNOrder) inj_table->amp_order;
 
@@ -2144,10 +2154,12 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     LALInferenceAddVariable(tmpdata->modelParams, "inclination",&inclination,LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "massratio",&eta,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "distance",&distance,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+    LALInferenceAddVariable(tmpdata->modelParams, "redshift",&redshift,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_APPROXIMANT",&injapprox,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_PNORDER",&phase_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(tmpdata->modelParams, "LAL_AMPORDER",&amp_order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
-
+    LALInferenceAddVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS",&eos,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    
       REAL8 lambda1 = 0.;
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")) {
         lambda1= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda1")->value);
@@ -2159,6 +2171,13 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
         LALInferenceAddVariable(tmpdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      }
+      if(eos!=LAL_SIM_INSPIRAL_EOS_NONE)
+      {
+        lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1/(1.0+redshift)*LAL_MTSUN_SI,5.0);
+        lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2/(1.0+redshift)*LAL_MTSUN_SI,5.0);
+        fprintf(stdout,"m1(source frame) set to %f (z = %f) --> lambda1 set to %f\n",m1/(1.0+redshift),redshift,lambda1);
+        fprintf(stdout,"m2(source frame) set to %f (z = %f) --> lambda2 set to %f\n",m2/(1.0+redshift),redshift,lambda2);
       }
       REAL8 lambdaT = 0.;
       REAL8 dLambdaT = 0.;

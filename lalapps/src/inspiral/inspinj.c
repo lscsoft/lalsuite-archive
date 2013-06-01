@@ -111,7 +111,7 @@ void adjust_snr_with_psds_real8(SimInspiralTable *inj, REAL8 target_snr, int num
 REAL8 probability_redshift(REAL8 rshift);
 REAL8 luminosity_distance(REAL8 rshift);
 REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local);
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin double zmax);
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax);
 
 REAL8 redshift_mass(REAL8 mass, REAL8 z);
 static void scale_lalsim_distance(SimInspiralTable *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs,LoudnessDistribution dDistr);
@@ -293,7 +293,7 @@ REAL8 mean_time_step_sfr(REAL8 zmax, REAL8 rate_local)
   return step;
 }
 
-REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin double zmax)
+REAL8 drawRedshift(LALCosmologicalParameters *params, double zmin, double zmax)
 {
     REAL8 test,z,p;
     do
@@ -1523,7 +1523,7 @@ int main( int argc, char *argv[] )
   REAL8FrequencySeries *ligoPsd  = NULL;
   REAL8FrequencySeries *virgoPsd = NULL;
   status=blank_status;
-
+  LALCosmologicalParameters *omega = XLALCreateCosmologicalParameters(0.7,0.3,0.0,0.7,-1.0,0.0,0.0);
   /* getopt arguments */
   struct option long_options[] =
   {
@@ -2079,7 +2079,6 @@ int main( int argc, char *argv[] )
         snprintf( this_proc_param->type, LIGOMETA_TYPE_MAX, "string" );
         snprintf( this_proc_param->value,LIGOMETA_VALUE_MAX,"%s", optarg );
         haveLoudness += 1;  /* counter to check for clashing options */
-
         if (!strcmp(dummy, "source"))
         {
           dDistr=distFromSourceFile;
@@ -2860,7 +2859,7 @@ int main( int argc, char *argv[] )
 
   /* check compatibility of distance/loudness options */
   if ( ( dDistr == uniformDistance || dDistr == uniformDistanceSquared ||
-      dDistr == uniformLogDistance || dDistr == uniformVolume ) &&
+      dDistr == uniformLogDistance ) &&
       ( minD<=0.0 || maxD<=0.0 ) )
   {
     fprintf( stderr,
@@ -2868,7 +2867,7 @@ int main( int argc, char *argv[] )
     exit( 1 );
   }
   if ( dDistr == uniformDistance || dDistr == uniformDistanceSquared ||
-      dDistr == uniformLogDistance || dDistr == uniformVolume ||
+      dDistr == uniformLogDistance ||
       dDistr == distFromSourceFile )
   {
     if ( minZ>0.0 || maxZ>0.0 || localRate>0.0 || ninjaSNR ||
@@ -3574,7 +3573,7 @@ int main( int argc, char *argv[] )
   {
     /* increase counter */
     ninj++;
-
+    printf("generating injection %d\n",(int)ninj);
     /* store time in table */
     simTable=XLALRandomInspiralTime( simTable, randParams,
         currentGpsTime, timeInterval );
@@ -3586,11 +3585,10 @@ int main( int argc, char *argv[] )
     simTable->amp_order = amp_order;
 
     /* draw redshift and apply to mass parameters */
-    if (dDistr==starFormationRate)
+    if (dDistr==starFormationRate || dDistr==uniformVolume)
     {
-      LALCosmologicalParameters *omega=XLALCreateCosmologicalParameters(0.7,0.3,0.0,0.7,-1.0,0.0,0.0);
-      redshift = drawRedshift(omega,maxZ,pzmax);
-      XLALDestroyCosmologicalParameters(omega);
+      redshift = drawRedshift(omega,minZ,maxZ);
+      simTable->redshift=redshift;
       minMass1 = redshift_mass(minMass10, redshift);
       maxMass1 = redshift_mass(maxMass10, redshift);
       meanMass1 = redshift_mass(meanMass10, redshift);
@@ -3678,7 +3676,7 @@ int main( int argc, char *argv[] )
        /* fit of luminosity distance  between z=0-1, in Mpc for h0=0.7, omega_m=0.3, omega_v=0.7*/
        simTable->distance = luminosity_distance(redshift);
     }
-    else if (dDistr== uniformDistance || dDistr== uniformDistanceSquared || dDistr== uniformLogDistance || dDistr==uniformVolume)
+    else if (dDistr== uniformDistance || dDistr== uniformDistanceSquared || dDistr== uniformLogDistance)
     {
       simTable=XLALRandomInspiralDistance(simTable, randParams,
           dDistr, minD/1000.0, maxD/1000.0);
@@ -3688,6 +3686,11 @@ int main( int argc, char *argv[] )
       /* Set distance to just any value, e.g. 100, which will be used to scale the SNR */
       simTable->distance=100.0;
     }
+    else if (dDistr==uniformVolume)
+    {
+        simTable->distance=XLALLuminosityDistance(omega,redshift);
+    }
+
     /* Possible errors (i.e. no dDistr given) should have already been caught */
     /* check just to be sure in case someone adds new LoudnessDistribution    */
     else
@@ -4111,7 +4114,7 @@ int main( int argc, char *argv[] )
   if ( virgoPsd )
     XLALDestroyREAL8FrequencySeries( virgoPsd );
   if (ifonames) LALFree(ifonames);
-
+  XLALDestroyCosmologicalParameters(omega);
   LALCheckMemoryLeaks();
   return 0;
 }

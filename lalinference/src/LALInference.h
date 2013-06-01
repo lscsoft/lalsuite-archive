@@ -66,7 +66,7 @@
 #include <lal/LALBarycenter.h>
 #include <lal/LALInitBarycenter.h>
 #include <lal/BinaryPulsarTiming.h>
-
+#include <lal/LALSimInspiralEOS.h>
 
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_errno.h>

@@ -1391,43 +1391,44 @@ SimInspiralTableFromLIGOLw (
     {"mass2",               -1, 16},
     {"eta",                 -1, 17},
     {"distance",            -1, 18},
-    {"longitude",           -1, 19},
-    {"latitude",            -1, 20},
-    {"inclination",         -1, 21},
-    {"coa_phase",           -1, 22},
-    {"polarization",        -1, 23},
-    {"psi0",                -1, 24},
-    {"psi3",                -1, 25},
-    {"alpha",               -1, 26},
-    {"alpha1",              -1, 27},
-    {"alpha2",              -1, 28},
-    {"alpha3",              -1, 29},
-    {"alpha4",              -1, 30},
-    {"alpha5",              -1, 31},
-    {"alpha6",              -1, 32},
-    {"beta",                -1, 33},
-    {"spin1x",              -1, 34},
-    {"spin1y",              -1, 35},
-    {"spin1z",              -1, 36},
-    {"spin2x",              -1, 37},
-    {"spin2y",              -1, 38},
-    {"spin2z",              -1, 39},
-    {"theta0",              -1, 40},
-    {"phi0",                -1, 41},
-    {"f_lower",             -1, 42},
-    {"f_final",             -1, 43},
-    {"mchirp",              -1, 44},
-    {"eff_dist_h",          -1, 45},
-    {"eff_dist_l",          -1, 46},
-    {"eff_dist_g",          -1, 47},
-    {"eff_dist_t",          -1, 48},
-    {"eff_dist_v",          -1, 49},
-    {"numrel_mode_min",     -1, 50},
-    {"numrel_mode_max",     -1, 51},
-    {"numrel_data",         -1, 52},
-    {"amp_order",           -1, 53},
-    {"taper",               -1, 54},
-    {"bandpass",            -1, 55},
+    {"redshift",            -1, 19},
+    {"longitude",           -1, 20},
+    {"latitude",            -1, 21},
+    {"inclination",         -1, 22},
+    {"coa_phase",           -1, 23},
+    {"polarization",        -1, 24},
+    {"psi0",                -1, 25},
+    {"psi3",                -1, 26},
+    {"alpha",               -1, 27},
+    {"alpha1",              -1, 28},
+    {"alpha2",              -1, 29},
+    {"alpha3",              -1, 30},
+    {"alpha4",              -1, 31},
+    {"alpha5",              -1, 32},
+    {"alpha6",              -1, 33},
+    {"beta",                -1, 34},
+    {"spin1x",              -1, 35},
+    {"spin1y",              -1, 36},
+    {"spin1z",              -1, 37},
+    {"spin2x",              -1, 38},
+    {"spin2y",              -1, 39},
+    {"spin2z",              -1, 40},
+    {"theta0",              -1, 41},
+    {"phi0",                -1, 42},
+    {"f_lower",             -1, 43},
+    {"f_final",             -1, 44},
+    {"mchirp",              -1, 45},
+    {"eff_dist_h",          -1, 46},
+    {"eff_dist_l",          -1, 47},
+    {"eff_dist_g",          -1, 48},
+    {"eff_dist_t",          -1, 49},
+    {"eff_dist_v",          -1, 50},
+    {"numrel_mode_min",     -1, 51},
+    {"numrel_mode_max",     -1, 52},
+    {"numrel_data",         -1, 53},
+    {"amp_order",           -1, 54},
+    {"taper",               -1, 55},
+    {"bandpass",            -1, 56},
     {NULL,                   0, 0}
   };
 
@@ -1578,158 +1579,162 @@ SimInspiralTableFromLIGOLw (
         }
         else if ( tableDir[j].idx == 19 )
         {
-          thisSim->longitude = r4colData;
+          thisSim->redshift = r4colData;
         }
         else if ( tableDir[j].idx == 20 )
         {
-          thisSim->latitude = r4colData;
+          thisSim->longitude = r4colData;
         }
         else if ( tableDir[j].idx == 21 )
         {
-          thisSim->inclination = r4colData;
+          thisSim->latitude = r4colData;
         }
         else if ( tableDir[j].idx == 22 )
         {
-          thisSim->coa_phase = r4colData;
+          thisSim->inclination = r4colData;
         }
         else if ( tableDir[j].idx == 23 )
         {
-          thisSim->polarization = r4colData;
+          thisSim->coa_phase = r4colData;
         }
         else if ( tableDir[j].idx == 24 )
         {
-          thisSim->psi0 = r4colData;
+          thisSim->polarization = r4colData;
         }
         else if ( tableDir[j].idx == 25 )
         {
-          thisSim->psi3 = r4colData;
+          thisSim->psi0 = r4colData;
         }
         else if ( tableDir[j].idx == 26 )
         {
-          thisSim->alpha = r4colData;
+          thisSim->psi3 = r4colData;
         }
         else if ( tableDir[j].idx == 27 )
         {
-          thisSim->alpha1 = r4colData;
+          thisSim->alpha = r4colData;
         }
         else if ( tableDir[j].idx == 28 )
         {
-          thisSim->alpha2 = r4colData;
+          thisSim->alpha1 = r4colData;
         }
         else if ( tableDir[j].idx == 29 )
         {
-          thisSim->alpha3 = r4colData;
+          thisSim->alpha2 = r4colData;
         }
         else if ( tableDir[j].idx == 30 )
         {
-          thisSim->alpha4 = r4colData;
+          thisSim->alpha3 = r4colData;
         }
         else if ( tableDir[j].idx == 31 )
         {
-          thisSim->alpha5 = r4colData;
+          thisSim->alpha4 = r4colData;
         }
         else if ( tableDir[j].idx == 32 )
         {
-          thisSim->alpha6 = r4colData;
+          thisSim->alpha5 = r4colData;
         }
         else if ( tableDir[j].idx == 33 )
         {
-          thisSim->beta = r4colData;
+          thisSim->alpha6 = r4colData;
         }
         else if ( tableDir[j].idx == 34 )
         {
-          thisSim->spin1x = r4colData;
+          thisSim->beta = r4colData;
         }
         else if ( tableDir[j].idx == 35 )
         {
-          thisSim->spin1y = r4colData;
+          thisSim->spin1x = r4colData;
         }
         else if ( tableDir[j].idx == 36 )
         {
-          thisSim->spin1z = r4colData;
+          thisSim->spin1y = r4colData;
         }
         else if ( tableDir[j].idx == 37 )
         {
-          thisSim->spin2x = r4colData;
+          thisSim->spin1z = r4colData;
         }
         else if ( tableDir[j].idx == 38 )
         {
-          thisSim->spin2y = r4colData;
+          thisSim->spin2x = r4colData;
         }
         else if ( tableDir[j].idx == 39 )
         {
-          thisSim->spin2z = r4colData;
+          thisSim->spin2y = r4colData;
         }
         else if ( tableDir[j].idx == 40 )
         {
-          thisSim->theta0 = r4colData;
+          thisSim->spin2z = r4colData;
         }
         else if ( tableDir[j].idx == 41 )
         {
-          thisSim->phi0 = r4colData;
+          thisSim->theta0 = r4colData;
         }
         else if ( tableDir[j].idx == 42 )
         {
-          thisSim->f_lower = r4colData;
+          thisSim->phi0 = r4colData;
         }
         else if ( tableDir[j].idx == 43 )
         {
-          thisSim->f_final = r4colData;
+          thisSim->f_lower = r4colData;
         }
         else if ( tableDir[j].idx == 44 )
         {
-          thisSim->mchirp = r4colData;
+          thisSim->f_final = r4colData;
         }
         else if ( tableDir[j].idx == 45 )
         {
-          thisSim->eff_dist_h = r4colData;
+          thisSim->mchirp = r4colData;
         }
         else if ( tableDir[j].idx == 46 )
         {
-          thisSim->eff_dist_l = r4colData;
+          thisSim->eff_dist_h = r4colData;
         }
         else if ( tableDir[j].idx == 47 )
         {
-          thisSim->eff_dist_g = r4colData;
+          thisSim->eff_dist_l = r4colData;
         }
         else if ( tableDir[j].idx == 48 )
         {
-          thisSim->eff_dist_t = r4colData;
+          thisSim->eff_dist_g = r4colData;
         }
         else if ( tableDir[j].idx == 49 )
         {
+          thisSim->eff_dist_t = r4colData;
+        }
+        else if ( tableDir[j].idx == 50 )
+        {
           thisSim->eff_dist_v = r4colData;
         }
-	else if ( tableDir[j].idx == 50 )
+	else if ( tableDir[j].idx == 51 )
 	{
 	  thisSim->numrel_mode_min = i4colData;
 	}
-	else if ( tableDir[j].idx == 51 )
+	else if ( tableDir[j].idx == 52 )
 	{
 	  thisSim->numrel_mode_max = i4colData;
 	}
-	else if ( tableDir[j].idx == 52 )
+	else if ( tableDir[j].idx == 53 )
 	{
           snprintf(thisSim->numrel_data, LIGOMETA_STRING_MAX * sizeof(CHAR),
               "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
 	}
-        else if ( tableDir[j].idx == 53 )
+        else if ( tableDir[j].idx == 54 )
         {
             thisSim->amp_order = i4colData;
         }
-        else if ( tableDir[j].idx == 54 )
+        else if ( tableDir[j].idx == 55 )
         {
             snprintf(thisSim->taper, LIGOMETA_INSPIRALTAPER_MAX * sizeof(CHAR),
                     "%s", env->ligo_lw.table.elt[tableDir[j].pos].data.lstring.data);
         }
-        else if ( tableDir[j].idx == 55 )
+        else if ( tableDir[j].idx == 56 )
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 56 ) {
+        else if ( tableDir[j].idx == 57 ) {
         	thisSim->qmParameter1 = r4colData;
         }
-        else if ( tableDir[j].idx == 57 ) {
+        else if ( tableDir[j].idx == 58 ) {
         	thisSim->qmParameter2 = r4colData;
         }
         else

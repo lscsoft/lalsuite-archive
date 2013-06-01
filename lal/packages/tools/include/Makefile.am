@@ -8,7 +8,8 @@ pkginclude_HEADERS = \
 	FlatLatticeTiling.h \
 	FrequencySeries.h \
 	LALCalibration.h \
-	LALDetectors.h \
+	LALCosmologyCalculator.h \
+    LALDetectors.h \
 	ResampleTimeSeries.h \
 	Segments.h \
 	Sequence.h \

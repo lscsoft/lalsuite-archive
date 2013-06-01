@@ -540,6 +540,7 @@ tagSimInspiralTable
   REAL4          mass2;
   REAL4          eta;
   REAL4          distance;
+  REAL4          redshift;
   REAL4          longitude;
   REAL4          latitude;
   REAL4          inclination;

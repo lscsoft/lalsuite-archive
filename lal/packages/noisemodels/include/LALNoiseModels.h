@@ -188,7 +188,7 @@ detectors and signals with random parameters in background noise.
              REAL4Vector *vector
             );
 
-
+    void LALETBPsd(LALStatus *status, REAL8 *psd, REAL8 f );
     REAL8 XLALETBPsd( REAL8 f );
 
 /*@}*/

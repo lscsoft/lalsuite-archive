@@ -19,6 +19,12 @@
 
 #include <lal/LALNoiseModels.h>
 
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED
+#endif
+
 /** \author Craig Robinson
  * \ingroup LALNoiseModels_h
  * \brief Function to calculate the noise power spectral density of the projected ET-B detector.
@@ -56,5 +62,33 @@ REAL8 XLALETBPsd( REAL8 f )
       + c4 * pow( xt, p4 );
 
   return 1.0e-50 * psd * psd;
+
+}
+
+void LALETBPsd(LALStatus UNUSED *status, REAL8 *psd, REAL8 f )
+{
+
+  /* Constants for calculating the fit */
+  const REAL8 c1 = 2.39e-27;
+  const REAL8 c2 = 0.349;
+  const REAL8 c3 = 1.76;
+  const REAL8 c4 = 0.409;
+
+  const REAL8 p1 = -15.64;
+  const REAL8 p2 = -2.145;
+  const REAL8 p3 = -0.12;
+  const REAL8 p4 = 1.10;
+
+  REAL8 xt;
+  REAL8 p;
+  
+  xt = f / 100.;
+
+  p = c1 * pow( xt, p1 )
+      + c2 * pow( xt, p2 )
+      + c3 * pow( xt, p3 )
+      + c4 * pow( xt, p4 );
+  
+  *psd =p*p;
 
 }
