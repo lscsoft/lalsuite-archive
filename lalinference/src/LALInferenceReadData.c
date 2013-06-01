@@ -2451,7 +2451,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     REAL8 phase = theEventTable->coa_phase;
     REAL8 dec = theEventTable->latitude;
     REAL8 ra = theEventTable->longitude;
-    REAL8 redshift = theEventTable->redshift;
+    
     Approximant injapprox = XLALGetApproximantFromString(theEventTable->waveform);
     LALPNOrder order = XLALGetOrderFromString(theEventTable->waveform);
     
@@ -2464,7 +2464,6 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
     LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    LALInferenceAddVariable(vars, "redshift", &redshift, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "inclination", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
