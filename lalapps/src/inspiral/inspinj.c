@@ -3652,9 +3652,9 @@ int main( int argc, char *argv[] )
           minMass2, maxMass2,
           minMtotal, maxMtotal);
     }
-    /* enforce m1 < m2 convention */
+    /* enforce m1 > m2 convention */
     REAL8 tmp_mass;
-    if (simTable->mass1>simTable->mass2) 
+    if (simTable->mass1<simTable->mass2) 
     {
         tmp_mass=simTable->mass1;
         simTable->mass1 = simTable->mass2;

@@ -1469,7 +1469,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     REAL8 zmax=atof(ppt->value);
     REAL8 redshift=0.1;
     UINT4 marginals=0;
-    if(!LALInferenceGetProcParamVal(commandLine,"--marginals")) marginals=1;
+    if(LALInferenceGetProcParamVal(commandLine,"--marginals")) marginals=1;
     LALInferenceAddVariable(priorArgs, "marginals",  &marginals, LALINFERENCE_UINT4_t,   LALINFERENCE_PARAM_FIXED);
     LALInferenceAddVariable(currentParams,"redshift", &redshift, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     LALInferenceAddMinMaxPrior(priorArgs, "redshift",     &zmin, &zmax,   LALINFERENCE_REAL8_t);

@@ -584,6 +584,9 @@ LALInferenceVariableItem *item=params->head;
 				                eta=*(REAL8 *)LALInferenceGetVariable(params,"massratio");
 				                LALInferenceMcEta2Masses(mc,*(REAL8 *)LALInferenceGetVariable(params,"massratio"),&m1,&m2);
 				        }
+                        if (LALInferenceCheckVariable(params,"redshift")) redshift = (*(REAL8 *)LALInferenceGetVariable(params,"redshift"));
+			            m1/=(1.0+redshift);
+			            m2/=(1.0+redshift);
 			               if(component_min > m1 || component_min > m2)
 			                  return -DBL_MAX;
  			               if(component_max < m1 || component_max < m2)

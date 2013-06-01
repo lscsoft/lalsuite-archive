@@ -2176,8 +2176,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
       {
         lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1/(1.0+redshift)*LAL_MTSUN_SI,5.0);
         lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2/(1.0+redshift)*LAL_MTSUN_SI,5.0);
-        fprintf(stdout,"m1(source frame) set to %f (z = %f) --> lambda1 set to %f\n",m1/(1.0+redshift),redshift,lambda1);
-        fprintf(stdout,"m2(source frame) set to %f (z = %f) --> lambda2 set to %f\n",m2/(1.0+redshift),redshift,lambda2);
+        fprintf(stdout,"EOS: %d m1(source frame) set to %f (z = %f) --> lambda1 set to %f\n",eos,m1/(1.0+redshift),redshift,lambda1);
+        fprintf(stdout,"EOS: %d m2(source frame) set to %f (z = %f) --> lambda2 set to %f\n",eos,m2/(1.0+redshift),redshift,lambda2);
       }
       REAL8 lambdaT = 0.;
       REAL8 dLambdaT = 0.;
