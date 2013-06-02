@@ -37,7 +37,7 @@ def parse_commandline():
     parser.add_option("-o", "--doOmicron",  action="store_true", default=False)
     parser.add_option("-c", "--doFreqAnalysis",  action="store_true", default=False)
     parser.add_option("-a", "--doAnalysis",  action="store_true", default=False)
-    parser.add_option("-h", "--doHTML",  action="store_true", default=False)
+    parser.add_option("-m", "--doHTML",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
