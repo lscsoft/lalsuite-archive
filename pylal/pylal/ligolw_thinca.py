@@ -167,6 +167,8 @@ def append_process(xmldoc, **kwargs):
 		params += [(u"--exact-match", None, None)]
 	if kwargs["depop_sngl_inspiral"] is not None:
 		params += [(u"--depop-sngl-inspiral", None, None)]
+	if kwargs["drop_veto_info"] is not None:
+		params += [(u"--drop-veto-info,", None,None)]
 	if kwargs["make_expr_tables"] is not None:
 		params += [(u"--make-expr-tables", None, None)]
 	if kwargs["verbose"] is not None:

@@ -91,6 +91,75 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 	return xmldoc
 
 
+def remove_process_rows(xmldoc, process_ids):
+	proc_tbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	proc_param_tbl = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
+
+	# Remove rows in process table whose process_id are found in sd_pids
+	len_p_tbl = len(proc_tbl)
+	for i, row in enumerate(proc_tbl[::-1]):
+		if row.process_id in process_ids:
+			del proc_tbl[len_p_tbl-i-1]
+	if verbose:
+		print >> sys.stderr, "\t%i rows in the process table have been removed" % (len_p_tbl - len(proc_tbl))
+
+	# Remove rows in process_params table whose process_id are found in sd_pids
+	len_pp_tbl = len(proc_param_tbl)
+	for i, row in enumerate(proc_param_tbl[::-1]):
+		if row.process_id in process_ids:
+			del proc_param_tbl[len_pp_tbl-i-1]
+	if verbose:
+		print >> sys.stderr, "\t%i rows in the process param table have been removed" % (len_pp_tbl - len(proc_param_tbl))
+
+
+def drop_segment_tables(xmldoc, verbose = False):
+	"""
+	Drop the segment, segment_definer & segment_summary tables from the
+	xmldoc. In addition, remove the rows in the process & process_params
+	tables that have process_ids found in the segment_definer table.
+	"""
+	seg_tbl = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+	seg_sum_tbl = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+	seg_def_tbl = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+	# determine the unique process_ids for the segment tables
+	sd_pids = set(seg_def_tbl.getColumnByName("process_id"))
+
+	if verbose:
+		print >> sys.stderr, "Depopulate process tables of segment process_ids"
+	remove_process_rows(xmldoc, sd_pids)
+
+	# remove segment, segment_definer & segment_summary tables from xmldoc
+	xmldoc.childNodes[0].removeChild(seg_tbl)
+	seg_tbl.unlink()
+	xmldoc.childNodes[0].removeChild(seg_sum_tbl)
+	seg_sum_tbl.unlink()
+	xmldoc.childNodes[0].removeChild(seg_def_tbl)
+	seg_def_tbl.unlink()
+	if verbose:
+		print >> sys.stderr, "segment, segment-definer & segment-summary tables dropped from xmldoc"
+
+
+def drop_vetodef_table(xmldoc, verbose = False):
+	"""
+	Drop the veto_definer table from the xmldoc and remove the rows in the
+	process & process_params tables that have process_ids found in the
+	veto_definer table.
+	"""
+	veto_def_tbl = table.get_table(xmldoc, lsctables.VetoDefTable.tableName)
+	# determine the unique process_ids for the segment tables
+	vd_pids = set(veto_def_tbl.getColumnByName("process_id"))
+
+	if verbose:
+		print >> sys.stderr, "Depopulate process tables of veto_definer process_ids"
+	remove_process_rows(xmldoc, vd_pids)
+
+	# remove veto_definer table from xmldoc
+	xmldoc.childNodes[0].removeChild(veto_def_tbl)
+	veto_def_tbl.unlink()
+	if verbose:
+		print >> sys.stderr, "Veto-Definer table dropped from xmldoc"
+
+
 def depopulate_experiment_tables(xmldoc, verbose = False):
 	"""
 	Removes entries from the experiment tables that do not have events
