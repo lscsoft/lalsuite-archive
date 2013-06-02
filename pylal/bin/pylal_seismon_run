@@ -37,6 +37,7 @@ def parse_commandline():
     parser.add_option("-o", "--doOmicron",  action="store_true", default=False)
     parser.add_option("-c", "--doFreqAnalysis",  action="store_true", default=False)
     parser.add_option("-a", "--doAnalysis",  action="store_true", default=False)
+    parser.add_option("-h", "--doHTML",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -93,28 +94,61 @@ def channel_struct(channelList):
            elif station[0] == "L":
                latitude = 30.4986
                longitude = -90.7483
+           elif station[0] == "G":
+               latitude = 52.246944
+               longitude = 9.808333
+           elif station[0] == "V":
+               latitude = 43.631389
+               longitude = 10.505
+           elif station[0] == "C":
+               latitude = 34.1391
+               longitude = -118.1238
+           elif station[0] == "M":
+               latitude = 44.3465
+               longitude = -103.7574
 
            channel.append( structproxy_channel(station,station_underscore,samplef,calibration,latitude,longitude))
     return channel
 
 def frame_struct(params):
 
-    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gpsStart"]-1000,params["gpsEnd"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+    gpsStart = params["gpsStart"]-1000
+    gpsEnd = params["gpsEnd"]
 
-    #cache = pylal.dq.dqFrameUtils.get_cache(params["gpsStart"]-1000, params["gpsEnd"], params["ifo"], params["frameType"])
+    if params["ifo"] == "XG":
+        frameDir = "/home/shivaraj/homestakefinal"
+        frameList = [os.path.join(root, name)
+            for root, dirs, files in os.walk(frameDir)
+            for name in files]
+    else:
+        p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],gpsStart,gpsEnd),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
 
-    output = p.stdout.read()
-    frameList = output.split("\n")
+        #cache = pylal.dq.dqFrameUtils.get_cache(params["gpsStart"]-1000, params["gpsEnd"], params["ifo"], params["frameType"])
+
+        output = p.stdout.read()
+        frameList = output.split("\n")
+
     frames = []
     frameGPS = []
     frameDur = []
     for frame in frameList:
         thisFrame = frame.replace("file://localhost","")
         if thisFrame is not "":
-            frames.append(thisFrame)
+
             thisFrameSplit = thisFrame.split("-")
-            frameGPS.append(float(thisFrameSplit[-2]))
-            frameDur.append(float(thisFrameSplit[-1].replace(".gwf","")))
+            gps = float(thisFrameSplit[-2])
+            dur = float(thisFrameSplit[-1].replace(".gwf","")) 
+
+            if gps+dur < gpsStart:
+                continue
+            if gps > gpsEnd:
+                continue
+
+            frames.append(thisFrame)
+            frameGPS.append(gps)
+            frameDur.append(dur)
+
+
     params["frame"] = frames
     params["frameGPS"] = frameGPS
     params["frameDur"] = frameDur
@@ -159,6 +193,7 @@ params["doEarthquakes"] = opts.doEarthquakes
 params["doOmicron"] = opts.doOmicron
 params["doAnalysis"] = opts.doAnalysis
 params["doFreqAnalysis"] = opts.doFreqAnalysis
+params["doHTML"] = opts.doHTML
 
 if params["doEarthquakes"]:
     print "Finding earthquakes"
@@ -180,17 +215,18 @@ for channel in channels:
         print "Plotting Omicron triggers for %s"%channel.station
         pylal.pylal_seismon_omicron.plot_triggers(params,channel)
 
-htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
-if htmlPage is not None:
-    f = open(os.path.join(params["path"],"summary.html"),"w")
-    f.write(htmlPage)
-    f.close()
+if params["doHTML"]:
+    htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
+    if htmlPage is not None:
+        f = open(os.path.join(params["path"],"summary.html"),"w")
+        f.write(htmlPage)
+        f.close()
 
-# Public HTML output path
-params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
-if not os.path.isdir(params["outputPath"]):
-    os.makedirs(params["outputPath"])
+    # Public HTML output path
+    params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
+    if not os.path.isdir(params["outputPath"]):
+        os.makedirs(params["outputPath"])
 
-os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
-os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
+    os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
+    os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
 
