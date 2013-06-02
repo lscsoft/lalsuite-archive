@@ -2542,6 +2542,7 @@ class SimInspiralTable(table.Table):
 		"mchirp": "real_4",
 		"eta": "real_4",
 		"distance": "real_4",
+		"redshift": "real_4",
 		"longitude": "real_4",
 		"latitude": "real_4",
 		"inclination": "real_4",
