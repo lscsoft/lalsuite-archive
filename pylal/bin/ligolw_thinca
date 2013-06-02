@@ -255,7 +255,8 @@ if options.depop_sngl_inspiral:
 #
 
 if options.make_expr_tables:
-	table_utils.make_experiment_tables(xmldoc, **options.__dict__) 
+	table_utils.generate_experiment_tables(xmldoc, **options.__dict__)
+	table_utils.populate_experiment_map(xmldoc, options.vetoes_name , verbose = options.verbose)
 
 #
 # Remove the tables from the veto file (segments*, veto_definer) from the output xmldoc
