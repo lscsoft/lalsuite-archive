@@ -378,19 +378,6 @@ for tag in user_tags:
   else:
     raise ValueError, "More than one injection file found for %s" % tag
 
-  # determine location of veto-file relevant to tag
-  cat_num = str(get_veto_cat_from_tag( tag ))
-  veto_file_path = cp.get('input', 'ihope-segments-directory')
-  veto_file_name = ''.join([
-    distinct_ifos, '-VETOTIME_CAT_', cat_num, '-', experiment_start, '-', experiment_duration,
-    '.xml' ])
-  veto_file = '/'.join([ veto_file_path, veto_file_name ])
-  if not os.path.exists( veto_file ):
-    raise ValueError, "Veto file %s could not be found." % veto_file
-  # store the veto file for additional later use
-  veto_cat = '_'.join(['CAT', cat_num, 'VETO'])
-  veto_files[veto_cat] = veto_file
-
   ############################################################################
   # Creating the thinca_user_tag cache file and writing it to disk
 
@@ -407,6 +394,19 @@ for tag in user_tags:
   for on_instruments in distinct_instrument_sets:
     distinct_ifo_set |= lsctables.instrument_set_from_ifos(on_instruments)
   distinct_ifos = ''.join(sorted(distinct_ifo_set))
+
+  # determine location of veto-file relevant to tag
+  cat_num = str(get_veto_cat_from_tag( tag ))
+  veto_file_path = cp.get('input', 'ihope-segments-directory')
+  veto_file_name = ''.join([
+    distinct_ifos, '-VETOTIME_CAT_', cat_num, '-', experiment_start, '-', experiment_duration,
+    '.xml' ])
+  veto_file = '/'.join([ veto_file_path, veto_file_name ])
+  if not os.path.exists( veto_file ):
+    raise ValueError, "Veto file %s could not be found." % veto_file
+  # store the veto file for additional later use
+  veto_cat = '_'.join(['CAT', cat_num, 'VETO'])
+  veto_files[veto_cat] = veto_file
 
   # create cache name from what's in the output cache
   cache_type = thinca_usertag_cache[0].description
