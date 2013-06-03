@@ -190,6 +190,7 @@ def plot_label(param):
   q_names = ['q','asym_massratio']
   iota_names = ['iota','incl','inclination']
   dist_names = ['dist','distance']
+  z_names = ['redshift']
   ra_names = ['rightascension','ra']
   dec_names = ['declination','dec']
   phase_names = ['phi_orb', 'phi', 'phase']
@@ -218,6 +219,7 @@ def plot_label(param):
       'cosiota':r'$\mathrm{cos}(\iota)$',
       'time':r'$t_\mathrm{c}\,(\mathrm{s})$',
       'dist':r'$d_\mathrm{L}\,(\mathrm{Mpc})$',
+      'redshift':r'$z$',
       'ra':r'$\alpha$',
       'dec':r'$\delta$',
       'phase':r'$\phi\,(\mathrm{rad})$',
@@ -531,6 +533,7 @@ class Posterior(object):
                             'phi_orb': lambda inj: inj.coa_phase,
                             'dist':lambda inj:inj.distance,
                             'distance':lambda inj:inj.distance,
+                            'redshift':lambda inj:inj.redshift,
                             'ra':self._inj_longitude,
                             'rightascension':self._inj_longitude,
                             'long':self._inj_longitude,

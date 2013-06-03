@@ -313,7 +313,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       self.config.set('input','gps-start-time',str(int(floor(mintime))))
     if not self.config.has_option('input','gps-end-time'):
       self.config.set('input','gps-end-time',str(int(ceil(maxtime))))
-    self.add_science_segments()
+    #self.add_science_segments()
     
     # Save the final configuration that is being used
     conffilename=os.path.join(self.basepath,'config.ini')
