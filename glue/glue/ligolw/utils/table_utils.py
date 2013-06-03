@@ -91,7 +91,7 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
         xmldoc.childNodes[0].removeChild(sngls_tbl)
 
 
-def remove_process_rows(xmldoc, process_ids):
+def remove_process_rows(xmldoc, process_ids, verbose = False):
     proc_tbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
     proc_param_tbl = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
 
@@ -128,7 +128,7 @@ def drop_segment_tables(xmldoc, verbose = False):
 
     if verbose:
         print >> sys.stderr, "Depopulate process tables of segment process_ids"
-    remove_process_rows(xmldoc, sd_pids)
+    remove_process_rows(xmldoc, sd_pids, verbose=verbose)
 
     # remove segment, segment_definer & segment_summary tables from xmldoc
     xmldoc.childNodes[0].removeChild(seg_tbl)
@@ -153,7 +153,7 @@ def drop_vetodef_table(xmldoc, verbose = False):
 
     if verbose:
         print >> sys.stderr, "Depopulate process tables of veto_definer process_ids"
-    remove_process_rows(xmldoc, vd_pids)
+    remove_process_rows(xmldoc, vd_pids, verbose=verbose)
 
     # remove veto_definer table from xmldoc
     xmldoc.childNodes[0].removeChild(veto_def_tbl)
