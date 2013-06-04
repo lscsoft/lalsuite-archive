@@ -193,7 +193,7 @@ Parameter arguments:\n\
     REAL8 psimin=0.0,psimax=LAL_PI; 
     REAL8 ramin=0.0,ramax=LAL_TWOPI; 
     REAL8 decmin=-LAL_PI/2.0,decmax=LAL_PI/2.0; 
-    REAL8 fmin=40., fmax=1300.0;
+    REAL8 ffmin=40., ffmax=1300.0;
     REAL8 qmin=3., qmax=100.0;
     REAL8 hrssmin=1.e-23, hrssmax=1.0e-21;
     REAL8 loghrssmin=log(hrssmin),loghrssmax=log(hrssmax);
@@ -214,9 +214,9 @@ Parameter arguments:\n\
     ppt=LALInferenceGetProcParamVal(commandLine,"--qmax");
     if (ppt){ qmax=atof(ppt->value); fprintf(stdout,"Setting max prior for Q to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--fmin");
-    if (ppt){ fmin=atof(ppt->value);     fprintf(stdout,"Setting min prior for centre frequency to %f\n",atof(ppt->value));}
+    if (ppt){ ffmin=atof(ppt->value);     fprintf(stdout,"Setting min prior for centre frequency to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--fmax");
-    if (ppt){ fmax=atof(ppt->value); fprintf(stdout,"Setting max prior for centre frequency to %f\n",atof(ppt->value));}
+    if (ppt){ ffmax=atof(ppt->value); fprintf(stdout,"Setting max prior for centre frequency to %f\n",atof(ppt->value));}
     ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
     if (ppt) dt=atof(ppt->value);
 	
@@ -224,7 +224,7 @@ Parameter arguments:\n\
     REAL8 startpsi=psimin+gsl_rng_uniform(GSLrandom)*(psimax-psimin);
     REAL8 startra=ramin+gsl_rng_uniform(GSLrandom)*(ramax-ramin);
     REAL8 startdec=decmin+gsl_rng_uniform(GSLrandom)*(decmax-decmin);
-    REAL8 startf=fmin+gsl_rng_uniform(GSLrandom)*(fmax-fmin);
+    REAL8 startf=ffmin+gsl_rng_uniform(GSLrandom)*(ffmax-ffmin);
     REAL8 startq=qmin+gsl_rng_uniform(GSLrandom)*(qmax-qmin);
     REAL8 startloghrss=loghrssmin+gsl_rng_uniform(GSLrandom)*(loghrssmax-loghrssmin);
     
@@ -232,8 +232,9 @@ Parameter arguments:\n\
     if(!LALInferenceCheckVariable(currentParams,"time")){
         ppt=LALInferenceGetProcParamVal(commandLine,"--t");
         if (ppt) {
-            tmpVal=atof(ppt->value);
-            LALInferenceAddVariable(currentParams, "time",&tmpVal   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+            endtime=atof(ppt->value);
+            fprintf(stdout,"Fixing time to %lf\n",endtime);
+            LALInferenceAddVariable(currentParams, "time",&endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         else{
             LALInferenceAddVariable(currentParams, "time",            &endtime   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR); 
@@ -246,6 +247,7 @@ Parameter arguments:\n\
         ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
         if (ppt) {
             tmpVal=atof(ppt->value);
+            fprintf(stdout,"Fixing ra to %lf\n",tmpVal);
             LALInferenceAddVariable(currentParams, "rightascension",  &tmpVal,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
             }
         else LALInferenceAddVariable(currentParams, "rightascension",  &startra,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
@@ -256,6 +258,7 @@ Parameter arguments:\n\
         ppt=LALInferenceGetProcParamVal(commandLine,"--dec");
         if (ppt) {
             tmpVal=atof(ppt->value);
+            fprintf(stdout,"Fixing dec to %lf\n",tmpVal);
             LALInferenceAddVariable(currentParams, "declination",     &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         else 
@@ -268,6 +271,7 @@ Parameter arguments:\n\
         ppt=LALInferenceGetProcParamVal(commandLine,"--psi");
         if (ppt) {
             tmpVal=atof(ppt->value);
+            fprintf(stdout,"Fixing psi to %lf\n",tmpVal);
             LALInferenceAddVariable(currentParams, "polarisation",    &tmpVal,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         else
@@ -279,12 +283,17 @@ Parameter arguments:\n\
         ppt=LALInferenceGetProcParamVal(commandLine,"--freq");
         if (ppt) {
             tmpVal=atof(ppt->value);
+            fprintf(stdout,"Fixing freq to %lf\n",tmpVal);
+            if (tmpVal<ffmin || tmpVal>ffmax){
+                fprintf(stderr,"ERROR: the value of --freq is outside the prior range for the centre frenquency (%f,%f)! Consider increasing the prior range using --fmin --fmax. Exiting...\n",ffmin,ffmax);
+                exit(1);
+            }
             LALInferenceAddVariable(currentParams, "frequency",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         else
             LALInferenceAddVariable(currentParams, "frequency",     &startf,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
     }
-    LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &fmin, &fmax,   LALINFERENCE_REAL8_t);
+    LALInferenceAddMinMaxPrior(priorArgs, "frequency",     &ffmin, &ffmax,   LALINFERENCE_REAL8_t);
     
     if(!LALInferenceCheckVariable(currentParams,"loghrss")){
         if (LALInferenceGetProcParamVal(commandLine,"--hrss") || LALInferenceGetProcParamVal(commandLine,"--loghrss")){
@@ -292,6 +301,11 @@ Parameter arguments:\n\
                 tmpVal=log(atof((LALInferenceGetProcParamVal(commandLine,"--hrss"))->value));
             else if (LALInferenceGetProcParamVal(commandLine,"--loghrss"))
                 tmpVal=atof((LALInferenceGetProcParamVal(commandLine,"--loghrss"))->value);
+            fprintf(stdout,"Fixing loghrss to %lf\n",tmpVal);
+            if (tmpVal<loghrssmin || tmpVal>loghrssmax){
+                fprintf(stderr,"ERROR: the value of --(log)hrss is outside the prior range for the loghrss (%f,%f)! Consider increasing the prior range using --(log)hrssmin --(log)hrssmax. Exiting...\n",loghrssmin,loghrssmax);
+                exit(1);
+            }
             LALInferenceAddVariable(currentParams, "loghrss",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);   
         }
         else
@@ -303,6 +317,11 @@ Parameter arguments:\n\
         ppt=LALInferenceGetProcParamVal(commandLine,"--q");
         if (ppt) {
             tmpVal=atof(ppt->value);
+            fprintf(stdout,"Fixing q to %lf\n",tmpVal);
+            if (tmpVal<qmin || tmpVal>qmax){
+                fprintf(stderr,"ERROR: the value of --q is outside the prior range for the qaulity (%f,%f)! Consider increasing the prior range using --qmin --qmax. Exiting...\n",qmin,qmax);
+                exit(1);
+            }
             LALInferenceAddVariable(currentParams, "Q",     &tmpVal,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
         }
         else
@@ -338,12 +357,12 @@ Parameter arguments:\n\
             fprintf(stdout,"WARNING: The injected value of hrss lies outside the prior range\n");
         if (BinjTable->q > qmax || BinjTable->q < qmin )
             fprintf(stdout,"WARNING: The injected value of q lies outside the prior range\n");
-         if (BinjTable->frequency > fmax || BinjTable->frequency < fmin )
+         if (BinjTable->frequency > ffmax || BinjTable->frequency < ffmin )
             fprintf(stdout,"WARNING: The injected value of centre_frequency lies outside the prior range\n");
         // Check the max Nyquist frequency for this parameter range
         
-        if ( (fmax+ 3.0*fmax/qmin) > state->data->fHigh){
-            fprintf(stderr,"WARNING, some of the template in your parameter space will be generated at a frequency higher than Nyquist (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(fmax+ 3.0*fmax/qmin));
+        if ( (ffmax+ 3.0*ffmax/qmin) > state->data->fHigh){
+            fprintf(stderr,"WARNING, some of the template in your parameter space will be generated at a frequency higher than Nyquist (%lf). Consider increasing the sampling rate, or reducing (increasing) the max (min) value of frequency (Q). With current setting, srate must be higher than %lf\n",state->data->fHigh,2*(ffmax+ 3.0*ffmax/qmin));
             //exit(1);
         }
             
