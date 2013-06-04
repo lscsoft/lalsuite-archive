@@ -592,6 +592,19 @@ Parameter arguments:\n\
 		qualitymax=atof(ppt->value);
 	}
 
+	/* Pin quality */
+    ppt=LALInferenceGetProcParamVal(commandLine,"--pin-Q");
+	if(ppt){
+
+        tmpVal=atof(ppt->value);
+
+		LALInferenceAddVariable(currentParams, "Q",  &tmpVal,
+				LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+		tmpMin=10.0; tmpMax=100.0;
+		LALInferenceAddMinMaxPrior(priorArgs, "Q", &tmpMin, &tmpMax,
+				LALINFERENCE_REAL8_t);
+    }
+
 	/* Over-ride phi0 min if specified */
 	ppt=LALInferenceGetProcParamVal(commandLine,"--phi0min");
 	if(ppt){
