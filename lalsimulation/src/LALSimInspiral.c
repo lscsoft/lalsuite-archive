@@ -1816,6 +1816,10 @@ int XLALSimInspiralChooseTDWaveform(
     quadparam1 = XLALSimInspiralEOSQfromLambda(lam1,m1sun);
     quadparam2 = XLALSimInspiralEOSQfromLambda(lam2,m2sun); 
 //    printf("quadparams: %e, %e\n", quadparam1, quadparam2);
+    printf("Lambdas: %e, %e\n", lam1, lam2);
+    lam1 = lam1/pow(m1sun*LAL_MTSUN_SI,5);
+    lam2 = lam2/pow(m2sun*LAL_MTSUN_SI,5);
+    printf("Lambdas/m^5: %e, %e\n", lam1, lam2);
 
     /* General sanity checks that will abort */
 
