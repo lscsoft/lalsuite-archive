@@ -1361,7 +1361,6 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
     
       polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
       eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
-      //delta_t= LAL_SQRT2*Q/(LAL_TWOPI*centre_frequency); // salvo
       
       XLALSimBurstSineGaussian(&hplus,&hcross, Q, centre_frequency,hrss,eccentricity,polar_angle,IFOdata->timeData->deltaT);
    
