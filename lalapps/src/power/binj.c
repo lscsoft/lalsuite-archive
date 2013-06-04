@@ -1524,8 +1524,8 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		/* Salvo: Use 60secs. May want to increase*/
 		REAL8 segment=60.0;
 		size_t seglen=(size_t) segment*srate;
-		LIGOTimeGPS time;
-		memcpy(&time,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
+		LIGOTimeGPS ttime;
+		memcpy(&ttime,&(sim_burst->time_geocent_gps.gpsSeconds),sizeof(LIGOTimeGPS));
 		
 		/* Fill psds and start_freqs */
 		/* If the user did not provide files for the PSDs, use XLALSimNoisePSD to fill in ligoPsd and virgoPsd */
@@ -1534,7 +1534,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
                 start_freqs[i]=virgoStartFreq;
                 if (!virgoPsd){
                             
-                    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&time , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+                    virgoPsd=XLALCreateREAL8FrequencySeries("VPSD",&ttime , 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
                     if (!virgo_interp)
                         get_FakePsdFromString(virgoPsd,virgoFakePsd, virgoStartFreq);
                     else{
@@ -1550,7 +1550,7 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
 		    else if (!strcmp("L1",ifo) || !strcmp("H1",ifo)){
 			start_freqs[i]=ligoStartFreq;
 			if(!ligoPsd){
-			    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &time, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
+			    ligoPsd=XLALCreateREAL8FrequencySeries("LPSD", &ttime, 0, 1.0/segment, &lalHertzUnit, seglen/2+1);
                 if (! ligo_interp)
                     get_FakePsdFromString(ligoPsd,ligoFakePsd,ligoStartFreq);
                 else{
