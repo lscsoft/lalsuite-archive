@@ -921,7 +921,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                      % (re_cchar.sub("*", channel.split(':',1)[1].upper()),
                         etg))
             trigcache = trigcache.sieve(description=desc)
-        elif etg.lower() is not "hacr":
+        elif etg.lower() != "hacr":
             if etg.lower() == "dmtomega":
                 trigcache = omegautils.find_dmt_cache(span[0], span[1], ifo)
             elif etg.lower() == "omega":
