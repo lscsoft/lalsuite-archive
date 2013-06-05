@@ -90,18 +90,18 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
     else return lambda;
 }
 
-REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda, REAL8 m_intr_msun) {
+REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda) {
     /* Quadrupole-monopole parameter calculated from love number;
        see http://arxiv.org/abs/1303.1528 */
-    REAL8 q;
-    REAL8 l = 3.44E26*lambda/m_intr_msun;
+    REAL8 q, loglam;
     REAL8 tolerance = 1E-15;
-    if(l<tolerance) { //printf("Love number is (nearly) zero; cannot compute QM parameter. Setting to 1.0 (BH value).\n");
+    if(lambda<tolerance) { //printf("Love number is (nearly) zero; cannot compute QM parameter. Setting to 1.0 (BH value).\n");
                       q = 1.0; } 
     else {
-    q =  0.194 + 0.0936*log(l) + 0.0474*log(l)*log(l);
-    q -= 0.00421*log(l)*log(l)*log(l);
-    q += 0.000123*log(l)*log(l)*log(l)*log(l);
+    loglam = log(lambda);
+    q =  0.194 + 0.0936*loglam + 0.0474*loglam*loglam;
+    q -= 0.00421*loglam*loglam*loglam;
+    q += 0.000123*loglam*loglam*loglam*loglam;
     q = exp(q);
     }
 

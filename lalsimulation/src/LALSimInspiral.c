@@ -1812,13 +1812,13 @@ int XLALSimInspiralChooseTDWaveform(
 //    printf("masses: %e, %e\n", m1, m2);
     lam1 = XLALSimInspiralEOSLambda(eos, m1sun); //Marco: These should be intrinsic masses; how do I do that?
     lam2 = XLALSimInspiralEOSLambda(eos, m2sun); 
-//    printf("love numbers: %e, %e\n", lam1, lam2);
-    quadparam1 = XLALSimInspiralEOSQfromLambda(lam1,m1sun);
-    quadparam2 = XLALSimInspiralEOSQfromLambda(lam2,m2sun); 
-//    printf("quadparams: %e, %e\n", quadparam1, quadparam2);
     printf("Lambdas: %e, %e\n", lam1, lam2);
     lam1 = lam1/pow(m1sun*LAL_MTSUN_SI,5);
     lam2 = lam2/pow(m2sun*LAL_MTSUN_SI,5);
+//    printf("love numbers: %e, %e\n", lam1, lam2);
+    quadparam1 = XLALSimInspiralEOSQfromLambda(lam1);
+    quadparam2 = XLALSimInspiralEOSQfromLambda(lam2); 
+//    printf("quadparams: %e, %e\n", quadparam1, quadparam2);
     printf("Lambdas/m^5: %e, %e\n", lam1, lam2);
 
     /* General sanity checks that will abort */

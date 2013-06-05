@@ -67,7 +67,7 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun);
 
 REAL8 XLALSimInspiralEOSqmparameter(LALEquationOfState eos_type, REAL8 m_intr_msun);
 
-REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda, REAL8 m_intr_msun);
+REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda);
 
 #ifdef  __cplusplus
 }
