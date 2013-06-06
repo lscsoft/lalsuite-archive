@@ -704,7 +704,7 @@ LALInferenceVariableItem *item=params->head;
 				        exit(1);
 			        }
 		     	}
-			else if (LALInferenceGetVariable(priorParams,"marginals")) 
+			else if (!LALInferenceGetVariable(priorParams,"marginals")) 
             {
                     if(!strcmp(item->name, "distance")){
 					if(LALInferenceCheckVariable(priorParams,"distance_norm")) {
