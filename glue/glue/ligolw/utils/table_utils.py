@@ -297,31 +297,23 @@ def populate_experiment_table(
     # write entry to the experiment table for the given instruments if it doesn't already exist
     experiment_ids = {}
 
-    experiment_ids[frozenset(instruments)] =  expr_table.write_new_expr_id(
-        search_group,
-        trigger_program,
-        lars_id,
-        instruments,
-        expr_start_time,
-        expr_end_time,
-        comments = comments
-    )
+    for nn in range(len(instruments), 1, -1):
+        if not add_inst_subsets and (nn != len(instruments)):
+            break
+        # add every possible sub-combination of the instrument set if
+        # they're not already in the table
+        for sub_combo in iterutils.choices( list(instruments), nn ):
+            if frozenset(sub_combo) not in experiment_ids:
+                experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(
+                    search_group,
+                    trigger_program,
+                    lars_id,
+                    sub_combo,
+                    expr_start_time,
+                    expr_end_time,
+                    comments = comments
+                )
 
-    #  add every possible sub-combination of the instrument set if
-    # they're not already in the table
-    if add_inst_subsets:
-        for nn in range(2, len(instruments) ):
-            for sub_combo in iterutils.choices( list(instruments), nn ):
-                if frozenset(sub_combo) not in experiment_ids:
-                    experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(
-                        search_group,
-                        trigger_program,
-                        lars_id,
-                        sub_combo,
-                        expr_start_time,
-                        expr_end_time,
-                        comments = comments
-                    )
     return experiment_ids
 
 def get_experiment_type(xmldoc, time_slide_dict):
