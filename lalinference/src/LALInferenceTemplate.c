@@ -1863,7 +1863,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
     if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS"))
       equation_of_state = *(LALEquationOfState*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
 
- 
+ 	fprintf(stderr, "Equation of State (LalInfTemplate): %d\n", equation_of_state);
   
   if(IFOdata->modelDomain == LAL_SIM_DOMAIN_FREQUENCY) {
     if (IFOdata->freqData==NULL) {

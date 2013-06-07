@@ -1337,6 +1337,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 	/* Check for frequency domain injection (TF2 only at present) */
 	if(strstr(injTable->waveform,"TaylorF2"))
 	{ printf("Injecting TaylorF2 in the frequency domain...\n");
+          printf("Injecting TF2 with EOS: %d\n", injTable->eos);
 	 InjectTaylorF2(IFOdata, injTable, commandLine);
 	 return;
 	}
@@ -1516,7 +1517,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
       eos = injEvent->eos;
 
-      printf("Equation of state: %d\n",eos);
+      fprintf(stderr, "Equation of state: %d\n",eos);
 
       /* check which EOS chosen, error if not available */
       if (eos > LAL_SIM_INSPIRAL_NumEOS ) {
@@ -2240,8 +2241,16 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
      fprintf(stdout,"---\t\t ---\n\n");
 
      
+    else
+        fprintf(stdout,"No --inj-tidalOrder option given. Injecting the highest tidal order for this waveform!\n");
+    fprintf(stdout,"injectTaylorF2 will run using Approximant %i (%s), phase order %i, amp order %i, spinOrder %i TidalOrder %i in the Frequency domain.\n",injapprox,XLALGetStringFromApproximant(injapprox),phase_order,amp_order,(int) spinO,(int) tideO);
+    
+    LALInferenceAddVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS", &(inj_table->eos), LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALEquationOfState eoscheck =  *(LALEquationOfState*) LALInferenceGetVariable(tmpdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
+    fprintf(stderr, "In InjectTaylorF2, with eos: %d\n", eoscheck);
+ 
     COMPLEX16FrequencySeries *freqModelhCross=NULL;
-   freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
+    freqModelhCross=XLALCreateCOMPLEX16FrequencySeries("freqDatahC",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     COMPLEX16FrequencySeries *freqModelhPlus=NULL;
     freqModelhPlus=XLALCreateCOMPLEX16FrequencySeries("freqDatahP",&(tmpdata->timeData->epoch),0.0,tmpdata->freqData->deltaF,&lalDimensionlessUnit,tmpdata->freqData->data->length);
     tmpdata->freqModelhPlus=freqModelhPlus;
