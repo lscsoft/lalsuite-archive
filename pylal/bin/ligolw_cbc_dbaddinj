@@ -200,7 +200,7 @@ if opts.sim_tag:
   tmpQuery = connection.cursor().execute(sqlquery, (procId))
   orig_tag = tmpQuery.fetchall()
 
-  if orig_tag is not None:
+  if orig_tag:
     # If it exists update it
     sqlquery = '''UPDATE
                       process_params
