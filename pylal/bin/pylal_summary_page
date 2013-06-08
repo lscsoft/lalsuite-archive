@@ -897,7 +897,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     # construct query segments
     span = SegmentList([Segment(0, NOW-latency)])
     query_segments = ((segment_list & span) -
-                      SegmentList(G_TRIGGERS[etg][channel].keys()))
+                      SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce())
     query &= abs(query_segments) != 0
 
     if query:
@@ -927,7 +927,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
             elif etg.lower() == "omega":
                 trigcache = omegautils.get_cache(span[0], span[1], ifo)
             elif etg.lower() == "omegaspectrum":
-                trigcache = omegautils.get_spectrum_cache(span[0], span[1], ifo)
+                trigcache = omegautils.get_cache(span[0], span[1], ifo, mask='SPECTRUM')
             elif etg.lower() in ["kw", "kleinewelle"]:
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
                                               **trigfind_args)
@@ -968,7 +968,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 segcache = trigcache.sieve(segment=seg)
                 if len(segcache) == 0:
                     continue
-                if etg.lower() == "omega":
+                if etg.lower() == "omega" or etg.lower() == "omegaspectrum":
                     trigtable = omegautils.fromlalcache(segcache, start=seg[0],
                                                         end=seg[1],
                                                         columns=columns,
@@ -1388,13 +1388,14 @@ def get_spectrum(cp, channel, *args, **kwargs):
     # take epoch from seglist
     epoch  = lal.LIGOTimeGPS(len(sequencelist) and args[3][0][0] or NOW)
     # take f0 and deltaF from first spectrogram
-    f0     = len(sequencelist) and sequencelist[0][3] or 0
-    deltaF = len(sequencelist) and sequencelist[0][4] or 1
+    f0     = len(sequencelist) and sequencelist[0]['f0'] or 0
+    deltaF = len(sequencelist) and sequencelist[0]['deltaF'] or 1
+    f_array = sequencelist[0]['f_array'] 
 
     # flatten spectrum
     if len(sequencelist):
-        spectrogram = numpy.concatenate(([s[0].data for s in sequencelist
-                                          if s[0].data.shape[0]]), axis=0)
+        spectrogram = numpy.concatenate(([s['data'].data for s in sequencelist
+                                          if s['data'].data.shape[0]]), axis=0)
     else:
         seglen = args[2]
         spectrogram = numpy.zeros((1,seglen//2+1))
@@ -1404,13 +1405,98 @@ def get_spectrum(cp, channel, *args, **kwargs):
     for p in [50, 5, 95]:
         array = numpy.array([stats.scoreatpercentile(spectrogram[:,i], p)
                              for i in range(spectrogram.shape[1])])
-        out.append(seriesutils.fromarray(array, name=channel, epoch=epoch,
+        # out.append(seriesutils.fromarray(array, name=channel, epoch=epoch,
+        #                                  deltaT=deltaF, f0=f0,
+        #                                  frequencyseries=True))
+        A = seriesutils.fromarray(array, name=channel, epoch=epoch,
                                          deltaT=deltaF, f0=f0,
-                                         frequencyseries=True))
+                                         frequencyseries=True)
+        A.f_array = f_array
+        out.append(A)
 
     G_SPECTRUM[channel] = out
     return out
 
+
+def build_omega_spectrogram(trigs, start, end, time_step, spectype='snr'):
+
+  """
+    Construct the two-dimensional spectrogram from a table of OmegaSpectrum
+    triggers
+  """
+
+  # get number of segments
+  numseg = float(end-start)//time_step
+
+  # set up data array
+  spectrogram = None
+
+  # loop over time steps and calculate spectrum
+  if verbose:
+    sys.stdout.write("Constructing %d segment spectrogram...    " % numseg)
+    sys.stdout.flush()
+
+  f = numpy.array([])
+  S = numpy.array([]) 
+
+  # Initialize iterators over spec triggers
+  trigStart = 0
+  trigStop = 0
+
+  for i in range(numseg):
+
+    # get data chunk
+    # f,S = MedianOmegaSpectrum(trigs, start+i*time_step, start+(i+1)*time_step)
+
+    # downselect triggers in time
+    span = Segment(start+i*time_step, start+(i+1)*time_step)
+    segtrigs = triggers.utils.new_ligolw_table('omegaspectrum')
+    if re.search("burst", segtrigs.tableName):
+        get_time = lambda t: t.get_peak()
+    else:
+        get_time = lambda t: t.get_end()
+    while trigStop<len(trigs)\
+          and get_time(trigs[trigStop]) < span[1]:
+      trigStop = trigStop + 1
+    while trigStart<len(trigs)\
+          and get_time(trigs[trigStart]) < span[0]:
+      trigStart = trigStart + 1
+    segtrigs.extend(t for t in trigs[trigStart:trigStop])
+
+    # get the median spectra out of downselected triggers
+    if len(f) == 0:
+      f = numpy.unique1d(segtrigs.get_column('peak_frequency'))
+    S = numpy.ones(len(f))
+    P = segtrigs.get_column(spectype)
+    if len(P) != 0:
+      for j,freq in enumerate(f):
+        S[j] = numpy.median(P[f == freq])
+      f,S = list(map(numpy.asarray, zip(*sorted(zip(f,S)))))
+
+    # set up spectrogram array for first time
+    if spectrogram is None or spectrogram.length == 0:
+        func = getattr(lal, "CreateREAL8VectorSequence")                                                                                     
+        spectrogram = func(int(numseg), int(len(f))) 
+
+    # append spectrum to spectrogram
+    if len(S) > 0:
+      spectrogram.data[i,:] = S.astype(float)
+    if verbose:
+      sys.stdout.write("\b\b\b%.2d%%" % int((i+1)/numseg*100))
+      sys.stdout.flush()
+
+  if verbose:
+   sys.stdout.write("\n")
+   sys.stdout.flush()
+
+  
+  spectrogram.epoch = lal.LIGOTimeGPS(start)
+  spectrogram.deltaT = time_step
+  spectrogram.f_array = f
+  spectrogram.name = str(Segment(start, end))
+  spectrogram.sampleUnits = lal.lalSecondUnit
+
+  return spectrogram
 
 def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
                     frametype=None, calibration=None, fresponse=None,
@@ -1451,7 +1537,7 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         if abs(seg) < step:
             continue
         tmp.append(Segment(seg[0], seg[0] + abs(seg)//step*step))
-    segment_list = tmp
+    segment_list = tmp.coalesce()
 
     # check what segments we already have for this channel
     if not G_SPECTROGRAM.has_key(channel):
@@ -1476,40 +1562,51 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         ndsserver = cp.get("datafind", "nds-server")
         ndsport = cp.getint("datafind", "nds-port")
 
-    # get data
-    store = G_DATA.has_key(channel)
-    serieslist = get_data(cp, channel, query_segments, frametype=frametype,
-                          calibration=calibration, usends=usends,
-                          resample=resample, superchannel=superchannel,
-                          query=query, store=store)
+    etg = "omegaspectrum"
+    if etg:
+        trigs = get_triggers(cp, channel, etg, query_segments)
+        for seg in query_segments:
+            spectrogram = build_omega_spectrogram(trigs, seg[0], seg[1], step, spectype='snr')
+            add_spectrogram(spectrogram, seg, channel, spectrogram.epoch,
+                            step, f_array = spectrogram.f_array)
+            print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
+                          % (spectrogram.length, seg[0], seg[1]))
 
-    # make spectrogram
-    for series in serieslist:
-         dt = series.deltaT
-         if not series.data.length >= step//dt:
-             print_verbose("Data segment at %d too short for spectrogram, "
-                           "skipping.\n" % (int(series.epoch)),
-                           stream=sys.stderr, verbose=True)
-             continue
-         out = seriesutils.compute_average_spectrogram(series, step//dt,
-                                                       seglen//dt, stride//dt)
-         spectrogram, deltaF, f0 = out
-         spectrogram.data = spectrogram.data**(1/2)
-         if fresponse:
-             if isinstance(fresponse, type(lambda:None)):
-                 spectrogram.data = fresponse(spectrogram.data)
-             elif hasattr(fresponse, "__contains__") and len(fresponse) == 3:
-                 zeros,poles,gain = fresponse
-                 fresponse = zpkresponse(zeros, poles, gain, f0=f0,
-                                         deltaF=deltaF,
-                                         length=spectrogram.vectorLength)
-                 spectrogram.data *= fresponse
-         seg = Segment(float(series.epoch),
-                       float(series.epoch + series.data.length * dt))
-         add_spectrogram(spectrogram, seg, series.name, series.epoch,
-                         step, f0, deltaF)
-         print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
-                        % (spectrogram.length, seg[0], seg[1]))
+    else:
+        # get data
+        store = G_DATA.has_key(channel)
+        serieslist = get_data(cp, channel, query_segments, frametype=frametype,
+                              calibration=calibration, usends=usends,
+                              resample=resample, superchannel=superchannel,
+                              query=query, store=store)
+
+        # make spectrogram
+        for series in serieslist:
+             dt = series.deltaT
+             if not series.data.length >= step//dt:
+                 print_verbose("Data segment at %d too short for spectrogram, "
+                               "skipping.\n" % (int(series.epoch)),
+                               stream=sys.stderr, verbose=True)
+                 continue
+             out = seriesutils.compute_average_spectrogram(series, step//dt,
+                                                           seglen//dt, stride//dt)
+             spectrogram, deltaF, f0 = out
+             spectrogram.data = spectrogram.data**(1/2)
+             if fresponse:
+                 if isinstance(fresponse, type(lambda:None)):
+                     spectrogram.data = fresponse(spectrogram.data)
+                 elif hasattr(fresponse, "__contains__") and len(fresponse) == 3:
+                     zeros,poles,gain = fresponse
+                     fresponse = zpkresponse(zeros, poles, gain, f0=f0,
+                                             deltaF=deltaF,
+                                             length=spectrogram.vectorLength)
+                     spectrogram.data *= fresponse
+             seg = Segment(float(series.epoch),
+                           float(series.epoch + series.data.length * dt))
+             add_spectrogram(spectrogram, seg, series.name, series.epoch,
+                             step, f0=f0, deltaF=deltaF)
+             print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
+                            % (spectrogram.length, seg[0], seg[1]))
 
     # return the correct data
     globsegs = SegmentList(G_SPECTROGRAM[channel].keys())
@@ -1523,7 +1620,7 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
             print_verbose("WARNING: Requested spectrogram segment %s not "
                           "found in global list\n" % (str(s)),
                           stream=sys.stderr)
-    return sorted(spectrograms, key=lambda s: float(s[1]))
+    return sorted(spectrograms, key=lambda s: float(s['epoch']))
 
 
 #
@@ -1675,7 +1772,7 @@ def add_timeseries(series):
         G_DATA[channel][seg] = series
 
 
-def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
+def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0=None, deltaF=None, f_array=None):
     """Add a REAL4VectorSequence to the global data holder.
     """
     # add channel
@@ -1694,25 +1791,31 @@ def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0, deltaF):
             new = False
             seg += gseg
             G_SPECTROGRAM[channel][seg] = G_SPECTROGRAM[channel][gseg]
-            G_SPECTROGRAM[channel][seg][0] = PyLALAddVectorSequence(
-                                               G_SPECTROGRAM[channel][gseg][0],
+            G_SPECTROGRAM[channel][seg]['data'] = PyLALAddVectorSequence(
+                                               G_SPECTROGRAM[channel][gseg]['data'],
                                                sequence)
             del G_SPECTROGRAM[channel][gseg]
-            sequence = G_SPECTROGRAM[channel][seg]
+            sequence = G_SPECTROGRAM[channel][seg]['data']
         # if it prepends an existing segment
         if gseg[0] == seg[1]:
             new = False
             seg += gseg
             G_SPECTROGRAM[channel][seg] = G_SPECTROGRAM[channel][gseg]
-            G_SPECTROGRAM[channel][seg][1] = epoch
-            G_SPECTROGRAM[channel][seg][0] = PyLALAddVectorSequence(
+            G_SPECTROGRAM[channel][seg]['epoch'] = epoch
+            G_SPECTROGRAM[channel][seg]['data'] = PyLALAddVectorSequence(
                                                 sequence,
-                                                G_SPECTROGRAM[channel][gseg][0])
+                                                G_SPECTROGRAM[channel][gseg]['data'])
             del G_SPECTROGRAM[channel][gseg]
-            sequence = G_SPECTROGRAM[channel][seg]
+            sequence = G_SPECTROGRAM[channel][seg]['data']
 
     if new:
-        G_SPECTROGRAM[channel][seg] = [sequence, epoch, deltaT, f0, deltaF]
+        G_SPECTROGRAM[channel][seg] = {}
+        G_SPECTROGRAM[channel][seg]['data'] = sequence
+        G_SPECTROGRAM[channel][seg]['epoch'] = epoch
+        G_SPECTROGRAM[channel][seg]['deltaT'] = deltaT
+        G_SPECTROGRAM[channel][seg]['f0'] = f0
+        G_SPECTROGRAM[channel][seg]['deltaF'] = deltaF
+        G_SPECTROGRAM[channel][seg]['f_array'] = f_array
 
 
 #
@@ -2033,8 +2136,8 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
             spectrogram, epoch, deltaT, f0, deltaF = out
             seg = Segment(float(epoch),
                                    float(epoch + spectrogram.length*deltaT))
-            add_spectrogram(spectrogram, seg, channel, epoch, deltaT, f0,
-                            deltaF)
+            add_spectrogram(spectrogram, seg, channel, epoch, deltaT, f0=f0,
+                            deltaF=deltaF)
         h5file.close()
         if len(datasegs):
             seg = datasegs.extent()
@@ -3330,6 +3433,7 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
                     plotparams.setdefault("xlim", [substart, substart+dt])
                     tab.plottimeseries(outfile, subplot=True, **plotparams)
             substart += dt
+            print_verbose(".",verbose=verbose)
         print_verbose("%d subplots saved.\n" % len(tab.subplots),\
                       verbose=verbose)
 
@@ -3361,26 +3465,31 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
         deltaF = f[1]-f[0]
         spectrum = seriesutils.fromarray(S, name, lal.LIGOTimeGPS(gps),\
                                          f0, deltaF, lal.lalStrainUnit, True)
+        spectrum.f_array = f
         return spectrum
 
     # otherwise we can try to use a function
     spec     = G_SPECTRUM[channel][0]
-    f        = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
+    if spec.f_array is None:
+        f = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
+    else:
+        f = spec.f_array.astype(float)
     datatype = seriesutils.typecode(type(spec))
     TYPESTR  = seriesutils._typestr[datatype]
     Create   = getattr(lal, "Create%sFrequencySeries" % TYPESTR)
     spectrum = Create(name, lal.LIGOTimeGPS(gps), spec.f0, spec.deltaF,\
                       spec.sampleUnits, f.size)
+    spectrum.f_array = f
     if hasattr(lalsimulation, "SimNoisePSD%s" % descriptor):
         SimNoisePSD = getattr(lalsimulation, "SimNoisePSD%s" % descriptor)
-        psd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
+        asd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
 
     elif descriptor.startswith("lambda"):
-        psd = eval(descriptor)
+        asd = eval(descriptor)
 
     for i,freq in enumerate(f):
         try:
-            spectrum.data.data[i] = float(psd(freq))
+            spectrum.data.data[i] = float(asd(freq))
         except OverflowError:
             print freq
             raise
