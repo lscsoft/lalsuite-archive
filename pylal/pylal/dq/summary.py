@@ -1231,7 +1231,7 @@ class DataSummaryTab(SummaryTab):
  
         # construct info table
         headers = ["Channel", "Sampling rate"]
-        data    = [[channel, self.sampling[channel]]\
+        data    = [[channel, channel in self.sampling and self.sampling[channel] or 'N/A']\
                    for channel in self.channels\
                    if not re.search("[-._](min|max)\Z", channel)]
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())

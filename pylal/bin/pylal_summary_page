@@ -1562,9 +1562,12 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         ndsserver = cp.get("datafind", "nds-server")
         ndsport = cp.getint("datafind", "nds-port")
 
-    etg = "omegaspectrum"
-    if etg:
-        trigs = get_triggers(cp, channel, etg, query_segments)
+    # If frametype looks like an etg name, get spectra from the etg
+    # files, otherwise read in data for frames and compute
+    # spectra. Using kludge to detect if frametype is a name of a
+    # known etg, just look for section named after it.
+    if cp.has_section(frametype):
+        trigs = get_triggers(cp, channel, frametype, query_segments)
         for seg in query_segments:
             spectrogram = build_omega_spectrogram(trigs, seg[0], seg[1], step, spectype='snr')
             add_spectrogram(spectrogram, seg, channel, spectrogram.epoch,
