@@ -78,12 +78,13 @@ def mat(params, channel, segment):
         f.write("%e %e\n"%(freq[i],spectra[i]))
     f.close()
 
-    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
-    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    try:
-        earthquakes = np.loadtxt(earthquakesFile)
-    except:
-        earthquakes = []
+    if params["doEarthquakes"]:
+        earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+        earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+        try:
+            earthquakes = np.loadtxt(earthquakesFile)
+        except:
+            earthquakes = []
 
     if params["doPlots"]:
 
