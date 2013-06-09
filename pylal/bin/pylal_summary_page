@@ -1775,7 +1775,7 @@ def add_timeseries(series):
         G_DATA[channel][seg] = series
 
 
-def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0=None, deltaF=None, f_array=None):
+def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0=0, deltaF=0, f_array=None):
     """Add a REAL4VectorSequence to the global data holder.
     """
     # add channel
@@ -3538,6 +3538,9 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
     print_verbose("\n----------\nProcessing range for %s for the %s state...\n"\
                   % (tab.name, tab.state.name), verbose=verbose, profile=False)
 
+    etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator") or cpsec[9:]
+
     #
     # setup
     #
@@ -3601,24 +3604,40 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                                        fresponse=params["frequency-response"])
 
         for i,spectrogram in enumerate(sequencelist):
-            S,epoch,deltaT,f0,deltaF = spectrogram
+            S = spectrogram['data']
+            epoch = spectrogram['epoch']
+            deltaT = spectrogram['deltaT']
+            f0 = spectrogram['f0']
+            deltaF = spectrogram['deltaF']
+            f_array = spectrogram['f_array']
             print_verbose("Calculating range from %d spectra...    "\
                           % S.length, verbose=verbose)
-            seg = Segment(epoch, epoch + deltaT * S.length)
+            seg = Segment(float(epoch), float(epoch + deltaT * S.length))
             data = dict((s["name"], numpy.zeros(S.length)) for s in sources)
 
             # get triggers for burst range
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
-                                     SegmentList(seg),\
-                                     cluster=cluster, minsnr=0)
+                                     SegmentList([seg]),\
+                                     cluster=False, minsnr=0)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
                 trigsnr  = trigs.getColumnByName("snr")
+                trigfreq = trigs.getColumnByName("peak_frequency")
+
+            # initialize triggers iterators to select slices of them (time sub sets)
+            trigStart = {}
+            trigStop = {}
+            for k,s in enumerate(sources):
+                trigStart[k] = 0
+                trigStop[k] = 0
 
             for j in range(S.length):
                 spectrum = S.data[j,:]**2
-                f = numpy.arange(spectrum.size) * deltaF + f0
+                if f_array is None:
+                    f = numpy.arange(spectrum.size) * deltaF + f0
+                else:
+                    f = f_array
                 span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
 
                 # loop over sources
@@ -3630,16 +3649,23 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                                                      snr=s["snr"], m1=s["m1"],\
                                                      m2=s["m2"])
                     # calculate burst range
-                    elif s["type"] == burst:
+                    elif s["type"] == "burst":
                         sspan = Segment(span[1]-s['dt'], span[1])
-                        snrs  = trigsnr[(sspan[0] <= trigtime)\
-                                         & (trigtime < sspan[1])]
-                        rho = get_limiting_snr(snrs, sspan, s["far"], s["dt"],\
+                        while trigStop[k]<len(trigs)\
+                              and trigtime[trigStop[k]] < sspan[1]:
+                            trigStop[k] = trigStop[k] + 1
+                        while trigStart[k]<len(trigs)\
+                              and trigtime[trigStart[k]] < sspan[0]:
+                            trigStart[k] = trigStart[k] + 1
+                        snrs = [trigsnr[itrig] for itrig in numpy.arange(trigStart[k],trigStop[k])\
+                                    if s['fmin'] <= trigfreq[itrig] < s['fmax']\
+                                    and trigsnr[itrig] > s['snr']]
+                        rho = get_limiting_snr(snrs, s["far"], abs(SegmentList([sspan])&tab.segments),\
                                                s["snr"])
                         data[s["name"]][j] =\
                             rangeutils.burstrange(f, spectrum, rho,\
-                                                  s["energy"], fmin=["fmin"],\
-                                                  fmax=s["fmax"])
+                                                  s["energy"], fmin=s["fmin"],\
+                                                  fmax=s["fmax"], unit=s["unit"])
 
                 print_verbose("\b\b\b%.2d%%" % int((j+1)/S.length*100),\
                               verbose=verbose)
@@ -3803,10 +3829,12 @@ def parse_range_config(cp, cpsec):
         else:
             source["name"] = cpsec[7:]
         source["type"] = type = cp.get(cpsec, "type").lower()
+        if cp.has_option(cpsec, "unit"):
+            source["unit"] = cp.get(cpsec, "unit")
         if type == "inspiral":
             options = ["m1", "m2", "snr"]
         elif type == "burst":
-            options = ["fmin", "fmax", "snr", "dt", "energy"]
+            options = ["fmin", "fmax", "far", "dt", "energy", "snr"]
         for opt in options:
              source[opt] = cp.getfloat(cpsec, opt)
         out.append(source)
@@ -3828,7 +3856,7 @@ def get_limiting_snr(snr, far, dt, threshold=6):
     snr.sort()
     snr = snr[::-1]
     faridx = int(far*dt)-1
-    if snr.size <= faridx:
+    if len(snr) <= faridx:
         # if we don't have enough triggers use the trigger
         # reading snr threshold, it will give us a lower limit
         # on the range
