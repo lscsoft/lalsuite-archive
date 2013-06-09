@@ -225,12 +225,13 @@ channels = channel_struct(channelList)
 params = frame_struct(params)
 params = segment_struct(params)
 
-# Output path for run
-params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
-if not os.path.isdir(params["path"]):
-    os.makedirs(params["path"])
+if params["doAnalysis"]:
+    # Output path for run
+    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
+    if not os.path.isdir(params["path"]):
+        os.makedirs(params["path"])
 
-print params["path"]
+    print params["path"]
 
 if params["doEarthquakes"]:
     print "Finding earthquakes"
