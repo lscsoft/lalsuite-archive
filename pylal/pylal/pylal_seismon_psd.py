@@ -7,6 +7,7 @@ import scipy.signal, scipy.stats
 from collections import namedtuple
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
+import pylal.seriesutils
 from pylal import Fr
 from pylal.dq import dqDataUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
@@ -27,7 +28,7 @@ def read_frames(start_time,end_time,channel,cache):
 
     #== loop over frames in cache
     for frame in cache:
-        frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,channel.station)
+        frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path,channel.station)
         frame_length = float(dt)*len(frame_data)
         frame_time = data_start+dt*np.arange(len(frame_data))
 
@@ -40,7 +41,7 @@ def read_frames(start_time,end_time,channel,cache):
 
     return time,data
 
-def mat(params, channel):
+def mat(params, channel, segment):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
     if not os.path.isdir(psdLocation):
@@ -49,8 +50,10 @@ def mat(params, channel):
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
 
-    time,data = read_frames(params["gpsStart"],params["gpsEnd"],channel,params["frame"])
-    #freq,spectra = dqDataUtils.spectrum(data, channel.samplef, NFFT=len(data), overlap = 0)
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+
+    time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
 
     NFFT = params["fftDuration"]*channel.samplef
     spectra, freq = matplotlib.pyplot.psd(data, NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
@@ -69,7 +72,7 @@ def mat(params, channel):
     spectra = newSpectra
     freq = newFreq
 
-    psdFile = psdLocation + "/" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"]) + ".txt"
+    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(psdFile,"wb")
     for i in xrange(len(freq)):
         f.write("%e %e\n"%(freq[i],spectra[i]))
@@ -173,10 +176,10 @@ def freq_analysis(params,channel,tt,freq,spectra):
  
     indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
     indexes = list(np.unique(np.ceil(indexes)))
-    #indexes = range(len(freq))
+    indexes = range(len(freq))
     #indexes = range(16)
 
-    indexes = np.where(0.1 >= freq)[0]
+    indexes = np.where(10.0 >= freq)[0]
 
     deltaT = tt[1] - tt[0]
 
@@ -280,7 +283,7 @@ def freq_analysis(params,channel,tt,freq,spectra):
         plt.close('all')      
 
         ax = plt.subplot(111)
-        plt.plot(freq[indexes],ttCoh_vals)
+        plt.semilogx(freq[indexes],ttCoh_vals)
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Coherence Time [s]")
         plt.show()
@@ -351,6 +354,10 @@ def analysis(params, channel):
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
 
     files = sorted(files)
+
+    if not params["doFreqAnalysis"]:
+        if len(files) > 1000:
+            files = files[-1000:]
 
     ttStart = []
     ttEnd = []
