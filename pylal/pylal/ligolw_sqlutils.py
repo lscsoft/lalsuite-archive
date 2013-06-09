@@ -2366,7 +2366,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'inspiral'); """
+                    WHERE program = 'inspinj'); """
         # if a sim_ringdown table exists, remove duplicate rows
         if ('sim_ringdown',) in all_tables:
             sqlscript += """
@@ -2374,7 +2374,7 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
                 WHERE process_id NOT IN (
                     SELECT DISTINCT new_pid 
                     FROM _pidmap_
-                    WHERE program = 'ringdown'); """
+                    WHERE program = 'rinj'); """
         # if an experiment_summary table exists, update its sim_proc_id column
         if 'experiment_summary' in all_tables:
             sqlscript += """
