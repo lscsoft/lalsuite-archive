@@ -16,7 +16,7 @@
  *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
  *  MA  02111-1307  USA
  */
- 
+
  #include <stdio.h>
  #include <string.h>
  #include <math.h>
@@ -51,41 +51,41 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun){/
     {
         case LAL_SIM_INSPIRAL_EOS_NONE:
             lambda = 0.0;
-        break;
+            break;
     // MS1
         case LAL_SIM_INSPIRAL_EOS_MS1:
             lambda = prefac*(2.19296 + 20.0273*m_intr_msun - 17.9443*m_intr_msun*m_intr_msun 
             + 5.75129*m_intr_msun*m_intr_msun*m_intr_msun - 0.699095*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
-        break;
+            break;
     // H4
         case LAL_SIM_INSPIRAL_EOS_H4:
             lambda = prefac*(0.743351 + 15.8917*m_intr_msun - 14.7348*m_intr_msun*m_intr_msun 
             + 5.32863*m_intr_msun*m_intr_msun*m_intr_msun - 0.942625*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
-        break; 
+            break; 
     // SQM3
         case LAL_SIM_INSPIRAL_EOS_SQM3:
             lambda = prefac*(-5.55858 + 20.8977*m_intr_msun - 20.5583*m_intr_msun*m_intr_msun 
             + 9.55465*m_intr_msun*m_intr_msun*m_intr_msun - 1.84933*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
-        break;
+            break;
     // MPA1
-    case LAL_SIM_INSPIRAL_EOS_MPA1:
-        lambda = prefac*(0.276761 + 7.26925*m_intr_msun - 5.72102*m_intr_msun*m_intr_msun
-        + 1.51347*m_intr_msun*m_intr_msun*m_intr_msun - 0.152181*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
-        break;
-    // GNH3
-    case LAL_SIM_INSPIRAL_EOS_GNH3:
-        lambda = prefac*(7.80715 + 0.683549*m_intr_msun + 1.21351*m_intr_msun*m_intr_msun
-        - 3.50234*m_intr_msun*m_intr_msun*m_intr_msun + 0.894662*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
-        break;
-    case LAL_SIM_INSPIRAL_EOS_AP1:
-        lambda = prefac*(0.388691 + 1.80804*m_intr_msun - 1.94144*m_intr_msun*m_intr_msun + 0.456738*m_intr_msun*m_intr_msun*m_intr_msun);
-        break;
-    case LAL_SIM_INSPIRAL_EOS_SLY:
-        lambda = prefac*(1.28653162 + 3.77058998*m_intr_msun - 3.31593965*m_intr_msun*m_intr_msun + 0.596473986*m_intr_msun*m_intr_msun*m_intr_msun);
-        break;
-    default:
-        lambda = 0.0;
-        break;
+        case LAL_SIM_INSPIRAL_EOS_MPA1:
+            lambda = prefac*(0.276761 + 7.26925*m_intr_msun - 5.72102*m_intr_msun*m_intr_msun
+            + 1.51347*m_intr_msun*m_intr_msun*m_intr_msun - 0.152181*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
+            break;
+        // GNH3
+        case LAL_SIM_INSPIRAL_EOS_GNH3:
+            lambda = prefac*(7.80715 + 0.683549*m_intr_msun + 1.21351*m_intr_msun*m_intr_msun
+            - 3.50234*m_intr_msun*m_intr_msun*m_intr_msun + 0.894662*m_intr_msun*m_intr_msun*m_intr_msun*m_intr_msun);
+            break;
+        case LAL_SIM_INSPIRAL_EOS_AP1:
+            lambda = prefac*(0.388691 + 1.80804*m_intr_msun - 1.94144*m_intr_msun*m_intr_msun + 0.456738*m_intr_msun*m_intr_msun*m_intr_msun);
+            break;
+        case LAL_SIM_INSPIRAL_EOS_SLY:
+            lambda = prefac*(1.28653162 + 3.77058998*m_intr_msun - 3.31593965*m_intr_msun*m_intr_msun + 0.596473986*m_intr_msun*m_intr_msun*m_intr_msun);
+            break;
+        default:
+            lambda = 0.0;
+            break;
     }
     if (lambda<0.0) return 0.0;
     else return lambda;

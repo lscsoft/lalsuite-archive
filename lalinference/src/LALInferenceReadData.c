@@ -2174,8 +2174,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
       }
       if(eos!=LAL_SIM_INSPIRAL_EOS_NONE)
       {
-        lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1/(1.0+redshift)*LAL_MTSUN_SI,5.0);
-        lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2/(1.0+redshift)*LAL_MTSUN_SI,5.0);
+        lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1*LAL_MTSUN_SI/(1.0+redshift),5.0);
+        lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2*LAL_MTSUN_SI/(1.0+redshift),5.0);
         fprintf(stdout,"EOS: %d m1(source frame) set to %f (z = %f) --> lambda1 set to %f\n",eos,m1/(1.0+redshift),redshift,lambda1);
         fprintf(stdout,"EOS: %d m2(source frame) set to %f (z = %f) --> lambda2 set to %f\n",eos,m2/(1.0+redshift),redshift,lambda2);
       }

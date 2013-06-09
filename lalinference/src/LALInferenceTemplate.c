@@ -1958,9 +1958,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
   REAL8 fTemp = fRef;
 
-  if (LALInferenceCheckVariable(IFOdata->modelParams, "EOS"))
-      eos = *(LALEquationOfState *)LALInferenceGetVariable(IFOdata->modelParams, "EOS");
-      
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS"))
+      eos = *(LALEquationOfState *)LALInferenceGetVariable(IFOdata->modelParams, "LAL_SIM_INSPIRAL_EOS");
+
   if(LALInferenceCheckVariable(IFOdata->modelParams,"chirpmass"))
     {
       mc  = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "chirpmass");
@@ -2055,9 +2055,9 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
   if(LALInferenceCheckVariable(IFOdata->modelParams, "redshift")) redshift = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "redshift");
   if (eos!=LAL_SIM_INSPIRAL_EOS_NONE)
   {
-    lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1/(1.0+redshift)*LAL_MTSUN_SI,5.0);
-    lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2/(1.0+redshift)*LAL_MTSUN_SI,5.0);
-    //printf("eos:%d l1:%e l2:%e m1z:%f m2z:%f m1:%f m2:%f z:%f\n",eos,lambda1,lambda2,m1,m2,m1/(1.0+redshift),m2/(1.0+redshift),redshift);
+    lambda1 = XLALSimInspiralEOSLambda(eos, m1/(1.0+redshift))/pow(m1*LAL_MTSUN_SI/(1.0+redshift),5.0);
+    lambda2 = XLALSimInspiralEOSLambda(eos, m2/(1.0+redshift))/pow(m2*LAL_MTSUN_SI/(1.0+redshift),5.0);
+    //printf("eos:%d l1:%e l2:%e m1z:%f m2z:%f m1:%f m2:%f z:%f conv:%lf\n",eos,lambda1,lambda2,m1,m2,m1/(1.0+redshift),m2/(1.0+redshift),redshift,LAL_MTSUN_SI);
   }
   if(LALInferenceCheckVariable(IFOdata->modelParams, "lambdaT")&&LALInferenceCheckVariable(IFOdata->modelParams, "dLambdaT")){
     lambdaT = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "lambdaT");

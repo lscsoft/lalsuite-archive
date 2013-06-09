@@ -1478,7 +1478,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   if(ppt)
   {
     LALEquationOfState eos = XLALSimEOSfromString(ppt->value);
-    LALInferenceAddVariable(currentParams, "EOS", &eos, LALINFERENCE_UINT4_t,   LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(currentParams, "LAL_SIM_INSPIRAL_EOS", &eos, LALINFERENCE_UINT4_t,   LALINFERENCE_PARAM_FIXED);
   }
   /* Jump in log distance if requested, otherwise use distance */
   if(LALInferenceGetProcParamVal(commandLine,"--logdistance"))
@@ -1895,6 +1895,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
      /* Print info about orders and waveflags used for templates */
      fprintf(stdout,"\n\n---\t\t ---\n");
      fprintf(stdout,"Templates will run using Approximant %i (%s), phase order %i, amp order %i, spin order %i tidal order %i, in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),PhaseOrder,AmpOrder,(int) spinO, (int) tideO, modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     fprintf(stdout,"EOS:%d\n",*(int *)LALInferenceGetVariable(currentParams,"LAL_SIM_INSPIRAL_EOS"));
      fprintf(stdout,"---\t\t ---\n\n");
   return(currentParams);
 }

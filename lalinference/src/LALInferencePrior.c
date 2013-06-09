@@ -546,7 +546,7 @@ LALInferenceVariableItem *item=params->head;
 			if(val<min || val>max) return -DBL_MAX;
 			else
 			{
-
+                if (LALInferenceCheckVariable(params,"redshift")) redshift = (*(REAL8 *)LALInferenceGetVariable(params,"redshift"));
 		        	if(!strcmp(item->name, "chirpmass") || !strcmp(item->name, "logmc")){
 			          if( LALInferenceCheckVariable(priorParams,"component_max") && LALInferenceCheckVariable(priorParams,"component_min") 
 			            && LALInferenceCheckVariable(priorParams,"MTotMax")
@@ -577,16 +577,13 @@ LALInferenceVariableItem *item=params->head;
 				        else if(!strcmp(item->name, "logmc")){
 				              mc=exp(*(REAL8 *)LALInferenceGetVariable(params,"logmc"));
            				}
-            
+                        mc/=(1.0+redshift);
               				if(LALInferenceCheckVariable(params,"asym_massratio"))
 				                LALInferenceMcQ2Masses(mc,*(REAL8 *)LALInferenceGetVariable(params,"asym_massratio"),&m1,&m2);
 			              	else if(LALInferenceCheckVariable(params,"massratio")){
 				                eta=*(REAL8 *)LALInferenceGetVariable(params,"massratio");
 				                LALInferenceMcEta2Masses(mc,*(REAL8 *)LALInferenceGetVariable(params,"massratio"),&m1,&m2);
 				        }
-                        if (LALInferenceCheckVariable(params,"redshift")) redshift = (*(REAL8 *)LALInferenceGetVariable(params,"redshift"));
-			            m1/=(1.0+redshift);
-			            m2/=(1.0+redshift);
 			               if(component_min > m1 || component_min > m2)
 			                  return -DBL_MAX;
  			               if(component_max < m1 || component_max < m2)
