@@ -100,21 +100,23 @@ def parse_command_line():
   """
   parser = OptionParser(usage=usage, version=git_version.verbose_msg)
   parser.add_option("-a","--time-dist",action="store_true",default=False,\
-      help="plot dist v trig end time" )
+      help="plot eff dist v trig end time" )
   parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
-      help="plot dist v mchirp (log dist axis)" )
+      help="plot eff dist v mchirp (log dist axis)" )
   parser.add_option("-c","--mtotal-dist-log",action="store_true",default=False,\
-      help="plot dist v mtotal (log dist axis)" )
+      help="plot eff dist v mtotal (log dist axis)" )
   parser.add_option("-d","--mchirp-dist-linear",action="store_true",default=False,\
-      help="plot dist v mchirp (linear dist axis)" )
+      help="plot eff dist v mchirp (linear dist axis)" )
   parser.add_option("-e","--mtotal-dist-linear",action="store_true",default=False,\
-      help="plot dist v mtotal (linear dist axis)" )
+      help="plot eff dist v mtotal (linear dist axis)" )
   parser.add_option("-f","--eff-vs-eff-dist",action="store_true",default=False,\
       help="efficiency plot versus effective distance (logarithmic dist axis)" )
   parser.add_option("-g","--eff-vs-distance",action="store_true",default=False,\
-      help="efficiency plot versus distance (logarithmic dist axis)" )
+      help="efficiency plot versus distance (linear dist axis)" )
+  parser.add_option("-k","--eff-vs-chirp-dist",action ="store_true",default=False,\
+      help="efficiency plot versus chirp distance (linear dist axis)" )
   parser.add_option("-j","--mchirp-distance-lin",action="store_true",default=False,\
-       help="plot distance v mchirp (linear dist axis)" )
+      help="plot distance v mchirp (linear dist axis)" )
   parser.add_option("-T","--time-offset",action="store",type="float",\
       default=0.0,metavar=" TIME-OFFSET",\
       help="time offset when plotting times")
@@ -513,7 +515,7 @@ if opts.mchirp_dist_linear:
   xplot.append('mchirp')
   yplot.append('eff_dist')
   yscale.append('lin')
-if  opts.mchirp_dist_log:
+if opts.mchirp_dist_log:
   xplot.append('mchirp')
   yplot.append('eff_dist')
   yscale.append('log')
@@ -575,7 +577,7 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
       if ys=='log':
         axes().set_yscale('log')    
         filename = xname+'-'+yname+'-log-'+ifo
-        savePlot( opts, filename, titleText, keep=True)
+        savePlot( opts, filename, titleText, keep=True )
         
         if not opts.show_plot:
           close()
@@ -585,27 +587,30 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
 # plot of efficiency vs different values
 
 # put together what efficiency plots we need
-valueList = [ 'eff_dist', \
-              'distance']
-nameList = ["efficiency-eff_dist", "efficiency_dist"]
-tagnameList = ["Efficiency versus distance", "Efficiency versus distance"]
+valueList = ['eff_dist', 'distance', 'chirp_dist']
+nameList = ["efficiency-eff_dist", "efficiency-dist", "efficiency-chirp_dist"]
+tagnameList = ["Efficiency vs eff distance", "Efficiency vs distance", \
+    "Efficiency vs chirp distance"]
 
 indexPlots = []
 if opts.eff_vs_eff_dist:
   indexPlots.append(0)
 if opts.eff_vs_distance:
   indexPlots.append(1)
+if opts.eff_vs_chirp_dist:
+  indexPlots.append(2)
 
-# loop over the IFOs' in the list
 for ifo in ifoList:
-  
+
   # create the efficiency plots
   for index in indexPlots:
-  
+
+    # use log plot when large spread of values is expected
+    plot_type = 'log' if 'eff' in valueList[index] else 'linear'
     figure()
     viz.efficiencyplot( allFoundInj, missedInj, valueList[index],ifo=ifo,\
-                        plot_type = 'log', \
-                        nbins = 20, output_name = None, errors=True,\
+                        plot_type = plot_type,\
+                        nbins = 25, output_name = None, errors=True,\
                         title_string = opts.title)
 
     if opts.enable_output:
@@ -613,11 +618,9 @@ for ifo in ifoList:
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
                                                 dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append(tagnameList[index]+ifo)
+      tagList.append(tagnameList[index]+" "+ifo)
     if not opts.show_plot:
       close()
-
-
 
 
 # ============================================================================
