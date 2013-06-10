@@ -479,6 +479,9 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     INT4 tmp=200;
     LALInferenceAddVariable(runState->algorithmParams,"Nmcmc",&tmp,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_OUTPUT);
   }
+  INT4 Nmcmc=*(INT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nmcmc");   
+  REAL8 initial_sloppyfraction = ((REAL8)Nmcmc-0.1*(REAL8)Nmcmc)/(REAL8) Nmcmc;
+  LALInferenceSetVariable(runState->algorithmParams,"sloppyfraction",&initial_sloppyfraction);
   /* Sprinkle points */
   LALInferenceSetVariable(runState->algorithmParams,"logLmin",&dblmax);
   for(i=0;i<Nlive;i++) {
@@ -1014,7 +1017,7 @@ void LALInferenceNestedSamplingSloppySample(LALInferenceRunState *runState)
     REAL8 logLmin=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"logLmin");
     UINT4 Nmcmc=*(UINT4 *)LALInferenceGetVariable(runState->algorithmParams,"Nmcmc");
     REAL8 sloppyfraction=0.;
-    REAL8 maxsloppyfraction=((REAL8)Nmcmc-0.1*(REAL8)Nmcmc)/(REAL8)Nmcmc;
+    REAL8 maxsloppyfraction=((REAL8)Nmcmc-0.1*(REAL8)Nmcmc)/(REAL8) Nmcmc;;//((REAL8)Nmcmc-1.0)/(REAL8)Nmcmc;
     REAL8 minsloppyfraction=0.;
     if(Nmcmc==1) maxsloppyfraction=minsloppyfraction=0.0;
     if (LALInferenceCheckVariable(runState->algorithmParams,"sloppyfraction"))

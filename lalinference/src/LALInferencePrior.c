@@ -514,12 +514,12 @@ LALInferenceVariableItem *item=params->head;
 	char normName[VARNAME_MAX];
 	char massRatioName[VARNAME_MAX];
 	REAL8 norm=0.0;
-
+    int return_marginals = 0;
   if (!S6PEpriorWarning) {
     S6PEpriorWarning = 1;
     fprintf(stderr, "S6PEpaper priors are being used. (in %s, line %d)\n", __FILE__, __LINE__);
   }
-    
+  if (LALInferenceCheckVariable(priorParams,"marginals")) return_marginals =1;
     if(LALInferenceCheckVariable(params,"asym_massratio")){
       LALInferenceGetMinMaxPrior(priorParams, "asym_massratio", (void *)&massRatioMin, (void *)&massRatioMax);
       strcpy(massRatioName,"asym_massratio");
@@ -701,9 +701,7 @@ LALInferenceVariableItem *item=params->head;
 				        exit(1);
 			        }
 		     	}
-			else if (!LALInferenceGetVariable(priorParams,"marginals")) 
-            {
-                    if(!strcmp(item->name, "distance")){
+                else if(!strcmp(item->name, "distance")){
 					if(LALInferenceCheckVariable(priorParams,"distance_norm")) {
 						norm = *(REAL8 *)LALInferenceGetVariable(priorParams,"distance_norm");
 					}
@@ -712,7 +710,7 @@ LALInferenceVariableItem *item=params->head;
 						norm = +1.09861228867-log(max*max*max-min*min*min);
 						LALInferenceAddVariable(priorParams, "distance_norm", &norm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 					}
-					logPrior += 2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"))+norm;
+					if (return_marginals==0) logPrior += 2.0*log(*(REAL8 *)LALInferenceGetVariable(params,"distance"))+norm;
 					//printf("logPrior@%s=%f\n",item->name,logPrior);
 				}
 				else if(!strcmp(item->name, "logdistance")){
@@ -724,10 +722,9 @@ LALInferenceVariableItem *item=params->head;
 						norm = 1.38629436112-log(max*max*max*max-min*min*min*min);
 						LALInferenceAddVariable(priorParams, "logdistance_norm", &norm, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 					}
-					logPrior += 3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance")+norm;
+					if (return_marginals==0) logPrior += 3.0* *(REAL8 *)LALInferenceGetVariable(params,"logdistance")+norm;
 					//printf("logPrior@%s=%f\n",item->name,logPrior);
 				}
-            }
 				else if(!strcmp(item->name, "fLow")){
 					if(LALInferenceCheckVariable(priorParams,"fLow_norm")) {
 						norm = *(REAL8 *)LALInferenceGetVariable(priorParams,"fLow_norm");
