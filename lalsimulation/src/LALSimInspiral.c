@@ -2420,6 +2420,24 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
                 ABORT_NONDEFAULT_MODES_CHOICE_NULL(waveFlags);
             /* Call the waveform driver routine */
             hlm = XLALSimIMREOBNRv2Modes(phiRef, deltaT, m1, m2, f_min, r);
+            // EOB driver only outputs modes with m>0, add m<0 modes by symmetry
+            size_t l, j;
+            int m;
+            for( l=2; l <= XLALSphHarmTimeSeriesGetMaxL( hlm ); l++ ) {
+                for( m=-l; m<0; m++){
+                    COMPLEX16TimeSeries* inmode = XLALSphHarmTimeSeriesGetMode(
+                            hlm, l, -m );
+                    if( !inmode ) continue;
+                    COMPLEX16TimeSeries* tmpmode = XLALCutCOMPLEX16TimeSeries(
+                            inmode, 0, inmode->data->length );
+                    for( j=0; j < tmpmode->data->length; j++ ){
+                        tmpmode->data->data[j] = cpow(-1, l)
+                            * conj( tmpmode->data->data[j] );
+                    }
+                    hlm = XLALSphHarmTimeSeriesAddMode( hlm, tmpmode, l, m );
+                    XLALDestroyCOMPLEX16TimeSeries( tmpmode );
+                }
+            }
             break;
 
         default:
@@ -2458,6 +2476,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
 {
     REAL8 v0 = 1.;
     COMPLEX16TimeSeries *hlm;
+    SphHarmTimeSeries *ts;
 
     /* General sanity checks that will abort */
     /*
@@ -2542,6 +2561,11 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO,
                     phaseO, l, m);
             break;
+        case EOBNRv2:
+        case EOBNRv2HM:
+            ts = XLALSimIMREOBNRv2Modes(phiRef, deltaT, m1, m2, f_min, r);
+            hlm = XLALSphHarmTimeSeriesGetMode(ts, l, m);
+            break;
 
         default:
             XLALPrintError("Cannot generate modes for this approximant\n");
@@ -2602,7 +2626,7 @@ int XLALSimInspiralImplementedFDApproximants(
         case IMRPhenomC:
         //case TaylorR2F4:
         case TaylorF2:
-        //case SpinTaylorF2:
+        case SpinTaylorF2:
         case TaylorF2RedSpin:
         case TaylorF2RedSpinTidal:
             return 1;

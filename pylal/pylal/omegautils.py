@@ -92,6 +92,10 @@ def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False):
         err_freq = 0
         snr      = (2*amplitude)**(1/2)
         clusters = False
+    elif len(dat)==4:
+        peak, av_freq, amplitude, chisq = dat
+        snr      = (amplitude)**(1/2)
+        peak     = LIGOTimeGPS(peak)
     else:
         raise ValueError("Wrong number of columns in ASCII line. Cannot read.")
     

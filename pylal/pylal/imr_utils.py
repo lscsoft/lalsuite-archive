@@ -267,7 +267,7 @@ def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LogarithmicBins)}):
 	Given a dictionary of bin counts and bin objects keyed by sim
 	attribute, come up with a sensible NDBins scheme
 	"""
-	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]), bintup[0]) for attr, bintup in bin_dict.items()])
+	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]) + sys.float_info.epsilon, bintup[0]) for attr, bintup in bin_dict.items()])
 
 
 def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 11, distbins = 200):

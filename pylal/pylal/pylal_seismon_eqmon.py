@@ -54,7 +54,7 @@ def run_earthquakes(params):
         plotName = os.path.join(earthquakesDirectory,"latencies_written.png")
         pylal.pylal_seismon_eqmon_plot.latencies_written(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"traveltimes%s.png"%params["ifo"])
-        pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,params["gps"],plotName)
+        pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,params["gpsEnd"],plotName)
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
         pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,params["gpsEnd"],plotName)
 

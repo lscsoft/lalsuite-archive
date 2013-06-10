@@ -59,6 +59,10 @@ def parse_command_line():
             "Simulation table to get the injections' process ids from. If multiple injection tables exist " +
             "in the injection-file, just pick one. Examples are sim_inspiral, sim_ringdown."
             )
+    parser.add_option( "-S", "--sim-tag", action = "store", type = "string", default = None,
+        help =
+            "If given set the userTag entry of the inspinj process params table to this value"
+            )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help =
@@ -165,6 +169,55 @@ connection.cursor().execute( sqlquery )
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+if opts.sim_tag:
+  # Set the --user-tag entry of the process params inspinj table to this value
+
+  # Need to get the process ID
+  sqlquery = '''SELECT
+                    sim_proc_id
+                FROM
+                    experiment_summary
+                WHERE
+                    datatype == "simulation"
+                ORDER BY
+                    sim_proc_id
+                DESC LIMIT 1'''
+  c = connection.cursor()
+  c.execute( sqlquery )
+  tmpQuery = connection.cursor().execute( sqlquery )
+  procId = tmpQuery.fetchall()[0]
+
+  # First need to check if a user-tag is already set
+  sqlquery = '''SELECT
+                    value
+                FROM
+                    process_params
+                WHERE
+                    program == "inspinj" AND
+                    process_id == ? AND
+                    (param == "--userTag" OR param == "-userTag")'''
+  tmpQuery = connection.cursor().execute(sqlquery, (procId))
+  orig_tag = tmpQuery.fetchall()
+
+  if orig_tag:
+    # If it exists update it
+    sqlquery = '''UPDATE
+                      process_params
+                  SET
+                      value = ?
+                  WHERE
+                      program == "inspinj" AND
+                      process_id == ? AND
+                      (param == "--userTag" OR param == "-userTag")'''
+    connection.cursor().execute(sqlquery, (opts.sim_tag,procId[0]))
+  else:
+    sqlquery = '''INSERT INTO
+                      process_params
+                      (program, process_id, param, type, value)
+                  VALUES (?, ?, ?, ?, ?)'''
+    connection.cursor().execute(sqlquery, ("inspinj", procId[0], "--userTag",\
+                                           "string", opts.sim_tag))
 
 
 #

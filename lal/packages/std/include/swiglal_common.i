@@ -199,7 +199,6 @@ MACRO(A, B, C, X);
 //    should be undefined, i.e. functions are XLAL functions by default.
 %header %{
 static const LALStatus swiglal_empty_LALStatus = {0, NULL, NULL, NULL, NULL, 0, NULL, 0};
-#define swiglal_XLAL_error() XLALError(__func__, __FILE__, __LINE__, XLAL_EFAILED)
 #undef swiglal_check_LALStatus
 %}
 %typemap(in, noblock=1, numinputs=0) LALStatus* {
@@ -212,7 +211,7 @@ static const LALStatus swiglal_empty_LALStatus = {0, NULL, NULL, NULL, NULL, 0, 
   $action
 #ifdef swiglal_check_LALStatus
   if (lalstatus.statusCode) {
-    swiglal_XLAL_error();
+    XLALSetErrno(XLAL_EFAILED);
     SWIG_exception(SWIG_RuntimeError, lalstatus.statusDescription);
   }
 #else
@@ -258,11 +257,15 @@ static const LALStatus swiglal_empty_LALStatus = {0, NULL, NULL, NULL, NULL, 0, 
 
 // Process an interface function NAME: rename it to RENAME, and set it to
 // always return SWIG-owned wrapping objects (unless the function is being
-// ignored). If DISOWN is true, disown the function's first argument.
-%define %swiglal_process_function(NAME, RENAME, DISOWN)
+// ignored). If IGNORE_TYPE is given, ignore the function's return value.
+// If DISOWN is true, disown the function's first argument.
+%define %swiglal_process_function(NAME, RENAME, IGNORE_TYPE, DISOWN)
 %rename(#RENAME) NAME;
 #if #RENAME != "$ignore"
 %feature("new", "1") NAME;
+#if #IGNORE_TYPE != ""
+%apply SWIGTYPE SWIGLAL_RETURN_VOID { IGNORE_TYPE NAME };
+#endif
 #if DISOWN
 %feature("del", "1") NAME;
 #endif
@@ -586,30 +589,30 @@ if (swiglal_release_parent(PTR)) {
 }
 
 // Public macros to make fixed nD arrays:
-// * output-only arguments: SWIGLAL(OUTPUT_nDARRAY(TYPE, ...))
-%define %swiglal_public_OUTPUT_1DARRAY(TYPE, ...)
+// * output-only arguments: SWIGLAL(OUTPUT_ARRAY_nD(TYPE, ...))
+%define %swiglal_public_OUTPUT_ARRAY_1D(TYPE, ...)
 %swiglal_map_ab(%swiglal_apply, SWIGTYPE OUTPUT[ANY], TYPE, __VA_ARGS__);
 %enddef
-%define %swiglal_public_clear_OUTPUT_1DARRAY(TYPE, ...)
+%define %swiglal_public_clear_OUTPUT_ARRAY_1D(TYPE, ...)
 %swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
 %enddef
-%define %swiglal_public_OUTPUT_2DARRAY(TYPE, ...)
+%define %swiglal_public_OUTPUT_ARRAY_2D(TYPE, ...)
 %swiglal_map_ab(%swiglal_apply, SWIGTYPE OUTPUT[ANY][ANY], TYPE, __VA_ARGS__);
 %enddef
-%define %swiglal_public_clear_OUTPUT_2DARRAY(TYPE, ...)
+%define %swiglal_public_clear_OUTPUT_ARRAY_2D(TYPE, ...)
 %swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
 %enddef
-// * input-output arguments: SWIGLAL(INOUT_nDARRAY(TYPE, ...))
-%define %swiglal_public_INOUT_1DARRAY(TYPE, ...)
+// * input-output arguments: SWIGLAL(INOUT_ARRAY_nD(TYPE, ...))
+%define %swiglal_public_INOUT_ARRAY_1D(TYPE, ...)
 %swiglal_map_ab(%swiglal_apply, SWIGTYPE INOUT[ANY], TYPE, __VA_ARGS__);
 %enddef
-%define %swiglal_public_clear_INOUT_1DARRAY(TYPE, ...)
+%define %swiglal_public_clear_INOUT_ARRAY_1D(TYPE, ...)
 %swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
 %enddef
-%define %swiglal_public_INOUT_2DARRAY(TYPE, ...)
+%define %swiglal_public_INOUT_ARRAY_2D(TYPE, ...)
 %swiglal_map_ab(%swiglal_apply, SWIGTYPE INOUT[ANY][ANY], TYPE, __VA_ARGS__);
 %enddef
-%define %swiglal_public_clear_INOUT_2DARRAY(TYPE, ...)
+%define %swiglal_public_clear_INOUT_ARRAY_2D(TYPE, ...)
 %swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
 %enddef
 
@@ -802,6 +805,18 @@ if (swiglal_release_parent(PTR)) {
 
 ////////// General typemaps and macros //////////
 
+// The SWIGLAL(RETURN_VOID(TYPE,...)) public macro can be used to ensure
+// that the return value of a function is always ignored.
+%define %swiglal_public_RETURN_VOID(TYPE, ...)
+%swiglal_map_ab(%swiglal_apply, SWIGTYPE SWIGLAL_RETURN_VOID, TYPE, __VA_ARGS__);
+%enddef
+%define %swiglal_public_clear_RETURN_VOID(TYPE, ...)
+%swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
+%enddef
+%typemap(out, noblock=1) SWIGTYPE SWIGLAL_RETURN_VOID {
+  %set_output(VOID_Object);
+}
+
 // The SWIGLAL(RETURN_VALUE(TYPE,...)) public macro can be used to ensure
 // that the return value of a function is not ignored, if the return value
 // has previously been ignored in the generated wrappings.
@@ -818,13 +833,6 @@ if (swiglal_release_parent(PTR)) {
 %enddef
 #define %swiglal_public_clear_DISABLE_EXCEPTIONS(...)
 
-// The SWIGLAL(NO_NEW_OBJECT(...)) macro can be used to turn off
-// SWIG object ownership for certain functions.
-%define %swiglal_public_NO_NEW_OBJECT(...)
-%swiglal_map_ab(%swiglal_feature, "new", "0", __VA_ARGS__);
-%enddef
-#define %swiglal_public_clear_NO_NEW_OBJECT(...)
-
 // The SWIGLAL(FUNCTION_POINTER(...)) macro can be used to create
 // a function pointer constant, for functions which need to be used
 // as callback functions.
@@ -833,32 +841,12 @@ if (swiglal_release_parent(PTR)) {
 %enddef
 #define %swiglal_public_clear_FUNCTION_POINTER(...)
 
-// The SWIGLAL(STRUCT_IMMUTABLE(TAGNAME, ...)) macro can be used to make
+// The SWIGLAL(IMMUTABLE_MEMBERS(TAGNAME, ...)) macro can be used to make
 // the listed members of the struct TAGNAME immutable.
-%define %swiglal_public_STRUCT_IMMUTABLE(TAGNAME, ...)
+%define %swiglal_public_IMMUTABLE_MEMBERS(TAGNAME, ...)
 %swiglal_map_abc(%swiglal_feature_nspace, "immutable", "1", TAGNAME, __VA_ARGS__);
 %enddef
-#define %swiglal_public_clear_STRUCT_IMMUTABLE(...)
-
-// Typemap for functions which return 'int'. If these functions also return
-// other output arguments (via 'argout' typemaps), the 'int' return value is
-// ignored. This is because 'int' is very commonly used to return an XLAL
-// error code, which will be converted into a native scripting-language
-// exception, and so the error code itself is not needed directly. To avoid
-// having to unpack the error code when collecting the other output arguments,
-// therefore, it is ignored in the wrappings. Functions which fit this criteria
-// but do return a useful 'int' can use SWIGLAL(RETURN_VALUE(int, ...)) to
-// disable this behaviour.
-// The 'newfree' typemap is used since its code will appear after all the
-// 'argout' typemaps, and will only apply to functions (since only functions
-// have %feature("new") set, and thus generate a 'newfree' typemap). The macro
-// %swiglal_maybe_drop_first_retval() is defined in the scripting-language-
-// specific interface headers; it will drop the first return value (which is
-// the 'int') from the output argument list if the argument list contains
-// at least 2 items (the 'int' and some other output argument).
-%typemap(newfree, noblock=1, fragment="swiglal_maybe_drop_first_retval") int {
-  %swiglal_maybe_drop_first_retval();
-}
+#define %swiglal_public_clear_IMMUTABLE_MEMBERS(...)
 
 // Typemaps for empty arguments. These typemaps are useful when no input from the
 // scripting language is required, and an empty struct needs to be supplied to
@@ -1041,22 +1029,22 @@ if (swiglal_release_parent(PTR)) {
 // the member being accessed, in order to prevent it from being destroyed as long
 // as the SWIG-wrapped member object is in scope. The return object is then always
 // created with SWIG_POINTER_OWN, so that its destructor will always be called.
-%define %swiglal_store_parent(PTR, OWNER)
+%define %swiglal_store_parent(PTR, OWNER, SELF)
 %#if !(OWNER & SWIG_POINTER_OWN)
   if (%as_voidptr(PTR) != NULL) {
-    swiglal_store_parent(%as_voidptr(PTR), swiglal_self());
+    swiglal_store_parent(%as_voidptr(PTR), SELF);
   }
 %#endif
 %enddef
 %typemap(out,noblock=1) SWIGTYPE *, SWIGTYPE &, SWIGTYPE[] {
-  %swiglal_store_parent($1, $owner);
+  %swiglal_store_parent($1, $owner, swiglal_self());
   %set_output(SWIG_NewPointerObj(%as_voidptr($1), $descriptor, ($owner | %newpointer_flags) | SWIG_POINTER_OWN));
 }
 %typemap(out,noblock=1) const SWIGTYPE *, const SWIGTYPE &, const SWIGTYPE[] {
   %set_output(SWIG_NewPointerObj(%as_voidptr($1), $descriptor, ($owner | %newpointer_flags) & ~SWIG_POINTER_OWN));
 }
 %typemap(out, noblock=1) SWIGTYPE *const& {
-  %swiglal_store_parent(*$1, $owner);
+  %swiglal_store_parent(*$1, $owner, swiglal_self());
   %set_output(SWIG_NewPointerObj(%as_voidptr(*$1), $*descriptor, ($owner | %newpointer_flags) | SWIG_POINTER_OWN));
 }
 %typemap(out, noblock=1) const SWIGTYPE *const& {
@@ -1064,7 +1052,7 @@ if (swiglal_release_parent(PTR)) {
 }
 %typemap(out, noblock=1) SWIGTYPE (void* copy = NULL) {
   copy = %swiglal_new_copy($1, $ltype);
-  %swiglal_store_parent(copy, SWIG_POINTER_OWN);
+  %swiglal_store_parent(copy, SWIG_POINTER_OWN, swiglal_self());
   %set_output(SWIG_NewPointerObj(copy, $&descriptor, (%newpointer_flags) | SWIG_POINTER_OWN));
 }
 %typemap(varout, noblock=1) SWIGTYPE *, SWIGTYPE [] {
@@ -1075,6 +1063,23 @@ if (swiglal_release_parent(PTR)) {
 }
 %typemap(varout, noblock=1) SWIGTYPE {
   %set_varoutput(SWIG_NewPointerObj(%as_voidptr(&$1), $&descriptor, (%newpointer_flags) & ~SWIG_POINTER_OWN));
+}
+
+// The SWIGLAL(GET_OBJECT(...)) macro is used when a function returns an object whose
+// memory is owned by the object supplied as the first argument to the function.
+// Typically this occurs when the function is returning some property of its first
+// argument. The macro applies a typemap which calles swiglal_store_parent() to store
+// a reference to the first argument as the 'parent' of the return argument, so that
+// the parent will not be destroyed as long as the return value is in scope.
+%define %swiglal_public_GET_OBJECT(TYPE, ...)
+%swiglal_map_ab(%swiglal_apply, SWIGTYPE* SWIGLAL_GET_OBJECT, TYPE, __VA_ARGS__);
+%enddef
+%define %swiglal_public_clear_GET_OBJECT(TYPE, ...)
+%swiglal_map_a(%swiglal_clear, TYPE, __VA_ARGS__);
+%enddef
+%typemap(out,noblock=1) SWIGTYPE* SWIGLAL_GET_OBJECT {
+  %swiglal_store_parent($1, 0, swiglal_1starg());
+  %set_output(SWIG_NewPointerObj(%as_voidptr($1), $descriptor, ($owner | %newpointer_flags) | SWIG_POINTER_OWN));
 }
 
 // Typemaps for pointers to primitive scalars. These are treated as output-only
