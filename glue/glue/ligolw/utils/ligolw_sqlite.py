@@ -114,7 +114,7 @@ def update_ids(connection, xmldoc, verbose = False):
 	dbtables.idmap_reset(connection)
 
 
-def insert_from_url(connection, url, preserve_ids = False, verbose = False, contenthandler = None):
+def insert_from_url(connection, url, preserve_ids = False, fix_event_ids = False, verbose = False, contenthandler = None):
 	"""
 	Parse and insert the LIGO Light Weight document at the URL into the
 	database the at the given connection.  If preserve_ids is False
@@ -138,6 +138,8 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 	# enable/disable ID remapping
 	#
 
+	assert not (fix_event_ids and preserve_ids)
+
 	orig_DBTable_append = dbtables.DBTable.append
 
 	if not preserve_ids:
@@ -147,7 +149,10 @@ def insert_from_url(connection, url, preserve_ids = False, verbose = False, cont
 			# assume table already exists
 			pass
 		dbtables.idmap_sync(connection)
-		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+		if not fix_event_ids:
+			dbtables.DBTable.append = dbtables.DBTable._remapping_append
+		else:
+			dbtables.DBTable.append = dbtables.DBTable._eventid_fixing_append
 	else:
 		dbtables.DBTable.append = dbtables.DBTable._append
 
