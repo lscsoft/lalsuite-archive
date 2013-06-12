@@ -1517,7 +1517,7 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
 
       eos = injEvent->eos;
 
-      fprintf(stderr, "Equation of state: %d\n",eos);
+//      fprintf(stderr, "Equation of state: %d\n",eos);
 
       /* check which EOS chosen, error if not available */
       if (eos > LAL_SIM_INSPIRAL_NumEOS ) {

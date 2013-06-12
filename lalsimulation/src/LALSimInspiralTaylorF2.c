@@ -114,18 +114,18 @@ int XLALSimInspiralTaylorF2(
     REAL8 d = (m1 - m2) / (m1 + m2);
     REAL8 xs = .5 * (S1z + S2z);
     REAL8 xa = .5 * (S1z - S2z);
-    fprintf(stderr, "TaylorF2 Waveform Generator; EOS: %d\n", eos);
+//    fprintf(stderr, "TaylorF2 Waveform Generator; EOS: %d\n", eos);
     lam1 = XLALSimInspiralEOSLambda(eos, m1);
     lam2 = XLALSimInspiralEOSLambda(eos, m2);
     lam1 = lam1/(m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI*m1*LAL_MTSUN_SI);
     lam2 = lam2/(m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI*m2*LAL_MTSUN_SI);
 
-	fprintf(stderr, "Lambdas: %e, %e\n", lam1, lam2);
+//	fprintf(stderr, "Lambdas: %e, %e\n", lam1, lam2);
 
     REAL8 qm_def1 = XLALSimInspiralEOSQfromLambda(lam1); /* The QM deformability parameters */
     REAL8 qm_def2 = XLALSimInspiralEOSQfromLambda(lam2); /* This is 1 for black holes and larger for neutron stars */
 
-    printf("Quadparams: %e, %e\n", qm_def1, qm_def2);
+//    fprintf(stderr,"Quadparams: %e, %e\n", qm_def1, qm_def2);
 
     switch( spinO )
     {
@@ -191,6 +191,9 @@ int XLALSimInspiralTaylorF2(
             XLAL_ERROR(XLAL_EINVAL);
             break;
     }
+
+    fprintf(stderr, "6PN Tidal: %e\n", pft12);
+    fprintf(stderr, "5PN Tidal: %e\n", pft10);
 
     /* flux coefficients */
     const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
@@ -332,14 +335,16 @@ int XLALSimInspiralTaylorF2(
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
         }
-
+//	fprintf(stderr,"Phase before tidal: %e\n", phasing);
         switch( tideO )
         {
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
                 phasing += pft12 * v12;
+//              fprintf(stderr,"Added v12, phasing = %e\n",phasing);
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
                 phasing += pft10 * v10;
+//              fprintf(stderr,"Added v10, phasing = %e\n",phasing);
             case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
                 break;
             default:
@@ -348,7 +353,7 @@ int XLALSimInspiralTaylorF2(
                 XLAL_ERROR(XLAL_EINVAL);
                 break;
         }
-
+//	fprintf(stderr,"Phasing after tidal: %e\n", phasing);
         phasing *= pfaN / v5;
         flux *= FTaN * v10;
         dEnergy *= dETaN * v;
