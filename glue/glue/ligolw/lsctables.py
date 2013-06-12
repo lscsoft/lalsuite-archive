@@ -1503,7 +1503,7 @@ class SnglInspiralTable(table.Table):
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
 
-	def get_effective_snr(self, fac=250.0):    
+	def get_effective_snr(self, fac=250.0):
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
 		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
@@ -1653,7 +1653,7 @@ class SnglInspiral(object):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_chisq()**0.25
 	
 	def get_bank_effective_snr(self,fac=250.0):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25 
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25
 
 	def get_cont_effective_snr(self,fac=250.0):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_cont_chisq()**0.25
@@ -2602,7 +2602,7 @@ class SimInspiralTable(table.Table):
 		elif column == 'total_mass' or column == 'mtotal':
 			m1=self.getColumnByName('mass1').asarray()
 			m2=self.getColumnByName('mass2').asarray()
-			return m1+m2 
+			return m1+m2
 		else:
 			return self.getColumnByName(column).asarray()
 
