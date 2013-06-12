@@ -192,8 +192,8 @@ int XLALSimInspiralTaylorF2(
             break;
     }
 
-    fprintf(stderr, "6PN Tidal: %e\n", pft12);
-    fprintf(stderr, "5PN Tidal: %e\n", pft10);
+//    fprintf(stderr, "6PN Tidal: %e\n", pft12);
+//    fprintf(stderr, "5PN Tidal: %e\n", pft10);
 
     /* flux coefficients */
     const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
