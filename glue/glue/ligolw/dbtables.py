@@ -858,24 +858,6 @@ class DBTable(table.Table):
 			setattr(row, self.next_id.column_name, idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
 		self._append(row)
 
-	def _eventid_fixing_append(self, row):
-		"""
-		Replacement for _remapping_append method.  This
-		version also discards the event_ids in the sngl_inspiral
-		table and replaces them with auto-incrementing integers.
-		This method is intended for internal use only.
-		"""
-		if self.next_id is not None:
-			if isinstance(row, lsctables.SnglInspiral):
-				if not hasattr(self, '_counter'):
-					self._counter = itertools.count(0)
-				new_id = lsctables.SnglInspiralID(self._counter.next())
-				setattr(row, self.next_id.column_name, new_id)
-			# assign (and record) a new ID before inserting the
-			# row to avoid collisions with existing rows
-			setattr(row, self.next_id.column_name, idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
-		self._append(row)
-
 	append = _append
 
 	def row_from_cols(self, values):
