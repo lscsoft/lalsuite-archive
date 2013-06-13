@@ -118,17 +118,57 @@ def get_min_far_inspiral_injections(connection, segments = None, table_name = "c
 	return found_injections.values(), total_injections.values(), missed_injections.values()
 
 
-def found_injections_below_far(found, far_thresh = float("inf")):
+def get_max_snr_inspiral_injections(connection, segments = None, table_name = "coinc_inspiral"):
 	"""
-	This function takes an iterable of tuples of the form (far, sim)
-	and gives you back all of sims that are below a given far threshold
+	Like get_min_far_inspiral_injections but uses SNR to rank injections.
 	"""
-	#FIXME this could be made faster
-	output = []
-	for far, sim in found:
-		if far < far_thresh:
-			output.append(sim)
-	return output
+
+	if table_name == dbtables.lsctables.CoincInspiralTable.tableName:
+		found_query = 'SELECT sim_inspiral.*, coinc_inspiral.snr FROM sim_inspiral JOIN coinc_event_map AS mapA ON mapA.event_id == sim_inspiral.simulation_id JOIN coinc_event_map AS mapB ON mapB.coinc_event_id == mapA.coinc_event_id JOIN coinc_inspiral ON coinc_inspiral.coinc_event_id == mapB.event_id JOIN coinc_event on coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id WHERE mapA.table_name = "sim_inspiral" AND mapB.table_name = "coinc_event" AND injection_in_segments(sim_inspiral.geocent_end_time, sim_inspiral.geocent_end_time_ns)'
+
+	elif table_name in allowed_analysis_table_names():
+		raise NotImplementedError("get_max_snr_inspiral_injections has not yet implemented querying against the table %s. Please consider submitting a patch. See get_min_far_inspiral_injections for how to construct your query." % table_name)
+	else:
+		raise ValueError("table must be in " + " ".join(allowed_analysis_table_names()))
+
+
+	def injection_was_made(end_time, end_time_ns, segments = segments):
+		return time_within_segments(end_time, end_time_ns, segments)
+
+	# restrict the found injections to only be within certain segments
+	connection.create_function("injection_in_segments", 2, injection_was_made)
+
+	# get the mapping of a record returned by the database to a sim
+	# inspiral row. Note that this is DB dependent potentially, so always
+	# do this!
+	make_sim_inspiral = make_sim_inspiral_row_from_columns_in_db(connection)
+
+	found_injections = {}
+
+	for values in connection.cursor().execute(found_query):
+		# all but the last column is used to build a sim inspiral object
+		sim = make_sim_inspiral(values[:-1])
+		snr = values[-1]
+		# update with the minimum far seen until now
+		this_inj = found_injections.setdefault(sim.simulation_id, (snr, sim))
+		if snr > this_inj[0]:
+			found_injections[sim.simulation_id] = (snr, sim)
+
+	total_query = 'SELECT * FROM sim_inspiral WHERE injection_in_segments(geocent_end_time, geocent_end_time_ns)'
+
+	total_injections = {}
+	# Missed injections start as a copy of the found injections
+	missed_injections = {}
+	for values in connection.cursor().execute(total_query):
+		sim = make_sim_inspiral(values)
+		total_injections[sim.simulation_id] = sim
+		missed_injections[sim.simulation_id] = sim
+
+	# now actually remove the missed injections
+	for k in found_injections:
+		del missed_injections[k]
+
+	return found_injections.values(), total_injections.values(), missed_injections.values()
 
 
 def get_instruments_from_coinc_event_table(connection):
