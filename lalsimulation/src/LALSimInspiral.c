@@ -26,6 +26,7 @@
 #include <gsl/gsl_odeiv.h>
 
 #include <lal/LALSimInspiral.h>
+#include <lal/LALSimIMR.h>
 #include <lal/LALConstants.h>
 #include <lal/LALStdlib.h>
 #include <lal/TimeSeries.h>
@@ -352,9 +353,9 @@ static int checkTidesZero(REAL8 lambda1, REAL8 lambda2)
 	} while (0)
 
 /* 
- * Structyure to carry a collectio of spherical harmonic modes in COMPLEX16 
+ * Structure to carry a collection of spherical harmonic modes in COMPLEX16
  * time series. Contains convenience getter and setter functions, as well as
- * a convienence "maximum l mode" function. Implemented as a singly forward
+ * a convenience "maximum l mode" function. Implemented as a singly forward
  * linked list.
  */
 struct
@@ -366,9 +367,25 @@ tagSphHarmTimeSeries
     struct tagSphHarmTimeSeries*    next; /**< next pointer */
 };
 
-/* Prepend a node to the linked list - or - create a new head */
-SphHarmTimeSeries* XLALSphHarmTimeSeriesAddMode( SphHarmTimeSeries *appended, const COMPLEX16TimeSeries* inmode, UINT4 l, INT4 m ){
+struct
+tagSphHarmFrequencySeries
+{
+    COMPLEX16FrequencySeries*            mode; /**< The sequences of sampled data. */
+    UINT4                           l; /**< Node mode l  */
+    INT4                            m; /**< Node submode m  */
+    struct tagSphHarmFrequencySeries*    next; /**< next pointer */
+};
 
+/**
+ * Prepend a node to a linked list of SphHarmTimeSeries, or create a new head
+ */
+SphHarmTimeSeries* XLALSphHarmTimeSeriesAddMode(
+            SphHarmTimeSeries *appended, /**< Linked list to be prepended */
+            const COMPLEX16TimeSeries* inmode, /**< Time series of h_lm mode being prepended */
+            UINT4 l, /**< l index of h_lm mode being prepended */
+            INT4 m /**< m index of h_lm mode being prepended */
+            )
+{
     SphHarmTimeSeries* ts;
 
 	// Check if the node with this l, m already exists
@@ -382,7 +399,7 @@ SphHarmTimeSeries* XLALSphHarmTimeSeriesAddMode( SphHarmTimeSeries *appended, co
 
 	if( ts ){
 		XLALDestroyCOMPLEX16TimeSeries( ts->mode );
-    	ts->mode = XLALCutCOMPLEX16TimeSeries( inmode, 0, inmode->data->length );
+		ts->mode = XLALCutCOMPLEX16TimeSeries( inmode, 0, inmode->data->length);
 		return appended;
 	} else {
     	ts = XLALMalloc( sizeof(SphHarmTimeSeries) );
@@ -393,7 +410,7 @@ SphHarmTimeSeries* XLALSphHarmTimeSeriesAddMode( SphHarmTimeSeries *appended, co
 	// Cut returns a new series using a slice of the original. I ask it to
 	// return a new one for the full data length --- essentially a duplication
 	if( inmode ){
-    	ts->mode = XLALCutCOMPLEX16TimeSeries( inmode, 0, inmode->data->length );
+		ts->mode = XLALCutCOMPLEX16TimeSeries( inmode, 0, inmode->data->length);
 	} else {
 		ts->mode = NULL;
 	}
@@ -407,8 +424,11 @@ SphHarmTimeSeries* XLALSphHarmTimeSeriesAddMode( SphHarmTimeSeries *appended, co
     return ts;
 }
 
-/* Delete list from current pointer to the end of the list */
-void XLALDestroySphHarmTimeSeries( SphHarmTimeSeries* ts ){
+/** Delete list from current pointer to the end of the list */
+void XLALDestroySphHarmTimeSeries(
+            SphHarmTimeSeries* ts /**< Head of linked list to destroy */
+            )
+{
     SphHarmTimeSeries* pop;
     while( (pop = ts) ){
 		if( pop->mode ){
@@ -419,10 +439,16 @@ void XLALDestroySphHarmTimeSeries( SphHarmTimeSeries* ts ){
     }
 }
 
-/* 
- * Get the mode-decomposed time series corresponding to l,m.
+/**
+ * Get the time series of a waveform's (l,m) spherical harmonic mode from a
+ * SphHarmTimeSeries linked list. Returns a pointer to its COMPLEX16TimeSeries
  */
-COMPLEX16TimeSeries* XLALSphHarmTimeSeriesGetMode( SphHarmTimeSeries *ts , UINT4 l, INT4 m ){
+COMPLEX16TimeSeries* XLALSphHarmTimeSeriesGetMode(
+            SphHarmTimeSeries *ts, /** linked list to extract mode from */
+            UINT4 l, /**< l index of h_lm mode to get */
+            INT4 m /**< m index of h_lm mode to get */
+            )
+{
     if( !ts ) return NULL;
 
     SphHarmTimeSeries *itr = ts;
@@ -433,8 +459,8 @@ COMPLEX16TimeSeries* XLALSphHarmTimeSeriesGetMode( SphHarmTimeSeries *ts , UINT4
     return itr->mode;
 }
 
-/* 
- * Get the maximum major mode added to structure.
+/**
+ * Get the largest l index of any mode in the SphHarmTimeSeries linked list
  */
 UINT4 XLALSphHarmTimeSeriesGetMaxL( SphHarmTimeSeries* ts ){
     SphHarmTimeSeries *itr = ts;
@@ -445,6 +471,144 @@ UINT4 XLALSphHarmTimeSeriesGetMaxL( SphHarmTimeSeries* ts ){
 		itr = itr ->next;
     }
     return maxl;
+}
+
+/**
+ * Prepend a node to a linked list of SphHarmFrequencySeries, or create a new head
+ */
+SphHarmFrequencySeries* XLALSphHarmFrequencySeriesAddMode(
+            SphHarmFrequencySeries *appended, /**< Linked list to be prepended */
+            const COMPLEX16FrequencySeries* inmode, /**< Time series of h_lm mode being prepended */
+            UINT4 l, /**< l index of h_lm mode being prepended */
+            INT4 m /**< m index of h_lm mode being prepended */
+            )
+{
+    SphHarmFrequencySeries* ts;
+
+	// Check if the node with this l, m already exists
+	ts = appended;
+	while( ts ){
+		if( l == ts->l && m == ts->m ){
+			break;
+		}
+		ts = ts->next;
+	}
+
+	if( ts ){
+		XLALDestroyCOMPLEX16FrequencySeries( ts->mode );
+		ts->mode = XLALCutCOMPLEX16FrequencySeries( inmode, 0, inmode->data->length);
+		return appended;
+	} else {
+    	ts = XLALMalloc( sizeof(SphHarmFrequencySeries) );
+	}
+
+    ts->l = l;
+    ts->m = m;
+	// Cut returns a new series using a slice of the original. I ask it to
+	// return a new one for the full data length --- essentially a duplication
+	if( inmode ){
+		ts->mode = XLALCutCOMPLEX16FrequencySeries( inmode, 0, inmode->data->length);
+	} else {
+		ts->mode = NULL;
+	}
+
+    if( appended ){
+        ts->next = appended;
+    } else {
+        ts->next = NULL;
+    }
+
+    return ts;
+}
+
+/** Delete list from current pointer to the end of the list */
+void XLALDestroySphHarmFrequencySeries(
+            SphHarmFrequencySeries* ts /**< Head of linked list to destroy */
+            )
+{
+    SphHarmFrequencySeries* pop;
+    while( (pop = ts) ){
+		if( pop->mode ){
+        	XLALDestroyCOMPLEX16FrequencySeries( pop->mode );
+		}
+        ts = pop->next;
+        XLALFree( pop );
+    }
+}
+
+/**
+ * Get the time series of a waveform's (l,m) spherical harmonic mode from a
+ * SphHarmFrequencySeries linked list. Returns a pointer to its COMPLEX16FrequencySeries
+ */
+COMPLEX16FrequencySeries* XLALSphHarmFrequencySeriesGetMode(
+            SphHarmFrequencySeries *ts, /** linked list to extract mode from */
+            UINT4 l, /**< l index of h_lm mode to get */
+            INT4 m /**< m index of h_lm mode to get */
+            )
+{
+    if( !ts ) return NULL;
+
+    SphHarmFrequencySeries *itr = ts;
+    while( itr->l != l || itr->m != m ){
+        itr = itr->next;
+        if( !itr ) return NULL;
+    }
+    return itr->mode;
+}
+
+/**
+ * Get the largest l index of any mode in the SphHarmFrequencySeries linked list
+ */
+UINT4 XLALSphHarmFrequencySeriesGetMaxL( SphHarmFrequencySeries* ts ){
+    SphHarmFrequencySeries *itr = ts;
+	UINT4 maxl=0;
+
+    while( itr ){
+		maxl = itr->l > maxl ? itr->l : maxl;
+		itr = itr ->next;
+    }
+    return maxl;
+}
+
+
+/**
+ * Compute the polarizations from all the -2 spin-weighted spherical harmonic
+ * modes stored in 'hlms'. Be sure that 'hlms' is the head of the linked list!
+ *
+ * The computation done is:
+ * hp(t) - i hc(t) = \sum_l \sum_m h_lm(t) -2Y_lm(iota,psi)
+ *
+ * iota and psi are the inclination and polarization angle of the observer
+ * relative to the source of GWs.
+ */
+int XLALSimInspiralPolarizationsFromSphHarmTimeSeries(
+    REAL8TimeSeries **hp, /**< Plus polarization time series [returned] */
+    REAL8TimeSeries **hc, /**< Cross polarization time series [returned] */
+    SphHarmTimeSeries *hlms, /**< Head of linked list of waveform modes */
+    REAL8 iota, /**< inclination of viewer to source frame (rad) */
+    REAL8 psi /**< polarization angle (rad) */
+    )
+{
+    int ret;
+    SphHarmTimeSeries *ts = hlms;
+    size_t length = ts->mode->data->length;
+    // Destroy hp, hc TimeSeries if they already exist
+    if( (*hp) ) XLALDestroyREAL8TimeSeries( *hp );
+    if( (*hc) ) XLALDestroyREAL8TimeSeries( *hc );
+    *hp = XLALCreateREAL8TimeSeries("hplus", &(ts->mode->epoch), ts->mode->f0,
+                ts->mode->deltaT, &lalStrainUnit, length);
+    *hc = XLALCreateREAL8TimeSeries("hplus", &(ts->mode->epoch), ts->mode->f0,
+                ts->mode->deltaT, &lalStrainUnit, length);
+    memset( (*hp)->data->data, 0, (*hp)->data->length*sizeof(REAL8) );
+    memset( (*hc)->data->data, 0, (*hc)->data->length*sizeof(REAL8) );
+    while (ts) { // Add the contribution from the current mode to hp, hx...
+        // This function adds hlm(t) * Y_lm(incl,psi) to (h+ - i hx)(t)
+        ret = XLALSimAddMode(*hp, *hc, ts->mode, iota, psi, ts->l, ts->m, 0);
+        if( ret != XLAL_SUCCESS ) XLAL_ERROR(XLAL_EFUNC);
+        ts = ts->next;
+    }
+
+    return XLAL_SUCCESS;
 }
 
 /**
@@ -2296,6 +2460,9 @@ int XLALSimInspiralChooseFDWaveform(
  * Interface to compute a set of -2 spin-weighted spherical harmonic modes
  * for a binary inspiral of any available amplitude and phase PN order.
  * The phasing is computed with any of the TaylorT1, T2, T3, T4 methods.
+ *
+ * It can also return the (2,2), (2,1), (3,3), (4,4), (5,5) modes of the EOBNRv2
+ * model. Note that EOBNRv2 will ignore ampO, phaseO, lmax and f_ref arguments.
  */
 SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
     REAL8 phiRef,                               /**< reference orbital phase (rad) */
@@ -2316,7 +2483,7 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
     )
 {
     REAL8 v0 = 1.;
-    SphHarmTimeSeries *hlm;
+    SphHarmTimeSeries *hlm = NULL;
 
     /* General sanity checks that will abort */
     /*
@@ -2403,6 +2570,36 @@ SphHarmTimeSeries *XLALSimInspiralChooseTDModes(
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO,
                     phaseO, lmax);
             break;
+        case EOBNRv2:
+        case EOBNRv2HM:
+            /* Waveform-specific sanity checks */
+            if( !XLALSimInspiralFrameAxisIsDefault(
+                    XLALSimInspiralGetFrameAxis(waveFlags) ) )
+                ABORT_NONDEFAULT_FRAME_AXIS_NULL(waveFlags);
+            if( !XLALSimInspiralModesChoiceIsDefault(
+                    XLALSimInspiralGetModesChoice(waveFlags) ) )
+                ABORT_NONDEFAULT_MODES_CHOICE_NULL(waveFlags);
+            /* Call the waveform driver routine */
+            hlm = XLALSimIMREOBNRv2Modes(phiRef, deltaT, m1, m2, f_min, r);
+            // EOB driver only outputs modes with m>0, add m<0 modes by symmetry
+            size_t l, j;
+            int m;
+            for( l=2; l <= XLALSphHarmTimeSeriesGetMaxL( hlm ); l++ ) {
+                for( m=-l; m<0; m++){
+                    COMPLEX16TimeSeries* inmode = XLALSphHarmTimeSeriesGetMode(
+                            hlm, l, -m );
+                    if( !inmode ) continue;
+                    COMPLEX16TimeSeries* tmpmode = XLALCutCOMPLEX16TimeSeries(
+                            inmode, 0, inmode->data->length );
+                    for( j=0; j < tmpmode->data->length; j++ ){
+                        tmpmode->data->data[j] = cpow(-1, l)
+                            * conj( tmpmode->data->data[j] );
+                    }
+                    hlm = XLALSphHarmTimeSeriesAddMode( hlm, tmpmode, l, m );
+                    XLALDestroyCOMPLEX16TimeSeries( tmpmode );
+                }
+            }
+            break;
 
         default:
             XLALPrintError("Cannot generate modes for this approximant\n");
@@ -2440,6 +2637,7 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
 {
     REAL8 v0 = 1.;
     COMPLEX16TimeSeries *hlm;
+    SphHarmTimeSeries *ts;
 
     /* General sanity checks that will abort */
     /*
@@ -2523,6 +2721,11 @@ COMPLEX16TimeSeries *XLALSimInspiralChooseTDMode(
                     deltaT, m1, m2, f_min, f_ref, r, lambda1, lambda2,
                     XLALSimInspiralGetTidalOrder(waveFlags), amplitudeO,
                     phaseO, l, m);
+            break;
+        case EOBNRv2:
+        case EOBNRv2HM:
+            ts = XLALSimIMREOBNRv2Modes(phiRef, deltaT, m1, m2, f_min, r);
+            hlm = XLALSphHarmTimeSeriesGetMode(ts, l, m);
             break;
 
         default:

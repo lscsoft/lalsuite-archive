@@ -26,7 +26,7 @@ def summary_page(params,channels):
     creates eqmon summary page
     """
 
-    title = "Seismon Summary Page for %s (%d)"%(params["date"],params["gps"])
+    title = "Seismon Summary Page for %s (%d)"%(params["dateString"],params["gpsStart"])
 
     contents=["""
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
@@ -67,6 +67,9 @@ def summary_page(params,channels):
         textLocation = params["path"] + "/" + channel.station_underscore
 
         file = os.path.join(textLocation,"sig.txt")
+        if not os.path.isfile(file):
+            continue
+
         lines = [line.strip() for line in open(file)]
 
         sigDict = []

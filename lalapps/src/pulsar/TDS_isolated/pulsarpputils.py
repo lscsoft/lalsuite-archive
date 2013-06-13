@@ -99,7 +99,9 @@ paramdict = {'H0': '$h_0$', 'COSIOTA': '$\cos{\iota}$', \
              'Q22': '$Q_{22}$\,(kg\,m$^2$)', \
              'SDRAT': 'spin-down ratio', \
              'OMDT': '$\dot{\omega}$', \
-             'EPS1': '$\\epsilon_1$', 'EPS2': '$\\epsilon_2$'}
+             'EPS1': '$\\epsilon_1$', 'EPS2': '$\\epsilon_2$', \
+             'C22': '$C_{22}$', 'C21': '$C_{21}$', \
+             'PHI22': '$\phi_{22}$', 'PHI21': '$\phi_{21}$'}
 
 # some angle conversion functions taken from psr_utils.py in PRESTO
 def rad_to_dms(rad):
@@ -272,7 +274,8 @@ float_keys = ["F", "F0", "F1", "F2", "F3", "F4", "F5", "F6",
               "BETA", "RA_RAD", "DEC_RAD", "GAMMA", "SINI", "M2", "MTOT",
               "FB0", "FB1", "FB2", "ELAT", "ELONG", "PMRA", "PMDEC", "DIST",
               # GW PARAMETERS
-              "H0", "COSIOTA", "PSI", "PHI0", "THETA", "I21", "I31"]
+              "H0", "COSIOTA", "PSI", "PHI0", "THETA", "I21", "I31", "C22",
+              "C21", "PHI22", "PHI21", "SNR"]
 str_keys = ["FILE", "PSR", "PSRJ", "NAME", "RAJ", "DECJ", "RA", "DEC", "EPHEM",
             "CLK", "BINARY", "UNITS"]
 
@@ -553,6 +556,10 @@ def plot_posterior_hist(poslist, param, ifos,
   if parfile:
     parval = parfile[param.upper()]
 
+  if ifos == None:
+    # default to just output colour for H1
+    ifos = ['H1']
+
   # loop over ifos
   for idx, ifo in enumerate(ifos):
     # check whether to plot all figures on top of each other
@@ -597,7 +604,7 @@ def plot_posterior_hist(poslist, param, ifos,
       # prepend a zero to ct
       ct = np.insert(ct, 0, 0)
 
-      # use spline interpolation to find the value at 'upper limit'
+      # use linear interpolation to find the value at 'upper limit'
       ctu, ui = np.unique(ct, return_index=True)
       intf = interp1d(ctu, bins[ui], kind='linear')
       ulvals.append(intf(float(upperlimit)))
@@ -619,6 +626,29 @@ def plot_posterior_hist(poslist, param, ifos,
     myfigs.append(myfig)
 
   return myfigs, ulvals
+
+
+# function to return an upper limit from a posteriors: pos is an array of posteriors samples for a
+# particular parameter
+def upper_limit(pos, upperlimit=0.95, parambounds=[float("-inf"), float("inf")], nbins=50):
+  ulval = 0
+
+  # get a normalised histogram of posterior samples
+  n, bins = hist_norm_bounds( pos, int(nbins), parambounds[0], parambounds[1] )
+
+  # if upper limit is needed then integrate posterior using trapezium rule
+  if upperlimit != 0:
+    ct = cumtrapz(n, bins)
+
+    # prepend a zero to ct
+    ct = np.insert(ct, 0, 0)
+
+    # use linear interpolation to find the value at 'upper limit'
+    ctu, ui = np.unique(ct, return_index=True)
+    intf = interp1d(ctu, bins[ui], kind='linear')
+    ulval = intf(float(upperlimit))
+
+  return ulval
 
 
 # function to plot a posterior chain (be it MCMC chains or nested samples)
@@ -965,9 +995,13 @@ def plot_posterior_hist2D(poslist, params, ifos, bounds=None, nbins=[50,50], \
 
   parval1 = None
   parval2 = None
+
   if parfile:
-    parval1 = parfile[params[0].upper]
-    parval2 = parfile[params[1].upper]
+    parval1 = parfile[params[0].upper()]
+    parval2 = parfile[params[1].upper()]
+
+  if ifos == None:
+    ifos = ['H1']
 
   for idx, ifo in enumerate(ifos):
     posterior = poslist[idx]
@@ -1000,7 +1034,7 @@ interpolation='bicubic', cmap='gray_r')
     # plot injection values if given
     if parval1 and parval2:
       plt.hold(True)
-      plt.plot(parval1, parval2, 'rx', markersize=2)
+      plt.plot(parval1, parval2, 'rx', markersize=8, mew=2)
 
     myfig.subplots_adjust(left=0.18, bottom=0.15) # adjust size
 
@@ -1821,7 +1855,7 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
     for j, det in enumerate(detectors):
       for frf in freqfac:
         if len(npsds) == 1:
-          tmpnpsds.append( (npsds/2.0)/(2.0*dt) )
+          tmpnpsds.append( (npsds[0]/2.0)/(2.0*dt) )
         else:
           tmpnpsds.append( (npsds[count]/2.0)/(2.0*dt) )
 
@@ -1880,6 +1914,7 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
   # add noise and rescale signals if necessary
   if snrscale is not None:
     snrscale = snrscale / snrtot
+    # print snrscale
   else:
     snrscale = 1
 
@@ -1913,7 +1948,7 @@ def inject_pulsar_signal(starttime, duration, dt, detectors, pardict, \
 
   snrtot = snrtot*snrscale
 
-  return tss, ss, snrtot
+  return tss, ss, snrtot, snrscale
 
 
 # function to create a time domain PSD from theoretical

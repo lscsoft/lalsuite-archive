@@ -2,9 +2,11 @@
 
 import os, glob, optparse, shutil, warnings
 from collections import namedtuple
-from subprocess import Popen, PIPE, STDOUT
+import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
+import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
+import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
 
@@ -25,10 +27,24 @@ def parse_commandline():
     parser = optparse.OptionParser(usage=__doc__,version=__version__)
 
     parser.add_option("-p", "--paramsFile", help="Seismon params file.", 
-                      default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_H1PEM.txt")
+                      default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_HIFOY.txt")
 
-    parser.add_option("-g", "--gps", help="GPS Time.", default="1049707008")
-    parser.add_option("-d", "--doPlots",  action="store_true", default=False)
+    parser.add_option("-s", "--gpsStart", help="GPS Start Time.", default=1054028959,type=int)
+    parser.add_option("-e", "--gpsEnd", help="GPS End Time.", default=1054029209,type=int)
+    parser.add_option("-f", "--fftDuration", help="FFT duration.", default=64,type=int)
+
+    parser.add_option("--segmentDatabase", help="Segment database", default="https://segdb2.ligo.caltech.edu")
+    parser.add_option("--segmentFlag", help="Segment flag", default="H1:ODC-PSL_SUMMARY:1")
+    parser.add_option("--segmentsTextFile", help="Segments text file.", default=None)
+
+    parser.add_option("--doPlots",  action="store_true", default=False)
+    parser.add_option("--doEarthquakes",  action="store_true", default=False)
+    parser.add_option("--doOmicron",  action="store_true", default=False)
+    parser.add_option("--doFreqAnalysis",  action="store_true", default=False)
+    parser.add_option("--doAnalysis",  action="store_true", default=False)
+    parser.add_option("--doHTML",  action="store_true", default=False)
+    parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
+    parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -38,7 +54,7 @@ def parse_commandline():
     # show parameters
     if opts.verbose:
         print >> sys.stderr, ""
-        print >> sys.stderr, "running network_eqmon..."
+        print >> sys.stderr, "running pylal_seismon_run..."
         print >> sys.stderr, "version: %s"%__version__
         print >> sys.stderr, ""
         print >> sys.stderr, "***************** PARAMETERS ********************"
@@ -48,6 +64,32 @@ def parse_commandline():
         print >> sys.stderr, ""
 
     return opts
+
+def params_struct(opts):
+
+    params = readParamsFromFile(opts.paramsFile)
+    params["gpsStart"] = opts.gpsStart
+    params["gpsEnd"] = opts.gpsEnd
+    params["fftDuration"] = opts.fftDuration
+    params["segmentDatabase"] = opts.segmentDatabase
+    params["segmentFlag"] = opts.segmentFlag
+    params["segmentsTextFile"] = opts.segmentsTextFile
+
+    params["fmin"] = 1/float(64)
+    params["fmax"] = 64
+    params["doPlots"] = opts.doPlots
+    params["doEarthquakes"] = opts.doEarthquakes
+    params["doOmicron"] = opts.doOmicron
+    params["doAnalysis"] = opts.doAnalysis
+    params["doFreqAnalysis"] = opts.doFreqAnalysis
+    params["doHTML"] = opts.doHTML
+    params["doSegmentsDatabase"] = opts.doSegmentsDatabase
+    params["doSegmentsTextFile"] = opts.doSegmentsTextFile
+
+    params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
+    params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
+
+    return params
 
 def readParamsFromFile(file):
         
@@ -85,29 +127,84 @@ def channel_struct(channelList):
            elif station[0] == "L":
                latitude = 30.4986
                longitude = -90.7483
+           elif station[0] == "G":
+               latitude = 52.246944
+               longitude = 9.808333
+           elif station[0] == "V":
+               latitude = 43.631389
+               longitude = 10.505
+           elif station[0] == "C":
+               latitude = 34.1391
+               longitude = -118.1238
+           elif station[0] == "M":
+               latitude = 44.3465
+               longitude = -103.7574
 
            channel.append( structproxy_channel(station,station_underscore,samplef,calibration,latitude,longitude))
     return channel
 
 def frame_struct(params):
 
-    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(params["ifo"][0],params["frameType"],params["gps"]-1000,params["gps"]),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-    output = p.stdout.read()
-    frameList = output.split("\n")
-    frames = []
-    frameGPS = []
-    frameDur = []
-    for frame in frameList:
-        thisFrame = frame.replace("file://localhost","")
-        if thisFrame is not "":
-            frames.append(thisFrame)
-            thisFrameSplit = thisFrame.split("-")
-            frameGPS.append(float(thisFrameSplit[-2]))
-            frameDur.append(float(thisFrameSplit[-1].replace(".gwf","")))
-    params["frame"] = frames
-    params["frameGPS"] = frameGPS
-    params["frameDur"] = frameDur
+    gpsStart = params["gpsStart"]-1000
+    gpsEnd = params["gpsEnd"]
 
+    if params["ifo"] == "XG":
+        frameDir = "/home/shivaraj/homestakefinal"
+        frameList = [os.path.join(root, name)
+            for root, dirs, files in os.walk(frameDir)
+            for name in files]
+
+        for frame in frameList:
+            thisFrame = frame.replace("file://localhost","")
+            if thisFrame == "":
+                continue
+
+            thisFrameSplit = thisFrame.split("-")
+            gps = float(thisFrameSplit[-2])
+            dur = float(thisFrameSplit[-1].replace(".gwf",""))
+
+            if gps+dur < gpsStart:
+                continue
+            if gps > gpsEnd:
+                continue
+
+            cacheFile = CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
+            datacache.append(cacheFile)
+
+    else:
+        usends = 0
+        if usends:
+            ndsserver = cp.get("datafind", "nds-server")
+            ndsport = cp.getint("datafind", "nds-port")
+        else:
+            connection = glue.GWDataFindClient.GWDataFindHTTPConnection()
+            datacache = connection.find_frame_urls(params["ifo"][0], params["frameType"],
+                                                   gpsStart, gpsEnd,
+                                                   urltype="file",
+                                                   on_gaps="warn")
+            connection.close()
+
+    params["frame"] = datacache
+
+    return params
+
+def segment_struct(params):
+  
+    if params["doSegmentsDatabase"]:    
+        segmentlist, segmentlistValid = pylal.dq.dqSegmentUtils.grab_segments(
+                                               params["gpsStart"],params["gpsEnd"],
+                                               params["segmentFlag"],params["segmentDatabase"],
+                                               segment_summary=True)
+    elif params["doSegmentsTextFile"]:
+        segmentlist = glue.segments.segmentlist() 
+        segs = np.loadtxt(params["segmentsTextFile"])
+        for seg in segs:
+            segmentlist.append(glue.segments.segment(seg[0],seg[1]))
+    else:
+        segmentlist = [glue.segments.segment(params["gpsStart"],params["gpsEnd"])]
+ 
+    params["segments"] = segmentlist
+    
     return params
 
 # =============================================================================
@@ -120,57 +217,56 @@ warnings.filterwarnings("ignore")
 
 # Parse command line
 opts = parse_commandline()
-params = readParamsFromFile(opts.paramsFile)
-params["gps"] = float(opts.gps)
-params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gps"]))
+params = params_struct(opts)
 
 channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 channels = channel_struct(channelList)
 
 params = frame_struct(params)
+params = segment_struct(params)
 
-params["gpsStart"] = params["frameGPS"][-1]
-params["gpsEnd"] = params["frameGPS"][-1] + params["frameDur"][-1]
+if params["doAnalysis"]:
+    # Output path for run
+    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
+    if not os.path.isdir(params["path"]):
+        os.makedirs(params["path"])
 
-if params["gpsEnd"] - params["gpsStart"] < 256:
-    params["gpsStart"] = params["gpsEnd"] - 256
+    print params["path"]
 
-# Output path for run
-params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"])
-if not os.path.isdir(params["path"]):
-    os.makedirs(params["path"])
+if params["doEarthquakes"]:
+    print "Finding earthquakes"
+    pylal.pylal_seismon_eqmon.run_earthquakes(params)
 
-print params["path"]
-
-params["fmin"] = 1/float(64)
-params["fmax"] = 64
-params["doPlots"] = opts.doPlots
-
-print "Finding earthquakes"
-pylal.pylal_seismon_eqmon.run_earthquakes(params)
-
-print "Generating Omicron triggers"
-pylal.pylal_seismon_omicron.generate_triggers(params,channels)
+if params["doOmicron"]:
+    print "Generating Omicron triggers"
+    pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station
-    pylal.pylal_seismon_psd.mat(params,channel)
-    print "Analyzing PSD significance for %s"%channel.station
-    pylal.pylal_seismon_psd.analysis(params,channel)
-    print "Plotting Omicron triggers for %s"%channel.station
-    pylal.pylal_seismon_omicron.plot_triggers(params,channel)
+    for segment in params["segments"]:
+        print "Segment: %d-%d"%(segment[0],segment[1])
+        pylal.pylal_seismon_psd.mat(params,channel,segment)
 
-htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
-if htmlPage is not None:
-    f = open(os.path.join(params["path"],"summary.html"),"w")
-    f.write(htmlPage)
-    f.close()
+    if params["doAnalysis"]:
+        print "Analyzing PSD significance for %s"%channel.station
+        pylal.pylal_seismon_psd.analysis(params,channel)
 
-# Public HTML output path
-params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
-if not os.path.isdir(params["outputPath"]):
-    os.makedirs(params["outputPath"])
+    if params["doOmicron"]:
+        print "Plotting Omicron triggers for %s"%channel.station
+        pylal.pylal_seismon_omicron.plot_triggers(params,channel)
 
-os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
-os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
+if params["doHTML"]:
+    htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)
+    if htmlPage is not None:
+        f = open(os.path.join(params["path"],"summary.html"),"w")
+        f.write(htmlPage)
+        f.close()
+
+    # Public HTML output path
+    params["outputPath"] = os.path.join(params["publicPath"],params["ifo"]);
+    if not os.path.isdir(params["outputPath"]):
+        os.makedirs(params["outputPath"])
+
+    os.system("rm -r %s/%s"%(params["outputPath"],params["runName"]))
+    os.system("cp -r %s %s/%s"%(params["path"],params["outputPath"],params["runName"]))
 

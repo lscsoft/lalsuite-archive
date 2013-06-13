@@ -90,6 +90,9 @@ size_t XLALGetFlatLatticeDimensions(
   FlatLatticeTiling* tiling	///< [in] Tiling state
   );
 
+#ifdef SWIG // SWIG interface directives
+SWIGLAL(GET_OBJECT(XLALGetFlatLatticePoint));
+#endif
 ///
 /// Return the current lattice tiling parameter space point
 ///
@@ -132,9 +135,6 @@ int XLALSetFlatLatticeMetric(
   const double max_mismatch		///< [in] Maximum prescribed mismatch
   );
 
-#ifdef SWIG // SWIG interface directives
-SWIGLAL(NO_NEW_OBJECT(XLALNextFlatLatticePoint));
-#endif
 ///
 /// Move to the next point in the flat lattice tiling parameter space.
 /// Returns the index of the lowest dimension where the point has changed,
