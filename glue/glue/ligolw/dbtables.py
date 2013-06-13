@@ -865,16 +865,12 @@ class DBTable(table.Table):
 		table and replaces them with auto-incrementing integers.
 		This method is intended for internal use only.
 		"""
-		if self.next_id is not None:
-			if isinstance(row, lsctables.SnglInspiral):
-				if not hasattr(self, '_counter'):
-					self._counter = itertools.count(0)
-				new_id = lsctables.SnglInspiralID(self._counter.next())
-				setattr(row, self.next_id.column_name, new_id)
-			# assign (and record) a new ID before inserting the
-			# row to avoid collisions with existing rows
-			setattr(row, self.next_id.column_name, idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
-		self._append(row)
+		if isinstance(row, lsctables.SnglInspiral):
+			if not hasattr(self, '_counter'):
+				self._counter = itertools.count(0)
+			new_id = lsctables.SnglInspiralID(self._counter.next())
+			setattr(row, self.next_id.column_name, new_id)
+		self._remapping_append(row)
 
 	append = _append
 
