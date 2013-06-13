@@ -44,7 +44,7 @@ import sys
 from glue import git_version
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
-from glue.ligolw import dbtables
+from glue.ligolw import dbtables,lsctables
 from glue.ligolw.utils import local_path_from_url
 from glue.ligolw.utils import ligolw_sqlite
 
@@ -155,6 +155,11 @@ if __name__ == '__main__':
 				if options.verbose:
 					print >>sys.stderr, "reading '%s' ..." % source_filename
 				xmldoc = dbtables.get_xml(sqlite3.connect(source_filename))
+                # rewrite IDs inside individual files
+                tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+                tbl.set_next_id(lsctables.SnglInspiralID(0))
+                for row in tbl:
+                    row.event_id = tbl.get_next_id()
 				ligolw_sqlite.insert_from_xmldoc(ContentHandler.connection, xmldoc, preserve_ids = options.preserve_ids, verbose = options.verbose)
 				xmldoc.unlink()
 				dbtables.discard_connection_filename(local_path_from_url(url), source_filename, verbose = options.verbose)
