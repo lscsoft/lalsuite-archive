@@ -492,8 +492,9 @@ class TableStream(ligolw.Stream):
 	def appendData(self, content):
 		# tokenize buffer, pack into row objects, and append to
 		# table
+		appendfunc = self.parentNode.append
 		for row in self._rowbuilder.append(self._tokenizer.append(content)):
-			self.parentNode.append(row)
+			appendfunc(row)
 
 	def unlink(self):
 		"""
