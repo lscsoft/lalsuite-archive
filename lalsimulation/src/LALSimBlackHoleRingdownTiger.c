@@ -27,14 +27,14 @@
 /**
  * Computes the waveform for the ringdown of a black hole
  * quasinormal mode (l,m).
- * The amplitudes and QNM frequen are taken
- * according to Gossan et. al [arXiv: 1111.5819]
+ * The amplitudes and QNM frequen are calculated
+ * according to Gossan et. al 2012 [arXiv: 1111.5819]
  *
  * \note The dimensionless spin assumes values between -1 and 1.
  *
  * \todo Extend so that overtones can be computed too.
  */
-int XLALSimBlackHoleRingdown(
+int XLALSimBlackHoleRingdownTiger(
 	REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
 	REAL8TimeSeries **hcross,	/**< cross-polarization waveform [returned] */
 	const LIGOTimeGPS *t0,		/**< start time of ringdown */
@@ -111,13 +111,103 @@ REAL8 XLALSimSphericalHarmonicCross(int l, int m, float iota){
 	return Ycross;
 }
 
-REAL8 XLALSimRingdownModeAmplitudes(INT4 l, INT4 m, REAL8 eta){
-	REAL8 A = 0.864*eta;
+
+/**
+ * Calculates the amplitudes for the QNM l, m, n=0 for
+ * a given symmetric mass-ratio eta of the initial binary.
+ * Based on an interpolation for NON-SPINNING binary black
+ * holes, derived in Gossan et al (2012) [arXiv: 1111.5819]
+ * 
+ * TO DO: rewrite this properly, add initial (effective) spin dependence
+ **/
+REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 spin1[3], REAL8 spin2[3]){
+	REAL8 A = 0.8639*eta;
 	if (l==2 && m==2){ A *= 1.0 }
-	else if (l==2 && m==1){ A *= 0.52*pow(1.0 - 4*eta, 0.71) }
-	else if (l==3 && m==3){ A *= 0.44*pow(1.0 - 4*eta, 0.45) }
-	else if (l==4 && m==4){ A *= 5.4*((eta - 0.22)*(eta - 0.22) + 0.04)}
+	else if (l==2 && abs(m)==1){ A *= 0.52*pow(1.0 - 4.*eta, 0.71); }	// - 0.23 * chiEff
+	else if (l==3 && abs(m)==3){ A *= 0.44*pow(1.0 - 4.*eta, 0.45); }
+	else if (l==3 && abs(m)==2){ A *= 3.69*(eta - 0.2)*(eta - 0.2) + 0.053; }
+	else if (l==4 && abs(m)==4){ A *= 5.41*((eta - 0.22)*(eta - 0.22) + 0.04); }
 	else A = 0.0;
 	return A;
 	}
+	
+/**
+ * Computes the complex dimensionless eigen-frequency for the
+ * quasinormal mode (l,m), given a dimensionless spin a \in [-1,1].
+ * This is based on the interpolation formula 
+ *
+ * \note The dimensionless spin assumes values between -1 and 1.
+ *
+ * \todo Extend so that overtones can be computed too.
+ */
+COMPLEX16 XLALSimRingdownInterpOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
+	COMPLEX16 omega=0.0;
+	if (abs(a) > 1.){
+		fprintf(stderr, "ERROR: Dimensionless spin magnitude larger than 1! Aborting...\n");
+		exit(-1);
+	}
+	switch (l){
+	case 2:
+		switch (abs(m)){
+		case 2:
+			omega = (1.5251 - 1.1568*pow(1.e0-a,0.1292));
+			omega += I*(2*(0.7000 + 1.4187*pow(1.e0-a,-0.4990)))/omega;
+			break;
+		case 1:
+			omega = (0.6000 - 0.2339*pow(1.e0-a,0.4175));
+			omega += I*(2*(-0.3000 + 2.3561*pow(1.e0-a,-0.2277)))/omega;
+			break;
+		default:
+			break;
+		}
+		break;
+	case 3:
+		switch (abs(m)){
+		case 3:
+			omega = (1.8956 - 1.3043*pow(1.e0-a,0.1818));
+			omega += I*(2*(0.9000 + 2.3430*pow(1.e0-a,-0.4810)))/omega;
+			break;
+		case 2:
+			omega = (1.1481 - 0.5552*pow(1.e0-a,0.3002));
+			omega += I*(2*(0.8313 + 2.3773*pow(1.e0-a,-0.3655)))/omega;
+			break;
+		default:
+			break;
+		}
+		break;
+	case 4:
+		switch (abs(m)){
+		case 4:
+			omega = (2.3000 - 1.5056*pow(1.e0-a,0.2244));
+			omega += I*(2*(1.1929 + 3.1191*pow(1.e0-a,-0.4825)))/omega;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+	if (omega = 0.0){
+		fprintf(stderr, "ERROR: Invalid mode l = %u, m = %d, n = %u\n", l, m, n);
+		exit(-1);
+	}
+	return omega;
+}
+
+/** 
+ * Frequency in rad/sec given dimensionless complex frequency and M
+ **/
+REAL8 XLALQNMFreqOfOmega(COMPLEX16 omega, REAL8 mtot){
+	return (creal(omega)/mtot);
+}
+
+/** 
+ * Damping time in sec given dimensionless complex frequency and M
+ **/
+REAL8 XLALQNMTauOfOmega(COMPLEX16 omega, REAL8 mtot){
+	REAL8 tau = 0;
+	tau = mtot/cimag(omega);
+	return tau;
+}
 
