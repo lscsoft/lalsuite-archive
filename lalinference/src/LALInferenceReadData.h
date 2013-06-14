@@ -60,6 +60,15 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
   */
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState);
 
+/** \brief Function that injects a ringdown-only signal into data, using *** SimRingdownTable
+ * This function injects a ringdown signal from a SimRingdownTable into a pre-existing \c IFOdata 
+ * structure, based on command-line arguments.
+ * \param commandLine [in] Pointer to a *** containing command-line arguments.
+ * \param IFOdata [in] Pointer to a pre-existing IFOdata structure.
+ * \author Michalis Agathos
+ */
+void LALInferenceInjectRingdownSignal(struct tagLALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine);
+
 /*@}*/
 
 #endif
