@@ -1121,14 +1121,26 @@ class DataSummaryTab(SummaryTab):
  
         # get data
         if len(self.spectrogram[channel]):
-            data,epoch,deltaT,f0,deltaF = map(list,\
-                                              zip(*self.spectrogram[channel]))
+            data = []
+            epoch = []
+            deltaT = []
+            f0 = []
+            deltaF = []
+            f_array = self.spectrogram[channel][0]['f_array']
+            for i in range(len(self.spectrogram[channel])):
+                data.append(self.spectrogram[channel][i]['data'])
+                epoch.append(self.spectrogram[channel][i]['epoch'])
+                deltaT.append(self.spectrogram[channel][i]['deltaT'])
+                f0.append(self.spectrogram[channel][i]['f0'])
+                deltaF.append(self.spectrogram[channel][i]['deltaF'])
+
         else:
             data = []
             epoch = LIGOTimeGPS(self.start_time)
             deltaT = 1
             f0 = 0
             deltaF = 1
+            f_array = None
 
         # get ratio
         if ratio:
@@ -1152,7 +1164,7 @@ class DataSummaryTab(SummaryTab):
                 numpy.putmask(data[i].data, numpy.isnan(data[i].data), 1e100)
 
         plotdata.plotspectrogram(data, outfile, epoch=epoch, deltaT=deltaT,\
-                                 f0=f0, deltaF=deltaF, **kwargs)
+                                 f0=f0, deltaF=deltaF, ydata=f_array, **kwargs)
         if subplot:
             self.subplots.append((outfile, desc))
         else:
@@ -1183,10 +1195,10 @@ class DataSummaryTab(SummaryTab):
             serieslist.append(self.designspectrum[channel])
         if self.referencespectrum.has_key(channel):
             serieslist.append(self.referencespectrum[channel])
+
         if psd:
             for i,series in serieslist:
-                serieslist[i] =\
-                    seriesutils.fromarray(series.data.data**2,\
+                serieslist[i] = seriesutils.fromarray(series.data.data**2,\
                                           name=series.name, epoch=series.epoch,\
                                           deltaT=series.deltaF, f0=series.f0,\
                                           sampleUnits=series.sampleUnits,\
@@ -1219,7 +1231,7 @@ class DataSummaryTab(SummaryTab):
  
         # construct info table
         headers = ["Channel", "Sampling rate"]
-        data    = [[channel, self.sampling[channel]]\
+        data    = [[channel, channel in self.sampling and self.sampling[channel] or 'N/A']\
                    for channel in self.channels\
                    if not re.search("[-._](min|max)\Z", channel)]
         self.frame.add(htmlutils.write_table(headers, data, {"table":"full"})())

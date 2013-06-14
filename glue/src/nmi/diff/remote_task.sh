@@ -26,20 +26,20 @@ set -v
 # print (expanded) commands before they're executed
 set -x
 
-# debugging
-#pwd
-#find ..
+# for debugging
+ls -1 */*.xml*
 
 for f in */*.xml*; do
     gunzip -v $f 2> /dev/null
 done
 
+RETVAL=0
 for f in $GIT_ID_A/*.xml; do
     basef=$(basename $f)
-#    ./diff_sans_process --ignore-process-table --ignore-searchsummary-table $f $GIT_ID_B/$basef > $basef.diff 2>&1
-#    ./diff_sans_process --ignore-process-table $f $GIT_ID_B/$basef > $basef.diff 2>&1
     ./ligolw_diff --exclude-tables=processgroup:process:table --exclude-columns=search_summarygroup:search_summary:lal_cvs_tag --columns $f $GIT_ID_B/$basef > $basef.diff 2>&1
-    RETVAL=$?
+    if [ $? -ne 0 ]; then
+	RETVAL=1
+    fi
     echo; echo "===== BEGIN XML DIFF OUTPUT of $f ====="; echo
     cat $basef.diff
     echo; echo "===== END XML DIFF OUTPUT of $f ====="; echo
@@ -49,7 +49,6 @@ for f in $GIT_ID_A/*.xml; do
     echo; echo "===== BEGIN SIMPLE DIFF OUTPUT of $f ====="; echo
     diff $f $GIT_ID_B/$basef | tee $basef.simplediff 2>&1
     echo; echo "===== END SIMPLE DIFF OUTPUT of $f ====="; echo
-    
 done
 
 # put any files we want Metronome to keep for us into results.tar.gz

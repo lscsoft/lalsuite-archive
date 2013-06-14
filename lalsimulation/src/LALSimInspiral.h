@@ -21,10 +21,9 @@
 #define _LALSIMINSPIRAL_H
 
 #include <lal/LALDatatypes.h>
-#include <lal/LALSimIMR.h>
-#include  <lal/LALSimInspiralWaveformFlags.h>
-#include  <lal/LALSimInspiralTestGRParams.h>
-#include  <lal/TimeSeries.h>
+#include <lal/LALSimInspiralWaveformFlags.h>
+#include <lal/LALSimInspiralTestGRParams.h>
+#include <lal/TimeSeries.h>
 #include <gsl/gsl_matrix.h>
 
 #if defined(__cplusplus)
@@ -156,6 +155,8 @@ int XLALSimInspiralREAL8WaveTaper(
  */
 typedef struct tagSphHarmTimeSeries SphHarmTimeSeries;
 
+typedef struct tagSphHarmFrequencySeries SphHarmFrequencySeries;
+
 /* 
  * Create a SphHarmTimeSeries. If appended is not NULL, this will prepend a new
  * structure to the list by duplicating the mode inmode, mode numbers l, and m, 
@@ -180,6 +181,10 @@ void XLALDestroySphHarmTimeSeries( SphHarmTimeSeries* ts );
  */
 UINT4 XLALSphHarmTimeSeriesGetMaxL( SphHarmTimeSeries* ts );
 
+#ifdef SWIG   // SWIG interface directives
+SWIGLAL(GET_OBJECT(COMPLEX16TimeSeries*, XLALSphHarmTimeSeriesGetMode));
+#endif
+
 /* 
  * Get the mode-decomposed time series corresponding to l,m.
  */
@@ -188,6 +193,61 @@ COMPLEX16TimeSeries* XLALSphHarmTimeSeriesGetMode(
 				UINT4 l, 
 				INT4 m 
 );
+
+/* 
+ * Create a SphHarmFrequencySeries. If appended is not NULL, this will prepend a new
+ * structure to the list by duplicating the mode inmode, mode numbers l, and m, 
+ * and then set the next pointer to the appended structure.
+ */
+SphHarmFrequencySeries* XLALSphHarmFrequencySeriesAddMode( 
+		SphHarmFrequencySeries *appended,  /**< List structure to prepend to */
+		const COMPLEX16FrequencySeries* inmode,  /**< mode series to contain */
+		UINT4 l, /**< major mode number */
+		INT4 m  /**< minor mode number */
+);
+
+/* 
+ * Destroy a SphHarmFrequencySeries. Note that this will destroy any 
+ * COMPLEX16TimeSeries which it has references to.
+ */
+void XLALDestroySphHarmFrequencySeries( SphHarmFrequencySeries* ts );
+
+/* 
+ * Destroy a SphHarmFrequencySeries. Note that this will destroy any 
+ * COMPLEX16FrequencySeries which it has references to.
+ */
+UINT4 XLALSphHarmFrequencySeriesGetMaxL( SphHarmFrequencySeries* ts );
+
+#ifdef SWIG   // SWIG interface directives
+SWIGLAL(GET_OBJECT(COMPLEX16FrequencySeries*, XLALSphHarmFrequencySeriesGetMode));
+#endif
+
+/* 
+ * Get the mode-decomposed frequency series corresponding to l,m.
+ */
+COMPLEX16FrequencySeries* XLALSphHarmFrequencySeriesGetMode( 
+				SphHarmFrequencySeries *ts, 
+				UINT4 l, 
+				INT4 m 
+);
+
+/**
+ * Compute the polarizations from all the -2 spin-weighted spherical harmonic
+ * modes stored in 'hlms'. Be sure that 'hlms' is the head of the linked list!
+ *
+ * The computation done is:
+ * hp(t) - i hc(t) = \sum_l \sum_m h_lm(t) -2Y_lm(iota,psi)
+ *
+ * iota and psi are the inclination and polarization angle of the observer
+ * relative to the source of GWs.
+ */
+int XLALSimInspiralPolarizationsFromSphHarmTimeSeries(
+    REAL8TimeSeries **hp, /**< Plus polarization time series [returned] */
+    REAL8TimeSeries **hc, /**< Cross polarization time series [returned] */
+    SphHarmTimeSeries *hlms, /**< Head of linked list of waveform modes */
+    REAL8 iota, /**< inclination of viewer to source frame (rad) */
+    REAL8 psi /**< polarization angle (rad) */
+    );
 
 /**
  * Computes h(2,2) mode of spherical harmonic decomposition of

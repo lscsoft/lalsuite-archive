@@ -119,11 +119,11 @@ if __name__ == '__main__':
         for fitsfileglob in fitsfileglobs))
 
     print('coinc_event_id', 'simulation_id', 'far', 'searched_area', 'searched_prob', 'offset', 'runtime',
-        sep=',', file=outfile)
+        sep="\t", file=outfile)
 
     count_records = 0
     progress.max = len(fitsfilenames)
     for record in imap(process, fitsfilenames):
         count_records += 1
         progress.update(count_records, record[0])
-        print(*record, sep=',', file=outfile)
+        print(*record, sep="\t", file=outfile)

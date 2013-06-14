@@ -106,10 +106,10 @@ def plot_triggers(params,channel):
         os.makedirs(textLocation)
 
     triggers = np.array(triggers)
-
-    triggers_t = triggers[:,0]
-    triggers_f = triggers[:,1]
-    triggers_snr = triggers[:,2]
+    if len(triggers) > 0:
+        triggers_t = triggers[:,0]
+        triggers_f = triggers[:,1]
+        triggers_snr = triggers[:,2]
 
     f = open(os.path.join(textLocation,"triggers.txt"),"w")
     for i in xrange(len(triggers)):
@@ -132,10 +132,10 @@ def plot_triggers(params,channel):
         startTime = params["gpsStart"]
         timeDur = params["gpsEnd"] - startTime
 
-        triggers_t = triggers_t - startTime
-
         ax = plt.subplot(111)
-        plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
+        if len(triggers) > 0:
+            triggers_t = triggers_t - startTime
+            plt.scatter(triggers_t,triggers_f, c=triggers_snr,vmin=min(triggers_snr),vmax=max(triggers_snr))
         cbar = plt.colorbar(orientation='horizontal')  
         #cbar = plt.colorbar(orientation='vertical') 
         cbar.set_label('SNR')
@@ -179,9 +179,13 @@ def generate_triggers(params,channels):
     if not os.path.isdir(omicronDirectory):
         os.makedirs(omicronDirectory)
 
+    gpsStart = 1e20
+    gpsEnd = -1e20
     f = open(os.path.join(omicronDirectory,"frames.ffl"),"w")
-    for frame, frameGPS, frameDur in zip(params["frame"],params["frameGPS"],params["frameDur"]):
-        f.write("%s %d %d 0 0\n"%(frame,frameGPS,frameDur))
+    for frame in params["frame"]:
+        f.write("%s %d %d 0 0\n"%(frame.path, frame.segment[0], frame.segment[1]-frame.segment[0]))
+        gpsStart = min(gpsStart,frame.segment[0])
+        gpsEnd = max(gpsEnd,frame.segment[1])
     f.close()
 
     paramsFile = omicron_params(params,channels)
@@ -190,7 +194,7 @@ def generate_triggers(params,channels):
     f.close()
 
     f = open(os.path.join(omicronDirectory,"segments.txt"),"w")
-    f.write("%d %d\n"%(params["frameGPS"][0],params["frameGPS"][-1]+params["frameDur"][-1]))
+    f.write("%d %d\n"%(gpsStart,gpsEnd))
     f.close()
 
     omicron = "/home/detchar/opt/virgosoft/Omicron/v0r3/Linux-x86_64/omicron.exe"

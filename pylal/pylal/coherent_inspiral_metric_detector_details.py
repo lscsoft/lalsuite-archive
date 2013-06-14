@@ -1,4 +1,4 @@
-# Copyright (C) 2012  Drew Keppel
+# Copyright (C) 2012,2013  Drew Keppel
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -216,6 +216,24 @@ def make_GEO(fLow=10., fNyq=2048., deltaF=0.1, psd_filename=None):
 		(-0.44530676905, 0.86651354130, 0.22551311312),
 		(-0.62605756776, -0.55218609524, 0.55058372486),
 		(3.85630994926e+06, 6.66598956317e+05, 5.01964141725e+06),
+		f=f,
+		psd=psd
+		)
+	detector.set_required_moments()
+	return detector
+
+# detector geometry from http://gwcenter.icrr.u-tokyo.ac.jp/en/
+def make_KAGRA(fLow=10., fNyq=2048., deltaF=0.1, psd_filename=None):
+	if psd_filename is None:
+		f, psd = f_PSD_from_func(
+			lalsimulation.SimNoisePSDKAGRA, fLow, fNyq, deltaF)
+	else:
+		f, psd = f_PSD_from_file(psd_filename,fLow,fNyq,deltaF)
+	detector = metric.Detector(
+		'K',
+		(-0.3758971922940067, -0.83615832915098853, 0.3994252738835008),
+		(0.71644138561445658, 0.011148317434329416, 0.6975582097554448),
+		(-3.777336055e+06, 3.484898386e+06, 3.765313690e+06),
 		f=f,
 		psd=psd
 		)

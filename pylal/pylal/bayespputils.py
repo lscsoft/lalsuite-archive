@@ -4437,9 +4437,9 @@ class PEOutputParser(object):
                                 # the input because we switched the
                                 # names above
                                 outfile.write(lineParams[header.index(label)])
-                                outfile.write(" ")
+                                outfile.write("\t")
                             outfile.write(f_ref)
-                            outfile.write(" ")
+                            outfile.write("\t")
                             outfile.write(str(i))
                             outfile.write("\n")
                         nRead=nRead+1

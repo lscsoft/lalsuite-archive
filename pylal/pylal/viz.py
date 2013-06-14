@@ -1269,25 +1269,23 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
 
     if plot_type == 'log':
       plotbins = 10**plotbins
-      if plot_name:
-        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
-            markeredgewidth=1, linewidth=2, label = plot_name)
-      else:
-        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
-            markeredgewidth=1, linewidth=2)
       if errors:
-        errorbar(plotbins, eff, yerr=error,markersize=12, markerfacecolor='None',\
-            markeredgewidth=1, linewidth = 2, label = plot_name, \
+        errorbar(plotbins, eff, yerr=error, markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2, label = plot_name, \
             fmt = plotsym)
+        semilogx()
+      else:
+        semilogx(plotbins, eff, plotsym, markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2, label = plot_name)
               
     else:
       if errors:
-        errorbar(plotbins, eff, yerr=error, fmt = plotsym, markersize=12,\
-            markerfacecolor='None',\
-            markeredgewidth=1, linewidth=1, label = plot_name)
+        errorbar(plotbins, eff, yerr=error, markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2, label = plot_name, \
+            fmt = plotsym)
       else:
-        plot(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
-            markeredgewidth=1, linewidth=1, label = plot_name)
+        plot(plotbins, eff, plotsym, markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2, label = plot_name)
 
     xlabel(col_name.replace("_"," "), size='x-large')
     ylabel('Efficiency', size='x-large')

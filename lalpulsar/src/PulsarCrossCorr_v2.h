@@ -114,6 +114,22 @@ int XLALGetDopplerShiftedFrequencyInfo
   )
 ;
 
+int XLALCreateSFTIndexListFromMultiSFTVect
+  (
+   SFTIndexList        **indexList,
+   MultiSFTVector      *sfts
+  )
+;
+int XLALCreateSFTPairIndexList
+  (
+   SFTPairIndexList  **pairIndexList,
+   SFTIndexList       *indexList,
+   MultiSFTVector     *sfts,
+   REAL8               maxLag,
+   BOOLEAN             inclAutoCorr
+  )
+;
+
 /*@}*/
 
 #ifdef  __cplusplus

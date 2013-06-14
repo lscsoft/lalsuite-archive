@@ -183,7 +183,7 @@ def fromlalcache(cache, chname, start=-1, duration=1, datatype=-1,\
 def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
                  verbose=False):
     """
-    Read data from the lalframe.FrStream object stream into a REAL?TimeSeries.
+    Read data from the lalframe.LALFrStream object stream into a REAL?TimeSeries.
     Restrict data with the gpsstart and duration parameters.
  
     Arguments:
@@ -206,8 +206,8 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     """
 
     # set mode
-    if verbose:  mode = lalframe.LAL_FR_VERBOSE_MODE
-    else:        mode = lalframe.LAL_FR_DEFAULT_MODE
+    if verbose:  mode = lalframe.LAL_FR_STREAM_VERBOSE_MODE
+    else:        mode = lalframe.LAL_FR_STREAM_DEFAULT_MODE
     lalframe.FrSetMode(stream, mode)
 
     # set time

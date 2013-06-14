@@ -262,12 +262,12 @@ def compute_search_volume_in_bins(found, total, ndbins, sim_to_bins_function):
 	return vol, errors
 
 
-def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LogarithmicBins)}):
+def guess_nd_bins(sims, bin_dict = {"distance": (200, rate.LinearBins)}):
 	"""
 	Given a dictionary of bin counts and bin objects keyed by sim
 	attribute, come up with a sensible NDBins scheme
 	"""
-	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]), bintup[0]) for attr, bintup in bin_dict.items()])
+	return rate.NDBins([bintup[1](min([getattr(sim, attr) for sim in sims]), max([getattr(sim, attr) for sim in sims]) + sys.float_info.epsilon, bintup[0]) for attr, bintup in bin_dict.items()])
 
 
 def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 11, distbins = 200):
@@ -275,7 +275,7 @@ def guess_distance_mass1_mass2_bins_from_sims(sims, mass1bins = 11, mass2bins = 
 	Given a list of the injections, guess at the mass1, mass2 and distance
 	bins.
 	"""
-	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "mass1": (mass1bins, rate.LinearBins), "mass2": (mass2bins, rate.LinearBins)})
+	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LinearBins), "mass1": (mass1bins, rate.LinearBins), "mass2": (mass2bins, rate.LinearBins)})
 
 
 def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins = 11, distbins = 200):
@@ -283,7 +283,7 @@ def guess_distance_spin1z_spin2z_bins_from_sims(sims, spin1bins = 11, spin2bins 
 	Given a list of the injections, guess at the spin1, spin2 and distance
 	bins.
 	"""
-	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LogarithmicBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
+	return guess_nd_bins(sims, bin_dict = {"distance": (distbins, rate.LinearBins), "spin1z": (spin1bins, rate.LinearBins), "spin2z": (spin2bins, rate.LinearBins)})
 
 
 def guess_distance_phenomb_spin_parameter_bins_from_sims(sims, chibins = 11, distbins = 200):
@@ -296,7 +296,7 @@ def guess_distance_phenomb_spin_parameter_bins_from_sims(sims, chibins = 11, dis
 	distances = [tup[0] for tup in dist_chi_vals]
 	chis = [tup[1] for tup in dist_chi_vals]
 
-	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(chis), max(chis), chibins)])
+	return rate.NDBins([rate.LinearBins(min(distances), max(distances), distbins), rate.LinearBins(min(chis), max(chis), chibins)])
 
 
 def guess_distance_mass_ratio_bins_from_sims(sims, qbins = 11, distbins = 200):
@@ -309,7 +309,7 @@ def guess_distance_mass_ratio_bins_from_sims(sims, qbins = 11, distbins = 200):
 	distances = [tup[0] for tup in dist_mratio_vals]
 	mratios = [tup[1] for tup in dist_mratio_vals]
 
-	return rate.NDBins([rate.LogarithmicBins(min(distances), max(distances), distbins), rate.LinearBins(min(mratios), max(mratios), qbins)])
+	return rate.NDBins([rate.LinearBins(min(distances), max(distances), distbins), rate.LinearBins(min(mratios), max(mratios), qbins)])
 
 
 def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
@@ -323,7 +323,7 @@ def guess_distance_total_mass_bins_from_sims(sims, nbins = 11, distbins = 200):
        mindist = numpy.floor(min([sim.distance for sim in sims]))
        maxdist = numpy.ceil(max([sim.distance for sim in sims]))
 
-       return rate.NDBins((rate.LogarithmicBins(mindist, maxdist, distbins), rate.LinearBins(total_lo, total_hi, nbins)))
+       return rate.NDBins((rate.LinearBins(mindist, maxdist, distbins), rate.LinearBins(total_lo, total_hi, nbins)))
 
 
 def sim_to_distance_mass1_mass2_bins_function(sim):

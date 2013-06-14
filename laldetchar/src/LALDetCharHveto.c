@@ -19,6 +19,15 @@
 #define TRIG_NOT_MASKED (SnglBurst*)0x0
 
 /*
+static gint compare(gconstpointer a, gconstpointer b) {
+        const SnglBurst *_a = a;
+        const SnglBurst *_b = b;
+
+        return XLALCompareSnglBurstByPeakTimeAndSNR(&_a, &_b);
+}
+*/
+
+/*
  * Scan through a list of triggers and count the instances of each trigger type
  * and count its coincidences with the target channel. The hash tables for the
  * channel count and coincidence count must already be initialized. The
@@ -167,6 +176,7 @@ void XLALDetCharScanTrigs( GHashTable *chancount, GHashTable *chanhist, GSequenc
 			// Not the target channel?
 			if( strstr( sb_aux->channel, chan ) || sb_aux->next == TRIG_MASKED ){ 
 				trigp = g_sequence_iter_next(trigp);
+				if( g_sequence_iter_is_end(trigp) ) break;
 				sb_aux = (SnglBurst*)g_sequence_get(trigp);
 				continue;
 			}
@@ -271,7 +281,8 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
 		 * the pointer to account for it
 		 */
 		if( pos > 0 && i < onsource->length ){
-			onseg = onsource->segs[i++];
+			i++;
+			onseg = onsource->segs[i];
 			continue;
 		/*
 		 * We're beyond the extent of the onsource list
@@ -303,7 +314,7 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
 		 * where the snr threshold is raised, but we don't want to remove the
 		 * trigger. See warnings and disclaimers at the top of the file.
 		 */
-		if( sb->confidence < snr_thresh && !isrefchan ){
+		if( sb->snr < snr_thresh && !isrefchan ){
 			sb->next = TRIG_MASKED;
 		} else {
 			sb->next = TRIG_NOT_MASKED;
@@ -319,7 +330,7 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
  * TODO: Merge vetolist creation here
  * TODO: Can we also decrement the count / coincidences efficiently here?
  */
-GSequence* XLALDetCharRemoveTrigs( GSequence* trig_sequence, const LALSeg veto, const char* vchan ){
+GSequence* XLALDetCharRemoveTrigs( GSequence* trig_sequence, const LALSeg veto, const char* vchan, double snr_thresh ){
 
 	char refchan[] = "LSC-DARM_ERR";
 	size_t vetoed_events = 0;
@@ -345,7 +356,7 @@ GSequence* XLALDetCharRemoveTrigs( GSequence* trig_sequence, const LALSeg veto, 
 		}
 
 		// Is it the channel to veto on?
-		if( !strstr( sb->channel, vchan ) ){
+		if( (sb->snr < snr_thresh) | !strstr( sb->channel, vchan ) ){
 			trigp = g_sequence_iter_next(trigp);
 			continue; // no, move on
 		}
@@ -466,8 +477,10 @@ void XLALDetCharTrigsToVetoList( LALSegList* vetoes, GSequence* trig_sequence, c
  * function given the expected number of triggers.
  */
 double XLALDetCharHvetoSignificance( double mu, int k ){
-	if( k == 0 ){
-		return 0.0;
+	double sig = gsl_sf_gamma_inc_P(k, mu);
+	if( sig != 0.0 ){
+		return -log10(sig);
+	} else {
+		return -k*log10(mu) + mu*log10(exp(1)) + gsl_sf_lngamma(k+1)/log(10);
 	}
-	return -log10( gsl_sf_gamma_inc_P(k, mu) );
 }

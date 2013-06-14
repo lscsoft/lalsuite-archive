@@ -145,6 +145,7 @@ def calculate_contours(q=4.0, n=3.0, null_thresh=6., null_grad_snr=20,\
             null_cont.append(null_thresh + (snr-null_grad_snr)*null_grad_val)
         else:
             null_cont.append(null_thresh)
+    null_cont = numpy.asarray(null_cont)
 
     return bank_conts,auto_conts,chi_conts,null_cont,snr_vals,colors
 
@@ -484,38 +485,36 @@ def apply_sngl_snr_veto(mi_table, snrs=[4.0, 4.0], return_index=False):
         the indices of the original mi_table not vetoed if return_index=True
     """
     if len(mi_table) == 0:
-        return mi_table
+        if return_index:
+            return numpy.zeros(0).astype(bool)
+        else:
+            return mi_table
     # parse table
     ifos = lsctables.instrument_set_from_ifos(mi_table[0].ifos)
-    mi_time = numpy.asarray(mi_table.get_end()).astype(float)
-    mi_ra = numpy.asarray(mi_table.get_column("ra"))
-    mi_dec = numpy.asarray(mi_table.get_column("dec"))
-    mi_sngl_snr = numpy.asarray([numpy.asarray(mi_table.get_sngl_snr(ifo)) for
-                                 ifo in ifos])
-    mi_sigmasq = numpy.asarray([numpy.asarray(mi_table.get_sigmasq(ifo)) for
-                                ifo in ifos])
-    # make sure number of thresholds is relevant
+    if "H1" in ifos and "H2" in ifos:
+        ifos.remove("H2")
+    mi_sngl_snr = numpy.asarray([numpy.asarray(mi_table.get_sngl_snr(ifo))
+                                 for ifo in ifos])
     if len(snrs) > len(ifos):
         raise ValueError("%s single-detector thresholds given, but only %d "
                          "detectors found." % (len(snrs), len(ifos)))
-    # find most sensitive detectors for each event
-    sens = numpy.zeros((len(ifos), len(mi_table)))
-    keep = numpy.ones(len(mi_table)).astype(bool)
-    for i,ifo in enumerate(ifos):
-        sens[i,:] = map(lambda t: antenna.response(mi_time[t], mi_ra[t],
-                                                   mi_dec[t], 0, 0, "radians",
-                                                   ifo)[2],
-                        range(len(mi_table))) * mi_sigmasq[i,:]
-    sens_ifo = sens.argsort(axis=0)[::-1][:sens.shape[0]]
-    for i,snr in enumerate(snrs):
-        keep &= (mi_sngl_snr[sens_ifo[i,:],
-                 numpy.arange(sens.shape[1])] >= snr)
+    # set snrs
+    snr_array = numpy.zeros(len(ifos))
+    snr_array[:len(snrs)] = snrs
+    snr_array.sort()
+
+    # order sngl_snrs for each event
+    mi_sngl_snr.sort(axis=0)
+
+    # test thresholds
+    keep = (mi_sngl_snr.T > snr_array).all(axis=1)
     if return_index:
         return keep
     else:
         out = table.new_from_template(mi_table)
         out.extend(numpy.asarray(mi_table)[keep])
         return out
+
 
 def apply_null_snr_veto(mi_table, null_snr=6.0, snr=20.0, grad=0.2,\
                         return_index=False):
