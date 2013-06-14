@@ -2184,14 +2184,11 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
     dataPtr->fCross = FcrossScaled;
     dataPtr->timeshift = timeshift;
 
- //sprintf(fname,"%s_template.dat",dataPtr->name);
- //FILE *testout=fopen(fname,"w");
-/*
- for(i=0;i<(INT4) dataPtr->timeModelhPlus->data->length;i++){
-     fprintf(testout,"%10.10e %10.10e %5.5f\n",(REAL8) i*dataPtr->timeData->deltaT, Fplus*dataPtr->timeModelhPlus->data->data[i]+Fcross*dataPtr->timeModelhCross->data->data[i],timeshift);
- }
- fclose(testout);*/
- //fprintf(testout, "f PSD dataRe dataIm signalRe signalIm\n");
+    /*char fname[256];
+    sprintf(fname,"%s_template.dat",dataPtr->name);
+    FILE *testout=fopen(fname,"w");
+    */
+    
     /* determine frequency range & loop over frequency bins: */
     deltaT = dataPtr->timeData->deltaT;
     deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
@@ -2222,17 +2219,16 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
       diffSquared  = diffRe*diffRe + diffIm*diffIm ;  // ...squared difference of the 2 complex figures.
       REAL8 temp = ((TwoDeltaToverN * diffSquared) / dataPtr->oneSidedNoisePowerSpectrum->data->data[i]);
       ifo_snr+=TwoDeltaToverN*(templateReal*templateReal+templateImag*templateImag)/ dataPtr->oneSidedNoisePowerSpectrum->data->data[i];
+      //fprintf(testout,"%10.10e %10.10e %10.10e \n",f,deltaT*templateReal,deltaT*templateImag);
       chisquared  += temp;
       dataPtr->loglikelihood -= temp;
- //if ( i == lower+5)
- //fprintf(stdout, "%e %e %e %e %e %e\n",     f, dataPtr->oneSidedNoisePowerSpectrum->data->data[i],          dataPtr->freqData->data->data[i].re, dataPtr->freqData->data->data[i].im,      templateReal, templateImag);
-  //fprintf(stdout, "%e %e %e %e %e %e %e\n",  f,   re, im,    plainTemplateReal,plainTemplateImag,      templateReal, templateImag);
+ 
     }
     dataPtr = dataPtr->next;
     net_snr+=4.0*ifo_snr;
- //fclose(testout);
+    //fclose(testout);
   }
-  //exit(1);
+ 
   net_snr=sqrt(net_snr);
   //{
   //    printf("logl %10.10e \n",-1.0 * chisquared);
@@ -2241,6 +2237,8 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
   
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
   LALInferenceClearVariables(&intrinsicParams);
+  //printf("%.10e \n",loglikeli);
+  //exit(1);
   return(loglikeli);
 }
 
