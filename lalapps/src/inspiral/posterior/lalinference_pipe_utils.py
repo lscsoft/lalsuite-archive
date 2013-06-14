@@ -367,7 +367,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     seglen = self.config.getfloat('lalinference','seglen')
     # Assume that the data interval is (end_time - seglen -padding , end_time + psdlength +padding )
     # Also require padding before start time
-    return (min(times)-padding-seglen,max(times)+padding+psdlength)
+    print "Getting data min %s max %s\n"%(min(times)-padding-psdlength-seglen,max(times)+padding+psdlength)
+    return (min(times)-padding-psdlength-seglen,max(times)+padding+psdlength)
 
   def setup_from_times(self,times):
     """
@@ -686,6 +687,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       node.set_psdlength(self.config.getint('input','psd-length'))
     if self.config.has_option('input','psd-start-time'):
       node.set_psdstart(self.config.getfloat('input','psd-start-time'))
+    if self.config.has_option('input','padding'):
+      node.set_psdpadding(self.config.getint('input','padding'))
     node.set_max_psdlength(self.config.getint('input','max-psd-length'))
     out_dir=os.path.join(self.basepath,'engine')
     mkdirs(out_dir)
@@ -780,6 +783,7 @@ class EngineNode(pipeline.CondorDAGNode):
     self.psdlength=None
     self.maxlength=None
     self.psdstart=None
+    self.psdpadding=None
     self.cachefiles={}
     self.id=EngineNode.new_id()
     self.__finaldata=False
@@ -795,6 +799,9 @@ class EngineNode(pipeline.CondorDAGNode):
 
   def set_psdstart(self,psdstart):
     self.psdstart=psdstart
+
+  def set_psdpadding(self,padding):
+    self.psdpadding=padding
 
   def set_seed(self,seed):
     self.add_var_opt('randomseed',str(seed))
@@ -897,6 +904,9 @@ class EngineNode(pipeline.CondorDAGNode):
       # NOTE: We perform this arithmetic for all ifos to ensure that a common data set is
       # Used when we are running the coherence test.
       # Otherwise the noise evidence will differ.
+      #print int(self.scisegs[self.ifos[0]].start()),int(self.scisegs[self.ifos[1]].start())
+      #print int(self.scisegs[self.ifos[0]].end()),int(self.scisegs[self.ifos[1]].end())
+
       if self.scisegs!={}:
         starttime=max([int(self.scisegs[ifo].start()) for ifo in self.ifos])
         endtime=min([int(self.scisegs[ifo].end()) for ifo in self.ifos])
@@ -911,9 +921,38 @@ class EngineNode(pipeline.CondorDAGNode):
       # is not exceeded.
       trig_time=self.get_trig_time()
       maxLength=self.maxlength
+      psdpad=self.psdpadding
+      #print "using psd pad %s length %s MaxLength %s\n"%(psdpad,length,maxLength)
       if(length > maxLength):
-        while(self.GPSstart+maxLength<trig_time and self.GPSstart+maxLength<self.__GPSend):
-          self.GPSstart+=maxLength/2.0
+        while(self.GPSstart+maxLength+psdpad<trig_time and self.GPSstart+maxLength+psdpad<self.__GPSend):
+          #print "moving gpsstart from %s to %s\n"%(self.GPSstart,self.GPSstart+(psdpad+maxLength)/2.0)
+          #print "checking new start smaller than trigtime..."
+          #if self.GPSstart+(psdpad+maxLength)/2.0+maxLength+psdpad<trig_time:
+          #    print "TRUE\n"
+          #else: print "FALSE\n"
+          #print "checking new start smaller than end..."
+          #if self.GPSstart+(psdpad+maxLength)/2.0+maxLength<self.__GPSend:
+          #    print "TRUE\n"
+          #else: print "FALSE\n"
+
+          self.GPSstart+=(maxLength+psdpad)/2.0
+      if  self.GPSstart-ceil(self.GPSstart+maxLength+psdpad -trig_time) > starttime:
+          self.GPSstart-=ceil(self.GPSstart+maxLength+psdpad-trig_time)
+      else: 
+          print "trigtime %s too close to starttime %s (diff %s). Trying to calculate PSD on the right\n"%(trig_time,starttime,trig_time-starttime)
+          if (endtime > trig_time+psdpad+maxLength):
+              self.GPSstart=trig_time+psdpad
+          else:
+              if trig_time-psdpad-starttime>endtime-psdpad-trig_time:
+                  self.psdlength=trig_time-psdpad-starttime-1.
+                  side="left"
+                  self.GPSstart=startime+1.
+              else:
+                  self.psdlength=endtime-trig_time-psdpad-1.
+                  side="right"
+                  self.GPSstart=trig_time+psdpad
+
+              print "There is not enough science time on the left or right of the trigtime to use %s secs for the PSD estimation. Using the largest possible stretch. That is %s secs on the %s of trigtime (gpsstart=%s)"%(maxLength,self.psdlength,side,self.GPSstart)
       # Override calculated start time if requested by user in ini file
       if self.psdstart is not None:
         self.GPSstart=self.psdstart
@@ -928,6 +967,8 @@ class EngineNode(pipeline.CondorDAGNode):
           self.psdlength=self.maxlength
       self.add_var_opt('psdlength',self.psdlength)
       self.add_var_opt('seglen',self.seglen)
+      if (trig_time > self.GPSstart and trig_time<self.GPSstart+maxLength+psdpad ):
+          print "WARNING: trigtime %s will be inside PSD segment (start=%s length+pad= %s)!\n"%(trig_time,self.GPSstart,maxLength+psdpad)
       self.__finaldata=True
 
 class LALInferenceNestNode(EngineNode):

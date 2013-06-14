@@ -644,7 +644,7 @@ longitude=inj_table->ra;
       chisquared  += temp;
       fprintf(outInj,"%lf %10.10e %10.10e\n",f,templateReal,templateImag);
     }
-    printf("injected SNR %.1f in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
+    printf("injected SNR %10.10e in IFO %s\n",sqrt(2.0*chisquared),dataPtr->name);
     NetSNR+=2.0*chisquared;
     dataPtr->SNR=sqrt(2.0*chisquared);
      
@@ -675,7 +675,7 @@ longitude=inj_table->ra;
   
 
     LALInferenceClearVariables(&intrinsicParams);
-    printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
+    printf("injected Network SNR %10.10e \n",sqrt(NetSNR)); 
   NetSNR=sqrt(NetSNR); 
 
     if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
