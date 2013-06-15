@@ -1117,21 +1117,52 @@ def get_process_info(connection, verbose=False, debug=False):
         print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
 
+def get_pids_to_update(cursor, programs):
+    """
+    Make a tuple of the process_ids from the temp table '_pidmap_' that need to
+    be updated for a given list of programs.
+    """ 
+
+    sqlquery = """
+        SELECT DISTINCT old_pid 
+        FROM _pidmap_
+        WHERE new_pid != old_pid """
+    if not programs:
+        # get all process_ids regardless of program
+        process_ids = zip(*cursor.execute(sqlquery).fetchall())[0]
+    else:
+        process_ids = ()
+        sqlquery += """
+            AND program = :1
+        """
+        # loop over the list of programs
+        for program in programs:
+            validate_option(program)
+            if (program,) in cursor.execute('SELECT DISTINCT program FROM _pidmap_'):
+                process_ids += zip(*cursor.execute(sqlquery, (program,)).fetchall())[0]
+
+    return process_ids
+
+
 def simplify_summ_tbls(connection, verbose=False, debug=False):
     """
     Delete duplicate information in summary tables according to the process_ids.
     tbl_name: filter, summ_value, search_summary, search_summvars
     """
 
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['inspiral','ringdown'])
+
+    # check that at least one table in table_names is in the database
     all_tables = zip(*get_tables_in_database(connection))[0]
     table_names = ['filter','summ_value','search_summary','search_summvars']
-    # check that at least one table in table_names is in the database
-    if set(table_names) & set(all_tables):
+
+    if old_pids and set(table_names) & set(all_tables):
         if verbose:
             print >> sys.stdout, "\nDelete redundant rows in available summary tables"
-    
-        # create the cursor object used to execute queries and commands
-        cursor = connection.cursor()
     
         # get the non-auto-generated indices for the tables in table_names
         relevant_indices = get_user_created_indices(connection, table_names)
@@ -1180,12 +1211,15 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            print >> sys.stdout, "This database lacks all filtering related summary tables"
+            if not old_pids:
+                print >> sys.stdout, "The search & filter tables lack duplicates."
+            else:
+                print >> sys.stdout, "This database lacks all filtering related summary tables."
+    cursor.close()
 
 
 def update_pid_in_snglstbls(connection, verbose=False, debug=False):
@@ -1195,14 +1229,19 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
     event_ids.
     """
 
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['inspiral','ringdown'])
+
+    # check that at least one table in table_names is in the database
     all_tables = zip(*get_tables_in_database(connection))[0]
     table_names = ['sngl_inspiral','sngl_ringdown']
-    if set(table_names) & set(all_tables):
+
+    if old_pids and set(table_names) & set(all_tables):
         if verbose:
             print >> sys.stdout, "\nUpdate process_ids in the sngl-ifo trigger tables"
-    
-        # create the cursor object used to execute queries and commands
-        cursor = connection.cursor()
 
         # get the non-auto-generated indices for the tables in table_names
         relevant_indices = get_user_created_indices(connection, table_names)
@@ -1238,12 +1277,15 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            print >> sys.stdout, "This database lacks a sngl_inspiral &/or sngl_ringdown table"
+            if not old_pids:
+                print >> sys.stdout, "The sngl_inspiral & sngl_ringdown tables lack duplicates."
+            else:
+                print >> sys.stdout, "This database lacks a sngl_inspiral &/or sngl_ringdown table."
+    cursor.close()
 
 
 def simplify_proc_tbls(connection, verbose=False, debug=False):
@@ -1253,41 +1295,50 @@ def simplify_proc_tbls(connection, verbose=False, debug=False):
     """
     if verbose:
         print >> sys.stdout, "\nDeleting redundant rows in the process & process_params tables"
-    
+ 
     # create the cursor object used to execute queries and commands
     cursor = connection.cursor()
 
-    # get the non-auto-generated indices for the tables in table_names
-    table_names = ['process','process_params']
-    relevant_indices = get_user_created_indices(connection, table_names)
-    # drop indices that will interfere with update & delete statements
-    for idx, sql in relevant_indices:
-        validate_option(idx)
-        cursor.execute('DROP INDEX %s' % idx)
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, [])
 
-    sqlscript = """
-    -- Remove redundant process rows
-    DELETE FROM process 
-        WHERE process_id NOT IN (
-            SELECT old_pid 
-            FROM _pidmap_ ); 
-    DELETE FROM process_params 
-        WHERE process_id NOT IN (
-            SELECT DISTINCT new_pid 
-            FROM _pidmap_ ); 
+    if old_pids:
+        # get the non-auto-generated indices for the tables in table_names
+        table_names = ['process','process_params']
+        relevant_indices = get_user_created_indices(connection, table_names)
+        # drop indices that will interfere with update & delete statements
+        for idx, sql in relevant_indices:
+            validate_option(idx)
+            cursor.execute('DROP INDEX %s' % idx)
     
-    DROP INDEX _pidmap_idx;
-    DROP TABLE _pidmap_; """
-    if debug:
-        print >> sys.stderr, sqlscript
-        print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
-    # execute SQL script
-    cursor.executescript( sqlscript )
-    # commit transactions to database and close the cursor
-    connection.commit()
+        sqlscript = """
+        -- Remove redundant process rows
+        DELETE FROM process 
+            WHERE process_id IN (
+                SELECT DISTINCT old_pid 
+                FROM _pidmap_ 
+                WHERE old_pid != new_pid ); 
+        DELETE FROM process_params 
+            WHERE process_id IN (
+                SELECT DISTINCT old_pid 
+                FROM _pidmap_ 
+                WHERE old_pid != new_pid ); 
+        
+        DROP INDEX _pidmap_idx;
+        DROP TABLE _pidmap_; """
+        if debug:
+            print >> sys.stderr, sqlscript
+            print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
+        # execute SQL script
+        cursor.executescript( sqlscript )
+        # commit transactions to database and close the cursor
+        connection.commit()
+        if debug:
+            print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
+    else:
+        if verbose:
+            print >> sys.stdout, "The process & process_params tables lack duplicates."
     cursor.close()
-    if debug:
-        print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
 
 
 # =============================================================================
@@ -2340,15 +2391,19 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
     if those tables exist in the database. Also update the sim_proc_id column
     in the experiment_summary table. 
     """
+ 
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
 
-    all_tables = zip(*get_tables_in_database(connection))[0]
+    # check for duplicate entries from the process tbl
+    old_pids = get_pids_to_update(cursor, ['inspinj','rinj'])
+
     # check whether there is a simulation table in the database
-    if [tbl for tbl in all_tables if 'sim_' in tbl]:
+    all_tables = zip(*get_tables_in_database(connection))[0]
+
+    if old_pids and [tbl for tbl in all_tables if 'sim_' in tbl]:
         if verbose:
             print >> sys.stdout, "\nCleaning simulation tables..."
-
-        # create the cursor object used to execute queries and commands
-        cursor = connection.cursor()
 
         # get the non-auto-generated indices for the tables in table_names
         table_names = ['sim_inspiral','sim_ringdown','experiment_summary']
@@ -2391,12 +2446,12 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
         cursor.executescript( sqlscript )
         # commit transactions to database and close the cursor
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
             print >> sys.stdout, "This database lacks a simulation table."
+    cursor.close()
 
 
 # =============================================================================
@@ -2629,23 +2684,16 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     tables.
     """
 
-    sqlquery = """
-    SELECT old_pid
-    FROM _pidmap_
-    WHERE
-       program = "ligolw_tisi"
-       AND old_pid != new_pid
-    """
+    # create the cursor object used to execute queries and commands
+    cursor = connection.cursor()
+
     # check for duplicate time_slide entries from the process tbl
-    old_pids = connection.execute( sqlquery ).fetchall()
+    old_pids = get_pids_to_update(cursor, ['ligolw_tisi'])
 
     all_tables = zip(*get_tables_in_database(connection))[0]
     if old_pids and 'time_slide' in all_tables:
         if verbose:
             print >> sys.stdout, "\nClean up the time_slide table ..."
-
-        # create the cursor object used to execute queries and commands
-        cursor = connection.cursor()
 
         # get the non-auto-generated indices for the tables in table_names
         table_names = ['time_slide','experiment_summary','coinc_event']
@@ -2728,9 +2776,8 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script start time: %s" % str(time.localtime()[3:6])
         # execute SQL script
         cursor.executescript( sqlscript )
-        # commit transactions to database and close the cursor
+        # commit transactions to database
         connection.commit()
-        cursor.close()
         if debug:
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
@@ -2739,7 +2786,8 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
                 print sys.stdout, "There is no time_slide table in this database."
             else:
                 print >> sys.stdout, "The time_slide table lacks any duplicates."
-            
+    cursor.close()
+
 
 # =============================================================================
 #
