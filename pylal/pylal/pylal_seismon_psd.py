@@ -23,11 +23,18 @@ __version__ = "0.1"
 # =============================================================================
 
 def read_frames(start_time,end_time,channel,cache):
+
     time = []
     data = []
 
     #== loop over frames in cache
     for frame in cache:
+
+        if end_time < frame.segment[0]:
+            continue
+        if start_time > frame.segment[1]:
+            continue
+
         frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path,channel.station)
         frame_length = float(dt)*len(frame_data)
         frame_time = data_start+dt*np.arange(len(frame_data))
@@ -41,18 +48,51 @@ def read_frames(start_time,end_time,channel,cache):
 
     return time,data
 
-def mat(params, channel, segment):
+def save_data(params,channel,gpsStart,gpsEnd,data,freq,spectra,fft_spectra):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
-    psdLocation = os.path.join(psdLocation,str(params["fftDuration"])) 
+    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
 
+    fftLocation = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore
+    if not os.path.isdir(fftLocation):
+        os.makedirs(fftLocation)
+    fftLocation = os.path.join(fftLocation,str(params["fftDuration"]))
+    if not os.path.isdir(fftLocation):
+        os.makedirs(fftLocation)
+
+    timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore
+    if not os.path.isdir(timeseriesLocation):
+        os.makedirs(timeseriesLocation)
+    timeseriesLocation = os.path.join(timeseriesLocation,str(params["fftDuration"]))
+    if not os.path.isdir(timeseriesLocation):
+        os.makedirs(timeseriesLocation)
+
+    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(psdFile,"wb")
+    for i in xrange(len(freq)):
+        f.write("%e %e\n"%(freq[i],spectra[i]))
+    f.close()
+
+    fftFile = os.path.join(fftLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(fftFile,"wb")
+    for i in xrange(len(freq)):
+        f.write("%e %e %e\n"%(freq[i],fft_spectra[i].real,fft_spectra[i].imag))
+    f.close()
+
+    timeseriesFile = os.path.join(timeseriesLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(timeseriesFile,"wb")
+    f.write("%e %e %e\n"%(np.min(data),np.median(data),np.max(data)))
+    f.close()
+
+def mat(params, channel, segment):
+
     gpsStart = segment[0]
     gpsEnd = segment[1]
-
+    
     time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
 
     NFFT = params["fftDuration"]*channel.samplef
@@ -61,30 +101,33 @@ def mat(params, channel, segment):
 
     spectra = [math.sqrt(e) for e in spectra]
 
+    fft_spectra = np.fft.fft(data)
+    fft_freq = np.fft.fftfreq(len(data),d=1.0/channel.samplef)
+
     newSpectra = []
     newFreq = []
+    newSpectraFFT = []
 
     for i in xrange(len(freq)):
-        if freq[i] <= params["fmax"]:
+        if freq[i] <= params["fmax"] and freq[i] >= params["fmin"]:
             newFreq.append(freq[i])
             newSpectra.append(spectra[i])
+            newSpectraFFT.append(fft_spectra[i])
 
     spectra = newSpectra
     freq = newFreq
+    fft_spectra = newSpectraFFT
 
-    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
-    f = open(psdFile,"wb")
-    for i in xrange(len(freq)):
-        f.write("%e %e\n"%(freq[i],spectra[i]))
-    f.close()
+    save_data(params,channel,gpsStart,gpsEnd,data,freq,spectra,fft_spectra)
 
+    earthquakes = []
     if params["doEarthquakes"]:
         earthquakesDirectory = os.path.join(params["path"],"earthquakes")
         earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
         try:
             earthquakes = np.loadtxt(earthquakesFile)
         except:
-            earthquakes = []
+            pass
 
     if params["doPlots"]:
 

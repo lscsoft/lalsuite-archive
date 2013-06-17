@@ -4,10 +4,9 @@ import os, sys, time, glob, numpy, math, matplotlib, random, string
 from datetime import datetime
 from operator import itemgetter
 import xml.dom.minidom
+import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
-from pylal import Fr
-from collections import namedtuple
 from lxml import etree
 
 import pylal.pylal_seismon_eqmon_plot
@@ -29,10 +28,17 @@ def run_earthquakes(params):
     elif params["ifo"] == "C1":
         ifo = "FortyMeter"
 
+    if params["doEarthquakesAnalysis"]:
+       params["earthquakesMinMag"] = 5
+    else:
+       params["earthquakesMinMag"] = 0
+
     attributeDics = retrieve_earthquakes(params)
     attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
 
     f = open(os.path.join(earthquakesDirectory,"earthquakes.txt"),"w+")
+
+    segmentlist = glue.segments.segmentlist()
 
     for attributeDic in attributeDics:
         traveltimes = attributeDic["traveltimes"][ifo]
@@ -40,7 +46,9 @@ def run_earthquakes(params):
         gpsStart = traveltimes["arrivalMin"] - 200
         gpsEnd = traveltimes["arrivalMax"] + 200
 
-        f.write("%.1f %.1f %.1f %.1f %.1f %.5e\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0]))
+        f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd))
+
+        segmentlist.append(glue.segments.segment(gpsStart,gpsEnd))
 
     f.close()
 
@@ -57,6 +65,8 @@ def run_earthquakes(params):
         pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,params["gpsEnd"],plotName)
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
         pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,params["gpsEnd"],plotName)
+
+    return segmentlist
 
 def parse_xml(element):
 
@@ -390,35 +400,6 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     attributeDic["traveltimes"][ifo] = traveltimes
     return attributeDic
 
-def event_distance(attributeDic,trace):
-
-    distance = -1
-    traveltimes = []
-
-    with open("/home/mcoughlin/git-repo/eqmon/input/eqmon-EARTHWORM-channel_list.txt") as f:
-
-       for line in f:
-
-           line_without_return = line.split("\n")
-           line_split = line_without_return[0].split(" ")
-
-           org = line_split[0]
-           nw = line_split[1]
-           sta = line_split[2]
-           lat = float(line_split[3])
-           lon = float(line_split[4])
-
-           if trace.stats.network == nw and trace.stats.station == sta:
-               latitude = lat
-               longitude = lon
-               distance,fwd,back = gps2DistAzimuth(lat,lon,attributeDic["Latitude"],attributeDic["Longitude"])
-
-               degrees = locations2degrees(lat,lon,attributeDic["Latitude"],attributeDic["Longitude"])
-               traveltimes = getTravelTimes(delta=degrees, depth=attributeDic["Depth"])
-               traveltimes.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
-
-    return distance, traveltimes
-
 def GPSToUTCDateTime(gps):
 
     utc = XLALGPSToUTC(LIGOTimeGPS(int(gps)))
@@ -443,37 +424,6 @@ def attribute_array(attributeDics,type):
         array.append(attribute)
 
     return array
-
-def html_bgcolor(snr,data):
-
-    data = numpy.append(data,snr)
-
-    # Number of colors in array
-    N = 256
-
-    colormap = []
-    for i in xrange(N):
-        r,g,b,a = matplotlib.pyplot.cm.jet(i)
-        r = int(round((r * 255),0))
-        g = int(round((g * 255),0))
-        b = int(round((b* 255),0))
-        colormap.append((r,g,b))
-
-    data = numpy.sort(data)
-    itemIndex = numpy.where(data==snr)
-
-    # Determine significance of snr (between 0 and 1)
-    snrSig = itemIndex[0][0] / float(len(data)+1)
-
-    # Determine color index of this significance
-    index = int(numpy.floor(N * snrSig))
-
-    # Return colors of this index
-    thisColor = colormap[index]
-    # Return rgb string containing these colors
-    bgcolor = "rgb(%d, %d, %d)"%(thisColor[0],thisColor[1],thisColor[2])
-
-    return snrSig, bgcolor
 
 def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
 
@@ -505,83 +455,6 @@ def great_circle_distance(latlong_a, latlong_b):
     
     return d
 
-def create_cache(ifo,frameType,gpsStart,gpsEnd):
-
-    p = Popen("ligo_data_find -o %s -t %s -s %.0f -e %.0f -u file"%(ifo,frameType,gpsStart,gpsEnd),shell=True,stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-    output = p.stdout.read()
-    frameList = output.split("\n")
-    frames = []
-    for frame in frameList:
-        thisFrame = frame.replace("file://localhost","")
-        if thisFrame is not "":
-            frames.append(thisFrame)
-
-    return frames
-
-def read_frames(params,gpsStart,gpsEnd,channel_name,cache):
-    time = []
-    data = []
-
-    #== loop over frames in cache
-    for frame in cache:
-        if frame == "No files found!":
-            continue
-        try:
-            frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,channel_name)
-        except:
-            continue
-        frame_length = float(dt)*len(frame_data)
-        frame_time = data_start+dt*numpy.arange(len(frame_data))
-
-        if frame_time[0] >= gpsStart and frame_time[-1] <= gpsEnd:
-            for i in range(len(frame_data)):
-                time.append(frame_time[i])
-                data.append(frame_data[i])
-        else:
-            for i in range(len(frame_data)):
-                if frame_time[i] <= gpsStart:  continue
-                if frame_time[i] >= gpsEnd:  continue
-                time.append(frame_time[i])
-                data.append(frame_data[i])
-
-    return time,data
-
-def channel_struct(channelList):
-    # Create channel structure
-    structproxy_channel = namedtuple( "structproxy_channel", "name samplef calibration latitude longitude" )
-
-    channel = []
-
-    with open(channelList,'r') as f:
-
-       for line in f:
-
-           line_without_return = line.split("\n")
-           line_split = line_without_return[0].split(" ")
-
-           name = line_split[0]
-           samplef = float(line_split[1])
-           calibration = float(line_split[2])
-
-           if name[0] == "H":
-               latitude = 46.6475
-               longitude = -119.5986;
-           elif name[0] == "L":
-               latitude = 30.4986
-               longitude = -90.7483
-           elif name[0] == "G":
-               latitude = 52.246944
-               longitude = 9.808333
-           elif name[0] == "V":
-               latitude = 43.631389
-               longitude = 10.505
-           elif name[0] == "M":
-               latitude = 44.3465
-               longitude = -103.7574
-
-           channel.append( structproxy_channel(name,samplef,calibration,latitude,longitude))
-    return channel
-
 def retrieve_earthquakes(params):
 
     attributeDics = []
@@ -598,7 +471,9 @@ def retrieve_earthquakes(params):
            continue
 
         attributeDic = read_eqmon(params,file)
-        attributeDics.append(attributeDic)
+
+        if attributeDic["Magnitude"] >= params["earthquakesMinMag"]:
+            attributeDics.append(attributeDic)
 
     return attributeDics
 
@@ -653,118 +528,6 @@ def retrieve_earthquakes_text(params):
         attributeDics.append(attributeDic)
 
     return attributeDics
-
-def NLNM(unit):
-
-    PL = [0.1, 0.17, 0.4, 0.8, 1.24, 2.4, 4.3, 5, 6, 10, 12, 15.6, 21.9, 31.6, 45, 70,\
-        101, 154, 328, 600, 10000]
-    AL = [-162.36, -166.7, -170, -166.4, -168.6, -159.98, -141.1, -71.36, -97.26,\
-        -132.18, -205.27, -37.65, -114.37, -160.58, -187.5, -216.47, -185,\
-        -168.34, -217.43, -258.28, -346.88]
-    BL = [5.64, 0, -8.3, 28.9, 52.48, 29.81, 0, -99.77, -66.49, -31.57, 36.16,\
-        -104.33, -47.1, -16.28, 0, 15.7, 0, -7.61, 11.9, 26.6, 48.75]
-
-    PH = [0.1, 0.22, 0.32, 0.8, 3.8, 4.6, 6.3, 7.9, 15.4, 20, 354.8, 10000]
-    AH = [-108.73, -150.34, -122.31, -108.48, -116.85, -74.66, 0.66, -93.37, 73.54,\
-        -151.52, -206.66, -206.66];
-    BH = [-17.23, -80.5, -23.87, 32.51, 18.08, -32.95, -127.18, -22.42, -162.98,\
-        10.01, 31.63, 31.63]
-
-    fl = [1/float(e) for e in PL]
-    fh = [1/float(e) for e in PH]
-
-    lownoise = []
-    highnoise = []
-    for i in xrange(len(PL)):
-        lownoise.append(10**((AL[i] + BL[i]*math.log10(PL[i]))/20))
-    for i in xrange(len(PH)):
-        highnoise.append(10**((AH[i] + BH[i]*math.log10(PH[i]))/20))
-
-    for i in xrange(len(PL)):
-        if unit == 1:
-            lownoise[i] = lownoise[i] * (PL[i]/(2*math.pi))**2
-        elif unit==2:
-            lownoise[i] = lownoise[i] * (PL[i]/(2*math.pi))
-    for i in xrange(len(PH)):
-        if unit == 1:
-            highnoise[i] = highnoise[i] * (PH[i]/(2*math.pi))**2
-        elif unit==2:
-            highnoise[i] = highnoise[i] * (PH[i]/(2*math.pi))
-
-    return fl, lownoise, fh, highnoise
-
-def get_KW_triggers(trigger_file,trigger_list):
-
-    with open(trigger_file, 'r') as f:
-
-        for line in f:
-
-            line_without_return = line.split("\n")
-            line_split_all = line_without_return[0].split(" ")
-
-            line_split = [d for d in line_split_all \
-                             if d != ""]
-
-            gps_time = float(line_split[1])
-            SNR = math.sqrt(float(line_split[5]) - float(line_split[6]))
-            significance = float(line_split[7])
-            trigger_list.append([gps_time,SNR,significance])
-
-    return trigger_list
-
-def run_kleinewelle(params,gpsStart,gpsEnd,channel,frames):
-
-    kleinewelleFolder = os.path.join(params["outputFolder"],"kleinewelle")
-    if not os.path.isdir(kleinewelleFolder):
-        os.makedirs(kleinewelleFolder)
-
-    kleinewelleParamsFolder = os.path.join(kleinewelleFolder,"params")
-    if not os.path.isdir(kleinewelleParamsFolder):
-        os.makedirs(kleinewelleParamsFolder)
-
-    kleinewelleParams = """
-    stride 128
-    basename %s
-    segname segments
-    significance 20
-    threshold 3.0
-    decimateFactor -1
-    channel %s 1 8
-    channel %s 8 64
-    channel %s 64 1024
-    """ % (channel.replace(":","_"),channel,channel,channel)
-
-    f = open("%s/%s.txt"%(kleinewelleParamsFolder,channel.replace(":","_")),"w")
-    f.write(kleinewelleParams)
-    f.close()
-
-    kleinewelleCacheFolder = os.path.join(kleinewelleFolder,"cache")
-    if not os.path.isdir(kleinewelleCacheFolder):
-        os.makedirs(kleinewelleCacheFolder)
-
-    f = open("%s/%s.txt"%(kleinewelleCacheFolder,channel.replace(":","_")),"w")
-    for frame in frames:
-        f.write(frame + "\n")
-    f.close()
-
-    os.chdir(kleinewelleTriggersUnfilteredFolder)
-    os.system("kleineWelleM %s/%s.txt -inlist %s/%s.txt"%(kleinewelleParamsFolder,channel.replace(":","_"),kleinewelleCacheFolder,channel.replace(":","_")))
-    triggerFolders = glob.glob(os.path.join(kleinewelleTriggersUnfilteredFolder,"%s*"%channel.replace(":","_")))
-    trigger_list = []
-    for folder in triggerFolders:
-        triggerFiles = glob.glob(folder + "/*.trg")
-        for file in triggerFiles:
-            trigger_list = get_KW_triggers(file,trigger_list)
-        os.system("rm -r -f %s"%(folder))
-
-    time = []
-    data = []
-    for trigger in trigger_list:
-        if trigger[0] >= gpsStart and trigger[0] <= gpsEnd:
-            time.append(trigger[0])
-            data.append(trigger[1])
-
-    return time,data
 
 def equi(m, centerlon, centerlat, radius):
     glon1 = centerlon
