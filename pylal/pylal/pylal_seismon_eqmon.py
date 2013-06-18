@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-import os, sys, time, glob, numpy, math, matplotlib, random, string
+import os, sys, time, glob, math, matplotlib, random, string
+import numpy as np
 from datetime import datetime
 from operator import itemgetter
 import xml.dom.minidom
@@ -10,6 +11,156 @@ from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
 
 import pylal.pylal_seismon_eqmon_plot
+
+def run_earthquakes_monitor(params):
+
+    timeseriesDirectory = os.path.join(params["path"],"timeseries")
+    if not os.path.isdir(timeseriesDirectory):
+        os.makedirs(timeseriesDirectory)
+
+    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+    if not os.path.isdir(earthquakesDirectory):
+        os.makedirs(earthquakesDirectory)
+
+    if params["ifo"] == "H1":
+        ifo = "LHO"
+    elif params["ifo"] == "L1":
+        ifo = "LLO"
+    elif params["ifo"] == "G1":
+        ifo = "GEO"
+    elif params["ifo"] == "V1":
+        ifo = "VIRGO"
+    elif params["ifo"] == "C1":
+        ifo = "FortyMeter"
+
+    if params["doEarthquakesAnalysis"]:
+       params["earthquakesMinMag"] = 5
+    else:
+       params["earthquakesMinMag"] = 0
+
+    attributeDics = retrieve_earthquakes(params)
+    attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
+
+    f = open(os.path.join(earthquakesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"])),"w+")
+
+    amp = 0
+
+    for attributeDic in attributeDics:
+        traveltimes = attributeDic["traveltimes"][ifo]
+
+        gpsStart = traveltimes["arrivalMin"] - 200
+        gpsEnd = traveltimes["arrivalMax"] + 200
+
+        check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
+
+        if check_intersect:
+            amp += traveltimes["Rfamp"][0]
+
+            f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd))
+
+    f.close()
+
+    f = open(os.path.join(timeseriesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"])),"w+")
+    f.write("%e\n"%(amp))
+    f.close()
+
+    if not params["doPlots"]:
+        return
+
+    files = glob.glob(os.path.join(timeseriesDirectory,"*.txt"))
+    files = sorted(files)
+
+    ttStart = []
+    ttEnd = []
+    amp = []
+
+    for file in files:
+
+        fileSplit = file.split("/")
+        txtFile = fileSplit[-1].replace(".txt","")
+        txtFileSplit = txtFile.split("-")
+        thisTTStart = int(txtFileSplit[0])
+        thisTTEnd = int(txtFileSplit[1])
+
+        ttStart.append(thisTTStart)
+        ttEnd.append(thisTTEnd)
+
+        data_out = np.loadtxt(file)
+        thisAmp = data_out
+
+        amp.append(thisAmp)
+
+    ttStart = np.array(ttStart)
+    ttEnd = np.array(ttEnd)
+    amp = np.array(amp)
+
+    data = {}
+    data["prediction"] = {}
+    data["prediction"]["tt"] = np.array(ttStart)
+    data["prediction"]["data"] = np.array(amp)
+
+    data["channels"] = {}
+
+    # Break up entire frequency band into 6 segments
+    ff_ave = [1/float(128), 1/float(64),  0.1, 1, 3, 5, 10]
+
+    for channel in params["channels"]:
+
+        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
+        if not os.path.isdir(psdLocation):
+            os.makedirs(psdLocation)
+        psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
+        if not os.path.isdir(psdLocation):
+            os.makedirs(psdLocation)
+
+        files = glob.glob(os.path.join(psdLocation,"*.txt"))
+        files = sorted(files)
+
+        ttStart = []
+        ttEnd = []
+        amp = []
+    
+        for file in files:
+    
+            fileSplit = file.split("/")
+            txtFile = fileSplit[-1].replace(".txt","")
+            txtFileSplit = txtFile.split("-")
+            thisTTStart = int(txtFileSplit[0])
+            thisTTEnd = int(txtFileSplit[1])
+    
+            ttStart.append(thisTTStart)
+            ttEnd.append(thisTTEnd)
+   
+            data_out = np.loadtxt(file)
+            thisSpectra_out = data_out[:,1]
+            thisFreq_out = data_out[:,0]
+
+            freqAmps = []
+
+            for i in xrange(len(ff_ave)-1):
+                newSpectraNow = []
+                for j in xrange(len(thisFreq_out)):
+                    if ff_ave[i] <= thisFreq_out[j] and thisFreq_out[j] <= ff_ave[i+1]:
+                        newSpectraNow.append(thisSpectra_out[j])
+                freqAmps.append(np.mean(newSpectraNow)) 
+               
+            thisAmp = freqAmps[1]
+            amp.append(thisAmp)
+    
+        ttStart = np.array(ttStart)
+        ttEnd = np.array(ttEnd)
+        amp = np.array(amp)
+
+        data["channels"][channel.station_underscore] = {}
+        data["channels"][channel.station_underscore]["tt"] = np.array(ttStart)
+        data["channels"][channel.station_underscore]["data"] = np.array(amp)
+
+    plotsDirectory = os.path.join(params["path"],"plots")
+    if not os.path.isdir(plotsDirectory):
+        os.makedirs(plotsDirectory)
+
+    plotName = os.path.join(plotsDirectory,"%d-%d.png"%(params["gpsStart"],params["gpsEnd"]))
+    pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
 
 def run_earthquakes(params):
 
@@ -336,8 +487,8 @@ def traveltimes(attributeDic):
 def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
 
     distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],ifolat,ifolon)
-    distances = numpy.linspace(0,distance,100)
-    degrees = (distances/6370000)*(180/numpy.pi)
+    distances = np.linspace(0,distance,100)
+    degrees = (distances/6370000)*(180/np.pi)
 
     lats = []
     lons = []
@@ -385,9 +536,9 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
 
     c = 18
     fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
-    Q = numpy.max([500,80/numpy.sqrt(fc)])
+    Q = np.max([500,80/np.sqrt(fc)])
 
-    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * numpy.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * numpy.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
 
     traveltimes["Rfamp"] = [Rfamp]
 
@@ -550,31 +701,31 @@ def shoot(lon, lat, azimuth, maxdist=None):
     Original javascript on http://williams.best.vwh.net/gccalc.htm
     Translated to python by Thomas Lecocq
     """
-    glat1 = lat * numpy.pi / 180.
-    glon1 = lon * numpy.pi / 180.
+    glat1 = lat * np.pi / 180.
+    glon1 = lon * np.pi / 180.
     s = maxdist / 1.852
-    faz = azimuth * numpy.pi / 180.
+    faz = azimuth * np.pi / 180.
 
     EPS= 0.00000000005
-    if ((numpy.abs(numpy.cos(glat1))<EPS) and not (numpy.abs(numpy.sin(faz))<EPS)):
+    if ((np.abs(np.cos(glat1))<EPS) and not (np.abs(np.sin(faz))<EPS)):
         alert("Only N-S courses are meaningful, starting at a pole!")
 
     a=6378.13/1.852
     f=1/298.257223563
     r = 1 - f
-    tu = r * numpy.tan(glat1)
-    sf = numpy.sin(faz)
-    cf = numpy.cos(faz)
+    tu = r * np.tan(glat1)
+    sf = np.sin(faz)
+    cf = np.cos(faz)
     if (cf==0):
         b=0.
     else:
-        b=2. * numpy.arctan2 (tu, cf)
+        b=2. * np.arctan2 (tu, cf)
 
-    cu = 1. / numpy.sqrt(1 + tu * tu)
+    cu = 1. / np.sqrt(1 + tu * tu)
     su = tu * cu
     sa = cu * sf
     c2a = 1 - sa * sa
-    x = 1. + numpy.sqrt(1. + c2a * (1. / (r * r) - 1.))
+    x = 1. + np.sqrt(1. + c2a * (1. / (r * r) - 1.))
     x = (x - 2.) / x
     c = 1. - x
     c = (x * x / 4. + 1.) / c
@@ -582,11 +733,11 @@ def shoot(lon, lat, azimuth, maxdist=None):
     tu = s / (r * a * c)
     y = tu
     c = y + 1
-    while (numpy.abs (y - c) > EPS):
+    while (np.abs (y - c) > EPS):
 
-        sy = numpy.sin(y)
-        cy = numpy.cos(y)
-        cz = numpy.cos(b + y)
+        sy = np.sin(y)
+        cy = np.cos(y)
+        cz = np.cos(b + y)
         e = 2. * cz * cz - 1.
         c = y
         x = e * cy
@@ -595,20 +746,20 @@ def shoot(lon, lat, azimuth, maxdist=None):
               d / 4. - cz) * sy * d + tu
 
     b = cu * cy * cf - su * sy
-    c = r * numpy.sqrt(sa * sa + b * b)
+    c = r * np.sqrt(sa * sa + b * b)
     d = su * cy + cu * sy * cf
-    glat2 = (numpy.arctan2(d, c) + numpy.pi) % (2*numpy.pi) - numpy.pi
+    glat2 = (np.arctan2(d, c) + np.pi) % (2*np.pi) - np.pi
     c = cu * cy - su * sy * cf
-    x = numpy.arctan2(sy * sf, c)
+    x = np.arctan2(sy * sf, c)
     c = ((-3. * c2a + 4.) * f + 4.) * c2a * f / 16.
     d = ((e * cy * c + cz) * sy * c + y) * sa
-    glon2 = ((glon1 + x - (1. - c) * d * f + numpy.pi) % (2*numpy.pi)) - numpy.pi
+    glon2 = ((glon1 + x - (1. - c) * d * f + np.pi) % (2*np.pi)) - np.pi
 
-    baz = (numpy.arctan2(sa, b) + numpy.pi) % (2 * numpy.pi)
+    baz = (np.arctan2(sa, b) + np.pi) % (2 * np.pi)
 
-    glon2 *= 180./numpy.pi
-    glat2 *= 180./numpy.pi
-    baz *= 180./numpy.pi
+    glon2 *= 180./np.pi
+    glat2 *= 180./np.pi
+    baz *= 180./np.pi
 
     return (glon2, glat2, baz)
 

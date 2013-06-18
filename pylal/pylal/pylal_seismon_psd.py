@@ -141,25 +141,38 @@ def mat(params, channel, segment):
 
         time = time - startTime
 
-        norm_pass = 1.0/(channel.samplef/2)
-        norm_stop = 1.5*norm_pass
-        #(N, Wn) = scipy.signal.buttord(wp=norm_pass, ws=norm_stop, gpass=2, gstop=30, analog=0)
-        order = 5
-        (b, a) = scipy.signal.butter(order, norm_pass, btype='low', analog=0, output='ba')
         data = np.array(data)
+
+        order = 5
+        norm_pass = 1.0/(channel.samplef/2)
+
+        (b, a) = scipy.signal.butter(order, norm_pass, btype='lowpass', analog=0, output='ba')
         dataLowpass = scipy.signal.filtfilt(b, a, data) 
+        minDataLowpass = np.min(dataLowpass)
+        maxDataLowpass = np.max(dataLowpass)
+        dataLowpass = 1/(maxDataLowpass - minDataLowpass) * (dataLowpass - minDataLowpass)
+        dataLowpass = dataLowpass + 0.5
+
+        legend_text = "lowpass"
+        plt.plot(time,dataLowpass,label=legend_text)
+
+        (b, a) = scipy.signal.butter(order, norm_pass, btype='highpass', analog=0, output='ba')
+        dataHighpass = scipy.signal.filtfilt(b, a, data)
+        minDataHighpass = np.min(dataHighpass)
+        maxDataHighpass = np.max(dataHighpass)
+        dataHighpass = 1/(maxDataHighpass - minDataHighpass) * (dataHighpass - minDataHighpass)
+        dataHighpass = dataHighpass + 1.5
+
+        legend_text = "highpass"
+        plt.plot(time,dataHighpass,label=legend_text)
 
         minData = np.min(data)
         maxData = np.max(data)
         data = 1/(maxData - minData) * (data - minData)
-
-        minDataLowpass = np.min(dataLowpass)
-        maxDataLowpass = np.max(dataLowpass)
-        dataLowpass = 1/(maxDataLowpass - minDataLowpass) * (dataLowpass - minDataLowpass)
+        data = data + 2.5
 
         plt.plot(time,data,'k',label='data')
-        plt.plot(time,dataLowpass,'b',label='data lowpassed')
-        plt.legend(loc=1,prop={'size':10})
+        plt.legend(loc=4,prop={'size':10})
 
         if len(earthquakes) > 0:
             if len(earthquakes.shape) == 1:
@@ -174,9 +187,9 @@ def mat(params, channel, segment):
                 Stime = earthquakes[i,3] - startTime
                 Rtime = earthquakes[i,4] - startTime
 
-                plt.text(Ptime, 1.1, 'P', fontsize=18, ha='center', va='top')
-                plt.text(Stime, 1.1, 'S', fontsize=18, ha='center', va='top')
-                plt.text(Rtime, 1.1, 'R', fontsize=18, ha='center', va='top')
+                plt.text(Ptime, 3.6, 'P', fontsize=18, ha='center', va='top')
+                plt.text(Stime, 3.6, 'S', fontsize=18, ha='center', va='top')
+                plt.text(Rtime, 3.6, 'R', fontsize=18, ha='center', va='top')
 
                 plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
