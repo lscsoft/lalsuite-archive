@@ -561,6 +561,8 @@ def analysis(params, channel):
 
         indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
         indices = [int(x) for x in indexes]
+        indices.append(0)
+        indices.sort()
 
         #X,Y = np.meshgrid(freq, range_binning)
         X,Y = np.meshgrid(freq[indices], range_binning)
@@ -586,7 +588,7 @@ def analysis(params, channel):
         plt.close('all')
 
         ttStart = np.array(ttStart)
-        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 12*60*60)
+        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 24*60*60)
         ttStart = ttStart[indices_ttStart]
 
         spectra = np.squeeze(spectra[indices_ttStart,:])
@@ -600,6 +602,7 @@ def analysis(params, channel):
         im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=-9, vmax=-5)
         ax.set_xscale('log')
         plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([tt[0],tt[-1]])
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Time [Hours]")
         cbar=plt.colorbar()
