@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#       cbcBayesPostProc.py
+#       cbcBayesBurstPostProc.py
 #
 #       Copyright 2010
 #       Benjamin Aylott <benjamin.aylott@ligo.org>,

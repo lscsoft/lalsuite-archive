@@ -67,8 +67,9 @@
 #include <lal/TimeFreqFFT.h>
 #include <lal/DetResponse.h>
 #include <lal/Units.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/LALFrameIO.h>
+#include <lal/LALCache.h>
 
 #define CVS_REVISION "$Revision$"
 #define CVS_SOURCE "$Source$"
@@ -1857,7 +1858,7 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 	INT4 gps_end=0;
 	INT4 duration=0;
 	INT4 detectorFlags;
-	FrameH *frame=NULL;
+	LALFrameH *frame=NULL;
 	REAL8 trigtime=0.0;
 	REAL8 srate=16384.;
 	REAL8 deltaT=1./srate;
@@ -1922,8 +1923,8 @@ static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct 
 		XLALFrameAddREAL8TimeSeriesSimData( frame, soft );
 		XLALDestroyREAL8TimeSeries(soft);
 	}
-	XLALFrameWrite( frame, fname, 8 );
-	FrameFree(frame);
+	XLALFrameWrite( frame, fname);
+	XLALFrameFree(frame);
     write_mdc_log(injs, time_slide_table_head, options,fname);
 
 	return;
