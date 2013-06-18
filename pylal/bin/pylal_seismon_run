@@ -43,6 +43,7 @@ def parse_commandline():
     parser.add_option("--doPlots",  action="store_true", default=False)
     parser.add_option("--doEarthquakes",  action="store_true", default=False)
     parser.add_option("--doEarthquakesAnalysis",  action="store_true", default=False)
+    parser.add_option("--doEarthquakesMonitor",  action="store_true", default=False)
     parser.add_option("--doOmicron",  action="store_true", default=False)
     parser.add_option("--doFreqAnalysis",  action="store_true", default=False)
     parser.add_option("--doAnalysis",  action="store_true", default=False)
@@ -84,6 +85,7 @@ def params_struct(opts):
     params["doPlots"] = opts.doPlots
     params["doEarthquakes"] = opts.doEarthquakes
     params["doEarthquakesAnalysis"] = opts.doEarthquakesAnalysis
+    params["doEarthquakesMonitor"] = opts.doEarthquakesMonitor
     params["doOmicron"] = opts.doOmicron
     params["doAnalysis"] = opts.doAnalysis
     params["doFreqAnalysis"] = opts.doFreqAnalysis
@@ -224,11 +226,26 @@ warnings.filterwarnings("ignore")
 opts = parse_commandline()
 params = params_struct(opts)
 
-channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
+if params["doEarthquakesMonitor"] or params["doEarthquakesAnalysis"]: 
+    channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list_EarthquakesAnalysis.txt"
+else:
+    channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list.txt"
 channels = channel_struct(channelList)
+params["channels"] = channels
 
 params = frame_struct(params)
 params = segment_struct(params)
+
+if params["doEarthquakesMonitor"]:
+
+    # Output path for run
+    params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"]
+    if not os.path.isdir(params["path"]):
+        os.makedirs(params["path"])
+
+    pylal.pylal_seismon_eqmon.run_earthquakes_monitor(params)
+
+    sys.exit()
 
 if params["doEarthquakesAnalysis"]:
     # Output path for run
@@ -240,10 +257,7 @@ if params["doEarthquakesAnalysis"]:
 
     params["segments"] = pylal.pylal_seismon_eqmon.run_earthquakes(params)
 
-    channelList = params["codePath"] + "/seismon/input/seismon-" + params["ifo"] + "-" + params["frameType"] + "-channel_list_EarthquakesAnalysis.txt"
-    channels = channel_struct(channelList)
-
-if params["doAnalysis"]:
+if params["doAnalysis"] or params["doPlots"]:
     # Output path for run
     params["path"] = params["dirPath"] + "/" + params["ifo"] + "/" + params["runName"] + "-" + str(params["gpsStart"]) + "-" + str(params["gpsEnd"])
     if not os.path.isdir(params["path"]):
