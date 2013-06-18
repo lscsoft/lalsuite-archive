@@ -518,7 +518,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
        /* determine frequency range & loop over frequency bins: */
       deltaT = dataPtr->timeData->deltaT;
       deltaF = 1.0 / (((double)dataPtr->timeData->data->length) * deltaT);
-      REAL8 time_env_2sigma=Q / (LAL_TWOPI * centre_frequency);
+      REAL8 time_env_2sigma= Q  / (LAL_TWOPI * centre_frequency);
       if (2.0*time_env_2sigma>1./deltaF)
           fprintf(stdout,"WARNING: 95 of the Gaussian envelop (%lf) is larger than seglen (%lf)!!\n",2.0*time_env_2sigma,1./deltaF);
       lower = (UINT4)ceil(dataPtr->fLow / deltaF);
@@ -531,7 +531,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
                             + FcrossScaled * creal(IFOdata->freqModelhCross->data->data[i]); //SALVO
         plainTemplateImag = FplusScaled * cimag(IFOdata->freqModelhPlus->data->data[i])  
                             + FcrossScaled * cimag(IFOdata->freqModelhCross->data->data[i]);
-                            
      
         f = ((double) i) * deltaF;
         /* real & imag parts of  exp(-2*pi*i*f*deltaT): */
@@ -574,7 +573,6 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     
     }
     
-
       LALInferenceClearVariables(&intrinsicParams);
       printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
     NetSNR=sqrt(NetSNR); 
