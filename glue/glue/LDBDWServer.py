@@ -398,6 +398,7 @@ class Server(object):
     # read the incoming payload
     try:
         #import simplejson  (moved to top)
+        wsgiIn=environ['wsgi.input'].read()
         inputString=simplejson.loads(wsgiIn)
         #inputString = cjson.decode(environ['wsgi.input'].read())
     except Exception, e:

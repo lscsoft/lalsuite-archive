@@ -23,11 +23,18 @@ __version__ = "0.1"
 # =============================================================================
 
 def read_frames(start_time,end_time,channel,cache):
+
     time = []
     data = []
 
     #== loop over frames in cache
     for frame in cache:
+
+        if end_time < frame.segment[0]:
+            continue
+        if start_time > frame.segment[1]:
+            continue
+
         frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path,channel.station)
         frame_length = float(dt)*len(frame_data)
         frame_time = data_start+dt*np.arange(len(frame_data))
@@ -41,18 +48,51 @@ def read_frames(start_time,end_time,channel,cache):
 
     return time,data
 
-def mat(params, channel, segment):
+def save_data(params,channel,gpsStart,gpsEnd,data,freq,spectra,fft_spectra):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
-    psdLocation = os.path.join(psdLocation,str(params["fftDuration"])) 
+    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
 
+    fftLocation = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore
+    if not os.path.isdir(fftLocation):
+        os.makedirs(fftLocation)
+    fftLocation = os.path.join(fftLocation,str(params["fftDuration"]))
+    if not os.path.isdir(fftLocation):
+        os.makedirs(fftLocation)
+
+    timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore
+    if not os.path.isdir(timeseriesLocation):
+        os.makedirs(timeseriesLocation)
+    timeseriesLocation = os.path.join(timeseriesLocation,str(params["fftDuration"]))
+    if not os.path.isdir(timeseriesLocation):
+        os.makedirs(timeseriesLocation)
+
+    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(psdFile,"wb")
+    for i in xrange(len(freq)):
+        f.write("%e %e\n"%(freq[i],spectra[i]))
+    f.close()
+
+    fftFile = os.path.join(fftLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(fftFile,"wb")
+    for i in xrange(len(freq)):
+        f.write("%e %e %e\n"%(freq[i],fft_spectra[i].real,fft_spectra[i].imag))
+    f.close()
+
+    timeseriesFile = os.path.join(timeseriesLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(timeseriesFile,"wb")
+    f.write("%e %e %e\n"%(np.min(data),np.median(data),np.max(data)))
+    f.close()
+
+def mat(params, channel, segment):
+
     gpsStart = segment[0]
     gpsEnd = segment[1]
-
+    
     time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
 
     NFFT = params["fftDuration"]*channel.samplef
@@ -61,29 +101,33 @@ def mat(params, channel, segment):
 
     spectra = [math.sqrt(e) for e in spectra]
 
+    fft_spectra = np.fft.fft(data)
+    fft_freq = np.fft.fftfreq(len(data),d=1.0/channel.samplef)
+
     newSpectra = []
     newFreq = []
+    newSpectraFFT = []
 
     for i in xrange(len(freq)):
-        if freq[i] <= params["fmax"]:
+        if freq[i] <= params["fmax"] and freq[i] >= params["fmin"]:
             newFreq.append(freq[i])
             newSpectra.append(spectra[i])
+            newSpectraFFT.append(fft_spectra[i])
 
     spectra = newSpectra
     freq = newFreq
+    fft_spectra = newSpectraFFT
 
-    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
-    f = open(psdFile,"wb")
-    for i in xrange(len(freq)):
-        f.write("%e %e\n"%(freq[i],spectra[i]))
-    f.close()
+    save_data(params,channel,gpsStart,gpsEnd,data,freq,spectra,fft_spectra)
 
-    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
-    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    try:
-        earthquakes = np.loadtxt(earthquakesFile)
-    except:
-        earthquakes = []
+    earthquakes = []
+    if params["doEarthquakes"]:
+        earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+        earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+        try:
+            earthquakes = np.loadtxt(earthquakesFile)
+        except:
+            pass
 
     if params["doPlots"]:
 
@@ -97,25 +141,38 @@ def mat(params, channel, segment):
 
         time = time - startTime
 
-        norm_pass = 1.0/(channel.samplef/2)
-        norm_stop = 1.5*norm_pass
-        #(N, Wn) = scipy.signal.buttord(wp=norm_pass, ws=norm_stop, gpass=2, gstop=30, analog=0)
-        order = 5
-        (b, a) = scipy.signal.butter(order, norm_pass, btype='low', analog=0, output='ba')
         data = np.array(data)
+
+        order = 5
+        norm_pass = 1.0/(channel.samplef/2)
+
+        (b, a) = scipy.signal.butter(order, norm_pass, btype='lowpass', analog=0, output='ba')
         dataLowpass = scipy.signal.filtfilt(b, a, data) 
+        minDataLowpass = np.min(dataLowpass)
+        maxDataLowpass = np.max(dataLowpass)
+        dataLowpass = 1/(maxDataLowpass - minDataLowpass) * (dataLowpass - minDataLowpass)
+        dataLowpass = dataLowpass + 0.5
+
+        legend_text = "lowpass"
+        plt.plot(time,dataLowpass,label=legend_text)
+
+        (b, a) = scipy.signal.butter(order, norm_pass, btype='highpass', analog=0, output='ba')
+        dataHighpass = scipy.signal.filtfilt(b, a, data)
+        minDataHighpass = np.min(dataHighpass)
+        maxDataHighpass = np.max(dataHighpass)
+        dataHighpass = 1/(maxDataHighpass - minDataHighpass) * (dataHighpass - minDataHighpass)
+        dataHighpass = dataHighpass + 1.5
+
+        legend_text = "highpass"
+        plt.plot(time,dataHighpass,label=legend_text)
 
         minData = np.min(data)
         maxData = np.max(data)
         data = 1/(maxData - minData) * (data - minData)
-
-        minDataLowpass = np.min(dataLowpass)
-        maxDataLowpass = np.max(dataLowpass)
-        dataLowpass = 1/(maxDataLowpass - minDataLowpass) * (dataLowpass - minDataLowpass)
+        data = data + 2.5
 
         plt.plot(time,data,'k',label='data')
-        plt.plot(time,dataLowpass,'b',label='data lowpassed')
-        plt.legend(loc=1,prop={'size':10})
+        plt.legend(loc=4,prop={'size':10})
 
         if len(earthquakes) > 0:
             if len(earthquakes.shape) == 1:
@@ -130,9 +187,9 @@ def mat(params, channel, segment):
                 Stime = earthquakes[i,3] - startTime
                 Rtime = earthquakes[i,4] - startTime
 
-                plt.text(Ptime, 1.1, 'P', fontsize=18, ha='center', va='top')
-                plt.text(Stime, 1.1, 'S', fontsize=18, ha='center', va='top')
-                plt.text(Rtime, 1.1, 'R', fontsize=18, ha='center', va='top')
+                plt.text(Ptime, 3.6, 'P', fontsize=18, ha='center', va='top')
+                plt.text(Stime, 3.6, 'S', fontsize=18, ha='center', va='top')
+                plt.text(Rtime, 3.6, 'R', fontsize=18, ha='center', va='top')
 
                 plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
@@ -504,6 +561,8 @@ def analysis(params, channel):
 
         indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
         indices = [int(x) for x in indexes]
+        indices.append(0)
+        indices.sort()
 
         #X,Y = np.meshgrid(freq, range_binning)
         X,Y = np.meshgrid(freq[indices], range_binning)
@@ -529,7 +588,7 @@ def analysis(params, channel):
         plt.close('all')
 
         ttStart = np.array(ttStart)
-        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 12*60*60)
+        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 24*60*60)
         ttStart = ttStart[indices_ttStart]
 
         spectra = np.squeeze(spectra[indices_ttStart,:])
@@ -543,6 +602,7 @@ def analysis(params, channel):
         im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=-9, vmax=-5)
         ax.set_xscale('log')
         plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([tt[0],tt[-1]])
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Time [Hours]")
         cbar=plt.colorbar()

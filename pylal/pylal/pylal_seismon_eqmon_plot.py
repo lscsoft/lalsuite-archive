@@ -27,6 +27,42 @@ import pylal.pylal_seismon_eqmon
 #
 # =============================================================================
 
+def prediction(data,plotName):
+
+    timeStart = data["prediction"]["tt"][0]
+    t = data["prediction"]["tt"] - timeStart
+    t_prediction = t / 86400.0
+
+    amp = np.log10(data["prediction"]["data"])
+    indexes = np.isinf(amp)
+    amp[indexes] = -250
+    amp_prediction = amp
+
+    threshold = -10
+
+    plt.figure()
+    plt.plot(t_prediction,amp_prediction,label="Predicted")
+    plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
+
+    for key in data["channels"].iterkeys():
+
+        t = data["channels"][key]["tt"] - timeStart
+        t = t / 86400.0
+
+        amp = np.log10(data["channels"][key]["data"])
+        indexes = np.isinf(amp)
+        amp[indexes] = -250
+        plt.plot(t,amp,'*',label=key)
+
+    plt.legend(loc=1,prop={'size':6})
+    plt.xlim([np.min(t_prediction),np.max(t_prediction)])
+    plt.ylim([-15,-2])
+    plt.xlabel('Time [Days] [%d]'%timeStart)
+    plt.ylabel('Amplitude')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def efficiency(data,plotName):
 
     data = np.array(data)
@@ -261,89 +297,6 @@ def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
 
     handles, labels = ax.get_legend_handles_labels()
     legend(handles[0:3], labels[0:3])
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
-
-def stream_plot(st,traveltimes,gpsStart,gpsEnd,plotName):
-
-    startTime = gpsStart
-    endTime = gpsEnd
-
-    Ptime = max(traveltimes["Ptimes"]) - startTime
-    Stime = max(traveltimes["Stimes"]) - startTime
-    Rtime = max(traveltimes["Rtimes"]) - startTime
-
-    for i in range(0,len(st)):
-
-        minData = min(st[i].data)
-        maxData = max(st[i].data)
-
-        st[i].time = np.array(st[i].time)
-        st[i].data = np.array(st[i].data)
-
-        st[i].time = st[i].time - startTime
-        st[i].data = 1/(maxData - minData) * (st[i].data - minData)
-
-        thisSubPlot_format = '%d%d%d' %(len(st),1,i+1)
-        thisSubPlot = int(thisSubPlot_format)
-
-        ax = subplot(thisSubPlot)
-        plot(st[i].time,st[i].data, 'k')
-        xlim([0, endTime-startTime])
-        ylim([0, 1])
-        title(st[i].stats.station)
-
-        if not i == len(st)-1:
-            setp(ax.get_xticklabels(), visible=False)
-        else:
-            text(Ptime, -0.1, 'P', fontsize=18, ha='center', va='top')
-            text(Stime, -0.1, 'S', fontsize=18, ha='center', va='top')
-            text(Rtime, -0.1, 'R', fontsize=18, ha='center', va='top')
-
-        axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
-        axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
-        axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
-
-    axis('tight')
-    xlabel('Time [s]')
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
-
-def psd_plot(st,plotName):
-
-    fl, low, fh, high = pylal.pylal_seismon_eqmon.NLNM(2)
-
-    for i in range(0,len(st)):
-        semilogx(st[i].freq,st[i].spectra, label=st[i].stats.station)
-
-    loglog(fl,low,'k-.')
-    loglog(fh,high,'k-.',label='LNM/HNM')
-    legend()
-    xlim([0.01,64])
-    ylim([10**-10, 10**-5])
-    xlabel("Frequency [Hz]")
-    ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
-    grid
-    show()
-    savefig(plotName,dpi=200)
-    close('all')
-
-def wavelet_plot(st,plotName):
-
-    for i in range(0,len(st)):
-
-        thisSubPlot_format = '%d%d%d' %(len(st),1,i+1)
-        thisSubPlot = int(thisSubPlot_format)
-
-        subplot(thisSubPlot)
-        imshow(st[i].waveletSpectra, extent=[st[i].waveletTT[0], st[i].waveletTT[-1], st[i].waveletFreq[0], st[i].waveletFreq[-1]],aspect='auto')
-        #ax.colorbar()
-        gca().set_yscale('log') 
-
-    axis('tight')
-    xlabel('Time [s]')
     show()
     savefig(plotName,dpi=200)
     close('all')
