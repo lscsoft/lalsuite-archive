@@ -102,6 +102,11 @@ def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False):
     # set object
     t = lsctables.SnglBurst()
 
+    # set columns that are same for all triggers
+    if 'ifo' in columns: t.ifo = None
+    if 'channel' in columns: t.channel = None
+    if 'search' in columns: t.search = 'omega'
+
     # set times
     if 'start_time' in columns:     t.start_time    = start.gpsSeconds
     if 'start_time_ns' in columns:  t.start_time_ns = start.gpsNanoSeconds
@@ -301,7 +306,7 @@ def tofrequencyseries(bursttable, fcol='peak_frequency', pcol=None,\
 # Get LAL cache of omega files from their expected location
 # =============================================================================
 
-def get_cache(start, end, ifo, mask='DOWNSELECT', checkfilesexist=False,\
+def get_cache(start, end, ifo, channel, mask='DOWNSELECT', checkfilesexist=False,\
               **kwargs):
     """
     Returns a glue.lal.Cache contatining CacheEntires for all omega online
@@ -319,8 +324,11 @@ def get_cache(start, end, ifo, mask='DOWNSELECT', checkfilesexist=False,\
 
     span = segments.segment(start,end)
     if ifo == 'G1':
-        kwargs.setdefault('directory', '/home/omega/online/G1/segments')
-        kwargs.setdefault('epoch', 983669456)
+        if channel:
+            kwargs.setdefault('directory', '/home/omega/online/%s/segments' % channel.replace(':','_'))
+        else:
+            kwargs.setdefault('directory', '/home/omega/online/G1/segments')
+        kwargs.setdefault('epoch', 0)
     else:
         kwargs.setdefault('directory',\
                             '/home/omega/online/%s/archive/S6/segments' % ifo)
