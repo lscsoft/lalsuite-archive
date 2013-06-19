@@ -3556,6 +3556,11 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
 
     etg = cp.has_option(cpsec, "trigger-generator")\
               and cp.get(cpsec, "trigger-generator") or cpsec[9:]
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+    tab.cluster = ((cp.has_option(cpsec, "cluster-window") and
+                    cp.getfloat(cpsec, "cluster-window")) or
+                   False)
 
     #
     # setup
@@ -3635,7 +3640,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
                                      SegmentList([seg]),\
-                                     cluster=tab.cluster, minsnr=0)
+                                     cluster=tab.cluster, minsnr=snr)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
                 trigsnr  = trigs.getColumnByName("snr")
