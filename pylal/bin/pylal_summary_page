@@ -924,10 +924,26 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         elif etg.lower() != "hacr":
             if etg.lower() == "dmtomega":
                 trigcache = omegautils.find_dmt_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omega":
-                trigcache = omegautils.get_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omegaspectrum":
-                trigcache = omegautils.get_cache(span[0], span[1], ifo, mask='SPECTRUM')
+            elif etg.lower() == "omega" or etg.lower() == "omegaspectrum":
+              # get omega online cache parameters defaults
+              cacheKwargs = dict()
+              if cp.has_option(etg.lower(),'duration'):
+                cacheKwargs['duration'] = float(cp.get(etg.lower(),'duration'))
+              if cp.has_option(etg.lower(),'overlap'):
+                cacheKwargs['overlap'] = float(cp.get("%s" % etg.lower(),'overlap'))
+
+              # overrid default settings with channel specific if provided
+              if cp.has_section('%s' %  channel):
+                if cp.has_option(channel,'duration'):
+                  cacheKwargs['duration'] = float(cp.get(channel,'duration'))
+                if cp.has_option(channel,'overlap'):
+                  cacheKwargs['overlap'] = float(cp.get(channel,'overlap'))
+              
+              # get cache
+              if etg.lower() == "omega":
+                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, **cacheKwargs)
+              elif etg.lower() == "omegaspectrum":
+                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, mask='SPECTRUM', **cacheKwargs)
             elif etg.lower() in ["kw", "kleinewelle"]:
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
                                               **trigfind_args)
@@ -2421,7 +2437,7 @@ def cluster_table(trigtable, dt):
     tablecopy.extend(trigtable)
     if isinstance(trigtable, lsctables.SnglBurstTable):
         testfunc = ligolw_bucluster.ExcessPowerTestFunc
-        clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
+        clusterfunc = ligolw_bucluster.OmegaClusterFunc
         sortfunc = ligolw_bucluster.ExcessPowerSortFunc
         bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
     elif isinstance(trigtable, lsctables.SnglInspiralTable):
@@ -3619,7 +3635,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
                                      SegmentList([seg]),\
-                                     cluster=False, minsnr=0)
+                                     cluster=tab.cluster, minsnr=0)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
                 trigsnr  = trigs.getColumnByName("snr")
