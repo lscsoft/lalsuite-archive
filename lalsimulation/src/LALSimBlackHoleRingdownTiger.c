@@ -23,6 +23,28 @@
 
 // TODO: Add a top-level function to get combination of all modes
 
+int XLALSimBlackHoleRingdownModeTiger(
+	REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
+	REAL8TimeSeries **hcross,	/**< cross-polarization waveform [returned] */
+	const LIGOTimeGPS *t0,		/**< start time of ringdown */
+	double phi0,			/**< initial phase of ringdown (rad) */
+	double deltaT,			/**< sampling interval (s) */
+	double mass,			/**< black hole mass (kg) */
+	double a,	/**< black hole dimensionless spin parameter */
+//	double fractional_mass_loss,	/**< fraction of mass radiated in this mode */
+	double distance,		/**< distance to source (m) */
+	double inclination,		/**< inclination of source's spin axis (rad) */
+)
+{	
+	const int s = -2; /* spin weight for gravitational radiation */
+	double cosi = cos(inclination);
+	COMPLEX16 A, omega, Q, tau;
+	COMPLEX16 Yplus, Ycross;
+	size_t length;
+	size_t j;
+	int errnum;
+
+}
 
 /**
  * Computes the waveform for the ringdown of a black hole
@@ -34,7 +56,7 @@
  *
  * \todo Extend so that overtones can be computed too.
  */
-int XLALSimBlackHoleRingdownTiger(
+int XLALSimBlackHoleRingdownModeTiger(
 	REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
 	REAL8TimeSeries **hcross,	/**< cross-polarization waveform [returned] */
 	const LIGOTimeGPS *t0,		/**< start time of ringdown */
@@ -49,15 +71,34 @@ int XLALSimBlackHoleRingdownTiger(
 	int m				/**< azimuthal mode number */
 )
 {	
+	REAL8 spin1[3] = {0.0};
+	REAL8 spin2[3] = {0.0};
 	const int s = -2; /* spin weight for gravitational radiation */
-	double cosi = cos(inclination);
+	// double cosi = cos(inclination);
 	COMPLEX16 A, omega, Q, tau;
 	COMPLEX16 Yplus, Ycross;
 	size_t length;
 	size_t j;
 	int errnum;
 
+	A = XLALSimRingdownQNMAmplitudes(l, m, eta, spin1, spin2);
 	
+	Yplus = XLALSimSphericalHarmonicPlus(l, m, inclination);
+	Ycross = XLALSimSphericalHarmonicCross(l, m, inclination);
+	
+	omega = XLALSimRingdownFitOmega(l, m, 0, a);
+	
+	/* What does the log(epsilon) do? (not -infinity?) */
+	length = ceil(log(LAL_REAL8_EPS) * LAL_G_SI * mass / (pow(LAL_C_SI, 3.0) * cimag(omega) * deltaT));
+	hplus->data->length = length;
+	hcross->data->length = length;
+	
+	// allocate memory in hplus hcross
+	
+	for (j=0; j<length; j++){
+		hplus->data->data[j] = A*;
+		
+	}
 
 /*
 	if (XLALSimBlackHoleRingdownModeEigenvaluesLeaver(&A, &omega, a, l, m, s) < 0)
@@ -101,13 +142,13 @@ int XLALSimBlackHoleRingdownTiger(
 
 REAL8 XLALSimSphericalHarmonicPlus(int l, int m, float iota){
 	COMPLEX16 Yplus = 0.0;
-	Yplus = XLALSpinWeightedSphericalHarmonic(iota, 0.0, -2, l, m) + (2.0*(l % 2) - 1.0)*XLALSpinWeightedSphericalHarmonics(iota, 0.0, -2, l, -m);
+	Yplus = XLALSpinWeightedSphericalHarmonic(iota, 0.0, -2, l, m) + (1.0 - 2.0*(l % 2))*XLALSpinWeightedSphericalHarmonics(iota, 0.0, -2, l, -m);
 	return Yplus;
 }
 
 REAL8 XLALSimSphericalHarmonicCross(int l, int m, float iota){
 	COMPLEX16 Ycross = 0.0;
-	Ycross = XLALSpinWeightedSphericalHarmonic(iota, 0.0, -2, l, m) - (2.0*(l % 2) - 1.0)*XLALSpinWeightedSphericalHarmonics(iota, 0.0, -2, l, -m);
+	Ycross = XLALSpinWeightedSphericalHarmonic(iota, 0.0, -2, l, m) - (1.0 - 2.0*(l % 2))*XLALSpinWeightedSphericalHarmonics(iota, 0.0, -2, l, -m);
 	return Ycross;
 }
 
@@ -134,13 +175,16 @@ REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 spin1[3], RE
 /**
  * Computes the complex dimensionless eigen-frequency for the
  * quasinormal mode (l,m), given a dimensionless spin a \in [-1,1].
- * This is based on the interpolation formula 
+ * This is based on the interpolation formula from Berti et al 2006
+ * [arXiv: gr-qc/0512160].
+ * The dimensionful frequency is Re(omega)/M.
+ * The dimensionful damping time is M/Im(omega).
  *
  * \note The dimensionless spin assumes values between -1 and 1.
  *
  * \todo Extend so that overtones can be computed too.
  */
-COMPLEX16 XLALSimRingdownInterpOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
+COMPLEX16 XLALSimRingdownFitOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
 	COMPLEX16 omega=0.0;
 	if (abs(a) > 1.){
 		fprintf(stderr, "ERROR: Dimensionless spin magnitude larger than 1! Aborting...\n");
@@ -151,11 +195,11 @@ COMPLEX16 XLALSimRingdownInterpOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
 		switch (abs(m)){
 		case 2:
 			omega = (1.5251 - 1.1568*pow(1.e0-a,0.1292));
-			omega += I*(2*(0.7000 + 1.4187*pow(1.e0-a,-0.4990)))/omega;
+			omega += I*omega/(2.*(0.7000 + 1.4187*pow(1.e0-a,-0.4990)));
 			break;
 		case 1:
 			omega = (0.6000 - 0.2339*pow(1.e0-a,0.4175));
-			omega += I*(2*(-0.3000 + 2.3561*pow(1.e0-a,-0.2277)))/omega;
+			omega += I*omega/(2.*(-0.3000 + 2.3561*pow(1.e0-a,-0.2277)));
 			break;
 		default:
 			break;
@@ -165,11 +209,11 @@ COMPLEX16 XLALSimRingdownInterpOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
 		switch (abs(m)){
 		case 3:
 			omega = (1.8956 - 1.3043*pow(1.e0-a,0.1818));
-			omega += I*(2*(0.9000 + 2.3430*pow(1.e0-a,-0.4810)))/omega;
+			omega += I*omega/(2.*(0.9000 + 2.3430*pow(1.e0-a,-0.4810)));
 			break;
 		case 2:
 			omega = (1.1481 - 0.5552*pow(1.e0-a,0.3002));
-			omega += I*(2*(0.8313 + 2.3773*pow(1.e0-a,-0.3655)))/omega;
+			omega += I*omega/(2.*(0.8313 + 2.3773*pow(1.e0-a,-0.3655)));
 			break;
 		default:
 			break;
@@ -179,7 +223,7 @@ COMPLEX16 XLALSimRingdownInterpOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
 		switch (abs(m)){
 		case 4:
 			omega = (2.3000 - 1.5056*pow(1.e0-a,0.2244));
-			omega += I*(2*(1.1929 + 3.1191*pow(1.e0-a,-0.4825)))/omega;
+			omega += I*omega/(2.*(1.1929 + 3.1191*pow(1.e0-a,-0.4825)));
 			break;
 		default:
 			break;
