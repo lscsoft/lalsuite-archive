@@ -71,6 +71,13 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     if not os.path.isdir(timeseriesLocation):
         os.makedirs(timeseriesLocation)
 
+    rmsLocation = params["dirPath"] + "/Text_Files/RMS/" + channel.station_underscore
+    if not os.path.isdir(rmsLocation):
+        os.makedirs(rmsLocation)
+    rmsLocation = os.path.join(rmsLocation,str(params["fftDuration"]))
+    if not os.path.isdir(rmsLocation):
+        os.makedirs(rmsLocation)
+
     psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(psdFile,"wb")
     for i in xrange(len(data["freq"])):
@@ -94,6 +101,12 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     f.write("%.2f %e\n"%(data["time"][datahighpass_argmax],data["dataHighpass"][datahighpass_argmax]))
     f.close()
 
+    rmsFile = os.path.join(rmsLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(rmsFile,"wb")
+    for i in xrange(len(data["timeRMS"])):
+        f.write("%.0f %e\n"%(data["timeRMS"][i],data["dataRMS"][i]))
+    f.close()
+
 def mat(params, channel, segment):
 
     gpsStart = segment[0]
@@ -104,12 +117,16 @@ def mat(params, channel, segment):
     dataFull = np.array(data)
     dataLowpass = pylal.dq.dqDataUtils.lowpass(dataFull,channel.samplef,1.0)
     dataHighpass = pylal.dq.dqDataUtils.highpass(dataFull,channel.samplef,1.0)
+    dataRMS = pylal.dq.dqDataUtils.blrms(dataFull, channel.samplef, average=1, band=[0,1])
 
     data = {}
     data["time"] = time
     data["data"] = dataFull
     data["dataLowpass"] = dataLowpass
     data["dataHighpass"] = dataHighpass
+
+    data["timeRMS"] = time[0] + range(len(dataRMS))
+    data["dataRMS"] = dataRMS
 
     NFFT = params["fftDuration"]*channel.samplef
     spectra, freq = matplotlib.pyplot.psd(data["data"], NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
