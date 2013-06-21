@@ -19,8 +19,9 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 
 __author__ = "Collin Capano <cdcapano@ligo.caltech.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 
 #
