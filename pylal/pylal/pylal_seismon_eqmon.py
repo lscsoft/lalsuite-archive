@@ -48,8 +48,8 @@ def run_earthquakes_monitor(params):
     for attributeDic in attributeDics:
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        gpsStart = traveltimes["arrivalMin"] - 200
-        gpsEnd = traveltimes["arrivalMax"] + 200
+        gpsStart = max(traveltimes["Rtimes"]) - 200
+        gpsEnd = max(traveltimes["Rtimes"]) + 200
 
         check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
 
@@ -194,8 +194,8 @@ def run_earthquakes(params):
     for attributeDic in attributeDics:
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        gpsStart = traveltimes["arrivalMin"] - 200
-        gpsEnd = traveltimes["arrivalMax"] + 200
+        gpsStart = max(traveltimes["Rtimes"]) - 200
+        gpsEnd = max(traveltimes["Rtimes"]) + 200
 
         f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd))
 
