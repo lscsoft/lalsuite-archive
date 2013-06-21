@@ -1233,7 +1233,25 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                                  host=server, port=port)
             else:
                 connection = GWDataFindClient.GWDataFindHTTPConnection()
-            datacache = connection.find_frame_urls(channel[0], frametype,
+            # KLUDGE for GEO trend files, 1 frame type, but three different frames with different data
+            if channel[0] == "G" and ( frametype[0] == "T" or frametype[0] == "M"):
+                tmpcache = connection.find_frame_urls(channel[0], frametype[0],
+                                                       span[0], span[1],
+                                                       urltype="file",
+                                                       on_gaps="warn")
+                datacache = []
+                for cacheentry in tmpcache:
+                    if len(frametype) == 1 and re.search("framedata",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                    if re.search("RDS3",frametype) and re.search("RDS3",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                    if re.search("RDS9",frametype) and re.search("RDS9",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                # convert to cache list format
+                datacache = Cache.from_urls(datacache)
+            # No kludge if not GEO trend files
+            else:
+                datacache = connection.find_frame_urls(channel[0], frametype,
                                                    span[0], span[1],
                                                    urltype="file",
                                                    on_gaps="warn")
