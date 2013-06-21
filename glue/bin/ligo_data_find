@@ -277,7 +277,7 @@ def main():
                     sys.exit(0)
             elif o in ("-v", "--version"):
                     print('ligo_data_find client version %s' 
-                            % git_vertion.verbose_msg)
+                            % git_version.verbose_msg)
                     sys.exit(0)
             elif o in ("-p", "--ping"):
                     clientMethod = 'ping'
