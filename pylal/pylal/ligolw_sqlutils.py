@@ -1129,9 +1129,9 @@ def get_pids_to_update(cursor, programs):
         WHERE new_pid != old_pid """
     if not programs:
         # get all process_ids regardless of program
-        process_ids = zip(*cursor.execute(sqlquery).fetchall())[0]
+        process_ids = zip( *cursor.execute(sqlquery).fetchall() )
     else:
-        process_ids = ()
+        process_ids = []
         sqlquery += """
             AND program = :1
         """
@@ -1139,7 +1139,7 @@ def get_pids_to_update(cursor, programs):
         for program in programs:
             validate_option(program)
             if (program,) in cursor.execute('SELECT DISTINCT program FROM _pidmap_'):
-                process_ids += zip(*cursor.execute(sqlquery, (program,)).fetchall())[0]
+                process_ids += zip( *cursor.execute(sqlquery, (program,)).fetchall() )
 
     return process_ids
 
@@ -1215,10 +1215,10 @@ def simplify_summ_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            if not old_pids:
-                print >> sys.stdout, "The search & filter tables lack duplicates."
-            else:
+            if not set(table_names) & set(all_tables):
                 print >> sys.stdout, "This database lacks all filtering related summary tables."
+            else:
+                print >> sys.stdout, "The search & filter tables lack duplicates."
     cursor.close()
 
 
@@ -1281,10 +1281,10 @@ def update_pid_in_snglstbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            if not old_pids:
-                print >> sys.stdout, "The sngl_inspiral & sngl_ringdown tables lack duplicates."
-            else:
+            if not set(table_names) & set(all_tables):
                 print >> sys.stdout, "This database lacks a sngl_inspiral &/or sngl_ringdown table."
+            else:
+                print >> sys.stdout, "The sngl_inspiral & sngl_ringdown tables lack duplicates."
     cursor.close()
 
 
@@ -2450,7 +2450,10 @@ def simplify_sim_tbls(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            print >> sys.stdout, "This database lacks a simulation table."
+            if not [tbl for tbl in all_tables if 'sim_' in tbl]:
+                print >> sys.stdout, "This database lacks a simulation table."
+            else:
+                print >> sys.stdout, "The simulation tables lack duplicates."
     cursor.close()
 
 
@@ -2783,7 +2786,7 @@ def simplify_timeslide_tbl(connection, verbose=False, debug=False):
     else:
         if verbose:
             if 'time_slide' not in all_tables:
-                print sys.stdout, "There is no time_slide table in this database."
+                print >> sys.stdout, "There is no time_slide table in this database."
             else:
                 print >> sys.stdout, "The time_slide table lacks any duplicates."
     cursor.close()
@@ -2871,5 +2874,5 @@ def simplify_vetodef_tbl(connection, verbose=False, debug=False):
             print >> sys.stderr, "SQL script end time:   %s" % str(time.localtime()[3:6])
     else:
         if verbose:
-            print sys.stdout, "This database lacks a veto_definer table."
+            print >> sys.stdout, "This database lacks a veto_definer table."
 
