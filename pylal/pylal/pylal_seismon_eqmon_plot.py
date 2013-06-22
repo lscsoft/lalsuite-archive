@@ -27,6 +27,28 @@ import pylal.pylal_seismon_eqmon
 #
 # =============================================================================
 
+def plot_rms(params,time,data,traveltimes,plotName):
+
+    startTime = np.min(time)
+    endTime = np.max(time)
+    time = time - startTime
+
+    peakTime = traveltimes["Restimate"] - startTime
+
+    threshold = traveltimes["threshold"] 
+
+    plt.semilogy(time,data, 'k')
+    title_text = "Rf: %f"%(traveltimes["Rfestimate"])
+    plt.axvline(x=peakTime,color='r')
+    plt.axhline(y=threshold,color='b')
+
+    plt.xlabel('Time [s]')
+    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
+    plt.title(title_text)
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def restimates(params,attributeDics,plotName):
 
     if params["ifo"] == "H1":
@@ -43,6 +65,9 @@ def restimates(params,attributeDics,plotName):
     gps = []
     magnitudes = []
     for attributeDic in attributeDics:
+        if not "Restimate" in attributeDic["traveltimes"][ifo]:
+            continue
+
         travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][-1]
 
         gps.append(travel_time)
