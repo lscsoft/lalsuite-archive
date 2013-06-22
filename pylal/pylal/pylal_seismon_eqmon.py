@@ -174,6 +174,40 @@ def run_earthquakes_monitor(params):
     plotName = os.path.join(plotsDirectory,"%d-%d.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
 
+def get_rms(start_time,end_time,files):
+
+    time = []
+    data = []
+
+    #== loop over frames in cache
+    for file in files:
+
+        fileSplit = file.split("/")
+        txtFile = fileSplit[-1].replace(".txt","")
+        txtFileSplit = txtFile.split("-")
+        thisTTStart = int(txtFileSplit[0])
+        thisTTEnd = int(txtFileSplit[1])
+
+        if end_time < thisTTStart:
+            continue
+        if start_time > thisTTEnd:
+            continue
+
+        data_out = np.loadtxt(file)
+        file_time = data_out[:,0]
+        file_data = data_out[:,1]
+        data_out[0,1] = data_out[3,1]
+        data_out[1,1] = data_out[3,1]
+        data_out[2,1] = data_out[3,1]
+
+        for i in range(len(file_data)):
+            if file_time[i] <= start_time:  continue
+            if file_time[i] >= end_time:  continue
+            time.append(file_time[i])
+            data.append(file_data[i])
+
+    return time,data
+
 def run_earthquakes(params):
 
     earthquakesDirectory = os.path.join(params["path"],"earthquakes")
@@ -223,27 +257,61 @@ def run_earthquakes(params):
     if not os.path.isdir(plotsDirectory):
         os.makedirs(plotsDirectory)
 
+    thresholds = {}
+    for channel in params["channels"]:
+        thresholds[channel.station_underscore] = 0
+
     for attributeDic in attributeDics:
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        gpsStart = max(traveltimes["Rtimes"]) - 200
-        gpsEnd = max(traveltimes["Rtimes"]) + 200
+        distance = great_circle_distance(attributeDic["Latitude"],attributeDic["Longitude"],traveltimes["Latitudes"][-1],traveltimes["Longitudes"][-1])
+
+        ttMin = distance/5.0
+        ttMax = distance/2.0
+     
+        gpsStart = traveltimes["Rtimes"][0] + ttMin
+        gpsEnd = traveltimes["Rtimes"][0] + ttMax
 
         for channel in params["channels"]:
 
-            timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore
-            if not os.path.isdir(timeseriesLocation):
-                os.makedirs(timeseriesLocation)
-            timeseriesLocation = os.path.join(timeseriesLocation,str(params["fftDuration"]))
-            if not os.path.isdir(timeseriesLocation):
-                os.makedirs(timeseriesLocation)
+            rmsLocation = params["dirPath"] + "/Text_Files/RMS/" + channel.station_underscore
+            if not os.path.isdir(rmsLocation):
+                os.makedirs(rmsLocation)
+            rmsLocation = os.path.join(rmsLocation,str(params["fftDuration"]))
+            if not os.path.isdir(rmsLocation):
+                os.makedirs(rmsLocation)
 
-            timeseriesFile = os.path.join(timeseriesLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+            rmsFiles = glob.glob(os.path.join(rmsLocation,"*"))
+            rmsFiles = sorted(rmsFiles)
 
-            if os.path.isfile(timeseriesFile):
-                data_out = np.loadtxt(timeseriesFile)
-                timeEstimate = data_out[1,0]
+            if thresholds[channel.station_underscore] == 0:
+                time_rms,data_rms = get_rms(params["gpsStart"],params["gpsEnd"],rmsFiles)
+                sorted_data_rms = sorted(data_rms,reverse=True)
+                pvalue = 0.001
+                index = np.floor(pvalue*len(sorted_data_rms))
+                thresholds[channel.station_underscore] = sorted_data_rms[index.astype(int)]
+
+            time_rms,data_rms = get_rms(gpsStart,gpsEnd,rmsFiles)
+            time_rms = np.array(time_rms)
+            data_rms = np.array(data_rms)
+
+            if len(time_rms) > 0:
+
+                data_rms_argmax = data_rms.argmax()
+                time_rms_argmax = time_rms[data_rms_argmax]
+
+                if data_rms_argmax < thresholds[channel.station_underscore]:
+                    continue
+
+                timeEstimate = time_rms_argmax
                 attributeDic["traveltimes"][ifo]["Restimate"] = timeEstimate
+                attributeDic["traveltimes"][ifo]["Rfestimate"] = distance/(timeEstimate-traveltimes["Rtimes"][0])
+                attributeDic["traveltimes"][ifo]["threshold"] = thresholds[channel.station_underscore]
+
+                plotName = os.path.join(earthquakesDirectory,"%s-%d-%d.png"%(channel.station_underscore,\
+                    gpsStart,gpsEnd))
+                pylal.pylal_seismon_eqmon_plot.plot_rms(params,time_rms,data_rms,\
+                    attributeDic["traveltimes"][ifo],plotName)
 
     if params["doPlots"]:
 
@@ -257,12 +325,6 @@ def run_earthquakes(params):
             plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
             pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
     
-            plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
-            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
-    
-            plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
-            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
-
             plotName = os.path.join(earthquakesDirectory,"restimates.png")
             pylal.pylal_seismon_eqmon_plot.restimates(params,attributeDics,plotName)
 
@@ -651,12 +713,9 @@ def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
                 longitudeDiff.append(attributeDics[i]["Longitude"]-attributeDics[i+1]["Longitude"])
     return magnitudeDiff, latitudeDiff, longitudeDiff
 
-def great_circle_distance(latlong_a, latlong_b):
+def great_circle_distance(lat1, lon1, lat2, lon2):
 
     EARTH_CIRCUMFERENCE = 6378.137 # earth circumference in kilometers
-
-    lat1, lon1 = latlong_a
-    lat2, lon2 = latlong_b
 
     dLat = math.radians(lat2 - lat1)
     dLon = math.radians(lon2 - lon1)
