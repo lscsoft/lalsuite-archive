@@ -46,9 +46,10 @@ from glue.segmentdb.segmentdb_utils import add_to_segment
 from glue.segmentdb.segmentdb_utils import add_to_segment_summary
 from glue.segmentdb.segmentdb_utils import find_segments
 
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__    = "$Date$"
-__version__ = "$Revision$"
 
 
 # "enum" indicating operation

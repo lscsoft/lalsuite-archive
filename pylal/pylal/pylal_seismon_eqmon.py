@@ -41,31 +41,47 @@ def run_earthquakes_monitor(params):
     attributeDics = retrieve_earthquakes(params)
     attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
 
-    f = open(os.path.join(earthquakesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"])),"w+")
+    earthquakesFile = os.path.join(earthquakesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"]))
+    if not os.path.isfile(earthquakesFile):
+        f = open(earthquakesFile,"w+")
 
-    amp = 0
+        amp = 0
+ 
+        for attributeDic in attributeDics:
+            traveltimes = attributeDic["traveltimes"][ifo]
 
-    for attributeDic in attributeDics:
-        traveltimes = attributeDic["traveltimes"][ifo]
+            gpsStart = max(traveltimes["Rtimes"]) - 200
+            gpsEnd = max(traveltimes["Rtimes"]) + 200
 
-        gpsStart = max(traveltimes["Rtimes"]) - 200
-        gpsEnd = max(traveltimes["Rtimes"]) + 200
+            check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
 
-        check_intersect = (gpsEnd >= params["gpsStart"]) and (params["gpsEnd"] >= gpsStart)
+            if check_intersect:
+                amp += traveltimes["Rfamp"][0]
 
-        if check_intersect:
-            amp += traveltimes["Rfamp"][0]
+                f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"]))
 
-            f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd))
+        f.close()
 
-    f.close()
-
-    f = open(os.path.join(timeseriesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"])),"w+")
-    f.write("%e\n"%(amp))
-    f.close()
+        f = open(os.path.join(timeseriesDirectory,"%d-%d.txt"%(params["gpsStart"],params["gpsEnd"])),"w+")
+        f.write("%e\n"%(amp))
+        f.close()
 
     if not params["doPlots"]:
         return
+
+    plotsDirectory = os.path.join(params["path"],"plots")
+    if not os.path.isdir(plotsDirectory):
+        os.makedirs(plotsDirectory)
+
+    earthquakes = np.loadtxt(earthquakesFile)
+
+    gpsStart = earthquakes[:,6]
+    gpsEnd = earthquakes[:,7]
+    latitude = earthquakes[:,8]
+    longitude = earthquakes[:,9]
+    magnitude = earthquakes[:,1]
+    #for i in xrange(len(earthquakes)):
+    #    print gpsStart[i], gpsEnd[i]
 
     files = glob.glob(os.path.join(timeseriesDirectory,"*.txt"))
     files = sorted(files)
@@ -155,10 +171,6 @@ def run_earthquakes_monitor(params):
         data["channels"][channel.station_underscore]["tt"] = np.array(ttStart)
         data["channels"][channel.station_underscore]["data"] = np.array(amp)
 
-    plotsDirectory = os.path.join(params["path"],"plots")
-    if not os.path.isdir(plotsDirectory):
-        os.makedirs(plotsDirectory)
-
     plotName = os.path.join(plotsDirectory,"%d-%d.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
 
@@ -187,7 +199,8 @@ def run_earthquakes(params):
     attributeDics = retrieve_earthquakes(params)
     attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
 
-    f = open(os.path.join(earthquakesDirectory,"earthquakes.txt"),"w+")
+    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+    f = open(earthquakesFile,"w+")
 
     segmentlist = glue.segments.segmentlist()
 
@@ -197,13 +210,62 @@ def run_earthquakes(params):
         gpsStart = max(traveltimes["Rtimes"]) - 200
         gpsEnd = max(traveltimes["Rtimes"]) + 200
 
-        f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd))
+        f.write("%.1f %.1f %.1f %.1f %.1f %.5e %d %d %.1f %.1f\n"%(attributeDic["GPS"],attributeDic["Magnitude"],max(traveltimes["Ptimes"]),max(traveltimes["Stimes"]),max(traveltimes["Rtimes"]),traveltimes["Rfamp"][0],gpsStart,gpsEnd,attributeDic["Latitude"],attributeDic["Longitude"]))
 
         segmentlist.append(glue.segments.segment(gpsStart,gpsEnd))
 
     f.close()
 
+    if not params["doPlots"]:
+        return segmentlist
+
+    plotsDirectory = os.path.join(params["path"],"plots")
+    if not os.path.isdir(plotsDirectory):
+        os.makedirs(plotsDirectory)
+
+    for attributeDic in attributeDics:
+        traveltimes = attributeDic["traveltimes"][ifo]
+
+        gpsStart = max(traveltimes["Rtimes"]) - 200
+        gpsEnd = max(traveltimes["Rtimes"]) + 200
+
+        for channel in params["channels"]:
+
+            timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore
+            if not os.path.isdir(timeseriesLocation):
+                os.makedirs(timeseriesLocation)
+            timeseriesLocation = os.path.join(timeseriesLocation,str(params["fftDuration"]))
+            if not os.path.isdir(timeseriesLocation):
+                os.makedirs(timeseriesLocation)
+
+            timeseriesFile = os.path.join(timeseriesLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+
+            if os.path.isfile(timeseriesFile):
+                data_out = np.loadtxt(timeseriesFile)
+                timeEstimate = data_out[1,0]
+                attributeDic["traveltimes"][ifo]["Restimate"] = timeEstimate
+
     if params["doPlots"]:
+
+        if params["doEarthquakesAnalysis"]:
+            plotName = os.path.join(earthquakesDirectory,"worldmap_magnitudes.png")
+            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Magnitude",plotName)
+    
+            plotName = os.path.join(earthquakesDirectory,"worldmap_traveltimes.png")
+            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Traveltimes",plotName)
+    
+            plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
+            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
+    
+            plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
+            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
+    
+            plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
+            pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
+
+            plotName = os.path.join(earthquakesDirectory,"restimates.png")
+            pylal.pylal_seismon_eqmon_plot.restimates(params,attributeDics,plotName)
+
         plotName = os.path.join(earthquakesDirectory,"magnitudes.png")
         pylal.pylal_seismon_eqmon_plot.magnitudes(params,attributeDics,plotName)
         plotName = os.path.join(earthquakesDirectory,"magnitudes_latencies.png")
@@ -215,7 +277,7 @@ def run_earthquakes(params):
         plotName = os.path.join(earthquakesDirectory,"traveltimes%s.png"%params["ifo"])
         pylal.pylal_seismon_eqmon_plot.traveltimes(params,attributeDics,ifo,params["gpsEnd"],plotName)
         plotName = os.path.join(earthquakesDirectory,"worldmap.png")
-        pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,params["gpsEnd"],plotName)
+        pylal.pylal_seismon_eqmon_plot.worldmap_wavefronts(params,attributeDics,params["gpsEnd"],plotName)
 
     return segmentlist
 
