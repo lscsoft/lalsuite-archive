@@ -1,11 +1,29 @@
 # Module to keep definitions of job and node classes for auxmvc pipeline. 
 import sys
 from glue import pipeline
+import tempfile
 
 def construct_command(node):
   command_string = node.job().get_executable() + " " + node.get_cmd_line()
   return [opt for opt in command_string.split(" ") if opt.strip()]
   
+
+class auxmvc_DAG(pipeline.CondorDAG):
+        def __init__(self, basename, log_path):
+                self.basename = basename
+                tempfile.tempdir = log_path
+                tempfile.template = self.basename + '.dag.log.'
+                logfile = tempfile.mktemp()
+                fh = open(logfile, "w" )
+                fh.close()
+                pipeline.CondorDAG.__init__(self,logfile)
+                self.set_dag_file(self.basename)
+                self.jobsDict = {}
+                #self.id = 0
+        def add_node(self, node):
+                #self.id+=1
+                pipeline.CondorDAG.add_node(self, node)
+
 
   
 #####################  JOB and NODE classes for auxmvc pipeline  #################################  
@@ -159,9 +177,9 @@ class prepare_training_auxmvc_samples_node(pipeline.CondorDAGNode):
 
     
 
-class train_forest_job(pipeline.CondorDAGJob):
+class train_forest_job(auxmvc_analysis_job):
   """
-  Training job for random forets (MVSC). 
+  Training job for random forest (MVSC). 
   """
   def __init__(self, cp):
     """
@@ -176,16 +194,16 @@ class train_forest_node(pipeline.CondorDAGNode):
   """
   Dag node for training the random forest (MVSC).
   """
-  def __init__(self, job, trainingdatafile, p_node=[]):
+  def __init__(self, job, training_data_file, p_node=[]):
     pipeline.CondorDAGNode.__init__(self,job)
-    self.job.set_stdout_file('logs/' + trainingdatafile.replace('.pat', '.out'))
-    self.job.set_stderr_file('logs/' + trainingdatafile.replace('.pat', '.err'))
-    self.add_input_file(trainingdatafile)
-    self.trainingdatafile = self.get_input_files()[0]
-    self.trainedforest = self.trainingdatafile.replace('.pat','.spr')
-    #self.trainedout = self.trainingdatafile.replace('.pat','.out')
-    self.add_file_arg(" %s %s" % (self.trainedforest, self.trainingdatafile))
-    self.add_output_file(self.trainedforest)
+    self.job.set_stdout_file('logs/' + training_data_file.replace('.pat', '.out'))
+    self.job.set_stderr_file('logs/' + training_data_file.replace('.pat', '.err'))
+    self.add_input_file(training_data_file)
+    self.training_data_file = self.get_input_files()[0]
+    self.trainedforest = self.training_data_file.replace('.pat','.spr')
+	self.add_output_file(self.trainedforest)	
+	self.add_short_opt("f", self.trainedforest)
+    self.add_file_arg(" %s" % (self.training_data_file))
     for p in p_node:
       self.add_parent(p)
 
