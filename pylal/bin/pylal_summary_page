@@ -1233,7 +1233,25 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                                  host=server, port=port)
             else:
                 connection = GWDataFindClient.GWDataFindHTTPConnection()
-            datacache = connection.find_frame_urls(channel[0], frametype,
+            # KLUDGE for GEO trend files, 1 frame type, but three different frames with different data
+            if channel[0] == "G" and ( frametype[0] == "T" or frametype[0] == "M"):
+                tmpcache = connection.find_frame_urls(channel[0], frametype[0],
+                                                       span[0], span[1],
+                                                       urltype="file",
+                                                       on_gaps="warn")
+                datacache = []
+                for cacheentry in tmpcache:
+                    if len(frametype) == 1 and re.search("framedata",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                    if re.search("RDS3",frametype) and re.search("RDS3",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                    if re.search("RDS9",frametype) and re.search("RDS9",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                # convert to cache list format
+                datacache = Cache.from_urls(datacache)
+            # No kludge if not GEO trend files
+            else:
+                datacache = connection.find_frame_urls(channel[0], frametype,
                                                    span[0], span[1],
                                                    urltype="file",
                                                    on_gaps="warn")
@@ -1395,8 +1413,9 @@ def get_spectrum(cp, channel, *args, **kwargs):
         search for new spectrogram (True), or find in memory (False)
     """
     global G_SPECTRUM
-    if G_SPECTRUM.has_key(channel):
-        return G_SPECTRUM[channel]
+    # KLUDGE: skipping spectrum caching, as sometimes different segment lists can be requested
+    # if G_SPECTRUM.has_key(channel):
+    #     return G_SPECTRUM[channel]
 
     # get spectrogram
     sequencelist = get_spectrogram(cp, channel, *args, **kwargs)
@@ -3345,14 +3364,23 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.add_design_spectrum(tab.channels[0], series)
         if cp.has_option(cpsec, "reference-curve"):
             if cp.has_option(cpsec, "reference-epoch"):
-                gps = lal.LIGOTimeGPS(cp.getfloat(cp.get(cpsec,\
-                                                         "reference-epoch")))
-                name = "Reference (%.2g)" % float(gps)
+                gps_range = SegmentList([Segment(map(float,cp.get(cpsec,\
+                                                         "reference-epoch").split(',')))])
+                name = "Reference (%s)" % cp.get(cpsec,"reference-epoch")
+                spectrumlist =\
+                    get_spectrum(cp, channel, params["time-step"],\
+                                     params["segment-length"],\
+                                     params["segment-overlap"], gps_range,\
+                                     frametype=params["frametype"],\
+                                     calibration=params["calibration"],\
+                                     resample=params["resample"],\
+                                     fresponse=params["frequency-response"])
+                series = spectrumlist[0]
             else:
                 gps = lal.LIGOTimeGPS(0)
                 name = "Reference"
-            series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
-                                            channels[0], name=name, gps=gps)
+                series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
+                                                    channels[0], name=name, gps=gps)
             tab.add_reference_spectrum(tab.channels[0], series)
 
     #
@@ -3487,7 +3515,7 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
         spectrum.f_array = f
         return spectrum
 
-    # otherwise we can try to use a function
+
     spec     = G_SPECTRUM[channel][0]
     if spec.f_array is None:
         f = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
@@ -3499,6 +3527,8 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
     spectrum = Create(name, lal.LIGOTimeGPS(gps), spec.f0, spec.deltaF,\
                       spec.sampleUnits, f.size)
     spectrum.f_array = f
+
+    # otherwise we can try to use a function
     if hasattr(lalsimulation, "SimNoisePSD%s" % descriptor):
         SimNoisePSD = getattr(lalsimulation, "SimNoisePSD%s" % descriptor)
         asd = lambda f: f and SimNoisePSD(f)**(1/2) or 0

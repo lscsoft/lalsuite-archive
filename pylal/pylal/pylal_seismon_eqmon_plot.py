@@ -27,6 +27,67 @@ import pylal.pylal_seismon_eqmon
 #
 # =============================================================================
 
+def plot_rms(params,time,data,traveltimes,plotName):
+
+    startTime = np.min(time)
+    endTime = np.max(time)
+    time = time - startTime
+
+    peakTime = traveltimes["Restimate"] - startTime
+
+    threshold = traveltimes["threshold"] 
+
+    plt.semilogy(time,data, 'k')
+    title_text = "Rf: %f"%(traveltimes["Rfestimate"])
+    plt.axvline(x=peakTime,color='r')
+    plt.axhline(y=threshold,color='b')
+
+    plt.xlabel('Time [s]')
+    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
+    plt.title(title_text)
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
+def restimates(params,attributeDics,plotName):
+
+    if params["ifo"] == "H1":
+        ifo = "LHO"
+    elif params["ifo"] == "L1":
+        ifo = "LLO"
+    elif params["ifo"] == "G1":
+        ifo = "GEO"
+    elif params["ifo"] == "V1":
+        ifo = "VIRGO"
+    elif params["ifo"] == "C1":
+        ifo = "FortyMeter"
+
+    gps = []
+    magnitudes = []
+    for attributeDic in attributeDics:
+        if not "Restimate" in attributeDic["traveltimes"][ifo]:
+            continue
+
+        travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][-1]
+
+        gps.append(travel_time)
+        magnitudes.append(attributeDic["Magnitude"])
+
+    if magnitudes == []:
+        return
+
+    gps = np.array(gps)
+    magnitudes = np.array(magnitudes)
+
+    plt.figure()
+    plt.plot(magnitudes,gps, 'k*')
+    plt.xlim([min(magnitudes)-0.5, max(magnitudes)+0.5])
+    plt.xlabel('Magnitude')
+    plt.ylabel("\Delta T")
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def prediction(data,plotName):
 
     timeStart = data["prediction"]["tt"][0]
@@ -306,7 +367,110 @@ def find_nearest(array,value):
     index=(np.abs(array-value)).argmin()
     return array[index], index
 
-def worldmap_plot(params,attributeDics,currentGPS,plotName):
+def worldmap_plot(params,attributeDics,type,plotName):
+
+    if params["ifo"] == "H1":
+        ifo = "LHO"
+    elif params["ifo"] == "L1":
+        ifo = "LLO"
+    elif params["ifo"] == "G1":
+        ifo = "GEO"
+    elif params["ifo"] == "V1":
+        ifo = "VIRGO"
+    elif params["ifo"] == "C1":
+        ifo = "FortyMeter"
+
+    plt.figure(figsize=(10,5))
+    plt.axes([0,0,1,1])
+
+    # lon_0 is central longitude of robinson projection.
+    # resolution = 'c' means use crude resolution coastlines.
+    m = Basemap(projection='robin',lon_0=0,resolution='c')
+    #set a background colour
+    m.drawmapboundary(fill_color='#85A6D9')
+
+    # draw coastlines, country boundaries, fill continents.
+    m.fillcontinents(color='white',lake_color='#85A6D9')
+    m.drawcoastlines(color='#6D5F47', linewidth=.4)
+    m.drawcountries(color='#6D5F47', linewidth=.4)
+
+    # draw lat/lon grid lines every 30 degrees.
+    m.drawmeridians(np.arange(-180, 180, 30), color='#bbbbbb')
+    m.drawparallels(np.arange(-90, 90, 30), color='#bbbbbb')
+
+    if not attributeDics == []:
+        traveltimes = attributeDics[0]["traveltimes"][ifo]
+        ifolat = traveltimes["Latitudes"][-1]
+        ifolng = traveltimes["Longitudes"][-1]
+        # compute the native map projection coordinates for cities
+        ifox,ifoy = m(ifolng,ifolat)
+
+        m.scatter(
+            ifox,
+            ifoy,
+            s=10, #size
+            c='black', #color
+            marker='x', #symbol
+            alpha=0.5, #transparency
+            zorder = 1, #plotting order
+            )
+        text(
+            ifox+50000,
+            ifoy+50000,
+            ifo,
+            color = 'black',
+            size='small',
+            horizontalalignment='center',
+            verticalalignment='center',
+            zorder = 2,
+            )
+
+    for attributeDic in attributeDics:
+
+        if type == "Restimates" and not "Restimate" in attributeDic["traveltimes"][ifo]:
+            continue
+
+        x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
+        if type == "Magnitude":
+            color = attributeDic["Magnitude"]
+            colorbar_label = "Magnitude"
+            vmin = 0
+            vmax = 7
+        elif type == "Traveltimes":
+            travel_time = attributeDic["traveltimes"][ifo]["Rtimes"][-1] - attributeDic["traveltimes"][ifo]["Rtimes"][0]
+            travel_time = travel_time / 60
+            color = travel_time
+            colorbar_label = "Travel times [minutes]"
+            vmin = 0
+            vmax = 60
+        elif type == "Restimates":
+            
+            travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][0]
+            travel_time = travel_time / 60
+            color = travel_time
+            colorbar_label = "Travel times [minutes]"
+            vmin = 0
+            vmax = 60
+        m.scatter(
+                x,
+                y,
+                s=10, #size
+                marker='o', #symbol
+                alpha=0.5, #transparency
+                zorder = 3, #plotting order
+                c=color, 
+                vmin=vmin, 
+                vmax=vmax
+        )
+
+    cbar=plt.colorbar()
+    cbar.set_label(colorbar_label)
+    cbar.set_clim(vmin=vmin,vmax=vmax)
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
+def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
 
     figure(figsize=(10,5))
     axes([0,0,1,1])
