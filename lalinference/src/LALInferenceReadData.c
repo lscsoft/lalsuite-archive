@@ -2543,42 +2543,43 @@ void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
     //SimBurst *BInjTable=NULL; // salvo to continue here
     ppt=LALInferenceGetProcParamVal(runState->commandLine,"--burst_inj");
     if(!ppt){
-    SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
-ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
-    if(ppt) {
-      fname = XLALCalloc((strlen(ppt->value)+255)*sizeof(char),1);
-      sprintf(fname,"%s.injection",ppt->value);
-    }
-    else fname=defaultname;
+        ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
+        SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
+        ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
+        if(ppt) {
+          fname = XLALCalloc((strlen(ppt->value)+255)*sizeof(char),1);
+          sprintf(fname,"%s.injection",ppt->value);
+        }
+        else fname=defaultname;
 
-    ppt=LALInferenceGetProcParamVal(runState->commandLine,"--event");
-    if (ppt) {
-      UINT4 event = atoi(ppt->value);
-      UINT4 i;
-      theEventTable = injTable;
-      for (i = 0; i < event; i++) {
-        theEventTable = theEventTable->next;
-      }
-      theEventTable->next = NULL;
-    } else {
-      theEventTable=injTable;
-      theEventTable->next = NULL;
-    }
+        ppt=LALInferenceGetProcParamVal(runState->commandLine,"--event");
+        if (ppt) {
+          UINT4 event = atoi(ppt->value);
+          UINT4 i;
+          theEventTable = injTable;
+          for (i = 0; i < event; i++) {
+            theEventTable = theEventTable->next;
+          }
+          theEventTable->next = NULL;
+        } else {
+          theEventTable=injTable;
+          theEventTable->next = NULL;
+        }
 
-    /* Save old variables */
-    LALInferenceCopyVariables(runState->currentParams,&backup);
-    LALPNOrder *order=LALInferenceGetVariable(&backup,"LAL_PNORDER");
-    Approximant *approx=LALInferenceGetVariable(&backup,"LAL_APPROXIMANT");
-    /* Fill named variables */
-    LALInferenceInjectionToVariables(theEventTable,runState->currentParams);
-    if(order && approx){
-      /* Set the waveform to the one used in the analysis */
-      LALInferenceRemoveVariable(runState->currentParams,"LAL_APPROXIMANT");
-      LALInferenceRemoveVariable(runState->currentParams,"LAL_PNORDER");
-      LALInferenceAddVariable(runState->currentParams,"LAL_PNORDER",order,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
-      LALInferenceAddVariable(runState->currentParams,"LAL_APPROXIMANT",approx,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+        /* Save old variables */
+        LALInferenceCopyVariables(runState->currentParams,&backup);
+        LALPNOrder *order=LALInferenceGetVariable(&backup,"LAL_PNORDER");
+        Approximant *approx=LALInferenceGetVariable(&backup,"LAL_APPROXIMANT");
+        /* Fill named variables */
+        LALInferenceInjectionToVariables(theEventTable,runState->currentParams);
+        if(order && approx){
+          /* Set the waveform to the one used in the analysis */
+          LALInferenceRemoveVariable(runState->currentParams,"LAL_APPROXIMANT");
+          LALInferenceRemoveVariable(runState->currentParams,"LAL_PNORDER");
+          LALInferenceAddVariable(runState->currentParams,"LAL_PNORDER",order,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+          LALInferenceAddVariable(runState->currentParams,"LAL_APPROXIMANT",approx,LALINFERENCE_INT4_t,LALINFERENCE_PARAM_FIXED);
+        }
     }
-}
    else 
    {      
        BinjTable=XLALSimBurstTableFromLIGOLw(LALInferenceGetProcParamVal(runState->commandLine,"--inj")->value,0,0);       
@@ -2603,8 +2604,9 @@ ppt=LALInferenceGetProcParamVal(runState->commandLine,"--outfile");
                 Burst_EventTable=BinjTable;
                 Burst_EventTable->next=NULL;
             }
-}
+    
     LALInferenceBurstInjectionToVariables(Burst_EventTable,runState->currentParams);
+    }
     REAL8 injPrior = runState->prior(runState,runState->currentParams);
     LALInferenceAddVariable(runState->currentParams,"logPrior",&injPrior,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
     REAL8 injL = runState->likelihood(runState->currentParams, runState->data, runState->templt);

@@ -769,6 +769,7 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
   }
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
   LALInferenceClearVariables(&intrinsicParams);
+  printf("%10.10e\n",loglikeli);
   return(loglikeli);
 }
 
