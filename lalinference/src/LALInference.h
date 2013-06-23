@@ -419,6 +419,8 @@ tagLALInferenceIFOData
   struct tagLALInferenceBestIFO *BestIFO;
   int skipIFO;
   REAL8  injtime;
+  INT4 template_counter;
+  INT4 likelihood_counter;
   struct tagLALInferenceIFOData      *next;     /** A pointer to the next set of data for linked list */
 
 } LALInferenceIFOData;

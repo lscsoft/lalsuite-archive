@@ -2532,6 +2532,7 @@ void LALInferenceInjectionToVariables(SimInspiralTable *theEventTable, LALInfere
 
 void LALInferencePrintInjectionSample(LALInferenceRunState *runState)
 {
+    return;
     ProcessParamsTable *ppt=LALInferenceGetProcParamVal(runState->commandLine,"--inj");
     LALInferenceVariables backup;
     LALInferenceVariables injparams;

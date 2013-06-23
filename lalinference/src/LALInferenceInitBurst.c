@@ -49,6 +49,8 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
   /* Print command line arguments if help requested */
   
   runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
+  runState->data->template_counter=0;
+  
   ppt=LALInferenceGetProcParamVal(commandLine,"--template");
   if(ppt) {
     if(!strcmp("SineGaussF",ppt->value))
@@ -187,7 +189,7 @@ Parameter arguments:\n\
                 else {fprintf(stderr,"Error: Cannot pin parameter %s. No such parameter found in injection!\n",node->name);}
             }
         }
-
+    state->data->likelihood_counter=0;
     gsl_rng *GSLrandom=state->GSLrandom;
     
     REAL8 psimin=0.0,psimax=LAL_PI; 

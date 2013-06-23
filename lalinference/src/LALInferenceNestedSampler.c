@@ -591,7 +591,7 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
   LALInferenceAddVariable(runState->livePoints[minpos],"logw",&logw,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_OUTPUT);
   dZ=logadd(logZ,logLmax-((double) iter)/((double)Nlive))-logZ;
   sloppyfrac=*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"sloppyfraction");
-  if(displayprogress) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f Nmcmc: %i sub_accpt: %1.3f slpy: %2.1f%% H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf logZ: %lf dZ: %lf Zratio: %lf db\n",\
+  if(displayprogress) fprintf(stderr,"%i: (%2.1lf%%) accpt: %1.3f Nmcmc: %i sub_accpt: %1.3f slpy: %2.1f%% H: %3.3lf nats (%3.3lf b) logL:%lf ->%lf logZ: %lf dZ: %lf Zratio: %lf db -- LikeliCalc %d TemplateCalc %d \n",\
     iter,\
     100.0*((REAL8)iter)/(((REAL8) Nlive)*H),\
     *(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"accept_rate")/(REAL8)itercounter,\
@@ -604,7 +604,9 @@ void LALInferenceNestedSamplingAlgorithm(LALInferenceRunState *runState)
     runState->currentLikelihood,\
     logZ,\
     dZ,\
-    10.0*LAL_LOG10E*( logZ-*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"logZnoise")));
+    10.0*LAL_LOG10E*( logZ-*(REAL8 *)LALInferenceGetVariable(runState->algorithmParams,"logZnoise")),\
+    runState->data->likelihood_counter,\
+    runState->data->template_counter);
   iter++;
   /* Update the proposal */
   if(!(iter%(Nlive/4))) {

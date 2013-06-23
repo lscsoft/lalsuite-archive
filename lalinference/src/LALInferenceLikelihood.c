@@ -149,8 +149,10 @@ void LALInferenceInitLikelihood(LALInferenceRunState *runState)
     fprintf(stderr, "Using noise-only likelihood.\n");
     runState->likelihood=&LALInferenceNoiseOnlyLogLikelihood;
    }  else if (ppt){
-     if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value))
+     if(!strcmp("SineGauss",ppt->value) || !strcmp("SineGaussF",ppt->value)){
         runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_Burst;
+        printf("setting Burst Likelihood ----- \n");
+        }
       else if(!strcmp("RingdownF",ppt->value))
       {
           runState->likelihood=&LALInferenceUndecomposedFreqDomainLogLikelihood_RD;
@@ -586,6 +588,8 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
       LALInferenceCopyVariables(&intrinsicParams, dataPtr->modelParams);
       LALInferenceAddVariable(dataPtr->modelParams, "time", &timeTmp, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
       templt(dataPtr);
+      dataPtr->template_counter++;
+
       if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
           return(-DBL_MAX);
 
@@ -764,12 +768,14 @@ REAL8 LALInferenceUndecomposedFreqDomainLogLikelihood(LALInferenceVariables *cur
 
     }
     ifo++; //increment IFO counter for noise parameters
+    dataPtr->likelihood_counter++;
     dataPtr = dataPtr->next;
+    
  //fclose(testout);
   }
   loglikeli = -1.0 * chisquared; // note (again): the log-likelihood is unnormalised!
   LALInferenceClearVariables(&intrinsicParams);
-  printf("%10.10e\n",loglikeli);
+  //printf("%10.10e\n",loglikeli);
   return(loglikeli);
 }
 
@@ -2143,6 +2149,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
       //LALInferenceAddVariable(dataPtr->modelParams, "polarisation", &psi, LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
 
       templt(dataPtr);
+      dataPtr->template_counter++;
       if(XLALGetBaseErrno()==XLAL_FAILURE) /* Template generation failed in a known way, set -Inf likelihood */
           return(-DBL_MAX);
 
@@ -2225,6 +2232,7 @@ REAL8 net_snr=0.0,ifo_snr=0.0;
       dataPtr->loglikelihood -= temp;
  
     }
+    dataPtr->likelihood_counter++;
     dataPtr = dataPtr->next;
     net_snr+=4.0*ifo_snr;
     //fclose(testout);
