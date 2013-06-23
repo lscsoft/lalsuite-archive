@@ -113,16 +113,16 @@ def fdependent_burstrange(f, S, snr=8, E=1e-2):
     @param E: instrinsic energy of burst, default: grb-like 0.01
     @type  E: C{float}
 
-    @return: sensitive distance at which a GW burst with the given
+    @return: sensitive distance in pc at which a GW burst with the given
         energy would be detected with the given SNR, as a function of
         it's frequency
     @rtype: C{float}
     """
     A = ((lal.LAL_G_SI * E * lal.LAL_MSUN_SI * 0.4)\
-         / (lal.LAL_PI**2 * lal.LAL_C_SI))**(1/2) / lal.LAL_PC_SI * 1e6
+         / (lal.LAL_PI**2 * lal.LAL_C_SI))**(1/2) / lal.LAL_PC_SI 
     return A / (snr * S**(1/2) * f)
 
-def burstrange(f, S, snr=8, E=1e-2, fmin=0, fmax=None):
+def burstrange(f, S, snr=8, E=1e-2, fmin=0, fmax=None, unit="Mpc"):
     """
     Calculate the sensitive distance to a GW burst with the given intrinsic
     energy for the given signal-to-noise ratio snr, integrated over frequency.
@@ -155,8 +155,16 @@ def burstrange(f, S, snr=8, E=1e-2, fmin=0, fmax=None):
 
     # integrate
     integrand = fdependent_burstrange(f[condition], S[condition], snr, E)**3
-    result = spectrum.deltaF*integrand.sum()
     result = integrate.trapz(integrand, f[condition])
     
-    d = (result / (fmax-fmin))**1/3
+    d = (result / (fmax-fmin))**(1/3)
+    if unit == "Mpc":
+        d = d/1e6
+    elif unit == "kpc":
+        d = d/1e3
+    elif unit == "pc":
+        d = d
+    else:
+        raise ValueError("Unrecognized unit: %s" % unit)
+
     return d

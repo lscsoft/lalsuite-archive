@@ -234,7 +234,13 @@ def plot_label(param):
       'v1_end_time':r'$t_\mathrm{V}$',
       'h1l1_delay':r'$\Delta t_\mathrm{HL}$',
       'h1v1_delay':r'$\Delta t_\mathrm{HV}$',
-      'l1v1_delay':r'$\Delta t_\mathrm{LV}$'}
+      'l1v1_delay':r'$\Delta t_\mathrm{LV}$',
+      'lambdat' : r'$\tilde{\Lambda}$',
+      'dlambdat': r'$\delta \tilde{\Lambda}$',
+      'lambda1' : r'$\lambda_1$',
+      'lambda2': r'$\lambda_2$',
+      'lam_tilde' : r'$\tilde{\Lambda}$',
+      'dlam_tilde': r'$\delta \tilde{\Lambda}$'}
 
   # Handle cases where multiple names have been used
   if param in m1_names:

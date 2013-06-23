@@ -69,10 +69,10 @@ try:
 except:
         USER_NAME = pwd.getpwuid(os.getuid())[0]
 
-
+from glue import git_version
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+__date__ = git_version.date
+__version__ = git_version.id
 
 
 #

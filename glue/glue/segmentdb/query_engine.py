@@ -34,10 +34,10 @@ import os
 import pyRXP
 from glue import ldbd
 
-
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__    = "$Date$"
-__version__ = "$Revision$"
 
 
 class QueryEngine:

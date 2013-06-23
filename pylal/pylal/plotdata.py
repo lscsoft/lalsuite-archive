@@ -146,7 +146,7 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
         d = series.data.data
         if logy and ylim:
             numpy.putmask(d, d==0, ylim[0]-abs(ylim[0])*0.01)
-        plot.add_content(x, series.data.data, color=c,\
+        plot.add_content(x, d, color=c,\
                          label=plotutils.display_name(series.name), **kwargs)
         # find min/max and plot
         for i,name in enumerate(allnames):

@@ -1,74 +1,15 @@
 # Module to keep definitions of job and node classes for auxmvc pipeline. 
+
+import os
 import sys
+import tempfile
 from glue import pipeline
 
 def construct_command(node):
   command_string = node.job().get_executable() + " " + node.get_cmd_line()
   return [opt for opt in command_string.split(" ") if opt.strip()]
   
-  
-def build_auxmvc_vectors(triggger_dict, main_channel, time_window, signif_threshold, clean_samples_rate, output_file_name, channels=None, unsafe_channels=None):
-  """
-  Given dictionary of triggers from multiple channels, the function constructs auxmvc vectors out of them. Result is saved into output_file_name. 
-  """  
 
-  # use only channels from the channels file, if provided
-  if channels:
-    selected_channels = event.read_channels_from_file(channels)
-    trigger_dict.keep_channels(selected_channels)
-  
-    # to ensure consistency in dimensionality of auxmvc vectors
-    # add the channels from the selected channels that are absent in trigger_dict
-    for channel in selected_channels: 
-	  if not channel in trigger_dict.channels():
-	    trigger_dict[channel] = []
-
-
-  # get rid of unsafe channels if provided
-  if unsafe_channels:
-    unsafe_channels = event.read_channels_from_file(unsafe_channels)
-    trigger_dict.remove_channels(unsafe_channels)
-  
-
-  # keep only the triggers from the [gps_start_time, gps_end_time] segment
-  if opts.gps_start_time and opts.gps_end_time:
-  
-    #first keep all triggers from the segment expanded by the time concidence window, so that not to loose coincidences
-	trigger_dict.include([[gps_start_time - time_window, gps_end_time + time_window]])
-	#then in the main channel keep triggers that fall within the segment.
-	trigger_dict.include([[gps_start_time, gps_end_time]], channels=[main_channel])
-
-  # apply significance threshold to the triggers from the main channel
-  trigger_dict.apply_signif_threshold(channels = [main_channel], threshold = signif_threshold)
-
-  # construct glitch auxmvc vectors
-  aux_glitch_vecs = event.build_auxmvc_vectors(trigger_dict, main_channel = main_channel, coincidence_time_window = time_window)
-
-  # compute number of clean samples
-  n_clean = round(clean_samples_rate * (gps_end_time - gps_start_time))
-
-  # generate random times for clean samples
-  clean_times = numpy.random.uniform(gps_start_time, gps_end_time, n_clean)
-
-  # construct clean auxmvc vectors
-  aux_clean_vecs = event.build_auxmvc_vectors(trigger_dict, main_channel = main_channel, coincidence_time_window = time_window, build_clean_samples = True, clean_times = clean_times)
-
-  # get rid of clean samples that are near real triggers in the main channel.
-  aux_clean_vecs = auxmvc_utils.get_clean_samples(aux_clean_vecs)
-
-
-  # convert glitch and clean auxmvc vectors into MVSC evaluation set
-  mvsc_evaluation_set=auxmvc_utils.ConvertKWAuxToMVSC(KWAuxGlitchTriggers = aux_glitch_vecs, KWAuxCleanTriggers = aux_clean_vecs)
-	  
-  # save MVSC evaluation set in file	  
-
-  auxmvc_utils.WriteMVSCTriggers(mvsc_evaluation_set, output_filename = output_file_name, Classified = False)
-  
-  return mvsc_evaluation_set
-
-  
-  
-  
   
 #####################  JOB and NODE classes for auxmvc pipeline  #################################  
   
@@ -89,6 +30,8 @@ class auxmvc_analysis_job(pipeline.AnalysisJob, pipeline.CondorDAGJob):
     self.tag_base = tag_base
     universe = cp.get('condor','universe')
     executable = cp.get('condor',exec_name)
+    print exec_name
+    print executable
     pipeline.CondorDAGJob.__init__(self,universe,executable)
     pipeline.AnalysisJob.__init__(self,cp,dax)
     self.add_condor_cmd('copy_to_spool','False')
@@ -157,7 +100,7 @@ class auxmvc_analysis_job(pipeline.AnalysisJob, pipeline.CondorDAGJob):
  
   
   
-class build_auxmvc_vectors_job(pipeline.CondorDAGJob):
+class build_auxmvc_vectors_job(auxmvc_analysis_job):
   """
   Job for building auxmvc feature vectors. 
   """
@@ -188,6 +131,38 @@ class build_auxmvc_vectors_node(pipeline.CondorDAGNode):
     for p in p_node:
       self.add_parent(p)
   
+class prepare_training_auxmvc_samples_job(auxmvc_analysis_job):
+  """
+  Job for preparing training auxmvc samples. 
+  """
+  def __init__(self, cp):
+	"""
+	"""
+	sections = ['prepare-training-auxmvc-samples']
+	exec_name = 'idq_prepare_training_auxmvc_samples'
+	tag_base = 'training_auxmvc'
+	auxmvc_analysis_job.__init__(self,cp,sections,exec_name,tag_base=tag_base)	
+		
+class prepare_training_auxmvc_samples_node(pipeline.CondorDAGNode):
+  """
+  Node for preparing training auxmvc samples job. 
+  """
+  def __init__(self, job, source_dir, gps_start_time, gps_end_time, output_file, dq_segments="", dq_segments_name="",p_node=[]):
+    job.set_stdout_file('logs/' + output_file.replace('.pat', '.out'))
+    job.set_stderr_file('logs/' + output_file.replace('.pat', '.err'))
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_output_file(output_file)
+    self.add_opt('source-directory', source_dir)
+    self.add_opt('gps-start-time', gps_start_time)
+    self.add_opt('gps-end-time', gps_end_time)
+    if dq_segments and dq_segments_name:
+	self.add_opt('dq-segments', dq_segments)
+	self.add_opt('dq-segments-name', dq_segments_name)
+    self.add_opt('output-file', output_file)
+    for p in p_node:
+      self.add_parent(p)
+
+    
 
 class train_forest_job(pipeline.CondorDAGJob):
   """
@@ -251,6 +226,7 @@ class use_forest_node(pipeline.CondorDAGNode):
       self.add_parent(p)
 
 
+
 class forest_add_excluded_vars_job(auxmvc_analysis_job):
   """
   A simple fix job that adds the variables excluded by forest (MVSC) from classification into the output file.
@@ -264,6 +240,7 @@ class forest_add_excluded_vars_job(auxmvc_analysis_job):
     tag_base = 'forest_add_excluded_vars'
     auxmvc_analysis_job.__init__(self,cp, sections, exec_name, tag_base=tag_base)
     self.add_opt('excluded-variables', cp.get('forest_evaluate', 'z'))
+	
 class forest_add_excluded_vars_node(pipeline.CondorDAGNode):
   """
   Node for forest_add_excluded_vars_job.
@@ -330,4 +307,106 @@ class result_plots_node(pipeline.CondorDAGNode):
       self.add_parent(p)
 		
 
+########################  svm for idq  ############################
+
+
+class create_DAG(pipeline.CondorDAG):
+    """
+    """
+    def __init__(self, config_file, log_path, run_tag):
+        self.config_file = str(config_file)
+        self.basename = self.config_file.replace('.ini','')+run_tag
+        tempfile.tempdir = log_path
+        tempfile.template = self.basename + '.dag.log.'
+        logfile = tempfile.mktemp()
+        fh = open( logfile, "w" )
+        fh.close()
+        pipeline.CondorDAG.__init__(self,logfile)
+	self.set_dag_file(self.basename)
+        self.jobsDict = {}
+        self.id = 0
+
+    def add_node(self, node):
+        self.id+=1
+        pipeline.CondorDAG.add_node(self, node)
+
+
+class use_svm_job(auxmvc_analysis_job):
+    """
+    """
+    def __init__(self, cp):
+        """
+        """
+        sections = []
+        exec_name = 'svm_evaluate_cmd'
+        tag_base  = 'svm_evaluate'
+        auxmvc_analysis_job.__init__(self, cp, sections, exec_name, tag_base=tag_base, short_opts=True)
+
+
+class use_svm_node(pipeline.CondorDAGNode):
+    """
+    Node for SVM evaluation job.
+    """
+    def __init__(self, job, cp, test_file, range_file, svm_model, predict_file, p_node=[]):
+        job.set_stdout_file('logs/' + predict_file.replace('.dat', '.out'))
+        job.set_stderr_file('logs/' + predict_file.replace('.dat', '.err'))
+        pipeline.CondorDAGNode.__init__(self, job)
+        self.add_input_file(test_file)
+        self.add_input_file(range_file)
+        self.add_input_file(svm_model)
+        self.add_output_file(predict_file)
+
+        self.scale_cmd = cp.get('svm_evaluate','svm_scale_cmd')
+        self.predict_cmd = cp.get('svm_evaluate', 'svm_predict_cmd')
+	self.test_file = self.get_input_files()[0]
+        self.range_file = self.get_input_files()[1]
+        self.svm_model = self.get_input_files()[2]
+        self.predict_file = self.get_output_files()[0]
+	self.add_file_arg(" --scale %s --predict %s -i %s -r %s -m %s -o %s" % (self.scale_cmd, self.predict_cmd, self.test_file, self.range_file, self.svm_model, self.predict_file))
+        for p in p_node:
+            self.add_parent(p)
+
+
+class train_svm_job(auxmvc_analysis_job):
+  """
+  Training job for svm.
+  """
+  def __init__(self, cp):
+    """
+    """
+    sections = [] #not section in configuration yet
+    exec_name = 'svm_train_cmd'
+    tag_base  = 'svm_train'
+    auxmvc_analysis_job.__init__(self, cp, sections, exec_name, tag_base=tag_base, short_opts=True)
+
+
+class train_svm_node(pipeline.CondorDAGNode):
+    """
+    Node for SVM train job.
+    """
+    def __init__(self, job, dag, cp, train_file, range_file, model_file, p_node=[]):
+        job.set_stdout_file('logs/' + train_file.replace('.dat', '.out'))
+        job.set_stderr_file('logs/' + train_file.replace('.dat', '.err'))
+        pipeline.CondorDAGNode.__init__(self, job)
+        self.add_input_file(train_file)
+        self.add_output_file(range_file)
+        self.add_output_file(model_file)
+        self.scale_cmd = cp.get('svm_evaluate','svm_scale_cmd')
+        self.train_cmd = cp.get('svm_evaluate','svm_train_cmd')
+        self.gamma = cp.get('svm_evaluate','svm_gamma')
+        self.cost  = cp.get('svm_evaluate','svm_cost')
+        self.train_file = self.get_input_files()[0]
+        self.range_file = self.get_output_files()[0]
+        self.model_file = self.get_output_files()[1]
+
+        self.train_file_svm = os.path.abspath(self.train_file) + '.mid'
+        self.scale_file = os.path.abspath(self.train_file) + '.scale'
+        self.add_file_arg(" --scale %s --train %s --train-file %s --train-file-svm %s --scale-file %s --range-file %s --model-file %s -g %s -c %s " % (self.scale_cmd, self.train_cmd, self.train_file, self.train_file_svm, self.scale_file, self.range_file, self.model_file, self.gamma, self.cost))
+        self.set_post_script("/bin/rm ")
+        self.add_post_script_arg(self.train_file_svm)
+        self.add_post_script_arg(self.scale_file)
+
+        for p in p_node:
+            self.add_parent(p)
+	dag.add_node(self)
 
