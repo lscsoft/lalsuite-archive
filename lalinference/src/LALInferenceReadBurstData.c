@@ -1,9 +1,7 @@
 /* 
  *  LALInferenceReadData.c:  Bayesian Followup functions
  *
- *  Copyright (C) 2009,2012 Ilya Mandel, Vivien Raymond, Christian
- *  Roever, Marc van der Sluys, John Veitch, Salvatore Vitale, and
- *  Will M. Farr
+ *  Copyright (C) 2013 Salvatore Vitale
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,8 +25,8 @@
 #include <lal/LALStdio.h>
 #include <lal/LALStdlib.h>
 #include <lal/LALInspiral.h>
-#include <lal/FrameCache.h>
-#include <lal/FrameStream.h>
+#include <lal/LALCache.h>
+#include <lal/LALFrStream.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/LALDetectors.h>
 #include <lal/AVFactories.h>
