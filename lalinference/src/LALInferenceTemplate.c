@@ -1456,14 +1456,15 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
        COMPLEX16FrequencySeries *hplus=NULL;  /**< +-polarization waveform */
       COMPLEX16FrequencySeries *hcross=NULL; /**< x-polarization waveform */
      // printf("using SGF\n");
-      REAL8 Q, centre_frequency,hrss,loghrss,eccentricity,polar_angle;
+      REAL8 Q, centre_frequency,hrss,eccentricity,polar_angle;
      // REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
         //UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
         UINT4 i=0;
   
       Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
       centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
-      if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
+      
+      /*if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
       hrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss"); 
      else if(LALInferenceCheckVariable(IFOdata->modelParams,"loghrss"))
      {
@@ -1471,7 +1472,8 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
       hrss=exp(loghrss);
         }
     else {fprintf(stderr,"ERROR (In LALInferenceTemplate): modelParams does not contain hrss or loghrss. Exiting...\n"); exit(1);}
-    
+      */
+      hrss=1.0;
       polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
       eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
            
