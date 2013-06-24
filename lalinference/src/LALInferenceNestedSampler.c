@@ -888,7 +888,7 @@ LALInferenceVariables *LALInferenceComputeAutoCorrelation(LALInferenceRunState *
 }
 
 UINT4 checkForSingleAdapt(LALInferenceRunState *runState)
-{return 0;
+{
   UINT4 i = 0;
   LALInferenceProposalFunction *cycle = NULL;
   LALInferenceVariables *propArgs = runState->proposalArgs;
