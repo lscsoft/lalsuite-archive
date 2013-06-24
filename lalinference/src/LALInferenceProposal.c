@@ -2658,13 +2658,13 @@ void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariab
   t = *((REAL8 *) LALInferenceGetVariable(proposedParams, "time"));
   freq = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   
-  LALInferenceSetVariable(proposedParams, "time", &t);
-  N=ceil(fabs(gsl_ran_gaussian(rng,2)));
+  //LALInferenceSetVariable(proposedParams, "time", &t);
+  N=ceil(fabs(gsl_ran_gaussian(rng,4)));
   temp=gsl_ran_flat(rng,0,1);
   if (temp<0.5)
-  timeprime= t- N/freq;
+  timeprime= t- ((REAL8) N)/freq;
   else
-  timeprime= t+ N/freq;
+  timeprime= t+ ((REAL8) N)/freq;
   // freqpost = *((REAL8 *) LALInferenceGetVariable(proposedParams, "frequency"));
   LALInferenceSetVariable(proposedParams, "time", &timeprime);
   //printf("jumping from %10.5f to %10.5f N %d jump %10.5f \n",time, timeprime,N,N/freq);
