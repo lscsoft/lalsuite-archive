@@ -183,13 +183,19 @@ void LALInferenceDifferentialEvolutionFull(LALInferenceRunState *state, LALInfer
     If names == NULL, then perform a
     LALInferenceDifferentialEvolutionFull() step.*/
 void LALInferenceDifferentialEvolutionNames(LALInferenceRunState *state, LALInferenceVariables *proposedParams, const char *names[]);
-
-/** Perform differential evolution on only the intrinsic parameters. */
-void LALInferenceDifferentialEvolutionIntrinsic(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
+/** Perform differential evolution on only the mass parameters. */
+void LALInferenceDifferentialEvolutionMasses(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
 
 /** Perform a differential evolution step on only the extrinsic
     parameters. */
 void LALInferenceDifferentialEvolutionExtrinsic(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
+
+/** Perform a differential evolution step on only the spin variables. */
+void LALInferenceDifferentialEvolutionSpins(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
+void LALInferenceDifferentialEvolutionPhysicalSpins(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
+
+/** Perform differential evolution on only the intrinsic parameters. */
+void LALInferenceDifferentialEvolutionIntrinsic(LALInferenceRunState *state, LALInferenceVariables *proposedParams);
 
 /** Draws from an approximation to the true prior.  Flat in all
     variables except for: Mc^(-11/6), flat in cos(co-latitudes), flat
@@ -244,9 +250,10 @@ void NSWrapMCMCSinGaussProposal(LALInferenceRunState *runState, LALInferenceVari
 void LALInferenceSetupSinGaussianProposal(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceHrssQJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
 void LALInferenceTimeFreqJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams);
-void LALInferenceDifferentialEvolutionSineGauss(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
-void
-LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) ;
+void LALInferenceDifferentialEvolutionSineGaussIntrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
+void LALInferenceDifferentialEvolutionSineGaussExtrinsic(LALInferenceRunState *runState, LALInferenceVariables *pp) ;
+
+void LALInferenceTimeDelaysJump(LALInferenceRunState *runState, LALInferenceVariables *proposedParams) ;
 /*@}*/
 
 #endif
