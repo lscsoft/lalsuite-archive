@@ -495,9 +495,9 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
       /* amount by which to time-shift template (not necessarily same as above "timedelay"): */
       timeshift =  (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))) + timedelay;
       twopit    = LAL_TWOPI * (timeshift);
-      /* include distance (overall amplitude) effect in Fplus/Fcross: */
-      FplusScaled  = Fplus ;
-      FcrossScaled = Fcross;
+      /* Restore hrss (template has been calculated for hrss=1) effect in Fplus/Fcross: */
+      FplusScaled  = Fplus *hrss ;
+      FcrossScaled = Fcross*hrss;
       //printf("diff in inj %lf \n", (injtime - (*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "time"))));
       dataPtr->fPlus = FplusScaled;
       dataPtr->fCross = FcrossScaled;
