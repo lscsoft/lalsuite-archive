@@ -9,6 +9,7 @@
 #include <lal/TimeSeries.h>
 #include <lal/Units.h>
 #include <lal/SphericalHarmonics.h>
+#include <lal/LALSimInspiralTestGRParams.h>
 
 #include <lal/LALSimBlackHoleRingdownTiger.h>
 #define EPS LAL_REAL4_EPS
@@ -23,27 +24,66 @@
 
 // TODO: Add a top-level function to get combination of all modes
 
-int XLALSimBlackHoleRingdownModeTiger(
+int XLALSimBlackHoleRingdownTiger(
 	REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
 	REAL8TimeSeries **hcross,	/**< cross-polarization waveform [returned] */
+    SphHarmTimeSeries *hlms, /**< Head of linked list of waveform modes */
 	const LIGOTimeGPS *t0,		/**< start time of ringdown */
-	double phi0,			/**< initial phase of ringdown (rad) */
-	double deltaT,			/**< sampling interval (s) */
-	double mass,			/**< black hole mass (kg) */
-	double a,	/**< black hole dimensionless spin parameter */
-//	double fractional_mass_loss,	/**< fraction of mass radiated in this mode */
-	double distance,		/**< distance to source (m) */
-	double inclination,		/**< inclination of source's spin axis (rad) */
+	REAL8 phi0,			/**< initial phase of ringdown (rad) */
+	REAL8 deltaT,			/**< sampling interval (s) */
+	REAL8 mass,			/**< black hole mass (kg) */
+	REAL8 a,	/**< black hole dimensionless spin parameter */
+//	REAL8 fractional_mass_loss,	/**< fraction of mass radiated in this mode */
+    REAL8 eta,         /**< symmetric mass ratio of progenitor */
+    REAL8 spin1[3],    /**< initial spin for 1st component */
+    REAL8 spin2[3],    /**< initial spin for 2nd component */
+	REAL8 distance,		/**< distance to source (m) */
+	REAL8 inclination,		/**< inclination of source's spin axis (rad) */
+    LALSimInspiralTestGRParam *nonGRparams  /**< testing GR parameters */
 )
 {	
-	const int s = -2; /* spin weight for gravitational radiation */
-	double cosi = cos(inclination);
+	const INT4 s = -2; /* spin weight for gravitational radiation */
 	COMPLEX16 A, omega, Q, tau;
 	COMPLEX16 Yplus, Ycross;
 	size_t length;
 	size_t j;
-	int errnum;
-
+    size_t maxmodelength=thismodelength=0;
+	INT4 errnum;
+    SphHarmTimeSeries *modeList = hlms; 
+    SphHarmTimeSeries *thisMode = modeList;
+    const LALUnit *hunits; // TODO: fill in units for hplus/hcross
+    
+    
+    /* Go through the list of quasi-normal modes and fill in the structure */
+    
+    while (thisMode){
+        dtau = 0.0;    // TODO: import this value from nonGRparams
+        dfreq = 0.0;   // TODO: import this value from nonGRparams
+        XLALSimBlackHoleRingdownModeTiger(&(thisMode->mode), t0, phi0, deltaT, mass, a, distance, inclination, eta, spin1, spin2, thisMode->l, thisMode->m, dfreq, dtau);
+        thismodelength = thisMode->mode->data->length;
+        thismodelength > maxmodelength ? maxmodelength = thismodelength : ;
+        thisMode = thisMode->next;
+    }
+    // thisMode->mode is a COMPLEX16TimeSeries
+    
+    /* Create the plus and cross polarization vectors */
+    /* TODO: double check that this initializes to 0s */
+    
+    length = maxmodelength;
+    *hplus = XLALCreateREAL8TimeSeries("hplus", t0, 0.0, deltaT, hunits, length);
+    *hcross = XLALCreateREAL8TimeSeries("hcross", t0, 0.0, deltaT, hunits, length);
+    
+    /* Fill in the plus and cross polarization vectors */
+    thisMode = modeList;
+    while (thisMode){
+        for (j=0; j<thisMode->mode->data->length; j++){
+          hplus += thisMode->mode->data->data[j]; // or * prefac(thisMode->l, thisMode->m) ?
+          hcross += thisMode->mode->data->data[j];
+        }
+        thisMode = thisMode->next;
+    }
+    
+    return 0;
 }
 
 /**
@@ -57,48 +97,71 @@ int XLALSimBlackHoleRingdownModeTiger(
  * \todo Extend so that overtones can be computed too.
  */
 int XLALSimBlackHoleRingdownModeTiger(
-	REAL8TimeSeries **hplus,	/**< plus-polarization waveform [returned] */
-	REAL8TimeSeries **hcross,	/**< cross-polarization waveform [returned] */
+	// REAL8TimeSeries **hpluslm,	/**< plus-polarization waveform [returned] */
+	// REAL8TimeSeries **hcrosslm,	/**< cross-polarization waveform [returned] */
+    COMPLEX16TimeSeries **hlmmode,  /**< complex waveform for lm mode */
 	const LIGOTimeGPS *t0,		/**< start time of ringdown */
-	double phi0,			/**< initial phase of ringdown (rad) */
-	double deltaT,			/**< sampling interval (s) */
-	double mass,			/**< black hole mass (kg) */
-	double a,	/**< black hole dimensionless spin parameter */
-//	double fractional_mass_loss,	/**< fraction of mass radiated in this mode */
-	double distance,		/**< distance to source (m) */
-	double inclination,		/**< inclination of source's spin axis (rad) */
-	int l,				/**< polar mode number */
-	int m				/**< azimuthal mode number */
+	REAL8 phi0,			/**< initial phase of ringdown (rad) */
+	REAL8 deltaT,			/**< sampling interval (s) */
+	REAL8 mass,			/**< black hole mass (kg) */
+	REAL8 a,	/**< black hole dimensionless spin parameter */
+//	REAL8 fractional_mass_loss,	/**< fraction of mass radiated in this mode */
+	REAL8 distance,		/**< distance to source (m) */
+	REAL8 inclination,		/**< inclination of source's spin axis (rad) */
+    REAL8 eta,         /**< symmetric mass ratio of progenitor */
+    REAL8 spin1[3],    /**< initial spin for 1st component */
+    REAL8 spin2[3],    /**< initial spin for 2nd component */
+	UINT4 l,				/**< polar mode number */
+	INT4 m,				/**< azimuthal mode number */
+    REAL8 dfreq,         /**< relative shift in the real frequency parameter */
+    REAL8 dtau          /**< relative shift in the damping time parameter */
 )
 {	
+    // COMPLEX16TimeSeries *hlm; // IS THIS NECESSARY?
 	REAL8 spin1[3] = {0.0};
 	REAL8 spin2[3] = {0.0};
-	const int s = -2; /* spin weight for gravitational radiation */
+	const INT4 s = -2; /* spin weight for gravitational radiation */
 	// double cosi = cos(inclination);
-	COMPLEX16 A, omega, Q, tau;
+	COMPLEX16 omega;
+    REAL8 A, alphalm, tau, freq;
 	COMPLEX16 Yplus, Ycross;
 	size_t length;
 	size_t j;
-	int errnum;
+	INT4 errnum;
+    char *name;     // TODO: replace with name[MAXNAMELENGTH]
+    const LALUnit *hunits; // TODO: fill in units
+    
+    sprintf(name, "h%u%d", l, m);
 
-	A = XLALSimRingdownQNMAmplitudes(l, m, eta, spin1, spin2);
-	
+	alphalm = XLALSimRingdownQNMAmplitudes(l, m, eta, spin1, spin2);
+    A = alphalm*mass/distance;
+    
 	Yplus = XLALSimSphericalHarmonicPlus(l, m, inclination);
 	Ycross = XLALSimSphericalHarmonicCross(l, m, inclination);
 	
 	omega = XLALSimRingdownFitOmega(l, m, 0, a);
+    tau = XLALQNMTauOfOmega(omega, mass)*(1 + dtau);
+    freq = XLALQNMFreqOfOmega(omega, mass)*(1 + dfreq);
 	
 	/* What does the log(epsilon) do? (not -infinity?) */
 	length = ceil(log(LAL_REAL8_EPS) * LAL_G_SI * mass / (pow(LAL_C_SI, 3.0) * cimag(omega) * deltaT));
-	hplus->data->length = length;
+/*
+    hplus->data->length = length;
 	hcross->data->length = length;
+*/
+	/* allocate memory in hlm */
+    // TODO: Remember to free it afterwards!
+    
+    *hlmmode = XLALCreateCOMPLEX16TimeSeries(name, t0, 0.0, deltaT, hunits, length);
 	
-	// allocate memory in hplus hcross
-	
-	for (j=0; j<length; j++){
-		hplus->data->data[j] = A*;
-		
-	}
+	if (A > 0.0){
+	  for (j=0; j<length; j++){
+        (*hlmmode)->data->data[j] = A*Yplus*exp(-j*deltaT/tau)*cos(j*deltaT*freq - m*phi0)); 
+        (*hlmmode)->data->data[j] += I*A*Ycross*exp(-j*deltaT/tau)*sin(j*deltaT*freq - m*phi0));
+	  }
+    }
+    
+    // hlmmode = &hlm; 
 
 /*
 	if (XLALSimBlackHoleRingdownModeEigenvaluesLeaver(&A, &omega, a, l, m, s) < 0)
@@ -130,23 +193,23 @@ int XLALSimBlackHoleRingdownModeTiger(
 */
 
 	/* compute the waveforms */
-	for (j = 0; j < length; ++j) {
+/*	for (j = 0; j < length; ++j) {
 		COMPLEX16 h;
 		h = A1*cexp(-I*omega_dt*j) + A2*cexp(I*conj(omega_dt)*j);
 		(*hplus)->data->data[j] = creal(h);
 		(*hcross)->data->data[j] = -cimag(h);
 	}
-
+*/
 	return 0;
 }
 
-REAL8 XLALSimSphericalHarmonicPlus(int l, int m, float iota){
+REAL8 XLALSimSphericalHarmonicPlus(UINT4 l, INT4 m, REAL8 iota){
 	COMPLEX16 Yplus = 0.0;
 	Yplus = XLALSpinWeightedSphericalHarmonic(iota, 0.0, -2, l, m) + (1.0 - 2.0*(l % 2))*XLALSpinWeightedSphericalHarmonics(iota, 0.0, -2, l, -m);
 	return Yplus;
 }
 
-REAL8 XLALSimSphericalHarmonicCross(int l, int m, float iota){
+REAL8 XLALSimSphericalHarmonicCross(UINT4 l, INT4 m, REAL8 iota){
 	COMPLEX16 Ycross = 0.0;
 	Ycross = XLALSpinWeightedSphericalHarmonic(iota, 0.0, -2, l, m) - (1.0 - 2.0*(l % 2))*XLALSpinWeightedSphericalHarmonics(iota, 0.0, -2, l, -m);
 	return Ycross;
@@ -186,7 +249,7 @@ REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 spin1[3], RE
  */
 COMPLEX16 XLALSimRingdownFitOmega(UINT4 l, INT4 m, UINT4 n, REAL8 a){
 	COMPLEX16 omega=0.0;
-	if (abs(a) > 1.){
+	if (fabs(a) > 1.){
 		fprintf(stderr, "ERROR: Dimensionless spin magnitude larger than 1! Aborting...\n");
 		exit(-1);
 	}

@@ -1832,6 +1832,46 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
   return;
 }
 
+void LALInferenceTemplateLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
+/*************************************************************************************************/
+/* Wrapper for Ringdown waveforms:
+ * LALSimBlackHoleRingdown and LALSimBlackHoleRingdownTiger.
+ *
+ * IFOdata->modelParams parameters:
+ * 
+ 
+ */
+
+{
+  Approximant approximant = (Approximant) 0;
+  int amporder=-1;
+  LALInferenceFrame frame=LALINFERENCE_FRAME_RADIATION;
+  
+  unsigned long	i;
+  static int sizeWarning = 0;
+  int ret=0;
+  INT4 errnum=0;
+  REAL8 instant;
+  
+  
+  REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform [returned] */
+  REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform [returned] */
+  COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
+  
+  REAL8 mc;
+  REAL8 phi0, deltaT, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, inclination;
+
+  REAL8 *m1_p,*m2_p;
+  REAL8 deltaF, f_max;
+  
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
+      approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
+      else {
+          XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
+          XLAL_ERROR_VOID(XLAL_EDATA);
+      }
+    
+}
 
 void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOdata)
 /*************************************************************************************************************************/

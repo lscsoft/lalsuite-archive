@@ -2342,6 +2342,32 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhPlus);
 }
 
+void LALInferenceInjectRingdownSignal(LALInferenceIFOData *IFOdata, ProcessParamsTable *commandLine)
+{
+	LALStatus status;
+	memset(&status,0,sizeof(status));
+	SimInspiralTable *injTable=NULL;
+    SimInspiralTable *injEvent=NULL;
+	UINT4 Ninj=0;
+	UINT4 event=0;
+	UINT4 i=0,j=0;
+    REAL8 responseScale=1.0;
+	//CoherentGW InjectGW;
+	//PPNParamStruc InjParams;
+	LIGOTimeGPS injstart;
+	REAL8 SNR=0,NetworkSNR=0;
+	DetectorResponse det;
+	memset(&injstart,0,sizeof(LIGOTimeGPS));
+	//memset(&InjParams,0,sizeof(PPNParamStruc));
+	COMPLEX16FrequencySeries *injF=NULL;
+	FILE *rawWaveform=NULL;
+	ProcessParamsTable *ppt=NULL;
+	REAL8 bufferLength = 2048.0; /* Default length of buffer for injections (seconds) */
+	UINT4 bufferN=0;
+	LIGOTimeGPS bufferStart;
+    
+    // Continue from here
+}
 
 static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
     char SnrName[200];

@@ -93,6 +93,8 @@ typedef enum {
    TaylorEt,		/**< UNDOCUMENTED */
    TaylorT4,		/**< UNDOCUMENTED */
    TaylorN,		/**< UNDOCUMENTED */
+   RingdownTD,    /**< Time-domain ringdown waveform generated using QNM frequencies and amplitudes of Kamaretsos et al 2008 */
+   RingdownFD,    /**< Frequency-domain ringdown waveform generated using QNM frequencies and amplitudes of Kamaretsos et al 2008 */
    NumApproximants	/**< Number of elements in enum, useful for checking bounds */
  } Approximant;
 
