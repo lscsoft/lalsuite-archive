@@ -135,7 +135,7 @@ for instruments in IMR.instruments:
 	if opts.instruments != instruments:
 		print >> sys.stderr, "Instruments %s does not equal requested instruments %s, continuing" % (instruments, opts.instruments)
 		continue
-	found = imr_utils.found_injections_below_far(IMR.found_injections_by_instrument_set[instruments], opts.far)
+	found = [s for f, s in IMR.found_injections_by_instrument_set[instruments] if f < opts.far]
 	total = IMR.total_injections_by_instrument_set[instruments]
 	missed = IMR.missed_injections_by_instrument_set[instruments]
 	sims = total

@@ -34,8 +34,9 @@ except ImportError:
 
 #================================================================================
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"
-__version__ ="$Revision$"
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 __src__ = "$Source$"
 #================================================================================
 

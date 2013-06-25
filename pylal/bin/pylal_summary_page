@@ -924,10 +924,26 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         elif etg.lower() != "hacr":
             if etg.lower() == "dmtomega":
                 trigcache = omegautils.find_dmt_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omega":
-                trigcache = omegautils.get_cache(span[0], span[1], ifo)
-            elif etg.lower() == "omegaspectrum":
-                trigcache = omegautils.get_cache(span[0], span[1], ifo, mask='SPECTRUM')
+            elif etg.lower() == "omega" or etg.lower() == "omegaspectrum":
+              # get omega online cache parameters defaults
+              cacheKwargs = dict()
+              if cp.has_option(etg.lower(),'duration'):
+                cacheKwargs['duration'] = float(cp.get(etg.lower(),'duration'))
+              if cp.has_option(etg.lower(),'overlap'):
+                cacheKwargs['overlap'] = float(cp.get("%s" % etg.lower(),'overlap'))
+
+              # overrid default settings with channel specific if provided
+              if cp.has_section('%s' %  channel):
+                if cp.has_option(channel,'duration'):
+                  cacheKwargs['duration'] = float(cp.get(channel,'duration'))
+                if cp.has_option(channel,'overlap'):
+                  cacheKwargs['overlap'] = float(cp.get(channel,'overlap'))
+              
+              # get cache
+              if etg.lower() == "omega":
+                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, **cacheKwargs)
+              elif etg.lower() == "omegaspectrum":
+                  trigcache = omegautils.get_cache(span[0], span[1], ifo, channel, mask='SPECTRUM', **cacheKwargs)
             elif etg.lower() in ["kw", "kleinewelle"]:
                 trigcache = kw.find_dmt_cache(span[0], span[1], ifo,
                                               **trigfind_args)
@@ -1217,7 +1233,25 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                                  host=server, port=port)
             else:
                 connection = GWDataFindClient.GWDataFindHTTPConnection()
-            datacache = connection.find_frame_urls(channel[0], frametype,
+            # KLUDGE for GEO trend files, 1 frame type, but three different frames with different data
+            if channel[0] == "G" and ( frametype[0] == "T" or frametype[0] == "M"):
+                tmpcache = connection.find_frame_urls(channel[0], frametype[0],
+                                                       span[0], span[1],
+                                                       urltype="file",
+                                                       on_gaps="warn")
+                datacache = []
+                for cacheentry in tmpcache:
+                    if len(frametype) == 1 and re.search("framedata",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                    if re.search("RDS3",frametype) and re.search("RDS3",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                    if re.search("RDS9",frametype) and re.search("RDS9",cacheentry.url):
+                        datacache.append(cacheentry.url)
+                # convert to cache list format
+                datacache = Cache.from_urls(datacache)
+            # No kludge if not GEO trend files
+            else:
+                datacache = connection.find_frame_urls(channel[0], frametype,
                                                    span[0], span[1],
                                                    urltype="file",
                                                    on_gaps="warn")
@@ -1379,8 +1413,9 @@ def get_spectrum(cp, channel, *args, **kwargs):
         search for new spectrogram (True), or find in memory (False)
     """
     global G_SPECTRUM
-    if G_SPECTRUM.has_key(channel):
-        return G_SPECTRUM[channel]
+    # KLUDGE: skipping spectrum caching, as sometimes different segment lists can be requested
+    # if G_SPECTRUM.has_key(channel):
+    #     return G_SPECTRUM[channel]
 
     # get spectrogram
     sequencelist = get_spectrogram(cp, channel, *args, **kwargs)
@@ -1775,7 +1810,7 @@ def add_timeseries(series):
         G_DATA[channel][seg] = series
 
 
-def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0=None, deltaF=None, f_array=None):
+def add_spectrogram(sequence, seg, channel, epoch, deltaT, f0=0, deltaF=0, f_array=None):
     """Add a REAL4VectorSequence to the global data holder.
     """
     # add channel
@@ -2421,7 +2456,7 @@ def cluster_table(trigtable, dt):
     tablecopy.extend(trigtable)
     if isinstance(trigtable, lsctables.SnglBurstTable):
         testfunc = ligolw_bucluster.ExcessPowerTestFunc
-        clusterfunc = ligolw_bucluster.ExcessPowerClusterFunc
+        clusterfunc = ligolw_bucluster.OmegaClusterFunc
         sortfunc = ligolw_bucluster.ExcessPowerSortFunc
         bailoutfunc = ligolw_bucluster.ExcessPowerBailoutFunc
     elif isinstance(trigtable, lsctables.SnglInspiralTable):
@@ -3329,14 +3364,23 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
             tab.add_design_spectrum(tab.channels[0], series)
         if cp.has_option(cpsec, "reference-curve"):
             if cp.has_option(cpsec, "reference-epoch"):
-                gps = lal.LIGOTimeGPS(cp.getfloat(cp.get(cpsec,\
-                                                         "reference-epoch")))
-                name = "Reference (%.2g)" % float(gps)
+                gps_range = SegmentList([Segment(map(float,cp.get(cpsec,\
+                                                         "reference-epoch").split(',')))])
+                name = "Reference (%s)" % cp.get(cpsec,"reference-epoch")
+                spectrumlist =\
+                    get_spectrum(cp, channel, params["time-step"],\
+                                     params["segment-length"],\
+                                     params["segment-overlap"], gps_range,\
+                                     frametype=params["frametype"],\
+                                     calibration=params["calibration"],\
+                                     resample=params["resample"],\
+                                     fresponse=params["frequency-response"])
+                series = spectrumlist[0]
             else:
                 gps = lal.LIGOTimeGPS(0)
                 name = "Reference"
-            series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
-                                            channels[0], name=name, gps=gps)
+                series = get_reference_spectrum(cp.get(cpsec, "design-curve"),\
+                                                    channels[0], name=name, gps=gps)
             tab.add_reference_spectrum(tab.channels[0], series)
 
     #
@@ -3471,7 +3515,7 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
         spectrum.f_array = f
         return spectrum
 
-    # otherwise we can try to use a function
+
     spec     = G_SPECTRUM[channel][0]
     if spec.f_array is None:
         f = numpy.arange(spec.data.length) * spec.deltaF + spec.f0
@@ -3483,6 +3527,8 @@ def get_reference_spectrum(descriptor, channel, name="Design", gps=0):
     spectrum = Create(name, lal.LIGOTimeGPS(gps), spec.f0, spec.deltaF,\
                       spec.sampleUnits, f.size)
     spectrum.f_array = f
+
+    # otherwise we can try to use a function
     if hasattr(lalsimulation, "SimNoisePSD%s" % descriptor):
         SimNoisePSD = getattr(lalsimulation, "SimNoisePSD%s" % descriptor)
         asd = lambda f: f and SimNoisePSD(f)**(1/2) or 0
@@ -3537,6 +3583,14 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
         raise ValueError("No channels configured in [%s]." % cpsec)
     print_verbose("\n----------\nProcessing range for %s for the %s state...\n"\
                   % (tab.name, tab.state.name), verbose=verbose, profile=False)
+
+    etg = cp.has_option(cpsec, "trigger-generator")\
+              and cp.get(cpsec, "trigger-generator") or cpsec[9:]
+    snr = cp.has_option(cpsec, "snr-threshold")\
+          and cp.getfloat(cpsec, "snr-threshold") or 0
+    tab.cluster = ((cp.has_option(cpsec, "cluster-window") and
+                    cp.getfloat(cpsec, "cluster-window")) or
+                   False)
 
     #
     # setup
@@ -3601,24 +3655,40 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                                        fresponse=params["frequency-response"])
 
         for i,spectrogram in enumerate(sequencelist):
-            S,epoch,deltaT,f0,deltaF = spectrogram
+            S = spectrogram['data']
+            epoch = spectrogram['epoch']
+            deltaT = spectrogram['deltaT']
+            f0 = spectrogram['f0']
+            deltaF = spectrogram['deltaF']
+            f_array = spectrogram['f_array']
             print_verbose("Calculating range from %d spectra...    "\
                           % S.length, verbose=verbose)
-            seg = Segment(epoch, epoch + deltaT * S.length)
+            seg = Segment(float(epoch), float(epoch + deltaT * S.length))
             data = dict((s["name"], numpy.zeros(S.length)) for s in sources)
 
             # get triggers for burst range
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
-                                     SegmentList(seg),\
-                                     cluster=cluster, minsnr=0)
+                                     SegmentList([seg]),\
+                                     cluster=tab.cluster, minsnr=snr)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
                 trigsnr  = trigs.getColumnByName("snr")
+                trigfreq = trigs.getColumnByName("peak_frequency")
+
+            # initialize triggers iterators to select slices of them (time sub sets)
+            trigStart = {}
+            trigStop = {}
+            for k,s in enumerate(sources):
+                trigStart[k] = 0
+                trigStop[k] = 0
 
             for j in range(S.length):
                 spectrum = S.data[j,:]**2
-                f = numpy.arange(spectrum.size) * deltaF + f0
+                if f_array is None:
+                    f = numpy.arange(spectrum.size) * deltaF + f0
+                else:
+                    f = f_array
                 span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
 
                 # loop over sources
@@ -3630,16 +3700,23 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
                                                      snr=s["snr"], m1=s["m1"],\
                                                      m2=s["m2"])
                     # calculate burst range
-                    elif s["type"] == burst:
+                    elif s["type"] == "burst":
                         sspan = Segment(span[1]-s['dt'], span[1])
-                        snrs  = trigsnr[(sspan[0] <= trigtime)\
-                                         & (trigtime < sspan[1])]
-                        rho = get_limiting_snr(snrs, sspan, s["far"], s["dt"],\
+                        while trigStop[k]<len(trigs)\
+                              and trigtime[trigStop[k]] < sspan[1]:
+                            trigStop[k] = trigStop[k] + 1
+                        while trigStart[k]<len(trigs)\
+                              and trigtime[trigStart[k]] < sspan[0]:
+                            trigStart[k] = trigStart[k] + 1
+                        snrs = [trigsnr[itrig] for itrig in numpy.arange(trigStart[k],trigStop[k])\
+                                    if s['fmin'] <= trigfreq[itrig] < s['fmax']\
+                                    and trigsnr[itrig] > s['snr']]
+                        rho = get_limiting_snr(snrs, s["far"], abs(SegmentList([sspan])&tab.segments),\
                                                s["snr"])
                         data[s["name"]][j] =\
                             rangeutils.burstrange(f, spectrum, rho,\
-                                                  s["energy"], fmin=["fmin"],\
-                                                  fmax=s["fmax"])
+                                                  s["energy"], fmin=s["fmin"],\
+                                                  fmax=s["fmax"], unit=s["unit"])
 
                 print_verbose("\b\b\b%.2d%%" % int((j+1)/S.length*100),\
                               verbose=verbose)
@@ -3803,10 +3880,12 @@ def parse_range_config(cp, cpsec):
         else:
             source["name"] = cpsec[7:]
         source["type"] = type = cp.get(cpsec, "type").lower()
+        if cp.has_option(cpsec, "unit"):
+            source["unit"] = cp.get(cpsec, "unit")
         if type == "inspiral":
             options = ["m1", "m2", "snr"]
         elif type == "burst":
-            options = ["fmin", "fmax", "snr", "dt", "energy"]
+            options = ["fmin", "fmax", "far", "dt", "energy", "snr"]
         for opt in options:
              source[opt] = cp.getfloat(cpsec, opt)
         out.append(source)
@@ -3828,7 +3907,7 @@ def get_limiting_snr(snr, far, dt, threshold=6):
     snr.sort()
     snr = snr[::-1]
     faridx = int(far*dt)-1
-    if snr.size <= faridx:
+    if len(snr) <= faridx:
         # if we don't have enough triggers use the trigger
         # reading snr threshold, it will give us a lower limit
         # on the range

@@ -21,7 +21,9 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = '$Revision$'
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import os
 import sys

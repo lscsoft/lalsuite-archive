@@ -20,8 +20,9 @@ details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
-__version__ = '$Revision$'
+from glue import git_version
+__version__ = git_version.id
+__date__ = git_version.date
 
 import sys
 import os
@@ -275,7 +276,8 @@ def main():
                     usage()
                     sys.exit(0)
             elif o in ("-v", "--version"):
-                    print 'ligo_data_find client version', __version__
+                    print('ligo_data_find client version %s' 
+                            % git_version.verbose_msg)
                     sys.exit(0)
             elif o in ("-p", "--ping"):
                     clientMethod = 'ping'

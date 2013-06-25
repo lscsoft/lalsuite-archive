@@ -84,8 +84,7 @@ def parse_command_line():
 	)
 	parser.add_option("-d", "--database", metavar = "filename", help = "Set the name of the SQLite3 database file (required).")
 	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get the names of XML documents to insert into the database from this LAL cache.  This option can be given multiple times, and all files from all caches will be loaded.")
-	parser.add_option("-p", "--preserve-ids", action = "store_true", help = "Preserve row IDs from the XML in the database.  The default is to assign new IDs to prevent collisions.  Inserts will fail if collisions occur.")
-	parser.add_option("-F", "--fix-event-ids", action = "store_true", help = "Expert option. Replace the event_ids in the sngl_inspiral table to prevent collisions due to non-unique (i.e. all 0) event_ids produced by old versions of inspiral.c. Only use this option if you know what you are doing.")
+	parser.add_option("-p", "--preserve-ids", action = "store_true", help = "Preserve row IDs from the XML in the database.  The default is to assign new IDs to prevent collisisions.  Inserts will fail if collisions occur.")
 	parser.add_option("-r", "--replace", action = "store_true", help = "If the database file already exists, over-write it instead of inserting into it.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -160,7 +159,7 @@ if __name__ == '__main__':
 				xmldoc.unlink()
 				dbtables.discard_connection_filename(local_path_from_url(url), source_filename, verbose = options.verbose)
 			else:
-				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, fix_event_ids = options.fix_event_ids, verbose = options.verbose)
+				ligolw_sqlite.insert_from_url(ContentHandler.connection, url, contenthandler = ContentHandler, preserve_ids = options.preserve_ids, verbose = options.verbose)
 		dbtables.build_indexes(ContentHandler.connection, options.verbose)
 
 

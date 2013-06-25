@@ -29,6 +29,7 @@ lalsimulationinclude_HEADERS = \
 	LALSimInspiralEOS.h \
 	LALSimulation.h \
 	LALSimNoise.h \
+	LALSimReadData.h \
 	LALSimSGWB.h \
 	LALSimulationConfig.h \
 	LALSimulationLibVCSInfo.h \
@@ -87,6 +88,7 @@ liblalsimulation_la_SOURCES = \
 	LALSimulationVCSInfo.c \
 	LALSimNoisePSD.c \
 	LALSimNoise.c \
+	LALSimReadData.c \
 	LALSimSGWB.c \
 	LALSimSGWBORF.c \
 	LALSimUnicorn.c \
