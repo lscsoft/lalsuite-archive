@@ -69,12 +69,12 @@ void XLALDetCharScanTrigs( GHashTable *chancount, GHashTable *chanhist, GSequenc
 		if( value ){
 			(*value)++;
 			XLALPrintInfo( "Count: Incrementing, %s value: %lu\n", sb_target->channel, *value );
-			g_hash_table_insert( chancount, g_strdup(sb_target->channel), value );
+			//g_hash_table_insert( chancount, XLALStringDuplicate(sb_target->channel), value );
 		} else {
 			value = g_new(size_t, 1);
 			*value = 1;
 			XLALPrintInfo( "Count: Adding %s with time %d.%d\n", sb_target->channel, sb_target->peak_time.gpsSeconds, sb_target->peak_time.gpsNanoSeconds );
-			g_hash_table_insert( chancount, g_strdup(sb_target->channel), value );
+			g_hash_table_insert( chancount, XLALStringDuplicate(sb_target->channel), value );
 		}
 
 		// Is it the channel we're looking at?
@@ -139,12 +139,12 @@ void XLALDetCharScanTrigs( GHashTable *chancount, GHashTable *chanhist, GSequenc
 			if( value != NULL ){
 				(*value)++;
 				XLALPrintInfo( "Left Coincidence: Incrementing, %s->%ld, time %d.%d value: %lu\n", sb_aux->channel, sb_target->event_id, sb_aux->peak_time.gpsSeconds, sb_aux->peak_time.gpsNanoSeconds, *value );
-				g_hash_table_insert( chanhist, &sb_aux->channel, value );
+				//g_hash_table_insert( chanhist, &sb_aux->channel, value );
 			} else {
 				value = g_new(size_t, 1);
 				*value = 1;
 				XLALPrintInfo( "Left Coincidence: Adding %s->%ld with time %d.%d\n", sb_aux->channel, sb_target->event_id, sb_aux->peak_time.gpsSeconds, sb_aux->peak_time.gpsNanoSeconds );
-				g_hash_table_insert( chanhist, &sb_aux->channel, value );
+				g_hash_table_insert( chanhist, XLALStringDuplicate(sb_aux->channel), value );
 			}
 			if( g_sequence_iter_is_begin(trigp) ) break;
 			trigp = g_sequence_iter_prev(trigp);
@@ -167,6 +167,7 @@ void XLALDetCharScanTrigs( GHashTable *chancount, GHashTable *chanhist, GSequenc
 			// Not the target channel?
 			if( strstr( sb_aux->channel, chan ) || sb_aux->next == TRIG_MASKED ){ 
 				trigp = g_sequence_iter_next(trigp);
+				if( g_sequence_iter_is_end(trigp) ) break;
 				sb_aux = (SnglBurst*)g_sequence_get(trigp);
 				continue;
 			}
@@ -188,12 +189,12 @@ void XLALDetCharScanTrigs( GHashTable *chancount, GHashTable *chanhist, GSequenc
 			if( value != NULL ){
 				(*value)++;
 				XLALPrintInfo( "Right Coincidence: Incrementing, %s->%ld, time %d.%d value: %lu\n", sb_aux->channel, sb_target->event_id, sb_aux->peak_time.gpsSeconds, sb_aux->peak_time.gpsNanoSeconds, *value );
-				g_hash_table_insert( chanhist, &sb_aux->channel, value );
+				//g_hash_table_insert( chanhist, &sb_aux->channel, value );
 			} else {
 				value = g_new(size_t, 1);
 				*value = 1;
 				XLALPrintInfo( "Right Coincidence: Adding %s->%ld with time %d.%d\n", sb_aux->channel, sb_target->event_id, sb_aux->peak_time.gpsSeconds, sb_aux->peak_time.gpsNanoSeconds );
-				g_hash_table_insert( chanhist, &sb_aux->channel, value );
+				g_hash_table_insert( chanhist, XLALStringDuplicate(sb_aux->channel), value );
 			}
 			trigp = g_sequence_iter_next(trigp);
 			if( g_sequence_iter_is_end(trigp) ) break;
@@ -212,7 +213,7 @@ void XLALDetCharScanTrigs( GHashTable *chancount, GHashTable *chanhist, GSequenc
  * chan parameter is the target channel. The t_ratio parameter is the ratio of
  * the veto window duration to the total examined livetime.
  */
-double XLALDetCharVetoRound( char* winner, GHashTable* chancount, GHashTable* chanhist, const char* chan, double t_ratio ){
+double XLALDetCharVetoRound( char** winner, GHashTable* chancount, GHashTable* chanhist, const char* chan, double t_ratio ){
 	double mu, sig, max_sig=-1;
 	size_t *k;
 
@@ -240,11 +241,12 @@ double XLALDetCharVetoRound( char* winner, GHashTable* chancount, GHashTable* ch
 		sig = XLALDetCharHvetoSignificance( mu, *k );
 		printf( "Significance for this channel: %g\n", sig );
 		if( sig > max_sig && !strstr(chan, (char*)key) ){
-				max_sig = sig;
-				strcpy( winner, (char *)key );
+			max_sig = sig;
+			*winner = XLALRealloc(*winner, (strlen((char *)key) + 1) * sizeof(char));
+			strcpy( *winner, (char *)key );
 		}
 	}
-	printf( "winner: %s\n", winner );
+	printf( "winner: %s\n", *winner );
 	return max_sig;
 }
 
@@ -271,7 +273,8 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
 		 * the pointer to account for it
 		 */
 		if( pos > 0 && i < onsource->length ){
-			onseg = onsource->segs[i++];
+			i++;
+			onseg = onsource->segs[i];
 			continue;
 		/*
 		 * We're beyond the extent of the onsource list
@@ -303,7 +306,7 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
 		 * where the snr threshold is raised, but we don't want to remove the
 		 * trigger. See warnings and disclaimers at the top of the file.
 		 */
-		if( sb->confidence < snr_thresh && !isrefchan ){
+		if( sb->snr < snr_thresh && !isrefchan ){
 			sb->next = TRIG_MASKED;
 		} else {
 			sb->next = TRIG_NOT_MASKED;
@@ -319,7 +322,7 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
  * TODO: Merge vetolist creation here
  * TODO: Can we also decrement the count / coincidences efficiently here?
  */
-GSequence* XLALDetCharRemoveTrigs( GSequence* trig_sequence, const LALSeg veto, const char* vchan ){
+GSequence* XLALDetCharRemoveTrigs( GSequence* trig_sequence, const LALSeg veto, const char* vchan, double snr_thresh ){
 
 	char refchan[] = "LSC-DARM_ERR";
 	size_t vetoed_events = 0;
@@ -345,7 +348,7 @@ GSequence* XLALDetCharRemoveTrigs( GSequence* trig_sequence, const LALSeg veto, 
 		}
 
 		// Is it the channel to veto on?
-		if( !strstr( sb->channel, vchan ) ){
+		if( (sb->snr < snr_thresh) | !strstr( sb->channel, vchan ) ){
 			trigp = g_sequence_iter_next(trigp);
 			continue; // no, move on
 		}
@@ -466,8 +469,10 @@ void XLALDetCharTrigsToVetoList( LALSegList* vetoes, GSequence* trig_sequence, c
  * function given the expected number of triggers.
  */
 double XLALDetCharHvetoSignificance( double mu, int k ){
-	if( k == 0 ){
-		return 0.0;
+	double sig = gsl_sf_gamma_inc_P(k, mu);
+	if( sig != 0.0 ){
+		return -log10(sig);
+	} else {
+		return -k*log10(mu) + mu*log10(exp(1)) + gsl_sf_lngamma(k+1)/log(10);
 	}
-	return -log10( gsl_sf_gamma_inc_P(k, mu) );
 }

@@ -54,6 +54,12 @@
 #define swiglal_no_self() octave_value()
 %}
 
+// Name of octave_value containing the SWIG wrapping of the
+// first argument to a function.
+%header %{
+#define swiglal_1starg()  (args.length() > 0 ? args(0) : octave_value())
+%}
+
 ////////// SWIG directives for operators //////////
 
 // Unary operators which return a new object, and thus
@@ -84,20 +90,6 @@
 %swiglal_oct_bin_op(xor);
 
 ////////// General fragments, typemaps, and macros //////////
-
-// Helper fragment and macro for typemap for functions which return 'int'.
-// Drops the first return value (which is the 'int') from the output argument
-// list if the argument list contains at least 2 items (the 'int' and some
-// other output argument).
-%fragment("swiglal_maybe_drop_first_retval", "header") {
-  SWIGINTERNINLINE void swiglal_maybe_drop_first_retval(octave_value_list& out) {
-    if (out.length() > 1) {
-      out = out.slice(1, out.length()-1);
-    }
-  }
-}
-#define %swiglal_maybe_drop_first_retval() \
-  swiglal_maybe_drop_first_retval(*_outp)
 
 // SWIG conversion fragments and typemaps for GSL complex numbers.
 %swig_cplxflt_convn(gsl_complex_float, gsl_complex_float_rect, GSL_REAL, GSL_IMAG);
@@ -417,11 +409,6 @@
       // Copy the C array to the returned Octave array.
       octave_value sloav_array_out() const {
 
-        // Check that C array is non-NULL.
-        if (!sloav_ptr) {
-          return SWIG_MemoryError;
-        }
-
         // Create a new Octave array.
         dim_vector objdims = sloav_dims;
         typename HELPER::OVType objval(objdims);
@@ -489,9 +476,11 @@
       // Do subscript assignment, and copy result back to C array.
       octave_value subsasgn(const std::string& type, const std::list<octave_value_list>& idx, const octave_value& rhs) {
         octave_value obj = sloav_array_out().subsasgn(type, idx, rhs);
-        if (!SWIG_IsOK(sloav_array_in(obj))) {
-          std::string nm = type_name ();
-          error("failed to perform indexed assignment for %s type", nm.c_str());
+        int ecode = sloav_array_in(obj);
+        if (!SWIG_IsOK(ecode)) {
+          std::string n = type_name();
+          std::string e = SWIG_ErrorType(ecode).string_value();
+          error("failed to perform indexed assignment for %s type: %s", n.c_str(), e.c_str());
           return octave_value();
         }
         count++;

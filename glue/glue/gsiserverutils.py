@@ -18,8 +18,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Scott Koranda <skoranda@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import os
 import sys

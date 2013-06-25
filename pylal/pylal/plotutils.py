@@ -1595,7 +1595,9 @@ class ScatterPlot(SimplePlot):
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
                            default_colors()):
             plot_kwargs.setdefault("c", color)
-            if len(x_vals):
+            if (len(x_vals) and
+                (isinstance(y_vals, numpy.ma.MaskedArray) and y_vals.count() or
+                 True)):
                 self.ax.scatter(x_vals, y_vals, **plot_kwargs)
             else:
                 plot_kwargs["visible"] = False

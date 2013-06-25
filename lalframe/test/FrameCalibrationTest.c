@@ -95,7 +95,7 @@
 #include <lal/LALStdlib.h>
 #include <lal/AVFactories.h>
 #include <lal/PrintFTSeries.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/FrameCalibration.h>
 #include <lal/LALFrameL.h>
 #include <lal/Calibration.h>
@@ -112,7 +112,6 @@
 #define CHANNEL "%s:LSC-AS_Q"
 #define CAL_CATALOG "%s-CAL-V03-%s.cache"
 
-INT4 lalDebugLevel = 1;
 
 extern char *optarg;
 extern int   optind;
@@ -141,7 +140,7 @@ int main( int argc, char *argv[] )
 
   static LALStatus      status;
   const CHAR            calCacheName[LALNameLength];
-  FrCache              *calCache = NULL;
+  LALCache             *calCache = NULL;
   UINT4                 numPoints = 262144;
   UINT4                 sampleRate = 4096;
   CHAR                  outFile[LALNameLength];

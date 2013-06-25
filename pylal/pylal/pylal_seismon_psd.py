@@ -3,13 +3,13 @@
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal
+import scipy.signal, scipy.stats
 from collections import namedtuple
-from subprocess import Popen, PIPE, STDOUT
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
+import pylal.seriesutils
 from pylal import Fr
-from pylal.dq import dqDataUtils
+import pylal.dq.dqDataUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
@@ -23,12 +23,19 @@ __version__ = "0.1"
 # =============================================================================
 
 def read_frames(start_time,end_time,channel,cache):
+
     time = []
     data = []
 
     #== loop over frames in cache
     for frame in cache:
-        frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame,channel.station)
+
+        if end_time < frame.segment[0]:
+            continue
+        if start_time > frame.segment[1]:
+            continue
+
+        frame_data,data_start,_,dt,_,_ = Fr.frgetvect1d(frame.path,channel.station)
         frame_length = float(dt)*len(frame_data)
         frame_time = data_start+dt*np.arange(len(frame_data))
 
@@ -41,43 +48,122 @@ def read_frames(start_time,end_time,channel,cache):
 
     return time,data
 
-def mat(params, channel):
+def save_data(params,channel,gpsStart,gpsEnd,data):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
     if not os.path.isdir(psdLocation):
         os.makedirs(psdLocation)
+    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
+    if not os.path.isdir(psdLocation):
+        os.makedirs(psdLocation)
 
-    time,data = read_frames(params["gpsStart"],params["gpsEnd"],channel,params["frame"])
-    #freq,spectra = dqDataUtils.spectrum(data, channel.samplef, NFFT=len(data), overlap = 0)
+    fftLocation = params["dirPath"] + "/Text_Files/FFT/" + channel.station_underscore
+    if not os.path.isdir(fftLocation):
+        os.makedirs(fftLocation)
+    fftLocation = os.path.join(fftLocation,str(params["fftDuration"]))
+    if not os.path.isdir(fftLocation):
+        os.makedirs(fftLocation)
 
-    spectra, freq = matplotlib.pyplot.psd(data, NFFT=64*channel.samplef, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
+    timeseriesLocation = params["dirPath"] + "/Text_Files/Timeseries/" + channel.station_underscore
+    if not os.path.isdir(timeseriesLocation):
+        os.makedirs(timeseriesLocation)
+    timeseriesLocation = os.path.join(timeseriesLocation,str(params["fftDuration"]))
+    if not os.path.isdir(timeseriesLocation):
+        os.makedirs(timeseriesLocation)
+
+    rmsLocation = params["dirPath"] + "/Text_Files/RMS/" + channel.station_underscore
+    if not os.path.isdir(rmsLocation):
+        os.makedirs(rmsLocation)
+    rmsLocation = os.path.join(rmsLocation,str(params["fftDuration"]))
+    if not os.path.isdir(rmsLocation):
+        os.makedirs(rmsLocation)
+
+    psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(psdFile,"wb")
+    for i in xrange(len(data["freq"])):
+        f.write("%e %e\n"%(data["freq"][i],data["spectra"][i]))
+    f.close()
+
+    fftFile = os.path.join(fftLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(fftFile,"wb")
+    for i in xrange(len(data["freq"])):
+        f.write("%e %e %e\n"%(data["freq"][i],data["fft_spectra"][i].real,data["fft_spectra"][i].imag))
+    f.close()
+
+    data_argmax = np.absolute(data["data"]).argmax()
+    datalowpass_argmax = np.absolute(data["dataLowpass"]).argmax()
+    datahighpass_argmax = np.absolute(data["dataHighpass"]).argmax()
+
+    timeseriesFile = os.path.join(timeseriesLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(timeseriesFile,"wb")
+    f.write("%.2f %e\n"%(data["time"][data_argmax],data["data"][data_argmax]))
+    f.write("%.2f %e\n"%(data["time"][datalowpass_argmax],data["dataLowpass"][datalowpass_argmax]))
+    f.write("%.2f %e\n"%(data["time"][datahighpass_argmax],data["dataHighpass"][datahighpass_argmax]))
+    f.close()
+
+    rmsFile = os.path.join(rmsLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(rmsFile,"wb")
+    for i in xrange(len(data["timeRMS"])):
+        f.write("%.0f %e\n"%(data["timeRMS"][i],data["dataRMS"][i]))
+    f.close()
+
+def mat(params, channel, segment):
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+    
+    time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
+
+    dataFull = np.array(data)
+    dataLowpass = pylal.dq.dqDataUtils.lowpass(dataFull,channel.samplef,1.0)
+    dataHighpass = pylal.dq.dqDataUtils.highpass(dataFull,channel.samplef,1.0)
+    dataRMS = pylal.dq.dqDataUtils.blrms(dataFull, channel.samplef, average=1, band=[0,1])
+
+    data = {}
+    data["time"] = time
+    data["data"] = dataFull
+    data["dataLowpass"] = dataLowpass
+    data["dataHighpass"] = dataHighpass
+
+    data["timeRMS"] = time[0] + range(len(dataRMS))
+    data["dataRMS"] = dataRMS
+
+    NFFT = params["fftDuration"]*channel.samplef
+    spectra, freq = matplotlib.pyplot.psd(data["data"], NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
     plt.close('all')
 
     spectra = [math.sqrt(e) for e in spectra]
 
+    fft_spectra = np.fft.fft(data["data"])
+
     newSpectra = []
     newFreq = []
+    newSpectraFFT = []
 
     for i in xrange(len(freq)):
-        if freq[i] <= params["fmax"]:
+        if freq[i] <= params["fmax"] and freq[i] >= params["fmin"]:
             newFreq.append(freq[i])
             newSpectra.append(spectra[i])
+            newSpectraFFT.append(fft_spectra[i])
 
     spectra = newSpectra
     freq = newFreq
+    fft_spectra = newSpectraFFT
 
-    psdFile = psdLocation + "/" + str(params["gpsStart"]) + ".txt"
-    f = open(psdFile,"wb")
-    for i in xrange(len(freq)):
-        f.write("%e %e\n"%(freq[i],spectra[i]))
-    f.close()
+    data["freq"] = freq
+    data["spectra"] = spectra
+    data["fft_spectra"] = fft_spectra
 
-    earthquakesDirectory = os.path.join(params["path"],"earthquakes")
-    earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
-    try:
-        earthquakes = np.loadtxt(earthquakesFile)
-    except:
-        earthquakes = []
+    save_data(params,channel,gpsStart,gpsEnd,data)
+
+    earthquakes = []
+    if params["doEarthquakes"]:
+        earthquakesDirectory = os.path.join(params["path"],"earthquakes")
+        earthquakesFile = os.path.join(earthquakesDirectory,"earthquakes.txt")
+        try:
+            earthquakes = np.loadtxt(earthquakesFile)
+        except:
+            pass
 
     if params["doPlots"]:
 
@@ -85,29 +171,27 @@ def mat(params, channel):
         if not os.path.isdir(plotLocation):
             os.makedirs(plotLocation)        
 
-        startTime = np.min(time)
+        startTime = np.min(data["time"])
         startTimeUTC = XLALGPSToUTC(LIGOTimeGPS(int(startTime)))
-        time = time - startTime
+        startTimeUTCString = "%d-%d-%d %d:%d:%d"%(startTimeUTC[0],startTimeUTC[1],startTimeUTC[2],startTimeUTC[3],startTimeUTC[4],startTimeUTC[5])
 
-        norm_pass = 1.0/(channel.samplef/2)
-        norm_stop = 1.5*norm_pass
-        #(N, Wn) = scipy.signal.buttord(wp=norm_pass, ws=norm_stop, gpass=2, gstop=30, analog=0)
-        order = 5
-        (b, a) = scipy.signal.butter(order, norm_pass, btype='low', analog=0, output='ba')
-        data = np.array(data)
-        dataLowpass = scipy.signal.filtfilt(b, a, data) 
+        time = data["time"] - startTime
 
-        minData = np.min(data)
-        maxData = np.max(data)
-        data = 1/(maxData - minData) * (data - minData)
+        dataLowpass = 1/(np.max(data["dataLowpass"]) - np.min(data["dataLowpass"]))\
+                    * (data["dataLowpass"] - np.min(data["dataLowpass"]))
+        dataLowpass = dataLowpass + 0.5
+        plt.plot(time,dataLowpass,label="lowpass")
 
-        minDataLowpass = np.min(dataLowpass)
-        maxDataLowpass = np.max(dataLowpass)
-        dataLowpass = 1/(maxDataLowpass - minDataLowpass) * (dataLowpass - minDataLowpass)
+        dataHighpass = 1/(np.max(data["dataHighpass"]) - np.min(data["dataHighpass"]))\
+                    * (data["dataHighpass"] - np.min(data["dataHighpass"]))
+        dataHighpass = dataHighpass + 1.5
+        plt.plot(time,dataHighpass,label="highpass")
 
-        plt.plot(time,data,'k',label='data')
-        plt.plot(time,dataLowpass,'b',label='data lowpassed')
-        plt.legend(loc=1,prop={'size':10})
+        dataFull = 1/(np.max(data["data"]) - np.min(data["data"]))\
+                    * (data["data"] - np.min(data["data"]))
+        dataFull = dataFull + 2.5
+        plt.plot(time,dataFull,'k',label='data')
+        plt.legend(loc=4,prop={'size':10})
 
         if len(earthquakes) > 0:
             if len(earthquakes.shape) == 1:
@@ -122,15 +206,15 @@ def mat(params, channel):
                 Stime = earthquakes[i,3] - startTime
                 Rtime = earthquakes[i,4] - startTime
 
-                plt.text(Ptime, 1.1, 'P', fontsize=18, ha='center', va='top')
-                plt.text(Stime, 1.1, 'S', fontsize=18, ha='center', va='top')
-                plt.text(Rtime, 1.1, 'R', fontsize=18, ha='center', va='top')
+                plt.text(Ptime, 3.6, 'P', fontsize=18, ha='center', va='top')
+                plt.text(Stime, 3.6, 'S', fontsize=18, ha='center', va='top')
+                plt.text(Rtime, 3.6, 'R', fontsize=18, ha='center', va='top')
 
                 plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
 
-        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTC,startTime))
+        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
         plt.ylabel("Normalized Amplitude")
         plt.xlim([np.min(time),np.max(time)])
 
@@ -141,16 +225,146 @@ def mat(params, channel):
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 
-        plt.semilogx(freq,spectra, 'k')
-        plt.loglog(fl,low,'k-.',fh,high,'k-.')
+        try:
+            plt.semilogx(data["freq"],data["spectra"], 'k')
+            plt.loglog(fl,low,'k-.',fh,high,'k-.')
+        except:
+            pass
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/\surd Hz]")
+        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
         plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
+        plt.close('all')
+
+def freq_analysis(params,channel,tt,freq,spectra):
+
+    if params["doPlots"]:
+        plotLocation = params["path"] + "/" + channel.station_underscore
+        if not os.path.isdir(plotLocation):
+            os.makedirs(plotLocation)
+        plotLocation = params["path"] + "/" + channel.station_underscore + "/freq" 
+        if not os.path.isdir(plotLocation):
+            os.makedirs(plotLocation)
+ 
+    indexes = np.logspace(0,np.log10(len(freq)-1),num=100)
+    indexes = list(np.unique(np.ceil(indexes)))
+    indexes = range(len(freq))
+    #indexes = range(16)
+
+    indexes = np.where(10.0 >= freq)[0]
+
+    deltaT = tt[1] - tt[0]
+
+    n_dist = []
+    for j in xrange(1000):
+        n_dist.append(scipy.stats.chi2.rvs(2))
+
+    p_chi2_vals = []
+    p_ks_vals = []
+    ttCoh_vals = []
+
+    for i in indexes:
+        vals = spectra[:,i]
+
+        meanPSD = np.mean(vals) 
+        stdPSD = np.std(vals)
+
+        vals_norm = 2 * vals / meanPSD
+
+        bins = np.arange(0,10,1)
+        (n,bins) = np.histogram(vals_norm,bins=bins)
+        n_total = np.sum(n)
+
+        bins = (bins[1:] + bins[:len(bins)-1])/2
+
+        n_expected = []
+        for bin in bins:
+            expected_val = n_total * scipy.stats.chi2.pdf(bin, 2)
+            n_expected.append(expected_val)
+        n_expected = np.array(n_expected)
+
+        (stat_chi2,p_chi2) = scipy.stats.mstats.chisquare(n, f_exp=n_expected)
+        p_chi2_vals.append(p_chi2)
+
+        (stat_ks,p_ks) = scipy.stats.ks_2samp(vals_norm, n_dist)
+        p_ks_vals.append(p_ks)
+
+        acov = np.correlate(vals,vals,"full")
+        acov = acov / np.max(acov)
+
+        ttCov = (np.arange(len(acov)) - len(acov)/2) * float(deltaT)
+
+        #ttLimitMin = - 5/freq[i]
+        #ttLimitMax = 5 /freq[i]
+
+        ttLimitMin = - float('inf')
+        ttLimitMax = float('inf')
+
+        ttIndexes = np.intersect1d(np.where(ttCov >= ttLimitMin)[0],np.where(ttCov <= ttLimitMax)[0])
+        #ttCov = ttCov / (60)
+
+        acov_minus_05 = np.absolute(acov[ttIndexes] - 0.66)
+        index_min = acov_minus_05.argmin()
+
+        ttCoh = np.absolute(ttCov[ttIndexes[index_min]])
+        ttCoh_vals.append(ttCoh)
+
+        print freq[i], ttCoh, len(ttIndexes)
+
+        if len(ttIndexes) == 0:
+            continue
+
+        #if freq[i] > 0:
+        #    continue
+
+        if params["doPlots"]:
+            ax = plt.subplot(111)
+            plt.plot(bins,n,label='true')
+            plt.plot(bins,n_expected,'k*',label='expected')
+            plt.xlabel("2 * data / mean")
+            plt.ylabel("Counts")
+            plot_title = "p-value: %f"%p_chi2
+            plt.title(plot_title)
+            plt.legend()
+            plt.show()
+            plt.savefig(os.path.join(plotLocation,"%s_dist.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"%s_dist.eps"%str(freq[i])),dpi=200)
+            plt.close('all')
+
+            ax = plt.subplot(111)
+            plt.semilogy(ttCov[ttIndexes],acov[ttIndexes])
+            plt.vlines(ttCoh,10**(-3),1,color='r')
+            plt.vlines(-ttCoh,10**(-3),1,color='r')
+            plt.xlabel("Time [Seconds]")
+            plt.ylabel("Correlation")
+            plt.show()
+            plt.savefig(os.path.join(plotLocation,"%s_cov.png"%str(freq[i])),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"%s_cov.eps"%str(freq[i])),dpi=200)
+            plt.close('all')
+
+    if params["doPlots"]:
+        ax = plt.subplot(111)
+        plt.loglog(freq[indexes],p_chi2_vals,label='chi2')
+        plt.loglog(freq[indexes],p_ks_vals,label='k-s')
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("p-value")
+        plt.legend(loc=3)
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"freq_analysis.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"freq_analysis.eps"),dpi=200)
+        plt.close('all')      
+
+        ax = plt.subplot(111)
+        plt.semilogx(freq[indexes],ttCoh_vals)
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Coherence Time [s]")
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"ttCohs.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"ttCohs.eps"),dpi=200)
         plt.close('all')
 
 def spectral_histogram(data,bins):
@@ -212,19 +426,30 @@ def html_bgcolor(snr,data):
 def analysis(params, channel):
 
     psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
+    psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
     files = glob.glob(os.path.join(psdLocation,"*.txt"))
 
-    file = sorted(files)
+    files = sorted(files)
 
-    tt = []
+    if not params["doFreqAnalysis"]:
+        if len(files) > 1000:
+            files = files[-1000:]
+
+    ttStart = []
+    ttEnd = []
     freq = []
     spectra = []
 
     for file in files:
 
         fileSplit = file.split("/")
-        thisTT = float(fileSplit[-1].replace(".txt",""))
-        tt.append(thisTT)
+        txtFile = fileSplit[-1].replace(".txt","")
+        txtFileSplit = txtFile.split("-")
+        thisTTStart = int(txtFileSplit[0])
+        thisTTEnd = int(txtFileSplit[1])
+
+        ttStart.append(thisTTStart)
+        ttEnd.append(thisTTEnd)
 
         data = np.loadtxt(file)
         thisSpectra = data[:,1]
@@ -236,7 +461,7 @@ def analysis(params, channel):
             spectra = np.array(thisSpectra)
         else:
             spectra = np.vstack([spectra,np.array(copy.copy(thisSpectra))])
-        if thisTT == params["gpsStart"]:
+        if thisTTStart == params["gpsStart"]:
             freqNow = copy.copy(thisFreq)
             spectraNow = copy.copy(thisSpectra)
 
@@ -244,10 +469,22 @@ def analysis(params, channel):
     nb = 500
     range_binning = np.logspace(-10,-5,num=nb);
 
+    try:
+        spectra.max(axis = 1)
+    except:
+        print "Requires more than one spectra for analysis, continuing..."
+        return
+
     spectra[spectra==float('Inf')] = 0
 
     # Calculate bin histogram of PSDs
-    which_spectra = np.all([spectra.max(axis = 1) <= 10**-4,spectra.max(axis = 1) >= 10**-10],axis=0)
+    which_spectra = np.all([spectra.max(axis = 1) <= 10**-3,spectra.max(axis = 1) >= 10**-12],axis=0)
+
+    if len(spectra[which_spectra]) == 0:
+        return
+
+    if params["doFreqAnalysis"]:
+        freq_analysis(params,channel,ttStart,freq,spectra[which_spectra])
 
     spectral_variation_norm = spectral_histogram(spectra[which_spectra],range_binning)
 
@@ -343,6 +580,8 @@ def analysis(params, channel):
 
         indexes = np.unique(np.floor(np.logspace(0, np.log10(len(freq)-1), num=100)))
         indices = [int(x) for x in indexes]
+        indices.append(0)
+        indices.sort()
 
         #X,Y = np.meshgrid(freq, range_binning)
         X,Y = np.meshgrid(freq[indices], range_binning)
@@ -367,13 +606,13 @@ def analysis(params, channel):
         plt.savefig(os.path.join(plotLocation,"specvar.eps"),dpi=200)
         plt.close('all')
 
-        tt = np.array(tt)
-        indices_tt = np.where(tt >= params["gpsStart"] - 12*60*60)
-        tt = tt[indices_tt]
+        ttStart = np.array(ttStart)
+        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 24*60*60)
+        ttStart = ttStart[indices_ttStart]
 
-        spectra = np.squeeze(spectra[indices_tt,:])
-        ttStart = min(tt)
-        tt = [(c-ttStart)/(60*60) for c in tt]
+        spectra = np.squeeze(spectra[indices_ttStart,:])
+        ttStartMin = min(ttStart)
+        tt = [(c-ttStartMin)/(60*60) for c in ttStart]
 
         #X,Y = np.meshgrid(freq, tt)
         X,Y = np.meshgrid(freq[indices], tt)
@@ -382,6 +621,7 @@ def analysis(params, channel):
         im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=-9, vmax=-5)
         ax.set_xscale('log')
         plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([tt[0],tt[-1]])
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Time [Hours]")
         cbar=plt.colorbar()

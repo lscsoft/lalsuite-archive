@@ -505,6 +505,9 @@ void LALInferenceMcQ2Masses(double mc, double q, double *m1, double *m2);
 /** Convert from q to eta (q = m2/m1, with m1 > m2). */
 void LALInferenceQ2Eta(double q, double *eta);
 
+/** Convert from lambdaT, dLambdaT, and eta to lambda1 and lambda2. */
+void LALInferenceLambdaTsEta2Lambdas(REAL8 lambdaT, REAL8 dLambdaT, REAL8 eta, REAL8 *lambda1, REAL8 *lambda2);
+
 /** The kD trees in LALInference are composed of cells.  Each cell
     represents a rectangular region in parameter space, defined by
     \f$\mathrm{lowerLeft} <= x <= \mathrm{upperRight}\f$.  It also
@@ -644,6 +647,22 @@ INT4 LALInferenceSanityCheck(LALInferenceRunState *state);
  basefilename is optional text to append to file names
  */
 void LALInferenceDumpWaveforms(LALInferenceRunState *state, const char *basefilename);
+
+/** Write a LALInferenceVariables as binary to a given FILE pointer, returns the number
+ * of items written (should be the dimension of the variables) or -1 on error */
+int LALInferenceWriteVariablesBinary(FILE *file, LALInferenceVariables *vars);
+
+/** Read from the given FILE * a LALInferenceVariables, which was previously
+ * written with LALInferenceWriteVariablesBinary() Returns a new LALInferenceVariables */
+LALInferenceVariables *LALInferenceReadVariablesBinary(FILE *stream);
+
+/** Write an array N of LALInferenceVariables to the given FILE * using
+ * LALInferenceWriteVariablesBinary(). Returns the number written (should be ==N) */
+int LALInferenceWriteVariablesArrayBinary(FILE *file, LALInferenceVariables **vars, UINT4 N);
+
+/** Read N LALInferenceVariables from the binary FILE *file, previously written with
+ * LALInferenceWriteVariablesArrayBinary() returns the number read */
+int LALInferenceReadVariablesArrayBinary(FILE *file, LALInferenceVariables **vars, UINT4 N);
 
 /*@}*/
 

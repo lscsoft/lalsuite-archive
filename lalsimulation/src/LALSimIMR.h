@@ -21,8 +21,7 @@
 #define _LALSIMIMR_H
 
 #include <lal/LALDatatypes.h>
-#include <lal/LALSimInspiralWaveformFlags.h>
-#include <lal/LALSimInspiralTestGRParams.h>
+#include <lal/LALSimInspiral.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -35,12 +34,6 @@ extern "C" {
  * EOBNR models
  */
 #define EOB_RD_EFOLDS 10.0
-
-/**
- * Constant which comes up in some of the EOB models. Its value is
- * (94/3 -41/32*pi*pi)
- */
-#define ninty4by3etc 18.687902694437592603
 
 /**
  * Driver routine to compute the non-spinning, inspiral-merger-ringdown
@@ -201,6 +194,15 @@ int XLALSimIMREOBNRv2AllModes(
     const REAL8       distance,   /**<< Distance to source (in metres) */
     const REAL8       inclination /**<< Inclination of the source (in radians) */
 );
+
+SphHarmTimeSeries *XLALSimIMREOBNRv2Modes(
+        const REAL8 phiRef,  /**< Orbital phase at coalescence (radians) */
+        const REAL8 deltaT,  /**< Sampling interval (s) */
+        const REAL8 m1,      /**< First component mass (kg) */
+        const REAL8 m2,      /**< Second component mass (kg) */
+        const REAL8 fLower,  /**< Starting GW frequency (Hz) */
+        const REAL8 distance /**< Distance to sources (m) */
+        );
 
 int XLALSimIMRSpinAlignedEOBWaveform(
         REAL8TimeSeries **hplus,

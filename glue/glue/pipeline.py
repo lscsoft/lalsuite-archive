@@ -20,8 +20,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
-__date__ = '$Date$'
-__version__ = '$Revision$'
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import os
 import sys
@@ -1724,8 +1725,12 @@ xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi
 
     for node in self.__nodes:
         outfile.write("# Job %s\n" % node.get_name())
-        outfile.write("%s %s\n\n" % (node.job().get_executable(),
-            node.get_cmd_line()))
+        # Check if this is a DAGMAN Node
+        if isinstance(node,CondorDAGManNode):
+          outfile.write("condor_submit_dag %s\n\n" % (node.job().get_dag()))
+        else:
+          outfile.write("%s %s\n\n" % (node.job().get_executable(),
+              node.get_cmd_line()))
     outfile.close()
 
     os.chmod(outfilename, os.stat(outfilename)[0] | stat.S_IEXEC)
@@ -3601,7 +3606,7 @@ class LigolwSqliteJob(SqliteJob):
     Sets the --replace option. This will cause the job
     to overwrite existing databases rather than add to them.
     """
-    self.add_var_opt('replace')
+    self.add_opt('replace','')
 
 
 class LigolwSqliteNode(SqliteNode):

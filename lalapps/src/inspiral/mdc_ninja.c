@@ -48,7 +48,7 @@
 #include <lal/VectorOps.h>
 #include <lal/LALDetectors.h>
 #include <lal/LALFrameIO.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/FindChirp.h>
 #include <lal/Random.h>
 #include <lal/LALNoiseModels.h>
@@ -122,6 +122,7 @@ INT4 main( INT4 argc, CHAR *argv[] )
   /* start/end times */
   INT4 gpsStartSec          = -1;
   INT4 gpsEndSec            = -1;
+  INT4 injectWindow         = 0;
   LIGOTimeGPS gpsStartTime  = {0, 0};
   LIGOTimeGPS UNUSED gpsEndTime = {0, 0};
 
@@ -172,7 +173,6 @@ INT4 main( INT4 argc, CHAR *argv[] )
     {"simulate-noise",          no_argument,       &addNoise,         1 },
     {"double-precision",        no_argument,       &doingREAL8,       1 },
     /* these options don't set a flag */
-    {"debug-level",             required_argument, 0,                'D'},
     {"injection-type",          required_argument, 0,                'T'},
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-end-time",            required_argument, 0,                'b'},
@@ -192,14 +192,13 @@ INT4 main( INT4 argc, CHAR *argv[] )
     {"virgo-low-freq-cutoff",   required_argument, 0,                'j'},
     {"out-xml-file",            required_argument, 0,                'O'},
     {"fr-out-dir",              required_argument, 0,                'd'},
+    {"inject-window",           required_argument, 0,                'I'},
     {"help",                    no_argument,       0,                'h'},
     {"version",                 no_argument,       0,                'V'},
     {0, 0, 0, 0}
   };
 
-  /* set default debug level */
   lal_errhandler = LAL_ERR_EXIT;
-  set_debug_level( "33" );
 
   XLALSetSilentErrorHandler();
 
@@ -211,7 +210,7 @@ INT4 main( INT4 argc, CHAR *argv[] )
     size_t optarg_len;
 
     /* parse command line arguments */
-    c = getopt_long_only( argc, argv, "D:T:a:b:f:r:i:t:n:o:l:L:s:S:c:e:f:g:O:d:hV",
+    c = getopt_long_only( argc, argv, "T:a:b:f:r:i:I:t:n:o:l:L:s:S:c:e:f:g:O:d:hV",
         long_options, &option_index );
 
     /* detect the end of the options */
@@ -284,6 +283,11 @@ INT4 main( INT4 argc, CHAR *argv[] )
           exit( 1 );
         }
         gpsEndTime.gpsSeconds = gpsEndSec;
+        break;
+
+      case 'I':
+        /* set gps end seconds */
+        injectWindow = atoi( optarg );
         break;
 
       case 'f':
@@ -426,11 +430,6 @@ INT4 main( INT4 argc, CHAR *argv[] )
         optarg_len = strlen(optarg) + 1;
         outDir = (CHAR *)calloc(1, optarg_len * sizeof(CHAR));
         memcpy(outDir, optarg, optarg_len);
-        break;
-
-      case 'D':
-        /* set debug level */
-        set_debug_level( optarg );
         break;
 
       case '?':
@@ -642,7 +641,7 @@ INT4 main( INT4 argc, CHAR *argv[] )
 
   /* read the injections */
   numInjections = SimInspiralTableFromLIGOLw( &injections, injectionFile,
-      gpsStartSec, gpsEndSec );
+      gpsStartSec-injectWindow, gpsEndSec+injectWindow );
 
   if ( vrbflg )
   {
@@ -871,9 +870,9 @@ static void print_usage( CHAR *program )
       "  [--help]                          display this message\n"\
       "  [--verbose]                       print progress information\n"\
       "  [--version]                       print version information and exit\n"\
-      "  --debug-level         lvl         set debug level to 'lvl'\n"\
       "  --injection-type      type        set injection type ('approximant' or 'NR')\n"\
       "  --injection-file      inj_file    read inj details from xml sim-insp inj_file\n"\
+      "  --inject-window       time        Buffer time in which to generate injections. This covers injections which do not merge within the GPS times given but may still overlap the data segment.\n"\
       "  --ifo                 ifo         IFO for which to generate injections\n"\
       "  --all-ifos                        create injections for all IFOs\n"\
       "  --gps-start-time      start       start time of output file\n"\
@@ -907,7 +906,7 @@ static void output_frame(CHAR *ifo,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   CHAR creator[HISTORY_COMMENT];
   CHAR channel[LALNameLength];
 
@@ -949,7 +948,7 @@ static void output_frame(CHAR *ifo,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channel to frame */
   XLALFrameAddREAL4TimeSeriesSimData( frame, injData );
@@ -958,14 +957,14 @@ static void output_frame(CHAR *ifo,
     fprintf( stdout, "Writing injection to frame: '%s'\n", fname );
 
   /* write frame */
-  if (XLALFrameWrite( frame, fname, 8) != 0)
+  if (XLALFrameWrite( frame, fname) != 0)
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }
@@ -982,7 +981,7 @@ static void output_frame_real8(CHAR *ifo,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   CHAR creator[HISTORY_COMMENT];
   CHAR channel[LALNameLength];
 
@@ -1024,7 +1023,7 @@ static void output_frame_real8(CHAR *ifo,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channel to frame */
   XLALFrameAddREAL8TimeSeriesSimData( frame, injData );
@@ -1033,14 +1032,14 @@ static void output_frame_real8(CHAR *ifo,
     fprintf( stdout, "Writing injection to frame: '%s'\n", fname );
 
   /* write frame */
-  if (XLALFrameWrite( frame, fname, 8) != 0)
+  if (XLALFrameWrite( frame, fname) != 0)
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }
@@ -1056,7 +1055,7 @@ static void output_multi_channel_frame(INT4 num_ifos,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   INT4 i;
   CHAR creator[HISTORY_COMMENT];
   CHAR *ifo = NULL;
@@ -1081,7 +1080,7 @@ static void output_multi_channel_frame(INT4 num_ifos,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channels to frame */
   for( i = 0; i < num_ifos; i++ )
@@ -1096,14 +1095,14 @@ static void output_multi_channel_frame(INT4 num_ifos,
     fprintf( stdout, "Writing injections to frame: '%s'\n", fname );
 
   /* write frame */
-  if ( XLALFrameWrite( frame, fname, 8 ) != 0 )
+  if ( XLALFrameWrite( frame, fname ) != 0 )
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }
@@ -1120,7 +1119,7 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   INT4 i;
   CHAR creator[HISTORY_COMMENT];
   CHAR *ifo = NULL;
@@ -1145,7 +1144,7 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channels to frame */
   for( i = 0; i < num_ifos; i++ )
@@ -1160,14 +1159,14 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
     fprintf( stdout, "Writing injections to frame: '%s'\n", fname );
 
   /* write frame */
-  if ( XLALFrameWrite( frame, fname, 8 ) != 0 )
+  if ( XLALFrameWrite( frame, fname ) != 0 )
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }

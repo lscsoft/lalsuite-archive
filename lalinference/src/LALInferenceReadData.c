@@ -29,8 +29,8 @@
 #include <lal/LALStdlib.h>
 
 #include <lal/LALInspiral.h>
-#include <lal/FrameCache.h>
-#include <lal/FrameStream.h>
+#include <lal/LALCache.h>
+#include <lal/LALFrStream.h>
 #include <lal/TimeFreqFFT.h>
 #include <lal/LALDetectors.h>
 #include <lal/AVFactories.h>
@@ -183,19 +183,19 @@ static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS 
 {
 	LALStatus status;
 	memset(&status,0,sizeof(status));
-	FrCache *cache = NULL;
-	FrStream *stream = NULL;
+	LALCache *cache = NULL;
+	LALFrStream *stream = NULL;
 	REAL8TimeSeries *out = NULL;
 	
-	cache  = XLALFrImportCache( cachefile );
+	cache  = XLALCacheImport( cachefile );
         int err;
         err = *XLALGetErrnoPtr();
 	if(cache==NULL) {fprintf(stderr,"ERROR: Unable to import cache file \"%s\",\n       XLALError: \"%s\".\n",cachefile, XLALErrorString(err)); exit(-1);}
-	stream = XLALFrCacheOpen( cache );
+	stream = XLALFrStreamCacheOpen( cache );
 	if(stream==NULL) {fprintf(stderr,"ERROR: Unable to open stream from frame cache file\n"); exit(-1);}
-	out = XLALFrInputREAL8TimeSeries( stream, channel, &start, length , 0 );
+	out = XLALFrStreamInputREAL8TimeSeries( stream, channel, &start, length , 0 );
 	if(out==NULL) fprintf(stderr,"ERROR: unable to read channel %s from %s at time %i\nCheck the specified data duration is not too long\n",channel,cachefile,start.gpsSeconds);
-	LALDestroyFrCache(&status,&cache);
+	XLALDestroyCache(cache);
 	LALFrClose(&status,&stream);
 	return out;
 }
@@ -482,12 +482,21 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
     seglen=(size_t)(SegmentLength*SampleRate);
     nSegs=(int)floor(PSDdatalength/SegmentLength);
 
+    CHAR df_argument_name[128];
+    REAL8 dof;
+
     for(i=0;i<Nifo;i++) {
         IFOdata[i].fLow=fLows?atof(fLows[i]):defaultFLow; 
         if(fHighs) IFOdata[i].fHigh=fHighs[i]?atof(fHighs[i]):(SampleRate/2.0-(1.0/SegmentLength));
         else IFOdata[i].fHigh=(SampleRate/2.0-(1.0/SegmentLength));
         strncpy(IFOdata[i].name, IFOnames[i], DETNAMELEN);
-        IFOdata[i].STDOF = 4.0 / M_PI * nSegs;
+
+        dof=4.0 / M_PI * nSegs; /* Degrees of freedom parameter */
+        sprintf(df_argument_name,"--dof-%s",IFOdata[i].name);
+        if((ppt=LALInferenceGetProcParamVal(commandLine,df_argument_name)))
+            dof=atof(ppt->value);
+
+        IFOdata[i].STDOF = dof;
         fprintf(stderr, "Detector %s will run with %g DOF if Student's T likelihood used.\n",
                 IFOdata[i].name, IFOdata[i].STDOF);
     }
@@ -861,12 +870,12 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     double lines_width;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--chisquaredlinesWidth");
-                    if(ppt) lines_width = atoi(ppt->value);
+                    if(ppt) lines_width = atof(ppt->value);
                     else lines_width = deltaF;
 
                     double lines_threshold;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--chisquaredlinesThreshold");
-                    if(ppt) lines_threshold = atoi(ppt->value);
+                    if(ppt) lines_threshold = atof(ppt->value);
                     else lines_threshold = 2*pow(10.0,-14.0);
 
                     printf("Using chi squared threshold of %g\n",lines_threshold);
@@ -907,12 +916,12 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     double lines_width;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--KSlinesWidth");
-                    if(ppt) lines_width = atoi(ppt->value);
+                    if(ppt) lines_width = atof(ppt->value);
                     else lines_width = deltaF;
 
                     double lines_threshold;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--KSlinesThreshold");
-                    if(ppt) lines_threshold = atoi(ppt->value);
+                    if(ppt) lines_threshold = atof(ppt->value);
                     else lines_threshold = 0.134558;
 
                     printf("Using KS threshold of %g\n",lines_threshold);
@@ -953,12 +962,12 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
 
                     double lines_width;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--powerlawlinesWidth");
-                    if(ppt) lines_width = atoi(ppt->value);
+                    if(ppt) lines_width = atof(ppt->value);
                     else lines_width = deltaF;
 
                     double lines_threshold;
                     ppt = LALInferenceGetProcParamVal(commandLine, "--powerlawlinesThreshold");
-                    if(ppt) lines_threshold = atoi(ppt->value);
+                    if(ppt) lines_threshold = atof(ppt->value);
                     else lines_threshold = 0.7197370;
 
                     printf("Using power law threshold of %g\n",lines_threshold);
@@ -1116,11 +1125,15 @@ LALInferenceIFOData *LALInferenceReadData(ProcessParamsTable *commandLine)
         }
 
         if (LALInferenceGetProcParamVal(commandLine, "--data-dump")) {
-            const UINT4 nameLength=256;
+            const UINT4 nameLength=FILENAME_MAX;
             char filename[nameLength];
             FILE *out;
-
-            snprintf(filename, nameLength, "%s-PSD.dat", IFOdata[i].name);
+            ppt=LALInferenceGetProcParamVal(commandLine,"--outfile");
+            if(ppt) {
+            	snprintf(filename, nameLength, "%s-%s-PSD.dat", ppt->value, IFOdata[i].name);
+            }
+            else
+                snprintf(filename, nameLength, "%s-PSD.dat", IFOdata[i].name);
             out = fopen(filename, "w");
             for (j = 0; j < IFOdata[i].oneSidedNoisePowerSpectrum->data->length; j++) {
                 REAL8 f = IFOdata[i].oneSidedNoisePowerSpectrum->deltaF*j;
@@ -1451,6 +1464,21 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
       if(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")) {
         lambda2= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambda2")->value);
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
+      }
+      REAL8 lambdaT = 0.;
+      REAL8 dLambdaT = 0.;
+      REAL8 m1=injEvent->mass1;
+      REAL8 m2=injEvent->mass2;
+      REAL8 Mt=m1+m2;
+      REAL8 eta=m1*m2/(Mt*Mt);
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
+        lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
+        dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
+        LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,eta,&lambda1,&lambda2);
+        fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
+        fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
+        fprintf(stdout,"lambda1 set to %f\n",lambda1);
+        fprintf(stdout,"lambda2 set to %f\n",lambda2);
       }
       LALSimInspiralWaveformFlags *waveFlags = XLALSimInspiralCreateWaveformFlags();
       LALSimInspiralSpinOrder spinO = -1;
@@ -2136,7 +2164,20 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
         fprintf(stdout,"Injection lambda2 set to %f\n",lambda2);
         LALInferenceAddVariable(tmpdata->modelParams, "lambda2",&lambda2,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
       }
-      
+      REAL8 lambdaT = 0.;
+      REAL8 dLambdaT = 0.;
+      if(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")&&LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")) {
+        lambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-lambdaT")->value);
+        dLambdaT= atof(LALInferenceGetProcParamVal(commandLine,"--inj-dLambdaT")->value);
+        LALInferenceLambdaTsEta2Lambdas(lambdaT,dLambdaT,eta,&lambda1,&lambda2);
+        fprintf(stdout,"Injection lambdaT set to %f\n",lambdaT);
+        fprintf(stdout,"Injection dLambdaT set to %f\n",dLambdaT);
+        fprintf(stdout,"lambda1 set to %f\n",lambda1);
+        fprintf(stdout,"lambda2 set to %f\n",lambda2);
+        LALInferenceAddVariable(tmpdata->modelParams, "lambdaT",&lambdaT,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+        LALInferenceAddVariable(tmpdata->modelParams, "dLambdaT",&dLambdaT,LALINFERENCE_REAL8_t,LALINFERENCE_PARAM_LINEAR);
+      }
+
     LALSimInspiralSpinOrder spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
 
     if(LALInferenceGetProcParamVal(commandLine, "--inj-spinOrder")) {

@@ -51,7 +51,6 @@
 #define MULT_VECT(v,lam) do{ (v)[0] *= (lam); (v)[1] *= (lam); (v)[2] *= (lam); } while(0)
 
 // ---------- global variables --------------------
-extern int lalDebugLevel;
 
 static LALStatus empty_LALStatus;
 static PtoleMetricIn empty_PtoleMetricIn;
@@ -71,7 +70,6 @@ DopplerMetric *XLALOldDopplerFstatMetric ( const DopplerMetricParams *metricPara
 int main( void )
 {
   INT4 ret;
-  lalDebugLevel = 3;
 
   ret = test_XLALDopplerFstatMetric();
   XLAL_CHECK ( ret == XLAL_SUCCESS, XLAL_EFUNC, "test_XLALDopplerFstatMetric() failed with status = %d.\n", ret );
@@ -145,7 +143,7 @@ test_XLALDopplerFstatMetric ( void )
   DopplerMetricParams pars2 = empty_DopplerMetricParams;
 
   pars2.coordSys      		= coordSys;
-  pars2.detMotionType 		= DETMOTION_SPIN_ORBIT;
+  pars2.detMotionType 		= DETMOTION_SPIN | DETMOTION_ORBIT;
   pars2.segmentList   		= segList;
   pars2.detInfo 		= detInfo;
   pars2.signalParams.Amp     	= Amp;
@@ -211,7 +209,7 @@ test_XLALDopplerFstatMetric ( void )
   XLALPrintWarning("\n---------- ROUND 2: Ptolemaic-based (single-IFO) phase-metrics ----------\n");
 
   pars0.metricType    = LAL_PMETRIC_COH_PTOLE_ANALYTIC;
-  pars2.detMotionType = DETMOTION_SPIN_PTOLEORBIT;
+  pars2.detMotionType = DETMOTION_SPIN | DETMOTION_PTOLEORBIT;
 
   // 0) compute metric using ancient LALPulsarMetric() function (used in lalapps_getMetric)
   LALPulsarMetric ( &status, &metric0, &pars0 );
@@ -239,7 +237,7 @@ test_XLALDopplerFstatMetric ( void )
 
   XLALPrintWarning("\n---------- ROUND 3: (ephemeris-base) *full* (multi-IF) F-stat metrics ----------\n");
 
-  pars2.detMotionType = DETMOTION_SPIN_ORBIT;
+  pars2.detMotionType = DETMOTION_SPIN | DETMOTION_ORBIT;
   pars2.metricType    = METRIC_TYPE_FSTAT;
   pars2.detInfo       = detInfo;	// 3 IFOs
 
@@ -260,7 +258,7 @@ test_XLALDopplerFstatMetric ( void )
 
   XLALPrintWarning("\n---------- ROUND 4: compare analytic {f,f1dot,f2dot,f3dot} phase-metric vs  XLALDopplerFstatMetric() ----------\n");
   pars2.detInfo.length  = 1;	// truncate to 1st detector
-  pars2.detMotionType   = DETMOTION_SPIN_ORBIT;
+  pars2.detMotionType   = DETMOTION_SPIN | DETMOTION_ORBIT;
   pars2.metricType      = METRIC_TYPE_PHASE;
   pars2.approxPhase     = 1;	// use same phase-approximation as in analytic solution to improve comparison
 

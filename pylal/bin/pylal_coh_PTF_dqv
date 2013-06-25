@@ -148,6 +148,10 @@ if __name__ == "__main__":
     search_summ_table = table.get_table(xmldoc,
                                         lsctables.SearchSummaryTable.tableName)
     ifos = search_summ_table[-1].get_ifos()
+    if not ifos:
+        process_table = table.get_table(xmldoc,
+                                        lsctables.ProcessTable.tableName)
+        ifos = process_table[0].get_ifos()
     process.set_ifos(ifos)
     outxml.childNodes[-1].appendChild(search_summ_table)
 
@@ -173,9 +177,6 @@ if __name__ == "__main__":
     # read TimeSlideTable
     slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
     slides = slide_table.as_dict()
-    for id_,vector in slides.items():
-        del slides[id_]
-        slides[int(id_)] = vector
     outxml.childNodes[-1].appendChild(slide_table)
     print_verbose("TimeSlideTable read and copied.\n")
 
@@ -211,23 +212,22 @@ if __name__ == "__main__":
     i = 0
     for row in expr_summ_table:
         # extract experiment information
-        expr = filter(lambda e: int(e.experiment_id) ==
-                                int(row.experiment_id), expr_table)[0]
+        expr = filter(lambda e: e.experiment_id ==
+                                row.experiment_id, expr_table)[0]
         start = expr.gps_start_time
         end = expr.gps_end_time
         expr_span = SegmentList([Segment(start, end)])
         ifos = expr.get_instruments()
         # extract time slide information
-        slide_id = int(row.time_slide_id)
-        slide = filter(lambda s: int(s.time_slide_id) == slide_id,
-                       slide_table)[0]
+        slide_id = row.time_slide_id
+        slide = filter(lambda s: s.time_slide_id == slide_id, slide_table)[0]
         slide_vector = slides[slide_id]
         # slide vetoes instead of triggers
         inverse_vector = dict((ifo, -offset) for ifo,offset in
                               slide_vector.iteritems())
         slide_veto_dict = veto_segments.copy(ifos)
         slide_veto_dict.offsets.update(inverse_vector)
-        slide_veto_list = slide_veto_dict.union(ifos) & expr_span
+        slide_veto_list = slide_veto_dict.union(ifos)# & expr_span
         print_verbose("Experiment (slide) %d:\n" % slide_id, profile=False)
         print_verbose("    Livetime: %.2f seconds\n" % row.duration,
                       profile=False)
@@ -240,7 +240,7 @@ if __name__ == "__main__":
         # extract the triggers for this slide
         mi_slide_events = table.new_from_template(mi_table)
         mi_slide_events.extend(t for t in mi_table if
-                               (int(t.time_slide_id) == slide_id and
+                               (t.time_slide_id == slide_id and
                                 float(t.get_end()) not in slide_veto_list))
         print_verbose("    %d out of %d events remain.\n"
                       % (len(mi_slide_events), row.nevents))

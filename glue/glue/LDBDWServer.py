@@ -16,8 +16,9 @@ details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-__version__='$Revision$'
-
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 
 import os
 import sys
@@ -398,6 +399,7 @@ class Server(object):
     # read the incoming payload
     try:
         #import simplejson  (moved to top)
+        wsgiIn=environ['wsgi.input'].read()
         inputString=simplejson.loads(wsgiIn)
         #inputString = cjson.decode(environ['wsgi.input'].read())
     except Exception, e:

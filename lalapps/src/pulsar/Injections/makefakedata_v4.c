@@ -243,13 +243,10 @@ main(int argc, char *argv[])
   size_t len;
   UserVariables_t uvar = empty_UserVariables;
 
-  lalDebugLevel = 0;	/* default value */
 
   /* ------------------------------
    * read user-input and set up shop
    *------------------------------*/
-  XLAL_CHECK ( XLALGetDebugLevel(argc, argv, 'v') == XLAL_SUCCESS, XLAL_EFUNC );
-
   XLAL_CHECK ( XLALInitUserVars ( &uvar, argc, argv ) == XLAL_SUCCESS, XLAL_EFUNC );
 
   XLAL_CHECK ( XLALInitMakefakedata ( &GV, &uvar ) == XLAL_SUCCESS, XLAL_EFUNC );
@@ -404,7 +401,7 @@ main(int argc, char *argv[])
           XLAL_CHECK ( written < len, XLAL_ESIZE, "Frame-filename exceeds expected maximal length (%d): '%s'\n", len, fname );
 
 	  /* define the output frame */
-	  struct FrameH *outFrame;
+	  LALFrameH *outFrame;
 	  XLAL_CHECK ( (outFrame = XLALFrameNew( &(params.startTimeGPS), params.duration, uvar.frameDesc, 1, 0, 0 )) != NULL, XLAL_EFUNC );
 
 	  /* add timeseries to the frame - make sure to change the timeseries name since this is used as the channel name */
@@ -417,16 +414,16 @@ main(int argc, char *argv[])
 
 	  /* Here's where we add extra information into the frame - first we add the command line args used to generate it */
 	  char *hist = XLALUserVarGetLog (UVAR_LOGFMT_CMDLINE);
-          FrHistoryAdd ( outFrame, hist );
+          XLALFrameAddFrHistory ( outFrame, __FILE__, hist );
 
 	  /* then we add the version string */
-	  FrHistoryAdd ( outFrame, GV.VCSInfoString );
+	  XLALFrameAddFrHistory ( outFrame, __FILE__, GV.VCSInfoString );
 
 	  /* output the frame to file - compression level 1 (higher values make no difference) */
-	  XLAL_CHECK ( (XLALFrameWrite(outFrame, fname,1) == 0) , XLAL_EFUNC );
+	  XLAL_CHECK ( (XLALFrameWrite(outFrame, fname) == 0) , XLAL_EFUNC );
 
 	  /* free the frame, frame file name and history memory */
-	  FrameFree ( outFrame );
+	  XLALFrameFree ( outFrame );
 	  LALFree ( fname );
           LALFree ( hist );
 #endif
@@ -961,6 +958,9 @@ XLALInitMakefakedata ( ConfigVars_t *cfg, UserVariables_t *uvar )
 	/* load effective frequency-band from noise-SFTs */
 	fMin = cfg->fmin_eff;
 	fMax = fMin + cfg->fBand_eff;
+	/* temporary solution to "off by one" error that can occur as fmin_eff and fBand_eff are already rounded to exact SFT bins here and XLALLoadSFTs then uses floor/ceil to be conservative */
+	fMin += 0.5 / uvar->Tsft;
+	fMax -= 0.5 / uvar->Tsft;
 
         cfg->noiseSFTs = XLALLoadSFTs ( catalog, fMin, fMax );
         XLAL_CHECK ( cfg->noiseSFTs != NULL, XLAL_EFUNC, "XLALLoadSFTs() failed\n" );

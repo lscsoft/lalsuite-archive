@@ -121,7 +121,7 @@ True
 >>> print ilwd.foo_bar_class(10)
 foo:bar:10
 
-The ilwdchar class itself it never instantiated, its .__new__() method
+The ilwdchar class itself is never instantiated, its .__new__() method
 parses the ID string parameter and creates an instance of the appropriate
 subclass of _ilwd.ilwdchar, creating a new subclass before doing so if
 neccessary.

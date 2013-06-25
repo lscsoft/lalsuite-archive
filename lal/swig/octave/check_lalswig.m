@@ -7,25 +7,28 @@ expected_exception = 0;
 lal;
 assert(exist("lal", "var"));
 assert(exist("lalcvar", "var"));
-lalcvar.lalDebugLevel = bitor(LALERROR, LALMEMDBG);
 disp("passed module load");
 
 ## check memory allocation
-CheckMemoryLeaks();
-mem1 = new_Detector();
-mem2 = CreateCOMPLEX8Vector(5);
-mem3 = CreateREAL8Vector(3);
-mem4 = CreateREAL4TimeSeries("test", LIGOTimeGPS(0), 100, 0.1, lalcvar.lalDimensionlessUnit, 10);
-disp("*** below should be an error message from CheckMemoryLeaks() ***");
-try
+if lalcvar.swig_debug
   CheckMemoryLeaks();
-  expected_exception = 1;
-end_try_catch
-assert(!expected_exception);
-disp("*** above should be an error message from CheckMemoryLeaks() ***");
-clear mem1 mem2 mem3 mem4;
-CheckMemoryLeaks();
-disp("passed memory allocation");
+  mem1 = new_Detector();
+  mem2 = CreateCOMPLEX8Vector(5);
+  mem3 = CreateREAL8Vector(3);
+  mem4 = CreateREAL4TimeSeries("test", LIGOTimeGPS(0), 100, 0.1, lalcvar.lalDimensionlessUnit, 10);
+  disp("*** below should be an error message from CheckMemoryLeaks() ***");
+  try
+    CheckMemoryLeaks();
+    expected_exception = 1;
+  end_try_catch
+  assert(!expected_exception);
+  disp("*** above should be an error message from CheckMemoryLeaks() ***");
+  clear mem1 mem2 mem3 mem4;
+  CheckMemoryLeaks();
+  disp("passed memory allocation");
+else
+  disp("skipped memory allocation");
+endif
 
 ## check string conversions
 strs = {"a"; "bc"; "def"};
@@ -35,7 +38,7 @@ assert(all(strcmp(sv.data, strs)));
 strs{1} = "ghijk";
 sv.data{1} = strs{1};
 strs{end+1} = "lmnopq";
-AppendString2Vector(sv, strs{4});
+sv = AppendString2Vector(sv, strs{4});
 assert(sv.length == 4);
 for i = 1:4
   assert(strcmp(sv.data{i}, strs{i}));
@@ -75,6 +78,7 @@ endfor
 clear sts;
 assert(!any(lalcvar.lalswig_test_enum_vector));
 assert(!any(lalcvar.lalswig_test_enum_matrix(:)));
+assert(length(lalcvar.lalswig_test_empty_INT4_vector) == 0);
 assert(!any(lalcvar.lalswig_test_INT4_vector));
 assert(!any(lalcvar.lalswig_test_INT4_matrix(:)));
 assert(!any(lalcvar.lalswig_test_REAL8_vector));
@@ -109,6 +113,9 @@ disp("passed static vector/matrix conversions");
 ## check dynamic vector/matrix conversions
 function check_dynamic_vector_matrix(iv, ivl, rv, rvl, cm, cms1, cms2)
   expected_exception = 0;
+  iv.data = zeros(ivl, 1);
+  rv.data = zeros(rvl, 1);
+  cm.data = zeros(cms1, cms2);
   assert(ivl == 5);
   iv.data = [1; 3; 2; 4; 3];
   assert(all(iv.data == [1; 3; 2; 4; 3]));
@@ -158,6 +165,10 @@ cm = CreateCOMPLEX8VectorSequence(4, 6);
 check_dynamic_vector_matrix(iv, iv.length, rv, rv.length,
                             cm, cm.length, cm.vectorLength);
 clear iv rv cm;
+rv0 = CreateREAL8Vector(0);
+assert(rv0.length == 0);
+assert(length(rv0.data) == 0);
+clear rv0;
 rv1 = CreateREAL8Vector(1);
 rv1.data(1) = 1;
 clear rv1;
@@ -244,6 +255,7 @@ t4struct.t = 1234.5;
 assert(t4struct.t == 1234.5);
 t5 = LIGOTimeGPS("1000");
 assert(t5 == 1000);
+if lalcvar.swig_version >= hex2dec("020010")
 try
   t5 = LIGOTimeGPS("abc1000");
   expected_exception = 1;
@@ -254,6 +266,8 @@ try
   expected_exception = 1;
 end_try_catch
 assert(!expected_exception);
+endif # lalcvar.swig_version >= hex2dec("020010")
+assert(lalswig_test_noptrgps(LIGOTimeGPS(1234.5)) == lalswig_test_noptrgps(1234.5))
 clear t0 t1 t2 t3 t4struct t5;
 CheckMemoryLeaks();
 disp("passed LIGOTimeGPS operations");

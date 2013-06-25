@@ -41,6 +41,12 @@
 #define swiglal_no_self() NULL
 %}
 
+// Name of PyObject containing the SWIG wrapping of the
+// first argument to a function.
+%header %{
+#define swiglal_1starg()  obj0
+%}
+
 ////////// SWIG directives for operators //////////
 
 // These macros apply the correct python:slot directives
@@ -105,32 +111,6 @@
 %swiglal_py_cmp_op(ne, Py_NE);
 
 ////////// General fragments, typemaps, and macros //////////
-
-// Helper fragment and macro for typemap for functions which return 'int'.
-// Drops the first return value (which is the 'int') from the output argument
-// list if the argument list contains at least 2 items (the 'int' and some
-// other output argument).
-%fragment("swiglal_maybe_drop_first_retval", "header") {
-  SWIGINTERN PyObject* swiglal_maybe_drop_first_retval(PyObject* out) {
-    if (!PySequence_Check(out)) {
-      return out;
-    }
-    Py_ssize_t len = PySequence_Length(out);
-    if (len <= 1) {
-      return out;
-    }
-    PyObject* old = out;
-    if (len == 2) {
-      out = PySequence_GetItem(old, 1);
-    } else {
-      out = PySequence_GetSlice(old, 1, len);
-    }
-    Py_CLEAR(old);
-    return out;
-  }
-}
-#define %swiglal_maybe_drop_first_retval() \
-  resultobj = swiglal_maybe_drop_first_retval(resultobj)
 
 // SWIG conversion fragments and typemaps for GSL complex numbers.
 %swig_cplxflt_convn(gsl_complex_float, gsl_complex_float_rect, GSL_REAL, GSL_IMAG);
@@ -777,11 +757,6 @@
       PyObject* nparr = NULL;
       npy_intp objdims[ndims];
       npy_intp objstrides[ndims];
-
-      // Check that C array is non-NULL.
-      if (ptr == NULL) {
-        goto fail;
-      }
 
       // Copy C array dimensions and strides.
       for (int i = 0; i < ndims; ++i) {
