@@ -60,6 +60,7 @@ pkgpython_DATA = \
 endif
 
 EXTRA_DIST = \
+	LALInferenceCosmo.c \
 	LALInferenceMCMCSampler.c \
 	LALInferenceMCMCSampler.h \
 	combine_evidence.in \
