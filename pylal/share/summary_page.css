@@ -520,7 +520,8 @@ table {
     border-collapse: collapse;
 }
 
-table.red {
+td.red {
+    color: white;
     background-color: red;
 }
 
