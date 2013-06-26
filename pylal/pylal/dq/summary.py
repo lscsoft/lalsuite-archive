@@ -1907,6 +1907,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                         td[-1].append(sigmaStr)
                         if self.sigma[chan][0.0] > 5:
                             cellclasses[sigmaStr] = "red"
+                            cellclasses[chan] = "red"
                     else:
                         td[-1].append("-")
                 self.frame.add(htmlutils.write_table(th, td,
