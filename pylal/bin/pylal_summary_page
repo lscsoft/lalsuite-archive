@@ -43,6 +43,7 @@ import getpass
 import numpy
 import inspect
 import glob
+import math
 import warnings
 warnings.filterwarnings("ignore", "column name", UserWarning)
 
@@ -658,7 +659,10 @@ def parse_data_config(cp, cpsec, channels, prefix=""):
 
     # load spectr(um/ogram) params
     for p in ["time-step", "segment-length", "segment-overlap"]:
-        if cp.has_option(cpsec, "spectrum-%s" % p):
+        if numchannels == 1 and cp.has_section(channels[0]) and \
+                cp.has_option(channels[0], p):
+            x = cp.getfloat(channels[0], p)
+        elif cp.has_option(cpsec, "spectrum-%s" % p):
             x = cp.getfloat(cpsec, "spectrum-%s" % p)
         elif cp.has_option("spectrum", p):
             x = cp.getfloat("spectrum", p)
@@ -896,8 +900,11 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
 
     # construct query segments
     span = SegmentList([Segment(0, NOW-latency)])
-    query_segments = ((segment_list & span) -
-                      SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce())
+    if cluster:
+        cachedSegments = SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce()
+    else:
+        cachedSegments = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys()).coalesce()
+    query_segments = ((segment_list & span) - cachedSegments)
     query &= abs(query_segments) != 0
 
     if query:
@@ -932,7 +939,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
               if cp.has_option(etg.lower(),'overlap'):
                 cacheKwargs['overlap'] = float(cp.get("%s" % etg.lower(),'overlap'))
 
-              # overrid default settings with channel specific if provided
+              # overrid defaulte settings with channel specific if provided
               if cp.has_section('%s' %  channel):
                 if cp.has_option(channel,'duration'):
                   cacheKwargs['duration'] = float(cp.get(channel,'duration'))
@@ -1509,7 +1516,7 @@ def build_omega_spectrogram(trigs, start, end, time_step, spectype='snr'):
       f,S = list(map(numpy.asarray, zip(*sorted(zip(f,S)))))
 
     # set up spectrogram array for first time
-    if spectrogram is None or spectrogram.length == 0:
+    if len(f) > 0 and (spectrogram is None or spectrogram.length == 0):
         func = getattr(lal, "CreateREAL8VectorSequence")                                                                                     
         spectrogram = func(int(numseg), int(len(f))) 
 
@@ -1524,19 +1531,19 @@ def build_omega_spectrogram(trigs, start, end, time_step, spectype='snr'):
    sys.stdout.write("\n")
    sys.stdout.flush()
 
-  
-  spectrogram.epoch = lal.LIGOTimeGPS(start)
-  spectrogram.deltaT = time_step
-  spectrogram.f_array = f
-  spectrogram.name = str(Segment(start, end))
-  spectrogram.sampleUnits = lal.lalSecondUnit
+  if spectrogram is not None:
+      spectrogram.epoch = lal.LIGOTimeGPS(start)
+      spectrogram.deltaT = time_step
+      spectrogram.f_array = f
+      spectrogram.name = str(Segment(start, end))
+      spectrogram.sampleUnits = lal.lalSecondUnit
 
   return spectrogram
 
 def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
                     frametype=None, calibration=None, fresponse=None,
                     resample=None, usends=False, superchannel=None,
-                    query=True):
+                    query=True, spectype='snr'):
     """@returns a list of spectrograms for the given channel.
 
     @param cp
@@ -1563,15 +1570,17 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         read data from NDS, rather than frames, default: False
     @param query
         search for new spectrogram (True), or find in memory (False)
+    @param spectype
+        Type of spectra to use, e.g. spectrum variance, kurtosis... only used for omegaspectra for the moment
     """
     global G_SPECTROGRAM
-    # shorten segment list to the correct size for the given step
+    # shorten segment list to the correct size for the given step, 
     segment_list.coalesce()
     tmp = SegmentList()
     for seg in segment_list:
-        if abs(seg) < step:
-            continue
-        tmp.append(Segment(seg[0], seg[0] + abs(seg)//step*step))
+        testseg = Segment(math.ceil(float(seg[0])/step)*step, math.floor(float(seg[1])/step)*step)
+        if abs(testseg) >= step:
+            tmp.append(testseg)
     segment_list = tmp.coalesce()
 
     # check what segments we already have for this channel
@@ -1584,6 +1593,8 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
 
     # get new segments
     query_segments = segment_list - segment_summary
+        
+    # check if there is anything new to query for
     query &= (abs(query_segments) != 0)
 
     # get cache
@@ -1604,11 +1615,15 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
     if cp.has_section(frametype):
         trigs = get_triggers(cp, channel, frametype, query_segments)
         for seg in query_segments:
-            spectrogram = build_omega_spectrogram(trigs, seg[0], seg[1], step, spectype='snr')
-            add_spectrogram(spectrogram, seg, channel, spectrogram.epoch,
-                            step, f_array = spectrogram.f_array)
-            print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
-                          % (spectrogram.length, seg[0], seg[1]))
+            spectrogram = build_omega_spectrogram(trigs, seg[0], seg[1], step, spectype=spectype)
+            if spectrogram is not None:
+                add_spectrogram(spectrogram, seg, channel, spectrogram.epoch,
+                                step, f_array = spectrogram.f_array)
+                print_verbose("%d-segment spectrogram generated for [%d ... %d)\n"
+                              % (spectrogram.length, seg[0], seg[1]))
+            else:
+                print_verbose("No data found for spectrogram in [%d ... %d)\n"
+                              % (seg[0], seg[1]))
 
     else:
         # get data
@@ -3144,8 +3159,8 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     #
 
     sigmaplot = None
-
-    for chan in channels:
+    channelparams = parse_data_config(cp, cpsec, channels)
+    for chan, params in zip(channels, channelparams):
         tab.auxplots[chan] = list()
         for plot,_ in plots:
             # format plot
@@ -3223,6 +3238,7 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
     if not htmlonly:
         tab.finalize()
         tab.frametohtml()
+
 
 # =============================================================================
 # Acquire data
@@ -4431,7 +4447,7 @@ if __name__=="__main__":
     #
 
     valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
-                     "LSC", "OMC", "PEM", "PSL", "SUS", "SQZ", "IMC"]
+                     "LSC", "OMC", "PEM", "PSL", "SEI", "SUS", "SQZ", "IMC"]
     valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
                      "Vetoes", "Analysis", "Misc."] + valid_systems
     valid_parents = natsort(valid_parents)
