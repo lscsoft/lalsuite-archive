@@ -1891,6 +1891,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                       "Num. %s<br>coinc. with aux." % self.mainchannel,\
                       "Zero shift coinc. &sigma;"]
                 td = []
+                cellclasses = {"table":"full"}
                 for chan in self.channels:
                     if chan == self.mainchannel:
                         continue
@@ -1902,11 +1903,14 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                         td[-1].extend(["-", "-"])
                     if (self.sigma.has_key(chan) and
                             self.sigma[chan].has_key(0.0)):
-                        td[-1].append("%.2f" % self.sigma[chan][0.0])
+                        sigmaStr = "%.2f" % self.sigma[chan][0.0]
+                        td[-1].append(sigmaStr)
+                        if self.sigma[chan][0.0] > 5:
+                            cellclasses[sigmaStr] = "red"
                     else:
                         td[-1].append("-")
                 self.frame.add(htmlutils.write_table(th, td,
-                                                     {"table":"full"})())
+                                                     cellclasses)())
 
             self.frame.div.close()
 
