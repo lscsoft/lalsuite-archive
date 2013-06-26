@@ -112,6 +112,7 @@ class SummaryTab(object):
         kwargs.setdefault("parent", None)
         kwargs.setdefault("state", None)
         kwargs.setdefault("information", None)
+        kwargs.setdefault("skip_summary", False)
 
         # set all other values
         for key,val in kwargs.iteritems():
@@ -617,6 +618,8 @@ class SectionSummaryTab(SummaryTab):
         
         self.frame.table(style="table-layout: fixed; width: 100%;")
         for i,tab in enumerate(children):
+            if self.name == "Summary" and tab.skip_summary:
+                continue
             if i % n == 0:
                 self.frame.tr()
             self.frame.td()

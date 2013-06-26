@@ -3281,7 +3281,11 @@ def process_data(tab, cp, cpsec, verbose=False, doplots=True,\
     print_verbose("\n----------\nProcessing data for %s for the %s state...\n"\
                   % (tab.name, tab.state.name),\
                   verbose=verbose, profile=False)
-
+    
+    # skip adding to summary if requested
+    if cp.has_option(cpsec, "skip-summary"):
+        tab.skip_summary = cp.get(cpsec, "skip-summary")
+    print "skip-summary", tab.skip_summary
     #
     # setup
     #
@@ -4649,10 +4653,11 @@ if __name__=="__main__":
                              doplots=opts.run_plots,\
                              dosubplots=opts.run_sub_plots)
                 metatab.add_child(tab)
+                metatab.skip_summary = tab.skip_summary
             section_summary[parent].add_child(metatab)
 
     #
-    # process data
+    # process range
     #
 
     if opts.run_range:
