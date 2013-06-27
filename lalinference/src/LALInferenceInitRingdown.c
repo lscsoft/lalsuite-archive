@@ -1,104 +1,8 @@
-/*
- *  LALInferenceCBCInit.c:  Bayesian Followup initialisation routines.
- *
- *  Copyright (C) 2012 Vivien Raymond, John Veitch, Salvatore Vitale
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with with program; see the file COPYING. If not, write to the
- *  Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston,
- *  MA  02111-1307  USA
- */
-
-
-#include <stdio.h>
-#include <lal/Date.h>
-#include <lal/GenerateInspiral.h>
-#include <lal/LALInference.h>
-#include <lal/FrequencySeries.h>
-#include <lal/Units.h>
-#include <lal/StringInput.h>
-#include <lal/LIGOLwXMLInspiralRead.h>
-#include <lal/TimeSeries.h>
-#include <lal/LALInferencePrior.h>
-#include <lal/LALInferenceTemplate.h>
-#include <lal/LALInferenceProposal.h>
-#include <lal/LALInferenceLikelihood.h>
-#include <lal/LALInferenceReadData.h>
-#include <lal/LALInferenceInit.h>
-
-
-static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTable *commline);
-
-/* Setup the template generation */
-/* Defaults to using LALSimulation */
-void LALInferenceInitCBCTemplate(LALInferenceRunState *runState)
-{
-  char help[]="(--template [LAL,PhenSpin,LALGenerateInspiral,LALSim]\tSpecify template (default LAL)\n";
-  ProcessParamsTable *ppt=NULL;
-  ProcessParamsTable *commandLine=runState->commandLine;
-  /* Print command line arguments if help requested */
-  //Help is taken care of in LALInferenceInitCBCVariables
-  //ppt=LALInferenceGetProcParamVal(commandLine,"--help");
-  //if(ppt)
-  //{
-  //	fprintf(stdout,"%s",help);
-  //	return;
-  //}
-  /* This is the LAL template generator for inspiral signals */
-  runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
-  ppt=LALInferenceGetProcParamVal(commandLine,"--template");
-  if(ppt) {
-    if(!strcmp("LALSTPN",ppt->value)){
-      fprintf(stderr,"ERROR: --template LALSTPN is deprecated. Try LALGenerateInspiral instead...\n");
-      exit(1);
-    }
-    else if(!strcmp("PhenSpin",ppt->value))
-      runState->templt=&LALInferenceTemplatePSTRD;
-    else if(!strcmp("LALGenerateInspiral",ppt->value))
-      runState->templt=&LALInferenceTemplateLALGenerateInspiral;
-    else if(!strcmp("SpinTaylor",ppt->value))
-      runState->templt=&LALInferenceTemplateLALGenerateInspiral;
-    else if(!strcmp("LAL",ppt->value)){
-      fprintf(stderr,"Warning: --template LAL is deprecated. Please use --template LALSim in future runs.\n");
-      runState->templt=&LALInferenceTemplateLAL;
-    }
-    else if(!strcmp("LALSimRingdown", ppt->value))
-      runState->templt=&LALInferenceTemplateXLALSimBlackHoleRingdown;
-    else if(!strcmp("LALSim",ppt->value))
-      runState->templt=&LALInferenceTemplateXLALSimInspiralChooseWaveform;
-    else {
-      XLALPrintError("Error: unknown template %s\n",ppt->value);
-      XLALPrintError(help);
-      XLAL_ERROR_VOID(XLAL_EINVAL);
-    }
-  }
-  else if(LALInferenceGetProcParamVal(commandLine,"--LALSimulation")){
-    fprintf(stderr,"Warning: --LALSimulation is deprecated, the LALSimulation package is now the default. To use LALInspiral specify:\n\
-                    --template LALGenerateInspiral (for time-domain templates)\n\
-                    --template LAL (for frequency-domain templates)\n");
-  }
-  else {
-    fprintf(stdout,"Template function called is \"LALInferenceTemplateXLALSimInspiralChooseWaveform\"\n");
-  }
-  return;
-}
-
-
-/* Setup the variables to control template generation for the CBC model */
+/* Setup the variables to control template generation for the Ringdown model */
 /* Includes specification of prior ranges. Sets runState->currentParams and
  returns address of new LALInferenceVariables */
 
-LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
+LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *state)
 {
 
   char help[]="\
@@ -124,24 +28,15 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                                                                            PhenSpinTaylorRD, NumRel.\n\
                                                default modeldomain=\"frequency\": TaylorF1, TaylorF2, TaylorF2RedSpin, \n\
                                                                                 TaylorF2RedSpinTidal, IMRPhenomA, IMRPhenomB.\n\
-               (--amporder PNorder)            Specify a PN order in amplitude to use (defaults: LALSimulation: max available; LALInspiral: newtownian).\n\
                (--fref fRef)                   Specify a reference frequency at which parameters are defined (default 0).\n\
-               (--tidal)                       Enables tidal corrections, only with LALSimulation.\n\
-               (--tidalT)                      Enables reparmeterized tidal corrections, only with LALSimulation.\n\
-               (--spinOrder PNorder)           Specify twice the PN order (e.g. 5 <==> 2.5PN) of spin effects to use, only for LALSimulation (default: -1 <==> Use all spin effects).\n\
-               (--tidalOrder PNorder)          Specify twice the PN order (e.g. 10 <==> 5PN) of tidal effects to use, only for LALSimulation (default: -1 <==> Use all tidal effects).\n\
                (--modeldomain)                 domain the waveform template will be computed in (\"time\" or \"frequency\").\n\
-               (--spinAligned or --aligned-spin)  template will assume spins aligned with the orbital angular momentum.\n\
-                                               *Enables* spins for TaylorF2, TaylorF2RedSpin, TaylorF2RedSpinTidal, IMRPhenomB.\n\
-               (--singleSpin)                  template will assume only the spin of the most massive binary component exists.\n\
-               (--noSpin, --disable-spin)      template will assume no spins.\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Starting Parameters ------------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
                (--trigtime time)               Trigger time to use.\n\
                (--time time)                   Waveform time (overrides random about trigtime).\n\
-               (--mc mchirp)                   Trigger chirpmass to use.\n\
+               (--mass mass)                   Trigger mass (total mass of the final black hole).\n\
                (--eta eta)                     Trigger eta (symmetric mass ratio) to use.\n\
                (--q q)                         Trigger q (asymmetric mass ratio) to use.\n\
                (--phi phase)                   Trigger phase to use.\n\
@@ -150,49 +45,29 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--ra ra)                       Trigger RA.\n\
                (--dec dec)                     Trigger declination.\n\
                (--psi psi)                     Trigger psi.\n\
-               (--a1 a1)                       Trigger a1.\n\
-               (--theta1 theta1)               Trigger theta1.\n\
-               (--phi1 phi1)                   Trigger phi1.\n\
-               (--a2 a2)                       Trigger a2.\n\
-               (--theta2 theta2)               Trigger theta2.\n\
-               (--phi2 phi2)                   Trigger phi2.\n\
-               (--lambda1)                     Trigger lambda1.\n\
-               (--lambda2)                     Trigger lambda2.\n\
-               (--lambdaT)                     Trigger lambdaT.\n\
-               (--dLambdaT)                    Trigger dLambdaT.\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Prior Arguments ----------------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
-               (--mc-min mchirp)               Minimum chirp mass.\n\
-               (--mc-max mchirp)               Maximum chirp mass.\n\
+               (--mass-min massMin)            Minimum mass.\n\
+               (--mass-max massMax)            Maximum mass.\n\
                (--eta-min etaMin)              Minimum eta.\n\
                (--eta-max etaMax)              Maximum eta.\n\
                (--q-min qMin)                  Minimum q.\n\
                (--q-max qMax)                  Maximum q.\n\
                (--comp-min min)                Minimum component mass (1.0).\n\
                (--comp-max max)                Maximum component mass (30.0).\n\
-               (--mtotalmin min)               Minimum total mass (2.0).\n\
-               (--mtotalmax max)               Maximum total mass (35.0).\n\
-               (--a-min max)                   Minimum component spin (-1.0 for spin-aligned, 0.0 for precessing).\n\
+               (--a-min max)                   Minimum component spin (-1.0).\n\
                (--a-max max)                   Maximum component spin (1.0).\n\
                (--iota-max max)                Maximum inclination angle (pi).\n\
                (--Dmin dist)                   Minimum distance in Mpc (1).\n\
                (--Dmax dist)                   Maximum distance in Mpc (100).\n\
-               (--lambda1-min)                 Minimum lambda1 (0).\n\
-               (--lambda1-max)                 Maximum lambda1 (3000).\n\
-               (--lambda2-min)                 Minimum lambda2 (0).\n\
-               (--lambda2-max)                 Maximum lambda2 (3000).\n\
-               (--lambdaT-min)                 Minimum lambdaT (0).\n\
-               (--lambdaT-max)                 Maximum lambdaT (3000).\n\
-               (--dLambdaT-min)                Minimum dLambdaT (-500).\n\
-               (--dLambdaT-max)                Maximum dLambdaT (500).\n\
                (--dt time)                     Width of time prior, centred around trigger (0.1s).\n\
                \n\
                ------------------------------------------------------------------------------------------------------------------\n\
                --- Fix Parameters -----------------------------------------------------------------------------------------------\n\
                ------------------------------------------------------------------------------------------------------------------\n\
-               (--fixMc)                       Do not allow chirpmass to vary.\n\
+               (--fixMass)                       Do not allow chirpmass to vary.\n\
                (--fixEta)                      Do not allow mass ratio to vary.\n\
                (--fixQ)                        Do not allow mass ratio to vary.\n\
                (--fixPhi)                      Do not allow phase to vary.\n\
@@ -201,17 +76,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
                (--fixRa)                       Do not allow RA to vary.\n\
                (--fixDec)                      Do not allow declination to vary.\n\
                (--fixPsi)                      Do not allow polarization to vary.\n\
-               (--fixA1)                       Do not allow spin to vary.\n\
-               (--fixTheta1)                   Do not allow spin 1 colatitude to vary.\n\
-               (--fixPhi1)                     Do not allow spin 1 longitude to vary.\n\
-               (--fixA2)                       Do not allow spin 2 to vary.\n\
-               (--fixTheta2)                   Do not allow spin 2 colatitude to vary.\n\
-               (--fixPhi2)                     Do not allow spin 2 longitude to vary.\n\
                (--fixTime)                     Do not allow coalescence time to vary.\n\
-               (--fixLambda1)                  Do not allow lambda1 to vary.\n\
-               (--fixLambda2)                  Do not allow lambda2 to vary.\n\
-               (--fixLambdaT)                  Do not allow lambdaT to vary.\n\
-               (--fixDlambdaT)                 Do not allow dLambdaT to vary.\n\
                (--varyFlow)                    Allow the lower frequency bound of integration to vary.\n\
                (--pinparams)                   List of parameters to set to injected values [mchirp,asym_massratio,etc].\n";
 
@@ -234,15 +99,14 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   LALStatus status;
   memset(&status,0,sizeof(status));
   int errnum;
-  SimInspiralTable *injTable=NULL;
+  // SimInspiralTable *injTable=NULL;
+  SimRingdownTable *injTable=NULL;  // TODO: Check this
   LALInferenceVariables *priorArgs=state->priorArgs;
   state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
   LALInferenceVariables *currentParams=state->currentParams;
   ProcessParamsTable *commandLine=state->commandLine;
   ProcessParamsTable *ppt=NULL;
   ProcessParamsTable *ppt_order=NULL;
-  LALPNOrder PhaseOrder=-1;
-  LALPNOrder AmpOrder=-1;
   Approximant approx=NumApproximants;
   REAL8 fRef = 0.0;
   LALInferenceApplyTaper bookends = LALINFERENCE_TAPER_NONE;
@@ -252,52 +116,25 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   LALSimulationDomain modelDomain;
   UINT4 event=0;
   UINT4 i=0;
-  REAL8 m1=0;
-  REAL8 m2=0;
   REAL8 Dmin=1.0;
   REAL8 Dmax=100.0;
-  REAL8 mcMin=1.0;
-  REAL8 mcMax=15.3;
   REAL8 mMin=1.0,mMax=30.0;
-  REAL8 MTotMax=35.0;
-  REAL8 MTotMin=2.0;
   REAL8 etaMin=0.0312;
   REAL8 etaMax=0.25;
   REAL8 qMin=mMin/mMax;
   REAL8 qMax=1.0;
-  REAL8 m1min=mMin,m1max=mMax;
-  REAL8 m2min=mMin,m2max=mMax;
-  REAL8 thetaJNmin=0.0,thetaJNmax=LAL_PI;
   REAL8 iotaMin=0.0,iotaMax=LAL_PI;
   REAL8 psiMin=0.0,psiMax=LAL_PI;
-  REAL8 phiJLmin=0.0,phiJLmax=LAL_TWOPI;
   REAL8 decMin=-LAL_PI/2.0,decMax=LAL_PI/2.0;
   REAL8 raMin=0.0,raMax=LAL_TWOPI;
   REAL8 phiMin=0.0,phiMax=LAL_TWOPI;
-  REAL8 a1min=0.0,a1max=1.0;
-  REAL8 a2min=0.0,a2max=1.0;
-  REAL8 tilt1min=0.0,tilt1max=LAL_PI;
-  REAL8 tilt2min=0.0,tilt2max=LAL_PI;
-  REAL8 phi12min=0.0,phi12max=LAL_TWOPI;
-  REAL8 theta1min=0.0,theta1max=LAL_PI;
-  REAL8 theta2min=0.0,theta2max=LAL_PI;
-  REAL8 phi1min=0.0,phi1max=LAL_TWOPI;
-  REAL8 phi2min=0.0,phi2max=LAL_TWOPI;
+  REAL8 amin=-1.0,amax=1.0;
   REAL8 dt=0.1;            /* Width of time prior */
-  REAL8 lambda1Min=0.0;
-  REAL8 lambda1Max=3000.0;
-  REAL8 lambda2Min=0.0;
-  REAL8 lambda2Max=3000.0;
-  REAL8 lambdaTMin=0.0;
-  REAL8 lambdaTMax=3000.0;
-  REAL8 dLambdaTMin=-500.0;
-  REAL8 dLambdaTMax=500.0;
   REAL8 tmpMin,tmpMax;//,tmpVal;
   gsl_rng *GSLrandom=state->GSLrandom;
-  REAL8 endtime=0.0, timeParam=0.0;
-  REAL8 timeMin=endtime-dt,timeMax=endtime+dt;
+  REAL8 starttime=0.0, timeParam=0.0;
+  REAL8 timeMin=starttime-dt,timeMax=starttime+dt;
   //REAL8 start_mc			=4.82+gsl_ran_gaussian(GSLrandom,0.025);
-  REAL8 start_mc			=mcMin+gsl_rng_uniform(GSLrandom)*(mcMax-mcMin);
   REAL8 start_eta			=etaMin+gsl_rng_uniform(GSLrandom)*(etaMax-etaMin);
   REAL8 start_q           =qMin+gsl_rng_uniform(GSLrandom)*(qMax-qMin);
   REAL8 start_phase		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
@@ -307,126 +144,11 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   REAL8 start_dec			=-LAL_PI/2.0+gsl_rng_uniform(GSLrandom)*(LAL_PI_2-(-LAL_PI_2));
   REAL8 start_psi			=0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
   REAL8 start_iota		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_theta_JN   =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_phi_JL =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_tilt_spin1 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_tilt_spin2 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_phi_12 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_a_spin1		=0.0+gsl_rng_uniform(GSLrandom)*(a1max-a1min);
-  REAL8 start_theta_spin1 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_phi_spin1	=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_a_spin2		=0.0+gsl_rng_uniform(GSLrandom)*(a2max-a2min);
-  REAL8 start_theta_spin2 =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_phi_spin2	=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_lambda1 =lambda1Min+gsl_rng_uniform(GSLrandom)*(lambda1Max-lambda1Min);
-  REAL8 start_lambda2 =lambda2Min+gsl_rng_uniform(GSLrandom)*(lambda2Max-lambda2Min);
-  REAL8 start_lambdaT =lambdaTMin+gsl_rng_uniform(GSLrandom)*(lambdaTMax-lambdaTMin);
-  REAL8 start_dLambdaT =dLambdaTMin+gsl_rng_uniform(GSLrandom)*(dLambdaTMax-dLambdaTMin);
-  UINT4 spinAligned=0;
-  UINT4 singleSpin=0;
+  REAL8 start_a_spin		=0.0+gsl_rng_uniform(GSLrandom)*(amax-amin);
   UINT4 noSpin=0;
   memset(currentParams,0,sizeof(LALInferenceVariables));
 
-  /* Over-ride prior bounds if analytic test */
-  if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood")) {
-    analytic  = 1;
-    m1min     = 14.927715;
-    m1max     = 17.072285;
-    m2min     = 5.829675;
-    m2max     = 8.170325;
-    iotaMin   = 1.4054428267948966;
-    iotaMax   = 1.7361498267948965;
-    phiMin    = 2.8701521535897934;
-    phiMax    = 3.413033153589793;
-    psiMin    = 1.3885563267948966;
-    psiMax    = 1.7530363267948965;
-    raMin     = 2.813050153589793;
-    raMax     = 3.4701351535897933;
-    decMin    = -0.300699;
-    decMax    = 0.300699;
-    Dmin      = 37.986000000000004;
-    Dmax      = 62.013999999999996;
-    timeMin   = -0.1073625;
-    timeMax   = 0.1073625;
-    a1min     = 0.3784565;
-    a1max     = 0.6215435;
-    a2min     = 0.421869;
-    a2max     = 0.578131;
-    theta1min = 1.3993998267948966;
-    theta1max = 1.7421928267948965;
-    theta2min = 1.4086158267948965;
-    theta2max = 1.7329768267948966;
-    phi1min   = 2.781852653589793;
-    phi1max   = 3.501332653589793;
-    phi2min   = 2.777215653589793;
-    phi2max   = 3.5059696535897933;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood")) {
-    analytic  = 1;
-    m1min     = 14.927715;
-    m1max     = 18.787941;
-    m2min     = 5.829675;
-    m2max     = 10.042845;
-    iotaMin   = 0.6200446634;
-    iotaMax   = 1.2153172634;
-    phiMin    = 1.2993558268;
-    phiMax    = 2.2765416268;
-    psiMin    = 0.6031581634;
-    psiMax    = 1.2592221634;
-    raMin     = 1.2422538268;
-    raMax     = 2.4250068268;
-    decMin    = -1.0860971634;
-    decMax    = -0.0035807634;
-    Dmin      = 12.986;
-    Dmax      = 56.2364;
-    timeMin   = -0.1373625;
-    timeMax   = 0.2491425;
-    a1min     = 0.0784565;
-    a1max     = 0.5160131;
-    a2min     = 0.121869;
-    a2max     = 0.4031406;
-    theta1min = 0.6140016634;
-    theta1max = 1.2310290634;
-    theta2min = 0.6232176634;
-    theta2max = 1.2070674634;
-    phi1min   = 1.2110563268;
-    phi1max   = 2.5061203268;
-    phi2min   = 1.2064193268;
-    phi2max   = 2.5181765268;
-  } else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood")) {
-    analytic  = 1;
-    m1min     = 14.0;
-    m1max     = 18.0;
-    m2min     = 5.0;
-    m2max     = 9.0;
-    iotaMin   = -0.429203673;
-    iotaMax   = 3.570796327;
-    phiMin    = 1.141592654;
-    phiMax    = 5.141592654;
-    psiMin    = -0.429203673;
-    psiMax    = 3.570796327;
-    raMin     = 1.141592654;
-    raMax     = 5.141592654;
-    decMin    = -2.0;
-    decMax    = 2.0;
-    Dmin      = 48.0;
-    Dmax      = 52.0;
-    timeMin   = -2.0;
-    timeMax   = 2.0;
-    a1min     = -1.5;
-    a1max     = 2.5;
-    a2min     = -1.5;
-    a2max     = 2.5;
-    theta1min = -0.429203673;
-    theta1max = 3.570796327;
-    theta2min = -0.429203673;
-    theta2max = 3.570796327;
-    phi1min   = 1.141592654;
-    phi1max   = 5.141592654;
-    phi2min   = 1.141592654;
-    phi2max   = 5.141592654;
-  }
-
-
+// TODO: Remove this?
   if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
     MTotMax=20.0;
     mMin=1.0;
@@ -441,7 +163,8 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
   /* Read injection XML file for parameters if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
   if(ppt){
-    SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
+    SimRingdownTableFromLIGOLw(&injTable,ppt->value,0,0); // TODO: Check this
+    // SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
     if(!injTable){
       fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
       exit(1);
@@ -463,7 +186,7 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
     char **strings=NULL;
     UINT4 N;
     LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-    LALInferenceInjectionToVariables(injTable,&tempParams);
+    LALInferenceInjectionToVariables(injTable,&tempParams); // TODO: Adapt this to a SimRingdownTable
     LALInferenceVariableItem *node=NULL;
     while(N>0){
       N--;
@@ -1883,247 +1606,61 @@ LALInferenceVariables *LALInferenceInitCBCVariables(LALInferenceRunState *state)
 }
 
 
-
-/* Setup the variable for the evidence calculation test for review */
-/* 5-sigma ranges for analytic likeliood function */
-/* https://www.lsc-group.phys.uwm.edu/ligovirgo/cbcnote/LALInferenceReviewAnalyticGaussianLikelihood */
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence(LALInferenceRunState *state)
+/** Fill the variables passed in vars with the parameters of the injection passed in event
+    will over-write and destroy any existing parameters. Param vary type will be fixed */
+void LALInferenceRingdownInjectionToVariables(SimRingdownTable *theEventTable, LALInferenceVariables *vars)
 {
-    ProcessParamsTable *commandLine=state->commandLine;
-    ProcessParamsTable *ppt=NULL;
-    char **strings=NULL;
-    char *pinned_params=NULL;
-    UINT4 N=0,i,j;
-    if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
-            pinned_params=ppt->value;
-            LALInferenceVariables tempParams;
-            memset(&tempParams,0,sizeof(tempParams));
-            LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-    }
-	LALInferenceVariables *priorArgs=state->priorArgs;
-        state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-        LALInferenceVariables *currentParams=state->currentParams;
-	i=0;
-
-	struct varSettings {const char *name; REAL8 val, min, max;};
-	
-	struct varSettings setup[]=
-	{
-		{.name="time", .val=0.0, .min=-0.1073625, .max=0.1073625},
-		{.name="m1", .val=16., .min=14.927715, .max=17.072285},
-		{.name="m2", .val=7., .min=5.829675, .max=8.170325},
-		{.name="distance", .val=50., .min=37.986000000000004, .max=62.013999999999996},
-		{.name="inclination", .val=LAL_PI/2., .min=1.4054428267948966, .max=1.7361498267948965},
-		{.name="phase", .val=LAL_PI, .min=2.8701521535897934, .max=3.413033153589793},
-		{.name="polarisation", .val=LAL_PI/2., .min=1.3885563267948966, .max=1.7530363267948965},
-		{.name="rightascension", .val=LAL_PI, .min=2.813050153589793, .max=3.4701351535897933},
-		{.name="declination", .val=0., .min=-0.300699, .max=0.300699},
-		{.name="a_spin1", .val=0.5, .min=0.3784565, .max=0.6215435},
-		{.name="a_spin2", .val=0.5, .min=0.421869, .max=0.578131},
-		{.name="theta_spin1", .val=LAL_PI/2., .min=1.3993998267948966, .max=1.7421928267948965},
-		{.name="theta_spin2", .val=LAL_PI/2., .min=1.4086158267948965, .max=1.7329768267948966},
-		{.name="phi_spin1", .val=LAL_PI, .min=2.781852653589793, .max=3.501332653589793},
-		{.name="phi_spin2", .val=LAL_PI, .min=2.777215653589793, .max=3.5059696535897933},
-		{.name="END", .val=0., .min=0., .max=0.}
-	};
-
-	while(strcmp("END",setup[i].name))
-	{
-        LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
-        /* Check if it is to be fixed */
-        for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
-		LALInferenceAddVariable(currentParams,setup[i].name, &(setup[i].val) ,LALINFERENCE_REAL8_t, type);
-	    LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
-		i++;
+    UINT4 spinCheck=0;
+    if(!vars) {
+	XLALPrintError("Encountered NULL variables pointer");
+   	XLAL_ERROR_VOID(XLAL_EINVAL);
 	}
-	return(currentParams);
-}
+    /* Destroy existing parameters */
+    if(vars->head!=NULL) LALInferenceClearVariables(vars);
 
+    REAL8 a = theEventTable->spin;
 
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_bimod(LALInferenceRunState *state)
-{
-  ProcessParamsTable *commandLine=state->commandLine;
-  ProcessParamsTable *ppt=NULL;
-  char **strings=NULL;
-  char *pinned_params=NULL;
-  UINT4 N=0,i,j;
-  if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
-    pinned_params=ppt->value;
-    LALInferenceVariables tempParams;
-    memset(&tempParams,0,sizeof(tempParams));
-    LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-  }
-  LALInferenceVariables *priorArgs=state->priorArgs;
-  state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-  LALInferenceVariables *currentParams=state->currentParams;
-  i=0;
-  
-  struct varSettings {const char *name; REAL8 val, min, max;};
-  
-  struct varSettings setup[]=
-  {
-    {.name="time", .val=0.05589, .min=-0.1373625, .max=0.2491425},
-    {.name="m1", .val=16.857828, .min=14.927715, .max=18.787941},
-    {.name="m2", .val=7.93626, .min=5.829675, .max=10.042845},
-    {.name="distance", .val=34.6112, .min=12.986, .max=56.2364},
-    {.name="inclination", .val=0.9176809634, .min=0.6200446634, .max=1.2153172634},
-    {.name="phase", .val=1.7879487268, .min=1.2993558268, .max=2.2765416268},
-    {.name="polarisation", .val=0.9311901634, .min=0.6031581634, .max=1.2592221634},
-    {.name="rightascension", .val=1.8336303268, .min=1.2422538268, .max=2.4250068268},
-    {.name="declination", .val=-0.5448389634, .min=-1.0860971634, .max=-0.0035807634},
-    {.name="a_spin1", .val=0.2972348, .min=0.0784565, .max=0.5160131},
-    {.name="a_spin2", .val=0.2625048, .min=0.121869, .max=0.4031406},
-    {.name="theta_spin1", .val=0.9225153634, .min=0.6140016634, .max=1.2310290634},
-    {.name="theta_spin2", .val=0.9151425634, .min=0.6232176634, .max=1.2070674634},
-    {.name="phi_spin1", .val=1.8585883268, .min=1.2110563268, .max=2.5061203268},
-    {.name="phi_spin2", .val=1.8622979268, .min=1.2064193268, .max=2.5181765268},
-    {.name="END", .val=0., .min=0., .max=0.}
-  };
-  
-  while(strcmp("END",setup[i].name))
-  {
-    LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
-    /* Check if it is to be fixed */
-    for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
-    LALInferenceAddVariable(currentParams,setup[i].name, &(setup[i].val) ,LALINFERENCE_REAL8_t, type);
-    LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
-    i++;
-  }
-  return(currentParams);
-}
+    /* Check for presence of spin in the injection */
+    if(a!=0.0) spinCheck=1;
 
-LALInferenceVariables *LALInferenceInitVariablesReviewEvidence_banana(LALInferenceRunState *state)
-{
-  ProcessParamsTable *commandLine=state->commandLine;
-  ProcessParamsTable *ppt=NULL;
-  char **strings=NULL;
-  char *pinned_params=NULL;
-  UINT4 N=0,i,j;
-  if((ppt=LALInferenceGetProcParamVal(commandLine,"--pinparams"))){
-    pinned_params=ppt->value;
-    LALInferenceVariables tempParams;
-    memset(&tempParams,0,sizeof(tempParams));
-    LALInferenceParseCharacterOptionString(pinned_params,&strings,&N);
-  }
-  LALInferenceVariables *priorArgs=state->priorArgs;
-  state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
-  LALInferenceVariables *currentParams=state->currentParams;
-  i=0;
-  
-  struct varSettings {const char *name; REAL8 val, min, max;};
-  
-  struct varSettings setup[]=
-  {
-    {.name="time", .val=0.0, .min=-2., .max=2.},
-    {.name="m1", .val=16., .min=14., .max=18.},
-    {.name="m2", .val=7., .min=5., .max=9.},
-    {.name="distance", .val=50., .min=48., .max=52.},
-    {.name="inclination", .val=LAL_PI/2., .min=-0.429203673, .max=3.570796327},
-    {.name="phase", .val=LAL_PI, .min=1.141592654, .max=5.141592654},
-    {.name="polarisation", .val=LAL_PI/2., .min=-0.429203673, .max=3.570796327},
-    {.name="rightascension", .val=LAL_PI, .min=1.141592654, .max=5.141592654},
-    {.name="declination", .val=0., .min=-2., .max=2.},
-    {.name="a_spin1", .val=0.5, .min=-1.5, .max=2.5},
-    {.name="a_spin2", .val=0.5, .min=-1.5, .max=2.5},
-    {.name="theta_spin1", .val=LAL_PI/2., .min=-0.429203673, .max=3.570796327},
-    {.name="theta_spin2", .val=LAL_PI/2., .min=-0.429203673, .max=3.570796327},
-    {.name="phi_spin1", .val=LAL_PI, .min=1.141592654, .max=5.141592654},
-    {.name="phi_spin2", .val=LAL_PI, .min=1.141592654, .max=5.141592654},
-    {.name="END", .val=0., .min=0., .max=0.}
-  };
-  
-  while(strcmp("END",setup[i].name))
-  {
-    LALInferenceParamVaryType type=LALINFERENCE_PARAM_CIRCULAR;
-    /* Check if it is to be fixed */
-    for(j=0;j<N;j++) if(!strcmp(setup[i].name,strings[j])) {type=LALINFERENCE_PARAM_FIXED; printf("Fixing parameter %s\n",setup[i].name); break;}
-    LALInferenceAddVariable(currentParams,setup[i].name, &(setup[i].val) ,LALINFERENCE_REAL8_t, type);
-    LALInferenceAddMinMaxPrior(priorArgs, setup[i].name,    &(setup[i].min),    &(setup[i].max),    LALINFERENCE_REAL8_t);
-    i++;
-  }
-  return(currentParams);
-}
+    REAL8 psi = theEventTable->polarization;
+    if (psi>=M_PI) psi -= M_PI;
 
-static void print_flags_orders_warning(SimInspiralTable *injt, ProcessParamsTable *commline){
+    REAL8 injGPSTime = XLALGPSGetREAL8(&(theEventTable->geocent_end_time));
 
-    /* If lalDebugLevel > 0, print information about:
-     * 
-     * - Eventual injection/template mismatch on phase and amplitude orders, as well as on waveFlags
-     * - Those fiels being set only for injection or template
-     * 
-     **/
-    XLALPrintWarning("\n");
-    LALPNOrder PhaseOrder=-1;
-    LALPNOrder AmpOrder=-1;
-    LALSimInspiralSpinOrder default_spinO = LAL_SIM_INSPIRAL_SPIN_ORDER_ALL;
-    LALSimInspiralTidalOrder default_tideO = LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL;
-    Approximant approx=NumApproximants;
-    ProcessParamsTable *ppt=NULL;
-    ProcessParamsTable *ppt_order=NULL;
-    int errnum;
-    ppt=LALInferenceGetProcParamVal(commline,"--approximant");
-    if(ppt){
-        approx=XLALGetApproximantFromString(ppt->value);
-        ppt=LALInferenceGetProcParamVal(commline,"--order");
-        if(ppt) PhaseOrder = XLALGetOrderFromString(ppt->value);
-    }
-    ppt=LALInferenceGetProcParamVal(commline,"--approx");
-    if(ppt){
-       approx=XLALGetApproximantFromString(ppt->value);
-       XLAL_TRY(PhaseOrder = XLALGetOrderFromString(ppt->value),errnum);
-       if( (int) PhaseOrder == XLAL_FAILURE || errnum) {
-          XLALPrintWarning("WARNING: No phase order given.  Using maximum available order for the template.\n");
-          PhaseOrder=-1;
-        }
-     }
-     /* check approximant is given */
-    if (approx==NumApproximants){
-        approx=XLALGetApproximantFromString(injt->waveform);
-        XLALPrintWarning("WARNING: You did not provide an approximant for the templates. Using value in injtable (%s), which might not what you want!\n",XLALGetStringFromApproximant(approx));
-     }
+    REAL8 dist = theEventTable->distance;
+    REAL8 inclination = theEventTable->inclination;
+    REAL8 phase = theEventTable->coa_phase;
+    REAL8 dec = theEventTable->latitude;
+    REAL8 ra = theEventTable->longitude;
     
-    /* check inj/rec amporder */
-    ppt=LALInferenceGetProcParamVal(commline,"--amporder");
-    if(ppt) AmpOrder=atoi(ppt->value);
-    ppt=LALInferenceGetProcParamVal(commline,"--ampOrder");
-    if(ppt) AmpOrder = XLALGetOrderFromString(ppt->value);
-    if(AmpOrder!=(LALPNOrder)injt->amp_order)
-       XLALPrintWarning("WARNING: Injection specified amplitude order %i. Template will use  %i\n",
-               injt->amp_order,AmpOrder);
-
-    /* check inj/rec phase order */
-    if(PhaseOrder!=(LALPNOrder)XLALGetOrderFromString(injt->waveform))
-        XLALPrintWarning("WARNING: Injection specified phase order %i. Template will use %i\n",\
-             XLALGetOrderFromString(injt->waveform),PhaseOrder);
-
-    /* check inj/rec spinflag */
-    ppt=LALInferenceGetProcParamVal(commline, "--spinOrder");
-    ppt_order=LALInferenceGetProcParamVal(commline, "--inj-spinOrder");
-    if (ppt && ppt_order){
-       if (!(atoi(ppt->value)== atoi(ppt_order->value)))
-            XLALPrintWarning("WARNING: Set different spin orders for injection (%i ) and template (%i) \n",atoi(ppt_order->value),atoi(ppt->value));       
+    Approximant injapprox = XLALGetApproximantFromString(theEventTable->waveform);
+    LALPNOrder order = XLALGetOrderFromString(theEventTable->waveform);
+    
+    REAL8 m1=theEventTable->mass1;
+    REAL8 m2=theEventTable->mass2;
+    REAL8 chirpmass = theEventTable->mchirp;
+    LALInferenceAddVariable(vars, "mass1", &m1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "mass2", &m2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "chirpmass", &chirpmass, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "asym_massratio", &q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "time", &injGPSTime, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "distance", &dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "inclination", &inclination, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "polarisation", &(psi), LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "phase", &phase, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "declination", &dec, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "rightascension", &ra, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "LAL_APPROXIMANT", &injapprox, LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "LAL_PNORDER",&order,LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceAddVariable(vars, "LAL_AMPORDER", &(theEventTable->amp_order), LALINFERENCE_INT4_t, LALINFERENCE_PARAM_FIXED);
+    if(spinCheck){
+        LALInferenceAddVariable(vars, "a_spin1", &a_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "a_spin2", &a_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "theta_spin1", &theta_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "theta_spin2", &theta_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "phi_spin1", &phi_spin1, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+        LALInferenceAddVariable(vars, "phi_spin2", &phi_spin2, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
     }
-    else if (ppt || ppt_order){
-        if (ppt)
-            XLALPrintWarning("WARNING: You set the spin order only for the template (%i). Injection will use default value (%i). You can change that with --inj-spinOrder. \n",atoi(ppt->value),default_spinO);   
-        else 
-            XLALPrintWarning("WARNING: You set the spin order only for the injection (%i). Template will use default value (%i). You can change that with --spinOrder. \n",atoi(ppt_order->value),default_spinO);     }
-    else
-        XLALPrintWarning("WARNING: You did not set the spin order. Injection and template will use default values (%i). You change that using --inj-spinOrder (set injection value) and --spinOrder (set template value).\n",default_spinO);    
-    /* check inj/rec tidal flag */
-    ppt=LALInferenceGetProcParamVal(commline, "--tidalOrder");
-    ppt_order=LALInferenceGetProcParamVal(commline, "--inj-tidalOrder");
-    if (ppt && ppt_order){
-        if (!(atoi(ppt->value)==atoi( ppt_order->value)))
-            XLALPrintWarning("WARNING: Set different tidal orders for injection (%i ) and template (%i) \n",atoi(ppt_order->value),atoi(ppt->value));   
-    }
-    else if (ppt || ppt_order){
-        if (ppt)
-            XLALPrintWarning("WARNING: You set the tidal order only for the template (%d). Injection will use default value (%i). You can change that with --inj-tidalOrder. \n",atoi(ppt->value),default_tideO);        
-        else 
-            XLALPrintWarning("WARNING: You set the tidal order only for the injection (%i). Template will use default value (%i). You can  change that with --tidalOrder\n",atoi(ppt_order->value),default_tideO);
-        }
-    else
-       XLALPrintWarning("WARNING: You did not set the tidal order. Injection and template will use default values (%i). You change that using --inj-tidalOrder (set injection value) and --tidalOrder (set template value).\n",default_tideO); 
-    return;    
+
 }

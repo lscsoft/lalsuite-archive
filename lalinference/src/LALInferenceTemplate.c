@@ -1832,7 +1832,7 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
   return;
 }
 
-void LALInferenceTemplateLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
+void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
 /*************************************************************************************************/
 /* Wrapper for Ringdown waveforms:
  * LALSimBlackHoleRingdown and LALSimBlackHoleRingdownTiger.
@@ -1864,12 +1864,13 @@ void LALInferenceTemplateLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
   REAL8 *m1_p,*m2_p;
   REAL8 deltaF, f_max;
   
-  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT"))
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT")){
       approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
-      else {
-          XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
-          XLAL_ERROR_VOID(XLAL_EDATA);
-      }
+  }
+  else {
+      XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
+      XLAL_ERROR_VOID(XLAL_EDATA);
+  }
     
 }
 
