@@ -157,7 +157,7 @@ int XLALSimBlackHoleRingdownModeTiger(
 	if (A > 0.0){
 	  for (j=0; j<length; j++){
         (*hlmmode)->data->data[j] = A*Yplus*exp(-j*deltaT/tau)*cos(j*deltaT*freq - m*phi0)); 
-        (*hlmmode)->data->data[j] += I*A*Ycross*exp(-j*deltaT/tau)*sin(j*deltaT*freq - m*phi0));
+        (*hlmmode)->data->data[j] -= I*A*Ycross*exp(-j*deltaT/tau)*sin(j*deltaT*freq - m*phi0));
 	  }
     }
     

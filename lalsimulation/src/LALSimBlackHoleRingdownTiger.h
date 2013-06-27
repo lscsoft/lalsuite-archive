@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 REAL8 XLALSimSphericalHarmonicPlus(UINT4 l, INT4 m, REAL8 iota);
-REAL8 XLALSimSphericalHarmonicCross(UINT4 l, INT4 m, REAL8 iota)
+REAL8 XLALSimSphericalHarmonicCross(UINT4 l, INT4 m, REAL8 iota);
 
 REAL8 XLALSimRingdownQNMAmplitudes(INT4 l, INT4 m, REAL8 eta, REAL8 spin1[3], REAL8 spin2[3]);
 
