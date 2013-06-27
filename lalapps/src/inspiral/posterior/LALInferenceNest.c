@@ -127,10 +127,15 @@ Initialisation arguments:\n\
 	if (irs->data != NULL) {
 		fprintf(stdout, " initialize(): successfully read data.\n");
 		
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
-		LALInferenceInjectInspiralSignal(irs->data,commandLine);
-		fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
-		
+		if (LALInferenceGetProcParamVal(procParams,"--ringdown")){  // TODO: Implement this function for injection!
+		    fprintf(stdout, " LALInferenceInjectRingdownSignal(): started.\n");
+		    LALInferenceInjectRingdownSignal(irs->data, commandLine);
+		    fprintf(stdout, " LALInferenceInjectRingdownSignal(): finished.\n");
+}		else{
+    		fprintf(stdout, " LALInferenceInjectInspiralSignal(): started.\n");
+		    LALInferenceInjectInspiralSignal(irs->data,commandLine);
+	    	fprintf(stdout, " LALInferenceInjectInspiralSignal(): finished.\n");
+		}
 		ifoPtr = irs->data;
 		ifoListStart = irs->data;
 		while (ifoPtr != NULL) {
@@ -391,6 +396,8 @@ Arguments for each section follow:\n\n";
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_bimod;
         else if(LALInferenceGetProcParamVal(procParams,"--rosenbrockLikelihood"))
                 initVarsFunc=&LALInferenceInitVariablesReviewEvidence_banana;
+        else if (LALInferenceGetProcParamVal(procParams,"--ringdown"))
+		        initVarsFunc=&LALInferenceInitRingdownVariables;  // TODO: Need to implement this function
 	else
 		initVarsFunc=&LALInferenceInitCBCVariables;
 	state->initVariables=initVarsFunc;
