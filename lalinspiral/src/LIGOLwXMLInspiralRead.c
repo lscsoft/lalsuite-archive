@@ -1428,6 +1428,7 @@ SimInspiralTableFromLIGOLw (
     {"amp_order",           -1, 53},
     {"taper",               -1, 54},
     {"bandpass",            -1, 55},
+    {"mass",				-1, 56},
     {NULL,                   0, 0}
   };
 
@@ -1726,12 +1727,15 @@ SimInspiralTableFromLIGOLw (
         {
             thisSim->bandpass = i4colData;
         }
-        else if ( tableDir[j].idx == 56 ) {
-        	thisSim->qmParameter1 = r4colData;
-        }
-        else if ( tableDir[j].idx == 57 ) {
-        	thisSim->qmParameter2 = r4colData;
-        }
+ //       else if ( tableDir[j].idx == 56 ) {
+ //       	thisSim->qmParameter1 = r4colData;
+ //       }
+ //       else if ( tableDir[j].idx == 57 ) {
+ //       	thisSim->qmParameter2 = r4colData;
+//        }
+        else if ( tableDir[j].idx == 56 )  {
+		   thisSim->mass = r4colData;
+		}
         else
         {
             CLOBBER_SIM;

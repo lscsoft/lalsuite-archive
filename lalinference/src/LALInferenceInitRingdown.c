@@ -99,8 +99,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   LALStatus status;
   memset(&status,0,sizeof(status));
   int errnum;
-  // SimInspiralTable *injTable=NULL;
-  SimRingdownTable *injTable=NULL;  // TODO: Check this
+  SimInspiralTable *injTable=NULL;
   LALInferenceVariables *priorArgs=state->priorArgs;
   state->currentParams=XLALCalloc(1,sizeof(LALInferenceVariables));
   LALInferenceVariables *currentParams=state->currentParams;
@@ -149,22 +148,21 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   memset(currentParams,0,sizeof(LALInferenceVariables));
 
 // TODO: Remove this?
-  if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
-    MTotMax=20.0;
-    mMin=1.0;
-    mMax=15.0;
-    qMin=mMin/mMax;
-    Dmin=10.0;
-    Dmax=40.0;
-    REAL8 densityVNR=1000.0;
-    LALInferenceAddVariable(state->priorArgs,"densityVNR", &densityVNR , LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-  }
+//  if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
+//    MTotMax=20.0;
+//    mMin=1.0;
+//    mMax=15.0;
+//    qMin=mMin/mMax;
+//    Dmin=10.0;
+//    Dmax=40.0;
+//    REAL8 densityVNR=1000.0;
+//    LALInferenceAddVariable(state->priorArgs,"densityVNR", &densityVNR , LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+//  }
 
   /* Read injection XML file for parameters if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--inj");
   if(ppt){
-    SimRingdownTableFromLIGOLw(&injTable,ppt->value,0,0); // TODO: Check this
-    // SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
+    SimInspiralTableFromLIGOLw(&injTable,ppt->value,0,0);
     if(!injTable){
       fprintf(stderr,"Unable to open injection file %s\n",ppt->value);
       exit(1);

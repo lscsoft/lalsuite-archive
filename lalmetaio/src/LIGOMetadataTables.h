@@ -580,6 +580,7 @@ tagSimInspiralTable
   INT4           amp_order;
   CHAR           taper[LIGOMETA_INSPIRALTAPER_MAX];
   INT4           bandpass;
+  REAL4			 mass;
 }
 SimInspiralTable;
 
