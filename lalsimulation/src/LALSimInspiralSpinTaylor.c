@@ -276,19 +276,19 @@ static int XLALSimInspiralSpinTaylorT2Setup(
             params->wdotSS2 	= 1. / 48. / eta;
             params->ESS2 		= 1. / eta;
             // 2PN quadrupole-monopole terms
-            params->wdotQM2S1        = quadparam1 * 5./2./m1M/m1M;
-            params->wdotQM2S1L       = -quadparam1 * 15./2./m1M/m1M;
-            params->wdotQM2S2        = quadparam2 * 5./2./m2M/m2M;
-            params->wdotQM2S2L       = -quadparam2 * 15./2./m2M/m2M;
-            params->EQM2S1           = quadparam1/2./m1M/m1M;
-            params->EQM2S1L          = -quadparam1*3./2./m1M/m1M;
-            params->EQM2S2           = quadparam2/2./m2M/m2M;
-            params->EQM2S2L          = -quadparam2*3./2./m2M/m2M;
+            params->wdotQM2S1        = quadparam1 * 5./2.*m1M*m1M;
+            params->wdotQM2S1L       = -quadparam1 * 15./2.*m1M*m1M;
+            params->wdotQM2S2        = quadparam2 * 5./2.*m2M*m2M;
+            params->wdotQM2S2L       = -quadparam2 * 15./2.*m2M*m2M;
+            params->EQM2S1           = quadparam1/2.*m1M*m1M;
+            params->EQM2S1L          = -quadparam1*3./2.*m1M*m1M;
+            params->EQM2S2           = quadparam2/2.*m2M*m2M;
+            params->EQM2S2L          = -quadparam2*3./2.*m2M*m2M;
             // 2PN self-spin terms
-            params->wdotSSselfS1     = -7./96./m1M/m1M;
-            params->wdotSSselfS1L    = 1./96./m1M/m1M;
-            params->wdotSSselfS2     = -7./96./m2M/m2M;
-            params->wdotSSselfS2L    = 1./96./m2M/m2M;
+            params->wdotSSselfS1     = -7./96.*m1M*m1M;
+            params->wdotSSselfS1L    = 1./96.*m1M*m1M;
+            params->wdotSSselfS2     = -7./96.*m2M*m2M;
+            params->wdotSSselfS2L    = 1./96.*m2M*m2M;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
             // Note: LNHat do not have their signs reversed relative to T4
             // They are precession rather than orbital quantities
