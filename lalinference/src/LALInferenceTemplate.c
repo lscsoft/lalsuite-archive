@@ -38,6 +38,7 @@
 #include <lal/LALInference.h>
 #include <lal/XLALError.h>
 #include <lal/LIGOMetadataRingdownUtils.h>
+#include <lal/RingUtils.h>
 #include <lal/LALSimInspiral.h>
 
 #include <lal/LALInferenceTemplate.h>
@@ -456,6 +457,14 @@ static void q2masses(double mc, double q, double *m1, double *m2)
   *m1 = mc * pow(q, -3.0/5.0) * pow(q+1, 1.0/5.0);
   *m2 = (*m1) * q;
   return;
+}
+
+static void eta2q(REAL8 eta, REAL8 *q)
+/* Compute assymetric mass ratio q, given a
+ * symmetric mass ratio, eta.
+ */
+{
+  *q = ; // TODO: fill this
 }
 
 /*
@@ -1844,7 +1853,7 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
 
 {
   Approximant approximant = (Approximant) 0;
-  int amporder=-1;
+  int qnmorder=-1;
   LALInferenceFrame frame=LALINFERENCE_FRAME_RADIATION;
   
   unsigned long	i;
@@ -1859,18 +1868,59 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
   COMPLEX16FrequencySeries *hptilde=NULL, *hctilde=NULL;
   
   REAL8 mc;
-  REAL8 phi0, deltaT, m1, m2, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, inclination;
+  REAL8 phi0, deltaT, m1, m2, mass, spin1x, spin1y, spin1z, spin2x, spin2y, spin2z, f_min, distance, inclination, frac_mass_loss;
 
-  REAL8 *m1_p,*m2_p;
+  REAL8 *mass_p;
   REAL8 deltaF, f_max;
   
   if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_APPROXIMANT")){
       approximant = *(Approximant*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_APPROXIMANT");
   }
   else {
-      XLALPrintError(" ERROR in templateLALGenerateInspiral(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
+      XLALPrintError(" ERROR in LALInferenceTemplateXLALSimBlackHoleRingdown(): (INT4) \"LAL_APPROXIMANT\" parameter not provided!\n");
       XLAL_ERROR_VOID(XLAL_EDATA);
   }
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LAL_QNM_ORDER"))
+    qnmorder = *(INT4*) LALInferenceGetVariable(IFOdata->modelParams, "LAL_QNM_ORDER"));
+
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "LALINFERENCE_FRAME"))
+    frame = *(LALInferenceFrame*) LALInferenceGetVariable(IFOdata->modelParams, "LALINFERENCE_FRAME");
+
+  REAL8 fRef = 0.0;
+  if (LALInferenceCheckVariable(IFOdata->modelParams, "fRef")) fRef = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "fRef");
+  REAL8 fTemp = fRef;
+  
+  if(LALInferenceCheckVariable(IFOdata->modelParams,"finalmass"))
+  {
+    if (LALInferenceCheckVariable(IFOdata->modelParams,"asym_massratio")) 
+    {
+      REAL8 q = *(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams,"asym_massratio");
+      q2eta(q, &eta);
+    } 
+    else if (LALInferenceCheckVariable(IFOdata->modelParams, "massratio")) 
+    {
+      REAL8 eta = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "massratio");
+      eta2q(eta, &q);
+    }
+    else
+    {
+      fprintf(stderr, "No mass parameters found");
+      exit(0);
+    }
+  }
+  else if(LALInferenceCheckVariable(IFOdata->modelParams, "nospincomponents") && (m1_p=(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "mass1")) && (m2_p=(REAL8 *)LALInferenceGetVariable(IFOdata->modelParams, "mass2")))
+  {
+    m1=*m1_p;
+    m2=*m2_p;
+    mass = XLALNonSpinBinaryFinalBHMass(eta, m1, m2)
+  }
+  else
+  {
+    fprintf(stderr,"No mass parameters found!");
+    exit(0);
+  }
+  
+
     
 }
 

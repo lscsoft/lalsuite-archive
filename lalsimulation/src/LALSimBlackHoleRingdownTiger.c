@@ -70,15 +70,17 @@ int XLALSimBlackHoleRingdownTiger(
     /* TODO: double check that this initializes to 0s */
     
     length = maxmodelength;
-    *hplus = XLALCreateREAL8TimeSeries("hplus", t0, 0.0, deltaT, hunits, length);
-    *hcross = XLALCreateREAL8TimeSeries("hcross", t0, 0.0, deltaT, hunits, length);
+    *hplus = XLALCreateREAL8TimeSeries("hplus", t0, 0.0, deltaT, &lalStrainUnit, length);
+    *hcross = XLALCreateREAL8TimeSeries("hcross", t0, 0.0, deltaT, &lalStrainUnit, length);
     
     /* Fill in the plus and cross polarization vectors */
     thisMode = modeList;
+    COMPLEX16 hpc = 0.0;
     while (thisMode){
         for (j=0; j<thisMode->mode->data->length; j++){
-          hplus += thisMode->mode->data->data[j]; // or * prefac(thisMode->l, thisMode->m) ?
-          hcross += thisMode->mode->data->data[j];
+            hpc = (thisMode->mode->data->data[j]);
+          (*hplus)->data->data[j] += creal(hpc); // or * prefac(thisMode->l, thisMode->m) ?
+          (*hcross)->data->data[j] -= cimag(hpc);
         }
         thisMode = thisMode->next;
     }
@@ -152,7 +154,7 @@ int XLALSimBlackHoleRingdownModeTiger(
 	/* allocate memory in hlm */
     // TODO: Remember to free it afterwards!
     
-    *hlmmode = XLALCreateCOMPLEX16TimeSeries(name, t0, 0.0, deltaT, hunits, length);
+    *hlmmode = XLALCreateCOMPLEX16TimeSeries(name, t0, 0.0, deltaT, &lalStrainUnit, length);
 	
 	if (A > 0.0){
 	  for (j=0; j<length; j++){
