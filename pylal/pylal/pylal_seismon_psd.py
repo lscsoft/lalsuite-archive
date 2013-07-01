@@ -107,12 +107,33 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
         f.write("%.0f %e\n"%(data["timeRMS"][i],data["dataRMS"][i]))
     f.close()
 
+def normalize_timeseries(data):  
+
+    dataSort = np.sort(data)
+    index10 = np.floor(len(data) * 0.1)
+    index90 = np.floor(len(data) * 0.9)
+    dataMin = dataSort[index10]
+    dataMax = dataSort[index90] 
+
+    dataNorm = (1/(dataMax - dataMin)) * (data - dataMin)
+
+    indexes = (np.absolute(dataNorm) >= 2).nonzero()[0]
+    dataNorm[indexes] = 0
+
+    dataNorm = dataNorm / 2
+ 
+    return dataNorm
+
 def mat(params, channel, segment):
 
     gpsStart = segment[0]
     gpsEnd = segment[1]
     
     time,data = read_frames(gpsStart,gpsEnd,channel,params["frame"])
+
+    if len(time) == 0:
+        print "No data available... continuing"
+        return
 
     dataFull = np.array(data)
     dataLowpass = pylal.dq.dqDataUtils.lowpass(dataFull,channel.samplef,1.0)
@@ -177,18 +198,15 @@ def mat(params, channel, segment):
 
         time = data["time"] - startTime
 
-        dataLowpass = 1/(np.max(data["dataLowpass"]) - np.min(data["dataLowpass"]))\
-                    * (data["dataLowpass"] - np.min(data["dataLowpass"]))
+        dataLowpass = normalize_timeseries(data["dataLowpass"])
         dataLowpass = dataLowpass + 0.5
         plt.plot(time,dataLowpass,label="lowpass")
 
-        dataHighpass = 1/(np.max(data["dataHighpass"]) - np.min(data["dataHighpass"]))\
-                    * (data["dataHighpass"] - np.min(data["dataHighpass"]))
+        dataHighpass = normalize_timeseries(data["dataHighpass"])
         dataHighpass = dataHighpass + 1.5
         plt.plot(time,dataHighpass,label="highpass")
 
-        dataFull = 1/(np.max(data["data"]) - np.min(data["data"]))\
-                    * (data["data"] - np.min(data["data"]))
+        dataFull = normalize_timeseries(data["data"])
         dataFull = dataFull + 2.5
         plt.plot(time,dataFull,'k',label='data')
         plt.legend(loc=4,prop={'size':10})
@@ -217,10 +235,15 @@ def mat(params, channel, segment):
         plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
         plt.ylabel("Normalized Amplitude")
         plt.xlim([np.min(time),np.max(time)])
+        plt.ylim([0,4])
 
         plt.show()
-        plt.savefig(os.path.join(plotLocation,"timeseries.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"timeseries.eps"),dpi=200)
+        if params["doEarthquakesAnalysis"]: 
+            plt.savefig(os.path.join(plotLocation,"timeseries-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"timeseries-%d-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
+        else:
+            plt.savefig(os.path.join(plotLocation,"timeseries.png"),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"timeseries.eps"),dpi=200)
         plt.close('all')
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
@@ -236,8 +259,12 @@ def mat(params, channel, segment):
         plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
         plt.grid()
         plt.show()
-        plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
-        plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
+        if params["doEarthquakesAnalysis"]:
+            plt.savefig(os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"psd-%d-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
+        else:
+            plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
         plt.close('all')
 
 def freq_analysis(params,channel,tt,freq,spectra):

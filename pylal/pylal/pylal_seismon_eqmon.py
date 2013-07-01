@@ -9,6 +9,7 @@ import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALUTCToGPS, XLALGPSToUTC
 from lxml import etree
+import scipy.spatial
 
 import pylal.pylal_seismon_eqmon_plot
 
@@ -97,6 +98,9 @@ def run_earthquakes_monitor(params):
         txtFileSplit = txtFile.split("-")
         thisTTStart = int(txtFileSplit[0])
         thisTTEnd = int(txtFileSplit[1])
+
+        if thisTTStart < params["gpsStart"]:
+            continue
 
         ttStart.append(thisTTStart)
         ttEnd.append(thisTTEnd)
@@ -239,6 +243,9 @@ def run_earthquakes(params):
     segmentlist = glue.segments.segmentlist()
 
     for attributeDic in attributeDics:
+
+        attributeDic = calculate_traveltimes(attributeDic)
+
         traveltimes = attributeDic["traveltimes"][ifo]
 
         gpsStart = max(traveltimes["Rtimes"]) - 200
@@ -257,20 +264,13 @@ def run_earthquakes(params):
     if not os.path.isdir(plotsDirectory):
         os.makedirs(plotsDirectory)
 
-    thresholds = {}
-    for channel in params["channels"]:
-        thresholds[channel.station_underscore] = 0
-
     for attributeDic in attributeDics:
         traveltimes = attributeDic["traveltimes"][ifo]
 
-        distance = great_circle_distance(attributeDic["Latitude"],attributeDic["Longitude"],traveltimes["Latitudes"][-1],traveltimes["Longitudes"][-1])
+        attributeDic = calculate_traveltimes(attributeDic)
 
-        ttMin = distance/5.0
-        ttMax = distance/2.0
-     
-        gpsStart = traveltimes["Rtimes"][0] + ttMin
-        gpsEnd = traveltimes["Rtimes"][0] + ttMax
+        gpsStart = max(traveltimes["Rtimes"]) - 200
+        gpsEnd = max(traveltimes["Rtimes"]) + 200
 
         for channel in params["channels"]:
 
@@ -318,13 +318,13 @@ def run_earthquakes(params):
         if params["doEarthquakesAnalysis"]:
             plotName = os.path.join(earthquakesDirectory,"worldmap_magnitudes.png")
             pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Magnitude",plotName)
-    
+
             plotName = os.path.join(earthquakesDirectory,"worldmap_traveltimes.png")
             pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Traveltimes",plotName)
-    
+
             plotName = os.path.join(earthquakesDirectory,"worldmap_restimates.png")
             pylal.pylal_seismon_eqmon_plot.worldmap_plot(params,attributeDics,"Restimates",plotName)
-    
+
             plotName = os.path.join(earthquakesDirectory,"restimates.png")
             pylal.pylal_seismon_eqmon_plot.restimates(params,attributeDics,plotName)
 
@@ -589,7 +589,7 @@ def databaseread(event):
 
     return attributeDic
 
-def traveltimes(attributeDic): 
+def calculate_traveltimes(attributeDic): 
 
     attributeDic["traveltimes"] = {}
 
@@ -603,16 +603,36 @@ def traveltimes(attributeDic):
     attributeDic = ifotraveltimes(attributeDic, "FortyMeter", 34.1391, -118.1238)
     attributeDic = ifotraveltimes(attributeDic, "Homestake", 44.3465, -103.7574)
 
-    #attributeDic["distanceLHO"] = attributeDic["traveltimes"]["LHO"]["Distances"][-1]
-    #attributeDic["distanceLLO"] = attributeDic["traveltimes"]["LLO"]["Distances"][-1]
-
     return attributeDic
+
+def do_kdtree(combined_x_y_arrays,points):
+    mytree = scipy.spatial.cKDTree(combined_x_y_arrays)
+    dist, indexes = mytree.query(points)
+    return indexes
 
 def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
 
+    from obspy.taup.taup import getTravelTimes
+    from obspy.core.util.geodetics import gps2DistAzimuth
+
     distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],ifolat,ifolon)
-    distances = np.linspace(0,distance,100)
+    distances = np.linspace(0,distance,1000)
     degrees = (distances/6370000)*(180/np.pi)
+
+    distance_delta = distances[1] - distances[0]
+
+    periods = [25.0,27.0,30.0,32.0,35.0,40.0,45.0,50.0,60.0,75.0,100.0,125.0,150.0,200.0,250.0]
+    frequencies = 1 / np.array(periods)
+   
+    c = 18
+    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
+    Q = np.max([500,80/np.sqrt(fc)])
+
+    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
+    Pamp = 1e-6
+    Samp = 1e-5
+
+    index = np.argmin(np.absolute(frequencies - fc))
 
     lats = []
     lons = []
@@ -621,9 +641,9 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     Rtimes = []
     Rfamps = []
 
-    # Pmag = T * 10^(Mb - 5.9 - 0.01*dist)
-    # Rmag = T * 10^(Ms - 3.3 - 1.66*log_10(dist))
-    T = 20
+    velocityFile = '/home/mcoughlin/Seismon/velocity_maps/GR025_1_GDM52.pix'
+    velocity_map = np.loadtxt(velocityFile)
+    base_velocity = 3.59738 
 
     for distance, degree in zip(distances, degrees):
 
@@ -631,10 +651,24 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
         lats.append(lat)
         lons.append(lon)
 
+    combined_x_y_arrays = np.dstack([velocity_map[:,0],velocity_map[:,1]])[0]
+    points_list = np.dstack([lats, lons])
+
+    indexes = do_kdtree(combined_x_y_arrays,points_list)[0]
+
+    time = 0
+
+    for distance, degree, index in zip(distances, degrees,indexes):
+
+        velocity = 1000 * (1 + 0.01*velocity_map[index,3])*base_velocity
+
+        time_delta = distance_delta / velocity
+        time = time + time_delta
+
         #degrees = locations2degrees(lat,lon,attributeDic["Latitude"],attributeDic["Longitude"])
         #distance,fwd,back = gps2DistAzimuth(lat,lon,attributeDic["Latitude"],attributeDic["Longitude"])
         tt = getTravelTimes(delta=degree, depth=attributeDic["Depth"])
-        tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': distance/3500, 'd2T/dD2': 0, 'dT/dh': 0})
+        tt.append({'phase_name': 'R', 'dT/dD': 0, 'take-off angle': 0, 'time': time, 'd2T/dD2': 0, 'dT/dh': 0})
         Ptime = -1
         Stime = -1
         Rtime = -1
@@ -645,9 +679,13 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
                 Stime = attributeDic["GPS"]+phase["time"]
             if Rtime == -1 and phase["phase_name"][0] == "R":
                 Rtime = attributeDic["GPS"]+phase["time"]
+
         Ptimes.append(Ptime)
         Stimes.append(Stime)
         Rtimes.append(Rtime)
+
+    #if ifo == "LHO":
+    #    print time - distance / 3500
 
     traveltimes = {}
     traveltimes["Latitudes"] = lats
@@ -657,22 +695,12 @@ def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
     traveltimes["Ptimes"] = Ptimes
     traveltimes["Stimes"] = Stimes
     traveltimes["Rtimes"] = Rtimes
-
-    c = 18
-    fc = 10**(2.3-(attributeDic["Magnitude"]/2.))
-    Q = np.max([500,80/np.sqrt(fc)])
-
-    Rfamp = ((attributeDic["Magnitude"]/fc)*0.0035) * np.exp(-2*math.pi*attributeDic["Depth"]*fc/c) * np.exp(-2*math.pi*(distances[-1]/1000)*(fc/c)*1/Q)/(distances[-1]/1000)
-
-    traveltimes["Rfamp"] = [Rfamp]
-
-    Pamp = 1e-6
-    Samp = 1e-5
-    
+    traveltimes["Rfamp"] = [Rfamp] 
     traveltimes["Pamp"] = [Pamp]
     traveltimes["Samp"] = [Samp]
 
     attributeDic["traveltimes"][ifo] = traveltimes
+
     return attributeDic
 
 def GPSToUTCDateTime(gps):
@@ -713,9 +741,12 @@ def eventDiff(attributeDics, magnitudeDiff, latitudeDiff, longitudeDiff):
                 longitudeDiff.append(attributeDics[i]["Longitude"]-attributeDics[i+1]["Longitude"])
     return magnitudeDiff, latitudeDiff, longitudeDiff
 
-def great_circle_distance(lat1, lon1, lat2, lon2):
+def great_circle_distance(latlong_a, latlong_b):
 
     EARTH_CIRCUMFERENCE = 6378.137 # earth circumference in kilometers
+
+    lat1, lon1 = latlong_a
+    lat2, lon2 = latlong_b
 
     dLat = math.radians(lat2 - lat1)
     dLon = math.radians(lon2 - lon1)
