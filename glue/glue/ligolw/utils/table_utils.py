@@ -352,7 +352,6 @@ def populate_experiment_summ_table(
     experiment_id,
     time_slide_dict,
     veto_def_name,
-    return_dict = False,
     verbose = False
 ):
     """
@@ -365,7 +364,6 @@ def populate_experiment_summ_table(
     @time_slide_dict: time_slide table as dictionary; used to set time_slide_id
         column and figure out whether or not is zero-lag. Can either be the result
         of lsctables.time_slide_table.as_dict or any dictionary having same format.
-    @return_dict: will return the experiment_summary table as an id_dict
     """
 
     if verbose:
@@ -419,6 +417,17 @@ def generate_experiment_tables(xmldoc, **cmdline_opts):
     # Get the instruments that were on
     instruments = get_on_instruments(xmldoc, cmdline_opts["trigger_program"])
 
+    # find the experiment & experiment_summary table or create one if needed
+    try:
+        table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+    except ValueError:
+        xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
+
+    try:
+        table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+    except ValueError:
+        xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
+
     # Populate the experiment table
     experiment_ids = populate_experiment_table(
         xmldoc,
@@ -441,7 +450,6 @@ def generate_experiment_tables(xmldoc, **cmdline_opts):
             experiment_ids[instruments],
             time_slide_dict,
             cmdline_opts["vetoes_name"],
-            return_dict = False,
             verbose = cmdline_opts["verbose"]
         )
 
