@@ -1,3 +1,9 @@
+glue (1.45.2) unstable; urgency=low
+
+  * ER4 release of glue, with spec file match and Kipp's commits reverted. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, Jul 2 2013 10:56:00 -0500
+
 glue (1.45.1) unstable; urgency=low
 
   * ER4 release of glue, with spec file match. 
