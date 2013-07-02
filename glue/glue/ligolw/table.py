@@ -47,7 +47,6 @@ columns of the table.
 import copy
 import re
 import sys
-import warnings
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
 
@@ -80,16 +79,7 @@ __date__ = git_version.date
 # r"(?:\A[a-z0-9_]+:|\A)(?P<FullName>(?:[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+))\Z"
 #
 # but people are putting upper case letters in names!!!!!  Someone is going
-# to get the beats.  There is a reason for requiring names to be all lower
-# case:  SQL table and column names are case insensitive, therefore (i) in
-# general it is not possible to preserve case when documents are converted
-# into SQL databases and then converted back again, and (ii) when converted
-# to SQL the columns "Rho" and "rho" become indistinguishable and so it is
-# impossible to convert a document into an SQL database that has degenerate
-# names like this.  Requiring names to be all lower-case breaks the
-# degeneracy, helping to ensure that XML documents can be safely converted
-# to SQL databases (other rules can be imagined that would work as well,
-# this is the one that got chosen).
+# to get the beats.
 
 
 ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
@@ -109,11 +99,6 @@ def StripColumnName(name):
 	>>> StripColumnName("program")
 	'program'
 	"""
-	# FIXME:  enable warning.  since this is merely annoying, it does
-	# not break any code, this should be done to encourage the
-	# correction of non-conforming code.
-	#if name.lower() != name:
-	#	warnings.warn("column name \"%s\" is not lower case" % name)
 	try:
 		return ColumnPattern.search(name).group("Name")
 	except AttributeError:
@@ -178,8 +163,6 @@ def StripTableName(name):
 	>>> StripTableName("sngl_burst")
 	'sngl_burst'
 	"""
-	if name.lower() != name:
-		warnings.warn("table name \"%s\" is not lower case" % name)
 	try:
 		return TablePattern.search(name).group("Name")
 	except AttributeError:
