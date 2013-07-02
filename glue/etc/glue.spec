@@ -95,6 +95,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 * Tue Jul 2 2013 Ryan Fisher <rpfisher@syr.edu>
+- ER4 release, matching spec file.
+
+* Tue Jul 2 2013 Ryan Fisher <rpfisher@syr.edu>
 - ER4 release.
 
 * Thu Mar 7 2013 Ryan Fisher <rpfisher@syr.edu>
