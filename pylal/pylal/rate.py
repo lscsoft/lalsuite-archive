@@ -1148,18 +1148,18 @@ def tophat_window2d(bins_x, bins_y):
 def filter_array(a, window, cyclic = False):
 	"""
 	Filter an array using the window function.  The transformation is
-	done in place.  If cyclic = True, then the data are assumed to be
-	periodic in each dimension, otherwise the data are assumed to be 0
-	outside of their domain of definition.  The window function must
-	have an odd number of samples in each dimension;  this is done so
-	that it is always clear which sample is at the window's centre,
-	which helps prevent phase errors.  If the window function's size
-	exceeds that of the data in one or more dimensions, the largest
-	allowed central portion of the window function in the affected
-	dimensions will be used.  This is done silently;  to determine if
-	window function truncation will occur, check for yourself that your
-	window function is smaller than your data in all directions.
+	done in place.  The data are assumed to be 0 outside of their
+	domain of definition.  The window function must have an odd number
+	of samples in each dimension;  this is done so that it is always
+	clear which sample is at the window's centre, which helps prevent
+	phase errors.  If the window function's size exceeds that of the
+	data in one or more dimensions, the largest allowed central portion
+	of the window function in the affected dimensions will be used.
+	This is done silently;  to determine if window function truncation
+	will occur, check for yourself that your window function is smaller
+	than your data in all dimensions.
 	"""
+	assert not cyclic	# no longer supported, maybe in future
 	# check that the window and the data have the same number of
 	# dimensions
 	dims = len(a.shape)
@@ -1178,21 +1178,8 @@ def filter_array(a, window, cyclic = False):
 			window_slices.append(slice(first, first + n))
 		else:
 			window_slices.append(slice(0, window.shape[d]))
-	if dims == 1:
-		if cyclic:
-			# FIXME: use fftconvolve for increase in speed when
-			# cyclic boundaries are wanted.  but look into
-			# accuracy.
-			a[:] = signaltools.convolve(numpy.concatenate((a, a, a)), window[window_slices], mode = "same")[len(a) : 2 * len(a)]
-		else:
-			a[:] = signaltools.convolve(a, window[window_slices], mode = "same")
-	elif dims == 2:
-		if cyclic:
-			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same", boundary = "wrap")
-		else:
-			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same")
-	else:
-		raise ValueError("can only filter 1 and 2 dimensional arrays")
+	# FIXME:  in numpy >= 1.7.0 there is copyto().  is that better?
+	a.flat = signaltools.fftconvolve(a, window[window_slices], mode = "same").flat
 	return a
 
 
@@ -1217,10 +1204,9 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 	Convolving the numerator and denominator bins separately preserves
 	the integral of each.  In other words the total number of events in
 	each of the denominator and numerator is conserved, only their
-	locations are shuffled about in order to smooth out irregularities
-	in their distributions.  Convolving, instead, the ratios with a
-	window function would preserve the integral of the efficiency,
-	which is probably meaningless.
+	locations are shuffled about.  Convolving, instead, the ratios with
+	a window function would preserve the integral of the ratio, which
+	is probably meaningless.
 
 	Note that you should be using the window functions defined in this
 	module, which are carefully designed to be norm preserving (the
