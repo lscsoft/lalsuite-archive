@@ -772,15 +772,17 @@ class NDBins(tuple):
 		"""
 		Return an n-dimensional array of the bin volumes.
 		"""
-		# FIXME:  works for 1 and 2 dimensions, but goes funny
-		# after that.  always returns a 2 dimensional array no
-		# matter what...
-		bounds = iter(zip(self.upper(), self.lower()))
-		u, l = bounds.next()
-		volumes = u - l
-		for u, l in bounds:
-			volumes = numpy.outer(volumes, u - l)
-		return volumes
+		volumes = tuple(u - l for u, l in zip(self.upper(), self.lower()))
+		if len(volumes) == 1:
+			# 1D short-cut
+			return volumes[0]
+		try:
+			return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(volumes)]), *volumes)
+		except NameError:
+			# numpy < 1.6
+			result = reduce(numpy.outer, volumes)
+			result.shape = tuple(len(v) for v in volumes)
+			return result
 
 
 #
@@ -1068,7 +1070,7 @@ def gaussian_window(*bins, **kwargs):
 		w = lal.CreateGaussREAL8Window(l + 1, l / float(b))
 		windows.append(w.data.data / w.sum)
 	if len(windows) == 1:
-		# 1D short cut
+		# 1D short-cut
 		return windows[0]
 	try:
 		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
