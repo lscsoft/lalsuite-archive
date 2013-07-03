@@ -2,6 +2,8 @@
 /* Includes specification of prior ranges. Sets runState->currentParams and
  returns address of new LALInferenceVariables */
 
+#include <lal/LALInferenceInit.h>
+
 LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *state)
 {
 
@@ -131,20 +133,25 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   gsl_rng *GSLrandom=state->GSLrandom;
   REAL8 starttime=0.0, timeParam=0.0;
   REAL8 timeMin=starttime-dt,timeMax=starttime+dt;
-  //REAL8 start_mc			=4.82+gsl_ran_gaussian(GSLrandom,0.025);
-  REAL8 start_mass    = mMin+gsl_rng_uniform(GSLrandom)*(mMax-mMin) ;
-  REAL8 start_eta			=etaMin+gsl_rng_uniform(GSLrandom)*(etaMax-etaMin);
-  REAL8 start_q           =qMin+gsl_rng_uniform(GSLrandom)*(qMax-qMin);
-  REAL8 start_phase		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_dist		=8.07955+gsl_ran_gaussian(GSLrandom,1.1); /* TODO: Check if numbers are correct */
-  REAL8 start_dist		=Dmin+gsl_rng_uniform(GSLrandom)*(Dmax-Dmin);
-  REAL8 start_ra			=0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
-  REAL8 start_dec			=-LAL_PI/2.0+gsl_rng_uniform(GSLrandom)*(LAL_PI_2-(-LAL_PI_2));
-  REAL8 start_psi			=0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_iota		=0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
-  REAL8 start_a_spin		=0.0+gsl_rng_uniform(GSLrandom)*(amax-amin);
+
   UINT4 noSpin=0;
   memset(currentParams,0,sizeof(LALInferenceVariables));
+
+// TODO: Remove this?
+//   /* Over-ride prior bounds if analytic test */
+//   if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood"))
+//   {
+//     return(LALInferenceInitVariablesReviewEvidence(state));
+//   }
+//   else if (LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood"))
+//   {
+//     return(LALInferenceInitVariablesReviewEvidence_bimod(state));
+//   }
+//   else if (LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood"))
+//   {
+//     return(LALInferenceInitVariablesReviewEvidence_banana(state));
+//   }
+  
 
 // TODO: Remove this?
 //  if(LALInferenceGetProcParamVal(commandLine,"--skyLocPrior")){
@@ -201,24 +208,13 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   ppt=LALInferenceGetProcParamVal(commandLine,"--approximant");
   if(ppt){
     approx = XLALGetApproximantFromString(ppt->value);
-    //ppt_order=LALInferenceGetProcParamVal(commandLine,"--order");
-    //if(ppt_order) PhaseOrder = XLALGetOrderFromString(ppt_order->value);
   }
   ppt=LALInferenceGetProcParamVal(commandLine,"--approx");
   if(ppt){
     approx = XLALGetApproximantFromString(ppt->value);
-    //XLAL_TRY(PhaseOrder = XLALGetOrderFromString(ppt->value),errnum);
-    //if( (int) PhaseOrder == XLAL_FAILURE || errnum) {
-    //  PhaseOrder=-1;
-    //}
   }
 
-  /*
-  ppt=LALInferenceGetProcParamVal(commandLine,"--amporder");
-  if(ppt) AmpOrder=atoi(ppt->value);
-  ppt=LALInferenceGetProcParamVal(commandLine,"--ampOrder");
-  if(ppt) AmpOrder = XLALGetOrderFromString(ppt->value);
-  */
+
   
   
   
@@ -230,13 +226,10 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
        approx=TaylorF2; /* Defaults to TF2 */
        XLALPrintWarning("You did not provide an approximant for the templates. Using default %s, which might now be what you want!\n",XLALGetStringFromApproximant(approx));
   }
-    
 
-
-  
   ppt=LALInferenceGetProcParamVal(commandLine, "--fref");
   if (ppt) fRef = atof(ppt->value);
-
+  
   /* Set the modeldomain appropriately */
   ppt=LALInferenceGetProcParamVal(commandLine,"--modeldomain");
   if(ppt){
@@ -251,8 +244,8 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     else
     {
       fprintf( stderr, "invalid argument to --modeldomain:\n"
-              "unknown domain specified: "
-              "domain must be one of: time, frequency\n");
+      "unknown domain specified: "
+      "domain must be one of: time, frequency\n");
       exit( 1 );
     }
   } else {
@@ -266,18 +259,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     dataPtr->modelDomain = modelDomain;
     dataPtr = dataPtr->next;
   }
-  /* This flag was added to account for the broken Big Dog
-     injection, which had the opposite sign in H and L compared
-     to Virgo. */
-  /*
-  if (LALInferenceGetProcParamVal(commandLine, "--crazyInjectionHLSign")) {
-    INT4 flag = 1;
-    LALInferenceAddVariable(currentParams, "crazyInjectionHLSign", &flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  } else {
-    INT4 flag = 0;
-    LALInferenceAddVariable(currentParams, "crazyInjectionHLSign", &flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
-  }
-  */
+ 
 
   /* Over-ride taper if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--taper");
@@ -289,84 +271,10 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     if(strstr(ppt->value,"SMOOTH")) bookends=LALINFERENCE_SMOOTH;
   }
 
-  /* Read time parameter from injection file */
-  if(injTable)
-  {
-    starttime=XLALGPSGetREAL8(&(injTable->geocent_start_time));
-    fprintf(stdout,"Using start time from injection file: %lf\n", starttime);
-  }
-  /* Over-ride end time if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
-  if(ppt && !analytic){
-    starttime=atof(ppt->value);
-    printf("Read start time %f\n",starttime);
-  }
-  /* Adjust prior accordingly */
-  if (!analytic) {
-    timeMin=starttime-dt; timeMax=starttime+dt;
-  }
 
-  /* Over-ride mass if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--mass");
-  if(ppt){
-    start_mass=atof(ppt->value);
-  }
+
+  /************ Prior Related Settings START ******************************/
   
-  /* Over-ride eta if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--eta");
-  if(ppt){
-    start_eta=atof(ppt->value);
-    REAL8 m1 = 0.0, m2 = 0.0 ;
-    REAL8 mc = start_mass * pow(start_eta,3.0/5.0);
-    LALInferenceMcEta2Masses(mc, start_eta, &m1, &m2);
-    start_q=m2/m1;
-  }
-
-  /* Over-ride q if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--q");
-  if(ppt){
-    start_q=atof(ppt->value);
-    LALInferenceQ2Eta(start_q, &start_eta);
-  } 
-
-  /* Over-ride phase if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--phi");
-  if(ppt){
-    start_phase=atof(ppt->value);
-  }
-
-  /* Over-ride inclination if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--iota");
-  if(ppt){
-    start_iota=atof(ppt->value);
-  }
-
-  /* Over-ride distance if specified */
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dist");
-  if (ppt) {
-    start_dist = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
-  if (ppt) {
-    start_ra = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--dec");
-  if (ppt) {
-    start_dec = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--psi");
-  if (ppt) {
-    start_psi = atof(ppt->value);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--a");
-  if (ppt) {
-    start_a_spin = atof(ppt->value);
-  }
-
   /* Over-ride time prior if specified */
   ppt=LALInferenceGetProcParamVal(commandLine,"--dt");
   if(ppt){
@@ -466,17 +374,135 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
     iotaMax = atof(ppt->value);
   }
 
-  LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  /* Prior related arguments END */
 
+  
+
+  /* Initial values set after setting up prior */
+  /************ Initial Value Related Argument START *************/
+
+  REAL8 start_mass    = mMin+gsl_rng_uniform(GSLrandom)*(mMax-mMin) ;
+  REAL8 start_eta     =etaMin+gsl_rng_uniform(GSLrandom)*(etaMax-etaMin);
+  REAL8 start_q       =qMin+gsl_rng_uniform(GSLrandom)*(qMax-qMin);
+  REAL8 start_phase   =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
+  REAL8 start_dist    =8.07955+gsl_ran_gaussian(GSLrandom,1.1); /* TODO: Check if numbers are correct */
+  REAL8 start_dist    =Dmin+gsl_rng_uniform(GSLrandom)*(Dmax-Dmin);
+  REAL8 start_ra      =0.0+gsl_rng_uniform(GSLrandom)*(LAL_TWOPI-0.0);
+  REAL8 start_dec     =-LAL_PI/2.0+gsl_rng_uniform(GSLrandom)*(LAL_PI_2-(-LAL_PI_2));
+  REAL8 start_psi     =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
+  REAL8 start_iota    =0.0+gsl_rng_uniform(GSLrandom)*(LAL_PI-0.0);
+  REAL8 start_a_spin  =0.0+gsl_rng_uniform(GSLrandom)*(amax-amin);
+  
+  
+  /* Read time parameter from injection file */
+  if(injTable)
+  {
+    starttime=XLALGPSGetREAL8(&(injTable->geocent_start_time));
+    fprintf(stdout,"Using start time from injection file: %lf\n", starttime);
+    // TODO: Add geocent_start_time to injTable
+  }
+  /* Over-ride end time if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--trigtime");
+  if(ppt && !analytic){
+    starttime=atof(ppt->value);
+    printf("Read start time %f\n",starttime);
+  }
+  /* Adjust prior accordingly */
+  if (!analytic) {
+    timeMin=starttime-dt; timeMax=starttime+dt;
+  }
+  
+  /* Over-ride mass if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--mass");
+  if(ppt){
+    start_mass=atof(ppt->value);
+  }
+  
+  /* Over-ride eta if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--eta");
+  if(ppt){
+    start_eta=atof(ppt->value);
+    REAL8 m1 = 0.0, m2 = 0.0 ;
+    REAL8 mc = start_mass * pow(start_eta,3.0/5.0);
+    LALInferenceMcEta2Masses(mc, start_eta, &m1, &m2);
+    start_q=m2/m1;
+  }
+  
+  /* Over-ride q if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--q");
+  if(ppt){
+    start_q=atof(ppt->value);
+    LALInferenceQ2Eta(start_q, &start_eta);
+  }
+  
+  /* Over-ride phase if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--phi");
+  if(ppt){
+    start_phase=atof(ppt->value);
+  }
+  
+  /* Over-ride inclination if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--iota");
+  if(ppt){
+    start_iota=atof(ppt->value);
+  }
+  
+  /* Over-ride distance if specified */
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dist");
+  if (ppt) {
+    start_dist = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--ra");
+  if (ppt) {
+    start_ra = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--dec");
+  if (ppt) {
+    start_dec = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--psi");
+  if (ppt) {
+    start_psi = atof(ppt->value);
+  }
+  
+  ppt=LALInferenceGetProcParamVal(commandLine,"--a");
+  if (ppt) {
+    start_a_spin = atof(ppt->value);
+  }
+
+  /* Set up start time. */
+  ppt=LALInferenceGetProcParamVal(commandLine, "--time");
+  if (ppt) {
+    /* User has specified start time. */
+    timeParam = atof(ppt->value);
+  } else {
+    timeParam = starttime+dt*(1.0-2.0*gsl_rng_uniform(GSLrandom));
+    timeParam = starttime+gsl_ran_gaussian(GSLrandom,0.01);
+  }
+
+  /* Initial Value Related END */
+  
+
+  LALInferenceAddVariable(currentParams, "LAL_APPROXIMANT", &approx,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  
   LALInferenceAddVariable(currentParams, "fRef", &fRef, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
 
-
+  ppt=LALInferenceGetProcParamVal(commandLine,"--taper");
+  if(ppt){
+    LALInferenceAddVariable(currentParams, "LALINFERENCE_TAPER",     &bookends,        LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
+  }  
+  
   ppt=LALInferenceGetProcParamVal(commandLine, "--system-frame");
   if(ppt){
     frame = LALINFERENCE_FRAME_SYSTEM;
   }
   LALInferenceAddVariable(currentParams, "LALINFERENCE_FRAME", &frame, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
 
+
+  
   /* Set up the variable parameters */
 
   /********************* TBL: Adding noise-fitting parameters  *********************/
@@ -885,172 +911,71 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
   LALInferenceAddVariable(currentParams, "removeLinesFlag", &lines_flag, LALINFERENCE_UINT4_t, LALINFERENCE_PARAM_FIXED);
   /*********************************************************************************/
 
-  /* Set up start time. */
-  ppt=LALInferenceGetProcParamVal(commandLine, "--time");
-  if (ppt) {
-    /* User has specified start time. */
-    timeParam = atof(ppt->value);
-  } else {
-    timeParam = starttime+gsl_ran_gaussian(GSLrandom,0.01);
-  }
 
-  /* Jump in component masses if anaytic test */
-//   if (LALInferenceGetProcParamVal(commandLine, "--correlatedGaussianLikelihood") ||
-//       LALInferenceGetProcParamVal(commandLine, "--bimodalGaussianLikelihood") ||
-//       LALInferenceGetProcParamVal(commandLine, "--rosenbrockLikelihood") ||
-//       LALInferenceGetProcParamVal(commandLine, "--analyticnullprior")) {
-//     LALInferenceMcEta2Masses(start_mc, start_eta, &m1, &m2);
-//     LALInferenceAddVariable(currentParams, "m1",    &m1,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
-//     LALInferenceAddMinMaxPrior(priorArgs,	"m1",	&m1min,	&m1max,		LALINFERENCE_REAL8_t);
-//     LALInferenceAddVariable(currentParams, "m2",    &m2,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
-//     LALInferenceAddMinMaxPrior(priorArgs,	"m2",	&m2min,	&m2max,		LALINFERENCE_REAL8_t);
-//   } else {
 
-//     ppt=LALInferenceGetProcParamVal(commandLine,"--fixMc");
-//     if(ppt){
-//       LALInferenceAddVariable(currentParams, "chirpmass",    &start_mc,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_FIXED);
-//       if(lalDebugLevel>0) fprintf(stdout,"chirpmass fixed and set to %f\n",start_mc);
-//     }else{
-//       LALInferenceAddVariable(currentParams, "chirpmass",    &start_mc,    LALINFERENCE_REAL8_t,	LALINFERENCE_PARAM_LINEAR);
-//     }
-//     LALInferenceAddMinMaxPrior(priorArgs,	"chirpmass",	&mcMin,	&mcMax,		LALINFERENCE_REAL8_t);
-
-    /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fixQ");
+  /* Check if running with symmetric (eta) or asymmetric (q) mass ratio.*/
+  ppt=LALInferenceGetProcParamVal(commandLine,"--fixQ");
+  if(ppt){
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "asym_massratio", start_q, qMin, qMax, LALINFERENCE_PARAM_FIXED);
+    if(lalDebugLevel>0) fprintf(stdout,"q fixed and set to %f\n",start_q);
+  }else{
+    ppt=LALInferenceGetProcParamVal(commandLine,"--fixEta");
     if(ppt){
-      LALInferenceAddVariable(currentParams, "asym_massratio", &start_q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      LALInferenceAddMinMaxPrior(priorArgs,	"asym_massratio",	&qMin,	&qMax,	LALINFERENCE_REAL8_t);
-      if(lalDebugLevel>0) fprintf(stdout,"q fixed and set to %f\n",start_q);
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "massratio", start_eta, etaMin, etaMax, LALINFERENCE_PARAM_FIXED);
+      if(lalDebugLevel>0) fprintf(stdout,"eta fixed and set to %f\n",start_eta);
     }else{
-      ppt=LALInferenceGetProcParamVal(commandLine,"--fixEta");
+      ppt=LALInferenceGetProcParamVal(commandLine,"--symMassRatio");
       if(ppt){
-        LALInferenceAddVariable(currentParams, "massratio", &start_eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        LALInferenceAddMinMaxPrior(priorArgs,	"massratio", &etaMin, &etaMax, LALINFERENCE_REAL8_t);
-        if(lalDebugLevel>0) fprintf(stdout,"eta fixed and set to %f\n",start_eta);
+        LALInferenceRegisterUniformVariableREAL8(state, currentParams, "massratio", start_eta, etaMin, etaMax, LALINFERENCE_PARAM_LINEAR);
       }else{
-        ppt=LALInferenceGetProcParamVal(commandLine,"--symMassRatio");
-        if(ppt){
-          LALInferenceAddVariable(currentParams, "massratio", &start_eta, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-          LALInferenceAddMinMaxPrior(priorArgs,	"massratio", &etaMin, &etaMax, LALINFERENCE_REAL8_t);
-        }else{
-          LALInferenceAddVariable(currentParams, "asym_massratio", &start_q, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-          LALInferenceAddMinMaxPrior(priorArgs,	"asym_massratio",	&qMin,	&qMax,	LALINFERENCE_REAL8_t);
-        }
+        LALInferenceRegisterUniformVariableREAL8(state, currentParams, "asym_massratio", start_q, qMin, qMax, LALINFERENCE_PARAM_LINEAR);
       }
     }
-  //}
-
-  /* Set up start time. */
-  ppt=LALInferenceGetProcParamVal(commandLine, "--time");
-  if (ppt) {
-    /* User has specified start time. */
-    timeParam = atof(ppt->value);
-  } else {
-    timeParam = starttime+gsl_ran_gaussian(GSLrandom,0.01);
   }
+
+
 
   ppt=LALInferenceGetProcParamVal(commandLine,"--fixTime");
   if(ppt){
-    LALInferenceAddVariable(currentParams, "time",            &timeParam   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_FIXED);
     if(lalDebugLevel>0) fprintf(stdout,"time fixed and set to %f\n",timeParam);
   }else{
-    LALInferenceAddVariable(currentParams, "time",            &timeParam   ,           LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "time", timeParam, timeMin, timeMax, LALINFERENCE_PARAM_LINEAR);
   }
-  LALInferenceAddMinMaxPrior(priorArgs, "time",     &timeMin, &timeMax,   LALINFERENCE_REAL8_t);
 
   if(!LALInferenceGetProcParamVal(commandLine,"--margphi")){
     ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhi");
     if(ppt){
-        LALInferenceAddVariable(currentParams, "phase",           &start_phase,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        if(lalDebugLevel>0) fprintf(stdout,"phase fixed and set to %f\n",start_phase);
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_FIXED);
+      if(lalDebugLevel>0) fprintf(stdout,"phase fixed and set to %f\n",start_phase);
     }else{
-        LALInferenceAddVariable(currentParams, "phase",           &start_phase,        LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
+      LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phase", start_phase, phiMin, phiMax, LALINFERENCE_PARAM_CIRCULAR);
     }
-    LALInferenceAddMinMaxPrior(priorArgs, "phase",     &phiMin, &phiMax,   LALINFERENCE_REAL8_t);
   }
 
   /* Jump in log distance if requested, otherwise use distance */
-  if(LALInferenceGetProcParamVal(commandLine,"--logdistance"))
-  { 
-      REAL8 logstartdist=log(start_dist);
-      REAL8 logdmin=log(Dmin);
-      REAL8 logdmax=log(Dmax);
-      ppt=LALInferenceGetProcParamVal(commandLine,"--fixDist");
-      if(ppt){
-        LALInferenceAddVariable(currentParams,"logdistance", &logstartdist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        if(lalDebugLevel>0) fprintf(stdout,"distance fixed and set to %f\n",start_dist);
-      }else{
-        LALInferenceAddVariable(currentParams,"logdistance", &logstartdist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-      }
-      LALInferenceAddMinMaxPrior(priorArgs, "logdistance",     &logdmin, &logdmax,   LALINFERENCE_REAL8_t);
+  if(LALInferenceGetProcParamVal(commandLine,"--use-logdistance")){
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", log(start_dist), log(Dmin), log(Dmax), LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+  } else {
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "distance", start_dist, Dmin, Dmax, LALInferenceGetProcParamVal(commandLine,"--fixDist")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
   }
-  else
-  {
-      ppt=LALInferenceGetProcParamVal(commandLine,"--fixDist");
-      if(ppt){
-        LALInferenceAddVariable(currentParams,"distance", &start_dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-        if(lalDebugLevel>0) fprintf(stdout,"distance fixed and set to %f\n",start_dist);
-      }else{
-        LALInferenceAddVariable(currentParams,"distance", &start_dist, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-      }
-      LALInferenceAddMinMaxPrior(priorArgs, "distance",     &Dmin, &Dmax,   LALINFERENCE_REAL8_t);
-  }
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--fixRa");
-  if(ppt){
-    LALInferenceAddVariable(currentParams, "rightascension",  &start_ra,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(lalDebugLevel>0) fprintf(stdout,"R.A. fixed and set to %f\n",start_ra);
-  }else{
-    LALInferenceAddVariable(currentParams, "rightascension",  &start_ra,      LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-  }
-  LALInferenceAddMinMaxPrior(priorArgs, "rightascension",     &raMin, &raMax,   LALINFERENCE_REAL8_t);
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--fixDec");
-  if(ppt){
-    LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(lalDebugLevel>0) fprintf(stdout,"declination fixed and set to %f\n",start_dec);
-  }else{
-    LALInferenceAddVariable(currentParams, "declination",     &start_dec,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-  }
-  LALInferenceAddMinMaxPrior(priorArgs, "declination",     &decMin, &decMax,   LALINFERENCE_REAL8_t);
-
-  ppt=LALInferenceGetProcParamVal(commandLine,"--fixPsi");
-  if(ppt){
-    LALInferenceAddVariable(currentParams, "polarisation",    &start_psi,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-    if(lalDebugLevel>0) fprintf(stdout,"polarisation fixed and set to %f\n",start_psi);
-  }else{
-    LALInferenceAddVariable(currentParams, "polarisation",    &start_psi,     LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-  }
-  LALInferenceAddMinMaxPrior(priorArgs, "polarisation",     &psiMin, &psiMax,   LALINFERENCE_REAL8_t);
-
+  
+  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "rightascension", start_ra, raMin, raMax, LALInferenceGetProcParamVal(commandLine,"--fixRa")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
+  
+  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "declination", start_dec, decMin, decMax, LALInferenceGetProcParamVal(commandLine,"--fixDec")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+  
+  LALInferenceRegisterUniformVariableREAL8(state, currentParams, "polarisation", start_psi, psiMin, psiMax, LALInferenceGetProcParamVal(commandLine,"--fixPsi")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+  
   if(frame==LALINFERENCE_FRAME_RADIATION){
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fixIota");
-    if(ppt){
-      LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(lalDebugLevel>0) fprintf(stdout,"iota fixed and set to %f\n",start_iota);
-    }else{
-      LALInferenceAddVariable(currentParams, "inclination",     &start_iota,            LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    }
-    LALInferenceAddMinMaxPrior(priorArgs, "inclination",     &iotaMin, &iotaMax,   LALINFERENCE_REAL8_t);
-  } /*else if(frame==LALINFERENCE_FRAME_SYSTEM){
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fixThetaJN");
-    if(ppt){
-      LALInferenceAddVariable(currentParams, "theta_JN", &start_theta_JN, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(lalDebugLevel>0) fprintf(stdout,"thetaJN fixed and set to %f\n",start_theta_JN);
-    }else{
-      LALInferenceAddVariable(currentParams, "theta_JN", &start_theta_JN, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_LINEAR);
-    }
-    LALInferenceAddMinMaxPrior(priorArgs, "theta_JN", &thetaJNmin, &thetaJNmax,   LALINFERENCE_REAL8_t);
-
-    ppt=LALInferenceGetProcParamVal(commandLine,"--fixPhiJL");
-    if(ppt){
-      LALInferenceAddVariable(currentParams, "phi_JL", &start_phi_JL, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_FIXED);
-      if(lalDebugLevel>0) fprintf(stdout,"phiJL fixed and set to %f\n",start_phi_JL);
-    }else{
-      LALInferenceAddVariable(currentParams, "phi_JL", &start_phi_JL, LALINFERENCE_REAL8_t, LALINFERENCE_PARAM_CIRCULAR);
-    }
-    LALInferenceAddMinMaxPrior(priorArgs, "phi_JL", &phiJLmin, &phiJLmax,   LALINFERENCE_REAL8_t);
-  }*/
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "inclination", start_iota, iotaMin, iotaMax, LALInferenceGetProcParamVal(commandLine,"--fixIota")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    
+  } else if(frame==LALINFERENCE_FRAME_SYSTEM){
+    
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "theta_JN", start_theta_JN, thetaJNmin, thetaJNmax, LALInferenceGetProcParamVal(commandLine,"--fixThetaJN")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_LINEAR);
+    
+    LALInferenceRegisterUniformVariableREAL8(state, currentParams, "phi_JL", start_phi_JL, phiJLmin, phiJLmax, LALInferenceGetProcParamVal(commandLine,"--fixPhiJL")?LALINFERENCE_PARAM_FIXED:LALINFERENCE_PARAM_CIRCULAR);
+    
+  }
 
   /* Check for spin disabled */
   ppt=LALInferenceGetProcParamVal(commandLine, "--noSpin");
@@ -1062,7 +987,7 @@ LALInferenceVariables *LALInferenceInitRingdownVariables(LALInferenceRunState *s
          
      /* Print info about orders and waveflags used for templates */
      fprintf(stdout,"\n\n---\t\t ---\n");
-     fprintf(stdout,"Templates will run using Approximant %i (%s) in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
+     fprintf(stdout,"Templates will run using ringdown Approximant %i (%s) in the %s domain.\n",approx,XLALGetStringFromApproximant(approx),modelDomain==LAL_SIM_DOMAIN_TIME?"time":"frequency");
      fprintf(stdout,"---\t\t ---\n\n");
   return(currentParams);
 }
