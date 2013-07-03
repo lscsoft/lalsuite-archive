@@ -778,7 +778,7 @@ class NDBins(tuple):
 			return volumes[0]
 		try:
 			return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(volumes)]), *volumes)
-		except NameError:
+		except AttributeError:
 			# numpy < 1.6
 			result = reduce(numpy.outer, volumes)
 			result.shape = tuple(len(v) for v in volumes)
@@ -1074,7 +1074,7 @@ def gaussian_window(*bins, **kwargs):
 		return windows[0]
 	try:
 		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
-	except NameError:
+	except AttributeError:
 		# numpy < 1.6
 		window = reduce(numpy.outer, windows)
 		window.shape = tuple(len(w) for w in windows)
