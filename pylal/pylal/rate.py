@@ -1033,27 +1033,54 @@ class BinnedRatios(object):
 #
 
 
-def gaussian_window(bins, sigma = 10):
+def gaussian_window(*bins, **kwargs):
 	"""
-	Generate a normalized (integral = 1) Gaussian window in 1
-	dimension.  bins sets the width of the window in bin count.  The
-	vector is created with an odd number of samples, and the Gaussian
-	is peaked on the middle sample.
+	Generate a normalized (integral = 1) Gaussian window in N
+	dimensions.  The bins parameters set the width of the window in bin
+	counts in each dimension.  The optional keyword argument sigma,
+	which defaults to 10, sets the size of the array in all dimensions
+	in units of the width in each dimension.  The sizes are adjusted so
+	that the array has an odd number of samples in each dimension, and
+	the Gaussian is peaked on the middle sample.
+
+	Example:
+
+	>>> # 2D window with width of 1.5 bins in first dimension,
+	>>> # 1 bin in second dimension, 3 widths long (rounded to odd
+	>>> # integer = 5 x 3 bins) in each dimension
+	>>> gaussian_window(1.5, 1, sigma = 3)
+	array([[ 0.00161887,  0.01196189,  0.00161887],
+	       [ 0.02329859,  0.17215456,  0.02329859],
+	       [ 0.05667207,  0.41875314,  0.05667207],
+	       [ 0.02329859,  0.17215456,  0.02329859],
+	       [ 0.00161887,  0.01196189,  0.00161887]])
 	"""
-	if bins <= 0:
-		raise ValueError(bins)
-	l = int(math.floor(sigma * bins / 2.0)) * 2
-	w = lal.CreateGaussREAL8Window(l + 1, l / float(bins))
-	return w.data.data / w.sum
+	if not bins:
+		raise ValueError("function requires at least 1 width")
+	sigma = kwargs.pop("sigma", 10)
+	if kwargs:
+		raise ValueError("unrecognized keyword argument(s): %s" % ",".join(kwargs))
+	windows = []
+	for b in bins:
+		if b <= 0:
+			raise ValueError(b)
+		l = int(math.floor(sigma * b / 2.0)) * 2
+		w = lal.CreateGaussREAL8Window(l + 1, l / float(b))
+		windows.append(w.data.data / w.sum)
+	if len(windows) == 1:
+		# 1D short cut
+		return windows[0]
+	try:
+		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
+	except NameError:
+		# numpy < 1.6
+		window = reduce(numpy.outer, windows)
+		window.shape = tuple(len(w) for w in windows)
+		return window
 
 
-def gaussian_window2d(bins_x, bins_y, sigma = 10):
-	"""
-	Generate a normalized (integral = 1) Gaussian window in 2
-	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts.
-	"""
-	return numpy.outer(gaussian_window(bins_x, sigma), gaussian_window(bins_y, sigma))
+# compatibility stub.  FIXME:  remove
+gaussian_window2d = gaussian_window
 
 
 def tophat_window(bins):
@@ -1061,6 +1088,11 @@ def tophat_window(bins):
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
 	bins sets the width of the window in bin counts, which is rounded
 	up to the nearest odd integer.
+
+	Example:
+
+	>>> tophat_window(4)
+	array([ 0.2,  0.2,  0.2,  0.2,  0.2])
 	"""
 	if bins <= 0:
 		raise ValueError(bins)
