@@ -994,7 +994,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                     continue
                 if etg.lower() == "omega" or etg.lower() == "omegaspectrum":
                     trigtable = omegautils.fromlalcache(segcache, start=seg[0],
-                                                        end=seg[1],
+                                                        end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
                 elif etg.lower() == "kw" or etg.lower() == "kleinewelle":
@@ -3392,7 +3392,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         for chan,trigtable in zip(allchannels, trigtables):
             tab.add_triggers(chan, trigtable)
             # CHECK ME
-            trig_seq = laldetchar.PopulateTrigSequence(trig_seq, trigtable, snr, [])
+            for tt in trigtable:
+                print tt
+                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, tt)
     print_verbose("All triggers loaded.\n", verbose=verbose)
 
     #
@@ -4328,21 +4330,6 @@ def process_squeezing(tab, cp, cpsec, verbose=False, doplots=True,\
     if not os.path.isdir(tab.directory):
         os.makedirs(tab.directory)
 
-    #
-    # load range directly from frames
-    #
-
-    if rangechannels and not htmlonly:
-
-        channelparams = parse_data_config(cp, cpsec, rangechannels)
-
-        for channel,params in zip(rangechannels, channelparams):
-            serieslist = get_data(cp, channel, tab.segments,\
-                                  frametype=params["frametype"],\
-                                  calibration=params["calibration"],\
-                                  resample=params["resample"])
-            series = PyLALConcatenateTimeSeries(*serieslist)
-            tab.add_timeseries(params["label"], series)
 
     #
     # load archived data
@@ -4369,11 +4356,11 @@ def process_squeezing(tab, cp, cpsec, verbose=False, doplots=True,\
                                    calibration=params[0]["calibration"],
                                    resample=params[0]["resample"],
                                    fresponse=params[0]["frequency-response"])
+
     serieslist = []
     for i in numpy.arange(1,4):
-        serieslist[i] = get_data(cp, rangechannels[i], tab.segments, frametype=params[i]["frametype"],
-                                 calibration=params[i]["calibration"],
-                                 resample=1.0/params[0]["time-step"])
+        serieslist.append(get_data(cp, rangechannels[i], tab.segments, frametype=params[i]["frametype"],
+                                   calibration=params[i]['calibration']))
 
 
     for i,spectrogram in enumerate(sequencelist):
@@ -4397,15 +4384,22 @@ def process_squeezing(tab, cp, cpsec, verbose=False, doplots=True,\
                 f = f_array
             span = Segment(seg[0]+j*deltaT, seg[0]+(j+1)*deltaT)
 
+            # compute squeezing parameters for this step
+            mediandata = []
+            for iParam in range(len(serieslist)):
+                tParam = (numpy.arange(serieslist[iParam][i].data.length) * serieslist[iParam][i].deltaT +
+                          float(serieslist[iParam][i].epoch))
+                mediandata.append(numpy.median(serieslist[iParam][i].data.data[(tParam>=seg[0]) & (tParam<seg[1])]))
+
             # loop over sources
             for k,s in enumerate(sources):
                 if s["type"] == "squeezing":
                     data[s["name"]][j] =\
                         rangeutils.squeezing(f, spectrum,\
-                                                 dc=serieslist[1][i][j],\
-                                                 opgain=serieslist[2][i][j],\
-                                                 cavpf=serieslist[3][i][j],\
-                                                 cal_fac=s["calibration-factor"], fmin=s["fmin"],\
+                                                 dc=mediandata[0],\
+                                                 opgain=mediandata[1],\
+                                                 cavpf=mediandata[2],\
+                                                 fmin=s["fmin"],\
                                                  fmax=s["fmax"])
 
             print_verbose("\b\b\b%.2d%%" % int((j+1)/S.length*100),\
@@ -5340,7 +5334,7 @@ if __name__=="__main__":
             run_states = parse_tab_states(statelist, cp, cpsec)
             parent = find_tab_parent(cp, cpsec, valid_parents,
                                      default="SQZ")
-            metatab = summary.MetaStateTab(cpsec[6:])
+            metatab = summary.MetaStateTab(cpsec)
             metatab.span = span
             metatab.parent = section_summary[parent]
             for state in run_states:
