@@ -240,7 +240,7 @@ class LinearPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError("n must be >= 3")
 		Bins.__init__(self, min, max, n)
-		self.delta = float(max - min) / (n-2)
+		self.delta = float(max - min) / (n - 2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -361,7 +361,7 @@ class LogarithmicPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError("n must be >= 3")
 		Bins.__init__(self, min, max, n)
-		self.delta = (math.log(max) - math.log(min)) / (n-2)
+		self.delta = (math.log(max) - math.log(min)) / (n - 2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -602,7 +602,7 @@ class IrregularBins(Bins):
 		return self.boundaries[1:]
 
 	def centres(self):
-		return (self.lower() + self.upper()) / 2
+		return (self.lower() + self.upper()) / 2.0
 
 
 class Categories(Bins):
@@ -1093,7 +1093,7 @@ def tophat_window2d(bins_x, bins_y):
 
 	# zero the bins outside the window
 	for x, y in iterutils.MultiIter(*map(range, window.shape)):
-		if ((x - window.shape[0] / 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] / 2) / float(bins_y) * 2.0)**2 > 1.0:
+		if ((x - window.shape[0] // 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] // 2) / float(bins_y) * 2.0)**2 > 1.0:
 			window[x, y] = 0.0
 
 	# normalize
@@ -1139,8 +1139,8 @@ def filter_array(a, window, cyclic = False):
 	for d in xrange(dims):
 		if window.shape[d] > a.shape[d]:
 			# largest odd integer <= size of a
-			n = ((a.shape[d] + 1) / 2) * 2 - 1
-			first = (window.shape[d] - n) / 2
+			n = ((a.shape[d] + 1) // 2) * 2 - 1
+			first = (window.shape[d] - n) // 2
 			window_slices.append(slice(first, first + n))
 		else:
 			window_slices.append(slice(0, window.shape[d]))
