@@ -801,7 +801,8 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
         vetoes = []
         for i,key in enumerate(keys):
             # get veto bit
-            append = key.startswith("-") and vetoes.append or flags.append
+            append = (key.startswith("-") or (i!=0 and divs[i-1] == "!") ) \
+                and vetoes.append or flags.append
             if key.lower() == "vetoes":
                 for v in veto_def_table:
                     flag = "%s:%s:%d" % (v.ifo, v.name, v.version)
