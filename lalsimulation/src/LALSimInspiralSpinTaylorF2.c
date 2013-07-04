@@ -284,9 +284,6 @@ int XLALSimInspiralSpinTaylorF2Harmonic(
         int mm                          /**< harmonic number [-2..2] */
        )
 {
-    const REAL8 lambda = -1987./3080.;
-    const REAL8 theta = -11831./9240.;
-
     /* external: SI; internal: solar masses */
     const REAL8 m1 = m1_SI / LAL_MSUN_SI;
     const REAL8 m2 = m2_SI / LAL_MSUN_SI;
@@ -332,7 +329,7 @@ int XLALSimInspiralSpinTaylorF2Harmonic(
     const REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI - pn_gamma;
     const REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI - pn_gamma *3.0;
     const REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
-                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
+                     + eta * (-15737765635.L/3048192.L + 2255./12. * LAL_PI * LAL_PI)
                      + eta*eta * 76055.L/1728.L
                      - eta*eta*eta*  127825.L/1296.L ;
     const REAL8 pfl6 = -6848.L/21.L;
