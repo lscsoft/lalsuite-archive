@@ -36,13 +36,6 @@
 #include <stdio.h>
 
 
-typedef struct tagLALSimInspiralSF2Orientation
-{
-    REAL8 thetaJ, psiJ;
-    REAL8 chi, kappa, alpha0;
-    REAL8 v_ref;
-} LALSimInspiralSF2Orientation;
-
 typedef struct tagLALSimInspiralSF2Coeffs
 {
     REAL8 m1, m2, mtot, eta;
@@ -53,11 +46,6 @@ typedef struct tagLALSimInspiralSF2Coeffs
 } LALSimInspiralSF2Coeffs;
 
 // Prototypes 
-void XLALSimInspiralSF2CalculateOrientation(
-    LALSimInspiralSF2Orientation *orientation,
-    REAL8 m1, REAL8 m2, REAL8 f_ref,
-    REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz,
-    REAL8 s1x, REAL8 s1y, REAL8 s1z);
 
 void XLALSimInspiralSF2CalculateCoeffs(
     LALSimInspiralSF2Coeffs *coeffs,
@@ -279,6 +267,213 @@ sf2_spin_corr sf2_spin_corrections(
     spin_corrections.gamma = sf2_gamma;
     return spin_corrections;
 }
+
+/**
+ * Computes a single harmonic of the SpinTaylorF2 approximation.
+ */
+int XLALSimInspiralSpinTaylorF2Harmonic(
+	COMPLEX16FrequencySeries **hplus_out, /**< frequency-domain waveform */
+	COMPLEX16FrequencySeries **hcross_out, /**< frequency-domain waveform */
+	REAL8 phic,                     /**< orbital coalescence phase (rad) */
+	REAL8 deltaF,                   /**< sampling frequency (Hz) */
+	REAL8 m1_SI,                    /**< mass of companion 1 (kg) */
+	REAL8 m2_SI,                    /**< mass of companion 2 (kg) */
+	REAL8 fStart,                   /**< start GW frequency (Hz) */
+	REAL8 r,                        /**< distance of source (m) */
+        LALSimInspiralSF2Orientation orientation,
+        int mm                          /**< harmonic number [-2..2] */
+       )
+{
+    const REAL8 lambda = -1987./3080.;
+    const REAL8 theta = -11831./9240.;
+
+    /* external: SI; internal: solar masses */
+    const REAL8 m1 = m1_SI / LAL_MSUN_SI;
+    const REAL8 m2 = m2_SI / LAL_MSUN_SI;
+    const REAL8 m = m1 + m2;
+    const REAL8 m_sec = m * LAL_MTSUN_SI;  /* total mass in seconds */
+    const REAL8 eta = m1 * m2 / (m * m);
+    const REAL8 piM = LAL_PI * m_sec;
+    const REAL8 vISCO = 1. / sqrt(6.);
+    const REAL8 fISCO = vISCO * vISCO * vISCO / piM;
+    const REAL8 v0 = cbrt(piM * fStart);
+    REAL8 shft, amp0, f_max;
+    size_t i, n, iStart, iISCO;
+    COMPLEX16 *data_p = NULL;
+    COMPLEX16 *data_x = NULL;
+    LIGOTimeGPS tC = {0, 0};
+
+    REAL8 alpha, alpha_ref, zeta, zeta_ref, beta;
+    COMPLEX16 prec_fac_p, prec_fac_x;
+
+    /* orientation.psiJ = orientation.psiJ + psi;
+     Add psi to get a different polarization if needed */
+
+    LALSimInspiralSF2Coeffs coeffs;
+    XLALSimInspiralSF2CalculateCoeffs(&coeffs, m1, m2, orientation.chi, orientation.kappa);
+
+    alpha_ref = XLALSimInspiralSF2Alpha(v0, coeffs) - orientation.alpha0;
+    zeta_ref = XLALSimInspiralSF2Zeta(v0, coeffs);
+ 
+    COMPLEX16 SBfac_p, SBfac_x; /* complex sideband factors, both polarizations, mm=2 is first entry */
+    SBfac_p = XLALSimInspiralSF2Polarization(orientation.thetaJ, orientation.psiJ, mm);
+    SBfac_x = XLALSimInspiralSF2Polarization(orientation.thetaJ, orientation.psiJ + LAL_PI/4., mm);
+
+    const REAL8 pn_beta = coeffs.pn_beta;
+    const REAL8 pn_sigma = coeffs.pn_sigma;
+    const REAL8 pn_gamma = coeffs.pn_gamma;
+
+    /* phasing coefficients */
+    const REAL8 pfaN = 3.L/(128.L * eta);
+    const REAL8 pfa2 = 5.L*(743.L/84.L + 11.L * eta)/9.L;
+    const REAL8 pfa3 = -16.L*LAL_PI + 4.L*pn_beta;
+    const REAL8 pfa4 = 5.L*(3058.673L/7.056L + 5429.L/7.L * eta
+                     + 617.L * eta*eta)/72.L - 10.L*pn_sigma;
+    const REAL8 pfa5 = 5.L/9.L * (7729.L/84.L - 13.L * eta) * LAL_PI - pn_gamma;
+    const REAL8 pfl5 = 5.L/3.L * (7729.L/84.L - 13.L * eta) * LAL_PI - pn_gamma *3.0;
+    const REAL8 pfa6 = (11583.231236531L/4.694215680L - 640.L/3.L * LAL_PI * LAL_PI - 6848.L/21.L*LAL_GAMMA)
+                     + eta * (-15335.597827L/3.048192L + 2255./12. * LAL_PI * LAL_PI - 1760./3.*theta +12320./9.*lambda)
+                     + eta*eta * 76055.L/1728.L
+                     - eta*eta*eta*  127825.L/1296.L ;
+    const REAL8 pfl6 = -6848.L/21.L;
+    const REAL8 pfa7 = LAL_PI * 5.L/756.L * ( 15419335.L/336.L + 75703.L/2.L * eta - 14809.L * eta*eta);
+
+    /* flux coefficients */
+    const REAL8 FTaN = XLALSimInspiralPNFlux_0PNCoeff(eta);
+    const REAL8 FTa2 = XLALSimInspiralPNFlux_2PNCoeff(eta);
+    const REAL8 FTa3 = XLALSimInspiralPNFlux_3PNCoeff(eta);
+    const REAL8 FTa4 = XLALSimInspiralPNFlux_4PNCoeff(eta);
+    const REAL8 FTa5 = XLALSimInspiralPNFlux_5PNCoeff(eta);
+    const REAL8 FTl6 = XLALSimInspiralPNFlux_6PNLogCoeff(eta);
+    const REAL8 FTa6 = XLALSimInspiralPNFlux_6PNCoeff(eta);
+    const REAL8 FTa7 = XLALSimInspiralPNFlux_7PNCoeff(eta);
+
+    /* energy coefficients */
+    const REAL8 dETaN = 2. * XLALSimInspiralPNEnergy_0PNCoeff(eta);
+    const REAL8 dETa1 = 2. * XLALSimInspiralPNEnergy_2PNCoeff(eta);
+    const REAL8 dETa2 = 3. * XLALSimInspiralPNEnergy_4PNCoeff(eta);
+    const REAL8 dETa3 = 4. * XLALSimInspiralPNEnergy_6PNCoeff(eta);
+
+    COMPLEX16FrequencySeries *htilde_p;
+    COMPLEX16FrequencySeries *htilde_x;
+
+    /* Perform some initial checks */
+    if (!hplus_out) XLAL_ERROR(XLAL_EFAULT);
+    if (*hplus_out) XLAL_ERROR(XLAL_EFAULT);
+    if (!hcross_out) XLAL_ERROR(XLAL_EFAULT);
+    if (*hcross_out) XLAL_ERROR(XLAL_EFAULT);
+    if (m1_SI <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (m2_SI <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (fStart <= 0) XLAL_ERROR(XLAL_EDOM);
+    if (r <= 0) XLAL_ERROR(XLAL_EDOM);
+
+    /* allocate htilde */
+    f_max = CeilPow2(fISCO);
+    n = f_max / deltaF + 1;
+    XLALGPSAdd(&tC, -1 / deltaF);  /* coalesce at t=0 */
+    htilde_p = XLALCreateCOMPLEX16FrequencySeries("htilde plus: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
+    if (!htilde_p) XLAL_ERROR(XLAL_EFUNC);
+    htilde_x = XLALCreateCOMPLEX16FrequencySeries("htilde cross: FD waveform", &tC, 0.0, deltaF, &lalStrainUnit, n);
+    if (!htilde_x) XLAL_ERROR(XLAL_EFUNC);
+    memset(htilde_p->data->data, 0, n * sizeof(COMPLEX16));
+    XLALUnitDivide(&htilde_p->sampleUnits, &htilde_p->sampleUnits, &lalSecondUnit);
+    memset(htilde_x->data->data, 0, n * sizeof(COMPLEX16));
+    XLALUnitDivide(&htilde_x->sampleUnits, &htilde_x->sampleUnits, &lalSecondUnit);
+
+    /* extrinsic parameters */
+    amp0 = -4. * m1 * m2 / r * LAL_MRSUN_SI * LAL_MTSUN_SI * sqrt(LAL_PI/12.L);
+    shft = -LAL_TWOPI * (tC.gpsSeconds + 1e-9 * tC.gpsNanoSeconds);
+
+    iStart = (size_t) ceil(fStart / deltaF);
+    iISCO = (size_t) (fISCO / deltaF);
+    iISCO = (iISCO < n) ? iISCO : n;  /* overflow protection; should we warn? */
+    data_p = htilde_p->data->data;
+    data_x = htilde_x->data->data;
+    for (i = iStart; i < iISCO; i++) {
+        const REAL8 f = i * deltaF;
+        const REAL8 v = cbrt(piM*f);
+        const REAL8 v2 = v * v;
+        const REAL8 v3 = v * v2;
+        const REAL8 v4 = v * v3;
+        const REAL8 v5 = v * v4;
+        const REAL8 v6 = v * v5;
+        const REAL8 v7 = v * v6;
+        const REAL8 v8 = v * v7;
+        const REAL8 v9 = v * v8;
+        const REAL8 v10 = v * v9;
+        REAL8 phasing = 0.;
+        REAL8 dEnergy = 0.;
+        REAL8 flux = 0.;
+        REAL8 amp;
+
+        /* Let's not bother with phasings other than best-known */
+        phasing += pfa7 * v7;
+        phasing += (pfa6 + pfl6 * log(4.*v) ) * v6;
+        phasing += (pfa5 + pfl5 * log(v/v0)) * v5;
+        phasing += pfa4 * v4;
+        phasing += pfa3 * v3;
+        phasing += pfa2 * v2;
+        phasing += 1.;
+
+        switch (0) /* Also turn off amplitude corrections */
+        {
+            case -1:
+            case 7:
+                flux += FTa7 * v7;
+            case 6:
+                flux += (FTa6 + FTl6*log(16.*v2)) * v6;
+                dEnergy += dETa3 * v6;
+            case 5:
+                flux += FTa5 * v5;
+            case 4:
+                flux += FTa4 * v4;
+                dEnergy += dETa2 * v4;
+            case 3:
+                flux += FTa3 * v3;
+            case 2:
+                flux += FTa2 * v2;
+                dEnergy += dETa1 * v2;
+            case 0:
+                flux += 1.;
+                dEnergy += 1.;
+                break;
+            default:
+                XLALDestroyCOMPLEX16FrequencySeries(htilde_p);
+                XLALDestroyCOMPLEX16FrequencySeries(htilde_x);
+                XLAL_ERROR(XLAL_ETYPE);
+        }
+        phasing *= pfaN / v5;
+        flux *= FTaN * v10;
+        dEnergy *= dETaN * v;
+
+        alpha = XLALSimInspiralSF2Alpha(v, coeffs) - alpha_ref;
+        beta = XLALSimInspiralSF2Beta(v, coeffs);
+        zeta = XLALSimInspiralSF2Zeta(v, coeffs) - zeta_ref;
+
+        prec_fac_p =
+                XLALSimInspiralSF2Emission(beta, mm)
+                * SBfac_p
+                * ( cos( (mm-2.) * alpha) + sin( (mm-2.) * alpha)*1.0j );
+        prec_fac_x =
+                XLALSimInspiralSF2Emission(beta, mm)
+                * SBfac_x
+                * ( cos( (mm-2.) * alpha) + sin( (mm-2.) * alpha)*1.0j );
+
+        // Note the factor of 2 b/c phic is orbital phase
+        phasing += shft * f - 2.*phic - LAL_PI_4;
+        phasing += 2.*zeta;
+        amp = amp0 * sqrt(-dEnergy/flux) * v;
+        data_p[i] = ((COMPLEX16)amp)*prec_fac_p*(cos(phasing) - sin(phasing) * 1.0j);
+        data_x[i] = ((COMPLEX16)amp)*prec_fac_x*(cos(phasing) - sin(phasing) * 1.0j);
+    }
+
+    *hplus_out = htilde_p;
+    *hcross_out = htilde_x;
+    return XLAL_SUCCESS;
+}
+
+
+
 /**
  * Computes the stationary phase approximation to the Fourier transform of
  * a chirp waveform with phase given by \eqref{eq_InspiralFourierPhase_f2}

@@ -1842,6 +1842,34 @@ int XLALSimInspiralTaylorF2(
 		const INT4 amplitudeO           /**< twice PN amplitude order */
 		);
 
+/* SpinTaylorF2 stuff */
+
+typedef struct tagLALSimInspiralSF2Orientation
+{
+    REAL8 thetaJ, psiJ;
+    REAL8 chi, kappa, alpha0;
+    REAL8 v_ref;
+} LALSimInspiralSF2Orientation;
+
+void XLALSimInspiralSF2CalculateOrientation(
+    LALSimInspiralSF2Orientation *orientation,
+    REAL8 m1, REAL8 m2, REAL8 f_ref,
+    REAL8 lnhatx, REAL8 lnhaty, REAL8 lnhatz,
+    REAL8 s1x, REAL8 s1y, REAL8 s1z);
+
+int XLALSimInspiralSpinTaylorF2Harmonic(
+	COMPLEX16FrequencySeries **hplus_out, /**< frequency-domain waveform */
+	COMPLEX16FrequencySeries **hcross_out, /**< frequency-domain waveform */
+	REAL8 phic,                     /**< orbital coalescence phase (rad) */
+	REAL8 deltaF,                   /**< sampling frequency (Hz) */
+	REAL8 m1_SI,                    /**< mass of companion 1 (kg) */
+	REAL8 m2_SI,                    /**< mass of companion 2 (kg) */
+	REAL8 fStart,                   /**< start GW frequency (Hz) */
+	REAL8 r,                        /**< distance of source (m) */
+        LALSimInspiralSF2Orientation orientation,
+        int mm                          /**< harmonic number [-2..2] */
+        );
+
 int XLALSimInspiralSpinTaylorF2(
 	COMPLEX16FrequencySeries **htilde_out, /**< frequency-domain waveform */
 	REAL8 psi,                      /**< desired polarization */
