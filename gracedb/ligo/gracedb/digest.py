@@ -30,44 +30,29 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("digest")
 
 
-def _download_to_strio(client, graceid, filename):
-    """Download a file from GraCEDb into an in-memory string, wrapped in a
-    file-like object. Raise an IOError if anything goes wrong with the data
-    transfer."""
-    from cStringIO import StringIO
-    strio = StringIO()
-    response = client.download(graceid, filename, strio)
-    if response:
-        raise IOError(response)
-    return strio
-
-
-def get_digest(graceid, *args, **kwargs):
+def get_digest(graceid):
     """Look up an event in GraCEDb by its event id and return a digest as dictionary."""
-    from ligo import gracedb
+    from ligo.gracedb.rest import GraceDb
     from cStringIO import StringIO
     import glue.ligolw.utils as ligolw_utils
     import glue.ligolw.table as ligolw_table
     import glue.ligolw.lsctables as ligolw_lsctables
-    import healpy
+    from lalinference.bayestar import fits
 
-    client = gracedb.Client(*args, **kwargs)
+    client = GraceDb()
     log.info("started GraCEDb client")
 
     # Read the coinc.xml file.
     filename = "coinc.xml"
     try:
-        strio = _download_to_strio(client, graceid, filename)
-    except IOError:
+        infile = client.files(graceid, filename)
+    except:
         log.exception("%s:could not retrieve %s", graceid, filename)
         raise
     log.info("%s:retrieved %s", graceid, filename)
 
-    # Now rewind to the beginning of the file.
-    strio.seek(0)
-
     # Parse the file as LIGO-LW XML.
-    xmldoc, digest = ligolw_utils.load_fileobj(strio)
+    xmldoc, digest = ligolw_utils.load_fileobj(infile)
 
     # Retrieve the tables that we need.
     process_table = ligolw_table.get_table(xmldoc, ligolw_lsctables.ProcessTable.tableName)
@@ -93,18 +78,16 @@ def get_digest(graceid, *args, **kwargs):
     }
 
     # Now try to retrieve skymap.
-    filename = "general/bayestar/skymap.fits"
+    filename = "skymap.fits.gz"
     try:
-        strio = _download_to_strio(client, graceid, filename)
-
-        # Now rewind to the beginning of the file.
-        strio.seek(0)
-    except IOError:
+        infile = client.files(graceid, filename)
+    except:
         log.exception("%s:could not retrieve %s", graceid, filename)
-    else:
-        log.info("%s:retrieved %s", graceid, filename)
-        digest["skymap"] = healpy.read_map(strio)
-        log.info("extracted HEALPix map")
+        raise
+
+    log.info("%s:retrieved %s", graceid, filename)
+    digest["skymap"], metadata = fits.read_sky_map(infile)
+    log.info("extracted HEALPix map")
 
     return digest
 
