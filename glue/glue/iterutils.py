@@ -62,10 +62,10 @@ def MultiIter(*sequences):
 	The elements in each output tuple are in the order of the input
 	sequences, and the left-most input sequence is iterated over first.
 
-	The input sequences are each iterated over only once, so it is safe
-	to pass generators as arguments.  Also, this generator is
-	significantly faster if the longest input sequence is given as the
-	first argument.  For example, this code
+	Internally, the input sequences themselves are each iterated over
+	only once, so it is safe to pass generators as arguments.  Also,
+	this generator is significantly faster if the longest input
+	sequence is given as the first argument.  For example, this code
 
 	>>> lengths = range(1, 12)
 	>>> for x in MultiIter(*map(range, lengths)):
@@ -146,7 +146,7 @@ def choices(vals, n):
 		yield ()
 	else:
 		# n < 0
-		raise ValueError, n
+		raise ValueError(n)
 
 
 def uniq(iterable):
@@ -320,7 +320,7 @@ def inorder(*iterables, **kwargs):
 	except KeyError:
 		keyfunc = lambda x: x  # identity
 	if kwargs:
-		raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
+		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next
