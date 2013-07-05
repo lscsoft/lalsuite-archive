@@ -98,7 +98,10 @@ def get_digest(graceid):
         shutil.copyfileobj(infile, tempfile)
         tempfile.flush()
         tempfile.seek(0)
-        digest["skymap"], metadata = fits.read_sky_map(tempfile.name)
+        skymap, metadata = fits.read_sky_map(tempfile.name)
+    # Convert sky map from a Numpy array to a Python list, because
+    # lists are JSON-serializable but Numpy arrays are not.
+    digest["skymap"] = skymap.tolist()
     log.info("extracted HEALPix map")
 
     return digest
