@@ -3,7 +3,7 @@
 import os, glob, optparse, shutil, warnings, matplotlib, pickle, math, copy, pickle
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.signal, scipy.stats
+import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
 from collections import namedtuple
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
@@ -71,12 +71,12 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     if not os.path.isdir(timeseriesLocation):
         os.makedirs(timeseriesLocation)
 
-    rmsLocation = params["dirPath"] + "/Text_Files/RMS/" + channel.station_underscore
-    if not os.path.isdir(rmsLocation):
-        os.makedirs(rmsLocation)
-    rmsLocation = os.path.join(rmsLocation,str(params["fftDuration"]))
-    if not os.path.isdir(rmsLocation):
-        os.makedirs(rmsLocation)
+    envelopeLocation = params["dirPath"] + "/Text_Files/Envelope/" + channel.station_underscore
+    if not os.path.isdir(envelopeLocation):
+        os.makedirs(envelopeLocation)
+    envelopeLocation = os.path.join(envelopeLocation,str(params["fftDuration"]))
+    if not os.path.isdir(envelopeLocation):
+        os.makedirs(envelopeLocation)
 
     psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
     f = open(psdFile,"wb")
@@ -101,10 +101,10 @@ def save_data(params,channel,gpsStart,gpsEnd,data):
     f.write("%.2f %e\n"%(data["time"][datahighpass_argmax],data["dataHighpass"][datahighpass_argmax]))
     f.close()
 
-    rmsFile = os.path.join(rmsLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
-    f = open(rmsFile,"wb")
-    for i in xrange(len(data["timeRMS"])):
-        f.write("%.0f %e\n"%(data["timeRMS"][i],data["dataRMS"][i]))
+    envelopeFile = os.path.join(envelopeLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+    f = open(envelopeFile,"wb")
+    for i in xrange(len(data["timeEnvelope"])):
+        f.write("%.0f %e\n"%(data["timeEnvelope"][i],data["dataEnvelope"][i]))
     f.close()
 
 def normalize_timeseries(data):  
@@ -124,6 +124,12 @@ def normalize_timeseries(data):
  
     return dataNorm
 
+def envelope(data):
+
+    hilb = scipy.fftpack.hilbert(data)
+    data = (data ** 2 + hilb ** 2) ** 0.5
+    return data
+
 def mat(params, channel, segment):
 
     gpsStart = segment[0]
@@ -140,14 +146,23 @@ def mat(params, channel, segment):
     dataHighpass = pylal.dq.dqDataUtils.highpass(dataFull,channel.samplef,1.0)
     dataRMS = pylal.dq.dqDataUtils.blrms(dataFull, channel.samplef, average=1, band=[0,1])
 
+    #dataLowpass = scipy.ndimage.filters.gaussian_filter(dataFull,100)
+
+    dataLowpass[:2*channel.samplef] = dataLowpass[2*channel.samplef]
+    dataLowpass[-2*channel.samplef:] = dataLowpass[-2*channel.samplef]
+
+    dataLowpass = dataLowpass - np.mean(dataLowpass)
+    dataEnvelope = envelope(dataLowpass)
+
     data = {}
     data["time"] = time
     data["data"] = dataFull
     data["dataLowpass"] = dataLowpass
     data["dataHighpass"] = dataHighpass
+    data["dataEnvelope"] = dataEnvelope
 
-    data["timeRMS"] = time[0] + range(len(dataRMS))
-    data["dataRMS"] = dataRMS
+    data["timeEnvelope"] = np.arange(np.min(time),np.max(time))
+    data["dataEnvelope"] = np.interp(data["timeEnvelope"],time,dataEnvelope)
 
     NFFT = params["fftDuration"]*channel.samplef
     spectra, freq = matplotlib.pyplot.psd(data["data"], NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
@@ -232,6 +247,7 @@ def mat(params, channel, segment):
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Rtime,color='g',linewidth=2,zorder = 0,clip_on=False)
 
+        plt.legend(loc=4,prop={'size':10})
         plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
         plt.ylabel("Normalized Amplitude")
         plt.xlim([np.min(time),np.max(time)])
@@ -245,6 +261,23 @@ def mat(params, channel, segment):
             plt.savefig(os.path.join(plotLocation,"timeseries.png"),dpi=200)
             plt.savefig(os.path.join(plotLocation,"timeseries.eps"),dpi=200)
         plt.close('all')
+    
+        plt.plot(time,data["dataLowpass"],'k',label='data')
+        plt.plot(data["timeEnvelope"]-startTime,data["dataEnvelope"],'r--',label='envelope')
+        plt.legend(loc=4,prop={'size':10})
+        plt.xlabel("Time [s] [%s (%d)]"%(startTimeUTCString,startTime))
+        plt.ylabel("Normalized Amplitude")
+        plt.xlim([np.min(time),np.max(time)])
+
+        plt.show()
+        if params["doEarthquakesAnalysis"]:
+            plt.savefig(os.path.join(plotLocation,"envelope-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"envelope-%d-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
+        else:
+            plt.savefig(os.path.join(plotLocation,"envelope.png"),dpi=200)
+            plt.savefig(os.path.join(plotLocation,"envelope.eps"),dpi=200)
+        plt.close('all')
+
 
         fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
 

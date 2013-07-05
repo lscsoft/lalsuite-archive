@@ -99,7 +99,7 @@ def run_earthquakes_monitor(params):
         thisTTStart = int(txtFileSplit[0])
         thisTTEnd = int(txtFileSplit[1])
 
-        if thisTTStart < params["gpsStart"]:
+        if (thisTTStart < params["gpsStart"]) or (thisTTEnd > params["gpsEnd"]):
             continue
 
         ttStart.append(thisTTStart)
@@ -147,10 +147,13 @@ def run_earthquakes_monitor(params):
             txtFileSplit = txtFile.split("-")
             thisTTStart = int(txtFileSplit[0])
             thisTTEnd = int(txtFileSplit[1])
-    
+   
+            if (thisTTStart < params["gpsStart"]) or (thisTTEnd > params["gpsEnd"]):
+                continue
+ 
             ttStart.append(thisTTStart)
             ttEnd.append(thisTTEnd)
-   
+
             data_out = np.loadtxt(file)
             thisSpectra_out = data_out[:,1]
             thisFreq_out = data_out[:,0]
@@ -246,6 +249,8 @@ def run_earthquakes(params):
 
         attributeDic = calculate_traveltimes(attributeDic)
 
+        if not ifo in attributeDic["traveltimes"]:
+            continue
         traveltimes = attributeDic["traveltimes"][ifo]
 
         gpsStart = max(traveltimes["Rtimes"]) - 200
@@ -264,10 +269,17 @@ def run_earthquakes(params):
     if not os.path.isdir(plotsDirectory):
         os.makedirs(plotsDirectory)
 
+    thresholds = {}
+    for channel in params["channels"]:
+        thresholds[channel.station_underscore] = 0
+
     for attributeDic in attributeDics:
-        traveltimes = attributeDic["traveltimes"][ifo]
 
         attributeDic = calculate_traveltimes(attributeDic)
+        if not ifo in attributeDic["traveltimes"]:
+            continue
+
+        traveltimes = attributeDic["traveltimes"][ifo]
 
         gpsStart = max(traveltimes["Rtimes"]) - 200
         gpsEnd = max(traveltimes["Rtimes"]) + 200
@@ -289,7 +301,8 @@ def run_earthquakes(params):
                 sorted_data_rms = sorted(data_rms,reverse=True)
                 pvalue = 0.001
                 index = np.floor(pvalue*len(sorted_data_rms))
-                thresholds[channel.station_underscore] = sorted_data_rms[index.astype(int)]
+                if len(sorted_data_rms) > 0:
+                    thresholds[channel.station_underscore] = sorted_data_rms[index.astype(int)]
 
             time_rms,data_rms = get_rms(gpsStart,gpsEnd,rmsFiles)
             time_rms = np.array(time_rms)
@@ -305,7 +318,7 @@ def run_earthquakes(params):
 
                 timeEstimate = time_rms_argmax
                 attributeDic["traveltimes"][ifo]["Restimate"] = timeEstimate
-                attributeDic["traveltimes"][ifo]["Rfestimate"] = distance/(timeEstimate-traveltimes["Rtimes"][0])
+                #attributeDic["traveltimes"][ifo]["Rfestimate"] = distance/(timeEstimate-traveltimes["Rtimes"][0])
                 attributeDic["traveltimes"][ifo]["threshold"] = thresholds[channel.station_underscore]
 
                 plotName = os.path.join(earthquakesDirectory,"%s-%d-%d.png"%(channel.station_underscore,\
@@ -612,8 +625,12 @@ def do_kdtree(combined_x_y_arrays,points):
 
 def ifotraveltimes(attributeDic,ifo,ifolat,ifolon):
 
-    from obspy.taup.taup import getTravelTimes
-    from obspy.core.util.geodetics import gps2DistAzimuth
+    try:
+        from obspy.taup.taup import getTravelTimes
+        from obspy.core.util.geodetics import gps2DistAzimuth
+    except:
+        print "Enable ObsPy if updated earthquake estimates desired...\n"
+        return attributeDic
 
     distance,fwd,back = gps2DistAzimuth(attributeDic["Latitude"],attributeDic["Longitude"],ifolat,ifolon)
     distances = np.linspace(0,distance,1000)

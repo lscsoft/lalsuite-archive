@@ -27,28 +27,6 @@ import pylal.pylal_seismon_eqmon
 #
 # =============================================================================
 
-def plot_rms(params,time,data,traveltimes,plotName):
-
-    startTime = np.min(time)
-    endTime = np.max(time)
-    time = time - startTime
-
-    peakTime = traveltimes["Restimate"] - startTime
-
-    threshold = traveltimes["threshold"] 
-
-    plt.semilogy(time,data, 'k')
-    title_text = "Rf: %f"%(traveltimes["Rfestimate"])
-    plt.axvline(x=peakTime,color='r')
-    plt.axhline(y=threshold,color='b')
-
-    plt.xlabel('Time [s]')
-    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
-    plt.title(title_text)
-    plt.show()
-    plt.savefig(plotName,dpi=200)
-    plt.close('all')
-
 def restimates(params,attributeDics,plotName):
 
     if params["ifo"] == "H1":
@@ -65,7 +43,8 @@ def restimates(params,attributeDics,plotName):
     gps = []
     magnitudes = []
     for attributeDic in attributeDics:
-        if not "Restimate" in attributeDic["traveltimes"][ifo]:
+
+        if "Restimate" not in attributeDic["traveltimes"][ifo]:
             continue
 
         travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][-1]
@@ -317,6 +296,10 @@ def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
     traveltimes = []
 
     for attributeDic in attributeDics:
+
+        if not ifo in attributeDic["traveltimes"]:
+            continue
+
         if traveltimes == []:
             arrivalTimes = [max(attributeDic["traveltimes"][ifo]["Rtimes"]),max(attributeDic["traveltimes"][ifo]["Stimes"]),max(attributeDic["traveltimes"][ifo]["Ptimes"])]
             traveltimes = np.array(arrivalTimes)
@@ -427,7 +410,7 @@ def worldmap_plot(params,attributeDics,type,plotName):
 
     for attributeDic in attributeDics:
 
-        if type == "Restimates" and not "Restimate" in attributeDic["traveltimes"][ifo]:
+        if type == "Restimates" and "Restimate" not in attributeDic["traveltimes"][ifo]:
             continue
 
         x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
@@ -463,9 +446,12 @@ def worldmap_plot(params,attributeDics,type,plotName):
                 vmax=vmax
         )
 
-    cbar=plt.colorbar()
-    cbar.set_label(colorbar_label)
-    cbar.set_clim(vmin=vmin,vmax=vmax)
+    try:
+       cbar=plt.colorbar()
+       cbar.set_label(colorbar_label)
+       cbar.set_clim(vmin=vmin,vmax=vmax)
+    except:
+       pass
     plt.show()
     plt.savefig(plotName,dpi=200)
     plt.close('all')
@@ -519,6 +505,9 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
 
 
     for attributeDic in attributeDics:
+
+        if attributeDic["traveltimes"] == {}:
+            continue
 
         ifoNames = []
         ifoDist = []
