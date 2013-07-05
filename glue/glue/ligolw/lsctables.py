@@ -35,13 +35,6 @@ interested users.
 import numpy
 from xml import sax
 
-try:
-	any
-	all
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any, all
-
 
 from glue import git_version
 from glue import iterutils
