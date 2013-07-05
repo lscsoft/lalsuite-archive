@@ -92,32 +92,6 @@ def get_digest(graceid):
     return digest
 
 
-def put_digest_fits(fileobj, digest):
-    """Format the digest as a FITS file and write to fileobj."""
-    # FIXME: This just writes a FITS header, not a whole FITS file.
-    # For the sky map, do we want to use the 'HEALPix' format or
-    # the WCS 'HPX' format? Find out which is more commonly used.
-
-    from astropy.io import fits
-    import lal
-    import datetime
-
-    date_obs = datetime.datetime(*lal.GPSToUTC(long(digest["geocent_end_time"]))[:-2]).isoformat()
-    date = datetime.datetime.now().isoformat()
-
-    header = fits.Header()
-    header.append(("OBS_ID", digest["graceid"], "unique observation ID"))
-    header.append(("SNR", digest["snr"], "network signal to noise ratio (dimensionless)"))
-    header.append(("FAR", digest["false_alarm_rate"], "false alarm rate (Hz)")) # FIXME: what units?
-    header.append(("DATE-OBS", date_obs, "date of the observation"))
-    header.append(("DATE", date, "date of file creation"))
-    header.append(("MCHIRP", digest["mchirp"], "chirp mass (solar masses)"))
-    header.append(("MTOTAL", digest["mtotal"], "total mass (solar masses)"))
-
-    log.info("writing fits")
-    print >>fileobj, str(header).strip()
-
-
 def put_digest_voevent(fileobj, digest):
     """Format the digest as a VOEvent and write to fileobj."""
     log.info("writing voevent")
@@ -144,13 +118,12 @@ if __name__ == "__main__":
 
     # Dictionary that maps command line arguments -> functions.
     putters = {
-        "fits": put_digest_fits,
         "voevent": put_digest_voevent,
         "madlibs": put_digest_madlibs,
         "json": put_digest_json
     }
 
-    default_putter = "fits"
+    default_putter = "json"
 
     # Command line interface.
     import optparse
