@@ -209,31 +209,9 @@ def flatten(sequence, levels = 1):
 #
 
 
-try:
-	any = any
-	all = all
-except NameError:
-	# These short-circuit, returning as soon as the return value can be
-	# determined.  These are a factor of a few slower than Python 2.5's
-	# implementation.
-	def any(S):
-		"""
-		any(iterable) -> bool
-
-		Return True if bool(x) is True for any x in the iterable.
-		"""
-		for x in S:
-			if x: return True
-		return False
-	def all(S):
-		"""
-		all(iterable) -> bool
-
-		Return True if bool(x) is True for all values x in the iterable.
-		"""
-		for x in S:
-			if not x: return False
-		return True
+# FIXME:  remove when nothing is trying to use these symbols
+any = any
+all = all
 
 
 #
