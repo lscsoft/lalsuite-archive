@@ -33,7 +33,6 @@ log = logging.getLogger("digest")
 def get_digest(graceid):
     """Look up an event in GraCEDb by its event id and return a digest as dictionary."""
     from ligo.gracedb.rest import GraceDb
-    from cStringIO import StringIO
     import glue.ligolw.utils as ligolw_utils
     import glue.ligolw.table as ligolw_table
     import glue.ligolw.lsctables as ligolw_lsctables
