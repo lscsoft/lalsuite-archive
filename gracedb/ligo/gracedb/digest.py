@@ -38,6 +38,8 @@ def get_digest(graceid):
     import glue.ligolw.table as ligolw_table
     import glue.ligolw.lsctables as ligolw_lsctables
     from lalinference.bayestar import fits
+    import tempfile
+    import shutil
 
     client = GraceDb()
     log.info("started GraCEDb client")
@@ -86,7 +88,17 @@ def get_digest(graceid):
         raise
 
     log.info("%s:retrieved %s", graceid, filename)
-    digest["skymap"], metadata = fits.read_sky_map(infile)
+    # FIXME: We have to save the retrieved file contents to a temporary
+    # file on disk because PyFITS does not support gzip decompression from
+    # file-like objects. The astropy.io.fits module does not have this
+    # limitation; when Astropy becomes a little bit more mature, we could
+    # get rid of this temporary file and just read the HEALPix map directly
+    # from the HTTP response object.
+    with tempfile.NamedTemporaryFile(suffix=".fits.gz", prefix="skymap") as tempfile:
+        shutil.copyfileobj(infile, tempfile)
+        tempfile.flush()
+        tempfile.seek(0)
+        digest["skymap"], metadata = fits.read_sky_map(tempfile.name)
     log.info("extracted HEALPix map")
 
     return digest
