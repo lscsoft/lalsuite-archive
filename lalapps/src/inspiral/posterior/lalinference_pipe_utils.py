@@ -265,8 +265,8 @@ def scan_timefile(timefile):
       if not p.match(time):
 	continue
       if float(time) in times:
-	print 'Skipping duplicate time %s'%(time)
-	continue
+	print 'NOT Skipping duplicate time %s (lalinfernece_pipe_utils.py 268)'%(time)
+	#continue
       print 'Read time %s'%(time)
       times.append(float(time))
     timefilehandle.close()
@@ -348,7 +348,6 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     conffilename=os.path.join(self.basepath,'config.ini')
     with open(conffilename,'wb') as conffile:
       self.config.write(conffile)
-    
     # Generate the DAG according to the config given
     if self.engine=='lalinferencenest':
       for event in self.events: self.add_full_analysis_lalinferencenest(event)
@@ -431,7 +430,33 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # ASCII list of GPS times
     if self.config.has_option('input','gps-time-file'):
       times=scan_timefile(self.config.get('input','gps-time-file'))
-      events=[Event(trig_time=time) for time in times]
+      if self.config.has_option('input','timeslides-ascii'):
+          dest=self.config.get('input','timeslides-ascii')
+          if not os.path.isfile(dest):
+              print "ERROR the ascii file %s containing the timeslides do not exist\n"%dest
+              exit(1)
+          else:
+              from numpy import loadtxt
+              data=loadtxt(dest)
+              if len(self.ifos)!= len(data[0,:]):
+                  print "ERROR: ascii timeslide file must contain a column for each IFO used in the analysis!\n"
+                  exit(1)
+              if len(times)!=len(data[:,0]):
+                  print 'ERROR: ascii timeslide must contain a row for each trigtime. Exiting...\n'
+                  exit(1)
+                  
+              timeslides={}
+              this_time=0
+              for time in times:
+                  timeslides[time]={}
+                  this_ifo=0
+                  for ifo in self.ifos:
+                      timeslides[time][ifo]=data[this_time,this_ifo]
+                      this_ifo+=1
+                  this_time+=1
+          events=[Event(trig_time=time,timeslide_dict=timeslides[time]) for time in times]
+      else:
+          events=[Event(trig_time=time) for time in times]
     # Siminspiral Table
     if self.config.has_option('input','injection-file'):
       from pylal import SimInspiralUtils
