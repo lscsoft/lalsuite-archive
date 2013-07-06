@@ -27,6 +27,40 @@ import pylal.pylal_seismon_eqmon
 #
 # =============================================================================
 
+def plot_envelope(params,time,data,traveltimes,plotName):
+
+    plotNameSplit = plotName.split("/")
+    plotTitle = plotNameSplit[-1].replace(".png","")
+
+    time = np.array(time)
+    data = np.array(data)
+
+    startTime = np.min(time)
+    endTime = np.max(time)
+
+    time = time - startTime
+
+    Ptime = traveltimes["Ptimes"][-1] - startTime
+    Stime = traveltimes["Stimes"][-1] - startTime
+    Rtime = traveltimes["Rtimes"][-1] - startTime
+
+    plt.plot(time,data, 'k')
+    plt.axvline(x=Ptime,color='r')
+    plt.axvline(x=Stime,color='b')
+    plt.axvline(x=Rtime,color='g')
+    plt.text(Ptime, -0.05, 'P', fontsize=18, ha='center', va='top')
+    plt.text(Stime, -0.05, 'S', fontsize=18, ha='center', va='top')
+    plt.text(Rtime, -0.05, 'R', fontsize=18, ha='center', va='top')
+    #xlim([min(time), max(time)])
+    plt.xlim([0, endTime-startTime])
+    plt.ylim([0, 1])
+    plt.xlabel('Time [s]')
+    plt.ylabel("%.0f - %.0f"%(startTime,endTime))
+    plt.title(plotTitle)
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
 def restimates(params,attributeDics,plotName):
 
     if params["ifo"] == "H1":
@@ -68,6 +102,9 @@ def restimates(params,attributeDics,plotName):
     plt.close('all')
 
 def prediction(data,plotName):
+
+    if len(data["prediction"]["tt"]) == 0:
+        return
 
     timeStart = data["prediction"]["tt"][0]
     t = data["prediction"]["tt"] - timeStart
