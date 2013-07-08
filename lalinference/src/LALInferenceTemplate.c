@@ -1343,14 +1343,14 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
       REAL8TimeSeries *hplus=NULL;  /**< +-polarization waveform */
       REAL8TimeSeries *hcross=NULL; /**< x-polarization waveform */
       //    REAL8TimeSeries       *signalvecREAL8=NULL;
-      REAL8 Q, centre_frequency,hrss,loghrss,eccentricity,polar_angle;
+      REAL8 Q, centre_frequency,hrss,eccentricity,polar_angle;
       REAL8 padding=0.4; // hard coded value found in LALInferenceReadData(). Padding (in seconds) for the tuckey window.
   UINT8 windowshift=(UINT8) ceil(padding/IFOdata->timeData->deltaT);
   UINT4 i=0;
   
       Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
       centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
-      if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
+      /*if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
       hrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss"); 
      else if(LALInferenceCheckVariable(IFOdata->modelParams,"loghrss"))
      {
@@ -1358,7 +1358,11 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
       hrss=exp(loghrss);
         }
     else {fprintf(stderr,"ERROR (In LALInferenceTemplate): modelParams does not contain hrss or loghrss. Exiting...\n"); exit(1);}
-    
+    */
+          
+      /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless Q, f, polar_angle, polar_eccentricity are varied */
+      hrss=1.0;
+      
       polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
       eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 
       
@@ -1399,7 +1403,6 @@ void LALInferenceTemplateSineGaussian(LALInferenceIFOData *IFOdata)
             IFOdata->timeModelhPlus->data->data[i] = 0.0;
             IFOdata->timeModelhCross->data->data[i] = 0.0;
           }else{
-      //        printf("Im here i=%d",(INT4) i);         
             IFOdata->timeModelhPlus->data->data[i] = hplus->data->data[(INT8)i+(INT8)hplus->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
             IFOdata->timeModelhCross->data->data[i] = hcross->data->data[(INT8)i+(INT8)hcross->data->length-(INT8)IFOdata->timeData->data->length+(INT8)windowshift];
           }
@@ -1428,6 +1431,30 @@ REAL8 max=0.0;
  
  IFOdata->modelDomain = LAL_SIM_DOMAIN_TIME;
   return;
+}
+
+void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata)
+/*****************************************************/
+/* Sine-Gaussian (burst) template.                   */
+/* Signal is (by now?) linearly polarised,           */
+/* i.e., the cross-waveform remains zero.            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* The (plus-) waveform is:                          */
+/*   a * exp(-((t-mu)/sigma)^2) * sin(2*pi*f*t-phi)  */
+/* Note that by setting f=0, phi=pi/2 you also get   */
+/* a `pure' Gaussian template.                       */
+/*                                                   */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * ************************************/
+/* Required (`IFOdata->modelParams') parameters are:                                    */
+/*   - "time"       (the "mu" parameter of the Gaussian part; REAL8, GPS sec.)          */
+/*   - "sigma"      (width, the "sigma" parameter of the Gaussian part; REAL8, seconds) */
+/*   - "frequency"  (frequency of the sine part; REAL8, Hertz)                          */
+/*   - "phase"      (phase (at above "mu"); REAL8, radians)                             */
+/*   - "amplitude"  (amplitude, REAL8)                                                  */
+/****************************************************************************************/
+{
+    (void) IFOdata;
+return ;
 }
 
 void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
@@ -1464,15 +1491,7 @@ void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata)
       Q = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "Q");
       centre_frequency=  *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "frequency");  
       
-      /*if(LALInferenceCheckVariable(IFOdata->modelParams,"hrss"))
-      hrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "hrss"); 
-     else if(LALInferenceCheckVariable(IFOdata->modelParams,"loghrss"))
-     {
-      loghrss=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "loghrss"); 
-      hrss=exp(loghrss);
-        }
-    else {fprintf(stderr,"ERROR (In LALInferenceTemplate): modelParams does not contain hrss or loghrss. Exiting...\n"); exit(1);}
-      */
+      /*Always calculate the template at fixed hrss of 1. That will avoid recalculation of the template unless Q, f, polar_angle, polar_eccentricity are varied */
       hrss=1.0;
       polar_angle=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "polar_angle"); 
       eccentricity=*(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "eccentricity"); 

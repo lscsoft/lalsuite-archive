@@ -264,6 +264,7 @@ void LALInferenceTemplateXLALSimInspiralChooseWaveform(LALInferenceIFOData *IFOd
 void LALInferenceTemplatePSTRD(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateBestIFO(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateSineGaussianF(LALInferenceIFOData *IFOdata);
+void LALInferenceTemplateGaussian(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateXLALSimRingdown(LALInferenceIFOData *IFOdata);
 void LALInferenceTemplateHMNS(LALInferenceIFOData *IFOdata);
 /*@}*/
