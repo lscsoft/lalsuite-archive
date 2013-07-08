@@ -9,7 +9,7 @@ Build-Depends:
  python-all-dev,
  python-numpy,
  libframe-dev (>= 8.15),
- lal-dev (>= 6.10.0),
+ lal-dev (>= 6.11.0),
  lalburst-dev (>= 1.2.0),
  lalframe-dev (>= 1.0.10),
  lalinspiral-dev (>= 1.5.0),
