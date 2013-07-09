@@ -52,6 +52,7 @@ from scipy import special
 from scipy import signal
 from numpy import linspace
 import random
+import socket
 
 from matplotlib.ticker import FormatStrFormatter,ScalarFormatter,AutoMinorLocator
 
@@ -77,6 +78,15 @@ matplotlib.rcParams.update(
         'savefig.dpi': 120
         })
 
+try:
+  hostname=socket.gethostbyaddr(socket.gethostname())[0]
+except:
+  hostname='Unknown'
+if hostname.split('.',1)[1]=='ligo.caltech.edu': #The CIT cluster has troubles with the default 'cm' font. 'custom' has the least troubles, but does not include \odot
+  matplotlib.rcParams.update(
+                             {'mathtext.fontset' : "custom",
+                             'mathtext.fallback_to_cm' : True
+                             }) 
 
 try:
     from xml.etree.cElementTree import Element, SubElement, ElementTree, Comment, tostring, XMLParser
