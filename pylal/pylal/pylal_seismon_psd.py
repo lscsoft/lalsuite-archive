@@ -152,7 +152,10 @@ def mat(params, channel, segment):
     dataLowpass[-2*channel.samplef:] = dataLowpass[-2*channel.samplef]
 
     dataLowpass = dataLowpass - np.mean(dataLowpass)
-    dataEnvelope = envelope(dataLowpass)
+    
+    timeEnvelope = np.arange(np.min(time),np.max(time))
+    dataEnvelope = np.interp(timeEnvelope,time,dataLowpass)
+    dataEnvelope = envelope(dataEnvelope)
 
     data = {}
     data["time"] = time
@@ -161,8 +164,8 @@ def mat(params, channel, segment):
     data["dataHighpass"] = dataHighpass
     data["dataEnvelope"] = dataEnvelope
 
-    data["timeEnvelope"] = np.arange(np.min(time),np.max(time))
-    data["dataEnvelope"] = np.interp(data["timeEnvelope"],time,dataEnvelope)
+    data["timeEnvelope"] = timeEnvelope 
+    data["dataEnvelope"] = dataEnvelope
 
     NFFT = params["fftDuration"]*channel.samplef
     spectra, freq = matplotlib.pyplot.psd(data["data"], NFFT=NFFT, Fs=channel.samplef, Fc=0, detrend=matplotlib.mlab.detrend_mean,window=matplotlib.mlab.window_hanning)
@@ -289,7 +292,7 @@ def mat(params, channel, segment):
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([10**-10, 10**-5])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
+        plt.ylabel("Amplitude Spectrum [(m/s)/rtHz]")
         plt.grid()
         plt.show()
         if params["doEarthquakesAnalysis"]:
@@ -449,6 +452,12 @@ def calculate_percentiles(data,bins,percentile):
     abs_cumsumvals_minus_percentile = abs(cumsumvals - percentile)
     minindex = abs_cumsumvals_minus_percentile.argmin()
     val = bins[minindex]
+ 
+    if np.isnan(val):
+        print data
+        print bins
+        print percentile
+        print penis
 
     return val
 
@@ -525,9 +534,12 @@ def analysis(params, channel):
             freqNow = copy.copy(thisFreq)
             spectraNow = copy.copy(thisSpectra)
 
+    lowBin = np.log10(np.min(spectra)/2)
+    highBin = np.log10(np.max(spectra)*2)
+
     # Binning parameters
     nb = 500
-    range_binning = np.logspace(-10,-5,num=nb);
+    range_binning = np.logspace(lowBin,highBin,num=nb);
 
     try:
         spectra.max(axis = 1)
@@ -538,7 +550,7 @@ def analysis(params, channel):
     spectra[spectra==float('Inf')] = 0
 
     # Calculate bin histogram of PSDs
-    which_spectra = np.all([spectra.max(axis = 1) <= 10**-3,spectra.max(axis = 1) >= 10**-12],axis=0)
+    which_spectra = np.all([spectra.max(axis = 1) <= float('Inf'),spectra.max(axis = 1) > 0],axis=0)
 
     if len(spectra[which_spectra]) == 0:
         return
@@ -566,13 +578,16 @@ def analysis(params, channel):
     if not os.path.isdir(textLocation):
         os.makedirs(textLocation)
 
-    sigDict = []
+    f = open(os.path.join(textLocation,"spectra.txt"),"w")
+    for i in xrange(len(freq)):
+        f.write("%e %e %e %e %e %e %e\n"%(freq[i],spectral_variation_norm_1per[i],spectral_variation_norm_10per[i],spectral_variation_norm_50per[i],spectral_variation_norm_90per[i],spectral_variation_norm_99per[i],spectraNow[i]))
+    f.close()
 
-    f = open(os.path.join(textLocation,"sig.txt"),"w")
-
+    sigDict = {}
     # Break up entire frequency band into 6 segments
     ff_ave = [1/float(128), 1/float(64),  0.1, 1, 3, 5, 10]
 
+    f = open(os.path.join(textLocation,"sig.txt"),"w")
     for i in xrange(len(ff_ave)-1):
         newSpectra = []
         newSpectraNow = []
@@ -588,11 +603,14 @@ def analysis(params, channel):
                     newSpectra = np.vstack([newSpectra,spectra[:,j]])
 
         if len(newSpectra.shape) > 1:
-            sig, bgcolor = html_bgcolor(np.mean(newSpectraNow),np.mean(newSpectra, axis = 0))
-        else:
-            sig, bgcolor = html_bgcolor(np.mean(newSpectraNow),newSpectra)
+            newSpectra = np.mean(newSpectra, axis = 0)
+        sig, bgcolor = html_bgcolor(np.mean(newSpectraNow),newSpectra)
 
         f.write("%e %e %e %e %s\n"%(ff_ave[i],ff_ave[i+1],np.mean(newSpectraNow),sig,bgcolor))
+
+        key = "%s-%s"%(ff_ave[i],ff_ave[i+1])
+        sigDict[key] = {}
+        sigDict[key]["data"] = newSpectra
 
     f.close()
 
@@ -612,7 +630,7 @@ def analysis(params, channel):
         plt.loglog(fh,high,'k-.',label='LNM/HNM')
         plt.legend(loc=3,prop={'size':10})
         plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**-10, 10**-5])
+        plt.ylim([10**lowBin, 10**highBin])
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
         plt.grid()
@@ -629,9 +647,9 @@ def analysis(params, channel):
         plt.loglog(fh,[y/x for x,y in zip(fl,high)],'k-.',label='LNM/HNM')
         plt.legend(loc=3,prop={'size':10})
         plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**-10, 10**-5])
+        plt.ylim([10**lowBin, 10**highBin])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [m/rtHz]")
+        plt.ylabel("Spectrum [m/rtHz]")
         plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"disp.png"),dpi=200)
@@ -657,9 +675,9 @@ def analysis(params, channel):
         plt.loglog(fl,low,'k-.')
         plt.loglog(fh,high,'k-.',label='LNM/HNM')  
         plt.xlim([params["fmin"],params["fmax"]])
-        plt.ylim([10**-10, 10**-5])
+        plt.ylim([10**lowBin, 10**highBin])
         plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
+        plt.ylabel("Amplitude Spectrum [(m/s)/rtHz]")
         plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"specvar.png"),dpi=200)
@@ -672,24 +690,37 @@ def analysis(params, channel):
 
         spectra = np.squeeze(spectra[indices_ttStart,:])
         ttStartMin = min(ttStart)
-        tt = [(c-ttStartMin)/(60*60) for c in ttStart]
+        tt = [(c-ttStartMin)/(3600.0) for c in ttStart]
 
         #X,Y = np.meshgrid(freq, tt)
         X,Y = np.meshgrid(freq[indices], tt)
         ax = plt.subplot(111)
         #im = plt.pcolor(X,Y,np.log10(spectra), cmap=plt.cm.jet, vmin=-9, vmax=-5)
-        im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=-9, vmax=-5)
+        im = plt.pcolor(X,Y,np.log10(spectra[:,indices]), cmap=plt.cm.jet, vmin=lowBin, vmax=highBin)
         ax.set_xscale('log')
         plt.xlim([params["fmin"],params["fmax"]])
         plt.ylim([tt[0],tt[-1]])
         plt.xlabel("Frequency [Hz]")
         plt.ylabel("Time [Hours]")
         cbar=plt.colorbar()
-        cbar.set_label('log10(Seismic Spectrum [(m/s)/rtHz])') 
+        cbar.set_label('log10(Amplitude Spectrum [(m/s)/rtHz])') 
         plt.grid()
         plt.show()
         plt.savefig(os.path.join(plotLocation,"tf.png"),dpi=200)
         plt.savefig(os.path.join(plotLocation,"tf.eps"),dpi=200)
+        plt.close('all')
+
+        ax = plt.subplot(111)
+        for key in sigDict.iterkeys():   
+            plt.semilogy(tt,sigDict[key]["data"][indices_ttStart],\
+               "*",label=key)
+        plt.ylabel("Amplitude Spectrum")
+        plt.xlabel("Time [Hours]")
+        plt.grid()
+        plt.legend(loc=3,prop={'size':10})
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"bands.png"),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"bands.eps"),dpi=200)
         plt.close('all')
 
     htmlPage = pylal.pylal_seismon_html.seismon_page(channel,textLocation)
