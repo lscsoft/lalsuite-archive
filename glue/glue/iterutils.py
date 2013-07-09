@@ -62,10 +62,10 @@ def MultiIter(*sequences):
 	The elements in each output tuple are in the order of the input
 	sequences, and the left-most input sequence is iterated over first.
 
-	The input sequences are each iterated over only once, so it is safe
-	to pass generators as arguments.  Also, this generator is
-	significantly faster if the longest input sequence is given as the
-	first argument.  For example, this code
+	Internally, the input sequences themselves are each iterated over
+	only once, so it is safe to pass generators as arguments.  Also,
+	this generator is significantly faster if the longest input
+	sequence is given as the first argument.  For example, this code
 
 	>>> lengths = range(1, 12)
 	>>> for x in MultiIter(*map(range, lengths)):
@@ -146,7 +146,7 @@ def choices(vals, n):
 		yield ()
 	else:
 		# n < 0
-		raise ValueError, n
+		raise ValueError(n)
 
 
 def uniq(iterable):
@@ -209,68 +209,9 @@ def flatten(sequence, levels = 1):
 #
 
 
-try:
-	any = any
-	all = all
-except NameError:
-	# These short-circuit, returning as soon as the return value can be
-	# determined.  These are a factor of a few slower than Python 2.5's
-	# implementation.
-	def any(S):
-		"""
-		any(iterable) -> bool
-
-		Return True if bool(x) is True for any x in the iterable.
-		"""
-		for x in S:
-			if x: return True
-		return False
-	def all(S):
-		"""
-		all(iterable) -> bool
-
-		Return True if bool(x) is True for all values x in the iterable.
-		"""
-		for x in S:
-			if not x: return False
-		return True
-
-
-#
-# =============================================================================
-#
-#    itertools.groupby() was added in Python 2.4, but I don't want to wait.
-#
-# =============================================================================
-#
-
-try:
-	from itertools import groupby
-except ImportError:
-	class groupby(object):
-		"""
-		Python 2.3 compatibility: reimplement itertools.groupby.
-		Taken directly from the itertools documentation.
-		"""
-		def __init__(self, iterable, key=None):
-			if key is None:
-				key = lambda x: x
-			self.keyfunc = key
-			self.it = iter(iterable)
-			self.tgtkey = self.currkey = self.currvalue = xrange(0)
-		def __iter__(self):
-			return self
-		def next(self):
-			while self.currkey == self.tgtkey:
-				self.currvalue = self.it.next() # Exit on StopIteration
-				self.currkey = self.keyfunc(self.currvalue)
-			self.tgtkey = self.currkey
-			return (self.currkey, self._grouper(self.tgtkey))
-		def _grouper(self, tgtkey):
-			while self.currkey == tgtkey:
-				yield self.currvalue
-				self.currvalue = self.it.next() # Exit on StopIteration
-				self.currkey = self.keyfunc(self.currvalue)
+# FIXME:  remove when nothing is trying to use these symbols
+any = any
+all = all
 
 
 #
@@ -357,7 +298,7 @@ def inorder(*iterables, **kwargs):
 	except KeyError:
 		keyfunc = lambda x: x  # identity
 	if kwargs:
-		raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
+		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next

@@ -246,9 +246,7 @@ def kludge_get_column_info(connection, table_name):
 #
 
 if __name__ == '__main__':
-    # Settings - disable nanoseconds
-    del lsctables.SegmentTable.validcolumns['start_time_ns']
-    del lsctables.SegmentTable.validcolumns['end_time_ns']
+    # Settings
     del lsctables.ProcessTable.validcolumns['domain']
     del lsctables.ProcessTable.validcolumns['jobid']
     del lsctables.ProcessTable.validcolumns['is_online']

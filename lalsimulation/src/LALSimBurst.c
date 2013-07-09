@@ -627,13 +627,9 @@ int XLALSimBurstSineGaussian(
 	const double h0plus  = hplusrss / cgrss;
 	const double h0cross = hcrossrss / sgrss;
 	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
-   // printf("pol %lf ecc %lf combination %lf combination %lf\n",polarization,eccentricity,(a * cos(polarization) - b * sin(polarization)),(b * cos(polarization) + a * sin(polarization)));
 	int length;
 	unsigned i;
-    //printf("hrss %10.2e hplusrs %10.2e cgrss %10.2e h0plus %10.2e\n",hrss,hplusrss,cgrss,h0plus);
-    //printf("hrss %10.2e hcrosrs %10.2e sgrss %10.2e h0cross %10.2e\n",hrss,hcrossrss,sgrss,h0cross);
-//if (isnan(hrss))
-//printf("Im here\n");
+
  	/* length of the injection time series is 30 * the width of the
 	 * Gaussian envelope (sigma_t in the comments above), rounded to
 	 * the nearest odd integer */
@@ -667,6 +663,88 @@ int XLALSimBurstSineGaussian(
 		(*hcross)->data->data[i] = h0cross * fac * sin(phi);  
 	}
 //fclose(testout);
+	/* apply a Tukey window for continuity at the start and end of the
+	 * injection.  the window's shape parameter sets what fraction of
+	 * the window is used by the tapers */
+
+	window = XLALCreateTukeyREAL8Window((*hplus)->data->length, 0.5);
+	if(!window) {
+		XLALDestroyREAL8TimeSeries(*hplus);
+		XLALDestroyREAL8TimeSeries(*hcross);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+	for(i = 0; i < window->data->length; i++) {
+		(*hplus)->data->data[i] *= window->data->data[i];
+		(*hcross)->data->data[i] *= window->data->data[i];
+	}
+	XLALDestroyREAL8Window(window);
+
+	return 0;
+}
+
+int XLALSimBurstGaussian(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	REAL8 Q,
+	REAL8 centre_frequency,
+	REAL8 hrss,
+	REAL8 eccentricity,
+	REAL8 polarization,
+	REAL8 delta_t // 1 over srate
+)
+{	
+	REAL8Window *window;
+	/* semimajor and semiminor axes of waveform ellipsoid */
+	const double a = 1.0 / sqrt(2.0 - eccentricity * eccentricity);
+	const double b = a * sqrt(1.0 - eccentricity * eccentricity);
+	/* rss of plus and cross polarizations */
+	const double hplusrss  = hrss * (a * cos(polarization) - b * sin(polarization));
+	const double hcrossrss = hrss * (b * cos(polarization) + a * sin(polarization));
+	/* rss of unit amplitude cosine- and sine-gaussian waveforms.  see
+	 * K. Riles, LIGO-T040055-00.pdf */
+	const double cgrss = sqrt((Q / (4.0 * centre_frequency * sqrt(LAL_PI))) * (1.0 + exp(-Q * Q)));
+	const double sgrss = sqrt((Q / (4.0 * centre_frequency * sqrt(LAL_PI))) * (1.0 - exp(-Q * Q)));
+	/* "peak" amplitudes of plus and cross */
+	const double h0plus  = hplusrss / cgrss;
+	const double h0cross = hcrossrss / sgrss;
+	LIGOTimeGPS epoch= LIGOTIMEGPSZERO;
+	int length;
+	unsigned i;
+
+ 	/* length of the injection time series is 30 * the width of the
+	 * Gaussian envelope (sigma_t in the comments above), rounded to
+	 * the nearest odd integer */
+
+	length = (int) floor(30.0 * Q / (LAL_TWOPI * centre_frequency) / delta_t / 2.0);  // This is 30 tau
+	length = 2 * length + 1; // length is 60 taus +1 bin
+	/* the middle sample is t = 0 */
+
+	XLALGPSSetREAL8(&epoch, -(length - 1) / 2 * delta_t); // epoch is set to minus (30 taus) in secs
+
+	/* allocate the time series */
+    
+	*hplus = XLALCreateREAL8TimeSeries("Gaussian +", &epoch, 0.0, delta_t, &lalStrainUnit, length);  // hplus epoch=-30tau length = 60tau+1
+	*hcross = XLALCreateREAL8TimeSeries("Gaussian x", &epoch, 0.0, delta_t, &lalStrainUnit, length); // hplus epoch=-30tau length = 60tau+1
+	if(!*hplus || !*hcross) {
+		XLALDestroyREAL8TimeSeries(*hplus);
+		XLALDestroyREAL8TimeSeries(*hcross);
+		*hplus = *hcross = NULL;
+		XLAL_ERROR(XLAL_EFUNC);
+	}
+
+	/* populate */
+  //  FILE * testout = fopen("SinGaussTime_WF.txt","w");
+
+	for(i = 0; i < (*hplus)->data->length; i++) {
+		const double t = ((int) i - (length - 1) / 2) * delta_t; // t in [-30 tau, ??]
+		const double phi = LAL_TWOPI * centre_frequency * t; // this is the actual time, not t0
+		const double fac = exp(-0.5 * phi * phi / (Q * Q));
+		(*hplus)->data->data[i]  = h0plus * fac*1.0;
+		(*hcross)->data->data[i] = h0cross * fac*1.0;  
+	}
+//fclose(testout);
+
 	/* apply a Tukey window for continuity at the start and end of the
 	 * injection.  the window's shape parameter sets what fraction of
 	 * the window is used by the tapers */

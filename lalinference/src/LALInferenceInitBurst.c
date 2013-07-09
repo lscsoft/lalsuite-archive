@@ -57,6 +57,8 @@ void LALInferenceInitBurstTemplate(LALInferenceRunState *runState)
         runState->templt=&LALInferenceTemplateSineGaussianF;
     else if(!strcmp("SineGauss",ppt->value))
         runState->templt=&LALInferenceTemplateSineGaussian;
+    else if(!strcmp("Gauss",ppt->value))
+        runState->templt=&LALInferenceTemplateGaussian;
     else if(!strcmp("BestIFO",ppt->value))
         runState->templt=&LALInferenceTemplateBestIFO;
     else if(!strcmp("RingdownF",ppt->value)){

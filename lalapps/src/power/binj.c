@@ -111,6 +111,7 @@ struct fvec *virgo_interp;
 enum population {
 	POPULATION_TARGETED,
 	POPULATION_ALL_SKY_SINEGAUSSIAN,
+    POPULATION_ALL_SKY_GAUSSIAN,
 	POPULATION_ALL_SKY_SINEGAUSSIAN_F,
 	POPULATION_ALL_SKY_BTLWNB,
 	POPULATION_STRING_CUSP
@@ -541,6 +542,8 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN_F;
 		else if(!strcmp(optarg, "all_sky_sinegaussian"))
 			options.population = POPULATION_ALL_SKY_SINEGAUSSIAN;
+        else if(!strcmp(optarg, "all_sky_gaussian"))
+			options.population = POPULATION_ALL_SKY_GAUSSIAN;
 		else if(!strcmp(optarg, "all_sky_btlwnb"))
 			options.population = POPULATION_ALL_SKY_BTLWNB;
 		else {
@@ -917,6 +920,7 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 	switch(options.population) {
 	case POPULATION_TARGETED:
 	case POPULATION_ALL_SKY_SINEGAUSSIAN:
+    case POPULATION_ALL_SKY_GAUSSIAN:
 	case POPULATION_ALL_SKY_BTLWNB:
 	case POPULATION_STRING_CUSP:
 	case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
@@ -1423,9 +1427,14 @@ static SimBurst *random_all_sky_sineGaussian( gsl_rng *rng, struct options *opti
     
     if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN)
 		strcpy(sim_burst->waveform, "SineGaussian");
-	else 
+	else if (options->population==POPULATION_ALL_SKY_SINEGAUSSIAN_F)
 		strcpy(sim_burst->waveform, "SineGaussianF");
-	
+    else if (options->population==POPULATION_ALL_SKY_GAUSSIAN)
+        strcpy(sim_burst->waveform, "Gaussian");
+    else{
+        fprintf(stderr,"Unrecognized population %d. Exiting\n",options->population);
+        exit(1);
+        }
 	/* sky location and wave frame orientation */
 
 	random_location_and_polarization(&sim_burst->ra, &sim_burst->dec, &sim_burst->psi, rng);
@@ -1747,6 +1756,7 @@ int main(int argc, char *argv[])
 
 		case POPULATION_ALL_SKY_SINEGAUSSIAN:
 		case POPULATION_ALL_SKY_SINEGAUSSIAN_F:
+        case POPULATION_ALL_SKY_GAUSSIAN:
 			*sim_burst = random_all_sky_sineGaussian(rng, &options,tinj);
 			break;
 
@@ -2165,7 +2175,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 	if(strstr(WF,"SineGaussianF"))
 			modelDomain=LAL_SIM_BURST_DOMAIN_FREQUENCY;
 			
-	else if (strstr(WF,"SineGaussian"))
+	else if (strstr(WF,"SineGaussian") || strstr(WF,"Gaussian"))
             modelDomain=LAL_SIM_BURST_DOMAIN_TIME;
 			
     LIGOTimeGPS		    epoch;  
@@ -2199,7 +2209,7 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 										&lalDimensionlessUnit,
 										seglen/2+1);
      
-    /* If the approximant is on the FD call XLALSimInspiralChooseFDWaveform */
+    /* If the approximant is on the FD call XLALSimBurstSineGaussianF */
     if(modelDomain == LAL_SIM_BURST_DOMAIN_FREQUENCY) {
         COMPLEX16FrequencySeries *hptilde=NULL;
         COMPLEX16FrequencySeries *hctilde=NULL;
@@ -2228,7 +2238,12 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 
     }
     else{
-        /* Otherwise use  XLALSimInspiralChooseTDWaveform */
+        /* Otherwise use XLALGenerateSimBurst(
+	REAL8TimeSeries **hplus,
+	REAL8TimeSeries **hcross,
+	const SimBurst *sim_burst,
+	double delta_t;
+ */
         REAL8FFTPlan *timeToFreqFFTPlan = XLALCreateForwardREAL8FFTPlan((UINT4) seglen, 0 );
         REAL8TimeSeries *hplus=NULL; 
         REAL8TimeSeries *hcross=NULL; 
@@ -2247,8 +2262,8 @@ static REAL8 calculate_SineGaussian_snr(SimBurst *inj, char *IFOname, REAL8Frequ
 																	deltaT,
 																	&lalDimensionlessUnit,
 																	seglen);
-		 XLALSimBurstSineGaussian(&hplus,&hcross,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaT);
-        
+		 //XLALSimBurstSineGaussian(&hplus,&hcross,Q,centre_frequency,hrss, eccentricity,polar_angle,deltaT);
+        XLALGenerateSimBurst(&hplus,&hcross,inj,deltaT);
         memset(timeHplus->data->data, 0, sizeof (REAL8)*timeHplus->data->length);
         memset(timeHcross->data->data, 0, sizeof (REAL8)*timeHcross->data->length);
         memcpy(timeHplus->data->data, hplus->data->data,hplus->data->length*sizeof(REAL8));
