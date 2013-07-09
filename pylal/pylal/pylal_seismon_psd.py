@@ -685,7 +685,10 @@ def analysis(params, channel):
         plt.close('all')
 
         ttStart = np.array(ttStart)
-        indices_ttStart = np.where(ttStart >= params["gpsStart"] - 24*60*60)
+        indices_ttStart = np.where(\
+            (ttStart >= params["gpsSpectraStart"]) &\
+            (ttStart <= params["gpsSpectraEnd"])\
+        )
         ttStart = ttStart[indices_ttStart]
 
         spectra = np.squeeze(spectra[indices_ttStart,:])
