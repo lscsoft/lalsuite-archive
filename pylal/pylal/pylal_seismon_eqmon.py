@@ -498,7 +498,7 @@ def jsonread(event):
     attributeDic['Time'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", Time)
     attributeDic['Sent'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", SentTime)
 
-    attributeDic = traveltimes(attributeDic)
+    attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
     attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
     attributeDic['WrittenUTC'] = float(time.time())
@@ -548,7 +548,7 @@ def databaseread(event):
     attributeDic['Time'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", tm)
     attributeDic['Sent'] = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", SentTime)
 
-    attributeDic = traveltimes(attributeDic)
+    attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
     attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
     attributeDic['WrittenUTC'] = float(time.time())
