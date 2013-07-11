@@ -55,6 +55,9 @@ def run_earthquakes(params):
     segmentlist = glue.segments.segmentlist()
  
     for attributeDic in attributeDics:
+
+        attributeDic = calculate_traveltimes(attributeDic)
+
         traveltimes = attributeDic["traveltimes"][ifo]
 
         gpsStart = max(traveltimes["Rtimes"]) - 200
