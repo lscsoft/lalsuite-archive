@@ -1916,6 +1916,7 @@ class LineHistogram(BasicPlot):
                 self.ax.set_ybound(lower=ymin)
         if logy:
             self.ax.yaxis.set_scale("log")
+        self.ax._update_transScale()
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=0.8)

@@ -181,6 +181,7 @@ def plottimeseries(series, outfile, t0=0, zeroline=False, **kwargs):
         plot.ax.xaxis.set_scale("log")
     if logy:
         plot.ax.yaxis.set_scale("log")
+    plot.ax._update_transScale()
 
     # format axes
     if xlim:
@@ -305,6 +306,7 @@ def plotfrequencyseries(series, outfile, **kwargs):
         plot.ax.xaxis.set_scale("log")
     if logy:
         plot.ax.yaxis.set_scale("log")
+    plot.ax._update_transScale()
 
     # format axes
     if xlim:
@@ -495,6 +497,7 @@ def plotspectrogram(sequencelist, outfile, epoch=0, deltaT=1, f0=0, deltaF=1,\
         plot.ax.xaxis.set_scale("log")
     if logy:
         plot.ax.yaxis.set_scale("log")
+    plot.ax._update_transScale()
 
     # format axes
     if xlim:
