@@ -1431,18 +1431,20 @@ def get_spectrum(cp, channel, *args, **kwargs):
 
     # take epoch from seglist
     epoch  = lal.LIGOTimeGPS(len(sequencelist) and args[3][0][0] or NOW)
-    # take f0 and deltaF from first spectrogram
-    f0     = len(sequencelist) and sequencelist[0]['f0'] or 0
-    deltaF = len(sequencelist) and sequencelist[0]['deltaF'] or 1
-    f_array = sequencelist[0]['f_array'] 
 
     # flatten spectrum
     if len(sequencelist):
+        f0 = sequencelist[0]['f0']
+        deltaF = sequencelist[0]['deltaF']
+        f_array = seqeuencelist[0]['f_array']
         spectrogram = numpy.concatenate(([s['data'].data for s in sequencelist
                                           if s['data'].data.shape[0]]), axis=0)
     else:
         seglen = args[2]
-        spectrogram = numpy.zeros((1,seglen//2+1))
+        f0 = 0
+        deltaF = 1
+        spectrogram = numpy.zeros((1, seglen//2+1))
+        f_array = numpy.zeros((1, seglen//2+1))[0]
 
     # take median
     out = []
@@ -2740,18 +2742,24 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
 
     # get new data
     if not htmlonly:
+        # initialise empty segmentlists
+        for flag in tab.bitmask.values():
+            tab.add_segments(flag, [])
+
+        # get and parse data
         data = get_data(cp, channel, tab.segments, frametype=frametype)
-        segdict = SegmentListDict((flag, SegmentList([])) for
-                                  (bit, flag) in tab.bitmask.items())
         for series in data:
             state_segs = stateutils.tosegmentlistdict(series,tab.bitmask)
             for bit in tab.bits:
                 flag = tab.bitmask[bit]
                 tab.add_segments(flag, state_segs[flag])
+
         # restrict tab segments to available data
-        defstart = float(data[0].epoch)
-        defend = float(data[-1].epoch + data[-1].data.length * data[-1].deltaT)
-        tab.segments &= SegmentList([Segment(defstart, defend)])
+        if len(data):
+            defstart = float(data[0].epoch)
+            defend = float(data[-1].epoch +
+                           data[-1].data.length * data[-1].deltaT)
+            tab.segments &= SegmentList([Segment(defstart, defend)])
 
         # construct derived bits
         if len(tab.derived_bitmask.keys()):
