@@ -51,13 +51,20 @@ functions, and methods shown below for more information.
 Example:
 
 >>> # import modules
+>>> from glue.ligolw import ligolw
 >>> from glue.ligolw import table
 >>> from glue.ligolw import lsctables
->>> from glue.ligolw import utils
->>> 
+>>> from glue.ligolw import utils as ligolw_utils
+>>>
+>>> # define a content handler
+>>> class LIGOLWContentHandler(ligolw.LIGOLWContentHandler):
+... 	pass
+...
+>>> lsctables.use_in(LIGOLWContentHandler)
+>>>
 >>> # load a document.  gzip'ed files are auto-detected
 >>> filename = "demo.xml.gz"
->>> xmldoc = utils.load_filename(filename, verbose = True)
+>>> xmldoc = ligolw_utils.load_filename(filename, contenthandler = LIGOLWContentHandler, verbose = True)
 >>> 
 >>> # retrieve the process and sngl_inspiral tables.  these are list-like
 >>> # objects of rows.  the row objects' attributes are the column names
@@ -79,8 +86,8 @@ Example:
 ...	print "%s@%s: %s s" % (process.username, process.node, str(row.get_end()))
 ...
 >>> # write document.  must explicitly state whether or not the file is to be
->>> # compressed
->>> utils.write_filename(xmldoc, filename, gz = filename.endswith(".gz"), verbose = True)
+>>> # gzip compressed
+>>> ligolw_utils.write_filename(xmldoc, filename, gz = filename.endswith(".gz"), verbose = True)
 """
 
 
