@@ -448,12 +448,12 @@ int XLALSimInspiralSpinTaylorF2Harmonic(
         zeta = XLALSimInspiralSF2Zeta(v, coeffs) - zeta_ref;
 
         prec_fac_p =
-                XLALSimInspiralSF2Emission(beta, mm)
-                * SBfac_p
+                /* XLALSimInspiralSF2Emission(beta, mm) * Remove this factor */
+                SBfac_p
                 * ( cos( (mm-2.) * alpha) + sin( (mm-2.) * alpha)*1.0j );
         prec_fac_x =
-                XLALSimInspiralSF2Emission(beta, mm)
-                * SBfac_x
+                /* XLALSimInspiralSF2Emission(beta, mm) * Remove this factor */
+                SBfac_x
                 * ( cos( (mm-2.) * alpha) + sin( (mm-2.) * alpha)*1.0j );
 
         // Note the factor of 2 b/c phic is orbital phase
