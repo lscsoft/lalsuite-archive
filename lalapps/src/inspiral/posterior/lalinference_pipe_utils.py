@@ -313,6 +313,14 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.dq={}
     self.frtypes=ast.literal_eval(cp.get('datafind','types'))
     self.channels=ast.literal_eval(cp.get('data','channels'))
+    if cp.has_option('input','mdc-chaches'):
+        self.mdccaches=ast.literal_eval( cp.get('input','mdc-chaches'))
+        if cp.has_option('input','mdc-channels'):
+            self.mdcchannels=ast.literal_eval( cp.get('input','mdc-channels'))
+        else:
+            print "ERROR: you must provide mdc-channels with mdc-caches\n"
+            exit(1)
+            
     self.use_available_data=False
     self.webdir=cp.get('paths','webdir')
     if cp.has_option('analysis','dataseed'):
@@ -669,7 +677,11 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         slide=0
       for seg in self.segments[ifo]:
         if end_time >= seg.start() and end_time < seg.end():
-          gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],timeslide=slide)
+            if self.mdcchannels:
+                mdcchannel=self.mdcchannels[ifo]
+            if self.mdccache:
+                mdccache=self.mdccaches[ifo]
+          gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
     if self.config.has_option('lalinference','fake-cache'):
       node.cachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
       node.channels=ast.literal_eval(self.config.get('data','channels'))
@@ -805,6 +817,7 @@ class EngineNode(pipeline.CondorDAGNode):
     self.ifos=[]
     self.scisegs={}
     self.channels={}
+    self.mdcchannels={}
     self.psds={}
     self.flows={}
     self.timeslides={}
@@ -814,6 +827,7 @@ class EngineNode(pipeline.CondorDAGNode):
     self.psdstart=None
     self.psdpadding=None
     self.cachefiles={}
+    self.mdccachefiles={}
     self.id=EngineNode.new_id()
     self.__finaldata=False
 
@@ -876,7 +890,7 @@ class EngineNode(pipeline.CondorDAGNode):
 
   def get_trig_time(self): return self.__trigtime
   
-  def add_ifo_data(self,ifo,sciseg,channelname,timeslide=0):
+  def add_ifo_data(self,ifo,sciseg,channelname,mdccache=None,mdcchannel=None,timeslide=0):
     self.ifos.append(ifo)
     self.scisegs[ifo]=sciseg
     parent=sciseg.get_df_node()
@@ -886,6 +900,11 @@ class EngineNode(pipeline.CondorDAGNode):
         self.add_input_file(self.cachefiles[ifo])
         self.timeslides[ifo]=timeslide
         self.channels[ifo]=channelname
+        if mdcchannel:
+            self.mdcchannels[ifo]=mdcchannel
+        if mdccache:
+            self.mdccache[ifo]=mdccache
+
         return 1
     else: return 0
   
@@ -904,6 +923,8 @@ class EngineNode(pipeline.CondorDAGNode):
       flowstring='['
       channelstring='['
       slidestring='['
+      mdccachestring='['
+      mdcchannelstring='['
       first=True
       for ifo in self.ifos:
         if first:
@@ -912,6 +933,8 @@ class EngineNode(pipeline.CondorDAGNode):
         else: delim=','
         ifostring=ifostring+delim+ifo
         cachestring=cachestring+delim+self.cachefiles[ifo]
+        if self.mdcchannel: mdcchannelstring=mdcchannelstring+delim+self.mdcchannel[ifo]
+        if self.mdccache: mdccachestring=mdccachestring+delim+self.mdccachel[ifo]
         if self.psds: psdstring=psdstring+delim+self.psds[ifo]
         if self.flows: flowstring=flowstring+delim+self.flows[ifo]
         channelstring=channelstring+delim+self.channels[ifo]
@@ -922,11 +945,15 @@ class EngineNode(pipeline.CondorDAGNode):
       flowstring=flowstring+']'
       channelstring=channelstring+']'
       slidestring=slidestring+']'
+      mdccachestring=mdccachestring+']'
+      mdcchannelstring=mdcchannelstring+']'
       self.add_var_opt('ifo',ifostring)
       self.add_var_opt('channel',channelstring)
       self.add_var_opt('cache',cachestring)
       if self.psds: self.add_var_opt('psd',psdstring)
       if self.flows: self.add_var_opt('flow',flowstring)
+      if self.mdcchannel: self.add_var_opt('MDC-channel',mdcchannelstring)
+      if self.mdccache: self.add_var_opt('MDC-cache',mdccachestring)
       if any(self.timeslides):
 	self.add_var_opt('timeslide',slidestring)
       # Start at earliest common time
