@@ -182,7 +182,7 @@ static const LALUnit strainPerCount={0,{0,0,0,0,0,1,-1},{0,0,0,0,0,0,0}};
 
 static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length);
 static void makeWhiteData(LALInferenceIFOData *IFOdata);
-static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table);
+static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime);
 
 static REAL8TimeSeries *readTseries(CHAR *cachefile, CHAR *channel, LIGOTimeGPS start, REAL8 length)
 {
@@ -1554,7 +1554,8 @@ void LALInferenceInjectInspiralSignal(LALInferenceIFOData *IFOdata, ProcessParam
     //highest_snr_index++;
     
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-      PrintSNRsToFile(IFOdata , injTable);
+        REAL8 trigtime=(REAL8) injTable->geocent_end_time.gpsSeconds + (REAL8) injTable->geocent_end_time.gpsNanoSeconds*1.0e-9;
+        PrintSNRsToFile(IFOdata , trigtime);
     }
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
@@ -2358,7 +2359,7 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
     printf("injected Network SNR %.1f \n",sqrt(NetSNR)); 
     
     if (!(SNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-	PrintSNRsToFile(IFOdata , inj_table);
+	PrintSNRsToFile(IFOdata , injtime);
     }
     
     
@@ -2414,8 +2415,8 @@ void InjectTaylorF2(LALInferenceIFOData *IFOdata, SimInspiralTable *inj_table, P
 }
 
 
-static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj_table){
-    char SnrName[200];
+static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime){
+    char SnrName[256];
     char ListOfIFOs[10]="";
     REAL8 NetSNR=0.0;
     // sprintf(ListOfIFOs,"");
@@ -2428,7 +2429,8 @@ static void PrintSNRsToFile(LALInferenceIFOData *IFOdata , SimInspiralTable *inj
 	nIFO++;
         }
     
-    sprintf(SnrName,"%s/snr_%s_%10.1f.dat",SNRpath,ListOfIFOs,(REAL8) inj_table->geocent_end_time.gpsSeconds+ (REAL8) inj_table->geocent_end_time.gpsNanoSeconds*1.0e-9);
+    sprintf(SnrName,"%s/snr_%s_%10.3f.dat",SNRpath,ListOfIFOs,trigtime);
+    printf("%s",SnrName);
     FILE * snrout = fopen(SnrName,"w");
     if(!snrout){
 	fprintf(stderr,"Unable to open the path %s for writing SNR files\n",SNRpath);
@@ -2882,6 +2884,7 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
        
         tmp*=2.*injF->deltaF;
         printf("Injected SNR %.3f in IFO %s from MDC \n",sqrt(2*tmp),data->name);
+        data->SNR=sqrt(2*tmp);
         net_snr+=2*tmp;
         fclose(fout);         
 
@@ -2889,7 +2892,18 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
         data=data->next;
     }
     printf("Injected network SNR %.3f from MDC\n",sqrt(net_snr));
+
+    /* If we are injection from MDC, trigtime is a mandatory option, so this is ok */
+    REAL8 trigtime=atof(LALInferenceGetProcParamVal(commandLine,"--trigtime")->value);
+    if(LALInferenceGetProcParamVal(commandLine,"--snrpath")){
+        ppt = LALInferenceGetProcParamVal(commandLine,"--snrpath");
+        SNRpath = calloc(strlen(ppt->value)+1,sizeof(char));
+        memcpy(SNRpath,ppt->value,strlen(ppt->value)+1);
+        fprintf(stdout,"Writing SNRs in %s\n",SNRpath)     ;
+        PrintSNRsToFile(IFOdata , trigtime);
+    }
+
     return ;
-        
+    
 }
 

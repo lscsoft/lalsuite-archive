@@ -74,7 +74,7 @@
 
 #define LALINFERENCE_DEFAULT_FLOW "40.0"
 //typedef void (NoiseFunc)(LALStatus *statusPtr,REAL8 *psd,REAL8 f);
-static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,SimBurst *inj_table);
+static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata , REAL8 trigtime);
 void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, ProcessParamsTable *commandLine);
 char *BurstSNRpath = NULL;
 
@@ -270,7 +270,8 @@ void LALInferenceInjectBurstSignal(LALInferenceRunState *irs, ProcessParamsTable
     //highest_snr_index++;
 
     if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-    PrintBurstSNRsToFile(IFOdata , injEvent);
+    REAL8 trigtime=injEvent->time_geocent_gps.gpsSeconds + 1e-9*injEvent->time_geocent_gps.gpsNanoSeconds;
+    PrintBurstSNRsToFile(IFOdata , trigtime);
     }
     /* Actually inject the waveform */
     for(j=0;j<inj8Wave->data->length;j++) thisData->timeData->data->data[j]+=inj8Wave->data->data[j];
@@ -337,7 +338,7 @@ void LALInferenceBurstInjectionToVariables(SimBurst *theEventTable, LALInference
 
 }
 
-static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,SimBurst *inj_table){
+static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,REAL8 injtime){
     char SnrName[300];
     char ListOfIFOs[10]="";
     REAL8 NetSNR=0.0;
@@ -351,7 +352,7 @@ static void PrintBurstSNRsToFile(LALInferenceIFOData *IFOdata ,SimBurst *inj_tab
 	nIFO++;
         }
     
-    sprintf(SnrName,"%s/snr_%s_%10.1f.dat",BurstSNRpath,ListOfIFOs,(REAL8) inj_table->time_geocent_gps.gpsSeconds);
+    sprintf(SnrName,"%s/snr_%s_%10.3f.dat",BurstSNRpath,ListOfIFOs,injtime);
     FILE * snrout = fopen(SnrName,"w");
     if(!snrout){
 	fprintf(stderr,"Unable to open the path %s for writing SNR files\n",BurstSNRpath);
@@ -576,7 +577,7 @@ void InjectSineGaussianFD(LALInferenceIFOData *IFOdata, SimBurst *inj_table, Pro
     NetSNR=sqrt(NetSNR); 
 
       if (!(BurstSNRpath==NULL)){ /* If the user provided a path with --snrpath store a file with injected SNRs */
-          PrintBurstSNRsToFile(IFOdata , inj_table);
+          PrintBurstSNRsToFile(IFOdata ,injtime);
       }
           
     XLALDestroyCOMPLEX16FrequencySeries(freqModelhCross);
