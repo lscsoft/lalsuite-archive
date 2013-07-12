@@ -69,10 +69,10 @@ try:
 except:
         USER_NAME = pwd.getpwuid(os.getuid())[0]
 
-
+from glue import git_version
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
+__date__ = git_version.date
+__version__ = git_version.id
 
 
 #
@@ -162,10 +162,6 @@ def get_output_name(ifo, category, gps_start_time, gps_end_time, output_dir, isC
 #
 
 if __name__ == '__main__':
-    # Settings - disable nanoseconds
-    del lsctables.SegmentTable.validcolumns['start_time_ns']
-    del lsctables.SegmentTable.validcolumns['end_time_ns']
-
     # Fd2XMLIOServer populates the event_id early, but ihope leaves 
     # it as 0 initially.  Turnning off the unique constraint allows
     # us to load both.

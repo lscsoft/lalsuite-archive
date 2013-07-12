@@ -35,13 +35,6 @@ interested users.
 import numpy
 from xml import sax
 
-try:
-	any
-	all
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any, all
-
 
 from glue import git_version
 from glue import iterutils
@@ -1486,8 +1479,8 @@ class SnglInspiralTable(table.Table):
 			return self.get_new_snr(index=index)
 		if column == 'lvS5stat':
 			return self.get_lvS5stat()
-		elif column == 'chirp_distance':
-			return self.get_chirp_dist()
+		elif column == 'chirp_eff_distance':
+			return self.get_chirp_eff_dist()
 		else:
 			return self.getColumnByName(column).asarray()
 
@@ -1503,7 +1496,7 @@ class SnglInspiralTable(table.Table):
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
 
-	def get_effective_snr(self, fac=250.0):    
+	def get_effective_snr(self, fac=250.0):
 		snr = self.get_column('snr')
 		rchisq = self.get_column('reduced_chisq')
 		return snr/ (1 + snr**2/fac)**(0.25) / rchisq**(0.25)
@@ -1548,10 +1541,10 @@ class SnglInspiralTable(table.Table):
 		numpy.putmask(contnewsnr, rchisq < 1, snr)
 		return contnewsnr
 
-	def get_chirp_distance(self,ref_mass = 1.40):
+	def get_chirp_eff_dist(self, ref_mass=1.4):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_distance')
-		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+		return SnglInspiral.chirp_distance(eff_dist, mchirp, ref_mass)
 
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
@@ -1653,7 +1646,7 @@ class SnglInspiral(object):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_chisq()**0.25
 	
 	def get_bank_effective_snr(self,fac=250.0):
-		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25 
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_bank_chisq()**0.25
 
 	def get_cont_effective_snr(self,fac=250.0):
 		return self.snr/ (1 + self.snr**2/fac)**(0.25)/ self.get_reduced_cont_chisq()**0.25
@@ -1723,6 +1716,10 @@ class SnglInspiral(object):
 			cmp(self.mass2, other.mass2) or
 			cmp(self.search, other.search)
 		)
+
+	@staticmethod
+	def chirp_distance(dist, mchirp, ref_mass=1.4):
+		return dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
 
 
 SnglInspiralTable.RowType = SnglInspiral
@@ -2603,9 +2600,12 @@ class SimInspiralTable(table.Table):
 	interncolumns = ("process_id", "waveform", "source")
 
 	def get_column(self,column):
-		if 'chirp_dist' in column:
+		if column == 'chirp_dist' or column == 'chirp_distance':
+			return self.get_chirp_dist()
+		# be strict about formatting of chirp eff distance
+		if column[0:14] == 'chirp_eff_dist' and column[14:16] in ['_h','_l','_g','_t','_v'] and len(column) == 16:
 			site = column[-1]
-			return self.get_chirp_dist(site)
+			return self.get_chirp_eff_dist(site)
 		elif column == 'spin1':
 			return self.get_spin_mag(1)
 		elif column == 'spin2':
@@ -2613,14 +2613,19 @@ class SimInspiralTable(table.Table):
 		elif column == 'total_mass' or column == 'mtotal':
 			m1=self.getColumnByName('mass1').asarray()
 			m2=self.getColumnByName('mass2').asarray()
-			return m1+m2 
+			return m1+m2
 		else:
 			return self.getColumnByName(column).asarray()
 
-	def get_chirp_dist(self,site,ref_mass = 1.40):
+	def get_chirp_dist(self,ref_mass=1.4):
+		mchirp = self.get_column('mchirp')
+		dist = self.get_column('distance')
+		return SnglInspiral.chirp_distance(dist, mchirp, ref_mass)
+
+	def get_chirp_eff_dist(self,site,ref_mass=1.4):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_dist_' + site)
-		return eff_dist * (2.**(-1./5) * ref_mass / mchirp)**(5./6)
+		return SnglInspiral.chirp_distance(eff_dist, mchirp, ref_mass)
 
 	def get_spin_mag(self,objectnumber):
 		sx = self.get_column('spin' + str(objectnumber) + 'x')
@@ -2645,7 +2650,7 @@ class SimInspiralTable(table.Table):
 		return keep
 
 	def vetoed(self, seglist):
-                """
+		"""
 		Return the inverse of what veto returns, i.e., return the triggers
 		that lie within a given seglist.
 		"""
@@ -2684,8 +2689,8 @@ class SimInspiral(object):
 	def get_eff_dist(self, instrument):
 		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
-	def get_chirp_dist(self,instrument,ref_mass = 1.40):
-		return self.get_eff_dist(instrument) * (2.**(-1./5) * ref_mass / self.mchirp)**(5./6)
+	def get_chirp_eff_dist(self, instrument, ref_mass = 1.4):
+		return SnglInspiral.chirp_distance(self.get_eff_dist(instrument), self.mchirp, ref_mass)
 
 	def get_spin_mag(self, objectnumber):
 		sx = getattr(self, "spin%dx" % objectnumber)
@@ -2858,6 +2863,38 @@ class SummValueTable(table.Table):
 
 class SummValue(object):
 	__slots__ = SummValueTable.validcolumns.keys()
+
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifo)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifo = ifos_from_instrument_set(instruments)
+
+	@property
+	def start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def segment(self):
+		return segments.segment(self.start, self.end)
+
+	@segment.setter
+	def segment(self, seg):
+		self.start, self.end = seg
 
 
 SummValueTable.RowType = SummValue

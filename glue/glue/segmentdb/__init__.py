@@ -26,10 +26,10 @@
 """
 Utilities for working with segment databases
 """
-
+from glue import git_version
+__date__ = git_version.date
+__version__ = git_version.id
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
 
 __all__ = ["query_engine", "segmentdb_utils.py"]
 

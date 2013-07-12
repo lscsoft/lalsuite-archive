@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Erin Macdonald
+ * Copyright (C) 2010 Erin Macdonald, Matthew Pitkin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,8 +31,9 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 /* 31/5/11 v.8: Matt Pitkin's fixes for the memory leak*/
 /* 23/6/11 v.9; Changed naming of log files to append time, sloppy but works */
 /* 29/6/11 v.10; XLAL functions memory leaks fixed */
-/* 11/7/11 v.11; Outputs surpressed and better log output*/
-/* 30/1/12 v.12: Set signal generation barycenter delay lookup table step size*/
+/* 11/7/11 v.11; Outputs surpressed and better log output */
+/* 30/1/12 v.12: Set signal generation barycenter delay lookup table step size */
+/* 27/06/13 v.13: Allow 2nd and 3rd frequency derivatives and make compatible with new frame functions */
 
 #include <stdio.h>
 #include <unistd.h>
@@ -52,7 +53,7 @@ example$ ./lalapps_sw_inj_frames -p /Users/erinmacdonald/lsc/analyses/test_par_f
 /*LAL Functions */
 #include <lalapps.h>
 #include <lal/Units.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/LALFrameIO.h>
 #include <lal/LALCache.h>
 #include <lal/TimeSeries.h>
@@ -117,7 +118,7 @@ int main(int argc, char **argv)
     return 0;
 
   char version[256];
-  sprintf(version, "v11"); /*manually change */
+  sprintf(version, "v13"); /*manually change */
 
   /*Get current time for log */
   time_t result;
@@ -206,15 +207,13 @@ int main(int argc, char **argv)
   char out_file[256]; /*need a different way to do this */
   FILE *inject; /*for .par file from uvar->inputdir*/
 
-  CHAR gwf_dir[256]; /* for use with XLALFrOpen */
+  CHAR gwf_dir[256]; /* for use with XLALFrStreamOpen */
   sprintf( gwf_dir, "%s/.", uvar->gwfdir );
 
   LIGOTimeGPS epoch;
   char strepoch[10];
 
   UINT4 ndata;
-  size_t filength;
-
 
   /** Put the pulsar files in the log (so as not to loop every time) **/
 
@@ -296,9 +295,9 @@ int main(int argc, char **argv)
       continue; /*make sure it's a .gwf file */
     }
     else{
-      FrStream *gwffile=NULL;
+      LALFrStream *gwffile=NULL;
 
-      if (( gwffile = XLALFrOpen( uvar->gwfdir, gwfnamelist[k]->d_name)) == NULL ) {
+      if (( gwffile = XLALFrStreamOpen( uvar->gwfdir, gwfnamelist[k]->d_name)) == NULL ) {
 	/*XLAL_ERROR ( fn, XLAL_EFUNC ); -- don't want to abort, but save elsewhere test that it's an acceptable file */
 
 	/*Writing to failed file*/
@@ -339,7 +338,6 @@ int main(int argc, char **argv)
 	epoch.gpsNanoSeconds = 0; /* no nanosecond precision */
 	/*	fprintf(stderr, "epoch = %i\n", epoch.gpsSeconds);*/
 
-	filength = strlen(gwfnamelist[k]->d_name);
 	char strdur[4];
 	strncpy(strdur, (strrchr(gwfnamelist[k]->d_name, '-')+1), 3); /* duration is last number in frame file */
 	strdur[sizeof(strdur)-1] = '\0';
@@ -362,8 +360,23 @@ int main(int argc, char **argv)
 	  XLAL_ERROR ( XLAL_EFUNC );
 	}
 
-	if ( XLALFrGetREAL8TimeSeries( gwfseries, gwffile ) != XLAL_SUCCESS ) {
-	  XLAL_ERROR ( XLAL_EFUNC );
+	if ( XLALFrStreamGetREAL8TimeSeries( gwfseries, gwffile ) != XLAL_SUCCESS ) {
+	  /*Writing to failed file*/
+	  FILE *frames;
+	  char framefilename[256];
+	  sprintf(framefilename, "%s/%s/failed_frames.txt", uvar->outputdir, uvar->logDir);
+          if (( frames = fopen( framefilename, "a" )) == NULL ) {
+            fprintf (stderr, "Error opening file %s! \n", framefilename );
+            return 0;
+          }
+          else {
+            fprintf (frames, "%s\n", gwfnamelist[k]->d_name);
+	    fclose(frames);
+          }
+          
+          /* </failed file> */
+          XLALDestroyREAL8TimeSeries( gwfseries );
+	  continue; /*don't exit program if .gwf file fails, continue through*/
 	}
 
 	/* define output .gwf file */
@@ -382,7 +395,7 @@ int main(int argc, char **argv)
 
 	/* read in and test generated frame with XLAL function*/
 
-	struct FrameH *outFrame   = NULL;        /* frame data structure */
+	LALFrameH *outFrame   = NULL;        /* frame data structure */
 
 	if ((outFrame = XLALFrameNew(&epoch,(REAL8)ndata,"CW_INJ",1,0,0)) == NULL) {
 	  LogPrintf(LOG_CRITICAL, "%s : XLALFrameNew() failed with error = %d.\n",fn,xlalErrno);
@@ -444,7 +457,7 @@ int main(int argc, char **argv)
             params.dtDelayBy2 = 10.; /* generate table every 10 seconds */
 
 	    /*BinaryPulsarParams pulparams; read from the .par file */
-	    if ( (params.pulsar.spindown = XLALCreateREAL8Vector(1))== NULL ) {
+	    if ( (params.pulsar.spindown = XLALCreateREAL8Vector(3))== NULL ) {
 	      XLALPrintError("Out of memory");
 	      XLAL_ERROR ( XLAL_EFUNC );
 	    }
@@ -463,7 +476,9 @@ int main(int argc, char **argv)
 	    params.pulsar.position.system = COORDINATESYSTEM_EQUATORIAL;
 
 	    params.pulsar.f0 = 2.*pulparams[h].f0;
-	    params.pulsar.spindown->data[0] = 2.*pulparams[h].f1; /*spindown is REAL8Vector ?? */
+	    params.pulsar.spindown->data[0] = 2.*pulparams[h].f1; /* first frequency derivative */
+	    params.pulsar.spindown->data[1] = 2.*pulparams[h].f2; /* second frequency derivative */
+            params.pulsar.spindown->data[2] = 2.*pulparams[h].f3; /* third frequency derivative */
 	    if (( XLALGPSSetREAL8(&(params.pulsar.refTime),pulparams[h].pepoch) ) == NULL ){
 	      XLAL_ERROR ( XLAL_EFUNC );
 	    }
@@ -563,14 +578,14 @@ int main(int argc, char **argv)
 
 
 	/* write frame structure to file (opens, writes, and closes file) - last argument is compression level */
-	if (XLALFrameWrite(outFrame,fffile,1)) {
+	if (XLALFrameWrite(outFrame,fffile)) {
 	  LogPrintf(LOG_CRITICAL, "%s : XLALFrameWrite() failed with error = %d.\n",fn,xlalErrno);
 	  XLAL_ERROR(XLAL_EFAILED);
 	}
 
 	/*free(fffile);*/
 
-	FrameFree(outFrame);
+	XLALFrameFree(outFrame);
 
 	XLALDestroyREAL8TimeSeries( gwfseries);
 	XLALDestroyREAL8TimeSeries( total_inject );
@@ -601,7 +616,7 @@ int main(int argc, char **argv)
       /* </log file> */
       /*fprintf(stderr, "you created %s\n", out_file);*/
 
-      XLALFrClose( gwffile );
+      XLALFrStreamClose( gwffile );
 
     } /*ends loop through all .gwf files in .gwf directory*/
   }
@@ -613,7 +628,7 @@ int main(int argc, char **argv)
 
   fprintf(stderr, "done\n" );
 
-  return 1;
+  return 0;
 
 } /* main() */
 

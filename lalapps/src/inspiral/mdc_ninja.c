@@ -48,7 +48,7 @@
 #include <lal/VectorOps.h>
 #include <lal/LALDetectors.h>
 #include <lal/LALFrameIO.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/FindChirp.h>
 #include <lal/Random.h>
 #include <lal/LALNoiseModels.h>
@@ -906,7 +906,7 @@ static void output_frame(CHAR *ifo,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   CHAR creator[HISTORY_COMMENT];
   CHAR channel[LALNameLength];
 
@@ -948,7 +948,7 @@ static void output_frame(CHAR *ifo,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channel to frame */
   XLALFrameAddREAL4TimeSeriesSimData( frame, injData );
@@ -957,14 +957,14 @@ static void output_frame(CHAR *ifo,
     fprintf( stdout, "Writing injection to frame: '%s'\n", fname );
 
   /* write frame */
-  if (XLALFrameWrite( frame, fname, 8) != 0)
+  if (XLALFrameWrite( frame, fname) != 0)
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }
@@ -981,7 +981,7 @@ static void output_frame_real8(CHAR *ifo,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   CHAR creator[HISTORY_COMMENT];
   CHAR channel[LALNameLength];
 
@@ -1023,7 +1023,7 @@ static void output_frame_real8(CHAR *ifo,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channel to frame */
   XLALFrameAddREAL8TimeSeriesSimData( frame, injData );
@@ -1032,14 +1032,14 @@ static void output_frame_real8(CHAR *ifo,
     fprintf( stdout, "Writing injection to frame: '%s'\n", fname );
 
   /* write frame */
-  if (XLALFrameWrite( frame, fname, 8) != 0)
+  if (XLALFrameWrite( frame, fname) != 0)
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }
@@ -1055,7 +1055,7 @@ static void output_multi_channel_frame(INT4 num_ifos,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   INT4 i;
   CHAR creator[HISTORY_COMMENT];
   CHAR *ifo = NULL;
@@ -1080,7 +1080,7 @@ static void output_multi_channel_frame(INT4 num_ifos,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channels to frame */
   for( i = 0; i < num_ifos; i++ )
@@ -1095,14 +1095,14 @@ static void output_multi_channel_frame(INT4 num_ifos,
     fprintf( stdout, "Writing injections to frame: '%s'\n", fname );
 
   /* write frame */
-  if ( XLALFrameWrite( frame, fname, 8 ) != 0 )
+  if ( XLALFrameWrite( frame, fname ) != 0 )
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }
@@ -1119,7 +1119,7 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
   CHAR fname[FILENAME_MAX];
   INT4 duration;
   INT4 detectorFlags;
-  FrameH *frame;
+  LALFrameH *frame;
   INT4 i;
   CHAR creator[HISTORY_COMMENT];
   CHAR *ifo = NULL;
@@ -1144,7 +1144,7 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
   /** \deprecated FIXME: the following code uses obsolete CVS ID tags.
    *  It should be modified to use git version information. */
   snprintf(creator, HISTORY_COMMENT, "creator:$Id$");
-  XLALFrHistoryAdd(frame, "creator", creator);
+  XLALFrameAddFrHistory(frame, "creator", creator);
 
   /* add channels to frame */
   for( i = 0; i < num_ifos; i++ )
@@ -1159,14 +1159,14 @@ static void output_multi_channel_frame_real8(INT4 num_ifos,
     fprintf( stdout, "Writing injections to frame: '%s'\n", fname );
 
   /* write frame */
-  if ( XLALFrameWrite( frame, fname, 8 ) != 0 )
+  if ( XLALFrameWrite( frame, fname ) != 0 )
   {
     fprintf( stderr, "ERROR: Cannot save frame file: '%s'\n", fname );
     exit( 1 );
   }
 
   /* clear frame */
-  FrameFree( frame );
+  XLALFrameFree( frame );
 
   return;
 }

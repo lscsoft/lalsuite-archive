@@ -437,7 +437,9 @@ def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
         bs += binlength
 
     if showmean:
-        mean = [duty_cycle[keys[0]][:i+1].mean() for i in range(numbins)]
+      mean = dict((key, numpy.zeros(numbins)) for key in keys)
+      for key in keys:
+        mean[key] = [duty[key][:i+1].mean() for i in range(numbins)]
 
     #
     # generate plot
@@ -447,9 +449,20 @@ def plotdutycycle(segdict, outfile, binlength=3600, keys=None, t0=None,\
 
     plot = plotutils.BarPlot(xlabel, ylabel, title, subtitle)
     for i,key in enumerate(keys):
-        plot.add_content(bins, duty[key], label=plotutils.display_name(key),\
+      if showmean:
+        thislabel = plotutils.display_name(key) + ' (%.2f\%%)' % (mean[key][-1])
+      else:
+        thislabel = plotutils.display_name(key)
+      plot.add_content(bins, duty[key], label=thislabel,\
                          alpha=0.8, width=binlength/unit)
     plot.finalize(loc=loc, alpha=legalpha)
+
+    # add running mean
+    if showmean:
+      for i,key in enumerate(keys):
+        print i, key
+        plot.ax.plot(bins, mean[key], linestyle = '--')
+      plot.ax.get_legend().get_frame().set_alpha(0.5)
 
     # add colorbar
     if hidden_colorbar:

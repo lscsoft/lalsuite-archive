@@ -64,7 +64,7 @@ options, filenames = parse_command_line()
 IMR = imr_utils.DataBaseSummary(filenames, tmp_path = options.tmp_space, veto_segments_name = options.veto_segments_name, live_time_program = options.live_time_program, verbose = options.verbose)
 
 for instruments, total_injections in IMR.total_injections_by_instrument_set.items():
-	found_below_far = imr_utils.found_injections_below_far(IMR.found_injections_by_instrument_set[instruments], far_thresh = options.far)
+	found_below_far = [s for f, s in IMR.found_injections_by_instrument_set[instruments] if f < options.far]
 	if options.verbose:
 		print >> sys.stderr, "Found %d injections in %s below FAR %e" % (len(found_below_far), "".join(instruments), options.far)
 

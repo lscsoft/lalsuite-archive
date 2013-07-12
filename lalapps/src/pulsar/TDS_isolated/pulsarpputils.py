@@ -558,7 +558,7 @@ def plot_posterior_hist(poslist, param, ifos,
 
   if ifos == None:
     # default to just output colour for H1
-    ifos = ['H1']
+    ifos = ['H1'] 
 
   # loop over ifos
   for idx, ifo in enumerate(ifos):
@@ -1079,6 +1079,8 @@ def hist_norm_bounds(samples, nbins, low=float("-inf"), high=float("inf")):
 
     nbound = n[0] - (dn/binwidth)*dx
 
+    n = n.astype(float) # convert to floats
+
     # prepend to n
     n = np.insert(n, 0, nbound)
 
@@ -1098,6 +1100,8 @@ def hist_norm_bounds(samples, nbins, low=float("-inf"), high=float("inf")):
     dn = n[-1]-n[-2]
 
     nbound = n[-1] + (dn/binwidth)*dx
+
+    n = n.astype(float) # convert to floats
 
     # prepend to n
     n = np.append(n, nbound)
@@ -2185,3 +2189,13 @@ def read_pulsar_mcmc_file(cf):
       cfdata = None
 
   return cfdata
+
+
+# function to add two exponentiated log values and return the log of the result
+def logplus(x, y):
+  if np.isinf(x) and np.isinf(y) and x < 0 and y < 0:
+    return float("-inf")
+  if x > y:
+    return x + math.log(1. + math.exp(y-x))
+  else:
+    return y + math.log(1. + math.exp(x-y))

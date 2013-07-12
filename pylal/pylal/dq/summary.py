@@ -112,6 +112,7 @@ class SummaryTab(object):
         kwargs.setdefault("parent", None)
         kwargs.setdefault("state", None)
         kwargs.setdefault("information", None)
+        kwargs.setdefault("skip_summary", False)
 
         # set all other values
         for key,val in kwargs.iteritems():
@@ -617,6 +618,8 @@ class SectionSummaryTab(SummaryTab):
         
         self.frame.table(style="table-layout: fixed; width: 100%;")
         for i,tab in enumerate(children):
+            if self.name == "Summary" and tab.skip_summary:
+                continue
             if i % n == 0:
                 self.frame.tr()
             self.frame.td()
@@ -1888,6 +1891,7 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                       "Num. %s<br>coinc. with aux." % self.mainchannel,\
                       "Zero shift coinc. &sigma;"]
                 td = []
+                cellclasses = {"table":"full"}
                 for chan in self.channels:
                     if chan == self.mainchannel:
                         continue
@@ -1899,11 +1903,15 @@ class AuxTriggerSummaryTab(TriggerSummaryTab):
                         td[-1].extend(["-", "-"])
                     if (self.sigma.has_key(chan) and
                             self.sigma[chan].has_key(0.0)):
-                        td[-1].append("%.2f" % self.sigma[chan][0.0])
+                        sigmaStr = "%.2f" % self.sigma[chan][0.0]
+                        td[-1].append(sigmaStr)
+                        if self.sigma[chan][0.0] > 5:
+                            cellclasses[sigmaStr] = "red"
+                            cellclasses[chan] = "red"
                     else:
                         td[-1].append("-")
                 self.frame.add(htmlutils.write_table(th, td,
-                                                     {"table":"full"})())
+                                                     cellclasses)())
 
             self.frame.div.close()
 

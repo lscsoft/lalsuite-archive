@@ -240,7 +240,7 @@ class LinearPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError("n must be >= 3")
 		Bins.__init__(self, min, max, n)
-		self.delta = float(max - min) / (n-2)
+		self.delta = float(max - min) / (n - 2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -361,7 +361,7 @@ class LogarithmicPlusOverflowBins(Bins):
 		if n < 3:
 			raise ValueError("n must be >= 3")
 		Bins.__init__(self, min, max, n)
-		self.delta = (math.log(max) - math.log(min)) / (n-2)
+		self.delta = (math.log(max) - math.log(min)) / (n - 2)
 
 	def __getitem__(self, x):
 		if isinstance(x, slice):
@@ -602,7 +602,7 @@ class IrregularBins(Bins):
 		return self.boundaries[1:]
 
 	def centres(self):
-		return (self.lower() + self.upper()) / 2
+		return (self.lower() + self.upper()) / 2.0
 
 
 class Categories(Bins):
@@ -772,15 +772,17 @@ class NDBins(tuple):
 		"""
 		Return an n-dimensional array of the bin volumes.
 		"""
-		# FIXME:  works for 1 and 2 dimensions, but goes funny
-		# after that.  always returns a 2 dimensional array no
-		# matter what...
-		bounds = iter(zip(self.upper(), self.lower()))
-		u, l = bounds.next()
-		volumes = u - l
-		for u, l in bounds:
-			volumes = numpy.outer(volumes, u - l)
-		return volumes
+		volumes = tuple(u - l for u, l in zip(self.upper(), self.lower()))
+		if len(volumes) == 1:
+			# 1D short-cut
+			return volumes[0]
+		try:
+			return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(volumes)]), *volumes)
+		except AttributeError:
+			# numpy < 1.6
+			result = reduce(numpy.outer, volumes)
+			result.shape = tuple(len(v) for v in volumes)
+			return result
 
 
 #
@@ -1033,27 +1035,54 @@ class BinnedRatios(object):
 #
 
 
-def gaussian_window(bins, sigma = 10):
+def gaussian_window(*bins, **kwargs):
 	"""
-	Generate a normalized (integral = 1) Gaussian window in 1
-	dimension.  bins sets the width of the window in bin count.  The
-	vector is created with an odd number of samples, and the Gaussian
-	is peaked on the middle sample.
+	Generate a normalized (integral = 1) Gaussian window in N
+	dimensions.  The bins parameters set the width of the window in bin
+	counts in each dimension.  The optional keyword argument sigma,
+	which defaults to 10, sets the size of the array in all dimensions
+	in units of the width in each dimension.  The sizes are adjusted so
+	that the array has an odd number of samples in each dimension, and
+	the Gaussian is peaked on the middle sample.
+
+	Example:
+
+	>>> # 2D window with width of 1.5 bins in first dimension,
+	>>> # 1 bin in second dimension, 3 widths long (rounded to odd
+	>>> # integer = 5 x 3 bins) in each dimension
+	>>> gaussian_window(1.5, 1, sigma = 3)
+	array([[ 0.00161887,  0.01196189,  0.00161887],
+	       [ 0.02329859,  0.17215456,  0.02329859],
+	       [ 0.05667207,  0.41875314,  0.05667207],
+	       [ 0.02329859,  0.17215456,  0.02329859],
+	       [ 0.00161887,  0.01196189,  0.00161887]])
 	"""
-	if bins <= 0:
-		raise ValueError(bins)
-	l = int(math.floor(sigma * bins / 2.0)) * 2
-	w = lal.CreateGaussREAL8Window(l + 1, l / float(bins))
-	return w.data.data / w.sum
+	if not bins:
+		raise ValueError("function requires at least 1 width")
+	sigma = kwargs.pop("sigma", 10)
+	if kwargs:
+		raise ValueError("unrecognized keyword argument(s): %s" % ",".join(kwargs))
+	windows = []
+	for b in bins:
+		if b <= 0:
+			raise ValueError(b)
+		l = int(math.floor(sigma * b / 2.0)) * 2
+		w = lal.CreateGaussREAL8Window(l + 1, l / float(b))
+		windows.append(w.data.data / w.sum)
+	if len(windows) == 1:
+		# 1D short-cut
+		return windows[0]
+	try:
+		return numpy.einsum(",".join("abcdefghijklmnopqrstuvwxyz"[:len(windows)]), *windows)
+	except AttributeError:
+		# numpy < 1.6
+		window = reduce(numpy.outer, windows)
+		window.shape = tuple(len(w) for w in windows)
+		return window
 
 
-def gaussian_window2d(bins_x, bins_y, sigma = 10):
-	"""
-	Generate a normalized (integral = 1) Gaussian window in 2
-	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts.
-	"""
-	return numpy.outer(gaussian_window(bins_x, sigma), gaussian_window(bins_y, sigma))
+# compatibility stub.  FIXME:  remove
+gaussian_window2d = gaussian_window
 
 
 def tophat_window(bins):
@@ -1061,6 +1090,11 @@ def tophat_window(bins):
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
 	bins sets the width of the window in bin counts, which is rounded
 	up to the nearest odd integer.
+
+	Example:
+
+	>>> tophat_window(4)
+	array([ 0.2,  0.2,  0.2,  0.2,  0.2])
 	"""
 	if bins <= 0:
 		raise ValueError(bins)
@@ -1093,7 +1127,7 @@ def tophat_window2d(bins_x, bins_y):
 
 	# zero the bins outside the window
 	for x, y in iterutils.MultiIter(*map(range, window.shape)):
-		if ((x - window.shape[0] / 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] / 2) / float(bins_y) * 2.0)**2 > 1.0:
+		if ((x - window.shape[0] // 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] // 2) / float(bins_y) * 2.0)**2 > 1.0:
 			window[x, y] = 0.0
 
 	# normalize
@@ -1114,18 +1148,18 @@ def tophat_window2d(bins_x, bins_y):
 def filter_array(a, window, cyclic = False):
 	"""
 	Filter an array using the window function.  The transformation is
-	done in place.  If cyclic = True, then the data are assumed to be
-	periodic in each dimension, otherwise the data are assumed to be 0
-	outside of their domain of definition.  The window function must
-	have an odd number of samples in each dimension;  this is done so
-	that it is always clear which sample is at the window's centre,
-	which helps prevent phase errors.  If the window function's size
-	exceeds that of the data in one or more dimensions, the largest
-	allowed central portion of the window function in the affected
-	dimensions will be used.  This is done silently;  to determine if
-	window function truncation will occur, check for yourself that your
-	window function is smaller than your data in all directions.
+	done in place.  The data are assumed to be 0 outside of their
+	domain of definition.  The window function must have an odd number
+	of samples in each dimension;  this is done so that it is always
+	clear which sample is at the window's centre, which helps prevent
+	phase errors.  If the window function's size exceeds that of the
+	data in one or more dimensions, the largest allowed central portion
+	of the window function in the affected dimensions will be used.
+	This is done silently;  to determine if window function truncation
+	will occur, check for yourself that your window function is smaller
+	than your data in all dimensions.
 	"""
+	assert not cyclic	# no longer supported, maybe in future
 	# check that the window and the data have the same number of
 	# dimensions
 	dims = len(a.shape)
@@ -1139,26 +1173,13 @@ def filter_array(a, window, cyclic = False):
 	for d in xrange(dims):
 		if window.shape[d] > a.shape[d]:
 			# largest odd integer <= size of a
-			n = ((a.shape[d] + 1) / 2) * 2 - 1
-			first = (window.shape[d] - n) / 2
+			n = ((a.shape[d] + 1) // 2) * 2 - 1
+			first = (window.shape[d] - n) // 2
 			window_slices.append(slice(first, first + n))
 		else:
 			window_slices.append(slice(0, window.shape[d]))
-	if dims == 1:
-		if cyclic:
-			# FIXME: use fftconvolve for increase in speed when
-			# cyclic boundaries are wanted.  but look into
-			# accuracy.
-			a[:] = signaltools.convolve(numpy.concatenate((a, a, a)), window[window_slices], mode = "same")[len(a) : 2 * len(a)]
-		else:
-			a[:] = signaltools.convolve(a, window[window_slices], mode = "same")
-	elif dims == 2:
-		if cyclic:
-			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same", boundary = "wrap")
-		else:
-			a[:,:] = signaltools.convolve2d(a, window[window_slices], mode = "same")
-	else:
-		raise ValueError("can only filter 1 and 2 dimensional arrays")
+	# FIXME:  in numpy >= 1.7.0 there is copyto().  is that better?
+	a.flat = signaltools.fftconvolve(a, window[window_slices], mode = "same").flat
 	return a
 
 
@@ -1183,10 +1204,9 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 	Convolving the numerator and denominator bins separately preserves
 	the integral of each.  In other words the total number of events in
 	each of the denominator and numerator is conserved, only their
-	locations are shuffled about in order to smooth out irregularities
-	in their distributions.  Convolving, instead, the ratios with a
-	window function would preserve the integral of the efficiency,
-	which is probably meaningless.
+	locations are shuffled about.  Convolving, instead, the ratios with
+	a window function would preserve the integral of the ratio, which
+	is probably meaningless.
 
 	Note that you should be using the window functions defined in this
 	module, which are carefully designed to be norm preserving (the

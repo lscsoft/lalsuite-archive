@@ -57,7 +57,7 @@ int main(void) {fputs("disabled, no gsl or no lal frame library support.\n", std
 #include <lal/FileIO.h>
 #include <lal/AVFactories.h>
 #include <lal/LALCache.h>
-#include <lal/FrameStream.h>
+#include <lal/LALFrStream.h>
 #include <lal/Window.h>
 #include <lal/Calibration.h>
 #include <lal/ComputeDataQualityVector.h>
@@ -130,7 +130,7 @@ INT4TimeSeries OutputDQ;  /* data quality */
 
 static LALStatus status;
 LALCache *framecache;                                           /* frame reading variables */
-FrStream *framestream=NULL;
+LALFrStream *framestream=NULL;
 char sv_cname[] = "Xn:IFO-SV_STATE_VECTOR",                      /* channel names */
     lax_cname[] = "Xn:LSC-LA_PTRX_NORM", lay_cname[] = "Xn:LSC-LA_PTRY_NORM",
     asq_cname[] = "Xn:LSC-DARM_ERR",  /* temporary hack: set name of (unused) asq to darm_err */
@@ -221,8 +221,7 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   /* This is mostly ripped off some code Jolien sent me a while back,
      and calibration frame writing code */
 
-  FrFile *frfile;
-  FrameH *frame;
+  LALFrameH *frame;
   char fname[FILENAME_MAX];
   char tmpfname[FILENAME_MAX];
   char site;
@@ -321,17 +320,17 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
   /* Here's where I need to add a bunch of things */
   /* Add cvs header */
   snprintf( headerinfo, sizeof( headerinfo), "Code header info: %s",CVS_HEADER);
-  FrHistoryAdd( frame, headerinfo);
+  XLALFrameAddFrHistory( frame, __FILE__, headerinfo);
 
   /* Add lalapps info */
   snprintf( lalappsconfargs, sizeof( lalappsconfargs), "LALApps Info:\n                          LALApps Version: %s\n                          Git Tag: %s\n                          Git ID: %s\n                          Configure Date: %s\n                          Configure Arguments: %s",
 	       LALAPPS_VERSION , lalAppsVCSInfo.vcsTag, lalAppsVCSInfo.vcsId, LALAPPS_CONFIGURE_DATE , LALAPPS_CONFIGURE_ARGS );
-  FrHistoryAdd( frame, lalappsconfargs);
+  XLALFrameAddFrHistory( frame, __FILE__, lalappsconfargs);
 
   /* Add lal info */
   snprintf( lalconfargs, sizeof( lalconfargs), "LAL Info:\n                          LAL Version: %s\n                          Git Tag: %s\n                          Git ID: %s\n                          Configure Date: %s\n                          Configure Arguments: %s",
 	       LAL_VERSION , lalHeaderVCSInfo.vcsTag, lalHeaderVCSInfo.vcsId, LAL_CONFIGURE_DATE , LAL_CONFIGURE_ARGS );
-  FrHistoryAdd( frame, lalconfargs);
+  XLALFrameAddFrHistory( frame, __FILE__, lalconfargs);
 
   /* Create string with all command line arguments and add it to history */
   strcat(allargs, "Command line run: ");
@@ -341,24 +340,24 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
       strcat(allargs,argv[i]);
       strcat(allargs, " ");
     }
-  FrHistoryAdd( frame, allargs);
+  XLALFrameAddFrHistory( frame, __FILE__, allargs);
 
   /* hostname and user */
   gethostname(hostname,sizeof(hostname));
   if ( getdomainname(domainname,sizeof(domainname)) == -1 )
     XLALPrintError ("\ngetdomainname() failed!\n");
   snprintf( hostnameanduser, sizeof( hostnameanduser), "Made by user: %s. Made on machine: %s.%s",getlogin(),hostname,domainname);
-  FrHistoryAdd( frame, hostnameanduser);
+  XLALFrameAddFrHistory( frame, __FILE__, hostnameanduser);
 
   /* Frequency range of validity (FIXME: This should be updated regularly somehow) */
-  FrHistoryAdd( frame, freqInfo);
+  XLALFrameAddFrHistory( frame, __FILE__, freqInfo);
 
   /* Filters file checksum and cvs info (first 2 lines in filters file) */
   {
     char buffer[1024];
     snprintf(buffer, sizeof buffer, "Filters file checksum and header: %s\n%s",
              InputData.filter_chksum, InputData.filter_vc_info);
-    FrHistoryAdd(frame, buffer);
+    XLALFrameAddFrHistory(frame, __FILE__, buffer);
   }
 
   /* Add in the h(t) data */
@@ -414,6 +413,7 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
     snprintf( fname2, sizeof( fname2 ), "%s/%c-%s%s-%d-%d.gwf", CLA.datadirL2,site, CLA.frametype,"_L2", t0, dt );
     snprintf( tmpfname2, sizeof( tmpfname2 ), "%s.tmp", fname2 );
 
+#if 0
     /* write first to tmpfile then rename it */
     frfile = FrFileONew( tmpfname2, -1); /* 1 = GZIP */
     if ( ! frfile )
@@ -421,6 +421,9 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
 
     FrameWrite( frame, frfile );
     FrFileOEnd( frfile );
+#else
+    XLALFrameWrite(frame, tmpfname2);
+#endif
     /* now rename */
     if ( rename( tmpfname2, fname2 ) < 0 )
       return 1; /* Error: system error */
@@ -436,7 +439,7 @@ int WriteFrame(int argc,char *argv[],struct CommandLineArgsTag CLA)
 int ReadData(struct CommandLineArgsTag CLA)
 {
 
-FrPos pos1;
+LALFrStreamPos pos1;
 
 static FrChanIn chanin_darm;
 static FrChanIn chanin_darmerr;
