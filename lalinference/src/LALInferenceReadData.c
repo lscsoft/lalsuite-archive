@@ -2843,11 +2843,11 @@ void LALInferenceInjectFromMDC(ProcessParamsTable *commandLine, LALInferenceIFOD
     while(data){
         
         char foutname[50]="";
-        sprintf(foutname,"MDC_freq_%s",data->name);
+        sprintf(foutname,"MDC_freq_%s_%d",data->name,epoch.gpsSeconds);
         FILE * fout = fopen(foutname,"w");
 
         char outname[50]="";
-        sprintf(outname,"MDC_time_%s",data->name);
+        sprintf(outname,"MDC_time_%s_%d",data->name,epoch.gpsSeconds);
         FILE * out = fopen(outname,"w");
     
         tmp=0.0;
