@@ -1,9 +1,21 @@
+glue (1.45.1) unstable; urgency=low
+
+  * ER4 release of glue, with spec file match. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, Jul 2 2013 10:50:00 -0500
+
+glue (1.45) unstable; urgency=low
+
+  * ER4 release of glue. 
+
+ -- Ryan Fisher <rpfisher@syr.edu>  Tue, Jul 2 2013 10:23:00 -0500
+
 glue (1.44.1) unstable; urgency=low
 
   * Post ER3 release of glue for pegasus 4.2 transition, added new RFC Proxy
     support. 
 
- -- Ryan Fisher <rpfisher@syr.edu>  Thu, Mar 7 2013 5:43:00 -0500
+ -- Ryan Fisher <rpfisher@syr.edu>  Thu, Mar 7 2013 17:43:00 -0500
 
 glue (1.44) unstable; urgency=low
 
@@ -22,7 +34,7 @@ glue (1.43) unstable; urgency=low
 
   * New Release of glue for ER3 with updates to ligolw and lal codes. 
 
- -- Ryan Fisher <rpfisher@syr.edu>  Mon, 19 Nov 2012 04:59:00 -0500
+ -- Ryan Fisher <rpfisher@syr.edu>  Mon, 19 Nov 2012 16:59:00 -0500
 
 glue (1.42-1) unstable; urgency=low
 

@@ -96,6 +96,48 @@ def inspiralrange(f, S, snr=8, m1=1.4, m2=1.4, fmin=10, fmax=None,\
     return d
 
 # =============================================================================
+# Squeezing ratio
+# =============================================================================
+
+def squeezing(f, S, dc=None, opgain=None, cavpf=None, fmin=1000, fmax=2000):
+    """
+    Calculate squeezing factor based on observed noise in given band
+    and predicted shot noise
+
+    @param f: frequency array
+    @type  f: C{numpy.array}
+    @param S: power spectral density array
+    @type  S: C{numpy.array}
+    @param dc: 
+    @type  dc: C{float}
+    @param opgain: 
+    @type  opgain: C{float}
+    @param cavpf: 
+    @type  cavpf: C{float}
+    @param fmin: minimum frequency limit of integral, default: 1000 Hz
+    @type  fmin: C{float}
+    @param fmax: maximum frequency limit of integral, default: 2000 Hz
+    @type  fmax: C{float}
+
+    @return: squeezing ratio in dB
+    @rtype: C{float}
+    """
+
+    # set up frequency band for squeezing estimation
+    condition = (f >= fmin) & (f < fmax)
+
+    # compute model shot noise spectrum
+    model = abs(1+1j*f[condition]/cavpf) * (dc)**(1/2) /opgain
+
+    # compare to actual noise spectrum
+    d =  numpy.median(model /S[condition]**(1/2))
+    
+    # convert to dB
+    d = 20 * numpy.log10(d)
+
+    return d
+
+# =============================================================================
 # Burst range
 # =============================================================================
 

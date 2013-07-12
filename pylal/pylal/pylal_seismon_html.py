@@ -228,9 +228,11 @@ def seismon_page(channel,textLocation):
 
     <tr>
     <td style="vertical-align: top;">ASD (m/s) (including 10, 50, and 90 percentiles)</td>
+    <td style="vertical-align: top;">Mean ASD vs. time</td>
     </tr>
     <tr>
     <td style="vertical-align: top;"><a href="./psd.png"><img alt="" src="./psd.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
+    <td style="vertical-align: top;"><a href="./bands.png"><img alt="" src="./bands.png" style="border: 0px solid ; width: 630px; height: 432px;"></a><br></td>
     </tr>
 
     <tr>

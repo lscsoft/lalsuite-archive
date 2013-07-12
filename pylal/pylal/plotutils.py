@@ -1595,7 +1595,9 @@ class ScatterPlot(SimplePlot):
             itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets,\
                            default_colors()):
             plot_kwargs.setdefault("c", color)
-            if len(x_vals):
+            if (len(x_vals) and
+                (isinstance(y_vals, numpy.ma.MaskedArray) and y_vals.count() or
+                 True)):
                 self.ax.scatter(x_vals, y_vals, **plot_kwargs)
             else:
                 plot_kwargs["visible"] = False
@@ -1894,7 +1896,7 @@ class LineHistogram(BasicPlot):
                 y = numpy.vstack((y, y)).reshape((-1,), order="F")
 
             # mask zeros for logy
-            if logy:
+            if logy and len(y[y!=0]):
                 if not ymin:
                     ymin = y[y!=0].min()*0.9
                 else:
@@ -1909,11 +1911,12 @@ class LineHistogram(BasicPlot):
                 self.ax.fill_between(x, 1e-100, y, **plot_kwargs)
 
         if logx:
-            self.ax.set_xscale("log")
+            self.ax.xaxis.set_scale("log")
             if ymin:
                 self.ax.set_ybound(lower=ymin)
         if logy:
-            self.ax.set_yscale("log")
+            self.ax.yaxis.set_scale("log")
+        self.ax._update_transScale()
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=0.8)

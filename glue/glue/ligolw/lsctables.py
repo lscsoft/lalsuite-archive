@@ -35,13 +35,6 @@ interested users.
 import numpy
 from xml import sax
 
-try:
-	any
-	all
-except NameError:
-	# Python < 2.5
-	from glue.iterutils import any, all
-
 
 from glue import git_version
 from glue import iterutils
@@ -2852,6 +2845,38 @@ class SummValueTable(table.Table):
 
 class SummValue(object):
 	__slots__ = SummValueTable.validcolumns.keys()
+
+	@property
+	def instruments(self):
+		return instrument_set_from_ifos(self.ifo)
+
+	@instruments.setter
+	def instruments(self, instruments):
+		self.ifo = ifos_from_instrument_set(instruments)
+
+	@property
+	def start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	@start.setter
+	def start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	@end.setter
+	def end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	@property
+	def segment(self):
+		return segments.segment(self.start, self.end)
+
+	@segment.setter
+	def segment(self, seg):
+		self.start, self.end = seg
 
 
 SummValueTable.RowType = SummValue

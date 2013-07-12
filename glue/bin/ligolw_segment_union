@@ -116,10 +116,6 @@ def parse_command_line():
 #
 
 if __name__ == '__main__':
-    # Settings - disable nanoseconds and other fields we don't use
-    del lsctables.SegmentTable.validcolumns['start_time_ns']
-    del lsctables.SegmentTable.validcolumns['end_time_ns']
-
     options, filenames = parse_command_line()
 
     # Set up the document

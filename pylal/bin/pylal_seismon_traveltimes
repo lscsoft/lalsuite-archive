@@ -1,0 +1,309 @@
+#!/usr/bin/python
+
+import os, sys, glob, optparse, warnings, time, json
+import numpy as np
+from operator import itemgetter
+import subprocess
+from subprocess import Popen
+from lxml import etree
+
+import pylal.pylal_seismon_eqmon
+
+__author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
+__date__ = "2012/8/26"
+__version__ = "0.1"
+
+# =============================================================================
+#
+#                               DEFINITIONS
+#
+# =============================================================================
+
+def parse_commandline():
+    """
+    Parse the options given on the command-line.
+    """
+    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+
+    parser.add_option("-p", "--paramsFile", help="Seismon params file.",
+                      default ="/home/mcoughlin/Seismon/seismon/input/seismon_params_traveltimes.txt")
+    parser.add_option("-v", "--verbose", action="store_true", default=False,
+                      help="Run verbosely. (Default: False)")
+
+    opts, args = parser.parse_args()
+
+    # show parameters
+    if opts.verbose:
+        print >> sys.stderr, ""
+        print >> sys.stderr, "running network_eqmon..."
+        print >> sys.stderr, "version: %s"%__version__
+        print >> sys.stderr, ""
+        print >> sys.stderr, "***************** PARAMETERS ********************"
+        for o in opts.__dict__.items():
+          print >> sys.stderr, o[0]+":"
+          print >> sys.stderr, o[1]
+        print >> sys.stderr, ""
+
+    return opts
+
+def params_struct(opts):
+
+    params = readParamsFromFile(opts.paramsFile)
+
+    return params
+
+def readParamsFromFile(file):
+
+    params = {}
+    if os.path.isfile(file):
+        with open(file,'r') as f:
+            for line in f:
+                line_without_return = line.split("\n")
+                line_split = line_without_return[0].split(" ")
+                params[line_split[0]] = line_split[1]
+    return params
+
+def write_info(file,attributeDic):
+
+    root = etree.Element('eqmon')
+    for key, value in attributeDic.items():
+        if not key == "traveltimes":
+            element = etree.SubElement(root,key)
+            element.text = str(value)
+    element = etree.SubElement(root,'traveltimes')
+    for key, value in attributeDic["traveltimes"].items():
+        subelement = etree.SubElement(element,key)
+        for category in value:
+            subsubelement = etree.SubElement(subelement,category)
+            subsubelement.text = write_array(value[category])
+
+    tree = etree.ElementTree(root)
+    tree.write(file, pretty_print=True, xml_declaration=True)
+
+def write_info_small(file,attributeDic):
+
+    root = etree.Element('eqmon')
+    for key, value in attributeDic.items():
+        if not key == "traveltimes":
+            element = etree.SubElement(root,key)
+            element.text = str(value)
+    element = etree.SubElement(root,'traveltimes')
+    for key, value in attributeDic["traveltimes"].items():
+        subelement = etree.SubElement(element,key)
+        for category in value:
+            if category == "Ptimes" or category == "Stimes" or category == "Rtimes":
+                subsubelement = etree.SubElement(subelement,category)
+                subsubelement.text = write_array(np.array(np.around(np.array(value[category]) - attributeDic["GPS"]),dtype=np.int))
+            elif category in ["Pamp","Samp","Rfamp"]:
+                subsubelement = etree.SubElement(subelement,category)
+                subsubelement.text = str(value[category][0])
+            elif category in ["Distances"]:
+                subsubelement = etree.SubElement(subelement,category)
+                subsubelement.text = str(value[category][-1])
+
+    tree = etree.ElementTree(root)
+    try:
+        tree.write(file, pretty_print=True, xml_declaration=True)
+    except:
+        print "Unable to write %s"%file
+
+def write_array(array):
+    text = ' '.join([str(x) for x in array])
+    return text
+
+def write_context(path):
+
+    files = glob.glob(os.path.join(path,"*.xml"))
+
+    f = open(os.path.join(path,"context.txt"),"w")
+    for file in files:
+        fileSplit = file.split("/")
+        fileName = fileSplit[-1]
+        if fileName == "context.txt":
+            continue
+        f.write("%s\n"%fileName)
+    f.close()
+
+def delete_files(path,gps):
+
+    files = glob.glob(os.path.join(path,"*.xml"))
+
+    for file in files:
+        fileSplit = file.split("/")
+        fileName = fileSplit[-1]
+        if fileName == "context.txt":
+            continue
+        fileNameSplit = fileName.replace(".xml","").split("-")
+        fileGPS = int(fileNameSplit[-1])
+        
+        if fileGPS < gps:
+            os.system("rm %s"%file)
+
+def rsync_files(path):
+
+    hostname = "coughlin@muon1.ast.cam.ac.uk"
+    folder = "/home/coughlin/public_html"
+
+    x = subprocess.Popen(["rsync","-avz","--delete",path,"%s:%s"%(hostname,folder)])
+    x.wait()
+    if x.returncode==0:
+        print 'Copying complete'
+    else:
+        print 'Copying failed'
+
+def download_publiceventfiles(path):
+
+    file = "http://earthquake.usgs.gov/earthquakes/feed/geojson/all/hour"
+
+    x = subprocess.Popen(["wget",file,"-O","%s/events.txt"%path])
+    x.wait()
+    if x.returncode==0:
+        print 'Copying complete'
+    else:
+        print 'Copying failed'
+
+def private_events(params):
+
+    numEventsAdded = 0
+
+    folders = glob.glob(os.path.join(params["dataLocation"],"*"))
+    for numFolder in xrange(len(folders)):
+
+        folder = folders[numFolder]
+
+        folderSplit = folder.split("/")
+        eventName = folderSplit[len(folderSplit) - 1]
+
+        dataFolder = os.path.join(params["dataLocation"],eventName,eventName[0:2])
+        timeFolders = glob.glob(os.path.join(dataFolder,"*"))
+
+        if timeFolders == []:
+            continue
+
+        attributeDics = []
+        for timeFolder in timeFolders:
+            attributeDic = []
+            #if os.path.isfile(os.path.join(timeFolders[0],"eqxml.xml")):
+            if os.path.isfile(os.path.join(timeFolders[0],"eqxml.xml")) and not os.path.isfile(os.path.join(timeFolders[0],"eqxml.txt")):
+                xmlfile = os.path.join(timeFolders[0],"eqxml.xml")
+                attributeDic = pylal.pylal_seismon_eqmon.read_eqxml(xmlfile,eventName)
+                attributeDics.append(attributeDic)
+
+                f = open(os.path.join(timeFolders[0],"eqxml.txt"),"w")
+                f.write("Done")
+                f.close()
+
+                if not "GPS" in attributeDic:
+                    continue
+
+                file = os.path.join(params["eventfilesLocation"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+                print file
+                if attributeDic["Magnitude"] >= 0:
+                    write_info(file,attributeDic)
+                file = os.path.join(params["eventfilesLocationJan"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+                #if attributeDic["Magnitude"] >= 0:
+                #    write_info_small(file,attributeDic)
+                arrivalTimes = [attributeDic["traveltimes"][ifo]["Rtimes"][-1] for ifo in attributeDic["traveltimes"].iterkeys()]
+                file = os.path.join(params["eventfilesLocationFast"],"private/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+                if min(arrivalTimes) >= attributeDic["WrittenGPS"]:
+                    write_info(file,attributeDic)
+
+                print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
+                numEventsAdded = numEventsAdded + 1
+
+    if numEventsAdded > 0:
+        gps = int(os.popen("tconvert now - 2 hours").readline())
+        #delete_files(os.path.join(params["eventfilesLocationJan"],"private"),gps)
+        #write_context(os.path.join(params["eventfilesLocationJan"],"private"))
+
+    return numEventsAdded
+
+def public_events(params):
+
+    numEventsAdded = 0
+
+    download_publiceventfiles(params["publicdataLocation"])
+    events_text = open(os.path.join(params["publicdataLocation"],"events.txt"),"r").read()
+    events = json.loads(events_text)
+
+    for event in events["features"]:
+        attributeDic = pylal.pylal_seismon_eqmon.jsonread(event)
+        if not "GPS" in attributeDic:
+            continue
+        if os.path.isfile(os.path.join(params["eventfilesLocation"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))):
+            continue
+
+        file = os.path.join(params["eventfilesLocation"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+        if attributeDic["Magnitude"] >= 0:
+            write_info(file,attributeDic)
+        file = os.path.join(params["eventfilesLocationJan"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+        #if attributeDic["Magnitude"] >= 0:
+        #    write_info_small(file,attributeDic)
+        arrivalTimes = [attributeDic["traveltimes"][ifo]["Rtimes"][-1] for ifo in attributeDic["traveltimes"].iterkeys()]
+        file = os.path.join(params["eventfilesLocationFast"],"public/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+        if min(arrivalTimes) >= attributeDic["WrittenGPS"]:
+            write_info(file,attributeDic)
+
+        print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
+        numEventsAdded = numEventsAdded + 1
+
+    if numEventsAdded > 0:
+        gps = int(os.popen("tconvert now - 2 hours").readline())
+        #delete_files(os.path.join(params["eventfilesLocationJan"],"public"),gps)
+        #write_context(os.path.join(params["eventfilesLocationJan"],"public"))
+
+    return numEventsAdded
+
+def database_events(params):
+
+    numEventsAdded = 0
+
+    with open(os.path.join(params["databasedataLocation"],"events.txt")) as f:
+
+        for line in f:
+
+            event = line.replace("\n","")
+            attributeDic = pylal.pylal_seismon_eqmon.databaseread(event)
+
+            if not "GPS" in attributeDic:
+                continue
+            if os.path.isfile(os.path.join(params["eventfilesLocation"],"database/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))):
+                continue
+
+            file = os.path.join(params["eventfilesLocation"],"database/%s-%.0f.xml"%(attributeDic["eventName"],attributeDic["GPS"]))
+            if attributeDic["Magnitude"] >= 0:
+                write_info(file,attributeDic)
+
+            print "%s added at "%attributeDic["eventName"], time.time(), ". %.3f seconds after event"%(attributeDic["SentGPS"] - attributeDic["GPS"])
+            numEventsAdded = numEventsAdded + 1
+
+    return numEventsAdded
+
+
+def run_traveltimes():
+
+    warnings.filterwarnings("ignore")
+
+    # Parse command line
+    opts = parse_commandline()
+    # Parse command line
+    params = params_struct(opts)
+
+    numEventsAddedPrivate = private_events(params)
+    numEventsAddedPublic = public_events(params)
+    #numEventsAddedDatabase = database_events(params)
+
+    #if numEventsAddedPublic > 0 or numEventsAddedPrivate > 0:
+    #    rsync_files(params["eventfilesLocationJan"])
+
+
+# =============================================================================
+#
+#                                    MAIN
+#
+# =============================================================================
+
+if __name__=="__main__":
+
+    run_traveltimes()
+
