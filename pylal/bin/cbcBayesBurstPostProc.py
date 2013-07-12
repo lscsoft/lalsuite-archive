@@ -631,9 +631,7 @@ def cbcBayesPostProc(
         fracs.sort()
         skystatfilename=os.path.join(outdir,"sky_summary_statistics.dat")
         statout=open(skystatfilename,"w")
-        stri=""
-        if injection:
-            stri+="FoundCL\t"
+        stri="FoundCL\t"
         for frac in fracs:
             stri+="%s\t%s\t"%("CL","Size")
         statout.write(stri)
@@ -641,7 +639,9 @@ def cbcBayesPostProc(
             if sky_injection_cl:
                 stri=str(sky_injection_cl)
             else:
-                stri="-100"
+                stri="-1707" 
+        else:
+            stri="-1707"
         skysizes=[skyreses[frac] for frac in fracs]
         for frac,skysize in zip(fracs,skysizes):
             html_sky_write+=('<tr><td>%f</td><td>%f</td></tr>'%(frac,skysize))
