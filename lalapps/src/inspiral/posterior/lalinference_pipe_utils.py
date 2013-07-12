@@ -313,8 +313,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.dq={}
     self.frtypes=ast.literal_eval(cp.get('datafind','types'))
     self.channels=ast.literal_eval(cp.get('data','channels'))
-    if cp.has_option('input','mdc-chaches'):
-        self.mdccaches=ast.literal_eval( cp.get('input','mdc-chaches'))
+    if cp.has_option('input','mdc-caches'):
+        self.mdccaches=ast.literal_eval( cp.get('input','mdc-caches'))
         if cp.has_option('input','mdc-channels'):
             self.mdcchannels=ast.literal_eval( cp.get('input','mdc-channels'))
         else:
@@ -677,10 +677,11 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         slide=0
       for seg in self.segments[ifo]:
         if end_time >= seg.start() and end_time < seg.end():
-            if self.mdcchannels:
-                mdcchannel=self.mdcchannels[ifo]
-            if self.mdccache:
-                mdccache=self.mdccaches[ifo]
+          if self.mdcchannels:
+            mdcchannel=self.mdcchannels[ifo]
+          if self.mdccaches:
+            mdccache=self.mdccaches[ifo]
+            node.add_var_opt('inject_from_mdc','')
           gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
     if self.config.has_option('lalinference','fake-cache'):
       node.cachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
@@ -827,7 +828,7 @@ class EngineNode(pipeline.CondorDAGNode):
     self.psdstart=None
     self.psdpadding=None
     self.cachefiles={}
-    self.mdccachefiles={}
+    self.mdccaches={}
     self.id=EngineNode.new_id()
     self.__finaldata=False
 
@@ -903,7 +904,7 @@ class EngineNode(pipeline.CondorDAGNode):
         if mdcchannel:
             self.mdcchannels[ifo]=mdcchannel
         if mdccache:
-            self.mdccache[ifo]=mdccache
+            self.mdccaches[ifo]=mdccache
 
         return 1
     else: return 0
@@ -933,8 +934,8 @@ class EngineNode(pipeline.CondorDAGNode):
         else: delim=','
         ifostring=ifostring+delim+ifo
         cachestring=cachestring+delim+self.cachefiles[ifo]
-        if self.mdcchannel: mdcchannelstring=mdcchannelstring+delim+self.mdcchannel[ifo]
-        if self.mdccache: mdccachestring=mdccachestring+delim+self.mdccachel[ifo]
+        if self.mdcchannels: mdcchannelstring=mdcchannelstring+delim+self.mdcchannels[ifo]
+        if self.mdccaches: mdccachestring=mdccachestring+delim+self.mdccaches[ifo]
         if self.psds: psdstring=psdstring+delim+self.psds[ifo]
         if self.flows: flowstring=flowstring+delim+self.flows[ifo]
         channelstring=channelstring+delim+self.channels[ifo]
@@ -952,8 +953,8 @@ class EngineNode(pipeline.CondorDAGNode):
       self.add_var_opt('cache',cachestring)
       if self.psds: self.add_var_opt('psd',psdstring)
       if self.flows: self.add_var_opt('flow',flowstring)
-      if self.mdcchannel: self.add_var_opt('MDC-channel',mdcchannelstring)
-      if self.mdccache: self.add_var_opt('MDC-cache',mdccachestring)
+      if self.mdcchannels: self.add_var_opt('MDC-channel',mdcchannelstring)
+      if self.mdccaches: self.add_var_opt('MDC-cache',mdccachestring)
       if any(self.timeslides):
 	self.add_var_opt('timeslide',slidestring)
       # Start at earliest common time
