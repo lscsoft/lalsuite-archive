@@ -276,19 +276,19 @@ static int XLALSimInspiralSpinTaylorT2Setup(
             params->wdotSS2 	= 1. / 48. / eta;
             params->ESS2 		= 1. / eta;
             // 2PN quadrupole-monopole terms
-            params->wdotQM2S1        = quadparam1 * 5./2.*m1M*m1M;
-            params->wdotQM2S1L       = -quadparam1 * 15./2.*m1M*m1M;
-            params->wdotQM2S2        = quadparam2 * 5./2.*m2M*m2M;
-            params->wdotQM2S2L       = -quadparam2 * 15./2.*m2M*m2M;
-            params->EQM2S1           = quadparam1/2.*m1M*m1M;
-            params->EQM2S1L          = -quadparam1*3./2.*m1M*m1M;
-            params->EQM2S2           = quadparam2/2.*m2M*m2M;
-            params->EQM2S2L          = -quadparam2*3./2.*m2M*m2M;
+            params->wdotQM2S1        = quadparam1 * 5./2./m1M/m1M;
+            params->wdotQM2S1L       = -quadparam1 * 15./2./m1M/m1M;
+            params->wdotQM2S2        = quadparam2 * 5./2./m2M/m2M;
+            params->wdotQM2S2L       = -quadparam2 * 15./2./m2M/m2M;
+            params->EQM2S1           = quadparam1/2./m1M/m1M;
+            params->EQM2S1L          = -quadparam1*3./2./m1M/m1M;
+            params->EQM2S2           = quadparam2/2./m2M/m2M;
+            params->EQM2S2L          = -quadparam2*3./2./m2M/m2M;
             // 2PN self-spin terms
-            params->wdotSSselfS1     = -7./96.*m1M*m1M;
-            params->wdotSSselfS1L    = 1./96.*m1M*m1M;
-            params->wdotSSselfS2     = -7./96.*m2M*m2M;
-            params->wdotSSselfS2L    = 1./96.*m2M*m2M;
+            params->wdotSSselfS1     = -7./96./m1M/m1M;
+            params->wdotSSselfS1L    = 1./96./m1M/m1M;
+            params->wdotSSselfS2     = -7./96./m2M/m2M;
+            params->wdotSSselfS2L    = 1./96./m2M/m2M;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
             // Note: LNHat do not have their signs reversed relative to T4
             // They are precession rather than orbital quantities
@@ -382,6 +382,14 @@ static int XLALSimInspiralSpinTaylorT4Setup(
     params->fEnd = fEnd;
     params->spinO = spinO;
     params->tideO = tideO;
+
+    printf("Just entered SpinTaylorT4Setup\nlambda1, lambda2: %e, %e\n", lambda1, lambda2);
+
+    // SETTING TIDE ORDER TO 2 BY HAND!
+
+    // tideO = 2;
+
+    // printf("Setting tideO by hand\ntideO = %d\n", tideO);
 
     /* Set coefficients up to PN order phaseO.
      * epnorb is the binary energy and
@@ -484,20 +492,19 @@ static int XLALSimInspiralSpinTaylorT4Setup(
             params->wdotSS2 		= - 1. / 48. / eta;
             params->ESS2 		= 1. / eta;
             // 2PN quadrupole-monopole terms
-            params->wdotQM2S1 	= -quadparam1 * 5./2.*m1M*m1M;
-            params->wdotQM2S1L 	= quadparam1 * 15./2.*m1M*m1M;
-            params->wdotQM2S2 	= -quadparam2 * 5./2.*m2M*m2M;
-            params->wdotQM2S2L 	= quadparam2 * 15./2.*m2M*m2M;
-            params->EQM2S1 		= quadparam1/2.*m1M*m1M;
-            params->EQM2S1L 		= -quadparam1*3./2.*m1M*m1M;
-            params->EQM2S2 		= quadparam2/2.*m2M*m2M;
-            params->EQM2S2L 		= -quadparam2*3./2.*m2M*m2M;
-           // printf("quadparams: %e, %e\n", quadparam1, quadparam2);
+            params->wdotQM2S1 	= -quadparam1 * 5./2./m1M/m1M;
+            params->wdotQM2S1L 	= quadparam1 * 15./2./m1M/m1M;
+            params->wdotQM2S2 	= -quadparam2 * 5./2./m2M/m2M;
+            params->wdotQM2S2L 	= quadparam2 * 15./2./m2M/m2M;
+            params->EQM2S1 		= quadparam1/2./m1M/m1M;
+            params->EQM2S1L 		= -quadparam1*3./2./m1M/m1M;
+            params->EQM2S2 		= quadparam2/2./m2M/m2M;
+            params->EQM2S2L 		= -quadparam2*3./2./m2M/m2M;
             // 2PN self-spin terms
-            params->wdotSSselfS1     = 7./96.*m1M*m1M;
-            params->wdotSSselfS1L    = -1./96.*m1M*m1M;
-            params->wdotSSselfS2     = 7./96.*m2M*m2M;
-            params->wdotSSselfS2L    = -1./96.*m2M*m2M;
+            params->wdotSSselfS1     = 7./96./m1M/m1M;
+            params->wdotSSselfS1L    = -1./96./m1M/m1M;
+            params->wdotSSselfS2     = 7./96./m2M/m2M;
+            params->wdotSSselfS2L    = -1./96./m2M/m2M;
         case LAL_SIM_INSPIRAL_SPIN_ORDER_15PN:
             params->LNhatSO15s1 	= 2. + 3./2. * m2m1;
             params->LNhatSO15s2	= 2. + 3./2. * m1m2;
@@ -524,6 +531,7 @@ static int XLALSimInspiralSpinTaylorT4Setup(
     switch( tideO )
     {
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        printf("Got past TIDAL_ORDER_ALL\n");
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             params->wdottidal6pn = lambda1 * m1M*m1M*m1M*m1M*m1M
                     * (4421./28. - 12263./28. * m1M + 1893./2. * m1M * m1M
@@ -534,13 +542,16 @@ static int XLALSimInspiralSpinTaylorT4Setup(
                     + 3. * m1M * m1M) * lambda1 * m1M*m1M*m1M*m1M*m1M
                     - 11./2. * m1m2 * (3. + 2. * m2M + 3. * m2M * m2M)
                     * lambda2 * m2M*m2M*m2M*m2M*m2M;
+        printf("Got past TIDAL_ORDER_6PN\nlambda1, lambda2: %e, %e\n", lambda1, lambda2);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_5PN:
             params->wdottidal5pn = lambda1 * 6. * (1. + 11. * m2M)
                     * m1M*m1M*m1M*m1M + lambda2
                     * 6. * (1. + 11. * m1M) * m2M*m2M*m2M*m2M;
             params->Etidal5pn = - 9. * m2m1 * lambda1 * m1M*m1M*m1M*m1M*m1M
                     - 9. * m1m2 * lambda2 * m2M*m2M*m2M*m2M*m2M;
-                    printf("love numbers: %e, %e\n", lambda1, lambda2);
+        printf("Got past TIDAL_ORDER_5PN\nlambda1, lambda2: %e, %e\n", lambda1, lambda2);
+        printf("Tidal phase coeffs in domega: %e, %e\n", params->wdottidal5pn, params->wdottidal6pn);
+        printf("Tidal phase coeffs in E: %e, %e\n", params->Etidal5pn, params->Etidal6pn);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
@@ -629,6 +640,7 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
     REAL8 norm, dtStart, dtEnd, lengths, wEnd, m1sec, m2sec, Msec, Mcsec, fTerm;
     LIGOTimeGPS tStart = LIGOTIMEGPSZERO;
 
+    printf("Just entered SpinTaylorPNEvolveOrbit\nlambda1, lamba2: %e, %e\n", lambda1, lambda2);
     /* Check start and end frequencies are positive */
     if( fStart <= 0. )
     {
@@ -905,11 +917,11 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
 /**
  * Internal function called by the integration routine.
  * Stops the integration if
- * 1) The energy decreases with increasing orbital frequency
- * 2) The orbital frequency begins decreasing
- * 3) The orbital frequency becomes infinite
- * 4) The orbital frequency has gone outside the requested bounds
- * 5) The PN parameter v/c becomes >= 1
+ * 		1) The energy decreases with increasing orbital frequency
+ *		2) The orbital frequency begins decreasing
+ *		3) The orbital frequency becomes infinite 
+ *		4) The orbital frequency has gone outside the requested bounds
+ *      5) The PN parameter v/c becomes >= 1
  * SpinTaylorT4 and SpinTaylorT2 both use this same stopping test
  */
 static int XLALSimInspiralSpinTaylorStoppingTest(
@@ -1151,6 +1163,7 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
             break;
     }
 
+
     domega  = params->wdotnewt * v11 * ( params->wdotcoeff[0]
             + v * ( params->wdotcoeff[1]
             + v * ( params->wdotcoeff[2]
@@ -1162,6 +1175,9 @@ static int XLALSimInspiralSpinTaylorT4Derivatives(
             + v * ( params->wdotcoeff[7] + wspin35
             + v3 * ( params->wdottidal5pn
             + v2 * ( params->wdottidal6pn ) ) ) ) ) ) ) ) ) );
+
+    // if ( params->wdottidal5pn !=0.0 && params->wdottidal6pn != 0.0 )
+    //    printf("Full tidal effects on\n");
 
     /*
      * dLN
@@ -1567,6 +1583,8 @@ int XLALSimInspiralSpinTaylorT4(
 	int amplitudeO                  /**< twice PN amplitude order */
 	)
 {
+    printf("Just entered waveform engine\nlambda1, lambda2: %e, %e\n", lambda1, lambda2);
+ 
     Approximant approx = SpinTaylorT4;
     int n = XLALSimInspiralSpinTaylorDriver(hplus, hcross, phiRef, v0, deltaT,
             m1, m2, fStart, fRef, r, s1x, s1y, s1z, s2x, s2y, s2z,
@@ -1688,6 +1706,8 @@ static int XLALSimInspiralSpinTaylorDriver(
     REAL8 fS, fE, phiShift;
     /* The Schwarzschild ISCO frequency - for sanity checking fRef */
     REAL8 fISCO = pow(LAL_C_SI,3) / (pow(6.,3./2.)*LAL_PI*(m1+m2)*LAL_G_SI);
+
+    printf("Just entered SpinTaylorDriver\nlambda1, lambda2: %e, %e\n", lambda1, lambda2);
 
     /* Sanity check fRef value */
     if( fRef < 0. )

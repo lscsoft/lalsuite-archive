@@ -2035,6 +2035,9 @@ int XLALSimInspiralChooseTDWaveform(
             amplitudeO = amplitudeO <= MAX_PRECESSING_AMP_PN_ORDER ? 
                     amplitudeO : MAX_PRECESSING_AMP_PN_ORDER;
             /* Call the waveform driver routine */
+            
+            printf("About to call engine\nlam1, lam2: %e, %e\n", lam1, lam2);        
+
             ret = XLALSimInspiralSpinTaylorT4(hplus, hcross, phiRef, v0, deltaT,
                     m1, m2, f_min, f_ref, r, S1x, S1y, S1z, S2x, S2y, S2z,
                     LNhatx, LNhaty, LNhatz, E1x, E1y, E1z, lam1, lam2,
