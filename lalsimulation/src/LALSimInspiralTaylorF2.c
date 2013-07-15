@@ -244,6 +244,11 @@ int XLALSimInspiralTaylorF2(
     /* Fill with non-zero vals from fStart to f_max */
     iStart = (size_t) ceil(fStart / deltaF);
     data = htilde->data->data;
+
+    FILE *phaseTF2;
+
+    phaseTF2 = fopen("phaseTF2.out","w");
+
     for (i = iStart; i < n; i++) {
         const REAL8 f = i * deltaF;
         const REAL8 v = cbrt(piM*f);
@@ -362,7 +367,12 @@ int XLALSimInspiralTaylorF2(
         amp = amp0 * sqrt(-dEnergy/flux) * v;
         data[i] = amp * cos(phasing - LAL_PI_4)
                 - amp * sin(phasing - LAL_PI_4) * 1.0j;
+
+        fprintf(phaseTF2, "%e %e\n", f, phasing - LAL_PI_4);
+
     }
+       
+    fclose(phaseTF2);
 
     *htilde_out = htilde;
     return XLAL_SUCCESS;

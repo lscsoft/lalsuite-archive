@@ -358,6 +358,7 @@ XLALSimInspiralTaylorT4Setup(
     switch( tideO )
     {
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_ALL:
+        // printf("In TaylorT4 waveform engine for recovery. Got through TIDAL_ORDER_ALL\n");
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_6PN:
             akdEF->ETa6 = XLALSimInspiralPNEnergy_12PNTidalCoeff(
                     ak->chi2, ak->chi1, lambda1)
@@ -376,6 +377,7 @@ XLALSimInspiralTaylorT4Setup(
                     ak->chi1, lambda1)
                     + XLALSimInspiralTaylorT4AngularAccel_10PNTidalCoeff(
                     ak->chi2, lambda2);
+        // printf("In TaylorT4 waveform engine for recovery. Got through TIDAL_ORDER_5PN\nlambda1, lambda2: %e, %e\nak->aat10, ak->aat12: %e, %e\n", lambda1, lambda2, ak->aat10, ak->aat12);
         case LAL_SIM_INSPIRAL_TIDAL_ORDER_0PN:
             break;
         default:
