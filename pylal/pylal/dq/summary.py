@@ -261,7 +261,8 @@ class SummaryTab(object):
         try:
             idx = names.index(name)
         except ValueError,e:
-            raise RunTimeError("Parent tab has no child named \"%s\"." % name)
+            raise RuntimeError("Parent tab has no child named \"%s\". Valid "
+                               "children are: %s." % (name, ", ".join(names)))
         else:
             return self.children[idx]
         
@@ -607,15 +608,15 @@ class SectionSummaryTab(SummaryTab):
         div(self.frame, 0, self.name)
         if self.name == "Summary":
             order = ["Sensitivity", "Triggers", "Segments"]
-            self.children.sort(key=lambda x: x.name in order\
-                                             and order.index(x.name)+1 or 1000)
+            self.children.sort(key=lambda x: x.parent.name in order\
+                                             and order.index(x.parent.name)+1 or 1000)
             children = []
             for tab in self.children:
                 children.extend(tab.children)
         else:
             children = self.children
         n = len(children) > 1 and 2 or 1
-        
+
         self.frame.table(style="table-layout: fixed; width: 100%;")
         for i,tab in enumerate(children):
             if self.name == "Summary" and tab.skip_summary:
@@ -623,14 +624,14 @@ class SectionSummaryTab(SummaryTab):
             if i % n == 0:
                 self.frame.tr()
             self.frame.td()
-            if (self.name == "Summary" and 
-                    re.match("[A-Z]{3}\Z", tab.parent.name) and
-                    not tab.name.startswith(tab.parent.name)):
-                self.frame.h3("%s: %s" % (tab.parent.name, tab.name),
-                              class_="summary")
+            if (self.name == "Summary"):
+                parent = tab.parent.parent
+                self.frame.a(markup.oneliner.h2(parent.name, class_='summary'),
+                             href=parent.index, title=parent.name)
+                self.frame.a(href=parent.index, title=parent.name)
             else:
-                self.frame.h3(tab.name, class_="summary")
-            self.frame.a(href=tab.index, title=tab.name)
+                self.frame.a(href=tab.index, title=tab.name)
+                self.frame.h2(tab.name, class_="summary")
             self.frame.img(src=tab.plots[0][0], alt=tab.name, class_="full")
             self.frame.a.close()
             self.frame.td.close()
