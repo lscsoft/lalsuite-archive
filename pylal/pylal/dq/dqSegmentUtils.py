@@ -289,14 +289,15 @@ def grab_segments(start, end, flag,\
 
   # query database and return
   segs = segmentdb_utils.query_segments(engine, 'segment', segdefs)
+  segs = [s.coalesce() for s in segs]
   if segment_summary:
     segsums = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
-    segsums = reduce(operator.or_, segsums).coalesce()
+    #segsums = reduce(operator.or_, segsums).coalesce()
+    segsums = [s.coalesce() for s in segsums]
     if flag == flags[0]:
       return segs[0],segsums[0]
     else:
       return segs,segsums
-  print flag == flags[0]
   if flag == flags[0]:
     return segs[0]
   else:
