@@ -313,6 +313,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     self.dq={}
     self.frtypes=ast.literal_eval(cp.get('datafind','types'))
     self.channels=ast.literal_eval(cp.get('data','channels'))
+    self.mdcchannels=None
+    self.mdccaches=None
     if cp.has_option('input','mdc-caches'):
         self.mdccaches=ast.literal_eval( cp.get('input','mdc-caches'))
         if cp.has_option('input','mdc-channels'):
@@ -679,9 +681,13 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         if end_time >= seg.start() and end_time < seg.end():
           if self.mdcchannels:
             mdcchannel=self.mdcchannels[ifo]
+          else:
+            mdcchannel=None
           if self.mdccaches:
             mdccache=self.mdccaches[ifo]
             node.add_var_opt('inject_from_mdc','')
+          else:
+            mdccache=None
           gotdata+=node.add_ifo_data(ifo,seg,self.channels[ifo],mdccache=mdccache,mdcchannel=mdcchannel,timeslide=slide)
     if self.config.has_option('lalinference','fake-cache'):
       node.cachefiles=ast.literal_eval(self.config.get('lalinference','fake-cache'))
