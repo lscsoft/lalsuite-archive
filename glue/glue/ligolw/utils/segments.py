@@ -34,8 +34,8 @@ from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
 from glue.lal import LIGOTimeGPS
-from glue.ligolw import table
-from glue.ligolw import lsctables
+from .. import table
+from .. import lsctables
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

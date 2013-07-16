@@ -31,8 +31,8 @@ search_summary table in LIGO Light-Weight XML documents.
 
 
 from glue import git_version
-from glue.ligolw import table
-from glue.ligolw import lsctables
+from .. import table
+from .. import lsctables
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

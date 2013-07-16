@@ -47,9 +47,9 @@ import sys
 
 
 from glue import git_version
-from glue.ligolw import ligolw
-from glue.ligolw import dbtables
-from glue.ligolw import utils
+from .. import ligolw
+from .. import dbtables
+from .. import utils
 
 
 # FIXME: remove this hack when the SnglInspiralTable class uses the
