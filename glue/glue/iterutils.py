@@ -220,6 +220,12 @@ def inplace_filter(func, sequence):
 	>>> inplace_filter(lambda x: x > 5, l)
 	>>> l
 	[6, 7, 8, 9]
+
+	Performance considerations:  the function iterates over the
+	sequence, shuffling surviving members down and deleting whatever
+	top part of the sequence is left empty at the end, so sequences
+	whose surviving members are predominantly at the bottom will be
+	processed faster.
 	"""
 	target = 0
 	for source in xrange(len(sequence)):
@@ -276,14 +282,8 @@ def inorder(*iterables, **kwargs):
 	reasons no check is performed to validate the element order in the
 	input sequences.
 	"""
-	try:
-		reverse = kwargs.pop("reverse")
-	except KeyError:
-		reverse = False
-	try:
-		keyfunc = kwargs.pop("key")
-	except KeyError:
-		keyfunc = lambda x: x  # identity
+	reverse = kwargs.pop("reverse", False)
+	keyfunc = kwargs.pop("key", lambda x: x) # default = identity
 	if kwargs:
 		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
 	nextvals = {}
@@ -303,7 +303,7 @@ def inorder(*iterables, **kwargs):
 		select = min
 	values = nextvals.itervalues
 	if len(nextvals) > 1:
-		while True:
+		while 1:
 			_, val, next = select(values())
 			yield val
 			try:
@@ -316,7 +316,7 @@ def inorder(*iterables, **kwargs):
 	# exactly one sequence remains, short circuit and drain it
 	(_, val, next), = values()
 	yield val
-	while True:
+	while 1:
 		yield next()
 
 
