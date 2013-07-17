@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 
 # Copyright (C) 2012 Duncan M. Macleod
 #
@@ -58,6 +58,7 @@ if not os.getenv("DISPLAY", None):
 import lal
 import lalframe
 import lalsimulation
+import lalburst
 
 # import laldetchar
 import laldetchar
@@ -3292,6 +3293,87 @@ def plot_sigdrop( chansig_prev, chansig_cur, rnd ):
 	fig.savefig( "drop_round_%d.png" % (rnd-1) )
 
 
+def lalseg_from_seglist( segl ):
+	"""
+	Convert a glue.segments segmentlist to a LALSegList structure.
+	"""
+	lalsegl = lal.SegList()
+	lal.SegListInit( lalsegl )
+	for i, seg in enumerate(segl):
+		lalseg = lal.Seg()
+		lal.SegSet( lalseg,
+			lal.LIGOTimeGPS( float(seg[0]) ),
+			lal.LIGOTimeGPS( float(seg[1]) ),
+			i
+		)
+		lal.SegListAppend( lalsegl, lalseg )
+	return lalsegl
+
+def seglist_from_lalseg( lalsegl ):
+	"""
+	Convert a LALSegList structure to a glue.segmentlist.
+	"""
+	segl = segmentlist()
+	for i in range(lalsegl.length):
+		lalseg = lal.SegListGet( lalsegl, i )
+		segl.append( segment( lalseg.start, lalseg.end ) )
+	return segl
+
+def retrieve_func( dtype ):
+	"""
+	Since the type information of a returnable object from a GHashTable is not known in advance, the user will supply the required return type. This is a convenience function to get the right value retrieval function from a type definition. FIXME: This is sooooo stupid. We really need the proper bindings for GHashTable -> dict.
+	"""
+	if dtype == str:
+		return laldetchar.GetStrGHashTableVal
+	elif dtype == int:
+		return laldetchar.GetIntGHashTableVal
+	elif dtype == float:
+		return laldetchar.GetDblGHashTableVal
+	else:
+		raise TypeError( "Don't have right function to retrieve key for type %s" % dtype )
+
+def ghash_to_dict( ghash, dtype ):
+	"""
+	Convert a GHashTable into a python dictionary. Note that all the GHashTables in use by laldetchar map a string to a fixed type (e.g. double or string), so the dtype argument should match that.
+	"""
+	i = 0
+	keys = []
+	while True:
+		key = laldetchar.GetGHashTableKey( ghash, i )
+		if key is None: 
+			break
+		i += 1
+		keys.append( key )
+	
+	rfunc = retrieve_func( dtype )
+	return dict( [ (key, rfunc( ghash, key )) for key in keys ] )
+
+def seq_to_sbtable( sblist, get_col=None ):
+	"""
+	Convert a GSequence of SnglBurst to a SnglBurstTable.
+	"""
+	sbtable = lsctables.New(lsctables.SnglBurstTable,
+	  ["peak_time_ns", "start_time_ns", "channel",
+	  "process_id", "ifo", "peak_time", "start_time",
+	  "duration", "central_freq", "search",
+	  "bandwidth", "event_id", "snr"])
+
+	sblistitr = laldetchar.GSnglBurstSeqBegin( sblist )
+
+	col_ar = []
+	while True:
+		next_sb = laldetchar.GSnglBurstIterGet( sblistitr )
+		if next_sb is None:
+			break
+		if get_col is not None:
+			col_ar.append( getattr( next_sb, get_col ) )
+		sbtable.append( lalburst_sb_to_glue_sb(next_sb) )
+		sblistitr = laldetchar.GSnglBurstIterNext( sblistitr )
+
+	if get_col is not None:
+		return col_ar
+	return sbtable
+
 def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                htmlonly=False):
     """
@@ -3348,9 +3430,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
 
     # get coinc params
     if cp.has_option(cpsec, "coincidence-windows"):
-        snr_thresh = map(float, cp.get(cpsec, "coincidence-windows").split(',') or None)
+        twind = map(float, cp.get(cpsec, "coincidence-windows").split(',') or None)
     if cp.has_option(cpsec, "snr-aux-thresholds"):
-        twind = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
+        snr_thresh = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
     if cp.has_option(cpsec, "significance-threshold"):
         sig_stop_thresh = cp.getfloat(cpsec, "significance-threshold")
 
@@ -3361,17 +3443,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     # type 1, and type 0 may not even work after all the tooling I've done. Fair
     # warning.
     coinc_type = 1
-
-    #
-    # get archived triggers
-    #
-
-    if (cp.has_option(cpsec, "use-archive") and
-            (cp.get(cpsec, "use-archive").lower() in ["", "true"])):
-        for channel in allchannels:
-            load_archive_triggers(cp, ifo, channel, tab.etg, tab.segments,
-                                  mode=tab.mode, clustered=tab.cluster)
-        print_verbose("Archive triggers loaded.\n", verbose=verbose)
 
     #
     # get triggers
@@ -3392,10 +3463,19 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         trig_seq = None
         for chan,trigtable in zip(allchannels, trigtables):
             tab.add_triggers(chan, trigtable)
-            # CHECK ME
-            for tt in trigtable:
-                print tt
-                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, tt)
+            # convert from glue SnglBurst to swig/lal SnglBurst
+            for trig in trigtable:
+                swigtrig = lalburst.CreateSnglBurst()
+                swigtrig.ifo = trig.ifo
+                swigtrig.search = trig.search
+                swigtrig.channel = trig.channel
+                swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
+                swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
+                swigtrig.central_freq = trig.peak_frequency
+                swigtrig.snr = trig.snr
+                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtrig)
+
+
     print_verbose("All triggers loaded.\n", verbose=verbose)
 
     #
@@ -3418,6 +3498,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     rnd = 1
     livesegs = tab.segments
     runlive = livetime = float(abs(livesegs))
+    lalsegl = lalseg_from_seglist( livesegs )
     ref_trigs = 0
 
     sigdrop = None
@@ -3431,36 +3512,45 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             print "Round %d" % rnd
             for snr_t in snr_thresh:
 
-                    # Mark triggers not meeting threshold criteria
-                    laldetchar.DetCharPruneTrigs( trig_seq, lalsegl, snr_t, tab.mainchannel )
-                    if laldetchar.GetGSnglBurstSeqUnmarkedLength( trig_seq ) <= 0:
-                            if verbose:
-                                    print "No triggers remaining at current threshold. Moving on."
-                            continue
+                # Mark triggers not meeting threshold criteria
+                print "C"
+                print lalsegl, snr_t, tab.mainchannel
+                laldetchar.DetCharPruneTrigs( trig_seq, lalsegl, snr_t, tab.mainchannel )
+                print "D"
+                if laldetchar.GetGSnglBurstSeqUnmarkedLength( trig_seq ) <= 0:
+                    if verbose:
+                        print "No triggers remaining at current threshold. Moving on."
+                    continue
 
-                    for wind in twind:
-                            if verbose:
-                                    print "SNR threshold %f, time window %f" % (snr_t, wind)
-                            chancount, chancoinc = laldetchar.CreateGHashTable(), laldetchar.CreateGHashTable()
-                            # TODO: Wrap this better
-                            laldetchar.DetCharScanTrigs( chancount, chancoinc, trig_seq, tab.mainchannel, wind, coinc_type )
+                for wind in twind:
+                        if verbose:
+                                print "SNR threshold %f, time window %f" % (snr_t, wind)
+                        print "A"
+                        chancount, chancoinc = laldetchar.CreateGHashTable(), laldetchar.CreateGHashTable()
+                        print "B"
+                        # TODO: Wrap this better
+                        print trig_seq
+                        print chancount, chancoinc
+                        print tab.mainchannel
+                        print wind, coinc_type
+                        laldetchar.DetCharScanTrigs( chancount, chancoinc, trig_seq, tab.mainchannel, wind, coinc_type )
+                        print "ScanTrigs"
+                        t_ratio = wind / livetime
+                        rnd_sig, winner = laldetchar.DetCharVetoRound( chancount, chancoinc, tab.mainchannel, t_ratio )
+                        if verbose:
+                                print "Subround winner %s (SNR: %f, wind: %f): %f" % (winner, snr_t, wind, rnd_sig)
 
-                            t_ratio = wind / livetime
-                            rnd_sig, winner = laldetchar.DetCharVetoRound( chancount, chancoinc, tab.mainchannel, t_ratio )
-                            if verbose:
-                                    print "Subround winner %s (SNR: %f, wind: %f): %f" % (winner, snr_t, wind, rnd_sig)
+                        chancount = ghash_to_dict( chancount, int )
+                        subround_count[(snr_t, wind)] = chancount
+                        chancoinc = ghash_to_dict( chancoinc, int )
+                        subround_coinc[(snr_t, wind)] = chancoinc
 
-                            chancount = ghash_to_dict( chancount, int )
-                            subround_count[(snr_t, wind)] = chancount
-                            chancoinc = ghash_to_dict( chancoinc, int )
-                            subround_coinc[(snr_t, wind)] = chancoinc
-
-                            if chancoinc.has_key(winner):
-                                    mu = t_ratio * chancount[winner] * chancount[tab.mainchannel]
-                                    subround_winner[(snr_t, wind)] = (winner, rnd_sig, mu)
-                            #print chancount, chancoinc
-                            print >>sys.stderr, "Popping from window loop."
-                    print >>sys.stderr, "Popping from threshold loop."
+                        if chancoinc.has_key(winner):
+                                mu = t_ratio * chancount[winner] * chancount[tab.mainchannel]
+                                subround_winner[(snr_t, wind)] = (winner, rnd_sig, mu)
+                        #print chancount, chancoinc
+                        print >>sys.stderr, "Popping from window loop."
+                print >>sys.stderr, "Popping from threshold loop."
 
             print >>sys.stderr, "Determining subround winner"
             subround_winner = sorted(subround_winner.iteritems(), key=lambda tup: tup[1][1] )
