@@ -261,33 +261,47 @@ def grab_segments(start, end, flag,\
   engine            = query_engine.LdbdQueryEngine(connection)
 
   # format flag name
-  spec = flag.split(':')
-  if len(spec) < 2 or len(spec) > 3:
-    raise AttributeError, "Included segements must be of the form "+\
-                          "ifo:name:version or ifo:name:*"
-
-  ifo  = spec[0]
-  name = spec[1]
-
-  if len(spec) is 3 and spec[2] is not '*':
-    version = int(spec[2])
-    if version < 1:
-      raise AttributeError, "Segment version numbers must be greater than zero"
+  if isinstance(flag, basestring):
+    flags = flag.split(',')
   else:
-    version = '*'
+    flags = flag
 
-  # expand segment definer
-  segdefs = segmentdb_utils.expand_version_number(engine, (ifo, name, version, \
-                                                          start, end, 0, 0))
+  segdefs = []
+  for f in flags:
+    spec = f.split(':')
+    if len(spec) < 2 or len(spec) > 3:
+      raise AttributeError, "Included segements must be of the form "+\
+                            "ifo:name:version or ifo:name:*"
+
+    ifo  = spec[0]
+    name = spec[1]
+
+    if len(spec) is 3 and spec[2] is not '*':
+      version = int(spec[2])
+      if version < 1:
+        raise AttributeError, "Segment version numbers must be greater than zero"
+    else:
+      version = '*'
+
+    # expand segment definer
+    segdefs += segmentdb_utils.expand_version_number(engine, (ifo, name, version, \
+                                                            start, end, 0, 0))
 
   # query database and return
   segs = segmentdb_utils.query_segments(engine, 'segment', segdefs)
-  segs = reduce(operator.or_, segs).coalesce()
+  segs = [s.coalesce() for s in segs]
   if segment_summary:
     segsums = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
-    segsums = reduce(operator.or_, segsums).coalesce()
-    return segs,segsums
-  return segs
+    #segsums = reduce(operator.or_, segsums).coalesce()
+    segsums = [s.coalesce() for s in segsums]
+    if flag == flags[0]:
+      return segs[0],segsums[0]
+    else:
+      return segs,segsums
+  if flag == flags[0]:
+    return segs[0]
+  else:
+    return segs
 
 # ==============================================================================
 # Dump flags from segment database

@@ -51,9 +51,9 @@ from xml.sax.xmlreader import AttributesImpl as Attributes
 
 from glue import git_version
 from glue import iterutils
-from glue.ligolw import ligolw
-from glue.ligolw import tokenizer
-from glue.ligolw import types as ligolwtypes
+from . import ligolw
+from . import tokenizer
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -167,58 +167,55 @@ class ArrayStream(ligolw.Stream):
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
 		self._tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
-		self._index = None
 
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
 		# has been set.
 		self._tokenizer.set_types([parentNode.pytype])
 		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
+		self._array_view = parentNode.array.T.flat
 		self._index = 0
 		return self
 
 	def appendData(self, content):
 		# tokenize buffer, and assign to array
 		tokens = tuple(self._tokenizer.append(content))
-		self.parentNode.array.T.flat[self._index : self._index + len(tokens)] = tokens
+		self._array_view[self._index : self._index + len(tokens)] = tokens
 		self._index += len(tokens)
-
-	def unlink(self):
-		"""
-		Break internal references within the document tree rooted
-		on this element to promote garbage collection.
-		"""
-		self._index = None
-		ligolw.Stream.unlink(self)
 
 	def endElement(self):
 		# stream tokenizer uses delimiter to identify end of each
 		# token, so add a final delimiter to induce the last token
 		# to get parsed.
 		self.appendData(self.getAttribute(u"Delimiter"))
+		del self._array_view
+		del self._index
 
-	def write(self, file = sys.stdout, indent = u""):
-		# This is complicated because we need to not put a
-		# delimiter after the last element.
+	def write(self, fileobj = sys.stdout, indent = u""):
+		# avoid symbol and attribute look-ups in inner loop
 		delim = self.getAttribute(u"Delimiter")
-		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
+		linefmtfunc = lambda seq: xmlescape(delim.join(seq))
+		elemfmtfunc = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
 		elems = self.parentNode.array.T.flat
+		nextelem = elems.next
 		linelen = self.parentNode.array.shape[0]
 		totallen = self.parentNode.array.size
 		newline = u"\n" + indent + ligolw.Indent
-		w = file.write
+		w = fileobj.write
+
+		# This is complicated because we need to not put a
+		# delimiter after the last element.
 		w(self.start_tag(indent))
 		if totallen:
 			# there will be at least one line of data
 			w(newline)
 		newline = delim + newline
 		while True:
-			w(xmlescape(delim.join(format(elems.next()) for i in xrange(linelen))))
+			w(linefmtfunc(elemfmtfunc(nextelem()) for i in xrange(linelen)))
 			if elems.index >= totallen:
 				break
 			w(newline)
 		w(u"\n" + self.end_tag(indent) + u"\n")
-		return
 
 
 class Array(ligolw.Array):

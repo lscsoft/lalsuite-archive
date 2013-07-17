@@ -715,6 +715,7 @@ setup(
 		os.path.join("bin","cbcBayesConvergence.py"),
 		os.path.join("bin", "pylal_noise_budget"),
 		os.path.join("bin", "pylal_seismon_run"),
+                os.path.join("bin", "pylal_seismon_traveltimes"),
 		os.path.join("bin", "pylal_summary_page"),
 		os.path.join("bin", "pylal_plot_triggers"),
 		os.path.join("bin", "ligolw_miinjfind"),

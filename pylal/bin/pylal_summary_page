@@ -44,6 +44,7 @@ import numpy
 import inspect
 import glob
 import math
+import operator
 import warnings
 warnings.filterwarnings("ignore", "column name", UserWarning)
 
@@ -700,7 +701,15 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
          from existing global memory (False), default: True
     """
     global G_SEGMENTS, G_SEGMENT_SUMMARY
-    query_summary = segment_summary - G_SEGMENT_SUMMARY.get(flag, SegmentList())
+
+    if isinstance(flag, basestring):
+        flags = flag.split(',')
+    else:
+        flags = flag
+    query_summary = (segment_summary -
+                     reduce(operator.and_,
+                            [G_SEGMENT_SUMMARY.get(f, SegmentList())
+                             for f in flags]))
     # FIXME: remove when SegmentLists play with lal.LIGOTimeGPS
     query_summary = SegmentList([Segment(map(float, seg)) for
                                    seg in query_summary])
@@ -710,6 +719,8 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
         query_summary &= SegmentList([Segment(query_summary[0][0],
                                               float(lal.GPSTimeNow()))])
 
+    new_segments = []
+    new_summary = []
     if query:
         # get cache
         if cache is not None:
@@ -725,54 +736,62 @@ def get_segments(cp, flag, segment_summary, cache=None, buffer_=0, query=True):
 
         # load segments from cache
         if segcache is not None:
-            desc = re_cchar.sub("_", parse_flag(name(flag)[1]))
-            segcache = segcache.sieve(segmentlist=query_summary,
-                                      description=desc)
-            new = read_segment_cache(segcache) & query_summary
-            print_verbose("Loaded %d new segments from cache for %s.\n"
-                          % (len(new), flag))
+            for f in flags:
+                desc = re_cchar.sub("_", parse_f(name(f)[1]))
+                segcache = segcache.sieve(segmentlist=query_summary,
+                                          description=desc)
+                new_segments.append(read_segment_cache(segcache) &
+                                    query_summary)
+                print_verbose("Loaded %d new segments from cache for %s.\n"
+                              % (len(new_segments[-1]), f))
         # load segments from the segment database
         else:
             qstart, qend = query_summary.extent()
             try: # FIXME: consider removing
-                new, new_summary = dqSegmentUtils.grab_segments(
-                                       qstart, qend, flag, segment_url,
-                                       segment_summary=True)
+                new_segments, new_summary = dqSegmentUtils.grab_segments(
+                                               qstart, qend, flags, segment_url,
+                                               segment_summary=True)
             except LDBDClientException as e:
                 print_verbose("WARNING: Caught LDBDClientException: %s\n" % e,
                               stream=sys.stderr)
                 print_verbose("No segments have been loaded, but processing "
                               "will continue.\n", stream=sys.stderr)
-                new = SegmentList()
-                new_summary = SegmentList()
-            query_summary = new_summary
-            print_verbose("Loaded %d new segments from %s for %s.\n"
-                          % (len(new), segment_url, flag),
-                          verbose=query or abs(new_summary))
+                new_segments = new_summary = [SegmentList()]*len(flags)
+            for i,f in enumerate(flags):
+                print_verbose("Loaded %d new segments from %s for %s.\n"
+                              % (len(new_segments[i]), segment_url, f),
+                              verbose=query or abs(new_summary[i]))
     else:
-        new = SegmentList()
+        new_segments = [SegmentList()]*len(flags)
+        new_summary = [G_SEGMENT_SUMMARY.get(f, SegmentList()) for f in flags]
 
     # apply buffer
     if buffer_:
-        new = new.contract(buffer_)
+        new_segments = [sl.contract(buffer_) for sl in new_segments]
 
     # record these segments
-    if G_SEGMENTS.has_key(flag):
-        G_SEGMENT_SUMMARY[flag] += query_summary
-        G_SEGMENTS[flag] += new
-    else:
-        G_SEGMENT_SUMMARY[flag] = query_summary
-        G_SEGMENTS[flag]  = new
-    G_SEGMENT_SUMMARY[flag].coalesce()
-    G_SEGMENTS[flag].coalesce()
+    out = []
+    for f,new_segs,new_summ in zip(flags, new_segments, new_summary):
+        if G_SEGMENTS.has_key(f):
+            G_SEGMENT_SUMMARY[f] += new_summ
+            G_SEGMENTS[f] += new_segs
+        else:
+            G_SEGMENT_SUMMARY[f] = new_summ
+            G_SEGMENTS[f]  = new_segs
+        G_SEGMENT_SUMMARY[f].coalesce()
+        G_SEGMENTS[f].coalesce()
 
-    # return the required segments
-    out = segment_summary & G_SEGMENTS[flag]
-    if len(out):
-        minlength = (cp.has_option("segfind", "minimum-segment-length") and
-                     cp.getfloat("segfind", "minimum-segment-length") or 0)
-        out = type(out)([seg for seg in out if float(abs(seg)) >= minlength])
-    return out
+        # return the required segments
+        out.append(segment_summary & G_SEGMENTS[f])
+        if len(out):
+            minlength = (cp.has_option("segfind", "minimum-segment-length") and
+                         cp.getfloat("segfind", "minimum-segment-length") or 0)
+            out[-1] = type(out[-1])([seg for seg in out[-1] if
+                                 float(abs(seg)) >= minlength])
+    if isinstance(flag, basestring): 
+        return out[0]
+    else:
+        return out
 
 
 def get_state_segments(cp, state, veto_def_table, mode=0):
@@ -1432,18 +1451,20 @@ def get_spectrum(cp, channel, *args, **kwargs):
 
     # take epoch from seglist
     epoch  = lal.LIGOTimeGPS(len(sequencelist) and args[3][0][0] or NOW)
-    # take f0 and deltaF from first spectrogram
-    f0     = len(sequencelist) and sequencelist[0]['f0'] or 0
-    deltaF = len(sequencelist) and sequencelist[0]['deltaF'] or 1
-    f_array = sequencelist[0]['f_array'] 
 
     # flatten spectrum
     if len(sequencelist):
+        f0 = sequencelist[0]['f0']
+        deltaF = sequencelist[0]['deltaF']
+        f_array = seqeuencelist[0]['f_array']
         spectrogram = numpy.concatenate(([s['data'].data for s in sequencelist
                                           if s['data'].data.shape[0]]), axis=0)
     else:
         seglen = args[2]
-        spectrogram = numpy.zeros((1,seglen//2+1))
+        f0 = 0
+        deltaF = 1
+        spectrogram = numpy.zeros((1, seglen//2+1))
+        f_array = numpy.zeros((1, seglen//2+1))[0]
 
     # take median
     out = []
@@ -1808,7 +1829,7 @@ def add_timeseries(series):
             G_DATA[channel][seg] = G_DATA[channel][gseg]
             l1 = G_DATA[channel][seg].data.length
             l2 = series.data.length
-            resize(G_DATA[channel][seg], 0, l1+l2)
+            o = resize(G_DATA[channel][seg], 0, l1+l2)
             G_DATA[channel][seg].data.data[l1:] = series.data.data
             series = G_DATA[channel][seg]
             del G_DATA[channel][gseg]
@@ -2086,7 +2107,6 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
     for e in cache:
         # open file
         f = e.path
-        h5file = hdf5utils.h5py.File(f, "r")
 
         # get segment
         seg = e.segment & span
@@ -2094,18 +2114,19 @@ def load_archive_data(cp, channel, seglist, mode=0, verbose=False):
         duration = float(abs(seg))
 
         # get data
-        if HDF_DATA_GROUP in list(h5file)\
-        and channel in list(h5file[HDF_DATA_GROUP]):
-            series = hdf5utils.readTimeSeries(f, channel,
-                                              group=HDF_DATA_GROUP,
-                                              start=start, duration=duration)
-            add_timeseries(series)
-            seg = Segment(float(series.epoch),
-                                   float(series.epoch + series.data.length
-                                                      * series.deltaT))
-            print_verbose("Data recovered from archive for %s: [%d ... %d)\n"
-                          % (channel, seg[0], seg[1]), verbose=verbose)
-        h5file.close()
+        with hdf5utils.h5py.File(f, "r") as h5file:
+            if HDF_DATA_GROUP in list(h5file)\
+            and channel in list(h5file[HDF_DATA_GROUP]):
+                series = hdf5utils.readTimeSeries(h5file, channel,
+                                                  group=HDF_DATA_GROUP,
+                                                  start=start,
+                                                  duration=duration)
+                add_timeseries(series)
+                seg = Segment(float(series.epoch),
+                              float(series.epoch + series.data.length
+                                                   * series.deltaT))
+                print_verbose("Data recovered from archive for %s: %s\n"
+                              % (channel, str(seg)), verbose=verbose)
 
     return
 
@@ -2548,9 +2569,10 @@ def process_segments(tab, cp, cpsec, verbose=False,
     # get new segments
     #
 
-    for flag,label in zip(flags, labels):
+    new_segments = SegmentListDict()
+    if htmlonly:
+        for flag,label in zip(flags, labels):
         # parse flag for composition
-        if htmlonly:
             name = re_cchar.sub("_", label.upper())
             if not name.startswith(tab.ifo):
                 name = "%s-%s" % (tab.ifo, name)
@@ -2558,24 +2580,27 @@ def process_segments(tab, cp, cpsec, verbose=False,
                                              % (name, tab.state.tag,
                                                 tab.start_time, abs(tab.span)))
             if os.path.isfile(f):
-                comp_segs = read_segment_file(f)
-            else:
-                comp_segs = SegmentList()
-        else:
+                tab.add_segments(label, read_segment_file(f))
+    else:
+        all_flags = []
+        for flag in flags:
+            all_flags.extend(re.split("&!]", flag))
+        get_segments(cp, all_flags, tab.segments)
+        for flag,label in zip(flags, labels):
             divs = re.findall("[&!]", flag)
             comp_flags = re.split("[&!]", flag)
             comp_segs  = tab.segments
             for i,comp_flag in enumerate(comp_flags):
-                seglist = get_segments(cp, comp_flag, tab.segments)
+                seglist = get_segments(cp, comp_flag, tab.segments, query=False)
                 if len(divs) == 0:
                     comp_segs = seglist
                 elif i!=0 and divs[i-1] == "!":
                     comp_segs -= seglist
                 else:
                     comp_segs &= seglist
-        label = re.sub("&", " and ", label)
-        label = re.sub("!", " minus ", label)
-        tab.add_segments(label, comp_segs)
+            label = re.sub("&", " and ", label)
+            label = re.sub("!", " minus ", label)
+            tab.add_segments(label, comp_segs)
 
     #
     # make plots
@@ -2741,18 +2766,24 @@ def process_state_vector(tab, cp, cpsec, verbose=False, htmlonly=False,\
 
     # get new data
     if not htmlonly:
+        # initialise empty segmentlists
+        for flag in tab.bitmask.values():
+            tab.add_segments(flag, [])
+
+        # get and parse data
         data = get_data(cp, channel, tab.segments, frametype=frametype)
-        segdict = SegmentListDict((flag, SegmentList([])) for
-                                  (bit, flag) in tab.bitmask.items())
         for series in data:
             state_segs = stateutils.tosegmentlistdict(series,tab.bitmask)
             for bit in tab.bits:
                 flag = tab.bitmask[bit]
                 tab.add_segments(flag, state_segs[flag])
+
         # restrict tab segments to available data
-        defstart = float(data[0].epoch)
-        defend = float(data[-1].epoch + data[-1].data.length * data[-1].deltaT)
-        tab.segments &= SegmentList([Segment(defstart, defend)])
+        if len(data):
+            defstart = float(data[0].epoch)
+            defend = float(data[-1].epoch +
+                           data[-1].data.length * data[-1].deltaT)
+            tab.segments &= SegmentList([Segment(defstart, defend)])
 
         # construct derived bits
         if len(tab.derived_bitmask.keys()):
@@ -5615,17 +5646,23 @@ if __name__=="__main__":
     tabs.mode    = mode
     tabs.write_menu(jobdir, startdate=startdate, weekday=weekday)
     for p in valid_parents:
-        if len(section_summary[p].children) != 0:
-            tabs.add_child(section_summary[p])
+        if len(section_summary[p].children) == 0:
+            continue
+        if cp.has_section('summary-tab') and cp.has_option('summary-tab', p):
+            summtab = section_summary[p].get_child(cp.get('summary-tab', p))
+        else:
+            summtab = section_summary[p].children[0]
+        tabs.add_child(summtab)
 
-    summaries = [tabs]+tabs.children
-
+    section_summary_tabs = [p for p in section_summary.values() if
+                            len(p.children)!=0]
+    summaries = [tabs] + section_summary_tabs
     tabs.write_tabs(summaries)
     tabs.finalize()
     tabs.write_ifo_links(baselist, ifo, tabs.index)
     tabs.build(base=base, css=css, script=javascript)
     print_verbose("Summary HTML written.\n", verbose=verbose)
-    for tab in tabs.children:
+    for tab in section_summary_tabs:
         tab.mode    = mode
         tab.write_tabs(summaries)
         tab.write_menu(jobdir, startdate=startdate, weekday=weekday)
