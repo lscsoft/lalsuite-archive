@@ -200,19 +200,6 @@ def flatten(sequence, levels = 1):
 			for y in flatten(x, levels - 1):
 				yield y
 
-#
-# =============================================================================
-#
-#    any() and all() are built-ins in Python 2.5, but I don't want to wait.
-#
-# =============================================================================
-#
-
-
-# FIXME:  remove when nothing is trying to use these symbols
-any = any
-all = all
-
 
 #
 # =============================================================================
