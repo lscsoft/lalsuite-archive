@@ -1018,12 +1018,6 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                                                         end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
-                elif etg.lower() == "kw" or etg.lower() == "kleinewelle":
-                    trigtable = kw.from_lal_cache(segcache, start=seg[0],
-                                                  end=seg[1], ifo=ifo,
-                                                  channel=channel,
-                                                  columns=columns,
-                                                  verbose=VERBOSE)
                 else:
                     trigtable = triggers.from_files(
                                     segcache, etg, columns=columns,
