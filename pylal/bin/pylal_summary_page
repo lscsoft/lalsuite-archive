@@ -126,7 +126,7 @@ def elapsed_time():
     return time.time()-START
 
 
-def print_verbose(message, verbose=True, stream=sys.stdout, profile=False):
+def print_verbose(message, verbose=True, stream=sys.stdout, profile=True):
     """Prints the given message to the stream.
 
     @param message
