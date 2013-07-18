@@ -115,10 +115,10 @@ def prediction(data,plotName):
     amp[indexes] = -250
     amp_prediction = amp
 
-    threshold = -10
+    threshold = -8
 
     plt.figure()
-    plt.plot(t_prediction,amp_prediction,label="Predicted")
+    plt.plot(t_prediction,amp_prediction,'*',label="Predicted")
     plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
 
     for key in data["channels"].iterkeys():
@@ -131,11 +131,66 @@ def prediction(data,plotName):
         amp[indexes] = -250
         plt.plot(t,amp,'*',label=key)
 
+        amp_interp = np.interp(t_prediction,t,amp)
+        residual = np.absolute(amp_interp - amp_prediction)
+
+        residual_label = "%s residual"%key
+        #plt.plot(t_prediction,residual,'*',label=residual_label)
+
     plt.legend(loc=1,prop={'size':6})
     plt.xlim([np.min(t_prediction),np.max(t_prediction)])
-    plt.ylim([-15,-2])
+    plt.ylim([-10,-2])
     plt.xlabel('Time [Days] [%d]'%timeStart)
-    plt.ylabel('Amplitude')
+    plt.ylabel('Mean ASD in 0.02-0.1 Hz Band [log10(m/s)]')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
+def residual(data,plotName):
+
+    if len(data["prediction"]["tt"]) == 0:
+        return
+
+    timeStart = data["prediction"]["tt"][0]
+    t = data["prediction"]["tt"] - timeStart
+    t_prediction = t / 86400.0
+
+    amp = np.log10(data["prediction"]["data"])
+    indexes = np.isinf(amp)
+    amp[indexes] = -250
+    amp_prediction = amp
+
+    threshold = -8
+
+    indexes = np.where(amp_prediction >= threshold)
+    t_prediction = t_prediction[indexes]
+    amp_prediction = amp_prediction[indexes]
+
+    plt.figure()
+    #plt.plot(t_prediction,amp_prediction,'*',label="Predicted")
+    #plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
+
+    for key in data["channels"].iterkeys():
+
+        t = data["channels"][key]["tt"] - timeStart
+        t = t / 86400.0
+
+        amp = np.log10(data["channels"][key]["data"])
+        indexes = np.isinf(amp)
+        amp[indexes] = -250
+        #plt.plot(t,amp,'*',label=key)
+
+        amp_interp = np.interp(t_prediction,t,amp)
+        residual = amp_interp - amp_prediction
+
+        residual_label = "%s residual"%key
+        plt.plot(t_prediction,residual,'*',label=residual_label)
+
+    plt.legend(loc=1,prop={'size':6})
+    plt.xlim([np.min(t_prediction),np.max(t_prediction)])
+    plt.ylim([-5,5])
+    plt.xlabel('Time [Days] [%d]'%timeStart)
+    plt.ylabel('Residual in prediction [log10(m/s)]')
     plt.show()
     plt.savefig(plotName,dpi=200)
     plt.close('all')
