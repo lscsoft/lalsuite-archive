@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from argparse import ArgumentParser
+from optparse import OptionParser
+import sys
+import os
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as pp
 import numpy as np
 
@@ -27,15 +31,17 @@ def get_mean_logl(filename):
     """Returns the mean value of log(L) from the given filename,
     excluding the first 50% of samples as burn-in."""
     with open(filename, 'r') as inp:
+        skip=0
         for line in inp:
             line=line.lstrip().split()
+            skip+=1
             try:
                 line.index('cycle')
                 break
             except ValueError:
                 pass
 
-        data=np.loadtxt(inp, dtype=[(n, np.float) for n in line])
+        data=np.loadtxt(filename, dtype=[(n, np.float) for n in line], skiprows=skip)
         N=data.shape[0]
 
         return np.mean(data['logl'][N/2:])
@@ -57,16 +63,26 @@ def thermo_integrands(logls, betas):
     return sorted_betas, -sorted_logls*dbetas, -sorted_logls[::2]*dbetas2
 
 if __name__=='__main__':
-    parser=ArgumentParser(description='Thermodynamic integration on PTMCMC samples.')
+    # Custom usage and help message
+    usage = """%s [-h] [--plotfile FILE] [--evfile FILE] OUTPUT_FILE [OUTPUT_FILE ...]
     
-    parser.add_argument('files', metavar='OUTPUT_FILE', nargs='+', help='PTMCMC output files')
-    parser.add_argument('--plotfile', metavar='FILE', default='evidence-integrand.pdf', help='plot output file')
-    parser.add_argument('--evfile', metavar='FILE', default='evidence.dat', help='evidence output file')
+Thermodynamic integration on PTMCMC samples.
 
-    args=parser.parse_args()
+positional arguments:
+  OUTPUT_FILE      PTMCMC output files""" % (os.path.basename(sys.argv[0]))
 
-    betas = np.array([1.0/extract_temp(f) for f in args.files])
-    logls = np.array([get_mean_logl(f) for f in args.files])
+    parser = OptionParser(usage=usage)
+    parser.add_option('--plotfile', metavar='FILE', default='evidence-integrand.pdf', help='plot output file')
+    parser.add_option('--evfile', metavar='FILE', default='evidence.dat', help='evidence output file')
+
+    (options, args) = parser.parse_args()
+
+    # Make positional arguments required
+    if len(args)==0:
+        parser.error('Positional filename argument(s) are required')
+
+    betas = np.array([1.0/extract_temp(f) for f in args])
+    logls = np.array([get_mean_logl(f) for f in args])
 
     betas, integrands, integrands2 = thermo_integrands(logls, betas)
 
@@ -77,9 +93,9 @@ if __name__=='__main__':
     pp.xscale('log')
     pp.xlabel(r'$\beta$')
     pp.ylabel(r'$\frac{1}{\ln Z} \left \langle \log \mathcal{L} \right\rangle_\beta d\beta$')
-    pp.savefig(args.plotfile)
+    pp.savefig(options.plotfile)
 
-    with open(args.evfile, 'w') as out:
+    with open(options.evfile, 'w') as out:
         out.write('# ln-Z delta-ln-Z\n')
         out.write(str(evidence) + ' ' + str(devidence))
     

@@ -51,9 +51,9 @@ from xml.sax.xmlreader import AttributesImpl as Attributes
 
 from glue import git_version
 from glue import iterutils
-from glue.ligolw import ligolw
-from glue.ligolw import tokenizer
-from glue.ligolw import types as ligolwtypes
+from . import ligolw
+from . import tokenizer
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

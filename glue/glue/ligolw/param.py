@@ -42,8 +42,8 @@ except ImportError:
 
 
 from glue import git_version
-from glue.ligolw import ligolw
-from glue.ligolw import types as ligolwtypes
+from . import ligolw
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

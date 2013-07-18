@@ -208,7 +208,8 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     # set mode
     if verbose:  mode = lalframe.LAL_FR_STREAM_VERBOSE_MODE
     else:        mode = lalframe.LAL_FR_STREAM_DEFAULT_MODE
-    lalframe.FrSetMode(stream, mode)
+    print 
+    lalframe.FrSetMode(mode, stream)
 
     # set time
     if int(start) == -1:
@@ -216,10 +217,10 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     else:
         start = lal.LIGOTimeGPS(float(start))
     duration = float(duration)
-    lalframe.FrSeek(stream, start)
+    lalframe.FrSeek(start, stream)
     
     # get series type
-    frdatatype = lalframe.FrGetTimeSeriesType(chname, stream)
+    frdatatype = lalframe.FrStreamGetTimeSeriesType(chname, stream)
     if datatype == -1:
         datatype = frdatatype
 
@@ -227,11 +228,11 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
 
     # get data
     if frdatatype == datatype:
-        func = getattr(lalframe, 'FrRead%sTimeSeries' % TYPESTR)
+        func = getattr(lalframe, 'FrStreamRead%sTimeSeries' % TYPESTR)
         series = func(stream, chname, start, duration, 0)
     else:
-        dblseries = lalframe.FrInputREAL8TimeSeries(stream, chname, start,\
-                                                        duration, 0)
+        dblseries = lalframe.FrStreamInputREAL8TimeSeries(stream, chname,
+                                                          start, duration, 0)
         func = getattr(lal, 'Create%sTimeSeries' % TYPESTR)
         series = func(dblseries.name, dblseries.epoch, dblseries.f0,\
                       dblseries.deltaT, dblseries.sampleUnits,\
@@ -589,10 +590,12 @@ def gluecache_to_FrCache(cache):
         cache : glue.lal.Cache
             LAL cache object from GLUE to convert
     """
-    t = tempfile.NamedTemporaryFile(delete=False)
-    cache.tofile(t)
-    frcache = lalframe.FrImportCache(t.name)
-    t.close()
+    with tempfile.NamedTemporaryFile(delete=False) as t:
+        cache = cache
+        for e in cache:
+            e.segment = type(e.segment)(int(e.segment[0]), int(e.segment[1]))
+        cache.tofile(t)
+        frcache = lal.CacheImport(t.name)
     os.remove(t.name)
     return frcache
 

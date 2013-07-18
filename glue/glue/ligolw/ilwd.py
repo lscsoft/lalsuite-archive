@@ -132,7 +132,7 @@ import copy_reg
 
 
 from glue import git_version
-from glue.ligolw import _ilwd
+from . import _ilwd
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

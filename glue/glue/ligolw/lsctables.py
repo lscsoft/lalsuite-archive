@@ -41,10 +41,10 @@ from glue import iterutils
 from glue import offsetvector
 from glue import segments
 from glue.lal import LIGOTimeGPS
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import types as ligolwtypes
-from glue.ligolw import ilwd
+from . import ligolw
+from . import table
+from . import types as ligolwtypes
+from . import ilwd
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
 __version__ = "git id %s" % git_version.id

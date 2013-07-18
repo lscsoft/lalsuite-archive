@@ -41,7 +41,7 @@ from xml.sax.saxutils import unescape as xmlunescape
 
 
 from glue import git_version
-from glue.ligolw import types as ligolwtypes
+from . import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

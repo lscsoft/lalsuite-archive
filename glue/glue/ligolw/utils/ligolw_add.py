@@ -35,10 +35,10 @@ from urlparse import urlparse
 
 
 from glue import git_version
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import utils
+from .. import ligolw
+from .. import table
+from .. import lsctables
+from .. import utils
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

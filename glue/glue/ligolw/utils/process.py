@@ -38,10 +38,10 @@ import time
 
 from glue import git_version
 from glue import gpstime
-from glue.ligolw import ligolw
-from glue.ligolw import table
-from glue.ligolw import lsctables
-from glue.ligolw import types as ligolwtypes
+from .. import ligolw
+from .. import table
+from .. import lsctables
+from .. import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>, Larne Pekowsky <lppekows@physics.syr.edu>"
