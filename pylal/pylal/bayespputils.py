@@ -79,10 +79,10 @@ matplotlib.rcParams.update(
         })
 
 try:
-  hostname=socket.gethostbyaddr(socket.gethostname())[0]
+  hostname_short=[1]socket.gethostbyaddr(socket.gethostname())[0].split('.',1)
 except:
-  hostname='Unknown'
-if hostname.split('.',1)[1]=='ligo.caltech.edu': #The CIT cluster has troubles with the default 'cm' font. 'custom' has the least troubles, but does not include \odot
+  hostname_short='Unknown'
+if hostname_short=='ligo.caltech.edu' or hostname_short=='cluster.ldas.cit': #The CIT cluster has troubles with the default 'cm' font. 'custom' has the least troubles, but does not include \odot
   matplotlib.rcParams.update(
                              {'mathtext.fontset' : "custom",
                              'mathtext.fallback_to_cm' : True
