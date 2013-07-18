@@ -46,7 +46,7 @@ from pylal import git_version
 from pylal import rate
 from pylal import SnglBurstUtils
 from pylal import SimBurstUtils
-from pylal.xlal import inject
+from pylal import inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
