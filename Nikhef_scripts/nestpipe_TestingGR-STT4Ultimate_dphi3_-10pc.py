@@ -16,7 +16,7 @@ import os
 
 inspinj_seed=5000  ## Your inspinj seed. The inspnest dataseed will be created from this, adding three zeros at the end (e.g. inspinj 7001 --> inspnest 7001000)
 type_inj="dphi3"   ## This has to be either GR or the name of the test param (e.g. dphi7)
-shift=10            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
+shift=-10            ## This is in percent. If type_inj is GR this will be ignored (you don't need to set it to zero or empty string)
 distr='c'          ## Distribution of the values for the shift. Set to 'c' for constant shift, 'u' for uniform or 'n' for normal
 sigma=0.0          ## Sigma for the normal distribution. This is in percent.
 number_of_injs=500 ## This is the number of signals created in the xml file. Inspnest will analize all of them.
