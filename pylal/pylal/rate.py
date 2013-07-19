@@ -43,8 +43,10 @@ except ImportError:
 	# be available
 	PosInf = float("+inf")
 	NegInf = float("-inf")
+import itertools
 import math
 import numpy
+from scipy import interpolate
 from scipy.signal import signaltools
 
 
@@ -1023,6 +1025,72 @@ class BinnedRatios(object):
 		"""
 		self.numerator.to_pdf()
 		self.denominator.to_pdf()
+
+
+#
+# =============================================================================
+#
+#                          Binned Array Interpolator
+#
+# =============================================================================
+#
+
+
+class InterpBinnedArray(object):
+	"""
+	Wrapper constructing a scipy.interpolate interpolator from the
+	contents of a BinnedArray.  Only piecewise linear interpolators are
+	supported.  In 1 or 2 dimensions, scipy.interpolate.interp1d or
+	.interp2d is used, respectively.  In more than 2 dimensions
+	scipy.interpolate.LinearNDInterpolator is used.
+	"""
+	def __init__(self, binnedarray, fill_value = 0.0):
+		# the upper and lower boundaries of the binnings are added
+		# as additional co-ordinates with the array being assumed
+		# to equal fill_value at those points.  this solve the
+		# problem of providing a valid function in the outer halves
+		# of the first and last bins.
+
+		# coords[0] = co-ordinates along 1st dimension,
+		# coords[1] = co-ordinates along 2nd dimension,
+		# ...
+		coords = tuple(numpy.hstack((l[0], c, u[-1])) for l, c, u in zip(binnedarray.bins.lower(), binnedarray.bins.centres(), binnedarray.bins.upper()))
+
+		# pad the contents of the binned array with 1 element of
+		# fill_value on each side in each dimension
+		try:
+			z = numpy.pad(binnedarray.array, [(1, 1)] * len(binnedarray.array.shape), mode = "constant", constant_values = [(fill_value, fill_value)] * len(binnedarray.array.shape))
+		except AttributeError:
+			# numpy < 1.7 didn't have pad().  FIXME:  remove
+			# when we can rely on a newer numpy
+			z = numpy.empty(tuple(l + 2 for l in binnedarray.array.shape))
+			z.fill(fill_value)
+			z[(slice(1, -1),) * len(binnedarray.array.shape)] = binnedarray.array
+
+		# if any co-ordinates are infinite, remove them
+		slices = []
+		for c in coords:
+			finite_indexes, = numpy.isfinite(c).nonzero()
+			assert len(finite_indexes) != 0
+			slices.append(slice(finite_indexes.min(), finite_indexes.max() + 1))
+		coords = tuple(c[s] for c, s in zip(coords, slices))
+		z = z[slices]
+
+		# build the interpolator from the co-ordinates and array
+		# data
+		if len(coords) == 1:
+			self.interp = interpolate.interp1d(coords[0], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+		elif len(coords) == 2:
+			self.interp = interpolate.interp2d(coords[0], coords[1], z, kind = "linear", bounds_error = False, fill_value = fill_value)
+		else:
+			self.interp = interpolate.LinearNDInterpolator(list(itertools.product(*coords)), z.flat, fill_value = fill_value)
+
+	def __call__(self, *coords):
+		"""
+		Evaluate the interpolator at the given co-ordinates.  The
+		return value is array-like.
+		"""
+		return self.interp(*coords)
 
 
 
