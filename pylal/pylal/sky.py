@@ -27,7 +27,7 @@ from glue import git_version
 from glue.ligolw import table
 
 from pylal import datatypes,inject,date,lalconstants
-from pylal.xlal import tools as XLALTools
+from pylal import inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 __author__ = "Duncan M. Macleod <duncan.macleod@astro.cf.ac.uk>"
@@ -69,7 +69,7 @@ class SkyPositionTable(table.Table):
                                  dt=0.0005):
      
         # get detectors
-        detectors = [XLALTools.cached_detector.get(inject.prefix_to_name[ifo])\
+        detectors = [inject.cached_detector.get(inject.prefix_to_name[ifo])\
                          for ifo in ifos]
     
         timeDelays = []
@@ -209,8 +209,8 @@ class SkyPosition(object):
         Return the time delay for this SkyPosition between arrival at ifo1
         relative to ifo2, for the given gpstime.
         """
-        det1 = XLALTools.cached_detector.get(inject.prefix_to_name[ifo1])
-        det2 = XLALTools.cached_detector.get(inject.prefix_to_name[ifo2])
+        det1 = inject.cached_detector.get(inject.prefix_to_name[ifo1])
+        det2 = inject.cached_detector.get(inject.prefix_to_name[ifo2])
 
         return date.XLALArrivalTimeDiff(det1.location, det2.location,\
                                         self.longitude, self.latitude,\
@@ -567,7 +567,7 @@ def SkyPatch(ifos, ra, dec, radius, gpstime, dt=0.0005, sigma=1.65,\
     for ifo in ifos:
         if ifo not in inject.prefix_to_name.keys():
             raise ValueError("Interferometer '%s' not recognised." % ifo)
-        detectors.append(XLALTools.cached_detector.get(\
+        detectors.append(inject.cached_detector.get(\
                              inject.prefix_to_name[ifo]))
 
     alpha = 0
@@ -694,7 +694,7 @@ def TwoSiteSkyGrid(ifos, gpstime, dt=0.0005, sky='half', point=None):
     assert len(ifos)==2, "More than two sites in given list of detectors"
 
     # get detectors
-    detectors = [XLALTools.cached_detector.get(inject.prefix_to_name[ifo])\
+    detectors = [inject.cached_detector.get(inject.prefix_to_name[ifo])\
                  for ifo in ifos]
 
     # get light travel time
@@ -795,7 +795,7 @@ def ThreeSiteSkyGrid(ifos, gpstime, dt=0.0005, tiling='square', sky='half'):
 
     # load detectors
     for i,ifo in enumerate(ifos):
-        detectors.append(XLALTools.cached_detector.get(inject.prefix_to_name[ifo]))
+        detectors.append(inject.cached_detector.get(inject.prefix_to_name[ifo]))
         # get light travel time and baseline for other detectors to first
         if i>=1:
             T.append(inject.light_travel_time(ifos[0], ifos[i]))
@@ -952,7 +952,7 @@ def ISOTimeDelayLine(ifos, ra, dec, gpstime=None, n=3):
     cart = SphericalToCartesian(p)
 
     # get baseline
-    detectors = [XLALTools.cached_detector.get(inject.prefix_to_name[ifo])\
+    detectors = [inject.cached_detector.get(inject.prefix_to_name[ifo])\
                  for ifo in ifos]
     baseline = detectors[0].location - detectors[1].location
     baseline = baseline / np.linalg.norm(baseline)
@@ -1030,7 +1030,7 @@ def MaxTimeDelayLine3(ifo1, ifo2, ra, dec, gpstime=None, n=3):
     cart = SphericalToCartesian(p)
 
     # get baseline
-    detectors = [XLALTools.cached_detector.get(inject.prefix_to_name[ifo])\
+    detectors = [inject.cached_detector.get(inject.prefix_to_name[ifo])\
                  for ifo in [ifo1,ifo2]]
     baseline = detectors[0].location - detectors[1].location
     baseline = baseline / np.linalg.norm(baseline)

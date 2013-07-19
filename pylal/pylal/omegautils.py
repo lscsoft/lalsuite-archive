@@ -45,7 +45,7 @@ __date__    = git_version.date
 _comment = re.compile('[#%]')
 _delim   = re.compile('[\t\,\s]+')
 
-def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False):
+def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False, ifo=None, channel=None):
     """
     Convert a line from an Omega-format ASCII file into a SnglBurst object.
     """
@@ -103,8 +103,8 @@ def trigger(line, columns=lsctables.SnglBurst.__slots__, virgo=False):
     t = lsctables.SnglBurst()
 
     # set columns that are same for all triggers
-    if 'ifo' in columns: t.ifo = None
-    if 'channel' in columns: t.channel = None
+    if 'ifo' in columns: t.ifo = ifo
+    if 'channel' in columns: t.channel = channel
     if 'search' in columns: t.search = 'omega'
 
     # set times
@@ -257,7 +257,7 @@ def fromfile(fobj, start=None, end=None, ifo=None, channel=None,\
     # read file and generate triggers
     for i,line in enumerate(fh):
         if _comment.match(line): continue
-        t = trigger(line, columns=columns, virgo=virgo)
+        t = trigger(line, columns=columns, virgo=virgo, channel=channel, ifo=ifo)
         if not check_time or (check_time and float(t.get_peak()) in span):
             append(t)
 
@@ -374,7 +374,7 @@ def get_cache(start, end, ifo, channel, mask='DOWNSELECT', checkfilesexist=False
 # =============================================================================
 
 def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
-              virgo=False):
+              virgo=False, channel=None):
     """
     Read omega triggers from a list of ASCII filepaths.
     """
@@ -392,7 +392,7 @@ def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
     for i,fp in enumerate(filelist):
         with open(fp, "r") as f:
             extend(fromfile(f, start=start, end=end, columns=columns,\
-                            virgo=virgo))
+                            virgo=virgo, channel=channel))
         if verbose:
             progress = int((i+1)/num)
             sys.stdout.write('%s%.2d%%' % (delete, progress))
@@ -404,9 +404,9 @@ def fromfiles(filelist, start=None, end=None, columns=None, verbose=False,\
     return out
 
 def fromlalcache(cache, start=None, end=None, columns=None, verbose=False,\
-                 virgo=False):
+                 virgo=False,channel=None):
      """
      Read omega triggers from a glue.lal.Cache list of ASCII CacheEntries.
      """
      return fromfiles(cache.pfnlist(), start=start, end=end, columns=columns,\
-                      verbose=verbose, virgo=virgo)
+                      verbose=verbose, virgo=virgo, channel=channel)

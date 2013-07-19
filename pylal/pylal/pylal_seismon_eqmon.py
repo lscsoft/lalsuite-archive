@@ -56,7 +56,7 @@ def run_earthquakes(params):
  
     for attributeDic in attributeDics:
 
-        attributeDic = calculate_traveltimes(attributeDic)
+        #attributeDic = calculate_traveltimes(attributeDic)
 
         traveltimes = attributeDic["traveltimes"][ifo]
 
@@ -205,6 +205,10 @@ def run_earthquakes(params):
 
     plotName = os.path.join(plotsDirectory,"%d-%d.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
+    plotName = os.path.join(plotsDirectory,"%d-%d-residual.png"%(params["gpsStart"],params["gpsEnd"]))
+    pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
+    print plotName
+    print penis
 
     for attributeDic in attributeDics:
 
@@ -387,7 +391,7 @@ def read_eqxml(file,eventName):
     else:
         attributeDic["Review"] = "Manual"
 
-    attributeDic = traveltimes(attributeDic)
+    attributeDic = calculate_traveltimes(attributeDic)
     tm = time.struct_time(time.gmtime())
     attributeDic['WrittenGPS'] = float(XLALUTCToGPS(tm))
     attributeDic['WrittenUTC'] = float(time.time())
