@@ -3379,15 +3379,45 @@ def ghash_to_dict( ghash, dtype ):
 	rfunc = retrieve_func( dtype )
 	return dict( [ (key, rfunc( ghash, key )) for key in keys ] )
 
+def lalburst_sb_to_glue_sb( sb_in, desired_columns ):
+	"""
+	Convert a lalburst SnglBurst structure to a SnglBurst row from glue.
+	"""
+	sb = lsctables.SnglBurstTable.RowType()
+	for att in desired_columns:
+		if att == "start_time":
+			start_time = float( sb_in.start_time )
+			sb.start_time = int(start_time) 
+			sb.start_time_ns = int(1e9*(start_time - int(start_time) ))
+			continue
+		elif att == "peak_time":
+			peak_time = float( sb_in.peak_time )
+			sb.peak_time = int(peak_time) 
+			sb.peak_time_ns = int(1e9*(peak_time - int(peak_time) ))
+			continue
+		elif att == "process_id":
+			sb.process_id = ilwd.ilwdchar( "process:process_id:%d" % getattr( sb_in, att ) )
+			continue
+		elif att == "event_id":
+			sb.event_id = ilwd.ilwdchar( "sngl_burst:sngl_burst_id:%d" % getattr( sb_in, att ) )
+			continue
+
+		try:
+			setattr( sb, att, getattr( sb_in, att ) )
+		except AttributeError:
+			pass
+	return sb
+
 def seq_to_sbtable( sblist, get_col=None ):
 	"""
 	Convert a GSequence of SnglBurst to a SnglBurstTable.
 	"""
-	sbtable = lsctables.New(lsctables.SnglBurstTable,
-	  ["peak_time_ns", "start_time_ns", "channel",
-	  "process_id", "ifo", "peak_time", "start_time",
+        desired_columns = ["peak_time_ns", "start_time_ns", "channel",
+	  "ifo", "peak_time", "start_time",
 	  "duration", "central_freq", "search",
-	  "bandwidth", "event_id", "snr"])
+	  "bandwidth",  "snr"]
+	sbtable = lsctables.New(lsctables.SnglBurstTable,
+	  desired_columns)
 
 	sblistitr = laldetchar.GSnglBurstSeqBegin( sblist )
 
@@ -3398,12 +3428,22 @@ def seq_to_sbtable( sblist, get_col=None ):
 			break
 		if get_col is not None:
 			col_ar.append( getattr( next_sb, get_col ) )
-		sbtable.append( lalburst_sb_to_glue_sb(next_sb) )
+		sbtable.append( lalburst_sb_to_glue_sb(next_sb, desired_columns) )
 		sblistitr = laldetchar.GSnglBurstIterNext( sblistitr )
 
 	if get_col is not None:
 		return col_ar
 	return sbtable
+
+def get_chan_list( gseq ):
+	"""
+	Get a listing of the channels within a trigger sequence.
+	"""
+	# This is necessarily complicated because there is no "set" type in glib
+	# thus the closest thing is a hash. This retrieves the hash, then converts
+	# its keys into a proper set.
+	return set(ghash_to_dict( laldetchar.GetChannelList( gseq ), str ).keys())
+
 
 def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                htmlonly=False):
@@ -3492,7 +3532,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                         cluster=tab.cluster,
                                         minsnr=snr, **trigfind_args)
         trig_seq = None
+        swigtriglist = []
         for chan,trigtable in zip(allchannels, trigtables):
+            print chan
             tab.add_triggers(chan, trigtable)
             # convert from glue SnglBurst to swig/lal SnglBurst
             for trig in trigtable:
@@ -3504,8 +3546,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
                 swigtrig.central_freq = trig.peak_frequency
                 swigtrig.snr = trig.snr
-                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtrig)
-
+                swigtriglist.append(swigtrig)
+                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
 
     print_verbose("All triggers loaded.\n", verbose=verbose)
 
@@ -3544,10 +3586,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             for snr_t in snr_thresh:
 
                 # Mark triggers not meeting threshold criteria
-                print "C"
-                print lalsegl, snr_t, tab.mainchannel
                 laldetchar.DetCharPruneTrigs( trig_seq, lalsegl, snr_t, tab.mainchannel )
-                print "D"
+
                 if laldetchar.GetGSnglBurstSeqUnmarkedLength( trig_seq ) <= 0:
                     if verbose:
                         print "No triggers remaining at current threshold. Moving on."
@@ -3556,14 +3596,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 for wind in twind:
                         if verbose:
                                 print "SNR threshold %f, time window %f" % (snr_t, wind)
-                        print "A"
                         chancount, chancoinc = laldetchar.CreateGHashTable(), laldetchar.CreateGHashTable()
-                        print "B"
                         # TODO: Wrap this better
-                        print trig_seq
-                        print chancount, chancoinc
-                        print tab.mainchannel
-                        print wind, coinc_type
                         laldetchar.DetCharScanTrigs( chancount, chancoinc, trig_seq, tab.mainchannel, wind, coinc_type )
                         print "ScanTrigs"
                         t_ratio = wind / livetime
@@ -3589,7 +3623,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             if len(subround_winner) == 0:
                     if verbose:
                             print "No triggers remain, exiting."
-                    exit()
+                    return
             round_winner = subround_winner[-1]
             snr_win, wind_win = round_winner[0]
             winner, sig, mu = round_winner[1]
