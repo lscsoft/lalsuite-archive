@@ -223,7 +223,7 @@ if __name__=='__main__':
                 pass
             else:
                 expr_segments.append(out_slide_segment)
-        segments.segment_lists.append(
+        segments.add(
             ligolw_segments.LigolwSegmentList(
                              active=expr_segments, valid=expr_segments,
                              instruments=ifos, name=slide_id,

@@ -358,10 +358,10 @@ class use_svm_job(auxmvc_analysis_job):
     def __init__(self, cp):
         """
         """
-        sections = []
+        sections = ['svm_evaluate']
         exec_name = 'svm_evaluate_cmd'
         tag_base  = 'svm_evaluate'
-        auxmvc_analysis_job.__init__(self, cp, sections, exec_name, tag_base=tag_base, short_opts=True)
+        auxmvc_analysis_job.__init__(self, cp, sections, exec_name, tag_base=tag_base)
 
 
 class use_svm_node(pipeline.CondorDAGNode):
@@ -377,13 +377,17 @@ class use_svm_node(pipeline.CondorDAGNode):
         self.add_input_file(svm_model)
         self.add_output_file(predict_file)
 
-        self.scale_cmd = cp.get('svm_evaluate','svm_scale_cmd')
-        self.predict_cmd = cp.get('svm_evaluate', 'svm_predict_cmd')
+        #self.scale_cmd = cp.get('svm_evaluate','svm_scale_cmd')
+        #self.predict_cmd = cp.get('svm_evaluate', 'svm_predict_cmd')
         self.test_file = self.get_input_files()[0]
         self.range_file = self.get_input_files()[1]
         self.svm_model = self.get_input_files()[2]
         self.predict_file = self.get_output_files()[0]
-        self.add_file_arg(" --scale %s --predict %s -i %s -r %s -m %s -o %s" % (self.scale_cmd, self.predict_cmd, self.test_file, self.range_file, self.svm_model, self.predict_file))
+        self.add_var_opt('i', self.test_file, short=True)
+        self.add_var_opt('r', self.range_file, short=True)
+        self.add_var_opt('m', self.svm_model, short=True)
+        self.add_var_opt('o', self.predict_file, short=True)
+        #self.add_file_arg(" --scale %s --predict %s -i %s -r %s -m %s -o %s" % (self.scale_cmd, self.predict_cmd, self.test_file, self.range_file, self.svm_model, self.predict_file))
         for p in p_node:
             self.add_parent(p)
 

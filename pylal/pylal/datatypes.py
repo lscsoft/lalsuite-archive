@@ -54,7 +54,6 @@ __date__ = git_version.date
 from xlal.datatypes.complex16fftplan import *
 from xlal.datatypes.complex16frequencyseries import *
 from xlal.datatypes.complex16timeseries import *
-from xlal.datatypes.laldetector import *
 from xlal.datatypes.lalunit import *
 from xlal.datatypes.ligotimegps import *
 from xlal.datatypes.real8fftplan import *
