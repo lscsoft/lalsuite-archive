@@ -3643,11 +3643,11 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
 
             print "Calculating veto segments."
             # Remove vetoed winner triggers from livetime
-            vetosegs = segmentlist([])
+            vetosegs = SegmentList([])
             for trig in vetoed_trigs:
                     if trig.channel != winner: continue
                     #trig = lalburst_sb_to_glue_sb( trig )
-                    vs = segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
+                    vs = Segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
                     vetosegs.append( vs )
             vetosegs.coalesce()
 
