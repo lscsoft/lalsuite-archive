@@ -142,8 +142,7 @@ def tosegmentxml(file, segs):
 
   # append segs and seg definer
   segments_tables = ligolw_segments.LigolwSegments(xmldoc)
-  segments_tables.segment_lists.append(ligolw_segments.\
-                                       LigolwSegmentList(active=gpssegs))
+  segments_tables.add(ligolw_segments.LigolwSegmentList(active=gpssegs))
   # finalise
   segments_tables.coalesce()
   segments_tables.optimize()

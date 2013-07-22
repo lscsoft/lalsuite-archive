@@ -1,4 +1,4 @@
-# Copyright (C) 2007-2010  Kipp Cannon
+# Copyright (C) 2007--2013  Kipp Cannon
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -24,7 +24,6 @@
 #
 
 
-import bisect
 try:
 	from fpconst import PosInf, NegInf
 except ImportError:
@@ -33,13 +32,12 @@ except ImportError:
 	PosInf = float("+inf")
 	NegInf = float("-inf")
 import math
-import numpy
-from scipy import interpolate
 import sys
 import traceback
 
 
 from pylal import git_version
+from pylal import rate
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"
@@ -54,77 +52,6 @@ __date__ = git_version.date
 #
 # =============================================================================
 #
-
-
-#
-# Interpolator wrappers.
-#
-
-
-class interp1d(interpolate.interp1d):
-	def __init__(self, x, y, fill_value = 0.0):
-		# Extrapolate x and y arrays by half a bin at each end.
-		# This is done because the BinnedArray class in pylal.rate
-		# returns x co-ordinates as the bin centres, which is
-		# correct but it means that an event can have a set of
-		# parameter values that lie beyond the end of the x
-		# co-ordinate array.  The parameters are still in the last
-		# bin, but in the outer half of it.
-
-		x = numpy.hstack((x[0] + (x[0] - x[1]) / 2.0, x, x[-1] + (x[-1] - x[-2]) / 2.0))
-		y = numpy.hstack((y[0] + (y[0] - y[1]) / 2.0, y, y[-1] + (y[-1] - y[-2]) / 2.0))
-
-		# Because the y values are assumed to be probability
-		# densities they cannot be negative.  This constraint is
-		# imposed by clipping the y array to 0, and using a linear
-		# interpolator below.  Assuming the input is valid, the
-		# only reason the y array could have negative numbers in it
-		# is the extrapolation that has just been done.
-
-		y = numpy.clip(y, 0.0, PosInf)
-
-		# Build the interpolator.  Note the use of fill_value as
-		# the return value for x co-ordinates outside the domain of
-		# the interpolator.
-
-		interpolate.interp1d.__init__(self, x, y, kind = "linear", bounds_error = False, fill_value = fill_value)
-
-
-class interp2d(interpolate.interp2d):
-	# unlike the real interp2d, this version requires the x and y
-	# arrays to be the co-ordinates of the columns and rows of a
-	# regular mesh.
-	def __init__(self, x, y, z, fill_value = 0.0):
-		# Extrapolate x, y and z arrays by half a bin at each end.
-		# See interp1d for an explanation.
-
-		x = numpy.hstack((x[0] + (x[0] - x[1]) / 2.0, x, x[-1] + (x[-1] - x[-2]) / 2.0))
-		y = numpy.hstack((y[0] + (y[0] - y[1]) / 2.0, y, y[-1] + (y[-1] - y[-2]) / 2.0))
-		z = numpy.vstack((z[0] + (z[0] - z[1]) / 2.0, z, z[-1] + (z[-1] - z[-2]) / 2.0))
-		z = numpy.transpose(z)
-		z = numpy.vstack((z[0] + (z[0] - z[1]) / 2.0, z, z[-1] + (z[-1] - z[-2]) / 2.0))
-		z = numpy.transpose(z)
-
-		# Clip the z array to 0.  See interp1d for an explanation.
-
-		z = numpy.clip(z, 0.0, PosInf)
-
-		# Build the interpolator.  Note the use of fill_value as
-		# the return value for co-ordinates outside the domain of
-		# the interpolator.
-
-		# FIXME:  my use of scipy's 2D interpolator is busted, put
-		# this back when it's fixed.  we have problems with bin
-		# centres at +/- inf
-		#interpolate.interp2d.__init__(self, x, y, z, kind = "linear", bounds_error = False, fill_value = fill_value)
-		self.x = x
-		self.y = y
-		self.z = z
-
-	# FIXME:  my use of scipy's 2D interpolator is busted.  remove this
-	# when it's fixed.  we have problems with bin centres at +/- inf
-	def __call__(self, x, y):
-		return self.z[bisect.bisect_left(self.x, x), bisect.bisect_left(self.y, y)]
 
 
 # starting from Bayes' theorem:
@@ -175,32 +102,14 @@ class Likelihood(object):
 	def __init__(self, coinc_param_distributions):
 		# check input
 		if set(coinc_param_distributions.background_rates.keys()) != set(coinc_param_distributions.injection_rates.keys()):
-			raise ValueError, "distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates.keys())), ", ".join(sorted(coinc_param_distributions.injection_rates.keys())))
+			raise ValueError("distribution density name mismatch:  found background data with names %s and injection data with names %s" % (", ".join(sorted(coinc_param_distributions.background_rates.keys())), ", ".join(sorted(coinc_param_distributions.injection_rates.keys()))))
 		for name, binnedarray in coinc_param_distributions.background_rates.items():
 			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
-				raise ValueError, "background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape))
+				raise ValueError("background data with name %s has shape %s but injection data has shape %s" % (name, str(binnedarray.array.shape), str(coinc_param_distributions.injection_rates[name].array.shape)))
 
 		# construct interpolators from the distribution data
-		self.background_rates = {}
-		self.injection_rates = {}
-		for name, binnedarray in coinc_param_distributions.background_rates.items():
-			if len(binnedarray.array.shape) == 1:
-				x, = binnedarray.centres()
-				self.background_rates[name] = interp1d(x, binnedarray.array)
-			elif len(binnedarray.array.shape) == 2:
-				x, y = binnedarray.centres()
-				self.background_rates[name] = interp2d(x, y, binnedarray.array)
-			else:
-				raise ValueError, "distribution densities with >2 dimensions not supported:  background data %s has shape %s" % (name, str(binnedarray.array.shape))
-		for name, binnedarray in coinc_param_distributions.injection_rates.items():
-			if len(binnedarray.array.shape) == 1:
-				x, = binnedarray.centres()
-				self.injection_rates[name] = interp1d(x, binnedarray.array)
-			elif len(binnedarray.array.shape) == 2:
-				x, y = binnedarray.centres()
-				self.injection_rates[name] = interp2d(x, y, binnedarray.array)
-			else:
-				raise ValueError, "distribution densities with >2 dimensions not supported:  injection data %s has shape %s" % (name, str(binnedarray.array.shape))
+		self.background_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.background_rates.items())
+		self.injection_rates = dict((name, rate.InterpBinnedArray(binnedarray)) for name, binnedarray in coinc_param_distributions.injection_rates.items())
 
 	def set_P_gw(self, P):
 		self.P_gw = P

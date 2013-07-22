@@ -208,7 +208,6 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     # set mode
     if verbose:  mode = lalframe.LAL_FR_STREAM_VERBOSE_MODE
     else:        mode = lalframe.LAL_FR_STREAM_DEFAULT_MODE
-    print 
     lalframe.FrSetMode(mode, stream)
 
     # set time

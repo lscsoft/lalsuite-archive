@@ -1848,6 +1848,9 @@ class LineHistogram(BasicPlot):
         else:
             min_stat, max_stat = determine_common_bin_limits(self.data_sets)
         if logx:
+            if min_stat == max_stat == 0:
+                min_stat = 1
+                max_stat = 10
             bins = numpy.logspace(numpy.log10(min_stat), numpy.log10(max_stat),\
                                   int(num_bins) + 1, endpoint=True)
         else:
@@ -1895,15 +1898,6 @@ class LineHistogram(BasicPlot):
                                                              order="F")
                 y = numpy.vstack((y, y)).reshape((-1,), order="F")
 
-            # mask zeros for logy
-            if logy and len(y[y!=0]):
-                if not ymin:
-                    ymin = y[y!=0].min()*0.9
-                else:
-                    ymin = min(ymin, y[y!=0].min()*0.9)
-                numpy.putmask(y, y==0, ymin*0.9)
-                #y = numpy.ma.masked_where(y==0, y, copy=False)
-
             # plot
             self.ax.plot(x, y, **plot_kwargs)
             if fill:
@@ -1911,12 +1905,9 @@ class LineHistogram(BasicPlot):
                 self.ax.fill_between(x, 1e-100, y, **plot_kwargs)
 
         if logx:
-            self.ax.xaxis.set_scale("log")
-            if ymin:
-                self.ax.set_ybound(lower=ymin)
+            self.ax.set_xscale("log", nonposx='clip')
         if logy:
-            self.ax.yaxis.set_scale("log")
-        self.ax._update_transScale()
+            self.ax.set_xscale("log", nonposy='clip')
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=loc, alpha=0.8)

@@ -126,7 +126,7 @@ def elapsed_time():
     return time.time()-START
 
 
-def print_verbose(message, verbose=True, stream=sys.stdout, profile=False):
+def print_verbose(message, verbose=True, stream=sys.stdout, profile=True):
     """Prints the given message to the stream.
 
     @param message
@@ -1018,12 +1018,6 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                                                         end=seg[1],channel=channel,
                                                         columns=columns,
                                                         verbose=VERBOSE)
-                elif etg.lower() == "kw" or etg.lower() == "kleinewelle":
-                    trigtable = kw.from_lal_cache(segcache, start=seg[0],
-                                                  end=seg[1], ifo=ifo,
-                                                  channel=channel,
-                                                  columns=columns,
-                                                  verbose=VERBOSE)
                 else:
                     trigtable = triggers.from_files(
                                     segcache, etg, columns=columns,
@@ -1456,7 +1450,7 @@ def get_spectrum(cp, channel, *args, **kwargs):
     if len(sequencelist):
         f0 = sequencelist[0]['f0']
         deltaF = sequencelist[0]['deltaF']
-        f_array = seqeuencelist[0]['f_array']
+        f_array = sequencelist[0]['f_array']
         spectrogram = numpy.concatenate(([s['data'].data for s in sequencelist
                                           if s['data'].data.shape[0]]), axis=0)
     else:
@@ -1936,8 +1930,11 @@ def archive_data(filename, **hdfargs):
             h5group = hdf5utils._create_groups(h5file, group)
             for seg in G_SPECTROGRAM[channel].keys():
                 # format spectrogram data
-                sequence, epoch, deltaT, f0, deltaF =\
-                    G_SPECTROGRAM[channel][seg]
+                sequence = G_SPECTROGRAM[channel][seg]['data']
+                epoch = G_SPECTROGRAM[channel][seg]['epoch']
+                deltaT = G_SPECTROGRAM[channel][seg]['deltaT']
+                f0 = G_SPECTROGRAM[channel][seg]['f0']
+                deltaF = G_SPECTROGRAM[channel][seg]['deltaF']
                 metadata = {"epoch":float(epoch), "dx":deltaT,
                             "f0":f0, "dy":deltaF}
                 if sequence.length > 0 and sequence.vectorLength > 0:
@@ -2196,9 +2193,9 @@ def load_archive_spectrogram(cp, channel, seglist, mode=0, verbose=False):
 
         # load list of all spectrograms for this channel
         group = "%s/%s" % (HDF_SPECTROGRAM_GROUP, channel)
-        if group.split("/")[0] in list(h5file):
+        try:
             datasets = list(h5file[group])
-        else:
+        except KeyError:
             datasets = []
         datasegs = [map(float, s.split("-")) for s in datasets]
         datasegs = SegmentList(map(Segment, datasegs))
