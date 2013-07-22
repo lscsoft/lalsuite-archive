@@ -537,6 +537,9 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
     # get number of segments
     duration = series.data.length
     numseg   = int(duration//step)
+    if numseg == 0:
+        raise ValueError("Data array is too short to compute even a single "
+                         "average.")
     if duration % step != 0:
         warnings.warn("data is not the right size for complete coverage in %d "\
                       "point steps. %d steps will be computed and the "\
@@ -546,9 +549,6 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
     # set up return object
     func = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out = func(numseg, seglen//2+1)
-
-    if numseg == 0:
-        return out
 
     # loop over steps
     cut = getattr(lal, "Cut%sTimeSeries" % TYPESTR)
