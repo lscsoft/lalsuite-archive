@@ -26,6 +26,7 @@ extern "C" {
 
 #include <math.h>
 #include <lal/LALDatatypes.h>
+#include <lal/LALConstants.h>
 
 /**
  * The first enum types are available for both lambda and q
@@ -68,6 +69,8 @@ REAL8 XLALSimInspiralEOSLambda(LALEquationOfState eos_type, REAL8 m_intr_msun);
 REAL8 XLALSimInspiralEOSqmparameter(LALEquationOfState eos_type, REAL8 m_intr_msun);
 
 REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda);
+
+REAL8 XLALSimInspiralNSRadiusOfLambdaM(REAL8 m_intr_msun, REAL8 barlambda);
 
 #ifdef  __cplusplus
 }

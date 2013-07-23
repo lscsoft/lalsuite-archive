@@ -20,6 +20,7 @@
  #include <stdio.h>
  #include <string.h>
  #include <lal/LALSimInspiralEOS.h>
+ #include <lal/LALSimInspiral.h>
 
  LALEquationOfState XLALSimEOSfromString(char eos_name[])
  {
@@ -153,4 +154,44 @@ REAL8 XLALSimInspiralEOSqmparameter(LALEquationOfState eos_type, REAL8 m_intr_ms
   }
   
   return q ;
+}
+
+/**
+ * This function estimates the radius of a NS of a given mass and
+ * tidal deformability parameter, based on the "I-Love-Q forever" relation
+ * of Maselli et al, arXiv:1304.2052v1.
+ * To be used for masses within [1.2,2]M_sun, and preferably not for strange
+ * quark stars (since the relation is calibrated for this mass range and for 
+ * the EoS APR4, MS1, H4).
+ * The arguments are:
+ * m_intr_msun           the intrinsic mass in solar masses
+ * barlambda                the dimensionless tidal deformability (lambda/m^5)
+ * The return value is the radius in meters.
+ */
+
+REAL8 XLALSimInspiralNSRadiusOfLambdaM(REAL8 m_intr_msun, REAL8 barlambda){
+  
+  REAL8 loglambda;
+  REAL8 compactness, radius ;
+
+  /* Check for negative value of lambda */
+  if (barlambda > 0.0) loglambda = log(barlambda);
+  else {
+    XLALPrintError( "XLAL Error - %s: Tidal deformability is negative. Only positive values are acceptable.", __func__);
+    XLAL_ERROR_REAL8(XLAL_EDOM);
+  }
+
+  /* Calculate compactness according to arXiv:1304.2052v1 */
+  compactness = 0.371 - 0.0391*loglambda + 0.001056*loglambda*loglambda;
+
+  /* Check that radius is larger than Schwarzschild radius */
+  if ( compactness > 1./2. ) {
+    XLALPrintError( "XLAL Error - %s: Neutron Star is calculated to be more compact than a black hole.", __func__);
+    XLAL_ERROR_REAL8(XLAL_ERANGE);
+  }
+
+  radius = LAL_MRSUN_SI * m_intr_msun / compactness;
+
+ return radius;
+  
 }
