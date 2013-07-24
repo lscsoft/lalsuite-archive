@@ -221,6 +221,8 @@ class FilterThread(threading.Thread):
 
 
 class CoincParamsDistributions(object):
+	ligo_lw_name_suffix = u"pylal_ligolw_burca_tailor_coincparamsdistributions"
+
 	def __init__(self, **kwargs):
 		self.zero_lag_rates = {}
 		self.background_rates = {}
@@ -302,10 +304,10 @@ class CoincParamsDistributions(object):
 
 	@classmethod
 	def from_xml(cls, xml, name):
-		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
+		self = cls()
+		xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:%s" % (name, self.ligo_lw_name_suffix)]
 		process_id = param.get_pyvalue(xml, u"process_id")
 		names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
-		self = cls()
 		for name in names:
 			self.zero_lag_rates[str(name)] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
 			self.background_rates[str(name)] = rate.binned_array_from_xml(xml, "background:%s" % name)
@@ -313,7 +315,7 @@ class CoincParamsDistributions(object):
 		return self, process_id
 
 	def to_xml(self, process, name):
-		xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
+		xml = ligolw.LIGO_LW({u"Name": u"%s:%s" % (name, self.ligo_lw_name_suffix)})
 		xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
 		for name, binnedarray in self.zero_lag_rates.items():
 			xml.appendChild(rate.binned_array_to_xml(binnedarray, u"zero_lag:%s" % name))

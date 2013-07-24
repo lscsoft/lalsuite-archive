@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalapps],[6.12.0.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalapps],[6.13.1.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_SRCDIR([src/lalapps/lalapps.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -49,7 +49,10 @@ AC_CONFIG_FILES([\
   src/online/Makefile \
   src/hwinjection/Makefile \
 ])
-AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests])
+# FIXME: -Wno-unsupported is a hack which silences warnings regarding
+# subdir-objects in automake-1.14+. this will be the default, and only,
+# behaviour in automake-2.0+ so this is only a temporary measure
+AM_INIT_AUTOMAKE([1.11 foreign color-tests parallel-tests -Wno-unsupported])
 AH_TOP([
 #ifndef CONFIG_H
 #define CONFIG_H])
@@ -393,16 +396,16 @@ if test "${boinc}" = "true" ; then
 fi
 
 # check for lal libararies and headers
-LALSUITE_CHECK_LIB([LAL],[6.10.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.10.0],[LALOpenDataFile],[lal/FileIO.h])
-LALSUITE_CHECK_OPT_LIB([LALFrame],[1.0.10],[LALFrOpen],[lal/LALFrameL.h])
+LALSUITE_CHECK_LIB([LAL],[6.11.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.11.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_OPT_LIB([LALFrame],[1.1.0],[LALFrOpen],[lal/LALFrameL.h])
 LALSUITE_CHECK_OPT_LIB([LALMetaIO],[1.1.0],[XLALCreateMetaTableDir],[lal/LIGOLwXMLRead.h])
 LALSUITE_CHECK_OPT_LIB([LALXML],[1.1.3],[XLALXMLFilePrintElements],[lal/LALXML.h])
-LALSUITE_CHECK_OPT_LIB([LALSimulation],[0.7.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
+LALSUITE_CHECK_OPT_LIB([LALSimulation],[1.0.0],[XLALSimDetectorStrainREAL8TimeSeries],[lal/LALSimulation.h])
 LALSUITE_CHECK_OPT_LIB([LALBurst],[1.2.0],[XLALEPSearch],[lal/EPSearch.h])
 LALSUITE_CHECK_OPT_LIB([LALInspiral],[1.5.0],[LALInspiralParameterCalc],[lal/LALInspiral.h])
-LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.7.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
-LALSUITE_CHECK_OPT_LIB([LALInference],[1.1.0],[LALInferenceAddVariable],[lal/LALInference.h])
+LALSUITE_CHECK_OPT_LIB([LALPulsar],[1.8.0],[XLALComputeFaFb],[lal/ComputeFstat.h])
+LALSUITE_CHECK_OPT_LIB([LALInference],[1.2.0],[LALInferenceAddVariable],[lal/LALInference.h])
 LALSUITE_CHECK_OPT_LIB([LALStochastic],[1.1.4],[LALStochasticOptimalFilter],[lal/StochasticCrossCorrelation.h])
 
 # back to c mode

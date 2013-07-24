@@ -27,24 +27,36 @@ import pylal.pylal_seismon_eqmon
 #
 # =============================================================================
 
-def plot_rms(params,time,data,traveltimes,plotName):
+def plot_envelope(params,time,data,traveltimes,plotName):
+
+    plotNameSplit = plotName.split("/")
+    plotTitle = plotNameSplit[-1].replace(".png","")
+
+    time = np.array(time)
+    data = np.array(data)
 
     startTime = np.min(time)
     endTime = np.max(time)
+
     time = time - startTime
 
-    peakTime = traveltimes["Restimate"] - startTime
+    Ptime = traveltimes["Ptimes"][-1] - startTime
+    Stime = traveltimes["Stimes"][-1] - startTime
+    Rtime = traveltimes["Rtimes"][-1] - startTime
 
-    threshold = traveltimes["threshold"] 
-
-    plt.semilogy(time,data, 'k')
-    title_text = "Rf: %f"%(traveltimes["Rfestimate"])
-    plt.axvline(x=peakTime,color='r')
-    plt.axhline(y=threshold,color='b')
-
+    plt.plot(time,data, 'k')
+    plt.axvline(x=Ptime,color='r')
+    plt.axvline(x=Stime,color='b')
+    plt.axvline(x=Rtime,color='g')
+    plt.text(Ptime, -0.05, 'P', fontsize=18, ha='center', va='top')
+    plt.text(Stime, -0.05, 'S', fontsize=18, ha='center', va='top')
+    plt.text(Rtime, -0.05, 'R', fontsize=18, ha='center', va='top')
+    #xlim([min(time), max(time)])
+    plt.xlim([0, endTime-startTime])
+    plt.ylim([0, 1])
     plt.xlabel('Time [s]')
     plt.ylabel("%.0f - %.0f"%(startTime,endTime))
-    plt.title(title_text)
+    plt.title(plotTitle)
     plt.show()
     plt.savefig(plotName,dpi=200)
     plt.close('all')
@@ -65,7 +77,8 @@ def restimates(params,attributeDics,plotName):
     gps = []
     magnitudes = []
     for attributeDic in attributeDics:
-        if not "Restimate" in attributeDic["traveltimes"][ifo]:
+
+        if "Restimate" not in attributeDic["traveltimes"][ifo]:
             continue
 
         travel_time = attributeDic["traveltimes"][ifo]["Restimate"] - attributeDic["traveltimes"][ifo]["Rtimes"][-1]
@@ -90,6 +103,9 @@ def restimates(params,attributeDics,plotName):
 
 def prediction(data,plotName):
 
+    if len(data["prediction"]["tt"]) == 0:
+        return
+
     timeStart = data["prediction"]["tt"][0]
     t = data["prediction"]["tt"] - timeStart
     t_prediction = t / 86400.0
@@ -99,10 +115,10 @@ def prediction(data,plotName):
     amp[indexes] = -250
     amp_prediction = amp
 
-    threshold = -10
+    threshold = -8
 
     plt.figure()
-    plt.plot(t_prediction,amp_prediction,label="Predicted")
+    plt.plot(t_prediction,amp_prediction,'*',label="Predicted")
     plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
 
     for key in data["channels"].iterkeys():
@@ -115,11 +131,66 @@ def prediction(data,plotName):
         amp[indexes] = -250
         plt.plot(t,amp,'*',label=key)
 
+        amp_interp = np.interp(t_prediction,t,amp)
+        residual = np.absolute(amp_interp - amp_prediction)
+
+        residual_label = "%s residual"%key
+        #plt.plot(t_prediction,residual,'*',label=residual_label)
+
     plt.legend(loc=1,prop={'size':6})
     plt.xlim([np.min(t_prediction),np.max(t_prediction)])
-    plt.ylim([-15,-2])
+    plt.ylim([-10,-2])
     plt.xlabel('Time [Days] [%d]'%timeStart)
-    plt.ylabel('Amplitude')
+    plt.ylabel('Mean ASD in 0.02-0.1 Hz Band [log10(m/s)]')
+    plt.show()
+    plt.savefig(plotName,dpi=200)
+    plt.close('all')
+
+def residual(data,plotName):
+
+    if len(data["prediction"]["tt"]) == 0:
+        return
+
+    timeStart = data["prediction"]["tt"][0]
+    t = data["prediction"]["tt"] - timeStart
+    t_prediction = t / 86400.0
+
+    amp = np.log10(data["prediction"]["data"])
+    indexes = np.isinf(amp)
+    amp[indexes] = -250
+    amp_prediction = amp
+
+    threshold = -8
+
+    indexes = np.where(amp_prediction >= threshold)
+    t_prediction = t_prediction[indexes]
+    amp_prediction = amp_prediction[indexes]
+
+    plt.figure()
+    #plt.plot(t_prediction,amp_prediction,'*',label="Predicted")
+    #plt.plot(t_prediction,np.ones(t_prediction.shape)*threshold,label='Threshold')
+
+    for key in data["channels"].iterkeys():
+
+        t = data["channels"][key]["tt"] - timeStart
+        t = t / 86400.0
+
+        amp = np.log10(data["channels"][key]["data"])
+        indexes = np.isinf(amp)
+        amp[indexes] = -250
+        #plt.plot(t,amp,'*',label=key)
+
+        amp_interp = np.interp(t_prediction,t,amp)
+        residual = amp_interp - amp_prediction
+
+        residual_label = "%s residual"%key
+        plt.plot(t_prediction,residual,'*',label=residual_label)
+
+    plt.legend(loc=1,prop={'size':6})
+    plt.xlim([np.min(t_prediction),np.max(t_prediction)])
+    plt.ylim([-5,5])
+    plt.xlabel('Time [Days] [%d]'%timeStart)
+    plt.ylabel('Residual in prediction [log10(m/s)]')
     plt.show()
     plt.savefig(plotName,dpi=200)
     plt.close('all')
@@ -317,6 +388,10 @@ def traveltimes(params,attributeDics,ifo,currentGPS,plotName):
     traveltimes = []
 
     for attributeDic in attributeDics:
+
+        if not ifo in attributeDic["traveltimes"]:
+            continue
+
         if traveltimes == []:
             arrivalTimes = [max(attributeDic["traveltimes"][ifo]["Rtimes"]),max(attributeDic["traveltimes"][ifo]["Stimes"]),max(attributeDic["traveltimes"][ifo]["Ptimes"])]
             traveltimes = np.array(arrivalTimes)
@@ -427,7 +502,7 @@ def worldmap_plot(params,attributeDics,type,plotName):
 
     for attributeDic in attributeDics:
 
-        if type == "Restimates" and not "Restimate" in attributeDic["traveltimes"][ifo]:
+        if type == "Restimates" and "Restimate" not in attributeDic["traveltimes"][ifo]:
             continue
 
         x,y = m(attributeDic["Longitude"], attributeDic["Latitude"])
@@ -463,9 +538,12 @@ def worldmap_plot(params,attributeDics,type,plotName):
                 vmax=vmax
         )
 
-    cbar=plt.colorbar()
-    cbar.set_label(colorbar_label)
-    cbar.set_clim(vmin=vmin,vmax=vmax)
+    try:
+       cbar=plt.colorbar()
+       cbar.set_label(colorbar_label)
+       cbar.set_clim(vmin=vmin,vmax=vmax)
+    except:
+       pass
     plt.show()
     plt.savefig(plotName,dpi=200)
     plt.close('all')
@@ -519,6 +597,9 @@ def worldmap_wavefronts(params,attributeDics,currentGPS,plotName):
 
 
     for attributeDic in attributeDics:
+
+        if attributeDic["traveltimes"] == {}:
+            continue
 
         ifoNames = []
         ifoDist = []

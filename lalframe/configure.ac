@@ -1,5 +1,5 @@
 AC_PREREQ([2.63])
-AC_INIT([lalframe],[1.0.10.1],[lal-discuss@gravity.phys.uwm.edu])
+AC_INIT([lalframe],[1.1.0.1],[lal-discuss@ligo.org])
 AC_CONFIG_HEADERS([src/config.h src/LALFrameConfig.h])
 AC_CONFIG_SRCDIR([src/LALFrameIO.c])
 AC_CONFIG_AUX_DIR([gnuscripts])
@@ -41,7 +41,7 @@ LALSUITE_DISTCHECK_CONFIGURE_FLAGS
 #    then increment age.
 # 6. if any interfaces have been removed since the last public release,
 #    then set age to 0.
-AC_SUBST([LIBCURRENT],[6])
+AC_SUBST([LIBCURRENT],[7])
 AC_SUBST([LIBREVISION],[0])
 AC_SUBST([LIBAGE],[0])
 AC_SUBST([LIBVERSION],[${LIBCURRENT}:${LIBREVISION}:${LIBAGE}])
@@ -132,11 +132,11 @@ AC_CHECK_LIB([m],[main],,[AC_MSG_ERROR([could not find the math library])])
 # check for framec or libframe libraries and headers
 PKG_PROG_PKG_CONFIG
 AS_IF([test "${framec}" = "true"],[
-       PKG_CHECK_MODULES([FRAMEC],[framec >= 1.19.25],[true],[false])
-       CPPFLAGS="$CPPFLAGS $FRAMEC_CFLAGS"
-       LIBS="$LIBS $FRAMEC_LIBS"
-       AC_CHECK_LIB([FrameC],[FrameCFileOpen],,[AC_MSG_ERROR([could not find the framec library])])
-       AC_CHECK_HEADERS([framec/FrameC.h],,[AC_MSG_ERROR([could not find the FrameC.h header])])
+       PKG_CHECK_MODULES([FRAMECPPC],[framecppc >= 1.19.32],[true],[false])
+       CPPFLAGS="$CPPFLAGS $FRAMECPPC_CFLAGS"
+       LIBS="$LIBS $FRAMECPPC_LIBS"
+       AC_CHECK_LIB([framecppc],[FrameCFileOpen],,[AC_MSG_ERROR([could not find the framec library])])
+       AC_CHECK_HEADERS([framecppc/FrameC.h],,[AC_MSG_ERROR([could not find the FrameC.h header])])
        AC_DEFINE([USE_FRAMEC],[],[Define to use FrameC])
        FRAME_LIBRARY="FrameC"])
 AS_IF([test "${framel}" = "true"],[
@@ -149,8 +149,8 @@ AS_IF([test "${framel}" = "true"],[
        FRAME_LIBRARY="FrameL"])
 
 # check for lal libraries and headers
-LALSUITE_CHECK_LIB([LAL],[6.10.0],[LALVersion],[lal/LALStdio.h])
-LALSUITE_CHECK_LIB([LALSupport],[6.10.0],[LALOpenDataFile],[lal/FileIO.h])
+LALSUITE_CHECK_LIB([LAL],[6.11.0],[LALVersion],[lal/LALStdio.h])
+LALSUITE_CHECK_LIB([LALSupport],[6.11.0],[LALOpenDataFile],[lal/FileIO.h])
 
 # check for inotify
 if test "${inotify}" = "true"; then

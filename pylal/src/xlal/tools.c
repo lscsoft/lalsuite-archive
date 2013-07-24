@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2011  Kipp Cannon
+ * Copyright (C) 2006-2011,2013  Kipp Cannon
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,7 +39,6 @@
 #include <lal/CoincInspiralEllipsoid.h>
 #include <lal/TrigScanEThincaCommon.h>
 #include <lal/RingUtils.h>
-#include <datatypes/laldetector.h>
 
 
 #define MODULE_NAME "pylal.xlal.tools"
@@ -358,18 +357,6 @@ static PyObject *pylal_XLAL3DRinca(PyObject *self, PyObject *args)
  */
 
 
-static PyObject *make_cached_detectors(void)
-{
-	PyObject *cached_detector = PyDict_New();
-	int i;
-
-	for(i = 0; i < LALNumCachedDetectors; i++)
-		PyDict_SetItemString(cached_detector, lalCachedDetectors[i].frDetector.name, pylal_LALDetector_new(&lalCachedDetectors[i]));
-
-	return cached_detector;
-}
-
-
 static struct PyMethodDef methods[] = {
 	{"XLALSnglInspiralTimeError", pylal_XLALSnglInspiralTimeError, METH_VARARGS, "XLALSnglInspiralTimeError(row, threshold)\n\nFrom a sngl_inspiral event compute the \\Delta t interval corresponding to the given e-thinca threshold."},
 	{"XLALCalculateEThincaParameter", pylal_XLALCalculateEThincaParameter, METH_VARARGS, "XLALCalculateEThincaParameter(row1, row2)\n\nTakes two SnglInspiralTable objects and\ncalculates the overlap factor between them."},
@@ -385,7 +372,6 @@ PyMODINIT_FUNC inittools(void)
 	if(!module)
 		goto nomodule;
 
-	pylal_laldetector_import();
 	pylal_snglinspiraltable_import();
 	pylal_snglringdowntable_import();
 
@@ -396,9 +382,6 @@ PyMODINIT_FUNC inittools(void)
 	time_slide_id_type = pylal_get_ilwdchar_class("time_slide", "time_slide_id");
 	if(!process_id_type || !coinc_def_id_type || !coinc_event_id_type || !time_slide_id_type)
 		goto noids;
-
-	/* cached_detector */
-	PyModule_AddObject(module, "cached_detector", make_cached_detectors());
 
 	/* Coinc */
 	if(PyType_Ready(&ligolw_Coinc_Type) < 0)

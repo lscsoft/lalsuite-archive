@@ -62,10 +62,10 @@ def MultiIter(*sequences):
 	The elements in each output tuple are in the order of the input
 	sequences, and the left-most input sequence is iterated over first.
 
-	The input sequences are each iterated over only once, so it is safe
-	to pass generators as arguments.  Also, this generator is
-	significantly faster if the longest input sequence is given as the
-	first argument.  For example, this code
+	Internally, the input sequences themselves are each iterated over
+	only once, so it is safe to pass generators as arguments.  Also,
+	this generator is significantly faster if the longest input
+	sequence is given as the first argument.  For example, this code
 
 	>>> lengths = range(1, 12)
 	>>> for x in MultiIter(*map(range, lengths)):
@@ -146,7 +146,7 @@ def choices(vals, n):
 		yield ()
 	else:
 		# n < 0
-		raise ValueError, n
+		raise ValueError(n)
 
 
 def uniq(iterable):
@@ -200,78 +200,6 @@ def flatten(sequence, levels = 1):
 			for y in flatten(x, levels - 1):
 				yield y
 
-#
-# =============================================================================
-#
-#    any() and all() are built-ins in Python 2.5, but I don't want to wait.
-#
-# =============================================================================
-#
-
-
-try:
-	any = any
-	all = all
-except NameError:
-	# These short-circuit, returning as soon as the return value can be
-	# determined.  These are a factor of a few slower than Python 2.5's
-	# implementation.
-	def any(S):
-		"""
-		any(iterable) -> bool
-
-		Return True if bool(x) is True for any x in the iterable.
-		"""
-		for x in S:
-			if x: return True
-		return False
-	def all(S):
-		"""
-		all(iterable) -> bool
-
-		Return True if bool(x) is True for all values x in the iterable.
-		"""
-		for x in S:
-			if not x: return False
-		return True
-
-
-#
-# =============================================================================
-#
-#    itertools.groupby() was added in Python 2.4, but I don't want to wait.
-#
-# =============================================================================
-#
-
-try:
-	from itertools import groupby
-except ImportError:
-	class groupby(object):
-		"""
-		Python 2.3 compatibility: reimplement itertools.groupby.
-		Taken directly from the itertools documentation.
-		"""
-		def __init__(self, iterable, key=None):
-			if key is None:
-				key = lambda x: x
-			self.keyfunc = key
-			self.it = iter(iterable)
-			self.tgtkey = self.currkey = self.currvalue = xrange(0)
-		def __iter__(self):
-			return self
-		def next(self):
-			while self.currkey == self.tgtkey:
-				self.currvalue = self.it.next() # Exit on StopIteration
-				self.currkey = self.keyfunc(self.currvalue)
-			self.tgtkey = self.currkey
-			return (self.currkey, self._grouper(self.tgtkey))
-		def _grouper(self, tgtkey):
-			while self.currkey == tgtkey:
-				yield self.currvalue
-				self.currvalue = self.it.next() # Exit on StopIteration
-				self.currkey = self.keyfunc(self.currvalue)
-
 
 #
 # =============================================================================
@@ -292,6 +220,12 @@ def inplace_filter(func, sequence):
 	>>> inplace_filter(lambda x: x > 5, l)
 	>>> l
 	[6, 7, 8, 9]
+
+	Performance considerations:  the function iterates over the
+	sequence, shuffling surviving members down and deleting whatever
+	top part of the sequence is left empty at the end, so sequences
+	whose surviving members are predominantly at the bottom will be
+	processed faster.
 	"""
 	target = 0
 	for source in xrange(len(sequence)):
@@ -348,16 +282,10 @@ def inorder(*iterables, **kwargs):
 	reasons no check is performed to validate the element order in the
 	input sequences.
 	"""
-	try:
-		reverse = kwargs.pop("reverse")
-	except KeyError:
-		reverse = False
-	try:
-		keyfunc = kwargs.pop("key")
-	except KeyError:
-		keyfunc = lambda x: x  # identity
+	reverse = kwargs.pop("reverse", False)
+	keyfunc = kwargs.pop("key", lambda x: x) # default = identity
 	if kwargs:
-		raise TypeError, "invalid keyword argument '%s'" % kwargs.keys()[0]
+		raise TypeError("invalid keyword argument '%s'" % kwargs.keys()[0])
 	nextvals = {}
 	for iterable in iterables:
 		next = iter(iterable).next
@@ -375,7 +303,7 @@ def inorder(*iterables, **kwargs):
 		select = min
 	values = nextvals.itervalues
 	if len(nextvals) > 1:
-		while True:
+		while 1:
 			_, val, next = select(values())
 			yield val
 			try:
@@ -388,7 +316,7 @@ def inorder(*iterables, **kwargs):
 	# exactly one sequence remains, short circuit and drain it
 	(_, val, next), = values()
 	yield val
-	while True:
+	while 1:
 		yield next()
 
 

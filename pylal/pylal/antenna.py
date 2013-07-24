@@ -31,8 +31,7 @@ import sys
 from math import *
 from pylal.xlal import date
 from pylal import date
-from pylal.xlal import inject
-from pylal.xlal import tools
+from pylal import inject
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 
 
@@ -84,13 +83,13 @@ def response( gpsTime, rightAscension, declination, inclination,
           % (det)
 
   # get detector
-  if detector not in tools.cached_detector.keys():
+  if detector not in inject.cached_detector.keys():
     raise ValueError, "%s is not a cached detector.  "\
           "Cached detectors are: %s" \
-          % (det, tools.cached_detector.keys())
+          % (det, inject.cached_detector.keys())
 
   # get the correct response data
-  response = tools.cached_detector[detector].response
+  response = inject.cached_detector[detector].response
 
   # actual computation of antenna factors
   f_plus, f_cross = inject.XLALComputeDetAMResponse(response, ra_rad, de_rad,
@@ -156,8 +155,8 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
             'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
   
-  x1 = tools.cached_detector[detMap[det1]].location
-  x2 = tools.cached_detector[detMap[det2]].location
+  x1 = inject.cached_detector[detMap[det1]].location
+  x2 = inject.cached_detector[detMap[det2]].location
   timedelay=date.XLALArrivalTimeDiff(list(x1), list(x2), ra_rad, de_rad, gps)
 
   return timedelay

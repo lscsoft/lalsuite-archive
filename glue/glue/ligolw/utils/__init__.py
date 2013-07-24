@@ -53,7 +53,7 @@ except:
 
 
 from glue import git_version
-from glue.ligolw import ligolw
+from .. import ligolw
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

@@ -208,7 +208,7 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     # set mode
     if verbose:  mode = lalframe.LAL_FR_STREAM_VERBOSE_MODE
     else:        mode = lalframe.LAL_FR_STREAM_DEFAULT_MODE
-    lalframe.FrSetMode(stream, mode)
+    lalframe.FrSetMode(mode, stream)
 
     # set time
     if int(start) == -1:
@@ -216,10 +216,10 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
     else:
         start = lal.LIGOTimeGPS(float(start))
     duration = float(duration)
-    lalframe.FrSeek(stream, start)
+    lalframe.FrSeek(start, stream)
     
     # get series type
-    frdatatype = lalframe.FrGetTimeSeriesType(chname, stream)
+    frdatatype = lalframe.FrStreamGetTimeSeriesType(chname, stream)
     if datatype == -1:
         datatype = frdatatype
 
@@ -227,11 +227,11 @@ def fromFrStream(stream, chname, start=-1, duration=1, datatype=-1,\
 
     # get data
     if frdatatype == datatype:
-        func = getattr(lalframe, 'FrRead%sTimeSeries' % TYPESTR)
+        func = getattr(lalframe, 'FrStreamRead%sTimeSeries' % TYPESTR)
         series = func(stream, chname, start, duration, 0)
     else:
-        dblseries = lalframe.FrInputREAL8TimeSeries(stream, chname, start,\
-                                                        duration, 0)
+        dblseries = lalframe.FrStreamInputREAL8TimeSeries(stream, chname,
+                                                          start, duration, 0)
         func = getattr(lal, 'Create%sTimeSeries' % TYPESTR)
         series = func(dblseries.name, dblseries.epoch, dblseries.f0,\
                       dblseries.deltaT, dblseries.sampleUnits,\
@@ -537,6 +537,9 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
     # get number of segments
     duration = series.data.length
     numseg   = int(duration//step)
+    if numseg == 0:
+        raise ValueError("Data array is too short to compute even a single "
+                         "average.")
     if duration % step != 0:
         warnings.warn("data is not the right size for complete coverage in %d "\
                       "point steps. %d steps will be computed and the "\
@@ -546,9 +549,6 @@ def compute_average_spectrogram(series, step, seglen, stride, window=None,\
     # set up return object
     func = getattr(lal, "Create%sVectorSequence" % TYPESTR)
     out = func(numseg, seglen//2+1)
-
-    if numseg == 0:
-        return out
 
     # loop over steps
     cut = getattr(lal, "Cut%sTimeSeries" % TYPESTR)
@@ -589,10 +589,12 @@ def gluecache_to_FrCache(cache):
         cache : glue.lal.Cache
             LAL cache object from GLUE to convert
     """
-    t = tempfile.NamedTemporaryFile(delete=False)
-    cache.tofile(t)
-    frcache = lalframe.FrImportCache(t.name)
-    t.close()
+    with tempfile.NamedTemporaryFile(delete=False) as t:
+        cache = cache
+        for e in cache:
+            e.segment = type(e.segment)(int(e.segment[0]), int(e.segment[1]))
+        cache.tofile(t)
+        frcache = lal.CacheImport(t.name)
     os.remove(t.name)
     return frcache
 

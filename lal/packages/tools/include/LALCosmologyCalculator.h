@@ -28,15 +28,28 @@
 
 typedef struct tagLALCosmologicalParameters
 {
-    double h;
-    double om;
-    double ol;
-    double ok;
-    double w0;
-    double w1;
-    double w2;
+    double h;   /* normalised hubble constant h = H0/100km/Mpc/s */
+    double om;  /* matter energy density */
+    double ol;  /* cosmological constant density */
+    double ok;  /* curvature */
+    double w0;  /* 0th order dark energy equation of state parameter */
+    double w1;  /* 1st order dark energy equation of state parameter */
+    double w2;  /* 2nd order dark energy equation of state parameter */
 }   LALCosmologicalParameters;
 
+typedef struct tagLALCosmologicalRateParameters
+{
+    double r0;  /* local coalescence rate in units of Mpc^-3 yr^-1 */ 
+    double W;           /* phenomenological parameter for the analytical fit to the SFR rate */
+    double Q;           /* phenomenological parameter for the analytical fit to the SFR rate */
+    double R;           /* phenomenological parameter for the analytical fit to the SFR rate */
+} LALCosmologicalRateParameters;
+
+typedef struct tagLALCosmologicalParametersAndRate
+{
+    LALCosmologicalParameters *omega;
+    LALCosmologicalRateParameters *rate;
+} LALCosmologicalParametersAndRate;
 
 double XLALLuminosityDistance(
             LALCosmologicalParameters *omega, 
@@ -76,9 +89,31 @@ double XLALUniformComovingVolumeDistribution(
             double zmax);
 
 double XLALIntegrateComovingVolumeDensity(LALCosmologicalParameters *omega, double z);
-            
-LALCosmologicalParameters *XLALCreateCosmologicalParameters(double h, double om, double ok, double ol, double w0, double w1, double w2);
+
+LALCosmologicalParameters *XLALCreateCosmologicalParameters(double h, double om, double ol, double w0, double w1, double w2);
 
 void XLALDestroyCosmologicalParameters(LALCosmologicalParameters *omega);
 
+double XLALGetHubbleConstant(LALCosmologicalParameters *omega);
+double XLALGetOmegaMatter(LALCosmologicalParameters *omega);
+double XLALGetOmegaLambda(LALCosmologicalParameters *omega);
+double XLALGetOmegaK(LALCosmologicalParameters *omega);
+double XLALGetW0(LALCosmologicalParameters *omega);
+double XLALGetW1(LALCosmologicalParameters *omega);
+double XLALGetW2(LALCosmologicalParameters *omega);
+void XLALSetCosmologicalParametersDefaultValue(LALCosmologicalParameters *omega);
+
+
+LALCosmologicalRateParameters *XLALCreateCosmologicalRateParameters(double r0, double W, double Q, double R);
+void XLALDestroyCosmologicalRateParameters(LALCosmologicalRateParameters *rate);
+double XLALGetLocalRate(LALCosmologicalRateParameters *rate);
+double XLALStarFormationDensity(double z, void *rate);
+
+double XLALRateWeightedUniformComovingVolumeDensity(double z, void *params);
+double XLALIntegrateRateWeightedComovingVolumeDensity(LALCosmologicalParametersAndRate *p, double z);
+double XLALRateWeightedComovingVolumeDistribution(LALCosmologicalParametersAndRate *p, double z, double zmax);
+
+LALCosmologicalParametersAndRate *XLALCreateCosmologicalParametersAndRate(void);
+void XLALDestroyCosmologicalParametersAndRate(LALCosmologicalParametersAndRate *p);
+void XLALSetCosmologicalRateParametersDefaultValue(LALCosmologicalRateParameters *params);
 #endif

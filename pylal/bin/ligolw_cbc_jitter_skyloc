@@ -39,8 +39,7 @@ from pylal import date
 from pylal import git_version
 from pylal import lalconstants
 from pylal import sphericalutils as su
-from pylal.xlal import inject
-from pylal.xlal import tools
+from pylal import inject
 try:
     from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 except ImportError:
@@ -139,11 +138,11 @@ process = ligolw_process.register_to_xmldoc(siminsp_doc,
 # Compute new sky locations
 #
 site_location_list = [\
-    ("h", tools.cached_detector["LHO_4k"]),
-    ("l", tools.cached_detector["LLO_4k"]),
-    ("g", tools.cached_detector["GEO_600"]),
-    ("t", tools.cached_detector["TAMA_300"]),
-    ("v", tools.cached_detector["VIRGO"])]
+    ("h", inject.cached_detector["LHO_4k"]),
+    ("l", inject.cached_detector["LLO_4k"]),
+    ("g", inject.cached_detector["GEO_600"]),
+    ("t", inject.cached_detector["TAMA_300"]),
+    ("v", inject.cached_detector["VIRGO"])]
 for sim in table.get_table(siminsp_doc, lsctables.SimInspiralTable.tableName):
 
     # The Fisher distribution is the appropriate generalization of a

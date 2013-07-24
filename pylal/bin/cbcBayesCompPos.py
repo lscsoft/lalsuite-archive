@@ -151,7 +151,7 @@ def test_and_switch_param(common_output_table_header,test,switch):
 
     return
 
-def compare_plots_one_param_pdf(list_of_pos_by_name,param):
+def compare_plots_one_param_pdf(list_of_pos_by_name,param,analyicPDF=None):
     """
     Plots a gaussian kernel density estimate for a set
     of Posteriors onto the same axis.
@@ -215,11 +215,12 @@ def compare_plots_one_param_pdf(list_of_pos_by_name,param):
             injpar=injvals[0]
             if min(pos_samps)<injpar and max(pos_samps)>injpar:
                 plt.plot([injpar,injpar],[0,max(kdepdf)],'r-.',scalex=False,scaley=False)
-
+    if analyticPDF is not None:
+	plt.plot(ind,map(analyticPDF,ind),'r')
     #
     return myfig#,rkde
 #
-def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,legend='right'):
+def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,legend='right',analyticPDF=None):
 
 
     """
@@ -330,7 +331,8 @@ def compare_plots_one_param_line_hist(list_of_pos_by_name,param,cl,color_by_name
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
 
     #
-    
+    if analyticPDF is not None:
+	plt.plot(posbins,map(analyticPDF,posbins),'r')
     return myfig,top_cl_intervals_list#,rkde
 
 #
@@ -357,7 +359,7 @@ def compute_ks_pvalue_matrix(list_of_pos_by_name, param):
 
     return matrix
         
-def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True):
+def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_name,cl_lines_flag=True,analyticCDF=None):
 
     """
     Plots a gaussian kernel density estimate for a set
@@ -438,11 +440,12 @@ def compare_plots_one_param_line_hist_cum(list_of_pos_by_name,param,cl,color_by_
         injpar=injvals[0]
         #if min(pos_samps)<injpar and max(pos_samps)>injpar:
         plt.plot([injpar,injpar],[0,max_y],'r-.',scalex=False,scaley=False,linewidth=4,label='Injection')
-
+    if analyticCDF is not None:
+	plt.plot(posbins,map(analyticCDF,posbins),'r')
     return myfig,top_cl_intervals_list#,rkde
 
 
-def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True):
+def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,password,reload_flag,clf,ldg_flag,contour_figsize=(6,4.5),contour_dpi=250,contour_figposition=[0.15,0.15,0.5,0.75],fail_on_file_err=True,covarianceMatrices=None,meanVectors=None):
 
     injection=None
 
@@ -456,7 +459,11 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
                 sys.exit(1)
             else:
                 injection=injections[eventnum]
-
+    
+    #Create analytic likelihood functions if covariance matrices and mean vectors were given
+    analyticLikelihood = None
+    if covarianceMatrices and meanVectors:
+	analyticLikelihood = bppu.AnalyticLikelihood(covarianceMatrices, meanVectors)
     peparser=bppu.PEOutputParser('common')
     pos_list={}
     tp_list={}
@@ -725,10 +732,16 @@ def compare_bayes(outdir,names_and_pos_folders,injection_path,eventnum,username,
             save_paths=[]
             cl_table_min_max_str='<tr><td> Min | Max </td>'
             for confidence_level in OneDconfidenceLevels:
-
+		if analyticLikelihood:
+		  pdf=analyticLikelihood.pdf(param)
+		  cdf=analyticLikelihood.cdf(param)
+		else:
+		  pdf=None
+		  cdf=None
+		  
                 cl_table_header+='<th colspan="2">%i%% (Lower|Upper)</th>'%(int(100*confidence_level))
-                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg)
-                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf)
+                hist_fig,cl_intervals=compare_plots_one_param_line_hist(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,legend=ldg,analyticPDF=pdf)
+                hist_fig2,cl_intervals=compare_plots_one_param_line_hist_cum(pos_list,param,confidence_level,color_by_name,cl_lines_flag=clf,analyticCDF=cdf)
 
                 # Save confidence levels and uncertainty
                 confidence_levels[param]=[]
@@ -897,6 +910,9 @@ if __name__ == '__main__':
     parser.add_option("--contour-plot-height",dest="cph",default=0.76,help="Relative height of plot element 0.15<width<1 (optional).")
     parser.add_option("--no-legend",dest="ldg_flag",action="store_false",default=True,help="Hide legend (optional).")
     parser.add_option("--ignore-missing-files",dest="readFileErr",default=False,action="store_true",help="Do not fail when files are missing (optional).")
+    parser.add_option("-c","--covarianceMatrix",dest="covarianceMatrices",action="append",default=None,help="CSV file containing covariance (must give accompanying mean vector CSV. Can add more than one matrix.")
+    parser.add_option("-m","--meanVectors",dest="meanVectors",action="append",default=None,help="Comma separated list of locations of the multivariate gaussian described by the correlation matrix.  First line must be list of params in the order used for the covariance matrix.  Provide one list per covariance matrix.")
+    
     (opts,args)=parser.parse_args()
 
     if opts.outpath is None:
@@ -920,7 +936,7 @@ if __name__ == '__main__':
     if len(opts.pos_list)!=len(names):
         print "Either add names for all posteriors or dont put any at all!"
 
-    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr)
+    greedy2savepaths,oned_data,confidence_uncertainty,confidence_levels,max_logls=compare_bayes(outpath,zip(names,opts.pos_list),opts.inj,opts.eventnum,opts.username,opts.password,opts.reload_flag,opts.clf,opts.ldg_flag,contour_figsize=(float(opts.cw),float(opts.ch)),contour_dpi=int(opts.cdpi),contour_figposition=[0.15,0.15,float(opts.cpw),float(opts.cph)],fail_on_file_err=not opts.readFileErr,covarianceMatrices=opts.covarianceMatrices,meanVectors=opts.meanVectors)
 
     ####Print Confidence Levels######
     output_confidence_levels_tex(confidence_levels,outpath)    

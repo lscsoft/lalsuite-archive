@@ -217,6 +217,13 @@ double XLALDetCharVetoRound( char** winner, GHashTable* chancount, GHashTable* c
 	double mu, sig, max_sig=-1;
 	size_t *k;
 
+	// No reference channel present in sequence?
+	// This is mostly just here to prevent a segfault later.
+	if( !g_hash_table_lookup(chancount, chan) ){
+		XLALPrintInfo( "Reference channel not present in channel count.\n" );
+		return -1.0;
+	}
+
 	GHashTableIter iter;
 	gpointer key, val;
 	// Number of triggers in target channel
@@ -272,7 +279,7 @@ void XLALDetCharPruneTrigs( GSequence* trig_sequence, const LALSegList* onsource
 		 * This trigger is in the subsequent segment, thus we need to advance
 		 * the pointer to account for it
 		 */
-		if( pos > 0 && i < onsource->length ){
+		if( pos > 0 && i < onsource->length-1 ){
 			i++;
 			onseg = onsource->segs[i];
 			continue;

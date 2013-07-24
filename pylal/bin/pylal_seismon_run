@@ -33,6 +33,10 @@ def parse_commandline():
     parser.add_option("-e", "--gpsEnd", help="GPS End Time.", default=1054029209,type=int)
     parser.add_option("-f", "--fftDuration", help="FFT duration.", default=64,type=int)
 
+    parser.add_option("--gpsSpectraStart", help="GPS spectra Start Time.", type=int)
+    parser.add_option("--gpsSpectraEnd", help="GPS spectra End Time.", type=int)
+
+
     parser.add_option("--segmentDatabase", help="Segment database", default="https://segdb2.ligo.caltech.edu")
     parser.add_option("--segmentFlag", help="Segment flag", default="H1:ODC-PSL_SUMMARY:1")
     parser.add_option("--segmentsTextFile", help="Segments text file.", default=None)
@@ -76,6 +80,17 @@ def params_struct(opts):
     params["gpsStart"] = opts.gpsStart
     params["gpsEnd"] = opts.gpsEnd
     params["fftDuration"] = opts.fftDuration
+
+    if opts.gpsSpectraStart == None:
+        params["gpsSpectraStart"] = opts.gpsStart - 24*60*60
+    else:
+        params["gpsSpectraStart"] = opts.gpsSpectraStart
+
+    if opts.gpsSpectraEnd == None:
+        params["gpsSpectraEnd"] = opts.gpsEnd 
+    else:
+        params["gpsSpectraEnd"] = opts.gpsSpectraEnd
+
     params["segmentDatabase"] = opts.segmentDatabase
     params["segmentFlag"] = opts.segmentFlag
     params["segmentsTextFile"] = opts.segmentsTextFile
@@ -243,7 +258,7 @@ if params["doEarthquakesMonitor"]:
     if not os.path.isdir(params["path"]):
         os.makedirs(params["path"])
 
-    pylal.pylal_seismon_eqmon.run_earthquakes_monitor(params)
+    segmentlist = pylal.pylal_seismon_eqmon.run_earthquakes(params)
 
     sys.exit()
 

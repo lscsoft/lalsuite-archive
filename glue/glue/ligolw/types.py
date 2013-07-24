@@ -70,7 +70,7 @@ import base64
 
 
 from glue import git_version
-from glue.ligolw import ilwd
+from . import ilwd
 
 
 __author__ = "Kipp Cannon <kipp.cannon@ligo.org>"

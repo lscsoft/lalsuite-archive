@@ -292,8 +292,10 @@ def plottable(lsctable, outfile, xcolumn="time", ycolumn="snr",\
     bbox_inches = kwargs.pop("bbox_inches", "tight")
 
     # get detchar plot params
-    dqstyle  = kwargs.pop("detchar", False)
-    dqthresh = float(kwargs.pop("dcthreshold", 10))
+    dqstyle  = (kwargs.pop("detchar", False) or
+                kwargs.pop('detchar_style', False))
+    dqthresh = (kwargs.pop('dcthreshold', False) or
+                kwargs.pop('detchar_style_threshold', 10))
 
     # get greyscale param
     greyscale = kwargs.pop("greyscale", False)
