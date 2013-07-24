@@ -55,6 +55,8 @@ def parse_commandline():
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
 
+    parser.add_option("--doBokeh",  action="store_true", default=False)
+
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
 
@@ -108,8 +110,15 @@ def params_struct(opts):
     params["doSegmentsDatabase"] = opts.doSegmentsDatabase
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
 
+    params["doBokeh"] = opts.doBokeh
+
     params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
     params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
+
+    if params["doEarthquakesAnalysis"]:
+       params["earthquakesMinMag"] = 5
+    else:
+       params["earthquakesMinMag"] = 0
 
     return params
 
@@ -287,6 +296,15 @@ if params["doEarthquakes"]:
 if params["doOmicron"]:
     print "Generating Omicron triggers"
     pylal.pylal_seismon_omicron.generate_triggers(params,channels)
+
+if params["doBokeh"]:
+
+    import pylal.pylal_seismon_bokeh
+
+    for channel in channels:
+        print "Generating bokeh page for %s"%channel.station
+        pylal.pylal_seismon_bokeh.channel_page(params,channel)
+    sys.exit()
 
 for channel in channels:
     print "Generating PSD for %s"%channel.station

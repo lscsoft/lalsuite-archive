@@ -34,11 +34,6 @@ def run_earthquakes(params):
     elif params["ifo"] == "C1":
         ifo = "FortyMeter"
 
-    if params["doEarthquakesAnalysis"]:
-       params["earthquakesMinMag"] = 5
-    else:
-       params["earthquakesMinMag"] = 0
-
     attributeDics = retrieve_earthquakes(params)
     attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
 
@@ -207,8 +202,6 @@ def run_earthquakes(params):
     pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
     plotName = os.path.join(plotsDirectory,"%d-%d-residual.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
-    print plotName
-    print penis
 
     for attributeDic in attributeDics:
 
