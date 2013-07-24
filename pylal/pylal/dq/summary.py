@@ -1302,6 +1302,21 @@ class RangeSummaryTab(DataSummaryTab):
         self.sources.append(sourcedict)
         self.sources.sort(key=lambda s: (s["type"],s["name"]))
 
+    @property
+    def trigsegments(self):
+        """glue.segments.segmentlist describing the veto segments for
+        this Tab.
+        """
+        return self._trigsegments
+    @trigsegments.setter
+    def trigsegments(self, vetolist):
+        self._trigsegments =\
+            segments.segmentlist([segments.segment(map(float, s))\
+                                  for s in vetolist])
+    @trigsegments.deleter
+    def trigsegments(self):
+        del self._trigsegments
+
     def finalize(self):
         """
         Generate a markup.page object representing the HTML summary of the 

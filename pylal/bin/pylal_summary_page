@@ -843,6 +843,7 @@ def get_state_segments(cp, state, veto_def_table, mode=0):
         # read new segments
         newsegs = seg_sum_list
         for flag in vetoes:
+            # FIXME, hey! padding from the veto definer file is missing?!
             if not state.set:
                 load_archive_segments(cp, flag, seg_sum_list, mode=mode)
             newsegs -= get_segments(cp, flag, seg_sum_list)
@@ -4277,7 +4278,7 @@ def process_range(tab, cp, cpsec, verbose=False, doplots=True,\
             # get triggers for burst range
             if numburst:
                 trigs = get_triggers(cp, strainchannel, etg,\
-                                     SegmentList([seg]),\
+                                     SegmentList([seg]) & tab.trigsegments,\
                                      cluster=tab.cluster, minsnr=snr)
                 trigtime = numpy.asarray(trigs.getColumnByName("peak_time")) + \
                        numpy.asarray(trigs.getColumnByName("peak_time_ns"))*1e-9
@@ -5551,18 +5552,24 @@ if __name__=="__main__":
             metatab.span = span
             metatab.parent = section_summary[parent]
             for state in run_states:
-                if state in veto_def_table.keys():
-                    vetotable = veto_def_table[state]
-                else:
-                    vetotable = None
                 if not opts.html_only:
-                    get_state_segments(cp, state, vetotable, mode=mode)
+                    get_state_segments(cp, state, None, mode=mode)
                 tab = summary.RangeSummaryTab(metatab.name)
                 tab.span = span
                 tab.parent = metatab
                 tab.directory = metatab.directory
                 tab.state = state
                 tab.segments = state.segments
+                # for range type, need to split segments and vetoes,
+                # segments are used for spectra and segment-vetoes for
+                # triggers only
+                if state in veto_def_table.keys():
+                    vetotable = veto_def_table[state]
+                else:
+                    vetotable = None
+                if not opts.html_only:
+                    get_state_segments(cp, state, vetotable, mode=mode)
+                tab.trigsegments = state.segments
                 tab.add_information(cp, cpsec)
                 process_range(tab, cp, cpsec, verbose=verbose,\
                               htmlonly=opts.html_only,\
