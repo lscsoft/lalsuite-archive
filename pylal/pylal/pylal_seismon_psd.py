@@ -5,12 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal, scipy.stats, scipy.fftpack, scipy.ndimage.filters
 from collections import namedtuple
+from operator import itemgetter
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
 import pylal.seriesutils
 from pylal import Fr
 import pylal.dq.dqDataUtils
 import pylal.pylal_seismon_NLNM, pylal.pylal_seismon_html
+import pylal.pylal_seismon_eqmon
 
 __author__ = "Michael Coughlin <michael.coughlin@ligo.org>"
 __date__ = "2012/8/26"
@@ -242,9 +244,9 @@ def mat(params, channel, segment):
                 Stime = earthquakes[i,3] - startTime
                 Rtime = earthquakes[i,4] - startTime
 
-                plt.text(Ptime, 3.6, 'P', fontsize=18, ha='center', va='top')
-                plt.text(Stime, 3.6, 'S', fontsize=18, ha='center', va='top')
-                plt.text(Rtime, 3.6, 'R', fontsize=18, ha='center', va='top')
+                plt.text(Ptime, 4.1, 'P', fontsize=18, ha='center', va='top')
+                plt.text(Stime, 4.1, 'S', fontsize=18, ha='center', va='top')
+                plt.text(Rtime, 4.1, 'R', fontsize=18, ha='center', va='top')
 
                 plt.axvline(x=Ptime,color='r',linewidth=2,zorder = 0,clip_on=False)
                 plt.axvline(x=Stime,color='b',linewidth=2,zorder = 0,clip_on=False)
@@ -302,6 +304,40 @@ def mat(params, channel, segment):
             plt.savefig(os.path.join(plotLocation,"psd.png"),dpi=200)
             plt.savefig(os.path.join(plotLocation,"psd.eps"),dpi=200)
         plt.close('all')
+
+    if params["doBokeh"]:
+
+        import bokeh.plotting
+
+        plotLocation = params["path"] + "/" + channel.station_underscore
+        if not os.path.isdir(plotLocation):
+            os.makedirs(plotLocation)
+
+        startTime = np.min(data["time"])
+        startTimeUTC = XLALGPSToUTC(LIGOTimeGPS(int(startTime)))
+        startTimeUTCString = "%d-%d-%d %d:%d:%d"%(startTimeUTC[0],startTimeUTC[1],startTimeUTC[2],startTimeUTC[3],startTimeUTC[4],startTimeUTC[5])
+
+        time = data["time"] - startTime
+
+        dataLowpass = normalize_timeseries(data["dataLowpass"])
+        dataLowpass = dataLowpass + 0.5
+
+        dataHighpass = normalize_timeseries(data["dataHighpass"])
+        dataHighpass = dataHighpass + 1.5
+
+        dataFull = normalize_timeseries(data["data"])
+        dataFull = dataFull + 2.5
+
+        outputFile = os.path.join(plotLocation,"bokeh.html")
+        bokeh.plotting.output_file(outputFile, title="Time Series")
+
+        bokeh.plotting.hold(True)
+        bokeh.plotting.plot(time,dataLowpass, tools="pan,zoom,resize")
+        bokeh.plotting.plot(time,dataHighpass, tools="pan,zoom,resize")
+        bokeh.plotting.plot(time,dataFull, color="green", tools="pan,zoom,resize")
+
+        bokeh.plotting.save()
+
 
 def freq_analysis(params,channel,tt,freq,spectra):
 
@@ -453,12 +489,6 @@ def calculate_percentiles(data,bins,percentile):
     minindex = abs_cumsumvals_minus_percentile.argmin()
     val = bins[minindex]
  
-    if np.isnan(val):
-        print data
-        print bins
-        print percentile
-        print penis
-
     return val
 
 def html_bgcolor(snr,data):
@@ -731,5 +761,4 @@ def analysis(params, channel):
         f = open(os.path.join(textLocation,"psd.html"),"w")
         f.write(htmlPage)
         f.close()
-
 
