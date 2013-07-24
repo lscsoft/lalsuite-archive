@@ -3513,10 +3513,12 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     # get channels
     tab.mainchannel = (cp.has_option(cpsec, "main-channel") and
                        cp.get(cpsec, "main-channel")) or None
+    unsafechannels = cp.has_option(cpsec, 'unsafe-channels') and \
+                     [c for i,c in cp.items(cp.get(cpsec, 'unsafe-channels'))] or []
     auxsec = cp.has_option(cpsec, "auxiliary-channels")\
              and cp.get(cpsec, "auxiliary-channels")\
              or "%s-channels" % tab.etg.lower()
-    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel]
+    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel and c not in unsafechannels]
     channels.sort()
     if tab.mainchannel:
         allchannels = [tab.mainchannel] + channels
