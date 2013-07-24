@@ -525,6 +525,8 @@ class SectionSummaryTab(SummaryTab):
         # build ordered list of all tabs
         alltabs = []
         for tab in sectiontabs:
+            tab.children.sort(key=lambda t: re.search('(overview|summary)',
+                                                      t.name, re.I) and 1 or 2)
             alltabs.append(tab)
             if tab.name != "Summary":
                 alltabs.extend(tab.children)

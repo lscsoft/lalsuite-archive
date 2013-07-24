@@ -897,6 +897,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         search for new triggers (True), or find in memory (False)
     """
     global G_TRIGGERS, G_CLUSTERED_TRIGGERS
+    etg = etg.lower()
     # add keys to global memory holder
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -926,9 +927,9 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     # construct query segments
     span = SegmentList([Segment(0, NOW-latency)])
     if cluster:
-        cachedSegments = SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce()
-    else:
         cachedSegments = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys()).coalesce()
+    else:
+        cachedSegments = SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce()
     query_segments = ((segment_list & span) - cachedSegments)
     query &= abs(query_segments) != 0
 
@@ -1024,7 +1025,8 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 else:
                     trigtable = triggers.from_files(
                                     segcache, etg, columns=columns,
-                                    start=seg[0], end=seg[1], verbose=VERBOSE)
+                                    channel=channel, start=seg[0], end=seg[1],
+                                    verbose=VERBOSE)
                 if etg.lower() == "excesspower":
                     for i,t in enumerate(trigtable):
                         if t.snr > 0:
@@ -1106,6 +1108,7 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
 
     """
     multi_enabled = ["kw", "kleinewelle"]
+    etg = etg.lower()
     global_segments = SegmentList([])
     for channel in channels:
         try:
@@ -1157,11 +1160,10 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
         for seg in query_segments:
             if etg.lower() in ["kw", "kleinewelle"]:
                 segcache = trigcache.sieve(segment=seg)
-                multi_trigs = kw.from_lal_cache(segcache, start=seg[0],
-                                                end=seg[1], ifo=ifo,
-                                                channel=channels,
-                                                columns=columns,
-                                                verbose=VERBOSE)
+                multi_trigs = triggers.from_files(segcache, etg, start=seg[0],
+                                                  end=seg[1], channel=channels,
+                                                  columns=columns,
+                                                  verbose=VERBOSE)
             # catalogue new triggers for each channel
             for channel in channels:
                 trigtable = multi_trigs[channel]
@@ -1657,11 +1659,12 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         # make spectrogram
         for series in serieslist:
              dt = series.deltaT
-             if not series.data.length >= step//dt:
+             if not series.data or series.data.length < seglen//dt:
                  print_verbose("Data segment at %d too short for spectrogram, "
                                "skipping.\n" % (int(series.epoch)),
                                stream=sys.stderr, verbose=True)
                  continue
+
              out = seriesutils.compute_average_spectrogram(series, step//dt,
                                                            seglen//dt, stride//dt)
              spectrogram, deltaF, f0 = out
@@ -1720,6 +1723,7 @@ def add_triggers(trigtable, channel, etg, seg):
     """
     global G_TRIGGERS
     # add channel
+    etg = etg.lower()
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
     if not G_TRIGGERS[etg].has_key(channel):
@@ -1736,7 +1740,6 @@ def add_triggers(trigtable, channel, etg, seg):
     disjoint = all([seg.disjoint(gseg) for gseg in seglist])
     if len(seglist) == 0 or disjoint:
         G_TRIGGERS[etg][channel][seg] = trigtable
-        del trigtable
 
     # otherwise it must exist inside the extent, which means it probably touches
     # one of the existing segments
@@ -1746,7 +1749,8 @@ def add_triggers(trigtable, channel, etg, seg):
                 seg += gseg
                 G_TRIGGERS[etg][channel][seg] =\
                     G_TRIGGERS[etg][channel][gseg] + trigtable
-                del G_TRIGGERS[etg][channel][gseg]
+                if seg != gseg:
+                    del G_TRIGGERS[etg][channel][gseg]
                 trigtable = G_TRIGGERS[etg][channel][seg]
     return
 
@@ -1765,6 +1769,7 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
         valid GPS [start,stop) interval for this trigger table
     """
     global G_CLUSTERED_TRIGGERS
+    etg = etg.lower()
     # add channel
     if not G_CLUSTERED_TRIGGERS.has_key(etg):
         G_CLUSTERED_TRIGGERS[etg] = dict()
@@ -2014,6 +2019,7 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                            G_CLUSTERED_TRIGGERS[etg][channel].iteritems() or
                            G_TRIGGERS[etg][channel].iteritems())
         for i,(seg,trig_table) in enumerate(global_triggers):
+            print channel, seg, type(trig_table)
             try:
                 event_table = table.get_table(xmldoc, trig_table.tableName)
             except ValueError:
@@ -2584,7 +2590,7 @@ def process_segments(tab, cp, cpsec, verbose=False,
     else:
         all_flags = []
         for flag in flags:
-            all_flags.extend(re.split("&!]", flag))
+            all_flags.extend(re.split("[&!]", flag))
         get_segments(cp, all_flags, tab.segments)
         for flag,label in zip(flags, labels):
             divs = re.findall("[&!]", flag)
@@ -3024,9 +3030,9 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
         subplot = cp.get(cpsec, "sub-plot")
         substart = tab.start_time
         deltas = subplot_durations(tab.start_time, tab.end_time, tab.mode)
+        plottag = re_cchar.sub("_", subplot[5:].upper())
 
         for dt in deltas:
-            plottag = re_cchar.sub("_", subplot[5:].upper())
             basefile = "%s-%s_%s_%s-%d-%d.png"\
                        % (tab.ifo, re_cchar.sub("_", tab.name.upper()),
                           tab.state.tag, plottag, substart, dt)
@@ -5233,7 +5239,7 @@ if __name__=="__main__":
     valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
                      "LSC", "OMC", "PEM", "PSL", "SEI", "SUS", "SQZ", "IMC"]
     valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
-                     "Vetoes", "Analysis", "Misc."] + valid_systems
+                     "Vetoes", "Analysis", "Seismic","Misc."] + valid_systems
     valid_parents = natsort(valid_parents)
 
     # generate section summaries for each valid parent
