@@ -5,7 +5,7 @@ from collections import namedtuple
 import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
+import glue.GWDataFindClient, glue.segments, glue.segmentsUtils, glue.lal
 import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
@@ -180,14 +180,19 @@ def frame_struct(params):
     gpsEnd = params["gpsEnd"]
 
     if params["ifo"] == "XG":
-        frameDir = "/home/shivaraj/homestakefinal"
+        frameDir = "/archive/frames/MBH/"
         frameList = [os.path.join(root, name)
             for root, dirs, files in os.walk(frameDir)
             for name in files]
 
+        datacache = []
         for frame in frameList:
             thisFrame = frame.replace("file://localhost","")
             if thisFrame == "":
+                continue
+
+            thisFrameSplit = thisFrame.split(".")
+            if thisFrameSplit[-1] == "log":
                 continue
 
             thisFrameSplit = thisFrame.split("-")
@@ -199,7 +204,7 @@ def frame_struct(params):
             if gps > gpsEnd:
                 continue
 
-            cacheFile = CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
+            cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
             datacache.append(cacheFile)
 
     else:
@@ -318,6 +323,10 @@ for channel in channels:
     if params["doOmicron"]:
         print "Plotting Omicron triggers for %s"%channel.station
         pylal.pylal_seismon_omicron.plot_triggers(params,channel)
+
+for segment in params["segments"]:
+    print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
+    pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
 
 if params["doHTML"]:
     htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)

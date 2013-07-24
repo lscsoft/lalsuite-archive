@@ -48,6 +48,11 @@ def read_frames(start_time,end_time,channel,cache):
             data.append(frame_data[i])
     data = [e/channel.calibration for e in data]
 
+    indexes = np.where(np.isnan(data))[0]
+    meanSamples = np.mean(np.ma.masked_array(data,np.isnan(data)))
+    for index in indexes:
+        data[index] = meanSamples
+
     return time,data
 
 def save_data(params,channel,gpsStart,gpsEnd,data):
@@ -761,4 +766,57 @@ def analysis(params, channel):
         f = open(os.path.join(textLocation,"psd.html"),"w")
         f.write(htmlPage)
         f.close()
+
+def channel_summary(params, channels, segment):
+
+    gpsStart = segment[0]
+    gpsEnd = segment[1]
+
+    data = {}
+    for channel in channels:
+
+        psdLocation = params["dirPath"] + "/Text_Files/PSD/" + channel.station_underscore
+        psdLocation = os.path.join(psdLocation,str(params["fftDuration"]))
+        psdFile = os.path.join(psdLocation,"%d-%d.txt"%(gpsStart,gpsEnd))
+
+        data_out = np.loadtxt(psdFile)
+        thisSpectra = data_out[:,1]
+        thisFreq = data_out[:,0]
+
+        if np.sum(thisSpectra) == 0.0:
+            continue
+
+        data[channel.station_underscore] = {}
+        data[channel.station_underscore]["freq"] = thisFreq
+        data[channel.station_underscore]["spectra"] = thisSpectra
+
+    if params["doPlots"]:
+
+        plotLocation = params["path"] + "/summary"
+        if not os.path.isdir(plotLocation):
+            os.makedirs(plotLocation)
+
+        fl, low, fh, high = pylal.pylal_seismon_NLNM.NLNM(2)
+
+        lowBin = np.inf
+        highBin = -np.inf
+        for key in data.iterkeys():
+            plt.semilogx(data[key]["freq"],data[key]["spectra"], label=key)
+            lowBin = np.min([lowBin,np.min(data[key]["spectra"])])
+            highBin = np.max([highBin,np.max(data[key]["spectra"])])
+
+        fig = plt.gcf()
+        fig.set_size_inches(10,8)
+        plt.loglog(fl,low,'k-.')
+        plt.loglog(fh,high,'k-.',label='LNM/HNM')
+        plt.legend(loc=1,prop={'size':10})
+        plt.xlim([params["fmin"],params["fmax"]])
+        plt.ylim([lowBin/5, highBin*5])
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel("Seismic Spectrum [(m/s)/rtHz]")
+        plt.grid()
+        plt.show()
+        plt.savefig(os.path.join(plotLocation,"psd-%d-%d.png"%(gpsStart,gpsEnd)),dpi=200)
+        plt.savefig(os.path.join(plotLocation,"psd-%s-%d.eps"%(gpsStart,gpsEnd)),dpi=200)
+        plt.close('all')
 
