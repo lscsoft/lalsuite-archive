@@ -55,6 +55,9 @@ if not os.getenv("DISPLAY", None):
     import matplotlib
     matplotlib.use("agg", warn=False)
 
+from collections import defaultdict
+from matplotlib import pyplot
+
 # import SwigLAL modules
 import lal
 import lalframe
@@ -894,6 +897,7 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
         search for new triggers (True), or find in memory (False)
     """
     global G_TRIGGERS, G_CLUSTERED_TRIGGERS
+    etg = etg.lower()
     # add keys to global memory holder
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
@@ -923,9 +927,9 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
     # construct query segments
     span = SegmentList([Segment(0, NOW-latency)])
     if cluster:
-        cachedSegments = SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce()
-    else:
         cachedSegments = SegmentList(G_CLUSTERED_TRIGGERS[etg][channel].keys()).coalesce()
+    else:
+        cachedSegments = SegmentList(G_TRIGGERS[etg][channel].keys()).coalesce()
     query_segments = ((segment_list & span) - cachedSegments)
     query &= abs(query_segments) != 0
 
@@ -1021,7 +1025,8 @@ def get_triggers(cp, channel, etg, segment_list, cluster=False, minsnr=0,
                 else:
                     trigtable = triggers.from_files(
                                     segcache, etg, columns=columns,
-                                    start=seg[0], end=seg[1], verbose=VERBOSE)
+                                    channel=channel, start=seg[0], end=seg[1],
+                                    verbose=VERBOSE)
                 if etg.lower() == "excesspower":
                     for i,t in enumerate(trigtable):
                         if t.snr > 0:
@@ -1103,6 +1108,7 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
 
     """
     multi_enabled = ["kw", "kleinewelle"]
+    etg = etg.lower()
     global_segments = SegmentList([])
     for channel in channels:
         try:
@@ -1154,11 +1160,10 @@ def get_multi_triggers(cp, channels, etg, segment_list, cluster=False,
         for seg in query_segments:
             if etg.lower() in ["kw", "kleinewelle"]:
                 segcache = trigcache.sieve(segment=seg)
-                multi_trigs = kw.from_lal_cache(segcache, start=seg[0],
-                                                end=seg[1], ifo=ifo,
-                                                channel=channels,
-                                                columns=columns,
-                                                verbose=VERBOSE)
+                multi_trigs = triggers.from_files(segcache, etg, start=seg[0],
+                                                  end=seg[1], channel=channels,
+                                                  columns=columns,
+                                                  verbose=VERBOSE)
             # catalogue new triggers for each channel
             for channel in channels:
                 trigtable = multi_trigs[channel]
@@ -1654,11 +1659,12 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
         # make spectrogram
         for series in serieslist:
              dt = series.deltaT
-             if not series.data.length >= step//dt:
+             if not series.data or series.data.length < seglen//dt:
                  print_verbose("Data segment at %d too short for spectrogram, "
                                "skipping.\n" % (int(series.epoch)),
                                stream=sys.stderr, verbose=True)
                  continue
+
              out = seriesutils.compute_average_spectrogram(series, step//dt,
                                                            seglen//dt, stride//dt)
              spectrogram, deltaF, f0 = out
@@ -1717,6 +1723,7 @@ def add_triggers(trigtable, channel, etg, seg):
     """
     global G_TRIGGERS
     # add channel
+    etg = etg.lower()
     if not G_TRIGGERS.has_key(etg):
         G_TRIGGERS[etg] = dict()
     if not G_TRIGGERS[etg].has_key(channel):
@@ -1733,7 +1740,6 @@ def add_triggers(trigtable, channel, etg, seg):
     disjoint = all([seg.disjoint(gseg) for gseg in seglist])
     if len(seglist) == 0 or disjoint:
         G_TRIGGERS[etg][channel][seg] = trigtable
-        del trigtable
 
     # otherwise it must exist inside the extent, which means it probably touches
     # one of the existing segments
@@ -1743,7 +1749,8 @@ def add_triggers(trigtable, channel, etg, seg):
                 seg += gseg
                 G_TRIGGERS[etg][channel][seg] =\
                     G_TRIGGERS[etg][channel][gseg] + trigtable
-                del G_TRIGGERS[etg][channel][gseg]
+                if seg != gseg:
+                    del G_TRIGGERS[etg][channel][gseg]
                 trigtable = G_TRIGGERS[etg][channel][seg]
     return
 
@@ -1762,6 +1769,7 @@ def add_clustered_triggers(trigtable, channel, etg, seg):
         valid GPS [start,stop) interval for this trigger table
     """
     global G_CLUSTERED_TRIGGERS
+    etg = etg.lower()
     # add channel
     if not G_CLUSTERED_TRIGGERS.has_key(etg):
         G_CLUSTERED_TRIGGERS[etg] = dict()
@@ -2011,6 +2019,7 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                            G_CLUSTERED_TRIGGERS[etg][channel].iteritems() or
                            G_TRIGGERS[etg][channel].iteritems())
         for i,(seg,trig_table) in enumerate(global_triggers):
+            print channel, seg, type(trig_table)
             try:
                 event_table = table.get_table(xmldoc, trig_table.tableName)
             except ValueError:
@@ -2581,7 +2590,7 @@ def process_segments(tab, cp, cpsec, verbose=False,
     else:
         all_flags = []
         for flag in flags:
-            all_flags.extend(re.split("&!]", flag))
+            all_flags.extend(re.split("[&!]", flag))
         get_segments(cp, all_flags, tab.segments)
         for flag,label in zip(flags, labels):
             divs = re.findall("[&!]", flag)
@@ -3021,9 +3030,9 @@ def process_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
         subplot = cp.get(cpsec, "sub-plot")
         substart = tab.start_time
         deltas = subplot_durations(tab.start_time, tab.end_time, tab.mode)
+        plottag = re_cchar.sub("_", subplot[5:].upper())
 
         for dt in deltas:
-            plottag = re_cchar.sub("_", subplot[5:].upper())
             basefile = "%s-%s_%s_%s-%d-%d.png"\
                        % (tab.ifo, re_cchar.sub("_", tab.name.upper()),
                           tab.state.tag, plottag, substart, dt)
@@ -3270,8 +3279,51 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
         tab.finalize()
         tab.frametohtml()
 
+# =============================================================================
+# HVeto round class
+# =============================================================================
 
-def write_round_xml( vetosegs, vetotrigs, winner, ifo, opts ):
+class HVetoRound(object):
+
+  def __init__(self):
+    self.channel = None
+    self.etg = None
+    self.freqband = [0, numpy.inf]
+    self.veto_segments = SegmentList()
+    self.significance = None
+    self.fakesignificance = None
+    self.dt = None
+    self.snr = None
+    self.deadtime = [None]
+    self.efficiency = [None]
+    self.use_percentage = None
+    self.safety = [None]
+    self.veto_file = None
+
+
+def write_hveto_results(filename, rounds):
+
+  fobj = open(filename, 'w')
+
+  # write headers
+  fobj.write('#N channel significance t_win snr use deadtime safety file\n')
+
+  N = max(rounds.keys())
+
+  for i in range(1, N+1):
+    fobj.write(' '.join(map(str, [i, '%s;%s;%g-%gHz' % (rounds[i].channel,rounds[i].etg,\
+                                                        rounds[i].freqband[0],rounds[i].freqband[1]),\
+                                    rounds[i].significance,\
+                                    rounds[i].dt, rounds[i].snr,\
+                                    ','.join(map(str, rounds[i].efficiency)),\
+                                    ','.join(map(str, rounds[i].deadtime)),\
+                                    ','.join(map(str, rounds[i].safety)),\
+                                    os.path.abspath(rounds[i].veto_file)])))
+    fobj.write('\n')
+  fobj.close()
+
+
+def write_round_xml( vetosegs, vetotrigs, winner, ifo):
 	"""
 	Write out the products from this round of hveto: veto segments and the vetoed triggers.
 	"""
@@ -3280,46 +3332,19 @@ def write_round_xml( vetosegs, vetotrigs, winner, ifo, opts ):
 	xmldoc.appendChild( ligolw.LIGO_LW() )
 
 	# Append the process information
-	procrow = utils.process.append_process( xmldoc )
-	utils.process.append_process_params( xmldoc, procrow, utils.process.process_params_from_dict(opts) )
+	procrow = ligolw_utils.process.append_process( xmldoc )
 
 	# Add the vetoed triggers
 	xmldoc.childNodes[0].childNodes.append( vetotrigs )
 
 	# Append the veto segments
-	segl = segmentlistdict()
+	segl = SegmentListDict()
 	segl[ifo] = vetosegs
-	lwsegs = ligolw_segments.LigolwSegments( xmldoc )
+	lwsegs = ligolw_utils.segments.LigolwSegments( xmldoc )
 	lwsegs.insert_from_segmentlistdict( segl, "hveto" )
 	lwsegs.finalize(procrow)
 	
 	return xmldoc
-def plot_sigdrop( chansig_prev, chansig_cur, rnd ):
-	"""
-	Make a significance 'drop plot', where the significance from several channels is compared in difference across two rounds.
-	"""
-	fig = pyplot.figure(figsize=(30,10))
-	ax = fig.add_subplot(111)
-	nchan = 1
-	for chan, sig in sorted(chansig_prev.iteritems()):
-		try:
-			sprev, snew = sig, chansig_cur[chan]
-		except KeyError:
-			chansig_cur[chan] = 0
-			sprev, snew = sig, 0
-		pyplot.arrow( nchan, sprev, 0, (snew-sprev), fc="k", head_width=1, head_length=0.1 )
-		nchan += 1
-
-	pyplot.title( "Significance drop plot round %d" % (rnd-1) )
-	pyplot.ylabel( "Significance" )
-	pyplot.xlim( 0, nchan+1 )
-	pyplot.ylim( 0, 1.1*max(chansig_prev.values()) )
-	pyplot.grid()
-
-	ax.set_xticks( range(1, nchan) )
-	ax.set_xticklabels( sorted(chansig_prev.keys()), rotation=270, fontsize=6 , weight="light")
-	fig.savefig( "drop_round_%d.png" % (rnd-1) )
-
 
 def lalseg_from_seglist( segl ):
 	"""
@@ -3376,15 +3401,45 @@ def ghash_to_dict( ghash, dtype ):
 	rfunc = retrieve_func( dtype )
 	return dict( [ (key, rfunc( ghash, key )) for key in keys ] )
 
+def lalburst_sb_to_glue_sb( sb_in, desired_columns ):
+	"""
+	Convert a lalburst SnglBurst structure to a SnglBurst row from glue.
+	"""
+	sb = lsctables.SnglBurstTable.RowType()
+	for att in desired_columns:
+		if att == "start_time":
+			start_time = float( sb_in.start_time )
+			sb.start_time = int(start_time) 
+			sb.start_time_ns = int(1e9*(start_time - int(start_time) ))
+			continue
+		elif att == "peak_time":
+			peak_time = float( sb_in.peak_time )
+			sb.peak_time = int(peak_time) 
+			sb.peak_time_ns = int(1e9*(peak_time - int(peak_time) ))
+			continue
+		elif att == "process_id":
+			sb.process_id = ilwd.ilwdchar( "process:process_id:%d" % getattr( sb_in, att ) )
+			continue
+		elif att == "event_id":
+			sb.event_id = ilwd.ilwdchar( "sngl_burst:sngl_burst_id:%d" % getattr( sb_in, att ) )
+			continue
+
+		try:
+			setattr( sb, att, getattr( sb_in, att ) )
+		except AttributeError:
+			pass
+	return sb
+
 def seq_to_sbtable( sblist, get_col=None ):
 	"""
 	Convert a GSequence of SnglBurst to a SnglBurstTable.
 	"""
-	sbtable = lsctables.New(lsctables.SnglBurstTable,
-	  ["peak_time_ns", "start_time_ns", "channel",
-	  "process_id", "ifo", "peak_time", "start_time",
+        desired_columns = ["peak_time_ns", "start_time_ns", "channel",
+	  "ifo", "peak_time", "start_time",
 	  "duration", "central_freq", "search",
-	  "bandwidth", "event_id", "snr"])
+	  "bandwidth",  "snr"]
+	sbtable = lsctables.New(lsctables.SnglBurstTable,
+	  desired_columns)
 
 	sblistitr = laldetchar.GSnglBurstSeqBegin( sblist )
 
@@ -3395,12 +3450,22 @@ def seq_to_sbtable( sblist, get_col=None ):
 			break
 		if get_col is not None:
 			col_ar.append( getattr( next_sb, get_col ) )
-		sbtable.append( lalburst_sb_to_glue_sb(next_sb) )
+		sbtable.append( lalburst_sb_to_glue_sb(next_sb, desired_columns) )
 		sblistitr = laldetchar.GSnglBurstIterNext( sblistitr )
 
 	if get_col is not None:
 		return col_ar
 	return sbtable
+
+def get_chan_list( gseq ):
+	"""
+	Get a listing of the channels within a trigger sequence.
+	"""
+	# This is necessarily complicated because there is no "set" type in glib
+	# thus the closest thing is a hash. This retrieves the hash, then converts
+	# its keys into a proper set.
+	return set(ghash_to_dict( laldetchar.GetChannelList( gseq ), str ).keys())
+
 
 def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                htmlonly=False):
@@ -3489,7 +3554,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                         cluster=tab.cluster,
                                         minsnr=snr, **trigfind_args)
         trig_seq = None
+        swigtriglist = []
         for chan,trigtable in zip(allchannels, trigtables):
+            print chan
             tab.add_triggers(chan, trigtable)
             # convert from glue SnglBurst to swig/lal SnglBurst
             for trig in trigtable:
@@ -3501,8 +3568,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
                 swigtrig.central_freq = trig.peak_frequency
                 swigtrig.snr = trig.snr
-                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtrig)
-
+                swigtriglist.append(swigtrig)
+                trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
 
     print_verbose("All triggers loaded.\n", verbose=verbose)
 
@@ -3525,6 +3592,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
     rnd = 1
     livesegs = tab.segments
+    runseg = Segment(tab.start_time, tab.end_time)
     runlive = livetime = float(abs(livesegs))
     lalsegl = lalseg_from_seglist( livesegs )
     ref_trigs = 0
@@ -3532,6 +3600,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     sigdrop = None
     round_winner, efficiency, deadtime = [], [], []
     winner_docs = []
+    rounds = {}
+
     # Round loop
     while True:
             subround_winner = {}
@@ -3541,10 +3611,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             for snr_t in snr_thresh:
 
                 # Mark triggers not meeting threshold criteria
-                print "C"
-                print lalsegl, snr_t, tab.mainchannel
                 laldetchar.DetCharPruneTrigs( trig_seq, lalsegl, snr_t, tab.mainchannel )
-                print "D"
+
                 if laldetchar.GetGSnglBurstSeqUnmarkedLength( trig_seq ) <= 0:
                     if verbose:
                         print "No triggers remaining at current threshold. Moving on."
@@ -3553,16 +3621,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 for wind in twind:
                         if verbose:
                                 print "SNR threshold %f, time window %f" % (snr_t, wind)
-                        print "A"
                         chancount, chancoinc = laldetchar.CreateGHashTable(), laldetchar.CreateGHashTable()
-                        print "B"
                         # TODO: Wrap this better
-                        print trig_seq
-                        print chancount, chancoinc
-                        print tab.mainchannel
-                        print wind, coinc_type
                         laldetchar.DetCharScanTrigs( chancount, chancoinc, trig_seq, tab.mainchannel, wind, coinc_type )
-                        print "ScanTrigs"
                         t_ratio = wind / livetime
                         rnd_sig, winner = laldetchar.DetCharVetoRound( chancount, chancoinc, tab.mainchannel, t_ratio )
                         if verbose:
@@ -3577,16 +3638,19 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                 mu = t_ratio * chancount[winner] * chancount[tab.mainchannel]
                                 subround_winner[(snr_t, wind)] = (winner, rnd_sig, mu)
                         #print chancount, chancoinc
-                        print >>sys.stderr, "Popping from window loop."
-                print >>sys.stderr, "Popping from threshold loop."
+                        if verbose:
+                            print "Popping from window loop."
+                if verbose:
+                    print "Popping from threshold loop."
 
-            print >>sys.stderr, "Determining subround winner"
+            if verbose:
+                print  "Determining subround winner"
             subround_winner = sorted(subround_winner.iteritems(), key=lambda tup: tup[1][1] )
 
             if len(subround_winner) == 0:
-                    if verbose:
-                            print "No triggers remain, exiting."
-                    exit()
+                if verbose:
+                    print "No triggers remain, exiting."
+                break
             round_winner = subround_winner[-1]
             snr_win, wind_win = round_winner[0]
             winner, sig, mu = round_winner[1]
@@ -3601,19 +3665,20 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             #all_ref_trigs = filter(lambda sb: sb.channel == tab.mainchannel, seq_to_sbtable( trig_seq ) )
 
             print "Retrieving vetoed triggers from list."
-            vetoed_trigs = laldetchar.DetCharRemoveTrigs( trig_seq, veto, winner, snr_win )
-
+            vetoed_trigs = laldetchar.DetCharRemoveTrigs( trig_seq, veto, winner, tab.mainchannel, snr_win )
+            
+            print "Converting trigger format."
             vetoed_trigs = seq_to_sbtable( vetoed_trigs )
             # Number of reference channel triggers vetoed
             n_trig_vetoed = len( filter(lambda sb: sb.channel == tab.mainchannel, vetoed_trigs ) )
 
             print "Calculating veto segments."
             # Remove vetoed winner triggers from livetime
-            vetosegs = segmentlist([])
+            vetosegs = SegmentList([])
             for trig in vetoed_trigs:
                     if trig.channel != winner: continue
                     #trig = lalburst_sb_to_glue_sb( trig )
-                    vs = segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
+                    vs = Segment( trig.get_peak() - wind_win/2.0, trig.get_peak() + wind_win/2.0 )
                     vetosegs.append( vs )
             vetosegs.coalesce()
 
@@ -3621,11 +3686,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             deadt = float(abs(livesegs))
             livesegs -= vetosegs
             deadt -= float(abs(livesegs))
-
-            # Write out vetoes and vetoed triggers
-            xmldoc = write_round_xml( vetosegs, vetoed_trigs, winner, ref_ifo, opt.__dict__ )
-            fname = "%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (ref_ifo, rnd, int(runseg[0]), int(abs(runseg)))
-            utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
 
             # Other information
             if rnd == 1:
@@ -3650,10 +3710,29 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     \tefficiency %% (rnd/cum): %f / %f
     \tdeadtime %% (rnd/cum) %f / %f""" % ( tab.mainchannel, winner, snr_win, wind_win, mu, sig, ref_trigs, n_trig_vetoed, subround_count[(snr_l, wind_l)][winner], inc_eff, sum(efficiency), deadtime[-1], sum(deadtime) )
 
+
             # We've dropped below the useful threshold, bail.
             if sig < sig_stop_thresh:
-                    print "Last round below significance threshold, we're done here."
-                    break
+                print "Last round below significance threshold, we're done here."
+                break
+
+            # Write out vetoes and vetoed triggers
+            xmldoc = write_round_xml( vetosegs, vetoed_trigs, winner, tab.ifo)
+            fname = "%s/%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (tab.directory, tab.ifo, rnd, int(runseg[0]), int(abs(runseg)))
+            ligolw_utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
+
+            # save round statistics
+            rounds[rnd] = HVetoRound()
+            rounds[rnd].channel = winner
+            rounds[rnd].etg = tab.etg
+            rounds[rnd].significance = sig
+            rounds[rnd].dt = wind_win
+            rounds[rnd].snr = snr_win
+            rounds[rnd].efficiency = [inc_eff]
+            rounds[rnd].deadtime = [deadtime[-1]]
+            rounds[rnd].safter = [numpy.nan]
+            rounds[rnd].veto_file = fname
+            rounds[rnd].veto_segments = vetosegs
 
             # Plots and the like
             chansig = defaultdict(dict)
@@ -3674,11 +3753,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                             mu = twind_sub*cnt*ref_cnt/livetime
                             chansig[subrnd][chan] = laldetchar.DetCharHvetoSignificance( mu, coinc )
 
-            # If this isn't the first round, calculate the significance drop from 
-            # last round
-            if sigdrop is not None:
-                    plot_sigdrop( sigdrop, chansig[(snr_win, wind_win)], rnd )
-            sigdrop = chansig[(snr_win, wind_win)]
 
             livetime = float(abs(livesegs))
             print "Live time after round %d: %f" % (rnd, livetime)
@@ -3686,19 +3760,18 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             #break
             #if rnd_sig < sig_stop_thresh:
             if sig < sig_stop_thresh:
-                    break
+                break
             else:
-                    rnd +=  1
+                rnd +=  1
 
     #
-    # make summary plot
+    # write results
     #
 
+    hveto_file = '%s/full_results.txt' % tab.directory
+    write_hveto_results(hveto_file, rounds)
 
-    if not htmlonly:
-        tab.finalize()
-        tab.frametohtml()
-
+    return
 
 # =============================================================================
 # Acquire data
@@ -5166,7 +5239,7 @@ if __name__=="__main__":
     valid_systems = ["ASC", "CPU", "DAQ", "HPI", "IFO", "IOO", "IOP", "ISI",\
                      "LSC", "OMC", "PEM", "PSL", "SEI", "SUS", "SQZ", "IMC"]
     valid_parents = ["Summary", "Sensitivity", "Segments", "Triggers",\
-                     "Vetoes", "Analysis", "Misc."] + valid_systems
+                     "Vetoes", "Analysis", "Seismic","Misc."] + valid_systems
     valid_parents = natsort(valid_parents)
 
     # generate section summaries for each valid parent
@@ -5246,7 +5319,7 @@ if __name__=="__main__":
                 tab.segments.contract(state.event_buffer)
                 tab.add_information(cp, cpsec)
                 process_hveto(tab, cp, cpsec,\
-                                  verbose=verbose,\
+                                  verbose=False,\
                                   htmlonly=opts.html_only,\
                                   doplots=opts.run_plots)
                 metatab.add_child(tab)
