@@ -55,6 +55,9 @@ if not os.getenv("DISPLAY", None):
     import matplotlib
     matplotlib.use("agg", warn=False)
 
+from collections import defaultdict
+from matplotlib import pyplot
+
 # import SwigLAL modules
 import lal
 import lalframe
@@ -3270,8 +3273,51 @@ def process_auxiliary_triggers(tab, cp, cpsec, verbose=False, doplots=True,\
         tab.finalize()
         tab.frametohtml()
 
+# =============================================================================
+# HVeto round class
+# =============================================================================
 
-def write_round_xml( vetosegs, vetotrigs, winner, ifo, opts ):
+class HVetoRound(object):
+
+  def __init__(self):
+    self.channel = None
+    self.etg = None
+    self.freqband = [0, numpy.inf]
+    self.veto_segments = SegmentList()
+    self.significance = None
+    self.fakesignificance = None
+    self.dt = None
+    self.snr = None
+    self.deadtime = [None]
+    self.efficiency = [None]
+    self.use_percentage = None
+    self.safety = [None]
+    self.veto_file = None
+
+
+def write_hveto_results(filename, rounds):
+
+  fobj = open(filename, 'w')
+
+  # write headers
+  fobj.write('#N channel significance t_win snr use deadtime safety file\n')
+
+  N = max(rounds.keys())
+
+  for i in range(1, N+1):
+    fobj.write(' '.join(map(str, [i, '%s;%s;%g-%gHz' % (rounds[i].channel,rounds[i].etg,\
+                                                        rounds[i].freqband[0],rounds[i].freqband[1]),\
+                                    rounds[i].significance,\
+                                    rounds[i].dt, rounds[i].snr,\
+                                    ','.join(map(str, rounds[i].efficiency)),\
+                                    ','.join(map(str, rounds[i].deadtime)),\
+                                    ','.join(map(str, rounds[i].safety)),\
+                                    os.path.abspath(rounds[i].veto_file)])))
+    fobj.write('\n')
+  fobj.close()
+
+
+def write_round_xml( vetosegs, vetotrigs, winner, ifo):
 	"""
 	Write out the products from this round of hveto: veto segments and the vetoed triggers.
 	"""
@@ -3280,46 +3326,19 @@ def write_round_xml( vetosegs, vetotrigs, winner, ifo, opts ):
 	xmldoc.appendChild( ligolw.LIGO_LW() )
 
 	# Append the process information
-	procrow = utils.process.append_process( xmldoc )
-	utils.process.append_process_params( xmldoc, procrow, utils.process.process_params_from_dict(opts) )
+	procrow = ligolw_utils.process.append_process( xmldoc )
 
 	# Add the vetoed triggers
 	xmldoc.childNodes[0].childNodes.append( vetotrigs )
 
 	# Append the veto segments
-	segl = segmentlistdict()
+	segl = SegmentListDict()
 	segl[ifo] = vetosegs
-	lwsegs = ligolw_segments.LigolwSegments( xmldoc )
+	lwsegs = ligolw_utils.segments.LigolwSegments( xmldoc )
 	lwsegs.insert_from_segmentlistdict( segl, "hveto" )
 	lwsegs.finalize(procrow)
 	
 	return xmldoc
-def plot_sigdrop( chansig_prev, chansig_cur, rnd ):
-	"""
-	Make a significance 'drop plot', where the significance from several channels is compared in difference across two rounds.
-	"""
-	fig = pyplot.figure(figsize=(30,10))
-	ax = fig.add_subplot(111)
-	nchan = 1
-	for chan, sig in sorted(chansig_prev.iteritems()):
-		try:
-			sprev, snew = sig, chansig_cur[chan]
-		except KeyError:
-			chansig_cur[chan] = 0
-			sprev, snew = sig, 0
-		pyplot.arrow( nchan, sprev, 0, (snew-sprev), fc="k", head_width=1, head_length=0.1 )
-		nchan += 1
-
-	pyplot.title( "Significance drop plot round %d" % (rnd-1) )
-	pyplot.ylabel( "Significance" )
-	pyplot.xlim( 0, nchan+1 )
-	pyplot.ylim( 0, 1.1*max(chansig_prev.values()) )
-	pyplot.grid()
-
-	ax.set_xticks( range(1, nchan) )
-	ax.set_xticklabels( sorted(chansig_prev.keys()), rotation=270, fontsize=6 , weight="light")
-	fig.savefig( "drop_round_%d.png" % (rnd-1) )
-
 
 def lalseg_from_seglist( segl ):
 	"""
@@ -3567,6 +3586,7 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     #
     rnd = 1
     livesegs = tab.segments
+    runseg = Segment(tab.start_time, tab.end_time)
     runlive = livetime = float(abs(livesegs))
     lalsegl = lalseg_from_seglist( livesegs )
     ref_trigs = 0
@@ -3574,6 +3594,8 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     sigdrop = None
     round_winner, efficiency, deadtime = [], [], []
     winner_docs = []
+    rounds = {}
+
     # Round loop
     while True:
             subround_winner = {}
@@ -3596,7 +3618,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                         chancount, chancoinc = laldetchar.CreateGHashTable(), laldetchar.CreateGHashTable()
                         # TODO: Wrap this better
                         laldetchar.DetCharScanTrigs( chancount, chancoinc, trig_seq, tab.mainchannel, wind, coinc_type )
-                        print "ScanTrigs"
                         t_ratio = wind / livetime
                         rnd_sig, winner = laldetchar.DetCharVetoRound( chancount, chancoinc, tab.mainchannel, t_ratio )
                         if verbose:
@@ -3611,16 +3632,19 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                                 mu = t_ratio * chancount[winner] * chancount[tab.mainchannel]
                                 subround_winner[(snr_t, wind)] = (winner, rnd_sig, mu)
                         #print chancount, chancoinc
-                        print >>sys.stderr, "Popping from window loop."
-                print >>sys.stderr, "Popping from threshold loop."
+                        if verbose:
+                            print "Popping from window loop."
+                if verbose:
+                    print "Popping from threshold loop."
 
-            print >>sys.stderr, "Determining subround winner"
+            if verbose:
+                print  "Determining subround winner"
             subround_winner = sorted(subround_winner.iteritems(), key=lambda tup: tup[1][1] )
 
             if len(subround_winner) == 0:
-                    if verbose:
-                            print "No triggers remain, exiting."
-                    return
+                if verbose:
+                    print "No triggers remain, exiting."
+                break
             round_winner = subround_winner[-1]
             snr_win, wind_win = round_winner[0]
             winner, sig, mu = round_winner[1]
@@ -3635,8 +3659,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             #all_ref_trigs = filter(lambda sb: sb.channel == tab.mainchannel, seq_to_sbtable( trig_seq ) )
 
             print "Retrieving vetoed triggers from list."
-            vetoed_trigs = laldetchar.DetCharRemoveTrigs( trig_seq, veto, winner, snr_win )
-
+            vetoed_trigs = laldetchar.DetCharRemoveTrigs( trig_seq, veto, winner, tab.mainchannel, snr_win )
+            
+            print "Converting trigger format."
             vetoed_trigs = seq_to_sbtable( vetoed_trigs )
             # Number of reference channel triggers vetoed
             n_trig_vetoed = len( filter(lambda sb: sb.channel == tab.mainchannel, vetoed_trigs ) )
@@ -3655,11 +3680,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             deadt = float(abs(livesegs))
             livesegs -= vetosegs
             deadt -= float(abs(livesegs))
-
-            # Write out vetoes and vetoed triggers
-            xmldoc = write_round_xml( vetosegs, vetoed_trigs, winner, ref_ifo, opt.__dict__ )
-            fname = "%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (ref_ifo, rnd, int(runseg[0]), int(abs(runseg)))
-            utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
 
             # Other information
             if rnd == 1:
@@ -3684,10 +3704,29 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     \tefficiency %% (rnd/cum): %f / %f
     \tdeadtime %% (rnd/cum) %f / %f""" % ( tab.mainchannel, winner, snr_win, wind_win, mu, sig, ref_trigs, n_trig_vetoed, subround_count[(snr_l, wind_l)][winner], inc_eff, sum(efficiency), deadtime[-1], sum(deadtime) )
 
+
             # We've dropped below the useful threshold, bail.
             if sig < sig_stop_thresh:
-                    print "Last round below significance threshold, we're done here."
-                    break
+                print "Last round below significance threshold, we're done here."
+                break
+
+            # Write out vetoes and vetoed triggers
+            xmldoc = write_round_xml( vetosegs, vetoed_trigs, winner, tab.ifo)
+            fname = "%s/%s-HVETO_ROUND_%d-%d-%d.xml.gz" % (tab.directory, tab.ifo, rnd, int(runseg[0]), int(abs(runseg)))
+            ligolw_utils.write_filename( xmldoc, fname, gz=True, verbose=verbose )
+
+            # save round statistics
+            rounds[rnd] = HVetoRound()
+            rounds[rnd].channel = winner
+            rounds[rnd].etg = tab.etg
+            rounds[rnd].significance = sig
+            rounds[rnd].dt = wind_win
+            rounds[rnd].snr = snr_win
+            rounds[rnd].efficiency = [inc_eff]
+            rounds[rnd].deadtime = [deadtime[-1]]
+            rounds[rnd].safter = [numpy.nan]
+            rounds[rnd].veto_file = fname
+            rounds[rnd].veto_segments = vetosegs
 
             # Plots and the like
             chansig = defaultdict(dict)
@@ -3708,11 +3747,6 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                             mu = twind_sub*cnt*ref_cnt/livetime
                             chansig[subrnd][chan] = laldetchar.DetCharHvetoSignificance( mu, coinc )
 
-            # If this isn't the first round, calculate the significance drop from 
-            # last round
-            if sigdrop is not None:
-                    plot_sigdrop( sigdrop, chansig[(snr_win, wind_win)], rnd )
-            sigdrop = chansig[(snr_win, wind_win)]
 
             livetime = float(abs(livesegs))
             print "Live time after round %d: %f" % (rnd, livetime)
@@ -3720,19 +3754,18 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
             #break
             #if rnd_sig < sig_stop_thresh:
             if sig < sig_stop_thresh:
-                    break
+                break
             else:
-                    rnd +=  1
+                rnd +=  1
 
     #
-    # make summary plot
+    # write results
     #
 
+    hveto_file = '%s/full_results.txt' % tab.directory
+    write_hveto_results(hveto_file, rounds)
 
-    if not htmlonly:
-        tab.finalize()
-        tab.frametohtml()
-
+    return
 
 # =============================================================================
 # Acquire data
@@ -5280,7 +5313,7 @@ if __name__=="__main__":
                 tab.segments.contract(state.event_buffer)
                 tab.add_information(cp, cpsec)
                 process_hveto(tab, cp, cpsec,\
-                                  verbose=verbose,\
+                                  verbose=False,\
                                   htmlonly=opts.html_only,\
                                   doplots=opts.run_plots)
                 metatab.add_child(tab)
