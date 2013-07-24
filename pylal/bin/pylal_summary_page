@@ -1613,6 +1613,9 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
     else:
         segment_summary = SegmentList(G_SPECTROGRAM[channel].keys())
         segment_summary.coalesce()
+    # KLUDGE! killing completely spectrogram caching
+    G_SPECTROGRAM[channel] = {}
+    segment_summary = SegmentList()
 
     # get new segments
     query_segments = segment_list - segment_summary
