@@ -3530,6 +3530,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         snr_thresh = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
     if cp.has_option(cpsec, "significance-threshold"):
         sig_stop_thresh = cp.getfloat(cpsec, "significance-threshold")
+    freqbands = cp.has_option(cpsec, 'frequency-bands')\
+        and sorted(map(float, cp.get(cpsec, 'frequency-bands').split(',')))\
+        or False
 
     # Type of coincidence:
     # 0 -- Record all coincidences
@@ -3565,10 +3568,18 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 swigtrig = lalburst.CreateSnglBurst()
                 swigtrig.ifo = trig.ifo
                 swigtrig.search = trig.search
-                swigtrig.channel = trig.channel
                 swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
                 swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
                 swigtrig.central_freq = trig.peak_frequency
+                if trig.channel != tab.mainchannel and freqbands:
+                    freq_extension = ''
+                    for iF in range(len(freqbands)-1):
+                        if trig.peak_frequency >= freqbands[iF] \
+                                and trig.peak_frequency < freqbands[iF+1]:
+                            freq_extension = '_%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                    swigtrig.channel = trig.channel + freq_extension
+                else:
+                    swigtrig.channel = trig.channel
                 swigtrig.snr = trig.snr
                 swigtriglist.append(swigtrig)
                 trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
