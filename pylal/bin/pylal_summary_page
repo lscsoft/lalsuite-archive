@@ -1298,7 +1298,7 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
             query_segments &= data_segments
 
         # loop over segments
-        for seg in query_segments:
+        for i,seg in enumerate(query_segments):
             if not usends and frametype == "T" and abs(seg) < 1:
                 continue
             elif not usends and frametype == "M" and abs(seg) < 60:
@@ -1371,8 +1371,8 @@ def get_data(cp, channel, segment_list, frametype=None, calibration=None,
                             series.data.data = calibration(series.data.data)
                         add_timeseries(series)
                     s += dt
-            print_verbose("Data recovered from frames for [%d ... %d)\n"
-                          % (seg[0], seg[1]))
+            print_verbose("Data recovered from frames for [%d ... %d) (%d/%d)\n"
+                          % (seg[0], seg[1], i+1, len(query_segments)))
 
     # grab the data we want
     globsegs = SegmentList(G_DATA[channel].keys())
@@ -1619,7 +1619,7 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
 
     # get new segments
     query_segments = segment_list - segment_summary
-        
+
     # check if there is anything new to query for
     query &= (abs(query_segments) != 0)
 
@@ -1668,8 +1668,12 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
                                stream=sys.stderr, verbose=True)
                  continue
 
-             out = seriesutils.compute_average_spectrogram(series, step//dt,
-                                                           seglen//dt, stride//dt)
+             try:
+                 out = seriesutils.compute_average_spectrogram(series, step//dt,
+                                                               seglen//dt,
+                                                               stride//dt)
+             except ValueError:
+                 continue
              spectrogram, deltaF, f0 = out
              spectrogram.data = spectrogram.data**(1/2)
              if fresponse:
@@ -1826,7 +1830,7 @@ def add_timeseries(series):
 
     new = True
     resize = getattr(lal, "Resize%sTimeSeries" % TYPESTR)
-    for gseg in seglist:
+    for i,gseg in enumerate(seglist):
         # if it postpends an existing segment
         if gseg[1] == seg[0]:
             new = False
@@ -1834,7 +1838,7 @@ def add_timeseries(series):
             G_DATA[channel][seg] = G_DATA[channel][gseg]
             l1 = G_DATA[channel][seg].data.length
             l2 = series.data.length
-            o = resize(G_DATA[channel][seg], 0, l1+l2)
+            G_DATA[channel][seg] = resize(G_DATA[channel][seg], 0, l1+l2)
             G_DATA[channel][seg].data.data[l1:] = series.data.data
             series = G_DATA[channel][seg]
             del G_DATA[channel][gseg]
@@ -2022,7 +2026,6 @@ def archive_triggers(outdir, start, end, param_dict, clustered=False):
                            G_CLUSTERED_TRIGGERS[etg][channel].iteritems() or
                            G_TRIGGERS[etg][channel].iteritems())
         for i,(seg,trig_table) in enumerate(global_triggers):
-            print channel, seg, type(trig_table)
             try:
                 event_table = table.get_table(xmldoc, trig_table.tableName)
             except ValueError:
