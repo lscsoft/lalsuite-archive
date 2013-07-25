@@ -42,6 +42,7 @@
 #define LALSIMINSPIRAL_ST_TEST_FREQBOUND            1029
 #define LALSIMINSPIRAL_ST_DERIVATIVE_OMEGANONPOS    1030
 #define LALSIMINSPIRAL_ST_TEST_LARGEV               1031
+#define LALSIMINSPIRAL_ST_TEST_CONTACT              1032
 
 /* (2x) Highest available PN order - UPDATE IF NEW ORDERS ADDED!!*/
 #define LAL_MAX_PN_ORDER 8
@@ -100,6 +101,7 @@ typedef struct tagXLALSimInspiralSpinTaylorTxCoeffs
 	REAL8 Etidal6pn; ///< next to leading order tidal correction to energy
 	REAL8 fStart; ///< starting GW frequency of integration
 	REAL8 fEnd; ///< ending GW frequency of integration
+	REAL8 fContact; ///< GW frequency at contact
 	LALSimInspiralSpinOrder spinO; ///< Twice PN order of included spin effects
 	LALSimInspiralTidalOrder tideO;///< Twice PN order of included tidal effects
 	REAL8 prev_domega; ///< Previous value of domega/dt used in stopping test
@@ -172,6 +174,8 @@ static int XLALSimInspiralSpinTaylorT2Setup(
     params->eta = eta;
     params->fStart = fStart;
     params->fEnd = fEnd;
+    if ( lambda1 == 0.0 && lambda2 == 0.0 ) params->fContact = 0.0;
+    else params->fContact = XLALSimInspiralContactFrequency(m1/LAL_MSUN_SI, lambda1, m2/LAL_MSUN_SI, lambda2);
     params->spinO = spinO;
     params->tideO = tideO;
 
@@ -380,6 +384,8 @@ static int XLALSimInspiralSpinTaylorT4Setup(
     params->eta = eta;
     params->fStart = fStart;
     params->fEnd = fEnd;
+    if ( lambda1 == 0.0 && lambda2 == 0.0 ) params->fContact = 0.0;
+    else params->fContact = XLALSimInspiralContactFrequency(m1/LAL_MTSUN_SI, lambda1, m2/LAL_MTSUN_SI, lambda2);
     params->spinO = spinO;
     params->tideO = tideO;
 
@@ -922,6 +928,7 @@ int XLALSimInspiralSpinTaylorPNEvolveOrbit(
  *		3) The orbital frequency becomes infinite 
  *		4) The orbital frequency has gone outside the requested bounds
  *      5) The PN parameter v/c becomes >= 1
+ *      6) The orbital frequency becomes larger than f_contact
  * SpinTaylorT4 and SpinTaylorT2 both use this same stopping test
  */
 static int XLALSimInspiralSpinTaylorStoppingTest(
@@ -931,7 +938,7 @@ static int XLALSimInspiralSpinTaylorStoppingTest(
 	void *mparams
 	)
 {
-    REAL8 omega, v, test, omegaStart, omegaEnd, ddomega;
+    REAL8 omega, v, test, omegaStart, omegaEnd, ddomega, omegaContact;
     REAL8 LNhx, LNhy, LNhz, S1x, S1y, S1z, S2x, S2y, S2z;
     REAL8 LNdotS1, LNdotS2, S1dotS2, S1sq, S2sq;
     XLALSimInspiralSpinTaylorTxCoeffs *params 
@@ -953,7 +960,11 @@ static int XLALSimInspiralSpinTaylorStoppingTest(
      * Note params->M is really G M /c^3 (i.e. M is in seconds) */
     omegaStart = LAL_PI * params->M * params->fStart;
     omegaEnd = LAL_PI * params->M * params->fEnd;
+    omegaContact = LAL_PI * params->M * params->fContact;
 
+    /* omegaContact = PI G M f_contact / c^3 
+     * where f_contact is the touching frequency, in case at least
+     * one of the bodies is a NS and 0 otherwise */
     switch( params->spinO )
     {
         case LAL_SIM_INSPIRAL_SPIN_ORDER_ALL:
@@ -1036,6 +1047,8 @@ static int XLALSimInspiralSpinTaylorStoppingTest(
         return LALSIMINSPIRAL_ST_TEST_LARGEV;
     else if (ddomega <= 0.) // d^2omega/dt^2 <= 0!
         return LALSIMINSPIRAL_ST_TEST_OMEGADOUBLEDOT;
+    else if ( (omegaContact > 0.0) && (fabs(omega) > omegaContact) ) // omega is above contact frequency
+	return LALSIMINSPIRAL_ST_TEST_CONTACT;
     else /* Step successful, continue integrating */
         return GSL_SUCCESS;
 }
