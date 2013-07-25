@@ -5,7 +5,7 @@ from collections import namedtuple
 import numpy as np
 from pylal.xlal.datatypes.ligotimegps import LIGOTimeGPS
 from pylal.xlal.date import XLALGPSToUTC
-import glue.GWDataFindClient, glue.segments, glue.segmentsUtils
+import glue.GWDataFindClient, glue.segments, glue.segmentsUtils, glue.lal
 import pylal.dq.dqSegmentUtils
 import pylal.pylal_seismon_psd, pylal.pylal_seismon_html, pylal.pylal_seismon_omicron
 import pylal.pylal_seismon_eqmon, pylal.pylal_seismon_eqmon_plot
@@ -54,6 +54,8 @@ def parse_commandline():
     parser.add_option("--doHTML",  action="store_true", default=False)
     parser.add_option("--doSegmentsDatabase",  action="store_true", default=False)
     parser.add_option("--doSegmentsTextFile",  action="store_true", default=False)
+
+    parser.add_option("--doBokeh",  action="store_true", default=False)
 
     parser.add_option("-v", "--verbose", action="store_true", default=False,
                       help="Run verbosely. (Default: False)")
@@ -108,8 +110,15 @@ def params_struct(opts):
     params["doSegmentsDatabase"] = opts.doSegmentsDatabase
     params["doSegmentsTextFile"] = opts.doSegmentsTextFile
 
+    params["doBokeh"] = opts.doBokeh
+
     params["date"] = XLALGPSToUTC(LIGOTimeGPS(params["gpsStart"]))
     params["dateString"] = "%d-%d-%d %d:%d:%d"%(params["date"][0],params["date"][1],params["date"][2],params["date"][3],params["date"][4],params["date"][5])
+
+    if params["doEarthquakesAnalysis"]:
+       params["earthquakesMinMag"] = 5
+    else:
+       params["earthquakesMinMag"] = 0
 
     return params
 
@@ -171,14 +180,19 @@ def frame_struct(params):
     gpsEnd = params["gpsEnd"]
 
     if params["ifo"] == "XG":
-        frameDir = "/home/shivaraj/homestakefinal"
+        frameDir = "/archive/frames/MBH/"
         frameList = [os.path.join(root, name)
             for root, dirs, files in os.walk(frameDir)
             for name in files]
 
+        datacache = []
         for frame in frameList:
             thisFrame = frame.replace("file://localhost","")
             if thisFrame == "":
+                continue
+
+            thisFrameSplit = thisFrame.split(".")
+            if thisFrameSplit[-1] == "log":
                 continue
 
             thisFrameSplit = thisFrame.split("-")
@@ -190,7 +204,7 @@ def frame_struct(params):
             if gps > gpsEnd:
                 continue
 
-            cacheFile = CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
+            cacheFile = glue.lal.CacheEntry("%s %s %d %d %s"%("XG","Homestake",gps,dur,frame))
             datacache.append(cacheFile)
 
     else:
@@ -288,6 +302,15 @@ if params["doOmicron"]:
     print "Generating Omicron triggers"
     pylal.pylal_seismon_omicron.generate_triggers(params,channels)
 
+if params["doBokeh"]:
+
+    import pylal.pylal_seismon_bokeh
+
+    for channel in channels:
+        print "Generating bokeh page for %s"%channel.station
+        pylal.pylal_seismon_bokeh.channel_page(params,channel)
+    sys.exit()
+
 for channel in channels:
     print "Generating PSD for %s"%channel.station
     for segment in params["segments"]:
@@ -300,6 +323,10 @@ for channel in channels:
     if params["doOmicron"]:
         print "Plotting Omicron triggers for %s"%channel.station
         pylal.pylal_seismon_omicron.plot_triggers(params,channel)
+
+for segment in params["segments"]:
+    print "Running summary for Segment: %d-%d"%(segment[0],segment[1])
+    pylal.pylal_seismon_psd.channel_summary(params, channels, segment)
 
 if params["doHTML"]:
     htmlPage = pylal.pylal_seismon_html.summary_page(params,channels)

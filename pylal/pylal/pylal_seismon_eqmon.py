@@ -33,11 +33,8 @@ def run_earthquakes(params):
         ifo = "VIRGO"
     elif params["ifo"] == "C1":
         ifo = "FortyMeter"
-
-    if params["doEarthquakesAnalysis"]:
-       params["earthquakesMinMag"] = 5
-    else:
-       params["earthquakesMinMag"] = 0
+    elif params["ifo"] == "XG":
+        ifo = "Homestake"
 
     attributeDics = retrieve_earthquakes(params)
     attributeDics = sorted(attributeDics, key=itemgetter("Magnitude"), reverse=True)
@@ -144,6 +141,22 @@ def run_earthquakes(params):
     data["prediction"]["tt"] = np.array(ttStart)
     data["prediction"]["data"] = np.array(amp)
 
+    tt = []
+    amp = []
+
+    for attributeDic in attributeDics:
+
+        #attributeDic = calculate_traveltimes(attributeDic)
+
+        traveltimes = attributeDic["traveltimes"][ifo]
+
+        tt.append(max(traveltimes["Rtimes"]))
+        amp.append(traveltimes["Rfamp"][0])
+
+    data["earthquakes"] = {}
+    data["earthquakes"]["tt"] = np.array(tt)
+    data["earthquakes"]["data"] = np.array(amp)
+
     data["channels"] = {}
 
     # Break up entire frequency band into 6 segments
@@ -207,8 +220,8 @@ def run_earthquakes(params):
     pylal.pylal_seismon_eqmon_plot.prediction(data,plotName)
     plotName = os.path.join(plotsDirectory,"%d-%d-residual.png"%(params["gpsStart"],params["gpsEnd"]))
     pylal.pylal_seismon_eqmon_plot.residual(data,plotName)
-    print plotName
-    print penis
+    plotName = os.path.join(plotsDirectory,"%d-%d-earthquakes.png"%(params["gpsStart"],params["gpsEnd"]))
+    pylal.pylal_seismon_eqmon_plot.earthquakes(data,plotName)
 
     for attributeDic in attributeDics:
 

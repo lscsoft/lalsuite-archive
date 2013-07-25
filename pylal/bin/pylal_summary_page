@@ -1613,6 +1613,9 @@ def get_spectrogram(cp, channel, step, seglen, stride, segment_list,
     else:
         segment_summary = SegmentList(G_SPECTROGRAM[channel].keys())
         segment_summary.coalesce()
+    # KLUDGE! killing completely spectrogram caching
+    G_SPECTROGRAM[channel] = {}
+    segment_summary = SegmentList()
 
     # get new segments
     query_segments = segment_list - segment_summary
@@ -3513,10 +3516,12 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
     # get channels
     tab.mainchannel = (cp.has_option(cpsec, "main-channel") and
                        cp.get(cpsec, "main-channel")) or None
+    unsafechannels = cp.has_option(cpsec, 'unsafe-channels') and \
+                     [c for i,c in cp.items(cp.get(cpsec, 'unsafe-channels'))] or []
     auxsec = cp.has_option(cpsec, "auxiliary-channels")\
              and cp.get(cpsec, "auxiliary-channels")\
              or "%s-channels" % tab.etg.lower()
-    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel]
+    channels = [c for i,c in cp.items(auxsec) if c != tab.mainchannel and c not in unsafechannels]
     channels.sort()
     if tab.mainchannel:
         allchannels = [tab.mainchannel] + channels
@@ -3528,6 +3533,9 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
         snr_thresh = map(float, cp.get(cpsec, "snr-aux-thresholds").split(',') or None)
     if cp.has_option(cpsec, "significance-threshold"):
         sig_stop_thresh = cp.getfloat(cpsec, "significance-threshold")
+    freqbands = cp.has_option(cpsec, 'frequency-bands')\
+        and sorted(map(float, cp.get(cpsec, 'frequency-bands').split(',')))\
+        or False
 
     # Type of coincidence:
     # 0 -- Record all coincidences
@@ -3563,10 +3571,18 @@ def process_hveto(tab, cp, cpsec, verbose=False, doplots=True,\
                 swigtrig = lalburst.CreateSnglBurst()
                 swigtrig.ifo = trig.ifo
                 swigtrig.search = trig.search
-                swigtrig.channel = trig.channel
                 swigtrig.start_time = lal.LIGOTimeGPS(trig.start_time + 1e-9*trig.start_time_ns)
                 swigtrig.peak_time = lal.LIGOTimeGPS(trig.peak_time + 1e-9*trig.peak_time_ns)
                 swigtrig.central_freq = trig.peak_frequency
+                if trig.channel != tab.mainchannel and freqbands:
+                    freq_extension = ''
+                    for iF in range(len(freqbands)-1):
+                        if trig.peak_frequency >= freqbands[iF] \
+                                and trig.peak_frequency < freqbands[iF+1]:
+                            freq_extension = '_%g-%gHz' % (freqbands[iF], freqbands[iF+1])
+                    swigtrig.channel = trig.channel + freq_extension
+                else:
+                    swigtrig.channel = trig.channel
                 swigtrig.snr = trig.snr
                 swigtriglist.append(swigtrig)
                 trig_seq = laldetchar.PopulateTrigSequenceFromTrigList(trig_seq, swigtriglist[-1])
