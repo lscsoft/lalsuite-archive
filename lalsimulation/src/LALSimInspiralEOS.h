@@ -72,6 +72,8 @@ REAL8 XLALSimInspiralEOSQfromLambda(REAL8 lambda);
 
 REAL8 XLALSimInspiralNSRadiusOfLambdaM(REAL8 m_intr_msun, REAL8 barlambda);
 
+REAL8 XLALSimInspiralContactFrequency(REAL8 m1_intr, REAL8 barlambda1, REAL8 m2_intr, REAL8 barlambda2);
+
 #ifdef  __cplusplus
 }
 #endif  /* C++ protection. */

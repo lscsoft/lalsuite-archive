@@ -163,35 +163,70 @@ REAL8 XLALSimInspiralEOSqmparameter(LALEquationOfState eos_type, REAL8 m_intr_ms
  * To be used for masses within [1.2,2]M_sun, and preferably not for strange
  * quark stars (since the relation is calibrated for this mass range and for 
  * the EoS APR4, MS1, H4).
+ * For a BH, (lambda=0) it returns the Schwarzschild radius.
  * The arguments are:
- * m_intr_msun           the intrinsic mass in solar masses
+ * m_intr_msun              the intrinsic mass in solar masses
  * barlambda                the dimensionless tidal deformability (lambda/m^5)
  * The return value is the radius in meters.
  */
 
 REAL8 XLALSimInspiralNSRadiusOfLambdaM(REAL8 m_intr_msun, REAL8 barlambda){
-  
+
   REAL8 loglambda;
   REAL8 compactness, radius ;
 
-  /* Check for negative value of lambda */
-  if (barlambda > 0.0) loglambda = log(barlambda);
+  /* Check for sign of lambda */
+  if ( barlambda == 0.0 ) {
+  /* This is a black hole */
+    compactness = 0.5;
+  }
+  else if ( barlambda > 0.0 ) {
+  loglambda = log(barlambda);
+  /* Calculate compactness according to arXiv:1304.2052v1 */
+  compactness = 0.371 - 0.0391*loglambda + 0.001056*loglambda*loglambda;
+  }
   else {
     XLALPrintError( "XLAL Error - %s: Tidal deformability is negative. Only positive values are acceptable.", __func__);
     XLAL_ERROR_REAL8(XLAL_EDOM);
   }
 
-  /* Calculate compactness according to arXiv:1304.2052v1 */
-  compactness = 0.371 - 0.0391*loglambda + 0.001056*loglambda*loglambda;
-
   /* Check that radius is larger than Schwarzschild radius */
-  if ( compactness > 1./2. ) {
-    XLALPrintError( "XLAL Error - %s: Neutron Star is calculated to be more compact than a black hole.", __func__);
+  if ( compactness > 0.5 || compactness < 0.0 ) {
+    XLALPrintError( "XLAL Error - %s: Neutron Star is calculated to have compactness larger than a black hole or negative.", __func__);
     XLAL_ERROR_REAL8(XLAL_ERANGE);
   }
 
   radius = LAL_MRSUN_SI * m_intr_msun / compactness;
 
  return radius;
-  
+
+}
+
+
+/**
+ * This function estimates the radius for a binary of given masses and
+ * tidal deformability parameters.
+ * It uses XLALSimInspiralNSRadiusOfLambdaM() to calculate radii (see above).
+ * The arguments are:
+ * m1_intr, m2_intr                      the intrinsic masses in solar masses
+ * barlambda1, barlambda2                the dimensionless tidal deformabilities (lambda_i/m_i^5)
+ * The return value is the GW contact frequency in Hz.
+ */
+
+REAL8 XLALSimInspiralContactFrequency(REAL8 m1_intr, REAL8 barlambda1, REAL8 m2_intr, REAL8 barlambda2){
+
+  REAL8 r1, r2, rtot, mtot, f_gw_contact;
+
+  /* Calculate radii for the two components */
+  r1 = XLALSimInspiralNSRadiusOfLambdaM(m1_intr, barlambda1);
+  r2 = XLALSimInspiralNSRadiusOfLambdaM(m2_intr, barlambda2);
+
+  rtot = (r1 + r2)/LAL_C_SI;                             // Orbital distance in seconds
+  mtot = (m1_intr + m2_intr)*LAL_MTSUN_SI;               // Total mass in seconds
+
+  /* Calculate the GW contact frequency */
+  f_gw_contact = sqrt(mtot/(rtot*rtot*rtot))/LAL_PI;
+
+  return f_gw_contact;
+
 }
