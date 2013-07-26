@@ -181,6 +181,7 @@ def frame_struct(params):
 
     if params["ifo"] == "XG":
         frameDir = "/archive/frames/MBH/"
+        frameDir = "/home/shivaraj/homestakefinal/"
         frameList = [os.path.join(root, name)
             for root, dirs, files in os.walk(frameDir)
             for name in files]
