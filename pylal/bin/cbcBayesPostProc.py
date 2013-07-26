@@ -1263,8 +1263,6 @@ if __name__=='__main__':
         for mp in massParams:
             for d in distParams:
                 twoDGreedyMenu.append([mp,d])
-        for b1,b2 in combinations(burstParams,2):
-            twoDGreedyMenu.append([b1,b2])
         for mp in massParams:
             for sp in spinParams:
                 twoDGreedyMenu.append([mp,sp])
@@ -1321,8 +1319,6 @@ if __name__=='__main__':
         greedyBinSizes[param]=0.01
     for param in tidalParams:
         greedyBinSizes[param]=2.5
-    for param in burstParams:
-        greedyBinSizes[param]=1.0
     #Confidence levels
     for loglname in ['logl','deltalogl','deltaloglh1','deltaloglv1','deltalogll1','logll1','loglh1','loglv1']:
         greedyBinSizes[loglname]=0.1
