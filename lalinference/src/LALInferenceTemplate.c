@@ -1841,7 +1841,7 @@ void LALInferenceTemplateLALGenerateInspiral(LALInferenceIFOData *IFOdata)
   return;
 }
 
-void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
+void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)  // TODO: add comments!
 /*************************************************************************************************/
 /* Wrapper for Ringdown waveforms:
  * LALSimBlackHoleRingdown and LALSimBlackHoleRingdownTiger.
@@ -1978,10 +1978,14 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
   }
 
   /* Fill in final black hole spin magnitude */
-  if(LALInferenceCheckVariable(IFOdata->modelParams, "spin")){
+  if (LALInferenceCheckVariable(modelParams, "spin_from_components")){
+    spin = XLALNonSpinBinaryFinalBHSpin(eta);
+  }
+  else if(LALInferenceCheckVariable(IFOdata->modelParams, "spin")){
     spin = *(REAL8*) LALInferenceGetVariable(IFOdata->modelParams, "spin");
   }
-  else if (LALInferenceCheckVariable(modelParams, "spin_from_components")) spin = XLALNonSpinBinaryFinalBHSpin(eta);
+  else
+  
   
   /*
    else if (LALInferenceCheckVariable(modelParams, "spin_from_components")){
@@ -2016,11 +2020,59 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
     
     deltaF = IFOdata->freqData->deltaF;
     
-    //	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
+    /*	XLAL_TRY(ret=XLALSimInspiralChooseFDWaveform(&hptilde, &hctilde, phi0,
             deltaF, m1*LAL_MSUN_SI, m2*LAL_MSUN_SI, spin1x, spin1y, spin1z,
             spin2x, spin2y, spin2z, f_min, f_max, distance, inclination,
             lambda1, lambda2, waveFlags, nonGRparams, amporder, order,
-            approximant), errnum);
+            approximant), errnum); */
+    XLAL_TRY(ret = XLALSimRingdownChooseFDWaveform(&hptilde, &hctilde, qnmodes, epoch, phi, deltaF,
+                                                 mass*LAL_MSUN_SI, spin, eta, spin1, spin2, distance,
+                                                 inclination, waveFlags, nonGRparams,
+                                                 approximant), errnum);
+
+	if (hptilde==NULL || hptilde->data==NULL || hptilde->data->data==NULL ) {
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hptilde'.\n");
+	  XLAL_ERROR_VOID(XLAL_EFAULT);
+	}
+	if (hctilde==NULL || hctilde->data==NULL || hctilde->data->data==NULL ) {
+	  XLALPrintError(" ERROR in LALInferenceTemplateXLALSimInspiralChooseWaveform(): encountered unallocated 'hctilde'.\n");
+	  XLAL_ERROR_VOID(XLAL_EFAULT);
+	}
+      
+	COMPLEX16 *dataPtr = hptilde->data->data;
+
+    for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
+      if(i < hptilde->data->length){
+        IFOdata->freqModelhPlus->data->data[i] = dataPtr[i];
+      }else{
+        IFOdata->freqModelhPlus->data->data[i].real_FIXME = 0.0;
+        IFOdata->freqModelhPlus->data->data[i].imag_FIXME = 0.0;
+      }
+    }
+
+    dataPtr = hctilde->data->data;
+    for (i=0; i<IFOdata->freqModelhCross->data->length; ++i) {
+      if(i < hctilde->data->length){
+        IFOdata->freqModelhCross->data->data[i] = dataPtr[i];
+      }else{
+        IFOdata->freqModelhCross->data->data[i].real_FIXME = 0.0;
+        IFOdata->freqModelhCross->data->data[i].imag_FIXME = 0.0;
+      }
+    }
+    /* nomalise (apply same scaling as in XLALREAL8TimeFreqFFT()") : */
+    //for (i=0; i<IFOdata->freqModelhPlus->data->length; ++i) {
+    //IFOdata->freqModelhPlus->data->data[i].re *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
+    //IFOdata->freqModelhPlus->data->data[i].im *= ((REAL8) IFOdata->timeData->data->length) * deltaT;
+    //}
+    
+    
+    /* Destroy the WF flags and the nonGr params */
+    XLALSimInspiralDestroyWaveformFlags(waveFlags);
+    XLALSimInspiralDestroyTestGRParam(nonGRparams);
+    
+    instant= (IFOdata->timeData->epoch.gpsSeconds + 1e-9*IFOdata->timeData->epoch.gpsNanoSeconds);
+    LALInferenceSetVariable(IFOdata->modelParams, "time", &instant);
+
 
   }
   else if (model_domain == LAL_SIM_DOMAIN_TIME){
@@ -2043,9 +2095,11 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
     size_t waveLength = hplus->data->length;
     size_t bufLength = IFOdata->timeData->data->length;
     
+    /* Note: For ringdown, waveform is assumed to start at 0.0 always! */
+
     /* 2*Rearth/(c*deltaT)---2 is safety factor---is the maximum time
      shift for any earth-based detector. */
-    size_t maxShift = (size_t)lround(4.255e-4/hplus->deltaT); 
+    size_t maxShift = (size_t)lround(4.255e-2/hplus->deltaT); 
     
     /* Taper 0.4 seconds at start and end (hard-coded! in
      LALInferenceReadData.c, around line 233). */
@@ -2063,27 +2117,21 @@ void LALInferenceTemplateXLALSimBlackHoleRingdown(LALInferenceIFOData *IFOdata)
       XLALDestroyREAL8TimeSeries(hplus);
       XLALDestroyREAL8TimeSeries(hcross);
       
-      XLAL_PRINT_ERROR("desired tc (%.4f) outside data buffer\n", desiredTc);
+      XLAL_PRINT_ERROR("desired ringdown start time (%.4f) outside data buffer\n", desiredTc);
       XLAL_ERROR_VOID(XLAL_EDOM);
     }
     
     /* The nearest sample in model buffer to the desired tc. */
-    size_t tcSample = (size_t)lround((desiredTc - XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch)))/IFOdata->timeModelhPlus->deltaT);
+    size_t tcSample = (size_t)lround((desiredTime - XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch)))/IFOdata->timeModelhPlus->deltaT);
     
     /* The acutal coalescence time that corresponds to the buffer
      sample on which the waveform's tC lands. */
-    REAL8 injTc = XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch)) + tcSample*IFOdata->timeModelhPlus->deltaT;
-    
-    /* The sample at which the waveform reaches tc. */
-    size_t waveTcSample = (size_t)lround(-XLALGPSGetREAL8(&(hplus->epoch))/hplus->deltaT);
-    
-    /* 1 + (number of samples post-tc in waveform) */
-    size_t wavePostTc = waveLength - waveTcSample;
-    
-    size_t bufStartIndex = (tcSample >= waveTcSample ? tcSample - waveTcSample : 0);
-    size_t bufEndIndex = (wavePostTc + tcSample <= bufLength ? wavePostTc + tcSample : bufLength);
+    REAL8 injT = XLALGPSGetREAL8(&(IFOdata->timeModelhPlus->epoch)) + tcSample*IFOdata->timeModelhPlus->deltaT;
+        
+    size_t bufStartIndex = (tcSample >= 0 ? tcSample : 0);
+    size_t bufEndIndex = (waveLength + tcSample <= bufLength ? waveLength + tcSample : bufLength);
     size_t bufWaveLength = bufEndIndex - bufStartIndex;
-    size_t waveStartIndex = (tcSample >= waveTcSample ? 0 : waveTcSample - tcSample);    
+    size_t waveStartIndex = (tcSample >= 0 ? 0 : - tcSample);    
     
     if (bufStartIndex < unsafeLength || (bufLength - bufEndIndex) <= unsafeLength) {
       /* The waveform could be timeshifted into a region where it will
