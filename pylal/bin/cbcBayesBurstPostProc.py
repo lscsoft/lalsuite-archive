@@ -346,10 +346,6 @@ def cbcBayesPostProc(
         if not os.path.isfile(snrfactor):
             print "No snr file provided or wrong path to snr file\n"
             snrfactor=None
-    if snrfactor is not None:
-        if not os.path.isfile(snrfactor):
-            print "Wrong path to snr file\n"
-            snrfactor=None
         else:
             snrstring=""
             snrfile=open(snrfactor,'r')
@@ -478,35 +474,41 @@ def cbcBayesPostProc(
     #Create web page
     #==================================================================#
 
-    html=bppu.htmlPage('Posterior PDFs',css=bppu.__default_css_string)
+    html=bppu.htmlPage('Posterior PDFs',css=bppu.__default_css_string,javascript=bppu.__default_javascript_string)
 
     #Create a section for meta-data/run information
     html_meta=html.add_section('Summary')
-    html_meta.p('Produced from '+str(len(pos))+' posterior samples.')
-    if 'chain' in pos.names:
+    table=html_meta.tab()
+
+    row=html_meta.insert_row(table,label='thisrow')
+    td=html_meta.insert_td(row,'',label='Samples')
+    SampsStats=html.add_section_to_element('Samples',td)
+    SampsStats.p('Produced from '+str(len(pos))+' posterior samples.')    if 'chain' in pos.names:
         acceptedChains = unique(pos['chain'].samples)
         acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
         if len(acceptedChains) > 1:
             for chain in acceptedChains[1:]:
                 acceptedChainText += ', %i'%(chain)
-        html_meta.p(acceptedChainText)
+        SampsStats.p(acceptedChainText)
     if 'cycle' in pos.names:
-        html_meta.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
+        SampsStats.p('Longest chain has '+str(pos.longest_chain_cycles())+' cycles.')
     filenames='Samples read from %s'%(data[0])
     if len(data) > 1:
         for fname in data[1:]:
             filenames+=', '+str(fname)
-    html_meta.p(filenames)
-
+    SampsStats.p(filenames)
+    td=html_meta.insert_td(row,'',label='SummaryLinks')
+    legend=html.add_section_to_element('Sections',td)
     #Create a section for model selection results (if they exist)
+    
     if bayesfactornoise is not None:
-        html_model=html.add_section('Model selection')
+        html_model=html.add_section('Model selection',legend=legend)
         html_model.p('log Bayes factor ( coherent vs gaussian noise) = %s, Bayes factor=%f'%(BSN,exp(float(BSN))))
         if bayesfactorcoherent is not None:
             html_model.p('log Bayes factor ( coherent vs incoherent OR noise ) = %s, Bayes factor=%f'%(BCI,exp(float(BCI))))
 
     if dievidence:
-        html_model=html.add_section('Direct Integration Evidence')
+        html_model=html.add_section('Direct Integration Evidence',legend=legend)
         log_ev = log(difactor) + pos.di_evidence(boxing=boxing)
         ev=exp(log_ev)
         evfilename=os.path.join(outdir,"evidence.dat")
@@ -523,7 +525,7 @@ def cbcBayesPostProc(
 
     if ellevidence:
         try:
-            html_model=html.add_section('Elliptical Evidence')
+            html_model=html.add_section('Elliptical Evidence',legend=legend)
             log_ev = pos.elliptical_subregion_evidence()
             ev = exp(log_ev)
             evfilename=os.path.join(outdir, 'ellevidence.dat')
@@ -541,11 +543,12 @@ def cbcBayesPostProc(
 
     #Create a section for SNR, if a file is provided
     if snrfactor is not None:
-        html_snr=html.add_section('Signal to noise ratio(s)')
+        html_snr=html.add_section('Signal to noise ratio(s)',legend=legend)
         html_snr.p('%s'%snrstring)
         
     #Create a section for summary statistics
-    html_stats=html.add_section('Summary statistics')
+    tabid='statstable'
+    html_stats=html.add_collapse_section('Summary statistics',legend=legend,innertable_id=tabid)    
     html_stats.write(str(pos))
     statfilename=os.path.join(outdir,"summary_statistics.dat")
     statout=open(statfilename,"w")
@@ -566,31 +569,6 @@ def cbcBayesPostProc(
       statout.write("\n")
       
     statout.close()
-      
-    #Create a section for the covariance matrix
-    html_stats_cov=html.add_section('Covariance matrix')
-    pos_samples,table_header_string=pos.samples()
-
-    #calculate cov matrix
-    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
-
-    #Create html table
-    table_header_list=table_header_string.split()
-
-    cov_table_string='<table border="1" id="covtable"><tr><th/>'
-    for header in table_header_list:
-        cov_table_string+='<th>%s</th>'%header
-    cov_table_string+='</tr>'
-
-    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
-
-    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
-        cov_table_string+='<tr><th>%s</th>'%cov_column_name
-        for cov_column_element in cov_column:
-            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
-        cov_table_string+='</tr>'
-    cov_table_string+='</table>'
-    html_stats_cov.write(cov_table_string)
 
     #==================================================================#
     #Generate sky map
@@ -617,7 +595,7 @@ def cbcBayesPostProc(
         
         #Create a web page section for sky localization results/plots (if defined)
 
-        html_sky=html.add_section('Sky Localization')
+        html_sky=html.add_section('Sky Localization',legend=legend))
         if injection:
             if sky_injection_cl:
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
@@ -660,10 +638,19 @@ def cbcBayesPostProc(
     #Loop over each parameter and determine the contigious and greedy
     #confidence levels and some statistics.
 
+    #Add section for 1D marginal PDFs and sample plots
+    tabid='onedmargtable'
+    html_ompdf=html.add_collapse_section('1D marginal posterior PDFs',legend=legend,innertable_id=tabid)
+    #Table matter
+    if not noacf:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'%tabid
+    else:
+        html_ompdf_write= '<table id="%s"><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'%tabid
     #Add section for 1D confidence intervals
-    html_ogci=html.add_section('1D confidence intervals (greedy binning)')
-    #Generate the top part of the table
-    html_ogci_write='<table id="statstable" border="1"><tr><th/>'
+    tabid='onedconftable'
+    html_ogci=html.add_collapse_section('1D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
+---------------------------------------------------------------------------------
+    html_ogci_write='<table id="%s" border="1"><tr><th/>'%tabid
     confidence_levels.sort()
     for cl in confidence_levels:
         html_ogci_write+='<th>%f</th>'%cl
@@ -1102,6 +1089,30 @@ def cbcBayesPostProc(
                     html_conv_test.write(html_conv_table)
             if data_found is False:
                 html_conv_test.p('No convergence diagnostics generated!')
+    #Create a section for the covariance matrix
+    html_stats_cov=html.add_section('Covariance matrix')
+    pos_samples,table_header_string=pos.samples()
+
+    #calculate cov matrix
+    cov_matrix=cov(pos_samples,rowvar=0,bias=1)
+
+    #Create html table
+    table_header_list=table_header_string.split()
+
+    cov_table_string='<table border="1" id="covtable"><tr><th/>'
+    for header in table_header_list:
+        cov_table_string+='<th>%s</th>'%header
+    cov_table_string+='</tr>'
+
+    cov_column_list=hsplit(cov_matrix,cov_matrix.shape[1])
+
+    for cov_column,cov_column_name in zip(cov_column_list,table_header_list):
+        cov_table_string+='<tr><th>%s</th>'%cov_column_name
+        for cov_column_element in cov_column:
+            cov_table_string+='<td>%.3e</td>'%(cov_column_element[0])
+        cov_table_string+='</tr>'
+    cov_table_string+='</table>'
+    html_stats_cov.write(cov_table_string)
                 
     #Create a section for run configuration information if it exists
     if pos._votfile is not None:
