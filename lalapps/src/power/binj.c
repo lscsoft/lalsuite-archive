@@ -182,11 +182,9 @@ struct options {
 	ParDistr snr_distr;
 	double minsnr;
 	double maxsnr;
-	int write_mdc;
 	char ** ifonames;
 	int nIFO;
-	double mdc_gps_start;
-	int mdc_duration;
+
 };
 
 
@@ -231,17 +229,13 @@ static struct options options_defaults(void)
 	defaults.snr_distr=NUM_ELEMENTS+1;
 	defaults.minsnr=XLAL_REAL8_FAIL_NAN;
 	defaults.maxsnr=XLAL_REAL8_FAIL_NAN;
-	defaults.write_mdc=0;
 	defaults.ifonames=NULL;
 	defaults.nIFO=0;
-	defaults.mdc_gps_start=0;
-	defaults.mdc_duration=0;
 	return defaults;
 }
 
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds, REAL8 *start_freqs, struct options *options, gsl_rng *rng);
-static void write_mdc(SimBurst **injs, TimeSlide *time_slide_table_head,struct options *options);
-static void write_mdc_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options,char* fname);
+
 
 
 static void print_usage(void)
@@ -438,15 +432,12 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
 		{"virgo-start-freq", required_argument, 0, 1724},
 		{"ligo-psd",  required_argument, 0, 1725},
 		{"virgo-psd",  required_argument, 0, 1726},
-		{"mdc_gps_start", required_argument,0,1728},
-		{"mdc_duration", required_argument,0,1729},
 		{"ra-dec", required_argument, NULL, 'U'},
 		{"seed", required_argument, NULL, 'P'},
 		{"time-step", required_argument, NULL, 'Q'},
 		{"time-slide-file", required_argument, NULL, 'W'},
 		{"jitter", required_argument, NULL, 'X'},
 		{"user-tag", required_argument, NULL, 'R'},
-		{"write-mdc",no_argument,NULL, 1727},
 		{NULL, 0, NULL, 0}
 	};
 	int optarg_len=0;
@@ -700,17 +691,6 @@ static struct options parse_command_line(int *argc, char **argv[], const Process
         virgoPsdFileName = calloc( 1, optarg_len * sizeof(char) );
         memcpy( virgoPsdFileName, optarg, optarg_len * sizeof(char) );
         break;
-	case 1727:
-	printf("Trying to write MDC!\n");
-		options.write_mdc=1;
-        break;
-	case 1728:
-		options.mdc_gps_start= (double) atof(optarg);
-		break;
-	case 1729:
-		options.mdc_duration=  atoi(optarg);
-		break;
-
 	case 0:
 		/* option sets a flag */
 		break;
@@ -1824,8 +1804,8 @@ int main(int argc, char *argv[])
 	XLALGPSTimeNow(&process->end_time);
 	search_summary->nevents = XLALSimBurstAssignIDs(sim_burst_table_head, process->process_id, time_slide_table_head->time_slide_id, 0);
 	write_xml(options.output, process_table_head, process_params_table_head, search_summary_table_head, time_slide_table_head, sim_burst_table_head);
-	if (options.write_mdc)
-		write_mdc(&sim_burst_table_head, time_slide_table_head, &options);
+	//if (options.write_mdc)
+	//	write_mdc(&sim_burst_table_head, time_slide_table_head, &options);
 	/* done */
 
 	gsl_rng_free(rng);
@@ -1858,180 +1838,6 @@ static void get_FakePsdFromString(REAL8FrequencySeries* PsdFreqSeries,char* Fake
             exit(1);
             }
 }
-
-static void write_mdc(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options){
-	
-	SimBurst *inj=&(*injs[0]);
-	TimeSlide * ts=NULL;
-	INT4 gps_start;
-	CHAR fname[256];
-	INT4 gps_end=0;
-	INT4 duration=0;
-	INT4 detectorFlags;
-	LALFrameH *frame=NULL;
-	REAL8 trigtime=0.0;
-	REAL8 srate=16384.;
-	REAL8 deltaT=1./srate;
-	REAL8 seglen;
-	LIGOTimeGPS epoch;
-	int i=0;
-	int nIFO=options->nIFO;
-	CHAR frameType[256]="SineGaussian";
-	//lalDebugLevel=LALMSGLVL3;
-	//sprintf(frameType,"%s","SineGaussian");
-	double mdc_gps_start=options->mdc_gps_start;
-	int mdc_duration=options->mdc_duration;
-	/* Just set min and max trigtime to 0th event to start with */
-	gps_start= (INT4) (inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds - 1.);
-	/* Set epoch */
-	XLALGPSSet(&epoch,floor(mdc_gps_start),1e9 *(mdc_gps_start-floor(mdc_gps_start))); //SALVO that is wrong
-	
-	/* Now look for max */
-	while(inj){
-		
-		trigtime=inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds;
-		inj=inj->next;
-	}
-	
-	gps_end= (INT4) trigtime +1;
-	duration=mdc_duration;
-	if (gps_end - gps_start > duration) {
-		fprintf(stderr,"ERROR, the requested duration of the MDC file (%d sec) is shorter than the time difference between the last and first injections + 2 seconds (%d sec). Exiting\n",duration,(gps_end-gps_start));
-		exit(1);
-	}
-	if (mdc_gps_start > gps_start){
-		fprintf(stderr,"ERROR, the requested start time of the MDC file seems to be larger than the trigtime of the first event. Exiting\n");
-		exit(1);
-		}
-		
-	
-	snprintf( fname, FILENAME_MAX, "GHLTV-%s-%d-%d.gwf", frameType, (int) mdc_gps_start, duration );
-		 /* set detector flags */
-	detectorFlags = LAL_GEO_600_DETECTOR_BIT | LAL_LHO_4K_DETECTOR_BIT |
-			LAL_LHO_2K_DETECTOR_BIT | LAL_LLO_4K_DETECTOR_BIT |
-			LAL_TAMA_300_DETECTOR_BIT | LAL_VIRGO_DETECTOR_BIT;
-		
-	seglen = duration*srate;
-	frame = XLALFrameNew( &epoch, duration, "LIGO", 0, 1,detectorFlags );
-	
-	for (i=0;i<nIFO-1;i++){
-		char IFOname[256];
-		sprintf(IFOname,"%s",options->ifonames[i]);
-		REAL8TimeSeries *soft=NULL;
-		soft = XLALCreateREAL8TimeSeries(IFOname,&epoch,0.0,deltaT,&lalStrainUnit,	seglen);
-		memset(soft->data->data,0.0,soft->data->length*sizeof(REAL8));
-		inj=&(*injs[0]);
-		ts=time_slide_table_head;
-		XLALBurstInjectSignals(soft,inj,ts , NULL);
-		/*char foutname[50]="";
-        sprintf(foutname,"MDC_create_time_%s",IFOname);
-		FILE * fout = fopen(foutname,"w");
-        UINT4 j=0;
-		for (j=0;j<soft->data->length;j++)
-		fprintf(fout,"%lf %10.10e\n", epoch.gpsSeconds+j*deltaT, soft->data->data[j]);
-		fclose(fout);*/
-		XLALFrameAddREAL8TimeSeriesSimData( frame, soft );
-		XLALDestroyREAL8TimeSeries(soft);
-	}
-	XLALFrameWrite( frame, fname);
-	XLALFrameFree(frame);
-    write_mdc_log(injs, time_slide_table_head, options,fname);
-
-	return;
-}
-
-static void write_mdc_log(SimBurst **injs, TimeSlide * time_slide_table_head,struct options *options,char* fname){
-        
-    SimBurst *inj=&(*injs[0]);
-    //const TimeSlide *time_slide_row;    
-    (void) time_slide_table_head;
-    char mdc_log_filename[256];
-    sprintf(mdc_log_filename,"%s.log",fname);
-    FILE * mdc_log_file=fopen(mdc_log_filename,"w");
-    REAL8 geoc_time;
-    REAL8 ra, dec,psi,Fplus,Fcross;
-    LALStatus status;
-    memset(&status,0,sizeof(LALStatus));
-    REAL8 q=0.0;
-    REAL8 f=0.0;
-    REAL8 hrss=0.0;
-    SkyPosition currentEqu, currentGeo;
-    LIGOTimeGPS injtime;
-    REAL8 gmst,timedelay;
-    char IFOnames[5][4]={"GEO","H1","H2","L1","V1"};    
-    int nifos=5;
-    int i=0;
-    
-    currentEqu.system = COORDINATESYSTEM_EQUATORIAL;
-    currentGeo.system = COORDINATESYSTEM_GEOGRAPHIC;
-
-
-    while(inj){
-        
-    
-    q=inj->q;
-    f=inj->frequency;
-    hrss=inj->hrss;
-    ra=inj->ra;
-    dec=inj->dec;
-    psi=inj->psi;
-    geoc_time=inj->time_geocent_gps.gpsSeconds + 1.e-9* inj->time_geocent_gps.gpsNanoSeconds;
-    //time_slide_row = XLALTimeSlideConstGetByIDAndInstrument(time_slide_table_head, inj->time_slide_id, detector->frDetector.prefix);
-    
-    XLALGPSSet(&injtime,inj->time_geocent_gps.gpsSeconds ,inj->time_geocent_gps.gpsNanoSeconds);
-    
-    currentEqu.latitude = dec;
-    currentEqu.longitude = ra;
-    double mdc_gps_start=options->mdc_gps_start;
-    
-    LALEquatorialToGeographic(&status, &currentGeo, &currentEqu, &injtime);
-    
-	char WFname[256]; 
-    sprintf(WFname,"SG%dQ%dd%d",(int) f,(int) floor(q),(int) (10.*(q-floor(q))));
-    fprintf(mdc_log_file,"%s\
-    -100 \
-    -100 \
-    %.10e\
-    -100\
-    -100\
-    %.10e\
-    %.10e\
-    %.10e\
-    %d\
-    %10.10f\
-    %s\
-    -100\
-    0\
-    0 ",WFname,hrss, (LAL_PI_2 - currentGeo.latitude),currentGeo.longitude,psi,(int) (mdc_gps_start), geoc_time,WFname);
-    
-    i=0;
-    while (i<nifos){
-        LALDetector* detector=XLALCalloc(1,sizeof(LALDetector));
-        if (!strcmp(IFOnames[i],"H1") || !strcmp(IFOnames[i],"H2"))
-            memcpy(detector,&lalCachedDetectors[LALDetectorIndexLHODIFF],sizeof(LALDetector));
-        else if (!strcmp(IFOnames[i],"L1"))
-             memcpy(detector,&lalCachedDetectors[LALDetectorIndexLLODIFF],sizeof(LALDetector));
-        else if (!strcmp(IFOnames[i],"V1"))
-            memcpy(detector,&lalCachedDetectors[LALDetectorIndexVIRGODIFF],sizeof(LALDetector));
-        else if(!strcmp(IFOnames[i],"GEO")) 
-            memcpy(detector,&lalCachedDetectors[LALDetectorIndexGEO600DIFF],sizeof(LALDetector));
-        gmst=XLALGreenwichMeanSiderealTime(&injtime);
-        XLALComputeDetAMResponse(&Fplus, &Fcross,detector->response, ra, dec, psi, gmst);
-        timedelay = XLALTimeDelayFromEarthCenter(detector->location,ra, dec, &injtime);
-    
-        fprintf(mdc_log_file, "%s %10.10f %.10e %.10e ", IFOnames[i], geoc_time+timedelay,Fplus,Fcross);
-    
-        i++;
-        XLALFree(detector);
-    }    
-    
-    fprintf(mdc_log_file, "\n");
-    inj=inj->next;
-    }
-    
-    fclose(mdc_log_file);    
-}
-
 
 static REAL8  scale_sinegaussian_hrss(SimBurst *inj,char ** IFOnames, REAL8FrequencySeries **psds,REAL8 *start_freqs, struct options *options, gsl_rng *rng )
 {
