@@ -58,6 +58,7 @@ from glue.ligolw import table
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+
 os.environ['PATH'] = os.environ['PATH'] + ':/usr/texbin'
 __author__="Ben Aylott <benjamin.aylott@ligo.org>, Ben Farr <bfarr@u.northwestern.edu>, Will M. Farr <will.farr@ligo.org>, John Veitch <john.veitch@ligo.org>"
 __version__= "git id %s"%git_version.id
@@ -309,13 +310,14 @@ def cbcBayesPostProc(
     if injfile and eventnum is not None:
         print 'Looking for event %i in %s\n'%(eventnum,injfile)
         xmldoc = utils.load_filename(injfile,contenthandler=LIGOLWContentHandlerExtractSimBurstTable)
+        got_burst_table=1
         try:
             simtable=table.get_table(xmldoc,lsctables.SimBurstTable.tableName)
-            got_burst_table=1
         except ValueError:
             lsctables.use_in(LIGOLWContentHandlerExtractSimInspiralTable)
             simtable=table.get_table(xmldoc,lsctables.SimInspiralTable.tableName)
             got_inspiral_table=1
+            got_burst_table=0
         
         injection=simtable[eventnum]
 	#injections = SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
@@ -483,7 +485,8 @@ def cbcBayesPostProc(
     row=html_meta.insert_row(table,label='thisrow')
     td=html_meta.insert_td(row,'',label='Samples')
     SampsStats=html.add_section_to_element('Samples',td)
-    SampsStats.p('Produced from '+str(len(pos))+' posterior samples.')    if 'chain' in pos.names:
+    SampsStats.p('Produced from '+str(len(pos))+' posterior samples.')
+    if 'chain' in pos.names:
         acceptedChains = unique(pos['chain'].samples)
         acceptedChainText = '%i of %i chains accepted: %i'%(len(acceptedChains),len(data),acceptedChains[0])
         if len(acceptedChains) > 1:
@@ -595,7 +598,7 @@ def cbcBayesPostProc(
         
         #Create a web page section for sky localization results/plots (if defined)
 
-        html_sky=html.add_section('Sky Localization',legend=legend))
+        html_sky=html.add_section('Sky Localization',legend=legend)
         if injection:
             if sky_injection_cl:
                 html_sky.p('Injection found at confidence interval %f in sky location'%(sky_injection_cl))
@@ -649,7 +652,6 @@ def cbcBayesPostProc(
     #Add section for 1D confidence intervals
     tabid='onedconftable'
     html_ogci=html.add_collapse_section('1D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)
----------------------------------------------------------------------------------
     html_ogci_write='<table id="%s" border="1"><tr><th/>'%tabid
     confidence_levels.sort()
     for cl in confidence_levels:
@@ -658,14 +660,6 @@ def cbcBayesPostProc(
         html_ogci_write+='<th>Injection Confidence Level</th>'
         html_ogci_write+='<th>Injection Confidence Interval</th>'
     html_ogci_write+='</tr>'
-
-    #Add section for 1D marginal PDFs and sample plots
-    html_ompdf=html.add_section('1D marginal posterior PDFs')
-    #Table matter
-    if not noacf:
-        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th><th>Autocorrelation</th></tr>'
-    else:
-        html_ompdf_write= '<table><tr><th>Histogram and Kernel Density Estimate</th><th>Samples used</th></tr>'
 
     onepdfdir=os.path.join(outdir,'1Dpdf')
     if not os.path.isdir(onepdfdir):
@@ -874,9 +868,10 @@ def cbcBayesPostProc(
 
     #Add a section to the webpage for a table of the confidence interval
     #results.
-    html_tcig=html.add_section('2D confidence intervals (greedy binning)')
+    tabid='2dconftable'
+    html_tcig=html.add_collapse_section('2D confidence intervals (greedy binning)',legend=legend,innertable_id=tabid)   
     #Generate the top part of the table
-    html_tcig_write='<table id="statstable" border="1"><tr><th/>'
+    html_tcig_write='<table id="%s" border="1"><tr><th/>'%tabid
     confidence_levels.sort()
     for cl in confidence_levels:
         html_tcig_write+='<th>%f</th>'%cl
@@ -889,12 +884,13 @@ def cbcBayesPostProc(
     #=  Add a section for a table of 2D marginal PDFs (kde)
     twodkdeplots_flag=twodkdeplots
     if twodkdeplots_flag:
-        html_tcmp=html.add_section('2D Marginal PDFs')
+        tabid='2dmargtable'
+        html_tcmp=html.add_collapse_section('2D Marginal PDFs',legend=legend,innertable_id=tabid)
         #Table matter
-        html_tcmp_write='<table border="1">'
-
-    html_tgbh=html.add_section('2D Greedy Bin Histograms')
-    html_tgbh_write='<table border="1">'
+        html_tcmp_write='<table border="1" id="%s">'%tabid
+    tabid='2dgreedytable'
+    html_tgbh=html.add_collapse_section('2D Greedy Bin Histograms',legend=legend,innertable_id=tabid)
+    html_tgbh_write='<table border="1" id="%s">'%tabid
 
     row_count=0
     row_count_gb=0
@@ -1061,7 +1057,8 @@ def cbcBayesPostProc(
         convergenceResults=bppu.convergenceTests(pos,gelman=False)
         
         if convergenceResults is not None:
-            html_conv_test=html.add_section('Convergence tests')
+            tabid='convtable'
+            html_conv_test=html.add_collapse_section('Convergence tests',legend=legend,innertable_id=tabid)
             data_found=False
             for test,test_data in convergenceResults.items():
                 
@@ -1082,7 +1079,7 @@ def cbcBayesPostProc(
                                 except KeyError:
                                     html_conv_table_rows[data[0]]='<td>'+data[1]+'</td>'
                                 
-                    html_conv_table='<table><tr><th>Chain</th>'+html_conv_table_header+'</tr>'
+                    html_conv_table='<table id="%s"><tr><th>Chain</th>'%tabid+html_conv_table_header+'</tr>'
                     for row_name,row in html_conv_table_rows.items():
                         html_conv_table+='<tr><td>%s</td>%s</tr>'%(row_name,row)
                     html_conv_table+='</table>'
@@ -1090,16 +1087,16 @@ def cbcBayesPostProc(
             if data_found is False:
                 html_conv_test.p('No convergence diagnostics generated!')
     #Create a section for the covariance matrix
-    html_stats_cov=html.add_section('Covariance matrix')
+    tabid='covtable'
+    html_stats_cov=html.add_collapse_section('Covariance matrix',legend=legend,innertable_id=tabid)    
     pos_samples,table_header_string=pos.samples()
-
     #calculate cov matrix
     cov_matrix=cov(pos_samples,rowvar=0,bias=1)
 
     #Create html table
     table_header_list=table_header_string.split()
 
-    cov_table_string='<table border="1" id="covtable"><tr><th/>'
+    cov_table_string='<table border="1" id="%s"><tr><th/>'%tabid
     for header in table_header_list:
         cov_table_string+='<th>%s</th>'%header
     cov_table_string+='</tr>'
@@ -1116,7 +1113,7 @@ def cbcBayesPostProc(
                 
     #Create a section for run configuration information if it exists
     if pos._votfile is not None:
-	html_vot=html.add_section('Run information')
+	html_vot=html.add_section('Run information',legend=legend)
 	html_vot.write(pos.write_vot_info())
     
     html_footer=html.add_section('')

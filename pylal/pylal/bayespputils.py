@@ -2042,7 +2042,7 @@ class htmlPage(htmlChunk):
     def add_section(self,section_name,legend=None):
         newSection=htmlSection(section_name)
         self._body.append(newSection._html)
-         if legend is not None:
+        if legend is not None:
             legend.a('#%s'%section_name,'%s'%section_name)
             legend.br()
         return newSection
@@ -2706,7 +2706,8 @@ def plot_sky_map(inj_pos,top_ranked_pixels,outdir):
 
     np.seterr(under='ignore')
 
-    myfig=plt.figure(1,figsize=(13,18),dpi=200)    plt.clf()
+    myfig=plt.figure(1,figsize=(13,18),dpi=200)    
+    plt.clf()
     m=Basemap(projection='moll',lon_0=180.0,lat_0=0.0)
     
     # Plot an X on the injected position
